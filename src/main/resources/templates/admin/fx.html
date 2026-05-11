@@ -58,7 +58,7 @@
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
         <div>
           <label class="field-label">周期</label>
-          <select class="field-input bg-transparent" name="periodId" required>
+          <select class="field-input bg-transparent" name="periodId" data-searchable required>
             <option th:each="p : ${periods}" th:value="${p.id}"
                     th:text="|${#temporals.format(p.periodStart,'yyyy-MM')} (${p.status})|">2026-05</option>
           </select>

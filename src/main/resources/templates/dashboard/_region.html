@@ -157,9 +157,19 @@
     </div>
   </section>
 
-  <section class="paper-card p-6 mb-10">
-    <div class="eyebrow mb-1">收入 / 支出 / 储蓄率</div>
-    <div style="height:320px"><canvas id="incomeExpenseChart"></canvas></div>
+  <!-- v0.2.1(2026-05-11)· 按成员维度的资产分布:成员A / 成员B / 共同 -->
+  <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-10">
+    <div class="paper-card p-6 lg:col-span-7">
+      <div class="eyebrow mb-1">收入 / 支出 / 储蓄率</div>
+      <div style="height:320px"><canvas id="incomeExpenseChart"></canvas></div>
+    </div>
+    <div class="paper-card p-6 lg:col-span-5">
+      <div class="flex items-baseline justify-between mb-1">
+        <div class="eyebrow">按成员分布</div>
+        <span class="font-mono text-[10px] text-ink-subtle">LOAN 不计</span>
+      </div>
+      <div style="height:320px"><canvas id="memberAllocationChart"></canvas></div>
+    </div>
   </section>
 
   <!-- v0.2 (2026-05-10) · 按账户分布(横向 bar,0 轴居中,LOAN 向左)-->
@@ -213,6 +223,8 @@
         savings: [[${savingsValues}]],
         allocationLabels: [[${allocationLabels}]],
         allocationValues: [[${allocationValues}]],
+        memberAllocationLabels: [[${memberAllocationLabels}]],
+        memberAllocationValues: [[${memberAllocationValues}]],
         accountRows: [[${accountRows}]],
         currency: [[${currency}]]
       };
@@ -284,6 +296,41 @@
         },
         plugins: [ChartDataLabels]
       });
+
+      // v0.2.1(2026-05-11)· 按成员维度饼图(成员A / 成员B / 共同 · LOAN 不计)
+      const memberDonut = document.getElementById('memberAllocationChart');
+      if (memberDonut && data.memberAllocationValues && data.memberAllocationValues.length) {
+        const memberTotal = data.memberAllocationValues.reduce((s, v) => s + Number(v || 0), 0);
+        window.financeCharts.memberAllocation = new Chart(memberDonut, {
+          type: 'doughnut',
+          data: { labels: data.memberAllocationLabels,
+                  datasets: [{ data: data.memberAllocationValues,
+                               backgroundColor: ['#2f5d50', '#a77b35', '#6f7f98', '#8f6048', '#7a4f6b'] }] },
+          options: {
+            maintainAspectRatio: false,
+            layout: { padding: 12 },
+            plugins: {
+              title: { display: true, text: '按成员分布 · ' + data.currency,
+                       padding: { bottom: 8 }, font: { size: 13, weight: '500' }, color: '#3a302a' },
+              legend: { position: 'right', labels: { boxWidth: 14, font: { size: 12 } } },
+              tooltip: { callbacks: { label: (ctx) => String(ctx.label) + ': ' + fmtMoney(ctx.parsed)
+                          + ' · ' + (memberTotal > 0 ? (ctx.parsed * 100 / memberTotal).toFixed(1) + '%' : '') } },
+              datalabels: {
+                color: '#fffaf0',
+                font: { size: 11, weight: '600' },
+                textStrokeColor: 'rgba(26,23,20,.55)', textStrokeWidth: 2,
+                formatter: (v) => {
+                  if (!v || memberTotal === 0) return '';
+                  const pct = v * 100 / memberTotal;
+                  if (pct < 4) return '';
+                  return fmtMoney(v) + '\n' + pct.toFixed(0) + '%';
+                }
+              }
+            }
+          },
+          plugins: [ChartDataLabels]
+        });
+      }
 
       const donut = document.getElementById('allocationChart');
       if (donut) {

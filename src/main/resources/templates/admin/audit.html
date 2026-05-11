@@ -14,7 +14,7 @@
         <p class="text-ink-soft text-sm mt-2">谁、何时、改了什么 · 一切配置变更、周期重开、密码重置、cron 执行 都留痕。</p>
       </div>
       <form method="get" th:action="@{/admin/audit}">
-        <select name="type" class="border border-rule px-3 py-2 bg-card font-mono text-[11px] tracking-wider"
+        <select name="type" data-searchable class="border border-rule px-3 py-2 bg-card font-mono text-[11px] tracking-wider"
                 onchange="this.form.submit()">
           <option value="">所有事件类型</option>
           <option th:each="t : ${availableTypes}" th:value="${t}" th:selected="${t.name() == filterType}" th:text="${t}">TYPE</option>

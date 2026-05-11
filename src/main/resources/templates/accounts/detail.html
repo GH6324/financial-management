@@ -100,7 +100,7 @@
   <section class="paper-card px-5 py-3 mb-6">
     <form method="get" th:action="@{/accounts/{id}(id=${detail.account.id})}" class="flex items-center gap-3 flex-wrap text-sm">
       <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-soft">筛选</span>
-      <select name="type" class="border border-rule bg-card px-2 py-1 text-xs">
+      <select name="type" data-searchable class="border border-rule bg-card px-2 py-1 text-xs">
         <option value="ALL"      th:selected="${filterType == 'ALL'}">全部类型</option>
         <option value="INCOME"   th:selected="${filterType == 'INCOME'}">+ 收入</option>
         <option value="EXPENSE"  th:selected="${filterType == 'EXPENSE'}">- 支出</option>

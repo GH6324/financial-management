@@ -13,7 +13,9 @@ import com.family.finance.factview.FactViewService;
 import com.family.finance.factview.KpiSnapshot;
 import com.family.finance.factview.TrendPoint;
 import com.family.finance.factview.WaterfallSegment;
+import com.family.finance.domain.account.AccountClass;
 import com.family.finance.repository.AccountMapper;
+import com.family.finance.repository.MemberMapper;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.service.EntryService;
 import com.family.finance.service.FamilyService;
@@ -43,6 +45,7 @@ public class DashboardController {
     private final FamilyService familyService;
     private final PeriodMapper periodMapper;
     private final AccountMapper accountMapper;
+    private final MemberMapper memberMapper;
     private final EntryService entryService;
     private final NavService navService;
     private final FxService fxService;
@@ -146,6 +149,38 @@ public class DashboardController {
         model.addAttribute("savingsValues", waterfall.stream().map(this::savingsRatePoint).toList());
         model.addAttribute("allocationLabels", allocation.stream().map(AllocationSlice::label).toList());
         model.addAttribute("allocationValues", allocation.stream().map(AllocationSlice::value).toList());
+
+        // v0.2.1(2026-05-11)· 按成员维度的资产分布饼图(LOAN 不计,跟资产配置一致)
+        var memberAlloc = computeMemberAllocation(me.getFamilyId(), allAccounts, accountRows);
+        model.addAttribute("memberAllocationLabels", memberAlloc.keySet().stream().toList());
+        model.addAttribute("memberAllocationValues", memberAlloc.values().stream().toList());
+    }
+
+    /**
+     * 按 account.primary_owner_member_id 聚合资产(LOAN 排除)。
+     * NULL → "共同";有值 → member.display_name(查不到的 fallback "成员#{id}")。
+     */
+    private java.util.LinkedHashMap<String, java.math.BigDecimal> computeMemberAllocation(
+            long familyId, List<Account> allAccounts, List<AccountPerformance> accountRows) {
+        java.util.Map<Long, String> nameById = memberMapper.findActiveByFamily(familyId).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        com.family.finance.domain.member.Member::getId,
+                        com.family.finance.domain.member.Member::getDisplayName));
+        java.util.Map<Long, Account> accById = allAccounts.stream()
+                .collect(java.util.stream.Collectors.toMap(Account::getId, java.util.function.Function.identity()));
+        java.util.LinkedHashMap<String, java.math.BigDecimal> byOwner = new java.util.LinkedHashMap<>();
+        for (AccountPerformance ap : accountRows) {
+            if (ap.accountType() == null) continue;
+            if (com.family.finance.factview.FactProjector.classOf(ap.accountType()) == AccountClass.LIABILITY) continue;
+            if (ap.currentValue() == null) continue;
+            Account acc = accById.get(ap.accountId());
+            if (acc == null) continue;
+            String label = acc.getPrimaryOwnerMemberId() == null
+                    ? "共同"
+                    : nameById.getOrDefault(acc.getPrimaryOwnerMemberId(), "成员#" + acc.getPrimaryOwnerMemberId());
+            byOwner.merge(label, ap.currentValue(), java.math.BigDecimal::add);
+        }
+        return byOwner;
     }
 
 
