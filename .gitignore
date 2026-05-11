@@ -35,3 +35,8 @@ application-secrets.yml
 
 # Local upload dir(开发可能用 /tmp/ 下,生产用 /var/finance/uploads/)
 /uploads/
+
+# vim/emacs 临时文件
+*.swp
+*.swo
+*~
