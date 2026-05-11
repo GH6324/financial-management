@@ -297,7 +297,7 @@ public final class PromptBuilder {
             return text;
         }
         String out = text;
-        // 按真名长度倒序替换(防止"张"先于"张伟"被替换)
+        // 按真名长度倒序替换(防止"张"先于"Alice"被替换)
         List<String> names = realToCodename.keySet().stream()
                 .sorted((a, b) -> Integer.compare(b.length(), a.length()))
                 .toList();

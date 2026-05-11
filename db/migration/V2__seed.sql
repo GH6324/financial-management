@@ -17,8 +17,8 @@ VALUES (1, '我们家', '账房', 'CNY', 'MONTHLY');
 -- ---------------------------------------------------------
 INSERT INTO member (id, family_id, username, password_hash, display_name, role_label, must_change_pw)
 VALUES
-  (1, 1, 'zhangwei', 'PLACEHOLDER_REPLACED_BY_DEV_SEED_RUNNER_OR_ADMIN', '张伟', '丈夫', 1),
-  (2, 1, 'lijing',   'PLACEHOLDER_REPLACED_BY_DEV_SEED_RUNNER_OR_ADMIN', '李静', '妻子', 1);
+  (1, 1, 'zhangwei', 'PLACEHOLDER_REPLACED_BY_DEV_SEED_RUNNER_OR_ADMIN', 'Alice', '丈夫', 1),
+  (2, 1, 'lijing',   'PLACEHOLDER_REPLACED_BY_DEV_SEED_RUNNER_OR_ADMIN', 'Bob', '妻子', 1);
 
 -- ---------------------------------------------------------
 -- 13 个内置账户模板 + 1 个"自定义账户"占位

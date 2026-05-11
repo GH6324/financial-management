@@ -1,220 +1,249 @@
-# 家庭账房 · v0.1
+# 家庭账房 · Family Ledger
 
-家庭资产管理 Web 应用。详见:
-- 产品需求 · [`prd/v0.1.md`](prd/v0.1.md)(v0.1 已封板)
-- 技术设计 · [`tech-design/v0.1.md`](tech-design/v0.1.md)
-- 预览稿 · [`preview/index.html`](preview/index.html)
+> 自托管的家庭资产管理 Web 应用 · 每月 10 分钟、夫妻异步、自动算年化收益率
 
-## 进度
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Java 21](https://img.shields.io/badge/Java-21-orange)](https://openjdk.org/projects/jdk/21/)
+[![Spring Boot 3.3](https://img.shields.io/badge/Spring%20Boot-3.3-green)](https://spring.io/projects/spring-boot)
 
-- [x] **Step 1** · 项目骨架 + DDL + 登录
-- [x] **Step 2** · 账户 / 模板向导 / 周期 / 待办 / 填报骨架
-- [x] **Step 3** · FactView + 13 指标 + Dashboard + Reports + 单测 16/16
-- [x] **Step 4** · 多币种 / Logo 上传 / 12 admin 子页 / 备份元数据
-- [x] **Step 5** · systemd / nginx / backup.sh / 部署 SOP
+---
 
-## 本地开发
+## 问题
+
+家庭资产分散在 N 个渠道(银行 / 支付宝 / 券商 / 房产 / 房贷……),日常没系统记录:
+
+- **看不到全局** —— "我们家现在共有多少钱?"
+- **看不到趋势** —— "这一年是变富了还是变穷了?"
+- **分不清来源** —— 工资攒下来的钱和投资赚的钱混在一起,无法评估投资能力
+- **无法异步协作** —— 家庭成员时间错开,缺一个共同载体
+
+市面方案:支付宝/雪球只看自家平台;国内通用记账 App 不区分本金和收益;Beancount / Firefly III 学习曲线陡;Excel 缺自动化(尤其 XIRR)。
+
+## 设计取舍
+
+**核心约束**:每月找一天、10 分钟以内、夫妻异步完成全部录入。
+
+- **颗粒度**:仅到"账户月末快照 + 当月外部现金流",不到单券持仓
+- **恒等式**:`本期投资损益 = 期末余额 − 期初余额 − 净外部流入`
+- **不做**:个股持仓 / 定投提醒 / 预算包络 / 券商 API 直连 / 银行账单 OCR(都与"每月 10 分钟"冲突)
+
+## 功能截图
+
+> 📷 _截图位:`/dashboard`、`/entry`、`/checkup`、`/accounts/{id}` — 欢迎贡献_
+
+## 主要能力
+
+### v0.1(MVP)
+
+- 6 种账户类型(现金 / 股票 / 理财 / 房产 / 负债 / 其他),13 个内置账户模板
+- 月度 / 周度周期可切,每周期自动给每个账户生成"填余额"待办
+- 余额录入 + 现金流(收入/支出)+ 跨账户转账;**轧差自动建议未解释金额怎么分类**
+- 周期自动关闭 + 指标重算(净资产 / 总资产 / 总负债 / 趋势 / 配置)
+- 账户级 XIRR + 家庭级 XIRR / TWR
+- 多币种(本位币可选 CNY/USD/HKD,自动拉汇率)
+- CSV 一键导出全部数据(避免被工具锁死)
+- 移动端响应式(妻子手机能完成全部填报)
+- 系统级 logo / 品牌名 / 周期类型 / 汇率覆盖 11 个 admin 子页
+
+### v0.2
+
+- 单账户详情页(账本视角:余额时序 + 月分组流水)+ 单账户 CSV
+- 单条流水软删除(保留撤销路径)
+- iOS PWA 添加到主屏(`apple-touch-icon` + manifest)
+- 微信内浏览器引导(打开系统浏览器登录)
+- 4 套预设品牌图标(默认 icon2,可自定义 WebP 上传)
+- **资产体检**模块:
+  - 全家诊断(配置 / 风险敞口 / 流动性 / 收益质量)
+  - 账户级诊断(类型差异化 · STOCK / WEALTH / CASH / LOAN / PROPERTY)
+  - 16 条智能建议规则(余额负数 / 久未填报 / 单类目集中度过高 等)
+  - LLM 综合诊断(主 Qwen-Plus / 备 DeepSeek-Chat · 真名脱敏 · 圆形熔断)
+  - 产品类目 + 6 级风险评级体系
+  - 报表风险等级分布环形图
+- Dashboard 加"按账户分布"横向 bar(资产向右 / 负债向左 / 0 居中)+ "按成员分布"饼图
+- 搜索式下拉(大列表 select 自动升级)
+
+## 技术栈
+
+| 层 | 选型 |
+|---|---|
+| 后端 | Spring Boot 3.3 + Java 21 + MyBatis 3 |
+| 持久化 | MySQL 8(版本化 SQL 迁移 + sha256 校验,无 Flyway 依赖) |
+| 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
+| 认证 | Spring Security + bcrypt + Session Cookie |
+| 部署 | systemd + nginx 反代 :80 → :20000(loopback) |
+| 测试 | JUnit 5 + 76 单元 / 36 端到端 / 180+ 黑盒 |
+
+## 快速开始(自托管部署)
 
 ### 前置
 
-- JDK 21+
-- Maven 3.9+
-- MySQL 8(本地或 Docker 都行)
+- 一台公网 Linux 服务器(Ubuntu 22+ / Debian 12+ / RHEL 9+ / Alibaba Cloud Linux 都行)
+- 你能 SSH 进去 + 有 sudo
+- 一个 80 端口可达(可选 443)
 
-### 一次性环境
+### 部署
 
 ```bash
-# 起 MySQL(本地 apt 装的):
-sudo systemctl start mysql
+# 1. SSH 进服务器
+ssh user@your-server
 
-# 建库 + 用户:
-mysql -u root -p <<'SQL'
+# 2. clone + 一键安装(脚本会装 JDK 21 / Maven / MySQL 8 / nginx 全套依赖)
+sudo apt install -y git
+git clone https://github.com/<your-org>/financial-management.git
+cd financial-management
+sudo bash deploy/deploy.sh
+
+# 中途交互最多 2 个问题(DB 密码、HTTP 端口),其余全自动
+```
+
+完成后浏览器访问 `http://<server-ip>/`,默认账号:
+
+| 用户名 | 密码 |
+|---|---|
+| `alice` | 你刚设的临时密码(默认 `demo1234`)|
+| `bob`   | 同上 |
+
+**首次登录强制改密**,改完即可。然后:
+
+1. `/admin/family` 改家庭名 + 选品牌图标
+2. `/admin/members` 改成员显示名为你和家人真名
+3. `/admin/periods` 点 "立即开下一周期" 起一个 OPEN 周期
+4. `/accounts/new` 用向导加你的银行卡 / 支付宝 / 房贷
+5. `/entry` 填本期余额开始记账
+
+### 后续发版迭代
+
+```bash
+cd financial-management
+git pull
+sudo bash deploy/deploy.sh
+```
+
+同一个 `deploy.sh`,自动检测到已上线 → 切到迭代模式:mysqldump 备份 + 增量迁移 + 切 jar + restart + 健康检查 + 失败自动回滚。
+
+### 回滚
+
+```bash
+sudo bash deploy/rollback.sh
+```
+
+详细部署文档:[`deploy/README.md`](deploy/README.md)
+
+## 本地开发
+
+```bash
+# 起 MySQL
+sudo systemctl start mysql
+sudo mysql <<'SQL'
 CREATE DATABASE finance CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 CREATE USER 'finance'@'localhost' IDENTIFIED BY 'finance';
 GRANT ALL ON finance.* TO 'finance'@'localhost';
 FLUSH PRIVILEGES;
 SQL
+
+# 跑 schema 迁移
+DB_USER=finance DB_PASS=finance DB_NAME=finance bash db/apply.sh
+
+# 启动应用(dev profile · DevSeedRunner 把 PLACEHOLDER 密码设为 demo1234 的 bcrypt)
+mvn spring-boot:run
 ```
 
-### 启动
+打开 `http://localhost:8080/login`,默认账号见上。
+
+测试:
 
 ```bash
-# 1) 跑 schema 迁移
-DB_USER=finance DB_PASS=finance DB_NAME=finance ./db/apply.sh
-
-# 2) 启动应用(默认 dev profile)
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 mvn spring-boot:run
+mvn test                       # JUnit 单元测试(76)
+bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(180+)
+bash scripts/qa-e2e.sh         # 端到端真值校验(36 · 会清空 DB)
 ```
 
-打开 http://localhost:8080/login,登录:
+## 文档
 
-| 用户名 | 密码 |
-|---|---|
-| `zhangwei` | `demo1234` |
-| `lijing`   | `demo1234` |
-
-> 启动时 `DevSeedRunner`(仅 dev profile)检测到 `password_hash` 为 `PLACEHOLDER...` 会自动设为 `demo1234` 的 bcrypt 值。
-
-## 单元测试
-
-```bash
-mvn -B test       # 16 calc/factview 纯函数测试
-```
-
-## 路由清单(共 26 个)
-
-**公共**
-- `GET  /login`, `POST /login`, `POST /logout`
-
-**核心日常**
-- `GET  /` → redirect to `/dashboard`
-- `GET  /dashboard?range=&accounts=&currency=` (HTMX 局部刷新)
-- `GET  /reports`
-- `GET  /accounts`, `POST /accounts/{id}/edit`, `POST /accounts/{id}/archive` 等
-- `GET  /entry?period=&mine=`, `POST /entry/{accountId}/balance` (HTMX)
-- `GET  /my-todos`
-
-**管理**
-- `GET  /admin`
-- `GET  /admin/family`, `POST /admin/family`(更新)
-- `POST /admin/family/logo`(FE Canvas 压缩 → multipart 上传)
-- `POST /admin/family/logo/remove`
-- `GET  /admin/members`, `POST /admin/members/{id}`, `POST /admin/members/{id}/reset-password`
-- `GET  /admin/account-templates`(只读)
-- `GET  /admin/cash-flow-categories`(只读)
-- `GET  /admin/periods`, `POST /admin/periods/{id}/reopen`
-- `GET  /admin/reminders`(只读)
-- `GET  /admin/fx`, `POST /admin/fx/override`, `POST /admin/fx/fetch`
-- `GET  /admin/backup`(查看 backup_log)
-- `GET  /admin/audit?type=`
-- `GET  /admin/calc-tweaks`(只读)
-
-## 生产部署
-
-### 1. 服务器一次性准备
-
-```bash
-# 服务器:Ubuntu 24 / Debian 12 + JDK 21 + MySQL 8 + nginx
-sudo apt-get install -y openjdk-21-jdk-headless mysql-server-8.0 nginx
-
-# 应用用户
-sudo useradd -r -s /bin/false finance
-sudo mkdir -p /opt/finance/{db/migration,logs} /var/finance/uploads /var/backup/finance
-sudo chown -R finance:finance /opt/finance /var/finance/uploads /var/backup/finance
-
-# DB
-sudo mysql -e "CREATE DATABASE finance CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
-sudo mysql -e "CREATE USER 'finance'@'localhost' IDENTIFIED BY 'CHANGE_ME';"
-sudo mysql -e "GRANT ALL ON finance.* TO 'finance'@'localhost'; FLUSH PRIVILEGES;"
-
-# 配置
-sudo cp deploy/finance.env.example /etc/finance.env
-sudo chmod 600 /etc/finance.env
-sudo chown finance:finance /etc/finance.env
-sudo nano /etc/finance.env       # 填好 DB_PASS / REMEMBER_ME_KEY 等
-
-# systemd unit + timer
-sudo install -m 644 deploy/finance.service              /etc/systemd/system/
-sudo install -m 644 deploy/finance-backup.service       /etc/systemd/system/
-sudo install -m 644 deploy/finance-backup.timer         /etc/systemd/system/
-sudo systemctl daemon-reload
-
-# nginx
-sudo install -m 644 deploy/nginx-finance.conf.example /etc/nginx/sites-available/finance.conf
-# 改 server_name 为你的实际域名
-sudo ln -sf /etc/nginx/sites-available/finance.conf /etc/nginx/sites-enabled/finance.conf
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-### 2. 首次部署
-
-本地终端:
-```bash
-REMOTE=user@yourserver ./deploy/deploy.sh
-# 自动:打 jar → scp → ssh apply.sh → ssh restart finance → 烟测 GET /login
-```
-
-部署后第一次访问 `/login`,种子用户 `zhangwei` / `lijing` 的 password_hash 仍为 `PLACEHOLDER` — **生产没 dev seed,你需要手动重置一次密码**:
-
-```bash
-# 在服务器上,用 mysql 把 PLACEHOLDER 换成 bcrypt hash:
-sudo -u finance java -jar /opt/finance/app.jar --reset-pw zhangwei NEWPASS  # ← 计划项,v0.1 简化:直接改 SQL
-```
-
-或者最简单:在本地用 Spring Boot 的 BCryptPasswordEncoder 算出 hash,直接 UPDATE。
-
-### 3. 启用备份 timer
-
-```bash
-sudo systemctl enable --now finance-backup.timer
-systemctl list-timers finance-backup    # 确认下次触发时间
-sudo systemctl start finance-backup.service   # 手动跑一次验证
-sudo journalctl -u finance-backup -f          # 看输出
-```
-
-之后每周日 03:00 会自动备份,并在 `backup_log` 表 + `/admin/backup` 页可见状态。
-
-## 升级流程(含数据库迁移)
-
-```bash
-# 本地 — 假设新增了 V6__add_xxx.sql
-git pull
-./deploy/deploy.sh   # 自动:打包 → scp → ssh apply.sh(只跑 V6)→ 重启 → 烟测
-```
-
-`db/apply.sh` 会跳过已执行的 V*__*.sql,只跑新文件;sha256 校验防意外修改已发布版本。
+- **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md)
+- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md)
+- **预览原型**:[`preview/index.html`](preview/index.html)(28 页 Tailwind CDN 静态预览)
+- **QA case 库**:[`docs/qa-cases.md`](docs/qa-cases.md)
+- **部署运行**:[`deploy/README.md`](deploy/README.md)
 
 ## 目录结构
 
 ```
 financial-management/
-├── prd/v0.1.md                   # PRD(已封板)
-├── tech-design/v0.1.md           # TDD
-├── preview/                      # 静态 HTML 预览(15 页,Tailwind via CDN)
-├── pom.xml                       # Maven · Spring Boot 3.3 + Java 21 + MyBatis
-├── src/main/java/com/family/finance/
-│   ├── FinanceApplication.java
-│   ├── auth/                     # 登录 · Security · MemberPrincipal
-│   ├── domain/                   # POJO + enum (家庭/成员/账户/周期/快照/现金流/转账/汇率/备份/审计)
-│   ├── repository/               # MyBatis @Mapper 接口
-│   ├── service/                  # 业务服务 + Calculators + FactViewServiceImpl
-│   ├── factview/                 # 大宽表抽象(PRD § 5.0)+ FactProjector
-│   ├── calc/                     # 纯函数:PnL/Reconciliation/XIRR/TWR/IdentityVerifier
-│   ├── web/{account,dashboard,entry,report,todo,admin}/
-│   ├── common/                   # HomeController + GlobalModelAdvice
-│   └── config/                   # AppProperties + WebMvcConfig + DevSeedRunner
+├── src/main/java/com/family/finance/    # Spring Boot 应用代码
+│   ├── auth/                              # Spring Security
+│   ├── domain/                            # 实体(family/member/account/period/cash_flow/...)
+│   ├── repository/                        # MyBatis @Mapper
+│   ├── service/                           # 业务服务 + LLM + FX
+│   ├── factview/                          # 大宽表抽象(净资产 / 趋势 / 配置 等指标统一从这里出)
+│   ├── calc/                              # 纯函数(PnL / XIRR / TWR / Reconciliation)
+│   └── web/                               # Controller(account / dashboard / entry / reports / checkup / admin)
 ├── src/main/resources/
-│   ├── application.yml           # dev/prod profile,DB/Mybatis/multipart 配置
-│   ├── mapper/FactMapper.xml     # 复杂 fact view 查询(动态 SQL)
-│   ├── static/css/style.css      # 共享样式(从 preview 同步)
-│   └── templates/{auth,fragments,accounts,dashboard,entry,reports,admin,...}/  # Thymeleaf
-├── src/test/java/                # 16 calc/factview 单测
+│   ├── application.yml                   # dev/prod profile
+│   ├── mapper/                           # MyBatis XML
+│   ├── static/                           # CSS / JS / 图标
+│   └── templates/                        # Thymeleaf 模板
+├── src/test/java/                        # JUnit 5
 ├── db/
-│   ├── migration/V[1-5]__*.sql   # schema + 种子 + step 数据
-│   └── apply.sh                  # sha256 防修改的顺序应用器
+│   ├── apply.sh                          # 版本化迁移运行器(sha256 校验)
+│   └── migration/V*__*.sql               # 数据库 schema + 种子
 ├── deploy/
-│   ├── finance.service           # systemd unit
-│   ├── finance.env.example       # 生产环境变量模板
-│   ├── nginx-finance.conf.example
-│   ├── deploy.sh                 # 本地打包 + ssh 部署
-│   ├── backup.sh                 # 每周备份脚本(写 backup_log)
-│   ├── finance-backup.service    # systemd oneshot
-│   └── finance-backup.timer      # systemd timer · Sun 03:00
-└── README.md                     # 本文件
+│   ├── deploy.sh                         # 一键部署(首装 + 迭代)
+│   ├── rollback.sh                       # 紧急回滚
+│   ├── nginx-setup.sh                    # 单独 nginx 配置
+│   ├── maven-settings.xml                # 国内 mirror 加速(可改)
+│   ├── finance.service                   # systemd unit
+│   ├── backup.sh + finance-backup.{service,timer}  # 每日自动备份
+│   └── README.md                         # 部署手册
+├── prd/                                  # 产品需求文档
+├── tech-design/                          # 技术设计文档
+├── preview/                              # 静态 HTML 预览(28 页)
+├── docs/qa-cases.md                      # QA case 库
+├── icons/                                # 用户可替换的图标源 PNG
+└── scripts/
+    ├── qa-run.sh                         # 黑盒回归
+    └── qa-e2e.sh                         # 端到端真值校验
 ```
 
-## 关键技术决策(详见 TDD)
+## 配置项
 
-- **MyBatis** 替代 JPA + JdbcTemplate(简单 CRUD 用注解,FactMapper 复杂查询用 XML)
-- **大宽表 fact view 抽象**(TDD § 5.0):所有 Dashboard / Reports / 筛选 / 计算都从 `factview/FactSlice` 投影而来,避免 N 个特殊 SQL
-- **TLS 在用户上游脱掉**,本服务接收 HTTP;Cookie `Secure=false`
-- **版本化 SQL + sha256 校验**(无 Flyway/Liquibase 依赖)
-- **Logo 前端 Canvas 压缩**:浏览器 toBlob('image/webp', 0.82),后端只校验 RIFF magic + 200KB 上限
-- **v0.1 不含**:邮件 / 微信 / 短信 / 短信通知 / 服务端图像处理库 / Flyway
+`/etc/finance.env`(由 `deploy.sh` 自动生成,首装时交互填):
 
-## 路线图(v0.2+)
+| 项 | 说明 |
+|---|---|
+| `DB_*` | MySQL 连接信息(`deploy.sh` 自动生成 24 字符随机密码,亦可手填)|
+| `SERVER_PORT` | Spring Boot 监听端口(默认 20000,nginx 反代到这里)|
+| `SERVER_ADDRESS` | `127.0.0.1` 让 nginx 走 loopback 反代;`0.0.0.0` 让 Spring 直接对外 |
+| `UPLOAD_ROOT` | 用户上传 logo 的本地路径 |
+| `REMEMBER_ME_KEY` | Remember-me cookie 签名 key(自动 32 字节随机)|
+| `BACKUP_DIR` | mysqldump 备份目录(默认 `/var/backup/finance`)|
+| `RETENTION_DAYS` | 备份保留天数(默认 56)|
+| `FINANCE_LLM_QWEN_API_KEY` | 可选 · LLM 综合诊断(资产体检 AI 文案)主厂商 key |
+| `FINANCE_LLM_DEEPSEEK_API_KEY` | 可选 · LLM 备选厂商 key,主挂掉时熔断切到备选 |
 
-- 邮件 SMTP + 周报推送
-- 显示币种切换的 USD 状态 polish + 汇率失败邮件告警
-- Reports 移动端 polish(Sankey 在窄屏不可读)
-- v0.3:孩子账户 / 多家庭 UI / 持仓级颗粒度
+## 安全
+
+- 单家庭 / 多成员 · Spring Security session cookie · bcrypt 密码哈希
+- 所有写操作走 CSRF · 表单与 HTMX 请求自动带 token
+- SQL 100% 参数化(MyBatis)· 无 OGNL / 自由表达式
+- 文件上传:前端 Canvas 压缩为 WebP + 后端 RIFF magic 校验 + 200KB 上限 + path traversal 防护
+- 数据库每日自动备份(systemd timer)· 备份目录权限隔离
+- LLM prompt 真名脱敏(成员 A/B/C 稳定映射)· 输出 OutputValidator 检查担保词 / 真名泄露 / 产品代码
+
+发现安全问题?见 [`SECURITY.md`](SECURITY.md)。
+
+## 贡献
+
+欢迎贡献!见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+
+## License
+
+Apache 2.0 · 见 [`LICENSE`](LICENSE)。
+
+## 致谢
+
+- [Spring Boot](https://spring.io/projects/spring-boot) · [MyBatis](https://mybatis.org/) · [HTMX](https://htmx.org/) · [Chart.js](https://www.chartjs.org/) · [ECharts](https://echarts.apache.org/) · [Thymeleaf](https://www.thymeleaf.org/)
+- [Frankfurter](https://www.frankfurter.dev/)(免费 ECB 汇率 API)
+- [阿里云 Maven Mirror](https://maven.aliyun.com/)(国内拉依赖加速)
+- 字体:Fraunces / Source Serif 4 / Noto Serif SC / JetBrains Mono(均为开源字体)
+- 美学:晚清账册风 + 中式纸面信笺(墨/纸/黄铜/朱印 配色)

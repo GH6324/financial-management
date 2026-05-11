@@ -30,7 +30,7 @@
         <span class="pill" th:classappend="${row.account.type.name() == 'LOAN' ? ' pill-rust' : (row.account.type.name() == 'WEALTH' ? ' pill-forest' : (row.account.type.name() == 'STOCK' ? ' pill-brass' : ''))}"
               th:text="${row.account.type.label} + ' (' + ${row.account.type.name()} + ')'">现金 (CASH)</span>
         <span class="pill" th:if="${row.account.currency != 'CNY'}" th:text="${row.account.currency}">USD</span>
-        <span class="font-mono text-[10px] text-ink-subtle" th:text="${row.ownerName}">张伟</span>
+        <span class="font-mono text-[10px] text-ink-subtle" th:text="${row.ownerName}">Alice</span>
       </div>
       <div class="font-mono text-xs text-ink-subtle mt-1">
         <span th:text="'上期末 ' + ${row.previousBalanceLabel}">上期末 ¥45,000</span>

@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OutputValidatorTest {
 
     private static final Set<String> NO_NAMES = Set.of();
-    private static final Set<String> NAMES_2 = Set.of("张伟", "迪娃");
+    private static final Set<String> NAMES_2 = Set.of("Alice", "Bob");
 
     /** 一段健康综合诊断模板,长度足、含金融术语、无禁词,用于"基础通过"测试 */
     private static final String VALID_DIAGNOSE =
@@ -99,7 +99,7 @@ class OutputValidatorTest {
     @Test
     void rejectsRealNameLeak() {
         // LLM 输出含真名(成员代号映射理论上避免,但作防御深度)
-        String bad = VALID_DIAGNOSE.replace("结合本期命中", "建议张伟把多余现金调到货币基金,结合本期命中");
+        String bad = VALID_DIAGNOSE.replace("结合本期命中", "建议Alice把多余现金调到货币基金,结合本期命中");
         var r = OutputValidator.check(bad, NAMES_2);
         assertThat(r.accepted()).isFalse();
         assertThat(r.reason()).contains("真名");

@@ -49,7 +49,7 @@
           <option value="">共同(无单一主理)</option>
           <option th:each="m : ${members}" th:value="${m.id}"
                   th:selected="${m.id == account.primaryOwnerMemberId}"
-                  th:text="${m.displayName}">张伟</option>
+                  th:text="${m.displayName}">Alice</option>
         </select>
       </div>
 

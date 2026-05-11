@@ -94,7 +94,7 @@
                 th:text="${row.account.type.label} + ' (' + ${row.account.type.name()} + ')'">现金 (CASH)</span>
         </td>
         <td class="font-mono text-xs" th:text="${row.account.currency}">CNY</td>
-        <td class="text-ink-soft" th:text="${row.ownerName}">张伟</td>
+        <td class="text-ink-soft" th:text="${row.ownerName}">Alice</td>
         <td class="text-ink-subtle" th:text="${row.paymentSourceName}">—</td>
         <td class="num" th:classappend="${row.account.type.name() == 'LOAN' ? ' num-neg' : ''}" th:text="${row.balanceLabel}">¥73,200</td>
         <td class="text-right whitespace-nowrap">
@@ -166,7 +166,7 @@
           <a th:href="@{/accounts/{id}(id=${row.account.id})}"
              class="font-display text-base hover:text-brass-deep no-underline block"
              th:text="${row.account.displayName}">招行储蓄卡-工资</a>
-          <div class="font-mono text-[10px] text-ink-subtle mt-0.5 tracking-wider" th:text="${#numbers.formatInteger(row.account.displayOrder, 3)} + ' · ' + ${row.ownerName}">001 · 张伟</div>
+          <div class="font-mono text-[10px] text-ink-subtle mt-0.5 tracking-wider" th:text="${#numbers.formatInteger(row.account.displayOrder, 3)} + ' · ' + ${row.ownerName}">001 · Alice</div>
           <!-- v0.2 类目 + 风险 pill (FR-37) · icon SVG 化 -->
           <div class="flex items-center gap-1.5 mt-2 flex-wrap" th:if="${row.category != null}">
             <span class="pill text-[10px] inline-flex items-center gap-1" style="background:rgba(122,90,57,.10);border-color:var(--brass-deep);color:var(--brass-deep)">

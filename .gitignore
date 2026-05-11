@@ -40,3 +40,6 @@ application-secrets.yml
 *.swp
 *.swo
 *~
+
+# Claude Code 本地配置(私人偏好,不入仓)
+.claude/

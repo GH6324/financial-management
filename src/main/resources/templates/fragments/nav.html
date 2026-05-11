@@ -34,7 +34,7 @@
     </div>
     <div class="flex items-center gap-4">
       <span class="pill pill-brass hidden md:inline-flex" th:text="${state.periodLabel}">2026 · 05 · OPEN</span>
-      <span class="font-mono text-[11px] text-ink-soft hidden md:inline" th:text="${me.displayName}">张伟</span>
+      <span class="font-mono text-[11px] text-ink-soft hidden md:inline" th:text="${me.displayName}">Alice</span>
       <details class="md:hidden relative">
         <summary class="cursor-pointer list-none w-9 h-9 flex items-center justify-center hover:bg-card-soft border border-rule">
           <span class="text-xl leading-none">☰</span>
@@ -55,7 +55,7 @@
               <button class="font-mono text-[12px] tracking-[0.14em] uppercase">退出</button>
             </form>
             <div class="px-6 py-3 bg-card-soft text-ink-subtle text-[10px]"
-                 th:text="'─ 当前 · ' + ${me.displayName} + ' · ' + ${state.periodLabel}">─ 当前 · 张伟 · OPEN</div>
+                 th:text="'─ 当前 · ' + ${me.displayName} + ' · ' + ${state.periodLabel}">─ 当前 · Alice · OPEN</div>
           </nav>
         </div>
       </details>
