@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>新建应急储备 · v0.3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }</script>
+</head>
+<body class="min-h-screen relative">
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
+      <a href="../index.html" class="font-display text-xl font-medium no-underline">账房</a>
+      <nav class="font-mono text-[11px] tracking-[0.14em] uppercase"><a href="goals-list.html" class="text-ink no-underline border-b-2 border-brass pb-[18px]">目标</a></nav>
+    </div>
+  </header>
+
+  <main class="max-w-[900px] mx-auto px-6 py-10 relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+      <a href="goals-list.html" class="hover:text-ink no-underline">目标</a><span class="mx-2 text-rule">/</span>
+      <a href="goal-new.html" class="hover:text-ink no-underline">新建</a><span class="mx-2 text-rule">/</span>
+      <span class="text-ink">应急储备</span>
+    </div>
+
+    <div class="mb-8">
+      <div class="eyebrow mb-2" style="color:var(--forest)">EMERGENCY · 应 · 急 · 储 · 备</div>
+      <h1 class="font-display text-4xl md:text-5xl font-medium tracking-tight">N 个月生活缓冲</h1>
+      <p class="font-serif text-sm text-ink-soft mt-3">
+        几乎不用输入 — 系统自动从过去 3 期 total_expense_input 中位算基线。
+      </p>
+    </div>
+
+    <form class="paper-card p-8 space-y-6">
+
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">目标名称</label>
+        <input type="text" class="w-full font-display text-xl bg-paper-soft border border-rule px-4 py-3" value="6 个月生活缓冲">
+      </div>
+
+      <!-- 月数 -->
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">储备月数</label>
+        <div class="flex items-center gap-3">
+          <input type="range" min="1" max="24" value="6" class="flex-1 accent-forest">
+          <input type="number" class="w-20 font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum text-center" value="6">
+          <span class="text-ink-soft font-mono text-sm">个月</span>
+        </div>
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 行业建议 6-12 个月 · 单职工家庭 ≥ 12 · 双职工 6-9</p>
+      </div>
+
+      <!-- 基线模式 -->
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-2 block">基线计算模式</label>
+        <div class="space-y-2">
+          <label class="block border-2 border-forest p-4 cursor-pointer bg-card-soft">
+            <input type="radio" name="baseline" checked class="mr-2 accent-forest">
+            <span class="text-ink font-medium">自动基线 · 推荐 ★</span>
+            <p class="text-xs text-ink-soft mt-1 ml-5">
+              用过去 3 期 <code class="font-mono">total_expense_input</code> 中位计算 ·
+              <span class="text-forest">当前 = ¥18,000/月</span>
+            </p>
+          </label>
+          <label class="block border border-rule-soft p-4 cursor-pointer hover:bg-card-soft">
+            <input type="radio" name="baseline" class="mr-2">
+            <span class="text-ink">手填固定基线</span>
+            <p class="text-xs text-ink-soft mt-1 ml-5">
+              如果你认为系统估算偏 · 或者过去 3 期数据不全
+            </p>
+          </label>
+        </div>
+      </div>
+
+      <!-- 派生 -->
+      <div class="paper-card p-5 bg-card-soft" style="border-left:4px solid var(--forest)">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-3">实 · 时 · 派 · 生</div>
+        <div class="grid grid-cols-3 gap-4">
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">月度基线</div>
+            <div class="font-display text-2xl tnum">¥18,000</div>
+            <div class="font-mono text-[10px] text-ink-subtle mt-1">自动 · 3 期中位</div>
+          </div>
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">目标储备金额</div>
+            <div class="font-display text-2xl tnum">¥108,000</div>
+            <div class="font-mono text-[10px] text-ink-subtle mt-1">¥18k × 6 月</div>
+          </div>
+          <div>
+            <div class="font-mono text-[10px] uppercase text-forest mb-1">当前进度 ✓</div>
+            <div class="font-display text-2xl tnum text-forest">142%</div>
+            <div class="font-mono text-[10px] text-forest mt-1">超额 · 现金类 ¥153.5k</div>
+          </div>
+        </div>
+        <div class="mt-3 pt-3 border-t border-rule-soft font-mono text-[10px] text-ink-subtle">
+          进度 = SUM(account.currentValue WHERE type = CASH) / target · <span class="text-rust">仅算 CASH 类</span>(流动性硬约束)
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-6 border-t border-rule-soft">
+        <a href="goal-new.html" class="btn-paper no-underline">← 返回选类型</a>
+        <button type="submit" class="btn-ink">✓ 保存目标</button>
+      </div>
+    </form>
+  </main>
+
+  <footer class="border-t border-rule mt-12 py-8 px-8 text-center relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle">v0.3 PREVIEW · /goals/new/emergency · FR-50c</div>
+  </footer>
+</body>
+</html>

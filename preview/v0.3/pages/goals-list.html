@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>目标 · 家庭长期视角 · v0.3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+</head>
+<body class="min-h-screen relative">
+
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
+      <div class="flex items-center gap-12">
+        <a href="../index.html" class="flex items-baseline gap-2 no-underline">
+          <span class="font-display text-xl font-medium">账房</span>
+          <span class="font-mono text-[10px] tracking-[0.2em] text-ink-subtle">№ 张</span>
+        </a>
+        <nav class="hidden md:flex items-center gap-7 font-mono text-[11px] tracking-[0.14em] uppercase">
+          <a href="dashboard-with-goals.html" class="text-ink-soft hover:text-ink no-underline">仪表盘</a>
+          <a href="entry-with-income.html" class="text-ink-soft hover:text-ink no-underline">填报</a>
+          <a href="#" class="text-ink-soft hover:text-ink no-underline">账户</a>
+          <a href="reports-savings.html" class="text-ink-soft hover:text-ink no-underline">报表</a>
+          <a href="goals-list.html" class="text-ink no-underline border-b-2 border-brass pb-[18px]">目标</a>
+          <a href="checkup-with-goals.html" class="text-ink-soft hover:text-ink no-underline">资产体检</a>
+          <a href="#" class="text-ink-soft hover:text-ink no-underline">管理</a>
+        </nav>
+      </div>
+      <div class="flex items-center gap-4">
+        <span class="pill" style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)">2026 · 05 · OPEN</span>
+        <span class="font-mono text-[10px] text-ink-subtle hidden lg:inline">成员 A</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+
+    <!-- 顶部标题 + 操作栏 -->
+    <div class="flex items-end justify-between mb-8 flex-wrap gap-4">
+      <div>
+        <div class="eyebrow mb-2">长 · 期 · 视 · 角</div>
+        <h1 class="font-display text-4xl md:text-5xl font-medium tracking-tight">财务目标 · 三情景预测</h1>
+        <p class="font-serif text-sm text-ink-soft mt-3 max-w-2xl">
+          3 个长期目标,系统按乐观(8%)/ 中性(5%)/ 悲观(2%) 三情景预测达成日。
+          数据每个周期关闭后刷新一次。
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="relative">
+          <button class="btn-ink no-underline flex items-center gap-2">
+            + 新建目标
+            <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5"/></svg>
+          </button>
+          <!-- 静态展示:类型选择浮层 -->
+          <div class="absolute right-0 top-12 w-56 bg-paper border border-rule shadow-lg z-10 hidden">
+            <a href="goal-new-retirement.html" class="block px-4 py-3 hover:bg-card-soft no-underline border-b border-rule-soft">
+              <div class="font-mono text-[10px] text-brass-deep uppercase mb-1">退休 / FIRE</div>
+              <div class="text-sm text-ink">财务自由</div>
+            </a>
+            <a href="goal-new-education.html" class="block px-4 py-3 hover:bg-card-soft no-underline border-b border-rule-soft">
+              <div class="font-mono text-[10px] text-brass-deep uppercase mb-1">教育金</div>
+              <div class="text-sm text-ink">孩子大学 / 留学</div>
+            </a>
+            <a href="goal-new-emergency.html" class="block px-4 py-3 hover:bg-card-soft no-underline">
+              <div class="font-mono text-[10px] text-brass-deep uppercase mb-1">应急储备</div>
+              <div class="text-sm text-ink">N 个月生活开支</div>
+            </a>
+          </div>
+        </div>
+        <a href="goal-new.html" class="btn-paper no-underline">📊 完整向导</a>
+      </div>
+    </div>
+
+    <!-- 目标 card · 退休 -->
+    <article class="paper-card mb-6 overflow-hidden">
+      <div class="p-6 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 items-start border-b border-rule-soft">
+        <div>
+          <div class="flex items-center gap-3 mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">退 · 休 · FIRE</span>
+            <span class="pill text-[9px]" style="background:rgba(122,90,57,.1);color:var(--brass-deep);border-color:var(--brass-deep)">RETIREMENT</span>
+          </div>
+          <h2 class="font-display text-3xl font-medium tracking-tight mb-1">自由生活</h2>
+          <p class="text-sm text-ink-soft mb-4">
+            60 岁退休 · 当下购买力 ¥15,000/月 · 4% 取用率 · 通胀 2.5%
+          </p>
+          <div class="flex items-end gap-6">
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">当前进度</div>
+              <div class="font-display text-4xl tnum tracking-tight">57<span class="text-2xl text-ink-soft">%</span></div>
+            </div>
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">已 / 目标</div>
+              <div class="font-display text-2xl tnum tracking-tight">¥114<span class="text-base text-ink-soft">w</span> / ¥200<span class="text-base text-ink-soft">w</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="text-right space-y-2">
+          <a href="goal-detail-retirement.html" class="btn-ink no-underline">→ 进入详情</a>
+          <div class="font-mono text-[10px] text-ink-subtle">距 60 岁 · 22 年</div>
+        </div>
+      </div>
+
+      <!-- 进度条 + 三情景缩略 -->
+      <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-mono text-[10px] uppercase text-ink-subtle">进度环 · 全资产口径</span>
+            <span class="font-mono text-[10px] text-brass-deep">57%</span>
+          </div>
+          <div class="w-full bg-card-soft border border-rule-soft h-3 mb-3 relative overflow-hidden">
+            <div class="h-full bg-brass-deep" style="width:57%"></div>
+            <div class="absolute top-0 right-[15%] h-full w-px bg-ink/30" style="left:70%"></div>
+            <div class="absolute top-0 left-[30%] h-full w-px bg-ink/30"></div>
+          </div>
+          <div class="grid grid-cols-3 text-[10px] font-mono text-ink-subtle">
+            <span>0</span>
+            <span class="text-center">中线</span>
+            <span class="text-right">¥200w</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-2">三情景达成时间</div>
+          <div class="grid grid-cols-3 gap-2">
+            <div class="border border-rule-soft p-3">
+              <div class="font-mono text-[9px] uppercase text-forest mb-1">乐观 8%</div>
+              <div class="font-display text-xl tnum">2049</div>
+              <div class="font-mono text-[10px] text-ink-subtle">还需 23 年</div>
+            </div>
+            <div class="border-2 border-brass-deep p-3 bg-card-soft">
+              <div class="font-mono text-[9px] uppercase text-brass-deep mb-1">中性 5%</div>
+              <div class="font-display text-xl tnum">2053</div>
+              <div class="font-mono text-[10px] text-ink-subtle">还需 27 年</div>
+            </div>
+            <div class="border border-rule-soft p-3">
+              <div class="font-mono text-[9px] uppercase text-rust mb-1">悲观 2%</div>
+              <div class="font-display text-xl tnum">2061</div>
+              <div class="font-mono text-[10px] text-ink-subtle">还需 35 年</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI 月报折叠面板 -->
+      <details class="border-t border-rule-soft">
+        <summary class="px-6 py-3 flex items-center gap-2 cursor-pointer hover:bg-card-soft list-none">
+          <span class="w-2 h-2 bg-rust rounded-full"></span>
+          <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-brass-deep">AI 月报 · 2026-05</span>
+          <span class="text-xs text-ink-subtle">本月你离退休目标更近了 4%...</span>
+          <svg class="w-3 h-3 ml-auto text-ink-subtle" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5"/></svg>
+        </summary>
+        <div class="px-6 pb-5 pt-1 text-sm text-ink-soft leading-relaxed font-serif">
+          本月退休目标进度从 53% 升至 57%,主要因股票账户回弹 ¥85,000(约 7.5%)。
+          中性情景下达成时间从 2055 提前到 2053,提前约 24 个月。
+          但月储蓄能力本期 ¥12,000 较 6 期中位 ¥17,500 低约 30% —— 主要因 5 月有装修支出,建议下期跟踪是否回归常态。
+          应急储备进度已达储备线,可考虑把多余现金部分转入指数化产品以提升退休账户回报。
+        </div>
+      </details>
+    </article>
+
+    <!-- 目标 card · 教育金 -->
+    <article class="paper-card mb-6 overflow-hidden">
+      <div class="p-6 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 items-start border-b border-rule-soft">
+        <div>
+          <div class="flex items-center gap-3 mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">教 · 育 · 金</span>
+            <span class="pill text-[9px]" style="background:rgba(122,90,57,.1);color:var(--brass-deep);border-color:var(--brass-deep)">EDUCATION</span>
+          </div>
+          <h2 class="font-display text-3xl font-medium tracking-tight mb-1">成员C · 大学基金</h2>
+          <p class="text-sm text-ink-soft mb-4">
+            2038 年使用(孩子 18 岁) · 中外合办本科 ¥800,000 · 通胀 3%
+          </p>
+          <div class="flex items-end gap-6">
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">当前进度</div>
+              <div class="font-display text-4xl tnum tracking-tight">42<span class="text-2xl text-ink-soft">%</span></div>
+            </div>
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">已 / 目标</div>
+              <div class="font-display text-2xl tnum tracking-tight">¥64<span class="text-base text-ink-soft">w</span> / ¥152<span class="text-base text-ink-soft">w</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="text-right space-y-2">
+          <a href="goal-detail-education.html" class="btn-ink no-underline">→ 进入详情</a>
+          <div class="font-mono text-[10px] text-ink-subtle">距孩子上大学 · 12 年</div>
+        </div>
+      </div>
+
+      <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-mono text-[10px] uppercase text-ink-subtle">进度环 · 全资产口径</span>
+            <span class="font-mono text-[10px] text-rust">42% · 进度偏慢</span>
+          </div>
+          <div class="w-full bg-card-soft border border-rule-soft h-3 mb-3 relative overflow-hidden">
+            <div class="h-full bg-rust/70" style="width:42%"></div>
+          </div>
+          <div class="grid grid-cols-3 text-[10px] font-mono text-ink-subtle">
+            <span>0</span>
+            <span class="text-center">中线</span>
+            <span class="text-right">¥152w(通胀后)</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-2">反推月供 · 中性情景下</div>
+          <div class="border border-rule-soft p-3 bg-card-soft">
+            <div class="font-mono text-[9px] uppercase text-brass-deep mb-1">差额 / 剩余月数 · 5% 折现后</div>
+            <div class="font-display text-2xl tnum">¥7,200<span class="text-sm text-ink-soft">/月</span></div>
+            <div class="font-mono text-[10px] text-ink-subtle mt-1">按当前月储蓄能力 ¥17,500 · 富余 ¥10,300/月</div>
+          </div>
+        </div>
+      </div>
+
+      <details class="border-t border-rule-soft">
+        <summary class="px-6 py-3 flex items-center gap-2 cursor-pointer hover:bg-card-soft list-none">
+          <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-brass-deep">AI 月报 · 2026-05</span>
+          <span class="text-xs text-ink-subtle">教育金进度本期落后预期 1.2%...</span>
+          <svg class="w-3 h-3 ml-auto text-ink-subtle" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5"/></svg>
+        </summary>
+        <div class="px-6 pb-5 pt-1 text-sm text-ink-soft leading-relaxed font-serif">
+          教育金目标进度从 43.2% 微降至 42%,主要因目标值随通胀重算上调(¥1,498k → ¥1,520k)。
+          以当前家庭月储蓄能力衡量,达成完全在能力范围内 · 建议继续保持节奏。
+          孩子 12 年后上大学,可考虑把更多本金分配到偏权益的产品提升复利效率。
+        </div>
+      </details>
+    </article>
+
+    <!-- 目标 card · 应急 -->
+    <article class="paper-card mb-6 overflow-hidden">
+      <div class="p-6 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 items-start border-b border-rule-soft">
+        <div>
+          <div class="flex items-center gap-3 mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest">应 · 急 · 储 · 备</span>
+            <span class="pill text-[9px]" style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)">EMERGENCY</span>
+            <span class="pill text-[9px]" style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)">✓ 已达线</span>
+          </div>
+          <h2 class="font-display text-3xl font-medium tracking-tight mb-1">6 个月生活缓冲</h2>
+          <p class="text-sm text-ink-soft mb-4">
+            自动基线 · 过去 3 期总支出中位 ¥18,000/月 · 目标 6 个月 = ¥108,000
+          </p>
+          <div class="flex items-end gap-6">
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">当前进度</div>
+              <div class="font-display text-4xl tnum tracking-tight text-forest">142<span class="text-2xl">%</span></div>
+            </div>
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">现金类 / 目标</div>
+              <div class="font-display text-2xl tnum tracking-tight">¥153,500 / ¥108,000</div>
+            </div>
+          </div>
+        </div>
+        <div class="text-right space-y-2">
+          <a href="goal-detail-emergency.html" class="btn-ink no-underline">→ 进入详情</a>
+          <div class="font-mono text-[10px] text-forest">超额 ¥45,500 · 可考虑再分配</div>
+        </div>
+      </div>
+
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-mono text-[10px] uppercase text-ink-subtle">进度环 · 仅 CASH 类账户(流动性硬约束)</span>
+          <span class="font-mono text-[10px] text-forest">142%</span>
+        </div>
+        <div class="w-full bg-card-soft border border-rule-soft h-3 mb-3 relative overflow-hidden">
+          <div class="h-full bg-forest" style="width:100%"></div>
+          <div class="absolute top-0 h-full w-px bg-ink" style="left:70%"></div>
+        </div>
+        <div class="grid grid-cols-3 text-[10px] font-mono text-ink-subtle">
+          <span>0</span>
+          <span class="text-center">¥108k 目标线</span>
+          <span class="text-right">超额可再分配</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- 全家进度总览(可选区块 · 展示信息聚合)-->
+    <section class="paper-card p-6 bg-card-soft mt-8" style="border-left: 4px solid var(--brass)">
+      <div class="flex items-baseline justify-between mb-4">
+        <div>
+          <div class="eyebrow mb-1">全 · 家 · 总 · 览</div>
+          <h2 class="font-display text-2xl font-medium">3 目标 · 共 ¥460 万长期视野</h2>
+        </div>
+        <span class="font-mono text-[10px] text-ink-subtle">本期数据 · 2026-05 周期关闭后刷新</span>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">总目标(通胀后)</div>
+          <div class="font-display text-2xl tnum">¥4,600,000</div>
+        </div>
+        <div>
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">综合进度</div>
+          <div class="font-display text-2xl tnum">68<span class="text-base text-ink-soft">%</span></div>
+        </div>
+        <div>
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">月储蓄能力(6 期中位)</div>
+          <div class="font-display text-2xl tnum">¥17,500</div>
+        </div>
+        <div>
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">综合中性达成线</div>
+          <div class="font-display text-2xl tnum">2049-2053</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-rule mt-12 py-8 px-8 text-center relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle">
+      家庭账房 · v0.3 PREVIEW · /goals 目标列表 · FR-50
+    </div>
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle mt-2">
+      <a href="../index.html" class="hover:text-ink">← v0.3 索引</a>
+      <span class="mx-2">·</span>
+      <a href="goal-detail-retirement.html" class="hover:text-ink">退休详情 →</a>
+      <span class="mx-2">·</span>
+      <a href="dashboard-with-goals.html" class="hover:text-ink">Dashboard 条带 →</a>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -26,13 +26,12 @@
         <span class="italic font-light text-brass-deep">设计预览索引</span>
       </h1>
       <p class="font-serif text-base md:text-lg text-ink-soft max-w-2xl mt-6 leading-relaxed">
-        每个版本一卷预览。v0.1 是已交付的最小闭环(填报 + 仪表盘 + 报表),
-        v0.2 是当前在做的增量(单账户深度 + 移动端体验 + 智能建议)。
+        每个版本一卷预览。v0.1 / v0.2 已封板上线,v0.3 在设计中(长期视角 + AI 多处介入 + 股票自动估值)。
         所有页面是静态 HTML + Tailwind CDN,落地到 Spring Boot + Thymeleaf 时 DOM 直接复用。
       </p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-px bg-rule mb-12">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-px bg-rule mb-12">
 
       <!-- v0.1 已交付 -->
       <a href="v0.1/index.html" class="bg-card p-8 md:p-10 hover:bg-card-soft transition no-underline group block">
@@ -67,37 +66,70 @@
         </div>
       </a>
 
-      <!-- v0.2 在做 -->
-      <a href="v0.2/index.html" class="bg-card p-8 md:p-10 hover:bg-card-soft transition no-underline group block"
-         style="background: linear-gradient(180deg, rgba(122,90,57,.04) 0%, var(--card) 50%);">
+      <!-- v0.2 已交付 -->
+      <a href="v0.2/index.html" class="bg-card p-8 md:p-10 hover:bg-card-soft transition no-underline group block">
         <div class="flex items-baseline justify-between mb-6">
           <div>
-            <div class="eyebrow mb-2" style="color:var(--brass-deep)">设 · 计 · 中 · 2026-05</div>
-            <h2 class="font-display text-4xl md:text-5xl font-medium tracking-tight group-hover:text-brass-deep transition">v0.2</h2>
+            <div class="eyebrow mb-2" style="color:var(--forest)">已 · 交 · 付 · 2026-05</div>
+            <h2 class="font-display text-4xl md:text-5xl font-medium tracking-tight group-hover:text-forest transition">v0.2</h2>
           </div>
-          <span class="pill pill-brass">IN PROGRESS</span>
+          <span class="pill" style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)">SHIPPED</span>
         </div>
-        <h3 class="font-serif text-xl mb-3 italic">用着舒服 · 单账户深度 + 移动友好</h3>
+        <h3 class="font-serif text-xl mb-3 italic">用着舒服 · 资产体检 + AI 综合诊断</h3>
         <p class="text-sm text-ink-soft mb-5 leading-relaxed">
-          7 条新 FR(FR-30~35)· 不扩广度,聚焦深度。
-          账户体检报告 + 智能建议 + 产品类目 + 风险评级 + 基准对照 + 微信引导 + iOS PWA。
+          16 条新 FR(FR-30~40e)· 单账户深度 + 资产体检 + 智能建议引擎 + LLM 综合诊断 +
+          产品类目 + 风险评级 + 基准对照 + 微信引导 + iOS PWA。
         </p>
         <div class="grid grid-cols-3 gap-4 mb-5 pt-5 border-t border-rule-soft">
           <div>
             <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">新页</div>
-            <div class="font-display text-2xl tnum text-brass-deep">3</div>
+            <div class="font-display text-2xl tnum">5</div>
           </div>
           <div>
             <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">新 FR</div>
-            <div class="font-display text-2xl tnum text-brass-deep">7</div>
+            <div class="font-display text-2xl tnum">16</div>
+          </div>
+          <div>
+            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">QA</div>
+            <div class="font-display text-2xl tnum">180+</div>
+          </div>
+        </div>
+        <div class="font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-forest transition">
+          → 进入 v0.2 增量索引
+        </div>
+      </a>
+
+      <!-- v0.3 设计中 -->
+      <a href="v0.3/index.html" class="bg-card p-8 md:p-10 hover:bg-card-soft transition no-underline group block"
+         style="background: linear-gradient(180deg, rgba(122,90,57,.04) 0%, var(--card) 50%);">
+        <div class="flex items-baseline justify-between mb-6">
+          <div>
+            <div class="eyebrow mb-2" style="color:var(--brass-deep)">设 · 计 · 中 · 2026-05</div>
+            <h2 class="font-display text-4xl md:text-5xl font-medium tracking-tight group-hover:text-brass-deep transition">v0.3</h2>
+          </div>
+          <span class="pill pill-brass">DESIGNING</span>
+        </div>
+        <h3 class="font-serif text-xl mb-3 italic">朝哪儿走 · 目标 + AI 多处介入 + 股票自动估值</h3>
+        <p class="text-sm text-ink-soft mb-5 leading-relaxed">
+          12 条新 FR(FR-50~53d)· 3 长期目标(退休/教育/应急)+ 三情景预测 +
+          AI 4 处介入(向导/月报/预警/体检增强)+ 股票账户自动估值(美股/A 股/港股)+ 储蓄能力指标。
+        </p>
+        <div class="grid grid-cols-3 gap-4 mb-5 pt-5 border-t border-rule-soft">
+          <div>
+            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">新页</div>
+            <div class="font-display text-2xl tnum text-brass-deep">15</div>
+          </div>
+          <div>
+            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">新 FR</div>
+            <div class="font-display text-2xl tnum text-brass-deep">12</div>
           </div>
           <div>
             <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">DDL</div>
-            <div class="font-display text-2xl tnum text-brass-deep">V10/V11</div>
+            <div class="font-display text-2xl tnum text-brass-deep">V14-V17</div>
           </div>
         </div>
         <div class="font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-brass-deep transition">
-          → 进入 v0.2 增量索引
+          → 进入 v0.3 增量索引
         </div>
       </a>
     </div>
@@ -105,24 +137,29 @@
     <!-- 关系说明 -->
     <section class="paper-card p-8 mb-8">
       <div class="eyebrow mb-3">版 · 本 · 关 · 系</div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div>
           <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-forest mb-2">v0.1 · 已交付</div>
           <p class="text-sm text-ink-soft leading-relaxed">
-            跑通最小闭环:夫妻每月 10 分钟填报、看仪表盘、看报表、按账户筛选、CSV 导出。
+            最小闭环:夫妻每月 10 分钟填报、看仪表盘、看报表、按账户筛选、CSV 导出。
           </p>
         </div>
         <div>
-          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep mb-2">v0.2 · 当前</div>
+          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-forest mb-2">v0.2 · 已交付</div>
           <p class="text-sm text-ink-soft leading-relaxed">
-            <span class="text-ink">用着舒服</span> · 单账户回溯 + 类型差异化诊断 + 智能建议 + 移动端体验。
-            不动 v0.1 的页面,只在它之上做增量。
+            <span class="text-ink">用着舒服</span>:单账户回溯 + 资产体检 + AI 综合诊断 + 移动端体验。
+          </p>
+        </div>
+        <div>
+          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep mb-2">v0.3 · 当前</div>
+          <p class="text-sm text-ink-soft leading-relaxed">
+            <span class="text-ink">朝哪儿走</span>:3 类目标 + 三情景预测 + AI 4 处介入 + 股票账户自动估值。
           </p>
         </div>
         <div>
           <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-2">v1.0 · 远景</div>
           <p class="text-sm text-ink-subtle leading-relaxed">
-            数据可视化纵深 — 同比箭头 / YTD 速览 / 类别趋势 / 风险雷达 / 复利推演,见 v0.1 PRD §7.6。
+            一次性目标(还贷/大额采购)· 基金 ETF 自动估值 · 行业基准对比 · 见各版 PRD 附录。
           </p>
         </div>
       </div>
@@ -132,7 +169,8 @@
       <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle">家 · 庭 · 内 · 部 · 使 · 用</div>
       <div class="flex gap-3">
         <a href="v0.1/index.html" class="btn-paper no-underline">v0.1 · SHIPPED</a>
-        <a href="v0.2/index.html" class="btn-ink no-underline">v0.2 · IN PROGRESS</a>
+        <a href="v0.2/index.html" class="btn-paper no-underline">v0.2 · SHIPPED</a>
+        <a href="v0.3/index.html" class="btn-ink no-underline">v0.3 · DESIGNING</a>
       </div>
     </section>
 

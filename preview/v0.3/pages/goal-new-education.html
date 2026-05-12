@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>新建教育金目标 · v0.3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }</script>
+</head>
+<body class="min-h-screen relative">
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
+      <a href="../index.html" class="font-display text-xl font-medium no-underline">账房</a>
+      <nav class="font-mono text-[11px] tracking-[0.14em] uppercase"><a href="goals-list.html" class="text-ink no-underline border-b-2 border-brass pb-[18px]">目标</a></nav>
+    </div>
+  </header>
+
+  <main class="max-w-[900px] mx-auto px-6 py-10 relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+      <a href="goals-list.html" class="hover:text-ink no-underline">目标</a><span class="mx-2 text-rule">/</span>
+      <a href="goal-new.html" class="hover:text-ink no-underline">新建</a><span class="mx-2 text-rule">/</span>
+      <span class="text-ink">教育金</span>
+    </div>
+
+    <div class="mb-8">
+      <div class="eyebrow mb-2" style="color:var(--brass-deep)">EDUCATION · 教 · 育 · 金</div>
+      <h1 class="font-display text-4xl md:text-5xl font-medium tracking-tight">为孩子准备大学基金</h1>
+      <p class="font-serif text-sm text-ink-soft mt-3">
+        孩子(成员)+ 出生年 → 目标年份自动 = 18 岁那年 · 反推月供。
+      </p>
+    </div>
+
+    <form class="paper-card p-8 space-y-6">
+
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">目标名称</label>
+        <input type="text" class="w-full font-display text-xl bg-paper-soft border border-rule px-4 py-3" value="成员C · 大学基金">
+      </div>
+
+      <div class="rule-x py-4 flex items-baseline justify-between">
+        <span class="eyebrow">基 · 础 · 参 · 数</span>
+        <button type="button" class="btn-paper text-xs flex items-center gap-2" style="border-color:var(--brass-deep);color:var(--brass-deep)">
+          <span>🤖</span> AI 推荐金额(3 档参考)
+          <span class="font-mono text-[9px] text-ink-subtle">FR-53a</span>
+        </button>
+      </div>
+
+      <!-- 孩子下拉(v0.2 FR-38 searchable-select) -->
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">孩子</label>
+        <select class="w-full font-base bg-paper-soft border border-rule px-3 py-3">
+          <option>成员C(2020 出生 · 5 岁)</option>
+          <option>成员D(2024 出生 · 1 岁)</option>
+        </select>
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 数据库存 child_member_id · prompt 走代号 · UI 走 displayName</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">孩子出生年份</label>
+          <input type="number" class="w-full font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum" value="2020">
+          <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 自动从 member.birth_date 取</p>
+        </div>
+        <div>
+          <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">目标使用年份</label>
+          <input type="number" class="w-full font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum" value="2038">
+          <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 自动 = 出生年 + 18 · 可改</p>
+        </div>
+      </div>
+
+      <!-- AI 推荐 3 档参考 -->
+      <div class="paper-card p-4 bg-card-soft">
+        <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-2">🤖 AI · 3 · 档 · 参 · 考</div>
+        <div class="grid grid-cols-3 gap-2 text-sm">
+          <label class="border border-rule-soft p-3 cursor-pointer hover:bg-paper-soft">
+            <input type="radio" name="amount" class="mr-1">
+            <span class="font-mono text-[9px] text-ink-subtle uppercase block">国内本科</span>
+            <span class="font-display text-lg tnum">¥200k</span>
+          </label>
+          <label class="border-2 border-brass-deep p-3 cursor-pointer bg-card-soft">
+            <input type="radio" name="amount" class="mr-1" checked>
+            <span class="font-mono text-[9px] text-brass-deep uppercase block">中外合办 ★</span>
+            <span class="font-display text-lg tnum">¥800k</span>
+          </label>
+          <label class="border border-rule-soft p-3 cursor-pointer hover:bg-paper-soft">
+            <input type="radio" name="amount" class="mr-1">
+            <span class="font-mono text-[9px] text-ink-subtle uppercase block">海外本科</span>
+            <span class="font-display text-lg tnum">¥1.5m+</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">目标金额(今天购买力)</label>
+          <div class="flex items-center gap-2">
+            <span class="text-ink-soft font-mono text-sm">¥</span>
+            <input type="number" class="flex-1 font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum text-right" value="800000">
+          </div>
+        </div>
+        <div>
+          <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">通胀率假设</label>
+          <div class="flex items-center gap-2">
+            <input type="number" step="0.1" class="flex-1 font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum" value="3.0">
+            <span class="text-ink-soft font-mono text-sm">%</span>
+          </div>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 教育通胀比 CPI 高 · 默认 3%</p>
+        </div>
+      </div>
+
+      <div class="paper-card p-5 bg-card-soft" style="border-left:4px solid var(--brass)">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-3">实 · 时 · 派 · 生</div>
+        <div class="grid grid-cols-3 gap-4">
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">2038 年所需</div>
+            <div class="font-display text-2xl tnum">¥1,520,000</div>
+            <div class="font-mono text-[10px] text-ink-subtle mt-1">通胀 3% × 13 年</div>
+          </div>
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">当前进度</div>
+            <div class="font-display text-2xl tnum text-brass-deep">42%</div>
+            <div class="font-mono text-[10px] text-ink-subtle mt-1">PV / 派生目标</div>
+          </div>
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">中性反推月供</div>
+            <div class="font-display text-2xl tnum">¥7,200</div>
+            <div class="font-mono text-[10px] text-ink-subtle mt-1">差额 / 剩余月数(5%)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-6 border-t border-rule-soft">
+        <a href="goal-new.html" class="btn-paper no-underline">← 返回选类型</a>
+        <button type="submit" class="btn-ink">✓ 保存并查看三情景</button>
+      </div>
+    </form>
+  </main>
+
+  <footer class="border-t border-rule mt-12 py-8 px-8 text-center relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle">v0.3 PREVIEW · /goals/new/education · FR-50b + FR-53a</div>
+  </footer>
+</body>
+</html>

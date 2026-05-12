@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>应急储备详情 · v0.3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }</script>
+</head>
+<body class="min-h-screen relative">
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
+      <a href="../index.html" class="font-display text-xl font-medium no-underline">账房</a>
+      <nav class="font-mono text-[11px] tracking-[0.14em] uppercase"><a href="goals-list.html" class="text-ink no-underline border-b-2 border-brass pb-[18px]">目标</a></nav>
+    </div>
+  </header>
+
+  <main class="max-w-[1100px] mx-auto px-6 py-10 relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+      <a href="goals-list.html" class="hover:text-ink no-underline">目标</a><span class="mx-2 text-rule">/</span>
+      <span class="text-ink">应急储备</span>
+    </div>
+
+    <!-- 顶部 -->
+    <section class="paper-card p-8 mb-6">
+      <div class="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest">EMERGENCY · 应 · 急 · 储 · 备</span>
+            <span class="pill text-[9px]" style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)">✓ 已达储备线</span>
+          </div>
+          <h1 class="font-display text-4xl font-medium tracking-tight mb-1">6 个月生活缓冲</h1>
+          <p class="text-sm text-ink-soft">自动基线 · 过去 3 期总支出中位 ¥18,000/月 × 6 月 = ¥108,000</p>
+        </div>
+        <div class="text-center border-2 border-forest px-6 py-4 bg-card-soft">
+          <div class="font-mono text-[9px] uppercase text-forest mb-1">当前进度</div>
+          <div class="font-display text-4xl tnum text-forest">142<span class="text-2xl">%</span></div>
+          <div class="font-mono text-[10px] text-forest mt-1">超额 ¥45,500</div>
+        </div>
+      </div>
+
+      <!-- 大进度条 -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between text-xs font-mono">
+          <span class="text-ink-subtle">现金类账户总和(流动性硬约束)</span>
+          <span class="text-forest">¥153,500 / 目标 ¥108,000</span>
+        </div>
+        <div class="w-full bg-card-soft border border-rule-soft h-6 relative overflow-hidden">
+          <div class="h-full bg-forest" style="width:100%"></div>
+          <div class="absolute top-0 h-full w-0.5 bg-ink" style="left:70.4%"></div>
+          <div class="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[10px] text-paper">+42% 超额</div>
+        </div>
+        <div class="font-mono text-[10px] text-ink-subtle">
+          <span style="margin-left:70%">↑ 目标线 ¥108k</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 计入账户列表 -->
+    <section class="paper-card p-6 mb-6">
+      <div class="flex items-baseline justify-between mb-4">
+        <div>
+          <div class="eyebrow mb-1">计 · 入 · 应 · 急 · 储 · 备 · 的 · 账 · 户</div>
+          <h2 class="font-display text-xl font-medium">仅 CASH 类</h2>
+        </div>
+        <span class="font-mono text-[10px] text-ink-subtle">不含理财 · 股票 · 房产</span>
+      </div>
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center justify-between py-2 border-b border-rule-soft">
+          <div class="flex items-center gap-3">
+            <span class="text-ink">招行储蓄卡</span>
+            <span class="pill text-[9px]">CASH</span>
+          </div>
+          <span class="font-mono tnum text-brass-deep">¥120,000</span>
+        </div>
+        <div class="flex items-center justify-between py-2 border-b border-rule-soft">
+          <div class="flex items-center gap-3">
+            <span class="text-ink">支付宝余额宝</span>
+            <span class="pill text-[9px]">CASH</span>
+          </div>
+          <span class="font-mono tnum text-brass-deep">¥28,500</span>
+        </div>
+        <div class="flex items-center justify-between py-2">
+          <div class="flex items-center gap-3">
+            <span class="text-ink">微信零钱通</span>
+            <span class="pill text-[9px]">CASH</span>
+          </div>
+          <span class="font-mono tnum text-brass-deep">¥5,000</span>
+        </div>
+      </div>
+      <div class="mt-4 pt-4 border-t border-rule-soft flex items-center justify-between">
+        <span class="font-mono text-[10px] uppercase text-ink-subtle">CASH 合计</span>
+        <span class="font-display text-2xl tnum text-forest">¥153,500</span>
+      </div>
+    </section>
+
+    <!-- 基线推算 -->
+    <section class="paper-card p-6 mb-6 bg-card-soft" style="border-left:4px solid var(--forest)">
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-3">基 · 线 · 推 · 算 · 自 · 动</div>
+      <div class="grid grid-cols-3 gap-4 text-sm">
+        <div>
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">过去 3 期 total_expense</div>
+          <div class="font-mono tnum text-ink">¥17,500 / ¥18,000 / ¥19,000</div>
+          <div class="font-mono text-[9px] text-ink-subtle mt-1">2026-03 / 04 / 05</div>
+        </div>
+        <div>
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">中位 baseline</div>
+          <div class="font-display text-xl tnum text-forest">¥18,000<span class="text-xs">/月</span></div>
+        </div>
+        <div>
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">月数 × baseline</div>
+          <div class="font-display text-xl tnum">6 × ¥18k = ¥108k</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AI 建议 -->
+    <section class="paper-card p-6" style="border-left:4px solid var(--brass-deep)">
+      <div class="flex items-baseline gap-2 mb-3">
+        <span class="text-xl">✨</span>
+        <div>
+          <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">AI · 建 · 议 · 已 · 达 · 标 · 后</div>
+          <div class="font-display text-lg font-medium">超额 ¥45,500 · 可考虑再分配</div>
+        </div>
+      </div>
+      <p class="text-sm text-ink-soft leading-relaxed font-serif">
+        应急储备已超额 42%(¥45,500 富余)· 流动性已足够。
+        可考虑把超额部分按 6:4 转入退休专项(走低风险固收 + 偏权益指数)·
+        既不影响应急流动性,又能让多余现金为<a href="goal-detail-retirement.html" class="text-brass-deep underline">退休目标</a>贡献复利。
+        建议保留至少 ¥108,000(原目标线)在 CASH 类不动用。
+      </p>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-rule mt-12 py-8 px-8 text-center relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle">v0.3 PREVIEW · /goals/3 应急储备 · FR-50c</div>
+  </footer>
+</body>
+</html>

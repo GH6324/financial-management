@@ -160,9 +160,9 @@ bash scripts/qa-e2e.sh         # 端到端真值校验(36 · 会清空 DB)
 
 ## 文档
 
-- **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md)
-- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md)
-- **预览原型**:[`preview/index.html`](preview/index.html)(28 页 Tailwind CDN 静态预览)
+- **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md) · [`prd/v0.3.md`](prd/v0.3.md)(设计中)
+- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md)(设计中)
+- **预览原型**:[`preview/index.html`](preview/index.html)(43+ 页 Tailwind CDN 静态预览 · v0.1 + v0.2 + v0.3)
 - **QA case 库**:[`docs/qa-cases.md`](docs/qa-cases.md)
 - **部署运行**:[`deploy/README.md`](deploy/README.md)
 

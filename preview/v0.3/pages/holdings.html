@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>持仓管理 · 招商港美股 · v0.3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+</head>
+<body class="min-h-screen relative">
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
+      <div class="flex items-center gap-12">
+        <a href="../index.html" class="flex items-baseline gap-2 no-underline">
+          <span class="font-display text-xl font-medium">账房</span>
+          <span class="font-mono text-[10px] tracking-[0.2em] text-ink-subtle">№ 张</span>
+        </a>
+        <nav class="hidden md:flex items-center gap-7 font-mono text-[11px] tracking-[0.14em] uppercase">
+          <a href="dashboard-with-goals.html" class="text-ink-soft hover:text-ink no-underline">仪表盘</a>
+          <a href="entry-with-income.html" class="text-ink-soft hover:text-ink no-underline">填报</a>
+          <a href="#" class="text-ink no-underline border-b-2 border-brass pb-[18px]">账户</a>
+          <a href="reports-savings.html" class="text-ink-soft hover:text-ink no-underline">报表</a>
+          <a href="goals-list.html" class="text-ink-soft hover:text-ink no-underline">目标</a>
+          <a href="checkup-with-goals.html" class="text-ink-soft hover:text-ink no-underline">资产体检</a>
+          <a href="#" class="text-ink-soft hover:text-ink no-underline">管理</a>
+        </nav>
+      </div>
+      <div class="flex items-center gap-4">
+        <span class="pill" style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)">2026 · 05 · OPEN</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+
+    <!-- 面包屑 -->
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+      <a href="#" class="hover:text-ink no-underline">账户</a>
+      <span class="mx-2 text-rule">/</span>
+      <a href="#" class="hover:text-ink no-underline">招商证券港美股</a>
+      <span class="mx-2 text-rule">/</span>
+      <span class="text-ink">持仓管理</span>
+    </div>
+
+    <!-- 账户头部信息 -->
+    <section class="paper-card p-6 mb-6">
+      <div class="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">STOCK · 持 · 仓 · 视 · 角</span>
+            <span class="pill text-[9px]" style="background:rgba(122,90,57,.1);color:var(--brass-deep);border-color:var(--brass-deep)">STOCK</span>
+            <span class="pill text-[9px]" style="background:rgba(122,90,57,.1);color:var(--brass-deep);border-color:var(--brass-deep)">混合 USD/HKD/CNY</span>
+          </div>
+          <h1 class="font-display text-3xl font-medium tracking-tight mb-1">招商证券港美股</h1>
+          <p class="text-sm text-ink-soft">
+            自动估值的账户余额 · 由 3 个持仓合计 · 最近 cron 刷新于 17 分钟前 · 主源 新浪
+          </p>
+        </div>
+        <div class="text-right">
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">账户余额(本位币)</div>
+          <div class="font-display text-3xl tnum tracking-tight text-brass-deep">¥318,013</div>
+          <div class="font-mono text-[10px] text-ink-subtle mt-1">⚠ 含陈旧 1 项 · 标"部分估算"</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 操作栏 -->
+    <section class="flex flex-wrap gap-3 mb-6">
+      <a href="holding-new-auto.html" class="btn-ink no-underline">+ 添加持仓 · 自动估值</a>
+      <a href="holding-new-manual.html" class="btn-paper no-underline">+ 添加持仓 · 手填市值</a>
+      <button class="btn-paper">⟳ 手动刷价</button>
+      <div class="ml-auto font-mono text-[10px] text-ink-subtle self-center">数据源 · 新浪(主) + 腾讯(备)· 圆形熔断</div>
+    </section>
+
+    <!-- 持仓列表 -->
+
+    <!-- 持仓 1 · AUTO · BABA 美股 · 正常 -->
+    <article class="paper-card mb-4 overflow-hidden">
+      <div class="p-5 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="font-display text-xl font-medium">阿里巴巴</span>
+            <span class="pill text-[9px]">BABA</span>
+            <span class="pill text-[9px]">美股 · NYSE</span>
+            <span class="pill text-[9px]" style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)">AUTO 自动估值</span>
+          </div>
+          <div class="grid grid-cols-3 gap-6 text-sm">
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">持股</div>
+              <div class="tnum">100 股</div>
+            </div>
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">最新价 · T-1</div>
+              <div class="tnum">$89.20</div>
+            </div>
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">市值(本币)</div>
+              <div class="tnum text-brass-deep">¥64,123</div>
+            </div>
+          </div>
+          <div class="font-mono text-[10px] text-ink-subtle mt-3">
+            ↳ T-1 数据 · 2026-05-11 收盘 · 来源:新浪 · $89.20 × 100 × FX(USD→CNY) 7.19 = ¥64,123
+          </div>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <button class="btn-paper text-xs">✎ 编辑</button>
+          <button class="btn-paper text-xs">📦 转为手填</button>
+          <button class="btn-paper text-xs">🗄 归档</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- 持仓 2 · MANUAL · 字节跳动期权 · 23 天前更新 -->
+    <article class="paper-card mb-4 overflow-hidden">
+      <div class="p-5 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="font-display text-xl font-medium">字节跳动期权</span>
+            <span class="pill text-[9px]" style="background:rgba(196,148,62,.15);color:var(--brass-deep);border-color:var(--brass-deep)">MANUAL 手填</span>
+            <span class="pill text-[9px]">未上市</span>
+          </div>
+          <div class="grid grid-cols-3 gap-6 text-sm">
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">数量</div>
+              <div class="tnum text-ink-subtle">—</div>
+            </div>
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">最新价</div>
+              <div class="tnum text-ink-subtle">—</div>
+            </div>
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">市值(用户填)</div>
+              <div class="tnum text-brass-deep">¥250,000</div>
+            </div>
+          </div>
+          <div class="font-mono text-[10px] text-ink-subtle mt-3">
+            ↳ 上次更新 23 天前 · 2026-04-19 · 用户手填值不参与拉价 cron
+          </div>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <button class="btn-ink text-xs">✎ 更新市值</button>
+          <button class="btn-paper text-xs">🗄 归档</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- 持仓 3 · AUTO · 陈旧 8 天 · 警告态 -->
+    <article class="paper-card mb-4 overflow-hidden" style="border:1px solid var(--rust);background:linear-gradient(90deg, rgba(159,74,58,.04) 0%, var(--card) 30%)">
+      <div class="p-5 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-rust text-xl">⚠</span>
+            <span class="font-display text-xl font-medium">某停牌股(LOST)</span>
+            <span class="pill text-[9px]">LOST</span>
+            <span class="pill text-[9px]">美股</span>
+            <span class="pill text-[9px]" style="background:rgba(159,74,58,.1);color:var(--rust);border-color:var(--rust)">AUTO 拉价失败</span>
+            <span class="pill text-[9px]" style="background:rgba(159,74,58,.1);color:var(--rust);border-color:var(--rust)">陈旧 8 天</span>
+          </div>
+          <div class="grid grid-cols-3 gap-6 text-sm">
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">持股</div>
+              <div class="tnum">50 股</div>
+            </div>
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">上次已知价</div>
+              <div class="tnum">$12.30</div>
+            </div>
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">市值(陈旧估算)</div>
+              <div class="tnum text-rust">¥3,890</div>
+            </div>
+          </div>
+          <div class="font-mono text-[10px] text-rust mt-3 leading-relaxed">
+            ↳ 主源 / 备源 连续 8 天无返回 · 已沿用 T-8 已知价计算 · 建议改为手填或归档此持仓
+          </div>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <button class="btn-ink text-xs" style="background:var(--rust);border-color:var(--rust)">📦 转为手填</button>
+          <button class="btn-paper text-xs">⟳ 刷新</button>
+          <button class="btn-paper text-xs">🗄 归档</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- 账户余额合计 -->
+    <section class="paper-card p-5 bg-card-soft mt-6" style="border-left:4px solid var(--brass-deep)">
+      <div class="flex items-baseline justify-between mb-4">
+        <div>
+          <div class="eyebrow mb-1">账 · 户 · 余 · 额 · 自 · 动 · 合 · 计</div>
+          <h2 class="font-display text-2xl font-medium">写回 account_balance 表</h2>
+        </div>
+        <span class="font-mono text-[10px] text-ink-subtle">v0.2 下游 dashboard / XIRR / 目标进度 自动反映 · 无感知</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-px bg-rule border border-rule">
+        <div class="bg-card p-4">
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">AUTO 持仓合计</div>
+          <div class="font-display text-xl tnum">¥68,013</div>
+          <div class="font-mono text-[9px] text-ink-subtle mt-1">BABA ¥64,123 + LOST ¥3,890</div>
+        </div>
+        <div class="bg-card p-4">
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">MANUAL 持仓合计</div>
+          <div class="font-display text-xl tnum">¥250,000</div>
+          <div class="font-mono text-[9px] text-ink-subtle mt-1">字节期权 ¥250,000</div>
+        </div>
+        <div class="bg-card p-4">
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">账户余额(本币)</div>
+          <div class="font-display text-xl tnum text-brass-deep">¥318,013</div>
+          <div class="font-mono text-[9px] text-ink-subtle mt-1">写入 account_balance · 周期 2026-05</div>
+        </div>
+        <div class="bg-card p-4">
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">状态</div>
+          <div class="font-mono text-sm text-rust">⚠ 部分估算</div>
+          <div class="font-mono text-[9px] text-ink-subtle mt-1">含陈旧 > 7 天的 AUTO 持仓 1 项</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 帮助卡 -->
+    <section class="paper-card p-5 mt-6 bg-card-soft" style="border-left:4px solid var(--ink-subtle)">
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-2">混 · 合 · 模 · 式 · 说 · 明</div>
+      <ul class="text-sm text-ink-soft space-y-2">
+        <li class="flex gap-2"><span class="text-brass-deep flex-shrink-0">·</span> <span><strong class="text-ink">AUTO 持仓</strong>:录入 ticker + 数量 → 系统每日 T+1 拉价 → 自动算市值。每月 0 维护负担。</span></li>
+        <li class="flex gap-2"><span class="text-brass-deep flex-shrink-0">·</span> <span><strong class="text-ink">MANUAL 持仓</strong>:用户填本币市值 · 适合未上市 / 私募 / 期权 / 仙股(数据源拉不到的)。建议每月 /entry 时确认是否需更新。</span></li>
+        <li class="flex gap-2"><span class="text-brass-deep flex-shrink-0">·</span> <span><strong class="text-ink">拉价失败</strong>:主源新浪→备源腾讯→历史价沿用(标灰)。陈旧 > 7 天提醒改 MANUAL 兜底。</span></li>
+        <li class="flex gap-2"><span class="text-brass-deep flex-shrink-0">·</span> <span><strong class="text-ink">混合无限制</strong>:一个账户里可同时存在任意数量的 AUTO 和 MANUAL 持仓 · 余额自动求和。</span></li>
+      </ul>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-rule mt-12 py-8 px-8 text-center relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle">
+      家庭账房 · v0.3 PREVIEW · /accounts/5/holdings · FR-52
+    </div>
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle mt-2">
+      <a href="../index.html" class="hover:text-ink">← v0.3 索引</a>
+      <span class="mx-2">·</span>
+      <a href="holding-new-auto.html" class="hover:text-ink">添加 AUTO →</a>
+      <span class="mx-2">·</span>
+      <a href="holding-new-manual.html" class="hover:text-ink">添加 MANUAL →</a>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.3 Preview · 张家</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+</head>
+<body class="min-h-screen relative">
+
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="border-b border-rule pt-12 pb-10 px-8 md:px-16 relative z-10">
+    <div class="max-w-[1200px] mx-auto">
+      <div class="flex items-start justify-between flex-wrap gap-6">
+        <div>
+          <div class="eyebrow mb-3">№ 张 — 私家账房 · Family Counting House · v0.3</div>
+          <h1 class="font-display text-5xl md:text-7xl leading-[0.95] font-medium tracking-tight">
+            朝哪儿走 ·<br/>
+            <span class="italic font-light text-brass-deep">长期视角 · AI 多处介入</span>
+          </h1>
+          <p class="font-serif text-base md:text-lg text-ink-soft max-w-2xl mt-6 leading-relaxed">
+            v0.3 在 v0.2 之上做三件事:加<span class="text-ink">「目标 + 进度跟踪」</span>(退休 / 教育金 / 应急储备)·
+            把<span class="text-ink">填报负担</span>降到极致(股票账户自动估值)· 让 <span class="text-brass-deep font-medium">AI 不只在体检页冒头</span>,
+            还出现在目标设定、月报叙事、偏离预警里。
+          </p>
+        </div>
+        <div class="flex flex-col gap-3 items-end">
+          <a href="../index.html" class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle hover:text-ink no-underline">← 返回版本入口</a>
+          <div class="pill pill-brass">v0.3 · DESIGNING</div>
+          <div class="font-mono text-xs text-ink-soft tracking-widest">15 NEW PAGES · 12 FRs</div>
+          <a href="../v0.2/index.html" class="btn-paper mt-2">↩ 看 v0.2 基线</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1200px] mx-auto px-8 md:px-16 py-16 relative z-10">
+
+    <!-- 设计主张 -->
+    <section class="paper-card p-6 mb-12 bg-card-soft" style="border-left: 4px solid var(--brass-deep)">
+      <div class="flex items-baseline justify-between mb-3">
+        <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">设 · 计 · 主 · 张</span>
+      </div>
+      <p class="text-sm text-ink-soft leading-relaxed">
+        v0.2 已经做到"看清家底 + 给静态诊断";v0.3 做到"<span class="text-ink font-medium">看清家底要往哪儿去</span>"。
+        家庭设定 3 个长期目标,系统按<span class="text-ink">三情景</span>(乐观 8% / 中性 5% / 悲观 2%)预测达成日,
+        并由 AI 在<span class="text-ink">关键时刻</span>给一段"贴近你目标的话":创建时帮你拍参数 · 月底告诉你离目标更近还是更远 · 进度大幅偏离时给具体建议。
+        股票账户从手工填市值升级为<span class="text-ink">录入持仓 + 自动拉价</span> — 每月只需检查持仓是否变动。
+      </p>
+    </section>
+
+    <!-- 第 一 卷:财务目标 -->
+    <section class="mb-16">
+      <div class="flex items-baseline justify-between mb-8 rule-x pt-6">
+        <div>
+          <div class="eyebrow mb-2">第 一 · 卷 · v0.3 核心 ★</div>
+          <h2 class="font-display text-3xl font-medium">财务目标 + 三情景预测 · /goals</h2>
+        </div>
+        <div class="text-ink-soft font-mono text-xs tracking-widest">FR-50 · FR-50a/b/c/d</div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+
+        <a href="pages/goals-list.html" class="paper-card p-6 hover:shadow-lg transition no-underline group"
+           style="background: linear-gradient(180deg, rgba(122,90,57,.04) 0%, var(--card) 60%); border-left: 4px solid var(--brass-deep);">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">P0 · 一级页</span>
+            <span class="font-mono text-[10px] text-forest">v0.3 新页</span>
+          </div>
+          <h3 class="font-display text-2xl font-medium mb-2 group-hover:text-brass-deep transition">/goals · 目标列表</h3>
+          <p class="text-sm text-ink-soft mb-3 leading-relaxed">
+            3 张目标 card · 进度环 + 三情景缩略 + AI 月报折叠 · 空状态有引导卡。click 任一 card 跳详情页。
+          </p>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="pill text-[9px]">FR-50</span>
+            <span class="pill text-[9px]">三情景</span>
+            <span class="pill text-[9px]">AI 月报</span>
+          </div>
+        </a>
+
+        <a href="pages/goal-detail-retirement.html" class="paper-card p-6 hover:shadow-lg transition no-underline group"
+           style="background: linear-gradient(180deg, rgba(122,90,57,.04) 0%, var(--card) 60%); border-left: 4px solid var(--brass-deep);">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">P0 · 详情页</span>
+            <span class="font-mono text-[10px] text-forest">v0.3 新页</span>
+          </div>
+          <h3 class="font-display text-2xl font-medium mb-2 group-hover:text-brass-deep transition">/goals/1 · 退休详情</h3>
+          <p class="text-sm text-ink-soft mb-3 leading-relaxed">
+            完整三情景大图(Chart.js 三曲线 + 阴影带 + 目标线)· AI 月报展开 · 偏离预警卡 · 反推月供 · 编辑参数。
+          </p>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="pill text-[9px]">FR-50a</span>
+            <span class="pill text-[9px]">FR-53b/c</span>
+            <span class="pill text-[9px]">复利 FV</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <a href="pages/goal-detail-education.html" class="paper-card p-5 hover:shadow-lg transition no-underline group">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-50b · P0</span>
+            <span class="font-mono text-[9px] text-forest">新页</span>
+          </div>
+          <h4 class="font-display text-xl font-medium mb-2 group-hover:text-brass-deep transition">教育金详情</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            目标年份 = 孩子 18 岁 · 三情景反推月供 · 国内本科 / 中外合办 / 海外 3 档参考。
+          </p>
+        </a>
+        <a href="pages/goal-detail-emergency.html" class="paper-card p-5 hover:shadow-lg transition no-underline group">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-50c · P0</span>
+            <span class="font-mono text-[9px] text-forest">新页</span>
+          </div>
+          <h4 class="font-display text-xl font-medium mb-2 group-hover:text-brass-deep transition">应急储备详情</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            进度仅算 CASH 类账户 · 自动基线 = 过去 3 期总支出中位 × N 月 · 已达储备线徽章。
+          </p>
+        </a>
+        <a href="pages/dashboard-with-goals.html" class="paper-card p-5 hover:shadow-lg transition no-underline group"
+           style="border-left: 4px solid var(--brass-deep);">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-50d · P0</span>
+            <span class="font-mono text-[9px] text-forest">改造</span>
+          </div>
+          <h4 class="font-display text-xl font-medium mb-2 group-hover:text-brass-deep transition">Dashboard 目标条带</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            信息架构 C 混合 · 顶部目标进度条带(灰底 · 窄)· 主体净资产/趋势/配置 完全保留。
+          </p>
+        </a>
+      </div>
+
+      <!-- 目标向导 4 个 -->
+      <div class="paper-card p-5 bg-card-soft mb-4">
+        <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-3">创 · 建 · 目 · 标 · 向 · 导</div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <a href="pages/goal-new.html" class="px-3 py-3 border border-rule hover:bg-card-soft no-underline text-ink-soft hover:text-ink font-mono text-xs">
+            <div class="text-[10px] text-brass-deep mb-1">选类型</div>
+            <div>goal-new</div>
+          </a>
+          <a href="pages/goal-new-retirement.html" class="px-3 py-3 border border-rule hover:bg-card-soft no-underline text-ink-soft hover:text-ink font-mono text-xs">
+            <div class="text-[10px] text-brass-deep mb-1">退休</div>
+            <div>FR-50a</div>
+          </a>
+          <a href="pages/goal-new-education.html" class="px-3 py-3 border border-rule hover:bg-card-soft no-underline text-ink-soft hover:text-ink font-mono text-xs">
+            <div class="text-[10px] text-brass-deep mb-1">教育金</div>
+            <div>FR-50b</div>
+          </a>
+          <a href="pages/goal-new-emergency.html" class="px-3 py-3 border border-rule hover:bg-card-soft no-underline text-ink-soft hover:text-ink font-mono text-xs">
+            <div class="text-[10px] text-brass-deep mb-1">应急</div>
+            <div>FR-50c</div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 第 二 卷:储蓄能力 -->
+    <section class="mb-16">
+      <div class="flex items-baseline justify-between mb-8 rule-x pt-6">
+        <div>
+          <div class="eyebrow mb-2">第 二 · 卷 · 储 · 蓄 · 能 · 力</div>
+          <h2 class="font-display text-3xl font-medium">填报页 +2 框 + 月度收支双柱</h2>
+        </div>
+        <div class="text-ink-soft font-mono text-xs tracking-widest">FR-51 · FR-51a/b</div>
+      </div>
+
+      <div class="paper-card p-5 mb-6 bg-card-soft" style="border-left: 4px solid var(--forest)">
+        <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-2">设 · 计 · 取 · 舍 ★</div>
+        <p class="text-sm text-ink-soft leading-relaxed">
+          v0.2 既有的"桑基图 / 收入支出比例环形"在没有流水录入的前提下其实是<span class="text-ink">空架子</span>。
+          v0.3 给出诚实方案:用户每月在 /entry 填 2 个数(总收入 / 总支出)+ 储蓄能力指标 + 月度双柱(真实数据)。
+          这两个图比"假精细"诚实得多。
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <a href="pages/entry-with-income.html" class="paper-card p-6 hover:shadow-lg transition no-underline group">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-51 · P0</span>
+            <span class="font-mono text-[10px] text-forest">改造</span>
+          </div>
+          <h3 class="font-display text-2xl font-medium mb-2 group-hover:text-brass-deep transition">/entry · 填报页</h3>
+          <p class="text-sm text-ink-soft mb-3 leading-relaxed">
+            底部加家庭口径小卡(总收入 / 总支出 2 框 · 选填 · 上期参考)· STOCK 账户行加"持仓变动?"按钮。
+          </p>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="pill text-[9px]">FR-51</span>
+            <span class="pill text-[9px]">FR-52b</span>
+            <span class="pill text-[9px]">+15s</span>
+          </div>
+        </a>
+
+        <a href="pages/reports-savings.html" class="paper-card p-6 hover:shadow-lg transition no-underline group">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-51a/b · P0</span>
+            <span class="font-mono text-[10px] text-forest">新 tab + 替换</span>
+          </div>
+          <h3 class="font-display text-2xl font-medium mb-2 group-hover:text-brass-deep transition">/reports · 储蓄 tab</h3>
+          <p class="text-sm text-ink-soft mb-3 leading-relaxed">
+            储蓄率 / 月储蓄能力 / 已填月份占比 KPI · 月度收支双柱图(真实数据)· 反推目标月供。
+            旧桑基图删除 · 收入支出环形被双柱替代。
+          </p>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="pill text-[9px]">储蓄率</span>
+            <span class="pill text-[9px]">双柱图</span>
+            <span class="pill text-[9px]">反推月供</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <!-- 第 三 卷:股票自动估值 -->
+    <section class="mb-16">
+      <div class="flex items-baseline justify-between mb-8 rule-x pt-6">
+        <div>
+          <div class="eyebrow mb-2">第 三 · 卷 · 股 · 票 · 自 · 动 · 估 · 值</div>
+          <h2 class="font-display text-3xl font-medium">持仓管理 · 双源拉价 · 美股 + A 股 + 港股</h2>
+        </div>
+        <div class="text-ink-soft font-mono text-xs tracking-widest">FR-52 · FR-52a/b/c</div>
+      </div>
+
+      <div class="paper-card p-5 mb-6 bg-card-soft" style="border-left: 4px solid var(--brass-deep)">
+        <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-2">关 · 键 · 取 · 舍 ★</div>
+        <p class="text-sm text-ink-soft leading-relaxed">
+          <span class="text-ink">持仓级</span> AUTO/MANUAL 混合 — 同一股票账户里 BABA(自动 · 拉价)和字节跳动期权(手填 · 未上市)能共存。
+          数据源新浪(主)+ 腾讯(备)· 国内可达 · 免费 · 三市场统一。
+          失败降级链:主源 → 备源 → T-N 已知价 → 改 MANUAL 兜底。
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <a href="pages/holdings.html" class="paper-card p-6 hover:shadow-lg transition no-underline group"
+           style="background: linear-gradient(180deg, rgba(122,90,57,.04) 0%, var(--card) 60%); border-left: 4px solid var(--brass-deep);">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">P0 · 新页</span>
+            <span class="font-mono text-[10px] text-forest">v0.3 新页</span>
+          </div>
+          <h3 class="font-display text-2xl font-medium mb-2 group-hover:text-brass-deep transition">/accounts/5/holdings</h3>
+          <p class="text-sm text-ink-soft mb-3 leading-relaxed">
+            持仓表 · BABA(AUTO · T-1)+ 字节期权(MANUAL · 23 天前)+ 某停牌股(陈旧 8 天)
+            混合渲染 · 账户余额自动合计 · 状态徽章一目了然。
+          </p>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="pill text-[9px]">FR-52</span>
+            <span class="pill text-[9px]">AUTO/MANUAL 混合</span>
+          </div>
+        </a>
+
+        <div class="paper-card p-6 bg-card-soft">
+          <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-2">数 · 据 · 源 · 设 · 计</div>
+          <h3 class="font-display text-2xl font-medium mb-3">新浪 → 腾讯 → 历史价</h3>
+          <ul class="space-y-2 text-sm text-ink-soft">
+            <li class="flex gap-2"><span class="text-brass-deep flex-shrink-0">·</span> 主源 <code class="font-mono">hq.sinajs.cn</code> · GB18030 · Referer 头</li>
+            <li class="flex gap-2"><span class="text-brass-deep flex-shrink-0">·</span> 备源 <code class="font-mono">qt.gtimg.cn</code> · 主源失败 5 分钟切换</li>
+            <li class="flex gap-2"><span class="text-brass-deep flex-shrink-0">·</span> 圆形熔断复用 v0.2 LLM 同款 <code class="font-mono">CircuitBreaker</code></li>
+            <li class="flex gap-2"><span class="text-brass-deep flex-shrink-0">·</span> 全失败 → <code class="font-mono">stock_price_snapshot</code> 最近行 + 标"陈旧 N 天"</li>
+            <li class="flex gap-2"><span class="text-brass-deep flex-shrink-0">·</span> Cron · 美股 06:05 · A 股 16:10 · 港股 16:30(Asia/Shanghai)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="paper-card p-5 bg-card-soft mb-4">
+        <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-3">添 · 加 · 持 · 仓 · 表 · 单</div>
+        <div class="grid grid-cols-2 gap-3">
+          <a href="pages/holding-new-auto.html" class="px-3 py-3 border border-rule hover:bg-card-soft no-underline text-ink-soft hover:text-ink font-mono text-xs">
+            <div class="text-[10px] text-brass-deep mb-1">AUTO · 自动估值</div>
+            <div>holding-new-auto</div>
+          </a>
+          <a href="pages/holding-new-manual.html" class="px-3 py-3 border border-rule hover:bg-card-soft no-underline text-ink-soft hover:text-ink font-mono text-xs">
+            <div class="text-[10px] text-brass-deep mb-1">MANUAL · 手填市值</div>
+            <div>holding-new-manual</div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 第 四 卷:横切 · AI 介入 -->
+    <section class="mb-16">
+      <div class="flex items-baseline justify-between mb-8 rule-x pt-6">
+        <div>
+          <div class="eyebrow mb-2">第 四 · 卷 · 横 · 切 · 关 · 注</div>
+          <h2 class="font-display text-3xl font-medium">AI 4 处介入</h2>
+        </div>
+        <div class="text-ink-soft font-mono text-xs tracking-widest">FR-53a/b/c/d</div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="paper-card p-5">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-53a · 入向导</span>
+            <span class="font-mono text-[9px] text-forest">复用 LlmOrchestrator</span>
+          </div>
+          <h4 class="font-display text-lg font-medium mb-2">目标设定向导 AI</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            创建目标时 click [🤖 AI 推荐默认值]:LLM 看家庭基础信息 → 一组合理默认值 + 60 字理由。
+            预览在 <a href="pages/goal-new-retirement.html" class="text-brass-deep hover:underline">goal-new-retirement</a> 页面。
+          </p>
+        </div>
+        <div class="paper-card p-5">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-53b · 月报</span>
+            <span class="font-mono text-[9px] text-forest">周期关闭异步</span>
+          </div>
+          <h4 class="font-display text-lg font-medium mb-2">目标页月报叙事 AI</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            周期关闭后,/goals/{id} 加 AI 月报折叠面板("本月你离退休更近了 4%...")。
+            预览在 <a href="pages/goal-detail-retirement.html" class="text-brass-deep hover:underline">goal-detail-retirement</a> 页面。
+          </p>
+        </div>
+        <div class="paper-card p-5">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-rust">FR-53c · 预警</span>
+            <span class="font-mono text-[9px] text-rust">90 天节流</span>
+          </div>
+          <h4 class="font-display text-lg font-medium mb-2">偏离预警 + 建议 AI</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            目标进度大幅倒退 / 月储蓄能力骤降 时触发 · 朱印感预警卡。
+            预览在 <a href="pages/goal-detail-retirement.html#alert" class="text-brass-deep hover:underline">goal-detail-retirement</a> 顶部。
+          </p>
+        </div>
+        <a href="pages/checkup-with-goals.html" class="paper-card p-5 hover:shadow-lg transition no-underline group">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-53d · 体检增强</span>
+            <span class="font-mono text-[9px] text-forest">prompt 扩展</span>
+          </div>
+          <h4 class="font-display text-lg font-medium mb-2 group-hover:text-brass-deep transition">体检页诊断增强</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            v0.2 /checkup LLM prompt 加一段"基于目标的相对视角"。文案变化:"距退休 22 年 → 股票配置是否够?"
+          </p>
+        </a>
+      </div>
+    </section>
+
+    <!-- v0.1 / v0.2 继承 -->
+    <section class="mb-12">
+      <div class="flex items-baseline justify-between mb-6 rule-x pt-6">
+        <div>
+          <div class="eyebrow mb-2">附 · 录 · 继承</div>
+          <h2 class="font-display text-3xl font-medium">v0.1 + v0.2 基线(21 页未变)</h2>
+        </div>
+        <div class="flex gap-3">
+          <a href="../v0.1/index.html" class="btn-paper no-underline">↩ v0.1</a>
+          <a href="../v0.2/index.html" class="btn-paper no-underline">↩ v0.2</a>
+        </div>
+      </div>
+      <p class="font-serif text-sm text-ink-soft max-w-3xl">
+        v0.3 不重做这些页面 · 顶部 nav 加一个「目标」项,其它结构完全保留。
+        Dashboard 加目标条带(见 dashboard-with-goals)· /entry 加 2 框 + 持仓按钮(见 entry-with-income)·
+        /reports 加 tab + 替换图(见 reports-savings)· /checkup 文案微变(见 checkup-with-goals)。
+      </p>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-rule mt-12 py-8 px-8 text-center relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle">
+      家庭账房 · v0.3 PREVIEW · 仅限家庭内部使用
+    </div>
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle mt-2">
+      <a href="../index.html" class="hover:text-ink">← 版本入口</a>
+      <span class="mx-2">·</span>
+      <a href="../v0.1/index.html" class="hover:text-ink">v0.1 基线</a>
+      <span class="mx-2">·</span>
+      <a href="../v0.2/index.html" class="hover:text-ink">v0.2 增量</a>
+      <span class="mx-2">·</span>
+      <span class="text-ink">v0.3 设计中</span>
+    </div>
+  </footer>
+
+</body>
+</html>

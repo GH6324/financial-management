@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>资产体检 · 基于目标的诊断增强 · v0.3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }</script>
+</head>
+<body class="min-h-screen relative">
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
+      <a href="../index.html" class="font-display text-xl font-medium no-underline">账房</a>
+      <nav class="font-mono text-[11px] tracking-[0.14em] uppercase flex gap-7">
+        <a href="dashboard-with-goals.html" class="text-ink-soft no-underline">仪表盘</a>
+        <a href="goals-list.html" class="text-ink-soft no-underline">目标</a>
+        <a href="checkup-with-goals.html" class="text-ink no-underline border-b-2 border-brass pb-[18px]">资产体检</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+
+    <div class="mb-6 flex items-baseline justify-between">
+      <div>
+        <div class="eyebrow mb-2">/checkup · 全 · 家 · 维 · 度</div>
+        <h1 class="font-display text-3xl md:text-4xl font-medium tracking-tight">资产体检 · 2026-05</h1>
+      </div>
+      <a href="../../v0.2/pages/checkup-family.html" class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle hover:text-ink no-underline">↩ 看 v0.2 原版</a>
+    </div>
+
+    <!-- 设计标注 · 仅 preview -->
+    <div class="paper-card p-4 mb-6 bg-card-soft" style="border-left:4px solid var(--brass-deep)">
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-1">设 · 计 · 标 · 注 · 仅 · 预 · 览 · 见 · FR-53d</div>
+      <p class="text-sm text-ink-soft leading-relaxed">
+        v0.3 不改 /checkup 的<span class="text-ink">视觉结构</span>(16 条规则 + LLM 综合诊断卡保持不变)。
+        变化只在 <code class="font-mono">CheckupDiagnoseService.buildContext</code> 的 prompt 里加一段「基于目标的相对视角」。
+        用户感知 = <span class="text-ink">LLM 诊断文案</span>从"看当下"变成"看长期" — 提到目标时间表、距离 / 进度。
+      </p>
+    </div>
+
+    <!-- v0.2 KPI · 保留 -->
+    <section class="grid grid-cols-2 md:grid-cols-5 gap-px bg-rule mb-6 border border-rule">
+      <div class="bg-card p-5"><div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">净资产</div><div class="font-display text-2xl tnum text-brass-deep">¥1,140k</div></div>
+      <div class="bg-card p-5"><div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">总资产</div><div class="font-display text-2xl tnum">¥1,650k</div></div>
+      <div class="bg-card p-5"><div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">总负债</div><div class="font-display text-2xl tnum">¥510k</div></div>
+      <div class="bg-card p-5"><div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">加权年化</div><div class="font-display text-2xl tnum">+6.8%</div></div>
+      <div class="bg-card p-5"><div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">风险等级</div><div class="font-display text-2xl">★★★</div></div>
+    </section>
+
+    <!-- v0.2 LLM 综合诊断卡 · prompt 扩展后的输出 -->
+    <section class="paper-card p-6 mb-6" style="border-left:4px solid var(--brass-deep)">
+      <div class="flex items-baseline justify-between mb-3">
+        <div class="flex items-baseline gap-2">
+          <span>✨</span>
+          <div>
+            <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">AI 综 · 合 · 智 · 能 · 诊 · 断 · 增 · 强 · FR-53d</div>
+            <div class="font-display text-xl font-medium">基于目标的相对视角 · 2026-05</div>
+          </div>
+        </div>
+        <span class="font-mono text-[10px] text-ink-subtle">Qwen-Plus · prompt 含目标段 · v0.2 OutputValidator 不变</span>
+      </div>
+
+      <!-- 文案对照:v0.2 vs v0.3 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+        <div class="border border-rule-soft p-4 bg-paper-soft">
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-2">v0.2 · 仅看当下</div>
+          <p class="text-xs text-ink-soft leading-relaxed font-serif italic">
+            整体配置偏稳健,流动性月数充裕(15.2 个月),但权益类年化跑输沪深 300 基准约 1.2pp,集中度方面单账户占比偏高(34%)...
+          </p>
+        </div>
+        <div class="border-2 border-brass-deep p-4 bg-card-soft">
+          <div class="font-mono text-[10px] uppercase text-brass-deep mb-2">v0.3 · 基于目标 ★</div>
+          <p class="text-xs text-ink leading-relaxed font-serif">
+            <span class="text-brass-deep">距退休 22 年</span> · 当前股票/权益配置 17% 偏低 ·
+            按中性 5% 复利 27 年后达成,若提升至 25% 权益可缩短至 ~22 年 · 与退休年龄相符...
+          </p>
+        </div>
+      </div>
+
+      <!-- 完整 v0.3 输出 -->
+      <div class="text-sm text-ink-soft leading-relaxed font-serif space-y-3">
+        <p>
+          <span class="text-ink font-medium">距退休 22 年</span>:当前股票/权益占比 17% 偏低。
+          按中性 5% 复利,27 年后达成退休本金(¥200 万);若把权益占比提升至 25%,
+          中性达成时间可从 2053 提前到约 2050,与目标退休年龄(60)相符。
+        </p>
+        <p>
+          <span class="text-ink font-medium">距孩子上大学 12 年</span>:教育金进度 42% 略落后,
+          但月储蓄能力(中位 ¥17,500)在能力范围内;时间窗仍足够 ·
+          可考虑把更多本金分配到偏权益的产品(如沪深 300 指数 + 红利指数)提升复利效率。
+        </p>
+        <p>
+          <span class="text-ink font-medium">应急储备已达储备线 142%</span>:现金占比 22% 偏高,
+          有 ¥45,500 富余可再分配。建议按 6:4 转入退休专项(低风险固收 + 偏权益指数),
+          既保留 ¥108k 在 CASH 不动用,又能让多余现金为退休贡献复利。
+        </p>
+        <p class="text-rust">
+          <span class="font-medium">⚠ 注意:</span>近 3 期月储蓄能力下行 30-60%,
+          已触发<a href="goal-detail-retirement.html#alert" class="text-rust underline">退休目标的偏离预警(FR-53c)</a>。
+          建议先排查支出是否非常态,再讨论再分配。
+        </p>
+      </div>
+    </section>
+
+    <!-- v0.2 16 条规则 · 简化展示 -->
+    <section class="paper-card p-6">
+      <div class="flex items-baseline justify-between mb-4">
+        <div>
+          <div class="eyebrow mb-1">v0.2 · 既 · 有 · 16 · 条 · 规 · 则</div>
+          <h2 class="font-display text-xl font-medium">完全保留 · 不动</h2>
+        </div>
+        <span class="font-mono text-[10px] text-ink-subtle">v0.3 不改 · 仅 LLM prompt 扩展</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+        <div class="flex gap-2 p-3 bg-card-soft border border-rule-soft">
+          <span class="text-forest">✓</span>
+          <div>
+            <div class="text-ink">LIQ-2 · 紧急储备充裕</div>
+            <div class="font-mono text-[10px] text-ink-subtle">现金类 15.2 个月开支</div>
+          </div>
+        </div>
+        <div class="flex gap-2 p-3 bg-card-soft border border-rule-soft">
+          <span class="text-brass-deep">⚠</span>
+          <div>
+            <div class="text-ink">RET-3 · 权益跑输基准</div>
+            <div class="font-mono text-[10px] text-ink-subtle">6.8% vs 沪深 8.0%</div>
+          </div>
+        </div>
+        <div class="flex gap-2 p-3 bg-card-soft border border-rule-soft">
+          <span class="text-brass-deep">⚠</span>
+          <div>
+            <div class="text-ink">ALLOC-1 · 现金占比偏高</div>
+            <div class="font-mono text-[10px] text-ink-subtle">CASH 22%(行业 10-15%)</div>
+          </div>
+        </div>
+        <div class="flex gap-2 p-3 bg-card-soft border border-rule-soft">
+          <span class="text-forest">✓</span>
+          <div>
+            <div class="text-ink">CONC-1 · 单类目集中度</div>
+            <div class="font-mono text-[10px] text-ink-subtle">最大 STOCK 28% (< 40%)</div>
+          </div>
+        </div>
+        <div class="text-center py-2 col-span-2 font-mono text-[10px] text-ink-subtle">
+          · · · 共 16 条规则,其余 12 条折叠 · · ·
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-rule mt-12 py-8 px-8 text-center relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle">v0.3 PREVIEW · /checkup 增强 · FR-53d</div>
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle mt-2">
+      <a href="../index.html" class="hover:text-ink">← v0.3 索引</a>
+      <span class="mx-2">·</span>
+      <a href="../../v0.2/pages/checkup-family.html" class="hover:text-ink">看 v0.2 原版 ↩</a>
+      <span class="mx-2">·</span>
+      <a href="goal-detail-retirement.html" class="hover:text-ink">退休目标详情 →</a>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>添加手填持仓 · v0.3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }</script>
+</head>
+<body class="min-h-screen relative">
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center h-16">
+      <a href="../index.html" class="font-display text-xl font-medium no-underline">账房</a>
+    </div>
+  </header>
+
+  <main class="max-w-[800px] mx-auto px-6 py-10 relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+      <a href="holdings.html" class="hover:text-ink no-underline">持仓管理</a><span class="mx-2 text-rule">/</span>
+      <span class="text-ink">添加 · 手填市值</span>
+    </div>
+
+    <div class="mb-8">
+      <div class="eyebrow mb-2" style="color:var(--rust)">+ 添 · 加 · 持 · 仓 · 手 · 填 · 市 · 值</div>
+      <h1 class="font-display text-4xl md:text-5xl font-medium tracking-tight">未上市 / 私募 / 拉不到价</h1>
+      <p class="font-serif text-sm text-ink-soft mt-3">
+        系统不参与拉价 · 用户每月在 /entry 时确认是否需要更新。
+        适合字节跳动期权、私募基金、港股仙股等数据源无法覆盖的持仓。
+      </p>
+    </div>
+
+    <form class="paper-card p-8 space-y-5">
+
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">持仓名称</label>
+        <input type="text" class="w-full font-display text-xl bg-paper-soft border border-rule px-4 py-3" placeholder="字节跳动期权 / 红杉 X 基金" value="字节跳动期权">
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 无 ticker · 完全自定义</p>
+      </div>
+
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">当前市值(本位币)</label>
+        <div class="flex items-center gap-2">
+          <span class="font-mono text-xl text-ink-soft">¥</span>
+          <input type="number" class="flex-1 font-mono text-xl bg-paper-soft border border-rule px-4 py-3 tnum text-right" value="250000">
+        </div>
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 直接填本位币(CNY)· 不需要做汇率换算</p>
+      </div>
+
+      <div class="paper-card p-4 bg-card-soft" style="border-left:4px solid var(--rust)">
+        <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-rust mb-2">维 · 护 · 提 · 醒</div>
+        <ul class="text-xs text-ink-soft space-y-1 list-disc pl-5">
+          <li>MANUAL 持仓不参与每日 cron 拉价</li>
+          <li>系统按 manual_value_at 记录更新时间</li>
+          <li>>30 天未更新 → /entry 持仓变动按钮变橙色提醒</li>
+          <li>>60 天未更新 → 顶部条带显黄色 toast</li>
+          <li>用户可随时点[更新市值]按钮重新填本期值</li>
+        </ul>
+      </div>
+
+      <div class="flex items-center justify-between pt-6 border-t border-rule-soft">
+        <a href="holdings.html" class="btn-paper no-underline">← 取消</a>
+        <button type="submit" class="btn-ink">✓ 添加持仓</button>
+      </div>
+    </form>
+  </main>
+
+  <footer class="border-t border-rule mt-12 py-8 px-8 text-center relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle">v0.3 PREVIEW · /accounts/5/holdings/new?mode=manual · FR-52</div>
+  </footer>
+</body>
+</html>

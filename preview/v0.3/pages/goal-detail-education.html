@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>教育金详情 · v0.3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }</script>
+</head>
+<body class="min-h-screen relative">
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
+      <a href="../index.html" class="font-display text-xl font-medium no-underline">账房</a>
+      <nav class="font-mono text-[11px] tracking-[0.14em] uppercase"><a href="goals-list.html" class="text-ink no-underline border-b-2 border-brass pb-[18px]">目标</a></nav>
+    </div>
+  </header>
+
+  <main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+      <a href="goals-list.html" class="hover:text-ink no-underline">目标</a><span class="mx-2 text-rule">/</span>
+      <span class="text-ink">成员C · 大学基金</span>
+    </div>
+
+    <!-- 顶部 -->
+    <section class="paper-card p-8 mb-6">
+      <div class="flex items-start justify-between flex-wrap gap-4 mb-4">
+        <div>
+          <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">EDUCATION · 教 · 育 · 金</span>
+          <h1 class="font-display text-4xl font-medium tracking-tight mt-2">成员C · 大学基金</h1>
+          <p class="text-sm text-ink-soft mt-2">2038 使用(孩子 18 岁)· 中外合办本科 ¥800,000 → 通胀后 ¥1,520,000 · 通胀 3%</p>
+        </div>
+        <div class="text-center border border-rule-soft px-6 py-4">
+          <div class="font-mono text-[9px] uppercase text-ink-subtle mb-1">中性达成</div>
+          <div class="font-display text-3xl tnum text-brass-deep">2038</div>
+          <div class="font-mono text-[10px] text-ink-subtle mt-1">距今 12 年</div>
+        </div>
+      </div>
+      <div class="grid grid-cols-4 gap-6">
+        <div><div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">当前进度</div><div class="font-display text-3xl tnum">42<span class="text-xl text-ink-soft">%</span></div></div>
+        <div><div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">已积累</div><div class="font-display text-2xl tnum">¥640,000</div></div>
+        <div><div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">通胀后目标</div><div class="font-display text-2xl tnum">¥1,520,000</div></div>
+        <div><div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">距孩子上大学</div><div class="font-display text-2xl tnum">12 年</div></div>
+      </div>
+    </section>
+
+    <!-- 三情景 -->
+    <section class="paper-card p-8 mb-6">
+      <div class="flex items-baseline justify-between mb-4">
+        <h2 class="font-display text-2xl font-medium">三情景预测 · 12 年</h2>
+        <div class="flex items-center gap-4 text-[10px] font-mono">
+          <span class="flex items-center gap-1"><span class="w-3 h-1 bg-forest"></span><span class="text-ink-soft">乐观 8%</span></span>
+          <span class="flex items-center gap-1"><span class="w-3 h-1" style="background:var(--brass-deep)"></span><span class="text-ink-soft">中性 5%</span></span>
+          <span class="flex items-center gap-1"><span class="w-3 h-1" style="background:var(--rust)"></span><span class="text-ink-soft">悲观 2%</span></span>
+        </div>
+      </div>
+      <div style="height:300px"><canvas id="c"></canvas></div>
+      <div class="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-rule-soft">
+        <div class="text-center">
+          <div class="font-mono text-[10px] uppercase text-forest mb-1">乐 · 观</div>
+          <div class="font-display text-2xl tnum">2036</div>
+          <div class="font-mono text-[10px] text-ink-subtle">提前 2 年</div>
+        </div>
+        <div class="text-center border-x border-rule-soft px-4 bg-card-soft">
+          <div class="font-mono text-[10px] uppercase text-brass-deep mb-1">中 · 性 ★</div>
+          <div class="font-display text-2xl tnum text-brass-deep">2038</div>
+          <div class="font-mono text-[10px] text-ink-subtle">刚好</div>
+        </div>
+        <div class="text-center">
+          <div class="font-mono text-[10px] uppercase text-rust mb-1">悲 · 观</div>
+          <div class="font-display text-2xl tnum">2041</div>
+          <div class="font-mono text-[10px] text-ink-subtle">晚 3 年 · 研究生承担</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AI 月报 -->
+    <section class="paper-card p-6 mb-6" style="border-left:4px solid var(--brass-deep)">
+      <div class="flex items-baseline gap-3 mb-2">
+        <span class="text-xl">✨</span>
+        <div>
+          <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">AI 月 · 报 · FR-53b</div>
+          <div class="font-display text-lg font-medium">2026-05</div>
+        </div>
+      </div>
+      <p class="text-sm text-ink-soft leading-relaxed font-serif">
+        教育金目标进度从 43.2% 微降至 42%,主要因目标值随通胀重算上调(¥1,498k → ¥1,520k)。
+        以当前家庭月储蓄能力衡量,达成完全在能力范围内 · 建议继续保持节奏。
+        孩子 12 年后上大学,时间窗充足,可考虑把更多本金分配到偏权益的产品提升复利效率。
+      </p>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-rule mt-12 py-8 px-8 text-center relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle">v0.3 PREVIEW · /goals/2 教育金详情 · FR-50b + FR-53b</div>
+  </footer>
+
+  <script>
+    const PV = 640000, target = 1520000;
+    const labels=[],opt=[],neu=[],pes=[];
+    for(let i=0;i<=12;i++){labels.push(2026+i);opt.push(Math.round(PV*Math.pow(1.08,i)+8000*((Math.pow(1.08/12+1,12*i)-1)/(0.08/12))));neu.push(Math.round(PV*Math.pow(1.05,i)+7200*((Math.pow(1.05/12+1,12*i)-1)/(0.05/12))));pes.push(Math.round(PV*Math.pow(1.02,i)+6500*((Math.pow(1.02/12+1,12*i)-1)/(0.02/12))));}
+    new Chart(document.getElementById('c'),{type:'line',data:{labels,datasets:[
+      {label:'乐观',data:opt,borderColor:'rgb(47,93,80)',tension:.2,pointRadius:0,borderWidth:2},
+      {label:'中性',data:neu,borderColor:'rgb(122,90,57)',tension:.2,pointRadius:0,borderWidth:2.5},
+      {label:'悲观',data:pes,borderColor:'rgb(159,74,58)',tension:.2,pointRadius:0,borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'¥'+(v/10000).toFixed(0)+'w',font:{family:'JetBrains Mono',size:10}}},x:{ticks:{font:{family:'JetBrains Mono',size:10}},grid:{display:false}}}},
+      plugins:[{id:'tl',afterDraw:function(chart){const ctx=chart.ctx;const y=chart.scales.y.getPixelForValue(target);ctx.save();ctx.strokeStyle='rgba(26,23,20,.6)';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(chart.chartArea.left,y);ctx.lineTo(chart.chartArea.right,y);ctx.stroke();ctx.fillStyle='rgba(26,23,20,.7)';ctx.font='10px JetBrains Mono';ctx.fillText('目标 ¥152w',chart.chartArea.right-70,y-5);ctx.restore();}}]});
+  </script>
+</body>
+</html>

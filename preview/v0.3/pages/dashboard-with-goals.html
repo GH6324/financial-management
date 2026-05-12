@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>仪表盘 · 目标条带 + 主体保留 · v0.3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+</head>
+<body class="min-h-screen relative">
+
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
+      <div class="flex items-center gap-12">
+        <a href="../index.html" class="flex items-baseline gap-2 no-underline">
+          <span class="font-display text-xl font-medium">账房</span>
+          <span class="font-mono text-[10px] tracking-[0.2em] text-ink-subtle">№ 张</span>
+        </a>
+        <nav class="hidden md:flex items-center gap-7 font-mono text-[11px] tracking-[0.14em] uppercase">
+          <a href="dashboard-with-goals.html" class="text-ink no-underline border-b-2 border-brass pb-[18px]">仪表盘</a>
+          <a href="entry-with-income.html" class="text-ink-soft hover:text-ink no-underline">填报</a>
+          <a href="#" class="text-ink-soft hover:text-ink no-underline">账户</a>
+          <a href="reports-savings.html" class="text-ink-soft hover:text-ink no-underline">报表</a>
+          <a href="goals-list.html" class="text-ink-soft hover:text-ink no-underline">目标</a>
+          <a href="checkup-with-goals.html" class="text-ink-soft hover:text-ink no-underline">资产体检</a>
+          <a href="#" class="text-ink-soft hover:text-ink no-underline">管理</a>
+        </nav>
+      </div>
+      <div class="flex items-center gap-4">
+        <span class="pill" style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)">2026 · 05 · OPEN</span>
+        <span class="font-mono text-[10px] text-ink-subtle hidden lg:inline">成员 A</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-8 relative z-10">
+
+    <!-- 顶部标题 -->
+    <div class="mb-6">
+      <div class="eyebrow mb-2">本 · 期 · 仪 · 表 · 盘</div>
+      <h1 class="font-display text-3xl md:text-4xl font-medium tracking-tight">家底速览 · 2026-05</h1>
+    </div>
+
+    <!-- ★ 目标进度条带 · FR-50d · 新增 ★ -->
+    <section class="mb-6 border border-rule" style="background:var(--paper-soft)">
+      <div class="px-6 py-4">
+        <div class="flex items-baseline justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">财 · 务 · 目 · 标 · FR-50d 新</span>
+            <span class="text-xs text-ink-subtle">本期 · 周期关闭后刷新</span>
+          </div>
+          <a href="goals-list.html" class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep hover:text-ink no-underline">→ 完整看板</a>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <!-- 退休 -->
+          <a href="goal-detail-retirement.html" class="flex items-center gap-3 px-3 py-2 hover:bg-paper border border-rule-soft transition no-underline group">
+            <span class="w-2 h-2 bg-brass-deep rounded-full flex-shrink-0"></span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-baseline justify-between">
+                <span class="text-sm text-ink truncate group-hover:text-brass-deep transition">退休</span>
+                <span class="font-mono text-xs text-ink-subtle">57%</span>
+              </div>
+              <div class="w-full bg-card-soft h-1.5 mt-1 overflow-hidden">
+                <div class="h-full bg-brass-deep" style="width:57%"></div>
+              </div>
+              <div class="font-mono text-[9px] text-ink-subtle mt-0.5">中性 2053</div>
+            </div>
+          </a>
+
+          <!-- 教育金 -->
+          <a href="goal-detail-education.html" class="flex items-center gap-3 px-3 py-2 hover:bg-paper border border-rule-soft transition no-underline group">
+            <span class="w-2 h-2 bg-rust rounded-full flex-shrink-0"></span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-baseline justify-between">
+                <span class="text-sm text-ink truncate group-hover:text-rust transition">子女教育金</span>
+                <span class="font-mono text-xs text-ink-subtle">42%</span>
+              </div>
+              <div class="w-full bg-card-soft h-1.5 mt-1 overflow-hidden">
+                <div class="h-full bg-rust" style="width:42%"></div>
+              </div>
+              <div class="font-mono text-[9px] text-ink-subtle mt-0.5">中性 2038</div>
+            </div>
+          </a>
+
+          <!-- 应急储备 · 已达线 -->
+          <a href="goal-detail-emergency.html" class="flex items-center gap-3 px-3 py-2 hover:bg-paper border border-rule-soft transition no-underline group">
+            <span class="w-2 h-2 bg-forest rounded-full flex-shrink-0"></span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-baseline justify-between">
+                <span class="text-sm text-ink truncate group-hover:text-forest transition">应急储备</span>
+                <span class="font-mono text-xs text-forest">142%</span>
+              </div>
+              <div class="w-full bg-card-soft h-1.5 mt-1 overflow-hidden">
+                <div class="h-full bg-forest" style="width:100%"></div>
+              </div>
+              <div class="font-mono text-[9px] text-forest mt-0.5">✓ 已达储备线</div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 设计标注 · 仅 preview 显示 -->
+    <div class="paper-card p-4 mb-6 bg-card-soft" style="border-left:4px solid var(--brass-deep)">
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-1">设 · 计 · 标 · 注 · 仅 · 预 · 览 · 见</div>
+      <p class="text-sm text-ink-soft">
+        <span class="text-ink">信息架构 C 混合</span>:目标条带高度 ≤ 100px · 灰底低对比 · 视觉权重 < 下方 KPI 卡。
+        条带高频可见但<span class="text-ink">不取代</span>净资产数字 —— 妻子打开 dashboard 第一眼仍能看到净资产。
+        无目标的家庭显示引导卡:[+ 创建你的第一个目标]。
+      </p>
+    </div>
+
+    <!-- ▼ ▼ ▼ 以下是 v0.2 既有 dashboard 内容,v0.3 完全保留 ▼ ▼ ▼ -->
+
+    <!-- KPI 卡组 -->
+    <section class="grid grid-cols-2 md:grid-cols-5 gap-px bg-rule mb-6 border border-rule">
+      <div class="bg-card p-5">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">总资产</div>
+        <div class="font-display text-2xl tnum">¥1,650,000</div>
+        <div class="font-mono text-[10px] text-forest mt-1">+ ¥85,000(+5.4%)</div>
+      </div>
+      <div class="bg-card p-5">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">总负债</div>
+        <div class="font-display text-2xl tnum">¥510,000</div>
+        <div class="font-mono text-[10px] text-ink-subtle mt-1">− ¥4,200(还款)</div>
+      </div>
+      <div class="bg-card p-5">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">净资产</div>
+        <div class="font-display text-2xl tnum text-brass-deep">¥1,140,000</div>
+        <div class="font-mono text-[10px] text-forest mt-1">+ ¥89,200</div>
+      </div>
+      <div class="bg-card p-5">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">加权年化</div>
+        <div class="font-display text-2xl tnum">+6.8<span class="text-base">%</span></div>
+        <div class="font-mono text-[10px] text-ink-subtle mt-1">vs 沪深 8.0%</div>
+      </div>
+      <div class="bg-card p-5">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">风险等级综合</div>
+        <div class="font-display text-2xl">★★★ <span class="text-xs text-ink-subtle">3.2</span></div>
+        <div class="font-mono text-[10px] text-ink-subtle mt-1">偏稳健</div>
+      </div>
+    </section>
+
+    <!-- 净资产趋势 + 配置环形 -->
+    <div class="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6 mb-6">
+      <section class="paper-card p-6">
+        <div class="flex items-baseline justify-between mb-4">
+          <div>
+            <div class="eyebrow mb-1">趋 · 势 · 12 月</div>
+            <h2 class="font-display text-xl font-medium">净资产</h2>
+          </div>
+          <span class="font-mono text-[10px] text-forest">+ ¥247k 同比</span>
+        </div>
+        <div style="height:240px"><canvas id="trend"></canvas></div>
+      </section>
+
+      <section class="paper-card p-6">
+        <div class="eyebrow mb-1">配 · 置</div>
+        <h2 class="font-display text-xl font-medium mb-4">类型分布</h2>
+        <div style="height:240px"><canvas id="alloc"></canvas></div>
+      </section>
+    </div>
+
+    <!-- 账户分布(横 bar)+ 成员饼图(v0.2 FR-36) -->
+    <div class="grid grid-cols-1 lg:grid-cols-[7fr_5fr] gap-6 mb-6">
+      <section class="paper-card p-6">
+        <div class="flex items-baseline justify-between mb-4">
+          <div>
+            <div class="eyebrow mb-1">按 · 账 · 户 · 分 · 布</div>
+            <h2 class="font-display text-xl font-medium">资产向右 / 负债向左</h2>
+          </div>
+        </div>
+        <div class="space-y-2 text-sm">
+          <div class="grid grid-cols-[120px_1fr_80px] items-center gap-3">
+            <span class="text-ink-soft text-xs">招行储蓄</span>
+            <div class="relative h-5 bg-card-soft">
+              <div class="absolute left-1/2 top-0 h-full bg-brass-deep/70" style="width:20%"></div>
+              <div class="absolute left-1/2 top-0 h-full w-px bg-ink"></div>
+            </div>
+            <span class="text-right font-mono tnum text-xs">¥320k</span>
+          </div>
+          <div class="grid grid-cols-[120px_1fr_80px] items-center gap-3">
+            <span class="text-ink-soft text-xs">蚂蚁财富</span>
+            <div class="relative h-5 bg-card-soft">
+              <div class="absolute left-1/2 top-0 h-full bg-brass-deep/70" style="width:28%"></div>
+              <div class="absolute left-1/2 top-0 h-full w-px bg-ink"></div>
+            </div>
+            <span class="text-right font-mono tnum text-xs">¥450k</span>
+          </div>
+          <div class="grid grid-cols-[120px_1fr_80px] items-center gap-3">
+            <span class="text-ink-soft text-xs">招商港美股</span>
+            <div class="relative h-5 bg-card-soft">
+              <div class="absolute left-1/2 top-0 h-full bg-brass-deep/70" style="width:20%"></div>
+              <div class="absolute left-1/2 top-0 h-full w-px bg-ink"></div>
+            </div>
+            <span class="text-right font-mono tnum text-xs">¥318k <span class="text-[9px] text-brass-deep">(自动)</span></span>
+          </div>
+          <div class="grid grid-cols-[120px_1fr_80px] items-center gap-3">
+            <span class="text-ink-soft text-xs">房产 · 北京</span>
+            <div class="relative h-5 bg-card-soft">
+              <div class="absolute left-1/2 top-0 h-full bg-brass-deep/70" style="width:35%"></div>
+              <div class="absolute left-1/2 top-0 h-full w-px bg-ink"></div>
+            </div>
+            <span class="text-right font-mono tnum text-xs">¥562k</span>
+          </div>
+          <div class="grid grid-cols-[120px_1fr_80px] items-center gap-3">
+            <span class="text-ink-soft text-xs">房贷</span>
+            <div class="relative h-5 bg-card-soft">
+              <div class="absolute right-1/2 top-0 h-full bg-rust/60" style="width:32%"></div>
+              <div class="absolute left-1/2 top-0 h-full w-px bg-ink"></div>
+            </div>
+            <span class="text-right font-mono tnum text-xs text-rust">−¥510k</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="paper-card p-6">
+        <div class="eyebrow mb-1">按 · 成 · 员 · 分 · 布</div>
+        <h2 class="font-display text-xl font-medium mb-4">主理人占比</h2>
+        <div style="height:200px"><canvas id="member"></canvas></div>
+      </section>
+    </div>
+
+    <!-- 账户列表 -->
+    <section class="paper-card p-6">
+      <div class="flex items-baseline justify-between mb-4">
+        <div>
+          <div class="eyebrow mb-1">账 · 户 · 列 · 表</div>
+          <h2 class="font-display text-xl font-medium">5 个活跃账户</h2>
+        </div>
+        <a href="#" class="btn-paper no-underline text-xs">→ /accounts</a>
+      </div>
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center justify-between py-2 border-b border-rule-soft">
+          <div class="flex items-center gap-3">
+            <span class="text-ink">招行储蓄卡</span>
+            <span class="pill text-[9px]">货币基金</span>
+            <span class="pill text-[9px]">★★</span>
+          </div>
+          <span class="font-mono tnum text-ink-soft">¥320,000</span>
+        </div>
+        <div class="flex items-center justify-between py-2 border-b border-rule-soft">
+          <div class="flex items-center gap-3">
+            <span class="text-ink">招商港美股</span>
+            <span class="pill text-[9px]" style="background:rgba(122,90,57,.12);color:var(--brass-deep);border-color:var(--brass-deep)">STOCK · 自动估值</span>
+            <span class="pill text-[9px]">★★★★</span>
+          </div>
+          <span class="font-mono tnum text-ink-soft">¥318,013 <span class="text-[9px] text-brass-deep">T-1</span></span>
+        </div>
+        <div class="flex items-center justify-between py-2 border-b border-rule-soft">
+          <div class="flex items-center gap-3">
+            <span class="text-ink">蚂蚁财富 · A 股基金</span>
+            <span class="pill text-[9px]">A 股基金</span>
+            <span class="pill text-[9px]">★★★★★</span>
+          </div>
+          <span class="font-mono tnum text-ink-soft">¥450,000</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-rule mt-12 py-8 px-8 text-center relative z-10">
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle">
+      家庭账房 · v0.3 PREVIEW · /dashboard 信息架构 C 混合 · FR-50d
+    </div>
+    <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle mt-2">
+      <a href="../index.html" class="hover:text-ink">← v0.3 索引</a>
+      <span class="mx-2">·</span>
+      <a href="goals-list.html" class="hover:text-ink">看完整目标 →</a>
+    </div>
+  </footer>
+
+  <script>
+    // 净资产趋势
+    new Chart(document.getElementById('trend'), {
+      type: 'line',
+      data: {
+        labels: ['2025-06','07','08','09','10','11','12','2026-01','02','03','04','05'],
+        datasets: [{
+          data: [893,920,945,962,988,1010,1035,1050,1070,1090,1051,1140],
+          borderColor: 'rgb(122,90,57)', backgroundColor: 'rgba(122,90,57,.08)',
+          tension: 0.25, pointRadius: 3, pointBackgroundColor: 'rgb(122,90,57)', fill: true, borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => '¥' + c.parsed.y + 'k' } } },
+        scales: {
+          y: { ticks: { callback: v => '¥' + v + 'k', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } },
+          x: { ticks: { font: { family: 'JetBrains Mono', size: 9 } }, grid: { display: false } }
+        }
+      }
+    });
+    // 配置环形
+    new Chart(document.getElementById('alloc'), {
+      type: 'doughnut',
+      data: {
+        labels: ['现金 22%','理财 28%','股票 17%','房产 30%','负债 −31%'],
+        datasets: [{
+          data: [22, 28, 17, 30, 31],
+          backgroundColor: ['#c4943e','#7a5a39','#9f4a3a','#2f5d50','#3a3431']
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { family: 'JetBrains Mono', size: 10 } } } } }
+    });
+    // 成员饼图
+    new Chart(document.getElementById('member'), {
+      type: 'doughnut',
+      data: {
+        labels: ['成员 A · 60%','成员 B · 35%','共同 · 5%'],
+        datasets: [{ data: [60, 35, 5], backgroundColor: ['#7a5a39','#9f4a3a','#c4943e'] }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { family: 'JetBrains Mono', size: 10 } } } } }
+    });
+  </script>
+</body>
+</html>
