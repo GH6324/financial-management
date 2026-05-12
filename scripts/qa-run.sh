@@ -1352,6 +1352,38 @@ grep -q "持仓变动" "$TMP" \
   && log_ok "v03-STOCK-10 /entry STOCK 行加持仓变动入口" \
   || log_bad "v03-STOCK-10 entry STOCK 行" "no link"
 
+# v03-STOCK-11 · fx 链式跨币种 · 账户 HKD + 持仓 USD/HKD 混合(2026-05-13 bug fix)
+# 场景:HKD 账户混持 BABA(USD) + 腾讯(HKD)· fx_rate 表只存 base=CNY 方向 · 需经 CNY 中转
+ORIG_CURR=$(mysql -ufinance -pfinance finance -sN -e "SELECT currency FROM account WHERE id=$STOCK_ACC" 2>/dev/null)
+mysql -ufinance -pfinance finance -e "UPDATE account SET currency='HKD' WHERE id=$STOCK_ACC; DELETE FROM stock_holding WHERE account_id=$STOCK_ACC;" 2>/dev/null
+$CURL -b $COOKIE -c $COOKIE "$BASE/accounts/$STOCK_ACC/holdings" -o /dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+# BABA 100 股 USD
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "displayName=v03 BABA" --data-urlencode "ticker=BABA" --data-urlencode "market=US" \
+  --data-urlencode "shares=100" --data-urlencode "currency=USD" \
+  "$BASE/accounts/$STOCK_ACC/holdings/new-auto" -o /dev/null -w "" || true
+sleep 2
+# 腾讯 200 股 HKD
+$CURL -b $COOKIE -c $COOKIE "$BASE/accounts/$STOCK_ACC/holdings" -o /dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "displayName=v03 腾讯" --data-urlencode "ticker=00700" --data-urlencode "market=HK" \
+  --data-urlencode "shares=200" --data-urlencode "currency=HKD" \
+  "$BASE/accounts/$STOCK_ACC/holdings/new-auto" -o /dev/null -w "" || true
+sleep 3
+PID_OPEN=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 AND status='OPEN' ORDER BY id DESC LIMIT 1" 2>/dev/null)
+bal=$(mysql -ufinance -pfinance finance -sN -e "SELECT end_balance FROM period_snapshot WHERE period_id=$PID_OPEN AND account_id=$STOCK_ACC" 2>/dev/null)
+# 预期 BABA 100 × $price × USD→HKD(经 CNY 中转 ≈ 7.83)+ 腾讯 200 × HK$459 ≈ 196k 量级
+# 容差大:只要 > 50000(说明 fx 链式生效 · 不再走 1.0 兜底)
+bal_int=$(echo "$bal" | cut -d. -f1)
+{ [[ -n "$bal" ]] && [[ "$bal_int" -gt 50000 ]] && [[ "$bal_int" -lt 500000 ]]; } \
+  && log_ok "v03-STOCK-11 fx 链式跨币种 USD/HKD/HKD 账户 · bal=$bal HKD(经 CNY 中转)" \
+  || log_bad "v03-STOCK-11 fx 链式失败 · 走 1.0 兜底" "bal=$bal"
+
+# 恢复账户币种
+mysql -ufinance -pfinance finance -e "UPDATE account SET currency='$ORIG_CURR' WHERE id=$STOCK_ACC; DELETE FROM stock_holding WHERE account_id=$STOCK_ACC;" 2>/dev/null
+
 # 复跑后置:清测试持仓 · 重算原始账户余额
 mysql -ufinance -pfinance finance -e "DELETE FROM stock_holding WHERE display_name LIKE 'v03 %';" 2>/dev/null
 

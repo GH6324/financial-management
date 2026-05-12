@@ -513,12 +513,18 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 | v03-GOAL-12 | 顶部 nav 加 /goals link |
 | **v03-IND · 6 条 · 储蓄能力 FR-51 系列** | |
 | v03-IND-1 | /entry 含 FR-51 家庭口径 2 框 form |
-| v03-IND-2 | POST /entry/cashflow-summary 写入 35k/18k 到 period.total_*_input |
+| v03-IND-2 | POST /entry/cashflow-summary 写入成员级 period_member_cashflow(2026-05-13 修订)|
 | v03-IND-3 | 空值 → NULL 入库(选填 backward compat) |
 | v03-IND-4 | /reports 无数据时显储蓄引导卡 |
 | v03-IND-5 | /reports 储蓄区块有数据时显双柱图(canvas#savings-bars) |
 | v03-IND-6 | v0.2 reports 既有内容保留(backward compat) |
-| **v03-STOCK · 10 条 · 股票自动估值 FR-52 系列** | |
+| v03-IND-7 | /entry FR-51 在「本期总进度」之前(置顶 · 第一步) |
+| v03-IND-8 | Dashboard 月均收入 / 月均支出 / 储蓄率 / 已填月份 4 KPI 卡 |
+| v03-IND-9 | /reports 储蓄区块加月均收入 KPI · 数据来自 period_member_cashflow 聚合 |
+| v03-IND-10 | /checkup 用 HouseholdCashflowService 算月均支出(优先 v0.3 口径 · fallback v0.2 cash_flow)|
+| v03-IND-11 | **多成员独立填**(2026-05-13)· diwa + bob · dashboard SUM 显 ¥62k / ¥23k |
+| v03-IND-12 | /entry 含「家庭本月总收入 SUM 成员」聚合区块 + 已填 N/M 人 |
+| **v03-STOCK · 11 条 · 股票自动估值 FR-52 系列** | |
 | v03-STOCK-1 | STOCK 账户持仓页 200 |
 | v03-STOCK-2 | 非 STOCK 账户拒绝持仓页 |
 | v03-STOCK-3 | 创建 MANUAL 持仓 · 入库 100k |
@@ -529,6 +535,7 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 | v03-STOCK-8 | refresh 全家估值不抛异常 · backward compat |
 | v03-STOCK-9 | 持仓归档后账户余额重算 |
 | v03-STOCK-10 | /entry STOCK 行加持仓变动入口(FR-52b) |
+| v03-STOCK-11 | **fx 链式跨币种**(2026-05-13 修复)· HKD 账户 + USD/HKD 混合持仓 · 经 CNY 中转 · bal 验证链式生效 |
 | **v03-AI · 6 条 · AI 4 处介入 FR-53 系列** | |
 | v03-AI-1 | /goals/advise/retirement 返回合法 JSON(ok/error) |
 | v03-AI-2 | /goals/advise/education JSON 响应 |
@@ -537,10 +544,10 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 | v03-AI-5 | 退休向导含 AI 推荐按钮 + JS |
 | v03-AI-6 | /checkup 既有页面渲染保留(backward compat · 无目标家庭 prompt 不加段) |
 
-### v0.3 · 总结
+### v0.3 · 总结(2026-05-13 最新)
 
-- 新加 **34 条**黑盒 case · 全 PASS
-- 总 PASS=217 / FAIL=4(pre-existing v0.2 dev 数据问题 · 与 v0.3 改动无关)
+- 新加 **41 条**黑盒 case 全 PASS(v03-GOAL × 12 + v03-IND × 12 + v03-STOCK × 11 + v03-AI × 6)
+- 总 PASS=225 / FAIL=3(pre-existing v0.2 PILL/DIAG dev 数据问题 · 与 v0.3 无关)/ SKIP=2
 - 单测 114(v0.2 既有 76 + v0.3 新增 38 全绿)
 - 真 LLM 调用验证:Qwen-Plus 返回合理参数 + rationale(beta 已验)
 - 真数据源验证:新浪国内可达 · BABA/600519/00700 三市场拉价成功

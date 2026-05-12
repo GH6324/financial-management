@@ -13,6 +13,7 @@ import com.family.finance.repository.MemberMapper;
 import com.family.finance.repository.SnapshotMapper;
 import com.family.finance.repository.StockHoldingMapper;
 import com.family.finance.repository.StockPriceSnapshotMapper;
+import com.family.finance.service.FamilyService;
 import com.family.finance.service.FxService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -48,6 +49,7 @@ public class AccountValuationService {
     private final PeriodMapper periodMapper;
     private final MemberMapper memberMapper;
     private final FxService fxService;
+    private final FamilyService familyService;
 
     public AccountValuationService(AccountMapper accountMapper,
                                    StockHoldingMapper holdingMapper,
@@ -55,7 +57,8 @@ public class AccountValuationService {
                                    SnapshotMapper snapshotMapper,
                                    PeriodMapper periodMapper,
                                    MemberMapper memberMapper,
-                                   FxService fxService) {
+                                   FxService fxService,
+                                   FamilyService familyService) {
         this.accountMapper = accountMapper;
         this.holdingMapper = holdingMapper;
         this.priceMapper = priceMapper;
@@ -63,6 +66,7 @@ public class AccountValuationService {
         this.periodMapper = periodMapper;
         this.memberMapper = memberMapper;
         this.fxService = fxService;
+        this.familyService = familyService;
     }
 
     /**
@@ -189,10 +193,20 @@ public class AccountValuationService {
     }
 
     /**
-     * 取 fromCurrency → toCurrency 的汇率。
+     * 取 fromCurrency → toCurrency 的汇率(可能跨币种 · 自动经 base 中转)。
      *
-     * <p>v0.2 fx_rate 表只存 family.base_currency 为 base 的方向(CNY→HKD=1.152 / CNY→USD=0.147)。
-     * 若需要反向(HKD→CNY),取 base→quote 后用 1/rate。</p>
+     * <p>解析顺序:</p>
+     * <ol>
+     *   <li>直接 from→to</li>
+     *   <li>反向 to→from · 用 1/rate</li>
+     *   <li>**经家庭 base 中转** · from→base × base→to(每段各自尝试直接 / 反向)</li>
+     * </ol>
+     *
+     * <p>典型场景:账户 currency=HKD · 持仓 currency=USD · base=CNY · fx_rate 表只存 CNY→other</p>
+     * <ul>
+     *   <li>查 USD→HKD:直接 ✗ · 反向 ✗</li>
+     *   <li>链式:USD→CNY(用 1 / (CNY→USD))× CNY→HKD = 6.80 × 1.152 ≈ 7.83</li>
+     * </ul>
      */
     private BigDecimal resolveFxRate(long familyId, String fromCurrency, String toCurrency) {
         if (fromCurrency == null || toCurrency == null || fromCurrency.equalsIgnoreCase(toCurrency)) {
@@ -201,18 +215,39 @@ public class AccountValuationService {
         Period current = periodMapper.findCurrentOpen(familyId).orElse(null);
         if (current == null) return BigDecimal.ONE;
 
-        // 1. 直接方向
-        var direct = fxService.getOrFetchRate(familyId, fromCurrency, toCurrency, current.getId());
-        if (direct.isPresent() && direct.get().getRate() != null && direct.get().getRate().signum() > 0) {
-            return direct.get().getRate();
+        // 1 + 2: 直接 + 反向
+        BigDecimal direct = directOrReverse(familyId, fromCurrency, toCurrency, current.getId());
+        if (direct != null) return direct;
+
+        // 3: 经家庭 base 中转
+        String base = familyService.require(familyId).getBaseCurrency();
+        if (base != null
+                && !base.equalsIgnoreCase(fromCurrency)
+                && !base.equalsIgnoreCase(toCurrency)) {
+            BigDecimal fromToBase = directOrReverse(familyId, fromCurrency, base, current.getId());
+            BigDecimal baseToOut  = directOrReverse(familyId, base, toCurrency, current.getId());
+            if (fromToBase != null && baseToOut != null) {
+                BigDecimal chained = fromToBase.multiply(baseToOut).setScale(8, RoundingMode.HALF_EVEN);
+                log.debug("fx chained · {}→{}→{} = {}", fromCurrency, base, toCurrency, chained);
+                return chained;
+            }
         }
-        // 2. 反向 · 1/rate
-        var reverse = fxService.getOrFetchRate(familyId, toCurrency, fromCurrency, current.getId());
-        if (reverse.isPresent() && reverse.get().getRate() != null && reverse.get().getRate().signum() > 0) {
-            return BigDecimal.ONE.divide(reverse.get().getRate(), 8, RoundingMode.HALF_EVEN);
-        }
+
         log.warn("no fx rate · {}/{} · family={} · using 1.0 fallback", fromCurrency, toCurrency, familyId);
         return BigDecimal.ONE;
+    }
+
+    /** 尝试 from→to · 失败试反向 to→from 取倒数 · 都失败返回 null。 */
+    private BigDecimal directOrReverse(long familyId, String from, String to, long periodId) {
+        var d = fxService.getOrFetchRate(familyId, from, to, periodId);
+        if (d.isPresent() && d.get().getRate() != null && d.get().getRate().signum() > 0) {
+            return d.get().getRate();
+        }
+        var r = fxService.getOrFetchRate(familyId, to, from, periodId);
+        if (r.isPresent() && r.get().getRate() != null && r.get().getRate().signum() > 0) {
+            return BigDecimal.ONE.divide(r.get().getRate(), 8, RoundingMode.HALF_EVEN);
+        }
+        return null;
     }
 
     /**

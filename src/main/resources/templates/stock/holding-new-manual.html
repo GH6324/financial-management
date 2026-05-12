@@ -28,13 +28,15 @@
     </div>
 
     <div>
-      <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">当前市值(本位币 ¥)</label>
+      <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block"
+             th:text="'当前市值(账户币种 ' + ${account.currency} + ')'">当前市值(账户币种 HKD)</label>
       <div class="flex items-center gap-2">
-        <span class="font-mono text-xl text-ink-subtle">¥</span>
+        <span class="font-mono text-xl text-ink-subtle" th:text="${account.currency}">HKD</span>
         <input type="number" name="manualValue" step="0.01" min="0" required
                class="flex-1 font-mono text-xl bg-paper-soft border border-rule px-4 py-3 tnum text-right">
       </div>
-      <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 直接填本位币 · 不做汇率换算</p>
+      <p class="font-mono text-[10px] text-ink-subtle mt-1"
+         th:text="'↳ 直接填账户币种(' + ${account.currency} + ')· 不做汇率换算 · 如果你的实际持仓是其它币种,自己心算后填入'">↳ 直接填账户币种 · 不做汇率换算</p>
     </div>
 
     <div class="paper-card p-4 bg-card-soft" style="border-left:4px solid var(--rust)">

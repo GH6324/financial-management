@@ -94,8 +94,10 @@
         </div>
         <div th:if="${h.valuationMode.name() == 'MANUAL'}" class="grid grid-cols-2 gap-6 text-sm">
           <div>
-            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">市值(本币 · 手填)</div>
-            <div class="tnum text-brass-deep" th:text="'¥' + ${#numbers.formatInteger(h.manualValue, 0, 'COMMA')}">¥250,000</div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5"
+                 th:text="'市值(' + ${account.currency} + ' · 手填)'">市值(HKD · 手填)</div>
+            <div class="tnum text-brass-deep"
+                 th:text="${account.currency} + ' ' + ${#numbers.formatInteger(h.manualValue, 0, 'COMMA')}">HKD 250,000</div>
           </div>
           <div>
             <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">上次更新</div>
@@ -132,7 +134,8 @@
     <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-2">混 · 合 · 模 · 式 · 说 · 明</div>
     <ul class="text-sm text-ink-soft space-y-1.5">
       <li>· <strong class="text-ink">AUTO</strong>:录入 ticker + 数量 · 系统每日 T+1 拉价 · 无维护成本</li>
-      <li>· <strong class="text-ink">MANUAL</strong>:手填本位币市值 · 适合未上市/私募/拉不到价</li>
+      <li>· <strong class="text-ink">MANUAL</strong>:手填账户币种市值 · 适合未上市/私募/拉不到价(默认账户币种 · 不做汇率换算)</li>
+      <li>· <strong class="text-ink">多币种混合</strong>:同一账户可放任意币种持仓(港股/美股/A股)· 系统按各持仓原币种算市值 · 再用汇率折算成账户币种汇总</li>
       <li>· 拉价失败 · 自动用最近已知价 + UI 标"陈旧 N 天" · > 7 天提示改 MANUAL</li>
       <li>· **关键 backward compat:**此账户未添加任何持仓时,系统不动 account_balance · 沿用 v0.2 手填行为</li>
     </ul>
