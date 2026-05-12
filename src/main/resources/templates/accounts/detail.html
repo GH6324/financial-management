@@ -193,6 +193,12 @@
       <span>返回账户簿</span>
     </a>
     <div class="flex gap-2">
+      <!-- v0.3 FR-52 · STOCK 类型加持仓管理入口 · 其它类型不显 -->
+      <a th:if="${detail.account.type != null and detail.account.type.name() == 'STOCK'}"
+         th:href="@{|/accounts/${detail.account.id}/holdings|}"
+         class="btn-paper text-[11px] no-underline inline-flex items-center gap-1.5" title="持仓管理">
+        <span>📦 持仓管理</span>
+      </a>
       <a th:href="@{/checkup(account=${detail.account.id})}" class="btn-paper text-[11px] no-underline inline-flex items-center gap-1.5" title="资产体检">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>

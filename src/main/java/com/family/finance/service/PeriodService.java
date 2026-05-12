@@ -13,6 +13,8 @@ import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.SnapshotTodoMapper;
 import com.family.finance.service.recompute.MetricsRecomputeJob;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -26,6 +28,7 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PeriodService {
 
     private final PeriodMapper periodMapper;
@@ -36,6 +39,10 @@ public class PeriodService {
     private final com.family.finance.repository.SnapshotMapper snapshotMapperRef;
     private final AuditLogService auditLogService;
     private final MetricsRecomputeJob metricsRecomputeJob;
+
+    // v0.3 FR-53b/c · 可选注入 · 失败/未配 LLM 时 null 安全(@Autowired required=false)
+    @Autowired(required = false)
+    private com.family.finance.service.goal.GoalReportService goalReportService;
 
     public Optional<Period> findCurrentOpen(long familyId) {
         return periodMapper.findCurrentOpen(familyId);
@@ -184,6 +191,17 @@ public class PeriodService {
         auditLogService.record(period.getFamilyId(), actorMemberId, AuditLogType.PERIOD_CLOSE,
                 "period", periodId, summary);
         runMetricsAfterCommit(periodId);
+
+        // v0.3 FR-53b/c · 异步触发 AI 月报 + 偏离预警 · 失败不阻塞 close 主流程
+        try {
+            if (goalReportService != null) {
+                goalReportService.generateMonthlyReportsAsync(period.getFamilyId(), periodId);
+                goalReportService.checkAndAlertAsync(period.getFamilyId(), periodId);
+            }
+        } catch (Exception e) {
+            // 防御性兜底:任何异常不应影响周期关闭主流程
+            log.warn("post-close AI hooks failed (non-blocking): {}", e.toString());
+        }
     }
 
     private void runMetricsAfterCommit(long periodId) {

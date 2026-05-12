@@ -43,3 +43,17 @@ application-secrets.yml
 
 # Claude Code 本地配置(私人偏好,不入仓)
 .claude/
+
+# v0.3 dev 临时测试文件(curl 调试残留 · 永久忽略)
+/cookies.txt
+/dash.html
+/dash2.html
+/entry.html
+/goals.html
+/rp.html
+/reports.html
+/holdings.html
+/login.html
+/g1.html
+/list.html
+/acc.html

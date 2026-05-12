@@ -7,12 +7,31 @@ import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 @Mapper
 public interface SnapshotMapper {
+
+    /**
+     * v0.3 FR-50c · 应急储备 PV · 按账户 type 过滤求 end_balance 之和。
+     * 假设 CASH 类账户币种 = 家庭本位币(若混合多币种,后续 v0.4 需走 fx 换算)。
+     */
+    @Select("""
+            SELECT COALESCE(SUM(ps.end_balance), 0)
+              FROM period_snapshot ps
+              JOIN account a ON a.id = ps.account_id
+             WHERE ps.period_id = #{periodId}
+               AND a.family_id = #{familyId}
+               AND a.type = #{accountType}
+               AND a.archived_at IS NULL
+            """)
+    Optional<BigDecimal> sumEndBalanceByAccountType(@Param("familyId") long familyId,
+                                                    @Param("periodId") long periodId,
+                                                    @Param("accountType") String accountType);
+
 
     @Select("""
             SELECT id, period_id, account_id, end_balance, submitted_by, submitted_at, note

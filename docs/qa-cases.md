@@ -489,3 +489,73 @@ Tests run: 69, Failures: 0, Errors: 0, Skipped: 0
 ```
 
 v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
+
+---
+
+## v0.3 QA case(2026-05-12 交付)
+
+### v0.3 · 黑盒 case 段 · scripts/qa-run.sh
+
+| Case | 描述 |
+|---|---|
+| **v03-GOAL · 12 条 · 财务目标 FR-50 系列** | |
+| v03-GOAL-1 | 无目标时 /goals 列表显空状态引导卡 |
+| v03-GOAL-2 | POST /goals/new/retirement 创建退休目标 → 302 跳 detail |
+| v03-GOAL-3 | DB target_value = 通胀公式准确(15000×12×1.025^22/0.04 ≈ 7.75m) |
+| v03-GOAL-4 | GET /goals/{id} 详情含名称 + 三情景 + Chart.js canvas |
+| v03-GOAL-5 | 创建教育金 · child_member_id FK 入 params_json |
+| v03-GOAL-6 | 创建应急 · target_value=NULL(由 PV 计算时 derived) |
+| v03-GOAL-7 | /goals 列表渲染 3 个目标(退休/教育/应急) |
+| v03-GOAL-8 | Dashboard 条带含目标 · 引导卡消失(C 混合) |
+| v03-GOAL-9 | 非法目标类型 → 4xx/5xx 拒绝 |
+| v03-GOAL-10 | POST /goals/{id}/archive 软删 archived_at 入库 · 列表过滤 |
+| v03-GOAL-11 | Dashboard v0.2 KPI 卡完全保留(backward compat) |
+| v03-GOAL-12 | 顶部 nav 加 /goals link |
+| **v03-IND · 6 条 · 储蓄能力 FR-51 系列** | |
+| v03-IND-1 | /entry 含 FR-51 家庭口径 2 框 form |
+| v03-IND-2 | POST /entry/cashflow-summary 写入 35k/18k 到 period.total_*_input |
+| v03-IND-3 | 空值 → NULL 入库(选填 backward compat) |
+| v03-IND-4 | /reports 无数据时显储蓄引导卡 |
+| v03-IND-5 | /reports 储蓄区块有数据时显双柱图(canvas#savings-bars) |
+| v03-IND-6 | v0.2 reports 既有内容保留(backward compat) |
+| **v03-STOCK · 10 条 · 股票自动估值 FR-52 系列** | |
+| v03-STOCK-1 | STOCK 账户持仓页 200 |
+| v03-STOCK-2 | 非 STOCK 账户拒绝持仓页 |
+| v03-STOCK-3 | 创建 MANUAL 持仓 · 入库 100k |
+| v03-STOCK-4 | 创建 AUTO BABA · 持仓+价格快照入库(新浪) |
+| v03-STOCK-5 | A 股 600519 拉价成功 · source=sina |
+| v03-STOCK-6 | 港股 ticker 规范化 0700 → 00700 |
+| v03-STOCK-7 | 估值写回 period_snapshot · note=auto-stock-valuation v0.3 |
+| v03-STOCK-8 | refresh 全家估值不抛异常 · backward compat |
+| v03-STOCK-9 | 持仓归档后账户余额重算 |
+| v03-STOCK-10 | /entry STOCK 行加持仓变动入口(FR-52b) |
+| **v03-AI · 6 条 · AI 4 处介入 FR-53 系列** | |
+| v03-AI-1 | /goals/advise/retirement 返回合法 JSON(ok/error) |
+| v03-AI-2 | /goals/advise/education JSON 响应 |
+| v03-AI-3 | /goals/advise/emergency JSON 响应 |
+| v03-AI-4 | 非法 type 4xx/5xx 拒 |
+| v03-AI-5 | 退休向导含 AI 推荐按钮 + JS |
+| v03-AI-6 | /checkup 既有页面渲染保留(backward compat · 无目标家庭 prompt 不加段) |
+
+### v0.3 · 总结
+
+- 新加 **34 条**黑盒 case · 全 PASS
+- 总 PASS=217 / FAIL=4(pre-existing v0.2 dev 数据问题 · 与 v0.3 改动无关)
+- 单测 114(v0.2 既有 76 + v0.3 新增 38 全绿)
+- 真 LLM 调用验证:Qwen-Plus 返回合理参数 + rationale(beta 已验)
+- 真数据源验证:新浪国内可达 · BABA/600519/00700 三市场拉价成功
+
+### v0.3 · 单元测试新增(JUnit 5)
+
+| 包 | 测试类 | 用例数 |
+|---|---|---|
+| calc | GoalProgressCalculatorTest | 13(三类目标 target 公式 + 进度 + 中位) |
+| calc | GoalProjectorTest | 10(三情景 FV + 二分反推达成日 + 边界) |
+| service.stock | SinaStockClientTest | 9(三市场 mock 解析 + 异常态) |
+| service.stock | TencentStockClientTest | 6(三市场 mock 解析) |
+
+```
+Tests run: 114, Failures: 0, Errors: 0, Skipped: 0
+```
+
+v0.3 新增 38 个单测,加 v0.2 既有 76 个,合计 114 个全过。

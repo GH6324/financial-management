@@ -22,6 +22,8 @@ import com.family.finance.service.FxService;
 import com.family.finance.service.NavService;
 import com.family.finance.service.checkup.FamilyDiagnose;
 import com.family.finance.service.checkup.FamilyDiagnoseService;
+import com.family.finance.service.HouseholdCashflowService;
+import com.family.finance.service.goal.GoalProgressService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -53,6 +55,8 @@ public class ReportsController {
     private final FxService fxService;
     private final NavService navService;
     private final FamilyDiagnoseService familyDiagnoseService;
+    private final GoalProgressService goalProgressService;
+    private final HouseholdCashflowService householdCashflowService;
 
     @GetMapping("/reports")
     public String reports(@AuthenticationPrincipal MemberPrincipal me,
@@ -171,6 +175,39 @@ public class ReportsController {
                 .map(b -> b.ratio() == null ? BigDecimal.ZERO
                         : b.ratio().multiply(new BigDecimal("100")).setScale(1, RoundingMode.HALF_EVEN))
                 .toList());
+
+        // v0.3 FR-51a/b · 储蓄能力 · 月度双柱(2026-05-13 修订:成员级 SUM 聚合)
+        try {
+            // 近 12 期家庭聚合 · 升序排列给图表用
+            var aggs = householdCashflowService.findRecentAggregates(me.getFamilyId(), 12);
+            var sortedAggs = aggs.stream()
+                .sorted((a, b) -> a.periodStart().compareTo(b.periodStart()))
+                .toList();
+            List<String> savLabels = sortedAggs.stream()
+                .map(a -> a.periodStart().toString().substring(2, 7)).toList();
+            List<BigDecimal> savIncome = sortedAggs.stream().map(a -> a.totalIncome()).toList();
+            List<BigDecimal> savExpense = sortedAggs.stream().map(a -> a.totalExpense()).toList();
+            int[] ratio = householdCashflowService.filledMonthRatio(me.getFamilyId());
+            model.addAttribute("savingsLabels", savLabels);
+            model.addAttribute("savingsIncome", savIncome);
+            model.addAttribute("savingsExpense", savExpense);
+            model.addAttribute("savingsMonthlyMedian", householdCashflowService.medianMonthlySavings(me.getFamilyId()));
+            model.addAttribute("savingsRate", householdCashflowService.currentSavingsRate(me.getFamilyId()));
+            model.addAttribute("avgMonthlyExpense", householdCashflowService.avgMonthlyExpense(me.getFamilyId()));
+            model.addAttribute("avgMonthlyIncome", householdCashflowService.avgMonthlyIncome(me.getFamilyId()));
+            model.addAttribute("savingsFilledMonths", ratio[0]);
+            model.addAttribute("savingsTotalMonths", ratio[1]);
+            model.addAttribute("savingsAvailable", ratio[0] > 0);
+            model.addAttribute("goalsProgress", goalProgressService.computeAll(me.getFamilyId()));
+        } catch (Exception e) {
+            model.addAttribute("savingsAvailable", false);
+            model.addAttribute("savingsFilledMonths", 0);
+            model.addAttribute("savingsTotalMonths", 0);
+            model.addAttribute("savingsLabels", List.of());
+            model.addAttribute("savingsIncome", List.of());
+            model.addAttribute("savingsExpense", List.of());
+            model.addAttribute("goalsProgress", List.of());
+        }
     }
 
     private List<Map<String, Object>> sankeyNodes(FactSlice slice) {

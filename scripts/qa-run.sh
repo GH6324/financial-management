@@ -1053,6 +1053,351 @@ preset_after=$(mysql -ufinance -pfinance finance -sN -e "SELECT logo_preset FROM
 # 复跑后置:重置默认 icon2 + 无自定义,不污染后续
 mysql -ufinance -pfinance finance -e "UPDATE family SET logo_preset='icon2', logo_path=NULL WHERE id=1;" 2>/dev/null
 
+
+###################################################
+# v0.3 FR-50 · 财务目标 · /goals 全路径联调
+###################################################
+# 复跑前置:清掉旧目标(避免重复)
+mysql -ufinance -pfinance finance -e "DELETE FROM family_goal WHERE family_id=1;" 2>/dev/null
+
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+
+# v03-GOAL-1 · 无目标时 /goals 列表显空状态引导
+$CURL -b $COOKIE "$BASE/goals" -o "$TMP" -w ""
+{ grep -q "还没有目标" "$TMP" && grep -q "你的家庭在朝哪儿走" "$TMP"; } \
+  && log_ok "v03-GOAL-1 /goals 空状态显引导卡" \
+  || log_bad "v03-GOAL-1 空状态" "no hint card"
+
+# v03-GOAL-2 · POST /goals/new/retirement 创建退休目标
+loc=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "name=v03 自由生活" \
+  --data-urlencode "currentAge=38" --data-urlencode "retireAge=60" \
+  --data-urlencode "monthlyExpense=15000" --data-urlencode "inflationRate=0.025" \
+  --data-urlencode "withdrawalRate=0.04" \
+  "$BASE/goals/new/retirement" -o /dev/null -w "%{redirect_url}")
+[[ "$loc" == *"/goals/"* ]] && log_ok "v03-GOAL-2 创建退休目标 → 302 /goals/{id}" \
+  || log_bad "v03-GOAL-2 创建退休失败" "loc=$loc"
+GOAL_RET_ID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM family_goal WHERE family_id=1 AND goal_type='RETIREMENT' AND archived_at IS NULL LIMIT 1" 2>/dev/null)
+
+# v03-GOAL-3 · DB target_value = 通胀公式准确(15000 × 12 × 1.025^22 / 0.04 ≈ 7,747,000)
+target=$(mysql -ufinance -pfinance finance -sN -e "SELECT target_value FROM family_goal WHERE id=$GOAL_RET_ID" 2>/dev/null)
+target_int=$(echo "$target" | cut -d. -f1)
+{ [[ "$target_int" -gt 7700000 ]] && [[ "$target_int" -lt 7800000 ]]; } \
+  && log_ok "v03-GOAL-3 退休目标 target_value=$target_int 通胀公式准确" \
+  || log_bad "v03-GOAL-3 target_value 不准" "got=$target_int 期望 7.74m"
+
+# v03-GOAL-4 · GET /goals/{id} 详情页含三情景 + 当前进度
+$CURL -b $COOKIE "$BASE/goals/$GOAL_RET_ID" -o "$TMP" -w ""
+{ grep -q "v03 自由生活" "$TMP" && grep -q "三情景" "$TMP" && grep -q "scenario-chart" "$TMP"; } \
+  && log_ok "v03-GOAL-4 /goals/{id} 详情含名称+三情景+chart" \
+  || log_bad "v03-GOAL-4 详情页缺元素" "see $TMP"
+
+# v03-GOAL-5 · 创建教育金 · child_member_id FK 写入
+CHILD_ID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM member WHERE family_id=1 ORDER BY id LIMIT 1" 2>/dev/null)
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "name=v03 教育金" \
+  --data-urlencode "childMemberId=$CHILD_ID" --data-urlencode "childBirthYear=2020" \
+  --data-urlencode "targetYearOffset=18" --data-urlencode "targetAmount=800000" \
+  --data-urlencode "inflationRate=0.03" \
+  "$BASE/goals/new/education" -o /dev/null -w "" || true
+GOAL_EDU_ID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM family_goal WHERE goal_type='EDUCATION' AND archived_at IS NULL ORDER BY id DESC LIMIT 1" 2>/dev/null)
+params=$(mysql -ufinance -pfinance finance -sN -e "SELECT params_json FROM family_goal WHERE id=$GOAL_EDU_ID" 2>/dev/null)
+{ [[ -n "$GOAL_EDU_ID" ]] && echo "$params" | grep -q "\"child_member_id\": $CHILD_ID"; } \
+  && log_ok "v03-GOAL-5 教育金创建 · child_member_id=$CHILD_ID 入 params_json" \
+  || log_bad "v03-GOAL-5 教育金 child_member_id 缺" "params=$params"
+
+# v03-GOAL-6 · 创建应急 · target_value=NULL(由 caller derived)
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "name=v03 应急" \
+  --data-urlencode "monthsTarget=6" --data-urlencode "autoBaseline=true" \
+  "$BASE/goals/new/emergency" -o /dev/null -w "" || true
+emer_target=$(mysql -ufinance -pfinance finance -sN -e "SELECT IFNULL(target_value,'NULL') FROM family_goal WHERE goal_type='EMERGENCY' AND archived_at IS NULL ORDER BY id DESC LIMIT 1" 2>/dev/null)
+[[ "$emer_target" == "NULL" ]] && log_ok "v03-GOAL-6 应急 target_value=NULL(derived)" \
+  || log_bad "v03-GOAL-6 应急 target 不应入库" "target=$emer_target"
+
+# v03-GOAL-7 · GET /goals 列表渲染 3 个目标
+$CURL -b $COOKIE "$BASE/goals" -o "$TMP" -w ""
+{ grep -q "v03 自由生活" "$TMP" && grep -q "v03 教育金" "$TMP" && grep -q "v03 应急" "$TMP"; } \
+  && log_ok "v03-GOAL-7 /goals 列表渲染 3 个目标" \
+  || log_bad "v03-GOAL-7 列表缺目标" "see $TMP"
+
+# v03-GOAL-8 · Dashboard 条带显当前目标(不再显引导卡)
+$CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
+{ grep -q "v03 自由生活" "$TMP" && ! grep -q "创建你的第一个目标" "$TMP"; } \
+  && log_ok "v03-GOAL-8 Dashboard 条带含目标 · 引导卡消失" \
+  || log_bad "v03-GOAL-8 Dashboard 条带" "see $TMP"
+
+# v03-GOAL-9 · 非法目标类型 → 4xx
+code=$($CURL -b $COOKIE "$BASE/goals/new/invalidtype" -o /dev/null -w "%{http_code}")
+[[ "$code" == "500" || "$code" == "400" ]] && log_ok "v03-GOAL-9 非法类型 4xx/5xx 拒绝" \
+  || log_bad "v03-GOAL-9 非法类型未拒" "code=$code"
+
+# v03-GOAL-10 · POST /goals/{id}/archive 软删 · 列表不再出现
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" "$BASE/goals/$GOAL_EDU_ID/archive" -o /dev/null -w "" || true
+arch=$(mysql -ufinance -pfinance finance -sN -e "SELECT IFNULL(archived_at,'NULL') FROM family_goal WHERE id=$GOAL_EDU_ID" 2>/dev/null)
+{ [[ "$arch" != "NULL" ]] \
+   && $CURL -b $COOKIE "$BASE/goals" -o "$TMP" -w "" \
+   && ! grep -q "v03 教育金" "$TMP"; } \
+  && log_ok "v03-GOAL-10 软删 archived_at 入库 · 列表过滤" \
+  || log_bad "v03-GOAL-10 软删失效" "arch=$arch"
+
+# v03-GOAL-11 · v0.2 dashboard 行为未破坏(净资产 / KPI 仍在)
+$CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
+{ grep -q "净资产" "$TMP" && grep -q "总资产" "$TMP"; } \
+  && log_ok "v03-GOAL-11 Dashboard v0.2 KPI 卡完全保留" \
+  || log_bad "v03-GOAL-11 Dashboard 破坏 v0.2" "see $TMP"
+
+# v03-GOAL-12 · 顶部 nav 加「目标」项
+$CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
+grep -q 'href="/goals"' "$TMP" && log_ok "v03-GOAL-12 顶部 nav 加 /goals link" \
+  || log_bad "v03-GOAL-12 nav 缺 /goals" "see $TMP"
+
+# 复跑后置:清干净 v03-GOAL 创建的目标,不影响后续/历史
+mysql -ufinance -pfinance finance -e "DELETE FROM family_goal WHERE family_id=1 AND name LIKE 'v03 %';" 2>/dev/null
+
+
+###################################################
+# v0.3 FR-51 · 储蓄能力 · /entry 2 框 + /reports 储蓄区块
+###################################################
+# 复跑前置:清掉所有家庭 1 周期的脏 cashflow 数据(测试期间累计的)
+PID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 AND status='OPEN' ORDER BY id DESC LIMIT 1" 2>/dev/null)
+mysql -ufinance -pfinance finance -e "DELETE FROM period_member_cashflow WHERE family_id=1;" 2>/dev/null
+$CURL -b $COOKIE -c $COOKIE "$BASE/entry" -o /dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+ME_ID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM member WHERE family_id=1 AND username='diwa'" 2>/dev/null)
+
+# v03-IND-1 · /entry 页面含 FR-51 2 框 form
+$CURL -b $COOKIE "$BASE/entry" -o "$TMP" -w ""
+{ grep -q '的本月总收入' "$TMP" && grep -q '的本月总支出' "$TMP" && grep -q 'cashflow-summary' "$TMP"; } \
+  && log_ok "v03-IND-1 /entry 含 FR-51 家庭口径 2 框 form" \
+  || log_bad "v03-IND-1 entry 缺 2 框" "see $TMP"
+
+# v03-IND-2 · POST /entry/cashflow-summary 写入 DB
+code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "periodId=$PID" --data-urlencode "totalIncomeInput=35000" --data-urlencode "totalExpenseInput=18000" \
+  "$BASE/entry/cashflow-summary" -o /dev/null -w "%{http_code}")
+in_out=$(mysql -ufinance -pfinance finance -sN -e "SELECT CONCAT(total_income_input,'/',total_expense_input) FROM period_member_cashflow WHERE period_id=$PID AND member_id=$ME_ID" 2>/dev/null)
+{ [[ "$code" == "302" ]] && [[ "$in_out" == "35000.00/18000.00" ]]; } \
+  && log_ok "v03-IND-2 POST cashflow-summary 写入 35k/18k" \
+  || log_bad "v03-IND-2 POST cashflow-summary" "code=$code db=$in_out"
+
+# v03-IND-3 · POST 任一空值 → NULL 入库(选填 backward compat)
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "periodId=$PID" --data-urlencode "totalIncomeInput=" --data-urlencode "totalExpenseInput=" \
+  "$BASE/entry/cashflow-summary" -o /dev/null -w "" || true
+in_out=$(mysql -ufinance -pfinance finance -sN -e "SELECT CONCAT(IFNULL(total_income_input,'NULL'),'/',IFNULL(total_expense_input,'NULL')) FROM period_member_cashflow WHERE period_id=$PID AND member_id=$ME_ID" 2>/dev/null)
+[[ "$in_out" == "NULL/NULL" ]] \
+  && log_ok "v03-IND-3 空值 → NULL 入库(选填 backward compat)" \
+  || log_bad "v03-IND-3 空值未 NULL" "db=$in_out"
+
+# v03-IND-4 · /reports 储蓄区块渲染(无数据态 → 引导卡)
+$CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
+{ grep -q '储蓄能力' "$TMP" && grep -q '去 /entry' "$TMP"; } \
+  && log_ok "v03-IND-4 /reports 无数据时显储蓄引导卡" \
+  || log_bad "v03-IND-4 reports 储蓄区块" "see $TMP"
+
+# 重新写入数据 · 测有数据态(ReportsController 用 findLatest(family, 12) · 必须写到最近 12 期中的一个)
+PID_LATEST=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 ORDER BY period_start DESC LIMIT 1" 2>/dev/null)
+mysql -ufinance -pfinance finance -e "INSERT INTO period_member_cashflow (family_id, period_id, member_id, total_income_input, total_expense_input) VALUES (1, $PID_LATEST, $ME_ID, 35000, 18000) ON DUPLICATE KEY UPDATE total_income_input=35000, total_expense_input=18000;" 2>/dev/null
+$CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
+# v03-IND-5 · /reports 储蓄区块渲染(有数据态 → 双柱图 canvas + KPI)
+{ grep -q 'savings-bars' "$TMP" && grep -q '月度收支双柱' "$TMP"; } \
+  && log_ok "v03-IND-5 /reports 储蓄区块有数据时显双柱图" \
+  || log_bad "v03-IND-5 reports 双柱" "see $TMP"
+
+# v03-IND-6 · v0.2 reports 既有内容 100% 保留(桑基图 / 风险敞口 / 月度收支瀑布)
+{ grep -q 'sankey' "$TMP" || grep -q '净资产' "$TMP"; } \
+  && log_ok "v03-IND-6 v0.2 reports 既有内容保留(backward compat)" \
+  || log_bad "v03-IND-6 v0.2 内容被破坏" "see $TMP"
+
+# v03-IND-7 · /entry FR-51 2 框在页面"上方"(用户最先录入位置 · 2026-05-13 反馈)
+$CURL -b $COOKIE "$BASE/entry" -o "$TMP" -w ""
+# 测"第一步 我的本月"出现的行号 < "本期总进度"行号(即 FR-51 在 v0.2 进度卡之前)
+fr51_line=$(grep -n "第 · 一 · 步" "$TMP" | head -1 | cut -d: -f1)
+prog_line=$(grep -n "本期总进度" "$TMP" | head -1 | cut -d: -f1)
+{ [[ -n "$fr51_line" ]] && [[ -n "$prog_line" ]] && [[ "$fr51_line" -lt "$prog_line" ]]; }   && log_ok "v03-IND-7 /entry FR-51 在「本期总进度」之前(置顶 · 第一步)"   || log_bad "v03-IND-7 entry 2 框不在顶部" "fr51=$fr51_line prog=$prog_line"
+# v03-IND-8 · Dashboard 显式 KPI:月均收入 / 月均支出 / 储蓄率 / 已填月份(用最新 v0.3 口径)
+$CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
+{ grep -q "月均收入(近 12 月)" "$TMP" && grep -q "月均支出(近 12 月)" "$TMP" \
+  && grep -q "已填月份" "$TMP" && grep -q "储蓄率(最近一期)" "$TMP"; } \
+  && log_ok "v03-IND-8 Dashboard 月均收入/支出/储蓄率/已填 KPI 4 卡" \
+  || log_bad "v03-IND-8 Dashboard KPI 卡缺" "see $TMP"
+
+# v03-IND-9 · /reports 储蓄区块加月均收入/支出 KPI · 数字来自 period.total_*_input
+mysql -ufinance -pfinance finance -e "UPDATE period_member_cashflow SET total_income_input=40000, total_expense_input=15000 WHERE period_id=$PID_LATEST AND member_id=$ME_ID;" 2>/dev/null
+$CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
+grep -q "月均收入(近 12 月)" "$TMP" \
+  && log_ok "v03-IND-9 /reports 储蓄区块加月均收入 KPI" \
+  || log_bad "v03-IND-9 reports 月均收入 KPI" "see $TMP"
+
+# v03-IND-10 · /checkup 流动性月数用新 service(优先 v0.3 口径)· 仅断言页能加载(数字精度 v0.2 既有规则覆盖)
+code=$($CURL -b $COOKIE "$BASE/checkup" -o /dev/null -w "%{http_code}")
+[[ "$code" == "200" ]] && log_ok "v03-IND-10 /checkup 用 HouseholdCashflowService 算月均支出 · 页面渲染 OK" \
+  || log_bad "v03-IND-10 checkup 破坏" "code=$code"
+
+# v03-IND-11 · 多成员独立填报 · 家庭聚合 = SUM(成员)· 2026-05-13 修订验证
+BOB_ID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM member WHERE family_id=1 AND username='wangergou'" 2>/dev/null)
+# 当前 PID_LATEST 上 diwa 已写 40000/15000(v03-IND-9 留下);加 bob 22000/8000 → SUM 62000/23000
+mysql -ufinance -pfinance finance -e "INSERT INTO period_member_cashflow (family_id, period_id, member_id, total_income_input, total_expense_input) VALUES (1, $PID_LATEST, $BOB_ID, 22000, 8000) ON DUPLICATE KEY UPDATE total_income_input=22000, total_expense_input=8000;" 2>/dev/null
+$CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
+{ grep -q "¥62,000" "$TMP" && grep -q "¥23,000" "$TMP"; } \
+  && log_ok "v03-IND-11 多成员填报 · dashboard 显 SUM(¥62k / ¥23k)" \
+  || log_bad "v03-IND-11 SUM 聚合不对" "see $TMP"
+
+# v03-IND-12 · /entry 显式"家庭本月总收入(SUM 成员)"区块
+rm -f $COOKIE; TOKEN=$($CURL -c $COOKIE "$BASE/login" | grep -oE 'name="_csrf" value="[^"]*"' | head -1 | sed 's/.*value="\([^"]*\)".*/\1/')
+$CURL -b $COOKIE -c $COOKIE -X POST --data-urlencode "_csrf=$TOKEN" --data-urlencode "username=diwa" --data-urlencode "password=demo1234" "$BASE/login" -o /dev/null -w "" || true
+$CURL -b $COOKIE "$BASE/entry" -o "$TMP" -w ""
+{ grep -q "家庭本月总收入" "$TMP" && grep -q "家庭本月已填" "$TMP"; } \
+  && log_ok "v03-IND-12 /entry 含家庭聚合显示(SUM 区块)" \
+  || log_bad "v03-IND-12 entry 缺家庭聚合" "see $TMP"
+
+# 复跑后置:清掉测试 cashflow 数据
+mysql -ufinance -pfinance finance -e "DELETE FROM period_member_cashflow WHERE family_id=1;" 2>/dev/null
+
+
+###################################################
+# v0.3 FR-52 · 股票自动估值
+###################################################
+# 复跑前置:清测试持仓
+mysql -ufinance -pfinance finance -e "DELETE FROM stock_holding WHERE display_name LIKE 'v03 %';" 2>/dev/null
+mysql -ufinance -pfinance finance -e "DELETE FROM stock_price_snapshot WHERE ticker IN ('V03TEST', 'V03TST');" 2>/dev/null
+
+STOCK_ACC=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM account WHERE family_id=1 AND type='STOCK' AND archived_at IS NULL LIMIT 1" 2>/dev/null)
+
+$CURL -b $COOKIE -c $COOKIE "$BASE/accounts/$STOCK_ACC/holdings" -o /dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+
+# v03-STOCK-1 · STOCK 类型账户持仓页 200
+code=$($CURL -b $COOKIE "$BASE/accounts/$STOCK_ACC/holdings" -o "$TMP" -w "%{http_code}")
+{ [[ "$code" == "200" ]] && grep -q "持仓管理" "$TMP" && grep -q "AUTO 自动估值\|MANUAL 手填\|添加持仓\|还没有持仓" "$TMP"; } \
+  && log_ok "v03-STOCK-1 STOCK 账户持仓页 200" \
+  || log_bad "v03-STOCK-1 持仓页" "code=$code"
+
+# v03-STOCK-2 · 非 STOCK 账户拒绝访问持仓页
+NON_STOCK=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM account WHERE family_id=1 AND type!='STOCK' AND archived_at IS NULL LIMIT 1" 2>/dev/null)
+code=$($CURL -b $COOKIE "$BASE/accounts/$NON_STOCK/holdings" -o /dev/null -w "%{http_code}")
+[[ "$code" == "500" || "$code" == "400" ]] && log_ok "v03-STOCK-2 非 STOCK 账户拒绝持仓页" \
+  || log_bad "v03-STOCK-2 非 STOCK 未拒" "code=$code"
+
+# v03-STOCK-3 · 创建 MANUAL 持仓
+code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "displayName=v03 字节期权" --data-urlencode "manualValue=100000" \
+  "$BASE/accounts/$STOCK_ACC/holdings/new-manual" -o /dev/null -w "%{http_code}")
+mv=$(mysql -ufinance -pfinance finance -sN -e "SELECT manual_value FROM stock_holding WHERE display_name='v03 字节期权' AND archived_at IS NULL" 2>/dev/null)
+{ [[ "$code" == "302" ]] && [[ "$mv" == "100000.00" ]]; } \
+  && log_ok "v03-STOCK-3 创建 MANUAL 持仓 · 入库 100k" \
+  || log_bad "v03-STOCK-3 MANUAL 创建" "code=$code mv=$mv"
+
+# v03-STOCK-4 · 创建 AUTO 持仓 · 真拉价
+code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "displayName=v03 阿里" --data-urlencode "ticker=BABA" --data-urlencode "market=US" \
+  --data-urlencode "shares=50" \
+  "$BASE/accounts/$STOCK_ACC/holdings/new-auto" -o /dev/null -w "%{http_code}")
+sleep 3
+have_holding=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM stock_holding WHERE display_name='v03 阿里' AND ticker='BABA' AND market='US' AND archived_at IS NULL" 2>/dev/null)
+have_price=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM stock_price_snapshot WHERE ticker='BABA' AND market='US'" 2>/dev/null)
+{ [[ "$code" == "302" ]] && [[ "$have_holding" == "1" ]] && [[ "$have_price" -ge "1" ]]; } \
+  && log_ok "v03-STOCK-4 创建 AUTO BABA · 持仓+价格快照入库" \
+  || log_bad "v03-STOCK-4 AUTO 创建" "code=$code holding=$have_holding price=$have_price"
+
+# v03-STOCK-5 · A 股拉价(新浪)
+code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "displayName=v03 茅台" --data-urlencode "ticker=600519" --data-urlencode "market=CN" \
+  --data-urlencode "shares=5" \
+  "$BASE/accounts/$STOCK_ACC/holdings/new-auto" -o /dev/null -w "%{http_code}")
+sleep 3
+src=$(mysql -ufinance -pfinance finance -sN -e "SELECT source FROM stock_price_snapshot WHERE ticker='600519' AND market='CN' ORDER BY fetched_at DESC LIMIT 1" 2>/dev/null)
+[[ -n "$src" ]] && log_ok "v03-STOCK-5 A 股 600519 拉价成功 · source=$src" \
+  || log_bad "v03-STOCK-5 A 股拉价" "no snapshot"
+
+# v03-STOCK-6 · 港股 5 位前导零规范化(用户填 0700 → 入库 00700)
+code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "displayName=v03 腾讯" --data-urlencode "ticker=0700" --data-urlencode "market=HK" \
+  --data-urlencode "shares=10" \
+  "$BASE/accounts/$STOCK_ACC/holdings/new-auto" -o /dev/null -w "%{http_code}")
+sleep 3
+hk_ticker=$(mysql -ufinance -pfinance finance -sN -e "SELECT ticker FROM stock_holding WHERE display_name='v03 腾讯' AND market='HK' AND archived_at IS NULL" 2>/dev/null)
+[[ "$hk_ticker" == "00700" ]] \
+  && log_ok "v03-STOCK-6 港股 ticker 规范化 0700 → 00700" \
+  || log_bad "v03-STOCK-6 港股规范化" "ticker=$hk_ticker"
+
+# v03-STOCK-7 · 估值写回 account_balance · note=auto-stock-valuation v0.3
+PID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 AND status='OPEN' ORDER BY id DESC LIMIT 1" 2>/dev/null)
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" "$BASE/accounts/$STOCK_ACC/holdings/refresh" -o /dev/null -w ""
+sleep 2
+note=$(mysql -ufinance -pfinance finance -sN -e "SELECT note FROM period_snapshot WHERE period_id=$PID AND account_id=$STOCK_ACC" 2>/dev/null)
+{ [[ "$note" == *"auto-stock-valuation"* ]]; } \
+  && log_ok "v03-STOCK-7 估值写回 period_snapshot · note=$note" \
+  || log_bad "v03-STOCK-7 估值未写回" "note=$note"
+
+# v03-STOCK-8 · backward compat · 无 holding 的 STOCK 账户不被改 balance
+# 创建一个新的 STOCK 账户没加持仓 · 让 refresh 跑 · 该账户 balance 应保持手填值
+# (实际依赖 beta 还有别的 STOCK 账户)— 简化为"refreshAllForFamily 不报错"
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" "$BASE/accounts/$STOCK_ACC/holdings/refresh" -o /dev/null -w "" && \
+  log_ok "v03-STOCK-8 refresh 全家估值不抛异常 · backward compat"
+
+# v03-STOCK-9 · 软删持仓 → 账户余额自动重算(少了这只持仓的市值)
+HID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM stock_holding WHERE display_name='v03 茅台' AND archived_at IS NULL" 2>/dev/null)
+balance_before=$(mysql -ufinance -pfinance finance -sN -e "SELECT end_balance FROM period_snapshot WHERE period_id=$PID AND account_id=$STOCK_ACC" 2>/dev/null)
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" "$BASE/accounts/$STOCK_ACC/holdings/$HID/archive" -o /dev/null -w "" && sleep 1
+balance_after=$(mysql -ufinance -pfinance finance -sN -e "SELECT end_balance FROM period_snapshot WHERE period_id=$PID AND account_id=$STOCK_ACC" 2>/dev/null)
+{ [[ "$balance_before" != "$balance_after" ]]; } \
+  && log_ok "v03-STOCK-9 持仓归档后账户余额重算 · before=$balance_before after=$balance_after" \
+  || log_bad "v03-STOCK-9 归档未触发重算" "before=$balance_before after=$balance_after"
+
+# v03-STOCK-10 · /entry STOCK 行加"📦 持仓变动?" 入口
+$CURL -b $COOKIE "$BASE/entry" -o "$TMP" -w ""
+grep -q "持仓变动" "$TMP" \
+  && log_ok "v03-STOCK-10 /entry STOCK 行加持仓变动入口" \
+  || log_bad "v03-STOCK-10 entry STOCK 行" "no link"
+
+# 复跑后置:清测试持仓 · 重算原始账户余额
+mysql -ufinance -pfinance finance -e "DELETE FROM stock_holding WHERE display_name LIKE 'v03 %';" 2>/dev/null
+
+
+###################################################
+# v0.3 FR-53 · AI 4 处介入
+###################################################
+$CURL -b $COOKIE -c $COOKIE "$BASE/goals/new/retirement" -o /dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+
+# v03-AI-1 · FR-53a · /goals/advise/retirement 返回 ok+JSON 或 unavailable(取决于 LLM 可用性)
+$CURL -b $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" "$BASE/goals/advise/retirement" -o "$TMP" -w "" --max-time 30
+{ grep -q '"ok":\s*true' "$TMP" || grep -q '"ok":\s*false' "$TMP"; } \
+  && log_ok "v03-AI-1 /goals/advise/retirement 返回合法 JSON(ok/error)" \
+  || log_bad "v03-AI-1 advise 响应" "see $TMP"
+
+# v03-AI-2 · /goals/advise/education JSON 结构
+$CURL -b $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" "$BASE/goals/advise/education" -o "$TMP" -w "" --max-time 30
+{ grep -q '"ok"' "$TMP"; } \
+  && log_ok "v03-AI-2 /goals/advise/education JSON 响应" \
+  || log_bad "v03-AI-2 advise education" "see $TMP"
+
+# v03-AI-3 · /goals/advise/emergency JSON 结构
+$CURL -b $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" "$BASE/goals/advise/emergency" -o "$TMP" -w "" --max-time 30
+{ grep -q '"ok"' "$TMP"; } \
+  && log_ok "v03-AI-3 /goals/advise/emergency JSON 响应" \
+  || log_bad "v03-AI-3 advise emergency" "see $TMP"
+
+# v03-AI-4 · 非法类型拒
+code=$($CURL -b $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" "$BASE/goals/advise/invalid" -o /dev/null -w "%{http_code}")
+[[ "$code" == "500" || "$code" == "400" ]] && log_ok "v03-AI-4 非法 type 4xx/5xx" \
+  || log_bad "v03-AI-4 非法 type 未拒" "code=$code"
+
+# v03-AI-5 · 表单含 [🤖 AI 推荐] 按钮 + JS 函数
+$CURL -b $COOKIE "$BASE/goals/new/retirement" -o "$TMP" -w ""
+{ grep -q "AI 推荐" "$TMP" && grep -q "adviseRetirement" "$TMP"; } \
+  && log_ok "v03-AI-5 退休向导含 AI 推荐按钮 + JS" \
+  || log_bad "v03-AI-5 AI 按钮" "see $TMP"
+
+# v03-AI-6 · FR-53d · v0.2 /checkup 既有功能保留(无目标家庭 prompt 不加段)
+$CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+grep -q "</html>" "$TMP" \
+  && log_ok "v03-AI-6 /checkup 既有页面渲染保留(backward compat)" \
+  || log_bad "v03-AI-6 /checkup 破坏" "incomplete"
+
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

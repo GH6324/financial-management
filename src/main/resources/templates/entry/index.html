@@ -29,6 +29,83 @@
     </div>
   </section>
 
+  <!-- v0.3 FR-51 · 成员级月度收支(置顶 · 2026-05-13 修订)-->
+  <section class="mb-6 border-2 border-ink" style="background:var(--paper-soft)" th:if="${period.status.name() != 'CLOSED'}">
+    <div class="px-6 py-4 border-b border-rule-soft flex items-baseline justify-between flex-wrap gap-3">
+      <div>
+        <div class="eyebrow mb-1" style="color:var(--brass-deep)">第 · 一 · 步 · 我 · 的 · 本 · 月 · 收 · 支</div>
+        <h3 class="font-display text-xl font-medium">
+          <span th:text="${me.displayName}">我</span> 的本月收入 / 支出
+        </h3>
+        <p class="text-xs text-ink-soft mt-1">各成员各自填 · 家庭总额 = SUM(成员)· 支撑储蓄率 / 月均 / 目标月供 / 流动性月数</p>
+      </div>
+      <span class="font-mono text-[10px] text-ink-subtle">+15s · 不影响账户余额</span>
+    </div>
+
+    <form th:action="@{/entry/cashflow-summary}" method="post" class="p-6 space-y-4">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <input type="hidden" name="periodId" th:value="${period.id}">
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">
+            <span th:text="${me.displayName}">我</span> 的本月总收入 ¥
+          </label>
+          <input type="number" name="totalIncomeInput" step="0.01" min="0" max="99999999"
+                 th:value="${myCashflow != null ? myCashflow.totalIncomeInput : null}"
+                 placeholder="0 · 留空表示未填"
+                 class="w-full font-mono text-lg bg-paper border border-rule px-3 py-2.5 tnum text-right">
+          <p class="font-mono text-[10px] text-ink-subtle mt-1"
+             th:if="${myPrevCashflow != null and myPrevCashflow.totalIncomeInput != null}"
+             th:text="'↳ 上期你填的 · ¥' + ${#numbers.formatInteger(myPrevCashflow.totalIncomeInput, 0, 'COMMA')}">↳ 上期 · ¥0</p>
+        </div>
+        <div>
+          <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">
+            <span th:text="${me.displayName}">我</span> 的本月总支出 ¥
+          </label>
+          <input type="number" name="totalExpenseInput" step="0.01" min="0" max="99999999"
+                 th:value="${myCashflow != null ? myCashflow.totalExpenseInput : null}"
+                 placeholder="0 · 留空表示未填"
+                 class="w-full font-mono text-lg bg-paper border border-rule px-3 py-2.5 tnum text-right">
+          <p class="font-mono text-[10px] text-ink-subtle mt-1"
+             th:if="${myPrevCashflow != null and myPrevCashflow.totalExpenseInput != null}"
+             th:text="'↳ 上期你填的 · ¥' + ${#numbers.formatInteger(myPrevCashflow.totalExpenseInput, 0, 'COMMA')}">↳ 上期 · ¥0</p>
+        </div>
+      </div>
+
+      <!-- 家庭聚合实时显示 -->
+      <div class="border-t border-rule-soft pt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div>
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">家庭本月总收入(SUM 成员)</div>
+          <div class="font-display text-xl tnum"
+               th:text="${familyCurrentAgg != null and familyCurrentAgg.totalIncome != null ? ('¥' + #numbers.formatInteger(familyCurrentAgg.totalIncome, 0, 'COMMA')) : '—'}">¥0</div>
+        </div>
+        <div>
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">家庭本月总支出</div>
+          <div class="font-display text-xl tnum num-neg"
+               th:text="${familyCurrentAgg != null and familyCurrentAgg.totalExpense != null ? ('¥' + #numbers.formatInteger(familyCurrentAgg.totalExpense, 0, 'COMMA')) : '—'}">¥0</div>
+        </div>
+        <div>
+          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">家庭本月已填</div>
+          <div class="font-display text-xl tnum"
+               th:text="${(filledMembers != null ? filledMembers.size() : 0) + ' / ' + (totalMembers ?: 0) + ' 人'}">0 / 2 人</div>
+          <div class="font-mono text-[10px] text-ink-subtle mt-0.5"
+               th:if="${filledMembers != null and !filledMembers.isEmpty()}"
+               th:text="${'已填:' + #strings.listJoin(filledMembers.values(), ' · ')}">已填:成员A</div>
+        </div>
+      </div>
+
+      <div class="text-xs text-ink-soft pt-3 border-t border-rule-soft">
+        数据来源:你自己的银行 / 支付宝 / 微信 月度账单汇总 · 其他成员各自填自己的。
+        所有"家庭月均"等指标用 SUM(各成员) / 期数 计算。
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button type="submit" class="btn-ink text-sm">✓ 保存我的本月收支</button>
+      </div>
+    </form>
+  </section>
+
   <section class="mb-8 paper-card p-6">
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8 col-rule">
       <div>
@@ -94,7 +171,8 @@
     </div>
   </section>
 
-  <section class="border-t-4 border-double border-ink pt-6">
+
+  <section class="border-t-4 border-double border-ink pt-6 mt-8">
     <div class="flex items-center justify-between flex-wrap gap-4">
       <div>
         <div class="eyebrow mb-1">最后一步</div>

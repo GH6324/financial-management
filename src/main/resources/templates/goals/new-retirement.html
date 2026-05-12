@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('新建退休目标')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('goals', ${me}, ${nav})}"></header>
+
+<main class="max-w-[900px] mx-auto px-6 py-10 relative z-10">
+  <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+    <a th:href="@{/goals}" class="hover:text-ink no-underline">目标</a>
+    <span class="mx-2 text-rule">/</span>
+    <a th:href="@{/goals/new}" class="hover:text-ink no-underline">新建</a>
+    <span class="mx-2 text-rule">/</span><span class="text-ink">退休 / FIRE</span>
+  </div>
+
+  <div class="mb-8">
+    <div class="eyebrow mb-2" style="color:var(--brass-deep)">RETIREMENT · 退 · 休 · FIRE</div>
+    <h1 class="font-display text-4xl md:text-5xl font-medium tracking-tight">设定你的退休目标</h1>
+    <p class="font-serif text-sm text-ink-soft mt-3">填好 5 个参数,系统反推退休本金需求 + 三情景达成日。</p>
+  </div>
+
+  <!-- v0.3 FR-53a · AI 推荐默认值 -->
+  <div class="paper-card p-4 mb-4 bg-card-soft flex items-center justify-between" style="border-left:4px solid var(--brass-deep)">
+    <div>
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">🤖 AI · 推 · 荐 · 默 · 认 · 值 · FR-53a</div>
+      <p class="text-xs text-ink-soft mt-1">不确定怎么填?让 AI 基于你家庭基础信息(成员/净资产)推荐合理参数。</p>
+    </div>
+    <button type="button" id="ai-advise-btn"
+            onclick="adviseRetirement(this)"
+            class="btn-paper text-sm" style="border-color:var(--brass-deep);color:var(--brass-deep)">
+      🤖 AI 推荐
+    </button>
+  </div>
+  <div id="ai-rationale" class="hidden paper-card p-3 mb-4 bg-card-soft text-sm font-serif text-ink-soft"></div>
+
+  <form id="goal-form" th:action="@{/goals/new/retirement}" method="post" class="paper-card p-8 space-y-6">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+    <div>
+      <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">目标名称</label>
+      <input type="text" name="name" class="w-full font-display text-xl bg-paper-soft border border-rule px-4 py-3"
+             placeholder="自由生活 / FIRE 1.0 · 留空用默认名">
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">当前年龄</label>
+        <input type="number" name="currentAge" required min="18" max="80" value="38"
+               class="w-full font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum">
+      </div>
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">目标退休年龄</label>
+        <input type="number" name="retireAge" required min="18" max="90" value="60"
+               class="w-full font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum">
+      </div>
+      <div class="col-span-2">
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">期望月支出(今天购买力)¥</label>
+        <input type="number" name="monthlyExpense" required step="100" min="1000" max="1000000" value="15000"
+               class="w-full font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum text-right">
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 系统会按通胀率自动调整到退休时购买力</p>
+      </div>
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">通胀率假设(%)</label>
+        <input type="number" name="inflationRate" step="0.001" min="0" max="0.1" value="0.025"
+               class="w-full font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum">
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 默认 0.025(2.5%)· 范围 0-0.10</p>
+      </div>
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">退休取用率(4% rule)</label>
+        <input type="number" name="withdrawalRate" step="0.001" min="0.02" max="0.06" value="0.04"
+               class="w-full font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum">
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 默认 0.04(4%)· 范围 0.02-0.06</p>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between pt-6 border-t border-rule-soft">
+      <a th:href="@{/goals/new}" class="btn-paper no-underline">← 返回</a>
+      <button type="submit" class="btn-ink">✓ 保存并查看三情景</button>
+    </div>
+  </form>
+
+  <script th:inline="javascript">
+    /*<![CDATA[*/
+    const CSRF_TOKEN = /*[[${_csrf.token}]]*/ '';
+    const CSRF_HEADER = /*[[${_csrf.headerName}]]*/ 'X-XSRF-TOKEN';
+
+    async function adviseRetirement(btn) {
+      const orig = btn.textContent;
+      btn.textContent = '🤖 思考中...';
+      btn.disabled = true;
+      try {
+        const resp = await fetch('/goals/advise/retirement', {
+          method: 'POST',
+          headers: { [CSRF_HEADER]: CSRF_TOKEN }
+        });
+        const data = await resp.json();
+        if (!data.ok) {
+          alert('AI 暂不可用:' + (data.error || ''));
+          return;
+        }
+        const form = document.getElementById('goal-form');
+        if (data.currentAge) form.elements['currentAge'].value = data.currentAge;
+        if (data.retireAge) form.elements['retireAge'].value = data.retireAge;
+        if (data.monthlyExpense) form.elements['monthlyExpense'].value = data.monthlyExpense;
+        if (data.inflationRate) form.elements['inflationRate'].value = data.inflationRate;
+        if (data.withdrawalRate) form.elements['withdrawalRate'].value = data.withdrawalRate;
+        if (data.rationale) {
+          const r = document.getElementById('ai-rationale');
+          r.textContent = '✨ ' + data.rationale;
+          r.classList.remove('hidden');
+        }
+      } catch (e) {
+        alert('请求失败:' + e.message);
+      } finally {
+        btn.textContent = orig;
+        btn.disabled = false;
+      }
+    }
+    /*]]>*/
+  </script>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

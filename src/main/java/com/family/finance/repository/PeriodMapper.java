@@ -13,6 +13,13 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Period 表 Mapper · v0.2 行为完全保留。
+ *
+ * <p>v0.3 早期版本曾在此 Mapper 加了 total_income_input / total_expense_input(V15 家庭级)
+ * 相关字段和方法。2026-05-13 修订后改为成员级表 {@code period_member_cashflow}(V19),
+ * 此 Mapper 回到 v0.2 风格:不读 V15 加的两列,见 {@link PeriodMemberCashflowMapper}。</p>
+ */
 @Mapper
 public interface PeriodMapper {
 

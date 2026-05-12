@@ -1,0 +1,26 @@
+# =========================================================
+# 已知 checksum 偏离白名单 · apply.sh 看到偏离时自动更新 schema_history
+# =========================================================
+# 用途:列出"内容确实改过但 DDL 不变"的迁移文件,允许 apply.sh
+#       在校验失败时自动把 schema_history.checksum 更新为当前文件 sha,
+#       避免阻塞后续迁移。
+#
+# 适用场景(只能用于这些):
+#   · 注释 / 文档字符串调整
+#   · 种子数据中的 display_name / 占位文字脱敏
+#   · 字符串大小写 / 排版 · 不影响 DDL 也不影响行为
+#
+# 严禁用于(违反 backward compat 红线):
+#   · ALTER TABLE / ADD COLUMN / DROP COLUMN
+#   · 业务数据 UPDATE / DELETE / INSERT 内容变化
+#   · 改函数 / 触发器 / 视图 定义
+#
+# 格式:filename<TAB>原因(用 TAB 分隔)
+# =========================================================
+
+V2__seed.sql	v0.2.1 开源前真名脱敏 · 仅 member 种子 display_name 从真名改为代号(2026-05-11)
+V9__rename_zhangwei_to_diwa.sql	v0.2.1 开源前真名脱敏 · 仅注释中真名替换(2026-05-11)
+V13__rename_lijing_to_wangergou.sql	v0.2.1 开源前真名脱敏 · 仅注释中真名替换(2026-05-11)
+V10__step_v02_soft_delete.sql	v0.2 阶段 1 beta 开发中间版本(prod 不受影响 · 最终 schema 与 commit 版本一致)
+V11__step_v02_product_category.sql	v0.2 阶段 1 beta 开发中间版本(prod 不受影响 · 最终 schema 与 commit 版本一致)
+V12__family_logo_preset.sql	v0.2 beta 开发中间版本(prod 不受影响 · 最终 schema 与 commit 版本一致)

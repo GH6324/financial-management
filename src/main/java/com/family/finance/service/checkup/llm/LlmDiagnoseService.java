@@ -49,6 +49,10 @@ public class LlmDiagnoseService {
     private final ProductCategoryService categoryService;
     private final FamilyService familyService;
 
+    // v0.3 FR-53d · 可选注入 · 无 goal 时 null safe(v0.2 行为不变)
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.family.finance.service.goal.GoalProgressService goalProgressService;
+
     /** 内存 cache:key = SHA-256(prompt context),TTL 1h */
     private final ConcurrentHashMap<String, CacheEntry> cache = new ConcurrentHashMap<>();
     private static final long TTL_MS = 60L * 60 * 1000;
@@ -75,6 +79,13 @@ public class LlmDiagnoseService {
                     applyMappingToAdvice(adviceList, mapping.realToCodename()),
                     mapping.realToCodename()
             );
+
+            // v0.3 FR-53d · 注入目标相对视角段(仅当家庭已设定目标时 · 无目标家庭行为完全保留 v0.2)
+            String goalSection = buildGoalSection(familyId);
+            if (goalSection != null && !goalSection.isBlank()) {
+                userPrompt = userPrompt + "\n\n" + goalSection;
+            }
+
             String systemPrompt = PromptBuilder.systemPromptForDiagnose();
 
             // 防御深度:确保 prompt 里没有任何真名(否则就是 buildXxx 漏了字段)
@@ -315,5 +326,32 @@ public class LlmDiagnoseService {
     public Optional<String> peekCache(String key) {
         CacheEntry e = cache.get(key);
         return Optional.ofNullable(e == null ? null : e.diagnoseText);
+    }
+
+    /**
+     * v0.3 FR-53d · 构建目标相对视角段 · 无目标时返回 null(prompt 不加段)。
+     */
+    private String buildGoalSection(Long familyId) {
+        if (goalProgressService == null || familyId == null) return null;
+        try {
+            var progresses = goalProgressService.computeAll(familyId);
+            if (progresses.isEmpty()) return null;
+            StringBuilder sb = new StringBuilder("家庭已设定的目标(基于目标的相对视角):\n");
+            for (var p : progresses) {
+                String name = p.goal().getName();
+                String type = p.goal().getGoalType().name();
+                int pct = p.progressPct().intValue();
+                String dateLabel = p.neutralDate() == null ? "未达成范围"
+                    : p.neutralDate().getYear() + "(中性 5%)";
+                sb.append("  - ").append(name)
+                  .append("(").append(type).append(")· 进度 ").append(pct).append("% · 预计达成 ")
+                  .append(dateLabel).append("\n");
+            }
+            sb.append("\n请评估当前资产配置是否贴合上述时间表,在综合诊断中体现「距 N 年」「股票/现金占比是否合理」等长期视角。");
+            return sb.toString();
+        } catch (Exception e) {
+            log.warn("buildGoalSection failed (non-blocking): {}", e.toString());
+            return null;
+        }
     }
 }

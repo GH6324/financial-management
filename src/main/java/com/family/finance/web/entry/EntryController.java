@@ -5,7 +5,9 @@ import com.family.finance.domain.account.Account;
 import com.family.finance.domain.flow.CashFlowKind;
 import com.family.finance.domain.period.Period;
 import com.family.finance.repository.AccountMapper;
+import com.family.finance.repository.MemberMapper;
 import com.family.finance.repository.PeriodMapper;
+import com.family.finance.repository.PeriodMemberCashflowMapper;
 import com.family.finance.service.EntryService;
 import com.family.finance.service.EntryRow;
 import com.family.finance.service.NavService;
@@ -35,6 +37,8 @@ public class EntryController {
     private final PeriodService periodService;
     private final AccountMapper accountMapper;
     private final NavService navService;
+    private final MemberMapper memberMapper;
+    private final PeriodMemberCashflowMapper memberCashflowMapper;
 
     @GetMapping("/entry")
     public String entry(@AuthenticationPrincipal MemberPrincipal me,
@@ -63,7 +67,66 @@ public class EntryController {
         model.addAttribute("doneCount", rows.stream().filter(EntryRow::done).count());
         model.addAttribute("mineOnly", mineOnly);
         model.addAttribute("accountFilter", accountFilter);
+
+        // v0.3 FR-51 · 成员级月度收支(2026-05-13 修订)
+        // 当前用户自己的本期填报
+        var myCashflow = memberCashflowMapper.findByPeriodAndMember(period.getId(), me.getMemberId()).orElse(null);
+        model.addAttribute("myCashflow", myCashflow);
+        // 上期参考(同成员自己的)
+        Period previousPeriod = periodMapper.findLatest(me.getFamilyId(), 12).stream()
+                .filter(p -> !p.getId().equals(period.getId()))
+                .findFirst().orElse(null);
+        if (previousPeriod != null) {
+            memberCashflowMapper.findByPeriodAndMember(previousPeriod.getId(), me.getMemberId())
+                .ifPresent(prev -> model.addAttribute("myPrevCashflow", prev));
+        }
+        // 家庭本期汇总(SUM 跨成员)
+        memberCashflowMapper.findFamilyAggregateForPeriod(period.getId())
+            .ifPresent(agg -> model.addAttribute("familyCurrentAgg", agg));
+        // 本期已填的成员名单(给"家庭已填:N 人")
+        var filledRows = memberCashflowMapper.findByPeriod(period.getId());
+        var filledMembers = new java.util.HashMap<Long, String>();
+        for (var fr : filledRows) {
+            if (fr.getTotalIncomeInput() != null || fr.getTotalExpenseInput() != null) {
+                memberMapper.findById(fr.getMemberId()).ifPresent(m -> filledMembers.put(m.getId(), m.getDisplayName()));
+            }
+        }
+        model.addAttribute("filledMembers", filledMembers);
+        // 全家成员数(给"N/M 人")
+        model.addAttribute("totalMembers", memberMapper.findActiveByFamily(me.getFamilyId()).size());
+
         return "entry/index";
+    }
+
+    /**
+     * v0.3 FR-51 · 成员级月度收支提交(2026-05-13 修订)。
+     * 每个成员只能填自己的(memberId 强制 = 当前登录用户)。
+     */
+    @PostMapping("/entry/cashflow-summary")
+    public String submitCashflowSummary(@AuthenticationPrincipal MemberPrincipal me,
+                                        @RequestParam("periodId") long periodId,
+                                        @RequestParam(value = "totalIncomeInput", required = false) BigDecimal totalIncomeInput,
+                                        @RequestParam(value = "totalExpenseInput", required = false) BigDecimal totalExpenseInput,
+                                        HttpServletResponse response) {
+        Period period = periodMapper.findById(periodId)
+                .orElseThrow(() -> new IllegalArgumentException("周期不存在: " + periodId));
+        if (!period.getFamilyId().equals(me.getFamilyId())) {
+            throw new IllegalArgumentException("无权操作此周期");
+        }
+        if (period.getStatus() != null && period.getStatus().name().equals("CLOSED")) {
+            throw new IllegalStateException("周期已关闭,不可修改");
+        }
+        BigDecimal income = (totalIncomeInput != null && totalIncomeInput.signum() > 0) ? totalIncomeInput : null;
+        BigDecimal expense = (totalExpenseInput != null && totalExpenseInput.signum() > 0) ? totalExpenseInput : null;
+        // v0.3 修订(2026-05-13):成员级 upsert
+        memberCashflowMapper.upsert(com.family.finance.domain.period.PeriodMemberCashflow.builder()
+            .familyId(me.getFamilyId())
+            .periodId(periodId)
+            .memberId(me.getMemberId())
+            .totalIncomeInput(income)
+            .totalExpenseInput(expense)
+            .build());
+        return "redirect:/entry?period=" + periodId;
     }
 
     @PostMapping("/entry/{accountId}/balance")

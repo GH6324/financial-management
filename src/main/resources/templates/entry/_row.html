@@ -36,6 +36,12 @@
         <span th:text="'上期末 ' + ${row.previousBalanceLabel}">上期末 ¥45,000</span>
         <span class="mx-1">·</span>
         <span th:text="${row.done ? '已填' : '待填'}">已填</span>
+        <!-- v0.3 FR-52b · STOCK 账户加持仓变动入口 -->
+        <a th:if="${row.account.type.name() == 'STOCK'}"
+           th:href="@{|/accounts/${row.account.id}/holdings|}"
+           class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 border border-rule text-ink-subtle hover:border-brass-deep hover:text-brass-deep transition no-underline text-[10px]">
+          📦 持仓变动?
+        </a>
       </div>
     </div>
     <div class="text-right min-w-[140px]">

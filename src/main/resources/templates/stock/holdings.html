@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('持仓管理 · ' + ${account.displayName})}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('accounts', ${me}, ${nav})}"></header>
+
+<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+
+  <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+    <a th:href="@{/accounts}" class="hover:text-ink no-underline">账户</a>
+    <span class="mx-2 text-rule">/</span>
+    <span class="text-ink" th:text="${account.displayName}">招商证券</span>
+    <span class="mx-2 text-rule">/</span><span class="text-ink">持仓管理</span>
+  </div>
+
+  <!-- 账户头 -->
+  <section class="paper-card p-6 mb-6">
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start">
+      <div>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">STOCK · 持 · 仓 · 视 · 角</span>
+          <span class="pill text-[9px]" style="background:rgba(122,90,57,.1);color:var(--brass-deep);border-color:var(--brass-deep)">STOCK</span>
+        </div>
+        <h1 class="font-display text-3xl font-medium tracking-tight mb-1" th:text="${account.displayName}">招商证券</h1>
+        <p class="text-sm text-ink-soft" th:text="'记账币种 · ' + ${account.currency}">记账币种 · CNY</p>
+      </div>
+      <div class="text-right">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">账户余额(账户币种)</div>
+        <div class="font-display text-3xl tnum tracking-tight text-brass-deep"
+             th:text="${account.currency} + ' ' + ${#numbers.formatInteger(valuation.totalBaseValue, 0, 'COMMA')}">CNY 318,013</div>
+        <div class="font-mono text-[10px] mt-1" th:if="${valuation.hasIssues()}"
+             th:text="'⚠ 含陈旧 ' + ${valuation.staleCount} + ' · 待补充 ' + ${valuation.missingCount}"
+             style="color:var(--rust)">⚠</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 操作栏 -->
+  <section class="flex flex-wrap gap-3 mb-6">
+    <a th:href="@{|/accounts/${account.id}/holdings/new-auto|}" class="btn-ink no-underline">+ 添加持仓 · 自动估值</a>
+    <a th:href="@{|/accounts/${account.id}/holdings/new-manual|}" class="btn-paper no-underline">+ 添加持仓 · 手填市值</a>
+    <form th:action="@{|/accounts/${account.id}/holdings/refresh|}" method="post">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <button type="submit" class="btn-paper">⟳ 手动刷价</button>
+    </form>
+    <div class="ml-auto font-mono text-[10px] text-ink-subtle self-center">数据源 · 新浪(主) + 腾讯(备)</div>
+  </section>
+
+  <!-- 持仓列表 -->
+  <div th:if="${#lists.isEmpty(holdings)}" class="paper-card p-8 text-center bg-card-soft">
+    <div class="font-display text-xl mb-2">📦 还没有持仓</div>
+    <p class="text-sm text-ink-soft mb-4">添加股票代码 + 数量 · 系统每日自动拉价算市值。或手填未上市持仓的市值。</p>
+    <p class="text-xs text-ink-subtle">
+      注意:此账户未添加持仓时,继续沿用 v0.2 手填账户余额行为(/entry 页可填)。
+    </p>
+  </div>
+
+  <article th:each="h : ${holdings}" class="paper-card mb-4 overflow-hidden"
+           th:with="price=${latestPrices.get(h.id)}, stale=${price != null and price.staleDays > 7}"
+           th:style="${stale} ? 'border:1px solid var(--rust)' : ''">
+    <div class="p-5 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start">
+      <div>
+        <div class="flex items-center gap-2 mb-2 flex-wrap">
+          <span th:if="${stale}" class="text-rust">⚠</span>
+          <span class="font-display text-xl font-medium" th:text="${h.displayName}">持仓名</span>
+          <span class="pill text-[9px]" th:if="${h.ticker != null}" th:text="${h.ticker}">BABA</span>
+          <span class="pill text-[9px]" th:if="${h.market != null}" th:text="${h.market}">US</span>
+          <span class="pill text-[9px]" th:if="${h.valuationMode.name() == 'AUTO'}"
+                style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)">AUTO 自动估值</span>
+          <span class="pill text-[9px]" th:if="${h.valuationMode.name() == 'MANUAL'}"
+                style="background:rgba(196,148,62,.15);color:var(--brass-deep);border-color:var(--brass-deep)">MANUAL 手填</span>
+          <span class="pill text-[9px]" th:if="${stale}"
+                style="background:rgba(159,74,58,.1);color:var(--rust);border-color:var(--rust)"
+                th:text="'陈旧 ' + ${price.staleDays} + ' 天'">陈旧 8 天</span>
+        </div>
+        <div class="grid grid-cols-3 gap-6 text-sm" th:if="${h.valuationMode.name() == 'AUTO'}">
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">持股</div>
+            <div class="tnum" th:text="${h.shares} + ' 股'">100 股</div>
+          </div>
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">最新价</div>
+            <div class="tnum" th:if="${price != null}"
+                 th:text="${h.currency} + ' ' + ${price.closePrice}">USD 89.20</div>
+            <div class="tnum text-rust" th:if="${price == null}">无价</div>
+          </div>
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">市值(原币)</div>
+            <div class="tnum text-brass-deep" th:if="${price != null}"
+                 th:text="${h.currency} + ' ' + ${#numbers.formatDecimal(h.shares.multiply(price.closePrice), 0, 'COMMA', 2, 'POINT')}">USD 8,920.00</div>
+            <div class="tnum text-rust" th:if="${price == null}">—</div>
+          </div>
+        </div>
+        <div th:if="${h.valuationMode.name() == 'MANUAL'}" class="grid grid-cols-2 gap-6 text-sm">
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">市值(本币 · 手填)</div>
+            <div class="tnum text-brass-deep" th:text="'¥' + ${#numbers.formatInteger(h.manualValue, 0, 'COMMA')}">¥250,000</div>
+          </div>
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">上次更新</div>
+            <div class="font-mono text-xs" th:if="${h.manualValueAt != null}"
+                 th:text="${#temporals.format(h.manualValueAt, 'yyyy-MM-dd')}">2026-05-12</div>
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <form th:if="${h.valuationMode.name() == 'MANUAL'}"
+              th:action="@{|/accounts/${account.id}/holdings/${h.id}/update|}" method="post" class="flex gap-1">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <input type="number" name="manualValue" step="0.01" min="0" th:value="${h.manualValue}"
+                 class="font-mono text-sm bg-paper border border-rule px-2 py-1 w-24 tnum text-right">
+          <button type="submit" class="btn-paper text-xs">✓ 更</button>
+        </form>
+        <form th:if="${h.valuationMode.name() == 'AUTO'}"
+              th:action="@{|/accounts/${account.id}/holdings/${h.id}/to-manual|}" method="post">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <button type="submit" class="btn-paper text-xs"
+                  onclick="return confirm('转为手填后 · 系统不再拉价 · 用户每月维护市值。继续?');">📦 转手填</button>
+        </form>
+        <form th:action="@{|/accounts/${account.id}/holdings/${h.id}/archive|}" method="post">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <button type="submit" class="btn-paper text-xs"
+                  onclick="return confirm('归档此持仓(可恢复)?');">🗄 归档</button>
+        </form>
+      </div>
+    </div>
+  </article>
+
+  <!-- 说明 -->
+  <section class="paper-card p-5 mt-6 bg-card-soft" style="border-left:4px solid var(--ink-subtle)">
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-2">混 · 合 · 模 · 式 · 说 · 明</div>
+    <ul class="text-sm text-ink-soft space-y-1.5">
+      <li>· <strong class="text-ink">AUTO</strong>:录入 ticker + 数量 · 系统每日 T+1 拉价 · 无维护成本</li>
+      <li>· <strong class="text-ink">MANUAL</strong>:手填本位币市值 · 适合未上市/私募/拉不到价</li>
+      <li>· 拉价失败 · 自动用最近已知价 + UI 标"陈旧 N 天" · > 7 天提示改 MANUAL</li>
+      <li>· **关键 backward compat:**此账户未添加任何持仓时,系统不动 account_balance · 沿用 v0.2 手填行为</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

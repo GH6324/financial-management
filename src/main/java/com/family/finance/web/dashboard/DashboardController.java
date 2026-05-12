@@ -20,7 +20,9 @@ import com.family.finance.repository.PeriodMapper;
 import com.family.finance.service.EntryService;
 import com.family.finance.service.FamilyService;
 import com.family.finance.service.FxService;
+import com.family.finance.service.HouseholdCashflowService;
 import com.family.finance.service.NavService;
+import com.family.finance.service.goal.GoalProgressService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -49,6 +51,8 @@ public class DashboardController {
     private final EntryService entryService;
     private final NavService navService;
     private final FxService fxService;
+    private final GoalProgressService goalProgressService;
+    private final HouseholdCashflowService householdCashflowService;
 
     @GetMapping("/dashboard")
     public String dashboard(@AuthenticationPrincipal MemberPrincipal me,
@@ -126,6 +130,13 @@ public class DashboardController {
                 .filter(row -> !row.done())
                 .toList());
 
+        // v0.3 FR-50d · 目标进度条带数据(失败容忍 · 不阻塞 dashboard 渲染)
+        try {
+            model.addAttribute("goalsProgress", goalProgressService.computeAll(me.getFamilyId()));
+        } catch (Exception e) {
+            model.addAttribute("goalsProgress", List.of());
+        }
+
         model.addAttribute("kpis", kpis);
         model.addAttribute("kpiNetWorth", money(viewCurrency, kpis.netWorth()));
         model.addAttribute("kpiAssets", money(viewCurrency, kpis.totalAssets()));
@@ -133,7 +144,14 @@ public class DashboardController {
         model.addAttribute("kpiEmergency", kpis.emergencyFundMonths() == null ? "—" : kpis.emergencyFundMonths().toPlainString() + " 月");
         model.addAttribute("kpiDebtRatio", percent(kpis.debtToAssetRatio()));
         model.addAttribute("kpiDelta", moneyDelta(viewCurrency, kpis.netWorthDelta()));
-        model.addAttribute("savingsRate", percent(factViewService.savingsRate(slice)));
+        // v0.3:优先用 period.total_*_input(用户在 /entry 第一步填的家庭口径)· fallback v0.2 cash_flow
+        model.addAttribute("savingsRate", percent(householdCashflowService.currentSavingsRate(me.getFamilyId())));
+        // v0.3 新增:月均支出 / 月均收入 KPI(per 用户反馈 2026-05-13 · 用最新口径)
+        model.addAttribute("avgMonthlyExpense", money(viewCurrency, householdCashflowService.avgMonthlyExpense(me.getFamilyId())));
+        model.addAttribute("avgMonthlyIncome", money(viewCurrency, householdCashflowService.avgMonthlyIncome(me.getFamilyId())));
+        int[] filled = householdCashflowService.filledMonthRatio(me.getFamilyId());
+        model.addAttribute("cashflowFilled", filled[0]);
+        model.addAttribute("cashflowTotal", filled[1]);
 
         model.addAttribute("trend", trend);
         model.addAttribute("allocation", allocation);

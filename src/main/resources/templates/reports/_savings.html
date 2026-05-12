@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  v0.3 FR-51a/b · 储蓄能力区块
+  · 数据源:Period.total_income_input / total_expense_input
+  · v0.2 backward compat:不替换 v0.2 既有报表区(_region.html 不动)· 仅在 main 内追加
+  · 无数据时显引导卡(不阻塞 v0.2 用户)
+-->
+<section th:fragment="section" class="mt-12 border-t-4 border-double border-ink pt-8">
+
+  <div class="mb-6">
+    <div class="eyebrow mb-2" style="color:var(--brass-deep)">储 · 蓄 · 能 · 力 · FR-51 新</div>
+    <h2 class="font-display text-3xl font-medium tracking-tight">月度收支 + 反推目标月供</h2>
+    <p class="font-serif text-sm text-ink-soft mt-2 max-w-2xl">
+      数据来自 <a th:href="@{/entry}" class="text-brass-deep hover:underline">/entry 填报页家庭口径</a>2 框 ·
+      没填的月份显灰柱 + 不参与中位计算。
+    </p>
+  </div>
+
+  <!-- 无数据时引导卡 -->
+  <div th:if="${!savingsAvailable}" class="paper-card p-6 bg-card-soft text-center" style="border-left:4px solid var(--brass-deep)">
+    <p class="text-ink-soft mb-3">
+      过去 12 期都未填家庭月度收支(<code class="font-mono">total_income_input</code> / <code class="font-mono">total_expense_input</code>)。
+    </p>
+    <p class="text-xs text-ink-subtle mb-4">
+      去 /entry 底部填一次本月收入支出(选填 · ~15 秒),系统自动算储蓄率 / 月储蓄能力 / 反推目标月供。
+    </p>
+    <a th:href="@{/entry}" class="btn-paper no-underline">→ 去 /entry 补录</a>
+  </div>
+
+  <!-- 有数据 -->
+  <th:block th:if="${savingsAvailable}">
+    <!-- KPI 速览 -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-px bg-rule mb-6 border border-rule">
+      <div class="bg-card p-5">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">月均收入(近 12 月)</div>
+        <div class="font-display text-2xl tnum"
+             th:text="${avgMonthlyIncome != null and avgMonthlyIncome.signum() > 0 ? ('¥' + #numbers.formatInteger(avgMonthlyIncome, 0, 'COMMA')) : '—'}">¥35,000</div>
+      </div>
+      <div class="bg-card p-5">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">月均支出(近 12 月)</div>
+        <div class="font-display text-2xl tnum num-neg"
+             th:text="${avgMonthlyExpense != null and avgMonthlyExpense.signum() > 0 ? ('¥' + #numbers.formatInteger(avgMonthlyExpense, 0, 'COMMA')) : '—'}">¥18,000</div>
+      </div>
+      <div class="bg-card p-5">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">储蓄率(最近期)</div>
+        <div class="font-display text-2xl tnum text-brass-deep"
+             th:text="${savingsRate != null ? (#numbers.formatInteger(savingsRate.multiply(new java.math.BigDecimal(100)), 0) + '%') : '—'}">48%</div>
+      </div>
+      <div class="bg-card p-5">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">月储蓄能力(中位)</div>
+        <div class="font-display text-2xl tnum"
+             th:text="${savingsMonthlyMedian != null and savingsMonthlyMedian.signum() != 0 ? ('¥' + #numbers.formatInteger(savingsMonthlyMedian, 0, 'COMMA')) : '—'}">¥17,500</div>
+      </div>
+      <div class="bg-card p-5">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">已填月份</div>
+        <div class="font-display text-2xl tnum"
+             th:text="${savingsFilledMonths} + '/' + ${savingsTotalMonths}">8/12</div>
+      </div>
+    </div>
+
+    <!-- 月度收支双柱 -->
+    <section class="paper-card p-6 mb-6">
+      <div class="flex items-baseline justify-between mb-4">
+        <div>
+          <div class="eyebrow mb-1">月 · 度 · 收 · 支 · 双 · 柱</div>
+          <h3 class="font-display text-xl font-medium">近 12 期</h3>
+        </div>
+        <div class="flex items-center gap-4 text-[10px] font-mono">
+          <span class="flex items-center gap-1"><span class="w-3 h-3 inline-block" style="background:var(--forest)"></span><span class="text-ink-soft">收入</span></span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 inline-block" style="background:var(--rust)"></span><span class="text-ink-soft">支出</span></span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 inline-block bg-card-soft border border-rule-soft"></span><span class="text-ink-soft">无数据</span></span>
+        </div>
+      </div>
+      <div style="height:300px"><canvas id="savings-bars"></canvas></div>
+    </section>
+  </th:block>
+
+</section>
+
+<script th:if="${savingsAvailable}" th:inline="javascript">
+  /*<![CDATA[*/
+  (function () {
+    const labels  = /*[[${savingsLabels}]]*/  [];
+    const income  = /*[[${savingsIncome}]]*/  [];
+    const expense = /*[[${savingsExpense}]]*/ [];
+    const ctx = document.getElementById('savings-bars').getContext('2d');
+    if (typeof Chart === 'undefined') return;
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: '收入', data: income,  backgroundColor: 'rgba(47,93,80,.85)',  borderColor: 'rgba(47,93,80,1)',  borderWidth: 1 },
+          { label: '支出', data: expense, backgroundColor: 'rgba(159,74,58,.75)', borderColor: 'rgba(159,74,58,1)', borderWidth: 1 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => c.dataset.label + ': ' + (c.parsed.y == null ? '无数据' : '¥' + c.parsed.y.toLocaleString()) } }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { callback: v => '¥' + (v/1000).toFixed(0) + 'k', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } },
+          x: { ticks: { font: { family: 'JetBrains Mono', size: 10 } }, grid: { display: false } }
+        }
+      }
+    });
+  })();
+  /*]]>*/
+</script>
+</body>
+</html>

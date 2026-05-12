@@ -48,6 +48,7 @@ public class CheckupController {
     private final AdviceEngine adviceEngine;
     private final FactViewService factViewService;
     private final com.family.finance.service.FamilyService familyService;
+    private final com.family.finance.service.HouseholdCashflowService householdCashflowService;
     private final com.family.finance.service.FxService fxService;
     private final com.family.finance.repository.PeriodMapper periodMapper;
 
@@ -112,15 +113,11 @@ public class CheckupController {
         return out;
     }
 
-    /** 家庭近 12 月月均 EXPENSE(本位币),用于流动性规则 */
+    /**
+     * 家庭近 12 月月均 EXPENSE(本位币),用于流动性规则。
+     * v0.3:优先 period.total_expense_input(用户在 /entry 填的家庭口径),fallback v0.2 cash_flow。
+     */
     private BigDecimal computeAvgMonthlyExpense(long familyId) {
-        FactSlice slice = factViewService.loadDefault(familyId);
-        if (slice.periodIds().isEmpty()) return BigDecimal.ZERO;
-        BigDecimal total = slice.rows().stream()
-                .map(AccountPeriodFact::expenseBase)
-                .filter(java.util.Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        int n = Math.max(1, slice.periodIds().size());
-        return total.divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_EVEN);
+        return householdCashflowService.avgMonthlyExpense(familyId);
     }
 }

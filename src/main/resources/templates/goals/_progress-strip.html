@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  v0.3 FR-50d · Dashboard 顶部目标进度条带 fragment
+  · 高度 ≤ 100px · 灰底低视觉权重 · 不打扰 KPI 卡
+  · 无目标 → 显引导卡(不显空条带)
+  · 失败容忍:Controller try-catch 后传 List.of() · 此处直接 hide
+-->
+<section th:fragment="strip(goals)" th:if="${goals != null and !#lists.isEmpty(goals)}"
+         class="mb-6 border border-rule" style="background:var(--paper-soft)">
+  <div class="px-6 py-4">
+    <div class="flex items-baseline justify-between mb-3">
+      <div class="flex items-center gap-3">
+        <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">财 · 务 · 目 · 标</span>
+        <span class="text-xs text-ink-subtle">本期 · 周期关闭后刷新</span>
+      </div>
+      <a th:href="@{/goals}" class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep hover:text-ink no-underline">→ 完整看板</a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <a th:each="gp : ${goals}" th:href="@{|/goals/${gp.goal.id}|}"
+         class="flex items-center gap-3 px-3 py-2 hover:bg-paper border border-rule-soft transition no-underline group">
+        <span class="w-2 h-2 rounded-full flex-shrink-0"
+              th:style="${gp.goal.goalType.name() == 'EMERGENCY' ? 'background:var(--forest)'
+                                                                : (gp.goal.goalType.name() == 'EDUCATION' ? 'background:var(--rust)' : 'background:var(--brass-deep)')}"></span>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-baseline justify-between">
+            <span class="text-sm text-ink truncate group-hover:text-brass-deep transition" th:text="${gp.goal.name}">退休</span>
+            <span class="font-mono text-xs text-ink-subtle" th:text="${gp.progressPct} + '%'">57%</span>
+          </div>
+          <div class="w-full bg-card-soft h-1.5 mt-1 overflow-hidden">
+            <div class="h-full bg-brass-deep"
+                 th:style="'width:' + ${gp.progressPct > 100 ? 100 : gp.progressPct} + '%'"></div>
+          </div>
+          <div class="font-mono text-[9px] text-ink-subtle mt-0.5"
+               th:if="${gp.neutralDate != null}"
+               th:text="'中性 ' + ${#temporals.format(gp.neutralDate, 'yyyy')}">中性 2053</div>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- 引导卡:无目标时 -->
+<section th:fragment="emptyHint" th:if="${goals == null or #lists.isEmpty(goals)}"
+         class="mb-6 paper-card p-5 bg-card-soft" style="border-left:4px solid var(--brass-deep)">
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-1">财 · 务 · 目 · 标 · 新</div>
+      <p class="text-sm text-ink-soft">你的家庭朝哪儿走?设定第一个长期目标开始追踪进度。</p>
+    </div>
+    <a th:href="@{/goals/new}" class="btn-paper no-underline">+ 创建第一个目标</a>
+  </div>
+</section>
+</body>
+</html>

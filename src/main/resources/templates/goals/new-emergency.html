@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('新建应急储备')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('goals', ${me}, ${nav})}"></header>
+
+<main class="max-w-[900px] mx-auto px-6 py-10 relative z-10">
+  <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+    <a th:href="@{/goals}" class="hover:text-ink no-underline">目标</a>
+    <span class="mx-2 text-rule">/</span>
+    <a th:href="@{/goals/new}" class="hover:text-ink no-underline">新建</a>
+    <span class="mx-2 text-rule">/</span><span class="text-ink">应急储备</span>
+  </div>
+
+  <div class="mb-8">
+    <div class="eyebrow mb-2" style="color:var(--forest)">EMERGENCY · 应 · 急 · 储 · 备</div>
+    <h1 class="font-display text-4xl md:text-5xl font-medium tracking-tight">N 个月生活缓冲</h1>
+    <p class="font-serif text-sm text-ink-soft mt-3">
+      几乎不用输入 · 系统自动从过去 3 期 total_expense_input 中位算基线。
+    </p>
+  </div>
+
+  <!-- v0.3 FR-53a · AI 推荐默认值 -->
+  <div class="paper-card p-4 mb-4 bg-card-soft flex items-center justify-between" style="border-left:4px solid var(--forest)">
+    <div>
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest">🤖 AI · 推 · 荐</div>
+      <p class="text-xs text-ink-soft mt-1">让 AI 根据家庭情况推荐合理储备月数。</p>
+    </div>
+    <button type="button" onclick="adviseAi('emergency', 'goal-form', this)"
+            class="btn-paper text-sm" style="border-color:var(--forest);color:var(--forest)">🤖 AI 推荐</button>
+  </div>
+  <div id="ai-rationale" class="hidden paper-card p-3 mb-4 bg-card-soft text-sm font-serif text-ink-soft"></div>
+
+  <form id="goal-form" th:action="@{/goals/new/emergency}" method="post" class="paper-card p-8 space-y-6">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+    <div>
+      <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">目标名称</label>
+      <input type="text" name="name" class="w-full font-display text-xl bg-paper-soft border border-rule px-4 py-3"
+             placeholder="6 个月生活缓冲 / 留空用默认名">
+    </div>
+
+    <div>
+      <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">储备月数</label>
+      <input type="number" name="monthsTarget" required min="1" max="24" value="6"
+             class="w-full font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum">
+      <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 行业建议 6-12 · 单职工家庭 ≥ 12 · 双职工 6-9</p>
+    </div>
+
+    <div>
+      <label class="font-mono text-[10px] uppercase text-ink-subtle mb-2 block">基线模式</label>
+      <div class="space-y-2">
+        <label class="block border-2 border-forest p-4 cursor-pointer bg-card-soft">
+          <input type="radio" name="autoBaseline" value="true" checked class="mr-2 accent-forest">
+          <span class="text-ink font-medium">自动基线 · 推荐</span>
+          <p class="text-xs text-ink-soft mt-1 ml-5">
+            用过去 3 期 <code class="font-mono">total_expense_input</code> 中位 ·
+            <span class="text-forest" th:if="${autoBaseline != null}"
+                  th:text="'当前 = ¥' + ${#numbers.formatInteger(autoBaseline, 0, 'COMMA')} + '/月'">当前 = ¥18,000/月</span>
+            <span class="text-rust" th:if="${autoBaseline == null}">⚠ 过去 3 期数据不全 · 先去 /entry 补录月度收支</span>
+          </p>
+        </label>
+        <label class="block border border-rule-soft p-4 cursor-pointer hover:bg-card-soft">
+          <input type="radio" name="autoBaseline" value="false" class="mr-2">
+          <span class="text-ink">手填固定基线</span>
+          <p class="text-xs text-ink-soft mt-1 ml-5">
+            ¥ <input type="number" name="fixedBaseline" step="100" min="100" max="1000000"
+                     placeholder="如 18000" class="font-mono bg-paper border border-rule px-2 py-1 w-32 tnum"> /月
+          </p>
+        </label>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between pt-6 border-t border-rule-soft">
+      <a th:href="@{/goals/new}" class="btn-paper no-underline">← 返回</a>
+      <button type="submit" class="btn-ink">✓ 保存目标</button>
+    </div>
+  </form>
+
+  <script th:src="@{/js/goal-advise.js(v=${buildVersion})}" defer></script>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

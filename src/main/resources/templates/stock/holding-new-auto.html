@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('添加自动估值持仓')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('accounts', ${me}, ${nav})}"></header>
+
+<main class="max-w-[800px] mx-auto px-6 py-10 relative z-10">
+  <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+    <a th:href="@{|/accounts/${account.id}/holdings|}" class="hover:text-ink no-underline">持仓管理</a>
+    <span class="mx-2 text-rule">/</span><span class="text-ink">添加 · 自动估值</span>
+  </div>
+
+  <div class="mb-8">
+    <div class="eyebrow mb-2" style="color:var(--brass-deep)">+ 自 · 动 · 估 · 值 · 持 · 仓</div>
+    <h1 class="font-display text-4xl md:text-5xl font-medium tracking-tight">录入代码 + 数量</h1>
+    <p class="font-serif text-sm text-ink-soft mt-3">系统每日 T+1 拉价 · 自动算市值。</p>
+  </div>
+
+  <form th:action="@{|/accounts/${account.id}/holdings/new-auto|}" method="post" class="paper-card p-8 space-y-5">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+    <div>
+      <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">市场</label>
+      <div class="grid grid-cols-3 gap-2">
+        <label class="border-2 border-brass-deep p-3 cursor-pointer bg-card-soft text-center">
+          <input type="radio" name="market" value="US" checked class="mr-1">
+          <span class="font-display text-lg">美股</span>
+          <div class="font-mono text-[9px] text-ink-subtle">NYSE / NASDAQ</div>
+        </label>
+        <label class="border border-rule-soft p-3 cursor-pointer hover:bg-card-soft text-center">
+          <input type="radio" name="market" value="CN" class="mr-1">
+          <span class="font-display text-lg">A 股</span>
+          <div class="font-mono text-[9px] text-ink-subtle">沪 6 / 深 0,3</div>
+        </label>
+        <label class="border border-rule-soft p-3 cursor-pointer hover:bg-card-soft text-center">
+          <input type="radio" name="market" value="HK" class="mr-1">
+          <span class="font-display text-lg">港股</span>
+          <div class="font-mono text-[9px] text-ink-subtle">5 位前导零</div>
+        </label>
+      </div>
+    </div>
+
+    <div>
+      <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">代码(ticker)</label>
+      <input type="text" name="ticker" required class="w-full font-mono text-xl bg-paper-soft border border-rule px-4 py-3 tnum uppercase"
+             placeholder="BABA · 600519 · 0700">
+      <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 美股大写字母 · A 股 6 位数字 · 港股 4 位(自动补 5 位前导零)</p>
+    </div>
+
+    <div>
+      <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">显示名(中文别名 · 选填)</label>
+      <input type="text" name="displayName" class="w-full font-base bg-paper-soft border border-rule px-4 py-3"
+             placeholder="阿里巴巴 · 留空用 ticker 作显示名">
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">持股数(支持小数)</label>
+        <input type="number" name="shares" step="0.0001" min="0" required
+               class="w-full font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum">
+      </div>
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">报价币种(可空 · 按 market 推断)</label>
+        <select name="currency" class="w-full font-base bg-paper-soft border border-rule px-3 py-3">
+          <option value="">— 按市场默认 —</option>
+          <option value="USD">USD(美股默认)</option>
+          <option value="CNY">CNY(A 股默认)</option>
+          <option value="HKD">HKD(港股默认)</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">平均买入成本(可选 · 用于成本对照)</label>
+      <input type="number" name="costBasis" step="0.01" min="0"
+             class="w-full font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum"
+             placeholder="留空可不填">
+    </div>
+
+    <div class="flex items-center justify-between pt-6 border-t border-rule-soft">
+      <a th:href="@{|/accounts/${account.id}/holdings|}" class="btn-paper no-underline">← 取消</a>
+      <button type="submit" class="btn-ink">✓ 添加 · 立即拉一次价</button>
+    </div>
+  </form>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

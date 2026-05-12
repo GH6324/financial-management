@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('新建目标 · 选类型')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('goals', ${me}, ${nav})}"></header>
+
+<main class="max-w-[1000px] mx-auto px-6 lg:px-10 py-12 relative z-10">
+  <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+    <a th:href="@{/goals}" class="hover:text-ink no-underline">目标</a>
+    <span class="mx-2 text-rule">/</span><span class="text-ink">新建</span>
+  </div>
+
+  <div class="mb-10">
+    <div class="eyebrow mb-2">新 · 建 · 目 · 标</div>
+    <h1 class="font-display text-4xl md:text-5xl font-medium tracking-tight">你的家庭朝哪儿走?</h1>
+    <p class="font-serif text-base text-ink-soft mt-3 max-w-2xl">
+      3 类长期目标 · 每类都是独立模块,计算公式 / 输入表单 / 进度可视化都不一样。
+      建议从最紧迫的一类开始。
+    </p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-px bg-rule mb-8">
+    <a th:href="@{/goals/new/retirement}" class="bg-card p-8 hover:bg-card-soft no-underline transition group block">
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-3">RETIREMENT · 退 · 休 · FIRE</div>
+      <h2 class="font-display text-3xl font-medium tracking-tight mb-3 group-hover:text-brass-deep transition">退休 / 自由生活</h2>
+      <p class="text-sm text-ink-soft mb-4 leading-relaxed">
+        目标年龄 + 期望月支出 + 通胀 + 取用率 · 系统反推退休本金需求 + 三情景达成日。
+      </p>
+      <div class="mt-6 font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-brass-deep transition">→ 进入向导</div>
+    </a>
+
+    <a th:href="@{/goals/new/education}" class="bg-card p-8 hover:bg-card-soft no-underline transition group block">
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-3">EDUCATION · 教 · 育 · 金</div>
+      <h2 class="font-display text-3xl font-medium tracking-tight mb-3 group-hover:text-brass-deep transition">子女教育金</h2>
+      <p class="text-sm text-ink-soft mb-4 leading-relaxed">
+        孩子 + 出生年 + 目标金额 · 目标年份 = 孩子 18 岁 · 反推月供。
+      </p>
+      <div class="mt-6 font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-brass-deep transition">→ 进入向导</div>
+    </a>
+
+    <a th:href="@{/goals/new/emergency}" class="bg-card p-8 hover:bg-card-soft no-underline transition group block">
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-3">EMERGENCY · 应 · 急 · 储 · 备</div>
+      <h2 class="font-display text-3xl font-medium tracking-tight mb-3 group-hover:text-forest transition">应急储备</h2>
+      <p class="text-sm text-ink-soft mb-4 leading-relaxed">
+        N 个月生活开支 · 系统从过去 3 期 total_expense 自动算基线 · 进度仅算 CASH 类账户。
+      </p>
+      <div class="mt-6 font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-forest transition">→ 进入向导</div>
+    </a>
+  </div>
+
+  <div class="text-center">
+    <a th:href="@{/goals}" class="btn-paper no-underline">← 返回目标列表</a>
+  </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

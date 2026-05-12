@@ -146,6 +146,30 @@
     </a>
   </section>
 
+  <!-- v0.3 FR-51 · 家庭月度收支条带(基于 /entry 填的 total_*_input · 含 fallback 到 v0.2 cash_flow)-->
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-px bg-rule mb-10">
+    <a th:href="@{/reports}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
+      <span class="kpi-eyebrow">月均收入(近 12 月)</span>
+      <div class="kpi-value tnum" th:text="${avgMonthlyIncome ?: '—'}">¥0</div>
+      <div class="kpi-delta">优先 /entry 家庭口径</div>
+    </a>
+    <a th:href="@{/reports}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
+      <span class="kpi-eyebrow">月均支出(近 12 月)</span>
+      <div class="kpi-value tnum num-neg" th:text="${avgMonthlyExpense ?: '—'}">¥0</div>
+      <div class="kpi-delta">用于流动性月数 / 应急基线</div>
+    </a>
+    <a th:href="@{/reports}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
+      <span class="kpi-eyebrow">储蓄率(最近一期)</span>
+      <div class="kpi-value tnum" th:text="${savingsRate ?: '—'}">—</div>
+      <div class="kpi-delta">(收入 − 支出) / 收入</div>
+    </a>
+    <a th:href="@{/entry}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
+      <span class="kpi-eyebrow">已填月份</span>
+      <div class="kpi-value tnum" th:text="${(cashflowFilled ?: 0) + '/' + (cashflowTotal ?: 0)}">0/12</div>
+      <div class="kpi-delta">前往 /entry 补录</div>
+    </a>
+  </section>
+
   <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-10">
     <div class="paper-card p-6 lg:col-span-8">
       <div class="eyebrow mb-1">净资产趋势</div>

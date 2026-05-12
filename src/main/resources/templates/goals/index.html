@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('财务目标 · 家庭账房')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('goals', ${me}, ${nav})}"></header>
+
+<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+
+  <!-- 标题 + 操作 -->
+  <div class="flex items-end justify-between mb-8 flex-wrap gap-4">
+    <div>
+      <div class="eyebrow mb-2">长 · 期 · 视 · 角</div>
+      <h1 class="font-display text-4xl md:text-5xl font-medium tracking-tight">财务目标 · 三情景预测</h1>
+      <p class="font-serif text-sm text-ink-soft mt-3 max-w-2xl">
+        3 类目标 · 系统按乐观 (8%) / 中性 (5%) / 悲观 (2%) 三情景预测达成日 · 数据每个周期关闭后刷新。
+      </p>
+    </div>
+    <a th:href="@{/goals/new}" class="btn-ink no-underline">+ 新建目标</a>
+  </div>
+
+  <!-- 空状态 · 无目标时 -->
+  <div th:if="${#lists.isEmpty(goals)}" class="paper-card p-8 text-center">
+    <div class="font-display text-2xl mb-2">📍 还没有目标</div>
+    <p class="text-ink-soft mb-6">你的家庭在朝哪儿走?设定第一个长期目标开始。</p>
+    <div class="flex flex-wrap justify-center gap-3">
+      <a th:href="@{/goals/new/retirement}" class="btn-paper no-underline">+ 退休 / FIRE</a>
+      <a th:href="@{/goals/new/education}" class="btn-paper no-underline">+ 子女教育金</a>
+      <a th:href="@{/goals/new/emergency}" class="btn-paper no-underline">+ 应急储备</a>
+    </div>
+  </div>
+
+  <!-- 目标 card 循环 -->
+  <article th:each="gp : ${goals}" class="paper-card mb-6 overflow-hidden">
+    <div class="p-6 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 items-start border-b border-rule-soft">
+      <div>
+        <div class="flex items-center gap-3 mb-2">
+          <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep" th:text="${gp.goal.goalType}">RETIREMENT</span>
+          <span class="pill text-[9px]" style="background:rgba(122,90,57,.1);color:var(--brass-deep);border-color:var(--brass-deep)"
+                th:text="${gp.goal.goalType}">RETIREMENT</span>
+        </div>
+        <h2 class="font-display text-3xl font-medium tracking-tight mb-1" th:text="${gp.goal.name}">目标名</h2>
+        <div class="flex items-end gap-6 mt-4">
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">当前进度</div>
+            <div class="font-display text-4xl tnum tracking-tight"
+                 th:text="${gp.progressPct} + '%'">57%</div>
+          </div>
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">已 / 目标</div>
+            <div class="font-display text-xl tnum">
+              <span th:text="'¥' + ${#numbers.formatInteger(gp.pv, 0, 'COMMA')}">¥0</span>
+              <span class="text-ink-soft text-base">/</span>
+              <span th:text="'¥' + ${gp.target != null ? #numbers.formatInteger(gp.target, 0, 'COMMA') : '--'}">¥0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="text-right space-y-2">
+        <a th:href="@{|/goals/${gp.goal.id}|}" class="btn-ink no-underline">→ 进入详情</a>
+        <div class="font-mono text-[10px] text-ink-subtle"
+             th:if="${gp.neutralDate != null}"
+             th:text="'中性达成 · ' + ${#temporals.format(gp.neutralDate, 'yyyy-MM')}">中性达成 · 2053</div>
+      </div>
+    </div>
+
+    <!-- 进度条 + 三情景缩略 -->
+    <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-mono text-[10px] uppercase text-ink-subtle">进度环</span>
+          <span class="font-mono text-[10px] text-brass-deep" th:text="${gp.progressPct} + '%'">57%</span>
+        </div>
+        <div class="w-full bg-card-soft border border-rule-soft h-3 overflow-hidden">
+          <div class="h-full bg-brass-deep"
+               th:style="'width:' + ${gp.progressPct > 100 ? 100 : gp.progressPct} + '%'"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-2">三情景达成时间</div>
+        <div class="grid grid-cols-3 gap-2">
+          <div class="border border-rule-soft p-2">
+            <div class="font-mono text-[9px] uppercase text-forest mb-1">乐观 8%</div>
+            <div class="font-display text-lg tnum"
+                 th:text="${gp.scenarios.optimisticDate != null ? #temporals.format(gp.scenarios.optimisticDate, 'yyyy') : '∞'}">2049</div>
+          </div>
+          <div class="border-2 border-brass-deep p-2 bg-card-soft">
+            <div class="font-mono text-[9px] uppercase text-brass-deep mb-1">中性 5%</div>
+            <div class="font-display text-lg tnum"
+                 th:text="${gp.scenarios.neutralDate != null ? #temporals.format(gp.scenarios.neutralDate, 'yyyy') : '∞'}">2053</div>
+          </div>
+          <div class="border border-rule-soft p-2">
+            <div class="font-mono text-[9px] uppercase text-rust mb-1">悲观 2%</div>
+            <div class="font-display text-lg tnum"
+                 th:text="${gp.scenarios.pessimisticDate != null ? #temporals.format(gp.scenarios.pessimisticDate, 'yyyy') : '∞'}">2061</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>
