@@ -170,6 +170,10 @@ SERVER_PORT=$(grep '^SERVER_PORT=' /etc/finance.env | cut -d= -f2- | tr -d '"' |
 say "9/15 数据库迁移(schema_history 幂等)"
 install -m 755 -o finance -g finance db/apply.sh /opt/finance/db/apply.sh
 install -m 644 -o finance -g finance db/migration/V*__*.sql /opt/finance/db/migration/
+# .checksum-overrides 文件(以 . 开头)不会被 V*__*.sql glob 匹配 · 单独装
+if [[ -f db/migration/.checksum-overrides ]]; then
+  install -m 644 -o finance -g finance db/migration/.checksum-overrides /opt/finance/db/migration/.checksum-overrides
+fi
 
 BACKUP_FILE=""
 if [[ "$IS_ITERATION" == "1" ]]; then
