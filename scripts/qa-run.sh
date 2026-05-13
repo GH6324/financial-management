@@ -51,6 +51,21 @@ grep -q "</html>" "$TMP" && log_ok "AUTH-5 /dashboard 完整 HTML" || log_bad "A
 $CURL "$BASE/health" -o "$TMP" -w ""
 grep -q '"status":"UP"' "$TMP" && log_ok "AUTH-7 /health 公开 JSON" || log_bad "AUTH-7 /health" "$(cat $TMP)"
 
+# AUTH-8 已登录访问 /login 自动跳 /dashboard(书签 = /login 场景 · 2026-05-14)
+loc=$($CURL -b $COOKIE -o /dev/null -w "%{http_code}|%{redirect_url}" "$BASE/login")
+{ [[ "$loc" == "302|"*"/dashboard" ]]; } \
+  && log_ok "AUTH-8 已登录 GET /login → 302 → /dashboard($loc)" \
+  || log_bad "AUTH-8 已登录 /login 应跳 dashboard" "got=$loc"
+
+# AUTH-9 未登录访问 /login 仍返回 200 + 登录表单(不影响首登)
+CK2=$(mktemp)
+code=$($CURL -c $CK2 -o "$TMP" -w "%{http_code}" "$BASE/login")
+has_user=$(grep -c 'name="username"' "$TMP")
+{ [[ "$code" == "200" ]] && [[ "$has_user" -ge 1 ]]; } \
+  && log_ok "AUTH-9 未登录 GET /login → 200 + 用户名输入框(首登正常)" \
+  || log_bad "AUTH-9 未登录 /login" "code=$code has_user_input=$has_user"
+rm -f $CK2
+
 # ---------- FR-1 ----------
 section "FR-1 · 家庭与成员"
 

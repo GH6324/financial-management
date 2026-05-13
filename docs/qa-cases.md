@@ -15,6 +15,8 @@
 | AUTH-5 | 登录后访问 /dashboard 完整 HTML | GET /dashboard | 200,以 `</html>` 结束 |
 | AUTH-6 | 登出清 cookie | POST /logout | 302 → /login?logout |
 | AUTH-7 | /health 公开 JSON | GET /health(无 cookie) | 200 `{"status":"UP"}` |
+| **AUTH-8** | 已登录访问 /login 自动跳 /dashboard(书签 = /login 场景 · 2026-05-14) | 登录后 GET /login | 302 Location: /dashboard |
+| **AUTH-9** | 未登录访问 /login 仍 200 + 表单(不破首登) | 无 cookie GET /login | 200 含 `name="username"` 输入 |
 
 ## FR-1 · 家庭与成员
 
@@ -553,7 +555,8 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 
 - 新加 **45 条**黑盒 case 全 PASS(v03-GOAL × 12 + v03-IND × 12 + v03-STOCK × 15 + v03-AI × 6)
 - 2026-05-14 加 FR1-1a 保存生效 1 条 + v02-LOGO-6 改 button 校验
-- 总 PASS=230 / FAIL=3(pre-existing v0.2 PILL/DIAG/LEDGER · 与 v0.3 无关)/ SKIP=2
+- 2026-05-14 加 AUTH-8/9 已登录 /login 自动跳 dashboard(书签优化)
+- 总 PASS=232 / FAIL=3(pre-existing v0.2 PILL/DIAG/LEDGER · 与 v0.3 无关)/ SKIP=2
 - 单测 114(v0.2 既有 76 + v0.3 新增 38 全绿)
 - 真 LLM 调用验证:Qwen-Plus 返回合理参数 + rationale(beta 已验)
 - 真数据源验证:新浪国内可达 · BABA/600519/00700 三市场拉价成功
