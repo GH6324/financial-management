@@ -269,19 +269,36 @@ if [[ "${PLACEHOLDER_COUNT:-0}" -gt 0 ]]; then
   fi
 fi
 
-# 9. dev 演示数据清理 sentinel(macOS 通常是 dev 环境 · 默认不清,跟 Linux prod 一致的保险)
-say "9/12 dev 演示数据"
+# 9. 清 dev 演示数据(首装才会触发 · sentinel + 真实数据双保险)
+# 跟 Linux deploy.sh 第 10/15 步同款 · 干净安装时 V3-V5 + 后续灌的 demo 数据全部 TRUNCATE
+# 保留 family + member 种子(diwa / wangergou),让用户登入后看到空账户
+say "9/12 清 dev 演示数据"
 if [[ -f "$SENTINEL" ]]; then
   ok "已清过($SENTINEL 存在)"
 else
-  # macOS 多半是开发机 · 默认保留演示数据,不主动 TRUNCATE
   AUDIT_COUNT=$(mysql_run -sN -e "SELECT COUNT(*) FROM audit_log WHERE actor_member_id IS NOT NULL" 2>/dev/null || echo 0)
-  if [[ "${AUDIT_COUNT:-0}" -le 10 ]]; then
-    ok "数据量小(audit=${AUDIT_COUNT}) · 保留 dev seed,不清"
-  else
-    ok "数据量已有(audit=${AUDIT_COUNT}) · 不清"
+  EXTRA_MEMBERS=$(mysql_run -sN -e "SELECT COUNT(*) FROM member WHERE id > 2" 2>/dev/null || echo 0)
+  if [[ "${AUDIT_COUNT:-0}" -gt 50 || "${EXTRA_MEMBERS:-0}" -gt 0 ]]; then
+    err "═══ 真实数据拦截 ═══"
+    err "audit_log=${AUDIT_COUNT}(>50)/ 额外成员=${EXTRA_MEMBERS}(>0)→ 拒绝 TRUNCATE"
+    err "若确实想清:mysqldump 备份 → 手动 TRUNCATE → touch $SENTINEL → 重跑"
+    die "中止"
   fi
+  mysql_run <<'SQL'
+SET FOREIGN_KEY_CHECKS=0;
+TRUNCATE TABLE cash_flow; TRUNCATE TABLE transfer; TRUNCATE TABLE period_snapshot;
+TRUNCATE TABLE snapshot_todo; TRUNCATE TABLE period_member_completion;
+TRUNCATE TABLE fx_rate; TRUNCATE TABLE audit_log; TRUNCATE TABLE backup_log;
+TRUNCATE TABLE metrics_recompute_log; TRUNCATE TABLE period_reopen_log;
+TRUNCATE TABLE period; TRUNCATE TABLE account;
+-- v0.3 引入的用户填报数据(没有 V*.sql seed · 但保险起见也清)
+TRUNCATE TABLE stock_holding; TRUNCATE TABLE stock_price_snapshot;
+TRUNCATE TABLE family_goal; TRUNCATE TABLE goal_ai_report;
+TRUNCATE TABLE period_member_cashflow;
+SET FOREIGN_KEY_CHECKS=1;
+SQL
   touch "$SENTINEL"
+  ok "演示数据已清(13 张交易表 TRUNCATE)· 保留 family + member 种子(diwa / wangergou)"
 fi
 
 # ============================================================
