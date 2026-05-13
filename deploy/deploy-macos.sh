@@ -125,18 +125,47 @@ ok "$APP_HOME · $ENV_DIR 就位"
 say "6/12 MySQL 库 + finance 用户"
 DB_NAME="${DB_NAME:-finance}"
 DB_USER="${DB_USER:-finance}"
+
+# 探测 root 鉴权方式:
+#   1) 无密码(brew 默认 · 没装 mysql_secure_installation)
+#   2) 有密码(用户装过 mysql_secure_installation 或用 DMG 装的 MySQL)
+ROOT_PW=""
+if mysql -uroot -e "SELECT 1" >/dev/null 2>&1; then
+  ok "MySQL root 无密码登录(brew 默认)"
+else
+  warn "MySQL root 似乎设了密码(brew 默认无,装过 mysql_secure_installation 会有)"
+  echo "  提示:首次装 mysql 没设密码就直接回车;有密码就输入。错了脚本不会动 DB。"
+  for try in 1 2 3; do
+    ROOT_PW=$(ask_pw "MySQL root@localhost 密码(回车=无密码 · 试 $try/3)")
+    if [[ -z "$ROOT_PW" ]]; then
+      if mysql -uroot -e "SELECT 1" >/dev/null 2>&1; then ok "无密码登录成功"; break; fi
+    else
+      if MYSQL_PWD="$ROOT_PW" mysql -uroot -e "SELECT 1" >/dev/null 2>&1; then ok "root 密码验证通过"; break; fi
+    fi
+    err "root 登录失败"
+    [[ $try -eq 3 ]] && die "MySQL root 登录连续 3 次失败 · 排查方法见下方提示
+  · 忘了密码:brew services stop mysql && mysqld_safe --skip-grant-tables &
+              然后 mysql -uroot 进去 UPDATE mysql.user SET ... ;FLUSH PRIVILEGES;
+  · 或重装:brew services stop mysql && rm -rf /opt/homebrew/var/mysql && brew services start mysql"
+  done
+fi
+# 后续 mysql -uroot 全走这个 wrapper
+root_mysql() {
+  if [[ -n "$ROOT_PW" ]]; then MYSQL_PWD="$ROOT_PW" mysql -uroot "$@"
+  else mysql -uroot "$@"; fi
+}
+
 if [[ -f "$ENV_FILE" ]]; then
   DB_PASS=$(grep '^DB_PASS=' "$ENV_FILE" | cut -d= -f2-)
   ok "从 $ENV_FILE 读到 DB_PASS"
 else
-  # macOS 默认 root 无密码(brew 装的 MySQL 默认行为)· 直接以 root 创建
-  if mysql -uroot -sN -e "SHOW DATABASES" 2>/dev/null | grep -qx "$DB_NAME"; then
+  if root_mysql -sN -e "SHOW DATABASES" 2>/dev/null | grep -qx "$DB_NAME"; then
     DB_PASS=$(ask_pw "DB $DB_NAME 已存在,现有 ${DB_USER}@localhost 密码")
   else
     DB_PASS_GEN=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24)
     DB_PASS=$(ask_pw "新建 ${DB_USER}@localhost 的密码(回车 = 自动生成)")
     [[ -z "$DB_PASS" ]] && { DB_PASS="$DB_PASS_GEN"; warn "自动生成 → $DB_PASS  (将写入 $ENV_FILE)"; }
-    mysql -uroot <<SQL
+    root_mysql <<SQL
 CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
 ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
@@ -147,7 +176,7 @@ SQL
   fi
 fi
 MYSQL_PWD="$DB_PASS" mysql -h127.0.0.1 -u"$DB_USER" "$DB_NAME" -e "SELECT 1" >/dev/null 2>&1 \
-  || die "${DB_USER}@localhost 登 mysql 失败 · 检查 brew 装的 MySQL root 是否需要密码"
+  || die "${DB_USER}@localhost 登 mysql 失败 · 重新跑脚本输入正确 root 密码(或 mysql_secure_installation 设的密码)"
 ok "${DB_USER}@localhost 登录验证通过"
 
 say "7/12 $ENV_FILE"
