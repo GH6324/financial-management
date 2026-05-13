@@ -112,11 +112,14 @@ certbot 自动改 `finance.conf` 加 `listen 443 ssl` + 配 cron 续签。`deplo
 
 | 症状 | 解 |
 |---|---|
-| `deploy.sh` 步 7 mysql 失败 | `sudo mysql` 看能不能进(Ubuntu 默认 socket 鉴权) |
-| `deploy.sh` 步 14 服务 30s 不起 | 看 `journalctl -u finance --no-pager -n 100`(脚本自动打了 30 行);DB 密码错 / 端口被占最常见 |
+| Linux:`deploy.sh` 步 7 mysql 失败 | `sudo mysql` 看能不能进(Ubuntu 默认 socket 鉴权) |
+| Linux:`deploy.sh` 步 14 服务 30s 不起 | 看 `journalctl -u finance --no-pager -n 100`(脚本自动打了 30 行);DB 密码错 / 端口被占最常见 |
+| macOS:`deploy-macos.sh` 步 6 ERROR 1045 Access denied for root | root 设了密码 · 重跑输入密码;真忘了:`brew services stop mysql && mysqld_safe --skip-grant-tables &` 重置 |
+| macOS:登入后看到 demo 数据 | 你 sentinel 已写但 TRUNCATE 没跑 · 删 `~/finance/.prod-cleaned` + 重跑 `deploy/deploy.sh` |
+| macOS:服务起不来 | `tail -f $HOME/finance/logs/app.log` 或前台跑 `bash $HOME/finance/start.sh` 看输出 |
 | 切币种 USD 显示 ¥ | `fx_rate` 缺,见 `/admin/fx`;或服务器拉不通 frankfurter.dev(防火墙) |
-| 自动备份没生成 | `sudo systemctl status finance-backup.timer` 看 |
-| 想重置成"刚装好"状态 | 删 `/opt/finance/.prod-cleaned` + 重跑 `deploy.sh`(真实数据探测会拦你,见警告 SQL) |
+| 自动备份没生成 | Linux:`sudo systemctl status finance-backup.timer` · macOS:用户自己 `crontab -e` 加 mysqldump |
+| Linux:重置成"刚装好"状态 | 删 `/opt/finance/.prod-cleaned` + 重跑 `deploy.sh`(真实数据探测会拦你,见警告 SQL) |
 
 ---
 
@@ -158,14 +161,15 @@ cd financial-management
 bash deploy/deploy.sh         # 或 deploy/deploy-macos.sh,二者等价(主脚本顶部自动分流)
 ```
 
-脚本会:
-1. `brew install openjdk@21 maven mysql`(已装则跳过)
-2. `brew services start mysql`
-3. 建 `finance` 库 + 用户(`mysql -uroot` 默认无密码;有密码需手动改脚本)
+脚本会(12 步幂等):
+1. `brew install openjdk@21 maven mysql`(已装则跳过)· `brew services start mysql`
+2. 探测 MySQL root 鉴权:无密码(brew 默认)or 密码(`mysql_secure_installation` 装过)· 后者 prompt 3 次重试
+3. 建 `finance` 库 + 用户(密码 prompt 或自动生成 24 字符)
 4. 写 `$HOME/.finance/finance.env`(600 权限)
-5. 应用 `V*__*.sql` 迁移(共享 `db/apply.sh`)
-6. `mvn package` 编译 jar
-7. 拷到 `$HOME/finance/app.jar` + 生成 `$HOME/finance/start.sh`
+5. 跑 `V*__*.sql` 迁移(共享 `db/apply.sh` · sha256 portability shim · macOS 用 `shasum -a 256`)
+6. **首装清 dev 演示数据**(V3-V5 灌的账户/周期/流水/快照)· sentinel `$HOME/finance/.prod-cleaned` + 真实数据探测(audit > 50 或 extra members > 0 拒绝 TRUNCATE)· 留 family + member(`diwa` / `wangergou`)种子
+7. `mvn package` 编译 jar
+8. 拷到 `$HOME/finance/app.jar` + 生成 `$HOME/finance/start.sh`(内部 source env + exec java)
 
 **启动**:
 
@@ -199,3 +203,5 @@ launchctl list | grep com.family.finance       # 见 PID 即跑
 | 应用用户 | `finance` 系统用户 | 当前 macOS 用户 |
 
 **迭代发版**:跟 Linux 一样 `git pull && bash deploy/deploy.sh`,脚本检测到 `~/finance/app.jar` 自动走迭代分支(mysqldump 备份 + 切 jar)。重启需手动:`pgrep -f $HOME/finance/app.jar | xargs kill && nohup bash $HOME/finance/start.sh > $HOME/finance/logs/app.log 2>&1 &`。
+
+**MySQL root 提示**:brew 默认装好 root 无密码;装过 `mysql_secure_installation` 或用 DMG 装的会有密码。脚本会自动探测 → 失败时 prompt 3 次重试(回车 = 试无密码,输入 = 试密码)。3 次都错 die 并给出重置指引(`brew services stop mysql && mysqld_safe --skip-grant-tables &`)。

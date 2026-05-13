@@ -62,6 +62,27 @@
 - Dashboard 加"按账户分布"横向 bar(资产向右 / 负债向左 / 0 居中)+ "按成员分布"饼图
 - 搜索式下拉(大列表 select 自动升级)
 
+### v0.3(2026-05-13 封板 · tag `v0.3`)
+
+- **财务目标体系** · `/goals` 一级页 + Dashboard 顶部进度条带(信息架构 C 混合)
+  - 退休 / FIRE(通胀 PV + 提取率 4%)
+  - 子女教育金(child member FK + 通胀公式)
+  - 应急储备(仅 CASH 类账户口径 · target = 月支出 × 倍数)
+  - **三情景预测**(乐观 8% / 中性 5% / 悲观 2%)· 二分反推达成日期
+- **AI 4 处介入**(复用 v0.2 LlmOrchestrator · 主 Qwen-Plus / 备 DeepSeek):
+  - FR-53a 目标设定向导 · 推荐合理参数 + rationale
+  - FR-53b 周期关闭后异步生成目标月报叙事(`goal_ai_report` 表持久化)
+  - FR-53c 偏离预警 + 建议(90 天节流)
+  - FR-53d 体检页 prompt 扩展(目标 + 储蓄能力维度)
+- **股票账户自动估值** · `/accounts/{id}/holdings` 持仓管理页(混合模式):
+  - **AUTO** · 录 ticker + 数量 · 系统每日 T+1 拉价(新浪主 + 腾讯备 · 圆形熔断)· 三市场覆盖(美/A/港)
+  - **MANUAL** · 手填账户币种市值 · 适合未上市/私募
+  - **CASH** · 账户内多币种闲置现金(IBKR / 富途)· FX 链式经家庭 base 中转
+  - 估值写回 `account_balance` · 下游 dashboard / XIRR / 目标进度零改动
+  - `/entry` 加"📦 持仓变动?"入口
+- **储蓄能力指标** · `/entry` 成员级月度收入/支出 +2 框 · `/reports` 月度收支双柱图 + 月均 KPI
+- **macOS 一键部署** · `deploy/deploy.sh` 顶部 OS 探测 · Darwin 自动转 `deploy-macos.sh`(brew · 无 sudo · `$HOME/finance` · 可选 launchd)
+
 ## 技术栈
 
 | 层 | 选型 |
@@ -70,8 +91,8 @@
 | 持久化 | MySQL 8(版本化 SQL 迁移 + sha256 校验,无 Flyway 依赖) |
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
-| 部署 | systemd + nginx 反代 :80 → :20000(loopback) |
-| 测试 | JUnit 5 + 76 单元 / 36 端到端 / 180+ 黑盒 |
+| 部署 | Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
+| 测试 | JUnit 5 · 114 单元 / 36 端到端 / 229 黑盒 |
 
 ## 快速开始(自托管部署)
 
@@ -100,8 +121,8 @@ sudo bash deploy/deploy.sh
 
 | 用户名 | 密码 |
 |---|---|
-| `alice` | 你刚设的临时密码(默认 `demo1234`)|
-| `bob`   | 同上 |
+| `diwa`      | 你刚设的临时密码(默认 `demo1234`)|
+| `wangergou` | 同上 |
 
 **首次登录强制改密**,改完即可。然后:
 
@@ -164,8 +185,8 @@ mvn spring-boot:run
 测试:
 
 ```bash
-mvn test                       # JUnit 单元测试(76)
-bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(180+)
+mvn test                       # JUnit 单元测试(114)
+bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(229)
 bash scripts/qa-e2e.sh         # 端到端真值校验(36 · 会清空 DB)
 ```
 
@@ -199,16 +220,18 @@ financial-management/
 │   ├── apply.sh                          # 版本化迁移运行器(sha256 校验)
 │   └── migration/V*__*.sql               # 数据库 schema + 种子
 ├── deploy/
-│   ├── deploy.sh                         # 一键部署(首装 + 迭代)
-│   ├── rollback.sh                       # 紧急回滚
-│   ├── nginx-setup.sh                    # 单独 nginx 配置
+│   ├── deploy.sh                         # Linux 一键部署 · 顶部 OS 探测自动转 macOS
+│   ├── deploy-macos.sh                   # macOS 一键部署($HOME/finance · brew · 无 sudo)
+│   ├── finance.macos.plist.template      # macOS launchd 开机自启模板(可选)
+│   ├── rollback.sh                       # Linux 紧急回滚
+│   ├── nginx-setup.sh                    # Linux 单独 nginx 配置
 │   ├── maven-settings.xml                # 国内 mirror 加速(可改)
-│   ├── finance.service                   # systemd unit
-│   ├── backup.sh + finance-backup.{service,timer}  # 每日自动备份
+│   ├── finance.service                   # Linux systemd unit
+│   ├── backup.sh + finance-backup.{service,timer}  # Linux 每日自动备份
 │   └── README.md                         # 部署手册
 ├── prd/                                  # 产品需求文档
 ├── tech-design/                          # 技术设计文档
-├── preview/                              # 静态 HTML 预览(28 页)
+├── preview/                              # 静态 HTML 预览(v0.1 + v0.2 + v0.3 · 43+ 页)
 ├── docs/qa-cases.md                      # QA case 库
 ├── icons/                                # 用户可替换的图标源 PNG
 └── scripts/
