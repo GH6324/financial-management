@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.4 Preview · 报表大整顿 + 摸清第 5 问</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+</head>
+<body class="min-h-screen relative">
+
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="border-b border-rule pt-12 pb-10 px-8 md:px-16 relative z-10">
+    <div class="max-w-[1200px] mx-auto">
+      <div class="flex items-start justify-between flex-wrap gap-6">
+        <div>
+          <div class="eyebrow mb-3">№ 张 — 私家账房 · Family Counting House · v0.4</div>
+          <h1 class="font-display text-5xl md:text-7xl leading-[0.95] font-medium tracking-tight">
+            看清钱不贬值 ·<br/>
+            <span class="italic font-light text-brass-deep">调优有依据</span>
+          </h1>
+          <p class="font-serif text-base md:text-lg text-ink-soft max-w-2xl mt-6 leading-relaxed">
+            v0.4 不是新加功能,是<span class="text-ink">重塑产品哲学</span>。把"账本"重新定位为
+            <span class="text-brass-deep font-medium">"摸清资产 + 辅助管理让钱增值不贬值"</span>。砍掉流水视角图(瀑布/桑基/月度对比),
+            补完"<span class="text-ink">跑赢通胀和市场了吗</span>"这块空白,加上"<span class="text-ink">具体怎么调</span>"的决策辅助。
+          </p>
+        </div>
+        <div class="flex flex-col gap-3 items-end">
+          <a href="../index.html" class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle hover:text-ink no-underline">← 返回版本入口</a>
+          <div class="pill pill-brass">v0.4 · DESIGNING</div>
+          <div class="font-mono text-xs text-ink-soft tracking-widest">3 主线 · 10 FR</div>
+          <a href="../v0.3/index.html" class="btn-paper mt-2">↩ 看 v0.3 基线</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1200px] mx-auto px-8 md:px-16 py-16 relative z-10">
+
+    <!-- 设计主张 · 摸清 5 问 -->
+    <section class="paper-card p-6 mb-12 bg-card-soft" style="border-left: 4px solid var(--brass-deep)">
+      <div class="flex items-baseline justify-between mb-3">
+        <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">摸 · 清 · 5 · 问 · 框 · 架</span>
+      </div>
+      <p class="text-sm text-ink-soft leading-relaxed mb-4">
+        家庭账房的核心是回答 5 个问题。前 4 问 v0.1-v0.3 已答完,<span class="text-rust">第 5 问完全空白</span>。
+        v0.4 主线就是补完第 5 问 + 把前 4 问的回答从"流水视角"转回"摸清视角"。
+      </p>
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
+        <div class="paper-card p-3 bg-paper text-center">
+          <div class="font-mono text-[9px] text-ink-subtle">1</div>
+          <div class="font-display text-base mt-1">我有多少钱?</div>
+          <div class="text-forest text-[10px] mt-1">v0.1 ✓</div>
+        </div>
+        <div class="paper-card p-3 bg-paper text-center">
+          <div class="font-mono text-[9px] text-ink-subtle">2</div>
+          <div class="font-display text-base mt-1">钱分在哪?</div>
+          <div class="text-forest text-[10px] mt-1">v0.1 ✓</div>
+        </div>
+        <div class="paper-card p-3 bg-paper text-center">
+          <div class="font-mono text-[9px] text-ink-subtle">3</div>
+          <div class="font-display text-base mt-1">怎么涨/跌?</div>
+          <div class="text-forest text-[10px] mt-1">v0.1+v0.2 ✓</div>
+        </div>
+        <div class="paper-card p-3 bg-paper text-center">
+          <div class="font-mono text-[9px] text-ink-subtle">4</div>
+          <div class="font-display text-base mt-1">风险多大?</div>
+          <div class="text-forest text-[10px] mt-1">v0.2 ✓</div>
+        </div>
+        <div class="paper-card p-3 text-center" style="background:rgba(122,90,57,.08);border:1px solid var(--brass-deep)">
+          <div class="font-mono text-[9px] text-brass-deep">5 · 新</div>
+          <div class="font-display text-base mt-1 text-brass-deep">跑赢通胀和市场?</div>
+          <div class="text-rust text-[10px] mt-1">v0.4 → 补完</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 主线 A · 报表大整顿 -->
+    <section class="mb-16">
+      <div class="flex items-baseline justify-between mb-8 rule-x pt-6">
+        <div>
+          <div class="eyebrow mb-2">第 一 · 卷 · 主线 A</div>
+          <h2 class="font-display text-3xl font-medium">报表大整顿 · 砍重复 + 流水视角清理</h2>
+        </div>
+        <div class="text-ink-soft font-mono text-xs tracking-widest">FR-60a / b / c</div>
+      </div>
+
+      <div class="paper-card p-5 mb-6 bg-card-soft" style="border-left:4px solid var(--rust)">
+        <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-rust mb-2">砍 · 掉 · 的 · 图</div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div class="paper-card p-3 bg-paper opacity-50" style="text-decoration: line-through">
+            <div class="font-mono text-[9px] text-rust">流水视角</div>
+            <div class="font-display mt-1">月度收支瀑布</div>
+            <div class="text-ink-subtle text-[10px] mt-1">ECharts · reports 第一表</div>
+          </div>
+          <div class="paper-card p-3 bg-paper opacity-50" style="text-decoration: line-through">
+            <div class="font-mono text-[9px] text-rust">流水视角</div>
+            <div class="font-display mt-1">收入流向桑基</div>
+            <div class="text-ink-subtle text-[10px] mt-1">ECharts · reports 第二表</div>
+          </div>
+          <div class="paper-card p-3 bg-paper opacity-50" style="text-decoration: line-through">
+            <div class="font-mono text-[9px] text-rust">重复</div>
+            <div class="font-display mt-1">月度收支对比</div>
+            <div class="text-ink-subtle text-[10px] mt-1">与储蓄区双柱重</div>
+          </div>
+          <div class="paper-card p-3 bg-paper opacity-50" style="text-decoration: line-through">
+            <div class="font-mono text-[9px] text-rust">重复</div>
+            <div class="font-display mt-1">风险敞口表</div>
+            <div class="text-ink-subtle text-[10px] mt-1">与环形重</div>
+          </div>
+          <div class="paper-card p-3 bg-paper opacity-50" style="text-decoration: line-through">
+            <div class="font-mono text-[9px] text-rust">重复</div>
+            <div class="font-display mt-1">checkup 配置环形</div>
+            <div class="text-ink-subtle text-[10px] mt-1">dashboard 已有</div>
+          </div>
+          <div class="paper-card p-3 bg-paper opacity-50" style="text-decoration: line-through">
+            <div class="font-mono text-[9px] text-rust">重复</div>
+            <div class="font-display mt-1">checkup 风险 bar</div>
+            <div class="text-ink-subtle text-[10px] mt-1">reports 已有</div>
+          </div>
+          <div class="paper-card p-3 bg-paper opacity-50" style="text-decoration: line-through">
+            <div class="font-mono text-[9px] text-rust">重复</div>
+            <div class="font-display mt-1">dashboard 收支组合图</div>
+            <div class="text-ink-subtle text-[10px] mt-1">储蓄区更专业</div>
+          </div>
+          <div class="paper-card p-3 bg-paper opacity-50" style="text-decoration: line-through">
+            <div class="font-mono text-[9px] text-rust">工具性</div>
+            <div class="font-display mt-1">汇率明细表</div>
+            <div class="text-ink-subtle text-[10px] mt-1">挪 /admin/fx</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        <a href="pages/dashboard.html" class="paper-card p-6 hover:shadow-lg transition no-underline group"
+           style="background: linear-gradient(180deg, rgba(122,90,57,.04) 0%, var(--card) 60%); border-left: 4px solid var(--brass-deep);">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-60a · P0</span>
+            <span class="font-mono text-[10px] text-forest">改造</span>
+          </div>
+          <h3 class="font-display text-2xl font-medium mb-2 group-hover:text-brass-deep transition">/dashboard 精简</h3>
+          <p class="text-sm text-ink-soft mb-3 leading-relaxed">
+            KPI 9→5 · 图 6→4 · 净资产趋势 + CPI 实际购买力对照 · 应急金"不闲置"提示 banner。
+          </p>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="pill text-[9px]">5 KPI</span>
+            <span class="pill text-[9px]">CPI 线</span>
+            <span class="pill text-[9px]">应急金提示</span>
+          </div>
+        </a>
+
+        <a href="pages/reports.html" class="paper-card p-6 hover:shadow-lg transition no-underline group"
+           style="background: linear-gradient(180deg, rgba(122,90,57,.04) 0%, var(--card) 60%); border-left: 4px solid var(--brass-deep);">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-60b · P0</span>
+            <span class="font-mono text-[10px] text-forest">改造</span>
+          </div>
+          <h3 class="font-display text-2xl font-medium mb-2 group-hover:text-brass-deep transition">/reports 重切职责</h3>
+          <p class="text-sm text-ink-soft mb-3 leading-relaxed">
+            10 表 → 5 表(+ 储蓄区 + 2 新区)· 基准对照 + 配置 diff + AI 调仓 · 跑赢/输 pill。
+          </p>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="pill text-[9px]">基准列</span>
+            <span class="pill text-[9px]">配置 diff</span>
+            <span class="pill text-[9px]">AI 调仓</span>
+          </div>
+        </a>
+
+        <a href="pages/checkup.html" class="paper-card p-6 hover:shadow-lg transition no-underline group"
+           style="background: linear-gradient(180deg, rgba(122,90,57,.04) 0%, var(--card) 60%); border-left: 4px solid var(--brass-deep);">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-60c · P0</span>
+            <span class="font-mono text-[10px] text-forest">瘦身</span>
+          </div>
+          <h3 class="font-display text-2xl font-medium mb-2 group-hover:text-brass-deep transition">/checkup 去重</h3>
+          <p class="text-sm text-ink-soft mb-3 leading-relaxed">
+            砍配置环形 + 风险 bar · 保留诊断 KPI / 流动性 / 收益 / 智能建议 / AI · 负债率搬过来。
+          </p>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="pill text-[9px]">诊断专属</span>
+            <span class="pill text-[9px]">AI 综合</span>
+          </div>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- 主线 B · 摸清第 5 问 -->
+    <section class="mb-16">
+      <div class="flex items-baseline justify-between mb-8 rule-x pt-6">
+        <div>
+          <div class="eyebrow mb-2">第 二 · 卷 · 主线 B</div>
+          <h2 class="font-display text-3xl font-medium">摸清第 5 问 · 跑赢通胀和市场了吗</h2>
+        </div>
+        <div class="text-ink-soft font-mono text-xs tracking-widest">FR-61a / b / c</div>
+      </div>
+
+      <div class="paper-card p-6 mb-6 bg-card-soft">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <div class="eyebrow-ink mb-2 text-forest">FR-61a · CPI 对照线</div>
+            <h4 class="font-display text-lg mb-1">中产最痛"被通胀吃了多少"</h4>
+            <p class="text-xs text-ink-soft leading-relaxed">
+              dashboard 净资产趋势叠一条 CPI 折算的"实际购买力"线 · 一眼看见名义 vs 实际差距 · 默认 2%,可改 3%/5%。
+            </p>
+          </div>
+          <div>
+            <div class="eyebrow-ink mb-2 text-forest">FR-61b · 账户级 vs 基准</div>
+            <h4 class="font-display text-lg mb-1">复用 v0.2 现成弹药</h4>
+            <p class="text-xs text-ink-soft leading-relaxed">
+              v0.2 早就有 product_category.benchmark_pct(沪深 300 / 标普 500 / 中债)· v0.4 在 reports 账户级收益表加列 + 跑赢/输 pill。
+            </p>
+          </div>
+          <div>
+            <div class="eyebrow-ink mb-2 text-forest">FR-61c · 家庭整体 vs 基准</div>
+            <h4 class="font-display text-lg mb-1">按类目加权</h4>
+            <p class="text-xs text-ink-soft leading-relaxed">
+              家庭基准 = Σ(账户余额 × 类目基准 %) / 总资产 · 与家庭 XIRR 对照 · reports 顶部 KPI 区显示。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center text-xs text-ink-subtle font-mono">
+        ↑ 这 3 个 FR 全部在 pages/reports.html 和 pages/dashboard.html 演示
+      </div>
+    </section>
+
+    <!-- 主线 C · 调优决策 -->
+    <section class="mb-16">
+      <div class="flex items-baseline justify-between mb-8 rule-x pt-6">
+        <div>
+          <div class="eyebrow mb-2">第 三 · 卷 · 主线 C</div>
+          <h2 class="font-display text-3xl font-medium">调优决策辅助 · 具体怎么调</h2>
+        </div>
+        <div class="text-ink-soft font-mono text-xs tracking-widest">FR-62a / b / c / d</div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+
+        <div class="paper-card p-5">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-62a · 配置 diff</span>
+            <span class="font-mono text-[10px] text-forest">reports 区</span>
+          </div>
+          <h4 class="font-display text-xl mb-2">当前配置 vs 4 个模板</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            标普 4321 / 雪球三分稳健 / 雪球三分激进 / 永久投资组合 + 自定义 · 4 类目横向 bar diff 染色。
+          </p>
+        </div>
+
+        <div class="paper-card p-5" style="border-left:4px solid var(--brass-deep)">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-62b · AI 调仓建议</span>
+            <span class="font-mono text-[10px] text-forest">LLM</span>
+          </div>
+          <h4 class="font-display text-xl mb-2">"从 X 调 ¥N 到 Y" 具体数字</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            按钮触发 · 复用 v0.3 LlmOrchestrator · 30 天节流 · 返回结构化 actions[] + narrative。
+          </p>
+        </div>
+
+        <div class="paper-card p-5">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-62c · 应急金不闲置</span>
+            <span class="font-mono text-[10px] text-forest">dashboard + checkup</span>
+          </div>
+          <h4 class="font-display text-xl mb-2">LIQUID 超额提示转货币基金</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            复用 v0.3.3 流动性精细化 · LIQUID 余额 > 应急需求 × 1.5x 时黄色 banner · 链接到 MONEY_FUND 参考产品。
+          </p>
+        </div>
+
+        <a href="pages/refinance.html" class="paper-card p-5 hover:shadow-lg transition no-underline group"
+           style="background: linear-gradient(180deg, rgba(122,90,57,.04) 0%, var(--card) 60%); border-left: 4px solid var(--brass-deep);">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-62d · P0</span>
+            <span class="font-mono text-[10px] text-forest">v0.4 新页</span>
+          </div>
+          <h4 class="font-display text-xl mb-2 group-hover:text-brass-deep">/reports/refinance · 提前还贷决策器</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            输入剩余房贷 + 多还金额 + 投资年化 · 算 NPV / IRR · 推荐还贷 or 投资 · 中产 20 年房贷高频问题。
+          </p>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- 非范围 -->
+    <section class="paper-card p-6 mb-12" style="border-left:4px solid var(--ink-subtle); background:rgba(0,0,0,.02)">
+      <div class="eyebrow mb-3">v0.4 不 · 做 · 什 · 么(留 v0.5+)</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-ink-soft">
+        <div>
+          <span class="text-rust">✗ 录入革命</span>(支付宝/微信 CSV → AI 归类)
+          <div class="text-ink-subtle text-[10px] mt-0.5">摸清基本到位 · v0.4 先建决策能力 · v0.5 降录入成本 ROI 复利</div>
+        </div>
+        <div>
+          <span class="text-rust">✗ 保险账户类型</span>
+          <div class="text-ink-subtle text-[10px] mt-0.5">跟录入革命配套做更顺 · v0.5 一起</div>
+        </div>
+        <div>
+          <span class="text-rust">✗ 税务专项扣除</span>
+          <div class="text-ink-subtle text-[10px] mt-0.5">政策易变 + 跟官方个税 APP 重复 · 维护负担重</div>
+        </div>
+        <div>
+          <span class="text-rust">✗ 失业 N 月情景模拟</span>
+          <div class="text-ink-subtle text-[10px] mt-0.5">前提是保险/现金流 baseline · v0.5+</div>
+        </div>
+        <div>
+          <span class="text-rust">✗ 多场景账本(AA / 旅行)</span>
+          <div class="text-ink-subtle text-[10px] mt-0.5">与"家庭账房"硬约束冲突 · v0.1 起明确非目标</div>
+        </div>
+        <div>
+          <span class="text-rust">✗ 二级预算 / 消费品类细化</span>
+          <div class="text-ink-subtle text-[10px] mt-0.5">与"10 分钟/月"硬约束冲突 · v0.1 起明确非目标</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 路径图 -->
+    <section class="paper-card p-6 mb-12">
+      <div class="eyebrow mb-3">v · 0 · 4 · 实 · 施 · 路 · 径</div>
+      <div class="text-xs text-ink-soft leading-relaxed">
+        Phase 1 · DB 迁移 V21-V23 + 实体类(1 天) →
+        Phase 2 · FR-60 报表整顿(2 天) →
+        Phase 3 · FR-61a CPI 对照线(1.5 天) →
+        Phase 4 · FR-61b/c 基准对照(2 天) →
+        Phase 5 · FR-62a 配置 diff(2 天) →
+        Phase 6 · FR-62b AI 调仓 prompt + 节流(2 天) →
+        Phase 7 · FR-62c 应急金提示(0.5 天) →
+        Phase 8 · FR-62d 提前还贷决策器(1.5 天) →
+        Phase 9 · QA + 真机 + 部署 + 文档同步(2 天)
+        <br/><br/>
+        <span class="text-ink font-medium">总计 14-16 天</span>(单人聚焦)
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-rule mt-16 py-8 px-8 md:px-16 text-center">
+    <p class="font-mono text-[10px] tracking-widest text-ink-subtle">
+      家庭账房 · Family Counting House · v0.4 PREVIEW · 2026-05-14
+    </p>
+    <p class="font-serif text-xs text-ink-soft mt-2 italic">
+      "不是流水/记账 APP · 是中产家庭摸清资产 + 让钱增值不贬值的工具"
+    </p>
+  </footer>
+
+</body>
+</html>

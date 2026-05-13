@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>v0.4 · /reports · 整顿 + 基准对照 + 调仓建议</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="min-h-screen relative">
+
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+<header class="border-b border-rule px-6 lg:px-10 py-4 flex items-baseline justify-between">
+  <div class="flex items-baseline gap-8">
+    <a href="../index.html" class="font-display text-xl no-underline">№ 张 · 账房</a>
+    <nav class="flex gap-5 font-mono text-[11px] tracking-wider uppercase text-ink-soft">
+      <a href="dashboard.html" class="hover:text-ink no-underline">Dashboard</a>
+      <span class="text-ink">趋势 · 收益</span>
+      <a href="checkup.html" class="hover:text-ink no-underline">体检</a>
+      <span class="hover:text-ink">/entry · 录入</span>
+      <span class="hover:text-ink">目标</span>
+    </nav>
+  </div>
+  <span class="font-mono text-[10px] text-ink-subtle">v0.4 · preview</span>
+</header>
+
+<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10">
+
+  <section class="mb-8 flex items-end justify-between flex-wrap gap-4">
+    <div>
+      <div class="eyebrow mb-2">月 · 度 · 大 · 账 · v0.4 改</div>
+      <h1 class="font-display text-5xl font-medium tracking-tight">数 · 字 · <span class="italic font-light text-brass-deep">所至</span></h1>
+      <p class="text-ink-soft text-sm mt-2 max-w-xl">钱怎么涨/跌的 · 跑赢市场和通胀没 · 该往哪调</p>
+    </div>
+    <div class="flex border border-rule">
+      <span class="font-mono text-[11px] px-4 py-2 text-ink-soft border-l border-rule first:border-l-0">1Y</span>
+      <span class="font-mono text-[11px] px-4 py-2 text-ink-soft border-l border-rule">3Y</span>
+      <span class="font-mono text-[11px] px-4 py-2 bg-ink text-paper border-l border-rule">5Y</span>
+      <span class="font-mono text-[11px] px-4 py-2 text-ink-soft border-l border-rule">ALL</span>
+    </div>
+  </section>
+
+  <!-- 4 KPI(顶部加 vs 基准 · FR-61c)-->
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-px bg-rule mb-10 border border-rule">
+    <div class="bg-card p-5">
+      <span class="kpi-eyebrow">家庭 XIRR</span>
+      <div class="font-display text-3xl tnum num-pos">+7.2%</div>
+      <div class="font-mono text-[10px] mt-1">
+        <span class="text-ink-soft">vs 基准 </span>
+        <span class="tnum">5.4%</span>
+        <span class="pill text-[9px] ml-1" style="background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)">跑赢 +1.8%</span>
+      </div>
+    </div>
+    <div class="bg-card p-5">
+      <span class="kpi-eyebrow">家庭 TWR</span>
+      <div class="font-display text-3xl tnum num-pos">+6.8%</div>
+      <div class="kpi-delta">时间加权</div>
+    </div>
+    <div class="bg-card p-5">
+      <span class="kpi-eyebrow">累计净流入</span>
+      <div class="font-display text-3xl tnum">¥ 1,420,000</div>
+      <div class="kpi-delta">5 年累计</div>
+    </div>
+    <div class="bg-card p-5">
+      <span class="kpi-eyebrow">累计投资损益</span>
+      <div class="font-display text-3xl tnum num-pos">¥ 358,000</div>
+      <div class="kpi-delta">轧差收益</div>
+    </div>
+  </section>
+
+  <!-- 第三表 · 本金 vs 收益分解(保留 · 核心图)-->
+  <section class="paper-card p-6 mb-8">
+    <div class="flex items-baseline justify-between mb-3">
+      <div>
+        <div class="eyebrow mb-1">第 一 表 · 核 · 心</div>
+        <h3 class="font-display text-xl font-medium">本金净流入 vs 投资损益</h3>
+      </div>
+      <div class="text-[10px] font-mono text-ink-subtle">真正"摸清增值来源"</div>
+    </div>
+    <div style="height: 280px"><canvas id="decompose"></canvas></div>
+  </section>
+
+  <!-- 负债下降曲线 + 风险等级分布(2 列)-->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="paper-card p-6">
+      <div class="eyebrow mb-1">第 二 表</div>
+      <h3 class="font-display text-xl font-medium mb-3">负债下降曲线</h3>
+      <div style="height: 240px"><canvas id="debt"></canvas></div>
+    </div>
+    <div class="paper-card p-6">
+      <div class="eyebrow mb-1">第 三 表 · 风险</div>
+      <h3 class="font-display text-xl font-medium mb-3">风险等级分布</h3>
+      <div style="height: 240px"><canvas id="risk"></canvas></div>
+    </div>
+  </section>
+
+  <!-- 第四表 · 账户级收益 + 基准对照(FR-61b)-->
+  <section class="mb-8">
+    <div class="flex items-baseline justify-between mb-3">
+      <div>
+        <div class="eyebrow mb-1">第 四 表 · 新</div>
+        <h3 class="font-display text-2xl font-medium">账户级收益 · vs 基准</h3>
+      </div>
+      <div class="text-[10px] font-mono text-ink-subtle">基准来自产品类目 · /admin/product-categories 可微调</div>
+    </div>
+    <div class="paper-card overflow-hidden">
+      <table class="ledger-table">
+        <thead>
+        <tr>
+          <th>账户</th><th>类型</th><th>产品类目</th>
+          <th class="num">XIRR</th><th class="num">基准 %</th><th>vs 基准</th><th class="num">当前价值</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><span class="font-display">富途证券-港美</span></td>
+          <td><span class="pill">股票</span></td>
+          <td><span class="pill text-[9px]">US_STOCK</span></td>
+          <td class="num tnum num-pos">+12.8%</td>
+          <td class="num tnum">10.0%</td>
+          <td><span class="pill text-[9px]" style="background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)">跑赢 +2.8%</span></td>
+          <td class="num">¥320,000</td>
+        </tr>
+        <tr>
+          <td><span class="font-display">华泰证券-A股</span></td>
+          <td><span class="pill">股票</span></td>
+          <td><span class="pill text-[9px]">A_STOCK</span></td>
+          <td class="num tnum num-pos">+3.5%</td>
+          <td class="num tnum">8.0%</td>
+          <td><span class="pill text-[9px]" style="background:rgba(159,74,58,.10);color:var(--rust);border:1px solid var(--rust)">跑输 -4.5%</span></td>
+          <td class="num">¥260,000</td>
+        </tr>
+        <tr>
+          <td><span class="font-display">蚂蚁财富-基金</span></td>
+          <td><span class="pill">理财</span></td>
+          <td><span class="pill text-[9px]">MIXED_FUND</span></td>
+          <td class="num tnum num-pos">+5.8%</td>
+          <td class="num tnum">6.0%</td>
+          <td><span class="pill text-[9px]" style="border:1px solid var(--ink-subtle);color:var(--ink-soft)">持平 -0.2%</span></td>
+          <td class="num">¥220,000</td>
+        </tr>
+        <tr>
+          <td><span class="font-display">招行理财-稳健</span></td>
+          <td><span class="pill">理财</span></td>
+          <td><span class="pill text-[9px]">BANK_WEALTH</span></td>
+          <td class="num tnum num-pos">+3.4%</td>
+          <td class="num tnum">3.2%</td>
+          <td><span class="pill text-[9px]" style="border:1px solid var(--ink-subtle);color:var(--ink-soft)">持平 +0.2%</span></td>
+          <td class="num">¥100,000</td>
+        </tr>
+        <tr>
+          <td><span class="font-display">支付宝-余额宝</span></td>
+          <td><span class="pill">现金</span></td>
+          <td><span class="pill text-[9px]">MONEY_FUND</span></td>
+          <td class="num tnum num-pos">+2.1%</td>
+          <td class="num tnum">2.0%</td>
+          <td><span class="pill text-[9px]" style="border:1px solid var(--ink-subtle);color:var(--ink-soft)">持平 +0.1%</span></td>
+          <td class="num">¥20,000</td>
+        </tr>
+        <tr>
+          <td><span class="font-display">招行储蓄卡-工资</span></td>
+          <td><span class="pill">现金</span></td>
+          <td><span class="pill text-[9px]">CASH_DEPOSIT</span></td>
+          <td class="num tnum">+0.4%</td>
+          <td class="num tnum">0.5%</td>
+          <td><span class="pill text-[9px]" style="border:1px solid var(--ink-subtle);color:var(--ink-soft)">持平</span></td>
+          <td class="num">¥95,000</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 配置 diff vs 模板(FR-62a)-->
+  <section class="mb-8">
+    <div class="flex items-baseline justify-between mb-3">
+      <div>
+        <div class="eyebrow mb-1">第 五 表 · 新 ★</div>
+        <h3 class="font-display text-2xl font-medium">当前配置 vs 模板</h3>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle">模板</span>
+        <select class="font-mono text-xs border border-rule bg-paper px-3 py-1.5">
+          <option>标普 4321 · 中产经典</option>
+          <option>雪球三分 · 稳健(债 60 / 股 30 / 商 10)</option>
+          <option>雪球三分 · 激进(股 70 / 债 15 / 商 15)</option>
+          <option>永久投资组合(各 25%)</option>
+          <option>自定义</option>
+        </select>
+      </div>
+    </div>
+    <div class="paper-card p-6">
+      <div class="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+        <div>
+          <div class="font-mono text-[10px] text-ink-subtle mb-2">当前 vs 标普 4321</div>
+          <div class="space-y-3 text-xs">
+            <div>
+              <div class="flex justify-between mb-1"><span>现金</span><span class="tnum">3.4% / 10%</span></div>
+              <div class="relative h-3 bg-rule-soft">
+                <div class="absolute left-0 top-0 h-full" style="width: 3.4%; background: #2f5d50"></div>
+                <div class="absolute left-0 top-0 h-3 border-r-2 border-dashed" style="left: 10%; border-color: var(--ink-subtle)"></div>
+              </div>
+              <div class="text-[10px] text-rust mt-0.5">↓ 欠配 -6.6%</div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-1"><span>投资</span><span class="tnum">36.8% / 30%</span></div>
+              <div class="relative h-3 bg-rule-soft">
+                <div class="absolute left-0 top-0 h-full" style="width: 36.8%; background: #7a5a39"></div>
+                <div class="absolute left-0 top-0 h-3 border-r-2 border-dashed" style="left: 30%; border-color: var(--ink-subtle)"></div>
+              </div>
+              <div class="text-[10px] text-rust mt-0.5">↑ 超配 +6.8%</div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-1"><span>房产</span><span class="tnum">59.8% / 40%</span></div>
+              <div class="relative h-3 bg-rule-soft">
+                <div class="absolute left-0 top-0 h-full" style="width: 59.8%; background: #c1873b"></div>
+                <div class="absolute left-0 top-0 h-3 border-r-2 border-dashed" style="left: 40%; border-color: var(--ink-subtle)"></div>
+              </div>
+              <div class="text-[10px] text-rust mt-0.5">↑ 严重超配 +19.8%</div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-1"><span>保险</span><span class="tnum">0% / 20%</span></div>
+              <div class="relative h-3 bg-rule-soft">
+                <div class="absolute left-0 top-0 h-full" style="width: 0%; background: #a89a55"></div>
+                <div class="absolute left-0 top-0 h-3 border-r-2 border-dashed" style="left: 20%; border-color: var(--ink-subtle)"></div>
+              </div>
+              <div class="text-[10px] text-rust mt-0.5">↓ 完全缺失(v0.5 引入保险账户)</div>
+            </div>
+          </div>
+        </div>
+        <div class="border-l border-rule pl-6">
+          <div class="font-mono text-[10px] text-ink-subtle mb-2">主 · 要 · 偏 · 离</div>
+          <ul class="text-sm text-ink-soft space-y-2 list-disc pl-5 mb-4">
+            <li><span class="text-rust">房产严重超配 19.8%</span> · 中产房产占比典型问题 · 流动性风险高</li>
+            <li><span class="text-rust">现金欠配 6.6%</span> · 应急储备只覆盖 5.2 月,建议至少 6 月</li>
+            <li><span class="text-ink-soft">投资 + 保险合计偏少</span> · 建议拉高金融资产配比</li>
+          </ul>
+          <div class="paper-card p-4 bg-card-soft" style="border-left:3px solid var(--brass-deep)">
+            <div class="font-mono text-[10px] text-brass-deep mb-2">FR-62b · AI 调仓建议</div>
+            <button class="btn-ink text-xs">🤖 让 AI 给出具体调仓步骤</button>
+            <p class="text-[10px] text-ink-subtle mt-2">30 天节流 · 复用 v0.3 LlmOrchestrator · 输出 JSON actions[]</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AI 调仓建议(已生成 mock)-->
+  <section class="paper-card mb-8 overflow-hidden"
+           style="border:1px solid var(--brass-deep); border-left:6px solid var(--brass-deep); background:linear-gradient(90deg, rgba(122,90,57,.06) 0%, var(--card) 35%)">
+    <div class="px-6 py-4">
+      <div class="flex items-baseline justify-between mb-3">
+        <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">🤖 AI · 调 · 仓 · 建 · 议 · FR-62b</span>
+        <span class="font-mono text-[10px] text-ink-subtle">渲染于 2026-05-14 14:30 · 30 天节流命中缓存</span>
+      </div>
+      <p class="text-sm text-ink-soft leading-relaxed font-serif mb-4">
+        你家当前<b class="text-ink">房产 60%</b>(中产典型分布)· <b class="text-ink">现金 3.4%</b> 偏低 · 应急储备只覆盖 5.2 月(模板建议 6+)。
+        考虑近 3 期工资稳定 + 房产无近期变现需求,建议<b class="text-ink">逐步把投资部分超配的 6.8% 调整为现金 6.6%</b>,把应急金从 ¥185k 升到 ¥246k(约 6 月支出 ¥41k × 6)。
+      </p>
+      <div class="space-y-2">
+        <div class="flex items-center gap-3 px-3 py-2 paper-card bg-paper">
+          <span class="font-mono text-[10px] text-brass-deep w-12">1.</span>
+          <span class="text-sm flex-1">从 <b>蚂蚁财富-基金</b>(MIXED_FUND)调出</span>
+          <span class="font-mono tnum text-brass-deep">¥40,000</span>
+          <span>→</span>
+          <span class="text-sm">到 <b>支付宝-余额宝</b>(MONEY_FUND)</span>
+        </div>
+        <div class="flex items-center gap-3 px-3 py-2 paper-card bg-paper">
+          <span class="font-mono text-[10px] text-brass-deep w-12">2.</span>
+          <span class="text-sm flex-1">从 <b>华泰证券-A股</b>(跑输基准 -4.5%)调出</span>
+          <span class="font-mono tnum text-brass-deep">¥25,000</span>
+          <span>→</span>
+          <span class="text-sm">到 <b>微信-零钱通</b>(MONEY_FUND)</span>
+        </div>
+      </div>
+      <p class="text-xs text-ink-subtle mt-3 italic">
+        ※ 投资有风险 · AI 建议仅供参考,具体操作前请结合你对市场的判断。
+      </p>
+    </div>
+  </section>
+
+  <!-- 储蓄区(保留 v0.3) -->
+  <section class="mt-12 border-t-4 border-double border-ink pt-8">
+    <div class="mb-4">
+      <div class="eyebrow mb-2" style="color:var(--brass-deep)">储 · 蓄 · 能 · 力 · v0.3 保留</div>
+      <h2 class="font-display text-2xl font-medium">月度收支 + 储蓄率(v0.3 数据,不动)</h2>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-px bg-rule mb-4 border border-rule">
+      <div class="bg-card p-4"><div class="font-mono text-[10px] text-ink-subtle">月均收入(近 12 月)</div><div class="font-display text-xl tnum">¥35,000</div></div>
+      <div class="bg-card p-4"><div class="font-mono text-[10px] text-ink-subtle">月均支出(近 12 月)</div><div class="font-display text-xl tnum num-neg">¥18,000</div></div>
+      <div class="bg-card p-4"><div class="font-mono text-[10px] text-ink-subtle">储蓄率(最近期)</div><div class="font-display text-xl tnum text-brass-deep">48%</div></div>
+      <div class="bg-card p-4"><div class="font-mono text-[10px] text-ink-subtle">月储蓄能力(中位)</div><div class="font-display text-xl tnum">¥17,500</div></div>
+      <div class="bg-card p-4"><div class="font-mono text-[10px] text-ink-subtle">已填月份</div><div class="font-display text-xl tnum">11/12</div></div>
+    </div>
+    <div class="paper-card p-5">
+      <div class="eyebrow mb-2">月 · 度 · 收 · 支 · 双 · 柱</div>
+      <div style="height:200px"><canvas id="savings"></canvas></div>
+    </div>
+  </section>
+
+  <!-- 砍掉的(preview 专用) -->
+  <section class="paper-card p-4 mt-12 bg-card-soft" style="border-left:3px dashed var(--rust)">
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-rust mb-2">v · 0 · 4 · 砍 · 掉</div>
+    <ul class="text-xs text-ink-soft space-y-1">
+      <li>✗ <span style="text-decoration: line-through">第一表 月度收支瀑布(ECharts)</span> · 流水视角 · 与新定位冲突</li>
+      <li>✗ <span style="text-decoration: line-through">第二表 收入流向桑基图(ECharts)</span> · 流水视角</li>
+      <li>✗ <span style="text-decoration: line-through">第四表 月度收支对比双柱</span> · 与储蓄区重复</li>
+      <li>✗ <span style="text-decoration: line-through">第五·半 风险敞口明细表</span> · 与环形信息重复</li>
+      <li>✗ <span style="text-decoration: line-through">汇率明细表</span> · 工具性 · 挪 /admin/fx</li>
+    </ul>
+  </section>
+
+</main>
+
+<script>
+  const fmt = (v) => v == null ? '—' : '¥' + (v / 10000).toFixed(1) + '万';
+
+  // 本金 vs 收益分解
+  const labels12 = ['25-06','25-07','25-08','25-09','25-10','25-11','25-12','26-01','26-02','26-03','26-04','26-05'];
+  new Chart(document.getElementById('decompose').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: labels12,
+      datasets: [
+        { label: '本金净流入', data: [17000, 16500, 18200, 17800, 16800, 18900, 19200, 17600, 18100, 17300, 17900, 18200], backgroundColor: '#a77b35' },
+        { label: '投资损益', data: [12000, 9500, -2100, 8200, 4800, 28100, 10500, -3200, 5400, 12200, 5400, 7800], backgroundColor: '#2f5d50' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + fmt(c.parsed.y) } } },
+      scales: { x: { stacked: true, ticks: { font: { size: 9 } } }, y: { stacked: true, ticks: { callback: (v) => '¥' + (v/10000).toFixed(1) + 'w', font: { size: 10 } } } }
+    }
+  });
+
+  // 负债下降
+  new Chart(document.getElementById('debt').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: ['25-06','25-12','26-05','27','28','29','30'],
+      datasets: [{ label: '房贷余额', data: [1480000, 1430000, 1380000, 1330000, 1240000, 1140000, 1030000], borderColor: '#9f4a3a', backgroundColor: 'rgba(159,74,58,.08)', fill: true, tension: 0.3, pointRadius: 4 }]
+    },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: fmt, font: { size: 10 } } } } }
+  });
+
+  // 风险等级
+  new Chart(document.getElementById('risk').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['★ 极低', '★★ 低', '★★★ 中低', '★★★★ 中', '★★★★★ 中高'],
+      datasets: [{
+        data: [120000, 200000, 350000, 220000, 580000],
+        backgroundColor: ['#9bb09a', '#7ea08a', '#a89a55', '#c1873b', '#a55540'],
+        borderColor: '#fffaf0', borderWidth: 2
+      }]
+    },
+    options: {
+      maintainAspectRatio: false, cutout: '55%',
+      plugins: {
+        legend: { position: 'right', labels: { font: { size: 10 }, padding: 6 } },
+        tooltip: { callbacks: { label: (c) => c.label + ': ' + fmt(c.parsed) } }
+      }
+    }
+  });
+
+  // 储蓄双柱
+  new Chart(document.getElementById('savings').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: labels12,
+      datasets: [
+        { label: '收入', data: [35000, 34000, 36000, 35500, 33000, 36500, 37200, 34800, 35100, 34000, 35400, 35000], backgroundColor: '#2f5d50' },
+        { label: '支出', data: [17500, 18000, 19200, 17800, 16200, 18900, 17600, 17200, 17900, 16700, 18100, 18000], backgroundColor: '#9f4a3a' }
+      ]
+    },
+    options: { maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { ticks: { callback: fmt, font: { size: 9 } } } } }
+  });
+</script>
+
+</body>
+</html>

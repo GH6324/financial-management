@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>v0.4 · /dashboard · 精简版</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="min-h-screen relative">
+
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+<!-- 简化 nav -->
+<header class="border-b border-rule px-6 lg:px-10 py-4 flex items-baseline justify-between">
+  <div class="flex items-baseline gap-8">
+    <a href="../index.html" class="font-display text-xl no-underline">№ 张 · 账房</a>
+    <nav class="flex gap-5 font-mono text-[11px] tracking-wider uppercase text-ink-soft">
+      <span class="text-ink">Dashboard</span>
+      <a href="reports.html" class="hover:text-ink no-underline">趋势 · 收益</a>
+      <a href="checkup.html" class="hover:text-ink no-underline">体检</a>
+      <span class="hover:text-ink">/entry · 录入</span>
+      <span class="hover:text-ink">目标</span>
+    </nav>
+  </div>
+  <span class="font-mono text-[10px] text-ink-subtle">v0.4 · preview</span>
+</header>
+
+<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10">
+
+  <section class="mb-8 flex items-end justify-between flex-wrap gap-4">
+    <div>
+      <div class="eyebrow mb-2">2026 · 05 · 月 · 度 · 账 · 册</div>
+      <h1 class="font-display text-5xl font-medium tracking-tight">家 · 庭 · 快照</h1>
+      <p class="text-ink-soft text-sm mt-2">我家现在有多少钱 · 分在哪 · 今天怎么样</p>
+    </div>
+    <!-- CPI 假设切换器(FR-61a) -->
+    <div class="flex items-center gap-2">
+      <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle">CPI 假设</span>
+      <div class="flex border border-rule">
+        <button class="font-mono text-[11px] px-3 py-1.5 tracking-wider border-l border-rule first:border-l-0 text-ink-soft hover:bg-card-soft">无</button>
+        <button class="font-mono text-[11px] px-3 py-1.5 tracking-wider border-l border-rule bg-ink text-paper">2%</button>
+        <button class="font-mono text-[11px] px-3 py-1.5 tracking-wider border-l border-rule text-ink-soft hover:bg-card-soft">3%</button>
+        <button class="font-mono text-[11px] px-3 py-1.5 tracking-wider border-l border-rule text-ink-soft hover:bg-card-soft">5%</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 KPI(收敛后) -->
+  <section class="grid grid-cols-2 md:grid-cols-5 gap-px bg-rule mb-8 border border-rule">
+    <div class="bg-card p-5">
+      <span class="kpi-eyebrow">净 资 产</span>
+      <div class="font-display text-3xl tnum num-pos mt-1">¥ 3,182,500</div>
+      <div class="kpi-delta">+ ¥56,200 vs 上期(+1.8%)</div>
+    </div>
+    <div class="bg-card p-5">
+      <span class="kpi-eyebrow">总 资 产</span>
+      <div class="font-display text-3xl tnum mt-1">¥ 5,420,300</div>
+      <div class="kpi-delta">含房产 / 股票 / 理财</div>
+    </div>
+    <div class="bg-card p-5">
+      <span class="kpi-eyebrow">总 负 债</span>
+      <div class="font-display text-3xl tnum num-neg mt-1">¥ 2,237,800</div>
+      <div class="kpi-delta">主要为房贷</div>
+    </div>
+    <div class="bg-card p-5">
+      <span class="kpi-eyebrow">紧 急 储 备</span>
+      <div class="font-display text-3xl tnum text-brass-deep mt-1">5.2 月</div>
+      <div class="kpi-delta">流动资产 / 月均支出</div>
+    </div>
+    <div class="bg-card p-5">
+      <span class="kpi-eyebrow">月 储 蓄 能 力</span>
+      <div class="font-display text-3xl tnum mt-1">¥ 17,500</div>
+      <div class="kpi-delta">近 6 期中位 · FR-51 数据</div>
+    </div>
+  </section>
+
+  <!-- 应急金不闲置提示(FR-62c)-->
+  <section class="paper-card mb-8 px-5 py-3 flex items-center gap-3"
+           style="border-left:4px solid var(--brass-deep); background:rgba(122,90,57,.04)">
+    <span class="text-xl">💡</span>
+    <div class="flex-1 text-sm">
+      <span class="text-ink font-medium">应急金充足 + 超额闲置</span>
+      <span class="text-ink-soft"> · 你的现金 LIQUID 类账户合计 ¥185,000,实际只需 ¥95,000(5.2 月) · 多出
+        <b class="text-brass-deep tnum">¥90,000</b> 建议转货币基金(余额宝 / 零钱通)获取 ~2% 年化,而非趴活期。</span>
+    </div>
+    <a href="#" class="font-mono text-[10px] tracking-wider text-brass-deep hover:underline no-underline">→ 查看 MONEY_FUND 参考产品</a>
+  </section>
+
+  <!-- 4 图(收敛后) -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+
+    <!-- 净资产趋势 + CPI 对照线(FR-61a)-->
+    <div class="paper-card p-5">
+      <div class="flex items-baseline justify-between mb-3">
+        <div>
+          <div class="eyebrow mb-1">第 一 图</div>
+          <h3 class="font-display text-xl font-medium">净资产趋势</h3>
+        </div>
+        <div class="flex items-center gap-3 text-[10px] font-mono">
+          <span class="flex items-center gap-1"><span class="w-3 h-1" style="background:var(--brass-deep)"></span><span class="text-ink-soft">名义</span></span>
+          <span class="flex items-center gap-1"><span class="w-3 border-dashed border-t-2" style="border-color:var(--forest)"></span><span class="text-ink-soft">实际购买力(CPI 2%)</span></span>
+        </div>
+      </div>
+      <div style="height: 280px"><canvas id="netWorthCpi"></canvas></div>
+      <p class="text-[10px] text-ink-subtle mt-2 font-mono tracking-wider">
+        ↑ 名义 ¥318 万 · 实际 ¥302 万 · <span class="text-rust">通胀折损 ¥16 万(-5%)</span>
+      </p>
+    </div>
+
+    <!-- 资产配置环形 -->
+    <div class="paper-card p-5">
+      <div class="eyebrow mb-1">第 二 图</div>
+      <h3 class="font-display text-xl font-medium mb-3">资产配置</h3>
+      <div style="height: 280px"><canvas id="alloc"></canvas></div>
+    </div>
+
+    <!-- 按成员饼 -->
+    <div class="paper-card p-5">
+      <div class="eyebrow mb-1">第 三 图</div>
+      <h3 class="font-display text-xl font-medium mb-3">按成员分布</h3>
+      <div style="height: 220px"><canvas id="member"></canvas></div>
+    </div>
+
+    <!-- 按账户 diverging bar -->
+    <div class="paper-card p-5">
+      <div class="eyebrow mb-1">第 四 图</div>
+      <h3 class="font-display text-xl font-medium mb-3">按账户分布</h3>
+      <div style="height: 220px"><canvas id="account"></canvas></div>
+    </div>
+
+  </section>
+
+  <!-- 砍掉的提示(preview 专用,实施时无) -->
+  <section class="paper-card p-4 mb-8 bg-card-soft" style="border-left:3px dashed var(--rust)">
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-rust mb-2">v · 0 · 4 · 砍 · 掉(preview 说明)</div>
+    <ul class="text-xs text-ink-soft space-y-1">
+      <li>✗ <span style="text-decoration: line-through">收入/支出/储蓄率组合图</span> · 砍(reports/_savings 已有更专业版)</li>
+      <li>✗ 4 个 KPI · 砍(<span style="text-decoration: line-through">负债率</span> 搬 /checkup · <span style="text-decoration: line-through">月均收入</span> / <span style="text-decoration: line-through">月均支出</span> / <span style="text-decoration: line-through">储蓄率</span> / <span style="text-decoration: line-through">已填月份</span> 储蓄区已有)</li>
+    </ul>
+  </section>
+
+</main>
+
+<script>
+  const fmt = (v) => '¥' + (v / 10000).toFixed(0) + '万';
+
+  // 净资产 + CPI 对照
+  const months = ['25-06','25-07','25-08','25-09','25-10','25-11','25-12','26-01','26-02','26-03','26-04','26-05'];
+  const nominal = [2820000, 2885000, 2912000, 2950000, 2985000, 3045000, 3072000, 3105000, 3128000, 3155000, 3168000, 3182500];
+  // 实际购买力(以基期 25-06 为锚,CPI 2%/年 → 月 0.165%)
+  const cpiMonthly = 0.02 / 12;
+  const real = nominal.map((v, i) => Math.round(v / Math.pow(1 + cpiMonthly, i)));
+
+  new Chart(document.getElementById('netWorthCpi').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [
+        { label: '名义净资产', data: nominal, borderColor: '#7a5a39', borderWidth: 2.5,
+          backgroundColor: 'rgba(122,90,57,.08)', fill: true, tension: 0.3, pointRadius: 3 },
+        { label: '实际购买力 (CPI 2%)', data: real, borderColor: '#2f5d50', borderDash: [6, 4], borderWidth: 2,
+          backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 0 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const i = ctx.dataIndex;
+              const n = nominal[i], r = real[i];
+              return ctx.dataset.label + ': ¥' + (ctx.parsed.y / 10000).toFixed(1) + '万' +
+                (ctx.datasetIndex === 1 ? ' · 折损 ' + ((1 - r/n) * 100).toFixed(1) + '%' : '');
+            }
+          }
+        }
+      },
+      scales: {
+        y: { ticks: { callback: fmt, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } },
+        x: { ticks: { font: { size: 9 } }, grid: { display: false } }
+      }
+    }
+  });
+
+  // 资产配置
+  new Chart(document.getElementById('alloc').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['股票', '理财', '现金', '房产', '负债'],
+      datasets: [{
+        data: [580000, 320000, 185000, 3500000, -1402500],
+        backgroundColor: ['#7a5a39', '#a89a55', '#2f5d50', '#c1873b', '#9f4a3a'],
+        borderColor: '#fffaf0', borderWidth: 2
+      }]
+    },
+    options: {
+      maintainAspectRatio: false, cutout: '55%',
+      plugins: {
+        legend: { position: 'right', labels: { font: { size: 11 }, padding: 8 } },
+        tooltip: { callbacks: { label: (ctx) => ctx.label + ': ' + fmt(Math.abs(ctx.parsed)) } }
+      }
+    }
+  });
+
+  // 按成员
+  new Chart(document.getElementById('member').getContext('2d'), {
+    type: 'pie',
+    data: {
+      labels: ['Diwa', 'Wangergou', '联名'],
+      datasets: [{
+        data: [1450000, 1180000, 552500],
+        backgroundColor: ['#7a5a39', '#2f5d50', '#a89a55'],
+        borderColor: '#fffaf0', borderWidth: 2
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { font: { size: 11 } } },
+        tooltip: { callbacks: { label: (ctx) => ctx.label + ': ' + fmt(ctx.parsed) } }
+      }
+    }
+  });
+
+  // 按账户 diverging
+  new Chart(document.getElementById('account').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ['住宅-海淀', '富途证券-港美', '华泰证券-A股', '蚂蚁财富-基金', '招行储蓄', '招行理财', '工行备用金', '微信零钱通', '支付宝余额宝', '招行信用卡', '房贷-招行'],
+      datasets: [{
+        data: [3500000, 320000, 260000, 220000, 95000, 100000, 45000, 25000, 20000, -22500, -1380000],
+        backgroundColor: (ctx) => ctx.parsed.x >= 0 ? '#2f5d50' : '#9f4a3a',
+        borderWidth: 0
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => fmt(ctx.parsed.x) } } },
+      scales: {
+        x: { ticks: { callback: fmt, font: { size: 9 } } },
+        y: { ticks: { font: { size: 9 } } }
+      }
+    }
+  });
+</script>
+
+</body>
+</html>

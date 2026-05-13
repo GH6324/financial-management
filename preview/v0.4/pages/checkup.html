@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>v0.4 · /checkup · 瘦身后</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+</head>
+<body class="min-h-screen relative">
+
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+<header class="border-b border-rule px-6 lg:px-10 py-4 flex items-baseline justify-between">
+  <div class="flex items-baseline gap-8">
+    <a href="../index.html" class="font-display text-xl no-underline">№ 张 · 账房</a>
+    <nav class="flex gap-5 font-mono text-[11px] tracking-wider uppercase text-ink-soft">
+      <a href="dashboard.html" class="hover:text-ink no-underline">Dashboard</a>
+      <a href="reports.html" class="hover:text-ink no-underline">趋势 · 收益</a>
+      <span class="text-ink">体检</span>
+      <span class="hover:text-ink">/entry · 录入</span>
+      <span class="hover:text-ink">目标</span>
+    </nav>
+  </div>
+  <span class="font-mono text-[10px] text-ink-subtle">v0.4 · preview</span>
+</header>
+
+<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10">
+
+  <section class="mb-8">
+    <div class="eyebrow mb-2">资 · 产 · 体 · 检 · 全 · 家</div>
+    <h1 class="font-display text-5xl font-medium tracking-tight">家庭资产 · 体检报告</h1>
+    <p class="text-ink-soft text-sm mt-2 max-w-2xl">v0.4 改:专注「<span class="text-ink">有什么风险 + 该怎么调</span>」· 配置 / 风险图已搬到对应页面,这里只看诊断。</p>
+  </section>
+
+  <!-- 6 KPI(从 dashboard 收回负债率)-->
+  <section class="grid grid-cols-2 md:grid-cols-6 gap-px bg-rule mb-10 border border-rule">
+    <div class="bg-card p-4">
+      <span class="kpi-eyebrow">净资产</span>
+      <div class="font-display text-2xl tnum num-pos mt-1">¥318万</div>
+    </div>
+    <div class="bg-card p-4">
+      <span class="kpi-eyebrow">总资产</span>
+      <div class="font-display text-2xl tnum mt-1">¥542万</div>
+    </div>
+    <div class="bg-card p-4">
+      <span class="kpi-eyebrow">总负债</span>
+      <div class="font-display text-2xl tnum num-neg mt-1">¥224万</div>
+    </div>
+    <div class="bg-card p-4">
+      <span class="kpi-eyebrow">家庭年化</span>
+      <div class="font-display text-2xl tnum num-pos mt-1">+7.2%</div>
+    </div>
+    <div class="bg-card p-4">
+      <span class="kpi-eyebrow">紧急储备</span>
+      <div class="font-display text-2xl tnum text-brass-deep mt-1">5.2 月</div>
+    </div>
+    <div class="bg-card p-4 bg-card-soft" style="border-left:3px solid var(--brass-deep)">
+      <span class="kpi-eyebrow">负债率 · 新搬</span>
+      <div class="font-display text-2xl tnum mt-1">41.3%</div>
+    </div>
+  </section>
+
+  <!-- 流动性诊断 + 收益诊断(2 列)· 中 KPI 是 v0.2 既有 -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+    <div class="paper-card p-6">
+      <div class="eyebrow mb-2" style="color:var(--brass-deep)">流 · 动 · 性 · 诊 · 断</div>
+      <h3 class="font-display text-xl font-medium mb-4">现金随时取得</h3>
+      <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+        <div>
+          <div class="kpi-eyebrow">流动资产</div>
+          <div class="font-display text-2xl tnum mt-1">¥185,000</div>
+          <div class="font-mono text-[10px] text-ink-soft">CASH + 货币基金等(类目 = LIQUID · v0.3.3)</div>
+        </div>
+        <div>
+          <div class="kpi-eyebrow">紧急储备月数</div>
+          <div class="font-display text-2xl tnum mt-1">5.2 月</div>
+          <div class="font-mono text-[10px] text-ink-soft">流动资产 / 月均支出</div>
+        </div>
+      </div>
+      <!-- FR-62c 应急金不闲置(也在这里出现一次)-->
+      <div class="border-t border-rule-soft mt-4 pt-3 paper-card p-3" style="background:rgba(122,90,57,.04); border-left:3px solid var(--brass-deep)">
+        <span class="font-mono text-[10px] text-brass-deep">💡 FR-62c · 不 · 闲 · 置</span>
+        <p class="text-xs text-ink-soft mt-1">超额 <b class="tnum">¥90,000</b> · 建议转货币基金(2%+ 年化)。</p>
+      </div>
+    </div>
+    <div class="paper-card p-6">
+      <div class="eyebrow mb-2" style="color:var(--forest)">收 · 益 · 诊 · 断</div>
+      <h3 class="font-display text-xl font-medium mb-4">钱在长大没</h3>
+      <div class="grid grid-cols-3 gap-x-4 gap-y-4">
+        <div>
+          <div class="kpi-eyebrow">家庭 XIRR</div>
+          <div class="font-display text-2xl tnum num-pos mt-1">+7.2%</div>
+        </div>
+        <div>
+          <div class="kpi-eyebrow">家庭 TWR</div>
+          <div class="font-display text-2xl tnum num-pos mt-1">+6.8%</div>
+        </div>
+        <div>
+          <div class="kpi-eyebrow">本年累计</div>
+          <div class="font-display text-2xl tnum num-pos mt-1">+¥86,200</div>
+        </div>
+      </div>
+      <div class="border-t border-rule-soft mt-4 pt-3 text-xs">
+        <span class="font-mono text-[10px] text-ink-soft">vs 基准 </span>
+        <b class="tnum">+5.4%</b>
+        <span class="pill text-[9px] ml-1" style="background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)">跑赢 +1.8%</span>
+        <span class="text-ink-subtle"> · 详见 <a href="reports.html" class="text-brass-deep">/reports 账户级</a></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 智能建议(规则)-->
+  <section class="paper-card p-6 mb-8">
+    <div class="flex items-baseline justify-between mb-4">
+      <div>
+        <div class="eyebrow mb-1">来 · 自 · 账 · 房 · 的 · 提 · 醒</div>
+        <h3 class="font-display text-xl font-medium">值得做的事 · 智能规则</h3>
+      </div>
+      <span class="font-mono text-[10px] text-ink-subtle">16 条规则 · v0.2 既有</span>
+    </div>
+    <div class="space-y-3">
+      <div class="flex items-start gap-3 paper-card p-3 bg-paper">
+        <span class="text-xl">⚠</span>
+        <div class="flex-1">
+          <div class="font-display text-base">单类目集中度过高 · 房产 60%</div>
+          <p class="text-xs text-ink-soft mt-1">建议增加金融资产配比 · 详见 /reports 配置 diff </p>
+        </div>
+        <span class="pill text-[9px]" style="color:var(--rust);border-color:var(--rust)">FAM-CON-1</span>
+      </div>
+      <div class="flex items-start gap-3 paper-card p-3 bg-paper">
+        <span class="text-xl">📉</span>
+        <div class="flex-1">
+          <div class="font-display text-base">A 股账户跑输基准 -4.5%</div>
+          <p class="text-xs text-ink-soft mt-1">华泰证券-A 股 XIRR +3.5% vs 沪深 300 8% · 建议复盘选股策略</p>
+        </div>
+        <span class="pill text-[9px]" style="color:var(--rust);border-color:var(--rust)">RET-2 · v0.4 新增</span>
+      </div>
+      <div class="flex items-start gap-3 paper-card p-3 bg-paper">
+        <span class="text-xl">💡</span>
+        <div class="flex-1">
+          <div class="font-display text-base">应急金充足 · 超额 ¥90k</div>
+          <p class="text-xs text-ink-soft mt-1">建议转货币基金获取 2%+ 年化</p>
+        </div>
+        <span class="pill text-[9px]" style="color:var(--brass-deep);border-color:var(--brass-deep)">LIQ-3 · v0.4 新增</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- AI 综合诊断 -->
+  <section class="paper-card mb-8 overflow-hidden" style="border-left:6px solid var(--brass-deep); background:linear-gradient(90deg, rgba(122,90,57,.05) 0%, var(--card) 35%)">
+    <div class="px-6 py-5">
+      <div class="flex items-baseline justify-between mb-3">
+        <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">🤖 AI · 综 · 合 · 诊 · 断</span>
+        <span class="font-mono text-[10px] text-ink-subtle">渲染于 2026-05-14 · Qwen-Plus</span>
+      </div>
+      <p class="text-sm text-ink-soft leading-relaxed font-serif">
+        你家庭整体年化 <b class="text-ink">7.2%</b> 跑赢基准 1.8%,主要靠美股账户表现亮眼(+12.8% vs 标普 500 10%)。
+        但<b class="text-ink">资产结构典型中产风险</b> — 房产占总资产 60%(标普 4321 模板建议 40%),金融资产偏少。
+        近 6 月支出稳定 ¥18k,但<b class="text-ink">现金 5.2 月偏低</b>(建议 6 月以上),且 ¥185k 流动资产中有 ¥160k 在活期(年化 0.4%),
+        建议<b class="text-ink">转 ¥90k 到货币基金</b>(余额宝 / 零钱通,年化 ~2%)· 这部分每年多拿 ¥1,440。
+        看看 <a href="reports.html" class="text-brass-deep">/reports 配置 diff</a> 区域里的 AI 调仓建议获取具体动作。
+      </p>
+    </div>
+  </section>
+
+  <!-- 单账户深入 -->
+  <section class="mb-8">
+    <h2 class="font-display text-xl font-medium mb-3">单账户深入体检 ⤵</h2>
+    <div class="paper-card overflow-hidden">
+      <table class="ledger-table">
+        <thead><tr><th>账户</th><th>类型</th><th class="num">XIRR</th><th>健康度</th><th></th></tr></thead>
+        <tbody>
+        <tr><td>富途证券-港美</td><td><span class="pill">STOCK</span></td><td class="num num-pos">+12.8%</td><td><span class="pill" style="color:var(--forest);border-color:var(--forest)">✓ 良好</span></td><td><a href="#" class="text-brass-deep text-xs no-underline">→ 体检</a></td></tr>
+        <tr><td>华泰证券-A股</td><td><span class="pill">STOCK</span></td><td class="num num-pos">+3.5%</td><td><span class="pill" style="color:var(--rust);border-color:var(--rust)">⚠ 跑输基准</span></td><td><a href="#" class="text-brass-deep text-xs no-underline">→ 体检</a></td></tr>
+        <tr><td>蚂蚁财富-基金</td><td><span class="pill">WEALTH</span></td><td class="num num-pos">+5.8%</td><td><span class="pill">— 持平</span></td><td><a href="#" class="text-brass-deep text-xs no-underline">→ 体检</a></td></tr>
+        <tr><td>住宅-海淀</td><td><span class="pill">PROPERTY</span></td><td class="num">+3.2%</td><td><span class="pill">— 长期</span></td><td><a href="#" class="text-brass-deep text-xs no-underline">→ 体检</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 砍掉的(preview 专用) -->
+  <section class="paper-card p-4 bg-card-soft" style="border-left:3px dashed var(--rust)">
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-rust mb-2">v · 0 · 4 · 砍 · 掉</div>
+    <ul class="text-xs text-ink-soft space-y-1">
+      <li>✗ <span style="text-decoration: line-through">资产配置环形图</span> · 与 dashboard 重复(已搬一份保留)</li>
+      <li>✗ <span style="text-decoration: line-through">风险敞口 bar</span> · 与 reports 风险等级分布重复</li>
+      <li>✓ 新增 <b>负债率 KPI</b>(从 dashboard 搬过来 · 诊断专属)</li>
+      <li>✓ 流动性诊断卡内嵌 FR-62c 应急金不闲置提示</li>
+      <li>✓ 收益诊断卡加 vs 基准 pill(FR-61c)</li>
+      <li>✓ 智能建议加 RET-2(跑输基准)+ LIQ-3(应急金闲置)2 条新规则</li>
+    </ul>
+  </section>
+
+</main>
+
+</body>
+</html>
