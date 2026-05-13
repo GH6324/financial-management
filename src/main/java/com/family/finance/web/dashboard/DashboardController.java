@@ -160,6 +160,27 @@ public class DashboardController {
         model.addAttribute("fxFallback", fxFallback);
         model.addAttribute("requestedCurrency", requestedCurrency);
 
+        // v0.4 FR-61a · CPI 假设 + 实际购买力线数据(前端 deflate)
+        model.addAttribute("cpiAssumption", family.getCpiAssumption() == null
+            ? new BigDecimal("2.00") : family.getCpiAssumption());
+
+        // v0.4 FR-60a · 月储蓄能力(从 v0.3 储蓄区拉)+ 收 KPI
+        model.addAttribute("monthlySavingsCapacity",
+            money(viewCurrency, householdCashflowService.medianMonthlySavings(me.getFamilyId())));
+
+        // v0.4 FR-62c · 应急金不闲置评估(用 LIQUID 类账户合计 vs 应急需求 × 1.5x)
+        Long lastPid = slice.lastPeriodId();
+        BigDecimal liquidAssets = slice.rows().stream()
+            .filter(r -> java.util.Objects.equals(r.periodId(), lastPid))
+            .filter(r -> r.accountLiquidity() == com.family.finance.domain.account.AccountLiquidity.LIQUID)
+            .map(r -> r.endBalanceBase() == null ? BigDecimal.ZERO : r.endBalanceBase())
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal avgExpense = householdCashflowService.avgMonthlyExpense(me.getFamilyId());
+        var liquidSurplus = com.family.finance.calc.LiquiditySurplus.evaluate(
+            liquidAssets, avgExpense, com.family.finance.calc.LiquiditySurplus.DEFAULT_EMERGENCY_MONTHS);
+        model.addAttribute("liquidSurplus", liquidSurplus);
+        model.addAttribute("liquidSurplusMoney", money(viewCurrency, liquidSurplus.surplus()));
+
         model.addAttribute("trendLabels", trend.stream().map(TrendPoint::label).toList());
         model.addAttribute("trendValues", trend.stream().map(TrendPoint::value).toList());
         model.addAttribute("incomeValues", waterfall.stream().map(WaterfallSegment::income).toList());

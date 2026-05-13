@@ -57,33 +57,37 @@
   </section>
 
   <section class="grid grid-cols-2 md:grid-cols-4 gap-px bg-rule mb-12">
-    <div class="kpi-card"><span class="kpi-eyebrow">家庭 XIRR</span><div class="kpi-value tnum num-pos font-display" th:text="${familyXirr}">—</div><div class="kpi-delta">资金加权</div></div>
+    <div class="kpi-card">
+      <span class="kpi-eyebrow">家庭 XIRR</span>
+      <div class="kpi-value tnum num-pos font-display" th:text="${familyXirr}">—</div>
+      <!-- v0.4 FR-61c · vs 基准 pill -->
+      <div class="font-mono text-[10px] mt-1" th:if="${familyBenchmarkPct != null}">
+        <span class="text-ink-soft">vs 基准 </span>
+        <span class="tnum" th:text="${familyBenchmarkPct} + '%'">5.4%</span>
+        <span th:if="${familyBeatStatus == 'BEAT'}" class="pill text-[9px] ml-1"
+              style="background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)"
+              th:text="'跑赢 +' + ${familyBenchmarkDiff} + '%'">跑赢 +1.8%</span>
+        <span th:if="${familyBeatStatus == 'MISS'}" class="pill text-[9px] ml-1"
+              style="background:rgba(159,74,58,.10);color:var(--rust);border:1px solid var(--rust)"
+              th:text="'跑输 ' + ${familyBenchmarkDiff} + '%'">跑输 -2.1%</span>
+        <span th:if="${familyBeatStatus == 'FLAT'}" class="pill text-[9px] ml-1"
+              style="border:1px solid var(--ink-subtle);color:var(--ink-soft)"
+              th:text="'持平 ' + ${familyBenchmarkDiff} + '%'">持平 +0.5%</span>
+      </div>
+      <div class="kpi-delta" th:if="${familyBenchmarkPct == null}">资金加权</div>
+    </div>
     <div class="kpi-card"><span class="kpi-eyebrow">家庭 TWR</span><div class="kpi-value tnum num-pos font-display" th:text="${familyTwr}">—</div><div class="kpi-delta">时间加权</div></div>
     <div class="kpi-card"><span class="kpi-eyebrow">累计净流入</span><div class="kpi-value tnum" th:text="${cumulativeNetInflow}">¥0</div><div class="kpi-delta">收入 - 支出</div></div>
     <div class="kpi-card"><span class="kpi-eyebrow">累计投资损益</span><div class="kpi-value tnum" th:text="${cumulativePnl}">¥0</div><div class="kpi-delta">轧差收益</div></div>
   </section>
 
+  <!-- v0.4 FR-60b · 砍流水视角图:月度收支瀑布(ECharts)/ 收入流向桑基 / 月度收支对比(双柱)· 与新定位「不做流水/记账」冲突 -->
+  <!-- 第一表 · 本金 vs 投资损益分解(v0.4 升级为首图 · 核心图)-->
   <section class="mb-12">
-    <div class="bracket-card">
-      <div class="flex items-end justify-between mb-2">
-        <div><div class="eyebrow mb-1">第 一 表 · ECharts</div><h2 class="font-display text-2xl font-medium">月度收支瀑布</h2></div>
-        <div class="text-xs text-ink-soft">点击月份查看账户明细</div>
-      </div>
-      <div class="rule-double pt-2 mb-3"></div>
-      <div id="waterfallChart" style="height: 340px;"></div>
-    </div>
-  </section>
-
-  <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-12">
-    <div class="paper-card p-6 lg:col-span-7">
-      <div class="eyebrow mb-1">第 二 表 · ECharts</div>
-      <h3 class="font-display text-xl font-medium">收入流向桑基图</h3>
-      <div class="rule-x pt-2 mb-2"></div>
-      <div id="sankeyChart" style="height: 360px;"></div>
-    </div>
-    <div class="paper-card p-6 lg:col-span-5">
-      <div class="eyebrow mb-1">第 三 表</div>
-      <h3 class="font-display text-xl font-medium">本金 vs 收益分解</h3>
+    <div class="paper-card p-6">
+      <div class="eyebrow mb-1">第 一 表 · 核 · 心</div>
+      <h3 class="font-display text-xl font-medium">本金净流入 vs 投资损益</h3>
+      <p class="text-xs text-ink-soft mt-1">真正"摸清增值来源"· 区分钱是攒来的还是投资赚的</p>
       <div class="rule-x pt-2 mb-2"></div>
       <div style="height: 360px;"><canvas id="decomposeChart"></canvas></div>
     </div>
@@ -91,89 +95,73 @@
 
   <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
     <div class="paper-card p-6">
-      <div class="eyebrow mb-1">第 四 表</div>
-      <h3 class="font-display text-xl font-medium">月度收支对比</h3>
-      <div class="rule-x pt-2 mb-3"></div>
-      <div style="height: 280px;"><canvas id="incomeBarChart"></canvas></div>
-    </div>
-    <div class="paper-card p-6">
-      <div class="eyebrow mb-1">第 五 表</div>
+      <div class="eyebrow mb-1">第 二 表</div>
       <h3 class="font-display text-xl font-medium">负债下降曲线</h3>
       <div class="rule-x pt-2 mb-3"></div>
       <div style="height: 280px;"><canvas id="debtChart"></canvas></div>
     </div>
-  </section>
-
-  <!-- v0.2 FR-40e · 风险敞口分布(全家级,与「资产体检」用同一数据源)-->
-  <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12" id="risk-section">
     <div class="paper-card p-6">
-      <div class="eyebrow mb-1">第 五 表 · 半</div>
+      <div class="eyebrow mb-1">第 三 表</div>
       <h3 class="font-display text-xl font-medium">风险等级分布</h3>
+      <p class="text-xs text-ink-soft mt-1">按 product_category.risk_level 聚合 · 数据口径与 /checkup 一致</p>
       <div class="rule-x pt-2 mb-3"></div>
-      <p class="text-xs text-ink-soft mb-3">
-        按 product_category.risk_level 聚合(★1 极低 → ★6 极高),数据口径与「资产体检」全家诊断一致。
-      </p>
       <div style="height: 280px;"><canvas id="riskDistChart"></canvas></div>
     </div>
-    <div class="paper-card p-6">
-      <div class="eyebrow mb-1">第 五 表 · 半</div>
-      <h3 class="font-display text-xl font-medium">风险敞口明细</h3>
-      <div class="rule-x pt-2 mb-3"></div>
-      <table class="ledger-table">
-        <thead><tr><th>风险等级</th><th class="num">金额(本位币)</th><th class="num">占比</th></tr></thead>
-        <tbody>
-        <tr th:each="b,it : ${riskDistribution}">
-          <td>
-            <span style="color:var(--forest)" class="font-mono mr-2" th:text="${b.stars()}">★</span>
-            <span class="text-ink-soft" th:text="${b.label}">中</span>
-          </td>
-          <td class="num font-mono tnum" th:text="${'¥' + #numbers.formatDecimal(b.amount, 1, 0)}">¥0</td>
-          <td class="num font-mono tnum" th:text="${riskRatios[__${it.index}__] + '%'}">0%</td>
-        </tr>
-        <tr th:if="${#lists.isEmpty(riskDistribution)}">
-          <td colspan="3" class="text-center text-ink-subtle">暂无数据(请先完成本月填报)</td>
-        </tr>
-        </tbody>
-      </table>
-      <div class="mt-4 pt-3 border-t border-rule-soft">
-        <a th:href="@{/checkup}" class="font-mono text-[10px] tracking-wider text-brass-deep hover:underline no-underline">→ 进入资产体检看完整风险诊断</a>
-      </div>
-    </div>
   </section>
+
+  <!-- v0.4 FR-60b 砍:第五·半 风险敞口明细表(与风险等级分布环形信息重复)· 详情见 /checkup -->
+  <!-- 风险等级分布环形已搬到上方第三表(单留一处)-->
+  <!-- 配置 diff + AI 调仓建议放在账户级收益之后 · 见下方 _allocation-diff fragment -->
+  <section th:if="${allocationDiff != null}" class="mb-12" th:insert="~{reports/_allocation-diff :: section}"></section>
 
   <section class="mb-12">
-    <div class="flex items-end justify-between mb-3">
-      <div><div class="eyebrow mb-1">第 六 表</div><h3 class="font-display text-2xl font-medium">账户级收益率</h3></div>
+    <div class="flex items-end justify-between mb-3 flex-wrap gap-2">
+      <div>
+        <div class="eyebrow mb-1">第 四 表 · v0.4 加基准列</div>
+        <h3 class="font-display text-xl lg:text-2xl font-medium">账户级收益 · vs 基准</h3>
+      </div>
+      <div class="text-[10px] font-mono text-ink-subtle">基准来自产品类目 · <a th:href="@{/admin/product-categories}" class="text-brass-deep hover:underline no-underline">/admin/product-categories</a> 可微调</div>
     </div>
-    <div class="paper-card overflow-hidden">
-      <table class="ledger-table">
-        <thead><tr><th>账户</th><th>类型</th><th class="num">XIRR / 累计</th><th class="num">当前价值</th><th>近况</th></tr></thead>
+    <div class="paper-card overflow-x-auto">
+      <table class="ledger-table min-w-[760px]">
+        <thead>
+        <tr>
+          <th>账户</th><th>类型</th><th>类目</th>
+          <th class="num">XIRR</th><th class="num">基准 %</th><th>vs 基准</th><th class="num">当前价值</th>
+        </tr>
+        </thead>
         <tbody>
-        <tr th:each="account : ${accountRows}">
-          <td><span class="font-display" th:text="${account.accountName}">账户</span></td>
-          <td><span class="pill" th:text="${account.accountType.label} + ' (' + ${account.accountType.name()} + ')'">股票 (STOCK)</span></td>
-          <td class="num" th:text="${account.xirr == null ? '—' : (#numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">—</td>
-          <td class="num" th:text="${account.currentValue == null ? '—' : account.currentValue}">0</td>
-          <td><svg class="sparkline-pos" width="80" height="22" viewBox="0 0 80 22"><polyline fill="none" stroke="currentColor" stroke-width="1.5" points="0,16 10,14 20,16 30,12 40,14 50,10 60,12 70,8 80,6"/></svg></td>
+        <tr th:each="row : ${accountBenchmarkRows}">
+          <td><span class="font-display" th:text="${row.accountName}">账户</span></td>
+          <td><span class="pill" th:text="${row.accountType}">STOCK</span></td>
+          <td><span class="pill text-[9px]" th:if="${row.productCategoryCode != null}" th:text="${row.productCategoryCode}">—</span>
+              <span th:if="${row.productCategoryCode == null}" class="text-ink-subtle text-[10px]">未设</span></td>
+          <td class="num tnum"
+              th:classappend="${row.xirrLabel != null and row.xirrLabel.startsWith('+') ? ' num-pos' : (row.xirrLabel != null and row.xirrLabel.startsWith('-') ? ' num-neg' : '')}"
+              th:text="${row.xirrLabel != null ? row.xirrLabel : '—'}">+0.0%</td>
+          <td class="num tnum" th:text="${row.benchmarkPct != null ? row.benchmarkPct + '%' : '—'}">—</td>
+          <td>
+            <span th:if="${row.beatStatus == 'BEAT'}" class="pill text-[9px]"
+                  style="background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)"
+                  th:text="'跑赢 +' + ${row.diffPct} + '%'">跑赢</span>
+            <span th:if="${row.beatStatus == 'MISS'}" class="pill text-[9px]"
+                  style="background:rgba(159,74,58,.10);color:var(--rust);border:1px solid var(--rust)"
+                  th:text="'跑输 ' + ${row.diffPct} + '%'">跑输</span>
+            <span th:if="${row.beatStatus == 'FLAT'}" class="pill text-[9px]"
+                  style="border:1px solid var(--ink-subtle);color:var(--ink-soft)"
+                  th:text="'持平 ' + ${row.diffPct} + '%'">持平</span>
+            <span th:if="${row.beatStatus == 'NA'}" class="text-ink-subtle text-[10px]">—</span>
+          </td>
+          <td class="num" th:text="${row.currentValueLabel != null ? row.currentValueLabel : '—'}">—</td>
         </tr>
         </tbody>
       </table>
     </div>
   </section>
 
-  <section class="paper-card p-6 mb-12">
-    <div class="eyebrow mb-1">汇率明细</div>
-    <table class="ledger-table">
-      <thead><tr><th>Base</th><th>Quote</th><th class="num">Rate</th><th>来源</th></tr></thead>
-      <tbody>
-      <tr th:each="fx : ${fxRates}">
-        <td th:text="${fx.baseCurrency}">CNY</td>
-        <td th:text="${fx.quoteCurrency}">USD</td>
-        <td class="num" th:text="${fx.rate}">7.2</td>
-        <td th:text="${fx.source}">manual</td>
-      </tr>
-      </tbody>
-    </table>
+  <!-- v0.4 FR-60b 砍:汇率明细表 · 工具性 · 已挪 /admin/fx -->
+  <section class="paper-card p-4 mb-12 bg-card-soft text-center text-xs text-ink-subtle">
+    汇率明细已挪至 <a th:href="@{/admin/fx}" class="text-brass-deep hover:underline no-underline">/admin/fx</a>(运维专用)
   </section>
 
   <script th:inline="javascript">
@@ -208,44 +196,7 @@
       window.reportCharts = window.reportCharts || {};
       Object.values(window.reportCharts).forEach(chart => chart && chart.destroy && chart.destroy());
 
-      if (window.echarts) {
-        const waterfall = echarts.init(document.getElementById('waterfallChart'));
-        waterfall.setOption({
-          title: {text: '月度收支瀑布 · ' + data.currency, left: 'center', top: 4, textStyle: {fontSize: 12, color: '#3a302a', fontWeight: 500}},
-          legend: {top: 24},
-          tooltip: {valueFormatter: fmtMoney},
-          grid: {top: 60, left: 60, right: 24, bottom: 30},
-          xAxis: {type: 'category', data: data.labels},
-          yAxis: {type: 'value', axisLabel: {formatter: fmtMoney}},
-          series: [
-            {type: 'bar', name: '收入', stack: 'total', data: data.income, itemStyle: {color: '#2f5d50'},
-             label: {show: true, position: 'top', formatter: p => fmtMoneyShort(p.value), fontSize: 9, color: '#2f5d50'}},
-            {type: 'bar', name: '支出', stack: 'total', data: data.expense.map(v => -Math.abs(v)), itemStyle: {color: '#9f4a3a'},
-             label: {show: true, position: 'bottom', formatter: p => fmtMoneyShort(p.value), fontSize: 9, color: '#9f4a3a'}},
-            {type: 'bar', name: '损益', stack: 'total', data: data.pnl, itemStyle: {color: '#6f7f98'},
-             label: {show: true, position: 'inside', formatter: p => fmtMoneyShort(p.value), fontSize: 9, color: '#fffaf0'}}
-          ]
-        });
-        waterfall.on('click', p => { const id = data.periodIds[p.dataIndex]; if (id) htmx.ajax('GET', '/reports/period/' + id, '#modal'); });
-        window.reportCharts.waterfall = waterfall;
-
-        const sankey = echarts.init(document.getElementById('sankeyChart'));
-        sankey.setOption({
-          title: {text: '收入流向 · ' + data.currency, left: 'center', top: 4, textStyle: {fontSize: 12, color: '#3a302a', fontWeight: 500}},
-          tooltip: {trigger: 'item', formatter: p => p.data && p.data.value !== undefined ? p.data.source + ' → ' + p.data.target + ': ' + fmtMoney(p.data.value) : p.name},
-          series: [{
-            type: 'sankey', top: 40,
-            data: data.sankeyNodes, links: data.sankeyLinks,
-            lineStyle: {color: 'gradient'},
-            label: {fontSize: 11, color: '#3a302a',
-                    formatter: p => {
-                      const total = (data.sankeyLinks || []).filter(l => l.source === p.name || l.target === p.name).reduce((s, l) => s + Number(l.value || 0), 0);
-                      return total > 0 ? p.name + ' (' + fmtMoney(total) + ')' : p.name;
-                    }}
-          }]
-        });
-        window.reportCharts.sankey = sankey;
-      }
+      // v0.4 FR-60b · 砍 waterfall + sankey ECharts 渲染(流水视角图与新定位冲突)
 
       const decompose = document.getElementById('decomposeChart');
       if (decompose) window.reportCharts.decompose = new Chart(decompose, {
@@ -267,25 +218,7 @@
         plugins: [ChartDataLabels]
       });
 
-      const income = document.getElementById('incomeBarChart');
-      if (income) window.reportCharts.income = new Chart(income, {
-        type: 'bar',
-        data: {labels: data.labels, datasets: [
-          {label: '收入', data: data.income, backgroundColor: '#2f5d50'},
-          {label: '支出', data: data.expense, backgroundColor: '#9f4a3a'}
-        ]},
-        options: {
-          maintainAspectRatio: false,
-          layout: {padding: {top: 24}},
-          plugins: {
-            title: {display: true, text: '月度收支对比 · ' + data.currency, padding: {bottom: 8}, font: {size: 12, weight: '500'}, color: '#3a302a'},
-            tooltip: {callbacks: {label: (ctx) => ctx.dataset.label + ': ' + fmtMoney(ctx.parsed.y)}},
-            datalabels: {anchor: 'end', align: 'end', offset: 2, font: {size: 9, weight: '500'}, color: '#3a302a', formatter: fmtMoneyShort}
-          },
-          scales: {y: {ticks: {callback: fmtMoney}}}
-        },
-        plugins: [ChartDataLabels]
-      });
+      // v0.4 FR-60b · 砍月度收支对比双柱(储蓄区已有专业版)
 
       const debt = document.getElementById('debtChart');
       if (debt) window.reportCharts.debt = new Chart(debt, {

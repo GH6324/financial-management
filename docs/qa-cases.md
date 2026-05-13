@@ -561,6 +561,16 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 - 2026-05-14 加 AUTH-8/9 已登录 /login 自动跳 dashboard(书签优化)
 - 2026-05-14 加 v02-LIQ-1/2/3 货币基金参与流动资产(V20 product_category.liquidity_class)
 - 总 PASS=235 / FAIL=3(pre-existing v0.2 PILL/DIAG/LEDGER · 与 v0.3 无关)/ SKIP=2
+
+### v0.4 · 总结(2026-05-14 最新)
+
+- v0.4 新加 **15 条**黑盒(v04-RPT × 5 + v04-CPI × 2 + v04-BMK × 1 + v04-DIFF × 3 + v04-REFI × 4)+ v04-AI-REBALANCE × 1
+- v0.4 单测新增 33(CpiDeflatorTest × 7 + BenchmarkAggregatorTest × 6 + AllocationDiffTest × 6 + RefinanceNpvCalculatorTest × 8 + LiquiditySurplusTest × 6)
+- v0.2/v0.3 旧 case 改判(v0.4 报表整顿后):v02-FR40e-3 / v02-FR40E-3 / v03-IND-8 / v03-IND-11 4 条
+- 总 PASS=250 / FAIL=3(pre-existing v0.2 PILL/DIAG/LEDGER · 与 v0.4 无关)/ SKIP=2
+- mvn test 152(v0.3.3 基线 119 + v0.4 新增 33)全绿
+- 真 LLM 调用:RebalanceAdvisor /reports/rebalance/advise 端点接通(LLM 可能 unavailable · 容忍 + 30 天节流缓存)
+- 真机移动端:dashboard / reports / checkup / refinance 4 页响应式 OK
 - 单测 114(v0.2 既有 76 + v0.3 新增 38 全绿)
 - 真 LLM 调用验证:Qwen-Plus 返回合理参数 + rationale(beta 已验)
 - 真数据源验证:新浪国内可达 · BABA/600519/00700 三市场拉价成功

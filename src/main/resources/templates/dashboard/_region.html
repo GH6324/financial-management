@@ -110,69 +110,72 @@
     </details>
   </section>
 
-  <!-- v0.2 FR-38 · KPI 卡 deep-link 到 /checkup 锚点(group hover 提示「→ 详细」) -->
-  <section class="grid grid-cols-2 lg:grid-cols-5 gap-px bg-rule mb-10">
+  <!-- v0.4 FR-60a · KPI 收敛 9→5 · 负债率搬 /checkup · 月均收入/支出/储蓄率/已填月份 搬 /reports 储蓄区 -->
+  <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-rule mb-6 lg:mb-8">
     <a th:href="@{/checkup}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
       <span class="kpi-eyebrow">净资产</span>
       <div class="kpi-value tnum" th:text="${kpiNetWorth}">¥0</div>
       <div class="kpi-delta"
            th:classappend="${kpiDelta != null and kpiDelta.startsWith('+') ? ' num-pos' : (kpiDelta != null and kpiDelta.startsWith('-') ? ' num-neg' : '')}"
            th:text="${kpiDelta}">—</div>
-      <span class="absolute top-2 right-3 text-[10px] text-ink-subtle opacity-0 group-hover:opacity-100 transition-opacity">→ 体检</span>
     </a>
     <a href="/checkup#allocation" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
       <span class="kpi-eyebrow">总资产</span>
       <div class="kpi-value tnum" th:text="${kpiAssets}">¥0</div>
       <div class="kpi-delta">不含 LOAN</div>
-      <span class="absolute top-2 right-3 text-[10px] text-ink-subtle opacity-0 group-hover:opacity-100 transition-opacity">→ 配置</span>
     </a>
     <a href="/checkup#allocation" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
       <span class="kpi-eyebrow">总负债</span>
       <div class="kpi-value tnum num-neg" th:text="${kpiLiabilities}">¥0</div>
       <div class="kpi-delta">仅 LOAN</div>
-      <span class="absolute top-2 right-3 text-[10px] text-ink-subtle opacity-0 group-hover:opacity-100 transition-opacity">→ 配置</span>
     </a>
     <a href="/checkup#liquidity" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
       <span class="kpi-eyebrow">紧急储备</span>
       <div class="kpi-value tnum" th:text="${kpiEmergency}">—</div>
       <div class="kpi-delta">流动资产 / 月均支出</div>
-      <span class="absolute top-2 right-3 text-[10px] text-ink-subtle opacity-0 group-hover:opacity-100 transition-opacity">→ 流动性</span>
     </a>
-    <a href="/checkup#allocation" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
-      <span class="kpi-eyebrow">负债率</span>
-      <div class="kpi-value tnum" th:text="${kpiDebtRatio}">—</div>
-      <div class="kpi-delta">负债 / 资产</div>
-      <span class="absolute top-2 right-3 text-[10px] text-ink-subtle opacity-0 group-hover:opacity-100 transition-opacity">→ 配置</span>
-    </a>
-  </section>
-
-  <!-- v0.3 FR-51 · 家庭月度收支条带(基于 /entry 填的 total_*_input · 含 fallback 到 v0.2 cash_flow)-->
-  <section class="grid grid-cols-2 lg:grid-cols-4 gap-px bg-rule mb-10">
-    <a th:href="@{/reports}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
-      <span class="kpi-eyebrow">月均收入(近 12 月)</span>
-      <div class="kpi-value tnum" th:text="${avgMonthlyIncome ?: '—'}">¥0</div>
-      <div class="kpi-delta">优先 /entry 家庭口径</div>
-    </a>
-    <a th:href="@{/reports}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
-      <span class="kpi-eyebrow">月均支出(近 12 月)</span>
-      <div class="kpi-value tnum num-neg" th:text="${avgMonthlyExpense ?: '—'}">¥0</div>
-      <div class="kpi-delta">用于流动性月数 / 应急基线</div>
-    </a>
-    <a th:href="@{/reports}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
-      <span class="kpi-eyebrow">储蓄率(最近一期)</span>
-      <div class="kpi-value tnum" th:text="${savingsRate ?: '—'}">—</div>
-      <div class="kpi-delta">(收入 − 支出) / 收入</div>
-    </a>
-    <a th:href="@{/entry}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
-      <span class="kpi-eyebrow">已填月份</span>
-      <div class="kpi-value tnum" th:text="${(cashflowFilled ?: 0) + '/' + (cashflowTotal ?: 0)}">0/12</div>
-      <div class="kpi-delta">前往 /entry 补录</div>
+    <!-- v0.4 新增 · 月储蓄能力(顶替老 KPI · 直接体现"未来增值能力") -->
+    <a th:href="@{/reports#savings}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
+      <span class="kpi-eyebrow">月储蓄能力</span>
+      <div class="kpi-value tnum text-brass-deep" th:text="${monthlySavingsCapacity ?: '—'}">¥0</div>
+      <div class="kpi-delta">近 6 期中位</div>
     </a>
   </section>
 
+  <!-- v0.4 FR-62c · 应急金不闲置 banner(LIQUID 超额 1.5x 才显)-->
+  <section th:if="${liquidSurplus != null and liquidSurplus.shouldNotify()}"
+           class="paper-card mb-6 lg:mb-8 px-4 lg:px-5 py-3 flex items-start lg:items-center gap-3 flex-col lg:flex-row"
+           style="border-left:4px solid var(--brass-deep); background:rgba(122,90,57,.04)">
+    <div class="flex items-baseline gap-2 w-full lg:w-auto">
+      <span class="text-xl flex-shrink-0">💡</span>
+      <span class="text-ink font-medium text-sm">应急金充足 + 超额闲置</span>
+    </div>
+    <div class="flex-1 text-xs lg:text-sm">
+      <span class="text-ink-soft">实际需求 <b class="tnum"
+            th:text="${liquidSurplus.emergencyMonths} + ' 月 · ¥' + #numbers.formatInteger(liquidSurplus.emergencyNeeded, 0, 'COMMA')">¥95k</b>
+            · 当前 LIQUID <b class="tnum" th:text="'¥' + #numbers.formatInteger(liquidSurplus.liquidAssets, 0, 'COMMA')">¥185k</b>
+            · 超额 <b class="text-brass-deep tnum" th:text="${liquidSurplusMoney}">¥90k</b> 建议转货币基金获取 ~2% 年化。</span>
+    </div>
+    <a th:href="@{/admin/product-categories}" class="font-mono text-[10px] tracking-wider text-brass-deep hover:underline no-underline whitespace-nowrap">→ MONEY_FUND 参考</a>
+  </section>
+
+  <!-- v0.4 FR-61a · 净资产趋势 + CPI 对照线 + CPI 切换器 -->
   <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-10">
     <div class="paper-card p-6 lg:col-span-8">
-      <div class="eyebrow mb-1">净资产趋势</div>
+      <div class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+        <div class="eyebrow">净资产趋势 · 名义 vs 实际购买力</div>
+        <!-- CPI 切换器 -->
+        <form th:action="@{/admin/family/cpi}" method="post" class="flex items-center gap-2">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <span class="font-mono text-[10px] text-ink-subtle">CPI</span>
+          <select name="cpi" onchange="this.form.submit()" class="font-mono text-[10px] border border-rule bg-paper px-2 py-1">
+            <option value="0" th:selected="${cpiAssumption != null and cpiAssumption.signum() == 0}">无</option>
+            <option value="2.00" th:selected="${cpiAssumption != null and cpiAssumption.compareTo(new java.math.BigDecimal('2.00')) == 0}">2%</option>
+            <option value="3.00" th:selected="${cpiAssumption != null and cpiAssumption.compareTo(new java.math.BigDecimal('3.00')) == 0}">3%</option>
+            <option value="5.00" th:selected="${cpiAssumption != null and cpiAssumption.compareTo(new java.math.BigDecimal('5.00')) == 0}">5%</option>
+          </select>
+        </form>
+      </div>
       <div style="height:360px"><canvas id="netWorthChart"></canvas></div>
     </div>
     <div class="paper-card p-6 lg:col-span-4">
@@ -181,13 +184,9 @@
     </div>
   </section>
 
-  <!-- v0.2.1(2026-05-11)· 按成员维度的资产分布:成员A / 成员B / 共同 -->
-  <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-10">
-    <div class="paper-card p-6 lg:col-span-7">
-      <div class="eyebrow mb-1">收入 / 支出 / 储蓄率</div>
-      <div style="height:320px"><canvas id="incomeExpenseChart"></canvas></div>
-    </div>
-    <div class="paper-card p-6 lg:col-span-5">
+  <!-- v0.4 FR-60a 砍 · 收入/支出/储蓄率组合图 → 储蓄区已有更专业版 -->
+  <section class="mb-10">
+    <div class="paper-card p-6">
       <div class="flex items-baseline justify-between mb-1">
         <div class="eyebrow">按成员分布</div>
         <span class="font-mono text-[10px] text-ink-subtle">LOAN 不计</span>
@@ -250,7 +249,9 @@
         memberAllocationLabels: [[${memberAllocationLabels}]],
         memberAllocationValues: [[${memberAllocationValues}]],
         accountRows: [[${accountRows}]],
-        currency: [[${currency}]]
+        currency: [[${currency}]],
+        // v0.4 FR-61a · 通胀对照线 · cpi=年化%(默认 2)· 前端 deflate 算实际购买力
+        cpiAnnualPct: [[${cpiAssumption}]]
       };
       const ccySym = data.currency === 'USD' ? '$' : (data.currency === 'HKD' ? 'HK$' : '¥');
       const fmtMoney = (v) => {
@@ -264,62 +265,45 @@
       window.financeCharts = window.financeCharts || {};
       Object.values(window.financeCharts).forEach(chart => chart && chart.destroy && chart.destroy());
 
-      const line = document.getElementById('netWorthChart');
-      if (line) window.financeCharts.netWorth = new Chart(line, {
-        type: 'line',
-        data: {labels: data.labels, datasets: [{label: '净资产', data: data.netWorth, borderColor: '#2f5d50', backgroundColor: 'rgba(47,93,80,.08)', tension: .35, fill: true, pointRadius: 4, pointBackgroundColor: '#2f5d50'}]},
-        options: {
-          maintainAspectRatio: false,
-          layout: {padding: {top: 28, right: 16}},
-          plugins: {
-            title: {display: true, text: '净资产趋势 · ' + data.currency, padding: {bottom: 12}, font: {size: 13, weight: '500'}, color: '#3a302a'},
-            tooltip: {callbacks: {label: (ctx) => fmtMoney(ctx.parsed.y)}},
-            datalabels: {
-              align: 'top', anchor: 'end', offset: 6,
-              color: '#3a302a', font: {size: 10, weight: '500'},
-              formatter: fmtMoney
-            }
-          },
-          scales: {y: {ticks: {callback: (v) => fmtMoney(v)}}}
-        },
-        plugins: [ChartDataLabels]
-      });
+      // v0.4 FR-61a · 净资产趋势 + CPI 实际购买力对照线
+      const cpiPct = Number(data.cpiAnnualPct || 0);
+      const cpiMonthly = cpiPct > 0 ? cpiPct / 100 / 12 : 0;
+      const realSeries = cpiPct > 0
+        ? data.netWorth.map((v, i) => v == null ? null : Math.round(v / Math.pow(1 + cpiMonthly, i)))
+        : null;
 
-      const mixed = document.getElementById('incomeExpenseChart');
-      if (mixed) window.financeCharts.incomeExpense = new Chart(mixed, {
-        // 储蓄率 line 放在 datasets 数组第一位 → tooltip 顺序里它在最上面;同时设 order:0 让 line 渲染在 bar 之上
-        data: {labels: data.labels, datasets: [
-          {type: 'line', label: '储蓄率 %', data: data.savings, borderColor: '#a77b35', backgroundColor: 'rgba(167,123,53,.1)', yAxisID: 'y1', tension: .3, pointRadius: 4, pointBackgroundColor: '#a77b35', borderWidth: 2.5, order: 0},
-          {type: 'bar', label: '收入', data: data.income, backgroundColor: '#2f5d50', order: 1},
-          {type: 'bar', label: '支出', data: data.expense, backgroundColor: '#9f4a3a', order: 2}
-        ]},
-        options: {
-          maintainAspectRatio: false,
-          layout: {padding: {top: 24, right: 16}},
-          plugins: {
-            title: {display: true, text: '收入 / 支出 / 储蓄率 · ' + data.currency, padding: {bottom: 12}, font: {size: 13, weight: '500'}, color: '#3a302a'},
-            tooltip: {
-              itemSort: (a, b) => {
-                // 储蓄率(line on y1)排最上,然后收入,然后支出
-                const rank = (it) => it.dataset.yAxisID === 'y1' ? 0 : (it.dataset.label === '收入' ? 1 : 2);
-                return rank(a) - rank(b);
-              },
-              callbacks: {label: (ctx) => ctx.dataset.label + ': ' + (ctx.dataset.yAxisID === 'y1' ? fmtPct(ctx.parsed.y) : fmtMoney(ctx.parsed.y))}
+      const line = document.getElementById('netWorthChart');
+      if (line) {
+        const datasets = [
+          {label: '名义净资产', data: data.netWorth, borderColor: '#7a5a39', backgroundColor: 'rgba(122,90,57,.08)', tension: .35, fill: true, pointRadius: 4, pointBackgroundColor: '#7a5a39', borderWidth: 2.5}
+        ];
+        if (realSeries) {
+          datasets.push({label: '实际购买力 (CPI ' + cpiPct + '%)', data: realSeries, borderColor: '#2f5d50', borderDash: [6, 4], borderWidth: 2, backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 0});
+        }
+        window.financeCharts.netWorth = new Chart(line, {
+          type: 'line',
+          data: {labels: data.labels, datasets: datasets},
+          options: {
+            maintainAspectRatio: false,
+            layout: {padding: {top: 28, right: 16}},
+            plugins: {
+              legend: {display: realSeries != null, position: 'top', labels: {font: {size: 11}}},
+              title: {display: true, text: '净资产趋势 · ' + data.currency + (realSeries ? ' · 已叠加 CPI ' + cpiPct + '% 对照' : ''), padding: {bottom: 12}, font: {size: 13, weight: '500'}, color: '#3a302a'},
+              tooltip: {callbacks: {label: (ctx) => ctx.dataset.label + ': ' + fmtMoney(ctx.parsed.y)}},
+              datalabels: {
+                display: (ctx) => ctx.datasetIndex === 0,  // 只在名义线上显标签
+                align: 'top', anchor: 'end', offset: 6,
+                color: '#3a302a', font: {size: 10, weight: '500'},
+                formatter: fmtMoney
+              }
             },
-            datalabels: {
-              display: (ctx) => ctx.dataset.type !== 'line',
-              anchor: 'end', align: 'end', offset: 2,
-              color: '#3a302a', font: {size: 9, weight: '500'},
-              formatter: (v) => v == null || Number(v) === 0 ? '' : fmtMoney(v)
-            }
+            scales: {y: {ticks: {callback: (v) => fmtMoney(v)}}}
           },
-          scales: {
-            y: {beginAtZero: true, ticks: {callback: (v) => fmtMoney(v)}},
-            y1: {position: 'right', ticks: {callback: (v) => v + '%'}, grid: {drawOnChartArea: false}}
-          }
-        },
-        plugins: [ChartDataLabels]
-      });
+          plugins: [ChartDataLabels]
+        });
+      }
+
+      // v0.4 FR-60a 砍 incomeExpenseChart · 储蓄区已有更专业版
 
       // v0.2.1(2026-05-11)· 按成员维度饼图(成员A / 成员B / 共同 · LOAN 不计)
       const memberDonut = document.getElementById('memberAllocationChart');

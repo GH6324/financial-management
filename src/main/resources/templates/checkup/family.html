@@ -57,28 +57,22 @@
   <!-- 4 张体检卡 -->
   <section class="grid grid-cols-1 lg:grid-cols-2 gap-px bg-rule mb-8">
 
-    <!-- 卡 1 · 资产配置 -->
+    <!-- v0.4 FR-60c 砍:资产配置环形(dashboard 已有)+ 风险敞口 bar(reports 已有)· 此处给跳转 link -->
     <div id="allocation" class="bg-card p-6 scroll-mt-32">
       <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3">
-        资产配置 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">ALLOCATION</span>
+        资产配置 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">ALLOCATION · v0.4 改</span>
       </h3>
-      <div style="height:240px"><canvas id="allocChart"></canvas></div>
-      <div class="mt-4 space-y-1.5 text-xs">
-        <div th:each="s : ${diagnose.allocation}" class="flex items-center justify-between">
-          <span class="font-mono text-ink-soft" th:text="${s.label.replace(#strings.toString('\n'), ' ')}">类型</span>
-          <span class="font-mono tnum"
-                th:text="${'¥' + #numbers.formatDecimal(s.value, 1, 0) + ' · ' + #numbers.formatDecimal(s.ratio.multiply(new java.math.BigDecimal(100)), 1, 1) + '%'}">¥0 · 0%</span>
-        </div>
-      </div>
+      <p class="text-sm text-ink-soft mb-3">资产配置图已搬到 <a href="/dashboard#allocation" class="text-brass-deep hover:underline no-underline">/dashboard</a>(摸清切片)。</p>
+      <p class="text-sm text-ink-soft">配置 diff 看 <a href="/reports#allocation-diff" class="text-brass-deep hover:underline no-underline">/reports → 配置 diff</a>(诊断 + 调仓)。</p>
     </div>
 
-    <!-- 卡 2 · 风险分布 -->
+    <!-- 风险分布同砍 -->
     <div id="risk" class="bg-card p-6 scroll-mt-32">
       <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3">
-        风险敞口 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">RISK DISTRIBUTION</span>
+        风险敞口 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">v0.4 改</span>
       </h3>
-      <div style="height:240px"><canvas id="riskChart"></canvas></div>
-      <div class="mt-4 space-y-1.5 text-xs">
+      <p class="text-sm text-ink-soft mb-3">风险等级分布环形图已搬到 <a href="/reports#risk-section" class="text-brass-deep hover:underline no-underline">/reports</a>。</p>
+      <div class="mt-2 space-y-1.5 text-xs">
         <div th:each="b : ${diagnose.riskDistribution}" class="flex items-center justify-between">
           <span class="font-mono text-ink-soft">
             <span style="color:var(--forest)" th:text="${b.stars()}">—</span>
@@ -88,9 +82,6 @@
                 th:text="${'¥' + #numbers.formatDecimal(b.amount, 1, 0) + ' · ' + #numbers.formatDecimal(b.ratio.multiply(new java.math.BigDecimal(100)), 1, 1) + '%'}">¥0 · 0%</span>
         </div>
       </div>
-      <p class="text-[10px] text-ink-subtle mt-3" th:if="${#lists.isEmpty(diagnose.riskDistribution)}">
-        暂无风险分布数据(请先完成本月填报)
-      </p>
     </div>
 
     <!-- 卡 3 · 流动性 -->
@@ -111,8 +102,18 @@
           <div class="font-mono text-[10px] text-ink-soft">流动资产 / 月均支出</div>
         </div>
       </div>
+      <!-- v0.4 FR-62c · 应急金不闲置 banner(仅在 LIQUID > 应急需求 × 1.5x 时显示)-->
+      <div th:if="${liquidSurplus != null and liquidSurplus.shouldNotify()}"
+           class="border-t border-rule-soft mt-4 pt-3 paper-card p-3"
+           style="background:rgba(122,90,57,.04); border-left:3px solid var(--brass-deep)">
+        <span class="font-mono text-[10px] text-brass-deep">💡 FR-62c · 不 · 闲 · 置</span>
+        <p class="text-xs text-ink-soft mt-1">
+          超额 <b class="tnum" th:text="'¥' + ${#numbers.formatInteger(liquidSurplus.surplus, 0, 'COMMA')}">¥0</b> ·
+          建议转货币基金(2%+ 年化)避免活期闲置。
+        </p>
+      </div>
       <div class="border-t border-rule-soft mt-4 pt-3 text-xs text-ink-soft">
-        建议:紧急储备应 ≥ 3 个月家庭支出。WEALTH 类账户(理财/货币基金)是 SEMI_LIQUID,不计入紧急储备月数。
+        建议:紧急储备应 ≥ 3 个月家庭支出(v0.4:CASH + 货币基金等 LIQUID 类目计入)。
       </div>
     </div>
 

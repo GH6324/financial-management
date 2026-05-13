@@ -18,26 +18,26 @@
 
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 
-<header class="border-b border-rule px-6 lg:px-10 py-4 flex items-baseline justify-between">
-  <div class="flex items-baseline gap-8">
-    <a href="../index.html" class="font-display text-xl no-underline">№ 张 · 账房</a>
-    <nav class="flex gap-5 font-mono text-[11px] tracking-wider uppercase text-ink-soft">
+<header class="border-b border-rule px-4 lg:px-10 py-4">
+  <div class="flex items-baseline justify-between gap-3 flex-wrap">
+    <a href="../index.html" class="font-display text-lg lg:text-xl no-underline">№ 张 · 账房</a>
+    <span class="font-mono text-[10px] text-ink-subtle order-2 lg:order-3">v0.4 · preview</span>
+    <nav class="flex gap-3 lg:gap-5 font-mono text-[10px] lg:text-[11px] tracking-wider uppercase text-ink-soft flex-wrap order-3 lg:order-2 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-0 border-rule-soft mt-2 lg:mt-0">
       <a href="dashboard.html" class="hover:text-ink no-underline">Dashboard</a>
       <span class="text-ink">趋势 · 收益</span>
       <a href="checkup.html" class="hover:text-ink no-underline">体检</a>
-      <span class="hover:text-ink">/entry · 录入</span>
+      <span class="hover:text-ink">录入</span>
       <span class="hover:text-ink">目标</span>
     </nav>
   </div>
-  <span class="font-mono text-[10px] text-ink-subtle">v0.4 · preview</span>
 </header>
 
-<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10">
+<main class="max-w-[1400px] mx-auto px-4 lg:px-10 py-6 lg:py-10">
 
-  <section class="mb-8 flex items-end justify-between flex-wrap gap-4">
+  <section class="mb-6 lg:mb-8 flex items-end justify-between flex-wrap gap-4">
     <div>
       <div class="eyebrow mb-2">月 · 度 · 大 · 账 · v0.4 改</div>
-      <h1 class="font-display text-5xl font-medium tracking-tight">数 · 字 · <span class="italic font-light text-brass-deep">所至</span></h1>
+      <h1 class="font-display text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight">数 · 字 · <span class="italic font-light text-brass-deep">所至</span></h1>
       <p class="text-ink-soft text-sm mt-2 max-w-xl">钱怎么涨/跌的 · 跑赢市场和通胀没 · 该往哪调</p>
     </div>
     <div class="flex border border-rule">
@@ -111,8 +111,8 @@
       </div>
       <div class="text-[10px] font-mono text-ink-subtle">基准来自产品类目 · /admin/product-categories 可微调</div>
     </div>
-    <div class="paper-card overflow-hidden">
-      <table class="ledger-table">
+    <div class="paper-card overflow-x-auto">
+      <table class="ledger-table min-w-[720px]">
         <thead>
         <tr>
           <th>账户</th><th>类型</th><th>产品类目</th>
@@ -181,14 +181,14 @@
 
   <!-- 配置 diff vs 模板(FR-62a)-->
   <section class="mb-8">
-    <div class="flex items-baseline justify-between mb-3">
+    <div class="flex items-baseline justify-between mb-3 flex-wrap gap-2">
       <div>
         <div class="eyebrow mb-1">第 五 表 · 新 ★</div>
-        <h3 class="font-display text-2xl font-medium">当前配置 vs 模板</h3>
+        <h3 class="font-display text-xl lg:text-2xl font-medium">当前配置 vs 模板</h3>
       </div>
-      <div class="flex items-center gap-2">
-        <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle">模板</span>
-        <select class="font-mono text-xs border border-rule bg-paper px-3 py-1.5">
+      <div class="flex items-center gap-2 w-full lg:w-auto">
+        <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle flex-shrink-0">模板</span>
+        <select class="font-mono text-xs border border-rule bg-paper px-3 py-1.5 flex-1 lg:flex-initial">
           <option>标普 4321 · 中产经典</option>
           <option>雪球三分 · 稳健(债 60 / 股 30 / 商 10)</option>
           <option>雪球三分 · 激进(股 70 / 债 15 / 商 15)</option>
@@ -197,7 +197,7 @@
         </select>
       </div>
     </div>
-    <div class="paper-card p-6">
+    <div class="paper-card p-4 lg:p-6">
       <div class="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
         <div>
           <div class="font-mono text-[10px] text-ink-subtle mb-2">当前 vs 标普 4321</div>
@@ -266,14 +266,14 @@
         考虑近 3 期工资稳定 + 房产无近期变现需求,建议<b class="text-ink">逐步把投资部分超配的 6.8% 调整为现金 6.6%</b>,把应急金从 ¥185k 升到 ¥246k(约 6 月支出 ¥41k × 6)。
       </p>
       <div class="space-y-2">
-        <div class="flex items-center gap-3 px-3 py-2 paper-card bg-paper">
+        <div class="flex items-center gap-2 lg:gap-3 px-3 py-2 paper-card bg-paper text-xs lg:text-sm flex-wrap">
           <span class="font-mono text-[10px] text-brass-deep w-12">1.</span>
           <span class="text-sm flex-1">从 <b>蚂蚁财富-基金</b>(MIXED_FUND)调出</span>
           <span class="font-mono tnum text-brass-deep">¥40,000</span>
           <span>→</span>
           <span class="text-sm">到 <b>支付宝-余额宝</b>(MONEY_FUND)</span>
         </div>
-        <div class="flex items-center gap-3 px-3 py-2 paper-card bg-paper">
+        <div class="flex items-center gap-2 lg:gap-3 px-3 py-2 paper-card bg-paper text-xs lg:text-sm flex-wrap">
           <span class="font-mono text-[10px] text-brass-deep w-12">2.</span>
           <span class="text-sm flex-1">从 <b>华泰证券-A股</b>(跑输基准 -4.5%)调出</span>
           <span class="font-mono tnum text-brass-deep">¥25,000</span>

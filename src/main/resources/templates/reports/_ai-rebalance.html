@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  v0.4 FR-62b · AI 调仓建议卡 · 内嵌在 _allocation-diff fragment 右侧
+  数据由 ReportsController 注入:rebalanceAdvice (RebalanceAdvisorService.AdviceView)
+-->
+<div th:fragment="card" class="paper-card mb-3"
+     style="border:1px solid var(--brass-deep); border-left:4px solid var(--brass-deep); background:linear-gradient(90deg, rgba(122,90,57,.06) 0%, var(--card) 35%)">
+  <div class="px-4 py-3">
+    <div class="flex items-baseline justify-between mb-2 flex-wrap gap-1">
+      <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">🤖 AI · 调 · 仓 · 建 · 议</span>
+      <span class="font-mono text-[9px] text-ink-subtle"
+            th:if="${rebalanceAdvice.generatedAt != null}"
+            th:text="'生成于 ' + ${#temporals.format(rebalanceAdvice.generatedAt, 'yyyy-MM-dd HH:mm')} + ' · 30 天节流'">渲染于 ...</span>
+    </div>
+    <p th:if="${rebalanceAdvice.narrative != null}"
+       class="text-xs text-ink-soft leading-relaxed font-serif mb-3"
+       th:text="${rebalanceAdvice.narrative}">叙事...</p>
+
+    <div th:if="${rebalanceAdvice.actions != null and !rebalanceAdvice.actions.isEmpty()}" class="space-y-2">
+      <div th:each="a, it : ${rebalanceAdvice.actions}"
+           class="flex items-center gap-2 lg:gap-3 px-3 py-2 paper-card bg-paper text-xs lg:text-sm flex-wrap">
+        <span class="font-mono text-[10px] text-brass-deep w-8 flex-shrink-0" th:text="${it.index + 1} + '.'">1.</span>
+        <span class="flex-1">从 <b th:text="${a.from_account}">账户 X</b> 调出</span>
+        <span class="font-mono tnum text-brass-deep" th:text="'¥' + ${a.amount}">¥X</span>
+        <span>→</span>
+        <span class="text-sm">到 <b th:text="${a.to_account}">账户 Y</b></span>
+        <span class="text-[10px] text-ink-subtle w-full" th:text="'· ' + ${a.reason}">· 原因</span>
+      </div>
+    </div>
+
+    <p class="text-[10px] text-ink-subtle mt-3 italic">
+      ※ 投资有风险 · AI 建议仅供参考,具体操作前请结合你对市场的判断。
+    </p>
+  </div>
+</div>
+
+</body>
+</html>

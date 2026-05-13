@@ -18,21 +18,21 @@
 
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 
-<header class="border-b border-rule px-6 lg:px-10 py-4 flex items-baseline justify-between">
-  <div class="flex items-baseline gap-8">
-    <a href="../index.html" class="font-display text-xl no-underline">№ 张 · 账房</a>
-    <nav class="flex gap-5 font-mono text-[11px] tracking-wider uppercase text-ink-soft">
+<header class="border-b border-rule px-4 lg:px-10 py-4">
+  <div class="flex items-baseline justify-between gap-3 flex-wrap">
+    <a href="../index.html" class="font-display text-lg lg:text-xl no-underline">№ 张 · 账房</a>
+    <span class="font-mono text-[10px] text-ink-subtle order-2 lg:order-3">v0.4 · preview</span>
+    <nav class="flex gap-3 lg:gap-5 font-mono text-[10px] lg:text-[11px] tracking-wider uppercase text-ink-soft flex-wrap order-3 lg:order-2 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-0 border-rule-soft mt-2 lg:mt-0">
       <a href="dashboard.html" class="hover:text-ink no-underline">Dashboard</a>
       <span class="text-ink">趋势 · 收益 / 提前还贷</span>
       <a href="checkup.html" class="hover:text-ink no-underline">体检</a>
-      <span class="hover:text-ink">/entry · 录入</span>
+      <span class="hover:text-ink">录入</span>
       <span class="hover:text-ink">目标</span>
     </nav>
   </div>
-  <span class="font-mono text-[10px] text-ink-subtle">v0.4 · preview</span>
 </header>
 
-<main class="max-w-[1100px] mx-auto px-6 lg:px-10 py-10">
+<main class="max-w-[1100px] mx-auto px-4 lg:px-10 py-6 lg:py-10">
 
   <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
     <a href="reports.html" class="hover:text-ink no-underline">趋势 · 收益</a>
@@ -42,7 +42,7 @@
 
   <section class="mb-8">
     <div class="eyebrow mb-2" style="color:var(--brass-deep)">FR-62d · 决 · 策 · 器</div>
-    <h1 class="font-display text-5xl font-medium tracking-tight">手里多 ¥10 万 ·<br/>
+    <h1 class="font-display text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight">手里多 ¥10 万 ·<br/>
       <span class="italic font-light text-brass-deep">提前还贷,还是投资?</span></h1>
     <p class="font-serif text-sm text-ink-soft mt-3 max-w-2xl">
       中产 20 年房贷高频问题。本工具用 NPV / 复利对照,给出基于你<b>家庭真实数据</b>的推荐 — 而不是网上通用建议。
@@ -52,7 +52,7 @@
   <!-- 表单 -->
   <section class="bracket-card max-w-3xl space-y-5 mb-8">
 
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
       <div>
         <label class="field-label">剩余房贷本金</label>
         <div class="flex items-baseline gap-2">
@@ -68,7 +68,7 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
       <div>
         <label class="field-label">剩余还款年限</label>
         <input type="number" class="field-input tnum" value="18">
@@ -86,7 +86,7 @@
 
     <div class="border-t border-rule pt-5"></div>
 
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
       <div>
         <label class="field-label">准备投入金额</label>
         <div class="flex items-baseline gap-2">
@@ -112,9 +112,9 @@
   <section class="mb-8">
     <div class="paper-card overflow-hidden mb-6"
          style="border:1px solid var(--brass-deep); border-left:6px solid var(--brass-deep); background:linear-gradient(90deg, rgba(122,90,57,.06) 0%, var(--card) 35%)">
-      <div class="px-6 py-5">
+      <div class="px-4 lg:px-6 py-5">
         <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-2">推 · 荐</div>
-        <h2 class="font-display text-3xl font-medium mb-3">推荐:<span class="text-brass-deep">优先投资</span></h2>
+        <h2 class="font-display text-2xl sm:text-3xl font-medium mb-3">推荐:<span class="text-brass-deep">优先投资</span></h2>
         <p class="font-serif text-sm text-ink-soft leading-relaxed">
           你的<b class="text-ink">投资预期 7.2%</b> 显著高于<b class="text-ink">房贷利率 4.5%</b>(差 2.7%)·
           如果你能稳定持有 18 年,投资收益将比"提前还贷节省的利息"<b class="text-brass-deep">多出约 ¥87,400</b>。

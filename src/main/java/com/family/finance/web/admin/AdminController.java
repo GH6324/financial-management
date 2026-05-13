@@ -60,6 +60,8 @@ public class AdminController {
     private final com.family.finance.service.PeriodOpener periodOpener;
     private final AuditLogService auditLogService;
     private final ProductCategoryService productCategoryService;
+    // v0.4
+    private final com.family.finance.repository.RebalanceAdviceCacheMapper rebalanceCacheMapper;
 
     // ---------------------------------------------------------------------
     // 1. /admin · 总览
@@ -86,6 +88,45 @@ public class AdminController {
         // v0.2 FR-1/FR-34 · 预设图标白名单(顺序固定供 gallery 渲染)
         model.addAttribute("logoPresets", java.util.List.of("icon1", "icon2", "icon3", "icon4"));
         return "admin/family";
+    }
+
+    // v0.4 FR-61a · 切换 CPI 假设(2/3/5%)· 从 dashboard 顶部 widget POST
+    @PostMapping("/family/cpi")
+    public String updateCpi(@AuthenticationPrincipal MemberPrincipal me,
+                            @RequestParam("cpi") java.math.BigDecimal cpi) {
+        if (cpi == null || cpi.signum() < 0 || cpi.compareTo(new java.math.BigDecimal("20")) > 0) {
+            return "redirect:/dashboard";
+        }
+        familyMapper.updateCpiAssumption(me.getFamilyId(), cpi);
+        return "redirect:/dashboard";
+    }
+
+    // v0.4 FR-62a · 切换配置锚(预置 5 选 1)· 从 reports 配置 diff 下拉 POST
+    @PostMapping("/family/anchor")
+    public String updateAnchor(@AuthenticationPrincipal MemberPrincipal me,
+                               @RequestParam("anchor") String anchor) {
+        if (!com.family.finance.domain.allocation.AnchorCode.isValid(anchor)) {
+            return "redirect:/reports";
+        }
+        familyMapper.updateAllocationAnchor(me.getFamilyId(), anchor.toUpperCase());
+        // 切锚 = AI 调仓缓存失效
+        rebalanceCacheMapper.deleteByFamily(me.getFamilyId());
+        return "redirect:/reports#allocation-diff";
+    }
+
+    // v0.4 FR-62b · 切换风险偏好(LLM 调仓 prompt 输入)· 从 /admin/family 下拉
+    @PostMapping("/family/risk-appetite")
+    public String updateRiskAppetite(@AuthenticationPrincipal MemberPrincipal me,
+                                     @RequestParam("appetite") String appetite,
+                                     RedirectAttributes ra) {
+        if (!com.family.finance.domain.allocation.RiskAppetite.isValid(appetite)) {
+            ra.addFlashAttribute("flash", "非法的风险偏好: " + appetite);
+            return "redirect:/admin/family";
+        }
+        familyMapper.updateRiskAppetite(me.getFamilyId(), appetite.toUpperCase());
+        rebalanceCacheMapper.deleteByFamily(me.getFamilyId());
+        ra.addFlashAttribute("flash", "已保存");
+        return "redirect:/admin/family";
     }
 
     @PostMapping("/family")

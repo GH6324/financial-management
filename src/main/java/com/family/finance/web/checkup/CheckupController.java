@@ -74,9 +74,15 @@ public class CheckupController {
             RuleContext ctx = RuleContext.forFamily(diagnose, accounts, avgMonthlyExpense);
             List<Advice> advice = adviceEngine.evaluate(ctx);
 
+            // v0.4 FR-62c · 应急金不闲置评估(用 FamilyDiagnose.liquidAssets + avgMonthlyExpense)
+            var liquidSurplus = com.family.finance.calc.LiquiditySurplus.evaluate(
+                diagnose.liquidAssets(), avgMonthlyExpense,
+                com.family.finance.calc.LiquiditySurplus.DEFAULT_EMERGENCY_MONTHS);
+
             model.addAttribute("scope", "FAMILY");
             model.addAttribute("diagnose", diagnose);
             model.addAttribute("advice", advice);
+            model.addAttribute("liquidSurplus", liquidSurplus);
             return "checkup/family";
         }
 

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('提前还贷 vs 投资 · 决策器')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('reports', ${me}, ${nav})}"></header>
+
+<main class="max-w-[1100px] mx-auto px-4 lg:px-10 py-6 lg:py-10 relative z-10">
+
+  <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+    <a th:href="@{/reports}" class="hover:text-ink no-underline">趋势 · 收益</a>
+    <span class="mx-2 text-rule">/</span>
+    <span class="text-ink">提前还贷 vs 投资 决策器</span>
+  </div>
+
+  <section class="mb-6 lg:mb-8">
+    <div class="eyebrow mb-2" style="color:var(--brass-deep)">FR-62d · 决 · 策 · 器</div>
+    <h1 class="font-display text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight">提前还贷,还是投资?</h1>
+    <p class="font-serif text-sm text-ink-soft mt-3 max-w-2xl">
+      中产 20 年房贷高频问题。本工具用 NPV / 复利对照,给出基于你<b>家庭真实数据</b>的推荐。
+    </p>
+  </section>
+
+  <!-- 验证失败提示 -->
+  <div th:if="${validationError != null}" class="paper-card p-4 mb-6" style="border-left:4px solid var(--rust); background:rgba(159,74,58,.06)">
+    <span class="font-mono text-[10px] uppercase text-rust">输 · 入 · 校 · 验 · 失 · 败</span>
+    <p class="text-sm text-ink-soft mt-1" th:text="${validationError}">参数越界</p>
+  </div>
+
+  <!-- 表单 -->
+  <form th:action="@{/reports/refinance}" method="post" class="bracket-card max-w-3xl space-y-5 mb-8">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+      <div>
+        <label class="field-label">准备投入金额</label>
+        <div class="flex items-baseline gap-2">
+          <span class="font-mono text-ink-subtle">¥</span>
+          <input type="number" step="0.01" min="1" name="amount" required
+                 th:value="${defaultAmount}"
+                 class="field-input flex-1 tnum">
+        </div>
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">手上闲钱想做选择的额度</p>
+      </div>
+      <div>
+        <label class="field-label">投资预期年化(小数)</label>
+        <input type="number" step="0.001" min="0.001" max="0.5" name="investRate" required
+               th:value="${defaultInvestRate}"
+               class="field-input tnum">
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">默认 = 家庭 XIRR · 可改 · 0.072 = 7.2%</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+      <div>
+        <label class="field-label">房贷年利率(小数)</label>
+        <input type="number" step="0.001" min="0.001" max="0.5" name="loanRate" required
+               th:value="${defaultLoanRate}"
+               class="field-input tnum">
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">0.045 = 4.5% · LPR + 加点</p>
+      </div>
+      <div>
+        <label class="field-label">剩余还款年限</label>
+        <input type="number" min="1" max="50" name="years" required
+               th:value="${defaultYears}"
+               class="field-input tnum">
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">v0.4 仅等额本息 · v0.5 加等额本金</p>
+      </div>
+    </div>
+
+    <div class="rule-double pt-1"></div>
+    <div class="flex justify-end gap-3">
+      <button type="submit" class="btn-ink">计 · 算 · 对 · 照 →</button>
+    </div>
+  </form>
+
+  <!-- 结果 -->
+  <section th:if="${result != null}" class="mb-8">
+    <!-- 推荐卡 -->
+    <div class="paper-card overflow-hidden mb-6"
+         th:with="rec=${result.recommendation.name()}"
+         th:style="${rec == 'INVEST'} ? 'border:1px solid var(--forest); border-left:6px solid var(--forest); background:linear-gradient(90deg, rgba(47,93,80,.06) 0%, var(--card) 35%)'
+                    : (${rec == 'MUST_PREPAY' || rec == 'PREPAY'} ? 'border:1px solid var(--rust); border-left:6px solid var(--rust); background:linear-gradient(90deg, rgba(159,74,58,.06) 0%, var(--card) 35%)'
+                    : 'border:1px solid var(--brass-deep); border-left:6px solid var(--brass-deep); background:linear-gradient(90deg, rgba(122,90,57,.06) 0%, var(--card) 35%)')">
+      <div class="px-4 lg:px-6 py-5">
+        <div class="font-mono text-[10px] tracking-[0.18em] uppercase mb-2"
+             th:style="${rec == 'INVEST'} ? 'color:var(--forest)' : 'color:var(--rust)'">推 · 荐</div>
+        <h2 class="font-display text-2xl sm:text-3xl font-medium mb-3">
+          <span th:if="${result.recommendation.name() == 'INVEST'}">推荐:<span class="text-forest">优先投资</span></span>
+          <span th:if="${result.recommendation.name() == 'PREPAY'}">推荐:<span class="text-rust">优先还贷</span></span>
+          <span th:if="${result.recommendation.name() == 'MUST_PREPAY'}">推荐:<span class="text-rust">必还(确定 > 不确定)</span></span>
+          <span th:if="${result.recommendation.name() == 'REFUSE_LOW_EMERGENCY'}">⚠ 先 <span class="text-brass-deep">补足应急金</span></span>
+        </h2>
+        <p class="font-serif text-sm text-ink-soft leading-relaxed" th:text="${result.reason}">理由 ...</p>
+      </div>
+    </div>
+
+    <!-- 双方案对比 -->
+    <div th:if="${result.recommendation.name() != 'REFUSE_LOW_EMERGENCY'}" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div class="paper-card p-6">
+        <div class="eyebrow mb-2" style="color:var(--rust)">方 · 案 · A</div>
+        <h3 class="font-display text-xl font-medium mb-2">提前还贷</h3>
+        <div class="grid grid-cols-1 gap-3">
+          <div>
+            <div class="font-mono text-[10px] text-ink-subtle">节省利息总额</div>
+            <div class="font-display text-2xl tnum text-rust"
+                 th:text="'¥' + ${#numbers.formatInteger(result.prepaySaved, 0, 'COMMA')}">¥0</div>
+          </div>
+        </div>
+        <div class="border-t border-rule-soft mt-3 pt-3 text-xs text-ink-soft space-y-1">
+          <div>· <b>确定性高</b> · 节省利息 = 数学题,不靠运气</div>
+          <div>· 流动性下降 · 钱压在房子里</div>
+        </div>
+      </div>
+      <div class="paper-card p-6" th:style="${result.recommendation.name() == 'INVEST'} ? 'border-left:4px solid var(--forest)' : ''">
+        <div class="eyebrow mb-2" style="color:var(--forest)">方 · 案 · B</div>
+        <h3 class="font-display text-xl font-medium mb-2">投资 · 复利期末</h3>
+        <div class="grid grid-cols-1 gap-3">
+          <div>
+            <div class="font-mono text-[10px] text-ink-subtle">投资收益</div>
+            <div class="font-display text-2xl tnum num-pos"
+                 th:text="'¥' + ${#numbers.formatInteger(result.investGain, 0, 'COMMA')}">¥0</div>
+          </div>
+        </div>
+        <div class="border-t border-rule-soft mt-3 pt-3 text-xs text-ink-soft space-y-1">
+          <div>· <b>预期收益</b> · 基于家庭过去年化</div>
+          <div>· 流动性高 · 紧急时可赎回</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NPV diff -->
+    <div th:if="${result.recommendation.name() != 'REFUSE_LOW_EMERGENCY'}" class="paper-card p-4 mb-6 bg-card-soft">
+      <div class="flex items-baseline justify-between flex-wrap gap-2">
+        <span class="font-mono text-[10px] text-ink-subtle">折现回今天 NPV diff(B - A)</span>
+        <span class="font-display text-2xl tnum"
+              th:classappend="${result.diffNpv.signum() > 0 ? 'num-pos' : (result.diffNpv.signum() < 0 ? 'num-neg' : '')}"
+              th:text="${result.diffNpv.signum() >= 0 ? '+¥' : '−¥'} + ${#numbers.formatInteger(result.diffNpv.abs(), 0, 'COMMA')}">¥0</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 边界提醒 -->
+  <section class="paper-card p-5 bg-card-soft" style="border-left:4px solid var(--brass-deep)">
+    <div class="font-mono text-[10px] text-brass-deep mb-2">边 · 界 · 与 · 例 · 外</div>
+    <ul class="text-xs text-ink-soft space-y-1.5 list-disc pl-5">
+      <li>当前应急储备月数:<b class="tnum" th:text="${emergencyMonths != null ? emergencyMonths : '—'}">—</b> · &lt; 3 月会拒绝</li>
+      <li>房贷利率 ≥ 投资预期 → 必还(节省 = 确定 vs 投资 = 不确定)</li>
+      <li>本决策器假设你能<b>稳定持有 N 年</b>不动用 · 现实失业/重病会改变折现率</li>
+      <li>v0.5 加等额本金 vs 等额本息差异 · 本金提前还效果更显著</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

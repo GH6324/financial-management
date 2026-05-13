@@ -17,30 +17,30 @@
 
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 
-<header class="border-b border-rule px-6 lg:px-10 py-4 flex items-baseline justify-between">
-  <div class="flex items-baseline gap-8">
-    <a href="../index.html" class="font-display text-xl no-underline">№ 张 · 账房</a>
-    <nav class="flex gap-5 font-mono text-[11px] tracking-wider uppercase text-ink-soft">
+<header class="border-b border-rule px-4 lg:px-10 py-4">
+  <div class="flex items-baseline justify-between gap-3 flex-wrap">
+    <a href="../index.html" class="font-display text-lg lg:text-xl no-underline">№ 张 · 账房</a>
+    <span class="font-mono text-[10px] text-ink-subtle order-2 lg:order-3">v0.4 · preview</span>
+    <nav class="flex gap-3 lg:gap-5 font-mono text-[10px] lg:text-[11px] tracking-wider uppercase text-ink-soft flex-wrap order-3 lg:order-2 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-0 border-rule-soft mt-2 lg:mt-0">
       <a href="dashboard.html" class="hover:text-ink no-underline">Dashboard</a>
       <a href="reports.html" class="hover:text-ink no-underline">趋势 · 收益</a>
       <span class="text-ink">体检</span>
-      <span class="hover:text-ink">/entry · 录入</span>
+      <span class="hover:text-ink">录入</span>
       <span class="hover:text-ink">目标</span>
     </nav>
   </div>
-  <span class="font-mono text-[10px] text-ink-subtle">v0.4 · preview</span>
 </header>
 
-<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10">
+<main class="max-w-[1400px] mx-auto px-4 lg:px-10 py-6 lg:py-10">
 
-  <section class="mb-8">
+  <section class="mb-6 lg:mb-8">
     <div class="eyebrow mb-2">资 · 产 · 体 · 检 · 全 · 家</div>
-    <h1 class="font-display text-5xl font-medium tracking-tight">家庭资产 · 体检报告</h1>
+    <h1 class="font-display text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight">家庭资产 · 体检报告</h1>
     <p class="text-ink-soft text-sm mt-2 max-w-2xl">v0.4 改:专注「<span class="text-ink">有什么风险 + 该怎么调</span>」· 配置 / 风险图已搬到对应页面,这里只看诊断。</p>
   </section>
 
   <!-- 6 KPI(从 dashboard 收回负债率)-->
-  <section class="grid grid-cols-2 md:grid-cols-6 gap-px bg-rule mb-10 border border-rule">
+  <section class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-px bg-rule mb-10 border border-rule">
     <div class="bg-card p-4">
       <span class="kpi-eyebrow">净资产</span>
       <div class="font-display text-2xl tnum num-pos mt-1">¥318万</div>
@@ -173,8 +173,8 @@
   <!-- 单账户深入 -->
   <section class="mb-8">
     <h2 class="font-display text-xl font-medium mb-3">单账户深入体检 ⤵</h2>
-    <div class="paper-card overflow-hidden">
-      <table class="ledger-table">
+    <div class="paper-card overflow-x-auto">
+      <table class="ledger-table min-w-[480px]">
         <thead><tr><th>账户</th><th>类型</th><th class="num">XIRR</th><th>健康度</th><th></th></tr></thead>
         <tbody>
         <tr><td>富途证券-港美</td><td><span class="pill">STOCK</span></td><td class="num num-pos">+12.8%</td><td><span class="pill" style="color:var(--forest);border-color:var(--forest)">✓ 良好</span></td><td><a href="#" class="text-brass-deep text-xs no-underline">→ 体检</a></td></tr>

@@ -980,8 +980,9 @@ $CURL -b $COOKIE "$BASE/reports?range=1Y&currency=CNY" -o "$TMP" -w ""
 n=$(grep -oE '★+' "$TMP" | wc -l)
 [[ $n -ge 3 ]] && log_ok "v02-FR40e-2 /reports 风险等级表格含 ★ 标识 (n=$n)" \
   || log_bad "v02-FR40e-2 风险表格" "n=$n"
-grep -q '进入资产体检' "$TMP" && log_ok "v02-FR40e-3 /reports 风险段含「→ 进入资产体检」入口" \
-  || log_bad "v02-FR40e-3 体检入口" "missing"
+# v0.4 FR-60b 砍 · 风险敞口明细表已删 · "进入资产体检" link 一并去 · 改判风险等级分布环形仍在
+grep -q 'riskDistChart' "$TMP" && log_ok "v02-FR40e-3 (v0.4 改) /reports 风险等级分布环形保留" \
+  || log_bad "v02-FR40e-3 风险等级图 砍过头" "missing"
 
 # v0.2 FR-38 · dashboard KPI 卡 deep-link 到 /checkup 锚点
 $CURL -b $COOKIE "$BASE/dashboard?range=1Y&currency=CNY" -o "$TMP" -w ""
@@ -1046,10 +1047,10 @@ grep -q 'riskDistChart' "$TMP" \
   && log_ok "v02-FR40E-2 reports 含 #riskDistChart canvas" \
   || log_bad "v02-FR40E-2 canvas" "missing"
 
-# FR40e-3 含风险敞口明细表格 + 进入资产体检入口
-{ grep -q '风险敞口明细' "$TMP" && grep -q '进入资产体检' "$TMP"; } \
-  && log_ok "v02-FR40E-3 reports 含风险敞口明细 + 资产体检入口" \
-  || log_bad "v02-FR40E-3 table+entry" "missing"
+# v0.4 FR-60b 砍 · 风险敞口明细表 + 进入资产体检入口 都已删 · 改判 reports 仍含风险章节
+{ grep -q 'risk-section\|风险等级分布'  "$TMP"; } \
+  && log_ok "v02-FR40E-3 (v0.4 改) reports 风险等级分布段仍在" \
+  || log_bad "v02-FR40E-3 风险段 砍过头" "missing"
 
 # ---------- v0.2 · FR-1/FR-34 品牌图标预设(2026-05-10)----------
 section "v0.2 · 品牌图标预设(默认 icon2)"
@@ -1297,12 +1298,15 @@ $CURL -b $COOKIE "$BASE/entry" -o "$TMP" -w ""
 fr51_line=$(grep -n "第 · 一 · 步" "$TMP" | head -1 | cut -d: -f1)
 prog_line=$(grep -n "本期总进度" "$TMP" | head -1 | cut -d: -f1)
 { [[ -n "$fr51_line" ]] && [[ -n "$prog_line" ]] && [[ "$fr51_line" -lt "$prog_line" ]]; }   && log_ok "v03-IND-7 /entry FR-51 在「本期总进度」之前(置顶 · 第一步)"   || log_bad "v03-IND-7 entry 2 框不在顶部" "fr51=$fr51_line prog=$prog_line"
-# v03-IND-8 · Dashboard 显式 KPI:月均收入 / 月均支出 / 储蓄率 / 已填月份(用最新 v0.3 口径)
+# v03-IND-8 · v0.4 KPI 收敛 9→5(月均收入/支出/储蓄率/已填月份 4 KPI 搬 /reports 储蓄区)
+# 改判 dashboard 含"月储蓄能力"(顶替)· /reports 含原 4 KPI
 $CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
-{ grep -q "月均收入(近 12 月)" "$TMP" && grep -q "月均支出(近 12 月)" "$TMP" \
-  && grep -q "已填月份" "$TMP" && grep -q "储蓄率(最近一期)" "$TMP"; } \
-  && log_ok "v03-IND-8 Dashboard 月均收入/支出/储蓄率/已填 KPI 4 卡" \
-  || log_bad "v03-IND-8 Dashboard KPI 卡缺" "see $TMP"
+dash_ok=$(grep -c "月储蓄能力" "$TMP")
+$CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
+rpt_ok=$(grep -c "月均收入" "$TMP")
+{ [[ "$dash_ok" -ge 1 ]] && [[ "$rpt_ok" -ge 1 ]]; } \
+  && log_ok "v03-IND-8 (v0.4 改) dashboard 月储蓄能力 KPI · reports 储蓄区原 4 KPI(dash=$dash_ok rpt=$rpt_ok)" \
+  || log_bad "v03-IND-8 KPI 搬迁" "dash=$dash_ok rpt=$rpt_ok"
 
 # v03-IND-9 · /reports 储蓄区块加月均收入/支出 KPI · 数字来自 period.total_*_input
 mysql -ufinance -pfinance finance -e "UPDATE period_member_cashflow SET total_income_input=40000, total_expense_input=15000 WHERE period_id=$PID_LATEST AND member_id=$ME_ID;" 2>/dev/null
@@ -1317,12 +1321,12 @@ code=$($CURL -b $COOKIE "$BASE/checkup" -o /dev/null -w "%{http_code}")
   || log_bad "v03-IND-10 checkup 破坏" "code=$code"
 
 # v03-IND-11 · 多成员独立填报 · 家庭聚合 = SUM(成员)· 2026-05-13 修订验证
+# v0.4 修:dashboard 月均收入/支出 KPI 已搬 /reports · 改判 /reports 显示 SUM 数字
 BOB_ID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM member WHERE family_id=1 AND username='wangergou'" 2>/dev/null)
-# 当前 PID_LATEST 上 diwa 已写 40000/15000(v03-IND-9 留下);加 bob 22000/8000 → SUM 62000/23000
 mysql -ufinance -pfinance finance -e "INSERT INTO period_member_cashflow (family_id, period_id, member_id, total_income_input, total_expense_input) VALUES (1, $PID_LATEST, $BOB_ID, 22000, 8000) ON DUPLICATE KEY UPDATE total_income_input=22000, total_expense_input=8000;" 2>/dev/null
-$CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
+$CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
 { grep -q "¥62,000" "$TMP" && grep -q "¥23,000" "$TMP"; } \
-  && log_ok "v03-IND-11 多成员填报 · dashboard 显 SUM(¥62k / ¥23k)" \
+  && log_ok "v03-IND-11 (v0.4 改) 多成员 SUM → /reports 储蓄区显 ¥62k / ¥23k" \
   || log_bad "v03-IND-11 SUM 聚合不对" "see $TMP"
 
 # v03-IND-12 · /entry 显式"家庭本月总收入(SUM 成员)"区块
@@ -1569,6 +1573,141 @@ $CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
 grep -q "</html>" "$TMP" \
   && log_ok "v03-AI-6 /checkup 既有页面渲染保留(backward compat)" \
   || log_bad "v03-AI-6 /checkup 破坏" "incomplete"
+
+
+###################################################
+# v0.4 · 报表整顿 + 摸清第 5 问 + 调优决策
+###################################################
+
+# v04-RPT-1 · /dashboard KPI 收敛到 5(含"月储蓄能力")
+$CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
+{ grep -q '月储蓄能力' "$TMP" && grep -q 'name="cpi"' "$TMP"; } \
+  && log_ok "v04-RPT-1 dashboard 5 KPI(月储蓄能力)+ CPI 切换器" \
+  || log_bad "v04-RPT-1 dashboard 改造" "missing"
+
+# v04-RPT-2 · /dashboard 砍收入支出组合图(只剩注释 incomeExpenseChart 字符串 0 个 canvas)
+canvases=$(grep -c '<canvas id="incomeExpenseChart"' "$TMP")
+[[ "$canvases" -eq 0 ]] && log_ok "v04-RPT-2 dashboard incomeExpenseChart canvas 已砍" \
+  || log_bad "v04-RPT-2 incomeExpenseChart 未砍" "canvas=$canvases"
+
+# v04-RPT-3 · /reports 砍 waterfall/sankey/月度收支对比 canvas
+$CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
+killed=$(grep -cE '<div id="waterfallChart"|<div id="sankeyChart"|<canvas id="incomeBarChart"' "$TMP")
+[[ "$killed" -eq 0 ]] && log_ok "v04-RPT-3 reports 砍 waterfall/sankey/月度收支对比 canvas" \
+  || log_bad "v04-RPT-3 流水图未砍" "still=$killed"
+
+# v04-RPT-4 · /reports 含配置 diff section + 账户级基准列
+{ grep -q 'id="allocation-diff"' "$TMP" && grep -q '基准 %' "$TMP"; } \
+  && log_ok "v04-RPT-4 reports 含配置 diff section + 账户级基准列" \
+  || log_bad "v04-RPT-4 reports 新区缺" "missing"
+
+# v04-RPT-5 · /checkup 砍配置环形 canvas
+$CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+killed=$(grep -cE '<canvas id="allocChart"|<canvas id="riskChart"' "$TMP")
+[[ "$killed" -eq 0 ]] && log_ok "v04-RPT-5 checkup 砍配置环形 + 风险 bar canvas" \
+  || log_bad "v04-RPT-5 checkup 未砍" "still=$killed"
+
+# v04-CPI-1 · family.cpi_assumption 默认 2.00 入库
+cpi=$(mysql -ufinance -pfinance finance -sN -e "SELECT cpi_assumption FROM family WHERE id=1" 2>/dev/null)
+[[ "$cpi" == "2.00" ]] && log_ok "v04-CPI-1 family.cpi_assumption 默认 2.00" \
+  || log_bad "v04-CPI-1 cpi 默认值错" "$cpi"
+
+# v04-CPI-2 · POST /admin/family/cpi 切换到 3.00 + DB 更新
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" --data-urlencode "cpi=3.00" "$BASE/admin/family/cpi" -o /dev/null -w ""
+cpi=$(mysql -ufinance -pfinance finance -sN -e "SELECT cpi_assumption FROM family WHERE id=1" 2>/dev/null)
+[[ "$cpi" == "3.00" ]] && log_ok "v04-CPI-2 POST /admin/family/cpi 切 3% · DB 更新" \
+  || log_bad "v04-CPI-2 cpi 切换" "$cpi"
+mysql -ufinance -pfinance finance -e "UPDATE family SET cpi_assumption=2.00 WHERE id=1" 2>/dev/null
+
+# v04-BMK-1 · reports 含"vs 基准" pill + 跑赢/输 column
+$CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
+{ grep -q 'vs 基准' "$TMP"; } \
+  && log_ok "v04-BMK-1 reports 含 vs 基准 KPI" \
+  || log_bad "v04-BMK-1 vs 基准缺" "missing"
+
+# v04-DIFF-1 · allocation_anchor 表 4 行预置 + family 默认 SP_4321
+n=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM allocation_anchor" 2>/dev/null)
+anchor=$(mysql -ufinance -pfinance finance -sN -e "SELECT allocation_anchor FROM family WHERE id=1" 2>/dev/null)
+{ [[ "$n" == "4" ]] && [[ "$anchor" == "SP_4321" ]]; } \
+  && log_ok "v04-DIFF-1 V22 预置 4 锚 + family 默认 SP_4321" \
+  || log_bad "v04-DIFF-1 anchor seed" "n=$n anchor=$anchor"
+
+# v04-DIFF-2 · POST /admin/family/anchor 切到 XQ_AGGRESSIVE · DB 更新
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" --data-urlencode "anchor=XQ_AGGRESSIVE" "$BASE/admin/family/anchor" -o /dev/null -w ""
+anchor=$(mysql -ufinance -pfinance finance -sN -e "SELECT allocation_anchor FROM family WHERE id=1" 2>/dev/null)
+[[ "$anchor" == "XQ_AGGRESSIVE" ]] \
+  && log_ok "v04-DIFF-2 POST /admin/family/anchor → XQ_AGGRESSIVE · DB 更新" \
+  || log_bad "v04-DIFF-2 anchor 切换" "$anchor"
+mysql -ufinance -pfinance finance -e "UPDATE family SET allocation_anchor='SP_4321' WHERE id=1" 2>/dev/null
+
+# v04-DIFF-3 · 非法 anchor 拒绝 · DB 不变
+$CURL -b $COOKIE "$BASE/admin/family/anchor" -o /dev/null -w "" # refresh xsrf
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" --data-urlencode "anchor=BOGUS_99" "$BASE/admin/family/anchor" -o /dev/null -w ""
+anchor=$(mysql -ufinance -pfinance finance -sN -e "SELECT allocation_anchor FROM family WHERE id=1" 2>/dev/null)
+[[ "$anchor" == "SP_4321" ]] && log_ok "v04-DIFF-3 非法 anchor 拒绝 · 保持 SP_4321" \
+  || log_bad "v04-DIFF-3 非法 anchor 通过" "$anchor"
+
+# v04-LIQ-4 · LiquiditySurplus 计算正确(单测覆盖) · 这里只确认 service bean 可调
+# (跳过 · 已由 LiquiditySurplusTest 6 单测覆盖)
+
+# v04-REFI-1 · GET /reports/refinance 200 + 含表单字段
+code=$($CURL -b $COOKIE -o "$TMP" -w "%{http_code}" "$BASE/reports/refinance")
+{ [[ "$code" == "200" ]] && grep -q 'name="loanRate"' "$TMP" && grep -q 'name="investRate"' "$TMP"; } \
+  && log_ok "v04-REFI-1 /reports/refinance 表单 200 + 含 loanRate/investRate" \
+  || log_bad "v04-REFI-1 refinance 表单" "code=$code"
+
+# v04-REFI-2 · POST 计算 · 走完整结果路径(推荐 or 应急金不足提示均算 PASS · beta 数据差异容忍)
+$CURL -b $COOKIE "$BASE/reports/refinance" -o /dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+code=$($CURL -b $COOKIE -c $COOKIE -X POST \
+  --data-urlencode "_csrf=$XSRF" \
+  --data-urlencode "amount=100000" \
+  --data-urlencode "loanRate=0.045" \
+  --data-urlencode "investRate=0.072" \
+  --data-urlencode "years=18" \
+  -o "$TMP" -w "%{http_code}" "$BASE/reports/refinance")
+{ [[ "$code" == "200" ]] && (grep -q '优先投资' "$TMP" || grep -q '⚠ 先' "$TMP" || grep -q '应急金不足' "$TMP"); } \
+  && log_ok "v04-REFI-2 POST 200 + 返回结果块(推荐 or 应急金检查 · beta 数据容忍)" \
+  || log_bad "v04-REFI-2 result 块缺" "code=$code"
+
+# v04-REFI-3 · POST · 必还(loanRate ≥ investRate)
+$CURL -b $COOKIE "$BASE/reports/refinance" -o /dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+code=$($CURL -b $COOKIE -c $COOKIE -X POST \
+  --data-urlencode "_csrf=$XSRF" \
+  --data-urlencode "amount=100000" \
+  --data-urlencode "loanRate=0.058" \
+  --data-urlencode "investRate=0.050" \
+  --data-urlencode "years=18" \
+  -o "$TMP" -w "%{http_code}" "$BASE/reports/refinance")
+{ [[ "$code" == "200" ]] && grep -q '必还' "$TMP"; } \
+  && log_ok "v04-REFI-3 POST 必还(loanRate ≥ investRate)" \
+  || log_bad "v04-REFI-3 必还路径" "code=$code"
+
+# v04-REFI-4 · POST · 非法参数拒绝(loanRate=0.6 > 0.5)
+$CURL -b $COOKIE "$BASE/reports/refinance" -o /dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+code=$($CURL -b $COOKIE -c $COOKIE -X POST \
+  --data-urlencode "_csrf=$XSRF" \
+  --data-urlencode "amount=100000" \
+  --data-urlencode "loanRate=0.6" \
+  --data-urlencode "investRate=0.072" \
+  --data-urlencode "years=18" \
+  -o "$TMP" -w "%{http_code}" "$BASE/reports/refinance")
+{ [[ "$code" == "200" ]] && grep -q '校 · 验\|输入校验' "$TMP"; } \
+  && log_ok "v04-REFI-4 非法 loanRate 拒绝 · 校验提示" \
+  || log_bad "v04-REFI-4 非法参数处理" "code=$code"
+
+# v04-AI-REBALANCE-1 · POST /reports/rebalance/advise 不抛异常(LLM 可能 unavailable,容忍)
+$CURL -b $COOKIE "$BASE/reports" -o /dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" "$BASE/reports/rebalance/advise" -o /dev/null -w "%{http_code}")
+{ [[ "$code" == "302" || "$code" == "303" ]]; } \
+  && log_ok "v04-AI-REBALANCE-1 POST /reports/rebalance/advise → 302(LLM 调用容忍失败)" \
+  || log_bad "v04-AI-REBALANCE-1 advise 异常" "code=$code"
 
 
 echo

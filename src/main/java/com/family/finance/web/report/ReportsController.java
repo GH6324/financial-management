@@ -14,12 +14,15 @@ import com.family.finance.factview.FactSlice;
 import com.family.finance.factview.FactViewService;
 import com.family.finance.factview.TrendPoint;
 import com.family.finance.factview.WaterfallSegment;
+import com.family.finance.calc.BenchmarkAggregator;
 import com.family.finance.repository.AccountMapper;
 import com.family.finance.repository.FxMapper;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.service.FamilyService;
 import com.family.finance.service.FxService;
 import com.family.finance.service.NavService;
+import com.family.finance.service.ProductCategoryService;
+import com.family.finance.service.allocation.AllocationService;
 import com.family.finance.service.checkup.FamilyDiagnose;
 import com.family.finance.service.checkup.FamilyDiagnoseService;
 import com.family.finance.service.HouseholdCashflowService;
@@ -57,6 +60,12 @@ public class ReportsController {
     private final FamilyDiagnoseService familyDiagnoseService;
     private final GoalProgressService goalProgressService;
     private final HouseholdCashflowService householdCashflowService;
+    // v0.4 新依赖
+    private final ProductCategoryService productCategoryService;
+    private final AllocationService allocationService;
+    private final com.family.finance.repository.AllocationAnchorMapper allocationAnchorMapper;
+    private final com.family.finance.repository.RebalanceAdviceCacheMapper rebalanceAdviceCacheMapper;
+    private final com.fasterxml.jackson.databind.ObjectMapper jacksonMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     @GetMapping("/reports")
     public String reports(@AuthenticationPrincipal MemberPrincipal me,
@@ -122,6 +131,8 @@ public class ReportsController {
                 accountIds,
                 viewCurrency
         ));
+        // v0.4 FR-60b · waterfall + sankey 数据准备移除(流水视角)
+        // 但 decomposition labels 仍需(给本金 vs 收益分解图用 · 复用 waterfall.label 输出)
         List<WaterfallSegment> waterfall = factViewService.incomeExpenseWaterfall(slice);
         List<DecompositionPoint> decomposition = factViewService.principalVsReturnDecomposition(slice);
         List<TrendPoint> debtTrend = factViewService.debtTrend(slice);
@@ -129,6 +140,84 @@ public class ReportsController {
         DecompositionPoint lastDecomposition = decomposition.isEmpty() ? null : decomposition.getLast();
         List<Account> allAccounts = accountMapper.findActiveByFamily(me.getFamilyId());
         List<FxRate> fxRates = fxMapper.findLatestByFamily(me.getFamilyId(), 36);
+
+        // v0.4 FR-61b · 账户级 vs 基准对照
+        final String viewCurrencyFinal = viewCurrency;
+        java.util.Map<Long, String> pcCodeByAccountId = new java.util.HashMap<>();
+        for (Account a : allAccounts) {
+            if (a.getProductCategoryCode() != null) pcCodeByAccountId.put(a.getId(), a.getProductCategoryCode());
+        }
+        java.util.Map<String, BigDecimal> benchmarkPctByPcCode = new java.util.HashMap<>();
+        for (var pc : productCategoryService.listAll()) {
+            if (pc.getBenchmarkPct() != null) benchmarkPctByPcCode.put(pc.getCode(), pc.getBenchmarkPct());
+        }
+        java.util.List<AccountBenchmarkRow> accountBenchmarkRows = accountRows.stream()
+            .map(ap -> {
+                String pcCode = pcCodeByAccountId.get(ap.accountId());
+                BigDecimal pcBench = pcCode == null ? null : benchmarkPctByPcCode.get(pcCode);
+                BigDecimal benchmark = BenchmarkAggregator.benchmarkForAccount(
+                    ap.xirr(), pcBench, ap.accountType().name());
+                BigDecimal diffPct = BenchmarkAggregator.diffPercentPoints(ap.xirr(), benchmark);
+                BenchmarkAggregator.BeatStatus beat = BenchmarkAggregator.beatStatus(diffPct);
+                String xirrLabel = ap.xirr() == null ? null
+                    : String.format("%+.2f%%", ap.xirr().doubleValue() * 100);
+                String valueLabel = ap.currentValue() == null ? null
+                    : money(viewCurrencyFinal, ap.currentValue());
+                return new AccountBenchmarkRow(
+                    ap.accountName(),
+                    ap.accountType().name(),
+                    pcCode,
+                    xirrLabel,
+                    benchmark,
+                    diffPct,
+                    beat.name(),
+                    valueLabel);
+            })
+            .toList();
+
+        // v0.4 FR-61c · 家庭加权基准
+        java.util.List<BenchmarkAggregator.BenchmarkInput> bmInputs = slice.rows().stream()
+            .filter(r -> java.util.Objects.equals(r.periodId(), slice.lastPeriodId()))
+            .filter(r -> r.endBalanceBase() != null && r.endBalanceBase().signum() > 0)
+            .map(r -> {
+                String pcCode = pcCodeByAccountId.get(r.accountId());
+                BigDecimal pcBench = pcCode == null ? null : benchmarkPctByPcCode.get(pcCode);
+                BigDecimal benchmark = BenchmarkAggregator.benchmarkForAccount(
+                    null, pcBench, r.accountType().name());
+                return new BenchmarkAggregator.BenchmarkInput(r.endBalanceBase(), benchmark);
+            })
+            .toList();
+        BigDecimal familyBenchmarkPct = BenchmarkAggregator.weightedFamilyBenchmark(bmInputs);
+        BigDecimal familyXirrDecimal = factViewService.familyXirr(slice);
+        BigDecimal familyDiffPct = familyXirrDecimal == null ? null
+            : BenchmarkAggregator.diffPercentPoints(familyXirrDecimal, familyBenchmarkPct);
+        BenchmarkAggregator.BeatStatus familyBeat = BenchmarkAggregator.beatStatus(familyDiffPct);
+
+        // v0.4 FR-62a · 配置 diff
+        AllocationService.DiffResult allocationDiff = allocationService.compute(me.getFamilyId(), slice);
+        java.util.List<com.family.finance.domain.allocation.AllocationAnchor> allocationAnchors = allocationAnchorMapper.findAll();
+
+        // v0.4 FR-62b · 调仓建议缓存渲染(若有)
+        var f4cache = rebalanceAdviceCacheMapper.findByFamilyAndAnchor(me.getFamilyId(), family.getAllocationAnchor());
+        RebalanceAdviceView rebalanceAdvice = null;
+        if (f4cache.isPresent()) {
+            var cache = f4cache.get();
+            // 30 天 TTL 检查
+            long days = java.time.Duration.between(cache.getGeneratedAt(), java.time.LocalDateTime.now()).toDays();
+            if (days <= 30) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    java.util.Map<String, Object> raw = jacksonMapper.readValue(cache.getContentJson(), java.util.Map.class);
+                    @SuppressWarnings("unchecked")
+                    java.util.List<java.util.Map<String, Object>> actions =
+                        (java.util.List<java.util.Map<String, Object>>) raw.getOrDefault("actions", java.util.List.of());
+                    rebalanceAdvice = new RebalanceAdviceView(
+                        (String) raw.get("narrative"),
+                        actions,
+                        cache.getGeneratedAt());
+                } catch (Exception ignored) { /* 解析失败不渲染 */ }
+            }
+        }
 
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
@@ -141,25 +230,32 @@ public class ReportsController {
         model.addAttribute("allAccounts", allAccounts);
         model.addAttribute("anchorPeriod", anchor);
 
-        model.addAttribute("familyXirr", percent(factViewService.familyXirr(slice)));
+        model.addAttribute("familyXirr", percent(familyXirrDecimal));
         model.addAttribute("familyTwr", percent(factViewService.familyTwr(slice)));
         model.addAttribute("cumulativeNetInflow", money(viewCurrency, lastDecomposition == null ? BigDecimal.ZERO : lastDecomposition.cumulativeNetInflow()));
         model.addAttribute("cumulativePnl", money(viewCurrency, lastDecomposition == null ? BigDecimal.ZERO : lastDecomposition.cumulativePnl()));
-        model.addAttribute("waterfall", waterfall);
+        // v0.4 FR-60b · 砍 waterfall / sankey 数据(不再注入)
         model.addAttribute("decomposition", decomposition);
         model.addAttribute("debtTrend", debtTrend);
-        model.addAttribute("accountRows", accountRows);
+        // v0.4 FR-61b · 用 accountBenchmarkRows 替代 accountRows
+        model.addAttribute("accountBenchmarkRows", accountBenchmarkRows);
         model.addAttribute("fxRates", fxRates);
         model.addAttribute("fxFallback", fxFallback);
         model.addAttribute("requestedCurrency", requestedCurrency);
-        model.addAttribute("sankeyNodes", sankeyNodes(slice));
-        model.addAttribute("sankeyLinks", sankeyLinks(slice));
 
-        model.addAttribute("labels", waterfall.stream().map(WaterfallSegment::label).toList());
-        model.addAttribute("periodIds", waterfall.stream().map(WaterfallSegment::periodId).toList());
-        model.addAttribute("incomeValues", waterfall.stream().map(WaterfallSegment::income).toList());
-        model.addAttribute("expenseValues", waterfall.stream().map(WaterfallSegment::expense).toList());
-        model.addAttribute("pnlValues", waterfall.stream().map(WaterfallSegment::pnl).toList());
+        // v0.4 FR-61c · 家庭 vs 基准
+        model.addAttribute("familyBenchmarkPct", familyBenchmarkPct);
+        model.addAttribute("familyBenchmarkDiff", familyDiffPct);
+        model.addAttribute("familyBeatStatus", familyBeat.name());
+
+        // v0.4 FR-62a · 配置 diff
+        model.addAttribute("allocationDiff", allocationDiff);
+        model.addAttribute("allocationAnchors", allocationAnchors);
+        // v0.4 FR-62b · 调仓建议
+        model.addAttribute("rebalanceAdvice", rebalanceAdvice);
+
+        // 仍需用 decomposition labels 给本金 vs 损益分解图 + 调试用
+        model.addAttribute("labels", decomposition.stream().map(DecompositionPoint::label).toList());
         model.addAttribute("decompPrincipal", decomposition.stream().map(DecompositionPoint::cumulativeNetInflow).toList());
         model.addAttribute("decompPnl", decomposition.stream().map(DecompositionPoint::cumulativePnl).toList());
         model.addAttribute("debtValues", debtTrend.stream().map(TrendPoint::value).toList());
@@ -210,24 +306,16 @@ public class ReportsController {
         }
     }
 
-    private List<Map<String, Object>> sankeyNodes(FactSlice slice) {
-        Map<String, Map<String, Object>> nodes = new LinkedHashMap<>();
-        nodes.put("外部收入", Map.of("name", "外部收入"));
-        slice.rows().stream()
-                .filter(row -> row.incomeBase().signum() > 0)
-                .forEach(row -> nodes.putIfAbsent(row.accountName(), Map.of("name", row.accountName())));
-        return List.copyOf(nodes.values());
-    }
+    // v0.4 FR-60b · 砍 sankeyNodes / sankeyLinks(收入流向桑基图已删)
 
-    private List<Map<String, Object>> sankeyLinks(FactSlice slice) {
-        return slice.rows().stream()
-                .filter(row -> row.incomeBase().signum() > 0)
-                .collect(java.util.stream.Collectors.groupingBy(AccountPeriodFact::accountName, LinkedHashMap::new,
-                        java.util.stream.Collectors.reducing(BigDecimal.ZERO, AccountPeriodFact::incomeBase, BigDecimal::add)))
-                .entrySet().stream()
-                .map(entry -> Map.<String, Object>of("source", "外部收入", "target", entry.getKey(), "value", entry.getValue()))
-                .toList();
-    }
+    /**
+     * v0.4 FR-62b · AI 调仓建议视图(嵌入 model.rebalanceAdvice)。
+     */
+    public record RebalanceAdviceView(
+        String narrative,
+        java.util.List<java.util.Map<String, Object>> actions,
+        java.time.LocalDateTime generatedAt
+    ) {}
 
     /**
      * Reports 锚点 = 最新一期(无论 OPEN/CLOSED)。
