@@ -26,22 +26,19 @@
           <div class="eyebrow-ink mb-2">品 · 牌 · 标 · 识</div>
           <div class="font-display text-sm text-ink-soft mb-3">显示于每页左上角 · iOS 主屏图标</div>
 
-          <!-- v0.2 FR-1/FR-34 · 4 张预设图标(默认 icon2)。点击 = 切换;一并清空自定义 logo_path,
-               让 web favicon / iOS apple-touch / PWA manifest 三处全用同一张预设(预设赢一切统一)。 -->
+          <!-- v0.2 FR-1/FR-34 · 4 张预设图标(默认 icon2)· 点击 = 切换 + 清 logo_path。
+               注:不能用嵌套 <form>(HTML 解析器把内层 </form> 当外层结束 → 主 save form
+               全部 input 失效)· 改用 type=button + fetch · 见底部 JS · v0.3 bugfix 2026-05-14。 -->
           <div class="mb-4">
             <div class="font-mono text-[10px] tracking-[0.16em] text-ink-subtle uppercase mb-2">预设图标 · 一键统一</div>
             <div class="grid grid-cols-4 gap-2">
-              <form th:each="p : ${logoPresets}"
-                    th:action="@{/admin/family/logo/preset}" method="post" class="contents">
-                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                <input type="hidden" name="preset" th:value="${p}"/>
-                <button type="submit"
-                        th:title="'切换为 ' + ${p} + '(同时应用到 iOS 主屏)'"
-                        th:class="'aspect-square w-full border-2 p-1 transition bg-paper ' + (${family.logoPreset == p} ? 'border-ink shadow-md' : 'border-rule hover:border-brass')">
-                  <img th:src="@{/img/presets/{p}-96.png(p=${p},v=${buildVersion})}"
-                       th:alt="${p}" class="w-full h-full object-contain"/>
-                </button>
-              </form>
+              <button type="button" th:each="p : ${logoPresets}"
+                      th:data-preset="${p}"
+                      th:title="'切换为 ' + ${p} + '(同时应用到 iOS 主屏)'"
+                      th:class="'logo-preset-btn aspect-square w-full border-2 p-1 transition bg-paper ' + (${family.logoPreset == p} ? 'border-ink shadow-md' : 'border-rule hover:border-brass')">
+                <img th:src="@{/img/presets/{p}-96.png(p=${p},v=${buildVersion})}"
+                     th:alt="${p}" class="w-full h-full object-contain pointer-events-none"/>
+              </button>
             </div>
             <p class="font-mono text-[10px] text-ink-subtle mt-2 tracking-wider">
               当前 · <b class="text-ink" th:text="${family.logoPreset != null ? family.logoPreset : 'icon2'}">icon2</b>
@@ -76,10 +73,8 @@
           </p>
 
           <div class="mt-3" th:if="${family.logoPath != null}">
-            <form th:action="@{/admin/family/logo/remove}" method="post">
-              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-              <button class="btn-ghost" style="color:var(--rust)">移除 logo</button>
-            </form>
+            <!-- 同上 · 用 button + fetch 避免 form 嵌套 -->
+            <button type="button" id="logoRemoveBtn" class="btn-ghost" style="color:var(--rust)">移除 logo</button>
           </div>
         </div>
 
@@ -128,6 +123,40 @@
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 
 <script th:inline="javascript">
+// CSRF 取一次复用
+const csrfToken  = document.querySelector('meta[name="_csrf"]').content;
+const csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
+
+// 预设图标切换 · 不能用嵌套 form,这里 JS fetch 替代
+document.querySelectorAll('.logo-preset-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const preset = btn.dataset.preset;
+    if (!preset) return;
+    btn.disabled = true;
+    const fd = new FormData();
+    fd.append('preset', preset);
+    const resp = await fetch('/admin/family/logo/preset', {
+      method: 'POST', body: fd, headers: { [csrfHeader]: csrfToken }
+    });
+    if (resp.ok) location.reload();
+    else { btn.disabled = false; alert('切换预设失败:' + resp.status); }
+  });
+});
+
+// 移除 logo
+const removeBtn = document.getElementById('logoRemoveBtn');
+if (removeBtn) {
+  removeBtn.addEventListener('click', async () => {
+    if (!confirm('确认移除自定义 logo · 回退到当前预设图标?')) return;
+    removeBtn.disabled = true;
+    const resp = await fetch('/admin/family/logo/remove', {
+      method: 'POST', headers: { [csrfHeader]: csrfToken }
+    });
+    if (resp.ok) location.reload();
+    else { removeBtn.disabled = false; alert('移除失败:' + resp.status); }
+  });
+}
+
 // Logo 上传(前端 Canvas 压缩)
 const logoFile = document.getElementById('logoFile');
 if (logoFile) {
@@ -148,10 +177,8 @@ if (logoFile) {
     if (!blob) { alert('浏览器不支持 WebP 编码,请换 Chrome/Edge'); return; }
     const fd = new FormData();
     fd.append('logo', blob, 'logo.webp');
-    const csrf = document.querySelector('meta[name="_csrf"]').content;
-    const csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
     const resp = await fetch(/*[[@{/admin/family/logo}]]*/'/admin/family/logo', {
-      method: 'POST', body: fd, headers: { [csrfHeader]: csrf }
+      method: 'POST', body: fd, headers: { [csrfHeader]: csrfToken }
     });
     if (resp.ok) location.reload();
     else alert('上传失败:' + resp.status + ' · ' + await resp.text());

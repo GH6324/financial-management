@@ -57,6 +57,27 @@ section "FR-1 · 家庭与成员"
 $CURL -b $COOKIE "$BASE/admin/family" -o "$TMP" -w ""
 { grep -q "家庭" "$TMP" && grep -q "周期类型" "$TMP" && grep -q "</html>" "$TMP"; } && log_ok "FR1-1 /admin/family 200+完整" || log_bad "FR1-1 /admin/family 缺" "missing"
 
+# FR1-1a · /admin/family 保存生效(2026-05-14 bugfix · 之前嵌套 form 让主 save 失效)
+ORIG_NAME=$(mysql -ufinance -pfinance finance -sN -e "SELECT name FROM family WHERE id=1" 2>/dev/null)
+ORIG_BRAND=$(mysql -ufinance -pfinance finance -sN -e "SELECT brand_text FROM family WHERE id=1" 2>/dev/null)
+# 先 GET 一次 admin/family 确保拿到当前 session 的 XSRF(早期登录的 token 可能已轮转)
+$CURL -b $COOKIE -c $COOKIE "$BASE/admin/family" -o /dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+code=$($CURL -b $COOKIE -c $COOKIE -X POST \
+  --data-urlencode "_csrf=$XSRF" \
+  --data-urlencode "name=QA-TEST-FAMILY" \
+  --data-urlencode "brandText=QA-BRAND" \
+  --data-urlencode "baseCurrency=CNY" \
+  --data-urlencode "periodType=MONTHLY" \
+  "$BASE/admin/family" -o /dev/null -w "%{http_code}")
+DB_NAME_AFTER=$(mysql -ufinance -pfinance finance -sN -e "SELECT name FROM family WHERE id=1" 2>/dev/null)
+DB_BRAND_AFTER=$(mysql -ufinance -pfinance finance -sN -e "SELECT brand_text FROM family WHERE id=1" 2>/dev/null)
+{ [[ "$code" =~ ^30[0-9]$ ]] && [[ "$DB_NAME_AFTER" == "QA-TEST-FAMILY" ]] && [[ "$DB_BRAND_AFTER" == "QA-BRAND" ]]; } \
+  && log_ok "FR1-1a /admin/family 保存写入 DB · name+brand_text 入库 · code=$code" \
+  || log_bad "FR1-1a /admin/family 保存不生效" "code=$code db_name=$DB_NAME_AFTER db_brand=$DB_BRAND_AFTER"
+# 还原
+mysql -ufinance -pfinance finance -e "UPDATE family SET name='$ORIG_NAME', brand_text='$ORIG_BRAND' WHERE id=1" 2>/dev/null
+
 $CURL -b $COOKIE "$BASE/admin/members" -o "$TMP" -w ""
 { grep -q "diwa" "$TMP" && grep -q "wangergou" "$TMP" && grep -q "</html>" "$TMP"; } && log_ok "FR1-2 /admin/members 列出 2 人" || log_bad "FR1-2 /admin/members" "missing names"
 
@@ -1011,11 +1032,13 @@ grep -q 'src="/img/presets/icon2-192.png' "$TMP" \
   && log_ok "v02-LOGO-5 nav header logo 默认 icon2-192.png" \
   || log_bad "v02-LOGO-5 nav logo" "src 不指 icon2-192"
 
-# v02-LOGO-6 admin/family 渲染 4 缩略图 gallery(每个 form action=/admin/family/logo/preset)
+# v02-LOGO-6 admin/family 渲染 4 缩略图 gallery(button data-preset="iconN" · 不嵌套 form · 2026-05-14 bugfix)
 $CURL -b $COOKIE "$BASE/admin/family" -o "$TMP" -w ""
-gallery_count=$(grep -c 'action="/admin/family/logo/preset"' "$TMP")
-[[ $gallery_count -ge 4 ]] && log_ok "v02-LOGO-6 admin/family gallery 含 4 form (n=$gallery_count)" \
-  || log_bad "v02-LOGO-6 gallery" "n=$gallery_count"
+gallery_count=$(grep -oE 'data-preset="icon[1-4]"' "$TMP" | sort -u | wc -l)
+nested_form_check=$(grep -cE '<form[^>]*action="/admin/family/logo/preset"' "$TMP")
+{ [[ $gallery_count -eq 4 ]] && [[ $nested_form_check -eq 0 ]]; } \
+  && log_ok "v02-LOGO-6 admin/family gallery 4 button(data-preset)· 零嵌套 form" \
+  || log_bad "v02-LOGO-6 gallery / 嵌套 form" "buttons=$gallery_count nested_form=$nested_form_check"
 
 # v02-LOGO-7 切到 icon3 → DB 更新 + dashboard / manifest 全跟随
 XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}')

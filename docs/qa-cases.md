@@ -21,6 +21,7 @@
 | ID | 目标 | 步骤 | 预期 |
 |---|---|---|---|
 | FR1-1 | /admin/family 200 | GET /admin/family | 200,含家庭名、品牌名、本位币、周期类型 |
+| **FR1-1a** | /admin/family **保存生效**(2026-05-14 bugfix · 之前嵌套 form 让主 save 失效) | POST /admin/family name=X brandText=Y baseCurrency=CNY periodType=MONTHLY | 302;DB family.name + brand_text 入库 |
 | FR1-2 | /admin/members 200 | GET /admin/members | 200,显示 2 个成员 |
 | FR1-3 | 编辑家庭名 | POST /admin/family name=测试家 | 302 → /admin/family;DB 更新 |
 | FR1-4 | 编辑成员显示名 | POST /admin/members/{id} | 302;DB 更新 |
@@ -456,7 +457,7 @@ qa-run.sh:   PASS=183, FAIL=0, SKIP=4
 | v02-LOGO-3 | dashboard `<link rel="icon">` 默认 icon2-192.png |
 | v02-LOGO-4 | dashboard `<link rel="apple-touch-icon">` 默认 icon2-180.png |
 | v02-LOGO-5 | nav header logo `<img src>` 默认 icon2-192.png |
-| v02-LOGO-6 | admin/family 渲染 4 个 form `action=/admin/family/logo/preset` |
+| v02-LOGO-6 | admin/family gallery 渲染 4 个 button(data-preset="iconN")· **零嵌套 form**(2026-05-14 改:之前是嵌套 form,触发 HTML 解析器 bug 让主 save form 失效)|
 | v02-LOGO-7 | POST 切到 icon3 → DB + dashboard favicon + iOS apple-touch + manifest 全跟随 |
 | v02-LOGO-8 | 自定义 webp 上传 + 预设并存 → web=webp / iOS=preset(双轨道)|
 | v02-LOGO-9 | 切预设按钮一并清空 logo_path(预设赢一切统一)|
@@ -551,7 +552,8 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 ### v0.3 · 总结(2026-05-13 最新)
 
 - 新加 **45 条**黑盒 case 全 PASS(v03-GOAL × 12 + v03-IND × 12 + v03-STOCK × 15 + v03-AI × 6)
-- 总 PASS=229 / FAIL=3(pre-existing v0.2 PILL/DIAG dev 数据问题 · 与 v0.3 无关)/ SKIP=2
+- 2026-05-14 加 FR1-1a 保存生效 1 条 + v02-LOGO-6 改 button 校验
+- 总 PASS=230 / FAIL=3(pre-existing v0.2 PILL/DIAG/LEDGER · 与 v0.3 无关)/ SKIP=2
 - 单测 114(v0.2 既有 76 + v0.3 新增 38 全绿)
 - 真 LLM 调用验证:Qwen-Plus 返回合理参数 + rationale(beta 已验)
 - 真数据源验证:新浪国内可达 · BABA/600519/00700 三市场拉价成功
