@@ -19,6 +19,8 @@ public record FactBaseRow(
         BigDecimal expenseOrig,
         BigDecimal transferInOrig,
         BigDecimal transferOutOrig,
-        BigDecimal fxToBase
+        BigDecimal fxToBase,
+        /** v0.3.3 · pc.liquidity_class · 来自 LEFT JOIN product_category · 可空(未设类目) */
+        String productLiquidityClass
 ) {
 }

@@ -21,6 +21,7 @@
       <arg column="transfer_in_orig" javaType="java.math.BigDecimal"/>
       <arg column="transfer_out_orig" javaType="java.math.BigDecimal"/>
       <arg column="fx_to_base" javaType="java.math.BigDecimal"/>
+      <arg column="product_liquidity_class" javaType="java.lang.String"/>
     </constructor>
   </resultMap>
 
@@ -58,8 +59,11 @@
           WHEN fx_inverse.rate IS NOT NULL THEN fx_inverse.rate
           WHEN fx_direct.rate IS NOT NULL THEN 1 / fx_direct.rate
           ELSE 1.000000
-        END AS fx_to_base
+        END AS fx_to_base,
+        pc.liquidity_class AS product_liquidity_class
     FROM account a
+    LEFT JOIN product_category pc
+      ON pc.code = a.product_category_code
     JOIN period p
       ON p.family_id = a.family_id
      AND p.period_type = #{periodType}

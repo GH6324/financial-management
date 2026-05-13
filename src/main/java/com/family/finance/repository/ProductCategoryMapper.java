@@ -18,7 +18,7 @@ import java.util.Optional;
 public interface ProductCategoryMapper {
 
     @Select("""
-            SELECT code, display_name, risk_level, benchmark_label, benchmark_pct,
+            SELECT code, display_name, risk_level, liquidity_class, benchmark_label, benchmark_pct,
                    applicable_types, description, display_order
               FROM product_category
              ORDER BY display_order, code
@@ -26,7 +26,7 @@ public interface ProductCategoryMapper {
     List<ProductCategory> findAll();
 
     @Select("""
-            SELECT code, display_name, risk_level, benchmark_label, benchmark_pct,
+            SELECT code, display_name, risk_level, liquidity_class, benchmark_label, benchmark_pct,
                    applicable_types, description, display_order
               FROM product_category
              WHERE code = #{code}

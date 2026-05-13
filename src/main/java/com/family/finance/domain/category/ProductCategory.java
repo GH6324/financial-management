@@ -26,6 +26,8 @@ public class ProductCategory {
     private String displayName;
     /** 0=无 / 1 极低 / 2 低 / 3 中低 / 4 中 / 5 中高 / 6 极高 */
     private Integer riskLevel;
+    /** 流动性分级 · v0.3.3 引入 · LIQUID / SEMI_LIQUID / ILLIQUID / NA · admin 可微调 */
+    private String liquidityClass;
     /** 基准指数标签,如「沪深 300」「标普 500 / QQQ」;NULL = 无稳定基准 */
     private String benchmarkLabel;
     /** 长期年化基准 % · 如 8.00 表示 8%;NULL = 无稳定基准 */

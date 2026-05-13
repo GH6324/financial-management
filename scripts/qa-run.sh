@@ -576,6 +576,49 @@ code=$($CURL -b $COOKIE -o "$TMP" -w "%{http_code}" "$BASE/checkup?account=1")
 { [[ "$code" == "200" ]] && grep -q '账户体检\|资产体检' "$TMP"; } \
   && log_ok "v02-CHK-2 /checkup?account=1 占位 200" || log_bad "v02-CHK-2" "code=$code"
 
+# v02-LIQ-1 · 货币基金参与流动资产(v0.3.3 bugfix · product_category.liquidity_class 驱动)
+# 找一个 WEALTH 账户,前后切换 product_category_code · 验证 /checkup 流动资产数字变化
+LIQ_ACC=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM account WHERE family_id=1 AND type='WEALTH' AND archived_at IS NULL ORDER BY id LIMIT 1" 2>/dev/null)
+LIQ_ORIG_PC=$(mysql -ufinance -pfinance finance -sN -e "SELECT IFNULL(product_category_code,'NULL') FROM account WHERE id=$LIQ_ACC" 2>/dev/null)
+LIQ_BAL=$(mysql -ufinance -pfinance finance -sN -e "
+  SELECT ps.end_balance FROM period_snapshot ps
+  JOIN period p ON p.id=ps.period_id
+  WHERE ps.account_id=$LIQ_ACC AND p.family_id=1 AND p.status='OPEN'
+  ORDER BY p.id DESC LIMIT 1" 2>/dev/null)
+LIQ_BAL_INT=$(echo "$LIQ_BAL" | cut -d. -f1)
+# 强制设回 NULL 测 BEFORE
+mysql -ufinance -pfinance finance -e "UPDATE account SET product_category_code=NULL WHERE id=$LIQ_ACC" 2>/dev/null
+$CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+LIQ_BEFORE=$(grep -A2 '>流动资产<' "$TMP" | grep -oE '¥[0-9,.]+' | head -1 | tr -d '¥,')
+# 设为 MONEY_FUND 测 AFTER
+mysql -ufinance -pfinance finance -e "UPDATE account SET product_category_code='MONEY_FUND' WHERE id=$LIQ_ACC" 2>/dev/null
+$CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+LIQ_AFTER=$(grep -A2 '>流动资产<' "$TMP" | grep -oE '¥[0-9,.]+' | head -1 | tr -d '¥,')
+# AFTER - BEFORE 应该 ≈ LIQ_BAL(允许 1 元误差)
+DELTA=$(awk -v a="$LIQ_AFTER" -v b="$LIQ_BEFORE" 'BEGIN{printf "%d", a-b}')
+EXPECT_DELTA=$LIQ_BAL_INT
+DIFF=$(awk -v d="$DELTA" -v e="$EXPECT_DELTA" 'BEGIN{x=d-e; if(x<0)x=-x; printf "%d", x}')
+{ [[ -n "$LIQ_BEFORE" ]] && [[ -n "$LIQ_AFTER" ]] && [[ "$DIFF" -le 2 ]]; } \
+  && log_ok "v02-LIQ-1 WEALTH+MONEY_FUND 进入流动资产 · before=$LIQ_BEFORE after=$LIQ_AFTER Δ=$DELTA(期望 $EXPECT_DELTA)" \
+  || log_bad "v02-LIQ-1 流动资产未联动" "before=$LIQ_BEFORE after=$LIQ_AFTER Δ=$DELTA expect=$EXPECT_DELTA"
+
+# v02-LIQ-2 · "仅 CASH" caption 已改 · 现在显示 "CASH + 货币基金等(类目 = LIQUID)"
+grep -q 'CASH + 货币基金' "$TMP" \
+  && log_ok "v02-LIQ-2 体检页 caption 改为「CASH + 货币基金等(类目 = LIQUID)」" \
+  || log_bad "v02-LIQ-2 caption 未更新" "still 仅 CASH or missing"
+
+# 还原
+[[ "$LIQ_ORIG_PC" == "NULL" ]] && mysql -ufinance -pfinance finance -e "UPDATE account SET product_category_code=NULL WHERE id=$LIQ_ACC" 2>/dev/null \
+  || mysql -ufinance -pfinance finance -e "UPDATE account SET product_category_code='$LIQ_ORIG_PC' WHERE id=$LIQ_ACC" 2>/dev/null
+
+# v02-LIQ-3 · product_category 全 16 行 liquidity_class 列已 populate
+LIQ_COL_COUNT=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM product_category WHERE liquidity_class IS NOT NULL AND liquidity_class != ''" 2>/dev/null)
+LIQ_LIQUID=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM product_category WHERE liquidity_class='LIQUID'" 2>/dev/null)
+LIQ_ILLIQ=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM product_category WHERE liquidity_class='ILLIQUID'" 2>/dev/null)
+{ [[ "$LIQ_COL_COUNT" -eq 16 ]] && [[ "$LIQ_LIQUID" -ge 2 ]] && [[ "$LIQ_ILLIQ" -ge 2 ]]; } \
+  && log_ok "v02-LIQ-3 16 类目均有 liquidity_class · LIQUID=$LIQ_LIQUID ILLIQUID=$LIQ_ILLIQ" \
+  || log_bad "v02-LIQ-3 V20 灌数据" "total=$LIQ_COL_COUNT liquid=$LIQ_LIQUID illiquid=$LIQ_ILLIQ"
+
 # CAT-1 /admin/product-categories 200 + 16 个类目
 code=$($CURL -b $COOKIE -o "$TMP" -w "%{http_code}" "$BASE/admin/product-categories")
 [[ "$code" == "200" ]] && log_ok "v02-PCAT-1 /admin/product-categories 200" || log_bad "v02-PCAT-1" "code=$code"

@@ -14,6 +14,7 @@ public final class FactProjector {
 
     public static AccountPeriodFact project(FactBaseRow row) {
         AccountType type = AccountType.valueOf(row.accountType());
+        AccountLiquidity liquidity = liquidityOf(type, row.productLiquidityClass());
         BigDecimal fx = row.fxToBase() == null ? BigDecimal.ONE : row.fxToBase();
         BigDecimal incomeOrig = money(nz(row.incomeOrig()));
         BigDecimal expenseOrig = money(nz(row.expenseOrig()));
@@ -28,7 +29,7 @@ public final class FactProjector {
                 row.accountName(),
                 type,
                 classOf(type),
-                liquidityOf(type),
+                liquidity,
                 row.accountCurrency(),
                 row.ownerId(),
                 row.displayOrder(),
@@ -57,6 +58,10 @@ public final class FactProjector {
         return type == AccountType.LOAN ? AccountClass.LIABILITY : AccountClass.ASSET;
     }
 
+    /**
+     * 按 AccountType 兜底判定 · 老路径 · 供未指定 product_category 的账户使用。
+     * 货币基金 / 银行理财 / 私募 等精细分级见 {@link #liquidityOf(AccountType, String)}。
+     */
     public static AccountLiquidity liquidityOf(AccountType type) {
         return switch (type) {
             case CASH -> AccountLiquidity.LIQUID;
@@ -64,6 +69,23 @@ public final class FactProjector {
             case PROPERTY -> AccountLiquidity.ILLIQUID;
             case LOAN, OTHER -> AccountLiquidity.NA;
         };
+    }
+
+    /**
+     * 精细化判定(v0.3.3 引入)· 优先 product_category.liquidity_class · NULL/非法 fallback type。
+     *
+     * <p>核心场景:WEALTH 账户内 product=MONEY_FUND(余额宝)· 实际 T+0 赎回 = LIQUID,
+     * 而旧逻辑按 type 一律 SEMI_LIQUID,导致流动资产被低估 → 应急月数虚低 → AI 误报。</p>
+     */
+    public static AccountLiquidity liquidityOf(AccountType type, String pcLiquidityClass) {
+        if (pcLiquidityClass != null && !pcLiquidityClass.isBlank()) {
+            try {
+                return AccountLiquidity.valueOf(pcLiquidityClass.trim().toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+                // 数据脏 · 落地到 type 兜底,不抛
+            }
+        }
+        return liquidityOf(type);
     }
 
     private static BigDecimal nz(BigDecimal value) {

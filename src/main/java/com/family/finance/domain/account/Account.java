@@ -49,4 +49,20 @@ public class Account {
             case LOAN, OTHER -> AccountLiquidity.NA;
         };
     }
+
+    /**
+     * v0.3.3 · 精细化流动性 · 优先 product_category.liquidityClass,fallback {@link #getLiquidity()}。
+     *
+     * <p>例:WEALTH 账户 + product=MONEY_FUND → LIQUID(否则被误判 SEMI_LIQUID)。</p>
+     */
+    public AccountLiquidity getLiquidity(String pcLiquidityClass) {
+        if (pcLiquidityClass != null && !pcLiquidityClass.isBlank()) {
+            try {
+                return AccountLiquidity.valueOf(pcLiquidityClass.trim().toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+                // 数据脏 · 走兜底
+            }
+        }
+        return getLiquidity();
+    }
 }

@@ -296,6 +296,9 @@ v0.1 78 条用例继续 PASS;v0.2 阶段 1 新增 10 条全 PASS;无回归。
 | v02-NAV-1 | GET /dashboard | 顶部 nav | 含「资产体检」入口 |
 | v02-CHK-1 | GET /checkup | 全家页 200 | 含「资产体检」标题 |
 | v02-CHK-2 | GET /checkup?account=1 | 账户级 200 | 含「资产体检 / 账户体检」标题 |
+| **v02-LIQ-1** | WEALTH+MONEY_FUND 进入流动资产(2026-05-14 v0.3.3 bugfix · product_category.liquidity_class 驱动)| 找 WEALTH 账户 · 切换 product_category_code · 对比 /checkup 流动资产 | AFTER − BEFORE ≈ 该账户 endBalance · 误差 ≤ 1 元 |
+| **v02-LIQ-2** | 体检页 caption 更新 | GET /checkup | 显示「CASH + 货币基金等(类目 = LIQUID)」· 不再「仅 CASH」 |
+| **v02-LIQ-3** | V20 灌数据完整 | SELECT product_category liquidity_class | 16 行均非空 · LIQUID=2(CASH_DEPOSIT, MONEY_FUND)· ILLIQUID=2(PROPERTY_RES, PROPERTY_INV)|
 | v02-PCAT-1 | GET /admin/product-categories | 200 | 管理员只读页可达 |
 | v02-PCAT-2 | GET /admin/product-categories | 类目数 | ≥15 个产品类目 code 渲染(共 16 个) |
 | v02-PCAT-3 | GET /admin/product-categories | 基准 | 含「沪深 300 / 标普 500」等基准指数 |
@@ -556,7 +559,8 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 - 新加 **45 条**黑盒 case 全 PASS(v03-GOAL × 12 + v03-IND × 12 + v03-STOCK × 15 + v03-AI × 6)
 - 2026-05-14 加 FR1-1a 保存生效 1 条 + v02-LOGO-6 改 button 校验
 - 2026-05-14 加 AUTH-8/9 已登录 /login 自动跳 dashboard(书签优化)
-- 总 PASS=232 / FAIL=3(pre-existing v0.2 PILL/DIAG/LEDGER · 与 v0.3 无关)/ SKIP=2
+- 2026-05-14 加 v02-LIQ-1/2/3 货币基金参与流动资产(V20 product_category.liquidity_class)
+- 总 PASS=235 / FAIL=3(pre-existing v0.2 PILL/DIAG/LEDGER · 与 v0.3 无关)/ SKIP=2
 - 单测 114(v0.2 既有 76 + v0.3 新增 38 全绿)
 - 真 LLM 调用验证:Qwen-Plus 返回合理参数 + rationale(beta 已验)
 - 真数据源验证:新浪国内可达 · BABA/600519/00700 三市场拉价成功

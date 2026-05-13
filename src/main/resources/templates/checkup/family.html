@@ -103,7 +103,7 @@
           <div class="kpi-eyebrow">流动资产</div>
           <div class="font-display text-2xl tnum mt-1"
                th:text="${diagnose.liquidAssets != null ? '¥' + #numbers.formatDecimal(diagnose.liquidAssets, 1, 0) : '—'}">¥0</div>
-          <div class="font-mono text-[10px] text-ink-soft">仅 CASH</div>
+          <div class="font-mono text-[10px] text-ink-soft">CASH + 货币基金等(类目 = LIQUID)</div>
         </div>
         <div>
           <div class="kpi-eyebrow">紧急储备月数</div>
