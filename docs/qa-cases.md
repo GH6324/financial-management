@@ -524,7 +524,7 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 | v03-IND-10 | /checkup 用 HouseholdCashflowService 算月均支出(优先 v0.3 口径 · fallback v0.2 cash_flow)|
 | v03-IND-11 | **多成员独立填**(2026-05-13)· diwa + bob · dashboard SUM 显 ¥62k / ¥23k |
 | v03-IND-12 | /entry 含「家庭本月总收入 SUM 成员」聚合区块 + 已填 N/M 人 |
-| **v03-STOCK · 11 条 · 股票自动估值 FR-52 系列** | |
+| **v03-STOCK · 15 条 · 股票自动估值 FR-52 系列** | |
 | v03-STOCK-1 | STOCK 账户持仓页 200 |
 | v03-STOCK-2 | 非 STOCK 账户拒绝持仓页 |
 | v03-STOCK-3 | 创建 MANUAL 持仓 · 入库 100k |
@@ -536,6 +536,10 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 | v03-STOCK-9 | 持仓归档后账户余额重算 |
 | v03-STOCK-10 | /entry STOCK 行加持仓变动入口(FR-52b) |
 | v03-STOCK-11 | **fx 链式跨币种**(2026-05-13 修复)· HKD 账户 + USD/HKD 混合持仓 · 经 CNY 中转 · bal 验证链式生效 |
+| v03-STOCK-12 | **CASH 表单页**(FR-52e · 2026-05-13)· GET /holdings/new-cash 200 + currency + amount |
+| v03-STOCK-13 | **CASH 创建 + FX**:HKD 账户加 USD 5000 现金 → bal ≈ 39139 HKD(经 CNY 链)|
+| v03-STOCK-14 | **CASH 更新**:POST /update-cash 改金额 + manual_value_at 刷新 |
+| v03-STOCK-15 | **持仓+现金共存**:HKD MANUAL 50000 + USD CASH 8000 → bal ≈ HKD 112623 |
 | **v03-AI · 6 条 · AI 4 处介入 FR-53 系列** | |
 | v03-AI-1 | /goals/advise/retirement 返回合法 JSON(ok/error) |
 | v03-AI-2 | /goals/advise/education JSON 响应 |
@@ -546,8 +550,8 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 
 ### v0.3 · 总结(2026-05-13 最新)
 
-- 新加 **41 条**黑盒 case 全 PASS(v03-GOAL × 12 + v03-IND × 12 + v03-STOCK × 11 + v03-AI × 6)
-- 总 PASS=225 / FAIL=3(pre-existing v0.2 PILL/DIAG dev 数据问题 · 与 v0.3 无关)/ SKIP=2
+- 新加 **45 条**黑盒 case 全 PASS(v03-GOAL × 12 + v03-IND × 12 + v03-STOCK × 15 + v03-AI × 6)
+- 总 PASS=229 / FAIL=3(pre-existing v0.2 PILL/DIAG dev 数据问题 · 与 v0.3 无关)/ SKIP=2
 - 单测 114(v0.2 既有 76 + v0.3 新增 38 全绿)
 - 真 LLM 调用验证:Qwen-Plus 返回合理参数 + rationale(beta 已验)
 - 真数据源验证:新浪国内可达 · BABA/600519/00700 三市场拉价成功

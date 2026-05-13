@@ -37,7 +37,10 @@ import java.util.Map;
  *   <li>POST /accounts/{id}/holdings/new-auto         · 创建</li>
  *   <li>GET  /accounts/{id}/holdings/new-manual       · 添加 MANUAL 持仓表单</li>
  *   <li>POST /accounts/{id}/holdings/new-manual       · 创建</li>
+ *   <li>GET  /accounts/{id}/holdings/new-cash         · 添加 CASH 现金行表单(v0.3 FR-52e)</li>
+ *   <li>POST /accounts/{id}/holdings/new-cash         · 创建</li>
  *   <li>POST /accounts/{id}/holdings/{hid}/update     · 更新 MANUAL 市值</li>
+ *   <li>POST /accounts/{id}/holdings/{hid}/update-cash · 更新 CASH 现金金额</li>
  *   <li>POST /accounts/{id}/holdings/{hid}/to-manual  · AUTO→MANUAL 转换</li>
  *   <li>POST /accounts/{id}/holdings/{hid}/archive    · 软删</li>
  *   <li>POST /accounts/{id}/holdings/refresh          · 手动刷价(单账户)</li>
@@ -149,6 +152,44 @@ public class StockHoldingController {
                                     @PathVariable long hid,
                                     @RequestParam BigDecimal manualValue) {
         holdingService.updateManualValue(me.getFamilyId(), hid, manualValue);
+        try { valuationService.refreshAllForFamily(me.getFamilyId()); } catch (Exception ignored) {}
+        return "redirect:/accounts/" + accountId + "/holdings";
+    }
+
+    // ---------- v0.3 FR-52e · CASH 现金行(账户内某币种闲置资金)----------
+
+    @GetMapping("/accounts/{accountId}/holdings/new-cash")
+    public String newCashForm(@AuthenticationPrincipal MemberPrincipal me,
+                              @PathVariable long accountId, Model model) {
+        Account account = requireAccount(me.getFamilyId(), accountId);
+        model.addAttribute("me", me);
+        model.addAttribute("nav", navService.load(me));
+        model.addAttribute("account", account);
+        // 常用币种 · 顺序按账户币种优先
+        java.util.LinkedHashSet<String> currencies = new java.util.LinkedHashSet<>();
+        if (account.getCurrency() != null) currencies.add(account.getCurrency());
+        currencies.addAll(List.of("CNY", "USD", "HKD", "JPY", "EUR", "GBP"));
+        model.addAttribute("currencies", currencies);
+        return "stock/holding-new-cash";
+    }
+
+    @PostMapping("/accounts/{accountId}/holdings/new-cash")
+    public String createCash(@AuthenticationPrincipal MemberPrincipal me,
+                             @PathVariable long accountId,
+                             @RequestParam(required = false) String displayName,
+                             @RequestParam String currency,
+                             @RequestParam BigDecimal amount) {
+        holdingService.createCash(me.getFamilyId(), accountId, displayName, currency, amount);
+        try { valuationService.refreshAllForFamily(me.getFamilyId()); } catch (Exception ignored) {}
+        return "redirect:/accounts/" + accountId + "/holdings";
+    }
+
+    @PostMapping("/accounts/{accountId}/holdings/{hid}/update-cash")
+    public String updateCashAmount(@AuthenticationPrincipal MemberPrincipal me,
+                                   @PathVariable long accountId,
+                                   @PathVariable long hid,
+                                   @RequestParam BigDecimal amount) {
+        holdingService.updateCashAmount(me.getFamilyId(), hid, amount);
         try { valuationService.refreshAllForFamily(me.getFamilyId()); } catch (Exception ignored) {}
         return "redirect:/accounts/" + accountId + "/holdings";
     }

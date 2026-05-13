@@ -40,11 +40,32 @@
   <section class="flex flex-wrap gap-3 mb-6">
     <a th:href="@{|/accounts/${account.id}/holdings/new-auto|}" class="btn-ink no-underline">+ 添加持仓 · 自动估值</a>
     <a th:href="@{|/accounts/${account.id}/holdings/new-manual|}" class="btn-paper no-underline">+ 添加持仓 · 手填市值</a>
+    <a th:href="@{|/accounts/${account.id}/holdings/new-cash|}" class="btn-paper no-underline">+ 账户内现金</a>
     <form th:action="@{|/accounts/${account.id}/holdings/refresh|}" method="post">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
       <button type="submit" class="btn-paper">⟳ 手动刷价</button>
     </form>
     <div class="ml-auto font-mono text-[10px] text-ink-subtle self-center">数据源 · 新浪(主) + 腾讯(备)</div>
+  </section>
+
+  <!-- 估值分解(有 CASH 才显示)-->
+  <section th:if="${valuation.cashBaseValue != null and valuation.cashBaseValue.signum() > 0}"
+           class="paper-card p-4 mb-6 bg-card-soft" style="border-left:4px solid var(--forest)">
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-2">估 · 值 · 分 · 解</div>
+    <div class="grid grid-cols-3 gap-4 text-sm tnum">
+      <div>
+        <div class="font-mono text-[10px] text-ink-subtle mb-0.5">持仓 AUTO</div>
+        <div th:text="${account.currency} + ' ' + ${#numbers.formatInteger(valuation.autoBaseValue, 0, 'COMMA')}">HKD 0</div>
+      </div>
+      <div>
+        <div class="font-mono text-[10px] text-ink-subtle mb-0.5">持仓 MANUAL</div>
+        <div th:text="${account.currency} + ' ' + ${#numbers.formatInteger(valuation.manualBaseValue, 0, 'COMMA')}">HKD 0</div>
+      </div>
+      <div>
+        <div class="font-mono text-[10px] text-ink-subtle mb-0.5">现金(已 FX)</div>
+        <div th:text="${account.currency} + ' ' + ${#numbers.formatInteger(valuation.cashBaseValue, 0, 'COMMA')}" style="color:var(--forest)">HKD 0</div>
+      </div>
+    </div>
   </section>
 
   <!-- 持仓列表 -->
@@ -70,6 +91,11 @@
                 style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)">AUTO 自动估值</span>
           <span class="pill text-[9px]" th:if="${h.valuationMode.name() == 'MANUAL'}"
                 style="background:rgba(196,148,62,.15);color:var(--brass-deep);border-color:var(--brass-deep)">MANUAL 手填</span>
+          <span class="pill text-[9px]" th:if="${h.valuationMode.name() == 'CASH'}"
+                style="background:rgba(47,93,80,.10);color:var(--forest);border-color:var(--forest)">💰 CASH 现金</span>
+          <span class="pill text-[9px]" th:if="${h.valuationMode.name() == 'CASH' and h.currency != null and h.currency != account.currency}"
+                style="background:rgba(159,74,58,.08);color:var(--rust);border-color:var(--rust)"
+                th:text="'FX → ' + ${account.currency}">FX → HKD</span>
           <span class="pill text-[9px]" th:if="${stale}"
                 style="background:rgba(159,74,58,.1);color:var(--rust);border-color:var(--rust)"
                 th:text="'陈旧 ' + ${price.staleDays} + ' 天'">陈旧 8 天</span>
@@ -105,6 +131,23 @@
                  th:text="${#temporals.format(h.manualValueAt, 'yyyy-MM-dd')}">2026-05-12</div>
           </div>
         </div>
+        <div th:if="${h.valuationMode.name() == 'CASH'}" class="grid grid-cols-3 gap-6 text-sm">
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">币种</div>
+            <div class="tnum" th:text="${h.currency}">USD</div>
+          </div>
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5"
+                 th:text="'金额(' + ${h.currency} + ' · 原币)'">金额(USD · 原币)</div>
+            <div class="tnum" style="color:var(--forest)"
+                 th:text="${h.currency} + ' ' + ${#numbers.formatDecimal(h.manualValue, 0, 'COMMA', 2, 'POINT')}">USD 5,000.00</div>
+          </div>
+          <div>
+            <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">上次更新</div>
+            <div class="font-mono text-xs" th:if="${h.manualValueAt != null}"
+                 th:text="${#temporals.format(h.manualValueAt, 'yyyy-MM-dd')}">2026-05-13</div>
+          </div>
+        </div>
       </div>
       <div class="flex flex-col gap-1.5">
         <form th:if="${h.valuationMode.name() == 'MANUAL'}"
@@ -113,6 +156,14 @@
           <input type="number" name="manualValue" step="0.01" min="0" th:value="${h.manualValue}"
                  class="font-mono text-sm bg-paper border border-rule px-2 py-1 w-24 tnum text-right">
           <button type="submit" class="btn-paper text-xs">✓ 更</button>
+        </form>
+        <form th:if="${h.valuationMode.name() == 'CASH'}"
+              th:action="@{|/accounts/${account.id}/holdings/${h.id}/update-cash|}" method="post" class="flex gap-1">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <input type="number" name="amount" step="0.01" min="0" th:value="${h.manualValue}"
+                 class="font-mono text-sm bg-paper border border-rule px-2 py-1 w-24 tnum text-right">
+          <button type="submit" class="btn-paper text-xs"
+                  th:title="'更新现金 ' + ${h.currency} + ' 金额'">✓ 更</button>
         </form>
         <form th:if="${h.valuationMode.name() == 'AUTO'}"
               th:action="@{|/accounts/${account.id}/holdings/${h.id}/to-manual|}" method="post">
@@ -135,7 +186,9 @@
     <ul class="text-sm text-ink-soft space-y-1.5">
       <li>· <strong class="text-ink">AUTO</strong>:录入 ticker + 数量 · 系统每日 T+1 拉价 · 无维护成本</li>
       <li>· <strong class="text-ink">MANUAL</strong>:手填账户币种市值 · 适合未上市/私募/拉不到价(默认账户币种 · 不做汇率换算)</li>
-      <li>· <strong class="text-ink">多币种混合</strong>:同一账户可放任意币种持仓(港股/美股/A股)· 系统按各持仓原币种算市值 · 再用汇率折算成账户币种汇总</li>
+      <li>· <strong class="text-ink">CASH(账户内现金)</strong>:券商账户里的闲置资金 · 多币种各一行 · 系统按 FX 折算到账户币种 · v0.3 FR-52e</li>
+      <li>· <strong class="text-ink">多币种混合</strong>:同一账户可放任意币种持仓 + 任意币种现金 · 系统按原币种算 · 再 FX 折算汇总</li>
+      <li>· 账户余额 = SUM(AUTO 市值 · 已 FX) + SUM(MANUAL · 账户币种直填) + SUM(CASH × FX 至账户币种)</li>
       <li>· 拉价失败 · 自动用最近已知价 + UI 标"陈旧 N 天" · > 7 天提示改 MANUAL</li>
       <li>· **关键 backward compat:**此账户未添加任何持仓时,系统不动 account_balance · 沿用 v0.2 手填行为</li>
     </ul>

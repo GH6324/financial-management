@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('添加账户内现金')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('accounts', ${me}, ${nav})}"></header>
+
+<main class="max-w-[800px] mx-auto px-6 py-10 relative z-10">
+  <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+    <a th:href="@{|/accounts/${account.id}/holdings|}" class="hover:text-ink no-underline">持仓管理</a>
+    <span class="mx-2 text-rule">/</span><span class="text-ink">添加 · 账户内现金</span>
+  </div>
+
+  <div class="mb-8">
+    <div class="eyebrow mb-2" style="color:var(--forest)">+ 现 · 金 · 余 · 额</div>
+    <h1 class="font-display text-4xl md:text-5xl font-medium tracking-tight">券商账户内的闲置资金</h1>
+    <p class="font-serif text-sm text-ink-soft mt-3">
+      IBKR / 富途 / 老虎 / 国内券商账户里没买股票的那部分钱 · 可以是多币种 ·
+      系统按 FX 折算到账户币种(<b th:text="${account.currency}">HKD</b>)。
+    </p>
+  </div>
+
+  <form th:action="@{|/accounts/${account.id}/holdings/new-cash|}" method="post" class="paper-card p-8 space-y-5">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+    <div>
+      <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">币种</label>
+      <select name="currency" required
+              class="w-full font-display text-xl bg-paper-soft border border-rule px-4 py-3">
+        <option th:each="c : ${currencies}" th:value="${c}" th:text="${c}">USD</option>
+      </select>
+      <p class="font-mono text-[10px] text-ink-subtle mt-1">
+        ↳ 默认 = 账户币种(<span th:text="${account.currency}">HKD</span>);要填美元/人民币等其它币种现金,从下拉选。
+      </p>
+    </div>
+
+    <div>
+      <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">金额(所选币种)</label>
+      <div class="flex items-center gap-2">
+        <input type="number" name="amount" step="0.01" min="0" required
+               class="flex-1 font-mono text-xl bg-paper-soft border border-rule px-4 py-3 tnum text-right">
+      </div>
+      <p class="font-mono text-[10px] text-ink-subtle mt-1">
+        ↳ 直接填该币种金额 · 例:USD 5,000.00 · 系统按当前 fx_rate 折算到账户币种汇总
+      </p>
+    </div>
+
+    <div>
+      <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">显示名(可选)</label>
+      <input type="text" name="displayName"
+             class="w-full font-mono text-sm bg-paper-soft border border-rule px-4 py-3"
+             placeholder="留空 = "USD 现金"">
+    </div>
+
+    <div class="paper-card p-4 bg-card-soft" style="border-left:4px solid var(--forest)">
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-2">使 · 用 · 提 · 示</div>
+      <ul class="text-xs text-ink-soft space-y-1 list-disc pl-5">
+        <li>同一账户可加多行现金 · 每个币种一行(USD 现金 + HKD 现金 + CNY 现金)</li>
+        <li>现金行不参与每日拉价 · 但会跟随 fx_rate 变动重新折算到账户币种</li>
+        <li>调整金额:列表里点[更]按钮,直接改</li>
+        <li>币种错了?archive 重建</li>
+      </ul>
+    </div>
+
+    <div class="flex items-center justify-between pt-6 border-t border-rule-soft">
+      <a th:href="@{|/accounts/${account.id}/holdings|}" class="btn-paper no-underline">← 取消</a>
+      <button type="submit" class="btn-ink">✓ 添加现金</button>
+    </div>
+  </form>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

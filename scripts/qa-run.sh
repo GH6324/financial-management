@@ -1384,6 +1384,66 @@ bal_int=$(echo "$bal" | cut -d. -f1)
 # 恢复账户币种
 mysql -ufinance -pfinance finance -e "UPDATE account SET currency='$ORIG_CURR' WHERE id=$STOCK_ACC; DELETE FROM stock_holding WHERE account_id=$STOCK_ACC;" 2>/dev/null
 
+# v03-STOCK-12 · CASH 现金行表单页 200(FR-52e)
+code=$($CURL -b $COOKIE -o "$TMP" -w "%{http_code}" "$BASE/accounts/$STOCK_ACC/holdings/new-cash")
+{ [[ "$code" == "200" ]] && grep -q 'currency' "$TMP" && grep -q 'amount' "$TMP"; } \
+  && log_ok "v03-STOCK-12 CASH 表单页 200 · 含 currency+amount" \
+  || log_bad "v03-STOCK-12 CASH 表单页" "code=$code"
+
+# v03-STOCK-13 · 创建 CASH 行 USD 5000 在 HKD 账户 · 估值含 FX 折算
+ORIG_CURR=$(mysql -ufinance -pfinance finance -sN -e "SELECT currency FROM account WHERE id=$STOCK_ACC" 2>/dev/null)
+mysql -ufinance -pfinance finance -e "UPDATE account SET currency='HKD' WHERE id=$STOCK_ACC; DELETE FROM stock_holding WHERE account_id=$STOCK_ACC;" 2>/dev/null
+$CURL -b $COOKIE -c $COOKIE "$BASE/accounts/$STOCK_ACC/holdings/new-cash" -o /dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "displayName=v03 USD 现金" \
+  --data-urlencode "currency=USD" \
+  --data-urlencode "amount=5000" \
+  "$BASE/accounts/$STOCK_ACC/holdings/new-cash" -o /dev/null -w "%{http_code}")
+sleep 2
+cash_row=$(mysql -ufinance -pfinance finance -sN -e "SELECT valuation_mode,currency,manual_value FROM stock_holding WHERE account_id=$STOCK_ACC AND display_name='v03 USD 现金'" 2>/dev/null | tr '\t' '|')
+PID_OPEN=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 AND status='OPEN' ORDER BY id DESC LIMIT 1" 2>/dev/null)
+bal=$(mysql -ufinance -pfinance finance -sN -e "SELECT end_balance FROM period_snapshot WHERE period_id=$PID_OPEN AND account_id=$STOCK_ACC" 2>/dev/null)
+bal_int=$(echo "$bal" | cut -d. -f1)
+# USD 5000 × FX(USD→HKD 经 CNY ≈ 7.83) ≈ 39150 HKD;容差:bal > 20000 且 < 100000
+{ [[ "$code" =~ ^30[0-9]$ ]] && [[ "$cash_row" == "CASH|USD|5000.00" ]] && [[ -n "$bal" ]] && [[ "$bal_int" -gt 20000 ]] && [[ "$bal_int" -lt 100000 ]]; } \
+  && log_ok "v03-STOCK-13 CASH USD 5000 → HKD 账户余额 $bal(经 CNY FX 链)" \
+  || log_bad "v03-STOCK-13 CASH 创建+FX 估值" "code=$code row=$cash_row bal=$bal"
+
+# v03-STOCK-14 · 更新 CASH 金额 · manual_value_at 刷新
+HID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM stock_holding WHERE account_id=$STOCK_ACC AND display_name='v03 USD 现金'" 2>/dev/null)
+OLD_AT=$(mysql -ufinance -pfinance finance -sN -e "SELECT manual_value_at FROM stock_holding WHERE id=$HID" 2>/dev/null)
+sleep 2
+$CURL -b $COOKIE -c $COOKIE "$BASE/accounts/$STOCK_ACC/holdings" -o /dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "amount=8000" \
+  "$BASE/accounts/$STOCK_ACC/holdings/$HID/update-cash" -o /dev/null -w "" || true
+sleep 1
+NEW_AT=$(mysql -ufinance -pfinance finance -sN -e "SELECT manual_value_at FROM stock_holding WHERE id=$HID" 2>/dev/null)
+NEW_VAL=$(mysql -ufinance -pfinance finance -sN -e "SELECT manual_value FROM stock_holding WHERE id=$HID" 2>/dev/null)
+{ [[ "$NEW_VAL" == "8000.00" ]] && [[ "$OLD_AT" != "$NEW_AT" ]]; } \
+  && log_ok "v03-STOCK-14 CASH 金额更新 5000→8000 · manual_value_at 刷新" \
+  || log_bad "v03-STOCK-14 CASH 更新" "val=$NEW_VAL old_at=$OLD_AT new_at=$NEW_AT"
+
+# v03-STOCK-15 · 持仓 + CASH 共存 · account_balance = holdings + cash
+$CURL -b $COOKIE -c $COOKIE "$BASE/accounts/$STOCK_ACC/holdings" -o /dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+# 加一个 HKD MANUAL 持仓 50000
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "displayName=v03 私募 X" --data-urlencode "manualValue=50000" \
+  "$BASE/accounts/$STOCK_ACC/holdings/new-manual" -o /dev/null -w "" || true
+sleep 3
+new_bal=$(mysql -ufinance -pfinance finance -sN -e "SELECT end_balance FROM period_snapshot WHERE period_id=$PID_OPEN AND account_id=$STOCK_ACC" 2>/dev/null)
+new_int=$(echo "$new_bal" | cut -d. -f1)
+# 预期 = USD 8000 × 7.83 (≈62640) + HKD 50000 = ≈112k;容差 80k-160k
+{ [[ -n "$new_bal" ]] && [[ "$new_int" -gt 80000 ]] && [[ "$new_int" -lt 160000 ]]; } \
+  && log_ok "v03-STOCK-15 持仓 MANUAL+CASH 共存 · HKD 账户 bal=$new_bal" \
+  || log_bad "v03-STOCK-15 持仓+CASH 共存估值" "bal=$new_bal"
+
+# 恢复账户币种 + 清测试持仓
+mysql -ufinance -pfinance finance -e "UPDATE account SET currency='$ORIG_CURR' WHERE id=$STOCK_ACC; DELETE FROM stock_holding WHERE account_id=$STOCK_ACC;" 2>/dev/null
+
 # 复跑后置:清测试持仓 · 重算原始账户余额
 mysql -ufinance -pfinance finance -e "DELETE FROM stock_holding WHERE display_name LIKE 'v03 %';" 2>/dev/null
 

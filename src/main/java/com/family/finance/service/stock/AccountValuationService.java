@@ -128,40 +128,51 @@ public class AccountValuationService {
     private ValuationResult valuateInternal(Account acc) {
         List<StockHolding> holdings = holdingMapper.findActiveByAccount(acc.getId());
         if (holdings.isEmpty()) {
-            return new ValuationResult(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0, 0);
+            return new ValuationResult(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0, 0);
         }
 
         BigDecimal autoBase = BigDecimal.ZERO;
         BigDecimal manualBase = BigDecimal.ZERO;
+        BigDecimal cashBase = BigDecimal.ZERO;
         int staleCount = 0;
         int missingCount = 0;
 
         for (StockHolding h : holdings) {
-            if (h.getValuationMode() == ValuationMode.MANUAL) {
-                if (h.getManualValue() != null) {
-                    manualBase = manualBase.add(h.getManualValue());
+            switch (h.getValuationMode()) {
+                case MANUAL -> {
+                    if (h.getManualValue() != null) {
+                        manualBase = manualBase.add(h.getManualValue());
+                    }
                 }
-            } else { // AUTO
-                Optional<StockPriceSnapshot> priceOpt = priceMapper.findLatest(h.getTicker(), h.getMarket().name());
-                if (priceOpt.isEmpty()) {
-                    missingCount++;
-                    continue;
+                case CASH -> {
+                    // v0.3 FR-52e:账户内某币种现金 · 用 FX 换到账户币种
+                    if (h.getManualValue() != null && h.getCurrency() != null) {
+                        BigDecimal fxRate = resolveFxRate(acc.getFamilyId(), h.getCurrency(), acc.getCurrency());
+                        BigDecimal v = h.getManualValue().multiply(fxRate).setScale(2, RoundingMode.HALF_EVEN);
+                        cashBase = cashBase.add(v);
+                    }
                 }
-                StockPriceSnapshot price = priceOpt.get();
-                int staleDays = (int) java.time.temporal.ChronoUnit.DAYS.between(
-                    price.getTradeDate(), java.time.LocalDate.now());
-                if (staleDays > 7) staleCount++;
-                BigDecimal originalMarketValue = price.getClosePrice().multiply(h.getShares());
-                BigDecimal fxRate = resolveFxRate(acc.getFamilyId(), h.getCurrency(), acc.getCurrency());
-                BigDecimal accCurrencyValue = originalMarketValue.multiply(fxRate)
-                    .setScale(2, RoundingMode.HALF_EVEN);
-                // 转回家庭本位币 = 账户币种 → base 由 v0.2 fact_view 走 fx 兜底 · 这里写账户原币种值给 account_balance
-                autoBase = autoBase.add(accCurrencyValue);
+                case AUTO -> {
+                    Optional<StockPriceSnapshot> priceOpt = priceMapper.findLatest(h.getTicker(), h.getMarket().name());
+                    if (priceOpt.isEmpty()) {
+                        missingCount++;
+                        continue;
+                    }
+                    StockPriceSnapshot price = priceOpt.get();
+                    int staleDays = (int) java.time.temporal.ChronoUnit.DAYS.between(
+                        price.getTradeDate(), java.time.LocalDate.now());
+                    if (staleDays > 7) staleCount++;
+                    BigDecimal originalMarketValue = price.getClosePrice().multiply(h.getShares());
+                    BigDecimal fxRate = resolveFxRate(acc.getFamilyId(), h.getCurrency(), acc.getCurrency());
+                    BigDecimal accCurrencyValue = originalMarketValue.multiply(fxRate)
+                        .setScale(2, RoundingMode.HALF_EVEN);
+                    autoBase = autoBase.add(accCurrencyValue);
+                }
             }
         }
 
-        BigDecimal total = autoBase.add(manualBase);
-        return new ValuationResult(total, autoBase, manualBase, staleCount, missingCount);
+        BigDecimal total = autoBase.add(manualBase).add(cashBase);
+        return new ValuationResult(total, autoBase, manualBase, cashBase, staleCount, missingCount);
     }
 
     /**
@@ -253,9 +264,10 @@ public class AccountValuationService {
     /**
      * 估值结果值对象。
      *
-     * @param totalBaseValue  账户余额(账户币种 · 写入 account_balance)
-     * @param autoBaseValue   AUTO 持仓合计
-     * @param manualBaseValue MANUAL 持仓合计
+     * @param totalBaseValue  账户余额(账户币种 · 写入 account_balance)= auto+manual+cash
+     * @param autoBaseValue   AUTO 持仓合计(账户币种)
+     * @param manualBaseValue MANUAL 持仓合计(账户币种 · 用户直接填)
+     * @param cashBaseValue   CASH 行合计(账户币种 · 各行 currency 已 FX 至账户币种)· v0.3 FR-52e
      * @param staleCount      陈旧 > 7 天的 AUTO 持仓数
      * @param missingCount    完全无价的 AUTO 持仓数
      */
@@ -263,6 +275,7 @@ public class AccountValuationService {
         BigDecimal totalBaseValue,
         BigDecimal autoBaseValue,
         BigDecimal manualBaseValue,
+        BigDecimal cashBaseValue,
         int staleCount,
         int missingCount
     ) {

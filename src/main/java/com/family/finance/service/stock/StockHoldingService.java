@@ -119,6 +119,57 @@ public class StockHoldingService {
     }
 
     /**
+     * 创建 CASH 行(账户内某币种闲置现金)· v0.3 FR-52e。
+     *
+     * @param currency 现金币种(必填 · USD/CNY/HKD/JPY/...)· 可以与账户币种不同 · 估值时自动 FX
+     * @param amount   该币种金额(必填 · ≥ 0)
+     */
+    @Transactional
+    public StockHolding createCash(long familyId, long accountId,
+                                   String displayName, String currency, BigDecimal amount) {
+        requireStockAccount(familyId, accountId);
+        if (currency == null || currency.isBlank()) {
+            throw new IllegalArgumentException("currency 必填(USD/CNY/HKD/...)");
+        }
+        if (amount == null || amount.signum() < 0) {
+            throw new IllegalArgumentException("amount 必须 ≥ 0");
+        }
+        String normCcy = currency.trim().toUpperCase(Locale.ROOT);
+        String label = (displayName == null || displayName.isBlank())
+            ? normCcy + " 现金"
+            : displayName.trim();
+        StockHolding h = StockHolding.builder()
+            .accountId(accountId)
+            .displayName(label)
+            .valuationMode(ValuationMode.CASH)
+            .currency(normCcy)
+            .manualValue(amount)
+            .manualValueAt(LocalDateTime.now())
+            .build();
+        holdingMapper.insert(h);
+        return h;
+    }
+
+    /**
+     * 更新 CASH 行的金额(刷新 manual_value_at)· 币种不变。
+     * 想改币种?archive 后重建。
+     */
+    @Transactional
+    public StockHolding updateCashAmount(long familyId, long holdingId, BigDecimal newAmount) {
+        StockHolding h = require(familyId, holdingId);
+        if (h.getValuationMode() != ValuationMode.CASH) {
+            throw new IllegalArgumentException("仅 CASH 行可用此接口更新金额");
+        }
+        if (newAmount == null || newAmount.signum() < 0) {
+            throw new IllegalArgumentException("金额必须 ≥ 0");
+        }
+        h.setManualValue(newAmount);
+        h.setManualValueAt(LocalDateTime.now());
+        holdingMapper.update(h);
+        return h;
+    }
+
+    /**
      * AUTO → MANUAL 转换 · 用户决定不再拉价(如停牌 / 退市 / 用户不信任数据源)。
      * 当前估值由 caller 计算后传入(AccountValuationService 会算)。
      */
