@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~/Library/LaunchAgents/com.family.finance.plist
+  家庭账房 · macOS launchd 用户级开机自启(可选)
+
+  替换占位符:
+    {{HOME}}  → 当前用户家目录(echo $HOME 取值)
+
+  装载:
+    sed "s|{{HOME}}|$HOME|g" deploy/finance.macos.plist.template > ~/Library/LaunchAgents/com.family.finance.plist
+    launchctl load -w ~/Library/LaunchAgents/com.family.finance.plist
+    launchctl list | grep com.family.finance         # 见 PID 即跑
+
+  停止 / 卸载:
+    launchctl unload -w ~/Library/LaunchAgents/com.family.finance.plist
+
+  日志:
+    {{HOME}}/finance/logs/launchd.stdout.log
+    {{HOME}}/finance/logs/launchd.stderr.log
+
+  注:start.sh 由 deploy-macos.sh 自动生成 · 内部 source ~/.finance/finance.env 再 exec java
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.family.finance</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{HOME}}/finance/start.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>{{HOME}}/finance</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>{{HOME}}/finance/logs/launchd.stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>{{HOME}}/finance/logs/launchd.stderr.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+</dict>
+</plist>

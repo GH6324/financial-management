@@ -127,6 +127,17 @@ sudo bash deploy/deploy.sh
 sudo bash deploy/rollback.sh
 ```
 
+### macOS 本地部署(开发 / 个人自用)
+
+```bash
+# 前提:已装 Homebrew
+git clone https://github.com/<your-org>/financial-management.git
+cd financial-management
+bash deploy/deploy.sh   # 顶部 OS 探测 · macOS 自动转 deploy-macos.sh
+```
+
+跟 Linux 路径的差异:无 sudo · 用 brew 装依赖 · 文件全在 `$HOME/finance` · 启动用 `bash ~/finance/start.sh`(或 launchd 自启)· 没 nginx 反代,浏览器直接 `http://127.0.0.1:20000/`。详见 [`deploy/README.md` § macOS 本地部署](deploy/README.md#macos-本地部署)。
+
 详细部署文档:[`deploy/README.md`](deploy/README.md)
 
 ## 本地开发

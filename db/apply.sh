@@ -25,6 +25,16 @@ DB_NAME="${DB_NAME:?DB_NAME 环境变量未设置(可在 /etc/finance.env 配置
 export MYSQL_PWD="$DB_PASS"
 MYSQL=( mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" "$DB_NAME" )
 
+# sha256:Linux 有 sha256sum,macOS 默认只有 shasum -a 256;两者输出同格式("<hash>  <file>")
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256_of() { sha256sum "$1" | cut -d' ' -f1; }
+elif command -v shasum >/dev/null 2>&1; then
+  sha256_of() { shasum -a 256 "$1" | cut -d' ' -f1; }
+else
+  echo "✗ 没找到 sha256sum 或 shasum · 装一下 coreutils(brew install coreutils)" >&2
+  exit 1
+fi
+
 # 1) 确保 history 表存在(幂等)
 "${MYSQL[@]}" <<'SQL'
 CREATE TABLE IF NOT EXISTS schema_history (
@@ -59,7 +69,7 @@ unset IFS
 
 for f in "${files[@]}"; do
     name=$(basename "$f")
-    expected=$(sha256sum "$f" | cut -d' ' -f1)
+    expected=$(sha256_of "$f")
     applied=$( "${MYSQL[@]}" -sN -e "SELECT checksum FROM schema_history WHERE filename='$name'" || true )
 
     if [ -z "$applied" ]; then

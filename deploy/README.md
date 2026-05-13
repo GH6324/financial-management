@@ -8,6 +8,8 @@
 - 你能 SSH 进去 + 有 sudo
 - 一个公网 80 端口(可选 443),能从公网拉 apt 包
 
+**或** macOS 本机(本地开发 / 个人自用 · 见下面 [macOS 部署](#macos-本地部署))。
+
 ---
 
 ## 首次部署(2 步)
@@ -122,10 +124,12 @@ certbot 自动改 `finance.conf` 加 `listen 443 ssl` + 配 cron 续签。`deplo
 
 ```
 deploy/
-├── deploy.sh                       ← 主脚本(首装 + 迭代都用它)
-├── rollback.sh                     ← 紧急回滚
-├── nginx-setup.sh                  ← nginx 单独配置(deploy.sh 内部会调)
-├── finance.service                 ← systemd unit 模板
+├── deploy.sh                       ← 主脚本(顶部 OS 探测 · Darwin 自动转 deploy-macos.sh)
+├── deploy-macos.sh                 ← macOS 路径($HOME/finance · brew · 无 sudo)
+├── finance.macos.plist.template    ← macOS launchd 自启模板(可选)
+├── rollback.sh                     ← 紧急回滚(Linux)
+├── nginx-setup.sh                  ← nginx 单独配置(deploy.sh 内部会调,macOS 不用)
+├── finance.service                 ← systemd unit 模板(Linux)
 ├── finance.env.example             ← /etc/finance.env 配置示例(参考用)
 ├── nginx-finance.conf.example      ← nginx 反代模板(__PORT__ __SERVER_NAME__ 占位)
 ├── backup.sh                       ← 备份脚本(finance-backup.timer 调)
@@ -134,3 +138,64 @@ deploy/
 ├── gen-icons.sh                    ← 历史:生成默认 icon PNG(已被 gen-presets 取代)
 └── README.md                       ← 本文件
 ```
+
+---
+
+## macOS 本地部署
+
+适合:本地开发跑通 · 个人 mac 自用 · 不需要公网访问 / nginx / systemd。
+
+**前提**(自己装):
+
+- [Homebrew](https://brew.sh)(`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`)
+- 当前 macOS 用户(脚本不需要 sudo · 不创建系统用户)
+
+**部署**:
+
+```bash
+git clone https://gitlab.com/xblteam/financial-management.git
+cd financial-management
+bash deploy/deploy.sh         # 或 deploy/deploy-macos.sh,二者等价(主脚本顶部自动分流)
+```
+
+脚本会:
+1. `brew install openjdk@21 maven mysql`(已装则跳过)
+2. `brew services start mysql`
+3. 建 `finance` 库 + 用户(`mysql -uroot` 默认无密码;有密码需手动改脚本)
+4. 写 `$HOME/.finance/finance.env`(600 权限)
+5. 应用 `V*__*.sql` 迁移(共享 `db/apply.sh`)
+6. `mvn package` 编译 jar
+7. 拷到 `$HOME/finance/app.jar` + 生成 `$HOME/finance/start.sh`
+
+**启动**:
+
+```bash
+bash $HOME/finance/start.sh                                                # 前台
+nohup bash $HOME/finance/start.sh > $HOME/finance/logs/app.log 2>&1 &      # 后台
+```
+
+浏览器 `http://127.0.0.1:20000/`(端口在 `~/.finance/finance.env` 改),默认账号 `diwa` / `wangergou` + 临时密码 `demo1234`(或脚本时你设的)。
+
+**(可选)launchd 开机自启**:
+
+```bash
+sed "s|{{HOME}}|$HOME|g" deploy/finance.macos.plist.template > ~/Library/LaunchAgents/com.family.finance.plist
+launchctl load -w ~/Library/LaunchAgents/com.family.finance.plist
+launchctl list | grep com.family.finance       # 见 PID 即跑
+# 卸载:launchctl unload -w ~/Library/LaunchAgents/com.family.finance.plist
+```
+
+**macOS vs Linux 差异速查**:
+
+| 项 | Linux | macOS |
+|---|---|---|
+| 入口 | `sudo bash deploy/deploy.sh` | `bash deploy/deploy.sh`(无 sudo) |
+| 应用目录 | `/opt/finance` | `$HOME/finance` |
+| env | `/etc/finance.env`(640 root:finance) | `$HOME/.finance/finance.env`(600) |
+| 服务管理 | systemd(`finance.service`) | launchd(`com.family.finance.plist` · 可选) |
+| 日志 | `journalctl -u finance -f` | `tail -f $HOME/finance/logs/app.log` |
+| 包管理 | apt / dnf | brew |
+| 反代 | nginx :80 → :SERVER_PORT | 无(直接访问 :SERVER_PORT) |
+| 应用用户 | `finance` 系统用户 | 当前 macOS 用户 |
+
+**迭代发版**:跟 Linux 一样 `git pull && bash deploy/deploy.sh`,脚本检测到 `~/finance/app.jar` 自动走迭代分支(mysqldump 备份 + 切 jar)。重启需手动:`pgrep -f $HOME/finance/app.jar | xargs kill && nohup bash $HOME/finance/start.sh > $HOME/finance/logs/app.log 2>&1 &`。

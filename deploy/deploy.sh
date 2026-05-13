@@ -18,6 +18,12 @@
 # =========================================================
 set -euo pipefail
 
+# ---------- macOS 分流 ----------
+# Linux 路径独占下方;macOS 走 deploy-macos.sh($HOME/finance,无 sudo / systemd / nginx)
+if [[ "$(uname)" == "Darwin" ]]; then
+  exec bash "$(dirname -- "${BASH_SOURCE[0]}")/deploy-macos.sh" "$@"
+fi
+
 # ---------- 颜色 + 辅助 ----------
 G=$'\033[32m'; R=$'\033[31m'; Y=$'\033[33m'; B=$'\033[1;36m'; X=$'\033[0m'
 say()  { echo; echo "${B}═══ $* ═══${X}"; }
