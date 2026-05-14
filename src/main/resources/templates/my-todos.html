@@ -34,11 +34,11 @@
           <div class="flex items-baseline gap-3 mb-1 flex-wrap">
             <span class="font-display text-lg" th:classappend="${row.done ? ' line-through text-ink-soft' : ''}" th:text="${row.account.displayName}">富途证券-港美股</span>
             <span class="pill" th:classappend="${row.account.type.name() == 'LOAN' ? ' pill-rust' : (row.account.type.name() == 'WEALTH' ? ' pill-forest' : (row.account.type.name() == 'STOCK' ? ' pill-brass' : ''))}"
-                  th:text="${row.account.type.label} + ' (' + ${row.account.type.name()} + ')'">股票 (STOCK)</span>
+                  th:text="${row.account.type.label}">股票</span>
             <span class="pill" th:if="${row.account.currency != 'CNY'}" th:text="${row.account.currency}">USD</span>
           </div>
           <div class="font-mono text-xs text-ink-subtle">
-            SNAPSHOT_TODO · 上期末 <span th:text="${row.previousBalanceLabel}">$47,500</span>
+            上期末 <span th:text="${row.previousBalanceLabel}">$47,500</span>
           </div>
         </div>
         <span th:if="${row.done}" class="font-mono text-sm tnum" th:text="${row.currentBalanceLabel}">¥73,200</span>

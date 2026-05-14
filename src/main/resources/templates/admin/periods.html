@@ -28,7 +28,7 @@
       </form>
     </div>
     <div th:if="${currentPeriod != null}" class="mb-6 paper-card px-5 py-3 flex items-center justify-between gap-4 flex-wrap">
-      <p class="text-xs text-ink-soft">关闭当前周期后,可点右侧按钮立即开启下一周期(测试用,生产由 cron 每日 0:30 触发)。</p>
+      <p class="text-xs text-ink-soft">关闭当前周期后,可点右侧按钮立即开启下一周期(测试用 · 正常情况每日 0:30 自动触发)。</p>
       <form th:action="@{/admin/periods/open-next}" method="post"
             onsubmit="return confirm('当前已有 OPEN 周期。确认强制开启下一周期?');">
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>

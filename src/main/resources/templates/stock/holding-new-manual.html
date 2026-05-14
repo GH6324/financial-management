@@ -14,7 +14,7 @@
   <div class="mb-8">
     <div class="eyebrow mb-2" style="color:var(--rust)">+ 手 · 填 · 市 · 值 · 持 · 仓</div>
     <h1 class="font-display text-4xl md:text-5xl font-medium tracking-tight">未上市 / 私募 / 拉不到价</h1>
-    <p class="font-serif text-sm text-ink-soft mt-3">系统不拉价 · 用户每月在 /entry 时确认是否需要更新。</p>
+    <p class="font-serif text-sm text-ink-soft mt-3">系统不拉价,每月在填报页时确认是否需要更新。</p>
   </div>
 
   <form th:action="@{|/accounts/${account.id}/holdings/new-manual|}" method="post" class="paper-card p-8 space-y-5">
@@ -42,8 +42,8 @@
     <div class="paper-card p-4 bg-card-soft" style="border-left:4px solid var(--rust)">
       <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-rust mb-2">维 · 护 · 提 · 醒</div>
       <ul class="text-xs text-ink-soft space-y-1 list-disc pl-5">
-        <li>MANUAL 持仓不参与每日 cron 拉价</li>
-        <li>> 30 天未更新 · /entry 持仓变动按钮变橙色</li>
+        <li>手填市值持仓不参与每日自动拉价</li>
+        <li>超过 30 天未更新时,填报页持仓变动按钮变橙色</li>
         <li>可随时点[更新]按钮重新填本期值</li>
       </ul>
     </div>

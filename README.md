@@ -83,6 +83,11 @@
   - **B2** dashboard 紧急储备 vs reports 储蓄能力双源问题 → PMC 优先 + cash_flow 回退
   - **B4** YTD 复用 caller range slice 漂移 → 独立 load 1 月-今天 slice
   - 0 schema 变更 · 100% backward-compat
+- **v0.4.4 用户面文案专业化清理**(2026-05-14)· 13 模板 ~30 处 · 0 schema
+  - 删除内部 routing 暴露(「已搬到 /dashboard」「已挪至 /admin/fx」等)
+  - 清除用户面 v0.X / FR-XX 代号 · 中文化 AUTO/MANUAL/CASH 等 enum
+  - `/entry` / `/admin/fx` 路径文字改「填报页」/「汇率设置」
+  - 历史 `auto-stock-valuation v0.3` ledger note → 「系统估值同步」(写入端 + 渲染端兼容)
 - **真 LLM 接通**(beta)· Qwen-Plus 调仓建议 · 圆形熔断不影响主路径
 
 ### v0.3(2026-05-13 封板 · tag `v0.3`)
@@ -115,7 +120,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 161 单元 / 36 端到端 / 264 黑盒 |
+| 测试 | JUnit 5 · 161 单元 / 36 端到端 / 273 黑盒 |
 
 ## 快速开始(自托管部署)
 

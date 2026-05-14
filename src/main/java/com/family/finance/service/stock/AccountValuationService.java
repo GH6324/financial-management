@@ -234,11 +234,11 @@ public class AccountValuationService {
     }
 
     /**
-     * 把估值写回 account_balance(period_snapshot 表)· 复用 v0.2 upsert 逻辑。
-     * 这是关键集成点:v0.2 下游 fact_view / dashboard / XIRR / 目标进度 自动反映 · 零改动。
+     * 把估值写回 account_balance(period_snapshot 表)· 复用既有 upsert 逻辑。
+     * 这是关键集成点:下游 fact_view / dashboard / XIRR / 目标进度 自动反映,零改动。
      *
-     * <p>v0.2 schema 把 submitted_by NOT NULL · 系统自动写入用 account.primary_owner_member_id 兜底;
-     * 若该字段也为 null,用 family 第一个 member。区分系统/用户写入靠 note='auto-stock-valuation v0.3'。</p>
+     * <p>schema 把 submitted_by NOT NULL · 系统自动写入用 account.primary_owner_member_id 兜底;
+     * 若该字段也为 null,用 family 第一个 member。区分系统/用户写入靠 note 标识"系统估值"。</p>
      */
     private void writeBackBalance(long familyId, long periodId, Account acc, BigDecimal balance) {
         Long submittedBy = acc.getPrimaryOwnerMemberId();
@@ -256,10 +256,16 @@ public class AccountValuationService {
             .accountId(acc.getId())
             .endBalance(balance)
             .submittedBy(submittedBy)
-            .note("auto-stock-valuation v0.3")
+            .note(SYSTEM_VALUATION_NOTE)
             .build();
         snapshotMapper.upsert(snap);
     }
+
+    /** 系统估值同步写入 period_snapshot 时使用的 note 标识(中文 · 用户面友好) */
+    public static final String SYSTEM_VALUATION_NOTE = "系统估值同步";
+
+    /** 历史遗留的英文标识 · ledger 渲染时一并视作系统估值(保留判别能力) */
+    public static final String LEGACY_VALUATION_NOTE = "auto-stock-valuation v0.3";
 
     /**
      * 取 fromCurrency → toCurrency 的汇率(可能跨币种 · 自动经 base 中转)。

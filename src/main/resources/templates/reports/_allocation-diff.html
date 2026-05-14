@@ -103,17 +103,17 @@
                    th:style="'left: ' + ${tgt['INSURANCE']} + '%; border-color: var(--ink-subtle)'"></div>
             </div>
             <div class="text-[10px] text-ink-subtle mt-0.5">
-              <span th:if="${tgt['INSURANCE'].signum() > 0}">v0.5 引入保险账户类目后承接</span>
+              <span th:if="${tgt['INSURANCE'].signum() > 0}">保险账户类目即将上线后自动承接</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 右侧 AI 调仓建议入口(FR-62b) -->
+      <!-- 右侧 AI 调仓建议入口 -->
       <div class="border-t lg:border-t-0 lg:border-l border-rule pt-4 lg:pt-0 lg:pl-6">
-        <div class="font-mono text-[10px] text-ink-subtle mb-2">FR-62b · AI · 调 · 仓 · 建 · 议</div>
+        <div class="font-mono text-[10px] text-ink-subtle mb-2">🤖 AI · 调 · 仓 · 建 · 议</div>
         <p class="text-xs text-ink-soft leading-relaxed mb-3">
-          基于上方 diff,让 AI 给出具体调仓步骤("从 X 调 ¥N 到 Y")。30 天节流 · 节省 LLM 调用成本。
+          基于上方对照差额,让 AI 给出具体调仓步骤("从 X 调 ¥N 到 Y")。建议 30 天内复用,避免短期市场抖动反复换仓。
         </p>
         <form th:action="@{/reports/rebalance/advise}" method="post" class="mb-3">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
@@ -124,7 +124,7 @@
         <div th:if="${rebalanceAdvice != null}" th:insert="~{reports/_ai-rebalance :: card}"></div>
 
         <p th:if="${rebalanceAdvice == null}" class="text-[10px] text-ink-subtle italic">
-          点按钮触发 · 复用 v0.3 LlmOrchestrator · 返回 actions[] + narrative
+          点按钮即可生成调仓步骤与文字说明。
         </p>
       </div>
 

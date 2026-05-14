@@ -55,10 +55,10 @@
           <input type="radio" name="autoBaseline" value="true" checked class="mr-2 accent-forest">
           <span class="text-ink font-medium">自动基线 · 推荐</span>
           <p class="text-xs text-ink-soft mt-1 ml-5">
-            用过去 3 期 <code class="font-mono">total_expense_input</code> 中位 ·
+            用过去 3 期家庭月度支出的中位 ·
             <span class="text-forest" th:if="${autoBaseline != null}"
                   th:text="'当前 = ¥' + ${#numbers.formatInteger(autoBaseline, 0, 'COMMA')} + '/月'">当前 = ¥18,000/月</span>
-            <span class="text-rust" th:if="${autoBaseline == null}">⚠ 过去 3 期数据不全 · 先去 /entry 补录月度收支</span>
+            <span class="text-rust" th:if="${autoBaseline == null}">⚠ 过去 3 期数据不全 · 先去填报页补录月度收支</span>
           </p>
         </label>
         <label class="block border border-rule-soft p-4 cursor-pointer hover:bg-card-soft">

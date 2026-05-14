@@ -389,13 +389,18 @@ public class EntryService {
                     period.getStatus() == PeriodStatus.OPEN));
         }
         if (current != null) {
+            // v0.4.4:历史遗留的英文系统标记替换为中文,避免用户面暴露内部代号
+            String snapNote = current.getNote();
+            if (snapNote != null && snapNote.startsWith("auto-stock-valuation")) {
+                snapNote = com.family.finance.service.stock.AccountValuationService.SYSTEM_VALUATION_NOTE;
+            }
             ledger.add(new EntryRow.LedgerEntry(
                     EntryRow.LedgerKind.SNAPSHOT,
                     current.getSubmittedAt(),
                     current.getEndBalance(),
                     "= " + MoneyFormat.format(account.getCurrency(), current.getEndBalance()),
                     null,
-                    current.getNote(),
+                    snapNote,
                     null,
                     period.getStatus() == PeriodStatus.OPEN));
         }

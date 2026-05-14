@@ -63,7 +63,7 @@
         </div>
         <!-- v0.2 FR-40d · 产品类目(留空则按 type 默认)-->
         <div>
-          <label class="field-label">产品类目 <span class="text-ink-subtle font-mono text-[10px]">v0.2</span></label>
+          <label class="field-label">产品类目</label>
           <select name="productCategoryCode" data-searchable class="field-input bg-transparent">
             <option value="">按账户类型默认</option>
             <option th:each="c : ${allCategories}" th:value="${c.code}"

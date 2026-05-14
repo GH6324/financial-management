@@ -57,21 +57,33 @@
   <!-- 4 张体检卡 -->
   <section class="grid grid-cols-1 lg:grid-cols-2 gap-px bg-rule mb-8">
 
-    <!-- v0.4 FR-60c 砍:资产配置环形(dashboard 已有)+ 风险敞口 bar(reports 已有)· 此处给跳转 link -->
+    <!-- 资产配置 · mini 横向条(详细环形图在 dashboard) -->
     <div id="allocation" class="bg-card p-6 scroll-mt-32">
       <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3">
-        资产配置 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">ALLOCATION · v0.4 改</span>
+        资产配置 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">A · L · L · O · C · A · T · I · O · N</span>
       </h3>
-      <p class="text-sm text-ink-soft mb-3">资产配置图已搬到 <a href="/dashboard#allocation" class="text-brass-deep hover:underline no-underline">/dashboard</a>(摸清切片)。</p>
-      <p class="text-sm text-ink-soft">配置 diff 看 <a href="/reports#allocation-diff" class="text-brass-deep hover:underline no-underline">/reports → 配置 diff</a>(诊断 + 调仓)。</p>
+      <div class="space-y-2.5 text-xs">
+        <div th:each="a : ${diagnose.allocation}"
+             th:if="${a.ratio != null and a.ratio.signum() > 0}">
+          <div class="flex justify-between items-baseline mb-1">
+            <span class="font-display" th:text="${a.label}">现金</span>
+            <span class="font-mono tnum text-ink-soft"
+                  th:text="${#numbers.formatDecimal(a.ratio.multiply(new java.math.BigDecimal(100)), 1, 1)} + '%'">42.0%</span>
+          </div>
+          <div class="relative h-2 bg-rule-soft">
+            <div class="absolute left-0 top-0 h-full"
+                 th:style="'width: ' + ${a.ratio.multiply(new java.math.BigDecimal(100))} + '%; background: var(--brass-deep)'"></div>
+          </div>
+        </div>
+      </div>
+      <p class="font-mono text-[10px] text-ink-subtle mt-4">按账户类型聚合 · 完整环形图与基准模板对照见<a href="/reports#allocation-diff" class="text-brass-deep hover:underline no-underline ml-1">配置对照</a></p>
     </div>
 
-    <!-- 风险分布同砍 -->
+    <!-- 风险敞口 · 等级分布列表 -->
     <div id="risk" class="bg-card p-6 scroll-mt-32">
       <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3">
-        风险敞口 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">v0.4 改</span>
+        风险敞口 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">R · I · S · K</span>
       </h3>
-      <p class="text-sm text-ink-soft mb-3">风险等级分布环形图已搬到 <a href="/reports#risk-section" class="text-brass-deep hover:underline no-underline">/reports</a>。</p>
       <div class="mt-2 space-y-1.5 text-xs">
         <div th:each="b : ${diagnose.riskDistribution}" class="flex items-center justify-between">
           <span class="font-mono text-ink-soft">
@@ -102,25 +114,25 @@
           <div class="font-mono text-[10px] text-ink-soft">流动资产 / 月均支出</div>
         </div>
       </div>
-      <!-- v0.4 FR-62c · 应急金不闲置 banner(仅在 LIQUID > 应急需求 × 1.5x 时显示)-->
+      <!-- 应急金不闲置提示(仅当流动资产 > 应急需求 × 1.5x 时显示) -->
       <div th:if="${liquidSurplus != null and liquidSurplus.shouldNotify()}"
            class="border-t border-rule-soft mt-4 pt-3 paper-card p-3"
            style="background:rgba(122,90,57,.04); border-left:3px solid var(--brass-deep)">
-        <span class="font-mono text-[10px] text-brass-deep">💡 FR-62c · 不 · 闲 · 置</span>
+        <span class="font-mono text-[10px] text-brass-deep">💡 不 · 闲 · 置</span>
         <p class="text-xs text-ink-soft mt-1">
           超额 <b class="tnum" th:text="'¥' + ${#numbers.formatInteger(liquidSurplus.surplus, 0, 'COMMA')}">¥0</b> ·
           建议转货币基金(2%+ 年化)避免活期闲置。
         </p>
       </div>
       <div class="border-t border-rule-soft mt-4 pt-3 text-xs text-ink-soft">
-        建议:紧急储备应 ≥ 3 个月家庭支出(v0.4:CASH + 货币基金等 LIQUID 类目计入)。
+        建议:紧急储备应 ≥ 3 个月家庭支出(现金 + 货币基金等流动资产计入)。
       </div>
     </div>
 
     <!-- 卡 4 · 收益质量 · v0.4.2 升级为「人赚 vs 钱赚」二分布局 -->
     <div id="return" class="bg-card p-6 scroll-mt-32">
       <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3">
-        收益质量 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">RETURN · v0.4.2 双口径</span>
+        收益质量 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">R · E · T · U · R · N</span>
       </h3>
       <div class="grid grid-cols-2 gap-x-6 gap-y-4">
         <!-- 行 1 · 资产年化(剔除收入 · ★ 优先突出) -->

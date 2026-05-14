@@ -60,7 +60,7 @@
 
       <!-- v0.2 FR-40d · 产品类目 -->
       <div>
-        <label class="field-label">产品类目 <span class="text-ink-subtle font-mono text-[10px]">v0.2 新增</span></label>
+        <label class="field-label">产品类目</label>
         <select name="productCategoryCode" data-searchable class="field-input bg-transparent">
           <option th:each="c : ${applicableCategories}"
                   th:value="${c.code}"

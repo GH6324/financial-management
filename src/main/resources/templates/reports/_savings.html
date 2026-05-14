@@ -10,23 +10,23 @@
 <section th:fragment="section" class="mt-12 border-t-4 border-double border-ink pt-8">
 
   <div class="mb-6">
-    <div class="eyebrow mb-2" style="color:var(--brass-deep)">储 · 蓄 · 能 · 力 · FR-51 新</div>
+    <div class="eyebrow mb-2" style="color:var(--brass-deep)">储 · 蓄 · 能 · 力</div>
     <h2 class="font-display text-3xl font-medium tracking-tight">月度收支 + 反推目标月供</h2>
     <p class="font-serif text-sm text-ink-soft mt-2 max-w-2xl">
-      数据来自 <a th:href="@{/entry}" class="text-brass-deep hover:underline">/entry 填报页家庭口径</a>2 框 ·
-      没填的月份显灰柱 + 不参与中位计算。
+      数据来自 <a th:href="@{/entry}" class="text-brass-deep hover:underline">填报页家庭口径</a> 2 框 ·
+      没填的月份显灰柱,不参与中位计算。
     </p>
   </div>
 
   <!-- 无数据时引导卡 -->
   <div th:if="${!savingsAvailable}" class="paper-card p-6 bg-card-soft text-center" style="border-left:4px solid var(--brass-deep)">
     <p class="text-ink-soft mb-3">
-      过去 12 期都未填家庭月度收支(<code class="font-mono">total_income_input</code> / <code class="font-mono">total_expense_input</code>)。
+      过去 12 期都未填家庭月度收入与支出。
     </p>
     <p class="text-xs text-ink-subtle mb-4">
-      去 /entry 底部填一次本月收入支出(选填 · ~15 秒),系统自动算储蓄率 / 月储蓄能力 / 反推目标月供。
+      去填报页底部填一次本月收入支出(选填 · ~15 秒),系统自动算储蓄率 / 月储蓄能力 / 反推目标月供。
     </p>
-    <a th:href="@{/entry}" class="btn-paper no-underline">→ 去 /entry 补录</a>
+    <a th:href="@{/entry}" class="btn-paper no-underline">→ 去填报页补录</a>
   </div>
 
   <!-- 有数据 -->

@@ -2,12 +2,12 @@
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <body>
 <div th:fragment="region" id="reports-region">
-  <!-- v0.2 BUG-FIX(2026-05-10):缺 fx_rate 且即时拉取失败 → 保持 base 展示 + toast 提示 -->
+  <!-- 缺 fx_rate 且即时拉取失败 → 保持 base 展示 + toast 提示 -->
   <script th:if="${fxFallback}" th:inline="javascript">
     (function () {
       var requested = [[${requestedCurrency}]];
       var displaying = [[${currency}]];
-      var msg = '当期 ' + displaying + ' 对 ' + requested + ' 汇率未配置(自动拉取也失败),请联系管理员去 /admin/fx 手填。当前仍以 ' + displaying + ' 展示。';
+      var msg = '当期 ' + displaying + ' 对 ' + requested + ' 汇率尚未配置,请到「汇率设置」手填。当前仍以 ' + displaying + ' 展示。';
       function fire() {
         if (typeof window.showToast === 'function') {
           window.showToast({ message: msg, level: 'warn' });
@@ -121,7 +121,7 @@
     <div class="paper-card p-6">
       <div class="eyebrow mb-1">第 三 表</div>
       <h3 class="font-display text-xl font-medium">风险等级分布</h3>
-      <p class="text-xs text-ink-soft mt-1">按 product_category.risk_level 聚合 · 数据口径与 /checkup 一致</p>
+      <p class="text-xs text-ink-soft mt-1">按产品类目风险等级聚合 · 数据口径与资产体检一致</p>
       <div class="rule-x pt-2 mb-3"></div>
       <div style="height: 280px;"><canvas id="riskDistChart"></canvas></div>
     </div>
@@ -135,7 +135,7 @@
   <section class="mb-12">
     <div class="flex items-end justify-between mb-3 flex-wrap gap-2">
       <div>
-        <div class="eyebrow mb-1">第 四 表 · v0.4 加基准列</div>
+        <div class="eyebrow mb-1">第 四 表</div>
         <h3 class="font-display text-xl lg:text-2xl font-medium">账户级收益 · vs 基准</h3>
       </div>
       <div class="text-[10px] font-mono text-ink-subtle">基准来自产品类目 · <a th:href="@{/admin/product-categories}" class="text-brass-deep hover:underline no-underline">/admin/product-categories</a> 可微调</div>
@@ -175,11 +175,6 @@
         </tbody>
       </table>
     </div>
-  </section>
-
-  <!-- v0.4 FR-60b 砍:汇率明细表 · 工具性 · 已挪 /admin/fx -->
-  <section class="paper-card p-4 mb-12 bg-card-soft text-center text-xs text-ink-subtle">
-    汇率明细已挪至 <a th:href="@{/admin/fx}" class="text-brass-deep hover:underline no-underline">/admin/fx</a>(运维专用)
   </section>
 
   <script th:inline="javascript">

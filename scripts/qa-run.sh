@@ -429,8 +429,9 @@ else
 fi
 
 # v02-CCY-5 模板防回归:确保 dashboard / reports 都有 fxFallback toast 脚本块
-grep -q '汇率未配置' src/main/resources/templates/dashboard/_region.html \
-  && grep -q '汇率未配置' src/main/resources/templates/reports/_region.html \
+#   v0.4.4 文案专业化后改为「汇率尚未配置」(去掉"自动拉取也失败" + "联系管理员"的开发口吻)
+grep -q '汇率尚未配置' src/main/resources/templates/dashboard/_region.html \
+  && grep -q '汇率尚未配置' src/main/resources/templates/reports/_region.html \
   && log_ok "v02-CCY-5 dashboard / reports 均含 fxFallback toast 脚本块(防回归)" \
   || log_bad "v02-CCY-5 fxFallback toast 模板缺失" "missing in dashboard/reports _region.html"
 
@@ -1273,8 +1274,9 @@ in_out=$(mysql -ufinance -pfinance finance -sN -e "SELECT CONCAT(IFNULL(total_in
   || log_bad "v03-IND-3 空值未 NULL" "db=$in_out"
 
 # v03-IND-4 · /reports 储蓄区块渲染(无数据态 → 引导卡)
+#   v0.4.4 文案专业化:「/entry」→「填报页」
 $CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
-{ grep -q '储蓄能力' "$TMP" && grep -q '去 /entry' "$TMP"; } \
+{ grep -q '储蓄能力' "$TMP" && grep -q '去填报页' "$TMP"; } \
   && log_ok "v03-IND-4 /reports 无数据时显储蓄引导卡" \
   || log_bad "v03-IND-4 reports 储蓄区块" "see $TMP"
 
@@ -1407,12 +1409,12 @@ hk_ticker=$(mysql -ufinance -pfinance finance -sN -e "SELECT ticker FROM stock_h
   && log_ok "v03-STOCK-6 港股 ticker 规范化 0700 → 00700" \
   || log_bad "v03-STOCK-6 港股规范化" "ticker=$hk_ticker"
 
-# v03-STOCK-7 · 估值写回 account_balance · note=auto-stock-valuation v0.3
+# v03-STOCK-7 · 估值写回 account_balance · note=系统估值同步(v0.4.4 起 · 老数据仍可能是 auto-stock-valuation v0.3)
 PID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 AND status='OPEN' ORDER BY id DESC LIMIT 1" 2>/dev/null)
 $CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" "$BASE/accounts/$STOCK_ACC/holdings/refresh" -o /dev/null -w ""
 sleep 2
 note=$(mysql -ufinance -pfinance finance -sN -e "SELECT note FROM period_snapshot WHERE period_id=$PID AND account_id=$STOCK_ACC" 2>/dev/null)
-{ [[ "$note" == *"auto-stock-valuation"* ]]; } \
+{ [[ "$note" == *"系统估值"* || "$note" == *"auto-stock-valuation"* ]]; } \
   && log_ok "v03-STOCK-7 估值写回 period_snapshot · note=$note" \
   || log_bad "v03-STOCK-7 估值未写回" "note=$note"
 
@@ -1851,6 +1853,81 @@ grep -q '应 · 急 · 金' "$TMP" || grep -q '紧 急 储 备' "$TMP" || grep -
    || -d /home/finance/financial-management/src/test/java/com/family/finance/factview ]] \
   && log_ok "v04-FIX-7 factview 单测目录存在(B1/B2/B4 改动不破坏现有覆盖)" \
   || log_bad "v04-FIX-7 factview 单测目录缺" "missing"
+
+# ===================================================
+# v0.4.4 · 文案专业化清理(内部 routing / FR 编号 / 字段名 / enum 暴露 全部清除)
+# ===================================================
+section "v0.4.4 · 文案专业化清理"
+
+# v04-UX-1 · checkup 不再含"已搬到 /dashboard"等迁移提示
+$CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+{ ! grep -q '已搬到\|已挪至' "$TMP"; } \
+  && log_ok "v04-UX-1 /checkup 不再含 '已搬到 / 已挪至' 迁移文案" \
+  || log_bad "v04-UX-1 内部迁移文案残留" "still present"
+
+# v04-UX-2 · checkup 资产配置卡 mini 横向条出现
+$CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+grep -q 'A · L · L · O · C · A · T · I · O · N' "$TMP" \
+  && grep -q '按账户类型聚合' "$TMP" \
+  && log_ok "v04-UX-2 /checkup 资产配置卡 mini 横向条 + 中性 eyebrow" \
+  || log_bad "v04-UX-2 mini 横向条缺" "missing"
+
+# v04-UX-3 · reports 不再含"汇率明细已挪至 /admin/fx"section
+$CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
+{ ! grep -q '汇率明细已挪至\|运维专用' "$TMP"; } \
+  && log_ok "v04-UX-3 /reports 不再含汇率挪至提示 section" \
+  || log_bad "v04-UX-3 汇率挪至 section 残留" "still present"
+
+# v04-UX-4 · 所有用户面页面不再含 v0.x / FR-xx 内部代号
+PAGES=(/dashboard /reports /checkup /goals /entry /accounts)
+LEAK=0
+for p in "${PAGES[@]}"; do
+  $CURL -b $COOKIE "$BASE$p" -o "$TMP" -w ""
+  # 只查可见 body 内容(去 HTML/JS 注释)
+  python3 -c "
+import re, sys
+with open('$TMP') as f:
+    html = f.read()
+# 去 HTML 注释
+html = re.sub(r'<!--.*?-->', '', html, flags=re.S)
+# 去 <script>...</script> 内容
+html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.S|re.I)
+# 找 FR-数字 / v0.数字
+m = re.findall(r'(FR-\d+|v0\.\d+(?:\.\d+)?)', html)
+if m: sys.exit(1)
+" 2>/dev/null || LEAK=$((LEAK+1))
+done
+[[ "$LEAK" -eq 0 ]] \
+  && log_ok "v04-UX-4 6 用户面页 (dashboard/reports/checkup/goals/entry/accounts) 不含 FR-xx / v0.x 代号" \
+  || log_bad "v04-UX-4 用户面残留代号" "$LEAK 页有代号"
+
+# v04-UX-5 · refinance 不再含 v0.4 / v0.5 版本路线规划
+$CURL -b $COOKIE "$BASE/reports/refinance" -o "$TMP" -w ""
+{ ! grep -q 'v0\.4 仅等额本息\|v0\.5 加等额本金' "$TMP"; } \
+  && log_ok "v04-UX-5 /reports/refinance 不再含 v0.X 版本路线规划文案" \
+  || log_bad "v04-UX-5 refinance 版本规划残留" "still present"
+
+# v04-UX-6 · 已删 checkup placeholder 死代码模板
+{ [[ ! -f /home/finance/financial-management/src/main/resources/templates/checkup/placeholder-family.html \
+   && ! -f /home/finance/financial-management/src/main/resources/templates/checkup/placeholder-account.html ]]; } \
+  && log_ok "v04-UX-6 checkup placeholder 死代码模板已删除" \
+  || log_bad "v04-UX-6 placeholder 死代码仍在" "still present"
+
+# v04-UX-7 · my-todos 不再暴露 SNAPSHOT_TODO enum + (STOCK) 括号
+$CURL -b $COOKIE "$BASE/my-todos" -o "$TMP" -w ""
+# 已登录用户可能没待办 → 也 200,关键是模板内部没有这些噪音
+{ ! grep -q 'SNAPSHOT_TODO\|(STOCK)\|(WEALTH)\|(LOAN)' "$TMP"; } \
+  && log_ok "v04-UX-7 /my-todos 不再暴露 SNAPSHOT_TODO enum + 类型英文括号" \
+  || log_bad "v04-UX-7 enum 残留" "still present"
+
+# v04-UX-8 · stock/holdings 中文化(AUTO/MANUAL/CASH pill 改自动估值/手填市值/账户内现金)
+HOLDING_ACCT=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM account WHERE family_id=1 AND type='STOCK' AND archived_at IS NULL ORDER BY id LIMIT 1" 2>/dev/null)
+if [[ -n "$HOLDING_ACCT" ]]; then
+  $CURL -b $COOKIE "$BASE/accounts/$HOLDING_ACCT/holdings" -o "$TMP" -w ""
+  { ! grep -q '>AUTO 自动估值<\|>MANUAL 手填<\|>💰 CASH 现金<'; } < "$TMP" \
+    && log_ok "v04-UX-8 stock/holdings pill 中文化(去 AUTO/MANUAL/CASH enum 前缀)" \
+    || log_bad "v04-UX-8 holdings pill 仍含英文 enum" "still present"
+fi
 
 
 echo

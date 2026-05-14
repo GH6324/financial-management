@@ -54,15 +54,15 @@
     <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-2">估 · 值 · 分 · 解</div>
     <div class="grid grid-cols-3 gap-4 text-sm tnum">
       <div>
-        <div class="font-mono text-[10px] text-ink-subtle mb-0.5">持仓 AUTO</div>
+        <div class="font-mono text-[10px] text-ink-subtle mb-0.5">自动拉价</div>
         <div th:text="${account.currency} + ' ' + ${#numbers.formatInteger(valuation.autoBaseValue, 0, 'COMMA')}">HKD 0</div>
       </div>
       <div>
-        <div class="font-mono text-[10px] text-ink-subtle mb-0.5">持仓 MANUAL</div>
+        <div class="font-mono text-[10px] text-ink-subtle mb-0.5">手填市值</div>
         <div th:text="${account.currency} + ' ' + ${#numbers.formatInteger(valuation.manualBaseValue, 0, 'COMMA')}">HKD 0</div>
       </div>
       <div>
-        <div class="font-mono text-[10px] text-ink-subtle mb-0.5">现金(已 FX)</div>
+        <div class="font-mono text-[10px] text-ink-subtle mb-0.5">现金(已折算)</div>
         <div th:text="${account.currency} + ' ' + ${#numbers.formatInteger(valuation.cashBaseValue, 0, 'COMMA')}" style="color:var(--forest)">HKD 0</div>
       </div>
     </div>
@@ -73,7 +73,7 @@
     <div class="font-display text-xl mb-2">📦 还没有持仓</div>
     <p class="text-sm text-ink-soft mb-4">添加股票代码 + 数量 · 系统每日自动拉价算市值。或手填未上市持仓的市值。</p>
     <p class="text-xs text-ink-subtle">
-      注意:此账户未添加持仓时,继续沿用 v0.2 手填账户余额行为(/entry 页可填)。
+      未添加持仓时,此账户的余额仍可在填报页手填。
     </p>
   </div>
 
@@ -88,11 +88,11 @@
           <span class="pill text-[9px]" th:if="${h.ticker != null}" th:text="${h.ticker}">BABA</span>
           <span class="pill text-[9px]" th:if="${h.market != null}" th:text="${h.market}">US</span>
           <span class="pill text-[9px]" th:if="${h.valuationMode.name() == 'AUTO'}"
-                style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)">AUTO 自动估值</span>
+                style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)">自动估值</span>
           <span class="pill text-[9px]" th:if="${h.valuationMode.name() == 'MANUAL'}"
-                style="background:rgba(196,148,62,.15);color:var(--brass-deep);border-color:var(--brass-deep)">MANUAL 手填</span>
+                style="background:rgba(196,148,62,.15);color:var(--brass-deep);border-color:var(--brass-deep)">手填市值</span>
           <span class="pill text-[9px]" th:if="${h.valuationMode.name() == 'CASH'}"
-                style="background:rgba(47,93,80,.10);color:var(--forest);border-color:var(--forest)">💰 CASH 现金</span>
+                style="background:rgba(47,93,80,.10);color:var(--forest);border-color:var(--forest)">💰 账户内现金</span>
           <span class="pill text-[9px]" th:if="${h.valuationMode.name() == 'CASH' and h.currency != null and h.currency != account.currency}"
                 style="background:rgba(159,74,58,.08);color:var(--rust);border-color:var(--rust)"
                 th:text="'FX → ' + ${account.currency}">FX → HKD</span>
@@ -184,13 +184,13 @@
   <section class="paper-card p-5 mt-6 bg-card-soft" style="border-left:4px solid var(--ink-subtle)">
     <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-2">混 · 合 · 模 · 式 · 说 · 明</div>
     <ul class="text-sm text-ink-soft space-y-1.5">
-      <li>· <strong class="text-ink">AUTO</strong>:录入 ticker + 数量 · 系统每日 T+1 拉价 · 无维护成本</li>
-      <li>· <strong class="text-ink">MANUAL</strong>:手填账户币种市值 · 适合未上市/私募/拉不到价(默认账户币种 · 不做汇率换算)</li>
-      <li>· <strong class="text-ink">CASH(账户内现金)</strong>:券商账户里的闲置资金 · 多币种各一行 · 系统按 FX 折算到账户币种 · v0.3 FR-52e</li>
-      <li>· <strong class="text-ink">多币种混合</strong>:同一账户可放任意币种持仓 + 任意币种现金 · 系统按原币种算 · 再 FX 折算汇总</li>
-      <li>· 账户余额 = SUM(AUTO 市值 · 已 FX) + SUM(MANUAL · 账户币种直填) + SUM(CASH × FX 至账户币种)</li>
-      <li>· 拉价失败 · 自动用最近已知价 + UI 标"陈旧 N 天" · > 7 天提示改 MANUAL</li>
-      <li>· **关键 backward compat:**此账户未添加任何持仓时,系统不动 account_balance · 沿用 v0.2 手填行为</li>
+      <li>· <strong class="text-ink">自动拉价</strong>:录入代码 + 数量 · 系统每日 T+1 拉价 · 无维护成本</li>
+      <li>· <strong class="text-ink">手填市值</strong>:手填账户币种市值 · 适合未上市 / 私募 / 拉不到价(默认账户币种 · 不做汇率换算)</li>
+      <li>· <strong class="text-ink">账户内现金</strong>:券商账户里的闲置资金 · 多币种各一行 · 系统按汇率折算到账户币种</li>
+      <li>· <strong class="text-ink">多币种混合</strong>:同一账户可放任意币种持仓 + 任意币种现金 · 系统按原币种算 · 再汇率折算汇总</li>
+      <li>· 账户余额 = 自动拉价市值汇总 + 手填市值汇总 + 现金折算汇总</li>
+      <li>· 拉价失败时自动用最近已知价 + 界面标记"陈旧 N 天" · 超过 7 天提示改手填</li>
+      <li>· 此账户未添加任何持仓时,余额仍可在填报页手填,系统不会自动覆盖。</li>
     </ul>
   </section>
 

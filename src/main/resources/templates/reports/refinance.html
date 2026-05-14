@@ -14,7 +14,7 @@
   </div>
 
   <section class="mb-6 lg:mb-8">
-    <div class="eyebrow mb-2" style="color:var(--brass-deep)">FR-62d · 决 · 策 · 器</div>
+    <div class="eyebrow mb-2" style="color:var(--brass-deep)">决 · 策 · 器</div>
     <h1 class="font-display text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight">提前还贷,还是投资?</h1>
     <p class="font-serif text-sm text-ink-soft mt-3 max-w-2xl">
       中产 20 年房贷高频问题。本工具用 NPV / 复利对照,给出基于你<b>家庭真实数据</b>的推荐。
@@ -64,7 +64,7 @@
         <input type="number" min="1" max="50" name="years" required
                th:value="${defaultYears}"
                class="field-input tnum">
-        <p class="font-mono text-[10px] text-ink-subtle mt-1">v0.4 仅等额本息 · v0.5 加等额本金</p>
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">当前仅支持等额本息</p>
       </div>
     </div>
 
@@ -147,7 +147,6 @@
       <li>当前应急储备月数:<b class="tnum" th:text="${emergencyMonths != null ? emergencyMonths : '—'}">—</b> · &lt; 3 月会拒绝</li>
       <li>房贷利率 ≥ 投资预期 → 必还(节省 = 确定 vs 投资 = 不确定)</li>
       <li>本决策器假设你能<b>稳定持有 N 年</b>不动用 · 现实失业/重病会改变折现率</li>
-      <li>v0.5 加等额本金 vs 等额本息差异 · 本金提前还效果更显著</li>
     </ul>
   </section>
 

@@ -108,14 +108,14 @@
       <div class="text-2xl">⚠</div>
       <div class="flex-1">
         <div class="flex items-baseline justify-between mb-2">
-          <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-rust">AI 偏 · 离 · 预 · 警 · FR-53c</span>
+          <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-rust">AI · 偏 · 离 · 预 · 警</span>
           <span class="font-mono text-[10px] text-ink-subtle"
-                th:text="${#temporals.format(aiAlert.generatedAt, 'yyyy-MM-dd HH:mm')} + ' · 90 天节流'">2026-05-12 · 90 天节流</span>
+                th:text="${#temporals.format(aiAlert.generatedAt, 'yyyy-MM-dd HH:mm')} + ' · 90 天内复用'">2026-05-12 · 90 天内复用</span>
         </div>
         <p class="text-sm text-ink-soft leading-relaxed font-serif mb-3" th:text="${aiAlert.content}">预警内容...</p>
         <form th:action="@{|/goals/${goal.id}/alert/dismiss|}" method="post">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-          <button type="submit" class="btn-paper text-xs" style="border-color:var(--rust);color:var(--rust)">我知道了 · dismiss</button>
+          <button type="submit" class="btn-paper text-xs" style="border-color:var(--rust);color:var(--rust)">我知道了</button>
         </form>
       </div>
     </div>
@@ -127,7 +127,7 @@
       <summary class="px-6 py-4 flex items-center gap-3 cursor-pointer hover:bg-card-soft list-none border-b border-rule-soft">
         <span class="text-xl">✨</span>
         <div class="flex-1">
-          <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">AI 综 · 合 · 月 · 报 · FR-53b</div>
+          <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">AI · 综 · 合 · 月 · 报</div>
           <div class="font-display text-lg font-medium" th:text="${aiMonthlyReport != null ? '本期周期叙事' : '本期 AI 月报尚未生成'}">本期周期叙事</div>
         </div>
         <span class="font-mono text-[10px] text-ink-subtle"

@@ -13,7 +13,7 @@
       <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">🤖 AI · 调 · 仓 · 建 · 议</span>
       <span class="font-mono text-[9px] text-ink-subtle"
             th:if="${rebalanceAdvice.generatedAt != null}"
-            th:text="'生成于 ' + ${#temporals.format(rebalanceAdvice.generatedAt, 'yyyy-MM-dd HH:mm')} + ' · 30 天节流'">渲染于 ...</span>
+            th:text="'生成于 ' + ${#temporals.format(rebalanceAdvice.generatedAt, 'yyyy-MM-dd HH:mm')} + ' · 30 天内复用'">生成于 ...</span>
     </div>
     <p th:if="${rebalanceAdvice.narrative != null}"
        class="text-xs text-ink-soft leading-relaxed font-serif mb-3"

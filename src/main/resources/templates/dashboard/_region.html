@@ -42,7 +42,7 @@
       (function () {
         var requested = [[${requestedCurrency}]];
         var displaying = [[${currency}]];
-        var msg = '当期 ' + displaying + ' 对 ' + requested + ' 汇率未配置(自动拉取也失败),请联系管理员去 /admin/fx 手填。当前仍以 ' + displaying + ' 展示。';
+        var msg = '当期 ' + displaying + ' 对 ' + requested + ' 汇率尚未配置,请到「汇率设置」手填。当前仍以 ' + displaying + ' 展示。';
         function fire() {
           if (typeof window.showToast === 'function') {
             window.showToast({ message: msg, level: 'warn' });
