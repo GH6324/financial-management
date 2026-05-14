@@ -825,3 +825,38 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 - 0 schema · `RebalanceAdvisorService.advise(long)` + `LlmDiagnoseService.diagnoseFamily/Account` 老签名都保留作 1-2 参 overload · delegate 到新版本(forceRefresh=false)
 - Controller 新增 `refresh=false` 默认 RequestParam · form 不带也兼容
 - prod 升级 0 风险
+
+---
+
+### v0.4.9 · AI 综合诊断 JSON 结构化 + 4 维度卡(2026-05-14)
+
+**触发**:用户反馈「1.大段文字看着吃力 没排版没主题;2.没有清晰的分析方向/诊断方向」
+
+**设计**:LLM 输出从「200-500 字散文」改 JSON 结构化:overall + dimensions(配置/风险/流动性/收益 4 维)+ actions。前端按总评 banner + 4 卡 + 优先行动渲染。
+
+**改动**
+
+| 维度 | 之前 | v0.4.9 |
+|---|---|---|
+| LLM 输出 | 纯文本散文 200-500 字 | JSON · overall + 4 dimensions + 1-3 actions |
+| Prompt 诊断方向 | 三层叙事(总评/分析/建议)模糊 | 4 维度明确(配置/风险/流动性/收益)· 与体检页 4 卡对应 |
+| 渲染 | 一段散文 | 总评 banner(verdict 染色)+ 4 dim 卡(图标 + verdict pill + finding + evidence)+ 优先行动 ol |
+| OutputValidator | 直接对 raw 扫描 | JSON 路径:joinUserFacingStrings 拼后扫;非 JSON 路径不变 |
+| PRODUCT_NAME_PATTERN 6 位数字 | `\b\d{6}\b`(¥120526 / 2026 年误杀) | 加 lookbehind/lookahead:`(?<![¥$￥0-9.])\b\d{6}\b(?![元万千亿年月日天.])` |
+
+**新加 2 条**(v04-AI-DIAGNOSE-2/3)+ **OutputValidator 2 测**:
+- v04-AI-DIAGNOSE-2:结构化诊断渲染 · 含总评 + 4 维度 + 优先行动(10/10 marker)
+- v04-AI-DIAGNOSE-3:模板含 fallback 分支(老 cache / 解析失败时 text 显示)
+- 单测 `amountNotMisreadAsStockCode_v049`:¥120526 不再误杀
+- 单测 `stillRejectsStandaloneStockCode_v049`:600519 仍 reject(合规底线保留)
+
+**验证**
+- mvn test 166 全绿
+- bash scripts/qa-run.sh **284 PASS** / 3 pre-existing FAIL
+- 真实 beta LLM:JSON 解析成功 · 模板 10/10 marker · verdict OK/WARN/RISK 三态染色都对
+
+**backward-compat 红线**
+- 0 schema · DiagnoseResult 老 3 参工厂保留(structured=null)
+- 模板 `result.structured() == null` fallback 分支 · 老 cache 纯文本能正确显示
+- 其他 LLM caller(月报/向导)默认仍用文本路径 · 0 改动
+- prod 升级 0 风险

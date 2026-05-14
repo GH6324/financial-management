@@ -29,7 +29,65 @@
             title="重新生成 AI 诊断(忽略缓存)">↻ 刷新</button>
   </div>
 
-  <p class="text-sm text-ink leading-relaxed whitespace-pre-line"
+  <!-- v0.4.9 · 结构化 JSON 输出 → 4 维度卡 + 总评 + 优先行动 -->
+  <th:block th:if="${result.available() and result.structured() != null}"
+            th:with="s=${result.structured()}">
+
+    <!-- 总评 banner -->
+    <div class="paper-card p-3 mb-4"
+         th:with="vc=${s.overallVerdict()}"
+         th:style="${vc == 'RISK' ? 'background:rgba(159,74,58,.06); border-left:4px solid var(--rust)' :
+                     (vc == 'NEEDS_ATTENTION' ? 'background:rgba(196,148,62,.08); border-left:4px solid var(--brass-deep)' :
+                     'background:rgba(47,93,80,.06); border-left:4px solid var(--forest)')}">
+      <div class="flex items-baseline gap-2 flex-wrap mb-1">
+        <span class="font-mono text-[10px] tracking-[0.16em] uppercase"
+              th:style="${vc == 'RISK' ? 'color:var(--rust)' : (vc == 'NEEDS_ATTENTION' ? 'color:var(--brass-deep)' : 'color:var(--forest)')}"
+              th:text="${vc == 'RISK' ? '[亟需调整]' : (vc == 'NEEDS_ATTENTION' ? '[需关注]' : '[稳健]')}">[稳健]</span>
+        <span class="font-mono text-[10px] text-ink-subtle">总评</span>
+      </div>
+      <p class="text-sm text-ink leading-relaxed" th:text="${s.overallSummary()}">总评句</p>
+    </div>
+
+    <!-- 4 维度卡 -->
+    <div class="space-y-2 mb-4">
+      <div th:each="d : ${s.dimensions()}"
+           th:with="dv=${d.verdict()}"
+           class="paper-card px-3 py-2.5"
+           th:style="${dv == 'RISK' ? 'border-left:3px solid var(--rust)' :
+                       (dv == 'WARN' ? 'border-left:3px solid var(--brass-deep)' :
+                       'border-left:3px solid var(--forest)')}">
+        <div class="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
+          <div class="flex items-baseline gap-2">
+            <span class="text-base" th:text="${d.icon()}">📊</span>
+            <span class="font-display text-sm font-medium" th:text="${d.name()}">资产配置</span>
+          </div>
+          <span class="font-mono text-[10px] px-1.5 py-px border"
+                th:style="${dv == 'RISK' ? 'color:var(--rust); border-color:var(--rust); background:rgba(159,74,58,.05)' :
+                           (dv == 'WARN' ? 'color:var(--brass-deep); border-color:var(--brass-deep); background:rgba(196,148,62,.06)' :
+                           'color:var(--forest); border-color:var(--forest); background:rgba(47,93,80,.05)')}"
+                th:text="${dv}">OK</span>
+        </div>
+        <p class="text-xs text-ink leading-relaxed mb-1" th:text="${d.finding()}">诊断结论</p>
+        <p class="text-[11px] text-ink-subtle font-mono leading-relaxed"
+           th:if="${d.evidence() != null and !d.evidence().isBlank()}"
+           th:text="'· ' + ${d.evidence()}">· 数据支撑</p>
+      </div>
+    </div>
+
+    <!-- 优先行动 -->
+    <div th:if="${s.actions() != null and !s.actions().isEmpty()}"
+         class="paper-card px-3 py-2.5"
+         style="background:rgba(122,90,57,.04); border-left:3px solid var(--brass-deep)">
+      <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep mb-2">🎯 优 · 先 · 行 · 动</div>
+      <ol class="space-y-1 text-xs text-ink list-decimal list-inside leading-relaxed">
+        <li th:each="a : ${s.actions()}" th:text="${a}">行动</li>
+      </ol>
+    </div>
+  </th:block>
+
+  <!-- Fallback · 老路径(LLM 解析失败 / 旧 cache / unavailable):仍显示纯文本 -->
+  <p th:if="${not result.available() or result.structured() == null}"
+     class="text-sm text-ink leading-relaxed whitespace-pre-line"
      th:style="${result.available() ? '' : 'color:var(--ink-soft); font-style: italic;'}"
      th:text="${result.text()}">
     AI 综合诊断文案占位...

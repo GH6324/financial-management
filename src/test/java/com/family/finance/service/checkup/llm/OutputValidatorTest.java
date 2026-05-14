@@ -174,6 +174,24 @@ class OutputValidatorTest {
     }
 
     @Test
+    void amountNotMisreadAsStockCode_v049() {
+        // v0.4.9:¥120526 / 2026 年这类 6 位数字不该被当 A 股代码
+        String text = VALID_DIAGNOSE.replace("跟踪基准的指数型仓位",
+                "建议每年¥120526 转入指数型仓位");
+        var r = OutputValidator.check(text, NO_NAMES);
+        assertThat(r.accepted()).isTrue();
+    }
+
+    @Test
+    void stillRejectsStandaloneStockCode_v049() {
+        // 真正 A 股代码(无 ¥ 前缀 · 无单位后缀)仍 reject · 合规底线
+        String bad = VALID_DIAGNOSE.replace("跟踪基准的指数型仓位", "可以考虑 600519 这个标的");
+        var r = OutputValidator.check(bad, NO_NAMES);
+        assertThat(r.accepted()).isFalse();
+        assertThat(r.reason()).contains("产品名");
+    }
+
+    @Test
     void accountWhitelistAllowsOwnAccountReference_v047() {
         // v0.4.7:用户已有「支付宝-余额宝」账户时,「余额宝」不再被 PRODUCT_NAME_PATTERN reject
         Set<String> accountWhitelist = Set.of("支付宝-余额宝");

@@ -12,6 +12,8 @@ import com.family.finance.service.ProductCategoryService;
 import com.family.finance.service.checkup.AccountDiagnose;
 import com.family.finance.service.checkup.FamilyDiagnose;
 import com.family.finance.service.checkup.rule.Advice;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -48,6 +50,7 @@ public class LlmDiagnoseService {
     private final AccountMapper accountMapper;
     private final ProductCategoryService categoryService;
     private final FamilyService familyService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // v0.3 FR-53d · 可选注入 · 无 goal 时 null safe(v0.2 行为不变)
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -192,7 +195,9 @@ public class LlmDiagnoseService {
         if (!forceRefresh) {
             CacheEntry hit = cache.get(cacheKey);
             if (hit != null && System.currentTimeMillis() - hit.timestamp < TTL_MS) {
-                return DiagnoseResult.ok(hit.diagnoseText, hit.vendor, true);
+                // cache 仍存 raw 字符串 · 渲染时再次解析 JSON(off-cache structured 重新建)
+                DiagnoseStructured s = tryParseStructured(hit.diagnoseText);
+                return DiagnoseResult.ok(hit.diagnoseText, hit.vendor, true, s);
             }
         } else {
             log.info("LLM diagnose forceRefresh · scope={} entityId={}", scope, entityId);
@@ -217,8 +222,11 @@ public class LlmDiagnoseService {
             }
             long elapsed = System.currentTimeMillis() - t0;
 
-            // 校验:LLM 输出应仍为代号体(成员A/B/C),不该含真名
-            OutputValidator.Result vr = OutputValidator.check(raw, realNames);
+            // 校验(JSON 模式 · 把 JSON 里的所有 string 拼起来过 validator)
+            //   v0.4.9:LLM 现在输出 JSON · 把 user-facing 字段(narrative/finding/evidence/actions)
+            //   join 后过 OutputValidator,行为等价于老的纯文本校验
+            String textForValidate = joinUserFacingStrings(raw);
+            OutputValidator.Result vr = OutputValidator.check(textForValidate, realNames);
             // 全交互日志(prompt + response + elapsed,无论接受与否都记)
             LlmAuditLogger.log(client.vendor(), scope, familyId, entityId,
                     systemPrompt, userPrompt, raw, elapsed,
@@ -236,7 +244,8 @@ public class LlmDiagnoseService {
                 // 反映射代号 → 真名(给前端用户展示)
                 String mapped = PromptBuilder.reverseMapping(raw, codenameToReal);
                 cache.put(cacheKey, new CacheEntry(mapped, client.vendor(), System.currentTimeMillis()));
-                return DiagnoseResult.ok(mapped, client.vendor(), false);
+                DiagnoseStructured structured = tryParseStructured(mapped);
+                return DiagnoseResult.ok(mapped, client.vendor(), false, structured);
             } catch (Exception e) {
                 log.warn("LLM[{}] 调用失败: {}", client.vendor(), e.getMessage());
             }
@@ -251,6 +260,98 @@ public class LlmDiagnoseService {
             // audit 失败不阻塞主流程
         }
         return DiagnoseResult.unavailable("AI 暂时不可用");
+    }
+
+    /**
+     * v0.4.9 · 尝试把 LLM 输出 raw 字符串解析成结构化对象 · 解析失败返 null(前端会 fallback 显示 text)。
+     * 支持 LLM 用 markdown 包裹的 JSON(```json ... ```)· 自动剥壳。
+     */
+    private DiagnoseStructured tryParseStructured(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            // 1. 提取首个 JSON 对象(去 markdown ``` 包裹)
+            String clean = extractJsonObject(raw);
+            if (clean == null) return null;
+            JsonNode root = objectMapper.readTree(clean);
+
+            // 2. overall
+            JsonNode overallNode = root.path("overall");
+            if (overallNode.isMissingNode() || overallNode.isNull()) return null;
+            String overallVerdict = overallNode.path("verdict").asText("STABLE");
+            String overallSummary = overallNode.path("summary").asText("");
+
+            // 3. dimensions(应有 4 条 · 但容忍 LLM 偶尔少给 1 条)
+            JsonNode dimsNode = root.path("dimensions");
+            if (!dimsNode.isArray() || dimsNode.isEmpty()) return null;
+            List<DiagnoseStructured.Dimension> dims = new ArrayList<>();
+            // 维度名 → 默认图标(若 LLM 没给)
+            Map<String, String> defaultIcons = Map.of(
+                "资产配置", "📊", "风险敞口", "⚡", "流动性", "💧", "收益质量", "📈"
+            );
+            for (JsonNode d : dimsNode) {
+                String name = d.path("name").asText("");
+                if (name.isBlank()) continue;
+                String icon = d.path("icon").asText(defaultIcons.getOrDefault(name, "•"));
+                String verdict = d.path("verdict").asText("OK");
+                String finding = d.path("finding").asText("");
+                String evidence = d.path("evidence").asText("");
+                dims.add(new DiagnoseStructured.Dimension(name, icon, verdict, finding, evidence));
+            }
+            if (dims.isEmpty()) return null;
+
+            // 4. actions(可空)
+            List<String> actions = new ArrayList<>();
+            JsonNode actNode = root.path("actions");
+            if (actNode.isArray()) {
+                for (JsonNode a : actNode) {
+                    String s = a.asText("");
+                    if (!s.isBlank()) actions.add(s);
+                }
+            }
+
+            return new DiagnoseStructured(overallVerdict, overallSummary, dims, actions);
+        } catch (Exception e) {
+            log.debug("LLM 输出非结构化 JSON · fallback 到纯文本: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** 提取 raw 中第一个完整的 JSON 对象 · 去 markdown 包裹 */
+    private String extractJsonObject(String raw) {
+        if (raw == null) return null;
+        // 找首个 { 和最后一个 }
+        int start = raw.indexOf('{');
+        int end = raw.lastIndexOf('}');
+        if (start < 0 || end <= start) return null;
+        return raw.substring(start, end + 1);
+    }
+
+    /**
+     * v0.4.9 · 把 JSON 输出里所有 user-facing string 拼起来给 OutputValidator 扫描。
+     * 解析失败 → 直接返 raw(老路径行为)。
+     */
+    private String joinUserFacingStrings(String raw) {
+        if (raw == null) return "";
+        try {
+            String clean = extractJsonObject(raw);
+            if (clean == null) return raw;
+            JsonNode root = objectMapper.readTree(clean);
+            StringBuilder sb = new StringBuilder();
+            // overall.summary
+            sb.append(root.path("overall").path("summary").asText("")).append("\n");
+            // dimensions[].finding + evidence
+            for (JsonNode d : root.path("dimensions")) {
+                sb.append(d.path("finding").asText("")).append("\n");
+                sb.append(d.path("evidence").asText("")).append("\n");
+            }
+            // actions[]
+            for (JsonNode a : root.path("actions")) {
+                sb.append(a.asText("")).append("\n");
+            }
+            return sb.toString().trim();
+        } catch (Exception ignored) {
+            return raw;
+        }
     }
 
     private List<PromptBuilder.AccountSummary> buildAccountSummaries(Long familyId,
@@ -330,22 +431,60 @@ public class LlmDiagnoseService {
      * @param vendor     成功时:实际 LLM 厂商(qwen / deepseek);降级时为 "fallback"
      * @param fromCache  是否来自缓存
      * @param generatedAt 生成时刻(展示用)
+     * @param structured v0.4.9 起 · LLM 输出结构化 JSON 时填入 · 老路径 / fallback 时为 null
      */
     public record DiagnoseResult(
             boolean available,
             String text,
             String vendor,
             boolean fromCache,
-            Instant generatedAt
+            Instant generatedAt,
+            DiagnoseStructured structured
     ) {
         public static DiagnoseResult ok(String text, String vendor, boolean fromCache) {
-            return new DiagnoseResult(true, text, vendor, fromCache, Instant.now());
+            return new DiagnoseResult(true, text, vendor, fromCache, Instant.now(), null);
+        }
+        public static DiagnoseResult ok(String text, String vendor, boolean fromCache, DiagnoseStructured structured) {
+            return new DiagnoseResult(true, text, vendor, fromCache, Instant.now(), structured);
         }
         public static DiagnoseResult unavailable(String reason) {
             return new DiagnoseResult(false,
                     "AI 综合诊断暂时不可用。以上为系统规则引擎给出的硬数据便签卡,可作为本次体检的核心参考。如需 AI 视角,请稍后刷新重试。",
-                    "fallback", false, Instant.now());
+                    "fallback", false, Instant.now(), null);
         }
+    }
+
+    /**
+     * v0.4.9 · AI 诊断结构化输出(JSON 解析后)
+     * <p>前端按 overall 总评 + 4 dimension 卡 + actions 列表渲染 · 替代纯文本散文。
+     *
+     * @param overallVerdict 总体判断 STABLE | NEEDS_ATTENTION | RISK
+     * @param overallSummary 1-2 句总评(40-80 字)
+     * @param dimensions     4 个诊断维度卡(配置/风险/流动性/收益)
+     * @param actions        1-3 条优先行动(可执行 · 跨规则综合)
+     */
+    public record DiagnoseStructured(
+            String overallVerdict,
+            String overallSummary,
+            List<Dimension> dimensions,
+            List<String> actions
+    ) {
+        /**
+         * 单个诊断维度卡。
+         *
+         * @param name     维度名(资产配置 / 风险敞口 / 流动性 / 收益质量)
+         * @param icon     单字符 emoji(📊 / ⚡ / 💧 / 📈)
+         * @param verdict  OK | WARN | RISK
+         * @param finding  诊断结论(30-80 字)
+         * @param evidence 数据支撑(20-50 字 · 引用上下文硬事实)
+         */
+        public record Dimension(
+                String name,
+                String icon,
+                String verdict,
+                String finding,
+                String evidence
+        ) {}
     }
 
     /** 透出 cache 状态(供测试用) */

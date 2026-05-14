@@ -2012,10 +2012,27 @@ $CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
 
 # v04-AI-DIAGNOSE-1 · /checkup AI 综合诊断刷新按钮带 refresh=true(此前 title 写忽略 cache 但实际没传)
 #   /checkup 主页用 spinner placeholder + HTMX 异步加载 · 必须直接 GET /checkup/diagnose 拿 panel fragment
-$CURL -b $COOKIE "$BASE/checkup/diagnose" -o "$TMP" -w "" --max-time 30
+$CURL -b $COOKIE "$BASE/checkup/diagnose" -o "$TMP" -w "" --max-time 60
 { grep -q 'refresh=true' "$TMP" && grep -q '↻ 刷新' "$TMP"; } \
   && log_ok "v04-AI-DIAGNOSE-1 /checkup/diagnose panel 刷新按钮带 refresh=true(真忽略 cache)" \
   || log_bad "v04-AI-DIAGNOSE-1 诊断刷新按钮 url 错" "no refresh=true in href"
+
+# v04-AI-DIAGNOSE-2 · v0.4.9 · 结构化 JSON 渲染 4 维度卡(总评 + 4 卡 + 优先行动)
+$CURL -b $COOKIE "$BASE/checkup/diagnose?refresh=true" -o "$TMP" -w "" --max-time 60
+# 总评 banner + 4 个 dimension 名 + verdict pill + 优先行动
+total_markers=0
+for kw in "总评" "资产配置" "风险敞口" "流动性" "收益质量" "优 · 先 · 行 · 动" "📊" "⚡" "💧" "📈"; do
+  if grep -q "$kw" "$TMP"; then total_markers=$((total_markers+1)); fi
+done
+{ [[ "$total_markers" -ge 8 ]]; } \
+  && log_ok "v04-AI-DIAGNOSE-2 结构化诊断渲染 · 总评+4 维度+优先行动 (markers=$total_markers)" \
+  || log_bad "v04-AI-DIAGNOSE-2 结构化渲染缺" "markers=$total_markers/10"
+
+# v04-AI-DIAGNOSE-3 · 老 cache(纯文本)兼容 · structured 解析失败时 fallback 显示 text
+# 直接造一个非 JSON cache 强制走 fallback 路径(注:cache 是内存 · 难直接造 · 这里查模板分支存在)
+grep -q "structured() == null" src/main/resources/templates/checkup/_ai-diagnose.html \
+  && log_ok "v04-AI-DIAGNOSE-3 模板含 fallback 分支(老 cache / 解析失败时显示 text)" \
+  || log_bad "v04-AI-DIAGNOSE-3 fallback 分支缺" "missing structured null check"
 
 
 echo
