@@ -10,7 +10,7 @@
     <div class="flex items-end justify-between flex-wrap gap-6 mb-6">
       <div>
         <div class="eyebrow mb-2" th:text="${#temporals.format(anchorPeriod.periodStart, 'yyyy · MM')} + ' · 月度账册'">2026 · 04 · 月度账册</div>
-        <h1 class="font-display text-5xl font-medium tracking-tight">
+        <h1 class="font-display text-3xl sm:text-5xl font-medium tracking-tight">
           家庭仪表盘,<span class="italic font-light text-brass-deep">实时汇总。</span>
         </h1>
         <p class="text-ink-soft mt-3 max-w-xl text-sm">
@@ -22,7 +22,7 @@
         <a th:each="r : ${ranges}"
            th:href="@{/dashboard(range=${r},currency=${currency},accounts=${accountsCsv})}"
            hx-target="#dashboard-region" hx-swap="outerHTML"
-           class="font-mono text-[11px] tracking-[0.12em] px-4 py-2 no-underline border-l border-rule first:border-l-0"
+           class="font-mono text-[10px] sm:text-[11px] tracking-[0.12em] px-2 sm:px-4 py-1.5 sm:py-2 no-underline border-l border-rule first:border-l-0"
            th:classappend="${range == r ? ' bg-ink text-paper' : ' text-ink-soft hover:bg-card-soft'}"
            th:text="${r}">1Y</a>
       </div>
@@ -111,6 +111,7 @@
   </section>
 
   <!-- v0.4 FR-60a · KPI 收敛 9→5 · 负债率搬 /checkup · 月均收入/支出/储蓄率/已填月份 搬 /reports 储蓄区 -->
+  <!-- 手机 2 列(第 5 个 KPI 跨 2 列居中)→ sm 起 3 列 → lg 起 5 列 -->
   <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-rule mb-6 lg:mb-8">
     <a th:href="@{/checkup}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
       <span class="kpi-eyebrow">净资产</span>
@@ -134,8 +135,8 @@
       <div class="kpi-value tnum" th:text="${kpiEmergency}">—</div>
       <div class="kpi-delta">流动资产 / 月均支出</div>
     </a>
-    <!-- v0.4.2 新增 · 本月资产收益(剔除外部现金流 · "钱赚的"vs"人赚的"二分核心指标)-->
-    <a th:href="@{/reports}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
+    <!-- v0.4.2 新增 · 本月资产收益 · 手机端第 5 个 KPI 跨 2 列居中(col-span-2 sm:col-span-1)-->
+    <a th:href="@{/reports}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors col-span-2 sm:col-span-1">
       <span class="kpi-eyebrow">本月资产收益</span>
       <div class="kpi-value tnum"
            th:classappend="${monthlyPnlPctLabel != null and monthlyPnlPctLabel.startsWith('+') ? ' num-pos' : (monthlyPnlPctLabel != null and monthlyPnlPctLabel.startsWith('-') ? ' num-neg' : '')}"
@@ -178,11 +179,11 @@
           </select>
         </form>
       </div>
-      <div style="height:360px"><canvas id="netWorthChart"></canvas></div>
+      <div class="h-[240px] sm:h-[360px]"><canvas id="netWorthChart"></canvas></div>
     </div>
     <div class="paper-card p-6 lg:col-span-4">
       <div class="eyebrow mb-1">资产配置</div>
-      <div style="height:360px"><canvas id="allocationChart"></canvas></div>
+      <div class="h-[220px] sm:h-[360px]"><canvas id="allocationChart"></canvas></div>
     </div>
   </section>
 
@@ -193,7 +194,7 @@
         <div class="eyebrow">按成员分布</div>
         <span class="font-mono text-[10px] text-ink-subtle">LOAN 不计</span>
       </div>
-      <div style="height:320px"><canvas id="memberAllocationChart"></canvas></div>
+      <div class="h-[220px] sm:h-[320px]"><canvas id="memberAllocationChart"></canvas></div>
     </div>
   </section>
 
@@ -213,24 +214,29 @@
       <h2 class="font-display text-2xl font-medium">账户列表</h2>
       <span class="font-mono text-[10px] text-ink-subtle" th:text="${#lists.size(accountRows)} + ' 个账户'">11 个账户</span>
     </div>
-    <div class="paper-card overflow-hidden">
-      <table class="ledger-table">
-        <thead><tr><th>账户</th><th>类型</th><th class="num">当前价值</th><th class="num">收益率</th><th>近况</th><th class="text-right pr-3">操作</th></tr></thead>
+    <div class="paper-card overflow-x-auto">
+      <table class="ledger-table min-w-0">
+        <thead><tr>
+          <th>账户</th>
+          <th class="hidden sm:table-cell">类型</th>
+          <th class="num">当前价值</th>
+          <th class="num hidden sm:table-cell">收益率</th>
+          <th class="hidden lg:table-cell">近况</th>
+          <th class="text-right pr-3">操作</th>
+        </tr></thead>
         <tbody>
         <tr th:each="account : ${accountRows}" class="hover:bg-card-soft transition">
           <td>
             <a th:href="@{/accounts/{id}(id=${account.accountId})}"
-               class="font-display hover:text-brass-deep no-underline"
+               class="font-display hover:text-brass-deep no-underline text-xs sm:text-sm"
                th:text="${account.accountName}">账户</a>
           </td>
-          <td><span class="pill" th:text="${account.accountType.label} + ' (' + ${account.accountType.name()} + ')'">现金 (CASH)</span></td>
-          <td class="num" th:text="${account.currentValue == null ? '—' : account.currentValue}">0</td>
-          <td class="num" th:text="${account.xirr == null ? '—' : (#numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">—</td>
-          <td><svg class="sparkline-pos" width="80" height="22" viewBox="0 0 80 22"><polyline fill="none" stroke="currentColor" stroke-width="1.5" points="0,18 10,15 20,16 30,11 40,13 50,8 60,10 70,6 80,4"/></svg></td>
+          <td class="hidden sm:table-cell"><span class="pill" th:text="${account.accountType.label}">现金</span></td>
+          <td class="num text-xs sm:text-sm" th:text="${account.currentValue == null ? '—' : account.currentValue}">0</td>
+          <td class="num hidden sm:table-cell" th:text="${account.xirr == null ? '—' : (#numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">—</td>
+          <td class="hidden lg:table-cell"><svg class="sparkline-pos" width="80" height="22" viewBox="0 0 80 22"><polyline fill="none" stroke="currentColor" stroke-width="1.5" points="0,18 10,15 20,16 30,11 40,13 50,8 60,10 70,6 80,4"/></svg></td>
           <td class="text-right pr-3 whitespace-nowrap font-mono text-[10px] tracking-wider">
-            <a th:href="@{/accounts/{id}(id=${account.accountId})}" class="text-ink-soft hover:text-brass-deep no-underline">→ 账本</a>
-            <span class="mx-1 text-ink-subtle">·</span>
-            <a th:href="@{/checkup(account=${account.accountId})}" class="text-brass-deep hover:underline no-underline">→ 体检</a>
+            <a th:href="@{/checkup(account=${account.accountId})}" class="text-brass-deep hover:underline no-underline">体检</a>
           </td>
         </tr>
         </tbody>
@@ -397,17 +403,18 @@
           options: {
             indexAxis: 'y',
             maintainAspectRatio: false,
-            layout: { padding: { right: 80, left: 80 } },
+            // 手机端 left/right padding 大幅缩小(375px 宽 - 80*2 = 只剩 215px 给图表)
+            layout: { padding: { right: window.innerWidth < 640 ? 10 : 80, left: window.innerWidth < 640 ? 10 : 80 } },
             plugins: {
               legend: { display: false },
-              title: { display: true, text: '按账户分布 · ' + data.currency + '(资产 → 右 / 负债 → 左)', padding: { bottom: 12 }, font: { size: 13, weight: '500' }, color: '#3a302a' },
+              title: { display: true, text: window.innerWidth < 640 ? '按账户分布 · ' + data.currency : '按账户分布 · ' + data.currency + '(资产 → 右 / 负债 → 左)', padding: { bottom: 8 }, font: { size: window.innerWidth < 640 ? 11 : 13, weight: '500' }, color: '#3a302a' },
               tooltip: { callbacks: { label: (ctx) => fmtMoney(ctx.parsed.x) } },
               datalabels: {
                 anchor: (ctx) => ctx.dataset.data[ctx.dataIndex] < 0 ? 'start' : 'end',
                 align: (ctx) => ctx.dataset.data[ctx.dataIndex] < 0 ? 'start' : 'end',
-                offset: 6,
+                offset: window.innerWidth < 640 ? 2 : 6,
                 color: '#3a302a',
-                font: { size: 10, weight: '500' },
+                font: { size: window.innerWidth < 640 ? 8 : 10, weight: '500' },
                 formatter: (v) => v == null || Number(v) === 0 ? '' : fmtMoney(v)
               }
             },
@@ -416,9 +423,9 @@
                 min: -maxAbs * 1.1,
                 max:  maxAbs * 1.1,
                 grid: { color: (ctx) => ctx.tick.value === 0 ? '#3a302a' : 'rgba(58,48,42,.05)', lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1 },
-                ticks: { callback: (v) => fmtMoney(v) }
+                ticks: { callback: (v) => fmtMoney(v), font: { size: window.innerWidth < 640 ? 8 : 11 } }
               },
-              y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+              y: { grid: { display: false }, ticks: { font: { size: window.innerWidth < 640 ? 9 : 11 } } }
             }
           },
           plugins: [ChartDataLabels]
