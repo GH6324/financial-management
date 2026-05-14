@@ -33,91 +33,18 @@
 
 ## 主要能力
 
-### v0.1(MVP)
+- **每月 10 分钟全家完成** — 月度 / 周度周期可切 · 自动生成"填余额"待办 · 移动端响应式 + iOS PWA
+- **6 种账户类型** — 现金 / 股票 / 理财 / 房产 / 负债 / 其他 · 13 个内置模板 · 16 类产品类目
+- **真实收益率** — 账户级 XIRR + 家庭级 XIRR(含收入,资金加权)/ 资产年化 TWR(剔除收入,几何平均)· 区分"人赚的"vs"钱赚的"
+- **多币种** — 本位币 CNY / USD / HKD · 自动拉汇率 · FX 链式经家庭 base 中转
+- **股票自动估值** — 录 ticker + 数量 · 每日 T+1 拉价(新浪主 + 腾讯备 · 圆形熔断)· 美 / A / 港 三市场
+- **财务目标** — 退休 FIRE(通胀 PV + 4% 提取率)/ 子女教育 / 应急储备 · 三情景预测(乐观 / 中性 / 悲观)
+- **资产体检 + AI 诊断** — 4 维度结构化诊断(配置 / 风险 / 流动性 / 收益)· 智能建议规则引擎 · LLM 综合分析(Qwen-Plus 主 / DeepSeek 备)
+- **AI 调仓建议** — 4 桶配置 diff(现金 / 投资 / 房产 / 保险)· LLM 给出具体调仓步骤("从 X 调 ¥N 到 Y")· 30 天复用 + 一键刷新
+- **决策辅助** — CPI 对照线 / 账户级基准对照 / 提前还贷决策器(NPV 18 年视角)/ 应急金不闲置提示
+- **隐私与可移植** — 自托管 · 真名脱敏后再喂 LLM · CSV 一键导出全部数据 · Apache 2.0
 
-- 6 种账户类型(现金 / 股票 / 理财 / 房产 / 负债 / 其他),13 个内置账户模板
-- 月度 / 周度周期可切,每周期自动给每个账户生成"填余额"待办
-- 余额录入 + 现金流(收入/支出)+ 跨账户转账;**轧差自动建议未解释金额怎么分类**
-- 周期自动关闭 + 指标重算(净资产 / 总资产 / 总负债 / 趋势 / 配置)
-- 账户级 XIRR + 家庭级 XIRR / TWR
-- 多币种(本位币可选 CNY/USD/HKD,自动拉汇率)
-- CSV 一键导出全部数据(避免被工具锁死)
-- 移动端响应式(妻子手机能完成全部填报)
-- 系统级 logo / 品牌名 / 周期类型 / 汇率覆盖 11 个 admin 子页
-
-### v0.2
-
-- 单账户详情页(账本视角:余额时序 + 月分组流水)+ 单账户 CSV
-- 单条流水软删除(保留撤销路径)
-- iOS PWA 添加到主屏(`apple-touch-icon` + manifest)
-- 微信内浏览器引导(打开系统浏览器登录)
-- 4 套预设品牌图标(默认 icon2,可自定义 WebP 上传)
-- **资产体检**模块:
-  - 全家诊断(配置 / 风险敞口 / 流动性 / 收益质量)
-  - 账户级诊断(类型差异化 · STOCK / WEALTH / CASH / LOAN / PROPERTY)
-  - 16 条智能建议规则(余额负数 / 久未填报 / 单类目集中度过高 等)
-  - LLM 综合诊断(主 Qwen-Plus / 备 DeepSeek-Chat · 真名脱敏 · 圆形熔断)
-  - 产品类目 + 6 级风险评级体系
-  - 报表风险等级分布环形图
-- Dashboard 加"按账户分布"横向 bar(资产向右 / 负债向左 / 0 居中)+ "按成员分布"饼图
-- 搜索式下拉(大列表 select 自动升级)
-
-### v0.4(2026-05-14 主线 + .1/.2/.3 · tag `v0.4.3`)
-
-- **报表大整顿**(FR-60a/b/c)· 砍 8 张流水视角图(瀑布 / 桑基 / 月度对比 / 风险敞口表 / 汇率表 ...)· dashboard / reports / checkup 三页职责重切
-- **摸清第 5 问**(跑赢通胀和市场)
-  - CPI 对照线(FR-61a · 切换器在 dashboard · 默认 2.00%)· 净资产趋势加虚线对比
-  - 账户级基准对照(FR-61b/c · `product_category.benchmark_pct` · 跑赢/输 pill)
-- **调优决策辅助**
-  - 配置 diff(FR-62a · 4 类目 vs 4 模板 · 砍/补/超配建议)
-  - AI 调仓建议(FR-62b · 30 天节流 · LLM JSON 输出 · 真名脱敏)
-  - 应急金不闲置提示(FR-62c · LIQUID 超额 6 月时建议挪 50% 至理财)
-  - 提前还贷决策器(FR-62d · `/reports/refinance` · NPV 18 年视角)
-- **v0.4.1 股票估值事件 ledger**(FR-52f)· 拉价后 `stock_valuation_event` 表记录 · `/entry` + `/accounts/{id}` 显示 📈 估值行
-- **v0.4.2 「人赚 vs 钱赚」二分收益指标**(用户拍板产品定位)
-  - 家庭 XIRR · 含收入(资金加权)/ 资产年化 · 剔除收入 ★(几何平均 · 真实资产回报)
-  - 人赚的 · 净流入累计 / 钱赚的 · 投资 PnL 累计
-  - dashboard 第 5 KPI 改为「本月资产收益」· reports + checkup 同步双口径
-- **v0.4.3 QA 视角再审视 → P0 修复**(2026-05-14)
-  - **B1** period_snapshot 漏填账户 NULL → fact_view 续值 ≤ 当期最近一笔非空(读时 COALESCE · 不写库)
-  - **B2** dashboard 紧急储备 vs reports 储蓄能力双源问题 → PMC 优先 + cash_flow 回退
-  - **B4** YTD 复用 caller range slice 漂移 → 独立 load 1 月-今天 slice
-  - 0 schema 变更 · 100% backward-compat
-- **v0.4.4 用户面文案专业化清理**(2026-05-14)· 13 模板 ~30 处 · 0 schema
-  - 删除内部 routing 暴露(「已搬到 /dashboard」「已挪至 /admin/fx」等)
-  - 清除用户面 v0.X / FR-XX 代号 · 中文化 AUTO/MANUAL/CASH 等 enum
-  - `/entry` / `/admin/fx` 路径文字改「填报页」/「汇率设置」
-  - 历史 `auto-stock-valuation v0.3` ledger note → 「系统估值同步」(写入端 + 渲染端兼容)
-- **v0.4.4-hotfix prod 应急**(3 commits)· dashboard/_region L157/L158 Thymeleaf 表达式 `#numbers.xxx()` 在 `${...}` 外的语法错(beta 不触发 / prod 应急金超额触发)+ layout / nav _csrf null-safe 兜底
-- **v0.4.5 /checkup 风险敞口饼图化**(2026-05-14)· 等级列表 → doughnut + datalabels(用户反馈"干巴巴的数字")· 0 schema
-- **v0.4.6 AI 调仓建议「按了没反应」修复**(2026-05-14)· OutputValidator 加账户名白名单(用户自家余额宝被误杀)+ 前端反馈条(成功/缓存/失败 3 态)
-- **v0.4.7 OutputValidator 放宽**(2026-05-14)· 用户反馈「限制太多」· 删古典词扫描 + 删过度客套扫描 + 真名 length≥3 + rebalance caller 跳过真名扫描(prompt 端零真名传入)
-- **v0.4.8 AI 缓存 + 刷新按钮真生效**(2026-05-14)· MAX_LEN 700→1500 · rebalance 加「↻ 刷新」按钮 · checkup 诊断刷新按钮此前假忽略缓存现在真传 refresh=true
-- **v0.4.9 AI 诊断 JSON 结构化 + 4 维度卡**(2026-05-14)· 用户反馈「大段文字吃力没主题没诊断方向」· LLM 输出 JSON · 前端 总评 banner + 配置/风险/流动性/收益 4 卡(verdict 染色)+ 优先行动 · 修 PRODUCT_NAME_PATTERN 不误杀 ¥120526
-- **v0.4.10 LLM max_tokens 750→2000 + 截断检测**(2026-05-14)· 用户反馈「AI 诊断常显示一大段 JSON」· 真因是 max_tokens=750 导致 JSON 输出被中途截断 · QwenClient + DeepSeekClient 提到 2000 + finish_reason=length 日志告警 + DiagnoseResult.truncated 字段让前端显「⚠ 输出被截断 请刷新」
-- **v0.4.11 prompt 占比 bug + 严禁 LLM 算术**(2026-05-14)· 用户反馈 LLM 胡说占比 · 双层修:(1) PromptBuilder `pct1(ratio)` 没 ×100 显成 0.4% 误导 LLM → 新增 `pctFromRatio` ×100;(2) SYSTEM_DIAGNOSE 加「⚠⚠⚠ 100% 禁四则运算 · 数字必须照抄」防 LLM 二次瞎算
-- **真 LLM 接通**(beta)· Qwen-Plus 调仓建议 · 圆形熔断不影响主路径
-
-### v0.3(2026-05-13 封板 · tag `v0.3`)
-
-- **财务目标体系** · `/goals` 一级页 + Dashboard 顶部进度条带(信息架构 C 混合)
-  - 退休 / FIRE(通胀 PV + 提取率 4%)
-  - 子女教育金(child member FK + 通胀公式)
-  - 应急储备(仅 CASH 类账户口径 · target = 月支出 × 倍数)
-  - **三情景预测**(乐观 8% / 中性 5% / 悲观 2%)· 二分反推达成日期
-- **AI 4 处介入**(复用 v0.2 LlmOrchestrator · 主 Qwen-Plus / 备 DeepSeek):
-  - FR-53a 目标设定向导 · 推荐合理参数 + rationale
-  - FR-53b 周期关闭后异步生成目标月报叙事(`goal_ai_report` 表持久化)
-  - FR-53c 偏离预警 + 建议(90 天节流)
-  - FR-53d 体检页 prompt 扩展(目标 + 储蓄能力维度)
-- **股票账户自动估值** · `/accounts/{id}/holdings` 持仓管理页(混合模式):
-  - **AUTO** · 录 ticker + 数量 · 系统每日 T+1 拉价(新浪主 + 腾讯备 · 圆形熔断)· 三市场覆盖(美/A/港)
-  - **MANUAL** · 手填账户币种市值 · 适合未上市/私募
-  - **CASH** · 账户内多币种闲置现金(IBKR / 富途)· FX 链式经家庭 base 中转
-  - 估值写回 `account_balance` · 下游 dashboard / XIRR / 目标进度零改动
-  - `/entry` 加"📦 持仓变动?"入口
-- **储蓄能力指标** · `/entry` 成员级月度收入/支出 +2 框 · `/reports` 月度收支双柱图 + 月均 KPI
-- **macOS 一键部署** · `deploy/deploy.sh` 顶部 OS 探测 · Darwin 自动转 `deploy-macos.sh`(brew · 无 sudo · `$HOME/finance` · 可选 launchd)
+详细变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 技术栈
 
