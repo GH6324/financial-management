@@ -117,32 +117,44 @@
       </div>
     </div>
 
-    <!-- 卡 4 · 收益质量 -->
+    <!-- 卡 4 · 收益质量 · v0.4.2 升级为「人赚 vs 钱赚」二分布局 -->
     <div id="return" class="bg-card p-6 scroll-mt-32">
       <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3">
-        收益质量 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">RETURN</span>
+        收益质量 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">RETURN · v0.4.2 双口径</span>
       </h3>
       <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+        <!-- 行 1 · 资产年化(剔除收入 · ★ 优先突出) -->
+        <div class="col-span-2 p-3" style="background:rgba(122,90,57,.04);border-left:3px solid var(--brass-deep)">
+          <div class="kpi-eyebrow" style="color:var(--brass-deep)">资 · 产 · 年 · 化 ★(剔除收入)</div>
+          <div class="font-display text-3xl tnum mt-1"
+               th:classappend="${diagnose.familyTwr != null and diagnose.familyTwr.signum() > 0 ? ' num-pos' : (diagnose.familyTwr != null and diagnose.familyTwr.signum() < 0 ? ' num-neg' : '')}"
+               th:text="${diagnose.familyTwrPctLabel()}">—</div>
+          <div class="font-mono text-[10px] text-ink-soft">钱替你赚钱的真实回报 · 12 月几何平均 · 与基准对比用这个</div>
+        </div>
+        <!-- 行 2 · XIRR 含收入(辅助) -->
         <div>
-          <div class="kpi-eyebrow">家庭 XIRR</div>
+          <div class="kpi-eyebrow">家庭 XIRR(含收入)</div>
           <div class="font-display text-2xl tnum mt-1"
                th:classappend="${diagnose.familyXirr != null and diagnose.familyXirr.signum() > 0 ? ' num-pos' : (diagnose.familyXirr != null and diagnose.familyXirr.signum() < 0 ? ' num-neg' : '')}"
                th:text="${diagnose.familyXirrPctLabel()}">—</div>
-          <div class="font-mono text-[10px] text-ink-soft">资金加权年化</div>
+          <div class="font-mono text-[10px] text-ink-soft">资金加权 · 含工资 · 工资多的家庭虚高</div>
         </div>
+        <!-- 行 2 · 本月资产收益 -->
         <div>
-          <div class="kpi-eyebrow">家庭 TWR</div>
+          <div class="kpi-eyebrow">本月资产收益</div>
           <div class="font-display text-2xl tnum mt-1"
-               th:classappend="${diagnose.familyTwr != null and diagnose.familyTwr.signum() > 0 ? ' num-pos' : (diagnose.familyTwr != null and diagnose.familyTwr.signum() < 0 ? ' num-neg' : '')}"
-               th:text="${diagnose.familyTwrPctLabel()}">—</div>
-          <div class="font-mono text-[10px] text-ink-soft">时间加权年化</div>
+               th:classappend="${diagnose.kpi.monthlyPnlAmount != null and diagnose.kpi.monthlyPnlAmount.signum() > 0 ? ' num-pos' : (diagnose.kpi.monthlyPnlAmount != null and diagnose.kpi.monthlyPnlAmount.signum() < 0 ? ' num-neg' : '')}"
+               th:text="${diagnose.kpi.monthlyInvestReturnPct != null ? ((diagnose.kpi.monthlyInvestReturnPct.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(diagnose.kpi.monthlyInvestReturnPct.multiply(new java.math.BigDecimal(100)), 1, 2) + '%') : '—'}">+0.00%</div>
+          <div class="font-mono text-[10px] text-ink-soft"
+               th:text="${diagnose.kpi.monthlyPnlAmount != null ? ((diagnose.kpi.monthlyPnlAmount.signum() >= 0 ? '+¥' : '−¥') + #numbers.formatInteger(diagnose.kpi.monthlyPnlAmount.abs(), 0, 'COMMA')) : '—'}">+¥0</div>
         </div>
+        <!-- 行 3 · 本年累计损益(钱赚的) -->
         <div class="col-span-2">
-          <div class="kpi-eyebrow">本年累计损益</div>
+          <div class="kpi-eyebrow">本年累计损益(钱赚的 · YTD)</div>
           <div class="font-display text-2xl tnum mt-1"
                th:classappend="${diagnose.cumulativeYtdPnl != null and diagnose.cumulativeYtdPnl.signum() > 0 ? ' num-pos' : (diagnose.cumulativeYtdPnl != null and diagnose.cumulativeYtdPnl.signum() < 0 ? ' num-neg' : '')}"
                th:text="${diagnose.cumulativeYtdPnl != null ? ((diagnose.cumulativeYtdPnl.signum() >= 0 ? '+' : '') + '¥' + #numbers.formatDecimal(diagnose.cumulativeYtdPnl.abs(), 1, 0)) : '—'}">+¥0</div>
-          <div class="font-mono text-[10px] text-ink-soft">已剔除外部资金 + 转账</div>
+          <div class="font-mono text-[10px] text-ink-soft">自然年 · 已剔除外部资金 + 转账</div>
         </div>
       </div>
     </div>

@@ -90,7 +90,57 @@ public class FactViewServiceImpl implements FactViewService {
         BigDecimal deltaPct = previousNetWorth == null || previousNetWorth.signum() == 0
                 ? null
                 : delta.divide(previousNetWorth, 6, RoundingMode.HALF_EVEN);
-        return new KpiSnapshot(netWorth, totalAssets, totalLiabilities, emergencyMonths, debtRatio, delta, deltaPct);
+
+        // v0.4.2 · "资产年化"二分(剔除外部现金流的纯投资视角)
+        BigDecimal monthlyPnlAmount = null;
+        BigDecimal monthlyInvestReturnPct = null;
+        if (previousNetWorth != null && previousNetWorth.signum() > 0) {
+            BigDecimal lastNetInflow = netInflowForPeriod(slice, last);
+            var monthly = com.family.finance.calc.InvestmentReturnCalculator.monthly(
+                previousNetWorth, netWorth, lastNetInflow);
+            monthlyPnlAmount = monthly.pnlAmount();
+            monthlyInvestReturnPct = monthly.pnlPct();
+        }
+        // 12 月年化 = 已有 familyTwr(slice 默认 1Y · 即 12 月窗口)· 直接 alias 共享算法
+        BigDecimal annualizedInvestReturnPct = familyTwr(slice);
+        // 本年(自然年)累计纯投资 PnL
+        BigDecimal ytdInvestPnl = ytdInvestPnl(slice);
+
+        return new KpiSnapshot(netWorth, totalAssets, totalLiabilities, emergencyMonths, debtRatio, delta, deltaPct,
+            monthlyPnlAmount, monthlyInvestReturnPct, annualizedInvestReturnPct, ytdInvestPnl);
+    }
+
+    /** v0.4.2 助手:某 period 的净流入(income − expense + transfer 净)汇总到家庭本位币 */
+    private BigDecimal netInflowForPeriod(FactSlice slice, Long periodId) {
+        BigDecimal net = BigDecimal.ZERO;
+        for (AccountPeriodFact r : slice.rows()) {
+            if (!Objects.equals(r.periodId(), periodId)) continue;
+            BigDecimal inc = r.incomeBase() == null ? BigDecimal.ZERO : r.incomeBase();
+            BigDecimal exp = r.expenseBase() == null ? BigDecimal.ZERO : r.expenseBase();
+            BigDecimal tIn = r.transferInBase() == null ? BigDecimal.ZERO : r.transferInBase();
+            BigDecimal tOut = r.transferOutBase() == null ? BigDecimal.ZERO : r.transferOutBase();
+            // 跨账户 transfer 在家庭层面自然抵消(in 和 out 同金额不同账户)· 这里全加在一起累计每个账户的净
+            net = net.add(inc).subtract(exp).add(tIn).subtract(tOut);
+        }
+        return net.setScale(2, RoundingMode.HALF_EVEN);
+    }
+
+    /** v0.4.2 助手:本年(自然年)累计纯投资 PnL · 把所有 period 按 startDate 在当年的过滤后累加 */
+    private BigDecimal ytdInvestPnl(FactSlice slice) {
+        int currentYear = java.time.LocalDate.now().getYear();
+        List<com.family.finance.calc.TwrCalculator.TwrPoint> ytdPoints = new ArrayList<>();
+        for (Long periodId : slice.periodIds()) {
+            java.time.LocalDate pStart = periodStart(slice, periodId);
+            if (pStart == null || pStart.getYear() != currentYear) continue;
+            Long prev = previousPeriodId(slice, periodId);
+            BigDecimal start = prev == null ? null : netWorth(slice, prev);
+            BigDecimal end = netWorth(slice, periodId);
+            BigDecimal inflow = netInflowForPeriod(slice, periodId);
+            if (start != null && end != null && start.signum() > 0) {
+                ytdPoints.add(new com.family.finance.calc.TwrCalculator.TwrPoint(start, end, inflow));
+            }
+        }
+        return com.family.finance.calc.InvestmentReturnCalculator.ytdPnlAmount(ytdPoints);
     }
 
     @Override

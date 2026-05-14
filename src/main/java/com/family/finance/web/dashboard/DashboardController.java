@@ -168,6 +168,19 @@ public class DashboardController {
         model.addAttribute("monthlySavingsCapacity",
             money(viewCurrency, householdCashflowService.medianMonthlySavings(me.getFamilyId())));
 
+        // v0.4.2 · 「钱赚的」二分指标 · 本月资产收益(剔除外部现金流)
+        // 顶替"月储蓄能力"为第 5 KPI · 储蓄能力保留在 /reports 储蓄区
+        model.addAttribute("monthlyPnlMoney",
+            kpis.monthlyPnlAmount() == null ? "—"
+                : (kpis.monthlyPnlAmount().signum() >= 0 ? "+" : "−")
+                  + money(viewCurrency, kpis.monthlyPnlAmount().abs()).replaceFirst("^[+−]", ""));
+        model.addAttribute("monthlyPnlPctLabel",
+            kpis.monthlyInvestReturnPct() == null ? "—"
+                : String.format("%+.2f%%", kpis.monthlyInvestReturnPct().doubleValue() * 100));
+        model.addAttribute("annualizedInvestReturnLabel",
+            kpis.annualizedInvestReturnPct() == null ? "—"
+                : String.format("%+.2f%%", kpis.annualizedInvestReturnPct().doubleValue() * 100));
+
         // v0.4 FR-62c · 应急金不闲置评估(用 LIQUID 类账户合计 vs 应急需求 × 1.5x)
         Long lastPid = slice.lastPeriodId();
         BigDecimal liquidAssets = slice.rows().stream()

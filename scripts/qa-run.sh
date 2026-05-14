@@ -1298,14 +1298,14 @@ $CURL -b $COOKIE "$BASE/entry" -o "$TMP" -w ""
 fr51_line=$(grep -n "第 · 一 · 步" "$TMP" | head -1 | cut -d: -f1)
 prog_line=$(grep -n "本期总进度" "$TMP" | head -1 | cut -d: -f1)
 { [[ -n "$fr51_line" ]] && [[ -n "$prog_line" ]] && [[ "$fr51_line" -lt "$prog_line" ]]; }   && log_ok "v03-IND-7 /entry FR-51 在「本期总进度」之前(置顶 · 第一步)"   || log_bad "v03-IND-7 entry 2 框不在顶部" "fr51=$fr51_line prog=$prog_line"
-# v03-IND-8 · v0.4 KPI 收敛 9→5(月均收入/支出/储蓄率/已填月份 4 KPI 搬 /reports 储蓄区)
-# 改判 dashboard 含"月储蓄能力"(顶替)· /reports 含原 4 KPI
+# v03-IND-8 · v0.4 KPI 收敛 9→5 → v0.4.2 第 5 KPI 顶替为"本月资产收益"
+# 改判 dashboard 含"本月资产收益"或"月储蓄能力" · /reports 含原 4 KPI
 $CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
-dash_ok=$(grep -c "月储蓄能力" "$TMP")
+dash_ok=$(grep -cE "本月资产收益|月储蓄能力" "$TMP")
 $CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
 rpt_ok=$(grep -c "月均收入" "$TMP")
 { [[ "$dash_ok" -ge 1 ]] && [[ "$rpt_ok" -ge 1 ]]; } \
-  && log_ok "v03-IND-8 (v0.4 改) dashboard 月储蓄能力 KPI · reports 储蓄区原 4 KPI(dash=$dash_ok rpt=$rpt_ok)" \
+  && log_ok "v03-IND-8 (v0.4.2 改) dashboard 第 5 KPI(本月资产收益/月储蓄)· reports 储蓄区原 4 KPI(dash=$dash_ok rpt=$rpt_ok)" \
   || log_bad "v03-IND-8 KPI 搬迁" "dash=$dash_ok rpt=$rpt_ok"
 
 # v03-IND-9 · /reports 储蓄区块加月均收入/支出 KPI · 数字来自 period.total_*_input
@@ -1579,10 +1579,10 @@ grep -q "</html>" "$TMP" \
 # v0.4 · 报表整顿 + 摸清第 5 问 + 调优决策
 ###################################################
 
-# v04-RPT-1 · /dashboard KPI 收敛到 5(含"月储蓄能力")
+# v04-RPT-1 · /dashboard KPI 收敛到 5 + CPI 切换器(v0.4.2:第 5 KPI 顶替为本月资产收益)
 $CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
-{ grep -q '月储蓄能力' "$TMP" && grep -q 'name="cpi"' "$TMP"; } \
-  && log_ok "v04-RPT-1 dashboard 5 KPI(月储蓄能力)+ CPI 切换器" \
+{ (grep -q '本月资产收益' "$TMP" || grep -q '月储蓄能力' "$TMP") && grep -q 'name="cpi"' "$TMP"; } \
+  && log_ok "v04-RPT-1 dashboard 5 KPI(第 5 为本月资产收益/月储蓄能力)+ CPI 切换器" \
   || log_bad "v04-RPT-1 dashboard 改造" "missing"
 
 # v04-RPT-2 · /dashboard 砍收入支出组合图(只剩注释 incomeExpenseChart 字符串 0 个 canvas)
@@ -1745,6 +1745,38 @@ if [[ -n "$VAL_ACC" ]]; then
     && log_ok "v04-VAL-3 /accounts/$VAL_ACC 详情页显示估值行(手动刷价)" \
     || log_bad "v04-VAL-3 accounts ledger 估值行 缺" "missing"
 fi
+
+# ===================================================
+# v0.4.2 · "钱赚的 vs 人赚的"二分 KPI(InvestmentReturn)
+# ===================================================
+
+# v04-RET-1 · dashboard 第 5 KPI 改为"本月资产收益"
+$CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
+{ grep -q '本月资产收益' "$TMP" && grep -q '剔除收入' "$TMP"; } \
+  && log_ok "v04-RET-1 dashboard 第 5 KPI · 本月资产收益(剔除收入)" \
+  || log_bad "v04-RET-1 月度资产收益 KPI 缺" "missing"
+
+# v04-RET-2 · reports 4 KPI 双口径 label + 双口径解释 banner
+$CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
+{ grep -q '资产年化 · 剔除收入' "$TMP" \
+  && grep -q '含收入' "$TMP" \
+  && grep -q '人赚的' "$TMP" \
+  && grep -q '钱赚的' "$TMP" \
+  && grep -q '双口径' "$TMP"; } \
+  && log_ok "v04-RET-2 reports 4 KPI 双口径(XIRR 含 / 资产年化剔 / 人赚 / 钱赚)+ 解释 banner" \
+  || log_bad "v04-RET-2 reports 双口径 缺" "missing"
+
+# v04-RET-3 · checkup 收益诊断卡 4 KPI 升级
+$CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+{ grep -q '资 · 产 · 年 · 化 ★' "$TMP" \
+  && grep -q '本月资产收益' "$TMP"; } \
+  && log_ok "v04-RET-3 checkup 收益诊断卡 4 KPI(资产年化 ★ + 本月)" \
+  || log_bad "v04-RET-3 checkup 收益诊断 缺" "missing"
+
+# v04-RET-4 · InvestmentReturnCalculator 9 单测覆盖(mvn test 验证 · 此处仅断言文件存在)
+[[ -f /home/finance/financial-management/src/test/java/com/family/finance/calc/InvestmentReturnCalculatorTest.java ]] \
+  && log_ok "v04-RET-4 InvestmentReturnCalculatorTest 9 单测存在 · 月度 + 年化 + YTD 覆盖" \
+  || log_bad "v04-RET-4 单测文件缺" "missing"
 
 
 echo

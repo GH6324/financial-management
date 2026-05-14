@@ -58,7 +58,7 @@
 
   <section class="grid grid-cols-2 md:grid-cols-4 gap-px bg-rule mb-12">
     <div class="kpi-card">
-      <span class="kpi-eyebrow">家庭 XIRR</span>
+      <span class="kpi-eyebrow">家庭 XIRR · 含收入</span>
       <div class="kpi-value tnum num-pos font-display" th:text="${familyXirr}">—</div>
       <!-- v0.4 FR-61c · vs 基准 pill -->
       <div class="font-mono text-[10px] mt-1" th:if="${familyBenchmarkPct != null}">
@@ -76,10 +76,28 @@
       </div>
       <div class="kpi-delta" th:if="${familyBenchmarkPct == null}">资金加权</div>
     </div>
-    <div class="kpi-card"><span class="kpi-eyebrow">家庭 TWR</span><div class="kpi-value tnum num-pos font-display" th:text="${familyTwr}">—</div><div class="kpi-delta">时间加权</div></div>
-    <div class="kpi-card"><span class="kpi-eyebrow">累计净流入</span><div class="kpi-value tnum" th:text="${cumulativeNetInflow}">¥0</div><div class="kpi-delta">收入 - 支出</div></div>
-    <div class="kpi-card"><span class="kpi-eyebrow">累计投资损益</span><div class="kpi-value tnum" th:text="${cumulativePnl}">¥0</div><div class="kpi-delta">轧差收益</div></div>
+    <div class="kpi-card">
+      <span class="kpi-eyebrow">资产年化 · 剔除收入 ★</span>
+      <div class="kpi-value tnum num-pos font-display" th:text="${familyTwr}">—</div>
+      <div class="kpi-delta">钱替你赚的真实回报 · 12 月几何平均</div>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-eyebrow">人赚的 · 净流入</span>
+      <div class="kpi-value tnum" th:text="${cumulativeNetInflow}">¥0</div>
+      <div class="kpi-delta">收入 − 支出 累计</div>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-eyebrow">钱赚的 · 投资 PnL</span>
+      <div class="kpi-value tnum" th:text="${cumulativePnl}">¥0</div>
+      <div class="kpi-delta">资产升值 / 贬值 累计</div>
+    </div>
   </section>
+
+  <!-- v0.4.2 · 一句话解释 KPI 二分(给用户认知锚)-->
+  <div class="paper-card p-3 mb-8 bg-card-soft text-xs text-ink-soft" style="border-left:3px solid var(--brass-deep)">
+    <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep">收益指标 · 双口径</span> ·
+    <span class="text-ink">家庭 XIRR</span>(资金加权 · 含工资 · 反映你和资产一起赚多少)·
+    <span class="text-ink">资产年化</span>(几何平均 · 剔除工资 · 只反映钱替你赚多少 · 与基准比较用这个)
 
   <!-- v0.4 FR-60b · 砍流水视角图:月度收支瀑布(ECharts)/ 收入流向桑基 / 月度收支对比(双柱)· 与新定位「不做流水/记账」冲突 -->
   <!-- 第一表 · 本金 vs 投资损益分解(v0.4 升级为首图 · 核心图)-->

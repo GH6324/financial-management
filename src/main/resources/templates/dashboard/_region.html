@@ -134,11 +134,13 @@
       <div class="kpi-value tnum" th:text="${kpiEmergency}">—</div>
       <div class="kpi-delta">流动资产 / 月均支出</div>
     </a>
-    <!-- v0.4 新增 · 月储蓄能力(顶替老 KPI · 直接体现"未来增值能力") -->
-    <a th:href="@{/reports#savings}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
-      <span class="kpi-eyebrow">月储蓄能力</span>
-      <div class="kpi-value tnum text-brass-deep" th:text="${monthlySavingsCapacity ?: '—'}">¥0</div>
-      <div class="kpi-delta">近 6 期中位</div>
+    <!-- v0.4.2 新增 · 本月资产收益(剔除外部现金流 · "钱赚的"vs"人赚的"二分核心指标)-->
+    <a th:href="@{/reports}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
+      <span class="kpi-eyebrow">本月资产收益</span>
+      <div class="kpi-value tnum"
+           th:classappend="${monthlyPnlPctLabel != null and monthlyPnlPctLabel.startsWith('+') ? ' num-pos' : (monthlyPnlPctLabel != null and monthlyPnlPctLabel.startsWith('-') ? ' num-neg' : '')}"
+           th:text="${monthlyPnlPctLabel}">+0.00%</div>
+      <div class="kpi-delta" th:text="${monthlyPnlMoney} + ' · 剔除收入'">+¥0 · 剔除收入</div>
     </a>
   </section>
 

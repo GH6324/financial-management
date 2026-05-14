@@ -577,6 +577,21 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 - AccountValuationService.refreshAllForFamily 加 trigger 参数 + event hook · MANUAL/CRON/HOLDING_CHANGE 3 类
 - EntryRow.LedgerKind + AccountDetail.Kind 加 VALUATION 类型 · UI 用 📈 估值 brass-deep 渲染
 - 总 PASS=253 / FAIL=3(同 v0.4)/ SKIP=2
+
+### v0.4.2 · 「人赚 vs 钱赚」二分收益指标(2026-05-14)
+
+- 产品定位:**家庭记录详细成员收入信息,核心是为了区分"哪些钱是人赚的 vs 哪些是资产赚的"**(用户拍板)
+- 新加 **4 条**黑盒(v04-RET-1 dashboard 第 5 KPI · RET-2 reports 双口径 + banner · RET-3 checkup 4 KPI 升级 · RET-4 单测覆盖)+ 9 单测(InvestmentReturnCalculatorTest)
+- 月度口径:`月度 PnL = ΔNetWorth − 净流入 · 月度收益率 = PnL / 期初净资产` · 不年化
+- 年度口径:滚动 12 月几何平均(= 复用 TwrCalculator)· 不卡自然年避免 1 月突兀
+- KpiSnapshot 加 4 字段(monthlyPnlAmount / monthlyInvestReturnPct / annualizedInvestReturnPct / ytdInvestPnl)· **0 schema 改动**(历史数据天然兼容)
+- UI 改造:
+  - dashboard 第 5 KPI:月储蓄能力 → **本月资产收益(剔除收入)**
+  - reports 4 KPI label 改:家庭 XIRR · 含收入 / **资产年化 · 剔除收入 ★** / **人赚的 · 净流入** / **钱赚的 · 投资 PnL** + 双口径解释 banner
+  - checkup 收益诊断卡:4 KPI 升级布局(资产年化 ★ 高亮 + XIRR 辅助 + 本月 + YTD)
+- 旧 v0.4 case 改判:v04-RPT-1 + v03-IND-8(KPI 文案演进)
+- 总 PASS=257 / FAIL=3(同 v0.4)/ SKIP=2
+- mvn test 161(基线 152 + v0.4.2 新增 9)全绿
 - 真 LLM 调用:RebalanceAdvisor /reports/rebalance/advise 端点接通(LLM 可能 unavailable · 容忍 + 30 天节流缓存)
 - 真机移动端:dashboard / reports / checkup / refinance 4 页响应式 OK
 - 单测 114(v0.2 既有 76 + v0.3 新增 38 全绿)
