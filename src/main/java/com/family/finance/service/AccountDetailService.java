@@ -47,6 +47,8 @@ public class AccountDetailService {
     private final SnapshotMapper snapshotMapper;
     private final CashFlowMapper cashFlowMapper;
     private final TransferMapper transferMapper;
+    /** v0.4.1 FR-52f · 股票估值事件 */
+    private final com.family.finance.repository.StockValuationEventMapper stockValuationEventMapper;
     private final ProductCategoryService productCategoryService;
 
     /**
@@ -174,6 +176,40 @@ public class AccountDetailService {
                     cf.getId(),
                     p.getStatus() == PeriodStatus.OPEN
             ));
+        }
+        // v0.4.1 FR-52f · STOCK 估值事件 entries
+        if (account.getType() == com.family.finance.domain.account.AccountType.STOCK) {
+            try {
+                for (com.family.finance.domain.stock.StockValuationEvent ev :
+                        stockValuationEventMapper.findRecentByAccount(accountId, 500)) {
+                    Period p = periodById.get(ev.getPeriodId());
+                    if (p == null) continue;
+                    String sign = ev.getDelta().signum() >= 0 ? "+" : "−";
+                    String trgLabel = switch (ev.getTriggerKind() == null ? "" : ev.getTriggerKind()) {
+                        case "CRON" -> "自动(定时)";
+                        case "MANUAL" -> "手动刷价";
+                        case "HOLDING_CHANGE" -> "持仓变动";
+                        default -> "自动";
+                    };
+                    String note = ev.getNote() != null ? ev.getNote()
+                        : (ev.getPrevBalance() != null
+                            ? "从 " + MoneyFormat.format(account.getCurrency(), ev.getPrevBalance())
+                              + " → " + MoneyFormat.format(account.getCurrency(), ev.getNewBalance())
+                            : null);
+                    byMonth.computeIfAbsent(p.getPeriodStart(), k -> new ArrayList<>()).add(new AccountDetail.Entry(
+                        AccountDetail.Kind.VALUATION,
+                        ev.getTriggeredAt(),
+                        ev.getDelta().abs(),
+                        sign + MoneyFormat.format(account.getCurrency(), ev.getDelta().abs()),
+                        "估值变动 · " + trgLabel,
+                        note,
+                        ev.getId(),
+                        false  // 估值事件不可删
+                    ));
+                }
+            } catch (Exception ignored) {
+                // ledger 渲染失败不阻塞整体页面
+            }
         }
         // TRANSFER entries(本账户视角:in / out 二选一)
         for (Transfer t : allTransfers) {

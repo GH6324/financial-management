@@ -12,6 +12,7 @@ import com.family.finance.domain.period.PeriodStatus;
 import com.family.finance.domain.snapshot.PeriodSnapshot;
 import com.family.finance.domain.snapshot.SnapshotTodo;
 import com.family.finance.domain.snapshot.TodoStatus;
+import com.family.finance.domain.stock.StockValuationEvent;
 import com.family.finance.domain.transfer.Transfer;
 import com.family.finance.repository.AccountMapper;
 import com.family.finance.repository.CashFlowMapper;
@@ -19,6 +20,7 @@ import com.family.finance.repository.MemberMapper;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.SnapshotMapper;
 import com.family.finance.repository.SnapshotTodoMapper;
+import com.family.finance.repository.StockValuationEventMapper;
 import com.family.finance.repository.TransferMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -46,6 +48,8 @@ public class EntryService {
     private final CashFlowMapper cashFlowMapper;
     private final TransferMapper transferMapper;
     private final AuditLogService auditLogService;
+    /** v0.4.1 FR-52f · 股票估值事件 · ledger 显示 */
+    private final StockValuationEventMapper stockValuationEventMapper;
 
     public Optional<Period> findSelectedPeriod(long familyId, String periodParam) {
         if (periodParam == null || periodParam.isBlank()) {
@@ -68,6 +72,17 @@ public class EntryService {
     /** Thymeleaf SpEL 调用绕过 record accessor 在某些 fragment 嵌套场景下返回 null 的问题。 */
     public static List<EntryRow.LedgerEntry> safeLedger(EntryRow row) {
         return row == null || row.ledger() == null ? List.of() : row.ledger();
+    }
+
+    /** 触发源中文化 · 给 ledger 显示用 */
+    private static String triggerCn(String triggerKind) {
+        if (triggerKind == null) return "自动";
+        return switch (triggerKind) {
+            case "CRON" -> "自动(定时)";
+            case "MANUAL" -> "手动刷价";
+            case "HOLDING_CHANGE" -> "持仓变动";
+            default -> "自动";
+        };
     }
 
     public List<EntryRow> listRows(long familyId, long memberId, Period period, boolean mineOnly) {
@@ -383,6 +398,33 @@ public class EntryService {
                     current.getNote(),
                     null,
                     period.getStatus() == PeriodStatus.OPEN));
+        }
+        // v0.4.1 FR-52f · STOCK 账户估值事件作为第 4 种流水
+        if (account.getType() == AccountType.STOCK) {
+            try {
+                for (StockValuationEvent ev : stockValuationEventMapper.findByAccountAndPeriod(
+                        account.getId(), period.getId())) {
+                    String sign = ev.getDelta().signum() >= 0 ? "+" : "−";
+                    String label = "估值变动 · " + triggerCn(ev.getTriggerKind());
+                    String note = ev.getNote() != null ? ev.getNote()
+                        : (ev.getPrevBalance() != null
+                            ? "从 " + MoneyFormat.format(account.getCurrency(), ev.getPrevBalance())
+                              + " → " + MoneyFormat.format(account.getCurrency(), ev.getNewBalance())
+                            : null);
+                    ledger.add(new EntryRow.LedgerEntry(
+                        EntryRow.LedgerKind.VALUATION,
+                        ev.getTriggeredAt(),
+                        ev.getDelta().abs(),
+                        sign + MoneyFormat.format(account.getCurrency(), ev.getDelta().abs()),
+                        label,
+                        note,
+                        ev.getId(),
+                        false  // 估值事件不可删除 · 不显操作按钮
+                    ));
+                }
+            } catch (Exception ignored) {
+                // ledger 渲染失败不阻塞整体页面
+            }
         }
         ledger.sort((a, b) -> {
             if (a.occurredAt() == null && b.occurredAt() == null) return 0;

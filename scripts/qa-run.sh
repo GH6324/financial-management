@@ -1709,6 +1709,43 @@ code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" "$BASE/repor
   && log_ok "v04-AI-REBALANCE-1 POST /reports/rebalance/advise → 302(LLM 调用容忍失败)" \
   || log_bad "v04-AI-REBALANCE-1 advise 异常" "code=$code"
 
+# v04-VAL-1 · v0.4.1 FR-52f · stock_valuation_event 表已建 · 拉价后写事件
+# 找有 holdings 的 STOCK 账户 + 当前 OPEN period
+VAL_ACC=$(mysql -ufinance -pfinance finance -sN -e "
+  SELECT DISTINCT a.id FROM account a JOIN stock_holding h ON h.account_id=a.id
+  WHERE a.family_id=1 AND a.type='STOCK' AND a.archived_at IS NULL AND h.archived_at IS NULL
+  LIMIT 1" 2>/dev/null)
+VAL_PID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 AND status='OPEN' ORDER BY id DESC LIMIT 1" 2>/dev/null)
+if [[ -n "$VAL_ACC" && -n "$VAL_PID" ]]; then
+  # 删旧事件 + 改 snapshot 制造明显差异
+  mysql -ufinance -pfinance finance -e "DELETE FROM stock_valuation_event WHERE account_id=$VAL_ACC AND period_id=$VAL_PID" 2>/dev/null
+  mysql -ufinance -pfinance finance -e "UPDATE period_snapshot SET end_balance = end_balance - 5000 WHERE period_id=$VAL_PID AND account_id=$VAL_ACC" 2>/dev/null
+  # 触发 manual refresh
+  $CURL -b $COOKIE "$BASE/accounts/$VAL_ACC/holdings" -o /dev/null
+  XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
+  $CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" "$BASE/accounts/$VAL_ACC/holdings/refresh" -o /dev/null -w ""
+  sleep 3
+  cnt=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM stock_valuation_event WHERE account_id=$VAL_ACC AND period_id=$VAL_PID AND trigger_kind='MANUAL'" 2>/dev/null)
+  [[ "$cnt" -ge 1 ]] && log_ok "v04-VAL-1 拉价后写 stock_valuation_event · MANUAL · account=$VAL_ACC count=$cnt" \
+    || log_bad "v04-VAL-1 事件未写" "count=$cnt"
+else
+  log_skip "v04-VAL-1 没找到有 holdings 的 STOCK 账户"
+fi
+
+# v04-VAL-2 · /entry ledger 显示 📈 估值 行
+$CURL -b $COOKIE "$BASE/entry" -o "$TMP" -w ""
+grep -q '📈 估值' "$TMP" \
+  && log_ok "v04-VAL-2 /entry ledger 显示 📈 估值 行" \
+  || log_bad "v04-VAL-2 entry 估值行 缺" "missing"
+
+# v04-VAL-3 · /accounts/{id} 详情页显示估值行
+if [[ -n "$VAL_ACC" ]]; then
+  $CURL -b $COOKIE "$BASE/accounts/$VAL_ACC" -o "$TMP" -w ""
+  grep -q '估值变动 · 手动刷价' "$TMP" \
+    && log_ok "v04-VAL-3 /accounts/$VAL_ACC 详情页显示估值行(手动刷价)" \
+    || log_bad "v04-VAL-3 accounts ledger 估值行 缺" "missing"
+fi
+
 
 echo
 echo "═══════════════════════════════════════"

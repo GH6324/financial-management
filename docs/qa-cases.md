@@ -569,6 +569,14 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 - v0.2/v0.3 旧 case 改判(v0.4 报表整顿后):v02-FR40e-3 / v02-FR40E-3 / v03-IND-8 / v03-IND-11 4 条
 - 总 PASS=250 / FAIL=3(pre-existing v0.2 PILL/DIAG/LEDGER · 与 v0.4 无关)/ SKIP=2
 - mvn test 152(v0.3.3 基线 119 + v0.4 新增 33)全绿
+
+### v0.4.1 · 股票估值事件 ledger 显示(2026-05-14)
+
+- v0.4.1 新加 **3 条**黑盒(v04-VAL-1 拉价后写 event · VAL-2 /entry ledger 显示 · VAL-3 /accounts/{id} 显示)
+- V24 schema:`stock_valuation_event` 表(prev_balance/new_balance/delta/trigger_kind/triggered_by)
+- AccountValuationService.refreshAllForFamily 加 trigger 参数 + event hook · MANUAL/CRON/HOLDING_CHANGE 3 类
+- EntryRow.LedgerKind + AccountDetail.Kind 加 VALUATION 类型 · UI 用 📈 估值 brass-deep 渲染
+- 总 PASS=253 / FAIL=3(同 v0.4)/ SKIP=2
 - 真 LLM 调用:RebalanceAdvisor /reports/rebalance/advise 端点接通(LLM 可能 unavailable · 容忍 + 30 天节流缓存)
 - 真机移动端:dashboard / reports / checkup / refinance 4 页响应式 OK
 - 单测 114(v0.2 既有 76 + v0.3 新增 38 全绿)

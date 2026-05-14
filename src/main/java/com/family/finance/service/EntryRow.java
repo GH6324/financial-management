@@ -70,6 +70,8 @@ public record EntryRow(
         INCOME,
         EXPENSE,
         TRANSFER_IN,
-        TRANSFER_OUT
+        TRANSFER_OUT,
+        /** v0.4.1 FR-52f · 股票账户估值变动(自动估值 cron / manual / holding change 触发) */
+        VALUATION
     }
 }

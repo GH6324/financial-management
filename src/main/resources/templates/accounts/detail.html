@@ -160,8 +160,8 @@
       <ul class="px-5 pb-3 divide-y divide-rule-soft text-xs font-mono">
         <li th:each="e : ${g.entries}" class="py-2 flex items-baseline gap-3 flex-wrap">
           <span class="w-20 inline-flex items-center gap-1"
-                th:classappend="${e.kind.name() == 'INCOME' ? ' num-pos' : (e.kind.name() == 'EXPENSE' ? ' num-neg' : (e.kind.name() == 'TRANSFER_IN' ? ' text-forest' : (e.kind.name() == 'TRANSFER_OUT' ? ' text-rust' : ' text-ink-subtle')))}"
-                th:text="${e.kind.name() == 'INCOME' ? '+ 收入' : (e.kind.name() == 'EXPENSE' ? '- 支出' : (e.kind.name() == 'TRANSFER_IN' ? '↳ 划入' : (e.kind.name() == 'TRANSFER_OUT' ? '↱ 划出' : '= 校准')))}">
+                th:classappend="${e.kind.name() == 'INCOME' ? ' num-pos' : (e.kind.name() == 'EXPENSE' ? ' num-neg' : (e.kind.name() == 'TRANSFER_IN' ? ' text-forest' : (e.kind.name() == 'TRANSFER_OUT' ? ' text-rust' : (e.kind.name() == 'VALUATION' ? ' text-brass-deep' : ' text-ink-subtle'))))}"
+                th:text="${e.kind.name() == 'INCOME' ? '+ 收入' : (e.kind.name() == 'EXPENSE' ? '- 支出' : (e.kind.name() == 'TRANSFER_IN' ? '↳ 划入' : (e.kind.name() == 'TRANSFER_OUT' ? '↱ 划出' : (e.kind.name() == 'VALUATION' ? '📈 估值' : '= 校准'))))}">
             类型</span>
           <span class="tnum w-28" th:text="${e.amountSignedLabel}">+¥0</span>
           <span class="text-ink-soft flex-1 min-w-[140px]" th:text="${e.label}">类别 / 对手账户</span>

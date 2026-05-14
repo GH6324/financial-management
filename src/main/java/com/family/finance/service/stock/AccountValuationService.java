@@ -7,12 +7,14 @@ import com.family.finance.domain.stock.Market;
 import com.family.finance.domain.stock.StockHolding;
 import com.family.finance.domain.stock.StockPriceSnapshot;
 import com.family.finance.domain.stock.ValuationMode;
+import com.family.finance.domain.stock.StockValuationEvent;
 import com.family.finance.repository.AccountMapper;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.MemberMapper;
 import com.family.finance.repository.SnapshotMapper;
 import com.family.finance.repository.StockHoldingMapper;
 import com.family.finance.repository.StockPriceSnapshotMapper;
+import com.family.finance.repository.StockValuationEventMapper;
 import com.family.finance.service.FamilyService;
 import com.family.finance.service.FxService;
 import lombok.extern.slf4j.Slf4j;
@@ -50,6 +52,11 @@ public class AccountValuationService {
     private final MemberMapper memberMapper;
     private final FxService fxService;
     private final FamilyService familyService;
+    /** v0.4.1 FR-52f · 估值事件审计 + ledger 显示 */
+    private final StockValuationEventMapper valuationEventMapper;
+
+    /** |Δ| > 此阈值才写 event(避免微小价格波动产生噪音流水) */
+    private static final BigDecimal EVENT_THRESHOLD = new BigDecimal("0.01");
 
     public AccountValuationService(AccountMapper accountMapper,
                                    StockHoldingMapper holdingMapper,
@@ -58,7 +65,8 @@ public class AccountValuationService {
                                    PeriodMapper periodMapper,
                                    MemberMapper memberMapper,
                                    FxService fxService,
-                                   FamilyService familyService) {
+                                   FamilyService familyService,
+                                   StockValuationEventMapper valuationEventMapper) {
         this.accountMapper = accountMapper;
         this.holdingMapper = holdingMapper;
         this.priceMapper = priceMapper;
@@ -67,6 +75,7 @@ public class AccountValuationService {
         this.memberMapper = memberMapper;
         this.fxService = fxService;
         this.familyService = familyService;
+        this.valuationEventMapper = valuationEventMapper;
     }
 
     /**
@@ -84,10 +93,22 @@ public class AccountValuationService {
     }
 
     /**
-     * 全家所有 STOCK 账户 · cron 触发(StockPriceScheduler 调用)。
-     * 仅遍历**有 holding** 的 STOCK 账户 · 写回 account_balance(当前 OPEN 周期)。
+     * 全家所有 STOCK 账户估值刷新 · cron 默认调用。
+     * 兼容老 API · 默认 trigger=CRON · 无用户。
      */
     public int refreshAllForFamily(long familyId) {
+        return refreshAllForFamily(familyId, TriggerKind.CRON, null);
+    }
+
+    /**
+     * 全家所有 STOCK 账户估值刷新(v0.4.1 加 trigger 审计)。
+     * 仅遍历**有 holding** 的 STOCK 账户 · 写回 account_balance(当前 OPEN 周期)
+     * + 若余额变化 > {@link #EVENT_THRESHOLD} 写一条 stock_valuation_event。
+     *
+     * @param trigger 触发源:CRON / MANUAL / HOLDING_CHANGE
+     * @param triggeredByMemberId 用户 ID(MANUAL 时记 · 其它 null)
+     */
+    public int refreshAllForFamily(long familyId, TriggerKind trigger, Long triggeredByMemberId) {
         Period currentOpen = periodMapper.findCurrentOpen(familyId).orElse(null);
         if (currentOpen == null) {
             log.info("family={} no OPEN period · skip valuation refresh", familyId);
@@ -103,11 +124,48 @@ public class AccountValuationService {
                 continue;
             }
             ValuationResult r = valuateInternal(acc);
+            // v0.4.1:先取 prev_balance 再写回
+            BigDecimal prevBalance = snapshotMapper.findByPeriodAndAccount(currentOpen.getId(), acc.getId())
+                .map(s -> s.getEndBalance())
+                .orElse(null);
             writeBackBalance(familyId, currentOpen.getId(), acc, r.totalBaseValue());
+            // 若变化超阈值,写事件
+            recordValuationEventIfChanged(familyId, acc.getId(), currentOpen.getId(),
+                prevBalance, r.totalBaseValue(), trigger, triggeredByMemberId);
             refreshed++;
         }
-        log.info("family={} valuation refresh · stockAccountsWithHoldings={}", familyId, refreshed);
+        log.info("family={} valuation refresh · trigger={} refreshed={}", familyId, trigger, refreshed);
         return refreshed;
+    }
+
+    /** 触发源枚举 · 用于 stock_valuation_event 审计 */
+    public enum TriggerKind { CRON, MANUAL, HOLDING_CHANGE }
+
+    private void recordValuationEventIfChanged(long familyId, long accountId, long periodId,
+                                               BigDecimal prevBalance, BigDecimal newBalance,
+                                               TriggerKind trigger, Long triggeredByMemberId) {
+        if (newBalance == null) return;
+        BigDecimal delta = newBalance.subtract(prevBalance == null ? BigDecimal.ZERO : prevBalance);
+        if (delta.abs().compareTo(EVENT_THRESHOLD) <= 0) {
+            // 微小变化不写事件 · 避免噪音
+            return;
+        }
+        try {
+            valuationEventMapper.insert(StockValuationEvent.builder()
+                .familyId(familyId)
+                .accountId(accountId)
+                .periodId(periodId)
+                .prevBalance(prevBalance)
+                .newBalance(newBalance)
+                .delta(delta)
+                .triggerKind(trigger == null ? TriggerKind.CRON.name() : trigger.name())
+                .triggeredByMemberId(triggeredByMemberId)
+                .note(null)
+                .build());
+        } catch (Exception e) {
+            log.warn("write stock_valuation_event failed · account={} delta={}: {}",
+                accountId, delta, e.toString());
+        }
     }
 
     /**

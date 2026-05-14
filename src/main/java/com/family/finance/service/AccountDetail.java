@@ -65,6 +65,8 @@ public record AccountDetail(
     ) {}
 
     public enum Kind {
-        SNAPSHOT, INCOME, EXPENSE, TRANSFER_IN, TRANSFER_OUT
+        SNAPSHOT, INCOME, EXPENSE, TRANSFER_IN, TRANSFER_OUT,
+        /** v0.4.1 FR-52f · 股票账户估值变动事件 */
+        VALUATION
     }
 }

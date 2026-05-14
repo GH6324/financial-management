@@ -115,7 +115,9 @@ public class StockHoldingController {
         // 立即刷一次价(让用户看到当前估值)· 失败容忍
         try {
             scheduler.fetchMarket(mk);
-            valuationService.refreshAllForFamily(me.getFamilyId());
+            // v0.4.1 · 持仓增改 → trigger=HOLDING_CHANGE · 用户感知此次估值因 holding 变动
+            valuationService.refreshAllForFamily(me.getFamilyId(),
+                AccountValuationService.TriggerKind.HOLDING_CHANGE, me.getMemberId());
         } catch (Exception e) {
             log.warn("post-create refresh failed: {}", e.toString());
         }
@@ -139,7 +141,9 @@ public class StockHoldingController {
                                @RequestParam BigDecimal manualValue) {
         holdingService.createManual(me.getFamilyId(), accountId, displayName, manualValue);
         try {
-            valuationService.refreshAllForFamily(me.getFamilyId());
+            // v0.4.1 · 持仓增改 → trigger=HOLDING_CHANGE · 用户感知此次估值因 holding 变动
+            valuationService.refreshAllForFamily(me.getFamilyId(),
+                AccountValuationService.TriggerKind.HOLDING_CHANGE, me.getMemberId());
         } catch (Exception e) {
             log.warn("post-create refresh failed: {}", e.toString());
         }
@@ -152,7 +156,8 @@ public class StockHoldingController {
                                     @PathVariable long hid,
                                     @RequestParam BigDecimal manualValue) {
         holdingService.updateManualValue(me.getFamilyId(), hid, manualValue);
-        try { valuationService.refreshAllForFamily(me.getFamilyId()); } catch (Exception ignored) {}
+        try { valuationService.refreshAllForFamily(me.getFamilyId(),
+            AccountValuationService.TriggerKind.HOLDING_CHANGE, me.getMemberId()); } catch (Exception ignored) {}
         return "redirect:/accounts/" + accountId + "/holdings";
     }
 
@@ -180,7 +185,8 @@ public class StockHoldingController {
                              @RequestParam String currency,
                              @RequestParam BigDecimal amount) {
         holdingService.createCash(me.getFamilyId(), accountId, displayName, currency, amount);
-        try { valuationService.refreshAllForFamily(me.getFamilyId()); } catch (Exception ignored) {}
+        try { valuationService.refreshAllForFamily(me.getFamilyId(),
+            AccountValuationService.TriggerKind.HOLDING_CHANGE, me.getMemberId()); } catch (Exception ignored) {}
         return "redirect:/accounts/" + accountId + "/holdings";
     }
 
@@ -190,7 +196,8 @@ public class StockHoldingController {
                                    @PathVariable long hid,
                                    @RequestParam BigDecimal amount) {
         holdingService.updateCashAmount(me.getFamilyId(), hid, amount);
-        try { valuationService.refreshAllForFamily(me.getFamilyId()); } catch (Exception ignored) {}
+        try { valuationService.refreshAllForFamily(me.getFamilyId(),
+            AccountValuationService.TriggerKind.HOLDING_CHANGE, me.getMemberId()); } catch (Exception ignored) {}
         return "redirect:/accounts/" + accountId + "/holdings";
     }
 
@@ -211,7 +218,8 @@ public class StockHoldingController {
                           @PathVariable long accountId,
                           @PathVariable long hid) {
         holdingService.archive(me.getFamilyId(), hid);
-        try { valuationService.refreshAllForFamily(me.getFamilyId()); } catch (Exception ignored) {}
+        try { valuationService.refreshAllForFamily(me.getFamilyId(),
+            AccountValuationService.TriggerKind.HOLDING_CHANGE, me.getMemberId()); } catch (Exception ignored) {}
         return "redirect:/accounts/" + accountId + "/holdings";
     }
 
@@ -223,7 +231,9 @@ public class StockHoldingController {
             scheduler.fetchMarket(Market.US);
             scheduler.fetchMarket(Market.CN);
             scheduler.fetchMarket(Market.HK);
-            valuationService.refreshAllForFamily(me.getFamilyId());
+            // v0.4.1 · 用户主动 click → trigger=MANUAL · 写 valuation event 含用户 ID
+            valuationService.refreshAllForFamily(me.getFamilyId(),
+                AccountValuationService.TriggerKind.MANUAL, me.getMemberId());
         } catch (Exception e) {
             log.warn("refresh failed: {}", e.toString());
         }

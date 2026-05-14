@@ -261,6 +261,7 @@ public class EntryController {
                 case EXPENSE -> { kindClass = "num-neg"; kindLabel = "- 支出"; }
                 case TRANSFER_IN -> { kindClass = "text-forest"; kindLabel = "↳ 划入"; }
                 case TRANSFER_OUT -> { kindClass = "text-rust"; kindLabel = "↱ 划出"; }
+                case VALUATION -> { kindClass = "text-brass-deep"; kindLabel = "📈 估值"; }
                 default -> { kindClass = "text-ink-subtle"; kindLabel = "= 校准余额"; }
             }
             sb.append("<li class=\"py-1.5 flex items-baseline gap-3 flex-wrap\">");
