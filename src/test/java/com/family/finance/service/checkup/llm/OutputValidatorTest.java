@@ -7,16 +7,16 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 综合诊断 OutputValidator 单测 · v0.2 FR-40c · 决策 20(2026-05-10)
+ * 综合诊断 OutputValidator 单测 · v0.4.7 放宽(2026-05-14)
  *
- * 校验策略(从"锁数字 100%"放宽为软校验):
+ * 校验策略:
  *   1. 长度 150-700 中文字符
- *   2. 担保性话术拒绝(保证 / 稳赚 / 一定能 / 必然 / 零风险 / 包赚 ...)
- *   3. 古典中式词拒绝(师傅 / 打理 / 挪 ...)
- *   4. 具体产品名 / 股票代码拒绝(余额宝 / 510300 / 茅台 / 6位数代码)
- *   5. 真名泄露拒绝(LLM 输出含原始成员真名)
- *   6. 过度客套拒绝(您 > 2 次)
- *   7. 至少一个金融术语
+ *   2. 担保性话术拒绝(保证 / 稳赚 / 一定能 / 必然 / 零风险 / 包赚 ...)— 合规底线
+ *   3. 具体产品名 / 股票代码拒绝(余额宝 / 510300 / 茅台 / 6 位数代码)+ 账户名白名单
+ *   4. 真名泄露拒绝(LLM 输出含 length ≥ 3 的原始成员真名)
+ *   5. 至少一个金融术语
+ *
+ * v0.4.7 放宽:删「古典中式词」+ 删「过度客套(您 > 2 次)」· 真名 length ≥ 2 → ≥ 3
  */
 class OutputValidatorTest {
 
@@ -72,11 +72,11 @@ class OutputValidatorTest {
     }
 
     @Test
-    void rejectsArchaicPhrase() {
-        String bad = VALID_DIAGNOSE.replace("整体配置偏稳健", "整体看,师傅这个家底配置偏稳健");
-        var r = OutputValidator.check(bad, NO_NAMES);
-        assertThat(r.accepted()).isFalse();
-        assertThat(r.reason()).contains("古典");
+    void allowsArchaicPhrase_v047() {
+        // v0.4.7:古典中式词扫描已删 · 「师傅」「家底」不再 reject
+        String text = VALID_DIAGNOSE.replace("整体配置偏稳健", "整体看,师傅这个家底配置偏稳健");
+        var r = OutputValidator.check(text, NO_NAMES);
+        assertThat(r.accepted()).isTrue();
     }
 
     @Test
@@ -114,11 +114,11 @@ class OutputValidatorTest {
     }
 
     @Test
-    void rejectsExcessiveFormality() {
-        String bad = VALID_DIAGNOSE.replace("整体配置偏稳健", "您好,您家整体配置偏稳健,请您注意");
-        var r = OutputValidator.check(bad, NO_NAMES);
-        assertThat(r.accepted()).isFalse();
-        assertThat(r.reason()).contains("客套");
+    void allowsExcessiveFormality_v047() {
+        // v0.4.7:过度客套(您 > 2 次)扫描已删 · 不再 reject
+        String text = VALID_DIAGNOSE.replace("整体配置偏稳健", "您好,您家整体配置偏稳健,请您注意");
+        var r = OutputValidator.check(text, NO_NAMES);
+        assertThat(r.accepted()).isTrue();
     }
 
     @Test
@@ -144,10 +144,44 @@ class OutputValidatorTest {
 
     @Test
     void shortNameNotConsideredLeak() {
-        // 单字符名字不算泄露(防误伤,如名字"王"会和"王者"等无关词混淆)
-        Set<String> shortName = Set.of("王");
-        // VALID_DIAGNOSE 不含"王",但即使含也不该拦(realName.length() < 2)
-        var r = OutputValidator.check(VALID_DIAGNOSE, shortName);
+        // v0.4.7:< 3 字真名不挡 · 防「张三/李四/萝卜」常用词组合误杀(prod 反馈)
+        // 「萝卜」单独 2 字 · 即使在 realNames 集合,VALID_DIAGNOSE 含「萝卜」也不该拦
+        Set<String> twoCharName = Set.of("萝卜");
+        String withCarrot = VALID_DIAGNOSE.replace("超额流动性的部分本金", "超额流动性的萝卜白菜消费");
+        var r = OutputValidator.check(withCarrot, twoCharName);
         assertThat(r.accepted()).isTrue();
+    }
+
+    @Test
+    void rejectsLongRealName_v047() {
+        // v0.4.7:length ≥ 3 的真名仍然 reject(如「张志强」「王萝卜」3 字以上)
+        Set<String> longName = Set.of("王萝卜");
+        String bad = VALID_DIAGNOSE.replace("结合本期命中", "建议王萝卜把多余现金调到货币基金,结合本期命中");
+        var r = OutputValidator.check(bad, longName);
+        assertThat(r.accepted()).isFalse();
+        assertThat(r.reason()).contains("真名");
+    }
+
+    @Test
+    void emptyRealNamesSkipsScan_v047() {
+        // v0.4.7:rebalance 路径 prompt 端不传真名,caller 应传空集合完全跳过真名扫描
+        // 即使输出包含任何字符串,只要 realNames=空 就不扫描
+        Set<String> empty = Set.of();
+        String withName = VALID_DIAGNOSE.replace("结合本期命中", "建议王萝卜把多余现金,结合本期命中");
+        var r = OutputValidator.check(withName, empty);
+        assertThat(r.accepted()).isTrue();
+    }
+
+    @Test
+    void accountWhitelistAllowsOwnAccountReference_v047() {
+        // v0.4.7:用户已有「支付宝-余额宝」账户时,「余额宝」不再被 PRODUCT_NAME_PATTERN reject
+        Set<String> accountWhitelist = Set.of("支付宝-余额宝");
+        String text = VALID_DIAGNOSE.replace("跟踪基准的指数型仓位", "余额宝里的部分资金");
+        // 旧 2 参签名 = 没白名单 · 应 reject
+        var oldApi = OutputValidator.check(text, NO_NAMES);
+        assertThat(oldApi.accepted()).isFalse();
+        // 新 3 参签名 + whitelist · 应 accept
+        var newApi = OutputValidator.check(text, NO_NAMES, accountWhitelist);
+        assertThat(newApi.accepted()).isTrue();
     }
 }

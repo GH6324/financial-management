@@ -106,14 +106,16 @@ public class RebalanceAdvisorService {
             if (raw == null) return AdviceResult.unavailable("LLM 全部失败");
 
             // 3. 校验 + 解析
-            //    把用户已有账户名作为 whitelist 传入 · 防止 PRODUCT_NAME_PATTERN 误杀对自家账户的引用
-            //    (用户的「支付宝-余额宝」账户被 LLM 引用时,「余额宝」是用户已知账户,不算产品推荐)
+            //    rebalance 这条路径的 prompt 不向 LLM 传成员信息(只传账户列表 + 4 桶配置)
+            //    所以 LLM 物理上不可能输出"真名"· 真名扫描在这里 0 价值 100% 误杀风险
+            //    → 传空 realNames 跳过第 4 层(v0.4.7 调整 · 解决 prod「萝卜」误杀)
+            //    账户名白名单仍保留(防 PRODUCT_NAME_PATTERN 误杀「支付宝-余额宝」对自家账户的引用)
             java.util.Set<String> accountNameWhitelist = accounts.stream()
                 .map(Account::getDisplayName)
                 .filter(java.util.Objects::nonNull)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
             OutputValidator.Result valid = OutputValidator.check(
-                raw, mapping.realToCodename().keySet(), accountNameWhitelist);
+                raw, java.util.Set.of(), accountNameWhitelist);
             if (!valid.accepted()) {
                 log.warn("rebalance advice LLM output 校验失败: {}", valid.reason());
                 return AdviceResult.unavailable("LLM 输出未通过校验:" + valid.reason());

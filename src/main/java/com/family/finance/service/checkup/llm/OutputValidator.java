@@ -5,24 +5,26 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * LLM 综合诊断输出校验 · v0.2 FR-40c · 2026-05-10 修订(决策 20)
+ * LLM 综合诊断输出校验 · v0.2 FR-40c · 2026-05-14 修订(v0.4.7 放宽)
  *
- * <p><b>新方向校验策略</b>(从"锁原文每个数字"放宽为软校验):
+ * <p><b>v0.4.7 放宽</b>(基于 prod 调仓建议反馈 · 误杀率 > 真泄露率):
+ * <ul>
+ *   <li>删除「古典中式词」扫描(品牌口吻偏好 · 用户感知低 · 误杀风险高)</li>
+ *   <li>删除「过度客套」(您 > 2 次)扫描(同上)</li>
+ *   <li>真名扫描门槛从 length ≥ 2 → length ≥ 3(避免「萝卜/张三/李四」2 字常用组合误杀)</li>
+ * </ul>
+ *
+ * <p><b>当前校验策略</b>(保留的都是真正有意义的):
  * <ol>
- *   <li>长度限制 150-600 中文字符(综合诊断需要长度,但避免 LLM 偷懒或废话连篇)</li>
- *   <li>禁词扫描:
- *     <ul>
- *       <li>具体产品名:余额宝 / 510300 / 茅台 / 招行某理财 / 平安XXX / 工商XXX...</li>
- *       <li>古典中式词:师傅 / 打理 / 挪 / 留个 / 家底 / 搁着</li>
- *       <li>担保性话术:保证 / 稳赚 / 一定能 / 必然 / 零风险 / 包赚</li>
- *       <li>过度客套:您 出现 > 2 次</li>
- *     </ul>
- *   </li>
- *   <li>真名泄露扫描:LLM 输出不能包含原始成员真名(已在 prompt 阶段映射成代号,但作防御深度)</li>
- *   <li>不再"锁原文每个数字必须保留"——综合诊断模式下 LLM 必须能引入推理性新数字</li>
+ *   <li>长度限制 150-700 字符</li>
+ *   <li>担保性话术拒绝(保证 / 稳赚 / 零风险 ...)— <b>合规底线 · 不可放</b></li>
+ *   <li>具体产品名 / 股票代码拒绝(余额宝 / 茅台 / 510300...)+ 账户名白名单</li>
+ *   <li>真名泄露扫描(防御深度;只对 length ≥ 3 的真名)— rebalance 等 prompt 端不传真名的
+ *       caller 应传空 realNames 集合跳过</li>
+ *   <li>至少含一个金融术语(防 LLM 跑题成心灵鸡汤)</li>
  * </ol>
  *
- * <p>任意一项失败 → reject,fallback 到「AI 暂时不可用」占位 + audit_log LLM_REJECTED。
+ * <p>任意一项失败 → reject。
  */
 public final class OutputValidator {
 
@@ -31,15 +33,13 @@ public final class OutputValidator {
     /** 长度上限:600 字以上是废话连篇,产品上需要克制 */
     private static final int MAX_LEN = 700; // 留 100 字缓冲(LLM 偶尔会超 600)
 
+    /** 真名扫描最小长度:&lt; 3 字的真名(如「萝卜」「张三」)在自然语言中常用,误杀率高 */
+    private static final int MIN_REAL_NAME_LEN = 3;
+
     /** 担保性话术(最不能容忍 — 涉及金融建议合规) */
     private static final List<String> GUARANTEE_PHRASES = List.of(
             "保证", "稳赚", "一定能", "必然", "零风险", "包赚", "无风险套利", "稳定盈利",
             "肯定盈利", "绝对收益", "保底", "保收益"
-    );
-
-    /** 古典中式词(品牌 chrome 用,AI 综合诊断不该出现) */
-    private static final List<String> ARCHAIC_PHRASES = List.of(
-            "师傅", "打理", "挪个", "留个", "家底", "搁着", "压着", "一笔", "几笔"
     );
 
     /** 具体产品名 / 股票代码 — 这是合规底线 */
@@ -80,21 +80,14 @@ public final class OutputValidator {
             return Result.reject("文本过长 len=" + len + "(> " + MAX_LEN + ")");
         }
 
-        // 1. 担保性话术(最严重)
+        // 1. 担保性话术(最严重 · 合规底线)
         for (String w : GUARANTEE_PHRASES) {
             if (trimmed.contains(w)) {
                 return Result.reject("含担保性话术: \"" + w + "\"");
             }
         }
 
-        // 2. 古典中式词
-        for (String w : ARCHAIC_PHRASES) {
-            if (trimmed.contains(w)) {
-                return Result.reject("含古典中式词: \"" + w + "\"");
-            }
-        }
-
-        // 3. 具体产品名 / 股票代码
+        // 2. 具体产品名 / 股票代码
         //    白名单:如果匹配命中的产品名是「用户已有账户名」的子串,放行
         //    (调仓建议场景 · 用户对自己账户有完全知情权 · LLM 引用自己账户不算产品推荐)
         var matcher = PRODUCT_NAME_PATTERN.matcher(trimmed);
@@ -107,22 +100,17 @@ public final class OutputValidator {
             }
         }
 
-        // 4. 真名泄露扫描(防御深度;理论上 LLM 看不到真名就不会写出来)
+        // 3. 真名泄露扫描(防御深度 · length ≥ 3 防止 2 字常用组合「萝卜/张三」误杀)
+        //    caller 在 prompt 端不传真名时(如 rebalance)应传空 realNames 集合完全跳过
         if (realNames != null && !realNames.isEmpty()) {
             for (String name : realNames) {
-                if (name != null && name.length() >= 2 && trimmed.contains(name)) {
+                if (name != null && name.length() >= MIN_REAL_NAME_LEN && trimmed.contains(name)) {
                     return Result.reject("真名泄露: \"" + name + "\"");
                 }
             }
         }
 
-        // 5. 过度客套
-        long youCount = trimmed.chars().filter(c -> c == '您').count();
-        if (youCount > 2) {
-            return Result.reject("过度客套(您 出现 " + youCount + " 次)");
-        }
-
-        // 6. 至少包含一个金融术语(避免 LLM 跑题成"心灵鸡汤")
+        // 4. 至少包含一个金融术语(避免 LLM 跑题成"心灵鸡汤")
         boolean hasFinanceTerm = trimmed.contains("年化") || trimmed.contains("配置")
                 || trimmed.contains("资产") || trimmed.contains("流动")
                 || trimmed.contains("风险") || trimmed.contains("收益")

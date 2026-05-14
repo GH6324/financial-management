@@ -754,3 +754,35 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 **backward-compat 红线**
 - 0 schema · `OutputValidator.check` 旧 2 参数签名保留 · 新 3 参数 overload
 - prod 升级 0 风险
+
+---
+
+### v0.4.7 · OutputValidator 放宽(2026-05-14)
+
+**触发**:v0.4.6 修了「余额宝」后 prod 又新误杀 `真名泄露: "萝卜"`(用户家庭成员真名「王萝卜」· LLM 在叙事中用到「萝卜」蔬菜词被误杀)· 用户反馈「对 LLM 的限制太多」。
+
+**诊断**(临时加 DEBUG log + beta 真跑一次 抓 prompt 全文 + LLM raw 输出):
+- `RebalanceAdvisorService.buildPrompt` 收 members 但**完全没写入 prompt** · LLM 物理上看不到真名
+- 真名扫描 length ≥ 2 + contains 在 2 字常用组合(萝卜/张三/李四)上误杀率 >> 真泄露率
+
+**放宽**
+
+| 校验 | 之前 | v0.4.7 |
+|---|---|---|
+| 古典中式词(师傅/打理/家底...) | reject | **删** |
+| 过度客套(您 > 2 次) | reject | **删** |
+| 真名扫描门槛 | length ≥ 2 | length ≥ 3(防 2 字常用词误杀) |
+| rebalance caller 行为 | 传 mapping.realToCodename().keySet() | 传 Set.of() 跳过扫描 |
+
+**保留**(真有意义):长度 / 担保性话术(合规底线)/ 产品名+白名单 / 金融术语
+
+**单测**:删 2 reject 测改 allow · 加 3 新测(2 字真名放行 / ≥3 仍 reject / 空 realNames 跳过)· 总 OutputValidatorTest 13 → 18 个 · 全绿
+
+**验证**
+- mvn test:164 全绿(151 + 13 OutputValidator)
+- bash scripts/qa-run.sh:**278 PASS** / 3 pre-existing FAIL
+- beta:LLM ok=true · actions=3 · 不再被「萝卜」误杀
+
+**backward-compat 红线**
+- 0 schema · `OutputValidator.check(text, realNames)` 旧 2 参数行为变化只是放宽(原 reject 的现在 accept)· caller 代码 0 改动
+- 其他 LLM caller(checkup / goals)真名扫描仍走 length ≥ 3 兜底
