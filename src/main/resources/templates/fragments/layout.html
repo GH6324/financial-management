@@ -7,8 +7,8 @@
 <head th:fragment="head(title)">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="_csrf" th:content="${_csrf.token}"/>
-  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+  <meta name="_csrf" th:content="${_csrf != null ? _csrf.token : ''}"/>
+  <meta name="_csrf_header" th:content="${_csrf != null ? _csrf.headerName : 'X-XSRF-TOKEN'}"/>
   <title th:text="${title} ?: '家庭账房'">家庭账房</title>
   <!-- v0.2 FR-1/FR-34 · favicon 优先用户自定义 WebP,否则用预设(默认 icon2);apple-touch-icon 永远跟 family.logoPreset(WebP 不适合 iOS)
        BUG-FIX(2026-05-11):删 alternate icon SVG —— Chrome 见 SVG 备选会优先选 SVG(矢量任意 DPI 都清晰),
