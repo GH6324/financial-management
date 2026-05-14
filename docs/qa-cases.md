@@ -786,3 +786,42 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 **backward-compat 红线**
 - 0 schema · `OutputValidator.check(text, realNames)` 旧 2 参数行为变化只是放宽(原 reject 的现在 accept)· caller 代码 0 改动
 - 其他 LLM caller(checkup / goals)真名扫描仍走 length ≥ 3 兜底
+
+---
+
+### v0.4.8 · MAX_LEN 1500 + AI 刷新按钮真生效(2026-05-14)
+
+**触发**:用户两个新报告
+1. ⚠ 文本过长 len=707(> 700)· MAX_LEN 仍太严
+2. 几处 AI 建议都应该做好缓存,但点刷新小按钮应立刻去新的并更新缓存
+
+**改动**
+
+| 维度 | 之前 | v0.4.8 |
+|---|---|---|
+| OutputValidator MAX_LEN | 700 | 1500(rebalance JSON narrative+4 actions+reason 常见 800-1000) |
+| RebalanceAdvisorService | advise(familyId) 只读 cache | advise(familyId, forceRefresh) · forceRefresh=true 跳 cache |
+| LlmDiagnoseService | diagnoseFamily/Account 只读 cache | 加 5 参 overload · forceRefresh=true 跳 cache + cache.remove |
+| RebalanceController | 接 form | 接 @RequestParam refresh=false |
+| AiDiagnoseController | 接 GET | 接 @RequestParam refresh=false |
+| reports/_ai-rebalance.html | 无刷新按钮 | advice card 标题栏右加「↻ 刷新」form · action 带 refresh=true |
+| checkup/_ai-diagnose.html | 「↻ 刷新」title 写忽略缓存但 url 没传(假刷新)| 真传 refresh=true · 立刻调新 LLM |
+
+**新加 4 条**黑盒(v04-AI-REBALANCE-5/6/7 + v04-AI-DIAGNOSE-1):
+- v04-AI-REBALANCE-5:第二次 advise 命中 cache(fromCache=true · 节省 LLM 调用)
+- v04-AI-REBALANCE-6:refresh=true 跳过缓存 + forceRefresh log + fromCache=false
+- v04-AI-REBALANCE-7:advice card 显示 ↻ 刷新按钮(form 带 refresh=true)
+- v04-AI-DIAGNOSE-1:/checkup/diagnose 刷新按钮 url 带 refresh=true(真忽略 cache · 此前假忽略)
+
+**验证**
+- mvn test 164 全绿(rejectsTooLong 改 100 次 repeat 验证 1500 阈值)
+- bash scripts/qa-run.sh:**282 PASS** / 3 pre-existing FAIL
+- beta 三态实测(log 凭证):
+  - cache 空 → 调 LLM · fromCache=false
+  - 再点 → fromCache=true(命中)
+  - refresh=true → forceRefresh log + fromCache=false(强制重新)
+
+**backward-compat 红线**
+- 0 schema · `RebalanceAdvisorService.advise(long)` + `LlmDiagnoseService.diagnoseFamily/Account` 老签名都保留作 1-2 参 overload · delegate 到新版本(forceRefresh=false)
+- Controller 新增 `refresh=false` 默认 RequestParam · form 不带也兼容
+- prod 升级 0 风险

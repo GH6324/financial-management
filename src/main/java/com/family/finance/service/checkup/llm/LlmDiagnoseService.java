@@ -58,11 +58,20 @@ public class LlmDiagnoseService {
     private static final long TTL_MS = 60L * 60 * 1000;
 
     /**
-     * 全家维度综合诊断。
-     * 失败时返回 {@link DiagnoseResult#unavailable},前端展示降级占位。
+     * 全家维度综合诊断(默认走 cache · 1h TTL · 兼容老 caller)。
      */
     public DiagnoseResult diagnoseFamily(Long familyId, Long actorMemberId,
                                           FamilyDiagnose diagnose, List<Advice> adviceList) {
+        return diagnoseFamily(familyId, actorMemberId, diagnose, adviceList, false);
+    }
+
+    /**
+     * 全家维度综合诊断 · forceRefresh=true 跳过 cache 直接调 LLM 并覆写 cache。
+     * 失败时返回 {@link DiagnoseResult#unavailable},前端展示降级占位。
+     */
+    public DiagnoseResult diagnoseFamily(Long familyId, Long actorMemberId,
+                                          FamilyDiagnose diagnose, List<Advice> adviceList,
+                                          boolean forceRefresh) {
         try {
             String familyName = familyService.require(familyId).getName();
             List<Member> members = memberMapper.findActiveByFamily(familyId);
@@ -98,7 +107,7 @@ public class LlmDiagnoseService {
 
             return runDiagnose(familyId, actorMemberId, "FAMILY", null,
                     systemPrompt, userPrompt, mapping.codenameToReal(),
-                    mapping.realToCodename().keySet());
+                    mapping.realToCodename().keySet(), forceRefresh);
         } catch (Exception e) {
             log.warn("全家综合诊断失败 familyId={}: {}", familyId, e.getMessage());
             return DiagnoseResult.unavailable("内部错误: " + e.getMessage());
@@ -106,12 +115,23 @@ public class LlmDiagnoseService {
     }
 
     /**
-     * 账户维度综合诊断。
+     * 账户维度综合诊断(默认走 cache · 兼容老 caller)。
      */
     public DiagnoseResult diagnoseAccount(Long familyId, Long actorMemberId,
                                            FamilyDiagnose familyDiagnose,
                                            AccountDiagnose accountDiagnose,
                                            List<Advice> adviceList) {
+        return diagnoseAccount(familyId, actorMemberId, familyDiagnose, accountDiagnose, adviceList, false);
+    }
+
+    /**
+     * 账户维度综合诊断 · forceRefresh=true 跳过 cache。
+     */
+    public DiagnoseResult diagnoseAccount(Long familyId, Long actorMemberId,
+                                           FamilyDiagnose familyDiagnose,
+                                           AccountDiagnose accountDiagnose,
+                                           List<Advice> adviceList,
+                                           boolean forceRefresh) {
         try {
             String familyName = familyService.require(familyId).getName();
             List<Member> members = memberMapper.findActiveByFamily(familyId);
@@ -149,7 +169,7 @@ public class LlmDiagnoseService {
             return runDiagnose(familyId, actorMemberId, "ACCOUNT",
                     accountDiagnose.account().getId(),
                     systemPrompt, userPrompt, mapping.codenameToReal(),
-                    mapping.realToCodename().keySet());
+                    mapping.realToCodename().keySet(), forceRefresh);
         } catch (Exception e) {
             log.warn("账户综合诊断失败 familyId={} accountId={}: {}",
                     familyId, accountDiagnose.account().getId(), e.getMessage());
@@ -161,16 +181,22 @@ public class LlmDiagnoseService {
                                         String scope, Long entityId,
                                         String systemPrompt, String userPrompt,
                                         Map<String, String> codenameToReal,
-                                        java.util.Set<String> realNames) {
+                                        java.util.Set<String> realNames,
+                                        boolean forceRefresh) {
         // DEBUG: prompt 摘要(只在 debug level 输出,生产 info level 不会显示)
         if (log.isDebugEnabled()) {
             log.debug("LLM prompt for {} entityId={}, length={}, body=\n{}", scope, entityId, userPrompt.length(), userPrompt);
         }
-        // 1. 查 cache
+        // 1. 查 cache(forceRefresh 跳过)
         String cacheKey = sha256(scope + "|" + entityId + "|" + userPrompt);
-        CacheEntry hit = cache.get(cacheKey);
-        if (hit != null && System.currentTimeMillis() - hit.timestamp < TTL_MS) {
-            return DiagnoseResult.ok(hit.diagnoseText, hit.vendor, true);
+        if (!forceRefresh) {
+            CacheEntry hit = cache.get(cacheKey);
+            if (hit != null && System.currentTimeMillis() - hit.timestamp < TTL_MS) {
+                return DiagnoseResult.ok(hit.diagnoseText, hit.vendor, true);
+            }
+        } else {
+            log.info("LLM diagnose forceRefresh · scope={} entityId={}", scope, entityId);
+            cache.remove(cacheKey);
         }
 
         // 2. 遍历 clients(主 qwen → 备 deepseek)

@@ -11,9 +11,18 @@
   <div class="px-4 py-3">
     <div class="flex items-baseline justify-between mb-2 flex-wrap gap-1">
       <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">🤖 AI · 调 · 仓 · 建 · 议</span>
-      <span class="font-mono text-[9px] text-ink-subtle"
-            th:if="${rebalanceAdvice.generatedAt != null}"
-            th:text="'生成于 ' + ${#temporals.format(rebalanceAdvice.generatedAt, 'yyyy-MM-dd HH:mm')} + ' · 30 天内复用'">生成于 ...</span>
+      <div class="flex items-baseline gap-2">
+        <span class="font-mono text-[9px] text-ink-subtle"
+              th:if="${rebalanceAdvice.generatedAt != null}"
+              th:text="'生成于 ' + ${#temporals.format(rebalanceAdvice.generatedAt, 'yyyy-MM-dd HH:mm')} + ' · 30 天内复用'">生成于 ...</span>
+        <!-- ↻ 刷新按钮 · 跳过缓存 · 立即重新调 LLM -->
+        <form th:if="${_csrf != null}" th:action="@{/reports/rebalance/advise(refresh='true')}" method="post"
+              class="inline" title="忽略缓存 · 重新生成">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <button type="submit"
+                  class="font-mono text-[10px] px-1.5 py-0.5 border border-brass-deep text-brass-deep hover:bg-brass-deep hover:text-paper transition">↻ 刷新</button>
+        </form>
+      </div>
     </div>
     <p th:if="${rebalanceAdvice.narrative != null}"
        class="text-xs text-ink-soft leading-relaxed font-serif mb-3"

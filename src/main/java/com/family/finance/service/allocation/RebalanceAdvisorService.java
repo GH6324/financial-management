@@ -67,22 +67,31 @@ public class RebalanceAdvisorService {
 
     /**
      * 主入口:获取调仓建议(命中 30 天缓存直接返,否则调 LLM)。
+     * 用户点页面「↻ 刷新」按钮 → forceRefresh=true 跳过缓存直接调 LLM 并覆写缓存。
      *
      * @return AdviceResult.unavailable 表示 LLM 全部失败;否则带 actions + narrative
      */
     public AdviceResult advise(long familyId) {
+        return advise(familyId, false);
+    }
+
+    public AdviceResult advise(long familyId, boolean forceRefresh) {
         try {
             Family f = familyService.require(familyId);
             String anchor = f.getAllocationAnchor() == null ? "SP_4321" : f.getAllocationAnchor();
 
-            // 1. 查缓存(30 天 TTL)
-            Optional<RebalanceAdviceCache> cached = cacheMapper.findByFamilyAndAnchor(familyId, anchor);
-            if (cached.isPresent()) {
-                long days = Duration.between(cached.get().getGeneratedAt(), LocalDateTime.now()).toDays();
-                if (days <= CACHE_TTL_DAYS) {
-                    log.info("rebalance advice cache hit · family={} anchor={} age={}d", familyId, anchor, days);
-                    return parseFromJson(cached.get().getContentJson(), cached.get().getGeneratedAt(), true);
+            // 1. 查缓存(30 天 TTL · forceRefresh 跳过)
+            if (!forceRefresh) {
+                Optional<RebalanceAdviceCache> cached = cacheMapper.findByFamilyAndAnchor(familyId, anchor);
+                if (cached.isPresent()) {
+                    long days = Duration.between(cached.get().getGeneratedAt(), LocalDateTime.now()).toDays();
+                    if (days <= CACHE_TTL_DAYS) {
+                        log.info("rebalance advice cache hit · family={} anchor={} age={}d", familyId, anchor, days);
+                        return parseFromJson(cached.get().getContentJson(), cached.get().getGeneratedAt(), true);
+                    }
                 }
+            } else {
+                log.info("rebalance advice forceRefresh · family={} anchor={}", familyId, anchor);
             }
 
             // 2. 准备 prompt 上下文

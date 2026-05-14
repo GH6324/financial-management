@@ -92,6 +92,7 @@
 - **v0.4.5 /checkup 风险敞口饼图化**(2026-05-14)· 等级列表 → doughnut + datalabels(用户反馈"干巴巴的数字")· 0 schema
 - **v0.4.6 AI 调仓建议「按了没反应」修复**(2026-05-14)· OutputValidator 加账户名白名单(用户自家余额宝被误杀)+ 前端反馈条(成功/缓存/失败 3 态)
 - **v0.4.7 OutputValidator 放宽**(2026-05-14)· 用户反馈「限制太多」· 删古典词扫描 + 删过度客套扫描 + 真名 length≥3 + rebalance caller 跳过真名扫描(prompt 端零真名传入)
+- **v0.4.8 AI 缓存 + 刷新按钮真生效**(2026-05-14)· MAX_LEN 700→1500 · rebalance 加「↻ 刷新」按钮 · checkup 诊断刷新按钮此前假忽略缓存现在真传 refresh=true
 - **真 LLM 接通**(beta)· Qwen-Plus 调仓建议 · 圆形熔断不影响主路径
 
 ### v0.3(2026-05-13 封板 · tag `v0.3`)
@@ -124,7 +125,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 164 单元 / 36 端到端 / 278 黑盒 |
+| 测试 | JUnit 5 · 164 单元 / 36 端到端 / 282 黑盒 |
 
 ## 快速开始(自托管部署)
 

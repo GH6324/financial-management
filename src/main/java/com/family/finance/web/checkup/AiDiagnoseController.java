@@ -60,6 +60,7 @@ public class AiDiagnoseController {
     @GetMapping("/checkup/diagnose")
     public String diagnose(@AuthenticationPrincipal MemberPrincipal me,
                            @RequestParam(name = "account", required = false) Long accountId,
+                           @RequestParam(name = "refresh", required = false, defaultValue = "false") boolean refresh,
                            Model model) {
         BigDecimal avgExp = computeAvgExpense(me.getFamilyId());
 
@@ -72,7 +73,7 @@ public class AiDiagnoseController {
             List<Advice> advice = adviceEngine.evaluate(ctx);
 
             result = llmDiagnoseService.diagnoseFamily(me.getFamilyId(), me.getMemberId(),
-                    diagnose, advice);
+                    diagnose, advice, refresh);
         } else {
             // 账户维度
             Optional<Account> account = accountMapper.findById(accountId)
@@ -87,7 +88,7 @@ public class AiDiagnoseController {
             List<Advice> advice = adviceEngine.evaluate(ctx);
 
             result = llmDiagnoseService.diagnoseAccount(me.getFamilyId(), me.getMemberId(),
-                    fd, ad, advice);
+                    fd, ad, advice, refresh);
         }
 
         model.addAttribute("result", result);

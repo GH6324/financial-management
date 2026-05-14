@@ -57,7 +57,8 @@ class OutputValidatorTest {
 
     @Test
     void rejectsTooLong() {
-        String tooLong = "整体配置偏稳健,流动性配置充裕。" + "建议适度再平衡风险敞口降低主动选股偏差。".repeat(50);
+        // v0.4.7 起 MAX_LEN 1500 · 100 次 21 字 = 2116 字 · 妥妥超过
+        String tooLong = "整体配置偏稳健,流动性配置充裕。" + "建议适度再平衡风险敞口降低主动选股偏差。".repeat(100);
         var r = OutputValidator.check(tooLong, NO_NAMES);
         assertThat(r.accepted()).isFalse();
         assertThat(r.reason()).contains("过长");

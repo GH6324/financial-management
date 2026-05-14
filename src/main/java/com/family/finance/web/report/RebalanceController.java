@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
@@ -22,11 +23,13 @@ public class RebalanceController {
     private final RebalanceAdvisorService rebalanceAdvisorService;
 
     @PostMapping("/reports/rebalance/advise")
-    public String advise(@AuthenticationPrincipal MemberPrincipal me, RedirectAttributes ra) {
+    public String advise(@AuthenticationPrincipal MemberPrincipal me,
+                         @RequestParam(name = "refresh", required = false, defaultValue = "false") boolean refresh,
+                         RedirectAttributes ra) {
         try {
-            var r = rebalanceAdvisorService.advise(me.getFamilyId());
-            log.info("rebalance advise · family={} ok={} fromCache={} actions={}",
-                me.getFamilyId(), r.ok(), r.fromCache(), r.actions() == null ? 0 : r.actions().size());
+            var r = rebalanceAdvisorService.advise(me.getFamilyId(), refresh);
+            log.info("rebalance advise · family={} refresh={} ok={} fromCache={} actions={}",
+                me.getFamilyId(), refresh, r.ok(), r.fromCache(), r.actions() == null ? 0 : r.actions().size());
             if (r.ok()) {
                 ra.addFlashAttribute("rebalanceFlash",
                     r.fromCache() ? "ok-cache" : "ok-fresh");

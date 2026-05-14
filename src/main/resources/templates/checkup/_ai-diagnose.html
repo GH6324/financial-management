@@ -23,7 +23,7 @@
     </div>
     <button type="button"
             class="text-[10px] font-mono px-2 py-0.5 text-ink-subtle hover:text-brass-deep border border-rule-soft hover:border-brass-deep transition"
-            th:hx-get="${scope == 'ACCOUNT' ? '/checkup/diagnose?account=' + accountId : '/checkup/diagnose'}"
+            th:hx-get="${scope == 'ACCOUNT' ? '/checkup/diagnose?account=' + accountId + '&refresh=true' : '/checkup/diagnose?refresh=true'}"
             hx-target="#ai-diagnose-panel"
             hx-swap="outerHTML"
             title="重新生成 AI 诊断(忽略缓存)">↻ 刷新</button>

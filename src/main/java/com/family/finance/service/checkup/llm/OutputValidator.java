@@ -30,8 +30,9 @@ public final class OutputValidator {
 
     /** 长度下限:综合诊断需要叙事完整,150 字以下信号太弱 */
     private static final int MIN_LEN = 150;
-    /** 长度上限:600 字以上是废话连篇,产品上需要克制 */
-    private static final int MAX_LEN = 700; // 留 100 字缓冲(LLM 偶尔会超 600)
+    /** 长度上限:v0.4.7 起放宽到 1500(原 700 卡 rebalance JSON · narrative + 4 actions 各带 reason
+     *  常见 800-1000 字 · 1500 字仍能挡住明显废话连篇 · 给 LLM 详细说理空间) */
+    private static final int MAX_LEN = 1500;
 
     /** 真名扫描最小长度:&lt; 3 字的真名(如「萝卜」「张三」)在自然语言中常用,误杀率高 */
     private static final int MIN_REAL_NAME_LEN = 3;
