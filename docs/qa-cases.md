@@ -895,3 +895,37 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 - 0 schema · DiagnoseResult 老工厂保留(truncated=false)
 - 老 cache 纯文本走 fallback text 分支不误判截断
 - prod 升级 0 风险
+
+---
+
+### v0.4.11 · prompt 占比 bug 修复 + 严禁 LLM 算术(2026-05-14)
+
+**触发**:用户反馈 LLM 胡说「股票类仅占 3.4%(¥376万/¥1095万)」· 实际 34% · 用户说「不应该让 LLM 做任何数学计算 · 所有计算类指标应该工程算好填进去」
+
+**真因两层**
+
+| 层 | 问题 | 修法 |
+|---|---|---|
+| 1 | `pct1(s.ratio())` 没 ×100 · ratio=0.442 显成 0.4% · prompt 给 LLM 错误数据 | 新增 `pctFromRatio(ratio)` ×100 · L137/L147 改用此函数 |
+| 1 | L223 `pct1(benchmarkPct.multiply(100))` 反向 bug · 8.00 ×100 显 800% | 删 `multiply(100)` · benchmarkPct 已是百分比形式 |
+| 2 | LLM 即使数字对也会瞎算占比/差额(根本性) | SYSTEM_DIAGNOSE 加「⚠⚠⚠ 最高优先级 · 100% 禁止四则运算 · 数字必须照抄」5 条规则 + userPromptForFamily 顶部「⚠ 重要 · 以下数字已计算 · 你只能引用」 |
+
+**verify(beta 实测)**:
+- 修前 prompt:`股票 ¥1779269 · 占比 0.4%`(错)
+- 修后 prompt:`股票 ¥1779269 · 占比 44.2%`(对)
+- LLM evidence:`现金占比2.4%,股票占比44.2%,理财占比8.7%,房产占比44.7%` ← 100% 照抄 prompt
+
+**新加 2 条**(v04-AI-DIAGNOSE-7/8):
+- v04-AI-DIAGNOSE-7:PromptBuilder ratio 占比 ×100 修
+- v04-AI-DIAGNOSE-8:SYSTEM_DIAGNOSE 含禁数学约束
+
+**验证**
+- mvn test 166 全绿
+- bash scripts/qa-run.sh **289 PASS** / 3 pre-existing FAIL
+
+**backward-compat 红线**
+- 0 schema · 0 DB
+- `pct1` 函数行为不变 · 仅 caller 切换到 `pctFromRatio`
+- SYSTEM_DIAGNOSE 更严不引入新错
+- 其他 LLM caller 0 改动
+- prod 升级 0 风险

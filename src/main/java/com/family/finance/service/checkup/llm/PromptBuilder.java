@@ -35,6 +35,16 @@ public final class PromptBuilder {
             产品 UX 之前已展示系统规则引擎的"硬数据便签卡"(精确数字 + 触发规则 ID)。
             你的任务是在这些硬数据基础上 · 做跨维度综合判断 + 给可执行优先行动。
 
+            ⚠⚠⚠ 数字严禁原则(最高优先级):
+            1. 你 100% 禁止做任何四则运算 · 不计算占比 / 差额 / 比率 / 总和 / 平均
+            2. 所有出现在你输出中的 ¥ 金额 / % 百分比,必须从上下文 prompt 中已存在的数字
+               原样照抄(可省略后缀如「万」"千"但数字本身必须一致)
+            3. prompt 中已为你预计算了:占比 · vs 基准差距 · 应急月数 · 加权年化等
+               · 你只需引用,不要再算
+            4. 如果某个数字 prompt 中没给 · 你不能凭"印象"造一个 · 用「—」或省略
+            5. 跨规则推理可以做(如"流动性厚 + 权益不足"两条规则合并描述)
+               · 但不允许出现 prompt 没给的具体数字
+
             输出格式 · 严格 JSON 对象 · 不要 markdown 包裹 · 不要解释段:
 
             {
@@ -84,7 +94,8 @@ public final class PromptBuilder {
             - 涉及家庭成员用「成员A / 成员B / 成员C」代号
 
             数据约束:
-            - 出现的 ¥ 数字必须在硬事实中出现过 · 或合理推导
+            - finding / evidence 中出现的 ¥ 数字 / % 百分比 · 必须从 prompt
+              上下文照抄(参考最高优先级原则)
             - 不推荐违反风险等级的操作(R2 用户不建议买 R5)
             """;
 
@@ -110,10 +121,12 @@ public final class PromptBuilder {
                                              Map<String, String> mapping) {
         StringBuilder sb = new StringBuilder(2048);
         sb.append("# 家庭综合体检上下文\n\n");
+        sb.append("⚠ 重要 · 以下所有数字(¥金额 / % 占比 / pp 差额 / 月数)均由系统预先计算\n");
+        sb.append("  你只能引用这些数字 · 不要自己做四则运算 · 不要凭印象造数字\n\n");
         sb.append("家庭名: ").append(safe(familyName)).append('\n');
         sb.append("视角: 全家(全部账户聚合)\n\n");
 
-        sb.append("## 1. KPI 速览(本位币 CNY)\n");
+        sb.append("## 1. KPI 速览(本位币 CNY · 已计算)\n");
         if (diagnose.kpi() != null) {
             sb.append("- 总资产: ").append(money(diagnose.kpi().totalAssets())).append('\n');
             sb.append("- 总负债: ").append(money(diagnose.kpi().totalLiabilities())).append('\n');
@@ -134,7 +147,7 @@ public final class PromptBuilder {
             for (AllocationSlice s : diagnose.allocation()) {
                 sb.append("- ").append(s.label().replace('\n', ' '))
                         .append(": ").append(money(s.value()))
-                        .append(" · 占比 ").append(pct1(s.ratio())).append('\n');
+                        .append(" · 占比 ").append(pctFromRatio(s.ratio())).append('\n');
             }
             sb.append('\n');
         }
@@ -144,7 +157,7 @@ public final class PromptBuilder {
             for (FamilyDiagnose.RiskBucket b : diagnose.riskDistribution()) {
                 sb.append("- ").append(b.stars()).append(" ").append(b.label())
                         .append(": ").append(money(b.amount()))
-                        .append(" · 占比 ").append(pct1(b.ratio())).append('\n');
+                        .append(" · 占比 ").append(pctFromRatio(b.ratio())).append('\n');
             }
             sb.append('\n');
         }
@@ -220,7 +233,8 @@ public final class PromptBuilder {
             if (accountDiagnose.category().getBenchmarkLabel() != null) {
                 sb.append(" · 基准 ").append(accountDiagnose.category().getBenchmarkLabel());
                 if (accountDiagnose.category().getBenchmarkPct() != null) {
-                    sb.append("(").append(pct1(accountDiagnose.category().getBenchmarkPct().multiply(new BigDecimal("100")))).append(")");
+                    // v0.4.11 修 bug:benchmarkPct 存的是百分比形式(8.00 表示 8%)· 直接 pct1 即可 · 之前 ×100 显示成 800%
+                    sb.append("(").append(pct1(accountDiagnose.category().getBenchmarkPct())).append(")");
                 }
             }
         } else {
@@ -371,6 +385,16 @@ public final class PromptBuilder {
     private static String pct2(BigDecimal v) {
         if (v == null) return "—";
         return v.setScale(2, RoundingMode.HALF_EVEN).toPlainString() + "%";
+    }
+
+    /**
+     * 把 0-1 之间的小数比例(如 AllocationSlice.ratio() = 0.442)格式化为百分比字符串。
+     * v0.4.11 修 bug:之前 caller 直接 pct1(s.ratio()) 不带 ×100 · prompt 显示 "0.4%" 而非 "44.2%"
+     * · LLM 拿到错误数据自然误判。
+     */
+    private static String pctFromRatio(BigDecimal ratio) {
+        if (ratio == null) return "—";
+        return ratio.multiply(BigDecimal.valueOf(100)).setScale(1, RoundingMode.HALF_EVEN).toPlainString() + "%";
     }
 
     private static String safe(String s) {

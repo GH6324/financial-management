@@ -2052,6 +2052,19 @@ grep -q "structured() == null" src/main/resources/templates/checkup/_ai-diagnose
   && log_ok "v04-AI-DIAGNOSE-6 客户端检测 finish_reason=length 截断 · log.warn 提示" \
   || log_bad "v04-AI-DIAGNOSE-6 截断日志缺" "no finish_reason check"
 
+# v04-AI-DIAGNOSE-7 · v0.4.11 · pct1(ratio) bug 修(占比 0.4% → 44.2%)
+#   AllocationSlice.ratio() / RiskBucket.ratio() 是小数(0.442)· 必须 ×100 显示
+#   之前 caller 用 pct1 直接显 0.4% · LLM 拿到错误数据胡说"权益占比严重不足"
+grep -q 'pctFromRatio(s.ratio())' src/main/java/com/family/finance/service/checkup/llm/PromptBuilder.java \
+  && grep -q 'pctFromRatio(b.ratio())' src/main/java/com/family/finance/service/checkup/llm/PromptBuilder.java \
+  && log_ok "v04-AI-DIAGNOSE-7 PromptBuilder ratio 占比 ×100 修(¥95710 占比 2.4% 正确)" \
+  || log_bad "v04-AI-DIAGNOSE-7 pct ratio bug 未修" "still using pct1(ratio)"
+
+# v04-AI-DIAGNOSE-8 · SYSTEM_DIAGNOSE 禁 LLM 算术
+grep -q '禁止做任何四则运算\|不要自己做四则运算' src/main/java/com/family/finance/service/checkup/llm/PromptBuilder.java \
+  && log_ok "v04-AI-DIAGNOSE-8 SYSTEM_DIAGNOSE 含禁数学约束(防 LLM 瞎算占比/差额)" \
+  || log_bad "v04-AI-DIAGNOSE-8 禁数学约束缺" "no math-prohibition rule"
+
 
 echo
 echo "═══════════════════════════════════════"
