@@ -154,8 +154,8 @@
     </div>
     <div class="flex-1 text-xs lg:text-sm">
       <span class="text-ink-soft">实际需求 <b class="tnum"
-            th:text="${liquidSurplus.emergencyMonths} + ' 月 · ¥' + #numbers.formatInteger(liquidSurplus.emergencyNeeded, 0, 'COMMA')">¥95k</b>
-            · 当前 LIQUID <b class="tnum" th:text="'¥' + #numbers.formatInteger(liquidSurplus.liquidAssets, 0, 'COMMA')">¥185k</b>
+            th:text="${liquidSurplus.emergencyMonths + ' 月 · ¥' + #numbers.formatInteger(liquidSurplus.emergencyNeeded, 0, 'COMMA')}">¥95k</b>
+            · 当前 LIQUID <b class="tnum" th:text="${'¥' + #numbers.formatInteger(liquidSurplus.liquidAssets, 0, 'COMMA')}">¥185k</b>
             · 超额 <b class="text-brass-deep tnum" th:text="${liquidSurplusMoney}">¥90k</b> 建议转货币基金获取 ~2% 年化。</span>
     </div>
     <a th:href="@{/admin/product-categories}" class="font-mono text-[10px] tracking-wider text-brass-deep hover:underline no-underline whitespace-nowrap">→ MONEY_FUND 参考</a>
