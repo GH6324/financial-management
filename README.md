@@ -88,6 +88,8 @@
   - 清除用户面 v0.X / FR-XX 代号 · 中文化 AUTO/MANUAL/CASH 等 enum
   - `/entry` / `/admin/fx` 路径文字改「填报页」/「汇率设置」
   - 历史 `auto-stock-valuation v0.3` ledger note → 「系统估值同步」(写入端 + 渲染端兼容)
+- **v0.4.4-hotfix prod 应急**(3 commits)· dashboard/_region L157/L158 Thymeleaf 表达式 `#numbers.xxx()` 在 `${...}` 外的语法错(beta 不触发 / prod 应急金超额触发)+ layout / nav _csrf null-safe 兜底
+- **v0.4.5 /checkup 风险敞口饼图化**(2026-05-14)· 等级列表 → doughnut + datalabels(用户反馈"干巴巴的数字")· 0 schema
 - **真 LLM 接通**(beta)· Qwen-Plus 调仓建议 · 圆形熔断不影响主路径
 
 ### v0.3(2026-05-13 封板 · tag `v0.3`)
@@ -120,7 +122,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 161 单元 / 36 端到端 / 273 黑盒 |
+| 测试 | JUnit 5 · 161 单元 / 36 端到端 / 275 黑盒 |
 
 ## 快速开始(自托管部署)
 
