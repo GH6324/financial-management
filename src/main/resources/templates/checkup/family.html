@@ -79,21 +79,15 @@
       <p class="font-mono text-[10px] text-ink-subtle mt-4">按账户类型聚合 · 完整环形图与基准模板对照见<a href="/reports#allocation-diff" class="text-brass-deep hover:underline no-underline ml-1">配置对照</a></p>
     </div>
 
-    <!-- 风险敞口 · 等级分布列表 -->
+    <!-- 风险敞口 · 等级分布饼图 -->
     <div id="risk" class="bg-card p-6 scroll-mt-32">
       <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3">
         风险敞口 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">R · I · S · K</span>
       </h3>
-      <div class="mt-2 space-y-1.5 text-xs">
-        <div th:each="b : ${diagnose.riskDistribution}" class="flex items-center justify-between">
-          <span class="font-mono text-ink-soft">
-            <span style="color:var(--forest)" th:text="${b.stars()}">—</span>
-            <span class="ml-2" th:text="${b.label}">中</span>
-          </span>
-          <span class="font-mono tnum"
-                th:text="${'¥' + #numbers.formatDecimal(b.amount, 1, 0) + ' · ' + #numbers.formatDecimal(b.ratio.multiply(new java.math.BigDecimal(100)), 1, 1) + '%'}">¥0 · 0%</span>
-        </div>
-      </div>
+      <div th:if="${diagnose.riskDistribution != null and !diagnose.riskDistribution.isEmpty()}"
+           style="height:200px"><canvas id="riskChart"></canvas></div>
+      <div th:if="${diagnose.riskDistribution == null or diagnose.riskDistribution.isEmpty()}"
+           class="text-xs text-ink-subtle py-8 text-center">暂无风险等级数据 · 给账户设置产品类目后可见</div>
     </div>
 
     <!-- 卡 3 · 流动性 -->
@@ -270,38 +264,45 @@
           plugins: [ChartDataLabels]
         });
       }
-      // 风险分布 bar
+      // 风险等级分布 doughnut(★1 浅绿 → ★6 朱红 · 颜色梯度与 /reports 一致)
       const rc = document.getElementById('riskChart');
-      if (rc && riskBuckets.length) {
+      const riskTotal = riskBuckets.reduce((s, b) => s + Number(b.amount || 0), 0);
+      if (rc && riskBuckets.length && riskTotal > 0) {
+        const riskColors = ['#9bb09a', '#7ea08a', '#a89a55', '#c1873b', '#a55540', '#8a3220'];
         new Chart(rc, {
-          type: 'bar',
+          type: 'doughnut',
           data: {
-            labels: riskBuckets.map(b => b.label),
+            labels: riskBuckets.map(b => {
+              const lvl = Number(b.level || 0);
+              const stars = lvl > 0 ? '★'.repeat(Math.min(lvl, 6)) : '';
+              return (stars ? stars + ' ' : '') + (b.label || '');
+            }),
             datasets: [{
-              label: '金额',
-              data: riskBuckets.map(b => Number(b.amount)),
-              backgroundColor: riskBuckets.map(b => {
+              data: riskBuckets.map(b => Number(b.amount || 0)),
+              backgroundColor: riskBuckets.map((b, i) => {
                 const lvl = Number(b.level);
-                if (lvl <= 1) return '#2f5d50';
-                if (lvl <= 3) return '#a77b35';
-                return '#9f4a3a';
-              })
+                return riskColors[Math.max(0, Math.min(lvl - 1, riskColors.length - 1))] || riskColors[i % riskColors.length];
+              }),
+              borderColor: '#fffaf0', borderWidth: 2
             }]
           },
           options: {
             maintainAspectRatio: false,
-            layout: { padding: { top: 24 } },
+            cutout: '52%',
+            layout: { padding: { top: 6, bottom: 6 } },
             plugins: {
-              legend: { display: false },
-              tooltip: { callbacks: { label: (ctx) => fmtMoney(ctx.parsed.y) } },
+              legend: { position: 'right', labels: { font: { size: 10 }, color: '#3a302a', padding: 6, boxWidth: 10 } },
+              tooltip: { callbacks: { label: (ctx) => ctx.label + ': ' + fmtMoney(ctx.parsed) + ' · ' + (riskTotal > 0 ? (ctx.parsed * 100 / riskTotal).toFixed(1) : 0) + '%' } },
               datalabels: {
-                anchor: 'end', align: 'top', offset: 4,
-                color: '#3a302a', font: { size: 10, weight: '500' },
-                formatter: (v) => v && v > 0 ? fmtMoney(v) : ''
+                color: '#fffaf0',
+                font: { size: 10, weight: '600' },
+                textStrokeColor: 'rgba(26,23,20,.55)', textStrokeWidth: 2,
+                formatter: (v) => {
+                  if (!v || riskTotal === 0) return '';
+                  const pct = v * 100 / riskTotal;
+                  return pct >= 5 ? pct.toFixed(0) + '%' : '';
+                }
               }
-            },
-            scales: {
-              y: { ticks: { callback: v => v >= 10000 ? (v/10000).toFixed(1)+'万' : v.toLocaleString() } }
             }
           },
           plugins: [ChartDataLabels]

@@ -1603,11 +1603,14 @@ killed=$(grep -cE '<div id="waterfallChart"|<div id="sankeyChart"|<canvas id="in
   && log_ok "v04-RPT-4 reports 含配置 diff section + 账户级基准列" \
   || log_bad "v04-RPT-4 reports 新区缺" "missing"
 
-# v04-RPT-5 · /checkup 砍配置环形 canvas
+# v04-RPT-5 · /checkup 资产配置仍砍(已有 mini 横向条 · 完整环形见 dashboard)
+#   v0.4.5(2026-05-14)用户反馈风险敞口干巴巴 → 风险等级分布改饼图(canvas 回归)
 $CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
-killed=$(grep -cE '<canvas id="allocChart"|<canvas id="riskChart"' "$TMP")
-[[ "$killed" -eq 0 ]] && log_ok "v04-RPT-5 checkup 砍配置环形 + 风险 bar canvas" \
-  || log_bad "v04-RPT-5 checkup 未砍" "still=$killed"
+alloc_canvas=$(grep -cE '<canvas id="allocChart"' "$TMP")
+risk_canvas=$(grep -cE '<canvas id="riskChart"' "$TMP")
+{ [[ "$alloc_canvas" -eq 0 && "$risk_canvas" -eq 1 ]]; } \
+  && log_ok "v04-RPT-5 checkup 砍配置环形(0)· 风险等级保留饼图(1 canvas)" \
+  || log_bad "v04-RPT-5 checkup canvas 状态错" "alloc=$alloc_canvas risk=$risk_canvas"
 
 # v04-CPI-1 · family.cpi_assumption 默认 2.00 入库
 cpi=$(mysql -ufinance -pfinance finance -sN -e "SELECT cpi_assumption FROM family WHERE id=1" 2>/dev/null)
@@ -1928,6 +1931,15 @@ if [[ -n "$HOLDING_ACCT" ]]; then
     && log_ok "v04-UX-8 stock/holdings pill 中文化(去 AUTO/MANUAL/CASH enum 前缀)" \
     || log_bad "v04-UX-8 holdings pill 仍含英文 enum" "still present"
 fi
+
+# v04-UX-9 · /checkup 风险敞口卡 doughnut · datalabels 浮在扇片上(用户体验升级)
+$CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+{ grep -q '<canvas id="riskChart"' "$TMP" \
+  && grep -q "type: 'doughnut'" "$TMP" \
+  && grep -q 'riskBuckets' "$TMP" \
+  && grep -q 'plugins: \[ChartDataLabels\]' "$TMP"; } \
+  && log_ok "v04-UX-9 /checkup 风险敞口卡 doughnut + ChartDataLabels(数字浮在扇片)" \
+  || log_bad "v04-UX-9 风险敞口饼图缺" "missing canvas/doughnut/datalabels"
 
 
 echo
