@@ -53,12 +53,21 @@ public final class OutputValidator {
     private OutputValidator() {}
 
     /**
-     * 校验综合诊断输出。
-     *
-     * @param polished     LLM 输出文本(已反映射回真名前;此时仍应为代号体)
-     * @param realNames    原始真名列表(防御深度:扫描 LLM 输出是否泄露真名)
+     * 校验综合诊断输出(无账户白名单 · 老 caller 兼容)。
      */
     public static Result check(String polished, Set<String> realNames) {
+        return check(polished, realNames, java.util.Set.of());
+    }
+
+    /**
+     * 校验综合诊断输出。
+     *
+     * @param polished           LLM 输出文本
+     * @param realNames          原始真名列表(防御深度:扫描 LLM 输出是否泄露真名)
+     * @param accountWhitelist   用户已有账户名集合(子串匹配)· 调仓建议场景 · LLM 引用用户自己账户合法
+     *                           (e.g. 用户有「支付宝-余额宝」账户 · LLM 说"从余额宝调出" 不算产品推荐)
+     */
+    public static Result check(String polished, Set<String> realNames, Set<String> accountWhitelist) {
         if (polished == null || polished.isBlank()) {
             return Result.reject("空字符串");
         }
@@ -86,9 +95,16 @@ public final class OutputValidator {
         }
 
         // 3. 具体产品名 / 股票代码
+        //    白名单:如果匹配命中的产品名是「用户已有账户名」的子串,放行
+        //    (调仓建议场景 · 用户对自己账户有完全知情权 · LLM 引用自己账户不算产品推荐)
         var matcher = PRODUCT_NAME_PATTERN.matcher(trimmed);
-        if (matcher.find()) {
-            return Result.reject("含具体产品名/代码: \"" + matcher.group() + "\"");
+        while (matcher.find()) {
+            String hit = matcher.group();
+            boolean isUserAccount = accountWhitelist != null && accountWhitelist.stream()
+                .anyMatch(name -> name != null && name.contains(hit));
+            if (!isUserAccount) {
+                return Result.reject("含具体产品名/代码: \"" + hit + "\"");
+            }
         }
 
         // 4. 真名泄露扫描(防御深度;理论上 LLM 看不到真名就不会写出来)

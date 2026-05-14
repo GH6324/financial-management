@@ -7,10 +7,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
  * v0.4 FR-62b · 调仓建议触发端点。
  * 用户点 reports 页"AI 调仓建议"按钮 → POST /reports/rebalance/advise → 触发 LLM(命中 30 天缓存直接返)。
+ * 用 flash attribute 把成功/失败反馈带回 reports 页 · 用户看得到结果(不再"点了没反应")。
  */
 @Controller
 @RequiredArgsConstructor
@@ -20,13 +22,23 @@ public class RebalanceController {
     private final RebalanceAdvisorService rebalanceAdvisorService;
 
     @PostMapping("/reports/rebalance/advise")
-    public String advise(@AuthenticationPrincipal MemberPrincipal me) {
+    public String advise(@AuthenticationPrincipal MemberPrincipal me, RedirectAttributes ra) {
         try {
             var r = rebalanceAdvisorService.advise(me.getFamilyId());
             log.info("rebalance advise · family={} ok={} fromCache={} actions={}",
                 me.getFamilyId(), r.ok(), r.fromCache(), r.actions() == null ? 0 : r.actions().size());
+            if (r.ok()) {
+                ra.addFlashAttribute("rebalanceFlash",
+                    r.fromCache() ? "ok-cache" : "ok-fresh");
+            } else {
+                ra.addFlashAttribute("rebalanceFlash", "fail");
+                ra.addFlashAttribute("rebalanceFlashReason",
+                    r.errorReason() == null ? "AI 暂时不可用,请稍后再试" : r.errorReason());
+            }
         } catch (Exception e) {
             log.warn("rebalance advise failed: {}", e.toString());
+            ra.addFlashAttribute("rebalanceFlash", "fail");
+            ra.addFlashAttribute("rebalanceFlashReason", "AI 服务异常,请稍后再试");
         }
         return "redirect:/reports#allocation-diff";
     }

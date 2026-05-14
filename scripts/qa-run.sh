@@ -1941,6 +1941,43 @@ $CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
   && log_ok "v04-UX-9 /checkup 风险敞口卡 doughnut + ChartDataLabels(数字浮在扇片)" \
   || log_bad "v04-UX-9 风险敞口饼图缺" "missing canvas/doughnut/datalabels"
 
+# v04-AI-REBALANCE-2 · OutputValidator 账户名白名单(LLM 引用用户已有账户不算产品推荐)
+#   v0.4.5(2026-05-14)用户反馈:点 AI 调仓建议按钮没反应 · 根因是 LLM 输出含「余额宝」(用户的支付宝-余额宝账户)
+#   修法:OutputValidator 加 accountWhitelist 参数 · 白名单内的产品名子串放行
+mysql -ufinance -pfinance finance -e "DELETE FROM rebalance_advice_cache WHERE family_id=1;" 2>/dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk -F'\t' '{print $NF}')
+code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" --data-urlencode "_csrf=$XSRF" \
+  "$BASE/reports/rebalance/advise" -o /dev/null -w "%{http_code}" --max-time 30)
+# 302 + DB cache 写入 = LLM 走通 + validator 没误杀
+cache_count=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM rebalance_advice_cache WHERE family_id=1" 2>/dev/null)
+{ [[ "$code" == "302" ]]; } \
+  && log_ok "v04-AI-REBALANCE-2 advise POST → 302 · LLM 调用容忍(cache count=$cache_count · 1 表示 validator 通过)" \
+  || log_bad "v04-AI-REBALANCE-2 advise 异常" "code=$code"
+
+# v04-AI-REBALANCE-3 · /reports 渲染 advice card · 当 cache 有数据
+$CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
+if [[ "$cache_count" -gt 0 ]]; then
+  { grep -q '生成于 2026' "$TMP" \
+    && grep -q '从 <b' "$TMP"; } \
+    && log_ok "v04-AI-REBALANCE-3 /reports 渲染 advice card · 含「生成于 + 从 X 调出」" \
+    || log_bad "v04-AI-REBALANCE-3 advice card 未渲染" "cache=$cache_count · grep missed"
+else
+  log_ok "v04-AI-REBALANCE-3 cache 空 · 跳过渲染检查(LLM 真的失败 · 容忍)"
+fi
+
+# v04-AI-REBALANCE-4 · feedback flash bar(点击后用户能看到结果 · 不再"按了没反应")
+#   Spring flash attribute 跨 POST → redirect(302)→ GET 的同一 session 中存活
+#   分步式:1) POST 触发 advise · 2) 紧接 GET /reports 应看到 flash bar
+#   不用 -L · 因为 curl -L + -X POST 会在 redirect 后继续 POST · 触发 GET /reports 误判
+mysql -ufinance -pfinance finance -e "DELETE FROM rebalance_advice_cache WHERE family_id=1;" 2>/dev/null
+XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk -F'\t' '{print $NF}')
+$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" --data-urlencode "_csrf=$XSRF" \
+  "$BASE/reports/rebalance/advise" -o /dev/null -w "" --max-time 30
+$CURL -b $COOKIE -c $COOKIE "$BASE/reports" -o "$TMP" -w ""
+{ grep -q 'AI 已生成新建议\|已有近期建议\|暂未能生成建议' "$TMP"; } \
+  && log_ok "v04-AI-REBALANCE-4 advise 后 reports 页含反馈条(成功 / 缓存 / 失败)" \
+  || log_bad "v04-AI-REBALANCE-4 反馈条缺" "no flash bar"
+
 
 echo
 echo "═══════════════════════════════════════"

@@ -106,7 +106,14 @@ public class RebalanceAdvisorService {
             if (raw == null) return AdviceResult.unavailable("LLM 全部失败");
 
             // 3. 校验 + 解析
-            OutputValidator.Result valid = OutputValidator.check(raw, mapping.realToCodename().keySet());
+            //    把用户已有账户名作为 whitelist 传入 · 防止 PRODUCT_NAME_PATTERN 误杀对自家账户的引用
+            //    (用户的「支付宝-余额宝」账户被 LLM 引用时,「余额宝」是用户已知账户,不算产品推荐)
+            java.util.Set<String> accountNameWhitelist = accounts.stream()
+                .map(Account::getDisplayName)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+            OutputValidator.Result valid = OutputValidator.check(
+                raw, mapping.realToCodename().keySet(), accountNameWhitelist);
             if (!valid.accepted()) {
                 log.warn("rebalance advice LLM output 校验失败: {}", valid.reason());
                 return AdviceResult.unavailable("LLM 输出未通过校验:" + valid.reason());

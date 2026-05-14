@@ -115,7 +115,25 @@
         <p class="text-xs text-ink-soft leading-relaxed mb-3">
           基于上方对照差额,让 AI 给出具体调仓步骤("从 X 调 ¥N 到 Y")。建议 30 天内复用,避免短期市场抖动反复换仓。
         </p>
-        <form th:action="@{/reports/rebalance/advise}" method="post" class="mb-3">
+
+        <!-- 点击后反馈条(成功 / 失败 / 缓存命中) -->
+        <div th:if="${rebalanceFlash == 'ok-fresh'}"
+             class="paper-card p-2 mb-3 text-[10px] text-forest"
+             style="background:rgba(47,93,80,.08);border-left:3px solid var(--forest)">
+          ✓ AI 已生成新建议(见下方)
+        </div>
+        <div th:if="${rebalanceFlash == 'ok-cache'}"
+             class="paper-card p-2 mb-3 text-[10px] text-ink-soft"
+             style="background:rgba(122,90,57,.06);border-left:3px solid var(--brass-deep)">
+          ✓ 已有近期建议(30 天内复用 · 见下方)
+        </div>
+        <div th:if="${rebalanceFlash == 'fail'}"
+             class="paper-card p-2 mb-3 text-[10px] text-rust"
+             style="background:rgba(159,74,58,.06);border-left:3px solid var(--rust)">
+          ⚠ 暂未能生成建议 · <span th:text="${rebalanceFlashReason ?: '请稍后再试'}">原因</span>
+        </div>
+
+        <form th:if="${_csrf != null}" th:action="@{/reports/rebalance/advise}" method="post" class="mb-3">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
           <button class="btn-ink text-xs">🤖 让 AI 给出具体调仓步骤</button>
         </form>
@@ -123,7 +141,7 @@
         <!-- 已有缓存的建议在这里渲染 -->
         <div th:if="${rebalanceAdvice != null}" th:insert="~{reports/_ai-rebalance :: card}"></div>
 
-        <p th:if="${rebalanceAdvice == null}" class="text-[10px] text-ink-subtle italic">
+        <p th:if="${rebalanceAdvice == null and rebalanceFlash == null}" class="text-[10px] text-ink-subtle italic">
           点按钮即可生成调仓步骤与文字说明。
         </p>
       </div>
