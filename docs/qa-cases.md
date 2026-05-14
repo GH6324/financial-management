@@ -860,3 +860,38 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 - 模板 `result.structured() == null` fallback 分支 · 老 cache 纯文本能正确显示
 - 其他 LLM caller(月报/向导)默认仍用文本路径 · 0 改动
 - prod 升级 0 风险
+
+---
+
+### v0.4.10 · max_tokens 750→2000 + 截断检测(2026-05-14)
+
+**触发**:用户反馈「目前 AI 诊断经常展示一大段 JSON · 是因为 LLM 返回太长 被截断后不是标准 JSON 了吗?」
+
+**真因**(精准锁定 · 看 LLM audit log):
+- 实际 response 长度 1000-1240 字符 · 接近 max_tokens=750 上限
+- v0.4.9 JSON 输出(overall + 4 dimensions + actions + 语法标记)≈ 930 字 ≈ 1100-1300 tokens
+- 750 tokens 严重不够 · JSON 中途被截断 · tryParseStructured 返 null · 前端把半截 JSON 当 text 显示
+
+**修法**
+
+| 改动 | 目的 |
+|---|---|
+| QwenLlmClient + DeepSeekLlmClient max_tokens 750 → 2000 | 给 JSON 输出足够余量 |
+| 客户端检测 finish_reason=length log.warn | 将来调 max_tokens 有数据支撑 |
+| DiagnoseResult.truncated + looksTruncatedJson(raw 以 { 开头但不以 } 结尾) | 检测截断 |
+| 模板 result.truncated() 分支 显示「⚠ AI 输出被截断 · 请刷新重试」红底卡 | 不再把半截 JSON 当 text 显示 |
+
+**新加 3 条**(v04-AI-DIAGNOSE-4/5/6):
+- v04-AI-DIAGNOSE-4:max_tokens 2000(Qwen + DeepSeek 两端)
+- v04-AI-DIAGNOSE-5:DiagnoseResult.truncated + 模板友好错误
+- v04-AI-DIAGNOSE-6:客户端 finish_reason 截断日志告警
+
+**验证**
+- mvn test 166 全绿
+- bash scripts/qa-run.sh **287 PASS** / 3 pre-existing FAIL
+- beta 实测:LLM 响应 1211 字符 · 2000 token 不截断 · 4 维度卡完整
+
+**backward-compat 红线**
+- 0 schema · DiagnoseResult 老工厂保留(truncated=false)
+- 老 cache 纯文本走 fallback text 分支不误判截断
+- prod 升级 0 风险

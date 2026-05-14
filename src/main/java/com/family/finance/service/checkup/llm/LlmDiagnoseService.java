@@ -432,6 +432,7 @@ public class LlmDiagnoseService {
      * @param fromCache  是否来自缓存
      * @param generatedAt 生成时刻(展示用)
      * @param structured v0.4.9 起 · LLM 输出结构化 JSON 时填入 · 老路径 / fallback 时为 null
+     * @param truncated  v0.4.10 起 · text 看起来是被截断的 JSON 时为 true · 前端显示"输出截断 请刷新"
      */
     public record DiagnoseResult(
             boolean available,
@@ -439,18 +440,27 @@ public class LlmDiagnoseService {
             String vendor,
             boolean fromCache,
             Instant generatedAt,
-            DiagnoseStructured structured
+            DiagnoseStructured structured,
+            boolean truncated
     ) {
         public static DiagnoseResult ok(String text, String vendor, boolean fromCache) {
-            return new DiagnoseResult(true, text, vendor, fromCache, Instant.now(), null);
+            return new DiagnoseResult(true, text, vendor, fromCache, Instant.now(), null, false);
         }
         public static DiagnoseResult ok(String text, String vendor, boolean fromCache, DiagnoseStructured structured) {
-            return new DiagnoseResult(true, text, vendor, fromCache, Instant.now(), structured);
+            return new DiagnoseResult(true, text, vendor, fromCache, Instant.now(), structured,
+                    structured == null && looksTruncatedJson(text));
         }
         public static DiagnoseResult unavailable(String reason) {
             return new DiagnoseResult(false,
                     "AI 综合诊断暂时不可用。以上为系统规则引擎给出的硬数据便签卡,可作为本次体检的核心参考。如需 AI 视角,请稍后刷新重试。",
-                    "fallback", false, Instant.now(), null);
+                    "fallback", false, Instant.now(), null, false);
+        }
+
+        /** 启发式判断:raw 以 { 开头但未正确闭合(无 } 结尾)→ 被截断的 JSON */
+        private static boolean looksTruncatedJson(String text) {
+            if (text == null) return false;
+            String t = text.trim();
+            return t.startsWith("{") && !t.endsWith("}");
         }
     }
 

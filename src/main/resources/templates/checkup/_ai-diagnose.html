@@ -85,8 +85,16 @@
     </div>
   </th:block>
 
-  <!-- Fallback · 老路径(LLM 解析失败 / 旧 cache / unavailable):仍显示纯文本 -->
-  <p th:if="${not result.available() or result.structured() == null}"
+  <!-- 截断检测(LLM 输出半截 JSON)· 显示友好错误而非半截 JSON -->
+  <div th:if="${result.truncated()}"
+       class="paper-card p-3 text-xs text-ink-soft"
+       style="border-left:3px solid var(--rust); background:rgba(159,74,58,.04)">
+    <span class="font-mono text-rust">⚠ AI 输出被截断</span>
+    <p class="mt-1">本次 AI 返回的内容不完整 · 请点右上方「↻ 刷新」重试 · 或稍后再试。</p>
+  </div>
+
+  <!-- 纯文本 fallback(老 caller / 老 cache / unavailable · 不是 structured 也不是截断 JSON) -->
+  <p th:if="${(not result.available()) or (result.structured() == null and not result.truncated())}"
      class="text-sm text-ink leading-relaxed whitespace-pre-line"
      th:style="${result.available() ? '' : 'color:var(--ink-soft); font-style: italic;'}"
      th:text="${result.text()}">

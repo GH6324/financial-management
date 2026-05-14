@@ -78,8 +78,10 @@ public class QwenLlmClient implements LlmClient {
                 ),
                 // 综合诊断需要 LLM 有更多发挥(2026-05-10 从 0.15 调到 0.5)
                 "temperature", 0.5,
-                // 综合诊断 200-500 字,留 750 max(决策 20)
-                "max_tokens", 750
+                // v0.4.9+:JSON 结构化输出(overall + 4 dimensions + actions)~ 800-1200 字
+                //   ASCII 多 token 1:1 + 中文 1:1.5-2 · 实测 1200 字 ≈ 1500 tokens
+                //   750 太严会截断 · 显示半截 JSON · 提到 2000 给余量
+                "max_tokens", 2000
         );
 
         try {
@@ -94,6 +96,12 @@ public class QwenLlmClient implements LlmClient {
             if (msg == null) throw new RuntimeException("Qwen 无 message");
             String content = (String) msg.get("content");
             if (content == null || content.isBlank()) throw new RuntimeException("Qwen 空 content");
+
+            // 检测 token 限制截断 · finish_reason=length 表示输出未完整
+            String finishReason = (String) choices.get(0).get("finish_reason");
+            if ("length".equals(finishReason)) {
+                log.warn("Qwen 输出因 max_tokens 截断 · content.len={} · 建议提高 max_tokens", content.length());
+            }
 
             consecutiveFailures = 0;
             return content;

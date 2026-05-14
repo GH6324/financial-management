@@ -2034,6 +2034,24 @@ grep -q "structured() == null" src/main/resources/templates/checkup/_ai-diagnose
   && log_ok "v04-AI-DIAGNOSE-3 模板含 fallback 分支(老 cache / 解析失败时显示 text)" \
   || log_bad "v04-AI-DIAGNOSE-3 fallback 分支缺" "missing structured null check"
 
+# v04-AI-DIAGNOSE-4 · v0.4.10 · max_tokens 升到 2000 + 截断检测
+{ grep -q '"max_tokens", 2000' src/main/java/com/family/finance/service/checkup/llm/QwenLlmClient.java \
+  && grep -q '"max_tokens", 2000' src/main/java/com/family/finance/service/checkup/llm/DeepSeekLlmClient.java; } \
+  && log_ok "v04-AI-DIAGNOSE-4 LlmClient max_tokens 750→2000 · 防 JSON 输出被截断" \
+  || log_bad "v04-AI-DIAGNOSE-4 max_tokens 未提升" "still 750"
+
+# v04-AI-DIAGNOSE-5 · 截断检测 · DiagnoseResult.truncated + 模板友好错误
+{ grep -q 'truncated\(\) \|looksTruncatedJson\|truncated()' src/main/java/com/family/finance/service/checkup/llm/LlmDiagnoseService.java \
+  && grep -q 'AI 输出被截断' src/main/resources/templates/checkup/_ai-diagnose.html; } \
+  && log_ok "v04-AI-DIAGNOSE-5 截断检测 · DiagnoseResult.truncated + 模板友好错误(不显示半截 JSON)" \
+  || log_bad "v04-AI-DIAGNOSE-5 截断检测缺" "no truncated/AI 输出被截断"
+
+# v04-AI-DIAGNOSE-6 · 客户端 finish_reason=length 截断日志告警
+{ grep -q 'max_tokens 截断' src/main/java/com/family/finance/service/checkup/llm/QwenLlmClient.java \
+  && grep -q 'max_tokens 截断' src/main/java/com/family/finance/service/checkup/llm/DeepSeekLlmClient.java; } \
+  && log_ok "v04-AI-DIAGNOSE-6 客户端检测 finish_reason=length 截断 · log.warn 提示" \
+  || log_bad "v04-AI-DIAGNOSE-6 截断日志缺" "no finish_reason check"
+
 
 echo
 echo "═══════════════════════════════════════"

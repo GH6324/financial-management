@@ -94,6 +94,7 @@
 - **v0.4.7 OutputValidator 放宽**(2026-05-14)· 用户反馈「限制太多」· 删古典词扫描 + 删过度客套扫描 + 真名 length≥3 + rebalance caller 跳过真名扫描(prompt 端零真名传入)
 - **v0.4.8 AI 缓存 + 刷新按钮真生效**(2026-05-14)· MAX_LEN 700→1500 · rebalance 加「↻ 刷新」按钮 · checkup 诊断刷新按钮此前假忽略缓存现在真传 refresh=true
 - **v0.4.9 AI 诊断 JSON 结构化 + 4 维度卡**(2026-05-14)· 用户反馈「大段文字吃力没主题没诊断方向」· LLM 输出 JSON · 前端 总评 banner + 配置/风险/流动性/收益 4 卡(verdict 染色)+ 优先行动 · 修 PRODUCT_NAME_PATTERN 不误杀 ¥120526
+- **v0.4.10 LLM max_tokens 750→2000 + 截断检测**(2026-05-14)· 用户反馈「AI 诊断常显示一大段 JSON」· 真因是 max_tokens=750 导致 JSON 输出被中途截断 · QwenClient + DeepSeekClient 提到 2000 + finish_reason=length 日志告警 + DiagnoseResult.truncated 字段让前端显「⚠ 输出被截断 请刷新」
 - **真 LLM 接通**(beta)· Qwen-Plus 调仓建议 · 圆形熔断不影响主路径
 
 ### v0.3(2026-05-13 封板 · tag `v0.3`)
@@ -126,7 +127,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 166 单元 / 36 端到端 / 284 黑盒 |
+| 测试 | JUnit 5 · 166 单元 / 36 端到端 / 287 黑盒 |
 
 ## 快速开始(自托管部署)
 

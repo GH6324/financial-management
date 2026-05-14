@@ -75,7 +75,8 @@ public class DeepSeekLlmClient implements LlmClient {
                 ),
                 // 综合诊断需要 LLM 有更多发挥(2026-05-10 从 0.15 调到 0.5)
                 "temperature", 0.5,
-                "max_tokens", 750
+                // v0.4.9+:JSON 结构化输出 750 太严易截断 · 提到 2000
+                "max_tokens", 2000
         );
 
         try {
@@ -90,6 +91,12 @@ public class DeepSeekLlmClient implements LlmClient {
             if (msg == null) throw new RuntimeException("DeepSeek 无 message");
             String content = (String) msg.get("content");
             if (content == null || content.isBlank()) throw new RuntimeException("DeepSeek 空 content");
+
+            // 检测 token 限制截断
+            String finishReason = (String) choices.get(0).get("finish_reason");
+            if ("length".equals(finishReason)) {
+                log.warn("DeepSeek 输出因 max_tokens 截断 · content.len={} · 建议提高 max_tokens", content.length());
+            }
 
             consecutiveFailures = 0;
             return content;
