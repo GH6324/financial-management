@@ -167,7 +167,7 @@
       <div class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
         <div class="eyebrow">净资产趋势 · 名义 vs 实际购买力</div>
         <!-- CPI 切换器 -->
-        <form th:action="@{/admin/family/cpi}" method="post" class="flex items-center gap-2">
+        <form th:if="${_csrf != null}" th:action="@{/admin/family/cpi}" method="post" class="flex items-center gap-2">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
           <span class="font-mono text-[10px] text-ink-subtle">CPI</span>
           <select name="cpi" onchange="this.form.submit()" class="font-mono text-[10px] border border-rule bg-paper px-2 py-1">
