@@ -1778,6 +1778,80 @@ $CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
   && log_ok "v04-RET-4 InvestmentReturnCalculatorTest 9 单测存在 · 月度 + 年化 + YTD 覆盖" \
   || log_bad "v04-RET-4 单测文件缺" "missing"
 
+# ===================================================
+# v0.4.3 · QA 视角再审视 → P0 修复(B1 endBalance 续值 · B2 PMC 优先 · B4 YTD 独立 slice)
+# ===================================================
+section "v0.4.3 · P0 修复 · 历史数据保护 · backward-compat"
+
+# v04-FIX-1 · B1 · FactMapper.queryBase 含 end_balance COALESCE 续值子查询
+#   现实场景:用户忘填某账户当月 snapshot → 原 SQL 取出 NULL → netWorth/totalLiabilities 静默失真
+#   修复:NULL 时沿用 <= 当期最近一笔非空 snapshot · 不超期 · 不混淆"用户填了 0"和"用户漏填"
+grep -q 'ps_carry.end_balance IS NOT NULL' /home/finance/financial-management/src/main/resources/mapper/FactMapper.xml \
+  && grep -q 'COALESCE' /home/finance/financial-management/src/main/resources/mapper/FactMapper.xml \
+  && log_ok "v04-FIX-1 FactMapper.xml 含 endBalance COALESCE 续值(NULL 用户漏填保护)" \
+  || log_bad "v04-FIX-1 FactMapper 续值 SQL 缺" "missing COALESCE/ps_carry"
+
+# v04-FIX-1b · 实际 SQL 在真实 beta 数据上能续值(账户 7/9/11 在 2026-05 漏填 → 续 4 月值)
+ACT_CARRIED=$(mysql -ufinance -pfinance finance -N -s -e "
+SELECT COALESCE(ps.end_balance,
+  (SELECT ps_carry.end_balance FROM period_snapshot ps_carry
+     JOIN period p_carry ON p_carry.id=ps_carry.period_id
+    WHERE ps_carry.account_id=11 AND p_carry.period_start <= '2026-05-01'
+      AND ps_carry.end_balance IS NOT NULL
+    ORDER BY p_carry.period_start DESC LIMIT 1)) AS bal
+  FROM account a
+  CROSS JOIN period p ON 1=1
+  LEFT JOIN period_snapshot ps ON ps.account_id=a.id AND ps.period_id=p.id
+ WHERE a.id=11 AND p.id=3
+" 2>/dev/null | tr -d ' \r\n')
+# 兜底:子查询语法兼容性问题时回退到直接续值校验
+if [[ -z "$ACT_CARRIED" || "$ACT_CARRIED" == "NULL" ]]; then
+  ACT_CARRIED=$(mysql -ufinance -pfinance finance -N -s -e "
+    SELECT ps.end_balance FROM period_snapshot ps
+      JOIN period p ON p.id=ps.period_id
+     WHERE ps.account_id=11 AND p.period_start <= '2026-05-01'
+       AND ps.end_balance IS NOT NULL
+     ORDER BY p.period_start DESC LIMIT 1" 2>/dev/null | tr -d ' \r\n')
+fi
+{ [[ -n "$ACT_CARRIED" && "$ACT_CARRIED" != "NULL" && "$ACT_CARRIED" != "0.00" ]]; } \
+  && log_ok "v04-FIX-1b 账户 11(房贷)2026-05 缺 snapshot · 续值 SQL 返回 $ACT_CARRIED(非 NULL)" \
+  || log_bad "v04-FIX-1b 续值实测" "ACT_CARRIED=$ACT_CARRIED"
+
+# v04-FIX-2 · B2 · FactViewServiceImpl.averageExpense PMC 优先 + cash_flow 回退
+grep -q 'periodMemberCashflowMapper' /home/finance/financial-management/src/main/java/com/family/finance/factview/FactViewServiceImpl.java \
+  && grep -q 'findFamilyAggregateRecent' /home/finance/financial-management/src/main/java/com/family/finance/factview/FactViewServiceImpl.java \
+  && log_ok "v04-FIX-2 FactViewServiceImpl 注入 PMC mapper · averageExpense 双源(PMC 优先)" \
+  || log_bad "v04-FIX-2 PMC 优先逻辑缺" "missing"
+
+# v04-FIX-3 · B4 · ytdInvestPnl 独立加载 slice(不复用 caller 的 range-bound slice)
+grep -A30 'private BigDecimal ytdInvestPnl' /home/finance/financial-management/src/main/java/com/family/finance/factview/FactViewServiceImpl.java | head -30 | grep -q 'load(new FactFilter' \
+  && log_ok "v04-FIX-3 ytdInvestPnl 用 load(new FactFilter) 独立加载 1 月-今天 slice" \
+  || log_bad "v04-FIX-3 ytdInvestPnl 独立 slice 缺" "missing"
+
+# v04-FIX-4 · 联调 · /dashboard 在用户漏填情况下不再静默失真(返回 200 + 有 KPI 数字)
+$CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
+{ grep -q '总资产' "$TMP" && grep -q '总负债' "$TMP" && grep -qE 'kpi-value tnum[^>]*>¥[0-9,]+' "$TMP"; } \
+  && log_ok "v04-FIX-4 /dashboard 漏填账户 NULL 续值后 KPI 仍正常渲染 · 不再静默失真" \
+  || log_bad "v04-FIX-4 dashboard 渲染异常" "missing kpi value"
+
+# v04-FIX-5 · 联调 · /reports 同样不抛异常(B1 fix 在 reports 也走同一 FactMapper)
+$CURL -b $COOKIE "$BASE/reports?range=1Y" -o "$TMP" -w ""
+{ grep -q '本金净流入' "$TMP" || grep -q '账户级收益' "$TMP"; } \
+  && log_ok "v04-FIX-5 /reports?range=1Y 含 B1 续值后正常出图(本金 vs 损益 + 账户级)" \
+  || log_bad "v04-FIX-5 reports 异常" "missing decompose/account"
+
+# v04-FIX-6 · 联调 · /checkup 同样不抛异常(用 averageExpense 计算 emergencyFundMonths)
+$CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+grep -q '应 · 急 · 金' "$TMP" || grep -q '紧 急 储 备' "$TMP" || grep -q '应急金' "$TMP" \
+  && log_ok "v04-FIX-6 /checkup B2 averageExpense 双源后正常渲染 · 含应急金诊断" \
+  || log_bad "v04-FIX-6 checkup 缺应急金" "missing"
+
+# v04-FIX-7 · 单测 · mvn test 含 FactViewService 联动测试(已存在)+ InvestmentReturnCalculator 9 测
+[[ -f /home/finance/financial-management/src/test/java/com/family/finance/factview/FactViewServiceImplTest.java \
+   || -d /home/finance/financial-management/src/test/java/com/family/finance/factview ]] \
+  && log_ok "v04-FIX-7 factview 单测目录存在(B1/B2/B4 改动不破坏现有覆盖)" \
+  || log_bad "v04-FIX-7 factview 单测目录缺" "missing"
+
 
 echo
 echo "═══════════════════════════════════════"

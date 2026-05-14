@@ -45,7 +45,20 @@
            ORDER BY p_prev.period_start DESC
            LIMIT 1
         ) AS previous_end_balance,
-        ps.end_balance AS end_balance,
+        <!-- v0.4.3 B1 修复 · 本期 snapshot NULL 时沿用最近一期已填的 end_balance,
+             避免用户忘填某账户导致 netWorth/totalLiabilities 静默失真。
+             保守:只沿用 <= 当期的最近 snapshot · 不超期 · 上期填了 0 也沿用 0(用户意图) -->
+        COALESCE(
+          ps.end_balance,
+          (SELECT ps_carry.end_balance
+             FROM period_snapshot ps_carry
+             JOIN period p_carry ON p_carry.id = ps_carry.period_id
+            WHERE ps_carry.account_id = a.id
+              AND p_carry.period_start &lt;= p.period_start
+              AND ps_carry.end_balance IS NOT NULL
+            ORDER BY p_carry.period_start DESC
+            LIMIT 1)
+        ) AS end_balance,
         COALESCE(cf.income_orig, 0) AS income_orig,
         COALESCE(cf.expense_orig, 0) AS expense_orig,
         COALESCE(tin.transfer_in_orig, 0) AS transfer_in_orig,

@@ -33,6 +33,8 @@ public class FactViewServiceImpl implements FactViewService {
 
     private final FactMapper factMapper;
     private final FamilyMapper familyMapper;
+    /** v0.4.3 B2 修复 · 月均支出/收入统一源 · PMC(成员级)优先 · cash_flow fallback */
+    private final com.family.finance.repository.PeriodMemberCashflowMapper periodMemberCashflowMapper;
 
     @Override
     public FactSlice loadDefault(Long familyId) {
@@ -125,17 +127,40 @@ public class FactViewServiceImpl implements FactViewService {
         return net.setScale(2, RoundingMode.HALF_EVEN);
     }
 
-    /** v0.4.2 助手:本年(自然年)累计纯投资 PnL · 把所有 period 按 startDate 在当年的过滤后累加 */
+    /**
+     * v0.4.2 助手:本年(自然年)累计纯投资 PnL。
+     *
+     * <p>v0.4.3 B4 修复:**独立加载** Jan1-now 数据 · 不再依赖 caller slice 的 range
+     * (避免 range=3M 时 YTD 只见 3 月的 bug)· 多加载 1 期获取期初 NetWorth。</p>
+     */
     private BigDecimal ytdInvestPnl(FactSlice slice) {
-        int currentYear = java.time.LocalDate.now().getYear();
+        long familyId = slice.filter().familyId();
+        java.time.LocalDate now = java.time.LocalDate.now();
+        // 多回退 1 个月 · 拿到去年 12 月的 snapshot 作期初
+        java.time.LocalDate ytdStart = java.time.LocalDate.of(now.getYear(), 1, 1).minusMonths(1);
+        FactSlice ytdSlice;
+        try {
+            ytdSlice = load(new FactFilter(
+                familyId,
+                slice.filter().periodType(),
+                ytdStart,
+                now.withDayOfMonth(1),
+                false,
+                null,
+                slice.filter().viewCurrency()
+            ));
+        } catch (Exception e) {
+            return null;
+        }
+        int currentYear = now.getYear();
         List<com.family.finance.calc.TwrCalculator.TwrPoint> ytdPoints = new ArrayList<>();
-        for (Long periodId : slice.periodIds()) {
-            java.time.LocalDate pStart = periodStart(slice, periodId);
+        for (Long periodId : ytdSlice.periodIds()) {
+            java.time.LocalDate pStart = periodStart(ytdSlice, periodId);
             if (pStart == null || pStart.getYear() != currentYear) continue;
-            Long prev = previousPeriodId(slice, periodId);
-            BigDecimal start = prev == null ? null : netWorth(slice, prev);
-            BigDecimal end = netWorth(slice, periodId);
-            BigDecimal inflow = netInflowForPeriod(slice, periodId);
+            Long prev = previousPeriodId(ytdSlice, periodId);
+            BigDecimal start = prev == null ? null : netWorth(ytdSlice, prev);
+            BigDecimal end = netWorth(ytdSlice, periodId);
+            BigDecimal inflow = netInflowForPeriod(ytdSlice, periodId);
             if (start != null && end != null && start.signum() > 0) {
                 ytdPoints.add(new com.family.finance.calc.TwrCalculator.TwrPoint(start, end, inflow));
             }
@@ -385,7 +410,26 @@ public class FactViewServiceImpl implements FactViewService {
                 .setScale(2, RoundingMode.HALF_EVEN);
     }
 
+    /**
+     * v0.4.3 B2 · 月均支出统一源 · PMC 优先 · cash_flow fallback。
+     *
+     * <p>v0.3 引入 period_member_cashflow.total_expense_input(用户在 /entry 第一步填家庭口径) ·
+     * 比 cash_flow 表 by-account 加和更准(用户可能只填家庭总额没逐笔)。</p>
+     *
+     * <p>backward compat:PMC 空 → fallback 老 cash_flow 加和路径。</p>
+     */
     private BigDecimal averageExpense(FactSlice slice, int maxPeriods) {
+        // 1) PMC 优先(v0.3 用户填家庭口径)
+        long familyId = slice.filter().familyId();
+        var recent = periodMemberCashflowMapper.findFamilyAggregateRecent(familyId, maxPeriods);
+        if (!recent.isEmpty()) {
+            BigDecimal sum = BigDecimal.ZERO;
+            for (var a : recent) {
+                if (a.totalExpense() != null) sum = sum.add(a.totalExpense());
+            }
+            return sum.divide(BigDecimal.valueOf(recent.size()), 2, RoundingMode.HALF_EVEN);
+        }
+        // 2) Fallback · v0.2 cash_flow 表加和
         List<Long> ids = slice.periodIds();
         if (ids.isEmpty()) {
             return zero();

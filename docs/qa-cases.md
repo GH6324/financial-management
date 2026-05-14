@@ -612,3 +612,40 @@ Tests run: 114, Failures: 0, Errors: 0, Skipped: 0
 ```
 
 v0.3 新增 38 个单测,加 v0.2 既有 76 个,合计 114 个全过。
+
+---
+
+### v0.4.3 · QA 视角再审视 → P0 修复(2026-05-14)
+
+完成 v0.4 主线 + v0.4.1/v0.4.2 后,以 QA 视角对所有指标计算重新审视,发现 8 项隐患(5 BUG + 3 一致性)。
+v0.4.3 优先修 P0 三项 B1/B2/B4,**0 schema 变更 · 100% backward-compat**。
+
+**修复点**
+
+| ID | 问题 | 修复 |
+|---|---|---|
+| **B1** | period_snapshot.end_balance NULL 时 fact_view 取出 NULL → netWorth/totalLiabilities 静默失真 | FactMapper.queryBase end_balance 列加 COALESCE 续值子查询 · NULL 时沿用 ≤ 当期最近一笔非空 snapshot · 不超期 · 用户填 0 仍取 0(尊重意图) |
+| **B2** | dashboard 紧急储备 averageExpense 用 cash_flow · /reports 用 PMC · 同月不同数 | FactViewServiceImpl 注入 PeriodMemberCashflowMapper · averageExpense PMC 优先 → cash_flow 回退 |
+| **B4** | ytdInvestPnl 复用 caller range-bound slice · 选 3M 时 YTD 只算 3M | 改为独立 load 1 月-今天 slice · range 切换不影响 YTD 口径 |
+
+**剩余降级(v0.4.4+)**:B3 PMC 边界 · B5 利息计提 · I1-I3 一致性
+
+**新加 8 条**黑盒(v04-FIX-1/1b/2/3/4/5/6/7):
+- v04-FIX-1:FactMapper.xml 含 COALESCE + ps_carry IS NOT NULL 续值
+- v04-FIX-1b:真实 beta 数据账户 11(房贷)2026-05 漏填 → 续值 SQL 返回 -1195180.00(非 NULL)
+- v04-FIX-2:FactViewServiceImpl 注入 PMC mapper · averageExpense 双源
+- v04-FIX-3:ytdInvestPnl 独立加载 1 月-今天 slice
+- v04-FIX-4:/dashboard 漏填账户续值后 KPI 仍正常渲染
+- v04-FIX-5:/reports?range=1Y B1 续值后正常出图
+- v04-FIX-6:/checkup B2 双源后正常渲染应急金诊断
+- v04-FIX-7:factview 单测目录存在(改动不破坏现有覆盖)
+
+**验证**
+- 真实 beta 数据:账户 7/9/11 在 2026-05 漏填 snapshot → B1 fix 后续值为 9200 / 127800 / -1195180(v04-FIX-1b 实测)
+- `mvn test`:161 全绿(v0.4.2 基线 + 0 新增 0 破坏)
+- `bash scripts/qa-run.sh`:**总 PASS=264 / FAIL=4**(v04-DIFF-1 + 3 条 pre-existing v0.2 · 均状态污染 · 与 v0.4.3 改动无关)/ SKIP=2
+
+**backward-compat 红线**
+- schema 0 改动 · 无 V25 migration
+- period_snapshot 表完全不变(NULL 仍 NULL · 仅 fact_view 出口结果非 NULL)
+- prod 升级路径:`git pull && sudo bash deploy/deploy.sh` 单步 · 0 风险

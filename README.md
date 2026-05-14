@@ -62,6 +62,29 @@
 - Dashboard 加"按账户分布"横向 bar(资产向右 / 负债向左 / 0 居中)+ "按成员分布"饼图
 - 搜索式下拉(大列表 select 自动升级)
 
+### v0.4(2026-05-14 主线 + .1/.2/.3 · tag `v0.4.3`)
+
+- **报表大整顿**(FR-60a/b/c)· 砍 8 张流水视角图(瀑布 / 桑基 / 月度对比 / 风险敞口表 / 汇率表 ...)· dashboard / reports / checkup 三页职责重切
+- **摸清第 5 问**(跑赢通胀和市场)
+  - CPI 对照线(FR-61a · 切换器在 dashboard · 默认 2.00%)· 净资产趋势加虚线对比
+  - 账户级基准对照(FR-61b/c · `product_category.benchmark_pct` · 跑赢/输 pill)
+- **调优决策辅助**
+  - 配置 diff(FR-62a · 4 类目 vs 4 模板 · 砍/补/超配建议)
+  - AI 调仓建议(FR-62b · 30 天节流 · LLM JSON 输出 · 真名脱敏)
+  - 应急金不闲置提示(FR-62c · LIQUID 超额 6 月时建议挪 50% 至理财)
+  - 提前还贷决策器(FR-62d · `/reports/refinance` · NPV 18 年视角)
+- **v0.4.1 股票估值事件 ledger**(FR-52f)· 拉价后 `stock_valuation_event` 表记录 · `/entry` + `/accounts/{id}` 显示 📈 估值行
+- **v0.4.2 「人赚 vs 钱赚」二分收益指标**(用户拍板产品定位)
+  - 家庭 XIRR · 含收入(资金加权)/ 资产年化 · 剔除收入 ★(几何平均 · 真实资产回报)
+  - 人赚的 · 净流入累计 / 钱赚的 · 投资 PnL 累计
+  - dashboard 第 5 KPI 改为「本月资产收益」· reports + checkup 同步双口径
+- **v0.4.3 QA 视角再审视 → P0 修复**(2026-05-14)
+  - **B1** period_snapshot 漏填账户 NULL → fact_view 续值 ≤ 当期最近一笔非空(读时 COALESCE · 不写库)
+  - **B2** dashboard 紧急储备 vs reports 储蓄能力双源问题 → PMC 优先 + cash_flow 回退
+  - **B4** YTD 复用 caller range slice 漂移 → 独立 load 1 月-今天 slice
+  - 0 schema 变更 · 100% backward-compat
+- **真 LLM 接通**(beta)· Qwen-Plus 调仓建议 · 圆形熔断不影响主路径
+
 ### v0.3(2026-05-13 封板 · tag `v0.3`)
 
 - **财务目标体系** · `/goals` 一级页 + Dashboard 顶部进度条带(信息架构 C 混合)
@@ -92,7 +115,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 114 单元 / 36 端到端 / 229 黑盒 |
+| 测试 | JUnit 5 · 161 单元 / 36 端到端 / 264 黑盒 |
 
 ## 快速开始(自托管部署)
 
@@ -192,8 +215,8 @@ bash scripts/qa-e2e.sh         # 端到端真值校验(36 · 会清空 DB)
 
 ## 文档
 
-- **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md) · [`prd/v0.3.md`](prd/v0.3.md)
-- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md)
+- **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md) · [`prd/v0.3.md`](prd/v0.3.md) · [`prd/v0.4.md`](prd/v0.4.md)
+- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md) · [`tech-design/v0.4.md`](tech-design/v0.4.md)
 - **预览原型**:[`preview/index.html`](preview/index.html)(43+ 页 Tailwind CDN 静态预览 · v0.1 + v0.2 + v0.3)
 - **QA case 库**:[`docs/qa-cases.md`](docs/qa-cases.md)
 - **部署运行**:[`deploy/README.md`](deploy/README.md)
