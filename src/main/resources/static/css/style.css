@@ -357,7 +357,7 @@ h1, h2, h3, h4 {
     /* 手机端:固定到屏幕顶部 · 不跟 button 位置 */
     position: fixed;
     left: 1rem; right: 1rem;
-    top: 1rem; bottom: auto;
+    top: 5rem; bottom: auto; /* nav h-16 + sticky top-1 ≈ 68px · 5rem=80px 避开导航 */
     transform: none;
     min-width: unset; max-width: unset; width: auto;
     font-size: 12px;
