@@ -327,13 +327,13 @@ h1, h2, h3, h4 {
 }
 .kpi-info-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 16px; height: 16px; border-radius: 50%;
-  border: 1px solid var(--rule); color: var(--ink-subtle);
-  cursor: pointer; margin-left: 4px; vertical-align: middle;
-  transition: border-color .2s, color .2s;
+  width: 14px; height: 14px;
+  border: none; color: var(--ink-subtle);
+  cursor: pointer; margin-left: 3px; vertical-align: middle;
+  transition: color .2s;
   flex-shrink: 0; padding: 0; background: none;
 }
-.kpi-info-btn:hover { border-color: var(--brass-deep); color: var(--brass-deep); }
+.kpi-info-btn:hover { color: var(--brass-deep); }
 .kpi-info-panel {
   /* absolute 浮层 · 不撑开 parent card 布局 */
   position: absolute;
