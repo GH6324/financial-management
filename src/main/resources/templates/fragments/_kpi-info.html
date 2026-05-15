@@ -8,6 +8,6 @@
     <th:block th:insert="~{fragments/_kpi-info :: i('总资产 − 总负债 ...')}"/>
   </span>
 -->
-<th:block th:fragment="i(text)"><button type="button" class="kpi-info-btn" data-kpi-info>?</button><span class="kpi-info-panel hidden" th:text="${text}">口径说明</span></th:block>
+<th:block th:fragment="i(text)"><span class="kpi-info-wrap"><button type="button" class="kpi-info-btn" data-kpi-info>?</button><span class="kpi-info-panel hidden" th:text="${text}">口径说明</span></span></th:block>
 </body>
 </html>
