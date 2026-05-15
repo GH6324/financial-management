@@ -31,6 +31,8 @@
   <script th:src="@{/vendor/htmx.min.js(v=${buildVersion})}"></script>
   <!-- v0.2.1 · 搜索式下拉(任何 <select data-searchable> 自动升级) -->
   <script th:src="@{/js/searchable-select.js(v=${buildVersion})}" defer></script>
+  <!-- v0.4.13 · KPI 口径说明 tooltip(点击 ? 展开说明) -->
+  <script th:src="@{/js/kpi-info.js(v=${buildVersion})}" defer></script>
   <script th:inline="javascript">
     tailwind.config = {
       theme: { extend: {

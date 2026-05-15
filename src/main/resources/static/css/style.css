@@ -318,6 +318,28 @@ h1, h2, h3, h4 {
   margin-top: 10px;
 }
 
+/* KPI 口径说明 tooltip · v0.4.13 */
+.kpi-info-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 1px solid var(--rule); color: var(--ink-subtle);
+  font-size: 9px; font-family: "JetBrains Mono", monospace;
+  cursor: pointer; margin-left: 4px; vertical-align: middle;
+  transition: border-color .2s, color .2s;
+  flex-shrink: 0; line-height: 1;
+}
+.kpi-info-btn:hover { border-color: var(--brass-deep); color: var(--brass-deep); }
+.kpi-info-panel {
+  margin-top: 6px; padding: 8px 10px;
+  background: var(--card-soft); border: 1px solid var(--rule-soft);
+  border-left: 3px solid var(--brass); border-radius: 4px;
+  font-size: 11px; line-height: 1.6; color: var(--ink-soft);
+  max-width: 320px; font-family: "Source Serif 4", "Noto Serif SC", serif;
+}
+@media (max-width: 640px) {
+  .kpi-info-panel { max-width: 100%; font-size: 10px; }
+}
+
 /* 表格 — 账册风 */
 .ledger-table {
   width: 100%;

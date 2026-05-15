@@ -58,7 +58,7 @@
 
   <section class="grid grid-cols-2 md:grid-cols-4 gap-px bg-rule mb-12">
     <div class="kpi-card">
-      <span class="kpi-eyebrow">家庭 XIRR · 含收入</span>
+      <span class="kpi-eyebrow">家庭 XIRR · 含收入 <th:block th:insert="~{fragments/_kpi-info :: i('资金加权内部收益率（含工资净流入）。反映你和资产一起赚多少。')}"/></span>
       <div class="kpi-value tnum num-pos font-display" th:text="${familyXirr}">—</div>
       <!-- v0.4 FR-61c · vs 基准 pill -->
       <div class="font-mono text-[10px] mt-1" th:if="${familyBenchmarkPct != null}">
@@ -77,17 +77,17 @@
       <div class="kpi-delta" th:if="${familyBenchmarkPct == null}">资金加权</div>
     </div>
     <div class="kpi-card">
-      <span class="kpi-eyebrow">资产年化 · 剔除收入 ★</span>
+      <span class="kpi-eyebrow">资产年化 · 剔除收入 ★ <th:block th:insert="~{fragments/_kpi-info :: i('12 月滚动几何平均。去掉工资影响，纯看钱替你赚钱的回报。')}"/></span>
       <div class="kpi-value tnum num-pos font-display" th:text="${familyTwr}">—</div>
       <div class="kpi-delta">钱替你赚的真实回报 · 12 月几何平均</div>
     </div>
     <div class="kpi-card">
-      <span class="kpi-eyebrow">人赚的 · 净流入</span>
+      <span class="kpi-eyebrow">人赚的 · 净流入 <th:block th:insert="~{fragments/_kpi-info :: i('收入 − 支出 累计。工资攒下来的钱。')}"/></span>
       <div class="kpi-value tnum" th:text="${cumulativeNetInflow}">¥0</div>
       <div class="kpi-delta">收入 − 支出 累计</div>
     </div>
     <div class="kpi-card">
-      <span class="kpi-eyebrow">钱赚的 · 投资 PnL</span>
+      <span class="kpi-eyebrow">钱赚的 · 投资 PnL <th:block th:insert="~{fragments/_kpi-info :: i('ΔNetWorth − 净流入。纯资产升值/贬值累计。')}"/></span>
       <div class="kpi-value tnum" th:text="${cumulativePnl}">¥0</div>
       <div class="kpi-delta">资产升值 / 贬值 累计</div>
     </div>
@@ -145,7 +145,7 @@
         <thead>
         <tr>
           <th>账户</th><th>类型</th><th>类目</th>
-          <th class="num">XIRR</th><th class="num">基准 %</th><th>vs 基准</th><th class="num">当前价值</th>
+          <th class="num">XIRR <th:block th:insert="~{fragments/_kpi-info :: i('单账户级：含该账户全部现金流的加权回报率。')}"/></th><th class="num">基准 % <th:block th:insert="~{fragments/_kpi-info :: i('产品类目对标的长期年化基准（如 A 股 8%、货币基金 2%）。')}"/></th><th>vs 基准</th><th class="num">当前价值</th>
         </tr>
         </thead>
         <tbody>

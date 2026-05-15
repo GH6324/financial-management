@@ -21,7 +21,7 @@
   <!-- 顶部 KPI 横条 -->
   <section class="grid grid-cols-2 lg:grid-cols-5 gap-px bg-rule mb-8">
     <div class="kpi-card">
-      <span class="kpi-eyebrow">净资产</span>
+      <span class="kpi-eyebrow">净资产<th:block th:insert="~{fragments/_kpi-info :: i('总资产 − 总负债。含全部账户,本位币换算。')}"/></span>
       <div class="kpi-value tnum"
            th:text="${diagnose.kpi.netWorth != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.netWorth, 1, 0) : '—'}">¥0</div>
       <div class="kpi-delta"
@@ -29,26 +29,26 @@
            th:text="${diagnose.kpi.netWorthDelta != null ? (diagnose.kpi.netWorthDelta.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(diagnose.kpi.netWorthDelta, 1, 0) : '较上期 —'}">较上期 —</div>
     </div>
     <div class="kpi-card">
-      <span class="kpi-eyebrow">总资产</span>
+      <span class="kpi-eyebrow">总资产<th:block th:insert="~{fragments/_kpi-info :: i('CASH + STOCK + WEALTH + PROPERTY 合计,不含 LOAN。')}"/></span>
       <div class="kpi-value tnum"
            th:text="${diagnose.kpi.totalAssets != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.totalAssets, 1, 0) : '—'}">¥0</div>
       <div class="kpi-delta">不含 LOAN</div>
     </div>
     <div class="kpi-card">
-      <span class="kpi-eyebrow">总负债</span>
+      <span class="kpi-eyebrow">总负债<th:block th:insert="~{fragments/_kpi-info :: i('仅 LOAN 类型(房贷 + 信用卡)绝对值合计。')}"/></span>
       <div class="kpi-value tnum num-neg"
            th:text="${diagnose.kpi.totalLiabilities != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.totalLiabilities, 1, 0) : '—'}">¥0</div>
       <div class="kpi-delta">仅 LOAN</div>
     </div>
     <div class="kpi-card">
-      <span class="kpi-eyebrow">家庭年化</span>
+      <span class="kpi-eyebrow">家庭年化<th:block th:insert="~{fragments/_kpi-info :: i('家庭加权 XIRR · 含工资净流入 · 资金加权。')}"/></span>
       <div class="kpi-value tnum"
            th:classappend="${diagnose.familyXirr != null and diagnose.familyXirr.signum() > 0 ? ' num-pos' : (diagnose.familyXirr != null and diagnose.familyXirr.signum() < 0 ? ' num-neg' : '')}"
            th:text="${diagnose.familyXirrPctLabel()}">—</div>
       <div class="kpi-delta">资金加权 XIRR</div>
     </div>
     <div class="kpi-card">
-      <span class="kpi-eyebrow">紧急储备</span>
+      <span class="kpi-eyebrow">紧急储备<th:block th:insert="~{fragments/_kpi-info :: i('流动资产 ÷ 月均支出。LIQUID 类目计入。建议 ≥ 3-6 月。')}"/></span>
       <div class="kpi-value tnum" th:text="${diagnose.emergencyMonthsLabel()}">—</div>
       <div class="kpi-delta">流动资产 / 月均支出</div>
     </div>
@@ -97,13 +97,13 @@
       </h3>
       <div class="grid grid-cols-2 gap-x-6 gap-y-4">
         <div>
-          <div class="kpi-eyebrow">流动资产</div>
+          <div class="kpi-eyebrow">流动资产<th:block th:insert="~{fragments/_kpi-info :: i('CASH 类型 + 货币基金等 LIQUID 类目合计。')}"/></div>
           <div class="font-display text-2xl tnum mt-1"
                th:text="${diagnose.liquidAssets != null ? '¥' + #numbers.formatDecimal(diagnose.liquidAssets, 1, 0) : '—'}">¥0</div>
           <div class="font-mono text-[10px] text-ink-soft">CASH + 货币基金等(类目 = LIQUID)</div>
         </div>
         <div>
-          <div class="kpi-eyebrow">紧急储备月数</div>
+          <div class="kpi-eyebrow">紧急储备月数<th:block th:insert="~{fragments/_kpi-info :: i('流动资产 ÷ 月均支出。')}"/></div>
           <div class="font-display text-2xl tnum mt-1" th:text="${diagnose.emergencyMonthsLabel()}">—</div>
           <div class="font-mono text-[10px] text-ink-soft">流动资产 / 月均支出</div>
         </div>
@@ -131,7 +131,7 @@
       <div class="grid grid-cols-2 gap-x-6 gap-y-4">
         <!-- 行 1 · 资产年化(剔除收入 · ★ 优先突出) -->
         <div class="col-span-2 p-3" style="background:rgba(122,90,57,.04);border-left:3px solid var(--brass-deep)">
-          <div class="kpi-eyebrow" style="color:var(--brass-deep)">资 · 产 · 年 · 化 ★(剔除收入)</div>
+          <div class="kpi-eyebrow" style="color:var(--brass-deep)">资 · 产 · 年 · 化 ★(剔除收入)<th:block th:insert="~{fragments/_kpi-info :: i('12 月滚动几何平均 TWR。去掉工资,纯看钱替你赚的回报。')}"/></div>
           <div class="font-display text-3xl tnum mt-1"
                th:classappend="${diagnose.familyTwr != null and diagnose.familyTwr.signum() > 0 ? ' num-pos' : (diagnose.familyTwr != null and diagnose.familyTwr.signum() < 0 ? ' num-neg' : '')}"
                th:text="${diagnose.familyTwrPctLabel()}">—</div>
@@ -139,7 +139,7 @@
         </div>
         <!-- 行 2 · XIRR 含收入(辅助) -->
         <div>
-          <div class="kpi-eyebrow">家庭 XIRR(含收入)</div>
+          <div class="kpi-eyebrow">家庭 XIRR(含收入)<th:block th:insert="~{fragments/_kpi-info :: i('含收入的资金加权内部收益率。反映你和资产一起赚多少。')}"/></div>
           <div class="font-display text-2xl tnum mt-1"
                th:classappend="${diagnose.familyXirr != null and diagnose.familyXirr.signum() > 0 ? ' num-pos' : (diagnose.familyXirr != null and diagnose.familyXirr.signum() < 0 ? ' num-neg' : '')}"
                th:text="${diagnose.familyXirrPctLabel()}">—</div>
@@ -147,7 +147,7 @@
         </div>
         <!-- 行 2 · 本月资产收益 -->
         <div>
-          <div class="kpi-eyebrow">本月资产收益</div>
+          <div class="kpi-eyebrow">本月资产收益<th:block th:insert="~{fragments/_kpi-info :: i('(期末净资产 − 期初 − 净流入) ÷ 期初。剔除工资。')}"/></div>
           <div class="font-display text-2xl tnum mt-1"
                th:classappend="${diagnose.kpi.monthlyPnlAmount != null and diagnose.kpi.monthlyPnlAmount.signum() > 0 ? ' num-pos' : (diagnose.kpi.monthlyPnlAmount != null and diagnose.kpi.monthlyPnlAmount.signum() < 0 ? ' num-neg' : '')}"
                th:text="${diagnose.kpi.monthlyInvestReturnPct != null ? ((diagnose.kpi.monthlyInvestReturnPct.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(diagnose.kpi.monthlyInvestReturnPct.multiply(new java.math.BigDecimal(100)), 1, 2) + '%') : '—'}">+0.00%</div>
@@ -156,7 +156,7 @@
         </div>
         <!-- 行 3 · 本年累计损益(钱赚的) -->
         <div class="col-span-2">
-          <div class="kpi-eyebrow">本年累计损益(钱赚的 · YTD)</div>
+          <div class="kpi-eyebrow">本年累计损益(钱赚的 · YTD)<th:block th:insert="~{fragments/_kpi-info :: i('1 月至今的投资 PnL 合计(ΔNetWorth − 净流入逐月累加)。')}"/></div>
           <div class="font-display text-2xl tnum mt-1"
                th:classappend="${diagnose.cumulativeYtdPnl != null and diagnose.cumulativeYtdPnl.signum() > 0 ? ' num-pos' : (diagnose.cumulativeYtdPnl != null and diagnose.cumulativeYtdPnl.signum() < 0 ? ' num-neg' : '')}"
                th:text="${diagnose.cumulativeYtdPnl != null ? ((diagnose.cumulativeYtdPnl.signum() >= 0 ? '+' : '') + '¥' + #numbers.formatDecimal(diagnose.cumulativeYtdPnl.abs(), 1, 0)) : '—'}">+¥0</div>

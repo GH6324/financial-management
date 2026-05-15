@@ -114,30 +114,30 @@
   <!-- 手机 2 列(第 5 个 KPI 跨 2 列居中)→ sm 起 3 列 → lg 起 5 列 -->
   <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-rule mb-6 lg:mb-8">
     <a th:href="@{/checkup}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
-      <span class="kpi-eyebrow">净资产</span>
+      <span class="kpi-eyebrow">净资产 <th:block th:insert="~{fragments/_kpi-info :: i('总资产 − 总负债。含 CASH/STOCK/WEALTH/PROPERTY 全部账户,按本位币换算。')}"/></span>
       <div class="kpi-value tnum" th:text="${kpiNetWorth}">¥0</div>
       <div class="kpi-delta"
            th:classappend="${kpiDelta != null and kpiDelta.startsWith('+') ? ' num-pos' : (kpiDelta != null and kpiDelta.startsWith('-') ? ' num-neg' : '')}"
            th:text="${kpiDelta}">—</div>
     </a>
     <a href="/checkup#allocation" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
-      <span class="kpi-eyebrow">总资产</span>
+      <span class="kpi-eyebrow">总资产 <th:block th:insert="~{fragments/_kpi-info :: i('CASH + STOCK + WEALTH + PROPERTY 类型合计,不含 LOAN。')}"/></span>
       <div class="kpi-value tnum" th:text="${kpiAssets}">¥0</div>
       <div class="kpi-delta">不含 LOAN</div>
     </a>
     <a href="/checkup#allocation" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
-      <span class="kpi-eyebrow">总负债</span>
+      <span class="kpi-eyebrow">总负债 <th:block th:insert="~{fragments/_kpi-info :: i('仅 LOAN 类型(房贷 + 信用卡 + 借款)绝对值合计。')}"/></span>
       <div class="kpi-value tnum num-neg" th:text="${kpiLiabilities}">¥0</div>
       <div class="kpi-delta">仅 LOAN</div>
     </a>
     <a href="/checkup#liquidity" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
-      <span class="kpi-eyebrow">紧急储备</span>
+      <span class="kpi-eyebrow">紧急储备 <th:block th:insert="~{fragments/_kpi-info :: i('流动资产 ÷ 月均支出。流动资产 = CASH + 货币基金等 LIQUID 类目。建议 ≥ 3-6 月。')}"/></span>
       <div class="kpi-value tnum" th:text="${kpiEmergency}">—</div>
       <div class="kpi-delta">流动资产 / 月均支出</div>
     </a>
     <!-- v0.4.2 新增 · 本月资产收益 · 手机端第 5 个 KPI 跨 2 列居中(col-span-2 sm:col-span-1)-->
     <a th:href="@{/reports}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors col-span-2 sm:col-span-1">
-      <span class="kpi-eyebrow">本月资产收益</span>
+      <span class="kpi-eyebrow">本月资产收益 <th:block th:insert="~{fragments/_kpi-info :: i('(期末净资产 − 期初 − 本月净流入) ÷ 期初。剔除工资,纯投资回报。')}"/></span>
       <div class="kpi-value tnum"
            th:classappend="${monthlyPnlPctLabel != null and monthlyPnlPctLabel.startsWith('+') ? ' num-pos' : (monthlyPnlPctLabel != null and monthlyPnlPctLabel.startsWith('-') ? ' num-neg' : '')}"
            th:text="${monthlyPnlPctLabel}">+0.00%</div>

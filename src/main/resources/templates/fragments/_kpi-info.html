@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  KPI 口径说明 tooltip fragment · v0.4.13
+  用法:在 kpi-eyebrow 后面 th:insert 即可
+  <span class="kpi-eyebrow">净资产
+    <th:block th:insert="~{fragments/_kpi-info :: i('总资产 − 总负债 ...')}"/>
+  </span>
+-->
+<th:block th:fragment="i(text)"><button type="button" class="kpi-info-btn" data-kpi-info>?</button><span class="kpi-info-panel hidden" th:text="${text}">口径说明</span></th:block>
+</body>
+</html>

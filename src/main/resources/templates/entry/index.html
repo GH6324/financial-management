@@ -11,9 +11,9 @@
     <div class="flex items-end justify-between flex-wrap gap-6">
       <div>
         <div class="eyebrow mb-2">填 · 报 · 月 · 度</div>
-        <h1 class="font-display text-5xl font-medium tracking-tight">
+        <h1 class="font-display text-3xl sm:text-5xl font-medium tracking-tight">
           本月账册
-          <span class="font-mono text-base text-ink-subtle ml-3"
+          <span class="font-mono text-xs sm:text-base text-ink-subtle ml-2 sm:ml-3"
                 th:text="${#temporals.format(period.periodStart, 'yyyy.MM.dd')} + ' - ' + ${#temporals.format(period.periodEnd, 'yyyy.MM.dd')}">2026.05.01 - 2026.05.31</span>
         </h1>
         <p class="text-ink-soft text-sm mt-2">余额驱动填报:保存期末余额后,系统会按已登记的收入/支出/账户间划转实时轧差。</p>
