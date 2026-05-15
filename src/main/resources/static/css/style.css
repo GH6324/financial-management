@@ -354,15 +354,20 @@ h1, h2, h3, h4 {
 }
 @media (max-width: 640px) {
   .kpi-info-panel {
-    /* 手机端:固定到屏幕左右 · 不跟 button 位置 */
+    /* 手机端:固定到屏幕顶部 · 不跟 button 位置 */
     position: fixed;
     left: 1rem; right: 1rem;
-    top: auto; bottom: 4rem;
+    top: 1rem; bottom: auto;
     transform: none;
     min-width: unset; max-width: unset; width: auto;
     font-size: 12px;
-    box-shadow: 0 -4px 20px rgba(26,23,20,.18);
+    box-shadow: 0 4px 20px rgba(26,23,20,.18);
+    animation: kpi-slide-in .3s ease-out;
   }
+}
+@keyframes kpi-slide-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* 表格 — 账册风 */
