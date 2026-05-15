@@ -11,6 +11,7 @@
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('[data-kpi-info]');
     if (btn) {
+      e.preventDefault();
       e.stopPropagation();
       var panel = btn.nextElementSibling;
       if (!panel || !panel.classList.contains('kpi-info-panel')) return;
