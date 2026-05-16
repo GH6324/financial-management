@@ -162,8 +162,17 @@
             th:text="${#lists.size(rows)} + ' 个账户 · 折叠行'">11 个账户 · 折叠行</span>
     </div>
 
-    <th:block th:each="row : ${rows}">
-      <div th:replace="~{entry/_row :: block(${row}, null)}"></div>
+    <!-- 按成员分组 + 分割线(v0.4.15 · 用户反馈"每个账户归属不太明显") -->
+    <th:block th:each="group : ${ownerGroups}">
+      <div class="flex items-center gap-3 mt-5 mb-2">
+        <div class="h-px flex-1 bg-rule"></div>
+        <span class="font-mono text-[11px] tracking-[0.14em] text-ink-soft" th:text="${group.key}">迪娃</span>
+        <span class="font-mono text-[10px] text-ink-subtle" th:text="${#lists.size(group.value)} + ' 个'">3 个</span>
+        <div class="h-px flex-1 bg-rule"></div>
+      </div>
+      <th:block th:each="row : ${group.value}">
+        <div th:replace="~{entry/_row :: block(${row}, null)}"></div>
+      </th:block>
     </th:block>
 
     <div th:if="${#lists.isEmpty(rows)}" class="paper-card p-8 text-center text-ink-soft">

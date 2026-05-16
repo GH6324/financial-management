@@ -65,6 +65,14 @@ public class EntryController {
         model.addAttribute("accounts", accountMapper.findActiveByFamily(me.getFamilyId()));
         model.addAttribute("rows", rows);
         model.addAttribute("doneCount", rows.stream().filter(EntryRow::done).count());
+
+        // v0.4.15 · 按 owner 分组(填报页分割线)· 保留 rows 不动(其他逻辑依赖)
+        var ownerGroups = rows.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        r -> r.ownerName() == null ? "共同" : r.ownerName(),
+                        java.util.LinkedHashMap::new,
+                        java.util.stream.Collectors.toList()));
+        model.addAttribute("ownerGroups", ownerGroups);
         model.addAttribute("mineOnly", mineOnly);
         model.addAttribute("accountFilter", accountFilter);
 
