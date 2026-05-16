@@ -21,18 +21,18 @@
 
 <div th:fragment="row(row, oob)" th:id="'entry-row-' + ${row.account.id}"
      th:attr="hx-swap-oob=${oob != null and oob == true ? 'outerHTML' : null}, data-debug-ledger=${row.ledger == null ? 'NULL' : #lists.size(row.ledger)}"
-     class="paper-card mb-3 px-6 py-4">
-  <div class="flex items-center gap-3">
+     class="paper-card mb-3 px-3 sm:px-6 py-3 sm:py-4">
+  <div class="flex items-center gap-2 sm:gap-3">
     <!-- avatar 首字圆 -->
-    <span class="w-7 h-7 rounded-full bg-ink text-paper flex items-center justify-center text-xs font-display flex-shrink-0"
+    <span class="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-ink text-paper flex items-center justify-center text-[10px] sm:text-xs font-display flex-shrink-0"
           th:text="${row.ownerName != null ? #strings.substring(row.ownerName, 0, 1) : '共'}">迪</span>
     <span th:class="${row.done ? 'tick-done' : 'tick-pending'}" th:text="${row.done ? '✓' : '·'}">✓</span>
     <div class="flex-1 min-w-0">
-      <div class="flex items-baseline gap-3 flex-wrap">
-        <span class="font-display text-base" th:text="${row.account.displayName}">招行储蓄卡-工资</span>
-        <span class="pill" th:classappend="${row.account.type.name() == 'LOAN' ? ' pill-rust' : (row.account.type.name() == 'WEALTH' ? ' pill-forest' : (row.account.type.name() == 'STOCK' ? ' pill-brass' : ''))}"
-              th:text="${row.account.type.label} + ' (' + ${row.account.type.name()} + ')'">现金 (CASH)</span>
-        <span class="pill" th:if="${row.account.currency != 'CNY'}" th:text="${row.account.currency}">USD</span>
+      <div class="flex items-baseline gap-1.5 sm:gap-3">
+        <span class="font-display text-sm sm:text-base truncate max-w-[120px] sm:max-w-none" th:text="${row.account.displayName}">招行储蓄卡-工资</span>
+        <span class="pill flex-shrink-0 text-[9px] sm:text-[11px]" th:classappend="${row.account.type.name() == 'LOAN' ? ' pill-rust' : (row.account.type.name() == 'WEALTH' ? ' pill-forest' : (row.account.type.name() == 'STOCK' ? ' pill-brass' : ''))}"
+              th:text="${row.account.type.label}">现金</span>
+        <span class="pill flex-shrink-0 text-[9px] sm:text-[11px]" th:if="${row.account.currency != 'CNY'}" th:text="${row.account.currency}">USD</span>
       </div>
       <div class="font-mono text-xs text-ink-subtle mt-1">
         <span th:text="'上期末 ' + ${row.previousBalanceLabel}">上期末 ¥45,000</span>
@@ -46,8 +46,8 @@
         </a>
       </div>
     </div>
-    <div class="text-right min-w-[140px]">
-      <div class="font-mono tnum text-lg" th:classappend="${row.account.type.name() == 'LOAN' ? ' num-neg' : ''}" th:text="${row.currentBalanceLabel}">¥73,200</div>
+    <div class="text-right min-w-[90px] sm:min-w-[140px]">
+      <div class="font-mono tnum text-sm sm:text-lg" th:classappend="${row.account.type.name() == 'LOAN' ? ' num-neg' : ''}" th:text="${row.currentBalanceLabel}">¥73,200</div>
       <div class="font-mono text-[10px] text-ink-subtle tnum mt-0.5">
         上期末 <span th:text="${row.previousBalanceLabel}">¥45,000</span>
       </div>
