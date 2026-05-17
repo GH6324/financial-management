@@ -44,6 +44,20 @@
        th:text="${includeArchived ? '隐藏已归档' : '显示已归档'}">显示已归档</a>
   </section>
 
+  <!-- PC 端成员 tab(同手机端) -->
+  <nav class="hidden md:flex gap-2 flex-wrap mb-4">
+    <a th:each="group : ${ownerGroups}"
+       th:href="'#acct-pc-owner-' + ${#strings.replace(group.key, ' ', '-')}"
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-rule text-xs font-mono no-underline
+              hover:border-brass-deep hover:text-brass-deep transition">
+      <span th:classappend="'avatar-' + ${ownerColorMap.get(group.key) % 5}"
+            class="w-5 h-5 rounded-full text-paper flex items-center justify-center text-[10px] font-display flex-shrink-0"
+            th:text="${#strings.substring(group.key, 0, 1)}">迪</span>
+      <span th:text="${group.key}">迪娃</span>
+      <span class="text-ink-subtle" th:text="${#lists.size(group.value)} + '个'">3个</span>
+    </a>
+  </nav>
+
   <section class="paper-card overflow-hidden mb-10 hidden md:block">
     <table class="ledger-table">
       <thead>
@@ -59,7 +73,17 @@
       </tr>
       </thead>
       <tbody>
-      <tr th:each="row : ${rows}" th:classappend="${row.archived ? ' opacity-50' : ''}">
+      <th:block th:each="group : ${ownerGroups}">
+      <!-- 分组 header 行 -->
+      <tr th:id="'acct-pc-owner-' + ${#strings.replace(group.key, ' ', '-')}" class="scroll-mt-20">
+        <td colspan="8" class="!py-3 !px-4 bg-card-soft border-t-2 border-rule">
+          <span th:classappend="'avatar-' + ${ownerColorMap.get(group.key) % 5}"
+                class="inline-flex w-5 h-5 rounded-full text-paper items-center justify-center text-[10px] font-display mr-2 align-middle"
+                th:text="${#strings.substring(group.key, 0, 1)}">迪</span>
+          <span class="font-mono text-[11px] text-ink-soft" th:text="${group.key} + ' · ' + ${#lists.size(group.value)} + ' 个账户'">迪娃 · 6 个账户</span>
+        </td>
+      </tr>
+      <tr th:each="row : ${group.value}" th:classappend="${row.archived ? ' opacity-50' : ''}">
         <td class="font-mono text-ink-subtle text-xs" th:text="${#numbers.formatInteger(row.account.displayOrder, 3)} + ' ·☰'">001 ·☰</td>
         <td>
           <a th:href="@{/accounts/{id}(id=${row.account.id})}"
@@ -151,6 +175,7 @@
           </form>
         </td>
       </tr>
+      </th:block>
       </tbody>
     </table>
   </section>
