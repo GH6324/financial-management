@@ -141,12 +141,24 @@ public class AccountController {
     private void addModel(MemberPrincipal me, Model model, boolean includeArchived, boolean showWizard) {
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
-        model.addAttribute("rows", accountService.listRows(me.getFamilyId(), includeArchived));
+        var rows = accountService.listRows(me.getFamilyId(), includeArchived);
+        model.addAttribute("rows", rows);
         model.addAttribute("summary", accountService.summarize(me.getFamilyId()));
         model.addAttribute("templates", accountTemplateService.listOrdered());
         model.addAttribute("members", memberMapper.findActiveByFamily(me.getFamilyId()));
         model.addAttribute("types", AccountType.values());
         model.addAttribute("currencies", new String[]{"CNY", "USD", "HKD"});
+        // 按 owner 分组 + 颜色(手机版 card 分组 · 与填报页一致)
+        var ownerGroups = rows.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        r -> r.ownerName() == null ? "共同" : r.ownerName(),
+                        java.util.LinkedHashMap::new,
+                        java.util.stream.Collectors.toList()));
+        model.addAttribute("ownerGroups", ownerGroups);
+        var ownerColorMap = new java.util.LinkedHashMap<String, Integer>();
+        int colorIdx = 0;
+        for (String key : ownerGroups.keySet()) ownerColorMap.put(key, colorIdx++);
+        model.addAttribute("ownerColorMap", ownerColorMap);
         model.addAttribute("form", new AccountForm());
         model.addAttribute("allCategories", productCategoryService.listAll());
         model.addAttribute("includeArchived", includeArchived);

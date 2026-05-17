@@ -158,9 +158,33 @@
   <section class="md:hidden space-y-3 mb-10">
     <div class="text-xs text-ink-subtle font-mono tracking-wider uppercase mb-3 flex items-center justify-between">
       <span th:text="${#lists.size(rows)} + ' 个账户 · 卡片视图'">11 个账户 · 卡片视图</span>
-      <span>↑↓ 拖动调序</span>
     </div>
-    <div th:each="row : ${rows}" class="paper-card p-4" th:style="${row.account.type.name() == 'LOAN' ? 'border-color: var(--rust-soft);' : ''}">
+
+    <!-- 成员 tab 快速跳转(同填报页) -->
+    <nav class="flex gap-2 flex-wrap mb-3 sticky top-[68px] z-20 bg-paper py-2 border-b border-rule-soft">
+      <a th:each="group : ${ownerGroups}"
+         th:href="'#acct-owner-' + ${#strings.replace(group.key, ' ', '-')}"
+         class="inline-flex items-center gap-1.5 px-2.5 py-1 border border-rule text-[11px] font-mono no-underline
+                hover:border-brass-deep hover:text-brass-deep transition">
+        <span th:classappend="'avatar-' + ${ownerColorMap.get(group.key) % 5}"
+              class="w-5 h-5 rounded-full text-paper flex items-center justify-center text-[9px] font-display flex-shrink-0"
+              th:text="${#strings.substring(group.key, 0, 1)}">迪</span>
+        <span th:text="${group.key}">迪娃</span>
+        <span class="text-ink-subtle" th:text="${#lists.size(group.value)}">3</span>
+      </a>
+    </nav>
+
+    <!-- 按成员分组 -->
+    <th:block th:each="group : ${ownerGroups}">
+      <div th:id="'acct-owner-' + ${#strings.replace(group.key, ' ', '-')}"
+           class="flex items-center gap-2 mt-4 mb-2 scroll-mt-32">
+        <span th:classappend="'avatar-' + ${ownerColorMap.get(group.key) % 5}"
+              class="w-5 h-5 rounded-full text-paper flex items-center justify-center text-[9px] font-display flex-shrink-0"
+              th:text="${#strings.substring(group.key, 0, 1)}">迪</span>
+        <span class="font-mono text-[11px] text-ink-soft" th:text="${group.key}">迪娃</span>
+        <div class="h-px flex-1 bg-rule"></div>
+      </div>
+    <div th:each="row : ${group.value}" class="paper-card p-4" th:style="${row.account.type.name() == 'LOAN' ? 'border-color: var(--rust-soft);' : ''}">
       <div class="flex items-baseline justify-between gap-2 mb-2">
         <div class="flex-1 min-w-0">
           <a th:href="@{/accounts/{id}(id=${row.account.id})}"
@@ -184,8 +208,8 @@
             </span>
           </div>
         </div>
-        <span class="pill" th:classappend="${row.account.type.name() == 'LOAN' ? ' pill-rust' : (row.account.type.name() == 'WEALTH' ? ' pill-forest' : (row.account.type.name() == 'STOCK' ? ' pill-brass' : ''))}"
-              th:text="${row.account.type.label} + ' (' + ${row.account.type.name()} + ')'">现金 (CASH)</span>
+        <span class="pill text-[9px]" th:classappend="${row.account.type.name() == 'LOAN' ? ' pill-rust' : (row.account.type.name() == 'WEALTH' ? ' pill-forest' : (row.account.type.name() == 'STOCK' ? ' pill-brass' : ''))}"
+              th:text="${row.account.type.label}">现金</span>
       </div>
       <div class="flex items-baseline justify-between mt-3 pt-3 border-t border-rule-soft">
         <span class="text-xs text-ink-soft" th:text="${row.account.type.name() == 'LOAN' ? '本期欠款' : '本期末'}">本期末</span>
@@ -238,6 +262,7 @@
         </form>
       </div>
     </div>
+    </th:block>
   </section>
 
   <th:block th:if="${showWizard}" th:replace="~{accounts/_template-wizard :: wizard}"></th:block>
