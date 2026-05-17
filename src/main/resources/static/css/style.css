@@ -318,6 +318,13 @@ h1, h2, h3, h4 {
   margin-top: 10px;
 }
 
+/* 成员 avatar 颜色(填报页分组 · 按 ownerColorMap index % 5 分配) */
+.avatar-0 { background: #2f5d50 !important; } /* forest 深绿 */
+.avatar-1 { background: #6b5b8a !important; } /* 紫灰 */
+.avatar-2 { background: #3b6998 !important; } /* 蓝灰 */
+.avatar-3 { background: #a77b35 !important; } /* 铜金 */
+.avatar-4 { background: #4a5568 !important; } /* slate 灰(fallback / 共同) */
+
 /* KPI 口径说明 tooltip · v0.4.13 */
 .kpi-info-wrap {
   position: relative;

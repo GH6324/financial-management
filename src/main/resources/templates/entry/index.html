@@ -168,7 +168,8 @@
          th:href="'#owner-' + ${#strings.replace(group.key, ' ', '-')}"
          class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-rule text-xs font-mono no-underline
                 hover:border-brass-deep hover:text-brass-deep transition">
-        <span class="w-5 h-5 rounded-full bg-ink text-paper flex items-center justify-center text-[10px] font-display flex-shrink-0"
+        <span th:classappend="'avatar-' + ${ownerColorMap.get(group.key) % 5}"
+              class="w-5 h-5 rounded-full text-paper flex items-center justify-center text-[10px] font-display flex-shrink-0"
               th:text="${#strings.substring(group.key, 0, 1)}">迪</span>
         <span th:text="${group.key}">迪娃</span>
         <span class="text-ink-subtle" th:text="${#lists.size(group.value)} + '个'">3个</span>
@@ -180,7 +181,8 @@
       <div th:id="'owner-' + ${#strings.replace(group.key, ' ', '-')}"
            class="flex items-center gap-3 mt-5 mb-2 scroll-mt-32">
         <div class="h-px flex-1 bg-rule"></div>
-        <span class="w-6 h-6 rounded-full bg-ink text-paper flex items-center justify-center text-[11px] font-display flex-shrink-0"
+        <span th:classappend="'avatar-' + ${ownerColorMap.get(group.key) % 5}"
+              class="w-6 h-6 rounded-full text-paper flex items-center justify-center text-[11px] font-display flex-shrink-0"
               th:text="${#strings.substring(group.key, 0, 1)}">迪</span>
         <span class="font-mono text-[11px] tracking-[0.14em] text-ink-soft" th:text="${group.key}">迪娃</span>
         <span class="font-mono text-[10px] text-ink-subtle" th:text="${#lists.size(group.value)} + ' 个'">3 个</span>

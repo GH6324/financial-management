@@ -73,6 +73,11 @@ public class EntryController {
                         java.util.LinkedHashMap::new,
                         java.util.stream.Collectors.toList()));
         model.addAttribute("ownerGroups", ownerGroups);
+        // owner avatar 颜色映射(按 groupBy 顺序分配 0,1,2... · 模板 class="avatar-N")
+        var ownerColorMap = new java.util.LinkedHashMap<String, Integer>();
+        int colorIdx = 0;
+        for (String key : ownerGroups.keySet()) ownerColorMap.put(key, colorIdx++);
+        model.addAttribute("ownerColorMap", ownerColorMap);
         model.addAttribute("mineOnly", mineOnly);
         model.addAttribute("accountFilter", accountFilter);
 
