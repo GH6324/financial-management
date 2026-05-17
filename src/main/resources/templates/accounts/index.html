@@ -185,7 +185,11 @@
         <div class="h-px flex-1 bg-rule"></div>
       </div>
     <div th:each="row : ${group.value}" class="paper-card p-4" th:style="${row.account.type.name() == 'LOAN' ? 'border-color: var(--rust-soft);' : ''}">
-      <div class="flex items-baseline justify-between gap-2 mb-2">
+      <div class="flex items-start gap-3 mb-2">
+        <!-- avatar 首字圆(同填报页 · 颜色按 ownerColorMap) -->
+        <span th:classappend="${ownerColorMap != null and ownerColorMap.get(row.ownerName) != null ? 'avatar-' + ownerColorMap.get(row.ownerName) % 5 : 'avatar-4'}"
+              class="w-7 h-7 rounded-full text-paper flex items-center justify-center text-xs font-display flex-shrink-0 mt-0.5"
+              th:text="${row.ownerName != null ? #strings.substring(row.ownerName, 0, 1) : '共'}">迪</span>
         <div class="flex-1 min-w-0">
           <a th:href="@{/accounts/{id}(id=${row.account.id})}"
              class="font-display text-base hover:text-brass-deep no-underline block"
