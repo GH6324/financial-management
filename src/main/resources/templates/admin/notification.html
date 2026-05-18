@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('提醒设置 · 管理 · 家庭账房')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('admin', ${me}, ${nav})}"></header>
+
+<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10 grid grid-cols-12 gap-8">
+  <aside th:replace="~{admin/_sidebar :: sidebar('reminders')}"></aside>
+
+  <section class="col-span-12 md:col-span-9 space-y-8">
+    <div class="mb-2">
+      <div class="eyebrow mb-2">提 · 醒 · 设 · 置</div>
+      <h1 class="font-display text-4xl font-medium">填报规范 + 强提醒</h1>
+      <p class="text-ink-soft text-sm mt-2">统一全家"何时填什么"的节奏 · 截止前 N 天每天强提醒(短信为主 · 站内兜底)</p>
+    </div>
+
+    <div th:if="${flash}" class="border border-forest bg-forest/[0.05] px-4 py-2 text-sm" th:text="${flash}">已保存</div>
+
+    <!-- 1 · 填报模板 + 提前天数 -->
+    <form th:action="@{/admin/reminders/template}" method="post" class="bracket-card max-w-3xl space-y-6">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <div class="eyebrow-ink">① 填报模板 · 全家统一</div>
+
+      <div class="space-y-3">
+        <label th:each="t : ${templates}"
+               class="flex items-start gap-3 border border-rule p-3 cursor-pointer hover:border-ink transition"
+               th:classappend="${currentTemplate.name() == t.name()} ? 'border-ink bg-card-soft' : ''">
+          <input type="radio" name="template" th:value="${t.name()}" class="mt-1"
+                 th:checked="${currentTemplate.name() == t.name()}"/>
+          <span>
+            <span class="font-display text-sm text-ink" th:text="${t.displayName()}">模板名</span>
+            <span class="block font-mono text-[11px] text-ink-soft mt-1 leading-relaxed"
+                  th:text="${t.hintText()}">说明</span>
+          </span>
+        </label>
+      </div>
+
+      <div class="flex items-end gap-4 pt-2 border-t border-rule">
+        <div>
+          <label class="field-label">截止前几天开始强提醒 · LEAD DAYS</label>
+          <input class="field-input w-28" type="number" name="leadDays" min="0" max="15"
+                 th:value="${leadDays}"/>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">默认 2 · 距 period 结束日 ≤ 此值开始每天 10:00 / 20:00 触达</p>
+        </div>
+        <button type="submit" class="btn-ink ml-auto">保存模板</button>
+      </div>
+    </form>
+
+    <!-- 2 · 短信渠道 -->
+    <form th:action="@{/admin/reminders/sms}" method="post" class="bracket-card max-w-3xl space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <div class="eyebrow-ink">② 短信渠道 · 阿里云(私密 · 不进 AI)</div>
+      <p class="font-mono text-[10px] text-rust tracking-wider leading-relaxed">
+        ⚠ AccessKey / 密钥为私密信息 · 仅用于发短信 · 绝不进入任何 AI 交互 / 审计明文 · 留空表示保持原值不变
+      </p>
+
+      <label class="flex items-center gap-3 text-sm">
+        <input type="checkbox" name="smsEnabled" value="true" th:checked="${cfg.smsEnabled}"/>
+        <span class="font-display text-ink">启用短信强提醒</span>
+        <span class="font-mono text-[10px] text-ink-subtle">关闭时只走站内 banner</span>
+      </label>
+
+      <div class="grid grid-cols-2 gap-5">
+        <div>
+          <label class="field-label">AccessKeyId · 当前 <span class="text-ink-subtle" th:text="${akIdMasked}">(未配置)</span></label>
+          <input class="field-input" name="accessKeyId" autocomplete="off" placeholder="留空 = 不修改"/>
+        </div>
+        <div>
+          <label class="field-label">AccessKeySecret ·
+            <span class="text-ink-subtle" th:text="${akSecretSet} ? '已配置(隐藏)' : '未配置'">未配置</span>
+          </label>
+          <input class="field-input" type="password" name="accessKeySecret" autocomplete="new-password" placeholder="留空 = 不修改"/>
+        </div>
+        <div>
+          <label class="field-label">短信签名 · SIGN NAME</label>
+          <input class="field-input" name="signName" th:value="${cfg.smsSignName}" placeholder="如:家庭账房"/>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">需在阿里云实名报备 · 家庭别名走正文不走签名</p>
+        </div>
+        <div>
+          <label class="field-label">模板 Code · TEMPLATE CODE</label>
+          <input class="field-input" name="templateCode" th:value="${cfg.smsTemplateCode}" placeholder="SMS_xxxxxxxx"/>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">模板参数:${'$'}{brand} 家庭别名 · ${'$'}{days} 剩余天数</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end">
+        <button type="submit" class="btn-ink">保存短信配置</button>
+      </div>
+    </form>
+
+    <!-- 3 · 成员手机号 -->
+    <div class="bracket-card max-w-3xl space-y-4">
+      <div class="eyebrow-ink">③ 成员手机号 · 私密(短信触达用)</div>
+      <div th:each="m : ${members}" class="flex items-center gap-4 border-b border-rule pb-3">
+        <span class="font-display text-sm text-ink w-28" th:text="${m.displayName}">成员</span>
+        <form th:action="@{'/admin/reminders/member/' + ${m.id} + '/phone'}" method="post"
+              class="flex items-center gap-3 flex-1">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input class="field-input flex-1" name="phone" th:value="${m.phone}"
+                 placeholder="11 位手机号 · 留空清除" pattern="[0-9]{6,15}"/>
+          <button type="submit" class="btn-paper">保存</button>
+        </form>
+      </div>
+      <p class="font-mono text-[10px] text-ink-subtle tracking-wider leading-relaxed">
+        手机号仅用于短信提醒 · 永不出现在 AI 诊断 / 月报 / 审计明文中
+      </p>
+    </div>
+
+    <!-- 4 · 手动触发(debug) -->
+    <form th:action="@{/admin/reminders/test}" method="post" class="max-w-3xl">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <button type="submit" class="btn-ghost" style="color:var(--rust)">▷ 立即手动触发一次调度(测试链路)</button>
+      <span class="font-mono text-[10px] text-ink-subtle ml-3">仅对处于截止窗口内、未完成填报的成员生效 · 当天去重</span>
+    </form>
+  </section>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

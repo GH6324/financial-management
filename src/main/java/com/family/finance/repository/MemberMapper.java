@@ -17,7 +17,7 @@ public interface MemberMapper {
 
     @Select("""
             SELECT id, family_id, username, password_hash, display_name, role_label,
-                   must_change_pw, archived_at, last_login_at, created_at, updated_at
+                   phone, must_change_pw, archived_at, last_login_at, created_at, updated_at
               FROM member
              WHERE username = #{username}
             """)
@@ -25,7 +25,7 @@ public interface MemberMapper {
 
     @Select("""
             SELECT id, family_id, username, password_hash, display_name, role_label,
-                   must_change_pw, archived_at, last_login_at, created_at, updated_at
+                   phone, must_change_pw, archived_at, last_login_at, created_at, updated_at
               FROM member
              WHERE id = #{id}
             """)
@@ -33,7 +33,7 @@ public interface MemberMapper {
 
     @Select("""
             SELECT id, family_id, username, password_hash, display_name, role_label,
-                   must_change_pw, archived_at, last_login_at, created_at, updated_at
+                   phone, must_change_pw, archived_at, last_login_at, created_at, updated_at
               FROM member
              WHERE family_id = #{familyId}
                AND archived_at IS NULL
@@ -71,6 +71,13 @@ public interface MemberMapper {
     int updateProfile(@Param("id") long id,
                       @Param("displayName") String displayName,
                       @Param("roleLabel") String roleLabel);
+
+    /**
+     * v0.4.14 FR-63c · 单独更新成员手机号(私密 · 短信提醒用)。
+     * 注意:phone 绝不进 PromptBuilder / 任何 LLM prompt / audit_log 明文。
+     */
+    @Update("UPDATE member SET phone = #{phone} WHERE id = #{id}")
+    int updatePhone(@Param("id") long id, @Param("phone") String phone);
 
     @org.apache.ibatis.annotations.Insert("""
             INSERT INTO member (family_id, username, password_hash, display_name, role_label, must_change_pw)

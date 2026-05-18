@@ -16,6 +16,7 @@ public interface FamilyMapper {
     @Select("""
             SELECT id, name, brand_text, logo_path, logo_preset, base_currency, period_type,
                    cpi_assumption, allocation_anchor, allocation_anchor_custom, risk_appetite,
+                   reporting_template, report_remind_lead_days,
                    created_at, updated_at
               FROM family
              ORDER BY id
@@ -25,6 +26,7 @@ public interface FamilyMapper {
     @Select("""
             SELECT id, name, brand_text, logo_path, logo_preset, base_currency, period_type,
                    cpi_assumption, allocation_anchor, allocation_anchor_custom, risk_appetite,
+                   reporting_template, report_remind_lead_days,
                    created_at, updated_at
               FROM family
              WHERE id = #{id}
@@ -68,4 +70,14 @@ public interface FamilyMapper {
     /** FR-62b · 风险偏好(LLM 调仓 prompt 输入) */
     @Update("UPDATE family SET risk_appetite = #{appetite} WHERE id = #{familyId}")
     int updateRiskAppetite(@Param("familyId") long familyId, @Param("appetite") String appetite);
+
+    // ---------- v0.4.14 FR-63 填报规范化 ----------
+
+    /** FR-63a · 切换家庭级填报模板(全家统一 · 见 ReportingTemplate) */
+    @Update("UPDATE family SET reporting_template = #{template} WHERE id = #{familyId}")
+    int updateReportingTemplate(@Param("familyId") long familyId, @Param("template") String template);
+
+    /** FR-63c · 距填报截止前几天开始强提醒 */
+    @Update("UPDATE family SET report_remind_lead_days = #{leadDays} WHERE id = #{familyId}")
+    int updateRemindLeadDays(@Param("familyId") long familyId, @Param("leadDays") int leadDays);
 }

@@ -29,6 +29,10 @@ public class Family {
     private String allocationAnchorCustom;
     /** v0.4 FR-62b · 家庭风险偏好 · CONSERVATIVE / MODERATE / AGGRESSIVE · LLM 调仓 prompt 输入 */
     private String riskAppetite;
+    /** v0.4.14 FR-63a · 家庭级填报模板 code · 见 ReportingTemplate · 默认 T1 */
+    private String reportingTemplate;
+    /** v0.4.14 FR-63c · 距填报截止前几天开始强提醒 · 默认 2 */
+    private Integer reportRemindLeadDays;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

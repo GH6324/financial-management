@@ -22,6 +22,8 @@ public class Member {
     private String passwordHash;
     private String displayName;
     private String roleLabel;
+    /** v0.4.14 FR-63c · 手机号 · 私密 · 绝不进 LLM prompt / audit_log 明文 */
+    private String phone;
     private boolean mustChangePw;
     private LocalDateTime archivedAt;
     private LocalDateTime lastLoginAt;

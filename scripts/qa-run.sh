@@ -2066,6 +2066,80 @@ grep -q '禁止做任何四则运算\|不要自己做四则运算' src/main/java
   || log_bad "v04-AI-DIAGNOSE-8 禁数学约束缺" "no math-prohibition rule"
 
 
+section "v0.4.14 · 填报规范化 + DDL 强提醒 (FR-63)"
+
+# v04-RPT-TMPL-1 · ReportingTemplate enum 3 模板 + fromCode 默认 T1
+RT=src/main/java/com/family/finance/domain/family/ReportingTemplate.java
+{ grep -q 'T1_REALTIME_INCOME_MONTHEND_EXPENSE' "$RT" \
+  && grep -q 'T2_MONTHEND_BATCH' "$RT" \
+  && grep -q 'T3_WEEKLY_ROLLING' "$RT" \
+  && grep -q 'fromCode' "$RT"; } \
+  && log_ok "v04-RPT-TMPL-1 ReportingTemplate 3 模板 + fromCode 安全解析(默认 T1)" \
+  || log_bad "v04-RPT-TMPL-1 模板枚举缺" "missing template enum"
+
+# v04-RPT-REMIND-1 · /admin/reminders 设置页 200 + 3 模板可选 + 提前天数
+$CURL -b $COOKIE "$BASE/admin/reminders" -o "$TMP" -w ""
+{ grep -q '填报模板' "$TMP" && grep -q 'leadDays' "$TMP" \
+  && grep -q '实时收入' "$TMP" && grep -q '每周滚动' "$TMP"; } \
+  && log_ok "v04-RPT-REMIND-1 /admin/reminders 设置页 · 3 模板 + 提前天数" \
+  || log_bad "v04-RPT-REMIND-1 提醒设置页缺" "no template/leadDays"
+
+# v04-RPT-REMIND-2 · 提交模板 T3 + leadDays=3 → 落库生效(GET 回显)
+RTOK=$($CURL -b $COOKIE "$BASE/admin/reminders" | grep -oE 'name="_csrf" value="[^"]*"' | head -1 | sed 's/.*value="\([^"]*\)".*/\1/')
+$CURL -b $COOKIE -X POST \
+  --data-urlencode "_csrf=$RTOK" \
+  --data-urlencode "template=T3_WEEKLY_ROLLING" \
+  --data-urlencode "leadDays=3" \
+  "$BASE/admin/reminders/template" -o /dev/null -w ""
+$CURL -b $COOKIE "$BASE/admin/reminders" -o "$TMP" -w ""
+{ grep -q 'value="3"' "$TMP" && grep -A2 'T3_WEEKLY_ROLLING' "$TMP" | grep -q 'checked'; } \
+  && log_ok "v04-RPT-REMIND-2 模板/提前天数 POST 落库 + 回显(T3 · 3 天)" \
+  || log_bad "v04-RPT-REMIND-2 模板保存未生效" "T3/leadDays not persisted"
+# 还原默认 T1 / 2 天(不污染后续 QA / 演示数据)
+RTOK=$($CURL -b $COOKIE "$BASE/admin/reminders" | grep -oE 'name="_csrf" value="[^"]*"' | head -1 | sed 's/.*value="\([^"]*\)".*/\1/')
+$CURL -b $COOKIE -X POST --data-urlencode "_csrf=$RTOK" \
+  --data-urlencode "template=T1_REALTIME_INCOME_MONTHEND_EXPENSE" \
+  --data-urlencode "leadDays=2" "$BASE/admin/reminders/template" -o /dev/null -w ""
+
+# v04-RPT-REMIND-3 · 调度器 @Scheduled cron + Asia/Shanghai 时区
+SCH=src/main/java/com/family/finance/service/notify/ReportReminderScheduler.java
+{ grep -qF '@Scheduled(cron = "0 0 10,20 * * *"' "$SCH" \
+  && grep -qF 'zone = "Asia/Shanghai"' "$SCH"; } \
+  && log_ok "v04-RPT-REMIND-3 调度器 cron 0 0 10,20 · Asia/Shanghai" \
+  || log_bad "v04-RPT-REMIND-3 调度 cron/zone 缺" "no scheduled cron"
+
+# v04-RPT-REMIND-4 · 渠道抽象可插拔(接口 + 短信 + 站内兜底)
+ND=src/main/java/com/family/finance/service/notify
+{ [[ -f "$ND/NotificationChannel.java" ]] \
+  && [[ -f "$ND/SmsAliyunChannel.java" ]] \
+  && [[ -f "$ND/InAppBannerChannel.java" ]] \
+  && grep -q 'implements NotificationChannel' "$ND/SmsAliyunChannel.java" \
+  && grep -q 'implements NotificationChannel' "$ND/InAppBannerChannel.java"; } \
+  && log_ok "v04-RPT-REMIND-4 渠道抽象 · SMS 为主 + 站内兜底(可插拔)" \
+  || log_bad "v04-RPT-REMIND-4 渠道抽象缺" "channel impls missing"
+
+# v04-RPT-REMIND-5 · 提醒日志当天去重(V25 UNIQUE + INSERT IGNORE)
+{ grep -q 'UNIQUE KEY uk_dedup (family_id, period_id, member_id, channel, remind_date)' \
+      db/migration/V25__report_template_remind.sql \
+  && grep -q 'INSERT IGNORE INTO report_reminder_log' \
+      src/main/java/com/family/finance/repository/ReportReminderLogMapper.java; } \
+  && log_ok "v04-RPT-REMIND-5 提醒去重 · UNIQUE(family,period,member,channel,date)+INSERT IGNORE" \
+  || log_bad "v04-RPT-REMIND-5 去重机制缺" "no unique/insert-ignore"
+
+# v04-RPT-BANNER-1 · /entry 推荐填报方案提示 banner
+$CURL -b $COOKIE "$BASE/entry" -o "$TMP" -w ""
+grep -q '推荐填报方案' "$TMP" \
+  && log_ok "v04-RPT-BANNER-1 /entry 显示推荐填报方案提示(随模板 + 距截止天数)" \
+  || log_bad "v04-RPT-BANNER-1 填报页提示 banner 缺" "no recommend banner"
+
+# v04-PRIV-1 · 私密红线:全 LLM prompt 构造目录源码绝不引用手机号 / aksk(合规底线)
+LLM_DIR=src/main/java/com/family/finance/service/checkup/llm
+LEAK=$(grep -rnE 'getPhone\(|AccessKeySecret|AccessKeyId|getSmsAccessKey|FamilyNotifyConfig|ReportReminder|SmsAliyunChannel' "$LLM_DIR" 2>/dev/null || true)
+{ [[ -z "$LEAK" ]] \
+  && [[ -f src/test/java/com/family/finance/service/checkup/llm/PrivacyIsolationTest.java ]]; } \
+  && log_ok "v04-PRIV-1 LLM prompt 源码零引用 phone/aksk + PrivacyIsolationTest 在岗(合规底线)" \
+  || log_bad "v04-PRIV-1 私密红线被突破" "leak=[$LEAK]"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

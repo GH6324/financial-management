@@ -3,8 +3,10 @@ package com.family.finance.web.entry;
 import com.family.finance.auth.MemberPrincipal;
 import com.family.finance.domain.account.Account;
 import com.family.finance.domain.flow.CashFlowKind;
+import com.family.finance.domain.family.ReportingTemplate;
 import com.family.finance.domain.period.Period;
 import com.family.finance.repository.AccountMapper;
+import com.family.finance.repository.FamilyMapper;
 import com.family.finance.repository.MemberMapper;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.PeriodMemberCashflowMapper;
@@ -39,6 +41,7 @@ public class EntryController {
     private final NavService navService;
     private final MemberMapper memberMapper;
     private final PeriodMemberCashflowMapper memberCashflowMapper;
+    private final FamilyMapper familyMapper;
 
     @GetMapping("/entry")
     public String entry(@AuthenticationPrincipal MemberPrincipal me,
@@ -107,6 +110,16 @@ public class EntryController {
         model.addAttribute("filledMembers", filledMembers);
         // 全家成员数(给"N/M 人")
         model.addAttribute("totalMembers", memberMapper.findActiveByFamily(me.getFamilyId()).size());
+
+        // v0.4.14 FR-63b · 推荐填报方案提示 + 距本期截止天数
+        familyMapper.findById(me.getFamilyId()).ifPresent(fam -> {
+            ReportingTemplate tmpl = ReportingTemplate.fromCode(fam.getReportingTemplate());
+            model.addAttribute("reportTemplateName", tmpl.displayName());
+            model.addAttribute("reportHint", tmpl.hintText());
+        });
+        model.addAttribute("daysToDeadline",
+                java.time.temporal.ChronoUnit.DAYS.between(
+                        java.time.LocalDate.now(), period.getPeriodEnd()));
 
         return "entry/index";
     }
@@ -262,9 +275,11 @@ public class EntryController {
         } catch (Exception ignored) {}
 
         StringBuilder sb = new StringBuilder();
-        sb.append("<details open class=\"paper-card -mt-3 mb-3 px-6 py-3 border-t-0 border-rule bg-card-soft\">");
+        // 默认折叠(无 open)· 文案随展开状态切换(CSS .lg-when-open / .lg-when-closed)
+        sb.append("<details class=\"paper-card -mt-3 mb-3 px-6 py-3 border-t-0 border-rule bg-card-soft\">");
         sb.append("<summary class=\"font-mono text-[10px] tracking-[0.16em] uppercase text-ink-soft cursor-pointer select-none\">");
-        sb.append("展开本期 <b>").append(row.ledger().size()).append("</b> 笔流水</summary>");
+        sb.append("<span class=\"lg-when-closed\">展开</span><span class=\"lg-when-open\">折叠</span>")
+          .append("本期 <b>").append(row.ledger().size()).append("</b> 笔流水</summary>");
         sb.append("<ul class=\"mt-3 divide-y divide-rule-soft text-xs font-mono\">");
         java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("M月d日 HH:mm");
         for (EntryRow.LedgerEntry le : row.ledger()) {

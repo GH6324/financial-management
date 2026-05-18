@@ -546,3 +546,7 @@ a.brass-link:hover { text-decoration-color: var(--brass); }
 summary { list-style: none; }
 summary::-webkit-details-marker { display: none; }
 summary::marker { content: ''; }
+
+/* — 填报页 ledger 展开/折叠 文案随状态切换(纯 CSS · 无 JS) — */
+details[open]      > summary .lg-when-closed { display: none; }
+details:not([open]) > summary .lg-when-open  { display: none; }

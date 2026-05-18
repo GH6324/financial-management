@@ -929,3 +929,33 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 - SYSTEM_DIAGNOSE 更严不引入新错
 - 其他 LLM caller 0 改动
 - prod 升级 0 风险
+
+### v0.4.14 · 填报规范化 + DDL 强提醒(FR-63 · 2026-05-18)
+
+**触发**:规范"何时填什么" + 截止前强提醒 + 短信设置页;手机号/aksk 私密绝不进 LLM。详见 [`prd/v0.4.md`](../prd/v0.4.md) §20 / [`tech-design/v0.4.md`](../tech-design/v0.4.md) §16。
+
+| Case | 验证点 |
+|---|---|
+| v04-RPT-TMPL-1 | `ReportingTemplate` 含 T1/T2/T3 三模板 + `fromCode` 安全解析(未知→默认 T1) |
+| v04-RPT-REMIND-1 | `/admin/reminders` 设置页 200 · 含 3 模板单选 + 提前天数 |
+| v04-RPT-REMIND-2 | POST 模板=T3 + leadDays=3 落库 · GET 回显 checked + value="3"(测后还原 T1/2) |
+| v04-RPT-REMIND-3 | 调度器 `@Scheduled(cron="0 0 10,20 * * *", zone=Asia/Shanghai)` |
+| v04-RPT-REMIND-4 | 渠道抽象 `NotificationChannel` + `SmsAliyunChannel` + `InAppBannerChannel`(可插拔) |
+| v04-RPT-REMIND-5 | 提醒去重:V25 `UNIQUE uk_dedup` + Mapper `INSERT IGNORE`(同成员同渠道当天 1 次) |
+| v04-RPT-BANNER-1 | `/entry` 显示「推荐填报方案」提示 banner(随模板 + 距截止天数) |
+| **v04-PRIV-1** | **合规底线**:LLM prompt 目录(`service/checkup/llm`)源码零引用 `getPhone`/`AccessKeySecret`/`FamilyNotifyConfig`… + `PrivacyIsolationTest` 在岗 |
+
+**单测**:`PrivacyIsolationTest` —— ① buildNameMapping 带 phone 的 Member 不外泄手机号 ② applyMapping 不引入手机号 ③ 静态扫描 LLM 目录零引用私密渠道符号(编译期 gate)。
+
+**手工验证步骤**:
+1. `mysql < db/migration/V25__report_template_remind.sql` · `DESC family`/`member` 见新列 · 2 张新表在
+2. `/admin/reminders` 设模板+提前天数 +(可选)短信 aksk/签名/模板 + 各成员手机号
+3. `/entry` 看到推荐填报提示 banner(随模板变 + 距截止天数;≤2 天红色强样式)
+4. `/admin/reminders` 点「立即手动触发」· 看站内日志 / 配了短信则收带「<家庭别名>账本」短信 · `report_reminder_log` 写入 + 当天去重(同日不重发)
+5. 私密验证:抓一次 LLM diagnose prompt(临时 log)· grep 确认无 phone / aksk
+
+**backward-compat 红线**
+- V25 全 ADD COLUMN DEFAULT + 新表 · 0 破坏 · 老 family 自动 T1 / leadDays=2
+- `/admin/reminders` v0.1 只读页升级为设置页 · 路由 / 侧栏入口不变
+- PromptBuilder 白名单式注入不受新字段影响 · 其他 LLM caller 0 改动
+- prod 升级 `git pull && sudo bash deploy/deploy.sh`(交互确认应用 V25)· 0 风险

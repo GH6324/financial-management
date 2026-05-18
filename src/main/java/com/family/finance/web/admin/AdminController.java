@@ -302,19 +302,7 @@ public class AdminController {
         return "redirect:/admin/periods";
     }
 
-    // ---------------------------------------------------------------------
-    // 8. /admin/reminders · 只读(v0.1 仅展示 cron 锚点)
-    // ---------------------------------------------------------------------
-    @GetMapping("/reminders")
-    public String reminders(Model model) {
-        model.addAttribute("anchors", List.of(
-                "每月 1 日 09:00 · 首轮提醒(站内 banner)",
-                "每月 5 日 09:00 · 二轮提醒",
-                "每月 10 日 09:00 · 三轮提醒 + 标'迟报'",
-                "每月 15 日 +    · XIRR 时间精度受影响标记"
-        ));
-        return "admin/reminders";
-    }
+    // 8. /admin/reminders · v0.4.14 FR-63d 迁至 NotificationSettingsController(填报模板 + 短信强提醒)
 
     // ---------------------------------------------------------------------
     // 9. /admin/fx · 汇率维护
