@@ -13,11 +13,17 @@
       <div class="eyebrow mb-2">提 · 醒 · 设 · 置</div>
       <h1 class="font-display text-4xl font-medium">填报规范 + 强提醒</h1>
       <p class="text-ink-soft text-sm mt-2">统一全家"何时填什么"的节奏 · 截止前 N 天每天强提醒(短信为主 · 站内兜底)</p>
+      <p class="font-mono text-[10px] text-brass-deep tracking-[0.16em] uppercase mt-3">
+        配置入口原则 · 所有运营参数都在管理页配 · 不再上服务器改文件
+      </p>
     </div>
 
+    <!-- flash 3 态 -->
     <div th:if="${flash}" class="border border-forest bg-forest/[0.05] px-4 py-2 text-sm" th:text="${flash}">已保存</div>
+    <div th:if="${flashSuccess}" class="border border-forest bg-forest/[0.05] px-4 py-2 text-sm" th:text="${flashSuccess}">成功</div>
+    <div th:if="${flashError}" class="border border-rust bg-rust/[0.05] px-4 py-2 text-sm" th:text="${flashError}">失败</div>
 
-    <!-- 1 · 填报模板 + 提前天数 -->
+    <!-- ① 填报模板 + 提前天数 -->
     <form th:action="@{/admin/reminders/template}" method="post" class="bracket-card max-w-3xl space-y-6">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
       <div class="eyebrow-ink">① 填报模板 · 全家统一</div>
@@ -47,13 +53,15 @@
       </div>
     </form>
 
-    <!-- 2 · 短信渠道 -->
+    <!-- ② 短信渠道 -->
     <form th:action="@{/admin/reminders/sms}" method="post" class="bracket-card max-w-3xl space-y-5">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-      <div class="eyebrow-ink">② 短信渠道 · 阿里云(私密 · 不进 AI)</div>
-      <p class="font-mono text-[10px] text-rust tracking-wider leading-relaxed">
-        ⚠ AccessKey / 密钥为私密信息 · 仅用于发短信 · 绝不进入任何 AI 交互 / 审计明文 · 留空表示保持原值不变
-      </p>
+      <div class="eyebrow-ink">② 短信渠道 · 私密(不进 AI)</div>
+      <div class="border-l-2 border-rust bg-rust/[0.04] px-4 py-3">
+        <p class="font-mono text-[10px] text-rust tracking-wider leading-relaxed">
+          ⚠ AccessKey / 密钥为私密信息 · 仅用于发短信 · 绝不进入任何 AI 交互 / 审计明文 · 留空 = 保持原值
+        </p>
+      </div>
 
       <label class="flex items-center gap-3 text-sm">
         <input type="checkbox" name="smsEnabled" value="true" th:checked="${cfg.smsEnabled}"/>
@@ -61,7 +69,17 @@
         <span class="font-mono text-[10px] text-ink-subtle">关闭时只走站内 banner</span>
       </label>
 
-      <div class="grid grid-cols-2 gap-5">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div>
+          <label class="field-label">短信供应商 · PROVIDER</label>
+          <select class="field-input bg-transparent" name="smsProvider">
+            <option value="aliyun" selected>aliyun · 阿里云短信</option>
+            <option value="yunpian" disabled>yunpian · 云片(未来)</option>
+            <option value="tencent" disabled>tencent · 腾讯云(未来)</option>
+          </select>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">MVP 仅 aliyun · 接口已抽象 · 未来切换不动 DB</p>
+        </div>
+        <div></div>
         <div>
           <label class="field-label">AccessKeyId · 当前 <span class="text-ink-subtle" th:text="${akIdMasked}">(未配置)</span></label>
           <input class="field-input" name="accessKeyId" autocomplete="off" placeholder="留空 = 不修改"/>
@@ -80,7 +98,7 @@
         <div>
           <label class="field-label">模板 Code · TEMPLATE CODE</label>
           <input class="field-input" name="templateCode" th:value="${cfg.smsTemplateCode}" placeholder="SMS_xxxxxxxx"/>
-          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">模板参数:${'$'}{brand} 家庭别名 · ${'$'}{days} 剩余天数</p>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">含 ${brand} / ${period} / ${days} / ${progress} 4 变量</p>
         </div>
       </div>
 
@@ -89,9 +107,41 @@
       </div>
     </form>
 
-    <!-- 3 · 成员手机号 -->
+    <!-- ③ 一键测试短信 -->
+    <form th:action="@{/admin/reminders/sms-test}" method="post" class="bracket-card max-w-3xl space-y-5"
+          style="background: linear-gradient(180deg, var(--brass-soft) 0%, var(--card) 30%);">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <div class="eyebrow-ink">③ 一键测试短信 · 验证配置链路</div>
+      <p class="text-sm text-ink-soft leading-relaxed">
+        配完 aksk + 签名 + 模板后,在这里发一条<b>测试专用文案</b>的短信
+        (<code class="font-mono text-[11px] bg-card-soft px-1.5 py-0.5 border border-rule">brand=家庭别名 · period=配置测试 · days=99 · progress=测试模式</code>)。
+        运营商日志能一眼区分测试 vs 真实提醒。
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+        <div>
+          <label class="field-label">目标手机号 · 从成员选 or 临时输入</label>
+          <select class="field-input bg-transparent" name="targetMemberId">
+            <option value="">— 选择成员 —</option>
+            <option th:each="m : ${members}" th:value="${m.id}"
+                    th:disabled="${m.phone == null or m.phone.isBlank()}"
+                    th:text="${m.displayName} + (${m.phone == null or m.phone.isBlank()} ? ' · 未配手机号' : '')">成员</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">↳ 或临时手机号(不落库)</label>
+          <input class="field-input" name="customPhone" placeholder="11 位数字" pattern="\d{6,15}"/>
+        </div>
+      </div>
+      <div class="flex items-center justify-between gap-3">
+        <span class="font-mono text-[10px] text-ink-subtle tracking-wider">限流 ≤ 3 次/分/管理员</span>
+        <button type="submit" class="btn-ink">▷ 发送测试短信</button>
+      </div>
+    </form>
+
+    <!-- ④ 成员手机号 -->
     <div class="bracket-card max-w-3xl space-y-4">
-      <div class="eyebrow-ink">③ 成员手机号 · 私密(短信触达用)</div>
+      <div class="eyebrow-ink">④ 成员手机号 · 私密(短信触达用)</div>
       <div th:each="m : ${members}" class="flex items-center gap-4 border-b border-rule pb-3">
         <span class="font-display text-sm text-ink w-28" th:text="${m.displayName}">成员</span>
         <form th:action="@{'/admin/reminders/member/' + ${m.id} + '/phone'}" method="post"
@@ -103,15 +153,20 @@
         </form>
       </div>
       <p class="font-mono text-[10px] text-ink-subtle tracking-wider leading-relaxed">
-        手机号仅用于短信提醒 · 永不出现在 AI 诊断 / 月报 / 审计明文中
+        手机号仅用于短信提醒 · 永不出现在 AI 诊断 / 月报 / 审计明文中 · 留空 = 不参与短信(仍走站内 banner)
       </p>
     </div>
 
-    <!-- 4 · 手动触发(debug) -->
-    <form th:action="@{/admin/reminders/test}" method="post" class="max-w-3xl">
+    <!-- ⑤ 手动触发调度(debug) -->
+    <form th:action="@{/admin/reminders/test}" method="post" class="paper-card p-5 flex items-center justify-between flex-wrap gap-4 max-w-3xl">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-      <button type="submit" class="btn-ghost" style="color:var(--rust)">▷ 立即手动触发一次调度(测试链路)</button>
-      <span class="font-mono text-[10px] text-ink-subtle ml-3">仅对处于截止窗口内、未完成填报的成员生效 · 当天去重</span>
+      <div>
+        <div class="eyebrow-ink mb-1">⑤ 手动触发调度 · DEBUG</div>
+        <p class="font-mono text-[10px] text-ink-subtle tracking-wider leading-relaxed">
+          真实窗口下走完整链路:对全家未填成员各发一次(真截止天数 + 真去重)· 验证调度逻辑用
+        </p>
+      </div>
+      <button type="submit" class="btn-ghost" style="color:var(--rust); border-color:var(--rust-soft)">▷ 立即触发一次调度</button>
     </form>
   </section>
 </main>

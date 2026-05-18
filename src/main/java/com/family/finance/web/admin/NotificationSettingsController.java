@@ -10,7 +10,9 @@ import com.family.finance.repository.FamilyMapper;
 import com.family.finance.repository.FamilyNotifyConfigMapper;
 import com.family.finance.repository.MemberMapper;
 import com.family.finance.service.AuditLogService;
+import com.family.finance.service.notify.ReminderMessage;
 import com.family.finance.service.notify.ReportReminderScheduler;
+import com.family.finance.service.notify.SmsAliyunChannel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -21,6 +23,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.time.Instant;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * v0.4.14 FR-63d · /admin/reminders 提醒设置页(填报模板 + 提前天数 + 短信渠道 + 成员手机号)。
@@ -39,6 +46,11 @@ public class NotificationSettingsController {
     private final FamilyNotifyConfigMapper notifyConfigMapper;
     private final AuditLogService auditLogService;
     private final ReportReminderScheduler reminderScheduler;
+    private final SmsAliyunChannel smsChannel;
+
+    /** §20.5.1 限流:每管理员每分钟最多 3 次测试短信(防误点 / 防刷成本) */
+    private static final int TEST_RATE_LIMIT_PER_MIN = 3;
+    private final java.util.Map<Long, Deque<Instant>> testRateBucket = new ConcurrentHashMap<>();
 
     @GetMapping
     public String page(@AuthenticationPrincipal MemberPrincipal me, Model model) {
@@ -135,6 +147,85 @@ public class NotificationSettingsController {
         int armed = reminderScheduler.runNow();
         ra.addFlashAttribute("flash", "已手动触发提醒调度 · 本次触达 " + armed + " 条");
         return "redirect:/admin/reminders";
+    }
+
+    /**
+     * v0.4.14 §20.5.1 ⊕ 一键测试短信 · 用测试专用变量(brand=家庭别名 · period=配置测试 ·
+     * days=99 · progress=测试模式)走 SmsAliyunChannel · 返回 BizId / Code 给管理员查阿里云控制台。
+     *
+     * <p>限流 3 次/分/管理员;**走 audit_log(非 report_reminder_log)记录** —— report_reminder_log
+     * 的 UNIQUE(family,period,member,channel,date) 不适合每分钟多次的测试场景。
+     */
+    @PostMapping("/sms-test")
+    public String smsTest(@AuthenticationPrincipal MemberPrincipal me,
+                          @RequestParam(value = "targetMemberId", required = false) Long targetMemberId,
+                          @RequestParam(value = "customPhone", required = false) String customPhone,
+                          RedirectAttributes ra) {
+        if (!allowRate(me.getMemberId())) {
+            ra.addFlashAttribute("flashError",
+                    "测试频率过高 · 每分钟最多 " + TEST_RATE_LIMIT_PER_MIN + " 次,请稍后再试");
+            return "redirect:/admin/reminders";
+        }
+
+        // 解析目标手机号:成员下拉 优先于 临时输入
+        String phone = null;
+        String targetLabel;
+        if (targetMemberId != null && targetMemberId > 0) {
+            var m = memberMapper.findById(targetMemberId)
+                    .filter(x -> x.getFamilyId().equals(me.getFamilyId()))
+                    .orElse(null);
+            if (m == null) {
+                ra.addFlashAttribute("flashError", "目标成员不属于本家庭");
+                return "redirect:/admin/reminders";
+            }
+            phone = m.getPhone();
+            targetLabel = "成员 " + m.getDisplayName();
+            if (phone == null || phone.isBlank()) {
+                ra.addFlashAttribute("flashError", "该成员尚未配置手机号");
+                return "redirect:/admin/reminders";
+            }
+        } else if (customPhone != null && !customPhone.isBlank()) {
+            phone = customPhone.trim();
+            if (!phone.matches("\\d{6,15}")) {
+                ra.addFlashAttribute("flashError", "手机号格式不正确(应为 6-15 位数字)");
+                return "redirect:/admin/reminders";
+            }
+            targetLabel = "临时手机号";
+        } else {
+            ra.addFlashAttribute("flashError", "请选择成员或输入临时手机号");
+            return "redirect:/admin/reminders";
+        }
+
+        Family family = familyMapper.findById(me.getFamilyId())
+                .orElseThrow(() -> new IllegalArgumentException("家庭不存在"));
+
+        ReminderMessage msg = ReminderMessage.forSmsTest(family.getName(), family.getBrandText());
+        SmsAliyunChannel.SendResult r = smsChannel.sendForTest(family, phone, msg);
+
+        // 审计:走 audit_log · detail 不含 phone 明文 / aksk(私密红线)
+        auditLogService.record(me.getFamilyId(), me.getMemberId(), AuditLogType.SYSTEM,
+                "family_notify_config", me.getFamilyId(),
+                "短信测试 · " + targetLabel + " · " + (r.ok() ? "SENT" : "FAILED")
+                        + " · code=" + r.code() + " · bizId=" + (r.bizId() == null ? "-" : r.bizId()));
+
+        if (r.ok()) {
+            ra.addFlashAttribute("flashSuccess",
+                    "✓ 测试短信已发送 · 请查收 · 阿里云 BizId: " + r.bizId());
+        } else {
+            ra.addFlashAttribute("flashError",
+                    "✗ 测试失败 · Code = " + r.code() + " · " + r.detail());
+        }
+        return "redirect:/admin/reminders";
+    }
+
+    /** 滑动窗口限流(60s 内最多 N 次)· in-memory · 单 JVM 足够(本项目单实例) */
+    private synchronized boolean allowRate(long adminId) {
+        Deque<Instant> q = testRateBucket.computeIfAbsent(adminId, k -> new ArrayDeque<>());
+        Instant cutoff = Instant.now().minusSeconds(60);
+        while (!q.isEmpty() && q.peekFirst().isBefore(cutoff)) q.pollFirst();
+        if (q.size() >= TEST_RATE_LIMIT_PER_MIN) return false;
+        q.addLast(Instant.now());
+        return true;
     }
 
     private static String mask(String s) {

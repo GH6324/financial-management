@@ -21,6 +21,8 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * v0.4.14 FR-63c · 阿里云短信渠道(短信为主)。
@@ -69,6 +71,24 @@ public class SmsAliyunChannel implements NotificationChannel {
                 .orElse(false);
     }
 
+    /**
+     * v0.4.14 §20.5.1 · 一键测试详细回执 · 暴露 BizId / Code / Message 给管理员看。
+     * 与日常调度 send() 不同:**不读 sms_enabled 开关**(测试本来就是为了试通)·
+     * 但仍校验 aksk / 签名 / 模板齐全,缺则返回友好错。
+     */
+    public SendResult sendForTest(Family family, String phone, ReminderMessage msg) {
+        if (phone == null || phone.isBlank()) {
+            return SendResult.bad("CONFIG_MISSING", "未提供目标手机号");
+        }
+        FamilyNotifyConfig cfg = notifyConfigMapper.findByFamily(family.getId()).orElse(null);
+        if (cfg == null
+                || isBlank(cfg.getSmsAccessKeyId()) || isBlank(cfg.getSmsAccessKeySecret())
+                || isBlank(cfg.getSmsSignName()) || isBlank(cfg.getSmsTemplateCode())) {
+            return SendResult.bad("CONFIG_INCOMPLETE", "请先填齐 AccessKey/Secret/签名/模板");
+        }
+        return callAliyun(cfg, phone, msg);
+    }
+
     @Override
     public boolean send(Family family, Member member, ReminderMessage msg) {
         String phone = member.getPhone();
@@ -81,10 +101,27 @@ public class SmsAliyunChannel implements NotificationChannel {
             log.info("sms skip · family={} 短信未配置/未启用", family.getId());
             return false;
         }
+        SendResult r = callAliyun(cfg, phone, msg);
+        if (r.ok()) {
+            log.info("sms sent · family={} phone={} daysLeft={} bizId={}",
+                    family.getId(), mask(phone), msg.daysLeft(), r.bizId());
+        } else {
+            log.warn("sms failed · family={} phone={} code={} detail={}",
+                    family.getId(), mask(phone), r.code(), r.detail());
+        }
+        return r.ok();
+    }
+
+    private SendResult callAliyun(FamilyNotifyConfig cfg, String phone, ReminderMessage msg) {
         try {
             // 模板参数:运营商报备模板形如 ${brand}账本提醒,距记账截止还剩${days}天
-            String templateParam = "{\"brand\":\"" + jsonEscape(msg.brandText())
-                    + "\",\"days\":\"" + Math.max(msg.daysLeft(), 0) + "\"}";
+            // PRD §20.4 · 4 变量 brand/period/days/progress · 工程预算好,模板只填空
+            String templateParam = "{"
+                    + "\"brand\":\""    + jsonEscape(msg.brand())    + "\","
+                    + "\"period\":\""   + jsonEscape(msg.period())   + "\","
+                    + "\"days\":\""     + Math.max(msg.daysLeft(), 0) + "\","
+                    + "\"progress\":\"" + jsonEscape(msg.progress()) + "\""
+                    + "}";
 
             TreeMap<String, String> p = new TreeMap<>();
             p.put("AccessKeyId", cfg.getSmsAccessKeyId());
@@ -111,20 +148,31 @@ public class SmsAliyunChannel implements NotificationChannel {
             }
 
             String resp = restTemplate.getForObject(url.toString(), String.class);
-            boolean ok = resp != null && resp.contains("\"Code\":\"OK\"");
-            if (ok) {
-                log.info("sms sent · family={} phone={} daysLeft={}",
-                        family.getId(), mask(phone), msg.daysLeft());
-            } else {
-                log.warn("sms failed · family={} phone={} resp={}",
-                        family.getId(), mask(phone), brief(resp));
-            }
-            return ok;
+            String code = extract(resp, "Code");
+            String bizId = extract(resp, "BizId");
+            String message = extract(resp, "Message");
+            boolean ok = "OK".equals(code);
+            return new SendResult(ok, bizId, code == null ? "UNKNOWN" : code,
+                    message == null ? brief(resp) : message);
         } catch (Exception ex) {
             // aksk 绝不入日志:只打异常类型 + message(阿里云 SDK 异常不含 secret)
-            log.warn("sms error · family={} phone={} err={}",
-                    family.getId(), mask(phone), ex.toString());
-            return false;
+            return new SendResult(false, null, "EXCEPTION", ex.toString());
+        }
+    }
+
+    /** 阿里云返回 JSON 简单字段抽取(避免引 Jackson · 仅取 top-level 字符串字段) */
+    private static String extract(String json, String key) {
+        if (json == null) return null;
+        Matcher m = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*\"([^\"]*)\"").matcher(json);
+        return m.find() ? m.group(1) : null;
+    }
+
+    private static boolean isBlank(String s) { return s == null || s.isBlank(); }
+
+    /** 一键测试 / 调度发送的统一回执 · 不含手机号 · 不含 aksk */
+    public record SendResult(boolean ok, String bizId, String code, String detail) {
+        public static SendResult bad(String code, String detail) {
+            return new SendResult(false, null, code, detail);
         }
     }
 

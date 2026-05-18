@@ -90,9 +90,13 @@ public class ReportReminderScheduler {
 
             Set<Long> completed =
                     new HashSet<>(completionMapper.findCompletedMemberIds(period.getId()));
-            ReminderMessage msg = ReminderMessage.of(family.getBrandText(), (int) daysLeft);
+            List<Member> active = memberMapper.findActiveByFamily(family.getId());
+            // 工程算好所有变量给渠道,不让模板做任何计算([[feedback-llm-no-math]] 推广)
+            ReminderMessage msg = ReminderMessage.build(
+                    family.getName(), family.getBrandText(), period, today,
+                    completed.size(), active.size());
 
-            for (Member member : memberMapper.findActiveByFamily(family.getId())) {
+            for (Member member : active) {
                 if (completed.contains(member.getId())) continue;
                 for (NotificationChannel ch : channels) {
                     if (!ch.usable(family)) continue;

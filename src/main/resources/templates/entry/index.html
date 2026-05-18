@@ -150,23 +150,53 @@
     </div>
   </section>
 
-  <!-- v0.4.14 FR-63b · 推荐填报方案提示 + 距截止强提醒 -->
+  <!-- v0.4.14 FR-63b · 推荐填报方案提示 + 距截止强提醒 · 三栏富信息 banner -->
   <section th:if="${reportHint != null and period.status.name() == 'OPEN'}"
            class="mb-6 bracket-card"
-           th:classappend="${daysToDeadline != null and daysToDeadline >= 0 and daysToDeadline <= 2} ? ' border-rust bg-rust/[0.05]' : ''">
-    <div class="flex items-start justify-between gap-4 flex-wrap">
-      <div class="flex-1 min-w-[260px]">
+           th:classappend="${daysToDeadline != null and daysToDeadline >= 0 and daysToDeadline <= 2} ? ' border-rust bg-rust/[0.05]' : ''"
+           th:with="iFilled=${filledMembers != null and filledMembers.containsKey(me.memberId)}">
+    <div class="grid grid-cols-12 gap-4 md:gap-6 items-start">
+      <!-- 左 · 推荐方案 + 节奏建议 -->
+      <div class="col-span-12 md:col-span-5">
         <div class="eyebrow-ink mb-1">推荐填报方案 ·
           <span class="text-brass-deep" th:text="${reportTemplateName}">实时收入 · 月末支出</span>
         </div>
         <p class="text-sm text-ink-soft leading-relaxed" th:text="${reportHint}">填报建议文案</p>
+        <a th:href="@{/admin/reminders}" class="font-mono text-[10px] text-brass-deep no-underline tracking-wider mt-2 inline-block">⚙ 改填报模板 →</a>
       </div>
-      <div class="text-right">
+
+      <!-- 中 · 周期 + 截止日 + 家庭进度 + 我自己徽标 -->
+      <div class="col-span-12 md:col-span-4 md:border-l md:border-rule md:pl-6">
+        <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-2">本 · 期 · 进 · 度</div>
+        <div class="font-display text-2xl tnum text-ink"
+             th:text="${period.periodType.name() == 'WEEKLY'} ? '第 ' + ${#temporals.format(period.periodStart, 'w')} + ' 周' : ${#temporals.format(period.periodStart, 'yyyy 年 M 月')}">2026 年 5 月</div>
+        <div class="font-mono text-[11px] text-ink-soft tracking-wider mt-1">
+          截止 <b class="text-ink tnum" th:text="${#temporals.format(period.periodEnd, 'M 月 d 日')}">5 月 31 日</b>
+          · 家庭已填 <b class="text-ink tnum" th:text="${(filledMembers != null ? filledMembers.size() : 0) + '/' + totalMembers + ' 人'}">2/4 人</b>
+        </div>
+        <div class="flex gap-2 mt-2 items-center">
+          <span th:if="${iFilled}" class="pill pill-forest text-[10px]">✓ 我已填</span>
+          <span th:unless="${iFilled}" class="pill pill-rust text-[10px]">⃝ 我未填</span>
+        </div>
+      </div>
+
+      <!-- 右 · 距截止天数 pill(3 状态) -->
+      <div class="col-span-12 md:col-span-3 md:text-right">
+        <div class="font-mono text-[10px] tracking-[0.16em] uppercase mb-2"
+             th:classappend="${daysToDeadline != null and daysToDeadline >= 0 and daysToDeadline <= 2} ? ' text-rust' : ' text-ink-subtle'"
+             th:text="${daysToDeadline != null and daysToDeadline lt 0} ? '已 · 逾 · 期' : '距 · 截 · 止'">距 · 截 · 止</div>
+        <div th:if="${daysToDeadline != null}" class="flex md:justify-end items-baseline gap-2 mb-1">
+          <span class="font-display text-4xl md:text-5xl tnum font-medium"
+                th:classappend="${daysToDeadline >= 0 and daysToDeadline <= 2 ? ' text-rust' : (daysToDeadline lt 0 ? ' text-rust' : ' text-ink')}"
+                th:text="${daysToDeadline}">2</span>
+          <span class="font-display"
+                th:classappend="${daysToDeadline >= 0 and daysToDeadline <= 2 ? ' text-rust' : (daysToDeadline lt 0 ? ' text-rust' : ' text-ink-soft')}">天</span>
+        </div>
         <span th:if="${daysToDeadline != null and daysToDeadline > 2}"
               class="pill" th:text="'距本期截止还有 ' + ${daysToDeadline} + ' 天'">距本期截止还有 5 天</span>
         <span th:if="${daysToDeadline != null and daysToDeadline >= 0 and daysToDeadline <= 2}"
               class="pill pill-rust" th:text="${daysToDeadline == 0} ? '今天就是截止日 · 请尽快填报' : ('仅剩 ' + ${daysToDeadline} + ' 天 · 请尽快填报')">仅剩 2 天 · 请尽快填报</span>
-        <span th:if="${daysToDeadline != null and daysToDeadline < 0}"
+        <span th:if="${daysToDeadline != null and daysToDeadline lt 0}"
               class="pill pill-rust">本期已过截止日</span>
       </div>
     </div>

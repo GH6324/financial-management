@@ -2132,6 +2132,51 @@ grep -q '推荐填报方案' "$TMP" \
   && log_ok "v04-RPT-BANNER-1 /entry 显示推荐填报方案提示(随模板 + 距截止天数)" \
   || log_bad "v04-RPT-BANNER-1 填报页提示 banner 缺" "no recommend banner"
 
+# v04-RPT-BANNER-2 · /entry banner 三栏富信息(周期 + 截止日 + 家庭进度 + 我已填徽标 + 距截止 pill)
+$CURL -b $COOKIE "$BASE/entry" -o "$TMP" -w ""
+markers=0
+for kw in '本 · 期 · 进 · 度' '家庭已填' '距 · 截 · 止' '⚙ 改填报模板'; do
+  if grep -q "$kw" "$TMP"; then markers=$((markers+1)); fi
+done
+{ [[ "$markers" -ge 3 ]]; } \
+  && log_ok "v04-RPT-BANNER-2 三栏富信息 banner(周期/截止日/家庭进度/距截止 markers=$markers/4)" \
+  || log_bad "v04-RPT-BANNER-2 富信息 markers 不足" "markers=$markers/4"
+
+# v04-RPT-MSG-1 · 短信文案 4 变量 brand/period/days/progress(源码 + ReminderMessage 字段)
+RM=src/main/java/com/family/finance/service/notify/ReminderMessage.java
+SC=src/main/java/com/family/finance/service/notify/SmsAliyunChannel.java
+{ grep -q 'String brand' "$RM" \
+  && grep -q 'String period' "$RM" \
+  && grep -q 'int daysLeft' "$RM" \
+  && grep -q 'String progress' "$RM" \
+  && grep -q '\\"brand\\":' "$SC" \
+  && grep -q '\\"period\\":' "$SC" \
+  && grep -q '\\"days\\":' "$SC" \
+  && grep -q '\\"progress\\":' "$SC"; } \
+  && log_ok "v04-RPT-MSG-1 短信 4 变量(brand/period/days/progress)在 ReminderMessage + SmsAliyunChannel" \
+  || log_bad "v04-RPT-MSG-1 短信变量缺" "missing 4-var fields"
+
+# v04-RPT-TEST-1 · /admin/reminders/sms-test endpoint + 配置不全友好错
+NS=src/main/java/com/family/finance/web/admin/NotificationSettingsController.java
+{ grep -q '/sms-test' "$NS" \
+  && grep -q 'sendForTest' "$SC" \
+  && grep -q 'CONFIG_INCOMPLETE' "$SC"; } \
+  && log_ok "v04-RPT-TEST-1 一键测试 endpoint + 配置不全友好错(CONFIG_INCOMPLETE)" \
+  || log_bad "v04-RPT-TEST-1 sms-test endpoint 缺" "no endpoint/sendForTest"
+
+# v04-RPT-TEST-2 · 测试限流 3 次/分(源码常量 + 滑动窗口)
+{ grep -q 'TEST_RATE_LIMIT_PER_MIN = 3' "$NS" \
+  && grep -q 'minusSeconds(60)' "$NS"; } \
+  && log_ok "v04-RPT-TEST-2 测试限流 3 次/分 + 60s 滑动窗口" \
+  || log_bad "v04-RPT-TEST-2 限流缺" "no rate limit"
+
+# v04-RPT-TEST-3 · 测试日志走 audit_log(决策 36 · 非 report_reminder_log)
+{ grep -q 'auditLogService.record' "$NS" \
+  && grep -qF '"短信测试' "$NS" \
+  && ! grep -A2 'sms-test\|smsTest' "$NS" | grep -q 'reminderLogMapper\.insert'; } \
+  && log_ok "v04-RPT-TEST-3 测试审计走 audit_log · 非 report_reminder_log(决策 36)" \
+  || log_bad "v04-RPT-TEST-3 测试审计归属错" "see notification controller"
+
 # v04-PRIV-1 · 私密红线:全 LLM prompt 构造目录源码绝不引用手机号 / aksk(合规底线)
 LLM_DIR=src/main/java/com/family/finance/service/checkup/llm
 LEAK=$(grep -rnE 'getPhone\(|AccessKeySecret|AccessKeyId|getSmsAccessKey|FamilyNotifyConfig|ReportReminder|SmsAliyunChannel' "$LLM_DIR" 2>/dev/null || true)
