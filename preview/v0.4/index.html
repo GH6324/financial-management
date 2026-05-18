@@ -294,6 +294,88 @@
       </div>
     </section>
 
+    <!-- v0.4.14 · FR-63 填报规范化 + 强提醒(后续修订) -->
+    <section class="mb-12" id="v0414">
+      <div class="flex items-baseline justify-between mb-5 pb-3 rule-x pt-5">
+        <div>
+          <div class="eyebrow mb-2">第 四 · 卷 · 后 · 续 · 修 · 订 · v0.4.14</div>
+          <h2 class="font-display text-3xl font-medium">填报规范化 + 截止前强提醒</h2>
+          <p class="text-sm text-ink-soft mt-2 max-w-2xl">用户反馈"忘填" → 全家统一填报节奏 + 截止前短信强提醒 + 站内 banner 兜底 + 一键测试链路</p>
+        </div>
+        <div class="text-ink-soft font-mono text-xs tracking-widest">FR-63a / b / c / d</div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-3">
+
+        <div class="paper-card p-5">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-63a · 填报模板</span>
+            <span class="font-mono text-[10px] text-forest">家庭级</span>
+          </div>
+          <h4 class="font-display text-xl mb-2">3 模板 · 默认 T1 实时收入·月末支出</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            T1 实时收入·月末支出(默认) / T2 月末一次清 / T3 每周滚动 · 全家统一节奏 · 不改 period_type
+          </p>
+        </div>
+
+        <a href="pages/entry-reporting-banner.html"
+           class="paper-card p-5 hover:shadow-lg transition no-underline group"
+           style="background: linear-gradient(180deg, rgba(122,90,57,.04) 0%, var(--card) 60%); border-left: 4px solid var(--brass-deep);">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-63b · 填报页 banner</span>
+            <span class="font-mono text-[10px] text-forest">/entry · 富信息</span>
+          </div>
+          <h4 class="font-display text-xl mb-2 group-hover:text-brass-deep">推荐方案三栏 banner + 状态变体</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            左:模板名 + 节奏建议 · 中:周期 + 截止日 + 家庭进度 + 我自己徽标 · 右:距截止天数 pill(中性 / 红色强 / 已过)
+          </p>
+          <div class="font-mono text-[10px] text-brass-deep tracking-wider mt-3 opacity-0 group-hover:opacity-100 transition">→ 看预览页 + 3 个状态变体 + 短信文案对照</div>
+        </a>
+
+        <div class="paper-card p-5">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-63c · 强提醒调度</span>
+            <span class="font-mono text-[10px] text-forest">@Scheduled · 10:00/20:00</span>
+          </div>
+          <h4 class="font-display text-xl mb-2">短信(阿里云)+ 站内 banner 兜底</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            渠道抽象 NotificationChannel 可插拔 · 当天去重 UNIQUE(family,period,member,channel,date) · 文案 4 变量 ${brand}/${period}/${days}/${progress}
+          </p>
+        </div>
+
+        <a href="pages/admin-reminders.html"
+           class="paper-card p-5 hover:shadow-lg transition no-underline group"
+           style="background: linear-gradient(180deg, rgba(122,90,57,.04) 0%, var(--card) 60%); border-left: 4px solid var(--brass-deep);">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">FR-63d · 提醒设置页</span>
+            <span class="font-mono text-[10px] text-forest">/admin/reminders</span>
+          </div>
+          <h4 class="font-display text-xl mb-2 group-hover:text-brass-deep">5 段配置 + ⊕ 一键测试短信</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            模板 + 提前天数 + 短信渠道(aksk · 留空保原值)+ 一键测试(成功显 BizId / 失败显 Code)+ 成员手机号 + 调度 debug
+          </p>
+          <div class="font-mono text-[10px] text-brass-deep tracking-wider mt-3 opacity-0 group-hover:opacity-100 transition">→ 看预览页 + 测试 toast 双状态</div>
+        </a>
+
+      </div>
+
+      <!-- 配置入口原则 + 私密红线 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+        <div class="border-l-2 border-brass bg-brass-soft/[0.3] px-4 py-3">
+          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep mb-1">配置入口原则</div>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            所有运营参数(aksk / 模板 / 签名 / 手机号 / 提前天数)统一在管理页录入 · 不再上服务器改文件 · 系统必须可运营
+          </p>
+        </div>
+        <div class="border-l-2 border-rust bg-rust/[0.05] px-4 py-3">
+          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-rust mb-1">私密红线 · 合规底线</div>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            手机号 / aksk 绝不进 LLM prompt / audit_log 明文 · PrivacyIsolationTest 单测 + qa-run v04-PRIV-1 grep 双重防回归
+          </p>
+        </div>
+      </div>
+    </section>
+
     <!-- 非范围 -->
     <section class="paper-card p-6 mb-12" style="border-left:4px solid var(--ink-subtle); background:rgba(0,0,0,.02)">
       <div class="eyebrow mb-3">v0.4 不 · 做 · 什 · 么(留 v0.5+)</div>

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>提醒设置 · 管理 · 家庭账房 · v0.4.14 preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }</script>
+</head>
+<body class="min-h-screen relative">
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
+      <div class="flex items-center gap-12">
+        <a href="../index.html" class="flex items-baseline gap-2 no-underline"><span class="font-display text-xl font-medium">账房</span><span class="font-mono text-[10px] tracking-[0.2em] text-ink-subtle">№ 张 · v0.4.14</span></a>
+        <nav class="hidden md:flex items-center gap-7 font-mono text-[11px] tracking-[0.14em] uppercase">
+          <a href="dashboard.html" class="text-ink-soft hover:text-ink no-underline">仪表盘</a>
+          <a href="entry-reporting-banner.html" class="text-ink-soft hover:text-ink no-underline">填报</a>
+          <a href="../index.html" class="text-ink-soft hover:text-ink no-underline">账户</a>
+          <a href="reports.html" class="text-ink-soft hover:text-ink no-underline">报表</a>
+          <a href="#" class="text-ink no-underline border-b-2 border-brass pb-[18px]">管理</a>
+        </nav>
+      </div>
+      <div class="w-8 h-8 rounded-full bg-ink text-paper flex items-center justify-center font-display text-sm">伟</div>
+    </div>
+  </header>
+
+  <main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10 grid grid-cols-12 gap-8">
+
+    <!-- /admin sidebar -->
+    <aside class="col-span-12 md:col-span-3">
+      <div class="sticky top-24">
+        <div class="eyebrow mb-4">/ADMIN · 13 项</div>
+        <nav class="flex flex-col text-sm">
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">总览</a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">家庭设置</a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">成员</a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">账户</a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-subtle no-underline">账户模板 <span class="text-rust text-[10px]">·只读</span></a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-subtle no-underline">现金流类别 <span class="text-rust text-[10px]">·只读</span></a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-subtle no-underline">产品类目 <span class="text-rust text-[10px]">· 只读</span></a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">周期</a>
+          <a href="#" class="py-2 px-3 border-l-2 border-brass bg-card-soft text-ink no-underline font-display">提醒</a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">汇率</a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">备份</a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">审计</a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">数值阈值</a>
+        </nav>
+
+        <div class="mt-6 pt-4 border-t border-rule">
+          <div class="font-mono text-[9px] tracking-[0.18em] uppercase text-ink-subtle mb-2">v · 0 · 4 · 1 · 4</div>
+          <p class="font-mono text-[10px] text-ink-subtle leading-relaxed">
+            填报规范化 + 截止前强提醒(FR-63)<br/>
+            <span class="text-rust">私密红线</span>:手机号 / aksk 绝不进 AI
+          </p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- content -->
+    <section class="col-span-12 md:col-span-9 space-y-8">
+
+      <div class="mb-2">
+        <div class="eyebrow mb-2">提 · 醒 · 设 · 置</div>
+        <h1 class="font-display text-4xl font-medium">填报规范 + 强提醒</h1>
+        <p class="text-ink-soft text-sm mt-2">统一全家"何时填什么"的节奏 · 截止前 N 天每天强提醒(短信为主 · 站内兜底)</p>
+        <p class="font-mono text-[10px] text-brass-deep tracking-[0.16em] uppercase mt-3">
+          配置入口原则 · 所有运营参数都在管理页配 · 不再上服务器改文件
+        </p>
+      </div>
+
+      <!-- flash demo -->
+      <div class="border border-forest bg-forest/[0.05] px-4 py-2 text-sm flex items-center justify-between">
+        <span><span class="text-forest font-display">✓</span> 填报模板与提醒节奏已保存</span>
+        <span class="font-mono text-[10px] text-ink-subtle tracking-wider">flash · 3 s 后淡出</span>
+      </div>
+
+      <!-- ① 填报模板 -->
+      <form class="bracket-card space-y-6">
+        <div class="flex items-baseline justify-between">
+          <div class="eyebrow-ink">① 填报模板 · 全家统一</div>
+          <span class="font-mono text-[10px] text-ink-subtle tracking-wider">FR-63a</span>
+        </div>
+
+        <div class="space-y-3">
+          <label class="flex items-start gap-3 border-2 border-ink p-4 cursor-pointer bg-card-soft">
+            <input type="radio" name="template" class="mt-1.5" checked/>
+            <span>
+              <span class="font-display text-base text-ink">T1 · 实时收入 · 月末支出</span>
+              <span class="pill pill-brass ml-2 text-[10px]">默认</span>
+              <span class="block font-mono text-[11px] text-ink-soft mt-2 leading-relaxed">
+                收入随发生填(如发薪日当天更新收入和余额);本月支出在月末倒数 2 天集中填一次。
+              </span>
+            </span>
+          </label>
+          <label class="flex items-start gap-3 border border-rule p-4 cursor-pointer hover:border-ink transition">
+            <input type="radio" name="template" class="mt-1.5"/>
+            <span>
+              <span class="font-display text-base text-ink">T2 · 月末一次清</span>
+              <span class="block font-mono text-[11px] text-ink-soft mt-2 leading-relaxed">
+                全部收入、支出、余额都在月末倒数 2-3 天一次性填完,适合流水少、记性好的家庭。
+              </span>
+            </span>
+          </label>
+          <label class="flex items-start gap-3 border border-rule p-4 cursor-pointer hover:border-ink transition">
+            <input type="radio" name="template" class="mt-1.5"/>
+            <span>
+              <span class="font-display text-base text-ink">T3 · 每周滚动</span>
+              <span class="block font-mono text-[11px] text-ink-soft mt-2 leading-relaxed">
+                每周日复盘一次,填这一周发生的收入和支出,月末已基本填完,适合流水频繁的家庭。
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <div class="flex items-end gap-4 pt-3 border-t border-rule">
+          <div>
+            <label class="field-label">截止前几天开始强提醒 · LEAD DAYS</label>
+            <input class="field-input w-28" type="number" value="2"/>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">默认 2 · 距 period 结束日 ≤ 此值开始每天 10:00 / 20:00 触达</p>
+          </div>
+          <button type="button" class="btn-ink ml-auto">保存模板</button>
+        </div>
+      </form>
+
+      <!-- ② 短信渠道 -->
+      <form class="bracket-card space-y-5">
+        <div class="flex items-baseline justify-between">
+          <div class="eyebrow-ink">② 短信渠道 · 阿里云(私密 · 不进 AI)</div>
+          <span class="font-mono text-[10px] text-ink-subtle tracking-wider">FR-63c · 渠道</span>
+        </div>
+
+        <div class="border-l-2 border-rust bg-rust/[0.04] px-4 py-3">
+          <p class="font-mono text-[10px] text-rust tracking-wider leading-relaxed">
+            ⚠ AccessKeyId / Secret 为私密信息 · 仅用于发短信 · 绝不进入任何 AI 交互 / 审计明文 · 留空 = 保持原值
+          </p>
+          <p class="font-mono text-[10px] text-ink-subtle tracking-wider leading-relaxed mt-1">
+            决策:阿里云无最低充值(套餐 6.9 元 / 200 条起) · 个人开发者大概率已有账号 · 详见 PRD §20.4
+          </p>
+        </div>
+
+        <label class="flex items-center gap-3 text-sm">
+          <input type="checkbox" checked/>
+          <span class="font-display text-ink">启用短信强提醒</span>
+          <span class="font-mono text-[10px] text-ink-subtle">关闭时只走站内 banner</span>
+        </label>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label class="field-label">短信供应商 · PROVIDER</label>
+            <select class="field-input bg-transparent">
+              <option>aliyun · 阿里云短信</option>
+              <option disabled>yunpian · 云片(未来)</option>
+              <option disabled>tencent · 腾讯云(未来)</option>
+            </select>
+          </div>
+          <div></div>
+          <div>
+            <label class="field-label">AccessKeyId · 当前 <span class="text-ink-subtle">LTA****EX9</span></label>
+            <input class="field-input" autocomplete="off" placeholder="留空 = 不修改"/>
+          </div>
+          <div>
+            <label class="field-label">AccessKeySecret · <span class="text-ink-subtle">已配置(隐藏)</span></label>
+            <input class="field-input" type="password" autocomplete="new-password" placeholder="留空 = 不修改"/>
+          </div>
+          <div>
+            <label class="field-label">短信签名 · SIGN NAME</label>
+            <input class="field-input" value="家庭账房"/>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">需在阿里云实名报备 · 家庭别名走正文不走签名</p>
+          </div>
+          <div>
+            <label class="field-label">模板 Code · TEMPLATE CODE</label>
+            <input class="field-input" value="SMS_478235091"/>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">含 ${brand} / ${period} / ${days} / ${progress} 4 变量</p>
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+          <button type="button" class="btn-ink">保存短信配置</button>
+        </div>
+      </form>
+
+      <!-- ③ 一键测试短信 -->
+      <div class="bracket-card space-y-5" style="background: linear-gradient(180deg, var(--brass-soft) 0%, var(--card) 30%);">
+        <div class="flex items-baseline justify-between">
+          <div class="eyebrow-ink">③ 一键测试短信 · 验证配置链路</div>
+          <span class="font-mono text-[10px] text-ink-subtle tracking-wider">FR-63d · §20.5.1</span>
+        </div>
+
+        <p class="text-sm text-ink-soft leading-relaxed">
+          配完 aksk + 签名 + 模板后,在这里发一条<b>测试专用文案</b>的短信(<code class="font-mono text-[11px] bg-card-soft px-1.5 py-0.5 border border-rule">brand=狗窝 · period=配置测试 · days=99 · progress=测试模式</code>)。
+          运营商日志能一眼区分测试 vs 真实提醒。
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+          <div>
+            <label class="field-label">目标手机号 · 从成员选 or 临时输入</label>
+            <select class="field-input bg-transparent">
+              <option>张伟(主理人) · 138****8801</option>
+              <option>李薇 · 139****1024</option>
+              <option>张小迪 · 159****6633</option>
+              <option value="custom">↳ 临时输入手机号(不落库)…</option>
+            </select>
+          </div>
+          <div class="flex items-end gap-3">
+            <button type="button" class="btn-ink flex-1">▷ 发送测试短信</button>
+            <span class="font-mono text-[10px] text-ink-subtle tracking-wider whitespace-nowrap">≤ 3 次/分</span>
+          </div>
+        </div>
+
+        <!-- demo response states -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-rule-soft">
+          <div class="border border-forest bg-forest/[0.05] px-4 py-3">
+            <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-forest mb-1">成功 · DEMO</div>
+            <div class="text-sm">✓ 测试短信已发送 · 请查收</div>
+            <div class="font-mono text-[10px] text-ink-subtle mt-1 break-all">BizId: 905619744826833849^0 · 阿里云 Code=OK</div>
+          </div>
+          <div class="border border-rust bg-rust/[0.05] px-4 py-3">
+            <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-rust mb-1">失败 · DEMO</div>
+            <div class="text-sm">✗ 阿里云返回 Code = isv.SMS_SIGNATURE_ILLEGAL</div>
+            <div class="font-mono text-[10px] text-ink-subtle mt-1">短信签名未通过审核 · 请到阿里云控制台查报备状态</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ④ 成员手机号 -->
+      <div class="bracket-card space-y-4">
+        <div class="flex items-baseline justify-between">
+          <div class="eyebrow-ink">④ 成员手机号 · 私密(短信触达用)</div>
+          <span class="font-mono text-[10px] text-ink-subtle tracking-wider">FR-63c · 成员</span>
+        </div>
+
+        <div class="divide-y divide-rule-soft">
+          <div class="flex items-center gap-4 py-3">
+            <span class="w-8 h-8 rounded-full bg-ink text-paper flex items-center justify-center font-display text-sm flex-shrink-0">伟</span>
+            <span class="font-display text-sm text-ink w-32">张伟</span>
+            <input class="field-input flex-1" value="13800018801"/>
+            <button type="button" class="btn-paper text-xs">保存</button>
+          </div>
+          <div class="flex items-center gap-4 py-3">
+            <span class="w-8 h-8 rounded-full bg-brass-deep text-paper flex items-center justify-center font-display text-sm flex-shrink-0">薇</span>
+            <span class="font-display text-sm text-ink w-32">李薇</span>
+            <input class="field-input flex-1" value="13900291024"/>
+            <button type="button" class="btn-paper text-xs">保存</button>
+          </div>
+          <div class="flex items-center gap-4 py-3">
+            <span class="w-8 h-8 rounded-full bg-forest text-paper flex items-center justify-center font-display text-sm flex-shrink-0">迪</span>
+            <span class="font-display text-sm text-ink w-32">张小迪</span>
+            <input class="field-input flex-1" value="15912346633"/>
+            <button type="button" class="btn-paper text-xs">保存</button>
+          </div>
+          <div class="flex items-center gap-4 py-3">
+            <span class="w-8 h-8 rounded-full bg-rust text-paper flex items-center justify-center font-display text-sm flex-shrink-0">姥</span>
+            <span class="font-display text-sm text-ink w-32">姥姥</span>
+            <input class="field-input flex-1" placeholder="尚未配置 · 留空跳过短信"/>
+            <button type="button" class="btn-paper text-xs">保存</button>
+          </div>
+        </div>
+
+        <p class="font-mono text-[10px] text-ink-subtle tracking-wider leading-relaxed">
+          手机号仅用于短信提醒 · 永不出现在 AI 诊断 / 月报 / 审计明文中 · 留空 = 该成员不参与短信触达(仍走站内 banner)
+        </p>
+      </div>
+
+      <!-- ⑤ 手动触发调度 -->
+      <div class="paper-card p-5 flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <div class="eyebrow-ink mb-1">⑤ 手动触发调度 · DEBUG</div>
+          <p class="font-mono text-[10px] text-ink-subtle tracking-wider leading-relaxed">
+            真实窗口下走完整链路:对全家未填成员各发一次(真截止天数 + 真去重) · 验证调度逻辑用
+          </p>
+        </div>
+        <button type="button" class="btn-ghost" style="color:var(--rust); border-color:var(--rust-soft)">▷ 立即触发一次调度</button>
+      </div>
+
+    </section>
+  </main>
+
+  <footer class="border-t border-rule mt-16 py-8 px-6 lg:px-10">
+    <div class="max-w-[1400px] mx-auto flex items-baseline justify-between flex-wrap gap-3">
+      <span class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle uppercase">家庭账房 · v0.4.14 preview · FR-63 提醒规范化</span>
+      <a href="../index.html" class="font-mono text-[10px] tracking-[0.18em] text-brass-deep no-underline">← 返回 preview hub</a>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>填报页 · 推荐方案 banner · 家庭账房 · v0.4.14 preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }</script>
+</head>
+<body class="min-h-screen relative">
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
+      <div class="flex items-center gap-12">
+        <a href="../index.html" class="flex items-baseline gap-2 no-underline"><span class="font-display text-xl font-medium">账房</span><span class="font-mono text-[10px] tracking-[0.2em] text-ink-subtle">№ 张 · v0.4.14</span></a>
+        <nav class="hidden md:flex items-center gap-7 font-mono text-[11px] tracking-[0.14em] uppercase">
+          <a href="dashboard.html" class="text-ink-soft hover:text-ink no-underline">仪表盘</a>
+          <a href="#" class="text-ink no-underline border-b-2 border-brass pb-[18px]">填报</a>
+          <a href="#" class="text-ink-soft hover:text-ink no-underline">账户</a>
+          <a href="reports.html" class="text-ink-soft hover:text-ink no-underline">报表</a>
+          <a href="admin-reminders.html" class="text-ink-soft hover:text-ink no-underline">管理</a>
+        </nav>
+      </div>
+      <div class="w-8 h-8 rounded-full bg-ink text-paper flex items-center justify-center font-display text-sm">伟</div>
+    </div>
+  </header>
+
+  <main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+
+    <!-- 顶部 KPI/周期 摘要(简化版 · 为了铺垫 banner 在页面里的位置)-->
+    <section class="mb-8 grid grid-cols-1 md:grid-cols-3 gap-6 pb-8 border-b border-rule">
+      <div>
+        <div class="eyebrow-ink mb-2">当前周期</div>
+        <div class="flex items-baseline gap-2 mb-1">
+          <span class="font-display text-4xl tnum">2026 年 5 月</span>
+          <span class="pill pill-forest">OPEN</span>
+        </div>
+        <p class="text-xs text-ink-soft">主理人 · 张伟 · 月度周期</p>
+      </div>
+      <div>
+        <div class="eyebrow-ink mb-2">当前视图</div>
+        <div class="flex items-baseline gap-2 mb-1">
+          <span class="font-display text-4xl tnum">全家</span>
+        </div>
+        <p class="text-xs text-ink-soft">每行可填:本期末余额、收入/支出、账户间划转。</p>
+      </div>
+      <div>
+        <div class="eyebrow-ink mb-2">周期状态</div>
+        <div class="flex items-baseline gap-2 mb-1">
+          <span class="font-display text-4xl tnum">OPEN</span>
+        </div>
+        <p class="text-xs text-ink-soft">本期截止 31 日</p>
+      </div>
+    </section>
+
+    <!-- 视图切换条 -->
+    <section class="flex items-center justify-between mb-6 flex-wrap gap-4">
+      <div class="flex border border-rule">
+        <a href="#" class="font-mono text-[11px] tracking-[0.14em] px-4 py-2 no-underline bg-ink text-paper">全部</a>
+        <a href="#" class="font-mono text-[11px] tracking-[0.14em] px-4 py-2 border-l border-rule no-underline text-ink-soft hover:bg-card-soft">仅我</a>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="font-mono text-[10px] text-ink-subtle">划转入口在每个账户行右侧 ↔</span>
+        <a href="#" class="btn-paper no-underline">+ 新账户</a>
+      </div>
+    </section>
+
+    <!-- ★ NEW · 推荐填报方案 banner(强提醒态 · 距截止 2 天) -->
+    <section class="mb-8 bracket-card border-rust" style="background: rgba(180,68,52,0.04)">
+      <div class="grid grid-cols-12 gap-6 items-start">
+        <!-- 左 · 推荐方案 + 节奏建议 -->
+        <div class="col-span-12 md:col-span-5">
+          <div class="eyebrow-ink mb-1">
+            推荐填报方案 · <span class="text-brass-deep">T1 · 实时收入 · 月末支出</span>
+          </div>
+          <p class="text-sm text-ink-soft leading-relaxed">
+            收入随发生填(如发薪日当天更新收入和余额);本月支出在月末倒数 2 天集中填一次。
+          </p>
+          <a href="admin-reminders.html" class="font-mono text-[10px] text-brass-deep no-underline tracking-wider mt-2 inline-block">⚙ 改填报模板 →</a>
+        </div>
+
+        <!-- 中 · 周期 + 截止 + 家庭进度 + 我自己徽标 -->
+        <div class="col-span-12 md:col-span-4 md:border-l md:border-rule md:pl-6">
+          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-2">本 · 期 · 进 · 度</div>
+          <div class="flex items-baseline gap-2 mb-1">
+            <span class="font-display text-2xl tnum text-ink">2026 年 5 月</span>
+          </div>
+          <div class="font-mono text-[11px] text-ink-soft tracking-wider">
+            截止 <b class="text-ink tnum">5 月 31 日</b> · 家庭已填 <b class="text-ink tnum">2/4</b> 人
+          </div>
+          <div class="flex gap-1.5 mt-2">
+            <span class="pill pill-forest text-[10px]">✓ 我已填</span>
+            <span class="font-mono text-[10px] text-ink-subtle tracking-wider self-center">薇 ✓ · 迪 ⃝ · 姥 ⃝</span>
+          </div>
+        </div>
+
+        <!-- 右 · 距截止天数 pill (强提醒态) -->
+        <div class="col-span-12 md:col-span-3 md:text-right">
+          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-rust mb-2">距 · 截 · 止</div>
+          <div class="flex md:justify-end items-baseline gap-2 mb-1">
+            <span class="font-display text-5xl tnum text-rust font-medium">2</span>
+            <span class="text-rust font-display">天</span>
+          </div>
+          <span class="pill pill-rust">仅剩 2 天 · 请尽快填报</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stub for accounts list (just hint where the rest of the page goes) -->
+    <section class="paper-card-soft p-8 border-dashed border-2 border-rule">
+      <div class="text-center">
+        <div class="eyebrow mb-3">下方为账户列表(本预览省略)</div>
+        <p class="font-mono text-[11px] text-ink-subtle tracking-wider leading-loose max-w-xl mx-auto">
+          每个账户一行折叠卡 · 可填本期末余额、收入/支出、账户间划转。<br/>
+          按主理人分组(avatar + tab 快速跳转 · 见 v0.4.13 修订)。
+        </p>
+      </div>
+    </section>
+
+    <!-- ===== Banner 状态变体预览 ===== -->
+    <section class="mt-16">
+      <div class="mb-5 flex items-baseline justify-between">
+        <div>
+          <div class="eyebrow mb-2">Banner · 状 · 态 · 变 · 体</div>
+          <h2 class="font-display text-2xl font-medium">同一 banner 在不同距截止天数下的样式</h2>
+        </div>
+        <span class="font-mono text-[10px] text-ink-subtle tracking-wider">仅 OPEN 周期显示</span>
+      </div>
+
+      <!-- A · 中性态(>2 天) -->
+      <div class="mb-5">
+        <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-2">A · 中性态 · 距截止 &gt; 2 天</div>
+        <div class="bracket-card">
+          <div class="grid grid-cols-12 gap-6 items-start">
+            <div class="col-span-12 md:col-span-5">
+              <div class="eyebrow-ink mb-1">推荐填报方案 · <span class="text-brass-deep">T2 · 月末一次清</span></div>
+              <p class="text-sm text-ink-soft leading-relaxed">全部收入、支出、余额都在月末倒数 2-3 天一次性填完,适合流水少、记性好的家庭。</p>
+            </div>
+            <div class="col-span-12 md:col-span-4 md:border-l md:border-rule md:pl-6">
+              <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-2">本 · 期 · 进 · 度</div>
+              <div class="font-display text-2xl tnum text-ink">2026 年 5 月</div>
+              <div class="font-mono text-[11px] text-ink-soft tracking-wider">截止 <b class="text-ink tnum">5 月 31 日</b> · 家庭已填 <b class="text-ink tnum">0/4</b> 人</div>
+            </div>
+            <div class="col-span-12 md:col-span-3 md:text-right">
+              <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-2">距 · 截 · 止</div>
+              <div class="flex md:justify-end items-baseline gap-2 mb-1"><span class="font-display text-5xl tnum text-ink font-medium">12</span><span class="text-ink-soft font-display">天</span></div>
+              <span class="pill">距本期截止还有 12 天</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- B · 强提醒态(0-2 天) -->
+      <div class="mb-5">
+        <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-rust mb-2">B · 强提醒态 · 距截止 0-2 天(整框转红)</div>
+        <div class="bracket-card border-rust" style="background: rgba(180,68,52,0.04)">
+          <div class="grid grid-cols-12 gap-6 items-start">
+            <div class="col-span-12 md:col-span-5">
+              <div class="eyebrow-ink mb-1">推荐填报方案 · <span class="text-brass-deep">T1 · 实时收入 · 月末支出</span></div>
+              <p class="text-sm text-ink-soft leading-relaxed">收入随发生填;本月支出在月末倒数 2 天集中填一次。</p>
+            </div>
+            <div class="col-span-12 md:col-span-4 md:border-l md:border-rule md:pl-6">
+              <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-2">本 · 期 · 进 · 度</div>
+              <div class="font-display text-2xl tnum text-ink">2026 年 5 月</div>
+              <div class="font-mono text-[11px] text-ink-soft tracking-wider">截止 <b class="text-ink tnum">5 月 31 日</b> · 家庭已填 <b class="text-ink tnum">3/4</b> 人</div>
+            </div>
+            <div class="col-span-12 md:col-span-3 md:text-right">
+              <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-rust mb-2">距 · 截 · 止</div>
+              <div class="flex md:justify-end items-baseline gap-2 mb-1"><span class="font-display text-5xl tnum text-rust font-medium">0</span><span class="text-rust font-display">天</span></div>
+              <span class="pill pill-rust">今天就是截止日 · 请尽快填报</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- C · 已过截止 -->
+      <div class="mb-5">
+        <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-rust mb-2">C · 已过截止 · 仍然显示(提示尚未关账)</div>
+        <div class="bracket-card border-rust" style="background: rgba(180,68,52,0.06)">
+          <div class="grid grid-cols-12 gap-6 items-start">
+            <div class="col-span-12 md:col-span-5">
+              <div class="eyebrow-ink mb-1">推荐填报方案 · <span class="text-brass-deep">T3 · 每周滚动</span></div>
+              <p class="text-sm text-ink-soft leading-relaxed">每周日复盘一次,填这一周发生的收入和支出,月末已基本填完,适合流水频繁的家庭。</p>
+            </div>
+            <div class="col-span-12 md:col-span-4 md:border-l md:border-rule md:pl-6">
+              <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-2">本 · 期 · 进 · 度</div>
+              <div class="font-display text-2xl tnum text-ink">2026 年 4 月</div>
+              <div class="font-mono text-[11px] text-ink-soft tracking-wider">截止 <b class="text-ink tnum">4 月 30 日</b> · 家庭已填 <b class="text-ink tnum">2/4</b> 人</div>
+            </div>
+            <div class="col-span-12 md:col-span-3 md:text-right">
+              <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-rust mb-2">已 · 逾 · 期</div>
+              <div class="flex md:justify-end items-baseline gap-2 mb-1"><span class="font-display text-5xl tnum text-rust font-medium">−3</span><span class="text-rust font-display">天</span></div>
+              <span class="pill pill-rust">本期已过截止日</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 短信文案对照 ===== -->
+    <section class="mt-16 paper-card p-6">
+      <div class="eyebrow mb-3">同 · 一 · 提 · 醒 · 两 · 套 · 文 · 案</div>
+      <h2 class="font-display text-2xl font-medium mb-5">短信(变量受限)vs 站内 banner(富信息)</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- 短信预览 -->
+        <div>
+          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep mb-3">▌ 短信 · 阿里云模板(67 字限)</div>
+          <!-- iPhone-ish message bubble -->
+          <div class="bg-card border border-rule p-4 max-w-[320px]" style="border-radius: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+            <div class="font-mono text-[10px] text-ink-subtle mb-2">10657XXXX SMS · 今天 10:00</div>
+            <p class="text-sm leading-relaxed text-ink">
+              【家庭账房】<b>狗窝</b>账本 <b>2026年5月</b> 提醒:距记账截止 <b>2</b> 天,家庭已完成 <b>2/4人</b>,请尽快填报。
+            </p>
+          </div>
+          <p class="font-mono text-[10px] text-ink-subtle tracking-wider mt-3">
+            ${brand}=狗窝 · ${period}=2026年5月 · ${days}=2 · ${progress}=2/4人 · 共 4 变量
+          </p>
+        </div>
+
+        <!-- 站内 banner 对应 -->
+        <div>
+          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep mb-3">▌ 站内 banner · 富信息</div>
+          <div class="border border-rule p-4 bg-card">
+            <div class="text-[11px] text-ink-soft mb-2">填报模板 · 节奏建议 · 周期 · 截止日 · 家庭进度 · 我自己徽标 · 距截止 pill</div>
+            <div class="bg-paper border border-rule p-3 text-xs">
+              <div class="font-display text-brass-deep mb-1">T1 · 实时收入 · 月末支出</div>
+              <div class="text-ink-soft mb-2">收入随发生填;本月支出在月末倒数 2 天集中填一次。</div>
+              <div class="flex justify-between items-center">
+                <span class="font-mono">2026/5 · 截止 31 日 · 2/4 人</span>
+                <span class="pill pill-rust text-[10px]">仅剩 2 天</span>
+              </div>
+            </div>
+          </div>
+          <p class="font-mono text-[10px] text-ink-subtle tracking-wider mt-3">
+            短信受限于运营商报备模板;站内 banner 没限制,信息维度对齐(节奏 + 周期 + 进度 + 状态)
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-rule mt-16 py-8 px-6 lg:px-10">
+    <div class="max-w-[1400px] mx-auto flex items-baseline justify-between flex-wrap gap-3">
+      <span class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle uppercase">家庭账房 · v0.4.14 preview · FR-63b 填报页 banner</span>
+      <a href="../index.html" class="font-mono text-[10px] tracking-[0.18em] text-brass-deep no-underline">← 返回 preview hub</a>
+    </div>
+  </footer>
+</body>
+</html>
