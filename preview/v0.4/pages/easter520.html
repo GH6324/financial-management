@@ -16,7 +16,8 @@
       --vgold: var(--brass-deep);
     }
 
-    /* —— 全屏 overlay —— */
+    /* —— 全屏 overlay ——
+       padding-top/-bottom 给心和 press-hint 留 viewport 呼吸空间 · 避免小屏裁切 */
     #easter520 {
       position: fixed;
       inset: 0;
@@ -25,6 +26,8 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 40px 16px 80px;
+      overflow-y: auto;
       animation: overlay-in .35s cubic-bezier(.2,.7,.3,1) both;
     }
     #easter520.closing { animation: overlay-out .4s ease-in forwards; }
@@ -64,7 +67,8 @@
       100% { transform: translateY(-110vh) translateX(40px) rotate(18deg); opacity: 0; }
     }
 
-    /* —— 中央卡片 —— */
+    /* —— 中央卡片 ——
+       padding-top 缩到 28 让心嵌入卡片内 · 心无负 margin 完整可见 */
     .e520-card {
       position: relative;
       background: var(--paper);
@@ -73,7 +77,7 @@
         0 0 0 2px var(--ink),
         0 24px 80px rgba(0,0,0,.5),
         0 0 60px rgba(229,58,74,.25);
-      padding: 56px 64px 48px;
+      padding: 28px 64px 40px;
       max-width: 640px;
       width: calc(100% - 32px);
       text-align: center;
@@ -96,10 +100,12 @@
     .e520-card::before { top: -10px; left: -10px; }
     .e520-card::after  { bottom: -10px; right: -10px; }
 
-    /* —— 像素大心 —— */
+    /* —— 像素大心 ——
+       完整可见 · 无负 margin · 在卡片顶部内嵌入 */
     .pixel-heart-big {
-      width: 160px; height: 144px;
-      margin: -100px auto 16px;
+      display: block;
+      width: 128px; height: 110px;
+      margin: 4px auto 18px;
       filter: drop-shadow(0 4px 0 rgba(0,0,0,.35)) drop-shadow(0 0 20px rgba(229,58,74,.7));
       animation: heartbeat 1s ease-in-out infinite .7s;
     }
@@ -114,16 +120,16 @@
       display: inline-flex;
       align-items: center;
       gap: 12px;
-      margin: 8px 0 28px;
-      padding: 10px 20px;
+      margin: 4px 0 24px;
+      padding: 8px 18px;
       border: 3px solid var(--ink);
       background: var(--paper-soft);
-      box-shadow: 6px 6px 0 var(--vgold), 8px 8px 0 var(--ink);
+      box-shadow: 5px 5px 0 var(--vgold), 7px 7px 0 var(--ink);
       animation: title-in .5s cubic-bezier(.2,.9,.2,1) 1.1s both;
     }
     .title-main {
       font-family: 'Fraunces', 'Noto Serif SC', serif;
-      font-size: 52px;
+      font-size: 46px;
       font-weight: 700;
       letter-spacing: .04em;
       color: var(--ink);
@@ -133,7 +139,7 @@
     .title-bracket {
       font-family: 'JetBrains Mono', monospace;
       color: var(--vred);
-      font-size: 28px;
+      font-size: 24px;
       font-weight: 700;
     }
     @keyframes title-in {
@@ -142,20 +148,47 @@
       100% { transform: translateY(0)     scale(1); opacity: 1; }
     }
 
-    /* —— 副标 —— */
+    /* —— 副标 · 单行 · 文案库随机出一句 —— */
     .subtitle {
       font-family: 'Noto Serif SC', 'Fraunces', serif;
       color: var(--ink);
-      font-size: 34px;
+      font-size: 26px;
       font-weight: 500;
-      line-height: 1.4;
-      letter-spacing: .12em;
-      margin: 8px 0 4px;
-      animation: sub-in .6s ease-out 1.6s both;
+      line-height: 1.5;
+      letter-spacing: .08em;
+      margin: 12px 0 6px;
+      min-height: 1.5em;
+      animation: sub-in .55s ease-out 1.6s both;
     }
-    .subtitle .line-2 { font-weight: 600; }
     .subtitle .accent { color: var(--vred); }
     @keyframes sub-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    /* 切换文案时的局部动画 */
+    @keyframes sub-swap {
+      0%   { opacity: 0; transform: translateY(6px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    /* —— "换一句" 小 icon —— */
+    .next-slogan-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 14px;
+      padding: 6px 14px;
+      border: 2px solid var(--ink);
+      background: var(--paper-soft);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .14em;
+      color: var(--ink-soft);
+      cursor: pointer;
+      box-shadow: 3px 3px 0 var(--vgold);
+      transition: transform .1s, color .15s, border-color .15s;
+      animation: hint-in .4s ease-out 2.2s both;
+    }
+    .next-slogan-btn:hover { color: var(--vred); border-color: var(--vred); }
+    .next-slogan-btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--vgold); }
+    .next-slogan-btn .ic { font-size: 13px; }
 
     /* —— 底脚 —— */
     .footer-line {
@@ -163,10 +196,10 @@
       color: var(--ink-soft);
       font-size: 13px;
       letter-spacing: .18em;
-      margin-top: 32px;
-      padding-top: 18px;
+      margin-top: 24px;
+      padding-top: 16px;
       border-top: 2px solid var(--rule);
-      animation: footer-in .5s ease-out 2.1s both;
+      animation: footer-in .5s ease-out 2.5s both;
     }
     .footer-line b { color: var(--vred); font-weight: 600; }
     @keyframes footer-in { from { opacity: 0; } to { opacity: 1; } }
@@ -185,6 +218,7 @@
       cursor: pointer;
       line-height: 1;
       transition: background .15s;
+      z-index: 2;
     }
     .e520-close:hover { background: var(--vred); }
 
@@ -199,7 +233,7 @@
       letter-spacing: .2em;
       color: rgba(255,255,255,.65);
       text-transform: uppercase;
-      animation: hint-in .4s ease-out 2.5s both;
+      animation: hint-in .4s ease-out 2.8s both;
     }
     .press-hint .cursor {
       display: inline-block;
@@ -249,7 +283,7 @@
     .replay-btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--vgold); }
     .replay-btn:hover { background: var(--vred); border-color: var(--vred); }
 
-    /* 关闭后的灰态 */
+    /* 关闭后的灰态 · 模拟回到真实页面后的状态 */
     .post-close-stage {
       position: fixed; inset: 0; z-index: 9998;
       display: none;
@@ -265,16 +299,22 @@
       color: var(--ink-soft);
       font-size: 18px;
     }
+    .post-close-stage .sub {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--ink-subtle);
+      font-size: 11px;
+      letter-spacing: .14em;
+    }
 
-    /* —— 5.20 nav 重看按钮(实际放进 fragments/nav · 仅本预览右上演示) —— */
+    /* —— 5.20 nav 右上常驻按钮 · 默认显示 · overlay 打开时藏起 —— */
     .replay-pill {
       position: fixed;
       top: 16px; right: 16px;
       z-index: 10000;
-      display: none;
+      display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 14px;
+      padding: 8px 14px;
       background: var(--paper);
       border: 2px solid var(--vred);
       color: var(--vred);
@@ -284,8 +324,12 @@
       box-shadow: 3px 3px 0 var(--ink);
       cursor: pointer;
       animation: pill-pulse 2s ease-in-out infinite;
+      transition: transform .1s;
+      user-select: none;
     }
-    .replay-pill.on { display: inline-flex; }
+    .replay-pill.hidden { display: none !important; }
+    .replay-pill:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+    .replay-pill .pill-heart { font-size: 14px; }
     @keyframes pill-pulse {
       0%, 100% { transform: scale(1); }
       50%      { transform: scale(1.06); }
@@ -297,12 +341,13 @@
   <!-- 灰态背景占位 (假装是日常页面 · 让 overlay 看起来真的"覆盖") -->
   <div class="post-close-stage" id="postClose">
     <div class="tip">— 彩蛋已关闭 · 当天不再自动弹 —</div>
-    <button class="replay-btn" onclick="replay()">▶ 重新播放</button>
+    <div class="sub">右上角 ♥520 按钮可以随时唤回 · 每次新一句</div>
+    <button class="replay-btn" onclick="openEgg()">▶ 再 看 一 次</button>
   </div>
 
-  <!-- 5.20 当天 nav 右上"重看"按钮(实际部署放进 fragments/nav) -->
-  <div class="replay-pill" id="navPill" onclick="replay()">
-    <span>♥</span><span>520 · 再看</span>
+  <!-- 5.20 当天 右上 ♥520 按钮 · 默认显示 · 每次点都重开+换文案 -->
+  <div class="replay-pill" id="navPill" onclick="openEgg()">
+    <span class="pill-heart">♥</span><span>520 · 再看</span>
   </div>
 
   <!-- ===== 主彩蛋 overlay ===== -->
@@ -311,16 +356,21 @@
     <div class="stars" id="stars"></div>
 
     <div class="e520-card">
-      <button class="e520-close" aria-label="关闭" onclick="closeEgg()">×</button>
+      <button class="e520-close" aria-label="关闭" onclick="event.stopPropagation(); closeEgg();">×</button>
 
-      <!-- 像素大心 (SVG · crispEdges 渲染锐利) -->
+      <!-- 像素大心 · 在卡片内 · 完整可见 -->
       <svg class="pixel-heart-big" viewBox="0 0 14 12" shape-rendering="crispEdges" aria-hidden="true">
-        <!-- Row 0: 翼瓣 -->
+        <!-- 黑色像素描边(先画) -->
+        <rect x="1"  y="0" width="1" height="1" fill="#1a1715"/>
+        <rect x="5"  y="0" width="1" height="1" fill="#1a1715"/>
+        <rect x="8"  y="0" width="1" height="1" fill="#1a1715"/>
+        <rect x="12" y="0" width="1" height="1" fill="#1a1715"/>
+        <rect x="0"  y="1" width="1" height="2" fill="#1a1715"/>
+        <rect x="13" y="1" width="1" height="2" fill="#1a1715"/>
+        <!-- 红色主体 -->
         <rect x="2"  y="0" width="3" height="1" fill="#E53A4A"/>
         <rect x="9"  y="0" width="3" height="1" fill="#E53A4A"/>
-        <!-- Row 1-2: 实体 -->
         <rect x="1"  y="1" width="12" height="2" fill="#E53A4A"/>
-        <!-- Row 3-4: 收缩 -->
         <rect x="1"  y="3" width="12" height="1" fill="#E53A4A"/>
         <rect x="2"  y="4" width="10" height="1" fill="#E53A4A"/>
         <rect x="3"  y="5" width="8"  height="1" fill="#E53A4A"/>
@@ -330,13 +380,6 @@
         <!-- 高光 (左上) -->
         <rect x="2"  y="1" width="2" height="1" fill="#FFD9DC"/>
         <rect x="3"  y="2" width="1" height="1" fill="#FFD9DC"/>
-        <!-- 描边 (黑色像素描边模拟) -->
-        <rect x="0"  y="1" width="1" height="2" fill="#1a1715"/>
-        <rect x="13" y="1" width="1" height="2" fill="#1a1715"/>
-        <rect x="1"  y="0" width="1" height="1" fill="#1a1715"/>
-        <rect x="5"  y="0" width="1" height="1" fill="#1a1715"/>
-        <rect x="8"  y="0" width="1" height="1" fill="#1a1715"/>
-        <rect x="12" y="0" width="1" height="1" fill="#1a1715"/>
       </svg>
 
       <!-- 主标题 -->
@@ -346,11 +389,16 @@
         <span class="title-bracket">+</span>
       </div>
 
-      <!-- 副标 双行 -->
+      <!-- 副标 · 文案库随机一句 · JS pickSlogan() 渲染 -->
       <div class="subtitle">
-        <div class="line-1">愿 这个家</div>
-        <div class="line-2">永远 <span class="accent">温暖</span> 明亮</div>
+        <div class="slogan-line" id="sloganLine">今年520,主角还是你</div>
       </div>
+
+      <!-- "换一句" 小 icon · 显式入口看更多祝福 -->
+      <button class="next-slogan-btn" onclick="event.stopPropagation(); changeSlogan();">
+        <span class="ic">↻</span>
+        <span>换 一 句</span>
+      </button>
 
       <!-- 底脚 -->
       <div class="footer-line">
@@ -367,15 +415,66 @@
   <!-- ===== 预览页 toolbar (实际部署不存在) ===== -->
   <div class="preview-toolbar">
     <span class="label">
-      preview · v0.4 · <b>520 彩蛋</b> · 一日限定 · 实际 5.20 全天自动注入
+      preview · v0.4 · <b>520 彩蛋</b> · 一日限定 · 文案库 19 条随机
     </span>
     <div style="display:flex; gap:10px; align-items:center;">
       <a href="../index.html" class="label" style="text-decoration:none">← 返回 preview hub</a>
-      <button class="replay-btn" onclick="replay()">▶ 重新播放</button>
+      <button class="replay-btn" onclick="openEgg()">▶ 重新播放</button>
     </div>
   </div>
 
   <script>
+    // ===== 文案库 (用户给的 19 条 · 单行祝福 · 与"账本/记账"无关) =====
+    const SLOGANS = [
+      "今年 520 · 主角还是你",
+      "你一出现 · 我就不想嘴硬了",
+      "懂了 · 心动原来长这样",
+      "别人 520 · 我和你天天 520",
+      "已确认 · 你是长期合作对象",
+      "和你待着 · 时间自动变快",
+      "今天也在 · 稳定喜欢你",
+      "你比朋友圈 · 浪漫多了",
+      "爱你这事 · 我没开玩笑",
+      "你属于是 · 我的置顶偏爱",
+      "和你聊天 · 像在回血",
+      "我的人生 Bug · 被你修好了",
+      "见到你之后 · 恋爱脑合法了",
+      "你是我最近 · 最稳定的快乐",
+      "小情侣这身份 · 先续费一辈子",
+      "别管 · 反正我最喜欢你",
+      "你负责出现 · 我负责心动",
+      "喜欢你这件事 · 持续热更新",
+      "想和你 · 保持长期稳定关系"
+    ];
+    let lastSloganIdx = -1;
+
+    function pickSlogan() {
+      // 不与上一句重复
+      let idx;
+      if (SLOGANS.length === 1) idx = 0;
+      else {
+        do { idx = Math.floor(Math.random() * SLOGANS.length); } while (idx === lastSloganIdx);
+      }
+      lastSloganIdx = idx;
+      return SLOGANS[idx];
+    }
+
+    function applySlogan(animate) {
+      const node = document.getElementById('sloganLine');
+      node.textContent = pickSlogan();
+      if (animate) {
+        node.style.animation = 'none';
+        // eslint-disable-next-line no-unused-expressions
+        node.offsetHeight; // reflow
+        node.style.animation = 'sub-swap .35s ease-out';
+      }
+    }
+
+    function changeSlogan() {
+      applySlogan(true);
+      ding();
+    }
+
     // ===== 像素星空生成 =====
     (function genStars() {
       const stars = document.getElementById('stars');
@@ -407,9 +506,7 @@
         document.getElementById('easter520').appendChild(f);
         setTimeout(() => f.remove(), 16000);
       }
-      // 初始一批
       for (let i = 0; i < 12; i++) setTimeout(spawn, i * 220);
-      // 持续生成
       floaterTimer = setInterval(spawn, 380);
     }
     function stopFloaters() {
@@ -423,7 +520,6 @@
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const ctx = audioCtx;
         const now = ctx.currentTime;
-        // 两个正弦叠加 · 主音 1318Hz (E6) + 泛音 2637Hz (E7) · 短促衰减
         [1318.5, 2637].forEach((freq, i) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
@@ -439,7 +535,30 @@
       } catch (e) { /* 静音 fallback · 不抛错 */ }
     }
 
-    // ===== 关闭逻辑 =====
+    // ===== 打开 / 关闭 / 重开 =====
+    function openEgg() {
+      const el = document.getElementById('easter520');
+      const pill = document.getElementById('navPill');
+      const close = document.getElementById('postClose');
+      // 重置状态
+      el.classList.remove('closing');
+      el.style.display = 'flex';
+      pill.classList.add('hidden');     // overlay 在前 · pill 暂藏(避免重叠)
+      close.classList.remove('on');
+      // 每次重开换一句新文案
+      applySlogan(false);
+      // 清掉残留粒子
+      el.querySelectorAll('.floater').forEach(f => f.remove());
+      // 重启入场动画 (card / title / subtitle / next-btn / footer / hint)
+      ['.e520-card', '.title-box', '.subtitle', '.next-slogan-btn', '.footer-line', '.press-hint'].forEach(sel => {
+        const n = el.querySelector(sel) || document.querySelector(sel);
+        if (n) { n.style.animation = 'none'; n.offsetHeight; n.style.animation = ''; }
+      });
+      // 启动粒子 + 入场叮
+      startFloaters();
+      setTimeout(ding, 700);
+    }
+
     function closeEgg() {
       const el = document.getElementById('easter520');
       if (!el || el.classList.contains('closing')) return;
@@ -450,11 +569,11 @@
       setTimeout(() => {
         el.style.display = 'none';
         document.getElementById('postClose').classList.add('on');
-        document.getElementById('navPill').classList.add('on');
+        document.getElementById('navPill').classList.remove('hidden');  // overlay 走了 · pill 回来
       }, 420);
     }
 
-    // 任意键关闭
+    // ===== 按键关闭 =====
     document.addEventListener('keydown', (e) => {
       const el = document.getElementById('easter520');
       if (el && el.style.display !== 'none' && !el.classList.contains('closing')) {
@@ -462,39 +581,16 @@
       }
     });
 
-    // 点击 overlay 任意位置关闭 · 但不要拦截 close × 按钮(它有自己的 handler)
-    document.getElementById('easter520').addEventListener('click', (e) => {
-      if (e.target.closest('.e520-close')) return; // 让 × 自己处理
+    // 点击 overlay 任意位置关闭 · 但不要拦截 close × 和 next-slogan-btn(它们 stopPropagation)
+    document.getElementById('easter520').addEventListener('click', () => {
       closeEgg();
     });
 
-    // ===== 重新播放 =====
-    function replay() {
-      const el = document.getElementById('easter520');
-      el.classList.remove('closing');
-      el.style.display = 'flex';
-      // 清掉旧粒子
-      el.querySelectorAll('.floater').forEach(f => f.remove());
-      // 重启卡片入场动画
-      const card = el.querySelector('.e520-card');
-      card.style.animation = 'none';
-      // eslint-disable-next-line no-unused-expressions
-      card.offsetHeight; // reflow
-      card.style.animation = '';
-      // 副标 / 底脚 / 提示 重启
-      ['.title-box', '.subtitle', '.footer-line', '.press-hint'].forEach(sel => {
-        const n = document.querySelector(sel);
-        if (n) { n.style.animation = 'none'; n.offsetHeight; n.style.animation = ''; }
-      });
-      document.getElementById('postClose').classList.remove('on');
-      document.getElementById('navPill').classList.remove('on');
-      // 重新启动粒子 + 打开音
-      startFloaters();
-      ding();
-    }
-
-    // ===== 入场启动粒子 + 入场叮 =====
+    // ===== 初始化 ===== 默认 overlay 打开 + pill 隐藏 + 入场动画自动跑
+    applySlogan(false);
     setTimeout(() => { ding(); startFloaters(); }, 700);
+    // pill 由 openEgg / closeEgg 切换 · 初始 overlay 是开的所以 pill 隐藏
+    document.getElementById('navPill').classList.add('hidden');
   </script>
 </body>
 </html>
