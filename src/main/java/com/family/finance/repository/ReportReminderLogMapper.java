@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * v0.4.14 FR-63c · report_reminder_log 写入 + 当天去重查询。
@@ -39,4 +40,19 @@ public interface ReportReminderLogMapper {
                  #{remindDate}, #{status}, #{detail})
             """)
     int insert(ReportReminderLog log);
+
+    /** v0.4.14 · /admin/reminders 提醒日志分页查询 · 倒序按发送时间 */
+    @Select("""
+            SELECT id, family_id, period_id, member_id, channel, remind_date, status, detail, sent_at
+              FROM report_reminder_log
+             WHERE family_id = #{familyId}
+             ORDER BY sent_at DESC, id DESC
+             LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<ReportReminderLog> findByFamily(@Param("familyId") long familyId,
+                                         @Param("limit") int limit,
+                                         @Param("offset") int offset);
+
+    @Select("SELECT COUNT(*) FROM report_reminder_log WHERE family_id = #{familyId}")
+    int countByFamily(@Param("familyId") long familyId);
 }

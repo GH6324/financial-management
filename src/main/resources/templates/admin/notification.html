@@ -81,24 +81,26 @@
         </div>
         <div></div>
         <div>
-          <label class="field-label">AccessKeyId · 当前 <span class="text-ink-subtle" th:text="${akIdMasked}">(未配置)</span></label>
+          <label class="field-label">AccessKey ID · 当前 <span class="text-ink-subtle" th:text="${akIdMasked}">(未配置)</span></label>
           <input class="field-input" name="accessKeyId" autocomplete="off" placeholder="留空 = 不修改"/>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">阿里云控制台 · 头像 → AccessKey 管理 · 推荐 RAM 子账号</p>
         </div>
         <div>
-          <label class="field-label">AccessKeySecret ·
+          <label class="field-label">AccessKey Secret ·
             <span class="text-ink-subtle" th:text="${akSecretSet} ? '已配置(隐藏)' : '未配置'">未配置</span>
           </label>
           <input class="field-input" type="password" name="accessKeySecret" autocomplete="new-password" placeholder="留空 = 不修改"/>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">创建 AccessKey 时只显示一次 · 保存到密码管理器</p>
         </div>
         <div>
-          <label class="field-label">短信签名 · SIGN NAME</label>
+          <label class="field-label">短信签名 · SignName</label>
           <input class="field-input" name="signName" th:value="${cfg.smsSignName}" placeholder="如:家庭账房"/>
-          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">需在阿里云实名报备 · 家庭别名走正文不走签名</p>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">阿里云控制台 · 国内短信 → 签名管理 · 实名报备通过的「签名名称」</p>
         </div>
         <div>
-          <label class="field-label">模板 Code · TEMPLATE CODE</label>
+          <label class="field-label">短信模板 CODE · TemplateCode</label>
           <input class="field-input" name="templateCode" th:value="${cfg.smsTemplateCode}" placeholder="SMS_xxxxxxxx"/>
-          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">含 ${brand} / ${period} / ${days} / ${progress} 4 变量</p>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">阿里云控制台 · 国内短信 → 模板管理 · 审核通过的模板 CODE(即模板编号 · 含 ${brand}/${period}/${days}/${progress} 4 变量)</p>
         </div>
       </div>
 
@@ -168,6 +170,77 @@
       </div>
       <button type="submit" class="btn-ghost" style="color:var(--rust); border-color:var(--rust-soft)">▷ 立即触发一次调度</button>
     </form>
+
+    <!-- ⑥ 提醒发送日志(报告 report_reminder_log) -->
+    <div class="bracket-card space-y-4 max-w-3xl">
+      <div class="flex items-baseline justify-between gap-3 flex-wrap">
+        <div>
+          <div class="eyebrow-ink">⑥ 提醒发送日志</div>
+          <p class="font-mono text-[10px] text-ink-subtle tracking-wider mt-1">
+            真实调度的每次触达 · 按时间倒序 · 共 <b class="text-ink tnum" th:text="${logTotal}">0</b> 条
+          </p>
+        </div>
+        <a th:href="@{/admin/audit(type='SYSTEM')}"
+           class="font-mono text-[10px] text-brass-deep no-underline tracking-wider whitespace-nowrap">
+          → 测试发送审计 /admin/audit
+        </a>
+      </div>
+
+      <div th:if="${#lists.isEmpty(logs)}" class="text-sm text-ink-subtle py-6 text-center font-mono tracking-wider">
+        — 尚无提醒发送记录 —
+      </div>
+
+      <table th:if="${not #lists.isEmpty(logs)}" class="w-full text-xs">
+        <thead>
+          <tr class="border-b border-rule font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle">
+            <th class="text-left py-2 pr-3">发送时间</th>
+            <th class="text-left py-2 pr-3">本期截止</th>
+            <th class="text-left py-2 pr-3">成员</th>
+            <th class="text-left py-2 pr-3">渠道</th>
+            <th class="text-left py-2 pr-3">状态</th>
+            <th class="text-left py-2">详情</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="log : ${logs}" class="border-b border-rule-soft hover:bg-card-soft transition">
+            <td class="py-2 pr-3 font-mono tnum text-ink"
+                th:text="${#temporals.format(log.sentAt, 'MM-dd HH:mm:ss')}">05-18 14:30:00</td>
+            <td class="py-2 pr-3 font-mono tnum"
+                th:text="${logPeriodLabel[log.periodId]} ?: ('#' + ${log.periodId})">2026-05-31</td>
+            <td class="py-2 pr-3 font-display"
+                th:text="${logMemberName[log.memberId]} ?: ('#' + ${log.memberId})">张伟</td>
+            <td class="py-2 pr-3">
+              <span class="pill text-[10px]"
+                    th:classappend="${log.channel == 'SMS'} ? ' pill-brass' : (${log.channel == 'IN_APP'} ? ' pill-forest' : '')"
+                    th:text="${log.channel}">SMS</span>
+            </td>
+            <td class="py-2 pr-3">
+              <span class="pill text-[10px]"
+                    th:classappend="${log.status == 'SENT'} ? ' pill-forest' : ' pill-rust'"
+                    th:text="${log.status}">SENT</span>
+            </td>
+            <td class="py-2 font-mono text-[11px] text-ink-soft" th:text="${log.detail}">daysLeft=2</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- 分页 -->
+      <div th:if="${logTotalPages > 1}" class="flex items-center justify-between border-t border-rule pt-3">
+        <span class="font-mono text-[10px] text-ink-subtle tracking-wider">
+          第 <b class="text-ink tnum" th:text="${logPage}">1</b> / <b class="text-ink tnum" th:text="${logTotalPages}">1</b> 页
+        </span>
+        <div class="flex gap-2">
+          <a th:href="@{/admin/reminders(page=${logPage - 1})}"
+             th:if="${logPage > 1}"
+             class="btn-paper text-xs no-underline">← 上一页</a>
+          <span th:unless="${logPage > 1}" class="btn-paper text-xs opacity-30 cursor-not-allowed">← 上一页</span>
+          <a th:href="@{/admin/reminders(page=${logPage + 1})}"
+             th:if="${logPage < logTotalPages}"
+             class="btn-paper text-xs no-underline">下一页 →</a>
+          <span th:unless="${logPage < logTotalPages}" class="btn-paper text-xs opacity-30 cursor-not-allowed">下一页 →</span>
+        </div>
+      </div>
+    </div>
   </section>
 </main>
 

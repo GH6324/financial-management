@@ -2177,6 +2177,27 @@ NS=src/main/java/com/family/finance/web/admin/NotificationSettingsController.jav
   && log_ok "v04-RPT-TEST-3 测试审计走 audit_log · 非 report_reminder_log(决策 36)" \
   || log_bad "v04-RPT-TEST-3 测试审计归属错" "see notification controller"
 
+# v04-RPT-LOG-1 · /admin/reminders 含 ⑥ 提醒发送日志 section
+$CURL -b $COOKIE "$BASE/admin/reminders" -o "$TMP" -w ""
+{ grep -q '⑥ 提醒发送日志' "$TMP" \
+  && grep -q '测试发送审计' "$TMP"; } \
+  && log_ok "v04-RPT-LOG-1 /admin/reminders 显示提醒发送日志 section · 顶部引导测试审计" \
+  || log_bad "v04-RPT-LOG-1 日志 section 缺" "no ⑥ 提醒发送日志"
+
+# v04-RPT-LOG-2 · ReportReminderLogMapper 分页查询方法在岗
+RL=src/main/java/com/family/finance/repository/ReportReminderLogMapper.java
+{ grep -q 'findByFamily' "$RL" \
+  && grep -q 'countByFamily' "$RL" \
+  && grep -q 'LIMIT #{limit} OFFSET #{offset}' "$RL"; } \
+  && log_ok "v04-RPT-LOG-2 ReportReminderLogMapper findByFamily/countByFamily + LIMIT OFFSET 分页" \
+  || log_bad "v04-RPT-LOG-2 分页 mapper 缺" "no pagination query"
+
+# v04-RPT-LOG-3 · ?page=N URL 参数被识别(默认每页 20)
+$CURL -b $COOKIE "$BASE/admin/reminders?page=1" -o "$TMP" -w ""
+grep -q '⑥ 提醒发送日志' "$TMP" \
+  && log_ok "v04-RPT-LOG-3 ?page=N 参数被 controller 处理 · 默认 20/页" \
+  || log_bad "v04-RPT-LOG-3 分页参数失效" "page=1 missing section"
+
 # v04-PRIV-1 · 私密红线:全 LLM prompt 构造目录源码绝不引用手机号 / aksk(合规底线)
 LLM_DIR=src/main/java/com/family/finance/service/checkup/llm
 LEAK=$(grep -rnE 'getPhone\(|AccessKeySecret|AccessKeyId|getSmsAccessKey|FamilyNotifyConfig|ReportReminder|SmsAliyunChannel' "$LLM_DIR" 2>/dev/null || true)

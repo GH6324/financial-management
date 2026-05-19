@@ -6,9 +6,13 @@ import com.family.finance.domain.family.Family;
 import com.family.finance.domain.family.ReportingTemplate;
 import com.family.finance.domain.member.Member;
 import com.family.finance.domain.notify.FamilyNotifyConfig;
+import com.family.finance.domain.notify.ReportReminderLog;
+import com.family.finance.domain.period.Period;
 import com.family.finance.repository.FamilyMapper;
 import com.family.finance.repository.FamilyNotifyConfigMapper;
 import com.family.finance.repository.MemberMapper;
+import com.family.finance.repository.PeriodMapper;
+import com.family.finance.repository.ReportReminderLogMapper;
 import com.family.finance.service.AuditLogService;
 import com.family.finance.service.notify.ReminderMessage;
 import com.family.finance.service.notify.ReportReminderScheduler;
@@ -44,16 +48,23 @@ public class NotificationSettingsController {
     private final FamilyMapper familyMapper;
     private final MemberMapper memberMapper;
     private final FamilyNotifyConfigMapper notifyConfigMapper;
+    private final PeriodMapper periodMapper;
+    private final ReportReminderLogMapper reminderLogMapper;
     private final AuditLogService auditLogService;
     private final ReportReminderScheduler reminderScheduler;
     private final SmsAliyunChannel smsChannel;
+
+    /** 提醒日志默认每页 20 条 */
+    private static final int LOG_PAGE_SIZE = 20;
 
     /** §20.5.1 限流:每管理员每分钟最多 3 次测试短信(防误点 / 防刷成本) */
     private static final int TEST_RATE_LIMIT_PER_MIN = 3;
     private final java.util.Map<Long, Deque<Instant>> testRateBucket = new ConcurrentHashMap<>();
 
     @GetMapping
-    public String page(@AuthenticationPrincipal MemberPrincipal me, Model model) {
+    public String page(@AuthenticationPrincipal MemberPrincipal me,
+                       @RequestParam(value = "page", defaultValue = "1") int page,
+                       Model model) {
         Family family = familyMapper.findById(me.getFamilyId())
                 .orElseThrow(() -> new IllegalArgumentException("家庭不存在"));
         FamilyNotifyConfig cfg = notifyConfigMapper.findByFamily(me.getFamilyId())
@@ -74,6 +85,39 @@ public class NotificationSettingsController {
         model.addAttribute("akSecretSet",
                 cfg.getSmsAccessKeySecret() != null && !cfg.getSmsAccessKeySecret().isBlank());
         model.addAttribute("members", memberMapper.findActiveByFamily(me.getFamilyId()));
+
+        // ⑥ 提醒发送日志 · 分页(默认 20/页)
+        int safePage = Math.max(1, page);
+        int totalLogs = reminderLogMapper.countByFamily(me.getFamilyId());
+        int totalPages = Math.max(1, (totalLogs + LOG_PAGE_SIZE - 1) / LOG_PAGE_SIZE);
+        if (safePage > totalPages) safePage = totalPages;
+        int offset = (safePage - 1) * LOG_PAGE_SIZE;
+        java.util.List<ReportReminderLog> logs =
+                reminderLogMapper.findByFamily(me.getFamilyId(), LOG_PAGE_SIZE, offset);
+
+        // member_id → displayName(含已归档成员 fallback "已离开")
+        java.util.Map<Long, String> memberName = new java.util.HashMap<>();
+        memberMapper.findActiveByFamily(me.getFamilyId())
+                .forEach(m -> memberName.put(m.getId(), m.getDisplayName()));
+        // 涉及历史成员补查
+        for (ReportReminderLog l : logs) {
+            if (!memberName.containsKey(l.getMemberId())) {
+                memberMapper.findById(l.getMemberId())
+                        .ifPresent(m -> memberName.put(m.getId(), m.getDisplayName() + "(已归档)"));
+            }
+        }
+        // period_id → "yyyy-MM-dd"(截止日)
+        java.util.Map<Long, String> periodLabel = new java.util.HashMap<>();
+        logs.stream().map(ReportReminderLog::getPeriodId).distinct().forEach(pid ->
+                periodMapper.findById(pid).ifPresent(p ->
+                        periodLabel.put(pid, p.getPeriodEnd().toString())));
+
+        model.addAttribute("logs", logs);
+        model.addAttribute("logMemberName", memberName);
+        model.addAttribute("logPeriodLabel", periodLabel);
+        model.addAttribute("logPage", safePage);
+        model.addAttribute("logTotalPages", totalPages);
+        model.addAttribute("logTotal", totalLogs);
         return "admin/notification";
     }
 
@@ -198,8 +242,16 @@ public class NotificationSettingsController {
 
         Family family = familyMapper.findById(me.getFamilyId())
                 .orElseThrow(() -> new IllegalArgumentException("家庭不存在"));
+        // §20.5.1 · 测试短信用真实账期 + days=-1 标识 · 没 OPEN 周期就先 refuse
+        Period currentPeriod = periodMapper.findCurrentOpen(me.getFamilyId()).orElse(null);
+        if (currentPeriod == null) {
+            ra.addFlashAttribute("flashError",
+                    "当前家庭无 OPEN 周期 · 请先去『管理 → 周期』开启本期,再测试短信");
+            return "redirect:/admin/reminders";
+        }
 
-        ReminderMessage msg = ReminderMessage.forSmsTest(family.getName(), family.getBrandText());
+        ReminderMessage msg = ReminderMessage.forSmsTest(
+                family.getName(), family.getBrandText(), currentPeriod);
         SmsAliyunChannel.SendResult r = smsChannel.sendForTest(family, phone, msg);
 
         // 审计:走 audit_log · detail 不含 phone 明文 / aksk(私密红线)

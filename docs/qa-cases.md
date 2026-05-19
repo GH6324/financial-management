@@ -948,6 +948,9 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 | v04-RPT-TEST-1 | `POST /admin/reminders/sms-test` endpoint 在岗 · 配置不全时返"配置不完整" |
 | v04-RPT-TEST-2 | 测试限流 3 次/分/管理员(源码 `TEST_RATE_LIMIT_PER_MIN=3` + 滑动窗口) |
 | v04-RPT-TEST-3 | 测试日志走 **audit_log**(决策 36)· 非 report_reminder_log(避免 UNIQUE 去重) |
+| v04-RPT-LOG-1 | `/admin/reminders` ⑥ 段提醒发送日志 · 顶部引导「→ 测试发送审计」 |
+| v04-RPT-LOG-2 | `ReportReminderLogMapper.findByFamily` + `countByFamily` · LIMIT/OFFSET 分页查询 |
+| v04-RPT-LOG-3 | `?page=N` URL 参数被识别 · 默认 20/页 · 越界 clamp |
 | **v04-PRIV-1** | **合规底线**:LLM prompt 目录(`service/checkup/llm`)源码零引用 `getPhone`/`AccessKeySecret`/`FamilyNotifyConfig`… + `PrivacyIsolationTest` 在岗 |
 
 **单测**:`PrivacyIsolationTest` —— ① buildNameMapping 带 phone 的 Member 不外泄手机号 ② applyMapping 不引入手机号 ③ 静态扫描 LLM 目录零引用私密渠道符号(编译期 gate)。

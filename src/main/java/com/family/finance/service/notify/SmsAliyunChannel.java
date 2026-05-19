@@ -11,6 +11,7 @@ import org.springframework.web.client.RestTemplate;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -116,12 +117,19 @@ public class SmsAliyunChannel implements NotificationChannel {
         try {
             // 模板参数:运营商报备模板形如 ${brand}账本提醒,距记账截止还剩${days}天
             // PRD §20.4 · 4 变量 brand/period/days/progress · 工程预算好,模板只填空
+            // days 允许负数(测试场景 -1 标识 · 见 ReminderMessage.forSmsTest);
+            // 日常调度 dispatch() 已在 [0, leadDays] 窗口过滤,不会传负数到这里
             String templateParam = "{"
                     + "\"brand\":\""    + jsonEscape(msg.brand())    + "\","
                     + "\"period\":\""   + jsonEscape(msg.period())   + "\","
-                    + "\"days\":\""     + Math.max(msg.daysLeft(), 0) + "\","
+                    + "\"days\":\""     + msg.daysLeft()              + "\","
                     + "\"progress\":\"" + jsonEscape(msg.progress()) + "\""
                     + "}";
+
+            // 排查用 · brand/period/days/progress 都不是私密信息(手机号/aksk 才是)
+            // 阿里云后台对变量值默认脱敏显示,要在我们这边 log 才看得到真实发送内容
+            log.info("sms send · template={} phone={} param={}",
+                    cfg.getSmsTemplateCode(), mask(phone), templateParam);
 
             TreeMap<String, String> p = new TreeMap<>();
             p.put("AccessKeyId", cfg.getSmsAccessKeyId());
@@ -147,7 +155,9 @@ public class SmsAliyunChannel implements NotificationChannel {
                         .append('=').append(pctEncode(e.getValue()));
             }
 
-            String resp = restTemplate.getForObject(url.toString(), String.class);
+            // 用 URI.create 包裹避免 RestTemplate 把已 pctEncode 过的 %3A 二次编码成 %253A
+            // (会触发阿里云 InvalidTimeStamp.Format · 因为 ':' 在解码后变成了 %3A 字面值)
+            String resp = restTemplate.getForObject(URI.create(url.toString()), String.class);
             String code = extract(resp, "Code");
             String bizId = extract(resp, "BizId");
             String message = extract(resp, "Message");
