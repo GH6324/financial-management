@@ -2,6 +2,14 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.4.20] · 2026-05-19
+
+**hotfix** · 补 v0.4.19 漏修的 timer 行内注释 bug。
+
+### Fixed
+
+- **`finance-backup.timer` 行内注释致 `Persistent=true` 被静默忽略** · L15 `Persistent=true             # 错过...` —— systemd 不支持值后的行内注释,整行被忽略 = 关机错过周日不会自动补跑 · 改为注释独占一行 · `systemd-analyze verify` 通过(v0.4.20)
+
 ## [v0.4.19] · 2026-05-19
 
 **hotfix** · 修周备份从 v0.1 起从未跑成功的 deploy 配置漏装问题。

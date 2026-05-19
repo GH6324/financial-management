@@ -12,7 +12,8 @@ Requires=finance-backup.service
 [Timer]
 OnCalendar=Sun 03:00:00
 RandomizedDelaySec=15m
-Persistent=true             # 错过(机器关机)上次会补一次
+# 错过(机器关机)上次会补一次 — systemd 不支持值后的行内注释,注释必须独占一行
+Persistent=true
 
 [Install]
 WantedBy=timers.target
