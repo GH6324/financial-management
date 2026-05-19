@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('集成 · 管理 · 家庭账房')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('admin', ${me}, ${nav})}"></header>
+
+<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10 grid grid-cols-12 gap-8">
+  <aside th:replace="~{admin/_sidebar :: sidebar('integrations')}"></aside>
+
+  <section class="col-span-12 md:col-span-9 space-y-8">
+    <div class="mb-2">
+      <div class="eyebrow mb-2">集 · 成</div>
+      <h1 class="font-display text-4xl font-medium">第三方 API 与数据拉取</h1>
+      <p class="text-ink-soft text-sm mt-2">LLM 凭据 / 股票自动拉取 / FX 汇率拉取 · 全部支持<b>实时生效不重启</b></p>
+      <p class="font-mono text-[10px] text-brass-deep tracking-[0.16em] uppercase mt-3">
+        配置入口原则 · 运营参数都在管理页配 · 不再上服务器改文件
+      </p>
+    </div>
+
+    <div th:if="${flash}" class="border border-forest bg-forest/[0.05] px-4 py-2 text-sm" th:text="${flash}">成功</div>
+
+    <!-- ① LLM -->
+    <form th:action="@{/admin/integrations/llm}" method="post" class="bracket-card max-w-3xl space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <div class="flex items-baseline justify-between">
+        <div class="eyebrow-ink">① LLM · 资产体检 / 月报 / 调仓建议</div>
+        <span class="pill text-[10px]"
+              th:classappend="${qwenKeyConfigured and deepseekKeyConfigured} ? ' pill-forest' : ' pill-rust'"
+              th:text="${qwenKeyConfigured and deepseekKeyConfigured} ? '主备源 都已配' : (${qwenKeyConfigured or deepseekKeyConfigured} ? '部分已配' : '未配置')">未配置</span>
+      </div>
+
+      <div class="border-l-2 border-rust bg-rust/[0.04] px-4 py-3">
+        <p class="font-mono text-[10px] text-rust tracking-wider leading-relaxed">
+          ⚠ API key 为私密信息 · 仅用于调 LLM · 绝不进入 audit_log 明文 / 前端明文回显 · 留空 = 保持原值
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div>
+          <label class="field-label">通义 Qwen-Plus · API Key · <span class="text-ink-subtle" th:text="${qwenKeyConfigured} ? '已配置(隐藏)' : '未配置'">未配置</span></label>
+          <input class="field-input" type="password" name="qwenKey" autocomplete="new-password" placeholder="留空 = 不修改"/>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">DashScope 控制台 → API-KEY 管理 · sk-xxxxxxxx</p>
+        </div>
+        <div>
+          <label class="field-label">DeepSeek-Chat · API Key · <span class="text-ink-subtle" th:text="${deepseekKeyConfigured} ? '已配置(隐藏)' : '未配置'">未配置</span></label>
+          <input class="field-input" type="password" name="deepseekKey" autocomplete="new-password" placeholder="留空 = 不修改"/>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">platform.deepseek.com → API Keys · 主熔断后兜底</p>
+        </div>
+        <div>
+          <label class="field-label">max_tokens · 单次输出上限</label>
+          <input class="field-input w-32" type="number" name="maxTokens" th:value="${llmMaxTokens}" min="500" max="8000"/>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">默认 2000 · 改小可能 JSON 截断 · 实时生效</p>
+        </div>
+        <div>
+          <label class="field-label">超时秒 · timeout</label>
+          <input class="field-input w-32" type="number" name="timeoutSeconds" th:value="${llmTimeoutSeconds}" min="5" max="120"/>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">单次调用超时 · 改动需重启生效</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end">
+        <button type="submit" class="btn-ink">保存 LLM 配置</button>
+      </div>
+    </form>
+
+    <!-- ② 股票拉取 -->
+    <form th:action="@{/admin/integrations/stock}" method="post" class="bracket-card max-w-3xl space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <div class="flex items-baseline justify-between">
+        <div class="eyebrow-ink">② 股票自动拉取 · 美股 / A 股 / 港股</div>
+        <span class="pill text-[10px]"
+              th:classappend="${stockEnabled} ? ' pill-forest' : ' pill-rust'"
+              th:text="${stockEnabled} ? '已启用' : '已停用'">已启用</span>
+      </div>
+
+      <label class="flex items-center gap-3 text-sm">
+        <input type="checkbox" name="enabled" value="true" th:checked="${stockEnabled}"/>
+        <span class="font-display text-ink">启用股票自动拉取</span>
+        <span class="font-mono text-[10px] text-ink-subtle">关闭后所有市场停拉 · 持仓估值用最近一次快照</span>
+      </label>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div>
+          <label class="field-label">美股 cron · 每天</label>
+          <input class="field-input" name="cronUs" th:value="${stockCronUs}"/>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">默认 `0 5 6 * * *`(06:05)</p>
+        </div>
+        <div>
+          <label class="field-label">A 股 cron · 工作日</label>
+          <input class="field-input" name="cronCn" th:value="${stockCronCn}"/>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">默认 `0 10 16 * * MON-FRI`(16:10)</p>
+        </div>
+        <div>
+          <label class="field-label">港股 cron · 工作日</label>
+          <input class="field-input" name="cronHk" th:value="${stockCronHk}"/>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">默认 `0 30 16 * * MON-FRI`(16:30)</p>
+        </div>
+      </div>
+
+      <div class="paper-card-soft p-3 text-[11px] text-ink-soft font-mono tracking-wider leading-relaxed">
+        保存后:旧 cron cancel · 新时段立刻重排 · 不重启 · 错误 cron 表达式会落回代码默认。
+      </div>
+
+      <div class="flex justify-end">
+        <button type="submit" class="btn-ink">保存股票拉取配置</button>
+      </div>
+    </form>
+
+    <!-- ③ FX 拉取 -->
+    <form th:action="@{/admin/integrations/fx}" method="post" class="bracket-card max-w-3xl space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <div class="flex items-baseline justify-between">
+        <div class="eyebrow-ink">③ FX 汇率自动拉取</div>
+      </div>
+
+      <div>
+        <label class="field-label">FX cron 表达式</label>
+        <input class="field-input" name="fxCron" th:value="${fxCron}"/>
+        <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">默认 `0 30 2 1 * ?`(月初 02:30)· 6 字段 cron · 汇率变动慢 · 月度足够</p>
+      </div>
+
+      <div class="flex justify-end">
+        <button type="submit" class="btn-ink">保存 FX 配置</button>
+      </div>
+    </form>
+
+  </section>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

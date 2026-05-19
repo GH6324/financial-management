@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -27,7 +26,10 @@ public class FxFetchJob {
     private final FxService fxService;
     private final PeriodMapper periodMapper;
 
-    @Scheduled(cron = "0 30 2 1 * ?", zone = "Asia/Shanghai")
+    /**
+     * v0.4.18:cron 改由 DynamicScheduleConfig 注册(读 family_runtime_config.fx_cron · 默认 `0 30 2 1 * ?` 月初 02:30)。
+     * 此方法保持 public · 调度入口与 admin 手动触发共用。
+     */
     public void runMonthly() {
         runForAllFamilies("monthly-cron");
     }

@@ -62,6 +62,8 @@ public class AdminController {
     private final ProductCategoryService productCategoryService;
     // v0.4
     private final com.family.finance.repository.RebalanceAdviceCacheMapper rebalanceCacheMapper;
+    // v0.4.18 · 数值阈值可编辑(详 prd §22)
+    private final com.family.finance.service.config.FamilyConfigService configService;
 
     // ---------------------------------------------------------------------
     // 1. /admin · 总览
@@ -366,16 +368,83 @@ public class AdminController {
     }
 
     // ---------------------------------------------------------------------
-    // 12. /admin/calc-tweaks · 数值阈值(只读)
+    // 12. /admin/calc-tweaks · v0.4.18 · 数值阈值可编辑(详 prd §22)
     // ---------------------------------------------------------------------
     @GetMapping("/calc-tweaks")
-    public String calcTweaks(Model model) {
-        model.addAttribute("tweaks", List.of(
-                new String[]{"smart_transfer_threshold", "¥3,000", "轧差差额超过此值,提示'看起来像转账?'"},
-                new String[]{"loan_abnormal_threshold", "3×", "贷款本期变化超过上期 3 倍,警告'可能提前还款?'"},
-                new String[]{"unexplained_epsilon",     "¥0.01", "轧差未解释金额绝对值小于此即视为已分类完毕"}
-        ));
+    public String calcTweaks(@org.springframework.security.core.annotation.AuthenticationPrincipal
+                             com.family.finance.auth.MemberPrincipal me, Model model) {
+        long fid = me.getFamilyId();
+        com.family.finance.service.config.FamilyConfigService cs = configService;
+        // ① 录入提示阈值(老 3 项 · 之前只读 · v0.4.18 起可编辑)
+        model.addAttribute("smartTransfer", cs.getLong(fid, com.family.finance.service.config.FamilyConfigService.K_SMART_TRANSFER, 3000L));
+        model.addAttribute("loanAbnormal",  cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_LOAN_ABNORMAL, 3.0));
+        model.addAttribute("unexplainedEps", cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_UNEXPLAINED_EPSILON, 0.01));
+        // ② 体检阈值(新 4 项)
+        model.addAttribute("checkupConcentration", cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_CHECKUP_CONCENTRATION, 0.40));
+        model.addAttribute("checkupHighRisk",      cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_CHECKUP_HIGH_RISK, 0.40));
+        model.addAttribute("liquidBuffer",          cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_LIQUID_BUFFER, 1.5));
+        model.addAttribute("emergencyMonths",       cs.getInt(fid, com.family.finance.service.config.FamilyConfigService.K_EMERGENCY_MONTHS, 6));
+        // ③ 会话
+        model.addAttribute("rememberMeSeconds",     cs.getLong(fid, com.family.finance.service.config.FamilyConfigService.K_REMEMBER_ME_SECONDS, 2592000L));
         return "admin/calc-tweaks";
+    }
+
+    /** v0.4.18 · ① 录入提示阈值保存 */
+    @PostMapping("/calc-tweaks/entry-thresholds")
+    public String saveEntryThresholds(@org.springframework.security.core.annotation.AuthenticationPrincipal
+                                      com.family.finance.auth.MemberPrincipal me,
+                                      @org.springframework.web.bind.annotation.RequestParam("smartTransfer") long smartTransfer,
+                                      @org.springframework.web.bind.annotation.RequestParam("loanAbnormal") double loanAbnormal,
+                                      @org.springframework.web.bind.annotation.RequestParam("unexplainedEps") double unexplainedEps,
+                                      org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
+        long fid = me.getFamilyId();
+        configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_SMART_TRANSFER, String.valueOf(Math.max(0L, smartTransfer)));
+        configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_LOAN_ABNORMAL,  String.valueOf(Math.max(1.0, loanAbnormal)));
+        configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_UNEXPLAINED_EPSILON, String.valueOf(Math.max(0.0, unexplainedEps)));
+        auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE, "family_runtime_config", fid,
+                "录入阈值 · smartTransfer=" + smartTransfer + " · loanAbnormal=" + loanAbnormal + " · epsilon=" + unexplainedEps);
+        ra.addFlashAttribute("flash", "录入阈值已保存");
+        return "redirect:/admin/calc-tweaks";
+    }
+
+    /** v0.4.18 · ② 体检阈值保存 */
+    @PostMapping("/calc-tweaks/checkup-thresholds")
+    public String saveCheckupThresholds(@org.springframework.security.core.annotation.AuthenticationPrincipal
+                                        com.family.finance.auth.MemberPrincipal me,
+                                        @org.springframework.web.bind.annotation.RequestParam("concentration") double concentration,
+                                        @org.springframework.web.bind.annotation.RequestParam("highRisk") double highRisk,
+                                        @org.springframework.web.bind.annotation.RequestParam("liquidBuffer") double liquidBuffer,
+                                        @org.springframework.web.bind.annotation.RequestParam("emergencyMonths") int emergencyMonths,
+                                        org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
+        long fid = me.getFamilyId();
+        // 防呆:百分比合理区间 / 月数 ≥ 1
+        configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_CHECKUP_CONCENTRATION, String.valueOf(clamp01(concentration)));
+        configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_CHECKUP_HIGH_RISK,     String.valueOf(clamp01(highRisk)));
+        configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_LIQUID_BUFFER,         String.valueOf(Math.max(1.0, liquidBuffer)));
+        configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_EMERGENCY_MONTHS,      String.valueOf(Math.max(1, Math.min(emergencyMonths, 24))));
+        auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE, "family_runtime_config", fid,
+                "体检阈值 · concentration=" + concentration + " · highRisk=" + highRisk + " · liquidBuffer=" + liquidBuffer + "x · emergencyMonths=" + emergencyMonths);
+        ra.addFlashAttribute("flash", "体检阈值已保存 · 下次诊断生效");
+        return "redirect:/admin/calc-tweaks";
+    }
+
+    /** v0.4.18 · ③ 会话有效期保存(说明:下次 login 生效 · 在世 cookie 仍按旧时长) */
+    @PostMapping("/calc-tweaks/session")
+    public String saveSession(@org.springframework.security.core.annotation.AuthenticationPrincipal
+                              com.family.finance.auth.MemberPrincipal me,
+                              @org.springframework.web.bind.annotation.RequestParam("rememberMeSeconds") long rememberMeSeconds,
+                              org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
+        long fid = me.getFamilyId();
+        long safe = Math.max(86400L, Math.min(rememberMeSeconds, 365 * 86400L)); // 1 天 ~ 1 年
+        configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_REMEMBER_ME_SECONDS, String.valueOf(safe));
+        auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE, "family_runtime_config", fid,
+                "remember-me 有效期 = " + safe + "s · 下次 login 生效");
+        ra.addFlashAttribute("flash", "会话有效期已保存 · 注意:已 login 用户的旧 cookie 仍按旧时长(下次 login 才用新值)");
+        return "redirect:/admin/calc-tweaks";
+    }
+
+    private static double clamp01(double v) {
+        return Math.max(0.0, Math.min(v, 1.0));
     }
 
     private static String blankToNull(String s) { return s == null || s.isBlank() ? null : s; }

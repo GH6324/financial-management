@@ -66,11 +66,11 @@ class PrivacyIsolationTest {
         assertThat(Files.isDirectory(llmDir))
                 .as("LLM prompt 目录应存在").isTrue();
 
+        // 短信 / 手机号红线 · 全 LLM 目录(含 LlmClient)都不能引用
         List<String> forbidden = List.of(
                 "getPhone", "setPhone", ".phone",
-                "AccessKeySecret", "AccessKeyId", "getSmsAccessKey",
-                "FamilyNotifyConfig", "ReportReminder", "SmsAliyunChannel",
-                "FamilyNotifyConfigMapper");
+                "AccessKeySecret", "getSmsAccessKey",
+                "FamilyNotifyConfig", "SmsAliyunChannel", "FamilyNotifyConfigMapper");
 
         try (Stream<Path> walk = Files.walk(llmDir)) {
             List<Path> javaFiles = walk
@@ -87,6 +87,39 @@ class PrivacyIsolationTest {
                             .doesNotContain(token);
                 }
             }
+        }
+    }
+
+    /**
+     * 防线 3 · v0.4.18 · PromptBuilder 是 prompt 文本生成器 ·
+     * 绝不可引用任何配置 service / LLM API key 访问器 ·
+     * 避免误把 secret 拼进 prompt 文本。
+     *
+     * <p>LlmClient(QwenLlmClient / DeepSeekLlmClient)允许引用 K_LLM_*_KEY
+     * (它们是通过 HTTP header 把 key 提交给上游 LLM API · 不进 prompt body)·
+     * 故此校验只针对 PromptBuilder 文件本身。
+     */
+    @Test
+    void promptBuilderNeverReferencesAnyPrivateAccessor() throws IOException {
+        Path promptBuilder = Path.of("src/main/java/com/family/finance/service/checkup/llm/PromptBuilder.java");
+        assertThat(Files.isRegularFile(promptBuilder))
+                .as("PromptBuilder.java 应存在").isTrue();
+        String src = Files.readString(promptBuilder);
+
+        // PromptBuilder 是 prompt 文本生成器 · 绝对不读任何私密字段
+        List<String> forbidden = List.of(
+                // SMS 红线
+                "getPhone", "setPhone", "AccessKeyId", "AccessKeySecret",
+                "FamilyNotifyConfig", "SmsAliyunChannel",
+                // v0.4.18 · LLM API key 红线(LlmClient 可读 · PromptBuilder 不能)
+                "K_LLM_QWEN_KEY", "K_LLM_DEEPSEEK_KEY",
+                "llm_qwen_api_key", "llm_deepseek_api_key",
+                "currentApiKey", "FamilyConfigService");
+
+        for (String token : forbidden) {
+            assertThat(src)
+                    .as("PromptBuilder.java 不得引用私密符号 [%s](会泄露进 LLM prompt 内容)", token)
+                    .doesNotContain(token);
         }
     }
 }

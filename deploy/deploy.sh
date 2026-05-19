@@ -224,6 +224,34 @@ if [[ "${PLACEHOLDER_COUNT:-0}" -gt 0 ]]; then
   ok "种子用户密码 → bcrypt(临时)"
 fi
 
+# 9.5 v0.4.18 · 配置种子迁移(把 env 值一次性灌进 family_runtime_config · 只跑一次幂等)
+# 详 prd/v0.4.md §22.8
+say "9.5/15 配置种子迁移(v0.4.18+)"
+MIGRATED_FLAG=/var/finance/.config-migrated-v0.4.18
+if [[ -f "$MIGRATED_FLAG" ]]; then
+  ok "已迁移过 · 跳过(再次升级幂等 · 不覆盖用户管理页改过的值)"
+else
+  # 检测 family_runtime_config 表是否存在(V26 必须先应用 · 上面 step 9 应已应用)
+  if mysql_run -N -e "SELECT 1 FROM information_schema.tables WHERE table_schema = '$DB_NAME' AND table_name = 'family_runtime_config' LIMIT 1;" 2>/dev/null | grep -q 1; then
+    # 注意:这里不用 source · 因为 deploy.sh 顶部已读过 finance.env 的 DB_* 等
+    # 单家庭模式 · family_id=1(与 backup.sh 一致 · 见 prd §22.3 类 A)
+    # ON DUPLICATE KEY UPDATE:理论上首次 INSERT IGNORE 也够,但 ON DUP UPDATE 更明确
+    SQL_CONTENT="$(cat <<SQLEOF
+INSERT INTO family_runtime_config (family_id, key_name, value_text) VALUES
+  (1, 'stock_fetch_enabled', '${FINANCE_STOCK_FETCH_ENABLED:-true}'),
+  (1, 'llm_qwen_api_key',    '${FINANCE_LLM_QWEN_API_KEY:-}'),
+  (1, 'llm_deepseek_api_key','${FINANCE_LLM_DEEPSEEK_API_KEY:-}')
+ON DUPLICATE KEY UPDATE value_text = VALUES(value_text);
+SQLEOF
+)"
+    echo "$SQL_CONTENT" | mysql_run >/dev/null 2>&1 || die "配置种子迁移失败 · 检查 family_runtime_config 表 + finance.env 变量"
+    touch "$MIGRATED_FLAG"
+    ok "env 配置已 seed 到 family_runtime_config · 后续以 DB 为准(私密 key 不打印)"
+  else
+    warn "family_runtime_config 表不存在 · 跳过(V26 可能未应用 · 见 step 9)"
+  fi
+fi
+
 # 10. 清 dev 演示数据(首装才会触发;sentinel + 真实数据双保险)
 say "10/15 清 dev 演示数据"
 SENTINEL=/opt/finance/.prod-cleaned

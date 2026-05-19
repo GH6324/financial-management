@@ -51,6 +51,7 @@ public class CheckupController {
     private final com.family.finance.service.HouseholdCashflowService householdCashflowService;
     private final com.family.finance.service.FxService fxService;
     private final com.family.finance.repository.PeriodMapper periodMapper;
+    private final com.family.finance.service.config.FamilyConfigService configService;
 
     @GetMapping("/checkup")
     public String checkup(@AuthenticationPrincipal MemberPrincipal me,
@@ -74,10 +75,14 @@ public class CheckupController {
             RuleContext ctx = RuleContext.forFamily(diagnose, accounts, avgMonthlyExpense);
             List<Advice> advice = adviceEngine.evaluate(ctx);
 
-            // v0.4 FR-62c · 应急金不闲置评估(用 FamilyDiagnose.liquidAssets + avgMonthlyExpense)
-            var liquidSurplus = com.family.finance.calc.LiquiditySurplus.evaluate(
-                diagnose.liquidAssets(), avgMonthlyExpense,
+            // v0.4 FR-62c · 应急金不闲置评估 · v0.4.18 应急月数 + buffer 倍率改读 ConfigService
+            int emergencyMonths = configService.getInt(me.getFamilyId(),
+                com.family.finance.service.config.FamilyConfigService.K_EMERGENCY_MONTHS,
                 com.family.finance.calc.LiquiditySurplus.DEFAULT_EMERGENCY_MONTHS);
+            BigDecimal liquidMultiplier = BigDecimal.valueOf(configService.getDouble(me.getFamilyId(),
+                com.family.finance.service.config.FamilyConfigService.K_LIQUID_BUFFER, 1.5));
+            var liquidSurplus = com.family.finance.calc.LiquiditySurplus.evaluate(
+                diagnose.liquidAssets(), avgMonthlyExpense, emergencyMonths, liquidMultiplier);
 
             model.addAttribute("scope", "FAMILY");
             model.addAttribute("diagnose", diagnose);

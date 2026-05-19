@@ -10,7 +10,6 @@ import com.family.finance.repository.PeriodMemberCompletionMapper;
 import com.family.finance.repository.ReportReminderLogMapper;
 import com.family.finance.service.FamilyService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -61,7 +60,10 @@ public class ReportReminderScheduler {
         this.channels = List.of(smsChannel, inAppChannel);
     }
 
-    @Scheduled(cron = "0 0 10,20 * * *", zone = "Asia/Shanghai")
+    /**
+     * v0.4.18:cron 改由 DynamicScheduleConfig 注册(读 family_runtime_config.report_remind_cron · 默认 `0 0 10,20 * * *` 每天 10:00/20:00)。
+     * 此方法保持 public · 调度入口与 admin 手动触发(runNow)共用。
+     */
     public void scheduled() {
         int sent = dispatch(LocalDate.now());
         log.info("report-reminder scheduled run done · armed={}", sent);

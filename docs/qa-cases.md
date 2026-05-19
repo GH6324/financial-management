@@ -968,6 +968,37 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 - PromptBuilder 白名单式注入不受新字段影响 · 其他 LLM caller 0 改动
 - prod 升级 `git pull && sudo bash deploy/deploy.sh`(交互确认应用 V25)· 0 风险
 
+### v0.4.18 · 系统级配置沉淀管理页(FR-22 · 2026-05-19)
+
+**触发**:9 项运营参数(LLM keys / 股票拉取开关+cron / FX cron / 提醒 cron / checkup 阈值 / 会话期)从 env/代码常量迁到 family_runtime_config 表 · 实时生效不重启。详 [prd/v0.4.md §22](../prd/v0.4.md)。
+
+| Case | 验证点 |
+|---|---|
+| v04-CFG-1 | V26 migration `family_runtime_config` 表存在 |
+| v04-CFG-2 | `FamilyConfigService` 三层 fallback + 5s TTL cache + 17 个 K_* 常量 |
+| v04-CFG-3 | `DynamicScheduleConfig` 注册 5 受管 cron + rescheduleAll |
+| v04-CFG-4 | Stock/Fx/ReportReminder `@Scheduled` 已删 · 由动态调度接管 |
+| v04-CFG-5 | LLM client API key 改读 ConfigService(不再 @Value 直注入) |
+| v04-CFG-6 | `/admin/integrations` 集成中心 200 · 3 段(LLM/股票/FX) |
+| v04-CFG-7 | `/admin/calc-tweaks` 升级为可编辑表单 · 8 个字段(老 3 + 新 4 + 会话期) |
+| v04-CFG-8 | admin sidebar 加"集成"入口 + 标 14 项 |
+| v04-CFG-9 | deploy.sh step 9.5 种子 + 幂等 flag |
+| **v04-CFG-10** | **私密红线扩展** · PrivacyIsolationTest.promptBuilderNeverReferencesAnyPrivateAccessor 防 LLM key 泄露进 prompt |
+
+**手工验证步骤(prod 升级后)**
+1. `bash deploy/deploy.sh` · step 9.5 跑过 · `SELECT * FROM family_runtime_config WHERE family_id=1` 应含 stock_fetch_enabled / llm_qwen_api_key / llm_deepseek_api_key 3 行(env 值 seed)
+2. `/admin/integrations` 看 3 段 form · 改 LLM max_tokens 保存 · DB 入新行
+3. `/admin/calc-tweaks` 改 emergency_months=12 保存 · `/checkup` 应急金提示数字跟着变
+4. 改股票 cron `06:05` → `07:00` 保存 · journal 应见 `[dyn-sched] stock-us scheduled · cron=...` rescheduled
+5. 关股票拉取开关 · 等 cron 时段过 · 应 SKIPPED 不 fetch
+6. 回滚 v0.4.18 → v0.4.17:老 jar 不读新表 · 完全恢复升级前行为(env @Value 仍生效)
+
+**backward-compat 红线**
+- V26 仅新建表 · 0 改字段 / 0 删 · 老 family 无行走 env @Value · 行为完全等价升级前
+- LLM API key 同 SMS aksk 纪律 · PrivacyIsolationTest 双重防回归
+- deploy.sh 9.5 步幂等(flag 文件)· 重复 deploy 不覆盖用户管理页改过的值
+- 私密字段在 audit_log 只记"已配/未配"不记明文
+
 ### v0.4.17 · 520 一日限定爱情宣言彩蛋(FR-520 · 2026-05-19 设计 · 2026-05-20 上线)
 
 **触发**:5.20 谐音"我爱你" + 家庭账房面向夫妻/家庭场景 · 全屏像素彩蛋强化"家"的氛围 · 仅当天 + Asia/Shanghai 服务器时区 · 5.21 完全 dormant。详 [prd/v0.4.md §21](../prd/v0.4.md)。

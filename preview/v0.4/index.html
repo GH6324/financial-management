@@ -513,6 +513,22 @@
           </p>
         </div>
       </div>
+
+      <!-- 升级路径 + deploy.sh 改动 · 你刚问的 2 点 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+        <div class="border-l-2 border-forest bg-forest/[0.04] px-4 py-3">
+          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-forest mb-1">历史兼容 · 三层读取链(§22.7)</div>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            <b>DB > env(@Value) > 代码常量</b>。prod 升级当下 DB 空 → 读 env → 行为零变化 · deploy.sh seed 后 → DB 优先 · 用户管理页改 → DB upsert · 老 env 文件可保留作 fallback 也可清理 · <b>回滚到 v0.4.17 完全 work</b>(老 jar 不读新表 · 直接走 env)
+          </p>
+        </div>
+        <div class="border-l-2 border-forest bg-forest/[0.04] px-4 py-3">
+          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-forest mb-1">deploy.sh 改动 · 9.5 种子(§22.8)</div>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            加 step 9.5 在 V26 迁移后 / jar 部署前:source /etc/finance.env + UPSERT 进 family_runtime_config(family_id=1)· 写 /var/finance/.config-migrated-v0.4.18 flag · 幂等 · 重复 deploy 不覆盖用户管理页改过的值 · init-prod.sh 新装机不再写 LLM key 到 env(由用户登录后管理页配)
+          </p>
+        </div>
+      </div>
     </section>
 
     <!-- 非范围 -->

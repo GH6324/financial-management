@@ -2034,11 +2034,12 @@ grep -q "structured() == null" src/main/resources/templates/checkup/_ai-diagnose
   && log_ok "v04-AI-DIAGNOSE-3 模板含 fallback 分支(老 cache / 解析失败时显示 text)" \
   || log_bad "v04-AI-DIAGNOSE-3 fallback 分支缺" "missing structured null check"
 
-# v04-AI-DIAGNOSE-4 · v0.4.10 · max_tokens 升到 2000 + 截断检测
-{ grep -q '"max_tokens", 2000' src/main/java/com/family/finance/service/checkup/llm/QwenLlmClient.java \
-  && grep -q '"max_tokens", 2000' src/main/java/com/family/finance/service/checkup/llm/DeepSeekLlmClient.java; } \
-  && log_ok "v04-AI-DIAGNOSE-4 LlmClient max_tokens 750→2000 · 防 JSON 输出被截断" \
-  || log_bad "v04-AI-DIAGNOSE-4 max_tokens 未提升" "still 750"
+# v04-AI-DIAGNOSE-4 · v0.4.18 后 max_tokens 改读 ConfigService 动态(默认 2000)
+{ grep -q 'currentMaxTokens' src/main/java/com/family/finance/service/checkup/llm/QwenLlmClient.java \
+  && grep -q 'currentMaxTokens' src/main/java/com/family/finance/service/checkup/llm/DeepSeekLlmClient.java \
+  && grep -q 'K_LLM_MAX_TOKENS' src/main/java/com/family/finance/service/config/FamilyConfigService.java; } \
+  && log_ok "v04-AI-DIAGNOSE-4 LlmClient max_tokens 改读 ConfigService 动态(默认 2000 · 可热改)" \
+  || log_bad "v04-AI-DIAGNOSE-4 max_tokens 未切动态" "see Qwen/DeepSeek + ConfigService"
 
 # v04-AI-DIAGNOSE-5 · 截断检测 · DiagnoseResult.truncated + 模板友好错误
 { grep -q 'truncated\(\) \|looksTruncatedJson\|truncated()' src/main/java/com/family/finance/service/checkup/llm/LlmDiagnoseService.java \
@@ -2101,12 +2102,13 @@ $CURL -b $COOKIE -X POST --data-urlencode "_csrf=$RTOK" \
   --data-urlencode "template=T1_REALTIME_INCOME_MONTHEND_EXPENSE" \
   --data-urlencode "leadDays=2" "$BASE/admin/reminders/template" -o /dev/null -w ""
 
-# v04-RPT-REMIND-3 · 调度器 @Scheduled cron + Asia/Shanghai 时区
-SCH=src/main/java/com/family/finance/service/notify/ReportReminderScheduler.java
-{ grep -qF '@Scheduled(cron = "0 0 10,20 * * *"' "$SCH" \
-  && grep -qF 'zone = "Asia/Shanghai"' "$SCH"; } \
-  && log_ok "v04-RPT-REMIND-3 调度器 cron 0 0 10,20 · Asia/Shanghai" \
-  || log_bad "v04-RPT-REMIND-3 调度 cron/zone 缺" "no scheduled cron"
+# v04-RPT-REMIND-3 · 调度 cron · v0.4.18 起由 DynamicScheduleConfig 注册(读 DB · 默认 0 0 10,20 * * *)
+DSC=src/main/java/com/family/finance/service/scheduling/DynamicScheduleConfig.java
+{ grep -qF 'DEFAULT_REPORT_REMIND_CRON = "0 0 10,20 * * *"' "$DSC" \
+  && grep -qF 'ZONE_ID = "Asia/Shanghai"' "$DSC" \
+  && grep -q 'reminderScheduler::scheduled' "$DSC"; } \
+  && log_ok "v04-RPT-REMIND-3 提醒 cron 0 0 10,20 · Asia/Shanghai · 由动态调度注册" \
+  || log_bad "v04-RPT-REMIND-3 提醒 cron 注册缺" "see DynamicScheduleConfig"
 
 # v04-RPT-REMIND-4 · 渠道抽象可插拔(接口 + 短信 + 站内兜底)
 ND=src/main/java/com/family/finance/service/notify
@@ -2246,6 +2248,93 @@ LEAK=$(grep -rnE 'getPhone\(|AccessKeySecret|AccessKeyId|getSmsAccessKey|FamilyN
   && [[ -f src/test/java/com/family/finance/service/checkup/llm/PrivacyIsolationTest.java ]]; } \
   && log_ok "v04-PRIV-1 LLM prompt 源码零引用 phone/aksk + PrivacyIsolationTest 在岗(合规底线)" \
   || log_bad "v04-PRIV-1 私密红线被突破" "leak=[$LEAK]"
+
+section "v0.4.18 · 系统级配置迁管理页"
+
+# v04-CFG-1 · V26 migration 已应用 · family_runtime_config 表在
+CFG_TABLE=$(MYSQL_PWD=finance mysql -h127.0.0.1 -ufinance finance -N -e \
+  "SELECT 1 FROM information_schema.tables WHERE table_schema='finance' AND table_name='family_runtime_config' LIMIT 1;" 2>/dev/null)
+{ [[ "$CFG_TABLE" == "1" ]]; } \
+  && log_ok "v04-CFG-1 V26 family_runtime_config 表存在" \
+  || log_bad "v04-CFG-1 V26 未应用" "no table"
+
+# v04-CFG-2 · FamilyConfigService 三层 fallback + 5s TTL cache 在岗
+FCS=src/main/java/com/family/finance/service/config/FamilyConfigService.java
+{ [[ -f "$FCS" ]] \
+  && grep -q "K_LLM_QWEN_KEY" "$FCS" \
+  && grep -q "K_STOCK_ENABLED" "$FCS" \
+  && grep -q "K_REPORT_REMIND_CRON" "$FCS" \
+  && grep -q "envQwenKey" "$FCS" \
+  && grep -q "CACHE_TTL_MILLIS" "$FCS"; } \
+  && log_ok "v04-CFG-2 FamilyConfigService 三层 fallback + 5s TTL cache + K_* 常量" \
+  || log_bad "v04-CFG-2 FamilyConfigService 缺关键 hook" "see $FCS"
+
+# v04-CFG-3 · DynamicScheduleConfig 注册 5 个受管 cron
+DSC=src/main/java/com/family/finance/service/scheduling/DynamicScheduleConfig.java
+{ [[ -f "$DSC" ]] \
+  && grep -q "stock-us" "$DSC" \
+  && grep -q "stock-cn" "$DSC" \
+  && grep -q "stock-hk" "$DSC" \
+  && grep -q "rescheduleAll" "$DSC" \
+  && grep -q "CronTrigger" "$DSC"; } \
+  && log_ok "v04-CFG-3 DynamicScheduleConfig · 5 受管 cron + rescheduleAll" \
+  || log_bad "v04-CFG-3 动态 cron config 缺" "see $DSC"
+
+# v04-CFG-4 · 5 个被托管的 scheduler 已删 @Scheduled · 用 grep -E 排除 javadoc 注释里的 @Scheduled 关键词
+{ ! grep -E '^\s*@Scheduled\(' src/main/java/com/family/finance/service/stock/StockPriceScheduler.java \
+  && ! grep -E '^\s*@Scheduled\(' src/main/java/com/family/finance/service/FxFetchJob.java \
+  && ! grep -E '^\s*@Scheduled\(' src/main/java/com/family/finance/service/notify/ReportReminderScheduler.java; } 2>/dev/null \
+  && log_ok "v04-CFG-4 Stock/Fx/ReportReminder @Scheduled 注解已删 · 由动态调度接管" \
+  || log_bad "v04-CFG-4 仍有遗留 @Scheduled 注解" "see 3 scheduler"
+
+# v04-CFG-5 · LLM client 改读 FamilyConfigService(不再 @Value 注入 API key)
+QC=src/main/java/com/family/finance/service/checkup/llm/QwenLlmClient.java
+DC=src/main/java/com/family/finance/service/checkup/llm/DeepSeekLlmClient.java
+{ ! grep -q '@Value.*qwen.api-key' "$QC" \
+  && ! grep -q '@Value.*deepseek.api-key' "$DC" \
+  && grep -q 'configService.getString' "$QC" \
+  && grep -q 'configService.getString' "$DC"; } \
+  && log_ok "v04-CFG-5 LLM client API key 改读 ConfigService(不再 @Value 直注入)" \
+  || log_bad "v04-CFG-5 LLM client 未切换 ConfigService" "see Qwen/DeepSeek"
+
+# v04-CFG-6 · /admin/integrations 页 200 + 含 LLM/股票/FX 三段
+$CURL -b $COOKIE "$BASE/admin/integrations" -o "$TMP" -w ""
+{ grep -q '通义 Qwen-Plus' "$TMP" \
+  && grep -q '股票自动拉取' "$TMP" \
+  && grep -q 'FX 汇率自动拉取' "$TMP"; } \
+  && log_ok "v04-CFG-6 /admin/integrations 集成中心 · 3 段在岗" \
+  || log_bad "v04-CFG-6 集成页缺段" "missing sections"
+
+# v04-CFG-7 · /admin/calc-tweaks 升级为可编辑(form post)
+$CURL -b $COOKIE "$BASE/admin/calc-tweaks" -o "$TMP" -w ""
+{ grep -q 'name="smartTransfer"' "$TMP" \
+  && grep -q 'name="concentration"' "$TMP" \
+  && grep -q 'name="emergencyMonths"' "$TMP" \
+  && grep -q 'name="rememberMeSeconds"' "$TMP"; } \
+  && log_ok "v04-CFG-7 /admin/calc-tweaks 升级可编辑表单 · 8 个字段" \
+  || log_bad "v04-CFG-7 calc-tweaks 升级未到位" "missing form fields"
+
+# v04-CFG-8 · admin sidebar 加"集成"入口 + 14 项
+SB=src/main/resources/templates/admin/_sidebar.html
+{ grep -q "/admin/integrations" "$SB" \
+  && grep -q "/ADMIN · 14 项" "$SB"; } \
+  && log_ok "v04-CFG-8 admin sidebar 加'集成'入口 + 标 14 项" \
+  || log_bad "v04-CFG-8 sidebar 未更新" "see _sidebar.html"
+
+# v04-CFG-9 · deploy.sh 加 step 9.5 配置种子 + 幂等 flag
+DEP=deploy/deploy.sh
+{ grep -q "9.5/15 配置种子迁移" "$DEP" \
+  && grep -q "config-migrated-v0.4.18" "$DEP" \
+  && grep -q "family_runtime_config" "$DEP"; } \
+  && log_ok "v04-CFG-9 deploy.sh 加 step 9.5 种子 + 幂等 flag" \
+  || log_bad "v04-CFG-9 deploy.sh 9.5 步缺" "see deploy.sh"
+
+# v04-CFG-10 · PrivacyIsolationTest 扩 PromptBuilder LLM key 防泄露
+PIT=src/test/java/com/family/finance/service/checkup/llm/PrivacyIsolationTest.java
+{ grep -q "promptBuilderNeverReferencesAnyPrivateAccessor" "$PIT" \
+  && grep -q "K_LLM_QWEN_KEY" "$PIT"; } \
+  && log_ok "v04-CFG-10 PrivacyIsolationTest 扩 · PromptBuilder 防 LLM key 泄露" \
+  || log_bad "v04-CFG-10 私密红线扩展缺" "see PrivacyIsolationTest"
 
 echo
 echo "═══════════════════════════════════════"

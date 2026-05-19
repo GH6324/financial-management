@@ -3,6 +3,8 @@ package com.family.finance.service.checkup.rule;
 import com.family.finance.factview.AllocationSlice;
 import com.family.finance.service.checkup.AccountDiagnose;
 import com.family.finance.service.checkup.FamilyDiagnose;
+import com.family.finance.service.config.FamilyConfigService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -19,6 +21,8 @@ import java.util.Optional;
 public class FamilyRules {
 
     private static final BigDecimal HUNDRED = new BigDecimal("100");
+    /** 单家庭模式 · 见 prd §22.3 类 A */
+    private static final long FAMILY_ID = 1L;
 
     /** FAM-LIQ-1 · 紧急储备 < 3 个月 → DANGER */
     @Component
@@ -86,9 +90,11 @@ public class FamilyRules {
         }
     }
 
-    /** FAM-RISK-1 · 高风险敞口(level≥5)≥ 40% 总资产 → DANGER */
+    /** FAM-RISK-1 · 高风险敞口(level≥5)超过阈值 → DANGER · v0.4.18 阈值改读 ConfigService(默认 0.40) */
     @Component
+    @RequiredArgsConstructor
     public static class FamRisk1HighRiskOver40 implements Rule {
+        private final FamilyConfigService configService;
         public String id() { return "FAM-RISK-1"; }
         public Advice.Scope scope() { return Advice.Scope.FAMILY; }
         public Optional<Advice> evaluate(RuleContext ctx) {
@@ -98,13 +104,17 @@ public class FamilyRules {
                     .filter(b -> b.level() >= 5)
                     .map(FamilyDiagnose.RiskBucket::ratio)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            if (high.compareTo(new BigDecimal("0.40")) < 0) return Optional.empty();
+            double threshold = configService.getDouble(FAMILY_ID,
+                    FamilyConfigService.K_CHECKUP_HIGH_RISK, 0.40);
+            BigDecimal thresholdBd = BigDecimal.valueOf(threshold);
+            if (high.compareTo(thresholdBd) < 0) return Optional.empty();
             String pct = high.multiply(HUNDRED).setScale(0, RoundingMode.HALF_EVEN) + "%";
+            String thresholdPct = thresholdBd.multiply(HUNDRED).setScale(0, RoundingMode.HALF_EVEN) + "%";
             return Optional.of(Advice.of(
                     id(), Advice.Scope.FAMILY, null,
                     Advice.Dimension.RISK_ALLOCATION, Advice.Severity.DANGER,
                     "高风险敞口过大",
-                    "高风险类目(★★★★★及以上)合计占总资产 " + pct + ",超过推荐上限 40%。",
+                    "高风险类目(★★★★★及以上)合计占总资产 " + pct + ",超过推荐上限 " + thresholdPct + "。",
                     "建议将其中一部分调整至中低风险类目,降低组合波动率与最大回撤敞口。",
                     "→ 看风险分布"));
         }
@@ -135,9 +145,11 @@ public class FamilyRules {
         }
     }
 
-    /** FAM-ALC-1 · 至少 3 类资产 + 各类占比 ≤ 40% → OK 表扬 */
+    /** FAM-ALC-1 · 至少 3 类资产 + 各类占比 ≤ 集中度阈值 → OK 表扬 · v0.4.18 阈值改读 ConfigService(默认 0.40) */
     @Component
+    @RequiredArgsConstructor
     public static class FamAlc1HealthyAllocation implements Rule {
+        private final FamilyConfigService configService;
         public String id() { return "FAM-ALC-1"; }
         public Advice.Scope scope() { return Advice.Scope.FAMILY; }
         public Optional<Advice> evaluate(RuleContext ctx) {
@@ -147,14 +159,18 @@ public class FamilyRules {
                     .filter(s -> s.value() != null && s.value().signum() > 0)
                     .count();
             if (nonZero < 3) return Optional.empty();
+            double threshold = configService.getDouble(FAMILY_ID,
+                    FamilyConfigService.K_CHECKUP_CONCENTRATION, 0.40);
+            BigDecimal thresholdBd = BigDecimal.valueOf(threshold);
             boolean overweight = f.allocation().stream()
-                    .anyMatch(s -> s.ratio() != null && s.ratio().compareTo(new BigDecimal("0.40")) > 0);
+                    .anyMatch(s -> s.ratio() != null && s.ratio().compareTo(thresholdBd) > 0);
             if (overweight) return Optional.empty();
+            String thresholdPct = thresholdBd.multiply(HUNDRED).setScale(0, RoundingMode.HALF_EVEN) + "%";
             return Optional.of(Advice.of(
                     id(), Advice.Scope.FAMILY, null,
                     Advice.Dimension.RISK_ALLOCATION, Advice.Severity.OK,
                     "配置基本健康",
-                    "已分散至 " + nonZero + " 类资产,各类占比均 ≤ 40%。",
+                    "已分散至 " + nonZero + " 类资产,各类占比均 ≤ " + thresholdPct + "。",
                     "维持当前节奏,在新增资金时优先补强占比偏低的类目以保持均衡。",
                     null));
         }

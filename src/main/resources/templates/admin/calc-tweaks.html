@@ -4,34 +4,131 @@
 <body class="min-h-screen relative">
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('admin', ${me}, ${nav})}"></header>
+
 <main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10 grid grid-cols-12 gap-8">
   <aside th:replace="~{admin/_sidebar :: sidebar('tweaks')}"></aside>
-  <section class="col-span-12 md:col-span-9">
-    <div class="mb-8 flex items-end justify-between">
+  <section class="col-span-12 md:col-span-9 space-y-8">
+    <div class="mb-2 flex items-end justify-between">
       <div>
         <div class="eyebrow mb-2">数 · 值 · 阈 · 值</div>
         <h1 class="font-display text-4xl font-medium">计算与提示常数</h1>
-        <p class="text-ink-soft text-sm mt-2">阈值参数仅作展示;后续版本开放编辑</p>
+        <p class="text-ink-soft text-sm mt-2">影响轧差提示 / 体检规则 / 会话有效期 · 改后<b>实时生效不重启</b></p>
       </div>
-      <span class="pill pill-rust">仅展示</span>
+      <span class="pill pill-forest text-[10px]">v0.4.18 起可编辑</span>
     </div>
 
-    <div class="paper-card overflow-x-auto">
-      <table class="ledger-table">
-        <thead>
-          <tr><th>键</th><th class="num">值</th><th>说明</th></tr>
-        </thead>
-        <tbody>
-          <tr th:each="t : ${tweaks}">
-            <td class="font-mono text-xs" th:text="${t[0]}">key</td>
-            <td class="num font-mono tnum" th:text="${t[1]}">val</td>
-            <td class="text-ink-soft text-sm" th:text="${t[2]}">desc</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <div th:if="${flash}" class="border border-forest bg-forest/[0.05] px-4 py-2 text-sm" th:text="${flash}">成功</div>
+
+    <!-- ① 录入提示阈值 -->
+    <form th:action="@{/admin/calc-tweaks/entry-thresholds}" method="post" class="bracket-card max-w-3xl space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <div class="flex items-baseline justify-between">
+        <div class="eyebrow-ink">① 录入提示阈值</div>
+        <span class="font-mono text-[10px] text-ink-subtle tracking-wider">影响 /entry</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div>
+          <label class="field-label">智能转账阈值</label>
+          <div class="flex items-baseline gap-2">
+            <span class="font-mono text-ink-soft">¥</span>
+            <input class="field-input w-28" type="number" name="smartTransfer" th:value="${smartTransfer}" min="0"/>
+          </div>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">轧差差额超此值 · /entry 提示"看起来像转账?"</p>
+        </div>
+        <div>
+          <label class="field-label">贷款异常变化倍数</label>
+          <input class="field-input w-28" type="number" name="loanAbnormal" th:value="${loanAbnormal}" min="1" step="0.5"/><span class="font-mono text-ink-soft ml-1">×</span>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">贷款本期变化超过上期 N 倍 · 警告"可能提前还款?"</p>
+        </div>
+        <div>
+          <label class="field-label">未解释允差 epsilon</label>
+          <div class="flex items-baseline gap-2">
+            <span class="font-mono text-ink-soft">¥</span>
+            <input class="field-input w-28" type="number" name="unexplainedEps" th:value="${unexplainedEps}" min="0" step="0.01"/>
+          </div>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">轧差未解释绝对值 &lt; 此 · 视为已分类完毕</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end">
+        <button type="submit" class="btn-ink">保存录入阈值</button>
+      </div>
+    </form>
+
+    <!-- ② 体检阈值 -->
+    <form th:action="@{/admin/calc-tweaks/checkup-thresholds}" method="post" class="bracket-card max-w-3xl space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <div class="flex items-baseline justify-between">
+        <div class="eyebrow-ink">② 财务体检规则阈值</div>
+        <span class="font-mono text-[10px] text-ink-subtle tracking-wider">影响 /checkup · LLM prompt 跟变</span>
+      </div>
+
+      <p class="font-mono text-[10px] text-rust tracking-wider leading-relaxed">
+        ⚠ 这些是"健康财务学"共识值 · <b>不建议轻调</b> · 改完后 LLM 综合诊断会跟着用新阈值算"过 / 警告 / 不过"
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div>
+          <label class="field-label">子类目集中度上限</label>
+          <input class="field-input w-28" type="number" name="concentration" th:value="${checkupConcentration}" min="0.1" max="0.8" step="0.05"/>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">单子类目占比 &gt; 此 · 触发"分散化"建议(默认 0.40 即 40%)</p>
+        </div>
+        <div>
+          <label class="field-label">高风险资产占比上限</label>
+          <input class="field-input w-28" type="number" name="highRisk" th:value="${checkupHighRisk}" min="0" max="0.8" step="0.05"/>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">★★★★★+ 合计 &gt; 此 · 风险敞口高警告(默认 0.40)</p>
+        </div>
+        <div>
+          <label class="field-label">应急金不闲置倍数</label>
+          <input class="field-input w-28" type="number" name="liquidBuffer" th:value="${liquidBuffer}" min="1" max="5" step="0.1"/><span class="font-mono text-ink-soft ml-1">×</span>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">LIQUID &gt; 应急需求 × 此 · 提示"挪 50% 至理财"(默认 1.5x)</p>
+        </div>
+        <div>
+          <label class="field-label">应急金月数</label>
+          <input class="field-input w-28" type="number" name="emergencyMonths" th:value="${emergencyMonths}" min="3" max="24"/><span class="font-mono text-ink-soft ml-1">月</span>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">应急目标 = 月支出 × 此(默认 6 个月)</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end">
+        <button type="submit" class="btn-ink">保存体检阈值</button>
+      </div>
+    </form>
+
+    <!-- ③ 会话 -->
+    <form th:action="@{/admin/calc-tweaks/session}" method="post" class="bracket-card max-w-3xl space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <div class="flex items-baseline justify-between">
+        <div class="eyebrow-ink">③ 会话 · session 有效期</div>
+        <span class="font-mono text-[10px] text-ink-subtle tracking-wider">下次 login 生效</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 items-end">
+        <div>
+          <label class="field-label">"记住我" cookie 有效期(秒)</label>
+          <select class="field-input bg-transparent" name="rememberMeSeconds">
+            <option value="604800"   th:selected="${rememberMeSeconds == 604800}">7 天</option>
+            <option value="1209600"  th:selected="${rememberMeSeconds == 1209600}">14 天</option>
+            <option value="2592000"  th:selected="${rememberMeSeconds == 2592000}">30 天(默认)</option>
+            <option value="7776000"  th:selected="${rememberMeSeconds == 7776000}">90 天</option>
+            <option value="15552000" th:selected="${rememberMeSeconds == 15552000}">180 天</option>
+          </select>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">改后已 login 用户的旧 cookie 仍按旧时长 · 下次 login 才用新值(SecurityConfig 仍读 application.yml @Value · 切换以管理页保存后重启为准)</p>
+        </div>
+        <div class="font-mono text-[10px] text-ink-subtle tracking-wider leading-relaxed">
+          v0.4.18 起 · 这个原来在 application.yml 的 <code>app.remember-me-validity-seconds</code> · 现在可在此页热改 + 落库
+        </div>
+      </div>
+
+      <div class="flex justify-end">
+        <button type="submit" class="btn-ink">保存会话配置</button>
+      </div>
+    </form>
+
   </section>
 </main>
+
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 </body>
 </html>

@@ -3,76 +3,81 @@ package com.family.finance.service.stock;
 import com.family.finance.domain.stock.Market;
 import com.family.finance.repository.StockHoldingMapper;
 import com.family.finance.repository.StockHoldingMapper.TickerMarket;
+import com.family.finance.service.config.FamilyConfigService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.util.List;
 
 /**
- * 股票价格拉取定时任务 · v0.3 FR-52a · 决策 24。
+ * 股票价格拉取定时任务 · v0.3 FR-52a / v0.4.18(详 prd/v0.4.md §22)。
  *
- * <p>3 个 @Scheduled cron(Asia/Shanghai 时区):</p>
+ * <p>v0.4.18 改动:</p>
  * <ul>
- *   <li>美股 06:05(收盘后 · 美东 16:00 = 北京 04:00 夏令时 / 05:00 冬令时,留 1 小时 buffer)</li>
- *   <li>A 股 16:10(15:00 收盘后)</li>
- *   <li>港股 16:30(16:00 收盘后)</li>
+ *   <li>{@code @Scheduled} 注解删除 · 改由 {@code DynamicScheduleConfig} 用
+ *       {@link org.springframework.scheduling.TaskScheduler} 注册 ·
+ *       cron 时段从 DB 读 · 用户管理页改后即重排</li>
+ *   <li>{@code enabled} 改为读 {@link FamilyConfigService} · 实时生效不重启</li>
+ *   <li>方法 {@code fetchUsStocks() / fetchCnStocks() / fetchHkStocks()}
+ *       签名保持(admin 手动触发链路不变)</li>
  * </ul>
  *
- * <p>由 {@code finance.stock.fetch-enabled=true} 启用 · 默认 false · application.yml 控制。
- * 节假日/周末 → 两源都返回 empty · {@link StockPriceFetcher} 不写快照 · UI 用历史价标"陈旧"。</p>
+ * <p>默认 cron(代码兜底):</p>
+ * <ul>
+ *   <li>美股 06:05 每天</li>
+ *   <li>A 股 16:10 工作日</li>
+ *   <li>港股 16:30 工作日</li>
+ * </ul>
  */
 @Component
 @Slf4j
 public class StockPriceScheduler {
 
+    /** 单家庭模式 · 见 prd §22.3 类 A */
+    private static final long FAMILY_ID = 1L;
+
     private final StockHoldingMapper holdingMapper;
     private final StockPriceFetcher fetcher;
-    private final boolean enabled;
+    private final FamilyConfigService configService;
 
     public StockPriceScheduler(StockHoldingMapper holdingMapper,
                                StockPriceFetcher fetcher,
-                               @Value("${finance.stock.fetch-enabled:false}") boolean enabled) {
+                               FamilyConfigService configService) {
         this.holdingMapper = holdingMapper;
         this.fetcher = fetcher;
-        this.enabled = enabled;
-        log.info("StockPriceScheduler initialized · enabled={}", enabled);
+        this.configService = configService;
+        log.info("StockPriceScheduler initialized · enabled-source=DB(family_runtime_config.stock_fetch_enabled)");
     }
 
-    /**
-     * 美股 · 北京时间 06:05(美东 18:05 = 收盘后) · 每天跑。
-     */
-    @Scheduled(cron = "0 5 6 * * *", zone = "Asia/Shanghai")
+    /** 实时读 DB 开关 · 用户在 /admin/integrations 改了立刻生效 */
+    private boolean isEnabled() {
+        return configService.getBoolean(FAMILY_ID, FamilyConfigService.K_STOCK_ENABLED, false);
+    }
+
+    /** 美股 · 由 DynamicScheduleConfig 按 cron(stock_cron_us)调用 · 默认每天 06:05 */
     public void fetchUsStocks() {
-        if (!enabled) {
+        if (!isEnabled()) {
             log.debug("US fetch SKIPPED · disabled");
             return;
         }
         fetchMarket(Market.US);
     }
 
-    /**
-     * A 股 · 北京时间 16:10 · 仅工作日(周末 cron 不触发)。
-     */
-    @Scheduled(cron = "0 10 16 * * MON-FRI", zone = "Asia/Shanghai")
+    /** A 股 · 默认工作日 16:10 · cron 由 stock_cron_cn 配 */
     public void fetchCnStocks() {
-        if (!enabled) return;
+        if (!isEnabled()) return;
         fetchMarket(Market.CN);
     }
 
-    /**
-     * 港股 · 北京时间 16:30 · 仅工作日。
-     */
-    @Scheduled(cron = "0 30 16 * * MON-FRI", zone = "Asia/Shanghai")
+    /** 港股 · 默认工作日 16:30 · cron 由 stock_cron_hk 配 */
     public void fetchHkStocks() {
-        if (!enabled) return;
+        if (!isEnabled()) return;
         fetchMarket(Market.HK);
     }
 
     /**
-     * 内部统一方法 · 也用作 admin 手动触发入口。
+     * 内部统一方法 · 也用作 admin 手动触发入口(不读 enabled 开关 · 手动等于显式覆盖)。
      */
     public int fetchMarket(Market market) {
         List<TickerMarket> tickers = holdingMapper.findDistinctAutoTickersByMarket(market.name());

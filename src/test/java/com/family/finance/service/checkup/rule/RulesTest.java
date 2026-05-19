@@ -3,20 +3,31 @@ package com.family.finance.service.checkup.rule;
 import com.family.finance.calc.BenchmarkComparator;
 import com.family.finance.domain.account.Account;
 import com.family.finance.domain.account.AccountType;
+import com.family.finance.domain.config.FamilyRuntimeConfig;
 import com.family.finance.factview.AllocationSlice;
 import com.family.finance.factview.KpiSnapshot;
+import com.family.finance.repository.FamilyRuntimeConfigMapper;
 import com.family.finance.service.checkup.AccountDiagnose;
 import com.family.finance.service.checkup.FamilyDiagnose;
+import com.family.finance.service.config.FamilyConfigService;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RulesTest {
 
     private static final BigDecimal ZERO = BigDecimal.ZERO;
+
+    /** v0.4.18 · 测试桩 · DB 永远空 → 业务代码默认值生效 · 等价于 v0.4.17 之前的行为 */
+    private static final FamilyConfigService STUB_CONFIG = new FamilyConfigService(new FamilyRuntimeConfigMapper() {
+        @Override public Optional<String> findValue(long familyId, String keyName) { return Optional.empty(); }
+        @Override public List<FamilyRuntimeConfig> findByFamily(long familyId) { return List.of(); }
+        @Override public int upsert(long familyId, String keyName, String valueText) { return 0; }
+    });
 
     // ─── RET-1 长期负收益 ───
     @Test
@@ -150,7 +161,7 @@ class RulesTest {
                 new FamilyDiagnose.RiskBucket(5, "中高", new BigDecimal("450000"), new BigDecimal("0.45")),
                 new FamilyDiagnose.RiskBucket(2, "低", new BigDecimal("550000"), new BigDecimal("0.55")));
         var f = new FamilyDiagnose(zeroKpi(), List.of(), buckets, null, null, null, null, null, 2, 0);
-        assertThat(new FamilyRules.FamRisk1HighRiskOver40().evaluate(RuleContext.forFamily(f, List.of(), null)))
+        assertThat(new FamilyRules.FamRisk1HighRiskOver40(STUB_CONFIG).evaluate(RuleContext.forFamily(f, List.of(), null)))
                 .isPresent();
     }
 
@@ -161,7 +172,7 @@ class RulesTest {
                 slice("WEALTH", "理财", "400000", "0.40"),
                 slice("CASH", "现金", "300000", "0.30"));
         var f = new FamilyDiagnose(zeroKpi(), slices, List.of(), null, null, null, null, null, 3, 0);
-        assertThat(new FamilyRules.FamAlc1HealthyAllocation().evaluate(RuleContext.forFamily(f, List.of(), null)))
+        assertThat(new FamilyRules.FamAlc1HealthyAllocation(STUB_CONFIG).evaluate(RuleContext.forFamily(f, List.of(), null)))
                 .isPresent().get().extracting(Advice::severity).isEqualTo(Advice.Severity.OK);
     }
 

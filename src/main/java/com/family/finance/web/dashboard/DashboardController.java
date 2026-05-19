@@ -53,6 +53,7 @@ public class DashboardController {
     private final FxService fxService;
     private final GoalProgressService goalProgressService;
     private final HouseholdCashflowService householdCashflowService;
+    private final com.family.finance.service.config.FamilyConfigService configService;
 
     @GetMapping("/dashboard")
     public String dashboard(@AuthenticationPrincipal MemberPrincipal me,
@@ -189,8 +190,14 @@ public class DashboardController {
             .map(r -> r.endBalanceBase() == null ? BigDecimal.ZERO : r.endBalanceBase())
             .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal avgExpense = householdCashflowService.avgMonthlyExpense(me.getFamilyId());
+        // v0.4.18 · 应急月数 + buffer 倍率改读 ConfigService(默认 6 月 / 1.5x)
+        int emergencyMonths = configService.getInt(me.getFamilyId(),
+            com.family.finance.service.config.FamilyConfigService.K_EMERGENCY_MONTHS,
+            com.family.finance.calc.LiquiditySurplus.DEFAULT_EMERGENCY_MONTHS);
+        BigDecimal liquidMultiplier = BigDecimal.valueOf(configService.getDouble(me.getFamilyId(),
+            com.family.finance.service.config.FamilyConfigService.K_LIQUID_BUFFER, 1.5));
         var liquidSurplus = com.family.finance.calc.LiquiditySurplus.evaluate(
-            liquidAssets, avgExpense, com.family.finance.calc.LiquiditySurplus.DEFAULT_EMERGENCY_MONTHS);
+            liquidAssets, avgExpense, emergencyMonths, liquidMultiplier);
         model.addAttribute("liquidSurplus", liquidSurplus);
         model.addAttribute("liquidSurplusMoney", money(viewCurrency, liquidSurplus.surplus()));
 

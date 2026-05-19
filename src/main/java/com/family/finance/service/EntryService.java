@@ -40,6 +40,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EntryService {
 
+    /** 单家庭模式 · 见 prd §22.3 类 A */
+    private static final long FAMILY_ID = 1L;
+
     private final AccountMapper accountMapper;
     private final MemberMapper memberMapper;
     private final PeriodMapper periodMapper;
@@ -48,6 +51,7 @@ public class EntryService {
     private final CashFlowMapper cashFlowMapper;
     private final TransferMapper transferMapper;
     private final AuditLogService auditLogService;
+    private final com.family.finance.service.config.FamilyConfigService configService;
     /** v0.4.1 FR-52f · 股票估值事件 · ledger 显示 */
     private final StockValuationEventMapper stockValuationEventMapper;
 
@@ -456,8 +460,10 @@ public class EntryService {
                 MoneyFormat.formatDelta(account.getCurrency(), unexplained),
                 warning,
                 done,
-                // PRD FR-10 智能转账推断:|未解释| > ¥3000 阈值
-                unexplained.abs().compareTo(new BigDecimal("3000")) > 0
+                // PRD FR-10 智能转账推断 · v0.4.18 阈值改读 ConfigService(默认 3000)
+                unexplained.abs().compareTo(new BigDecimal(
+                    Long.toString(configService.getLong(FAMILY_ID,
+                        com.family.finance.service.config.FamilyConfigService.K_SMART_TRANSFER, 3000L)))) > 0
                 && account.getType() != AccountType.LOAN,
                 incoming,
                 outgoing,

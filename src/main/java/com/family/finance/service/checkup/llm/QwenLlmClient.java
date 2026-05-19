@@ -1,7 +1,7 @@
 package com.family.finance.service.checkup.llm;
 
+import com.family.finance.service.config.FamilyConfigService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpEntity;
@@ -33,21 +33,32 @@ public class QwenLlmClient implements LlmClient {
     private static final String MODEL = "qwen-plus";
     private static final int FAIL_THRESHOLD = 3;
     private static final long COOLDOWN_MS = 60_000L;
+    /** 单家庭模式 · 见 prd §22.3 类 A · 与 backup.sh FAMILY_ID=1 一致 */
+    private static final long FAMILY_ID = 1L;
 
-    private final String apiKey;
+    private final FamilyConfigService configService;
     private final RestTemplate restTemplate;
 
     private volatile int consecutiveFailures = 0;
     private volatile Instant breakerOpenedAt = Instant.EPOCH;
 
-    public QwenLlmClient(@Value("${finance.llm.qwen.api-key:}") String apiKey,
-                         RestTemplateBuilder builder) {
-        this.apiKey = apiKey == null ? "" : apiKey.trim();
+    public QwenLlmClient(FamilyConfigService configService, RestTemplateBuilder builder) {
+        this.configService = configService;
         this.restTemplate = builder
                 .setConnectTimeout(Duration.ofSeconds(5))
-                // 综合诊断 token 长(输入 1500-2500 / 输出 ~750),qwen-plus p95 约 3-5s,加宽到 25s
+                // 综合诊断 token 长 · timeout 仍 static(改要重启)· apiKey/max_tokens 已 dynamic
                 .setReadTimeout(Duration.ofSeconds(25))
                 .build();
+    }
+
+    /** v0.4.18 · 每次调用从 ConfigService 读 API key(DB > env fallback)· 私密 */
+    private String currentApiKey() {
+        return configService.getString(FAMILY_ID, FamilyConfigService.K_LLM_QWEN_KEY, "");
+    }
+
+    /** v0.4.18 · max_tokens 动态可调 · 默认 2000 */
+    private int currentMaxTokens() {
+        return configService.getInt(FAMILY_ID, FamilyConfigService.K_LLM_MAX_TOKENS, 2000);
     }
 
     @Override
@@ -55,7 +66,7 @@ public class QwenLlmClient implements LlmClient {
 
     @Override
     public boolean available() {
-        if (apiKey.isBlank()) return false;
+        if (currentApiKey().isBlank()) return false;
         if (consecutiveFailures >= FAIL_THRESHOLD) {
             long since = java.time.Duration.between(breakerOpenedAt, Instant.now()).toMillis();
             return since >= COOLDOWN_MS;  // 冷却结束才尝试半开
@@ -65,11 +76,12 @@ public class QwenLlmClient implements LlmClient {
 
     @Override
     public String chat(String systemPrompt, String userPrompt) {
-        if (apiKey.isBlank()) throw new IllegalStateException("Qwen API key 未配置");
+        String key = currentApiKey();
+        if (key.isBlank()) throw new IllegalStateException("Qwen API key 未配置");
 
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_JSON);
-        h.setBearerAuth(apiKey);
+        h.setBearerAuth(key);
         Map<String, Object> body = Map.of(
                 "model", MODEL,
                 "messages", List.of(
@@ -78,10 +90,8 @@ public class QwenLlmClient implements LlmClient {
                 ),
                 // 综合诊断需要 LLM 有更多发挥(2026-05-10 从 0.15 调到 0.5)
                 "temperature", 0.5,
-                // v0.4.9+:JSON 结构化输出(overall + 4 dimensions + actions)~ 800-1200 字
-                //   ASCII 多 token 1:1 + 中文 1:1.5-2 · 实测 1200 字 ≈ 1500 tokens
-                //   750 太严会截断 · 显示半截 JSON · 提到 2000 给余量
-                "max_tokens", 2000
+                // v0.4.18 · max_tokens 改读 ConfigService 动态可调 · 默认 2000(v0.4.10 起的平衡值)
+                "max_tokens", currentMaxTokens()
         );
 
         try {
