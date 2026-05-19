@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>520 彩蛋 · 一日限定爱情宣言 · 家庭账房 preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)', vred: '#E53A4A', vpink: '#FFD9DC' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }</script>
+  <style>
+    /* ===== 520 彩蛋专属样式 (仅本页 / fragment 内 scoped) ===== */
+    :root {
+      --vred: #E53A4A;
+      --vpink: #FFD9DC;
+      --vgold: var(--brass-deep);
+    }
+
+    /* —— 全屏 overlay —— */
+    #easter520 {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(20, 18, 16, 0.88);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: overlay-in .35s cubic-bezier(.2,.7,.3,1) both;
+    }
+    #easter520.closing { animation: overlay-out .4s ease-in forwards; }
+    @keyframes overlay-in  { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes overlay-out { from { opacity: 1; } to { opacity: 0; pointer-events: none; } }
+
+    /* —— 背景星空 —— */
+    .stars { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+    .star {
+      position: absolute;
+      width: 4px; height: 4px;
+      background: #fff;
+      box-shadow: 0 0 4px #fff;
+      animation: twinkle 2.2s ease-in-out infinite;
+    }
+    .star.dim   { background: #ffd9a8; box-shadow: 0 0 3px #ffd9a8; opacity: .6; }
+    .star.gold  { background: var(--vgold); box-shadow: 0 0 6px var(--vgold); }
+    @keyframes twinkle { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+
+    /* —— 飘心粒子 —— */
+    .floater {
+      position: absolute;
+      bottom: -32px;
+      font-size: 14px;
+      color: var(--vred);
+      filter: drop-shadow(0 0 6px rgba(229,58,74,.7));
+      animation: float-up linear forwards;
+      pointer-events: none;
+      user-select: none;
+    }
+    .floater.small { font-size: 10px; opacity: .65; color: var(--vpink); }
+    .floater.gold  { color: var(--vgold); filter: drop-shadow(0 0 6px rgba(184,134,11,.6)); }
+    @keyframes float-up {
+      0%   { transform: translateY(0)      translateX(0)   rotate(-12deg); opacity: 0; }
+      8%   { opacity: 1; }
+      90%  { opacity: 1; }
+      100% { transform: translateY(-110vh) translateX(40px) rotate(18deg); opacity: 0; }
+    }
+
+    /* —— 中央卡片 —— */
+    .e520-card {
+      position: relative;
+      background: var(--paper);
+      border: 4px solid var(--vgold);
+      box-shadow:
+        0 0 0 2px var(--ink),
+        0 24px 80px rgba(0,0,0,.5),
+        0 0 60px rgba(229,58,74,.25);
+      padding: 56px 64px 48px;
+      max-width: 640px;
+      width: calc(100% - 32px);
+      text-align: center;
+      animation: card-in .55s cubic-bezier(.2,.8,.2,1) .25s both;
+    }
+    @keyframes card-in {
+      0%   { transform: scale(.4) translateY(40px); opacity: 0; image-rendering: pixelated; clip-path: inset(50% 50%); }
+      50%  { clip-path: inset(0% 0%); }
+      100% { transform: scale(1)   translateY(0);   opacity: 1; clip-path: inset(0% 0%); }
+    }
+    /* 像素硬边角装饰 */
+    .e520-card::before,
+    .e520-card::after {
+      content: '';
+      position: absolute;
+      width: 16px; height: 16px;
+      background: var(--vgold);
+      box-shadow: 0 0 0 2px var(--ink);
+    }
+    .e520-card::before { top: -10px; left: -10px; }
+    .e520-card::after  { bottom: -10px; right: -10px; }
+
+    /* —— 像素大心 —— */
+    .pixel-heart-big {
+      width: 160px; height: 144px;
+      margin: -100px auto 16px;
+      filter: drop-shadow(0 4px 0 rgba(0,0,0,.35)) drop-shadow(0 0 20px rgba(229,58,74,.7));
+      animation: heartbeat 1s ease-in-out infinite .7s;
+    }
+    @keyframes heartbeat {
+      0%, 30%, 60%, 100% { transform: scale(1); }
+      15%                { transform: scale(1.18); }
+      45%                { transform: scale(1.08); }
+    }
+
+    /* —— 主标题 —— */
+    .title-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin: 8px 0 28px;
+      padding: 10px 20px;
+      border: 3px solid var(--ink);
+      background: var(--paper-soft);
+      box-shadow: 6px 6px 0 var(--vgold), 8px 8px 0 var(--ink);
+      animation: title-in .5s cubic-bezier(.2,.9,.2,1) 1.1s both;
+    }
+    .title-main {
+      font-family: 'Fraunces', 'Noto Serif SC', serif;
+      font-size: 52px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      color: var(--ink);
+      text-shadow: 3px 3px 0 var(--vred), 6px 6px 0 var(--vgold);
+      line-height: 1;
+    }
+    .title-bracket {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--vred);
+      font-size: 28px;
+      font-weight: 700;
+    }
+    @keyframes title-in {
+      0%   { transform: translateY(-12px) scale(.7); opacity: 0; }
+      60%  { transform: translateY(2px)   scale(1.08); }
+      100% { transform: translateY(0)     scale(1); opacity: 1; }
+    }
+
+    /* —— 副标 —— */
+    .subtitle {
+      font-family: 'Noto Serif SC', 'Fraunces', serif;
+      color: var(--ink);
+      font-size: 34px;
+      font-weight: 500;
+      line-height: 1.4;
+      letter-spacing: .12em;
+      margin: 8px 0 4px;
+      animation: sub-in .6s ease-out 1.6s both;
+    }
+    .subtitle .line-2 { font-weight: 600; }
+    .subtitle .accent { color: var(--vred); }
+    @keyframes sub-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* —— 底脚 —— */
+    .footer-line {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--ink-soft);
+      font-size: 13px;
+      letter-spacing: .18em;
+      margin-top: 32px;
+      padding-top: 18px;
+      border-top: 2px solid var(--rule);
+      animation: footer-in .5s ease-out 2.1s both;
+    }
+    .footer-line b { color: var(--vred); font-weight: 600; }
+    @keyframes footer-in { from { opacity: 0; } to { opacity: 1; } }
+
+    /* —— 关闭按钮 —— */
+    .e520-close {
+      position: absolute;
+      top: 8px; right: 8px;
+      width: 28px; height: 28px;
+      background: var(--ink);
+      color: var(--paper);
+      border: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      line-height: 1;
+      transition: background .15s;
+    }
+    .e520-close:hover { background: var(--vred); }
+
+    /* —— 底部按键提示 —— */
+    .press-hint {
+      position: absolute;
+      bottom: 24px;
+      left: 0; right: 0;
+      text-align: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .2em;
+      color: rgba(255,255,255,.65);
+      text-transform: uppercase;
+      animation: hint-in .4s ease-out 2.5s both;
+    }
+    .press-hint .cursor {
+      display: inline-block;
+      width: 8px; height: 14px;
+      background: rgba(255,255,255,.8);
+      vertical-align: -2px;
+      margin-left: 4px;
+      animation: blink 1s steps(2) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    @keyframes hint-in { from { opacity: 0; } to { opacity: 1; } }
+
+    /* —— 预览页 controls(实际部署没这部分) —— */
+    .preview-toolbar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 10001;
+      background: var(--paper);
+      border-top: 1px solid var(--rule);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .preview-toolbar .label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--ink-subtle);
+    }
+    .preview-toolbar .label b { color: var(--vred); font-weight: 600; }
+    .replay-btn {
+      background: var(--ink);
+      color: var(--paper);
+      border: 2px solid var(--ink);
+      padding: 8px 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      letter-spacing: .14em;
+      cursor: pointer;
+      box-shadow: 4px 4px 0 var(--vgold);
+      transition: transform .1s;
+    }
+    .replay-btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--vgold); }
+    .replay-btn:hover { background: var(--vred); border-color: var(--vred); }
+
+    /* 关闭后的灰态 */
+    .post-close-stage {
+      position: fixed; inset: 0; z-index: 9998;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      background: var(--paper);
+    }
+    .post-close-stage.on { display: flex; }
+    .post-close-stage .tip {
+      font-family: 'Noto Serif SC', serif;
+      color: var(--ink-soft);
+      font-size: 18px;
+    }
+
+    /* —— 5.20 nav 重看按钮(实际放进 fragments/nav · 仅本预览右上演示) —— */
+    .replay-pill {
+      position: fixed;
+      top: 16px; right: 16px;
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: var(--paper);
+      border: 2px solid var(--vred);
+      color: var(--vred);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      letter-spacing: .12em;
+      box-shadow: 3px 3px 0 var(--ink);
+      cursor: pointer;
+      animation: pill-pulse 2s ease-in-out infinite;
+    }
+    .replay-pill.on { display: inline-flex; }
+    @keyframes pill-pulse {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.06); }
+    }
+  </style>
+</head>
+<body class="min-h-screen relative" style="background: #1a1715;">
+
+  <!-- 灰态背景占位 (假装是日常页面 · 让 overlay 看起来真的"覆盖") -->
+  <div class="post-close-stage" id="postClose">
+    <div class="tip">— 彩蛋已关闭 · 当天不再自动弹 —</div>
+    <button class="replay-btn" onclick="replay()">▶ 重新播放</button>
+  </div>
+
+  <!-- 5.20 当天 nav 右上"重看"按钮(实际部署放进 fragments/nav) -->
+  <div class="replay-pill" id="navPill" onclick="replay()">
+    <span>♥</span><span>520 · 再看</span>
+  </div>
+
+  <!-- ===== 主彩蛋 overlay ===== -->
+  <div id="easter520">
+    <!-- 背景星空 -->
+    <div class="stars" id="stars"></div>
+
+    <div class="e520-card">
+      <button class="e520-close" aria-label="关闭" onclick="closeEgg()">×</button>
+
+      <!-- 像素大心 (SVG · crispEdges 渲染锐利) -->
+      <svg class="pixel-heart-big" viewBox="0 0 14 12" shape-rendering="crispEdges" aria-hidden="true">
+        <!-- Row 0: 翼瓣 -->
+        <rect x="2"  y="0" width="3" height="1" fill="#E53A4A"/>
+        <rect x="9"  y="0" width="3" height="1" fill="#E53A4A"/>
+        <!-- Row 1-2: 实体 -->
+        <rect x="1"  y="1" width="12" height="2" fill="#E53A4A"/>
+        <!-- Row 3-4: 收缩 -->
+        <rect x="1"  y="3" width="12" height="1" fill="#E53A4A"/>
+        <rect x="2"  y="4" width="10" height="1" fill="#E53A4A"/>
+        <rect x="3"  y="5" width="8"  height="1" fill="#E53A4A"/>
+        <rect x="4"  y="6" width="6"  height="1" fill="#E53A4A"/>
+        <rect x="5"  y="7" width="4"  height="1" fill="#E53A4A"/>
+        <rect x="6"  y="8" width="2"  height="1" fill="#E53A4A"/>
+        <!-- 高光 (左上) -->
+        <rect x="2"  y="1" width="2" height="1" fill="#FFD9DC"/>
+        <rect x="3"  y="2" width="1" height="1" fill="#FFD9DC"/>
+        <!-- 描边 (黑色像素描边模拟) -->
+        <rect x="0"  y="1" width="1" height="2" fill="#1a1715"/>
+        <rect x="13" y="1" width="1" height="2" fill="#1a1715"/>
+        <rect x="1"  y="0" width="1" height="1" fill="#1a1715"/>
+        <rect x="5"  y="0" width="1" height="1" fill="#1a1715"/>
+        <rect x="8"  y="0" width="1" height="1" fill="#1a1715"/>
+        <rect x="12" y="0" width="1" height="1" fill="#1a1715"/>
+      </svg>
+
+      <!-- 主标题 -->
+      <div class="title-box">
+        <span class="title-bracket">+</span>
+        <span class="title-main">I LOVE U &nbsp;·&nbsp; 520</span>
+        <span class="title-bracket">+</span>
+      </div>
+
+      <!-- 副标 双行 -->
+      <div class="subtitle">
+        <div class="line-1">愿 这个家</div>
+        <div class="line-2">永远 <span class="accent">温暖</span> 明亮</div>
+      </div>
+
+      <!-- 底脚 -->
+      <div class="footer-line">
+        ─── <b>狗窝</b> &nbsp;·&nbsp; <b>2026</b> &nbsp;·&nbsp; <b>5</b> &nbsp;·&nbsp; <b>20</b> ───
+      </div>
+    </div>
+
+    <!-- 按键提示 -->
+    <div class="press-hint">
+      按 ENTER &nbsp;·&nbsp; 或点击任意位置 关闭<span class="cursor"></span>
+    </div>
+  </div>
+
+  <!-- ===== 预览页 toolbar (实际部署不存在) ===== -->
+  <div class="preview-toolbar">
+    <span class="label">
+      preview · v0.4 · <b>520 彩蛋</b> · 一日限定 · 实际 5.20 全天自动注入
+    </span>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <a href="../index.html" class="label" style="text-decoration:none">← 返回 preview hub</a>
+      <button class="replay-btn" onclick="replay()">▶ 重新播放</button>
+    </div>
+  </div>
+
+  <script>
+    // ===== 像素星空生成 =====
+    (function genStars() {
+      const stars = document.getElementById('stars');
+      const total = 80;
+      for (let i = 0; i < total; i++) {
+        const s = document.createElement('span');
+        const r = Math.random();
+        s.className = 'star' + (r < .15 ? ' gold' : (r < .55 ? ' dim' : ''));
+        s.style.left = (Math.random() * 100) + '%';
+        s.style.top  = (Math.random() * 100) + '%';
+        s.style.animationDelay = (Math.random() * 2) + 's';
+        if (Math.random() > .7) { s.style.width = '6px'; s.style.height = '6px'; }
+        stars.appendChild(s);
+      }
+    })();
+
+    // ===== 飘心粒子 (持续生成 · 上升消失) =====
+    let floaterTimer = null;
+    function startFloaters() {
+      stopFloaters();
+      function spawn() {
+        const f = document.createElement('span');
+        const variant = Math.random();
+        f.className = 'floater' + (variant < .4 ? ' small' : (variant < .55 ? ' gold' : ''));
+        f.textContent = ['♥', '♥', '♥', '♡', '♥', '✦'][Math.floor(Math.random() * 6)];
+        f.style.left = (Math.random() * 100) + '%';
+        f.style.animationDuration = (8 + Math.random() * 7) + 's';
+        f.style.fontSize = (12 + Math.random() * 20) + 'px';
+        document.getElementById('easter520').appendChild(f);
+        setTimeout(() => f.remove(), 16000);
+      }
+      // 初始一批
+      for (let i = 0; i < 12; i++) setTimeout(spawn, i * 220);
+      // 持续生成
+      floaterTimer = setInterval(spawn, 380);
+    }
+    function stopFloaters() {
+      if (floaterTimer) { clearInterval(floaterTimer); floaterTimer = null; }
+    }
+
+    // ===== 「叮」音效 · Web Audio 合成 (无外部 mp3 · 不增 jar 体积) =====
+    let audioCtx = null;
+    function ding() {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = audioCtx;
+        const now = ctx.currentTime;
+        // 两个正弦叠加 · 主音 1318Hz (E6) + 泛音 2637Hz (E7) · 短促衰减
+        [1318.5, 2637].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0, now);
+          gain.gain.linearRampToValueAtTime(i === 0 ? 0.22 : 0.10, now + 0.005);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.7);
+        });
+      } catch (e) { /* 静音 fallback · 不抛错 */ }
+    }
+
+    // ===== 关闭逻辑 =====
+    function closeEgg() {
+      const el = document.getElementById('easter520');
+      if (!el || el.classList.contains('closing')) return;
+      ding();
+      el.classList.add('closing');
+      stopFloaters();
+      // 实际部署:localStorage.setItem('easter520_seen', '2026-05-20')
+      setTimeout(() => {
+        el.style.display = 'none';
+        document.getElementById('postClose').classList.add('on');
+        document.getElementById('navPill').classList.add('on');
+      }, 420);
+    }
+
+    // 任意键关闭
+    document.addEventListener('keydown', (e) => {
+      const el = document.getElementById('easter520');
+      if (el && el.style.display !== 'none' && !el.classList.contains('closing')) {
+        closeEgg();
+      }
+    });
+
+    // 点击 overlay 任意位置关闭 · 但不要拦截 close × 按钮(它有自己的 handler)
+    document.getElementById('easter520').addEventListener('click', (e) => {
+      if (e.target.closest('.e520-close')) return; // 让 × 自己处理
+      closeEgg();
+    });
+
+    // ===== 重新播放 =====
+    function replay() {
+      const el = document.getElementById('easter520');
+      el.classList.remove('closing');
+      el.style.display = 'flex';
+      // 清掉旧粒子
+      el.querySelectorAll('.floater').forEach(f => f.remove());
+      // 重启卡片入场动画
+      const card = el.querySelector('.e520-card');
+      card.style.animation = 'none';
+      // eslint-disable-next-line no-unused-expressions
+      card.offsetHeight; // reflow
+      card.style.animation = '';
+      // 副标 / 底脚 / 提示 重启
+      ['.title-box', '.subtitle', '.footer-line', '.press-hint'].forEach(sel => {
+        const n = document.querySelector(sel);
+        if (n) { n.style.animation = 'none'; n.offsetHeight; n.style.animation = ''; }
+      });
+      document.getElementById('postClose').classList.remove('on');
+      document.getElementById('navPill').classList.remove('on');
+      // 重新启动粒子 + 打开音
+      startFloaters();
+      ding();
+    }
+
+    // ===== 入场启动粒子 + 入场叮 =====
+    setTimeout(() => { ding(); startFloaters(); }, 700);
+  </script>
+</body>
+</html>
