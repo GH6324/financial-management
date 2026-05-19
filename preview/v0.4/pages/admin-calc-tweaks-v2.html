@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>数值阈值 · 可编辑 · 家庭账房 · v0.4.18 preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }</script>
+</head>
+<body class="min-h-screen relative">
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
+      <div class="flex items-center gap-12">
+        <a href="../index.html" class="flex items-baseline gap-2 no-underline"><span class="font-display text-xl font-medium">账房</span><span class="font-mono text-[10px] tracking-[0.2em] text-ink-subtle">№ 张 · v0.4.18</span></a>
+        <nav class="hidden md:flex items-center gap-7 font-mono text-[11px] tracking-[0.14em] uppercase">
+          <a href="dashboard.html" class="text-ink-soft hover:text-ink no-underline">仪表盘</a>
+          <a href="entry-reporting-banner.html" class="text-ink-soft hover:text-ink no-underline">填报</a>
+          <a href="#" class="text-ink-soft hover:text-ink no-underline">账户</a>
+          <a href="reports.html" class="text-ink-soft hover:text-ink no-underline">报表</a>
+          <a href="#" class="text-ink no-underline border-b-2 border-brass pb-[18px]">管理</a>
+        </nav>
+      </div>
+      <div class="w-8 h-8 rounded-full bg-ink text-paper flex items-center justify-center font-display text-sm">伟</div>
+    </div>
+  </header>
+
+  <main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10 grid grid-cols-12 gap-8">
+
+    <aside class="col-span-12 md:col-span-3">
+      <div class="sticky top-24">
+        <div class="eyebrow mb-4">/ADMIN · 14 项</div>
+        <nav class="flex flex-col text-sm">
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">总览</a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">家庭设置</a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">成员</a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">账户</a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-subtle no-underline">账户模板 <span class="text-rust text-[10px]">·只读</span></a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-subtle no-underline">现金流类别 <span class="text-rust text-[10px]">·只读</span></a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-subtle no-underline">产品类目 <span class="text-rust text-[10px]">·只读</span></a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">周期</a>
+          <a href="admin-reminders.html" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">提醒</a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">汇率</a>
+          <a href="admin-integrations.html" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">集成 <span class="text-brass-deep text-[10px]">·新</span></a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">备份</a>
+          <a href="#" class="py-2 px-3 border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft no-underline">审计</a>
+          <a href="#" class="py-2 px-3 border-l-2 border-brass bg-card-soft text-ink no-underline font-display">数值阈值</a>
+        </nav>
+      </div>
+    </aside>
+
+    <section class="col-span-12 md:col-span-9 space-y-8">
+      <div class="mb-2 flex items-end justify-between">
+        <div>
+          <div class="eyebrow mb-2">数 · 值 · 阈 · 值</div>
+          <h1 class="font-display text-4xl font-medium">计算与提示常数</h1>
+          <p class="text-ink-soft text-sm mt-2">影响轧差提示 / 体检规则 / 会话有效期 · 改后<b>实时生效不重启</b></p>
+        </div>
+        <span class="pill pill-forest text-[10px]">可编辑 · v0.4.18 升级</span>
+      </div>
+
+      <!-- flash demo -->
+      <div class="border border-forest bg-forest/[0.05] px-4 py-2 text-sm flex items-center justify-between">
+        <span><span class="text-forest font-display">✓</span> 体检阈值已保存 · 下次诊断按新值跑</span>
+        <span class="font-mono text-[10px] text-ink-subtle tracking-wider">flash · 3 s 后淡出</span>
+      </div>
+
+      <!-- ① 录入提示阈值 · 现有 3 个 -->
+      <form class="bracket-card space-y-5">
+        <div class="flex items-baseline justify-between">
+          <div class="eyebrow-ink">① 录入提示阈值 · 现有可调</div>
+          <span class="font-mono text-[10px] text-ink-subtle tracking-wider">影响 /entry</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div>
+            <label class="field-label">智能转账阈值</label>
+            <div class="flex items-baseline gap-2">
+              <span class="font-mono text-ink-soft">¥</span>
+              <input class="field-input w-28" type="number" value="3000" min="0"/>
+            </div>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">轧差差额超过此值 · /entry 提示"看起来像转账?"</p>
+          </div>
+          <div>
+            <label class="field-label">贷款异常变化倍数</label>
+            <input class="field-input w-28" type="number" value="3" min="1" step="0.5"/><span class="font-mono text-ink-soft ml-1">×</span>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">贷款本期变化超过上期 N 倍 · 警告"可能提前还款?"</p>
+          </div>
+          <div>
+            <label class="field-label">未解释允差 epsilon</label>
+            <div class="flex items-baseline gap-2">
+              <span class="font-mono text-ink-soft">¥</span>
+              <input class="field-input w-28" type="number" value="0.01" min="0" step="0.01"/>
+            </div>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">轧差未解释绝对值 < 此 · 视为已分类完毕</p>
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+          <button type="button" class="btn-ink">保存录入阈值</button>
+        </div>
+      </form>
+
+      <!-- ② 财务体检规则阈值 · 新加 4 项 -->
+      <form class="bracket-card space-y-5">
+        <div class="flex items-baseline justify-between">
+          <div class="eyebrow-ink">② 财务体检规则阈值 · 新可调</div>
+          <span class="font-mono text-[10px] text-ink-subtle tracking-wider">影响 /checkup · LLM prompt 也跟变</span>
+        </div>
+
+        <p class="font-mono text-[10px] text-rust tracking-wider leading-relaxed">
+          ⚠ 这些是"健康财务学"共识值 · <b>不建议轻调</b> · 改完后 LLM 综合诊断会跟着用新阈值算"过 / 警告 / 不过"
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label class="field-label">子类目集中度上限</label>
+            <input class="field-input w-28" type="number" value="40" min="10" max="80" step="5"/><span class="font-mono text-ink-soft ml-1">%</span>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">单子类目 > 此 · 触发"分散化"建议(默认 40%)</p>
+          </div>
+          <div>
+            <label class="field-label">高风险资产占比上限</label>
+            <input class="field-input w-28" type="number" value="30" min="0" max="80" step="5"/><span class="font-mono text-ink-soft ml-1">%</span>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">★★★★★+ ★★★★★★ 合计 > 此 · 风险敞口高警告(默认 30%)</p>
+          </div>
+          <div>
+            <label class="field-label">应急金不闲置倍数</label>
+            <input class="field-input w-28" type="number" value="1.5" min="1" max="5" step="0.1"/><span class="font-mono text-ink-soft ml-1">×</span>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">LIQUID > 应急需求 × 此 · 提示"挪 50% 至理财"(默认 1.5x)</p>
+          </div>
+          <div>
+            <label class="field-label">应急金月数</label>
+            <input class="field-input w-28" type="number" value="6" min="3" max="24"/><span class="font-mono text-ink-soft ml-1">月</span>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">应急目标 = 月支出 × 此(默认 6 个月)</p>
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+          <button type="button" class="btn-ink">保存体检阈值</button>
+        </div>
+      </form>
+
+      <!-- ③ 会话 -->
+      <form class="bracket-card space-y-5">
+        <div class="flex items-baseline justify-between">
+          <div class="eyebrow-ink">③ 会话 · session 有效期</div>
+          <span class="font-mono text-[10px] text-ink-subtle tracking-wider">下次 login 生效</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 items-end">
+          <div>
+            <label class="field-label">"记住我" cookie 有效期</label>
+            <select class="field-input bg-transparent">
+              <option>7 天</option>
+              <option>14 天</option>
+              <option selected>30 天(默认)</option>
+              <option>90 天</option>
+              <option>180 天</option>
+            </select>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">勾"记住我"后多久免登 · 改后已 login 用户的旧 cookie 仍按旧时长 · 下次 login 才用新值</p>
+          </div>
+          <div class="font-mono text-[10px] text-ink-subtle tracking-wider leading-relaxed">
+            <b class="text-ink">v0.4.18 起</b> · 这个原来在 application.yml 的 `app.remember-me-validity-seconds` 配置 · 现在可在此页热改
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+          <button type="button" class="btn-ink">保存会话配置</button>
+        </div>
+      </form>
+
+      <!-- 提示 · 私密红线 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="border-l-2 border-brass bg-brass-soft/[0.3] px-4 py-3">
+          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep mb-1">实时生效</div>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            所有阈值改完即写 family_runtime_config 表 · 业务代码下次读时即用新值(read-through cache 0.5s TTL · 不重启)
+          </p>
+        </div>
+        <div class="border-l-2 border-rust bg-rust/[0.05] px-4 py-3">
+          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-rust mb-1">向下兼容</div>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            字段无配置(老 family)走代码默认值 · prod 升级 0 风险 · 改坏了恢复默认即可
+          </p>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <footer class="border-t border-rule mt-16 py-8 px-6 lg:px-10">
+    <div class="max-w-[1400px] mx-auto flex items-baseline justify-between flex-wrap gap-3">
+      <span class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle uppercase">家庭账房 · v0.4.18 preview · /admin/calc-tweaks 升级</span>
+      <a href="../index.html" class="font-mono text-[10px] tracking-[0.18em] text-brass-deep no-underline">← 返回 preview hub</a>
+    </div>
+  </footer>
+</body>
+</html>

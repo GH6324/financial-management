@@ -433,6 +433,88 @@
       </div>
     </section>
 
+    <!-- v0.4.18 · 系统级配置迁管理页 -->
+    <section class="mb-12" id="v0418">
+      <div class="flex items-baseline justify-between mb-5 pb-3 rule-x pt-5">
+        <div>
+          <div class="eyebrow mb-2">第 五 · 卷 · 沉 · 淀 · v0.4.18</div>
+          <h2 class="font-display text-3xl font-medium">系统级配置 → 管理页 · 可运营</h2>
+          <p class="text-sm text-ink-soft mt-2 max-w-2xl">9 项配置(LLM keys / 股票拉取开关+cron / FX cron / 提醒 cron / checkup 阈值 / 会话期等)从 env 与代码常量沉淀到管理页 · 实时生效不重启</p>
+        </div>
+        <div class="text-ink-soft font-mono text-xs tracking-widest">FR-配置迁移</div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-3">
+
+        <a href="pages/admin-integrations.html"
+           class="paper-card p-5 hover:shadow-lg transition no-underline group"
+           style="background: linear-gradient(180deg, rgba(122,90,57,.06) 0%, var(--card) 60%); border-left: 4px solid var(--brass-deep);">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">/admin/integrations · 新页</span>
+            <span class="font-mono text-[10px] text-forest">3 段</span>
+          </div>
+          <h4 class="font-display text-xl mb-2 group-hover:text-brass-deep">LLM keys + 股票拉取 + FX cron</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            ① LLM(Qwen/DeepSeek API key + max_tokens + 超时)· ② 股票开关 + 3 市场 cron · ③ FX 拉取频率 · sidebar 新增"集成"入口
+          </p>
+          <div class="font-mono text-[10px] text-brass-deep tracking-wider mt-3 opacity-0 group-hover:opacity-100 transition">→ 看新页 mockup</div>
+        </a>
+
+        <a href="pages/admin-calc-tweaks-v2.html"
+           class="paper-card p-5 hover:shadow-lg transition no-underline group"
+           style="background: linear-gradient(180deg, rgba(122,90,57,.06) 0%, var(--card) 60%); border-left: 4px solid var(--brass-deep);">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">/admin/calc-tweaks · 升级</span>
+            <span class="font-mono text-[10px] text-forest">只读 → 可编辑</span>
+          </div>
+          <h4 class="font-display text-xl mb-2 group-hover:text-brass-deep">阈值可编辑 + 4 新项 + 会话有效期</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            现有 3 项(智能转账/贷款异常/未解释 epsilon)从只读改可编辑 · 新加 4 项(集中度/高风险/LIQUID buffer/应急金月数)· 加 1 项(remember-me 有效期)
+          </p>
+          <div class="font-mono text-[10px] text-brass-deep tracking-wider mt-3 opacity-0 group-hover:opacity-100 transition">→ 看升级 mockup</div>
+        </a>
+
+        <div class="paper-card p-5">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">/admin/reminders · 扩充</span>
+            <span class="font-mono text-[10px] text-forest">提醒 cron</span>
+          </div>
+          <h4 class="font-display text-xl mb-2">加提醒时段调节(10:00/20:00 默认)</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            ReportReminderScheduler 硬编码 cron 改成 DB 驱动 · 用户可调成"早 9 晚 18"或"只发一次"等
+          </p>
+        </div>
+
+        <div class="paper-card p-5">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">技术决策 · TDD</span>
+            <span class="font-mono text-[10px] text-forest">动态 cron</span>
+          </div>
+          <h4 class="font-display text-xl mb-2">SchedulingConfigurer + DB 驱动 Trigger</h4>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            Spring @Scheduled 静态绑定 → SchedulingConfigurer + TaskScheduler.schedule(Runnable, CronTrigger) · 配置改即 cancel 旧 future + 重排 · 不重启
+          </p>
+        </div>
+
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+        <div class="border-l-2 border-brass bg-brass-soft/[0.3] px-4 py-3">
+          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep mb-1">9 项搬 · 6 项留</div>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            搬:LLM 2 keys + LLM 2 参数 + 股票 1 开关 + cron 4 个 + checkup 4 阈值 + 1 会话期 = 9。<br/>
+            留:DB 凭据 / SERVER_PORT / REMEMBER_ME_KEY / UPLOAD_ROOT / RETENTION_DAYS / 周期开账 cron 等 = 6
+          </p>
+        </div>
+        <div class="border-l-2 border-rust bg-rust/[0.05] px-4 py-3">
+          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-rust mb-1">私密红线扩展</div>
+          <p class="text-xs text-ink-soft leading-relaxed">
+            LLM API key 与短信 aksk 同纪律 · PrivacyIsolationTest 扩 grep(getQwenApiKey / getDeepSeekApiKey)· audit log 仅记"已配/未配"不记明文 · 留空保原值
+          </p>
+        </div>
+      </div>
+    </section>
+
     <!-- 非范围 -->
     <section class="paper-card p-6 mb-12" style="border-left:4px solid var(--ink-subtle); background:rgba(0,0,0,.02)">
       <div class="eyebrow mb-3">v0.4 不 · 做 · 什 · 么(留 v0.5+)</div>
