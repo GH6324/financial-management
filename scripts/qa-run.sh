@@ -2198,6 +2198,47 @@ grep -q '⑥ 提醒发送日志' "$TMP" \
   && log_ok "v04-RPT-LOG-3 ?page=N 参数被 controller 处理 · 默认 20/页" \
   || log_bad "v04-RPT-LOG-3 分页参数失效" "page=1 missing section"
 
+section "v0.4.17 · 520 一日限定彩蛋"
+
+# v04-520-1 · fragment 文件 + 19 条文案库 + 触发条件
+E520=src/main/resources/templates/fragments/easter520.html
+{ [[ -f "$E520" ]] \
+  && grep -q "th:if=\"\${family != null and today == '05-20'}\"" "$E520" \
+  && grep -q "I LOVE U" "$E520" \
+  && grep -q "今年 520 · 主角还是你" "$E520" \
+  && grep -q "想和你 · 保持长期稳定关系" "$E520" \
+  && [[ $(grep -cE "'[^']{4,40}',?\s*$" "$E520") -ge 19 ]]; } \
+  && log_ok "v04-520-1 easter520 fragment + 严格 05-20 触发 + 19 条文案库" \
+  || log_bad "v04-520-1 fragment 文件 / 触发条件 / 文案库异常" "see $E520"
+
+# v04-520-2 · layout::footer 注入 fragment(任意已登录页通用)
+LF=src/main/resources/templates/fragments/layout.html
+grep -q '~{fragments/easter520 :: easter520' "$LF" \
+  && log_ok "v04-520-2 layout::footer th:replace 注入 easter520 fragment" \
+  || log_bad "v04-520-2 layout 未注入 fragment" "no th:replace in layout"
+
+# v04-520-3 · localStorage flag 关键字 + 右上 pill + 换一句 按钮 在 fragment 内
+{ grep -q 'easter520_seen' "$E520" \
+  && grep -q 'e520Pill' "$E520" \
+  && grep -q 'next-slogan-btn' "$E520" \
+  && grep -q 'window.__e520_open' "$E520" \
+  && grep -q 'window.__e520_close' "$E520"; } \
+  && log_ok "v04-520-3 localStorage flag + 右上 pill + 换一句按钮 + IIFE 命名空间" \
+  || log_bad "v04-520-3 fragment 缺关键 hook" "missing hooks"
+
+# v04-520-4 · 非 5.20 当天进任意已登录页不渲染 fragment(今天 ≠ 5.20)
+$CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
+TODAY_DD=$(/bin/date +%m-%d)
+if [[ "$TODAY_DD" == "05-20" ]]; then
+  grep -q 'I LOVE U' "$TMP" \
+    && log_ok "v04-520-4 今天就是 05-20 · /dashboard 注入 fragment" \
+    || log_bad "v04-520-4 5.20 当天 fragment 应注入" "missing"
+else
+  ! grep -q 'I LOVE U' "$TMP" \
+    && log_ok "v04-520-4 今天非 5.20($TODAY_DD)· /dashboard 不注入 fragment(dormant 正确)" \
+    || log_bad "v04-520-4 非 5.20 仍注入 fragment" "should be dormant"
+fi
+
 # v04-PRIV-1 · 私密红线:全 LLM prompt 构造目录源码绝不引用手机号 / aksk(合规底线)
 LLM_DIR=src/main/java/com/family/finance/service/checkup/llm
 LEAK=$(grep -rnE 'getPhone\(|AccessKeySecret|AccessKeyId|getSmsAccessKey|FamilyNotifyConfig|ReportReminder|SmsAliyunChannel' "$LLM_DIR" 2>/dev/null || true)

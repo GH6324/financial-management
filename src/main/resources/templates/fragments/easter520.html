@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  v0.4.17 FR-520 · 一日限定爱情宣言彩蛋(详 prd/v0.4.md §21)
+  · 仅 2026-05-20 Asia/Shanghai 当天注入 · 跨日自动 dormant
+  · 由 fragments/layout :: footer 调:th:replace="~{fragments/easter520 :: easter520(${nav?.family})}"
+  · 未登录(nav=null)或非 5.20 → th:if 跳过整段 · 0 渲染成本
+-->
+<th:block th:fragment="easter520(family)"
+          th:with="today=${#temporals.format(#temporals.createNow(), 'MM-dd')},
+                   todayIso=${#temporals.format(#temporals.createNow(), 'yyyy-MM-dd')},
+                   brandText=${family != null and !#strings.isEmpty(family.brandText) ? family.brandText : (family != null and !#strings.isEmpty(family.name) ? family.name : '家庭')}">
+<th:block th:if="${family != null and today == '05-20'}">
+
+<style>
+/* ===== 520 彩蛋专属样式 · scoped via id/class 不污染主站 ===== */
+#easter520 { --vred: #E53A4A; --vpink: #FFD9DC; --vgold: var(--brass-deep); }
+
+/* —— 全屏 overlay ——
+   overflow:hidden 防飘心粒子越界触发滚动条出现/消失导致 viewport 抖动
+   小屏内容超出由 .e520-card 自身 max-height+滚动消化 */
+#easter520 {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(20, 18, 16, 0.88);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px 16px 60px;
+  overflow: hidden;
+  animation: e520-overlay-in .35s cubic-bezier(.2,.7,.3,1) both;
+}
+#easter520.closing { animation: e520-overlay-out .4s ease-in forwards; }
+#easter520.hidden { display: none !important; }
+@keyframes e520-overlay-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes e520-overlay-out { from { opacity: 1; } to { opacity: 0; pointer-events: none; } }
+
+#easter520 .stars { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+#easter520 .star {
+  position: absolute; width: 4px; height: 4px; background: #fff; box-shadow: 0 0 4px #fff;
+  animation: e520-twinkle 2.2s ease-in-out infinite;
+}
+#easter520 .star.dim  { background: #ffd9a8; box-shadow: 0 0 3px #ffd9a8; opacity: .6; }
+#easter520 .star.gold { background: var(--brass-deep); box-shadow: 0 0 6px var(--brass-deep); }
+@keyframes e520-twinkle { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+
+#easter520 .floater {
+  position: absolute; bottom: -32px; font-size: 14px; color: #E53A4A;
+  filter: drop-shadow(0 0 6px rgba(229,58,74,.7));
+  animation: e520-float-up linear forwards;
+  pointer-events: none; user-select: none;
+}
+#easter520 .floater.small { font-size: 10px; opacity: .65; color: #FFD9DC; }
+#easter520 .floater.gold  { color: var(--brass-deep); filter: drop-shadow(0 0 6px rgba(184,134,11,.6)); }
+@keyframes e520-float-up {
+  0%   { transform: translateY(0) translateX(0) rotate(-12deg); opacity: 0; }
+  8%   { opacity: 1; } 90% { opacity: 1; }
+  100% { transform: translateY(-110vh) translateX(40px) rotate(18deg); opacity: 0; }
+}
+
+#easter520 .e520-card {
+  position: relative; background: var(--paper);
+  border: 4px solid var(--brass-deep);
+  box-shadow: 0 0 0 2px var(--ink), 0 24px 80px rgba(0,0,0,.5), 0 0 60px rgba(229,58,74,.25);
+  padding: 28px 64px 40px;
+  max-width: 640px; width: calc(100% - 32px); text-align: center;
+  /* viewport 极小时卡片自身滚 · 不让 overlay 滚出抖动 */
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  animation: e520-card-in .55s cubic-bezier(.2,.8,.2,1) .25s both;
+}
+@keyframes e520-card-in {
+  0%   { transform: scale(.4) translateY(40px); opacity: 0; clip-path: inset(50% 50%); }
+  50%  { clip-path: inset(0% 0%); }
+  100% { transform: scale(1) translateY(0); opacity: 1; clip-path: inset(0% 0%); }
+}
+#easter520 .e520-card::before,
+#easter520 .e520-card::after {
+  content: ''; position: absolute; width: 16px; height: 16px;
+  background: var(--brass-deep); box-shadow: 0 0 0 2px var(--ink);
+}
+#easter520 .e520-card::before { top: -10px; left: -10px; }
+#easter520 .e520-card::after  { bottom: -10px; right: -10px; }
+
+#easter520 .pixel-heart-big {
+  display: block; width: 128px; height: 110px; margin: 4px auto 18px;
+  filter: drop-shadow(0 4px 0 rgba(0,0,0,.35)) drop-shadow(0 0 20px rgba(229,58,74,.7));
+  animation: e520-heartbeat 1s ease-in-out infinite .7s;
+}
+@keyframes e520-heartbeat {
+  0%, 30%, 60%, 100% { transform: scale(1); }
+  15%                { transform: scale(1.18); }
+  45%                { transform: scale(1.08); }
+}
+
+#easter520 .title-box {
+  display: inline-flex; align-items: center; gap: 12px;
+  margin: 4px 0 24px; padding: 8px 18px;
+  border: 3px solid var(--ink); background: var(--paper-soft);
+  box-shadow: 5px 5px 0 var(--brass-deep), 7px 7px 0 var(--ink);
+  animation: e520-title-in .5s cubic-bezier(.2,.9,.2,1) 1.1s both;
+}
+#easter520 .title-main {
+  font-family: 'Fraunces', 'Noto Serif SC', serif;
+  font-size: 46px; font-weight: 700; letter-spacing: .04em;
+  color: var(--ink); text-shadow: 3px 3px 0 #E53A4A, 6px 6px 0 var(--brass-deep); line-height: 1;
+}
+#easter520 .title-bracket {
+  font-family: 'JetBrains Mono', monospace; color: #E53A4A; font-size: 24px; font-weight: 700;
+}
+@keyframes e520-title-in {
+  0%   { transform: translateY(-12px) scale(.7); opacity: 0; }
+  60%  { transform: translateY(2px) scale(1.08); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+#easter520 .subtitle {
+  font-family: 'Noto Serif SC', 'Fraunces', serif;
+  color: var(--ink); font-size: 26px; font-weight: 500;
+  line-height: 1.5; letter-spacing: .08em; margin: 12px 0 6px;
+  min-height: 1.5em;
+  animation: e520-sub-in .55s ease-out 1.6s both;
+}
+@keyframes e520-sub-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes e520-sub-swap { 0% { opacity: 0; transform: translateY(6px); } 100% { opacity: 1; transform: translateY(0); } }
+
+#easter520 .next-slogan-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 14px; padding: 6px 14px;
+  border: 2px solid var(--ink); background: var(--paper-soft);
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  letter-spacing: .14em; color: var(--ink-soft); cursor: pointer;
+  box-shadow: 3px 3px 0 var(--brass-deep);
+  transition: transform .1s, color .15s, border-color .15s;
+  animation: e520-hint-in .4s ease-out 2.2s both;
+}
+#easter520 .next-slogan-btn:hover { color: #E53A4A; border-color: #E53A4A; }
+#easter520 .next-slogan-btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--brass-deep); }
+#easter520 .next-slogan-btn .ic { font-size: 13px; }
+
+#easter520 .footer-line {
+  font-family: 'JetBrains Mono', monospace; color: var(--ink-soft);
+  font-size: 13px; letter-spacing: .18em; margin-top: 24px;
+  padding-top: 16px; border-top: 2px solid var(--rule);
+  animation: e520-footer-in .5s ease-out 2.5s both;
+}
+#easter520 .footer-line b { color: #E53A4A; font-weight: 600; }
+@keyframes e520-footer-in { from { opacity: 0; } to { opacity: 1; } }
+
+#easter520 .e520-close {
+  position: absolute; top: 8px; right: 8px; width: 28px; height: 28px;
+  background: var(--ink); color: var(--paper); border: none;
+  font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700;
+  cursor: pointer; line-height: 1; transition: background .15s; z-index: 2;
+}
+#easter520 .e520-close:hover { background: #E53A4A; }
+
+#easter520 .press-hint {
+  position: absolute; bottom: 24px; left: 0; right: 0;
+  text-align: center; font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; letter-spacing: .2em; color: rgba(255,255,255,.65);
+  text-transform: uppercase;
+  animation: e520-hint-in .4s ease-out 2.8s both;
+}
+#easter520 .press-hint .cursor {
+  display: inline-block; width: 8px; height: 14px; background: rgba(255,255,255,.8);
+  vertical-align: -2px; margin-left: 4px;
+  animation: e520-blink 1s steps(2) infinite;
+}
+@keyframes e520-blink { 50% { opacity: 0; } }
+@keyframes e520-hint-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* —— 右上常驻 ♥520 pill · overlay 打开时 .hidden ——
+   top: 80px 让 pill 落在 sticky nav(top:1 + h-16=64 ≈ 65)下方 + 12px 间距
+   z-index 10000 已经高于 nav 的 z-30,但物理位置错开避免视觉拥挤 */
+.e520-pill {
+  position: fixed; top: 80px; right: 16px; z-index: 10000;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; background: var(--paper);
+  border: 2px solid #E53A4A; color: #E53A4A;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  letter-spacing: .12em; box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer; user-select: none;
+  animation: e520-pill-pulse 2s ease-in-out infinite;
+  transition: transform .1s;
+}
+.e520-pill.hidden { display: none !important; }
+.e520-pill:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+.e520-pill .pill-heart { font-size: 14px; }
+@keyframes e520-pill-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.06); }
+}
+</style>
+
+<!-- 右上 ♥520 常驻按钮 -->
+<div class="e520-pill hidden" id="e520Pill" onclick="window.__e520_open && window.__e520_open()">
+  <span class="pill-heart">♥</span><span>520 · 再看</span>
+</div>
+
+<!-- 主彩蛋 overlay -->
+<div id="easter520">
+  <div class="stars" id="e520Stars"></div>
+
+  <div class="e520-card">
+    <button class="e520-close" type="button" aria-label="关闭"
+            onclick="event.stopPropagation(); window.__e520_close && window.__e520_close();">×</button>
+
+    <!-- 像素大心 SVG -->
+    <svg class="pixel-heart-big" viewBox="0 0 14 12" shape-rendering="crispEdges" aria-hidden="true">
+      <rect x="1"  y="0" width="1" height="1" fill="#1a1715"/>
+      <rect x="5"  y="0" width="1" height="1" fill="#1a1715"/>
+      <rect x="8"  y="0" width="1" height="1" fill="#1a1715"/>
+      <rect x="12" y="0" width="1" height="1" fill="#1a1715"/>
+      <rect x="0"  y="1" width="1" height="2" fill="#1a1715"/>
+      <rect x="13" y="1" width="1" height="2" fill="#1a1715"/>
+      <rect x="2"  y="0" width="3" height="1" fill="#E53A4A"/>
+      <rect x="9"  y="0" width="3" height="1" fill="#E53A4A"/>
+      <rect x="1"  y="1" width="12" height="2" fill="#E53A4A"/>
+      <rect x="1"  y="3" width="12" height="1" fill="#E53A4A"/>
+      <rect x="2"  y="4" width="10" height="1" fill="#E53A4A"/>
+      <rect x="3"  y="5" width="8"  height="1" fill="#E53A4A"/>
+      <rect x="4"  y="6" width="6"  height="1" fill="#E53A4A"/>
+      <rect x="5"  y="7" width="4"  height="1" fill="#E53A4A"/>
+      <rect x="6"  y="8" width="2"  height="1" fill="#E53A4A"/>
+      <rect x="2"  y="1" width="2" height="1" fill="#FFD9DC"/>
+      <rect x="3"  y="2" width="1" height="1" fill="#FFD9DC"/>
+    </svg>
+
+    <div class="title-box">
+      <span class="title-bracket">+</span>
+      <span class="title-main">I LOVE U &nbsp;·&nbsp; 520</span>
+      <span class="title-bracket">+</span>
+    </div>
+
+    <div class="subtitle">
+      <div class="slogan-line" id="e520Slogan">今年 520 · 主角还是你</div>
+    </div>
+
+    <button class="next-slogan-btn" type="button"
+            onclick="event.stopPropagation(); window.__e520_next && window.__e520_next();">
+      <span class="ic">↻</span>
+      <span>换 一 句</span>
+    </button>
+
+    <div class="footer-line">
+      ─── <b th:text="${brandText}">家庭</b> &nbsp;·&nbsp; <b>2026</b> &nbsp;·&nbsp; <b>5</b> &nbsp;·&nbsp; <b>20</b> ───
+    </div>
+  </div>
+
+  <div class="press-hint">
+    按 ENTER &nbsp;·&nbsp; 或点击任意位置 关闭<span class="cursor"></span>
+  </div>
+</div>
+
+<script th:inline="javascript">
+(function () {
+  'use strict';
+
+  // 用 IIFE 保护 + 全局函数挂在 window.__e520_* · 避免污染主站命名空间
+  // 已加载过则跳过(防 fragment 在 layout footer 里被多次替换)
+  if (window.__e520_loaded) return;
+  window.__e520_loaded = true;
+
+  // 服务器渲染的今日 ISO(Asia/Shanghai · JVM -Duser.timezone)
+  var TODAY_ISO = /*[[${todayIso}]]*/ '2026-05-20';
+  var SEEN_KEY  = 'easter520_seen';
+
+  // PRD §21.3.1 文案库(19 条)
+  var SLOGANS = [
+    '今年 520 · 主角还是你',
+    '你一出现 · 我就不想嘴硬了',
+    '懂了 · 心动原来长这样',
+    '别人 520 · 我和你天天 520',
+    '已确认 · 你是长期合作对象',
+    '和你待着 · 时间自动变快',
+    '今天也在 · 稳定喜欢你',
+    '你比朋友圈 · 浪漫多了',
+    '爱你这事 · 我没开玩笑',
+    '你属于是 · 我的置顶偏爱',
+    '和你聊天 · 像在回血',
+    '我的人生 Bug · 被你修好了',
+    '见到你之后 · 恋爱脑合法了',
+    '你是我最近 · 最稳定的快乐',
+    '小情侣这身份 · 先续费一辈子',
+    '别管 · 反正我最喜欢你',
+    '你负责出现 · 我负责心动',
+    '喜欢你这件事 · 持续热更新',
+    '想和你 · 保持长期稳定关系'
+  ];
+  var lastIdx = -1;
+
+  function pickSlogan() {
+    if (SLOGANS.length === 1) return SLOGANS[0];
+    var i;
+    do { i = Math.floor(Math.random() * SLOGANS.length); } while (i === lastIdx);
+    lastIdx = i;
+    return SLOGANS[i];
+  }
+
+  function applySlogan(animate) {
+    var node = document.getElementById('e520Slogan');
+    if (!node) return;
+    node.textContent = pickSlogan();
+    if (animate) {
+      node.style.animation = 'none';
+      // eslint-disable-next-line no-unused-expressions
+      node.offsetHeight;
+      node.style.animation = 'e520-sub-swap .35s ease-out';
+    }
+  }
+
+  // 星空 80 颗
+  (function genStars() {
+    var stars = document.getElementById('e520Stars');
+    if (!stars) return;
+    for (var i = 0; i < 80; i++) {
+      var s = document.createElement('span');
+      var r = Math.random();
+      s.className = 'star' + (r < .15 ? ' gold' : (r < .55 ? ' dim' : ''));
+      s.style.left = (Math.random() * 100) + '%';
+      s.style.top  = (Math.random() * 100) + '%';
+      s.style.animationDelay = (Math.random() * 2) + 's';
+      if (Math.random() > .7) { s.style.width = '6px'; s.style.height = '6px'; }
+      stars.appendChild(s);
+    }
+  })();
+
+  // 飘心粒子
+  var floaterTimer = null;
+  function startFloaters() {
+    stopFloaters();
+    function spawn() {
+      var el = document.getElementById('easter520');
+      if (!el || el.classList.contains('hidden')) return;
+      var f = document.createElement('span');
+      var v = Math.random();
+      f.className = 'floater' + (v < .4 ? ' small' : (v < .55 ? ' gold' : ''));
+      f.textContent = ['♥','♥','♥','♡','♥','✦'][Math.floor(Math.random() * 6)];
+      f.style.left = (Math.random() * 100) + '%';
+      f.style.animationDuration = (8 + Math.random() * 7) + 's';
+      f.style.fontSize = (12 + Math.random() * 20) + 'px';
+      el.appendChild(f);
+      setTimeout(function () { f.remove(); }, 16000);
+    }
+    for (var i = 0; i < 12; i++) setTimeout(spawn, i * 220);
+    floaterTimer = setInterval(spawn, 380);
+  }
+  function stopFloaters() {
+    if (floaterTimer) { clearInterval(floaterTimer); floaterTimer = null; }
+  }
+
+  // 「叮」音效 · Web Audio 合成 · 不增 jar 体积
+  var audioCtx = null;
+  function ding() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var ctx = audioCtx;
+      var now = ctx.currentTime;
+      [1318.5, 2637].forEach(function (freq, i) {
+        var osc  = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(i === 0 ? 0.22 : 0.10, now + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.7);
+      });
+    } catch (e) { /* 静音 fallback */ }
+  }
+
+  function openEgg() {
+    var el = document.getElementById('easter520');
+    var pill = document.getElementById('e520Pill');
+    if (!el) return;
+    el.classList.remove('closing');
+    el.classList.remove('hidden');
+    if (pill) pill.classList.add('hidden');
+    applySlogan(false);
+    el.querySelectorAll('.floater').forEach(function (f) { f.remove(); });
+    // 重启入场动画
+    ['.e520-card', '.title-box', '.subtitle', '.next-slogan-btn', '.footer-line', '.press-hint'].forEach(function (sel) {
+      var n = el.querySelector(sel);
+      if (n) { n.style.animation = 'none'; n.offsetHeight; n.style.animation = ''; }
+    });
+    startFloaters();
+    setTimeout(ding, 700);
+  }
+
+  function closeEgg() {
+    var el = document.getElementById('easter520');
+    var pill = document.getElementById('e520Pill');
+    if (!el || el.classList.contains('closing') || el.classList.contains('hidden')) return;
+    ding();
+    el.classList.add('closing');
+    stopFloaters();
+    try { localStorage.setItem(SEEN_KEY, TODAY_ISO); } catch (e) {}
+    setTimeout(function () {
+      el.classList.add('hidden');
+      el.classList.remove('closing');
+      if (pill) pill.classList.remove('hidden');
+    }, 420);
+  }
+
+  function nextSlogan() {
+    applySlogan(true);
+    ding();
+  }
+
+  // 暴露给 onclick handlers
+  window.__e520_open  = openEgg;
+  window.__e520_close = closeEgg;
+  window.__e520_next  = nextSlogan;
+
+  // ===== 初始化:根据 localStorage 决定 auto-open or 直接显 pill =====
+  var seen = false;
+  try { seen = localStorage.getItem(SEEN_KEY) === TODAY_ISO; } catch (e) {}
+
+  var overlay = document.getElementById('easter520');
+  var pill = document.getElementById('e520Pill');
+
+  if (seen) {
+    // 已经看过/关闭 · 直接显 pill 不弹 overlay
+    if (overlay) overlay.classList.add('hidden');
+    if (pill) pill.classList.remove('hidden');
+  } else {
+    // 首次进入 · overlay 自动播放(已在 DOM 里 · 入场动画 CSS keyframes 自动跑)
+    if (pill) pill.classList.add('hidden');
+    applySlogan(false);
+    setTimeout(function () { ding(); startFloaters(); }, 700);
+  }
+
+  // 全局键盘关闭 · 任意键(Esc / Enter / Space ...)
+  document.addEventListener('keydown', function () {
+    var el = document.getElementById('easter520');
+    if (el && !el.classList.contains('hidden') && !el.classList.contains('closing')) {
+      closeEgg();
+    }
+  });
+
+  // overlay 整体点击关闭(× / next-slogan-btn 已 stopPropagation)
+  if (overlay) {
+    overlay.addEventListener('click', function () { closeEgg(); });
+  }
+})();
+</script>
+
+</th:block>
+</th:block>
+</body>
+</html>

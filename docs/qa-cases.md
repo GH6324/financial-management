@@ -967,3 +967,30 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 - `/admin/reminders` v0.1 只读页升级为设置页 · 路由 / 侧栏入口不变
 - PromptBuilder 白名单式注入不受新字段影响 · 其他 LLM caller 0 改动
 - prod 升级 `git pull && sudo bash deploy/deploy.sh`(交互确认应用 V25)· 0 风险
+
+### v0.4.17 · 520 一日限定爱情宣言彩蛋(FR-520 · 2026-05-19 设计 · 2026-05-20 上线)
+
+**触发**:5.20 谐音"我爱你" + 家庭账房面向夫妻/家庭场景 · 全屏像素彩蛋强化"家"的氛围 · 仅当天 + Asia/Shanghai 服务器时区 · 5.21 完全 dormant。详 [prd/v0.4.md §21](../prd/v0.4.md)。
+
+| Case | 验证点 |
+|---|---|
+| v04-520-1 | `templates/fragments/easter520.html` 存在 + 严格 `today == '05-20'` 触发条件 + 主标"I LOVE U" + 文案库 19 条(首尾各一句 + 总行数计) |
+| v04-520-2 | `templates/fragments/layout.html` footer 含 `~{fragments/easter520 :: easter520(...)}` 注入 |
+| v04-520-3 | Fragment 含 `easter520_seen` localStorage flag + `e520Pill` 右上常驻按钮 + `next-slogan-btn` 换一句 + `window.__e520_*` IIFE 暴露入口 |
+| v04-520-4 | 日期 guard:今天非 5.20 时,/dashboard 不注入 fragment(dormant);今天就是 5.20 时,/dashboard 含 "I LOVE U" |
+
+**手工验证步骤(5.20 当天)**
+1. 登录任意页(/dashboard / /entry / /admin/reminders / /reports / /accounts)
+2. 0.5s 后自动弹全屏 overlay · 像素心脉动 + 飘心粒子 + 「叮」一声
+3. 副标随机显 19 条之一 · 不与上一句重(刷新 + 关闭 + 点 pill 多试)
+4. 点「换 一 句 ↻」立刻换一条(overlay 不关 · 「叮」一声)
+5. 点任意位置 / 按 ENTER / 任意键 / × → 关闭 + 「叮」 → localStorage `easter520_seen=2026-05-20`
+6. 同一天再进系统不再自动弹 · 但右上 ♥520 pill 常驻 · 点了重开 + 换新文案
+7. **5.21 起**:fragment 服务器侧 th:if 直接跳过 · /dashboard 源码 grep 无 "I LOVE U"
+
+**backward-compat 红线**
+- **0 schema 改动 · 0 DB 改动**(纯 Thymeleaf fragment + 静态资源)
+- 不引用 phone / aksk / LLM(无私密红线接触)
+- 5.21 服务器侧 `th:if` 跳过 = **零运行成本**
+- localStorage flag 永久留无害(再次 5.20 系日期换了自动 ignore)
+- prod 升级:`git pull && sudo bash deploy/deploy.sh` · 0 风险
