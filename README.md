@@ -42,7 +42,9 @@
 - **资产体检 + AI 诊断** — 4 维度结构化诊断(配置 / 风险 / 流动性 / 收益)· 智能建议规则引擎 · LLM 综合分析(Qwen-Plus 主 / DeepSeek 备)
 - **AI 调仓建议** — 4 桶配置 diff(现金 / 投资 / 房产 / 保险)· LLM 给出具体调仓步骤("从 X 调 ¥N 到 Y")· 30 天复用 + 一键刷新
 - **决策辅助** — CPI 对照线 / 账户级基准对照 / 提前还贷决策器(NPV 18 年视角)/ 应急金不闲置提示
-- **隐私与可移植** — 自托管 · 真名脱敏后再喂 LLM · CSV 一键导出全部数据 · Apache 2.0
+- **填报规范化 + 截止前强提醒**(v0.4.14)— 3 种填报模板(实时收入·月末支出 / 月末一次清 / 每周滚动)· 截止前 N 天每天短信强提醒(阿里云)· 站内 banner 兜底 · 9 步阿里云接入指引
+- **可运营的管理页**(v0.4.18)— LLM keys / 股票拉取开关+cron / FX cron / checkup 阈值 / 会话期 9 项配置全在 `/admin/integrations` + `/admin/calc-tweaks` 热改 · 实时生效不重启 · DB > env > 代码默认 三层 fallback
+- **隐私与可移植** — 自托管 · 真名脱敏后再喂 LLM · 手机号/aksk/LLM-key 双重防回归(单测+静态扫)· CSV 一键导出全部数据 · Apache 2.0
 
 详细变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
@@ -55,7 +57,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 166 单元 / 36 端到端 / 289 黑盒 |
+| 测试 | JUnit 5 · 170 单元(含 PrivacyIsolationTest 静态扫源码私密红线)/ 36 端到端 / 319 黑盒 |
 
 ## 快速开始(自托管部署)
 
@@ -148,8 +150,8 @@ mvn spring-boot:run
 测试:
 
 ```bash
-mvn test                       # JUnit 单元测试(114)
-bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(229)
+mvn test                       # JUnit 单元测试(170 · v0.4 封板基线)
+bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(319)
 bash scripts/qa-e2e.sh         # 端到端真值校验(36 · 会清空 DB)
 ```
 
@@ -204,7 +206,11 @@ financial-management/
 
 ## 配置项
 
-`/etc/finance.env`(由 `deploy.sh` 自动生成,首装时交互填):
+**v0.4.18 起 · 运营参数沉淀到管理页 · 实时生效不重启**(详 [`prd/v0.4.md`](prd/v0.4.md) §22)。读取链:**DB 优先 → env(@Value)→ 代码常量**。
+
+### A · 留 `/etc/finance.env`(系统级 · 启动前必须存在)
+
+由 `deploy.sh` 自动生成,首装时交互填:
 
 | 项 | 说明 |
 |---|---|
@@ -212,11 +218,34 @@ financial-management/
 | `SERVER_PORT` | Spring Boot 监听端口(默认 20000,nginx 反代到这里)|
 | `SERVER_ADDRESS` | `127.0.0.1` 让 nginx 走 loopback 反代;`0.0.0.0` 让 Spring 直接对外 |
 | `UPLOAD_ROOT` | 用户上传 logo 的本地路径 |
-| `REMEMBER_ME_KEY` | Remember-me cookie 签名 key(自动 32 字节随机)|
+| `REMEMBER_ME_KEY` | Remember-me cookie 签名 key(自动 32 字节随机 · 改即踢人)|
 | `BACKUP_DIR` | mysqldump 备份目录(默认 `/var/backup/finance`)|
-| `RETENTION_DAYS` | 备份保留天数(默认 56)|
-| `FINANCE_LLM_QWEN_API_KEY` | 可选 · LLM 综合诊断(资产体检 AI 文案)主厂商 key |
-| `FINANCE_LLM_DEEPSEEK_API_KEY` | 可选 · LLM 备选厂商 key,主挂掉时熔断切到备选 |
+| `RETENTION_DAYS` | 备份保留天数(默认 56 · 被 backup.sh 独立 cron 读)|
+
+### B · 沉淀到管理页(运营参数 · 实时生效)
+
+| 配置 | 入口 | env 兜底 |
+|---|---|---|
+| **LLM Qwen API key** | `/admin/integrations` ① 段(私密 · 留空保原值) | `FINANCE_LLM_QWEN_API_KEY` 仍可用作 fallback |
+| **LLM DeepSeek API key** | 同上 | `FINANCE_LLM_DEEPSEEK_API_KEY` |
+| **LLM max_tokens / timeout** | `/admin/integrations` | — |
+| **股票自动拉取开关** | `/admin/integrations` ② 段 · checkbox | `FINANCE_STOCK_FETCH_ENABLED=true/false` |
+| **股票 3 市场 cron**(美 06:05 / A 16:10 / 港 16:30) | `/admin/integrations` ② 段 · 各自 cron 表达式 · 改即 cancel 旧 future + 重排 | 代码默认 |
+| **FX 拉取 cron**(月初 02:30) | `/admin/integrations` ③ 段 | 代码默认 |
+| **提醒 cron**(每天 10:00/20:00) | `/admin/reminders` | 代码默认 |
+| **smart_transfer 阈值**(¥3000) | `/admin/calc-tweaks` ① 段 | 代码默认 |
+| **checkup 阈值**(集中度 40% / 高风险 40% / LIQUID 1.5x / 应急金 6 月) | `/admin/calc-tweaks` ② 段 | 代码默认 |
+| **会话有效期**(remember-me · 默认 30 天) | `/admin/calc-tweaks` ③ 段 · 注意新值生效需重启 | `app.remember-me-validity-seconds` |
+| **填报模板 + 提前提醒天数**(v0.4.14) | `/admin/reminders` ① 段 | DB · 默认 T1 · leadDays=2 |
+| **短信 aksk + 签名 + 模板**(阿里云) | `/admin/reminders` ② 段(私密)| DB 单一来源 · `docs/aliyun-sms-setup.md` 9 步接入 |
+| **成员手机号**(短信收件人) | `/admin/reminders` ④ 段 | DB · `member.phone` |
+
+**升级路径**:`deploy.sh` step 9.5 一次性把 env 里的 LLM keys + 股票开关 seed 到 `family_runtime_config` 表(幂等 flag `/var/finance/.config-migrated-v0.4.18`)。之后改 env 不再生效 · DB 是 source of truth · env 仅当 fallback。
+
+### 不要做
+
+- ✗ 改 `/etc/finance.env` 期望生效(v0.4.18 后改 env 不会触发任何 reload · 改管理页才生效)
+- ✗ 直接 SQL 改 `family_runtime_config`(可以,但 cache 5s TTL 内不立刻生效;走管理页才会同步 invalidate cache + rescheduleAll)
 
 ## 安全
 
@@ -226,6 +255,7 @@ financial-management/
 - 文件上传:前端 Canvas 压缩为 WebP + 后端 RIFF magic 校验 + 200KB 上限 + path traversal 防护
 - 数据库每日自动备份(systemd timer)· 备份目录权限隔离
 - LLM prompt 真名脱敏(成员 A/B/C 稳定映射)· 输出 OutputValidator 检查担保词 / 真名泄露 / 产品代码
+- **私密红线 · 编译期 + 静态扫双重防回归**(v0.4.14 + v0.4.18)— 手机号 / 短信 aksk / LLM API key 绝不进 LLM prompt / audit_log 明文 / 前端明文回显 · `PrivacyIsolationTest` 静态扫源码 + 行为单测 · `qa-run v04-PRIV-1` grep gate
 
 发现安全问题?见 [`SECURITY.md`](SECURITY.md)。
 

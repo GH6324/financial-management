@@ -112,7 +112,7 @@ say "5/15 系统用户 finance"
 id finance >/dev/null 2>&1 && ok "已存在" || { useradd -r -m -d /home/finance -s /bin/bash finance; ok "已建"; }
 
 say "6/15 目录"
-install -d -o finance -g finance -m 755 /opt/finance/{logs,db,db/migration}
+install -d -o finance -g finance -m 755 /opt/finance/{logs,db,db/migration,deploy}
 install -d -o finance -g finance -m 755 /var/finance/uploads
 install -d -o finance -g finance -m 755 /var/backup/finance
 ok "/opt/finance · /var/finance · /var/backup/finance 就位"
@@ -175,6 +175,8 @@ SERVER_PORT=$(grep '^SERVER_PORT=' /etc/finance.env | cut -d= -f2- | tr -d '"' |
 
 say "9/15 数据库迁移(schema_history 幂等)"
 install -m 755 -o finance -g finance db/apply.sh /opt/finance/db/apply.sh
+# v0.4.19 fix · 周备份脚本必须装到 /opt/finance/deploy/(finance-backup.service 的 ExecStart 路径)
+install -m 755 -o finance -g finance deploy/backup.sh /opt/finance/deploy/backup.sh
 install -m 644 -o finance -g finance db/migration/V*__*.sql /opt/finance/db/migration/
 # .checksum-overrides 文件(以 . 开头)不会被 V*__*.sql glob 匹配 · 单独装
 if [[ -f db/migration/.checksum-overrides ]]; then
@@ -341,6 +343,17 @@ else
 fi
 systemctl is-enabled --quiet finance 2>/dev/null || systemctl enable finance >/dev/null 2>&1
 
+# v0.4.19 fix · 周备份 unit + timer · 之前漏装 backup.sh + 未默认 enable timer
+for U in finance-backup.service finance-backup.timer; do
+  if [[ -f /etc/systemd/system/$U ]] && cmp -s "deploy/$U" "/etc/systemd/system/$U"; then
+    ok "$U 已是最新"
+  else
+    install -m 644 "deploy/$U" "/etc/systemd/system/$U"
+    NEEDS_DAEMON_RELOAD=1
+    ok "$U 写入"
+  fi
+done
+
 SUDOERS_TMP=$(mktemp)
 cat > "$SUDOERS_TMP" <<EOF
 finance ALL=(root) NOPASSWD: /bin/cp /opt/finance/app.jar /opt/finance/app.jar.prev
@@ -364,6 +377,9 @@ fi
 
 say "14/15 启服务 + 健康检查"
 [[ "$NEEDS_DAEMON_RELOAD" == "1" ]] && { systemctl daemon-reload; ok "daemon-reload"; }
+
+# v0.4.19 fix · finance-backup.timer 启用(idempotent · 已 enabled 时 no-op)
+systemctl enable --now finance-backup.timer >/dev/null 2>&1 && ok "finance-backup.timer 已启用" || warn "finance-backup.timer 启用失败 · 手动:systemctl enable --now finance-backup.timer"
 
 auto_rollback_jar() {
   echo; echo "${R}═════ 自动回滚 jar(DB 不动)═════${X}"
