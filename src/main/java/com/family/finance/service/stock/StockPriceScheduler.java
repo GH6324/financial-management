@@ -40,13 +40,20 @@ public class StockPriceScheduler {
     private final StockHoldingMapper holdingMapper;
     private final StockPriceFetcher fetcher;
     private final FamilyConfigService configService;
+    /**
+     * v0.4.21 fix · cron 拉完价后必须接 valuation 刷新,否则账户余额永远停留在用户最后一次手动 ↻ 时的值。
+     * 这个 wire 从 v0.3 上线就遗漏 · 是 latent bug,不是新功能。
+     */
+    private final AccountValuationService valuationService;
 
     public StockPriceScheduler(StockHoldingMapper holdingMapper,
                                StockPriceFetcher fetcher,
-                               FamilyConfigService configService) {
+                               FamilyConfigService configService,
+                               AccountValuationService valuationService) {
         this.holdingMapper = holdingMapper;
         this.fetcher = fetcher;
         this.configService = configService;
+        this.valuationService = valuationService;
         log.info("StockPriceScheduler initialized · enabled-source=DB(family_runtime_config.stock_fetch_enabled)");
     }
 
@@ -61,23 +68,46 @@ public class StockPriceScheduler {
             log.debug("US fetch SKIPPED · disabled");
             return;
         }
-        fetchMarket(Market.US);
+        int persisted = fetchMarket(Market.US);
+        refreshValuationsAfterCron(Market.US, persisted);
     }
 
     /** A 股 · 默认工作日 16:10 · cron 由 stock_cron_cn 配 */
     public void fetchCnStocks() {
         if (!isEnabled()) return;
-        fetchMarket(Market.CN);
+        int persisted = fetchMarket(Market.CN);
+        refreshValuationsAfterCron(Market.CN, persisted);
     }
 
     /** 港股 · 默认工作日 16:30 · cron 由 stock_cron_hk 配 */
     public void fetchHkStocks() {
         if (!isEnabled()) return;
-        fetchMarket(Market.HK);
+        int persisted = fetchMarket(Market.HK);
+        refreshValuationsAfterCron(Market.HK, persisted);
+    }
+
+    /**
+     * cron 拉完价后刷账户估值 · 写 period_snapshot 新余额 + 若 |Δ|>0.01 写 stock_valuation_event。
+     * 仅 cron 入口走此方法 · admin 手动入口 ({@link com.family.finance.web.stock.StockHoldingController})
+     * 自己显式调 {@code refreshAllForFamily(MANUAL/HOLDING_CHANGE)} · 避免双跑。
+     */
+    private void refreshValuationsAfterCron(Market market, int persisted) {
+        try {
+            int refreshed = valuationService.refreshAllForFamily(
+                FAMILY_ID,
+                AccountValuationService.TriggerKind.CRON,
+                null);
+            log.info("post-cron valuation refresh · market={} persisted={} accountsRefreshed={}",
+                market, persisted, refreshed);
+        } catch (Exception e) {
+            log.warn("post-cron valuation refresh failed · market={}: {}", market, e.toString());
+        }
     }
 
     /**
      * 内部统一方法 · 也用作 admin 手动触发入口(不读 enabled 开关 · 手动等于显式覆盖)。
+     * 注意:本方法只持久化 price_snapshot · 估值刷新由调用方负责
+     * (cron 入口走 {@link #refreshValuationsAfterCron} · admin 入口自己调 refreshAllForFamily)。
      */
     public int fetchMarket(Market market) {
         List<TickerMarket> tickers = holdingMapper.findDistinctAutoTickersByMarket(market.name());

@@ -2,6 +2,18 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.4.21] · 2026-05-20
+
+**hotfix** · 修自 v0.3 上线起的 latent bug · 自动拉价不触发账户估值刷新。
+
+### Fixed
+
+- **`StockPriceScheduler` cron 入口拉完价后未调 `AccountValuationService.refreshAllForFamily`** · 表象:每日 cron(US 06:05 / CN 16:10 / HK 16:30)都成功 fetch + 写 `stock_price_snapshot`,但 `stock_valuation_event` 表全是 MANUAL(用户在持仓页手点 ↻ 才有)· 账户余额永远停留在用户最后一次手动 ↻ 时的值 · 自 v0.3 上线就遗漏 wire · v0.4.18 重构调度时也只换了触发机制没补这个 wire。修复:`fetchUsStocks/CnStocks/HkStocks` 三个 cron 入口拉完价后接 `refreshAllForFamily(CRON, null)` · admin 手动入口的 `fetchMarket()` 不动(controller 自己接 MANUAL/HOLDING_CHANGE · 避免双跑)(v0.4.21)
+
+### Added
+
+- **`StockPriceSchedulerTest` · 13 个 wire 防回归单测** · 锁死「cron 入口必接 valuation 刷新」+「fetchMarket 直接调不带 refresh」+「TriggerKind=CRON 不污染 MANUAL/HOLDING_CHANGE 审计」三条铁律 · 后续谁删了 `refreshValuationsAfterCron` 编译期单测立挂(v0.4.21)
+
 ## [v0.4.20] · 2026-05-19
 
 **hotfix** · 补 v0.4.19 漏修的 timer 行内注释 bug。
