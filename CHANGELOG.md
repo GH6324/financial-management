@@ -8,10 +8,15 @@
 
 ### Added
 
-- **/entry 顶部「📈 拉取股价」按钮** · tab bar 右侧 · 仅家庭有 STOCK 账户时显示 · HTMX POST 不刷整页 · 顶部出现「⟳ 已刷新 3 市场 · N 账户余额更新」toast(6 秒自动渐隐)· 等同三个市场全 fetch + valuation refresh(MANUAL trigger · 写 stock_valuation_event 含触发用户)(v0.4.22)
+- **/entry 顶部「刷新股票估值」按钮**(Feather refresh-cw + loader 双 SVG · 旋转 indicator)· tab bar 右侧 · 仅家庭有 STOCK 账户时显示 · HTMX POST 不刷整页 · 顶部出现 toast「3 市场估值已刷新 · N 账户」(成功/check)、「仅 N/3 市场...」(警告/warn)、「3 市场均失败」(fail)、「操作太频繁」(clock)四态(6 秒自动渐隐)· 等同三个市场全 fetch + valuation refresh(MANUAL trigger · 写 stock_valuation_event 含触发用户)· 一律 inline SVG 不用 emoji(v0.4.22)
 - **`EntryRefreshRateLimiter`** · per family 60s 滑动窗口 ≤3 次 · in-memory · 防点点点滥用 · 超频 toast「⟳ 操作太频繁 · 请 N 秒后再试」(v0.4.22)
 - **`POST /entry/refresh-stocks`** · 新端点 · 三市场单独 try/catch · 单市场失败不阻断其他两个 · toast 区分「全部成功 / 部分成功(N/3) / 全部失败」三态(v0.4.22)
 - **`EntryRefreshRateLimiterTest`** · 7 个单测 · 锁 3/60s 配额 + 跨 family 隔离 + 常量值不被无意改大(v0.4.22)
+
+### Changed
+
+- **/entry 账户折叠流水排序改为时间倒序(新→旧)** · 之前是升序(老的在最上)· 用户展开折叠看到的第一眼现在是最新流水 · null occurredAt 行留末尾 · 改动只在 `EntryService.java:438` 一处 sort comparator(v0.4.22)
+- **UI 一律 inline SVG · 弃用 emoji**(`feedback_no_emoji` 纪律建立)· 新加按钮 / toast 都走项目自带 Feather-style 体系(stroke=currentColor · 24×24 viewBox)· 历史代码里的 emoji 改到相关页面顺手换 · 不专门 sweep(v0.4.22)
 
 ## [v0.4.21] · 2026-05-20
 

@@ -156,7 +156,8 @@ public class EntryController {
         if (!refreshRateLimiter.tryAcquire(me.getFamilyId())) {
             long wait = refreshRateLimiter.secondsUntilNextAllowed(me.getFamilyId());
             model.addAttribute("toastKind", "rust");
-            model.addAttribute("toastText", "⟳ 操作太频繁 · 请 " + wait + " 秒后再试");
+            model.addAttribute("toastIcon", "clock");
+            model.addAttribute("toastText", "操作太频繁 · 请 " + wait + " 秒后再试");
             return "entry/_refresh-toast :: toast";
         }
         int marketsOk = 0;
@@ -179,16 +180,19 @@ public class EntryController {
         }
         if (marketsOk == 3) {
             model.addAttribute("toastKind", "forest");
+            model.addAttribute("toastIcon", "check");
             model.addAttribute("toastText",
-                "⟳ 已刷新 3 市场 · " + accountsRefreshed + " 账户余额更新");
+                "3 市场估值已刷新 · " + accountsRefreshed + " 账户");
         } else if (marketsOk > 0) {
             model.addAttribute("toastKind", "rust");
+            model.addAttribute("toastIcon", "warn");
             model.addAttribute("toastText",
-                "⟳ 仅 " + marketsOk + "/3 市场拉取成功 · " + accountsRefreshed + " 账户已更新 · 详情查 journal");
+                "仅 " + marketsOk + "/3 市场估值刷新成功 · " + accountsRefreshed + " 账户已更新 · 详情查 journal");
         } else {
             model.addAttribute("toastKind", "rust");
+            model.addAttribute("toastIcon", "fail");
             model.addAttribute("toastText",
-                "⟳ 3 市场均拉取失败 · 上游限流/网络 · 详情查 journal");
+                "3 市场估值均刷新失败 · 上游限流/网络 · 详情查 journal");
         }
         return "entry/_refresh-toast :: toast";
     }

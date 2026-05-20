@@ -149,17 +149,34 @@
     </div>
     <div class="flex items-center gap-2">
       <span class="font-mono text-[10px] text-ink-subtle">划转入口在每个账户行右侧 ↔</span>
-      <!-- v0.4.22 · 一键拉取股价 · 仅家庭有 STOCK 账户时显示 ·
-           CSRF 走 layout.html htmx:configRequest 全局自动注入 · HTMX 在请求中给按钮加 .htmx-request class · 子 .htmx-indicator opacity 0→1 自带动画 -->
+      <!-- v0.4.22 · 一键刷新股票估值 · 仅家庭有 STOCK 账户时显示 ·
+           CSRF 走 layout.html htmx:configRequest 全局自动注入 ·
+           Feather refresh-cw 图标(idle)+ loader 图标(htmx-indicator · 请求中显示 · animate-spin 旋转)·
+           [[feedback_no_emoji]] 纪律 · 一律 SVG 不用 emoji -->
       <button th:if="${hasStockAccounts}"
               type="button"
               hx-post="/entry/refresh-stocks"
               hx-target="#refresh-toast"
               hx-swap="innerHTML"
               hx-disabled-elt="this"
-              class="btn-paper"
-              title="同步 US/CN/HK 三市场最新价 + 重算所有股票账户余额">
-        📈 拉取股价 <span class="htmx-indicator" style="margin-left:0.4em;">⟳</span>
+              class="btn-paper inline-flex items-center gap-1.5"
+              title="同步 US/CN/HK 三市场最新价 + 重算所有股票账户余额(估值刷新)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M23 4v6h-6"/>
+          <path d="M1 20v-6h6"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+        <span>刷新股票估值</span>
+        <svg class="htmx-indicator animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="12" y1="2" x2="12" y2="6"/>
+          <line x1="12" y1="18" x2="12" y2="22"/>
+          <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/>
+          <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+          <line x1="2" y1="12" x2="6" y2="12"/>
+          <line x1="18" y1="12" x2="22" y2="12"/>
+          <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/>
+          <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+        </svg>
       </button>
       <a th:href="@{/accounts/new}" class="btn-paper no-underline">+ 新账户</a>
     </div>

@@ -435,11 +435,13 @@ public class EntryService {
                 // ledger 渲染失败不阻塞整体页面
             }
         }
+        // v0.4.22 · 倒序(新→旧)· 展开账户折叠看到的第一眼应该是最新最有价值的流水
+        // null occurredAt(未知时间)放最末 · 不论升序降序都视为"信息价值最低"
         ledger.sort((a, b) -> {
             if (a.occurredAt() == null && b.occurredAt() == null) return 0;
             if (a.occurredAt() == null) return 1;
             if (b.occurredAt() == null) return -1;
-            return a.occurredAt().compareTo(b.occurredAt());
+            return b.occurredAt().compareTo(a.occurredAt());
         });
 
         return new EntryRow(

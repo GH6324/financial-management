@@ -1,18 +1,44 @@
 <!DOCTYPE html>
 <!--
-  v0.4.22 · /entry 一键拉取股价的 toast fragment(HTMX swap 进 #refresh-toast 容器)。
+  v0.4.22 · /entry 「刷新股票估值」toast fragment(HTMX swap 进 #refresh-toast 容器)。
 
   EntryController 注入:
-    toastKind:"forest"(成功)/"rust"(超频或失败)
-    toastText:"⟳ 已刷新 3 市场 · X 账户余额更新" 等
+    toastKind:"forest"(成功)/"rust"(超频或失败)· 控制 pill 颜色
+    toastIcon:"check" / "warn" / "fail" / "clock"  · 控制 SVG 图标
+    toastText:不含 emoji 的纯文本(图标已传达状态语义)
+
+  [[feedback_no_emoji]] 纪律 · 一律 Feather-style inline SVG · 不用 emoji。
 -->
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
 <div th:fragment="toast" class="entry-toast-wrap" style="margin-bottom:1rem;">
-  <div class="pill"
-       th:classappend="${toastKind == 'forest'} ? ' pill-forest' : ' pill-rust'"
-       th:text="${toastText}"
-       style="display:inline-block;padding:0.5rem 1rem;font-size:0.85rem;">⟳ 已刷新 3 市场 · 4 账户余额更新</div>
+  <span class="pill inline-flex items-center gap-1.5"
+        th:classappend="${toastKind == 'forest'} ? ' pill-forest' : ' pill-rust'"
+        style="padding:0.5rem 1rem;font-size:0.85rem;">
+    <!-- 状态图标 · th:switch 按 toastIcon 渲染对应 Feather SVG -->
+    <svg th:switch="${toastIcon}" width="13" height="13" viewBox="0 0 24 24"
+         fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <g th:case="'check'">
+        <polyline points="20 6 9 17 4 12"/>
+      </g>
+      <g th:case="'warn'">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </g>
+      <g th:case="'fail'">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="15" y1="9" x2="9" y2="15"/>
+        <line x1="9" y1="9" x2="15" y2="15"/>
+      </g>
+      <g th:case="'clock'">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12 6 12 12 16 14"/>
+      </g>
+    </svg>
+    <span th:text="${toastText}">3 市场估值已刷新</span>
+  </span>
   <script th:inline="javascript">
     // 6s 后自渐隐 · 不污染 DOM
     setTimeout(function() {
