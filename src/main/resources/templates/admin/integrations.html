@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('集成 · 管理 · 家庭账房')}"></head>
+<head th:replace="~{fragments/layout :: head('数据源接入 · 管理 · 家庭账房')}"></head>
 <body class="min-h-screen relative">
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('admin', ${me}, ${nav})}"></header>
@@ -10,9 +10,9 @@
 
   <section class="col-span-12 md:col-span-9 space-y-8">
     <div class="mb-2">
-      <div class="eyebrow mb-2">集 · 成</div>
-      <h1 class="font-display text-4xl font-medium">第三方 API 与数据拉取</h1>
-      <p class="text-ink-soft text-sm mt-2">LLM 凭据 / 股票自动拉取 / FX 汇率拉取 · 全部支持<b>实时生效不重启</b></p>
+      <div class="eyebrow mb-2">数 · 据 · 源 · 接 · 入</div>
+      <h1 class="font-display text-4xl font-medium">AI · 股票 · 汇率</h1>
+      <p class="text-ink-soft text-sm mt-2">家庭账房从外部抓取的所有数据源 · LLM 凭据 / 股票每日拉价 / 汇率每月拉取 · 全部支持<b>实时生效不重启</b></p>
       <p class="font-mono text-[10px] text-brass-deep tracking-[0.16em] uppercase mt-3">
         配置入口原则 · 运营参数都在管理页配 · 不再上服务器改文件
       </p>

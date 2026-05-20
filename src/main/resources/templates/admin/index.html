@@ -13,7 +13,7 @@
     <h1 class="font-display text-5xl font-medium tracking-tight">
       所 有 设 置 · <span class="italic font-light text-brass-deep">在此一处</span>
     </h1>
-    <p class="text-ink-soft text-sm mt-3 max-w-2xl">家庭、成员、周期、提醒、汇率、备份 — 凡 PRD 中可配置之事,皆汇于此。任意成员皆可访问;每次变更自动写审计日志。</p>
+    <p class="text-ink-soft text-sm mt-3 max-w-2xl">家庭、成员、周期、提醒、汇率、数据源接入、数值阈值、备份、审计 — 凡 PRD 中可配置之事,皆汇于此。任意成员皆可访问;每次变更自动写审计日志。</p>
   </section>
 
   <!-- 状态总览 -->
@@ -36,7 +36,7 @@
     <div class="kpi-card">
       <span class="kpi-eyebrow">汇率服务</span>
       <div class="font-display text-2xl mt-1 num-pos">正常</div>
-      <div class="font-mono text-xs text-ink-soft mt-1">exchangerate.host</div>
+      <div class="font-mono text-xs text-ink-soft mt-1">frankfurter.dev</div>
     </div>
   </section>
 
@@ -98,7 +98,7 @@
       <div>
         <div class="eyebrow-ink mb-2">/admin/reminders</div>
         <h3 class="font-display text-xl">提醒</h3>
-        <p class="text-sm text-ink-soft mt-2 leading-relaxed">站内提醒条 · 每日触发时间</p>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">填报模板 · 阿里云短信 · 截止前强提醒 · 成员手机号</p>
       </div>
     </a>
     <a th:href="@{/admin/fx}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
@@ -108,11 +108,18 @@
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">手填覆盖 · 立即拉取</p>
       </div>
     </a>
+    <a th:href="@{/admin/integrations}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
+      <div>
+        <div class="eyebrow-ink mb-2">/admin/integrations</div>
+        <h3 class="font-display text-xl">数据源接入</h3>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">AI 大模型凭据 · 股票每日拉价节奏 · 汇率每月拉取 · 实时生效不重启</p>
+      </div>
+    </a>
     <a th:href="@{/admin/backup}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
       <div>
         <div class="eyebrow-ink mb-2">/admin/backup</div>
         <h3 class="font-display text-xl">备份与恢复</h3>
-        <p class="text-sm text-ink-soft mt-2 leading-relaxed">最近 8 次备份状态</p>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">每周日自动备份 · 最近 8 次状态 · 一键恢复</p>
       </div>
     </a>
     <a th:href="@{/admin/audit}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
@@ -126,7 +133,7 @@
       <div>
         <div class="eyebrow-ink mb-2">/admin/calc-tweaks</div>
         <h3 class="font-display text-xl">数值阈值</h3>
-        <p class="text-sm text-ink-soft mt-2 leading-relaxed">智能提示 / LOAN 异常 / 自动归类</p>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">智能转账阈值 · 体检 4 阈值(集中度 / 高风险 / 流动性 / 应急金)· 会话有效期</p>
       </div>
     </a>
   </section>

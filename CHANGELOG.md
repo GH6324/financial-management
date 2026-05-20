@@ -2,6 +2,21 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.4.23] · 2026-05-20
+
+**admin hub 补全 + 集成改名** · v0.4 给管理后台加了 4 项新页(集成 / 提醒 v0.4.14 升级 / 数值阈值 v0.4.18 升级 / 各种 KPI),但 `/admin` 总览页(hub)tile 列表和文案没同步,这次一次性对齐。
+
+### Changed
+
+- **「集成」→「数据源接入」** · sidebar item + `/admin/integrations` 页标题 / eyebrow / h1 全部改名 · 让非技术家庭成员能看懂(原工程师术语「集成」)· URL `/admin/integrations` 路径不动(v0.4.23 · 见 [[feedback_user_friendly_naming]])
+- **`/admin` hub 补「数据源接入」tile** · 之前 hub 12 个 tile 漏了这条,sidebar 14 项 hub 才 12 项,从 hub 进不去 v0.4.18 加的页(v0.4.23)
+- **`/admin` hub 三处文案过时刷新**:
+  - **提醒 tile**:「站内提醒条 · 每日触发时间」→「填报模板 · 阿里云短信 · 截止前强提醒 · 成员手机号」(v0.4.14 加的能力补齐)
+  - **数值阈值 tile**:「智能提示 / LOAN 异常 / 自动归类」→「智能转账阈值 · 体检 4 阈值(集中度 / 高风险 / 流动性 / 应急金)· 会话有效期」(v0.4.18 加的 5 项补齐)
+  - **备份 tile**:「最近 8 次备份状态」→「每周日自动备份 · 最近 8 次状态 · 一键恢复」(v0.4.20 fix 后周备份确实跑 · 文案补节奏)
+- **`/admin` hub KPI · 汇率服务**:「exchangerate.host」→「frankfurter.dev」(实际用的就是这个 · 老文案错的)
+- **hub 副标题列表补全**:原「家庭、成员、周期、提醒、汇率、备份」→「家庭、成员、周期、提醒、汇率、数据源接入、数值阈值、备份、审计」(v0.4.23)
+
 ## [v0.4.22] · 2026-05-20
 
 **UX 改进** · /entry 顶部一键拉取股价按钮 · 让 v0.4.21 修好的 cron 链路也能被用户即时触发,不必再翻进 `/accounts/{id}/holdings` 才能 ↻ 刷新。
