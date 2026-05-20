@@ -135,6 +135,9 @@
     </div>
   </section>
 
+  <!-- v0.4.22 · 一键拉取股价 toast 容器(HTMX swap target · 默认空) -->
+  <div id="refresh-toast"></div>
+
   <section class="flex items-center justify-between mb-6 flex-wrap gap-4">
     <div class="flex border border-rule">
       <a th:href="@{/entry(period=${period.id},mine=false)}"
@@ -146,6 +149,18 @@
     </div>
     <div class="flex items-center gap-2">
       <span class="font-mono text-[10px] text-ink-subtle">划转入口在每个账户行右侧 ↔</span>
+      <!-- v0.4.22 · 一键拉取股价 · 仅家庭有 STOCK 账户时显示 ·
+           CSRF 走 layout.html htmx:configRequest 全局自动注入 · HTMX 在请求中给按钮加 .htmx-request class · 子 .htmx-indicator opacity 0→1 自带动画 -->
+      <button th:if="${hasStockAccounts}"
+              type="button"
+              hx-post="/entry/refresh-stocks"
+              hx-target="#refresh-toast"
+              hx-swap="innerHTML"
+              hx-disabled-elt="this"
+              class="btn-paper"
+              title="同步 US/CN/HK 三市场最新价 + 重算所有股票账户余额">
+        📈 拉取股价 <span class="htmx-indicator" style="margin-left:0.4em;">⟳</span>
+      </button>
       <a th:href="@{/accounts/new}" class="btn-paper no-underline">+ 新账户</a>
     </div>
   </section>

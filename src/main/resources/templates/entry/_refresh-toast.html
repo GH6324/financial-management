@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<!--
+  v0.4.22 · /entry 一键拉取股价的 toast fragment(HTMX swap 进 #refresh-toast 容器)。
+
+  EntryController 注入:
+    toastKind:"forest"(成功)/"rust"(超频或失败)
+    toastText:"⟳ 已刷新 3 市场 · X 账户余额更新" 等
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="toast" class="entry-toast-wrap" style="margin-bottom:1rem;">
+  <div class="pill"
+       th:classappend="${toastKind == 'forest'} ? ' pill-forest' : ' pill-rust'"
+       th:text="${toastText}"
+       style="display:inline-block;padding:0.5rem 1rem;font-size:0.85rem;">⟳ 已刷新 3 市场 · 4 账户余额更新</div>
+  <script th:inline="javascript">
+    // 6s 后自渐隐 · 不污染 DOM
+    setTimeout(function() {
+      var wrap = document.querySelector('#refresh-toast .entry-toast-wrap');
+      if (wrap) {
+        wrap.style.transition = 'opacity 0.6s';
+        wrap.style.opacity = '0';
+        setTimeout(function(){ wrap.remove(); }, 700);
+      }
+    }, 6000);
+  </script>
+</div>
+</body>
+</html>

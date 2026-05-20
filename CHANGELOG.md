@@ -2,6 +2,17 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.4.22] · 2026-05-20
+
+**UX 改进** · /entry 顶部一键拉取股价按钮 · 让 v0.4.21 修好的 cron 链路也能被用户即时触发,不必再翻进 `/accounts/{id}/holdings` 才能 ↻ 刷新。
+
+### Added
+
+- **/entry 顶部「📈 拉取股价」按钮** · tab bar 右侧 · 仅家庭有 STOCK 账户时显示 · HTMX POST 不刷整页 · 顶部出现「⟳ 已刷新 3 市场 · N 账户余额更新」toast(6 秒自动渐隐)· 等同三个市场全 fetch + valuation refresh(MANUAL trigger · 写 stock_valuation_event 含触发用户)(v0.4.22)
+- **`EntryRefreshRateLimiter`** · per family 60s 滑动窗口 ≤3 次 · in-memory · 防点点点滥用 · 超频 toast「⟳ 操作太频繁 · 请 N 秒后再试」(v0.4.22)
+- **`POST /entry/refresh-stocks`** · 新端点 · 三市场单独 try/catch · 单市场失败不阻断其他两个 · toast 区分「全部成功 / 部分成功(N/3) / 全部失败」三态(v0.4.22)
+- **`EntryRefreshRateLimiterTest`** · 7 个单测 · 锁 3/60s 配额 + 跨 family 隔离 + 常量值不被无意改大(v0.4.22)
+
 ## [v0.4.21] · 2026-05-20
 
 **hotfix** · 修自 v0.3 上线起的 latent bug · 自动拉价不触发账户估值刷新。

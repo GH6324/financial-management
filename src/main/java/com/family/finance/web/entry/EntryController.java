@@ -10,10 +10,15 @@ import com.family.finance.repository.FamilyMapper;
 import com.family.finance.repository.MemberMapper;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.PeriodMemberCashflowMapper;
+import com.family.finance.domain.stock.Market;
 import com.family.finance.service.EntryService;
 import com.family.finance.service.EntryRow;
 import com.family.finance.service.NavService;
 import com.family.finance.service.PeriodService;
+import com.family.finance.service.stock.AccountValuationService;
+import com.family.finance.service.stock.EntryRefreshRateLimiter;
+import com.family.finance.service.stock.StockPriceScheduler;
+import lombok.extern.slf4j.Slf4j;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -32,6 +37,7 @@ import java.util.List;
 
 @Controller
 @RequiredArgsConstructor
+@Slf4j
 public class EntryController {
 
     private final EntryService entryService;
@@ -42,6 +48,10 @@ public class EntryController {
     private final MemberMapper memberMapper;
     private final PeriodMemberCashflowMapper memberCashflowMapper;
     private final FamilyMapper familyMapper;
+    /** v0.4.22 · /entry 一键拉取股价按钮 · 三件套依赖 */
+    private final StockPriceScheduler stockScheduler;
+    private final AccountValuationService valuationService;
+    private final EntryRefreshRateLimiter refreshRateLimiter;
 
     @GetMapping("/entry")
     public String entry(@AuthenticationPrincipal MemberPrincipal me,
@@ -121,7 +131,66 @@ public class EntryController {
                 java.time.temporal.ChronoUnit.DAYS.between(
                         java.time.LocalDate.now(), period.getPeriodEnd()));
 
+        // v0.4.22 · 仅家庭有 STOCK 账户时才显示「拉取股价」按钮(避免按钮空响)
+        boolean hasStockAccounts = rows.stream()
+                .anyMatch(r -> r.account().getType() != null
+                        && "STOCK".equals(r.account().getType().name()));
+        model.addAttribute("hasStockAccounts", hasStockAccounts);
+
         return "entry/index";
+    }
+
+    /**
+     * v0.4.22 · 一键拉取股价 · /entry 顶部按钮 · HTMX POST → 返回 toast fragment。
+     *
+     * <p>逻辑:</p>
+     * <ol>
+     *   <li>限频:family 60s 窗口 ≤3 次 · 超频返回 toast「操作太频繁」不调 scheduler</li>
+     *   <li>三市场顺序 fetchMarket(US/CN/HK)· 单市场失败计数但不阻断</li>
+     *   <li>{@link AccountValuationService#refreshAllForFamily} MANUAL + memberId</li>
+     *   <li>渲染 toast 显示结果</li>
+     * </ol>
+     */
+    @PostMapping("/entry/refresh-stocks")
+    public String refreshStocks(@AuthenticationPrincipal MemberPrincipal me, Model model) {
+        if (!refreshRateLimiter.tryAcquire(me.getFamilyId())) {
+            long wait = refreshRateLimiter.secondsUntilNextAllowed(me.getFamilyId());
+            model.addAttribute("toastKind", "rust");
+            model.addAttribute("toastText", "⟳ 操作太频繁 · 请 " + wait + " 秒后再试");
+            return "entry/_refresh-toast :: toast";
+        }
+        int marketsOk = 0;
+        for (Market mk : List.of(Market.US, Market.CN, Market.HK)) {
+            try {
+                stockScheduler.fetchMarket(mk);
+                marketsOk++;
+            } catch (Exception e) {
+                log.warn("entry-refresh fetchMarket failed · market={}: {}", mk, e.toString());
+            }
+        }
+        int accountsRefreshed = 0;
+        try {
+            accountsRefreshed = valuationService.refreshAllForFamily(
+                me.getFamilyId(),
+                AccountValuationService.TriggerKind.MANUAL,
+                me.getMemberId());
+        } catch (Exception e) {
+            log.warn("entry-refresh valuation refresh failed: {}", e.toString());
+        }
+        if (marketsOk == 3) {
+            model.addAttribute("toastKind", "forest");
+            model.addAttribute("toastText",
+                "⟳ 已刷新 3 市场 · " + accountsRefreshed + " 账户余额更新");
+        } else if (marketsOk > 0) {
+            model.addAttribute("toastKind", "rust");
+            model.addAttribute("toastText",
+                "⟳ 仅 " + marketsOk + "/3 市场拉取成功 · " + accountsRefreshed + " 账户已更新 · 详情查 journal");
+        } else {
+            model.addAttribute("toastKind", "rust");
+            model.addAttribute("toastText",
+                "⟳ 3 市场均拉取失败 · 上游限流/网络 · 详情查 journal");
+        }
+        return "entry/_refresh-toast :: toast";
     }
 
     /**
