@@ -14,6 +14,46 @@
   <!-- v0.3 FR-51a/b · 储蓄能力区块(独立 · 不参与 HTMX 刷新)· v0.2 _region 完整保留 -->
   <th:block th:replace="~{reports/_savings :: section}"></th:block>
 </main>
+
+<!-- v0.5 修 · 移动端浮动目录(右下角 · 平时只一个小按钮不挡内容 · tap 展开跳转)-->
+<div id="toc-fab" style="position:fixed;right:16px;bottom:20px;z-index:50;">
+  <div id="toc-panel" class="paper-card"
+       style="display:none;position:absolute;right:0;bottom:54px;min-width:160px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.18);">
+    <a href="#reports-region" class="toc-link" data-toc>收益概览</a>
+    <a href="#sec-wealth" class="toc-link" data-toc>财富水位</a>
+    <a href="#sec-savings" class="toc-link" data-toc>储蓄能力</a>
+    <a href="#allocation-diff" class="toc-link" data-toc>资产配置</a>
+  </div>
+  <button id="toc-btn" type="button" aria-label="目录"
+          style="width:46px;height:46px;border-radius:50%;background:var(--ink);color:var(--paper);border:none;box-shadow:0 4px 16px rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;cursor:pointer;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+      <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+    </svg>
+  </button>
+</div>
+<style>
+  #toc-panel .toc-link{display:block;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-soft);text-decoration:none;border-radius:3px;}
+  #toc-panel .toc-link:hover{background:var(--card-soft);color:var(--brass-deep);}
+</style>
+<script>
+  (function(){
+    var fab=document.getElementById('toc-btn'), panel=document.getElementById('toc-panel');
+    if(!fab||!panel) return;
+    function close(){ panel.style.display='none'; }
+    fab.addEventListener('click', function(e){ e.stopPropagation(); panel.style.display = panel.style.display==='none' ? 'block' : 'none'; });
+    document.querySelectorAll('#toc-panel [data-toc]').forEach(function(a){
+      a.addEventListener('click', function(ev){
+        ev.preventDefault();
+        var el=document.querySelector(this.getAttribute('href'));
+        if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+        close();
+      });
+    });
+    document.addEventListener('click', function(ev){ if(!document.getElementById('toc-fab').contains(ev.target)) close(); });
+  })();
+</script>
+
 <div id="modal"></div>
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 </body>

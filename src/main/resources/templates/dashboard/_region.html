@@ -258,7 +258,7 @@
         memberAllocationValues: [[${memberAllocationValues}]],
         accountRows: [[${accountRows}]],
         currency: [[${currency}]],
-        // v0.4 FR-61a / v0.5 FR-75 · CPI 对照线(默认改真实剔极端值)· M2 地位线
+        // v0.4 FR-61a / v0.5 FR-75 · CPI 对照线(默认改真实剔极端值)· M2 社会财富线
         cpiAnnualPct: [[${cpiAssumption}]],
         m2AnnualPct: [[${m2Assumption}]]
       };
@@ -280,7 +280,7 @@
       const realSeries = cpiPct > 0
         ? data.netWorth.map((v, i) => v == null ? null : Math.round(v / Math.pow(1 + cpiMonthly, i)))
         : null;
-      // v0.5 FR-75 · M2 地位线 = 期初净资产 × (1+m2/12)^i(社会财富份额基准 · 详看 /reports 财富水位)
+      // v0.5 FR-75 · M2 社会财富线 = 期初净资产 × (1+m2/12)^i(社会财富份额基准 · 详看 /reports 财富水位)
       const m2Pct = Number(data.m2AnnualPct || 0);
       const m2Monthly = m2Pct > 0 ? m2Pct / 100 / 12 : 0;
       const anchorNw = (data.netWorth || []).find(v => v != null);
@@ -297,7 +297,7 @@
           datasets.push({label: '实际购买力 (CPI ' + cpiPct + '%)', data: realSeries, borderColor: '#2f5d50', borderDash: [6, 4], borderWidth: 2, backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 0});
         }
         if (m2Series) {
-          datasets.push({label: 'M2 地位线 (' + m2Pct + '%)', data: m2Series, borderColor: '#9c4a2a', borderDash: [3, 3], borderWidth: 1.5, backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 0});
+          datasets.push({label: 'M2 社会财富线 (' + m2Pct + '%)', data: m2Series, borderColor: '#9c4a2a', borderDash: [3, 3], borderWidth: 1.5, backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 0});
         }
         window.financeCharts.netWorth = new Chart(line, {
           type: 'line',

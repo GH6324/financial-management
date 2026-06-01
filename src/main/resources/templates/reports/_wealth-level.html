@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <!--
   v0.5 FR-72/73/74 · 财富水位 section(并入 /reports · 非新 tab)。
-  净资产 vs CPI 保命线 vs M2 地位线 + 真实/相对社会收益 + 人赚钱赚分解 + 推导面板。
+  净资产 vs CPI 购买力线 vs M2 社会财富线 + 真实/相对社会收益 + 人赚钱赚分解 + 推导面板。
   数据:waterLevel(WaterLevelService)· cpiAverages/m2Averages(三法均值)· netInflowRaw/pnlRaw(FR-84 修复口径)。
 -->
 <th:block th:fragment="section" xmlns:th="http://www.thymeleaf.org">
-<section class="mb-12">
+<section class="mb-12" id="sec-wealth" style="scroll-margin-top:80px">
 
   <div class="flex items-center gap-3 mb-4">
     <div class="h-px flex-1" style="background:var(--brass-deep);opacity:.4"></div>
@@ -22,13 +22,13 @@
     <div class="paper-card p-5 lg:p-6 mb-4">
       <div class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
         <div>
-          <h2 class="font-display text-2xl font-medium">净资产 vs CPI 保命线 vs M2 地位线</h2>
+          <h2 class="font-display text-2xl font-medium">净资产 vs CPI 购买力线 vs M2 社会财富线</h2>
           <p class="text-xs text-ink-subtle mt-1">跑赢 CPI 只是保命,跑赢 M2 才是真增值。</p>
         </div>
         <div class="flex gap-3 font-mono text-[11px]">
           <span class="inline-flex items-center gap-1"><span style="width:14px;height:3px;background:#7a5a39;display:inline-block"></span>净资产</span>
-          <span class="inline-flex items-center gap-1"><span style="width:14px;height:0;border-top:2px dashed #2f5d50;display:inline-block"></span>CPI 保命线</span>
-          <span class="inline-flex items-center gap-1"><span style="width:14px;height:0;border-top:2px dashed #9c4a2a;display:inline-block"></span>M2 地位线</span>
+          <span class="inline-flex items-center gap-1"><span style="width:14px;height:0;border-top:2px dashed #2f5d50;display:inline-block"></span>CPI 购买力线</span>
+          <span class="inline-flex items-center gap-1"><span style="width:14px;height:0;border-top:2px dashed #9c4a2a;display:inline-block"></span>M2 社会财富线</span>
         </div>
       </div>
       <div style="height:320px"><canvas id="waterLevelChart"></canvas></div>
@@ -62,9 +62,9 @@
       <!-- 水位状态文案 -->
       <div class="mt-3 paper-card p-3 bg-card-soft text-sm text-ink-soft"
            th:style="'border-left:3px solid ' + (${waterLevel.aboveM2} ? 'var(--forest)' : (${waterLevel.aboveCpi} ? 'var(--brass-deep)' : 'var(--rust)'))">
-        <span th:if="${waterLevel.aboveM2}">净资产高于 M2 地位线 ✓ —— 生活质量保住,社会排位也在上升。</span>
-        <span th:if="${waterLevel.aboveCpi and !waterLevel.aboveM2}">净资产浮在 CPI 保命线之上,但低于 M2 地位线 —— 活得下去,但社会排位在掉队。</span>
-        <span th:if="${!waterLevel.aboveCpi}" class="text-rust">净资产已跌破 CPI 保命线 —— 实际购买力在缩水。</span>
+        <span th:if="${waterLevel.aboveM2}">净资产高于 M2 社会财富线 ✓ —— 生活质量保住,社会排位也在上升。</span>
+        <span th:if="${waterLevel.aboveCpi and !waterLevel.aboveM2}">净资产浮在 CPI 购买力线之上,但低于 M2 社会财富线 —— 活得下去,但社会排位在掉队。</span>
+        <span th:if="${!waterLevel.aboveCpi}" class="text-rust">净资产已跌破 CPI 购买力线 —— 实际购买力在缩水。</span>
       </div>
 
       <!-- 人赚/钱赚分解诊断 FR-73 -->
@@ -121,9 +121,9 @@
     data: { labels: labels, datasets: [
       { label:'净资产', data: nominal, borderColor:'#7a5a39', borderWidth:2.8, backgroundColor:'rgba(122,90,57,.07)', fill:true, tension:0.3, pointRadius:2,
         datalabels:{ display:(c)=>c.dataIndex===c.dataset.data.length-1, align:'top', color:'#7a5a39', font:{size:11,weight:'600'}, formatter:wan } },
-      { label:'CPI 保命线', data: cpiLine, borderColor:'#2f5d50', borderDash:[6,4], borderWidth:2, fill:false, tension:0.3, pointRadius:0,
+      { label:'CPI 购买力线', data: cpiLine, borderColor:'#2f5d50', borderDash:[6,4], borderWidth:2, fill:false, tension:0.3, pointRadius:0,
         datalabels:{ display:(c)=>c.dataIndex===c.dataset.data.length-1, align:'bottom', color:'#2f5d50', font:{size:10}, formatter:wan } },
-      { label:'M2 地位线', data: m2Line, borderColor:'#9c4a2a', borderDash:[6,4], borderWidth:2, fill:false, tension:0.3, pointRadius:0,
+      { label:'M2 社会财富线', data: m2Line, borderColor:'#9c4a2a', borderDash:[6,4], borderWidth:2, fill:false, tension:0.3, pointRadius:0,
         datalabels:{ display:(c)=>c.dataIndex===c.dataset.data.length-1, align:'top', color:'#9c4a2a', font:{size:10}, formatter:wan } }
     ]},
     options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{right:50}},

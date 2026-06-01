@@ -64,9 +64,9 @@
     <div class="kpi-card">
       <span class="kpi-eyebrow">家庭 XIRR · 含收入 <th:block th:insert="~{fragments/_kpi-info :: i('资金加权内部收益率（含工资净流入）。反映你和资产一起赚多少。')}"/></span>
       <div class="kpi-value tnum num-pos font-display" th:text="${familyXirr}">—</div>
-      <!-- v0.4 FR-61c · vs 基准 pill -->
+      <!-- v0.4 FR-61c · vs 基准 pill · v0.5 加来源 tooltip -->
       <div class="font-mono text-[10px] mt-1" th:if="${familyBenchmarkPct != null}">
-        <span class="text-ink-soft">vs 基准 </span>
+        <span class="text-ink-soft">vs 基准 <th:block th:insert="~{fragments/_kpi-info :: i('按你各账户所属产品类目的长期年化基准(美股 10.5% / A股 8% / 中债 4.5% / 货基 2% 等),以账户余额加权得出。是长期参考值、非实时行情。可在 管理 → 产品类目 查看/调整每个类目的基准。')}"/></span>
         <span class="tnum" th:text="${familyBenchmarkPct} + '%'">5.4%</span>
         <span th:if="${familyBeatStatus == 'BEAT'}" class="pill text-[9px] ml-1"
               style="background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)"
