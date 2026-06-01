@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<!--
+  v0.5 FR-72/73/74 · 财富水位 section(并入 /reports · 非新 tab)。
+  净资产 vs CPI 保命线 vs M2 地位线 + 真实/相对社会收益 + 人赚钱赚分解 + 推导面板。
+  数据:waterLevel(WaterLevelService)· cpiAverages/m2Averages(三法均值)· netInflowRaw/pnlRaw(FR-84 修复口径)。
+-->
+<th:block th:fragment="section" xmlns:th="http://www.thymeleaf.org">
+<section class="mb-12">
+
+  <div class="flex items-center gap-3 mb-4">
+    <div class="h-px flex-1" style="background:var(--brass-deep);opacity:.4"></div>
+    <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep">财 · 富 · 水 · 位</span>
+    <div class="h-px flex-1" style="background:var(--brass-deep);opacity:.4"></div>
+  </div>
+
+  <!-- 数据不足兜底 -->
+  <div th:unless="${waterLevel != null and waterLevel.available}" class="paper-card p-6 bg-card-soft text-center" style="border-left:4px solid var(--brass-deep)">
+    <p class="text-ink-soft text-sm">财富水位需要至少 2 期净资产数据 + 宏观基准。继续记账后这里会显示你跑赢 CPI / M2 的情况。</p>
+  </div>
+
+  <th:block th:if="${waterLevel != null and waterLevel.available}">
+    <div class="paper-card p-5 lg:p-6 mb-4">
+      <div class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+        <div>
+          <h2 class="font-display text-2xl font-medium">净资产 vs CPI 保命线 vs M2 地位线</h2>
+          <p class="text-xs text-ink-subtle mt-1">跑赢 CPI 只是保命,跑赢 M2 才是真增值。</p>
+        </div>
+        <div class="flex gap-3 font-mono text-[11px]">
+          <span class="inline-flex items-center gap-1"><span style="width:14px;height:3px;background:#7a5a39;display:inline-block"></span>净资产</span>
+          <span class="inline-flex items-center gap-1"><span style="width:14px;height:0;border-top:2px dashed #2f5d50;display:inline-block"></span>CPI 保命线</span>
+          <span class="inline-flex items-center gap-1"><span style="width:14px;height:0;border-top:2px dashed #9c4a2a;display:inline-block"></span>M2 地位线</span>
+        </div>
+      </div>
+      <div style="height:320px"><canvas id="waterLevelChart"></canvas></div>
+
+      <!-- 水位状态 + 收益 KPI -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-rule mt-4">
+        <div class="kpi-card">
+          <span class="kpi-eyebrow">真实收益 · 剔 CPI</span>
+          <div class="font-display text-2xl mt-1" th:classappend="${waterLevel.realReturnPct != null and waterLevel.realReturnPct.signum() >= 0} ? ' num-pos' : ' num-neg'"
+               th:text="${(waterLevel.realReturnPct != null and waterLevel.realReturnPct.signum() >= 0 ? '+' : '') + (waterLevel.realReturnPct != null ? #numbers.formatDecimal(waterLevel.realReturnPct,1,1) : '—') + '%'}">+10.6%</div>
+          <div class="font-mono text-[10px] text-ink-soft mt-1">剔除通胀后真实购买力变化</div>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-eyebrow">相对社会收益 · 剔 M2</span>
+          <div class="font-display text-2xl mt-1" th:classappend="${waterLevel.relativeReturnPct != null and waterLevel.relativeReturnPct.signum() >= 0} ? ' num-pos' : ' num-neg'"
+               th:text="${(waterLevel.relativeReturnPct != null and waterLevel.relativeReturnPct.signum() >= 0 ? '+' : '') + (waterLevel.relativeReturnPct != null ? #numbers.formatDecimal(waterLevel.relativeReturnPct,1,1) : '—') + '%'}">+3.9%</div>
+          <div class="font-mono text-[10px] text-ink-soft mt-1">相对社会财富份额变化</div>
+        </div>
+        <div class="kpi-card" style="background:rgba(79,107,71,.06)">
+          <span class="kpi-eyebrow">人赚的 · 净流入</span>
+          <div class="font-display text-2xl mt-1 num-pos" th:text="${netInflowRaw != null ? '+¥' + #numbers.formatInteger(netInflowRaw,1,'COMMA') : '—'}">+¥31万</div>
+          <div class="font-mono text-[10px] text-ink-soft mt-1">工资攒下来的钱 · PMC 源</div>
+        </div>
+        <div class="kpi-card" style="background:rgba(156,74,42,.05)">
+          <span class="kpi-eyebrow">钱赚的 · 投资 PnL</span>
+          <div class="font-display text-2xl mt-1" th:text="${pnlRaw != null ? (pnlRaw.signum()>=0?'+':'') + '¥' + #numbers.formatInteger(pnlRaw,1,'COMMA') : '—'}">+¥5万</div>
+          <div class="font-mono text-[10px] text-ink-soft mt-1">纯资产升值 · ΔNW − 净流入</div>
+        </div>
+      </div>
+
+      <!-- 水位状态文案 -->
+      <div class="mt-3 paper-card p-3 bg-card-soft text-sm text-ink-soft"
+           th:style="'border-left:3px solid ' + (${waterLevel.aboveM2} ? 'var(--forest)' : (${waterLevel.aboveCpi} ? 'var(--brass-deep)' : 'var(--rust)'))">
+        <span th:if="${waterLevel.aboveM2}">净资产高于 M2 地位线 ✓ —— 生活质量保住,社会排位也在上升。</span>
+        <span th:if="${waterLevel.aboveCpi and !waterLevel.aboveM2}">净资产浮在 CPI 保命线之上,但低于 M2 地位线 —— 活得下去,但社会排位在掉队。</span>
+        <span th:if="${!waterLevel.aboveCpi}" class="text-rust">净资产已跌破 CPI 保命线 —— 实际购买力在缩水。</span>
+      </div>
+
+      <!-- 人赚/钱赚分解诊断 FR-73 -->
+      <div class="mt-5 pt-5 border-t border-rule" th:if="${netInflowRaw != null and pnlRaw != null}">
+        <div class="eyebrow mb-2" style="color:var(--rust)">人 · 赚 · vs · 钱 · 赚</div>
+        <p class="text-sm text-ink-soft leading-relaxed">
+          净资产增长拆解:<b class="num-pos" th:text="'人赚 ¥' + ${#numbers.formatInteger(netInflowRaw,1,'COMMA')}">人赚 ¥31万</b>(工资储蓄)
+          + <b th:text="(${pnlRaw.signum()>=0}?'钱赚 +¥':'钱赚 −¥') + ${#numbers.formatInteger(T(java.math.BigDecimal).valueOf(0).max(pnlRaw.abs()),1,'COMMA')}">钱赚 ¥5万</b>(投资)。
+          <span th:if="${pnlRaw.signum() < netInflowRaw.signum() or (netInflowRaw.signum()>0 and pnlRaw.compareTo(netInflowRaw) < 0)}" class="text-rust">
+            水位主要靠人赚(收入)硬撑 —— 一旦收入中断,会快速逼近基准线下方。</span>
+        </p>
+      </div>
+
+      <!-- 推导透明面板 FR-74 -->
+      <details class="mt-5 pt-5 border-t border-rule" th:if="${cpiAverages != null and m2Averages != null}">
+        <summary class="eyebrow cursor-pointer select-none">基 · 准 · 推 · 导 · 透 · 明 <span class="font-mono text-[10px] text-ink-subtle normal-case">(点击展开)</span></summary>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 text-sm">
+          <div>
+            <div class="font-display text-lg mb-2">CPI <span class="font-mono text-[10px] text-ink-subtle">整体 · 含食品</span></div>
+            <table class="w-full">
+              <tr class="border-b border-rule-soft"><td class="py-1 text-ink-soft">最新年(<span th:text="${macroLatest != null ? macroLatest.year : '—'}">2025</span>)</td><td class="py-1 text-right tnum" th:text="${macroLatest != null and macroLatest.cpiHeadline != null ? macroLatest.cpiHeadline + '%' : '—'}">0.3%</td></tr>
+              <tr class="border-b border-rule-soft"><td class="py-1 text-ink-soft">全历史几何均值</td><td class="py-1 text-right tnum" th:text="${cpiAverages.fullGeometric} + '%'">4.6%</td></tr>
+              <tr class="border-b border-rule-soft" style="background:rgba(122,90,57,.06)"><td class="py-1 text-ink font-medium">剔极端值几何均值 ★</td><td class="py-1 text-right tnum font-medium" th:text="${cpiAverages.trimmedGeometric} + '%'">2.4%</td></tr>
+              <tr><td class="py-1 text-ink-soft">近 10 年几何均值</td><td class="py-1 text-right tnum" th:text="${cpiAverages.recent} + '%'">1.9%</td></tr>
+            </table>
+          </div>
+          <div>
+            <div class="font-display text-lg mb-2">M2 <span class="font-mono text-[10px] text-ink-subtle">广义货币增速</span></div>
+            <table class="w-full">
+              <tr class="border-b border-rule-soft"><td class="py-1 text-ink-soft">最新年(<span th:text="${macroLatest != null ? macroLatest.year : '—'}">2025</span>)</td><td class="py-1 text-right tnum" th:text="${macroLatest != null and macroLatest.m2Growth != null ? macroLatest.m2Growth + '%' : '—'}">8.0%</td></tr>
+              <tr class="border-b border-rule-soft"><td class="py-1 text-ink-soft">全历史几何均值</td><td class="py-1 text-right tnum" th:text="${m2Averages.fullGeometric} + '%'">15.1%</td></tr>
+              <tr class="border-b border-rule-soft" style="background:rgba(122,90,57,.06)"><td class="py-1 text-ink font-medium">剔极端值几何均值 ★</td><td class="py-1 text-right tnum font-medium" th:text="${m2Averages.trimmedGeometric} + '%'">9.2%</td></tr>
+              <tr><td class="py-1 text-ink-soft">近 10 年几何均值</td><td class="py-1 text-right tnum" th:text="${m2Averages.recent} + '%'">9.0%</td></tr>
+            </table>
+          </div>
+        </div>
+        <p class="text-xs text-ink-subtle mt-3 font-mono">区间锚 = 起点净资产 · 基准线 = 锚 × 逐期累计因子(各年实际 CPI/M2 复利)· 数据源:统计局 CPI + 央行 M2 · 可在 /admin/integrations 校正</p>
+      </details>
+    </div>
+  </th:block>
+</section>
+
+<script th:if="${waterLevel != null and waterLevel.available}" th:inline="javascript">
+(function(){
+  const labels = /*[[${waterLevel.labels}]]*/ [];
+  const nominal = /*[[${waterLevel.nominal}]]*/ [];
+  const cpiLine = /*[[${waterLevel.cpiLine}]]*/ [];
+  const m2Line = /*[[${waterLevel.m2Line}]]*/ [];
+  const wan = (v) => '¥' + (Number(v)/10000).toFixed(0) + '万';
+  const el = document.getElementById('waterLevelChart');
+  if (!el || typeof Chart === 'undefined') return;
+  new Chart(el.getContext('2d'), {
+    type: 'line',
+    data: { labels: labels, datasets: [
+      { label:'净资产', data: nominal, borderColor:'#7a5a39', borderWidth:2.8, backgroundColor:'rgba(122,90,57,.07)', fill:true, tension:0.3, pointRadius:2,
+        datalabels:{ display:(c)=>c.dataIndex===c.dataset.data.length-1, align:'top', color:'#7a5a39', font:{size:11,weight:'600'}, formatter:wan } },
+      { label:'CPI 保命线', data: cpiLine, borderColor:'#2f5d50', borderDash:[6,4], borderWidth:2, fill:false, tension:0.3, pointRadius:0,
+        datalabels:{ display:(c)=>c.dataIndex===c.dataset.data.length-1, align:'bottom', color:'#2f5d50', font:{size:10}, formatter:wan } },
+      { label:'M2 地位线', data: m2Line, borderColor:'#9c4a2a', borderDash:[6,4], borderWidth:2, fill:false, tension:0.3, pointRadius:0,
+        datalabels:{ display:(c)=>c.dataIndex===c.dataset.data.length-1, align:'top', color:'#9c4a2a', font:{size:10}, formatter:wan } }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{right:50}},
+      plugins:{ legend:{display:false} },
+      scales:{ y:{ ticks:{ callback:wan, font:{size:10} }, grid:{color:'rgba(0,0,0,.04)'} }, x:{ ticks:{font:{size:9}}, grid:{display:false} } } }
+  });
+})();
+</script>
+</th:block>

@@ -65,6 +65,9 @@ public class ReportsController {
     private final AllocationService allocationService;
     private final com.family.finance.repository.AllocationAnchorMapper allocationAnchorMapper;
     private final com.family.finance.repository.RebalanceAdviceCacheMapper rebalanceAdviceCacheMapper;
+    // v0.5 FR-72/73/74 · 财富水位
+    private final com.family.finance.service.macro.WaterLevelService waterLevelService;
+    private final com.family.finance.service.macro.MacroBenchmarkService macroBenchmarkService;
     private final com.fasterxml.jackson.databind.ObjectMapper jacksonMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     @GetMapping("/reports")
@@ -234,6 +237,17 @@ public class ReportsController {
         model.addAttribute("familyTwr", percent(factViewService.familyTwr(slice)));
         model.addAttribute("cumulativeNetInflow", money(viewCurrency, lastDecomposition == null ? BigDecimal.ZERO : lastDecomposition.cumulativeNetInflow()));
         model.addAttribute("cumulativePnl", money(viewCurrency, lastDecomposition == null ? BigDecimal.ZERO : lastDecomposition.cumulativePnl()));
+
+        // v0.5 FR-72/73/74 · 财富水位(并入 reports section)· 用净资产趋势 + CPI/M2 基准
+        var waterLevel = waterLevelService.compute(factViewService.netWorthTrend(slice));
+        model.addAttribute("waterLevel", waterLevel);
+        model.addAttribute("cpiAverages", macroBenchmarkService.cpiAverages());
+        model.addAttribute("m2Averages", macroBenchmarkService.m2Averages());
+        model.addAttribute("macroLatest", macroBenchmarkService.latest());
+        // 人赚/钱赚原始 BigDecimal(给水位分解诊断用 · 复用 FR-84 修复后的口径)
+        model.addAttribute("netInflowRaw", lastDecomposition == null ? BigDecimal.ZERO : lastDecomposition.cumulativeNetInflow());
+        model.addAttribute("pnlRaw", lastDecomposition == null ? BigDecimal.ZERO : lastDecomposition.cumulativePnl());
+
         // v0.4 FR-60b · 砍 waterfall / sankey 数据(不再注入)
         model.addAttribute("decomposition", decomposition);
         model.addAttribute("debtTrend", debtTrend);

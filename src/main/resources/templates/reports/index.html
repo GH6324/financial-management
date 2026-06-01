@@ -9,6 +9,8 @@
 <header th:replace="~{fragments/nav :: nav('reports', ${me}, ${nav})}"></header>
 <main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10">
   <div id="reports-region" th:replace="~{reports/_region :: region}"></div>
+  <!-- v0.5 FR-72/73/74 · 财富水位 section(净资产 vs CPI/M2)· 接在 KPI/分解之后 -->
+  <th:block th:replace="~{reports/_wealth-level :: section}"></th:block>
   <!-- v0.3 FR-51a/b · 储蓄能力区块(独立 · 不参与 HTMX 刷新)· v0.2 _region 完整保留 -->
   <th:block th:replace="~{reports/_savings :: section}"></th:block>
 </main>
