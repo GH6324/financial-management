@@ -2,6 +2,31 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.5] · 2026-06-01
+
+财富水位(资产 vs CPI/M2 双基准)+ 股票现金联动 + FIRE 支出自适应 + 净流入双源修复。详 [`prd/v0.5.md`](prd/v0.5.md) / [`tech-design/v0.5.md`](tech-design/v0.5.md)。
+
+### Added
+
+- **财富水位 · 并入 `/reports`**(FR-72/73/74)— 净资产 vs **CPI 保命线**(购买力)+ **M2 地位线**(社会财富份额)三线图 · 真实收益/相对社会收益 KPI · 人赚/钱赚分解诊断("水位靠收入硬撑")· 推导透明面板(三法均值)· 不新起 tab(v0.5)
+- **宏观基准底座**(FR-70/71)— `macro_benchmark` 表 + 1990-2025 CPI/M2 历史 seed · 几何均值 / **剔极端值几何**(默认,防 1994=24.1% 失真)/ 近 10 年 三法推导 · `/admin/integrations` 宏观段可校正(v0.5)
+- **收支趋势图**(FR-85)— `/reports` 储蓄区加收入线/支出线/储蓄填充 · 人赚引擎走势 · PMC 源(v0.5)
+- **dashboard CPI 线升级 + M2 线**(FR-75)— 硬编码 2% → 真实剔极端 CPI · 加 M2 地位线参考(v0.5)
+- **股票账户现金联动**(FR-78/79)— 录 AUTO 持仓可选「从账户现金划转买入」· 买入扣现金(FX 换算 · 成本必填 · 可负)· 归档按市价对称加回 · `cash_linked` 标记保向后兼容(v0.5)
+- **FIRE 目标支出自适应**(FR-81/82/83)— 退休目标月支出可选「自动适配月结支出」· 周期关闭按近 N 月真实支出滚动重算(剔极端/中位/均值 · 空期排除 · 不足回退)· 派生值回写使下游零改动(v0.5)
+
+### Fixed
+
+- **净流入(人赚的)双源 bug**(FR-84)— `principalVsReturnDecomposition` + `netInflowForPeriod` 改 **PMC 优先 · cash_flow 回退**(承 v0.4.3 B2)· 修 prod「人赚·净流入显示 0」· 钱赚改 ΔNW − 人赚 · 守 **人赚 + 钱赚 = ΔNetWorth** 恒等式(v0.5)
+
+### Migration
+
+- **V27** `macro_benchmark`(ADD TABLE + 1990-2025 seed)· **V28** `stock_holding.cash_linked`(ADD COLUMN DEFAULT 0)· 全向后兼容 0 风险(v0.5)
+
+### Tests
+
+- 单元 170 → **215**(+45):BenchmarkAverage / WaterLevelCalculator / NetInflowDecomposition(恒等式)/ StockHoldingCashLink / FireAutoExpense · qa-run **319 PASS**(同 v0.4 基线)
+
 ## [v0.4.23] · 2026-05-20
 
 **admin hub 补全 + 集成改名** · v0.4 给管理后台加了 4 项新页(集成 / 提醒 v0.4.14 升级 / 数值阈值 v0.4.18 升级 / 各种 KPI),但 `/admin` 总览页(hub)tile 列表和文案没同步,这次一次性对齐。

@@ -125,6 +125,53 @@
       </div>
     </form>
 
+    <!-- ④ 宏观基准 CPI/M2 · v0.5 FR-76 -->
+    <div class="bracket-card max-w-3xl space-y-4">
+      <div class="eyebrow-ink">④ 宏观基准 · CPI / M2(财富水位用)</div>
+      <p class="font-mono text-[10px] text-ink-subtle tracking-wider">整体 CPI(含食品)+ M2 年末同比增速 · 历史 seed 1990-2025 · 财富水位的两条基准线数据源</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm" th:if="${cpiAverages != null}">
+        <div class="paper-card p-3 bg-card-soft">
+          <div class="font-display text-base mb-1">CPI 三法均值</div>
+          <div class="flex justify-between"><span class="text-ink-soft">全历史几何</span><span class="tnum" th:text="${cpiAverages.fullGeometric}+'%'">4.6%</span></div>
+          <div class="flex justify-between"><span class="text-ink font-medium">剔极端值 ★</span><span class="tnum font-medium" th:text="${cpiAverages.trimmedGeometric}+'%'">2.4%</span></div>
+          <div class="flex justify-between"><span class="text-ink-soft">近 10 年</span><span class="tnum" th:text="${cpiAverages.recent}+'%'">1.9%</span></div>
+        </div>
+        <div class="paper-card p-3 bg-card-soft">
+          <div class="font-display text-base mb-1">M2 三法均值</div>
+          <div class="flex justify-between"><span class="text-ink-soft">全历史几何</span><span class="tnum" th:text="${m2Averages.fullGeometric}+'%'">15.1%</span></div>
+          <div class="flex justify-between"><span class="text-ink font-medium">剔极端值 ★</span><span class="tnum font-medium" th:text="${m2Averages.trimmedGeometric}+'%'">9.2%</span></div>
+          <div class="flex justify-between"><span class="text-ink-soft">近 10 年</span><span class="tnum" th:text="${m2Averages.recent}+'%'">9.0%</span></div>
+        </div>
+      </div>
+
+      <form th:action="@{/admin/integrations/macro}" method="post" class="space-y-3 border-t border-rule pt-4">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <div class="eyebrow-ink text-[10px]">校正 / 录入某年(无稳定公开 API · 手动录入为可靠路径)</div>
+        <div class="grid grid-cols-3 gap-3">
+          <div><label class="field-label">年份</label><input class="field-input" name="year" type="number" th:value="${macroLatest != null ? macroLatest.year + 1 : 2025}"/></div>
+          <div><label class="field-label">CPI %</label><input class="field-input" name="cpi" type="number" step="0.01" placeholder="0.30"/></div>
+          <div><label class="field-label">M2 %</label><input class="field-input" name="m2" type="number" step="0.01" placeholder="8.00"/></div>
+        </div>
+        <div class="flex justify-end"><button type="submit" class="btn-ink">保存宏观基准</button></div>
+      </form>
+
+      <details class="border-t border-rule pt-3">
+        <summary class="font-mono text-[11px] text-ink-soft cursor-pointer select-none">历史数据表(<span th:text="${macroAll != null ? #lists.size(macroAll) : 0}">36</span> 年)</summary>
+        <table class="w-full text-sm mt-3 font-mono">
+          <thead><tr class="text-ink-subtle text-[10px] uppercase"><th class="text-left py-1">年</th><th class="text-right">CPI</th><th class="text-right">M2</th><th class="text-right">来源</th></tr></thead>
+          <tbody>
+            <tr th:each="b : ${macroAll}" class="border-t border-rule-soft">
+              <td class="py-0.5" th:text="${b.year}">2025</td>
+              <td class="text-right tnum" th:text="${b.cpiHeadline}+'%'">0.3%</td>
+              <td class="text-right tnum" th:text="${b.m2Growth}+'%'">8.0%</td>
+              <td class="text-right text-ink-subtle text-[10px]" th:text="${b.source}">seed</td>
+            </tr>
+          </tbody>
+        </table>
+      </details>
+    </div>
+
   </section>
 </main>
 

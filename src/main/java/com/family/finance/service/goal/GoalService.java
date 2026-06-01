@@ -35,6 +35,74 @@ public class GoalService {
 
     private final GoalMapper goalMapper;
     private final ObjectMapper objectMapper;
+    private final com.family.finance.repository.PeriodMemberCashflowMapper periodMemberCashflowMapper; // v0.5 FR-82
+
+    // ---------- v0.5 FR-82 · FIRE 月支出自动派生 ----------
+
+    /**
+     * 周期关闭时调用 · 对 AUTO_MONTHLY 模式的 RETIREMENT 目标,按近 N 月真实月结支出
+     * 滚动派生 monthly_expense 并回写 + 重算 targetValue。
+     *
+     * <p>红线:只取真实填报的周期(findFamilyAggregateRecent HAVING filledMembers>0 已排除空期);
+     * 数据不足 → 保留原 monthly_expense(不动)。失败不抛(不阻塞周期关闭)。</p>
+     */
+    @Transactional
+    public void recomputeAutoExpenseGoals(long familyId) {
+        List<Goal> goals;
+        try {
+            goals = goalMapper.findActiveByFamilyAndType(familyId, GoalType.RETIREMENT);
+        } catch (Exception e) {
+            return;
+        }
+        for (Goal g : goals) {
+            try {
+                GoalParams p = parseParams(g);
+                if (!"AUTO_MONTHLY".equalsIgnoreCase(p.getExpenseMode())) continue;
+                int window = p.getExpenseWindowMonths() != null && p.getExpenseWindowMonths() > 0
+                        ? p.getExpenseWindowMonths() : 12;
+                var recent = periodMemberCashflowMapper.findFamilyAggregateRecent(familyId, window);
+                List<BigDecimal> expenses = recent.stream()
+                        .map(a -> a.totalExpense())
+                        .filter(java.util.Objects::nonNull)
+                        .filter(v -> v.signum() > 0)
+                        .toList();
+                if (expenses.isEmpty()) continue; // 数据不足 → 保留原值
+                BigDecimal derived = smooth(expenses, p.getExpenseSmoothing());
+                p.setMonthlyExpense(derived.setScale(2, java.math.RoundingMode.HALF_EVEN));
+                p.setExpenseComputedAt(java.time.YearMonth.now().toString());
+                g.setParamsJson(serialize(p));
+                g.setTargetValue(com.family.finance.calc.GoalProgressCalculator.computeRetirementTarget(p));
+                goalMapper.update(g);
+            } catch (Exception ignored) {
+                // 单个目标失败不影响其它
+            }
+        }
+    }
+
+    /** 月支出平滑:TRIMMED(剔头尾各 1·默认)/ MEDIAN / MEAN。 */
+    private BigDecimal smooth(List<BigDecimal> values, String mode) {
+        List<BigDecimal> sorted = new java.util.ArrayList<>(values);
+        java.util.Collections.sort(sorted);
+        int n = sorted.size();
+        if ("MEAN".equalsIgnoreCase(mode)) {
+            return mean(sorted);
+        }
+        if ("MEDIAN".equalsIgnoreCase(mode)) {
+            return n % 2 == 1 ? sorted.get(n / 2)
+                    : sorted.get(n / 2 - 1).add(sorted.get(n / 2)).divide(BigDecimal.valueOf(2), 2, java.math.RoundingMode.HALF_EVEN);
+        }
+        // TRIMMED(默认):≥3 项时剔头尾各 1,再均值;否则退回均值
+        if (n >= 3) {
+            return mean(sorted.subList(1, n - 1));
+        }
+        return mean(sorted);
+    }
+
+    private BigDecimal mean(List<BigDecimal> vs) {
+        BigDecimal sum = BigDecimal.ZERO;
+        for (BigDecimal v : vs) sum = sum.add(v);
+        return sum.divide(BigDecimal.valueOf(vs.size()), 2, java.math.RoundingMode.HALF_EVEN);
+    }
 
     // ---------- 查询 ----------
 

@@ -72,7 +72,7 @@
         <div class="eyebrow mb-2" style="color:var(--rust)">人 · 赚 · vs · 钱 · 赚</div>
         <p class="text-sm text-ink-soft leading-relaxed">
           净资产增长拆解:<b class="num-pos" th:text="'人赚 ¥' + ${#numbers.formatInteger(netInflowRaw,1,'COMMA')}">人赚 ¥31万</b>(工资储蓄)
-          + <b th:text="(${pnlRaw.signum()>=0}?'钱赚 +¥':'钱赚 −¥') + ${#numbers.formatInteger(T(java.math.BigDecimal).valueOf(0).max(pnlRaw.abs()),1,'COMMA')}">钱赚 ¥5万</b>(投资)。
+          + <b th:text="(${pnlRaw.signum()>=0}?'钱赚 +¥':'钱赚 −¥') + ${#numbers.formatInteger(pnlRaw.abs(),1,'COMMA')}">钱赚 ¥5万</b>(投资)。
           <span th:if="${pnlRaw.signum() < netInflowRaw.signum() or (netInflowRaw.signum()>0 and pnlRaw.compareTo(netInflowRaw) < 0)}" class="text-rust">
             水位主要靠人赚(收入)硬撑 —— 一旦收入中断,会快速逼近基准线下方。</span>
         </p>
@@ -128,7 +128,8 @@
     ]},
     options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{right:50}},
       plugins:{ legend:{display:false} },
-      scales:{ y:{ ticks:{ callback:wan, font:{size:10} }, grid:{color:'rgba(0,0,0,.04)'} }, x:{ ticks:{font:{size:9}}, grid:{display:false} } } }
+      scales:{ y:{ ticks:{ callback:wan, font:{size:10} }, grid:{color:'rgba(0,0,0,.04)'} }, x:{ ticks:{font:{size:9}}, grid:{display:false} } } },
+    plugins: [ChartDataLabels]
   });
 })();
 </script>

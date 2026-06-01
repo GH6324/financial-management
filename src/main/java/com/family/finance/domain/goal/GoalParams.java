@@ -39,6 +39,20 @@ public class GoalParams {
     @JsonProperty("withdrawal_rate")
     private BigDecimal withdrawalRate;
 
+    // ---------- v0.5 FR-81/82 · FIRE 月支出口径(默认 FIXED 保向后兼容) ----------
+    /** FIXED(手填固定值)| AUTO_MONTHLY(按近 N 月真实月结支出滚动派生)· null 视作 FIXED */
+    @JsonProperty("expense_mode")
+    private String expenseMode;
+    /** AUTO 模式滚动窗口期数 · 默认 12 */
+    @JsonProperty("expense_window_months")
+    private Integer expenseWindowMonths;
+    /** AUTO 模式平滑:TRIMMED(剔极端·默认)| MEDIAN | MEAN */
+    @JsonProperty("expense_smoothing")
+    private String expenseSmoothing;
+    /** AUTO 模式上次派生时间戳(YYYY-MM · 供 UI 显示"基于近N月·更新于") */
+    @JsonProperty("expense_computed_at")
+    private String expenseComputedAt;
+
     // ---------- EDUCATION ----------
     @JsonProperty("child_member_id")
     private Long childMemberId;

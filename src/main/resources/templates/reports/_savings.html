@@ -146,7 +146,8 @@
             y: { ticks: { callback: v => '¥' + (v/10000).toFixed(1) + '万', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } },
             x: { ticks: { font: { family: 'JetBrains Mono', size: 9 } }, grid: { display: false } }
           }
-        }
+        },
+        plugins: [ChartDataLabels]
       });
     }
   })();

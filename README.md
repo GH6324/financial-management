@@ -57,7 +57,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 170 单元(含 PrivacyIsolationTest 静态扫源码私密红线)/ 36 端到端 / 319 黑盒 |
+| 测试 | JUnit 5 · 215 单元(含 PrivacyIsolationTest 静态扫源码私密红线)/ 36 端到端 / 319 黑盒 |
 
 ## 快速开始(自托管部署)
 
@@ -150,7 +150,7 @@ mvn spring-boot:run
 测试:
 
 ```bash
-mvn test                       # JUnit 单元测试(170 · v0.4 封板基线)
+mvn test                       # JUnit 单元测试(215 · v0.5)
 bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(319)
 bash scripts/qa-e2e.sh         # 端到端真值校验(36 · 会清空 DB)
 ```

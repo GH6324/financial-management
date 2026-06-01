@@ -37,6 +37,9 @@ public class StockHolding {
     private BigDecimal manualValue;
     private LocalDateTime manualValueAt;
 
+    /** v0.5 FR-78/79 · 是否由账户现金划转买入(归档时对称按市价把现金加回) */
+    private Boolean cashLinked;
+
     // 通用
     private LocalDateTime archivedAt;
     private LocalDateTime createdAt;

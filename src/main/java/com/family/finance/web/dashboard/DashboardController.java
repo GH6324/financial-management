@@ -51,6 +51,7 @@ public class DashboardController {
     private final EntryService entryService;
     private final NavService navService;
     private final FxService fxService;
+    private final com.family.finance.service.macro.MacroBenchmarkService macroBenchmarkService; // v0.5 FR-75
     private final GoalProgressService goalProgressService;
     private final HouseholdCashflowService householdCashflowService;
     private final com.family.finance.service.config.FamilyConfigService configService;
@@ -161,9 +162,15 @@ public class DashboardController {
         model.addAttribute("fxFallback", fxFallback);
         model.addAttribute("requestedCurrency", requestedCurrency);
 
-        // v0.4 FR-61a · CPI 假设 + 实际购买力线数据(前端 deflate)
-        model.addAttribute("cpiAssumption", family.getCpiAssumption() == null
-            ? new BigDecimal("2.00") : family.getCpiAssumption());
+        // v0.4 FR-61a / v0.5 FR-75 · CPI 假设默认改用真实剔极端值几何均值(替代硬编码 2%)
+        // 用户在 dashboard 切换器显式选过 → 用其值;否则用宏观真实 CPI;宏观缺失再退 2%。
+        BigDecimal realCpi = macroBenchmarkService.cpiAverages().defaultValue();
+        model.addAttribute("cpiAssumption", family.getCpiAssumption() != null
+            ? family.getCpiAssumption()
+            : (realCpi != null && realCpi.signum() > 0 ? realCpi : new BigDecimal("2.00")));
+        // v0.5 FR-75 · M2 地位线(剔极端值几何均值)· 前端加一条参考线 · 详看 /reports 财富水位
+        BigDecimal realM2 = macroBenchmarkService.m2Averages().defaultValue();
+        model.addAttribute("m2Assumption", realM2 != null && realM2.signum() > 0 ? realM2 : new BigDecimal("8.00"));
 
         // v0.4 FR-60a · 月储蓄能力(从 v0.3 储蓄区拉)+ 收 KPI
         model.addAttribute("monthlySavingsCapacity",

@@ -109,9 +109,10 @@ public class StockHoldingController {
                              @RequestParam String market,
                              @RequestParam BigDecimal shares,
                              @RequestParam(required = false) BigDecimal costBasis,
-                             @RequestParam(required = false) String currency) {
+                             @RequestParam(required = false) String currency,
+                             @RequestParam(value = "deductCash", defaultValue = "false") boolean deductCash) {
         Market mk = parseMarket(market);
-        holdingService.createAuto(me.getFamilyId(), accountId, displayName, ticker, mk, shares, costBasis, currency);
+        holdingService.createAuto(me.getFamilyId(), accountId, displayName, ticker, mk, shares, costBasis, currency, deductCash);
         // 立即刷一次价(让用户看到当前估值)· 失败容忍
         try {
             scheduler.fetchMarket(mk);

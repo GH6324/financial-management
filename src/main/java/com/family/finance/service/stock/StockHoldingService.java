@@ -35,6 +35,10 @@ public class StockHoldingService {
 
     private final StockHoldingMapper holdingMapper;
     private final AccountMapper accountMapper;
+    // v0.5 FR-78/79 · 现金联动(FX 换算 + 市价加回)
+    private final com.family.finance.service.FxService fxService;
+    private final com.family.finance.repository.PeriodMapper periodMapper;
+    private final StockPriceFetcher stockPriceFetcher;
 
     public List<StockHolding> findActiveByAccount(long familyId, long accountId) {
         requireStockAccount(familyId, accountId);
@@ -62,9 +66,26 @@ public class StockHoldingService {
     public StockHolding createAuto(long familyId, long accountId,
                                    String displayName, String ticker, Market market,
                                    BigDecimal shares, BigDecimal costBasis, String currency) {
+        return createAuto(familyId, accountId, displayName, ticker, market, shares, costBasis, currency, false);
+    }
+
+    /**
+     * v0.5 FR-78 · 录 AUTO 持仓 · deductCash=true 时从账户现金划转买入。
+     * 勾选 → 强制 costBasis;按 股数×成本 经 FX 换到账户币种,从账户币种现金行扣减(可为负 · 卖空/融资)。
+     * 这是账户内「现金 → 股票」再分配,买入当刻净值中性。
+     */
+    @Transactional
+    public StockHolding createAuto(long familyId, long accountId,
+                                   String displayName, String ticker, Market market,
+                                   BigDecimal shares, BigDecimal costBasis, String currency, boolean deductCash) {
         requireStockAccount(familyId, accountId);
         String normalizedTicker = normalizeTicker(market, ticker);
         validateAuto(normalizedTicker, market, shares, currency);
+        String holdingCcy = currency != null && !currency.isBlank()
+            ? currency.toUpperCase(Locale.ROOT) : market.defaultCurrency();
+        if (deductCash && (costBasis == null || costBasis.signum() <= 0)) {
+            throw new IllegalArgumentException("勾选「从账户现金划转买入」时,买入成本必填且 > 0");
+        }
         StockHolding h = StockHolding.builder()
             .accountId(accountId)
             .displayName(blankToDefault(displayName, normalizedTicker))
@@ -73,9 +94,15 @@ public class StockHoldingService {
             .market(market)
             .shares(shares)
             .costBasis(costBasis)
-            .currency(currency != null && !currency.isBlank() ? currency.toUpperCase(Locale.ROOT) : market.defaultCurrency())
+            .currency(holdingCcy)
+            .cashLinked(deductCash)
             .build();
         holdingMapper.insert(h);
+        if (deductCash) {
+            // 买入成本(持仓币种)→ FX 到账户币种 → 扣账户币种现金行(可为负)
+            BigDecimal costInHoldingCcy = costBasis.multiply(shares);
+            adjustAccountCash(familyId, accountId, holdingCcy, costInHoldingCcy.negate());
+        }
         return h;
     }
 
@@ -95,6 +122,7 @@ public class StockHoldingService {
             .valuationMode(ValuationMode.MANUAL)
             .manualValue(manualValue)
             .manualValueAt(LocalDateTime.now())
+            .cashLinked(false)
             .build();
         holdingMapper.insert(h);
         return h;
@@ -145,6 +173,7 @@ public class StockHoldingService {
             .currency(normCcy)
             .manualValue(amount)
             .manualValueAt(LocalDateTime.now())
+            .cashLinked(false)
             .build();
         holdingMapper.insert(h);
         return h;
@@ -186,8 +215,74 @@ public class StockHoldingService {
 
     @Transactional
     public void archive(long familyId, long holdingId) {
-        require(familyId, holdingId); // 权限校验
+        StockHolding h = require(familyId, holdingId); // 权限校验
+        // v0.5 FR-79 · 现金联动持仓归档 → 对称按市价把现金加回账户币种现金行(全对称)
+        if (Boolean.TRUE.equals(h.getCashLinked()) && h.getValuationMode() == ValuationMode.AUTO
+                && h.getTicker() != null && h.getMarket() != null && h.getShares() != null) {
+            BigDecimal proceeds = sellProceedsInHoldingCcy(h);
+            if (proceeds != null && proceeds.signum() > 0) {
+                adjustAccountCash(familyId, h.getAccountId(), h.getCurrency(), proceeds);
+            }
+        }
         holdingMapper.archive(holdingId);
+    }
+
+    /** 卖出收回金额(持仓币种)= 股数 × 当前市价;无价时退回成本价。 */
+    private BigDecimal sellProceedsInHoldingCcy(StockHolding h) {
+        var snap = stockPriceFetcher.findLatestKnown(h.getTicker(), h.getMarket());
+        BigDecimal price = snap != null ? snap.getClosePrice() : h.getCostBasis();
+        if (price == null) return null;
+        return price.multiply(h.getShares());
+    }
+
+    /**
+     * v0.5 FR-78/79 · 调整账户币种现金行 · deltaInFromCcy 为正=加回 / 负=扣减(持仓币种口径)。
+     * 经 FX 换到账户币种 → 找该币种 CASH 行调整 · 没有则新建(可为负 · 卖空/融资/保证金)。
+     */
+    private void adjustAccountCash(long familyId, long accountId, String fromCcy, BigDecimal deltaInFromCcy) {
+        var account = accountMapper.findById(accountId).orElse(null);
+        String acctCcy = account != null && account.getCurrency() != null
+            ? account.getCurrency().toUpperCase(Locale.ROOT) : fromCcy;
+        BigDecimal deltaInAcctCcy = fxConvert(familyId, deltaInFromCcy, fromCcy, acctCcy);
+
+        StockHolding cashRow = holdingMapper.findActiveByAccount(accountId).stream()
+            .filter(x -> x.getValuationMode() == ValuationMode.CASH
+                && acctCcy.equalsIgnoreCase(x.getCurrency()))
+            .findFirst().orElse(null);
+        if (cashRow != null) {
+            BigDecimal base = cashRow.getManualValue() == null ? BigDecimal.ZERO : cashRow.getManualValue();
+            cashRow.setManualValue(base.add(deltaInAcctCcy).setScale(2, java.math.RoundingMode.HALF_EVEN));
+            cashRow.setManualValueAt(LocalDateTime.now());
+            holdingMapper.update(cashRow);
+        } else {
+            StockHolding row = StockHolding.builder()
+                .accountId(accountId)
+                .displayName(acctCcy + " 现金")
+                .valuationMode(ValuationMode.CASH)
+                .currency(acctCcy)
+                .manualValue(deltaInAcctCcy.setScale(2, java.math.RoundingMode.HALF_EVEN))
+                .manualValueAt(LocalDateTime.now())
+                .cashLinked(false)
+                .build();
+            holdingMapper.insert(row);
+        }
+    }
+
+    /** FX 换算(持仓币种 → 账户币种)· 同币种直接返回 · 走当前 OPEN 周期汇率 · 缺则 1:1 兜底。 */
+    private BigDecimal fxConvert(long familyId, BigDecimal amount, String from, String to) {
+        if (amount == null) return BigDecimal.ZERO;
+        if (from == null || to == null || from.equalsIgnoreCase(to)) return amount;
+        var period = periodMapper.findCurrentOpen(familyId).orElse(null);
+        if (period == null) return amount;
+        var rate = fxService.getOrFetchRate(familyId, from, to, period.getId());
+        if (rate.isPresent() && rate.get().getRate() != null && rate.get().getRate().signum() > 0) {
+            return amount.multiply(rate.get().getRate()).setScale(2, java.math.RoundingMode.HALF_EVEN);
+        }
+        var inv = fxService.getOrFetchRate(familyId, to, from, period.getId());
+        if (inv.isPresent() && inv.get().getRate() != null && inv.get().getRate().signum() > 0) {
+            return amount.divide(inv.get().getRate(), 2, java.math.RoundingMode.HALF_EVEN);
+        }
+        return amount; // 兜底 1:1
     }
 
     @Transactional

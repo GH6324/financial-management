@@ -108,7 +108,10 @@ public class GoalController {
                              @RequestParam(required = false) BigDecimal targetAmount,
                              @RequestParam(required = false) Integer monthsTarget,
                              @RequestParam(required = false) Boolean autoBaseline,
-                             @RequestParam(required = false) BigDecimal fixedBaseline) {
+                             @RequestParam(required = false) BigDecimal fixedBaseline,
+                             @RequestParam(required = false) String expenseMode,
+                             @RequestParam(required = false) Integer expenseWindowMonths,
+                             @RequestParam(required = false) String expenseSmoothing) {
         GoalType goalType = parseType(type);
         GoalParams params = GoalParams.builder()
             .currentAge(currentAge)
@@ -123,8 +126,15 @@ public class GoalController {
             .monthsTarget(monthsTarget)
             .autoBaseline(autoBaseline)
             .fixedBaseline(fixedBaseline)
+            .expenseMode(expenseMode)
+            .expenseWindowMonths(expenseWindowMonths)
+            .expenseSmoothing(expenseSmoothing)
             .build();
         Goal created = goalService.create(me.getFamilyId(), goalType, name, params);
+        // v0.5 FR-82 · AUTO 模式立即派生一次(不必等周期关闭 · 用户建完即见)
+        if ("AUTO_MONTHLY".equalsIgnoreCase(expenseMode)) {
+            goalService.recomputeAutoExpenseGoals(me.getFamilyId());
+        }
         return "redirect:/goals/" + created.getId();
     }
 
@@ -199,7 +209,10 @@ public class GoalController {
                              @RequestParam(required = false) BigDecimal targetAmount,
                              @RequestParam(required = false) Integer monthsTarget,
                              @RequestParam(required = false) Boolean autoBaseline,
-                             @RequestParam(required = false) BigDecimal fixedBaseline) {
+                             @RequestParam(required = false) BigDecimal fixedBaseline,
+                             @RequestParam(required = false) String expenseMode,
+                             @RequestParam(required = false) Integer expenseWindowMonths,
+                             @RequestParam(required = false) String expenseSmoothing) {
         GoalParams params = GoalParams.builder()
             .currentAge(currentAge)
             .retireAge(retireAge)
@@ -213,8 +226,14 @@ public class GoalController {
             .monthsTarget(monthsTarget)
             .autoBaseline(autoBaseline)
             .fixedBaseline(fixedBaseline)
+            .expenseMode(expenseMode)
+            .expenseWindowMonths(expenseWindowMonths)
+            .expenseSmoothing(expenseSmoothing)
             .build();
         goalService.update(me.getFamilyId(), id, name, params);
+        if ("AUTO_MONTHLY".equalsIgnoreCase(expenseMode)) {
+            goalService.recomputeAutoExpenseGoals(me.getFamilyId());
+        }
         return "redirect:/goals/" + id;
     }
 

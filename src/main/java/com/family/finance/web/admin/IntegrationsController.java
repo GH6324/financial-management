@@ -32,6 +32,7 @@ public class IntegrationsController {
     private final FamilyConfigService configService;
     private final DynamicScheduleConfig schedulerConfig;
     private final AuditLogService auditLogService;
+    private final com.family.finance.service.macro.MacroBenchmarkService macroService; // v0.5 FR-76
 
     @GetMapping
     public String page(@AuthenticationPrincipal MemberPrincipal me, Model model) {
@@ -48,7 +49,31 @@ public class IntegrationsController {
         model.addAttribute("stockCronHk",           configService.getString(fid,  FamilyConfigService.K_STOCK_CRON_HK, "0 30 16 * * MON-FRI"));
         // FX
         model.addAttribute("fxCron",                configService.getString(fid,  FamilyConfigService.K_FX_CRON, "0 30 2 1 * ?"));
+        // v0.5 FR-76 · 宏观基准 CPI/M2
+        model.addAttribute("macroAll",      macroService.all());
+        model.addAttribute("macroLatest",   macroService.latest());
+        model.addAttribute("cpiAverages",   macroService.cpiAverages());
+        model.addAttribute("m2Averages",    macroService.m2Averages());
         return "admin/integrations";
+    }
+
+    /** ④ 宏观基准 · 手动校正某年 CPI/M2(年度 cron 无稳定公开 API · 手动录入为可靠路径)· FR-76 */
+    @PostMapping("/macro")
+    public String saveMacro(@AuthenticationPrincipal MemberPrincipal me,
+                            @RequestParam("year") int year,
+                            @RequestParam(value = "cpi", required = false) java.math.BigDecimal cpi,
+                            @RequestParam(value = "m2", required = false) java.math.BigDecimal m2,
+                            RedirectAttributes ra) {
+        if (year < 1980 || year > 2100) {
+            ra.addFlashAttribute("flash", "年份不合法");
+            return "redirect:/admin/integrations";
+        }
+        macroService.upsert(com.family.finance.domain.macro.MacroBenchmark.builder()
+                .year(year).cpiHeadline(cpi).m2Growth(m2).source("manual").build());
+        auditLogService.record(me.getFamilyId(), me.getMemberId(), AuditLogType.FAMILY_UPDATE,
+                "macro_benchmark", (long) year, "宏观基准校正 · " + year + " · CPI=" + cpi + " M2=" + m2);
+        ra.addFlashAttribute("flash", "宏观基准 " + year + " 已更新 · 财富水位实时生效");
+        return "redirect:/admin/integrations";
     }
 
     /** ① LLM · keys(留空保原值)+ max_tokens + timeout */

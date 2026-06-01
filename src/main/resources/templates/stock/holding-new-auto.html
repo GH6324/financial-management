@@ -78,6 +78,17 @@
              placeholder="留空可不填">
     </div>
 
+    <!-- v0.5 FR-78 · 从账户现金划转买入 -->
+    <div class="paper-card p-4" style="background:rgba(122,90,57,.06);border-left:4px solid var(--brass-deep)">
+      <label class="flex items-start gap-3 cursor-pointer">
+        <input type="checkbox" name="deductCash" value="true" class="mt-1 w-4 h-4" style="accent-color:var(--brass-deep)">
+        <span>
+          <span class="font-display text-base">从账户现金划转买入</span>
+          <span class="block text-sm text-ink-soft mt-1">勾选后 <b>买入成本必填</b>,系统自动从账户现金扣 <span class="font-mono">股数 × 成本</span>(经 FX 换到账户币种 · 现金可为负)。买入当刻账户总值不变(现金↓=股票↑)。归档时按市价对称把现金加回。</span>
+        </span>
+      </label>
+    </div>
+
     <div class="flex items-center justify-between pt-6 border-t border-rule-soft">
       <a th:href="@{|/accounts/${account.id}/holdings|}" class="btn-paper no-underline">← 取消</a>
       <button type="submit" class="btn-ink">✓ 添加 · 立即拉一次价</button>

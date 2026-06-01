@@ -19,7 +19,7 @@ public interface StockHoldingMapper {
 
     @Select("""
             SELECT id, account_id, display_name, valuation_mode, ticker, market, shares,
-                   cost_basis, currency, manual_value, manual_value_at,
+                   cost_basis, currency, manual_value, manual_value_at, cash_linked AS cashLinked,
                    archived_at, created_at, updated_at
               FROM stock_holding
              WHERE id = #{id}
@@ -28,7 +28,7 @@ public interface StockHoldingMapper {
 
     @Select("""
             SELECT id, account_id, display_name, valuation_mode, ticker, market, shares,
-                   cost_basis, currency, manual_value, manual_value_at,
+                   cost_basis, currency, manual_value, manual_value_at, cash_linked AS cashLinked,
                    archived_at, created_at, updated_at
               FROM stock_holding
              WHERE account_id = #{accountId}
@@ -39,7 +39,7 @@ public interface StockHoldingMapper {
 
     @Select("""
             SELECT id, account_id, display_name, valuation_mode, ticker, market, shares,
-                   cost_basis, currency, manual_value, manual_value_at,
+                   cost_basis, currency, manual_value, manual_value_at, cash_linked AS cashLinked,
                    archived_at, created_at, updated_at
               FROM stock_holding
              WHERE account_id = #{accountId}
@@ -62,9 +62,9 @@ public interface StockHoldingMapper {
 
     @Insert("""
             INSERT INTO stock_holding (account_id, display_name, valuation_mode, ticker, market, shares,
-                                       cost_basis, currency, manual_value, manual_value_at)
+                                       cost_basis, currency, manual_value, manual_value_at, cash_linked)
             VALUES (#{accountId}, #{displayName}, #{valuationMode}, #{ticker}, #{market}, #{shares},
-                    #{costBasis}, #{currency}, #{manualValue}, #{manualValueAt})
+                    #{costBasis}, #{currency}, #{manualValue}, #{manualValueAt}, #{cashLinked})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(StockHolding holding);
@@ -79,7 +79,8 @@ public interface StockHoldingMapper {
                    cost_basis = #{costBasis},
                    currency = #{currency},
                    manual_value = #{manualValue},
-                   manual_value_at = #{manualValueAt}
+                   manual_value_at = #{manualValueAt},
+                   cash_linked = #{cashLinked}
              WHERE id = #{id}
                AND archived_at IS NULL
             """)

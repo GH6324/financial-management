@@ -43,6 +43,9 @@ public class PeriodService {
     // v0.3 FR-53b/c · 可选注入 · 失败/未配 LLM 时 null 安全(@Autowired required=false)
     @Autowired(required = false)
     private com.family.finance.service.goal.GoalReportService goalReportService;
+    // v0.5 FR-82 · 周期关闭时重算 AUTO 模式 FIRE 目标月支出
+    @Autowired(required = false)
+    private com.family.finance.service.goal.GoalService goalService;
 
     public Optional<Period> findCurrentOpen(long familyId) {
         return periodMapper.findCurrentOpen(familyId);
@@ -191,6 +194,15 @@ public class PeriodService {
         auditLogService.record(period.getFamilyId(), actorMemberId, AuditLogType.PERIOD_CLOSE,
                 "period", periodId, summary);
         runMetricsAfterCommit(periodId);
+
+        // v0.5 FR-82 · 周期关闭 = 月结落定 → 重算 AUTO 模式 FIRE 目标月支出(失败不阻塞)
+        try {
+            if (goalService != null) {
+                goalService.recomputeAutoExpenseGoals(period.getFamilyId());
+            }
+        } catch (Exception e) {
+            log.warn("post-close FIRE expense recompute failed (non-blocking): {}", e.toString());
+        }
 
         // v0.3 FR-53b/c · 异步触发 AI 月报 + 偏离预警 · 失败不阻塞 close 主流程
         try {
