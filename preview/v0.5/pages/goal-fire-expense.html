@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FIRE 目标 · 支出自适应 · v0.5</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+</head>
+<body class="min-h-screen relative">
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+  <main class="max-w-[760px] mx-auto px-4 md:px-8 py-8 lg:py-12 relative z-10">
+
+    <div class="flex items-center gap-2 font-mono text-[11px] text-ink-subtle mb-6">
+      <a href="../index.html" class="hover:text-ink no-underline">← v0.5 入口</a><span>·</span><span>目标 · 退休/FIRE</span><span>·</span><span class="text-brass-deep">支出口径</span>
+    </div>
+
+    <section class="mb-6">
+      <div class="eyebrow mb-2" style="color:var(--brass-deep)">主线 C · FR-81~83</div>
+      <h1 class="font-display text-3xl sm:text-4xl font-medium tracking-tight">退休 / FIRE · 支出口径</h1>
+      <p class="text-ink-soft text-sm mt-2">退休后月支出不用再拍脑袋填死值 —— 可让系统按你<b>实际每月的月结支出</b>滚动算。</p>
+    </section>
+
+    <form class="paper-card p-6 space-y-5">
+      <span class="font-mono text-[11px] text-ink-soft uppercase tracking-wider">退休后月支出口径</span>
+
+      <!-- 二选一 -->
+      <div class="grid grid-cols-1 gap-3">
+        <label class="paper-card p-4 bg-paper cursor-pointer flex items-start gap-3">
+          <input type="radio" name="mode" class="mt-1 w-4 h-4 accent-[#8c6a33]">
+          <span><span class="font-display text-lg">固定值</span><span class="block text-sm text-ink-soft mt-1">手填一个月支出(现状)。</span>
+            <span class="flex items-center gap-2 mt-2"><span class="font-mono text-ink-soft">¥</span><input class="flex-1 bg-card border border-rule px-3 py-1.5 font-mono" value="15,000" disabled></span></span>
+        </label>
+
+        <label class="paper-card p-4 cursor-pointer flex items-start gap-3" style="background:rgba(122,90,57,.06);border:1px solid var(--brass-deep)">
+          <input type="radio" name="mode" checked class="mt-1 w-4 h-4 accent-[#8c6a33]">
+          <span class="flex-1">
+            <span class="font-display text-lg">自动适配月结支出 <span class="font-mono text-[9px] uppercase tracking-wider" style="background:var(--brass-deep);color:var(--paper);padding:2px 6px;border-radius:2px">v0.5 新</span></span>
+            <span class="block text-sm text-ink-soft mt-1">按近 N 月真实家庭月支出滚动算 · 周期关闭时自动重算。</span>
+            <div class="grid grid-cols-2 gap-3 mt-3">
+              <label class="block"><span class="font-mono text-[10px] text-ink-subtle uppercase">窗口</span>
+                <select class="w-full mt-1 bg-card border border-rule px-2 py-1.5 font-mono text-sm"><option>近 12 月(推荐)</option><option>近 6 月</option><option>近 24 月</option></select></label>
+              <label class="block"><span class="font-mono text-[10px] text-ink-subtle uppercase">平滑方式</span>
+                <select class="w-full mt-1 bg-card border border-rule px-2 py-1.5 font-mono text-sm"><option>剔极端值(推荐)</option><option>中位数</option><option>均值</option></select></label>
+            </div>
+            <div class="paper-card p-3 bg-card mt-3 text-sm">
+              <div class="flex justify-between py-0.5"><span class="text-ink-soft">近 12 月家庭月支出(剔极端值)</span><span class="font-mono"><b>¥22,800</b> / 月</span></div>
+              <div class="flex justify-between py-0.5"><span class="text-ink-soft">数据基准</span><span class="font-mono text-[11px] text-ink-subtle">10/12 月有填 · 更新于 26-05</span></div>
+            </div>
+          </span>
+        </label>
+      </div>
+
+      <button type="button" class="btn-paper" style="background:var(--ink);color:var(--paper)">保存目标</button>
+    </form>
+
+    <!-- 目标结果 + 移动靶沟通 FR-83 -->
+    <section class="paper-card p-5 mt-6" style="border-left:4px solid var(--forest)">
+      <div class="sec-tag font-mono text-[10px] uppercase tracking-widest text-ink-subtle mb-3">FR-83 · 目标结果(下游透明读派生值)</div>
+      <div class="grid grid-cols-3 gap-px bg-rule">
+        <div class="kpi-card"><span class="kpi-eyebrow">年支出(×12)</span><div class="font-display text-xl mt-1">¥27.4万</div></div>
+        <div class="kpi-card"><span class="kpi-eyebrow">FIRE 目标(÷4% + 通胀PV)</span><div class="font-display text-xl mt-1">¥912万</div></div>
+        <div class="kpi-card"><span class="kpi-eyebrow">当前进度</span><div class="font-display text-xl mt-1 num-pos">34.9%</div></div>
+      </div>
+      <p class="text-sm text-ink-soft mt-3" style="border-top:1px dashed var(--rule);padding-top:.6rem">
+        <b class="text-ink">目标随你的实际支出动态调整</b> · 当前基于近 12 月均值 ¥22,800 · 更新于 26-05。
+        通胀 PV 层仍叠加在派生值之上。
+      </p>
+    </section>
+
+    <section class="paper-card p-4 mt-4 bg-card-soft text-xs text-ink-soft leading-relaxed">
+      <b class="text-ink">联动要点</b> · 时机:周期关闭重算(+目标页惰性兜底)· 存储:派生月支出回写同一字段 + computed_at,使进度/三情景预测/AI预警/dashboard 目标条<b>零改动透明读</b> · 红线:空期不参与均值(同 FR-84),数据不足回退手填值 · AI 偏离预警会区分"目标因支出上升而上调"而非误判退步。
+    </section>
+
+  </main>
+  <footer class="border-t border-rule py-6 px-4 mt-8"><div class="max-w-[760px] mx-auto font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">家庭账房 · v0.5 Preview · FIRE 支出自适应 FR-81~83</div></footer>
+</body>
+</html>

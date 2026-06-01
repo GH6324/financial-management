@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.5 Preview · 财富水位</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+</head>
+<body class="min-h-screen relative">
+
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <header class="border-b border-rule pt-8 lg:pt-12 pb-8 lg:pb-10 px-4 md:px-8 lg:px-16 relative z-10">
+    <div class="max-w-[1200px] mx-auto">
+      <div class="flex items-start justify-between flex-wrap gap-6">
+        <div>
+          <div class="eyebrow mb-3">№ 张 — 私家账房 · Family Counting House · v0.5</div>
+          <h1 class="font-display text-3xl sm:text-5xl md:text-6xl lg:text-7xl leading-[0.95] font-medium tracking-tight">
+            财富水位 ·<br/>
+            <span class="italic font-light text-brass-deep">你在水面上,还是在下沉?</span>
+          </h1>
+          <p class="font-serif text-sm sm:text-base md:text-lg text-ink-soft max-w-2xl mt-4 lg:mt-6 leading-relaxed">
+            v0.4 把"跑赢通胀"草草开了个头(一条硬编码 2% 的 CPI 线)。v0.5 把它做到<span class="text-ink">严格</span>:
+            真实拉取、几何推导的 <span class="text-brass-deep font-medium">CPI 保命线</span>(还买得起同样的生活吗)+
+            <span class="text-brass-deep font-medium">M2 地位线</span>(社会财富排位是升是降)。
+            两条线差距巨大 —— 跑赢 CPI 只是保命,跑赢 M2 才是真增值。
+          </p>
+        </div>
+        <div class="flex flex-col gap-3 items-end">
+          <a href="../index.html" class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle hover:text-ink no-underline">← 返回版本入口</a>
+          <div class="pill pill-brass">v0.5 · DESIGNING</div>
+          <div class="font-mono text-xs text-ink-soft tracking-widest">3 主线 + 1 修复 · FR-70~85</div>
+          <a href="../v0.4/index.html" class="btn-paper mt-2">↩ 看 v0.4 基线</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1200px] mx-auto px-4 md:px-8 lg:px-16 py-8 lg:py-16 relative z-10">
+
+    <!-- 核心洞察 -->
+    <section class="paper-card p-6 mb-12 bg-card-soft" style="border-left: 4px solid var(--brass-deep)">
+      <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">两 · 条 · 水 · 位 · 线</span>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <div class="paper-card p-4 bg-paper">
+          <div class="font-display text-xl">CPI 保命线 <span class="text-ink-subtle font-mono text-xs">~2%</span></div>
+          <p class="text-sm text-ink-soft mt-1">衡量购买力。在它之上 = 还买得起同样的生活。整体 CPI(含食品)· 几何均值 · 剔极端值。</p>
+        </div>
+        <div class="paper-card p-4 bg-paper">
+          <div class="font-display text-xl">M2 地位线 <span class="text-ink-subtle font-mono text-xs">~8-9%</span></div>
+          <p class="text-sm text-ink-soft mt-1">衡量相对社会财富份额。在它之上 = 社会排位在上升。卡两线之间 = 活得下去但在掉队。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 三主线 + 修复 导航 -->
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-px bg-rule mb-12">
+      <a href="pages/reports-wealth-level.html" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start no-underline md:col-span-2" style="border-left:4px solid var(--brass-deep)">
+        <div>
+          <div class="eyebrow-ink mb-2">主线 A · FR-70~77 + 85 · /reports</div>
+          <h3 class="font-display text-2xl">财富水位(旗舰)</h3>
+          <p class="text-sm text-ink-soft mt-2 leading-relaxed">三线水位图 + 真实收益/相对社会收益 KPI + 人赚/钱赚分解诊断 + 推导透明面板 + 收支趋势图 · <b>并入 Reports 不新起 tab</b></p>
+        </div>
+        <span class="font-mono text-xs text-brass tracking-widest opacity-0 group-hover:opacity-100 transition">→</span>
+      </a>
+      <a href="pages/stock-buy-cash.html" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start no-underline">
+        <div>
+          <div class="eyebrow-ink mb-2">主线 B · FR-78~80</div>
+          <h3 class="font-display text-xl">股票账户现金联动</h3>
+          <p class="text-sm text-ink-soft mt-2 leading-relaxed">录股票可选「从账户现金划转买入」· 买入扣 / 卖出加 · 全对称 · FX · 现金可负</p>
+        </div>
+        <span class="font-mono text-xs text-brass tracking-widest opacity-0 group-hover:opacity-100 transition">→</span>
+      </a>
+      <a href="pages/goal-fire-expense.html" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start no-underline">
+        <div>
+          <div class="eyebrow-ink mb-2">主线 C · FR-81~83</div>
+          <h3 class="font-display text-xl">FIRE 目标支出自适应</h3>
+          <p class="text-sm text-ink-soft mt-2 leading-relaxed">退休/FIRE 月支出可选「自动适配月结支出」· 周期关闭按近 12 月真实支出滚动重算</p>
+        </div>
+        <span class="font-mono text-xs text-brass tracking-widest opacity-0 group-hover:opacity-100 transition">→</span>
+      </a>
+    </section>
+
+    <!-- 缺陷修复 -->
+    <section class="paper-card p-6 mb-4" style="border-left:4px solid var(--rust)">
+      <div class="eyebrow mb-2" style="color:var(--rust)">缺 · 陷 · 修 · 复 · FR-84</div>
+      <h3 class="font-display text-xl mb-2">净流入(人赚的)双源 bug</h3>
+      <p class="text-sm text-ink-soft leading-relaxed">
+        prod 上「人赚的·净流入」显示 0 —— 因为它只读账户 cash_flow,没走 v0.4.3 B2 定的「PMC 优先」,而用户工资填在 PMC 里。
+        连带 钱赚的(PnL)被高估。统一为 <b>PMC 优先 · cash_flow 回退</b>,守住 <span class="font-mono">人赚 + 钱赚 = ΔNetWorth</span>。
+        是财富水位人赚/钱赚分解(FR-73)+ 收支趋势(FR-85)的前置依赖。
+      </p>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-rule py-8 px-4 md:px-8 lg:px-16 mt-12">
+    <div class="max-w-[1200px] mx-auto flex items-center justify-between flex-wrap gap-4 font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">
+      <span>家庭账房 · v0.5 Preview · 静态原型</span>
+      <span>晚清账册风 · 墨 / 纸 / 黄铜 / 朱印</span>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>报表 · 财富水位 section · v0.5</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <style>
+    .new-badge{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;background:var(--brass-deep);color:var(--paper);padding:2px 7px;border-radius:2px;text-transform:uppercase}
+    .existing-sec{opacity:.62}
+    .existing-sec:hover{opacity:.85;transition:opacity .2s}
+    .sec-tag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-subtle)}
+  </style>
+</head>
+<body class="min-h-screen relative">
+
+  <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+  <main class="max-w-[1100px] mx-auto px-4 md:px-8 lg:px-12 py-8 lg:py-12 relative z-10">
+
+    <div class="flex items-center gap-2 font-mono text-[11px] text-ink-subtle mb-4">
+      <a href="../index.html" class="hover:text-ink no-underline">← v0.5 入口</a>
+      <span>·</span><span class="text-ink">报表(/reports)</span><span>·</span><span>趋势 / 基准视角</span>
+    </div>
+
+    <!-- 说明条:这是同一个 /reports 页,财富水位是其中新 section -->
+    <div class="paper-card p-3 mb-6 bg-card-soft flex items-start gap-3 text-xs text-ink-soft" style="border-left:3px solid var(--brass-deep)">
+      <span class="new-badge mt-0.5">D4</span>
+      <span>这是 <b class="text-ink">完整的 /reports 报表页</b>(向下滚动是它的各个 section)。<b class="text-brass-deep">财富水位</b> 与 <b class="text-brass-deep">收支趋势</b> 是 v0.5 新增的 section,<b>并入现有报表页</b>,不新起 tab。下方浅色块 = 报表已有 section(此处略化示意)。</span>
+    </div>
+
+    <!-- 报表页头(已有) -->
+    <section class="mb-6 flex items-end justify-between flex-wrap gap-4">
+      <div>
+        <div class="eyebrow mb-2">月 · 度 · 大 · 账</div>
+        <h1 class="font-display text-3xl sm:text-5xl font-medium tracking-tight">数 · 字 · <span class="italic font-light text-brass-deep">所至</span></h1>
+      </div>
+      <div class="flex gap-1 flex-wrap">
+        <span class="pill">3M</span><span class="pill">6M</span><span class="pill pill-brass">近 1 年</span><span class="pill">YTD</span><span class="pill">全部</span>
+      </div>
+    </section>
+
+    <!-- 已有 KPI 行(FR-73 复用这里的人赚/钱赚) -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-px bg-rule mb-3">
+      <div class="kpi-card"><span class="kpi-eyebrow">家庭 XIRR · 含收入</span><div class="font-display text-2xl mt-1 num-pos">+9.8%</div><div class="font-mono text-[10px] text-ink-soft mt-1">vs 基准 +1.2pp ✓</div></div>
+      <div class="kpi-card"><span class="kpi-eyebrow">资产年化 · 剔收入 ★</span><div class="font-display text-2xl mt-1">+2.1%</div><div class="font-mono text-[10px] text-ink-soft mt-1">12 月滚动几何平均</div></div>
+      <div class="kpi-card" style="background:rgba(79,107,71,.06)"><span class="kpi-eyebrow">人赚的 · 净流入</span><div class="font-display text-2xl mt-1 num-pos">+¥31.0万</div><div class="font-mono text-[10px] text-ink-soft mt-1">PMC 源(FR-84 修复后)</div></div>
+      <div class="kpi-card" style="background:rgba(156,74,42,.05)"><span class="kpi-eyebrow">钱赚的 · 投资 PnL</span><div class="font-display text-2xl mt-1">+¥5.25万</div><div class="font-mono text-[10px] text-ink-soft mt-1">ΔNW − 净流入</div></div>
+    </section>
+    <p class="sec-tag mb-8">↑ 报表已有 4 KPI · 财富水位的 人赚/钱赚 分解直接复用这两格(FR-73 不重算)</p>
+
+    <!-- ══════ 新 section ① 财富水位 FR-72/73/74 ══════ -->
+    <div class="flex items-center gap-3 mb-3">
+      <div class="h-px flex-1 bg-brass-deep" style="opacity:.4"></div>
+      <span class="new-badge">v0.5 新 section · FR-72/73/74</span>
+      <div class="h-px flex-1 bg-brass-deep" style="opacity:.4"></div>
+    </div>
+
+    <section class="paper-card p-5 lg:p-6 mb-4">
+      <div class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+        <div>
+          <div class="eyebrow mb-1" style="color:var(--brass-deep)">财 · 富 · 水 · 位</div>
+          <h2 class="font-display text-2xl font-medium">净资产 vs CPI 保命线 vs M2 地位线</h2>
+        </div>
+        <div class="flex gap-3 font-mono text-[11px]">
+          <span class="flex items-center gap-1"><span style="width:14px;height:3px;background:#7a5a39;display:inline-block"></span>实际净资产</span>
+          <span class="flex items-center gap-1"><span style="width:14px;height:0;border-top:2px dashed #2f5d50;display:inline-block"></span>CPI 保命线</span>
+          <span class="flex items-center gap-1"><span style="width:14px;height:0;border-top:2px dashed #9c4a2a;display:inline-block"></span>M2 地位线</span>
+        </div>
+      </div>
+      <p class="text-xs text-ink-subtle mb-3">跑赢 CPI 只是保命,跑赢 M2 才是真增值。两条线差距巨大(近年 M2≈9% / CPI≈2%)。</p>
+      <div style="height:320px"><canvas id="waterLevel"></canvas></div>
+      <div class="mt-3 paper-card p-3 bg-card-soft text-sm text-ink-soft" style="border-left:3px solid var(--forest)">
+        当前净资产 <b class="text-ink">¥318.3万</b> 浮在 CPI 保命线(¥287.2万)之上 ✓ 也高于 M2 地位线(¥306.2万)—— 生活质量保住,社会排位上升。真实收益 <b class="num-pos">+10.6%</b> · 相对社会收益 <b class="num-pos">+3.9%</b>。
+      </div>
+
+      <!-- 人赚/钱赚分解 FR-73(同 section 内) -->
+      <div class="mt-5 pt-5 border-t border-rule">
+        <div class="eyebrow mb-2" style="color:var(--rust)">人 · 赚 · vs · 钱 · 赚 · 分 · 解 · FR-73</div>
+        <h3 class="font-display text-xl font-medium mb-3">你跑赢 M2 了 —— 但靠的是什么?</h3>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
+          <div class="lg:col-span-2" style="height:120px"><canvas id="decomp"></canvas></div>
+          <div class="paper-card p-4 bg-card-soft text-sm leading-relaxed">
+            净资产 12 月增 <b class="text-ink">¥36.25万</b>:人赚 <span class="num-pos">¥31.0万</span> / 钱赚 ¥5.25万。
+            <p class="mt-2 text-rust">钱赚仅勉强跑平 CPI。水位<b>靠收入硬撑</b> —— 一旦收入中断,会迅速逼近 M2 线下方。</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 推导透明面板 FR-74(同 section 内,可折叠) -->
+      <details class="mt-5 pt-5 border-t border-rule">
+        <summary class="eyebrow cursor-pointer select-none">基 · 准 · 推 · 导 · 透 · 明 · FR-74 <span class="font-mono text-[10px] text-ink-subtle normal-case">(点击展开)</span></summary>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+          <div>
+            <div class="font-display text-lg mb-2">CPI <span class="font-mono text-[10px] text-ink-subtle">整体 · 含食品</span></div>
+            <table class="w-full text-sm">
+              <tr class="border-b border-rule-soft"><td class="py-1 text-ink-soft">2025 实际</td><td class="py-1 text-right tnum">0.2%</td><td class="py-1 text-right font-mono text-[10px] text-ink-subtle">统计局·26-01</td></tr>
+              <tr class="border-b border-rule-soft"><td class="py-1 text-ink-soft">全历史几何(36y)</td><td class="py-1 text-right tnum">4.6%</td><td class="py-1 text-right font-mono text-[10px] text-ink-subtle">被90年代拉高</td></tr>
+              <tr class="border-b border-rule-soft" style="background:rgba(122,90,57,.06)"><td class="py-1 text-ink font-medium">剔极端值几何 ★</td><td class="py-1 text-right tnum font-medium">2.4%</td><td class="py-1 text-right font-mono text-[10px] text-brass-deep">默认</td></tr>
+              <tr><td class="py-1 text-ink-soft">近 10 年几何</td><td class="py-1 text-right tnum">1.9%</td><td class="py-1 text-right font-mono text-[10px] text-ink-subtle">贴当前</td></tr>
+            </table>
+          </div>
+          <div>
+            <div class="font-display text-lg mb-2">M2 <span class="font-mono text-[10px] text-ink-subtle">广义货币增速</span></div>
+            <table class="w-full text-sm">
+              <tr class="border-b border-rule-soft"><td class="py-1 text-ink-soft">2025 实际</td><td class="py-1 text-right tnum">8.0%</td><td class="py-1 text-right font-mono text-[10px] text-ink-subtle">央行·26-01</td></tr>
+              <tr class="border-b border-rule-soft"><td class="py-1 text-ink-soft">全历史几何(35y)</td><td class="py-1 text-right tnum">15.1%</td><td class="py-1 text-right font-mono text-[10px] text-ink-subtle">90-00高增</td></tr>
+              <tr class="border-b border-rule-soft" style="background:rgba(122,90,57,.06)"><td class="py-1 text-ink font-medium">剔极端值几何 ★</td><td class="py-1 text-right tnum font-medium">9.2%</td><td class="py-1 text-right font-mono text-[10px] text-brass-deep">默认</td></tr>
+              <tr><td class="py-1 text-ink-soft">近 10 年几何</td><td class="py-1 text-right tnum">9.0%</td><td class="py-1 text-right font-mono text-[10px] text-ink-subtle">贴当前</td></tr>
+            </table>
+          </div>
+        </div>
+        <p class="text-xs text-ink-subtle mt-3 font-mono">累计因子(近1年)· CPI 1.018 · M2 1.086 · 锚=区间起点 ¥282.0万</p>
+      </details>
+    </section>
+
+    <!-- 已有 section · 本金 vs 收益分解(略化) -->
+    <section class="paper-card p-5 mb-8 existing-sec">
+      <div class="flex items-center justify-between"><span class="sec-tag">报表已有 · 第一表 · 本金 vs 投资损益分解</span><span class="sec-tag">保持不变</span></div>
+      <div class="mt-3 h-16 rounded flex items-center justify-center text-ink-subtle text-xs" style="background:repeating-linear-gradient(90deg,rgba(122,90,57,.05) 0 12px,transparent 12px 28px)">▮▮ 双柱时序图(已有 · 此处略化) ▮▮</div>
+    </section>
+
+    <!-- ══════ 储蓄能力 section:已有双柱 + 新增收支趋势 FR-85 ══════ -->
+    <div class="flex items-center gap-3 mb-3">
+      <div class="h-px flex-1 bg-brass-deep" style="opacity:.4"></div>
+      <span class="sec-tag">报表已有 section · 储蓄能力</span>
+      <div class="h-px flex-1 bg-brass-deep" style="opacity:.4"></div>
+    </div>
+    <section class="paper-card p-5 lg:p-6 mb-4">
+      <div class="eyebrow mb-2" style="color:var(--brass-deep)">储 · 蓄 · 能 · 力</div>
+      <h2 class="font-display text-2xl font-medium mb-1">月度收支 + 反推目标月供</h2>
+      <!-- 已有双柱(略化)-->
+      <div class="existing-sec mt-3 mb-5">
+        <div class="sec-tag mb-1">已有 · 月度收支双柱图(PMC 源 · 正确)</div>
+        <div class="h-14 rounded flex items-center justify-center text-ink-subtle text-xs" style="background:repeating-linear-gradient(90deg,rgba(79,107,71,.06) 0 10px,transparent 10px 22px)">▮▮ 双柱「对比」(已有) ▮▮</div>
+      </div>
+      <!-- 新增收支趋势 FR-85 -->
+      <div class="pt-4 border-t border-rule">
+        <div class="flex items-baseline justify-between flex-wrap gap-2 mb-1">
+          <h3 class="font-display text-xl font-medium flex items-center gap-2">收支趋势 · 人赚引擎 <span class="new-badge">v0.5 新 · FR-85</span></h3>
+          <div class="flex gap-3 font-mono text-[11px]">
+            <span class="flex items-center gap-1"><span style="width:14px;height:3px;background:#4f6b47;display:inline-block"></span>收入</span>
+            <span class="flex items-center gap-1"><span style="width:14px;height:3px;background:#9c4a2a;display:inline-block"></span>支出</span>
+            <span class="flex items-center gap-1"><span style="width:14px;height:10px;background:rgba(79,107,71,.18);display:inline-block"></span>储蓄</span>
+          </div>
+        </div>
+        <p class="text-xs text-ink-subtle mb-3">两线之间填充 = 储蓄。摸清攒钱能力的趋势(非逐笔流水)· PMC 源 · 仅取真实填报月份(空期不参与)。</p>
+        <div style="height:260px"><canvas id="incomeExpense"></canvas></div>
+      </div>
+    </section>
+
+    <!-- 已有 section · 配置 diff(略化) -->
+    <section class="paper-card p-5 mb-4 existing-sec">
+      <div class="flex items-center justify-between"><span class="sec-tag">报表已有 · 第五表 · 资产配置 diff + AI 调仓</span><span class="sec-tag">保持不变</span></div>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-rule py-6 px-4 md:px-12 mt-8">
+    <div class="max-w-[1100px] mx-auto font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">家庭账房 · v0.5 Preview · 财富水位 = /reports 的新 section(D4 · 非新 tab)</div>
+  </footer>
+
+<script>
+  Chart.register(ChartDataLabels);
+  Chart.defaults.plugins.datalabels.display = false;
+  const wan = (v) => '¥' + (v / 10000).toFixed(0) + '万';
+  const months = ['25-06','25-07','25-08','25-09','25-10','25-11','25-12','26-01','26-02','26-03','26-04','26-05'];
+  const start = 2820000;
+  const nominal = [2820000, 2858000, 2890000, 2928000, 2962000, 3001000, 3038000, 3071000, 3105000, 3138000, 3162000, 3182500];
+  const cpiM = 0.024 / 12, m2M = 0.092 / 12;
+  const cpiLine = nominal.map((_, i) => Math.round(start * Math.pow(1 + cpiM, i)));
+  const m2Line  = nominal.map((_, i) => Math.round(start * Math.pow(1 + m2M, i)));
+
+  new Chart(document.getElementById('waterLevel'), {
+    type: 'line',
+    data: { labels: months, datasets: [
+      { label: '实际净资产', data: nominal, borderColor: '#7a5a39', borderWidth: 2.8, backgroundColor: 'rgba(122,90,57,.07)', fill: true, tension: 0.3, pointRadius: 2,
+        datalabels: { display: (c)=>c.dataIndex===c.dataset.data.length-1, align:'top', color:'#7a5a39', font:{family:'JetBrains Mono',size:11,weight:'500'}, formatter: wan } },
+      { label: 'CPI 保命线', data: cpiLine, borderColor: '#2f5d50', borderDash:[6,4], borderWidth: 2, fill:false, tension: 0.3, pointRadius: 0,
+        datalabels: { display:(c)=>c.dataIndex===c.dataset.data.length-1, align:'bottom', color:'#2f5d50', font:{family:'JetBrains Mono',size:10}, formatter: wan } },
+      { label: 'M2 地位线', data: m2Line, borderColor: '#9c4a2a', borderDash:[6,4], borderWidth: 2, fill:false, tension: 0.3, pointRadius: 0,
+        datalabels: { display:(c)=>c.dataIndex===c.dataset.data.length-1, align:'top', color:'#9c4a2a', font:{family:'JetBrains Mono',size:10}, formatter: wan } }
+    ]},
+    options: { responsive:true, maintainAspectRatio:false, layout:{padding:{right:48}},
+      plugins:{ legend:{display:false} },
+      scales:{ y:{ ticks:{callback:wan,font:{size:10}}, grid:{color:'rgba(0,0,0,.04)'} }, x:{ ticks:{font:{size:9}}, grid:{display:false} } } }
+  });
+
+  new Chart(document.getElementById('decomp'), {
+    type: 'bar',
+    data: { labels:['净资产增长 ¥36.25万'], datasets:[
+      { label:'人赚', data:[310000], backgroundColor:'#4f6b47', barThickness: 34,
+        datalabels:{display:true,color:'#fff',font:{family:'JetBrains Mono',size:11,weight:'500'},formatter:()=>'人赚 ¥31.0万'} },
+      { label:'钱赚', data:[52500], backgroundColor:'#b08642', barThickness: 34,
+        datalabels:{display:true,color:'#fff',font:{family:'JetBrains Mono',size:11,weight:'500'},formatter:()=>'钱赚 ¥5.25万'} }
+    ]},
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}}, scales:{ x:{stacked:true,ticks:{callback:wan,font:{size:9}},grid:{color:'rgba(0,0,0,.04)'}}, y:{stacked:true,grid:{display:false},ticks:{font:{size:10}}} } }
+  });
+
+  const income  = [44000,45000,46000,44000,47000,62000,45000,46000,44000,48000,46000,47000];
+  const expense = [21000,23000,22000,20000,24000,38000,23000,22000,21000,25000,23000,24000];
+  new Chart(document.getElementById('incomeExpense'), {
+    type:'line',
+    data:{ labels:months, datasets:[
+      { label:'收入', data:income, borderColor:'#4f6b47', borderWidth:2.5, fill:'+1', backgroundColor:'rgba(79,107,71,.15)', tension:0.3, pointRadius:2,
+        datalabels:{display:(c)=>c.dataIndex===c.dataset.data.length-1,align:'top',color:'#4f6b47',font:{family:'JetBrains Mono',size:10},formatter:wan} },
+      { label:'支出', data:expense, borderColor:'#9c4a2a', borderWidth:2.5, fill:false, tension:0.3, pointRadius:2,
+        datalabels:{display:(c)=>c.dataIndex===c.dataset.data.length-1,align:'bottom',color:'#9c4a2a',font:{family:'JetBrains Mono',size:10},formatter:wan} }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{right:40}},
+      plugins:{legend:{display:false}}, scales:{ y:{ticks:{callback:(v)=>'¥'+(v/10000).toFixed(1)+'万',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}}, x:{ticks:{font:{size:9}},grid:{display:false}} } }
+  });
+</script>
+</body>
+</html>
