@@ -112,19 +112,33 @@ public class FactViewServiceImpl implements FactViewService {
             monthlyPnlAmount, monthlyInvestReturnPct, annualizedInvestReturnPct, ytdInvestPnl);
     }
 
-    /** v0.4.2 助手:某 period 的净流入(income − expense + transfer 净)汇总到家庭本位币 */
+    /**
+     * v0.4.2 助手 · v0.5 FR-84 改:某 period 家庭净流入(人赚的)· 委托 PMC 优先口径。
+     * (原只读 account cash_flow → 用户工资填 PMC 时净流入恒为 0 的 bug · 详 prd/v0.5.md FR-84)
+     */
     private BigDecimal netInflowForPeriod(FactSlice slice, Long periodId) {
-        BigDecimal net = BigDecimal.ZERO;
-        for (AccountPeriodFact r : slice.rows()) {
-            if (!Objects.equals(r.periodId(), periodId)) continue;
-            BigDecimal inc = r.incomeBase() == null ? BigDecimal.ZERO : r.incomeBase();
-            BigDecimal exp = r.expenseBase() == null ? BigDecimal.ZERO : r.expenseBase();
-            BigDecimal tIn = r.transferInBase() == null ? BigDecimal.ZERO : r.transferInBase();
-            BigDecimal tOut = r.transferOutBase() == null ? BigDecimal.ZERO : r.transferOutBase();
-            // 跨账户 transfer 在家庭层面自然抵消(in 和 out 同金额不同账户)· 这里全加在一起累计每个账户的净
-            net = net.add(inc).subtract(exp).add(tIn).subtract(tOut);
+        return pmcFirstNetInflow(slice, periodId);
+    }
+
+    /**
+     * v0.5 FR-84 · 某期家庭净流入(人赚的)· <b>PMC 优先 · 该期 PMC 空回退 account cash_flow</b>。
+     *
+     * <p>承 v0.4.3 B2 同纪律(月均支出 PMC 优先):用户工资填在 period_member_cashflow
+     * (/entry 成员月度收支两框),不逐笔记 account cash_flow。只读 cash_flow 会让净流入恒为 0。</p>
+     *
+     * <p>家庭层 transfer 自然抵消(每笔一 in 一 out 同额),故 cash_flow 回退用 income − expense
+     * 即可;PMC 本就是家庭级,无 transfer 概念。</p>
+     */
+    private BigDecimal pmcFirstNetInflow(FactSlice slice, Long periodId) {
+        var pmc = periodMemberCashflowMapper.findFamilyAggregateForPeriod(periodId).orElse(null);
+        if (pmc != null && pmc.filledMembers() != null && pmc.filledMembers() > 0) {
+            BigDecimal inc = pmc.totalIncome() == null ? BigDecimal.ZERO : pmc.totalIncome();
+            BigDecimal exp = pmc.totalExpense() == null ? BigDecimal.ZERO : pmc.totalExpense();
+            return inc.subtract(exp).setScale(2, RoundingMode.HALF_EVEN);
         }
-        return net.setScale(2, RoundingMode.HALF_EVEN);
+        // 回退 · account cash_flow(family 层 transfer 抵消 · 不计)
+        return periodIncome(slice, periodId).subtract(periodExpense(slice, periodId))
+                .setScale(2, RoundingMode.HALF_EVEN);
     }
 
     /**
@@ -286,8 +300,14 @@ public class FactViewServiceImpl implements FactViewService {
         BigDecimal cumulativePnl = BigDecimal.ZERO;
         for (int i = 1; i < slice.periodIds().size(); i++) {
             Long periodId = slice.periodIds().get(i);
-            cumulativeExternal = cumulativeExternal.add(periodIncome(slice, periodId)).subtract(periodExpense(slice, periodId));
-            cumulativePnl = cumulativePnl.add(periodPnl(slice, periodId));
+            Long prevId = slice.periodIds().get(i - 1);
+            // v0.5 FR-84 · 人赚 = PMC 优先净流入;钱赚 = ΔNW − 人赚(由构造保证 人赚 + 钱赚 = ΔNetWorth)。
+            // 原实现:人赚只读 account cash_flow(用户填 PMC 时恒为 0)· 钱赚读 periodPnlBase(把工资增长误算成投资)。
+            BigDecimal netInflow = pmcFirstNetInflow(slice, periodId);
+            BigDecimal nwDelta = netWorth(slice, periodId).subtract(netWorth(slice, prevId));
+            BigDecimal pnl = nwDelta.subtract(netInflow);
+            cumulativeExternal = cumulativeExternal.add(netInflow);
+            cumulativePnl = cumulativePnl.add(pnl);
             result.add(new DecompositionPoint(
                     periodId,
                     periodStart(slice, periodId),
