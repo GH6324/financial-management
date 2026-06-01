@@ -336,8 +336,14 @@ public class ReportsController {
      * <p>2026-05-10 与 dashboard 同步修复:旧逻辑优先取最新 CLOSED,会让用户在 OPEN 新月时
      * 看到的是上个月报表,与"实时汇总"产品定位冲突。
      */
+    /**
+     * 报表锚定期 · v0.5 修:优先当前 OPEN 期(用户实际在录的账期),回退最新日期期。
+     * 原 findLatest(1) 只看 period_start 最大 → 若存在未来 CLOSED 账期(测试/误建),
+     * 会锚到未来,导致用户当前账期数据落在默认范围外(净流入显示 0)。
+     */
     private Period anchorPeriod(long familyId) {
-        return periodMapper.findLatest(familyId, 1).stream().findFirst()
+        return periodMapper.findCurrentOpen(familyId)
+                .or(() -> periodMapper.findLatest(familyId, 1).stream().findFirst())
                 .orElseThrow(() -> new IllegalStateException("尚未创建周期"));
     }
 

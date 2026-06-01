@@ -64,6 +64,15 @@ public class PeriodService {
         return periodMapper.findLatest(familyId, limit);
     }
 
+    /** v0.5 修 · 周期管理分页 */
+    public List<Period> findPaged(long familyId, int limit, int offset) {
+        return periodMapper.findPaged(familyId, limit, offset);
+    }
+
+    public int countPeriods(long familyId) {
+        return periodMapper.countByFamily(familyId);
+    }
+
     @Transactional
     public Period openIfAbsent(Family family, LocalDate startDate) {
         return periodMapper.findByNatural(family.getId(), family.getPeriodType(), startDate)

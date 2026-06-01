@@ -93,6 +93,19 @@
         </tbody>
       </table>
     </div>
+
+    <!-- v0.5 修 · 分页(账期多时翻页 · 倒序 新→旧)-->
+    <div th:if="${totalPages != null and totalPages > 1}" class="mt-4 flex items-center justify-between flex-wrap gap-3">
+      <span class="font-mono text-[11px] text-ink-subtle">
+        共 <b th:text="${totalPeriods}">88</b> 期 · 第 <b th:text="${page + 1}">1</b> / <span th:text="${totalPages}">4</span> 页(每页 24 · 新→旧)
+      </span>
+      <div class="flex gap-1">
+        <a th:if="${page > 0}" th:href="@{/admin/periods(page=${page - 1})}" class="btn-paper text-[11px] no-underline">← 上一页(更新)</a>
+        <span th:unless="${page > 0}" class="btn-paper text-[11px] opacity-40">← 上一页</span>
+        <a th:if="${page + 1 < totalPages}" th:href="@{/admin/periods(page=${page + 1})}" class="btn-paper text-[11px] no-underline">下一页(更旧)→</a>
+        <span th:unless="${page + 1 < totalPages}" class="btn-paper text-[11px] opacity-40">下一页 →</span>
+      </div>
+    </div>
   </section>
 </main>
 <footer th:replace="~{fragments/layout :: footer}"></footer>

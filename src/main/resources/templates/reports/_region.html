@@ -23,6 +23,10 @@
       <div class="eyebrow mb-2">月 · 度 · 大 · 账</div>
       <h1 class="font-display text-3xl sm:text-5xl font-medium tracking-tight">数 · 字 · <span class="italic font-light text-brass-deep">所至</span></h1>
       <p class="text-ink-soft text-sm mt-3 max-w-xl">收益率、现金流、负债与本金收益分解全部来自同一份 Fact View。</p>
+      <!-- v0.5 修 · 数据锚定期提示(报表以当前账期为终点 · 收益/净流入随该期数据更新) -->
+      <p th:if="${anchorPeriod != null}" class="font-mono text-[11px] text-brass-deep mt-2">
+        数据截至 <span th:text="${#temporals.format(anchorPeriod.periodStart,'yyyy 年 M 月')}">2026 年 5 月</span> 账期<span th:if="${anchorPeriod.status != null and anchorPeriod.status.name() == 'OPEN'}">(进行中 · 随你本期录入实时更新)</span>
+      </p>
     </div>
     <div class="flex border border-rule">
       <a th:each="r : ${ranges}"

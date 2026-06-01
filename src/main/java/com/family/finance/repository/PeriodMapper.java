@@ -71,6 +71,20 @@ public interface PeriodMapper {
             """)
     List<Period> findLatest(@Param("familyId") long familyId, @Param("limit") int limit);
 
+    /** v0.5 修 · 周期管理分页(倒序 · 新→旧)· offset/limit。 */
+    @Select("""
+            SELECT id, family_id, period_type, period_start, period_end, status, closed_at, created_at
+              FROM period
+             WHERE family_id = #{familyId}
+             ORDER BY period_start DESC
+             LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<Period> findPaged(@Param("familyId") long familyId,
+                           @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("SELECT COUNT(*) FROM period WHERE family_id = #{familyId}")
+    int countByFamily(@Param("familyId") long familyId);
+
     @Select("""
             SELECT id, family_id, period_type, period_start, period_end, status, closed_at, created_at
               FROM period

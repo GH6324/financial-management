@@ -257,10 +257,20 @@ public class AdminController {
     // 7. /admin/periods · 周期管理 + 重新打开
     // ---------------------------------------------------------------------
     @GetMapping("/periods")
-    public String periods(@AuthenticationPrincipal MemberPrincipal me, Model model) {
-        List<Period> periods = periodService.findLatest(me.getFamilyId(), 24);
+    public String periods(@AuthenticationPrincipal MemberPrincipal me,
+                          @RequestParam(value = "page", defaultValue = "0") int page,
+                          Model model) {
+        int pageSize = 24;
+        int total = periodService.countPeriods(me.getFamilyId());
+        int totalPages = Math.max(1, (int) Math.ceil(total / (double) pageSize));
+        int safePage = Math.max(0, Math.min(page, totalPages - 1));
+        List<Period> periods = periodService.findPaged(me.getFamilyId(), pageSize, safePage * pageSize);
         model.addAttribute("periods", periods);
         model.addAttribute("currentPeriod", periodService.findCurrentOpen(me.getFamilyId()).orElse(null));
+        // v0.5 修 · 分页(beta 测试数据曾到 2032 · 88 期翻不到当前)
+        model.addAttribute("page", safePage);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("totalPeriods", total);
         return "admin/periods";
     }
 
