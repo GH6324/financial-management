@@ -410,6 +410,25 @@ if [[ -n "$nw_cny" && -n "$nw_usd" ]]; then
     || log_bad "v02-CCY-2 USD 数学错" "expected≈${expected_usd} got=${nw_usd}"
 fi
 
+# v0.5 修 · 比值类指标(紧急储备月数)必须币种无关:换币种时分子(流动资产·view)和
+# 分母(月支出·PMC)应同口径换算,比值不变。回归点:PMC 漏换 base→view 导致比值漂移。
+extract_emergency() {
+  local cur="$1"
+  $CURL -b $COOKIE "$BASE/dashboard?currency=${cur}" -o "$TMP" -w ""
+  # 紧急储备 KPI 值(形如「5.4 个月」或「—」)· 提取数字部分
+  grep -A1 'kpi-eyebrow">紧急储备' "$TMP" | grep "kpi-value" | head -1 | sed -E 's/.*>([^<]+)<.*/\1/' | grep -oE '[0-9]+(\.[0-9]+)?' | head -1
+}
+em_cny=$(extract_emergency CNY)
+em_usd=$(extract_emergency USD)
+em_hkd=$(extract_emergency HKD)
+if [[ -n "$em_cny" && -n "$em_usd" && -n "$em_hkd" ]]; then
+  [[ "$em_cny" == "$em_usd" && "$em_cny" == "$em_hkd" ]] \
+    && log_ok "v05-CCY-INV-1 紧急储备月数币种无关 (CNY=${em_cny} USD=${em_usd} HKD=${em_hkd} 月)" \
+    || log_bad "v05-CCY-INV-1 比值随币种漂移(PMC 未换算 base→view)" "CNY=${em_cny} USD=${em_usd} HKD=${em_hkd}"
+else
+  log_skip "v05-CCY-INV-1 紧急储备月数(无数据 · 需 LIQUID 账户 + 月支出)"
+fi
+
 # 按需拉汇率:删 fx_rate 后切 USD,后端应即时调 frankfurter API 拉新汇率写入,然后正常显示 $
 mysql -ufinance -pfinance finance -e "DELETE FROM fx_rate;" 2>/dev/null
 $CURL --max-time 30 -b $COOKIE "$BASE/dashboard?currency=USD" -o "$TMP" -w ""

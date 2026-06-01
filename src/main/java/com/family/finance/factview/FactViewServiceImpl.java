@@ -134,11 +134,37 @@ public class FactViewServiceImpl implements FactViewService {
         if (pmc != null && pmc.filledMembers() != null && pmc.filledMembers() > 0) {
             BigDecimal inc = pmc.totalIncome() == null ? BigDecimal.ZERO : pmc.totalIncome();
             BigDecimal exp = pmc.totalExpense() == null ? BigDecimal.ZERO : pmc.totalExpense();
-            return inc.subtract(exp).setScale(2, RoundingMode.HALF_EVEN);
+            // v0.5 修 · PMC 按本位币存,余额(endBalanceBase)是 viewCurrency 口径 →
+            // PMC 也换到 view,否则净流入/紧急储备/资产收益等比值随币种漂移。
+            return inc.subtract(exp).multiply(baseToViewFactor(slice)).setScale(2, RoundingMode.HALF_EVEN);
         }
-        // 回退 · account cash_flow(family 层 transfer 抵消 · 不计)
+        // 回退 · account cash_flow(incomeBase/expenseBase 已是 view 口径 · 不需再换 · family 层 transfer 抵消)
         return periodIncome(slice, periodId).subtract(periodExpense(slice, periodId))
                 .setScale(2, RoundingMode.HALF_EVEN);
+    }
+
+    /**
+     * v0.5 修 · 家庭本位币 → 当前 viewCurrency 的汇率因子。
+     *
+     * <p>PMC(period_member_cashflow.total_*_input)按家庭本位币存;而 fact_view 的
+     * endBalanceBase 实为 viewCurrency 口径(FactMapper 把账户币种换到 view)。
+     * 比值类指标(紧急储备 = 流动资产/月支出、资产收益% 含净流入)若一侧 view 一侧 base,
+     * 切币种就会错算。这里把 PMC 也换到 view。</p>
+     *
+     * <p>从 slice 自取(无需额外依赖):本位币账户的 fxToBase 即 base→view;
+     * view==base 则 1;找不到本位币账户则保守取 1(此时 base 视图本就正确)。</p>
+     */
+    private BigDecimal baseToViewFactor(FactSlice slice) {
+        String view = slice.filter().viewCurrency();
+        String base = familyMapper.findById(slice.filter().familyId())
+                .map(f -> f.getBaseCurrency()).orElse(view);
+        if (view == null || base == null || view.equalsIgnoreCase(base)) return BigDecimal.ONE;
+        return slice.rows().stream()
+                .filter(r -> base.equalsIgnoreCase(r.accountCurrency())
+                        && r.fxToBase() != null && r.fxToBase().signum() > 0)
+                .map(AccountPeriodFact::fxToBase)
+                .findFirst()
+                .orElse(BigDecimal.ONE);
     }
 
     /**
@@ -447,7 +473,9 @@ public class FactViewServiceImpl implements FactViewService {
             for (var a : recent) {
                 if (a.totalExpense() != null) sum = sum.add(a.totalExpense());
             }
-            return sum.divide(BigDecimal.valueOf(recent.size()), 2, RoundingMode.HALF_EVEN);
+            // v0.5 修 · PMC 本位币 → view(与 endBalanceBase 同口径 · 紧急储备比值不随币种漂移)
+            return sum.divide(BigDecimal.valueOf(recent.size()), 2, RoundingMode.HALF_EVEN)
+                    .multiply(baseToViewFactor(slice)).setScale(2, RoundingMode.HALF_EVEN);
         }
         // 2) Fallback · v0.2 cash_flow 表加和
         List<Long> ids = slice.periodIds();
