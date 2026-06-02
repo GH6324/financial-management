@@ -42,6 +42,9 @@
 - **资产体检 + AI 诊断** — 4 维度结构化诊断(配置 / 风险 / 流动性 / 收益)· 智能建议规则引擎 · LLM 综合分析(Qwen-Plus 主 / DeepSeek 备)
 - **AI 调仓建议** — 4 桶配置 diff(现金 / 投资 / 房产 / 保险)· LLM 给出具体调仓步骤("从 X 调 ¥N 到 Y")· 30 天复用 + 一键刷新
 - **决策辅助** — CPI 对照线 / 账户级基准对照 / 提前还贷决策器(NPV 18 年视角)/ 应急金不闲置提示
+- **财富水位**(v0.5)— 净资产 vs **CPI 购买力线**(还买得起同样的生活吗)+ **M2 社会财富线**(社会排位升还是降)· 真实收益 / 相对社会收益 · 人赚/钱赚分解诊断 · CPI/M2 三法均值(几何 / 剔极端 / 近10年)严格推导 · 1990-2025 历史底座 + 收支趋势图
+- **股票账户现金联动**(v0.5)— 录股票可选「从账户现金划转买入」· 买入扣现金(FX 换算 · 现金可负)· 卖出/归档按市价对称加回
+- **FIRE 目标支出自适应**(v0.5)— 退休目标月支出可选「自动适配月结支出」· 周期关闭按近 N 月真实支出滚动重算(剔极端/中位/均值)
 - **填报规范化 + 截止前强提醒**(v0.4.14)— 3 种填报模板(实时收入·月末支出 / 月末一次清 / 每周滚动)· 截止前 N 天每天短信强提醒(阿里云)· 站内 banner 兜底 · 9 步阿里云接入指引
 - **可运营的管理页**(v0.4.18)— LLM keys / 股票拉取开关+cron / FX cron / checkup 阈值 / 会话期 9 项配置全在 `/admin/integrations` + `/admin/calc-tweaks` 热改 · 实时生效不重启 · DB > env > 代码默认 三层 fallback
 - **隐私与可移植** — 自托管 · 真名脱敏后再喂 LLM · 手机号/aksk/LLM-key 双重防回归(单测+静态扫)· CSV 一键导出全部数据 · Apache 2.0
@@ -157,9 +160,9 @@ bash scripts/qa-e2e.sh         # 端到端真值校验(36 · 会清空 DB)
 
 ## 文档
 
-- **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md) · [`prd/v0.3.md`](prd/v0.3.md) · [`prd/v0.4.md`](prd/v0.4.md)
-- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md) · [`tech-design/v0.4.md`](tech-design/v0.4.md)
-- **预览原型**:[`preview/index.html`](preview/index.html)(43+ 页 Tailwind CDN 静态预览 · v0.1 + v0.2 + v0.3)
+- **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md) · [`prd/v0.3.md`](prd/v0.3.md) · [`prd/v0.4.md`](prd/v0.4.md) · [`prd/v0.5.md`](prd/v0.5.md)
+- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md) · [`tech-design/v0.4.md`](tech-design/v0.4.md) · [`tech-design/v0.5.md`](tech-design/v0.5.md)
+- **预览原型**:[`preview/index.html`](preview/index.html)(Tailwind CDN 静态预览)· [`preview/v0.4/`](preview/v0.4/index.html) · [`preview/v0.5/`](preview/v0.5/index.html)(财富水位 / 股票现金联动 / FIRE 自适应)
 - **QA case 库**:[`docs/qa-cases.md`](docs/qa-cases.md)
 - **部署运行**:[`deploy/README.md`](deploy/README.md)
 
@@ -196,7 +199,7 @@ financial-management/
 │   └── README.md                         # 部署手册
 ├── prd/                                  # 产品需求文档
 ├── tech-design/                          # 技术设计文档
-├── preview/                              # 静态 HTML 预览(v0.1 + v0.2 + v0.3 · 43+ 页)
+├── preview/                              # 静态 HTML 预览(v0.1 ~ v0.5 各版本卷)
 ├── docs/qa-cases.md                      # QA case 库
 ├── icons/                                # 用户可替换的图标源 PNG
 └── scripts/

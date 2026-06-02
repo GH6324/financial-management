@@ -2,6 +2,26 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.5.1] · 2026-06-02
+
+v0.5 上线后修复 + 体验完善。
+
+### Fixed
+
+- **比值类指标切币种被错算** · 紧急储备月数 / 本月资产收益% 等比值在切到非本位币时漂移 · 根因 `endBalanceBase` 实为 viewCurrency 口径而 PMC(月支出/净流入)按本位币原样存未换算 · 修:`FactViewServiceImpl.baseToViewFactor`(从 slice 本位币账户 fxToBase 自取)· PMC 路径 ×因子 · 比值币种无关(v0.5.1)
+- **周期管理无分页** · beta 测试数据账期到 2032、当前期翻不到 · `/admin/periods` 加分页(24/页 倒序)(v0.5.1)
+- **reports 净流入显示 0** · `anchorPeriod` 改优先 `findCurrentOpen`(原 `findLatest` 锚到未来测试期)(v0.5.1)
+
+### Changed
+
+- **CPI/M2 水位线文案** · 保命线→**购买力线** · 地位线→**社会财富线**(v0.5.1)
+- **tooltip 补充** · 家庭 XIRR「vs 基准」来源说明(类目长期年化基准余额加权)· 人赚净流入口径 · 账户级 XIRR 0% 成因(v0.5.1)
+- **reports 移动端浮动目录** · 右下角 FAB 不挡内容 · tap 跳转 section(v0.5.1)
+
+### Tests
+
+- 单元 **218**(+ BenchmarkAverage / WaterLevel / NetInflow 恒等式 / StockHoldingCashLink / FireAutoExpense / CurrencyInvariantRatio)· qa-run 319 PASS + v05-CCY-INV 黑盒守护
+
 ## [v0.5] · 2026-06-01
 
 财富水位(资产 vs CPI/M2 双基准)+ 股票现金联动 + FIRE 支出自适应 + 净流入双源修复。详 [`prd/v0.5.md`](prd/v0.5.md) / [`tech-design/v0.5.md`](tech-design/v0.5.md)。
