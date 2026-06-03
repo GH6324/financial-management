@@ -110,7 +110,10 @@ public class ReportsController {
 
     private void populateModel(MemberPrincipal me, String range, String accountsCsv, String currency, Model model) {
         Family family = familyService.require(me.getFamilyId());
-        Period anchor = anchorPeriod(me.getFamilyId());
+        // v0.5.5 FR-94 · 报表锚定「最近已关账(≤今天)账期」快照;无则退外壳锚 + closedSnapshot=false
+        ReportsAnchorResolver.AnchorChoice anchorChoice = resolveAnchor(me.getFamilyId());
+        Period anchor = anchorChoice.anchor();
+        boolean closedSnapshot = anchorChoice.closedSnapshot();
         List<Long> accountIds = parseAccountIds(accountsCsv);
         String viewCurrency = parseCurrency(currency, family.getBaseCurrency());
         // BUG-FIX(2026-05-11 · critical):非 base 账户币种 → 当期 fx_rate 必须存在,不然 SQL 走 1.0 兜底
@@ -235,10 +238,21 @@ public class ReportsController {
         model.addAttribute("anchorPeriod", anchor);
 
         BigDecimal familyTwrDecimal = factViewService.familyTwr(slice);
-        model.addAttribute("familyXirr", percent(familyXirrDecimal));
-        model.addAttribute("familyTwr", percent(familyTwrDecimal));
-        model.addAttribute("cumulativeNetInflow", money(viewCurrency, lastDecomposition == null ? BigDecimal.ZERO : lastDecomposition.cumulativeNetInflow()));
-        model.addAttribute("cumulativePnl", money(viewCurrency, lastDecomposition == null ? BigDecimal.ZERO : lastDecomposition.cumulativePnl()));
+        // v0.5.5 FR-95 · 四指标需 ≥2 个已关账账期才有意义(要上一期做基准);不足 → 显「—」不显误导性 0
+        boolean reportsHasMetrics = closedSnapshot && slice.periodIds().size() >= 2;
+        model.addAttribute("closedSnapshot", closedSnapshot);
+        model.addAttribute("reportsHasMetrics", reportsHasMetrics);
+        if (reportsHasMetrics) {
+            model.addAttribute("familyXirr", percent(familyXirrDecimal));
+            model.addAttribute("familyTwr", percent(familyTwrDecimal));
+            model.addAttribute("cumulativeNetInflow", money(viewCurrency, lastDecomposition == null ? BigDecimal.ZERO : lastDecomposition.cumulativeNetInflow()));
+            model.addAttribute("cumulativePnl", money(viewCurrency, lastDecomposition == null ? BigDecimal.ZERO : lastDecomposition.cumulativePnl()));
+        } else {
+            model.addAttribute("familyXirr", "—");
+            model.addAttribute("familyTwr", "—");
+            model.addAttribute("cumulativeNetInflow", "—");
+            model.addAttribute("cumulativePnl", "—");
+        }
 
         // v0.5 FR-72/73/74 · 财富水位(并入 reports section)· 用净资产趋势 + CPI/M2 基准
         List<TrendPoint> trend = factViewService.netWorthTrend(slice);
@@ -260,8 +274,8 @@ public class ReportsController {
         model.addAttribute("fxFallback", fxFallback);
         model.addAttribute("requestedCurrency", requestedCurrency);
 
-        // v0.4 FR-61c · 家庭 vs 基准
-        model.addAttribute("familyBenchmarkPct", familyBenchmarkPct);
+        // v0.4 FR-61c · 家庭 vs 基准 · v0.5.5:无快照指标时置 null → 隐藏 vs 基准 pill(不在「—」旁显比较)
+        model.addAttribute("familyBenchmarkPct", reportsHasMetrics ? familyBenchmarkPct : null);
         model.addAttribute("familyBenchmarkDiff", familyDiffPct);
         model.addAttribute("familyBeatStatus", familyBeat.name());
 
@@ -384,14 +398,17 @@ public class ReportsController {
      * 看到的是上个月报表,与"实时汇总"产品定位冲突。
      */
     /**
-     * 报表锚定期 · v0.5 修:优先当前 OPEN 期(用户实际在录的账期),回退最新日期期。
-     * 原 findLatest(1) 只看 period_start 最大 → 若存在未来 CLOSED 账期(测试/误建),
-     * 会锚到未来,导致用户当前账期数据落在默认范围外(净流入显示 0)。
+     * 报表锚定期 · v0.5.5 FR-94 改:报表 = <b>已关账账期快照</b>。
+     * 锚「最近已关账(≤今天)账期」;无则退 currentOpen / 最新一期仅渲染外壳(closedSnapshot=false)。
+     * <p>v0.5.1 曾改 findCurrentOpen 优先(为绕未来测试期),代价是锚到月中半填的 OPEN 期 ——
+     * 导致收益/人赚被进行中空账期拖成 0、XIRR/TWR 用半填净值失真。现回归快照语义,
+     * 并用 {@code findLatestClosedAsOf(≤今天)} 干净挡掉未来期,不必再靠 OPEN 兜底。</p>
      */
-    private Period anchorPeriod(long familyId) {
-        return periodMapper.findCurrentOpen(familyId)
-                .or(() -> periodMapper.findLatest(familyId, 1).stream().findFirst())
-                .orElseThrow(() -> new IllegalStateException("尚未创建周期"));
+    private ReportsAnchorResolver.AnchorChoice resolveAnchor(long familyId) {
+        return ReportsAnchorResolver.resolve(
+                periodMapper.findLatestClosedAsOf(familyId, LocalDate.now()),
+                periodMapper.findCurrentOpen(familyId),
+                periodMapper.findLatest(familyId, 1));
     }
 
     private LocalDate rangeStart(String range, LocalDate anchor) {

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · Preview · 报表长文目录(飞书式)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+  <style>
+    body { background: var(--paper); color: var(--ink); }
+    .eyebrow { font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--brass-deep); }
+    .paper-card { background: var(--card); border: 1px solid var(--rule); box-shadow: 0 1px 0 rgba(26,23,20,.04), 0 8px 24px -12px rgba(26,23,20,.08); }
+    .annot { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-subtle); }
+    .mock-sec { scroll-margin-top: 90px; }
+    .mock-fill { background: repeating-linear-gradient(135deg, var(--card-soft), var(--card-soft) 12px, var(--card) 12px, var(--card) 24px); border:1px dashed var(--rule); }
+
+    /* ============ PC 右侧常驻目录栏 ============ */
+    .toc-rail { position: sticky; top: 90px; align-self: flex-start; width: 220px; flex-shrink: 0; }
+    .toc-rail .toc-head { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-subtle); padding:0 0 8px 12px; }
+    .toc-link {
+      display:block; padding:6px 12px; margin:1px 0;
+      font-family:"Source Serif 4","Noto Serif SC",serif; font-size:13px;
+      color:var(--ink-soft); text-decoration:none; line-height:1.4;
+      border-left:2px solid transparent; transition: color .15s, border-color .15s, background .15s;
+    }
+    .toc-link.sub { padding-left:26px; font-size:12px; color:var(--ink-subtle); }
+    .toc-link:hover { color:var(--brass-deep); background:var(--card-soft); }
+    /* active 态:aria-current 作样式钩子(a11y · MDN/Sara Soueidan 做法)· 对比度 ≥3:1 */
+    .toc-link[aria-current="true"] {
+      color:var(--brass-deep); font-weight:600;
+      border-left-color:var(--brass-deep); background:var(--card-soft);
+    }
+
+    /* ============ 移动端 FAB + 底部 sheet ============ */
+    .toc-fab {
+      position:fixed; right:16px; bottom:20px; z-index:60;
+      width:48px; height:48px; border-radius:50%;
+      background:var(--ink); color:var(--paper); border:none;
+      box-shadow:0 4px 16px rgba(0,0,0,.24);
+      display:flex; align-items:center; justify-content:center; cursor:pointer;
+    }
+    .sheet-mask { position:fixed; inset:0; background:rgba(26,23,20,.38); z-index:70; opacity:0; pointer-events:none; transition:opacity .2s; }
+    .sheet-mask.open { opacity:1; pointer-events:auto; }
+    .toc-sheet {
+      position:fixed; left:0; right:0; bottom:0; z-index:80;
+      background:var(--card); border-top-left-radius:16px; border-top-right-radius:16px;
+      box-shadow:0 -8px 32px rgba(0,0,0,.22);
+      transform:translateY(110%); transition:transform .26s cubic-bezier(.22,1,.36,1);
+      padding:8px 0 max(16px, env(safe-area-inset-bottom)); max-height:70vh; overflow:auto;
+    }
+    .toc-sheet.open { transform:translateY(0); }
+    .sheet-handle { width:40px; height:4px; border-radius:2px; background:var(--rule); margin:8px auto 4px; }
+    .sheet-row { display:flex; align-items:center; justify-content:space-between; padding:4px 18px 8px; }
+    .sheet-title { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-subtle); }
+    .sheet-link {
+      display:block; padding:13px 18px; min-height:44px; box-sizing:border-box;  /* 触控 ≥44px · WCAG 2.5.5 */
+      font-family:"Source Serif 4","Noto Serif SC",serif; font-size:15px;
+      color:var(--ink-soft); text-decoration:none; border-left:3px solid transparent;
+    }
+    .sheet-link[aria-current="true"] { color:var(--brass-deep); font-weight:600; border-left-color:var(--brass-deep); background:var(--card-soft); }
+    .sheet-x { width:30px; height:30px; border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:18px; }
+
+    /* 手机示意 frame */
+    .phone { width:320px; height:560px; border:10px solid var(--ink); border-radius:34px; overflow:hidden; position:relative; background:var(--paper); flex-shrink:0; box-shadow:var(--shadow-deep); }
+  </style>
+</head>
+<body class="min-h-screen">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+<!-- 简化导航(报表 active) -->
+<header class="sticky top-1 z-30 bg-paper/95 backdrop-blur border-b border-rule" style="height:56px">
+  <div class="max-w-[1280px] mx-auto h-full px-6 flex items-center gap-6">
+    <span class="font-display text-lg font-medium">家庭账房</span>
+    <nav class="flex gap-4 annot" style="text-transform:none">
+      <span>仪表盘</span><span class="text-ink font-bold" style="border-bottom:2px solid var(--ink)">报表</span><span>体检</span><span>目标</span>
+    </nav>
+  </div>
+</header>
+
+<div class="max-w-[1280px] mx-auto px-6 py-8">
+
+  <div class="flex items-start justify-between flex-wrap gap-3 mb-2">
+    <div>
+      <div class="eyebrow mb-2">家庭账房 · Preview · 报表长文目录</div>
+      <h1 class="font-display text-3xl md:text-4xl font-medium tracking-tight">飞书式目录:PC 常驻栏 + 手机底部 sheet</h1>
+    </div>
+    <a href="../index.html" class="annot hover:text-ink no-underline" style="border-bottom:1px solid var(--rule);text-transform:none">← 版本入口</a>
+  </div>
+  <p class="font-serif text-sm text-ink-soft max-w-3xl mb-6 leading-relaxed">
+    现状:报表右下角已有一个低调的小目录 FAB(v0.5.1)· 易被忽略、无"读到哪一节"高亮。
+    本预览把它升级成业界长文档主流交互 —— <b>PC 右侧常驻目录栏 + scrollspy 当前节高亮</b>(滚动下面内容,右栏会跟着亮);
+    <b>手机改底部 sheet</b>(下方手机示意,点按钮滑出)。
+  </p>
+
+  <!-- 手机版示意(静态 frame) -->
+  <div class="paper-card p-5 mb-8">
+    <div class="annot mb-3" style="text-transform:none">手机版 · 目录按钮 → 底部 sheet 滑出(参考 Wikipedia 2025:按需展开,不一次铺满)</div>
+    <div class="flex gap-8 flex-wrap items-start">
+      <div class="phone">
+        <!-- 手机内容(被 sheet 盖住) -->
+        <div style="position:absolute;inset:0;padding:14px;overflow:hidden">
+          <div class="eyebrow mb-1" style="font-size:8px">月 · 度 · 大 · 账</div>
+          <div class="font-display text-xl">数 · 字 · 所至</div>
+          <div class="annot mt-2" style="font-size:9px;text-transform:none">本页为已关账账期的稳定快照…</div>
+          <div class="mock-fill mt-3" style="height:90px;border-radius:4px"></div>
+          <div class="mock-fill mt-3" style="height:120px;border-radius:4px"></div>
+        </div>
+        <!-- 遮罩 + sheet(示意:打开态) -->
+        <div style="position:absolute;inset:0;background:rgba(26,23,20,.38)"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:var(--card);border-top-left-radius:16px;border-top-right-radius:16px;box-shadow:0 -8px 24px rgba(0,0,0,.2);padding-bottom:10px;max-height:74%;overflow:auto">
+          <div class="sheet-handle"></div>
+          <div class="sheet-row"><span class="sheet-title">目录 · 本页</span><button class="sheet-x" aria-label="关闭">×</button></div>
+          <a class="sheet-link" aria-current="true">收益概览</a>
+          <a class="sheet-link">本金 vs 投资损益</a>
+          <a class="sheet-link">财富水位</a>
+          <a class="sheet-link">负债 / 风险分布</a>
+          <a class="sheet-link">账户级收益 · vs 基准</a>
+          <a class="sheet-link">资产配置对照</a>
+          <a class="sheet-link">储蓄能力</a>
+        </div>
+        <!-- FAB(被 sheet 时其实隐藏 · 这里示意位置) -->
+      </div>
+      <div class="max-w-xs">
+        <div class="annot mb-2" style="text-transform:none">要点</div>
+        <ul class="font-serif text-sm text-ink-soft leading-relaxed" style="list-style:none;padding:0">
+          <li class="mb-1.5">· 拖拽手柄 + 关闭 × + 支持返回键关闭(不只手势)</li>
+          <li class="mb-1.5">· 触控行高 ≥44px(WCAG 2.5.5)</li>
+          <li class="mb-1.5">· 当前所在节同样高亮(朱铜色 + 左标)</li>
+          <li class="mb-1.5">· 点击跳转后自动收起 sheet,不丢阅读位置</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="annot mb-3" style="text-transform:none">↓ PC 版 · 滚动下面内容,右侧目录栏会高亮当前所在节(缩小窗口到手机宽度,右栏收起、右下角出现目录按钮)</div>
+
+  <!-- PC:内容 + 右侧常驻目录栏 -->
+  <div class="flex gap-8">
+    <main class="flex-1 min-w-0 space-y-6">
+      <section id="sec-overview" class="mock-sec paper-card p-6">
+        <div class="eyebrow mb-1">月 · 度 · 大 · 账</div>
+        <div class="flex items-center gap-9"><h2 class="font-display text-3xl md:text-4xl font-medium">数 · 字 · 所至</h2><span style="color:var(--rust);border:2px solid var(--rust);border-radius:5px;padding:3px 9px;font-family:'Noto Serif SC',serif;font-weight:700;font-size:13px;letter-spacing:3px;transform:rotate(-4deg);display:inline-block">已关账</span></div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-rule mt-5 border border-rule">
+          <div class="bg-card p-3"><div class="annot" style="font-size:9px">家庭 XIRR</div><div class="font-display text-2xl" style="color:var(--forest)">+6.8%</div></div>
+          <div class="bg-card p-3"><div class="annot" style="font-size:9px">资产年化</div><div class="font-display text-2xl" style="color:var(--forest)">+5.1%</div></div>
+          <div class="bg-card p-3"><div class="annot" style="font-size:9px">人赚的</div><div class="font-display text-2xl">¥362,964</div></div>
+          <div class="bg-card p-3"><div class="annot" style="font-size:9px">钱赚的</div><div class="font-display text-2xl" style="color:var(--rust)">−¥95,683</div></div>
+        </div>
+      </section>
+      <section id="sec-decompose" class="mock-sec paper-card p-6"><div class="eyebrow mb-1">第 一 表 · 核 · 心</div><h3 class="font-display text-xl font-medium mb-3">本金净流入 vs 投资损益</h3><div class="mock-fill" style="height:300px;border-radius:4px"></div></section>
+      <section id="sec-wealth" class="mock-sec paper-card p-6"><div class="eyebrow mb-1">财 · 富 · 水 · 位</div><h3 class="font-display text-xl font-medium mb-3">净资产 vs CPI / M2</h3><div class="mock-fill" style="height:320px;border-radius:4px"></div></section>
+      <section id="sec-risk" class="mock-sec paper-card p-6"><div class="eyebrow mb-1">第 二 · 三 表</div><h3 class="font-display text-xl font-medium mb-3">负债下降 / 风险等级分布</h3><div class="mock-fill" style="height:280px;border-radius:4px"></div></section>
+      <section id="sec-accounts" class="mock-sec paper-card p-6"><div class="eyebrow mb-1">第 四 表</div><h3 class="font-display text-xl font-medium mb-3">账户级收益 · vs 基准</h3><div class="mock-fill" style="height:300px;border-radius:4px"></div></section>
+      <section id="sec-allocation" class="mock-sec paper-card p-6"><div class="eyebrow mb-1">配 · 置 · 对 · 照</div><h3 class="font-display text-xl font-medium mb-3">资产配置 vs 锚定 + AI 调仓</h3><div class="mock-fill" style="height:260px;border-radius:4px"></div></section>
+      <section id="sec-savings" class="mock-sec paper-card p-6"><div class="eyebrow mb-1">储 · 蓄 · 能 · 力</div><h3 class="font-display text-xl font-medium mb-3">月度收支 + 反推目标月供</h3><div class="mock-fill" style="height:300px;border-radius:4px"></div></section>
+      <div style="height:40vh"></div>
+    </main>
+
+    <!-- 右侧常驻目录栏(lg+ 显示) -->
+    <aside class="toc-rail hidden lg:block">
+      <div class="toc-head">本 页 目 录</div>
+      <nav id="toc-nav">
+        <a class="toc-link" href="#sec-overview">收益概览</a>
+        <a class="toc-link sub" href="#sec-decompose">本金 vs 投资损益</a>
+        <a class="toc-link" href="#sec-wealth">财富水位</a>
+        <a class="toc-link" href="#sec-risk">负债 / 风险分布</a>
+        <a class="toc-link" href="#sec-accounts">账户级收益 · vs 基准</a>
+        <a class="toc-link" href="#sec-allocation">资产配置对照</a>
+        <a class="toc-link" href="#sec-savings">储蓄能力</a>
+      </nav>
+    </aside>
+  </div>
+</div>
+
+<!-- 移动端 FAB + sheet(lg 以下显示 · 真可交互) -->
+<button class="toc-fab lg:hidden" id="fab" aria-label="目录">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+</button>
+<div class="sheet-mask" id="mask"></div>
+<div class="toc-sheet" id="sheet" role="dialog" aria-label="本页目录">
+  <div class="sheet-handle"></div>
+  <div class="sheet-row"><span class="sheet-title">目录 · 本页</span><button class="sheet-x" id="sheetX" aria-label="关闭">×</button></div>
+  <nav id="sheet-nav">
+    <a class="sheet-link" href="#sec-overview">收益概览</a>
+    <a class="sheet-link" href="#sec-decompose">本金 vs 投资损益</a>
+    <a class="sheet-link" href="#sec-wealth">财富水位</a>
+    <a class="sheet-link" href="#sec-risk">负债 / 风险分布</a>
+    <a class="sheet-link" href="#sec-accounts">账户级收益 · vs 基准</a>
+    <a class="sheet-link" href="#sec-allocation">资产配置对照</a>
+    <a class="sheet-link" href="#sec-savings">储蓄能力</a>
+  </nav>
+</div>
+
+<script>
+(function(){
+  var sections = Array.prototype.slice.call(document.querySelectorAll('.mock-sec'));
+  var railLinks = {}, sheetLinks = {};
+  document.querySelectorAll('#toc-nav .toc-link').forEach(function(a){ railLinks[a.getAttribute('href').slice(1)] = a; });
+  document.querySelectorAll('#sheet-nav .sheet-link').forEach(function(a){ sheetLinks[a.getAttribute('href').slice(1)] = a; });
+
+  // scrollspy:高亮最靠上的可见节(IntersectionObserver · 处理多节同屏)
+  var visible = {};
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ visible[e.target.id] = e.isIntersecting; });
+    var current = null;
+    for (var i=0;i<sections.length;i++){ if (visible[sections[i].id]) { current = sections[i].id; break; } }
+    if (!current) return;
+    setActive(current);
+  }, { rootMargin: '-90px 0px -55% 0px', threshold: 0 });
+  sections.forEach(function(s){ obs.observe(s); });
+
+  function setActive(id){
+    Object.keys(railLinks).forEach(function(k){ railLinks[k].removeAttribute('aria-current'); });
+    Object.keys(sheetLinks).forEach(function(k){ sheetLinks[k].removeAttribute('aria-current'); });
+    if (railLinks[id]) railLinks[id].setAttribute('aria-current','true');
+    if (sheetLinks[id]) sheetLinks[id].setAttribute('aria-current','true');
+  }
+
+  // 平滑跳转(scroll-margin-top 处理 sticky-nav 偏移)
+  function jump(e){ e.preventDefault(); var el=document.querySelector(this.getAttribute('href')); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
+  document.querySelectorAll('#toc-nav a').forEach(function(a){ a.addEventListener('click', jump); });
+
+  // 移动 sheet
+  var fab=document.getElementById('fab'), sheet=document.getElementById('sheet'), mask=document.getElementById('mask');
+  function openSheet(){ sheet.classList.add('open'); mask.classList.add('open'); }
+  function closeSheet(){ sheet.classList.remove('open'); mask.classList.remove('open'); }
+  fab.addEventListener('click', openSheet);
+  mask.addEventListener('click', closeSheet);
+  document.getElementById('sheetX').addEventListener('click', closeSheet);
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeSheet(); });  // 不只靠手势
+  document.querySelectorAll('#sheet-nav a').forEach(function(a){ a.addEventListener('click', function(e){ jump.call(this,e); closeSheet(); }); });
+
+  setActive('sec-overview');
+})();
+</script>
+</body>
+</html>

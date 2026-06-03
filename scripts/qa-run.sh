@@ -447,6 +447,16 @@ $CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
   && log_ok "v05-CALC-3 /checkup ⓘ 含真实计算数值(净资产实算)" \
   || log_bad "v05-CALC-3 /checkup tooltip 无真实数值" "no .kpi-info-calc / 净资产实算"
 
+# v0.5.5 · 报表「已关账快照」透出 + dashboard 仍实时(两 tab 分工)
+$CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
+{ grep -q '已关账账期的稳定快照' "$TMP" || grep -q '尚无已关账账期' "$TMP"; } \
+  && log_ok "v05-SNAP-1 /reports 透出「已关账快照」语义(印章/说明行 或 空态)" \
+  || log_bad "v05-SNAP-1 /reports 未透出快照语义" "no 已关账快照 / 尚无已关账"
+$CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
+grep -q '已关账账期的稳定快照' "$TMP" \
+  && log_bad "v05-SNAP-2 dashboard 误带报表快照文案(应保持实时)" "found on dashboard" \
+  || log_ok "v05-SNAP-2 /dashboard 不含报表快照文案(仍实时 · 分工清晰)"
+
 # 按需拉汇率:删 fx_rate 后切 USD,后端应即时调 frankfurter API 拉新汇率写入,然后正常显示 $
 mysql -ufinance -pfinance finance -e "DELETE FROM fx_rate;" 2>/dev/null
 $CURL --max-time 30 -b $COOKIE "$BASE/dashboard?currency=USD" -o "$TMP" -w ""

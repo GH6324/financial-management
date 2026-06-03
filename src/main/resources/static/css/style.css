@@ -371,6 +371,24 @@ h1, h2, h3, h4 {
   white-space: pre-line;
   text-transform: none; letter-spacing: normal;
 }
+/* v0.5.5 · 报表「已关账」朱印章(横排小印 · 单行不换行 · 仅快照态显)*/
+.report-seal {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; white-space: nowrap;
+  color: var(--rust);
+  border: 2px solid var(--rust);
+  border-radius: 5px;
+  background: rgba(156, 74, 42, .05);
+  box-shadow: inset 0 0 0 2px rgba(156, 74, 42, .14);
+  transform: rotate(-4deg);
+  padding: 3px 6px 3px 9px;   /* 右侧略收:letter-spacing 末位补偿 */
+  font-family: "Noto Serif SC", serif; font-weight: 700;
+  font-size: 13px; letter-spacing: 3px; line-height: 1;
+  opacity: .92;
+}
+@media (max-width: 640px) {
+  .report-seal { font-size: 12px; letter-spacing: 2px; padding: 2px 5px 2px 7px; }
+}
 @media (max-width: 640px) {
   .kpi-info-panel {
     /* 手机端:固定到屏幕顶部 · 不跟 button 位置 */

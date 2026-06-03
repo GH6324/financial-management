@@ -1096,3 +1096,34 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 **backward-compat 红线**
 - 0 schema 改动 · 隐私边界不变(prompt 端不含真名 · 仅展示端还原 · 与 checkup 同口径)
 - 月报缓存仍走既有 `goal_ai_report` upsert · 「重新生成」= 既有 `POST /goals/{id}/report/generate`
+
+### v0.5.5 · 报表「已关账快照」锚定(FR-94~97 · 2026-06-03)
+
+**单元 · `ReportsAnchorResolverTest`(4 例)**
+
+| Case | 断言 |
+|---|---|
+| 有已关账期 | 选最近已关账作锚 · `closedSnapshot=true` |
+| 无已关账 有 OPEN | 退 OPEN 锚 · `closedSnapshot=false` |
+| 无已关账 无 OPEN | 退 latest · `closedSnapshot=false` |
+| 三者皆空 | 抛 `IllegalStateException`(尚未创建周期) |
+
+**黑盒 · qa-run(v05-SNAP-1/2)**
+
+| Case | 校验 |
+|---|---|
+| v05-SNAP-1 | `/reports` 透出快照语义:含「已关账账期的稳定快照」(印章+说明行)**或**「尚无已关账账期」(空态) |
+| v05-SNAP-2 | `/dashboard` **不含**「已关账账期的稳定快照」(dashboard 仍实时 · 两 tab 分工) |
+
+**人工 · beta 验收**
+
+| 项 | 校验 |
+|---|---|
+| FR-94 | 报表锚定到最近已关账月(非月中 OPEN);未来测试期(2032)不被锚定;关账新月后报表纳入 |
+| FR-95 | 仅 1 个已关账期:四 banner 显「—」+「需 ≥2 个已关账账期」note,**无误导性 0**;0 个 → 引导空态 |
+| FR-96 | #3 人赚 ⓘ 文案为「区间逐期累计 · 非单月 · 只统计已关账」 |
+| FR-97 | 报表标题旁显朱印红「已关账」竖排方印 + 说明行(数据截至 X · 仪表盘链接);0 已关账期不显印章 |
+
+**backward-compat 红线**
+- 0 schema 改动 · 新增只读 `findLatestClosedAsOf` + 锚定逻辑 + 模板
+- dashboard 完全不动(仍 `findLatest(1)` 实时)· 指标数学口径不变(只改锚哪个账期)

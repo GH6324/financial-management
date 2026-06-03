@@ -71,6 +71,22 @@ public interface PeriodMapper {
             """)
     List<Period> findLatest(@Param("familyId") long familyId, @Param("limit") int limit);
 
+    /**
+     * v0.5.5 · 报表快照锚定 · 最近一个「已关账(CLOSED)且 period_start ≤ asOf」的账期。
+     * <p>asOf 通常传服务器今天 —— 顺带挡掉测试/误建的未来 CLOSED 账期(如 2032)。</p>
+     */
+    @Select("""
+            SELECT id, family_id, period_type, period_start, period_end, status, closed_at, created_at
+              FROM period
+             WHERE family_id = #{familyId}
+               AND status = 'CLOSED'
+               AND period_start <= #{asOf}
+             ORDER BY period_start DESC
+             LIMIT 1
+            """)
+    Optional<Period> findLatestClosedAsOf(@Param("familyId") long familyId,
+                                          @Param("asOf") LocalDate asOf);
+
     /** v0.5 修 · 周期管理分页(倒序 · 新→旧)· offset/limit。 */
     @Select("""
             SELECT id, family_id, period_type, period_start, period_end, status, closed_at, created_at

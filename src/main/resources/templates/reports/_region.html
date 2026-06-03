@@ -21,11 +21,18 @@
   <section class="mb-8 flex items-end justify-between flex-wrap gap-6">
     <div>
       <div class="eyebrow mb-2">月 · 度 · 大 · 账</div>
-      <h1 class="font-display text-3xl sm:text-5xl font-medium tracking-tight">数 · 字 · <span class="italic font-light text-brass-deep">所至</span></h1>
+      <div class="flex items-center gap-7 sm:gap-9">
+        <h1 class="font-display text-3xl sm:text-5xl font-medium tracking-tight">数 · 字 · <span class="italic font-light text-brass-deep">所至</span></h1>
+        <!-- v0.5.5 FR-97 · 朱印「已关账」横排小印(仅快照态显)· gap 给足与标题间距 -->
+        <span th:if="${closedSnapshot}" class="report-seal" title="本页只统计已关账账期">已关账</span>
+      </div>
       <p class="text-ink-soft text-sm mt-3 max-w-xl">收益率、现金流、负债与本金收益分解全部来自同一份 Fact View。</p>
-      <!-- v0.5 修 · 数据锚定期提示(报表以当前账期为终点 · 收益/净流入随该期数据更新) -->
-      <p th:if="${anchorPeriod != null}" class="font-mono text-[11px] text-brass-deep mt-2">
-        数据截至 <span th:text="${#temporals.format(anchorPeriod.periodStart,'yyyy 年 M 月')}">2026 年 5 月</span> 账期<span th:if="${anchorPeriod.status != null and anchorPeriod.status.name() == 'OPEN'}">(进行中 · 随你本期录入实时更新)</span>
+      <!-- v0.5.5 FR-97 · 已关账快照透出(替换原"进行中·实时更新"提示) -->
+      <p th:if="${closedSnapshot}" class="font-mono text-[11px] text-brass-deep mt-2">
+        <span class="text-ink">本页为已关账账期的稳定快照</span> · 数据截至 <span style="color:var(--rust)" th:text="${#temporals.format(anchorPeriod.periodStart,'yyyy 年 M 月')}">2026 年 5 月</span> · 进行中的本月请看 <a th:href="@{/dashboard}" class="text-brass-deep hover:text-ink no-underline" style="border-bottom:1px solid var(--rule)">仪表盘 →</a>
+      </p>
+      <p th:unless="${closedSnapshot}" class="font-mono text-[11px] text-ink-subtle mt-2">
+        尚无已关账账期 · 完成本月填报并关账后,这里出现收益快照。
       </p>
     </div>
     <div class="flex border border-rule">
@@ -86,7 +93,7 @@
       <div class="kpi-delta">钱替你赚的真实回报 · 12 月几何平均</div>
     </div>
     <div class="kpi-card">
-      <span class="kpi-eyebrow">人赚的 · 净流入 <th:block th:insert="~{fragments/_kpi-info :: i('选定区间内「收入 − 支出」累计净流入(工资攒下来的钱)。注意:区间最早一期是基准起点,其收支已含在起始净资产里、不重复计入;若当前账期还没填收支,这里可能为 0 —— 单月收支请看下方「储蓄能力」区的月均收入/支出。', ${calc.netInflow})}"/></span>
+      <span class="kpi-eyebrow">人赚的 · 净流入 <th:block th:insert="~{fragments/_kpi-info :: i('所选区间内逐期「收入 − 支出」累计净流入(工资攒下来的钱)· 非单月。区间最早一期为基准起点,其收支已含在起始净资产里、不重复计入。报表只统计已关账账期(进行中的本月不计,关账后才纳入)· 单月收支看下方「储蓄能力」区。', ${calc.netInflow})}"/></span>
       <div class="kpi-value tnum" th:text="${cumulativeNetInflow}">¥0</div>
       <div class="kpi-delta">收入 − 支出 累计</div>
     </div>
@@ -96,6 +103,12 @@
       <div class="kpi-delta">资产升值 / 贬值 累计</div>
     </div>
   </section>
+
+  <!-- v0.5.5 FR-95 · 已关账账期 <2 的诚实空态(替代误导性 0)-->
+  <div th:unless="${reportsHasMetrics}" class="paper-card p-3 mb-8 bg-card-soft text-xs text-ink-soft" style="border-left:3px solid var(--ink-subtle)">
+    <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">收益指标</span> ·
+    需 <b class="text-ink">≥2 个已关账账期</b>才能计算(要上一期做基准)· 完成本月填报并关账后出现。
+  </div>
 
   <!-- v0.4.2 · 一句话解释 KPI 二分(给用户认知锚)-->
   <div class="paper-card p-3 mb-8 bg-card-soft text-xs text-ink-soft" style="border-left:3px solid var(--brass-deep)">

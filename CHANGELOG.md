@@ -2,6 +2,28 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.5.5] · 2026-06-03
+
+报表收益指标回归「已关账快照」语义(无迁移)。
+
+### Fixed
+
+- **报表四指标锚在进行中账期 → 人赚常年 0 / XIRR·TWR 用半填净值失真**(自 v0.5.1 `findCurrentOpen` 优先引入)· 报表本应是"已关账快照",却跟着月中还空着的 OPEN 期走 · 年轻家庭里唯一填了数的已关账月恰好当了"被排除的基准",真正计入的只剩空 OPEN 期 → #3=0(FR-94)
+
+### Changed
+
+- **报表锚定改「最近已关账(≤今天)账期」· dashboard 不动(实时)** · 四指标终点永远是填满的已关账月;`period_start ≤ 今天` 顺带干净挡掉测试/误建的未来账期(2032),不必再靠 OPEN 兜底 · 新增只读 `PeriodMapper.findLatestClosedAsOf` + 纯函数 `ReportsAnchorResolver`(FR-94)
+- **#3 人赚 ⓘ 文案** · 点明「区间逐期累计 · 非单月 · 只统计已关账」(去掉过时的"当前账期没填→0"措辞)(FR-96)
+
+### Added
+
+- **报表页头「已关账」朱印章 + 说明行透出**(FR-97)· 标题旁朱印红竖排方印(纯 CSS · `.report-seal` · 无 emoji)+「本页为已关账账期的稳定快照 · 数据截至 X · 进行中的本月请看 仪表盘→」· 让用户一眼分清报表(快照)与仪表盘(实时)
+- **已关账账期 <2 的诚实空态**(FR-95)· 四 banner 显「—」+「需 ≥2 个已关账账期」,不再显误导性 0;0 个已关账期 → 引导空态(不盖空印章)
+
+### Tests
+
+- 单元 **232**(+4 `ReportsAnchorResolverTest`:快照/退 OPEN/退 latest/无账期抛错)· qa-run +v05-SNAP-1/2(报表透出快照语义 · dashboard 仍实时)· 0 schema 改动 · dashboard 行为不变
+
 ## [v0.5.4] · 2026-06-03
 
 目标 AI 月报三处修复(无迁移)。
