@@ -1025,3 +1025,25 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 - 5.21 服务器侧 `th:if` 跳过 = **零运行成本**
 - localStorage flag 永久留无害(再次 5.20 系日期换了自动 ignore)
 - prod 升级:`git pull && sudo bash deploy/deploy.sh` · 0 风险
+
+---
+
+### bugfix · 目标编辑页 expenseMode 回填 + AI月报手动生成(2026-06-03)
+
+**触发**:① 编辑页未渲染 expenseMode 单选/下拉(FR-81 漏补) · ② 月报区块无按需触发入口(FR-53b 周期关闭前无法验收)。
+
+| Case | 验证点 |
+|---|---|
+| bf-GOAL-EDIT-1 | GET `/goals/{id}/edit` · 已保存 `expenseMode=FIXED` 的目标 → 「固定值」radio **预选中**，「自动适配」未选 |
+| bf-GOAL-EDIT-2 | GET `/goals/{id}/edit` · 已保存 `expenseMode=AUTO_MONTHLY` 的目标 → 「自动适配月结支出」radio **预选中** |
+| bf-GOAL-EDIT-3 | 编辑页 `expenseSmoothing` 下拉回显已保存值(TRIMMED/MEDIAN/MEAN 之一)；`expenseWindowMonths` 下拉回显 6/12/24 之一 |
+| bf-GOAL-EDIT-4 | 提交编辑表单切换 expenseMode → 保存后再进编辑页确认新值已持久化 |
+| bf-GOAL-RPT-1 | GET `/goals/{id}` · 无 AI 月报时「AI 综合月报」区块显示「立即生成月报」按钮，**不再**是纯静态提示 |
+| bf-GOAL-RPT-2 | POST `/goals/{id}/report/generate` → 302 跳回详情页 · 详情页月报内容已展示（LLM 已配置时） |
+| bf-GOAL-RPT-3 | `goal_ai_report` 表中 `period_id=0` `report_type='MONTHLY'` 新增一行(按需标记)；重复触发幂等不新增 |
+| bf-GOAL-RPT-4 | 无权限家庭成员访问其他家庭 `/goals/{id}/report/generate` → 4xx 拒绝 |
+
+**backward-compat 红线**
+- 0 schema 改动(仅新增写入 `period_id=0` 行)
+- `period_id=0` 行不影响周期关闭时批量生成逻辑(`generateMonthlyReportsAsync` 不感知)
+- edit.html 新增字段与 controller 已有参数完全对齐 · 无新接口
