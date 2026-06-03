@@ -100,13 +100,15 @@ public class GoalLlmService {
             String raw = invokeWithFailover(system, user);
             if (raw == null) return AiResult.unavailable("LLM 全部失败");
 
-            // 反向映射 codename → real name(本期 v0.3 简化:不做反向映射,prompt 内已用 codename)
+            // 先在 raw(仍是代号)上过校验:不会因真名误判泄露
             OutputValidator.Result valid = OutputValidator.check(raw, mapping.realToCodename().keySet());
             if (!valid.accepted()) {
                 log.warn("monthly report rejected by validator: {}", valid.reason());
                 return AiResult.unavailable("AI 输出未通过校验:" + valid.reason());
             }
-            return AiResult.ok(raw.trim(), null);
+            // v0.5.4 修 · 反向映射 成员A/成员B → 真名供用户阅读(原 v0.3 漏做 → 月报里出现「成员A与成员B」)
+            String mapped = PromptBuilder.reverseMapping(raw.trim(), mapping.codenameToReal());
+            return AiResult.ok(mapped, null);
         } catch (Exception e) {
             log.warn("generateMonthlyReport failed: {}", e.toString());
             return AiResult.unavailable("内部错误: " + e.getMessage());
@@ -136,7 +138,9 @@ public class GoalLlmService {
             if (!valid.accepted()) {
                 return AiResult.unavailable("AI 输出未通过校验:" + valid.reason());
             }
-            return AiResult.ok(raw.trim(), null);
+            // v0.5.4 修 · 同月报:反向映射 成员A/成员B → 真名供用户阅读
+            String mapped = PromptBuilder.reverseMapping(raw.trim(), mapping.codenameToReal());
+            return AiResult.ok(mapped, null);
         } catch (Exception e) {
             log.warn("generateAlertAdvice failed: {}", e.toString());
             return AiResult.unavailable("内部错误: " + e.getMessage());

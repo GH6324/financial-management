@@ -1075,3 +1075,24 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 - 0 schema 改动 · `KpiSnapshot` 加字段保留 7 参/11 参兼容构造器(老调用方/测试不动)
 - `_kpi-info` 升 2 参 · 全部 28 调用点同批改完 · 纯定义指标传 `null`(只显口径)
 - 指标计算口径零改动(只暴露已算中间量)
+
+### v0.5.4 · 目标 AI 月报修复(FR-91/92/93 · 2026-06-03)
+
+**单元 · `GoalLlmServiceTest`(2 例)**
+
+| Case | 断言 |
+|---|---|
+| 代号→真名回写 | LLM 输出「成员A与成员B」· 2 成员(张三/李四)→ 月报 value 含「张三」「李四」且不含「成员A/成员B」(校验仍在代号 raw 上跑) |
+| 无成员原样返回 | 空映射 → reverseMapping 原样返回 · 月报 value == LLM 原文(不崩) |
+
+**人工 · beta 验收**
+
+| 项 | 校验 |
+|---|---|
+| FR-91 | 目标详情点「重新生成」→ 月报正文出现真名(成员真实 displayName)· 不再有「成员A/成员B」 |
+| FR-92 | 已有月报时显「本期复用 · 渲染于…」+「重新生成」按钮(刷新覆写);再次进入页面不重算(复用) |
+| FR-93 | 仪表盘目标条带每个目标右侧有 book-open + AI 小入口 · 点击直达 `/goals/{id}#ai-report` 且月报段已展开 |
+
+**backward-compat 红线**
+- 0 schema 改动 · 隐私边界不变(prompt 端不含真名 · 仅展示端还原 · 与 checkup 同口径)
+- 月报缓存仍走既有 `goal_ai_report` upsert · 「重新生成」= 既有 `POST /goals/{id}/report/generate`

@@ -2,6 +2,28 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.5.4] · 2026-06-03
+
+目标 AI 月报三处修复(无迁移)。
+
+### Fixed
+
+- **AI 月报脱敏未回写 → 出现「成员A与成员B」** · `GoalLlmService.generateMonthlyReport` / `generateAlertAdvice` 校验通过后**漏做反向映射**(v0.3 起 latent)· 月报里直接显代号 · 修:校验仍跑在代号 raw 上(不因真名误判泄露),通过后 `PromptBuilder.reverseMapping(raw, codenameToReal)` 把 成员A/成员B 还原回真名供阅读(与 checkup AI 诊断同口径)(v0.5.4)
+
+### Changed
+
+- **目标月报缓存语义对齐 checkup** · 月报本就持久化在 `goal_ai_report`(UNIQUE upsert)且详情页直接复用(加载不重算 = 缓存命中)· 本次补齐 UI:有月报时显「本期复用 · 渲染于…」+「重新生成」按钮(同 checkup ↻ force-refresh 语义),不再只有"尚未生成"态才有触发入口(v0.5.4)
+- **目标月报内容保留换行** · `whitespace-pre-line` 渲染多段叙事(v0.5.4)
+
+### Added
+
+- **仪表盘目标条带「AI 阅读总结」小入口** · `goals/_progress-strip` 每个目标卡右侧加 inline-SVG 入口(book-open + AI)· 直达 `/goals/{id}#ai-report` 本期月报锚点 · detail 页 AI 月报段加 `id=ai-report` + `scroll-margin`(v0.5.4)
+- **AI 月报段 emoji → inline SVG** · ✨ 换 Feather book-open(承 [[feedback_no_emoji]])(v0.5.4)
+
+### Tests
+
+- 单元 **228**(+2 `GoalLlmServiceTest`:代号→真名回写守护 + 无成员原样返回)· 锁死「月报展示前必反向映射」回归
+
 ## [v0.5.3] · 2026-06-03
 
 计算指标透明化 —— ⓘ tooltip 从「只讲口径公式」升级为「口径 + 真实计算数值」(无迁移)。
