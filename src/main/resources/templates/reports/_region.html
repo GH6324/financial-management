@@ -115,10 +115,11 @@
     <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep">收益指标 · 双口径</span> ·
     <span class="text-ink">家庭 XIRR</span>(资金加权 · 含工资 · 反映你和资产一起赚多少)·
     <span class="text-ink">资产年化</span>(几何平均 · 剔除工资 · 只反映钱替你赚多少 · 与基准比较用这个)
+  </div>
 
   <!-- v0.4 FR-60b · 砍流水视角图:月度收支瀑布(ECharts)/ 收入流向桑基 / 月度收支对比(双柱)· 与新定位「不做流水/记账」冲突 -->
   <!-- 第一表 · 本金 vs 投资损益分解(v0.4 升级为首图 · 核心图)-->
-  <section class="mb-12">
+  <section id="sec-decompose" class="mb-12" style="scroll-margin-top:80px">
     <div class="paper-card p-6">
       <div class="eyebrow mb-1">第 一 表 · 核 · 心</div>
       <h3 class="font-display text-xl font-medium">本金净流入 vs 投资损益</h3>
@@ -128,7 +129,7 @@
     </div>
   </section>
 
-  <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
+  <section id="sec-risk" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12" style="scroll-margin-top:80px">
     <div class="paper-card p-6">
       <div class="eyebrow mb-1">第 二 表</div>
       <h3 class="font-display text-xl font-medium">负债下降曲线</h3>
@@ -149,7 +150,7 @@
   <!-- 配置 diff + AI 调仓建议放在账户级收益之后 · 见下方 _allocation-diff fragment -->
   <section th:if="${allocationDiff != null}" class="mb-12" th:insert="~{reports/_allocation-diff :: section}"></section>
 
-  <section class="mb-12">
+  <section id="sec-accounts" class="mb-12" style="scroll-margin-top:80px">
     <div class="flex items-end justify-between mb-3 flex-wrap gap-2">
       <div>
         <div class="eyebrow mb-1">第 四 表</div>

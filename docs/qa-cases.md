@@ -1127,3 +1127,24 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 **backward-compat 红线**
 - 0 schema 改动 · 新增只读 `findLatestClosedAsOf` + 锚定逻辑 + 模板
 - dashboard 完全不动(仍 `findLatest(1)` 实时)· 指标数学口径不变(只改锚哪个账期)
+
+### v0.5.6 · 报表长文目录(FR-98 · 2026-06-03)
+
+**黑盒 · qa-run(v05-TOC-1)**
+
+| Case | 校验 |
+|---|---|
+| v05-TOC-1 | `/reports` 含 `toc-rail`(PC 右栏)+ `class="toc-node"`(树节点)+ 章节锚点 `#sec-decompose`/`#sec-accounts` + `#toc-sheet`(手机 sheet) |
+
+**人工 · beta 验收**
+
+| 项 | 校验 |
+|---|---|
+| PC scrollspy | 宽屏右侧常驻目录栏;滚动内容,当前所在节朱铜高亮(`aria-current`),点击平滑跳转 |
+| 嵌套 | 树状缩进 + 竖线/树枝引导线;未来加子节层级可见 |
+| 手机 | 缩到窄屏 → 右栏收起、左上角「目录」钮 → 底部 sheet 滑出;拖拽手柄 + × + Esc 关闭;点击跳转后收起 |
+| HTMX | 切 range/币种后(#reports-region 重渲)scrollspy 仍正常高亮 |
+
+**backward-compat 红线**
+- 纯前端 · 0 schema · 0 后端逻辑改动 · dashboard 不加目录(不动)
+- 章节锚点为新增 id,不改既有结构/样式

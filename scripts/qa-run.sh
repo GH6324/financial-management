@@ -457,6 +457,14 @@ grep -q '已关账账期的稳定快照' "$TMP" \
   && log_bad "v05-SNAP-2 dashboard 误带报表快照文案(应保持实时)" "found on dashboard" \
   || log_ok "v05-SNAP-2 /dashboard 不含报表快照文案(仍实时 · 分工清晰)"
 
+# v0.5.6 · 报表长文目录(PC 右栏树状大纲 + 章节锚点 + 手机 sheet)
+$CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
+{ grep -q 'toc-rail' "$TMP" && grep -q 'class="toc-node"' "$TMP" \
+  && grep -q 'id="sec-decompose"' "$TMP" && grep -q 'id="sec-accounts"' "$TMP" \
+  && grep -q 'id="toc-sheet"' "$TMP"; } \
+  && log_ok "v05-TOC-1 /reports 含右栏树状目录 + 章节锚点 + 手机 sheet" \
+  || log_bad "v05-TOC-1 /reports 目录/锚点缺" "no toc-rail/toc-node/sec-* /toc-sheet"
+
 # 按需拉汇率:删 fx_rate 后切 USD,后端应即时调 frankfurter API 拉新汇率写入,然后正常显示 $
 mysql -ufinance -pfinance finance -e "DELETE FROM fx_rate;" 2>/dev/null
 $CURL --max-time 30 -b $COOKIE "$BASE/dashboard?currency=USD" -o "$TMP" -w ""

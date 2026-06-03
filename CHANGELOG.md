@@ -2,9 +2,9 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
-## [v0.5.5] · 2026-06-03
+## [v0.5.6] · 2026-06-03
 
-报表收益指标回归「已关账快照」语义(无迁移)。
+报表两件事(无迁移):① 收益口径回归「已关账快照」(原拟 v0.5.5,不单独发,并入此版)② 长文目录(PC 右栏树状大纲 + scrollspy · 手机左上唤醒钮 + 底部 sheet)。
 
 ### Fixed
 
@@ -14,15 +14,17 @@
 
 - **报表锚定改「最近已关账(≤今天)账期」· dashboard 不动(实时)** · 四指标终点永远是填满的已关账月;`period_start ≤ 今天` 顺带干净挡掉测试/误建的未来账期(2032),不必再靠 OPEN 兜底 · 新增只读 `PeriodMapper.findLatestClosedAsOf` + 纯函数 `ReportsAnchorResolver`(FR-94)
 - **#3 人赚 ⓘ 文案** · 点明「区间逐期累计 · 非单月 · 只统计已关账」(去掉过时的"当前账期没填→0"措辞)(FR-96)
+- **报表目录升级**(FR-98)· 原 v0.5.1 右下角低调小 FAB → 业界长文交互:**PC 右侧常驻树状大纲**(竖线/树枝 · 支持多层嵌套)+ `IntersectionObserver`/scroll scrollspy 高亮当前节(`aria-current` a11y 钩子);**手机左上角唤醒钮 → 底部 sheet**(拖拽手柄 + × + Esc · 触控 ≥44px · 点击跳转后收起)· HTMX 换 range/币种后重新 spy
 
 ### Added
 
-- **报表页头「已关账」朱印章 + 说明行透出**(FR-97)· 标题旁朱印红竖排方印(纯 CSS · `.report-seal` · 无 emoji)+「本页为已关账账期的稳定快照 · 数据截至 X · 进行中的本月请看 仪表盘→」· 让用户一眼分清报表(快照)与仪表盘(实时)
+- **报表页头「已关账」朱印章 + 说明行透出**(FR-97)· 标题旁朱印红横排小印(纯 CSS · `.report-seal` · 无 emoji)+「本页为已关账账期的稳定快照 · 数据截至 X · 进行中的本月请看 仪表盘→」· 让用户一眼分清报表(快照)与仪表盘(实时)
 - **已关账账期 <2 的诚实空态**(FR-95)· 四 banner 显「—」+「需 ≥2 个已关账账期」,不再显误导性 0;0 个已关账期 → 引导空态(不盖空印章)
+- **章节锚点**(FR-98)· `_region` 加 `#sec-decompose` / `#sec-risk` / `#sec-accounts`(配合 `#reports-region` / `#sec-wealth` / `#sec-savings` / `#allocation-diff`)· `scroll-margin-top` 处理 sticky-nav 偏移
 
 ### Tests
 
-- 单元 **232**(+4 `ReportsAnchorResolverTest`:快照/退 OPEN/退 latest/无账期抛错)· qa-run +v05-SNAP-1/2(报表透出快照语义 · dashboard 仍实时)· 0 schema 改动 · dashboard 行为不变
+- 单元 **232**(+4 `ReportsAnchorResolverTest`:快照/退 OPEN/退 latest/无账期抛错)· qa-run +v05-SNAP-1/2(快照透出 · dashboard 实时)+v05-TOC-1(右栏树 + 锚点 + 手机 sheet)· **0 schema 改动** · dashboard 行为不变 · 目录纯前端
 
 ## [v0.5.4] · 2026-06-03
 

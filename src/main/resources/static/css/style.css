@@ -389,6 +389,52 @@ h1, h2, h3, h4 {
 @media (max-width: 640px) {
   .report-seal { font-size: 12px; letter-spacing: 2px; padding: 2px 5px 2px 7px; }
 }
+
+/* v0.5.6 · 报表长文目录 · PC 右侧常驻树状大纲 + 手机左上唤醒钮 + 底部 sheet */
+/* 布局自管(不依赖 Tailwind lg: · 重页 JIT 不稳)· 窄屏单列+FAB · ≥1024px 双列 */
+.reports-cols-main { min-width: 0; }
+.toc-rail { display: none; }
+@media (min-width: 1024px) {
+  .reports-cols { display: flex; gap: 2rem; align-items: flex-start; }
+  .reports-cols-main { flex: 1 1 0%; min-width: 0; }
+  /* order:-1 把目录栏放到左列(内容在右)· DOM 仍内容优先(阅读/可访问顺序不变)*/
+  .toc-rail { display: block; order: -1; position: sticky; top: 88px; align-self: flex-start; width: 224px; flex-shrink: 0; }
+}
+.toc-head { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-subtle); padding:0 0 8px 14px; }
+.toc-tree { position: relative; }
+.toc-node { display:block; position:relative; text-decoration:none; line-height:1.35;
+  font-family:"Source Serif 4","Noto Serif SC",serif; color:var(--ink-soft);
+  padding:6px 8px 6px 14px; border-left:2px solid transparent;
+  transition:color .15s, border-color .15s, background .15s; }
+.toc-node .lbl { font-size:13px; }
+.toc-node:hover { color:var(--brass-deep); background:var(--card-soft); }
+/* active:aria-current 作样式钩子(a11y)· 朱铜 + 左脊 + 底色 */
+.toc-node[aria-current="true"] { color:var(--brass-deep); font-weight:600; border-left-color:var(--brass-deep); background:var(--card-soft); }
+.toc-node.ancestor { color:var(--ink); }
+/* 子层:缩进 + 竖向引导线 + 横向树枝(支持未来多层嵌套)*/
+.toc-children { margin-left:13px; border-left:1.5px solid var(--rule-soft); }
+.toc-children > .toc-node { padding-left:16px; }
+.toc-children > .toc-node .lbl { font-size:12px; }
+.toc-children > .toc-node::before { content:''; position:absolute; left:-1px; top:15px; width:10px; height:1.5px; background:var(--rule-soft); }
+.toc-children > .toc-node[aria-current="true"]::before { background:var(--brass-deep); }
+/* 手机:左上角唤醒钮(icon-only 小圆钮)+ 底部 sheet · ≥1024px 隐藏(用右栏) */
+.toc-fab { position:fixed; left:8px; top:64px; z-index:60; width:38px; height:38px; border-radius:50%;
+  background:var(--ink); color:var(--paper); border:none; box-shadow:0 3px 12px rgba(0,0,0,.22);
+  display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
+@media (min-width: 1024px) { .toc-fab { display: none !important; } }
+.toc-sheet-mask { position:fixed; inset:0; background:rgba(26,23,20,.4); z-index:70; opacity:0; pointer-events:none; transition:opacity .2s; }
+.toc-sheet-mask.open { opacity:1; pointer-events:auto; }
+.toc-sheet { position:fixed; left:0; right:0; bottom:0; z-index:80; background:var(--card);
+  border-top-left-radius:16px; border-top-right-radius:16px; box-shadow:0 -8px 32px rgba(0,0,0,.22);
+  transform:translateY(110%); transition:transform .26s cubic-bezier(.22,1,.36,1);
+  padding:8px 6px max(16px, env(safe-area-inset-bottom)); max-height:72vh; overflow:auto; }
+.toc-sheet.open { transform:translateY(0); }
+.toc-sheet-handle { width:40px; height:4px; border-radius:2px; background:var(--rule); margin:8px auto 4px; }
+.toc-sheet-row { display:flex; align-items:center; justify-content:space-between; padding:2px 12px 6px; }
+.toc-sheet-row .toc-head { padding:0; }
+.toc-sheet-x { width:32px; height:32px; border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:20px; line-height:1; }
+.toc-sheet .toc-node { padding-top:11px; padding-bottom:11px; min-height:44px; box-sizing:border-box; }
+.toc-sheet .toc-node .lbl { font-size:15px; }
 @media (max-width: 640px) {
   .kpi-info-panel {
     /* 手机端:固定到屏幕顶部 · 不跟 button 位置 */
