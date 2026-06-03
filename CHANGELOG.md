@@ -2,6 +2,25 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.5.7] · 2026-06-04
+
+长文目录推广到所有长 tab 页 + 沉淀为可复用件(无迁移 · 纯前端 · 0 schema)。
+
+### Added
+
+- **长文目录共用件** · `fragments/_toc.html`(`rail(items)` + `mobile(items)` 两片段,items 经 `th:with` 内联 map 传入)+ `static/js/toc.js`(页面无关 scrollspy + 底部 sheet · 自动接 `[data-toc-nav]`)· `style.css` 布局类泛化 `.reports-cols`→`.toc-cols`
+- **dashboard 接入目录**(概览 / 净资产趋势 / 按成员分布 / 按账户分布 / 账户列表)· `_region` 加 `#dash-trend/#dash-member/#dash-dist/#dash-list` 锚点
+- **checkup 接入目录**(概览 / 资产配置 / 风险敞口 / 流动性 / 收益质量 / 智能建议 / AI 综合诊断 / 单账户体检)· 复用既有 `#allocation/#risk/#liquidity/#return` + 加 `#checkup-overview/#checkup-advice/#checkup-ai/#checkup-accounts`(advice 互斥两态同 id 保锚点恒在)
+
+### Changed
+
+- **reports 目录改用共用件** · 移除原内联脚本/rail/sheet markup · 行为不变(左侧常驻树状 + scrollspy + 手机 sheet)
+- **不做目录的页**(明确):填报 / 账户 / 目标列表 / 管理 —— 表单/列表/管理页,非长文阅读
+
+### Tests
+
+- qa-run +v05-TOC-2/3(dashboard/checkup 含目录 + 锚点)· 单元 **232** 不变(纯前端)· 0 schema · 迭代须同步目录(memory `feedback_toc_sync`)
+
 ## [v0.5.6] · 2026-06-03
 
 报表两件事(无迁移):① 收益口径回归「已关账快照」(原拟 v0.5.5,不单独发,并入此版)② 长文目录(PC 右栏树状大纲 + scrollspy · 手机左上唤醒钮 + 底部 sheet)。

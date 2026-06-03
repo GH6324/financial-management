@@ -464,6 +464,15 @@ $CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
   && grep -q 'id="toc-sheet"' "$TMP"; } \
   && log_ok "v05-TOC-1 /reports 含右栏树状目录 + 章节锚点 + 手机 sheet" \
   || log_bad "v05-TOC-1 /reports 目录/锚点缺" "no toc-rail/toc-node/sec-* /toc-sheet"
+# v0.5.7 · 目录推广 dashboard + checkup(共用件)
+$CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
+{ grep -q 'class="toc-rail"' "$TMP" && grep -q 'js/toc.js' "$TMP" && grep -q 'id="dash-trend"' "$TMP"; } \
+  && log_ok "v05-TOC-2 /dashboard 接入长文目录 + 锚点" \
+  || log_bad "v05-TOC-2 /dashboard 目录缺" "no toc-rail/toc.js/dash-trend"
+$CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+{ grep -q 'class="toc-rail"' "$TMP" && grep -q 'js/toc.js' "$TMP" && grep -q 'id="checkup-ai"' "$TMP"; } \
+  && log_ok "v05-TOC-3 /checkup 接入长文目录 + 锚点" \
+  || log_bad "v05-TOC-3 /checkup 目录缺" "no toc-rail/toc.js/checkup-ai"
 
 # 按需拉汇率:删 fx_rate 后切 USD,后端应即时调 frankfurter API 拉新汇率写入,然后正常显示 $
 mysql -ufinance -pfinance finance -e "DELETE FROM fx_rate;" 2>/dev/null

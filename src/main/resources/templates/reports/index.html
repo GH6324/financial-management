@@ -7,101 +7,22 @@
 <script th:src="@{/vendor/echarts.min.js(v=${buildVersion})}"></script>
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('reports', ${me}, ${nav})}"></header>
-<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10">
-  <div class="reports-cols">
-    <div class="reports-cols-main">
+<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10"
+      th:with="tocItems=${ { {label:'收益概览',href:'#reports-region'}, {label:'本金 vs 投资损益',href:'#sec-decompose'}, {label:'负债 / 风险分布',href:'#sec-risk'}, {label:'资产配置对照',href:'#allocation-diff'}, {label:'账户级收益 · vs 基准',href:'#sec-accounts'}, {label:'财富水位',href:'#sec-wealth'}, {label:'储蓄能力',href:'#sec-savings'} } }">
+  <div class="toc-cols">
+    <div class="toc-cols-main">
       <div id="reports-region" th:replace="~{reports/_region :: region}"></div>
       <!-- v0.5 FR-72/73/74 · 财富水位 section(净资产 vs CPI/M2)· 接在 KPI/分解之后 -->
       <th:block th:replace="~{reports/_wealth-level :: section}"></th:block>
       <!-- v0.3 FR-51a/b · 储蓄能力区块(独立 · 不参与 HTMX 刷新)· v0.2 _region 完整保留 -->
       <th:block th:replace="~{reports/_savings :: section}"></th:block>
     </div>
-
-    <!-- v0.5.6 FR-98 · PC 右侧常驻树状目录(scrollspy 高亮当前节)· 显隐由 .toc-rail 媒体查询管 -->
-    <aside class="toc-rail" aria-label="本页目录">
-      <div class="toc-head">本 页 目 录</div>
-      <nav class="toc-tree" data-toc-nav>
-        <a class="toc-node" href="#reports-region" data-toc><span class="lbl">收益概览</span></a>
-        <a class="toc-node" href="#sec-decompose" data-toc><span class="lbl">本金 vs 投资损益</span></a>
-        <a class="toc-node" href="#sec-risk" data-toc><span class="lbl">负债 / 风险分布</span></a>
-        <a class="toc-node" href="#allocation-diff" data-toc th:if="${allocationDiff != null}"><span class="lbl">资产配置对照</span></a>
-        <a class="toc-node" href="#sec-accounts" data-toc><span class="lbl">账户级收益 · vs 基准</span></a>
-        <a class="toc-node" href="#sec-wealth" data-toc><span class="lbl">财富水位</span></a>
-        <a class="toc-node" href="#sec-savings" data-toc><span class="lbl">储蓄能力</span></a>
-      </nav>
-    </aside>
+    <!-- v0.5.6→.7 · 长文目录共用件(左侧常驻树状大纲 · scrollspy)-->
+    <th:block th:replace="~{fragments/_toc :: rail(${tocItems})}"></th:block>
   </div>
+  <th:block th:replace="~{fragments/_toc :: mobile(${tocItems})}"></th:block>
 </main>
-
-<!-- v0.5.6 FR-98 · 移动端左上角唤醒钮(icon-only · 显隐由 .toc-fab 媒体查询管)-->
-<button class="toc-fab" id="toc-fab-btn" type="button" aria-label="本页目录" title="本页目录" aria-expanded="false">
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/>
-    <line x1="3.5" y1="6" x2="3.51" y2="6"/><line x1="3.5" y1="12" x2="3.51" y2="12"/><line x1="3.5" y1="18" x2="3.51" y2="18"/>
-  </svg>
-</button>
-<div class="toc-sheet-mask" id="toc-mask"></div>
-<div class="toc-sheet" id="toc-sheet" role="dialog" aria-label="本页目录" aria-modal="true">
-  <div class="toc-sheet-handle"></div>
-  <div class="toc-sheet-row"><span class="toc-head">目录 · 本页</span><button class="toc-sheet-x" id="toc-sheet-x" type="button" aria-label="关闭">×</button></div>
-  <nav class="toc-tree" data-toc-nav>
-    <a class="toc-node" href="#reports-region" data-toc><span class="lbl">收益概览</span></a>
-    <a class="toc-node" href="#sec-decompose" data-toc><span class="lbl">本金 vs 投资损益</span></a>
-    <a class="toc-node" href="#sec-risk" data-toc><span class="lbl">负债 / 风险分布</span></a>
-    <a class="toc-node" href="#allocation-diff" data-toc th:if="${allocationDiff != null}"><span class="lbl">资产配置对照</span></a>
-    <a class="toc-node" href="#sec-accounts" data-toc><span class="lbl">账户级收益 · vs 基准</span></a>
-    <a class="toc-node" href="#sec-wealth" data-toc><span class="lbl">财富水位</span></a>
-    <a class="toc-node" href="#sec-savings" data-toc><span class="lbl">储蓄能力</span></a>
-  </nav>
-</div>
-
-<script>
-  (function(){
-    function tocLinks(){ return Array.prototype.slice.call(document.querySelectorAll('[data-toc-nav] a[href^="#"]')); }
-    function targetIds(){
-      var seen={}, ids=[];
-      // 仅用第一份 nav(右栏)定文档序;两份 nav 的 id 集相同
-      var rail = document.querySelector('[data-toc-nav]');
-      if (!rail) return ids;
-      rail.querySelectorAll('a[href^="#"]').forEach(function(a){ var id=a.getAttribute('href').slice(1); if(!seen[id]){ seen[id]=1; ids.push(id); } });
-      return ids;
-    }
-    var LINE = 110, ticking = false;
-    function spy(){
-      ticking = false;
-      var ids = targetIds(), cur = ids.length ? ids[0] : null;
-      for (var i=0;i<ids.length;i++){
-        var el = document.getElementById(ids[i]);
-        if (el && el.getBoundingClientRect().top - LINE <= 0) cur = ids[i];   // 取顶部已越线的最后一节
-      }
-      tocLinks().forEach(function(a){
-        if (a.getAttribute('href').slice(1) === cur) a.setAttribute('aria-current','true');
-        else a.removeAttribute('aria-current');
-      });
-    }
-    window.addEventListener('scroll', function(){ if(!ticking){ ticking=true; requestAnimationFrame(spy);} }, {passive:true});
-    window.addEventListener('resize', spy);
-    // HTMX 换 range/币种后 #reports-region 内的锚点重建 → 重新 spy
-    document.body.addEventListener('htmx:afterSettle', function(){ spy(); });
-
-    // sheet
-    var fab=document.getElementById('toc-fab-btn'), sheet=document.getElementById('toc-sheet'), mask=document.getElementById('toc-mask');
-    function closeSheet(){ if(!sheet) return; sheet.classList.remove('open'); mask.classList.remove('open'); if(fab) fab.setAttribute('aria-expanded','false'); }
-    function openSheet(){ if(!sheet) return; sheet.classList.add('open'); mask.classList.add('open'); if(fab) fab.setAttribute('aria-expanded','true'); }
-    if (fab){
-      fab.addEventListener('click', openSheet);
-      mask.addEventListener('click', closeSheet);
-      document.getElementById('toc-sheet-x').addEventListener('click', closeSheet);
-      document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeSheet(); });   // 不只靠手势
-    }
-    // 平滑跳转 + 跳完收起 sheet(scroll-margin-top 处理 sticky-nav 偏移)
-    tocLinks().forEach(function(a){
-      a.addEventListener('click', function(e){ e.preventDefault(); var el=document.querySelector(this.getAttribute('href')); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); closeSheet(); });
-    });
-
-    spy();
-  })();
-</script>
+<script th:src="@{/js/toc.js(v=${buildVersion})}"></script>
 
 <div id="modal"></div>
 <footer th:replace="~{fragments/layout :: footer}"></footer>

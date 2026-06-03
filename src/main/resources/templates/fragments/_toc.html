@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  长文目录共用件 · v0.5.7
+  用法(页面):
+    <main th:with="tocItems=${ { {label:'概览',href:'#sec-a'}, {label:'趋势',href:'#sec-b'} } }">
+      <div class="toc-cols">
+        <div class="toc-cols-main"> ...内容(各 section 带 id + scroll-margin-top)... </div>
+        <th:block th:replace="~{fragments/_toc :: rail(${tocItems})}"></th:block>
+      </div>
+      <th:block th:replace="~{fragments/_toc :: mobile(${tocItems})}"></th:block>
+    </main>
+    <script th:src="@{/js/toc.js(v=${buildVersion})}"></script>
+  · CSS 在 style.css(.toc-cols/.toc-rail/.toc-node/.toc-fab/.toc-sheet)· JS 在 /js/toc.js(页面无关自动接)
+-->
+
+<!-- PC 常驻树状目录栏(放进 .toc-cols 作一列 · 显隐+左右由 .toc-rail 媒体查询管)-->
+<aside th:fragment="rail(items)" class="toc-rail" aria-label="本页目录">
+  <div class="toc-head">本 页 目 录</div>
+  <nav class="toc-tree" data-toc-nav>
+    <a th:each="it : ${items}" class="toc-node" th:href="${it.href}" data-toc><span class="lbl" th:text="${it.label}">章节</span></a>
+  </nav>
+</aside>
+
+<!-- 移动端:左上唤醒钮(icon-only)+ 底部 sheet -->
+<th:block th:fragment="mobile(items)">
+  <button class="toc-fab" id="toc-fab-btn" type="button" aria-label="本页目录" title="本页目录" aria-expanded="false">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/>
+      <line x1="3.5" y1="6" x2="3.51" y2="6"/><line x1="3.5" y1="12" x2="3.51" y2="12"/><line x1="3.5" y1="18" x2="3.51" y2="18"/>
+    </svg>
+  </button>
+  <div class="toc-sheet-mask" id="toc-mask"></div>
+  <div class="toc-sheet" id="toc-sheet" role="dialog" aria-label="本页目录" aria-modal="true">
+    <div class="toc-sheet-handle"></div>
+    <div class="toc-sheet-row"><span class="toc-head">目录 · 本页</span><button class="toc-sheet-x" id="toc-sheet-x" type="button" aria-label="关闭">×</button></div>
+    <nav class="toc-tree" data-toc-nav>
+      <a th:each="it : ${items}" class="toc-node" th:href="${it.href}" data-toc><span class="lbl" th:text="${it.label}">章节</span></a>
+    </nav>
+  </div>
+</th:block>
+</body>
+</html>

@@ -8,7 +8,10 @@
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('checkup', ${me}, ${nav})}"></header>
 
-<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10"
+      th:with="tocItems=${ { {label:'概览',href:'#checkup-overview'}, {label:'资产配置',href:'#allocation'}, {label:'风险敞口',href:'#risk'}, {label:'流动性',href:'#liquidity'}, {label:'收益质量',href:'#return'}, {label:'智能建议',href:'#checkup-advice'}, {label:'AI 综合诊断',href:'#checkup-ai'}, {label:'单账户体检',href:'#checkup-accounts'} } }">
+ <div class="toc-cols">
+  <div class="toc-cols-main">
 
   <section class="mb-8">
     <div class="eyebrow mb-2">资 · 产 · 体 · 检 · 全 · 家</div>
@@ -19,7 +22,7 @@
   </section>
 
   <!-- 顶部 KPI 横条 -->
-  <section class="grid grid-cols-2 lg:grid-cols-5 gap-px bg-rule mb-8">
+  <section id="checkup-overview" class="grid grid-cols-2 lg:grid-cols-5 gap-px bg-rule mb-8" style="scroll-margin-top:80px">
     <div class="kpi-card">
       <span class="kpi-eyebrow">净资产<th:block th:insert="~{fragments/_kpi-info :: i('总资产 − 总负债。含全部账户,本位币换算。', ${calc.netWorth})}"/></span>
       <div class="kpi-value tnum"
@@ -167,7 +170,7 @@
   </section>
 
   <!-- 智能建议 · FR-40c · 6 条家庭级规则命中后显示 -->
-  <section class="mb-8" th:if="${!#lists.isEmpty(advice)}">
+  <section id="checkup-advice" class="mb-8" style="scroll-margin-top:80px" th:if="${!#lists.isEmpty(advice)}">
     <div class="flex items-baseline justify-between mb-3 flex-wrap gap-2">
       <div>
         <div class="eyebrow mb-1">来 · 自 · 账 · 房 · 的 · 提 · 醒</div>
@@ -190,7 +193,7 @@
   </section>
 
   <!-- AI 综合智能诊断 · FR-40c 决策 20(2026-05-10) · 异步加载 + spinner placeholder -->
-  <section class="mb-8">
+  <section id="checkup-ai" class="mb-8" style="scroll-margin-top:80px">
     <div class="flex items-baseline justify-between mb-3 flex-wrap gap-2">
       <div>
         <div class="eyebrow mb-1">资 · 产 · 顾 · 问 · 视 · 角</div>
@@ -201,15 +204,15 @@
     <div th:replace="~{checkup/_ai-diagnose :: placeholder(aiDiagnoseUrl=@{/checkup/diagnose})}"></div>
   </section>
 
-  <section class="paper-card p-5 bg-card-soft text-sm text-ink-soft mb-8"
+  <section id="checkup-advice" class="paper-card p-5 bg-card-soft text-sm text-ink-soft mb-8"
            th:if="${#lists.isEmpty(advice)}"
-           style="border-left: 3px solid var(--forest)">
+           style="border-left: 3px solid var(--forest);scroll-margin-top:80px">
     <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-1">健康状态良好</div>
     <p>当前 6 条家庭级规则均未命中,组合在「流动性 / 风险与配置 / 收益质量」维度都处于推荐区间。继续保持。</p>
   </section>
 
   <!-- 进入账户级体检的入口 -->
-  <section class="paper-card p-5">
+  <section id="checkup-accounts" class="paper-card p-5" style="scroll-margin-top:80px">
     <div class="flex items-baseline justify-between mb-3">
       <h2 class="font-display text-xl font-medium">单账户深入体检</h2>
       <span class="font-mono text-[10px] text-ink-subtle"
@@ -310,7 +313,13 @@
       }
     })();
   </script>
+  </div>
+  <!-- v0.5.7 · 长文目录共用件 -->
+  <th:block th:replace="~{fragments/_toc :: rail(${tocItems})}"></th:block>
+ </div>
+ <th:block th:replace="~{fragments/_toc :: mobile(${tocItems})}"></th:block>
 </main>
+<script th:src="@{/js/toc.js(v=${buildVersion})}"></script>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 </body>

@@ -1148,3 +1148,24 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 **backward-compat 红线**
 - 纯前端 · 0 schema · 0 后端逻辑改动 · dashboard 不加目录(不动)
 - 章节锚点为新增 id,不改既有结构/样式
+
+### v0.5.7 · 长文目录推广到长 tab 页(FR-99 · 2026-06-04)
+
+**黑盒 · qa-run(v05-TOC-2/3)**
+
+| Case | 校验 |
+|---|---|
+| v05-TOC-2 | `/dashboard` 含 `class="toc-rail"` + `js/toc.js` + 锚点 `#dash-trend` |
+| v05-TOC-3 | `/checkup` 含 `class="toc-rail"` + `js/toc.js` + 锚点 `#checkup-ai` |
+
+**人工 · beta 验收**
+
+| 页 | 校验 |
+|---|---|
+| dashboard | 宽屏左侧目录(概览/净资产趋势/按成员/按账户/账户列表)滚动高亮;手机左上钮→sheet |
+| checkup | 左侧目录(概览/资产配置/风险/流动性/收益/智能建议/AI/账户体检)· advice 有无两态锚点都在 |
+| reports | 改用共用件后行为不变 |
+
+**backward-compat 红线**
+- 纯前端 · 0 schema · 不动指标/数据 · dashboard region HTMX 90s 自刷后 scrollspy 经 htmx:afterSettle 重算
+- 不做目录的页(entry/accounts/goals 列表/admin)不受影响

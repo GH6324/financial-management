@@ -163,7 +163,7 @@
   </section>
 
   <!-- v0.4 FR-61a · 净资产趋势 + CPI 对照线 + CPI 切换器 -->
-  <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-10">
+  <section id="dash-trend" class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-10" style="scroll-margin-top:80px">
     <div class="paper-card p-6 lg:col-span-8">
       <div class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
         <div class="eyebrow">净资产趋势 · 名义 vs 实际购买力</div>
@@ -188,7 +188,7 @@
   </section>
 
   <!-- v0.4 FR-60a 砍 · 收入/支出/储蓄率组合图 → 储蓄区已有更专业版 -->
-  <section class="mb-10">
+  <section id="dash-member" class="mb-10" style="scroll-margin-top:80px">
     <div class="paper-card p-6">
       <div class="flex items-baseline justify-between mb-1">
         <div class="eyebrow">按成员分布</div>
@@ -199,7 +199,7 @@
   </section>
 
   <!-- v0.2 (2026-05-10) · 按账户分布(横向 bar,0 轴居中,LOAN 向左)-->
-  <section class="paper-card p-6 mb-10">
+  <section id="dash-dist" class="paper-card p-6 mb-10" style="scroll-margin-top:80px">
     <div class="flex items-baseline justify-between mb-1">
       <div class="eyebrow">按账户分布</div>
       <span class="font-mono text-[10px] text-ink-subtle">资产向右 · 负债向左 · 0 居中</span>
@@ -209,7 +209,7 @@
     </div>
   </section>
 
-  <section class="mb-10">
+  <section id="dash-list" class="mb-10" style="scroll-margin-top:80px">
     <div class="flex items-baseline justify-between mb-3">
       <h2 class="font-display text-2xl font-medium">账户列表</h2>
       <span class="font-mono text-[10px] text-ink-subtle" th:text="${#lists.size(accountRows)} + ' 个账户'">11 个账户</span>

@@ -7,17 +7,26 @@
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('dashboard', ${me}, ${nav})}"></header>
 
-<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10">
-  <!-- v0.3 FR-50d · 目标进度条带(无目标显引导卡)· 在 region 外 · HTMX 刷新不重渲 -->
-  <th:block th:if="${goalsProgress != null and !#lists.isEmpty(goalsProgress)}">
-    <div th:replace="~{goals/_progress-strip :: strip(${goalsProgress})}"></div>
-  </th:block>
-  <th:block th:if="${goalsProgress == null or #lists.isEmpty(goalsProgress)}">
-    <div th:replace="~{goals/_progress-strip :: emptyHint}"></div>
-  </th:block>
+<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10"
+      th:with="tocItems=${ { {label:'概览',href:'#dashboard-region'}, {label:'净资产趋势',href:'#dash-trend'}, {label:'按成员分布',href:'#dash-member'}, {label:'按账户分布',href:'#dash-dist'}, {label:'账户列表',href:'#dash-list'} } }">
+  <div class="toc-cols">
+    <div class="toc-cols-main">
+      <!-- v0.3 FR-50d · 目标进度条带(无目标显引导卡)· 在 region 外 · HTMX 刷新不重渲 -->
+      <th:block th:if="${goalsProgress != null and !#lists.isEmpty(goalsProgress)}">
+        <div th:replace="~{goals/_progress-strip :: strip(${goalsProgress})}"></div>
+      </th:block>
+      <th:block th:if="${goalsProgress == null or #lists.isEmpty(goalsProgress)}">
+        <div th:replace="~{goals/_progress-strip :: emptyHint}"></div>
+      </th:block>
 
-  <div id="dashboard-region" th:replace="~{dashboard/_region :: region}"></div>
+      <div id="dashboard-region" th:replace="~{dashboard/_region :: region}"></div>
+    </div>
+    <!-- v0.5.7 · 长文目录共用件 -->
+    <th:block th:replace="~{fragments/_toc :: rail(${tocItems})}"></th:block>
+  </div>
+  <th:block th:replace="~{fragments/_toc :: mobile(${tocItems})}"></th:block>
 </main>
+<script th:src="@{/js/toc.js(v=${buildVersion})}"></script>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 </body>
