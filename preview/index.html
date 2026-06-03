@@ -12,208 +12,101 @@
   <script>
     tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
   </script>
+  <style>
+    .ver-card { background:var(--card); padding:1.5rem 1.5rem 1.25rem; text-decoration:none; display:block; transition:background .15s; }
+    .ver-card:hover { background:var(--card-soft); }
+    .pill-ship { background:rgba(47,93,80,.12); color:var(--forest); border:1px solid var(--forest); }
+  </style>
 </head>
 <body class="min-h-screen relative">
-
   <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 
-  <main class="max-w-[1100px] mx-auto px-8 md:px-16 py-20 md:py-28 relative z-10">
+  <main class="max-w-[1100px] mx-auto px-8 md:px-16 py-20 md:py-24 relative z-10">
 
-    <div class="mb-16">
+    <div class="mb-14">
       <div class="eyebrow mb-4">№ 张 — 私家账房 · FAMILY · COUNTING · HOUSE</div>
       <h1 class="font-display text-5xl md:text-7xl leading-[0.95] font-medium tracking-tight">
-        家庭账房<br/>
-        <span class="italic font-light text-brass-deep">设计预览索引</span>
+        家庭账房<br/><span class="italic font-light text-brass-deep">设计预览索引</span>
       </h1>
       <p class="font-serif text-base md:text-lg text-ink-soft max-w-2xl mt-6 leading-relaxed">
-        每个版本一卷预览。v0.1 / v0.2 已封板上线,v0.3 在设计中(长期视角 + AI 多处介入 + 股票自动估值)。
-        所有页面是静态 HTML + Tailwind CDN,落地到 Spring Boot + Thymeleaf 时 DOM 直接复用。
+        每个版本一卷预览。<b>v0.1 ~ v0.5 均已上线</b>(prod 跑 v0.5.4),<b>v0.5.6 在设计中</b>(报表已关账快照 + 长文目录)。
+        所有页面是静态 HTML + Tailwind CDN,落地 Spring Boot + Thymeleaf 时 DOM 直接复用。
       </p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-px bg-rule mb-12">
-
-      <!-- v0.1 已交付 -->
-      <a href="v0.1/index.html" class="bg-card p-8 md:p-10 hover:bg-card-soft transition no-underline group block">
-        <div class="flex items-baseline justify-between mb-6">
-          <div>
-            <div class="eyebrow mb-2" style="color:var(--forest)">已 · 交 · 付 · 2026-05</div>
-            <h2 class="font-display text-4xl md:text-5xl font-medium tracking-tight group-hover:text-forest transition">v0.1</h2>
-          </div>
-          <span class="pill" style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)">SHIPPED</span>
-        </div>
-        <h3 class="font-serif text-xl mb-3 italic">起居室里的银行家账册</h3>
-        <p class="text-sm text-ink-soft mb-5 leading-relaxed">
-          22 条 FR · 78 条 QA 全 PASS · 跑通"夫妻每月 10 分钟"最小闭环。
-          填报 / 仪表盘 / 报表 / 多币种 / CSV 导出 / 强制关账 / 周期重开 / 完整审计。
-        </p>
-        <div class="grid grid-cols-3 gap-4 mb-5 pt-5 border-t border-rule-soft">
-          <div>
-            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">页面</div>
-            <div class="font-display text-2xl tnum">15</div>
-          </div>
-          <div>
-            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">FR</div>
-            <div class="font-display text-2xl tnum">22</div>
-          </div>
-          <div>
-            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">QA</div>
-            <div class="font-display text-2xl tnum">78</div>
-          </div>
-        </div>
-        <div class="font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-forest transition">
-          → 进入 v0.1 完整索引
-        </div>
+    <!-- 已上线:v0.1 ~ v0.5 -->
+    <div class="eyebrow mb-3" style="color:var(--forest)">已 · 上 · 线</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-rule mb-10">
+      <a href="v0.1/index.html" class="ver-card group">
+        <div class="flex items-baseline justify-between mb-2"><h2 class="font-display text-3xl font-medium group-hover:text-forest transition">v0.1</h2><span class="pill pill-ship font-mono text-[10px] px-2 py-0.5">SHIPPED</span></div>
+        <h3 class="font-serif text-base italic mb-2">每月 10 分钟最小闭环</h3>
+        <p class="text-xs text-ink-soft leading-relaxed">填报 / 仪表盘 / 报表 / 多币种 / XIRR / CSV / 强制关账 · 22 FR</p>
       </a>
-
-      <!-- v0.2 已交付 -->
-      <a href="v0.2/index.html" class="bg-card p-8 md:p-10 hover:bg-card-soft transition no-underline group block">
-        <div class="flex items-baseline justify-between mb-6">
-          <div>
-            <div class="eyebrow mb-2" style="color:var(--forest)">已 · 交 · 付 · 2026-05</div>
-            <h2 class="font-display text-4xl md:text-5xl font-medium tracking-tight group-hover:text-forest transition">v0.2</h2>
-          </div>
-          <span class="pill" style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)">SHIPPED</span>
-        </div>
-        <h3 class="font-serif text-xl mb-3 italic">用着舒服 · 资产体检 + AI 综合诊断</h3>
-        <p class="text-sm text-ink-soft mb-5 leading-relaxed">
-          16 条新 FR(FR-30~40e)· 单账户深度 + 资产体检 + 智能建议引擎 + LLM 综合诊断 +
-          产品类目 + 风险评级 + 基准对照 + 微信引导 + iOS PWA。
-        </p>
-        <div class="grid grid-cols-3 gap-4 mb-5 pt-5 border-t border-rule-soft">
-          <div>
-            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">新页</div>
-            <div class="font-display text-2xl tnum">5</div>
-          </div>
-          <div>
-            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">新 FR</div>
-            <div class="font-display text-2xl tnum">16</div>
-          </div>
-          <div>
-            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">QA</div>
-            <div class="font-display text-2xl tnum">180+</div>
-          </div>
-        </div>
-        <div class="font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-forest transition">
-          → 进入 v0.2 增量索引
-        </div>
+      <a href="v0.2/index.html" class="ver-card group">
+        <div class="flex items-baseline justify-between mb-2"><h2 class="font-display text-3xl font-medium group-hover:text-forest transition">v0.2</h2><span class="pill pill-ship font-mono text-[10px] px-2 py-0.5">SHIPPED</span></div>
+        <h3 class="font-serif text-base italic mb-2">资产体检 + AI 综合诊断</h3>
+        <p class="text-xs text-ink-soft leading-relaxed">单账户深度 + 智能建议引擎 + LLM 诊断 + 风险评级 + PWA · 16 FR</p>
       </a>
-
-      <!-- v0.3 设计中 -->
-      <a href="v0.3/index.html" class="bg-card p-8 md:p-10 hover:bg-card-soft transition no-underline group block"
-         style="background: linear-gradient(180deg, rgba(122,90,57,.04) 0%, var(--card) 50%);">
-        <div class="flex items-baseline justify-between mb-6">
-          <div>
-            <div class="eyebrow mb-2" style="color:var(--brass-deep)">设 · 计 · 中 · 2026-05</div>
-            <h2 class="font-display text-4xl md:text-5xl font-medium tracking-tight group-hover:text-brass-deep transition">v0.3</h2>
-          </div>
-          <span class="pill pill-brass">DESIGNING</span>
-        </div>
-        <h3 class="font-serif text-xl mb-3 italic">朝哪儿走 · 目标 + AI 多处介入 + 股票自动估值</h3>
-        <p class="text-sm text-ink-soft mb-5 leading-relaxed">
-          12 条新 FR(FR-50~53d)· 3 长期目标(退休/教育/应急)+ 三情景预测 +
-          AI 4 处介入(向导/月报/预警/体检增强)+ 股票账户自动估值(美股/A 股/港股)+ 储蓄能力指标。
-        </p>
-        <div class="grid grid-cols-3 gap-4 mb-5 pt-5 border-t border-rule-soft">
-          <div>
-            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">新页</div>
-            <div class="font-display text-2xl tnum text-brass-deep">15</div>
-          </div>
-          <div>
-            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">新 FR</div>
-            <div class="font-display text-2xl tnum text-brass-deep">12</div>
-          </div>
-          <div>
-            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">DDL</div>
-            <div class="font-display text-2xl tnum text-brass-deep">V14-V17</div>
-          </div>
-        </div>
-        <div class="font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-brass-deep transition">
-          → 进入 v0.3 增量索引
-        </div>
+      <a href="v0.3/index.html" class="ver-card group">
+        <div class="flex items-baseline justify-between mb-2"><h2 class="font-display text-3xl font-medium group-hover:text-forest transition">v0.3</h2><span class="pill pill-ship font-mono text-[10px] px-2 py-0.5">SHIPPED</span></div>
+        <h3 class="font-serif text-base italic mb-2">朝哪儿走 · 目标 + 股票估值</h3>
+        <p class="text-xs text-ink-soft leading-relaxed">3 类目标 + 三情景预测 + AI 4 处介入 + 股票自动估值 · 12 FR</p>
       </a>
-
-      <!-- v0.4 设计中 -->
-      <a href="v0.4/index.html" class="bg-card p-8 md:p-10 hover:bg-card-soft transition no-underline group block mt-6 md:col-span-2"
-         style="background: linear-gradient(180deg, rgba(122,90,57,.06) 0%, var(--card) 50%); border-left: 4px solid var(--brass-deep);">
-        <div class="flex items-baseline justify-between mb-6">
-          <div>
-            <div class="eyebrow mb-2" style="color:var(--brass-deep)">设 · 计 · 中 · 2026-05-14</div>
-            <h2 class="font-display text-4xl md:text-5xl font-medium tracking-tight group-hover:text-brass-deep transition">v0.4 · 报表整顿 + 摸清第 5 问</h2>
-          </div>
-          <span class="pill pill-brass">DESIGNING</span>
-        </div>
-        <h3 class="font-serif text-xl mb-3 italic">看清钱不贬值 · 调优有依据</h3>
-        <p class="text-sm text-ink-soft mb-5 leading-relaxed">
-          产品定位重塑:不是流水/记账,核心是<b>摸清资产 + 让钱增值不贬值</b>。
-          砍流水视角图(瀑布/桑基/月度对比)· 补"<b>跑赢通胀和市场了吗</b>"空白(CPI 对照 + 基准 vs)·
-          加调优决策(配置 diff + AI 调仓 + 应急金不闲置 + 提前还贷决策器)。
-        </p>
-        <div class="grid grid-cols-4 gap-4 mb-5 pt-5 border-t border-rule-soft">
-          <div>
-            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">主线</div>
-            <div class="font-display text-2xl tnum text-brass-deep">3</div>
-          </div>
-          <div>
-            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">新 FR</div>
-            <div class="font-display text-2xl tnum text-brass-deep">10</div>
-          </div>
-          <div>
-            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">DDL</div>
-            <div class="font-display text-2xl tnum text-brass-deep">V21-V23</div>
-          </div>
-          <div>
-            <div class="font-mono text-[9px] tracking-wider text-ink-subtle uppercase mb-1">砍图</div>
-            <div class="font-display text-2xl tnum text-rust">8 张</div>
-          </div>
-        </div>
-        <div class="font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-brass-deep transition">
-          → 进入 v0.4 增量索引
-        </div>
+      <a href="v0.4/index.html" class="ver-card group">
+        <div class="flex items-baseline justify-between mb-2"><h2 class="font-display text-3xl font-medium group-hover:text-forest transition">v0.4</h2><span class="pill pill-ship font-mono text-[10px] px-2 py-0.5">SHIPPED</span></div>
+        <h3 class="font-serif text-base italic mb-2">报表整顿 + 摸清第 5 问</h3>
+        <p class="text-xs text-ink-soft leading-relaxed">砍流水图 · CPI 对照 + 基准 vs · 调仓/还贷决策 · 填报规范 + 管理页 · 10 FR</p>
       </a>
+      <a href="v0.5/index.html" class="ver-card group">
+        <div class="flex items-baseline justify-between mb-2"><h2 class="font-display text-3xl font-medium group-hover:text-forest transition">v0.5</h2><span class="pill pill-ship font-mono text-[10px] px-2 py-0.5">SHIPPED</span></div>
+        <h3 class="font-serif text-base italic mb-2">财富水位 · CPI/M2 双基准</h3>
+        <p class="text-xs text-ink-soft leading-relaxed">净资产 vs 购买力线 + 社会财富线 · 股票现金联动 · FIRE 自适应 · 净流入修复 · FR-70~85</p>
+      </a>
+      <div class="ver-card" style="cursor:default">
+        <div class="flex items-baseline justify-between mb-2"><h2 class="font-display text-3xl font-medium text-ink-subtle">v0.5.x</h2><span class="font-mono text-[10px] text-ink-subtle">PATCH</span></div>
+        <h3 class="font-serif text-base italic mb-2 text-ink-soft">补丁(无独立卷)</h3>
+        <p class="text-xs text-ink-subtle leading-relaxed">.1 比值币种修复 · .2 目标 hotfix · .3 指标真实数值 tooltip · .4 月报脱敏/AI洞察入口</p>
+      </div>
     </div>
 
-    <!-- 关系说明 -->
+    <!-- 设计中:v0.5.6 -->
+    <div class="eyebrow mb-3" style="color:var(--brass-deep)">设 · 计 · 中</div>
+    <a href="v0.5.6/index.html" class="block no-underline group mb-12"
+       style="background:linear-gradient(180deg, rgba(122,90,57,.07) 0%, var(--card) 55%); border:1px solid var(--rule); border-left:4px solid var(--brass-deep); padding:2rem 2rem 1.75rem">
+      <div class="flex items-baseline justify-between flex-wrap gap-3 mb-3">
+        <h2 class="font-display text-4xl md:text-5xl font-medium tracking-tight group-hover:text-brass-deep transition">v0.5.6 · 报表已关账快照 + 长文目录</h2>
+        <span class="pill pill-brass">DESIGNING</span>
+      </div>
+      <p class="text-sm text-ink-soft leading-relaxed mb-4 max-w-3xl">
+        ① 报表收益口径回归<b>"已关账快照"</b>(不再被月中进行中账期拖成 0,朱印「已关账」透出);
+        ② <b>长文目录</b> —— PC 右侧常驻树状大纲 + scrollspy,手机左上唤醒钮 + 底部 sheet,支持多层嵌套。
+        v0.5.5(已关账快照)不单独发,并入 v0.5.6 一起上线。
+      </p>
+      <div class="font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-brass-deep transition">→ 进入 v0.5.6 卷(2 个 demo)</div>
+    </a>
+
     <section class="paper-card p-8 mb-8">
       <div class="eyebrow mb-3">版 · 本 · 关 · 系</div>
       <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div>
-          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-forest mb-2">v0.1 · 已交付</div>
-          <p class="text-sm text-ink-soft leading-relaxed">
-            最小闭环:夫妻每月 10 分钟填报、看仪表盘、看报表、按账户筛选、CSV 导出。
-          </p>
-        </div>
-        <div>
-          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-forest mb-2">v0.2 · 已交付</div>
-          <p class="text-sm text-ink-soft leading-relaxed">
-            <span class="text-ink">用着舒服</span>:单账户回溯 + 资产体检 + AI 综合诊断 + 移动端体验。
-          </p>
-        </div>
-        <div>
-          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep mb-2">v0.3 · 当前</div>
-          <p class="text-sm text-ink-soft leading-relaxed">
-            <span class="text-ink">朝哪儿走</span>:3 类目标 + 三情景预测 + AI 4 处介入 + 股票账户自动估值。
-          </p>
-        </div>
-        <div>
-          <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-2">v1.0 · 远景</div>
-          <p class="text-sm text-ink-subtle leading-relaxed">
-            一次性目标(还贷/大额采购)· 基金 ETF 自动估值 · 行业基准对比 · 见各版 PRD 附录。
-          </p>
-        </div>
+        <div><div class="font-mono text-[10px] tracking-[0.16em] uppercase text-forest mb-2">v0.1-0.2 · 已交付</div><p class="text-sm text-ink-soft leading-relaxed">最小闭环 + 用着舒服:10 分钟填报、体检、AI 诊断、移动端。</p></div>
+        <div><div class="font-mono text-[10px] tracking-[0.16em] uppercase text-forest mb-2">v0.3-0.4 · 已交付</div><p class="text-sm text-ink-soft leading-relaxed">朝哪儿走 + 看清不贬值:目标/股票估值、报表整顿、CPI/基准对照、调优决策。</p></div>
+        <div><div class="font-mono text-[10px] tracking-[0.16em] uppercase text-forest mb-2">v0.5 · 已交付</div><p class="text-sm text-ink-soft leading-relaxed">财富水位:净资产 vs CPI 购买力线 + M2 社会财富线;股票现金联动;FIRE 自适应。</p></div>
+        <div><div class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep mb-2">v0.5.6 · 当前</div><p class="text-sm text-ink-soft leading-relaxed">报表已关账快照透出 + 长文目录(PC 常驻大纲 + 手机 sheet · scrollspy · 多层嵌套)。</p></div>
       </div>
     </section>
 
-    <section class="border-t-2 border-double border-ink pt-6 flex items-center justify-between flex-wrap gap-4 mt-12">
+    <section class="border-t-2 border-double border-ink pt-6 flex items-center justify-between flex-wrap gap-4 mt-10">
       <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle">家 · 庭 · 内 · 部 · 使 · 用</div>
-      <div class="flex gap-3">
-        <a href="v0.1/index.html" class="btn-paper no-underline">v0.1 · SHIPPED</a>
-        <a href="v0.2/index.html" class="btn-paper no-underline">v0.2 · SHIPPED</a>
-        <a href="v0.3/index.html" class="btn-ink no-underline">v0.3 · DESIGNING</a>
+      <div class="flex gap-2 flex-wrap">
+        <a href="v0.1/index.html" class="btn-paper no-underline text-[11px]">v0.1</a>
+        <a href="v0.2/index.html" class="btn-paper no-underline text-[11px]">v0.2</a>
+        <a href="v0.3/index.html" class="btn-paper no-underline text-[11px]">v0.3</a>
+        <a href="v0.4/index.html" class="btn-paper no-underline text-[11px]">v0.4</a>
+        <a href="v0.5/index.html" class="btn-paper no-underline text-[11px]">v0.5</a>
+        <a href="v0.5.6/index.html" class="btn-ink no-underline text-[11px]">v0.5.6 · DESIGNING</a>
       </div>
     </section>
 
   </main>
-
 </body>
 </html>

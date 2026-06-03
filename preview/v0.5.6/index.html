@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.5.6 预览索引</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+  <style>
+    body { background: var(--paper); color: var(--ink); }
+    .eyebrow { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--brass-deep); }
+    .pill { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.1em; padding:3px 10px; border-radius:2px; }
+  </style>
+</head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<main class="max-w-[1000px] mx-auto px-8 md:px-12 py-16 relative z-10">
+
+  <div class="mb-3"><a href="../index.html" class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle hover:text-ink no-underline">← 版本入口</a></div>
+  <div class="flex items-baseline justify-between flex-wrap gap-3 mb-4">
+    <div>
+      <div class="eyebrow mb-2">设 · 计 · 中 · 2026-06-03</div>
+      <h1 class="font-display text-4xl md:text-6xl font-medium tracking-tight">v0.5.6</h1>
+    </div>
+    <span class="pill pill-brass">DESIGNING</span>
+  </div>
+  <p class="font-serif text-base text-ink-soft max-w-2xl mb-10 leading-relaxed">
+    报表两件事:① <b>收益口径回归"已关账快照"</b>(不再被月中进行中账期拖成 0,朱印透出);
+    ② <b>长文目录</b>(PC 右侧常驻树状大纲 + scrollspy,手机左上唤醒钮 + 底部 sheet)。
+    v0.5.5(已关账快照)不单独发,与本目录功能合并为 v0.5.6 一起上线。
+  </p>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-px bg-rule">
+    <a href="reports-toc.html" class="bg-card p-8 hover:bg-card-soft transition no-underline group block">
+      <div class="eyebrow mb-2" style="color:var(--brass-deep)">FR-98+ · 主 看 点</div>
+      <h2 class="font-display text-3xl font-medium mb-3 group-hover:text-brass-deep transition">报表长文目录</h2>
+      <p class="text-sm text-ink-soft leading-relaxed mb-4">
+        PC 右侧常驻树状大纲(竖线/树枝 · 多层嵌套)+ scrollspy 当前节高亮;
+        手机左上角唤醒钮 → 底部 sheet。参考飞书 / NN/g / Wikipedia 2025。
+      </p>
+      <div class="font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-brass-deep transition">→ 看目录交互 demo</div>
+    </a>
+    <a href="closed-snapshot.html" class="bg-card p-8 hover:bg-card-soft transition no-underline group block">
+      <div class="eyebrow mb-2" style="color:var(--rust)">FR-94~97 · 并 入</div>
+      <h2 class="font-display text-3xl font-medium mb-3 group-hover:text-brass-deep transition">报表已关账快照</h2>
+      <p class="text-sm text-ink-soft leading-relaxed mb-4">
+        报表锚"最近已关账(≤今天)账期" · 朱印「已关账」透出 · 不足 2 期诚实空态 ·
+        #3 人赚口径澄清。dashboard 仍实时。
+      </p>
+      <div class="font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-brass-deep transition">→ 看快照透出 demo</div>
+    </a>
+  </div>
+
+  <p class="font-mono text-[10px] text-ink-subtle mt-8 leading-relaxed">
+    PRD:prd/v0.5.md §11(FR-94~97)+ §12(目录)· Tech-design:tech-design/v0.5.md §7-8 ·
+    静态预览,落地 Thymeleaf 时 DOM 复用。
+  </p>
+</main>
+</body>
+</html>
