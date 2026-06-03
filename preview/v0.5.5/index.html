@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.5.5 Preview · 报表「已关账快照」</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+  <style>
+    body { background: var(--paper); color: var(--ink); }
+    .eyebrow { font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--brass-deep); }
+    .paper-card { background: var(--card); border: 1px solid var(--rule); box-shadow: var(--shadow-paper); }
+    .kpi-eyebrow { font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-subtle); display:flex; align-items:center; }
+    .kpi-value { font-family: "Fraunces", serif; font-size: 1.9rem; font-weight: 500; line-height: 1.1; margin-top: .35rem; }
+    .num-pos { color: var(--forest); } .num-neg { color: var(--rust); }
+    .tnum { font-variant-numeric: tabular-nums; }
+    .kpi-card { background: var(--card); padding: 1.1rem 1.15rem; }
+    . kpi-grid { gap:1px; background: var(--rule); }
+    a.lnk { color: var(--brass-deep); text-decoration: none; border-bottom: 1px solid rgba(140,106,51,.4); }
+    a.lnk:hover { color: var(--ink); }
+
+    /* —— 朱印「已关账」印章 —— */
+    .seal {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:62px; height:62px; flex-shrink:0;
+      color: var(--rust);
+      border: 2.5px solid var(--rust);
+      border-radius: 7px;
+      background: rgba(156,74,42,.045);
+      box-shadow: inset 0 0 0 2px rgba(156,74,42,.18), 0 1px 0 rgba(26,23,20,.04);
+      transform: rotate(-6deg);
+      opacity: .92;
+    }
+    .seal span {
+      writing-mode: vertical-rl; text-orientation: upright;
+      font-family: "Noto Serif SC", serif; font-weight: 700;
+      font-size: 16px; letter-spacing: 2px; line-height: 1;
+    }
+    /* 备选:横排印章 */
+    .seal-h {
+      display:inline-flex; align-items:center; gap:2px;
+      color: var(--rust); border: 2px solid var(--rust); border-radius: 5px;
+      background: rgba(156,74,42,.05); padding: 4px 9px;
+      font-family:"Noto Serif SC",serif; font-weight:700; font-size:13px; letter-spacing:3px;
+      transform: rotate(-3deg);
+    }
+    .pill { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.1em; padding:2px 8px; border:1px solid var(--rule); border-radius:2px; }
+    .tab { font-family:"JetBrains Mono",monospace; font-size:12px; letter-spacing:.12em; padding:6px 16px; text-decoration:none; }
+    .annot { font-family:"JetBrains Mono",monospace; font-size:11px; color: var(--ink-subtle); }
+  </style>
+</head>
+<body class="min-h-screen">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+<div class="max-w-[1180px] mx-auto px-5 md:px-8 py-10">
+
+  <!-- 版本头 -->
+  <div class="flex items-start justify-between flex-wrap gap-4 mb-2">
+    <div>
+      <div class="eyebrow mb-2">家庭账房 · v0.5.5 Preview</div>
+      <h1 class="font-display text-3xl md:text-4xl font-medium tracking-tight">报表 ·「已关账快照」透出</h1>
+    </div>
+    <a href="../index.html" class="annot hover:text-ink no-underline" style="border-bottom:1px solid var(--rule)">← 版本入口</a>
+  </div>
+  <p class="font-serif text-sm text-ink-soft max-w-3xl mb-8 leading-relaxed">
+    报表四指标的数据切片终点改为「最近已关账账期」(快照),不再锚在月中还空着的进行中账期 ——
+    解决「人赚常年 0」+ XIRR/TWR 用半填净值失真。页头用<span class="text-rust font-medium">朱印「已关账」印章</span>明确透出本页性质,与<span class="text-ink">仪表盘(实时)</span>分工。
+  </p>
+
+  <!-- tab 对照(示意:报表=快照 / 仪表盘=实时) -->
+  <div class="flex items-center gap-1 mb-8 border-b border-rule">
+    <span class="tab text-ink-subtle">仪 表 盘 <span class="annot" style="color:var(--forest)">· 实时</span></span>
+    <span class="tab" style="border-bottom:2px solid var(--ink); color:var(--ink); margin-bottom:-1px">报 表 <span class="annot" style="color:var(--rust)">· 快照</span></span>
+  </div>
+
+  <!-- ============ 状态 A · 正常(≥2 已关账期)============ -->
+  <div class="annot mb-2">状态 A · 有 ≥2 个已关账账期(主场景)</div>
+  <section class="paper-card p-6 md:p-8 mb-10">
+    <!-- 页头 + 朱印 -->
+    <div class="flex items-start justify-between gap-6 flex-wrap">
+      <div>
+        <div class="eyebrow mb-2">月 · 度 · 大 · 账</div>
+        <h2 class="font-display text-3xl md:text-5xl font-medium tracking-tight">数 · 字 · <span class="italic font-light text-brass-deep">所至</span></h2>
+      </div>
+      <div class="seal" title="已关账快照"><span>已关账</span></div>
+    </div>
+    <!-- 说明行(替换原"进行中·实时更新") -->
+    <p class="font-serif text-sm mt-4 text-ink-soft">
+      本页为<span class="text-ink font-medium">已关账账期</span>的稳定快照 ·
+      数据截至 <span class="font-mono text-rust">2026 年 5 月</span>。
+      进行中的本月请看 <a class="lnk" href="#">仪表盘 →</a>
+    </p>
+
+    <!-- 4 banner -->
+    <div class="grid grid-cols-2 md:grid-cols-4 mt-6" style="gap:1px;background:var(--rule);border:1px solid var(--rule)">
+      <div class="kpi-card">
+        <div class="kpi-eyebrow">家庭 XIRR · 含收入 <span style="margin-left:4px;color:var(--ink-subtle)">ⓘ</span></div>
+        <div class="kpi-value tnum num-pos">+6.82%</div>
+        <div class="annot mt-1">vs 基准 4.5% · 跑赢 +2.3%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-eyebrow">资产年化 · 剔收入 ★ <span style="margin-left:4px;color:var(--ink-subtle)">ⓘ</span></div>
+        <div class="kpi-value tnum num-pos">+5.10%</div>
+        <div class="annot mt-1">12 月几何平均</div>
+      </div>
+      <div class="kpi-card" style="background:rgba(156,74,42,.04)">
+        <div class="kpi-eyebrow">人赚的 · 净流入 <span style="margin-left:4px;color:var(--rust)">ⓘ</span></div>
+        <div class="kpi-value tnum">¥393,724</div>
+        <div class="annot mt-1" style="color:var(--rust)">不再是 0 · 区间累计</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-eyebrow">钱赚的 · 投资 PnL <span style="margin-left:4px;color:var(--ink-subtle)">ⓘ</span></div>
+        <div class="kpi-value tnum num-neg">−¥95,683</div>
+        <div class="annot mt-1">资产升值/贬值累计</div>
+      </div>
+    </div>
+    <p class="annot mt-3">↑ 终点 = 已关账的 2026-05(填满)· 人赚口径 = 区间逐期(收入−支出)累计,满足「人赚+钱赚=区间净资产变化」</p>
+  </section>
+
+  <!-- ============ 状态 B · 仅 1 个已关账期 ============ -->
+  <div class="annot mb-2">状态 B · 仅 1 个已关账账期(差额无从算起 → 诚实空态,不显误导 0)</div>
+  <section class="paper-card p-6 md:p-8 mb-10">
+    <div class="flex items-start justify-between gap-6 flex-wrap">
+      <div>
+        <div class="eyebrow mb-2">月 · 度 · 大 · 账</div>
+        <h2 class="font-display text-3xl md:text-5xl font-medium tracking-tight">数 · 字 · <span class="italic font-light text-brass-deep">所至</span></h2>
+      </div>
+      <div class="seal" title="已关账快照"><span>已关账</span></div>
+    </div>
+    <p class="font-serif text-sm mt-4 text-ink-soft">
+      本页为<span class="text-ink font-medium">已关账账期</span>的稳定快照 ·
+      数据截至 <span class="font-mono text-rust">2026 年 5 月</span>。
+      进行中的本月请看 <a class="lnk" href="#">仪表盘 →</a>
+    </p>
+    <div class="grid grid-cols-2 md:grid-cols-4 mt-6" style="gap:1px;background:var(--rule);border:1px solid var(--rule)">
+      <div class="kpi-card"><div class="kpi-eyebrow">家庭 XIRR · 含收入</div><div class="kpi-value tnum text-ink-subtle">—</div><div class="annot mt-1">需 ≥2 个已关账账期</div></div>
+      <div class="kpi-card"><div class="kpi-eyebrow">资产年化 · 剔收入 ★</div><div class="kpi-value tnum text-ink-subtle">—</div><div class="annot mt-1">需 ≥2 个已关账账期</div></div>
+      <div class="kpi-card"><div class="kpi-eyebrow">人赚的 · 净流入</div><div class="kpi-value tnum text-ink-subtle">—</div><div class="annot mt-1">需 ≥2 个已关账账期</div></div>
+      <div class="kpi-card"><div class="kpi-eyebrow">钱赚的 · 投资 PnL</div><div class="kpi-value tnum text-ink-subtle">—</div><div class="annot mt-1">需 ≥2 个已关账账期</div></div>
+    </div>
+  </section>
+
+  <!-- ============ 状态 C · 0 个已关账期 ============ -->
+  <div class="annot mb-2">状态 C · 全新家庭 · 尚无已关账账期(不盖空印章,改引导卡)</div>
+  <section class="paper-card p-6 md:p-8 mb-10">
+    <div>
+      <div class="eyebrow mb-2">月 · 度 · 大 · 账</div>
+      <h2 class="font-display text-3xl md:text-5xl font-medium tracking-tight">数 · 字 · <span class="italic font-light text-brass-deep">所至</span></h2>
+    </div>
+    <div class="mt-5 p-5 text-center" style="background:var(--card-soft);border-left:4px solid var(--brass-deep)">
+      <p class="font-serif text-ink-soft mb-2">尚无已关账账期</p>
+      <p class="annot mb-4" style="text-transform:none;letter-spacing:0">完成本月填报并关账后,这里出现收益快照(XIRR / 资产年化 / 人赚 / 钱赚)。</p>
+      <a class="pill" style="border-color:var(--brass-deep);color:var(--brass-deep)" href="#">→ 去填报</a>
+    </div>
+  </section>
+
+  <!-- 印章样式备选(可微调) -->
+  <div class="annot mb-2">印章样式可微调(下面是两种渲染 · 默认用左侧竖排方印)</div>
+  <section class="paper-card p-6 mb-10 flex items-center gap-10 flex-wrap">
+    <div class="flex flex-col items-center gap-2">
+      <div class="seal"><span>已关账</span></div>
+      <span class="annot" style="text-transform:none">竖排方印(默认)</span>
+    </div>
+    <div class="flex flex-col items-center gap-2">
+      <span class="seal-h">已关账</span>
+      <span class="annot" style="text-transform:none">横排小印(备选)</span>
+    </div>
+  </section>
+
+  <!-- 改了什么 -->
+  <section class="paper-card p-6">
+    <div class="eyebrow mb-3">本 · 次 · 改 · 动</div>
+    <ul class="font-serif text-sm text-ink-soft leading-relaxed" style="list-style:none;padding:0">
+      <li class="mb-2">· <b class="text-ink">FR-94</b> 报表锚定「最近已关账(≤今天)账期」· dashboard 仍实时 · 顺带绕开 2032 未来测试期</li>
+      <li class="mb-2">· <b class="text-ink">FR-95</b> 已关账期 &lt;2 → 诚实空态(状态 B/C),不再误导性 0</li>
+      <li class="mb-2">· <b class="text-ink">FR-96</b> #3 ⓘ 文案点明「区间逐期累计 · 非单月」</li>
+      <li>· <b class="text-ink">FR-97</b> 朱印「已关账」印章 + 说明行透出(本预览)· 0 schema 改动</li>
+    </ul>
+  </section>
+
+</div>
+</body>
+</html>
