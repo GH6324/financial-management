@@ -62,11 +62,11 @@
 
   <section class="grid grid-cols-2 md:grid-cols-4 gap-px bg-rule mb-12">
     <div class="kpi-card">
-      <span class="kpi-eyebrow">家庭 XIRR · 含收入 <th:block th:insert="~{fragments/_kpi-info :: i('资金加权内部收益率（含工资净流入）。反映你和资产一起赚多少。')}"/></span>
+      <span class="kpi-eyebrow">家庭 XIRR · 含收入 <th:block th:insert="~{fragments/_kpi-info :: i('资金加权内部收益率（含工资净流入）。反映你和资产一起赚多少。', ${calc.familyXirr})}"/></span>
       <div class="kpi-value tnum num-pos font-display" th:text="${familyXirr}">—</div>
       <!-- v0.4 FR-61c · vs 基准 pill · v0.5 加来源 tooltip -->
       <div class="font-mono text-[10px] mt-1" th:if="${familyBenchmarkPct != null}">
-        <span class="text-ink-soft">vs 基准 <th:block th:insert="~{fragments/_kpi-info :: i('按你各账户所属产品类目的长期年化基准(美股 10.5% / A股 8% / 中债 4.5% / 货基 2% 等),以账户余额加权得出。是长期参考值、非实时行情。可在 管理 → 产品类目 查看/调整每个类目的基准。')}"/></span>
+        <span class="text-ink-soft">vs 基准 <th:block th:insert="~{fragments/_kpi-info :: i('按你各账户所属产品类目的长期年化基准(美股 10.5% / A股 8% / 中债 4.5% / 货基 2% 等),以账户余额加权得出。是长期参考值、非实时行情。可在 管理 → 产品类目 查看/调整每个类目的基准。', ${calc.benchmark})}"/></span>
         <span class="tnum" th:text="${familyBenchmarkPct} + '%'">5.4%</span>
         <span th:if="${familyBeatStatus == 'BEAT'}" class="pill text-[9px] ml-1"
               style="background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)"
@@ -81,17 +81,17 @@
       <div class="kpi-delta" th:if="${familyBenchmarkPct == null}">资金加权</div>
     </div>
     <div class="kpi-card">
-      <span class="kpi-eyebrow">资产年化 · 剔除收入 ★ <th:block th:insert="~{fragments/_kpi-info :: i('12 月滚动几何平均。去掉工资影响，纯看钱替你赚钱的回报。')}"/></span>
+      <span class="kpi-eyebrow">资产年化 · 剔除收入 ★ <th:block th:insert="~{fragments/_kpi-info :: i('12 月滚动几何平均。去掉工资影响，纯看钱替你赚钱的回报。', ${calc.familyTwr})}"/></span>
       <div class="kpi-value tnum num-pos font-display" th:text="${familyTwr}">—</div>
       <div class="kpi-delta">钱替你赚的真实回报 · 12 月几何平均</div>
     </div>
     <div class="kpi-card">
-      <span class="kpi-eyebrow">人赚的 · 净流入 <th:block th:insert="~{fragments/_kpi-info :: i('选定区间内「收入 − 支出」累计净流入(工资攒下来的钱)。注意:区间最早一期是基准起点,其收支已含在起始净资产里、不重复计入;若当前账期还没填收支,这里可能为 0 —— 单月收支请看下方「储蓄能力」区的月均收入/支出。')}"/></span>
+      <span class="kpi-eyebrow">人赚的 · 净流入 <th:block th:insert="~{fragments/_kpi-info :: i('选定区间内「收入 − 支出」累计净流入(工资攒下来的钱)。注意:区间最早一期是基准起点,其收支已含在起始净资产里、不重复计入;若当前账期还没填收支,这里可能为 0 —— 单月收支请看下方「储蓄能力」区的月均收入/支出。', ${calc.netInflow})}"/></span>
       <div class="kpi-value tnum" th:text="${cumulativeNetInflow}">¥0</div>
       <div class="kpi-delta">收入 − 支出 累计</div>
     </div>
     <div class="kpi-card">
-      <span class="kpi-eyebrow">钱赚的 · 投资 PnL <th:block th:insert="~{fragments/_kpi-info :: i('ΔNetWorth − 净流入。纯资产升值/贬值累计。')}"/></span>
+      <span class="kpi-eyebrow">钱赚的 · 投资 PnL <th:block th:insert="~{fragments/_kpi-info :: i('ΔNetWorth − 净流入。纯资产升值/贬值累计。', ${calc.pnl})}"/></span>
       <div class="kpi-value tnum" th:text="${cumulativePnl}">¥0</div>
       <div class="kpi-delta">资产升值 / 贬值 累计</div>
     </div>
@@ -149,7 +149,7 @@
         <thead>
         <tr>
           <th>账户</th><th>类型</th><th>类目</th>
-          <th class="num">XIRR <th:block th:insert="~{fragments/_kpi-info :: i('单账户级:含该账户全部现金流的资金加权回报率。显示 0% 通常是因为:期末价值与上期持平、或该账户是本期才有的(无上期做起点)、或没有买入/卖出现金流 —— 此时数学上回报率就是 0,非计算错误,会随后续账期价值变化变得有意义。')}"/></th><th class="num">基准 % <th:block th:insert="~{fragments/_kpi-info :: i('产品类目对标的长期年化基准（如 A 股 8%、货币基金 2%）。')}"/></th><th>vs 基准</th><th class="num">当前价值</th>
+          <th class="num">XIRR <th:block th:insert="~{fragments/_kpi-info :: i('单账户级:含该账户全部现金流的资金加权回报率。显示 0% 通常是因为:期末价值与上期持平、或该账户是本期才有的(无上期做起点)、或没有买入/卖出现金流 —— 此时数学上回报率就是 0,非计算错误,会随后续账期价值变化变得有意义。', null)}"/></th><th class="num">基准 % <th:block th:insert="~{fragments/_kpi-info :: i('产品类目对标的长期年化基准（如 A 股 8%、货币基金 2%）。', null)}"/></th><th>vs 基准</th><th class="num">当前价值</th>
         </tr>
         </thead>
         <tbody>

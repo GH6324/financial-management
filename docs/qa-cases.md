@@ -1047,3 +1047,31 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 - 0 schema 改动(仅新增写入 `period_id=0` 行)
 - `period_id=0` 行不影响周期关闭时批量生成逻辑(`generateMonthlyReportsAsync` 不感知)
 - edit.html 新增字段与 controller 已有参数完全对齐 · 无新接口
+
+### v0.5.3 · 计算指标透明化(ⓘ tooltip 真实数值 · FR-90 · 2026-06-03)
+
+**单元 · `MetricExplainServiceTest`(8 例)**
+
+| Case | 断言 |
+|---|---|
+| money/signedMoney 格式 | `¥1,235`(千分位 · HALF_UP)· `+¥3,000`/`−¥3,000`(− 用 U+2212)· null→`—` |
+| pct/months 格式 | `pct2Signed(0.0123)=+1.23%` · `pctUnits(5.4)=5.4%` · `months(3.0)=3.0` |
+| dashboard calc | 净资产「总资产 ¥ − 总负债 ¥ = ¥」· 总资产按类型分项 · 总负债按 LOAN 账户分项 · 紧急储备「流动资产÷月均支出=月」· 本月收益「(期末−期初−净流入)÷期初=%」|
+| checkup calc 用本位币 | netWorth/emergency 实算 · familyXirr/TWR 含解得值 · ytdPnl 含 +¥ |
+| reports 钱赚恒等式 | `(期末 − 起始) − 净流入 = PnL` 串自洽 · netInflow 含「共 N 期计入」· avgIncome「N 月合计 ÷ N = avg」· savingsRate 含分子分母 |
+| 缺数据降级 | 月均支出 0 → emergency/monthlyPnl 显「暂无法计算」不崩 · savings 不可用时 5 个储蓄 key 不出现 |
+
+**黑盒 · qa-run(v05-CALC-1~3 · 用恒有数值的「净资产 = 总资产 − 总负债」/钱赚分解断言 · 不依赖月支出/PMC 填报)**
+
+| Case | 校验 |
+|---|---|
+| v05-CALC-1 | `/dashboard` ⓘ 含 `.kpi-info-calc` 且净资产「总资产 ¥ − 总负债 ¥ = ¥」实算 |
+| v05-CALC-2 | `/reports` ⓘ 含 `.kpi-info-calc` 且钱赚「(期末净资产 …」实算 |
+| v05-CALC-3 | `/checkup` ⓘ 含 `.kpi-info-calc` 且净资产实算 |
+
+> 注:紧急储备/月均收支等数值依赖 PMC 填报与锚定期;数据缺失时**自洽降级**为「月均支出为 0,暂无法计算」并与对应 KPI 卡的「—」一致(beta familyId=1 因测试期到 2032 + 无 PMC 即呈降级态 · 非 bug)。
+
+**backward-compat 红线**
+- 0 schema 改动 · `KpiSnapshot` 加字段保留 7 参/11 参兼容构造器(老调用方/测试不动)
+- `_kpi-info` 升 2 参 · 全部 28 调用点同批改完 · 纯定义指标传 `null`(只显口径)
+- 指标计算口径零改动(只暴露已算中间量)

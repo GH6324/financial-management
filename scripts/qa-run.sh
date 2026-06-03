@@ -431,6 +431,22 @@ else
   log_skip "v05-CCY-INV-1 紧急储备月数 币种无关" "无数据(需 LIQUID 账户 + 月支出)"
 fi
 
+# v0.5.3 · 计算指标 tooltip 展示真实数值:每页 ⓘ 面板含 .kpi-info-calc 行(口径下方的实算)。
+# 回归点:_kpi-info 片段从 i(text) 升 i(text,calc) + 各 controller 注入 calc map。
+# 用净资产「总资产 ¥ − 总负债 ¥ = ¥」断言:它恒有真实数值(不依赖月支出/PMC 填报情况)。
+$CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
+{ grep -q 'kpi-info-calc' "$TMP" && grep -qE 'kpi-info-calc[^>]*>总资产 [^<]*− 总负债' "$TMP"; } \
+  && log_ok "v05-CALC-1 /dashboard ⓘ 含真实计算数值(净资产 = 总资产 − 总负债 实算)" \
+  || log_bad "v05-CALC-1 /dashboard tooltip 无真实数值" "no .kpi-info-calc / 净资产实算"
+$CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
+{ grep -q 'kpi-info-calc' "$TMP" && grep -qE 'kpi-info-calc[^>]*>\(期末净资产' "$TMP"; } \
+  && log_ok "v05-CALC-2 /reports ⓘ 含真实计算数值(钱赚 = (期末−起始)−净流入 实算)" \
+  || log_bad "v05-CALC-2 /reports tooltip 无真实数值" "no .kpi-info-calc / 钱赚实算"
+$CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+{ grep -q 'kpi-info-calc' "$TMP" && grep -qE 'kpi-info-calc[^>]*>总资产 [^<]*− 总负债' "$TMP"; } \
+  && log_ok "v05-CALC-3 /checkup ⓘ 含真实计算数值(净资产实算)" \
+  || log_bad "v05-CALC-3 /checkup tooltip 无真实数值" "no .kpi-info-calc / 净资产实算"
+
 # 按需拉汇率:删 fx_rate 后切 USD,后端应即时调 frankfurter API 拉新汇率写入,然后正常显示 $
 mysql -ufinance -pfinance finance -e "DELETE FROM fx_rate;" 2>/dev/null
 $CURL --max-time 30 -b $COOKIE "$BASE/dashboard?currency=USD" -o "$TMP" -w ""

@@ -94,10 +94,11 @@ public class FactViewServiceImpl implements FactViewService {
                 : delta.divide(previousNetWorth, 6, RoundingMode.HALF_EVEN);
 
         // v0.4.2 · "资产年化"二分(剔除外部现金流的纯投资视角)
+        // v0.5.3 · lastNetInflow 提到 if 外:无论上期是否存在都算出来,供 tooltip 展示真实净流入
+        BigDecimal lastNetInflow = netInflowForPeriod(slice, last);
         BigDecimal monthlyPnlAmount = null;
         BigDecimal monthlyInvestReturnPct = null;
         if (previousNetWorth != null && previousNetWorth.signum() > 0) {
-            BigDecimal lastNetInflow = netInflowForPeriod(slice, last);
             var monthly = com.family.finance.calc.InvestmentReturnCalculator.monthly(
                 previousNetWorth, netWorth, lastNetInflow);
             monthlyPnlAmount = monthly.pnlAmount();
@@ -109,7 +110,9 @@ public class FactViewServiceImpl implements FactViewService {
         BigDecimal ytdInvestPnl = ytdInvestPnl(slice);
 
         return new KpiSnapshot(netWorth, totalAssets, totalLiabilities, emergencyMonths, debtRatio, delta, deltaPct,
-            monthlyPnlAmount, monthlyInvestReturnPct, annualizedInvestReturnPct, ytdInvestPnl);
+            monthlyPnlAmount, monthlyInvestReturnPct, annualizedInvestReturnPct, ytdInvestPnl,
+            // v0.5.3 · 透明化中间量(viewCurrency 口径 · 与上面 KPI 同币种)
+            liquidAssets, avgExpense, previousNetWorth, lastNetInflow);
     }
 
     /**

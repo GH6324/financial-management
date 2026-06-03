@@ -68,6 +68,7 @@ public class ReportsController {
     // v0.5 FR-72/73/74 · 财富水位
     private final com.family.finance.service.macro.WaterLevelService waterLevelService;
     private final com.family.finance.service.macro.MacroBenchmarkService macroBenchmarkService;
+    private final com.family.finance.service.explain.MetricExplainService metricExplain; // v0.5.3 口径真实数值
     private final com.fasterxml.jackson.databind.ObjectMapper jacksonMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     @GetMapping("/reports")
@@ -233,13 +234,15 @@ public class ReportsController {
         model.addAttribute("allAccounts", allAccounts);
         model.addAttribute("anchorPeriod", anchor);
 
+        BigDecimal familyTwrDecimal = factViewService.familyTwr(slice);
         model.addAttribute("familyXirr", percent(familyXirrDecimal));
-        model.addAttribute("familyTwr", percent(factViewService.familyTwr(slice)));
+        model.addAttribute("familyTwr", percent(familyTwrDecimal));
         model.addAttribute("cumulativeNetInflow", money(viewCurrency, lastDecomposition == null ? BigDecimal.ZERO : lastDecomposition.cumulativeNetInflow()));
         model.addAttribute("cumulativePnl", money(viewCurrency, lastDecomposition == null ? BigDecimal.ZERO : lastDecomposition.cumulativePnl()));
 
         // v0.5 FR-72/73/74 · 财富水位(并入 reports section)· 用净资产趋势 + CPI/M2 基准
-        var waterLevel = waterLevelService.compute(factViewService.netWorthTrend(slice));
+        List<TrendPoint> trend = factViewService.netWorthTrend(slice);
+        var waterLevel = waterLevelService.compute(trend);
         model.addAttribute("waterLevel", waterLevel);
         model.addAttribute("cpiAverages", macroBenchmarkService.cpiAverages());
         model.addAttribute("m2Averages", macroBenchmarkService.m2Averages());
@@ -287,6 +290,12 @@ public class ReportsController {
                 .toList());
 
         // v0.3 FR-51a/b · 储蓄能力 · 月度双柱(2026-05-13 修订:成员级 SUM 聚合)
+        // v0.5.3 · 同时把中间量 stash 到 local,供下方 tooltip 真实数值(储蓄区按本位币 ¥)
+        boolean savAvail = false;
+        int savFilled = 0, savTotal = 0;
+        BigDecimal savSumInc = BigDecimal.ZERO, savSumExp = BigDecimal.ZERO,
+                   savAvgInc = null, savAvgExp = null, savLatestInc = null, savLatestExp = null,
+                   savRateDec = null, savMedian = null;
         try {
             // 近 12 期家庭聚合 · 升序排列给图表用
             var aggs = householdCashflowService.findRecentAggregates(me.getFamilyId(), 12);
@@ -298,17 +307,32 @@ public class ReportsController {
             List<BigDecimal> savIncome = sortedAggs.stream().map(a -> a.totalIncome()).toList();
             List<BigDecimal> savExpense = sortedAggs.stream().map(a -> a.totalExpense()).toList();
             int[] ratio = householdCashflowService.filledMonthRatio(me.getFamilyId());
+            savAvgInc = householdCashflowService.avgMonthlyIncome(me.getFamilyId());
+            savAvgExp = householdCashflowService.avgMonthlyExpense(me.getFamilyId());
+            savMedian = householdCashflowService.medianMonthlySavings(me.getFamilyId());
+            savRateDec = householdCashflowService.currentSavingsRate(me.getFamilyId());
             model.addAttribute("savingsLabels", savLabels);
             model.addAttribute("savingsIncome", savIncome);
             model.addAttribute("savingsExpense", savExpense);
-            model.addAttribute("savingsMonthlyMedian", householdCashflowService.medianMonthlySavings(me.getFamilyId()));
-            model.addAttribute("savingsRate", householdCashflowService.currentSavingsRate(me.getFamilyId()));
-            model.addAttribute("avgMonthlyExpense", householdCashflowService.avgMonthlyExpense(me.getFamilyId()));
-            model.addAttribute("avgMonthlyIncome", householdCashflowService.avgMonthlyIncome(me.getFamilyId()));
+            model.addAttribute("savingsMonthlyMedian", savMedian);
+            model.addAttribute("savingsRate", savRateDec);
+            model.addAttribute("avgMonthlyExpense", savAvgExp);
+            model.addAttribute("avgMonthlyIncome", savAvgInc);
             model.addAttribute("savingsFilledMonths", ratio[0]);
             model.addAttribute("savingsTotalMonths", ratio[1]);
             model.addAttribute("savingsAvailable", ratio[0] > 0);
             model.addAttribute("goalsProgress", goalProgressService.computeAll(me.getFamilyId()));
+            // stash for tooltip
+            savAvail = ratio[0] > 0;
+            savFilled = ratio[0];
+            savTotal = ratio[1];
+            for (BigDecimal x : savIncome) if (x != null) savSumInc = savSumInc.add(x);
+            for (BigDecimal x : savExpense) if (x != null) savSumExp = savSumExp.add(x);
+            if (!sortedAggs.isEmpty()) {
+                var latest = sortedAggs.get(sortedAggs.size() - 1);
+                savLatestInc = latest.totalIncome();
+                savLatestExp = latest.totalExpense();
+            }
         } catch (Exception e) {
             model.addAttribute("savingsAvailable", false);
             model.addAttribute("savingsFilledMonths", 0);
@@ -317,7 +341,30 @@ public class ReportsController {
             model.addAttribute("savingsIncome", List.of());
             model.addAttribute("savingsExpense", List.of());
             model.addAttribute("goalsProgress", List.of());
+            savAvail = false;
         }
+
+        // v0.5.3 · 计算指标真实数值(ⓘ tooltip)· KPI 区 viewCurrency · 储蓄区本位币
+        BigDecimal firstNW = trend.isEmpty() ? null : trend.get(0).value();
+        BigDecimal lastNW = trend.isEmpty() ? null : trend.get(trend.size() - 1).value();
+        String firstLabel = trend.isEmpty() ? null : trend.get(0).label();
+        String lastLabel = trend.isEmpty() ? null : trend.get(trend.size() - 1).label();
+        BigDecimal bmTotalBal = bmInputs.stream()
+                .map(BenchmarkAggregator.BenchmarkInput::balanceBase)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal cumNetInflow = lastDecomposition == null ? BigDecimal.ZERO : lastDecomposition.cumulativeNetInflow();
+        BigDecimal cumPnl = lastDecomposition == null ? BigDecimal.ZERO : lastDecomposition.cumulativePnl();
+        var reportsInputs = new com.family.finance.service.explain.MetricExplainService.ReportsMetricInputs(
+                viewCurrency, family.getBaseCurrency(),
+                firstNW, lastNW, firstLabel, lastLabel,
+                slice.periodIds().size(), decomposition.size(),
+                familyXirrDecimal, familyTwrDecimal,
+                cumNetInflow, cumPnl,
+                familyBenchmarkPct, bmInputs.size(), bmTotalBal,
+                savAvail, savFilled, savTotal,
+                savSumInc, savSumExp, savAvgInc, savAvgExp,
+                savLatestInc, savLatestExp, savRateDec, savMedian);
+        model.addAttribute("calc", metricExplain.reports(reportsInputs));
     }
 
     // v0.4 FR-60b · 砍 sankeyNodes / sankeyLinks(收入流向桑基图已删)

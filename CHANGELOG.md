@@ -2,6 +2,24 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.5.3] · 2026-06-03
+
+计算指标透明化 —— ⓘ tooltip 从「只讲口径公式」升级为「口径 + 真实计算数值」(无迁移)。
+
+### Changed
+
+- **ⓘ tooltip 显示真实计算数值** · 全站 28 个计算型 KPI 的 ⓘ 面板,在口径文字下方加一条**真实实算行**(虚线分隔 + 等宽字体)· 例:紧急储备「流动资产 ¥X ÷ 月均支出 ¥Y = Z 月」、月结收入「近 12 月有填 N 个月 · 收入合计 ¥S ÷ N = ¥avg」、本月资产收益「(期末 ¥E − 期初 ¥B − 净流入 ¥I) ÷ 期初 ¥B = +x%」、钱赚 PnL「(期末 ¥E − 起始 ¥B) − 净流入 ¥I = ¥」· 数值与页面 KPI 同源同币种(dashboard/reports KPI 区 viewCurrency · checkup 与储蓄区本位币)(v0.5.3)
+- **XIRR / TWR 诚实口径** · 迭代/几何解无法写成单条算式 → 只展示**真实输入端点 + 解得值**(如「期初净资产 −¥B → 期末 +¥E · N 期求解年化 = x%」),不伪造算术步骤(v0.5.3)
+
+### Added
+
+- **`_kpi-info` 片段升级 `i(text)` → `i(text, calc)`** · 第二参可 null(纯定义指标如账户级 XIRR 0% 成因仍只显口径)· `.kpi-info-calc` CSS(虚线分隔 · 等宽 · pre-line 多行分项)(v0.5.3)
+- **`MetricExplainService`** · 纯展示层 · 把 FactView / HouseholdCashflow 已算好的中间量格式化成串 · 不做任何业务计算(数值必与页面 KPI 一致)· `KpiSnapshot` 加 4 个透明化中间量(liquidAssets / avgExpense / prevNetWorth / lastNetInflow · 原本算完即弃)(v0.5.3)
+
+### Tests
+
+- 单元 **226**(+8 `MetricExplainServiceTest`:格式化口径 / 三页 calc 自洽 / 钱赚分解恒等式 / 缺数据降级)· qa-run 加 v05-CALC-1~3(dashboard/reports/checkup ⓘ 含 `.kpi-info-calc` 真实数值守护 · 用恒有值的净资产/钱赚分解断言)
+
 ## [v0.5.2] · 2026-06-03
 
 目标模块两个 bug 修复(无迁移)。

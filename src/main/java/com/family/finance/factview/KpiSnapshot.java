@@ -22,6 +22,10 @@ import java.math.BigDecimal;
  * @param monthlyInvestReturnPct v0.4.2 · 本月 PnL 占期初比率(0.028 = 2.8%)· 可空
  * @param annualizedInvestReturnPct v0.4.2 · 滚动 12 月年化纯投资收益(几何平均)· = familyTwr · 可空
  * @param ytdInvestPnl v0.4.2 · 本年累计纯投资 PnL 金额(自然年 · 剔除现金流)· 可空
+ * @param liquidAssets v0.5.3 · 流动资产(LIQUID 类目期末合计 · viewCurrency)· 紧急储备分子 · 可空
+ * @param avgExpense v0.5.3 · 近 12 月月均支出(PMC 优先 · viewCurrency)· 紧急储备分母 · 可空
+ * @param prevNetWorth v0.5.3 · 上期期末净资产(viewCurrency)· 本月资产收益% 的"期初" · 可空
+ * @param lastNetInflow v0.5.3 · 本期净流入(人赚 · PMC 优先 · viewCurrency)· 可空
  */
 public record KpiSnapshot(
         BigDecimal netWorth,
@@ -35,13 +39,29 @@ public record KpiSnapshot(
         BigDecimal monthlyPnlAmount,
         BigDecimal monthlyInvestReturnPct,
         BigDecimal annualizedInvestReturnPct,
-        BigDecimal ytdInvestPnl
+        BigDecimal ytdInvestPnl,
+        // v0.5.3 · 计算口径透明化:把原本算完即弃的中间量带出来,供 tooltip 展示真实数值
+        BigDecimal liquidAssets,
+        BigDecimal avgExpense,
+        BigDecimal prevNetWorth,
+        BigDecimal lastNetInflow
 ) {
     /** v0.4.2 加字段时的 backward-compat 构造器 · 老调用方继续传 7 参数 */
     public KpiSnapshot(BigDecimal netWorth, BigDecimal totalAssets, BigDecimal totalLiabilities,
                        BigDecimal emergencyFundMonths, BigDecimal debtToAssetRatio,
                        BigDecimal netWorthDelta, BigDecimal netWorthDeltaPct) {
         this(netWorth, totalAssets, totalLiabilities, emergencyFundMonths, debtToAssetRatio,
-             netWorthDelta, netWorthDeltaPct, null, null, null, null);
+             netWorthDelta, netWorthDeltaPct, null, null, null, null, null, null, null, null);
+    }
+
+    /** v0.5.3 加 4 个透明化中间量时的 backward-compat 构造器 · 老调用方继续传 11 参数 */
+    public KpiSnapshot(BigDecimal netWorth, BigDecimal totalAssets, BigDecimal totalLiabilities,
+                       BigDecimal emergencyFundMonths, BigDecimal debtToAssetRatio,
+                       BigDecimal netWorthDelta, BigDecimal netWorthDeltaPct,
+                       BigDecimal monthlyPnlAmount, BigDecimal monthlyInvestReturnPct,
+                       BigDecimal annualizedInvestReturnPct, BigDecimal ytdInvestPnl) {
+        this(netWorth, totalAssets, totalLiabilities, emergencyFundMonths, debtToAssetRatio,
+             netWorthDelta, netWorthDeltaPct, monthlyPnlAmount, monthlyInvestReturnPct,
+             annualizedInvestReturnPct, ytdInvestPnl, null, null, null, null);
     }
 }

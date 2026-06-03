@@ -55,6 +55,7 @@ public class DashboardController {
     private final GoalProgressService goalProgressService;
     private final HouseholdCashflowService householdCashflowService;
     private final com.family.finance.service.config.FamilyConfigService configService;
+    private final com.family.finance.service.explain.MetricExplainService metricExplain; // v0.5.3 口径真实数值
 
     @GetMapping("/dashboard")
     public String dashboard(@AuthenticationPrincipal MemberPrincipal me,
@@ -140,6 +141,8 @@ public class DashboardController {
         }
 
         model.addAttribute("kpis", kpis);
+        // v0.5.3 · 计算指标真实数值(ⓘ tooltip)· viewCurrency 口径
+        model.addAttribute("calc", metricExplain.dashboard(kpis, allocation, accountRows, viewCurrency));
         model.addAttribute("kpiNetWorth", money(viewCurrency, kpis.netWorth()));
         model.addAttribute("kpiAssets", money(viewCurrency, kpis.totalAssets()));
         model.addAttribute("kpiLiabilities", money(viewCurrency, kpis.totalLiabilities()));

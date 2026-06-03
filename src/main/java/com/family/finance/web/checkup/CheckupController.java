@@ -52,6 +52,7 @@ public class CheckupController {
     private final com.family.finance.service.FxService fxService;
     private final com.family.finance.repository.PeriodMapper periodMapper;
     private final com.family.finance.service.config.FamilyConfigService configService;
+    private final com.family.finance.service.explain.MetricExplainService metricExplain; // v0.5.3 口径真实数值
 
     @GetMapping("/checkup")
     public String checkup(@AuthenticationPrincipal MemberPrincipal me,
@@ -88,6 +89,9 @@ public class CheckupController {
             model.addAttribute("diagnose", diagnose);
             model.addAttribute("advice", advice);
             model.addAttribute("liquidSurplus", liquidSurplus);
+            // v0.5.3 · 计算指标真实数值(ⓘ tooltip)· checkup 走家庭本位币
+            // 紧急储备分母在 service 内部取 diagnose.kpi().avgExpense()(与 emergencyMonths 同源 · 见决策 51)
+            model.addAttribute("calc", metricExplain.checkup(diagnose, familyEntity.getBaseCurrency()));
             return "checkup/family";
         }
 

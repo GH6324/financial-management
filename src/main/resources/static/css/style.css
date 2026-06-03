@@ -358,6 +358,19 @@ h1, h2, h3, h4 {
   /* 防 panel 把文字从 uppercase 继承过来 */
   text-transform: none; letter-spacing: normal;
 }
+/* v0.5.3 · 口径(formula)+ 真实计算数值(calc)双层 */
+.kpi-info-formula { display: block; }
+.kpi-info-calc {
+  display: block;
+  margin-top: 7px; padding-top: 7px;
+  border-top: 1px dashed var(--rule-soft);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px; line-height: 1.7;
+  color: var(--ink);
+  /* 多行分项用 \n 软换行 · 不折叠空白 */
+  white-space: pre-line;
+  text-transform: none; letter-spacing: normal;
+}
 @media (max-width: 640px) {
   .kpi-info-panel {
     /* 手机端:固定到屏幕顶部 · 不跟 button 位置 */
