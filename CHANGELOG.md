@@ -2,6 +2,19 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.5.2] · 2026-06-03
+
+目标模块两个 bug 修复(无迁移)。
+
+### Fixed
+
+- **目标编辑页丢失支出口径** · `/goals/{id}/edit` 缺「固定值 / 自动适配月结支出」单选(create 表单有、edit 没有)→ 编辑退休目标时该选项消失。edit.html 补 `expenseMode` + 窗口 + 平滑,从已保存 params 回填(v0.5.2)
+- **AI 综合月报永远"尚未生成"** · 月报原只在周期关闭时自动生成,新建目标 / 当前 OPEN 期无法触发。加 `GoalReportService.generateNow`(period_id=0 按需 · upsert 幂等)+ `POST /goals/{id}/report/generate` + 详情页「立即生成月报」按钮(v0.5.2)
+
+### Tests
+
+- qa-cases 加 bf-GOAL-EDIT-1~4 + bf-GOAL-RPT-1~4 回归 case
+
 ## [v0.5.1] · 2026-06-02
 
 v0.5 上线后修复 + 体验完善。
