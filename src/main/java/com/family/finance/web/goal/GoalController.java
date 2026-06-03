@@ -11,6 +11,7 @@ import com.family.finance.service.NavService;
 import com.family.finance.service.goal.GoalLlmService;
 import com.family.finance.service.goal.GoalProgressService;
 import com.family.finance.service.goal.GoalProgressService.GoalProgress;
+import com.family.finance.service.goal.GoalReportService;
 import com.family.finance.service.goal.GoalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -51,6 +52,7 @@ public class GoalController {
     private final GoalService goalService;
     private final GoalProgressService progressService;
     private final GoalLlmService llmService;
+    private final GoalReportService goalReportService;
     private final GoalAiReportMapper aiReportMapper;
     private final MemberMapper memberMapper;
     private final NavService navService;
@@ -269,6 +271,20 @@ public class GoalController {
         if (p.getMonthsTarget() != null) resp.put("monthsTarget", p.getMonthsTarget());
         if (p.getAutoBaseline() != null) resp.put("autoBaseline", p.getAutoBaseline());
         return ResponseEntity.ok(resp);
+    }
+
+    // ---------- 手动触发月报 ----------
+
+    /**
+     * FR-53b · 手动触发单目标 AI 月报生成 · UI "立即生成月报"按钮调用。
+     * 同步生成(period_id=0 · on-demand) · 生成完毕跳回详情页。
+     */
+    @PostMapping("/goals/{id}/report/generate")
+    public String generateReport(@AuthenticationPrincipal MemberPrincipal me,
+                                 @PathVariable long id) {
+        goalService.require(me.getFamilyId(), id); // 权限校验
+        goalReportService.generateNow(me.getFamilyId(), id);
+        return "redirect:/goals/" + id;
     }
 
     // ---------- 软删 ----------

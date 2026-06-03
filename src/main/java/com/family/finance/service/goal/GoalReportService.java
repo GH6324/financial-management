@@ -60,6 +60,40 @@ public class GoalReportService {
     }
 
     /**
+     * 手动触发单目标月报生成(同步 · 供 UI "立即生成"按钮触发)。
+     *
+     * <p>period_id = 0 作为按需生成标记(非周期关闭自动触发)·
+     * goal_ai_report 表无 FK 约束 · UNIQUE(goal_id, period_id, report_type) upsert 幂等。</p>
+     *
+     * @return true 生成成功 · false LLM 不可用或失败
+     */
+    public boolean generateNow(long familyId, long goalId) {
+        try {
+            Goal g = goalService.require(familyId, goalId);
+            var progress = progressService.compute(familyId, g);
+            var r = llmService.generateMonthlyReport(familyId, g, progress);
+            if (r.ok()) {
+                GoalAiReport report = GoalAiReport.builder()
+                    .goalId(goalId)
+                    .periodId(0L)
+                    .reportType("MONTHLY")
+                    .content(r.value())
+                    .validatorStatus("PASS")
+                    .build();
+                reportMapper.upsert(report);
+                log.info("goal={} monthly report generated on-demand", goalId);
+                return true;
+            } else {
+                log.info("goal={} monthly report unavailable · {}", goalId, r.error());
+                return false;
+            }
+        } catch (Exception e) {
+            log.warn("goal={} monthly report on-demand failed: {}", goalId, e.toString());
+            return false;
+        }
+    }
+
+    /**
      * FR-53c · 偏离预警检测 + 生成(周期关闭后异步触发)。
      *
      * 触发条件(任一):
