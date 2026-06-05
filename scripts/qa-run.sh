@@ -2400,6 +2400,97 @@ PIT=src/test/java/com/family/finance/service/checkup/llm/PrivacyIsolationTest.ja
   && log_ok "v04-CFG-10 PrivacyIsolationTest 扩 · PromptBuilder 防 LLM key 泄露" \
   || log_bad "v04-CFG-10 私密红线扩展缺" "see PrivacyIsolationTest"
 
+# ====================================================================
+# v0.6 · AI 资产洞察(集中度/资产负债表/再平衡·行为/低利率)· FR-100~110
+# ====================================================================
+section "v0.6 · AI 资产洞察"
+
+# v06-INSIGHT-1 · /checkup/insight endpoint 200(LLM 真机最长 35s · 无 key 时降级仍 200)
+code=$(/usr/bin/curl -s --max-time 35 -b $COOKIE -o "$TMP" -w "%{http_code}" "$BASE/checkup/insight")
+[[ "$code" == "200" ]] && log_ok "v06-INSIGHT-1 GET /checkup/insight → 200" \
+  || log_bad "v06-INSIGHT-1 insight endpoint" "code=$code"
+
+# v06-INSIGHT-2 · fragment 含 vendor/available 属性 + AI·资产洞察 标题 + 硬数据/第一层
+{ grep -qE 'data-vendor=|data-available=' "$TMP" && grep -q 'AI · 资产洞察' "$TMP"; } \
+  && log_ok "v06-INSIGHT-2 insight fragment 含 vendor/available + 标题" \
+  || log_bad "v06-INSIGHT-2 insight fragment" "missing attrs/title"
+
+# v06-INSIGHT-3 · fragment 含第一层硬数据(集中度/资产负债表/再平衡/低利率 任一维度名)
+{ grep -q '硬 · 数 · 据' "$TMP" || grep -q '集中度' "$TMP" || grep -q '硬数据暂不可用' "$TMP"; } \
+  && log_ok "v06-INSIGHT-3 insight fragment 含硬数据层(或降级占位)" \
+  || log_bad "v06-INSIGHT-3 insight 硬数据层缺" "no hard-data section"
+
+# v06-INSIGHT-4 · /checkup 页含 #checkup-insight section + 异步 placeholder + TOC 项
+$CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+{ grep -q 'id="checkup-insight"' "$TMP" \
+  && grep -q 'ai-insight-panel' "$TMP" \
+  && grep -q 'AI 资产洞察' "$TMP"; } \
+  && log_ok "v06-INSIGHT-4 /checkup 含资产洞察 section + placeholder + TOC 项" \
+  || log_bad "v06-INSIGHT-4 /checkup 洞察 section 缺" "no #checkup-insight / panel / toc"
+
+# v06-INSIGHT-5 · /reports 配置对照尾部含「查看完整资产洞察」交叉入口 → /checkup#checkup-insight
+$CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
+{ grep -q '查看完整资产洞察' "$TMP" && grep -q '/checkup#checkup-insight' "$TMP"; } \
+  && log_ok "v06-INSIGHT-5 /reports 含资产洞察交叉入口" \
+  || log_bad "v06-INSIGHT-5 /reports 交叉入口缺" "no cross-link to checkup insight"
+
+# v06-INSIGHT-6 · /dashboard 资产洞察速览(有数据时显条 · 无数据 SKIP · TOC 项常在)
+$CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
+if grep -q 'id="dash-insight"' "$TMP"; then
+  log_ok "v06-INSIGHT-6 /dashboard 资产洞察速览条已渲染"
+elif grep -q "href='#dash-insight'\|#dash-insight" "$TMP"; then
+  log_skip "v06-INSIGHT-6 /dashboard 速览条" "insight 降级未渲染(TOC 项在 · 无快照数据)"
+else
+  log_bad "v06-INSIGHT-6 /dashboard 速览/锚点缺" "no #dash-insight"
+fi
+
+# v06-LLM-LIVE · 嗅探 /checkup/insight 是否由真 LLM 成功返回(无 key/全失败则降级 · 不阻塞)
+/usr/bin/curl -s --max-time 35 -b $COOKIE -o "$TMP" -w "" "$BASE/checkup/insight"
+ins_vendor=$(grep -oE 'data-vendor="[^"]+"' "$TMP" | head -1 | sed 's/data-vendor="\([^"]*\)"/\1/')
+ins_avail=$(grep -oE 'data-available="[^"]+"' "$TMP" | head -1 | sed 's/data-available="\([^"]*\)"/\1/')
+if [[ "$ins_avail" == "true" && ( "$ins_vendor" == "qwen" || "$ins_vendor" == "deepseek" ) ]]; then
+  log_ok "v06-LLM-LIVE LLM 实调用成功 vendor=$ins_vendor 洞察解读已返回"
+else
+  log_skip "v06-LLM-LIVE" "LLM key 未配/失败 vendor=$ins_vendor available=$ins_avail — 已降级(硬数据仍在),不阻塞"
+fi
+
+# v06-COMPLIANCE · 洞察渲染输出绝不含预测涨跌/择时/具体产品名(中立诊断红线 · 防御深度)
+/usr/bin/curl -s --max-time 35 -b $COOKIE -o "$TMP" -w "" "$BASE/checkup/insight"
+if grep -qE '会涨|会跌|牛市|熊市|抄底|逃顶|高抛低吸|波段操作|余额宝|茅台|宁德时代' "$TMP"; then
+  log_bad "v06-COMPLIANCE 洞察输出含预测/择时/产品词" "$(grep -oE '会涨|会跌|牛市|熊市|抄底|逃顶|高抛低吸|波段操作|余额宝|茅台|宁德时代' "$TMP" | head -3 | tr '\n' ' ')"
+else
+  log_ok "v06-COMPLIANCE 洞察输出无预测/择时/产品词(中立诊断)"
+fi
+
+# v06-PRIV · InsightPromptBuilder 隐私 by construction:源码不引用成员/账户名 getter
+IPB=src/main/java/com/family/finance/service/insight/InsightPromptBuilder.java
+if [[ -f "$IPB" ]]; then
+  if grep -qE 'getDisplayName|getName\(\)|memberMapper|topAccountLabel' "$IPB"; then
+    log_bad "v06-PRIV InsightPromptBuilder 引用了名字字段" "$(grep -nE 'getDisplayName|getName\(\)|topAccountLabel' "$IPB" | head -2)"
+  else
+    log_ok "v06-PRIV InsightPromptBuilder 不含成员/账户名(隐私 by construction)"
+  fi
+else
+  log_bad "v06-PRIV InsightPromptBuilder 缺失" "no $IPB"
+fi
+
+# v06-MODELS · QwenLlmClient 多模型额度兜底骨架(模型列表 + 故障分类 + 额度/欠费分支)
+QWC=src/main/java/com/family/finance/service/checkup/llm/QwenLlmClient.java
+{ grep -q 'K_LLM_QWEN_MODELS' "$QWC" \
+  && grep -q 'QUOTA_EXHAUSTED' "$QWC" \
+  && grep -q 'ARREARAGE' "$QWC" \
+  && grep -q 'modelExhaustedUntil' "$QWC"; } \
+  && log_ok "v06-MODELS QwenLlmClient 多模型兜底(模型列表+额度用尽切换+欠费 failover)" \
+  || log_bad "v06-MODELS Qwen 多模型兜底骨架缺" "see QwenLlmClient"
+
+# v06-MIGRATION · V29 负债字段 backward-compat(纯 ADD COLUMN DEFAULT NULL)
+V29=db/migration/V29__loan_detail_fields.sql
+{ grep -q 'ADD COLUMN loan_kind' "$V29" \
+  && grep -q 'ADD COLUMN annual_rate_pct' "$V29" \
+  && grep -q 'NULL' "$V29"; } \
+  && log_ok "v06-MIGRATION V29 负债明细字段 · ADD COLUMN DEFAULT NULL(prod 0 风险)" \
+  || log_bad "v06-MIGRATION V29 缺/非向后兼容" "see V29"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

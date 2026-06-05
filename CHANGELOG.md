@@ -2,6 +2,39 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.6.0] · 2026-06-05
+
+中国大陆中产视角的「AI 资产洞察」:把小红书/论坛/支付宝等主流讨论里反复出现的资产焦虑,
+沉淀成 4 条可审计主线 —— ① 集中度(钱是否太挤在一处)② 资产负债表健康 ③ 再平衡 + 行为
+④ 低利率·资产荒(真实购买力)。硬数据全部工程预算,LLM 只做中立解读(不预测涨跌 / 不择时 /
+不荐产品)。主阵地资产体检页,dashboard 速览条 + reports 交叉入口。
+
+### Added
+
+- **calc/ 4 纯函数**(无 Spring · 可单测)· `ConcentrationCalculator`(房产/单一账户/单一币种占比 + 风险线)/ `BalanceSheetHealth`(金融盘 vs 不动产 · 负债率分级 · 提前还贷信号)/ `RebalanceDrift`(4 桶偏离方向 OVER/UNDER/OK)/ `BehaviorHeuristics`(顺周期加仓 / 集中度持续走高 · 历史<6 期静默)
+- **`AssetInsightService`** · 从 FactView / 账户负债字段 / 配置 diff / 财富水位取数 → 调 4 纯函数 → 组装可审计「硬数据」`AssetInsight`(只读 · 永不抛 · 数据缺失局部降级)
+- **AI 资产洞察 LLM 层** · `InsightPromptBuilder`(硬数据铺成 prompt · **不含任何人名/账户名**)+ `LlmDiagnoseService.diagnoseAssetInsight`(复用 client 轮转 + 1h cache + audit · scope=ASSET_INSIGHT)· 结构化 JSON(总评 + 4 维卡 + 纪律性提醒)
+- **资产体检页「AI 资产洞察」section**(`checkup/_ai-insight.html`)· 上半第一层硬数据 4 卡 + 下半第二层 AI 解读 · 全 inline SVG(无 emoji)· TOC 新增「AI 资产洞察」项
+- **dashboard 资产洞察速览条**(`dashboard/_insight-strip.html`)· 房产占比 / 负债 band / 加速偿还 / 真实收益承压 / 行为提醒 chip + 「查看完整洞察」· 仅硬数据不调 LLM(保持仪表盘轻快)
+- **reports 配置对照交叉入口** → `/checkup#checkup-insight`
+- **Qwen 多模型免费额度兜底**(FR-108)· `K_LLM_QWEN_MODELS` 有序模型列表(≤10 · 运营可配)· 某模型免费额度用尽(429 `Throttling.AllocationQuota`/`insufficient_quota` · 403 `AllocationQuota.FreeTierOnly`)自动切下一模型并冷却 6h · 账户欠费/账单过期(400 `Arrearage` · `*BillOverdue`)立刻 failover DeepSeek
+- **`OutputValidator.checkInsight`** · 在合规底线之上额外拒绝预测涨跌 / 择时 / 买卖时点话术(仅 ASSET_INSIGHT scope · 既有综合诊断 `check` 行为不变)
+- **账户负债明细字段** · `account.loan_kind` / `annual_rate_pct`(V29 · 喂提前还贷信号)· 编辑页 LOAN 类型可选填
+
+### Schema
+
+- **V29** · `ALTER TABLE account ADD COLUMN loan_kind VARCHAR(20) NULL, ADD COLUMN annual_rate_pct DECIMAL(6,3) NULL` · 纯 ADD COLUMN DEFAULT NULL · prod 0 风险 · 老账户该维度优雅降级
+
+### Tests
+
+- +`AssetInsightCalcTest`(6)+ `QwenInsightComplianceTest`(6)· 单元 **244** 全绿 · qa-run +v06-INSIGHT-1~6 / v06-LLM-LIVE / v06-COMPLIANCE / v06-PRIV / v06-MODELS / v06-MIGRATION
+
+### 红线
+
+- LLM 严禁算术(数字全工程预算 · prompt 明示只引用)· 不预测涨跌 · 不择时 · 不荐产品 · 中立诊断
+- 隐私 by construction:洞察 prompt 不含成员/账户名 · `checkInsight` 防御深度仍扫
+- 全部只读取数 · 不写表 · 既有 `/checkup/diagnose` 与 `check()` 行为不变
+
 ## [v0.5.7] · 2026-06-04
 
 长文目录推广到所有长 tab 页 + 沉淀为可复用件(无迁移 · 纯前端 · 0 schema)。

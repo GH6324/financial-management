@@ -9,7 +9,7 @@
 <header th:replace="~{fragments/nav :: nav('checkup', ${me}, ${nav})}"></header>
 
 <main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10"
-      th:with="tocItems=${ { {label:'概览',href:'#checkup-overview'}, {label:'资产配置',href:'#allocation'}, {label:'风险敞口',href:'#risk'}, {label:'流动性',href:'#liquidity'}, {label:'收益质量',href:'#return'}, {label:'智能建议',href:'#checkup-advice'}, {label:'AI 综合诊断',href:'#checkup-ai'}, {label:'单账户体检',href:'#checkup-accounts'} } }">
+      th:with="tocItems=${ { {label:'概览',href:'#checkup-overview'}, {label:'资产配置',href:'#allocation'}, {label:'风险敞口',href:'#risk'}, {label:'流动性',href:'#liquidity'}, {label:'收益质量',href:'#return'}, {label:'智能建议',href:'#checkup-advice'}, {label:'AI 综合诊断',href:'#checkup-ai'}, {label:'AI 资产洞察',href:'#checkup-insight'}, {label:'单账户体检',href:'#checkup-accounts'} } }">
  <div class="toc-cols">
   <div class="toc-cols-main">
 
@@ -202,6 +202,19 @@
       <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle">第 二 层 · 跨规则 · 跨账户 · 综合判断</span>
     </div>
     <div th:replace="~{checkup/_ai-diagnose :: placeholder(aiDiagnoseUrl=@{/checkup/diagnose})}"></div>
+  </section>
+
+  <!-- AI 资产洞察 · v0.6 FR-100~109 · 集中度/资产负债表/再平衡·行为/低利率 · 异步加载 -->
+  <section id="checkup-insight" class="mb-8" style="scroll-margin-top:80px">
+    <div class="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+      <div>
+        <div class="eyebrow mb-1">中 · 产 · 视 · 角 · 的 · 资 · 产 · 洞 · 察</div>
+        <h3 class="font-display text-xl font-medium">AI 资产洞察</h3>
+        <p class="text-ink-soft text-xs mt-1 max-w-2xl">钱是否太挤在一处 · 资产负债表是否健康 · 该不该再平衡 · 低利率下真实购买力如何。硬数据工程算好,AI 只做中立解读,不预测涨跌、不荐产品。</p>
+      </div>
+      <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle">四 视 角 · 中 立 诊 断</span>
+    </div>
+    <div th:replace="~{checkup/_ai-insight :: placeholder(aiInsightUrl=@{/checkup/insight})}"></div>
   </section>
 
   <section id="checkup-advice" class="paper-card p-5 bg-card-soft text-sm text-ink-soft mb-8"

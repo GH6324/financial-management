@@ -180,6 +180,35 @@ public class LlmDiagnoseService {
         }
     }
 
+    /**
+     * v0.6 FR-109 · AI 资产洞察综合诊断(集中度/资产负债表/再平衡·行为/低利率)。
+     *
+     * <p>硬数据已由 {@link com.family.finance.service.insight.AssetInsightService} 预算好;
+     * 此处只把它铺成 prompt 让 LLM 中立解读。prompt <b>不含任何人名/账户名</b>
+     * (见 {@link com.family.finance.service.insight.InsightPromptBuilder}),故 realNames 传空集;
+     * 校验走更严的 {@link OutputValidator#checkInsight}(额外禁预测涨跌/择时)。</p>
+     *
+     * <p>洞察硬数据不可用时直接返回 {@link DiagnoseResult#unavailable},不调用 LLM。</p>
+     */
+    public DiagnoseResult diagnoseAssetInsight(Long familyId, Long actorMemberId,
+                                               com.family.finance.service.insight.AssetInsight insight,
+                                               boolean forceRefresh) {
+        try {
+            if (insight == null || !insight.available()) {
+                return DiagnoseResult.unavailable(
+                        insight == null ? "洞察数据缺失" : insight.degradeReason());
+            }
+            String systemPrompt = com.family.finance.service.insight.InsightPromptBuilder.systemPrompt();
+            String userPrompt = com.family.finance.service.insight.InsightPromptBuilder.userPrompt(insight);
+            return runDiagnose(familyId, actorMemberId, "ASSET_INSIGHT", null,
+                    systemPrompt, userPrompt, java.util.Map.of(),
+                    java.util.Set.of(), forceRefresh);
+        } catch (Exception e) {
+            log.warn("资产洞察综合诊断失败 familyId={}: {}", familyId, e.getMessage());
+            return DiagnoseResult.unavailable("内部错误: " + e.getMessage());
+        }
+    }
+
     private DiagnoseResult runDiagnose(Long familyId, Long actorMemberId,
                                         String scope, Long entityId,
                                         String systemPrompt, String userPrompt,
@@ -226,7 +255,10 @@ public class LlmDiagnoseService {
             //   v0.4.9:LLM 现在输出 JSON · 把 user-facing 字段(narrative/finding/evidence/actions)
             //   join 后过 OutputValidator,行为等价于老的纯文本校验
             String textForValidate = joinUserFacingStrings(raw);
-            OutputValidator.Result vr = OutputValidator.check(textForValidate, realNames);
+            // v0.6 · 资产洞察走更严的合规校验(额外禁预测涨跌/择时);其余路径行为不变
+            OutputValidator.Result vr = "ASSET_INSIGHT".equals(scope)
+                    ? OutputValidator.checkInsight(textForValidate, realNames)
+                    : OutputValidator.check(textForValidate, realNames);
             // 全交互日志(prompt + response + elapsed,无论接受与否都记)
             LlmAuditLogger.log(client.vendor(), scope, familyId, entityId,
                     systemPrompt, userPrompt, raw, elapsed,

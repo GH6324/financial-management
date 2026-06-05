@@ -18,7 +18,7 @@ public interface AccountMapper {
             SELECT id, family_id, template_id, display_name, type, currency,
                    primary_owner_member_id, default_payment_source_account_id,
                    display_order, archived_at, created_at, updated_at,
-                   product_category_code, risk_level_override
+                   product_category_code, risk_level_override, loan_kind, annual_rate_pct
               FROM account
              WHERE id = #{id}
             """)
@@ -28,7 +28,7 @@ public interface AccountMapper {
             SELECT id, family_id, template_id, display_name, type, currency,
                    primary_owner_member_id, default_payment_source_account_id,
                    display_order, archived_at, created_at, updated_at,
-                   product_category_code, risk_level_override
+                   product_category_code, risk_level_override, loan_kind, annual_rate_pct
               FROM account
              WHERE family_id = #{familyId}
              ORDER BY archived_at IS NOT NULL, display_order, id
@@ -39,7 +39,7 @@ public interface AccountMapper {
             SELECT id, family_id, template_id, display_name, type, currency,
                    primary_owner_member_id, default_payment_source_account_id,
                    display_order, archived_at, created_at, updated_at,
-                   product_category_code, risk_level_override
+                   product_category_code, risk_level_override, loan_kind, annual_rate_pct
               FROM account
              WHERE family_id = #{familyId}
                AND archived_at IS NULL
@@ -59,11 +59,11 @@ public interface AccountMapper {
             INSERT INTO account (
                 family_id, template_id, display_name, type, currency,
                 primary_owner_member_id, default_payment_source_account_id, display_order,
-                product_category_code, risk_level_override
+                product_category_code, risk_level_override, loan_kind, annual_rate_pct
             ) VALUES (
                 #{familyId}, #{templateId}, #{displayName}, #{type}, #{currency},
                 #{primaryOwnerMemberId}, #{defaultPaymentSourceAccountId}, #{displayOrder},
-                #{productCategoryCode}, #{riskLevelOverride}
+                #{productCategoryCode}, #{riskLevelOverride}, #{loanKind}, #{annualRatePct}
             )
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
@@ -79,7 +79,9 @@ public interface AccountMapper {
                    default_payment_source_account_id = #{defaultPaymentSourceAccountId},
                    display_order = #{displayOrder},
                    product_category_code = #{productCategoryCode},
-                   risk_level_override = #{riskLevelOverride}
+                   risk_level_override = #{riskLevelOverride},
+                   loan_kind = #{loanKind},
+                   annual_rate_pct = #{annualRatePct}
              WHERE id = #{id}
                AND family_id = #{familyId}
             """)

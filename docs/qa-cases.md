@@ -1169,3 +1169,49 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 **backward-compat 红线**
 - 纯前端 · 0 schema · 不动指标/数据 · dashboard region HTMX 90s 自刷后 scrollspy 经 htmx:afterSettle 重算
 - 不做目录的页(entry/accounts/goals 列表/admin)不受影响
+
+### v0.6 · AI 资产洞察(FR-100~110 · 2026-06-05)
+
+中国大陆中产视角的 4 主线资产洞察:① 集中度 ② 资产负债表健康 ③ 再平衡 + 行为 ④ 低利率·资产荒。
+硬数据全部工程预算(calc/ 4 纯函数),LLM 只中立解读(不预测涨跌 / 不择时 / 不荐产品)。
+主阵地资产体检页,dashboard 速览条 + reports 交叉入口。Qwen 免费额度按模型独立计量,
+用尽自动切下一模型(≤10),账户欠费立刻 failover DeepSeek。
+
+**单元(`mvn test`)**
+
+| Case | 校验 |
+|---|---|
+| AssetInsightCalcTest(6) | 集中度 `pct/topPct/line` · 资产负债表 band(HEALTHY/ELEVATED/ALERT)+ prepay 信号 · 再平衡 OVER/UNDER/OK · 行为 PRO_CYCLICAL+CONCENTRATION_RISING · 历史<6 期静默 |
+| QwenInsightComplianceTest(6) | Qwen 故障分类:免费额度用尽→QUOTA_EXHAUSTED(切模型)/ 欠费·账单过期→ARREARAGE(failover)/ 其它→TRANSIENT · `checkInsight` 放行中立文本、拒绝预测涨跌/择时/担保/产品名 |
+
+**黑盒 · qa-run(v06-*)**
+
+| Case | 校验 |
+|---|---|
+| v06-INSIGHT-1 | `GET /checkup/insight` → 200(无 LLM key 时降级仍 200) |
+| v06-INSIGHT-2 | fragment 含 `data-vendor/available` + 「AI · 资产洞察」标题 |
+| v06-INSIGHT-3 | fragment 含第一层硬数据(集中度等维度名)或降级占位 |
+| v06-INSIGHT-4 | `/checkup` 含 `#checkup-insight` section + `ai-insight-panel` placeholder + TOC 项 |
+| v06-INSIGHT-5 | `/reports` 配置对照尾部含「查看完整资产洞察」→ `/checkup#checkup-insight` |
+| v06-INSIGHT-6 | `/dashboard` 速览条 `#dash-insight`(有数据渲染 · 无数据 SKIP) |
+| v06-LLM-LIVE | 嗅探 `/checkup/insight` 真 LLM 成功 vendor=qwen/deepseek(无 key 降级 SKIP) |
+| v06-COMPLIANCE | 渲染输出绝不含 会涨/会跌/牛市/抄底/高抛低吸/余额宝/茅台 等(中立红线 · 防御深度) |
+| v06-PRIV | `InsightPromptBuilder` 源码不引用 `getDisplayName/getName()/topAccountLabel`(prompt 无人名 by construction) |
+| v06-MODELS | `QwenLlmClient` 含 `K_LLM_QWEN_MODELS` + `QUOTA_EXHAUSTED/ARREARAGE` + `modelExhaustedUntil` |
+| v06-MIGRATION | `V29` 纯 `ADD COLUMN ... NULL`(loan_kind / annual_rate_pct · prod 0 风险) |
+
+**人工 · beta 验收**
+
+| 页 | 校验 |
+|---|---|
+| checkup | 「AI 资产洞察」section:上半 4 维硬数据卡(集中度/资产负债表/再平衡·行为/低利率,真实 %/pp 数字),下半 AI 解读(总评 + 4 维卡 + 纪律性提醒);图标全 SVG 无 emoji;「重新生成」忽略缓存 |
+| checkup | 左侧目录新增「AI 资产洞察」项,滚动高亮 |
+| dashboard | 顶部速览条:房产占比 / 负债 band / (可能)加速偿还 / 真实收益承压 / 行为提醒 chip + 「查看完整洞察 →」 |
+| reports | 配置对照尾部「→ 查看完整资产洞察」跳 checkup 锚点 |
+| 合规 | AI 解读不预测涨跌、不给买卖时点、不提具体产品/代码;成员/账户名不进 prompt |
+
+**backward-compat 红线**
+- V29 纯 `ADD COLUMN DEFAULT NULL` · 老账户两列空 → 资产负债表「负债利率对照」优雅降级(只显负债额)· prod 历史程序 0 影响
+- `AssetInsightService.compute` 只读不写任何表 · 任一数据缺失局部字段 null 降级 · 永不抛
+- 既有 `/checkup/diagnose`(AI 综合诊断)与 `OutputValidator.check` 行为不变;`checkInsight` 为新增更严路径,仅 ASSET_INSIGHT scope 走
+- Qwen 单模型语义保留(默认列表首位 qwen-plus)· 仅在额度用尽时才切换

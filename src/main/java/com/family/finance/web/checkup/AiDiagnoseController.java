@@ -56,6 +56,7 @@ public class AiDiagnoseController {
     private final LlmDiagnoseService llmDiagnoseService;
     private final AccountMapper accountMapper;
     private final FactViewService factViewService;
+    private final com.family.finance.service.insight.AssetInsightService assetInsightService;
 
     @GetMapping("/checkup/diagnose")
     public String diagnose(@AuthenticationPrincipal MemberPrincipal me,
@@ -95,6 +96,26 @@ public class AiDiagnoseController {
         model.addAttribute("scope", accountId == null ? "FAMILY" : "ACCOUNT");
         model.addAttribute("accountId", accountId);
         return "checkup/_ai-diagnose :: panel";
+    }
+
+    /**
+     * v0.6 FR-100~109 · AI 资产洞察(集中度 / 资产负债表 / 再平衡·行为 / 低利率)。
+     *
+     * <p>前端通过 HTMX `hx-trigger="load"` 异步 fetch。返回 fragment 同时含:
+     * 「硬数据」(由 {@link com.family.finance.service.insight.AssetInsightService} 工程预算)+
+     * 「AI 解读」(由 {@link LlmDiagnoseService#diagnoseAssetInsight} · LLM 只解读不算数)。</p>
+     */
+    @GetMapping("/checkup/insight")
+    public String insight(@AuthenticationPrincipal MemberPrincipal me,
+                          @RequestParam(name = "refresh", required = false, defaultValue = "false") boolean refresh,
+                          Model model) {
+        com.family.finance.service.insight.AssetInsight insight =
+                assetInsightService.compute(me.getFamilyId());
+        LlmDiagnoseService.DiagnoseResult result =
+                llmDiagnoseService.diagnoseAssetInsight(me.getFamilyId(), me.getMemberId(), insight, refresh);
+        model.addAttribute("insight", insight);
+        model.addAttribute("result", result);
+        return "checkup/_ai-insight :: panel";
     }
 
     private List<AccountDiagnose> collectAccounts(long familyId) {

@@ -192,6 +192,10 @@ public class AccountController {
         private String productCategoryCode;
         /** v0.2 · 风险等级覆盖(NULL = 沿用类目)· FR-40d */
         private Integer riskLevelOverride;
+        /** v0.6 · 负债类型(仅 LOAN · 选填)· FR-103 */
+        private String loanKind;
+        /** v0.6 · 负债年利率 %(仅 LOAN · 选填)· FR-103 */
+        private java.math.BigDecimal annualRatePct;
 
         Account toAccount() {
             return Account.builder()
@@ -204,6 +208,8 @@ public class AccountController {
                     .displayOrder(displayOrder)
                     .productCategoryCode(productCategoryCode)
                     .riskLevelOverride(riskLevelOverride)
+                    .loanKind(loanKind)
+                    .annualRatePct(annualRatePct)
                     .build();
         }
     }

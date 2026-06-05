@@ -102,6 +102,24 @@
                   th:text="${source.account.displayName}">招行储蓄卡-工资</option>
         </select>
       </div>
+
+      <!-- v0.6 FR-103 · 负债明细(LOAN 类型用 · 选填 · 喂资产负债表健康诊断)-->
+      <div>
+        <label class="field-label">负债类型(LOAN · 选填)</label>
+        <select name="loanKind" class="field-input bg-transparent">
+          <option value="">未设置</option>
+          <option value="MORTGAGE"    th:selected="${account.loanKind == 'MORTGAGE'}">房贷</option>
+          <option value="CONSUMER"    th:selected="${account.loanKind == 'CONSUMER'}">消费贷</option>
+          <option value="CREDIT_CARD" th:selected="${account.loanKind == 'CREDIT_CARD'}">信用卡分期</option>
+          <option value="BORROW"      th:selected="${account.loanKind == 'BORROW'}">亲友借款</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">负债年利率 %(LOAN · 选填)</label>
+        <input type="number" step="0.001" min="0" name="annualRatePct" class="field-input bg-transparent"
+               th:value="${account.annualRatePct}" placeholder="如 4.1">
+        <div class="text-xs text-ink-subtle mt-1">用于「负债利率 vs 资产收益」对照(提前还贷信号)· 不填则跳过</div>
+      </div>
     </div>
 
     <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-rule">

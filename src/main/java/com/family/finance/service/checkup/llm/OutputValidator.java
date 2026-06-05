@@ -43,6 +43,17 @@ public final class OutputValidator {
             "肯定盈利", "绝对收益", "保底", "保收益"
     );
 
+    /**
+     * v0.6 · 资产洞察额外禁词:预测涨跌 / 择时 / 买卖时点 —— 洞察是中立诊断,不做行情预测与择时。
+     * 仅在 {@link #checkInsight} 路径生效,不影响既有体检综合诊断({@link #check})。
+     */
+    private static final List<String> PREDICTION_PHRASES = List.of(
+            "会涨", "会跌", "将涨", "将跌", "看涨", "看跌", "见顶", "见底", "抄底", "逃顶",
+            "牛市", "熊市", "暴涨", "暴跌", "大涨", "大跌", "反弹在即", "即将上涨", "即将下跌",
+            "未来上涨", "未来下跌", "目标价", "现在买入", "现在卖出", "马上加仓", "立即减仓",
+            "择时", "波段操作", "高抛低吸"
+    );
+
     /** 具体产品名 / 股票代码 — 这是合规底线
      *  v0.4.9:6 位数字判断收紧 · 前面不能是 ¥/$/HK$/数字/小数点 · 后面不能是元/万/千/亿/年/月/日/天/.
      *  否则 ¥120526(金额)/ 2026 年(日期)被当 A 股代码误杀 */
@@ -123,6 +134,25 @@ public final class OutputValidator {
             return Result.reject("无金融术语,可能跑题");
         }
 
+        return Result.accept();
+    }
+
+    /**
+     * v0.6 · 资产洞察专用校验:在 {@link #check} 全部规则之上,额外拒绝「预测涨跌 / 择时 / 买卖时点」。
+     * 洞察是中立诊断({@code 不预测涨跌 · 不择时 · 不荐产品} 红线),比体检综合诊断更严。
+     *
+     * @param polished  LLM 输出文本
+     * @param realNames 真名集合(洞察 prompt 不含名 · 通常传空 · 防御深度仍扫)
+     */
+    public static Result checkInsight(String polished, Set<String> realNames) {
+        Result base = check(polished, realNames);
+        if (!base.accepted()) return base;
+        String trimmed = polished.trim();
+        for (String w : PREDICTION_PHRASES) {
+            if (trimmed.contains(w)) {
+                return Result.reject("含预测/择时话术: \"" + w + "\"(洞察须中立 · 不预测涨跌不择时)");
+            }
+        }
         return Result.accept();
     }
 

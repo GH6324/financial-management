@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  AI 资产洞察面板 fragment · v0.6 FR-100~109
+  上半:硬数据(工程预算 · 可审计) · 下半:AI 解读(LLM 只解读不算数 · 不预测不荐产品)
+  由 AiDiagnoseController.insight() 渲染 · HTMX 异步加载替换 spinner
+  图标一律 inline SVG(项目纪律:不用 emoji)
+-->
+<section th:fragment="panel" id="ai-insight-panel"
+         class="paper-card p-6 mb-8 ai-diagnose"
+         th:attr="data-vendor=${result.vendor()},data-cache=${result.fromCache()},data-available=${result.available()}">
+
+  <div class="flex items-baseline justify-between mb-4">
+    <div class="flex items-baseline gap-3">
+      <span class="font-mono text-[10px] tracking-[0.18em] uppercase font-medium text-brass-deep inline-flex items-center gap-1.5">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg>
+        AI · 资产洞察
+      </span>
+      <span th:if="${result.available()}" class="font-mono text-[9px] uppercase text-ink-subtle">
+        <span th:text="${result.vendor()}">qwen</span>
+        <span th:if="${result.fromCache()}" class="ml-1 px-1.5 py-px border border-rule-soft text-ink-subtle">cached</span>
+      </span>
+    </div>
+    <button type="button"
+            class="text-[10px] font-mono px-2 py-0.5 text-ink-subtle hover:text-brass-deep border border-rule-soft hover:border-brass-deep transition"
+            hx-get="/checkup/insight?refresh=true"
+            hx-target="#ai-insight-panel" hx-swap="outerHTML"
+            title="重新生成(忽略缓存)">重新生成</button>
+  </div>
+
+  <!-- ============ 第一层 · 硬数据(工程预算 · 可审计) ============ -->
+  <th:block th:if="${insight.available()}">
+    <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-2">第 一 层 · 硬 · 数 · 据</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-px bg-rule mb-5">
+
+      <!-- 集中度 -->
+      <div class="bg-card p-4" th:with="c=${insight.concentration()}">
+        <div class="flex items-baseline gap-2 mb-2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--brass-deep)" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+          <span class="font-display text-sm font-medium">集中度</span>
+          <span class="font-mono text-[9px] text-ink-subtle ml-auto"
+                th:text="${'风险线 ' + #numbers.formatDecimal(c.thresholdPct(),1,1) + '%'}">风险线 40%</span>
+        </div>
+        <div class="space-y-1 text-xs">
+          <div class="flex justify-between items-baseline" th:with="l=${c.property()}">
+            <span class="text-ink-soft">房产占比</span>
+            <span class="font-mono tnum" th:classappend="${l.overLine() ? ' num-neg' : ''}"
+                  th:text="${l.pct() != null ? #numbers.formatDecimal(l.pct(),1,1) + '%' + (l.overLine() ? ' · 超线' : '') : '—'}">—</span>
+          </div>
+          <div class="flex justify-between items-baseline" th:with="l=${c.topAccount()}">
+            <span class="text-ink-soft">最大单一账户</span>
+            <span class="font-mono tnum" th:classappend="${l.overLine() ? ' num-neg' : ''}"
+                  th:text="${l.pct() != null ? #numbers.formatDecimal(l.pct(),1,1) + '%' + (l.overLine() ? ' · 超线' : '') : '—'}">—</span>
+          </div>
+          <div class="flex justify-between items-baseline" th:with="l=${c.topCurrency()}">
+            <span class="text-ink-soft" th:text="${c.topCurrencyLabel() != null ? '外币敞口·' + c.topCurrencyLabel() : '外币敞口'}">外币敞口</span>
+            <span class="font-mono tnum" th:classappend="${l != null and l.overLine() ? ' num-neg' : ''}"
+                  th:text="${l != null and l.pct() != null ? #numbers.formatDecimal(l.pct(),1,1) + '%' : '无'}">无</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 资产负债表 -->
+      <div class="bg-card p-4" th:with="b=${insight.balanceSheet()}">
+        <div class="flex items-baseline gap-2 mb-2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--brass-deep)" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 7h20M2 17h20"></path></svg>
+          <span class="font-display text-sm font-medium">资产负债表</span>
+          <span class="font-mono text-[9px] ml-auto px-1.5 py-px border"
+                th:with="band=${b.debtBand()}"
+                th:style="${band == 'ALERT' ? 'color:var(--rust);border-color:var(--rust)' : (band == 'ELEVATED' ? 'color:var(--brass-deep);border-color:var(--brass-deep)' : 'color:var(--forest);border-color:var(--forest)')}"
+                th:text="${band == 'ALERT' ? '负债警戒' : (band == 'ELEVATED' ? '负债偏高' : (band == 'HEALTHY' ? '负债健康' : '负债—'))}">负债健康</span>
+        </div>
+        <div class="space-y-1 text-xs">
+          <div class="flex justify-between items-baseline">
+            <span class="text-ink-soft">不动产 / 金融盘</span>
+            <span class="font-mono tnum"
+                  th:text="${(b.propertyPct() != null ? #numbers.formatDecimal(b.propertyPct(),1,1) + '%' : '—') + ' / ' + (b.financialPct() != null ? #numbers.formatDecimal(b.financialPct(),1,1) + '%' : '—')}">—</span>
+          </div>
+          <div class="flex justify-between items-baseline">
+            <span class="text-ink-soft">负债率</span>
+            <span class="font-mono tnum" th:text="${b.debtRatioPct() != null ? #numbers.formatDecimal(b.debtRatioPct(),1,1) + '%' : '—'}">—</span>
+          </div>
+          <div class="flex justify-between items-baseline">
+            <span class="text-ink-soft">负债利率 vs 资产年化</span>
+            <span class="font-mono tnum"
+                  th:text="${(insight.weightedLoanRatePct() != null ? #numbers.formatDecimal(insight.weightedLoanRatePct(),1,2) + '%' : '—') + ' / ' + (insight.assetAnnualReturnPct() != null ? #numbers.formatDecimal(insight.assetAnnualReturnPct(),1,2) + '%' : '—')}">—</span>
+          </div>
+          <div th:if="${b.prepaySignal() != null and b.prepaySignal()}"
+               class="font-mono text-[10px] text-rust mt-1">· 负债利率高于资产年化 — 可考虑加速偿还</div>
+        </div>
+      </div>
+
+      <!-- 再平衡 · 行为 -->
+      <div class="bg-card p-4" th:with="r=${insight.rebalance()}">
+        <div class="flex items-baseline gap-2 mb-2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--brass-deep)" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          <span class="font-display text-sm font-medium">再平衡 · 行为</span>
+          <span class="font-mono text-[9px] text-ink-subtle ml-auto"
+                th:if="${r.anchorCode() != null}" th:text="${'锚 ' + r.anchorCode()}">锚 SP_4321</span>
+        </div>
+        <div class="space-y-1 text-xs">
+          <div th:each="d : ${r.drifts()}" th:if="${d.overThreshold()}"
+               class="flex justify-between items-baseline">
+            <span class="text-ink-soft" th:text="${d.bucket() == 'CASH' ? '现金' : (d.bucket() == 'INVEST' ? '投资' : (d.bucket() == 'PROPERTY' ? '不动产' : (d.bucket() == 'INSURANCE' ? '保险' : d.bucket())))}">桶</span>
+            <span class="font-mono tnum" th:classappend="${d.direction() == 'OVER' ? ' num-neg' : ' num-pos'}"
+                  th:text="${(d.diffPp().signum() > 0 ? '+' : '') + #numbers.formatDecimal(d.diffPp(),1,1) + 'pp · ' + (d.direction() == 'OVER' ? '超配该减' : '低配该补')}">+0pp</span>
+          </div>
+          <div th:if="${r.drifts().?[overThreshold()].isEmpty()}" class="text-ink-subtle">各桶均在阈值内 · 无需再平衡</div>
+          <div th:each="s : ${insight.behaviorSignals()}"
+               class="font-mono text-[10px] text-brass-deep leading-relaxed mt-1" th:text="${'· ' + s.message()}">行为信号</div>
+        </div>
+      </div>
+
+      <!-- 低利率 · 资产荒 -->
+      <div class="bg-card p-4" th:with="lr=${insight.lowRate()}">
+        <div class="flex items-baseline gap-2 mb-2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--brass-deep)" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M23 18l-9.5-9.5-5 5L1 6"></path><path d="M17 18h6v-6"></path></svg>
+          <span class="font-display text-sm font-medium">低利率 · 资产荒</span>
+        </div>
+        <div class="space-y-1 text-xs">
+          <div class="flex justify-between items-baseline">
+            <span class="text-ink-soft">现金占比</span>
+            <span class="font-mono tnum" th:text="${lr.cashPct() != null ? #numbers.formatDecimal(lr.cashPct(),1,1) + '%' : '—'}">—</span>
+          </div>
+          <div class="flex justify-between items-baseline">
+            <span class="text-ink-soft">真实收益(扣CPI)</span>
+            <span class="font-mono tnum" th:classappend="${lr.realReturnPct() != null and lr.realReturnPct().signum() < 0 ? ' num-neg' : ''}"
+                  th:text="${lr.realReturnPct() != null ? #numbers.formatDecimal(lr.realReturnPct(),1,2) + '%' : '—'}">—</span>
+          </div>
+          <div class="flex justify-between items-baseline">
+            <span class="text-ink-soft">相对社会(扣M2)</span>
+            <span class="font-mono tnum" th:classappend="${lr.relativeReturnPct() != null and lr.relativeReturnPct().signum() < 0 ? ' num-neg' : ''}"
+                  th:text="${lr.relativeReturnPct() != null ? #numbers.formatDecimal(lr.relativeReturnPct(),1,2) + '%' : '—'}">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </th:block>
+
+  <!-- 硬数据降级 -->
+  <div th:if="${!insight.available()}" class="paper-card p-3 text-xs text-ink-soft mb-4"
+       style="border-left:3px solid var(--ink-subtle)">
+    <span class="font-mono text-[10px]">硬数据暂不可用</span>
+    <p class="mt-1" th:text="${insight.degradeReason()}">尚无资产快照</p>
+  </div>
+
+  <!-- ============ 第二层 · AI 解读 ============ -->
+  <th:block th:if="${result.available() and result.structured() != null}" th:with="s=${result.structured()}">
+    <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-2">第 二 层 · AI · 解 · 读</div>
+
+    <!-- 总评 banner -->
+    <div class="paper-card p-3 mb-4" th:with="vc=${s.overallVerdict()}"
+         th:style="${vc == 'RISK' ? 'background:rgba(159,74,58,.06); border-left:4px solid var(--rust)' :
+                     (vc == 'NEEDS_ATTENTION' ? 'background:rgba(196,148,62,.08); border-left:4px solid var(--brass-deep)' :
+                     'background:rgba(47,93,80,.06); border-left:4px solid var(--forest)')}">
+      <div class="flex items-baseline gap-2 flex-wrap mb-1">
+        <span class="font-mono text-[10px] tracking-[0.16em] uppercase"
+              th:style="${vc == 'RISK' ? 'color:var(--rust)' : (vc == 'NEEDS_ATTENTION' ? 'color:var(--brass-deep)' : 'color:var(--forest)')}"
+              th:text="${vc == 'RISK' ? '[亟需调整]' : (vc == 'NEEDS_ATTENTION' ? '[需关注]' : '[稳健]')}">[稳健]</span>
+        <span class="font-mono text-[10px] text-ink-subtle">总评</span>
+      </div>
+      <p class="text-sm text-ink leading-relaxed" th:text="${s.overallSummary()}">总评句</p>
+    </div>
+
+    <!-- 4 维度卡(SVG 圆点 · 不用 emoji) -->
+    <div class="space-y-2 mb-4">
+      <div th:each="d : ${s.dimensions()}" th:with="dv=${d.verdict()}" class="paper-card px-3 py-2.5"
+           th:style="${dv == 'RISK' ? 'border-left:3px solid var(--rust)' :
+                       (dv == 'WARN' ? 'border-left:3px solid var(--brass-deep)' :
+                       'border-left:3px solid var(--forest)')}">
+        <div class="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
+          <div class="flex items-baseline gap-2">
+            <svg width="9" height="9" viewBox="0 0 24 24" class="self-center"
+                 th:attr="fill=${dv == 'RISK' ? 'var(--rust)' : (dv == 'WARN' ? 'var(--brass-deep)' : 'var(--forest)')}"><circle cx="12" cy="12" r="12"></circle></svg>
+            <span class="font-display text-sm font-medium" th:text="${d.name()}">集中度</span>
+          </div>
+          <span class="font-mono text-[10px] px-1.5 py-px border"
+                th:style="${dv == 'RISK' ? 'color:var(--rust); border-color:var(--rust); background:rgba(159,74,58,.05)' :
+                           (dv == 'WARN' ? 'color:var(--brass-deep); border-color:var(--brass-deep); background:rgba(196,148,62,.06)' :
+                           'color:var(--forest); border-color:var(--forest); background:rgba(47,93,80,.05)')}"
+                th:text="${dv}">OK</span>
+        </div>
+        <p class="text-xs text-ink leading-relaxed mb-1" th:text="${d.finding()}">诊断结论</p>
+        <p class="text-[11px] text-ink-subtle font-mono leading-relaxed"
+           th:if="${d.evidence() != null and !d.evidence().isBlank()}" th:text="${'· ' + d.evidence()}">· 数据支撑</p>
+      </div>
+    </div>
+
+    <!-- 纪律性提醒 -->
+    <div th:if="${s.actions() != null and !s.actions().isEmpty()}" class="paper-card px-3 py-2.5"
+         style="background:rgba(122,90,57,.04); border-left:3px solid var(--brass-deep)">
+      <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep mb-2">纪 · 律 · 性 · 提 · 醒</div>
+      <ol class="space-y-1 text-xs text-ink list-decimal list-inside leading-relaxed">
+        <li th:each="a : ${s.actions()}" th:text="${a}">提醒</li>
+      </ol>
+    </div>
+  </th:block>
+
+  <!-- 截断检测 -->
+  <div th:if="${result.truncated()}" class="paper-card p-3 text-xs text-ink-soft"
+       style="border-left:3px solid var(--rust); background:rgba(159,74,58,.04)">
+    <span class="font-mono text-rust">AI 输出被截断</span>
+    <p class="mt-1">本次 AI 返回内容不完整 · 请点右上方「重新生成」重试。</p>
+  </div>
+
+  <!-- AI 不可用 fallback(硬数据仍在上方) -->
+  <p th:if="${(not result.available()) or (result.structured() == null and not result.truncated())}"
+     class="text-sm leading-relaxed whitespace-pre-line"
+     th:style="${result.available() ? '' : 'color:var(--ink-soft); font-style: italic;'}"
+     th:text="${result.text()}">AI 解读文案占位...</p>
+
+  <div class="mt-4 pt-3 border-t border-rule-soft flex items-baseline justify-between text-[10px] font-mono text-ink-subtle flex-wrap gap-1">
+    <span>中 · 立 · 诊 · 断 · 不 · 预 · 测 · 不 · 荐 · 产 · 品</span>
+    <span>数字由系统计算,AI 仅解读,不构成投资建议</span>
+  </div>
+</section>
+
+<!-- placeholder · spinner -->
+<section th:fragment="placeholder(aiInsightUrl)" id="ai-insight-panel"
+         class="paper-card p-6 mb-8 ai-diagnose"
+         th:attr="hx-get=${aiInsightUrl}" hx-trigger="load" hx-swap="outerHTML">
+  <div class="flex items-baseline justify-between mb-3">
+    <span class="font-mono text-[10px] tracking-[0.18em] uppercase font-medium text-brass-deep inline-flex items-center gap-1.5">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle>
+        <path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg>
+      AI · 资产洞察
+    </span>
+    <span class="font-mono text-[9px] uppercase text-ink-subtle">分析中...</span>
+  </div>
+  <div class="flex items-center gap-3 text-sm text-ink-soft italic">
+    <span class="inline-block w-3 h-3 border-2 border-brass-deep border-t-transparent rounded-full animate-spin"></span>
+    <span>正在汇总集中度 / 资产负债表 / 再平衡·行为 / 低利率视角的硬数据,AI 中立解读中(约 3-5 秒)...</span>
+  </div>
+</section>
+</body>
+</html>

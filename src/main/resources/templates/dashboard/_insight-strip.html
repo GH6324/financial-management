@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  AI 资产洞察 · 仪表盘速览条 · v0.6 FR-110
+  只展示硬数据头条(不调 LLM · dashboard 保持轻快)· 点「查看完整洞察」去体检页看 AI 解读
+-->
+<section th:fragment="strip(insight)" id="dash-insight"
+         th:if="${insight != null and insight.available()}"
+         class="paper-card px-4 py-3 mb-4" style="scroll-margin-top:80px; border-left:3px solid var(--brass-deep)">
+  <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep inline-flex items-center gap-1.5">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg>
+        AI · 资产洞察
+      </span>
+
+      <!-- 集中度头条:房产占比 -->
+      <span th:if="${insight.concentration() != null and insight.concentration().property() != null and insight.concentration().property().pct() != null}"
+            th:with="l=${insight.concentration().property()}"
+            class="font-mono text-[10px] px-2 py-0.5 border"
+            th:style="${l.overLine() ? 'color:var(--rust);border-color:var(--rust);background:rgba(159,74,58,.05)' : 'color:var(--ink-soft);border-color:var(--rule-soft)'}"
+            th:text="${'房产 ' + #numbers.formatDecimal(l.pct(),1,1) + '%' + (l.overLine() ? ' 偏高' : '')}">房产 60%</span>
+
+      <!-- 负债 band -->
+      <span th:if="${insight.balanceSheet() != null and insight.balanceSheet().debtBand() != null and insight.balanceSheet().debtBand() != 'UNKNOWN'}"
+            th:with="band=${insight.balanceSheet().debtBand()}"
+            class="font-mono text-[10px] px-2 py-0.5 border"
+            th:style="${band == 'ALERT' ? 'color:var(--rust);border-color:var(--rust);background:rgba(159,74,58,.05)' : (band == 'ELEVATED' ? 'color:var(--brass-deep);border-color:var(--brass-deep)' : 'color:var(--forest);border-color:var(--forest)')}"
+            th:text="${band == 'ALERT' ? '负债警戒' : (band == 'ELEVATED' ? '负债偏高' : '负债健康')}">负债健康</span>
+
+      <!-- 提前还贷信号 -->
+      <span th:if="${insight.balanceSheet() != null and insight.balanceSheet().prepaySignal() != null and insight.balanceSheet().prepaySignal()}"
+            class="font-mono text-[10px] px-2 py-0.5 border" style="color:var(--rust);border-color:var(--rust);background:rgba(159,74,58,.05)">可考虑加速偿还</span>
+
+      <!-- 真实购买力承压 -->
+      <span th:if="${insight.lowRate() != null and insight.lowRate().realReturnPct() != null and insight.lowRate().realReturnPct().signum() < 0}"
+            class="font-mono text-[10px] px-2 py-0.5 border" style="color:var(--rust);border-color:var(--rust);background:rgba(159,74,58,.05)"
+            th:text="${'真实收益 ' + #numbers.formatDecimal(insight.lowRate().realReturnPct(),1,2) + '% · 跑输通胀'}">真实收益 -1.2%</span>
+
+      <!-- 行为信号计数 -->
+      <span th:if="${insight.behaviorSignals() != null and !insight.behaviorSignals().isEmpty()}"
+            class="font-mono text-[10px] px-2 py-0.5 border" style="color:var(--brass-deep);border-color:var(--brass-deep)"
+            th:text="${insight.behaviorSignals().size() + ' 条行为提醒'}">1 条行为提醒</span>
+    </div>
+
+    <a href="/checkup#checkup-insight"
+       class="font-mono text-[10px] text-brass-deep hover:underline no-underline whitespace-nowrap">查看完整洞察 →</a>
+  </div>
+</section>
+</body>
+</html>

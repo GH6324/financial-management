@@ -45,6 +45,8 @@ public class FamilyConfigService {
     public static final String K_LLM_DEEPSEEK_KEY  = "llm_deepseek_api_key";
     public static final String K_LLM_MAX_TOKENS    = "llm_max_tokens";
     public static final String K_LLM_TIMEOUT_SECS  = "llm_timeout_seconds";
+    /** v0.6 · Qwen 多模型兜底:逗号分隔有序模型列表(≤10)· 某模型免费额度用尽自动切下一个 */
+    public static final String K_LLM_QWEN_MODELS   = "llm_qwen_models";
     // Integrations · 股票拉取
     public static final String K_STOCK_ENABLED     = "stock_fetch_enabled";
     public static final String K_STOCK_CRON_US     = "stock_cron_us";
