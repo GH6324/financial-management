@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.6 Preview · AI 资产洞察体检</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+  <style>
+    body { background: var(--paper); color: var(--ink); }
+    .eyebrow { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--brass-deep); }
+    .paper-card { background:var(--card); border:1px solid var(--rule); box-shadow:0 1px 0 rgba(26,23,20,.04),0 8px 24px -12px rgba(26,23,20,.08); }
+    .annot { font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--ink-subtle); }
+    .pill { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.08em; padding:2px 9px; border-radius:2px; display:inline-block; }
+    .pill-rust { background:rgba(156,74,42,.1); color:var(--rust); border:1px solid var(--rust); }
+    .pill-forest { background:rgba(79,107,71,.12); color:var(--forest); border:1px solid var(--forest); }
+    .pill-brass { background:var(--brass-soft); color:var(--brass-deep); border:1px solid var(--brass); }
+    .bar { position:relative; height:22px; background:var(--card-soft); border:1px solid var(--rule-soft); border-radius:3px; overflow:hidden; }
+    .bar > span { position:absolute; left:0; top:0; height:100%; display:flex; align-items:center; }
+    .barlbl { position:absolute; right:8px; top:0; height:100%; display:flex; align-items:center; font-family:"JetBrains Mono",monospace; font-size:11px; }
+    .riskline { position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--ink); }
+    .new-tag { font-family:"JetBrains Mono",monospace; font-size:8px; letter-spacing:.1em; background:var(--brass-deep); color:var(--paper); padding:1px 5px; border-radius:2px; vertical-align:middle; }
+    h3.sec { font-family:"Fraunces","Noto Serif SC",serif; font-size:1.25rem; font-weight:500; }
+  </style>
+</head>
+<body class="min-h-screen">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+<header class="border-b border-rule" style="background:var(--paper)">
+  <div class="max-w-[1080px] mx-auto px-6 h-14 flex items-center gap-5">
+    <span class="font-display text-lg font-medium">家庭账房</span>
+    <nav class="flex gap-4 annot" style="text-transform:none"><span>仪表盘</span><span>报表</span><span class="text-ink font-bold" style="border-bottom:2px solid var(--ink)">资产体检</span><span>目标</span></nav>
+  </div>
+</header>
+
+<main class="max-w-[1080px] mx-auto px-6 py-10">
+
+  <div class="flex items-start justify-between flex-wrap gap-3 mb-2">
+    <div>
+      <div class="eyebrow mb-2">家庭账房 · v0.6 Preview · 资产体检升级</div>
+      <h1 class="font-display text-3xl md:text-4xl font-medium tracking-tight">AI 资产洞察体检 <span class="new-tag">v0.6</span></h1>
+    </div>
+    <a href="index.html" class="annot hover:text-ink no-underline" style="border-bottom:1px solid var(--rule);text-transform:none">← v0.6 卷</a>
+  </div>
+  <p class="font-serif text-sm text-ink-soft max-w-3xl mb-8 leading-relaxed">
+    在现有 4 维体检之上,新增「AI 资产洞察」:集中度 / 资产负债表 / 再平衡+行为 / 低利率视角。
+    <b>中立诊断 · 数字工程算 · 不荐具体产品 · 不预测涨跌</b>。下面是某家庭(化名)的体检示意。
+  </p>
+
+  <!-- ===== AI 资产洞察 · 总评卡 ===== -->
+  <section class="paper-card mb-8" style="border-left:4px solid var(--brass-deep)">
+    <div class="px-6 py-5">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div class="flex items-center gap-3">
+          <span class="eyebrow">A · I · 资 · 产 · 洞 · 察</span>
+          <span class="pill pill-rust">需关注</span>
+        </div>
+        <span class="annot" style="text-transform:none">本期复用 · 渲染于 2026-06-05 · ↻ 重新生成</span>
+      </div>
+      <p class="font-serif text-[15px] leading-relaxed text-ink mb-4">
+        你家资产<b>高度集中在房产</b>(占总资产 <b class="text-rust">78%</b>),金融盘内<b>单一标的</b>又占 <b class="text-rust">65%</b> —— 两层集中叠加,抗风险能力偏脆弱。
+        负债率 21% 健康,但<b>房贷利率 4.1% 已高于你近一年的真实资产收益(+1.8%)</b>;财富水位上你勉强跑赢 CPI、明显<b class="text-rust">跑输 M2(−5.2%)</b> —— 购买力保住了,社会排位在掉。
+      </p>
+      <div class="eyebrow mb-2" style="color:var(--brass-deep)">优 先 方 向(一般性 · 不荐具体产品)</div>
+      <ul class="font-serif text-sm text-ink-soft leading-relaxed space-y-1.5" style="list-style:none;padding:0">
+        <li>① <b class="text-ink">资产过度集中是首要风险</b>:在风险可承受范围内,逐步提高金融资产占比、分散单一重仓标的。</li>
+        <li>② <b class="text-ink">房贷利率 &gt; 资产真实收益</b>:可评估提前还贷(见「提前还贷决策器」)。</li>
+        <li>③ <b class="text-ink">长期跑输 M2</b>:适度增加能分享社会财富增长的资产类别(具体品种自行判断,本工具不荐)。</li>
+      </ul>
+      <div class="mt-4 pt-3 border-t border-rule-soft annot" style="text-transform:none">
+        第一层规则引擎硬数据(可审计)+ 第二层 AI 跨维解读 · 数字 100% 由系统计算 · 不构成投资建议
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== A · 集中度体检 ===== -->
+  <section class="paper-card mb-6">
+    <div class="px-6 py-5">
+      <h3 class="sec mb-1">集中度体检 <span class="new-tag">新</span></h3>
+      <p class="annot mb-4" style="text-transform:none">钱是不是太挤在一处 · 黑线 = 参考风险线</p>
+      <div class="space-y-3.5">
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span>房产占总资产 <span class="pill pill-rust ml-1">高于 70% 线</span></span><span class="font-mono">78%</span></div>
+          <div class="bar"><span style="width:78%;background:var(--rust);opacity:.75"></span><div class="riskline" style="left:70%"></div></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span>单一标的占股票仓(萝卜-某票)<span class="pill pill-rust ml-1">偏高</span></span><span class="font-mono">65%</span></div>
+          <div class="bar"><span style="width:65%;background:var(--rust);opacity:.7"></span><div class="riskline" style="left:50%"></div></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span>单一账户占净资产(房贷-招行 不计)<span class="pill pill-brass ml-1">尚可</span></span><span class="font-mono">31%</span></div>
+          <div class="bar"><span style="width:31%;background:var(--brass);opacity:.6"></span><div class="riskline" style="left:40%"></div></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span>外币敞口(本位币 CNY 外)<span class="pill pill-forest ml-1">低</span></span><span class="font-mono">USD 8%</span></div>
+          <div class="bar"><span style="width:8%;background:var(--forest);opacity:.6"></span></div>
+        </div>
+      </div>
+      <p class="font-serif text-sm text-ink-soft mt-4 leading-relaxed" style="border-left:3px solid var(--brass);padding-left:10px">
+        房产与单一标的集中度均偏高,组合对单一资产/单一标的的波动高度敏感。一般建议在可承受范围内分散到低相关的大类。<span class="annot" style="text-transform:none">(AI · 不荐具体产品)</span>
+      </p>
+    </div>
+  </section>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- ===== B · 资产负债表健康 ===== -->
+    <section class="paper-card">
+      <div class="px-6 py-5">
+        <h3 class="sec mb-1">资产负债表健康 <span class="new-tag">新</span></h3>
+        <p class="annot mb-4" style="text-transform:none">金融盘 vs 不动产 · 负债成本 vs 资产收益</p>
+        <div class="space-y-3 text-sm">
+          <div class="flex justify-between"><span class="text-ink-soft">金融盘 / 不动产</span><span class="font-mono">22% / 78%</span></div>
+          <div class="bar"><span style="width:22%;background:var(--forest);opacity:.6"></span><span style="left:22%;width:78%;background:var(--brass-deep);opacity:.35"></span></div>
+          <div class="flex justify-between pt-1"><span class="text-ink-soft">负债率</span><span class="font-mono"><span class="pill pill-forest">健康</span> 21%</span></div>
+          <div class="flex justify-between"><span class="text-ink-soft">房贷年利率</span><span class="font-mono num-neg">4.1%</span></div>
+          <div class="flex justify-between"><span class="text-ink-soft">近一年资产真实收益(剔 CPI)</span><span class="font-mono">+1.8%</span></div>
+        </div>
+        <p class="font-serif text-sm text-ink-soft mt-4 leading-relaxed" style="border-left:3px solid var(--rust);padding-left:10px">
+          房贷成本(4.1%)&gt; 资产真实收益(1.8%):若有闲置低收益现金,提前还贷往往比持有更划算。<span class="annot" style="text-transform:none">(→ 还贷决策器)</span>
+        </p>
+      </div>
+    </section>
+
+    <!-- ===== C · 再平衡 + 行为体检 ===== -->
+    <section class="paper-card">
+      <div class="px-6 py-5">
+        <h3 class="sec mb-1">再平衡 + 行为体检 <span class="new-tag">新</span></h3>
+        <p class="annot mb-4" style="text-transform:none">配置偏离 + 历史快照行为信号</p>
+        <div class="text-sm space-y-2">
+          <div class="flex justify-between"><span class="text-ink-soft">权益占金融资产 · 目标 40%</span><span class="font-mono"><span class="pill pill-rust">超配 +20pp</span> 60%</span></div>
+          <div class="bar"><span style="width:60%;background:var(--rust);opacity:.6"></span><div class="riskline" style="left:40%"></div></div>
+        </div>
+        <div class="mt-4 space-y-2.5">
+          <div class="flex items-start gap-2"><span class="pill pill-rust" style="margin-top:2px">行为</span><span class="font-serif text-sm text-ink-soft">近 6 期净流入多集中在高位期 —— 近似「追涨」。</span></div>
+          <div class="flex items-start gap-2"><span class="pill pill-rust" style="margin-top:2px">行为</span><span class="font-serif text-sm text-ink-soft">盈利仓位占比持续走高、未见减仓 —— 「从不止盈」。</span></div>
+        </div>
+        <p class="font-serif text-sm text-ink-soft mt-4 leading-relaxed" style="border-left:3px solid var(--brass);padding-left:10px">
+          权益已显著超出你设定的目标比例;再平衡的纪律(越涨越卖一点)能对冲追涨杀跌。建议方向:减超配、补低配。<span class="annot" style="text-transform:none">(不给具体点位/产品)</span>
+        </p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== D · 低利率·资产荒视角 + 框架对照 ===== -->
+  <section class="paper-card mb-8">
+    <div class="px-6 py-5">
+      <h3 class="sec mb-1">低利率 · 资产荒视角 + 主流框架对照 <span class="new-tag">新</span></h3>
+      <p class="annot mb-4" style="text-transform:none">你的大类配置 vs 核心-卫星参考(教育性 · 非模板)</p>
+      <div class="grid grid-cols-2 gap-6 text-sm">
+        <div>
+          <div class="annot mb-2" style="text-transform:none">当前(金融盘内)</div>
+          <div class="space-y-1.5">
+            <div class="flex justify-between"><span>现金/货基</span><span class="font-mono">22%</span></div>
+            <div class="flex justify-between"><span>权益(股票)</span><span class="font-mono text-rust">60%</span></div>
+            <div class="flex justify-between"><span>固收/理财</span><span class="font-mono">18%</span></div>
+            <div class="flex justify-between"><span>黄金/海外</span><span class="font-mono">0%</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="annot mb-2" style="text-transform:none">核心-卫星 参考</div>
+          <div class="space-y-1.5 text-ink-soft">
+            <div class="flex justify-between"><span>核心(稳健)</span><span class="font-mono">70–80%</span></div>
+            <div class="flex justify-between"><span>卫星(进取)</span><span class="font-mono">20–30%</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="font-serif text-sm text-ink-soft mt-4 leading-relaxed" style="border-left:3px solid var(--brass);padding-left:10px">
+        当前权益(卫星)占比远超核心-卫星参考区间,且无黄金/海外等低相关分散。结合存款利率走低、财富水位跑输 M2:
+        一般思路是把"核心盘"做厚做稳、用少量卫星博取弹性,并适度引入低相关资产分散 ——
+        <b>各类资产的角色逻辑</b>(避险/生息/分享增长)供你参考,<b>具体品种与比例自行判断,本工具不荐</b>。<span class="annot" style="text-transform:none">(AI · 中立视角)</span>
+      </p>
+    </div>
+  </section>
+
+  <p class="annot text-center" style="text-transform:none">— 旧的「配置/风险/流动性/收益」4 维卡 + 智能建议 + AI 综合诊断 仍在,本页只示意 v0.6 新增的「AI 资产洞察」部分 —</p>
+
+</main>
+</body>
+</html>
