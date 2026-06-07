@@ -6,6 +6,12 @@
 [![Java 21](https://img.shields.io/badge/Java-21-orange)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot 3.3](https://img.shields.io/badge/Spring%20Boot-3.3-green)](https://spring.io/projects/spring-boot)
 
+<p align="center">
+  <img src="docs/screenshots/pc_dashboard.jpg" width="100%" alt="家庭账房 · 仪表盘">
+  <br>
+  <sub><b>仪表盘</b> · 全家净资产 / 趋势(叠加 CPI 购买力线 + M2 社会财富线)/ 资产配置 — 一屏总览</sub>
+</p>
+
 ---
 
 ## 问题
@@ -29,7 +35,36 @@
 
 ## 功能截图
 
-> 📷 _截图位:`/dashboard`、`/entry`、`/checkup`、`/accounts/{id}` — 欢迎贡献_
+### 桌面端
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/pc_ai_analysis.jpg" alt="AI 综合诊断"><br><sub><b>AI 综合诊断</b> · 总评 + 配置 / 风险 / 流动性 / 收益 四维卡 + 优先行动(数字工程算,LLM 只解读)</sub></td>
+    <td width="50%"><img src="docs/screenshots/pc_account.jpg" alt="账户簿"><br><sub><b>账户簿</b> · 6 类账户 · 按成员归集 · 划转 / 体检 / 账本 / 一键导出</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/screenshots/pc_setting.jpg" width="72%" alt="可运营管理页"><br><sub><b>可运营管理页</b> · 品牌 / 成员 / 周期 / 提醒 / 汇率 / 数据源 / 阈值 共 14 项 · 改即热生效不重启</sub></td>
+  </tr>
+</table>
+
+### 移动端 · 响应式 + iOS PWA
+
+<table>
+  <tr>
+    <td width="20%"><img src="docs/screenshots/mobilez_dashboard.jpg" alt="移动端仪表盘"></td>
+    <td width="20%"><img src="docs/screenshots/mobile_account.jpg" alt="移动端填报"></td>
+    <td width="20%"><img src="docs/screenshots/mobile_analysis.jpg" alt="移动端资产体检"></td>
+    <td width="20%"><img src="docs/screenshots/mobile_ai_analysis.jpg" alt="移动端 AI 调仓"></td>
+    <td width="20%"><img src="docs/screenshots/mobile_ios_deck.jpg" alt="iOS 主屏 PWA"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>仪表盘 · 洞察速览</sub></td>
+    <td align="center"><sub>每月填报</sub></td>
+    <td align="center"><sub>资产体检</sub></td>
+    <td align="center"><sub>AI 调仓建议</sub></td>
+    <td align="center"><sub>装为 App</sub></td>
+  </tr>
+</table>
 
 ## 主要能力
 
@@ -60,7 +95,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 215 单元(含 PrivacyIsolationTest 静态扫源码私密红线)/ 36 端到端 / 319 黑盒 |
+| 测试 | JUnit 5 · 244 单元(含 PrivacyIsolationTest 静态扫源码私密红线)/ 36 端到端 / 338 黑盒 |
 
 ## 快速开始(自托管部署)
 
