@@ -2,6 +2,29 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.6.1] · 2026-06-08
+
+iOS PWA 引导从「软建议」改「强引导」(FR-115)。原来是「你也可以这么用」,现在是
+「iOS 上请务必装成 App」—— 整屏拦截 + 成果真机截图(看到网站能变 App)+ 想留在浏览器/
+微信要被**两段挽留**才放行。纯前端,0 schema。
+
+### Changed
+
+- **`mobile-guide.js` 重写**:① iOS Safari → 进站 ~0.7s **整屏强引导**(标题「请把账房装成 App」+ 主屏成果截图 + 3 条价值点 +「看怎么装·4 步真机图」)② iOS 微信 → **整屏强引导转 Safari**(微信内核装不了 PWA · 大箭头指右上「⋯」→「在 Safari 中打开」+ 成果截图)
+- **两段挽留(强阻挠)**:点「暂时用浏览器 / 继续在微信用」或 ✕ → 阻挠①(没图标/手输网址/不能全屏)→「仍要继续」→ 阻挠②(装一次 20 秒)→ 才放行 + 3 天内不再弹(原 Safari 7 天一键划走)
+- **口吻**全面升「请 / 务必 / 强烈建议」;文案从可选改强推
+- **emoji 全清** 📦📷✕✓ → 项目 inline SVG(承 `feedback_no_emoji`)
+- 已装成 PWA(standalone)/ 非 iOS → 完全静默不打扰;`?reset_pwa=1 / ?reset_wx=1` dev 强触发保留;安卓微信本版静默(只强推 iOS · 安卓另议)
+
+### Added
+
+- **成果真机图** `img/safari-screen/home-screen.jpg`(主屏装好的账房图标 · 让用户直接看到「网站能像 App」)· 640px/q82 · 74KB
+
+### Perf
+
+- iOS PWA 引导 4 步截图压缩 1320→900px/q82 · 834KB→473KB(-44%)
+- presets 品牌图标 32 位真彩→256 色板 PNG · 1370KB→83KB(-94%)· 已眼检无 banding
+
 ## [v0.6.0] · 2026-06-05
 
 中国大陆中产视角的「AI 资产洞察」:把小红书/论坛/支付宝等主流讨论里反复出现的资产焦虑,

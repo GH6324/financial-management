@@ -2491,6 +2491,47 @@ V29=db/migration/V29__loan_detail_fields.sql
   && log_ok "v06-MIGRATION V29 负债明细字段 · ADD COLUMN DEFAULT NULL(prod 0 风险)" \
   || log_bad "v06-MIGRATION V29 缺/非向后兼容" "see V29"
 
+# ====================================================================
+# v0.6.1 · iOS PWA 强引导(FR-115)· mobile-guide.js
+# ====================================================================
+section "v0.6.1 · iOS PWA 强引导"
+
+$CURL "$BASE/js/mobile-guide.js" -o "$TMP" -w ""
+# v061-PWA-1 · JS 200 + 含强引导三函数
+code=$($CURL -o /dev/null -w "%{http_code}" "$BASE/js/mobile-guide.js")
+{ [[ "$code" == "200" ]] \
+  && grep -q "showIosPwaInterstitial" "$TMP" \
+  && grep -q "showWxGuide" "$TMP" \
+  && grep -q "twoStepLeave" "$TMP"; } \
+  && log_ok "v061-PWA-1 mobile-guide.js 200 · 含整屏引导 + 两段挽留三函数" \
+  || log_bad "v061-PWA-1 强引导 JS 缺" "code=$code"
+
+# v061-PWA-2 · 强口吻文案(请务必/强烈建议/整屏)
+{ grep -q "强烈建议" "$TMP" && grep -q "装成 App" "$TMP"; } \
+  && log_ok "v061-PWA-2 JS 含强引导文案(强烈建议 · 装成 App)" \
+  || log_bad "v061-PWA-2 强口吻文案缺" "no 强烈建议/装成 App"
+
+# v061-PWA-3 · 无 emoji(承 feedback_no_emoji · 引导全 SVG)
+if grep -qE "📦|📷|✕|✓|🤖|💡|✨" "$TMP"; then
+  log_bad "v061-PWA-3 引导 JS 仍含 emoji" "$(grep -oE '📦|📷|✕|✓|🤖|💡|✨' "$TMP" | head -3 | tr '\n' ' ')"
+else
+  log_ok "v061-PWA-3 引导 JS 无 emoji(全 inline SVG)"
+fi
+
+# v061-PWA-4 · 成果真机图可访问
+code=$($CURL -o /dev/null -w "%{http_code}" "$BASE/img/safari-screen/home-screen.jpg")
+[[ "$code" == "200" ]] \
+  && log_ok "v061-PWA-4 成果图 home-screen.jpg 200(主屏装好样子)" \
+  || log_bad "v061-PWA-4 成果图缺" "code=$code"
+
+# v061-PWA-5 · 4 步截图仍在(压缩后)
+miss=0; for n in 1 2 3 4; do
+  c=$($CURL -o /dev/null -w "%{http_code}" "$BASE/img/safari-screen/step$n.jpg")
+  [[ "$c" == "200" ]] || miss=$((miss+1))
+done
+[[ $miss -eq 0 ]] && log_ok "v061-PWA-5 4 步真机截图 step1-4.jpg 全部 200" \
+  || log_bad "v061-PWA-5 步骤截图缺 $miss 张" "miss=$miss"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

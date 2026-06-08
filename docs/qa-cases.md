@@ -1215,3 +1215,31 @@ INFO RebalanceController : rebalance advise · family=1 ok=false fromCache=false
 - `AssetInsightService.compute` 只读不写任何表 · 任一数据缺失局部字段 null 降级 · 永不抛
 - 既有 `/checkup/diagnose`(AI 综合诊断)与 `OutputValidator.check` 行为不变;`checkInsight` 为新增更严路径,仅 ASSET_INSIGHT scope 走
 - Qwen 单模型语义保留(默认列表首位 qwen-plus)· 仅在额度用尽时才切换
+
+### v0.6.1 · iOS PWA 强引导(FR-115 · 2026-06-08)
+
+iOS PWA 引导从软建议改强引导:整屏拦截 + 成果真机截图 + 想留浏览器/微信要两段挽留。纯前端 0 schema。
+
+**黑盒 · qa-run(v061-PWA-*)**
+
+| Case | 校验 |
+|---|---|
+| v061-PWA-1 | `/js/mobile-guide.js` 200 · 含 `showIosPwaInterstitial` + `showWxGuide` + `twoStepLeave` |
+| v061-PWA-2 | JS 含强口吻文案(`强烈建议` · `装成 App`) |
+| v061-PWA-3 | JS 无 emoji(📦📷✕✓ 等 · 全 inline SVG · 承 `feedback_no_emoji`) |
+| v061-PWA-4 | 成果图 `home-screen.jpg` 200(主屏装好样子) |
+| v061-PWA-5 | 4 步真机截图 `step1-4.jpg` 全部 200(压缩后) |
+
+**人工 · beta 真机验收(必须真 iPhone · UA 分支)**
+
+| 场景 | 触发 | 校验 |
+|---|---|---|
+| iOS Safari | 真机 Safari 开 beta(`?reset_pwa=1` 强触发) | ~0.7s 整屏引导「请把账房装成 App」+ 成果截图 + 价值点;「看怎么装」→ 4 步真机图 modal |
+| 两段挽留 | 点「暂时用浏览器」或 ✕ | 阻挠①(没图标/手输网址/不能全屏)→「仍要继续」→ 阻挠②(20 秒)→「就用浏览器」才放行 · 3 天不再弹 |
+| iOS 微信 | 真机微信开 beta(`?reset_wx=1`) | 整屏「微信里装不了主屏 App · 先在 Safari 打开」+ 大箭头指右上「⋯」+ 成果图;「继续在微信用」同样两段挽留 |
+| 已装 PWA | 主屏图标进入(standalone) | 完全静默不弹 |
+| 桌面 / 安卓微信 | PC 浏览器 / 安卓微信 | 静默(本版只强推 iOS) |
+
+**backward-compat 红线**
+- 纯前端 · 0 schema · 仅改 `mobile-guide.js` + 加 1 张成果图 · 非引导链路零影响
+- 已装成 PWA / 非 iOS 一律静默;snooze 仅在两段挽留全拒后才写(`localStorage` · 隐私模式降级静默)
