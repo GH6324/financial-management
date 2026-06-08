@@ -180,7 +180,7 @@
     var m = overlay('g-pwa', 99999);
     var c = card();
 
-    // 顶部 ✕(也走两段挽留,不给一键逃)
+    // 顶部关闭(也走两段挽留,不给一键逃)
     var x = el('button',
       'position:absolute;top:8px;right:8px;width:30px;height:30px;border:0;background:transparent;' +
       'color:#b3a89c;cursor:pointer;display:flex;align-items:center;justify-content:center;');
