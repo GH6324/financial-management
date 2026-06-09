@@ -41,10 +41,16 @@ import java.util.concurrent.ConcurrentHashMap;
 public class QwenLlmClient implements LlmClient {
 
     private static final String API = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
-    /** 默认有序模型列表(各自独立免费额度)· 运营可在管理页覆盖 */
-    private static final String DEFAULT_MODELS =
-            "qwen-plus,qwen-flash,qwen-turbo,qwen2.5-72b-instruct,qwen2.5-32b-instruct,"
-            + "qwen2.5-14b-instruct,qwen2.5-7b-instruct,qwen-long,qwen-plus-latest,qwen-turbo-latest";
+    /**
+     * 默认模型池 · 精选「能力够 + 各有独立免费额度」的稳定别名(运营可在管理页覆盖)。
+     * 百炼免费额度<b>按模型各给一份</b>(~每模型 100 万 token):每次调用<b>随机</b>选一个,把流量
+     * 均匀摊到各模型的免费额度上,避免总砸在一个模型上、用超后被静默计费。
+     * 稳定别名 qwen-max/plus/flash 永远指向当前各档最新版,是三档能力梯度、三个独立额度池。
+     * 丢掉了 qwen-turbo / qwen2.5-7b 等偏弱模型(结构化 JSON 诊断易翻车)。
+     * 想加更多池子:去百炼控制台「模型用量→免费额度」看哪些还有余量,在 /admin/integrations 补进列表。
+     * <b>关键</b>:控制台开「免费额度用完即停」→ 用尽返回 403 AllocationQuota.FreeTierOnly(本类已识别→切下个模型)→ 永不计费。
+     */
+    private static final String DEFAULT_MODELS = "qwen-plus,qwen-flash,qwen-max";
     private static final int MAX_MODELS = 10;
     private static final int FAIL_THRESHOLD = 3;
     private static final long COOLDOWN_MS = 60_000L;
@@ -117,7 +123,10 @@ public class QwenLlmClient implements LlmClient {
         String key = currentApiKey();
         if (key.isBlank()) throw new IllegalStateException("Qwen API key 未配置");
 
-        List<String> models = currentModels();
+        // 每次调用随机打乱模型顺序 → 把流量均匀摊到各模型的独立免费额度上(而非总砸 qwen-plus)。
+        // 失败/额度用尽时仍会沿这个随机顺序往后试其它模型。
+        List<String> models = new ArrayList<>(currentModels());
+        java.util.Collections.shuffle(models);
         RuntimeException lastTransient = null;
         boolean anyTried = false;
 

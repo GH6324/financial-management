@@ -2,6 +2,20 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.6.2] · 2026-06-09
+
+LLM 成本治理:Qwen 调用改「每次随机选模型」摊开流量 + 模型池精选。修根因「百炼免费额度**按模型各给一份**,而旧逻辑固定从 qwen-plus 起、只在 429 才切 → 全砸 qwen-plus,用超后账户**静默转计费**(不报 429)→ 出账单」。纯代码,0 schema。
+
+### Changed
+
+- **`QwenLlmClient` 随机选模型**:每次调用 `Collections.shuffle` 模型池、随机起一个(原固定 qwen-plus 起)→ 把流量均匀摊到各模型的**独立免费额度池**;失败/额度用尽仍沿随机序往后试 + 保留 per-model 6h 冷却。
+- **默认模型池精选** → `qwen-plus,qwen-flash,qwen-max`(稳定别名 · 三档能力梯度 · 各一个独立免费额度池)· 丢掉 qwen-turbo / qwen2.5-7b 等偏弱(结构化 JSON 诊断易翻车)· 运营可在 `/admin/integrations` 调(`K_LLM_QWEN_MODELS`)。
+
+### 运维(关键)
+
+- **配合百炼控制台开「免费额度用完即停」**(默认关):开后某模型免费额度用尽返回 403 `AllocationQuota.FreeTierOnly` —— 本类 `classify()` 已识别为额度用尽→自动切下个模型,且**永不计费**。这是「不再出账单」的根本开关。
+- 清理 beta 演示环境短信 aksk(公开 Demo 防误触发真发短信)。
+
 ## [v0.6.1] · 2026-06-08
 
 iOS PWA 引导从「软建议」改「强引导」(FR-115)。原来是「你也可以这么用」,现在是
