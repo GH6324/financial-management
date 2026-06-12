@@ -2532,6 +2532,51 @@ done
 [[ $miss -eq 0 ]] && log_ok "v061-PWA-5 4 步真机截图 step1-4.jpg 全部 200" \
   || log_bad "v061-PWA-5 步骤截图缺 $miss 张" "miss=$miss"
 
+# ====================================================================
+# v0.7 · Docker 部署 + 兼容存量(静态守护 · 真机冒烟留待 Mac+Ubuntu)
+# ====================================================================
+section "v0.7 · Docker(静态守护)"
+RD="$(cd "$(dirname "$0")/.." && pwd)"   # 仓库根
+
+# v07-DOCKER-1 文件齐
+dmiss=0
+for f in Dockerfile docker-compose.yml .env.example .dockerignore \
+         docker/entrypoint.sh docker/backup.sh deploy/docker-init.sh \
+         deploy/migrate-to-docker.sh .github/workflows/docker-publish.yml; do
+  [[ -f "$RD/$f" ]] || { dmiss=$((dmiss+1)); }
+done
+[[ $dmiss -eq 0 ]] && log_ok "v07-DOCKER-1 Docker 9 个文件齐" || log_bad "v07-DOCKER-1 缺 $dmiss 个 Docker 文件" "see Dockerfile/compose/..."
+
+# v07-DOCKER-2 多阶段 + 三服务 + 三卷
+{ [[ "$(grep -c '^FROM' "$RD/Dockerfile")" -ge 2 ]] \
+  && grep -qE '^  app:' "$RD/docker-compose.yml" && grep -qE '^  db:' "$RD/docker-compose.yml" && grep -qE '^  backup:' "$RD/docker-compose.yml" \
+  && grep -qE 'db-data' "$RD/docker-compose.yml" && grep -qE 'uploads' "$RD/docker-compose.yml" && grep -qE 'backups' "$RD/docker-compose.yml"; } \
+  && log_ok "v07-DOCKER-2 Dockerfile 多阶段 + app/db/backup 三服务 + 三卷" \
+  || log_bad "v07-DOCKER-2 镜像/编排结构缺" "see Dockerfile/compose"
+
+# v07-DOCKER-3 entrypoint 复用 db/apply.sh(与 systemd 共用迁移 → 防重放)
+grep -q 'db/apply.sh' "$RD/docker/entrypoint.sh" \
+  && log_ok "v07-DOCKER-3 entrypoint 复用 db/apply.sh(共用 schema_history 防重放)" \
+  || log_bad "v07-DOCKER-3 entrypoint 未复用 db/apply.sh" "迁移可能重放"
+
+# v07-DOCKER-4 新 shell 语法
+sbad=0
+for f in docker/entrypoint.sh docker/backup.sh deploy/docker-init.sh deploy/migrate-to-docker.sh; do
+  bash -n "$RD/$f" 2>/dev/null || sbad=$((sbad+1))
+done
+[[ $sbad -eq 0 ]] && log_ok "v07-DOCKER-4 4 个 Docker shell bash -n 通过" || log_bad "v07-DOCKER-4 $sbad 个 shell 语法错" "bash -n"
+
+# v07-DOCKER-5 防泄密:.env 被忽略 + .env.example 无真实密钥
+{ grep -qxE '\.env' "$RD/.gitignore" \
+  && ! grep -qiE '^(DB_PASS|MYSQL_ROOT_PASSWORD|REMEMBER_ME_KEY)=[A-Za-z0-9]{16,}' "$RD/.env.example"; } \
+  && log_ok "v07-DOCKER-5 .env 已 gitignore + .env.example 只占位无真密钥" \
+  || log_bad "v07-DOCKER-5 密钥泄露风险" "检查 .gitignore / .env.example"
+
+# v07-DOCKER-6 迁移脚本双模式(systemd + macOS)
+{ grep -q '/etc/finance.env' "$RD/deploy/migrate-to-docker.sh" && grep -q '.finance/finance.env' "$RD/deploy/migrate-to-docker.sh"; } \
+  && log_ok "v07-DOCKER-6 迁移脚本识别 systemd + macOS 双存量" \
+  || log_bad "v07-DOCKER-6 迁移脚本未覆盖双模式" "see migrate-to-docker.sh"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

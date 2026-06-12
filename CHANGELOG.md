@@ -2,6 +2,29 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.7.0] · 2026-06-12
+
+一键 Docker 部署,兼容存量 systemd / macOS 用户(数据零丢迁移)。开源宣传后让部署门槛跟上。详 [`prd/v0.7.md`](prd/v0.7.md) + [`tech-design/v0.7.md`](tech-design/v0.7.md)。
+
+### Added
+
+- **一键 Docker**:`Dockerfile`(多阶段 maven 构建 → temurin-21-jre 运行,运行层带 mysql client 供迁移)+ `docker-compose.yml`(`app` + `mysql:8.0` + 备份 sidecar,命名卷 `db-data`/`uploads`/`backups`)+ `docker/entrypoint.sh`(等 db → 跑 `db/apply.sh` 版本化迁移 → `exec java`)。`docker compose up -d` 全新机一键起。
+- **配置/密钥**:`.env.example` + `deploy/docker-init.sh`(openssl 生成随机 DB/root/REMEMBER_ME_KEY)。LLM key/aksk/阈值仍走管理页(不进 .env/镜像)。`.env` git-ignored。
+- **存量迁移** `deploy/migrate-to-docker.sh`:**自动识别 systemd(`/etc/finance.env`)与 macOS(`~/.finance/finance.env`)**,mysqldump 备份 → 生成 .env(**携带原 REMEMBER_ME_KEY**)→ 停旧 app → 灌 dump(含 `schema_history`)→ 搬 uploads → 起容器 → 验 /health。**数据零丢、版本不重放、可回滚**。
+- **备份 sidecar** `docker/backup.sh`:每日 mysqldump 到 `backups` 卷 + 保留天数,与 systemd timer 平价。
+- **GHCR 多架构发布** `.github/workflows/docker-publish.yml`:打 tag 构建 **amd64 + arm64**(覆盖 NAS / Apple Silicon Mac)推 GHCR。
+- **文档**:README「快速开始」加 Docker 入口;`deploy/README.md` 加「Docker 部署 / 从 systemd·macOS 迁移 / 反代+HTTPS 片段(nginx+certbot、Caddy)/ 国内加速」。
+
+### 兼容 / 红线
+
+- **存量 systemd `deploy.sh` 路径原样保留不弃**(我们 prod + beta 都是存量,零破坏);Docker 作新增推荐路径。
+- **共用 `db/apply.sh` + `schema_history` + `V*.sql`** —— 迁移后不重放、未来迁移两路各只跑一次;同 env 契约让 app 对部署方式无感。
+- 迁移**前强制备份**、全程不删旧部署、可回滚;密钥不烤进镜像/不进日志;`SERVER_ADDRESS=0.0.0.0`(容器内)+ 默认只发布 loopback 端口。
+
+### 注
+
+- **真机冒烟留待 Mac + Ubuntu 分别验**(beta 是 Linux 且未装 Docker)。本版为「设计正确 + 全脚本静态校验(bash -n)+ 结构守护」;`docker build` / `compose up` / 迁移演练 = 验收基线 #1/#3,待用户真机跑。
+
 ## [v0.6.2] · 2026-06-09
 
 LLM 成本治理:Qwen 调用改「每次随机选模型」摊开流量 + 模型池精选。修根因「百炼免费额度**按模型各给一份**,而旧逻辑固定从 qwen-plus 起、只在 429 才切 → 全砸 qwen-plus,用超后账户**静默转计费**(不报 429)→ 出账单」。纯代码,0 schema。

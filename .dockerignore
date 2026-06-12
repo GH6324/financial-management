@@ -1,0 +1,14 @@
+# 构建上下文瘦身:排除不进镜像的大件 / 敏感件
+.git
+.github
+target
+preview
+docs
+prd
+tech-design
+.claude
+node_modules
+*.log
+.env
+*.md
+deploy/release.env

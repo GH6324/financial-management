@@ -128,6 +128,19 @@
 
 ## 快速开始(自托管部署)
 
+### 方式一 · Docker(推荐 · Linux / macOS / NAS)
+
+```bash
+git clone https://github.com/LuoDi-Nate/financial-management.git
+cd financial-management
+bash deploy/docker-init.sh     # 生成 .env(随机密钥);或 cp .env.example .env 手改
+docker compose up -d           # 起 app + MySQL + 备份;有预构建镜像就拉,否则 docker compose build
+```
+
+浏览器开 `http://<宿主>:20000`(默认只发布到 loopback,公网请前置反代)。数据持久化在命名卷,升级 `git pull && docker compose pull && docker compose up -d`。**已用下面 systemd 直装的存量用户**可一键迁移:`sudo bash deploy/migrate-to-docker.sh`(数据零丢)。详见 [`deploy/README.md` § Docker 部署](deploy/README.md#docker-部署v07--推荐)。
+
+### 方式二 · 直装(systemd · 无 Docker 环境)
+
 ### 前置
 
 - 一台公网 Linux 服务器(Ubuntu 22+ / Debian 12+ / RHEL 9+ / Alibaba Cloud Linux 都行)

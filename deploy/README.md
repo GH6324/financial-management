@@ -205,3 +205,78 @@ launchctl list | grep com.family.finance       # 见 PID 即跑
 **迭代发版**:跟 Linux 一样 `git pull && bash deploy/deploy.sh`,脚本检测到 `~/finance/app.jar` 自动走迭代分支(mysqldump 备份 + 切 jar)。重启需手动:`pgrep -f $HOME/finance/app.jar | xargs kill && nohup bash $HOME/finance/start.sh > $HOME/finance/logs/app.log 2>&1 &`。
 
 **MySQL root 提示**:brew 默认装好 root 无密码;装过 `mysql_secure_installation` 或用 DMG 装的会有密码。脚本会自动探测 → 失败时 prompt 3 次重试(回车 = 试无密码,输入 = 试密码)。3 次都错 die 并给出重置指引(`brew services stop mysql && mysqld_safe --skip-grant-tables &`)。
+
+---
+
+# Docker 部署(v0.7 · 推荐)
+
+比直装(deploy.sh)更干净:不污染宿主机、跨平台(Linux / macOS / NAS · amd64 + arm64)、升级一条命令。compose 只起 **app + MySQL + 备份 sidecar**,**反代/HTTPS 由你在前面自己挂**(见下「反代/HTTPS」)。
+
+## 全新机一键起
+
+```bash
+git clone https://github.com/LuoDi-Nate/financial-management.git
+cd financial-management
+
+# 生成 .env(随机 DB 密码 / root 密码 / REMEMBER_ME_KEY)
+bash deploy/docker-init.sh        # 或手动 cp .env.example .env 再改
+
+docker compose up -d              # 有预构建镜像就拉,没有就 docker compose build 后再 up
+```
+
+浏览器开 `http://<宿主>:20000`(默认只发布到 `127.0.0.1`,公网访问请前置反代)。默认账号见上文「首次登录」。LLM key / 短信 aksk / 阈值等运营参数,登录后走 `/admin/integrations` 配(存数据库,不在 .env)。
+
+- 数据持久化在命名卷:`db-data`(库)/ `uploads`(logo)/ `backups`(每日 mysqldump)。`docker compose down` 不删卷,数据还在。
+- 升级:`git pull && docker compose pull && docker compose up -d`(entrypoint 自动跑增量迁移,幂等)。
+- 镜像源码自构建:`docker compose build`(基础镜像 maven / temurin / mysql 均有 arm64,Apple Silicon 原生构建)。
+
+## 从已部署(systemd / macOS)迁移到 Docker
+
+存量用户**数据零丢**迁过来,一条命令自动识别 systemd 还是 macOS:
+
+```bash
+# Linux systemd(读 /etc/finance.env,要停 finance 服务,需 sudo):
+sudo bash deploy/migrate-to-docker.sh
+
+# macOS(读 ~/.finance/finance.env,会提示你先停掉旧的前台 java / launchd):
+bash deploy/migrate-to-docker.sh
+```
+
+流程:mysqldump 备份 → 生成 .env(**携带原 REMEMBER_ME_KEY**,登录态不丢)→ 停旧 app 腾端口 → 起 db 容器灌 dump(含 `schema_history`,**迁移不会重放**)→ 搬 uploads → 起 app → 验 `/health`。
+
+**回滚**:全程不删旧部署。不满意 → `docker compose down` + 重启旧应用(systemd:`systemctl start finance`)。满意后再 `systemctl disable finance`(或停 brew mysql)释放宿主资源。
+
+> 注:`deploy.sh`(systemd 直装)路径**继续保留支持**,不想迁的人可不动。
+
+## 反代 / HTTPS(compose 不内置,自己挂)
+
+app 默认只在 `127.0.0.1:20000`。在前面挂个反代即可。两段照抄:
+
+**nginx + certbot**
+```nginx
+server {
+    listen 80;
+    server_name your.domain.com;
+    location / {
+        proxy_pass         http://127.0.0.1:20000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+}
+# 然后:sudo certbot --nginx -d your.domain.com --redirect
+```
+
+**Caddy(自动 HTTPS,零配置)** —— Caddyfile:
+```
+your.domain.com {
+    reverse_proxy localhost:20000
+}
+```
+
+## 国内镜像加速 / Apple Silicon
+
+- GHCR / Docker Hub 在大陆慢:配 Docker 镜像加速(阿里云容器镜像服务的加速地址写进 `/etc/docker/daemon.json` 的 `registry-mirrors`),或直接 `docker compose build` 源码构建。
+- **macOS / Apple Silicon**:Docker Desktop / OrbStack / colima 均可;`docker compose build` 原生 arm64,预构建镜像也是 amd64+arm64 多架构,`pull` 自动取对的那个。

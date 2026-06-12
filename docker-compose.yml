@@ -1,0 +1,75 @@
+# 家庭账房 · v0.7 一键部署
+# 用法:cp .env.example .env(或 bash deploy/docker-init.sh 自动生成密钥)→ docker compose up -d
+# 只 app + MySQL;反代/HTTPS 由你在前面自己挂(见 deploy/README.md「反代/HTTPS」)。
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 设置 MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-finance}
+      MYSQL_USER: ${DB_USER:-finance}
+      MYSQL_PASSWORD: ${DB_PASS:?请在 .env 设置 DB_PASS}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - db-data:/var/lib/mysql
+    # 不对宿主发布 3306 —— 只走 compose 内网,避免撞宿主已有 MySQL
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  app:
+    image: ghcr.io/luodi-nate/financial-management:latest
+    build: .                       # 没有预构建镜像时:docker compose build 走源码构建
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: 20000
+      SERVER_ADDRESS: 0.0.0.0      # 容器内必须绑 0.0.0.0(systemd 下绑 127.0.0.1 在容器里打不通)
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-finance}
+      DB_USER: ${DB_USER:-finance}
+      DB_PASS: ${DB_PASS:?}
+      UPLOAD_ROOT: /data/uploads
+      REMEMBER_ME_KEY: ${REMEMBER_ME_KEY:?请在 .env 设置 REMEMBER_ME_KEY}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - uploads:/data/uploads
+      - backups:/data/backups
+    # 默认只发布到宿主 loopback —— 不裸奔公网,前置反代指到 127.0.0.1:SERVER_PORT
+    ports:
+      - "127.0.0.1:${SERVER_PORT:-20000}:20000"
+
+  # 备份 sidecar:复用 app 镜像(自带 mysql client),只换入口为 backup.sh
+  backup:
+    image: ghcr.io/luodi-nate/financial-management:latest
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["bash", "/app/backup.sh"]
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-finance}
+      DB_USER: ${DB_USER:-finance}
+      DB_PASS: ${DB_PASS:?}
+      RETENTION_DAYS: ${RETENTION_DAYS:-56}
+      BACKUP_DIR: /data/backups
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - backups:/data/backups
+
+volumes:
+  db-data:
+  uploads:
+  backups:
