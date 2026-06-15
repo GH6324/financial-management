@@ -106,6 +106,8 @@
 - **资产体检 + AI 诊断** — 4 维度结构化诊断(配置 / 风险 / 流动性 / 收益)· 智能建议规则引擎 · LLM 综合分析(Qwen-Plus 主 / DeepSeek 备)
 - **AI 调仓建议** — 4 桶配置 diff(现金 / 投资 / 房产 / 保险)· LLM 给出具体调仓步骤("从 X 调 ¥N 到 Y")· 30 天复用 + 一键刷新
 - **决策辅助** — CPI 对照线 / 账户级基准对照 / 提前还贷决策器(NPV 18 年视角)/ 应急金不闲置提示
+- **一键 Docker 部署 + 兼容存量**(v0.7)— `bash deploy/docker-up.sh` 全新机一键起(app + MySQL + 每日备份)· 自检脚本适配 Mac 各 docker 装法(Docker Desktop / OrbStack / colima)· 存量 systemd / macOS 用户数据零丢迁移 · GHCR 多架构镜像(amd64 + arm64,覆盖 NAS / Apple Silicon)
+- **iOS PWA 强引导 + LLM 成本治理**(v0.6)— iOS 加桌面全屏引导(整屏图示 + 两段挽留,FR-115)· Qwen 每次随机选模型把请求摊到各模型独立免费额度、避免额度用尽后静默转计费
 - **财富水位**(v0.5)— 净资产 vs **CPI 购买力线**(还买得起同样的生活吗)+ **M2 社会财富线**(社会排位升还是降)· 真实收益 / 相对社会收益 · 人赚/钱赚分解诊断 · CPI/M2 三法均值(几何 / 剔极端 / 近10年)严格推导 · 1990-2025 历史底座 + 收支趋势图
 - **股票账户现金联动**(v0.5)— 录股票可选「从账户现金划转买入」· 买入扣现金(FX 换算 · 现金可负)· 卖出/归档按市价对称加回
 - **FIRE 目标支出自适应**(v0.5)— 退休目标月支出可选「自动适配月结支出」· 周期关闭按近 N 月真实支出滚动重算(剔极端/中位/均值)
@@ -123,7 +125,7 @@
 | 持久化 | MySQL 8(版本化 SQL 迁移 + sha256 校验,无 Flyway 依赖) |
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
-| 部署 | Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
+| 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
 | 测试 | JUnit 5 · 244 单元(含 PrivacyIsolationTest 静态扫源码私密红线)/ 36 端到端 / 338 黑盒 |
 
 ## 快速开始(自托管部署)
@@ -240,16 +242,16 @@ mvn spring-boot:run
 测试:
 
 ```bash
-mvn test                       # JUnit 单元测试(215 · v0.5)
+mvn test                       # JUnit 单元测试(244)
 bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(319)
 bash scripts/qa-e2e.sh         # 端到端真值校验(36 · 会清空 DB)
 ```
 
 ## 文档
 
-- **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md) · [`prd/v0.3.md`](prd/v0.3.md) · [`prd/v0.4.md`](prd/v0.4.md) · [`prd/v0.5.md`](prd/v0.5.md)
-- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md) · [`tech-design/v0.4.md`](tech-design/v0.4.md) · [`tech-design/v0.5.md`](tech-design/v0.5.md)
-- **预览原型**:[`preview/index.html`](preview/index.html)(Tailwind CDN 静态预览)· [`preview/v0.4/`](preview/v0.4/index.html) · [`preview/v0.5/`](preview/v0.5/index.html)(财富水位 / 股票现金联动 / FIRE 自适应)
+- **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md) · [`prd/v0.3.md`](prd/v0.3.md) · [`prd/v0.4.md`](prd/v0.4.md) · [`prd/v0.5.md`](prd/v0.5.md) · [`prd/v0.6.md`](prd/v0.6.md) · [`prd/v0.7.md`](prd/v0.7.md)
+- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md) · [`tech-design/v0.4.md`](tech-design/v0.4.md) · [`tech-design/v0.5.md`](tech-design/v0.5.md) · [`tech-design/v0.6.md`](tech-design/v0.6.md) · [`tech-design/v0.7.md`](tech-design/v0.7.md)
+- **预览原型**:[`preview/index.html`](preview/index.html)(Tailwind CDN 静态预览)· [`preview/v0.4/`](preview/v0.4/index.html) · [`preview/v0.5/`](preview/v0.5/index.html) · [`preview/v0.6/`](preview/v0.6/index.html)(财富水位 / 股票现金联动 / FIRE 自适应 / PWA 引导)
 - **QA case 库**:[`docs/qa-cases.md`](docs/qa-cases.md)
 - **部署运行**:[`deploy/README.md`](deploy/README.md)
 
@@ -286,7 +288,7 @@ financial-management/
 │   └── README.md                         # 部署手册
 ├── prd/                                  # 产品需求文档
 ├── tech-design/                          # 技术设计文档
-├── preview/                              # 静态 HTML 预览(v0.1 ~ v0.5 各版本卷)
+├── preview/                              # 静态 HTML 预览(v0.1 ~ v0.6 各版本卷)
 ├── docs/qa-cases.md                      # QA case 库
 ├── icons/                                # 用户可替换的图标源 PNG
 └── scripts/
