@@ -93,13 +93,25 @@ else
   say "  (没装 curl,跳过自动探测)"; ok="skip"
 fi
 
+# 首次登录账号(种子用户 diwa / wangergou;临时密码可在 .env 用 SEED_ADMIN_PASSWORD 自定义)
+SEEDPW="$(grep -E '^SEED_ADMIN_PASSWORD=' .env | cut -d= -f2 || true)"; SEEDPW="${SEEDPW:-demo1234}"
+login_hint(){
+  say ""
+  say "  ── 首次登录 ──────────────────────────────"
+  say "   用户名:diwa   (或 wangergou)"
+  say "   密  码:${SEEDPW}   ← 首次登录后会要求你改密"
+  say "  ──────────────────────────────────────────"
+}
+
 if [[ "$ok" == "1" ]]; then
   say ""
   say "✓ 起好了 → http://127.0.0.1:${PORT}  (默认只发布到 loopback,公网请前置反代加 HTTPS)"
+  login_hint
   say "  停:$DC down(不删数据卷,数据还在)   日志:$DC logs -f app"
 elif [[ "$ok" == "skip" ]]; then
   say ""
   say "✓ 容器已起 → http://127.0.0.1:${PORT}  · 浏览器自行确认"
+  login_hint
   say "  停:$DC down   日志:$DC logs -f app"
 else
   die "应用 90s 内没就绪。看日志定位(常见:DB 还在初始化 / 端口被占):

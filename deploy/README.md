@@ -231,7 +231,11 @@ docker compose up -d              # 有预构建镜像就拉,没有就 docker co
 报 `unknown shorthand flag: 'd' in -d` → 这台机 Compose V2 没装好,见下「国内镜像加速 / Apple Silicon」排障,或直接用上面的 `docker-up.sh`。
 </details>
 
-浏览器开 `http://<宿主>:20000`(默认只发布到 `127.0.0.1`,公网访问请前置反代)。默认账号见上文「首次登录」。LLM key / 短信 aksk / 阈值等运营参数,登录后走 `/admin/integrations` 配(存数据库,不在 .env)。
+浏览器开 `http://<宿主>:20000`(默认只发布到 `127.0.0.1`,公网访问请前置反代)。
+
+**首次登录**:种子账号 **`diwa`** 或 **`wangergou`**,临时密码默认 **`demo1234`**(在 `.env` 的 `SEED_ADMIN_PASSWORD` 可自定义,仅首装生效),**首次登录后强制改密**。`docker-up.sh` 起完会直接把这行打印出来;也可 `docker compose logs app | grep -A4 首次登录` 看启动横幅。(机制:Docker 跑 `prod` profile,`ProdSeedRunner` 在首启时把种子占位密码设为该临时密码;已初始化的库不会被改。)
+
+LLM key / 短信 aksk / 阈值等运营参数,登录后走 `/admin/integrations` 配(存数据库,不在 .env)。
 
 - 数据持久化在命名卷:`db-data`(库)/ `uploads`(logo)/ `backups`(每日 mysqldump)。`docker compose down` 不删卷,数据还在。
 - 升级:`git pull && docker compose pull && docker compose up -d`(entrypoint 自动跑增量迁移,幂等)。

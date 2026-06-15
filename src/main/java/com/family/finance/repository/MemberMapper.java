@@ -59,6 +59,18 @@ public interface MemberMapper {
                            @Param("hash") String hash,
                            @Param("mustChangePw") boolean mustChangePw);
 
+    /**
+     * 首次部署引导用 · 找出密码仍为 V2__seed.sql 占位符的种子成员。
+     * 仅 {@code ProdSeedRunner}(prod profile)启动时用,设过临时密码后即不再命中(幂等)。
+     */
+    @Select("""
+            SELECT id, family_id, username, password_hash, display_name, role_label,
+                   phone, must_change_pw, archived_at, last_login_at, created_at, updated_at
+              FROM member
+             WHERE password_hash LIKE 'PLACEHOLDER%'
+            """)
+    List<Member> findSeedPlaceholders();
+
     @Update("UPDATE member SET last_login_at = NOW(3) WHERE id = #{id}")
     int touchLastLogin(@Param("id") long id);
 

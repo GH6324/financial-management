@@ -9,7 +9,8 @@
 ### Added
 
 - **一键 Docker**:`Dockerfile`(多阶段 maven 构建 → temurin-21-jre 运行,运行层带 mysql client 供迁移)+ `docker-compose.yml`(`app` + `mysql:8.0` + 备份 sidecar,命名卷 `db-data`/`uploads`/`backups`)+ `docker/entrypoint.sh`(等 db → 跑 `db/apply.sh` 版本化迁移 → `exec java`)。`docker compose up -d` 全新机一键起。
-- **自检一键入口** `deploy/docker-up.sh`:解决「Mac 用户各种 docker 装法都得跑通」——逐项自检 docker 装没装 / 引擎起没起 / **Compose V2** 在不在(`docker compose` 优先,回退 V2 版 `docker-compose`,老 V1 直接拒并教装),卡住给可复制修复命令(不再吐 `unknown shorthand flag: 'd'` 这类底层报错);镜像拉不到自动本地构建;起完轮询 `/health`。适配 Docker Desktop / OrbStack / colima。
+- **自检一键入口** `deploy/docker-up.sh`:解决「Mac 用户各种 docker 装法都得跑通」——逐项自检 docker 装没装 / 引擎起没起 / **Compose V2** 在不在(`docker compose` 优先,回退 V2 版 `docker-compose`,老 V1 直接拒并教装),卡住给可复制修复命令(不再吐 `unknown shorthand flag: 'd'` 这类底层报错);镜像拉不到自动本地构建;起完轮询 `/health` 并**直接打印首次登录账号密码**。适配 Docker Desktop / OrbStack / colima。
+- **种子账号 prod 引导 `ProdSeedRunner`(`@Profile("prod")`)**:修 Docker 首登死锁——Docker 跑 `prod` profile,而设种子密码的 `DevSeedRunner` 只在 `dev` 跑、`deploy.sh` step 9b 又是 systemd 专属,导致**种子账号 `diwa`/`wangergou` 停在占位密码、根本登不进也无法重置**。新 runner 首启时把占位密码设为临时密码(`SEED_ADMIN_PASSWORD`,缺省 `demo1234`)+ `must_change_pw=1` + 日志打印登录横幅。**幂等**:只动 `password_hash LIKE 'PLACEHOLDER%'` 的成员,存量/线上库 no-op。
 - **配置/密钥**:`.env.example` + `deploy/docker-init.sh`(openssl 生成随机 DB/root/REMEMBER_ME_KEY)。LLM key/aksk/阈值仍走管理页(不进 .env/镜像)。`.env` git-ignored。
 - **存量迁移** `deploy/migrate-to-docker.sh`:**自动识别 systemd(`/etc/finance.env`)与 macOS(`~/.finance/finance.env`)**,mysqldump 备份 → 生成 .env(**携带原 REMEMBER_ME_KEY**)→ 停旧 app → 灌 dump(含 `schema_history`)→ 搬 uploads → 起容器 → 验 /health。**数据零丢、版本不重放、可回滚**。
 - **备份 sidecar** `docker/backup.sh`:每日 mysqldump 到 `backups` 卷 + 保留天数,与 systemd timer 平价。

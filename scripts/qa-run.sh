@@ -2587,6 +2587,19 @@ UP="$RD/deploy/docker-up.sh"
   && log_ok "v07-DOCKER-7 docker-up.sh 自检引擎/Compose-V2 + 验 /health" \
   || log_bad "v07-DOCKER-7 一键自检入口缺检查项" "see deploy/docker-up.sh"
 
+# v07-DOCKER-8 种子账号 prod 引导:ProdSeedRunner 修首登死锁 + docker-up 打印账号密码
+PSR="$RD/src/main/java/com/family/finance/config/ProdSeedRunner.java"
+{ [[ -f "$PSR" ]] \
+  && grep -q '@Profile("prod")' "$PSR" \
+  && grep -q 'findSeedPlaceholders' "$PSR" \
+  && grep -q 'updatePasswordHash' "$PSR" \
+  && grep -q 'seed.admin-password' "$PSR" \
+  && grep -q 'findSeedPlaceholders' "$RD/src/main/java/com/family/finance/repository/MemberMapper.java" \
+  && grep -q 'SEED_ADMIN_PASSWORD' "$RD/.env.example" \
+  && grep -q '首次登录' "$RD/deploy/docker-up.sh"; } \
+  && log_ok "v07-DOCKER-8 ProdSeedRunner 引导种子密码(幂等)+ docker-up 打印首登账号" \
+  || log_bad "v07-DOCKER-8 prod 种子账号引导缺失" "Docker 首登会死锁,see ProdSeedRunner"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

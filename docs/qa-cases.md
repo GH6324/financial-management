@@ -1259,6 +1259,7 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v07-DOCKER-5 | `.env` 在 `.gitignore`(密钥不入库);`.env.example` 不含真实密钥(只占位) |
 | v07-DOCKER-6 | migrate-to-docker.sh 同时识别 `/etc/finance.env`(systemd)与 `~/.finance/finance.env`(macOS) |
 | v07-DOCKER-7 | `docker-up.sh` 一键自检:探测 `docker info`(引擎)/`docker compose version`(V2)/`docker-compose --short`(拒老 V1)+ 验 `/health` |
+| v07-DOCKER-8 | 种子账号 prod 引导:`ProdSeedRunner`(`@Profile("prod")`)调 `findSeedPlaceholders`+`updatePasswordHash` 设临时密码(`seed.admin-password`),修 Docker 首登死锁;`.env.example` 有 `SEED_ADMIN_PASSWORD`;`docker-up.sh` 打印「首次登录」账号 |
 
 **人工 · 真机验收(Mac + Ubuntu 分别)**
 
