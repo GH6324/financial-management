@@ -287,6 +287,7 @@ your.domain.com {
 
 - GHCR / Docker Hub 在大陆慢:配 Docker 镜像加速(阿里云容器镜像服务的加速地址写进 `/etc/docker/daemon.json` 的 `registry-mirrors`),或直接 `docker compose build` 源码构建。
 - **macOS / Apple Silicon**:Docker Desktop / OrbStack / colima 均可;`docker compose build` 原生 arm64,预构建镜像也是 amd64+arm64 多架构,`pull` 自动取对的那个。
+- **`brew install docker` 后报「连不上 daemon / Cannot connect to the Docker daemon」**:brew 装的 docker **只是命令行客户端,没有引擎**——Mac 上 docker 引擎跑在一个小 Linux 虚拟机里,要单独装一个。最省事的命令行方案:`brew install colima docker-compose && colima start`(第一次起约 1-2 分钟),再 `bash deploy/docker-up.sh`。或装带界面的 `brew install orbstack`(/ Docker Desktop)打开 App 即可。`docker-up.sh` 已能自检这一步并给出对应你机器的命令。
 - **`docker compose up -d` 报 `unknown shorthand flag: 'd' in -d`**:这台机的 Compose V2 插件没装好,docker 没把 `compose` 当子命令,把 `-d` 当成了顶层 flag。处理:
   - Docker Desktop / OrbStack 自带 V2 —— 确认它装好且在运行(`docker compose version` 应有输出)。
   - Homebrew 装的纯 docker CLI(常配 colima):`brew install docker-compose`,再按 caveat 软链到 `~/.docker/cli-plugins/docker-compose`,`docker compose`(带空格)才生效。
