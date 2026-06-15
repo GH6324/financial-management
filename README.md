@@ -133,9 +133,19 @@
 ```bash
 git clone https://github.com/LuoDi-Nate/financial-management.git
 cd financial-management
-bash deploy/docker-init.sh     # 生成 .env(随机密钥);或 cp .env.example .env 手改
+bash deploy/docker-up.sh       # 一条命令:自检环境 + 生成密钥 + 起服务 + 验健康
+```
+
+`docker-up.sh` 会自检 docker / 引擎 / Compose V2 是否就绪(macOS 上 Docker Desktop、OrbStack、colima 各种装法都适配),卡住时直接给你可复制的修复命令;镜像拉不到就本地构建。
+
+<details><summary>想手动控制每一步(老手)</summary>
+
+```bash
+bash deploy/docker-init.sh     # 仅生成 .env(随机密钥);或 cp .env.example .env 手改
 docker compose up -d           # 起 app + MySQL + 备份;有预构建镜像就拉,否则 docker compose build
 ```
+若报 `unknown shorthand flag: 'd' in -d`,是这台机 Compose V2 没装好,见 [`deploy/README.md` 排障](deploy/README.md#国内镜像加速--apple-silicon)。
+</details>
 
 浏览器开 `http://<宿主>:20000`(默认只发布到 loopback,公网请前置反代)。数据持久化在命名卷,升级 `git pull && docker compose pull && docker compose up -d`。**已用下面 systemd 直装的存量用户**可一键迁移:`sudo bash deploy/migrate-to-docker.sh`(数据零丢)。详见 [`deploy/README.md` § Docker 部署](deploy/README.md#docker-部署v07--推荐)。
 

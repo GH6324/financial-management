@@ -27,5 +27,22 @@ rm -f .env.bak
 
 chmod 600 .env
 echo "✓ 已生成 .env(随机 DB 密码 / root 密码 / REMEMBER_ME_KEY)"
-echo "  下一步:docker compose up -d"
+
+# 探测 compose 命令(v2 插件 `docker compose` 优先,回退老版 `docker-compose`)
+DC=""
+if docker compose version >/dev/null 2>&1; then
+  DC="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+  DC="docker-compose"
+fi
+
+if [[ -n "$DC" ]]; then
+  echo "  下一步:$DC up -d"
+else
+  echo "  ⚠ 没探测到可用的 compose:"
+  echo "    · 装了 Docker Desktop / OrbStack 一般自带 \`docker compose\`(v2),确认它在运行"
+  echo "    · 用 Homebrew 装的 docker CLI:再 \`brew install docker-compose\`,并按提示软链到"
+  echo "      ~/.docker/cli-plugins/docker-compose(否则 \`docker compose\` 带空格的写法用不了)"
+  echo "    · 实在不行可直接用老版:\`docker-compose up -d\`"
+fi
 echo "  LLM key / 短信 aksk / 阈值 等运营参数,登录后走管理页配置(不在 .env 里)。"

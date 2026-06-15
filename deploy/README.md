@@ -217,12 +217,19 @@ launchctl list | grep com.family.finance       # 见 PID 即跑
 ```bash
 git clone https://github.com/LuoDi-Nate/financial-management.git
 cd financial-management
+bash deploy/docker-up.sh          # 自检环境 + 生成密钥 + 起服务 + 验健康,一条命令
+```
 
-# 生成 .env(随机 DB 密码 / root 密码 / REMEMBER_ME_KEY)
-bash deploy/docker-init.sh        # 或手动 cp .env.example .env 再改
+`docker-up.sh` 会逐项自检并在卡住时给出可复制的修复命令:① docker 装没装 ② 引擎(daemon)起没起 ③ Compose **V2** 在不在(`docker compose` 优先,回退 V2 版 `docker-compose`,老 V1 直接拒并教你装)④ 镜像拉不到就本地源码构建 ⑤ 起完轮询 `/health`。macOS 上 Docker Desktop / OrbStack / colima 各种装法都适配。
 
+<details><summary>想手动控制每一步</summary>
+
+```bash
+bash deploy/docker-init.sh        # 仅生成 .env;或手动 cp .env.example .env 再改
 docker compose up -d              # 有预构建镜像就拉,没有就 docker compose build 后再 up
 ```
+报 `unknown shorthand flag: 'd' in -d` → 这台机 Compose V2 没装好,见下「国内镜像加速 / Apple Silicon」排障,或直接用上面的 `docker-up.sh`。
+</details>
 
 浏览器开 `http://<宿主>:20000`(默认只发布到 `127.0.0.1`,公网访问请前置反代)。默认账号见上文「首次登录」。LLM key / 短信 aksk / 阈值等运营参数,登录后走 `/admin/integrations` 配(存数据库,不在 .env)。
 
@@ -280,3 +287,7 @@ your.domain.com {
 
 - GHCR / Docker Hub 在大陆慢:配 Docker 镜像加速(阿里云容器镜像服务的加速地址写进 `/etc/docker/daemon.json` 的 `registry-mirrors`),或直接 `docker compose build` 源码构建。
 - **macOS / Apple Silicon**:Docker Desktop / OrbStack / colima 均可;`docker compose build` 原生 arm64,预构建镜像也是 amd64+arm64 多架构,`pull` 自动取对的那个。
+- **`docker compose up -d` 报 `unknown shorthand flag: 'd' in -d`**:这台机的 Compose V2 插件没装好,docker 没把 `compose` 当子命令,把 `-d` 当成了顶层 flag。处理:
+  - Docker Desktop / OrbStack 自带 V2 —— 确认它装好且在运行(`docker compose version` 应有输出)。
+  - Homebrew 装的纯 docker CLI(常配 colima):`brew install docker-compose`,再按 caveat 软链到 `~/.docker/cli-plugins/docker-compose`,`docker compose`(带空格)才生效。
+  - 临时绕过:直接用老版连字符写法 `docker-compose up -d`(我们的 compose 文件两者都兼容)。`deploy/migrate-to-docker.sh` 与 `deploy/docker-init.sh` 已自动探测这两种写法。

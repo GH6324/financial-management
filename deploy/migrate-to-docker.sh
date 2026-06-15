@@ -21,9 +21,20 @@ say(){ echo; echo -e "${C_Y}── $* ──${C_X}"; }
 cd "$(dirname "$0")/.."            # 仓库根
 REPO="$(pwd)"
 
-# docker compose v2
-DC="docker compose"
-$DC version >/dev/null 2>&1 || { command -v docker-compose >/dev/null 2>&1 && DC="docker-compose" || die "未装 docker / docker compose(v2)"; }
+# docker compose v2(本项目 compose 文件是无 version: 的 V2 写法,V1 解析不了 → 强制 V2)
+command -v docker >/dev/null 2>&1 || die "未装 docker"
+DC=""
+if docker compose version >/dev/null 2>&1; then
+  DC="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+  _v="$(docker-compose version --short 2>/dev/null || true)"
+  case "$_v" in
+    2.*|v2.*) DC="docker-compose" ;;
+    *) die "只找到老版 docker-compose ${_v:-(V1)},解析不了本项目 compose 文件。请装 Compose V2(macOS:brew install docker-compose 并软链到 ~/.docker/cli-plugins/;Linux:apt-get install docker-compose-plugin)" ;;
+  esac
+else
+  die "未装 docker compose(v2)。Docker Desktop/OrbStack 自带;Linux 装 docker-compose-plugin"
+fi
 docker info >/dev/null 2>&1 || die "Docker 守护进程没跑(或当前用户无权限:加入 docker 组或用 sudo)"
 
 # ---------- 识别模式 ----------

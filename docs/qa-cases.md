@@ -1252,18 +1252,19 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 
 | Case | 校验 |
 |---|---|
-| v07-DOCKER-1 | Docker 文件齐:`Dockerfile`/`docker-compose.yml`/`.env.example`/`.dockerignore`/`docker/entrypoint.sh`/`docker/backup.sh`/`deploy/docker-init.sh`/`deploy/migrate-to-docker.sh`/`.github/workflows/docker-publish.yml` |
+| v07-DOCKER-1 | Docker 10 文件齐:`Dockerfile`/`docker-compose.yml`/`.env.example`/`.dockerignore`/`docker/entrypoint.sh`/`docker/backup.sh`/`deploy/docker-init.sh`/`deploy/docker-up.sh`/`deploy/migrate-to-docker.sh`/`.github/workflows/docker-publish.yml` |
 | v07-DOCKER-2 | Dockerfile 多阶段(2 个 FROM);compose 含 `app`+`db`+`backup` 三服务 + `db-data`/`uploads`/`backups` 三卷 |
 | v07-DOCKER-3 | entrypoint 复用 `db/apply.sh`(与 systemd 共用迁移 → 防重放) |
-| v07-DOCKER-4 | 全部新 shell `bash -n` 通过 |
+| v07-DOCKER-4 | 全部新 shell(5 个)`bash -n` 通过 |
 | v07-DOCKER-5 | `.env` 在 `.gitignore`(密钥不入库);`.env.example` 不含真实密钥(只占位) |
 | v07-DOCKER-6 | migrate-to-docker.sh 同时识别 `/etc/finance.env`(systemd)与 `~/.finance/finance.env`(macOS) |
+| v07-DOCKER-7 | `docker-up.sh` 一键自检:探测 `docker info`(引擎)/`docker compose version`(V2)/`docker-compose --short`(拒老 V1)+ 验 `/health` |
 
 **人工 · 真机验收(Mac + Ubuntu 分别)**
 
 | 场景 | 校验 |
 |---|---|
-| 全新机一键起 | `docker-init.sh` → `docker compose up -d`(或 build)→ 登录/填报/AI 体检全通;`down && up` 数据不丢 |
+| 全新机一键起 | `bash deploy/docker-up.sh`(自检环境 → 起 → 验 /health)→ 登录/填报/AI 体检全通;`down && up` 数据不丢。Mac 各装法(Docker Desktop / OrbStack / colima)均跑通 |
 | systemd → Docker 迁移 | `sudo bash deploy/migrate-to-docker.sh` → 账户/周期/uploads 零丢、schema_history 不重放、/health 通;`down`+`systemctl start finance` 可回滚 |
 | macOS → Docker 迁移 | 同上,脚本提示先停前台 java;数据零丢 |
 | Apple Silicon | `docker compose build` 原生 arm64 起得来 |

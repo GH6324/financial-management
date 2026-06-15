@@ -2541,11 +2541,11 @@ RD="$(cd "$(dirname "$0")/.." && pwd)"   # 仓库根
 # v07-DOCKER-1 文件齐
 dmiss=0
 for f in Dockerfile docker-compose.yml .env.example .dockerignore \
-         docker/entrypoint.sh docker/backup.sh deploy/docker-init.sh \
+         docker/entrypoint.sh docker/backup.sh deploy/docker-init.sh deploy/docker-up.sh \
          deploy/migrate-to-docker.sh .github/workflows/docker-publish.yml; do
   [[ -f "$RD/$f" ]] || { dmiss=$((dmiss+1)); }
 done
-[[ $dmiss -eq 0 ]] && log_ok "v07-DOCKER-1 Docker 9 个文件齐" || log_bad "v07-DOCKER-1 缺 $dmiss 个 Docker 文件" "see Dockerfile/compose/..."
+[[ $dmiss -eq 0 ]] && log_ok "v07-DOCKER-1 Docker 10 个文件齐" || log_bad "v07-DOCKER-1 缺 $dmiss 个 Docker 文件" "see Dockerfile/compose/..."
 
 # v07-DOCKER-2 多阶段 + 三服务 + 三卷
 { [[ "$(grep -c '^FROM' "$RD/Dockerfile")" -ge 2 ]] \
@@ -2561,10 +2561,10 @@ grep -q 'db/apply.sh' "$RD/docker/entrypoint.sh" \
 
 # v07-DOCKER-4 新 shell 语法
 sbad=0
-for f in docker/entrypoint.sh docker/backup.sh deploy/docker-init.sh deploy/migrate-to-docker.sh; do
+for f in docker/entrypoint.sh docker/backup.sh deploy/docker-init.sh deploy/docker-up.sh deploy/migrate-to-docker.sh; do
   bash -n "$RD/$f" 2>/dev/null || sbad=$((sbad+1))
 done
-[[ $sbad -eq 0 ]] && log_ok "v07-DOCKER-4 4 个 Docker shell bash -n 通过" || log_bad "v07-DOCKER-4 $sbad 个 shell 语法错" "bash -n"
+[[ $sbad -eq 0 ]] && log_ok "v07-DOCKER-4 5 个 Docker shell bash -n 通过" || log_bad "v07-DOCKER-4 $sbad 个 shell 语法错" "bash -n"
 
 # v07-DOCKER-5 防泄密:.env 被忽略 + .env.example 无真实密钥
 { grep -qxE '\.env' "$RD/.gitignore" \
@@ -2576,6 +2576,16 @@ done
 { grep -q '/etc/finance.env' "$RD/deploy/migrate-to-docker.sh" && grep -q '.finance/finance.env' "$RD/deploy/migrate-to-docker.sh"; } \
   && log_ok "v07-DOCKER-6 迁移脚本识别 systemd + macOS 双存量" \
   || log_bad "v07-DOCKER-6 迁移脚本未覆盖双模式" "see migrate-to-docker.sh"
+
+# v07-DOCKER-7 一键自检入口:探测 docker/引擎/Compose-V2 + 健康验证(适配各种 Mac docker 装法)
+UP="$RD/deploy/docker-up.sh"
+{ [[ -f "$UP" ]] \
+  && grep -q 'docker info' "$UP" \
+  && grep -q 'docker compose version' "$UP" \
+  && grep -q 'docker-compose version --short' "$UP" \
+  && grep -q '/health' "$UP"; } \
+  && log_ok "v07-DOCKER-7 docker-up.sh 自检引擎/Compose-V2 + 验 /health" \
+  || log_bad "v07-DOCKER-7 一键自检入口缺检查项" "see deploy/docker-up.sh"
 
 echo
 echo "═══════════════════════════════════════"
