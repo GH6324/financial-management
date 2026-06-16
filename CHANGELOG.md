@@ -2,7 +2,7 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
-## [v0.7.2] · 待发(beta 验证中)
+## [v0.7.2] · 2026-06-16
 
 易用性第三批:从「第一次刷到 repo 的开发者」视角补「说不清 / 不够易用」。详 [`prd/v0.7.md`](prd/v0.7.md) §9 + [`tech-design/v0.7.md`](tech-design/v0.7.md) §九。
 
