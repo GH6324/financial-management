@@ -33,6 +33,7 @@ public class IntegrationsController {
     private final DynamicScheduleConfig schedulerConfig;
     private final AuditLogService auditLogService;
     private final com.family.finance.service.macro.MacroBenchmarkService macroService; // v0.5 FR-76
+    private final java.util.List<com.family.finance.service.checkup.llm.LlmClient> llmClients; // v0.7 FR-131 测试连接
 
     @GetMapping
     public String page(@AuthenticationPrincipal MemberPrincipal me, Model model) {
@@ -140,6 +141,79 @@ public class IntegrationsController {
                 "family_runtime_config", fid, "FX 拉取 cron = " + fxCron);
         ra.addFlashAttribute("flash", "FX 拉取配置已保存 · cron 已重排");
         return "redirect:/admin/integrations";
+    }
+
+    /**
+     * v0.7 FR-131 · LLM 一键测试连接 · 用<b>已保存</b>的 key 发最小探测,验证链路通不通。
+     *
+     * <p>私密红线(决策 82):绝不回显 key、绝不把 key 进 flash / audit / 日志明文;
+     * 失败原因经 {@link #classifyLlmError} 归类成无敏感信息的友好文案。
+     */
+    @PostMapping("/llm/test")
+    public String testLlm(@AuthenticationPrincipal MemberPrincipal me,
+                          @RequestParam("vendor") String vendor,
+                          RedirectAttributes ra) {
+        long fid = me.getFamilyId();
+        String v = vendor == null ? "" : vendor.trim().toLowerCase(java.util.Locale.ROOT);
+        String label = "qwen".equals(v) ? "Qwen" : "deepseek".equals(v) ? "DeepSeek" : v;
+        String keyConst = "qwen".equals(v) ? FamilyConfigService.K_LLM_QWEN_KEY
+                : "deepseek".equals(v) ? FamilyConfigService.K_LLM_DEEPSEEK_KEY : null;
+        if (keyConst == null) {
+            ra.addFlashAttribute("flashError", "未知厂商:" + v);
+            return "redirect:/admin/integrations";
+        }
+        if (!configService.isPrivateKeyConfigured(fid, keyConst)) {
+            ra.addFlashAttribute("flashError", label + " 未配置 Key · 请先填好并保存,再测试连接");
+            return "redirect:/admin/integrations";
+        }
+        com.family.finance.service.checkup.llm.LlmClient client = llmClients.stream()
+                .filter(c -> v.equals(c.vendor())).findFirst().orElse(null);
+        if (client == null) {
+            ra.addFlashAttribute("flashError", label + " 客户端不可用");
+            return "redirect:/admin/integrations";
+        }
+
+        boolean ok;
+        String reason;
+        try {
+            // 最小探测:极短 prompt,验证 key→端点→模型→解析 全链路通(与体检走同一路径)
+            String out = client.chat("你是连通性自检,无视语义,只回复两个字:ok。", "ping");
+            ok = out != null && !out.isBlank();
+            reason = ok ? "可用" : "返回为空";
+        } catch (Exception e) {
+            ok = false;
+            reason = classifyLlmError(e.getMessage());
+        }
+
+        // 审计 · 不记 key 明文(§22.6 / 决策 82)· 只记 vendor + 结果归类
+        auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE,
+                "family_runtime_config", fid,
+                "LLM 测试连接 · " + label + " · " + (ok ? "成功" : "失败:" + reason));
+        if (ok) {
+            ra.addFlashAttribute("flash", label + " 测试连接成功 · " + reason);
+        } else {
+            ra.addFlashAttribute("flashError", label + " 测试失败 · " + reason);
+        }
+        return "redirect:/admin/integrations";
+    }
+
+    /** 把 LLM 调用异常 message 归类成<b>无敏感信息</b>的友好原因(绝不含 key / 不回显原始 body)。 */
+    static String classifyLlmError(String rawMsg) {
+        String m = rawMsg == null ? "" : rawMsg.toLowerCase(java.util.Locale.ROOT);
+        if (m.contains("未配置") || m.contains("not configured")) return "Key 未配置";
+        if (m.contains("arrearage") || m.contains("欠费") || m.contains("billoverdue") || m.contains("bill overdue"))
+            return "账户欠费或账单过期";
+        if (m.contains("quota") || m.contains("额度") || m.contains("freetier") || m.contains("insufficient"))
+            return "免费额度已用尽(可换模型或等额度重置)";
+        if (m.contains("401") || m.contains("403") || m.contains("invalid") || m.contains("incorrect")
+                || m.contains("unauthor") || m.contains("forbidden") || m.contains("api key"))
+            return "Key 无效或无权限";
+        if (m.contains("timeout") || m.contains("超时") || m.contains("timed out")
+                || m.contains("resourceaccess") || m.contains("connect") || m.contains("i/o") || m.contains("unknownhost"))
+            return "网络不通或超时";
+        java.util.regex.Matcher sm = java.util.regex.Pattern.compile("status=(\\d{3})").matcher(m);
+        if (sm.find()) return "调用失败(已脱敏 · HTTP " + sm.group(1) + ")";
+        return "调用失败(已脱敏)";
     }
 
     private static String sanitize(String cron, String fallback) {

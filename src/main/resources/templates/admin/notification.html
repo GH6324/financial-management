@@ -57,6 +57,12 @@
     <form th:action="@{/admin/reminders/sms}" method="post" class="bracket-card max-w-3xl space-y-5">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
       <div class="eyebrow-ink">② 短信渠道 · 私密(不进 AI)</div>
+      <div class="border-l-2 border-brass bg-brass/[0.05] px-4 py-3">
+        <p class="text-[13px] text-ink leading-relaxed">
+          <b>可选</b>。不配 → 截止提醒只走站内 banner,不影响记账。签名要实名报备、模板要审核,
+          <a class="text-brass-deep underline" href="https://github.com/LuoDi-Nate/financial-management/blob/master/docs/aliyun-sms-setup.md" target="_blank" rel="noreferrer">完整 9 步见「阿里云短信接入指引」→</a>
+        </p>
+      </div>
       <div class="border-l-2 border-rust bg-rust/[0.04] px-4 py-3">
         <p class="font-mono text-[10px] text-rust tracking-wider leading-relaxed">
           ⚠ AccessKey / 密钥为私密信息 · 仅用于发短信 · 绝不进入任何 AI 交互 / 审计明文 · 留空 = 保持原值

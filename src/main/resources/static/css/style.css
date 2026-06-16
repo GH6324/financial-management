@@ -627,3 +627,21 @@ summary::marker { content: ''; }
 /* — 填报页 ledger 展开/折叠 文案随状态切换(纯 CSS · 无 JS) — */
 details[open]      > summary .lg-when-closed { display: none; }
 details:not([open]) > summary .lg-when-open  { display: none; }
+
+/* — v0.7 配置引导 · 折叠式「如何获取」帮助(纯 CSS · 无 JS) — */
+.help-fold > summary {
+  font-family: "JetBrains Mono", monospace; font-size: 11px;
+  color: var(--brass-deep); cursor: pointer; list-style: none;
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 6px;
+}
+.help-fold > summary::-webkit-details-marker { display: none; }
+.help-fold > summary::marker { content: ''; }
+.help-fold > summary::before { content: '+'; font-weight: 600; }
+.help-fold[open] > summary::before { content: '\2013'; } /* en-dash */
+.help-fold .help-body {
+  font-size: 13px; color: var(--ink-soft); line-height: 1.85;
+  margin-top: 8px; padding: 12px 14px;
+  background: var(--card-soft); border: 1px solid var(--rule-soft);
+}
+.help-fold .help-body ol { margin: 0; padding-left: 18px; }
+.help-fold .help-body a { color: var(--brass-deep); text-decoration: underline; }

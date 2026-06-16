@@ -2600,6 +2600,43 @@ PSR="$RD/src/main/java/com/family/finance/config/ProdSeedRunner.java"
   && log_ok "v07-DOCKER-8 ProdSeedRunner 引导种子密码(幂等)+ docker-up 打印首登账号" \
   || log_bad "v07-DOCKER-8 prod 种子账号引导缺失" "Docker 首登会死锁,see ProdSeedRunner"
 
+section "v0.7 第二批 · 外部服务配置引导(静态守护)"
+ICFG="$RD/src/main/resources/templates/admin/integrations.html"
+ICTL="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"
+
+# v07-CFG-1 配置总指南 + README 入口
+{ [[ -f "$RD/docs/configuration.md" ]] && grep -q 'docs/configuration.md' "$RD/README.md"; } \
+  && log_ok "v07-CFG-1 configuration.md 存在 + README 有入口" \
+  || log_bad "v07-CFG-1 配置总指南或 README 入口缺失" "see docs/configuration.md"
+
+# v07-CFG-2 LLM 页:可选 banner + 折叠帮助 + 测试按钮 + sibling 测试表单
+{ grep -q '都<b>可选</b>' "$ICFG" \
+  && grep -q '如何获取 Qwen Key' "$ICFG" \
+  && grep -q "form=\"llm-test-qwen\"" "$ICFG" \
+  && grep -q 'id="llm-test-qwen"' "$ICFG" \
+  && grep -q 'id="llm-test-deepseek"' "$ICFG"; } \
+  && log_ok "v07-CFG-2 LLM 页 可选说明 + 折叠指引 + 测试按钮 + sibling 表单齐" \
+  || log_bad "v07-CFG-2 LLM 配置引导 UI 缺件" "see integrations.html"
+
+# v07-CFG-3 后端测试端点 + 脱敏分类
+{ grep -q '/llm/test' "$ICTL" \
+  && grep -q 'classifyLlmError' "$ICTL" \
+  && grep -q 'isPrivateKeyConfigured' "$ICTL"; } \
+  && log_ok "v07-CFG-3 /llm/test 端点 + classifyLlmError 脱敏 + 未配短路" \
+  || log_bad "v07-CFG-3 LLM 测试端点缺失" "see IntegrationsController"
+
+# v07-CFG-4 私密红线:测试端点不回显/不记 key 明文(/llm/test 处理不引用 key 参数,审计只记 vendor+结果)
+if awk '/@PostMapping\("\/llm\/test"\)/{f=1} f{print} /^    }$/{if(f)exit}' "$ICTL" | grep -qiE 'qwenKey|deepseekKey|getString.*KEY|\.token'; then
+  log_bad "v07-CFG-4 测试端点疑似触碰 key 明文" "复核 testLlm 不应读/拼 key"
+else
+  log_ok "v07-CFG-4 测试端点不读/不回显 key 明文(只 vendor + 脱敏结果)"
+fi
+
+# v07-CFG-5 短信页补配置指南链
+grep -q 'aliyun-sms-setup.md' "$RD/src/main/resources/templates/admin/notification.html" \
+  && log_ok "v07-CFG-5 短信页有「配置指南」文档链" \
+  || log_bad "v07-CFG-5 短信页缺文档链" "see notification.html"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

@@ -188,6 +188,7 @@ sudo bash deploy/deploy.sh
 3. `/admin/periods` 点 "立即开下一周期" 起一个 OPEN 周期
 4. `/accounts/new` 用向导加你的银行卡 / 支付宝 / 房贷
 5. `/entry` 填本期余额开始记账
+6.(可选)接入 AI 体检 / 短信提醒等外部服务 → 见 **[配置与接入指南](docs/configuration.md)**(全部可选,核心功能零配置即用)
 
 ### 后续发版迭代
 
@@ -252,6 +253,7 @@ bash scripts/qa-e2e.sh         # 端到端真值校验(36 · 会清空 DB)
 - **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md) · [`prd/v0.3.md`](prd/v0.3.md) · [`prd/v0.4.md`](prd/v0.4.md) · [`prd/v0.5.md`](prd/v0.5.md) · [`prd/v0.6.md`](prd/v0.6.md) · [`prd/v0.7.md`](prd/v0.7.md)
 - **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md) · [`tech-design/v0.4.md`](tech-design/v0.4.md) · [`tech-design/v0.5.md`](tech-design/v0.5.md) · [`tech-design/v0.6.md`](tech-design/v0.6.md) · [`tech-design/v0.7.md`](tech-design/v0.7.md)
 - **预览原型**:[`preview/index.html`](preview/index.html)(Tailwind CDN 静态预览)· [`preview/v0.4/`](preview/v0.4/index.html) · [`preview/v0.5/`](preview/v0.5/index.html) · [`preview/v0.6/`](preview/v0.6/index.html)(财富水位 / 股票现金联动 / FIRE 自适应 / PWA 引导)
+- **配置与接入**:[`docs/configuration.md`](docs/configuration.md)(AI / 短信 等外部服务配置总指南 · 全部可选)
 - **QA case 库**:[`docs/qa-cases.md`](docs/qa-cases.md)
 - **部署运行**:[`deploy/README.md`](deploy/README.md)
 
@@ -297,6 +299,8 @@ financial-management/
 ```
 
 ## 配置项
+
+> 想接 **AI(Qwen/DeepSeek)/ 阿里云短信** 等外部服务?一站式步骤见 **[配置与接入指南](docs/configuration.md)**(全部可选,核心功能零配置即用)。下面是系统级 env 与管理页参数的分工说明。
 
 **v0.4.18 起 · 运营参数沉淀到管理页 · 实时生效不重启**(详 [`prd/v0.4.md`](prd/v0.4.md) §22)。读取链:**DB 优先 → env(@Value)→ 代码常量**。
 

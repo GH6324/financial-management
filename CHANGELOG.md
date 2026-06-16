@@ -2,6 +2,23 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.7.1] · 待发(beta 验证中)
+
+开源用户「跑起来之后怎么接外部服务」的易用性改造 —— 配置引导。详 [`prd/v0.7.md`](prd/v0.7.md) §8 + [`tech-design/v0.7.md`](tech-design/v0.7.md) §八。
+
+### Added
+
+- **配置总指南 `docs/configuration.md`**(FR-129):开篇讲清「全部可选、核心零配置可跑、配了各自解锁什么」+ 一览表,链现有 `llm-api-keys-setup` / `aliyun-sms-setup` / `llm-vendor-comparison` 详版。README 三处加入口(文档 / 配置项 / 首次登录)。
+- **管理页折叠式申请指引**(FR-130):`/admin/integrations` LLM 卡每个 key 加 `<details>`「如何获取?」(3-4 步 + 控制台直链 + 配置指南链,纯 CSS 无 JS);短信页补「阿里云短信接入」文档链。
+- **LLM 一键测试连接**(FR-131):每个 vendor(Qwen / DeepSeek)一个「测试连接」按钮 → 用**已保存**的 key 发最小探测(复用 `LlmClient.chat`,与体检同链路)→ 顶部 flash 回显成功 / **脱敏**失败原因(Key 无效 / 欠费 / 额度用尽 / 网络)。补齐「外部接入必配一键测试」纪律(短信已有)。
+- **「可选 + 解锁什么」说明**(FR-132):LLM / 短信卡顶部明示「不配会怎样、配了得到什么」。
+
+### 私密 / 兼容
+
+- 测试连接:key **不回显、不进 flash / audit / 日志明文**,错误经 `classifyLlmError` 归类(决策 82);测试事件审计只记 vendor + 成功/失败。`PrivacyIsolationTest` + `v04-PRIV-1` 仍绿。
+- 纯增量:0 schema 改动、不动配置读取链(DB>env>默认)、不动既有 4 个 POST handler;对已配好的存量用户零影响。
+- UI 无 emoji(承既有纪律);qa-run 加 v07-CFG-1~5 守护;mvn test 244 全绿。
+
 ## [v0.7.0] · 2026-06-12
 
 一键 Docker 部署,兼容存量 systemd / macOS 用户(数据零丢迁移)。开源宣传后让部署门槛跟上。详 [`prd/v0.7.md`](prd/v0.7.md) + [`tech-design/v0.7.md`](tech-design/v0.7.md)。

@@ -19,6 +19,7 @@
     </div>
 
     <div th:if="${flash}" class="border border-forest bg-forest/[0.05] px-4 py-2 text-sm" th:text="${flash}">成功</div>
+    <div th:if="${flashError}" class="border border-rust bg-rust/[0.05] px-4 py-2 text-sm" th:text="${flashError}">失败</div>
 
     <!-- ① LLM -->
     <form th:action="@{/admin/integrations/llm}" method="post" class="bracket-card max-w-3xl space-y-5">
@@ -28,6 +29,13 @@
         <span class="pill text-[10px]"
               th:classappend="${qwenKeyConfigured and deepseekKeyConfigured} ? ' pill-forest' : ' pill-rust'"
               th:text="${qwenKeyConfigured and deepseekKeyConfigured} ? '主备源 都已配' : (${qwenKeyConfigured or deepseekKeyConfigured} ? '部分已配' : '未配置')">未配置</span>
+      </div>
+
+      <div class="border-l-2 border-brass bg-brass/[0.05] px-4 py-3">
+        <p class="text-[13px] text-ink leading-relaxed">
+          这些都<b>可选</b>。不配 → AI 资产体检 / 月报 / 调仓建议不可用,<b>其余功能(记账 / 净资产 / 真实年化 / 图表)全部正常</b>。配一个(Qwen 或 DeepSeek)即可用,两个都配则主源故障自动兜底。
+          <a class="text-brass-deep underline" href="https://github.com/LuoDi-Nate/financial-management/blob/master/docs/configuration.md" target="_blank" rel="noreferrer">完整申请步骤见「配置与接入指南」→</a>
+        </p>
       </div>
 
       <div class="border-l-2 border-rust bg-rust/[0.04] px-4 py-3">
@@ -41,11 +49,42 @@
           <label class="field-label">通义 Qwen-Plus · API Key · <span class="text-ink-subtle" th:text="${qwenKeyConfigured} ? '已配置(隐藏)' : '未配置'">未配置</span></label>
           <input class="field-input" type="password" name="qwenKey" autocomplete="new-password" placeholder="留空 = 不修改"/>
           <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">DashScope 控制台 → API-KEY 管理 · sk-xxxxxxxx</p>
+          <details class="help-fold">
+            <summary>如何获取 Qwen Key?</summary>
+            <div class="help-body">
+              <ol>
+                <li>打开 <a href="https://bailian.console.aliyun.com" target="_blank" rel="noreferrer">百炼控制台</a>,用阿里云账号登录</li>
+                <li>右上角头像 → <b>API-KEY</b> → 创建我的 API-KEY</li>
+                <li>复制 <code>sk-</code> 开头的串,粘到上方,点「保存 LLM 配置」</li>
+                <li>免费额度:百炼给<b>每个模型各一份</b>,够家庭用;务必在「费用 → 免费额度用完即停」兜底,避免用超被静默计费</li>
+              </ol>
+              <div class="font-mono text-[10px] text-ink-subtle mt-2">详见 <a href="https://github.com/LuoDi-Nate/financial-management/blob/master/docs/llm-api-keys-setup.md" target="_blank" rel="noreferrer">配置指南 · LLM Key 申请</a></div>
+            </div>
+          </details>
+          <div class="flex items-center gap-3 mt-2">
+            <button type="submit" form="llm-test-qwen" class="btn-ghost text-[12px] py-1.5 px-3">测试连接</button>
+            <span class="font-mono text-[10px] text-ink-subtle">测已保存的 key · 发最小探测、不烧额度</span>
+          </div>
         </div>
         <div>
           <label class="field-label">DeepSeek-Chat · API Key · <span class="text-ink-subtle" th:text="${deepseekKeyConfigured} ? '已配置(隐藏)' : '未配置'">未配置</span></label>
           <input class="field-input" type="password" name="deepseekKey" autocomplete="new-password" placeholder="留空 = 不修改"/>
           <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">platform.deepseek.com → API Keys · 主熔断后兜底</p>
+          <details class="help-fold">
+            <summary>如何获取 DeepSeek Key?</summary>
+            <div class="help-body">
+              <ol>
+                <li>打开 <a href="https://platform.deepseek.com" target="_blank" rel="noreferrer">platform.deepseek.com</a> 注册 / 登录</li>
+                <li>左侧 <b>API keys</b> → 创建 API key,复制 <code>sk-</code> 串</li>
+                <li>充值少量余额(按量计费,体检一次几分钱),粘到上方保存</li>
+              </ol>
+              <div class="font-mono text-[10px] text-ink-subtle mt-2">详见 <a href="https://github.com/LuoDi-Nate/financial-management/blob/master/docs/llm-api-keys-setup.md" target="_blank" rel="noreferrer">配置指南 · LLM Key 申请</a></div>
+            </div>
+          </details>
+          <div class="flex items-center gap-3 mt-2">
+            <button type="submit" form="llm-test-deepseek" class="btn-ghost text-[12px] py-1.5 px-3">测试连接</button>
+            <span class="font-mono text-[10px] text-ink-subtle">测已保存的 key · 发最小探测</span>
+          </div>
         </div>
         <div>
           <label class="field-label">max_tokens · 单次输出上限</label>
@@ -62,6 +101,16 @@
       <div class="flex justify-end">
         <button type="submit" class="btn-ink">保存 LLM 配置</button>
       </div>
+    </form>
+
+    <!-- 测试连接 sibling forms（只提交 vendor + CSRF · 测已保存的 key · 结果回显到顶部 flash）-->
+    <form id="llm-test-qwen" th:action="@{/admin/integrations/llm/test}" method="post" class="hidden">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input type="hidden" name="vendor" value="qwen"/>
+    </form>
+    <form id="llm-test-deepseek" th:action="@{/admin/integrations/llm/test}" method="post" class="hidden">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input type="hidden" name="vendor" value="deepseek"/>
     </form>
 
     <!-- ② 股票拉取 -->

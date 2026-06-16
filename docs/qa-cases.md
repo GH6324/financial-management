@@ -1271,6 +1271,29 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | Apple Silicon | `docker compose build` 原生 arm64 起得来 |
 | GHCR | 打 tag 后 Actions 出 amd64+arm64 镜像,`docker compose pull` 可用 |
 
+### v0.7 第二批 · 外部服务配置引导(2026-06-16)
+
+**黑盒 · qa-run(v07-CFG-* · 静态)**
+
+| Case | 校验 |
+|---|---|
+| v07-CFG-1 | `docs/configuration.md` 存在 + README 有入口链接 |
+| v07-CFG-2 | LLM 配置页:可选 banner + 「如何获取 Qwen Key」折叠 + `form="llm-test-qwen"` 测试按钮 + `id="llm-test-qwen/deepseek"` sibling 表单齐 |
+| v07-CFG-3 | `IntegrationsController` 有 `/llm/test` 端点 + `classifyLlmError` 脱敏 + `isPrivateKeyConfigured` 未配短路 |
+| v07-CFG-4 | 私密红线:`testLlm` 方法体不读/不拼/不回显 key 明文(awk 抽方法体 grep 无 qwenKey/getString.*KEY/.token) |
+| v07-CFG-5 | 短信页有「阿里云短信接入」文档链 |
+
+**人工 · 真机验收(beta)**
+
+| 场景 | 校验 |
+|---|---|
+| 折叠指引 | `/admin/integrations` LLM 卡顶部见「可选 + 解锁什么」;每 key 下「如何获取?」点开见 3-4 步 + 控制台直链 + 配置指南链 |
+| 测试连接 · 未配 | 没配 key 点「测试连接」→ 顶部红 flash「未配置 Key · 请先填好并保存」 |
+| 测试连接 · 配对 | 填对的 key 保存后点测试 → 绿 flash「Qwen 测试连接成功 · 可用」 |
+| 测试连接 · 配错 | 填错 key 保存后点测试 → 红 flash「测试失败 · Key 无效或无权限」(**不回显 key**) |
+| 私密 | 审计 `/admin/audit` 测试事件只记 vendor + 成功/失败归类,无 key 明文;`PrivacyIsolationTest` 绿 |
+| 文档入口 | README「文档」「配置项」「首次登录」三处都能跳到 `docs/configuration.md` |
+
 **backward-compat 红线**
 - 旧 `deploy.sh`(systemd 直装/迭代)路径不动,存量(含 prod/beta)零破坏
 - 迁移前强制 mysqldump、全程不删旧部署、可回滚;共用 schema_history 防重放
