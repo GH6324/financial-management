@@ -1294,6 +1294,26 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | 私密 | 审计 `/admin/audit` 测试事件只记 vendor + 成功/失败归类,无 key 明文;`PrivacyIsolationTest` 绿 |
 | 文档入口 | README「文档」「配置项」「首次登录」三处都能跳到 `docs/configuration.md` |
 
+### v0.7 第三批 · 系统内首次引导(2026-06-16)
+
+**黑盒 · qa-run(v07-ONB-* · 静态)**
+
+| Case | 校验 |
+|---|---|
+| v07-ONB-1 | `HomeController` `/` 智能路由(零周期/零账户→`onboarding/index`,有数据→`redirect:/dashboard`)+ `DashboardController` 零周期兜底 `redirect:/`(修首登 500);`onboarding/index.html` 存在 |
+| v07-ONB-2 | 引导页含「加账户 / 开本期周期」起步步骤;`/entry` 顶部有「周期流程」说明;`OnboardingRoutingTest` 在 |
+
+**单元 · OnboardingRoutingTest**:零周期/零账户→onboarding;有账户无周期→onboarding;有周期无账户→onboarding;两者齐→redirect dashboard。
+
+**人工 · 真机验收(全新装)**
+
+| 场景 | 校验 |
+|---|---|
+| 首登不崩 | 全新部署(零周期零账户)首次登录 → **不再 500**,落到引导页 |
+| 引导可用 | 引导页见「开→填→关→出报告」一句话流程 + 3 步直达按钮;加账户/开周期后对应步骤打勾 |
+| 完成即隐 | 加好账户 + 开好周期后,`/` 自动 redirect `/dashboard` |
+| entry 说明 | `/entry` 顶部见「周期流程:开→填(本页)→关→出报告」 |
+
 **backward-compat 红线**
 - 旧 `deploy.sh`(systemd 直装/迭代)路径不动,存量(含 prod/beta)零破坏
 - 迁移前强制 mysqldump、全程不删旧部署、可回滚;共用 schema_history 防重放

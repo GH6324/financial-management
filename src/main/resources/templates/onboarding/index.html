@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('开始使用 · 家庭账房')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('dashboard', ${me}, ${nav})}"></header>
+
+<main class="max-w-[820px] mx-auto px-6 lg:px-10 py-12 relative z-10">
+
+  <div class="eyebrow mb-2">开 · 始 · 使 · 用</div>
+  <h1 class="font-display text-3xl sm:text-4xl font-medium tracking-tight">三步,开始用家庭账房</h1>
+  <p class="text-ink-soft text-sm mt-3 leading-relaxed max-w-2xl">
+    本工具按「<b>周期</b>」记账 —— 一个周期 = 一次月度快照。流程是
+    <span class="font-mono text-[12px] bg-card-soft border border-rule-soft px-2 py-0.5">开周期 → 填本期余额 → 关周期 → 出净资产 / 收益报告</span>。
+    每月花 10 分钟填一次,不用逐笔记。下面三步走完就能看到你家的资产全局图。
+  </p>
+
+  <div class="mt-8 space-y-4">
+
+    <!-- ① 加账户 -->
+    <div class="bracket-card flex items-center gap-4" th:classappend="${hasAccount} ? ' opacity-70' : ' ring-1 ring-brass'">
+      <span th:if="${hasAccount}" class="shrink-0 w-8 h-8 rounded-full border-2 border-forest text-forest flex items-center justify-center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>
+      </span>
+      <span th:unless="${hasAccount}" class="shrink-0 w-8 h-8 rounded-full border-2 border-ink text-ink font-display flex items-center justify-center">1</span>
+      <div class="flex-1 min-w-0">
+        <div class="font-display text-lg flex items-center gap-2">加账户
+          <span th:if="${hasAccount}" class="font-mono text-[10px] text-forest border border-forest px-1.5">已完成</span></div>
+        <div class="text-ink-soft text-[13px] leading-relaxed">把银行卡 / 支付宝 / 券商 / 房 / 房贷加进来 —— 向导式,6 类账户、13 个内置模板。</div>
+      </div>
+      <a th:href="@{/accounts/new}" class="btn-ink no-underline shrink-0" th:text="${hasAccount} ? '再加一个' : '去加账户'">去加账户</a>
+    </div>
+
+    <!-- ② 开周期 -->
+    <div class="bracket-card flex items-center gap-4" th:classappend="${hasPeriod ? ' opacity-70' : (hasAccount ? ' ring-1 ring-brass' : '')}">
+      <span th:if="${hasPeriod}" class="shrink-0 w-8 h-8 rounded-full border-2 border-forest text-forest flex items-center justify-center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>
+      </span>
+      <span th:unless="${hasPeriod}" class="shrink-0 w-8 h-8 rounded-full border-2 border-ink text-ink font-display flex items-center justify-center">2</span>
+      <div class="flex-1 min-w-0">
+        <div class="font-display text-lg flex items-center gap-2">开本期周期
+          <span th:if="${hasPeriod}" class="font-mono text-[10px] text-forest border border-forest px-1.5">已完成</span></div>
+        <div class="text-ink-soft text-[13px] leading-relaxed">在周期管理里点「立即开下一周期」,开一个本月的记账周期。</div>
+      </div>
+      <a th:href="@{/admin/periods}" class="btn-ink no-underline shrink-0" th:text="${hasPeriod} ? '去管理' : '去开周期'">去开周期</a>
+    </div>
+
+    <!-- ③ 填余额 -->
+    <div class="bracket-card flex items-center gap-4 opacity-70">
+      <span class="shrink-0 w-8 h-8 rounded-full border-2 border-ink text-ink font-display flex items-center justify-center">3</span>
+      <div class="flex-1 min-w-0">
+        <div class="font-display text-lg">填本期余额</div>
+        <div class="text-ink-soft text-[13px] leading-relaxed">把各账户月末余额填一下(再记几笔大额收支),保存后就能在仪表盘看到净资产和真实收益。</div>
+      </div>
+      <a th:href="@{/entry}" class="btn-paper no-underline shrink-0">去填报</a>
+    </div>
+
+  </div>
+
+  <div class="paper-card p-5 mt-8">
+    <div class="eyebrow mb-2">顺 · 手(可选)</div>
+    <div class="text-[13px] flex flex-wrap gap-x-5 gap-y-2">
+      <a th:href="@{/admin/family}" class="text-brass-deep underline">改家庭名 / 图标</a>
+      <a th:href="@{/admin/members}" class="text-brass-deep underline">把成员名改成你和家人</a>
+      <a href="https://github.com/LuoDi-Nate/financial-management/blob/master/docs/configuration.md" target="_blank" rel="noreferrer" class="text-brass-deep underline">接 AI 体检 / 短信提醒(全部可选)</a>
+    </div>
+  </div>
+
+  <p class="font-mono text-[10px] text-ink-subtle mt-6 tracking-wider">加好账户 + 开好周期后,这个页面会自动换成仪表盘。</p>
+
+</main>
+</body>
+</html>

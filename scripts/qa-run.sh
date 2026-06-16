@@ -2637,6 +2637,27 @@ grep -q 'aliyun-sms-setup.md' "$RD/src/main/resources/templates/admin/notificati
   && log_ok "v07-CFG-5 短信页有「配置指南」文档链" \
   || log_bad "v07-CFG-5 短信页缺文档链" "see notification.html"
 
+section "v0.7 第三批 · 系统内首次引导(静态守护)"
+HC="$RD/src/main/java/com/family/finance/common/HomeController.java"
+DC="$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java"
+
+# v07-ONB-1 落地页智能路由 + onboarding 模板 + 首登500兜底
+{ [[ -f "$RD/src/main/resources/templates/onboarding/index.html" ]] \
+  && grep -q 'onboarding/index' "$HC" \
+  && grep -q 'redirect:/dashboard' "$HC" \
+  && grep -q 'countByFamily' "$HC" \
+  && grep -q 'redirect:/' "$DC"; } \
+  && log_ok "v07-ONB-1 / 智能路由(onboarding/dashboard)+ dashboard 零周期兜底 redirect" \
+  || log_bad "v07-ONB-1 首次引导路由/兜底缺失" "see HomeController/DashboardController"
+
+# v07-ONB-2 引导页起步步骤 + /entry 周期流程说明
+{ grep -q '加账户' "$RD/src/main/resources/templates/onboarding/index.html" \
+  && grep -q '开本期周期' "$RD/src/main/resources/templates/onboarding/index.html" \
+  && grep -q '周期流程' "$RD/src/main/resources/templates/entry/index.html" \
+  && [[ -f "$RD/src/test/java/com/family/finance/web/OnboardingRoutingTest.java" ]]; } \
+  && log_ok "v07-ONB-2 引导 3 步 + entry 周期流程说明 + 路由单测在" \
+  || log_bad "v07-ONB-2 引导内容/单测缺失" "see onboarding/entry"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

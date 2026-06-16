@@ -65,6 +65,10 @@ public class DashboardController {
                             @RequestParam(required = false) String currency,
                             @RequestHeader(value = "HX-Request", required = false) String htmx,
                             Model model) {
+        // v0.7 FR-133 兜底:零周期(全新部署)→ 回首页引导,避免 anchorPeriod() 抛异常 500
+        if (periodMapper.countByFamily(me.getFamilyId()) == 0) {
+            return "redirect:/";
+        }
         String accountsCsv = accounts == null || accounts.isEmpty()
                 ? null
                 : accounts.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));

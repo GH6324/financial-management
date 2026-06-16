@@ -2,6 +2,24 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.7.2] · 待发(beta 验证中)
+
+易用性第三批:从「第一次刷到 repo 的开发者」视角补「说不清 / 不够易用」。详 [`prd/v0.7.md`](prd/v0.7.md) §9 + [`tech-design/v0.7.md`](tech-design/v0.7.md) §九。
+
+### Fixed
+
+- **修首登 500(关键)**:`/` 旧实现无脑 `redirect:/dashboard`,而 dashboard 零周期时 `anchorPeriod()` 抛异常 + `deploy.sh` 清数据会清空 `period`/`account` → **全新部署首次登录直接 500**(砸在开源新用户身上,beta/prod 有数据未暴露)。
+
+### Added
+
+- **系统内首次引导**(FR-133~135):`/` 改智能路由——未初始化(零周期 或 零账户)→ 渲染引导页 `onboarding/index`(一句话讲清「开周期→填余额→关周期→出报告」+ 3 步直达按钮 + 状态打勾 + 顺手改名链),否则 → `redirect:/dashboard`;`/dashboard` 加零周期兜底 `redirect:/`。`/entry` 顶部加「周期流程」一句话。
+- **README / 文档易用性**:主要能力列表去 `(v0.x)` 版本号噪音(改干净能力总览);加「最低系统要求」(1G 内存,512M 会 OOM);抽出路径无关「部署好了:第一次怎么用」section(讲清周期生命周期 + 6 步,Docker/直装通用);新增 `docs/faq.md`(远程访问 / 备份恢复 / 忘记密码 / 多家庭 / 改 env 不生效 等)。
+
+### 兼容 / 红线
+
+- 纯增量 0 schema;`/dashboard` 只加一行零周期兜底;存量(有数据)家庭 `/` 行为不变(仍直达 dashboard)。
+- 无 emoji 用 inline SVG;文案不用技术黑话。`OnboardingRoutingTest` 4 例 + qa-run v07-ONB-1/2 守护;mvn test 248 全绿。
+
 ## [v0.7.1] · 2026-06-16
 
 开源用户「跑起来之后怎么接外部服务」的易用性改造 —— 配置引导。详 [`prd/v0.7.md`](prd/v0.7.md) §8 + [`tech-design/v0.7.md`](tech-design/v0.7.md) §八。

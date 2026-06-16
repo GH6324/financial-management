@@ -17,6 +17,7 @@
                 th:text="${#temporals.format(period.periodStart, 'yyyy.MM.dd')} + ' - ' + ${#temporals.format(period.periodEnd, 'yyyy.MM.dd')}">2026.05.01 - 2026.05.31</span>
         </h1>
         <p class="text-ink-soft text-sm mt-2">余额驱动填报:保存期末余额后,系统会按已登记的收入/支出/账户间划转实时轧差。</p>
+        <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">周期流程:开周期 → <b class="text-ink">填本期余额(本页)</b> → 关周期 → 出净资产 / 收益报告</p>
       </div>
       <div class="flex items-center gap-3">
         <a th:href="@{/entry(mine=${mineOnly})}" class="btn-paper no-underline">本期</a>
