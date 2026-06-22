@@ -2600,6 +2600,28 @@ PSR="$RD/src/main/java/com/family/finance/config/ProdSeedRunner.java"
   && log_ok "v07-DOCKER-8 ProdSeedRunner 引导种子密码(幂等)+ docker-up 打印首登账号" \
   || log_bad "v07-DOCKER-8 prod 种子账号引导缺失" "Docker 首登会死锁,see ProdSeedRunner"
 
+# v07-CN-1 国内 Docker 阻断引导:docker-up.sh 单独探 mysql 归因 + 镜像源指引 + 不覆盖已有 daemon.json + 平台分流(Linux/Mac) + bash -n
+{ [[ -f "$UP" ]] \
+  && grep -q 'pull_one mysql:8.0' "$UP" \
+  && grep -q 'cn_hub_blocked_guide' "$UP" \
+  && grep -q 'registry-mirrors' "$UP" \
+  && grep -q 'docker.m.daocloud.io' "$UP" \
+  && grep -q '\[\[ ! -e "\$DAEMON_JSON" \]\]' "$UP" \
+  && grep -q 'uname -s.*Darwin\|Darwin.*_cn_guide_mac' "$UP" \
+  && grep -q '_cn_guide_mac' "$UP" \
+  && grep -q 'colima.yaml\|\.colima/default' "$UP" \
+  && grep -q 'orb config docker' "$UP" \
+  && bash -n "$UP" 2>/dev/null; } \
+  && log_ok "v07-CN-1 docker-up.sh 探 Docker Hub 阻断 + 镜像源引导 + 不覆盖已有 daemon.json + Mac 分引擎(colima/orb/Desktop)" \
+  || log_bad "v07-CN-1 国内阻断引导逻辑缺件" "see deploy/docker-up.sh step5 / cn_hub_blocked_guide"
+
+# v07-CN-2 文档守护:三处文档给对镜像源,且纠正了「build 救不了 mysql」的误导
+{ grep -q 'registry-mirrors' "$RD/deploy/README.md" && grep -q 'docker.m.daocloud.io' "$RD/deploy/README.md" && grep -q '救不了' "$RD/deploy/README.md" \
+  && grep -q 'mysql:8.0' "$RD/README.md" && grep -q '救不了' "$RD/README.md" && grep -q 'daemon.json' "$RD/README.md" \
+  && grep -q 'registry-mirrors' "$RD/docs/faq.md" && grep -q 'docker.m.daocloud.io' "$RD/docs/faq.md" && grep -q 'mysql:8.0' "$RD/docs/faq.md"; } \
+  && log_ok "v07-CN-2 README/deploy-README/faq 均给对国内镜像源 + 纠正 build 误导" \
+  || log_bad "v07-CN-2 国内镜像源文档缺失或仍有误导" "see deploy/README.md / README.md / docs/faq.md"
+
 section "v0.7 第二批 · 外部服务配置引导(静态守护)"
 ICFG="$RD/src/main/resources/templates/admin/integrations.html"
 ICTL="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"

@@ -2,6 +2,15 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.7.4] · 2026-06-22
+
+### Fixed / Changed
+
+- **国内 Docker 部署网络阻断引导(真机验证暴露的真坑)**:prod 隔离全链路真机验证(host:20099,不碰线上)证明 `docker compose up` 链路本身没问题(mysql healthy → 跑迁移 → app healthy → /health+/login 200,整栈 ~730MB),但暴露中国大陆两处硬阻断——`get.docker.com` 被墙、**Docker Hub 拉 `mysql:8.0` 被墙导致 `docker compose pull` 卡死**(反观 GHCR 上我们自己的 app 镜像大陆能直连)。
+  - `deploy/docker-up.sh`:`pull` 失败时**单独探 `mysql:8.0`** 归因——确认是 Docker Hub 被墙就打印可复制的国内镜像源修复(`daemon.json` 的 `registry-mirrors`),**Linux 原生 systemd 引擎**还会征得同意后自动写 `daemon.json`(daocloud + 1ms,免登录)+ 重启 + 重试;**`daemon.json` 已存在则只提示、绝不覆盖**。修掉旧逻辑「pull 失败一律 `up --build`」的伪兜底(build 只构建 app,db 仍要拉 mysql,救不了墙)。新增非交互开关 `FINANCE_ASSUME_YES` / 可覆盖 `FINANCE_DAEMON_JSON`。
+  - 文档:`deploy/README.md`「国内镜像加速」纠正两处误导(GHCR 实测直连 OK 不是慢;`docker compose build` 救不了 mysql)+ 给免登录公共镜像;`README.md` 方式一 + `docs/faq.md` 加大陆 mysql 卡死专条。
+  - 回归:`qa-run.sh` `v07-CN-1/2`(桩模拟探测/写入/不覆盖 + 文档守护);`docker-up.sh` 过 `bash -n`;实测依据 prod 配镜像源后 mysql 实拉成功。纯脚本 + 文档,0 Java / 0 schema / 0 编排,存量零影响。
+
 ## [v0.7.3] · 2026-06-22(hotfix)
 
 ### Fixed

@@ -289,8 +289,34 @@ your.domain.com {
 
 ## 国内镜像加速 / Apple Silicon
 
-- GHCR / Docker Hub 在大陆慢:配 Docker 镜像加速(阿里云容器镜像服务的加速地址写进 `/etc/docker/daemon.json` 的 `registry-mirrors`),或直接 `docker compose build` 源码构建。
-- **macOS / Apple Silicon**:Docker Desktop / OrbStack / colima 均可;`docker compose build` 原生 arm64,预构建镜像也是 amd64+arm64 多架构,`pull` 自动取对的那个。
+**中国大陆部署:先配镜像源,否则会卡死在拉 mysql。** 实测(2026-06)大陆网络下:
+- **我们自己的 app 镜像在 GHCR,能直连**,不用管;
+- **被卡住的是 Docker Hub 的 `mysql:8.0` 基础镜像**(`registry-1.docker.io` 被限速/阻断,`docker compose pull` 会一直超时)。
+- ⚠ 注意:`docker compose build` **救不了**这一步 —— build 只构建 app,`db` 服务照样要从 Docker Hub 拉 `mysql:8.0`。必须先过墙。
+
+修复:给 Docker 配国内镜像源(`registry-mirrors`)。镜像源**只对 Docker Hub 生效**,正好兜 mysql;GHCR 的 app 镜像不受影响。配法按你的装法分(写哪里、怎么重启都不一样):
+
+**Linux 原生 Docker** —— 写 `/etc/docker/daemon.json`(已有就把 `registry-mirrors` 并进去,**别覆盖**其它配置),再 `sudo systemctl restart docker`:
+```json
+{ "registry-mirrors": ["https://docker.m.daocloud.io", "https://docker.1ms.run"] }
+```
+
+**macOS**(引擎在虚拟机里,**不读宿主的 `/etc/docker/daemon.json`**,所以上面那条对 Mac 无效)——按装法选一种:
+- **colima**:编辑 `~/.colima/default/colima.yaml`,在 `docker:` 段加:
+  ```yaml
+  docker:
+    registry-mirrors:
+      - https://docker.m.daocloud.io
+      - https://docker.1ms.run
+  ```
+  然后 `colima restart`(约 1-2 分钟)。
+- **OrbStack**:`orb config docker` 打开配置,加入 `registry-mirrors`(同上 JSON),存盘后 `orb restart docker`。
+- **Docker Desktop**:Settings → Docker Engine,把 `registry-mirrors` 并进 JSON,Apply & Restart。
+
+配好后 `docker compose up -d`(或重跑 `bash deploy/docker-up.sh`)。
+> `docker-up.sh` 会**自动探测**这一步:`pull` 失败时它单独探 `mysql:8.0`,确认是 Docker Hub 被墙就**按你的平台**打印对应修复(Linux / colima / OrbStack / Docker Desktop);**Linux 原生 Docker** 还会征得你同意后自动写入 `daemon.json` 并重启重试(已有 `daemon.json` 则只提示、不覆盖)。Mac 上不自动改 VM 配置,只给精确步骤。
+
+- **macOS / Apple Silicon**:Docker Desktop / OrbStack / colima 均可;`docker compose build` 原生 arm64,预构建镜像也是 amd64+arm64 多架构,`pull` 自动取对的那个。(Apple Silicon 拉 `mysql:8.0` 同样可能被 Docker Hub 限速,需上面的镜像源。)
 - **`brew install docker` 后报「连不上 daemon / Cannot connect to the Docker daemon」**:brew 装的 docker **只是命令行客户端,没有引擎**——Mac 上 docker 引擎跑在一个小 Linux 虚拟机里,要单独装一个。最省事的命令行方案:`brew install colima docker-compose && colima start`(第一次起约 1-2 分钟),再 `bash deploy/docker-up.sh`。或装带界面的 `brew install orbstack`(/ Docker Desktop)打开 App 即可。`docker-up.sh` 已能自检这一步并给出对应你机器的命令。
 - **`docker compose up -d` 报 `unknown shorthand flag: 'd' in -d`**:这台机的 Compose V2 插件没装好,docker 没把 `compose` 当子命令,把 `-d` 当成了顶层 flag。处理:
   - Docker Desktop / OrbStack 自带 V2 —— 确认它装好且在运行(`docker compose version` 应有输出)。

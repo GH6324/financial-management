@@ -1335,3 +1335,30 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 - 旧 `deploy.sh`(systemd 直装/迭代)路径不动,存量(含 prod/beta)零破坏
 - 迁移前强制 mysqldump、全程不删旧部署、可回滚;共用 schema_history 防重放
 - 密钥不进镜像/日志/git;`SERVER_ADDRESS=0.0.0.0`(容器内)+ 默认仅 loopback 发布
+
+---
+
+## v0.7.4 · 国内 Docker 部署网络阻断引导(FR-136~138)
+
+**背景**:prod 隔离真机验证(2026-06-22)证明 compose 链路通(整栈 ~730MB),但大陆 Docker Hub 被墙 → 拉 `mysql:8.0` 卡死;GHCR(app 镜像)直连 OK。`docker-up.sh` 据此归因 + 引导镜像源。
+
+**黑盒 · qa-run(静态 + 桩)**
+
+| Case | 校验 |
+|---|---|
+| v07-CN-1 | `docker-up.sh` 含归因/引导逻辑:`pull_one mysql:8.0` 单独探 Docker Hub + `cn_hub_blocked_guide` + `registry-mirrors` + `docker.m.daocloud.io` + 已存在 `daemon.json` 不覆盖(`[[ ! -e`)+ `bash -n` 通过 |
+| v07-CN-2 | 文档守护:`deploy/README.md` / `README.md` / `docs/faq.md` 三处均含「大陆 / mysql / registry-mirrors / daocloud」,且不再出现「`docker compose build` 可替代/绕过」误导措辞 |
+
+**桩(stub)模拟验证(无需真 Docker)**:伪造 `docker`/`systemctl`/`sudo`/`curl` 入临时 PATH,`docker pull mysql:8.0` 按目标 `daemon.json` 是否存在切换成败(模拟"配了镜像源就能拉")。断言:
+| 场景 | 校验 |
+|---|---|
+| 无 daemon.json · 非自动(Linux) | 打印含 `docker.m.daocloud.io` 的镜像源指引,最终因仍拉不到而 die(指向修复) |
+| `FINANCE_ASSUME_YES=1`(Linux) | 自动写入 `$FINANCE_DAEMON_JSON`(内容含 daocloud + 1ms)+ 调 `$FINANCE_DOCKER_RESTART` 钩子 + 重试 `pull` 成功 → `up` |
+| 预置 daemon.json(Linux) | 跑完该文件内容**保持不变**(不覆盖既有 docker 配置) |
+| macOS(stub `uname`→Darwin + 有 colima/orb) | 走 `_cn_guide_mac`:打印 colima(`~/.colima/default/colima.yaml`)/ OrbStack(`orb config docker`)/ Docker Desktop 三种精确步骤;**不**写 `daemon.json`、**不**触发自动写(Mac CN 同样撞墙,网络层) |
+
+**实测依据**:prod 写 `registry-mirrors` 后 `mysql:8.0` 实拉成功(2026-06-22);桩中"配了镜像源即可拉"的假设有真机背书。
+
+**backward-compat 红线**
+- 纯脚本 + 文档,0 Java / 0 schema / 0 镜像/编排变更;存量(prod/beta、已部署 Docker)零影响
+- 自动写 `daemon.json`:用户同意 + 文件不存在 + 告知重启,三重前置缺一不写;公共镜像免登录(不硬编码阿里云专属地址)
