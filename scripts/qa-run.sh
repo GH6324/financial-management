@@ -2622,6 +2622,25 @@ PSR="$RD/src/main/java/com/family/finance/config/ProdSeedRunner.java"
   && log_ok "v07-CN-2 README/deploy-README/faq 均给对国内镜像源 + 纠正 build 误导" \
   || log_bad "v07-CN-2 国内镜像源文档缺失或仍有误导" "see deploy/README.md / README.md / docs/faq.md"
 
+# v07-CLEAN-1 全新 Docker 清演示数据成空态(与 systemd step10 一致):脚本逻辑 + entrypoint 全新库判定 + Dockerfile 接线 + bash -n
+CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
+{ [[ -f "$CLEAN" ]] \
+  && grep -q 'FINANCE_KEEP_DEMO' "$CLEAN" \
+  && grep -qE 'member WHERE id > 2|id > 2' "$CLEAN" \
+  && grep -q 'TRUNCATE TABLE period;' "$CLEAN" && grep -q 'TRUNCATE TABLE account;' "$CLEAN" \
+  && grep -q 'schema_history' "$ENT" && grep -q 'FRESH_DB' "$ENT" && grep -q 'clean-dev-data.sh' "$ENT" \
+  && grep -q 'clean-dev-data.sh' "$RD/Dockerfile" \
+  && bash -n "$CLEAN" 2>/dev/null && bash -n "$ENT" 2>/dev/null; } \
+  && log_ok "v07-CLEAN-1 全新库清演示数据(铁信号 schema_history + 互锁 + KEEP_DEMO 开关 + 与 step10 同表集)" \
+  || log_bad "v07-CLEAN-1 全新 Docker 清空态逻辑缺件" "see docker/clean-dev-data.sh / entrypoint.sh / Dockerfile"
+
+# v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
+{ ! grep -q '<your-org>' "$RD/README.md" \
+  && grep -q '250 单元' "$RD/README.md" && grep -q '367' "$RD/README.md" \
+  && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(250/367)" \
+  || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 技术栈 / 本地开发"
+
 section "v0.7 第二批 · 外部服务配置引导(静态守护)"
 ICFG="$RD/src/main/resources/templates/admin/integrations.html"
 ICTL="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"

@@ -2,6 +2,17 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.7.5] · 2026-06-22
+
+### Fixed / Changed
+
+- **新用户「无痛苦 + 能 run」收口(以全新用户视角审视 README + 部署)**:
+  - **`<your-org>` 占位符**(`README` 方式二 systemd + macOS 的 `git clone`)→ 改成真实 `LuoDi-Nate`。此前照抄会 `repository not found`,非 Docker 路径第一步即挂。
+  - **全新 Docker 装好后清成空态、触发 onboarding,与 systemd 一致**:此前迁移含演示数据(V2/V3/V4),`deploy.sh` step10 在 systemd 首装清掉、但 Docker entrypoint 没有 → 全新 Docker 用户登录看到别人的演示假数据、v0.7.2 引导从不出现。现 `docker/entrypoint.sh` 在「**迁移前 `schema_history` 表不存在 = 全新空卷**」时,迁移后调新脚本 `docker/clean-dev-data.sh` 清演示数据(与 step10 同表集),让用户从空态按引导录入自己的数据。
+    - **删数据三重防线**:① 铁信号「迁移前无 schema_history」才清(自限;migrate-to-docker 灌的 dump 自带 schema_history → 永不触发;升级库 db-data 已有该表 → 老用户哪怕轻量也 100% 安全)② 真实数据互锁(audit>50 或 member.id>2 跳过)③ `FINANCE_KEEP_DEMO=1` 保留开关。0 schema、不动 systemd step10、存量零影响。
+  - 文档/提示:README 测试数订正一致(250 单元 / 36 端到端 / 367 黑盒);方式一加远程 VPS 的 loopback 访问提示(SSH 隧道 / 反代)。
+  - 回归:`qa-run` 新增 `v07-CLEAN-1/2`;全 docker shell `bash -n`;**beta 隔离测试库真验**(不碰线上 `finance`):全新库清成空态(period/account=0、member/family 保留)、互锁与 `FINANCE_KEEP_DEMO` 跳过、schema_history 新旧库判定。纯脚本 + 文档,0 Java。
+
 ## [v0.7.4] · 2026-06-22
 
 ### Fixed / Changed

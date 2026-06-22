@@ -1362,3 +1362,29 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 **backward-compat 红线**
 - 纯脚本 + 文档,0 Java / 0 schema / 0 镜像/编排变更;存量(prod/beta、已部署 Docker)零影响
 - 自动写 `daemon.json`:用户同意 + 文件不存在 + 告知重启,三重前置缺一不写;公共镜像免登录(不硬编码阿里云专属地址)
+
+---
+
+## v0.7.5 · 新用户无痛苦收口(FR-139~141)
+
+**背景**:全新用户视角审视 README + 部署,修 `<your-org>` clone 失败 + 全新 Docker 清成空态(与 systemd 一致,触发 onboarding)+ 文档订正。
+
+**黑盒 · qa-run(静态)**
+
+| Case | 校验 |
+|---|---|
+| v07-CLEAN-1 | 全新 Docker 清演示数据接线齐:`docker/clean-dev-data.sh` 存在且含互锁(`member.*id > 2`)+ `FINANCE_KEEP_DEMO` + 与 step10 同表集(`TRUNCATE TABLE period`/`account`);`entrypoint.sh` 迁移前判 `schema_history`(`FRESH_DB`)且仅 FRESH 时调清理;`Dockerfile` COPY 该脚本;全 docker shell `bash -n` |
+| v07-CLEAN-2 | README 无 `<your-org>` 残留;测试数自洽(250 单元 / 367 黑盒,无旧的 244/319/338) |
+
+**真机 · beta 隔离测试库(不碰线上 `finance` 库)**
+
+| 场景 | 校验 |
+|---|---|
+| 全新库判定 | 空库 `information_schema` 查 `schema_history` = 0(FRESH);`db/apply.sh` 后 = 1(非 FRESH) |
+| 全新库清理 | apply(含演示数据)后跑 `clean-dev-data.sh` → `period`/`account` 行数 = 0;`member` = 2、`family` = 1、`account_template` 保留 |
+| 真实数据互锁 | 注入 `member(id=3)` 后跑 → 跳过、`account` 行数原样保留(不清) |
+| 保留开关 | `FINANCE_KEEP_DEMO=1` → 跳过、演示数据原样 |
+
+**backward-compat 红线**
+- 删数据三重防线:① 迁移前无 `schema_history` 才清(migrate-to-docker 灌 dump 自带该表 → 永不触发;升级库已有该表 → 老用户零风险)② 真实数据互锁 ③ `FINANCE_KEEP_DEMO`
+- 只 TRUNCATE 演示性表,保留 family/member/模板/runtime_config;0 schema、不动 systemd step10、存量零影响

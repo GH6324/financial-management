@@ -24,8 +24,9 @@ COPY --from=build /src/target/app.jar /app/app.jar
 COPY db /app/db
 COPY docker/entrypoint.sh /app/entrypoint.sh
 COPY docker/backup.sh /app/backup.sh
+COPY docker/clean-dev-data.sh /app/clean-dev-data.sh
 # 非 root 运行 + 数据目录
-RUN chmod +x /app/entrypoint.sh /app/backup.sh /app/db/apply.sh \
+RUN chmod +x /app/entrypoint.sh /app/backup.sh /app/clean-dev-data.sh /app/db/apply.sh \
  && useradd -r -u 10001 finance \
  && mkdir -p /data/uploads /data/backups \
  && chown -R finance:finance /app /data
