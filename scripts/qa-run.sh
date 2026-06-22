@@ -2658,6 +2658,14 @@ DC="$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java"
   && log_ok "v07-ONB-2 引导 3 步 + entry 周期流程说明 + 路由单测在" \
   || log_bad "v07-ONB-2 引导内容/单测缺失" "see onboarding/entry"
 
+# v07-FIX-1 改密死循环修复(issue #1):改密后真作废 session,不再只 clearContext
+PC="$RD/src/main/java/com/family/finance/web/profile/ProfileController.java"
+{ grep -q 'SecurityContextLogoutHandler' "$PC" \
+  && grep -q '\.logout(request, response' "$PC" \
+  && [[ -f "$RD/src/test/java/com/family/finance/web/ProfilePasswordChangeTest.java" ]]; } \
+  && log_ok "v07-FIX-1 改密用 SecurityContextLogoutHandler 真作废 session(修首登死循环)+ 回归单测在" \
+  || log_bad "v07-FIX-1 改密死循环修复缺失" "see ProfileController issue#1"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

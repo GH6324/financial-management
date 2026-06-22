@@ -5,10 +5,14 @@ import com.family.finance.domain.audit.AuditLogType;
 import com.family.finance.domain.member.Member;
 import com.family.finance.repository.MemberMapper;
 import com.family.finance.service.AuditLogService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,7 +44,9 @@ public class ProfileController {
                          @RequestParam("oldPassword") String oldPassword,
                          @RequestParam("newPassword") String newPassword,
                          @RequestParam("confirmPassword") String confirmPassword,
-                         Model model) {
+                         Model model,
+                         HttpServletRequest request,
+                         HttpServletResponse response) {
         Member m = memberMapper.findById(me.getMemberId())
                 .orElseThrow(() -> new IllegalStateException("成员不存在"));
 
@@ -60,8 +66,13 @@ public class ProfileController {
         memberMapper.updatePasswordHash(me.getMemberId(), passwordEncoder.encode(newPassword), false);
         auditLogService.record(me.getFamilyId(), me.getMemberId(), AuditLogType.PASSWORD_RESET,
                 "member", me.getMemberId(), "成员主动修改密码");
-        // 触发重新认证 — 简单做法是清掉 session,跳登录
-        SecurityContextHolder.clearContext();
+        // 强制重新登录,拿到全新会话重新读库(issue #1):
+        // Spring Security 6 默认 requireExplicitSave=true,SecurityContextHolder.clearContext()
+        // 只清当前线程、不作废 HttpSession —— session 里仍是登录时的旧 principal(must_change_pw=true),
+        // 于是 AuthController 把"已登录"用户跳 /dashboard、拦截器又弹回改密页 → 死循环。
+        // 必须真正作废 session,下次 /login 才会 me==null 给登录表单 → 用新密码登 → 读到 must_change_pw=0。
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        new SecurityContextLogoutHandler().logout(request, response, auth);
         return "redirect:/login?passwordChanged";
     }
 

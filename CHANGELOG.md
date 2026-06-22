@@ -2,6 +2,14 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.7.3] · 待发(hotfix)
+
+### Fixed
+
+- **修改密码死循环(issue #1 · 卡死所有新用户首登 · 关键)**:种子账号首登强制改密,但改密成功后用 `SecurityContextHolder.clearContext()` 想强制重登 —— **Spring Security 6 默认 `requireExplicitSave=true`,`clearContext()` 只清当前线程、不作废 HttpSession**,session 里仍是登录时的旧 `MemberPrincipal`(`must_change_pw=true`)。于是 `AuthController` 把"已登录"用户跳 `/dashboard`、`MustChangePasswordInterceptor` 又按旧快照弹回改密页 → **无限循环**,且手动改库标记无效(循环由 session 旧快照驱动)。改成用 `SecurityContextLogoutHandler` **真正作废 session** → 下次 `/login` 给登录表单 → 用新密码登 → 读到 `must_change_pw=0` → 跳出。
+  - 感谢 [@duotui-com](https://github.com/duotui-com) 报告并准确定位根因。
+  - 回归:`ProfilePasswordChangeTest`(断言改密后 session.invalidate() + 标记置0 + 跳登录)+ qa-run `v07-FIX-1`;mvn test 250 全绿。纯改动一处,0 schema。
+
 ## [v0.7.2] · 2026-06-16
 
 易用性第三批:从「第一次刷到 repo 的开发者」视角补「说不清 / 不够易用」。详 [`prd/v0.7.md`](prd/v0.7.md) §9 + [`tech-design/v0.7.md`](tech-design/v0.7.md) §九。

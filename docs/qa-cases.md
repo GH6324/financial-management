@@ -1314,6 +1314,23 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | 完成即隐 | 加好账户 + 开好周期后,`/` 自动 redirect `/dashboard` |
 | entry 说明 | `/entry` 顶部见「周期流程:开→填(本页)→关→出报告」 |
 
+### v0.7.3 hotfix · 改密死循环(issue #1 · 2026-06-22)
+
+**黑盒 · qa-run(静态)**
+
+| Case | 校验 |
+|---|---|
+| v07-FIX-1 | `ProfileController` 改密后用 `SecurityContextLogoutHandler.logout(request, response, …)` 真作废 session(不再只 `clearContext()`);`ProfilePasswordChangeTest` 在 |
+
+**单元 · ProfilePasswordChangeTest**:改密成功 → `session.invalidate()` 被调 + `updatePasswordHash(…,false)` + 跳 `/login?passwordChanged` + context 清空;原密码错 → 返回表单、不动 session。
+
+**人工 · 真机验收(全新装 / 强制改密)**
+
+| 场景 | 校验 |
+|---|---|
+| 首登改密不死循环 | 种子账号(must_change_pw=1)首登 → 被强制改密 → 改完**跳到登录页(给表单)**、用新密码登入 → 进 dashboard,**不再被弹回改密页** |
+| 旧密码失效 | 改密后旧密码登录失败,新密码成功 |
+
 **backward-compat 红线**
 - 旧 `deploy.sh`(systemd 直装/迭代)路径不动,存量(含 prod/beta)零破坏
 - 迁移前强制 mysqldump、全程不删旧部署、可回滚;共用 schema_history 防重放
