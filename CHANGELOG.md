@@ -2,7 +2,7 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
-## [v0.7.3] · 待发(hotfix)
+## [v0.7.3] · 2026-06-22(hotfix)
 
 ### Fixed
 
