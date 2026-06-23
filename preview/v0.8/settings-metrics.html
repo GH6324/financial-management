@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.8 预览 · 我关心的指标(管理页)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+  <style>
+    body{background:var(--paper);color:var(--ink)}
+    .eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass-deep)}
+    .eyebrow-ink{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
+    .paper-card{background:var(--card);border:1px solid var(--rule);box-shadow:0 1px 0 rgba(26,23,20,.04),0 8px 24px -12px rgba(26,23,20,.08)}
+    .annot{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-subtle)}
+    .note{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-subtle);letter-spacing:.04em}
+    .pill{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.06em;padding:2px 7px;border-radius:2px;display:inline-flex;align-items:center;gap:3px}
+    .pill-rust{background:rgba(156,74,42,.1);color:var(--rust);border:1px solid var(--rust)}
+    .pill-forest{background:rgba(79,107,71,.12);color:var(--forest);border:1px solid var(--forest)}
+    .pill-brass{background:var(--brass-soft);color:var(--brass-deep);border:1px solid var(--brass)}
+    .pill-mute{background:var(--paper-soft);color:var(--ink-subtle);border:1px solid var(--rule)}
+    /* checklist 行 */
+    .crow{display:flex;align-items:flex-start;gap:12px;padding:11px 12px;border-bottom:1px solid var(--rule-soft)}
+    .crow:last-child{border-bottom:none}
+    .crow:hover{background:var(--card-soft)}
+    .crow.locked{opacity:.85;background:rgba(122,90,57,.04)}
+    .crow input[type=checkbox]{width:17px;height:17px;accent-color:var(--ink);margin-top:2px;flex-shrink:0}
+    .crow input[disabled]{accent-color:var(--brass-deep)}
+    .mname{font-family:"Source Serif 4","Noto Serif SC",serif;font-size:14.5px}
+    .mdesc{font-size:12px;color:var(--ink-soft);line-height:1.5}
+    .src{font-family:"JetBrains Mono",monospace;font-size:8.5px;color:var(--ink-subtle);letter-spacing:.04em}
+    .grp-head{display:flex;align-items:baseline;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--ink);background:var(--card-soft)}
+    .star{color:var(--brass-deep);font-size:11px}
+  </style>
+</head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+<header class="border-b border-rule relative z-10" style="background:var(--paper)">
+  <div class="max-w-[1000px] mx-auto px-6 lg:px-10 h-14 flex items-center gap-5">
+    <span class="font-display text-lg font-medium">家庭账房</span>
+    <nav class="hidden sm:flex gap-4 annot" style="text-transform:none"><span>仪表盘</span><span>报表</span><span class="text-ink font-bold" style="border-bottom:2px solid var(--ink)">管理</span></nav>
+    <a href="index.html" class="ml-auto annot hover:text-ink no-underline" style="border-bottom:1px solid var(--rule);text-transform:none">← v0.8 卷</a>
+  </div>
+</header>
+
+<main class="max-w-[1000px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+
+  <div class="mb-2"><span class="note">管理 / 数据呈现 · <code class="text-brass-deep">/admin/metrics</code></span></div>
+  <div class="flex items-baseline justify-between flex-wrap gap-3 mb-3">
+    <div>
+      <div class="eyebrow mb-2">F · R · 1 · 4 · 9 · / · 1 · 5 · 0</div>
+      <h1 class="font-display text-3xl sm:text-5xl font-medium tracking-tight">我关心的指标</h1>
+    </div>
+    <span class="pill pill-rust">待评审</span>
+  </div>
+
+  <!-- 顶部说明(决策 95 / 96) -->
+  <div class="paper-card p-5 mb-8" style="border-left:4px solid var(--brass-deep)">
+    <p class="font-serif text-sm text-ink leading-relaxed mb-3">
+      勾选你家关心的指标。<b>dashboard 与报表共用这一套勾选</b>(决策 95),各页按自己的<b>展示上限</b>裁剪:
+    </p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-px bg-rule">
+      <div class="bg-card p-3"><div class="eyebrow-ink mb-1">手机卡片 · 首屏</div><div class="font-display text-xl">≤ 4 <span class="text-sm text-ink-soft font-mono">指标</span></div><div class="note mt-1" style="text-transform:none">+ 账户名 + sparkline · 余下点开</div></div>
+      <div class="bg-card p-3"><div class="eyebrow-ink mb-1">桌面 dashboard 表</div><div class="font-display text-xl">≤ 6 <span class="text-sm text-ink-soft font-mono">列</span></div><div class="note mt-1" style="text-transform:none">家庭 KPI 亦 ≤ 6 张</div></div>
+      <div class="bg-card p-3"><div class="eyebrow-ink mb-1">报表 / 体检</div><div class="font-display text-xl">全 <span class="text-sm text-ink-soft font-mono">部</span></div><div class="note mt-1" style="text-transform:none">不设上限 · 展示全部已勾选</div></div>
+    </div>
+    <p class="note mt-3" style="text-transform:none">超出上限时按下方各组的「优先级」(= 目录顺序)取前 N,被裁掉的提示「更多见报表/体检」。</p>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+    <!-- ============ 家庭级 KPI 指标 ============ -->
+    <section>
+      <div class="paper-card overflow-hidden">
+        <div class="grp-head">
+          <div>
+            <div class="eyebrow-ink mb-0.5">家 · 庭 · 级 · KPI</div>
+            <span class="note" style="text-transform:none">挂在 dashboard 头部 / 报表</span>
+          </div>
+          <span class="pill pill-brass" id="famCount">已勾 7</span>
+        </div>
+
+        <label class="crow locked">
+          <input type="checkbox" checked disabled onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">净资产</span><span class="star">★</span><span class="pill pill-mute">必选 · 不可取消</span></div>
+            <div class="mdesc">总资产 − 总负债</div><div class="src">endBalance 合计</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" checked onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">总资产 / 总负债</span><span class="star">★</span></div>
+            <div class="mdesc">不含 LOAN 的资产合计 / LOAN 合计</div><div class="src">已算</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" checked onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">本期收益 + 收益率</span><span class="star">★</span></div>
+            <div class="mdesc">这个月赚/亏多少 + 收益率(剔除工资)</div><div class="src">已算</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" checked onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">家庭 XIRR</span><span class="star">★</span></div>
+            <div class="mdesc">全家资金加权年化真实回报</div><div class="src">annualized</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" checked onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">人赚的 vs 钱赚的 · 累计分解</span><span class="star">★</span><span class="pill pill-brass">核心卖点</span></div>
+            <div class="mdesc">本金累计投入 vs 累计投资损益 —— 分得清攒的和投资赚的</div><div class="src">principalVsReturnDecomposition</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" checked onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">储蓄率</span><span class="star">★</span></div>
+            <div class="mdesc">结余 ÷ 收入(窗口化)</div><div class="src">已算</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" checked onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">紧急储备月数</span><span class="star">★</span></div>
+            <div class="mdesc">流动资产 ÷ 月均支出 · 建议 ≥ 3–6 月</div><div class="src">已算</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" checked onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">净资产 MoM 环比</span><span class="pill pill-mute">☆派生</span></div>
+            <div class="mdesc">对所选 as-of 期 vs 上一账期</div><div class="src">实时算 · 不落库(决策 92)</div>
+          </div>
+        </label>
+
+        <!-- 进阶项默认不勾 -->
+        <label class="crow">
+          <input type="checkbox" onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">家庭 TWR 时间加权</span><span class="pill pill-mute">☆进阶</span></div>
+            <div class="mdesc">剔除流入看标的本身表现</div><div class="src">默认关 · 按需开</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">月均收支</span><span class="star">★</span><span class="pill pill-mute">进阶</span></div>
+            <div class="mdesc">窗口内月均收入 / 支出</div><div class="src">默认关</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">净资产 YoY 同比</span><span class="pill pill-mute">☆进阶</span></div>
+            <div class="mdesc">vs 去年同月账期 · 需满 1 年</div><div class="src">默认关 · 数据不足时显「数据不足」</div>
+          </div>
+        </label>
+      </div>
+      <p class="note mt-3" style="text-transform:none">超出上限时按优先级取前 N — 优先级 = 上面从上到下的顺序。</p>
+    </section>
+
+    <!-- ============ 账户级指标 ============ -->
+    <section>
+      <div class="paper-card overflow-hidden">
+        <div class="grp-head">
+          <div>
+            <div class="eyebrow-ink mb-0.5">账 · 户 · 级 · 指 · 标</div>
+            <span class="note" style="text-transform:none">挂在账户列表 / 卡片 / 体检</span>
+          </div>
+          <span class="pill pill-brass" id="acctCount">已勾 7</span>
+        </div>
+
+        <label class="crow locked">
+          <input type="checkbox" checked disabled onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">当前价值</span><span class="star">★</span><span class="pill pill-mute">必选 · 不可取消</span></div>
+            <div class="mdesc">这账户现在值多少(本位币)</div><div class="src">endBalanceBase</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" checked onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">年化收益率 XIRR</span><span class="star">★</span></div>
+            <div class="mdesc">资金加权;&lt;12 月退累计收益率并标注</div><div class="src">annualized</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" checked onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">累计投资损益(金额)</span><span class="star">★</span></div>
+            <div class="mdesc">这账户至今总共赚/亏了多少钱</div><div class="src">cumPnl</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" checked onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">本期损益 / 较上期 Δ</span><span class="star">★</span></div>
+            <div class="mdesc">这个月赚/亏(金额 + MoM%)</div><div class="src">monthDelta</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" checked onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">占家庭比重 %</span><span class="pill pill-mute">☆派生</span></div>
+            <div class="mdesc">这账户占全家多少(集中度)</div><div class="src">派生</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" checked onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">近况 sparkline</span><span class="star">★</span></div>
+            <div class="mdesc">真实月末走势 · 涨绿跌红 · &lt;2 期降级</div><div class="src">sparkline(FR-143)</div>
+          </div>
+        </label>
+
+        <!-- 预实分析(默认勾 · 旁注) -->
+        <label class="crow" style="background:rgba(122,90,57,.04)">
+          <input type="checkbox" checked onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">预实分析(预期 vs 实际)</span><span class="star">★☆</span><span class="pill pill-brass">默认勾选</span></div>
+            <div class="mdesc">实际收益率/金额 对比预期 → 差异 + 达成率 + 跑赢/跑输</div>
+            <div class="note mt-1.5" style="text-transform:none;color:var(--brass-deep)">预期取品类基准(<code>benchmark_pct</code>),可在账户里单独覆盖(<code>expected_return_pct</code>)· 与「基准对照」合并展示</div>
+          </div>
+        </label>
+
+        <!-- 进阶项默认不勾 -->
+        <label class="crow">
+          <input type="checkbox" onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">累计净投入 / 本金</span><span class="star">★</span><span class="pill pill-mute">进阶</span></div>
+            <div class="mdesc">我往这账户净投了多少本金</div><div class="src">netPrincipal · 默认关</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">本期收益率(单期 %)</span><span class="pill pill-mute">☆进阶</span></div>
+            <div class="mdesc">当期 PnL ÷ 期初</div><div class="src">派生 · 默认关</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">TWR 时间加权</span><span class="pill pill-mute">☆进阶</span></div>
+            <div class="mdesc">剔除流入看标的本身</div><div class="src">calc 已有 · 默认关</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">最大回撤</span><span class="star">★</span><span class="pill pill-mute">进阶</span></div>
+            <div class="mdesc">历史从高点最多回落多少(风险感)</div><div class="src">drawdown · 默认关</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">基准对照</span><span class="star">★</span><span class="pill pill-mute">进阶</span></div>
+            <div class="mdesc">跑赢/跑输同类基准(与预实同源)</div><div class="src">benchmark · 默认关</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">YoY 同比</span><span class="pill pill-mute">☆进阶</span></div>
+            <div class="mdesc">vs 去年同月 · 需满 1 年</div><div class="src">派生 · 默认关</div>
+          </div>
+        </label>
+
+        <label class="crow">
+          <input type="checkbox" onchange="recount()">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap"><span class="mname">持有期数 / 风险等级</span><span class="star">★</span><span class="pill pill-mute">进阶</span></div>
+            <div class="mdesc">数据足不足的提示 + 风险星级</div><div class="src">monthsHeld / risk · 默认关</div>
+          </div>
+        </label>
+      </div>
+      <p class="note mt-3" style="text-transform:none">超出上限时按优先级取前 N — 优先级 = 上面从上到下的顺序。</p>
+    </section>
+  </div>
+
+  <!-- 保存条 -->
+  <div class="mt-8 pt-5 border-t-2 border-double border-ink flex items-center justify-between flex-wrap gap-4">
+    <span class="note" style="text-transform:none">改动即时影响 dashboard 与报表渲染 · 必选项灰显不可取消</span>
+    <div class="flex gap-2">
+      <button class="btn-paper text-[11px]" type="button" onclick="alert('原型:恢复默认集')">恢复默认</button>
+      <button class="btn-ink text-[11px]" type="button" onclick="alert('原型:已保存(family 级配置)')">保存设置</button>
+    </div>
+  </div>
+
+  <p class="annot text-center mt-8" style="text-transform:none">— 静态原型 · 假数据 · 不接后端;勾选状态仅前端计数演示 —</p>
+</main>
+
+<script>
+  function recount(){
+    document.querySelectorAll('section').forEach(sec=>{
+      const counter = sec.querySelector('#famCount, #acctCount');
+      if(!counter) return;
+      const n = sec.querySelectorAll('input[type=checkbox]:checked').length;
+      counter.textContent = '已勾 ' + n;
+    });
+  }
+  recount();
+</script>
+</body>
+</html>

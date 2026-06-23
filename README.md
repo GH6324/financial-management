@@ -257,7 +257,7 @@ bash scripts/qa-e2e.sh         # 端到端真值校验(36 · 会清空 DB)
 ## 文档
 
 - **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md) · [`prd/v0.3.md`](prd/v0.3.md) · [`prd/v0.4.md`](prd/v0.4.md) · [`prd/v0.5.md`](prd/v0.5.md) · [`prd/v0.6.md`](prd/v0.6.md) · [`prd/v0.7.md`](prd/v0.7.md) · [`prd/v0.8.md`](prd/v0.8.md)
-- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md) · [`tech-design/v0.4.md`](tech-design/v0.4.md) · [`tech-design/v0.5.md`](tech-design/v0.5.md) · [`tech-design/v0.6.md`](tech-design/v0.6.md) · [`tech-design/v0.7.md`](tech-design/v0.7.md)
+- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md) · [`tech-design/v0.4.md`](tech-design/v0.4.md) · [`tech-design/v0.5.md`](tech-design/v0.5.md) · [`tech-design/v0.6.md`](tech-design/v0.6.md) · [`tech-design/v0.7.md`](tech-design/v0.7.md) · [`tech-design/v0.8.md`](tech-design/v0.8.md)
 - **预览原型**:[`preview/index.html`](preview/index.html)(Tailwind CDN 静态预览)· [`preview/v0.4/`](preview/v0.4/index.html) · [`preview/v0.5/`](preview/v0.5/index.html) · [`preview/v0.6/`](preview/v0.6/index.html)(财富水位 / 股票现金联动 / FIRE 自适应 / PWA 引导)
 - **配置与接入**:[`docs/configuration.md`](docs/configuration.md)(AI / 短信 等外部服务配置总指南 · 全部可选)
 - **常见问题**:[`docs/faq.md`](docs/faq.md)(最低配置 / 远程访问 / 备份恢复 / 忘记密码 / 多家庭 …)

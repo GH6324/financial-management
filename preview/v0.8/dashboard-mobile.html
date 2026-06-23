@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.8 预览 · 手机版仪表盘</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+  <style>
+    body{background:var(--paper-deep);color:var(--ink)}
+    .eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass-deep)}
+    .paper-card{background:var(--card);border:1px solid var(--rule);box-shadow:0 1px 0 rgba(26,23,20,.04),0 8px 24px -12px rgba(26,23,20,.08)}
+    .annot{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-subtle)}
+    .pill{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.06em;padding:2px 7px;border-radius:2px;display:inline-flex;align-items:center;gap:3px}
+    .pill-rust{background:rgba(156,74,42,.1);color:var(--rust);border:1px solid var(--rust)}
+    .pill-forest{background:rgba(79,107,71,.12);color:var(--forest);border:1px solid var(--forest)}
+    .pill-brass{background:var(--brass-soft);color:var(--brass-deep);border:1px solid var(--brass)}
+    .pill-mute{background:var(--paper-soft);color:var(--ink-subtle);border:1px solid var(--rule)}
+    /* 手机容器 ~390px */
+    .phone{max-width:390px;margin:0 auto;background:var(--paper);min-height:100vh;box-shadow:0 0 0 1px var(--rule), 0 30px 80px -30px rgba(26,23,20,.4)}
+    /* as-of 步进器(精简) */
+    .asof{display:inline-flex;align-items:stretch;border:1px solid var(--ink);background:var(--card)}
+    .asof button{font-family:"JetBrains Mono",monospace;font-size:13px;width:30px;background:transparent;border:none;color:var(--ink-soft)}
+    .asof button:disabled{opacity:.3}
+    .asof .val{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:3px 12px;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
+    .asof .val b{font-family:"Fraunces",serif;font-size:15px;font-weight:500;line-height:1}
+    .asof .val span{font-family:"JetBrains Mono",monospace;font-size:7.5px;color:var(--ink-subtle)}
+    /* 窗口 segmented(横向滚动) */
+    .seg{display:flex;border:1px solid var(--rule);overflow-x:auto}
+    .seg button{font-family:"JetBrains Mono",monospace;font-size:10px;padding:6px 10px;background:transparent;border:none;border-left:1px solid var(--rule);white-space:nowrap;color:var(--ink-soft)}
+    .seg button:first-child{border-left:none}
+    .seg button.on{background:var(--ink);color:var(--paper)}
+    /* KPI 2×2 */
+    .mkpi{background:var(--card);border:1px solid var(--rule);padding:13px}
+    .mkpi .lbl{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:7px;display:block}
+    .mkpi .val{font-family:"Fraunces","Noto Serif SC",serif;font-feature-settings:"tnum" 1;font-size:20px;font-weight:500;line-height:1.05}
+    .mkpi .cur{font-size:.55em;vertical-align:.55em;color:var(--ink-soft);margin-right:2px}
+    .cmp{display:inline-flex;align-items:center;gap:4px;font-family:"JetBrains Mono",monospace;font-size:9px;margin-top:6px}
+    .cmp .tag{color:var(--ink-subtle)}
+    .cmp .up{color:var(--forest)} .cmp .down{color:var(--rust)} .cmp .na{color:var(--ink-subtle)}
+    /* 账户可展开卡片 */
+    .acct{background:var(--card);border:1px solid var(--rule)}
+    .acct summary{list-style:none;cursor:pointer;padding:13px 14px}
+    .acct summary::-webkit-details-marker{display:none}
+    .acct[open] summary{border-bottom:1px solid var(--rule-soft)}
+    .metric4{display:grid;grid-template-columns:1fr 1fr;gap:9px 14px;margin-top:11px}
+    .metric4 .k{font-family:"JetBrains Mono",monospace;font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-subtle)}
+    .metric4 .v{font-family:"JetBrains Mono",monospace;font-size:13px;font-variant-numeric:tabular-nums}
+    .full{padding:0 14px 14px}
+    .full-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;padding-top:11px}
+    .full-grid .k{font-family:"JetBrains Mono",monospace;font-size:8.5px;text-transform:uppercase;color:var(--ink-subtle)}
+    .full-grid .v{font-family:"JetBrains Mono",monospace;font-size:12px;font-variant-numeric:tabular-nums}
+    .chev{transition:transform .2s;color:var(--ink-subtle)}
+    .acct[open] .chev{transform:rotate(180deg)}
+    .stack{display:flex;height:14px;border:1px solid var(--rule);border-radius:2px;overflow:hidden;margin-top:5px}
+    .stack i{display:block;height:100%}
+    .note{font-family:"JetBrains Mono",monospace;font-size:9px;color:var(--ink-subtle)}
+  </style>
+</head>
+<body class="py-6">
+
+<div class="text-center mb-4">
+  <a href="index.html" class="annot hover:text-ink no-underline" style="text-transform:none;border-bottom:1px solid var(--rule)">← v0.8 卷</a>
+  <p class="note mt-2">手机版预览 · 容器固定 ~390px · 假数据</p>
+</div>
+
+<div class="phone">
+  <div class="h-1 bg-ink"></div>
+
+  <!-- 顶栏 -->
+  <header class="px-4 h-12 flex items-center justify-between border-b border-rule">
+    <span class="font-display text-base font-medium">家庭账房</span>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+  </header>
+
+  <main class="px-4 py-5">
+
+    <div class="eyebrow mb-1">2026 · 06 · 月度账册</div>
+    <h1 class="font-display text-2xl font-medium tracking-tight mb-4">家庭仪表盘</h1>
+
+    <!-- 两个正交筛选控件(纵向堆叠) -->
+    <div class="paper-card p-3 mb-5" style="border-left:3px solid var(--brass-deep)">
+      <div class="annot mb-1.5" style="text-transform:none">① 观察账期 as-of</div>
+      <div class="flex items-center gap-2 mb-3">
+        <div class="asof">
+          <button title="上一期" disabled>&lsaquo;</button>
+          <div class="val"><b>2026 · 06</b><span>最新</span></div>
+          <button title="下一期" disabled>&rsaquo;</button>
+        </div>
+        <span class="note flex-1" style="text-transform:none">点状:净资产/配置/账户值</span>
+      </div>
+      <div class="annot mb-1.5" style="text-transform:none">② 窗口 window</div>
+      <div class="seg">
+        <button>近3期</button><button>近6期</button><button class="on">近12期</button><button>今年</button><button>全部</button>
+      </div>
+      <p class="note mt-2" style="text-transform:none">窗口:趋势 / 区间回报 / 储蓄率</p>
+    </div>
+
+    <!-- 家庭 KPI 2×2 ≤4 张(决策 96) -->
+    <div class="eyebrow mb-2">家 · 庭 · KPI · 2×2</div>
+    <div class="grid grid-cols-2 gap-px bg-rule mb-3">
+      <div class="mkpi">
+        <span class="lbl">净资产</span>
+        <div class="val"><span class="cur">¥</span>248.6万</div>
+        <div class="cmp"><span class="tag">MoM</span><span class="up">&#9650; +1.9%</span></div>
+      </div>
+      <div class="mkpi">
+        <span class="lbl">本期收益率</span>
+        <div class="val num-pos">+1.42%</div>
+        <div class="cmp"><span class="tag">MoM</span><span class="up">&#9650; +0.6pp</span></div>
+      </div>
+      <div class="mkpi">
+        <span class="lbl">家庭 XIRR</span>
+        <div class="val num-pos">+5.8%</div>
+        <div class="cmp"><span class="tag">近12期</span><span class="down">&#9660; −0.9pp</span></div>
+      </div>
+      <div class="mkpi">
+        <span class="lbl">储蓄率</span>
+        <div class="val">38.5%</div>
+        <div class="cmp"><span class="tag">YoY</span><span class="na">数据不足</span></div>
+      </div>
+    </div>
+    <p class="note mb-5" style="text-transform:none">手机仅 2×2 ≤4 张;余下(紧急储备/人赚钱赚分解)在报表看全。</p>
+
+    <!-- 账户可展开卡片 -->
+    <div class="eyebrow mb-2">账 · 户 · 可 · 展 · 开</div>
+    <div class="space-y-2.5 mb-5">
+
+      <!-- 卡片 A:收起态(首屏 ≤4 指标) -->
+      <details class="acct">
+        <summary>
+          <div class="flex items-start gap-2.5">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-display text-[15px] truncate">广发-沪深300ETF</span>
+                <span class="pill pill-brass">股票</span>
+              </div>
+              <!-- 迷你 sparkline(涨绿) -->
+              <svg width="80" height="20" viewBox="0 0 80 20" style="color:var(--forest);margin-top:5px"><polyline fill="none" stroke="currentColor" stroke-width="1.5" points="2,16 17,17 32,9 47,5 62,3 78,2"/></svg>
+            </div>
+            <svg class="chev flex-shrink-0 mt-1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <!-- 首屏 ≤4 指标 -->
+          <div class="metric4">
+            <div><div class="k">当前价值</div><div class="v">¥48.7万</div></div>
+            <div><div class="k">年化收益率</div><div class="v num-pos">+8.6%</div></div>
+            <div><div class="k">累计损益</div><div class="v num-pos">+¥6.2万</div></div>
+            <div><div class="k">占比</div><div class="v">19.6%</div></div>
+          </div>
+        </summary>
+        <!-- 展开后全集 -->
+        <div class="full">
+          <div class="annot pt-2.5" style="text-transform:none">展开:完整指标全集(FR-142)</div>
+          <div class="full-grid">
+            <div><div class="k">累计净投入/本金</div><div class="v">¥42.4万</div></div>
+            <div><div class="k">本期收益率(单期)</div><div class="v num-pos">+3.4%</div></div>
+            <div><div class="k">最大回撤</div><div class="v num-neg">−14.2%</div></div>
+            <div><div class="k">基准对照</div><div class="v num-pos">跑赢 +2.6pp</div></div>
+            <div><div class="k">持有期数</div><div class="v">14 期</div></div>
+            <div><div class="k">风险等级</div><div class="v">★★★☆☆</div></div>
+          </div>
+          <!-- 预实(FR-152) -->
+          <div class="mt-3 pt-2.5 border-t border-rule-soft">
+            <div class="flex items-center justify-between">
+              <span class="note" style="text-transform:none">预实:实际 +8.6% / 预期 6.0%</span>
+              <span class="pill pill-forest">跑赢 · 达成 143%</span>
+            </div>
+          </div>
+          <div class="flex gap-2 mt-3">
+            <a href="plan-actual.html" class="annot no-underline" style="text-transform:none;border-bottom:1px solid var(--rule)">看预实详情 →</a>
+            <a href="#" class="annot no-underline" style="text-transform:none;border-bottom:1px solid var(--rule)">流水档案 →</a>
+          </div>
+        </div>
+      </details>
+
+      <!-- 卡片 B:展开态(open) -->
+      <details class="acct" open>
+        <summary>
+          <div class="flex items-start gap-2.5">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-display text-[15px] truncate">萝卜-某科技股</span>
+                <span class="pill pill-brass">股票</span>
+                <span class="pill pill-rust">亏损</span>
+              </div>
+              <!-- 迷你 sparkline(跌红) -->
+              <svg width="80" height="20" viewBox="0 0 80 20" style="color:var(--rust);margin-top:5px"><polyline fill="none" stroke="currentColor" stroke-width="1.5" points="2,3 17,7 32,10 47,13 62,16 78,18"/></svg>
+            </div>
+            <svg class="chev flex-shrink-0 mt-1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <div class="metric4">
+            <div><div class="k">当前价值</div><div class="v">¥9.6万</div></div>
+            <div><div class="k">年化收益率</div><div class="v num-neg">−12.4%</div></div>
+            <div><div class="k">累计损益</div><div class="v num-neg">−¥1.86万</div></div>
+            <div><div class="k">占比</div><div class="v">3.9%</div></div>
+          </div>
+        </summary>
+        <div class="full">
+          <div class="annot pt-2.5" style="text-transform:none">展开:完整指标全集(FR-142)</div>
+          <div class="full-grid">
+            <div><div class="k">累计净投入/本金</div><div class="v">¥11.5万</div></div>
+            <div><div class="k">本期收益率(单期)</div><div class="v num-neg">−5.9%</div></div>
+            <div><div class="k">最大回撤</div><div class="v num-neg">−31.4%</div></div>
+            <div><div class="k">基准对照</div><div class="v num-neg">跑输 −18.4pp</div></div>
+            <div><div class="k">持有期数</div><div class="v">9 期</div></div>
+            <div><div class="k">风险等级</div><div class="v">★★★★★</div></div>
+          </div>
+          <div class="mt-3 pt-2.5 border-t border-rule-soft">
+            <div class="flex items-center justify-between">
+              <span class="note" style="text-transform:none">预实:实际 −12.4% / 预期 6.0%</span>
+              <span class="pill pill-rust">跑输 · 达成 −207%</span>
+            </div>
+          </div>
+          <div class="flex gap-2 mt-3">
+            <a href="plan-actual.html" class="annot no-underline" style="text-transform:none;border-bottom:1px solid var(--rule)">看预实详情 →</a>
+            <a href="#" class="annot no-underline" style="text-transform:none;border-bottom:1px solid var(--rule)">流水档案 →</a>
+          </div>
+        </div>
+      </details>
+
+      <!-- 卡片 C:房产(<2 期 sparkline 降级) -->
+      <details class="acct">
+        <summary>
+          <div class="flex items-start gap-2.5">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-display text-[15px] truncate">链家-自住房产</span>
+                <span class="pill pill-mute">房产</span>
+              </div>
+              <span class="note block mt-1.5" style="text-transform:none">近况 — (仅 1 期 · 不画线)</span>
+            </div>
+            <svg class="chev flex-shrink-0 mt-1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <div class="metric4">
+            <div><div class="k">当前价值</div><div class="v">¥218万</div></div>
+            <div><div class="k">年化收益率</div><div class="v">—</div></div>
+            <div><div class="k">累计损益</div><div class="v">—</div></div>
+            <div><div class="k">占比</div><div class="v">87.7%</div></div>
+          </div>
+        </summary>
+        <div class="full">
+          <div class="annot pt-2.5" style="text-transform:none">展开:完整指标全集</div>
+          <div class="full-grid">
+            <div><div class="k">累计净投入/本金</div><div class="v">¥218万</div></div>
+            <div><div class="k">持有期数</div><div class="v">1 期</div></div>
+            <div><div class="k">风险等级</div><div class="v">★☆☆☆☆</div></div>
+            <div><div class="k">预实</div><div class="v">未设预期</div></div>
+          </div>
+          <p class="note mt-2" style="text-transform:none">数据不足 2 期,收益率类指标降级显「—」。</p>
+        </div>
+      </details>
+    </div>
+
+    <p class="note text-center" style="text-transform:none">— 静态原型 · 假数据 · 不接后端 —</p>
+  </main>
+</div>
+
+</body>
+</html>

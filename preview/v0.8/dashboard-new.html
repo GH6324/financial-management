@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.8 预览 · 新筛选器 + KPI(桌面)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+  <style>
+    body{background:var(--paper);color:var(--ink)}
+    .eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass-deep)}
+    .paper-card{background:var(--card);border:1px solid var(--rule);box-shadow:0 1px 0 rgba(26,23,20,.04),0 8px 24px -12px rgba(26,23,20,.08)}
+    .annot{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-subtle)}
+    .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.08em;padding:3px 9px;border-radius:2px;display:inline-flex;align-items:center;gap:4px}
+    .pill-rust{background:rgba(156,74,42,.1);color:var(--rust);border:1px solid var(--rust)}
+    .pill-forest{background:rgba(79,107,71,.12);color:var(--forest);border:1px solid var(--forest)}
+    .pill-brass{background:var(--brass-soft);color:var(--brass-deep);border:1px solid var(--brass)}
+    .pill-mute{background:var(--paper-soft);color:var(--ink-subtle);border:1px solid var(--rule)}
+    /* — 两个正交筛选控件 — */
+    .filt-label{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-subtle);display:block;margin-bottom:7px}
+    .asof{display:inline-flex;align-items:stretch;border:1px solid var(--ink);background:var(--card)}
+    .asof button{font-family:"JetBrains Mono",monospace;font-size:14px;width:34px;background:transparent;border:none;cursor:pointer;color:var(--ink-soft)}
+    .asof button:hover{background:var(--ink);color:var(--paper)}
+    .asof button:disabled{opacity:.3;cursor:default}
+    .asof button:hover:disabled{background:transparent;color:var(--ink-soft)}
+    .asof .val{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:5px 16px;border-left:1px solid var(--rule);border-right:1px solid var(--rule);min-width:108px}
+    .asof .val b{font-family:"Fraunces",serif;font-size:20px;font-weight:500;line-height:1}
+    .asof .val span{font-family:"JetBrains Mono",monospace;font-size:8.5px;letter-spacing:.1em;color:var(--ink-subtle);margin-top:2px}
+    .seg{display:inline-flex;border:1px solid var(--rule)}
+    .seg button{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;padding:7px 13px;background:transparent;border:none;border-left:1px solid var(--rule);cursor:pointer;color:var(--ink-soft)}
+    .seg button:first-child{border-left:none}
+    .seg button.on{background:var(--ink);color:var(--paper)}
+    .seg button:not(.on):hover{background:var(--card-soft)}
+    .cmp{display:inline-flex;align-items:center;gap:5px;font-family:"JetBrains Mono",monospace;font-size:10px;margin-top:8px}
+    .cmp .tag{letter-spacing:.06em;color:var(--ink-subtle)}
+    .cmp .up{color:var(--forest)}
+    .cmp .down{color:var(--rust)}
+    .cmp .na{color:var(--ink-subtle)}
+    .kpi-card{background:var(--card);border:1px solid var(--rule);padding:20px;position:relative;transition:border-color .18s}
+    .kpi-card:hover{border-color:var(--ink-soft)}
+    .kpi-eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);display:flex;align-items:center;gap:5px;margin-bottom:12px}
+    .kpi-value{font-family:"Fraunces","Noto Serif SC",serif;font-feature-settings:"tnum" 1;font-size:27px;font-weight:500;line-height:1.1;letter-spacing:-.015em}
+    .kpi-cur{font-size:.55em;vertical-align:.6em;color:var(--ink-soft);margin-right:3px}
+    .stack{display:flex;height:18px;border:1px solid var(--rule);border-radius:2px;overflow:hidden;margin-top:6px}
+    .stack i{display:block;height:100%}
+    .ledger-table thead th.sortable{cursor:pointer;user-select:none}
+    .ledger-table thead th.sortable:hover{color:var(--ink)}
+    .sort-ind{display:inline-flex;flex-direction:column;line-height:0;margin-left:3px;vertical-align:middle}
+    .sort-ind svg{display:block}
+    .ach{font-family:"JetBrains Mono",monospace;font-size:9px;padding:1px 5px;border-radius:2px;letter-spacing:.04em}
+    .note{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-subtle);letter-spacing:.04em}
+  </style>
+</head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+<header class="border-b border-rule relative z-10" style="background:var(--paper)">
+  <div class="max-w-[1320px] mx-auto px-6 lg:px-10 h-14 flex items-center gap-5">
+    <span class="font-display text-lg font-medium">家庭账房</span>
+    <nav class="hidden sm:flex gap-4 annot" style="text-transform:none">
+      <span class="text-ink font-bold" style="border-bottom:2px solid var(--ink)">仪表盘</span><span>报表</span><span>资产体检</span><span>目标</span>
+    </nav>
+    <a href="index.html" class="ml-auto annot hover:text-ink no-underline" style="border-bottom:1px solid var(--rule);text-transform:none">← v0.8 卷</a>
+  </div>
+</header>
+
+<main class="max-w-[1320px] mx-auto px-6 lg:px-10 py-8 relative z-10">
+
+  <section class="mb-6">
+    <div class="eyebrow mb-2">2026 · 06 · 月度账册 · 桌面版</div>
+    <h1 class="font-display text-3xl sm:text-5xl font-medium tracking-tight">
+      家庭仪表盘,<span class="italic font-light text-brass-deep">按账期回看。</span>
+    </h1>
+  </section>
+
+  <!-- ===================== 两个正交筛选控件(FR-144 · 决策 91) ===================== -->
+  <section class="paper-card p-5 mb-8" style="border-left:4px solid var(--brass-deep)">
+    <div class="flex items-start justify-between flex-wrap gap-6">
+
+      <!-- ① 观察账期 as-of(点状维度) -->
+      <div>
+        <span class="filt-label">① 观察账期 · AS-OF(看某个月的全家状态)</span>
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="asof">
+            <button title="上一账期" onclick="stepAsof(-1)">&lsaquo;</button>
+            <div class="val"><b id="asofVal">2026 · 06</b><span>当前最新</span></div>
+            <button id="asofNext" title="下一账期" onclick="stepAsof(1)" disabled>&rsaquo;</button>
+          </div>
+          <select id="asofSel" onchange="setAsof(this.value)" class="font-mono text-[11px] border border-rule bg-paper px-2 py-2 self-stretch">
+            <option value="2026-06" selected>2026-06(最新)</option>
+            <option value="2026-05">2026-05</option>
+            <option value="2026-04">2026-04</option>
+            <option value="2026-03">2026-03</option>
+            <option value="2026-02">2026-02</option>
+            <option value="2026-01">2026-01</option>
+          </select>
+        </div>
+        <p class="annot mt-2" style="text-transform:none">驱动 <b>点状指标</b>:净资产 / 资产配置 / 账户当前价值 / 账户列表 —— 全部呈现这一期的快照。</p>
+      </div>
+
+      <div class="hidden lg:flex flex-col items-center justify-center self-stretch px-2 text-ink-subtle">
+        <div class="h-full w-px bg-rule"></div>
+        <span class="annot py-2" style="writing-mode:vertical-rl;text-transform:none;letter-spacing:.2em">正交</span>
+        <div class="h-full w-px bg-rule"></div>
+      </div>
+
+      <!-- ② 窗口(窗口维度) -->
+      <div>
+        <span class="filt-label">② 窗口 · WINDOW(看一段时间的走势 / 回报)</span>
+        <div class="seg" role="group">
+          <button onclick="setWin(this,'3M')">近3期</button>
+          <button onclick="setWin(this,'6M')">近6期</button>
+          <button class="on" onclick="setWin(this,'12M')">近12期</button>
+          <button onclick="setWin(this,'YTD')">今年以来</button>
+          <button onclick="setWin(this,'ALL')">全部</button>
+        </div>
+        <p class="annot mt-2" style="text-transform:none">驱动 <b>窗口指标</b>:趋势图 x 轴 / 区间净资产变化 / 区间 XIRR·TWR / 窗口化储蓄率。</p>
+      </div>
+    </div>
+    <div class="mt-4 pt-3 border-t border-rule-soft flex items-center gap-2 flex-wrap">
+      <span class="note">两控件不同维度 · 互不替代:as-of 决定「哪一期」,窗口决定「看多长一段」。</span>
+      <span class="ml-auto note">状态编码进 URL:<code class="text-brass-deep">?asof=2026-06&amp;win=12M</code>(FR-146 可分享/回链)</span>
+    </div>
+  </section>
+
+  <!-- ===================== 家庭 KPI(≤6 · FR-142 / FR-145 / FR-150) ===================== -->
+  <section class="grid grid-cols-2 lg:grid-cols-3 gap-px bg-rule mb-8">
+
+    <div class="kpi-card">
+      <span class="kpi-eyebrow">净资产
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="opacity:.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      </span>
+      <div class="kpi-value tnum"><span class="kpi-cur">¥</span>2,486,300</div>
+      <div class="cmp">
+        <span class="tag">MoM</span><span class="up">&#9650; +1.9%</span>
+        <span class="text-ink-subtle">·</span>
+        <span class="tag">YoY</span><span class="na">数据不足</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <span class="kpi-eyebrow">本期资产收益 + 收益率
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="opacity:.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      </span>
+      <div class="kpi-value tnum num-pos">+1.42%</div>
+      <div class="annot mt-1" style="text-transform:none">+¥34,800 · 剔除工资收入</div>
+      <div class="cmp">
+        <span class="tag">MoM</span><span class="up">&#9650; +0.6pp</span>
+        <span class="text-ink-subtle">·</span>
+        <span class="tag">YoY</span><span class="na">数据不足</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <span class="kpi-eyebrow">家庭 XIRR
+        <span class="pill pill-brass" style="font-size:8px;padding:1px 5px">窗口</span>
+      </span>
+      <div class="kpi-value tnum num-pos">+5.8%</div>
+      <div class="annot mt-1" style="text-transform:none">近12期 · 资金加权年化</div>
+      <div class="cmp"><span class="tag">vs 近6期</span><span class="down">&#9660; −0.9pp</span></div>
+    </div>
+
+    <div class="kpi-card">
+      <span class="kpi-eyebrow">人赚的 vs 钱赚的(累计)
+        <span class="pill pill-brass" style="font-size:8px;padding:1px 5px">卖点</span>
+      </span>
+      <div class="flex items-baseline gap-3">
+        <div><div class="font-mono text-[10px] text-ink-subtle">本金投入</div><div class="font-display text-lg tnum">¥1.92M</div></div>
+        <div class="text-ink-subtle">+</div>
+        <div><div class="font-mono text-[10px] text-ink-subtle">投资损益</div><div class="font-display text-lg tnum num-pos">¥318k</div></div>
+      </div>
+      <div class="stack" title="本金 1.92M(85.8%) · 投资损益 318k(14.2%)">
+        <i style="width:85.8%;background:var(--slate);opacity:.55"></i>
+        <i style="width:14.2%;background:var(--forest)"></i>
+      </div>
+      <div class="flex justify-between annot mt-1.5" style="text-transform:none">
+        <span><span class="inline-block w-2 h-2 align-middle mr-1" style="background:var(--slate);opacity:.55"></span>攒的 85.8%</span>
+        <span><span class="inline-block w-2 h-2 align-middle mr-1" style="background:var(--forest)"></span>钱生的 14.2%</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <span class="kpi-eyebrow">储蓄率
+        <span class="pill pill-brass" style="font-size:8px;padding:1px 5px">窗口</span>
+      </span>
+      <div class="kpi-value tnum">38.5%</div>
+      <div class="annot mt-1" style="text-transform:none">近12期 · 结余 ÷ 收入</div>
+      <div class="cmp">
+        <span class="tag">MoM</span><span class="down">&#9660; −2.1pp</span>
+        <span class="text-ink-subtle">·</span>
+        <span class="tag">YoY</span><span class="na">数据不足</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <span class="kpi-eyebrow">紧急储备月数</span>
+      <div class="kpi-value tnum">7.2 <span class="text-base font-mono text-ink-soft">月</span></div>
+      <div class="annot mt-1" style="text-transform:none">流动资产 ÷ 月均支出 · 建议 ≥ 3–6 月</div>
+      <div class="cmp"><span class="tag">MoM</span><span class="up">&#9650; +0.3 月</span></div>
+    </div>
+  </section>
+
+  <!-- ===================== 净资产趋势图 ===================== -->
+  <section class="paper-card p-6 mb-8">
+    <div class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+      <div class="eyebrow">净资产趋势 · 名义 vs 实际购买力(CPI)vs 社会财富(M2)</div>
+      <span class="note" id="trendWinNote">窗口:近12期 · x 轴随窗口变</span>
+    </div>
+    <div class="h-[300px]"><canvas id="netWorthChart"></canvas></div>
+  </section>
+
+  <!-- ===================== 账户列表(桌面表 · 可排序) ===================== -->
+  <section class="mb-12">
+    <div class="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+      <h2 class="font-display text-2xl font-medium">账户列表</h2>
+      <div class="flex items-center gap-3">
+        <span class="note">点列头排序:正序 ▲ → 倒序 ▼ → 默认(顺序号)· 空值「—」沉底</span>
+        <span class="font-mono text-[10px] text-ink-subtle">6 个账户 · ≤6 列(决策 96)</span>
+      </div>
+    </div>
+    <div class="paper-card overflow-x-auto">
+      <table class="ledger-table min-w-0" id="acctTable">
+        <thead><tr>
+          <th class="sortable" data-key="name" data-type="text" onclick="sortBy(this)">账户 <span class="sort-ind"></span></th>
+          <th class="sortable" data-key="type" data-type="text" onclick="sortBy(this)">类型 <span class="sort-ind"></span></th>
+          <th class="num sortable" data-key="value" data-type="num" onclick="sortBy(this)">当前价值 <span class="sort-ind"></span></th>
+          <th class="num sortable" data-key="xirr" data-type="num" onclick="sortBy(this)">年化收益率 <span class="sort-ind"></span></th>
+          <th class="num sortable" data-key="pnl" data-type="num" onclick="sortBy(this)">累计损益 <span class="sort-ind"></span></th>
+          <th class="num sortable" data-key="pct" data-type="num" onclick="sortBy(this)">占比 <span class="sort-ind"></span></th>
+          <th class="sortable" data-key="pa" data-type="num" onclick="sortBy(this)">预实(实际vs预期)<span class="sort-ind"></span></th>
+          <th>近况</th>
+          <th class="text-right pr-3">操作</th>
+        </tr></thead>
+        <tbody id="acctBody"></tbody>
+      </table>
+    </div>
+    <p class="note mt-3" style="text-transform:none">列「近况」为真实月末余额 sparkline(FR-143):涨绿 / 跌红;&lt;2 期降级显「—」不画线。预实达成率徽标取「实际 XIRR ÷ 预期%」(FR-152)。</p>
+  </section>
+
+  <p class="annot text-center mb-6" style="text-transform:none">— 静态原型 · 假数据 · 不接后端;数值仅示意版式与交互 —</p>
+</main>
+
+<script>
+  // ===== 假数据(全部硬编码 · 无外部输入) =====
+  const ACCT = [
+    {order:1, name:'招行储蓄卡-工资', type:'现金', tcolor:'pill-mute', value:184200, xirr:1.8, pnl:4200, pct:7.4, exp:2.0, real:1.8, spark:[180,181,182,183,184,184]},
+    {order:2, name:'广发-沪深300ETF', type:'股票', tcolor:'pill-brass', value:486500, xirr:8.6, pnl:62300, pct:19.6, exp:6.0, real:8.6, spark:[410,395,430,455,470,486]},
+    {order:3, name:'天天-货币基金', type:'理财', tcolor:'pill-forest', value:212000, xirr:2.1, pnl:8800, pct:8.5, exp:2.0, real:2.1, spark:[205,207,208,210,211,212]},
+    {order:4, name:'萝卜-某科技股', type:'股票', tcolor:'pill-brass', value:96400, xirr:-12.4, pnl:-18600, pct:3.9, exp:6.0, real:-12.4, spark:[140,128,118,110,102,96]},
+    {order:5, name:'链家-自住房产', type:'房产', tcolor:'pill-mute', value:2180000, xirr:null, pnl:null, pct:87.7, exp:null, real:null, spark:[2180,2180]},
+    {order:6, name:'房贷-招行', type:'负债', tcolor:'pill-rust', value:-960000, xirr:null, pnl:null, pct:-38.6, exp:null, real:null, spark:[-980,-975,-970,-967,-963,-960]},
+  ];
+  const fmtMoney = v => v==null?'—':(Math.abs(v)>=10000?'¥'+(v/10000).toFixed(1)+'万':'¥'+Math.round(v).toLocaleString());
+  const fmtPct = v => v==null?'—':(v>0?'+':'')+v.toFixed(1)+'%';
+
+  // 真实 sparkline → 返回 SVG DOM(首末涨跌染色 · <2 期降级)
+  const SVGNS='http://www.w3.org/2000/svg';
+  function sparkNode(arr){
+    if(!arr || arr.length<2){ const s=document.createElement('span'); s.className='annot'; s.textContent='—'; return s; }
+    const up = arr[arr.length-1] >= arr[0];
+    const min=Math.min(...arr), max=Math.max(...arr), rng=(max-min)||1;
+    const w=72,h=22,pad=2;
+    const pts = arr.map((v,i)=>{
+      const x = pad + i*(w-2*pad)/(arr.length-1);
+      const y = h-pad - (v-min)/rng*(h-2*pad);
+      return x.toFixed(1)+','+y.toFixed(1);
+    }).join(' ');
+    const svg=document.createElementNS(SVGNS,'svg');
+    svg.setAttribute('width',w); svg.setAttribute('height',h); svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+    svg.style.color = up?'var(--forest)':'var(--rust)';
+    const pl=document.createElementNS(SVGNS,'polyline');
+    pl.setAttribute('fill','none'); pl.setAttribute('stroke','currentColor'); pl.setAttribute('stroke-width','1.5'); pl.setAttribute('points',pts);
+    svg.appendChild(pl); return svg;
+  }
+
+  // 预实徽标 → DOM
+  function paNode(a){
+    if(a.exp==null || a.real==null){ const s=document.createElement('span'); s.className='annot'; s.textContent='未设预期'; return s; }
+    const win = (a.real - a.exp)>=0;
+    const ach = a.exp!==0 ? Math.round(a.real/a.exp*100) : null;
+    const wrap=document.createElement('div'); wrap.className='flex items-center gap-2';
+    const v=document.createElement('span'); v.className='font-mono text-[11px]';
+    v.textContent = fmtPct(a.real)+' / 预期 '+fmtPct(a.exp); wrap.appendChild(v);
+    const b=document.createElement('span'); b.className='ach '+(win?'pill-forest':'pill-rust');
+    b.textContent = (win?'跑赢':'跑输')+(ach!=null?' '+(win?'达成 '+ach+'%':ach+'%'):''); wrap.appendChild(b);
+    return wrap;
+  }
+
+  // 排序三态
+  let sortKey=null, sortDir=0;
+  function arrowSvg(dir, on){
+    const svg=document.createElementNS(SVGNS,'svg');
+    svg.setAttribute('width','9'); svg.setAttribute('height','6'); svg.setAttribute('viewBox','0 0 9 6');
+    svg.setAttribute('fill', on?'var(--ink)':'var(--rule)');
+    const p=document.createElementNS(SVGNS,'path');
+    p.setAttribute('d', dir==='up'?'M4.5 0L9 6H0z':'M4.5 6L0 0h9z');
+    svg.appendChild(p); return svg;
+  }
+  function valFor(a,key){
+    if(key==='pa') return (a.real==null||a.exp==null)?null:(a.real-a.exp);
+    return a[{name:'name',type:'type',value:'value',xirr:'xirr',pnl:'pnl',pct:'pct'}[key]];
+  }
+
+  function td(cls){ const e=document.createElement('td'); if(cls) e.className=cls; return e; }
+  function render(){
+    let rows = ACCT.slice();
+    if(sortKey && sortDir!==0){
+      const th = document.querySelector('th[data-key="'+sortKey+'"]');
+      const isNum = th.dataset.type==='num';
+      rows.sort((a,b)=>{
+        let va=valFor(a,sortKey), vb=valFor(b,sortKey);
+        if(va==null && vb==null) return 0;
+        if(va==null) return 1;   // 空值沉底
+        if(vb==null) return -1;
+        const c = isNum ? (va-vb) : String(va).localeCompare(String(vb),'zh');
+        return sortDir*c;
+      });
+    } else { rows.sort((a,b)=>a.order-b.order); }
+
+    const body=document.getElementById('acctBody'); body.replaceChildren();
+    rows.forEach(a=>{
+      const tr=document.createElement('tr'); tr.className='hover:bg-card-soft transition';
+      // 账户名
+      let c=td(); const al=document.createElement('a'); al.href='#'; al.className='font-display hover:text-brass-deep no-underline text-sm'; al.textContent=a.name; c.appendChild(al); tr.appendChild(c);
+      // 类型
+      c=td(); const pl=document.createElement('span'); pl.className='pill '+a.tcolor; pl.textContent=a.type; c.appendChild(pl); tr.appendChild(c);
+      // 当前价值
+      c=td('num text-sm'+(a.value<0?' num-neg':'')); c.textContent=fmtMoney(a.value); tr.appendChild(c);
+      // 年化
+      c=td('num text-sm'+(a.xirr==null?'':(a.xirr>=0?' num-pos':' num-neg'))); c.textContent=a.xirr==null?'—':fmtPct(a.xirr); tr.appendChild(c);
+      // 累计损益
+      c=td('num text-sm'+(a.pnl==null?'':(a.pnl>=0?' num-pos':' num-neg'))); c.textContent=a.pnl==null?'—':((a.pnl>0?'+':'')+fmtMoney(a.pnl)); tr.appendChild(c);
+      // 占比
+      c=td('num text-sm'); c.textContent=a.pct==null?'—':a.pct.toFixed(1)+'%'; tr.appendChild(c);
+      // 预实
+      c=td(); c.appendChild(paNode(a)); tr.appendChild(c);
+      // 近况
+      c=td(); c.appendChild(sparkNode(a.spark)); tr.appendChild(c);
+      // 操作
+      c=td('text-right pr-3 whitespace-nowrap font-mono text-[10px] tracking-wider');
+      const o1=document.createElement('a'); o1.href='plan-actual.html'; o1.className='text-brass-deep hover:underline no-underline'; o1.textContent='预实'; c.appendChild(o1);
+      c.appendChild(document.createTextNode(' · '));
+      const o2=document.createElement('a'); o2.href='#'; o2.className='text-brass-deep hover:underline no-underline'; o2.textContent='体检'; c.appendChild(o2);
+      tr.appendChild(c);
+      body.appendChild(tr);
+    });
+
+    document.querySelectorAll('th.sortable').forEach(th=>{
+      const ind=th.querySelector('.sort-ind'); ind.replaceChildren();
+      const active = th.dataset.key===sortKey && sortDir!==0;
+      if(active){
+        ind.appendChild(arrowSvg(sortDir===1?'up':'down', true));
+        th.setAttribute('aria-sort', sortDir===1?'ascending':'descending');
+      } else {
+        ind.appendChild(arrowSvg('up',false)); ind.appendChild(arrowSvg('down',false));
+        th.removeAttribute('aria-sort');
+      }
+    });
+  }
+  function sortBy(th){
+    const key=th.dataset.key;
+    if(sortKey!==key){ sortKey=key; sortDir=1; }
+    else { sortDir = sortDir===1?-1:(sortDir===-1?0:1); if(sortDir===0) sortKey=null; }
+    render();
+  }
+
+  // 筛选控件交互(演示)
+  const PERIODS=['2026-06','2026-05','2026-04','2026-03','2026-02','2026-01'];
+  let asofIdx=0;
+  function paintAsof(){
+    const p=PERIODS[asofIdx];
+    document.getElementById('asofVal').textContent=p.replace('-',' · ');
+    document.querySelector('.asof .val span').textContent = asofIdx===0?'当前最新':'历史回看';
+    document.getElementById('asofSel').value=p;
+    document.getElementById('asofNext').disabled = asofIdx===0;
+  }
+  function stepAsof(d){ asofIdx=Math.min(PERIODS.length-1,Math.max(0,asofIdx-d)); paintAsof(); }
+  function setAsof(v){ asofIdx=PERIODS.indexOf(v); paintAsof(); }
+
+  const WIN_LABEL={'3M':'近3期','6M':'近6期','12M':'近12期','YTD':'今年以来','ALL':'全部'};
+  const WIN_N={'3M':3,'6M':6,'12M':12,'YTD':6,'ALL':12};
+  function setWin(btn,w){
+    document.querySelectorAll('.seg button').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    document.getElementById('trendWinNote').textContent='窗口:'+WIN_LABEL[w]+' · x 轴随窗口变';
+    drawTrend(WIN_N[w]);
+  }
+
+  // 趋势图
+  let trendChart;
+  const FULL={ labels:['25-07','25-08','25-09','25-10','25-11','25-12','26-01','26-02','26-03','26-04','26-05','26-06'],
+    nw:[2240,2255,2270,2262,2288,2305,2330,2348,2360,2402,2440,2486].map(v=>v*1000) };
+  function drawTrend(n){
+    n=Math.min(n,FULL.labels.length);
+    const labels=FULL.labels.slice(-n), nw=FULL.nw.slice(-n), base=nw[0];
+    const cpi=nw.map((v,i)=>Math.round(base/Math.pow(1+0.025/12,i)));
+    const m2 =nw.map((v,i)=>Math.round(base*Math.pow(1+0.085/12,i)));
+    if(trendChart) trendChart.destroy();
+    trendChart=new Chart(document.getElementById('netWorthChart'),{
+      type:'line',
+      data:{labels, datasets:[
+        {label:'名义净资产', data:nw, borderColor:'#7a5a39', backgroundColor:'rgba(122,90,57,.08)', tension:.35, fill:true, pointRadius:3, borderWidth:2.5},
+        {label:'实际购买力 (CPI 2.5%)', data:cpi, borderColor:'#2f5d50', borderDash:[6,4], borderWidth:2, fill:false, tension:.35, pointRadius:0},
+        {label:'社会财富线 (M2 8.5%)', data:m2, borderColor:'#9c4a2a', borderDash:[3,3], borderWidth:1.5, fill:false, tension:.35, pointRadius:0},
+      ]},
+      options:{maintainAspectRatio:false, layout:{padding:{top:18,right:14}},
+        plugins:{legend:{position:'top', labels:{font:{size:11}}},
+          tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtMoney(c.parsed.y)}}},
+        scales:{y:{ticks:{callback:v=>fmtMoney(v)}}}}
+    });
+  }
+
+  paintAsof(); render(); drawTrend(12);
+</script>
+</body>
+</html>

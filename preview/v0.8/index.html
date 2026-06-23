@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.8 预览索引 · 体验/指标补课 + 按账期筛选器</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+  <style>
+    body{background:var(--paper);color:var(--ink)}
+    .eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass-deep)}
+    .paper-card{background:var(--card);border:1px solid var(--rule);box-shadow:0 1px 0 rgba(26,23,20,.04),0 8px 24px -12px rgba(26,23,20,.08)}
+    .annot{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-subtle)}
+    .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;padding:3px 10px;border-radius:2px}
+    .pill-brass{background:var(--brass-soft);color:var(--brass-deep);border:1px solid var(--brass)}
+    .pill-rust{background:rgba(156,74,42,.1);color:var(--rust);border:1px solid var(--rust)}
+  </style>
+</head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<main class="max-w-[1000px] mx-auto px-8 md:px-12 py-16 relative z-10">
+
+  <div class="mb-3"><a href="../index.html" class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle hover:text-ink no-underline">← 版本入口</a></div>
+  <div class="flex items-baseline justify-between flex-wrap gap-3 mb-4">
+    <div><div class="eyebrow mb-2">设 · 计 · 中 · 2026-06-23</div><h1 class="font-display text-4xl md:text-6xl font-medium tracking-tight">v0.8 · 体验补课 + 按账期筛选</h1></div>
+    <span class="pill pill-rust">待评审</span>
+  </div>
+  <p class="font-serif text-base text-ink-soft max-w-2xl mb-6 leading-relaxed">
+    自用两个月后的真实痛点驱动:把<b>时间筛选器</b>从「随便选个区间但啥也不改」重做成<b>以账期(月)为一等公民</b>的真筛选,补 MoM/YoY 跨期对比;
+    让<b>移动端看得到关键指标</b>、账户「近况」图<b>变真</b>;再加<b>列头排序</b>、<b>可勾选指标集</b>、<b>预实分析</b>。
+  </p>
+
+  <!-- 设计要点 -->
+  <div class="paper-card p-5 mb-8 bg-card-soft" style="border-left:4px solid var(--brass-deep)">
+    <div class="eyebrow mb-2">本 · 版 · 取 · 舍(决策 91/92/95/96)</div>
+    <p class="font-serif text-sm text-ink-soft leading-relaxed">
+      筛选器拆成<b>两个正交控件</b>:① 观察账期 as-of(点状指标 —— 看某个月全家状态)② 窗口 window(趋势/区间回报)。
+      MoM/YoY 等派生指标<b>实时算、不落库</b>(决策 92);指标勾选 <b>dashboard 与报表共用一套</b>,各页按上限裁剪
+      (手机卡片首屏 ≤4、桌面表 ≤6、报表全 —— 决策 96)。
+    </p>
+  </div>
+
+  <!-- 各屏链接 -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-px bg-rule mb-8">
+
+    <a href="dashboard-new.html" class="bg-card p-7 hover:bg-card-soft transition no-underline group block">
+      <div class="flex items-baseline justify-between mb-2">
+        <div class="eyebrow" style="color:var(--brass-deep)">屏 · 一 · 桌 · 面</div>
+        <span class="annot">FR-142/143/144/145/148/152</span>
+      </div>
+      <h2 class="font-display text-2xl font-medium mb-2 group-hover:text-brass-deep transition">新筛选器 + KPI · 桌面</h2>
+      <p class="text-sm text-ink-soft leading-relaxed mb-3">两个正交控件(as-of 步进 + 窗口 segmented)· 6 张家庭 KPI(带 MoM/YoY,YoY 演示「数据不足」)· 净资产趋势叠 CPI/M2 · 账户表可点列头三态排序 + 真实 sparkline + 预实徽标。</p>
+      <div class="font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-brass-deep transition">→ 看桌面 dashboard</div>
+    </a>
+
+    <a href="dashboard-mobile.html" class="bg-card p-7 hover:bg-card-soft transition no-underline group block">
+      <div class="flex items-baseline justify-between mb-2">
+        <div class="eyebrow" style="color:var(--brass-deep)">屏 · 二 · 手 · 机</div>
+        <span class="annot">FR-142/143 · 决策 96</span>
+      </div>
+      <h2 class="font-display text-2xl font-medium mb-2 group-hover:text-brass-deep transition">手机版仪表盘</h2>
+      <p class="text-sm text-ink-soft leading-relaxed mb-3">~390px 容器 · 家庭 KPI 2×2 ≤4 张(带 MoM)· 账户可展开卡片:首屏 ≤4 指标 + 名 + 迷你 sparkline,展开露全集(回撤/基准/预实/持有期数/风险等级)· 给收起 + 展开两态。</p>
+      <div class="font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-brass-deep transition">→ 看手机版</div>
+    </a>
+
+    <a href="settings-metrics.html" class="bg-card p-7 hover:bg-card-soft transition no-underline group block">
+      <div class="flex items-baseline justify-between mb-2">
+        <div class="eyebrow" style="color:var(--brass-deep)">屏 · 三 · 管 · 理</div>
+        <span class="annot">FR-149/150 · 决策 95/96</span>
+      </div>
+      <h2 class="font-display text-2xl font-medium mb-2 group-hover:text-brass-deep transition">「我关心的指标」勾选</h2>
+      <p class="text-sm text-ink-soft leading-relaxed mb-3">两组 checklist:家庭级 KPI / 账户级指标(按 FR-150 目录列全)· 默认勾上、进阶项默认关 · 必选项(净资产/当前价值)禁用不可取消 · 顶部说明共用 + 各页上限 · 预实分析可勾(默认勾选 · 旁注覆盖)。</p>
+      <div class="font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-brass-deep transition">→ 看指标勾选页</div>
+    </a>
+
+    <a href="plan-actual.html" class="bg-card p-7 hover:bg-card-soft transition no-underline group block">
+      <div class="flex items-baseline justify-between mb-2">
+        <div class="eyebrow" style="color:var(--brass-deep)">屏 · 四 · 预 · 实</div>
+        <span class="annot">FR-152 · 决策 98</span>
+      </div>
+      <h2 class="font-display text-2xl font-medium mb-2 group-hover:text-brass-deep transition">预实分析详情</h2>
+      <p class="text-sm text-ink-soft leading-relaxed mb-3">收益率维度:实际 XIRR vs 预期(品类基准)→ 差异 bps + 达成率 + 跑赢/跑输刻度条 · 金额维度:预期收益金额 vs 实际累计损益对比条 · 含跑输态 + 数据不足态对照。</p>
+      <div class="font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-brass-deep transition">→ 看预实详情</div>
+    </a>
+  </div>
+
+  <!-- 范围 -->
+  <div class="paper-card p-6">
+    <div class="eyebrow mb-3">本 · 版 · 范 · 围(FR-142~152)</div>
+    <ul class="font-serif text-sm text-ink-soft leading-relaxed" style="list-style:none;padding:0">
+      <li class="mb-1.5">· <b class="text-ink">A 指标可见/真实</b>(FR-142/143)账户级指标补全 + 移动端可见 · 「近况」改真实 sparkline(原写死静态 SVG 是误导 bug)</li>
+      <li class="mb-1.5">· <b class="text-ink">B 筛选器按账期大改造</b>(FR-144/145/146)as-of + 窗口双控件 · MoM/YoY · 状态进 URL 可分享</li>
+      <li class="mb-1.5">· <b class="text-ink">C 跨币种转账正确性</b>(FR-147)加 <code class="font-mono text-[12px]">to_amount</code> · 同币种行为不变</li>
+      <li class="mb-1.5">· <b class="text-ink">D 列表按列排序</b>(FR-148)三态(正/倒/默认)· aria-sort · 空值沉底 · 客户端 JS</li>
+      <li>· <b class="text-ink">E 可配置指标集 + 预实分析</b>(FR-149~152)管理页勾选 · 共用集 + 上限 · 预实(预期 vs 实际)</li>
+    </ul>
+    <p class="annot mt-4" style="text-transform:none">PRD:prd/v0.8.md · 红线:schema 全新增 / 派生指标不落库 / 守 prod backward-compat · 评审顺序:PRD 过审 → 本 preview 过审 → tech-design → 代码 + QA</p>
+  </div>
+
+</main>
+</body>
+</html>

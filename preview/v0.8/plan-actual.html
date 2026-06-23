@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.8 预览 · 预实分析详情</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+  <style>
+    body{background:var(--paper);color:var(--ink)}
+    .eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass-deep)}
+    .paper-card{background:var(--card);border:1px solid var(--rule);box-shadow:0 1px 0 rgba(26,23,20,.04),0 8px 24px -12px rgba(26,23,20,.08)}
+    .annot{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-subtle)}
+    .note{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-subtle);letter-spacing:.04em}
+    .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.06em;padding:3px 9px;border-radius:2px;display:inline-flex;align-items:center;gap:4px}
+    .pill-rust{background:rgba(156,74,42,.1);color:var(--rust);border:1px solid var(--rust)}
+    .pill-forest{background:rgba(79,107,71,.12);color:var(--forest);border:1px solid var(--forest)}
+    .pill-brass{background:var(--brass-soft);color:var(--brass-deep);border:1px solid var(--brass)}
+    .pill-mute{background:var(--paper-soft);color:var(--ink-subtle);border:1px solid var(--rule)}
+    h3.sec{font-family:"Fraunces","Noto Serif SC",serif;font-size:1.2rem;font-weight:500}
+    /* 收益率刻度条:预期为基准线,实际为标记 */
+    .gauge{position:relative;height:46px;margin:18px 0 6px}
+    .gauge .track{position:absolute;left:0;right:0;top:20px;height:6px;background:linear-gradient(90deg,rgba(156,74,42,.25),rgba(201,189,168,.4),rgba(79,107,71,.3));border-radius:3px}
+    .gauge .exp{position:absolute;top:8px;width:2px;height:30px;background:var(--ink)}
+    .gauge .exp-lbl{position:absolute;top:-2px;transform:translateX(-50%);font-family:"JetBrains Mono",monospace;font-size:9px;color:var(--ink);white-space:nowrap}
+    .gauge .act{position:absolute;top:14px;width:14px;height:14px;border-radius:50%;transform:translateX(-50%);border:2px solid var(--card)}
+    .gauge .act-lbl{position:absolute;top:32px;transform:translateX(-50%);font-family:"JetBrains Mono",monospace;font-size:10px;white-space:nowrap}
+    /* 金额对比条 */
+    .mbar{position:relative;height:30px;background:var(--card-soft);border:1px solid var(--rule-soft);border-radius:3px;overflow:hidden}
+    .mbar > i{position:absolute;left:0;top:0;height:100%;display:flex;align-items:center}
+    .mbar .lbl{position:absolute;right:9px;top:0;height:100%;display:flex;align-items:center;font-family:"JetBrains Mono",monospace;font-size:12px}
+    .kv{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rule-soft)}
+    .kv:last-child{border-bottom:none}
+    .kv .k{color:var(--ink-soft);font-size:13.5px}
+    .kv .v{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;font-size:13.5px}
+  </style>
+</head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+<header class="border-b border-rule relative z-10" style="background:var(--paper)">
+  <div class="max-w-[920px] mx-auto px-6 lg:px-10 h-14 flex items-center gap-5">
+    <span class="font-display text-lg font-medium">家庭账房</span>
+    <nav class="hidden sm:flex gap-4 annot" style="text-transform:none"><span>仪表盘</span><span>报表</span><span class="text-ink font-bold" style="border-bottom:2px solid var(--ink)">资产体检</span></nav>
+    <a href="index.html" class="ml-auto annot hover:text-ink no-underline" style="border-bottom:1px solid var(--rule);text-transform:none">← v0.8 卷</a>
+  </div>
+</header>
+
+<main class="max-w-[920px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+
+  <div class="mb-3"><a href="dashboard-new.html" class="note hover:text-ink no-underline" style="text-transform:none">← 返回账户列表</a></div>
+  <div class="flex items-baseline justify-between flex-wrap gap-3 mb-2">
+    <div>
+      <div class="eyebrow mb-2">F · R · 1 · 5 · 2 · 预 · 实 · 分 · 析</div>
+      <h1 class="font-display text-3xl sm:text-4xl font-medium tracking-tight">预实分析 · 广发-沪深300ETF</h1>
+    </div>
+    <span class="pill pill-forest">整体跑赢预期</span>
+  </div>
+  <p class="font-serif text-sm text-ink-soft max-w-2xl mb-6 leading-relaxed">
+    把账户的<b>实际收益</b>和<b>预期</b>放一起看。预期默认取该账户所属品类的基准
+    (<code class="font-mono text-[12px]">product_category.benchmark_pct</code>),也可在账户里单独覆盖。下面分<b>收益率</b>与<b>金额</b>两个维度。
+  </p>
+
+  <!-- 预期来源条 -->
+  <div class="paper-card p-4 mb-8 flex items-center justify-between flex-wrap gap-3" style="border-left:4px solid var(--brass-deep)">
+    <div class="flex items-center gap-3 flex-wrap">
+      <span class="eyebrow">预 · 期 · 来 · 源</span>
+      <span class="pill pill-mute">品类基准 · 权益类 6.0%</span>
+      <span class="note" style="text-transform:none">未设账户级覆盖 → 回落品类默认</span>
+    </div>
+    <button class="btn-paper text-[10px]" type="button" onclick="alert('原型:在账户编辑里设 expected_return_pct')">为本账户单独设预期 →</button>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+
+    <!-- ① 收益率维度 -->
+    <section class="paper-card p-6">
+      <h3 class="sec mb-1">① 收益率维度</h3>
+      <p class="note mb-2" style="text-transform:none">实际(年化 XIRR)vs 预期(品类基准)</p>
+
+      <!-- 刻度条 -->
+      <div class="gauge">
+        <div class="track"></div>
+        <!-- 预期线 6% → 位置约 55%(刻度 −15%~+15%) -->
+        <div class="exp" style="left:70%"></div>
+        <div class="exp-lbl" style="left:70%">预期 6.0%</div>
+        <!-- 实际点 8.6% → 约 79% -->
+        <div class="act" style="left:78.7%;background:var(--forest)"></div>
+        <div class="act-lbl num-pos" style="left:78.7%">实际 +8.6%</div>
+      </div>
+      <div class="flex justify-between note mb-4"><span>−15%</span><span>0</span><span>+15%</span></div>
+
+      <div class="border-t border-rule-soft pt-3">
+        <div class="kv"><span class="k">实际年化(XIRR)</span><span class="v num-pos">+8.6%</span></div>
+        <div class="kv"><span class="k">预期(品类基准)</span><span class="v">6.0%</span></div>
+        <div class="kv"><span class="k">差异</span><span class="v num-pos">+260 bps</span></div>
+        <div class="kv"><span class="k">达成率(实际 ÷ 预期)</span><span class="v num-pos">143%</span></div>
+        <div class="kv"><span class="k">结论</span><span class="v"><span class="pill pill-forest">跑赢预期</span></span></div>
+      </div>
+      <p class="note mt-3" style="text-transform:none">复用 BenchmarkComparator,「基准」措辞换成「预期」· 合并展示。</p>
+    </section>
+
+    <!-- ② 金额维度 -->
+    <section class="paper-card p-6">
+      <h3 class="sec mb-1">② 金额维度</h3>
+      <p class="note mb-4" style="text-transform:none">预期收益金额 vs 实际累计损益</p>
+
+      <div class="space-y-4">
+        <div>
+          <div class="flex justify-between text-xs mb-1.5"><span class="text-ink-soft">预期收益金额</span><span class="annot" style="text-transform:none">平均投入 × 6.0% × 1.17 年</span></div>
+          <div class="mbar"><i style="width:69%;background:var(--brass-deep);opacity:.35"></i><span class="lbl">¥43,000</span></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-1.5"><span class="text-ink-soft">实际累计损益(cumPnl)</span><span class="annot" style="text-transform:none">至今真实赚到</span></div>
+          <div class="mbar"><i style="width:100%;background:var(--forest);opacity:.55"></i><span class="lbl num-pos" style="color:var(--paper)">¥62,300</span></div>
+        </div>
+      </div>
+
+      <div class="border-t border-rule-soft pt-3 mt-5">
+        <div class="kv"><span class="k">差额(实际 − 预期)</span><span class="v num-pos">+¥19,300</span></div>
+        <div class="kv"><span class="k">平均投入</span><span class="v">¥61.2 万</span></div>
+        <div class="kv"><span class="k">持有期</span><span class="v">14 期 ≈ 1.17 年</span></div>
+      </div>
+      <p class="note mt-3" style="text-transform:none">预期金额 ≈ 平均投入 × 预期% × 持有年数(粗估 · 供量级参考)。</p>
+    </section>
+  </div>
+
+  <!-- 跑输示例(对照,演示「跑输」态 + 数据不足态) -->
+  <section class="paper-card p-6 mb-8">
+    <div class="flex items-baseline justify-between flex-wrap gap-2 mb-4">
+      <h3 class="sec">同窗对照 · 其它账户的预实</h3>
+      <span class="note" style="text-transform:none">列表里「预实」列的紧凑形态来源</span>
+    </div>
+    <div class="space-y-3">
+      <div class="flex items-center justify-between gap-3 flex-wrap py-2 border-b border-rule-soft">
+        <span class="font-display text-sm flex-1">萝卜-某科技股 <span class="pill pill-brass ml-1">股票</span></span>
+        <span class="font-mono text-[12px]">实际 −12.4% / 预期 6.0%</span>
+        <span class="pill pill-rust">跑输 · 达成 −207%</span>
+      </div>
+      <div class="flex items-center justify-between gap-3 flex-wrap py-2 border-b border-rule-soft">
+        <span class="font-display text-sm flex-1">天天-货币基金 <span class="pill pill-forest ml-1">理财</span></span>
+        <span class="font-mono text-[12px]">实际 +2.1% / 预期 2.0%</span>
+        <span class="pill pill-forest">跑赢 · 达成 105%</span>
+      </div>
+      <div class="flex items-center justify-between gap-3 flex-wrap py-2">
+        <span class="font-display text-sm flex-1">链家-自住房产 <span class="pill pill-mute ml-1">房产</span></span>
+        <span class="font-mono text-[12px] text-ink-subtle">—</span>
+        <span class="pill pill-mute">未设预期 · 数据不足</span>
+      </div>
+    </div>
+    <p class="note mt-4" style="text-transform:none">无 benchmark 也无覆盖 / 持有 &lt;2 期 → 显「未设预期」或「数据不足」,不臆造。</p>
+  </section>
+
+  <p class="annot text-center" style="text-transform:none">— 静态原型 · 假数据 · 不接后端;此屏可并入 dashboard 也可单独成页 —</p>
+</main>
+</body>
+</html>
