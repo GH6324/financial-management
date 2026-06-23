@@ -1,5 +1,7 @@
 package com.family.finance.factview;
 
+import com.family.finance.calc.MaxDrawdownCalculator;
+import com.family.finance.calc.NavSeriesBuilder;
 import com.family.finance.calc.TwrCalculator;
 import com.family.finance.calc.XirrCalculator;
 import com.family.finance.domain.account.AccountClass;
@@ -366,30 +368,110 @@ public class FactViewServiceImpl implements FactViewService {
     @Override
     public List<AccountPerformance> accountPerformance(FactSlice slice) {
         Map<Long, BigDecimal> xirr = accountXirr(slice);
+        Long lastPid = slice.lastPeriodId();
+        BigDecimal familyNetWorth = lastPid == null ? null : netWorth(slice, lastPid);
         return slice.byAccount().values().stream()
                 .map(rows -> rows.stream().sorted(Comparator.comparing(AccountPeriodFact::periodStart)).toList())
-                .map(rows -> {
-                    AccountPeriodFact first = rows.getFirst();
-                    AccountPeriodFact latest = rows.stream()
-                            .filter(row -> row.endBalanceBase() != null)
-                            .reduce((a, b) -> b)
-                            .orElse(first);
-                    List<TrendPoint> spark = rows.stream()
-                            .filter(row -> row.endBalanceBase() != null)
-                            .map(row -> new TrendPoint(row.periodId(), row.periodStart(), label(row.periodStart()), row.endBalanceBase()))
-                            .toList();
-                    return new AccountPerformance(
-                            first.accountId(),
-                            first.accountName(),
-                            first.accountType(),
-                            first.accountCurrency(),
-                            latest.endBalanceBase(),
-                            xirr.get(first.accountId()),
-                            spark
-                    );
-                })
+                .map(rows -> buildAccountPerformance(rows, xirr, familyNetWorth))
                 .sorted(Comparator.comparing(AccountPerformance::accountId))
                 .toList();
+    }
+
+    /** 从某账户的(已按期排序的)fact 行,一趟算出 v0.8 账户级指标全集(本位币 / 派生,实时算)。 */
+    private AccountPerformance buildAccountPerformance(List<AccountPeriodFact> rows,
+                                                       Map<Long, BigDecimal> xirr,
+                                                       BigDecimal familyNetWorth) {
+        AccountPeriodFact first = rows.getFirst();
+        List<AccountPeriodFact> filled = rows.stream()
+                .filter(row -> row.endBalanceBase() != null)
+                .toList();
+        AccountPeriodFact latest = filled.isEmpty() ? first : filled.get(filled.size() - 1);
+        BigDecimal currentValue = latest.endBalanceBase();
+
+        List<TrendPoint> spark = filled.stream()
+                .map(r -> new TrendPoint(r.periodId(), r.periodStart(), label(r.periodStart()), r.endBalanceBase()))
+                .toList();
+
+        // 累计投资损益 = Σ periodPnlBase(首期通常 null,跳过)
+        BigDecimal cumPnl = rows.stream()
+                .map(AccountPeriodFact::periodPnlBase).filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, RoundingMode.HALF_EVEN);
+        // 累计净投入 = Σ(income − expense + transferIn − transferOut)本位币
+        BigDecimal netPrincipal = rows.stream()
+                .map(r -> nz(r.incomeBase()).subtract(nz(r.expenseBase()))
+                        .add(nz(r.transferInBase())).subtract(nz(r.transferOutBase())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, RoundingMode.HALF_EVEN);
+        BigDecimal latestPnl = latest.periodPnlBase();
+
+        // 较上一账期(最后两个有余额的期)
+        BigDecimal momAmount = null, momPct = null;
+        if (filled.size() >= 2) {
+            BigDecimal prev = filled.get(filled.size() - 2).endBalanceBase();
+            if (currentValue != null && prev != null) {
+                momAmount = currentValue.subtract(prev).setScale(2, RoundingMode.HALF_EVEN);
+                if (prev.signum() != 0) {
+                    momPct = momAmount.divide(prev.abs(), 4, RoundingMode.HALF_EVEN)
+                            .multiply(HUNDRED).setScale(2, RoundingMode.HALF_EVEN);
+                }
+            }
+        }
+
+        BigDecimal sharePct = null;
+        if (currentValue != null && familyNetWorth != null && familyNetWorth.signum() != 0) {
+            sharePct = currentValue.divide(familyNetWorth, 4, RoundingMode.HALF_EVEN)
+                    .multiply(HUNDRED).setScale(2, RoundingMode.HALF_EVEN);
+        }
+
+        // 最大回撤(原币 NAV 序列)
+        BigDecimal maxDrawdownPct = null;
+        List<AccountPeriodFact> origRows = rows.stream().filter(r -> r.endBalanceOrig() != null).toList();
+        if (origRows.size() >= 2) {
+            List<NavSeriesBuilder.PeriodPoint> navInputs = origRows.stream()
+                    .map(r -> new NavSeriesBuilder.PeriodPoint(r.periodStart(), r.endBalanceOrig(),
+                            r.incomeOrig(), r.expenseOrig(), r.transferInOrig(), r.transferOutOrig()))
+                    .toList();
+            List<MaxDrawdownCalculator.NavPoint> nav = NavSeriesBuilder.build(navInputs);
+            if (nav.size() >= 2) {
+                MaxDrawdownCalculator.Result dd = MaxDrawdownCalculator.calculate(nav);
+                if (dd != null && dd.drawdown() != null) {
+                    maxDrawdownPct = dd.drawdown().multiply(HUNDRED).setScale(2, RoundingMode.HALF_EVEN);
+                }
+            }
+        }
+
+        return new AccountPerformance(
+                first.accountId(), first.accountName(), first.accountType(), first.accountCurrency(),
+                currentValue, xirr.get(first.accountId()), spark,
+                cumPnl, netPrincipal, latestPnl, momAmount, momPct, sharePct, maxDrawdownPct,
+                filled.size(), sparkPoints(spark), sparkTrend(spark));
+    }
+
+    private static BigDecimal nz(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
+    }
+
+    /** 把月末余额序列归一化成 viewBox 0 0 80 22 的 polyline points;<2 点返回 null(模板降级)。 */
+    private static String sparkPoints(List<TrendPoint> spark) {
+        if (spark == null || spark.size() < 2) return null;
+        double min = spark.stream().mapToDouble(p -> p.value().doubleValue()).min().orElse(0);
+        double max = spark.stream().mapToDouble(p -> p.value().doubleValue()).max().orElse(0);
+        double range = max - min;
+        int n = spark.size();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < n; i++) {
+            long x = Math.round(80.0 * i / (n - 1));
+            double norm = range == 0 ? 0.5 : (spark.get(i).value().doubleValue() - min) / range;
+            long y = Math.round(20.0 - norm * 18.0);   // 值越高 y 越小(视觉向上)
+            if (i > 0) sb.append(' ');
+            sb.append(x).append(',').append(y);
+        }
+        return sb.toString();
+    }
+
+    private static String sparkTrend(List<TrendPoint> spark) {
+        if (spark == null || spark.size() < 2) return "none";
+        int c = spark.get(spark.size() - 1).value().compareTo(spark.get(0).value());
+        return c > 0 ? "up" : c < 0 ? "down" : "flat";
     }
 
     private BigDecimal xirrForAccountRows(List<AccountPeriodFact> rows) {

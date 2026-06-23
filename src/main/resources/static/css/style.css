@@ -471,6 +471,21 @@ h1, h2, h3, h4 {
   border-bottom: 1px solid var(--ink);
 }
 .ledger-table thead th.num { text-align: right; }
+/* v0.8 列表排序:可排序列头 + 三态三角指示(CSS 绘制,不用字形/emoji) */
+.ledger-table thead th.sortable-th { cursor: pointer; user-select: none; }
+.ledger-table thead th.sortable-th:hover { color: var(--ink); }
+.ledger-table thead th.sortable-th::after {
+  content: ""; display: inline-block; width: 0; height: 0; margin-left: 5px;
+  vertical-align: middle; opacity: .28;
+  border-left: 3px solid transparent; border-right: 3px solid transparent;
+  border-top: 4px solid currentColor;
+}
+.ledger-table thead th.sortable-th[aria-sort="ascending"]::after {
+  border-top: 0; border-bottom: 4px solid var(--brass-deep); opacity: 1;
+}
+.ledger-table thead th.sortable-th[aria-sort="descending"]::after {
+  border-bottom: 0; border-top: 4px solid var(--brass-deep); opacity: 1;
+}
 .ledger-table tbody td {
   padding: 14px;
   border-bottom: 1px solid var(--rule-soft);

@@ -72,8 +72,8 @@ class MetricExplainServiceTest {
                 new AllocationSlice("CASH", "现金\n(CASH)", bd("60000"), bd("0.6")),
                 new AllocationSlice("STOCK", "股票\n(STOCK)", bd("40000"), bd("0.4")));
         List<AccountPerformance> rows = List.of(
-                new AccountPerformance(1L, "招行储蓄", AccountType.CASH, "CNY", bd("60000"), null, List.of()),
-                new AccountPerformance(2L, "房贷", AccountType.LOAN, "CNY", bd("-30000"), null, List.of()));
+                AccountPerformance.basic(1L, "招行储蓄", AccountType.CASH, "CNY", bd("60000"), null, List.of()),
+                AccountPerformance.basic(2L, "房贷", AccountType.LOAN, "CNY", bd("-30000"), null, List.of()));
 
         Map<String, String> m = svc.dashboard(kpi(), alloc, rows, "CNY");
 

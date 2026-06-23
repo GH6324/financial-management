@@ -214,35 +214,134 @@
       <h2 class="font-display text-2xl font-medium">账户列表</h2>
       <span class="font-mono text-[10px] text-ink-subtle" th:text="${#lists.size(accountRows)} + ' 个账户'">11 个账户</span>
     </div>
-    <div class="paper-card overflow-x-auto">
-      <table class="ledger-table min-w-0">
+    <!-- 桌面:可排序表(点列头 正序→倒序→默认 三态;空值沉底)-->
+    <div class="paper-card overflow-x-auto hidden sm:block">
+      <table class="ledger-table min-w-0" data-sortable>
         <thead><tr>
-          <th>账户</th>
-          <th class="hidden sm:table-cell">类型</th>
-          <th class="num">当前价值</th>
-          <th class="num hidden sm:table-cell">收益率</th>
+          <th data-sort="text">账户</th>
+          <th class="num" data-sort="num">当前价值</th>
+          <th class="num" data-sort="num">年化收益率</th>
+          <th class="num" data-sort="num">累计损益</th>
+          <th class="num" data-sort="num">本期Δ</th>
+          <th class="num" data-sort="num">占比</th>
           <th class="hidden lg:table-cell">近况</th>
           <th class="text-right pr-3">操作</th>
         </tr></thead>
         <tbody>
         <tr th:each="account : ${accountRows}" class="hover:bg-card-soft transition">
-          <td>
+          <td th:attr="data-val=${account.accountName}">
             <a th:href="@{/accounts/{id}(id=${account.accountId})}"
                class="font-display hover:text-brass-deep no-underline text-xs sm:text-sm"
                th:text="${account.accountName}">账户</a>
+            <span class="pill ml-1 align-middle" th:text="${account.accountType.label}">现金</span>
           </td>
-          <td class="hidden sm:table-cell"><span class="pill" th:text="${account.accountType.label}">现金</span></td>
-          <td class="num text-xs sm:text-sm" th:text="${account.currentValue == null ? '—' : account.currentValue}">0</td>
-          <td class="num hidden sm:table-cell" th:text="${account.xirr == null ? '—' : (#numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">—</td>
-          <td class="hidden lg:table-cell"><svg class="sparkline-pos" width="80" height="22" viewBox="0 0 80 22"><polyline fill="none" stroke="currentColor" stroke-width="1.5" points="0,18 10,15 20,16 30,11 40,13 50,8 60,10 70,6 80,4"/></svg></td>
-          <td class="text-right pr-3 whitespace-nowrap font-mono text-[10px] tracking-wider">
+          <td class="num text-xs sm:text-sm" th:attr="data-val=${account.currentValue}"
+              th:text="${account.currentValue == null ? '—' : #numbers.formatInteger(account.currentValue, 1, 'COMMA')}">0</td>
+          <td class="num" th:attr="data-val=${account.xirr}"
+              th:text="${account.xirr == null ? '—' : (#numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">—</td>
+          <td class="num" th:attr="data-val=${account.cumPnl}"
+              th:classappend="${account.cumPnl != null and account.cumPnl.signum() &lt; 0 ? 'num-neg' : (account.cumPnl != null and account.cumPnl.signum() &gt; 0 ? 'num-pos' : '')}"
+              th:text="${account.cumPnl == null ? '—' : ((account.cumPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.cumPnl, 1, 'COMMA'))}">—</td>
+          <td class="num" th:attr="data-val=${account.momAmount}"
+              th:classappend="${account.momAmount != null and account.momAmount.signum() &lt; 0 ? 'num-neg' : (account.momAmount != null and account.momAmount.signum() &gt; 0 ? 'num-pos' : '')}"
+              th:text="${account.momAmount == null ? '—' : ((account.momAmount.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.momAmount, 1, 'COMMA'))}">—</td>
+          <td class="num" th:attr="data-val=${account.sharePct}"
+              th:text="${account.sharePct == null ? '—' : (#numbers.formatDecimal(account.sharePct, 1, 1) + '%')}">—</td>
+          <td class="hidden lg:table-cell" data-sort-skip>
+            <svg th:if="${account.sparklinePoints != null}"
+                 th:classappend="${account.sparklineTrend == 'down' ? 'sparkline-neg' : 'sparkline-pos'}"
+                 width="80" height="22" viewBox="0 0 80 22" aria-hidden="true">
+              <polyline fill="none" stroke="currentColor" stroke-width="1.5" th:attr="points=${account.sparklinePoints}"/>
+            </svg>
+            <span th:if="${account.sparklinePoints == null}" class="font-mono text-[10px] text-ink-subtle">—</span>
+          </td>
+          <td class="text-right pr-3 whitespace-nowrap font-mono text-[10px] tracking-wider" data-sort-skip>
             <a th:href="@{/checkup(account=${account.accountId})}" class="text-brass-deep hover:underline no-underline">体检</a>
           </td>
         </tr>
         </tbody>
       </table>
     </div>
+
+    <!-- 手机:可展开卡片(首屏 4 指标 + 名 + 迷你近况;点开看全集)-->
+    <div class="sm:hidden space-y-2">
+      <details th:each="account : ${accountRows}" class="paper-card px-3 py-2.5">
+        <summary class="flex items-center justify-between gap-2 cursor-pointer list-none">
+          <div class="min-w-0">
+            <a th:href="@{/accounts/{id}(id=${account.accountId})}"
+               class="font-display text-sm hover:text-brass-deep no-underline truncate inline-block max-w-[42vw]"
+               th:text="${account.accountName}">账户</a>
+            <span class="pill ml-1" th:text="${account.accountType.label}">现金</span>
+            <div class="font-mono text-[11px] text-ink-subtle mt-0.5">
+              <span th:text="${account.currentValue == null ? '—' : ('¥' + #numbers.formatInteger(account.currentValue, 1, 'COMMA'))}">¥0</span>
+              · <span th:text="${account.xirr == null ? '收益率—' : ('年化 ' + #numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">年化—</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <svg th:if="${account.sparklinePoints != null}"
+                 th:classappend="${account.sparklineTrend == 'down' ? 'sparkline-neg' : 'sparkline-pos'}"
+                 width="56" height="18" viewBox="0 0 80 22" preserveAspectRatio="none" aria-hidden="true">
+              <polyline fill="none" stroke="currentColor" stroke-width="2" th:attr="points=${account.sparklinePoints}"/>
+            </svg>
+            <span class="font-mono text-[10px] text-ink-subtle">展开</span>
+          </div>
+        </summary>
+        <dl class="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-rule-soft font-mono text-[11px]">
+          <div class="flex justify-between"><dt class="text-ink-subtle">累计损益</dt><dd th:text="${account.cumPnl == null ? '—' : ((account.cumPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.cumPnl, 1, 'COMMA'))}">—</dd></div>
+          <div class="flex justify-between"><dt class="text-ink-subtle">本期Δ</dt><dd th:text="${account.momAmount == null ? '—' : ((account.momAmount.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.momAmount, 1, 'COMMA'))}">—</dd></div>
+          <div class="flex justify-between"><dt class="text-ink-subtle">累计净投入</dt><dd th:text="${account.netPrincipal == null ? '—' : #numbers.formatInteger(account.netPrincipal, 1, 'COMMA')}">—</dd></div>
+          <div class="flex justify-between"><dt class="text-ink-subtle">占比</dt><dd th:text="${account.sharePct == null ? '—' : (#numbers.formatDecimal(account.sharePct, 1, 1) + '%')}">—</dd></div>
+          <div class="flex justify-between"><dt class="text-ink-subtle">最大回撤</dt><dd th:text="${account.maxDrawdownPct == null ? '—' : (#numbers.formatDecimal(account.maxDrawdownPct, 1, 1) + '%')}">—</dd></div>
+          <div class="flex justify-between"><dt class="text-ink-subtle">持有期数</dt><dd th:text="${account.monthsHeld == null ? '—' : account.monthsHeld}">—</dd></div>
+        </dl>
+        <div class="mt-2 text-right">
+          <a th:href="@{/checkup(account=${account.accountId})}" class="font-mono text-[10px] tracking-wider text-brass-deep hover:underline no-underline">查看体检 →</a>
+        </div>
+      </details>
+    </div>
   </section>
+
+  <!-- 列表排序:点列头 正序→倒序→默认 三态 · 空值沉底 · aria-sort · 随 _region 局部刷新重绑 -->
+  <script>
+    (() => {
+      document.querySelectorAll('table[data-sortable]').forEach(table => {
+        const tbody = table.tBodies[0];
+        if (!tbody) return;
+        const original = Array.from(tbody.rows);   // 捕获默认顺序
+        const ths = Array.from(table.tHead.rows[0].cells);
+        ths.forEach((th, col) => {
+          const mode = th.getAttribute('data-sort');
+          if (!mode) return;
+          th.classList.add('sortable-th');
+          th.addEventListener('click', () => {
+            const cur = th.getAttribute('aria-sort');
+            const next = cur === 'ascending' ? 'descending' : (cur === 'descending' ? 'none' : 'ascending');
+            ths.forEach(h => h.removeAttribute('aria-sort'));
+            if (next === 'none') { original.forEach(r => tbody.appendChild(r)); return; }
+            th.setAttribute('aria-sort', next);
+            const dir = next === 'ascending' ? 1 : -1;
+            const val = (row) => {
+              const cell = row.cells[col];
+              const raw = cell ? cell.getAttribute('data-val') : null;
+              if (raw === null || raw === undefined || raw === '') return mode === 'num' ? null : '';
+              return mode === 'num' ? parseFloat(raw) : raw;
+            };
+            Array.from(tbody.rows).sort((a, b) => {
+              const va = val(a), vb = val(b);
+              // 空值恒沉底(与方向无关)
+              const ea = (va === null || (mode === 'num' && Number.isNaN(va)));
+              const eb = (vb === null || (mode === 'num' && Number.isNaN(vb)));
+              if (ea && eb) return 0;
+              if (ea) return 1;
+              if (eb) return -1;
+              if (mode === 'num') return (va - vb) * dir;
+              return va.localeCompare(vb, 'zh') * dir;
+            }).forEach(r => tbody.appendChild(r));
+          });
+        });
+      });
+    })();
+  </script>
 
   <script th:inline="javascript">
     (() => {
