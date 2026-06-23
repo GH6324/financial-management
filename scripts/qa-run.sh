@@ -2378,11 +2378,12 @@ $CURL -b $COOKIE "$BASE/admin/calc-tweaks" -o "$TMP" -w ""
   && log_ok "v04-CFG-7 /admin/calc-tweaks 升级可编辑表单 · 8 个字段" \
   || log_bad "v04-CFG-7 calc-tweaks 升级未到位" "missing form fields"
 
-# v04-CFG-8 · admin sidebar 加"集成"入口 + 14 项
+# v04-CFG-8 · admin sidebar 有"集成"入口 + 项数标注(v0.8 加"指标设置"→ 15 项)
 SB=src/main/resources/templates/admin/_sidebar.html
 { grep -q "/admin/integrations" "$SB" \
-  && grep -q "/ADMIN · 14 项" "$SB"; } \
-  && log_ok "v04-CFG-8 admin sidebar 加'集成'入口 + 标 14 项" \
+  && grep -q "/admin/metrics" "$SB" \
+  && grep -q "/ADMIN · 15 项" "$SB"; } \
+  && log_ok "v04-CFG-8 admin sidebar 集成+指标设置入口 + 标 15 项" \
   || log_bad "v04-CFG-8 sidebar 未更新" "see _sidebar.html"
 
 # v04-CFG-9 · deploy.sh 加 step 9.5 配置种子 + 幂等 flag
@@ -2636,10 +2637,56 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '250 单元' "$RD/README.md" && grep -q '367' "$RD/README.md" \
+  && grep -q '255 单元' "$RD/README.md" && grep -q '375' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(250/367)" \
-  || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 技术栈 / 本地开发"
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(255/375)" \
+  || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
+
+section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
+RG="$RD/src/main/resources/templates/dashboard/_region.html"
+FVI="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
+# v08-1 账户指标端出 + 真 sparkline(无硬编码假图)+ 三态排序
+{ grep -q 'cumPnl' "$RD/src/main/java/com/family/finance/factview/AccountPerformance.java" \
+  && grep -q 'sparkPoints' "$FVI" \
+  && grep -q 'data-sortable' "$RG" && grep -q 'aria-sort' "$RG" \
+  && ! grep -q '0,18 10,15 20,16' "$RG"; } \
+  && log_ok "v08-1 账户指标全集端出 + 真 sparkline(假图已除)+ 列表三态排序" \
+  || log_bad "v08-1 P1 指标/排序/sparkline 缺件" "see AccountPerformance/_region.html"
+# v08-2 跨币种转账 to_amount
+{ grep -q 'COALESCE(to_amount, amount)' "$RD/src/main/resources/mapper/FactMapper.xml" \
+  && [[ -f "$RD/db/migration/V30__transfer_to_amount.sql" ]] \
+  && grep -q 'toAmount' "$RD/src/main/java/com/family/finance/domain/transfer/Transfer.java"; } \
+  && log_ok "v08-2 跨币种转账 to_amount(COALESCE 读 + 域/迁移)" \
+  || log_bad "v08-2 跨币种 to_amount 缺件" "see FactMapper.xml / V30 / Transfer"
+# v08-3 Problem B 现金调整剔出 PnL
+{ [[ -f "$RD/db/migration/V33__cash_flow_adjustment.sql" ]] \
+  && grep -q 'is_adjustment' "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
+  && grep -q 'recordCashAdjustment' "$RD/src/main/java/com/family/finance/service/stock/StockHoldingService.java"; } \
+  && log_ok "v08-3 Problem B 现金行手动改记 is_adjustment 流水(剔出投资损益)" \
+  || log_bad "v08-3 Problem B 缺件" "see V33 / CashFlowMapper / StockHoldingService"
+# v08-4 筛选器按账期 as-of + MoM/YoY(Problem C 双收益率)
+{ grep -q 'String asof' "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \
+  && grep -q 'resolveAsOf' "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \
+  && [[ -f "$RD/src/main/java/com/family/finance/factview/MomYoy.java" ]] \
+  && grep -q 'momYoy' "$FVI" && grep -q 'xirrBaseForAccountRows' "$FVI" \
+  && grep -q 'asof=' "$RG"; } \
+  && log_ok "v08-4 筛选器 as-of 账期 + MoM/YoY + 本位币双收益率" \
+  || log_bad "v08-4 P4 筛选器/MoM-YoY/双收益率缺件" "see DashboardController/MomYoy/FactViewServiceImpl"
+# v08-5 可配置指标集
+{ [[ -f "$RD/src/main/java/com/family/finance/service/MetricPrefsService.java" ]] \
+  && [[ -f "$RD/src/main/resources/templates/admin/metrics.html" ]] \
+  && [[ -f "$RD/db/migration/V32__family_metric_prefs.sql" ]] \
+  && grep -q "acctMetrics.contains" "$RG" \
+  && grep -q '/admin/metrics' "$RD/src/main/resources/templates/admin/_sidebar.html"; } \
+  && log_ok "v08-5 可配置指标集(MetricPrefsService + 管理页 + dashboard 按勾选显隐)" \
+  || log_bad "v08-5 可配置指标缺件" "see MetricPrefsService/admin/metrics.html/V32/_region/_sidebar"
+# v08-6 预实分析
+{ [[ -f "$RD/db/migration/V31__account_expected_return.sql" ]] \
+  && grep -q 'expectedReturnPct' "$RD/src/main/java/com/family/finance/domain/account/Account.java" \
+  && grep -q 'planActualDiffPct' "$RD/src/main/java/com/family/finance/factview/AccountPerformance.java" \
+  && grep -q 'expectedReturnPct' "$RD/src/main/resources/templates/accounts/edit.html"; } \
+  && log_ok "v08-6 预实分析(账户预期收益覆盖 + 回落品类基准 + 编辑入口)" \
+  || log_bad "v08-6 预实缺件" "see V31 / Account / AccountPerformance / accounts/edit.html"
 
 section "v0.7 第二批 · 外部服务配置引导(静态守护)"
 ICFG="$RD/src/main/resources/templates/admin/integrations.html"

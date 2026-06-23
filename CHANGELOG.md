@@ -2,6 +2,19 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.8.0] · 2026-06-23
+
+> 自用两月痛点驱动:指标可见性 + 时间筛选器按账期重做 + 可配置指标集 + 计算正确性。详见 [`prd/v0.8.md`](prd/v0.8.md) / [`tech-design/v0.8.md`](tech-design/v0.8.md)。
+
+### Added / Changed / Fixed
+
+- **P1 · 账户指标端出 + 真 sparkline + 列表排序**:dashboard 账户列表从「当前价值/XIRR」扩成账户级指标全集(累计投资损益、累计净投入、本期Δ、占比、最大回撤、持有期数),手机改可展开卡片(首屏精简 + 展开看全集);**修掉硬编码假 sparkline**(此前所有账户同一条假上升线 → 改后端真实月末走势 points,<2 期降级,涨绿跌红);列表点列头 正序→倒序→默认 三态排序(空值沉底,aria-sort)。
+- **P4 · 时间筛选器按账期重做(修 Q2「筛选器没用」)**:新增 **as-of 观察账期**(默认最新,可选历史月)→ 所有点状 KPI 随之变成「那个月」的状态(此前恒为最新期);窗口只驱动趋势/区间回报;头部加 **MoM 环比 / YoY 同比**(以 [as-of−12, as-of] 最小窗口实时算、与显示窗口解耦,缺对比期显「数据不足」)。**派生指标一律实时算、不落库。**
+- **P2 · 可配置指标集 + 预实分析**:管理页 `/admin/metrics` 勾选「我关心的指标」(家庭/账户两组,必选项强制、进阶项默认关),dashboard 与报表共用此配置、各页按上限展示;**预实分析**(账户实际收益率 vs 预期 —— 账户可设 `expected_return_pct`,留空回落品类基准)。
+- **P3 · 计算正确性**:① **跨币种转账**加 `to_amount`(转入按到账币种入账,`FactMapper` COALESCE 读;同币种零影响、旧记录零回填)② **Problem B**:手动改股票账户内部现金行 → 记 `is_adjustment` 流水把这笔本金进出从投资损益剔除(不再污染 XIRR)③ **Problem C**:非本位币账户给「原币收益率(剔汇率)+ 本位币收益率(含汇率)」双值。
+- schema:全新增可空列/新表(`transfer.to_amount` / `account.expected_return_pct` / `family.metric_prefs` / `cash_flow.is_adjustment` + `cash_adjust` 类目),旧数据零回填、backward-compat。
+- 测试:mvn 255 单元(+MetricPrefsServiceTest)· qa-run 加 v08-1~6 守护;临时 MySQL 实例真机渲染验证 dashboard/as-of/管理页/账户编辑/reports 全 200。
+
 ## [v0.7.5] · 2026-06-22
 
 ### Fixed / Changed
