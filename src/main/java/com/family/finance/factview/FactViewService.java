@@ -30,4 +30,11 @@ public interface FactViewService {
     List<TrendPoint> debtTrend(FactSlice slice);
 
     List<AccountPerformance> accountPerformance(FactSlice slice);
+
+    /**
+     * 家庭净资产 环比(MoM)/ 同比(YoY)· v0.8。
+     * filter 应覆盖 [as-of − 12 期, as-of](与 dashboard 显示窗口解耦),实时算不落库;
+     * 对比账期缺失则对应字段为 null。
+     */
+    MomYoy momYoy(FactFilter filter);
 }

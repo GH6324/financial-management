@@ -381,6 +381,42 @@ public class FactViewServiceImpl implements FactViewService {
                 .toList();
     }
 
+    @Override
+    public MomYoy momYoy(FactFilter filter) {
+        FactSlice slice = load(filter);
+        Long last = slice.lastPeriodId();
+        if (last == null) return new MomYoy(null, null, null, null, null);
+        BigDecimal nwNow = netWorth(slice, last);
+        Map<Long, LocalDate> startById = new LinkedHashMap<>();
+        for (AccountPeriodFact r : slice.rows()) startById.putIfAbsent(r.periodId(), r.periodStart());
+        LocalDate asOfStart = startById.get(last);
+
+        BigDecimal momAmount = null, momPct = null;
+        Long prev = previousPeriodId(slice, last);
+        if (prev != null) {
+            BigDecimal p = netWorth(slice, prev);
+            momAmount = nwNow.subtract(p).setScale(2, RoundingMode.HALF_EVEN);
+            if (p.signum() != 0) {
+                momPct = momAmount.divide(p.abs(), 4, RoundingMode.HALF_EVEN).multiply(HUNDRED).setScale(2, RoundingMode.HALF_EVEN);
+            }
+        }
+
+        BigDecimal yoyAmount = null, yoyPct = null;
+        if (asOfStart != null) {
+            LocalDate yoyStart = asOfStart.minusMonths(12);
+            Long yoyId = startById.entrySet().stream()
+                    .filter(e -> e.getValue().equals(yoyStart)).map(Map.Entry::getKey).findFirst().orElse(null);
+            if (yoyId != null) {
+                BigDecimal y = netWorth(slice, yoyId);
+                yoyAmount = nwNow.subtract(y).setScale(2, RoundingMode.HALF_EVEN);
+                if (y.signum() != 0) {
+                    yoyPct = yoyAmount.divide(y.abs(), 4, RoundingMode.HALF_EVEN).multiply(HUNDRED).setScale(2, RoundingMode.HALF_EVEN);
+                }
+            }
+        }
+        return new MomYoy(nwNow, momAmount, momPct, yoyAmount, yoyPct);
+    }
+
     /** 每账户的预期年化 %:账户 expected_return_pct 覆盖优先,否则回落品类 benchmark_pct;都没有=null。 */
     private Map<Long, BigDecimal> expectedReturnByAccount(FactSlice slice) {
         Map<Long, BigDecimal> result = new LinkedHashMap<>();

@@ -61,6 +61,7 @@ public class DashboardController {
     @GetMapping("/dashboard")
     public String dashboard(@AuthenticationPrincipal MemberPrincipal me,
                             @RequestParam(defaultValue = "1Y") String range,
+                            @RequestParam(required = false) String asof,
                             @RequestParam(name = "accounts", required = false) List<Long> accounts,
                             @RequestParam(required = false) String currency,
                             @RequestHeader(value = "HX-Request", required = false) String htmx,
@@ -72,16 +73,18 @@ public class DashboardController {
         String accountsCsv = accounts == null || accounts.isEmpty()
                 ? null
                 : accounts.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
-        populateModel(me, range, accountsCsv, currency, model);
+        populateModel(me, range, asof, accountsCsv, currency, model);
         if ("true".equalsIgnoreCase(htmx)) {
             return "dashboard/_region :: region";
         }
         return "dashboard/index";
     }
 
-    private void populateModel(MemberPrincipal me, String range, String accountsCsv, String currency, Model model) {
+    private void populateModel(MemberPrincipal me, String range, String asof, String accountsCsv, String currency, Model model) {
         Family family = familyService.require(me.getFamilyId());
-        Period anchor = anchorPeriod(me.getFamilyId());
+        // v0.8 FR-144:观察账期 as-of(默认最新,可选历史月)→ 作 rangeEnd,点状 KPI 随之
+        List<Period> allPeriods = periodMapper.findAllByFamily(me.getFamilyId());
+        Period anchor = resolveAsOf(asof, allPeriods);
         List<Long> accountIds = parseAccountIds(accountsCsv);
         String viewCurrency = parseCurrency(currency, family.getBaseCurrency());
         FactFilter filter = new FactFilter(
@@ -121,12 +124,21 @@ public class DashboardController {
         List<AccountPerformance> accountRows = factViewService.accountPerformance(slice);
         List<Account> allAccounts = accountMapper.findActiveByFamily(me.getFamilyId());
         Period currentOpen = periodMapper.findCurrentOpen(me.getFamilyId()).orElse(null);
+        // v0.8 FR-145:MoM/YoY 用 [as-of−12, as-of] 最小窗口算,与显示窗口解耦,缺对比期显数据不足
+        com.family.finance.factview.MomYoy momYoy = factViewService.momYoy(new FactFilter(
+                me.getFamilyId(), family.getPeriodType(),
+                anchor.getPeriodStart().minusMonths(12), anchor.getPeriodStart(),
+                false, accountIds, viewCurrency));
 
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
         model.addAttribute("range", normalizeRange(range));
         model.addAttribute("currency", viewCurrency);
         model.addAttribute("ranges", List.of("1M", "3M", "6M", "YTD", "1Y", "ALL"));
+        // v0.8:as-of 账期选择(点状 KPI 随之)+ MoM/YoY
+        model.addAttribute("asof", anchor.getPeriodStart().toString());
+        model.addAttribute("periods", allPeriods);
+        model.addAttribute("momYoy", momYoy);
         model.addAttribute("currencies", List.of("CNY", "USD", "HKD"));
         model.addAttribute("accountsCsv", accountsCsv == null ? "" : accountsCsv);
         model.addAttribute("selectedAccountIds", accountIds == null ? java.util.Collections.<Long>emptyList() : accountIds);
@@ -267,6 +279,17 @@ public class DashboardController {
      */
     private Period anchorPeriod(long familyId) {
         return periodMapper.findLatest(familyId, 1).stream().findFirst()
+                .orElseThrow(() -> new IllegalStateException("尚未创建周期"));
+    }
+
+    /** v0.8:解析观察账期 as-of(period_start 字符串)· 命中则用之,否则默认最新期。 */
+    private Period resolveAsOf(String asof, List<Period> all) {
+        if (asof != null && !asof.isBlank()) {
+            for (Period p : all) {
+                if (p.getPeriodStart() != null && p.getPeriodStart().toString().equals(asof)) return p;
+            }
+        }
+        return all.stream().max(java.util.Comparator.comparing(Period::getPeriodStart))
                 .orElseThrow(() -> new IllegalStateException("尚未创建周期"));
     }
 

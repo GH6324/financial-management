@@ -2,7 +2,7 @@
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <body>
 <div th:fragment="region" id="dashboard-region"
-     th:hx-get="@{/dashboard(range=${range},currency=${currency},accounts=${accountsCsv})}"
+     th:hx-get="@{/dashboard(range=${range},asof=${asof},currency=${currency},accounts=${accountsCsv})}"
      hx-target="#dashboard-region"
      hx-swap="outerHTML"
      hx-trigger="visibilitychange[document.visibilityState === 'visible'] from:document delay:200ms, every 90s">
@@ -13,18 +13,35 @@
         <h1 class="font-display text-3xl sm:text-5xl font-medium tracking-tight">
           家庭仪表盘,<span class="italic font-light text-brass-deep">实时汇总。</span>
         </h1>
-        <p class="text-ink-soft mt-3 max-w-xl text-sm">
-          较上期净资产变化 <span class="font-mono text-forest" th:text="${kpiDelta}">+¥48,200</span>,
-          储蓄率 <span class="font-mono" th:text="${savingsRate}">—</span>。
+        <p class="text-ink-soft mt-3 max-w-xl text-sm" th:if="${momYoy != null}">
+          环比(MoM)
+          <span class="font-mono" th:classappend="${momYoy.momPct == null ? '' : (momYoy.momPct.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
+                th:text="${momYoy.momPct == null ? '数据不足' : ((momYoy.momPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(momYoy.momPct,1,2) + '%')}">+2.1%</span>
+          · 同比(YoY)
+          <span class="font-mono" th:classappend="${momYoy.yoyPct == null ? '' : (momYoy.yoyPct.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
+                th:text="${momYoy.yoyPct == null ? '数据不足' : ((momYoy.yoyPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(momYoy.yoyPct,1,2) + '%')}">数据不足</span>
+          · 储蓄率 <span class="font-mono" th:text="${savingsRate}">—</span>
         </p>
       </div>
-      <div class="flex border border-rule">
-        <a th:each="r : ${ranges}"
-           th:href="@{/dashboard(range=${r},currency=${currency},accounts=${accountsCsv})}"
-           hx-target="#dashboard-region" hx-swap="outerHTML"
-           class="font-mono text-[10px] sm:text-[11px] tracking-[0.12em] px-2 sm:px-4 py-1.5 sm:py-2 no-underline border-l border-rule first:border-l-0"
-           th:classappend="${range == r ? ' bg-ink text-paper' : ' text-ink-soft hover:bg-card-soft'}"
-           th:text="${r}">1Y</a>
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- v0.8:观察账期 as-of(点状指标随之)-->
+        <label class="font-mono text-[10px] text-ink-subtle tracking-[0.12em]">账期
+          <select onchange="if(this.value)window.location.href='?asof='+this.value"
+                  class="ml-1 font-mono text-[11px] border border-rule bg-paper px-1.5 py-1">
+            <option th:each="p : ${periods}" th:value="${p.periodStart}"
+                    th:text="${#temporals.format(p.periodStart,'yyyy-MM')}"
+                    th:selected="${p.periodStart.toString() == asof}">2026-04</option>
+          </select>
+        </label>
+        <!-- 窗口(驱动趋势 / 区间回报)-->
+        <div class="flex border border-rule">
+          <a th:each="r : ${ranges}"
+             th:href="@{/dashboard(range=${r},asof=${asof},currency=${currency},accounts=${accountsCsv})}"
+             hx-target="#dashboard-region" hx-swap="outerHTML"
+             class="font-mono text-[10px] sm:text-[11px] tracking-[0.12em] px-2 sm:px-4 py-1.5 sm:py-2 no-underline border-l border-rule first:border-l-0"
+             th:classappend="${range == r ? ' bg-ink text-paper' : ' text-ink-soft hover:bg-card-soft'}"
+             th:text="${r}">1Y</a>
+        </div>
       </div>
     </div>
 
