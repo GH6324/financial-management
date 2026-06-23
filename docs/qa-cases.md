@@ -1408,7 +1408,8 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | 列表类型标签 | **PC + 手机**账户列表:类型 pill 在账户名**前**、固定 `min-width:3.4em` 对齐(类型字长不一也齐)。手机卡片(`sm:hidden`)2026-06-23 补齐,`qa-run v08-PILL-M` 源级防回归到「名后 ml-1」 |
 | 默认观察账期 | as-of 默认 = **当前 OPEN 账期**(与主页一致),不取 max(period_start)(避免锚到 dev/未来 stray 期如 2034-01) |
 | 收益率口径标签 | dashboard 列头「收益率」(非「年化收益率」)+ tooltip:满 12 期为年化 XIRR,不足显累计、不做单期年化外推 |
-| 家庭指标控豆腐块 | `/admin/metrics` 勾选家庭指标真正控制 dashboard 5 个 KPI 豆腐块 + 头部储蓄率/MoM/YoY 显隐(FAMILY 目录精简到 dashboard 真有的 8 项,1:1) |
+| 家庭指标控豆腐块 | `/admin/metrics` 勾选家庭指标真正控制 dashboard 5 个 KPI 豆腐块 + 头部储蓄率/MoM/YoY 显隐(FAMILY 目录精简到 dashboard 真有的 8 项,1:1)。beta 实测往返:只留 净资产+总资产 → dashboard 只剩这 2 块 → 还原全集恢复 |
+| 指标设置入口可点达(v08-NAV-1)| 「管理」tab 落到 `/admin`,该落地页卡片网格须含「指标设置」→ `/admin/metrics`。**2026-06-23 漏修**:v0.8 只加进子页 `_sidebar`、没加进 `admin/index` 卡片网格 → 用户从管理首页看不到入口。`qa-run v08-NAV-1` 源级+渲染双查,防回归(原 `v04-CFG-8` 只查侧边栏、放过了这个洞)|
 | 账户详情无 emoji | `/accounts/{id}`(STOCK):持仓管理用 inline SVG、估值标签「△ 估值」、dashboard 应急金 banner 用 SVG —— 无 💡/📦/📈 等 pictographic emoji(★ 风险星、↔↺✕ 排版符保留) |
 
 **指标计算正确性 · `FactViewMetricsCalcTest`(单测 · periodPnl 走真实 PnlCalculator)**

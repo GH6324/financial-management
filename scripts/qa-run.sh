@@ -2454,6 +2454,14 @@ SB=src/main/resources/templates/admin/_sidebar.html
   && log_ok "v04-CFG-8 admin sidebar 集成+指标设置入口 + 标 15 项" \
   || log_bad "v04-CFG-8 sidebar 未更新" "see _sidebar.html"
 
+# v08-NAV-1 · 「指标设置」必须能从 /admin 落地页(「管理」tab 实际入口)点达,不只挂子页侧边栏。
+#   2026-06-23 漏修暴露:v0.8 只把 /admin/metrics 加进 _sidebar(子页才显),没加进 admin/index 卡片网格 →
+#   用户点「管理」落到 /admin 根本看不到指标设置入口(v04-CFG-8 只查侧边栏,放过了这个洞)。源级 + 渲染双查。
+{ grep -q '/admin/metrics' src/main/resources/templates/admin/index.html \
+  && curl -s -b $COOKIE "$BASE/admin" | grep -q '指标设置'; } \
+  && log_ok "v08-NAV-1 /admin 落地页含「指标设置」卡片 → /admin/metrics(管理 tab 可点达)" \
+  || log_bad "v08-NAV-1 /admin 落地页缺「指标设置」入口(漏:只挂了子页侧边栏)" "admin/index.html 无 metrics 卡片"
+
 # v04-CFG-9 · deploy.sh 加 step 9.5 配置种子 + 幂等 flag
 DEP=deploy/deploy.sh
 { grep -q "9.5/15 配置种子迁移" "$DEP" \

@@ -13,7 +13,7 @@
     <h1 class="font-display text-5xl font-medium tracking-tight">
       所 有 设 置 · <span class="italic font-light text-brass-deep">在此一处</span>
     </h1>
-    <p class="text-ink-soft text-sm mt-3 max-w-2xl">家庭、成员、周期、提醒、汇率、数据源接入、数值阈值、备份、审计 — 凡 PRD 中可配置之事,皆汇于此。任意成员皆可访问;每次变更自动写审计日志。</p>
+    <p class="text-ink-soft text-sm mt-3 max-w-2xl">家庭、成员、指标、周期、提醒、汇率、数据源接入、数值阈值、备份、审计 — 凡 PRD 中可配置之事,皆汇于此。任意成员皆可访问;每次变更自动写审计日志。</p>
   </section>
 
   <!-- 状态总览 -->
@@ -63,6 +63,14 @@
         <div class="eyebrow-ink mb-2">/accounts</div>
         <h3 class="font-display text-xl">账户管理</h3>
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">增改归档</p>
+      </div>
+      <span class="font-mono text-xs text-brass tracking-widest opacity-0 group-hover:opacity-100 transition">→</span>
+    </a>
+    <a th:href="@{/admin/metrics}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
+      <div>
+        <div class="eyebrow-ink mb-2">/admin/metrics</div>
+        <h3 class="font-display text-xl">指标设置</h3>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">勾选「我关心的指标」· 控制主页 / 报表显示哪些指标与豆腐块 · 手机端展示上限</p>
       </div>
       <span class="font-mono text-xs text-brass tracking-widest opacity-0 group-hover:opacity-100 transition">→</span>
     </a>
