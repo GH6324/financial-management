@@ -117,7 +117,12 @@ public class ReportsController {
         List<Long> accountIds = parseAccountIds(accountsCsv);
         String viewCurrency = parseCurrency(currency, family.getBaseCurrency());
         // BUG-FIX(2026-05-11 · critical):非 base 账户币种 → 当期 fx_rate 必须存在,不然 SQL 走 1.0 兜底
-        fxService.ensureForAccountCurrencies(me.getFamilyId(), family.getBaseCurrency(), anchor.getId());
+        // v0.8 BUG-FIX(v08-CCY-INV-2):报表趋势/TWR/同比也吃多期 endBalanceBase,ensure 扩到 ≤anchor 全期
+        List<Long> ensurePeriodIds = periodMapper.findAllByFamily(me.getFamilyId()).stream()
+                .filter(p -> p.getPeriodStart() != null && !p.getPeriodStart().isAfter(anchor.getPeriodStart()))
+                .map(Period::getId)
+                .toList();
+        fxService.ensureForAccountCurrencies(me.getFamilyId(), family.getBaseCurrency(), ensurePeriodIds);
 
         // BUG-FIX(2026-05-10):同 dashboard,缺 fx_rate 时即时拉 frankfurter,失败再回退 + toast 提示
         String requestedCurrency = viewCurrency;
@@ -127,6 +132,9 @@ public class ReportsController {
             if (!hasRate) {
                 viewCurrency = family.getBaseCurrency();
                 fxFallback = true;
+            } else {
+                // v0.8 BUG-FIX(v08-CCY-INV-2):视图币种(可能无账户)全窗口补 base→view,三角换算不漏期
+                fxService.ensureRate(me.getFamilyId(), family.getBaseCurrency(), viewCurrency, ensurePeriodIds);
             }
         }
         FactSlice slice = factViewService.load(new FactFilter(

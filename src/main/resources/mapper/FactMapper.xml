@@ -25,7 +25,7 @@
     </constructor>
   </resultMap>
 
-  <select id="queryBase" parameterType="com.family.finance.factview.FactFilter" resultMap="FactBaseRowMap">
+  <select id="queryBase" resultMap="FactBaseRowMap">
     SELECT
         a.id AS account_id,
         a.display_name AS account_name,
@@ -63,14 +63,19 @@
         COALESCE(cf.expense_orig, 0) AS expense_orig,
         COALESCE(tin.transfer_in_orig, 0) AS transfer_in_orig,
         COALESCE(tout.transfer_out_orig, 0) AS transfer_out_orig,
-        <!-- BUG-FIX(2026-05-10):原 CASE 把两个分支的方向都倒了,导致 USD/HKD 视图全部按 1/rate 放大~7×。
-             约定:fx_rate.rate 表示「1 base_currency = rate × quote_currency」。
-             fx_inverse 命中行为 base=a.currency, quote=viewCurrency,直接乘即可(a → view)。
-             fx_direct  命中行为 base=viewCurrency, quote=a.currency,需要反向(view → a),所以 1/rate。 -->
+        <!-- v0.8 BUG-FIX(v08-CCY-INV-2):经本位币三角换算 fx_to_base = (account.currency → viewCurrency)。
+             约定:fx_rate.rate 表示「1 base_currency = rate × quote_currency」,库里所有行 base_currency=家庭本位币。
+             公式:acct→view = rate(base→view) / rate(base→acct)。本位币侧因子记 1。
+               · view==base   → 分子 1;acct==base → 分母 1。
+               · 旧实现只认「一端=view」的直连行,缺三角换算 → 视图币种为第三币种(如 USD 账户在 HKD 视图)
+                 落 ELSE 1.0 未换算,切币种比值乱漂。三角换算后任意视图币种都正确;base 视图结果与旧实现完全一致(向后兼容)。
+             分子/分母任一所需汇率缺失(且该侧非本位币)→ ELSE 1.0(由 ensureForAccountCurrencies 全窗口补齐避免)。 -->
         CASE
-          WHEN a.currency = #{viewCurrency} THEN 1.000000
-          WHEN fx_inverse.rate IS NOT NULL THEN fx_inverse.rate
-          WHEN fx_direct.rate IS NOT NULL THEN 1 / fx_direct.rate
+          WHEN a.currency = #{f.viewCurrency} THEN 1.000000
+          WHEN ( #{f.viewCurrency} = #{baseCurrency} OR fx_bv.rate IS NOT NULL )
+           AND ( a.currency        = #{baseCurrency} OR fx_ba.rate IS NOT NULL )
+            THEN ( CASE WHEN #{f.viewCurrency} = #{baseCurrency} THEN 1.000000 ELSE fx_bv.rate END )
+               / ( CASE WHEN a.currency        = #{baseCurrency} THEN 1.000000 ELSE fx_ba.rate END )
           ELSE 1.000000
         END AS fx_to_base,
         pc.liquidity_class AS product_liquidity_class
@@ -79,7 +84,7 @@
       ON pc.code = a.product_category_code
     JOIN period p
       ON p.family_id = a.family_id
-     AND p.period_type = #{periodType}
+     AND p.period_type = #{f.periodType}
     LEFT JOIN period_snapshot ps
       ON ps.account_id = a.id
      AND ps.period_id = p.id
@@ -116,24 +121,25 @@
     ) tout
       ON tout.period_id = p.id
      AND tout.account_id = a.id
-    LEFT JOIN fx_rate fx_direct
-      ON fx_direct.family_id = a.family_id
-     AND fx_direct.base_currency = #{viewCurrency}
-     AND fx_direct.quote_currency = a.currency
-     AND fx_direct.period_id = p.id
-    LEFT JOIN fx_rate fx_inverse
-      ON fx_inverse.family_id = a.family_id
-     AND fx_inverse.base_currency = a.currency
-     AND fx_inverse.quote_currency = #{viewCurrency}
-     AND fx_inverse.period_id = p.id
-    WHERE a.family_id = #{familyId}
-      AND p.period_start BETWEEN #{rangeStart} AND #{rangeEnd}
-      <if test="!includeArchived">
+    <!-- 三角换算所需两行(均以家庭本位币为 base):base→view(分子)、base→acct(分母) -->
+    LEFT JOIN fx_rate fx_bv
+      ON fx_bv.family_id = a.family_id
+     AND fx_bv.base_currency = #{baseCurrency}
+     AND fx_bv.quote_currency = #{f.viewCurrency}
+     AND fx_bv.period_id = p.id
+    LEFT JOIN fx_rate fx_ba
+      ON fx_ba.family_id = a.family_id
+     AND fx_ba.base_currency = #{baseCurrency}
+     AND fx_ba.quote_currency = a.currency
+     AND fx_ba.period_id = p.id
+    WHERE a.family_id = #{f.familyId}
+      AND p.period_start BETWEEN #{f.rangeStart} AND #{f.rangeEnd}
+      <if test="!f.includeArchived">
         AND a.archived_at IS NULL
       </if>
-      <if test="accountIds != null and !accountIds.isEmpty()">
+      <if test="f.accountIds != null and !f.accountIds.isEmpty()">
         AND a.id IN
-        <foreach collection="accountIds" item="id" open="(" separator="," close=")">
+        <foreach collection="f.accountIds" item="id" open="(" separator="," close=")">
           #{id}
         </foreach>
       </if>

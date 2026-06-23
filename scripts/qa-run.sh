@@ -432,6 +432,57 @@ else
   log_skip "v05-CCY-INV-1 紧急储备月数 币种无关" "无数据(需 LIQUID 账户 + 月支出)"
 fi
 
+# ───────────────────────────────────────────────────────────────────────────
+# v0.8 BUG-FIX(v08-CCY-INV)· 属性级币种不变性护栏(反复踩雷点的根治防回归)
+#   语义:视图币种 = 显示镜头 → ① 比值类指标(收益率/月数/负债率/环比)切币种必须【完全相等】;
+#        ② 金额类指标按 fx 因子【精确缩放】。
+#   背景:v0.8 筛选器重做引入多期依赖,但 ensure 只覆盖 anchor 一期 → 上期/窗口期缺汇率落 1.0 未换算,
+#        且视图币种为「第三币种」(USD 账户在 HKD 视图)缺三角换算 → 本月资产收益率 CNY −18%/HKD −9%/USD −88%。
+#   修:ensure 扩到 ≤anchor 全期 + 视图币种全期补 base→view + FactMapper 经本位币三角换算。
+#   本护栏:先给 family#1 所有账期播【一致】汇率(消除 beta 历史期混合率/2034 种子噪声),使不变式可严格断言。
+mysql -ufinance -pfinance finance -e "
+INSERT INTO fx_rate (family_id, base_currency, quote_currency, period_id, rate, source)
+  SELECT 1,'CNY','USD',id,0.140000,'qa-inv-seed' FROM period WHERE family_id=1
+  ON DUPLICATE KEY UPDATE rate=VALUES(rate), source=VALUES(source);
+INSERT INTO fx_rate (family_id, base_currency, quote_currency, period_id, rate, source)
+  SELECT 1,'CNY','HKD',id,1.090000,'qa-inv-seed' FROM period WHERE family_id=1
+  ON DUPLICATE KEY UPDATE rate=VALUES(rate), source=VALUES(source);" 2>/dev/null
+
+extract_one_pct() {   # 单个 eyebrow 标签下首个 kpi-value(如本月资产收益率)
+  $CURL -b $COOKIE "$BASE/dashboard?currency=$1" -o "$TMP" -w ""
+  grep -A3 "kpi-eyebrow\">$2" "$TMP" | grep 'kpi-value' | head -1 | sed -E 's/<[^>]+>//g' | tr -d ' \n'
+}
+extract_ratio_kpis() {  # 所有含 % 或「月」的 kpi-value(比值类);金额带币种符号天然不入选
+  $CURL -b $COOKIE "$BASE/dashboard?currency=$1" -o "$TMP" -w ""
+  grep 'kpi-value' "$TMP" | sed -E 's/<[^>]+>//g' | tr -d ' ' | grep -E '%|月'
+}
+
+# v08-CCY-INV-2:本月资产收益率(用户实际踩雷点)币种无关
+pr_cny=$(extract_one_pct CNY 本月资产收益); pr_usd=$(extract_one_pct USD 本月资产收益); pr_hkd=$(extract_one_pct HKD 本月资产收益)
+if [[ -n "$pr_cny" && "$pr_cny" == "$pr_usd" && "$pr_cny" == "$pr_hkd" ]]; then
+  log_ok "v08-CCY-INV-2 本月资产收益率币种无关 (CNY=$pr_cny USD=$pr_usd HKD=$pr_hkd)"
+else
+  log_bad "v08-CCY-INV-2 本月资产收益率随币种漂移(跨期/三角换算口径不一致)" "CNY=$pr_cny USD=$pr_usd HKD=$pr_hkd"
+fi
+
+# v08-CCY-INV-3:属性级 —— 所有比值类 KPI 切币种完全相等(网住未来任何新增比值指标)
+rk_cny=$(extract_ratio_kpis CNY); rk_usd=$(extract_ratio_kpis USD); rk_hkd=$(extract_ratio_kpis HKD)
+if [[ -n "$rk_cny" && "$rk_cny" == "$rk_usd" && "$rk_cny" == "$rk_hkd" ]]; then
+  log_ok "v08-CCY-INV-3 所有比值类KPI币种无关(属性级 · $(echo "$rk_cny" | tr '\n' ' '))"
+else
+  log_bad "v08-CCY-INV-3 比值类KPI随币种漂移" "CNY=[$(echo $rk_cny)] USD=[$(echo $rk_usd)] HKD=[$(echo $rk_hkd)]"
+fi
+
+# v08-CCY-INV-4:金额类按 fx 精确缩放(净资产 USD≈CNY×0.14 · HKD≈CNY×1.09 · 容 0.5% 舍入)
+inw_cny=$(extract_nw CNY); inw_usd=$(extract_nw USD); inw_hkd=$(extract_nw HKD)
+if [[ -n "$inw_cny" && -n "$inw_usd" && -n "$inw_hkd" ]]; then
+  ok_usd=$(awk -v u="$inw_usd" -v c="$inw_cny" 'BEGIN{r=(c==0)?0:u/c; print (r>=0.1393&&r<=0.1407)?1:0}')
+  ok_hkd=$(awk -v h="$inw_hkd" -v c="$inw_cny" 'BEGIN{r=(c==0)?0:h/c; print (r>=1.0845&&r<=1.0955)?1:0}')
+  [[ "$ok_usd" == "1" && "$ok_hkd" == "1" ]] \
+    && log_ok "v08-CCY-INV-4 金额按 fx 精确缩放 (USD/CNY≈0.14 · HKD/CNY≈1.09)" \
+    || log_bad "v08-CCY-INV-4 金额缩放偏离 fx" "USD/CNY=$(awk -v u=$inw_usd -v c=$inw_cny 'BEGIN{if(c==0)print "NA";else printf "%.4f",u/c}') HKD/CNY=$(awk -v h=$inw_hkd -v c=$inw_cny 'BEGIN{if(c==0)print "NA";else printf "%.4f",h/c}')"
+fi
+
 # v0.5.3 · 计算指标 tooltip 展示真实数值:每页 ⓘ 面板含 .kpi-info-calc 行(口径下方的实算)。
 # 回归点:_kpi-info 片段从 i(text) 升 i(text,calc) + 各 controller 注入 calc map。
 # 用净资产「总资产 ¥ − 总负债 ¥ = ¥」断言:它恒有真实数值(不依赖月支出/PMC 填报情况)。

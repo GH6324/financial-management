@@ -99,8 +99,13 @@ public class DashboardController {
         );
         // BUG-FIX(2026-05-11 · critical):FactMapper.queryBase SQL 算 fx_to_base 时,
         // 任一非 base 账户币种 + 当期没 fx_rate 行 → 落 ELSE 1.0 兜底 → USD 余额被当 CNY 直接累加。
-        // 这里强制保证每个非 base 账户币种都有当期汇率(没有就 copy 最近 / 调 frankfurter)。
-        fxService.ensureForAccountCurrencies(me.getFamilyId(), family.getBaseCurrency(), anchor.getId());
+        // v0.8 BUG-FIX(v08-CCY-INV-2):MoM/YoY/趋势/TWR/本月资产收益率吃多期 endBalanceBase,
+        //   只 ensure anchor 一期 → 上期/窗口期缺汇率未换算 → 切币种比值乱漂。改 ensure ≤anchor 全期。
+        List<Long> ensurePeriodIds = allPeriods.stream()
+                .filter(p -> p.getPeriodStart() != null && !p.getPeriodStart().isAfter(anchor.getPeriodStart()))
+                .map(Period::getId)
+                .toList();
+        fxService.ensureForAccountCurrencies(me.getFamilyId(), family.getBaseCurrency(), ensurePeriodIds);
 
         // BUG-FIX(2026-05-10):viewCurrency 切换 → fx_rate 缺则即时拉 / 兜底 toast
         String requestedCurrency = viewCurrency;
@@ -110,6 +115,10 @@ public class DashboardController {
             if (!hasRate) {
                 viewCurrency = family.getBaseCurrency();
                 fxFallback = true;
+            } else {
+                // v0.8 BUG-FIX(v08-CCY-INV-2):视图币种可能无账户(纯展示,如 HKD)→ ensureForAccountCurrencies 不覆盖。
+                //   三角换算需每期都有 base→view 行,否则历史期落 1.0 → 切币种比值漂移。全窗口补 base→view。
+                fxService.ensureRate(me.getFamilyId(), family.getBaseCurrency(), viewCurrency, ensurePeriodIds);
             }
         }
         FactFilter effectiveFilter = filter.viewCurrency().equals(viewCurrency)

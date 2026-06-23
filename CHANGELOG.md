@@ -12,8 +12,9 @@
 - **P4 · 时间筛选器按账期重做(修 Q2「筛选器没用」)**:新增 **as-of 观察账期**(默认最新,可选历史月)→ 所有点状 KPI 随之变成「那个月」的状态(此前恒为最新期);窗口只驱动趋势/区间回报;头部加 **MoM 环比 / YoY 同比**(以 [as-of−12, as-of] 最小窗口实时算、与显示窗口解耦,缺对比期显「数据不足」)。**派生指标一律实时算、不落库。**
 - **P2 · 可配置指标集 + 预实分析**:管理页 `/admin/metrics` 勾选「我关心的指标」(家庭/账户两组,必选项强制、进阶项默认关),dashboard 与报表共用此配置、各页按上限展示;**预实分析**(账户实际收益率 vs 预期 —— 账户可设 `expected_return_pct`,留空回落品类基准)。
 - **P3 · 计算正确性**:① **跨币种转账**加 `to_amount`(转入按到账币种入账,`FactMapper` COALESCE 读;同币种零影响、旧记录零回填)② **Problem B**:手动改股票账户内部现金行 → 记 `is_adjustment` 流水把这笔本金进出从投资损益剔除(不再污染 XIRR)③ **Problem C**:非本位币账户给「原币收益率(剔汇率)+ 本位币收益率(含汇率)」双值。
+- **跨币种不变性根治(v08-CCY-INV-2 · beta 验收暴露)**:切币种(CNY→HKD)后「本月资产收益率」乱漂(CNY −18% / HKD −9% / USD −88%)。双重根因:① v0.8 筛选器重做让 MoM/YoY/趋势/TWR/本月收益率都吃**多期** `endBalanceBase`,但 `ensure` 仅覆盖 anchor 一期 → 上期/窗口期缺汇率落 `1.0` 未换算,末期(换了)减上期(没换)= 垃圾;② `FactMapper` 只认「一端=视图币种」的**直连**汇率行,视图币种为**第三币种**(USD 账户在 HKD 视图)缺三角换算 → 落 1.0。修:`ensure` 扩到 **≤anchor 全窗口** + 视图币种**全期补 base→view**(dashboard/reports/checkup 三处)+ `FactMapper` 改**经本位币三角换算** `fx(acct→view)=rate(base→view)/rate(base→acct)`(base 视图结果与旧实现完全一致 → 向后兼容,无 schema 改动)。语义锁定:**视图币种=显示镜头 → 比值类指标币种无关、金额类按 fx 精确缩放**。
 - schema:全新增可空列/新表(`transfer.to_amount` / `account.expected_return_pct` / `family.metric_prefs` / `cash_flow.is_adjustment` + `cash_adjust` 类目),旧数据零回填、backward-compat。
-- 测试:mvn 255 单元(+MetricPrefsServiceTest)· qa-run 加 v08-1~6 守护;临时 MySQL 实例真机渲染验证 dashboard/as-of/管理页/账户编辑/reports 全 200。
+- 测试:mvn **263 单元**(+MetricPrefsServiceTest +CurrencyInvarianceTest 属性级:比值类币种无关/金额按因子缩放)· qa-run 加 v08-1~6 + **v08-CCY-INV-2/3/4**(属性级:本月收益率 + 所有比值类 KPI 切币种完全相等 + 金额按 fx 缩放)守护;临时 MySQL 实例真机渲染验证 dashboard/as-of/管理页/账户编辑/reports 全 200;beta 三币种本月收益率实测一致(−27.68%)。
 
 ## [v0.7.5] · 2026-06-22
 

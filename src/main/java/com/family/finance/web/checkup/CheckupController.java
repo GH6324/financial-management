@@ -63,9 +63,15 @@ public class CheckupController {
         model.addAttribute("active", "checkup");
 
         // BUG-FIX(2026-05-11 · critical):checkup 也走 FactView 算总资产,同样需要非 base 币种当期 fx_rate 存在
+        // v0.8 BUG-FIX(v08-CCY-INV-2):月均支出/趋势吃多期,非本位币账户在缺汇率的历史期不换算 → ensure ≤latest 全期
         var familyEntity = familyService.require(me.getFamilyId());
-        periodMapper.findLatest(me.getFamilyId(), 1).stream().findFirst()
-                .ifPresent(p -> fxService.ensureForAccountCurrencies(me.getFamilyId(), familyEntity.getBaseCurrency(), p.getId()));
+        periodMapper.findLatest(me.getFamilyId(), 1).stream().findFirst().ifPresent(latest -> {
+            List<Long> ensurePeriodIds = periodMapper.findAllByFamily(me.getFamilyId()).stream()
+                    .filter(p -> p.getPeriodStart() != null && !p.getPeriodStart().isAfter(latest.getPeriodStart()))
+                    .map(com.family.finance.domain.period.Period::getId)
+                    .toList();
+            fxService.ensureForAccountCurrencies(me.getFamilyId(), familyEntity.getBaseCurrency(), ensurePeriodIds);
+        });
 
         BigDecimal avgMonthlyExpense = computeAvgMonthlyExpense(me.getFamilyId());
 

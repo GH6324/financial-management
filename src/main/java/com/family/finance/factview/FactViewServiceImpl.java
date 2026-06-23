@@ -52,7 +52,12 @@ public class FactViewServiceImpl implements FactViewService {
 
     @Override
     public FactSlice load(FactFilter filter) {
-        List<AccountPeriodFact> rows = factMapper.queryBase(filter).stream()
+        // v0.8 BUG-FIX(v08-CCY-INV-2):传家庭本位币给 SQL,fx_to_base 走「经本位币三角换算」
+        // (acct→view = rate(base→view)/rate(base→acct)),支持「视图币种 ≠ 本位币 且账户为第三币种」。
+        String baseCurrency = familyMapper.findById(filter.familyId())
+                .map(com.family.finance.domain.family.Family::getBaseCurrency)
+                .orElse(filter.viewCurrency());
+        List<AccountPeriodFact> rows = factMapper.queryBase(filter, baseCurrency).stream()
                 .map(FactProjector::project)
                 .toList();
         Map<Long, LocalDate> periodStartById = rows.stream()

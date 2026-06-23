@@ -1426,3 +1426,25 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 - `family.metric_prefs` 为 v0.8 新增可空列(决策 102);NULL → 代码默认集,存量家庭零影响
 - 只动 `web/admin` controller + `admin/metrics.html` + `_sidebar.html`;不碰 dashboard/_region、FactView、EntryService、calc/factview/service 既有逻辑
 - 前端 `mandatory` 项 `disabled`(不提交),POST 端用 `MetricPrefsService.enabled` 兜底强制纳入,双保险
+
+**跨币种不变性根治(v08-CCY-INV · 决策 107 · beta 验收暴露)**
+
+> **背景**:切币种(CNY→HKD)后「本月资产收益率」乱漂(CNY −18% / HKD −9% / USD −88%)。**双重根因**:① v0.8 筛选器重做让 MoM/YoY/趋势/TWR/本月收益率吃**多期** `endBalanceBase`,但 `ensure` 只覆盖 anchor 一期 → 上期/窗口期缺汇率落 `1.0` 未换算,末期减上期=垃圾;② `FactMapper` 只认「一端=视图币种」的**直连**汇率行,视图币种为第三币种(USD 账户在 HKD 视图)缺三角换算 → 落 1.0。**修**:`ensure` 扩到 ≤anchor 全窗口(dashboard/reports/checkup)+ 视图币种全期补 `base→view` + `FactMapper` 经本位币三角换算 `fx(acct→view)=rate(base→view)/rate(base→acct)`(base 视图与旧实现完全一致 → 向后兼容,无 schema 改动)。**语义锁定:视图币种=显示镜头 → 比值类币种无关、金额类按 fx 精确缩放**。
+
+`CurrencyInvarianceTest`(单测 · 同一套 orig 经济事实按因子 k 构造各视图)
+
+| 场景 | 校验 |
+|---|---|
+| 比值类币种无关 | 紧急储备月数 / 负债率 / 净资产环比% / **本月资产收益率** 在 CNY(k=1)/USD(k=6.774)/HKD(k=0.14761)视图下**完全相等** |
+| 金额类按因子缩放 | 净资产 / 总资产 / 总负债 / 本月收益额 / 月均支出 = 本位币值 × k(精确) |
+| 账户级 | `accountPerformance` 占比 sharePct 币种无关;账户现值按 k 缩放 |
+
+`qa-run.sh`(黑盒 · 先给 family#1 全账期播一致汇率,使不变式可严格断言)
+
+| Case | 校验 |
+|---|---|
+| v08-CCY-INV-2 | 本月资产收益率(用户实际踩雷点)CNY=USD=HKD 完全相等(beta 实测 −27.68%) |
+| v08-CCY-INV-3 | **属性级** · dashboard 所有含 `%`/「月」的比值类 KPI 三币种逐条相等(网住未来任何新增比值指标) |
+| v08-CCY-INV-4 | 净资产金额按 fx 精确缩放(USD/CNY≈0.14 · HKD/CNY≈1.09 · 容 0.5% 舍入) |
+
+> **回归保护**:这是币种切换第三次出问题(v0.2 CASE 倒挂 → v0.5 PMC 未换算 → v0.8 跨期/三角换算)。前两次都是逐个指标点检,这次加**属性级**护栏(`-3` 逐条扫所有比值 KPI)+ 单测口径双保险,从「补单点」升级为「网住整类」。

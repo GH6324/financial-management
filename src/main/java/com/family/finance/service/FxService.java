@@ -108,17 +108,51 @@ public class FxService {
      * 调用方:Dashboard / Reports / Checkup load slice 前一次。
      */
     public void ensureForAccountCurrencies(long familyId, String baseCurrency, long periodId) {
+        ensureForAccountCurrencies(familyId, baseCurrency, java.util.List.of(periodId));
+    }
+
+    /**
+     * v0.8 BUG-FIX(v08-CCY-INV-2 · 2026-06-23):<b>跨期换算一致性</b>。
+     *
+     * <p>v0.8 筛选器重做后,Dashboard/Reports 的 MoM/YoY/净值趋势/TWR/sparkline/本月资产收益率
+     * 都吃<b>多期</b> {@code endBalanceBase};但 ensure 仍只覆盖 anchor <b>一期</b>。其它期若缺
+     * fx_rate 行,{@code FactMapper.queryBase} 的 SQL JOIN 落 {@code ELSE 1.0} → 那一期非本位币
+     * 账户余额<b>未换算</b>。base 视图(无需换算)恒对,一切到 HKD/USD 就「末期换了上期没换」相减
+     * = 垃圾,比值随币种乱漂(如本月资产收益率 CNY −18% / HKD −9% / USD −88%)。</p>
+     *
+     * <p>修:对一组账期(通常是 ≤ anchor 的全部期)统一 ensure。copy-from-latest 很便宜,
+     * exact 命中直接早返不写;非本位币账户为空直接跳过。</p>
+     */
+    public void ensureForAccountCurrencies(long familyId, String baseCurrency, java.util.Collection<Long> periodIds) {
+        if (periodIds == null || periodIds.isEmpty()) return;
         java.util.Set<String> nonBase = accountMapper.findActiveByFamily(familyId).stream()
                 .map(com.family.finance.domain.account.Account::getCurrency)
                 .filter(c -> c != null && !c.equalsIgnoreCase(baseCurrency))
                 .map(String::toUpperCase)
                 .collect(java.util.stream.Collectors.toSet());
-        for (String quote : nonBase) {
-            Optional<FxRate> rate = getOrFetchRate(familyId, baseCurrency, quote, periodId);
-            if (rate.isEmpty()) {
-                log.warn("[Fx] ensureForAccountCurrencies: 拉不到 {} → {} period#{} · "
-                        + "总资产计算可能偏差(USD/HKD 余额被当 CNY 加)", baseCurrency, quote, periodId);
+        if (nonBase.isEmpty()) return;
+        for (Long periodId : periodIds) {
+            if (periodId == null) continue;
+            for (String quote : nonBase) {
+                Optional<FxRate> rate = getOrFetchRate(familyId, baseCurrency, quote, periodId);
+                if (rate.isEmpty()) {
+                    log.warn("[Fx] ensureForAccountCurrencies: 拉不到 {} → {} period#{} · "
+                            + "总资产/跨期换算可能偏差(USD/HKD 余额被当 CNY 加)", baseCurrency, quote, periodId);
+                }
             }
+        }
+    }
+
+    /**
+     * v0.8 BUG-FIX(v08-CCY-INV-2):对单个 quote 币种(典型为<b>视图币种</b>,可能无任何账户、
+     * 故 {@link #ensureForAccountCurrencies} 不覆盖)在一组账期上补齐 {@code base→quote} 汇率行,
+     * 使 {@code FactMapper} 的本位币三角换算每一期都命中(否则历史期落 1.0 未换算 → 切币种比值漂移)。
+     */
+    public void ensureRate(long familyId, String baseCurrency, String quoteCurrency, java.util.Collection<Long> periodIds) {
+        if (quoteCurrency == null || baseCurrency == null
+                || quoteCurrency.equalsIgnoreCase(baseCurrency) || periodIds == null) return;
+        for (Long periodId : periodIds) {
+            if (periodId != null) getOrFetchRate(familyId, baseCurrency, quoteCurrency, periodId);
         }
     }
 
