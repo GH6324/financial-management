@@ -167,12 +167,26 @@ public class FactViewServiceImpl implements FactViewService {
         String base = familyMapper.findById(slice.filter().familyId())
                 .map(f -> f.getBaseCurrency()).orElse(view);
         if (view == null || base == null || view.equalsIgnoreCase(base)) return BigDecimal.ONE;
+        // BUG-FIX v0.8(v05-CCY-INV-1):原 findFirst 取任意期的 base 币行 fxToBase,窗口早期常缺当期汇率 →
+        // 该行 fxToBase 落 1.0(未换算),而分子(流动资产)取末期(已 ensure 汇率)→ 比值随币种漂移。
+        // 改:优先取 anchor(末)期的 base 币行,且跳过 fxToBase==1.0 的未换算脏行,与分子同期同口径。
+        Long last = slice.lastPeriodId();
         return slice.rows().stream()
                 .filter(r -> base.equalsIgnoreCase(r.accountCurrency())
-                        && r.fxToBase() != null && r.fxToBase().signum() > 0)
+                        && (last == null || java.util.Objects.equals(r.periodId(), last))
+                        && validFx(r.fxToBase()))
                 .map(AccountPeriodFact::fxToBase)
                 .findFirst()
-                .orElse(BigDecimal.ONE);
+                .orElseGet(() -> slice.rows().stream()   // 兜底:任意期的有效(已换算)base 币行
+                        .filter(r -> base.equalsIgnoreCase(r.accountCurrency()) && validFx(r.fxToBase()))
+                        .map(AccountPeriodFact::fxToBase)
+                        .findFirst()
+                        .orElse(BigDecimal.ONE));
+    }
+
+    /** fxToBase 是否「真换算过」:非空、>0 且 ≠1.0(==1.0 多为当期缺汇率落 ELSE 兜底的脏值)。 */
+    private static boolean validFx(BigDecimal fx) {
+        return fx != null && fx.signum() > 0 && fx.compareTo(BigDecimal.ONE) != 0;
     }
 
     /**
@@ -656,10 +670,14 @@ public class FactViewServiceImpl implements FactViewService {
         }
         int from = Math.max(0, ids.size() - maxPeriods);
         List<Long> window = ids.subList(from, ids.size());
-        BigDecimal total = window.stream()
-                .map(periodId -> periodExpense(slice, periodId))
+        // BUG-FIX v0.8(v05-CCY-INV-1):原先逐期加 expenseBase,窗口早期账期缺 fx → 该期 expenseBase 落原币未换,
+        // 与分子(流动资产取末期、已 ensure 汇率)不同口径 → 紧急储备比值随币种漂移。
+        // 改:加原币 expenseOrig(币种无关)× 末期 baseToViewFactor(与分子同一换算),比值恒定。
+        BigDecimal totalOrig = window.stream()
+                .map(periodId -> sumMeasure(slice, periodId, AccountPeriodFact::expenseOrig))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        return total.divide(BigDecimal.valueOf(window.size()), 2, RoundingMode.HALF_EVEN);
+        return totalOrig.divide(BigDecimal.valueOf(window.size()), 2, RoundingMode.HALF_EVEN)
+                .multiply(baseToViewFactor(slice)).setScale(2, RoundingMode.HALF_EVEN);
     }
 
     private LocalDate periodStart(FactSlice slice, Long periodId) {
