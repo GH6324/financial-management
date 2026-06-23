@@ -3,7 +3,7 @@
 <body>
 <aside th:fragment="sidebar(active)" class="col-span-12 md:col-span-3">
   <div class="sticky top-24">
-    <div class="eyebrow mb-4">/ADMIN · 14 项</div>
+    <div class="eyebrow mb-4">/ADMIN · 15 项</div>
     <nav class="flex flex-col text-sm">
       <a th:href="@{/admin}" th:classappend="${active=='hub'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">总览</a>
       <a th:href="@{/admin/family}" th:classappend="${active=='family'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">家庭设置</a>
@@ -19,6 +19,15 @@
       <a th:href="@{/admin/backup}" th:classappend="${active=='backup'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">备份</a>
       <a th:href="@{/admin/audit}" th:classappend="${active=='audit'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">审计</a>
       <a th:href="@{/admin/calc-tweaks}" th:classappend="${active=='tweaks'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">数值阈值</a>
+      <a th:href="@{/admin/metrics}" th:classappend="${active=='metrics'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline inline-flex items-center gap-2">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/>
+          <line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
+          <line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+        </svg>
+        <span>指标设置</span>
+      </a>
     </nav>
   </div>
 </aside>

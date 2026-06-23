@@ -91,6 +91,15 @@
         </div>
       </div>
 
+      <div>
+        <label class="field-label">预期年化收益率 <span class="text-ink-subtle font-mono text-[10px]">可选 · 预实分析</span></label>
+        <input name="expectedReturnPct" type="number" step="0.01" class="field-input field-input-num"
+               th:value="${account.expectedReturnPct}" placeholder="留空 = 用品类基准">
+        <div class="font-mono text-[10px] text-ink-subtle mt-1">
+          填了用它作「预实分析」的预期;留空则回落该账户品类的长期年化基准
+        </div>
+      </div>
+
       <div class="md:col-span-2">
         <label class="field-label">默认还款来源(LOAN 类型用)</label>
         <select name="defaultPaymentSourceAccountId" data-searchable class="field-input bg-transparent">

@@ -237,11 +237,11 @@
         <thead><tr>
           <th data-sort="text">账户</th>
           <th class="num" data-sort="num">当前价值</th>
-          <th class="num" data-sort="num">年化收益率</th>
-          <th class="num" data-sort="num">累计损益</th>
-          <th class="num" data-sort="num">本期Δ</th>
-          <th class="num" data-sort="num">占比</th>
-          <th class="hidden lg:table-cell">近况</th>
+          <th class="num" data-sort="num" th:if="${acctMetrics.contains('xirr')}">年化收益率</th>
+          <th class="num" data-sort="num" th:if="${acctMetrics.contains('cum_pnl')}">累计损益</th>
+          <th class="num" data-sort="num" th:if="${acctMetrics.contains('mom_delta')}">本期Δ</th>
+          <th class="num" data-sort="num" th:if="${acctMetrics.contains('share_pct')}">占比</th>
+          <th class="hidden lg:table-cell" th:if="${acctMetrics.contains('sparkline')}">近况</th>
           <th class="text-right pr-3">操作</th>
         </tr></thead>
         <tbody>
@@ -254,17 +254,17 @@
           </td>
           <td class="num text-xs sm:text-sm" th:attr="data-val=${account.currentValue}"
               th:text="${account.currentValue == null ? '—' : #numbers.formatInteger(account.currentValue, 1, 'COMMA')}">0</td>
-          <td class="num" th:attr="data-val=${account.xirr}"
+          <td class="num" th:if="${acctMetrics.contains('xirr')}" th:attr="data-val=${account.xirr}"
               th:text="${account.xirr == null ? '—' : (#numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">—</td>
-          <td class="num" th:attr="data-val=${account.cumPnl}"
+          <td class="num" th:if="${acctMetrics.contains('cum_pnl')}" th:attr="data-val=${account.cumPnl}"
               th:classappend="${account.cumPnl != null and account.cumPnl.signum() &lt; 0 ? 'num-neg' : (account.cumPnl != null and account.cumPnl.signum() &gt; 0 ? 'num-pos' : '')}"
               th:text="${account.cumPnl == null ? '—' : ((account.cumPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.cumPnl, 1, 'COMMA'))}">—</td>
-          <td class="num" th:attr="data-val=${account.momAmount}"
+          <td class="num" th:if="${acctMetrics.contains('mom_delta')}" th:attr="data-val=${account.momAmount}"
               th:classappend="${account.momAmount != null and account.momAmount.signum() &lt; 0 ? 'num-neg' : (account.momAmount != null and account.momAmount.signum() &gt; 0 ? 'num-pos' : '')}"
               th:text="${account.momAmount == null ? '—' : ((account.momAmount.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.momAmount, 1, 'COMMA'))}">—</td>
-          <td class="num" th:attr="data-val=${account.sharePct}"
+          <td class="num" th:if="${acctMetrics.contains('share_pct')}" th:attr="data-val=${account.sharePct}"
               th:text="${account.sharePct == null ? '—' : (#numbers.formatDecimal(account.sharePct, 1, 1) + '%')}">—</td>
-          <td class="hidden lg:table-cell" data-sort-skip>
+          <td class="hidden lg:table-cell" data-sort-skip th:if="${acctMetrics.contains('sparkline')}">
             <svg th:if="${account.sparklinePoints != null}"
                  th:classappend="${account.sparklineTrend == 'down' ? 'sparkline-neg' : 'sparkline-pos'}"
                  width="80" height="22" viewBox="0 0 80 22" aria-hidden="true">
@@ -310,6 +310,11 @@
           <div class="flex justify-between"><dt class="text-ink-subtle">占比</dt><dd th:text="${account.sharePct == null ? '—' : (#numbers.formatDecimal(account.sharePct, 1, 1) + '%')}">—</dd></div>
           <div class="flex justify-between"><dt class="text-ink-subtle">最大回撤</dt><dd th:text="${account.maxDrawdownPct == null ? '—' : (#numbers.formatDecimal(account.maxDrawdownPct, 1, 1) + '%')}">—</dd></div>
           <div class="flex justify-between"><dt class="text-ink-subtle">持有期数</dt><dd th:text="${account.monthsHeld == null ? '—' : account.monthsHeld}">—</dd></div>
+          <div class="flex justify-between" th:if="${account.expectedReturnPct != null}"><dt class="text-ink-subtle">预实(实际−预期)</dt>
+            <dd th:classappend="${account.planActualDiffPct == null ? '' : (account.planActualDiffPct.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
+                th:text="${account.planActualDiffPct == null ? '数据不足' : ((account.planActualDiffPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(account.planActualDiffPct,1,2) + 'pp')}">—</dd></div>
+          <div class="flex justify-between" th:if="${account.returnBase != null and account.accountCurrency != null and !account.accountCurrency.equals(currency)}"><dt class="text-ink-subtle">本位币收益率</dt>
+            <dd th:text="${#numbers.formatDecimal(account.returnBase * 100,1,2) + '%'}">—</dd></div>
         </dl>
         <div class="mt-2 text-right">
           <a th:href="@{/checkup(account=${account.accountId})}" class="font-mono text-[10px] tracking-wider text-brass-deep hover:underline no-underline">查看体检 →</a>

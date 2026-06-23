@@ -64,6 +64,8 @@ public class AdminController {
     private final com.family.finance.repository.RebalanceAdviceCacheMapper rebalanceCacheMapper;
     // v0.4.18 · 数值阈值可编辑(详 prd §22)
     private final com.family.finance.service.config.FamilyConfigService configService;
+    // v0.8 · 我关心的指标(可配置指标集 · 详 prd §FR-149/150)
+    private final com.family.finance.service.MetricPrefsService metricPrefsService;
 
     // ---------------------------------------------------------------------
     // 1. /admin · 总览
@@ -451,6 +453,38 @@ public class AdminController {
                 "remember-me 有效期 = " + safe + "s · 下次 login 生效");
         ra.addFlashAttribute("flash", "会话有效期已保存 · 注意:已 login 用户的旧 cookie 仍按旧时长(下次 login 才用新值)");
         return "redirect:/admin/calc-tweaks";
+    }
+
+    // ---------------------------------------------------------------------
+    // 13. /admin/metrics · v0.8 · 我关心的指标(dashboard / reports 共用勾选)
+    // ---------------------------------------------------------------------
+    @GetMapping("/metrics")
+    public String metrics(@AuthenticationPrincipal MemberPrincipal me, Model model) {
+        Family family = familyService.require(me.getFamilyId());
+        String prefs = family.getMetricPrefs();
+        model.addAttribute("familyCatalog", com.family.finance.service.MetricPrefsService.FAMILY);
+        model.addAttribute("accountCatalog", com.family.finance.service.MetricPrefsService.ACCOUNT);
+        model.addAttribute("familyEnabled", metricPrefsService.enabled(prefs, "family"));
+        model.addAttribute("accountEnabled", metricPrefsService.enabled(prefs, "account"));
+        return "admin/metrics";
+    }
+
+    @PostMapping("/metrics")
+    public String saveMetrics(@AuthenticationPrincipal MemberPrincipal me,
+                              @RequestParam(value = "family", required = false) List<String> family,
+                              @RequestParam(value = "account", required = false) List<String> account,
+                              RedirectAttributes ra) {
+        long fid = me.getFamilyId();
+        // 必选项兜底:无论前端是否提交(mandatory 项 disabled 不提交),enabled() 都会强制纳入 mandatory 项
+        String submitted = metricPrefsService.serialize(family, account);
+        List<String> familyKeys = List.copyOf(metricPrefsService.enabled(submitted, "family"));
+        List<String> accountKeys = List.copyOf(metricPrefsService.enabled(submitted, "account"));
+        String json = metricPrefsService.serialize(familyKeys, accountKeys);
+        familyMapper.updateMetricPrefs(fid, json);
+        auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE, "family_metric_prefs", fid,
+                "指标设置 · family=" + familyKeys + " · account=" + accountKeys);
+        ra.addFlashAttribute("flash", "指标设置已保存 · dashboard 与报表已按新勾选展示");
+        return "redirect:/admin/metrics";
     }
 
     private static double clamp01(double v) {

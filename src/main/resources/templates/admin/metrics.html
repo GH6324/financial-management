@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('我关心的指标 · 家庭账房')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('admin', ${me}, ${nav})}"></header>
+
+<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10 grid grid-cols-12 gap-8">
+  <aside th:replace="~{admin/_sidebar :: sidebar('metrics')}"></aside>
+  <section class="col-span-12 md:col-span-9 space-y-8">
+    <div class="mb-2 flex items-end justify-between">
+      <div>
+        <div class="eyebrow mb-2">我 · 关 · 心 · 的 · 指 · 标</div>
+        <h1 class="font-display text-4xl font-medium">指标设置</h1>
+        <p class="text-ink-soft text-sm mt-2">dashboard 与报表共用此勾选 · 各页按上限展示(手机卡片首屏 ≤ 4 · 桌面表 ≤ 6 · 报表全)</p>
+      </div>
+      <span class="pill pill-forest text-[10px]">v0.8</span>
+    </div>
+
+    <div th:if="${flash}" class="border border-forest bg-forest/[0.05] px-4 py-2 text-sm" th:text="${flash}">成功</div>
+
+    <form th:action="@{/admin/metrics}" method="post" class="space-y-8">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+      <!-- ① 家庭级 KPI 指标 -->
+      <div class="bracket-card max-w-3xl space-y-5">
+        <div class="flex items-baseline justify-between">
+          <div class="eyebrow-ink">① 家庭级 KPI 指标</div>
+          <span class="font-mono text-[10px] text-ink-subtle tracking-wider">dashboard 顶部 · 报表概览</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+          <label th:each="def : ${familyCatalog}" class="flex items-baseline gap-3 cursor-pointer">
+            <input type="checkbox" name="family" th:value="${def.key}"
+                   th:checked="${familyEnabled.contains(def.key)}"
+                   th:disabled="${def.mandatory}"
+                   class="mt-1 accent-ink"/>
+            <span class="flex items-baseline gap-2 flex-wrap">
+              <span class="font-display text-ink text-sm" th:text="${def.label}">指标</span>
+              <span th:if="${def.mandatory}" class="font-mono text-[10px] text-rust tracking-wider">必选</span>
+              <span th:if="${!def.defaultOn}" class="pill text-[10px]" style="background:rgba(122,90,57,.08);border-color:var(--brass-deep);color:var(--brass-deep)">进阶</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- ② 账户级指标 -->
+      <div class="bracket-card max-w-3xl space-y-5">
+        <div class="flex items-baseline justify-between">
+          <div class="eyebrow-ink">② 账户级指标</div>
+          <span class="font-mono text-[10px] text-ink-subtle tracking-wider">各账户卡片 / 行</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+          <label th:each="def : ${accountCatalog}" class="flex items-baseline gap-3 cursor-pointer">
+            <input type="checkbox" name="account" th:value="${def.key}"
+                   th:checked="${accountEnabled.contains(def.key)}"
+                   th:disabled="${def.mandatory}"
+                   class="mt-1 accent-ink"/>
+            <span class="flex items-baseline gap-2 flex-wrap">
+              <span class="font-display text-ink text-sm" th:text="${def.label}">指标</span>
+              <span th:if="${def.mandatory}" class="font-mono text-[10px] text-rust tracking-wider">必选</span>
+              <span th:if="${!def.defaultOn}" class="pill text-[10px]" style="background:rgba(122,90,57,.08);border-color:var(--brass-deep);color:var(--brass-deep)">进阶</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="max-w-3xl flex items-center justify-between">
+        <p class="font-mono text-[10px] text-ink-subtle tracking-wider leading-relaxed">必选项不可取消 · 始终展示 · 各页超上限按目录顺序取前 N</p>
+        <button type="submit" class="btn-ink">保存指标设置</button>
+      </div>
+    </form>
+
+  </section>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

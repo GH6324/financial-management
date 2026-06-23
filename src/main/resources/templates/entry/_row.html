@@ -161,6 +161,7 @@
           <option th:each="account : ${accounts}" th:if="${account.id != row.account.id}" th:value="${account.id}" th:text="${account.displayName}">目标账户</option>
         </select>
         <input name="amount" type="number" step="0.01" placeholder="划转金额" class="w-28 border border-rule bg-card px-2 py-1 font-mono text-xs">
+        <input name="toAmount" type="number" step="0.01" placeholder="到账额(跨币种填)" title="仅当转入账户币种与本账户不同时填:对方账户实际收到的金额(其本币)" class="w-32 border border-rule bg-card px-2 py-1 font-mono text-xs">
         <button class="btn-paper text-[10px]" title="把本账户的钱划转到另一个账户(例:工资卡转去理财账户)">↔ 划转到</button>
       </form>
     </div>

@@ -1388,3 +1388,20 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 **backward-compat 红线**
 - 删数据三重防线:① 迁移前无 `schema_history` 才清(migrate-to-docker 灌 dump 自带该表 → 永不触发;升级库已有该表 → 老用户零风险)② 真实数据互锁 ③ `FINANCE_KEEP_DEMO`
 - 只 TRUNCATE 演示性表,保留 family/member/模板/runtime_config;0 schema、不动 systemd step10、存量零影响
+
+## v0.8 · 「我关心的指标」管理页(FR-149/150 · 决策 102)
+
+**背景**:`/admin/metrics` 勾选页接线——两组 checklist(家庭级 KPI / 账户级指标),勾选序列化进 `family.metric_prefs` JSON;dashboard 与 reports 共用此集。后端 `MetricPrefsService`(目录 + enabled + serialize)已就绪,本切片只接 controller + 模板 + 侧栏入口。
+
+**黑盒 · qa-run(v08-METRICS-*)**
+
+| Case | 校验 |
+|---|---|
+| v08-METRICS-1 | `GET /admin/metrics` 200 · 含侧栏「指标设置」高亮(`active=='metrics'`)· 两组 checklist 渲染(FAMILY 12 项 / ACCOUNT 15 项)· 当前启用项 `checked` · `mandatory`(`net_worth`/`current_value`)`disabled` 且 `checked` |
+| v08-METRICS-2 | `POST /admin/metrics`(family=net_worth,family_xirr & account=current_value,xirr)→ 302 回 `/admin/metrics` · `family.metric_prefs` 写入 JSON `{"family":[...],"account":[...]}` · flash「已保存」· 审计 +1(`family_metric_prefs`) |
+| v08-METRICS-3 | 必选项兜底:POST 不带任何 `family`/`account`(全空) → 落库仍含 `net_worth` / `current_value`(后端 `enabled()` 强制纳入 mandatory) |
+
+**backward-compat 红线**
+- `family.metric_prefs` 为 v0.8 新增可空列(决策 102);NULL → 代码默认集,存量家庭零影响
+- 只动 `web/admin` controller + `admin/metrics.html` + `_sidebar.html`;不碰 dashboard/_region、FactView、EntryService、calc/factview/service 既有逻辑
+- 前端 `mandatory` 项 `disabled`(不提交),POST 端用 `MetricPrefsService.enabled` 兜底强制纳入,双保险

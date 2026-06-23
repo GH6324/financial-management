@@ -196,6 +196,8 @@ public class AccountController {
         private String loanKind;
         /** v0.6 · 负债年利率 %(仅 LOAN · 选填)· FR-103 */
         private java.math.BigDecimal annualRatePct;
+        /** v0.8 · 预期年化收益率 %(选填 · NULL=回落品类 benchmark)· 预实 FR-152 */
+        private java.math.BigDecimal expectedReturnPct;
 
         Account toAccount() {
             return Account.builder()
@@ -210,6 +212,7 @@ public class AccountController {
                     .riskLevelOverride(riskLevelOverride)
                     .loanKind(loanKind)
                     .annualRatePct(annualRatePct)
+                    .expectedReturnPct(expectedReturnPct)
                     .build();
         }
     }

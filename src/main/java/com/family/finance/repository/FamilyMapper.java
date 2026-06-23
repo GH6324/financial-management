@@ -16,7 +16,7 @@ public interface FamilyMapper {
     @Select("""
             SELECT id, name, brand_text, logo_path, logo_preset, base_currency, period_type,
                    cpi_assumption, allocation_anchor, allocation_anchor_custom, risk_appetite,
-                   reporting_template, report_remind_lead_days,
+                   reporting_template, report_remind_lead_days, metric_prefs,
                    created_at, updated_at
               FROM family
              ORDER BY id
@@ -26,7 +26,7 @@ public interface FamilyMapper {
     @Select("""
             SELECT id, name, brand_text, logo_path, logo_preset, base_currency, period_type,
                    cpi_assumption, allocation_anchor, allocation_anchor_custom, risk_appetite,
-                   reporting_template, report_remind_lead_days,
+                   reporting_template, report_remind_lead_days, metric_prefs,
                    created_at, updated_at
               FROM family
              WHERE id = #{id}
@@ -45,6 +45,10 @@ public interface FamilyMapper {
 
     @Update("UPDATE family SET logo_path = #{logoPath} WHERE id = #{familyId}")
     int updateLogoPath(@Param("familyId") long familyId, @Param("logoPath") String logoPath);
+
+    /** v0.8 FR-149 · 保存指标勾选配置 JSON */
+    @Update("UPDATE family SET metric_prefs = #{json} WHERE id = #{familyId}")
+    int updateMetricPrefs(@Param("familyId") long familyId, @Param("json") String json);
 
     /**
      * v0.2 FR-1/FR-34:点击预设按钮 = 切预设 + 一并清空自定义 logo_path,

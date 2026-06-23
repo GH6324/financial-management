@@ -33,6 +33,8 @@ public class Family {
     private String reportingTemplate;
     /** v0.4.14 FR-63c · 距填报截止前几天开始强提醒 · 默认 2 */
     private Integer reportRemindLeadDays;
+    /** v0.8 FR-149 · 指标勾选配置 JSON {"family":[...],"account":[...]};NULL=代码默认集 */
+    private String metricPrefs;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

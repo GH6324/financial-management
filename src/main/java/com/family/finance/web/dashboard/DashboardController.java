@@ -51,6 +51,7 @@ public class DashboardController {
     private final EntryService entryService;
     private final NavService navService;
     private final FxService fxService;
+    private final com.family.finance.service.MetricPrefsService metricPrefsService;   // v0.8 可配置指标
     private final com.family.finance.service.macro.MacroBenchmarkService macroBenchmarkService; // v0.5 FR-75
     private final GoalProgressService goalProgressService;
     private final HouseholdCashflowService householdCashflowService;
@@ -139,6 +140,9 @@ public class DashboardController {
         model.addAttribute("asof", anchor.getPeriodStart().toString());
         model.addAttribute("periods", allPeriods);
         model.addAttribute("momYoy", momYoy);
+        // v0.8 FR-149:账户列表按勾选的指标显示(必选项恒在)
+        model.addAttribute("acctMetrics", metricPrefsService.enabled(family.getMetricPrefs(), "account"));
+        model.addAttribute("famMetrics", metricPrefsService.enabled(family.getMetricPrefs(), "family"));
         model.addAttribute("currencies", List.of("CNY", "USD", "HKD"));
         model.addAttribute("accountsCsv", accountsCsv == null ? "" : accountsCsv);
         model.addAttribute("selectedAccountIds", accountIds == null ? java.util.Collections.<Long>emptyList() : accountIds);
