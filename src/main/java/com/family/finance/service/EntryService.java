@@ -150,7 +150,7 @@ public class EntryService {
             insertCashFlow(period, account, memberId, line);
         }
         for (TransferLine line : transferLines == null ? List.<TransferLine>of() : transferLines) {
-            insertTransfer(period, familyId, accountId, line.toAccountId(), line.amount(), line.note(), memberId, false);
+            insertTransfer(period, familyId, accountId, line.toAccountId(), line.amount(), line.toAmount(), line.note(), memberId, false);
         }
 
         adjustLoanDraft(period, account, normalizedBalance, memberId);
@@ -234,17 +234,22 @@ public class EntryService {
                                 long fromAccountId,
                                 long toAccountId,
                                 BigDecimal amount,
+                                BigDecimal toAmount,   // v0.8 · 跨币种到账金额(转入账户币种);null=同币种
                                 String note,
                                 boolean confirmDuplicate) {
         Period period = requireOpenPeriod(familyId, periodId);
         Account fromAccount = requireAccount(familyId, fromAccountId);
         Account toAccount = requireAccount(familyId, toAccountId);
-        // 划转 A→B:A 余额 -amount,B 余额 +amount
+        // 跨币种:转出按 amount(转出账户币种),转入按 toAmount(转入账户币种);同币种 toAmount=null → 两端同 amount
+        boolean crossCcy = !fromAccount.getCurrency().equals(toAccount.getCurrency());
+        BigDecimal effToAmount = (toAmount != null) ? toAmount : amount;
+        // 划转 A→B:A 余额 -amount,B 余额 +effToAmount
         applyDeltaToBalance(period, fromAccount, memberId, amount.negate(),
                 "↱ 划出到 " + toAccount.getDisplayName() + " " + money(amount));
-        applyDeltaToBalance(period, toAccount, memberId, amount,
-                "↳ 收到来自 " + fromAccount.getDisplayName() + " " + money(amount));
-        insertTransfer(period, familyId, fromAccountId, toAccountId, amount, note, memberId, confirmDuplicate);
+        applyDeltaToBalance(period, toAccount, memberId, effToAmount,
+                "↳ 收到来自 " + fromAccount.getDisplayName() + " " + money(effToAmount));
+        insertTransfer(period, familyId, fromAccountId, toAccountId, amount,
+                crossCcy ? effToAmount : null, note, memberId, confirmDuplicate);
         // v0.2 bug 修(2026-05-10): 转账路径双端都要把 todo 标 DONE,
         // 否则 forceClose 会因 PENDING 把"上期末"覆盖回 snapshot,丢失真实数据
         snapshotTodoMapper.markDone(periodId, fromAccountId, memberId);
@@ -297,12 +302,13 @@ public class EntryService {
                                   Long periodId,
                                   long toAccountId,
                                   BigDecimal amount,
+                                  BigDecimal toAmount,
                                   String note,
                                   boolean confirmDuplicate) {
         Period period = periodId == null
                 ? periodMapper.findCurrentOpen(familyId).orElseThrow(() -> new IllegalStateException("当前没有 OPEN 周期"))
                 : requireOpenPeriod(familyId, periodId);
-        return addTransfer(familyId, memberId, period.getId(), fromAccountId, toAccountId, amount, note, confirmDuplicate);
+        return addTransfer(familyId, memberId, period.getId(), fromAccountId, toAccountId, amount, toAmount, note, confirmDuplicate);
     }
 
     private EntryRow toRow(Account account,
@@ -501,6 +507,7 @@ public class EntryService {
                                     long fromAccountId,
                                     long toAccountId,
                                     BigDecimal amount,
+                                    BigDecimal toAmount,
                                     String note,
                                     long memberId,
                                     boolean confirmDuplicate) {
@@ -519,6 +526,7 @@ public class EntryService {
                 .fromAccountId(fromAccountId)
                 .toAccountId(toAccountId)
                 .amount(normalized)
+                .toAmount(toAmount == null ? null : positiveMoney(toAmount))   // v0.8 · 跨币种到账额;null=同币种
                 .occurredAt(period.getPeriodEnd())
                 .note(blankToNull(note))
                 .submittedBy(memberId)
@@ -615,7 +623,7 @@ public class EntryService {
     public record CashFlowLine(CashFlowKind kind, String categoryCode, BigDecimal amount, String note) {
     }
 
-    public record TransferLine(Long toAccountId, BigDecimal amount, String note) {
+    public record TransferLine(Long toAccountId, BigDecimal amount, BigDecimal toAmount, String note) {
     }
 
     private record ReconciliationTotals(BigDecimal income, BigDecimal expense, BigDecimal transferIn, BigDecimal transferOut) {

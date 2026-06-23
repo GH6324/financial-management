@@ -15,7 +15,7 @@ import java.util.Optional;
 public interface TransferMapper {
 
     @Select("""
-            SELECT id, period_id, from_account_id, to_account_id, amount,
+            SELECT id, period_id, from_account_id, to_account_id, amount, to_amount,
                    occurred_at, note, submitted_by, submitted_at, is_draft AS draft
               FROM transfer
              WHERE period_id = #{periodId}
@@ -27,7 +27,7 @@ public interface TransferMapper {
                                           @Param("accountId") long accountId);
 
     @Select("""
-            SELECT id, period_id, from_account_id, to_account_id, amount,
+            SELECT id, period_id, from_account_id, to_account_id, amount, to_amount,
                    occurred_at, note, submitted_by, submitted_at, is_draft AS draft
               FROM transfer
              WHERE id = #{id}
@@ -36,7 +36,7 @@ public interface TransferMapper {
     Optional<Transfer> findById(@Param("id") long id);
 
     @Select("""
-            SELECT t.id, t.period_id, t.from_account_id, t.to_account_id, t.amount,
+            SELECT t.id, t.period_id, t.from_account_id, t.to_account_id, t.amount, t.to_amount,
                    t.occurred_at, t.note, t.submitted_by, t.submitted_at, t.is_draft AS draft
               FROM transfer t
               JOIN period p ON p.id = t.period_id
@@ -47,7 +47,7 @@ public interface TransferMapper {
     List<Transfer> findAllByFamily(@Param("familyId") long familyId);
 
     @Select("""
-            SELECT id, period_id, from_account_id, to_account_id, amount,
+            SELECT id, period_id, from_account_id, to_account_id, amount, to_amount,
                    occurred_at, note, submitted_by, submitted_at, is_draft AS draft
               FROM transfer
              WHERE period_id = #{periodId}
@@ -77,10 +77,10 @@ public interface TransferMapper {
 
     @Insert("""
             INSERT INTO transfer (
-                period_id, from_account_id, to_account_id, amount,
+                period_id, from_account_id, to_account_id, amount, to_amount,
                 occurred_at, note, submitted_by, is_draft
             ) VALUES (
-                #{periodId}, #{fromAccountId}, #{toAccountId}, #{amount},
+                #{periodId}, #{fromAccountId}, #{toAccountId}, #{amount}, #{toAmount},
                 #{occurredAt}, #{note}, #{submittedBy}, #{draft}
             )
             """)
@@ -90,6 +90,7 @@ public interface TransferMapper {
     @Update("""
             UPDATE transfer
                SET amount = #{amount},
+                   to_amount = #{toAmount},
                    occurred_at = #{occurredAt},
                    note = #{note},
                    submitted_by = #{submittedBy},

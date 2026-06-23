@@ -37,6 +37,9 @@ public class FactViewServiceImpl implements FactViewService {
     private final FamilyMapper familyMapper;
     /** v0.4.3 B2 修复 · 月均支出/收入统一源 · PMC(成员级)优先 · cash_flow fallback */
     private final com.family.finance.repository.PeriodMemberCashflowMapper periodMemberCashflowMapper;
+    /** v0.8 · 账户级预实分析:查账户预期收益 + 品类 benchmark(账户少,按需查)*/
+    private final com.family.finance.repository.AccountMapper accountMapper;
+    private final com.family.finance.service.ProductCategoryService productCategoryService;
 
     @Override
     public FactSlice loadDefault(Long familyId) {
@@ -370,17 +373,35 @@ public class FactViewServiceImpl implements FactViewService {
         Map<Long, BigDecimal> xirr = accountXirr(slice);
         Long lastPid = slice.lastPeriodId();
         BigDecimal familyNetWorth = lastPid == null ? null : netWorth(slice, lastPid);
+        Map<Long, BigDecimal> expected = expectedReturnByAccount(slice);
         return slice.byAccount().values().stream()
                 .map(rows -> rows.stream().sorted(Comparator.comparing(AccountPeriodFact::periodStart)).toList())
-                .map(rows -> buildAccountPerformance(rows, xirr, familyNetWorth))
+                .map(rows -> buildAccountPerformance(rows, xirr, familyNetWorth, expected))
                 .sorted(Comparator.comparing(AccountPerformance::accountId))
                 .toList();
+    }
+
+    /** 每账户的预期年化 %:账户 expected_return_pct 覆盖优先,否则回落品类 benchmark_pct;都没有=null。 */
+    private Map<Long, BigDecimal> expectedReturnByAccount(FactSlice slice) {
+        Map<Long, BigDecimal> result = new LinkedHashMap<>();
+        for (Long accountId : slice.byAccount().keySet()) {
+            BigDecimal expected = accountMapper.findById(accountId).map(acc -> {
+                if (acc.getExpectedReturnPct() != null) return acc.getExpectedReturnPct();
+                if (acc.getProductCategoryCode() == null) return null;
+                return productCategoryService.findByCode(acc.getProductCategoryCode())
+                        .map(com.family.finance.domain.category.ProductCategory::getBenchmarkPct)
+                        .orElse(null);
+            }).orElse(null);
+            result.put(accountId, expected);
+        }
+        return result;
     }
 
     /** 从某账户的(已按期排序的)fact 行,一趟算出 v0.8 账户级指标全集(本位币 / 派生,实时算)。 */
     private AccountPerformance buildAccountPerformance(List<AccountPeriodFact> rows,
                                                        Map<Long, BigDecimal> xirr,
-                                                       BigDecimal familyNetWorth) {
+                                                       BigDecimal familyNetWorth,
+                                                       Map<Long, BigDecimal> expectedByAccount) {
         AccountPeriodFact first = rows.getFirst();
         List<AccountPeriodFact> filled = rows.stream()
                 .filter(row -> row.endBalanceBase() != null)
@@ -439,11 +460,41 @@ public class FactViewServiceImpl implements FactViewService {
             }
         }
 
+        // Problem C:本位币年化(含 FX),与原币 xirr 并列;本位币账户两者相等
+        BigDecimal returnBase = xirrBaseForAccountRows(filled);
+        // 预实:实际(原币年化)− 预期 %(账户覆盖 or 品类 benchmark);缺一为 null
+        BigDecimal expectedPct = expectedByAccount.get(first.accountId());
+        BigDecimal actualXirr = xirr.get(first.accountId());
+        BigDecimal planActualDiff = (expectedPct != null && actualXirr != null)
+                ? actualXirr.multiply(HUNDRED).subtract(expectedPct).setScale(2, RoundingMode.HALF_EVEN)
+                : null;
+
         return new AccountPerformance(
                 first.accountId(), first.accountName(), first.accountType(), first.accountCurrency(),
                 currentValue, xirr.get(first.accountId()), spark,
                 cumPnl, netPrincipal, latestPnl, momAmount, momPct, sharePct, maxDrawdownPct,
-                filled.size(), sparkPoints(spark), sparkTrend(spark));
+                filled.size(), sparkPoints(spark), sparkTrend(spark),
+                returnBase, expectedPct, planActualDiff);
+    }
+
+    /** 账户级 XIRR · 本位币口径(含 FX);与 xirrForAccountRows(原币)对应。<2 期返回 null。 */
+    private BigDecimal xirrBaseForAccountRows(List<AccountPeriodFact> rows) {
+        if (rows.size() < 2) return null;
+        List<XirrCalculator.CashFlowPoint> flows = new ArrayList<>();
+        AccountPeriodFact first = rows.getFirst();
+        AccountPeriodFact last = rows.getLast();
+        if (first.endBalanceBase() == null || last.endBalanceBase() == null) return null;
+        flows.add(new XirrCalculator.CashFlowPoint(first.periodEnd(), first.endBalanceBase().negate()));
+        for (int i = 1; i < rows.size(); i++) {
+            AccountPeriodFact row = rows.get(i);
+            BigDecimal netExternal = nz(row.incomeBase()).subtract(nz(row.expenseBase()))
+                    .add(nz(row.transferInBase())).subtract(nz(row.transferOutBase()));
+            if (netExternal.signum() != 0) {
+                flows.add(new XirrCalculator.CashFlowPoint(row.periodEnd(), netExternal.negate()));
+            }
+        }
+        flows.add(new XirrCalculator.CashFlowPoint(last.periodEnd(), last.endBalanceBase()));
+        return XirrCalculator.annualizedOrCumulative(flows, rows.size());
     }
 
     private static BigDecimal nz(BigDecimal v) {

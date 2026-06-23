@@ -28,7 +28,11 @@ public record AccountPerformance(
         BigDecimal maxDrawdownPct,      // 最大回撤 %(负数;不足 2 期为 null)
         Integer monthsHeld,             // 已记录期数
         String sparklinePoints,         // 归一化 SVG polyline points(viewBox 0 0 80 22);点不足为 null
-        String sparklineTrend           // up / down / flat / none
+        String sparklineTrend,          // up / down / flat / none
+        // ── v0.8 P3:计算正确性 + 预实 ──
+        BigDecimal returnBase,          // 本位币年化(含 FX)· Problem C;本位币账户 == xirr
+        BigDecimal expectedReturnPct,   // 预期年化 %(账户覆盖 or 品类 benchmark)· 预实
+        BigDecimal planActualDiffPct    // 实际 − 预期(百分点;正=跑赢)· 预实;null=未设预期/数据不足
 ) {
     /** 仅基础字段的工厂(派生字段留 null)· 测试/简单场景用,隔离未来字段增减。 */
     public static AccountPerformance basic(Long accountId, String accountName, AccountType accountType,
@@ -36,6 +40,7 @@ public record AccountPerformance(
                                            List<TrendPoint> sparkline) {
         return new AccountPerformance(accountId, accountName, accountType, accountCurrency,
                 currentValue, xirr, sparkline,
-                null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null);
     }
 }

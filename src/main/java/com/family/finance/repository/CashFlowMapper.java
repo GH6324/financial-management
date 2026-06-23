@@ -39,9 +39,9 @@ public interface CashFlowMapper {
 
     @Insert("""
             INSERT INTO cash_flow (
-                period_id, account_id, kind, category_code, amount, occurred_at, note, submitted_by
+                period_id, account_id, kind, category_code, amount, occurred_at, note, submitted_by, is_adjustment
             ) VALUES (
-                #{periodId}, #{accountId}, #{kind}, #{categoryCode}, #{amount}, #{occurredAt}, #{note}, #{submittedBy}
+                #{periodId}, #{accountId}, #{kind}, #{categoryCode}, #{amount}, #{occurredAt}, #{note}, #{submittedBy}, #{adjustment}
             )
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")

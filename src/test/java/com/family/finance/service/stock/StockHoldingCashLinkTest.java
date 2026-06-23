@@ -40,7 +40,8 @@ class StockHoldingCashLinkTest {
         fxService = mock(FxService.class);
         periodMapper = mock(PeriodMapper.class);
         fetcher = mock(StockPriceFetcher.class);
-        svc = new StockHoldingService(holdingMapper, accountMapper, fxService, periodMapper, fetcher);
+        svc = new StockHoldingService(holdingMapper, accountMapper, fxService, periodMapper, fetcher,
+                mock(com.family.finance.repository.CashFlowMapper.class));
         // USD 股票账户 family=1
         when(accountMapper.findById(10L)).thenReturn(Optional.of(
                 Account.builder().id(10L).familyId(1L).type(AccountType.STOCK).currency("USD").build()));

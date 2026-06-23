@@ -39,6 +39,8 @@ public class StockHoldingService {
     private final com.family.finance.service.FxService fxService;
     private final com.family.finance.repository.PeriodMapper periodMapper;
     private final StockPriceFetcher stockPriceFetcher;
+    // v0.8 Problem B · 手动改现金行记调整流水(剔出投资损益)
+    private final com.family.finance.repository.CashFlowMapper cashFlowMapper;
 
     public List<StockHolding> findActiveByAccount(long familyId, long accountId) {
         requireStockAccount(familyId, accountId);
@@ -192,10 +194,37 @@ public class StockHoldingService {
         if (newAmount == null || newAmount.signum() < 0) {
             throw new IllegalArgumentException("金额必须 ≥ 0");
         }
+        java.math.BigDecimal old = h.getManualValue() == null ? java.math.BigDecimal.ZERO : h.getManualValue();
         h.setManualValue(newAmount);
         h.setManualValueAt(LocalDateTime.now());
         holdingMapper.update(h);
+        // v0.8 Problem B:手动调现金 = 本金进出,不是投资损益。记一笔 is_adjustment 流水把这笔 Δ 从 PnL/收益率剔除。
+        recordCashAdjustment(familyId, h.getAccountId(), newAmount.subtract(old));
         return h;
+    }
+
+    /** 把手动改现金行的 Δ 记成调整流水(剔出投资损益);best-effort:无 OPEN 期 / 账户无主理人则跳过。 */
+    private void recordCashAdjustment(long familyId, long accountId, java.math.BigDecimal delta) {
+        if (delta == null || delta.signum() == 0) return;
+        var periodOpt = periodMapper.findCurrentOpen(familyId);
+        if (periodOpt.isEmpty()) return;
+        var acct = accountMapper.findById(accountId).orElse(null);
+        Long memberId = acct == null ? null : acct.getPrimaryOwnerMemberId();
+        if (memberId == null) return;   // submitted_by 必填,无主理人则不记(不影响余额本身)
+        var period = periodOpt.get();
+        com.family.finance.domain.flow.CashFlow cf = com.family.finance.domain.flow.CashFlow.builder()
+                .periodId(period.getId())
+                .accountId(accountId)
+                .kind(delta.signum() > 0 ? com.family.finance.domain.flow.CashFlowKind.INCOME
+                                         : com.family.finance.domain.flow.CashFlowKind.EXPENSE)
+                .categoryCode("cash_adjust")
+                .amount(delta.abs())
+                .occurredAt(period.getPeriodEnd())
+                .note("股票账户现金行调整(剔出投资损益)")
+                .submittedBy(memberId)
+                .adjustment(true)
+                .build();
+        cashFlowMapper.insert(cf);
     }
 
     /**

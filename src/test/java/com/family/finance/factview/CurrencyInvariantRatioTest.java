@@ -54,7 +54,9 @@ class CurrencyInvariantRatioTest {
     }
 
     private FactViewServiceImpl svc() {
-        return new FactViewServiceImpl(factMapper, familyMapper, pmc);
+        return new FactViewServiceImpl(factMapper, familyMapper, pmc,
+                org.mockito.Mockito.mock(com.family.finance.repository.AccountMapper.class),
+                org.mockito.Mockito.mock(com.family.finance.service.ProductCategoryService.class));
     }
 
     /** 一条本位币(或换算后)流动资产账户事实。fxToBase = base→view 因子。 */

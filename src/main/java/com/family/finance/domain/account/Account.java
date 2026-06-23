@@ -30,6 +30,8 @@ public class Account {
     private String productCategoryCode;
     /** v0.2 · 用户覆盖类目默认风险等级(NULL = 沿用类目)· FR-40d */
     private Integer riskLevelOverride;
+    /** v0.8 · 账户预期年化收益率 %(NULL = 回落品类 benchmark_pct)· 预实分析 FR-152 */
+    private BigDecimal expectedReturnPct;
 
     /** v0.6 · 负债类型(MORTGAGE/CONSUMER/CREDIT_CARD/BORROW · 仅 LOAN · NULL=未填)· FR-103 */
     private String loanKind;

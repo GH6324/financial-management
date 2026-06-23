@@ -24,4 +24,5 @@ public class CashFlow {
     private String note;
     private Long submittedBy;
     private LocalDateTime submittedAt;
+    private boolean adjustment;   // v0.8 · is_adjustment · 账户内部现金调整(剔出投资损益)
 }

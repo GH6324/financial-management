@@ -19,6 +19,7 @@ public class Transfer {
     private Long fromAccountId;
     private Long toAccountId;
     private BigDecimal amount;
+    private BigDecimal toAmount;   // v0.8 · 跨币种转账到账金额(转入账户币种);null=同币种
     private LocalDate occurredAt;
     private String note;
     private Long submittedBy;

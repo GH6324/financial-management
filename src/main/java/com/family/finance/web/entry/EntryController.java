@@ -273,12 +273,13 @@ public class EntryController {
                               @RequestParam long periodId,
                               @RequestParam long toAccountId,
                               @RequestParam BigDecimal amount,
+                              @RequestParam(required = false) BigDecimal toAmount,
                               @RequestParam(required = false) String note,
                               @RequestParam(defaultValue = "false") boolean confirmDuplicate,
                               HttpServletResponse response,
                               Model model) {
         EntryRow row = entryService.addTransfer(me.getFamilyId(), me.getMemberId(), periodId,
-                accountId, toAccountId, amount, note, confirmDuplicate);
+                accountId, toAccountId, amount, toAmount, note, confirmDuplicate);
         // HX-Trigger:让目标行 div 自己再 hx-get 拉一次,实现"两行同时刷新",避开 Thymeleaf fragment 嵌套坑
         response.setHeader("HX-Trigger", "refresh-row-" + toAccountId);
         return rowFragment(me, row, periodId, model);
@@ -312,12 +313,13 @@ public class EntryController {
                                 @RequestParam(required = false) Long periodId,
                                 @RequestParam long toAccountId,
                                 @RequestParam BigDecimal amount,
+                                @RequestParam(required = false) BigDecimal toAmount,
                                 @RequestParam(required = false) String note,
                                 @RequestParam(defaultValue = "false") boolean confirmDuplicate,
                                 HttpServletResponse response,
                                 Model model) {
         EntryRow row = entryService.quickTransfer(me.getFamilyId(), me.getMemberId(), fromAccountId,
-                periodId, toAccountId, amount, note, confirmDuplicate);
+                periodId, toAccountId, amount, toAmount, note, confirmDuplicate);
         long effectivePeriodId = periodId == null ? periodService.requireCurrentOpen(me.getFamilyId()).getId() : periodId;
         response.setHeader("HX-Trigger", "refresh-row-" + toAccountId);
         return rowFragment(me, row, effectivePeriodId, model);
@@ -444,13 +446,16 @@ public class EntryController {
     private List<EntryService.TransferLine> transferLines(MultiValueMap<String, String> params) {
         List<String> amounts = values(params, "transferAmount");
         List<String> targets = values(params, "transferToAccountId");
+        List<String> toAmounts = values(params, "transferToAmount");
         List<EntryService.TransferLine> lines = new ArrayList<>();
         for (int i = 0; i < amounts.size(); i++) {
             if (amounts.get(i) == null || amounts.get(i).isBlank() || valueAt(targets, i, null) == null) {
                 continue;
             }
             String note = valueAt(values(params, "transferNote"), i, null);
-            lines.add(new EntryService.TransferLine(Long.parseLong(targets.get(i)), new BigDecimal(amounts.get(i)), note));
+            String ta = valueAt(toAmounts, i, null);
+            BigDecimal toAmount = (ta == null || ta.isBlank()) ? null : new BigDecimal(ta);
+            lines.add(new EntryService.TransferLine(Long.parseLong(targets.get(i)), new BigDecimal(amounts.get(i)), toAmount, note));
         }
         return lines;
     }
