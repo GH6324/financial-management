@@ -161,7 +161,7 @@
         <li th:each="e : ${g.entries}" class="py-2 flex items-baseline gap-3 flex-wrap">
           <span class="w-20 inline-flex items-center gap-1"
                 th:classappend="${e.kind.name() == 'INCOME' ? ' num-pos' : (e.kind.name() == 'EXPENSE' ? ' num-neg' : (e.kind.name() == 'TRANSFER_IN' ? ' text-forest' : (e.kind.name() == 'TRANSFER_OUT' ? ' text-rust' : (e.kind.name() == 'VALUATION' ? ' text-brass-deep' : ' text-ink-subtle'))))}"
-                th:text="${e.kind.name() == 'INCOME' ? '+ 收入' : (e.kind.name() == 'EXPENSE' ? '- 支出' : (e.kind.name() == 'TRANSFER_IN' ? '↳ 划入' : (e.kind.name() == 'TRANSFER_OUT' ? '↱ 划出' : (e.kind.name() == 'VALUATION' ? '📈 估值' : '= 校准'))))}">
+                th:text="${e.kind.name() == 'INCOME' ? '+ 收入' : (e.kind.name() == 'EXPENSE' ? '- 支出' : (e.kind.name() == 'TRANSFER_IN' ? '↳ 划入' : (e.kind.name() == 'TRANSFER_OUT' ? '↱ 划出' : (e.kind.name() == 'VALUATION' ? '△ 估值' : '= 校准'))))}">
             类型</span>
           <span class="tnum w-28" th:text="${e.amountSignedLabel}">+¥0</span>
           <span class="text-ink-soft flex-1 min-w-[140px]" th:text="${e.label}">类别 / 对手账户</span>
@@ -197,7 +197,11 @@
       <a th:if="${detail.account.type != null and detail.account.type.name() == 'STOCK'}"
          th:href="@{|/accounts/${detail.account.id}/holdings|}"
          class="btn-paper text-[11px] no-underline inline-flex items-center gap-1.5" title="持仓管理">
-        <span>📦 持仓管理</span>
+        <span class="inline-flex items-center gap-1.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+          </svg>持仓管理</span>
       </a>
       <a th:href="@{/checkup(account=${detail.account.id})}" class="btn-paper text-[11px] no-underline inline-flex items-center gap-1.5" title="资产体检">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

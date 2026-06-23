@@ -45,20 +45,16 @@ public class MetricPrefsService {
             new MetricDef("months_held", "持有期数", false, false),
             new MetricDef("risk", "风险等级", false, false));
 
-    // 家庭级 KPI 目录
+    // 家庭级 KPI 目录(只列 dashboard 真有豆腐块/头部元素的指标,保证勾选 1:1 控制显隐)
     public static final List<MetricDef> FAMILY = List.of(
-            new MetricDef("net_worth", "净资产", true, true),
-            new MetricDef("total_assets", "总资产", true, false),
-            new MetricDef("total_liab", "总负债", true, false),
-            new MetricDef("period_return", "本期收益 + 收益率", true, false),
-            new MetricDef("family_xirr", "家庭 XIRR", true, false),
-            new MetricDef("principal_vs_return", "人赚的 vs 钱赚的", true, false),
-            new MetricDef("savings_rate", "储蓄率", true, false),
-            new MetricDef("emergency_months", "紧急储备月数", true, false),
-            new MetricDef("nw_mom", "净资产环比 MoM", true, false),
-            new MetricDef("family_twr", "家庭 TWR", false, false),
-            new MetricDef("avg_cashflow", "月均收支", false, false),
-            new MetricDef("nw_yoy", "净资产同比 YoY", false, false));
+            new MetricDef("net_worth", "净资产(豆腐块)", true, true),
+            new MetricDef("total_assets", "总资产(豆腐块)", true, false),
+            new MetricDef("total_liab", "总负债(豆腐块)", true, false),
+            new MetricDef("emergency_months", "紧急储备(豆腐块)", true, false),
+            new MetricDef("period_return", "本月资产收益(豆腐块)", true, false),
+            new MetricDef("savings_rate", "储蓄率(头部)", true, false),
+            new MetricDef("nw_mom", "净资产环比 MoM(头部)", true, false),
+            new MetricDef("nw_yoy", "净资产同比 YoY(头部)", false, false));
 
     /** 某作用域的启用 key 集合;metricPrefs=null/解析失败 → 默认集。必选项恒纳入。 */
     public Set<String> enabled(String metricPrefsJson, String scope) {

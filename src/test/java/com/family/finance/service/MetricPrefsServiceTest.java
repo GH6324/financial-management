@@ -21,8 +21,8 @@ class MetricPrefsServiceTest {
         assertThat(acct).doesNotContain("twr", "max_drawdown", "yoy", "months_held");
 
         Set<String> fam = svc.enabled(null, "family");
-        assertThat(fam).contains("net_worth", "savings_rate", "principal_vs_return", "nw_mom");
-        assertThat(fam).doesNotContain("family_twr", "nw_yoy", "avg_cashflow");
+        assertThat(fam).contains("net_worth", "total_assets", "total_liab", "savings_rate", "nw_mom");
+        assertThat(fam).doesNotContain("nw_yoy");   // 默认关(需满 1 年)
     }
 
     @Test

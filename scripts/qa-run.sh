@@ -401,13 +401,14 @@ nw_hkd=$(extract_nw HKD)
   && log_ok "v02-CCY-1 三套币种净资产数字真的不同 (CNY=${nw_cny} USD=${nw_usd} HKD=${nw_hkd})" \
   || log_bad "v02-CCY-1 币种切换数字未联动" "CNY=${nw_cny} USD=${nw_usd} HKD=${nw_hkd}"
 
-# 数学校验:USD = CNY × 0.14(±2 元容差,处理舍入)
+# 数学校验:USD 净资产 / CNY 净资产 = 合理的 USD/CNY 汇率区间(0.10~0.20),且 ≠ 1.0(非 fallback)。
+# v0.8:不再硬编码 0.14(那是旧 anchor 期的种子率;dashboard 现锚当前期,实际率随期不同)。
 if [[ -n "$nw_cny" && -n "$nw_usd" ]]; then
-  expected_usd=$(awk -v c="$nw_cny" 'BEGIN{printf "%d", c*0.14}')
-  diff=$(awk -v a="$nw_usd" -v e="$expected_usd" 'BEGIN{d=a-e; if(d<0)d=-d; print d}')
-  [[ ${diff%.*} -le 2 ]] \
-    && log_ok "v02-CCY-2 USD 数学正确 (CNY=${nw_cny} × 0.14 ≈ ${expected_usd} 实际=${nw_usd})" \
-    || log_bad "v02-CCY-2 USD 数学错" "expected≈${expected_usd} got=${nw_usd}"
+  ratio=$(awk -v u="$nw_usd" -v c="$nw_cny" 'BEGIN{ if(c==0){print 0}else{printf "%.4f", u/c} }')
+  ok_ratio=$(awk -v r="$ratio" 'BEGIN{ print (r>=0.10 && r<=0.20) ? 1 : 0 }')
+  [[ "$ok_ratio" == "1" ]] \
+    && log_ok "v02-CCY-2 USD 数学正确 · USD/CNY 比值=${ratio}(合理区间,非 1.0 fallback)实际 USD=${nw_usd}" \
+    || log_bad "v02-CCY-2 USD 数学错" "USD/CNY 比值=${ratio} 不在 0.10~0.20(USD nw=${nw_usd} CNY nw=${nw_cny})"
 fi
 
 # v0.5 修 · 比值类指标(紧急储备月数)必须币种无关:换币种时分子(流动资产·view)和
@@ -503,7 +504,10 @@ grep -q '汇率尚未配置' src/main/resources/templates/dashboard/_region.html
 # (防 ensureForAccountCurrencies 漏调,SQL JOIN miss 落 1.0 → USD 当 CNY 累加)
 # 数学正确性的端到端校验在 qa-e2e.sh,这里只验"机制触发"
 PID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 AND status='OPEN' ORDER BY id DESC LIMIT 1" 2>/dev/null)
-ANCHOR=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 ORDER BY period_start DESC LIMIT 1" 2>/dev/null)
+# v0.8:dashboard anchor = 当前账期(resolveAsOf:OPEN 期 → 最近已开始期 → max 兜底),不再取 max(period_start)
+ANCHOR=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 AND status='OPEN' ORDER BY period_start DESC LIMIT 1" 2>/dev/null)
+[[ -z "$ANCHOR" ]] && ANCHOR=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 AND period_start<=CURDATE() ORDER BY period_start DESC LIMIT 1" 2>/dev/null)
+[[ -z "$ANCHOR" ]] && ANCHOR=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 ORDER BY period_start DESC LIMIT 1" 2>/dev/null)
 # 看是否存在非 base 账户(demo 有 USD 富途证券 id=4)
 nonbase_count=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM account WHERE family_id=1 AND currency != 'CNY' AND archived_at IS NULL" 2>/dev/null)
 if [[ "${nonbase_count:-0}" -ge 1 ]]; then
@@ -2637,9 +2641,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '255 单元' "$RD/README.md" && grep -q '375' "$RD/README.md" \
+  && grep -q '261 单元' "$RD/README.md" && grep -q '375' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(255/375)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(261/375)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -2687,6 +2691,23 @@ FVI="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
   && grep -q 'expectedReturnPct' "$RD/src/main/resources/templates/accounts/edit.html"; } \
   && log_ok "v08-6 预实分析(账户预期收益覆盖 + 回落品类基准 + 编辑入口)" \
   || log_bad "v08-6 预实缺件" "see V31 / Account / AccountPerformance / accounts/edit.html"
+
+# v08-7 家庭指标配置真控 KPI 豆腐块 + 头部(famMetrics 接线)+ 计算正确性单测存在
+{ grep -q "famMetrics.contains('net_worth')" "$RG" && grep -q "famMetrics.contains('total_assets')" "$RG" \
+  && grep -q "famMetrics.contains('emergency_months')" "$RG" && grep -q "famMetrics.contains('period_return')" "$RG" \
+  && grep -q "famMetrics.contains('nw_mom')" "$RG" \
+  && [[ -f "$RD/src/test/java/com/family/finance/factview/FactViewMetricsCalcTest.java" ]]; } \
+  && log_ok "v08-7 家庭指标配置控 KPI 豆腐块/头部(famMetrics)+ 计算正确性单测在" \
+  || log_bad "v08-7 豆腐块未接 famMetrics 或缺计算单测" "see _region.html / FactViewMetricsCalcTest"
+
+# v08-8 账户/仪表盘模板无 pictographic emoji(💡/📦/📈 等;★ 风险星与 ↔↺✕ 排版符保留)
+EMOJI_HITS=0
+for f in "$RD/src/main/resources/templates/accounts/detail.html" "$RD/src/main/resources/templates/dashboard/_region.html"; do
+  grep -oP '[\x{1F300}-\x{1FAFF}]|[\x{2600}-\x{26FF}]' "$f" 2>/dev/null | grep -vE '★|☆' | grep -q . && EMOJI_HITS=$((EMOJI_HITS+1))
+done
+[[ "$EMOJI_HITS" -eq 0 ]] \
+  && log_ok "v08-8 账户详情/仪表盘模板无 pictographic emoji(已换 inline SVG)" \
+  || log_bad "v08-8 模板仍有 emoji" "$EMOJI_HITS 个文件命中,see detail.html/_region.html"
 
 section "v0.7 第二批 · 外部服务配置引导(静态守护)"
 ICFG="$RD/src/main/resources/templates/admin/integrations.html"

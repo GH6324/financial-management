@@ -14,13 +14,15 @@
           家庭仪表盘,<span class="italic font-light text-brass-deep">实时汇总。</span>
         </h1>
         <p class="text-ink-soft mt-3 max-w-xl text-sm" th:if="${momYoy != null}">
-          环比(MoM)
-          <span class="font-mono" th:classappend="${momYoy.momPct == null ? '' : (momYoy.momPct.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
-                th:text="${momYoy.momPct == null ? '数据不足' : ((momYoy.momPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(momYoy.momPct,1,2) + '%')}">+2.1%</span>
-          · 同比(YoY)
-          <span class="font-mono" th:classappend="${momYoy.yoyPct == null ? '' : (momYoy.yoyPct.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
-                th:text="${momYoy.yoyPct == null ? '数据不足' : ((momYoy.yoyPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(momYoy.yoyPct,1,2) + '%')}">数据不足</span>
-          · 储蓄率 <span class="font-mono" th:text="${savingsRate}">—</span>
+          <span th:if="${famMetrics.contains('nw_mom')}">环比(MoM)
+            <span class="font-mono" th:classappend="${momYoy.momPct == null ? '' : (momYoy.momPct.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
+                  th:text="${momYoy.momPct == null ? '数据不足' : ((momYoy.momPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(momYoy.momPct,1,2) + '%')}">+2.1%</span>
+            <span th:if="${famMetrics.contains('nw_yoy') or famMetrics.contains('savings_rate')}"> · </span></span>
+          <span th:if="${famMetrics.contains('nw_yoy')}">同比(YoY)
+            <span class="font-mono" th:classappend="${momYoy.yoyPct == null ? '' : (momYoy.yoyPct.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
+                  th:text="${momYoy.yoyPct == null ? '数据不足' : ((momYoy.yoyPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(momYoy.yoyPct,1,2) + '%')}">数据不足</span>
+            <span th:if="${famMetrics.contains('savings_rate')}"> · </span></span>
+          <span th:if="${famMetrics.contains('savings_rate')}">储蓄率 <span class="font-mono" th:text="${savingsRate}">—</span></span>
         </p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
@@ -130,30 +132,30 @@
   <!-- v0.4 FR-60a · KPI 收敛 9→5 · 负债率搬 /checkup · 月均收入/支出/储蓄率/已填月份 搬 /reports 储蓄区 -->
   <!-- 手机 2 列(第 5 个 KPI 跨 2 列居中)→ sm 起 3 列 → lg 起 5 列 -->
   <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-rule mb-6 lg:mb-8">
-    <a th:href="@{/checkup}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
+    <a th:href="@{/checkup}" th:if="${famMetrics.contains('net_worth')}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
       <span class="kpi-eyebrow">净资产 <th:block th:insert="~{fragments/_kpi-info :: i('总资产 − 总负债。含 CASH/STOCK/WEALTH/PROPERTY 全部账户,按本位币换算。', ${calc.netWorth})}"/></span>
       <div class="kpi-value tnum" th:text="${kpiNetWorth}">¥0</div>
       <div class="kpi-delta"
            th:classappend="${kpiDelta != null and kpiDelta.startsWith('+') ? ' num-pos' : (kpiDelta != null and kpiDelta.startsWith('-') ? ' num-neg' : '')}"
            th:text="${kpiDelta}">—</div>
     </a>
-    <a href="/checkup#allocation" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
+    <a href="/checkup#allocation" th:if="${famMetrics.contains('total_assets')}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
       <span class="kpi-eyebrow">总资产 <th:block th:insert="~{fragments/_kpi-info :: i('CASH + STOCK + WEALTH + PROPERTY 类型合计,不含 LOAN。', ${calc.totalAssets})}"/></span>
       <div class="kpi-value tnum" th:text="${kpiAssets}">¥0</div>
       <div class="kpi-delta">不含 LOAN</div>
     </a>
-    <a href="/checkup#allocation" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
+    <a href="/checkup#allocation" th:if="${famMetrics.contains('total_liab')}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
       <span class="kpi-eyebrow">总负债 <th:block th:insert="~{fragments/_kpi-info :: i('仅 LOAN 类型(房贷 + 信用卡 + 借款)绝对值合计。', ${calc.totalLiabilities})}"/></span>
       <div class="kpi-value tnum num-neg" th:text="${kpiLiabilities}">¥0</div>
       <div class="kpi-delta">仅 LOAN</div>
     </a>
-    <a href="/checkup#liquidity" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
+    <a href="/checkup#liquidity" th:if="${famMetrics.contains('emergency_months')}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
       <span class="kpi-eyebrow">紧急储备 <th:block th:insert="~{fragments/_kpi-info :: i('流动资产 ÷ 月均支出。流动资产 = CASH + 货币基金等 LIQUID 类目。建议 ≥ 3-6 月。', ${calc.emergency})}"/></span>
       <div class="kpi-value tnum" th:text="${kpiEmergency}">—</div>
       <div class="kpi-delta">流动资产 / 月均支出</div>
     </a>
     <!-- v0.4.2 新增 · 本月资产收益 · 手机端第 5 个 KPI 跨 2 列居中(col-span-2 sm:col-span-1)-->
-    <a th:href="@{/reports}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors col-span-2 sm:col-span-1">
+    <a th:href="@{/reports}" th:if="${famMetrics.contains('period_return')}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors col-span-2 sm:col-span-1">
       <span class="kpi-eyebrow">本月资产收益 <th:block th:insert="~{fragments/_kpi-info :: i('(期末净资产 − 期初 − 本月净流入) ÷ 期初。剔除工资,纯投资回报。', ${calc.monthlyPnl})}"/></span>
       <div class="kpi-value tnum"
            th:classappend="${monthlyPnlPctLabel != null and monthlyPnlPctLabel.startsWith('+') ? ' num-pos' : (monthlyPnlPctLabel != null and monthlyPnlPctLabel.startsWith('-') ? ' num-neg' : '')}"
@@ -167,7 +169,10 @@
            class="paper-card mb-6 lg:mb-8 px-4 lg:px-5 py-3 flex items-start lg:items-center gap-3 flex-col lg:flex-row"
            style="border-left:4px solid var(--brass-deep); background:rgba(122,90,57,.04)">
     <div class="flex items-baseline gap-2 w-full lg:w-auto">
-      <span class="text-xl flex-shrink-0">💡</span>
+      <svg class="flex-shrink-0 text-brass-deep" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/>
+        <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>
+      </svg>
       <span class="text-ink font-medium text-sm">应急金充足 + 超额闲置</span>
     </div>
     <div class="flex-1 text-xs lg:text-sm">
@@ -237,7 +242,7 @@
         <thead><tr>
           <th data-sort="text">账户</th>
           <th class="num" data-sort="num">当前价值</th>
-          <th class="num" data-sort="num" th:if="${acctMetrics.contains('xirr')}">年化收益率</th>
+          <th class="num" data-sort="num" th:if="${acctMetrics.contains('xirr')}" title="满 12 期为年化 XIRR(资金加权);不足 12 期显累计收益率,不做单期年化外推">收益率</th>
           <th class="num" data-sort="num" th:if="${acctMetrics.contains('cum_pnl')}">累计损益</th>
           <th class="num" data-sort="num" th:if="${acctMetrics.contains('mom_delta')}">本期Δ</th>
           <th class="num" data-sort="num" th:if="${acctMetrics.contains('share_pct')}">占比</th>
@@ -247,10 +252,11 @@
         <tbody>
         <tr th:each="account : ${accountRows}" class="hover:bg-card-soft transition">
           <td th:attr="data-val=${account.accountName}">
+            <span class="pill align-middle inline-block text-center mr-2" style="min-width:3.4em"
+                  th:text="${account.accountType.label}">现金</span>
             <a th:href="@{/accounts/{id}(id=${account.accountId})}"
-               class="font-display hover:text-brass-deep no-underline text-xs sm:text-sm"
+               class="font-display hover:text-brass-deep no-underline text-xs sm:text-sm align-middle"
                th:text="${account.accountName}">账户</a>
-            <span class="pill ml-1 align-middle" th:text="${account.accountType.label}">现金</span>
           </td>
           <td class="num text-xs sm:text-sm" th:attr="data-val=${account.currentValue}"
               th:text="${account.currentValue == null ? '—' : #numbers.formatInteger(account.currentValue, 1, 'COMMA')}">0</td>
@@ -291,7 +297,7 @@
             <span class="pill ml-1" th:text="${account.accountType.label}">现金</span>
             <div class="font-mono text-[11px] text-ink-subtle mt-0.5">
               <span th:text="${account.currentValue == null ? '—' : ('¥' + #numbers.formatInteger(account.currentValue, 1, 'COMMA'))}">¥0</span>
-              · <span th:text="${account.xirr == null ? '收益率—' : ('年化 ' + #numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">年化—</span>
+              · <span th:text="${account.xirr == null ? '收益率—' : ('收益率 ' + #numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">收益率—</span>
             </div>
           </div>
           <div class="flex items-center gap-2 shrink-0">

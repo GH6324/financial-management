@@ -85,7 +85,7 @@ public class DashboardController {
         Family family = familyService.require(me.getFamilyId());
         // v0.8 FR-144:观察账期 as-of(默认最新,可选历史月)→ 作 rangeEnd,点状 KPI 随之
         List<Period> allPeriods = periodMapper.findAllByFamily(me.getFamilyId());
-        Period anchor = resolveAsOf(asof, allPeriods);
+        Period anchor = resolveAsOf(asof, allPeriods, periodMapper.findCurrentOpen(me.getFamilyId()).orElse(null));
         List<Long> accountIds = parseAccountIds(accountsCsv);
         String viewCurrency = parseCurrency(currency, family.getBaseCurrency());
         FactFilter filter = new FactFilter(
@@ -286,15 +286,24 @@ public class DashboardController {
                 .orElseThrow(() -> new IllegalStateException("尚未创建周期"));
     }
 
-    /** v0.8:解析观察账期 as-of(period_start 字符串)· 命中则用之,否则默认最新期。 */
-    private Period resolveAsOf(String asof, List<Period> all) {
+    /**
+     * v0.8:解析观察账期 as-of。命中 asof 串则用之;否则默认 = **当前账期**(与主页/填报一致):
+     * 优先当前 OPEN 期,否则取最近一个已开始(period_start ≤ 今天)的期,
+     * 都没有再退回 max —— 避免锚到 dev/未来的 stray 期(如 beta 的 2034-01)。
+     */
+    private Period resolveAsOf(String asof, List<Period> all, Period openPeriod) {
         if (asof != null && !asof.isBlank()) {
             for (Period p : all) {
                 if (p.getPeriodStart() != null && p.getPeriodStart().toString().equals(asof)) return p;
             }
         }
-        return all.stream().max(java.util.Comparator.comparing(Period::getPeriodStart))
-                .orElseThrow(() -> new IllegalStateException("尚未创建周期"));
+        if (openPeriod != null) return openPeriod;
+        java.time.LocalDate today = java.time.LocalDate.now();
+        return all.stream()
+                .filter(p -> p.getPeriodStart() != null && !p.getPeriodStart().isAfter(today))
+                .max(java.util.Comparator.comparing(Period::getPeriodStart))
+                .orElseGet(() -> all.stream().max(java.util.Comparator.comparing(Period::getPeriodStart))
+                        .orElseThrow(() -> new IllegalStateException("尚未创建周期")));
     }
 
     private LocalDate rangeStart(String range, LocalDate anchor) {
