@@ -291,10 +291,14 @@
       <details th:each="account : ${accountRows}" class="paper-card px-3 py-2.5">
         <summary class="flex items-center justify-between gap-2 cursor-pointer list-none">
           <div class="min-w-0">
-            <a th:href="@{/accounts/{id}(id=${account.accountId})}"
-               class="font-display text-sm hover:text-brass-deep no-underline truncate inline-block max-w-[42vw]"
-               th:text="${account.accountName}">账户</a>
-            <span class="pill ml-1" th:text="${account.accountType.label}">现金</span>
+            <!-- v0.8:类型标签放账户名前 + 固定宽度对齐(与 PC 表一致 min-width:3.4em) -->
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="pill text-center shrink-0" style="min-width:3.4em"
+                    th:text="${account.accountType.label}">现金</span>
+              <a th:href="@{/accounts/{id}(id=${account.accountId})}"
+                 class="font-display text-sm hover:text-brass-deep no-underline truncate"
+                 th:text="${account.accountName}">账户</a>
+            </div>
             <div class="font-mono text-[11px] text-ink-subtle mt-0.5">
               <span th:text="${account.currentValue == null ? '—' : ('¥' + #numbers.formatInteger(account.currentValue, 1, 'COMMA'))}">¥0</span>
               · <span th:text="${account.xirr == null ? '收益率—' : ('收益率 ' + #numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">收益率—</span>

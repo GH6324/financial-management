@@ -1405,7 +1405,7 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 
 | Case | 校验 |
 |---|---|
-| 列表类型标签 | PC 账户列表:类型 pill 在账户名**前**、固定 `min-width` 对齐(类型字长不一也齐) |
+| 列表类型标签 | **PC + 手机**账户列表:类型 pill 在账户名**前**、固定 `min-width:3.4em` 对齐(类型字长不一也齐)。手机卡片(`sm:hidden`)2026-06-23 补齐,`qa-run v08-PILL-M` 源级防回归到「名后 ml-1」 |
 | 默认观察账期 | as-of 默认 = **当前 OPEN 账期**(与主页一致),不取 max(period_start)(避免锚到 dev/未来 stray 期如 2034-01) |
 | 收益率口径标签 | dashboard 列头「收益率」(非「年化收益率」)+ tooltip:满 12 期为年化 XIRR,不足显累计、不做单期年化外推 |
 | 家庭指标控豆腐块 | `/admin/metrics` 勾选家庭指标真正控制 dashboard 5 个 KPI 豆腐块 + 头部储蓄率/MoM/YoY 显隐(FAMILY 目录精简到 dashboard 真有的 8 项,1:1) |

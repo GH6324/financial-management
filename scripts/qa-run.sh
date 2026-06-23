@@ -483,6 +483,19 @@ if [[ -n "$inw_cny" && -n "$inw_usd" && -n "$inw_hkd" ]]; then
     || log_bad "v08-CCY-INV-4 金额缩放偏离 fx" "USD/CNY=$(awk -v u=$inw_usd -v c=$inw_cny 'BEGIN{if(c==0)print "NA";else printf "%.4f",u/c}') HKD/CNY=$(awk -v h=$inw_hkd -v c=$inw_cny 'BEGIN{if(c==0)print "NA";else printf "%.4f",h/c}')"
 fi
 
+# v08-PILL-M · 手机端 dashboard 账户卡片:类型标签在账户名【前】+ 固定宽度对齐(与 PC 表一致)
+#   防回归到旧版「账户名后 ml-1 的 pill」(PC 已前置,手机端 2026-06-23 补齐)。源级判定:
+#   在 sm:hidden 手机块里,带 min-width 的 pill 行须早于账户名(font-display)行。
+REG_DASH=src/main/resources/templates/dashboard/_region.html
+mblk=$(awk '/sm:hidden space-y-2/{f=1} f{print} END{}' "$REG_DASH" | head -25)
+pl=$(printf '%s\n' "$mblk" | grep -n 'pill text-center shrink-0' | head -1 | cut -d: -f1)
+nl=$(printf '%s\n' "$mblk" | grep -n 'font-display text-sm' | head -1 | cut -d: -f1)
+if [[ -n "$pl" && -n "$nl" && "$pl" -lt "$nl" ]] && printf '%s' "$mblk" | grep -q 'min-width:3.4em'; then
+  log_ok "v08-PILL-M 手机卡片类型标签在账户名前 + 固定宽度对齐(min-width:3.4em)"
+else
+  log_bad "v08-PILL-M 手机卡片类型标签未前置/未对齐(防回归到名后 ml-1)" "pill行=$pl 名行=$nl"
+fi
+
 # v0.5.3 · 计算指标 tooltip 展示真实数值:每页 ⓘ 面板含 .kpi-info-calc 行(口径下方的实算)。
 # 回归点:_kpi-info 片段从 i(text) 升 i(text,calc) + 各 controller 注入 calc map。
 # 用净资产「总资产 ¥ − 总负债 ¥ = ¥」断言:它恒有真实数值(不依赖月支出/PMC 填报情况)。
@@ -2692,9 +2705,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '261 单元' "$RD/README.md" && grep -q '375' "$RD/README.md" \
+  && grep -q '263 单元' "$RD/README.md" && grep -q '378' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(261/375)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(263/378)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
