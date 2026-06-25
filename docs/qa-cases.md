@@ -1449,3 +1449,21 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v08-CCY-INV-4 | 净资产金额按 fx 精确缩放(USD/CNY≈0.14 · HKD/CNY≈1.09 · 容 0.5% 舍入) |
 
 > **回归保护**:这是币种切换第三次出问题(v0.2 CASE 倒挂 → v0.5 PMC 未换算 → v0.8 跨期/三角换算)。前两次都是逐个指标点检,这次加**属性级**护栏(`-3` 逐条扫所有比值 KPI)+ 单测口径双保险,从「补单点」升级为「网住整类」。
+
+---
+
+## v0.9 · 根路径公开落地页(FR-160/161/162 · 决策 108-111)
+
+> 背景:Chrome 把整域(prod `/`+`/login`、beta 多页)误判「Deceptive pages」。服务器/证书均干净,触发特征是「`.top` 域 + token + 首屏裸登录框」。v0.9 给根路径一个公开介绍页消除该特征,并作对外门面。
+
+| Case | 校验 |
+|---|---|
+| v09-LAND-1 | 匿名 `GET /` = 200 公开落地页,含定位文案(家庭账房 / 资产全局图)+ GitHub 全 URL + 功能总览截图引用 |
+| v09-LAND-2 | 匿名 `GET /` 直接 200、**不再 302 `/login`**(裸登录触发特征消除 = 降钓鱼信号核心) |
+| v09-LAND-3 | 已登录 `GET /` → 302 `/dashboard`(沿用既有分流,老用户无感;新家庭仍走 onboarding) |
+| v09-LAND-4 | 回归:匿名 `GET /dashboard` 仍被拦去 `/login`(permitAll 只加了精确根 `/`,没放过头) |
+
+**实现要点 / 防回归**
+- 复用既有 `common.HomeController`(本就 `@GetMapping("/")`)加匿名分支 `me==null → "landing"`;**不新建同名控制器**(2026-06-25 曾误新建 `web.HomeController` → bean 名冲突致 beta 启动崩溃,见 tech-design 决策 108)。
+- `landing.html` 复用 `fragments/layout :: head`(自托管 tailwind/字体/css,零外部 CDN);截图落 `static/img/feature_summary_total.jpg` 不外链;全 inline SVG、无 emoji。
+- `SecurityConfig` permitAll 加精确 `"/"`(非 `/**`);`/login`、会话、登录成功跳转均不变;零 schema。

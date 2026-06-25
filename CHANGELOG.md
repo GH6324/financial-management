@@ -2,6 +2,18 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.9.0] · 2026-06-25
+
+> 根路径公开落地页:把首屏从「裸登录框」换成有品牌/说明/截图/开源链接的介绍页。既给项目对外门面,又消除 Chrome「Deceptive pages」误判的触发特征(`.top` 域 + token + 首屏裸登录)。详见 [`prd/v0.9.md`](prd/v0.9.md) / [`tech-design/v0.9.md`](tech-design/v0.9.md)。
+
+### Added / Changed / Fixed
+
+- **根路径分流(FR-160)**:`/` 未登录 → 公开落地页 `landing`(不再 302 跳 `/login`);已登录 → 沿用既有 dashboard/onboarding 分流。`SecurityConfig` 放行精确根 `/`(非 `/**`);`/login` 与认证逻辑完全不变。
+- **落地页(FR-161)**:复用 layout head(**自托管 tailwind + 字体 + style.css,零外部 CDN**)· 品牌+定位 → 三支柱(月度快照记账/真实年化/AI 诊断)→ 功能总览截图 → 适合·不适合 → 自托管隐私 → CTA(登录 + GitHub 全 URL)· 晚清账册风 · 全 inline SVG 无 emoji。截图 `feature_summary_total.jpg` 落本地 `static/img`(不外链)。
+- **降钓鱼信号(FR-162)**:首屏即真实介绍页 + 可见开源仓库链接,削弱「unfamiliar 域上的裸登录」判定,配合 Search Console 申诉。
+- **教训(已记 tech-design 决策 108 + 记忆)**:实现时误新建 `web.HomeController`,与既有 `common.HomeController`(早已 `@GetMapping("/")`)同 bean 名 → `ConflictingBeanDefinitionException`、beta 启动崩溃重启循环。根因:探落点只 grep `web/`、漏看 `common/` 既有 `/` 映射。改为在既有控制器加匿名分支(保住 v0.7 onboarding 行为)。
+- 测试:mvn 263 单元 · qa-run + `v09-LAND-1~4`(匿名 /=200 落地页含定位+GitHub+截图 / 不再跳 login / 已登录→dashboard / 回归:匿名 dashboard 仍要登录);beta 真机四项全绿、零 emoji。零 schema、向后兼容。
+
 ## [v0.8.0] · 2026-06-23
 
 > 自用两月痛点驱动:指标可见性 + 时间筛选器按账期重做 + 可配置指标集 + 计算正确性。详见 [`prd/v0.8.md`](prd/v0.8.md) / [`tech-design/v0.8.md`](tech-design/v0.8.md)。

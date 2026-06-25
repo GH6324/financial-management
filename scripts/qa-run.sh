@@ -2713,9 +2713,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '263 单元' "$RD/README.md" && grep -q '378' "$RD/README.md" \
+  && grep -q '263 单元' "$RD/README.md" && grep -q '382' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(263/378)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(263/382)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -2846,6 +2846,36 @@ PC="$RD/src/main/java/com/family/finance/web/profile/ProfileController.java"
   && [[ -f "$RD/src/test/java/com/family/finance/web/ProfilePasswordChangeTest.java" ]]; } \
   && log_ok "v07-FIX-1 改密用 SecurityContextLogoutHandler 真作废 session(修首登死循环)+ 回归单测在" \
   || log_bad "v07-FIX-1 改密死循环修复缺失" "see ProfileController issue#1"
+
+section "v0.9 · 根路径公开落地页(降钓鱼误判 + 对外门面)"
+# v09-LAND-1 · 匿名 GET / = 200 落地页(含定位文案 + GitHub 全 URL + 截图引用)
+anon=/tmp/finance-qa-landing.html
+code=$($CURL -o "$anon" -w "%{http_code}" "$BASE/")     # 不带 cookie = 匿名
+{ [[ "$code" == "200" ]] \
+  && grep -q "家庭账房" "$anon" \
+  && grep -q "资产全局图" "$anon" \
+  && grep -q "github.com/LuoDi-Nate/financial-management" "$anon" \
+  && grep -q "feature_summary_total.jpg" "$anon"; } \
+  && log_ok "v09-LAND-1 匿名 / =200 公开落地页(定位文案 + GitHub 全 URL + 总览图)" \
+  || log_bad "v09-LAND-1 匿名落地页缺件" "code=$code(应 200 且含家庭账房/资产全局图/github URL/截图)"
+
+# v09-LAND-2 · 匿名 / 不再 302 到裸登录页(降钓鱼信号的核心:首屏非登录框)
+loc=$($CURL -o /dev/null -w "%{http_code}|%{redirect_url}" "$BASE/")
+[[ "$loc" == 200\|* ]] \
+  && log_ok "v09-LAND-2 匿名 / 直接 200,不再 302 /login(裸登录触发特征已消除)" \
+  || log_bad "v09-LAND-2 匿名 / 仍跳转" "got=$loc(期望 200,无 redirect)"
+
+# v09-LAND-3 · 已登录 GET / → 302 /dashboard(老用户无感直达)
+loc=$($CURL -b $COOKIE -o /dev/null -w "%{http_code}|%{redirect_url}" "$BASE/")
+[[ "$loc" == *"/dashboard" ]] \
+  && log_ok "v09-LAND-3 已登录 / → 302 /dashboard($loc)" \
+  || log_bad "v09-LAND-3 已登录 / 未直达 dashboard" "got=$loc"
+
+# v09-LAND-4 · 回归:permitAll 只放了 /,鉴权页仍需登录(没放过头)
+loc=$($CURL -o /dev/null -w "%{redirect_url}" "$BASE/dashboard")   # 匿名访问 dashboard
+[[ "$loc" == *"/login"* ]] \
+  && log_ok "v09-LAND-4 回归:匿名 /dashboard 仍被拦去登录(放行没过头)" \
+  || log_bad "v09-LAND-4 鉴权回归异常" "匿名 /dashboard redirect=$loc(应含 /login)"
 
 echo
 echo "═══════════════════════════════════════"

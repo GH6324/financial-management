@@ -90,7 +90,7 @@ public class SecurityConfig {
                                            RememberMeServices rememberMeServices) throws Exception {
         http
             .authorizeHttpRequests(a -> a
-                .requestMatchers("/login", "/login/error", "/static/**", "/css/**", "/vendor/**", "/img/**", "/uploads/**", "/js/**", "/manifest.webmanifest", "/favicon.ico", "/error", "/health", "/actuator/health").permitAll()
+                .requestMatchers("/", "/login", "/login/error", "/static/**", "/css/**", "/vendor/**", "/img/**", "/uploads/**", "/js/**", "/manifest.webmanifest", "/favicon.ico", "/error", "/health", "/actuator/health").permitAll()
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form

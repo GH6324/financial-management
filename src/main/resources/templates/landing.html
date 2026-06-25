@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!-- v0.9 FR-160/161/162 · 根路径公开落地页 · 未登录访客的对外门面 · 晚清账册风 · 无 emoji -->
+<head th:replace="~{fragments/layout :: head('家庭账房 · Family Ledger')}"></head>
+<body class="min-h-screen">
+
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+<!-- 顶栏 -->
+<header class="border-b border-rule">
+  <div class="max-w-[1180px] mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-baseline gap-2">
+      <span class="font-display text-xl font-medium tracking-tight">家庭账房</span>
+      <span class="eyebrow">Family Ledger</span>
+    </div>
+    <nav class="flex items-center gap-5 text-sm">
+      <a href="https://github.com/LuoDi-Nate/financial-management" rel="noopener" target="_blank"
+         class="text-ink-soft hover:text-ink no-underline inline-flex items-center gap-1.5">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+        源码
+      </a>
+      <a th:href="@{/login}" class="no-underline inline-flex items-center border border-rule px-4 py-1.5 rounded-sm text-ink hover:bg-card-soft">登录</a>
+    </nav>
+  </div>
+</header>
+
+<!-- Hero -->
+<section class="max-w-[1180px] mx-auto px-6 pt-20 pb-14">
+  <div class="eyebrow mb-4">自 · 托 · 管 · 的 · 家 · 庭 · 资 · 产 · 全 · 局 · 图</div>
+  <h1 class="font-display text-4xl md:text-6xl leading-[1.05] font-medium tracking-tight max-w-4xl">
+    每月 10 分钟,把全家散在各处的钱,<br class="hidden md:block">
+    变成<span class="italic font-light text-brass-deep">一张只在你自己服务器上的</span>资产全局图。
+  </h1>
+  <p class="font-serif text-lg text-ink-soft mt-8 max-w-2xl leading-relaxed">
+    算得出真实年化,分得清「人赚的」和「钱赚的」;AI 帮你诊断持仓、看清风险敞口、把再平衡落成下一步行动 —— 只解读,不荐产品、不预测涨跌。
+  </p>
+  <div class="mt-10 flex flex-wrap items-center gap-4">
+    <a th:href="@{/login}" class="no-underline bg-ink text-paper px-7 py-3 rounded-sm hover:bg-brass-deep transition inline-flex items-center gap-2">
+      登录
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
+    <a href="https://github.com/LuoDi-Nate/financial-management" rel="noopener" target="_blank"
+       class="no-underline border border-rule px-7 py-3 rounded-sm text-ink hover:bg-card-soft inline-flex items-center gap-2">GitHub 源码 · Apache-2.0</a>
+  </div>
+</section>
+
+<!-- 三支柱 -->
+<section class="max-w-[1180px] mx-auto px-6 pb-16">
+  <div class="grid md:grid-cols-3 gap-px bg-rule border border-rule">
+    <div class="bg-card p-7">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--brass-deep)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <h3 class="font-display text-xl mt-4">月度快照记账</h3>
+      <p class="text-sm text-ink-soft mt-2 leading-relaxed">不是逐笔流水。每月十分钟,把银行、支付宝、券商、房产、房贷拍一张快照 —— 记账负担小到能长期坚持。</p>
+    </div>
+    <div class="bg-card p-7">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--forest)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>
+      <h3 class="font-display text-xl mt-4">真实年化收益</h3>
+      <p class="text-sm text-ink-soft mt-2 leading-relaxed">XIRR / TWR 算的是真实回报,还分得清哪些是工资攒的(人赚)、哪些是投资赚的(钱赚) —— 不是 App 给你看的那种数字。</p>
+    </div>
+    <div class="bg-card p-7">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--rust)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      <h3 class="font-display text-xl mt-4">AI 持仓诊断</h3>
+      <p class="text-sm text-ink-soft mt-2 leading-relaxed">看资产配置、点出风险敞口、给再平衡方向。真名脱敏后才喂大模型,且只解读 —— 不荐产品、不预测涨跌。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 功能总览截图 -->
+<section class="max-w-[1180px] mx-auto px-6 pb-20">
+  <div class="eyebrow mb-3 text-center">一 图 概 览 · 桌 面 与 移 动</div>
+  <div class="bg-card border border-rule p-3">
+    <img th:src="@{/img/feature_summary_total.jpg(v=${buildVersion})}"
+         alt="家庭账房 · 功能总览(桌面 + 移动)" class="w-full rounded-sm" loading="lazy">
+  </div>
+</section>
+
+<!-- 适合 / 不适合 -->
+<section class="max-w-[1180px] mx-auto px-6 pb-20">
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="bg-card border border-rule p-7">
+      <div class="eyebrow text-forest mb-4">适 · 合</div>
+      <ul class="space-y-3 text-sm text-ink-soft">
+        <li class="flex gap-3"><svg class="shrink-0 mt-0.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--forest)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>能自己架一台 Linux 服务器</li>
+        <li class="flex gap-3"><svg class="shrink-0 mt-0.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--forest)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>钱散在银行 / 支付宝 / 券商 / 房产 / 房贷</li>
+        <li class="flex gap-3"><svg class="shrink-0 mt-0.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--forest)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>在意隐私,不想把全家财务交给商业 App</li>
+        <li class="flex gap-3"><svg class="shrink-0 mt-0.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--forest)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>想知道<b class="text-ink font-medium">真实</b>年化收益</li>
+      </ul>
+    </div>
+    <div class="bg-card border border-rule p-7">
+      <div class="eyebrow text-rust mb-4">不 · 适 · 合</div>
+      <ul class="space-y-3 text-sm text-ink-soft">
+        <li class="flex gap-3"><svg class="shrink-0 mt-0.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rust)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>想应用商店下个 App 就用(本项目要自部署)</li>
+        <li class="flex gap-3"><svg class="shrink-0 mt-0.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rust)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>想逐笔每日记账(这是<b class="text-ink font-medium">月度快照</b>,不是流水账)</li>
+        <li class="flex gap-3"><svg class="shrink-0 mt-0.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rust)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>想要预算 / 省钱那一类记账</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 隐私 band -->
+<section class="border-y border-rule bg-card-soft">
+  <div class="max-w-[1180px] mx-auto px-6 py-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-ink-soft">
+    <span class="inline-flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brass-deep)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>数据只在你自己的服务器上</span>
+    <span class="border-l border-rule h-4 hidden md:inline-block"></span>
+    <span>真名脱敏后才喂 LLM</span>
+    <span class="border-l border-rule h-4 hidden md:inline-block"></span>
+    <span>Apache-2.0 开源 · 可逐行审计</span>
+    <span class="border-l border-rule h-4 hidden md:inline-block"></span>
+    <span>Docker 一键 / systemd 直装</span>
+  </div>
+</section>
+
+<!-- Footer CTA -->
+<footer class="max-w-[1180px] mx-auto px-6 py-16 text-center">
+  <h2 class="font-display text-3xl md:text-4xl font-medium tracking-tight">自托管一份,数据只待在你自己手里。</h2>
+  <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
+    <a th:href="@{/login}" class="no-underline bg-ink text-paper px-7 py-3 rounded-sm hover:bg-brass-deep transition">登录</a>
+    <a href="https://github.com/LuoDi-Nate/financial-management" rel="noopener" target="_blank"
+       class="no-underline border border-rule px-7 py-3 rounded-sm text-ink hover:bg-card-soft">查看源码 · 快速开始</a>
+  </div>
+  <div class="font-mono text-xs text-ink-subtle mt-8 break-all">https://github.com/LuoDi-Nate/financial-management</div>
+</footer>
+
+</body>
+</html>
