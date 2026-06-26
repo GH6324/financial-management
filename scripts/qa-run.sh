@@ -2713,9 +2713,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '263 单元' "$RD/README.md" && grep -q '387' "$RD/README.md" \
+  && grep -q '263 单元' "$RD/README.md" && grep -q '388' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(263/387)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(263/388)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -2920,6 +2920,14 @@ uxhdr=$($CURL -b $COOKIE -D - -o /dev/null -X POST -H "HX-Request: true" -H "X-X
 echo "$uxhdr" | grep -q "showToast" \
   && log_ok "v09-UX-3 空金额划转 → 200 + 可读 toast(非裸 400)" \
   || log_bad "v09-UX-3 空金额划转未回可读 toast" "HX-Trigger=$uxhdr"
+
+# v09-CPI-1 · 净资产图 CPI 线 = 购买力保命线(锚×(1+cpi/12)^i),与 M2/【reports 财富水位】同口径;
+#   防回退到「名义折现」(v/(1+cpi)^i)——那种永远压名义之下、不反映所选 CPI(2026-06-26 修)
+RG_DASH=src/main/resources/templates/dashboard/_region.html
+{ grep -q 'anchorNw \* Math.pow(1 + cpiMonthly' "$RG_DASH" \
+  && ! grep -q '/ Math.pow(1 + cpiMonthly' "$RG_DASH"; } \
+  && log_ok "v09-CPI-1 净资产图 CPI 线为购买力保命线(锚×(1+cpi)^i),非名义折现" \
+  || log_bad "v09-CPI-1 CPI 线口径错(疑回退到名义折现 v/(1+cpi)^i)" "see _region.html netWorthChart"
 
 echo
 echo "═══════════════════════════════════════"

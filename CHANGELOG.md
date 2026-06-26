@@ -11,6 +11,7 @@
 - **全局错误 toast 被顶栏挡住(z-index 层叠 bug)**:`#toast-stack` 虽 `z-[10000]`,但被嵌在 `<footer relative z-10>` 内,被 footer 的层叠上下文困死、沉到 nav(z-30)之下。去掉 footer 的 `z-10`,toast 重回根层叠上下文、盖在最上层。
 - **划转空字段前置拦截**:划转金额加 `required`(+`min=0.01`),空值客户端直接拦、不再发请求拿 400。(账户下拉 `data-searchable` 会隐藏原生 select,不能加 `required`,且其默认选中首项不为空,故只对金额加。)
 - **参数绑定错给可读 toast**:空串→数字等绑定/类型转换失败原本是裸 400(走 layout 兜底「请求被拒绝(400)」)。`ToastErrorAdvice` 增加对 `MethodArgumentTypeMismatch`/`MissingServletRequestParameter`/`HttpMessageNotReadable` 的处理,HTMX 写操作下返回 200 + 可读 toast「输入有误:请检查账户、金额等必填项是否填写正确」。
+- **净资产图 CPI「购买力线」口径修正**:dashboard 净资产趋势的 CPI 对照线原画成「名义净资产折现」(`名义 ÷ (1+CPI)^期`)——永远压在名义线下、形状跟着名义走,既不反映所选 CPI 速率、也与 M2 基准线和 `/reports 财富水位` 口径不一致。改成与它们一致的**购买力保命线**:`期初净资产 × (1+CPI/12)^期`(名义在其上方 = 跑赢通胀)。图例改「CPI 购买力线」。`qa-run v09-CPI-1` 防回归。
 - 测试:mvn 263 · qa-run + `v09-UX-1/2/3`(toast 不被挡 / 金额 required / 空金额→可读 toast)· beta 真机三项验证通过。纯模板 + 1 处异常处理,零 schema。
 
 ## [v0.9.1] · 2026-06-26
