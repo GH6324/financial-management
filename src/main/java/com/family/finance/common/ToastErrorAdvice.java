@@ -5,8 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -22,7 +25,9 @@ import java.util.Map;
 @Slf4j
 public class ToastErrorAdvice {
 
-    @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})
+    @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class,
+            MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class,
+            HttpMessageNotReadableException.class})
     public ResponseEntity<String> handle(Exception ex, HttpServletRequest request) {
         boolean htmx = "true".equalsIgnoreCase(request.getHeader("HX-Request"));
         boolean writeOp = !"GET".equalsIgnoreCase(request.getMethod());
@@ -30,11 +35,19 @@ public class ToastErrorAdvice {
             // GET / 非 HTMX 请求让默认 ErrorMvcAutoConfiguration 处理(避免吞掉真实页面渲染异常)
             throw (ex instanceof RuntimeException re ? re : new RuntimeException(ex));
         }
+        // 参数绑定/类型转换失败(如空字段提交、空串→数字)原始信息很难读,统一给可读文案;
+        // 业务异常(IllegalArgument/State)沿用其自带 message。
+        boolean binding = ex instanceof MethodArgumentTypeMismatchException
+                || ex instanceof MissingServletRequestParameterException
+                || ex instanceof HttpMessageNotReadableException;
+        String msg = binding
+                ? "输入有误:请检查账户、金额等必填项是否填写正确"
+                : (ex.getMessage() == null ? "操作失败" : ex.getMessage());
         log.info("[Toast] {} on {} {} -> {}", ex.getClass().getSimpleName(),
-                request.getMethod(), request.getRequestURI(), ex.getMessage());
+                request.getMethod(), request.getRequestURI(), msg);
         Map<String, Object> payload = new HashMap<>();
         payload.put("level", "error");
-        payload.put("message", ex.getMessage() == null ? "操作失败" : ex.getMessage());
+        payload.put("message", msg);
         // HX-Reswap=none 避免 HTMX 用空 body 替换 hx-target 导致行消失
         return ResponseEntity.ok()
                 .header("HX-Trigger", "{\"showToast\":" + jsonValue(payload) + "}")

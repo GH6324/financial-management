@@ -2,6 +2,17 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.9.2] · 2026-06-26
+
+> 填报/划转错误体验修复(自用记账时发现):错误提示被顶栏挡住看不见、空字段提交报裸 400 不可读。
+
+### Fixed
+
+- **全局错误 toast 被顶栏挡住(z-index 层叠 bug)**:`#toast-stack` 虽 `z-[10000]`,但被嵌在 `<footer relative z-10>` 内,被 footer 的层叠上下文困死、沉到 nav(z-30)之下。去掉 footer 的 `z-10`,toast 重回根层叠上下文、盖在最上层。
+- **划转空字段前置拦截**:划转金额加 `required`(+`min=0.01`),空值客户端直接拦、不再发请求拿 400。(账户下拉 `data-searchable` 会隐藏原生 select,不能加 `required`,且其默认选中首项不为空,故只对金额加。)
+- **参数绑定错给可读 toast**:空串→数字等绑定/类型转换失败原本是裸 400(走 layout 兜底「请求被拒绝(400)」)。`ToastErrorAdvice` 增加对 `MethodArgumentTypeMismatch`/`MissingServletRequestParameter`/`HttpMessageNotReadable` 的处理,HTMX 写操作下返回 200 + 可读 toast「输入有误:请检查账户、金额等必填项是否填写正确」。
+- 测试:mvn 263 · qa-run + `v09-UX-1/2/3`(toast 不被挡 / 金额 required / 空金额→可读 toast)· beta 真机三项验证通过。纯模板 + 1 处异常处理,零 schema。
+
 ## [v0.9.1] · 2026-06-26
 
 > 落地页精修 + 对外门面打磨。参考 brew.sh / ohmyzsh.sh 改**居中单列**布局,加一组克制的微交互(全在晚清账册风内、无 emoji)。详见 [`prd/v0.9.md`](prd/v0.9.md) v0.9.1 段 / [`tech-design/v0.9.md`](tech-design/v0.9.md)。

@@ -2713,9 +2713,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '263 单元' "$RD/README.md" && grep -q '384' "$RD/README.md" \
+  && grep -q '263 单元' "$RD/README.md" && grep -q '387' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(263/384)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(263/387)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -2896,6 +2896,30 @@ if [[ "$(lp_get version)" == "$v_ver" && "$(lp_get tests)" == "$v_tst" && "$(lp_
 else
   log_bad "v09-LAND-6 主页数字带过时(发版会被 release skill 拦)" "landing=[$(lp_get version)/$(lp_get tests)/$(lp_get migrations)/$(lp_get blackbox)] 应=[$v_ver/$v_tst/$v_mig/$v_bbx]"
 fi
+
+# ───────────────────────────────────────────────────────────────────────────
+# v0.9.2 · 填报/划转错误体验(2026-06-26 修:toast 被顶栏挡 / 空字段裸 400 不可读)
+# v09-UX-1 · 全局 toast 不被顶栏挡:footer 不能用 relative z-10(否则 z-[10000] 的 toast-stack 被困其层叠上下文,沉到 nav 之下)
+LAY=src/main/resources/templates/fragments/layout.html
+{ grep -q '<footer th:fragment="footer"' "$LAY" \
+  && ! grep -qE '<footer th:fragment="footer"[^>]*z-10' "$LAY"; } \
+  && log_ok "v09-UX-1 footer 去 z-10 · 全局 toast(z-[10000])不再被 nav 挡" \
+  || log_bad "v09-UX-1 footer 仍 relative z-10 · toast 会被顶栏挡" "see layout.html footer fragment"
+
+# v09-UX-2 · 划转金额前置必填(空字段客户端拦截、不发请求)
+grep -qE 'name="amount"[^>]*required' src/main/resources/templates/entry/_row.html \
+  && log_ok "v09-UX-2 划转金额 required(空字段前置拦截)" \
+  || log_bad "v09-UX-2 划转金额缺 required" "see entry/_row.html"
+
+# v09-UX-3 · 参数绑定错(空金额)→ 可读 toast 而非裸 400(ToastErrorAdvice 兜 binding 异常)
+CSRF=$(grep XSRF-TOKEN $COOKIE 2>/dev/null | awk '{print $7}' | tail -1)
+[[ -z "$CSRF" ]] && { $CURL -b $COOKIE -c $COOKIE "$BASE/entry" -o /dev/null; CSRF=$(grep XSRF-TOKEN $COOKIE | awk '{print $7}' | tail -1); }
+uxhdr=$($CURL -b $COOKIE -D - -o /dev/null -X POST -H "HX-Request: true" -H "X-XSRF-TOKEN: $CSRF" \
+  --data-urlencode "periodId=1" --data-urlencode "toAccountId=1" --data-urlencode "amount=" \
+  "$BASE/entry/1/transfer" 2>/dev/null | grep -i "HX-Trigger")
+echo "$uxhdr" | grep -q "showToast" \
+  && log_ok "v09-UX-3 空金额划转 → 200 + 可读 toast(非裸 400)" \
+  || log_bad "v09-UX-3 空金额划转未回可读 toast" "HX-Trigger=$uxhdr"
 
 echo
 echo "═══════════════════════════════════════"
