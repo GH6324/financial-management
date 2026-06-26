@@ -137,7 +137,7 @@
         <label class="block border border-rule-soft p-3 cursor-pointer">
           <input type="radio" name="autoBaseline" value="false" th:checked="${params.autoBaseline != null and !params.autoBaseline}" class="mr-2">
           手填基线 ¥ <input type="number" name="fixedBaseline" step="100" min="100" max="1000000"
-                          th:value="${params.fixedBaseline}"
+                          th:value="${params.fixedBaseline}" data-require-when="autoBaseline=false"
                           class="font-mono bg-paper border border-rule px-2 py-1 w-32 tnum"> /月
         </label>
       </div>

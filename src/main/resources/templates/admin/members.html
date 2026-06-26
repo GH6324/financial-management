@@ -69,7 +69,7 @@
           <div class="col-span-12 md:col-span-9 grid grid-cols-2 gap-5">
             <div>
               <label class="field-label">显示名 · DISPLAY NAME</label>
-              <input class="field-input" name="displayName" th:value="${m.displayName}">
+              <input class="field-input" name="displayName" th:value="${m.displayName}" required maxlength="40">
             </div>
             <div>
               <label class="field-label">登录名 · USERNAME</label>

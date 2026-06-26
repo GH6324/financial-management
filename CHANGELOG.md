@@ -2,6 +2,22 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.9.3] · 2026-06-26
+
+> 表单提交全量审计:缺必填项一律**客户端前置拦截**,不再「发请求 → 拿 400 / 存了脏数据」。承接 v0.9.2 划转空字段拦截,扫遍全站写表单补齐。详见 [`prd/v0.9.md`](prd/v0.9.md) v0.9.3 段 / [`tech-design/v0.9.md`](tech-design/v0.9.md) 决策 113。
+
+### Added / Fixed
+
+- **通用「条件必填」助手**(决策 113):新增 `data-require-when="控件名=值"` 声明式属性 + layout footer 全站注入的小脚本——当同表单内某 radio/checkbox/select 命中指定值时才给该字段挂 `required`,命中外自动摘除(避免对隐藏/不适用字段误挂 required 卡死提交)。一处助手,多处复用。
+- **补齐缺失的必填拦截**(全量审计结论):
+  - entry 收入/支出金额 → `required min=0.01`(原先空提交;三个 cash-flow 表单各自独立,互不阻塞)。
+  - 应急金「手填基线」`fixedBaseline` → `data-require-when="autoBaseline=false"`(仅选「手填」时必填,选「自动基线」不挡)· 新建 + 编辑两页一致。
+  - 自选股「从现金划转买入」`costBasis` → `data-require-when="deductCash=true"`(UI 早已写「划转买入时必填」却没强制,补上)。
+  - 宏观基准录入 CPI/M2 → `required`(空值无意义)。
+  - 成员编辑「显示名」→ `required maxlength=40`(原先仅新增有校验,编辑可清空提交)。
+- **刻意保持可选的**(审计后确认,不挂 required):entry 期初汇总收支(占位明写「留空=未填」)· 短信 AccessKey/密钥(「留空=不修改」增量更新设计)· 划转到账额 `toAmount`(仅跨币种填)· 角色标签 / 备注 / 成员手机号 / 各类带默认值的运营参数。
+- 测试:mvn 263 · qa-run + `v09-FORM-1~6`(收支金额必填 / 条件必填助手就位 / 应急基线 + 划转成本条件必填 / 宏观必填 / 成员显示名必填)· beta 真机走查各表单空提交均被前置拦截。纯模板 + 1 处全站脚本,零 schema、向后兼容。
+
 ## [v0.9.2] · 2026-06-26
 
 > 填报/划转错误体验修复(自用记账时发现):错误提示被顶栏挡住看不见、空字段提交报裸 400 不可读。

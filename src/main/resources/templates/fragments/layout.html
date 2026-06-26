@@ -320,6 +320,36 @@
       window.showToast = showToast;
     })();
   </script>
+  <!-- 条件必填:<input data-require-when="控件名=值"> —— 同表单内名为「控件名」的控件当前值 == 值 时,该字段才 required。
+       radio 取 :checked 的 value;checkbox 勾选→其 value(默认 'true')未勾→'false';其它取 .value。
+       原生 required 由浏览器/HTMX 拦截提交。HTMX 换入的片段经 htmx:load 再绑(本站条件字段均为整页表单,绑定是冗余保险)。 -->
+  <script>
+    (function () {
+      function curVal(form, name) {
+        var r = form.querySelector('input[type="radio"][name="' + name + '"]:checked');
+        if (r) return r.value;
+        var c = form.querySelector('input[type="checkbox"][name="' + name + '"]');
+        if (c) return c.checked ? (c.value || 'true') : 'false';
+        var any = form.querySelector('[name="' + name + '"]');
+        return any ? any.value : null;
+      }
+      function wire(scope) {
+        (scope || document).querySelectorAll('[data-require-when]').forEach(function (el) {
+          if (el.__rqwWired) return; el.__rqwWired = true;
+          var spec = el.getAttribute('data-require-when').split('=');
+          var name = spec[0], want = spec.slice(1).join('=');
+          var form = el.closest('form'); if (!form) return;
+          function sync() { el.required = (curVal(form, name) === want); }
+          form.querySelectorAll('[name="' + name + '"]').forEach(function (ctrl) {
+            ctrl.addEventListener('change', sync);
+          });
+          sync();
+        });
+      }
+      document.addEventListener('DOMContentLoaded', function () { wire(document); });
+      if (document.body) document.body.addEventListener('htmx:load', function (e) { wire(e.target); });
+    })();
+  </script>
   <!-- v0.4.17 · 520 一日限定彩蛋 · 服务器时区 Asia/Shanghai 仅 05-20 注入 · 详 prd §21 -->
   <th:block th:replace="~{fragments/easter520 :: easter520(${nav != null ? nav.family : null})}"></th:block>
 </footer>

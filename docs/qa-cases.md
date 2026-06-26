@@ -1471,3 +1471,25 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 - 复用既有 `common.HomeController`(本就 `@GetMapping("/")`)加匿名分支 `me==null → "landing"`;**不新建同名控制器**(2026-06-25 曾误新建 `web.HomeController` → bean 名冲突致 beta 启动崩溃,见 tech-design 决策 108)。
 - `landing.html` 复用 `fragments/layout :: head`(自托管 tailwind/字体/css,零外部 CDN);截图落 `static/img/feature_summary_total.jpg` 不外链;全 inline SVG、无 emoji。
 - `SecurityConfig` permitAll 加精确 `"/"`(非 `/**`);`/login`、会话、登录成功跳转均不变;零 schema。
+
+---
+
+## v0.9.3 · 表单缺项前置拦截(全量审计 · FR-164 · 决策 113)
+
+> 背景:承接 v0.9.2 划转空字段拦截,扫遍全站写表单,把「缺必填项 → 发请求 → 拿 400 / 存脏数据」统一改成**客户端前置拦截**。必填挂原生 `required`;仅在某控件命中时才必填的,用新的 `data-require-when` 通用助手声明式挂载(命中外自动摘除,避免对隐藏/不适用字段误挂 required 卡死提交)。
+
+| Case | 校验 |
+|---|---|
+| v09-FORM-1 | entry 收入 + 支出金额均挂 `required`(空字段前置拦截 · 三个 cash-flow 表单各自独立、互不阻塞) |
+| v09-FORM-2 | 通用条件必填助手 `data-require-when` 就位于 layout footer(全站注入 · `curVal` 取 radio/checkbox/select 当前值,命中才 `el.required=true`) |
+| v09-FORM-3 | 应急金「手填基线」`fixedBaseline` 条件必填(`data-require-when="autoBaseline=false"`)· 新建 + 编辑两页一致;选「自动基线」时不挡 |
+| v09-FORM-4 | 自选股「从现金划转买入」`costBasis` 条件必填(`data-require-when="deductCash=true"`)· UI 早已写「划转买入时必填」,补上强制 |
+| v09-FORM-5 | 宏观基准录入 CPI/M2 挂 `required`(空值无意义) |
+| v09-FORM-6 | 成员编辑「显示名」挂 `required maxlength=40`(原仅新增有校验、编辑可清空提交) |
+
+> **刻意保持可选(审计后确认,不挂 required)**:entry 期初汇总收支(占位明写「留空=未填」)· 短信 AccessKey/密钥(「留空=不修改」增量更新设计)· 划转到账额 `toAmount`(仅跨币种填)· 角色标签 / 备注 / 成员手机号 / 各类带默认值的运营参数。把「故意可选」与「漏挂必填」区分清楚,是这次审计的核心结论。
+
+**实现要点 / 防回归**
+- `data-require-when="控件名=值"`:同表单内名为「控件名」的控件,radio 取 `:checked` 的 value、checkbox 勾选→其 value(默认 `'true'`)未勾→`'false'`、其它取 `.value`;== 指定值则该字段 `required`,否则摘除。`change` 时实时同步,HTMX `htmx:load` 再绑(本站条件字段均为整页表单,绑定是冗余保险)。
+- 原生 `required` 由浏览器 + HTMX 共同拦截提交(HTMX 尊重 HTML5 校验);`data-searchable` 下拉因 `display:none` 不可挂 required(会「not focusable」),靠默认选中首项保证非空。
+- 纯模板 + 1 处全站脚本,零 schema、向后兼容。

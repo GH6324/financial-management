@@ -2713,9 +2713,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '263 单元' "$RD/README.md" && grep -q '388' "$RD/README.md" \
+  && grep -q '263 单元' "$RD/README.md" && grep -q '394' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(263/388)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(263/394)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -2928,6 +2928,46 @@ RG_DASH=src/main/resources/templates/dashboard/_region.html
   && ! grep -q '/ Math.pow(1 + cpiMonthly' "$RG_DASH"; } \
   && log_ok "v09-CPI-1 净资产图 CPI 线为购买力保命线(锚×(1+cpi)^i),非名义折现" \
   || log_bad "v09-CPI-1 CPI 线口径错(疑回退到名义折现 v/(1+cpi)^i)" "see _region.html netWorthChart"
+
+# ── v09-FORM-* · 表单缺项前置拦截(全量审计 2026-06-26)·「缺表单项不许发请求」─────────────
+#   原则:必填字段挂原生 required(浏览器/HTMX 拦截);仅在某控件命中时才必填的用 data-require-when 通用助手。
+#   故意可选的不挂(entry 汇总「留空=未填」· SMS aksk「留空=不修改」· toAmount 跨币种才填 · roleLabel/note)。
+
+# v09-FORM-1 · entry 收入/支出 金额前置必填(空字段不发请求;三表单各自独立,互不阻塞)
+ROW=src/main/resources/templates/entry/_row.html
+{ grep -qE 'required[^>]*placeholder="\+收入"' "$ROW" && grep -qE 'required[^>]*placeholder="-支出"' "$ROW"; } \
+  && log_ok "v09-FORM-1 entry 收入+支出金额 required(空字段前置拦截)" \
+  || log_bad "v09-FORM-1 entry 收入/支出金额缺 required" "see entry/_row.html cash-flow forms"
+
+# v09-FORM-2 · 通用条件必填助手就位(data-require-when:某控件命中才 required)
+LAY=src/main/resources/templates/fragments/layout.html
+{ grep -q 'data-require-when' "$LAY" && grep -q 'el.required = (curVal' "$LAY"; } \
+  && log_ok "v09-FORM-2 通用条件必填助手 data-require-when 就位(footer 全站注入)" \
+  || log_bad "v09-FORM-2 缺 data-require-when 助手" "see layout.html footer fragment"
+
+# v09-FORM-3 · 应急金「手填基线」选中才必填(自动基线时不挡)· 新建+编辑两页一致
+{ grep -q 'name="fixedBaseline"[^>]*data-require-when="autoBaseline=false"' src/main/resources/templates/goals/new-emergency.html \
+  || grep -A1 'name="fixedBaseline"' src/main/resources/templates/goals/new-emergency.html | grep -q 'data-require-when="autoBaseline=false"'; } \
+  && { grep -q 'name="fixedBaseline"[^>]*data-require-when="autoBaseline=false"' src/main/resources/templates/goals/edit.html \
+    || grep -A1 'name="fixedBaseline"' src/main/resources/templates/goals/edit.html | grep -q 'data-require-when="autoBaseline=false"'; } \
+  && log_ok "v09-FORM-3 应急金手填基线条件必填(new-emergency + edit 均挂 data-require-when)" \
+  || log_bad "v09-FORM-3 应急金手填基线缺条件必填" "see goals/new-emergency.html · goals/edit.html fixedBaseline"
+
+# v09-FORM-4 · 自选股「从现金划转买入」勾选才必填买入成本(UI 已明示「划转买入时必填」)
+grep -qE 'name="costBasis"[^>]*data-require-when="deductCash=true"' src/main/resources/templates/stock/holding-new-auto.html \
+  && log_ok "v09-FORM-4 划转买入成本条件必填(deductCash 勾选才必填)" \
+  || log_bad "v09-FORM-4 划转买入成本缺条件必填" "see stock/holding-new-auto.html costBasis"
+
+# v09-FORM-5 · 宏观基准录入 CPI/M2 必填(空值无意义)
+INTG=src/main/resources/templates/admin/integrations.html
+{ grep -qE 'name="cpi"[^>]*required' "$INTG" && grep -qE 'name="m2"[^>]*required' "$INTG"; } \
+  && log_ok "v09-FORM-5 宏观录入 CPI/M2 required" \
+  || log_bad "v09-FORM-5 宏观录入 CPI/M2 缺 required" "see admin/integrations.html macro form"
+
+# v09-FORM-6 · 成员编辑「显示名」必填(原仅新增有,编辑可清空提交)
+grep -qE 'name="displayName" th:value="\$\{m.displayName\}"[^>]*required' src/main/resources/templates/admin/members.html \
+  && log_ok "v09-FORM-6 成员编辑显示名 required" \
+  || log_bad "v09-FORM-6 成员编辑显示名缺 required" "see admin/members.html 成员卡片 form"
 
 echo
 echo "═══════════════════════════════════════"

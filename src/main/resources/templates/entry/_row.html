@@ -142,7 +142,7 @@
           <input type="hidden" name="periodId" th:value="${period.id}">
           <input type="hidden" name="kind" value="INCOME">
           <input type="hidden" name="categoryCode" value="salary">
-          <input name="amount" type="number" step="0.01" placeholder="+收入" class="w-24 border border-rule bg-card px-2 py-1 font-mono text-xs">
+          <input name="amount" type="number" step="0.01" min="0.01" required placeholder="+收入" class="w-24 border border-rule bg-card px-2 py-1 font-mono text-xs">
           <button class="btn-paper text-[10px]">+收入</button>
         </form>
         <form th:hx-post="@{/entry/{id}/cash-flow(id=${row.account.id})}" th:hx-target="'#entry-block-' + ${row.account.id}" hx-swap="outerHTML" method="post" class="flex gap-1">
@@ -150,7 +150,7 @@
           <input type="hidden" name="periodId" th:value="${period.id}">
           <input type="hidden" name="kind" value="EXPENSE">
           <input type="hidden" name="categoryCode" value="consumption">
-          <input name="amount" type="number" step="0.01" placeholder="-支出" class="w-24 border border-rule bg-card px-2 py-1 font-mono text-xs">
+          <input name="amount" type="number" step="0.01" min="0.01" required placeholder="-支出" class="w-24 border border-rule bg-card px-2 py-1 font-mono text-xs">
           <button class="btn-paper text-[10px]">-支出</button>
         </form>
       </div>
