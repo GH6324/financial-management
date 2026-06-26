@@ -2,6 +2,19 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.9.1] · 2026-06-26
+
+> 落地页精修 + 对外门面打磨。参考 brew.sh / ohmyzsh.sh 改**居中单列**布局,加一组克制的微交互(全在晚清账册风内、无 emoji)。详见 [`prd/v0.9.md`](prd/v0.9.md) v0.9.1 段 / [`tech-design/v0.9.md`](tech-design/v0.9.md)。
+
+### Added / Changed
+
+- **居中单列重排**(FR-163):hero 居中(账册图标 → 标语 → 真实快速开始命令 → )→ 它解决什么(四问)→ 三支柱 → 工程数字带 → 截图 → 适合/不适合 → 页脚。中轴对齐,问题→解法衔接。
+- **8 个小巧思**:① GitHub 角标 + 悬停挥手(Tim Holman 式,染墨/纸色,`position:fixed` 对齐)② GitHub-Star 按钮(实时拉 star 数,0/失败优雅缺省)③ 进场错落浮现 ④ CTA 下划线生长 ⑤ 一键复制命令 ⑥ 纸张颗粒纹理 ⑦ 卡片悬停轻抬 ⑧ 数字带滚动。`prefers-reduced-motion` 静默、无 JS 不破。(朱印评审去掉。)
+- **「它解决什么」四问**:把面向群体(家庭 / 夫妻、钱散多处)与价值讲清楚;紧接三支柱即四问的答案。
+- **快速开始改真实 4 步**(不假装一键):`git clone` → `cd` → `bash deploy/docker-init.sh` → `docker compose up -d`,多行命令块一键复制。
+- **工程数字带(9 / 263 / 33 / 384)走「发版联动」**:`release-prod` skill preflight 新增**硬门**——版本=`prd/v0.*.md` 个数、迁移=`db/migration/V*.sql` 个数(自动算),单测/黑盒=README「N 单元 / N 黑盒回归」(发版本就更 README);landing 数字过时即 `die` 给出应改值。`qa-run v09-LAND-6` 同口径日常守护,SKILL.md 同步铁律。
+- 测试:mvn 263 · qa-run + `v09-LAND-5/6`(精修元素在 + 数字带联动)· beta 真机六项全绿、零 emoji。零 schema、向后兼容(仅模板 + skill + 文档)。
+
 ## [v0.9.0] · 2026-06-25
 
 > 根路径公开落地页:把首屏从「裸登录框」换成有品牌/说明/截图/开源链接的介绍页。既给项目对外门面,又消除 Chrome「Deceptive pages」误判的触发特征(`.top` 域 + token + 首屏裸登录)。详见 [`prd/v0.9.md`](prd/v0.9.md) / [`tech-design/v0.9.md`](tech-design/v0.9.md)。

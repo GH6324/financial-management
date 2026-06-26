@@ -1462,6 +1462,10 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v09-LAND-2 | 匿名 `GET /` 直接 200、**不再 302 `/login`**(裸登录触发特征消除 = 降钓鱼信号核心) |
 | v09-LAND-3 | 已登录 `GET /` → 302 `/dashboard`(沿用既有分流,老用户无感;新家庭仍走 onboarding) |
 | v09-LAND-4 | 回归:匿名 `GET /dashboard` 仍被拦去 `/login`(permitAll 只加了精确根 `/`,没放过头) |
+| v09-LAND-5 | v0.9.1 精修元素都在:GitHub 角标(`github-corner`/`octo-arm` 挥手)+ 真实 4 步命令块(`git clone`…`docker compose up -d`)+「它解决什么」四问 + 数字带(`data-stat`) |
+| v09-LAND-6 | 主页数字带**联动一致**:`data-stat` 的 version/tests/migrations/blackbox = 版本(`prd/v0.*.md` 个数)/ 单测(README「N 单元」)/ 迁移(`db/migration/V*.sql` 个数)/ 黑盒(README「N 黑盒回归」);过时即红(与 release skill 同口径) |
+
+> **v0.9.1 精修(8 小巧思 · 居中单列参考 brew/ohmyzsh)**:GitHub 角标挥手 / GitHub-Star 按钮 / 进场错落 / CTA 下划线 / 实时 star 数 / 纸张颗粒 / 卡片轻抬 / 数字滚动;朱印评审去掉。命令改真实 4 步(不假装一键)。**数字带 4 个数字走「发版联动」**:`release-prod` skill preflight 加硬门(版本/迁移自动算、单测/黑盒随 README),landing 过时则 `die`;`qa-run v09-LAND-6` 同口径日常守护。
 
 **实现要点 / 防回归**
 - 复用既有 `common.HomeController`(本就 `@GetMapping("/")`)加匿名分支 `me==null → "landing"`;**不新建同名控制器**(2026-06-25 曾误新建 `web.HomeController` → bean 名冲突致 beta 启动崩溃,见 tech-design 决策 108)。
