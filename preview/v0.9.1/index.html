@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v0.9.1 preview · 落地页精修(居中单列版 · 参考 brew.sh / ohmyzsh.sh)· 晚清账册风 · 无 emoji -->
+<!-- v0.9.1 preview · 居中单列(brew/ohmyzsh 范式)· 晚清账册风 · 无 emoji -->
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -20,43 +20,46 @@ tailwind.config = { theme: { extend: {
 }}}
 </script>
 <style>
-  :root{ --ink:#1A1714; --paper:#F4EFE6; --brass-deep:#8C6A33; --forest:#4F6B47; --rust:#9C4A2A;
+  :root{ --ink:#1A1714; --paper:#F4EFE6; --brass-deep:#8C6A33; --brass-soft:#E8D9B6; --rule:#C9BDA8; --forest:#4F6B47; --rust:#9C4A2A; --card:#FFFCF5; --card-soft:#FAF4E6; --ink-soft:#5C5147;
          --shadow-deep:0 2px 0 rgba(26,23,20,.04),0 24px 60px -32px rgba(26,23,20,.18); }
   body{ background:#F4EFE6; color:#1A1714; }
   a{ text-decoration:none; }
   .eyebrow{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:#8C6A33; }
-  /* g · 纸张颗粒纹理 */
   .grain{ position:fixed; inset:0; z-index:60; pointer-events:none; opacity:.045; mix-blend-mode:multiply;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
-  /* a · GitHub 角标挥手(position:fixed 固定右上角,严格对齐) */
   .github-corner{ position:fixed; top:0; right:0; z-index:70; line-height:0; }
   .github-corner:hover .octo-arm{ animation:octocat-wave 560ms ease-in-out; }
   @keyframes octocat-wave{ 0%,100%{transform:rotate(0)} 20%,60%{transform:rotate(-25deg)} 40%,80%{transform:rotate(10deg)} }
   @media(max-width:500px){ .github-corner:hover .octo-arm{animation:none} .github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out} }
-  /* d · 进场错落浮现 */
   @keyframes rise{ from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none} }
   .reveal{ opacity:0; animation:rise .7s cubic-bezier(.2,.6,.2,1) forwards; }
   @media(prefers-reduced-motion:reduce){ .reveal{opacity:1; animation:none} }
-  /* e · CTA 箭头 + 下划线生长 */
   .btn-arrow svg{ transition:transform .2s ease; }
   .btn-arrow:hover svg{ transform:translateX(4px); }
   .ulink{ background-image:linear-gradient(currentColor,currentColor); background-size:0% 1px; background-position:0 100%; background-repeat:no-repeat; transition:background-size .25s ease; }
   .ulink:hover{ background-size:100% 1px; }
-  /* h · 卡片悬停轻抬 */
   .pillar{ transition:transform .2s ease, box-shadow .2s ease; }
   .pillar:hover{ transform:translateY(-3px); box-shadow:var(--shadow-deep); }
-  /* c · 一键复制命令(居中突出条) */
-  .cmd-bar{ display:flex; align-items:center; justify-content:space-between; gap:1rem; background:#1A1714; color:#F4EFE6; padding:1rem 1.15rem; border-radius:8px; box-shadow:var(--shadow-deep); text-align:left; }
-  .cmd-line{ font-family:'JetBrains Mono',monospace; font-size:16px; overflow-x:auto; white-space:nowrap; }
-  .cmd-prompt{ color:#B08642; margin-right:.45rem; }
-  .cmd-copy{ flex-shrink:0; font-family:'JetBrains Mono',monospace; font-size:13px; color:#1A1714; background:#E8D9B6; border:0; border-radius:4px; padding:.5rem 1.05rem; cursor:pointer; transition:background .15s,color .15s; }
-  .cmd-copy:hover{ background:#B08642; color:#F4EFE6; }
+  /* 2 · GitHub Star 按钮(github 式) */
+  .ghstar{ display:inline-flex; align-items:center; gap:.4rem; border:1px solid var(--rule); border-radius:6px; padding:.32rem .65rem; font-size:13px; color:var(--ink); background:var(--card); transition:background .15s; }
+  .ghstar:hover{ background:var(--card-soft); }
+  .ghstar .ghstar-n{ font-family:'JetBrains Mono',monospace; font-weight:500; color:var(--brass-deep); padding-left:.45rem; margin-left:.1rem; border-left:1px solid var(--rule); }
+  .ghstar .ghstar-n:empty{ display:none; border:0; padding:0; margin:0; }
+  /* 3 · 多步命令块 */
+  .cmd-block{ position:relative; background:#1A1714; color:#F4EFE6; border-radius:8px; padding:1.1rem 1.2rem; text-align:left; box-shadow:var(--shadow-deep); }
+  .cmd-block pre{ margin:0; font-family:'JetBrains Mono',monospace; font-size:13.5px; line-height:1.75; overflow-x:auto; white-space:pre; }
+  .cmd-block .cmd-copy{ position:absolute; top:.65rem; right:.65rem; font-family:'JetBrains Mono',monospace; font-size:12px; color:#1A1714; background:#E8D9B6; border:0; border-radius:4px; padding:.3rem .7rem; cursor:pointer; transition:background .15s,color .15s; }
+  .cmd-block .cmd-copy:hover{ background:#B08642; color:#F4EFE6; }
+  /* 4 · 它解决什么 */
+  .q-item{ border-left:2px solid var(--brass-soft); padding-left:1.1rem; }
+  .q-item .q{ font-family:'Fraunces','Noto Serif SC',serif; font-size:1.18rem; color:var(--ink); }
+  .q-item .a{ font-size:.95rem; color:var(--ink-soft); margin-top:.3rem; }
 </style>
 </head>
 <body class="font-serif antialiased">
 <div class="grain"></div>
 
-<!-- a · GitHub 角标 -->
+<!-- GitHub 角标 -->
 <a href="https://github.com/LuoDi-Nate/financial-management" class="github-corner" aria-label="在 GitHub 查看源码">
   <svg width="80" height="80" viewBox="0 0 250 250" style="fill:#1A1714;color:#F4EFE6;display:block;border:0;" aria-hidden="true">
     <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
@@ -65,17 +68,20 @@ tailwind.config = { theme: { extend: {
   </svg>
 </a>
 
-<!-- 顶栏(极简) -->
+<!-- 顶栏(品牌中英 + Star 按钮 + 登录) -->
 <header class="relative z-10">
   <div class="max-w-[1080px] mx-auto px-6 py-4 flex items-center gap-3">
     <span class="font-display text-lg font-medium tracking-tight">家庭账房</span>
-    <a href="https://github.com/LuoDi-Nate/financial-management" class="ulink ml-auto text-sm text-ink-soft hover:text-ink">GitHub</a>
-    <span id="ghstar" class="hidden items-center gap-1 text-xs font-mono text-brass-deep border border-rule rounded-sm px-2 py-0.5">★ <span id="starnum">—</span></span>
+    <span class="eyebrow">Family Ledger</span>
+    <a href="https://github.com/LuoDi-Nate/financial-management" class="ghstar ml-auto" aria-label="在 GitHub 点 Star">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.5 2 2 6.6 2 12.2c0 4.5 2.9 8.3 6.8 9.6.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.4-3.4-1.4-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1 .8-.2 1.7-.3 2.5-.3s1.7.1 2.5.3c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5 3.9-1.3 6.8-5.1 6.8-9.6C22 6.6 17.5 2 12 2z"/></svg>
+      Star<span class="ghstar-n" id="starnum"></span>
+    </a>
     <a href="#" class="text-sm border border-rule px-4 py-1.5 rounded-sm text-ink hover:bg-card-soft">登录</a>
   </div>
 </header>
 
-<!-- Hero · 居中单列(参考 brew / ohmyzsh) -->
+<!-- Hero · 居中单列 -->
 <section class="text-center max-w-3xl mx-auto px-6 pt-16 md:pt-20 pb-12">
   <svg class="mx-auto reveal" style="animation-delay:0ms" width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="var(--brass-deep)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
   <div class="eyebrow mt-5 reveal" style="animation-delay:60ms">家 庭 账 房 · FAMILY LEDGER</div>
@@ -84,19 +90,21 @@ tailwind.config = { theme: { extend: {
     变成<span class="italic font-light text-brass-deep">一张只在你自己服务器上的</span>资产全局图。
   </h1>
   <p class="font-serif text-lg text-ink-soft mt-6 leading-relaxed reveal" style="animation-delay:180ms">
-    算得出真实年化,分得清「人赚的」和「钱赚的」;AI 帮你诊断持仓、看清风险、把再平衡落成下一步行动 —— 只解读,不荐产品、不预测涨跌。
+    算得出真实年化,分得清「人赚的」和「钱赚的」;AI 帮你诊断持仓、看清风险 —— 只解读,不荐产品、不预测涨跌。
   </p>
 
-  <!-- c · 安装命令(居中突出,brew 式焦点) -->
+  <!-- 3 · 真实快速开始(克隆即起,不假装一键) -->
   <div class="mt-9 reveal" style="animation-delay:240ms">
-    <div class="eyebrow mb-2">自 托 管 · 一 行 起</div>
-    <div class="cmd-bar mx-auto" style="max-width:40rem">
-      <span class="cmd-line"><span class="cmd-prompt">▸</span><code id="cmd-text">docker compose up -d</code></span>
+    <div class="eyebrow mb-2">快 速 开 始 · QUICK START</div>
+    <div class="cmd-block mx-auto" style="max-width:40rem">
       <button class="cmd-copy" onclick="copyCmd(event)">复制</button>
+      <pre><code id="cmd-text">git clone https://github.com/LuoDi-Nate/financial-management.git
+cd financial-management
+bash deploy/docker-init.sh
+docker compose up -d</code></pre>
     </div>
   </div>
 
-  <!-- 按钮居中 -->
   <div class="mt-7 flex flex-wrap justify-center gap-4 reveal" style="animation-delay:300ms">
     <a href="#" class="btn-arrow bg-ink text-paper px-7 py-3 rounded-sm hover:bg-brass-deep transition inline-flex items-center gap-2">
       登录账房 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
@@ -105,37 +113,31 @@ tailwind.config = { theme: { extend: {
   </div>
 </section>
 
-<!-- i · 社区/工程数字(ohmyzsh 式大数字一排,居中) -->
-<section class="stats border-y border-rule bg-card-soft relative z-10">
-  <div class="max-w-[1080px] mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-y-5 text-center">
-    <div><div class="font-display text-4xl text-ink"><span class="num" data-to="9">9</span></div><div class="eyebrow mt-1.5">个版本迭代</div></div>
-    <div><div class="font-display text-4xl text-ink"><span class="num" data-to="263">263</span></div><div class="eyebrow mt-1.5">单元测试</div></div>
-    <div><div class="font-display text-4xl text-ink"><span class="num" data-to="33">33</span></div><div class="eyebrow mt-1.5">数据库迁移</div></div>
-    <div><div class="font-display text-4xl text-ink"><span class="num" data-to="382">382</span></div><div class="eyebrow mt-1.5">黑盒回归断言</div></div>
+<!-- 4 · 它解决什么(面向群体 + 四问) -->
+<section class="max-w-2xl mx-auto px-6 pb-4 pt-2 relative z-10">
+  <div class="eyebrow text-center mb-3">它 解 决 什 么</div>
+  <h2 class="font-display text-2xl md:text-3xl font-medium text-center tracking-tight">你大概也在问这几个问题</h2>
+  <p class="text-center text-ink-soft mt-3 text-sm leading-relaxed">家庭资产散在 N 个渠道(银行 / 支付宝 / 券商 / 房产 / 房贷……),日常没系统记录:</p>
+  <div class="mt-8 space-y-6">
+    <div class="q-item"><div class="q">「我们家现在到底有多少钱?」</div><div class="a">散成 N 处,没人看得到全局。</div></div>
+    <div class="q-item"><div class="q">「这一年是变富了还是变穷了?」</div><div class="a">没有趋势,更别说扣掉通胀后真实购买力变没变。</div></div>
+    <div class="q-item"><div class="q">「攒下来的和投资赚的混一起,投资到底行不行?」</div><div class="a">分不清「人赚的」和「钱赚的」。</div></div>
+    <div class="q-item"><div class="q">「夫妻俩时间错开,谁来记?」</div><div class="a">缺一个全家共用、异步填报的载体。</div></div>
   </div>
 </section>
 
-<!-- 功能总览截图(居中,宽) -->
-<section class="max-w-5xl mx-auto px-6 py-16 relative z-10 text-center">
-  <div class="eyebrow mb-4">一 图 概 览 · 桌 面 与 移 动</div>
-  <div class="bg-card border border-rule p-3 inline-block w-full">
-    <img src="https://cdn.jsdelivr.net/gh/LuoDi-Nate/financial-management@master/docs/screenshots/feature_summary_total.jpg"
-         alt="家庭账房 · 功能总览(桌面 + 移动)" class="w-full rounded-sm" loading="lazy">
-  </div>
-</section>
-
-<!-- 三支柱(居中标题 + 三列卡,卡内容居中) -->
-<section class="max-w-5xl mx-auto px-6 pb-16 relative z-10">
+<!-- 三支柱(怎么解决) -->
+<section class="max-w-5xl mx-auto px-6 py-16 relative z-10">
   <div class="grid md:grid-cols-3 gap-px bg-rule border border-rule">
     <div class="pillar bg-card p-8 text-center">
       <svg class="mx-auto" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--brass-deep)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       <h3 class="font-display text-xl mt-4">月度快照记账</h3>
-      <p class="text-sm text-ink-soft mt-3 leading-relaxed">不是逐笔流水。每月十分钟,把银行、支付宝、券商、房产、房贷拍一张快照 —— 负担小到能长期坚持。</p>
+      <p class="text-sm text-ink-soft mt-3 leading-relaxed">不是逐笔流水。每月十分钟拍一张全家快照,全家共用、异步填报 —— 负担小到能长期坚持。</p>
     </div>
     <div class="pillar bg-card p-8 text-center">
       <svg class="mx-auto" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--forest)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>
       <h3 class="font-display text-xl mt-4">真实年化收益</h3>
-      <p class="text-sm text-ink-soft mt-3 leading-relaxed">XIRR / TWR 算真实回报,分得清工资攒的(人赚)和投资赚的(钱赚) —— 不是 App 给你看的那种数字。</p>
+      <p class="text-sm text-ink-soft mt-3 leading-relaxed">XIRR / TWR 算真实回报,分清工资攒的(人赚)和投资赚的(钱赚);净资产对比通胀,看真实购买力。</p>
     </div>
     <div class="pillar bg-card p-8 text-center">
       <svg class="mx-auto" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--rust)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
@@ -145,7 +147,26 @@ tailwind.config = { theme: { extend: {
   </div>
 </section>
 
-<!-- 适合 / 不适合(居中容器,列表左对齐易读) -->
+<!-- 工程数字带(ohmyzsh 式) -->
+<section class="stats border-y border-rule bg-card-soft relative z-10">
+  <div class="max-w-[1080px] mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-y-5 text-center">
+    <div><div class="font-display text-4xl text-ink"><span class="num" data-to="9">9</span></div><div class="eyebrow mt-1.5">个版本迭代</div></div>
+    <div><div class="font-display text-4xl text-ink"><span class="num" data-to="263">263</span></div><div class="eyebrow mt-1.5">单元测试</div></div>
+    <div><div class="font-display text-4xl text-ink"><span class="num" data-to="33">33</span></div><div class="eyebrow mt-1.5">数据库迁移</div></div>
+    <div><div class="font-display text-4xl text-ink"><span class="num" data-to="382">382</span></div><div class="eyebrow mt-1.5">黑盒回归断言</div></div>
+  </div>
+</section>
+
+<!-- 功能总览截图 -->
+<section class="max-w-5xl mx-auto px-6 py-16 relative z-10 text-center">
+  <div class="eyebrow mb-4">一 图 概 览 · 桌 面 与 移 动</div>
+  <div class="bg-card border border-rule p-3 w-full">
+    <img src="https://cdn.jsdelivr.net/gh/LuoDi-Nate/financial-management@master/docs/screenshots/feature_summary_total.jpg"
+         alt="家庭账房 · 功能总览(桌面 + 移动)" class="w-full rounded-sm" loading="lazy">
+  </div>
+</section>
+
+<!-- 适合 / 不适合 -->
 <section class="max-w-4xl mx-auto px-6 pb-16 relative z-10">
   <div class="grid md:grid-cols-2 gap-6">
     <div class="bg-card border border-rule p-7">
@@ -178,7 +199,7 @@ tailwind.config = { theme: { extend: {
   </div>
 </section>
 
-<!-- Footer CTA(居中) -->
+<!-- Footer CTA -->
 <footer class="max-w-3xl mx-auto px-6 py-16 text-center relative z-10">
   <h2 class="font-display text-3xl md:text-4xl font-medium tracking-tight">自托管一份,数据只待在你自己手里。</h2>
   <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
@@ -189,15 +210,11 @@ tailwind.config = { theme: { extend: {
 </footer>
 
 <script>
-// c · 复制命令
 function copyCmd(e){ var t=document.getElementById('cmd-text').textContent, b=e.currentTarget;
   var done=function(){ b.textContent='已复制'; setTimeout(function(){ b.textContent='复制'; },1500); };
   if(navigator.clipboard){ navigator.clipboard.writeText(t).then(done).catch(done); } else { done(); } }
-// f · 实时 star 数
 fetch('https://api.github.com/repos/LuoDi-Nate/financial-management').then(function(r){return r.json();}).then(function(d){
-  if(d && d.stargazers_count>0){ document.getElementById('starnum').textContent=d.stargazers_count;
-    var s=document.getElementById('ghstar'); s.classList.remove('hidden'); s.classList.add('inline-flex'); } }).catch(function(){});
-// i · 数字滚动
+  if(d && d.stargazers_count>0){ document.getElementById('starnum').textContent=d.stargazers_count; } }).catch(function(){});
 (function(){ var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(reduce||!('IntersectionObserver' in window)) return;
   document.querySelectorAll('.num').forEach(function(n){ n.textContent='0'; });
