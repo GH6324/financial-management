@@ -184,6 +184,126 @@
     <a th:href="@{/admin/product-categories}" class="font-mono text-[10px] tracking-wider text-brass-deep hover:underline no-underline whitespace-nowrap">→ MONEY_FUND 参考</a>
   </section>
 
+  <!-- v0.10 FR-165/166/167 · 本期「人赚 vs 钱赚」实时拆解 + 实时收支趋势
+       (补回 v0.4 砍到 /reports 的收支侧 · 实时形态 · 不恢复月均/双柱深度分析) -->
+  <section id="dash-cashflow" class="mb-10" style="scroll-margin-top:80px">
+
+    <!-- ① 本期拆解卡 -->
+    <div class="paper-card p-6 lg:p-7 mb-6">
+      <div class="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <div class="eyebrow mb-2">本 · 期 · 怎 · 么 · 变 · 的</div>
+          <div th:unless="${cashflowSplit.firstPeriod()}" class="flex items-baseline gap-3">
+            <span class="font-mono text-[11px] text-ink-subtle">本期净资产变化 ΔNW</span>
+            <span class="font-display text-3xl sm:text-4xl font-medium tnum"
+                  th:classappend="${cashflowSplit.deltaPos()} ? ' num-pos' : ' num-neg'"
+                  th:text="${cfDeltaLabel}">+¥28,200</span>
+          </div>
+        </div>
+        <div class="flex flex-col items-end gap-1.5">
+          <span class="pill pill-brass">本期 <span th:text="${#temporals.format(anchorPeriod.periodStart,'yyyy-MM')}">2026-06</span><span
+                th:if="${currentOpen != null and anchorPeriod != null and currentOpen.id == anchorPeriod.id}"> · 进行中</span></span>
+          <span th:if="${cashflowSplit.empty()}" class="pill pill-mute">本期未填收支</span>
+          <span th:if="${cashflowSplit.partial()}" class="pill"
+                style="background:rgba(180,120,40,.1);color:#9a6a1f;border:1px solid #c79338">已填
+            <span th:text="${cashflowSplit.filledMembers()}">1</span>/<span th:text="${cashflowSplit.totalMembers()}">5</span> · 收支可能不全</span>
+          <span th:if="${!cashflowSplit.empty() and !cashflowSplit.partial()}" class="pill pill-forest">已填
+            <span th:text="${cashflowSplit.filledMembers()}">3</span>/<span th:text="${cashflowSplit.totalMembers()}">3</span></span>
+        </div>
+      </div>
+
+      <!-- 首期:无上期 → 只显人赚 -->
+      <div th:if="${cashflowSplit.firstPeriod()}" class="mt-3">
+        <p class="font-mono text-[11px] text-ink-subtle" th:text="${cashflowSplit.narrative()}">首期无对比,暂不拆投资损益。</p>
+        <div th:unless="${cashflowSplit.empty()}" class="mt-2 flex items-baseline gap-3">
+          <span class="font-mono text-[11px] text-ink-soft">人赚(本期收入 − 支出)</span>
+          <span class="font-display text-2xl tnum" th:classappend="${cashflowSplit.renPos()} ? ' num-pos' : ' num-neg'" th:text="${cfRenLabel}">+¥12,000</span>
+        </div>
+      </div>
+
+      <!-- 空态(非首期):引导填报 · 投资侧仍可显 -->
+      <div th:if="${cashflowSplit.empty() and !cashflowSplit.firstPeriod()}" class="mt-4 p-5 text-center" style="border:1.5px dashed var(--rule)">
+        <h3 class="font-display text-lg mb-1">本期还没填收支</h3>
+        <p class="font-mono text-[11px] text-ink-subtle mb-3 max-w-md mx-auto">去填报页底部填一次本月收入支出(选填 · ~15 秒),系统自动拆「人赚 / 钱赚」,告诉你这个月的钱是省出来的还是赚出来的。</p>
+        <a th:href="@{/entry}" class="btn-ink no-underline inline-flex items-center gap-1.5">去填报
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+        <p class="font-mono text-[10px] text-ink-subtle mt-3">投资侧不受影响:钱赚(投资损益)
+          <b th:classappend="${cashflowSplit.qianPos()} ? ' num-pos' : ' num-neg'" th:text="${cfQianLabel}">+¥16,200</b></p>
+      </div>
+
+      <!-- 正常拆解(非空非首期):有符号双向条 + 两子卡 + 一句话 -->
+      <div th:if="${!cashflowSplit.empty() and !cashflowSplit.firstPeriod()}">
+        <div class="my-4 space-y-2">
+          <!-- 人赚 -->
+          <div class="flex items-center gap-3">
+            <span class="font-mono text-[11px] text-ink-soft w-16 sm:w-20 text-right">人赚</span>
+            <div class="relative flex-1 h-[22px] rounded-sm" style="background:rgba(201,189,168,.16)">
+              <div class="absolute left-1/2 top-[-3px] bottom-[-3px] w-px" style="background:var(--ink-subtle);opacity:.55"></div>
+              <i class="absolute top-[3px] h-4 rounded-sm" th:style="${cashflowSplit.renBarStyle()}"></i>
+            </div>
+            <span class="font-mono text-xs w-20 sm:w-24 tnum" th:classappend="${cashflowSplit.renPos()} ? ' num-pos' : ' num-neg'" th:text="${cfRenLabel}">+¥12,000</span>
+          </div>
+          <!-- 钱赚 -->
+          <div class="flex items-center gap-3">
+            <span class="font-mono text-[11px] text-ink-soft w-16 sm:w-20 text-right">钱赚</span>
+            <div class="relative flex-1 h-[22px] rounded-sm" style="background:rgba(201,189,168,.16)">
+              <div class="absolute left-1/2 top-[-3px] bottom-[-3px] w-px" style="background:var(--ink-subtle);opacity:.55"></div>
+              <i class="absolute top-[3px] h-4 rounded-sm" th:style="${cashflowSplit.qianBarStyle()}"></i>
+            </div>
+            <span class="font-mono text-xs w-20 sm:w-24 tnum" th:classappend="${cashflowSplit.qianPos()} ? ' num-pos' : ' num-neg'" th:text="${cfQianLabel}">+¥16,200</span>
+          </div>
+          <!-- ΔNW(=两条代数和)-->
+          <div class="flex items-center gap-3">
+            <span class="font-mono text-[11px] text-ink-soft w-16 sm:w-20 text-right">= ΔNW</span>
+            <div class="relative flex-1 h-[22px] rounded-sm" style="background:rgba(140,106,51,.10)">
+              <div class="absolute left-1/2 top-[-3px] bottom-[-3px] w-px" style="background:var(--ink);opacity:.6"></div>
+              <i class="absolute top-[3px] h-4 rounded-sm" th:style="${cashflowSplit.deltaBarStyle()}"></i>
+            </div>
+            <span class="font-mono text-xs w-20 sm:w-24 tnum" th:classappend="${cashflowSplit.deltaPos()} ? ' num-pos' : ' num-neg'" th:text="${cfDeltaLabel}">+¥28,200</span>
+          </div>
+          <div class="font-mono text-[9px] text-ink-subtle text-center pt-0.5">零线居中 · 向右为增(绿)· 向左为减(赭)</div>
+        </div>
+
+        <p class="font-mono text-[11px] text-ink-subtle mb-4" th:text="${cashflowSplit.narrative()}">存下的 + 投资一起把净资产推高了。</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-4" style="background:var(--card-soft);border-left:3px solid var(--forest)">
+            <div class="font-mono text-[10px] uppercase text-ink-soft tracking-wider">人赚 · 你主动存下的</div>
+            <div class="font-display text-2xl mt-1 tnum" th:classappend="${cashflowSplit.renPos()} ? ' num-pos' : ' num-neg'" th:text="${cfRenLabel}">+¥12,000</div>
+            <p class="font-mono text-[11px] text-ink-subtle mt-2">本期收入 <b class="num-pos" th:text="${cfIncomeLabel}">¥38,000</b> − 支出 <b class="num-neg" th:text="${cfExpenseLabel}">¥26,000</b></p>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1" th:text="${cashflowSplit.renPos()} ? '你能控制的那部分:挣得多、花得少,这个数就大。' : '这月花得比挣得多,人赚为负。'">你能控制的那部分</p>
+          </div>
+          <div class="p-4" style="background:var(--card-soft);border-left:3px solid var(--brass-deep)">
+            <div class="font-mono text-[10px] uppercase text-ink-soft tracking-wider">钱赚 · 钱替你赚的</div>
+            <div class="font-display text-2xl mt-1 tnum" th:classappend="${cashflowSplit.qianPos()} ? ' num-pos' : ' num-neg'" th:text="${cfQianLabel}">+¥16,200</div>
+            <p class="font-mono text-[11px] text-ink-subtle mt-2">投资损益 = 净资产变化里剔除收入后的纯回报</p>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1" th:text="${cashflowSplit.qianPos()} ? '市场给的那部分:房产/股票/理财的涨跌。' : '投资浮亏 / 回撤,市场这月没帮上忙。'">市场给的那部分</p>
+          </div>
+        </div>
+        <p class="font-mono text-[10px] text-ink-subtle mt-3">ΔNW = 人赚 + 钱赚 · 与上面「本月资产收益」同源(那个 KPI 剔除的"收入"就是这里的人赚)。</p>
+      </div>
+    </div>
+
+    <!-- ② 实时收支趋势(含进行中本月 · 区别于 /reports 已关账快照)-->
+    <div class="paper-card p-6 lg:p-7" th:if="${cashflowSeries != null and !cashflowSeries.isEmpty()}">
+      <div class="flex items-start justify-between flex-wrap gap-3 mb-3">
+        <div>
+          <div class="eyebrow mb-1">收 · 支 · 趋 · 势 · 实 · 时</div>
+          <p class="font-mono text-[10px] text-ink-subtle">含进行中的本月(最右浅色)· 报表的收支趋势只到上一已关账期。</p>
+        </div>
+        <div class="flex items-center gap-3 font-mono text-[10px] text-ink-soft flex-wrap">
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-sm" style="background:var(--forest)"></span>收入</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-sm" style="background:var(--rust)"></span>支出</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-sm" style="background:var(--brass-deep)"></span>净流入(人赚)</span>
+        </div>
+      </div>
+      <div class="h-[240px] sm:h-[300px]"><canvas id="cashflowTrendChart"></canvas></div>
+      <div class="flex justify-end mt-2">
+        <a th:href="@{/reports}" class="font-mono text-[10px] text-brass-deep hover:underline no-underline">看完整收支分析(月均 / 储蓄率 / 储蓄能力中位)→</a>
+      </div>
+    </div>
+  </section>
+
   <!-- v0.4 FR-61a · 净资产趋势 + CPI 对照线 + CPI 切换器 -->
   <section id="dash-trend" class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-10" style="scroll-margin-top:80px">
     <div class="paper-card p-6 lg:col-span-8">
@@ -391,7 +511,9 @@
         currency: [[${currency}]],
         // v0.4 FR-61a / v0.5 FR-75 · CPI 对照线(默认改真实剔极端值)· M2 社会财富线
         cpiAnnualPct: [[${cpiAssumption}]],
-        m2AnnualPct: [[${m2Assumption}]]
+        m2AnnualPct: [[${m2Assumption}]],
+        // v0.10 · 实时收支序列(含进行中本月)· [{label,income,expense,netInflow,live}]
+        cashflow: [[${cashflowSeries}]]
       };
       const ccySym = data.currency === 'USD' ? '$' : (data.currency === 'HKD' ? 'HK$' : '¥');
       const fmtMoney = (v) => {
@@ -570,6 +692,44 @@
                 ticks: { callback: (v) => fmtMoney(v), font: { size: window.innerWidth < 640 ? 8 : 11 } }
               },
               y: { grid: { display: false }, ticks: { font: { size: window.innerWidth < 640 ? 9 : 11 } } }
+            }
+          },
+          plugins: [ChartDataLabels]
+        });
+      }
+
+      // v0.10 · 实时收支趋势:收入/支出柱 + 净流入(人赚)线 · 含进行中本月(最右浅色)· datalabels 浮于数据上
+      const cf = data.cashflow || [];
+      const cfCanvas = document.getElementById('cashflowTrendChart');
+      if (cfCanvas && cf.length) {
+        const live = (i) => cf[i] && cf[i].live;
+        const incomeBg  = cf.map((p, i) => live(i) ? 'rgba(79,107,71,.40)'  : 'rgba(79,107,71,.85)');
+        const expenseBg = cf.map((p, i) => live(i) ? 'rgba(159,74,58,.38)'  : 'rgba(159,74,58,.78)');
+        window.financeCharts.cashflow = new Chart(cfCanvas, {
+          data: {
+            labels: cf.map(p => p.label + (p.live ? ' · 进行中' : '')),
+            datasets: [
+              {type: 'bar', label: '收入', data: cf.map(p => Number(p.income)), backgroundColor: incomeBg,
+                categoryPercentage: .62, barPercentage: .85,
+                datalabels: {anchor: 'end', align: 'end', color: '#2f5d50', font: {size: window.innerWidth < 640 ? 8 : 9}, formatter: (v) => Number(v) === 0 ? '' : fmtMoney(v)}},
+              {type: 'bar', label: '支出', data: cf.map(p => Number(p.expense)), backgroundColor: expenseBg,
+                categoryPercentage: .62, barPercentage: .85,
+                datalabels: {anchor: 'end', align: 'end', color: '#9c4a2a', font: {size: window.innerWidth < 640 ? 8 : 9}, formatter: (v) => Number(v) === 0 ? '' : fmtMoney(v)}},
+              {type: 'line', label: '净流入(人赚)', data: cf.map(p => Number(p.netInflow)), borderColor: '#7a5a39',
+                borderWidth: 2.5, tension: .3, pointRadius: 3, pointBackgroundColor: '#7a5a39', fill: false,
+                datalabels: {anchor: 'start', align: 'top', color: '#7a5a39', font: {size: window.innerWidth < 640 ? 8 : 9, weight: '500'}, formatter: (v) => fmtMoney(v)}}
+            ]
+          },
+          options: {
+            maintainAspectRatio: false,
+            layout: {padding: {top: 24, right: 12}},
+            plugins: {
+              legend: {display: false},
+              tooltip: {callbacks: {label: (ctx) => ctx.dataset.label + ': ' + fmtMoney(ctx.parsed.y)}}
+            },
+            scales: {
+              y: {grid: {color: 'rgba(58,48,42,.06)'}, ticks: {callback: (v) => fmtMoney(v), font: {size: window.innerWidth < 640 ? 9 : 11}}},
+              x: {grid: {display: false}, ticks: {font: {size: window.innerWidth < 640 ? 9 : 11}}}
             }
           },
           plugins: [ChartDataLabels]

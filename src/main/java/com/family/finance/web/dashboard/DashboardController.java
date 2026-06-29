@@ -134,6 +134,14 @@ public class DashboardController {
         List<AccountPerformance> accountRows = factViewService.accountPerformance(slice);
         List<Account> allAccounts = accountMapper.findActiveByFamily(me.getFamilyId());
         Period currentOpen = periodMapper.findCurrentOpen(me.getFamilyId()).orElse(null);
+        // v0.10 FR-165/166/167 · 本期「人赚 vs 钱赚」拆解 + 实时收支趋势(view 币种 · 含进行中本月)
+        com.family.finance.factview.CashflowBreakdown cfBreak =
+                factViewService.cashflowBreakdown(slice, slice.lastPeriodId());
+        int cfFilled = householdCashflowService.filledMembersForPeriod(slice.lastPeriodId());
+        int cfTotal = memberMapper.countActiveByFamily(me.getFamilyId());
+        CashflowSplitView cashflowSplit = CashflowSplitView.of(kpis.netWorthDelta(), cfBreak, cfFilled, cfTotal);
+        List<com.family.finance.factview.CashflowPoint> cashflowSeries =
+                factViewService.cashflowSeries(slice, 6, currentOpen == null ? null : currentOpen.getId());
         // v0.8 FR-145:MoM/YoY 用 [as-of−12, as-of] 最小窗口算,与显示窗口解耦,缺对比期显数据不足
         com.family.finance.factview.MomYoy momYoy = factViewService.momYoy(new FactFilter(
                 me.getFamilyId(), family.getPeriodType(),
@@ -187,6 +195,14 @@ public class DashboardController {
         int[] filled = householdCashflowService.filledMonthRatio(me.getFamilyId());
         model.addAttribute("cashflowFilled", filled[0]);
         model.addAttribute("cashflowTotal", filled[1]);
+        // v0.10 · 本期拆解卡 + 实时收支趋势(金额按 view 币种符号预格式化,结构/符号/宽度走视图模型)
+        model.addAttribute("cashflowSplit", cashflowSplit);
+        model.addAttribute("cashflowSeries", cashflowSeries);
+        model.addAttribute("cfDeltaLabel", moneyDelta(viewCurrency, cashflowSplit.deltaNetWorth()));
+        model.addAttribute("cfRenLabel", moneyDelta(viewCurrency, cashflowSplit.renZhuan()));
+        model.addAttribute("cfQianLabel", moneyDelta(viewCurrency, cashflowSplit.qianZhuan()));
+        model.addAttribute("cfIncomeLabel", money(viewCurrency, cashflowSplit.income()));
+        model.addAttribute("cfExpenseLabel", money(viewCurrency, cashflowSplit.expense()));
 
         model.addAttribute("trend", trend);
         model.addAttribute("allocation", allocation);

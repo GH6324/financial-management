@@ -2713,9 +2713,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '263 单元' "$RD/README.md" && grep -q '394' "$RD/README.md" \
+  && grep -q '275 单元' "$RD/README.md" && grep -q '398' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(263/394)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(275/398)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -2968,6 +2968,34 @@ INTG=src/main/resources/templates/admin/integrations.html
 grep -qE 'name="displayName" th:value="\$\{m.displayName\}"[^>]*required' src/main/resources/templates/admin/members.html \
   && log_ok "v09-FORM-6 成员编辑显示名 required" \
   || log_bad "v09-FORM-6 成员编辑显示名缺 required" "see admin/members.html 成员卡片 form"
+
+# ── v10-CASHFLOW-* · 仪表盘「人赚 vs 钱赚」实时拆解 + 实时收支趋势(FR-165~167)─────────────
+RG=src/main/resources/templates/dashboard/_region.html
+
+# v10-CASHFLOW-1 · 新 section 在 + 长文目录(tocItems)同步锚点(改 section 必同步目录的纪律)
+{ grep -q 'id="dash-cashflow"' "$RG" \
+  && grep -q "href:'#dash-cashflow'" src/main/resources/templates/dashboard/index.html; } \
+  && log_ok "v10-CASHFLOW-1 dash-cashflow section + 长文目录锚点同步" \
+  || log_bad "v10-CASHFLOW-1 section 或 TOC 锚点缺失" "see _region.html / dashboard/index.html tocItems"
+
+# v10-CASHFLOW-2 · 三态文案钩子(空态CTA / 半填诚实 / 首期)+ 有符号双向条
+{ grep -q '本期还没填收支' "$RG" && grep -q '收支可能不全' "$RG" \
+  && grep -q 'cashflowSplit.firstPeriod()' "$RG" \
+  && grep -q 'cashflowSplit.renBarStyle()' "$RG"; } \
+  && log_ok "v10-CASHFLOW-2 三态(空/半填/首期)文案 + 双向条钩子在" \
+  || log_bad "v10-CASHFLOW-2 三态或双向条钩子缺失" "see _region.html dash-cashflow"
+
+# v10-CASHFLOW-3 · 实时收支趋势 canvas + 序列注入 + datalabels(数值浮于数据上,非 hover)
+{ grep -q 'id="cashflowTrendChart"' "$RG" && grep -q 'cashflowSeries' "$RG" \
+  && grep -q 'financeCharts.cashflow' "$RG" && grep -q 'datalabels' "$RG"; } \
+  && log_ok "v10-CASHFLOW-3 收支趋势 canvas + series + datalabels" \
+  || log_bad "v10-CASHFLOW-3 趋势图钩子缺失" "see _region.html cashflowTrendChart"
+
+# v10-CASHFLOW-4 · 装配/同源:控制器装配 + 钱赚=ΔNW−人赚(卡内恒等,不与「本月资产收益」打架)
+{ grep -q 'cashflowSplit' src/main/java/com/family/finance/web/dashboard/DashboardController.java \
+  && grep -q 'deltaNetWorth.subtract(ren)' src/main/java/com/family/finance/web/dashboard/CashflowSplitView.java; } \
+  && log_ok "v10-CASHFLOW-4 控制器装配 + 钱赚=ΔNW−人赚 同源恒等" \
+  || log_bad "v10-CASHFLOW-4 装配或同源恒等缺失" "see DashboardController / CashflowSplitView"
 
 echo
 echo "═══════════════════════════════════════"

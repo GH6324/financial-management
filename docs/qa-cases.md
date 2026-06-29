@@ -1493,3 +1493,31 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 - `data-require-when="控件名=值"`:同表单内名为「控件名」的控件,radio 取 `:checked` 的 value、checkbox 勾选→其 value(默认 `'true'`)未勾→`'false'`、其它取 `.value`;== 指定值则该字段 `required`,否则摘除。`change` 时实时同步,HTMX `htmx:load` 再绑(本站条件字段均为整页表单,绑定是冗余保险)。
 - 原生 `required` 由浏览器 + HTMX 共同拦截提交(HTMX 尊重 HTML5 校验);`data-searchable` 下拉因 `display:none` 不可挂 required(会「not focusable」),靠默认选中首项保证非空。
 - 纯模板 + 1 处全站脚本,零 schema、向后兼容。
+
+---
+
+## v0.10 · 仪表盘「人赚 vs 钱赚」实时拆解 + 实时收支趋势(FR-165~167 · 决策 114-120)
+
+> 背景:实时仪表盘此前只显「钱赚」侧(投资收益/财富水位),「人赚」侧(收入/支出/净流入)在 v0.4 被搬去 `/reports` 储蓄区(已关账快照,不含本月)。本版把 `ΔNW = 人赚 + 钱赚` 的人赚那一刻拆解 + 实时收支趋势补回首页。三个核心数复用现成 `KpiSnapshot`,零新增计算、零 schema。
+
+| Case | 校验 |
+|---|---|
+| v10-CASHFLOW-1 | 新 `<section id="dash-cashflow">` 在,且 dashboard 长文目录 `tocItems` 同步了 `#dash-cashflow` 锚点(改 section 必同步目录的纪律) |
+| v10-CASHFLOW-2 | 三态文案钩子在:空态 CTA「本期还没填收支」+ 半填诚实「收支可能不全」+ 首期分支 + 有符号双向条(`renBarStyle`) |
+| v10-CASHFLOW-3 | 实时收支趋势 canvas(`cashflowTrendChart`)+ 序列注入(`cashflowSeries`)+ datalabels(数值浮于柱顶/数据点,非 hover) |
+| v10-CASHFLOW-4 | 控制器装配 `cashflowSplit` + 钱赚 = ΔNW − 人赚(`deltaNetWorth.subtract(ren)`)卡内恒等,不与「本月资产收益」打架 |
+
+**单测(JUnit · 12 个)**
+- `CashflowSplitViewTest`(7):四象限符号 `(+,+)/(+,−)/(−,+)/(−,−)` 文案与正负、首期只显人赚、空/半填三态、双向条宽度比例。
+- `CashflowBreakdownTest`(3):PMC 优先盖过 cash_flow、PMC 空回退 cash_flow、null 期返回 0。
+- `CurrencyInvarianceTest`(+2):三视图币种下 `人赚+钱赚==ΔNW` 恒等、比例与条宽币种无关、金额按 fx 缩放、`收入−支出==人赚` 同源;实时序列 live 标记 + 与 breakdown 一致。
+
+> **有符号双向条(回应评审)**:人赚、钱赚各自可正可负,零基线居中、正右(绿)负左(赭),长度 ∝ |值|÷三者最大绝对值;四象限统一一套画法、不特判;一句话文案随象限自适应;首期(无上期 → ΔNW/钱赚不可算)只显人赚。
+
+> **完整度诚实**:收支选填,PMC 成员级 `已填 N/M`;空态(0 填)引导填报但投资侧(钱赚)仍显(不依赖收支);半填挂琥珀 pill +「人赚是下限」。
+
+**实现要点 / 防回归**
+- `cashflowBreakdown` 与 `pmcFirstNetInflow`(人赚口径)**同源同分支**(PMC 优先 ×`baseToViewFactor` → view;空回退 account cash_flow),保证「收入−支出==人赚」、与 KPI 同口径。
+- **不挂 metric-pref 开关**(决策 119):dashboard section 本就不受指标开关控制;且 `enabled` 的 `defaultOn` 仅整份 prefs 为空时生效,挂门会让老家庭升级后看不到 → section 无条件渲染、零兼容坑。
+- 趋势复用既有 `chartjs-plugin-datalabels`;含进行中本月(最右浅色)= 区别于 `/reports` 已关账快照。
+- 纯展示 + 两个只读 service 方法 + 视图模型,零 schema、向后兼容。

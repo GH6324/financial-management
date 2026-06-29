@@ -126,6 +126,55 @@ public class FactViewServiceImpl implements FactViewService {
     }
 
     /**
+     * v0.10 · 某期毛收入/毛支出/净流入(人赚)· viewCurrency。
+     *
+     * <p>与 {@link #pmcFirstNetInflow} <b>同源同分支</b>:PMC(成员两框收支 · 本位币存)有人填则
+     * 各分量 ×{@code baseToViewFactor};否则回退 account cash_flow(incomeBase/expenseBase 已 view)。
+     * 故 {@code income − expense == 净流入}、且与 KPI 的人赚(lastNetInflow)同口径。</p>
+     */
+    @Override
+    public CashflowBreakdown cashflowBreakdown(FactSlice slice, Long periodId) {
+        if (periodId == null) {
+            return new CashflowBreakdown(zero(), zero(), zero());
+        }
+        BigDecimal income;
+        BigDecimal expense;
+        var pmc = periodMemberCashflowMapper.findFamilyAggregateForPeriod(periodId).orElse(null);
+        if (pmc != null && pmc.filledMembers() != null && pmc.filledMembers() > 0) {
+            BigDecimal factor = baseToViewFactor(slice);
+            BigDecimal inc = pmc.totalIncome() == null ? BigDecimal.ZERO : pmc.totalIncome();
+            BigDecimal exp = pmc.totalExpense() == null ? BigDecimal.ZERO : pmc.totalExpense();
+            income = inc.multiply(factor).setScale(2, RoundingMode.HALF_EVEN);
+            expense = exp.multiply(factor).setScale(2, RoundingMode.HALF_EVEN);
+        } else {
+            income = periodIncome(slice, periodId);
+            expense = periodExpense(slice, periodId);
+        }
+        BigDecimal net = income.subtract(expense).setScale(2, RoundingMode.HALF_EVEN);
+        return new CashflowBreakdown(income, expense, net);
+    }
+
+    /**
+     * v0.10 · 近 n 期收支序列(view 币种 · 含进行中 OPEN 期)。
+     * livePeriodId 命中的点标 live(进行中);各点收支口径 == cashflowBreakdown(与卡片人赚同源)。
+     */
+    @Override
+    public List<CashflowPoint> cashflowSeries(FactSlice slice, int n, Long livePeriodId) {
+        List<Long> ids = slice.periodIds();
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        int from = Math.max(0, ids.size() - n);
+        List<CashflowPoint> out = new ArrayList<>();
+        for (Long pid : ids.subList(from, ids.size())) {
+            CashflowBreakdown b = cashflowBreakdown(slice, pid);
+            out.add(new CashflowPoint(pid, label(slice, pid), b.income(), b.expense(), b.netInflow(),
+                    Objects.equals(pid, livePeriodId)));
+        }
+        return out;
+    }
+
+    /**
      * v0.4.2 助手 · v0.5 FR-84 改:某 period 家庭净流入(人赚的)· 委托 PMC 优先口径。
      * (原只读 account cash_flow → 用户工资填 PMC 时净流入恒为 0 的 bug · 详 prd/v0.5.md FR-84)
      */

@@ -17,6 +17,18 @@ public interface FactViewService {
 
     List<WaterfallSegment> incomeExpenseWaterfall(FactSlice slice);
 
+    /**
+     * v0.10 · 某期家庭毛收入/毛支出/净流入(人赚)· viewCurrency。
+     * 与人赚(lastNetInflow)同源同分支(PMC 优先 · 空回退 cash_flow),保证 income−expense==净流入。
+     */
+    CashflowBreakdown cashflowBreakdown(FactSlice slice, Long periodId);
+
+    /**
+     * v0.10 · 近 n 期收支序列(view 币种 · 含进行中 OPEN 期)· 给仪表盘实时收支趋势用。
+     * livePeriodId 命中的点标 live=true(进行中);传 null 则无 live 标记。
+     */
+    List<CashflowPoint> cashflowSeries(FactSlice slice, int n, Long livePeriodId);
+
     BigDecimal savingsRate(FactSlice slice);
 
     Map<Long, BigDecimal> accountXirr(FactSlice slice);

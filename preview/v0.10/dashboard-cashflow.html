@@ -31,10 +31,20 @@
     .kpi-delta{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-subtle);margin-top:6px;letter-spacing:.04em}
     .num-pos{color:var(--forest)} .num-neg{color:var(--rust)}
     /* 人赚/钱赚 拆解 */
-    .split{display:flex;height:30px;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:14px 0}
-    .split i{display:flex;align-items:center;justify-content:center;height:100%;font-family:"JetBrains Mono",monospace;font-size:11px;color:#fff;letter-spacing:.04em}
-    .split .ren{background:var(--forest)}
-    .split .qian{background:var(--brass-deep)}
+    /* 有符号双向条:零基线居中,+ 向右(forest)/ − 向左(rust),长度 ∝ |值|/三者最大绝对值。
+       四种符号组合(++ / +- / -+ / --)统一一套画法,不特判。颜色只编码正负,身份靠行标签。 */
+    .dwrap{margin:14px 0 6px}
+    .drow{display:flex;align-items:center;gap:10px;margin:7px 0}
+    .drow .dname{width:96px;text-align:right;font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);display:flex;align-items:center;justify-content:flex-end;gap:5px}
+    .dtrack{flex:1;position:relative;height:22px;background:rgba(201,189,168,.16);border-radius:2px}
+    .dtrack::before{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--ink-subtle);opacity:.55}
+    .dbar{position:absolute;top:3px;height:16px;border-radius:2px}
+    .dbar.pos{left:50%;background:var(--forest)}
+    .dbar.neg{right:50%;background:var(--rust)}
+    .dbar.net{opacity:.92;background:var(--ink)}
+    .dtrack.delta{background:rgba(140,106,51,.10)}
+    .drow .dval{width:96px;font-family:"JetBrains Mono",monospace;font-size:12px}
+    .zerolab{display:flex;justify-content:center;font-family:"JetBrains Mono",monospace;font-size:8.5px;color:var(--ink-subtle);letter-spacing:.1em;margin-top:2px}
     .breakcard{border:1px solid var(--rule);background:var(--card-soft);padding:16px}
     .breakcard .lab{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);display:flex;align-items:center;gap:6px}
     .breakcard .big{font-family:"Fraunces",serif;font-size:30px;font-weight:500;line-height:1.1;margin-top:6px}
@@ -85,10 +95,18 @@
       </div>
     </div>
 
-    <!-- 人赚 / 钱赚 占比条(datalabel 浮在段上) -->
-    <div class="split">
-      <i class="ren" style="width:42.6%">人赚 43%</i>
-      <i class="qian" style="width:57.4%">钱赚 57%</i>
+    <!-- 有符号双向条(完整态 = 人赚+ / 钱赚+ → 都在零线右侧)。零线居中,+右−左,长度 ∝ |值|/max。 -->
+    <div class="dwrap">
+      <div class="drow"><span class="dname"><span class="swatch" style="background:var(--forest)"></span>人赚</span>
+        <div class="dtrack"><i class="dbar pos" style="width:21.3%"></i></div>
+        <span class="dval num-pos tnum">+¥12,000</span></div>
+      <div class="drow"><span class="dname"><span class="swatch" style="background:var(--forest)"></span>钱赚</span>
+        <div class="dtrack"><i class="dbar pos" style="width:28.7%"></i></div>
+        <span class="dval num-pos tnum">+¥16,200</span></div>
+      <div class="drow"><span class="dname">= ΔNW</span>
+        <div class="dtrack delta"><i class="dbar net pos" style="width:50%"></i></div>
+        <span class="dval num-pos tnum">+¥28,200</span></div>
+      <div class="zerolab">↑ 零线居中 · 向右为增(绿)· 向左为减(赭)</div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -127,6 +145,57 @@
       <a href="#" class="annot" style="color:var(--brass-deep)">看完整收支分析(月均 / 储蓄率 / 储蓄能力中位)→ /reports#savings</a>
     </div>
   </section>
+
+  <!-- ═════════ 亏损 / 混合符号:同一套双向条,四种组合统一画 ═════════ -->
+  <div class="seclabel inline-block mb-3">亏损 / 混合符号 · 人赚、钱赚各自可正可负 · 双向条统一处理(回应评审问题)</div>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-4">
+
+    <!-- (+,−) 投资回撤吃掉储蓄 -->
+    <section class="paper-card p-5">
+      <div class="kpi-eyebrow" style="color:var(--brass-deep)">+ / − · 投 资 回 撤</div>
+      <div class="flex items-baseline gap-2 mt-1 mb-1">
+        <span class="annot">ΔNW</span><span class="font-display text-2xl font-medium num-neg tnum">−¥8,000</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--rust)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+      </div>
+      <p class="note mb-2">存下了钱,但投资回撤吃掉得更多 → 净资产仍缩水。</p>
+      <div class="dwrap" style="margin:6px 0 2px">
+        <div class="drow"><span class="dname">人赚</span><div class="dtrack"><i class="dbar pos" style="width:30%"></i></div><span class="dval num-pos tnum">+¥12,000</span></div>
+        <div class="drow"><span class="dname">钱赚</span><div class="dtrack"><i class="dbar neg" style="width:50%"></i></div><span class="dval num-neg tnum">−¥20,000</span></div>
+        <div class="drow"><span class="dname">= ΔNW</span><div class="dtrack delta"><i class="dbar net neg" style="width:20%"></i></div><span class="dval num-neg tnum">−¥8,000</span></div>
+      </div>
+    </section>
+
+    <!-- (−,+) 超支但投资补上 -->
+    <section class="paper-card p-5">
+      <div class="kpi-eyebrow" style="color:var(--brass-deep)">− / + · 超 支 靠 投 资</div>
+      <div class="flex items-baseline gap-2 mt-1 mb-1">
+        <span class="annot">ΔNW</span><span class="font-display text-2xl font-medium num-pos tnum">+¥7,000</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--forest)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+      </div>
+      <p class="note mb-2">这月超支(人赚为负),靠投资收益补上还有结余。</p>
+      <div class="dwrap" style="margin:6px 0 2px">
+        <div class="drow"><span class="dname">人赚</span><div class="dtrack"><i class="dbar neg" style="width:15%"></i></div><span class="dval num-neg tnum">−¥3,000</span></div>
+        <div class="drow"><span class="dname">钱赚</span><div class="dtrack"><i class="dbar pos" style="width:50%"></i></div><span class="dval num-pos tnum">+¥10,000</span></div>
+        <div class="drow"><span class="dname">= ΔNW</span><div class="dtrack delta"><i class="dbar net pos" style="width:35%"></i></div><span class="dval num-pos tnum">+¥7,000</span></div>
+      </div>
+    </section>
+
+    <!-- (−,−) 双降 -->
+    <section class="paper-card p-5" style="border-color:var(--rust)">
+      <div class="kpi-eyebrow" style="color:var(--rust)">− / − · 双 双 下 行</div>
+      <div class="flex items-baseline gap-2 mt-1 mb-1">
+        <span class="annot">ΔNW</span><span class="font-display text-2xl font-medium num-neg tnum">−¥13,000</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--rust)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+      </div>
+      <p class="note mb-2">超支 + 投资双双下行 → 净资产明显缩水。两条都在左侧。</p>
+      <div class="dwrap" style="margin:6px 0 2px">
+        <div class="drow"><span class="dname">人赚</span><div class="dtrack"><i class="dbar neg" style="width:11.5%"></i></div><span class="dval num-neg tnum">−¥3,000</span></div>
+        <div class="drow"><span class="dname">钱赚</span><div class="dtrack"><i class="dbar neg" style="width:38.5%"></i></div><span class="dval num-neg tnum">−¥10,000</span></div>
+        <div class="drow"><span class="dname">= ΔNW</span><div class="dtrack delta"><i class="dbar net neg" style="width:50%"></i></div><span class="dval num-neg tnum">−¥13,000</span></div>
+      </div>
+    </section>
+  </div>
+  <p class="note mb-10">规则统一:每条 = |值| ÷ 三者最大绝对值 × 半宽,正向右(forest)负向左(rust);ΔNW 那条天然 = 人赚条 + 钱赚条的代数和。首期无上期 → 钱赚(投资损益)不可算,此时只显人赚 + 提示「首期无对比」。</p>
 
   <!-- ═════════ 完整度诚实:空态 / 半填态 ═════════ -->
   <div class="seclabel inline-block mb-3">完整度诚实 · 收支是「选填」,绝不拿半截数据骗人</div>

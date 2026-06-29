@@ -2,6 +2,29 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.10.0] · 2026-06-29
+
+> 仪表盘补回「收支」那半边——以**实时**形态。承接「净资产变化 ΔNW = 人赚(你存下的)+ 钱赚(钱替你赚的)」主轴:此前实时仪表盘只显钱赚侧(投资收益/财富水位),人赚侧(收入/支出/净流入)在 v0.4 被搬去 `/reports` 储蓄区(已关账快照,不含本月)。本版把人赚那一刻的拆解 + 实时收支趋势补回首页。详见 [`prd/v0.10.md`](prd/v0.10.md) / [`tech-design/v0.10.md`](tech-design/v0.10.md)(决策 114–120)。
+
+### Added
+
+- **本期「人赚 vs 钱赚」实时拆解卡**(FR-165):`ΔNW = 人赚 + 钱赚`。三数复用现成 `KpiSnapshot`(netWorthDelta / lastNetInflow / monthlyPnlAmount),零新增计算。
+- **有符号双向条**(FR-165 · 评审强化):人赚、钱赚各自可正可负,零基线居中、正右(绿)负左(赭),长度 ∝ |值|÷三者最大绝对值;`(+,+)/(+,−)/(−,+)/(−,−)` 四象限统一一套画法,一句话文案随象限自适应。首期无上期 → 只显人赚。
+- **本期毛收入/支出明细 + 完整度诚实**(FR-166):新增 `FactViewService.cashflowBreakdown`,与人赚**同源同分支**(PMC 优先 · 空回退 cash_flow · view 币种),保证「收入−支出==人赚」;PMC 成员级 `已填 N/M` 三态——空态引导填报(投资侧仍显)、半填挂琥珀 pill 并注明「人赚是下限」、全填完整展示。
+- **实时收支趋势小图**(FR-167):新增 `FactViewService.cashflowSeries`,收入/支出柱 + 净流入(人赚)线,**含进行中本月**(最右浅色,区别于 `/reports` 已关账快照);数值用 datalabels 浮于柱顶/数据点上。
+- 新 `<section id="dash-cashflow">` 置于 KPI 带与净资产趋势之间;同步 dashboard 长文目录(`tocItems` + `_toc` + `toc.js`)新增「人赚 vs 钱赚」锚点。
+
+### 设计取舍
+
+- **不挂 metric-pref 开关**(决策 119 修订):dashboard 的 section 本就不受指标开关控制(只有 KPI 豆腐块/头部受控);且 `MetricPrefsService.enabled` 的 `defaultOn` 仅在「整份 prefs 为 null」时生效,已自定义过指标的老家庭升级后反而看不到新卡——故 section **无条件渲染**,与既有 section 一致、零兼容坑。
+- **不恢复** v0.4 砍掉的月均/储蓄率中位/收支双柱大图(留在 `/reports` 储蓄区);不做分类预算。
+
+### 防回归 / 兼容
+
+- 单测 +12:`CashflowSplitViewTest`(四象限/三态/双向条宽度)、`CashflowBreakdownTest`(PMC优先/回退/首期)、扩 `CurrencyInvarianceTest`(三币种 人赚+钱赚=ΔNW 恒等、比例不变、金额按 fx 缩放、收入−支出==人赚同源)。
+- 测试:mvn 263→**275** · qa-run +`v10-CASHFLOW-1~4`、黑盒 394→**398**(README/landing 数字带/release skill 同口径联动)。
+- **零 schema**、向后兼容:纯展示 section + 两个只读 service 方法 + 视图模型;不动既有 KPI 算法、不动 `/reports` 快照语义。
+
 ## [v0.9.3] · 2026-06-26
 
 > 表单提交全量审计:缺必填项一律**客户端前置拦截**,不再「发请求 → 拿 400 / 存了脏数据」。承接 v0.9.2 划转空字段拦截,扫遍全站写表单补齐。详见 [`prd/v0.9.md`](prd/v0.9.md) v0.9.3 段 / [`tech-design/v0.9.md`](tech-design/v0.9.md) 决策 113。

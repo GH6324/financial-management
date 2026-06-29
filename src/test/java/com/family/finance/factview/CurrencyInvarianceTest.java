@@ -11,6 +11,7 @@ import com.family.finance.repository.FactMapper;
 import com.family.finance.repository.FamilyMapper;
 import com.family.finance.repository.PeriodMemberCashflowMapper;
 import com.family.finance.service.ProductCategoryService;
+import com.family.finance.web.dashboard.CashflowSplitView;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -144,5 +145,63 @@ class CurrencyInvarianceTest {
         // 现值是金额 → 按因子缩放
         assertThat(usd1.currentValue()).as("账户现值按因子缩放")
                 .isEqualByComparingTo(cny1.currentValue().multiply(kUsd).setScale(2, RoundingMode.HALF_EVEN));
+    }
+
+    /**
+     * v0.10 护栏 · 「人赚 vs 钱赚」拆解的币种不变性 + 同源恒等。
+     * P2:家庭收入 8000 / 支出 3000 → 人赚 5000;ΔNW = 62000 − 50000 = 12000 → 钱赚 7000。
+     */
+    @Test
+    void cashflowSplit_decomposition_isCurrencyInvariant_andScales() {
+        BigDecimal kCny = BigDecimal.ONE, kUsd = bd("6.774"), kHkd = bd("0.147610");
+
+        CashflowBreakdown cny = svc().cashflowBreakdown(sliceFor(kCny, "CNY"), 102L);
+        CashflowBreakdown usd = svc().cashflowBreakdown(sliceFor(kUsd, "USD"), 102L);
+        CashflowBreakdown hkd = svc().cashflowBreakdown(sliceFor(kHkd, "HKD"), 102L);
+
+        // 毛收支(CNY 本位币视图)确为期望;income − expense == netInflow(同源恒等)
+        assertThat(cny.income()).isEqualByComparingTo(bd("8000"));
+        assertThat(cny.expense()).isEqualByComparingTo(bd("3000"));
+        assertThat(cny.netInflow()).isEqualByComparingTo(bd("5000"));
+        assertThat(cny.income().subtract(cny.expense())).isEqualByComparingTo(cny.netInflow());
+        // 净流入 == KPI 的人赚(lastNetInflow)· 卡片不会和「本月资产收益」对不上
+        assertThat(cny.netInflow()).isEqualByComparingTo(kpisFor(kCny, "CNY").lastNetInflow());
+
+        // 金额按 fx 因子精确缩放
+        assertThat(usd.income()).isEqualByComparingTo(cny.income().multiply(kUsd).setScale(2, RoundingMode.HALF_EVEN));
+        assertThat(usd.expense()).isEqualByComparingTo(cny.expense().multiply(kUsd).setScale(2, RoundingMode.HALF_EVEN));
+        assertThat(usd.netInflow()).isEqualByComparingTo(cny.netInflow().multiply(kUsd).setScale(2, RoundingMode.HALF_EVEN));
+        assertThat(hkd.netInflow()).isEqualByComparingTo(cny.netInflow().multiply(kHkd).setScale(2, RoundingMode.HALF_EVEN));
+
+        // 视图模型:人赚 + 钱赚 == ΔNW(各币种内恒等);钱赚 == monthlyPnlAmount(同源)
+        KpiSnapshot kc = kpisFor(kCny, "CNY"), ku = kpisFor(kUsd, "USD");
+        CashflowSplitView vc = CashflowSplitView.of(kc.netWorthDelta(), cny, 2, 2);
+        CashflowSplitView vu = CashflowSplitView.of(ku.netWorthDelta(), usd, 2, 2);
+        assertThat(vc.renZhuan().add(vc.qianZhuan())).as("CNY 人赚+钱赚=ΔNW").isEqualByComparingTo(kc.netWorthDelta());
+        assertThat(vu.renZhuan().add(vu.qianZhuan())).as("USD 人赚+钱赚=ΔNW").isEqualByComparingTo(ku.netWorthDelta());
+        assertThat(vc.qianZhuan()).as("钱赚==本月投资损益").isEqualByComparingTo(kc.monthlyPnlAmount());
+
+        // 比例(人赚/ΔNW)币种无关 + 双向条宽度币种无关
+        assertThat(vu.renZhuan().divide(ku.netWorthDelta(), 6, RoundingMode.HALF_EVEN))
+                .as("人赚占比币种无关")
+                .isEqualByComparingTo(vc.renZhuan().divide(kc.netWorthDelta(), 6, RoundingMode.HALF_EVEN));
+        assertThat(vu.renWidth()).as("人赚条宽度币种无关").isEqualTo(vc.renWidth());
+        assertThat(vu.qianWidth()).as("钱赚条宽度币种无关").isEqualTo(vc.qianWidth());
+        assertThat(vu.deltaWidth()).isEqualTo(vc.deltaWidth());
+    }
+
+    /** v0.10 · 实时收支序列:含进行中本月(live 标记)· 口径与 cashflowBreakdown 一致。 */
+    @Test
+    void cashflowSeries_marksLivePeriod_andMatchesBreakdown() {
+        FactSlice s = sliceFor(BigDecimal.ONE, "CNY");
+        List<CashflowPoint> series = svc().cashflowSeries(s, 6, 102L);   // 102 = 进行中
+        assertThat(series).hasSize(2);
+        assertThat(series.get(0).live()).isFalse();
+        assertThat(series.get(1).live()).isTrue();
+        // 末点(P2)= cashflowBreakdown(102)
+        CashflowBreakdown p2 = svc().cashflowBreakdown(s, 102L);
+        assertThat(series.get(1).income()).isEqualByComparingTo(p2.income());
+        assertThat(series.get(1).expense()).isEqualByComparingTo(p2.expense());
+        assertThat(series.get(1).netInflow()).isEqualByComparingTo(p2.netInflow());
     }
 }

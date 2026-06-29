@@ -78,6 +78,14 @@ public class HouseholdCashflowService {
         return cashflowMapper.findFamilyAggregateRecent(familyId, limit);
     }
 
+    /** v0.10 · 指定期已填收支的成员数(PMC 成员级 · 给「人赚 vs 钱赚」卡完整度用)。periodId 空 → 0。 */
+    public int filledMembersForPeriod(Long periodId) {
+        if (periodId == null) return 0;
+        return cashflowMapper.findFamilyAggregateForPeriod(periodId)
+                .map(a -> a.filledMembers() == null ? 0 : a.filledMembers())
+                .orElse(0);
+    }
+
     private BigDecimal avgFromMemberCashflow(long familyId, boolean expense) {
         List<FamilyPeriodAggregate> recent = cashflowMapper.findFamilyAggregateRecent(familyId, LOOKBACK_PERIODS);
         if (recent.isEmpty()) return null;
