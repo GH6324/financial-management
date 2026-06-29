@@ -8,7 +8,7 @@
 <header th:replace="~{fragments/nav :: nav('dashboard', ${me}, ${nav})}"></header>
 
 <main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10"
-      th:with="tocItems=${ { {label:'概览',href:'#dashboard-region'}, {label:'资产洞察',href:'#dash-insight'}, {label:'人赚 vs 钱赚',href:'#dash-cashflow'}, {label:'净资产趋势',href:'#dash-trend'}, {label:'按成员分布',href:'#dash-member'}, {label:'按账户分布',href:'#dash-dist'}, {label:'账户列表',href:'#dash-list'} } }">
+      th:with="tocItems=${ { {label:'概览',href:'#dashboard-region'}, {label:'资产洞察',href:'#dash-insight'}, {label:'人赚 vs 钱赚',href:'#dash-cashflow'}, {label:'收支趋势',href:'#dash-cashflow-trend'}, {label:'净资产趋势',href:'#dash-trend'}, {label:'按成员分布',href:'#dash-member'}, {label:'按账户分布',href:'#dash-dist'}, {label:'账户列表',href:'#dash-list'} } }">
   <div class="toc-cols">
     <div class="toc-cols-main">
       <!-- v0.3 FR-50d · 目标进度条带(无目标显引导卡)· 在 region 外 · HTMX 刷新不重渲 -->

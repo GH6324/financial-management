@@ -3029,12 +3029,13 @@ esac
 #   ① 任何带 scroll-margin-top 的 section(dash-/checkup-/sec- 前缀)必须出现在对应页 tocItems(加了 section 忘加目录 → 红);
 #   ② 每个 tocItems 锚点必须有真实 id(删/改 section 留下死链 → 红)。
 _TT=src/main/resources/templates
-_tocof() { grep 'tocItems' "$_TT/$1" 2>/dev/null | grep -oE "href:'#[a-z0-9-]+'" | grep -oE '[a-z0-9-]+$'; }
+# 健壮提取(用 sed 捕获组,不靠 $ 锚点 —— href/id 结尾是引号,[a-z0-9-]+$ 在 GNU grep 下匹配不到)
+_tocof() { grep 'tocItems' "$_TT/$1" 2>/dev/null | grep -oE "href:'#[a-z0-9-]+'" | sed -E "s/.*#([a-z0-9-]+).*/\1/"; }
 _dashT=$(_tocof dashboard/index.html); _ckT=$(_tocof checkup/family.html); _rpT=$(_tocof reports/index.html)
 
 # v10-TOC-SYNC-1 · section → 目录(新增 section 漏加目录条目)
 tocmiss=""
-for id in $(grep -rhE 'scroll-margin-top' "$_TT"/ | grep -oE 'id="[a-z0-9-]+"' | grep -oE '[a-z0-9-]+$' | sort -u); do
+for id in $(grep -rhE 'scroll-margin-top' "$_TT"/ | grep -oE 'id="[a-z0-9-]+"' | sed -E 's/id="([a-z0-9-]+)"/\1/' | sort -u); do
   case "$id" in
     dash-*)    grep -qx "$id" <<<"$_dashT" || tocmiss="$tocmiss dashboard:#$id";;
     checkup-*) grep -qx "$id" <<<"$_ckT"   || tocmiss="$tocmiss checkup:#$id";;
@@ -3046,7 +3047,7 @@ done
   || log_bad "v10-TOC-SYNC-1 有 section 未加进对应页目录(漏维护)" "缺:$tocmiss · 去对应页 tocItems 补 {label,href}"
 
 # v10-TOC-SYNC-2 · 目录锚点 → 真实 id(死链)
-_allids=$(grep -rhoE 'id="[a-z0-9-]+"' "$_TT"/ | grep -oE '[a-z0-9-]+$' | sort -u)
+_allids=$(grep -rhoE 'id="[a-z0-9-]+"' "$_TT"/ | sed -E 's/id="([a-z0-9-]+)"/\1/' | sort -u)
 tocstale=""
 for a in $_dashT $_ckT $_rpT; do grep -qx "$a" <<<"$_allids" || tocstale="$tocstale #$a"; done
 [[ -z "$tocstale" ]] \

@@ -284,8 +284,8 @@
       </div>
     </div>
 
-    <!-- ② 实时收支趋势(含进行中本月 · 区别于 /reports 已关账快照)-->
-    <div class="paper-card p-6 lg:p-7" th:if="${cashflowSeries != null and !cashflowSeries.isEmpty()}">
+    <!-- ② 实时收支趋势(含进行中本月 · 区别于 /reports 已关账快照)· 独立目录锚点(v0.10.3)-->
+    <div id="dash-cashflow-trend" style="scroll-margin-top:80px" class="paper-card p-6 lg:p-7" th:if="${cashflowSeries != null and !cashflowSeries.isEmpty()}">
       <div class="flex items-start justify-between flex-wrap gap-3 mb-3">
         <div>
           <div class="eyebrow mb-1">收 · 支 · 趋 · 势 · 实 · 时</div>
