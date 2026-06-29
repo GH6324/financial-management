@@ -108,7 +108,8 @@ public class AssetInsightService {
             AssetInsight.LowRate lowRate = new AssetInsight.LowRate(
                     cashPct,
                     wl != null && wl.available() ? wl.realReturnPct() : null,
-                    wl != null && wl.available() ? wl.relativeReturnPct() : null);
+                    wl != null && wl.available() ? wl.relativeReturnPct() : null,
+                    wl != null && wl.available() ? wl.nominalGrowthPct() : null);
 
             int historyPeriods = trend == null ? 0 : trend.size();
 

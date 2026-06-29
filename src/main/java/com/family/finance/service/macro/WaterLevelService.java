@@ -75,6 +75,7 @@ public class WaterLevelService {
                 labels, nominal, cpiLine, m2Line,
                 WaterLevelCalculator.realReturnPct(nominalGrowthPct, cpiCumPct),
                 WaterLevelCalculator.realReturnPct(nominalGrowthPct, m2CumPct),
+                nominalGrowthPct,
                 anchor, last, cpiLine.getLast(), m2Line.getLast(),
                 last.compareTo(cpiLine.getLast()) >= 0,
                 last.compareTo(m2Line.getLast()) >= 0,
@@ -99,6 +100,7 @@ public class WaterLevelService {
             List<BigDecimal> m2Line,
             BigDecimal realReturnPct,
             BigDecimal relativeReturnPct,
+            BigDecimal nominalGrowthPct,   // v0.10.3 · 名义净资产增长 %(不扣通胀)· 供洞察/体检/水位用名义口径展示
             BigDecimal anchor,
             BigDecimal current,
             BigDecimal cpiBaseline,
@@ -108,7 +110,7 @@ public class WaterLevelService {
             boolean available) {
         static WaterLevel unavailable() {
             return new WaterLevel(List.of(), List.of(), List.of(), List.of(),
-                    null, null, null, null, null, null, false, false, false);
+                    null, null, null, null, null, null, null, false, false, false);
         }
     }
 }

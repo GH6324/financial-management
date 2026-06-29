@@ -35,10 +35,11 @@
       <span th:if="${insight.balanceSheet() != null and insight.balanceSheet().prepaySignal() != null and insight.balanceSheet().prepaySignal()}"
             class="font-mono text-[10px] px-2 py-0.5 border" style="color:var(--rust);border-color:var(--rust);background:rgba(159,74,58,.05)">可考虑加速偿还</span>
 
-      <!-- 真实购买力承压 -->
-      <span th:if="${insight.lowRate() != null and insight.lowRate().realReturnPct() != null and insight.lowRate().realReturnPct().signum() < 0}"
-            class="font-mono text-[10px] px-2 py-0.5 border" style="color:var(--rust);border-color:var(--rust);background:rgba(159,74,58,.05)"
-            th:text="${'真实收益 ' + #numbers.formatDecimal(insight.lowRate().realReturnPct(),1,2) + '% · 跑输通胀'}">真实收益 -1.2%</span>
+      <!-- 净资产名义增长(不扣通胀;通胀对比见净资产趋势的 CPI 购买力线)-->
+      <span th:if="${insight.lowRate() != null and insight.lowRate().nominalGrowthPct() != null}"
+            class="font-mono text-[10px] px-2 py-0.5 border"
+            th:style="${insight.lowRate().nominalGrowthPct().signum() &lt; 0} ? 'color:var(--rust);border-color:var(--rust);background:rgba(159,74,58,.05)' : 'color:var(--forest);border-color:var(--forest);background:rgba(79,107,71,.05)'"
+            th:text="${'净资产名义增长 ' + (insight.lowRate().nominalGrowthPct().signum() &gt;= 0 ? '+' : '') + #numbers.formatDecimal(insight.lowRate().nominalGrowthPct(),1,2) + '%'}">净资产名义增长 +1.2%</span>
 
       <!-- 行为信号计数 -->
       <span th:if="${insight.behaviorSignals() != null and !insight.behaviorSignals().isEmpty()}"

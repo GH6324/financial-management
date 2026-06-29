@@ -130,9 +130,9 @@
             <span class="font-mono tnum" th:text="${lr.cashPct() != null ? #numbers.formatDecimal(lr.cashPct(),1,1) + '%' : '—'}">—</span>
           </div>
           <div class="flex justify-between items-baseline">
-            <span class="text-ink-soft">真实收益(扣CPI)</span>
-            <span class="font-mono tnum" th:classappend="${lr.realReturnPct() != null and lr.realReturnPct().signum() < 0 ? ' num-neg' : ''}"
-                  th:text="${lr.realReturnPct() != null ? #numbers.formatDecimal(lr.realReturnPct(),1,2) + '%' : '—'}">—</span>
+            <span class="text-ink-soft">净资产名义增长</span>
+            <span class="font-mono tnum" th:classappend="${lr.nominalGrowthPct() != null and lr.nominalGrowthPct().signum() < 0 ? ' num-neg' : ''}"
+                  th:text="${lr.nominalGrowthPct() != null ? #numbers.formatDecimal(lr.nominalGrowthPct(),1,2) + '%' : '—'}">—</span>
           </div>
           <div class="flex justify-between items-baseline">
             <span class="text-ink-soft">相对社会(扣M2)</span>

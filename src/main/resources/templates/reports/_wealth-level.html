@@ -36,10 +36,10 @@
       <!-- 水位状态 + 收益 KPI -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-rule mt-4">
         <div class="kpi-card">
-          <span class="kpi-eyebrow">真实收益 · 剔 CPI</span>
-          <div class="font-display text-2xl mt-1" th:classappend="${waterLevel.realReturnPct != null and waterLevel.realReturnPct.signum() >= 0} ? ' num-pos' : ' num-neg'"
-               th:text="${(waterLevel.realReturnPct != null and waterLevel.realReturnPct.signum() >= 0 ? '+' : '') + (waterLevel.realReturnPct != null ? #numbers.formatDecimal(waterLevel.realReturnPct,1,1) : '—') + '%'}">+10.6%</div>
-          <div class="font-mono text-[10px] text-ink-soft mt-1">剔除通胀后真实购买力变化</div>
+          <span class="kpi-eyebrow">净资产名义增长</span>
+          <div class="font-display text-2xl mt-1" th:classappend="${waterLevel.nominalGrowthPct != null and waterLevel.nominalGrowthPct.signum() >= 0} ? ' num-pos' : ' num-neg'"
+               th:text="${(waterLevel.nominalGrowthPct != null and waterLevel.nominalGrowthPct.signum() >= 0 ? '+' : '') + (waterLevel.nominalGrowthPct != null ? #numbers.formatDecimal(waterLevel.nominalGrowthPct,1,1) : '—') + '%'}">+10.6%</div>
+          <div class="font-mono text-[10px] text-ink-soft mt-1">这段时间净资产名义增长(未扣通胀;与 CPI 购买力线对比见上图)</div>
         </div>
         <div class="kpi-card">
           <span class="kpi-eyebrow">相对社会收益 · 剔 M2</span>

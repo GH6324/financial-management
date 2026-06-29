@@ -1552,3 +1552,15 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v10-TOC-SYNC-2 | 每个 `tocItems` 锚点 `href:'#x'` 必须有真实 `id="x"`(section 被删/改名留下死链)→ 红 |
 
 > 约定:新增 TOC section 用 `dash-`/`checkup-`/`sec-` 前缀命名 + 挂 `scroll-margin-top:80px`,守护即强制补目录。新开带 TOC 的页面(新前缀)时,把新前缀加进守护的 case 分支。2026-06-29 全量审计:三页均已同步,无漏项。
+
+---
+
+## v0.10.3 · 收益名义口径 + 目录补漏(决策 123)
+
+| Case | 校验 |
+|---|---|
+| v10-NOMINAL-1 | dashboard 速览 / checkup 体检 / reports 财富水位 的收益数用 `nominalGrowthPct`(名义);dashboard 速览无「跑输通胀」残留;reports 财富水位 CPI 购买力线**保留**(对比线不删,只是不从收益里扣通胀)|
+| (v10-TOC-SYNC-1 复用)| dash-cashflow-trend(实时收支趋势)补独立锚点后,被守护纳管并要求在 tocItems(已加「收支趋势」)|
+
+> 口径澄清:① 环比 MoM=净资产总变化(含人赚)② 本月资产收益=纯投资(剔人赚)③ 之前的「真实收益」=扣CPI——三者不同。v0.10.3 起洞察/体检/水位**统一用名义**(净资产名义增长),通胀只作 CPI 购买力线/M2 社会财富线**参照**,不替用户从收益里扣。守护 `v10-NOMINAL-1`。
+> 守护提取 bug 教训:`[a-z0-9-]+$` 提 `href:'#x'`/`id="x"`(结尾引号)在 GNU grep 下失效 → 假绿;一律用 sed 捕获组提取。

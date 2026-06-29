@@ -2713,9 +2713,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '280 单元' "$RD/README.md" && grep -q '402' "$RD/README.md" \
+  && grep -q '280 单元' "$RD/README.md" && grep -q '403' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(280/402)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(280/403)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -3053,6 +3053,17 @@ for a in $_dashT $_ckT $_rpT; do grep -qx "$a" <<<"$_allids" || tocstale="$tocst
 [[ -z "$tocstale" ]] \
   && log_ok "v10-TOC-SYNC-2 长文目录无死链锚点(每条 href 都有真实 id)" \
   || log_bad "v10-TOC-SYNC-2 目录有死链锚点(section 被删/改名)" "死链:$tocstale"
+
+# v10-NOMINAL-1 · 收益口径=名义,不从收益里扣通胀(CPI/M2 只作图上参照线,不折算成"真实收益")
+#   v0.10.3 修:AI 洞察「真实收益·跑输通胀」口径误导(把扣CPI数当标准收益)→ 改名义净资产增长;
+#   财富水位的 CPI 购买力线/M2 社会财富线保留(让用户感受自家收益率 vs CPI,但不替他扣)。
+{ grep -q 'nominalGrowthPct' src/main/resources/templates/dashboard/_insight-strip.html \
+  && grep -q 'nominalGrowthPct' src/main/resources/templates/checkup/_ai-insight.html \
+  && grep -q 'nominalGrowthPct' src/main/resources/templates/reports/_wealth-level.html \
+  && ! grep -q '跑输通胀' src/main/resources/templates/dashboard/_insight-strip.html \
+  && grep -q 'CPI 购买力线' src/main/resources/templates/reports/_wealth-level.html; } \
+  && log_ok "v10-NOMINAL-1 洞察/体检/水位收益用名义口径 · CPI/M2 对比线保留" \
+  || log_bad "v10-NOMINAL-1 收益口径仍扣CPI 或 对比线被误删" "see _insight-strip / _ai-insight / _wealth-level"
 
 echo
 echo "═══════════════════════════════════════"

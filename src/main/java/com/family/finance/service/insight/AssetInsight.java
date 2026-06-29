@@ -56,8 +56,9 @@ public record AssetInsight(
     /** 低利率·资产荒视角:现金占比 + 真实/相对收益(扣 CPI / M2)。 */
     public record LowRate(
             BigDecimal cashPct,              // 现金桶当前占比 %(可空)
-            BigDecimal realReturnPct,        // 扣 CPI 后真实收益 %(可空 · 负=跑输通胀)
-            BigDecimal relativeReturnPct     // 扣 M2 后相对社会财富 %(可空 · 负=跑输社会平均)
+            BigDecimal realReturnPct,        // 扣 CPI 后真实收益 %(可空 · 负=跑输通胀)· v0.10.3 起洞察不再展示,保留供内部/历史
+            BigDecimal relativeReturnPct,    // 扣 M2 后相对社会财富 %(可空 · 负=跑输社会平均)
+            BigDecimal nominalGrowthPct      // v0.10.3 · 名义净资产增长 %(不扣通胀)· 洞察展示用
     ) {}
 
     static AssetInsight unavailable(String reason) {

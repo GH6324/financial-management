@@ -2,6 +2,23 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.10.3] · 2026-06-29
+
+> 自用复盘三连:收益口径(不再扣通胀)+ 长文目录补漏 + 守护自身 bug 修复。
+
+### Changed · 收益一律名义口径(决策 123)
+
+- **AI 洞察「真实收益(扣CPI)· 跑输通胀」口径误导** —— 把"扣 CPI 后的真实收益"当标准收益摆在洞察里,和环比/本月资产收益挨着,三个负数看着像打架(实为净资产总变化 / 纯投资 / 扣通胀真实,三个不同口径)。修正:**洞察/体检/财富水位的收益数一律用「净资产名义增长」(不扣通胀)**;通胀/社会财富只作**图上的参照线**(CPI 购买力线 / M2 社会财富线**保留**,让用户感受自家收益率 vs CPI,但不替他从收益里扣)。`WaterLevelService` 暴露现成的 `nominalGrowthPct`;`realReturnPct` 计算保留不展示。改 3 处模板(dashboard 速览 / checkup 体检 / reports 财富水位),`相对社会收益·剔M2` 与 CPI/M2 对比线**均保留**(剔M2 非通胀)。`qa-run v10-NOMINAL-1` 防回归。
+
+### Fixed · 长文目录(承 v0.10.2 审计)
+
+- **dashboard 实时收支趋势漏进目录**:`收·支·趋·势·实·时` 是 `dash-cashflow` 节内第二张卡,有标题没独立 id → 不在目录、且 v10-TOC-SYNC 守护(只扫带 scroll-margin-top 的 section)也没网住(审计盲区)。补 `id=dash-cashflow-trend` + scroll-margin-top + tocItems 条目「收支趋势」。
+- **守护自身的"假绿"bug**:`v10-TOC-SYNC` 提取锚点/ id 用了 `[a-z0-9-]+$`,但 `href:'#x'`/`id="x"` 结尾是引号,GNU grep 下 `$` 匹配不到 → 集合为空 → 守护可能假绿。改 sed 捕获组 `s/.*#([a-z0-9-]+).*/\1/`,跨 grep/ugrep 都稳。复审三页所有 eyebrow 卡片标题:唯一真漏即上面那张趋势卡。
+
+### 测试
+
+- mvn 280(WaterLevel record 加字段,计算/单测不变)· qa-run +`v10-NOMINAL-1`、黑盒 402→**403** · 零 schema、向后兼容(本位币视图不变)。
+
 ## [v0.10.2] · 2026-06-29
 
 > 长文目录(TOC)漏维护防护 + 全量审计。回应「新增功能是否忘了加进各页目录」。
