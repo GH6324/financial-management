@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.10 预览 · 仪表盘「人赚 vs 钱赚」实时拆解 + 实时收支趋势</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+  <style>
+    body{background:var(--paper);color:var(--ink)}
+    .eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass-deep)}
+    .paper-card{background:var(--card);border:1px solid var(--rule);box-shadow:0 1px 0 rgba(26,23,20,.04),0 8px 24px -12px rgba(26,23,20,.08)}
+    .annot{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-subtle)}
+    .note{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-subtle);letter-spacing:.04em}
+    .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.08em;padding:3px 9px;border-radius:2px;display:inline-flex;align-items:center;gap:4px}
+    .pill-rust{background:rgba(156,74,42,.1);color:var(--rust);border:1px solid var(--rust)}
+    .pill-forest{background:rgba(79,107,71,.12);color:var(--forest);border:1px solid var(--forest)}
+    .pill-brass{background:var(--brass-soft);color:var(--brass-deep);border:1px solid var(--brass)}
+    .pill-mute{background:var(--paper-soft);color:var(--ink-subtle);border:1px solid var(--rule)}
+    .pill-amber{background:rgba(180,120,40,.1);color:#9a6a1f;border:1px solid #c79338}
+    .kpi-card{background:var(--card);border:1px solid var(--rule);padding:18px;position:relative;transition:border-color .18s}
+    .kpi-card:hover{border-color:var(--ink-soft)}
+    .kpi-eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);display:flex;align-items:center;gap:5px;margin-bottom:10px}
+    .kpi-value{font-family:"Fraunces","Noto Serif SC",serif;font-feature-settings:"tnum" 1;font-size:26px;font-weight:500;line-height:1.1;letter-spacing:-.015em}
+    .kpi-delta{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-subtle);margin-top:6px;letter-spacing:.04em}
+    .num-pos{color:var(--forest)} .num-neg{color:var(--rust)}
+    /* 人赚/钱赚 拆解 */
+    .split{display:flex;height:30px;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:14px 0}
+    .split i{display:flex;align-items:center;justify-content:center;height:100%;font-family:"JetBrains Mono",monospace;font-size:11px;color:#fff;letter-spacing:.04em}
+    .split .ren{background:var(--forest)}
+    .split .qian{background:var(--brass-deep)}
+    .breakcard{border:1px solid var(--rule);background:var(--card-soft);padding:16px}
+    .breakcard .lab{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);display:flex;align-items:center;gap:6px}
+    .breakcard .big{font-family:"Fraunces",serif;font-size:30px;font-weight:500;line-height:1.1;margin-top:6px}
+    .swatch{width:11px;height:11px;display:inline-block;border-radius:2px}
+    .empty-card{border:1.5px dashed var(--rule);background:repeating-linear-gradient(135deg,transparent,transparent 9px,rgba(201,189,168,.07) 9px,rgba(201,189,168,.07) 18px)}
+    .btn-ink{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;background:var(--ink);color:var(--paper);padding:8px 16px;border:1px solid var(--ink);display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+    .btn-ink:hover{background:transparent;color:var(--ink)}
+    .seclabel{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.14em;color:#b08a3a;background:rgba(180,138,58,.08);border:1px dashed #c79338;padding:2px 8px;border-radius:2px}
+  </style>
+</head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+<div class="max-w-[1200px] mx-auto px-6 py-10">
+
+  <div class="mb-8">
+    <div class="eyebrow mb-2">家 · 庭 · 账 · 房 · v0.10 · 预 · 览</div>
+    <h1 class="font-display text-3xl font-medium">仪表盘 · 「人赚 vs 钱赚」实时拆解 + 实时收支趋势</h1>
+    <p class="annot mt-2">把 v0.4 砍到 /reports 的「收支」那半边,以<b>实时</b>形态补回仪表盘 —— 但只补<b>人赚那一刻的拆解</b>,不恢复月均/双柱大图。
+      <br>净资产变化 ΔNW = 人赚(你存下的)+ 钱赚(钱替你赚的)。三个数<b>现成</b>(KpiSnapshot.netWorthDelta / lastNetInflow / monthlyPnlAmount)。</p>
+  </div>
+
+  <!-- ───────── 上下文:现有 5-KPI 带(灰一点),高亮那个「剔除收入」的 KPI ───────── -->
+  <div class="seclabel inline-block mb-3">现状:仪表盘已有的 5 个 KPI(本期不动它们)</div>
+  <section class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3 opacity-60">
+    <div class="kpi-card"><span class="kpi-eyebrow">净资产</span><div class="kpi-value tnum">¥1,284,200</div><div class="kpi-delta num-pos">+¥28,200 本期</div></div>
+    <div class="kpi-card"><span class="kpi-eyebrow">总资产</span><div class="kpi-value tnum">¥1,510,000</div><div class="kpi-delta">不含 LOAN</div></div>
+    <div class="kpi-card"><span class="kpi-eyebrow">总负债</span><div class="kpi-value tnum num-neg">¥225,800</div><div class="kpi-delta">仅 LOAN</div></div>
+    <div class="kpi-card"><span class="kpi-eyebrow">紧急储备</span><div class="kpi-value tnum">6.2 月</div><div class="kpi-delta">流动资产 / 月均支出</div></div>
+    <div class="kpi-card" style="border-color:var(--brass-deep);background:rgba(122,90,57,.05)"><span class="kpi-eyebrow" style="color:var(--brass-deep)">本月资产收益</span><div class="kpi-value tnum num-pos">+1.29%</div><div class="kpi-delta">+¥16,200 · <b style="color:var(--rust)">剔除收入</b></div></div>
+  </section>
+  <p class="note mb-9">↑ 最右这个 KPI 算的时候「<b>剔除收入</b>」—— 用户自然会问:<b>那收入呢?</b> 下面这张卡,就是把被剔除的那半边亮出来。</p>
+
+  <!-- ═════════ 新增 ① 本期拆解卡(完整态)═════════ -->
+  <div class="seclabel inline-block mb-3">新增 ① · &lt;section id="dash-cashflow"&gt; · 本期「人赚 vs 钱赚」拆解(完整态)</div>
+  <section class="paper-card p-7 mb-10">
+    <div class="flex items-start justify-between flex-wrap gap-3 mb-1">
+      <div>
+        <div class="kpi-eyebrow" style="color:var(--brass-deep)">本 · 期 · 怎 · 么 · 变 · 的</div>
+        <div class="flex items-baseline gap-3 mt-1">
+          <span class="annot">本期净资产变化 ΔNW</span>
+          <span class="font-display text-4xl font-medium num-pos tnum">+¥28,200</span>
+        </div>
+      </div>
+      <div class="text-right">
+        <span class="pill pill-brass">本期 2026-06 · 进行中</span>
+        <div class="pill pill-forest mt-2">已填报 3 / 5 个账户</div>
+      </div>
+    </div>
+
+    <!-- 人赚 / 钱赚 占比条(datalabel 浮在段上) -->
+    <div class="split">
+      <i class="ren" style="width:42.6%">人赚 43%</i>
+      <i class="qian" style="width:57.4%">钱赚 57%</i>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="breakcard" style="border-left:3px solid var(--forest)">
+        <div class="lab"><span class="swatch" style="background:var(--forest)"></span>人赚 · 你主动存下的</div>
+        <div class="big num-pos tnum">+¥12,000</div>
+        <p class="annot mt-2">本期收入 <b class="num-pos">¥38,000</b> − 支出 <b class="num-neg">¥26,000</b></p>
+        <p class="note mt-1">你能控制的那部分:挣得多、花得少,这个数就大。</p>
+      </div>
+      <div class="breakcard" style="border-left:3px solid var(--brass-deep)">
+        <div class="lab"><span class="swatch" style="background:var(--brass-deep)"></span>钱赚 · 钱替你赚的</div>
+        <div class="big num-pos tnum">+¥16,200</div>
+        <p class="annot mt-2">投资损益 = 净资产变化里剔除收入后的纯回报</p>
+        <p class="note mt-1">市场给的那部分:房产/股票/理财的涨跌,你左右不了。</p>
+      </div>
+    </div>
+    <p class="note mt-4">ΔNW = 人赚 + 钱赚 · 与上面「本月资产收益」同源(那个 KPI 剔除的"收入",就是这里的人赚)。三视图币种下恒等成立。</p>
+  </section>
+
+  <!-- ═════════ 新增 ② 实时收支趋势小图 ═════════ -->
+  <div class="seclabel inline-block mb-3">新增 ② · 实时收支趋势(含进行中本月 · 区别于 /reports 已关账快照)</div>
+  <section class="paper-card p-7 mb-10">
+    <div class="flex items-start justify-between flex-wrap gap-3 mb-4">
+      <div>
+        <div class="kpi-eyebrow" style="color:var(--brass-deep)">收 · 支 · 趋 · 势 · 实 · 时</div>
+        <p class="note mt-1">含<b>进行中</b>的本月(最右,浅色)· 报表的收支趋势只到上一已关账期。</p>
+      </div>
+      <div class="flex items-center gap-4 annot" style="font-size:11px">
+        <span class="flex items-center gap-1"><span class="swatch" style="background:var(--forest)"></span>收入</span>
+        <span class="flex items-center gap-1"><span class="swatch" style="background:var(--rust)"></span>支出</span>
+        <span class="flex items-center gap-1"><span class="swatch" style="background:var(--brass-deep)"></span>净流入(人赚)</span>
+      </div>
+    </div>
+    <div class="h-[260px]"><canvas id="cfTrend"></canvas></div>
+    <div class="flex justify-end mt-3">
+      <a href="#" class="annot" style="color:var(--brass-deep)">看完整收支分析(月均 / 储蓄率 / 储蓄能力中位)→ /reports#savings</a>
+    </div>
+  </section>
+
+  <!-- ═════════ 完整度诚实:空态 / 半填态 ═════════ -->
+  <div class="seclabel inline-block mb-3">完整度诚实 · 收支是「选填」,绝不拿半截数据骗人</div>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
+    <!-- 空态 -->
+    <section class="empty-card p-7 text-center">
+      <div class="kpi-eyebrow justify-center" style="color:var(--brass-deep)">本 · 期 · 待 · 填</div>
+      <h3 class="font-display text-xl mt-2 mb-2">本期还没填收支</h3>
+      <p class="annot mb-4 max-w-md mx-auto">去填报页底部填一次本月收入支出(选填 · ~15 秒),系统自动拆「人赚 / 钱赚」,告诉你这个月的钱是<b>省出来的</b>还是<b>赚出来的</b>。</p>
+      <a href="#" class="btn-ink">去填报
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+    </section>
+    <!-- 半填态 -->
+    <section class="paper-card p-7">
+      <div class="flex items-center justify-between mb-2">
+        <div class="kpi-eyebrow" style="color:var(--brass-deep)">本 · 期 · 半 · 填</div>
+        <span class="pill pill-amber">已填 1 / 5 · 收支可能不全</span>
+      </div>
+      <div class="flex items-baseline gap-3">
+        <span class="annot">人赚(暂)</span>
+        <span class="font-display text-3xl font-medium num-pos tnum">+¥4,200</span>
+      </div>
+      <p class="note mt-3">还有 4 个账户没填,人赚是<b>下限</b>(只统计了已填账户)。补全后这个数通常会变。钱赚按净资产差额照常显示,不受影响。</p>
+      <a href="#" class="annot mt-3 inline-block" style="color:var(--brass-deep)">去补全剩余 4 个账户 →</a>
+    </section>
+  </div>
+
+  <div class="note border-t border-rule pt-5">
+    口径:人赚 = KpiSnapshot.lastNetInflow(v0.5.3 · 已 viewCurrency 换算)· 钱赚 = monthlyPnlAmount · ΔNW = netWorthDelta · 趋势 = HouseholdCashflowService.findRecentAggregates 每期 totalIncome/totalExpense · 完整度 = cashflowFilled / cashflowTotal。
+    <br>不做:不恢复 v0.4 砍掉的月均/储蓄率中位/收支双柱大图(留在 /reports 储蓄区)· 不做分类预算 · 趋势图所有数值用 datalabels 浮在数据上 · 全 inline SVG 无 emoji。
+  </div>
+
+</div>
+
+<script>
+  Chart.register(ChartDataLabels);
+  const fmtK = v => (v>=1000||v<=-1000) ? (v/1000).toFixed(v%1000===0?0:1)+'k' : v;
+  const labels = ['1月','2月','3月','4月','5月','6月·进行中'];
+  const income  = [33000,35500,34000,39000,37000,38000];
+  const expense = [27000,24000,29000,25500,28000,26000];
+  const net     = income.map((v,i)=>v-expense[i]);
+  // 最后一期(进行中)用浅色/虚线区分
+  const liveIdx = labels.length-1;
+  const fade = (c)=> c.replace('1)','0.45)');
+  new Chart(document.getElementById('cfTrend'), {
+    type:'bar',
+    data:{ labels,
+      datasets:[
+        { type:'bar', label:'收入', data:income,
+          backgroundColor:income.map((_,i)=>i===liveIdx?'rgba(79,107,71,0.45)':'rgba(79,107,71,0.85)'),
+          borderColor:'rgba(79,107,71,1)', borderWidth:income.map((_,i)=>i===liveIdx?1.5:0),
+          borderSkipped:false, categoryPercentage:0.6, barPercentage:0.85,
+          datalabels:{ anchor:'end', align:'end', color:'var(--forest)', font:{family:'JetBrains Mono',size:9}, formatter:fmtK } },
+        { type:'bar', label:'支出', data:expense,
+          backgroundColor:expense.map((_,i)=>i===liveIdx?'rgba(159,74,58,0.40)':'rgba(159,74,58,0.78)'),
+          borderColor:'rgba(159,74,58,1)', borderWidth:expense.map((_,i)=>i===liveIdx?1.5:0),
+          borderSkipped:false, categoryPercentage:0.6, barPercentage:0.85,
+          datalabels:{ anchor:'end', align:'end', color:'var(--rust)', font:{family:'JetBrains Mono',size:9}, formatter:fmtK } },
+        { type:'line', label:'净流入(人赚)', data:net,
+          borderColor:'var(--brass-deep)', borderWidth:2.5, tension:0.3, pointRadius:3,
+          pointBackgroundColor:'var(--brass-deep)', fill:false,
+          datalabels:{ anchor:'start', align:'top', color:'var(--brass-deep)', font:{family:'JetBrains Mono',size:9,weight:'500'}, formatter:fmtK } }
+      ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ y:{ grid:{color:'rgba(201,189,168,.4)'}, ticks:{font:{family:'JetBrains Mono',size:10}, callback:fmtK} },
+               x:{ grid:{display:false}, ticks:{font:{family:'JetBrains Mono',size:10}} } } }
+  });
+</script>
+</body>
+</html>
