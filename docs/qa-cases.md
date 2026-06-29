@@ -1564,3 +1564,14 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 
 > 口径澄清:① 环比 MoM=净资产总变化(含人赚)② 本月资产收益=纯投资(剔人赚)③ 之前的「真实收益」=扣CPI——三者不同。v0.10.3 起洞察/体检/水位**统一用名义**(净资产名义增长),通胀只作 CPI 购买力线/M2 社会财富线**参照**,不替用户从收益里扣。守护 `v10-NOMINAL-1`。
 > 守护提取 bug 教训:`[a-z0-9-]+$` 提 `href:'#x'`/`id="x"`(结尾引号)在 GNU grep 下失效 → 假绿;一律用 sed 捕获组提取。
+
+---
+
+## v0.10.4 · 账户列表补全列 + 指标筛选/横滑(决策 124)
+
+| Case | 校验 |
+|---|---|
+| v10-ACCT-COLS-1 | dashboard 账户表补 6 列(net_principal/period_return/return_base/max_drawdown/months_held/plan_actual · data-mcol)+ 内联指标 chips(data-mchip · localStorage)+ 账户名 acct-sticky + 列多横滑;MetricPrefsService 账户目录移除无数据的 twr/yoy/risk(不超卖)|
+
+> 背景:账户级指标目录 15 项,但全站唯一消费方(dashboard 账户列表)只渲染 6 列 → 勾了其余 9 项不显示(v0.8 扩了数据+目录、模板列没补完)。修:有数据的 6 项补成列;无 per-account 数据的 twr/yoy/risk 移除目录。
+> 列多展示:账户名 sticky 左固定;指标列 > 最佳数(7)时容器横滑;内联 chips 即时切列显隐(localStorage 记住,默认=指标设置勾选集)。手机端卡片不变。

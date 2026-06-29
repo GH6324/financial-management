@@ -18,7 +18,7 @@ class MetricPrefsServiceTest {
         Set<String> acct = svc.enabled(null, "account");
         // 必选 + 默认项在,进阶项不在
         assertThat(acct).contains("current_value", "xirr", "cum_pnl", "mom_delta", "share_pct", "sparkline", "plan_actual");
-        assertThat(acct).doesNotContain("twr", "max_drawdown", "yoy", "months_held");
+        assertThat(acct).doesNotContain("max_drawdown", "months_held", "return_base");   // 进阶项默认关(twr/yoy/risk v0.10.4 已移除)
 
         Set<String> fam = svc.enabled(null, "family");
         assertThat(fam).contains("net_worth", "total_assets", "total_liab", "savings_rate", "nw_mom");
@@ -27,11 +27,11 @@ class MetricPrefsServiceTest {
 
     @Test
     void customPrefs_keepsChosen_plusMandatory_dropsUnchosen() {
-        // 只选了 twr(进阶),没选默认的 cum_pnl;必选 current_value 仍应被强制纳入
-        String json = "{\"account\":[\"twr\"],\"family\":[]}";
+        // 只选了 max_drawdown(进阶),没选默认的 cum_pnl;必选 current_value 仍应被强制纳入
+        String json = "{\"account\":[\"max_drawdown\"],\"family\":[]}";
         Set<String> acct = svc.enabled(json, "account");
         assertThat(acct).contains("current_value");   // 必选兜底
-        assertThat(acct).contains("twr");              // 用户勾选
+        assertThat(acct).contains("max_drawdown");     // 用户勾选
         assertThat(acct).doesNotContain("cum_pnl", "xirr");   // 默认项但未勾 → 不在
         // family 全不选 → 仍保留必选 net_worth
         assertThat(svc.enabled(json, "family")).containsExactly("net_worth");
@@ -52,9 +52,9 @@ class MetricPrefsServiceTest {
 
     @Test
     void serialize_roundTrips() {
-        String json = svc.serialize(List.of("net_worth"), List.of("current_value", "twr"));
+        String json = svc.serialize(List.of("net_worth"), List.of("current_value", "max_drawdown"));
         Set<String> acct = svc.enabled(json, "account");
-        assertThat(acct).contains("current_value", "twr");
+        assertThat(acct).contains("current_value", "max_drawdown");
         assertThat(acct).doesNotContain("cum_pnl");   // 未勾且非必选
         assertThat(svc.enabled(json, "family")).containsExactly("net_worth");
     }

@@ -2713,9 +2713,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '280 单元' "$RD/README.md" && grep -q '403' "$RD/README.md" \
+  && grep -q '280 单元' "$RD/README.md" && grep -q '404' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(280/403)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(280/404)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -3064,6 +3064,18 @@ for a in $_dashT $_ckT $_rpT; do grep -qx "$a" <<<"$_allids" || tocstale="$tocst
   && grep -q 'CPI 购买力线' src/main/resources/templates/reports/_wealth-level.html; } \
   && log_ok "v10-NOMINAL-1 洞察/体检/水位收益用名义口径 · CPI/M2 对比线保留" \
   || log_bad "v10-NOMINAL-1 收益口径仍扣CPI 或 对比线被误删" "see _insight-strip / _ai-insight / _wealth-level"
+
+# v10-ACCT-COLS-1 · 账户列表补全列 + 指标 chips + sticky 首列(回应"指标设置勾了却不显示")
+#   v0.10.4:dashboard 账户表补 net_principal/period_return/return_base/max_drawdown/months_held/plan_actual 列;
+#   加内联指标筛选 chips(localStorage 记住)+ 账户名列 sticky + 列多横滑;目录移除无数据的 twr/yoy/risk(不超卖)。
+RG=src/main/resources/templates/dashboard/_region.html
+{ grep -q 'data-mchip=' "$RG" \
+  && grep -q 'data-mcol="net_principal"' "$RG" && grep -q 'data-mcol="return_base"' "$RG" \
+  && grep -q 'data-mcol="max_drawdown"' "$RG" && grep -q 'data-mcol="months_held"' "$RG" \
+  && grep -q 'data-mcol="period_return"' "$RG" && grep -q 'acct-sticky' "$RG" && grep -q 'acctHiddenCols' "$RG" \
+  && ! grep -q '"twr"' src/main/java/com/family/finance/service/MetricPrefsService.java; } \
+  && log_ok "v10-ACCT-COLS-1 账户表补全列 + 指标 chips + sticky + 目录不超卖(twr/yoy/risk 已移除)" \
+  || log_bad "v10-ACCT-COLS-1 账户列/chips/sticky 缺失 或 目录仍含无数据指标" "see _region.html dash-list / MetricPrefsService"
 
 echo
 echo "═══════════════════════════════════════"

@@ -2,6 +2,17 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.10.4] · 2026-06-29
+
+> 账户级指标"超卖"修复:管理页勾了一堆账户指标,dashboard 账户列表却不显示。
+
+### Fixed / Added(决策 124)
+
+- **账户指标勾了不显示**:账户级指标目录有 15 项,但全站唯一消费它的 dashboard 账户列表只渲染了 6 列(current_value + xirr/cum_pnl/mom_delta/share_pct/sparkline),其余勾了等于空操作(v0.8 扩了数据+目录但模板列没补完)。补齐 PC 表列:`累计净投入(net_principal)` `本期损益(period_return)` `本位币年化(return_base)` `最大回撤(max_drawdown)` `持有期数(months_held)` `预实(plan_actual)`(数据本就在 `AccountPerformance`)。
+- **目录不超卖**:`twr`(仅家庭级)/`yoy`/`risk`(未接账户级)无 per-account 数据 → 从账户目录移除;`period_return` 标签由"本期收益率"改"本期损益"(渲染 latestPnl 金额)。
+- **列多了的展示交互**:账户名列 **sticky 左固定**;指标列超过最佳展示数(7)时表格**左右横滑**展示全部(容器 overflow-x-auto);新增**内联指标筛选 chips**(表上方点选即时切某列显隐,纯前端 + localStorage 记住,默认=管理页「指标设置·账户级」勾选集)。手机端卡片不变(本就可展开看全集)。
+- 测试:mvn 280(`MetricPrefsServiceTest` 同步 twr→max_drawdown)· qa-run +`v10-ACCT-COLS-1`、黑盒 403→**404** · 零 schema、向后兼容(已存 prefs 的 twr 等失效 key 被 catalog 驱动忽略,无害)。
+
 ## [v0.10.3] · 2026-06-29
 
 > 自用复盘三连:收益口径(不再扣通胀)+ 长文目录补漏 + 守护自身 bug 修复。

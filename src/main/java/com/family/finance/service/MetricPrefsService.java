@@ -37,13 +37,12 @@ public class MetricPrefsService {
             new MetricDef("sparkline", "近况走势", true, false),
             new MetricDef("plan_actual", "预实分析", true, false),
             new MetricDef("net_principal", "累计净投入", false, false),
-            new MetricDef("period_return", "本期收益率", false, false),
+            new MetricDef("period_return", "本期损益", false, false),
             new MetricDef("return_base", "本位币收益率(含汇率)", false, false),
-            new MetricDef("twr", "时间加权收益率(TWR)", false, false),
             new MetricDef("max_drawdown", "最大回撤", false, false),
-            new MetricDef("yoy", "同比(YoY)", false, false),
-            new MetricDef("months_held", "持有期数", false, false),
-            new MetricDef("risk", "风险等级", false, false));
+            new MetricDef("months_held", "持有期数", false, false));
+            // v0.10.4 移除 twr/yoy/risk:AccountPerformance 无账户级数据(twr 仅家庭级 · yoy/risk 未接账户级)·
+            //   避免"勾了不显示"的超卖。日后接到数据再加回。
 
     // 家庭级 KPI 目录(只列 dashboard 真有豆腐块/头部元素的指标,保证勾选 1:1 控制显隐)
     public static final List<MetricDef> FAMILY = List.of(
