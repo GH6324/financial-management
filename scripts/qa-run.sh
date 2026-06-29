@@ -2713,9 +2713,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '280 单元' "$RD/README.md" && grep -q '400' "$RD/README.md" \
+  && grep -q '280 单元' "$RD/README.md" && grep -q '402' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(280/400)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(280/402)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -3023,6 +3023,35 @@ case "$lens2" in
   SKIP*) log_skip "v10-CCY-LENS-2 净资产趋势数据不足($lens2)" "需多币种 + 多期";;
   *)     log_bad "v10-CCY-LENS-2 净资产趋势切币种逐期缩放漂移·单一镜头被破坏" "$lens2";;
 esac
+
+# ── v10-TOC-SYNC-* · 长文目录漏维护守护(回应「新增功能忘了加进目录」)─────────────────────────
+#   3 个目录页(dashboard/checkup/reports)的 tocItems 是手工内联列表,易漏。这两条把它变成 CI 闸门:
+#   ① 任何带 scroll-margin-top 的 section(dash-/checkup-/sec- 前缀)必须出现在对应页 tocItems(加了 section 忘加目录 → 红);
+#   ② 每个 tocItems 锚点必须有真实 id(删/改 section 留下死链 → 红)。
+_TT=src/main/resources/templates
+_tocof() { grep 'tocItems' "$_TT/$1" 2>/dev/null | grep -oE "href:'#[a-z0-9-]+'" | grep -oE '[a-z0-9-]+$'; }
+_dashT=$(_tocof dashboard/index.html); _ckT=$(_tocof checkup/family.html); _rpT=$(_tocof reports/index.html)
+
+# v10-TOC-SYNC-1 · section → 目录(新增 section 漏加目录条目)
+tocmiss=""
+for id in $(grep -rhE 'scroll-margin-top' "$_TT"/ | grep -oE 'id="[a-z0-9-]+"' | grep -oE '[a-z0-9-]+$' | sort -u); do
+  case "$id" in
+    dash-*)    grep -qx "$id" <<<"$_dashT" || tocmiss="$tocmiss dashboard:#$id";;
+    checkup-*) grep -qx "$id" <<<"$_ckT"   || tocmiss="$tocmiss checkup:#$id";;
+    sec-*)     grep -qx "$id" <<<"$_rpT"    || tocmiss="$tocmiss reports:#$id";;
+  esac
+done
+[[ -z "$tocmiss" ]] \
+  && log_ok "v10-TOC-SYNC-1 所有 section(dash-/checkup-/sec-)都已进对应页长文目录" \
+  || log_bad "v10-TOC-SYNC-1 有 section 未加进对应页目录(漏维护)" "缺:$tocmiss · 去对应页 tocItems 补 {label,href}"
+
+# v10-TOC-SYNC-2 · 目录锚点 → 真实 id(死链)
+_allids=$(grep -rhoE 'id="[a-z0-9-]+"' "$_TT"/ | grep -oE '[a-z0-9-]+$' | sort -u)
+tocstale=""
+for a in $_dashT $_ckT $_rpT; do grep -qx "$a" <<<"$_allids" || tocstale="$tocstale #$a"; done
+[[ -z "$tocstale" ]] \
+  && log_ok "v10-TOC-SYNC-2 长文目录无死链锚点(每条 href 都有真实 id)" \
+  || log_bad "v10-TOC-SYNC-2 目录有死链锚点(section 被删/改名)" "死链:$tocstale"
 
 echo
 echo "═══════════════════════════════════════"

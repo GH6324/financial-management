@@ -1539,3 +1539,16 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 - 提醒窗口 `daysLeft ≤ leadDays`([0,lead] 共 lead+1 天,多发 1 天)→ 改 `daysLeft < leadDays`([0,lead-1] 共 lead 天)。
 
 > **教训(为什么单元测试没网住)**:`CurrencyInvarianceTest` 是单元 + **单一 mock 汇率**(所有期同一个 k),恰好把"多期不同历史汇率"这个真实触发场景**抹平**了 → 永远绿。币种这类「跨期/跨账户口径」缺陷,**必须端到端**(真 HTTP + 真 SQL + 多期不同汇率 + 多币种账户)才网得住。v10-CCY-LENS-1/2 即此。属性级单测 + 端到端缺一不可。
+
+---
+
+## v0.10.2 · 长文目录漏维护守护(TOC-SYNC)
+
+> 长文目录(reports/dashboard/checkup 三页)的 `tocItems` 是手工内联列表,新增 section 易忘加 → 目录漏节。把它变成 CI 闸门。
+
+| Case | 校验 |
+|---|---|
+| v10-TOC-SYNC-1 | 任何带 `scroll-margin-top` 的 `dash-`/`checkup-`/`sec-` 前缀 section,必须出现在对应页(dashboard/checkup/reports)的 `tocItems`。加 section 漏加目录条目 → 红 |
+| v10-TOC-SYNC-2 | 每个 `tocItems` 锚点 `href:'#x'` 必须有真实 `id="x"`(section 被删/改名留下死链)→ 红 |
+
+> 约定:新增 TOC section 用 `dash-`/`checkup-`/`sec-` 前缀命名 + 挂 `scroll-margin-top:80px`,守护即强制补目录。新开带 TOC 的页面(新前缀)时,把新前缀加进守护的 case 分支。2026-06-29 全量审计:三页均已同步,无漏项。

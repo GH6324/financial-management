@@ -2,6 +2,16 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.10.2] · 2026-06-29
+
+> 长文目录(TOC)漏维护防护 + 全量审计。回应「新增功能是否忘了加进各页目录」。
+
+### Added(测试守护 · 防回归)
+
+- **`qa-run v10-TOC-SYNC-1/2`**:把 3 个目录页(dashboard/checkup/reports)的 `tocItems` 手工维护变成 CI 闸门 —— ① 任何带 `scroll-margin-top` 的 `dash-`/`checkup-`/`sec-` 前缀 section 必须出现在对应页 `tocItems`(加 section 漏加目录条目 → 红);② 每个 `tocItems` 锚点必须有真实 `id`(删/改名留下死链 → 红)。以后新增 section 忘了挂目录,QA 直接拦下,不再靠"记得"。
+- **全量审计结论**:dashboard / checkup / reports 三页当前**均已同步**,无功能漏进目录(v0.10 的 `dash-cashflow` 已正确加入)。`checkup-advice` 的"重复 id"为良性设计(有建议 / 无建议两态 `th:if` 互斥,共用锚点)。
+- 黑盒 400→**402**;记忆 `feedback_toc_sync` 标注"已自动化"。
+
 ## [v0.10.1] · 2026-06-29
 
 > 两个 bug 修复:① **多币种家庭切币种,差额类指标(ΔNW/净资产环比/本月收益/钱赚)不按单一汇率缩放**(prod 上 ΔNW 实测偏 ~17%);② **填报短信提醒多发 1 天**。详见 [`prd/v0.10.md`](prd/v0.10.md) v0.10.1 段 / [`tech-design/v0.10.md`](tech-design/v0.10.md) 决策 121-122。
