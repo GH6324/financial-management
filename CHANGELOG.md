@@ -2,6 +2,22 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.10.1] · 2026-06-29
+
+> 两个 bug 修复:① **多币种家庭切币种,差额类指标(ΔNW/净资产环比/本月收益/钱赚)不按单一汇率缩放**(prod 上 ΔNW 实测偏 ~17%);② **填报短信提醒多发 1 天**。详见 [`prd/v0.10.md`](prd/v0.10.md) v0.10.1 段 / [`tech-design/v0.10.md`](tech-design/v0.10.md) 决策 121-122。
+
+### Fixed
+
+- **币种「单一镜头」根因修复(决策 121 · v10-CCY-LENS)**:净资产换算原先用**每期各自的历史汇率**(`FactMapper` 的 fx 三角换算 join `period_id = p.id`)。单期金额各按当期汇率缩放没问题,但**跨期差额**(ΔNW=期末−期初)被减数/减数用了不同月份的汇率,在多币种家庭(余额大)上 → 切币种时差额类指标不按同一汇率缩放(prod 实测 ΔNW 在 USD 视图按 0.1716 而非应有的 0.1471,偏 ~17%)。改为**取锚点期(窗口内 period_start ≤ rangeEnd 的最新一期)的单一汇率换算所有账期** → 金额/差额/比值三币种全部按同一汇率均匀缩放,彻底符合「币种=显示镜头」。代价:外币视图下净资产趋势 = 本位币趋势 × 常数(不再含历史汇率波动,这是显示镜头应有之义)。这也让净资产侧与 PMC 侧(v0.8 已用锚点汇率)口径统一,消除"补一边爆另一边"的系统性矛盾。
+- **填报提醒多发 1 天(决策 122 · v10-REMIND-1)**:`ReportReminderScheduler` 窗口原为 `daysLeft ≤ leadDays`,即 `[0, leadDays]` 共 **leadDays+1** 天 —— lead=2、截止 6.30 时误发 6.28/6.29/6.30 三天。收敛为 `daysLeft < leadDays`(`[0, leadDays-1]` 共 leadDays 天)→ lead=2 只发 6.29/6.30。窗口判断抽成纯静态 `inReminderWindow(daysLeft, leadDays)` 便于单测。
+
+### 测试 / 防回归(关键)
+
+- **真·端到端币种守护**(补上一直缺的那一环):`qa-run` 新增 `v10-CCY-LENS-1/2` —— 登录后请求**真** `/dashboard?currency=CNY/USD`,解析实时收支趋势 + 净资产趋势,断言**各期逐点按同一汇率均匀缩放**。这正是 `CurrencyInvarianceTest`(单元 + 单一 mock 汇率)永远测不出的场景:它把"多期不同历史汇率"抹平了。需 family 有非 base 账户 + 多期变动汇率方有意义(beta diwa 家满足)。
+- **SMS 窗口单测**:`ReportReminderWindowTest`(5 例)锁死 lead=N → 恰好 N 个提醒日、过期不发。
+- 测试:mvn 275→**280** · qa-run +`v10-CCY-LENS-1/2`、黑盒 398→**400**。prod 只读复算确认修复后 ΔNW 三币种按 0.1471 精确缩放。
+- **向后兼容**:`FactMapper` 改动对**本位币视图结果完全不变**(view==base 时 fx 因子恒为 1,与历史汇率无关);仅多币种外币视图的"差额类"数值变正确。零 schema。
+
 ## [v0.10.0] · 2026-06-29
 
 > 仪表盘补回「收支」那半边——以**实时**形态。承接「净资产变化 ΔNW = 人赚(你存下的)+ 钱赚(钱替你赚的)」主轴:此前实时仪表盘只显钱赚侧(投资收益/财富水位),人赚侧(收入/支出/净流入)在 v0.4 被搬去 `/reports` 储蓄区(已关账快照,不含本月)。本版把人赚那一刻的拆解 + 实时收支趋势补回首页。详见 [`prd/v0.10.md`](prd/v0.10.md) / [`tech-design/v0.10.md`](tech-design/v0.10.md)(决策 114–120)。

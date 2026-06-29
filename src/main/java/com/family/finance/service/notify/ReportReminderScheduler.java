@@ -77,6 +77,17 @@ public class ReportReminderScheduler {
         return dispatch(LocalDate.now());
     }
 
+    /**
+     * 是否落在提醒窗口:截止日当天 + 之前 (leadDays-1) 天 = 共 <b>leadDays</b> 个提醒日([0, leadDays-1])。
+     *
+     * <p>v0.10.1 修(v10-REMIND-1):原实现 {@code daysLeft <= leadDays},窗口 [0, leadDays] 共 <b>leadDays+1</b> 天,
+     * 多发 1 天 —— lead=2、截止 6.30 时误发 6.28/6.29/6.30 三天,应只发 6.29/6.30。
+     * 故收敛为 {@code daysLeft < leadDays}。daysLeft = 距 period.periodEnd 的天数(0=今天截止);过期(负)不补发。</p>
+     */
+    static boolean inReminderWindow(long daysLeft, int leadDays) {
+        return daysLeft >= 0 && daysLeft < leadDays;
+    }
+
     /** 遍历所有家庭 · 在提醒窗口内对未完成填报成员逐渠道触达(当天去重)。 */
     private int dispatch(LocalDate today) {
         int armed = 0;
@@ -87,8 +98,7 @@ public class ReportReminderScheduler {
             long daysLeft = ChronoUnit.DAYS.between(today, period.getPeriodEnd());
             int leadDays = family.getReportRemindLeadDays() == null
                     ? 2 : family.getReportRemindLeadDays();
-            // 窗口:截止日前 leadDays 天 ~ 截止日当天([0, leadDays])· 过期不补发
-            if (daysLeft < 0 || daysLeft > leadDays) continue;
+            if (!inReminderWindow(daysLeft, leadDays)) continue;
 
             Set<Long> completed =
                     new HashSet<>(completionMapper.findCompletedMemberIds(period.getId()));

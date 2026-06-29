@@ -2713,9 +2713,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '275 单元' "$RD/README.md" && grep -q '398' "$RD/README.md" \
+  && grep -q '280 单元' "$RD/README.md" && grep -q '400' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(275/398)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(280/400)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -2996,6 +2996,33 @@ RG=src/main/resources/templates/dashboard/_region.html
   && grep -q 'deltaNetWorth.subtract(ren)' src/main/java/com/family/finance/web/dashboard/CashflowSplitView.java; } \
   && log_ok "v10-CASHFLOW-4 控制器装配 + 钱赚=ΔNW−人赚 同源恒等" \
   || log_bad "v10-CASHFLOW-4 装配或同源恒等缺失" "see DashboardController / CashflowSplitView"
+
+# ── v10-CCY-LENS-* · 单一镜头【真·端到端】币种守护(v0.10.1 修)──────────────────────────────
+#   反复爆的根因:净资产用「每期历史汇率」换算 → 差额类指标(ΔNW/环比%/本月收益/钱赚)跨币种不按
+#   单一汇率缩放;多币种 prod 上 ΔNW 实测偏 ~17%。教训:CurrencyInvarianceTest 是单元 + 单一 mock
+#   汇率,把「多期不同历史汇率」这个真实场景抹平了,永远测不出。只有【登录→真 /dashboard 多币种→
+#   跑真 SQL+多期不同汇率】的端到端断言才网得住整类。需要 family 有非 base 账户 + 多期变动汇率(diwa 家满足)。
+
+# v10-CCY-LENS-1 · 实时收支趋势各期切币种按【同一汇率】均匀缩放(逐期比值全相等)
+cnyN=$($CURL -b $COOKIE "$BASE/dashboard?currency=CNY" | grep -oE '"netInflow":[0-9.-]+' | sed 's/"netInflow"://')
+usdN=$($CURL -b $COOKIE "$BASE/dashboard?currency=USD" | grep -oE '"netInflow":[0-9.-]+' | sed 's/"netInflow"://')
+lens1=$(paste <(printf '%s\n' $cnyN) <(printf '%s\n' $usdN) | awk 'NF==2 && $1+0!=0{r=$2/$1; if(n++==0){lo=r;hi=r} if(r<lo)lo=r; if(r>hi)hi=r} END{ if(n<2){print "SKIP n="n+0; exit} if(hi-lo<=0.0015*(hi<0?-hi:hi)) printf "OK n=%d r=%.5f",n,lo; else printf "DRIFT lo=%.5f hi=%.5f",lo,hi }')
+case "$lens1" in
+  OK*)   log_ok  "v10-CCY-LENS-1 多币种切币种·收支趋势各期同一汇率缩放($lens1)";;
+  SKIP*) log_skip "v10-CCY-LENS-1 趋势数据不足($lens1)" "需多币种 + 多期数据";;
+  *)     log_bad "v10-CCY-LENS-1 切币种各期缩放漂移·单一镜头被破坏" "$lens1";;
+esac
+
+# v10-CCY-LENS-2 · 净资产趋势(始终存在 · 正是出 bug 的核心量)各期切币种按【同一汇率】缩放
+#   修前:每期净值用各自历史汇率 → NW(p1)_usd/NW(p1)_cny=期1汇率、NW(p2)同理用期2汇率,两期汇率不同 → 逐期比值漂移。
+nwC=$($CURL -b $COOKIE "$BASE/dashboard?currency=CNY" | grep -oE 'netWorth: \[[^]]*\]' | head -1 | grep -oE '[0-9]+\.[0-9]+|[0-9]+')
+nwU=$($CURL -b $COOKIE "$BASE/dashboard?currency=USD" | grep -oE 'netWorth: \[[^]]*\]' | head -1 | grep -oE '[0-9]+\.[0-9]+|[0-9]+')
+lens2=$(paste <(printf '%s\n' $nwC) <(printf '%s\n' $nwU) | awk 'NF==2 && $1+0!=0{r=$2/$1; if(n++==0){lo=r;hi=r} if(r<lo)lo=r; if(r>hi)hi=r} END{ if(n<2){print "SKIP n="n+0; exit} if(hi-lo<=0.0015*(hi<0?-hi:hi)) printf "OK n=%d r=%.5f",n,lo; else printf "DRIFT lo=%.5f hi=%.5f",lo,hi }')
+case "$lens2" in
+  OK*)   log_ok  "v10-CCY-LENS-2 净资产趋势各期三币种同一汇率缩放($lens2)";;
+  SKIP*) log_skip "v10-CCY-LENS-2 净资产趋势数据不足($lens2)" "需多币种 + 多期";;
+  *)     log_bad "v10-CCY-LENS-2 净资产趋势切币种逐期缩放漂移·单一镜头被破坏" "$lens2";;
+esac
 
 echo
 echo "═══════════════════════════════════════"

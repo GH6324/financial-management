@@ -1521,3 +1521,21 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 - **不挂 metric-pref 开关**(决策 119):dashboard section 本就不受指标开关控制;且 `enabled` 的 `defaultOn` 仅整份 prefs 为空时生效,挂门会让老家庭升级后看不到 → section 无条件渲染、零兼容坑。
 - 趋势复用既有 `chartjs-plugin-datalabels`;含进行中本月(最右浅色)= 区别于 `/reports` 已关账快照。
 - 纯展示 + 两个只读 service 方法 + 视图模型,零 schema、向后兼容。
+
+---
+
+## v0.10.1 · 缺陷修复(币种单一镜头 + 提醒窗口 · 决策 121-122)
+
+> 币种切换第 4 次复发 + 短信多发 1 天。这次不再逐点补,改**根因 + 真端到端护栏**。
+
+| Case | 校验 |
+|---|---|
+| v10-CCY-LENS-1 | 【真端到端】登录后请求真 `/dashboard?currency=CNY` 与 `=USD`,解析**实时收支趋势**各期 netInflow,断言逐期比值全相等(同一汇率均匀缩放)。修前多币种家庭某期会漂(0.15 vs 0.1471)→ DRIFT 红 |
+| v10-CCY-LENS-2 | 【真端到端】同上,解析**净资产趋势**各期值(始终存在 · 正是出 bug 的核心量),断言逐期切币种按同一汇率缩放 |
+| v10-REMIND-1 | `ReportReminderScheduler.inReminderWindow(daysLeft, leadDays)`:lead=N 恰好 N 个提醒日([0,N-1]),过期(负)不发(单测 `ReportReminderWindowTest` 5 例) |
+
+**根因 & 修复**
+- 净资产换算原 `FactMapper` fx 三角换算 join `period_id = p.id`(**每期历史汇率**)→ 单期金额对,但跨期差额(ΔNW)被减数/减数用不同月汇率,多币种大额家庭切币种偏 ~17%。改为**取锚点期(≤rangeEnd 最新一期)单一汇率换算所有期** → 金额/差额/比值三币种按同一汇率均匀缩放。view==base 时因子恒 1 → 本位币视图**完全不变**(向后兼容),零 schema。
+- 提醒窗口 `daysLeft ≤ leadDays`([0,lead] 共 lead+1 天,多发 1 天)→ 改 `daysLeft < leadDays`([0,lead-1] 共 lead 天)。
+
+> **教训(为什么单元测试没网住)**:`CurrencyInvarianceTest` 是单元 + **单一 mock 汇率**(所有期同一个 k),恰好把"多期不同历史汇率"这个真实触发场景**抹平**了 → 永远绿。币种这类「跨期/跨账户口径」缺陷,**必须端到端**(真 HTTP + 真 SQL + 多期不同汇率 + 多币种账户)才网得住。v10-CCY-LENS-1/2 即此。属性级单测 + 端到端缺一不可。

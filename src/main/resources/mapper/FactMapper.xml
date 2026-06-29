@@ -121,17 +121,29 @@
     ) tout
       ON tout.period_id = p.id
      AND tout.account_id = a.id
-    <!-- 三角换算所需两行(均以家庭本位币为 base):base→view(分子)、base→acct(分母) -->
+    <!-- 三角换算所需两行(均以家庭本位币为 base):base→view(分子)、base→acct(分母)。
+         v0.10.1 单一镜头(v10-CCY-LENS):汇率取「锚点期(窗口内 period_start ≤ rangeEnd 的最新一期)」的行,
+         而非每期各自的历史汇率。这样同一账户在所有账期用同一组汇率换算 → 金额/差额(ΔNW/净资产环比/本月收益/钱赚)
+         在切币种时按同一汇率均匀缩放、比值三币种完全相等(承「币种=显示镜头」原则;修复多币种家庭跨期差额不缩放的系统性 bug)。
+         代价:外币视图下净资产趋势 = 本位币趋势 × 常数(不再含历史汇率波动)——这是显示镜头的应有之义。 -->
     LEFT JOIN fx_rate fx_bv
       ON fx_bv.family_id = a.family_id
      AND fx_bv.base_currency = #{baseCurrency}
      AND fx_bv.quote_currency = #{f.viewCurrency}
-     AND fx_bv.period_id = p.id
+     AND fx_bv.period_id = (
+           SELECT fr.period_id FROM fx_rate fr JOIN period pp ON pp.id = fr.period_id
+            WHERE fr.family_id = a.family_id AND fr.base_currency = #{baseCurrency}
+              AND fr.quote_currency = #{f.viewCurrency} AND pp.period_start &lt;= #{f.rangeEnd}
+            ORDER BY pp.period_start DESC LIMIT 1)
     LEFT JOIN fx_rate fx_ba
       ON fx_ba.family_id = a.family_id
      AND fx_ba.base_currency = #{baseCurrency}
      AND fx_ba.quote_currency = a.currency
-     AND fx_ba.period_id = p.id
+     AND fx_ba.period_id = (
+           SELECT fr.period_id FROM fx_rate fr JOIN period pp ON pp.id = fr.period_id
+            WHERE fr.family_id = a.family_id AND fr.base_currency = #{baseCurrency}
+              AND fr.quote_currency = a.currency AND pp.period_start &lt;= #{f.rangeEnd}
+            ORDER BY pp.period_start DESC LIMIT 1)
     WHERE a.family_id = #{f.familyId}
       AND p.period_start BETWEEN #{f.rangeStart} AND #{f.rangeEnd}
       <if test="!f.includeArchived">
