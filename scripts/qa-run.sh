@@ -3073,8 +3073,9 @@ RG=src/main/resources/templates/dashboard/_region.html
   && grep -q 'data-mcol="net_principal"' "$RG" && grep -q 'data-mcol="return_base"' "$RG" \
   && grep -q 'data-mcol="max_drawdown"' "$RG" && grep -q 'data-mcol="months_held"' "$RG" \
   && grep -q 'data-mcol="period_return"' "$RG" && grep -q 'acct-sticky' "$RG" && grep -q 'acctHiddenCols' "$RG" \
+  && grep -q 'flex flex-wrap items-center gap-1.5 mb-2" data-acct-chips' "$RG" \
   && ! grep -q '"twr"' src/main/java/com/family/finance/service/MetricPrefsService.java; } \
-  && log_ok "v10-ACCT-COLS-1 账户表补全列 + 指标 chips + sticky + 目录不超卖(twr/yoy/risk 已移除)" \
+  && log_ok "v10-ACCT-COLS-1 账户表补全列 + 指标 chips(PC+手机)+ sticky + 目录不超卖(twr/yoy/risk 已移除)" \
   || log_bad "v10-ACCT-COLS-1 账户列/chips/sticky 缺失 或 目录仍含无数据指标" "see _region.html dash-list / MetricPrefsService"
 
 echo
