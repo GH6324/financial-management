@@ -7,6 +7,7 @@
 ### Fixed
 
 - **隐私模式 peek 与链接跳转冲突**:多数被遮金额在 `<a>` 内(KPI 跳 /checkup、账户行跳详情),原 peek 在 `pointerdown` 即去模糊,松手那次 click 会误触发跳转。改为**真·长按阈值**(`HOLD_MS=320ms`):**短按 = 正常跳转**(数字仍隐藏)、**长按 = peek 显示** 并在 capture 阶段**抑制随之而来的 click**(不跳转)。`pointermove` 超 10px(滚动/滑走)取消长按。不再在 `pointerdown` preventDefault(避免阻断短按跳转与滚动),防选中/呼出菜单交给 CSS。
+- **iOS PWA 长按弹出「链接预览」小窗**:长按被遮金额会触发其外层 `<a>` 的 iOS 链接预览(预加载目标页小窗)。`-webkit-touch-callout:none` 原只设在内层 `[data-priv]`,触发预览的是外层链接 → 改为隐私态对 `html.privacy a`(及其子元素)关 `touch-callout`(不影响轻点跳转);并对 `[data-priv]` 拦 `contextmenu` 兜底。
 
 ## [v0.11.0] · 2026-06-30
 

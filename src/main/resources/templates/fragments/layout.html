@@ -66,6 +66,8 @@
        两入口(nav + 浮动)都只 toggle html.privacy → 眼睛 eye/eye-off 纯 CSS 跟随,零 JS 同步。 -->
   <style>
     html.privacy [data-priv]{ filter:blur(7px); -webkit-filter:blur(7px); user-select:none; -webkit-user-select:none; cursor:pointer; -webkit-touch-callout:none; }
+    /* iOS PWA 修:长按被遮金额会触发其外层 <a> 的「链接预览」小窗 → 隐私态关掉链接的 touch-callout(不影响轻点跳转)*/
+    html.privacy a, html.privacy a *{ -webkit-touch-callout:none; }
     /* 按住临时查看(peek):按住时去模糊,松开复原。更具体选择器 → 无需 !important */
     html.privacy [data-priv].priv-peek{ filter:none; -webkit-filter:none; }
     .priv-eye-off{ display:none; } html.privacy .priv-eye-on{ display:none; } html.privacy .priv-eye-off{ display:inline-flex; }
@@ -115,6 +117,11 @@
       // 长按 peek 后,抑制随之而来的 click(阻止 <a> 跳转);短按不触发,正常跳转
       document.addEventListener('click', function (e) {
         if (suppressClick) { suppressClick = false; e.preventDefault(); e.stopPropagation(); }
+      }, true);
+      // 防御:隐私态下被遮金额上的 contextmenu(桌面右键/部分浏览器长按菜单)一并拦掉(iOS 链接预览由 CSS callout:none 处理)
+      document.addEventListener('contextmenu', function (e) {
+        if (!document.documentElement.classList.contains('privacy')) return;
+        if (e.target.closest && e.target.closest('[data-priv]')) e.preventDefault();
       }, true);
     })();
   </script>
