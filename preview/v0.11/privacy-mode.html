@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.11 预览 · 隐私模式(公共场合 / 分享隐藏金额)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { paper: 'var(--paper)', card: 'var(--card)', 'card-soft': 'var(--card-soft)', ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' }, rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' }, brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)' }, forest: 'var(--forest)', rust: 'var(--rust)' }, fontFamily: { display: ['Fraunces', 'Noto Serif SC', 'serif'], serif: ['"Source Serif 4"', 'Noto Serif SC', 'serif'], mono: ['JetBrains Mono', 'monospace'] } } } }
+  </script>
+  <style>
+    body{background:var(--paper);color:var(--ink)}
+    .eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass-deep)}
+    .paper-card{background:var(--card);border:1px solid var(--rule);box-shadow:0 1px 0 rgba(26,23,20,.04),0 8px 24px -12px rgba(26,23,20,.08)}
+    .annot{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-subtle)}
+    .note{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-subtle);letter-spacing:.04em}
+    .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.08em;padding:4px 10px;border-radius:2px;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--rule);background:var(--card);color:var(--ink-soft);cursor:pointer}
+    .pill-mute{background:var(--paper-soft);color:var(--ink-subtle);border:1px solid var(--rule)}
+    .kpi-card{background:var(--card);border:1px solid var(--rule);padding:16px;position:relative;transition:border-color .18s}
+    .kpi-card:hover{border-color:var(--ink-soft)}
+    .kpi-eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px}
+    .kpi-value{font-family:"Fraunces","Noto Serif SC",serif;font-feature-settings:"tnum" 1;font-size:23px;font-weight:500;line-height:1.1;letter-spacing:-.015em}
+    .kpi-delta{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-subtle);margin-top:6px;letter-spacing:.04em}
+    .num-pos{color:var(--forest)} .num-neg{color:var(--rust)}
+    .seclabel{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.14em;color:#b08a3a;background:rgba(180,138,58,.08);border:1px dashed #c79338;padding:2px 8px;border-radius:2px}
+    .btn-ink{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;background:var(--ink);color:var(--paper);padding:7px 14px;border:1px solid var(--ink);display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+    table.led{width:100%;font-family:"Source Serif 4","Noto Serif SC",serif;font-size:13px;border-collapse:collapse}
+    table.led th{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-subtle);text-align:left;padding:6px 0}
+    table.led td{padding:9px 0;border-top:1px solid var(--rule-soft);font-feature-settings:"tnum" 1}
+
+    /* ── v0.11 隐私模式核心:body.privacy 下,绝对金额(.amount)高斯模糊;比例(.ratio)照常 ── */
+    .amount{display:inline-block;transition:filter .18s ease}
+    body.privacy .amount{
+      filter:blur(7px);
+      user-select:none;            /* 不可选中复制,防绕过模糊取明文 */
+      min-width:5.2em;             /* 定宽容器:尽量不让宽度暴露量级 */
+    }
+    .amount.r{text-align:right}
+    body.privacy .chart-amount{filter:blur(6px);user-select:none}
+    .privacy-bar{display:none}
+    body.privacy .privacy-bar{display:flex}
+    .eye-off{display:none} body.privacy .eye-on{display:none} body.privacy .eye-off{display:inline}
+    body.privacy #eyeBtn{color:var(--brass-deep);border-color:var(--brass);background:var(--brass-soft)}
+  </style>
+</head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+
+<div class="max-w-4xl mx-auto px-5 py-8 relative" style="z-index:2">
+
+  <!-- 卷首 -->
+  <div class="flex items-baseline justify-between mb-1">
+    <div class="eyebrow">v0.11 · PRIVACY MODE</div>
+    <span class="seclabel">设计预览 · 非真实数据</span>
+  </div>
+  <h1 class="font-display text-2xl font-medium mb-1" style="letter-spacing:-.01em">隐私模式 · 遮金额、留比例</h1>
+  <p class="annot mb-5">公共场合瞥一眼 / 主动分享截图时,一键把绝对金额模糊;百分比、收益率、占比、走势照常。</p>
+
+  <!-- 顶栏:币种 / 账期 / 账户 pill + 眼睛开关 -->
+  <div class="paper-card p-3 flex items-center gap-2 flex-wrap mb-3">
+    <span class="font-display text-base font-medium mr-2">仪表盘</span>
+    <span class="pill pill-mute">¥ CNY</span>
+    <span class="pill pill-mute">本月</span>
+    <span class="pill pill-mute">全部账户</span>
+    <button id="eyeBtn" onclick="document.body.classList.toggle('privacy')" class="pill ml-auto" title="隐藏金额(公共场合 / 分享)">
+      <svg class="eye-on" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <svg class="eye-off" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      <span class="eye-on">隐藏金额</span><span class="eye-off">显示金额</span>
+    </button>
+  </div>
+
+  <!-- 隐私提示条(仅隐藏态) -->
+  <div class="privacy-bar items-center gap-2 mb-4 px-3 py-2" style="background:var(--brass-soft);border:1px solid var(--brass);color:var(--brass-deep);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.04em">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+    隐私模式 · 金额已隐藏(比例 / 收益率 / 走势照常显示)
+  </div>
+
+  <!-- 5 KPI 豆腐块 -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-2.5 mb-3">
+    <div class="kpi-card">
+      <div class="kpi-eyebrow">净资产</div>
+      <div class="kpi-value"><span class="amount">¥2,847,310</span></div>
+      <div class="kpi-delta num-pos ratio">环比 +1.8%</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-eyebrow">总资产</div>
+      <div class="kpi-value"><span class="amount">¥3,120,000</span></div>
+      <div class="kpi-delta ratio">视图镜头 CNY</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-eyebrow">总负债</div>
+      <div class="kpi-value num-neg"><span class="amount">¥272,690</span></div>
+      <div class="kpi-delta ratio">负债率 8.7%</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-eyebrow">紧急储备</div>
+      <div class="kpi-value ratio">7.2 月</div>
+      <div class="kpi-delta ratio">月数=比例 · 照常</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-eyebrow">本月资产收益</div>
+      <div class="kpi-value num-pos"><span class="amount">▲18,420</span></div>
+      <div class="kpi-delta num-pos ratio">+3.2%</div>
+    </div>
+  </div>
+
+  <!-- 账户列表 -->
+  <div class="paper-card p-4 mb-3">
+    <div class="eyebrow mb-2">账户 · 余额遮 / 占比 · 收益率留</div>
+    <table class="led">
+      <thead><tr><th>账户</th><th class="text-right">当前价值</th><th class="text-right">占比</th><th class="text-right">收益率</th></tr></thead>
+      <tbody>
+        <tr><td>华泰证券-A股</td><td class="text-right"><span class="amount r">¥742,000</span></td><td class="text-right ratio">24.0%</td><td class="text-right ratio num-pos">+11.4%</td></tr>
+        <tr><td>招行储蓄卡-工资</td><td class="text-right"><span class="amount r">¥386,500</span></td><td class="text-right ratio">12.5%</td><td class="text-right ratio">+0.4%</td></tr>
+        <tr><td>住宅-海淀</td><td class="text-right"><span class="amount r">¥1,680,000</span></td><td class="text-right ratio">53.8%</td><td class="text-right ratio num-pos">+2.1%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 走势图:形状留 + y 轴金额遮 -->
+  <div class="paper-card p-4 mb-5">
+    <div class="eyebrow mb-3">净资产走势 · 曲线形状保留 / y 轴金额隐藏</div>
+    <div class="flex gap-3">
+      <div class="flex flex-col justify-between py-1" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-subtle)">
+        <span class="chart-amount">300万</span><span class="chart-amount">285万</span><span class="chart-amount">270万</span>
+      </div>
+      <svg viewBox="0 0 320 90" class="flex-1" style="max-height:90px">
+        <polyline fill="none" stroke="var(--forest)" stroke-width="2" points="0,70 50,62 100,66 150,50 200,44 260,30 320,22"/>
+        <circle cx="320" cy="22" r="2.5" fill="var(--forest)"/>
+        <text x="316" y="14" text-anchor="end" font-size="10" fill="var(--brass-deep)" class="chart-amount" style="font-family:'JetBrains Mono',monospace">¥2,847,310</text>
+      </svg>
+    </div>
+    <div class="note ratio mt-2">走势形状 + 涨跌 % 始终可见,只有绝对金额被模糊。</div>
+  </div>
+
+  <div class="flex items-center gap-3">
+    <button class="btn-ink" onclick="document.body.classList.toggle('privacy')">点我试 · 隐藏 / 显示金额</button>
+    <span class="annot">↑ 一键全局瞬时 · 纯前端无刷新 · 会话内保持 · 重开默认显示</span>
+  </div>
+
+</div>
+</body>
+</html>
