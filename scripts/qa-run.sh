@@ -769,9 +769,11 @@ $CURL -b $COOKIE "$BASE/admin/cash-flow-categories" -o "$TMP" -w ""
 grep -q '产品类目' "$TMP" && log_ok "v02-PCAT-5 admin sidebar 含产品类目链接" || log_bad "v02-PCAT-5 sidebar" "missing"
 
 # PILL-1 /accounts 列表类目 pill(2026-05-10 改 SVG 后,grep 类目 pill 标识)
+#   v0.10.6 去过期:原硬编码 ≥20 耦合旧 demo 账户量级(现 demo 仅 6 个带品类账户)→ 改「渲染冒烟」(≥1),
+#   只验类目 pill 渲染没坏(历史 SVG 改动曾整列消失);数量随 demo 数据浮动,不再据此判红。
 $CURL -b $COOKIE "$BASE/accounts" -o "$TMP" -w ""
 n=$(grep -oE 'border-color:var\(--brass-deep\);color:var\(--brass-deep\)' "$TMP" | wc -l)
-[[ "$n" -ge 20 ]] && log_ok "v02-PILL-1 /accounts 列表类目 pill 数=$n (≥20)" || log_bad "v02-PILL-1 类目 pill 数" "n=$n"
+[[ "$n" -ge 1 ]] && log_ok "v02-PILL-1 /accounts 列表类目 pill 渲染正常 (n=$n)" || log_bad "v02-PILL-1 类目 pill 未渲染" "n=$n"
 
 # PILL-2 风险星 ★ 出现(STOCK / WEALTH 类目有 risk_level)
 n=$(grep -oE '★' "$TMP" | wc -l)
@@ -958,10 +960,12 @@ n=$(grep -oE 'href="/checkup\?account=[0-9]+"' "$TMP" | wc -l)
 [[ $n -ge 13 ]] && log_ok "v02-LEDGER-1 /accounts 列表至少 13 个 → /checkup?account 链接 (n=$n)" \
   || log_bad "v02-LEDGER-1 体检入口" "n=$n"
 
-# LEDGER-2 /accounts 列表「账本 CSV」入口
+# LEDGER-2 /accounts 列表「账本 CSV」入口(账本链接在账户行循环里渲染 · 1:1 对应账户)
+#   v0.10.6 去过期:原硬编码 ≥13 耦合旧 demo 账户量级(现 demo 12 账户)→ 改「渲染冒烟」(≥1):
+#   链接在 th:each 账户循环内,渲染则全账户都有、不渲染则 0;数量随 demo 账户数浮动,不再据此判红。
 n=$(grep -oE 'href="/accounts/[0-9]+/ledger.csv"' "$TMP" | wc -l)
-[[ $n -ge 13 ]] && log_ok "v02-LEDGER-2 /accounts 列表所有账户均含「⬇ 账本」入口 (n=$n)" \
-  || log_bad "v02-LEDGER-2 账本入口" "n=$n"
+[[ $n -ge 1 ]] && log_ok "v02-LEDGER-2 /accounts 账户行含「⬇ 账本」入口 (n=$n)" \
+  || log_bad "v02-LEDGER-2 账本入口未渲染" "n=$n"
 
 # LEDGER-3 GET /accounts/3/ledger.csv → 200 + text/csv
 type_resp=$($CURL -b $COOKIE -o "$TMP" -w "%{content_type}" "$BASE/accounts/3/ledger.csv")

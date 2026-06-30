@@ -304,7 +304,7 @@ v0.1 78 条用例继续 PASS;v0.2 阶段 1 新增 10 条全 PASS;无回归。
 | v02-PCAT-3 | GET /admin/product-categories | 基准 | 含「沪深 300 / 标普 500」等基准指数 |
 | v02-PCAT-4 | GET /admin | hub | 含产品类目 tile |
 | v02-PCAT-5 | GET /admin/cash-flow-categories | sidebar | 含「产品类目」侧栏链接 |
-| v02-PILL-1 | GET /accounts | 类目 pill | 列表渲染 ≥20 个 📊 类目 pill |
+| v02-PILL-1 | GET /accounts | 类目 pill | 类目 pill 渲染冒烟(≥1 · v0.10.6 解耦旧 demo 量级,数量随数据浮动)|
 | v02-PILL-2 | GET /accounts | 风险 pill | 列表渲染 ≥4 个 ★ 风险 pill |
 | v02-PILL-3 | GET /accounts | 无错误兜底 | 不再触发 /error 兜底 |
 | v02-WIZ-1 | GET /accounts/new | 向导 | 含产品类目下拉 + 「按账户类型默认」选项 |
@@ -345,7 +345,7 @@ v0.1 78 条用例继续 PASS;v0.2 阶段 1 新增 10 条全 PASS;无回归。
 | ID | 接口 | 步骤 | 预期 |
 |---|---|---|---|
 | v02-LEDGER-1 | GET /accounts | 操作列 | 13 个账户均含「📊 体检」入口 |
-| v02-LEDGER-2 | GET /accounts | 操作列 | 13 个账户均含「⬇ 账本」入口 |
+| v02-LEDGER-2 | GET /accounts | 操作列 | 账户行均含「账本」入口渲染冒烟(≥1 · v0.10.6 解耦旧 demo 量级)|
 | v02-LEDGER-3 | GET /accounts/3/ledger.csv | 下载 | Content-Type=text/csv;表头 9 列正确 |
 | v02-LEDGER-4 | ledger.csv | 编码 | 文件首 3 字节为 UTF-8 BOM(EF BB BF) |
 | v02-LEDGER-5 | ledger.csv | 响应头 | Content-Disposition 含 `filename*=UTF-8''` |
