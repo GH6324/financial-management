@@ -418,7 +418,8 @@ h1, h2, h3, h4 {
 .toc-children > .toc-node::before { content:''; position:absolute; left:-1px; top:15px; width:10px; height:1.5px; background:var(--rule-soft); }
 .toc-children > .toc-node[aria-current="true"]::before { background:var(--brass-deep); }
 /* 手机:左上角唤醒钮(icon-only 小圆钮)+ 底部 sheet · ≥1024px 隐藏(用右栏) */
-.toc-fab { position:fixed; left:8px; top:64px; z-index:60; width:38px; height:38px; border-radius:50%;
+/* v0.11 · 移动端目录浮钮挪到左下,与隐私浮控(#priv-float, bottom:18px)叠成同一操作区 */
+.toc-fab { position:fixed; left:14px; bottom:66px; z-index:60; width:38px; height:38px; border-radius:50%;
   background:var(--ink); color:var(--paper); border:none; box-shadow:0 3px 12px rgba(0,0,0,.22);
   display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
 @media (min-width: 1024px) { .toc-fab { display: none !important; } }
