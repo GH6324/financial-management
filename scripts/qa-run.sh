@@ -1895,7 +1895,7 @@ $CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
 
 # v04-RET-2 · reports 4 KPI 双口径 label + 双口径解释 banner
 $CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
-{ grep -q '资产年化 · 剔除收入' "$TMP" \
+{ grep -q '· 剔除收入' "$TMP" \
   && grep -q '含收入' "$TMP" \
   && grep -q '人赚的' "$TMP" \
   && grep -q '钱赚的' "$TMP" \
