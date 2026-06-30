@@ -65,7 +65,9 @@
        绝对金额带 data-priv → html.privacy 下高斯模糊 + 不可选中复制;比例/% 不带标记不受影响。
        两入口(nav + 浮动)都只 toggle html.privacy → 眼睛 eye/eye-off 纯 CSS 跟随,零 JS 同步。 -->
   <style>
-    html.privacy [data-priv]{ filter:blur(7px); -webkit-filter:blur(7px); user-select:none; -webkit-user-select:none; }
+    html.privacy [data-priv]{ filter:blur(7px); -webkit-filter:blur(7px); user-select:none; -webkit-user-select:none; cursor:pointer; -webkit-touch-callout:none; }
+    /* 按住临时查看(peek):按住时去模糊,松开复原。更具体选择器 → 无需 !important */
+    html.privacy [data-priv].priv-peek{ filter:none; -webkit-filter:none; }
     .priv-eye-off{ display:none; } html.privacy .priv-eye-on{ display:none; } html.privacy .priv-eye-off{ display:inline-flex; }
     #priv-float{ position:fixed; left:14px; bottom:18px; z-index:55; display:inline-flex; align-items:center; gap:6px;
       background:var(--card); color:var(--ink-soft); border:1px solid var(--rule); border-radius:999px; padding:8px 11px;
@@ -84,6 +86,28 @@
     }
     window.togglePrivacy = togglePrivacy;
     window.isPrivacy = function(){ return document.documentElement.classList.contains('privacy'); };
+    // v0.11 · 按住临时查看(peek):隐私态下按住某个被遮金额 → 临时显示,松开/滑走/滚动/失焦 → 复原。
+    //   事件委托(覆盖 HTMX 动态片段)· Pointer 事件统一手机长按 + 桌面按住 · 触摸时阻止选中/呼出菜单。
+    (function () {
+      var peeking = null;
+      function endPeek() { if (peeking) { peeking.classList.remove('priv-peek'); peeking = null; } }
+      document.addEventListener('pointerdown', function (e) {
+        if (!document.documentElement.classList.contains('privacy')) return;
+        var el = e.target.closest ? e.target.closest('[data-priv]') : null;
+        if (!el) return;
+        endPeek(); el.classList.add('priv-peek'); peeking = el;
+        if (e.pointerType === 'touch' && e.cancelable) e.preventDefault();
+      }, { passive: false });
+      document.addEventListener('pointerup', endPeek);
+      document.addEventListener('pointercancel', endPeek);
+      document.addEventListener('pointermove', function (e) {
+        if (!peeking) return;
+        var el = e.target.closest ? e.target.closest('[data-priv]') : null;
+        if (el !== peeking) endPeek();
+      });
+      document.addEventListener('scroll', endPeek, true);
+      window.addEventListener('blur', endPeek);
+    })();
   </script>
   <!-- v0.2 全局错误兜底:HTMX 5xx / 网络错误 / JS 致命异常,统一 toast 反馈 -->
   <script>
@@ -321,7 +345,7 @@
   <button id="priv-float" type="button" onclick="togglePrivacy()" aria-label="隐藏 / 显示金额" title="隐藏金额(公共场合 / 分享)">
     <svg class="priv-eye-on" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
     <svg class="priv-eye-off" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-    <span class="priv-float-label">金额已隐藏 · 点恢复</span>
+    <span class="priv-float-label">金额已隐藏 · 长按可看 · 点我恢复</span>
   </button>
   <!-- 全局 Toast 容器(HX-Trigger=showToast 触发) — 居中顶部,z-index 高于 nav 与 progress -->
   <div id="toast-stack"

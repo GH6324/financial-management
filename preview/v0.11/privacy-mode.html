@@ -38,6 +38,8 @@
       min-width:5.2em;             /* 定宽容器:尽量不让宽度暴露量级 */
     }
     .amount.r{text-align:right}
+    body.privacy .amount{cursor:pointer}
+    body.privacy .amount.priv-peek{filter:none}   /* 按住临时查看 */
     body.privacy .chart-amount{filter:blur(6px);user-select:none}
     .privacy-bar{display:none}
     body.privacy .privacy-bar{display:flex}
@@ -152,7 +154,16 @@
   <button id="privFloat" onclick="document.body.classList.toggle('privacy')" title="隐藏 / 显示金额">
     <svg class="eye-on" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
     <svg class="eye-off" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-    <span class="pf-label">金额已隐藏 · 点恢复</span>
+    <span class="pf-label">金额已隐藏 · 长按可看 · 点我恢复</span>
   </button>
+  <script>
+    // 按住临时查看 demo
+    (function(){var p=null;function end(){if(p){p.classList.remove('priv-peek');p=null;}}
+      document.addEventListener('pointerdown',function(e){if(!document.body.classList.contains('privacy'))return;
+        var el=e.target.closest?e.target.closest('.amount'):null;if(!el)return;end();el.classList.add('priv-peek');p=el;
+        if(e.pointerType==='touch'&&e.cancelable)e.preventDefault();},{passive:false});
+      document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
+      document.addEventListener('pointermove',function(e){if(!p)return;var el=e.target.closest?e.target.closest('.amount'):null;if(el!==p)end();});})();
+  </script>
 </body>
 </html>

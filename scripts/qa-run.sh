@@ -2727,9 +2727,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '283 单元' "$RD/README.md" && grep -q '408' "$RD/README.md" \
+  && grep -q '283 单元' "$RD/README.md" && grep -q '409' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(283/408)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(283/409)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -3136,6 +3136,13 @@ DR="$RD/src/main/resources/templates/dashboard/_region.html"
   && grep -q "isPrivacy()) return ''" "$DR"; } \
   && log_ok "v11-PRIVACY-3 比例/月数不误遮(emergency/pct 无 data-priv)+ 图表金额隐私守卫" \
   || log_bad "v11-PRIVACY-3 误遮比例 或 图表金额无隐私守卫" "see dashboard/_region.html"
+
+# v11-PRIVACY-4 · 按住临时查看(peek):layout 含 priv-peek CSS 覆盖 + pointerdown 事件委托(隐私态去模糊)
+{ grep -q 'html.privacy \[data-priv\].priv-peek' "$LAY" \
+  && grep -q "addEventListener('pointerdown'" "$LAY" \
+  && grep -q "classList.add('priv-peek')" "$LAY"; } \
+  && log_ok "v11-PRIVACY-4 按住临时查看(peek)接线齐(priv-peek CSS + pointerdown 委托)" \
+  || log_bad "v11-PRIVACY-4 peek 缺失" "see layout.html"
 
 echo
 echo "═══════════════════════════════════════"

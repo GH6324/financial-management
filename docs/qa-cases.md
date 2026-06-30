@@ -1595,6 +1595,7 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 |---|---|
 | v11-PRIVACY-1 | layout FOUC(`sessionStorage.getItem('privacy')`)+ `togglePrivacy` + `#priv-float` 浮动控件 + `html.privacy [data-priv]` CSS;nav `priv-eye` 眼睛 |
 | v11-PRIVACY-2 | dashboard/reports/checkup/accounts/entry 渲染后**均含 `data-priv` 金额标记** + 双入口(`togglePrivacy` + `#priv-float`)——无页面整页漏标/漏入口 |
+| v11-PRIVACY-4 | layout 含 `priv-peek` CSS 覆盖 + `pointerdown` 事件委托 → 隐私态按住 `[data-priv]` 去模糊(松开复原);覆盖 HTMX 片段 |
 | v11-PRIVACY-3 | 紧急储备(月)/本月收益率(%)源码**不带 `data-priv`**(比例不误遮);dashboard 图表 `fmtMoney` 含 `isPrivacy()` 守卫(金额隐藏 · 曲线形状保留) |
 
 > 纯前端叠加(0 schema/接口):绝对金额 `data-priv` → `html.privacy` 下高斯模糊 + 不可选中复制;比例/%/月数/形状保留。会话级(sessionStorage),重开默认显示,FOUC 防闪。双入口(nav 眼睛 + 左下常驻浮动 chip)零 JS 同步。手验:隐私态从顶层 tab 走 dashboard→reports→checkup→accounts→entry(PC+移动),逐屏确认无裸金额、比例仍在、浮动 chip 可随处恢复。威胁模型 = 肩窥/截图(非取证级,DOM 仍有真值)。
