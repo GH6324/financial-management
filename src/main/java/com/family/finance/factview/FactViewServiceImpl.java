@@ -566,12 +566,14 @@ public class FactViewServiceImpl implements FactViewService {
 
         // Problem C:本位币年化(含 FX),与原币 xirr 并列;本位币账户两者相等
         BigDecimal returnBase = xirrBaseForAccountRows(filled);
-        // 预实:实际(原币年化)− 预期 %(账户覆盖 or 品类 benchmark);缺一为 null
+        // 预实(v0.10.5 修口径):实际「持有窗口的累计回报」(本位币 cumPnl/净投入)vs 预期按持有月数缩放到同窗口
+        //   = (1+年化预期)^(月数/12)−1。修「短账户拿几个月累计去减年化预期」的错(月度 2% ≠ 跑输年化 8%)。
+        //   实际不外推年化、预期缩到同窗口 → like-for-like;前端标「近 N 月」。净投入≤0 或无填充期 → 不算。
         BigDecimal expectedPct = expectedByAccount.get(first.accountId());
-        BigDecimal actualXirr = xirr.get(first.accountId());
-        BigDecimal planActualDiff = (expectedPct != null && actualXirr != null)
-                ? actualXirr.multiply(HUNDRED).subtract(expectedPct).setScale(2, RoundingMode.HALF_EVEN)
-                : null;
+        BigDecimal actualCumPct = (netPrincipal.signum() > 0 && !filled.isEmpty())
+                ? cumPnl.divide(netPrincipal, 8, RoundingMode.HALF_EVEN).multiply(HUNDRED) : null;
+        BigDecimal planActualDiff = com.family.finance.calc.BenchmarkAggregator
+                .windowDiffPercentPoints(actualCumPct, expectedPct, filled.size());
 
         return new AccountPerformance(
                 first.accountId(), first.accountName(), first.accountType(), first.accountCurrency(),

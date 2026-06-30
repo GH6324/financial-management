@@ -63,4 +63,36 @@ class BenchmarkAggregatorTest {
         var allZero = List.of(new BenchmarkInput(BigDecimal.ZERO, new BigDecimal("5.0")));
         assertThat(BenchmarkAggregator.weightedFamilyBenchmark(allZero)).isEqualByComparingTo("0");
     }
+
+    // ── v0.10.5 · 同窗口口径(修「短账户累计 vs 年化预期」)──────────────────────
+
+    @Test
+    void expectedScaledToWindow() {
+        // 8% 年化缩到 1 月 ≈ 0.64%;12 月 = 8.00%(年=年)
+        assertThat(BenchmarkAggregator.expectedOverWindowPct(new BigDecimal("8.0"), 1).doubleValue())
+            .isBetween(0.62, 0.66);
+        assertThat(BenchmarkAggregator.expectedOverWindowPct(new BigDecimal("8.0"), 12))
+            .isEqualByComparingTo("8.00");
+        assertThat(BenchmarkAggregator.expectedOverWindowPct(null, 6)).isNull();
+        assertThat(BenchmarkAggregator.expectedOverWindowPct(new BigDecimal("8.0"), 0)).isNull();
+    }
+
+    @Test
+    void monthly2pct_vs_annual8pct_isBeatNotMiss() {
+        // 用户的例子:某账户 1 个月累计 2%,预期年化 8% → 同窗口比应「跑赢」,绝不是「跑输 6pp」
+        BigDecimal diff = BenchmarkAggregator.windowDiffPercentPoints(new BigDecimal("2.0"), new BigDecimal("8.0"), 1);
+        assertThat(diff.doubleValue()).isGreaterThan(1.0);   // ≈ +1.36pp,正=跑赢
+        assertThat(BenchmarkAggregator.beatStatusWindow(diff, 1)).isEqualTo(BeatStatus.BEAT);
+        // 对照:旧的「年化口径」会得到 2−8 = −6pp(错判跑输)
+    }
+
+    @Test
+    void windowThresholdScalesWithHorizon_12moEqualsAnnual() {
+        // 满 12 期:窗口=年,阈值回到 ±2pp;实际累计 10% vs 基准 8% → +2.0pp 恰在边界 = FLAT
+        BigDecimal diff = BenchmarkAggregator.windowDiffPercentPoints(new BigDecimal("10.0"), new BigDecimal("8.0"), 12);
+        assertThat(diff).isEqualByComparingTo("2.00");
+        assertThat(BenchmarkAggregator.beatStatusWindow(diff, 12)).isEqualTo(BeatStatus.FLAT);
+        assertThat(BenchmarkAggregator.beatStatusWindow(new BigDecimal("2.5"), 12)).isEqualTo(BeatStatus.BEAT);
+        assertThat(BenchmarkAggregator.beatStatusWindow(null, 6)).isEqualTo(BeatStatus.NA);
+    }
 }

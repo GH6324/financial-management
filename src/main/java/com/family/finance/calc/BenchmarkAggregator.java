@@ -63,6 +63,33 @@ public final class BenchmarkAggregator {
         return BeatStatus.FLAT;
     }
 
+    // ── v0.10.5 · 同窗口口径(修「短账户:累计实际 vs 年化预期」口径错)──────────────────
+    // 实际值是「持有 N 月的累计回报」,不外推年化;故预期也按同窗口缩放,like-for-like 比。
+
+    /** 预期年化缩放到 N 月窗口的累计 %:(1+annual/100)^(months/12)−1,×100。annual 为 null 或 months≤0 → null。 */
+    public static BigDecimal expectedOverWindowPct(BigDecimal annualPct, int months) {
+        if (annualPct == null || months <= 0) return null;
+        double v = (Math.pow(1.0 + annualPct.doubleValue() / 100.0, months / 12.0) - 1.0) * 100.0;
+        return BigDecimal.valueOf(v).setScale(2, RoundingMode.HALF_EVEN);
+    }
+
+    /** 同窗口 diff(pp)= 实际累计% − 预期(年化缩放到 N 月)%。任一缺失 → null。 */
+    public static BigDecimal windowDiffPercentPoints(BigDecimal actualCumPct, BigDecimal annualPct, int months) {
+        BigDecimal exp = expectedOverWindowPct(annualPct, months);
+        if (actualCumPct == null || exp == null) return null;
+        return actualCumPct.subtract(exp).setScale(2, RoundingMode.HALF_EVEN);
+    }
+
+    /** 跑赢/输判定 · 阈值同窗口缩放(年化 ±2% 折到 N 月);月数无效 → NA。 */
+    public static BeatStatus beatStatusWindow(BigDecimal windowDiffPct, int months) {
+        if (windowDiffPct == null) return BeatStatus.NA;
+        BigDecimal thr = expectedOverWindowPct(BEAT_THRESHOLD, months);
+        if (thr == null) return BeatStatus.NA;
+        if (windowDiffPct.compareTo(thr) > 0) return BeatStatus.BEAT;
+        if (windowDiffPct.compareTo(thr.negate()) < 0) return BeatStatus.MISS;
+        return BeatStatus.FLAT;
+    }
+
     /**
      * 家庭加权基准 = Σ(account.balance × benchmark) / Σ(account.balance)
      *

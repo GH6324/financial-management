@@ -375,7 +375,7 @@
           <th data-sort="text" class="acct-sticky">账户</th>
           <th class="num" data-sort="num">当前价值</th>
           <th class="num" data-sort="num" data-mcol="xirr" th:if="${acctMetrics.contains('xirr')}" title="满 12 期为年化 XIRR(资金加权);不足 12 期显累计收益率,不做单期年化外推">收益率</th>
-          <th class="num" data-sort="num" data-mcol="return_base" th:if="${acctMetrics.contains('return_base')}" title="本位币口径年化(含汇率)">本位币年化</th>
+          <th class="num" data-sort="num" data-mcol="return_base" th:if="${acctMetrics.contains('return_base')}" title="本位币口径(含汇率)· 满 12 期年化,不足 12 期为累计(标「累」)">本位币年化</th>
           <th class="num" data-sort="num" data-mcol="cum_pnl" th:if="${acctMetrics.contains('cum_pnl')}">累计损益</th>
           <th class="num" data-sort="num" data-mcol="net_principal" th:if="${acctMetrics.contains('net_principal')}" title="累计净投入 = Σ(收入−支出+转入−转出)">累计净投入</th>
           <th class="num" data-sort="num" data-mcol="period_return" th:if="${acctMetrics.contains('period_return')}" title="本期(as-of 期)投资损益">本期损益</th>
@@ -383,7 +383,7 @@
           <th class="num" data-sort="num" data-mcol="max_drawdown" th:if="${acctMetrics.contains('max_drawdown')}" title="历史最大回撤(峰值→谷底);不足 2 期为—">最大回撤</th>
           <th class="num" data-sort="num" data-mcol="share_pct" th:if="${acctMetrics.contains('share_pct')}">占比</th>
           <th class="num" data-sort="num" data-mcol="months_held" th:if="${acctMetrics.contains('months_held')}">持有期数</th>
-          <th class="num" data-sort="num" data-mcol="plan_actual" th:if="${acctMetrics.contains('plan_actual')}" title="实际−预期(百分点;正=跑赢)">预实</th>
+          <th class="num" data-sort="num" data-mcol="plan_actual" th:if="${acctMetrics.contains('plan_actual')}" title="实际「持有窗口累计回报」− 预期(年化按持有月数缩放到同窗口);百分点,正=跑赢。修了「短账户拿几个月累计减年化预期」的口径错">预实</th>
           <th class="hidden lg:table-cell" data-mcol="sparkline" th:if="${acctMetrics.contains('sparkline')}">近况</th>
           <th class="text-right pr-3">操作</th>
         </tr></thead>
@@ -398,10 +398,14 @@
           </td>
           <td class="num text-xs sm:text-sm" th:attr="data-val=${account.currentValue}"
               th:text="${account.currentValue == null ? '—' : #numbers.formatInteger(account.currentValue, 1, 'COMMA')}">0</td>
-          <td class="num" data-mcol="xirr" th:if="${acctMetrics.contains('xirr')}" th:attr="data-val=${account.xirr}"
-              th:text="${account.xirr == null ? '—' : (#numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">—</td>
-          <td class="num" data-mcol="return_base" th:if="${acctMetrics.contains('return_base')}" th:attr="data-val=${account.returnBase}"
-              th:text="${account.returnBase == null ? '—' : (#numbers.formatDecimal(account.returnBase * 100, 1, 2) + '%')}">—</td>
+          <td class="num" data-mcol="xirr" th:if="${acctMetrics.contains('xirr')}" th:attr="data-val=${account.xirr}">
+              <span th:text="${account.xirr == null ? '—' : (#numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">—</span><sup
+                    th:if="${account.xirr != null and account.monthsHeld != null and account.monthsHeld &lt; 12}"
+                    class="text-ink-subtle font-mono text-[8px] ml-0.5" title="不足 12 期 · 此为累计回报(未年化)">累</sup></td>
+          <td class="num" data-mcol="return_base" th:if="${acctMetrics.contains('return_base')}" th:attr="data-val=${account.returnBase}">
+              <span th:text="${account.returnBase == null ? '—' : (#numbers.formatDecimal(account.returnBase * 100, 1, 2) + '%')}">—</span><sup
+                    th:if="${account.returnBase != null and account.monthsHeld != null and account.monthsHeld &lt; 12}"
+                    class="text-ink-subtle font-mono text-[8px] ml-0.5" title="不足 12 期 · 此为累计回报(未年化)">累</sup></td>
           <td class="num" data-mcol="cum_pnl" th:if="${acctMetrics.contains('cum_pnl')}" th:attr="data-val=${account.cumPnl}"
               th:classappend="${account.cumPnl != null and account.cumPnl.signum() &lt; 0 ? 'num-neg' : (account.cumPnl != null and account.cumPnl.signum() &gt; 0 ? 'num-pos' : '')}"
               th:text="${account.cumPnl == null ? '—' : ((account.cumPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.cumPnl, 1, 'COMMA'))}">—</td>
@@ -420,9 +424,11 @@
               th:text="${account.sharePct == null ? '—' : (#numbers.formatDecimal(account.sharePct, 1, 1) + '%')}">—</td>
           <td class="num" data-mcol="months_held" th:if="${acctMetrics.contains('months_held')}" th:attr="data-val=${account.monthsHeld}"
               th:text="${account.monthsHeld == null ? '—' : account.monthsHeld}">—</td>
-          <td class="num" data-mcol="plan_actual" th:if="${acctMetrics.contains('plan_actual')}" th:attr="data-val=${account.planActualDiffPct}"
-              th:classappend="${account.planActualDiffPct != null and account.planActualDiffPct.signum() &lt; 0 ? 'num-neg' : (account.planActualDiffPct != null and account.planActualDiffPct.signum() &gt; 0 ? 'num-pos' : '')}"
-              th:text="${account.planActualDiffPct == null ? '—' : ((account.planActualDiffPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(account.planActualDiffPct, 1, 2) + 'pp')}">—</td>
+          <td class="num" data-mcol="plan_actual" th:if="${acctMetrics.contains('plan_actual')}" th:attr="data-val=${account.planActualDiffPct}">
+              <span th:classappend="${account.planActualDiffPct != null and account.planActualDiffPct.signum() &lt; 0 ? 'num-neg' : (account.planActualDiffPct != null and account.planActualDiffPct.signum() &gt; 0 ? 'num-pos' : '')}"
+                    th:text="${account.planActualDiffPct == null ? '—' : ((account.planActualDiffPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(account.planActualDiffPct, 1, 2) + 'pp')}">—</span><sup
+                    th:if="${account.planActualDiffPct != null and account.monthsHeld != null}"
+                    class="text-ink-subtle font-mono text-[8px] ml-0.5" th:title="'实际累计 vs 预期(缩放到同窗口)· 近 ' + ${account.monthsHeld} + ' 月'" th:text="'近'+${account.monthsHeld}+'月'">近N月</sup></td>
           <td class="hidden lg:table-cell" data-mcol="sparkline" data-sort-skip th:if="${acctMetrics.contains('sparkline')}">
             <svg th:if="${account.sparklinePoints != null}"
                  th:classappend="${account.sparklineTrend == 'down' ? 'sparkline-neg' : 'sparkline-pos'}"

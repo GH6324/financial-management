@@ -1575,3 +1575,14 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 
 > 背景:账户级指标目录 15 项,但全站唯一消费方(dashboard 账户列表)只渲染 6 列 → 勾了其余 9 项不显示(v0.8 扩了数据+目录、模板列没补完)。修:有数据的 6 项补成列;无 per-account 数据的 twr/yoy/risk 移除目录。
 > 列多展示:账户名 sticky 左固定;指标列 > 最佳数(7)时容器横滑;内联 chips 即时切列显隐(localStorage 记住,默认=指标设置勾选集)。手机端卡片不变。
+
+---
+
+## v0.10.5 · 收益对比同窗口口径(决策 125)
+
+| Case | 校验 |
+|---|---|
+| v10-WINDOW-1 | `BenchmarkAggregator.windowDiffPercentPoints` + `beatStatusWindow` 就位;预实(`FactViewServiceImpl`)、reports vs基准(`ReportsController`)都改用窗口缩放;reports 不再 `diffPercentPoints(ap.xirr())`(累计减年化的旧错口径) |
+| BenchmarkAggregatorTest(+3) | `expectedOverWindowPct`(8%→1月≈0.64%、12月=8%);**月度2% vs 年化8% → 跑赢(非跑输6pp)**;阈值随窗口缩放(12月回到±2pp) |
+
+> 根因:账户 `xirr=annualizedOrCumulative`——满12期年化、不足累计;而预期/基准恒为年化。短账户「几个月累计」减「年化」→ 错判。修:实际累计 vs 预期(年化缩放到持有月数)同窗口比;阈值同步缩放;<12期「年化」列动态标「累」、预实标「近N月」。checkup 本就 gate≥12,本次让 dashboard/reports 与之一致(且短账户也能正确比)。

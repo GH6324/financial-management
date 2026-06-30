@@ -2713,9 +2713,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '280 单元' "$RD/README.md" && grep -q '404' "$RD/README.md" \
+  && grep -q '283 单元' "$RD/README.md" && grep -q '405' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(280/404)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(283/405)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -3077,6 +3077,17 @@ RG=src/main/resources/templates/dashboard/_region.html
   && ! grep -q '"twr"' src/main/java/com/family/finance/service/MetricPrefsService.java; } \
   && log_ok "v10-ACCT-COLS-1 账户表补全列 + 指标 chips(PC+手机)+ sticky + 目录不超卖(twr/yoy/risk 已移除)" \
   || log_bad "v10-ACCT-COLS-1 账户列/chips/sticky 缺失 或 目录仍含无数据指标" "see _region.html dash-list / MetricPrefsService"
+
+# v10-WINDOW-1 · 收益对比「同窗口」口径(修短账户「累计实际 vs 年化预期」错判)
+#   预实(账户)+ reports vs基准(账户/家庭)一律:实际累计 vs 预期(年化缩放到持有月数);
+#   阈值随窗口缩放(beatStatusWindow);<12 期年化列动态标「累」。
+{ grep -q 'windowDiffPercentPoints' src/main/java/com/family/finance/calc/BenchmarkAggregator.java \
+  && grep -q 'beatStatusWindow' src/main/java/com/family/finance/calc/BenchmarkAggregator.java \
+  && grep -q 'windowDiffPercentPoints' src/main/java/com/family/finance/factview/FactViewServiceImpl.java \
+  && grep -q 'windowDiffPercentPoints' src/main/java/com/family/finance/web/report/ReportsController.java \
+  && ! grep -q 'diffPercentPoints(ap.xirr()' src/main/java/com/family/finance/web/report/ReportsController.java; } \
+  && log_ok "v10-WINDOW-1 预实/vs基准 同窗口口径(实际累计 vs 预期缩放;不再「累计减年化」)" \
+  || log_bad "v10-WINDOW-1 收益对比仍混口径(短账户累计 vs 年化预期)" "see BenchmarkAggregator / FactViewServiceImpl / ReportsController"
 
 echo
 echo "═══════════════════════════════════════"

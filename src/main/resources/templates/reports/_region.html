@@ -88,7 +88,7 @@
       <div class="kpi-delta" th:if="${familyBenchmarkPct == null}">资金加权</div>
     </div>
     <div class="kpi-card">
-      <span class="kpi-eyebrow">资产年化 · 剔除收入 ★ <th:block th:insert="~{fragments/_kpi-info :: i('12 月滚动几何平均。去掉工资影响，纯看钱替你赚钱的回报。', ${calc.familyTwr})}"/></span>
+      <span class="kpi-eyebrow"><span th:text="${familyReturnAnnualized} ? '资产年化' : '资产累计'">资产年化</span> · 剔除收入 ★ <th:block th:insert="~{fragments/_kpi-info :: i('满 12 期为 12 月滚动几何平均(年化);不足 12 期为累计(未年化)。去掉工资影响,纯看钱替你赚钱的回报。', ${calc.familyTwr})}"/></span>
       <div class="kpi-value tnum num-pos font-display" th:text="${familyTwr}">—</div>
       <div class="kpi-delta">钱替你赚的真实回报 · 12 月几何平均</div>
     </div>

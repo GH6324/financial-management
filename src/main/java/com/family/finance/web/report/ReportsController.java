@@ -172,8 +172,13 @@ public class ReportsController {
                 BigDecimal pcBench = pcCode == null ? null : benchmarkPctByPcCode.get(pcCode);
                 BigDecimal benchmark = BenchmarkAggregator.benchmarkForAccount(
                     ap.xirr(), pcBench, ap.accountType().name());
-                BigDecimal diffPct = BenchmarkAggregator.diffPercentPoints(ap.xirr(), benchmark);
-                BenchmarkAggregator.BeatStatus beat = BenchmarkAggregator.beatStatus(diffPct);
+                // v0.10.5 同窗口:实际「持有窗口累计回报」(cumPnl/净投入)vs 基准按持有月数缩放;
+                //   修「短账户 xirr 为累计 却减年化基准」的口径错(与 dashboard 预实一致)。
+                int months = ap.monthsHeld() == null ? 0 : ap.monthsHeld();
+                BigDecimal cumActualPct = (ap.netPrincipal() != null && ap.netPrincipal().signum() > 0)
+                    ? ap.cumPnl().divide(ap.netPrincipal(), 8, java.math.RoundingMode.HALF_EVEN).multiply(new BigDecimal("100")) : null;
+                BigDecimal diffPct = BenchmarkAggregator.windowDiffPercentPoints(cumActualPct, benchmark, months);
+                BenchmarkAggregator.BeatStatus beat = BenchmarkAggregator.beatStatusWindow(diffPct, months);
                 String xirrLabel = ap.xirr() == null ? null
                     : String.format("%+.2f%%", ap.xirr().doubleValue() * 100);
                 String valueLabel = ap.currentValue() == null ? null
@@ -204,9 +209,15 @@ public class ReportsController {
             .toList();
         BigDecimal familyBenchmarkPct = BenchmarkAggregator.weightedFamilyBenchmark(bmInputs);
         BigDecimal familyXirrDecimal = factViewService.familyXirr(slice);
-        BigDecimal familyDiffPct = familyXirrDecimal == null ? null
-            : BenchmarkAggregator.diffPercentPoints(familyXirrDecimal, familyBenchmarkPct);
-        BenchmarkAggregator.BeatStatus familyBeat = BenchmarkAggregator.beatStatus(familyDiffPct);
+        // v0.10.5 同窗口:家庭实际「累计回报」(累计 PnL/累计净投入)vs 加权基准缩放到家庭持有月数;
+        //   与账户/预实一致,修「家庭 XIRR(<12 期为累计)减年化基准」的口径错。
+        int familyMonths = slice.periodIds().size();
+        BigDecimal famCumActualPct = (lastDecomposition != null && lastDecomposition.cumulativeNetInflow() != null
+                && lastDecomposition.cumulativeNetInflow().signum() > 0 && lastDecomposition.cumulativePnl() != null)
+            ? lastDecomposition.cumulativePnl().divide(lastDecomposition.cumulativeNetInflow(), 8, java.math.RoundingMode.HALF_EVEN).multiply(new BigDecimal("100"))
+            : null;
+        BigDecimal familyDiffPct = BenchmarkAggregator.windowDiffPercentPoints(famCumActualPct, familyBenchmarkPct, familyMonths);
+        BenchmarkAggregator.BeatStatus familyBeat = BenchmarkAggregator.beatStatusWindow(familyDiffPct, familyMonths);
 
         // v0.4 FR-62a · 配置 diff
         AllocationService.DiffResult allocationDiff = allocationService.compute(me.getFamilyId(), slice);
@@ -250,6 +261,8 @@ public class ReportsController {
         boolean reportsHasMetrics = closedSnapshot && slice.periodIds().size() >= 2;
         model.addAttribute("closedSnapshot", closedSnapshot);
         model.addAttribute("reportsHasMetrics", reportsHasMetrics);
+        // v0.10.5 · 资产年化 仅满 12 期才是真年化(12月滚动几何);不足为累计 → 动态标签「资产累计」
+        model.addAttribute("familyReturnAnnualized", familyMonths >= 12);
         if (reportsHasMetrics) {
             model.addAttribute("familyXirr", percent(familyXirrDecimal));
             model.addAttribute("familyTwr", percent(familyTwrDecimal));
