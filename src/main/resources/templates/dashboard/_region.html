@@ -491,8 +491,10 @@
 
     <!-- v0.10.4 · 账户名列 sticky 左固定(列多横滑时账户名钉住)+ 指标 chips 关闭态样式 -->
     <style>
-      #dash-list .ledger-table .acct-sticky{ position:sticky; left:0; z-index:2; background:var(--card); }
+      #dash-list .ledger-table .acct-sticky{ position:sticky; left:0; z-index:2; background:var(--card); white-space:nowrap; min-width:13rem; }
       #dash-list .ledger-table thead .acct-sticky{ z-index:3; }
+      /* 表头一律不换行(账户名列加宽 + 不换行;指标列名也不换行)*/
+      #dash-list .ledger-table thead th{ white-space:nowrap; }
       #dash-list .mchip.off{ opacity:.4; text-decoration:line-through; border-style:dashed; }
       #dash-list .mchip{ cursor:pointer; }
     </style>
