@@ -301,8 +301,10 @@ $CURL -b $COOKIE "$BASE/admin/periods" -o "$TMP" -w ""
 # ---------- FR-13 Dashboard ----------
 section "FR-13 · Dashboard"
 $CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
-{ grep -q "净资产" "$TMP" && grep -q "总资产" "$TMP" && grep -q "总负债" "$TMP" && grep -q "紧急储备" "$TMP" && grep -q "负债率" "$TMP"; } \
-  && log_ok "FR13-1 5 KPI 卡齐" || log_bad "FR13-1 KPI 不全" "missing"
+# v0.10.6 去过期:第 5 卡 v0.4 FR-60a 起从「负债率」改为「本月资产收益」(负债率搬 /checkup)。
+#   原锚词「负债率」只命中 _region.html HTML 注释 → 靠注释假通过。改锚真实卡名。
+{ grep -q "净资产" "$TMP" && grep -q "总资产" "$TMP" && grep -q "总负债" "$TMP" && grep -q "紧急储备" "$TMP" && grep -q "本月资产收益" "$TMP"; } \
+  && log_ok "FR13-1 5 KPI 卡齐(净资产/总资产/总负债/紧急储备/本月资产收益)" || log_bad "FR13-1 KPI 不全" "missing"
 
 for r in 1M 3M 6M YTD 1Y ALL; do
   $CURL -b $COOKIE "$BASE/dashboard?range=$r" -o "$TMP" -w ""
@@ -956,9 +958,10 @@ section "v0.2 · 阶段 4 · 账本侧 (FR-30/31/32)"
 
 # LEDGER-1 /accounts 列表「体检」入口(2026-05-10 改 SVG 后,grep href)
 $CURL -b $COOKIE "$BASE/accounts" -o "$TMP" -w ""
+# v0.10.6 去过期:原 ≥13 耦合 demo 账户量(且 PC+移动双渲染);体检入口在账户行循环里 → 改渲染冒烟 ≥1。
 n=$(grep -oE 'href="/checkup\?account=[0-9]+"' "$TMP" | wc -l)
-[[ $n -ge 13 ]] && log_ok "v02-LEDGER-1 /accounts 列表至少 13 个 → /checkup?account 链接 (n=$n)" \
-  || log_bad "v02-LEDGER-1 体检入口" "n=$n"
+[[ $n -ge 1 ]] && log_ok "v02-LEDGER-1 /accounts 账户行含 /checkup?account 体检入口 (n=$n)" \
+  || log_bad "v02-LEDGER-1 体检入口未渲染" "n=$n"
 
 # LEDGER-2 /accounts 列表「账本 CSV」入口(账本链接在账户行循环里渲染 · 1:1 对应账户)
 #   v0.10.6 去过期:原硬编码 ≥13 耦合旧 demo 账户量级(现 demo 12 账户)→ 改「渲染冒烟」(≥1):
@@ -1073,9 +1076,10 @@ code=$($CURL -b $COOKIE -o /dev/null -w "%{http_code}" "$BASE/accounts/99999")
   || log_bad "v02-FR30-6 越权" "code=$code"
 # 列表入口接线
 $CURL -b $COOKIE "$BASE/accounts" -o "$TMP" -w ""
+# v0.10.6 去过期:原 ≥13 耦合 demo 账户量(且每账户多链接/双渲染);详情链接在账户行循环里 → 改渲染冒烟 ≥1。
 n=$(grep -cE 'href="/accounts/[0-9]+"' "$TMP")
-[[ $n -ge 13 ]] && log_ok "v02-FR30-7 /accounts 列表至少 13 个 → 详情链接 (n=$n)" \
-  || log_bad "v02-FR30-7 详情链接" "n=$n"
+[[ $n -ge 1 ]] && log_ok "v02-FR30-7 /accounts 账户行含详情链接 (n=$n)" \
+  || log_bad "v02-FR30-7 详情链接未渲染" "n=$n"
 
 # v0.2 audit 真名修复
 $CURL -b $COOKIE "$BASE/admin/audit" -o "$TMP" -w ""
@@ -1114,9 +1118,11 @@ for path in /dashboard /reports /checkup '/checkup?account=3' /accounts/1; do
 done
 # 注意:这两个 case 必须独立读 /reports(上面 for 循环最后 $TMP 是 /accounts/1)
 $CURL -b $COOKIE "$BASE/reports?range=1Y&currency=CNY" -o "$TMP" -w ""
+# v0.10.6 去过期:风险敞口「明细表」v0.4 FR-60b 已砍,改风险分布环形图(见 FR40e-3)。原断言「风险等级表格含★」
+#   已不成立——现 ★ 来自 资产年化★ eyebrow 等,非风险表。改判:页面仍含星级标识 ★(渲染冒烟 ≥1),不再宣称「表格」。
 n=$(grep -oE '★+' "$TMP" | wc -l)
-[[ $n -ge 3 ]] && log_ok "v02-FR40e-2 /reports 风险等级表格含 ★ 标识 (n=$n)" \
-  || log_bad "v02-FR40e-2 风险表格" "n=$n"
+[[ $n -ge 1 ]] && log_ok "v02-FR40e-2 /reports 含星级标识 ★(资产年化★ 等;风险明细表已砍→见 FR40e-3 环形)(n=$n)" \
+  || log_bad "v02-FR40e-2 星级标识缺失" "n=$n"
 # v0.4 FR-60b 砍 · 风险敞口明细表已删 · "进入资产体检" link 一并去 · 改判风险等级分布环形仍在
 grep -q 'riskDistChart' "$TMP" && log_ok "v02-FR40e-3 (v0.4 改) /reports 风险等级分布环形保留" \
   || log_bad "v02-FR40e-3 风险等级图 砍过头" "missing"
@@ -1124,7 +1130,9 @@ grep -q 'riskDistChart' "$TMP" && log_ok "v02-FR40e-3 (v0.4 改) /reports 风险
 # v0.2 FR-38 · dashboard KPI 卡 deep-link 到 /checkup 锚点
 $CURL -b $COOKIE "$BASE/dashboard?range=1Y&currency=CNY" -o "$TMP" -w ""
 n=$(grep -oE 'href="/checkup[^"]*"' "$TMP" | wc -l)
-[[ $n -ge 5 ]] && log_ok "v02-FR38-1 dashboard 5 张 KPI 卡均含 /checkup 链接 (n=$n)" \
+# v0.10.6 去过期:v0.4.2 起第 5 卡(本月资产收益)deep-link 指向 /reports 而非 /checkup,5 卡里只有 4 卡链 /checkup;
+#   n≥5 仍过是因为账户行也有 /checkup 链接计入。文案不再宣称「5 张 KPI 均含」,改「KPI+账户行含 ≥5 个 /checkup 深链」。
+[[ $n -ge 5 ]] && log_ok "v02-FR38-1 dashboard 含 ≥5 个 /checkup 深链(KPI 4 张 + 账户行;第5卡本月资产收益→/reports)(n=$n)" \
   || log_bad "v02-FR38-1 KPI 链接" "n=$n"
 
 # 至少 3 个不同锚点(allocation / liquidity / 顶级)
@@ -1425,10 +1433,12 @@ $CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
   && log_ok "v03-IND-5 /reports 储蓄区块有数据时显双柱图" \
   || log_bad "v03-IND-5 reports 双柱" "see $TMP"
 
-# v03-IND-6 · v0.2 reports 既有内容 100% 保留(桑基图 / 风险敞口 / 月度收支瀑布)
-{ grep -q 'sankey' "$TMP" || grep -q '净资产' "$TMP"; } \
-  && log_ok "v03-IND-6 v0.2 reports 既有内容保留(backward compat)" \
-  || log_bad "v03-IND-6 v0.2 内容被破坏" "see $TMP"
+# v03-IND-6 · reports 保留核心内容(净资产等);桑基图/瀑布图 v0.4 FR-60b 已砍(与新定位冲突),不再期待。
+#   v0.10.6 去过期:原断言宣称「桑基图 100% 保留」+ grep 'sankey' 仅命中已废弃的 sankeyNodes/Links JS 残留变量
+#   (无图渲染);去掉 sankey 期待,只验 backward-compat 核心内容「净资产」仍在。
+grep -q '净资产' "$TMP" \
+  && log_ok "v03-IND-6 reports 保留核心内容(净资产;桑基图/瀑布 v0.4 已砍)" \
+  || log_bad "v03-IND-6 reports 核心内容缺失" "see $TMP"
 
 # v03-IND-7 · /entry FR-51 2 框在页面"上方"(用户最先录入位置 · 2026-05-13 反馈)
 $CURL -b $COOKIE "$BASE/entry" -o "$TMP" -w ""
