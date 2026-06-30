@@ -86,27 +86,36 @@
     }
     window.togglePrivacy = togglePrivacy;
     window.isPrivacy = function(){ return document.documentElement.classList.contains('privacy'); };
-    // v0.11 · 按住临时查看(peek):隐私态下按住某个被遮金额 → 临时显示,松开/滑走/滚动/失焦 → 复原。
-    //   事件委托(覆盖 HTMX 动态片段)· Pointer 事件统一手机长按 + 桌面按住 · 触摸时阻止选中/呼出菜单。
+    // v0.11 · 按住临时查看(peek):隐私态下「长按」某个被遮金额 → 临时显示,松开/滑走/滚动/失焦 → 复原。
+    //   多数金额在 <a> 链接内(KPI 跳 /checkup、账户行跳详情),故:短按=正常跳转(数字仍隐藏);
+    //   长按(≥阈值)=peek 显示 + 抑制松手那一次 click(不跳转)。事件委托覆盖 HTMX 片段。
     (function () {
-      var peeking = null;
-      function endPeek() { if (peeking) { peeking.classList.remove('priv-peek'); peeking = null; } }
+      var HOLD_MS = 320, MOVE_TOL = 10;
+      var peeking = null, timer = null, didPeek = false, suppressClick = false, sx = 0, sy = 0;
+      function clearTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+      function endPeek() { clearTimer(); if (peeking) { peeking.classList.remove('priv-peek'); peeking = null; } }
       document.addEventListener('pointerdown', function (e) {
+        suppressClick = false; didPeek = false; clearTimer();
         if (!document.documentElement.classList.contains('privacy')) return;
         var el = e.target.closest ? e.target.closest('[data-priv]') : null;
         if (!el) return;
-        endPeek(); el.classList.add('priv-peek'); peeking = el;
-        if (e.pointerType === 'touch' && e.cancelable) e.preventDefault();
-      }, { passive: false });
-      document.addEventListener('pointerup', endPeek);
-      document.addEventListener('pointercancel', endPeek);
+        sx = e.clientX; sy = e.clientY;
+        // 不在 pointerdown preventDefault(否则短按无法跳转 + 阻断滚动);靠 CSS user-select/-webkit-touch-callout 防选中
+        timer = setTimeout(function () { el.classList.add('priv-peek'); peeking = el; didPeek = true; }, HOLD_MS);
+      }, { passive: true });
       document.addEventListener('pointermove', function (e) {
-        if (!peeking) return;
-        var el = e.target.closest ? e.target.closest('[data-priv]') : null;
-        if (el !== peeking) endPeek();
-      });
+        // 移动超过容差(滚动/滑走)→ 取消长按计时与 peek,放行滚动与短按语义
+        if (Math.abs(e.clientX - sx) > MOVE_TOL || Math.abs(e.clientY - sy) > MOVE_TOL) endPeek();
+      }, { passive: true });
+      function up() { if (didPeek) suppressClick = true; endPeek(); }
+      document.addEventListener('pointerup', up);
+      document.addEventListener('pointercancel', endPeek);
       document.addEventListener('scroll', endPeek, true);
       window.addEventListener('blur', endPeek);
+      // 长按 peek 后,抑制随之而来的 click(阻止 <a> 跳转);短按不触发,正常跳转
+      document.addEventListener('click', function (e) {
+        if (suppressClick) { suppressClick = false; e.preventDefault(); e.stopPropagation(); }
+      }, true);
     })();
   </script>
   <!-- v0.2 全局错误兜底:HTMX 5xx / 网络错误 / JS 致命异常,统一 toast 反馈 -->
