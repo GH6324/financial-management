@@ -43,6 +43,13 @@
     body.privacy .privacy-bar{display:flex}
     .eye-off{display:none} body.privacy .eye-on{display:none} body.privacy .eye-off{display:inline}
     body.privacy #eyeBtn{color:var(--brass-deep);border-color:var(--brass);background:var(--brass-soft)}
+    /* 常驻左下浮动控件(随处隐藏/恢复)· 隐私态展开「金额已隐藏 · 点恢复」chip */
+    #privFloat{position:fixed;left:14px;bottom:18px;z-index:55;display:inline-flex;align-items:center;gap:6px;
+      background:var(--card);color:var(--ink-soft);border:1px solid var(--rule);border-radius:999px;padding:8px 11px;
+      box-shadow:0 3px 12px rgba(0,0,0,.16);cursor:pointer;font-family:"JetBrains Mono",monospace;font-size:11px}
+    #privFloat .pf-label{display:none;white-space:nowrap}
+    body.privacy #privFloat{background:var(--brass-soft);color:var(--brass-deep);border-color:var(--brass)}
+    body.privacy #privFloat .pf-label{display:inline}
   </style>
 </head>
 <body class="min-h-screen relative">
@@ -141,5 +148,11 @@
   </div>
 
 </div>
+  <!-- 常驻左下浮动控件(双入口之一 · 随处隐藏/恢复)-->
+  <button id="privFloat" onclick="document.body.classList.toggle('privacy')" title="隐藏 / 显示金额">
+    <svg class="eye-on" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    <svg class="eye-off" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+    <span class="pf-label">金额已隐藏 · 点恢复</span>
+  </button>
 </body>
 </html>

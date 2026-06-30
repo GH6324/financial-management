@@ -26,21 +26,21 @@
     <div class="kpi-card">
       <span class="kpi-eyebrow">净资产<th:block th:insert="~{fragments/_kpi-info :: i('总资产 − 总负债。含全部账户,本位币换算。', ${calc.netWorth})}"/></span>
       <div class="kpi-value tnum"
-           th:text="${diagnose.kpi.netWorth != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.netWorth, 1, 0) : '—'}">¥0</div>
+           data-priv th:text="${diagnose.kpi.netWorth != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.netWorth, 1, 0) : '—'}">¥0</div>
       <div class="kpi-delta"
            th:classappend="${diagnose.kpi.netWorthDelta != null and diagnose.kpi.netWorthDelta.signum() > 0 ? ' num-pos' : (diagnose.kpi.netWorthDelta != null and diagnose.kpi.netWorthDelta.signum() < 0 ? ' num-neg' : '')}"
-           th:text="${diagnose.kpi.netWorthDelta != null ? (diagnose.kpi.netWorthDelta.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(diagnose.kpi.netWorthDelta, 1, 0) : '较上期 —'}">较上期 —</div>
+           data-priv th:text="${diagnose.kpi.netWorthDelta != null ? (diagnose.kpi.netWorthDelta.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(diagnose.kpi.netWorthDelta, 1, 0) : '较上期 —'}">较上期 —</div>
     </div>
     <div class="kpi-card">
       <span class="kpi-eyebrow">总资产<th:block th:insert="~{fragments/_kpi-info :: i('CASH + STOCK + WEALTH + PROPERTY 合计,不含 LOAN。', ${calc.totalAssets})}"/></span>
       <div class="kpi-value tnum"
-           th:text="${diagnose.kpi.totalAssets != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.totalAssets, 1, 0) : '—'}">¥0</div>
+           data-priv th:text="${diagnose.kpi.totalAssets != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.totalAssets, 1, 0) : '—'}">¥0</div>
       <div class="kpi-delta">不含 LOAN</div>
     </div>
     <div class="kpi-card">
       <span class="kpi-eyebrow">总负债<th:block th:insert="~{fragments/_kpi-info :: i('仅 LOAN 类型(房贷 + 信用卡)绝对值合计。', ${calc.totalLiabilities})}"/></span>
       <div class="kpi-value tnum num-neg"
-           th:text="${diagnose.kpi.totalLiabilities != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.totalLiabilities, 1, 0) : '—'}">¥0</div>
+           data-priv th:text="${diagnose.kpi.totalLiabilities != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.totalLiabilities, 1, 0) : '—'}">¥0</div>
       <div class="kpi-delta">仅 LOAN</div>
     </div>
     <div class="kpi-card">
@@ -102,7 +102,7 @@
         <div>
           <div class="kpi-eyebrow">流动资产<th:block th:insert="~{fragments/_kpi-info :: i('CASH 类型 + 货币基金等 LIQUID 类目合计。', ${calc.liquidAssets})}"/></div>
           <div class="font-display text-2xl tnum mt-1"
-               th:text="${diagnose.liquidAssets != null ? '¥' + #numbers.formatDecimal(diagnose.liquidAssets, 1, 0) : '—'}">¥0</div>
+               data-priv th:text="${diagnose.liquidAssets != null ? '¥' + #numbers.formatDecimal(diagnose.liquidAssets, 1, 0) : '—'}">¥0</div>
           <div class="font-mono text-[10px] text-ink-soft">CASH + 货币基金等(类目 = LIQUID)</div>
         </div>
         <div>
@@ -155,14 +155,14 @@
                th:classappend="${diagnose.kpi.monthlyPnlAmount != null and diagnose.kpi.monthlyPnlAmount.signum() > 0 ? ' num-pos' : (diagnose.kpi.monthlyPnlAmount != null and diagnose.kpi.monthlyPnlAmount.signum() < 0 ? ' num-neg' : '')}"
                th:text="${diagnose.kpi.monthlyInvestReturnPct != null ? ((diagnose.kpi.monthlyInvestReturnPct.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(diagnose.kpi.monthlyInvestReturnPct.multiply(new java.math.BigDecimal(100)), 1, 2) + '%') : '—'}">+0.00%</div>
           <div class="font-mono text-[10px] text-ink-soft"
-               th:text="${diagnose.kpi.monthlyPnlAmount != null ? ((diagnose.kpi.monthlyPnlAmount.signum() >= 0 ? '+¥' : '−¥') + #numbers.formatInteger(diagnose.kpi.monthlyPnlAmount.abs(), 0, 'COMMA')) : '—'}">+¥0</div>
+               data-priv th:text="${diagnose.kpi.monthlyPnlAmount != null ? ((diagnose.kpi.monthlyPnlAmount.signum() >= 0 ? '+¥' : '−¥') + #numbers.formatInteger(diagnose.kpi.monthlyPnlAmount.abs(), 0, 'COMMA')) : '—'}">+¥0</div>
         </div>
         <!-- 行 3 · 本年累计损益(钱赚的) -->
         <div class="col-span-2">
           <div class="kpi-eyebrow">本年累计损益(钱赚的 · YTD)<th:block th:insert="~{fragments/_kpi-info :: i('1 月至今的投资 PnL 合计(ΔNetWorth − 净流入逐月累加)。', ${calc.ytdPnl})}"/></div>
           <div class="font-display text-2xl tnum mt-1"
                th:classappend="${diagnose.cumulativeYtdPnl != null and diagnose.cumulativeYtdPnl.signum() > 0 ? ' num-pos' : (diagnose.cumulativeYtdPnl != null and diagnose.cumulativeYtdPnl.signum() < 0 ? ' num-neg' : '')}"
-               th:text="${diagnose.cumulativeYtdPnl != null ? ((diagnose.cumulativeYtdPnl.signum() >= 0 ? '+' : '') + '¥' + #numbers.formatDecimal(diagnose.cumulativeYtdPnl.abs(), 1, 0)) : '—'}">+¥0</div>
+               data-priv th:text="${diagnose.cumulativeYtdPnl != null ? ((diagnose.cumulativeYtdPnl.signum() >= 0 ? '+' : '') + '¥' + #numbers.formatDecimal(diagnose.cumulativeYtdPnl.abs(), 1, 0)) : '—'}">+¥0</div>
           <div class="font-mono text-[10px] text-ink-soft">自然年 · 已剔除外部资金 + 转账</div>
         </div>
       </div>
@@ -239,7 +239,7 @@
     (() => {
       const allocLabels = /*[[${diagnose.allocation}]]*/ [];
       const riskBuckets = /*[[${diagnose.riskDistribution}]]*/ [];
-      const fmtMoney = (v) => {
+      const fmtMoney = (v) => { if (window.isPrivacy && window.isPrivacy()) return '';
         if (v == null) return '—';
         const n = Number(v);
         if (Math.abs(n) >= 10000) return '¥' + (n/10000).toFixed(1) + '万';

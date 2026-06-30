@@ -94,12 +94,12 @@
     </div>
     <div class="kpi-card">
       <span class="kpi-eyebrow">人赚的 · 净流入 <th:block th:insert="~{fragments/_kpi-info :: i('所选区间内逐期「收入 − 支出」累计净流入(工资攒下来的钱)· 非单月。区间最早一期为基准起点,其收支已含在起始净资产里、不重复计入。报表只统计已关账账期(进行中的本月不计,关账后才纳入)· 单月收支看下方「储蓄能力」区。', ${calc.netInflow})}"/></span>
-      <div class="kpi-value tnum" th:text="${cumulativeNetInflow}">¥0</div>
+      <div class="kpi-value tnum" data-priv th:text="${cumulativeNetInflow}">¥0</div>
       <div class="kpi-delta">收入 − 支出 累计</div>
     </div>
     <div class="kpi-card">
       <span class="kpi-eyebrow">钱赚的 · 投资 PnL <th:block th:insert="~{fragments/_kpi-info :: i('ΔNetWorth − 净流入。纯资产升值/贬值累计。', ${calc.pnl})}"/></span>
-      <div class="kpi-value tnum" th:text="${cumulativePnl}">¥0</div>
+      <div class="kpi-value tnum" data-priv th:text="${cumulativePnl}">¥0</div>
       <div class="kpi-delta">资产升值 / 贬值 累计</div>
     </div>
   </section>
@@ -188,7 +188,7 @@
                   th:text="'持平 ' + ${row.diffPct} + '%'">持平</span>
             <span th:if="${row.beatStatus == 'NA'}" class="text-ink-subtle text-[10px]">—</span>
           </td>
-          <td class="num" th:text="${row.currentValueLabel != null ? row.currentValueLabel : '—'}">—</td>
+          <td class="num" data-priv th:text="${row.currentValueLabel != null ? row.currentValueLabel : '—'}">—</td>
         </tr>
         </tbody>
       </table>
@@ -214,13 +214,13 @@
         riskRatios: [[${riskRatios}]]
       };
       const ccySym = data.currency === 'USD' ? '$' : (data.currency === 'HKD' ? 'HK$' : '¥');
-      const fmtMoney = (v) => {
+      const fmtMoney = (v) => { if (window.isPrivacy && window.isPrivacy()) return '';
         if (v == null) return '—';
         const n = Number(v);
         if (Math.abs(n) >= 10000) return ccySym + (n / 10000).toFixed(1) + '万';
         return ccySym + Math.round(n).toLocaleString();
       };
-      const fmtMoneyShort = (v) => {
+      const fmtMoneyShort = (v) => { if (window.isPrivacy && window.isPrivacy()) return '';
         if (v == null || v === 0) return '';
         return fmtMoney(v);
       };

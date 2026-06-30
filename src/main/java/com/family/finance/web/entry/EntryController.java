@@ -369,7 +369,7 @@ public class EntryController {
             }
             sb.append("<li class=\"py-1.5 flex items-baseline gap-3 flex-wrap\">");
             sb.append("<span class=\"w-24 inline-flex items-center gap-1 ").append(kindClass).append("\">").append(kindLabel).append("</span>");
-            sb.append("<span class=\"tnum w-28\">").append(escapeHtml(le.amountSignedLabel())).append("</span>");
+            sb.append("<span class=\"tnum w-28\" data-priv>").append(escapeHtml(le.amountSignedLabel())).append("</span>");  // v0.11 隐私模式:账本金额遮
             String label = le.label() != null ? le.label()
                     : (le.kind() == EntryRow.LedgerKind.SNAPSHOT ? "用户校准余额" : "");
             sb.append("<span class=\"text-ink-soft flex-1 min-w-[120px]\">").append(escapeHtml(label)).append("</span>");

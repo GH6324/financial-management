@@ -79,12 +79,12 @@
         <div>
           <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">家庭本月总收入(SUM 成员)</div>
           <div class="font-display text-xl tnum"
-               th:text="${familyCurrentAgg != null and familyCurrentAgg.totalIncome != null ? ('¥' + #numbers.formatInteger(familyCurrentAgg.totalIncome, 0, 'COMMA')) : '—'}">¥0</div>
+               data-priv th:text="${familyCurrentAgg != null and familyCurrentAgg.totalIncome != null ? ('¥' + #numbers.formatInteger(familyCurrentAgg.totalIncome, 0, 'COMMA')) : '—'}">¥0</div>
         </div>
         <div>
           <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">家庭本月总支出</div>
           <div class="font-display text-xl tnum num-neg"
-               th:text="${familyCurrentAgg != null and familyCurrentAgg.totalExpense != null ? ('¥' + #numbers.formatInteger(familyCurrentAgg.totalExpense, 0, 'COMMA')) : '—'}">¥0</div>
+               data-priv th:text="${familyCurrentAgg != null and familyCurrentAgg.totalExpense != null ? ('¥' + #numbers.formatInteger(familyCurrentAgg.totalExpense, 0, 'COMMA')) : '—'}">¥0</div>
         </div>
         <div>
           <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">家庭本月已填</div>

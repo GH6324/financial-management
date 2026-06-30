@@ -25,7 +25,7 @@
            th:classappend="${s.type.name() == 'LOAN' ? ' text-rust' : ' text-ink-subtle'}"
            th:text="${s.type}">CASH</div>
       <div class="font-display text-xl tnum mt-1" th:classappend="${s.type.name() == 'LOAN' ? ' text-rust' : ''}" th:text="${s.count}">4</div>
-      <div class="font-mono text-xs text-ink-soft mt-1" th:text="${s.amountLabel}">¥304k</div>
+      <div class="font-mono text-xs text-ink-soft mt-1" data-priv th:text="${s.amountLabel}">¥304k</div>
     </div>
   </section>
 
@@ -120,7 +120,7 @@
         <td class="font-mono text-xs" th:text="${row.account.currency}">CNY</td>
         <td class="text-ink-soft" th:text="${row.ownerName}">Alice</td>
         <td class="text-ink-subtle" th:text="${row.paymentSourceName}">—</td>
-        <td class="num" th:classappend="${row.account.type.name() == 'LOAN' ? ' num-neg' : ''}" th:text="${row.balanceLabel}">¥73,200</td>
+        <td class="num" th:classappend="${row.account.type.name() == 'LOAN' ? ' num-neg' : ''}" data-priv th:text="${row.balanceLabel}">¥73,200</td>
         <td class="text-right whitespace-nowrap">
           <!-- v0.2 操作 icon · Lucide 风格 inline SVG · stroke=currentColor 跟随 .btn-ghost 文字色 -->
           <button class="btn-ghost inline-flex items-center gap-1" title="账户间划转" type="button">
@@ -242,7 +242,7 @@
       </div>
       <div class="flex items-baseline justify-between mt-3 pt-3 border-t border-rule-soft">
         <span class="text-xs text-ink-soft" th:text="${row.account.type.name() == 'LOAN' ? '本期欠款' : '本期末'}">本期末</span>
-        <span class="font-mono text-base tnum" th:classappend="${row.account.type.name() == 'LOAN' ? ' num-neg' : ''}" th:text="${row.balanceLabel}">¥73,200</span>
+        <span class="font-mono text-base tnum" th:classappend="${row.account.type.name() == 'LOAN' ? ' num-neg' : ''}" data-priv th:text="${row.balanceLabel}">¥73,200</span>
       </div>
       <div class="flex gap-2 mt-3 flex-wrap">
         <a th:href="@{/accounts/{id}(id=${row.account.id})}" class="btn-paper text-[10px] no-underline inline-flex items-center gap-1" title="跨期流水档案">

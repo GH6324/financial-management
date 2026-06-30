@@ -49,12 +49,12 @@
         </div>
         <div class="kpi-card" style="background:rgba(79,107,71,.06)">
           <span class="kpi-eyebrow">人赚的 · 净流入</span>
-          <div class="font-display text-2xl mt-1 num-pos" th:text="${netInflowRaw != null ? '+¥' + #numbers.formatInteger(netInflowRaw,1,'COMMA') : '—'}">+¥31万</div>
+          <div class="font-display text-2xl mt-1 num-pos" data-priv th:text="${netInflowRaw != null ? '+¥' + #numbers.formatInteger(netInflowRaw,1,'COMMA') : '—'}">+¥31万</div>
           <div class="font-mono text-[10px] text-ink-soft mt-1">工资攒下来的钱 · PMC 源</div>
         </div>
         <div class="kpi-card" style="background:rgba(156,74,42,.05)">
           <span class="kpi-eyebrow">钱赚的 · 投资 PnL</span>
-          <div class="font-display text-2xl mt-1" th:text="${pnlRaw != null ? (pnlRaw.signum()>=0?'+':'') + '¥' + #numbers.formatInteger(pnlRaw,1,'COMMA') : '—'}">+¥5万</div>
+          <div class="font-display text-2xl mt-1" data-priv th:text="${pnlRaw != null ? (pnlRaw.signum()>=0?'+':'') + '¥' + #numbers.formatInteger(pnlRaw,1,'COMMA') : '—'}">+¥5万</div>
           <div class="font-mono text-[10px] text-ink-soft mt-1">纯资产升值 · ΔNW − 净流入</div>
         </div>
       </div>

@@ -2727,9 +2727,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '283 单元' "$RD/README.md" && grep -q '405' "$RD/README.md" \
+  && grep -q '283 单元' "$RD/README.md" && grep -q '408' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(283/405)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(283/408)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -3103,6 +3103,39 @@ RG=src/main/resources/templates/dashboard/_region.html
   && ! grep -q 'diffPercentPoints(ap.xirr()' src/main/java/com/family/finance/web/report/ReportsController.java; } \
   && log_ok "v10-WINDOW-1 预实/vs基准 同窗口口径(实际累计 vs 预期缩放;不再「累计减年化」)" \
   || log_bad "v10-WINDOW-1 收益对比仍混口径(短账户累计 vs 年化预期)" "see BenchmarkAggregator / FactViewServiceImpl / ReportsController"
+
+# ─────────── v0.11 · 隐私模式(公共场合 / 分享隐藏金额)───────────
+section "v0.11 · 隐私模式"
+
+# v11-PRIVACY-1 · 基建:FOUC 防闪 + togglePrivacy + 常驻浮动控件 + 隐私 CSS(layout)+ nav 眼睛
+LAY="$RD/src/main/resources/templates/fragments/layout.html"
+NAVF="$RD/src/main/resources/templates/fragments/nav.html"
+{ grep -q "sessionStorage.getItem('privacy')" "$LAY" \
+  && grep -q 'function togglePrivacy' "$LAY" \
+  && grep -q 'id="priv-float"' "$LAY" \
+  && grep -q 'html.privacy \[data-priv\]' "$LAY" \
+  && grep -q 'priv-eye-on' "$NAVF"; } \
+  && log_ok "v11-PRIVACY-1 隐私基建齐(FOUC 防闪 + togglePrivacy + 浮动控件 + CSS + nav 眼睛)" \
+  || log_bad "v11-PRIVACY-1 隐私基建缺失" "see layout.html / nav.html"
+
+# v11-PRIVACY-2 · 全页金额标记覆盖:5 个用户面页渲染后都含 data-priv 金额标记 + 双入口(toggle + 浮动)
+PRIV_MISS=""
+for pg in dashboard reports checkup accounts entry; do
+  $CURL -b $COOKIE "$BASE/$pg" -o "$TMP" -w ""
+  { grep -q 'data-priv' "$TMP" && grep -q 'togglePrivacy' "$TMP" && grep -q 'id="priv-float"' "$TMP"; } || PRIV_MISS="$PRIV_MISS $pg"
+done
+[[ -z "$PRIV_MISS" ]] \
+  && log_ok "v11-PRIVACY-2 dashboard/reports/checkup/accounts/entry 均有金额标记 + 双入口(nav+浮动)" \
+  || log_bad "v11-PRIVACY-2 有页面漏金额标记/漏入口" "缺:$PRIV_MISS"
+
+# v11-PRIVACY-3 · 比例不误遮 + 图表金额随隐私态隐藏:
+#   紧急储备(月)/本月收益率(%)源码不带 data-priv;dashboard 图表 fmtMoney 含 isPrivacy 守卫(金额隐藏·形状保留)
+DR="$RD/src/main/resources/templates/dashboard/_region.html"
+{ ! grep -q 'data-priv th:text="${kpiEmergency}"' "$DR" \
+  && ! grep -q 'data-priv th:text="${monthlyPnlPctLabel}"' "$DR" \
+  && grep -q "isPrivacy()) return ''" "$DR"; } \
+  && log_ok "v11-PRIVACY-3 比例/月数不误遮(emergency/pct 无 data-priv)+ 图表金额隐私守卫" \
+  || log_bad "v11-PRIVACY-3 误遮比例 或 图表金额无隐私守卫" "see dashboard/_region.html"
 
 echo
 echo "═══════════════════════════════════════"

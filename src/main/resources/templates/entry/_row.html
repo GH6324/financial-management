@@ -48,9 +48,9 @@
       </div>
     </div>
     <div class="text-right min-w-[90px] sm:min-w-[140px]">
-      <div class="font-mono tnum text-sm sm:text-lg" th:classappend="${row.account.type.name() == 'LOAN' ? ' num-neg' : ''}" th:text="${row.currentBalanceLabel}">¥73,200</div>
+      <div class="font-mono tnum text-sm sm:text-lg" th:classappend="${row.account.type.name() == 'LOAN' ? ' num-neg' : ''}" data-priv th:text="${row.currentBalanceLabel}">¥73,200</div>
       <div class="font-mono text-[10px] text-ink-subtle tnum mt-0.5">
-        上期末 <span th:text="${row.previousBalanceLabel}">¥45,000</span>
+        上期末 <span data-priv th:text="${row.previousBalanceLabel}">¥45,000</span>
       </div>
       <div class="font-mono text-xs" th:classappend="${row.delta != null and row.delta.signum() > 0 ? ' num-pos' : (row.delta != null and row.delta.signum() < 0 ? ' num-neg' : ' text-ink-subtle')}"
            th:text="${row.deltaLabel}">+¥28,200</div>
@@ -101,14 +101,14 @@
         <button class="btn-ink text-[10px] h-9 px-4">保存</button>
       </div>
       <div th:if="${row.previousSnapshot != null}" class="font-mono text-[10px] text-ink-subtle mt-2 tnum">
-        参考 · 上期末 <b class="text-ink" th:text="${row.previousBalanceLabel}">¥45,000</b>
+        参考 · 上期末 <b class="text-ink" data-priv th:text="${row.previousBalanceLabel}">¥45,000</b>
       </div>
     </form>
 
     <div class="xl:col-span-4 text-xs font-mono text-ink-soft">
       <div class="grid grid-cols-2 gap-x-4 gap-y-1">
-        <span>收入 <b class="tnum" th:text="${row.income}">0.00</b></span>
-        <span>支出 <b class="tnum" th:text="${row.expense}">0.00</b></span>
+        <span>收入 <b class="tnum" data-priv th:text="${row.income}">0.00</b></span>
+        <span>支出 <b class="tnum" data-priv th:text="${row.expense}">0.00</b></span>
         <span>转入 <b class="tnum" th:text="${row.transferIn}">0.00</b></span>
         <span>转出 <b class="tnum" th:text="${row.transferOut}">0.00</b></span>
       </div>
@@ -124,13 +124,13 @@
       <div th:if="${not #lists.isEmpty(row.incoming)}" class="mt-2 text-xs text-forest space-y-0.5">
         <div th:each="ref : ${row.incoming}">
           ↳ 已收到来自「<b th:text="${ref.counterpartyName}">招行</b>」的划转
-          <span class="tnum num-pos" th:text="${ref.amountLabel}">¥200</span>
+          <span class="tnum num-pos" data-priv th:text="${ref.amountLabel}">¥200</span>
         </div>
       </div>
       <div th:if="${not #lists.isEmpty(row.outgoing)}" class="mt-2 text-xs text-rust space-y-0.5">
         <div th:each="ref : ${row.outgoing}">
           ↱ 已划出到「<b th:text="${ref.counterpartyName}">蚂蚁财富</b>」
-          <span class="tnum num-neg" th:text="${ref.amountLabel}">¥200</span>
+          <span class="tnum num-neg" data-priv th:text="${ref.amountLabel}">¥200</span>
         </div>
       </div>
     </div>

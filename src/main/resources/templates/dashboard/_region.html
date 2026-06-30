@@ -134,19 +134,19 @@
   <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-rule mb-6 lg:mb-8">
     <a th:href="@{/checkup}" th:if="${famMetrics.contains('net_worth')}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
       <span class="kpi-eyebrow">净资产 <th:block th:insert="~{fragments/_kpi-info :: i('总资产 − 总负债。含 CASH/STOCK/WEALTH/PROPERTY 全部账户,按本位币换算。', ${calc.netWorth})}"/></span>
-      <div class="kpi-value tnum" th:text="${kpiNetWorth}">¥0</div>
+      <div class="kpi-value tnum" data-priv th:text="${kpiNetWorth}">¥0</div>
       <div class="kpi-delta"
            th:classappend="${kpiDelta != null and kpiDelta.startsWith('+') ? ' num-pos' : (kpiDelta != null and kpiDelta.startsWith('-') ? ' num-neg' : '')}"
-           th:text="${kpiDelta}">—</div>
+           data-priv th:text="${kpiDelta}">—</div>
     </a>
     <a href="/checkup#allocation" th:if="${famMetrics.contains('total_assets')}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
       <span class="kpi-eyebrow">总资产 <th:block th:insert="~{fragments/_kpi-info :: i('CASH + STOCK + WEALTH + PROPERTY 类型合计,不含 LOAN。', ${calc.totalAssets})}"/></span>
-      <div class="kpi-value tnum" th:text="${kpiAssets}">¥0</div>
+      <div class="kpi-value tnum" data-priv th:text="${kpiAssets}">¥0</div>
       <div class="kpi-delta">不含 LOAN</div>
     </a>
     <a href="/checkup#allocation" th:if="${famMetrics.contains('total_liab')}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
       <span class="kpi-eyebrow">总负债 <th:block th:insert="~{fragments/_kpi-info :: i('仅 LOAN 类型(房贷 + 信用卡 + 借款)绝对值合计。', ${calc.totalLiabilities})}"/></span>
-      <div class="kpi-value tnum num-neg" th:text="${kpiLiabilities}">¥0</div>
+      <div class="kpi-value tnum num-neg" data-priv th:text="${kpiLiabilities}">¥0</div>
       <div class="kpi-delta">仅 LOAN</div>
     </a>
     <a href="/checkup#liquidity" th:if="${famMetrics.contains('emergency_months')}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
@@ -160,7 +160,7 @@
       <div class="kpi-value tnum"
            th:classappend="${monthlyPnlPctLabel != null and monthlyPnlPctLabel.startsWith('+') ? ' num-pos' : (monthlyPnlPctLabel != null and monthlyPnlPctLabel.startsWith('-') ? ' num-neg' : '')}"
            th:text="${monthlyPnlPctLabel}">+0.00%</div>
-      <div class="kpi-delta" th:text="${monthlyPnlMoney} + ' · 剔除收入'">+¥0 · 剔除收入</div>
+      <div class="kpi-delta" data-priv th:text="${monthlyPnlMoney} + ' · 剔除收入'">+¥0 · 剔除收入</div>
     </a>
   </section>
 
@@ -197,7 +197,7 @@
             <span class="font-mono text-[11px] text-ink-subtle">本期净资产变化 ΔNW</span>
             <span class="font-display text-3xl sm:text-4xl font-medium tnum"
                   th:classappend="${cashflowSplit.deltaPos()} ? ' num-pos' : ' num-neg'"
-                  th:text="${cfDeltaLabel}">+¥28,200</span>
+                  data-priv th:text="${cfDeltaLabel}">+¥28,200</span>
           </div>
         </div>
         <div class="flex flex-col items-end gap-1.5">
@@ -217,7 +217,7 @@
         <p class="font-mono text-[11px] text-ink-subtle" th:text="${cashflowSplit.narrative()}">首期无对比,暂不拆投资损益。</p>
         <div th:unless="${cashflowSplit.empty()}" class="mt-2 flex items-baseline gap-3">
           <span class="font-mono text-[11px] text-ink-soft">人赚(本期收入 − 支出)</span>
-          <span class="font-display text-2xl tnum" th:classappend="${cashflowSplit.renPos()} ? ' num-pos' : ' num-neg'" th:text="${cfRenLabel}">+¥12,000</span>
+          <span class="font-display text-2xl tnum" th:classappend="${cashflowSplit.renPos()} ? ' num-pos' : ' num-neg'" data-priv th:text="${cfRenLabel}">+¥12,000</span>
         </div>
       </div>
 
@@ -228,7 +228,7 @@
         <a th:href="@{/entry}" class="btn-ink no-underline inline-flex items-center gap-1.5">去填报
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
         <p class="font-mono text-[10px] text-ink-subtle mt-3">投资侧不受影响:钱赚(投资损益)
-          <b th:classappend="${cashflowSplit.qianPos()} ? ' num-pos' : ' num-neg'" th:text="${cfQianLabel}">+¥16,200</b></p>
+          <b th:classappend="${cashflowSplit.qianPos()} ? ' num-pos' : ' num-neg'" data-priv th:text="${cfQianLabel}">+¥16,200</b></p>
       </div>
 
       <!-- 正常拆解(非空非首期):有符号双向条 + 两子卡 + 一句话 -->
@@ -241,7 +241,7 @@
               <div class="absolute left-1/2 top-[-3px] bottom-[-3px] w-px" style="background:var(--ink-subtle);opacity:.55"></div>
               <i class="absolute top-[3px] h-4 rounded-sm" th:style="${cashflowSplit.renBarStyle()}"></i>
             </div>
-            <span class="font-mono text-xs w-20 sm:w-24 tnum" th:classappend="${cashflowSplit.renPos()} ? ' num-pos' : ' num-neg'" th:text="${cfRenLabel}">+¥12,000</span>
+            <span class="font-mono text-xs w-20 sm:w-24 tnum" th:classappend="${cashflowSplit.renPos()} ? ' num-pos' : ' num-neg'" data-priv th:text="${cfRenLabel}">+¥12,000</span>
           </div>
           <!-- 钱赚 -->
           <div class="flex items-center gap-3">
@@ -250,7 +250,7 @@
               <div class="absolute left-1/2 top-[-3px] bottom-[-3px] w-px" style="background:var(--ink-subtle);opacity:.55"></div>
               <i class="absolute top-[3px] h-4 rounded-sm" th:style="${cashflowSplit.qianBarStyle()}"></i>
             </div>
-            <span class="font-mono text-xs w-20 sm:w-24 tnum" th:classappend="${cashflowSplit.qianPos()} ? ' num-pos' : ' num-neg'" th:text="${cfQianLabel}">+¥16,200</span>
+            <span class="font-mono text-xs w-20 sm:w-24 tnum" th:classappend="${cashflowSplit.qianPos()} ? ' num-pos' : ' num-neg'" data-priv th:text="${cfQianLabel}">+¥16,200</span>
           </div>
           <!-- ΔNW(=两条代数和)-->
           <div class="flex items-center gap-3">
@@ -259,7 +259,7 @@
               <div class="absolute left-1/2 top-[-3px] bottom-[-3px] w-px" style="background:var(--ink);opacity:.6"></div>
               <i class="absolute top-[3px] h-4 rounded-sm" th:style="${cashflowSplit.deltaBarStyle()}"></i>
             </div>
-            <span class="font-mono text-xs w-20 sm:w-24 tnum" th:classappend="${cashflowSplit.deltaPos()} ? ' num-pos' : ' num-neg'" th:text="${cfDeltaLabel}">+¥28,200</span>
+            <span class="font-mono text-xs w-20 sm:w-24 tnum" th:classappend="${cashflowSplit.deltaPos()} ? ' num-pos' : ' num-neg'" data-priv th:text="${cfDeltaLabel}">+¥28,200</span>
           </div>
           <div class="font-mono text-[9px] text-ink-subtle text-center pt-0.5">零线居中 · 向右为增(绿)· 向左为减(赭)</div>
         </div>
@@ -269,13 +269,13 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="p-4" style="background:var(--card-soft);border-left:3px solid var(--forest)">
             <div class="font-mono text-[10px] uppercase text-ink-soft tracking-wider">人赚 · 你主动存下的</div>
-            <div class="font-display text-2xl mt-1 tnum" th:classappend="${cashflowSplit.renPos()} ? ' num-pos' : ' num-neg'" th:text="${cfRenLabel}">+¥12,000</div>
+            <div class="font-display text-2xl mt-1 tnum" th:classappend="${cashflowSplit.renPos()} ? ' num-pos' : ' num-neg'" data-priv th:text="${cfRenLabel}">+¥12,000</div>
             <p class="font-mono text-[11px] text-ink-subtle mt-2">本期收入 <b class="num-pos" th:text="${cfIncomeLabel}">¥38,000</b> − 支出 <b class="num-neg" th:text="${cfExpenseLabel}">¥26,000</b></p>
             <p class="font-mono text-[10px] text-ink-subtle mt-1" th:text="${cashflowSplit.renPos()} ? '你能控制的那部分:挣得多、花得少,这个数就大。' : '这月花得比挣得多,人赚为负。'">你能控制的那部分</p>
           </div>
           <div class="p-4" style="background:var(--card-soft);border-left:3px solid var(--brass-deep)">
             <div class="font-mono text-[10px] uppercase text-ink-soft tracking-wider">钱赚 · 钱替你赚的</div>
-            <div class="font-display text-2xl mt-1 tnum" th:classappend="${cashflowSplit.qianPos()} ? ' num-pos' : ' num-neg'" th:text="${cfQianLabel}">+¥16,200</div>
+            <div class="font-display text-2xl mt-1 tnum" th:classappend="${cashflowSplit.qianPos()} ? ' num-pos' : ' num-neg'" data-priv th:text="${cfQianLabel}">+¥16,200</div>
             <p class="font-mono text-[11px] text-ink-subtle mt-2">投资损益 = 净资产变化里剔除收入后的纯回报</p>
             <p class="font-mono text-[10px] text-ink-subtle mt-1" th:text="${cashflowSplit.qianPos()} ? '市场给的那部分:房产/股票/理财的涨跌。' : '投资浮亏 / 回撤,市场这月没帮上忙。'">市场给的那部分</p>
           </div>
@@ -397,7 +397,7 @@
                th:text="${account.accountName}">账户</a>
           </td>
           <td class="num text-xs sm:text-sm" th:attr="data-val=${account.currentValue}"
-              th:text="${account.currentValue == null ? '—' : #numbers.formatInteger(account.currentValue, 1, 'COMMA')}">0</td>
+              data-priv th:text="${account.currentValue == null ? '—' : #numbers.formatInteger(account.currentValue, 1, 'COMMA')}">0</td>
           <td class="num" data-mcol="xirr" th:if="${acctMetrics.contains('xirr')}" th:attr="data-val=${account.xirr}">
               <span th:text="${account.xirr == null ? '—' : (#numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">—</span><sup
                     th:if="${account.xirr != null and account.monthsHeld != null and account.monthsHeld &lt; 12}"
@@ -408,15 +408,15 @@
                     class="text-ink-subtle font-mono text-[8px] ml-0.5" title="不足 12 期 · 此为累计回报(未年化)">累</sup></td>
           <td class="num" data-mcol="cum_pnl" th:if="${acctMetrics.contains('cum_pnl')}" th:attr="data-val=${account.cumPnl}"
               th:classappend="${account.cumPnl != null and account.cumPnl.signum() &lt; 0 ? 'num-neg' : (account.cumPnl != null and account.cumPnl.signum() &gt; 0 ? 'num-pos' : '')}"
-              th:text="${account.cumPnl == null ? '—' : ((account.cumPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.cumPnl, 1, 'COMMA'))}">—</td>
+              data-priv th:text="${account.cumPnl == null ? '—' : ((account.cumPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.cumPnl, 1, 'COMMA'))}">—</td>
           <td class="num" data-mcol="net_principal" th:if="${acctMetrics.contains('net_principal')}" th:attr="data-val=${account.netPrincipal}"
-              th:text="${account.netPrincipal == null ? '—' : #numbers.formatInteger(account.netPrincipal, 1, 'COMMA')}">—</td>
+              data-priv th:text="${account.netPrincipal == null ? '—' : #numbers.formatInteger(account.netPrincipal, 1, 'COMMA')}">—</td>
           <td class="num" data-mcol="period_return" th:if="${acctMetrics.contains('period_return')}" th:attr="data-val=${account.latestPnl}"
               th:classappend="${account.latestPnl != null and account.latestPnl.signum() &lt; 0 ? 'num-neg' : (account.latestPnl != null and account.latestPnl.signum() &gt; 0 ? 'num-pos' : '')}"
-              th:text="${account.latestPnl == null ? '—' : ((account.latestPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.latestPnl, 1, 'COMMA'))}">—</td>
+              data-priv th:text="${account.latestPnl == null ? '—' : ((account.latestPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.latestPnl, 1, 'COMMA'))}">—</td>
           <td class="num" data-mcol="mom_delta" th:if="${acctMetrics.contains('mom_delta')}" th:attr="data-val=${account.momAmount}"
               th:classappend="${account.momAmount != null and account.momAmount.signum() &lt; 0 ? 'num-neg' : (account.momAmount != null and account.momAmount.signum() &gt; 0 ? 'num-pos' : '')}"
-              th:text="${account.momAmount == null ? '—' : ((account.momAmount.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.momAmount, 1, 'COMMA'))}">—</td>
+              data-priv th:text="${account.momAmount == null ? '—' : ((account.momAmount.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.momAmount, 1, 'COMMA'))}">—</td>
           <td class="num" data-mcol="max_drawdown" th:if="${acctMetrics.contains('max_drawdown')}" th:attr="data-val=${account.maxDrawdownPct}"
               th:classappend="${account.maxDrawdownPct != null and account.maxDrawdownPct.signum() &lt; 0 ? 'num-neg' : ''}"
               th:text="${account.maxDrawdownPct == null ? '—' : (#numbers.formatDecimal(account.maxDrawdownPct, 1, 1) + '%')}">—</td>
@@ -459,7 +459,7 @@
                  th:text="${account.accountName}">账户</a>
             </div>
             <div class="font-mono text-[11px] text-ink-subtle mt-0.5">
-              <span th:text="${account.currentValue == null ? '—' : ('¥' + #numbers.formatInteger(account.currentValue, 1, 'COMMA'))}">¥0</span>
+              <span data-priv th:text="${account.currentValue == null ? '—' : ('¥' + #numbers.formatInteger(account.currentValue, 1, 'COMMA'))}">¥0</span>
               · <span th:text="${account.xirr == null ? '收益率—' : ('收益率 ' + #numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">收益率—</span>
             </div>
           </div>
@@ -474,12 +474,12 @@
         </summary>
         <!-- v0.10.4:手机卡片指标项同样按「指标设置·账户级」门控 + data-mcol 受顶部 chips 控制(与 PC 表一致)-->
         <dl class="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-rule-soft font-mono text-[11px]">
-          <div class="flex justify-between" data-mcol="cum_pnl" th:if="${acctMetrics.contains('cum_pnl')}"><dt class="text-ink-subtle">累计损益</dt><dd th:text="${account.cumPnl == null ? '—' : ((account.cumPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.cumPnl, 1, 'COMMA'))}">—</dd></div>
-          <div class="flex justify-between" data-mcol="net_principal" th:if="${acctMetrics.contains('net_principal')}"><dt class="text-ink-subtle">累计净投入</dt><dd th:text="${account.netPrincipal == null ? '—' : #numbers.formatInteger(account.netPrincipal, 1, 'COMMA')}">—</dd></div>
+          <div class="flex justify-between" data-mcol="cum_pnl" th:if="${acctMetrics.contains('cum_pnl')}"><dt class="text-ink-subtle">累计损益</dt><dd data-priv th:text="${account.cumPnl == null ? '—' : ((account.cumPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.cumPnl, 1, 'COMMA'))}">—</dd></div>
+          <div class="flex justify-between" data-mcol="net_principal" th:if="${acctMetrics.contains('net_principal')}"><dt class="text-ink-subtle">累计净投入</dt><dd data-priv th:text="${account.netPrincipal == null ? '—' : #numbers.formatInteger(account.netPrincipal, 1, 'COMMA')}">—</dd></div>
           <div class="flex justify-between" data-mcol="period_return" th:if="${acctMetrics.contains('period_return')}"><dt class="text-ink-subtle">本期损益</dt>
             <dd th:classappend="${account.latestPnl == null ? '' : (account.latestPnl.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
-                th:text="${account.latestPnl == null ? '—' : ((account.latestPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.latestPnl, 1, 'COMMA'))}">—</dd></div>
-          <div class="flex justify-between" data-mcol="mom_delta" th:if="${acctMetrics.contains('mom_delta')}"><dt class="text-ink-subtle">本期Δ</dt><dd th:text="${account.momAmount == null ? '—' : ((account.momAmount.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.momAmount, 1, 'COMMA'))}">—</dd></div>
+                data-priv th:text="${account.latestPnl == null ? '—' : ((account.latestPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.latestPnl, 1, 'COMMA'))}">—</dd></div>
+          <div class="flex justify-between" data-mcol="mom_delta" th:if="${acctMetrics.contains('mom_delta')}"><dt class="text-ink-subtle">本期Δ</dt><dd data-priv th:text="${account.momAmount == null ? '—' : ((account.momAmount.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.momAmount, 1, 'COMMA'))}">—</dd></div>
           <div class="flex justify-between" data-mcol="max_drawdown" th:if="${acctMetrics.contains('max_drawdown')}"><dt class="text-ink-subtle">最大回撤</dt><dd th:text="${account.maxDrawdownPct == null ? '—' : (#numbers.formatDecimal(account.maxDrawdownPct, 1, 1) + '%')}">—</dd></div>
           <div class="flex justify-between" data-mcol="share_pct" th:if="${acctMetrics.contains('share_pct')}"><dt class="text-ink-subtle">占比</dt><dd th:text="${account.sharePct == null ? '—' : (#numbers.formatDecimal(account.sharePct, 1, 1) + '%')}">—</dd></div>
           <div class="flex justify-between" data-mcol="months_held" th:if="${acctMetrics.contains('months_held')}"><dt class="text-ink-subtle">持有期数</dt><dd th:text="${account.monthsHeld == null ? '—' : account.monthsHeld}">—</dd></div>
@@ -601,6 +601,9 @@
       };
       const ccySym = data.currency === 'USD' ? '$' : (data.currency === 'HKD' ? 'HK$' : '¥');
       const fmtMoney = (v) => {
+        // v0.11 隐私模式:图表所有金额(y轴刻度/数据标签/tooltip)经此函数 → 隐私态统一隐藏,曲线/扇形形状保留;
+        //   百分比走 fmtPct 不受影响。toggle 时 chart.update 重跑本函数。
+        if (window.isPrivacy && window.isPrivacy()) return '';
         if (v == null) return '—';
         const n = Number(v);
         if (Math.abs(n) >= 10000) return ccySym + (n / 10000).toFixed(1) + '万';

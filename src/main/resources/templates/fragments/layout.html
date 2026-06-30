@@ -10,6 +10,8 @@
   <meta name="_csrf" th:content="${_csrf != null ? _csrf.token : ''}"/>
   <meta name="_csrf_header" th:content="${_csrf != null ? _csrf.headerName : 'X-XSRF-TOKEN'}"/>
   <title th:text="${title} ?: '家庭账房'">家庭账房</title>
+  <!-- v0.11 隐私模式 · FOUC 防闪(决策 129):DOM 构建前据 sessionStorage 设 html.privacy,避免明文闪现 -->
+  <script>try{if(sessionStorage.getItem('privacy')==='1')document.documentElement.classList.add('privacy');}catch(e){}</script>
   <!-- v0.2 FR-1/FR-34 · favicon 优先用户自定义 WebP,否则用预设(默认 icon2);apple-touch-icon 永远跟 family.logoPreset(WebP 不适合 iOS)
        BUG-FIX(2026-05-11):删 alternate icon SVG —— Chrome 见 SVG 备选会优先选 SVG(矢量任意 DPI 都清晰),
        把我们的 PNG 预设跳过去。只保留 PNG + 显式 sizes,Chrome 会按 DPI 选最大那张 (192/512)。 -->
@@ -58,6 +60,30 @@
       const header = document.querySelector('meta[name="_csrf_header"]')?.content;
       if (token && header) event.detail.headers[header] = token;
     });
+  </script>
+  <!-- v0.11 隐私模式 · 样式 + 全局切换(决策 126/127/130/131)。
+       绝对金额带 data-priv → html.privacy 下高斯模糊 + 不可选中复制;比例/% 不带标记不受影响。
+       两入口(nav + 浮动)都只 toggle html.privacy → 眼睛 eye/eye-off 纯 CSS 跟随,零 JS 同步。 -->
+  <style>
+    html.privacy [data-priv]{ filter:blur(7px); -webkit-filter:blur(7px); user-select:none; -webkit-user-select:none; }
+    .priv-eye-off{ display:none; } html.privacy .priv-eye-on{ display:none; } html.privacy .priv-eye-off{ display:inline-flex; }
+    #priv-float{ position:fixed; left:14px; bottom:18px; z-index:55; display:inline-flex; align-items:center; gap:6px;
+      background:var(--card); color:var(--ink-soft); border:1px solid var(--rule); border-radius:999px; padding:8px 11px;
+      box-shadow:0 3px 12px rgba(0,0,0,.16); cursor:pointer; font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.04em; }
+    #priv-float:hover{ border-color:var(--ink-soft); }
+    #priv-float .priv-float-label{ display:none; white-space:nowrap; }
+    html.privacy #priv-float{ background:var(--brass-soft); color:var(--brass-deep); border-color:var(--brass); }
+    html.privacy #priv-float .priv-float-label{ display:inline; }
+  </style>
+  <script>
+    function togglePrivacy(){
+      var on = document.documentElement.classList.toggle('privacy');
+      try{ sessionStorage.setItem('privacy', on ? '1' : '0'); }catch(e){}
+      // 图表金额标签随隐私态重绘(formatter 内用 window.isPrivacy() 判断);形状不动
+      try{ document.querySelectorAll('canvas').forEach(function(c){ var ch=(window.Chart&&Chart.getChart)?Chart.getChart(c):null; if(ch) ch.update('none'); }); }catch(e){}
+    }
+    window.togglePrivacy = togglePrivacy;
+    window.isPrivacy = function(){ return document.documentElement.classList.contains('privacy'); };
   </script>
   <!-- v0.2 全局错误兜底:HTMX 5xx / 网络错误 / JS 致命异常,统一 toast 反馈 -->
   <script>
@@ -291,6 +317,12 @@
   <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle">
     家庭账房 · 仅限家庭内部使用
   </div>
+  <!-- v0.11 隐私模式 · 常驻浮动控件(决策 131):任意滚动位置一键隐藏/恢复;隐私态展开成「金额已隐藏 · 点恢复」chip -->
+  <button id="priv-float" type="button" onclick="togglePrivacy()" aria-label="隐藏 / 显示金额" title="隐藏金额(公共场合 / 分享)">
+    <svg class="priv-eye-on" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    <svg class="priv-eye-off" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+    <span class="priv-float-label">金额已隐藏 · 点恢复</span>
+  </button>
   <!-- 全局 Toast 容器(HX-Trigger=showToast 触发) — 居中顶部,z-index 高于 nav 与 progress -->
   <div id="toast-stack"
        class="fixed top-6 left-1/2 -translate-x-1/2 z-[10000] flex flex-col items-center space-y-2 pointer-events-none w-auto max-w-[90vw]"></div>

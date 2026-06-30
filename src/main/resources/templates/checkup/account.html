@@ -69,15 +69,15 @@
             <div class="kpi-eyebrow">累计损益</div>
             <div class="font-display text-2xl tnum mt-1"
                  th:classappend="${diagnose.cumulativePnl != null and diagnose.cumulativePnl.signum() > 0 ? ' num-pos' : (diagnose.cumulativePnl != null and diagnose.cumulativePnl.signum() < 0 ? ' num-neg' : '')}"
-                 th:text="${diagnose.cumulativePnl != null ? (diagnose.cumulativePnl.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(diagnose.cumulativePnl, 1, 2) : '—'}">+¥0.00</div>
+                 data-priv th:text="${diagnose.cumulativePnl != null ? (diagnose.cumulativePnl.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(diagnose.cumulativePnl, 1, 2) : '—'}">+¥0.00</div>
             <div class="font-mono text-[10px] text-ink-soft">已剔除外部资金进出</div>
           </div>
           <div>
             <div class="kpi-eyebrow">当前价值</div>
             <div class="font-display text-2xl tnum mt-1"
-                 th:text="${diagnose.currentBalance != null ? #numbers.formatDecimal(diagnose.currentBalance, 1, 2) : '—'}">¥0.00</div>
+                 data-priv th:text="${diagnose.currentBalance != null ? #numbers.formatDecimal(diagnose.currentBalance, 1, 2) : '—'}">¥0.00</div>
             <div class="font-mono text-[10px] text-ink-soft"
-                 th:text="${'累计净流入 ' + (diagnose.netPrincipalInjected != null ? #numbers.formatDecimal(diagnose.netPrincipalInjected, 1, 2) : '—')}">累计净流入 0</div>
+                 data-priv th:text="${'累计净流入 ' + (diagnose.netPrincipalInjected != null ? #numbers.formatDecimal(diagnose.netPrincipalInjected, 1, 2) : '—')}">累计净流入 0</div>
           </div>
           <div>
             <div class="kpi-eyebrow">年化 XIRR</div>
@@ -174,12 +174,12 @@
           <div>
             <div class="kpi-eyebrow">累计入账</div>
             <div class="font-display text-xl tnum num-pos mt-1"
-                 th:text="${'+' + #numbers.formatDecimal(diagnose.cumulativeIncome, 1, 2)}">+¥0.00</div>
+                 data-priv th:text="${'+' + #numbers.formatDecimal(diagnose.cumulativeIncome, 1, 2)}">+¥0.00</div>
           </div>
           <div>
             <div class="kpi-eyebrow">累计出账</div>
             <div class="font-display text-xl tnum num-neg mt-1"
-                 th:text="${'-' + #numbers.formatDecimal(diagnose.cumulativeExpense, 1, 2)}">-¥0.00</div>
+                 data-priv th:text="${'-' + #numbers.formatDecimal(diagnose.cumulativeExpense, 1, 2)}">-¥0.00</div>
           </div>
           <div>
             <div class="kpi-eyebrow">累计转入</div>
@@ -197,7 +197,7 @@
             <span class="font-mono text-[11px] tracking-wider text-ink-subtle">净本金投入</span>
             <span class="font-mono text-base tnum"
                   th:classappend="${diagnose.netPrincipalInjected.signum() >= 0 ? '' : ' num-neg'}"
-                  th:text="${(diagnose.netPrincipalInjected.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(diagnose.netPrincipalInjected, 1, 2)}">0</span>
+                  data-priv th:text="${(diagnose.netPrincipalInjected.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(diagnose.netPrincipalInjected, 1, 2)}">0</span>
           </div>
         </div>
       </div>
@@ -215,7 +215,7 @@
           <div>
             <div class="kpi-eyebrow">当前余额</div>
             <div class="font-display text-2xl tnum mt-1"
-                 th:text="${diagnose.currentBalance != null ? #numbers.formatDecimal(diagnose.currentBalance, 1, 2) : '—'}">¥0.00</div>
+                 data-priv th:text="${diagnose.currentBalance != null ? #numbers.formatDecimal(diagnose.currentBalance, 1, 2) : '—'}">¥0.00</div>
             <div class="font-mono text-[10px] text-ink-soft" th:text="${account.currency}">CNY</div>
           </div>
           <div>
@@ -236,12 +236,12 @@
           <div>
             <div class="kpi-eyebrow">累计入账</div>
             <div class="font-display text-xl tnum num-pos mt-1"
-                 th:text="${'+' + #numbers.formatDecimal(diagnose.cumulativeIncome, 1, 2)}">+¥0.00</div>
+                 data-priv th:text="${'+' + #numbers.formatDecimal(diagnose.cumulativeIncome, 1, 2)}">+¥0.00</div>
           </div>
           <div>
             <div class="kpi-eyebrow">累计出账</div>
             <div class="font-display text-xl tnum num-neg mt-1"
-                 th:text="${'-' + #numbers.formatDecimal(diagnose.cumulativeExpense, 1, 2)}">-¥0.00</div>
+                 data-priv th:text="${'-' + #numbers.formatDecimal(diagnose.cumulativeExpense, 1, 2)}">-¥0.00</div>
           </div>
         </div>
         <p class="text-xs text-ink-soft mt-4">如需全家整体的紧急储备月数,见<a th:href="@{/checkup}" class="text-brass-deep hover:underline no-underline">家庭维度体检</a>。</p>
@@ -258,7 +258,7 @@
         </h3>
         <div class="kpi-eyebrow">当前欠款</div>
         <div class="font-display text-3xl tnum num-neg mt-1"
-             th:text="${diagnose.currentBalance != null ? #numbers.formatDecimal(diagnose.currentBalance, 1, 2) : '—'}">¥0.00</div>
+             data-priv th:text="${diagnose.currentBalance != null ? #numbers.formatDecimal(diagnose.currentBalance, 1, 2) : '—'}">¥0.00</div>
         <div class="font-mono text-[10px] text-ink-soft mt-1" th:text="${account.currency}">CNY</div>
         <p class="text-xs text-ink-subtle mt-4" th:if="${account.defaultPaymentSourceAccountId != null}">
           默认还款来源已配置(在账户编辑页可改)
@@ -297,7 +297,7 @@
         <div>
           <div class="kpi-eyebrow">当前估值</div>
           <div class="font-display text-2xl tnum mt-1"
-               th:text="${diagnose.currentBalance != null ? #numbers.formatDecimal(diagnose.currentBalance, 1, 2) : '—'}">¥0.00</div>
+               data-priv th:text="${diagnose.currentBalance != null ? #numbers.formatDecimal(diagnose.currentBalance, 1, 2) : '—'}">¥0.00</div>
           <div class="font-mono text-[10px] text-ink-soft" th:text="${account.currency}">CNY</div>
         </div>
         <div>
@@ -367,7 +367,7 @@
       if (!c || sparkData.length === 0) return;
       const labels = sparkData.map(p => p.month);
       const values = sparkData.map(p => p.endBalance == null ? null : Number(p.endBalance));
-      const fmtMoney = (v) => {
+      const fmtMoney = (v) => { if (window.isPrivacy && window.isPrivacy()) return '';
         if (v == null) return '—';
         const n = Number(v);
         if (Math.abs(n) >= 10000) return '¥' + (n/10000).toFixed(1) + '万';

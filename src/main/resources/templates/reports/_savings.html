@@ -36,12 +36,12 @@
       <div class="bg-card p-5">
         <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">月均收入(近 12 月) <th:block th:insert="~{fragments/_kpi-info :: i('近 12 月有填数据的月份收入均值。未填月份不参与。', ${calc.avgIncome})}"/></div>
         <div class="font-display text-2xl tnum"
-             th:text="${avgMonthlyIncome != null and avgMonthlyIncome.signum() > 0 ? ('¥' + #numbers.formatInteger(avgMonthlyIncome, 0, 'COMMA')) : '—'}">¥35,000</div>
+             data-priv th:text="${avgMonthlyIncome != null and avgMonthlyIncome.signum() > 0 ? ('¥' + #numbers.formatInteger(avgMonthlyIncome, 0, 'COMMA')) : '—'}">¥35,000</div>
       </div>
       <div class="bg-card p-5">
         <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">月均支出(近 12 月) <th:block th:insert="~{fragments/_kpi-info :: i('近 12 月有填数据的月份支出均值。未填月份不参与。', ${calc.avgExpense})}"/></div>
         <div class="font-display text-2xl tnum num-neg"
-             th:text="${avgMonthlyExpense != null and avgMonthlyExpense.signum() > 0 ? ('¥' + #numbers.formatInteger(avgMonthlyExpense, 0, 'COMMA')) : '—'}">¥18,000</div>
+             data-priv th:text="${avgMonthlyExpense != null and avgMonthlyExpense.signum() > 0 ? ('¥' + #numbers.formatInteger(avgMonthlyExpense, 0, 'COMMA')) : '—'}">¥18,000</div>
       </div>
       <div class="bg-card p-5">
         <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">储蓄率(最近期) <th:block th:insert="~{fragments/_kpi-info :: i('（收入 − 支出）÷ 收入。取最近一期数据。', ${calc.savingsRate})}"/></div>
@@ -51,7 +51,7 @@
       <div class="bg-card p-5">
         <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">月储蓄能力(中位) <th:block th:insert="~{fragments/_kpi-info :: i('近 12 月「收入 − 支出」的中位数，比均值抗噪。', ${calc.savingsMedian})}"/></div>
         <div class="font-display text-2xl tnum"
-             th:text="${savingsMonthlyMedian != null and savingsMonthlyMedian.signum() != 0 ? ('¥' + #numbers.formatInteger(savingsMonthlyMedian, 0, 'COMMA')) : '—'}">¥17,500</div>
+             data-priv th:text="${savingsMonthlyMedian != null and savingsMonthlyMedian.signum() != 0 ? ('¥' + #numbers.formatInteger(savingsMonthlyMedian, 0, 'COMMA')) : '—'}">¥17,500</div>
       </div>
       <div class="bg-card p-5">
         <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">已填月份 <th:block th:insert="~{fragments/_kpi-info :: i('近 12 期中实际填过收入/支出的期数。', ${calc.filledMonths})}"/></div>
