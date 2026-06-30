@@ -2,9 +2,24 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.10.6] · 2026-06-30
+
+> 账本去 emoji(no-emoji 纪律)+ qa 去过期收尾。
+
+### Fixed
+
+- **账本行去 emoji**:`/entry` 账本 VALUATION 行标签 `📈 估值` → `△ 估值`(`EntryController` 用 Java 拼 HTML 渲染,故未被模板级 emoji 守护覆盖);与 `accounts/detail.html` 的 VALUATION 渲染(`△ 估值`)及同处兄弟标签(`+ 收入`/`↳ 划入`/`↱ 划出`/`= 校准`)风格统一。遵 no-emoji 纪律。
+- **守护扩面**:`v08-8` emoji 扫描纳入 `EntryController.java` → 网住「账本行 emoji」整类回归;`v04-VAL-2` 锚词 `📈 估值` → `△ 估值`。
+
+### 测试
+
+- qa-run PASS=406 / FAIL=0 · 黑盒计数 405 不变(仅改锚词/扩守护面)· 零 schema。
+
 ## [v0.10.5] · 2026-06-30
 
 > 指标计算口径分析师级梳理:修「短账户拿几个月累计去比年化预期/基准」的时间口径错。
+
+> 同版还含 **qa 逐 case 过期审计**(判断列表 `docs/qa-audit-v0.10.6.md`):修 6 处过期用例(`FR13-1`/`v02-FR40e-2`/`v02-FR38-1`/`v03-IND-6`/`v02-LEDGER-1`/`v02-FR30-7`,均仍 PASS 却靠注释/JS残留/巧合/旧阈值续命),与 `v02-PILL-1`/`LEDGER-2` 一并解耦 demo 数据量级。
 
 ### Fixed(决策 125)
 

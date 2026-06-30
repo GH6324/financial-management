@@ -1883,10 +1883,10 @@ else
   log_skip "v04-VAL-1 没找到有 holdings 的 STOCK 账户"
 fi
 
-# v04-VAL-2 · /entry ledger 显示 📈 估值 行
+# v04-VAL-2 · /entry ledger 显示 估值 行(v0.10.6 去 emoji:📈→△,与 detail.html VALUATION 一致)
 $CURL -b $COOKIE "$BASE/entry" -o "$TMP" -w ""
-grep -q '📈 估值' "$TMP" \
-  && log_ok "v04-VAL-2 /entry ledger 显示 📈 估值 行" \
+grep -q '△ 估值' "$TMP" \
+  && log_ok "v04-VAL-2 /entry ledger 显示 △ 估值 行" \
   || log_bad "v04-VAL-2 entry 估值行 缺" "missing"
 
 # v04-VAL-3 · /accounts/{id} 详情页显示估值行
@@ -2786,14 +2786,15 @@ FVI="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
   && log_ok "v08-7 家庭指标配置控 KPI 豆腐块/头部(famMetrics)+ 计算正确性单测在" \
   || log_bad "v08-7 豆腐块未接 famMetrics 或缺计算单测" "see _region.html / FactViewMetricsCalcTest"
 
-# v08-8 账户/仪表盘模板无 pictographic emoji(💡/📦/📈 等;★ 风险星与 ↔↺✕ 排版符保留)
+# v08-8 账户/仪表盘/账本无 pictographic emoji(💡/📦/📈 等;★ 风险星与 ↔↺✕△ 排版符保留)
+#   v0.10.6 扩:纳入 EntryController(账本行 kind 标签由 Java 拼 HTML · 📈 估值→△ 估值)· 网住账本 emoji 回归
 EMOJI_HITS=0
-for f in "$RD/src/main/resources/templates/accounts/detail.html" "$RD/src/main/resources/templates/dashboard/_region.html"; do
+for f in "$RD/src/main/resources/templates/accounts/detail.html" "$RD/src/main/resources/templates/dashboard/_region.html" "$RD/src/main/java/com/family/finance/web/entry/EntryController.java"; do
   grep -oP '[\x{1F300}-\x{1FAFF}]|[\x{2600}-\x{26FF}]' "$f" 2>/dev/null | grep -vE '★|☆' | grep -q . && EMOJI_HITS=$((EMOJI_HITS+1))
 done
 [[ "$EMOJI_HITS" -eq 0 ]] \
-  && log_ok "v08-8 账户详情/仪表盘模板无 pictographic emoji(已换 inline SVG)" \
-  || log_bad "v08-8 模板仍有 emoji" "$EMOJI_HITS 个文件命中,see detail.html/_region.html"
+  && log_ok "v08-8 账户详情/仪表盘/账本(EntryController)无 pictographic emoji(已换 inline SVG/排版符)" \
+  || log_bad "v08-8 仍有 emoji" "$EMOJI_HITS 个文件命中,see detail.html/_region.html/EntryController.java"
 
 section "v0.7 第二批 · 外部服务配置引导(静态守护)"
 ICFG="$RD/src/main/resources/templates/admin/integrations.html"
