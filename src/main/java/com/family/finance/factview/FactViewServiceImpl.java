@@ -566,14 +566,12 @@ public class FactViewServiceImpl implements FactViewService {
 
         // Problem C:本位币年化(含 FX),与原币 xirr 并列;本位币账户两者相等
         BigDecimal returnBase = xirrBaseForAccountRows(filled);
-        // 预实(v0.10.5 修口径):实际「持有窗口的累计回报」(本位币 cumPnl/净投入)vs 预期按持有月数缩放到同窗口
-        //   = (1+年化预期)^(月数/12)−1。修「短账户拿几个月累计去减年化预期」的错(月度 2% ≠ 跑输年化 8%)。
-        //   实际不外推年化、预期缩到同窗口 → like-for-like;前端标「近 N 月」。净投入≤0 或无填充期 → 不算。
+        // 预实(v0.11.4 修口径):实际 = 该账户显示的那个 xirr(<12 期累计 / ≥12 期年化,与列头一致)− 预期(同基)。
+        //   修 v0.10.5「cumPnl/净投入 当实际」:净投入极小的账户会爆成 +19497pp,且与显示的收益率脱节。
+        //   满 12 期减年化预期,不足 12 期把预期缩放到同窗口 → like-for-like;前端标「近 N 月」。
         BigDecimal expectedPct = expectedByAccount.get(first.accountId());
-        BigDecimal actualCumPct = (netPrincipal.signum() > 0 && !filled.isEmpty())
-                ? cumPnl.divide(netPrincipal, 8, RoundingMode.HALF_EVEN).multiply(HUNDRED) : null;
         BigDecimal planActualDiff = com.family.finance.calc.BenchmarkAggregator
-                .windowDiffPercentPoints(actualCumPct, expectedPct, filled.size());
+                .displayedDiffPercentPoints(xirr.get(first.accountId()), expectedPct, filled.size());
 
         return new AccountPerformance(
                 first.accountId(), first.accountName(), first.accountType(), first.accountCurrency(),

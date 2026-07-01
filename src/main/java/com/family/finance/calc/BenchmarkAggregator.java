@@ -90,6 +90,35 @@ public final class BenchmarkAggregator {
         return BeatStatus.FLAT;
     }
 
+    // ── v0.11.4 · 与「卡片显示的那个 xirr」同源的 diff(修 v0.10.5 的 cumPnl/净投入 爆值 + 脱节)──
+    // 旧法用 cumPnl/净投入 当实际:净投入极小的账户会爆成 +19497pp,且与卡片头条的 XIRR 是两个数。
+    // 新法直接把「显示的 xirr」当实际 —— 与 XirrCalculator.annualizedOrCumulative 同口径:
+    //   满 12 期 xirr 是年化 → 减年化基准;不足 12 期 xirr 是累计回报 → 基准缩放到同窗口。like-for-like 且和头条一致。
+
+    /**
+     * diff(pp)= 显示的 xirr% − 同基基准%。
+     * @param displayedXirr 卡片/列显示的那个 xirr(小数 · 0.083=8.3%)· null → null
+     * @param annualBenchmarkPct 年化基准 %(4.61 = 4.61%)· null → null
+     * @param months 期数;≥12 用年化基准,<12 缩放到窗口;≤0 → null
+     */
+    public static BigDecimal displayedDiffPercentPoints(BigDecimal displayedXirr, BigDecimal annualBenchmarkPct, int months) {
+        if (displayedXirr == null || annualBenchmarkPct == null || months <= 0) return null;
+        BigDecimal actualPct = displayedXirr.multiply(new BigDecimal("100"));
+        BigDecimal expected = months >= 12 ? annualBenchmarkPct : expectedOverWindowPct(annualBenchmarkPct, months);
+        if (expected == null) return null;
+        return actualPct.subtract(expected).setScale(2, RoundingMode.HALF_EVEN);
+    }
+
+    /** 跑赢/输判定 · 阈值同基:满 12 期 ±2pp(年化),不足 12 期 ±2% 缩放到窗口;diff/月数无效 → NA。 */
+    public static BeatStatus beatStatusDisplayed(BigDecimal diffPct, int months) {
+        if (diffPct == null || months <= 0) return BeatStatus.NA;
+        BigDecimal thr = months >= 12 ? BEAT_THRESHOLD : expectedOverWindowPct(BEAT_THRESHOLD, months);
+        if (thr == null) return BeatStatus.NA;
+        if (diffPct.compareTo(thr) > 0) return BeatStatus.BEAT;
+        if (diffPct.compareTo(thr.negate()) < 0) return BeatStatus.MISS;
+        return BeatStatus.FLAT;
+    }
+
     /**
      * 家庭加权基准 = Σ(account.balance × benchmark) / Σ(account.balance)
      *

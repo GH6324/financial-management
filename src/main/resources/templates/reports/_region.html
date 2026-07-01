@@ -77,13 +77,13 @@
         <span class="tnum" th:text="${familyBenchmarkPct} + '%'">5.4%</span>
         <span th:if="${familyBeatStatus == 'BEAT'}" class="pill text-[9px] ml-1"
               style="background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)"
-              th:text="'跑赢 +' + ${familyBenchmarkDiff} + '%'">跑赢 +1.8%</span>
+              th:text="'跑赢 +' + ${familyBenchmarkDiff} + 'pp'">跑赢 +1.8pp</span>
         <span th:if="${familyBeatStatus == 'MISS'}" class="pill text-[9px] ml-1"
               style="background:rgba(159,74,58,.10);color:var(--rust);border:1px solid var(--rust)"
-              th:text="'跑输 ' + ${familyBenchmarkDiff} + '%'">跑输 -2.1%</span>
+              th:text="'跑输 ' + ${familyBenchmarkDiff} + 'pp'">跑输 -2.1pp</span>
         <span th:if="${familyBeatStatus == 'FLAT'}" class="pill text-[9px] ml-1"
               style="border:1px solid var(--ink-subtle);color:var(--ink-soft)"
-              th:text="'持平 ' + ${familyBenchmarkDiff} + '%'">持平 +0.5%</span>
+              th:text="'持平 ' + ${familyBenchmarkDiff} + 'pp'">持平 +0.5pp</span>
       </div>
       <div class="kpi-delta" th:if="${familyBenchmarkPct == null}">资金加权</div>
     </div>
@@ -158,41 +158,140 @@
       </div>
       <div class="text-[10px] font-mono text-ink-subtle">基准来自产品类目 · <a th:href="@{/admin/product-categories}" class="text-brass-deep hover:underline no-underline">/admin/product-categories</a> 可微调</div>
     </div>
+
+    <!-- v0.11.4 · 指标列复用「管理页 · 指标设置(账户级)」配置 · 与仪表盘同一套开关 + 同一 chips 隐藏集 -->
+    <div class="flex flex-wrap items-center gap-1.5 mb-2" data-acct-chips
+         th:with="chipDefs=${ { {'xirr','收益率'},{'return_base','本位币年化'},{'cum_pnl','累计损益'},{'net_principal','累计净投入'},{'period_return','本期损益'},{'mom_delta','本期Δ'},{'max_drawdown','最大回撤'},{'share_pct','占比'},{'months_held','持有期数'},{'plan_actual','预实'},{'sparkline','近况'} } }">
+      <span class="font-mono text-[10px] text-ink-subtle mr-0.5">显示指标</span>
+      <button type="button" th:each="c : ${chipDefs}" th:if="${acctMetrics.contains(c[0])}"
+              th:attr="data-mchip=${c[0]}" th:text="${c[1]}"
+              class="mchip font-mono text-[10px] px-2 py-0.5 border border-rule rounded-sm text-ink-soft hover:border-brass-deep transition">指标</button>
+      <span class="font-mono text-[9px] text-ink-subtle ml-1">· 与仪表盘同源 · <a th:href="@{/admin/metrics}" class="text-brass-deep hover:underline no-underline">增减指标</a></span>
+    </div>
+
     <div class="paper-card overflow-x-auto">
       <table class="ledger-table min-w-[760px]">
         <thead>
         <tr>
-          <th>账户</th><th>类型</th><th>类目</th>
-          <th class="num">XIRR <th:block th:insert="~{fragments/_kpi-info :: i('单账户级:含该账户全部现金流的资金加权回报率。显示 0% 通常是因为:期末价值与上期持平、或该账户是本期才有的(无上期做起点)、或没有买入/卖出现金流 —— 此时数学上回报率就是 0,非计算错误,会随后续账期价值变化变得有意义。', null)}"/></th><th class="num">基准 % <th:block th:insert="~{fragments/_kpi-info :: i('产品类目对标的长期年化基准（如 A 股 8%、货币基金 2%）。', null)}"/></th><th>vs 基准</th><th class="num">当前价值</th>
+          <th class="acct-sticky">账户</th><th>类型</th><th>类目</th>
+          <th class="num">当前价值</th>
+          <th class="num" data-mcol="xirr" th:if="${acctMetrics.contains('xirr')}">收益率 <th:block th:insert="~{fragments/_kpi-info :: i('单账户级:含该账户全部现金流的资金加权回报率。显示 0% 通常是因为:期末价值与上期持平、或该账户是本期才有的(无上期做起点)、或没有买入/卖出现金流 —— 此时数学上回报率就是 0,非计算错误,会随后续账期价值变化变得有意义。', null)}"/></th>
+          <th class="num" data-mcol="return_base" th:if="${acctMetrics.contains('return_base')}" title="本位币口径(含汇率)· 满 12 期年化,不足 12 期为累计(标「累」)">本位币年化</th>
+          <th class="num" data-mcol="cum_pnl" th:if="${acctMetrics.contains('cum_pnl')}">累计损益</th>
+          <th class="num" data-mcol="net_principal" th:if="${acctMetrics.contains('net_principal')}" title="累计净投入 = Σ(收入−支出+转入−转出)">累计净投入</th>
+          <th class="num" data-mcol="period_return" th:if="${acctMetrics.contains('period_return')}" title="本期(as-of 期)投资损益">本期损益</th>
+          <th class="num" data-mcol="mom_delta" th:if="${acctMetrics.contains('mom_delta')}">本期Δ</th>
+          <th class="num" data-mcol="max_drawdown" th:if="${acctMetrics.contains('max_drawdown')}" title="历史最大回撤(峰值→谷底);不足 2 期为—">最大回撤</th>
+          <th class="num" data-mcol="share_pct" th:if="${acctMetrics.contains('share_pct')}">占比</th>
+          <th class="num" data-mcol="months_held" th:if="${acctMetrics.contains('months_held')}">持有期数</th>
+          <th class="num" data-mcol="plan_actual" th:if="${acctMetrics.contains('plan_actual')}" title="实际「持有窗口累计回报」− 预期(年化按持有月数缩放到同窗口);百分点,正=跑赢">预实</th>
+          <th class="hidden lg:table-cell" data-mcol="sparkline" th:if="${acctMetrics.contains('sparkline')}">近况</th>
+          <th class="num">基准 % <th:block th:insert="~{fragments/_kpi-info :: i('产品类目对标的长期年化基准（如 A 股 8%、货币基金 2%）。', null)}"/></th>
+          <th>vs 基准</th>
         </tr>
         </thead>
         <tbody>
-        <tr th:each="row : ${accountBenchmarkRows}">
-          <td><span class="font-display" th:text="${row.accountName}">账户</span></td>
-          <td><span class="pill" th:text="${row.accountType}">STOCK</span></td>
-          <td><span class="pill text-[9px]" th:if="${row.productCategoryCode != null}" th:text="${row.productCategoryCode}">—</span>
-              <span th:if="${row.productCategoryCode == null}" class="text-ink-subtle text-[10px]">未设</span></td>
-          <td class="num tnum"
-              th:classappend="${row.xirrLabel != null and row.xirrLabel.startsWith('+') ? ' num-pos' : (row.xirrLabel != null and row.xirrLabel.startsWith('-') ? ' num-neg' : '')}"
-              th:text="${row.xirrLabel != null ? row.xirrLabel : '—'}">+0.0%</td>
-          <td class="num tnum" th:text="${row.benchmarkPct != null ? row.benchmarkPct + '%' : '—'}">—</td>
-          <td>
-            <span th:if="${row.beatStatus == 'BEAT'}" class="pill text-[9px]"
-                  style="background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)"
-                  th:text="'跑赢 +' + ${row.diffPct} + '%'">跑赢</span>
-            <span th:if="${row.beatStatus == 'MISS'}" class="pill text-[9px]"
-                  style="background:rgba(159,74,58,.10);color:var(--rust);border:1px solid var(--rust)"
-                  th:text="'跑输 ' + ${row.diffPct} + '%'">跑输</span>
-            <span th:if="${row.beatStatus == 'FLAT'}" class="pill text-[9px]"
-                  style="border:1px solid var(--ink-subtle);color:var(--ink-soft)"
-                  th:text="'持平 ' + ${row.diffPct} + '%'">持平</span>
-            <span th:if="${row.beatStatus == 'NA'}" class="text-ink-subtle text-[10px]">—</span>
+        <tr th:each="account : ${accountRows}" th:with="bm=${benchmarkByAccount.get(account.accountId)},pc=${pcCodeByAccount.get(account.accountId)}">
+          <td class="acct-sticky"><a th:href="@{/accounts/{id}(id=${account.accountId})}" class="font-display hover:text-brass-deep no-underline" th:text="${account.accountName}">账户</a></td>
+          <td><span class="pill" th:text="${account.accountType.label}">STOCK</span></td>
+          <td><span class="pill text-[9px]" th:if="${pc != null}" th:text="${pc}">—</span>
+              <span th:if="${pc == null}" class="text-ink-subtle text-[10px]">未设</span></td>
+          <td class="num" data-priv
+              th:text="${account.currentValue == null ? '—' : ((currency == 'USD' ? '$' : (currency == 'HKD' ? 'HK$' : '¥')) + #numbers.formatInteger(account.currentValue, 1, 'COMMA'))}">—</td>
+          <td class="num" data-mcol="xirr" th:if="${acctMetrics.contains('xirr')}">
+              <span th:text="${account.xirr == null ? '—' : (#numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">—</span><sup
+                    th:if="${account.xirr != null and account.monthsHeld != null and account.monthsHeld &lt; 12}"
+                    class="text-ink-subtle font-mono text-[8px] ml-0.5" title="不足 12 期 · 此为累计回报(未年化)">累</sup></td>
+          <td class="num" data-mcol="return_base" th:if="${acctMetrics.contains('return_base')}">
+              <span th:text="${account.returnBase == null ? '—' : (#numbers.formatDecimal(account.returnBase * 100, 1, 2) + '%')}">—</span><sup
+                    th:if="${account.returnBase != null and account.monthsHeld != null and account.monthsHeld &lt; 12}"
+                    class="text-ink-subtle font-mono text-[8px] ml-0.5" title="不足 12 期 · 此为累计回报(未年化)">累</sup></td>
+          <td class="num" data-mcol="cum_pnl" th:if="${acctMetrics.contains('cum_pnl')}"
+              th:classappend="${account.cumPnl != null and account.cumPnl.signum() &lt; 0 ? 'num-neg' : (account.cumPnl != null and account.cumPnl.signum() &gt; 0 ? 'num-pos' : '')}"
+              data-priv th:text="${account.cumPnl == null ? '—' : ((account.cumPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.cumPnl, 1, 'COMMA'))}">—</td>
+          <td class="num" data-mcol="net_principal" th:if="${acctMetrics.contains('net_principal')}"
+              data-priv th:text="${account.netPrincipal == null ? '—' : #numbers.formatInteger(account.netPrincipal, 1, 'COMMA')}">—</td>
+          <td class="num" data-mcol="period_return" th:if="${acctMetrics.contains('period_return')}"
+              th:classappend="${account.latestPnl != null and account.latestPnl.signum() &lt; 0 ? 'num-neg' : (account.latestPnl != null and account.latestPnl.signum() &gt; 0 ? 'num-pos' : '')}"
+              data-priv th:text="${account.latestPnl == null ? '—' : ((account.latestPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.latestPnl, 1, 'COMMA'))}">—</td>
+          <td class="num" data-mcol="mom_delta" th:if="${acctMetrics.contains('mom_delta')}"
+              th:classappend="${account.momAmount != null and account.momAmount.signum() &lt; 0 ? 'num-neg' : (account.momAmount != null and account.momAmount.signum() &gt; 0 ? 'num-pos' : '')}"
+              data-priv th:text="${account.momAmount == null ? '—' : ((account.momAmount.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.momAmount, 1, 'COMMA'))}">—</td>
+          <td class="num" data-mcol="max_drawdown" th:if="${acctMetrics.contains('max_drawdown')}"
+              th:classappend="${account.maxDrawdownPct != null and account.maxDrawdownPct.signum() &lt; 0 ? 'num-neg' : ''}"
+              th:text="${account.maxDrawdownPct == null ? '—' : (#numbers.formatDecimal(account.maxDrawdownPct, 1, 1) + '%')}">—</td>
+          <td class="num" data-mcol="share_pct" th:if="${acctMetrics.contains('share_pct')}"
+              th:text="${account.sharePct == null ? '—' : (#numbers.formatDecimal(account.sharePct, 1, 1) + '%')}">—</td>
+          <td class="num" data-mcol="months_held" th:if="${acctMetrics.contains('months_held')}"
+              th:text="${account.monthsHeld == null ? '—' : account.monthsHeld}">—</td>
+          <td class="num" data-mcol="plan_actual" th:if="${acctMetrics.contains('plan_actual')}">
+              <span th:classappend="${account.planActualDiffPct != null and account.planActualDiffPct.signum() &lt; 0 ? 'num-neg' : (account.planActualDiffPct != null and account.planActualDiffPct.signum() &gt; 0 ? 'num-pos' : '')}"
+                    th:text="${account.planActualDiffPct == null ? '—' : ((account.planActualDiffPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(account.planActualDiffPct, 1, 2) + 'pp')}">—</span></td>
+          <td class="hidden lg:table-cell" data-mcol="sparkline" th:if="${acctMetrics.contains('sparkline')}">
+            <svg th:if="${account.sparklinePoints != null}"
+                 th:classappend="${account.sparklineTrend == 'down' ? 'sparkline-neg' : 'sparkline-pos'}"
+                 width="80" height="22" viewBox="0 0 80 22" aria-hidden="true">
+              <polyline fill="none" stroke="currentColor" stroke-width="1.5" th:attr="points=${account.sparklinePoints}"/>
+            </svg>
+            <span th:if="${account.sparklinePoints == null}" class="font-mono text-[10px] text-ink-subtle">—</span>
           </td>
-          <td class="num" data-priv th:text="${row.currentValueLabel != null ? row.currentValueLabel : '—'}">—</td>
+          <td class="num tnum" th:text="${bm != null and bm.benchmarkPct != null ? bm.benchmarkPct + '%' : '—'}">—</td>
+          <td>
+            <span th:if="${bm != null and bm.beatStatus == 'BEAT'}" class="pill text-[9px]"
+                  style="background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)"
+                  th:text="'跑赢 +' + ${bm.diffPct} + 'pp'">跑赢</span>
+            <span th:if="${bm != null and bm.beatStatus == 'MISS'}" class="pill text-[9px]"
+                  style="background:rgba(159,74,58,.10);color:var(--rust);border:1px solid var(--rust)"
+                  th:text="'跑输 ' + ${bm.diffPct} + 'pp'">跑输</span>
+            <span th:if="${bm != null and bm.beatStatus == 'FLAT'}" class="pill text-[9px]"
+                  style="border:1px solid var(--ink-subtle);color:var(--ink-soft)"
+                  th:text="'持平 ' + ${bm.diffPct} + 'pp'">持平</span>
+            <span th:if="${bm == null or bm.beatStatus == 'NA'}" class="text-ink-subtle text-[10px]">—</span>
+          </td>
         </tr>
         </tbody>
       </table>
     </div>
+
+    <!-- v0.11.4 · 账户名列 sticky + chips 关闭态样式(scoped 到报表区)-->
+    <style>
+      #reports-region .ledger-table .acct-sticky{ position:sticky; left:0; z-index:2; background:var(--card); white-space:nowrap; }
+      #reports-region .ledger-table thead .acct-sticky{ z-index:3; }
+      #reports-region .ledger-table thead th{ white-space:nowrap; }
+      #reports-region .mchip.off{ opacity:.4; text-decoration:line-through; border-style:dashed; }
+      #reports-region .mchip{ cursor:pointer; }
+    </style>
+    <!-- 指标 chips:点选即时切列显隐(纯前端)· 与仪表盘共享 localStorage 键 acctHiddenCols(两页隐藏集一致)-->
+    <script>
+      (function () {
+        var KEY = 'acctHiddenCols';
+        function read() { try { return JSON.parse(localStorage.getItem(KEY) || '[]') || []; } catch (e) { return []; } }
+        function write(a) { try { localStorage.setItem(KEY, JSON.stringify(a)); } catch (e) {} }
+        function apply() {
+          var h = read();
+          document.querySelectorAll('#reports-region [data-mcol]').forEach(function (el) {
+            el.style.display = h.indexOf(el.getAttribute('data-mcol')) >= 0 ? 'none' : '';
+          });
+          document.querySelectorAll('#reports-region [data-mchip]').forEach(function (c) {
+            c.classList.toggle('off', h.indexOf(c.getAttribute('data-mchip')) >= 0);
+          });
+        }
+        function bind() {
+          document.querySelectorAll('#reports-region [data-mchip]').forEach(function (c) {
+            if (c.__mb) return; c.__mb = 1;
+            c.addEventListener('click', function () {
+              var k = c.getAttribute('data-mchip'), h = read(), i = h.indexOf(k);
+              if (i >= 0) h.splice(i, 1); else h.push(k);
+              write(h); apply();
+            });
+          });
+          apply();
+        }
+        document.addEventListener('DOMContentLoaded', bind);
+        if (document.body) document.body.addEventListener('htmx:load', bind);
+        bind();
+      })();
+    </script>
   </section>
 
   <script th:inline="javascript">

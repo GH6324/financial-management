@@ -95,4 +95,31 @@ class BenchmarkAggregatorTest {
         assertThat(BenchmarkAggregator.beatStatusWindow(new BigDecimal("2.5"), 12)).isEqualTo(BeatStatus.BEAT);
         assertThat(BenchmarkAggregator.beatStatusWindow(null, 6)).isEqualTo(BeatStatus.NA);
     }
+
+    // ── v0.11.4 · 用「显示的 xirr」当实际(修 cumPnl/净投入 爆值 + 与头条脱节)────────────
+
+    @Test
+    void displayedDiff_annualizedWhen12moPlus_isPlainSubtraction() {
+        // ≥12 期:显示的 xirr 是年化。家庭 XIRR 8.30% vs 加权基准 4.61% → 8.30−4.61 = +3.69pp(不是 -243%)
+        BigDecimal diff = BenchmarkAggregator.displayedDiffPercentPoints(new BigDecimal("0.0830"), new BigDecimal("4.61"), 12);
+        assertThat(diff).isEqualByComparingTo("3.69");
+        assertThat(BenchmarkAggregator.beatStatusDisplayed(diff, 12)).isEqualTo(BeatStatus.BEAT);
+    }
+
+    @Test
+    void displayedDiff_cumulativeWhenShortWindow_benchmarkScaled() {
+        // <12 期:显示的 xirr 是累计回报。1 月累计 2% vs 年化基准 8%(缩到 1 月≈0.64%)→ ≈+1.36pp → 跑赢
+        BigDecimal diff = BenchmarkAggregator.displayedDiffPercentPoints(new BigDecimal("0.02"), new BigDecimal("8.0"), 1);
+        assertThat(diff.doubleValue()).isBetween(1.30, 1.40);
+        assertThat(BenchmarkAggregator.beatStatusDisplayed(diff, 1)).isEqualTo(BeatStatus.BEAT);
+    }
+
+    @Test
+    void displayedDiff_nullsAndZeroMonths() {
+        assertThat(BenchmarkAggregator.displayedDiffPercentPoints(null, new BigDecimal("5.0"), 6)).isNull();
+        assertThat(BenchmarkAggregator.displayedDiffPercentPoints(new BigDecimal("0.05"), null, 6)).isNull();
+        assertThat(BenchmarkAggregator.displayedDiffPercentPoints(new BigDecimal("0.05"), new BigDecimal("5.0"), 0)).isNull();
+        assertThat(BenchmarkAggregator.beatStatusDisplayed(null, 6)).isEqualTo(BeatStatus.NA);
+        assertThat(BenchmarkAggregator.beatStatusDisplayed(new BigDecimal("1.0"), 0)).isEqualTo(BeatStatus.NA);
+    }
 }

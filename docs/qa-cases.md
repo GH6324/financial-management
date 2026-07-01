@@ -1630,3 +1630,17 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v11-REPORTS-2 | `reports/_savings.html` 图表 `<script>` 在 `th:fragment="section"` 内(`</script>` 后紧跟 `</section>`)→ reports 用 `:: section` 引入时脚本不被丢,双柱/收支趋势 canvas 可渲染 |
 
 > bug:图表脚本原写在 fragment 的 `</section>` 之后 → `:: section` 引入只拿 section、脚本丢失 → 双柱/收支趋势 canvas 空(KPI 在 section 内正常)。修:`</section>` 挪到 `</script>` 之后。口径不变(决策 B):仍只统计家庭月度「2 框」PMC。
+
+---
+
+## v0.11.4 · 报表账户表补全指标 + vs基准口径修(决策 135/136)
+
+| Case | 校验 |
+|---|---|
+| v11-REPORTS-METRICS | `ReportsController` 注入 `acctMetrics=metricPrefsService.enabled(family.metricPrefs,"account")` + 全字段 `accountRows`;`reports/_region.html` 第四表按 `acctMetrics.contains(...)` 门控 `data-mcol` 指标列(与仪表盘同源)· e2e 实测账户表出现 ≥3 种 data-mcol |
+| v11-REPORTS-PP | 家庭卡 + 账户行 + 预实 pill 单位一律 `pp`(基准值仍 `%`);模板不再有 `${familyBenchmarkDiff\|row.diffPct} + '%'` · e2e 实测 pp≥1 且误用 % 计数=0 |
+| v10-WINDOW-1(改) | vs基准/预实 实际 = 显示的那个 xirr(`displayedDiffPercentPoints`:<12 期累计、≥12 期年化),基准同基(<12 期 `expectedOverWindowPct` 缩放);三处调用(家庭/账户/FactView 预实)已切换,不再用 `cumPnl/净投入` 当实际 |
+| (e2e) 报表-vs基准无爆值 | `/reports` 渲染后不出现 `|pp|>1000` 的爆值(修 v0.10.5:净投入极小 → +19497pp) |
+| (UT) BenchmarkAggregatorTest | `displayedDiffPercentPoints`:8.30% vs 4.61%(≥12 期)=+3.69pp→BEAT;1 月累计 2% vs 年化 8%(缩到窗口)≈+1.36pp→BEAT;xirr/基准 null / months≤0 → null;`beatStatusDisplayed` null/0 月 → NA |
+
+> bug:v0.10.5 把 diff「实际」改成 `cumPnl÷净投入`,净投入极小的账户爆成 `+19497pp`,且与卡片头条显示的 XIRR 脱节(头条 8.30% 却「跑输 -243%」);单位也错标 `%`(比例减比例应是 pp)。修:实际取「显示的那个 xirr 本身」(同 `annualizedOrCumulative` 口径),基准同基对齐,单位 pp。同源修仪表盘/报表「预实」列。第四表另补全指标列:复用 `/admin/metrics` 账户级配置(与仪表盘同一套开关 + 共享 `acctHiddenCols` 隐藏集)。

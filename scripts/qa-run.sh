@@ -3093,15 +3093,18 @@ RG=src/main/resources/templates/dashboard/_region.html
   && log_ok "v10-ACCT-COLS-1 账户表补全列 + 指标 chips(PC+手机)+ sticky + 目录不超卖(twr/yoy/risk 已移除)" \
   || log_bad "v10-ACCT-COLS-1 账户列/chips/sticky 缺失 或 目录仍含无数据指标" "see _region.html dash-list / MetricPrefsService"
 
-# v10-WINDOW-1 · 收益对比「同窗口」口径(修短账户「累计实际 vs 年化预期」错判)
-#   预实(账户)+ reports vs基准(账户/家庭)一律:实际累计 vs 预期(年化缩放到持有月数);
-#   阈值随窗口缩放(beatStatusWindow);<12 期年化列动态标「累」。
-{ grep -q 'windowDiffPercentPoints' src/main/java/com/family/finance/calc/BenchmarkAggregator.java \
-  && grep -q 'beatStatusWindow' src/main/java/com/family/finance/calc/BenchmarkAggregator.java \
-  && grep -q 'windowDiffPercentPoints' src/main/java/com/family/finance/factview/FactViewServiceImpl.java \
-  && grep -q 'windowDiffPercentPoints' src/main/java/com/family/finance/web/report/ReportsController.java \
-  && ! grep -q 'diffPercentPoints(ap.xirr()' src/main/java/com/family/finance/web/report/ReportsController.java; } \
-  && log_ok "v10-WINDOW-1 预实/vs基准 同窗口口径(实际累计 vs 预期缩放;不再「累计减年化」)" \
+# v10-WINDOW-1 · 收益对比「同窗口」口径(修短账户「累计实际 vs 年化预期」错判)· v0.11.4 起走 displayedDiffPercentPoints
+#   预实(账户)+ reports vs基准(账户/家庭)一律:实际 = 卡片显示的那个 xirr(<12 期累计 / ≥12 期年化),
+#   预期同基(<12 期把年化基准缩放到持有月数 expectedOverWindowPct);阈值随窗口缩放(beatStatusDisplayed)。
+#   根因升级:v0.10.5 曾用 cumPnl/净投入 当实际 → 净投入极小的账户爆成 +19497pp 且与头条脱节,v0.11.4 改用显示的 xirr。
+BA=src/main/java/com/family/finance/calc/BenchmarkAggregator.java
+{ grep -q 'displayedDiffPercentPoints' "$BA" \
+  && grep -q 'expectedOverWindowPct(annualBenchmarkPct, months)' "$BA" \
+  && grep -q 'beatStatusDisplayed' "$BA" \
+  && grep -q 'displayedDiffPercentPoints(xirr.get(first.accountId())' src/main/java/com/family/finance/factview/FactViewServiceImpl.java \
+  && grep -q 'displayedDiffPercentPoints(ap.xirr()' src/main/java/com/family/finance/web/report/ReportsController.java \
+  && grep -q 'displayedDiffPercentPoints(familyXirrDecimal' src/main/java/com/family/finance/web/report/ReportsController.java; } \
+  && log_ok "v10-WINDOW-1 预实/vs基准 同窗口口径(实际=显示的xirr;<12期基准缩放;不再「累计减年化」也不再 cumPnl/净投入 爆值)" \
   || log_bad "v10-WINDOW-1 收益对比仍混口径(短账户累计 vs 年化预期)" "see BenchmarkAggregator / FactViewServiceImpl / ReportsController"
 
 # ─────────── v0.11 · 隐私模式(公共场合 / 分享隐藏金额)───────────
@@ -3172,6 +3175,28 @@ SAV="$RD/src/main/resources/templates/reports/_savings.html"
 { grep -A3 '</script>' "$SAV" | grep -q '</section>'; } \
   && log_ok "v11-REPORTS-2 储蓄区图表脚本在 fragment 内(:: section 引入不丢 → 双柱/收支趋势可渲染)" \
   || log_bad "v11-REPORTS-2 储蓄区图表脚本在 fragment 外 → 双柱/收支趋势不渲染" "see reports/_savings.html"
+
+# v11-REPORTS-METRICS · 第四表复用「管理页·指标设置(账户级)」配置:控制器注入 acctMetrics + 全字段 accountRows,
+#   模板按 acctMetrics.contains(...) 门控 data-mcol 指标列(与仪表盘同源)。
+RC="$RD/src/main/java/com/family/finance/web/report/ReportsController.java"
+REG="$RD/src/main/resources/templates/reports/_region.html"
+{ grep -q 'metricPrefsService.enabled(family.getMetricPrefs(), "account")' "$RC" \
+  && grep -q 'addAttribute("accountRows"' "$RC" \
+  && grep -q "acctMetrics.contains('cum_pnl')" "$REG" \
+  && grep -q 'data-mcol="plan_actual"' "$REG"; } \
+  && log_ok "v11-REPORTS-METRICS 报表第四表配置化指标列(复用管理页账户级指标 · data-mcol 门控)" \
+  || log_bad "v11-REPORTS-METRICS 报表第四表未复用管理页指标配置" "see ReportsController / reports/_region.html"
+
+# v11-REPORTS-PP · vs基准/预实 = 显示的 xirr − 基准(同基)→ 百分点 pp,不用 %;根因修 v0.10.5 cumPnl/净投入 爆值。
+#   模板 pill 用 'pp' 结尾;控制器 + FactView 走 displayedDiffPercentPoints;不得再用 windowDiffPercentPoints 当实际。
+FV="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
+{ grep -q "+ 'pp'" "$REG" \
+  && ! grep -qE "\\\$\{(familyBenchmarkDiff|row\.diffPct)\} \+ '%'" "$REG" \
+  && grep -q 'displayedDiffPercentPoints(familyXirrDecimal' "$RC" \
+  && grep -q 'displayedDiffPercentPoints(ap.xirr()' "$RC" \
+  && grep -q 'displayedDiffPercentPoints(xirr.get(first.accountId())' "$FV"; } \
+  && log_ok "v11-REPORTS-PP vs基准/预实用 pp + 实际=显示的 xirr(不再 cumPnl/净投入 爆值)" \
+  || log_bad "v11-REPORTS-PP vs基准单位仍 % 或实际仍用 cumPnl/净投入" "see reports/_region.html / ReportsController / FactViewServiceImpl"
 
 echo
 echo "═══════════════════════════════════════"

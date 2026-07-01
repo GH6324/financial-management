@@ -69,6 +69,7 @@ public class ReportsController {
     private final com.family.finance.service.macro.WaterLevelService waterLevelService;
     private final com.family.finance.service.macro.MacroBenchmarkService macroBenchmarkService;
     private final com.family.finance.service.explain.MetricExplainService metricExplain; // v0.5.3 口径真实数值
+    private final com.family.finance.service.MetricPrefsService metricPrefsService; // v0.11.4 账户表复用管理页指标配置
     private final com.fasterxml.jackson.databind.ObjectMapper jacksonMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     @GetMapping("/reports")
@@ -157,7 +158,6 @@ public class ReportsController {
         List<FxRate> fxRates = fxMapper.findLatestByFamily(me.getFamilyId(), 36);
 
         // v0.4 FR-61b · 账户级 vs 基准对照
-        final String viewCurrencyFinal = viewCurrency;
         java.util.Map<Long, String> pcCodeByAccountId = new java.util.HashMap<>();
         for (Account a : allAccounts) {
             if (a.getProductCategoryCode() != null) pcCodeByAccountId.put(a.getId(), a.getProductCategoryCode());
@@ -166,34 +166,24 @@ public class ReportsController {
         for (var pc : productCategoryService.listAll()) {
             if (pc.getBenchmarkPct() != null) benchmarkPctByPcCode.put(pc.getCode(), pc.getBenchmarkPct());
         }
-        java.util.List<AccountBenchmarkRow> accountBenchmarkRows = accountRows.stream()
-            .map(ap -> {
-                String pcCode = pcCodeByAccountId.get(ap.accountId());
-                BigDecimal pcBench = pcCode == null ? null : benchmarkPctByPcCode.get(pcCode);
-                BigDecimal benchmark = BenchmarkAggregator.benchmarkForAccount(
-                    ap.xirr(), pcBench, ap.accountType().name());
-                // v0.10.5 同窗口:实际「持有窗口累计回报」(cumPnl/净投入)vs 基准按持有月数缩放;
-                //   修「短账户 xirr 为累计 却减年化基准」的口径错(与 dashboard 预实一致)。
-                int months = ap.monthsHeld() == null ? 0 : ap.monthsHeld();
-                BigDecimal cumActualPct = (ap.netPrincipal() != null && ap.netPrincipal().signum() > 0)
-                    ? ap.cumPnl().divide(ap.netPrincipal(), 8, java.math.RoundingMode.HALF_EVEN).multiply(new BigDecimal("100")) : null;
-                BigDecimal diffPct = BenchmarkAggregator.windowDiffPercentPoints(cumActualPct, benchmark, months);
-                BenchmarkAggregator.BeatStatus beat = BenchmarkAggregator.beatStatusWindow(diffPct, months);
-                String xirrLabel = ap.xirr() == null ? null
-                    : String.format("%+.2f%%", ap.xirr().doubleValue() * 100);
-                String valueLabel = ap.currentValue() == null ? null
-                    : money(viewCurrencyFinal, ap.currentValue());
-                return new AccountBenchmarkRow(
-                    ap.accountName(),
-                    ap.accountType().name(),
-                    pcCode,
-                    xirrLabel,
-                    benchmark,
-                    diffPct,
-                    beat.name(),
-                    valueLabel);
-            })
-            .toList();
+        // v0.11.4 · 账户表改为「复用管理页指标配置」渲染:直接迭代全字段 accountRows(AccountPerformance),
+        //   基准对照数据按 accountId 建索引 map 供模板 zip;不再压成精简的 AccountBenchmarkRow 列表。
+        java.util.Map<Long, AccountBenchmarkRow> benchmarkByAccount = new java.util.HashMap<>();
+        for (AccountPerformance ap : accountRows) {
+            String pcCode = pcCodeByAccountId.get(ap.accountId());
+            BigDecimal pcBench = pcCode == null ? null : benchmarkPctByPcCode.get(pcCode);
+            BigDecimal benchmark = BenchmarkAggregator.benchmarkForAccount(
+                ap.xirr(), pcBench, ap.accountType().name());
+            // v0.11.4:实际 = 卡片显示的那个 xirr(<12 期累计 / ≥12 期年化)− 同基基准 → pp;
+            //   修 v0.10.5「cumPnl/净投入 当实际」的爆值(净投入极小→+19497pp)+ 与显示脱节。
+            int months = ap.monthsHeld() == null ? 0 : ap.monthsHeld();
+            BigDecimal diffPct = BenchmarkAggregator.displayedDiffPercentPoints(ap.xirr(), benchmark, months);
+            BenchmarkAggregator.BeatStatus beat = BenchmarkAggregator.beatStatusDisplayed(diffPct, months);
+            benchmarkByAccount.put(ap.accountId(), new AccountBenchmarkRow(
+                ap.accountName(), ap.accountType().name(), pcCode,
+                null, benchmark, diffPct, beat.name(), null)); // xirrLabel/valueLabel 模板内实时格式化,置 null
+        }
+        java.util.Set<String> acctMetrics = metricPrefsService.enabled(family.getMetricPrefs(), "account");
 
         // v0.4 FR-61c · 家庭加权基准
         java.util.List<BenchmarkAggregator.BenchmarkInput> bmInputs = slice.rows().stream()
@@ -209,15 +199,11 @@ public class ReportsController {
             .toList();
         BigDecimal familyBenchmarkPct = BenchmarkAggregator.weightedFamilyBenchmark(bmInputs);
         BigDecimal familyXirrDecimal = factViewService.familyXirr(slice);
-        // v0.10.5 同窗口:家庭实际「累计回报」(累计 PnL/累计净投入)vs 加权基准缩放到家庭持有月数;
-        //   与账户/预实一致,修「家庭 XIRR(<12 期为累计)减年化基准」的口径错。
+        // v0.11.4:家庭 pill 实际 = 卡片头条显示的那个「家庭 XIRR」本身(<12 期累计 / ≥12 期年化)− 加权基准 → pp。
+        //   修 v0.10.5「累计PnL/累计净投入 当实际」的爆值 + 与头条 XIRR 脱节(头条 8.3% 却显示跑输 -243%)。
         int familyMonths = slice.periodIds().size();
-        BigDecimal famCumActualPct = (lastDecomposition != null && lastDecomposition.cumulativeNetInflow() != null
-                && lastDecomposition.cumulativeNetInflow().signum() > 0 && lastDecomposition.cumulativePnl() != null)
-            ? lastDecomposition.cumulativePnl().divide(lastDecomposition.cumulativeNetInflow(), 8, java.math.RoundingMode.HALF_EVEN).multiply(new BigDecimal("100"))
-            : null;
-        BigDecimal familyDiffPct = BenchmarkAggregator.windowDiffPercentPoints(famCumActualPct, familyBenchmarkPct, familyMonths);
-        BenchmarkAggregator.BeatStatus familyBeat = BenchmarkAggregator.beatStatusWindow(familyDiffPct, familyMonths);
+        BigDecimal familyDiffPct = BenchmarkAggregator.displayedDiffPercentPoints(familyXirrDecimal, familyBenchmarkPct, familyMonths);
+        BenchmarkAggregator.BeatStatus familyBeat = BenchmarkAggregator.beatStatusDisplayed(familyDiffPct, familyMonths);
 
         // v0.4 FR-62a · 配置 diff
         AllocationService.DiffResult allocationDiff = allocationService.compute(me.getFamilyId(), slice);
@@ -289,8 +275,11 @@ public class ReportsController {
         // v0.4 FR-60b · 砍 waterfall / sankey 数据(不再注入)
         model.addAttribute("decomposition", decomposition);
         model.addAttribute("debtTrend", debtTrend);
-        // v0.4 FR-61b · 用 accountBenchmarkRows 替代 accountRows
-        model.addAttribute("accountBenchmarkRows", accountBenchmarkRows);
+        // v0.11.4 · 账户表复用管理页指标配置:注入全字段 accountRows + 指标启用集 + 基准索引 + 类目索引
+        model.addAttribute("accountRows", accountRows);
+        model.addAttribute("acctMetrics", acctMetrics);
+        model.addAttribute("benchmarkByAccount", benchmarkByAccount);
+        model.addAttribute("pcCodeByAccount", pcCodeByAccountId);
         model.addAttribute("fxRates", fxRates);
         model.addAttribute("fxFallback", fxFallback);
         model.addAttribute("requestedCurrency", requestedCurrency);

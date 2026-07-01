@@ -81,6 +81,15 @@ db_debt="$(db "SELECT ROUND(ABS(SUM(ps.end_balance))) FROM period_snapshot ps JO
 rep_debt_last="$(printf '%s' "$H" | grep -oE 'debt: \[[^]]*\]' | head -1 | grep -oE '[0-9]+(\.[0-9]+)?' | tail -1)"
 rep_debt_last_r="$(printf '%.0f' "${rep_debt_last:-0}")"
 eq "报表-负债曲线末点 ≈ DB 最近关账期 LOAN 汇总" "$rep_debt_last_r" "$db_debt"
+# v0.11.4 · 第四表复用管理页指标配置:账户表出现 data-mcol 指标列(≥ 启用指标数);vs基准 用 pp 不用 %
+n_mcol="$(printf '%s' "$H" | grep -oE 'data-mcol="[a-z_]+"' | sort -u | wc -l | tr -d ' ')"
+[ "$n_mcol" -ge 3 ] && ok "报表-账户表出现配置化指标列($n_mcol 种 data-mcol)" || bad "报表-账户表缺指标列" ">=3" "$n_mcol"
+n_pp="$(printf '%s' "$H" | grep -ocE '(跑赢|跑输|持平) [+-]?[0-9.]+pp' || true)"
+n_pct_wrong="$(printf '%s' "$H" | grep -ocE '(跑赢|跑输|持平) [+-]?[0-9.]+%' || true)"
+[ "$n_pp" -ge 1 ] && [ "$n_pct_wrong" -eq 0 ] && ok "报表-vs基准用 pp 不用 %(pp=$n_pp · 误%=$n_pct_wrong)" || bad "报表-vs基准单位错" "pp≥1且%=0" "pp=$n_pp %=$n_pct_wrong"
+# vs基准量级理智:显示的 xirr − 基准,不应再出现 |pp|>1000 的爆值(修 v0.10.5 cumPnl/净投入)
+n_blow="$(printf '%s' "$H" | grep -ocE '[+-]?[0-9]{4,}\.[0-9]+pp' || true)"
+eq "报表-vs基准无爆值(|pp|>1000 计数)" "$n_blow" "0"
 
 # ============================================================================
 section "主线 4 · 多币种镜头(只读 · 比值币种无关 + 金额按 fx 缩放)"

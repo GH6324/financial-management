@@ -2,6 +2,25 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.11.4] · 2026-07-01
+
+### Fixed
+
+- **报表第一卡「家庭 XIRR · 含收入」vs基准 pill 显示 `跑输 -243.42%`(单位错 + 实际取值错)**:
+  - **单位**:分子/分母都是比例的 diff 应是「百分点 pp」,不是 `%`。家庭卡 + 账户行的 跑赢/跑输/持平 pill 统一改用 `pp`(基准值本身仍是 `%`)。
+  - **实际取值(根因)**:diff 的「实际」侧原取 `cumPnl ÷ 净投入`(v0.10.5 引入)——净投入极小的账户/家庭会爆成 `+19497pp` 之类,且与卡片头条显示的那个 XIRR 是两个数(头条 8.30% 却显示跑输 -243%)。改为「实际 = 卡片显示的那个 xirr 本身」(与 `XirrCalculator.annualizedOrCumulative` 同口径:<12 期为累计回报、≥12 期为年化),基准同基对齐(≥12 减年化基准、<12 把基准缩放到持有月数)。beta 实测:家庭 8.30% − 加权基准 4.61% = **跑赢 +3.69pp**,量级回归理智。
+  - 同源修 `FactViewServiceImpl` 账户「预实」(planActualDiffPct,仪表盘同列)——同样从 `cumPnl/净投入` 改为「显示的 xirr − 预期」。
+
+### Added
+
+- **报表「第四表·账户级收益」复用管理页指标配置**:此前只有 XIRR/基准/vs基准/当前价值 4 列,而控制器早已算好全字段 `AccountPerformance` 却被压缩丢弃。现改为迭代全字段 + 按 `/admin/metrics`(账户级)开关门控渲染指标列(收益率/本位币年化/累计损益/累计净投入/本期损益/本期Δ/最大回撤/占比/持有期数/预实/近况),与仪表盘账户表同一套开关;补「显示指标」chips 条,与仪表盘共享 `acctHiddenCols` 隐藏集(两页一致)。保留报表特有的 类型/类目/基准%/vs基准 列。
+
+### 测试
+
+- 新增 `BenchmarkAggregator.displayedDiffPercentPoints` / `beatStatusDisplayed` + 3 单测(年化/短窗缩放/空值)· mvn 289→**292**。
+- qa-run:改 `v10-WINDOW-1`(口径升级为 displayedDiffPercentPoints)· 新增 `v11-REPORTS-METRICS`(配置化指标列)+ `v11-REPORTS-PP`(pp 单位 + 实际=显示的 xirr,无爆值)· 黑盒 412→**414**。
+- e2e `scripts/e2e.sh` 主线 3 加 3 断言(账户表 data-mcol 指标列 · vs基准用 pp 不用 % · 无 |pp|>1000 爆值)· 17→**20** 断言 · beta 实跑 20/20。
+
 ## [v0.11.3] · 2026-07-01
 
 ### Fixed
