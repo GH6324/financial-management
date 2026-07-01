@@ -11,6 +11,7 @@ import com.family.finance.domain.snapshot.TodoStatus;
 import com.family.finance.domain.transfer.Transfer;
 import com.family.finance.repository.AccountMapper;
 import com.family.finance.repository.MemberMapper;
+import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.SnapshotMapper;
 import com.family.finance.repository.SnapshotTodoMapper;
 import com.family.finance.repository.TransferMapper;
@@ -31,6 +32,7 @@ public class PeriodOpener {
     private final PeriodService periodService;
     private final AccountMapper accountMapper;
     private final MemberMapper memberMapper;
+    private final PeriodMapper periodMapper;
     private final SnapshotMapper snapshotMapper;
     private final SnapshotTodoMapper snapshotTodoMapper;
     private final TransferMapper transferMapper;
@@ -41,9 +43,32 @@ public class PeriodOpener {
         LocalDate today = LocalDate.now();
         for (Family family : familyService.findAll()) {
             if (periodService.isPeriodStartDate(family.getPeriodType(), today)) {
+                // v0.11.2 修 bug1:滚动开新期前,先 force-close 早于今天仍 OPEN 的旧期(避免旧期悬挂 OPEN)
+                closePriorOpenPeriods(family, today);
                 createPeriodAndTodos(family, today);
             }
         }
+    }
+
+    /**
+     * v0.11.2 · 开新期时把「早于新期起始日」仍 OPEN 的旧期 force-close(待填账户按上期末延续 + 触发月报/指标)。
+     * 放在建新期之前 → 新期预填从已落定的上期结转。无活跃成员则跳过(无法代签)。
+     */
+    private void closePriorOpenPeriods(Family family, LocalDate newStart) {
+        Long systemMemberId = firstActiveMemberId(family.getId());
+        if (systemMemberId == null) return;
+        for (Period prior : periodMapper.findOpenBefore(family.getId(), newStart)) {
+            try {
+                periodService.forceClose(prior.getId(), systemMemberId);
+            } catch (IllegalStateException alreadyClosed) {
+                // 并发/重复触发下已非 OPEN,跳过
+            }
+        }
+    }
+
+    private Long firstActiveMemberId(long familyId) {
+        return memberMapper.findActiveByFamily(familyId).stream()
+                .findFirst().map(Member::getId).orElse(null);
     }
 
     /**
@@ -61,6 +86,8 @@ public class PeriodOpener {
                 .map(Period::getPeriodStart)
                 .map(start -> periodService.nextPeriodStart(family.getPeriodType(), start))
                 .orElseGet(() -> periodService.currentPeriodStart(family.getPeriodType(), LocalDate.now()));
+        // v0.11.2 修 bug1:开下一期前,先关早于它仍 OPEN 的旧期(与自动滚动同口径)
+        closePriorOpenPeriods(family, seed);
         Period period = periodService.openIfAbsent(family, seed);
         // 复用既有 todo / LOAN 预填逻辑(已 idempotent)
         createPeriodAndTodos(family, seed);
@@ -125,24 +152,21 @@ public class PeriodOpener {
             return;
         }
         BigDecimal prev = previous.get(0).getEndBalance();
-        BigDecimal predicted = prev;
-        BigDecimal deltaAbs = BigDecimal.ZERO;
-        if (previous.size() >= 2) {
-            BigDecimal prevPrev = previous.get(1).getEndBalance();
-            BigDecimal delta = prev.subtract(prevPrev);
-            predicted = prev.add(delta);
-            deltaAbs = delta.abs();
-        }
+        BigDecimal prevPrev = previous.size() >= 2 ? previous.get(1).getEndBalance() : null;
+        BigDecimal predicted = predictLoanBalance(prev, prevPrev);
         todo.setPrefilledBalance(predicted);
 
+        // 草稿还款额 = 本期预测的实际还款额(predicted − prev,>0 才是"还款使欠款减少");
+        //   夹零后若已还平(predicted==prev==0)则为 0,不再给已还清的贷款起草还款。
+        BigDecimal repay = predicted.subtract(prev);
         if (systemMemberId != null
                 && loan.getDefaultPaymentSourceAccountId() != null
-                && deltaAbs.signum() > 0) {
+                && repay.signum() > 0) {
             Transfer draft = Transfer.builder()
                     .periodId(period.getId())
                     .fromAccountId(loan.getDefaultPaymentSourceAccountId())
                     .toAccountId(loan.getId())
-                    .amount(deltaAbs)
+                    .amount(repay)
                     .occurredAt(period.getPeriodEnd())
                     .note("系统根据上期贷款变化预填")
                     .submittedBy(systemMemberId)
@@ -151,5 +175,15 @@ public class PeriodOpener {
             transferMapper.insert(draft);
             todo.setPrefilledTransferId(draft.getId());
         }
+    }
+
+    /**
+     * v0.11.2 · LOAN 预填余额:趋势外推 prev + (prev − prevPrev),但**夹到 ≤ 0**(贷款=欠款,不为正)。
+     *   prevPrev 为 null(仅一期历史)→ 直接沿用 prev。修 bug2:-72000 → 0 后外推成 +72000 的错。
+     *   例:房贷 -990000←-1000000 → 外推 -980000(不夹);还平 0←-72000 → 外推 +72000 → 夹到 0。
+     */
+    static BigDecimal predictLoanBalance(BigDecimal prev, BigDecimal prevPrev) {
+        BigDecimal predicted = (prevPrev == null) ? prev : prev.add(prev.subtract(prevPrev));
+        return predicted.signum() > 0 ? BigDecimal.ZERO : predicted;
     }
 }

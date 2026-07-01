@@ -40,6 +40,17 @@ public interface PeriodMapper {
             """)
     Optional<Period> findCurrentOpen(@Param("familyId") long familyId);
 
+    /** v0.11.2 · 开新期时找出所有「早于新期起始日」且仍 OPEN 的旧期(用于滚动自动关账);升序,先关最老的。 */
+    @Select("""
+            SELECT id, family_id, period_type, period_start, period_end, status, closed_at, created_at
+              FROM period
+             WHERE family_id = #{familyId}
+               AND status = 'OPEN'
+               AND period_start < #{periodStart}
+             ORDER BY period_start ASC
+            """)
+    List<Period> findOpenBefore(@Param("familyId") long familyId, @Param("periodStart") java.time.LocalDate periodStart);
+
     @Select("""
             SELECT id, family_id, period_type, period_start, period_end, status, closed_at, created_at
               FROM period

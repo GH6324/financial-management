@@ -2,6 +2,24 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.11.2] · 2026-07-01
+
+> 切月(6.30→7.01)账期滚动两处生产 bug 修复。
+
+### Fixed
+
+- **旧期不自动关(bug1)**:滚动 cron(每天 00:30 `PeriodOpener.openIfDue`)**只开新期、从不关旧期** → 06 悬挂 OPEN(月报/指标/关账快照不落定),与新开的 07 同时 OPEN。改为**开新期前先 force-close 早于新期仍 OPEN 的旧期**(待填账户按上期末延续 + 触发月报/指标):新增 `PeriodMapper.findOpenBefore` + `PeriodOpener.closePriorOpenPeriods`;`openIfDue`(自动)与 `openNextNow`(管理员手动)同口径。先关旧期 → 新期从已落定的上期结转。
+- **LOAN 还平后凭空 +72000(bug2)**:LOAN 开账预填用趋势外推 `prev+(prev−prevPrev)`,贷款一次性还平(-72000→0)后外推越过 0 变 **+72000**。改为**夹到 ≤0**(`predictLoanBalance`:`predicted>0 → 0`);草稿还款额改用 `predicted−prev`(只在实际是还款时起草,已还平不再起草)。房贷匀速还款(仍为负)不受影响。
+
+### 测试
+
+- mvn 283→**289**(`PeriodOpenerLoanPrefillTest` 6 例:税务欠款 -72000→0 夹 0、房贷外推、增债、单期沿用、跨零夹零)· qa-run +`v11-ROLLOVER-1`、黑盒 409→**410**。
+
+### 现网数据补救(修复仅防后续复发,不追溯已生成的历史数据)
+
+- 06:管理 → 周期管理 **关账**(force-close)。
+- 07:填报页把 **迪娃-税务欠款** 余额重填 **0**(覆盖被外推写入的 +72000;该账户 07 待办仍 PENDING 可直接填)。
+
 ## [v0.11.1] · 2026-06-30
 
 ### Fixed

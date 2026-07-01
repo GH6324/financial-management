@@ -1599,3 +1599,14 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v11-PRIVACY-3 | 紧急储备(月)/本月收益率(%)源码**不带 `data-priv`**(比例不误遮);dashboard 图表 `fmtMoney` 含 `isPrivacy()` 守卫(金额隐藏 · 曲线形状保留) |
 
 > 纯前端叠加(0 schema/接口):绝对金额 `data-priv` → `html.privacy` 下高斯模糊 + 不可选中复制;比例/%/月数/形状保留。会话级(sessionStorage),重开默认显示,FOUC 防闪。双入口(nav 眼睛 + 左下常驻浮动 chip)零 JS 同步。手验:隐私态从顶层 tab 走 dashboard→reports→checkup→accounts→entry(PC+移动),逐屏确认无裸金额、比例仍在、浮动 chip 可随处恢复。威胁模型 = 肩窥/截图(非取证级,DOM 仍有真值)。
+
+---
+
+## v0.11.2 · 账期滚动修复(切月两 bug)
+
+| Case | 校验 |
+|---|---|
+| v11-ROLLOVER-1 | `PeriodOpener.closePriorOpenPeriods` + `forceClose`(bug1 开新期即关旧期)、`PeriodMapper.findOpenBefore`、`predictLoanBalance` + `signum()>0?ZERO`(bug2 LOAN 夹零≤0)均在 |
+| PeriodOpenerLoanPrefillTest(+6) | LOAN 预填夹零:**税务欠款 -72000→0 预测 0(非+72000)**、房贷 -1000000→-990000 外推 -980000、增债 -150000、单期沿用、已平维持 0、跨零夹 0 |
+
+> bug1:滚动 cron 原只开新期不关旧期 → 06 悬挂 OPEN;修为开新期前 force-close 早于新期的 OPEN 旧期(自动 openIfDue + 管理员 openNextNow 同口径)。bug2:LOAN 趋势外推越过 0 变正 → 夹到 ≤0。现网历史数据需手动补救(关 06 + 07 税务欠款重填 0),修复不追溯。

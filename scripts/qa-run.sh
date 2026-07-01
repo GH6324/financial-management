@@ -11,8 +11,8 @@ PASS=0; FAIL=0; SKIP=0
 FAILED=()
 
 log_ok()   { echo -e "\033[32m PASS \033[0m $1"; PASS=$((PASS+1)); }
-log_bad()  { echo -e "\033[31m FAIL \033[0m $1  ::  $2"; FAIL=$((FAIL+1)); FAILED+=("$1 :: $2"); }
-log_skip() { echo -e "\033[33m SKIP \033[0m $1  ::  $2"; SKIP=$((SKIP+1)); }
+log_bad()  { echo -e "\033[31m FAIL \033[0m $1  ::  ${2:-}"; FAIL=$((FAIL+1)); FAILED+=("$1 :: ${2:-}"); }
+log_skip() { echo -e "\033[33m SKIP \033[0m $1  ::  ${2:-}"; SKIP=$((SKIP+1)); }
 section()  { echo; echo -e "\033[1;36m─── $1 ───\033[0m"; }
 
 CURL="/usr/bin/curl -s --max-time 15"
@@ -2727,9 +2727,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '283 单元' "$RD/README.md" && grep -q '409' "$RD/README.md" \
+  && grep -q '289 单元' "$RD/README.md" && grep -q '410' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(283/409)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(289/410)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -3143,6 +3143,20 @@ DR="$RD/src/main/resources/templates/dashboard/_region.html"
   && grep -q "classList.add('priv-peek')" "$LAY"; } \
   && log_ok "v11-PRIVACY-4 按住临时查看(peek)接线齐(priv-peek CSS + pointerdown 委托)" \
   || log_bad "v11-PRIVACY-4 peek 缺失" "see layout.html"
+
+# ─────────── v0.11.2 · 账期滚动修复(切月两 bug)───────────
+section "v0.11.2 · 账期滚动"
+
+# v11-ROLLOVER-1 · bug1:开新期即关旧期(force-close 早于新期仍 OPEN 的旧期);bug2:LOAN 预填夹零 ≤0
+PO="$RD/src/main/java/com/family/finance/service/PeriodOpener.java"
+PM="$RD/src/main/java/com/family/finance/repository/PeriodMapper.java"
+{ grep -q 'closePriorOpenPeriods' "$PO" \
+  && grep -q 'forceClose' "$PO" \
+  && grep -q 'findOpenBefore' "$PM" \
+  && grep -q 'predictLoanBalance' "$PO" \
+  && grep -q 'signum() > 0 ? BigDecimal.ZERO' "$PO"; } \
+  && log_ok "v11-ROLLOVER-1 开新期即关旧期(bug1) + LOAN 预填夹零≤0(bug2)· 见 PeriodOpenerLoanPrefillTest" \
+  || log_bad "v11-ROLLOVER-1 滚动关旧期 或 LOAN 夹零缺失" "see PeriodOpener/PeriodMapper"
 
 echo
 echo "═══════════════════════════════════════"
