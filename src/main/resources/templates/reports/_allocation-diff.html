@@ -50,8 +50,8 @@
             </div>
             <div class="text-[10px] mt-0.5"
                  th:classappend="${dif['CASH'].doubleValue() > 0 ? 'text-rust' : (dif['CASH'].doubleValue() < 0 ? 'text-rust' : 'text-ink-subtle')}"
-                 th:text="${dif['CASH'].signum() > 0 ? '↑ 超配 +' + dif['CASH'] + '%' : (dif['CASH'].signum() < 0 ? '↓ 欠配 ' + dif['CASH'] + '%' : '— 持平')}">
-              ↓ 欠配 -6.6%
+                 th:text="${dif['CASH'].signum() > 0 ? '↑ 超配 +' + dif['CASH'] + 'pp' : (dif['CASH'].signum() < 0 ? '↓ 欠配 ' + dif['CASH'] + 'pp' : '— 持平')}">
+              ↓ 欠配 -6.6pp
             </div>
           </div>
 
@@ -68,8 +68,8 @@
             </div>
             <div class="text-[10px] mt-0.5"
                  th:classappend="${dif['INVEST'].doubleValue() > 5 ? 'text-rust' : (dif['INVEST'].doubleValue() < -5 ? 'text-rust' : 'text-ink-subtle')}"
-                 th:text="${dif['INVEST'].signum() > 0 ? '↑ 超配 +' + dif['INVEST'] + '%' : (dif['INVEST'].signum() < 0 ? '↓ 欠配 ' + dif['INVEST'] + '%' : '— 持平')}">
-              ↑ 超配 +6.8%
+                 th:text="${dif['INVEST'].signum() > 0 ? '↑ 超配 +' + dif['INVEST'] + 'pp' : (dif['INVEST'].signum() < 0 ? '↓ 欠配 ' + dif['INVEST'] + 'pp' : '— 持平')}">
+              ↑ 超配 +6.8pp
             </div>
           </div>
 
@@ -86,8 +86,8 @@
             </div>
             <div class="text-[10px] mt-0.5"
                  th:classappend="${dif['PROPERTY'].doubleValue() > 5 ? 'text-rust' : (dif['PROPERTY'].doubleValue() < -5 ? 'text-rust' : 'text-ink-subtle')}"
-                 th:text="${dif['PROPERTY'].signum() > 0 ? '↑ 超配 +' + dif['PROPERTY'] + '%' : (dif['PROPERTY'].signum() < 0 ? '↓ 欠配 ' + dif['PROPERTY'] + '%' : '— 持平')}">
-              ↑ 严重超配 +19.8%
+                 th:text="${dif['PROPERTY'].signum() > 0 ? '↑ 超配 +' + dif['PROPERTY'] + 'pp' : (dif['PROPERTY'].signum() < 0 ? '↓ 欠配 ' + dif['PROPERTY'] + 'pp' : '— 持平')}">
+              ↑ 严重超配 +19.8pp
             </div>
           </div>
 

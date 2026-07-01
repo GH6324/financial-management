@@ -39,16 +39,16 @@ public final class WaterLevelCalculator {
     }
 
     /**
-     * 真实收益率 % = (1 + 名义增长) / (1 + 基准累计) − 1,再 ×100。
+     * v0.11.5 · 超额百分点(pp)= 名义增长% − 基准累计% —— 两个比例相减,单位 pp(与 vs基准/预实 同规则)。
+     *   正 = 跑赢基准(CPI/M2),负 = 跑输。用户口径:所有「两比例相比」的指标一律相减取 pp,不用 Fisher 比率。
+     *   (原为 Fisher 真实收益率 (1+名义)/(1+基准)−1;v0.11.5 起改简单相减取 pp,便于横向一致与直观读数。)
      * @param nominalGrowthPct 名义净资产增长 %(期末/期初 − 1)
      * @param benchmarkCumulativePct 基准累计涨幅 %(累计因子 − 1,再 ×100)
+     * @return 超额 pp(名义 − 基准);任一为 null → null
      */
     public static BigDecimal realReturnPct(BigDecimal nominalGrowthPct, BigDecimal benchmarkCumulativePct) {
         if (nominalGrowthPct == null || benchmarkCumulativePct == null) return null;
-        double n = nominalGrowthPct.doubleValue() / 100.0;
-        double b = benchmarkCumulativePct.doubleValue() / 100.0;
-        double real = (1.0 + n) / (1.0 + b) - 1.0;
-        return BigDecimal.valueOf(real * 100.0).setScale(2, RoundingMode.HALF_EVEN);
+        return nominalGrowthPct.subtract(benchmarkCumulativePct).setScale(2, RoundingMode.HALF_EVEN);
     }
 
     /** 累计涨幅 % = (累计因子 − 1) × 100。 */

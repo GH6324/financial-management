@@ -3198,6 +3198,31 @@ FV="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
   && log_ok "v11-REPORTS-PP vs基准/预实用 pp + 实际=显示的 xirr(不再 cumPnl/净投入 爆值)" \
   || log_bad "v11-REPORTS-PP vs基准单位仍 % 或实际仍用 cumPnl/净投入" "see reports/_region.html / ReportsController / FactViewServiceImpl"
 
+# v11-AUDIT-PP · 全系统「两比例相比」一律相减 + pp(v0.11.5 审计):
+#   配置对照 超配/欠配 = 当前−模板 → pp;财富水位 真实/相对社会收益 = 名义−基准(相减,非 Fisher 除法)→ pp。
+ADIFF="$RD/src/main/resources/templates/reports/_allocation-diff.html"
+WLC="$RD/src/main/java/com/family/finance/calc/WaterLevelCalculator.java"
+WLV="$RD/src/main/resources/templates/reports/_wealth-level.html"
+{ grep -q "超配 +' + dif\['CASH'\] + 'pp'" "$ADIFF" \
+  && ! grep -qE "超配 \+' \+ dif\['[A-Z]+'\] \+ '%'" "$ADIFF" \
+  && grep -q 'nominalGrowthPct.subtract(benchmarkCumulativePct)' "$WLC" \
+  && ! grep -q '(1.0 + n) / (1.0 + b)' "$WLC" \
+  && grep -q "relativeReturnPct,1,1) : '—') + 'pp'" "$WLV"; } \
+  && log_ok "v11-AUDIT-PP 两比例相比一律相减+pp(配置超配/欠配 · 财富水位真实/相对社会 = 名义−基准)" \
+  || log_bad "v11-AUDIT-PP 仍有比例相比用 % 或用 Fisher 除法" "see _allocation-diff.html / WaterLevelCalculator / _wealth-level.html"
+
+# v11-REPORTS-ASOF · 报表观察账期筛选器:报表=月快照,可在已关账账期里回看任一期。
+#   控制器收 asof + 注入 periods/asof;模板有 账期 下拉(data-base 保留 range/currency,onchange 带 asof)。
+RC="$RD/src/main/java/com/family/finance/web/report/ReportsController.java"
+REG="$RD/src/main/resources/templates/reports/_region.html"
+{ grep -q 'String asof' "$RC" \
+  && grep -q 'addAttribute("periods", closedPeriods)' "$RC" \
+  && grep -q 'addAttribute("asof"' "$RC" \
+  && grep -q "asof='+encodeURIComponent(this.value)" "$REG" \
+  && grep -q 'th:each="p : ${periods}"' "$REG"; } \
+  && log_ok "v11-REPORTS-ASOF 报表观察账期筛选器(已关账期下拉 · 回看任一月快照)" \
+  || log_bad "v11-REPORTS-ASOF 报表缺观察账期筛选器" "see ReportsController / reports/_region.html"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

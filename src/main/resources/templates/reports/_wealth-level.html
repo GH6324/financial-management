@@ -42,10 +42,10 @@
           <div class="font-mono text-[10px] text-ink-soft mt-1">这段时间净资产名义增长(未扣通胀;与 CPI 购买力线对比见上图)</div>
         </div>
         <div class="kpi-card">
-          <span class="kpi-eyebrow">相对社会收益 · 剔 M2</span>
+          <span class="kpi-eyebrow">相对社会 · 剔 M2</span>
           <div class="font-display text-2xl mt-1" th:classappend="${waterLevel.relativeReturnPct != null and waterLevel.relativeReturnPct.signum() >= 0} ? ' num-pos' : ' num-neg'"
-               th:text="${(waterLevel.relativeReturnPct != null and waterLevel.relativeReturnPct.signum() >= 0 ? '+' : '') + (waterLevel.relativeReturnPct != null ? #numbers.formatDecimal(waterLevel.relativeReturnPct,1,1) : '—') + '%'}">+3.9%</div>
-          <div class="font-mono text-[10px] text-ink-soft mt-1">相对社会财富份额变化</div>
+               th:text="${(waterLevel.relativeReturnPct != null and waterLevel.relativeReturnPct.signum() >= 0 ? '+' : '') + (waterLevel.relativeReturnPct != null ? #numbers.formatDecimal(waterLevel.relativeReturnPct,1,1) : '—') + 'pp'}">+3.9pp</div>
+          <div class="font-mono text-[10px] text-ink-soft mt-1">名义增长 − M2 增长(pp · 正=跑赢社会平均)</div>
         </div>
         <div class="kpi-card" style="background:rgba(79,107,71,.06)">
           <span class="kpi-eyebrow">人赚的 · 净流入</span>

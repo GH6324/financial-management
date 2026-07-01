@@ -38,16 +38,16 @@ class WaterLevelCalculatorTest {
 
     @Test
     void realReturnStripsBenchmark() {
-        // 名义 10% vs 基准 2% → (1.1/1.02 − 1) ≈ 7.84%
-        assertThat(WaterLevelCalculator.realReturnPct(new BigDecimal("10"), new BigDecimal("2")).doubleValue())
-                .isCloseTo(7.84, within(0.02));
+        // v0.11.5:两比例相减取 pp。名义 10% − 基准 2% = +8.00pp(不再 Fisher 7.84%)
+        assertThat(WaterLevelCalculator.realReturnPct(new BigDecimal("10"), new BigDecimal("2")))
+                .isEqualByComparingTo("8.00");
     }
 
     @Test
     void realReturnNegativeWhenBeatenByBenchmark() {
-        // 名义 5% vs M2 9% → 相对社会收益为负
-        assertThat(WaterLevelCalculator.realReturnPct(new BigDecimal("5"), new BigDecimal("9")).doubleValue())
-                .isLessThan(0.0);
+        // 名义 5% − M2 9% = −4.00pp(跑输社会平均)
+        assertThat(WaterLevelCalculator.realReturnPct(new BigDecimal("5"), new BigDecimal("9")))
+                .isEqualByComparingTo("-4.00");
     }
 
     @Test

@@ -35,13 +35,27 @@
         尚无已关账账期 · 完成本月填报并关账后,这里出现收益快照。
       </p>
     </div>
-    <div class="flex border border-rule">
-      <a th:each="r : ${ranges}"
-         th:href="@{/reports(range=${r},currency=${currency},accounts=${accountsCsv})}"
-         hx-target="#reports-region" hx-swap="outerHTML"
-         class="font-mono text-[11px] px-4 py-2 no-underline border-l border-rule first:border-l-0"
-         th:classappend="${range == r ? ' bg-ink text-paper' : ' text-ink-soft hover:bg-card-soft'}"
-         th:text="${r}">1Y</a>
+    <div class="flex items-end gap-3 flex-wrap">
+      <!-- v0.11.5 · 观察账期:报表是每月快照,可回看任一「已关账」账期(只列 CLOSED)· 与仪表盘 as-of 一致 -->
+      <label class="font-mono text-[10px] text-ink-subtle tracking-[0.12em] flex items-center">账期
+        <select th:if="${periods != null and !periods.isEmpty()}"
+                th:attr="data-base=@{/reports(range=${range},currency=${currency},accounts=${accountsCsv})}"
+                onchange="if(this.value){window.location.href=this.dataset.base+'&asof='+encodeURIComponent(this.value);}"
+                class="ml-1 font-mono text-[11px] border border-rule bg-paper px-1.5 py-1">
+          <option th:each="p : ${periods}" th:value="${p.periodStart}"
+                  th:text="${#temporals.format(p.periodStart,'yyyy-MM')}"
+                  th:selected="${p.periodStart.toString() == asof}">2026-05</option>
+        </select>
+        <span th:if="${periods == null or periods.isEmpty()}" class="ml-1 text-ink-subtle">— 无已关账</span>
+      </label>
+      <div class="flex border border-rule">
+        <a th:each="r : ${ranges}"
+           th:href="@{/reports(range=${r},currency=${currency},accounts=${accountsCsv},asof=${asof})}"
+           hx-target="#reports-region" hx-swap="outerHTML"
+           class="font-mono text-[11px] px-4 py-2 no-underline border-l border-rule first:border-l-0"
+           th:classappend="${range == r ? ' bg-ink text-paper' : ' text-ink-soft hover:bg-card-soft'}"
+           th:text="${r}">1Y</a>
+      </div>
     </div>
   </section>
 
@@ -50,14 +64,14 @@
       <div class="flex items-center gap-3 flex-wrap">
         <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-soft">账户范围</span>
         <span class="font-display text-base" th:text="${selectedAccountCount} + ' 个已选'">11 个已选</span>
-        <a th:href="@{/reports(range=${range},currency=${currency})}" hx-target="#reports-region" hx-swap="outerHTML"
+        <a th:href="@{/reports(range=${range},currency=${currency},asof=${asof})}" hx-target="#reports-region" hx-swap="outerHTML"
            class="font-mono text-[10px] tracking-wider text-ink-soft hover:text-brass-deep no-underline">↺ 重置</a>
       </div>
       <div class="flex items-center gap-2">
         <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-soft">显示</span>
         <div class="flex border border-rule">
           <a th:each="c : ${currencies}"
-             th:href="@{/reports(range=${range},currency=${c},accounts=${accountsCsv})}"
+             th:href="@{/reports(range=${range},currency=${c},accounts=${accountsCsv},asof=${asof})}"
              hx-target="#reports-region" hx-swap="outerHTML"
              class="font-mono text-[11px] px-3 py-1.5 tracking-wider no-underline border-l border-rule first:border-l-0"
              th:classappend="${currency == c ? ' bg-ink text-paper' : ' text-ink-soft hover:bg-card-soft'}"

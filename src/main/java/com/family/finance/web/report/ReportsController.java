@@ -77,12 +77,13 @@ public class ReportsController {
                           @RequestParam(defaultValue = "1Y") String range,
                           @RequestParam(name = "accounts", required = false) List<Long> accounts,
                           @RequestParam(required = false) String currency,
+                          @RequestParam(required = false) String asof, // v0.11.5 · 观察账期(只在已关账期里选)
                           @RequestHeader(value = "HX-Request", required = false) String htmx,
                           Model model) {
         String accountsCsv = accounts == null || accounts.isEmpty()
                 ? null
                 : accounts.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
-        populateModel(me, range, accountsCsv, currency, model);
+        populateModel(me, range, accountsCsv, currency, asof, model);
         if ("true".equalsIgnoreCase(htmx)) {
             return "reports/_region :: region";
         }
@@ -109,10 +110,31 @@ public class ReportsController {
         return "reports/_drilldown :: modal";
     }
 
-    private void populateModel(MemberPrincipal me, String range, String accountsCsv, String currency, Model model) {
+    private void populateModel(MemberPrincipal me, String range, String accountsCsv, String currency, String asof, Model model) {
         Family family = familyService.require(me.getFamilyId());
         // v0.5.5 FR-94 · 报表锚定「最近已关账(≤今天)账期」快照;无则退外壳锚 + closedSnapshot=false
-        ReportsAnchorResolver.AnchorChoice anchorChoice = resolveAnchor(me.getFamilyId());
+        // v0.11.5 · 观察账期:报表是每月快照,可在「已关账账期」里回看任一期(asof 命中则锚它,否则默认最近已关账)
+        ReportsAnchorResolver.AnchorChoice defaultChoice = resolveAnchor(me.getFamilyId());
+        // v0.11.5 · 可回看的已关账期 = CLOSED 且 ≤ 默认锚(最近已关账)。以「默认锚」作上界(而非 LocalDate.now())——
+        //   resolveAnchor 走 DB 日期挑锚,若 JVM 与 DB 日期有偏差,用 now 作上界会把默认锚挤出下拉;用锚作界则默认锚必在列。
+        List<Period> closedPeriods = defaultChoice.closedSnapshot()
+                ? periodMapper.findAllByFamily(me.getFamilyId()).stream()
+                    .filter(p -> p.getStatus() == com.family.finance.domain.period.PeriodStatus.CLOSED
+                            && p.getPeriodStart() != null
+                            && !p.getPeriodStart().isAfter(defaultChoice.anchor().getPeriodStart()))
+                    .sorted(java.util.Comparator.comparing(Period::getPeriodStart).reversed())
+                    .toList()
+                : java.util.List.of();
+        // asof 命中某已关账期 → 锚它(closedSnapshot=true);否则用默认锚
+        ReportsAnchorResolver.AnchorChoice anchorChoice = defaultChoice;
+        if (asof != null && !asof.isBlank()) {
+            for (Period p : closedPeriods) {
+                if (asof.equals(p.getPeriodStart().toString())) {
+                    anchorChoice = new ReportsAnchorResolver.AnchorChoice(p, true);
+                    break;
+                }
+            }
+        }
         Period anchor = anchorChoice.anchor();
         boolean closedSnapshot = anchorChoice.closedSnapshot();
         List<Long> accountIds = parseAccountIds(accountsCsv);
@@ -241,6 +263,9 @@ public class ReportsController {
         model.addAttribute("selectedAccountCount", accountIds == null ? allAccounts.size() : accountIds.size());
         model.addAttribute("allAccounts", allAccounts);
         model.addAttribute("anchorPeriod", anchor);
+        // v0.11.5 · 观察账期下拉:只列已关账账期;asof=当前锚(仅快照态非空,外壳态留空 → 下拉不选中)
+        model.addAttribute("periods", closedPeriods);
+        model.addAttribute("asof", closedSnapshot ? anchor.getPeriodStart().toString() : "");
 
         BigDecimal familyTwrDecimal = factViewService.familyTwr(slice);
         // v0.5.5 FR-95 · 四指标需 ≥2 个已关账账期才有意义(要上一期做基准);不足 → 显「—」不显误导性 0

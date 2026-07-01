@@ -137,9 +137,9 @@ public final class InsightPromptBuilder {
         AssetInsight.LowRate lr = in.lowRate();
         if (lr != null) {
             sb.append("- 现金桶当前占比: ").append(pct1(lr.cashPct())).append('\n');
-            sb.append("- 扣 CPI 后真实收益(真实购买力): ").append(pct2(lr.realReturnPct()))
+            sb.append("- 名义增长跑赢 CPI(通胀)幅度: ").append(pp2(lr.realReturnPct()))
               .append(lr.realReturnPct() != null && lr.realReturnPct().signum() < 0 ? "(跑输通胀)" : "").append('\n');
-            sb.append("- 扣 M2 后相对社会财富: ").append(pct2(lr.relativeReturnPct()))
+            sb.append("- 名义增长跑赢 M2(社会财富)幅度: ").append(pp2(lr.relativeReturnPct()))
               .append(lr.relativeReturnPct() != null && lr.relativeReturnPct().signum() < 0 ? "(跑输社会平均)" : "").append('\n');
         } else {
             sb.append("- (数据不足 · 降级)\n");
@@ -169,6 +169,13 @@ public final class InsightPromptBuilder {
     private static String pct2(BigDecimal v) {
         if (v == null) return "—";
         return v.setScale(2, RoundingMode.HALF_UP).toPlainString() + "%";
+    }
+
+    /** v0.11.5 · 百分点单位(两比例相减的差额,如 名义−CPI 超额)· 正数带 +。 */
+    private static String pp2(BigDecimal v) {
+        if (v == null) return "—";
+        BigDecimal s = v.setScale(2, RoundingMode.HALF_UP);
+        return (s.signum() > 0 ? "+" : "") + s.toPlainString() + "pp";
     }
 
     private static String pp(BigDecimal v) {

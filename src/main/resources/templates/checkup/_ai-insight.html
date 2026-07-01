@@ -137,7 +137,7 @@
           <div class="flex justify-between items-baseline">
             <span class="text-ink-soft">相对社会(扣M2)</span>
             <span class="font-mono tnum" th:classappend="${lr.relativeReturnPct() != null and lr.relativeReturnPct().signum() < 0 ? ' num-neg' : ''}"
-                  th:text="${lr.relativeReturnPct() != null ? #numbers.formatDecimal(lr.relativeReturnPct(),1,2) + '%' : '—'}">—</span>
+                  th:text="${lr.relativeReturnPct() != null ? #numbers.formatDecimal(lr.relativeReturnPct(),1,2) + 'pp' : '—'}">—</span>
           </div>
         </div>
       </div>

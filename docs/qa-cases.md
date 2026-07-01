@@ -1644,3 +1644,16 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | (UT) BenchmarkAggregatorTest | `displayedDiffPercentPoints`:8.30% vs 4.61%(≥12 期)=+3.69pp→BEAT;1 月累计 2% vs 年化 8%(缩到窗口)≈+1.36pp→BEAT;xirr/基准 null / months≤0 → null;`beatStatusDisplayed` null/0 月 → NA |
 
 > bug:v0.10.5 把 diff「实际」改成 `cumPnl÷净投入`,净投入极小的账户爆成 `+19497pp`,且与卡片头条显示的 XIRR 脱节(头条 8.30% 却「跑输 -243%」);单位也错标 `%`(比例减比例应是 pp)。修:实际取「显示的那个 xirr 本身」(同 `annualizedOrCumulative` 口径),基准同基对齐,单位 pp。同源修仪表盘/报表「预实」列。第四表另补全指标列:复用 `/admin/metrics` 账户级配置(与仪表盘同一套开关 + 共享 `acctHiddenCols` 隐藏集)。
+
+---
+
+## v0.11.5 · 比例相比口径审计 + 报表观察账期(决策 137/138)
+
+| Case | 校验 |
+|---|---|
+| v11-AUDIT-PP | 全系统「两比例相比」一律相减+pp:配置对照 超配/欠配(`_allocation-diff.html` `dif` = 当前−模板)显示 `pp` 不显 `%`;财富水位 真实/相对社会收益(`WaterLevelCalculator.realReturnPct`)用 `nominalGrowthPct.subtract(benchmarkCumulativePct)` 相减(不再 Fisher `(1+n)/(1+b)−1`),`_wealth-level.html` 显 `pp` |
+| v11-REPORTS-ASOF | 报表观察账期筛选器:`ReportsController` 收 `asof` + 注入 `periods`(CLOSED)/`asof`;`reports/_region.html` 有账期下拉(`th:each p:${periods}` + `onchange` 带 `asof=`)· e2e/手测:15 个已关账 option、默认选中最近已关账、`asof=2025-09` → 数据截至 2025 年 9 月 |
+| (口径清单) 保持 % | 收益率 / XIRR / TWR / 占比 / 最大回撤 / 负债率 / 储蓄率 / 配置份额(cur/tgt)/ 风险敞口 / 目标进度 / 环比同比增长 —— 单一比率或增长率,非「相比」,保持 `%` |
+| (审计-已正确) | vs基准(家庭/账户)、预实、体检账户基准对照(`BenchmarkComparator`)、体检 RET-2/3 —— 本已是「相减 pp」,不动 |
+
+> 说明:审计规则 = 「分子分母都是比例、结果表达『相比差多少』」→ 相减取 pp;而「一个量对另一个量的增长率 / 单一占比 / Fisher 前的名义率」是率,保持 %。财富水位从 Fisher 精确改简单相减,是用户口径(统一 + 直观)压倒精确性的取舍。观察账期下拉上界取「默认锚」而非 `LocalDate.now()`,避 JVM/DB 日期偏差把当月挤出下拉。
