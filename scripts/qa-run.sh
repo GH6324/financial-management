@@ -2727,9 +2727,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '289 单元' "$RD/README.md" && grep -q '411' "$RD/README.md" \
+  && grep -q '289 单元' "$RD/README.md" && grep -q '412' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(289/411)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(289/412)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -3165,6 +3165,13 @@ RC="$RD/src/main/java/com/family/finance/web/report/ReportsController.java"
   && ! grep -q 'addAttribute("labels", decomposition.stream()' "$RC"; } \
   && log_ok "v11-REPORTS-1 报表 labels 用全期标签(负债曲线 N 点 / 分解图 slice(1) 对齐 N-1 柱)" \
   || log_bad "v11-REPORTS-1 报表 labels 仍接 decomposition(少一期)" "see ReportsController"
+
+# v11-REPORTS-2 · 储蓄区图表脚本必须在 fragment(section)内 —— 否则 reports 用 `:: section` 引入时脚本被丢,
+#   双柱/收支趋势 canvas 无人渲染(KPI 在 section 内正常,唯图空)。检查 </script> 后紧跟 </section>。
+SAV="$RD/src/main/resources/templates/reports/_savings.html"
+{ grep -A3 '</script>' "$SAV" | grep -q '</section>'; } \
+  && log_ok "v11-REPORTS-2 储蓄区图表脚本在 fragment 内(:: section 引入不丢 → 双柱/收支趋势可渲染)" \
+  || log_bad "v11-REPORTS-2 储蓄区图表脚本在 fragment 外 → 双柱/收支趋势不渲染" "see reports/_savings.html"
 
 echo
 echo "═══════════════════════════════════════"

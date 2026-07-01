@@ -96,9 +96,8 @@
     </section>
   </th:block>
 
-</section>
-
-<script th:if="${savingsAvailable}" th:inline="javascript">
+  <!-- 图表脚本必须在 fragment(section)内,否则 reports 用 :: section 引入时会被丢掉 → canvas 不渲染(bug 修) -->
+  <script th:if="${savingsAvailable}" th:inline="javascript">
   /*<![CDATA[*/
   (function () {
     const labels  = /*[[${savingsLabels}]]*/  [];
@@ -155,5 +154,6 @@
   })();
   /*]]>*/
 </script>
+</section>
 </body>
 </html>

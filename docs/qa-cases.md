@@ -1620,3 +1620,13 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v11-REPORTS-1 | `ReportsController` 的 `labels` 用 `debtTrend`(全期 N)非 `decomposition`(N-1)→ 负债曲线画 N 点、本金vs损益分解图 `labels.slice(1)` 对齐 N-1 柱(修「2 关账期时负债 1 点/分解 0 柱」) |
 
 > bug3:labels 错接 decomposition(N-1)→ 负债曲线(用 labels+N 个 debtValues)少 1 点、分解图(labels.slice(1))再少 1 → 2 期时负债 1 点、分解 0 柱。改用全期标签后对齐。储蓄区(双柱/收支趋势/储蓄率)口径确认:只统计家庭月度「2 框」(period_member_cashflow),账户 cash_flow 流水不计入;不做回退,引导卡文案讲清(决策 B)。
+
+---
+
+## v0.11.3 · 储蓄区图表 fragment 边界修
+
+| Case | 校验 |
+|---|---|
+| v11-REPORTS-2 | `reports/_savings.html` 图表 `<script>` 在 `th:fragment="section"` 内(`</script>` 后紧跟 `</section>`)→ reports 用 `:: section` 引入时脚本不被丢,双柱/收支趋势 canvas 可渲染 |
+
+> bug:图表脚本原写在 fragment 的 `</section>` 之后 → `:: section` 引入只拿 section、脚本丢失 → 双柱/收支趋势 canvas 空(KPI 在 section 内正常)。修:`</section>` 挪到 `</script>` 之后。口径不变(决策 B):仍只统计家庭月度「2 框」PMC。

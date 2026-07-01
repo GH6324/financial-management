@@ -2,6 +2,17 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.11.3] · 2026-07-01
+
+### Fixed
+
+- **报表「月度收支双柱 / 收支趋势·人赚引擎」永远空(fragment 边界 bug)**:`reports/index.html` 用 `~{reports/_savings :: section}` 只引入 `<section th:fragment="section">`,而画这两张图的 `<script>` 写在 `</section>` **之后**(fragment 外)→ 引入时脚本被丢 → canvas 无人渲染(KPI 在 section 内故正常,唯图空)。把 fragment 的 `</section>` 挪到 `<script>` 之后,让图表脚本进 fragment。beta 实测:`getElementById('savings-bars')` 已在、`const income=[…]` 有值。
+  - 前提口径不变(决策 B):这两张图仍只统计家庭月度「2 框」(`period_member_cashflow`)。prod 已填 05/06 的 2 框(PMC 有数据),故本修复上线后即出图。
+
+### 测试
+
+- qa-run +`v11-REPORTS-2`(储蓄区图表脚本在 fragment 内)· 黑盒 411→**412** · mvn 289。
+
 ## [v0.11.2] · 2026-07-01
 
 > 切月(6.30→7.01)账期滚动两处生产 bug 修复。
