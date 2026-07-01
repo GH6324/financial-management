@@ -251,7 +251,8 @@ mvn spring-boot:run
 ```bash
 mvn test                       # JUnit 单元测试(289)
 bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(412)
-bash scripts/qa-e2e.sh         # 端到端真值校验(36 · 会清空 DB)
+bash scripts/e2e.sh            # 端到端主线真验收(6 主线 · 唤起 beta 调接口 + DB 真值判定 · mysqldump 快照/还原,不清库)
+bash scripts/qa-e2e.sh         # [legacy v0.2] 端到端真值校验(36 · 会 TRUNCATE 清空 DB,慎跑)
 ```
 
 ## 文档
