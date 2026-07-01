@@ -10,10 +10,12 @@
 
 - **旧期不自动关(bug1)**:滚动 cron(每天 00:30 `PeriodOpener.openIfDue`)**只开新期、从不关旧期** → 06 悬挂 OPEN(月报/指标/关账快照不落定),与新开的 07 同时 OPEN。改为**开新期前先 force-close 早于新期仍 OPEN 的旧期**(待填账户按上期末延续 + 触发月报/指标):新增 `PeriodMapper.findOpenBefore` + `PeriodOpener.closePriorOpenPeriods`;`openIfDue`(自动)与 `openNextNow`(管理员手动)同口径。先关旧期 → 新期从已落定的上期结转。
 - **LOAN 还平后凭空 +72000(bug2)**:LOAN 开账预填用趋势外推 `prev+(prev−prevPrev)`,贷款一次性还平(-72000→0)后外推越过 0 变 **+72000**。改为**夹到 ≤0**(`predictLoanBalance`:`predicted>0 → 0`);草稿还款额改用 `predicted−prev`(只在实际是还款时起草,已还平不再起草)。房贷匀速还款(仍为负)不受影响。
+- **报表「负债曲线 / 本金 vs 投资损益分解图」少画一期(bug3)**:`ReportsController` 把 `labels` 错接成 `decomposition` 标签(N−1 期)。负债曲线用 `labels`+`debtValues`(N 个)→ 只画 N−1 点(2 关账期→1 点);分解图用 `labels.slice(1)`(为对齐 N−1 个分解点)→ 再少一期 → N−2 柱(2 期→0 柱)。改 `labels` 用**全期标签**(`debtTrend`)→ 负债曲线 N 点、分解图 slice(1) 正好对齐 N−1 柱。
+- **储蓄区空态文案**:双柱/收支趋势/储蓄率只统计填报页底部的**家庭月度「2 框」总收入/总支出**(`period_member_cashflow`),账户级 `cash_flow` 流水不计入。引导卡文案改为讲清这一点(决策:不做 cash_flow 回退,统一走「2 框」以保口径干净)。
 
 ### 测试
 
-- mvn 283→**289**(`PeriodOpenerLoanPrefillTest` 6 例:税务欠款 -72000→0 夹 0、房贷外推、增债、单期沿用、跨零夹零)· qa-run +`v11-ROLLOVER-1`、黑盒 409→**410**。
+- mvn **289**(含 `PeriodOpenerLoanPrefillTest`)· qa-run +`v11-ROLLOVER-1`/`v11-REPORTS-1`、黑盒 409→**411**。
 
 ### 现网数据补救(修复仅防后续复发,不追溯已生成的历史数据)
 

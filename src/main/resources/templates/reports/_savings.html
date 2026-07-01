@@ -21,12 +21,14 @@
   <!-- 无数据时引导卡 -->
   <div th:if="${!savingsAvailable}" class="paper-card p-6 bg-card-soft text-center" style="border-left:4px solid var(--brass-deep)">
     <p class="text-ink-soft mb-3">
-      过去 12 期都未填家庭月度收入与支出。
+      这一区只统计填报页底部的「家庭月度总收入 / 总支出」两个框 ——
+      你在各账户里一笔笔记的收入/支出流水<b>不计入</b>这里。
     </p>
     <p class="text-xs text-ink-subtle mb-4">
-      去填报页底部填一次本月收入支出(选填 · ~15 秒),系统自动算储蓄率 / 月储蓄能力 / 反推目标月供。
+      去填报页底部,给每个月填一次「家庭本月总收入 / 总支出」(~15 秒),
+      系统自动算储蓄率 / 月储蓄能力 / 反推目标月供。
     </p>
-    <a th:href="@{/entry}" class="btn-paper no-underline">→ 去填报页补录</a>
+    <a th:href="@{/entry}" class="btn-paper no-underline">→ 去填报页填「家庭月度收支」</a>
   </div>
 
   <!-- 有数据 -->

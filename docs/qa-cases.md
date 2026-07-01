@@ -1610,3 +1610,13 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | PeriodOpenerLoanPrefillTest(+6) | LOAN 预填夹零:**税务欠款 -72000→0 预测 0(非+72000)**、房贷 -1000000→-990000 外推 -980000、增债 -150000、单期沿用、已平维持 0、跨零夹 0 |
 
 > bug1:滚动 cron 原只开新期不关旧期 → 06 悬挂 OPEN;修为开新期前 force-close 早于新期的 OPEN 旧期(自动 openIfDue + 管理员 openNextNow 同口径)。bug2:LOAN 趋势外推越过 0 变正 → 夹到 ≤0。现网历史数据需手动补救(关 06 + 07 税务欠款重填 0),修复不追溯。
+
+---
+
+## v0.11.2 补 · 报表标签修复 + 储蓄区口径
+
+| Case | 校验 |
+|---|---|
+| v11-REPORTS-1 | `ReportsController` 的 `labels` 用 `debtTrend`(全期 N)非 `decomposition`(N-1)→ 负债曲线画 N 点、本金vs损益分解图 `labels.slice(1)` 对齐 N-1 柱(修「2 关账期时负债 1 点/分解 0 柱」) |
+
+> bug3:labels 错接 decomposition(N-1)→ 负债曲线(用 labels+N 个 debtValues)少 1 点、分解图(labels.slice(1))再少 1 → 2 期时负债 1 点、分解 0 柱。改用全期标签后对齐。储蓄区(双柱/收支趋势/储蓄率)口径确认:只统计家庭月度「2 框」(period_member_cashflow),账户 cash_flow 流水不计入;不做回退,引导卡文案讲清(决策 B)。

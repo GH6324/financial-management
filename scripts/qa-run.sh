@@ -2727,9 +2727,9 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '289 单元' "$RD/README.md" && grep -q '410' "$RD/README.md" \
+  && grep -q '289 单元' "$RD/README.md" && grep -q '411' "$RD/README.md" \
   && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(289/410)" \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(289/411)" \
   || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
@@ -3157,6 +3157,14 @@ PM="$RD/src/main/java/com/family/finance/repository/PeriodMapper.java"
   && grep -q 'signum() > 0 ? BigDecimal.ZERO' "$PO"; } \
   && log_ok "v11-ROLLOVER-1 开新期即关旧期(bug1) + LOAN 预填夹零≤0(bug2)· 见 PeriodOpenerLoanPrefillTest" \
   || log_bad "v11-ROLLOVER-1 滚动关旧期 或 LOAN 夹零缺失" "see PeriodOpener/PeriodMapper"
+
+# v11-REPORTS-1 · 报表 labels 用全期标签(debtTrend),非 decomposition(N-1)。
+#   修「负债曲线少画一期(2期→1点)、本金vs损益分解图 slice(1) 再少一期(2期→0柱)」。
+RC="$RD/src/main/java/com/family/finance/web/report/ReportsController.java"
+{ grep -q 'addAttribute("labels", debtTrend.stream()' "$RC" \
+  && ! grep -q 'addAttribute("labels", decomposition.stream()' "$RC"; } \
+  && log_ok "v11-REPORTS-1 报表 labels 用全期标签(负债曲线 N 点 / 分解图 slice(1) 对齐 N-1 柱)" \
+  || log_bad "v11-REPORTS-1 报表 labels 仍接 decomposition(少一期)" "see ReportsController"
 
 echo
 echo "═══════════════════════════════════════"

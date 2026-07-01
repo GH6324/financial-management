@@ -306,8 +306,11 @@ public class ReportsController {
         // v0.4 FR-62b · 调仓建议
         model.addAttribute("rebalanceAdvice", rebalanceAdvice);
 
-        // 仍需用 decomposition labels 给本金 vs 损益分解图 + 调试用
-        model.addAttribute("labels", decomposition.stream().map(DecompositionPoint::label).toList());
+        // labels = 全部账期标签(N 期)· 修 bug:原来错接成 decomposition 标签(N−1 期)导致
+        //   负债曲线(用 data.labels + N 个 debtValues)少一个标签 → 只画 N−1 点;
+        //   分解图(用 data.labels.slice(1) 对齐 N−1 个分解点)再少一个 → N−2 柱(2 期时 0 柱)。
+        //   改用全期标签后:负债曲线 N 点、分解图 slice(1) 正好对齐 N−1 个分解点。
+        model.addAttribute("labels", debtTrend.stream().map(TrendPoint::label).toList());
         model.addAttribute("decompPrincipal", decomposition.stream().map(DecompositionPoint::cumulativeNetInflow).toList());
         model.addAttribute("decompPnl", decomposition.stream().map(DecompositionPoint::cumulativePnl).toList());
         model.addAttribute("debtValues", debtTrend.stream().map(TrendPoint::value).toList());
