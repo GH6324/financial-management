@@ -97,15 +97,25 @@ x_cny="$(fxirr CNY)"; x_usd="$(fxirr USD)"
 [ -n "$x_cny" ] && eq "收益-家庭 XIRR CNY=USD(币种无关)" "$x_cny" "$x_usd" || bad "收益-未取到家庭 XIRR" "cny=$x_cny"
 
 # ============================================================================
-section "主线 1 · 记账闭环(改数据 · 录余额→快照落库→dashboard 反映)"
+section "主线 1 · 记账闭环(改数据 · 录余额+收支+转账 → 精确算术 + 转账双边)"
+# 精华取自旧 qa-e2e:录已知起点余额 → 加收入/减支出/转账 → 断言期末 = 起点 + Σ流水(DB 真值)
 OPEN_PID="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='OPEN' ORDER BY period_start DESC LIMIT 1")"
-CASH_ACCT="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='CASH' AND archived_at IS NULL ORDER BY id LIMIT 1")"
-echo "  当前开账期=$OPEN_PID · CASH 账户=$CASH_ACCT"
-MAGIC=123456
-code="$(POSTcode "/entry/$CASH_ACCT/balance" --data-urlencode "periodId=$OPEN_PID" --data-urlencode "newBalance=$MAGIC")"
-eq "记账-提交余额 HTTP 200" "$code" "200"
-db_bal="$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$OPEN_PID AND account_id=$CASH_ACCT")"
-eq "记账-快照落库=录入值" "$db_bal" "$MAGIC"
+ACC_A="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='CASH' AND archived_at IS NULL ORDER BY id LIMIT 1")"
+ACC_B="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='CASH' AND archived_at IS NULL AND id<>$ACC_A ORDER BY id LIMIT 1")"
+[ -z "$ACC_B" ] && ACC_B="$(db "SELECT id FROM account WHERE family_id=$FAM AND archived_at IS NULL AND type<>'LOAN' AND id<>$ACC_A ORDER BY id LIMIT 1")"
+echo "  开账期=$OPEN_PID · A=$ACC_A · B=$ACC_B"
+cfB="$(db "SELECT COUNT(*) FROM cash_flow WHERE period_id=$OPEN_PID AND account_id=$ACC_A")"      # 基线已有(快照/还原模型:用增量断言)
+trB="$(db "SELECT COUNT(*) FROM transfer WHERE period_id=$OPEN_PID AND from_account_id=$ACC_A")"
+POSTcode "/entry/$ACC_A/balance"   --data-urlencode "periodId=$OPEN_PID" --data-urlencode "newBalance=10000" >/dev/null
+POSTcode "/entry/$ACC_B/balance"   --data-urlencode "periodId=$OPEN_PID" --data-urlencode "newBalance=5000"  >/dev/null
+POSTcode "/entry/$ACC_A/cash-flow" --data-urlencode "periodId=$OPEN_PID" --data-urlencode "kind=INCOME"  --data-urlencode "categoryCode=salary"      --data-urlencode "amount=3000" >/dev/null
+POSTcode "/entry/$ACC_A/cash-flow" --data-urlencode "periodId=$OPEN_PID" --data-urlencode "kind=EXPENSE" --data-urlencode "categoryCode=consumption" --data-urlencode "amount=500"  >/dev/null
+tcode="$(POSTcode "/entry/$ACC_A/transfer" --data-urlencode "periodId=$OPEN_PID" --data-urlencode "toAccountId=$ACC_B" --data-urlencode "amount=2000")"
+eq "记账-转账 HTTP 200" "$tcode" "200"
+eq "记账-A 精确算术 期末=起点+收入−支出−转出(10000+3000−500−2000)" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$OPEN_PID AND account_id=$ACC_A")" "10500"
+eq "记账-B 转账双边 期末=起点+转入(5000+2000)" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$OPEN_PID AND account_id=$ACC_B")" "7000"
+eq "记账-新增收支流水落库(+2 条)" "$(( $(db "SELECT COUNT(*) FROM cash_flow WHERE period_id=$OPEN_PID AND account_id=$ACC_A") - cfB ))" "2"
+eq "记账-新增转账落库(+1 条)" "$(( $(db "SELECT COUNT(*) FROM transfer WHERE period_id=$OPEN_PID AND from_account_id=$ACC_A") - trB ))" "1"
 
 # ============================================================================
 section "主线 2+6 · 账期滚动 + LOAN 还款归零(改数据 · 开下一期→上期关+LOAN夹零)"
@@ -127,6 +137,8 @@ loan_prefill="$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_
 eq "LOAN-还平后新期预填夹零(非+72000)(bug2)" "$loan_prefill" "0"
 loan_pos="$(db "SELECT COUNT(*) FROM period_snapshot ps JOIN account a ON a.id=ps.account_id WHERE ps.period_id=$NEW_PID AND a.type='LOAN' AND ps.end_balance>0")"
 eq "LOAN-新期无任何贷款预填为正" "$loan_pos" "0"
+# 精华取自旧 qa-e2e:非 LOAN 账户开新期自动延续上期末(A 在 07 期末=10500 → 08 预填=10500)
+eq "滚动-非LOAN账户新期延续上期末(carry 10500)" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$NEW_PID AND account_id=$ACC_A")" "10500"
 
 # ============================================================================
 echo

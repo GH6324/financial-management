@@ -568,7 +568,7 @@ grep -q '汇率尚未配置' src/main/resources/templates/dashboard/_region.html
 
 # v02-CCY-6 critical 回归保护:非 base 账户在 dashboard 触发后,fx_rate 表必有当期行
 # (防 ensureForAccountCurrencies 漏调,SQL JOIN miss 落 1.0 → USD 当 CNY 累加)
-# 数学正确性的端到端校验在 qa-e2e.sh,这里只验"机制触发"
+# 数学正确性的端到端校验在 e2e.sh,这里只验"机制触发"
 PID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 AND status='OPEN' ORDER BY id DESC LIMIT 1" 2>/dev/null)
 # v0.8:dashboard anchor = 当前账期(resolveAsOf:OPEN 期 → 最近已开始期 → max 兜底),不再取 max(period_start)
 ANCHOR=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 AND status='OPEN' ORDER BY period_start DESC LIMIT 1" 2>/dev/null)
