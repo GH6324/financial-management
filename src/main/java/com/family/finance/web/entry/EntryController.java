@@ -138,11 +138,11 @@ public class EntryController {
                 java.time.temporal.ChronoUnit.DAYS.between(
                         java.time.LocalDate.now(), period.getPeriodEnd()));
 
-        // v0.4.22 · 仅家庭有 STOCK 账户时才显示「拉取股价」按钮(避免按钮空响)
-        boolean hasStockAccounts = rows.stream()
+        // v0.4.22 · 仅家庭有持仓账户时才显示「拉取行情」按钮(避免按钮空响)
+        boolean hasHoldingAccounts = rows.stream()
                 .anyMatch(r -> r.account().getType() != null
-                        && "STOCK".equals(r.account().getType().name()));
-        model.addAttribute("hasStockAccounts", hasStockAccounts);
+                        && com.family.finance.service.stock.StockHoldingService.supportsHoldings(r.account().getType()));
+        model.addAttribute("hasHoldingAccounts", hasHoldingAccounts);
 
         // v0.12 · 收入侧:类目下拉(含 account_type 绑定,供联动/校验)+ 可作收入落点的账户(现金/股票)+ 本期收入列表
         model.addAttribute("incomeCategories", cashFlowCategoryMapper.listIncomeOrdered());
@@ -176,7 +176,7 @@ public class EntryController {
      * <p>逻辑:</p>
      * <ol>
      *   <li>限频:family 60s 窗口 ≤3 次 · 超频返回 toast「操作太频繁」不调 scheduler</li>
-     *   <li>三市场顺序 fetchMarket(US/CN/HK)· 单市场失败计数但不阻断</li>
+     *   <li>顺序 fetchMarket(US/CN/HK/CRYPTO)· 单市场失败计数但不阻断</li>
      *   <li>{@link AccountValuationService#refreshAllForFamily} MANUAL + memberId</li>
      *   <li>渲染 toast 显示结果</li>
      * </ol>
@@ -191,7 +191,7 @@ public class EntryController {
             return "entry/_refresh-toast :: toast";
         }
         int marketsOk = 0;
-        for (Market mk : List.of(Market.US, Market.CN, Market.HK)) {
+        for (Market mk : List.of(Market.US, Market.CN, Market.HK, Market.CRYPTO)) {
             try {
                 stockScheduler.fetchMarket(mk);
                 marketsOk++;

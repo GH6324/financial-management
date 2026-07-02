@@ -52,6 +52,7 @@ public class FamilyConfigService {
     public static final String K_STOCK_CRON_US     = "stock_cron_us";
     public static final String K_STOCK_CRON_CN     = "stock_cron_cn";
     public static final String K_STOCK_CRON_HK     = "stock_cron_hk";
+    public static final String K_STOCK_CRON_CRYPTO = "stock_cron_crypto";
     // Integrations · FX
     public static final String K_FX_CRON           = "fx_cron";
     // 提醒 cron

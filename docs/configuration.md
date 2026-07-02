@@ -12,11 +12,12 @@
 | **DeepSeek** | 同上的**兜底**源(主源熔断/欠费时自动切) | 可选 | `/admin/integrations` ① | [LLM Key 申请](llm-api-keys-setup.md) |
 | **阿里云短信** | 填报截止前的**短信强提醒** | 可选 | `/admin/reminders` ② | [阿里云短信接入](aliyun-sms-setup.md) |
 | 股票行情(新浪/腾讯) | 每日 T+1 自动估值 | **免配** · 内置 | — | 无需 key |
+| 加密货币行情(Binance/CoinGecko/Coinbase) | BTC/ETH/USDC 等自动估值 | **免配** · 内置 | — | 无需 key |
 | 汇率(frankfurter) | 多币种自动换算 | **免配** · 内置 | — | 无需 key |
 
 > 不配 AI:体检/月报/调仓入口不可用,其余全部正常。
 > 不配短信:截止提醒只走站内 banner,不影响记账。
-> 股票 / 汇率开箱即用,**不需要任何 key**。
+> 股票 / 加密货币 / 汇率开箱即用,**不需要任何 key**。
 
 ---
 
@@ -45,6 +46,7 @@
 ## 3. 股票行情 & 汇率(免配)
 
 - **股票**:录 ticker + 数量,系统每日 T+1 自动拉价(新浪主 + 腾讯备,美/A/港三市场),**无需任何 key**。拉取开关 + cron 在 `/admin/integrations` ②。
+- **加密货币**:新建 CRYPTO 账户后录 BTC / ETH / USDC 等 ticker + 数量,系统用 Binance market-data-only 主源 + CoinGecko / Coinbase 备源自动估值,**无需任何交易所 API key**。拉取开关 + cron 同在 `/admin/integrations` ②。
 - **汇率**:本位币 CNY/USD/HKD,自动从 frankfurter 拉,**无需 key**。cron 在 `/admin/integrations` ③。
 - 拉不通(防火墙/网络)时:体检/估值会用最后一次有效值,不影响记账;可手动在 `/admin/fx` 补汇率。
 

@@ -15,7 +15,7 @@ import java.util.List;
  * 账户体检 ViewModel · v0.2 · FR-40b
  *
  * 由 {@link AccountDiagnoseService} 计算填充,模板按 {@link AccountType} 分支渲染:
- * - STOCK / WEALTH:4 张投资卡 — 收益 / 风险 / 基准 / 现金流
+ * - STOCK / WEALTH / CRYPTO:4 张投资卡 — 收益 / 风险 / 基准 / 现金流
  * - CASH:2 张储蓄卡 — 余额 / 流动性
  * - LOAN:2 张负债卡 — 本金 / 还款进度
  * - PROPERTY / OTHER:1 张简卡 — 估值
@@ -43,7 +43,9 @@ public record AccountDiagnose(
         List<TrendPoint> sparkline
 ) {
     public boolean isInvestment() {
-        return account.getType() == AccountType.STOCK || account.getType() == AccountType.WEALTH;
+        return account.getType() == AccountType.STOCK
+                || account.getType() == AccountType.WEALTH
+                || account.getType() == AccountType.CRYPTO;
     }
 
     public boolean isCash() {

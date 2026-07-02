@@ -96,6 +96,20 @@ class StockPriceSchedulerTest {
     }
 
     @Test
+    void fetchCrypto_triggersCronValuationRefresh() {
+        when(holdingMapper.findDistinctAutoTickersByMarket("CRYPTO"))
+            .thenReturn(List.of(new TickerMarket("BTC", "CRYPTO")));
+
+        scheduler.fetchCrypto();
+
+        verify(fetcher).fetchAndPersist(eq(Market.CRYPTO), any(), any());
+        verify(valuationService).refreshAllForFamily(
+            eq(1L),
+            eq(AccountValuationService.TriggerKind.CRON),
+            eq(null));
+    }
+
+    @Test
     void fetchMarketDirect_doesNotAutoRefresh_callerIsResponsible() {
         // admin 手动入口 · scheduler.fetchMarket 直接调 · 不带 refresh
         // (controller 自己接 refreshAllForFamily(MANUAL/HOLDING_CHANGE))
@@ -162,21 +176,24 @@ class StockPriceSchedulerTest {
     }
 
     @Test
-    void allThreeMarkets_eachFetchTriggersOwnRefresh() {
-        // 一天内 3 个市场依次跑 · 应触发 3 次 refresh
+    void allMarkets_eachFetchTriggersOwnRefresh() {
+        // 一天内多个市场依次跑 · 应触发各自 refresh
         when(holdingMapper.findDistinctAutoTickersByMarket("US"))
             .thenReturn(List.of(new TickerMarket("BABA", "US")));
         when(holdingMapper.findDistinctAutoTickersByMarket("CN"))
             .thenReturn(List.of(new TickerMarket("300059", "CN")));
         when(holdingMapper.findDistinctAutoTickersByMarket("HK"))
             .thenReturn(List.of(new TickerMarket("00700", "HK")));
+        when(holdingMapper.findDistinctAutoTickersByMarket("CRYPTO"))
+            .thenReturn(List.of(new TickerMarket("BTC", "CRYPTO")));
 
         scheduler.fetchUsStocks();
         scheduler.fetchCnStocks();
         scheduler.fetchHkStocks();
+        scheduler.fetchCrypto();
 
-        // 3 次 refresh
-        verify(valuationService, org.mockito.Mockito.times(3))
+        // 4 次 refresh
+        verify(valuationService, org.mockito.Mockito.times(4))
             .refreshAllForFamily(eq(1L), eq(AccountValuationService.TriggerKind.CRON), eq(null));
     }
 

@@ -226,24 +226,24 @@
     </div>
     <div class="flex items-center gap-2">
       <span class="font-mono text-[10px] text-ink-subtle">划转入口在每个账户行右侧 ↔</span>
-      <!-- v0.4.22 · 一键刷新股票估值 · 仅家庭有 STOCK 账户时显示 ·
+      <!-- v0.4.22 · 一键刷新持仓估值 · 仅家庭有持仓账户时显示 ·
            CSRF 走 layout.html htmx:configRequest 全局自动注入 ·
            Feather refresh-cw 图标(idle)+ loader 图标(htmx-indicator · 请求中显示 · animate-spin 旋转)·
            [[feedback_no_emoji]] 纪律 · 一律 SVG 不用 emoji -->
-      <button th:if="${hasStockAccounts}"
+      <button th:if="${hasHoldingAccounts}"
               type="button"
               hx-post="/entry/refresh-stocks"
               hx-target="#refresh-toast"
               hx-swap="innerHTML"
               hx-disabled-elt="this"
               class="btn-paper inline-flex items-center gap-1.5"
-              title="同步 US/CN/HK 三市场最新价 + 重算所有股票账户余额(估值刷新)">
+              title="同步 US/CN/HK/CRYPTO 最新价 + 重算持仓账户余额(估值刷新)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M23 4v6h-6"/>
           <path d="M1 20v-6h6"/>
           <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
         </svg>
-        <span>刷新股票估值</span>
+        <span>刷新持仓估值</span>
         <svg class="htmx-indicator animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="12" y1="2" x2="12" y2="6"/>
           <line x1="12" y1="18" x2="12" y2="22"/>

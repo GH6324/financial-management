@@ -127,6 +127,7 @@ public class SinaStockClient implements StockClient {
             case US -> "gb_" + ticker.toLowerCase();
             case CN -> (ticker.startsWith("6") ? "sh" : "sz") + ticker;
             case HK -> "hk" + ticker;
+            case CRYPTO -> throw new IllegalArgumentException("Sina does not support market: " + market);
         };
     }
 
@@ -137,6 +138,7 @@ public class SinaStockClient implements StockClient {
             case CN -> (sinaKey.startsWith("sh") || sinaKey.startsWith("sz"))
                        ? sinaKey.substring(2) : null;
             case HK -> sinaKey.startsWith("hk") ? sinaKey.substring(2) : null;
+            case CRYPTO -> null;
         };
     }
 
@@ -151,7 +153,9 @@ public class SinaStockClient implements StockClient {
             case US -> 1;
             case CN -> 3;
             case HK -> 6;
+            case CRYPTO -> -1;
         };
+        if (idx < 0) return null;
         if (fields.length <= idx) return null;
         try {
             String raw = fields[idx].trim();

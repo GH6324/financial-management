@@ -26,11 +26,11 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 股票账户自动估值 · v0.3 FR-52 · 决策 26。
+ * 持仓账户自动估值 · v0.3 FR-52 · 决策 26。
  *
  * <p>核心 backward compat 红线(已设计):</p>
  * <ul>
- *   <li>**只对"有 stock_holding 持仓"的 STOCK 账户写回 account_balance**</li>
+ *   <li>**只对"有 stock_holding 持仓"的持仓账户写回 account_balance**</li>
  *   <li>v0.2 用户没创建过持仓的老账户 · 完全不动 · 沿用手填行为</li>
  *   <li>用户创建持仓后,系统才接管自动估值</li>
  * </ul>
@@ -93,7 +93,7 @@ public class AccountValuationService {
     }
 
     /**
-     * 全家所有 STOCK 账户估值刷新 · cron 默认调用。
+     * 全家所有持仓账户估值刷新 · cron 默认调用。
      * 兼容老 API · 默认 trigger=CRON · 无用户。
      */
     public int refreshAllForFamily(long familyId) {
@@ -101,8 +101,8 @@ public class AccountValuationService {
     }
 
     /**
-     * 全家所有 STOCK 账户估值刷新(v0.4.1 加 trigger 审计)。
-     * 仅遍历**有 holding** 的 STOCK 账户 · 写回 account_balance(当前 OPEN 周期)
+     * 全家所有持仓账户估值刷新(v0.4.1 加 trigger 审计)。
+     * 仅遍历**有 holding** 的持仓账户 · 写回 account_balance(当前 OPEN 周期)
      * + 若余额变化 > {@link #EVENT_THRESHOLD} 写一条 stock_valuation_event。
      *
      * @param trigger 触发源:CRON / MANUAL / HOLDING_CHANGE
@@ -117,7 +117,7 @@ public class AccountValuationService {
         List<Account> accounts = accountMapper.findActiveByFamily(familyId);
         int refreshed = 0;
         for (Account acc : accounts) {
-            if (acc.getType() == null || !"STOCK".equals(acc.getType().name())) continue;
+            if (!StockHoldingService.supportsHoldings(acc.getType())) continue;
             List<StockHolding> holdings = holdingMapper.findActiveByAccount(acc.getId());
             if (holdings.isEmpty()) {
                 // backward compat 红线:无 holding 的老账户不接管 · 用户继续手填
@@ -224,7 +224,10 @@ public class AccountValuationService {
                         price.getTradeDate(), java.time.LocalDate.now());
                     if (staleDays > 7) staleCount++;
                     BigDecimal originalMarketValue = price.getClosePrice().multiply(h.getShares());
-                    BigDecimal fxRate = resolveFxRate(acc.getFamilyId(), h.getCurrency(), acc.getCurrency());
+                    String quoteCurrency = price.getCurrency() == null || price.getCurrency().isBlank()
+                        ? h.getCurrency()
+                        : price.getCurrency();
+                    BigDecimal fxRate = resolveFxRate(acc.getFamilyId(), quoteCurrency, acc.getCurrency());
                     BigDecimal accCurrencyValue = originalMarketValue.multiply(fxRate)
                         .setScale(2, RoundingMode.HALF_EVEN);
                     autoBase = autoBase.add(accCurrencyValue);

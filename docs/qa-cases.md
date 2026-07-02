@@ -530,7 +530,7 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 | v03-IND-10 | /checkup 用 HouseholdCashflowService 算月均支出(优先 v0.3 口径 · fallback v0.2 cash_flow)|
 | v03-IND-11 | **多成员独立填**(2026-05-13)· diwa + bob · dashboard SUM 显 ¥62k / ¥23k |
 | v03-IND-12 | /entry 含「家庭本月总收入 SUM 成员」聚合区块 + 已填 N/M 人 |
-| **v03-STOCK · 15 条 · 股票自动估值 FR-52 系列** | |
+| **v03-STOCK · 18 条 · 持仓自动估值 FR-52 系列** | |
 | v03-STOCK-1 | STOCK 账户持仓页 200 |
 | v03-STOCK-2 | 非 STOCK 账户拒绝持仓页 |
 | v03-STOCK-3 | 创建 MANUAL 持仓 · 入库 100k |
@@ -546,6 +546,9 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 | v03-STOCK-13 | **CASH 创建 + FX**:HKD 账户加 USD 5000 现金 → bal ≈ 39139 HKD(经 CNY 链)|
 | v03-STOCK-14 | **CASH 更新**:POST /update-cash 改金额 + manual_value_at 刷新 |
 | v03-STOCK-15 | **持仓+现金共存**:HKD MANUAL 50000 + USD CASH 8000 → bal ≈ HKD 112623 |
+| v03-STOCK-16 | **CRYPTO 账户模板**:新建加密货币账户 · 默认 USD · product_category=CRYPTO |
+| v03-STOCK-17 | **CRYPTO 自动估值**:创建 AUTO BTC · ticker 规范化 btc-usd → BTC · Binance 主源 / CoinGecko / Coinbase 备源写入 price_snapshot |
+| v03-STOCK-18 | **CRYPTO cron 写回**:stock_cron_crypto 触发后 refreshAllForFamily(CRON,null),CRYPTO 账户余额写回 period_snapshot |
 | **v03-AI · 6 条 · AI 4 处介入 FR-53 系列** | |
 | v03-AI-1 | /goals/advise/retirement 返回合法 JSON(ok/error) |
 | v03-AI-2 | /goals/advise/education JSON 响应 |
@@ -606,6 +609,9 @@ v0.2 新增 53 个单测,加 v0.1 的 16 个,合计 69 个,全部通过。
 | calc | GoalProjectorTest | 10(三情景 FV + 二分反推达成日 + 边界) |
 | service.stock | SinaStockClientTest | 9(三市场 mock 解析 + 异常态) |
 | service.stock | TencentStockClientTest | 6(三市场 mock 解析) |
+| service.stock | CoinGeckoCryptoClientTest | 1(免 key symbol price 解析) |
+| service.stock | BinanceCryptoClientTest | 2(免 key ticker price 解析 + 地区限制响应降级) |
+| service.stock | CoinbaseCryptoClientTest | 3(免 key spot price 解析 + ticker 规范化) |
 
 ```
 Tests run: 114, Failures: 0, Errors: 0, Skipped: 0

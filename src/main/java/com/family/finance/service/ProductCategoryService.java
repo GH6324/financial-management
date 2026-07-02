@@ -48,6 +48,7 @@ public class ProductCategoryService {
             case CASH     -> "CASH_DEPOSIT";
             case STOCK    -> "A_STOCK";
             case WEALTH   -> "BANK_WEALTH";
+            case CRYPTO   -> "CRYPTO";
             case LOAN     -> "LIABILITY";
             case PROPERTY -> "PROPERTY_RES";
             case OTHER    -> "OTHER";

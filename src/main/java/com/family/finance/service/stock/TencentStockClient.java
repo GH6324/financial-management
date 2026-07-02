@@ -117,6 +117,7 @@ public class TencentStockClient implements StockClient {
             case US -> "us" + ticker.toUpperCase();
             case CN -> (ticker.startsWith("6") ? "sh" : "sz") + ticker;
             case HK -> "hk" + ticker;
+            case CRYPTO -> throw new IllegalArgumentException("Tencent does not support market: " + market);
         };
     }
 
@@ -126,6 +127,7 @@ public class TencentStockClient implements StockClient {
             case CN -> (tencentKey.startsWith("sh") || tencentKey.startsWith("sz"))
                        ? tencentKey.substring(2) : null;
             case HK -> tencentKey.startsWith("hk") ? tencentKey.substring(2) : null;
+            case CRYPTO -> null;
         };
     }
 

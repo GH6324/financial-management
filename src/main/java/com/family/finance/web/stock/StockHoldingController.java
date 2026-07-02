@@ -2,6 +2,7 @@ package com.family.finance.web.stock;
 
 import com.family.finance.auth.MemberPrincipal;
 import com.family.finance.domain.account.Account;
+import com.family.finance.domain.account.AccountType;
 import com.family.finance.domain.stock.Market;
 import com.family.finance.domain.stock.StockHolding;
 import com.family.finance.domain.stock.ValuationMode;
@@ -87,6 +88,9 @@ public class StockHoldingController {
         model.addAttribute("holdings", active);
         model.addAttribute("valuation", valuation);
         model.addAttribute("latestPrices", latestPrices);
+        model.addAttribute("priceSourceLabel", account.getType() == AccountType.CRYPTO
+                ? "数据源 · Binance(主) + CoinGecko/Coinbase(备)"
+                : "数据源 · 新浪(主) + 腾讯(备)");
         return "stock/holdings";
     }
 
@@ -97,7 +101,7 @@ public class StockHoldingController {
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
         model.addAttribute("account", account);
-        model.addAttribute("markets", List.of(Market.US, Market.CN, Market.HK));
+        model.addAttribute("markets", supportedMarkets(account.getType()));
         return "stock/holding-new-auto";
     }
 
@@ -234,6 +238,7 @@ public class StockHoldingController {
             scheduler.fetchMarket(Market.US);
             scheduler.fetchMarket(Market.CN);
             scheduler.fetchMarket(Market.HK);
+            scheduler.fetchMarket(Market.CRYPTO);
             // v0.4.1 · 用户主动 click → trigger=MANUAL · 写 valuation event 含用户 ID
             valuationService.refreshAllForFamily(me.getFamilyId(),
                 AccountValuationService.TriggerKind.MANUAL, me.getMemberId());
@@ -251,10 +256,17 @@ public class StockHoldingController {
         if (!acc.getFamilyId().equals(familyId)) {
             throw new IllegalArgumentException("无权访问账户");
         }
-        if (acc.getType() == null || !"STOCK".equals(acc.getType().name())) {
-            throw new IllegalArgumentException("仅 STOCK 类型账户支持持仓管理");
+        if (!StockHoldingService.supportsHoldings(acc.getType())) {
+            throw new IllegalArgumentException("仅 STOCK / CRYPTO 类型账户支持持仓管理");
         }
         return acc;
+    }
+
+    private List<Market> supportedMarkets(AccountType accountType) {
+        if (accountType == AccountType.CRYPTO) {
+            return List.of(Market.CRYPTO);
+        }
+        return List.of(Market.US, Market.CN, Market.HK);
     }
 
     private Market parseMarket(String raw) {

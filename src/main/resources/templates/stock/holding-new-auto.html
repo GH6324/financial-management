@@ -22,21 +22,15 @@
 
     <div>
       <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">市场</label>
-      <div class="grid grid-cols-3 gap-2">
-        <label class="border-2 border-brass-deep p-3 cursor-pointer bg-card-soft text-center">
-          <input type="radio" name="market" value="US" checked class="mr-1">
-          <span class="font-display text-lg">美股</span>
-          <div class="font-mono text-[9px] text-ink-subtle">NYSE / NASDAQ</div>
-        </label>
-        <label class="border border-rule-soft p-3 cursor-pointer hover:bg-card-soft text-center">
-          <input type="radio" name="market" value="CN" class="mr-1">
-          <span class="font-display text-lg">A 股</span>
-          <div class="font-mono text-[9px] text-ink-subtle">沪 6 / 深 0,3</div>
-        </label>
-        <label class="border border-rule-soft p-3 cursor-pointer hover:bg-card-soft text-center">
-          <input type="radio" name="market" value="HK" class="mr-1">
-          <span class="font-display text-lg">港股</span>
-          <div class="font-mono text-[9px] text-ink-subtle">5 位前导零</div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <label th:each="mk, stat : ${markets}"
+               class="border p-3 cursor-pointer hover:bg-card-soft text-center"
+               th:classappend="${stat.first} ? ' border-brass-deep bg-card-soft' : ' border-rule-soft'">
+          <input type="radio" name="market" th:value="${mk.name()}" th:checked="${stat.first}" class="mr-1">
+          <span class="font-display text-lg"
+                th:text="${mk.name() == 'US' ? '美股' : (mk.name() == 'CN' ? 'A 股' : (mk.name() == 'HK' ? '港股' : '加密货币'))}">美股</span>
+          <div class="font-mono text-[9px] text-ink-subtle"
+               th:text="${mk.name() == 'US' ? 'NYSE / NASDAQ' : (mk.name() == 'CN' ? '沪 6 / 深 0,3' : (mk.name() == 'HK' ? '5 位前导零' : 'BTC / ETH / USDC'))}">NYSE / NASDAQ</div>
         </label>
       </div>
     </div>
@@ -44,8 +38,8 @@
     <div>
       <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">代码(ticker)</label>
       <input type="text" name="ticker" required class="w-full font-mono text-xl bg-paper-soft border border-rule px-4 py-3 tnum uppercase"
-             placeholder="BABA · 600519 · 0700">
-      <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 美股大写字母 · A 股 6 位数字 · 港股 4 位(自动补 5 位前导零)</p>
+             placeholder="BABA · 600519 · 0700 · BTC">
+      <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 美股大写字母 · A 股 6 位数字 · 港股 4 位(自动补 5 位前导零)· 加密货币如 BTC / ETH / USDC</p>
     </div>
 
     <div>

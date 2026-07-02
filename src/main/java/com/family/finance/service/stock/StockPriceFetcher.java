@@ -34,6 +34,9 @@ public class StockPriceFetcher {
 
     private final SinaStockClient sinaClient;
     private final TencentStockClient tencentClient;
+    private final CoinGeckoCryptoClient coinGeckoClient;
+    private final BinanceCryptoClient binanceClient;
+    private final CoinbaseCryptoClient coinbaseClient;
     private final StockPriceSnapshotMapper snapshotMapper;
 
     private volatile int sinaConsecutiveFailures = 0;
@@ -41,9 +44,15 @@ public class StockPriceFetcher {
 
     public StockPriceFetcher(SinaStockClient sinaClient,
                              TencentStockClient tencentClient,
+                             CoinGeckoCryptoClient coinGeckoClient,
+                             BinanceCryptoClient binanceClient,
+                             CoinbaseCryptoClient coinbaseClient,
                              StockPriceSnapshotMapper snapshotMapper) {
         this.sinaClient = sinaClient;
         this.tencentClient = tencentClient;
+        this.coinGeckoClient = coinGeckoClient;
+        this.binanceClient = binanceClient;
+        this.coinbaseClient = coinbaseClient;
         this.snapshotMapper = snapshotMapper;
     }
 
@@ -57,6 +66,10 @@ public class StockPriceFetcher {
      */
     public int fetchAndPersist(Market market, List<String> tickers, LocalDate tradeDate) {
         if (tickers == null || tickers.isEmpty()) return 0;
+
+        if (market == Market.CRYPTO) {
+            return fetchCryptoAndPersist(tickers, tradeDate);
+        }
 
         // 1. 主源(若熔断打开则跳过)
         Map<String, StockQuote> primary = Map.of();
@@ -84,15 +97,7 @@ public class StockPriceFetcher {
         for (String ticker : tickers) {
             StockQuote q = primary.getOrDefault(ticker, backup.get(ticker));
             if (q != null) {
-                StockPriceSnapshot snap = StockPriceSnapshot.builder()
-                    .ticker(q.ticker())
-                    .market(q.market())
-                    .tradeDate(tradeDate)
-                    .closePrice(q.closePrice())
-                    .currency(q.currency())
-                    .source(q.source())
-                    .build();
-                snapshotMapper.upsert(snap);
+                persistQuote(q, tradeDate);
                 persisted++;
             } else {
                 log.warn("price fetch all-source FAIL · market={} ticker={} · downstream uses fallback snapshot",
@@ -102,6 +107,45 @@ public class StockPriceFetcher {
         log.info("price fetch · market={} requested={} persisted={} sinaBreakerOpen={}",
             market, tickers.size(), persisted, !isSinaBreakerClosed());
         return persisted;
+    }
+
+    private int fetchCryptoAndPersist(List<String> tickers, LocalDate tradeDate) {
+        Map<String, StockQuote> primary = binanceClient.fetchBatch(Market.CRYPTO, tickers);
+        Map<String, StockQuote> coinGeckoBackup = primary.size() < tickers.size()
+            ? coinGeckoClient.fetchBatch(Market.CRYPTO, tickers.stream()
+                .filter(t -> !primary.containsKey(t))
+                .toList())
+            : Map.of();
+        Map<String, StockQuote> coinbaseBackup = primary.size() + coinGeckoBackup.size() < tickers.size()
+            ? coinbaseClient.fetchBatch(Market.CRYPTO, tickers.stream()
+                .filter(t -> !primary.containsKey(t) && !coinGeckoBackup.containsKey(t))
+                .toList())
+            : Map.of();
+        int persisted = 0;
+        for (String ticker : tickers) {
+            StockQuote q = primary.getOrDefault(ticker,
+                coinGeckoBackup.getOrDefault(ticker, coinbaseBackup.get(ticker)));
+            if (q == null) {
+                log.warn("crypto price fetch FAIL · ticker={} · downstream uses fallback snapshot", ticker);
+                continue;
+            }
+            persistQuote(q, tradeDate);
+            persisted++;
+        }
+        log.info("crypto price fetch · requested={} persisted={}", tickers.size(), persisted);
+        return persisted;
+    }
+
+    private void persistQuote(StockQuote q, LocalDate tradeDate) {
+        StockPriceSnapshot snap = StockPriceSnapshot.builder()
+            .ticker(q.ticker())
+            .market(q.market())
+            .tradeDate(tradeDate)
+            .closePrice(q.closePrice())
+            .currency(q.currency())
+            .source(q.source())
+            .build();
+        snapshotMapper.upsert(snap);
     }
 
     /**

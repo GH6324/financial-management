@@ -48,6 +48,7 @@ public class IntegrationsController {
         model.addAttribute("stockCronUs",           configService.getString(fid,  FamilyConfigService.K_STOCK_CRON_US, "0 5 6 * * *"));
         model.addAttribute("stockCronCn",           configService.getString(fid,  FamilyConfigService.K_STOCK_CRON_CN, "0 10 16 * * MON-FRI"));
         model.addAttribute("stockCronHk",           configService.getString(fid,  FamilyConfigService.K_STOCK_CRON_HK, "0 30 16 * * MON-FRI"));
+        model.addAttribute("stockCronCrypto",       configService.getString(fid,  FamilyConfigService.K_STOCK_CRON_CRYPTO, "0 15 6 * * *"));
         // FX
         model.addAttribute("fxCron",                configService.getString(fid,  FamilyConfigService.K_FX_CRON, "0 30 2 1 * ?"));
         // v0.5 FR-76 · 宏观基准 CPI/M2
@@ -113,18 +114,21 @@ public class IntegrationsController {
                             @RequestParam("cronUs") String cronUs,
                             @RequestParam("cronCn") String cronCn,
                             @RequestParam("cronHk") String cronHk,
+                            @RequestParam("cronCrypto") String cronCrypto,
                             RedirectAttributes ra) {
         long fid = me.getFamilyId();
         configService.set(fid, FamilyConfigService.K_STOCK_ENABLED, String.valueOf(enabled));
         configService.set(fid, FamilyConfigService.K_STOCK_CRON_US, sanitize(cronUs, "0 5 6 * * *"));
         configService.set(fid, FamilyConfigService.K_STOCK_CRON_CN, sanitize(cronCn, "0 10 16 * * MON-FRI"));
         configService.set(fid, FamilyConfigService.K_STOCK_CRON_HK, sanitize(cronHk, "0 30 16 * * MON-FRI"));
+        configService.set(fid, FamilyConfigService.K_STOCK_CRON_CRYPTO, sanitize(cronCrypto, "0 15 6 * * *"));
         // 重排 cron(立即生效)
         schedulerConfig.rescheduleAll();
         auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE,
                 "family_runtime_config", fid,
                 "股票拉取 · enabled=" + enabled
-                + " · cron[US]=" + cronUs + " · cron[CN]=" + cronCn + " · cron[HK]=" + cronHk);
+                + " · cron[US]=" + cronUs + " · cron[CN]=" + cronCn
+                + " · cron[HK]=" + cronHk + " · cron[CRYPTO]=" + cronCrypto);
         ra.addFlashAttribute("flash", "股票拉取配置已保存 · cron 已重排 · 不重启");
         return "redirect:/admin/integrations";
     }

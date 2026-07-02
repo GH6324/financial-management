@@ -2,7 +2,11 @@ package com.family.finance.service.stock;
 
 import com.family.finance.domain.account.Account;
 import com.family.finance.domain.account.AccountType;
+import com.family.finance.domain.fx.FxRate;
+import com.family.finance.domain.period.Period;
+import com.family.finance.domain.stock.Market;
 import com.family.finance.domain.stock.StockHolding;
+import com.family.finance.domain.stock.StockPriceSnapshot;
 import com.family.finance.domain.stock.ValuationMode;
 import com.family.finance.repository.AccountMapper;
 import com.family.finance.repository.MemberMapper;
@@ -30,17 +34,23 @@ class ManualHoldingValuationTest {
 
     private AccountMapper accountMapper;
     private StockHoldingMapper holdingMapper;
+    private StockPriceSnapshotMapper priceMapper;
+    private PeriodMapper periodMapper;
+    private FxService fxService;
     private AccountValuationService svc;
 
     @BeforeEach
     void setUp() {
         accountMapper = mock(AccountMapper.class);
         holdingMapper = mock(StockHoldingMapper.class);
+        priceMapper = mock(StockPriceSnapshotMapper.class);
+        periodMapper = mock(PeriodMapper.class);
+        fxService = mock(FxService.class);
         svc = new AccountValuationService(
                 accountMapper, holdingMapper,
-                mock(StockPriceSnapshotMapper.class), mock(SnapshotMapper.class),
-                mock(PeriodMapper.class), mock(MemberMapper.class),
-                mock(FxService.class), mock(FamilyService.class),
+                priceMapper, mock(SnapshotMapper.class),
+                periodMapper, mock(MemberMapper.class),
+                fxService, mock(FamilyService.class),
                 mock(StockValuationEventMapper.class));
         when(accountMapper.findById(10L)).thenReturn(Optional.of(
                 Account.builder().id(10L).familyId(1L).type(AccountType.STOCK).currency("CNY").build()));
@@ -64,5 +74,32 @@ class ManualHoldingValuationTest {
         when(holdingMapper.findActiveByAccount(10L)).thenReturn(List.of(h));
         var r = svc.valuate(1L, 10L);
         assertThat(r.totalBaseValue()).isEqualByComparingTo("480000");
+    }
+
+    @Test
+    void cryptoAutoValuation_convertsUsdQuoteIntoAccountCurrency() {
+        when(accountMapper.findById(10L)).thenReturn(Optional.of(
+                Account.builder().id(10L).familyId(1L).type(AccountType.CRYPTO).currency("CNY").build()));
+        StockHolding h = StockHolding.builder().accountId(10L).valuationMode(ValuationMode.AUTO)
+                .ticker("BTC").market(Market.CRYPTO).currency("USD")
+                .shares(new BigDecimal("0.5")).build();
+        when(holdingMapper.findActiveByAccount(10L)).thenReturn(List.of(h));
+        when(priceMapper.findLatest("BTC", "CRYPTO")).thenReturn(Optional.of(
+                StockPriceSnapshot.builder()
+                        .ticker("BTC")
+                        .market(Market.CRYPTO)
+                        .tradeDate(java.time.LocalDate.now())
+                        .closePrice(new BigDecimal("60000"))
+                        .currency("USD")
+                        .source("binance")
+                        .build()));
+        when(periodMapper.findCurrentOpen(1L)).thenReturn(Optional.of(Period.builder().id(99L).build()));
+        when(fxService.getOrFetchRate(1L, "USD", "CNY", 99L)).thenReturn(Optional.of(
+                FxRate.builder().rate(new BigDecimal("7.20")).build()));
+
+        var r = svc.valuate(1L, 10L);
+
+        assertThat(r.autoBaseValue()).isEqualByComparingTo("216000.00"); // 0.5 × 60000 USD × 7.20
+        assertThat(r.totalBaseValue()).isEqualByComparingTo("216000.00");
     }
 }
