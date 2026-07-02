@@ -72,8 +72,8 @@
 
 | ID | 目标 | 步骤 | 预期 |
 |---|---|---|---|
-| FR6-1 | /my-todos 200 | GET /my-todos | 200,显示当期 PENDING 行 |
-| FR6-2 | /my-todos→/entry 带账户 | 链接 href 含 `account=` | true |
+| FR6-1 | /my-todos 已退休 | GET /my-todos | 302 重定向(v0.11.7 折叠进填报) |
+| FR6-2 | /my-todos→填报页 | 跟随重定向 | 落 `/entry?mine=true` · 页面含「保存我的本月收支/应填账户」 |
 | FR6-3 | mine=true 行数减少 | GET /entry?mine=true | size < /entry?mine=false |
 | FR6-4 | account 筛选生效 | GET /entry?account=1 | 仅 1 个 entry-row,显示"已按账户筛选" |
 
@@ -1668,3 +1668,16 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | (无头渲染核对) | PC(1366)+ 移动(390)首屏顺序 = 标题 → 账户范围 → KPI 总览 → 财务目标 → AI洞察 → 人赚vs钱赚/收支趋势 → 图表 → 账户列表;收支趋势有非零数据时出图(canvas 有绘制),全零时显空态 |
 
 > bug:`目标 + AI洞察` 两条挂在 region 外顶部,喧宾夺主(净资产/KPI 主角被挤到下方)。修:下移进 region、置于 KPI 总览之后(`insight`/`goalsProgress` 本在 `populateModel`,HTMX 刷新也在)。附:收支趋势近月全零时不再留空白大卡,改空态细条。
+
+---
+
+## v0.11.7 · 「待办」页退休折叠进「填报」
+
+| Case | 校验 |
+|---|---|
+| v11-TODO-RETIRE | 导航 `nav.html` 不再含 `@{/my-todos}`;「填报」项承接 `state.pendingCount > 0` 的「·N」角标;`MyTodosController` 为 `redirect:/entry?mine=true`;`my-todos.html` 模板已删 |
+| FR6-1(改) | GET `/my-todos` → 302(退休重定向,保老书签) |
+| FR6-2(改) | 跟随 `/my-todos` 重定向落到 `/entry?mine=true`(含「保存我的本月收支 / 应填账户」) |
+| v04-UX-7(改) | `/entry?mine=true`(承接待办)不暴露 `SNAPSHOT_TODO` enum / 类型英文括号 |
+
+> 决策:待办页早已是 `/entry?mine=true` 的只读子集(列表 + 「填 →」跳填报),而填报页能内联填 + 「我未填」标记 + 进度 + 自动关账;仪表盘/提醒也都指向填报。三处重叠 + 导航双入口对「10 分钟/月、非技术家属」是噪音。故退休 /my-todos、角标并入「填报」、保 302 重定向。FR6-3(mine 过滤行数)不变。

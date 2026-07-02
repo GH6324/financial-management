@@ -121,7 +121,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 292 单元(含 PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性 + 单一镜头端到端币种守护)/ 20 e2e 断言(6 主线)/ 417 黑盒回归 |
+| 测试 | JUnit 5 · 292 单元(含 PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性 + 单一镜头端到端币种守护)/ 20 e2e 断言(6 主线)/ 418 黑盒回归 |
 
 ## 快速开始(自托管部署)
 

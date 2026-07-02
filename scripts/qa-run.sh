@@ -132,23 +132,18 @@ todos=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM snapshot_
 accounts=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM account WHERE archived_at IS NULL AND family_id=1" 2>/dev/null)
 [[ "$todos" -gt 0 ]] && log_ok "FR5-2 待办存在 ($todos vs accounts $accounts)" || log_bad "FR5-2 待办空" "todos=$todos accounts=$accounts"
 
-# ---------- FR-6 待办视图 ----------
-section "FR-6 · 待办视图"
-$CURL -b $COOKIE "$BASE/my-todos" -o "$TMP" -w ""
-grep -q "</html>" "$TMP" && log_ok "FR6-1 /my-todos 200" || log_bad "FR6-1" "incomplete"
-# FR6-2 my-todos 行的 "填 →" 链接只在 row.done=false 时渲染;
-# v0.2 PeriodOpener 自动延续上期末 snapshot 后,所有账户 done=true → 无 "填 →" 链接是预期。
-# 仅当存在没 snapshot 的账户(罕见)才校验 link;否则 SKIP。
-NO_SNAP=$(mysql -ufinance -pfinance finance -sN -e "
-SELECT COUNT(*) FROM account a
- WHERE a.family_id=1 AND a.archived_at IS NULL
-   AND a.id NOT IN (SELECT account_id FROM period_snapshot
-                      WHERE period_id IN (SELECT id FROM period WHERE family_id=1 AND status='OPEN'))" 2>/dev/null)
-if [[ "$NO_SNAP" == "0" ]]; then
-  log_skip "FR6-2 my-todos 链接" "OPEN 期所有账户已自动延续 snapshot,row.done=true,无「填 →」链接(预期)"
-else
-  grep -qE 'href="/entry\?[^"]*account=' "$TMP" && log_ok "FR6-2 /my-todos→/entry 携带 account=" || log_bad "FR6-2 链接无 account=" "missing"
-fi
+# ---------- FR-6 待办已折叠进填报(v0.11.7 退休 /my-todos)----------
+section "FR-6 · 待办折叠进填报"
+# FR6-1 · /my-todos 退休:302 重定向(照顾老书签)
+code=$($CURL -b $COOKIE -o /dev/null -w '%{http_code}' "$BASE/my-todos")
+{ [[ "$code" == "302" || "$code" == "301" ]]; } \
+  && log_ok "FR6-1 /my-todos 已退休 · 重定向($code)" \
+  || log_bad "FR6-1 /my-todos 未重定向" "code=$code"
+# FR6-2 · 跟随重定向应落到「填报」页(能力已折叠到 /entry?mine=true)
+$CURL -b $COOKIE -L "$BASE/my-todos" -o "$TMP" -w ""
+{ grep -q "</html>" "$TMP" && grep -qE '保存我的本月收支|应填账户|填报' "$TMP"; } \
+  && log_ok "FR6-2 /my-todos→填报页(能力已折叠到 /entry?mine=true)" \
+  || log_bad "FR6-2 /my-todos 未落到填报页" "see redirect"
 
 # 比较 mine=true vs mine=false
 sa=$($CURL -b $COOKIE "$BASE/entry" -o /tmp/finance-qa-all.html -w "%{size_download}")
@@ -2062,11 +2057,10 @@ $CURL -b $COOKIE "$BASE/reports/refinance" -o "$TMP" -w ""
   && log_ok "v04-UX-6 checkup placeholder 死代码模板已删除" \
   || log_bad "v04-UX-6 placeholder 死代码仍在" "still present"
 
-# v04-UX-7 · my-todos 不再暴露 SNAPSHOT_TODO enum + (STOCK) 括号
-$CURL -b $COOKIE "$BASE/my-todos" -o "$TMP" -w ""
-# 已登录用户可能没待办 → 也 200,关键是模板内部没有这些噪音
+# v04-UX-7 · 填报页(承接待办)不暴露 SNAPSHOT_TODO enum + (STOCK) 括号(v0.11.7:待办已折叠进 /entry)
+$CURL -b $COOKIE "$BASE/entry?mine=true" -o "$TMP" -w ""
 { ! grep -q 'SNAPSHOT_TODO\|(STOCK)\|(WEALTH)\|(LOAN)' "$TMP"; } \
-  && log_ok "v04-UX-7 /my-todos 不再暴露 SNAPSHOT_TODO enum + 类型英文括号" \
+  && log_ok "v04-UX-7 /entry 不暴露 SNAPSHOT_TODO enum + 类型英文括号" \
   || log_bad "v04-UX-7 enum 残留" "still present"
 
 # v04-UX-8 · stock/holdings 中文化(AUTO/MANUAL/CASH pill 改自动估值/手填市值/账户内现金)
@@ -3236,6 +3230,17 @@ DCTRL="$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.ja
   && grep -q 'th:unless="${cashflowSeriesHasData}"' "$DREG"; } \
   && log_ok "v11-DASH-LAYOUT 目标/AI洞察 下移到 KPI 总览之后 + 收支趋势无数据显空态" \
   || log_bad "v11-DASH-LAYOUT dashboard 首屏层级未修正" "see dashboard/index.html / _region.html / DashboardController"
+
+# v11-TODO-RETIRE · 「待办」页退休折叠进「填报」:导航不再有 /my-todos 项;「填报」承接 pendingCount 角标;
+#   /my-todos 保留 302 → /entry?mine=true(老书签);my-todos.html 模板已删。
+NAVF="$RD/src/main/resources/templates/fragments/nav.html"
+MTC="$RD/src/main/java/com/family/finance/web/todo/MyTodosController.java"
+{ ! grep -q '@{/my-todos}' "$NAVF" \
+  && grep -q '填报' "$NAVF" && grep -q "state.pendingCount > 0" "$NAVF" \
+  && grep -q 'redirect:/entry?mine=true' "$MTC" \
+  && [[ ! -f "$RD/src/main/resources/templates/my-todos.html" ]]; } \
+  && log_ok "v11-TODO-RETIRE 待办已折叠进填报(导航无 /my-todos · 填报承接角标 · /my-todos 302→/entry · 模板已删)" \
+  || log_bad "v11-TODO-RETIRE 待办退休不完整" "see nav.html / MyTodosController / my-todos.html"
 
 echo
 echo "═══════════════════════════════════════"

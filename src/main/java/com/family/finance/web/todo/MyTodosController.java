@@ -1,34 +1,17 @@
 package com.family.finance.web.todo;
 
-import com.family.finance.auth.MemberPrincipal;
-import com.family.finance.domain.period.Period;
-import com.family.finance.service.EntryService;
-import com.family.finance.service.NavService;
-import com.family.finance.service.PeriodService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
+/**
+ * v0.11.7 · 「待办」页退休 —— 其能力(列出我要填的账户)已被 /entry?mine=true 完全覆盖(且能内联填),
+ * 导航「填报」项已接管「·N」未填角标。此处仅保留 302 重定向,照顾老书签 / 历史深链。
+ */
 @Controller
-@RequiredArgsConstructor
 public class MyTodosController {
 
-    private final PeriodService periodService;
-    private final EntryService entryService;
-    private final NavService navService;
-
     @GetMapping("/my-todos")
-    public String myTodos(@AuthenticationPrincipal MemberPrincipal me, Model model) {
-        Period period = periodService.findCurrentOpen(me.getFamilyId())
-                .orElse(null);
-        model.addAttribute("me", me);
-        model.addAttribute("nav", navService.load(me));
-        model.addAttribute("period", period);
-        model.addAttribute("rows", period == null
-                ? java.util.List.of()
-                : entryService.listRows(me.getFamilyId(), me.getMemberId(), period, true));
-        return "my-todos";
+    public String myTodos() {
+        return "redirect:/entry?mine=true";
     }
 }

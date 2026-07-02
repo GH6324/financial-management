@@ -17,11 +17,8 @@
         <a th:href="@{/dashboard}" class="no-underline"
            th:classappend="${active == 'dashboard' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink'}">仪表盘</a>
         <a th:href="@{/entry}" class="no-underline"
-           th:classappend="${active == 'entry' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink'}">填报</a>
-        <a th:href="@{/my-todos}" class="no-underline"
-           th:classappend="${active == 'todos' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink'}">
-          待办 <span th:if="${state.pendingCount > 0}" class="ml-1 text-rust" th:text="'·' + ${state.pendingCount}">·2</span>
-        </a>
+           th:classappend="${active == 'entry' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink'}">填报
+          <span th:if="${state.pendingCount > 0}" class="ml-1 text-rust" th:text="'·' + ${state.pendingCount}">·2</span></a>
         <a th:href="@{/accounts}" class="no-underline"
            th:classappend="${active == 'accounts' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink'}">账户</a>
         <a th:href="@{/reports}" class="no-underline"
@@ -50,10 +47,8 @@
         <div class="fixed inset-x-0 top-16 bg-card border-y border-rule shadow-xl z-40">
           <nav class="flex flex-col font-mono text-[12px] tracking-[0.14em] uppercase divide-y divide-rule">
             <a th:href="@{/dashboard}" class="px-6 py-4 hover:bg-card-soft no-underline">仪表盘</a>
-            <a th:href="@{/entry}" class="px-6 py-4 hover:bg-card-soft no-underline">填报</a>
-            <a th:href="@{/my-todos}" class="px-6 py-4 hover:bg-card-soft no-underline">
-              待办 <span th:if="${state.pendingCount > 0}" class="ml-2 text-rust" th:text="'·' + ${state.pendingCount}">·2</span>
-            </a>
+            <a th:href="@{/entry}" class="px-6 py-4 hover:bg-card-soft no-underline">填报
+              <span th:if="${state.pendingCount > 0}" class="ml-2 text-rust" th:text="'·' + ${state.pendingCount}">·2</span></a>
             <a th:href="@{/accounts}" class="px-6 py-4 hover:bg-card-soft no-underline">账户</a>
             <a th:href="@{/reports}" class="px-6 py-4 hover:bg-card-soft no-underline">报表</a>
             <a th:href="@{/goals}" class="px-6 py-4 hover:bg-card-soft no-underline">目标</a>
