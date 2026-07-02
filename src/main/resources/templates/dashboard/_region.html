@@ -184,6 +184,15 @@
     <a th:href="@{/admin/product-categories}" class="font-mono text-[10px] tracking-wider text-brass-deep hover:underline no-underline whitespace-nowrap">→ MONEY_FUND 参考</a>
   </section>
 
+  <!-- v0.11.6 · 目标进度 + AI洞察 下移至 KPI 总览之后(先看净资产家底,再看目标/洞察)· 原在 dashboard/index 顶部,喧宾夺主 -->
+  <th:block th:if="${goalsProgress != null and !#lists.isEmpty(goalsProgress)}">
+    <div th:replace="~{goals/_progress-strip :: strip(${goalsProgress})}"></div>
+  </th:block>
+  <th:block th:if="${goalsProgress == null or #lists.isEmpty(goalsProgress)}">
+    <div th:replace="~{goals/_progress-strip :: emptyHint}"></div>
+  </th:block>
+  <div th:replace="~{dashboard/_insight-strip :: strip(${insight})}"></div>
+
   <!-- v0.10 FR-165/166/167 · 本期「人赚 vs 钱赚」实时拆解 + 实时收支趋势
        (补回 v0.4 砍到 /reports 的收支侧 · 实时形态 · 不恢复月均/双柱深度分析) -->
   <section id="dash-cashflow" class="mb-10" style="scroll-margin-top:80px">
@@ -285,7 +294,16 @@
     </div>
 
     <!-- ② 实时收支趋势(含进行中本月 · 区别于 /reports 已关账快照)· 独立目录锚点(v0.10.3)-->
-    <div id="dash-cashflow-trend" style="scroll-margin-top:80px" class="paper-card p-6 lg:p-7" th:if="${cashflowSeries != null and !cashflowSeries.isEmpty()}">
+    <!-- v0.11.6 · 仅在「有非零收支数据」时出图;否则显空态细条(不留空白大卡)-->
+    <div th:unless="${cashflowSeriesHasData}" id="dash-cashflow-trend" style="scroll-margin-top:80px"
+         class="paper-card px-6 py-4 flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <div class="eyebrow mb-1">收 · 支 · 趋 · 势 · 实 · 时</div>
+        <p class="font-mono text-[11px] text-ink-subtle">近几个月还没有收支数据 · 在填报页填「本月收入 / 支出」后,这里出现收支趋势曲线。</p>
+      </div>
+      <a th:href="@{/entry}" class="btn-paper text-[10px] no-underline whitespace-nowrap">去填报 →</a>
+    </div>
+    <div id="dash-cashflow-trend" style="scroll-margin-top:80px" class="paper-card p-6 lg:p-7" th:if="${cashflowSeriesHasData}">
       <div class="flex items-start justify-between flex-wrap gap-3 mb-3">
         <div>
           <div class="eyebrow mb-1">收 · 支 · 趋 · 势 · 实 · 时</div>

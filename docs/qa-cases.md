@@ -1657,3 +1657,14 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | (审计-已正确) | vs基准(家庭/账户)、预实、体检账户基准对照(`BenchmarkComparator`)、体检 RET-2/3 —— 本已是「相减 pp」,不动 |
 
 > 说明:审计规则 = 「分子分母都是比例、结果表达『相比差多少』」→ 相减取 pp;而「一个量对另一个量的增长率 / 单一占比 / Fisher 前的名义率」是率,保持 %。财富水位从 Fisher 精确改简单相减,是用户口径(统一 + 直观)压倒精确性的取舍。观察账期下拉上界取「默认锚」而非 `LocalDate.now()`,避 JVM/DB 日期偏差把当月挤出下拉。
+
+---
+
+## v0.11.6 · dashboard 首屏层级修正 + 收支趋势空态
+
+| Case | 校验 |
+|---|---|
+| v11-DASH-LAYOUT | 目标进度 + AI洞察 从 `dashboard/index.html` 顶部下移到 `_region.html`「KPI 总览之后」:`index.html` 不再含 `_insight-strip :: strip` / `_progress-strip :: emptyHint`,`_region.html` 含之(位于 KPI grid 之后、`#dash-cashflow` 之前);`DashboardController` 有 `cashflowSeriesHasData`,`_region.html` 有 `th:unless="${cashflowSeriesHasData}"` 空态细条 |
+| (无头渲染核对) | PC(1366)+ 移动(390)首屏顺序 = 标题 → 账户范围 → KPI 总览 → 财务目标 → AI洞察 → 人赚vs钱赚/收支趋势 → 图表 → 账户列表;收支趋势有非零数据时出图(canvas 有绘制),全零时显空态 |
+
+> bug:`目标 + AI洞察` 两条挂在 region 外顶部,喧宾夺主(净资产/KPI 主角被挤到下方)。修:下移进 region、置于 KPI 总览之后(`insight`/`goalsProgress` 本在 `populateModel`,HTMX 刷新也在)。附:收支趋势近月全零时不再留空白大卡,改空态细条。

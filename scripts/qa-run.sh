@@ -3223,6 +3223,20 @@ REG="$RD/src/main/resources/templates/reports/_region.html"
   && log_ok "v11-REPORTS-ASOF 报表观察账期筛选器(已关账期下拉 · 回看任一月快照)" \
   || log_bad "v11-REPORTS-ASOF 报表缺观察账期筛选器" "see ReportsController / reports/_region.html"
 
+# v11-DASH-LAYOUT · 首屏层级:目标进度 + AI洞察 从顶部下移到「KPI 总览之后」(dashboard 先出净资产/KPI 主角);
+#   收支趋势图仅在有非零数据时出图,否则显空态细条(不留空白大卡)。
+IDX="$RD/src/main/resources/templates/dashboard/index.html"
+DREG="$RD/src/main/resources/templates/dashboard/_region.html"
+DCTRL="$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java"
+{ ! grep -q '_insight-strip :: strip' "$IDX" \
+  && ! grep -q '_progress-strip :: emptyHint' "$IDX" \
+  && grep -q '_insight-strip :: strip' "$DREG" \
+  && grep -q '_progress-strip :: emptyHint' "$DREG" \
+  && grep -q 'cashflowSeriesHasData' "$DCTRL" \
+  && grep -q 'th:unless="${cashflowSeriesHasData}"' "$DREG"; } \
+  && log_ok "v11-DASH-LAYOUT 目标/AI洞察 下移到 KPI 总览之后 + 收支趋势无数据显空态" \
+  || log_bad "v11-DASH-LAYOUT dashboard 首屏层级未修正" "see dashboard/index.html / _region.html / DashboardController"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

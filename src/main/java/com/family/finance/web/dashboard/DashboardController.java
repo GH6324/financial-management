@@ -198,6 +198,10 @@ public class DashboardController {
         // v0.10 · 本期拆解卡 + 实时收支趋势(金额按 view 币种符号预格式化,结构/符号/宽度走视图模型)
         model.addAttribute("cashflowSplit", cashflowSplit);
         model.addAttribute("cashflowSeries", cashflowSeries);
+        // v0.11.6 · 收支趋势仅在「有非零收支」时出图;近月全零(未填 PMC)→ 前端显空态细条,不留空白大卡
+        boolean cashflowSeriesHasData = cashflowSeries != null && cashflowSeries.stream().anyMatch(p ->
+                (p.income() != null && p.income().signum() != 0) || (p.expense() != null && p.expense().signum() != 0));
+        model.addAttribute("cashflowSeriesHasData", cashflowSeriesHasData);
         model.addAttribute("cfDeltaLabel", moneyDelta(viewCurrency, cashflowSplit.deltaNetWorth()));
         model.addAttribute("cfRenLabel", moneyDelta(viewCurrency, cashflowSplit.renZhuan()));
         model.addAttribute("cfQianLabel", moneyDelta(viewCurrency, cashflowSplit.qianZhuan()));

@@ -2,6 +2,18 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.11.6] · 2026-07-02
+
+### Fixed
+
+- **dashboard 首屏层级被「财务目标 + AI洞察」压住(排版观感差)**:这两条原挂在 `dashboard/index.html` 顶部(region 外),导致一进 dashboard 先撞见「目标空态引导卡 + AI洞察速览条」,**主角(「家庭仪表盘」标题 + 净资产/KPI 总览)被挤到第 3、5 位**。改为把两条下移进 `_region.html`、放到 **KPI 总览之后**(先看家底,再看目标/洞察)。`index.html` 顶部只留 region;`insight`/`goalsProgress` 本就在 `populateModel`(HTMX 刷新也有),下移后照常渲染。
+- **「收支趋势·实时」图在近月无收支数据时留空白大卡**:改为仅当有非零收支(`cashflowSeriesHasData`)时出图;否则显一行空态细条(「填报后出趋势」+ 去填报入口),不再撑出 ~420px 空白。
+
+### 测试
+
+- mvn **292** 绿(仅新增 1 个模型布尔 + 模板搬移,无逻辑变更)· 无头 Chromium 渲染核对 PC + 移动端首屏顺序为「标题 → KPI 总览 → 目标 → AI洞察 → 收支/图表」。
+- qa-run +`v11-DASH-LAYOUT`(目标/AI洞察 下移到 KPI 之后 + 收支趋势空态)· 黑盒 416→**417**。
+
 ## [v0.11.5] · 2026-07-01
 
 ### Fixed

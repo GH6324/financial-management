@@ -11,17 +11,7 @@
       th:with="tocItems=${ { {label:'概览',href:'#dashboard-region'}, {label:'资产洞察',href:'#dash-insight'}, {label:'人赚 vs 钱赚',href:'#dash-cashflow'}, {label:'收支趋势',href:'#dash-cashflow-trend'}, {label:'净资产趋势',href:'#dash-trend'}, {label:'按成员分布',href:'#dash-member'}, {label:'按账户分布',href:'#dash-dist'}, {label:'账户列表',href:'#dash-list'} } }">
   <div class="toc-cols">
     <div class="toc-cols-main">
-      <!-- v0.3 FR-50d · 目标进度条带(无目标显引导卡)· 在 region 外 · HTMX 刷新不重渲 -->
-      <th:block th:if="${goalsProgress != null and !#lists.isEmpty(goalsProgress)}">
-        <div th:replace="~{goals/_progress-strip :: strip(${goalsProgress})}"></div>
-      </th:block>
-      <th:block th:if="${goalsProgress == null or #lists.isEmpty(goalsProgress)}">
-        <div th:replace="~{goals/_progress-strip :: emptyHint}"></div>
-      </th:block>
-
-      <!-- v0.6 · AI 资产洞察速览条(硬数据头条 · 在 region 外 · HTMX 刷新不重渲) -->
-      <div th:replace="~{dashboard/_insight-strip :: strip(${insight})}"></div>
-
+      <!-- v0.11.6 · 目标进度 + AI洞察 已下移到 region 内「KPI 总览之后」(先看家底再看目标/洞察)· 见 _region.html -->
       <div id="dashboard-region" th:replace="~{dashboard/_region :: region}"></div>
     </div>
     <!-- v0.5.7 · 长文目录共用件 -->
