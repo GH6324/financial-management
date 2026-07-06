@@ -64,4 +64,29 @@ public interface CashFlowMapper {
                AND deleted_at IS NULL
             """)
     int softDelete(@Param("id") long id);
+
+    /** v0.12 · 收入侧列表:某账期该家庭的「真实收入」流水(is_adjustment=0)· join 账户名/类型 + 类目名。 */
+    @Select("""
+            SELECT cf.id AS id, cf.account_id AS accountId, a.display_name AS accountName,
+                   a.type AS accountType, a.currency AS currency,
+                   cf.category_code AS categoryCode,
+                   COALESCE(cat.display_name, cf.category_code) AS categoryName,
+                   cf.amount AS amount, cf.note AS note
+              FROM cash_flow cf
+              JOIN account a ON a.id = cf.account_id
+              LEFT JOIN cash_flow_category cat ON cat.code = cf.category_code
+             WHERE cf.period_id = #{periodId}
+               AND a.family_id = #{familyId}
+               AND cf.kind = 'INCOME'
+               AND cf.is_adjustment = 0
+               AND cf.deleted_at IS NULL
+             ORDER BY cf.id DESC
+            """)
+    List<IncomeEntryRow> findIncomeEntries(@Param("familyId") long familyId,
+                                           @Param("periodId") long periodId);
+
+    /** v0.12 · 收入侧列表行(展示用投影)。 */
+    record IncomeEntryRow(Long id, Long accountId, String accountName, String accountType,
+                          String currency, String categoryCode, String categoryName,
+                          java.math.BigDecimal amount, String note) {}
 }

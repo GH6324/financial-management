@@ -267,8 +267,10 @@ public class StockHoldingService {
     /**
      * v0.5 FR-78/79 · 调整账户币种现金行 · deltaInFromCcy 为正=加回 / 负=扣减(持仓币种口径)。
      * 经 FX 换到账户币种 → 找该币种 CASH 行调整 · 没有则新建(可为负 · 卖空/融资/保证金)。
+     * v0.12 起 public:收入侧对股票账户录入收入时,把外部进钱落到 CASH 现金行(扛过估值刷新)· 见 EntryService.recordIncome。
      */
-    private void adjustAccountCash(long familyId, long accountId, String fromCcy, BigDecimal deltaInFromCcy) {
+    @Transactional
+    public void adjustAccountCash(long familyId, long accountId, String fromCcy, BigDecimal deltaInFromCcy) {
         var account = accountMapper.findById(accountId).orElse(null);
         String acctCcy = account != null && account.getCurrency() != null
             ? account.getCurrency().toUpperCase(Locale.ROOT) : fromCcy;

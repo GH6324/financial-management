@@ -1681,3 +1681,19 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v04-UX-7(改) | `/entry?mine=true`(承接待办)不暴露 `SNAPSHOT_TODO` enum / 类型英文括号 |
 
 > 决策:待办页早已是 `/entry?mine=true` 的只读子集(列表 + 「填 →」跳填报),而填报页能内联填 + 「我未填」标记 + 进度 + 自动关账;仪表盘/提醒也都指向填报。三处重叠 + 导航双入口对「10 分钟/月、非技术家属」是噪音。故退休 /my-todos、角标并入「填报」、保 302 重定向。FR6-3(mine 过滤行数)不变。
+
+---
+
+## v0.12 · 收支填报「收入侧」升级(结构化 · 关联账户 · 直接入账)
+
+| Case | 校验 |
+|---|---|
+| v12-INCOME-CAT | `V34` 迁移:`cash_flow_category` 加 `account_type` 列 + 新增 stock_salary/dividend/stock_sell(股票类)· `CashFlowCategory` 域含 accountType |
+| v12-INCOME-ENDPOINT | `POST /entry/income` + `EntryService.recordIncome`;服务端红线校验「类目.account_type == 目标账户.type」(NULL 不限),错配抛异常拒绝 |
+| v12-INCOME-STOCK | 股票账户收入走 `creditAccountBalance → StockHoldingService.adjustAccountCash`(落 CASH 现金行,扛估值刷新)+ applyDeltaToBalance(立即入快照);记 `is_adjustment=0` 真实外部流入 |
+| v12-INCOME-KOUJING | `FactViewServiceImpl.netInflowIncome/netInflowExpense`:收入侧 PMC 手填(历史)优先否则 cash_flow 汇总(新账期),支出侧不变;按期各取其一不叠加(防双计);币种走本位币保不变性 |
+| v12-INCOME-UI | `entry/index.html` 收入侧结构化(`income-cat` + `/entry/income` + `data-acct-type` 联动);`_row.html` 移除硬编码 `+收入`(无 `name="kind" value="INCOME"`) |
+| (UT) CashflowBreakdownTest +2 | PMC 收入缺(totalIncome=null)→ 收入取 cash_flow(8000)不被低估为 0;PMC 收入 9000 存在时不与 cash_flow 8000 叠加成 17000(防双计) |
+| (e2e) 主线7 收入侧 | 股票录股息 +4200 → 该账户 snapshot +4200、CASH 现金行 +4200、流水 is_adjustment=0;工资(现金类目)→ 股票账户被拒(≥400)且未写库;删除 → snapshot/CASH 行冲回 |
+
+> 决策(承 prd/tech-design v0.12):收入=外部流入(不进 PnL)· 股票收入落 CASH 现金行(不被估值刷新覆盖)· 收入侧口径切 cash_flow 汇总但历史 PMC 优先(向后兼容 + 防双计)· 收入侧与账户明细同一批 cash_flow 两视图(删改天然联动)· 约束本版仅现金/股票 + 只做收入侧(支出侧维持总额)。

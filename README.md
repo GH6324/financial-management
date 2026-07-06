@@ -121,7 +121,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 292 单元(含 PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性 + 单一镜头端到端币种守护)/ 20 e2e 断言(6 主线)/ 418 黑盒回归 |
+| 测试 | JUnit 5 · 294 单元(含 PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性 + 单一镜头端到端币种守护)/ 28 e2e 断言(7 主线)/ 423 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
@@ -249,15 +249,15 @@ mvn spring-boot:run
 测试:
 
 ```bash
-mvn test                       # JUnit 单元测试(292)
+mvn test                       # JUnit 单元测试(294)
 bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(412)
 bash scripts/e2e.sh            # 端到端主线真验收(6 主线 · 唤起 beta 调接口 + DB 真值判定 · mysqldump 快照/还原,不清库)
 ```
 
 ## 文档
 
-- **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md) · [`prd/v0.3.md`](prd/v0.3.md) · [`prd/v0.4.md`](prd/v0.4.md) · [`prd/v0.5.md`](prd/v0.5.md) · [`prd/v0.6.md`](prd/v0.6.md) · [`prd/v0.7.md`](prd/v0.7.md) · [`prd/v0.8.md`](prd/v0.8.md) · [`prd/v0.9.md`](prd/v0.9.md) · [`prd/v0.10.md`](prd/v0.10.md) · [`prd/v0.11.md`](prd/v0.11.md)
-- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md) · [`tech-design/v0.4.md`](tech-design/v0.4.md) · [`tech-design/v0.5.md`](tech-design/v0.5.md) · [`tech-design/v0.6.md`](tech-design/v0.6.md) · [`tech-design/v0.7.md`](tech-design/v0.7.md) · [`tech-design/v0.8.md`](tech-design/v0.8.md) · [`tech-design/v0.9.md`](tech-design/v0.9.md) · [`tech-design/v0.10.md`](tech-design/v0.10.md) · [`tech-design/v0.11.md`](tech-design/v0.11.md)
+- **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md) · [`prd/v0.3.md`](prd/v0.3.md) · [`prd/v0.4.md`](prd/v0.4.md) · [`prd/v0.5.md`](prd/v0.5.md) · [`prd/v0.6.md`](prd/v0.6.md) · [`prd/v0.7.md`](prd/v0.7.md) · [`prd/v0.8.md`](prd/v0.8.md) · [`prd/v0.9.md`](prd/v0.9.md) · [`prd/v0.10.md`](prd/v0.10.md) · [`prd/v0.11.md`](prd/v0.11.md) · [`prd/v0.12.md`](prd/v0.12.md)
+- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md) · [`tech-design/v0.4.md`](tech-design/v0.4.md) · [`tech-design/v0.5.md`](tech-design/v0.5.md) · [`tech-design/v0.6.md`](tech-design/v0.6.md) · [`tech-design/v0.7.md`](tech-design/v0.7.md) · [`tech-design/v0.8.md`](tech-design/v0.8.md) · [`tech-design/v0.9.md`](tech-design/v0.9.md) · [`tech-design/v0.10.md`](tech-design/v0.10.md) · [`tech-design/v0.11.md`](tech-design/v0.11.md) · [`tech-design/v0.12.md`](tech-design/v0.12.md)
 - **预览原型**:[`preview/index.html`](preview/index.html)(Tailwind CDN 静态预览)· [`preview/v0.4/`](preview/v0.4/index.html) · [`preview/v0.5/`](preview/v0.5/index.html) · [`preview/v0.6/`](preview/v0.6/index.html)(财富水位 / 股票现金联动 / FIRE 自适应 / PWA 引导)
 - **配置与接入**:[`docs/configuration.md`](docs/configuration.md)(AI / 短信 等外部服务配置总指南 · 全部可选)
 - **常见问题**:[`docs/faq.md`](docs/faq.md)(最低配置 / 远程访问 / 备份恢复 / 忘记密码 / 多家庭 …)

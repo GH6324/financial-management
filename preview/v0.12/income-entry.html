@@ -85,13 +85,13 @@
       <div class="dashbox p-4 mb-4" style="background:var(--paper-soft)">
         <div class="grid grid-cols-12 gap-3 items-end">
           <div class="col-span-6 sm:col-span-2"><label class="lbl">金额 ¥</label><input class="fld w-full text-right tnum" value="4,200"></div>
-          <div class="col-span-6 sm:col-span-3"><label class="lbl">类目</label>
-            <select class="fld w-full"><option>股息 / 分红</option><option>利息</option><option>卖出回款 / 赎回</option><option>工资</option><option>奖金</option><option>其他收入</option></select></div>
-          <div class="col-span-8 sm:col-span-4"><label class="lbl">目标账户 <span class="normal-case text-ink-subtle">· 仅现金/股票</span></label>
-            <select class="fld w-full"><option>富途证券 · 港美股 [股票]</option><option>招商银行 · 储蓄卡 [现金]</option><option>老虎证券 [股票]</option></select></div>
-          <div class="col-span-4 sm:col-span-3 flex gap-2"><input class="fld flex-1 min-w-0" placeholder="备注(选填)" value="Q2 分红"><button class="btn-ink whitespace-nowrap">+ 加一笔</button></div>
+          <div class="col-span-6 sm:col-span-3"><label class="lbl">类目 <span class="normal-case text-ink-subtle">· 定落点类型</span></label>
+            <select class="fld w-full"><option>工资 &nbsp;→现金</option><option selected>薪资-股票 &nbsp;→股票</option><option>股息 / 分红 &nbsp;→股票</option><option>奖金 &nbsp;→现金</option><option>利息 &nbsp;→现金</option><option>卖出回款 / 赎回 &nbsp;→股票</option></select></div>
+          <div class="col-span-8 sm:col-span-4"><label class="lbl">目标账户 <span class="normal-case" style="color:var(--forest)">· 已按类目筛为「股票」</span></label>
+            <select class="fld w-full" style="border-color:var(--forest)"><option>富途证券 · 港美股 [股票]</option><option>老虎证券 [股票]</option><!-- 现金账户被类目「薪资-股票」过滤掉,不出现 --></select></div>
+          <div class="col-span-4 sm:col-span-3 flex gap-2"><input class="fld flex-1 min-w-0" placeholder="备注(选填)" value="Q2 归属"><button class="btn-ink whitespace-nowrap">+ 加一笔</button></div>
         </div>
-        <p class="note mt-3">▸ 选股票账户默认「股息」· 选现金账户默认「工资」· 可改。</p>
+        <p class="note mt-3" style="color:var(--forest)">▸ <b>类目 ↔ 账户联动</b>:类目下拉默认「工资」(第一)、「薪资-股票」(第二);<b>选了类目,目标账户即按其绑定类型过滤</b> —— 选「工资/奖金/利息」只列现金账户,选「薪资-股票/股息/卖出回款」只列股票账户。<b>服务端也校验</b>,工资录进股票账户 / 股息录进现金账户一律拒绝,录不错。</p>
       </div>
 
       <!-- 已录 -->
@@ -114,6 +114,9 @@
           </tr>
         </tbody>
       </table>
+      <div class="callout mt-3" style="padding:8px 12px">
+        <p class="note">▸ <b class="text-ink">「改/删」改的就是账户里那条流水本身(同一条,不是副本)</b>:上面删掉这笔股息 → 下面账户明细里它<b class="text-ink">同步消失</b>、该账户余额<b class="text-ink">冲回 -¥4,200</b>;你在账户级直接录的支出/划转/其它收入<b class="text-ink">不受影响</b>。「收入侧」和「账户明细」只是同一批流水的两个视图。</p>
+      </div>
       <div class="mt-3 flex items-baseline justify-between flex-wrap gap-2">
         <span class="note">家庭本月总收入 <b class="text-ink">= SUM(收入录入)</b> · 不再手填总收入</span>
         <span class="font-display text-xl tnum num-pos">¥42,200</span>
@@ -147,9 +150,10 @@
           <li>· 收入侧结构化:金额+类目+目标账户,可多笔</li>
           <li>· 每笔入账 + 留流水 + 外部流入(不虚高收益率)</li>
           <li>· 家庭收入侧改从录入汇总(消除双录,防重复计入)</li>
-          <li>· 类目扩展(股息/利息/卖出回款)+ 智能默认</li>
+          <li>· 类目默认「工资 / 薪资-股票」+ 扩展(股息/利息/卖出回款)</li>
+          <li>· <b class="text-ink">类目 ↔ 账户联动筛选 + 服务端校验(防录错)</b></li>
           <li>· 股票收入落现金部分、不被估值刷新冲掉</li>
-          <li>· 录错可改/删(轻量)</li>
+          <li>· 录错可改/删:改的是账户那条流水本身(同源联动)</li>
         </ul>
       </div>
       <div>

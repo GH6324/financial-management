@@ -137,19 +137,10 @@ public class FactViewServiceImpl implements FactViewService {
         if (periodId == null) {
             return new CashflowBreakdown(zero(), zero(), zero());
         }
-        BigDecimal income;
-        BigDecimal expense;
-        var pmc = periodMemberCashflowMapper.findFamilyAggregateForPeriod(periodId).orElse(null);
-        if (pmc != null && pmc.filledMembers() != null && pmc.filledMembers() > 0) {
-            BigDecimal factor = baseToViewFactor(slice);
-            BigDecimal inc = pmc.totalIncome() == null ? BigDecimal.ZERO : pmc.totalIncome();
-            BigDecimal exp = pmc.totalExpense() == null ? BigDecimal.ZERO : pmc.totalExpense();
-            income = inc.multiply(factor).setScale(2, RoundingMode.HALF_EVEN);
-            expense = exp.multiply(factor).setScale(2, RoundingMode.HALF_EVEN);
-        } else {
-            income = periodIncome(slice, periodId);
-            expense = periodExpense(slice, periodId);
-        }
+        // v0.12 FR-142 · 收入/支出各自决定来源(与 pmcFirstNetInflow 同源同分支):
+        // 收入 = PMC 手填(历史)优先否则 cash_flow 汇总(新账期收入侧录入);支出 = PMC 优先否则 cash_flow。
+        BigDecimal income = netInflowIncome(slice, periodId);
+        BigDecimal expense = netInflowExpense(slice, periodId);
         BigDecimal net = income.subtract(expense).setScale(2, RoundingMode.HALF_EVEN);
         return new CashflowBreakdown(income, expense, net);
     }
@@ -192,17 +183,31 @@ public class FactViewServiceImpl implements FactViewService {
      * 即可;PMC 本就是家庭级,无 transfer 概念。</p>
      */
     private BigDecimal pmcFirstNetInflow(FactSlice slice, Long periodId) {
-        var pmc = periodMemberCashflowMapper.findFamilyAggregateForPeriod(periodId).orElse(null);
-        if (pmc != null && pmc.filledMembers() != null && pmc.filledMembers() > 0) {
-            BigDecimal inc = pmc.totalIncome() == null ? BigDecimal.ZERO : pmc.totalIncome();
-            BigDecimal exp = pmc.totalExpense() == null ? BigDecimal.ZERO : pmc.totalExpense();
-            // v0.5 修 · PMC 按本位币存,余额(endBalanceBase)是 viewCurrency 口径 →
-            // PMC 也换到 view,否则净流入/紧急储备/资产收益等比值随币种漂移。
-            return inc.subtract(exp).multiply(baseToViewFactor(slice)).setScale(2, RoundingMode.HALF_EVEN);
-        }
-        // 回退 · account cash_flow(incomeBase/expenseBase 已是 view 口径 · 不需再换 · family 层 transfer 抵消)
-        return periodIncome(slice, periodId).subtract(periodExpense(slice, periodId))
+        return netInflowIncome(slice, periodId).subtract(netInflowExpense(slice, periodId))
                 .setScale(2, RoundingMode.HALF_EVEN);
+    }
+
+    /**
+     * v0.12 FR-142 · 收入侧口径:PMC 手填收入(历史账期两框)优先,否则取 cash_flow INCOME 汇总
+     * (新账期由「收支填报·收入侧」逐笔录入 → 本就是 account cash_flow)。按期各取其一、不叠加(防双计):
+     * 历史账期 PMC 收入>0 → 用 PMC(向后兼容,历史人赚/储蓄率不变);新账期不再填 PMC 收入(null)→ 用 cash_flow。
+     * PMC 按本位币存 → ×baseToViewFactor 换到 view;cash_flow 的 incomeBase 已是 view 口径。
+     */
+    private BigDecimal netInflowIncome(FactSlice slice, Long periodId) {
+        var pmc = periodMemberCashflowMapper.findFamilyAggregateForPeriod(periodId).orElse(null);
+        if (pmc != null && pmc.totalIncome() != null && pmc.totalIncome().signum() > 0) {
+            return pmc.totalIncome().multiply(baseToViewFactor(slice)).setScale(2, RoundingMode.HALF_EVEN);
+        }
+        return periodIncome(slice, periodId);
+    }
+
+    /** v0.12 · 支出侧口径不变:PMC 手填支出优先,否则回退 cash_flow。 */
+    private BigDecimal netInflowExpense(FactSlice slice, Long periodId) {
+        var pmc = periodMemberCashflowMapper.findFamilyAggregateForPeriod(periodId).orElse(null);
+        if (pmc != null && pmc.totalExpense() != null && pmc.totalExpense().signum() > 0) {
+            return pmc.totalExpense().multiply(baseToViewFactor(slice)).setScale(2, RoundingMode.HALF_EVEN);
+        }
+        return periodExpense(slice, periodId);
     }
 
     /**

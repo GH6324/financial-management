@@ -30,82 +30,132 @@
     </div>
   </section>
 
-  <!-- v0.3 FR-51 · 成员级月度收支(置顶 · 2026-05-13 修订)-->
+  <!-- v0.12 · 第一步 · 本月收支填报:收入侧结构化(金额+类目+目标账户 → 直接入账+留流水)· 支出侧总额(维持) -->
   <section class="mb-6 border-2 border-ink" style="background:var(--paper-soft)" th:if="${period.status.name() != 'CLOSED'}">
     <div class="px-6 py-4 border-b border-rule-soft flex items-baseline justify-between flex-wrap gap-3">
       <div>
-        <div class="eyebrow mb-1" style="color:var(--brass-deep)">第 · 一 · 步 · 我 · 的 · 本 · 月 · 收 · 支</div>
-        <h3 class="font-display text-xl font-medium">
-          <span th:text="${me.displayName}">我</span> 的本月收入 / 支出
-        </h3>
-        <p class="text-xs text-ink-soft mt-1">各成员各自填 · 家庭总额 = SUM(成员)· 支撑储蓄率 / 月均 / 目标月供 / 流动性月数</p>
+        <div class="eyebrow mb-1" style="color:var(--brass-deep)">第 · 一 · 步 · 本 · 月 · 收 · 支</div>
+        <h3 class="font-display text-xl font-medium"><span th:text="${me.displayName}">我</span> 的本月收支</h3>
+        <p class="text-xs text-ink-soft mt-1">收入逐笔录到账户(直接入账 + 留流水 · 股票收入不虚高收益率)· 支出填一个总数 · 家庭总额 = SUM(成员)</p>
       </div>
-      <span class="font-mono text-[10px] text-ink-subtle">+15s · 不影响账户余额</span>
+      <span class="font-mono text-[10px] text-ink-subtle">+15s</span>
     </div>
 
-    <form th:action="@{/entry/cashflow-summary}" method="post" class="p-6 space-y-4">
-      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-      <input type="hidden" name="periodId" th:value="${period.id}">
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">
-            <span th:text="${me.displayName}">我</span> 的本月总收入 ¥
-          </label>
-          <input type="number" name="totalIncomeInput" step="0.01" min="0" max="99999999"
-                 th:value="${myCashflow != null ? myCashflow.totalIncomeInput : null}"
-                 placeholder="0 · 留空表示未填"
-                 class="w-full font-mono text-lg bg-paper border border-rule px-3 py-2.5 tnum text-right">
-          <p class="font-mono text-[10px] text-ink-subtle mt-1"
-             th:if="${myPrevCashflow != null and myPrevCashflow.totalIncomeInput != null}"
-             th:text="'↳ 上期你填的 · ¥' + ${#numbers.formatInteger(myPrevCashflow.totalIncomeInput, 0, 'COMMA')}">↳ 上期 · ¥0</p>
+    <div class="p-6 space-y-6">
+      <!-- 收入侧 · 结构化 -->
+      <div>
+        <div class="flex items-baseline gap-2 mb-3 flex-wrap">
+          <span class="pill pill-forest">收入</span>
+          <span class="font-mono text-[10px] text-ink-subtle">一笔一账户 · 目标账户仅现金/股票 · 类目决定可选账户</span>
         </div>
+
+        <form th:action="@{/entry/income}" method="post" class="flex flex-wrap items-end gap-2 mb-3">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <input type="hidden" name="periodId" th:value="${period.id}">
+          <div>
+            <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">金额 ¥</label>
+            <input name="amount" type="number" step="0.01" min="0.01" required placeholder="0.00"
+                   class="w-28 font-mono bg-paper border border-rule px-3 py-2 tnum text-right">
+          </div>
+          <div>
+            <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">类目</label>
+            <select name="categoryCode" id="income-cat" class="font-mono text-xs bg-paper border border-rule px-3 py-2">
+              <option th:each="c : ${incomeCategories}" th:value="${c.code}" th:text="${c.displayName}"
+                      th:attr="data-acct-type=${c.accountType}">工资</option>
+            </select>
+          </div>
+          <div>
+            <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">目标账户
+              <span class="text-ink-subtle normal-case" id="income-acct-hint">现金/股票</span></label>
+            <select name="accountId" id="income-acct" class="font-mono text-xs bg-paper border border-rule px-3 py-2">
+              <option th:each="a : ${incomeAccounts}" th:value="${a.id}"
+                      th:text="${a.displayName} + ' · ' + ${a.type.label}"
+                      th:attr="data-acct-type=${a.type.name()}">账户</option>
+            </select>
+          </div>
+          <div class="flex-1 min-w-[120px]">
+            <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">备注(选填)</label>
+            <input name="note" maxlength="80" placeholder="如 Q2 分红" class="w-full font-mono text-xs bg-paper border border-rule px-3 py-2">
+          </div>
+          <button type="submit" class="btn-ink text-sm">+ 加一笔</button>
+        </form>
+
+        <!-- 本期已录收入 -->
+        <div th:if="${incomeEntries != null and !incomeEntries.isEmpty()}" class="border border-rule-soft bg-card">
+          <div th:each="e : ${incomeEntries}" class="px-4 py-2.5 flex items-center gap-3 border-b border-rule-soft text-sm flex-wrap">
+            <span class="pill" th:classappend="${e.accountType == 'STOCK'} ? ' pill-brass' : ''" th:text="${e.categoryName}">类目</span>
+            <span class="font-display" th:text="${e.accountName}">账户</span>
+            <span class="pill text-[9px]" th:text="${e.accountType == 'STOCK' ? '股票' : '现金'}">现金</span>
+            <span class="font-mono tnum num-pos ml-auto" data-priv
+                  th:text="'+¥' + ${#numbers.formatDecimal(e.amount,1,2)}">+¥0</span>
+            <span class="font-mono text-[10px] text-ink-subtle" th:if="${e.note != null}" th:text="${e.note}">备注</span>
+            <span class="pill pill-forest text-[9px]">已入账 + 流水</span>
+            <form th:action="@{/entry/income/{id}/delete(id=${e.id})}" method="post" class="inline">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+              <input type="hidden" name="periodId" th:value="${period.id}">
+              <button class="font-mono text-[10px] text-rust hover:underline" title="删除这笔:冲回账户余额 + 移除流水">删</button>
+            </form>
+          </div>
+          <div class="px-4 py-2.5 flex items-center justify-between bg-card-soft flex-wrap gap-2">
+            <span class="font-mono text-[10px] uppercase text-ink-subtle">家庭本月收入 = SUM(收入录入) · 汇入人赚 / 储蓄率</span>
+            <span class="font-display text-lg tnum num-pos" data-priv
+                  th:text="'¥' + ${#numbers.formatDecimal(#aggregates.sum(incomeEntries.![amount]),1,2)}">¥0</span>
+          </div>
+        </div>
+        <p th:if="${incomeEntries == null or incomeEntries.isEmpty()}" class="font-mono text-[11px] text-ink-subtle">本期还没录收入 · 工资 / 股息 / 利息… 逐笔加,直接入对应账户。</p>
+      </div>
+
+      <!-- 支出侧 · 维持总额 -->
+      <form th:action="@{/entry/cashflow-summary}" method="post" class="border-t border-rule-soft pt-5 flex flex-wrap items-end gap-4">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <input type="hidden" name="periodId" th:value="${period.id}">
         <div>
-          <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">
-            <span th:text="${me.displayName}">我</span> 的本月总支出 ¥
-          </label>
+          <div class="flex items-baseline gap-2 mb-3 flex-wrap">
+            <span class="pill" style="background:rgba(159,74,58,.10);color:var(--rust);border-color:var(--rust)">支出</span>
+            <span class="font-mono text-[10px] text-ink-subtle">本月总支出(一个数)</span>
+          </div>
+          <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block"><span th:text="${me.displayName}">我</span> 的本月总支出 ¥</label>
           <input type="number" name="totalExpenseInput" step="0.01" min="0" max="99999999"
                  th:value="${myCashflow != null ? myCashflow.totalExpenseInput : null}"
                  placeholder="0 · 留空表示未填"
-                 class="w-full font-mono text-lg bg-paper border border-rule px-3 py-2.5 tnum text-right">
+                 class="w-48 font-mono text-lg bg-paper border border-rule px-3 py-2.5 tnum text-right">
           <p class="font-mono text-[10px] text-ink-subtle mt-1"
              th:if="${myPrevCashflow != null and myPrevCashflow.totalExpenseInput != null}"
              th:text="'↳ 上期你填的 · ¥' + ${#numbers.formatInteger(myPrevCashflow.totalExpenseInput, 0, 'COMMA')}">↳ 上期 · ¥0</p>
         </div>
-      </div>
+        <button type="submit" class="btn-ink text-sm">✓ 保存本月总支出</button>
+      </form>
 
-      <!-- 家庭聚合实时显示 -->
-      <div class="border-t border-rule-soft pt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-        <div>
-          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">家庭本月总收入(SUM 成员)</div>
-          <div class="font-display text-xl tnum"
-               data-priv th:text="${familyCurrentAgg != null and familyCurrentAgg.totalIncome != null ? ('¥' + #numbers.formatInteger(familyCurrentAgg.totalIncome, 0, 'COMMA')) : '—'}">¥0</div>
-        </div>
-        <div>
-          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">家庭本月总支出</div>
-          <div class="font-display text-xl tnum num-neg"
-               data-priv th:text="${familyCurrentAgg != null and familyCurrentAgg.totalExpense != null ? ('¥' + #numbers.formatInteger(familyCurrentAgg.totalExpense, 0, 'COMMA')) : '—'}">¥0</div>
-        </div>
-        <div>
-          <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">家庭本月已填</div>
-          <div class="font-display text-xl tnum"
-               th:text="${(filledMembers != null ? filledMembers.size() : 0) + ' / ' + (totalMembers ?: 0) + ' 人'}">0 / 2 人</div>
-          <div class="font-mono text-[10px] text-ink-subtle mt-0.5"
-               th:if="${filledMembers != null and !filledMembers.isEmpty()}"
-               th:text="${'已填:' + #strings.listJoin(filledMembers.values(), ' · ')}">已填:成员A</div>
-        </div>
-      </div>
-
-      <div class="text-xs text-ink-soft pt-3 border-t border-rule-soft">
-        数据来源:你自己的银行 / 支付宝 / 微信 月度账单汇总 · 其他成员各自填自己的。
-        所有"家庭月均"等指标用 SUM(各成员) / 期数 计算。
-      </div>
-
-      <div class="flex justify-end pt-2">
-        <button type="submit" class="btn-ink text-sm">✓ 保存我的本月收支</button>
-      </div>
-    </form>
+      <div class="text-xs text-ink-soft pt-1 font-mono">家庭本月已填收支:<b th:text="${(filledMembers != null ? filledMembers.size() : 0) + ' / ' + (totalMembers ?: 0) + ' 人'}">0 / 2 人</b></div>
+    </div>
   </section>
+
+  <!-- v0.12 · 收入侧「类目 ↔ 账户」联动:选类目 → 目标账户按绑定类型过滤(服务端亦校验) -->
+  <script>
+    (function () {
+      var cat = document.getElementById('income-cat');
+      var acct = document.getElementById('income-acct');
+      var hint = document.getElementById('income-acct-hint');
+      if (!cat || !acct) return;
+      function sync() {
+        var opt = cat.options[cat.selectedIndex];
+        var t = opt ? (opt.getAttribute('data-acct-type') || '') : '';
+        var first = -1;
+        for (var i = 0; i < acct.options.length; i++) {
+          var o = acct.options[i];
+          var ok = !t || t === o.getAttribute('data-acct-type');   // 类目不限(空)→ 全部;否则类型匹配
+          o.hidden = !ok; o.disabled = !ok;
+          if (ok && first < 0) first = i;
+        }
+        if (acct.selectedIndex < 0 || acct.options[acct.selectedIndex].disabled) {
+          if (first >= 0) acct.selectedIndex = first;
+        }
+        if (hint) hint.textContent = t ? ('仅' + (t === 'STOCK' ? '股票' : '现金') + '账户') : '现金/股票';
+      }
+      cat.addEventListener('change', sync);
+      sync();
+    })();
+  </script>
 
   <section class="mb-8 paper-card p-6">
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8 col-rule">

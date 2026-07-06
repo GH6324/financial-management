@@ -48,6 +48,9 @@ public class EntryController {
     private final MemberMapper memberMapper;
     private final PeriodMemberCashflowMapper memberCashflowMapper;
     private final FamilyMapper familyMapper;
+    /** v0.12 · 收入侧:类目下拉 + 本期收入列表 */
+    private final com.family.finance.repository.CashFlowCategoryMapper cashFlowCategoryMapper;
+    private final com.family.finance.repository.CashFlowMapper cashFlowMapper;
     /** v0.4.22 · /entry 一键拉取股价按钮 · 三件套依赖 */
     private final StockPriceScheduler stockScheduler;
     private final AccountValuationService valuationService;
@@ -137,6 +140,14 @@ public class EntryController {
                         && "STOCK".equals(r.account().getType().name()));
         model.addAttribute("hasStockAccounts", hasStockAccounts);
 
+        // v0.12 · 收入侧:类目下拉(含 account_type 绑定,供联动/校验)+ 可作收入落点的账户(现金/股票)+ 本期收入列表
+        model.addAttribute("incomeCategories", cashFlowCategoryMapper.listIncomeOrdered());
+        model.addAttribute("incomeAccounts", accountMapper.findActiveByFamily(me.getFamilyId()).stream()
+                .filter(a -> a.getType() != null
+                        && ("CASH".equals(a.getType().name()) || "STOCK".equals(a.getType().name())))
+                .toList());
+        model.addAttribute("incomeEntries", cashFlowMapper.findIncomeEntries(me.getFamilyId(), period.getId()));
+
         return "entry/index";
     }
 
@@ -225,6 +236,27 @@ public class EntryController {
             .totalIncomeInput(income)
             .totalExpenseInput(expense)
             .build());
+        return "redirect:/entry?period=" + periodId;
+    }
+
+    /** v0.12 FR-140 · 收入侧录入一笔:金额+类目+目标账户 → 入账 + 留流水(股票落 CASH 现金行)。 */
+    @PostMapping("/entry/income")
+    public String recordIncome(@AuthenticationPrincipal MemberPrincipal me,
+                               @RequestParam long periodId,
+                               @RequestParam long accountId,
+                               @RequestParam String categoryCode,
+                               @RequestParam BigDecimal amount,
+                               @RequestParam(required = false) String note) {
+        entryService.recordIncome(me.getFamilyId(), me.getMemberId(), periodId, accountId, categoryCode, amount, note);
+        return "redirect:/entry?period=" + periodId;
+    }
+
+    /** v0.12 FR-145/148 · 删一笔收入 = 软删该 cash_flow + 冲回账户余额(股票冲回 CASH 现金行);账户明细同步。 */
+    @PostMapping("/entry/income/{id}/delete")
+    public String deleteIncome(@AuthenticationPrincipal MemberPrincipal me,
+                               @PathVariable("id") long cashFlowId,
+                               @RequestParam long periodId) {
+        entryService.softDeleteCashFlow(me.getFamilyId(), me.getMemberId(), cashFlowId);
         return "redirect:/entry?period=" + periodId;
     }
 

@@ -150,6 +150,29 @@ eq "LOAN-新期无任何贷款预填为正" "$loan_pos" "0"
 eq "滚动-非LOAN账户新期延续上期末(carry 10500)" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$NEW_PID AND account_id=$ACC_A")" "10500"
 
 # ============================================================================
+section "主线 7 · 收入侧录入(v0.12 · 股票收入落 CASH 行+流水+不虚高 · 类目校验 · 删除冲回)"
+IP="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='OPEN' ORDER BY period_start DESC LIMIT 1")"
+STK="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='STOCK' AND archived_at IS NULL ORDER BY id LIMIT 1")"
+if [ -n "$STK" ] && [ -n "$IP" ]; then
+  snap0="$(db "SELECT ROUND(IFNULL(end_balance,0)) FROM period_snapshot WHERE period_id=$IP AND account_id=$STK")"
+  cash0="$(db "SELECT ROUND(IFNULL(SUM(manual_value),0)) FROM stock_holding WHERE account_id=$STK AND valuation_mode='CASH' AND archived_at IS NULL")"
+  code="$(POSTcode /entry/income --data-urlencode "periodId=$IP" --data-urlencode "accountId=$STK" --data-urlencode "categoryCode=dividend" --data-urlencode "amount=4200" --data-urlencode "note=e2e股息")"
+  eq "收入-录股息 HTTP 2xx/3xx" "$([ "$code" -ge 200 ] && [ "$code" -lt 400 ] && echo ok || echo "$code")" "ok"
+  eq "收入-股票 snapshot +4200(立即入账)" "$(( $(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$IP AND account_id=$STK") - snap0 ))" "4200"
+  eq "收入-股票 CASH 现金行 +4200(扛得住估值刷新)" "$(( $(db "SELECT ROUND(IFNULL(SUM(manual_value),0)) FROM stock_holding WHERE account_id=$STK AND valuation_mode='CASH' AND archived_at IS NULL") - cash0 ))" "4200"
+  eq "收入-流水 is_adjustment=0(真实外部流入 · 被 PnL 剔除)" "$(db "SELECT is_adjustment FROM cash_flow WHERE period_id=$IP AND account_id=$STK AND category_code='dividend' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1")" "0"
+  rej="$(POSTcode /entry/income --data-urlencode "periodId=$IP" --data-urlencode "accountId=$STK" --data-urlencode "categoryCode=salary" --data-urlencode "amount=100")"
+  eq "收入-类目↔账户校验拒错配(工资→股票账户)" "$([ "$rej" -ge 400 ] && echo rejected || echo "$rej")" "rejected"
+  eq "收入-错配拒绝后未写库" "$(db "SELECT COUNT(*) FROM cash_flow WHERE period_id=$IP AND account_id=$STK AND category_code='salary' AND deleted_at IS NULL")" "0"
+  cfid="$(db "SELECT id FROM cash_flow WHERE period_id=$IP AND account_id=$STK AND category_code='dividend' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1")"
+  POSTcode "/entry/income/$cfid/delete" --data-urlencode "periodId=$IP" >/dev/null
+  eq "收入-删除 snapshot 冲回" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$IP AND account_id=$STK")" "$snap0"
+  eq "收入-删除 CASH 行冲回" "$(db "SELECT ROUND(IFNULL(SUM(manual_value),0)) FROM stock_holding WHERE account_id=$STK AND valuation_mode='CASH' AND archived_at IS NULL")" "$cash0"
+else
+  bad "收入-无 STOCK 账户/无 OPEN 期,跳过" "STK=$STK IP=$IP"
+fi
+
+# ============================================================================
 echo
 echo "════════════════════════════════════════"
 echo -e " e2e 总结: \033[32mPASS=$PASS\033[0m  \033[31mFAIL=$FAIL\033[0m"

@@ -3242,6 +3242,45 @@ MTC="$RD/src/main/java/com/family/finance/web/todo/MyTodosController.java"
   && log_ok "v11-TODO-RETIRE 待办已折叠进填报(导航无 /my-todos · 填报承接角标 · /my-todos 302→/entry · 模板已删)" \
   || log_bad "v11-TODO-RETIRE 待办退休不完整" "see nav.html / MyTodosController / my-todos.html"
 
+# ===================== v0.12 · 收支填报收入侧升级 =====================
+# v12-INCOME-CAT · 类目绑定账户类型 + 股票类收入类目(V34)
+CFC="$RD/db/migration/V34__income_category_account_type.sql"
+{ [ -f "$CFC" ] && grep -q 'account_type' "$CFC" \
+  && grep -q 'stock_salary' "$CFC" && grep -q 'dividend' "$CFC" && grep -q 'stock_sell' "$CFC" \
+  && grep -q 'accountType' "$RD/src/main/java/com/family/finance/domain/flow/CashFlowCategory.java"; } \
+  && log_ok "v12-INCOME-CAT 类目 account_type 绑定 + 股票类收入类目(薪资-股票/股息/卖出回款)" \
+  || log_bad "v12-INCOME-CAT 类目绑定/新类目缺" "see V34 / CashFlowCategory"
+
+# v12-INCOME-ENDPOINT · 收入侧端点 + 类目↔账户服务端校验
+ES="$RD/src/main/java/com/family/finance/service/EntryService.java"
+EC="$RD/src/main/java/com/family/finance/web/entry/EntryController.java"
+{ grep -q '/entry/income' "$EC" && grep -q 'public EntryRow recordIncome' "$ES" \
+  && grep -q 'cat.getAccountType() != null' "$ES"; } \
+  && log_ok "v12-INCOME-ENDPOINT /entry/income + recordIncome + 类目↔账户服务端校验(红线)" \
+  || log_bad "v12-INCOME-ENDPOINT 收入端点/校验缺" "see EntryController / EntryService"
+
+# v12-INCOME-STOCK · 股票收入落 CASH 现金行(扛估值刷新)· 不只 applyDeltaToBalance
+{ grep -q 'creditAccountBalance' "$ES" \
+  && grep -q 'stockHoldingService.adjustAccountCash' "$ES" \
+  && grep -q 'public void adjustAccountCash' "$RD/src/main/java/com/family/finance/service/stock/StockHoldingService.java"; } \
+  && log_ok "v12-INCOME-STOCK 股票收入落 CASH 现金行(creditAccountBalance→adjustAccountCash)" \
+  || log_bad "v12-INCOME-STOCK 股票收入未落现金行" "see EntryService.creditAccountBalance"
+
+# v12-INCOME-KOUJING · 家庭收入侧口径从 cash_flow 汇总(PMC 空收入不再低估;支出侧不动)· 防双计
+FV="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
+{ grep -q 'netInflowIncome' "$FV" && grep -q 'netInflowExpense' "$FV"; } \
+  && log_ok "v12-INCOME-KOUJING 收入/支出各自决定来源(收入 PMC空→cash_flow · 不叠加)" \
+  || log_bad "v12-INCOME-KOUJING 收入口径未拆分" "see FactViewServiceImpl.netInflowIncome"
+
+# v12-INCOME-UI · 收入侧结构化(类目+目标账户联动)· 账户行不再硬编码 +收入
+REG_ENTRY="$RD/src/main/resources/templates/entry/index.html"
+ROW="$RD/src/main/resources/templates/entry/_row.html"
+{ grep -q 'id="income-cat"' "$REG_ENTRY" && grep -q '/entry/income' "$REG_ENTRY" \
+  && grep -q 'data-acct-type' "$REG_ENTRY" \
+  && ! grep -q 'name="kind" value="INCOME"' "$ROW"; } \
+  && log_ok "v12-INCOME-UI 收入侧结构化(类目+账户联动)· 账户行已移除硬编码 +收入" \
+  || log_bad "v12-INCOME-UI 收入侧 UI/联动缺 或 账户行仍有硬编码收入" "see entry/index.html / _row.html"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

@@ -2,6 +2,28 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.12.0] · 2026-07-02
+
+> 详见 [`prd/v0.12.md`](prd/v0.12.md) · [`tech-design/v0.12.md`](tech-design/v0.12.md) · 预览 [`preview/v0.12/income-entry.html`](preview/v0.12/income-entry.html)
+
+### Changed / Added — 收支填报「收入侧」升级(结构化 · 关联账户 · 直接入账)
+
+- **收入改为结构化录入**:填报页「第一步·本月收支」的收入侧从"手填一个总收入数"升级为**逐笔录入** = `金额 + 类目 + 目标账户`(可多笔)。每笔保存即:写一条 `cash_flow`(INCOME · 真实外部流入 `is_adjustment=0`)+ 直接入该账户本期余额 + 汇入家庭本月收入。**一次录入,不再"2框 + 账户各录一遍"**。支出侧维持"填一个总数"不动。
+- **收入支持股票类型 + 类目扩展 + 联动校验(FR-141/143/147)**:类目下拉默认「工资(→现金)」「薪资-股票(→股票)」,并扩 股息/分红、利息、卖出回款;`cash_flow_category` 加 `account_type` 绑定。**选类目 → 目标账户按绑定类型联动过滤**(工资只列现金 / 股息只列股票),**服务端亦校验**错配直接拒(防"工资录进股票 / 股息录进现金")。目标账户本版仅现金/股票(理财/房产 later),LOAN 不作收入落点。
+- **股票收入不再虚高收益率(FR-144)**:股票收入(股息/薪资-股票/卖出回款)记为**外部流入**,落到该账户的 CASH 现金行(扛得住「刷新股票估值」重算,不被覆盖)+ 立即入当期快照;从 `PnL = ΔNW − 净流入 − 净划转` 里正确剔除 → 股息不再被当"投资赚的"。取代此前"直接改股票余额→收益率虚高"。
+- **家庭收入口径切换(FR-142)**:人赚/净流入/储蓄率/月均收入 的**收入侧**改从"收入录入(cash_flow INCOME)汇总"取;历史账期 PMC 手填收入>0 仍优先(向后兼容,历史指标不变),新账期取 cash_flow —— 按期各取其一、不叠加(防双计)。支出侧口径不变。
+- **删/改可逆(FR-145/148)**:「收入侧」与「账户明细」是**同一批流水的两个视图**(同一条 `cash_flow`,非副本)。删一笔 = 软删该 flow + 冲回账户余额(股票冲回 CASH 现金行);账户级其它流水(支出/划转)不受影响。
+
+### 迁移
+
+- `V34__income_category_account_type.sql`:`cash_flow_category` 加 `account_type` 列 + 回填 + 新增 stock_salary/dividend/stock_sell 类目。全 ADD COLUMN NULL + 新行,prod 老数据 0 破坏。
+
+### 测试
+
+- 单测 `CashflowBreakdownTest` +2(PMC 收入缺→取 cash_flow;PMC 与 cash_flow 并存不双计)· mvn 292→**294**。
+- e2e `scripts/e2e.sh` +主线7(股票录股息 → snapshot/CASH行 +4200 + 流水 is_adjustment=0;类目↔账户校验拒错配;删除冲回)· 20→**28** 断言 · beta 实跑 28/28。
+- qa-run +v12-INCOME-CAT/ENDPOINT/STOCK/KOUJING/UI(黑盒 418→**423**);数字带 版本 11→12 · 迁移 33→34。
+
 ## [v0.11.7] · 2026-07-02
 
 ### Changed

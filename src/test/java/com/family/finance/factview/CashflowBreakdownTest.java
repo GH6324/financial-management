@@ -87,6 +87,29 @@ class CashflowBreakdownTest {
     }
 
     @Test
+    void income_fromCashFlow_whenPmcIncomeAbsent_expenseFromPmc() {
+        // v0.12 FR-142:新账期收入侧改走 cash_flow 录入,2框只填支出 → PMC.totalIncome=null。
+        // 收入应取 cash_flow(8000,不被 PMC 空收入低估为 0),支出取 PMC(4500)。
+        PeriodMemberCashflowMapper pmc = mock(PeriodMemberCashflowMapper.class);
+        when(pmc.findFamilyAggregateForPeriod(102L))
+                .thenReturn(Optional.of(new SinglePeriodAggregate(102L, 102L, null, bd("4500"), 1)));
+        CashflowBreakdown b = svc(pmc).cashflowBreakdown(cnySlice(), 102L);
+        assertThat(b.income()).as("PMC 收入缺 → 收入取 cash_flow").isEqualByComparingTo(bd("8000"));
+        assertThat(b.expense()).as("支出取 PMC").isEqualByComparingTo(bd("4500"));
+        assertThat(b.netInflow()).isEqualByComparingTo(bd("3500"));
+    }
+
+    @Test
+    void income_notDoubleCounted_whenBothPmcAndCashFlowPresent() {
+        // 防双计:PMC 收入 9000 存在时,即便 cash_flow 也有 8000,收入只取一处(PMC 9000),绝不叠加成 17000。
+        PeriodMemberCashflowMapper pmc = mock(PeriodMemberCashflowMapper.class);
+        when(pmc.findFamilyAggregateForPeriod(102L))
+                .thenReturn(Optional.of(new SinglePeriodAggregate(102L, 102L, bd("9000"), bd("4000"), 2)));
+        CashflowBreakdown b = svc(pmc).cashflowBreakdown(cnySlice(), 102L);
+        assertThat(b.income()).as("单一来源,不叠加").isEqualByComparingTo(bd("9000"));
+    }
+
+    @Test
     void nullPeriod_returnsZeros() {
         PeriodMemberCashflowMapper pmc = mock(PeriodMemberCashflowMapper.class);
         CashflowBreakdown b = svc(pmc).cashflowBreakdown(cnySlice(), null);

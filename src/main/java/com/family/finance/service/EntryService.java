@@ -54,6 +54,9 @@ public class EntryService {
     private final com.family.finance.service.config.FamilyConfigService configService;
     /** v0.4.1 FR-52f · 股票估值事件 · ledger 显示 */
     private final StockValuationEventMapper stockValuationEventMapper;
+    /** v0.12 · 收入侧:类目↔账户类型校验 + 股票收入落 CASH 现金行 */
+    private final com.family.finance.repository.CashFlowCategoryMapper cashFlowCategoryMapper;
+    private final com.family.finance.service.stock.StockHoldingService stockHoldingService;
 
     public Optional<Period> findSelectedPeriod(long familyId, String periodParam) {
         if (periodParam == null || periodParam.isBlank()) {
@@ -180,7 +183,7 @@ public class EntryService {
         Period period = requireOpenPeriod(familyId, periodId);
         Account account = requireAccount(familyId, accountId);
         BigDecimal delta = kind == CashFlowKind.INCOME ? amount : amount.negate();
-        applyDeltaToBalance(period, account, memberId, delta,
+        creditAccountBalance(familyId, period, account, memberId, delta,
                 (kind == CashFlowKind.INCOME ? "+收入 " : "-支出 ") + money(amount));
         insertCashFlow(period, account, memberId, new CashFlowLine(kind, categoryCode, amount, note));
         // v0.2 bug 修(2026-05-10): cash_flow 路径必须把 todo 标 DONE,
@@ -191,6 +194,39 @@ public class EntryService {
         return rowFor(familyId, memberId, periodId, accountId);
     }
 
+    /**
+     * v0.12 FR-140/141/143/144/147 · 收入侧结构化录入:一笔收入 = 金额 + 类目 + 目标账户。
+     * 校验类目↔账户类型(服务端红线);写 cash_flow(INCOME · is_adjustment=0 · 真实外部流入,被 PnL 剔除)
+     * + 入账(股票账户落 CASH 现金行,扛过估值刷新)+ 标 todo done。
+     */
+    @Transactional
+    public EntryRow recordIncome(long familyId, long memberId, long periodId,
+                                 long accountId, String categoryCode, BigDecimal amount, String note) {
+        Period period = requireOpenPeriod(familyId, periodId);
+        Account account = requireAccount(familyId, accountId);
+        if (account.getType() == AccountType.LOAN) {
+            throw new IllegalArgumentException("负债账户不能录入收入");
+        }
+        var cat = cashFlowCategoryMapper.findByCode(categoryCode)
+                .orElseThrow(() -> new IllegalArgumentException("收入类目不存在: " + categoryCode));
+        if (!"INCOME".equals(cat.getKind())) {
+            throw new IllegalArgumentException("类目「" + cat.getDisplayName() + "」不是收入类目");
+        }
+        // FR-147 服务端红线:类目绑定的账户类型必须与目标账户一致(NULL=不限)· 防「工资录进股票 / 股息录进现金」
+        if (cat.getAccountType() != null && !cat.getAccountType().equals(account.getType().name())) {
+            throw new IllegalArgumentException("类目「" + cat.getDisplayName() + "」只能录入 "
+                    + cat.getAccountType() + " 类账户,不能录入" + account.getType() + "账户");
+        }
+        BigDecimal amt = positiveMoney(amount);
+        creditAccountBalance(familyId, period, account, memberId, amt,
+                "+收入 " + cat.getDisplayName() + " " + money(amt));
+        insertCashFlow(period, account, memberId, new CashFlowLine(CashFlowKind.INCOME, categoryCode, amt, note));
+        snapshotTodoMapper.markDone(periodId, accountId, memberId);
+        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "cash_flow", accountId,
+                "收入录入 " + cat.getDisplayName() + " " + money(amt) + " → " + account.getDisplayName());
+        return rowFor(familyId, memberId, periodId, accountId);
+    }
+
     /** v0.2 FR-32 · 软删现金流(同时反向冲销余额) */
     @Transactional
     public EntryRow softDeleteCashFlow(long familyId, long memberId, long cashFlowId) {
@@ -198,9 +234,9 @@ public class EntryService {
                 .orElseThrow(() -> new IllegalArgumentException("现金流不存在: " + cashFlowId));
         Period period = requireOpenPeriod(familyId, cf.getPeriodId());
         Account account = requireAccount(familyId, cf.getAccountId());
-        // 反向冲销:INCOME 删 → balance -amount;EXPENSE 删 → balance +amount
+        // 反向冲销:INCOME 删 → balance -amount;EXPENSE 删 → balance +amount(股票账户走 CASH 现金行)
         BigDecimal delta = cf.getKind() == CashFlowKind.INCOME ? cf.getAmount().negate() : cf.getAmount();
-        applyDeltaToBalance(period, account, memberId, delta,
+        creditAccountBalance(familyId, period, account, memberId, delta,
                 "✕ 撤销 " + cf.getKind() + " " + money(cf.getAmount()));
         cashFlowMapper.softDelete(cashFlowId);
         auditLogService.record(familyId, memberId, AuditLogType.CASH_FLOW_WRITE, "cash_flow", cashFlowId,
@@ -293,6 +329,21 @@ public class EntryService {
         auditLogService.record(period.getFamilyId(), memberId, AuditLogType.SNAPSHOT_WRITE,
                 "period_snapshot", account.getId(),
                 reason + ":余额 " + base + " → " + newBalance);
+    }
+
+    /**
+     * v0.12 · 把余额变动 delta 记到账户,按账户类型路由:
+     *   - STOCK:落到账户「CASH 现金行」(adjustAccountCash,估值刷新只重算持仓市值、不动现金行 → 扛得住)
+     *            + 同时 applyDeltaToBalance 立即反映到当期 snapshot(下次估值是「绝对重算含现金行」→ 不双计也不丢)。
+     *   - 其它账户:仅 applyDeltaToBalance(snapshot 就是余额真值)。
+     * 供收入侧 recordIncome + 账户级 addCashFlow/softDeleteCashFlow 统一复用。
+     */
+    private void creditAccountBalance(long familyId, Period period, Account account, long memberId,
+                                      BigDecimal delta, String reason) {
+        if (account.getType() == AccountType.STOCK) {
+            stockHoldingService.adjustAccountCash(familyId, account.getId(), account.getCurrency(), delta);
+        }
+        applyDeltaToBalance(period, account, memberId, delta, reason);
     }
 
     @Transactional
