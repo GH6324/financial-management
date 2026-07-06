@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>家庭账房 · v0.12 预览 · 收入录入重构(账户级多笔 · 全类型 · 直接入账)</title>
+  <title>家庭账房 · v0.12 预览 · 收入类型补全(账户级「+收入」加类目 · 全类型)</title>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../assets/style.css">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -20,193 +20,143 @@
     .pill-forest{background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)}
     .pill-brass{background:rgba(180,138,58,.12);color:var(--brass-deep);border:1px solid var(--brass-deep)}
     .pill-mute{background:var(--paper-soft);color:var(--ink-subtle)}
-    .seclabel{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.14em;color:#b08a3a;background:rgba(180,138,58,.08);border:1px dashed #c79338;padding:2px 8px;border-radius:2px;text-transform:uppercase}
-    .btn-ink{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;background:var(--ink);color:var(--paper);padding:8px 16px;border:1px solid var(--ink);display:inline-flex;align-items:center;gap:6px;cursor:pointer}
-    .btn-paper{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.06em;background:var(--card);color:var(--ink-soft);padding:6px 12px;border:1px solid var(--rule);display:inline-flex;align-items:center;gap:5px;cursor:pointer}
-    .fld{font-family:"JetBrains Mono",monospace;font-size:13px;background:var(--paper);border:1px solid var(--rule);padding:9px 10px}
-    .lbl{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-subtle);margin-bottom:5px;display:block}
-    table.led{width:100%;font-family:"Source Serif 4","Noto Serif SC",serif;font-size:14px;border-collapse:collapse}
-    table.led th{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-subtle);text-align:left;padding:7px 8px;border-bottom:1px solid var(--rule)}
-    table.led td{padding:11px 8px;border-top:1px solid var(--rule-soft);font-feature-settings:"tnum" 1;vertical-align:middle}
-    .num-pos{color:var(--forest)} .num-neg{color:var(--rust)}
-    .tnum{font-feature-settings:"tnum" 1}
+    .seclabel{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.14em;background:rgba(180,138,58,.08);border:1px dashed #c79338;color:#b08a3a;padding:2px 8px;border-radius:2px;text-transform:uppercase}
+    .btn-paper{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.06em;background:var(--card);color:var(--ink-soft);padding:5px 11px;border:1px solid var(--rule);display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+    .fld{font-family:"JetBrains Mono",monospace;font-size:12px;background:var(--card);border:1px solid var(--rule);padding:5px 8px}
+    .num-pos{color:var(--forest)} .num-neg{color:var(--rust)} .tnum{font-feature-settings:"tnum" 1}
     .callout{border-left:3px solid var(--brass-deep);background:var(--card-soft);padding:12px 16px}
-    .callout.forest{border-left-color:var(--forest)}
-    .callout.rust{border-left-color:var(--rust)}
+    .callout.forest{border-left-color:var(--forest)} .callout.rust{border-left-color:var(--rust)}
     .strike{text-decoration:line-through;opacity:.55}
-    .dashbox{border:1.5px dashed var(--rule)}
+    .row{background:var(--card);border:1px solid var(--rule);padding:16px 18px}
+    .hl{outline:2px solid var(--forest);outline-offset:-2px}
   </style>
 </head>
 <body class="min-h-screen">
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 
-<main class="max-w-[1180px] mx-auto px-6 lg:px-10 py-10">
+<main class="max-w-[1080px] mx-auto px-6 lg:px-10 py-10">
 
-  <!-- 顶注 -->
-  <div class="mb-8">
-    <div class="eyebrow mb-2">V · 0 · 12 · 预 · 览 · 收 · 入 · 录 · 入 · 重 · 构</div>
-    <h1 class="font-display text-4xl sm:text-5xl font-medium tracking-tight">一次录入,直接入账<span class="italic font-light text-brass-deep">。</span></h1>
-    <p class="annot mt-3 max-w-2xl">把「收入」做成<b class="text-ink">账户级、可多笔、全资产类型</b>的明细录入:录一笔收入 = 选金额 + 类目 + <b class="text-ink">目标账户</b> → 立即入该账户当期余额 + 留一条流水 + 记为外部流入(<b class="text-ink">不抬高收益率</b>)。彻底取代「2框填一次 + 账户再点『+收入』一次」的双录,也解决股票收入只能改余额→收益率虚高。</p>
+  <div class="mb-7">
+    <div class="eyebrow mb-2">V · 0 · 12 · 预 · 览 · 收 · 入 · 类 · 型 · 补 · 全</div>
+    <h1 class="font-display text-4xl sm:text-5xl font-medium tracking-tight">股票收入,走「+收入」不改余额<span class="italic font-light text-brass-deep">。</span></h1>
+    <p class="annot mt-3 max-w-2xl">一个<b class="text-ink">小补丁</b>:账户行里本就有的「+收入」长出<b class="text-ink">类目下拉</b>(含股息/利息/卖出回款/租金),并对<b class="text-ink">所有资产类型</b>可用。股票收入终于能按类目录到券商账户、记为<b class="text-ink">外部流入</b> —— 不再靠改余额把本金流入当成投资收益(收益率虚高)。<b class="text-ink">不建明细账、不动「2 框」</b>。</p>
   </div>
 
-  <!-- 旧 vs 新 对照 -->
-  <div class="grid md:grid-cols-2 gap-4 mb-10">
+  <!-- 旧 vs 新 -->
+  <div class="grid md:grid-cols-2 gap-4 mb-9">
     <div class="callout rust">
       <div class="seclabel" style="color:var(--rust);border-color:var(--rust);background:rgba(159,74,58,.08)">现状 · 痛点</div>
       <ul class="annot mt-2 space-y-1">
-        <li>① 顶部「2框」填家庭<span class="strike">总收入 2 万</span>(不入任何账户)</li>
-        <li>② 还要去工资卡账户点<span class="strike">「+收入」2 万</span>再录一次 → <b class="text-rust">同一笔录两遍</b></li>
-        <li>③ 券商到账的<b class="text-rust">股息/RSU</b> 没类目 → 干脆<span class="strike">直接改股票余额</span> → 被当投资赚的 → <b class="text-rust">收益率虚高</b></li>
+        <li>· 账户「+收入」类目<span class="strike">写死「工资」</span>,没有股息/利息</li>
+        <li>· 股票收入没类目 → 用户<span class="strike">直接改股票余额</span></li>
+        <li>· 改余额 = 被当「投资赚的」→ <b class="text-rust">收益率虚高</b></li>
       </ul>
     </div>
     <div class="callout forest">
-      <div class="seclabel" style="color:var(--forest);border-color:var(--forest);background:rgba(47,93,80,.08)">v0.12 · 新流程</div>
+      <div class="seclabel" style="color:var(--forest);border-color:var(--forest);background:rgba(47,93,80,.08)">v0.12 · 小补丁</div>
       <ul class="annot mt-2 space-y-1">
-        <li>① 在「本期收入」区<b class="text-forest">逐笔加</b>:金额 + 类目 + 目标账户</li>
-        <li>② 保存即<b class="text-forest">直接入该账户余额 + 留流水</b> —— 不用再去账户重录</li>
-        <li>③ 股息选「股息」类目入券商账户 → 记为<b class="text-forest">外部流入</b> → 收益率不虚高</li>
-        <li>④ 家庭「人赚 / 储蓄率」= 明细汇总,<b class="text-forest">只录这一处</b></li>
+        <li>· 「+收入」加<b class="text-forest">类目下拉</b>,按账户类型智能默认</li>
+        <li>· 现金/股票/理财/房产都能「+收入」(LOAN 除外)</li>
+        <li>· 记为<b class="text-forest">外部流入</b>(不进 PnL)→ 收益率不虚高</li>
       </ul>
     </div>
   </div>
 
-  <!-- ============ 主区:本期收入 ============ -->
-  <section class="paper-card p-6 lg:p-7 mb-6" style="border:2px solid var(--ink)">
-    <div class="flex items-baseline justify-between flex-wrap gap-3 pb-4 mb-5 border-b border-rule-soft">
-      <div>
-        <div class="eyebrow mb-1">第 · 一 · 步 · 本 · 期 · 收 · 入</div>
-        <h2 class="font-display text-2xl font-medium">本期收入 · 逐笔明细</h2>
-        <p class="note mt-1">2026 · 07 · OPEN &nbsp;·&nbsp; 每笔:金额 + 类目 + 目标账户 &nbsp;·&nbsp; 保存即入账留流水 &nbsp;·&nbsp; 可加多笔</p>
-      </div>
-      <span class="pill pill-mute">+15s / 笔 · 直接入账</span>
-    </div>
+  <!-- 账户行示例 · 股票(重点) -->
+  <div class="eyebrow mb-2">填 · 报 · 页 · 账 · 户 · 行(演进后)</div>
 
-    <!-- 录入行(加一笔) -->
-    <div class="dashbox p-4 mb-5" style="background:var(--paper-soft)">
-      <div class="grid grid-cols-12 gap-3 items-end">
-        <div class="col-span-6 sm:col-span-2">
-          <label class="lbl">金额 ¥</label>
-          <input class="fld w-full text-right tnum" placeholder="0.00" value="4,200">
+  <div class="row hl mb-3">
+    <div class="flex items-center gap-3 mb-3 flex-wrap">
+      <span class="pill pill-brass">股票</span>
+      <span class="font-display text-lg">富途证券 · 港美股</span>
+      <span class="pill">USD</span>
+      <span class="note ml-auto">上期末 ¥312,400 · 本期已估值刷新</span>
+    </div>
+    <div class="grid md:grid-cols-2 gap-4 items-start">
+      <!-- 操作区:+收入 长出类目 -->
+      <div>
+        <div class="note mb-1.5">本期操作</div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="note">＋收入</span>
+          <select class="fld"><option>股息 / 分红</option><option>利息</option><option>卖出回款 / 赎回</option><option>其他收入</option><option>工资</option></select>
+          <input class="fld w-24 text-right tnum" placeholder="金额" value="4,200">
+          <button class="btn-paper">+ 收入</button>
         </div>
-        <div class="col-span-6 sm:col-span-3">
-          <label class="lbl">类目</label>
-          <select class="fld w-full">
-            <option>股息 / 分红</option><option>工资</option><option>奖金</option>
-            <option>利息</option><option>投资赎回 / 卖出回款</option><option>租金</option>
-            <option>报销</option><option>经营</option><option>其他收入</option>
-          </select>
+        <div class="flex flex-wrap items-center gap-2 mt-2">
+          <button class="btn-paper">− 支出</button>
+          <button class="btn-paper">↔ 划转到…</button>
+          <button class="btn-paper">改期末余额</button>
         </div>
-        <div class="col-span-8 sm:col-span-4">
-          <label class="lbl">目标账户 <span class="text-ink-subtle normal-case">· 全类型(不含负债)</span></label>
-          <select class="fld w-full">
-            <option>富途证券 · 港美股 &nbsp;[股票]</option>
-            <option>招商银行 · 储蓄卡 &nbsp;[现金]</option>
-            <option>蚂蚁财富 · 稳健 &nbsp;[理财]</option>
-            <option>朝阳 · 自住房 &nbsp;[房产]</option>
-          </select>
-        </div>
-        <div class="col-span-4 sm:col-span-3 flex gap-2">
-          <input class="fld flex-1 min-w-0" placeholder="备注(选填)" value="Q2 分红">
-          <button class="btn-ink whitespace-nowrap">+ 加一笔</button>
+        <div class="callout forest mt-3" style="padding:8px 12px">
+          <p class="note" style="color:var(--forest)">▸ 股息/利息/卖出回款 = <b>外部进钱</b>,请走「+收入」;「改余额」只用于<b>市值涨跌</b>。用错会让收益率虚高。</p>
         </div>
       </div>
-      <p class="note mt-3">▸ 类目按目标账户类型智能默认:选<b class="text-ink">股票账户</b>默认「股息」· <b class="text-ink">现金账户</b>默认「工资」· <b class="text-ink">房产</b>默认「租金」。</p>
-    </div>
-
-    <!-- 本期已录明细 -->
-    <div class="mb-2 flex items-baseline justify-between">
-      <span class="eyebrow">本 · 期 · 已 · 录 · 4 · 笔</span>
-      <span class="note">点行尾「改 / 删」可逆:删除即冲回入账 + 移除流水</span>
-    </div>
-    <table class="led">
-      <thead><tr>
-        <th>类目</th><th>目标账户</th><th class="text-right">金额</th><th>备注</th><th>入账</th><th class="text-right">操作</th>
-      </tr></thead>
-      <tbody>
-        <tr style="background:rgba(47,93,80,.05)">
-          <td><span class="pill pill-forest">股息 / 分红</span></td>
-          <td>富途证券 · 港美股 <span class="pill">股票</span></td>
-          <td class="text-right num-pos tnum">+¥4,200</td>
-          <td class="note">Q2 分红</td>
-          <td><span class="pill pill-forest">已入券商 + 流水 ✓</span></td>
-          <td class="text-right note">改 · 删</td>
-        </tr>
-        <tr>
-          <td><span class="pill">工资</span></td>
-          <td>招商银行 · 储蓄卡 <span class="pill">现金</span></td>
-          <td class="text-right num-pos tnum">+¥38,000</td>
-          <td class="note">7 月薪</td>
-          <td><span class="pill pill-forest">已入储蓄卡 + 流水 ✓</span></td>
-          <td class="text-right note">改 · 删</td>
-        </tr>
-        <tr>
-          <td><span class="pill">利息</span></td>
-          <td>蚂蚁财富 · 稳健 <span class="pill">理财</span></td>
-          <td class="text-right num-pos tnum">+¥310</td>
-          <td class="note">货基结息</td>
-          <td><span class="pill pill-forest">已入理财 + 流水 ✓</span></td>
-          <td class="text-right note">改 · 删</td>
-        </tr>
-        <tr>
-          <td><span class="pill">租金</span></td>
-          <td>朝阳 · 自住房(出租) <span class="pill">房产</span></td>
-          <td class="text-right num-pos tnum">+¥6,500</td>
-          <td class="note">6 月房租</td>
-          <td><span class="pill pill-forest">已入房产 + 流水 ✓</span></td>
-          <td class="text-right note">改 · 删</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <!-- 家庭汇总(明细派生) -->
-    <div class="mt-5 pt-4 border-t border-rule grid sm:grid-cols-3 gap-4">
-      <div>
-        <div class="lbl">家庭本月总收入 <span class="normal-case">= SUM(明细)</span></div>
-        <div class="font-display text-2xl tnum num-pos">¥49,010</div>
-        <div class="note mt-1">决策 A1:顶部不再手填「总收入」,由明细自动汇总</div>
+      <!-- 本期摘要 -->
+      <div class="note">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+          <span>收入 <b class="tnum num-pos">4,200.00</b></span>
+          <span>支出 <b class="tnum">0.00</b></span>
+          <span>转入 <b class="tnum">0.00</b></span>
+          <span>转出 <b class="tnum">0.00</b></span>
+        </div>
+        <div class="mt-2">本期流水 · <b>1 笔</b>(股息 +¥4,200) · <a class="text-brass-deep">→ 跨期流水档案</a></div>
+        <div class="mt-3 pt-2" style="border-top:1px solid var(--rule-soft)">
+          <div class="pill pill-forest">股息 +¥4,200 已入券商 · 记外部流入 · 不进收益率 ✓</div>
+        </div>
       </div>
-      <div>
-        <div class="lbl">本月总支出</div>
-        <div class="font-display text-2xl tnum num-neg">¥12,400</div>
-        <div class="note mt-1">决策 B1:支出本迭代仍走成员快填(无「股票收入」痛点)</div>
-      </div>
-      <div>
-        <div class="lbl">人赚 · 净流入 <span class="normal-case">= 收入 − 支出</span></div>
-        <div class="font-display text-2xl tnum num-pos">+¥36,610</div>
-        <div class="note mt-1">口径切到明细汇总 · 与 PMC 不再重复计入</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 关键机制说明 -->
-  <div class="grid md:grid-cols-3 gap-4 mb-10">
-    <div class="callout">
-      <div class="seclabel">机制 · 直接入账</div>
-      <p class="annot mt-2">每笔收入 = 一条 <b class="text-ink">cash_flow</b>(INCOME · 账户 · 类目)+ 该账户<b class="text-ink">期末余额 += 金额</b>。在该账户「本期流水 / 跨期流水档案」都看得到。</p>
-    </div>
-    <div class="callout forest">
-      <div class="seclabel" style="color:var(--forest);border-color:var(--forest);background:rgba(47,93,80,.08)">机制 · 不虚高收益率</div>
-      <p class="annot mt-2">收入记为<b class="text-forest">外部净流入</b>,从 <b>PnL = ΔNW − 净流入 − 净划转</b> 里被正确剔除 → 股票收股息 <b class="text-forest">不再</b>被当「钱赚(投资)」。</p>
-    </div>
-    <div class="callout rust">
-      <div class="seclabel" style="color:var(--rust);border-color:var(--rust);background:rgba(159,74,58,.08)">防重复计入</div>
-      <p class="annot mt-2">净流入口径从「PMC 总收入」切到「收入明细汇总」,<b class="text-rust">三处同步改</b>(净流入 / 储蓄率 / 人赚拆解),避免明细 + PMC 双计。</p>
     </div>
   </div>
 
-  <!-- 待评审决策清单 -->
+  <!-- 账户行示例 · 现金(默认工资)+ 房产(默认租金)紧凑展示 -->
+  <div class="row mb-3">
+    <div class="flex items-center gap-3 mb-2 flex-wrap">
+      <span class="pill pill-mute">现金</span><span class="font-display">招商银行 · 储蓄卡</span>
+      <span class="note ml-auto">类目默认「工资」</span>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="note">＋收入</span>
+      <select class="fld"><option>工资</option><option>奖金</option><option>利息</option><option>报销</option><option>其他收入</option></select>
+      <input class="fld w-24 text-right tnum" placeholder="金额"><button class="btn-paper">+ 收入</button>
+      <span class="note ml-2">— 和以前一样顺,只是能选类目了</span>
+    </div>
+  </div>
+
+  <div class="row mb-9">
+    <div class="flex items-center gap-3 mb-2 flex-wrap">
+      <span class="pill" style="background:rgba(159,74,58,.10);color:var(--rust);border-color:var(--rust)">房产</span><span class="font-display">朝阳 · 出租房</span>
+      <span class="note ml-auto">类目默认「租金」</span>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="note">＋收入</span>
+      <select class="fld"><option>租金</option><option>其他收入</option></select>
+      <input class="fld w-24 text-right tnum" placeholder="金额"><button class="btn-paper">+ 收入</button>
+    </div>
+  </div>
+
+  <!-- 范围说明 -->
   <section class="paper-card p-6">
-    <div class="eyebrow mb-3">待 · 你 · 拍 · 板(评审要点)</div>
-    <table class="led">
-      <thead><tr><th>决策</th><th>推荐</th><th>备选</th></tr></thead>
-      <tbody>
-        <tr><td>A · 「2框」收入侧</td><td class="num-pos">A1 收入改由明细汇总(顶部不再手填总收入)</td><td class="note">A2 保留总收入快填,填了明细以明细为准</td></tr>
-        <tr><td>B · 支出这迭代动不动</td><td class="num-pos">B1 只重构收入,支出维持成员快填</td><td class="note">B2 支出也做成账户级明细(工程翻倍)</td></tr>
-        <tr><td>C · LOAN 账户</td><td class="num-pos">收入不落 LOAN(还贷=划转/支出),下拉排除</td><td class="note">—</td></tr>
-        <tr><td>D · 收入归属成员</td><td class="num-pos">按目标账户 owner 自动归属(少一步)</td><td class="note">行内单独选成员</td></tr>
-      </tbody>
-    </table>
-    <p class="note mt-4">评审通过后 → 出 <b class="text-ink">tech-design/v0.12.md</b>(净流入口径切换、cash_flow 类目扩展迁移、明细可逆删除、PMC 兼容/迁移)→ 再评审 → 写代码 + QA。</p>
+    <div class="eyebrow mb-3">范 · 围 · 与 · 边 · 界</div>
+    <div class="grid md:grid-cols-2 gap-5 annot">
+      <div>
+        <div class="pill pill-forest mb-2">本迭代做</div>
+        <ul class="space-y-1">
+          <li>· 收入类目扩展(股息/利息/卖出回款/租金)</li>
+          <li>· 「+收入」加类目下拉 + 按账户类型智能默认</li>
+          <li>· 现金/股票/理财/房产 全类型可用(LOAN 除外)</li>
+          <li>· 股票收入落现金部分、记外部流入,不被估值刷新冲掉</li>
+        </ul>
+      </div>
+      <div>
+        <div class="pill" style="background:rgba(159,74,58,.10);color:var(--rust);border-color:var(--rust)">明确不做</div>
+        <ul class="space-y-1">
+          <li>· ✗ 不建「逐笔明细账」模块(不做流水/明细记账)</li>
+          <li>· ✗ 不动 PMC「2 框」、本次不解决"双录"</li>
+          <li>· ✗ 不做单券持仓 / 自动算股息</li>
+          <li>· ✗ 收入不落 LOAN</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note mt-4">「关联账户 / 直接改本期余额 / 留流水 / 单账期多笔」现有「+收入」已满足,本次不额外做。评审通过 → 出 <b class="text-ink">tech-design/v0.12.md</b>(类目迁移、类目下拉、股票收入 vs 估值口径对齐)→ 再评审 → 写代码 + QA。</p>
   </section>
 
 </main>
