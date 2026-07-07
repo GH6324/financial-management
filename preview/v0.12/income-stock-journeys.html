@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.12 预览 · 收入录入 · 股票收入对齐「账户余额变动」多 journey</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{paper:'var(--paper)',card:'var(--card)','card-soft':'var(--card-soft)',ink:{DEFAULT:'var(--ink)',soft:'var(--ink-soft)',subtle:'var(--ink-subtle)'},rule:{DEFAULT:'var(--rule)',soft:'var(--rule-soft)'},brass:{DEFAULT:'var(--brass)',deep:'var(--brass-deep)'},forest:'var(--forest)',rust:'var(--rust)'},fontFamily:{display:['Fraunces','Noto Serif SC','serif'],serif:['"Source Serif 4"','Noto Serif SC','serif'],mono:['JetBrains Mono','monospace']}}}}</script>
+  <style>
+    body{background:var(--paper);color:var(--ink)}
+    .eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass-deep)}
+    .paper-card{background:var(--card);border:1px solid var(--rule);box-shadow:0 1px 0 rgba(26,23,20,.04),0 8px 24px -12px rgba(26,23,20,.08)}
+    .annot{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-subtle);line-height:1.7}
+    .note{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-subtle)}
+    .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.06em;padding:2px 8px;border-radius:2px;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--rule);background:var(--card);color:var(--ink-soft)}
+    .pill-forest{background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)}
+    .pill-brass{background:rgba(180,138,58,.12);color:var(--brass-deep);border:1px solid var(--brass-deep)}
+    .pill-rust{background:rgba(159,74,58,.10);color:var(--rust);border:1px solid var(--rust)}
+    .pill-mute{background:var(--paper-soft);color:var(--ink-subtle)}
+    .seclabel{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.14em;background:rgba(180,138,58,.08);border:1px dashed #c79338;color:#b08a3a;padding:2px 8px;border-radius:2px;text-transform:uppercase}
+    .btn-ink{font-family:"JetBrains Mono",monospace;font-size:11px;background:var(--ink);color:var(--paper);padding:7px 13px;border:1px solid var(--ink);display:inline-flex;gap:6px;cursor:pointer}
+    .btn-paper{font-family:"JetBrains Mono",monospace;font-size:10px;background:var(--card);color:var(--ink-soft);padding:5px 10px;border:1px solid var(--rule);cursor:pointer}
+    .fld{font-family:"JetBrains Mono",monospace;font-size:12px;background:var(--paper);border:1px solid var(--rule);padding:6px 9px}
+    .lbl{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-subtle);margin-bottom:4px;display:block}
+    .num-pos{color:var(--forest)}.tnum{font-feature-settings:"tnum" 1}
+    .callout{border-left:3px solid var(--brass-deep);background:var(--card-soft);padding:12px 16px}
+    .callout.forest{border-left-color:var(--forest)}
+    .step{width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--paper);font-family:"JetBrains Mono",monospace;font-size:11px;display:inline-flex;align-items:center;justify-content:center}
+    .hcard{border:1px solid var(--rule);background:var(--card);padding:12px 14px}
+    table.led{width:100%;font-family:"Source Serif 4","Noto Serif SC",serif;font-size:13px;border-collapse:collapse}
+    table.led th{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-subtle);text-align:left;padding:7px 8px;border-bottom:1px solid var(--rule)}
+    table.led td{padding:9px 8px;border-top:1px solid var(--rule-soft);vertical-align:top}
+  </style>
+</head>
+<body class="min-h-screen">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<main class="max-w-[1080px] mx-auto px-6 lg:px-10 py-10">
+
+  <div class="mb-6">
+    <div class="eyebrow mb-2">V · 0 · 12 · 预 · 览 · 收 · 入 · 录 · 入 · 股 · 票 · 多 · journey</div>
+    <h1 class="font-display text-4xl sm:text-5xl font-medium tracking-tight">股票收入,按"拿到的东西"录<span class="italic font-light text-brass-deep">。</span></h1>
+    <p class="annot mt-3 max-w-3xl">收入录入<b class="text-ink">先选类型(现金 / 股票)</b>。股票收入不该让用户自己算金额,而是<b class="text-ink">对齐股票账户「余额变动」的现有三种机制</b>、并<b class="text-ink">联动所选账户已有持仓</b>:上市股(代码+股数,按市价计值)/ 未上市股(如字节,手填估值)/ 券商现金(金额)。每种都记为<b class="text-ink">外部流入(不虚高收益率)</b>+ 汇入家庭收入。</p>
+  </div>
+
+  <!-- Step 1 -->
+  <div class="paper-card p-5 mb-4">
+    <div class="flex items-center gap-3 mb-3"><span class="step">1</span><span class="font-display text-lg">选类型</span></div>
+    <div class="flex gap-3">
+      <span class="pill pill-mute" style="padding:8px 16px">现金收入</span>
+      <span class="pill pill-brass" style="padding:8px 16px">● 股票收入</span>
+      <span class="note self-center">— 选「股票」进入下方多 journey;选「现金」则只需 账户+金额+类目(见文末表 J0)</span>
+    </div>
+  </div>
+
+  <!-- Step 2 · 选股票账户 → 联动持仓 -->
+  <div class="paper-card p-5 mb-4">
+    <div class="flex items-center gap-3 mb-3"><span class="step">2</span><span class="font-display text-lg">选股票账户 → 联动该账户已有持仓</span></div>
+    <div class="flex items-center gap-2 mb-4">
+      <span class="lbl" style="margin:0">股票账户</span>
+      <select class="fld"><option>富途证券 · 港美股</option><option>字节持股 · 未上市</option><option>华泰证券 · A股</option></select>
+      <span class="note">选定后,下面自动列出该账户里已有的持仓,收入"入到哪"一目了然。</span>
+    </div>
+    <div class="eyebrow mb-2">富途证券 · 已有持仓(联动)· 选一个入账,或新建</div>
+    <div class="grid md:grid-cols-3 gap-3">
+      <!-- AUTO 上市 -->
+      <div class="hcard">
+        <div class="flex items-center gap-2 mb-1"><span class="pill pill-brass">上市</span><span class="font-display">BABA 阿里</span></div>
+        <div class="note mb-2">现 120 股 · 最新价 $78.5 · 自动估值</div>
+        <div class="callout forest" style="padding:8px 10px">
+          <div class="lbl" style="color:var(--forest)">收入入账 · +股数</div>
+          <div class="flex items-center gap-1"><input class="fld w-16 text-right tnum" value="30"><span class="note">股 → 系统按 $78.5 计 ≈ <b class="num-pos">¥16,900</b></span></div>
+        </div>
+      </div>
+      <!-- CASH 现金 -->
+      <div class="hcard">
+        <div class="flex items-center gap-2 mb-1"><span class="pill pill-mute">现金</span><span class="font-display">USD 现金</span></div>
+        <div class="note mb-2">现 $1,200 · 券商闲置现金</div>
+        <div class="callout" style="padding:8px 10px">
+          <div class="lbl">收入入账 · +金额(股息/利息/卖出回款)</div>
+          <div class="flex items-center gap-1"><span class="note">$</span><input class="fld w-20 text-right tnum" value="600"><span class="note">→ 进现金行</span></div>
+        </div>
+      </div>
+      <!-- 新建 -->
+      <div class="hcard" style="border-style:dashed">
+        <div class="flex items-center gap-2 mb-1"><span class="pill">+ 新建</span><span class="font-display">首次拿到某票</span></div>
+        <div class="note mb-2">该账户还没有的持仓</div>
+        <div class="callout" style="padding:8px 10px">
+          <div class="lbl">新上市:代码+市场+股数</div>
+          <div class="flex gap-1 flex-wrap"><input class="fld w-20" placeholder="TSLA"><select class="fld"><option>US</option><option>A</option><option>HK</option></select><input class="fld w-14 text-right tnum" placeholder="股数"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 未上市账户 journey -->
+  <div class="paper-card p-5 mb-6">
+    <div class="flex items-center gap-3 mb-3"><span class="step">2′</span><span class="font-display text-lg">若选「字节持股 · 未上市」账户</span></div>
+    <div class="eyebrow mb-2">字节持股 · 已有持仓(MANUAL 无市价)</div>
+    <div class="hcard md:w-1/2">
+      <div class="flex items-center gap-2 mb-1"><span class="pill pill-rust">未上市</span><span class="font-display">字节跳动(期权/RSU)</span></div>
+      <div class="note mb-2">当前估值 ¥480,000 · 无市价,手填</div>
+      <div class="callout" style="padding:8px 10px">
+        <div class="lbl">收入入账 · +本批估值(这批归属的股权,按你认可的估值)</div>
+        <div class="flex items-center gap-1"><span class="note">¥</span><input class="fld w-24 text-right tnum" value="60000"><span class="note">→ 累加到该持仓估值</span></div>
+        <p class="note mt-1">▸ 字节未上市、无市价 → 按现有 MANUAL 持仓口径,用户填这批新增股权的估值。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Journey 表 -->
+  <section class="paper-card p-6 mb-4">
+    <div class="eyebrow mb-3">全 · journey · 一 · 览(请 review)</div>
+    <table class="led">
+      <thead><tr><th>#</th><th>场景</th><th>类型/账户</th><th>用户输入</th><th>系统怎么算 / 落点</th><th>记账</th></tr></thead>
+      <tbody>
+        <tr><td>J0</td><td>工资 / 现金股息 / 现金到账</td><td>现金 · 现金账户</td><td>金额 + 类目</td><td>直接入账户余额</td><td>cash_flow(现金类目)· 外部流入</td></tr>
+        <tr style="background:rgba(47,93,80,.05)"><td>S1</td><td>RSU 归属到<b>已持有的上市票</b></td><td>股票 · 选已有 AUTO 持仓</td><td>+股数</td><td>累加该持仓股数 · <b>按最新价计值</b>=入流入额</td><td>cash_flow(薪资-股票)· 外部流入</td></tr>
+        <tr><td>S2</td><td><b>首次</b>拿到某上市票 RSU</td><td>股票 · 新建</td><td>代码+市场+股数</td><td>新建 AUTO 持仓 · 按最新价计值</td><td>cash_flow(薪资-股票)· 外部流入</td></tr>
+        <tr style="background:rgba(159,74,58,.05)"><td>S3</td><td><b>未上市</b>股权(字节 RSU/期权)</td><td>股票 · 选已有 MANUAL 持仓</td><td>+本批估值 ¥</td><td>累加该 MANUAL 持仓估值(无市价)</td><td>cash_flow(薪资-股票)· 外部流入</td></tr>
+        <tr><td>S4</td><td>现金股息/利息/卖出回款进券商</td><td>股票 · 选 CASH 现金行</td><td>+金额</td><td>进该账户现金行(CASH)</td><td>cash_flow(股息/利息)· 外部流入</td></tr>
+      </tbody>
+    </table>
+    <p class="note mt-3">共性:S1–S4 都记 <b>外部流入(不进 PnL → 收益率不虚高)</b> + 立即入账户余额 + 汇入家庭收入;删除对称冲回。全部对齐现有股票账户「余额变动」三机制(AUTO/MANUAL/CASH),只是入口换成"收入录入 + 联动已有持仓"。</p>
+  </section>
+
+  <div class="callout forest">
+    <div class="seclabel" style="color:var(--forest);border-color:var(--forest);background:rgba(47,93,80,.08)">请你 review 的点</div>
+    <ul class="annot mt-2 space-y-1">
+      <li>① 交互:先选类型 → (股票)选账户 → <b>联动已有持仓卡片</b>,每张卡就地"入账"(+股数 / +估值 / +金额)+ 可"新建持仓"。这个流对吗?</li>
+      <li>② journey 覆盖够吗(J0/S1–S4)?卖出回款(S4 现金)算不算"收入",还是它其实是账户内减股+加现金的调整、不该进收入?</li>
+      <li>③ 上市 RSU 计值用"最新已知价"可接受吗(与账户估值同源)?未上市用用户手填估值可接受吗?</li>
+      <li>④ 是否需要"直接调该持仓到某股数/某估值"(绝对值)而非"+增量"?(现有余额变动是绝对值 upsert;收入语义更像 +增量)</li>
+    </ul>
+  </div>
+
+</main>
+</body>
+</html>
