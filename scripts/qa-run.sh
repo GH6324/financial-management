@@ -3310,6 +3310,13 @@ CFCM="$RD/src/main/java/com/family/finance/repository/CashFlowCategoryMapper.jav
   && log_ok "v12-STOCK-SELL-HIDDEN 卖出回款不算收入(下拉排除 + V35 沉底)" \
   || log_bad "v12-STOCK-SELL-HIDDEN 卖出回款未从收入排除" "see CashFlowCategoryMapper.listIncomeOrdered / V35"
 
+# v12-INCOME-FX · 收入列表币种修正(cash_flow.amount 是账户币种 · 家庭合计换本位币,不裸加 ¥)
+{ grep -q 'incomeBaseTotal' "$EC" && grep -q 'toBaseAmount' "$EC" && grep -q 'fxService' "$EC" \
+  && grep -q 'incomeBaseTotal' "$REG_ENTRY" && grep -q 'format2(e.currency' "$REG_ENTRY" \
+  && ! grep -q "aggregates.sum(incomeEntries" "$REG_ENTRY"; } \
+  && log_ok "v12-INCOME-FX 收入列表原币展示 + 家庭合计本位币(不再把账户币种裸加成 ¥)" \
+  || log_bad "v12-INCOME-FX 收入列表币种未换算" "see EntryController.toBaseAmount / entry/index.html"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

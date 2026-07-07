@@ -57,6 +57,8 @@ public class EntryController {
     private final EntryRefreshRateLimiter refreshRateLimiter;
     /** v0.12 · 股票收入:联动持仓 + 按股数入账 */
     private final com.family.finance.service.stock.StockHoldingService stockHoldingService;
+    /** v0.12.2 · 收入列表本位币换算(账户币种 → 本位币,与 dashboard 人赚同源) */
+    private final com.family.finance.service.FxService fxService;
 
     @GetMapping("/entry")
     public String entry(@AuthenticationPrincipal MemberPrincipal me,
@@ -148,7 +150,22 @@ public class EntryController {
                 .filter(a -> a.getType() != null
                         && ("CASH".equals(a.getType().name()) || "STOCK".equals(a.getType().name())))
                 .toList());
-        model.addAttribute("incomeEntries", cashFlowMapper.findIncomeEntries(me.getFamilyId(), period.getId()));
+        var incomeEntries = cashFlowMapper.findIncomeEntries(me.getFamilyId(), period.getId());
+        model.addAttribute("incomeEntries", incomeEntries);
+        // v0.12.2 · 币种修正:cash_flow.amount 是「账户币种」· 逐笔换到本位币汇总(与 dashboard 人赚同源),
+        // 每行原币展示 + 非本位币括注 ≈本位币;家庭合计走本位币,不再把美元/港币裸加成 ¥。
+        String baseCcy = familyMapper.findById(me.getFamilyId())
+                .map(f -> f.getBaseCurrency()).orElse("CNY");
+        java.util.Map<Long, BigDecimal> incomeBaseById = new java.util.LinkedHashMap<>();
+        BigDecimal incomeBaseTotal = BigDecimal.ZERO;
+        for (var e : incomeEntries) {
+            BigDecimal b = toBaseAmount(me.getFamilyId(), e.amount(), e.currency(), baseCcy, period.getId());
+            incomeBaseById.put(e.id(), b);
+            incomeBaseTotal = incomeBaseTotal.add(b);
+        }
+        model.addAttribute("baseCurrency", baseCcy);
+        model.addAttribute("incomeBaseById", incomeBaseById);
+        model.addAttribute("incomeBaseTotal", incomeBaseTotal.setScale(2, java.math.RoundingMode.HALF_EVEN));
 
         return "entry/index";
     }
@@ -591,5 +608,24 @@ public class EntryController {
             throw new IllegalArgumentException(key + " is required");
         }
         return new BigDecimal(value);
+    }
+
+    /**
+     * v0.12.2 · 把账户币种金额换到本位币(收入列表家庭合计用)· 与 AccountValuationService/StockHoldingService 同法:
+     * 直接汇率 → 反向取倒数 → 都缺则 1:1 兜底(记日志)。同币种直接返回。
+     */
+    private BigDecimal toBaseAmount(long familyId, BigDecimal amount, String currency, String base, long periodId) {
+        if (amount == null) return BigDecimal.ZERO;
+        if (currency == null || base == null || currency.equalsIgnoreCase(base)) return amount;
+        var r = fxService.getOrFetchRate(familyId, currency, base, periodId);
+        if (r.isPresent() && r.get().getRate() != null && r.get().getRate().signum() > 0) {
+            return amount.multiply(r.get().getRate()).setScale(2, java.math.RoundingMode.HALF_EVEN);
+        }
+        var inv = fxService.getOrFetchRate(familyId, base, currency, periodId);
+        if (inv.isPresent() && inv.get().getRate() != null && inv.get().getRate().signum() > 0) {
+            return amount.divide(inv.get().getRate(), 2, java.math.RoundingMode.HALF_EVEN);
+        }
+        log.warn("收入列表本位币换算缺汇率 · {}→{} family={} · 用 1:1 兜底", currency, base, familyId);
+        return amount;
     }
 }

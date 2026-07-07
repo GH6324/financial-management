@@ -117,7 +117,10 @@
             <span class="font-display" th:text="${e.accountName}">账户</span>
             <span class="pill text-[9px]" th:text="${e.accountType == 'STOCK' ? '股票' : '现金'}">现金</span>
             <span class="font-mono tnum num-pos ml-auto" data-priv
-                  th:text="'+¥' + ${#numbers.formatDecimal(e.amount,1,2)}">+¥0</span>
+                  th:text="'+' + ${T(com.family.finance.service.MoneyFormat).format2(e.currency, e.amount)}">+¥0</span>
+            <span class="font-mono text-[10px] text-ink-subtle" data-priv
+                  th:if="${e.currency != baseCurrency and incomeBaseById != null and incomeBaseById.get(e.id) != null}"
+                  th:text="'≈ ' + ${T(com.family.finance.service.MoneyFormat).format2(baseCurrency, incomeBaseById.get(e.id))}">≈ ¥0</span>
             <span class="font-mono text-[10px] text-ink-subtle" th:if="${e.note != null}" th:text="${e.note}">备注</span>
             <span class="pill pill-forest text-[9px]">已入账 + 流水</span>
             <form th:action="@{/entry/income/{id}/delete(id=${e.id})}" method="post" class="inline">
@@ -127,9 +130,9 @@
             </form>
           </div>
           <div class="px-4 py-2.5 flex items-center justify-between bg-card-soft flex-wrap gap-2">
-            <span class="font-mono text-[10px] uppercase text-ink-subtle">家庭本月收入 = SUM(收入录入) · 汇入人赚 / 储蓄率</span>
+            <span class="font-mono text-[10px] uppercase text-ink-subtle">家庭本月收入(本位币)= Σ 收入录入 · 汇入人赚 / 储蓄率</span>
             <span class="font-display text-lg tnum num-pos" data-priv
-                  th:text="'¥' + ${#numbers.formatDecimal(#aggregates.sum(incomeEntries.![amount]),1,2)}">¥0</span>
+                  th:text="${T(com.family.finance.service.MoneyFormat).format2(baseCurrency, incomeBaseTotal)}">¥0</span>
           </div>
         </div>
         <p th:if="${incomeEntries == null or incomeEntries.isEmpty()}" class="font-mono text-[11px] text-ink-subtle">本期还没录收入 · 工资 / 股息 / 利息… 逐笔加,直接入对应账户。</p>

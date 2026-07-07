@@ -2,6 +2,13 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.12.2] · 2026-07-07
+
+### Fixed — 填报页收入列表币种换算
+
+- **收入列表 / 家庭本月收入合计币种修正**:`cash_flow.amount` 存的是**账户币种**(全系统一致口径);此前填报页收入列表每行硬编码 `¥`、合计把美元/港币金额**跨币种裸加**成 ¥,对非本位币账户(如富途 USD)的收入(尤其未上市 +股数)显示与合计失真。现每行**按原币展示**(`$600.00` / `HK$…`),非本位币再括注 `≈ ¥本位币`;**家庭合计走本位币** = `Σ(amount × fx(账户币种→本位币, 本期))`,与 dashboard「人赚」同源同口径。**存储、账户余额、dashboard KPI 本就正确,本次仅修填报页展示/汇总层。**
+- `EntryController` 新增 `toBaseAmount`(直接汇率→反向取倒数→1:1 兜底,同 `AccountValuationService`/`StockHoldingService` 口径);qa-run 加 `v12-INCOME-FX` 守护(合计不再 `aggregates.sum` 裸加 · 每行带币种)。
+
 ## [v0.12.1] · 2026-07-07
 
 > 详见 [`prd/v0.12.md`](prd/v0.12.md) · [`tech-design/v0.12.md`](tech-design/v0.12.md) · 预览 [`preview/v0.12/income-stock-journeys.html`](preview/v0.12/income-stock-journeys.html)
