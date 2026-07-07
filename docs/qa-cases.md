@@ -1692,8 +1692,19 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v12-INCOME-ENDPOINT | `POST /entry/income` + `EntryService.recordIncome`;服务端红线校验「类目.account_type == 目标账户.type」(NULL 不限),错配抛异常拒绝 |
 | v12-INCOME-STOCK | 股票账户收入走 `creditAccountBalance → StockHoldingService.adjustAccountCash`(落 CASH 现金行,扛估值刷新)+ applyDeltaToBalance(立即入快照);记 `is_adjustment=0` 真实外部流入 |
 | v12-INCOME-KOUJING | `FactViewServiceImpl.netInflowIncome/netInflowExpense`:收入侧 PMC 手填(历史)优先否则 cash_flow 汇总(新账期),支出侧不变;按期各取其一不叠加(防双计);币种走本位币保不变性 |
-| v12-INCOME-UI | `entry/index.html` 收入侧结构化(`income-cat` + `/entry/income` + `data-acct-type` 联动);`_row.html` 移除硬编码 `+收入`(无 `name="kind" value="INCOME"`) |
+| v12-INCOME-UI | `entry/index.html` 收入侧**类型优先**(`tab-cash`/`tab-stock` + `income-cash-block` + `stock-holdings-target` + `/entry/income`);`_row.html` 移除硬编码 `+收入`(无 `name="kind" value="INCOME"`) |
 | (UT) CashflowBreakdownTest +2 | PMC 收入缺(totalIncome=null)→ 收入取 cash_flow(8000)不被低估为 0;PMC 收入 9000 存在时不与 cash_flow 8000 叠加成 17000(防双计) |
-| (e2e) 主线7 收入侧 | 股票录股息 +4200 → 该账户 snapshot +4200、CASH 现金行 +4200、流水 is_adjustment=0;工资(现金类目)→ 股票账户被拒(≥400)且未写库;删除 → snapshot/CASH 行冲回 |
 
-> 决策(承 prd/tech-design v0.12):收入=外部流入(不进 PnL)· 股票收入落 CASH 现金行(不被估值刷新覆盖)· 收入侧口径切 cash_flow 汇总但历史 PMC 优先(向后兼容 + 防双计)· 收入侧与账户明细同一批 cash_flow 两视图(删改天然联动)· 约束本版仅现金/股票 + 只做收入侧(支出侧维持总额)。
+### v0.12.1 精化 · 股票收入 = 持仓版(未上市模型升级 · +股数入账)
+
+| Case | 校验 |
+|---|---|
+| v12-MANUAL-SHARES | 未上市持仓 = `股数 × 单股估值`:`V35` 迁移 `UPDATE ... valuation_mode='MANUAL' SET shares=1`(老数据总值不变)· `AccountValuationService` MANUAL 分支 `manualBase += shares × manualValue`(`multiply(sh)`)· `StockHoldingService.createManual(displayName,shares,unitValue)` + `addShares` + `currentUnitValueInAccountCcy` |
+| v12-STOCK-SHARE-INCOME | 股票 +股数入账:`EntryService.recordStockIncomeExistingHolding/NewAuto/NewManual`(改建持仓 → applyDelta(+value) → cash_flow `is_adjustment=0` + `ref_holding_id/ref_shares`)· 端点 `/entry/income/stock/{holding,new-auto,new-manual}` · `CashFlowMapper` insert/findById 带 ref 列 · 联动持仓 fragment `entry/_income-stock.html :: holdings` |
+| v12-STOCK-SELL-HIDDEN | 卖出回款不算收入:`CashFlowCategoryMapper.listIncomeOrdered` `WHERE code <> 'stock_sell'` + `V35` `stock_sell` sort_order 沉底 |
+| (UT) StockManualSharesTest ×8 | createManual 存 shares+单股 · addShares 增减(冲回不为负)· currentUnitValue(MANUAL=单股 / AUTO=价×fx / 无价=null)· convertToManual 保 shares 且总值守恒(单股=整笔÷股数) |
+| (UT) ManualHoldingValuationTest ×2 | MANUAL 估值 = 2000×240=480000 · 老数据 shares=null 兜底 1 股 → 总值不变 |
+| (UT) EntryStockIncomeTest ×3 | +股数记外部流入(is_adjustment=0 + ref_holding_id/ref_shares + amount=股数×单股)· 无价拒绝且不写库 · 删除按 ref_shares 冲回股数(不走现金行) |
+| (e2e) 主线7 持仓版 | 现金股息 +4200(承 v0.12.0)· 未上市建仓 +100 股 ×50=5000(snapshot+5000 · flow ref)· 已有持仓 +50 股=2500(股数 100→150 · snapshot+2500)· 删除 +股数 冲回(150→100 · snapshot 回落)· 删建仓笔 股数→0;工资→股票账户拒错配 |
+
+> 决策(承 prd/tech-design v0.12):收入=外部流入(不进 PnL)· 股票收入按持仓入账(+股数上市按市价/未上市按手填单股估值 · +现金落 CASH 行)· 未上市升级为股数×单股估值(V35 老数据 1 股折算总值不变)· 卖出回款不算收入 · +股数删除按 ref 列精确冲回股数 · 收入侧与账户明细同一批 cash_flow 两视图。

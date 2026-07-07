@@ -3272,14 +3272,43 @@ FV="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
   && log_ok "v12-INCOME-KOUJING 收入/支出各自决定来源(收入 PMC空→cash_flow · 不叠加)" \
   || log_bad "v12-INCOME-KOUJING 收入口径未拆分" "see FactViewServiceImpl.netInflowIncome"
 
-# v12-INCOME-UI · 收入侧结构化(类目+目标账户联动)· 账户行不再硬编码 +收入
+# v12-INCOME-UI · 收入侧类型优先(现金/股票 tab · 股票联动持仓)· 账户行不再硬编码 +收入
 REG_ENTRY="$RD/src/main/resources/templates/entry/index.html"
 ROW="$RD/src/main/resources/templates/entry/_row.html"
-{ grep -q 'id="income-cat"' "$REG_ENTRY" && grep -q '/entry/income' "$REG_ENTRY" \
-  && grep -q 'data-acct-type' "$REG_ENTRY" \
+{ grep -q 'id="tab-stock"' "$REG_ENTRY" && grep -q 'id="income-cash-block"' "$REG_ENTRY" \
+  && grep -q 'stock-holdings-target' "$REG_ENTRY" && grep -q '/entry/income' "$REG_ENTRY" \
   && ! grep -q 'name="kind" value="INCOME"' "$ROW"; } \
-  && log_ok "v12-INCOME-UI 收入侧结构化(类目+账户联动)· 账户行已移除硬编码 +收入" \
-  || log_bad "v12-INCOME-UI 收入侧 UI/联动缺 或 账户行仍有硬编码收入" "see entry/index.html / _row.html"
+  && log_ok "v12-INCOME-UI 收入侧类型优先(现金/股票 tab + 联动持仓)· 账户行无硬编码 +收入" \
+  || log_bad "v12-INCOME-UI 收入侧 UI/类型切换缺 或 账户行仍有硬编码收入" "see entry/index.html / _row.html"
+
+# v12-MANUAL-SHARES · 未上市持仓升级为「股数×单股估值」+ V35 迁移(老数据 shares=1 总值不变)
+V35="$RD/db/migration/V35__stock_income_holding_model.sql"
+AVS="$RD/src/main/java/com/family/finance/service/stock/AccountValuationService.java"
+SHS="$RD/src/main/java/com/family/finance/service/stock/StockHoldingService.java"
+{ [ -f "$V35" ] && grep -q "valuation_mode = 'MANUAL'" "$V35" && grep -qi 'shares = 1' "$V35" \
+  && grep -q 'multiply(sh)' "$AVS" \
+  && grep -q 'BigDecimal shares, BigDecimal unitValue' "$SHS" \
+  && grep -q 'public StockHolding addShares' "$SHS" \
+  && grep -q 'currentUnitValueInAccountCcy' "$SHS"; } \
+  && log_ok "v12-MANUAL-SHARES 未上市=股数×单股估值 + V35 迁移(shares=1)+ 估值 shares×unit + addShares" \
+  || log_bad "v12-MANUAL-SHARES 未上市模型升级缺" "see V35 / AccountValuationService / StockHoldingService"
+
+# v12-STOCK-SHARE-INCOME · 股票收入按持仓入账(+股数)· cash_flow ref 列 + 端点 + 联动 fragment
+ES="$RD/src/main/java/com/family/finance/service/EntryService.java"
+EC="$RD/src/main/java/com/family/finance/web/entry/EntryController.java"
+CFM="$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java"
+STKFRAG="$RD/src/main/resources/templates/entry/_income-stock.html"
+{ grep -q 'recordStockIncomeExistingHolding' "$ES" && grep -q 'refHoldingId' "$ES" \
+  && grep -q '/entry/income/stock/holding' "$EC" && grep -q '/entry/income/stock/new-manual' "$EC" \
+  && grep -q 'ref_holding_id' "$CFM" && [ -f "$STKFRAG" ] && grep -q 'th:fragment="holdings"' "$STKFRAG"; } \
+  && log_ok "v12-STOCK-SHARE-INCOME 股票+股数入账(端点+服务+ref列+联动持仓fragment)" \
+  || log_bad "v12-STOCK-SHARE-INCOME 股票+股数收入缺" "see EntryService/EntryController/CashFlowMapper/_income-stock.html"
+
+# v12-STOCK-SELL-HIDDEN · 卖出回款不算收入(收入类目下拉排除 stock_sell + V35 沉底)
+CFCM="$RD/src/main/java/com/family/finance/repository/CashFlowCategoryMapper.java"
+{ grep -q "code <> 'stock_sell'" "$CFCM" && grep -q "code = 'stock_sell'" "$V35"; } \
+  && log_ok "v12-STOCK-SELL-HIDDEN 卖出回款不算收入(下拉排除 + V35 沉底)" \
+  || log_bad "v12-STOCK-SELL-HIDDEN 卖出回款未从收入排除" "see CashFlowCategoryMapper.listIncomeOrdered / V35"
 
 echo
 echo "═══════════════════════════════════════"

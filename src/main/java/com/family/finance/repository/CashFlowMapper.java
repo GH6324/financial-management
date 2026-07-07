@@ -39,18 +39,21 @@ public interface CashFlowMapper {
 
     @Insert("""
             INSERT INTO cash_flow (
-                period_id, account_id, kind, category_code, amount, occurred_at, note, submitted_by, is_adjustment
+                period_id, account_id, kind, category_code, amount, occurred_at, note, submitted_by, is_adjustment,
+                ref_holding_id, ref_shares
             ) VALUES (
-                #{periodId}, #{accountId}, #{kind}, #{categoryCode}, #{amount}, #{occurredAt}, #{note}, #{submittedBy}, #{adjustment}
+                #{periodId}, #{accountId}, #{kind}, #{categoryCode}, #{amount}, #{occurredAt}, #{note}, #{submittedBy}, #{adjustment},
+                #{refHoldingId}, #{refShares}
             )
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(CashFlow cashFlow);
 
-    /** v0.2 FR-32 · 按 id 取一行(含已删的);用于软删校验家庭归属与周期 */
+    /** v0.2 FR-32 · 按 id 取一行(含已删的);用于软删校验家庭归属与周期 · v0.12 带 ref_holding_id/ref_shares 供冲回 */
     @Select("""
             SELECT id, period_id, account_id, kind, category_code, amount,
-                   occurred_at, note, submitted_by, submitted_at
+                   occurred_at, note, submitted_by, submitted_at,
+                   ref_holding_id AS refHoldingId, ref_shares AS refShares
               FROM cash_flow
              WHERE id = #{id}
             """)

@@ -55,6 +55,8 @@ public class EntryController {
     private final StockPriceScheduler stockScheduler;
     private final AccountValuationService valuationService;
     private final EntryRefreshRateLimiter refreshRateLimiter;
+    /** v0.12 · 股票收入:联动持仓 + 按股数入账 */
+    private final com.family.finance.service.stock.StockHoldingService stockHoldingService;
 
     @GetMapping("/entry")
     public String entry(@AuthenticationPrincipal MemberPrincipal me,
@@ -251,12 +253,90 @@ public class EntryController {
         return "redirect:/entry?period=" + periodId;
     }
 
-    /** v0.12 FR-145/148 · 删一笔收入 = 软删该 cash_flow + 冲回账户余额(股票冲回 CASH 现金行);账户明细同步。 */
+    /** v0.12 FR-145/148 · 删一笔收入 = 软删该 cash_flow + 冲回账户余额(股票+股数冲回股数 / 股票现金冲回现金行);账户明细同步。 */
     @PostMapping("/entry/income/{id}/delete")
     public String deleteIncome(@AuthenticationPrincipal MemberPrincipal me,
                                @PathVariable("id") long cashFlowId,
                                @RequestParam long periodId) {
         entryService.softDeleteCashFlow(me.getFamilyId(), me.getMemberId(), cashFlowId);
+        return "redirect:/entry?period=" + periodId;
+    }
+
+    /** v0.12 FR-150 · 选股票账户后联动该账户已有持仓(HTMX fragment)· 供收入侧就地入账。 */
+    @GetMapping("/entry/income/stock/holdings")
+    public String stockIncomeHoldings(@AuthenticationPrincipal MemberPrincipal me,
+                                       @RequestParam long accountId,
+                                       @RequestParam long periodId,
+                                       Model model) {
+        Account account = accountMapper.findById(accountId)
+                .filter(a -> a.getFamilyId() == me.getFamilyId())
+                .filter(a -> a.getType() != null && "STOCK".equals(a.getType().name()))
+                .orElseThrow(() -> new IllegalArgumentException("非法股票账户"));
+        var holdings = stockHoldingService.findActiveByAccount(me.getFamilyId(), accountId);
+        java.util.Map<Long, BigDecimal> unitValues = new java.util.LinkedHashMap<>();
+        for (var h : holdings) {
+            if (h.getValuationMode() != null
+                    && !"CASH".equals(h.getValuationMode().name())) {
+                try {
+                    unitValues.put(h.getId(), stockHoldingService.currentUnitValueInAccountCcy(me.getFamilyId(), h));
+                } catch (Exception ignored) {}
+            }
+        }
+        model.addAttribute("account", account);
+        model.addAttribute("holdings", holdings);
+        model.addAttribute("unitValues", unitValues);
+        model.addAttribute("period", periodMapper.findById(periodId).orElse(null));
+        model.addAttribute("markets", List.of(Market.US, Market.CN, Market.HK));
+        return "entry/_income-stock :: holdings";
+    }
+
+    /** v0.12 FR-144 · 股票收入 · 已有持仓 +股数(上市/未上市)。 */
+    @PostMapping("/entry/income/stock/holding")
+    public String stockIncomeExistingHolding(@AuthenticationPrincipal MemberPrincipal me,
+                                             @RequestParam long periodId,
+                                             @RequestParam long accountId,
+                                             @RequestParam long holdingId,
+                                             @RequestParam BigDecimal addShares,
+                                             @RequestParam(defaultValue = "stock_salary") String categoryCode,
+                                             @RequestParam(required = false) String note) {
+        entryService.recordStockIncomeExistingHolding(me.getFamilyId(), me.getMemberId(), periodId,
+                accountId, holdingId, addShares, categoryCode, note);
+        return "redirect:/entry?period=" + periodId;
+    }
+
+    /** v0.12 FR-144 · 股票收入 · 新建上市持仓入账(代码+市场+股数)· 先拉价再计值。 */
+    @PostMapping("/entry/income/stock/new-auto")
+    public String stockIncomeNewAuto(@AuthenticationPrincipal MemberPrincipal me,
+                                     @RequestParam long periodId,
+                                     @RequestParam long accountId,
+                                     @RequestParam(required = false) String displayName,
+                                     @RequestParam String ticker,
+                                     @RequestParam String market,
+                                     @RequestParam BigDecimal shares,
+                                     @RequestParam(required = false) String currency,
+                                     @RequestParam(defaultValue = "stock_salary") String categoryCode,
+                                     @RequestParam(required = false) String note) {
+        Market mk = Market.valueOf(market.toUpperCase(java.util.Locale.ROOT));
+        try { stockScheduler.fetchMarket(mk); } catch (Exception e) {
+            log.warn("stock-income new-auto fetchMarket failed · {}: {}", mk, e.toString());
+        }
+        entryService.recordStockIncomeNewAuto(me.getFamilyId(), me.getMemberId(), periodId,
+                accountId, displayName, ticker, mk, shares, currency, categoryCode, note);
+        return "redirect:/entry?period=" + periodId;
+    }
+
+    /** v0.12 FR-144 · 股票收入 · 新建未上市持仓入账(名称+股数+单股估值)。 */
+    @PostMapping("/entry/income/stock/new-manual")
+    public String stockIncomeNewManual(@AuthenticationPrincipal MemberPrincipal me,
+                                       @RequestParam long periodId,
+                                       @RequestParam long accountId,
+                                       @RequestParam String displayName,
+                                       @RequestParam BigDecimal shares,
+                                       @RequestParam BigDecimal unitValue,
+                                       @RequestParam(defaultValue = "stock_salary") String categoryCode,
+                                       @RequestParam(required = false) String note) {
+        entryService.recordStockIncomeNewManual(me.getFamilyId(), me.getMemberId(), periodId,
+                accountId, displayName, shares, unitValue, categoryCode, note);
         return "redirect:/entry?period=" + periodId;
     }
 

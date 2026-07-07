@@ -150,7 +150,7 @@ eq "LOAN-新期无任何贷款预填为正" "$loan_pos" "0"
 eq "滚动-非LOAN账户新期延续上期末(carry 10500)" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$NEW_PID AND account_id=$ACC_A")" "10500"
 
 # ============================================================================
-section "主线 7 · 收入侧录入(v0.12 · 股票收入落 CASH 行+流水+不虚高 · 类目校验 · 删除冲回)"
+section "主线 7 · 收入侧录入(v0.12 持仓版 · 股票收入按持仓入账 · 现金股息 / +股数 · 类目校验 · 删除冲回)"
 IP="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='OPEN' ORDER BY period_start DESC LIMIT 1")"
 STK="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='STOCK' AND archived_at IS NULL ORDER BY id LIMIT 1")"
 if [ -n "$STK" ] && [ -n "$IP" ]; then
@@ -168,6 +168,31 @@ if [ -n "$STK" ] && [ -n "$IP" ]; then
   POSTcode "/entry/income/$cfid/delete" --data-urlencode "periodId=$IP" >/dev/null
   eq "收入-删除 snapshot 冲回" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$IP AND account_id=$STK")" "$snap0"
   eq "收入-删除 CASH 行冲回" "$(db "SELECT ROUND(IFNULL(SUM(manual_value),0)) FROM stock_holding WHERE account_id=$STK AND valuation_mode='CASH' AND archived_at IS NULL")" "$cash0"
+
+  # v0.12 持仓版 · 新建未上市持仓入账(+股数)· shares×单股估值 · 外部流入不虚高
+  snapM0="$(db "SELECT ROUND(IFNULL(end_balance,0)) FROM period_snapshot WHERE period_id=$IP AND account_id=$STK")"
+  cN="$(POSTcode /entry/income/stock/new-manual --data-urlencode "periodId=$IP" --data-urlencode "accountId=$STK" --data-urlencode "displayName=e2e字节RSU" --data-urlencode "shares=100" --data-urlencode "unitValue=50" --data-urlencode "categoryCode=stock_salary")"
+  eq "收入-未上市建仓入账 HTTP 2xx/3xx" "$([ "$cN" -ge 200 ] && [ "$cN" -lt 400 ] && echo ok || echo "$cN")" "ok"
+  HID="$(db "SELECT id FROM stock_holding WHERE account_id=$STK AND valuation_mode='MANUAL' AND display_name='e2e字节RSU' AND archived_at IS NULL ORDER BY id DESC LIMIT 1")"
+  eq "收入-未上市持仓已建 shares=100" "$(db "SELECT ROUND(shares) FROM stock_holding WHERE id=$HID")" "100"
+  eq "收入-未上市持仓单股估值=50" "$(db "SELECT ROUND(manual_value) FROM stock_holding WHERE id=$HID")" "50"
+  eq "收入-未上市 snapshot +5000(100×50)" "$(( $(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$IP AND account_id=$STK") - snapM0 ))" "5000"
+  eq "收入-未上市 flow is_adjustment=0 + ref 记录" "$(db "SELECT CONCAT(is_adjustment,'|',ROUND(ref_shares),'|',IF(ref_holding_id=$HID,'H','?')) FROM cash_flow WHERE ref_holding_id=$HID AND category_code='stock_salary' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1")" "0|100|H"
+  # +股数 到已有持仓:+50 股 × 单股 50 = +2500 · 股数 100→150
+  snapS1="$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$IP AND account_id=$STK")"
+  POSTcode /entry/income/stock/holding --data-urlencode "periodId=$IP" --data-urlencode "accountId=$STK" --data-urlencode "holdingId=$HID" --data-urlencode "addShares=50" --data-urlencode "categoryCode=stock_salary" >/dev/null
+  eq "收入-已有持仓 +50 股 → 150 股" "$(db "SELECT ROUND(shares) FROM stock_holding WHERE id=$HID")" "150"
+  eq "收入-+股数 snapshot +2500(50×50)" "$(( $(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$IP AND account_id=$STK") - snapS1 ))" "2500"
+  # 删除 +股数 那笔 → 股数冲回 150→100 · snapshot -2500
+  scfid="$(db "SELECT id FROM cash_flow WHERE ref_holding_id=$HID AND ROUND(ref_shares)=50 AND deleted_at IS NULL ORDER BY id DESC LIMIT 1")"
+  POSTcode "/entry/income/$scfid/delete" --data-urlencode "periodId=$IP" >/dev/null
+  eq "收入-删除+股数 股数冲回 150→100" "$(db "SELECT ROUND(shares) FROM stock_holding WHERE id=$HID")" "100"
+  eq "收入-删除+股数 snapshot 回落到建仓后" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$IP AND account_id=$STK")" "$snapS1"
+  # 清理:删建仓那笔(股数 100→0)+ 归档空壳持仓
+  ncfid="$(db "SELECT id FROM cash_flow WHERE ref_holding_id=$HID AND deleted_at IS NULL ORDER BY id DESC LIMIT 1")"
+  POSTcode "/entry/income/$ncfid/delete" --data-urlencode "periodId=$IP" >/dev/null
+  eq "收入-删除建仓笔 股数冲回→0" "$(db "SELECT ROUND(IFNULL(shares,0)) FROM stock_holding WHERE id=$HID")" "0"
+  db "UPDATE stock_holding SET archived_at=NOW(3) WHERE id=$HID" >/dev/null 2>&1 || true
 else
   bad "收入-无 STOCK 账户/无 OPEN 期,跳过" "STK=$STK IP=$IP"
 fi

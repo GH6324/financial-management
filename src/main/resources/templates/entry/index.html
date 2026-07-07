@@ -42,43 +42,73 @@
     </div>
 
     <div class="p-6 space-y-6">
-      <!-- 收入侧 · 结构化 -->
+      <!-- 收入侧 · 类型优先(现金 / 股票)· FR-150 -->
       <div>
         <div class="flex items-baseline gap-2 mb-3 flex-wrap">
           <span class="pill pill-forest">收入</span>
-          <span class="font-mono text-[10px] text-ink-subtle">一笔一账户 · 目标账户仅现金/股票 · 类目决定可选账户</span>
+          <span class="font-mono text-[10px] text-ink-subtle">先选类型 · 现金填金额 / 股票按持仓入账 · 一次录入处处正确</span>
         </div>
 
-        <form th:action="@{/entry/income}" method="post" class="flex flex-wrap items-end gap-2 mb-3">
-          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-          <input type="hidden" name="periodId" th:value="${period.id}">
-          <div>
-            <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">金额 ¥</label>
-            <input name="amount" type="number" step="0.01" min="0.01" required placeholder="0.00"
-                   class="w-28 font-mono bg-paper border border-rule px-3 py-2 tnum text-right">
+        <!-- 类型切换 -->
+        <div class="flex gap-2 mb-4" role="tablist">
+          <button type="button" id="tab-cash" class="pill" style="padding:6px 16px;cursor:pointer">现金收入</button>
+          <button type="button" id="tab-stock" class="pill" style="padding:6px 16px;cursor:pointer">股票收入</button>
+        </div>
+
+        <!-- 现金收入 -->
+        <div id="income-cash-block">
+          <form th:action="@{/entry/income}" method="post" class="flex flex-wrap items-end gap-2 mb-1">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <input type="hidden" name="periodId" th:value="${period.id}">
+            <div>
+              <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">金额 ¥</label>
+              <input name="amount" type="number" step="0.01" min="0.01" required placeholder="0.00"
+                     class="w-28 font-mono bg-paper border border-rule px-3 py-2 tnum text-right">
+            </div>
+            <div>
+              <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">类目</label>
+              <select name="categoryCode" class="font-mono text-xs bg-paper border border-rule px-3 py-2">
+                <option th:each="c : ${incomeCategories}" th:if="${c.accountType == null or c.accountType != 'STOCK'}"
+                        th:value="${c.code}" th:text="${c.displayName}">工资</option>
+              </select>
+            </div>
+            <div>
+              <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">现金账户</label>
+              <select name="accountId" class="font-mono text-xs bg-paper border border-rule px-3 py-2">
+                <option th:each="a : ${incomeAccounts}" th:if="${a.type.name() == 'CASH'}"
+                        th:value="${a.id}" th:text="${a.displayName} + ' · ' + ${a.type.label}">账户</option>
+              </select>
+            </div>
+            <div class="flex-1 min-w-[120px]">
+              <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">备注(选填)</label>
+              <input name="note" maxlength="80" placeholder="如 6 月工资" class="w-full font-mono text-xs bg-paper border border-rule px-3 py-2">
+            </div>
+            <button type="submit" class="btn-ink text-sm">+ 加一笔</button>
+          </form>
+          <p class="font-mono text-[10px] text-ink-subtle">工资 / 奖金 / 利息 → 现金账户,直接入账 + 留流水。</p>
+        </div>
+
+        <!-- 股票收入:选账户 → 联动持仓 -->
+        <div id="income-stock-block" style="display:none">
+          <div class="flex flex-wrap items-end gap-2 mb-1">
+            <div>
+              <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">股票账户</label>
+              <select id="stock-acct" name="accountId"
+                      hx-get="/entry/income/stock/holdings"
+                      th:attr="hx-vals='{&quot;periodId&quot;: ' + ${period.id} + '}'"
+                      hx-target="#stock-holdings-target" hx-trigger="change"
+                      class="font-mono text-xs bg-paper border border-rule px-3 py-2">
+                <option value="" disabled selected>选股票账户…</option>
+                <option th:each="a : ${incomeAccounts}" th:if="${a.type.name() == 'STOCK'}"
+                        th:value="${a.id}" th:text="${a.displayName}">富途</option>
+              </select>
+            </div>
+            <p class="font-mono text-[10px] text-ink-subtle self-center flex-1 min-w-[160px]">选账户后联动该账户已有持仓:上市/未上市录股数、券商现金录金额。</p>
           </div>
-          <div>
-            <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">类目</label>
-            <select name="categoryCode" id="income-cat" class="font-mono text-xs bg-paper border border-rule px-3 py-2">
-              <option th:each="c : ${incomeCategories}" th:value="${c.code}" th:text="${c.displayName}"
-                      th:attr="data-acct-type=${c.accountType}">工资</option>
-            </select>
+          <div id="stock-holdings-target" class="mt-2">
+            <p class="font-mono text-[11px] text-ink-subtle border border-dashed border-rule px-4 py-3 bg-card-soft">↑ 先选一个股票账户,这里会联动列出它的持仓。</p>
           </div>
-          <div>
-            <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">目标账户
-              <span class="text-ink-subtle normal-case" id="income-acct-hint">现金/股票</span></label>
-            <select name="accountId" id="income-acct" class="font-mono text-xs bg-paper border border-rule px-3 py-2">
-              <option th:each="a : ${incomeAccounts}" th:value="${a.id}"
-                      th:text="${a.displayName} + ' · ' + ${a.type.label}"
-                      th:attr="data-acct-type=${a.type.name()}">账户</option>
-            </select>
-          </div>
-          <div class="flex-1 min-w-[120px]">
-            <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">备注(选填)</label>
-            <input name="note" maxlength="80" placeholder="如 Q2 分红" class="w-full font-mono text-xs bg-paper border border-rule px-3 py-2">
-          </div>
-          <button type="submit" class="btn-ink text-sm">+ 加一笔</button>
-        </form>
+        </div>
 
         <!-- 本期已录收入 -->
         <div th:if="${incomeEntries != null and !incomeEntries.isEmpty()}" class="border border-rule-soft bg-card">
@@ -130,30 +160,23 @@
     </div>
   </section>
 
-  <!-- v0.12 · 收入侧「类目 ↔ 账户」联动:选类目 → 目标账户按绑定类型过滤(服务端亦校验) -->
+  <!-- v0.12 FR-150 · 收入侧类型切换:现金 / 股票 -->
   <script>
     (function () {
-      var cat = document.getElementById('income-cat');
-      var acct = document.getElementById('income-acct');
-      var hint = document.getElementById('income-acct-hint');
-      if (!cat || !acct) return;
-      function sync() {
-        var opt = cat.options[cat.selectedIndex];
-        var t = opt ? (opt.getAttribute('data-acct-type') || '') : '';
-        var first = -1;
-        for (var i = 0; i < acct.options.length; i++) {
-          var o = acct.options[i];
-          var ok = !t || t === o.getAttribute('data-acct-type');   // 类目不限(空)→ 全部;否则类型匹配
-          o.hidden = !ok; o.disabled = !ok;
-          if (ok && first < 0) first = i;
-        }
-        if (acct.selectedIndex < 0 || acct.options[acct.selectedIndex].disabled) {
-          if (first >= 0) acct.selectedIndex = first;
-        }
-        if (hint) hint.textContent = t ? ('仅' + (t === 'STOCK' ? '股票' : '现金') + '账户') : '现金/股票';
+      var tabCash = document.getElementById('tab-cash');
+      var tabStock = document.getElementById('tab-stock');
+      var cashBlk = document.getElementById('income-cash-block');
+      var stockBlk = document.getElementById('income-stock-block');
+      if (!tabCash || !tabStock || !cashBlk || !stockBlk) return;
+      function pick(stock) {
+        cashBlk.style.display = stock ? 'none' : '';
+        stockBlk.style.display = stock ? '' : 'none';
+        tabStock.classList.toggle('pill-forest', stock);
+        tabCash.classList.toggle('pill-forest', !stock);
       }
-      cat.addEventListener('change', sync);
-      sync();
+      tabCash.addEventListener('click', function () { pick(false); });
+      tabStock.addEventListener('click', function () { pick(true); });
+      pick(false);   // 默认现金
     })();
   </script>
 

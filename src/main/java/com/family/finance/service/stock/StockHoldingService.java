@@ -108,21 +108,30 @@ public class StockHoldingService {
         return h;
     }
 
+    /**
+     * v0.12 · 创建 MANUAL(未上市)持仓 · 「股数 × 单股估值」模型。
+     * manual_value 语义 = 单股估值(账户币种);总市值 = shares × manual_value(见 AccountValuationService)。
+     * 适合未上市/私募/拉不到价(如字节跳动期权):用户填持股数 + 自己认可的单股估值。
+     */
     @Transactional
     public StockHolding createManual(long familyId, long accountId,
-                                     String displayName, BigDecimal manualValue) {
+                                     String displayName, BigDecimal shares, BigDecimal unitValue) {
         requireStockAccount(familyId, accountId);
         if (displayName == null || displayName.isBlank()) {
             throw new IllegalArgumentException("displayName 必填");
         }
-        if (manualValue == null || manualValue.signum() < 0) {
-            throw new IllegalArgumentException("manualValue 必须 ≥ 0");
+        if (shares == null || shares.signum() <= 0) {
+            throw new IllegalArgumentException("股数必须 > 0");
+        }
+        if (unitValue == null || unitValue.signum() < 0) {
+            throw new IllegalArgumentException("单股估值必须 ≥ 0");
         }
         StockHolding h = StockHolding.builder()
             .accountId(accountId)
             .displayName(displayName.trim())
             .valuationMode(ValuationMode.MANUAL)
-            .manualValue(manualValue)
+            .shares(shares)
+            .manualValue(unitValue)   // 单股估值
             .manualValueAt(LocalDateTime.now())
             .cashLinked(false)
             .build();
@@ -131,21 +140,66 @@ public class StockHoldingService {
     }
 
     /**
-     * 更新 MANUAL 持仓的市值(刷新 manual_value_at)。
+     * v0.12 · 更新 MANUAL 持仓的股数 / 单股估值(刷新 manual_value_at)。
+     * 二者任一为 null 表示不改该项(至少改一项)。
      */
     @Transactional
-    public StockHolding updateManualValue(long familyId, long holdingId, BigDecimal newValue) {
+    public StockHolding updateManual(long familyId, long holdingId, BigDecimal shares, BigDecimal unitValue) {
         StockHolding h = require(familyId, holdingId);
         if (h.getValuationMode() != ValuationMode.MANUAL) {
-            throw new IllegalArgumentException("仅 MANUAL 持仓可手动更新市值");
+            throw new IllegalArgumentException("仅未上市(手填)持仓可用此接口更新");
         }
-        if (newValue == null || newValue.signum() < 0) {
-            throw new IllegalArgumentException("市值必须 ≥ 0");
+        if (shares != null) {
+            if (shares.signum() <= 0) throw new IllegalArgumentException("股数必须 > 0");
+            h.setShares(shares);
         }
-        h.setManualValue(newValue);
+        if (unitValue != null) {
+            if (unitValue.signum() < 0) throw new IllegalArgumentException("单股估值必须 ≥ 0");
+            h.setManualValue(unitValue);
+        }
         h.setManualValueAt(LocalDateTime.now());
         holdingMapper.update(h);
         return h;
+    }
+
+    /**
+     * v0.12 · 给已有 AUTO/MANUAL 持仓增/减股数(收入 +股数 / 删除冲回 -股数)。
+     * 不改单价、不碰现金行;调用方负责随后 applyDeltaToBalance 与记流水。
+     */
+    @Transactional
+    public StockHolding addShares(long familyId, long holdingId, BigDecimal deltaShares) {
+        StockHolding h = require(familyId, holdingId);
+        if (h.getValuationMode() != ValuationMode.AUTO && h.getValuationMode() != ValuationMode.MANUAL) {
+            throw new IllegalArgumentException("仅上市/未上市持仓可增减股数");
+        }
+        if (deltaShares == null || deltaShares.signum() == 0) return h;
+        BigDecimal cur = h.getShares() == null ? BigDecimal.ZERO : h.getShares();
+        BigDecimal next = cur.add(deltaShares);
+        if (next.signum() < 0) next = BigDecimal.ZERO;   // 冲回不至于负股
+        h.setShares(next);
+        holdingMapper.update(h);
+        return h;
+    }
+
+    /**
+     * v0.12 · 持仓当前「单股估值」换算到账户币种:
+     *   AUTO   最新已知价 × FX(持仓币种 → 账户币种);无价 → 返回 null(调用方拒绝或提示先刷价)
+     *   MANUAL manual_value(已是账户币种单股估值)
+     *   CASH   不适用 → null
+     */
+    public BigDecimal currentUnitValueInAccountCcy(long familyId, StockHolding h) {
+        if (h == null) return null;
+        Account acc = accountMapper.findById(h.getAccountId()).orElse(null);
+        String acctCcy = acc != null && acc.getCurrency() != null ? acc.getCurrency() : null;
+        return switch (h.getValuationMode()) {
+            case MANUAL -> h.getManualValue();
+            case AUTO -> {
+                var snap = stockPriceFetcher.findLatestKnown(h.getTicker(), h.getMarket());
+                if (snap == null || snap.getClosePrice() == null) yield null;
+                yield fxConvert(familyId, snap.getClosePrice(), h.getCurrency(), acctCcy);
+            }
+            case CASH -> null;
+        };
     }
 
     /**
@@ -236,7 +290,16 @@ public class StockHoldingService {
         StockHolding h = require(familyId, holdingId);
         if (h.getValuationMode() != ValuationMode.AUTO) return h;
         h.setValuationMode(ValuationMode.MANUAL);
-        h.setManualValue(currentValueAsBaseline == null ? BigDecimal.ZERO : currentValueAsBaseline);
+        // v0.12 · MANUAL 语义 = 单股估值(总 = shares × manual_value)。保留 AUTO 的 shares,
+        // 把传入的「整笔当前市值」除以股数折成单股估值 → 总值守恒;shares 缺失/≤0 或 baseline≤0 则退回整笔口径(shares=1)。
+        BigDecimal baseline = currentValueAsBaseline == null ? BigDecimal.ZERO : currentValueAsBaseline;
+        BigDecimal sh = h.getShares();
+        if (sh != null && sh.signum() > 0 && baseline.signum() > 0) {
+            h.setManualValue(baseline.divide(sh, 4, java.math.RoundingMode.HALF_EVEN));
+        } else {
+            h.setShares(BigDecimal.ONE);
+            h.setManualValue(baseline);
+        }
         h.setManualValueAt(LocalDateTime.now());
         holdingMapper.update(h);
         return h;

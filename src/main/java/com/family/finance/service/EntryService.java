@@ -12,7 +12,10 @@ import com.family.finance.domain.period.PeriodStatus;
 import com.family.finance.domain.snapshot.PeriodSnapshot;
 import com.family.finance.domain.snapshot.SnapshotTodo;
 import com.family.finance.domain.snapshot.TodoStatus;
+import com.family.finance.domain.stock.Market;
+import com.family.finance.domain.stock.StockHolding;
 import com.family.finance.domain.stock.StockValuationEvent;
+import com.family.finance.domain.stock.ValuationMode;
 import com.family.finance.domain.transfer.Transfer;
 import com.family.finance.repository.AccountMapper;
 import com.family.finance.repository.CashFlowMapper;
@@ -23,6 +26,7 @@ import com.family.finance.repository.SnapshotTodoMapper;
 import com.family.finance.repository.StockValuationEventMapper;
 import com.family.finance.repository.TransferMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +42,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EntryService {
 
     /** 单家庭模式 · 见 prd §22.3 类 A */
@@ -207,16 +212,7 @@ public class EntryService {
         if (account.getType() == AccountType.LOAN) {
             throw new IllegalArgumentException("负债账户不能录入收入");
         }
-        var cat = cashFlowCategoryMapper.findByCode(categoryCode)
-                .orElseThrow(() -> new IllegalArgumentException("收入类目不存在: " + categoryCode));
-        if (!"INCOME".equals(cat.getKind())) {
-            throw new IllegalArgumentException("类目「" + cat.getDisplayName() + "」不是收入类目");
-        }
-        // FR-147 服务端红线:类目绑定的账户类型必须与目标账户一致(NULL=不限)· 防「工资录进股票 / 股息录进现金」
-        if (cat.getAccountType() != null && !cat.getAccountType().equals(account.getType().name())) {
-            throw new IllegalArgumentException("类目「" + cat.getDisplayName() + "」只能录入 "
-                    + cat.getAccountType() + " 类账户,不能录入" + account.getType() + "账户");
-        }
+        var cat = requireIncomeCategoryForAccount(categoryCode, account);
         BigDecimal amt = positiveMoney(amount);
         creditAccountBalance(familyId, period, account, memberId, amt,
                 "+收入 " + cat.getDisplayName() + " " + money(amt));
@@ -227,6 +223,142 @@ public class EntryService {
         return rowFor(familyId, memberId, periodId, accountId);
     }
 
+    /** 校验收入类目存在 + 是 INCOME + 绑定账户类型与目标账户一致(NULL=不限)· 返回类目。 */
+    private com.family.finance.domain.flow.CashFlowCategory requireIncomeCategoryForAccount(
+            String categoryCode, Account account) {
+        var cat = cashFlowCategoryMapper.findByCode(categoryCode)
+                .orElseThrow(() -> new IllegalArgumentException("收入类目不存在: " + categoryCode));
+        if (!"INCOME".equals(cat.getKind())) {
+            throw new IllegalArgumentException("类目「" + cat.getDisplayName() + "」不是收入类目");
+        }
+        // FR-147 服务端红线:类目绑定的账户类型必须与目标账户一致 · 防「工资录进股票 / 股息录进现金」
+        if (cat.getAccountType() != null && !cat.getAccountType().equals(account.getType().name())) {
+            throw new IllegalArgumentException("类目「" + cat.getDisplayName() + "」只能录入 "
+                    + cat.getAccountType() + " 类账户,不能录入" + account.getType() + "账户");
+        }
+        return cat;
+    }
+
+    /**
+     * v0.12 FR-144/150 · 股票收入 · 归属到「已有持仓」+股数(上市 AUTO / 未上市 MANUAL)。
+     * 计值:上市按最新已知价 × FX、未上市按持仓单股估值;value = addShares × 单价(账户币种)。
+     * shares += addShares(持久)+ applyDeltaToBalance(+value) 立即入账;记 cash_flow(INCOME · is_adjustment=0
+     * · ref_holding_id/ref_shares 供删除冲回)。外部流入不进 PnL → 收益率不虚高。
+     */
+    @Transactional
+    public EntryRow recordStockIncomeExistingHolding(long familyId, long memberId, long periodId,
+                                                     long accountId, long holdingId, BigDecimal addShares,
+                                                     String categoryCode, String note) {
+        Period period = requireOpenPeriod(familyId, periodId);
+        Account account = requireStockAccount(familyId, accountId);
+        var cat = requireIncomeCategoryForAccount(categoryCode, account);
+        StockHolding h = stockHoldingService.require(familyId, holdingId);
+        if (!h.getAccountId().equals(accountId)) {
+            throw new IllegalArgumentException("持仓不属于该账户");
+        }
+        if (h.getValuationMode() != ValuationMode.AUTO && h.getValuationMode() != ValuationMode.MANUAL) {
+            throw new IllegalArgumentException("仅上市/未上市持仓可按股数录收入(券商现金请用现金入账)");
+        }
+        BigDecimal shares = positiveShares(addShares);
+        BigDecimal unit = stockHoldingService.currentUnitValueInAccountCcy(familyId, h);
+        if (unit == null) {
+            throw new IllegalArgumentException("该持仓暂无价格,请先在持仓页刷新股价后再录入");
+        }
+        BigDecimal value = shares.multiply(unit).setScale(2, RoundingMode.HALF_EVEN);
+        stockHoldingService.addShares(familyId, holdingId, shares);
+        return finishStockShareIncome(familyId, memberId, period, account, cat.getDisplayName(),
+                categoryCode, value, holdingId, shares,
+                shareIncomeNote(shares, h.getDisplayName(), note));
+    }
+
+    /** v0.12 · 股票收入 · 新建「未上市」持仓入账(名称 + 股数 + 单股估值)。 */
+    @Transactional
+    public EntryRow recordStockIncomeNewManual(long familyId, long memberId, long periodId,
+                                               long accountId, String displayName, BigDecimal shares,
+                                               BigDecimal unitValue, String categoryCode, String note) {
+        Period period = requireOpenPeriod(familyId, periodId);
+        Account account = requireStockAccount(familyId, accountId);
+        var cat = requireIncomeCategoryForAccount(categoryCode, account);
+        BigDecimal sh = positiveShares(shares);
+        BigDecimal unit = positiveMoney(unitValue);
+        StockHolding h = stockHoldingService.createManual(familyId, accountId, displayName, sh, unit);
+        BigDecimal value = sh.multiply(unit).setScale(2, RoundingMode.HALF_EVEN);
+        return finishStockShareIncome(familyId, memberId, period, account, cat.getDisplayName(),
+                categoryCode, value, h.getId(), sh, shareIncomeNote(sh, h.getDisplayName(), note));
+    }
+
+    /**
+     * v0.12 · 股票收入 · 新建「上市」持仓入账(代码 + 市场 + 股数);按最新已知价计值。
+     * 调用方(controller)应先 fetchMarket 确保有价;无价则抛错提示先刷价。收入非买入 → 不扣现金。
+     */
+    @Transactional
+    public EntryRow recordStockIncomeNewAuto(long familyId, long memberId, long periodId,
+                                             long accountId, String displayName, String ticker, Market market,
+                                             BigDecimal shares, String currency, String categoryCode, String note) {
+        Period period = requireOpenPeriod(familyId, periodId);
+        Account account = requireStockAccount(familyId, accountId);
+        var cat = requireIncomeCategoryForAccount(categoryCode, account);
+        BigDecimal sh = positiveShares(shares);
+        StockHolding h = stockHoldingService.createAuto(familyId, accountId, displayName, ticker, market,
+                sh, null, currency, false);
+        BigDecimal unit = stockHoldingService.currentUnitValueInAccountCcy(familyId, h);
+        if (unit == null) {
+            throw new IllegalArgumentException("该股票暂无价格,请稍后在持仓页刷新股价后再录入");
+        }
+        BigDecimal value = sh.multiply(unit).setScale(2, RoundingMode.HALF_EVEN);
+        return finishStockShareIncome(familyId, memberId, period, account, cat.getDisplayName(),
+                categoryCode, value, h.getId(), sh, shareIncomeNote(sh, h.getDisplayName(), note));
+    }
+
+    /** 股票 +股数收入的收尾:立即入账(applyDelta)+ 记 cash_flow(带 ref 供冲回)+ 标 todo + 审计。 */
+    private EntryRow finishStockShareIncome(long familyId, long memberId, Period period, Account account,
+                                            String catLabel, String categoryCode, BigDecimal value,
+                                            long holdingId, BigDecimal shares, String note) {
+        applyDeltaToBalance(period, account, memberId, value,
+                "+收入 " + catLabel + " " + money(value));
+        cashFlowMapper.insert(CashFlow.builder()
+                .periodId(period.getId())
+                .accountId(account.getId())
+                .kind(CashFlowKind.INCOME)
+                .categoryCode(categoryCode)
+                .amount(value)
+                .occurredAt(period.getPeriodEnd())
+                .note(blankToNull(note))
+                .submittedBy(memberId)
+                .adjustment(false)
+                .refHoldingId(holdingId)
+                .refShares(shares)
+                .build());
+        snapshotTodoMapper.markDone(period.getId(), account.getId(), memberId);
+        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "cash_flow", account.getId(),
+                "股票收入 " + catLabel + " +" + shares.stripTrailingZeros().toPlainString() + " 股 "
+                        + money(value) + " → " + account.getDisplayName());
+        return rowFor(familyId, memberId, period.getId(), account.getId());
+    }
+
+    private String shareIncomeNote(BigDecimal shares, String holdingName, String userNote) {
+        String base = "+" + shares.stripTrailingZeros().toPlainString() + " 股 · " + holdingName;
+        if (userNote != null && !userNote.isBlank()) {
+            base = base + " · " + userNote.trim();
+        }
+        return base.length() > 80 ? base.substring(0, 80) : base;
+    }
+
+    private BigDecimal positiveShares(BigDecimal value) {
+        if (value == null) throw new IllegalArgumentException("股数必填");
+        BigDecimal s = value.setScale(4, RoundingMode.HALF_EVEN);
+        if (s.signum() <= 0) throw new IllegalArgumentException("股数必须大于 0");
+        return s;
+    }
+
+    private Account requireStockAccount(long familyId, long accountId) {
+        Account account = requireAccount(familyId, accountId);
+        if (account.getType() != AccountType.STOCK) {
+            throw new IllegalArgumentException("非股票账户不能按股数录入收入");
+        }
+        return account;
+    }
+
     /** v0.2 FR-32 · 软删现金流(同时反向冲销余额) */
     @Transactional
     public EntryRow softDeleteCashFlow(long familyId, long memberId, long cashFlowId) {
@@ -234,10 +366,23 @@ public class EntryService {
                 .orElseThrow(() -> new IllegalArgumentException("现金流不存在: " + cashFlowId));
         Period period = requireOpenPeriod(familyId, cf.getPeriodId());
         Account account = requireAccount(familyId, cf.getAccountId());
-        // 反向冲销:INCOME 删 → balance -amount;EXPENSE 删 → balance +amount(股票账户走 CASH 现金行)
-        BigDecimal delta = cf.getKind() == CashFlowKind.INCOME ? cf.getAmount().negate() : cf.getAmount();
-        creditAccountBalance(familyId, period, account, memberId, delta,
-                "✕ 撤销 " + cf.getKind() + " " + money(cf.getAmount()));
+        if (cf.getRefHoldingId() != null) {
+            // v0.12 · 股票「+股数」收入:冲回持仓股数(持仓已归档/删则跳过)+ 冲回余额;不碰现金行
+            BigDecimal shares = cf.getRefShares() == null ? BigDecimal.ZERO : cf.getRefShares();
+            try {
+                stockHoldingService.addShares(familyId, cf.getRefHoldingId(), shares.negate());
+            } catch (Exception e) {
+                log.warn("撤销股票收入冲回股数失败 · holding={} shares={}: {}",
+                        cf.getRefHoldingId(), shares, e.toString());
+            }
+            applyDeltaToBalance(period, account, memberId, cf.getAmount().negate(),
+                    "✕ 撤销股票收入(股数) " + money(cf.getAmount()));
+        } else {
+            // 反向冲销:INCOME 删 → balance -amount;EXPENSE 删 → balance +amount(股票账户走 CASH 现金行)
+            BigDecimal delta = cf.getKind() == CashFlowKind.INCOME ? cf.getAmount().negate() : cf.getAmount();
+            creditAccountBalance(familyId, period, account, memberId, delta,
+                    "✕ 撤销 " + cf.getKind() + " " + money(cf.getAmount()));
+        }
         cashFlowMapper.softDelete(cashFlowId);
         auditLogService.record(familyId, memberId, AuditLogType.CASH_FLOW_WRITE, "cash_flow", cashFlowId,
                 "软删现金流 " + cf.getKind() + " " + money(cf.getAmount()));

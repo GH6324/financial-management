@@ -2,6 +2,31 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.12.1] · 2026-07-07
+
+> 详见 [`prd/v0.12.md`](prd/v0.12.md) · [`tech-design/v0.12.md`](tech-design/v0.12.md) · 预览 [`preview/v0.12/income-stock-journeys.html`](preview/v0.12/income-stock-journeys.html)
+
+### Changed — 股票收入从「填金额」升级为「按持仓入账」(对齐股票账户余额变动机制)
+
+- **股票收入按持仓入账(FR-144/150)**:收入录入先选**类型(现金 / 股票)**;股票则选账户 → **联动该账户已有持仓**,按持仓类型入账:
+  - **上市 / 未上市持仓 +股数**:归属到已持有的票(如 RSU 归属),录 `+股数`;上市按最新已知价、未上市按持仓单股估值计值 = 外部流入额,持仓股数随之增加。
+  - **新建持仓入账**:首次拿到某票 —— 上市(代码+市场+股数)或未上市(名称+股数+单股估值),建仓不扣现金(收入非买入)。
+  - **券商现金 +金额**:股息/利息现金到账,加到该账户现金行(承 v0.12.0)。
+  - 一律记外部流入(`is_adjustment=0`,不进 PnL → 收益率不虚高)+ 立即入当期快照 + 汇入家庭收入。
+- **未上市(MANUAL)持仓升级为「股数 × 单股估值」(FR-149)**:此前只存整笔市值,现记 `股数 + 单股估值`(账户余额估值 = 股数 × 单股估值),与上市持仓孪生(价格手填而非市价)。持仓页新建/编辑未上市支持股数 + 单股估值。
+- **卖出回款不再算收入**:它是账户内「减股+加现金」的调整,不是外部流入 —— 从收入类目下拉隐藏(`stock_sell` 停用);家庭收入唯一以收入模块汇总为准。
+- **删/改可逆(FR-145/148)**:`+股数` 收入的 `cash_flow` 记 `ref_holding_id/ref_shares`,删除时按股数精确冲回持仓 + 回退余额;「收入侧」与「账户明细」删按钮共用同一后端,结果一致。
+
+### 迁移
+
+- `V35__stock_income_holding_model.sql`(全 backward-compat):未上市持仓按 **1 股** 折算(`shares=1`,单股=原整笔值,总值不变,用户可后续改正确股数/单股)· 停用 `stock_sell` 类目(排序沉底 + 前端隐藏,不删行)· `cash_flow` 加 `ref_holding_id`/`ref_shares`(nullable,老行全 NULL,0 影响)。
+
+### 测试
+
+- 单测 +13:`StockManualSharesTest`(未上市股数×单股 · createManual/updateManual/addShares/convertToManual 总值守恒)· `ManualHoldingValuationTest`(估值 shares×unit · 老数据 shares=null 兜底 1)· `EntryStockIncomeTest`(+股数外部流入 + ref 冲回)· mvn 294→**307**。
+- e2e 主线7 升级为持仓版(未上市建仓 +100 股=5000 → +50 股=2500 → 删除按股数冲回;现金股息承 v0.12.0)· 28→**38** 断言。
+- qa-run +v12-MANUAL-SHARES/STOCK-SHARE-INCOME/STOCK-SELL-HIDDEN(黑盒 423→**429**);数字带 迁移 34→**35**。
+
 ## [v0.12.0] · 2026-07-02
 
 > 详见 [`prd/v0.12.md`](prd/v0.12.md) · [`tech-design/v0.12.md`](tech-design/v0.12.md) · 预览 [`preview/v0.12/income-entry.html`](preview/v0.12/income-entry.html)

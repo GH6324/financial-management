@@ -199,7 +199,10 @@ public class AccountValuationService {
             switch (h.getValuationMode()) {
                 case MANUAL -> {
                     if (h.getManualValue() != null) {
-                        manualBase = manualBase.add(h.getManualValue());
+                        // v0.12 · 未上市持仓 = 股数 × 单股估值(manual_value 语义 = 单股·账户币种)。
+                        // 老数据经 V35 迁移 shares=1(1×原整笔值=原值);shares 仍缺则兜底 1(向后兼容)。
+                        BigDecimal sh = h.getShares() == null ? BigDecimal.ONE : h.getShares();
+                        manualBase = manualBase.add(h.getManualValue().multiply(sh));
                     }
                 }
                 case CASH -> {

@@ -139,8 +139,9 @@ public class StockHoldingController {
     public String createManual(@AuthenticationPrincipal MemberPrincipal me,
                                @PathVariable long accountId,
                                @RequestParam String displayName,
-                               @RequestParam BigDecimal manualValue) {
-        holdingService.createManual(me.getFamilyId(), accountId, displayName, manualValue);
+                               @RequestParam BigDecimal shares,
+                               @RequestParam BigDecimal unitValue) {
+        holdingService.createManual(me.getFamilyId(), accountId, displayName, shares, unitValue);
         try {
             // v0.4.1 · 持仓增改 → trigger=HOLDING_CHANGE · 用户感知此次估值因 holding 变动
             valuationService.refreshAllForFamily(me.getFamilyId(),
@@ -152,11 +153,12 @@ public class StockHoldingController {
     }
 
     @PostMapping("/accounts/{accountId}/holdings/{hid}/update")
-    public String updateManualValue(@AuthenticationPrincipal MemberPrincipal me,
-                                    @PathVariable long accountId,
-                                    @PathVariable long hid,
-                                    @RequestParam BigDecimal manualValue) {
-        holdingService.updateManualValue(me.getFamilyId(), hid, manualValue);
+    public String updateManual(@AuthenticationPrincipal MemberPrincipal me,
+                               @PathVariable long accountId,
+                               @PathVariable long hid,
+                               @RequestParam(required = false) BigDecimal shares,
+                               @RequestParam(required = false) BigDecimal unitValue) {
+        holdingService.updateManual(me.getFamilyId(), hid, shares, unitValue);
         try { valuationService.refreshAllForFamily(me.getFamilyId(),
             AccountValuationService.TriggerKind.HOLDING_CHANGE, me.getMemberId()); } catch (Exception ignored) {}
         return "redirect:/accounts/" + accountId + "/holdings";

@@ -25,4 +25,7 @@ public class CashFlow {
     private Long submittedBy;
     private LocalDateTime submittedAt;
     private boolean adjustment;   // v0.8 · is_adjustment · 账户内部现金调整(剔出投资损益)
+    // v0.12 · 股票「+股数」收入的冲回信息 · 删除时按 refShares 冲回持仓股数;其它流水为 null
+    private Long refHoldingId;
+    private BigDecimal refShares;
 }

@@ -12,9 +12,9 @@
   </div>
 
   <div class="mb-8">
-    <div class="eyebrow mb-2" style="color:var(--rust)">+ 手 · 填 · 市 · 值 · 持 · 仓</div>
+    <div class="eyebrow mb-2" style="color:var(--rust)">+ 未 · 上 · 市 · 持 · 仓 · 股 · 数 · × · 单 · 股</div>
     <h1 class="font-display text-4xl md:text-5xl font-medium tracking-tight">未上市 / 私募 / 拉不到价</h1>
-    <p class="font-serif text-sm text-ink-soft mt-3">系统不拉价,每月在填报页时确认是否需要更新。</p>
+    <p class="font-serif text-sm text-ink-soft mt-3">系统不拉价,填持股数 + 你认可的单股估值,市值 = 股数 × 单股。每月在填报页确认是否更新单股估值。</p>
   </div>
 
   <form th:action="@{|/accounts/${account.id}/holdings/new-manual|}" method="post" class="paper-card p-8 space-y-5">
@@ -27,24 +27,33 @@
              placeholder="字节跳动期权 / 红杉 X 基金">
     </div>
 
-    <div>
-      <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block"
-             th:text="'当前市值(账户币种 ' + ${account.currency} + ')'">当前市值(账户币种 HKD)</label>
-      <div class="flex items-center gap-2">
-        <span class="font-mono text-xl text-ink-subtle" th:text="${account.currency}">HKD</span>
-        <input type="number" name="manualValue" step="0.01" min="0" required
-               class="flex-1 font-mono text-xl bg-paper-soft border border-rule px-4 py-3 tnum text-right">
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">持股数</label>
+        <input type="number" name="shares" step="0.0001" min="0.0001" required
+               class="w-full font-mono text-xl bg-paper-soft border border-rule px-4 py-3 tnum text-right"
+               placeholder="2000">
       </div>
-      <p class="font-mono text-[10px] text-ink-subtle mt-1"
-         th:text="'↳ 直接填账户币种(' + ${account.currency} + ')· 不做汇率换算 · 如果你的实际持仓是其它币种,自己心算后填入'">↳ 直接填账户币种 · 不做汇率换算</p>
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block"
+               th:text="'单股估值(' + ${account.currency} + '· 手填)'">单股估值(HKD · 手填)</label>
+        <div class="flex items-center gap-2">
+          <span class="font-mono text-xl text-ink-subtle" th:text="${account.currency}">HKD</span>
+          <input type="number" name="unitValue" step="0.01" min="0" required
+                 class="flex-1 font-mono text-xl bg-paper-soft border border-rule px-4 py-3 tnum text-right"
+                 placeholder="240">
+        </div>
+      </div>
     </div>
+    <p class="font-mono text-[10px] text-ink-subtle"
+       th:text="'↳ 市值 = 股数 × 单股估值 · 单股直接填账户币种(' + ${account.currency} + ')· 不做汇率换算'">↳ 市值 = 股数 × 单股估值</p>
 
     <div class="paper-card p-4 bg-card-soft" style="border-left:4px solid var(--rust)">
       <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-rust mb-2">维 · 护 · 提 · 醒</div>
       <ul class="text-xs text-ink-soft space-y-1 list-disc pl-5">
-        <li>手填市值持仓不参与每日自动拉价</li>
-        <li>超过 30 天未更新时,填报页持仓变动按钮变橙色</li>
-        <li>可随时点[更新]按钮重新填本期值</li>
+        <li>未上市持仓不参与每日自动拉价</li>
+        <li>拿到新一批(如 RSU 归属)→ 去填报页收入侧录「+股数」,不用在这里手改</li>
+        <li>单股估值变了 → 回此持仓点[更新]改单股</li>
       </ul>
     </div>
 
