@@ -124,6 +124,7 @@
 | L7 · prod backward-compat | 任何 schema/代码/部署改动 | 先想对线上现有数据影响:迁移只 `ADD COLUMN NULL`/数据折算不破坏;**回滚只回 jar 不回 DB → 迁移须向前兼容老 jar** | release preflight 迁移提示 |
 | L8 · UI 规范 | 新增 UI 文案/图标 | **禁 emoji**,用 inline SVG(Feather 24×24 `stroke=currentColor`);入口/按钮命名**避免技术词**(集成/API/接口)让非技术家庭成员看得懂 | `TODO: no-emoji grep 守护` |
 | L9 · 运营参数 | 新增阈值/aksk/节奏/手机号等运营配置 | 走**管理页**配(DB > env > 代码默认 三层 fallback)· 不写服务器配置文件;涉及外部平台接入配一键测试入口 | 人工 |
+| L10 · 敏感值不入公开库 | 写文档/脚本/配置涉及 IP / SSH / 域名后台 / 凭据 / 密钥 / 部署路径 / 邮箱等 | **不进任何 tracked 文件**(仓库是公开开源库)· 具体值放 git-ignored `AGENTS.local.md` 或 Claude memory · 正文只留占位/通用说法 · 误提交后需**重写历史 + 强推**(`git filter-repo`)清除 | `vSEC-1`(扫 tracked 文件里 URL/SSH 上下文的公网 IP) |
 
 **新链怎么加**:出现"改 A 漏了 B"事故 → 加一行(触发/必须同步/守护)+ `qa-run.sh` 加静态 grep 把它网住,下次它自己 fail。
 

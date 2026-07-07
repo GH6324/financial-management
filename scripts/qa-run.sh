@@ -3323,6 +3323,14 @@ CSV="$RD/src/main/java/com/family/finance/web/dashboard/CashflowSplitView.java"
   && log_ok "v12-INCOME-EMPTY dashboard 收支拆解空态兼顾 cash_flow(仅录收入录入也不判空)" \
   || log_bad "v12-INCOME-EMPTY 空态仍只看 PMC filledMembers" "see CashflowSplitView.empty()"
 
+# vSEC-1 · 敏感值不入公开库(L10)· 扫 tracked 文件里 URL/SSH 上下文的公网 IP(排除私网/环回)
+# 用上下文正则(://IP 或 @IP)避免版本号/SVG 数据误报;不硬编码任何具体 IP,守护自身不泄露、不自匹配
+SEC_HITS="$(cd "$RD" && git grep -InoE '(://|@)([0-9]{1,3}\.){3}[0-9]{1,3}' -- . ':(exclude)*.jpg' ':(exclude)*.png' ':(exclude)*.jpeg' 2>/dev/null \
+  | grep -vE '(://|@)(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|0\.0\.0\.0)' || true)"
+[ -z "$SEC_HITS" ] \
+  && log_ok "vSEC-1 tracked 文件无 URL/SSH 上下文的公网 IP(敏感值不入公开库)" \
+  || log_bad "vSEC-1 疑似公网 IP 进了公开库" "$(printf '%s' "$SEC_HITS" | head -2 | tr '\n' ' ')"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
