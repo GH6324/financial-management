@@ -26,14 +26,11 @@
 
 ## 2. 环境拓扑(别搞错 · 致命级)
 
-| 环境 | 机器 | 访问 | 谁部署 |
-|---|---|---|---|
-| **beta** | **Claude 本机** · 公网 IP `[redacted-host]` · 本地 `127.0.0.1:20000` · systemd `finance` · jar `/opt/finance/app.jar` | `http://[redacted-host]/` · `https://beta.dixi-token.top`(经 prod nginx 反代) | Claude:`sudo /bin/cp target/app.jar /opt/finance/app.jar` + `sudo /bin/systemctl restart finance`(sudoers 白名单) |
-| **prod** | **另一台机** `root@[redacted-host]` · 仓库 `/root/financial-management` | **`https://dixi-token.top`**(Let's Encrypt · 80→443) | 用户 `git pull && sudo bash deploy/deploy.sh` **或** `release-prod` skill |
-
-- **`dixi-token.top` = prod,不是 beta**;beta 本机**无独立域名**(只 IP / beta 子域)。用户说「beta」=本机、说「dixi-token.top / 生产」=prod。
-- prod 操作**仅限 `release-prod` skill 编排流程内**(用户 2026-05-15 授权边界)。
-- beta DB:`mysql -ufinance -pfinance finance`(单家庭 `family_id=1` · 用户 `diwa`/`demo1234`)。
+- **beta** = 开发基线(维护者本机 · systemd `finance` · 本地 `:20000`)· **prod** = 维护者的独立服务器 · 在线 demo `https://dixi-token.top`(README 有 demo 账号)。两者是**不同机器、不同数据**。
+- 规则:开发/自测/截图都在 **beta**;beta 通过 + 维护者验收后才上 **prod**。别把 demo 域名当成 beta。
+- prod 操作**仅限 `release-prod` skill 编排流程内**(受控授权边界)。
+- 单家庭模式 `family_id=1`。
+- **具体值(IP / SSH / 凭据 / 部署路径 / sudoers)见本地 `AGENTS.local.md`(git-ignored,不入公开库)**。
 
 ---
 
@@ -99,7 +96,7 @@
 | `prd/vX.Y.md` | 需求(用户视角 FR) | 新版本新建;v0.1 已封板别改 |
 | `tech-design/vX.Y.md` | 技术方案(选型+取舍) | 实施权威源 |
 | `preview/vX.Y/<f>.html` | PRD 阶段交互预览 | 复用 `preview/assets/style.css` + 4 字体 + `kpi/pill/paper-card/eyebrow/btn-ink` 类;**别用废弃 `preview/pages/`** |
-| `db/migration/V<n>__*.sql` | schema 迁移 | 只增不改已发布的;全 backward-compat(见 L7)。跑:`DB_USER=finance DB_PASS=finance DB_NAME=finance bash db/apply.sh`(prod 读 `/etc/finance.env`) |
+| `db/migration/V<n>__*.sql` | schema 迁移 | 只增不改已发布的;全 backward-compat(见 L7)。跑:`DB_USER=… DB_PASS=… DB_NAME=… bash db/apply.sh`(prod 读 `/etc/finance.env`;本地值见 `AGENTS.local.md`) |
 | `scripts/qa-run.sh` | 黑盒静态守护(广度) | `bash scripts/qa-run.sh` · 加守护参考 `v12-*` 写法 |
 | `scripts/e2e.sh` | 端到端真验收(深度 · mysqldump 快照/还原) | `bash scripts/e2e.sh` · 断言用**增量**不用绝对值 · 不用 pipefail |
 | `docs/qa-cases.md` | QA 用例登记 | 每功能加一段 |
@@ -110,10 +107,7 @@
 | `AGENTS.md`(本文) | 项目操作手册 | 每次迭代必过 |
 | memory `~/.claude/projects/-home-finance-financial-management/memory/` | Claude 跨会话记忆 | 一事一文件 + `MEMORY.md` 索引;详细规则见各 `feedback_*` |
 
-**无头截图视觉验收**(排版类问题渲染 beta 实际看,见 `reference_headless_screenshot`):
-- chromium:`~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome`;playwright-core:`~/.npm/_npx/*/node_modules/playwright-core`(路径 hash/版本会变,用前 `find` 确认)。
-- 跑脚本前 `LD_LIBRARY_PATH=/tmp/xdmg/usr/lib/x86_64-linux-gnu`(缺 `libXdamage.so.1` → `apt-get download libxdamage1` + `dpkg-deb -x /tmp/xdmg`,免 sudo;`/tmp` 被清则重解)。CJK 字体 wqy-zenhei 在 `~/.local/share/fonts/`。
-- 脚本套路:login(`diwa`/`demo1234`)→ goto 页 → `waitForTimeout(2500)`(等 Chart 画完)→ screenshot。
+**无头截图视觉验收**(排版类问题渲染 beta 实际看):用 playwright-core + 本地 chromium 登录 beta 截图;套路 = login → goto 页 → `waitForTimeout(2500)`(等 Chart 画完)→ screenshot。**具体工具路径 / 依赖(libXdamage、CJK 字体)/ demo 账号见 `AGENTS.local.md`** 与 memory `reference_headless_screenshot`。
 
 ---
 
@@ -165,12 +159,10 @@ mvn -o test                    # 全量单测(当前 311)
 bash scripts/qa-run.sh         # 黑盒静态守护(当前 431)
 bash scripts/e2e.sh            # 端到端真验收(7 主线 38 断言 · 快照还原不污染)
 
-# 部署 beta(自测全绿后)
+# 部署 beta(自测全绿后)· 具体路径/凭据见 AGENTS.local.md
 mvn -o -q package -DskipTests
-DB_USER=finance DB_PASS=finance DB_NAME=finance bash db/apply.sh    # 应用新迁移
-sudo -n /bin/cp /home/finance/financial-management/target/app.jar /opt/finance/app.jar
-sudo -n /bin/systemctl restart finance
-curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:20000/health   # 等 200
+bash db/apply.sh               # 应用新迁移(DB 凭据见 AGENTS.local.md / /etc/finance.env)
+# 切 jar + 重启 systemd(sudoers 白名单命令)→ 等 /health 200
 
 # 发布 prod(用户回 release vX.Y.Z 后)
 bash .claude/skills/release-prod/release.sh preflight vX.Y.Z   # 阶段0 预检

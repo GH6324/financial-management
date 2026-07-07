@@ -57,3 +57,6 @@ application-secrets.yml
 /g1.html
 /list.html
 /acc.html
+
+# 本地运维具体值(IP/SSH/凭据/部署路径)· 不入公开库
+AGENTS.local.md
