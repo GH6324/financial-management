@@ -40,7 +40,13 @@ public record CashflowSplitView(
                 filledMembers, totalMembers, first, narrative(first, ren, qian, deltaNetWorth));
     }
 
-    public boolean empty()   { return filledMembers <= 0; }
+    /**
+     * 空态 = 本期完全没有收支信号。
+     * v0.12.2:收入侧口径已切 cash_flow(FR-142),PMC「2框」不再是唯一来源 —— 仅录了收入录入
+     * (如股票 +股数,PMC 未填)时 filledMembers=0 但 income>0,不该再判空。故:PMC 未填 **且** 无
+     * cash_flow 收/支 才算空。income/expense 取自 FR-142 口径的 CashflowBreakdown。
+     */
+    public boolean empty()   { return filledMembers <= 0 && sign(income) == 0 && sign(expense) == 0; }
     public boolean partial() { return filledMembers > 0 && totalMembers > 0 && filledMembers < totalMembers; }
 
     public boolean renPos()   { return sign(renZhuan) >= 0; }

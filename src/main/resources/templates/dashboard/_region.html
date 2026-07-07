@@ -216,8 +216,10 @@
           <span th:if="${cashflowSplit.partial()}" class="pill"
                 style="background:rgba(180,120,40,.1);color:#9a6a1f;border:1px solid #c79338">已填
             <span th:text="${cashflowSplit.filledMembers()}">1</span>/<span th:text="${cashflowSplit.totalMembers()}">5</span> · 收支可能不全</span>
-          <span th:if="${!cashflowSplit.empty() and !cashflowSplit.partial()}" class="pill pill-forest">已填
+          <span th:if="${!cashflowSplit.empty() and !cashflowSplit.partial() and cashflowSplit.filledMembers() > 0}" class="pill pill-forest">已填
             <span th:text="${cashflowSplit.filledMembers()}">3</span>/<span th:text="${cashflowSplit.totalMembers()}">3</span></span>
+          <!-- v0.12.2:收入来自收入录入(cash_flow)、PMC 2框未填时,不显误导的「已填 0/N」 -->
+          <span th:if="${!cashflowSplit.empty() and cashflowSplit.filledMembers() <= 0}" class="pill pill-forest">收入已录入</span>
         </div>
       </div>
 

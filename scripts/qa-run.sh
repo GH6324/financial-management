@@ -3317,6 +3317,12 @@ CFCM="$RD/src/main/java/com/family/finance/repository/CashFlowCategoryMapper.jav
   && log_ok "v12-INCOME-FX 收入列表原币展示 + 家庭合计本位币(不再把账户币种裸加成 ¥)" \
   || log_bad "v12-INCOME-FX 收入列表币种未换算" "see EntryController.toBaseAmount / entry/index.html"
 
+# v12-INCOME-EMPTY · dashboard「本期怎么变的」空态联动(L1)· 收入切 cash_flow 后不能只看 PMC filledMembers
+CSV="$RD/src/main/java/com/family/finance/web/dashboard/CashflowSplitView.java"
+{ grep -q 'sign(income) == 0' "$CSV" && grep -q 'sign(expense) == 0' "$CSV"; } \
+  && log_ok "v12-INCOME-EMPTY dashboard 收支拆解空态兼顾 cash_flow(仅录收入录入也不判空)" \
+  || log_bad "v12-INCOME-EMPTY 空态仍只看 PMC filledMembers" "see CashflowSplitView.empty()"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
