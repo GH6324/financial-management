@@ -43,6 +43,13 @@ public class IntegrationsController {
         model.addAttribute("deepseekKeyConfigured", configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_LLM_DEEPSEEK_KEY));
         model.addAttribute("llmMaxTokens",          configService.getInt(fid,  FamilyConfigService.K_LLM_MAX_TOKENS, 2000));
         model.addAttribute("llmTimeoutSeconds",     configService.getInt(fid,  FamilyConfigService.K_LLM_TIMEOUT_SECS, 25));
+        // v0.14 · LLM 供应商自选 / 温度 / 模型级联
+        model.addAttribute("llmPrimaryVendor",      configService.getString(fid, FamilyConfigService.K_LLM_PRIMARY_VENDOR, "qwen"));
+        model.addAttribute("llmTemperature",        configService.getString(fid, FamilyConfigService.K_LLM_TEMPERATURE, "0.5"));
+        model.addAttribute("llmModel",              configService.getString(fid, FamilyConfigService.K_LLM_MODEL, "auto"));
+        // v0.14 · 贵金属价格源 / cron
+        model.addAttribute("metalPriceSource",      configService.getString(fid, FamilyConfigService.K_METAL_PRICE_SOURCE, "sge"));
+        model.addAttribute("metalCron",             configService.getString(fid, FamilyConfigService.K_METAL_CRON, "0 20 16 * * MON-FRI"));
         // 股票
         model.addAttribute("stockEnabled",          configService.getBoolean(fid, FamilyConfigService.K_STOCK_ENABLED, false));
         model.addAttribute("stockCronUs",           configService.getString(fid,  FamilyConfigService.K_STOCK_CRON_US, "0 5 6 * * *"));
@@ -83,6 +90,9 @@ public class IntegrationsController {
     public String saveLlm(@AuthenticationPrincipal MemberPrincipal me,
                           @RequestParam(value = "qwenKey", required = false) String qwenKey,
                           @RequestParam(value = "deepseekKey", required = false) String deepseekKey,
+                          @RequestParam(value = "primaryVendor", required = false) String primaryVendor,
+                          @RequestParam(value = "temperature", required = false) Double temperature,
+                          @RequestParam(value = "model", required = false) String model,
                           @RequestParam("maxTokens") int maxTokens,
                           @RequestParam("timeoutSeconds") int timeoutSeconds,
                           RedirectAttributes ra) {
@@ -93,6 +103,15 @@ public class IntegrationsController {
         if (deepseekKey != null && !deepseekKey.isBlank()) {
             configService.set(fid, FamilyConfigService.K_LLM_DEEPSEEK_KEY, deepseekKey.trim());
         }
+        // v0.14 · 主选供应商(仅 qwen/deepseek,否则回落 qwen)
+        String vendor = "deepseek".equalsIgnoreCase(primaryVendor) ? "deepseek" : "qwen";
+        configService.set(fid, FamilyConfigService.K_LLM_PRIMARY_VENDOR, vendor);
+        // v0.14 · 温度 0~1(默认 0.5)
+        double temp = temperature == null ? 0.5 : Math.max(0.0, Math.min(1.0, temperature));
+        configService.set(fid, FamilyConfigService.K_LLM_TEMPERATURE, String.valueOf(temp));
+        // v0.14 · 模型(级联下拉;越权/空 → auto)· 校验属于所选供应商内置清单,否则回落 auto
+        String mdl = normalizeLlmModel(vendor, model);
+        configService.set(fid, FamilyConfigService.K_LLM_MODEL, mdl);
         int mt = Math.max(500, Math.min(maxTokens, 8000));
         int ts = Math.max(5, Math.min(timeoutSeconds, 120));
         configService.set(fid, FamilyConfigService.K_LLM_MAX_TOKENS, String.valueOf(mt));
@@ -102,8 +121,36 @@ public class IntegrationsController {
                 "family_runtime_config", fid,
                 "LLM 配置 · qwenKey=" + (configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_LLM_QWEN_KEY) ? "已配" : "未配")
                 + " · deepseekKey=" + (configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_LLM_DEEPSEEK_KEY) ? "已配" : "未配")
+                + " · primaryVendor=" + vendor + " · temperature=" + temp + " · model=" + mdl
                 + " · maxTokens=" + mt + " · timeout=" + ts + "s");
-        ra.addFlashAttribute("flash", "LLM 配置已保存 · 下次调用生效");
+        ra.addFlashAttribute("flash", "LLM 配置已保存 · 主选=" + vendor + " · 下次调用生效");
+        return "redirect:/admin/integrations";
+    }
+
+    /** v0.14 · 模型级联校验:必须属于所选供应商内置清单,否则回落 auto(防越权/打错型号) */
+    private static String normalizeLlmModel(String vendor, String model) {
+        if (model == null || model.isBlank() || model.equalsIgnoreCase("auto")) return "auto";
+        String m = model.trim();
+        java.util.List<String> allowed = "deepseek".equals(vendor)
+                ? java.util.List.of("deepseek-chat", "deepseek-reasoner")
+                : java.util.List.of("qwen-plus", "qwen-flash", "qwen-max");
+        return allowed.stream().anyMatch(a -> a.equalsIgnoreCase(m)) ? m : "auto";
+    }
+
+    /** ⑤ 贵金属价格源(仅新建持仓默认)+ 拉价 cron · v0.14 */
+    @PostMapping("/precious-metal")
+    public String savePreciousMetal(@AuthenticationPrincipal MemberPrincipal me,
+                                    @RequestParam("source") String source,
+                                    @RequestParam("cronMetal") String cronMetal,
+                                    RedirectAttributes ra) {
+        long fid = me.getFamilyId();
+        String src = "intl".equalsIgnoreCase(source) ? "intl" : "sge";
+        configService.set(fid, FamilyConfigService.K_METAL_PRICE_SOURCE, src);
+        configService.set(fid, FamilyConfigService.K_METAL_CRON, sanitize(cronMetal, "0 20 16 * * MON-FRI"));
+        schedulerConfig.rescheduleAll();
+        auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE,
+                "family_runtime_config", fid, "贵金属 · 默认源=" + src + " · cron=" + cronMetal);
+        ra.addFlashAttribute("flash", "贵金属配置已保存 · 默认源=" + (src.equals("sge") ? "上海 SGE" : "国际现货") + " · cron 已重排");
         return "redirect:/admin/integrations";
     }
 
