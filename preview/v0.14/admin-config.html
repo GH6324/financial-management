@@ -47,18 +47,18 @@
     <div class="grid md:grid-cols-3 gap-5">
       <div>
         <label class="field-label">主选 AI 供应商 <span class="newtag">NEW</span></label>
-        <select class="field-input"><option>Qwen(推荐)</option><option>DeepSeek</option></select>
+        <select id="vendorSel" class="field-input" onchange="syncModels()"><option value="qwen">Qwen(推荐)</option><option value="deepseek">DeepSeek</option></select>
         <p class="note mt-1">主选故障自动切备源 · 两家都配 key 才有意义</p>
+      </div>
+      <div>
+        <label class="field-label">模型 · 随供应商级联 <span class="newtag">NEW</span></label>
+        <select id="modelSel" class="field-input"></select>
+        <p class="note mt-1">下拉选 · 不手打型号 · 默认「自动(推荐)」</p>
       </div>
       <div>
         <label class="field-label">采样温度 temperature <span class="newtag">NEW</span></label>
         <input class="field-input tnum" value="0.5">
         <p class="note mt-1">0 确定 ~ 1 发散 · 默认 0.5 · 实时生效</p>
-      </div>
-      <div>
-        <label class="field-label">DeepSeek 模型 <span class="newtag">NEW</span></label>
-        <input class="field-input" value="deepseek-chat">
-        <p class="note mt-1">预留多模型 · 默认 deepseek-chat</p>
       </div>
       <div>
         <label class="field-label">Qwen API Key</label>
@@ -126,7 +126,7 @@
         </tr>
         <tr>
           <td><span class="dot" style="background:var(--brass-deep)"></span>本次开放</td>
-          <td class="annot"><b class="text-ink">LLM 主选供应商</b> · <b class="text-ink">采样温度</b> · <b class="text-ink">DeepSeek 模型名</b> · <b class="text-ink">贵金属价格源</b> · <b class="text-ink">贵金属拉价 cron</b></td>
+          <td class="annot"><b class="text-ink">LLM 主选供应商</b> · <b class="text-ink">模型(级联下拉)</b> · <b class="text-ink">采样温度</b> · <b class="text-ink">贵金属价格源</b> · <b class="text-ink">贵金属拉价 cron</b></td>
           <td class="annot">进接入源页 · 只给默认(Qwen / 0.5 / 上海 SGE)</td>
         </tr>
         <tr>
@@ -150,5 +150,19 @@
   <p class="note mt-6"><a href="precious-metals.html" style="color:var(--brass-deep)">← 回另一张预览:贵金属账户 + 自动金价</a></p>
 
 </main>
+<script>
+  // 模型下拉随"主选供应商"级联:内置候选,不手打型号
+  var MODELS={
+    qwen:['自动(推荐 · 多模型轮询摊免费额度)','qwen-plus','qwen-flash','qwen-max'],
+    deepseek:['自动(推荐)','deepseek-chat','deepseek-reasoner']
+  };
+  function syncModels(){
+    var v=document.getElementById('vendorSel').value;
+    var m=document.getElementById('modelSel');
+    while(m.firstChild){ m.removeChild(m.firstChild); }
+    MODELS[v].forEach(function(x){var o=document.createElement('option');o.textContent=x;m.appendChild(o);});
+  }
+  syncModels();
+</script>
 </body>
 </html>
