@@ -377,3 +377,11 @@ Apache 2.0 · 见 [`LICENSE`](LICENSE)。
 - [阿里云 Maven Mirror](https://maven.aliyun.com/)(国内拉依赖加速)
 - 字体:Fraunces / Source Serif 4 / Noto Serif SC / JetBrains Mono(均为开源字体)
 - 美学:晚清账册风 + 中式纸面信笺(墨/纸/黄铜/朱印 配色)
+
+## Star History
+
+<a href="https://star-history.com/#LuoDi-Nate/financial-management&Date">
+  <img src="https://api.star-history.com/svg?repos=LuoDi-Nate/financial-management&type=Date" alt="Star History Chart" width="640">
+</a>
+
+> 图由 [star-history.com](https://star-history.com) 生成 · 点击可看交互版。
