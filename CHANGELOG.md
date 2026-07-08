@@ -2,6 +2,21 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [Unreleased]
+
+### Added — 加密货币账户(社区 PR #2 · @Li-Huanyu)
+
+- **`CRYPTO` 账户类型**:复用现有持仓/估值链(`supportsHoldings()` 泛化"持仓账户"),`Market.CRYPTO` 默认 USD;`stock_holding.shares` 放宽到 `DECIMAL(24,8)` 支持币的小数量;账户模板 + 流动性(SEMI_LIQUID)+ 体检 4 卡 + 配置分类都已接入。
+- **加密行情刷新**:Binance(`data-api.binance.vision` 纯行情)主 + CoinGecko / Coinbase 兜底,只发 ticker、无 key;每天 06:15 cron(管理页 `cronCrypto` 可改)。AUTO 估值按报价币种(USD)FX 到账户币种/本位币。
+- 迁移 `V36__crypto_account_type.sql`(全 backward-compat:放宽 CHECK + 加精度 + 加模板)。
+
+### Testing 补齐(本仓)
+
+- 安全审计通过(无后门/外带/供应链改动/危险 API/XSS,仅 3 个公开行情域名)· 与 v0.12 兼容性矩阵已核。
+- 单测 +`StockPriceFetcherCryptoTest`(三源 fallback 编排)· mvn **324** 全绿(含作者的 client/估值/调度测试)。
+- e2e +主线 8(CRYPTO 账户 + AUTO 持仓 + 注入价 → 估值渲染,不依赖外网)· **41** 断言(8 主线)。
+- **待办**:crypto 收入接入 v0.12 收入模块(质押/空投)为下一迭代(新 FR,走 PRD→TDD gate);`EntryService.creditAccountBalance` 的 `==STOCK` 建议统一为 `supportsHoldings()`。
+
 ## [v0.12.2] · 2026-07-07
 
 ### Fixed — 收入口径联动修复(FR-142 遗漏项)+ 币种换算

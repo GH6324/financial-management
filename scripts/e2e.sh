@@ -197,6 +197,21 @@ else
   bad "收入-无 STOCK 账户/无 OPEN 期,跳过" "STK=$STK IP=$IP"
 fi
 
+section "主线 8 · 加密货币账户(crypto PR · CRYPTO 账户 + AUTO 持仓 + 注入价 → 估值渲染,不依赖外网)"
+MEMBER="$(db "SELECT id FROM member WHERE family_id=$FAM ORDER BY id LIMIT 1")"
+CID="$(db "INSERT INTO account(family_id,type,display_name,currency,primary_owner_member_id,display_order) VALUES($FAM,'CRYPTO','e2e-crypto','USD',$MEMBER,99); SELECT LAST_INSERT_ID()")"
+if [ -n "$CID" ] && [ "$CID" != "0" ]; then
+  db "INSERT INTO stock_holding(account_id,display_name,valuation_mode,ticker,market,shares,currency) VALUES($CID,'比特币','AUTO','BTC','CRYPTO',0.5,'USD')" >/dev/null
+  db "DELETE FROM stock_price_snapshot WHERE ticker='BTC' AND market='CRYPTO'" >/dev/null
+  db "INSERT INTO stock_price_snapshot(ticker,market,trade_date,close_price,currency,source) VALUES('BTC','CRYPTO',CURDATE(),60000,'USD','e2e')" >/dev/null
+  page="$(GET /accounts/$CID/holdings)"
+  eq "crypto-CRYPTO 账户持仓页可达(旧枚举崩的隐患已消)" "$([ -n "$page" ] && printf '%s' "$page" | grep -q 'e2e-crypto' && echo ok || echo miss)" "ok"
+  eq "crypto-BTC + CRYPTO 市场渲染" "$(printf '%s' "$page" | grep -q 'BTC' && printf '%s' "$page" | grep -q 'CRYPTO' && echo ok || echo miss)" "ok"
+  eq "crypto-估值 0.5×\$60000 = USD 30,000(注入价 · 账户币种=USD)" "$(printf '%s' "$page" | grep -q '30,000' && echo ok || echo miss)" "ok"
+else
+  bad "crypto-建 CRYPTO 账户失败,跳过" "CID=$CID MEMBER=$MEMBER"
+fi
+
 # ============================================================================
 echo
 echo "════════════════════════════════════════"
