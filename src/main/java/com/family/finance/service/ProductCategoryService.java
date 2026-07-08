@@ -49,6 +49,7 @@ public class ProductCategoryService {
             case STOCK    -> "A_STOCK";
             case WEALTH   -> "BANK_WEALTH";
             case CRYPTO   -> "CRYPTO";
+            case METAL    -> "PRECIOUS_METAL";
             case LOAN     -> "LIABILITY";
             case PROPERTY -> "PROPERTY_RES";
             case OTHER    -> "OTHER";

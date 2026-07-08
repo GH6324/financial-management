@@ -52,7 +52,7 @@ public class Account {
         }
         return switch (type) {
             case CASH -> AccountLiquidity.LIQUID;
-            case WEALTH, STOCK, CRYPTO -> AccountLiquidity.SEMI_LIQUID;
+            case WEALTH, STOCK, CRYPTO, METAL -> AccountLiquidity.SEMI_LIQUID;
             case PROPERTY -> AccountLiquidity.ILLIQUID;
             case LOAN, OTHER -> AccountLiquidity.NA;
         };

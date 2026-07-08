@@ -40,7 +40,7 @@ class StockPriceFetcherCryptoTest {
         snapshotMapper = mock(StockPriceSnapshotMapper.class);
         fetcher = new StockPriceFetcher(
                 mock(SinaStockClient.class), mock(TencentStockClient.class),
-                coinGecko, binance, coinbase, snapshotMapper);
+                coinGecko, binance, coinbase, mock(MetalPriceClient.class), snapshotMapper);
     }
 
     @Test

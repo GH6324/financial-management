@@ -33,6 +33,9 @@ public class StockHolding {
     private BigDecimal costBasis;
     private String currency;
 
+    /** v0.14 · METAL 持仓计价单位:GRAM / OUNCE(其余类型为 null)· 见 {@link com.family.finance.service.stock.MetalUnit} */
+    private String unit;
+
     // MANUAL 字段
     private BigDecimal manualValue;
     private LocalDateTime manualValueAt;

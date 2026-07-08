@@ -47,6 +47,17 @@ public class FamilyConfigService {
     public static final String K_LLM_TIMEOUT_SECS  = "llm_timeout_seconds";
     /** v0.6 · Qwen 多模型兜底:逗号分隔有序模型列表(≤10)· 某模型免费额度用尽自动切下一个 */
     public static final String K_LLM_QWEN_MODELS   = "llm_qwen_models";
+    /** v0.14 · 主选 LLM 供应商:qwen / deepseek(默认 qwen)· 主选故障自动切备 */
+    public static final String K_LLM_PRIMARY_VENDOR = "llm_primary_vendor";
+    /** v0.14 · 采样温度 0.0~1.0(默认 0.5) */
+    public static final String K_LLM_TEMPERATURE    = "llm_temperature";
+    /** v0.14 · 选定模型(随供应商级联;"auto"=保留 Qwen 轮询/各家默认) */
+    public static final String K_LLM_MODEL          = "llm_model";
+    // Integrations · 贵金属(v0.14)
+    /** 贵金属默认价格源:sge(上海·CNY/克·默认) / intl(国际现货·USD/oz)· 仅作新建持仓默认 */
+    public static final String K_METAL_PRICE_SOURCE = "metal_price_source";
+    /** 贵金属拉价 cron */
+    public static final String K_METAL_CRON        = "metal_cron";
     // Integrations · 股票拉取
     public static final String K_STOCK_ENABLED     = "stock_fetch_enabled";
     public static final String K_STOCK_CRON_US     = "stock_cron_us";

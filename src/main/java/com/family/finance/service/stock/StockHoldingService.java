@@ -404,13 +404,13 @@ public class StockHoldingService {
             throw new IllegalArgumentException("无权访问账户");
         }
         if (!supportsHoldings(acc.getType())) {
-            throw new IllegalArgumentException("仅 STOCK / CRYPTO 类型账户可加持仓 · 当前类型 " + acc.getType());
+            throw new IllegalArgumentException("仅 STOCK / CRYPTO / METAL 类型账户可加持仓 · 当前类型 " + acc.getType());
         }
         return acc;
     }
 
     public static boolean supportsHoldings(AccountType type) {
-        return type == AccountType.STOCK || type == AccountType.CRYPTO;
+        return type == AccountType.STOCK || type == AccountType.CRYPTO || type == AccountType.METAL;
     }
 
     private void validateMarketForAccount(AccountType accountType, Market market) {
@@ -420,7 +420,10 @@ public class StockHoldingService {
         if (accountType == AccountType.CRYPTO && market != Market.CRYPTO) {
             throw new IllegalArgumentException("CRYPTO 账户只能添加 CRYPTO 市场持仓");
         }
-        if (accountType == AccountType.STOCK && market == Market.CRYPTO) {
+        if (accountType == AccountType.METAL && market != Market.METAL) {
+            throw new IllegalArgumentException("贵金属账户只能添加 METAL 市场持仓");
+        }
+        if (accountType == AccountType.STOCK && (market == Market.CRYPTO || market == Market.METAL)) {
             throw new IllegalArgumentException("股票账户只能添加 US / CN / HK 市场持仓");
         }
     }
@@ -447,6 +450,7 @@ public class StockHoldingService {
             case US -> t;
             case CN -> t.replaceAll("\\D", ""); // 移除非数字字符
             case CRYPTO -> t.replaceAll("[-/](USD|USDT)$", "").replaceAll("[^A-Z0-9]", "");
+            case METAL -> t.replaceAll("[^A-Z0-9]", ""); // AU9999 / XAU / AGTD 等,保字母数字
             case HK -> {
                 String digits = t.replaceAll("\\D", "");
                 if (digits.length() < 5) {

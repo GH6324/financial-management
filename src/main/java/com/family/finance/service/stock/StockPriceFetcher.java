@@ -37,6 +37,7 @@ public class StockPriceFetcher {
     private final CoinGeckoCryptoClient coinGeckoClient;
     private final BinanceCryptoClient binanceClient;
     private final CoinbaseCryptoClient coinbaseClient;
+    private final MetalPriceClient metalClient;
     private final StockPriceSnapshotMapper snapshotMapper;
 
     private volatile int sinaConsecutiveFailures = 0;
@@ -47,12 +48,14 @@ public class StockPriceFetcher {
                              CoinGeckoCryptoClient coinGeckoClient,
                              BinanceCryptoClient binanceClient,
                              CoinbaseCryptoClient coinbaseClient,
+                             MetalPriceClient metalClient,
                              StockPriceSnapshotMapper snapshotMapper) {
         this.sinaClient = sinaClient;
         this.tencentClient = tencentClient;
         this.coinGeckoClient = coinGeckoClient;
         this.binanceClient = binanceClient;
         this.coinbaseClient = coinbaseClient;
+        this.metalClient = metalClient;
         this.snapshotMapper = snapshotMapper;
     }
 
@@ -69,6 +72,9 @@ public class StockPriceFetcher {
 
         if (market == Market.CRYPTO) {
             return fetchCryptoAndPersist(tickers, tradeDate);
+        }
+        if (market == Market.METAL) {
+            return fetchMetalAndPersist(tickers, tradeDate);
         }
 
         // 1. 主源(若熔断打开则跳过)
@@ -133,6 +139,23 @@ public class StockPriceFetcher {
             persisted++;
         }
         log.info("crypto price fetch · requested={} persisted={}", tickers.size(), persisted);
+        return persisted;
+    }
+
+    private int fetchMetalAndPersist(List<String> tickers, LocalDate tradeDate) {
+        // 贵金属单源(新浪 gds_/hf_)· 归一每克后落库;无备源,失败下游用快照兜底
+        Map<String, StockQuote> quotes = metalClient.fetchBatch(Market.METAL, tickers);
+        int persisted = 0;
+        for (String ticker : tickers) {
+            StockQuote q = quotes.get(ticker);
+            if (q == null) {
+                log.warn("metal price fetch FAIL · ticker={} · downstream uses fallback snapshot", ticker);
+                continue;
+            }
+            persistQuote(q, tradeDate);
+            persisted++;
+        }
+        log.info("metal price fetch · requested={} persisted={}", tickers.size(), persisted);
         return persisted;
     }
 

@@ -56,6 +56,7 @@ public class DynamicScheduleConfig {
     private static final String DEFAULT_STOCK_CRON_CN     = "0 10 16 * * MON-FRI";
     private static final String DEFAULT_STOCK_CRON_HK     = "0 30 16 * * MON-FRI";
     private static final String DEFAULT_STOCK_CRON_CRYPTO = "0 15 6 * * *";
+    private static final String DEFAULT_METAL_CRON        = "0 20 16 * * MON-FRI";
     private static final String DEFAULT_FX_CRON           = "0 30 2 1 * ?";
     private static final String DEFAULT_REPORT_REMIND_CRON = "0 0 10,20 * * *";
 
@@ -128,6 +129,10 @@ public class DynamicScheduleConfig {
         schedule("stock-crypto", configService.getString(FAMILY_ID,
                 FamilyConfigService.K_STOCK_CRON_CRYPTO, DEFAULT_STOCK_CRON_CRYPTO),
                 stockScheduler::fetchCrypto);
+
+        schedule("metal", configService.getString(FAMILY_ID,
+                FamilyConfigService.K_METAL_CRON, DEFAULT_METAL_CRON),
+                stockScheduler::fetchMetal);
 
         schedule("fx", configService.getString(FAMILY_ID,
                 FamilyConfigService.K_FX_CRON, DEFAULT_FX_CRON),

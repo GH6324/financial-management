@@ -117,7 +117,7 @@ public class TencentStockClient implements StockClient {
             case US -> "us" + ticker.toUpperCase();
             case CN -> AShareTicker.withExchange(ticker);   // issue#3 修:5/6/9→沪·其余→深(原 startsWith("6") 漏上交所 ETF 如 513180)
             case HK -> "hk" + ticker;
-            case CRYPTO -> throw new IllegalArgumentException("Tencent does not support market: " + market);
+            case CRYPTO, METAL -> throw new IllegalArgumentException("Tencent does not support market: " + market);
         };
     }
 
@@ -127,7 +127,7 @@ public class TencentStockClient implements StockClient {
             case CN -> (tencentKey.startsWith("sh") || tencentKey.startsWith("sz"))
                        ? tencentKey.substring(2) : null;
             case HK -> tencentKey.startsWith("hk") ? tencentKey.substring(2) : null;
-            case CRYPTO -> null;
+            case CRYPTO, METAL -> null;
         };
     }
 

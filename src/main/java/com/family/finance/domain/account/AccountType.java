@@ -5,6 +5,7 @@ public enum AccountType {
     CASH("现金"),
     WEALTH("理财"),
     CRYPTO("加密"),
+    METAL("贵金属"),
     PROPERTY("房产"),
     LOAN("贷款"),
     OTHER("其他");

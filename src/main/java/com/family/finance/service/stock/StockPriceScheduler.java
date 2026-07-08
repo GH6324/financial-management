@@ -94,6 +94,13 @@ public class StockPriceScheduler {
         refreshValuationsAfterCron(Market.CRYPTO, persisted);
     }
 
+    /** 贵金属 · 默认 SGE 收盘后一次 · cron 由 metal_cron 配(v0.14) */
+    public void fetchMetal() {
+        if (!isEnabled()) return;
+        int persisted = fetchMarket(Market.METAL);
+        refreshValuationsAfterCron(Market.METAL, persisted);
+    }
+
     /**
      * cron 拉完价后刷账户估值 · 写 period_snapshot 新余额 + 若 |Δ|>0.01 写 stock_valuation_event。
      * 仅 cron 入口走此方法 · admin 手动入口 ({@link com.family.finance.web.stock.StockHoldingController})
