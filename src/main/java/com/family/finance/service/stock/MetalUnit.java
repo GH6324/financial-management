@@ -90,4 +90,35 @@ public final class MetalUnit {
         if (pricePerGram == null) return null;
         return OUNCE.equals(unit) ? pricePerGram.multiply(GRAMS_PER_TROY_OUNCE) : pricePerGram;
     }
+
+    /**
+     * 品种(AU/AG/PT/PD 或 GOLD/SILVER/...)× 源(sge/intl)→ 持仓 ticker。
+     * 返回 null = 该组合无盘(如"钯金 + 上海 SGE",需改选国际)。
+     */
+    public static String tickerFor(String metal, String source) {
+        String m = metal == null ? "" : metal.trim().toUpperCase();
+        boolean intl = source != null && (source.equalsIgnoreCase("intl") || source.equalsIgnoreCase("international"));
+        return switch (m) {
+            case "AU", "GOLD"      -> intl ? "XAU" : "AU9999";
+            case "AG", "SILVER"    -> intl ? "XAG" : "AGTD";
+            case "PT", "PLATINUM"  -> intl ? "XPT" : "PT9995";
+            case "PD", "PALLADIUM" -> intl ? "XPD" : null;   // SGE 无常见钯盘
+            default -> null;
+        };
+    }
+
+    /** 持仓 ticker → 品种中文名(展示用)。 */
+    public static String metalLabel(String ticker) {
+        String t = ticker == null ? "" : ticker.toUpperCase();
+        if (t.startsWith("AU") || t.equals("XAU")) return "黄金";
+        if (t.startsWith("AG") || t.equals("XAG")) return "白银";
+        if (t.startsWith("PT") || t.equals("XPT")) return "铂金";
+        if (t.startsWith("PD") || t.equals("XPD")) return "钯金";
+        return t;
+    }
+
+    /** 单位中文标签。 */
+    public static String unitLabel(String unit) {
+        return OUNCE.equals(unit) ? "盎司" : "克";
+    }
 }

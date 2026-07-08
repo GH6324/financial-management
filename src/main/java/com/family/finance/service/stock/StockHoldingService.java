@@ -142,6 +142,47 @@ public class StockHoldingService {
     }
 
     /**
+     * v0.14 · 创建 METAL(贵金属)AUTO 持仓 · issue #4。
+     * 品种(AU/AG/PT/PD)× 源(sge/intl)→ ticker;currency 随源(SGE=CNY / 国际=USD);
+     * shares = 持仓量(按 unit 计:克/盎司);costBasis = 买入价/每单位。价格由 MetalPriceClient 自动拉。
+     */
+    @Transactional
+    public StockHolding createMetal(long familyId, long accountId, String metal, String source,
+                                    BigDecimal shares, String unit, BigDecimal costBasis) {
+        Account account = requireHoldingAccount(familyId, accountId);
+        if (account.getType() != AccountType.METAL) {
+            throw new IllegalArgumentException("仅贵金属账户可加金属持仓 · 当前类型 " + account.getType());
+        }
+        String ticker = MetalUnit.tickerFor(metal, source);
+        if (ticker == null) {
+            throw new IllegalArgumentException("该品种在所选价格源无盘(如钯金无上海盘,请改选国际现货)");
+        }
+        if (shares == null || shares.signum() <= 0) {
+            throw new IllegalArgumentException("持仓量必须 > 0");
+        }
+        if (costBasis != null && costBasis.signum() < 0) {
+            throw new IllegalArgumentException("买入价必须 ≥ 0");
+        }
+        String u = MetalUnit.OUNCE.equalsIgnoreCase(unit) ? MetalUnit.OUNCE : MetalUnit.GRAM;
+        String ccy = MetalUnit.currencyOf(ticker);
+        String name = MetalUnit.metalLabel(ticker) + (MetalUnit.isInternational(ticker) ? " · 国际" : " · 上海");
+        StockHolding h = StockHolding.builder()
+            .accountId(accountId)
+            .displayName(name)
+            .valuationMode(ValuationMode.AUTO)
+            .ticker(ticker)
+            .market(Market.METAL)
+            .shares(shares)
+            .costBasis(costBasis)
+            .currency(ccy)
+            .unit(u)
+            .cashLinked(false)
+            .build();
+        holdingMapper.insert(h);
+        return h;
+    }
+
+    /**
      * v0.12 · 更新 MANUAL 持仓的股数 / 单股估值(刷新 manual_value_at)。
      * 二者任一为 null 表示不改该项(至少改一项)。
      */
@@ -198,10 +239,14 @@ public class StockHoldingService {
             case AUTO -> {
                 var snap = stockPriceFetcher.findLatestKnown(h.getTicker(), h.getMarket());
                 if (snap == null || snap.getClosePrice() == null) yield null;
+                // v0.14 · METAL 快照是"每克价" → 先换算到"每持仓单位价"(克/盎司)
+                BigDecimal unitPrice = h.getMarket() == Market.METAL
+                    ? MetalUnit.perHoldingUnit(h.getUnit(), snap.getClosePrice())
+                    : snap.getClosePrice();
                 String quoteCurrency = snap.getCurrency() == null || snap.getCurrency().isBlank()
                     ? h.getCurrency()
                     : snap.getCurrency();
-                yield fxConvert(familyId, snap.getClosePrice(), quoteCurrency, acctCcy);
+                yield fxConvert(familyId, unitPrice, quoteCurrency, acctCcy);
             }
             case CASH -> null;
         };

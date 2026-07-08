@@ -9,7 +9,9 @@ import com.family.finance.domain.stock.ValuationMode;
 import com.family.finance.repository.AccountMapper;
 import com.family.finance.repository.StockPriceSnapshotMapper;
 import com.family.finance.service.NavService;
+import com.family.finance.service.config.FamilyConfigService;
 import com.family.finance.service.stock.AccountValuationService;
+import com.family.finance.service.stock.MetalUnit;
 import com.family.finance.service.stock.StockHoldingService;
 import com.family.finance.service.stock.StockPriceScheduler;
 import lombok.RequiredArgsConstructor;
@@ -58,6 +60,7 @@ public class StockHoldingController {
     private final StockPriceSnapshotMapper priceMapper;
     private final AccountMapper accountMapper;
     private final NavService navService;
+    private final FamilyConfigService configService;
 
     @GetMapping("/accounts/{accountId}/holdings")
     public String list(@AuthenticationPrincipal MemberPrincipal me,
@@ -82,15 +85,39 @@ public class StockHoldingController {
             }
         }
 
+        // v0.14 · METAL 持仓展示信息(每持仓单位价 / 市值 / 盈亏 · 原币种)
+        Map<Long, Map<String, Object>> metalInfo = new HashMap<>();
+        for (StockHolding h : active) {
+            if (h.getMarket() == Market.METAL && h.getValuationMode() == ValuationMode.AUTO) {
+                Map<String, Object> mi = new HashMap<>();
+                mi.put("metalLabel", MetalUnit.metalLabel(h.getTicker()));
+                mi.put("unitLabel", MetalUnit.unitLabel(h.getUnit()));
+                priceMapper.findLatest(h.getTicker(), h.getMarket().name()).ifPresent(p -> {
+                    if (p.getClosePrice() != null && h.getShares() != null) {
+                        BigDecimal perUnit = MetalUnit.perHoldingUnit(h.getUnit(), p.getClosePrice());
+                        mi.put("perUnitPrice", perUnit);
+                        mi.put("marketValue", perUnit.multiply(h.getShares()));
+                        if (h.getCostBasis() != null) {
+                            mi.put("pnl", perUnit.subtract(h.getCostBasis()).multiply(h.getShares()));
+                        }
+                    }
+                });
+                metalInfo.put(h.getId(), mi);
+            }
+        }
+
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
         model.addAttribute("account", account);
         model.addAttribute("holdings", active);
         model.addAttribute("valuation", valuation);
         model.addAttribute("latestPrices", latestPrices);
-        model.addAttribute("priceSourceLabel", account.getType() == AccountType.CRYPTO
-                ? "数据源 · Binance(主) + CoinGecko/Coinbase(备)"
-                : "数据源 · 新浪(主) + 腾讯(备)");
+        model.addAttribute("metalInfo", metalInfo);
+        model.addAttribute("priceSourceLabel", switch (account.getType()) {
+            case CRYPTO -> "数据源 · Binance(主) + CoinGecko/Coinbase(备)";
+            case METAL -> "数据源 · 新浪贵金属(上海 SGE / 国际现货)";
+            default -> "数据源 · 新浪(主) + 腾讯(备)";
+        });
         return "stock/holdings";
     }
 
@@ -168,6 +195,42 @@ public class StockHoldingController {
         return "redirect:/accounts/" + accountId + "/holdings";
     }
 
+    // ---------- v0.14 · METAL 贵金属持仓(issue #4)----------
+
+    @GetMapping("/accounts/{accountId}/holdings/new-metal")
+    public String newMetalForm(@AuthenticationPrincipal MemberPrincipal me,
+                               @PathVariable long accountId, Model model) {
+        Account account = requireAccount(me.getFamilyId(), accountId);
+        model.addAttribute("me", me);
+        model.addAttribute("nav", navService.load(me));
+        model.addAttribute("account", account);
+        // 默认价格源(接入源页配)· 决定新建持仓默认源与单位
+        String defaultSource = "intl".equalsIgnoreCase(
+                configService.getString(me.getFamilyId(), FamilyConfigService.K_METAL_PRICE_SOURCE, "sge"))
+                ? "intl" : "sge";
+        model.addAttribute("defaultSource", defaultSource);
+        return "stock/holding-new-metal";
+    }
+
+    @PostMapping("/accounts/{accountId}/holdings/new-metal")
+    public String createMetal(@AuthenticationPrincipal MemberPrincipal me,
+                              @PathVariable long accountId,
+                              @RequestParam String metal,
+                              @RequestParam String source,
+                              @RequestParam BigDecimal shares,
+                              @RequestParam String unit,
+                              @RequestParam(required = false) BigDecimal costBasis) {
+        holdingService.createMetal(me.getFamilyId(), accountId, metal, source, shares, unit, costBasis);
+        try {
+            scheduler.fetchMarket(Market.METAL);
+            valuationService.refreshAllForFamily(me.getFamilyId(),
+                AccountValuationService.TriggerKind.HOLDING_CHANGE, me.getMemberId());
+        } catch (Exception e) {
+            log.warn("post-create metal refresh failed: {}", e.toString());
+        }
+        return "redirect:/accounts/" + accountId + "/holdings";
+    }
+
     // ---------- v0.3 FR-52e · CASH 现金行(账户内某币种闲置资金)----------
 
     @GetMapping("/accounts/{accountId}/holdings/new-cash")
@@ -239,6 +302,7 @@ public class StockHoldingController {
             scheduler.fetchMarket(Market.CN);
             scheduler.fetchMarket(Market.HK);
             scheduler.fetchMarket(Market.CRYPTO);
+            scheduler.fetchMarket(Market.METAL);
             // v0.4.1 · 用户主动 click → trigger=MANUAL · 写 valuation event 含用户 ID
             valuationService.refreshAllForFamily(me.getFamilyId(),
                 AccountValuationService.TriggerKind.MANUAL, me.getMemberId());
@@ -257,7 +321,7 @@ public class StockHoldingController {
             throw new IllegalArgumentException("无权访问账户");
         }
         if (!StockHoldingService.supportsHoldings(acc.getType())) {
-            throw new IllegalArgumentException("仅 STOCK / CRYPTO 类型账户支持持仓管理");
+            throw new IllegalArgumentException("仅 STOCK / CRYPTO / METAL 类型账户支持持仓管理");
         }
         return acc;
     }

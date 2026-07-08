@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('添加贵金属持仓')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('accounts', ${me}, ${nav})}"></header>
+
+<main class="max-w-[800px] mx-auto px-6 py-10 relative z-10">
+  <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+    <a th:href="@{|/accounts/${account.id}/holdings|}" class="hover:text-ink no-underline">持仓管理</a>
+    <span class="mx-2 text-rule">/</span><span class="text-ink">添加 · 贵金属</span>
+  </div>
+
+  <div class="mb-8">
+    <div class="eyebrow mb-2" style="color:var(--brass-deep)">+ 贵 · 金 · 属 · 持 · 仓</div>
+    <h1 class="font-display text-4xl md:text-5xl font-medium tracking-tight">金银铂钯 · 自动盯价</h1>
+    <p class="font-serif text-sm text-ink-soft mt-3">选品种 + 价格源,填持仓量与买入价 · 系统自动拉实时金价算市值与盈亏。</p>
+  </div>
+
+  <form th:action="@{|/accounts/${account.id}/holdings/new-metal|}" method="post" class="paper-card p-8 space-y-5">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">品种</label>
+        <select name="metal" class="w-full font-base bg-paper-soft border border-rule px-3 py-3">
+          <option value="AU">黄金 Au</option>
+          <option value="AG">白银 Ag</option>
+          <option value="PT">铂金 Pt</option>
+          <option value="PD">钯金 Pd(仅国际)</option>
+        </select>
+      </div>
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">价格源</label>
+        <select name="source" class="w-full font-base bg-paper-soft border border-rule px-3 py-3">
+          <option value="sge" th:selected="${defaultSource != 'intl'}">上海 SGE · 人民币/克</option>
+          <option value="intl" th:selected="${defaultSource == 'intl'}">国际现货 · 美元/盎司</option>
+        </select>
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">↳ 钯金只有国际盘 · 选上海会提示改选</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">持仓量</label>
+        <input type="number" name="shares" step="0.0001" min="0.0001" required
+               class="w-full font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum text-right" placeholder="200">
+      </div>
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">单位</label>
+        <select name="unit" class="w-full font-base bg-paper-soft border border-rule px-3 py-3">
+          <option value="GRAM">克 (g)</option>
+          <option value="OUNCE">盎司 (oz)</option>
+        </select>
+      </div>
+      <div>
+        <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">买入价 / 单位(选填)</label>
+        <input type="number" name="costBasis" step="0.000001" min="0"
+               class="w-full font-mono text-base bg-paper-soft border border-rule px-3 py-2 tnum text-right" placeholder="500">
+      </div>
+    </div>
+    <p class="font-mono text-[10px] text-ink-subtle">↳ 市值 = 最新现价 × 持仓量 · 盈亏 =(现价 − 买入价)× 持仓量 · 单位与价格源默认匹配(SGE→克 / 国际→盎司),可改</p>
+
+    <div class="paper-card p-4 bg-card-soft" style="border-left:4px solid var(--brass-deep)">
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-2">口 · 径 · 提 · 醒</div>
+      <ul class="text-xs text-ink-soft space-y-1 list-disc pl-5">
+        <li>上海 SGE:黄金/铂金按元/克,白银原报价元/千克(系统内部归一,展示口径一致)</li>
+        <li>国际现货:按美元/盎司,自动经本位币汇率并入净资产</li>
+        <li>价格来自新浪贵金属行情 · 每交易日自动刷新,也可在持仓页一键刷价</li>
+      </ul>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="btn-ink">保存持仓</button>
+      <a th:href="@{|/accounts/${account.id}/holdings|}" class="btn-paper no-underline">取消</a>
+    </div>
+  </form>
+</main>
+</body>
+</html>

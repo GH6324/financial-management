@@ -223,7 +223,11 @@ public class AccountValuationService {
                     int staleDays = (int) java.time.temporal.ChronoUnit.DAYS.between(
                         price.getTradeDate(), java.time.LocalDate.now());
                     if (staleDays > 7) staleCount++;
-                    BigDecimal originalMarketValue = price.getClosePrice().multiply(h.getShares());
+                    // v0.14 · METAL:快照是"每克价",按持仓单位(克/盎司)换算到"每持仓单位价"再 × shares
+                    BigDecimal effectiveClose = h.getMarket() == Market.METAL
+                        ? MetalUnit.perHoldingUnit(h.getUnit(), price.getClosePrice())
+                        : price.getClosePrice();
+                    BigDecimal originalMarketValue = effectiveClose.multiply(h.getShares());
                     String quoteCurrency = price.getCurrency() == null || price.getCurrency().isBlank()
                         ? h.getCurrency()
                         : price.getCurrency();
