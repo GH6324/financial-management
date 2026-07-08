@@ -45,6 +45,8 @@ class StockHoldingCashLinkTest {
         // USD 股票账户 family=1
         when(accountMapper.findById(10L)).thenReturn(Optional.of(
                 Account.builder().id(10L).familyId(1L).type(AccountType.STOCK).currency("USD").build()));
+        when(accountMapper.findById(20L)).thenReturn(Optional.of(
+                Account.builder().id(20L).familyId(1L).type(AccountType.CRYPTO).currency("USD").build()));
     }
 
     @Test
@@ -52,6 +54,22 @@ class StockHoldingCashLinkTest {
         assertThatThrownBy(() -> svc.createAuto(1L, 10L, "PDD", "PDD", Market.US,
                 new BigDecimal("100"), null, "USD", true))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void cryptoAccountOnlyAllowsCryptoMarketAndNormalizesTicker() {
+        svc.createAuto(1L, 20L, "Bitcoin", " btc-usd ", Market.CRYPTO,
+                new BigDecimal("0.12345678"), null, "USD", false);
+
+        ArgumentCaptor<StockHolding> cap = ArgumentCaptor.forClass(StockHolding.class);
+        verify(holdingMapper).insert(cap.capture());
+        assertThat(cap.getValue().getTicker()).isEqualTo("BTC");
+        assertThat(cap.getValue().getShares()).isEqualByComparingTo("0.12345678");
+
+        assertThatThrownBy(() -> svc.createAuto(1L, 20L, "BABA", "BABA", Market.US,
+                new BigDecimal("1"), null, "USD", false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("CRYPTO");
     }
 
     @Test

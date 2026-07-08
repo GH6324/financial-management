@@ -177,8 +177,8 @@ public class AccountDetailService {
                     p.getStatus() == PeriodStatus.OPEN
             ));
         }
-        // v0.4.1 FR-52f · STOCK 估值事件 entries
-        if (account.getType() == com.family.finance.domain.account.AccountType.STOCK) {
+        // v0.4.1 FR-52f · 持仓账户估值事件 entries
+        if (com.family.finance.service.stock.StockHoldingService.supportsHoldings(account.getType())) {
             try {
                 for (com.family.finance.domain.stock.StockValuationEvent ev :
                         stockValuationEventMapper.findRecentByAccount(accountId, 500)) {

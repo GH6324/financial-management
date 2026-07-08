@@ -1,6 +1,7 @@
 package com.family.finance.service.stock;
 
 import com.family.finance.domain.account.Account;
+import com.family.finance.domain.account.AccountType;
 import com.family.finance.domain.stock.Market;
 import com.family.finance.domain.stock.StockHolding;
 import com.family.finance.domain.stock.ValuationMode;
@@ -21,7 +22,7 @@ import java.util.Locale;
  * <p>负责:</p>
  * <ul>
  *   <li>持仓级 AUTO/MANUAL 模式校验(必填字段)</li>
- *   <li>账户类型校验(只允许 STOCK 类型加持仓)</li>
+ *   <li>账户类型校验(允许 STOCK / CRYPTO 类型加持仓)</li>
  *   <li>权限校验(account 必须属于当前 family)</li>
  *   <li>ticker 规范化(US 大写 / CN 6 位 / HK 5 位前导零)</li>
  *   <li>AUTO/MANUAL 模式互转(用户从自动改手填时,manual_value 由 caller 传当前估值)</li>
@@ -43,12 +44,12 @@ public class StockHoldingService {
     private final com.family.finance.repository.CashFlowMapper cashFlowMapper;
 
     public List<StockHolding> findActiveByAccount(long familyId, long accountId) {
-        requireStockAccount(familyId, accountId);
+        requireHoldingAccount(familyId, accountId);
         return holdingMapper.findActiveByAccount(accountId);
     }
 
     public List<StockHolding> findAllByAccount(long familyId, long accountId) {
-        requireStockAccount(familyId, accountId);
+        requireHoldingAccount(familyId, accountId);
         return holdingMapper.findAllByAccount(accountId);
     }
 
@@ -80,7 +81,8 @@ public class StockHoldingService {
     public StockHolding createAuto(long familyId, long accountId,
                                    String displayName, String ticker, Market market,
                                    BigDecimal shares, BigDecimal costBasis, String currency, boolean deductCash) {
-        requireStockAccount(familyId, accountId);
+        Account account = requireHoldingAccount(familyId, accountId);
+        validateMarketForAccount(account.getType(), market);
         String normalizedTicker = normalizeTicker(market, ticker);
         validateAuto(normalizedTicker, market, shares, currency);
         String holdingCcy = currency != null && !currency.isBlank()
@@ -116,7 +118,7 @@ public class StockHoldingService {
     @Transactional
     public StockHolding createManual(long familyId, long accountId,
                                      String displayName, BigDecimal shares, BigDecimal unitValue) {
-        requireStockAccount(familyId, accountId);
+        requireHoldingAccount(familyId, accountId);
         if (displayName == null || displayName.isBlank()) {
             throw new IllegalArgumentException("displayName 必填");
         }
@@ -196,7 +198,10 @@ public class StockHoldingService {
             case AUTO -> {
                 var snap = stockPriceFetcher.findLatestKnown(h.getTicker(), h.getMarket());
                 if (snap == null || snap.getClosePrice() == null) yield null;
-                yield fxConvert(familyId, snap.getClosePrice(), h.getCurrency(), acctCcy);
+                String quoteCurrency = snap.getCurrency() == null || snap.getCurrency().isBlank()
+                    ? h.getCurrency()
+                    : snap.getCurrency();
+                yield fxConvert(familyId, snap.getClosePrice(), quoteCurrency, acctCcy);
             }
             case CASH -> null;
         };
@@ -211,7 +216,7 @@ public class StockHoldingService {
     @Transactional
     public StockHolding createCash(long familyId, long accountId,
                                    String displayName, String currency, BigDecimal amount) {
-        requireStockAccount(familyId, accountId);
+        requireHoldingAccount(familyId, accountId);
         if (currency == null || currency.isBlank()) {
             throw new IllegalArgumentException("currency 必填(USD/CNY/HKD/...)");
         }
@@ -392,14 +397,31 @@ public class StockHoldingService {
 
     // ---------- 校验 ----------
 
-    private void requireStockAccount(long familyId, long accountId) {
+    private Account requireHoldingAccount(long familyId, long accountId) {
         Account acc = accountMapper.findById(accountId)
             .orElseThrow(() -> new IllegalArgumentException("账户不存在: " + accountId));
         if (!acc.getFamilyId().equals(familyId)) {
             throw new IllegalArgumentException("无权访问账户");
         }
-        if (acc.getType() == null || !"STOCK".equals(acc.getType().name())) {
-            throw new IllegalArgumentException("仅 STOCK 类型账户可加持仓 · 当前类型 " + acc.getType());
+        if (!supportsHoldings(acc.getType())) {
+            throw new IllegalArgumentException("仅 STOCK / CRYPTO 类型账户可加持仓 · 当前类型 " + acc.getType());
+        }
+        return acc;
+    }
+
+    public static boolean supportsHoldings(AccountType type) {
+        return type == AccountType.STOCK || type == AccountType.CRYPTO;
+    }
+
+    private void validateMarketForAccount(AccountType accountType, Market market) {
+        if (market == null) {
+            throw new IllegalArgumentException("market 必填");
+        }
+        if (accountType == AccountType.CRYPTO && market != Market.CRYPTO) {
+            throw new IllegalArgumentException("CRYPTO 账户只能添加 CRYPTO 市场持仓");
+        }
+        if (accountType == AccountType.STOCK && market == Market.CRYPTO) {
+            throw new IllegalArgumentException("股票账户只能添加 US / CN / HK 市场持仓");
         }
     }
 
@@ -415,6 +437,7 @@ public class StockHoldingService {
      *   US 大写字母(BABA)
      *   CN 6 位数字(600519 / 000001)
      *   HK 5 位前导零(0700 → 00700)
+     *   CRYPTO 大写字母/数字(BTC / ETH / USDC)
      */
     static String normalizeTicker(Market market, String raw) {
         if (raw == null) return null;
@@ -423,6 +446,7 @@ public class StockHoldingService {
         return switch (market) {
             case US -> t;
             case CN -> t.replaceAll("\\D", ""); // 移除非数字字符
+            case CRYPTO -> t.replaceAll("[-/](USD|USDT)$", "").replaceAll("[^A-Z0-9]", "");
             case HK -> {
                 String digits = t.replaceAll("\\D", "");
                 if (digits.length() < 5) {

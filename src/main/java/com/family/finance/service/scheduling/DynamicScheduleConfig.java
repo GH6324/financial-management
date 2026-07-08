@@ -30,6 +30,7 @@ import java.util.concurrent.ScheduledFuture;
  *   <li>{@code stock-us} · 美股拉价 · 默认 `0 5 6 * * *`</li>
  *   <li>{@code stock-cn} · A 股拉价 · 默认 `0 10 16 * * MON-FRI`</li>
  *   <li>{@code stock-hk} · 港股拉价 · 默认 `0 30 16 * * MON-FRI`</li>
+ *   <li>{@code stock-crypto} · 加密货币拉价 · 默认 `0 15 6 * * *`</li>
  *   <li>{@code fx} · 汇率拉取 · 默认 `0 30 2 1 * ?`(月初 02:30)</li>
  *   <li>{@code report-remind} · 填报提醒 · 默认 `0 0 10,20 * * *`(每天 10:00/20:00)</li>
  * </ul>
@@ -54,6 +55,7 @@ public class DynamicScheduleConfig {
     private static final String DEFAULT_STOCK_CRON_US     = "0 5 6 * * *";
     private static final String DEFAULT_STOCK_CRON_CN     = "0 10 16 * * MON-FRI";
     private static final String DEFAULT_STOCK_CRON_HK     = "0 30 16 * * MON-FRI";
+    private static final String DEFAULT_STOCK_CRON_CRYPTO = "0 15 6 * * *";
     private static final String DEFAULT_FX_CRON           = "0 30 2 1 * ?";
     private static final String DEFAULT_REPORT_REMIND_CRON = "0 0 10,20 * * *";
 
@@ -110,7 +112,7 @@ public class DynamicScheduleConfig {
         }
         active.clear();
 
-        // 重排 5 个受管任务
+        // 重排受管任务
         schedule("stock-us", configService.getString(FAMILY_ID,
                 FamilyConfigService.K_STOCK_CRON_US, DEFAULT_STOCK_CRON_US),
                 stockScheduler::fetchUsStocks);
@@ -122,6 +124,10 @@ public class DynamicScheduleConfig {
         schedule("stock-hk", configService.getString(FAMILY_ID,
                 FamilyConfigService.K_STOCK_CRON_HK, DEFAULT_STOCK_CRON_HK),
                 stockScheduler::fetchHkStocks);
+
+        schedule("stock-crypto", configService.getString(FAMILY_ID,
+                FamilyConfigService.K_STOCK_CRON_CRYPTO, DEFAULT_STOCK_CRON_CRYPTO),
+                stockScheduler::fetchCrypto);
 
         schedule("fx", configService.getString(FAMILY_ID,
                 FamilyConfigService.K_FX_CRON, DEFAULT_FX_CRON),

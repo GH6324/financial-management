@@ -28,6 +28,7 @@ import java.util.List;
  *   <li>美股 06:05 每天</li>
  *   <li>A 股 16:10 工作日</li>
  *   <li>港股 16:30 工作日</li>
+ *   <li>加密货币 06:15 每天</li>
  * </ul>
  */
 @Component
@@ -84,6 +85,13 @@ public class StockPriceScheduler {
         if (!isEnabled()) return;
         int persisted = fetchMarket(Market.HK);
         refreshValuationsAfterCron(Market.HK, persisted);
+    }
+
+    /** 加密货币 · 默认每天 06:15 · cron 由 stock_cron_crypto 配 */
+    public void fetchCrypto() {
+        if (!isEnabled()) return;
+        int persisted = fetchMarket(Market.CRYPTO);
+        refreshValuationsAfterCron(Market.CRYPTO, persisted);
     }
 
     /**

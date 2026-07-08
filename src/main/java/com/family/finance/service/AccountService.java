@@ -112,9 +112,10 @@ public class AccountService {
             case CASH -> 1;
             case STOCK -> 2;
             case WEALTH -> 3;
-            case PROPERTY -> 4;
-            case LOAN -> 5;
-            case OTHER -> 6;
+            case CRYPTO -> 4;
+            case PROPERTY -> 5;
+            case LOAN -> 6;
+            case OTHER -> 7;
         }));
         return summary;
     }

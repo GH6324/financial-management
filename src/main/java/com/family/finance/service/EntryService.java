@@ -610,8 +610,8 @@ public class EntryService {
                     null,
                     period.getStatus() == PeriodStatus.OPEN));
         }
-        // v0.4.1 FR-52f · STOCK 账户估值事件作为第 4 种流水
-        if (account.getType() == AccountType.STOCK) {
+        // v0.4.1 FR-52f · 持仓账户估值事件作为第 4 种流水
+        if (com.family.finance.service.stock.StockHoldingService.supportsHoldings(account.getType())) {
             try {
                 for (StockValuationEvent ev : stockValuationEventMapper.findByAccountAndPeriod(
                         account.getId(), period.getId())) {
