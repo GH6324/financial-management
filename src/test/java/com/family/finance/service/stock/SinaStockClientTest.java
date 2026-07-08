@@ -86,6 +86,20 @@ class SinaStockClientTest {
         assertThat(SinaStockClient.toSinaSymbol(Market.HK, "00700")).isEqualTo("hk00700");
     }
 
+    /**
+     * issue #3 回归:上交所 ETF 513180(5 开头)必须落到 sh。
+     * 旧逻辑 startsWith("6")?sh:sz 会误判成 sz513180 → 查无此票 → 全源失败 → 熔断。
+     */
+    @Test
+    void toSinaSymbolCnEtfGoesToShanghai() {
+        assertThat(SinaStockClient.toSinaSymbol(Market.CN, "513180")).isEqualTo("sh513180"); // 恒生科技 ETF
+        assertThat(SinaStockClient.toSinaSymbol(Market.CN, "510300")).isEqualTo("sh510300"); // 沪深300 ETF
+        assertThat(SinaStockClient.toSinaSymbol(Market.CN, "688981")).isEqualTo("sh688981"); // 科创板 中芯国际
+        assertThat(SinaStockClient.toSinaSymbol(Market.CN, "900901")).isEqualTo("sh900901"); // 沪 B 股
+        assertThat(SinaStockClient.toSinaSymbol(Market.CN, "300750")).isEqualTo("sz300750"); // 创业板 宁德时代
+        assertThat(SinaStockClient.toSinaSymbol(Market.CN, "159915")).isEqualTo("sz159915"); // 深 ETF 创业板
+    }
+
     @Test
     void fromSinaSymbolStripsPrefix() {
         assertThat(SinaStockClient.fromSinaSymbol(Market.US, "gb_baba")).isEqualTo("BABA");

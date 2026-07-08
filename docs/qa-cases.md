@@ -1714,3 +1714,30 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | (e2e) 主线7 持仓版 | 现金股息 +4200(承 v0.12.0)· 未上市建仓 +100 股 ×50=5000(snapshot+5000 · flow ref)· 已有持仓 +50 股=2500(股数 100→150 · snapshot+2500)· 删除 +股数 冲回(150→100 · snapshot 回落)· 删建仓笔 股数→0;工资→股票账户拒错配 |
 
 > 决策(承 prd/tech-design v0.12):收入=外部流入(不进 PnL)· 股票收入按持仓入账(+股数上市按市价/未上市按手填单股估值 · +现金落 CASH 行)· 未上市升级为股数×单股估值(V35 老数据 1 股折算总值不变)· 卖出回款不算收入 · +股数删除按 ref 列精确冲回股数 · 收入侧与账户明细同一批 cash_flow 两视图。
+
+---
+
+## v0.13 · 开账基线 + 社区 issue #3 修复
+
+### v0.13.0 · 新账户「开账基线」不计入当期收益
+
+| Case | 校验 |
+|---|---|
+| v13-OPENING | 开账基线口径:`SnapshotMapper.firstAppearingAccountIds`(账户首次出现期)· `FactViewServiceImpl.openingBaseline` + `netWorthTrendExOpening`(收益指标/财富水位剔除存量本金)· `CashflowSplitView` 三分 `ΔNW = 人赚 + 钱赚 + 开账基线`(`subtract(ob)`)· dashboard `_region.html` 第三行「开账基线」 |
+| (UT) CashflowSplitOpeningTest | 三分自洽:人赚 + 钱赚 + 开账基线 = ΔNW;无新账户期该项为 0,与现状一致 |
+| (e2e) 主线9 开账基线 | 新账户仅最新期首现快照 ¥176,543 → dashboard 出现「开账基线」行 + 金额 · 不计入钱赚 |
+
+### v0.13.1 · 社区 issue #3(@BetterQx)· 估值精度 + A 股拉价
+
+| Case | 校验 |
+|---|---|
+| v13.1-ISSUE3-PREC | 精度放宽:`V37` 把 `stock_holding.manual_value` / `cost_basis` / `stock_price_snapshot.close_price` → `DECIMAL(20,6)`;表单 `holding-new-manual` 的 `unitValue` + `holding-new-auto` 的 `costBasis` `step="0.000001"`(单股估值 15.678 不再被截成 15.68) |
+| v13.1-ISSUE3-CN | A 股交易所前缀集中到 `AShareTicker`(沪 = 首位 5/6/9,深 = 其余);`SinaStockClient` / `TencentStockClient` 均 `AShareTicker.withExchange` 复用,无 `startsWith("6")` 残留(上交所 ETF 513180 不再误判 sz → 熔断) |
+| v03-STOCK-3(改) | 创建 MANUAL 持仓走 `shares` + `unitValue`;单股估值 `15.678` 原样落库(`manual_value=15.678` → 1),验证 (20,6) 精度 |
+| v03-STOCK-5b | 上交所 ETF `513180`(market=CN)自动拉价成功、写 `stock_price_snapshot`(前缀判 `sh513180`) |
+| (UT) AShareTickerTest ×5 | 沪:513180/510300/600519/688981/900901→sh;深:000001/002594/300750/159915/200011→sz;withExchange 拼前缀;空值兜底 sh;去空白 |
+| (UT) SinaStockClientTest / TencentStockClientTest +1 各 | CN symbol:ETF/科创/B 股→sh,创业板/深 ETF→sz(旧 startsWith("6") 会漏) |
+| (UT) StockManualSharesTest +2 | createManual / updateManual 单股估值 15.678 / 2.3456 原样落库,服务层不四舍五入(scale 保留 3/4) |
+| (e2e) 主线7 精度 | 未上市建仓 `unitValue=15.678` → `manual_value=15.678` 原样落库(非 15.68) |
+
+> 决策(承 prd/tech-design v0.13 § v0.13.1):精度纯拓宽(widening)向后兼容,老数据零影响;A 股前缀规则集中一处消除两 client 重复且错误的判断 —— 一处网住整类(沪市 ETF/科创/B 股),防止再漂。

@@ -88,6 +88,25 @@ class EntryStockIncomeTest {
         assertThat(cf.getCategoryCode()).isEqualTo("stock_salary");
     }
 
+    /**
+     * issue#3 回归(精度):股票收入「新建未上市持仓」时,单股估值 15.678 必须原样传给 createManual,
+     * 不能像金额那样被 positiveMoney 压成 15.68。
+     */
+    @Test
+    void newManual_income_preservesHighPrecisionUnitValue() {
+        when(stockHoldingService.createManual(eq(1L), eq(10L), anyString(), any(), any()))
+                .thenReturn(StockHolding.builder().id(60L).accountId(10L)
+                        .valuationMode(ValuationMode.MANUAL).shares(new BigDecimal("1"))
+                        .manualValue(new BigDecimal("15.678")).displayName("字节RSU").build());
+
+        svc.recordStockIncomeNewManual(1L, 7L, 100L, 10L, "字节RSU",
+                new BigDecimal("1"), new BigDecimal("15.678"), "stock_salary", null);
+
+        ArgumentCaptor<BigDecimal> unitCap = ArgumentCaptor.forClass(BigDecimal.class);
+        verify(stockHoldingService).createManual(eq(1L), eq(10L), eq("字节RSU"), any(), unitCap.capture());
+        assertThat(unitCap.getValue()).isEqualByComparingTo("15.678");   // 非 15.68
+    }
+
     @Test
     void noPrice_rejectsWithoutWriting() {
         StockHolding h = StockHolding.builder().id(51L).accountId(10L)

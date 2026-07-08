@@ -57,6 +57,34 @@ class StockManualSharesTest {
         assertThat(h.getManualValue()).isEqualByComparingTo("240");   // manual_value 语义 = 单股估值
     }
 
+    /**
+     * issue #3 回归(精度):单股估值 15.678 / 2.3456 必须原样落库,服务层不得四舍五入。
+     * 防止有人再往 createManual 里塞 .setScale(2) —— 那正是老 DECIMAL(15,2) 截断的翻版。
+     */
+    @Test
+    void createManual_preservesHighPrecisionUnitValue() {
+        svc.createManual(1L, 10L, "字节跳动 RSU", new BigDecimal("2000"), new BigDecimal("15.678"));
+        ArgumentCaptor<StockHolding> cap = ArgumentCaptor.forClass(StockHolding.class);
+        verify(holdingMapper).insert(cap.capture());
+        assertThat(cap.getValue().getManualValue())
+                .isEqualByComparingTo("15.678")
+                .extracting(BigDecimal::scale).isEqualTo(3);   // 未被压到 2 位
+    }
+
+    @Test
+    void updateManual_preservesHighPrecisionUnitValue() {
+        StockHolding h = StockHolding.builder().id(50L).accountId(10L)
+                .valuationMode(ValuationMode.MANUAL).shares(new BigDecimal("2000"))
+                .manualValue(new BigDecimal("240")).build();
+        when(holdingMapper.findById(50L)).thenReturn(Optional.of(h));
+        svc.updateManual(1L, 50L, null, new BigDecimal("2.3456"));
+        ArgumentCaptor<StockHolding> cap = ArgumentCaptor.forClass(StockHolding.class);
+        verify(holdingMapper).update(cap.capture());
+        assertThat(cap.getValue().getManualValue())
+                .isEqualByComparingTo("2.3456")
+                .extracting(BigDecimal::scale).isEqualTo(4);
+    }
+
     @Test
     void createManual_rejectsNonPositiveShares() {
         assertThatThrownBy(() -> svc.createManual(1L, 10L, "X", BigDecimal.ZERO, new BigDecimal("10")))

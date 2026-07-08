@@ -125,7 +125,7 @@ public class SinaStockClient implements StockClient {
     static String toSinaSymbol(Market market, String ticker) {
         return switch (market) {
             case US -> "gb_" + ticker.toLowerCase();
-            case CN -> (ticker.startsWith("6") ? "sh" : "sz") + ticker;
+            case CN -> AShareTicker.withExchange(ticker);   // issue#3 修:5/6/9→沪·其余→深(原 startsWith("6") 漏上交所 ETF 如 513180)
             case HK -> "hk" + ticker;
             case CRYPTO -> throw new IllegalArgumentException("Sina does not support market: " + market);
         };

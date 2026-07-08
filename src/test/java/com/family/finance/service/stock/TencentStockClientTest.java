@@ -61,4 +61,14 @@ class TencentStockClientTest {
         assertThat(TencentStockClient.toTencentSymbol(Market.CN, "600519")).isEqualTo("sh600519");
         assertThat(TencentStockClient.toTencentSymbol(Market.HK, "00700")).isEqualTo("hk00700");
     }
+
+    /** issue #3 回归:上交所 ETF / 科创板 / B 股都要落到 sh(旧 startsWith("6") 会漏)。 */
+    @Test
+    void toTencentSymbolCnEtfGoesToShanghai() {
+        assertThat(TencentStockClient.toTencentSymbol(Market.CN, "513180")).isEqualTo("sh513180");
+        assertThat(TencentStockClient.toTencentSymbol(Market.CN, "688981")).isEqualTo("sh688981");
+        assertThat(TencentStockClient.toTencentSymbol(Market.CN, "900901")).isEqualTo("sh900901");
+        assertThat(TencentStockClient.toTencentSymbol(Market.CN, "000001")).isEqualTo("sz000001");
+        assertThat(TencentStockClient.toTencentSymbol(Market.CN, "300750")).isEqualTo("sz300750");
+    }
 }

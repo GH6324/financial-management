@@ -115,7 +115,7 @@ public class TencentStockClient implements StockClient {
     static String toTencentSymbol(Market market, String ticker) {
         return switch (market) {
             case US -> "us" + ticker.toUpperCase();
-            case CN -> (ticker.startsWith("6") ? "sh" : "sz") + ticker;
+            case CN -> AShareTicker.withExchange(ticker);   // issue#3 修:5/6/9→沪·其余→深(原 startsWith("6") 漏上交所 ETF 如 513180)
             case HK -> "hk" + ticker;
             case CRYPTO -> throw new IllegalArgumentException("Tencent does not support market: " + market);
         };

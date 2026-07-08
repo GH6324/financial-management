@@ -193,6 +193,13 @@ if [ -n "$STK" ] && [ -n "$IP" ]; then
   POSTcode "/entry/income/$ncfid/delete" --data-urlencode "periodId=$IP" >/dev/null
   eq "收入-删除建仓笔 股数冲回→0" "$(db "SELECT ROUND(IFNULL(shares,0)) FROM stock_holding WHERE id=$HID")" "0"
   db "UPDATE stock_holding SET archived_at=NOW(3) WHERE id=$HID" >/dev/null 2>&1 || true
+  # issue#3 回归(精度):未上市单股估值 15.678 必须原样落库,不被截成 15.68(旧 DECIMAL(15,2) 的锅 · V37 放宽到 (20,6))
+  POSTcode /entry/income/stock/new-manual --data-urlencode "periodId=$IP" --data-urlencode "accountId=$STK" --data-urlencode "displayName=e2e精度票" --data-urlencode "shares=1" --data-urlencode "unitValue=15.678" --data-urlencode "categoryCode=stock_salary" >/dev/null
+  HP="$(db "SELECT id FROM stock_holding WHERE account_id=$STK AND valuation_mode='MANUAL' AND display_name='e2e精度票' AND archived_at IS NULL ORDER BY id DESC LIMIT 1")"
+  eq "收入-单股估值 15.678 原样落库(issue#3 精度 · 非 15.68)" "$(db "SELECT manual_value=15.678 FROM stock_holding WHERE id=$HP")" "1"
+  hpcf="$(db "SELECT id FROM cash_flow WHERE ref_holding_id=$HP AND deleted_at IS NULL ORDER BY id DESC LIMIT 1")"
+  [ -n "$hpcf" ] && POSTcode "/entry/income/$hpcf/delete" --data-urlencode "periodId=$IP" >/dev/null
+  db "UPDATE stock_holding SET archived_at=NOW(3) WHERE id=$HP" >/dev/null 2>&1 || true
 else
   bad "收入-无 STOCK 账户/无 OPEN 期,跳过" "STK=$STK IP=$IP"
 fi

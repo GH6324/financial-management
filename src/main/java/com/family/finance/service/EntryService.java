@@ -280,7 +280,7 @@ public class EntryService {
         Account account = requireStockAccount(familyId, accountId);
         var cat = requireIncomeCategoryForAccount(categoryCode, account);
         BigDecimal sh = positiveShares(shares);
-        BigDecimal unit = positiveMoney(unitValue);
+        BigDecimal unit = positiveUnitValue(unitValue);   // issue#3:单股估值保高精度,不像金额那样压成 2 位
         StockHolding h = stockHoldingService.createManual(familyId, accountId, displayName, sh, unit);
         BigDecimal value = sh.multiply(unit).setScale(2, RoundingMode.HALF_EVEN);
         return finishStockShareIncome(familyId, memberId, period, account, cat.getDisplayName(),
@@ -806,6 +806,20 @@ public class EntryService {
             throw new IllegalArgumentException("金额必须大于 0");
         }
         return amount;
+    }
+
+    /**
+     * 单股估值校验(issue#3)· 只校验 > 0,按 manual_value 列精度对齐到 6 位,
+     * 不像 {@link #positiveMoney} 那样压成 2 位 —— 未上市单股估值 15.678 必须原样落库。
+     */
+    private BigDecimal positiveUnitValue(BigDecimal value) {
+        if (value == null) {
+            throw new IllegalArgumentException("单股估值必填");
+        }
+        if (value.signum() <= 0) {
+            throw new IllegalArgumentException("单股估值必须大于 0");
+        }
+        return value.setScale(6, RoundingMode.HALF_EVEN);
     }
 
     private String money(BigDecimal amount) {

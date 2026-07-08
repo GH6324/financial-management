@@ -1508,14 +1508,14 @@ code=$($CURL -b $COOKIE "$BASE/accounts/$NON_STOCK/holdings" -o /dev/null -w "%{
 [[ "$code" == "500" || "$code" == "400" ]] && log_ok "v03-STOCK-2 非 STOCK 账户拒绝持仓页" \
   || log_bad "v03-STOCK-2 非 STOCK 未拒" "code=$code"
 
-# v03-STOCK-3 · 创建 MANUAL 持仓
+# v03-STOCK-3 · 创建 MANUAL 持仓(股数×单股估值)· issue#3 精度:单股 15.678 原样落库(非旧 DECIMAL(15,2) 截成 15.68)
 code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
-  --data-urlencode "displayName=v03 字节期权" --data-urlencode "manualValue=100000" \
+  --data-urlencode "displayName=v03 字节期权" --data-urlencode "shares=1" --data-urlencode "unitValue=15.678" \
   "$BASE/accounts/$STOCK_ACC/holdings/new-manual" -o /dev/null -w "%{http_code}")
-mv=$(mysql -ufinance -pfinance finance -sN -e "SELECT manual_value FROM stock_holding WHERE display_name='v03 字节期权' AND archived_at IS NULL" 2>/dev/null)
-{ [[ "$code" == "302" ]] && [[ "$mv" == "100000.00" ]]; } \
-  && log_ok "v03-STOCK-3 创建 MANUAL 持仓 · 入库 100k" \
-  || log_bad "v03-STOCK-3 MANUAL 创建" "code=$code mv=$mv"
+mv=$(mysql -ufinance -pfinance finance -sN -e "SELECT manual_value=15.678 FROM stock_holding WHERE display_name='v03 字节期权' AND archived_at IS NULL ORDER BY id DESC LIMIT 1" 2>/dev/null)
+{ [[ "$code" == "302" ]] && [[ "$mv" == "1" ]]; } \
+  && log_ok "v03-STOCK-3 创建 MANUAL 持仓 · 单股估值 15.678 原样落库(issue#3 精度 · V37 (20,6))" \
+  || log_bad "v03-STOCK-3 MANUAL 创建/精度" "code=$code mv(=15.678?)=$mv"
 
 # v03-STOCK-4 · 创建 AUTO 持仓 · 真拉价
 code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
@@ -1538,6 +1538,16 @@ sleep 3
 src=$(mysql -ufinance -pfinance finance -sN -e "SELECT source FROM stock_price_snapshot WHERE ticker='600519' AND market='CN' ORDER BY fetched_at DESC LIMIT 1" 2>/dev/null)
 [[ -n "$src" ]] && log_ok "v03-STOCK-5 A 股 600519 拉价成功 · source=$src" \
   || log_bad "v03-STOCK-5 A 股拉价" "no snapshot"
+
+# v03-STOCK-5b · issue#3 · 上交所 ETF 513180 拉价(旧 startsWith("6")?sh:sz 会误判 sz513180 → 查无 → 全源熔断)
+code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+  --data-urlencode "displayName=v03 恒生科技ETF" --data-urlencode "ticker=513180" --data-urlencode "market=CN" \
+  --data-urlencode "shares=100" \
+  "$BASE/accounts/$STOCK_ACC/holdings/new-auto" -o /dev/null -w "%{http_code}")
+sleep 3
+src5b=$(mysql -ufinance -pfinance finance -sN -e "SELECT source FROM stock_price_snapshot WHERE ticker='513180' AND market='CN' ORDER BY fetched_at DESC LIMIT 1" 2>/dev/null)
+[[ -n "$src5b" ]] && log_ok "v03-STOCK-5b 上交所 ETF 513180 拉价成功(issue#3 前缀修复 · sh513180)· source=$src5b" \
+  || log_bad "v03-STOCK-5b ETF 513180 拉价(前缀应判 sh)" "no snapshot"
 
 # v03-STOCK-6 · 港股 5 位前导零规范化(用户填 0700 → 入库 00700)
 code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
@@ -1629,7 +1639,7 @@ code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
   --data-urlencode "amount=5000" \
   "$BASE/accounts/$STOCK_ACC/holdings/new-cash" -o /dev/null -w "%{http_code}")
 sleep 2
-cash_row=$(mysql -ufinance -pfinance finance -sN -e "SELECT valuation_mode,currency,manual_value FROM stock_holding WHERE account_id=$STOCK_ACC AND display_name='v03 USD 现金'" 2>/dev/null | tr '\t' '|')
+cash_row=$(mysql -ufinance -pfinance finance -sN -e "SELECT valuation_mode,currency,ROUND(manual_value,2) FROM stock_holding WHERE account_id=$STOCK_ACC AND display_name='v03 USD 现金'" 2>/dev/null | tr '\t' '|')
 PID_OPEN=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM period WHERE family_id=1 AND status='OPEN' ORDER BY id DESC LIMIT 1" 2>/dev/null)
 bal=$(mysql -ufinance -pfinance finance -sN -e "SELECT end_balance FROM period_snapshot WHERE period_id=$PID_OPEN AND account_id=$STOCK_ACC" 2>/dev/null)
 bal_int=$(echo "$bal" | cut -d. -f1)
@@ -1649,7 +1659,7 @@ $CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
   "$BASE/accounts/$STOCK_ACC/holdings/$HID/update-cash" -o /dev/null -w "" || true
 sleep 1
 NEW_AT=$(mysql -ufinance -pfinance finance -sN -e "SELECT manual_value_at FROM stock_holding WHERE id=$HID" 2>/dev/null)
-NEW_VAL=$(mysql -ufinance -pfinance finance -sN -e "SELECT manual_value FROM stock_holding WHERE id=$HID" 2>/dev/null)
+NEW_VAL=$(mysql -ufinance -pfinance finance -sN -e "SELECT ROUND(manual_value,2) FROM stock_holding WHERE id=$HID" 2>/dev/null)
 { [[ "$NEW_VAL" == "8000.00" ]] && [[ "$OLD_AT" != "$NEW_AT" ]]; } \
   && log_ok "v03-STOCK-14 CASH 金额更新 5000→8000 · manual_value_at 刷新" \
   || log_bad "v03-STOCK-14 CASH 更新" "val=$NEW_VAL old_at=$OLD_AT new_at=$NEW_AT"
@@ -3336,6 +3346,31 @@ REG2="$RD/src/main/resources/templates/dashboard/_region.html"
   && grep -q '开账基线' "$REG2"; } \
   && log_ok "v13-OPENING 开账基线:收益指标剔除(XIRR/TWR/钱赚/PnL)+ 卡第三项 + net_principal 计入 + 财富水位剔除" \
   || log_bad "v13-OPENING 开账基线口径缺" "see FactViewServiceImpl/CashflowSplitView/SnapshotMapper/_region.html"
+
+# v13.1-ISSUE3-PREC · issue#3 精度:V37 放宽 manual_value/cost_basis/close_price → DECIMAL(20,6)· 表单 step 到 6 位
+V37="$RD/db/migration/V37__price_precision.sql"
+MANF="$RD/src/main/resources/templates/stock/holding-new-manual.html"
+AUTOF="$RD/src/main/resources/templates/stock/holding-new-auto.html"
+{ [ -f "$V37" ] \
+  && grep -q 'manual_value DECIMAL(20,6)' "$V37" \
+  && grep -q 'cost_basis DECIMAL(20,6)' "$V37" \
+  && grep -q 'close_price DECIMAL(20,6)' "$V37" \
+  && grep -q 'name="unitValue" step="0.000001"' "$MANF" \
+  && grep -q 'name="costBasis" step="0.000001"' "$AUTOF"; } \
+  && log_ok "v13.1-ISSUE3-PREC 价格精度放宽 (20,6) + 表单 step 6 位(单股估值不再被截成 2 位)" \
+  || log_bad "v13.1-ISSUE3-PREC 精度迁移/表单 step 缺" "see V37__price_precision.sql / holding-new-manual|auto.html"
+
+# v13.1-ISSUE3-CN · issue#3 自动拉价:A 股交易所前缀集中到 AShareTicker · 两 client 不得再各写 startsWith("6")
+ASH="$RD/src/main/java/com/family/finance/service/stock/AShareTicker.java"
+SINA="$RD/src/main/java/com/family/finance/service/stock/SinaStockClient.java"
+TENC="$RD/src/main/java/com/family/finance/service/stock/TencentStockClient.java"
+{ [ -f "$ASH" ] && grep -q "c == '5' || c == '6' || c == '9'" "$ASH" \
+  && grep -q 'AShareTicker.withExchange' "$SINA" \
+  && grep -q 'AShareTicker.withExchange' "$TENC" \
+  && ! grep -q 'startsWith("6")' "$SINA" \
+  && ! grep -q 'startsWith("6")' "$TENC"; } \
+  && log_ok "v13.1-ISSUE3-CN A 股前缀集中 AShareTicker(5/6/9→sh)· Sina/Tencent 复用 · 无 startsWith(\"6\") 残留(513180 不再误判 sz)" \
+  || log_bad "v13.1-ISSUE3-CN A 股前缀仍分散/仍用 startsWith(\"6\")" "see AShareTicker/SinaStockClient/TencentStockClient"
 
 # vSEC-1 · 敏感值不入公开库(L10)· 扫 tracked 文件里 URL/SSH 上下文的公网 IP(排除私网/环回)
 # 用上下文正则(://IP 或 @IP)避免版本号/SVG 数据误报;不硬编码任何具体 IP,守护自身不泄露、不自匹配

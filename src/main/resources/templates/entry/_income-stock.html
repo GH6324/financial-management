@@ -27,7 +27,7 @@
         <span class="font-mono text-[10px] text-ink-subtle"
               th:text="'现 ' + ${(h.shares != null ? h.shares : 1)} + ' 股'">现 120 股</span>
         <span class="font-mono text-[10px] text-ink-subtle" th:if="${unitValues.get(h.id) != null}"
-              th:text="'· 单股 ' + ${account.currency} + ' ' + ${#numbers.formatDecimal(unitValues.get(h.id),1,2)}">· 单股 ¥78.5</span>
+              th:text="'· 单股 ' + ${account.currency} + ' ' + ${unitValues.get(h.id).stripTrailingZeros().toPlainString()}">· 单股 ¥78.5</span>
         <span class="font-mono text-[10px] text-rust" th:if="${unitValues.get(h.id) == null}">· 暂无价 · 先刷价</span>
       </div>
       <form th:action="@{/entry/income/stock/holding}" method="post" class="flex flex-wrap items-end gap-2">

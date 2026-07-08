@@ -39,7 +39,7 @@
                th:text="'单股估值(' + ${account.currency} + '· 手填)'">单股估值(HKD · 手填)</label>
         <div class="flex items-center gap-2">
           <span class="font-mono text-xl text-ink-subtle" th:text="${account.currency}">HKD</span>
-          <input type="number" name="unitValue" step="0.01" min="0" required
+          <input type="number" name="unitValue" step="0.000001" min="0" required
                  class="flex-1 font-mono text-xl bg-paper-soft border border-rule px-4 py-3 tnum text-right"
                  placeholder="240">
         </div>

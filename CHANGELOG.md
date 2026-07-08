@@ -2,6 +2,17 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.13.1] · 2026-07-08
+
+### Fixed — 社区 issue #3(@BetterQx)· 股票估值精度截断 + A 股自动拉价报错
+
+> 详见 [`prd/v0.13.md`](prd/v0.13.md) § v0.13.1 补丁 · [`tech-design/v0.13.md`](tech-design/v0.13.md) § v0.13.1
+
+- **精度截断**:未上市持仓手填「单股估值」15.678 / 2.3456 被截成 15.68 → 估值失真。**根因**:`stock_holding.manual_value` 是 `DECIMAL(15,2)`,表单 `step="0.01"` 也只放 2 位。**方案**:迁移 `V37` 把 `manual_value` / `cost_basis` / `stock_price_snapshot.close_price` 统一放宽到 `DECIMAL(20,6)`(纯拓宽,老数据零影响);表单 `step` 到 6 位;单股 / 最新价按真实精度展示(`stripTrailingZeros`,不再强凑或截断小数)。
+- **A 股自动拉价报错**:上交所 ETF(如恒生科技 `513180`)全源拉价失败、触发熔断。**根因**:新浪 / 腾讯两个 client 各写死 `startsWith("6") ? "sh" : "sz"`,把 `5` 开头的沪市 ETF 误判成深市 → 请求 `sz513180` 查无此票 → 连续失败熔断。**方案**:交易所前缀规则集中到 `AShareTicker`(沪 = 首位 5 / 6 / 9,深 = 其余),两个 client 复用同一份,消除重复且错误的判断。
+- 新增 `AShareTicker` + `AShareTickerTest`(513180→sh 等边界)· Sina / Tencent symbol 单测补 ETF / 科创 / B 股用例 · `StockManualSharesTest` 补单股估值不被四舍五入 · e2e 主线 7 补「15.678 原样落库」DB 断言 · qa `v03-STOCK-5b`(513180 真拉价)/ `v13.1-ISSUE3-PREC` / `v13.1-ISSUE3-CN`。
+- 测试:mvn 327→**337** · e2e 43→**44** · qa 433→**436**。
+
 ## [v0.13.0] · 2026-07-08
 
 ### Fixed — v0.13 · 新账户「开账基线」不计入当期收益(修投资收益虚高)
