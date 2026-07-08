@@ -3372,6 +3372,42 @@ TENC="$RD/src/main/java/com/family/finance/service/stock/TencentStockClient.java
   && log_ok "v13.1-ISSUE3-CN A 股前缀集中 AShareTicker(5/6/9→sh)· Sina/Tencent 复用 · 无 startsWith(\"6\") 残留(513180 不再误判 sz)" \
   || log_bad "v13.1-ISSUE3-CN A 股前缀仍分散/仍用 startsWith(\"6\")" "see AShareTicker/SinaStockClient/TencentStockClient"
 
+# v14-METAL · 贵金属账户 + 自动金价(issue #4)
+V38="$RD/db/migration/V38__precious_metal_account.sql"
+MU="$RD/src/main/java/com/family/finance/service/stock/MetalUnit.java"
+MPC="$RD/src/main/java/com/family/finance/service/stock/MetalPriceClient.java"
+SPF="$RD/src/main/java/com/family/finance/service/stock/StockPriceFetcher.java"
+SHSV="$RD/src/main/java/com/family/finance/service/stock/StockHoldingService.java"
+MF="$RD/src/main/resources/templates/stock/holding-new-metal.html"
+{ [ -f "$V38" ] && grep -q "unit VARCHAR" "$V38" && grep -q "'METAL'" "$V38" && grep -q "metal_account" "$V38" \
+  && grep -q 'METAL("贵金属")' "$RD/src/main/java/com/family/finance/domain/account/AccountType.java" \
+  && [ -f "$MU" ] && grep -q 'GRAMS_PER_TROY_OUNCE' "$MU" && grep -q 'normalizeToPerGram' "$MU" \
+  && [ -f "$MPC" ] && grep -q 'sina-metal' "$MPC" \
+  && grep -q 'Market.METAL' "$SPF" && grep -q 'fetchMetalAndPersist' "$SPF" \
+  && grep -q 'createMetal' "$SHSV" \
+  && [ -f "$MF" ]; } \
+  && log_ok "v14-METAL 贵金属账户 + MetalPriceClient(gds_/hf_)+ 每克归一 + 建仓表单 + V38(unit列/METAL/模板)" \
+  || log_bad "v14-METAL 贵金属链路缺" "see V38 / MetalUnit / MetalPriceClient / StockPriceFetcher / StockHoldingService / holding-new-metal.html"
+
+# v14-METAL-PD-SGE · 钯金无上海盘(诚实置灰 · PD+sge→null)
+grep -q 'intl ? "XPD" : null' "$MU" \
+  && log_ok "v14-METAL-PD-SGE 钯金只有国际盘(PD+SGE→null · UI 提示改选国际)" \
+  || log_bad "v14-METAL-PD-SGE 钯金 SGE 未正确置空" "see MetalUnit.tickerFor"
+
+# v14-LLM-VENDOR · LLM 主选供应商可配 + 温度 + 模型级联(FR-B)
+FCS="$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java"
+LDS="$RD/src/main/java/com/family/finance/service/checkup/llm/LlmDiagnoseService.java"
+QLC="$RD/src/main/java/com/family/finance/service/checkup/llm/QwenLlmClient.java"
+ICF="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"
+INTG="$RD/src/main/resources/templates/admin/integrations.html"
+{ grep -q 'K_LLM_PRIMARY_VENDOR' "$FCS" && grep -q 'K_LLM_TEMPERATURE' "$FCS" && grep -q 'K_LLM_MODEL' "$FCS" \
+  && grep -q 'orderByPrimaryVendor' "$LDS" \
+  && grep -q 'currentTemperature' "$QLC" && grep -q 'pinnedModel' "$QLC" \
+  && grep -q 'normalizeLlmModel' "$ICF" \
+  && grep -q 'name="primaryVendor"' "$INTG" && grep -q 'id="llmModelSel"' "$INTG" && grep -q 'syncLlmModels' "$INTG"; } \
+  && log_ok "v14-LLM-VENDOR 主选供应商(默认Qwen·可切DS)+ 温度可配 + 模型级联下拉(内置清单·越权回落auto)" \
+  || log_bad "v14-LLM-VENDOR LLM 自选链路缺" "see FamilyConfigService/LlmDiagnoseService/QwenLlmClient/IntegrationsController/integrations.html"
+
 # vSEC-1 · 敏感值不入公开库(L10)· 扫 tracked 文件里 URL/SSH 上下文的公网 IP(排除私网/环回)
 # 用上下文正则(://IP 或 @IP)避免版本号/SVG 数据误报;不硬编码任何具体 IP,守护自身不泄露、不自匹配
 SEC_HITS="$(cd "$RD" && git grep -InoE '(://|@)([0-9]{1,3}\.){3}[0-9]{1,3}' -- . ':(exclude)*.jpg' ':(exclude)*.png' ':(exclude)*.jpeg' 2>/dev/null \

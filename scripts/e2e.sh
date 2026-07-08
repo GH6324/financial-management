@@ -233,6 +233,27 @@ else
   bad "开账-建账户/取期失败,跳过" "OCID=$OCID LP=$LP"
 fi
 
+section "主线 10 · 贵金属账户(v0.14 · METAL + 自动金价 + 克/盎司换算 · issue #4)"
+MEM3="$(db "SELECT id FROM member WHERE family_id=$FAM ORDER BY id LIMIT 1")"
+MTID="$(db "INSERT INTO account(family_id,type,display_name,currency,primary_owner_member_id,display_order) VALUES($FAM,'METAL','e2e贵金属','CNY',$MEM3,97); SELECT LAST_INSERT_ID()")"
+if [ -n "$MTID" ] && [ "$MTID" != "0" ]; then
+  # SGE 黄金:每克价 892 × 200 克 = 178,400 · 盈亏 (892−500)×200 = 78,400
+  db "INSERT INTO stock_holding(account_id,display_name,valuation_mode,ticker,market,shares,cost_basis,currency,unit) VALUES($MTID,'黄金·上海','AUTO','AU9999','METAL',200,500,'CNY','GRAM')" >/dev/null
+  db "DELETE FROM stock_price_snapshot WHERE ticker='AU9999' AND market='METAL'" >/dev/null
+  db "INSERT INTO stock_price_snapshot(ticker,market,trade_date,close_price,currency,source) VALUES('AU9999','METAL',CURDATE(),892,'CNY','e2e')" >/dev/null
+  # 国际金:每克价 10 × 31.1035 × 3 盎司 ≈ USD 933(oz→g 因子)
+  db "INSERT INTO stock_holding(account_id,display_name,valuation_mode,ticker,market,shares,cost_basis,currency,unit) VALUES($MTID,'黄金·国际','AUTO','XAU','METAL',3,0,'USD','OUNCE')" >/dev/null
+  db "DELETE FROM stock_price_snapshot WHERE ticker='XAU' AND market='METAL'" >/dev/null
+  db "INSERT INTO stock_price_snapshot(ticker,market,trade_date,close_price,currency,source) VALUES('XAU','METAL',CURDATE(),10,'USD','e2e')" >/dev/null
+  page="$(GET /accounts/$MTID/holdings)"
+  eq "金属-持仓页可达 + 品种渲染(AU9999/XAU)" "$([ -n "$page" ] && printf '%s' "$page" | grep -q 'AU9999' && printf '%s' "$page" | grep -q 'XAU' && echo ok || echo miss)" "ok"
+  eq "金属-SGE 市值 892×200g = ¥178,400(每克价×持仓量)" "$(printf '%s' "$page" | grep -q '178,400' && echo ok || echo miss)" "ok"
+  eq "金属-SGE 盈亏 (892−500)×200 = +¥78,400" "$(printf '%s' "$page" | grep -q '78,400' && echo ok || echo miss)" "ok"
+  eq "金属-盎司换算 XAU 10×31.1035×3 ≈ USD 933(oz→g 因子生效)" "$(printf '%s' "$page" | grep -q '933' && echo ok || echo miss)" "ok"
+else
+  bad "金属-建 METAL 账户失败,跳过" "MTID=$MTID"
+fi
+
 # ============================================================================
 echo
 echo "════════════════════════════════════════"

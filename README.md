@@ -98,11 +98,11 @@
 ## 主要能力
 
 - **每月 10 分钟全家完成** — 月度 / 周度周期可切 · 自动生成「填余额」待办 · 夫妻异步填报 · 移动端响应式 + iOS 可加桌面 PWA
-- **7 类账户、一张全局图** — 现金 / 股票 / 理财 / 加密 / 房产 / 负债 / 其他 · 14 个内置模板 · 按成员归集成家庭净资产
+- **8 类账户、一张全局图** — 现金 / 股票 / 理财 / 加密 / 贵金属 / 房产 / 负债 / 其他 · 15 个内置模板 · 按成员归集成家庭净资产
 - **真实收益率** — 账户级 / 家庭级 XIRR(资金加权)+ 资产 TWR(剔除收入)· 分得清「人赚的(工资攒的)」和「钱赚的(投资)」
 - **财富水位:扣通胀看真实身家** — 净资产叠 **CPI 购买力线**(还买得起同样的生活吗)+ **M2 社会财富线**(在社会里的排位升还是降)· 1990–2025 历史底座
 - **多币种** — 本位币 CNY / USD / HKD · 自动拉汇率
-- **持仓自动估值** — 录 ticker + 数量 · 每日自动拉价(股票:新浪主 + 腾讯备 · 美 / A / 港三市场;加密:Binance 主 + CoinGecko / Coinbase 备)· 可与账户现金联动(买入扣现金、卖出加回)
+- **持仓自动估值** — 录 ticker + 数量 · 每日自动拉价(股票:新浪主 + 腾讯备 · 美 / A / 港三市场;加密:Binance 主 + CoinGecko / Coinbase 备;贵金属:新浪 SGE 上海 / 国际现货,金银铂钯按克 / 盎司)· 可与账户现金联动(买入扣现金、卖出加回)
 - **AI 资产体检 + 调仓建议** — 4 维诊断(配置 / 风险 / 流动性 / 收益)+ 具体调仓步骤(「从 X 调 ¥N 到 Y」)· **所有数字工程算好,LLM 只解读,不荐产品、不预测涨跌**
 - **财务目标** — FIRE 退休(通胀现值 + 4% 提取率,目标支出可自适应近月真实支出)/ 子女教育 / 应急储备 · 三情景预测(乐观 / 中性 / 悲观)
 - **决策辅助** — 账户级基准对照 / 提前还贷决策器(NPV 18 年视角)/ 应急金不闲置提示
@@ -121,7 +121,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 337 单元(含 PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性 + AShareTicker 交易所前缀 + 单一镜头端到端币种守护)/ 44 e2e 断言(9 主线)/ 436 黑盒回归 |
+| 测试 | JUnit 5 · 353 单元(含 PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性 + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + 单一镜头端到端币种守护)/ 48 e2e 断言(10 主线)/ 439 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
@@ -249,8 +249,8 @@ mvn spring-boot:run
 测试:
 
 ```bash
-mvn test                       # JUnit 单元测试(337)
-bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(436)
+mvn test                       # JUnit 单元测试(353)
+bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(439)
 bash scripts/e2e.sh            # 端到端主线真验收(7 主线 · 唤起 beta 调接口 + DB 真值判定 · mysqldump 快照/还原,不清库)
 ```
 

@@ -2,6 +2,23 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.14.0] · 2026-07-08
+
+### Added — 贵金属账户 + 自动金价(社区 issue #4 · @BetterQx)
+
+> 详见 [`prd/v0.14.md`](prd/v0.14.md) · [`tech-design/v0.14.md`](tech-design/v0.14.md) · 预览 [`preview/v0.14/`](preview/v0.14/precious-metals.html)
+
+- **`METAL` 贵金属账户类型**:金 / 银 / 铂 / 钯 · 复用现有持仓 / 估值 / 拉价链(与加密对称)。持仓按 **克 / 盎司**(持仓级属性,默认克;1 盎司 = 31.1035 克),记买入价 + 自动现价 → 总估值 = 现价 × 量、盈亏 =(现价 − 买入价)× 量。
+- **自动金价**:复用新浪主源新增 `MetalPriceClient`(`gds_*` 上海 SGE / `hf_*` 国际现货),快照统一归一为"原生币种 / 克"(SGE 白银元/千克 ÷1000;国际币种/盎司 ÷31.1035),估值层按持仓单位换算。钯金仅国际盘(SGE 无常见钯,UI 提示改选)。价格源在接入源页可切(默认上海 SGE)+ 独立拉价 cron。
+- 迁移 `V38`:`stock_holding.unit` 列 + `METAL` 账户类型 CHECK + `PRECIOUS_METAL` 分类 + 贵金属账户模板(纯新增,向后兼容)。
+
+### Changed — LLM 供应商由管理员自选(FR-B)
+
+- 接入源页新增「**主选 AI 供应商**」(Qwen / DeepSeek · 默认 Qwen · 主选故障自动切备)、「**采样温度**」(0–1 · 默认 0.5)、「**模型**」随供应商级联的**下拉**(内置清单,不手打;越权/空回落「自动(推荐)」,保留 Qwen 多模型轮询)。5 处 AI 调用共用同一路由,一处生效;业务 prompt / 合规校验不变。
+- 运营配置开放梳理(FR-C):以上开放到管理页;工程内部旋钮(熔断/缓存/FIRE 假设等)按 10 分钟/月红线保持内部。
+
+- 测试:mvn 337→**353** · e2e 44→**48**(主线 10 贵金属)· qa 436→**439**。
+
 ## [v0.13.1] · 2026-07-08
 
 ### Fixed — 社区 issue #3(@BetterQx)· 股票估值精度截断 + A 股自动拉价报错

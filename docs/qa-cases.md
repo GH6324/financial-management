@@ -1741,3 +1741,19 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | (e2e) 主线7 精度 | 未上市建仓 `unitValue=15.678` → `manual_value=15.678` 原样落库(非 15.68) |
 
 > 决策(承 prd/tech-design v0.13 § v0.13.1):精度纯拓宽(widening)向后兼容,老数据零影响;A 股前缀规则集中一处消除两 client 重复且错误的判断 —— 一处网住整类(沪市 ETF/科创/B 股),防止再漂。
+
+---
+
+## v0.14 · 贵金属账户 + 自动金价 · LLM 供应商自选
+
+| Case | 校验 |
+|---|---|
+| v14-METAL | `V38` 迁移(`stock_holding.unit` 列 + `METAL` 类型 CHECK + `metal_account` 模板)· `AccountType.METAL`/`Market.METAL` · `MetalUnit`(GRAMS_PER_TROY_OUNCE + 每克归一)· `MetalPriceClient`(source=sina-metal)· `StockPriceFetcher` METAL 路由(`fetchMetalAndPersist`)· `StockHoldingService.createMetal` · `holding-new-metal.html` |
+| v14-METAL-PD-SGE | 钯金无上海盘:`MetalUnit.tickerFor("PD","sge")→null`(UI 提示改选国际) |
+| v14-LLM-VENDOR | LLM 主选供应商 / 温度 / 模型级联:`K_LLM_PRIMARY_VENDOR/TEMPERATURE/MODEL` · `LlmDiagnoseService.orderByPrimaryVendor` · `QwenLlmClient.currentTemperature/pinnedModel` · `IntegrationsController.normalizeLlmModel` · 管理页 `primaryVendor`+`llmModelSel`+`syncLlmModels` |
+| (UT) MetalUnitTest ×8 | tickerFor(品种×源,钯 SGE→null)· gds_/hf_ symbol 映射 · currency/默认单位随源 · normalizeToPerGram(SGE 金不变 / 银÷1000 / 国际÷31.1035)· perHoldingUnit(盎司×31.1035)· 盎司往返 |
+| (UT) MetalPriceClientTest ×5 | 解析 SGE 金(元/克不变)/ SGE 银(÷1000)/ 国际金(每克归一 · USD)· 混源批量 · 空 payload 跳过 |
+| (UT) LlmVendorOrderingTest ×3 | 主选 Qwen→Qwen 先;主选 DeepSeek→DeepSeek 先;未知/null→保持原序 |
+| (e2e) 主线10 贵金属 | 建 METAL 账户 → SGE 金 892/克×200克=¥178,400、盈亏(892−500)×200=+¥78,400 · 国际金 10/克×31.1035×3盎司≈USD 933(oz→g 因子)· 持仓页渲染 AU9999/XAU |
+
+> 决策(承 prd/tech-design v0.14):贵金属复用持仓/估值机器(METAL 类型对称加密)· ticker 编码品种×源、currency 定源币种 · 单位存用户原样、快照归一每克、估值层一次换算 · 全局价格源仅作新建默认、已建持仓各记各源 · LLM 主选/温度/模型走接入源页(模型级联下拉·越权回落 auto),业务 prompt 不动。

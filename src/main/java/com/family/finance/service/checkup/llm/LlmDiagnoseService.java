@@ -62,6 +62,19 @@ public class LlmDiagnoseService {
     private static final long TTL_MS = 60L * 60 * 1000;
 
     /**
+     * v0.14 · 把「主选供应商」排到最前(稳定排序 · 其余保持原顺序)· 主选故障后按序切备。
+     * 抽成静态方法便于单测(LlmVendorOrderingTest)。
+     */
+    static java.util.List<LlmClient> orderByPrimaryVendor(java.util.List<LlmClient> clients, String primaryVendor) {
+        String v = primaryVendor == null ? "qwen" : primaryVendor;
+        return clients.stream()
+                .sorted((a, b) -> Boolean.compare(
+                        b.vendor().equalsIgnoreCase(v),
+                        a.vendor().equalsIgnoreCase(v)))
+                .toList();
+    }
+
+    /**
      * 全家维度综合诊断(默认走 cache · 1h TTL · 兼容老 caller)。
      */
     public DiagnoseResult diagnoseFamily(Long familyId, Long actorMemberId,
@@ -237,12 +250,7 @@ public class LlmDiagnoseService {
         // 2. 遍历 clients(主选供应商优先 · 故障自动切备 · v0.14 可配 K_LLM_PRIMARY_VENDOR)
         String primaryVendor = configService.getString(familyId,
                 com.family.finance.service.config.FamilyConfigService.K_LLM_PRIMARY_VENDOR, "qwen");
-        List<LlmClient> ordered = clients.stream()
-                .sorted((a, b) -> Boolean.compare(
-                        b.vendor().equalsIgnoreCase(primaryVendor),
-                        a.vendor().equalsIgnoreCase(primaryVendor)))
-                .toList();
-        for (LlmClient client : ordered) {
+        for (LlmClient client : orderByPrimaryVendor(clients, primaryVendor)) {
             if (!client.available()) continue;
             long t0 = System.currentTimeMillis();
             String raw = null;
