@@ -58,6 +58,19 @@ public class DeepSeekLlmClient implements LlmClient {
         return configService.getInt(FAMILY_ID, FamilyConfigService.K_LLM_MAX_TOKENS, 2000);
     }
 
+    /** v0.14 · 采样温度(管理页可配 · 夹到 0~1 · 默认 0.5) */
+    private double currentTemperature() {
+        double t = configService.getDouble(FAMILY_ID, FamilyConfigService.K_LLM_TEMPERATURE, 0.5);
+        return Math.max(0.0, Math.min(1.0, t));
+    }
+
+    /** v0.14 · 选定模型:管理页选了具体 deepseek 型号则用它,否则(auto/空/越权)回落默认 deepseek-chat */
+    private String currentModel() {
+        String m = configService.getString(FAMILY_ID, FamilyConfigService.K_LLM_MODEL, "auto");
+        if (m == null || m.isBlank() || m.equalsIgnoreCase("auto")) return MODEL;
+        return m.toLowerCase(java.util.Locale.ROOT).startsWith("deepseek") ? m.trim() : MODEL;
+    }
+
     @Override
     public String vendor() { return "deepseek"; }
 
@@ -80,13 +93,13 @@ public class DeepSeekLlmClient implements LlmClient {
         h.setContentType(MediaType.APPLICATION_JSON);
         h.setBearerAuth(key);
         Map<String, Object> body = Map.of(
-                "model", MODEL,
+                "model", currentModel(),
                 "messages", List.of(
                         Map.of("role", "system", "content", systemPrompt),
                         Map.of("role", "user", "content", userPrompt)
                 ),
-                // 综合诊断需要 LLM 有更多发挥(2026-05-10 从 0.15 调到 0.5)
-                "temperature", 0.5,
+                // 采样温度 v0.14 起管理页可配(默认 0.5)
+                "temperature", currentTemperature(),
                 // v0.4.18 · 动态可调 · 默认 2000
                 "max_tokens", currentMaxTokens()
         );

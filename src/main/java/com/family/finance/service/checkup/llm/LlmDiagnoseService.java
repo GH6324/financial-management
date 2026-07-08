@@ -45,6 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class LlmDiagnoseService {
 
     private final List<LlmClient> clients;
+    private final com.family.finance.service.config.FamilyConfigService configService;
     private final AuditLogService auditLogService;
     private final MemberMapper memberMapper;
     private final AccountMapper accountMapper;
@@ -233,8 +234,15 @@ public class LlmDiagnoseService {
             cache.remove(cacheKey);
         }
 
-        // 2. 遍历 clients(主 qwen → 备 deepseek)
-        for (LlmClient client : clients) {
+        // 2. 遍历 clients(主选供应商优先 · 故障自动切备 · v0.14 可配 K_LLM_PRIMARY_VENDOR)
+        String primaryVendor = configService.getString(familyId,
+                com.family.finance.service.config.FamilyConfigService.K_LLM_PRIMARY_VENDOR, "qwen");
+        List<LlmClient> ordered = clients.stream()
+                .sorted((a, b) -> Boolean.compare(
+                        b.vendor().equalsIgnoreCase(primaryVendor),
+                        a.vendor().equalsIgnoreCase(primaryVendor)))
+                .toList();
+        for (LlmClient client : ordered) {
             if (!client.available()) continue;
             long t0 = System.currentTimeMillis();
             String raw = null;

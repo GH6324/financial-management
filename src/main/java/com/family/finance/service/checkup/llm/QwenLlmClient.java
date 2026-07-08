@@ -84,6 +84,21 @@ public class QwenLlmClient implements LlmClient {
         return configService.getInt(FAMILY_ID, FamilyConfigService.K_LLM_MAX_TOKENS, 2000);
     }
 
+    /** v0.14 · 采样温度(管理页可配 · 夹到 0~1 · 默认 0.5) */
+    private double currentTemperature() {
+        double t = configService.getDouble(FAMILY_ID, FamilyConfigService.K_LLM_TEMPERATURE, 0.5);
+        return Math.max(0.0, Math.min(1.0, t));
+    }
+
+    /**
+     * v0.14 · 选定模型:管理页选了具体 qwen 型号 → 钉死单模型;否则(auto/空/越权非 qwen)→ 保留多模型轮询。
+     */
+    private String pinnedModel() {
+        String m = configService.getString(FAMILY_ID, FamilyConfigService.K_LLM_MODEL, "auto");
+        if (m == null || m.isBlank() || m.equalsIgnoreCase("auto")) return null;
+        return m.toLowerCase(Locale.ROOT).startsWith("qwen") ? m.trim() : null;   // 越权(非 qwen 型号)→ 回落 auto
+    }
+
     /** 解析有序模型列表(去重 · 去空 · 上限 10)· 配置空则用默认 */
     List<String> currentModels() {
         String raw = configService.getString(FAMILY_ID, FamilyConfigService.K_LLM_QWEN_MODELS, "");
@@ -123,10 +138,15 @@ public class QwenLlmClient implements LlmClient {
         String key = currentApiKey();
         if (key.isBlank()) throw new IllegalStateException("Qwen API key 未配置");
 
-        // 每次调用随机打乱模型顺序 → 把流量均匀摊到各模型的独立免费额度上(而非总砸 qwen-plus)。
-        // 失败/额度用尽时仍会沿这个随机顺序往后试其它模型。
-        List<String> models = new ArrayList<>(currentModels());
-        java.util.Collections.shuffle(models);
+        // v0.14 · 管理页钉死某型号 → 只用它;否则每次随机打乱模型顺序,把流量均摊到各模型独立免费额度。
+        List<String> models;
+        String pinned = pinnedModel();
+        if (pinned != null) {
+            models = new ArrayList<>(List.of(pinned));
+        } else {
+            models = new ArrayList<>(currentModels());
+            java.util.Collections.shuffle(models);
+        }
         RuntimeException lastTransient = null;
         boolean anyTried = false;
 
@@ -187,7 +207,7 @@ public class QwenLlmClient implements LlmClient {
                         Map.of("role", "system", "content", systemPrompt),
                         Map.of("role", "user", "content", userPrompt)
                 ),
-                "temperature", 0.5,
+                "temperature", currentTemperature(),
                 "max_tokens", currentMaxTokens()
         );
 
