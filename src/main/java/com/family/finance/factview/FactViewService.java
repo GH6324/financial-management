@@ -13,6 +13,9 @@ public interface FactViewService {
 
     List<TrendPoint> netWorthTrend(FactSlice slice);
 
+    /** v0.13 · 剔除累计开账基线的净资产趋势(财富水位用) */
+    List<TrendPoint> netWorthTrendExOpening(FactSlice slice);
+
     List<AllocationSlice> allocationByType(FactSlice slice, Long periodId);
 
     List<WaterfallSegment> incomeExpenseWaterfall(FactSlice slice);

@@ -263,7 +263,16 @@
             </div>
             <span class="font-mono text-xs w-20 sm:w-24 tnum" th:classappend="${cashflowSplit.qianPos()} ? ' num-pos' : ' num-neg'" data-priv th:text="${cfQianLabel}">+¥16,200</span>
           </div>
-          <!-- ΔNW(=两条代数和)-->
+          <!-- v0.13 · 开账基线(本期新纳入本金)· 仅当本期新增账户时显示 -->
+          <div class="flex items-center gap-3" th:if="${cashflowSplit.hasOpening()}">
+            <span class="font-mono text-[11px] text-ink-soft w-16 sm:w-20 text-right">开账基线</span>
+            <div class="relative flex-1 h-[22px] rounded-sm" style="background:rgba(201,189,168,.16)">
+              <div class="absolute left-1/2 top-[-3px] bottom-[-3px] w-px" style="background:var(--ink-subtle);opacity:.55"></div>
+              <i class="absolute top-[3px] h-4 rounded-sm" th:style="${cashflowSplit.openingBarStyle()}"></i>
+            </div>
+            <span class="font-mono text-xs w-20 sm:w-24 tnum text-brass-deep" data-priv th:text="${cfOpeningLabel}">+¥426,372</span>
+          </div>
+          <!-- ΔNW(=两/三条代数和)-->
           <div class="flex items-center gap-3">
             <span class="font-mono text-[11px] text-ink-soft w-16 sm:w-20 text-right">= ΔNW</span>
             <div class="relative flex-1 h-[22px] rounded-sm" style="background:rgba(140,106,51,.10)">
@@ -276,6 +285,8 @@
         </div>
 
         <p class="font-mono text-[11px] text-ink-subtle mb-4" th:text="${cashflowSplit.narrative()}">存下的 + 投资一起把净资产推高了。</p>
+        <p class="font-mono text-[10px] text-brass-deep mb-4" th:if="${cashflowSplit.hasOpening()}">
+          开账基线 = 你本来就有、这月刚新纳入记录的存量本金,不算这月赚/赔的(已从收益里剔除)。</p>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="p-4" style="background:var(--card-soft);border-left:3px solid var(--forest)">

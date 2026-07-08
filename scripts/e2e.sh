@@ -212,6 +212,20 @@ else
   bad "crypto-建 CRYPTO 账户失败,跳过" "CID=$CID MEMBER=$MEMBER"
 fi
 
+section "主线 9 · 开账基线(v0.13 · 新账户存量本金不计入当期收益 · dashboard 拆第三项)"
+MEM2="$(db "SELECT id FROM member WHERE family_id=$FAM ORDER BY id LIMIT 1")"
+LP="$(db "SELECT id FROM period WHERE family_id=$FAM ORDER BY period_start DESC LIMIT 1")"
+OCID="$(db "INSERT INTO account(family_id,type,display_name,currency,primary_owner_member_id,display_order) VALUES($FAM,'CASH','e2e开账基线','CNY',$MEM2,98); SELECT LAST_INSERT_ID()")"
+if [ -n "$OCID" ] && [ "$OCID" != "0" ] && [ -n "$LP" ]; then
+  # 只在"最新一期"给这个新账户一条快照(此前任何期都无 → 本期首次出现 = 开账基线)
+  db "INSERT INTO period_snapshot(period_id,account_id,end_balance,submitted_by) VALUES($LP,$OCID,176543,$MEM2)" >/dev/null
+  dash="$(GET /dashboard)"
+  eq "开账-dashboard「本期怎么变」出现『开账基线』行" "$(printf '%s' "$dash" | grep -q '开账基线' && echo ok || echo miss)" "ok"
+  eq "开账-开账基线金额 ¥176,543(存量本金单列 · 不计入钱赚)" "$(printf '%s' "$dash" | grep -q '176,543' && echo ok || echo miss)" "ok"
+else
+  bad "开账-建账户/取期失败,跳过" "OCID=$OCID LP=$LP"
+fi
+
 # ============================================================================
 echo
 echo "════════════════════════════════════════"

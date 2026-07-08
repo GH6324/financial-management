@@ -32,6 +32,25 @@ public interface SnapshotMapper {
                                                     @Param("periodId") long periodId,
                                                     @Param("accountType") String accountType);
 
+    /**
+     * v0.13 · 「开账基线」检测:在 periodId **首次出现**的账户 id
+     * = 该期有快照、且**此前任何一期都没有快照**的账户。
+     * 用于把"中途新增账户的存量本金"从当期投资收益里剔除(它是外部资本纳入,非当期赚)。
+     */
+    @Select("""
+            SELECT DISTINCT ps.account_id
+              FROM period_snapshot ps
+             WHERE ps.period_id = #{periodId}
+               AND ps.account_id NOT IN (
+                   SELECT ps2.account_id
+                     FROM period_snapshot ps2
+                     JOIN period p2 ON p2.id = ps2.period_id
+                    WHERE p2.family_id = #{familyId}
+                      AND p2.period_start < (SELECT period_start FROM period WHERE id = #{periodId}))
+            """)
+    List<Long> firstAppearingAccountIds(@Param("familyId") long familyId,
+                                        @Param("periodId") long periodId);
+
 
     @Select("""
             SELECT id, period_id, account_id, end_balance, submitted_by, submitted_at, note

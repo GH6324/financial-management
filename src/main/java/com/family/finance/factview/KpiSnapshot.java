@@ -44,14 +44,16 @@ public record KpiSnapshot(
         BigDecimal liquidAssets,
         BigDecimal avgExpense,
         BigDecimal prevNetWorth,
-        BigDecimal lastNetInflow
+        BigDecimal lastNetInflow,
+        // v0.13 · 本期「开账基线」(新纳入账户存量本金 · viewCurrency)· 供「本期怎么变」卡第三项 + 收益指标剔除 · 可空
+        BigDecimal openingBaselineLast
 ) {
     /** v0.4.2 加字段时的 backward-compat 构造器 · 老调用方继续传 7 参数 */
     public KpiSnapshot(BigDecimal netWorth, BigDecimal totalAssets, BigDecimal totalLiabilities,
                        BigDecimal emergencyFundMonths, BigDecimal debtToAssetRatio,
                        BigDecimal netWorthDelta, BigDecimal netWorthDeltaPct) {
         this(netWorth, totalAssets, totalLiabilities, emergencyFundMonths, debtToAssetRatio,
-             netWorthDelta, netWorthDeltaPct, null, null, null, null, null, null, null, null);
+             netWorthDelta, netWorthDeltaPct, null, null, null, null, null, null, null, null, null);
     }
 
     /** v0.5.3 加 4 个透明化中间量时的 backward-compat 构造器 · 老调用方继续传 11 参数 */
@@ -62,6 +64,20 @@ public record KpiSnapshot(
                        BigDecimal annualizedInvestReturnPct, BigDecimal ytdInvestPnl) {
         this(netWorth, totalAssets, totalLiabilities, emergencyFundMonths, debtToAssetRatio,
              netWorthDelta, netWorthDeltaPct, monthlyPnlAmount, monthlyInvestReturnPct,
-             annualizedInvestReturnPct, ytdInvestPnl, null, null, null, null);
+             annualizedInvestReturnPct, ytdInvestPnl, null, null, null, null, null);
+    }
+
+    /** v0.13 加 openingBaselineLast 时的 backward-compat 构造器 · 老调用方继续传 15 参数 */
+    public KpiSnapshot(BigDecimal netWorth, BigDecimal totalAssets, BigDecimal totalLiabilities,
+                       BigDecimal emergencyFundMonths, BigDecimal debtToAssetRatio,
+                       BigDecimal netWorthDelta, BigDecimal netWorthDeltaPct,
+                       BigDecimal monthlyPnlAmount, BigDecimal monthlyInvestReturnPct,
+                       BigDecimal annualizedInvestReturnPct, BigDecimal ytdInvestPnl,
+                       BigDecimal liquidAssets, BigDecimal avgExpense,
+                       BigDecimal prevNetWorth, BigDecimal lastNetInflow) {
+        this(netWorth, totalAssets, totalLiabilities, emergencyFundMonths, debtToAssetRatio,
+             netWorthDelta, netWorthDeltaPct, monthlyPnlAmount, monthlyInvestReturnPct,
+             annualizedInvestReturnPct, ytdInvestPnl, liquidAssets, avgExpense,
+             prevNetWorth, lastNetInflow, null);
     }
 }

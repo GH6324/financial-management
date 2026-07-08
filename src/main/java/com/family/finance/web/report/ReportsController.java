@@ -287,7 +287,8 @@ public class ReportsController {
         }
 
         // v0.5 FR-72/73/74 · 财富水位(并入 reports section)· 用净资产趋势 + CPI/M2 基准
-        List<TrendPoint> trend = factViewService.netWorthTrend(slice);
+        // v0.13 · 用「剔除累计开账基线」的趋势 → 补录存量账户不假装跑赢通胀
+        List<TrendPoint> trend = factViewService.netWorthTrendExOpening(slice);
         var waterLevel = waterLevelService.compute(trend);
         model.addAttribute("waterLevel", waterLevel);
         model.addAttribute("cpiAverages", macroBenchmarkService.cpiAverages());

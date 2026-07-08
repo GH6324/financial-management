@@ -33,7 +33,7 @@ class NetInflowDecompositionTest {
     private FactViewServiceImpl svc(PeriodMemberCashflowMapper pmc) {
         return new FactViewServiceImpl(mock(FactMapper.class), mock(FamilyMapper.class), pmc,
                 mock(com.family.finance.repository.AccountMapper.class),
-                mock(com.family.finance.service.ProductCategoryService.class));
+                mock(com.family.finance.service.ProductCategoryService.class), mock(com.family.finance.repository.SnapshotMapper.class));
     }
 
     /** 一行账户事实 · 只关心 endBalanceBase / incomeBase / expenseBase,其余填 0/null。 */

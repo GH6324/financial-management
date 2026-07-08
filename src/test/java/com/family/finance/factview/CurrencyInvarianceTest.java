@@ -54,7 +54,7 @@ class CurrencyInvarianceTest {
         when(pmc.findFamilyAggregateForPeriod(anyLong())).thenReturn(Optional.empty()); // 走 cash_flow 净流入回退
         AccountMapper am = mock(AccountMapper.class);
         when(am.findById(anyLong())).thenReturn(Optional.empty());
-        return new FactViewServiceImpl(fm, famMapper, pmc, am, mock(ProductCategoryService.class));
+        return new FactViewServiceImpl(fm, famMapper, pmc, am, mock(ProductCategoryService.class), mock(com.family.finance.repository.SnapshotMapper.class));
     }
 
     private static BigDecimal bd(String s) { return new BigDecimal(s); }

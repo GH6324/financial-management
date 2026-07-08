@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Fixed — v0.13 · 新账户「开账基线」不计入当期收益(修投资收益虚高)
+
+> 详见 [`prd/v0.13.md`](prd/v0.13.md) · [`tech-design/v0.13.md`](tech-design/v0.13.md) · 预览 [`preview/v0.13/opening-baseline.html`](preview/v0.13/opening-baseline.html)
+
+- **问题**:中途新增一个已有余额的账户(crypto BTC / 新银行卡 / 补录房产…),其存量本金被误算进"钱赚(投资损益)"→ 收益虚高。**根因**:该账户上期不存在、又没记成收入/划转,`钱赚 = ΔNW − 净流入` 把它当成了本期投资赚的。
+- **方案**:恒等式加第三项 `ΔNW = 人赚 + 钱赚 + 开账基线(本期新纳入本金)`。「开账基线」= 账户**首次纳入那一期**的期末净值(派生自 `period_snapshot` 历史,零 schema、零用户操作、能追溯已建账户),是外部资本纳入 —— **净资产照常含,所有收益指标剔除**。
+- **全指标覆盖**:钱赚(「本期怎么变的」卡单列第三行)· 本月资产收益 % · 家庭 XIRR / 资产 TWR / 年化 · 投资 PnL(累计)/ YTD PnL —— 均把开账基线当外部资本流入剔除;账户表**累计净投入**计入首期开账本金;**财富水位**用剔除开账的真实增长;账户级损益列(收益率/累计损益/本期损益/回撤等)本就用上期余额、天然正确(加测试钉住)。存量/占比类(净资产/总资产/占比/配置环)照常含,不改。
+- 新增 `SnapshotMapper.firstAppearingAccountIds` · `FactViewServiceImpl.openingBaseline/netWorthTrendExOpening` · `KpiSnapshot.openingBaselineLast` · `CashflowSplitView` 三分。
+- 测试:`CashflowSplitOpeningTest`(三分自洽)· mvn 324→**327** · e2e 主线 9(新账户 → dashboard 出现「开账基线」行 · 41→**43**)· qa `v13-OPENING`(→433)。
+
 ### Added — 加密货币账户(社区 PR #2 · @Li-Huanyu)
 
 - **`CRYPTO` 账户类型**:复用现有持仓/估值链(`supportsHoldings()` 泛化"持仓账户"),`Market.CRYPTO` 默认 USD;`stock_holding.shares` 放宽到 `DECIMAL(24,8)` 支持币的小数量;账户模板 + 流动性(SEMI_LIQUID)+ 体检 4 卡 + 配置分类都已接入。

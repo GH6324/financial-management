@@ -3323,6 +3323,20 @@ CSV="$RD/src/main/java/com/family/finance/web/dashboard/CashflowSplitView.java"
   && log_ok "v12-INCOME-EMPTY dashboard 收支拆解空态兼顾 cash_flow(仅录收入录入也不判空)" \
   || log_bad "v12-INCOME-EMPTY 空态仍只看 PMC filledMembers" "see CashflowSplitView.empty()"
 
+# v13-OPENING · 开账基线:新账户存量本金不计入当期收益(fact 剔除 + 卡第三项 + net_principal 计入)
+SMAP="$RD/src/main/java/com/family/finance/repository/SnapshotMapper.java"
+FVI="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
+CSV2="$RD/src/main/java/com/family/finance/web/dashboard/CashflowSplitView.java"
+REG2="$RD/src/main/resources/templates/dashboard/_region.html"
+{ grep -q 'firstAppearingAccountIds' "$SMAP" \
+  && grep -q 'private BigDecimal openingBaseline' "$FVI" \
+  && grep -q 'add(openingBaseline(slice' "$FVI" \
+  && grep -q 'netWorthTrendExOpening' "$FVI" \
+  && grep -q 'subtract(ob)' "$CSV2" && grep -q 'openingBaseline' "$CSV2" \
+  && grep -q '开账基线' "$REG2"; } \
+  && log_ok "v13-OPENING 开账基线:收益指标剔除(XIRR/TWR/钱赚/PnL)+ 卡第三项 + net_principal 计入 + 财富水位剔除" \
+  || log_bad "v13-OPENING 开账基线口径缺" "see FactViewServiceImpl/CashflowSplitView/SnapshotMapper/_region.html"
+
 # vSEC-1 · 敏感值不入公开库(L10)· 扫 tracked 文件里 URL/SSH 上下文的公网 IP(排除私网/环回)
 # 用上下文正则(://IP 或 @IP)避免版本号/SVG 数据误报;不硬编码任何具体 IP,守护自身不泄露、不自匹配
 SEC_HITS="$(cd "$RD" && git grep -InoE '(://|@)([0-9]{1,3}\.){3}[0-9]{1,3}' -- . ':(exclude)*.jpg' ':(exclude)*.png' ':(exclude)*.jpeg' 2>/dev/null \

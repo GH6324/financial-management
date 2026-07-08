@@ -139,7 +139,8 @@ public class DashboardController {
                 factViewService.cashflowBreakdown(slice, slice.lastPeriodId());
         int cfFilled = householdCashflowService.filledMembersForPeriod(slice.lastPeriodId());
         int cfTotal = memberMapper.countActiveByFamily(me.getFamilyId());
-        CashflowSplitView cashflowSplit = CashflowSplitView.of(kpis.netWorthDelta(), cfBreak, cfFilled, cfTotal);
+        CashflowSplitView cashflowSplit = CashflowSplitView.of(kpis.netWorthDelta(), cfBreak, cfFilled, cfTotal,
+                kpis.openingBaselineLast());   // v0.13 · 开账基线单列第三项
         List<com.family.finance.factview.CashflowPoint> cashflowSeries =
                 factViewService.cashflowSeries(slice, 6, currentOpen == null ? null : currentOpen.getId());
         // v0.8 FR-145:MoM/YoY 用 [as-of−12, as-of] 最小窗口算,与显示窗口解耦,缺对比期显数据不足
@@ -205,6 +206,7 @@ public class DashboardController {
         model.addAttribute("cfDeltaLabel", moneyDelta(viewCurrency, cashflowSplit.deltaNetWorth()));
         model.addAttribute("cfRenLabel", moneyDelta(viewCurrency, cashflowSplit.renZhuan()));
         model.addAttribute("cfQianLabel", moneyDelta(viewCurrency, cashflowSplit.qianZhuan()));
+        model.addAttribute("cfOpeningLabel", moneyDelta(viewCurrency, cashflowSplit.openingBaseline()));  // v0.13
         model.addAttribute("cfIncomeLabel", money(viewCurrency, cashflowSplit.income()));
         model.addAttribute("cfExpenseLabel", money(viewCurrency, cashflowSplit.expense()));
 

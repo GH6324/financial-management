@@ -42,7 +42,7 @@ class CashflowBreakdownTest {
 
     private FactViewServiceImpl svc(PeriodMemberCashflowMapper pmc) {
         return new FactViewServiceImpl(mock(FactMapper.class), famMapper(), pmc,
-                mock(AccountMapper.class), mock(ProductCategoryService.class));
+                mock(AccountMapper.class), mock(ProductCategoryService.class), mock(com.family.finance.repository.SnapshotMapper.class));
     }
 
     /** P2 单账户:cash_flow 收入 8000 / 支出 3000(CNY 本位币,k=1)。 */

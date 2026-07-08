@@ -18,6 +18,7 @@ public record CashflowSplitView(
         BigDecimal deltaNetWorth,
         BigDecimal renZhuan,
         BigDecimal qianZhuan,
+        BigDecimal openingBaseline,   // v0.13 · 本期新纳入本金(开账基线)· 既非人赚也非钱赚
         BigDecimal income,
         BigDecimal expense,
         int filledMembers,
@@ -28,15 +29,25 @@ public record CashflowSplitView(
     private static final BigDecimal ZERO = BigDecimal.ZERO;
     private static final BigDecimal HALF_WIDTH = BigDecimal.valueOf(50);
 
-    /** 从 ΔNW(KpiSnapshot.netWorthDelta)+ 本期毛收支拆分装配。 */
+    /** backward-compat · 无开账基线(老调用/测试) */
     public static CashflowSplitView of(BigDecimal deltaNetWorth, CashflowBreakdown b,
                                        int filledMembers, int totalMembers) {
+        return of(deltaNetWorth, b, filledMembers, totalMembers, ZERO);
+    }
+
+    /**
+     * v0.13 · 从 ΔNW + 本期毛收支 + 开账基线装配。
+     * 恒等式:{@code 人赚 + 钱赚 + 开账基线 == ΔNW};钱赚 = ΔNW − 人赚 − 开账基线(补录存量不算投资赚)。
+     */
+    public static CashflowSplitView of(BigDecimal deltaNetWorth, CashflowBreakdown b,
+                                       int filledMembers, int totalMembers, BigDecimal openingBaseline) {
         BigDecimal ren = b == null ? ZERO : b.netInflow();
+        BigDecimal ob = openingBaseline == null ? ZERO : openingBaseline;
         boolean first = deltaNetWorth == null;                 // 首期无上期 → 投资损益/ΔNW 不可算
-        BigDecimal qian = first ? null : deltaNetWorth.subtract(ren);
+        BigDecimal qian = first ? null : deltaNetWorth.subtract(ren).subtract(ob);
         BigDecimal inc = b == null ? ZERO : b.income();
         BigDecimal exp = b == null ? ZERO : b.expense();
-        return new CashflowSplitView(deltaNetWorth, ren, qian, inc, exp,
+        return new CashflowSplitView(deltaNetWorth, ren, qian, ob, inc, exp,
                 filledMembers, totalMembers, first, narrative(first, ren, qian, deltaNetWorth));
     }
 
@@ -52,15 +63,21 @@ public record CashflowSplitView(
     public boolean renPos()   { return sign(renZhuan) >= 0; }
     public boolean qianPos()  { return sign(qianZhuan) >= 0; }
     public boolean deltaPos() { return sign(deltaNetWorth) >= 0; }
+    /** v0.13 · 本期有新纳入本金(开账基线 ≠ 0)才显第三行 */
+    public boolean hasOpening() { return sign(openingBaseline) != 0; }
+    public boolean openingPos() { return sign(openingBaseline) >= 0; }
 
     public int renWidth()   { return width(renZhuan); }
     public int qianWidth()  { return width(qianZhuan); }
     public int deltaWidth() { return width(deltaNetWorth); }
+    public int openingWidth() { return width(openingBaseline); }
 
     /** 双向条内联样式(避免在模板里拼 Thymeleaf 表达式):正向右染绿、负向左染赭,宽度=半宽%。 */
     public String renBarStyle()   { return signedBar(renPos(), renWidth()); }
     public String qianBarStyle()  { return signedBar(qianPos(), qianWidth()); }
     public String deltaBarStyle() { return (deltaPos() ? "left:50%;" : "right:50%;") + "background:var(--ink);width:" + deltaWidth() + "%"; }
+    /** v0.13 · 开账基线用铜色(区别于人赚绿/钱赚赭) */
+    public String openingBarStyle() { return (openingPos() ? "left:50%;" : "right:50%;") + "background:var(--brass-deep);width:" + openingWidth() + "%"; }
 
     private static String signedBar(boolean pos, int w) {
         return (pos ? "left:50%;background:var(--forest);" : "right:50%;background:var(--rust);") + "width:" + w + "%";
@@ -80,6 +97,7 @@ public record CashflowSplitView(
         BigDecimal m = renZhuan == null ? ZERO : renZhuan.abs();
         if (qianZhuan != null) m = m.max(qianZhuan.abs());
         if (deltaNetWorth != null) m = m.max(deltaNetWorth.abs());
+        if (openingBaseline != null) m = m.max(openingBaseline.abs());
         return m;
     }
 

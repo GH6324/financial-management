@@ -40,6 +40,8 @@ public class FactViewServiceImpl implements FactViewService {
     /** v0.8 · 账户级预实分析:查账户预期收益 + 品类 benchmark(账户少,按需查)*/
     private final com.family.finance.repository.AccountMapper accountMapper;
     private final com.family.finance.service.ProductCategoryService productCategoryService;
+    /** v0.13 · 开账基线检测(账户首次出现) */
+    private final com.family.finance.repository.SnapshotMapper snapshotMapper;
 
     @Override
     public FactSlice loadDefault(Long familyId) {
@@ -106,11 +108,14 @@ public class FactViewServiceImpl implements FactViewService {
         // v0.4.2 · "资产年化"二分(剔除外部现金流的纯投资视角)
         // v0.5.3 · lastNetInflow 提到 if 外:无论上期是否存在都算出来,供 tooltip 展示真实净流入
         BigDecimal lastNetInflow = netInflowForPeriod(slice, last);
+        // v0.13 · 本期开账基线(新纳入账户存量本金)· 从收益里剔除 + 卡片第三项
+        BigDecimal openingBaselineLast = openingBaseline(slice, last);
         BigDecimal monthlyPnlAmount = null;
         BigDecimal monthlyInvestReturnPct = null;
         if (previousNetWorth != null && previousNetWorth.signum() > 0) {
+            // 期末剔除开账基线(视作已在期初的资本)→ 本月资产收益不因补录存量账户虚高
             var monthly = com.family.finance.calc.InvestmentReturnCalculator.monthly(
-                previousNetWorth, netWorth, lastNetInflow);
+                previousNetWorth, netWorth.subtract(openingBaselineLast), lastNetInflow);
             monthlyPnlAmount = monthly.pnlAmount();
             monthlyInvestReturnPct = monthly.pnlPct();
         }
@@ -122,7 +127,7 @@ public class FactViewServiceImpl implements FactViewService {
         return new KpiSnapshot(netWorth, totalAssets, totalLiabilities, emergencyMonths, debtRatio, delta, deltaPct,
             monthlyPnlAmount, monthlyInvestReturnPct, annualizedInvestReturnPct, ytdInvestPnl,
             // v0.5.3 · 透明化中间量(viewCurrency 口径 · 与上面 KPI 同币种)
-            liquidAssets, avgExpense, previousNetWorth, lastNetInflow);
+            liquidAssets, avgExpense, previousNetWorth, lastNetInflow, openingBaselineLast);
     }
 
     /**
@@ -281,7 +286,8 @@ public class FactViewServiceImpl implements FactViewService {
             Long prev = previousPeriodId(ytdSlice, periodId);
             BigDecimal start = prev == null ? null : netWorth(ytdSlice, prev);
             BigDecimal end = netWorth(ytdSlice, periodId);
-            BigDecimal inflow = netInflowForPeriod(ytdSlice, periodId);
+            // v0.13 · YTD 每月投资 PnL 也把开账基线并入外部流入剔除
+            BigDecimal inflow = netInflowForPeriod(ytdSlice, periodId).add(openingBaseline(ytdSlice, periodId));
             if (start != null && end != null && start.signum() > 0) {
                 ytdPoints.add(new com.family.finance.calc.TwrCalculator.TwrPoint(start, end, inflow));
             }
@@ -294,6 +300,22 @@ public class FactViewServiceImpl implements FactViewService {
         return slice.periodIds().stream()
                 .map(periodId -> new TrendPoint(periodId, periodStart(slice, periodId), label(slice, periodId), netWorth(slice, periodId)))
                 .toList();
+    }
+
+    /**
+     * v0.13 · 剔除累计开账基线的净资产趋势 · 给财富水位用(否则"补录存量账户"会假装跑赢通胀)。
+     * 每期值 = netWorth(P) − Σ_{P'≤P} openingBaseline(P')(把沿途新纳入的存量本金从轨迹里扣掉)。
+     */
+    @Override
+    public List<TrendPoint> netWorthTrendExOpening(FactSlice slice) {
+        List<TrendPoint> out = new ArrayList<>();
+        BigDecimal cumOpening = BigDecimal.ZERO;
+        for (Long periodId : slice.periodIds()) {
+            cumOpening = cumOpening.add(openingBaseline(slice, periodId));
+            BigDecimal v = netWorth(slice, periodId).subtract(cumOpening).setScale(2, RoundingMode.HALF_EVEN);
+            out.add(new TrendPoint(periodId, periodStart(slice, periodId), label(slice, periodId), v));
+        }
+        return out;
     }
 
     @Override
@@ -373,7 +395,9 @@ public class FactViewServiceImpl implements FactViewService {
         flows.add(new XirrCalculator.CashFlowPoint(periodEnd(slice, first), netWorth(slice, first).negate()));
         for (int i = 1; i < slice.periodIds().size(); i++) {
             Long periodId = slice.periodIds().get(i);
-            BigDecimal external = periodIncome(slice, periodId).subtract(periodExpense(slice, periodId));
+            // v0.13 · 开账基线并入外部资本流入(补录存量账户不抬高年化)
+            BigDecimal external = periodIncome(slice, periodId).subtract(periodExpense(slice, periodId))
+                    .add(openingBaseline(slice, periodId));
             if (external.signum() != 0) {
                 flows.add(new XirrCalculator.CashFlowPoint(periodEnd(slice, periodId), external.negate()));
             }
@@ -394,7 +418,9 @@ public class FactViewServiceImpl implements FactViewService {
             points.add(new TwrCalculator.TwrPoint(
                     netWorth(slice, previous),
                     netWorth(slice, current),
+                    // v0.13 · 开账基线并入当期外部流入 → TWR 不因补录存量账户跳升
                     periodIncome(slice, current).subtract(periodExpense(slice, current))
+                            .add(openingBaseline(slice, current))
             ));
         }
         return TwrCalculator.annualizedOrCumulative(points, points.size());
@@ -411,9 +437,11 @@ public class FactViewServiceImpl implements FactViewService {
             // v0.5 FR-84 · 人赚 = PMC 优先净流入;钱赚 = ΔNW − 人赚(由构造保证 人赚 + 钱赚 = ΔNetWorth)。
             // 原实现:人赚只读 account cash_flow(用户填 PMC 时恒为 0)· 钱赚读 periodPnlBase(把工资增长误算成投资)。
             BigDecimal netInflow = pmcFirstNetInflow(slice, periodId);
+            // v0.13 · 开账基线归入"本金(external)"、剔出"投资损益(pnl)"
+            BigDecimal ob = openingBaseline(slice, periodId);
             BigDecimal nwDelta = netWorth(slice, periodId).subtract(netWorth(slice, prevId));
-            BigDecimal pnl = nwDelta.subtract(netInflow);
-            cumulativeExternal = cumulativeExternal.add(netInflow);
+            BigDecimal pnl = nwDelta.subtract(netInflow).subtract(ob);
+            cumulativeExternal = cumulativeExternal.add(netInflow).add(ob);
             cumulativePnl = cumulativePnl.add(pnl);
             result.add(new DecompositionPoint(
                     periodId,
@@ -447,9 +475,14 @@ public class FactViewServiceImpl implements FactViewService {
         Long lastPid = slice.lastPeriodId();
         BigDecimal familyNetWorth = lastPid == null ? null : netWorth(slice, lastPid);
         Map<Long, BigDecimal> expected = expectedReturnByAccount(slice);
+        // v0.13 · 窗口内"首次出现"的账户集合 → 其首期期末余额是"带入本金",计入 net_principal
+        java.util.Set<Long> newInWindow = new java.util.HashSet<>();
+        for (Long pid : slice.periodIds()) {
+            newInWindow.addAll(snapshotMapper.firstAppearingAccountIds(slice.filter().familyId(), pid));
+        }
         return slice.byAccount().values().stream()
                 .map(rows -> rows.stream().sorted(Comparator.comparing(AccountPeriodFact::periodStart)).toList())
-                .map(rows -> buildAccountPerformance(rows, xirr, familyNetWorth, expected))
+                .map(rows -> buildAccountPerformance(rows, xirr, familyNetWorth, expected, newInWindow))
                 .sorted(Comparator.comparing(AccountPerformance::accountId))
                 .toList();
     }
@@ -510,7 +543,8 @@ public class FactViewServiceImpl implements FactViewService {
     private AccountPerformance buildAccountPerformance(List<AccountPeriodFact> rows,
                                                        Map<Long, BigDecimal> xirr,
                                                        BigDecimal familyNetWorth,
-                                                       Map<Long, BigDecimal> expectedByAccount) {
+                                                       Map<Long, BigDecimal> expectedByAccount,
+                                                       java.util.Set<Long> newInWindow) {
         AccountPeriodFact first = rows.getFirst();
         List<AccountPeriodFact> filled = rows.stream()
                 .filter(row -> row.endBalanceBase() != null)
@@ -531,6 +565,11 @@ public class FactViewServiceImpl implements FactViewService {
                 .map(r -> nz(r.incomeBase()).subtract(nz(r.expenseBase()))
                         .add(nz(r.transferInBase())).subtract(nz(r.transferOutBase())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, RoundingMode.HALF_EVEN);
+        // v0.13 · 窗口内首次出现的账户:首期期末余额 = 带入本金,计入净投入(否则"净投入≈0 却有大额市值"不自洽)
+        if (newInWindow.contains(first.accountId()) && !filled.isEmpty()
+                && filled.get(0).endBalanceBase() != null) {
+            netPrincipal = netPrincipal.add(filled.get(0).endBalanceBase()).setScale(2, RoundingMode.HALF_EVEN);
+        }
         BigDecimal latestPnl = latest.periodPnlBase();
 
         // 较上一账期(最后两个有余额的期)
@@ -663,6 +702,18 @@ public class FactViewServiceImpl implements FactViewService {
 
     private BigDecimal netWorth(FactSlice slice, Long periodId) {
         return sumEnd(slice, periodId, row -> true);
+    }
+
+    /**
+     * v0.13 · 本期「开账基线」= 本期**首次出现**账户的期末净值合计(本位币,ASSET+/LIABILITY−)。
+     * 它是"你本来就有/欠、现在才开始记"的存量本金,属外部资本纳入 —— 从所有收益类指标剔除、计入账户净投入。
+     */
+    private BigDecimal openingBaseline(FactSlice slice, Long periodId) {
+        if (periodId == null) return BigDecimal.ZERO;
+        java.util.Set<Long> ids = new java.util.HashSet<>(
+                snapshotMapper.firstAppearingAccountIds(slice.filter().familyId(), periodId));
+        if (ids.isEmpty()) return BigDecimal.ZERO;
+        return sumEnd(slice, periodId, row -> ids.contains(row.accountId()));
     }
 
     private BigDecimal sumEnd(FactSlice slice, Long periodId, Predicate<AccountPeriodFact> predicate) {
