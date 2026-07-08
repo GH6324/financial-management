@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.14 预览 · 贵金属账户 + 自动金价</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{paper:'var(--paper)',card:'var(--card)','card-soft':'var(--card-soft)',ink:{DEFAULT:'var(--ink)',soft:'var(--ink-soft)',subtle:'var(--ink-subtle)'},rule:{DEFAULT:'var(--rule)',soft:'var(--rule-soft)'},brass:{DEFAULT:'var(--brass)',deep:'var(--brass-deep)'},forest:'var(--forest)',rust:'var(--rust)'},fontFamily:{display:['Fraunces','Noto Serif SC','serif'],serif:['"Source Serif 4"','Noto Serif SC','serif'],mono:['JetBrains Mono','monospace']}}}}</script>
+  <style>
+    body{background:var(--paper);color:var(--ink)}
+    .eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass-deep)}
+    .paper-card{background:var(--card);border:1px solid var(--rule);box-shadow:0 1px 0 rgba(26,23,20,.04),0 8px 24px -12px rgba(26,23,20,.08)}
+    .annot{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-subtle);line-height:1.7}
+    .note{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-subtle)}
+    .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.06em;padding:2px 8px;border-radius:2px;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--rule);background:var(--card);color:var(--ink-soft)}
+    .pill-forest{background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)}
+    .pill-brass{background:rgba(180,138,58,.12);color:var(--brass-deep);border:1px solid var(--brass-deep)}
+    .pill-rust{background:rgba(159,74,58,.10);color:var(--rust);border:1px solid var(--rust)}
+    .num-pos{color:var(--forest)}.num-neg{color:var(--rust)}.tnum{font-feature-settings:"tnum" 1}
+    .seclabel{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.14em;background:rgba(180,138,58,.08);border:1px dashed #c79338;color:#b08a3a;padding:2px 8px;border-radius:2px;text-transform:uppercase}
+    .callout{border-left:3px solid var(--brass-deep);background:var(--card-soft);padding:12px 16px}
+    .callout.forest{border-left-color:var(--forest)}.callout.rust{border-left-color:var(--rust)}
+    .field-label{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-subtle);display:block;margin-bottom:4px}
+    .field-input{width:100%;font-family:"JetBrains Mono",monospace;font-size:14px;background:var(--paper-soft,#faf7f1);border:1px solid var(--rule);padding:8px 10px}
+    table.grid{width:100%;border-collapse:collapse;font-family:'Source Serif 4','Noto Serif SC',serif;font-size:13px}
+    table.grid th{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-subtle);text-align:right;padding:7px 8px;border-bottom:1px solid var(--rule)}
+    table.grid th:first-child,table.grid td:first-child{text-align:left}
+    table.grid td{padding:9px 8px;border-top:1px solid var(--rule-soft);text-align:right}
+    .tab{font-family:"JetBrains Mono",monospace;font-size:11px;padding:5px 12px;border:1px solid var(--rule);border-bottom:none;background:var(--card-soft);color:var(--ink-soft)}
+    .tab.on{background:var(--card);color:var(--ink);border-color:var(--brass-deep);border-bottom:2px solid var(--card);font-weight:500}
+    svg.ico{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;vertical-align:-3px}
+  </style>
+</head>
+<body class="min-h-screen">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<main class="max-w-[1040px] mx-auto px-6 lg:px-10 py-10">
+
+  <div class="mb-6">
+    <div class="eyebrow mb-2">V · 0 · 14 · 预 · 览 · 贵 · 金 · 属 · 账 · 户</div>
+    <h1 class="font-display text-4xl sm:text-5xl font-medium tracking-tight">金银铂钯,按克按盎司,自动盯价<span class="italic font-light text-brass-deep">。</span></h1>
+    <p class="annot mt-3 max-w-3xl">社区 issue #4(@BetterQx):新增<b class="text-ink">「贵金属」独立账户分类</b>,持仓按<b class="text-ink">克 / 盎司</b>计,记买入价 + 自动拉取实时现价,算出总估值与盈亏。复用现有持仓 / 估值机器(和加密账户同一条路),数据源用已验证可直连的<b class="text-ink">上海 SGE(默认)+ 国际现货</b>。</p>
+  </div>
+
+  <div class="callout mb-6">
+    <div class="annot"><b class="text-ink">口径:</b> 总估值 = 最新现价 × 持仓量 · 盈亏 =(现价 − 买入价)× 量 · 单位是<b class="text-brass-deep">持仓自己的属性</b>(建仓时选克/盎司,默认克)· 价格源默认<b class="text-brass-deep">上海 SGE(元/克)</b>,可在接入源页切国际现货(美元/盎司)。</div>
+  </div>
+
+  <!-- 建仓表单 -->
+  <div class="paper-card p-6 mb-6">
+    <div class="eyebrow mb-4">建 · 一 · 笔 · 贵 · 金 · 属 · 持 · 仓</div>
+    <div class="grid md:grid-cols-4 gap-5">
+      <div>
+        <label class="field-label">品种</label>
+        <select class="field-input">
+          <option>黄金 Au</option><option>白银 Ag</option><option>铂金 Pt</option><option>钯金 Pd</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">持仓量</label>
+        <input class="field-input tnum text-right" value="200" placeholder="200">
+      </div>
+      <div>
+        <label class="field-label">单位</label>
+        <select class="field-input">
+          <option>克 (g)</option><option>盎司 (oz)</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">买入价(元/克)</label>
+        <input class="field-input tnum text-right" value="500.00" placeholder="500">
+      </div>
+    </div>
+    <p class="note mt-3">↳ 现价系统自动拉(SGE 黄金9999)· 也可手动录 · 单位默认跟随价格源(SGE→克),可改</p>
+  </div>
+
+  <!-- 持仓列表 -->
+  <div class="paper-card p-6 mb-6">
+    <div class="flex items-center justify-between mb-3">
+      <div class="eyebrow">贵 · 金 · 属 · 账 · 户 · 持 · 仓</div>
+      <span class="pill pill-brass"><svg class="ico" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.4 2.6"/><path d="M21 3v5h-5"/></svg> 一键刷新现价</span>
+    </div>
+    <table class="grid">
+      <thead><tr><th>品种</th><th>持仓量</th><th>买入价</th><th>最新现价</th><th>总估值</th><th>盈亏</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>黄金 Au99.99 <span class="pill pill-brass" style="font-size:9px">SGE</span></td>
+          <td class="tnum">200 克</td>
+          <td class="tnum">¥500.00/克</td>
+          <td class="tnum">¥892.00/克</td>
+          <td class="tnum">¥178,400</td>
+          <td class="tnum num-pos">+¥78,400 <span class="note">(+78.4%)</span></td>
+        </tr>
+        <tr>
+          <td>白银 Ag(T+D) <span class="pill pill-brass" style="font-size:9px">SGE</span></td>
+          <td class="tnum">1,000 克</td>
+          <td class="tnum">¥6.80/克</td>
+          <td class="tnum">¥14.40/克</td>
+          <td class="tnum">¥14,400</td>
+          <td class="tnum num-pos">+¥7,600</td>
+        </tr>
+        <tr>
+          <td>黄金 XAU <span class="pill" style="font-size:9px">国际</span></td>
+          <td class="tnum">2 盎司</td>
+          <td class="tnum">$3,600/oz</td>
+          <td class="tnum">$4,070.94/oz</td>
+          <td class="tnum">$8,141.88</td>
+          <td class="tnum num-pos">+$941.88</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr style="border-top:2px solid var(--rule)"><td colspan="4" class="note" style="text-align:right;padding-top:10px">账户总估值(本位币 CNY)</td><td class="tnum" style="padding-top:10px"><b>¥250,182</b></td><td class="tnum num-pos" style="padding-top:10px"><b>+¥92,660</b></td></tr>
+      </tfoot>
+    </table>
+    <p class="note mt-3">↳ 白银 SGE 原报价是<b>元/千克</b>,系统内部归一到"元/克"再展示,口径不串 · 国际金 $ 经本位币汇率并入总估值</p>
+  </div>
+
+  <!-- 单位换算说明 -->
+  <div class="grid md:grid-cols-2 gap-4 mb-6">
+    <div class="paper-card p-5">
+      <div class="flex items-center gap-2 mb-2"><span class="pill pill-brass">单位</span><span class="note">克 / 盎司 · 持仓属性</span></div>
+      <p class="annot">同一个账户里,<b class="text-ink">国内金条按克</b>、<b class="text-ink">国际账户金按盎司</b>可以并存 —— 单位跟着每笔持仓走,不是一个全局开关。换算:1 盎司 = 31.1035 克。</p>
+    </div>
+    <div class="paper-card p-5">
+      <div class="flex items-center gap-2 mb-2"><span class="pill pill-forest">自动拉价</span><span class="note">SGE / 国际 · 定时 + 手动</span></div>
+      <p class="annot">金 / 银 / 铂 / 钯 全品种可自动拉;和股票、加密同一套"定时任务 + 一键刷新"节奏。价格源在接入源页切换(默认上海 SGE)。</p>
+    </div>
+  </div>
+
+  <div class="callout forest">
+    <div class="seclabel" style="color:var(--forest);border-color:var(--forest);background:rgba(47,93,80,.08)">请你 review 的点</div>
+    <ul class="annot mt-2 space-y-1">
+      <li>① 单位做成<b>持仓级属性</b>(建仓时选克/盎司)—— 认可吗?还是要个家庭级默认单位?</li>
+      <li>② 一期<b>金/银/铂/钯全上</b>,还是先只金+银?</li>
+      <li>③ 独立<b>「贵金属」账户类型</b>(和加密对称)vs 并进"其它"?</li>
+      <li>④ 持仓表这几列(品种/量/买入价/现价/估值/盈亏)够用吗?要不要"占净资产比"列?</li>
+    </ul>
+  </div>
+
+  <p class="note mt-6"><a href="admin-config.html" style="color:var(--brass-deep)">→ 看另一张预览:接入源配置页(LLM 供应商自选 + 金价源切换)</a></p>
+
+</main>
+</body>
+</html>
