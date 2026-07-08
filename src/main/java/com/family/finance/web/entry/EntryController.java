@@ -176,7 +176,7 @@ public class EntryController {
      * <p>逻辑:</p>
      * <ol>
      *   <li>限频:family 60s 窗口 ≤3 次 · 超频返回 toast「操作太频繁」不调 scheduler</li>
-     *   <li>顺序 fetchMarket(US/CN/HK/CRYPTO)· 单市场失败计数但不阻断</li>
+     *   <li>顺序 fetchMarket(US/CN/HK/CRYPTO/METAL)· 单市场失败计数但不阻断</li>
      *   <li>{@link AccountValuationService#refreshAllForFamily} MANUAL + memberId</li>
      *   <li>渲染 toast 显示结果</li>
      * </ol>
@@ -191,7 +191,7 @@ public class EntryController {
             return "entry/_refresh-toast :: toast";
         }
         int marketsOk = 0;
-        for (Market mk : List.of(Market.US, Market.CN, Market.HK, Market.CRYPTO)) {
+        for (Market mk : List.of(Market.US, Market.CN, Market.HK, Market.CRYPTO, Market.METAL)) {
             try {
                 stockScheduler.fetchMarket(mk);
                 marketsOk++;

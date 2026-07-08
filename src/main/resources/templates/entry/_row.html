@@ -39,10 +39,11 @@
         <span th:text="'上期末 ' + ${row.previousBalanceLabel}">上期末 ¥45,000</span>
         <span class="mx-1">·</span>
         <span th:text="${row.done ? '已填' : '待填'}">已填</span>
-        <!-- v0.3 FR-52b · 持仓账户加持仓变动入口 -->
-        <a th:if="${row.account.type.name() == 'STOCK' or row.account.type.name() == 'CRYPTO'}"
+        <!-- v0.3 FR-52b · 持仓账户加持仓变动入口(v0.14 · 含 METAL 贵金属:走 supportsHoldings 覆盖整类)-->
+        <a th:if="${T(com.family.finance.service.stock.StockHoldingService).supportsHoldings(row.account.type)}"
            th:href="@{|/accounts/${row.account.id}/holdings|}"
-           class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 border border-rule text-ink-subtle hover:border-brass-deep hover:text-brass-deep transition no-underline text-[10px]">
+           class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 border border-rule text-ink-subtle hover:border-brass-deep hover:text-brass-deep transition no-underline text-[10px]"
+           th:text="${row.account.type.name() == 'METAL' ? '持仓/重量?' : '📦 持仓变动?'}">
           📦 持仓变动?
         </a>
       </div>

@@ -3394,6 +3394,15 @@ grep -q 'intl ? "XPD" : null' "$MU" \
   && log_ok "v14-METAL-PD-SGE 钯金只有国际盘(PD+SGE→null · UI 提示改选国际)" \
   || log_bad "v14-METAL-PD-SGE 钯金 SGE 未正确置空" "see MetalUnit.tickerFor"
 
+# v14-METAL-ENTRY · 填报页持仓入口覆盖 METAL(修:此前硬编码 STOCK/CRYPTO 漏金属 → 填报录不了重量)
+ROWF="$RD/src/main/resources/templates/entry/_row.html"
+ECF="$RD/src/main/java/com/family/finance/web/entry/EntryController.java"
+{ grep -q 'supportsHoldings(row.account.type)' "$ROWF" \
+  && ! grep -q "row.account.type.name() == 'STOCK' or row.account.type.name() == 'CRYPTO'" "$ROWF" \
+  && grep -q 'Market.METAL' "$ECF"; } \
+  && log_ok "v14-METAL-ENTRY 填报页持仓入口走 supportsHoldings(含 METAL)+ 一键刷新含 METAL 市场" \
+  || log_bad "v14-METAL-ENTRY 填报页仍漏 METAL 入口" "see entry/_row.html supportsHoldings / EntryController.refresh-stocks"
+
 # v14-LLM-VENDOR · LLM 主选供应商可配 + 温度 + 模型级联(FR-B)
 FCS="$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java"
 LDS="$RD/src/main/java/com/family/finance/service/checkup/llm/LlmDiagnoseService.java"

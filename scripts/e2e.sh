@@ -250,6 +250,9 @@ if [ -n "$MTID" ] && [ "$MTID" != "0" ]; then
   eq "金属-SGE 市值 892×200g = ¥178,400(每克价×持仓量)" "$(printf '%s' "$page" | grep -q '178,400' && echo ok || echo miss)" "ok"
   eq "金属-SGE 盈亏 (892−500)×200 = +¥78,400" "$(printf '%s' "$page" | grep -q '78,400' && echo ok || echo miss)" "ok"
   eq "金属-盎司换算 XAU 10×31.1035×3 ≈ USD 933(oz→g 因子生效)" "$(printf '%s' "$page" | grep -q '933' && echo ok || echo miss)" "ok"
+  # 填报页:金属账户必须有「去持仓/重量」入口(修:此前只 STOCK/CRYPTO,METAL 漏了 → 填报录不了重量)
+  entryp="$(GET /entry)"
+  eq "金属-填报页有持仓入口(/accounts/N/holdings · 不再漏 METAL)" "$(printf '%s' "$entryp" | grep -q "/accounts/$MTID/holdings" && echo ok || echo miss)" "ok"
 else
   bad "金属-建 METAL 账户失败,跳过" "MTID=$MTID"
 fi
