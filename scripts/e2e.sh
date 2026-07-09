@@ -257,6 +257,38 @@ else
   bad "金属-建 METAL 账户失败,跳过" "MTID=$MTID"
 fi
 
+section "主线 11 · 建账户→录多类型收入→回 dashboard 核对金额(全链路 · 沉底守护)"
+# dashboard 净资产抽取器:第一个 kpi-value(净资产)· 剥标签取首个数字(本位币 CNY)
+dash_nw(){ printf '%s' "$1" | tr '\n' ' ' | grep -oE 'kpi-value tnum" data-priv[^>]*>[^<]*' | head -1 | grep -oE '[0-9][0-9,]*' | head -1 | tr -d ','; }
+MEM4="$(db "SELECT id FROM member WHERE family_id=$FAM ORDER BY id LIMIT 1")"
+IPI="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='OPEN' ORDER BY id DESC LIMIT 1")"
+if [ -n "$IPI" ] && [ -n "$MEM4" ]; then
+  nwB="$(dash_nw "$(GET /dashboard)")"; nwB="${nwB:-0}"
+  # 1) 真机新建向导建 CASH 账户
+  codeA="$(POSTcode /accounts --data-urlencode "type=CASH" --data-urlencode "displayName=e2e收入现金" --data-urlencode "currency=CNY" --data-urlencode "primaryOwnerMemberId=$MEM4")"
+  CA="$(db "SELECT id FROM account WHERE family_id=$FAM AND display_name='e2e收入现金' AND archived_at IS NULL ORDER BY id DESC LIMIT 1")"
+  eq "收入链路-新建 CASH 账户 2xx/3xx + 入库" "$([ "$codeA" -ge 200 ] && [ "$codeA" -lt 400 ] && [ -n "$CA" ] && echo ok || echo "code=$codeA")" "ok"
+  # 2) 录 4 种类型收入:工资12345 + 奖金6000 + 利息234 + 其他789 = 19368(distinctive)
+  for kv in "salary:12345" "bonus:6000" "interest_income:234" "other_income:789"; do
+    POSTcode /entry/income --data-urlencode "periodId=$IPI" --data-urlencode "accountId=$CA" \
+      --data-urlencode "categoryCode=${kv%%:*}" --data-urlencode "amount=${kv##*:}" >/dev/null
+  done
+  eq "收入链路-CASH 账户期末 = Σ4类收入 19,368(0 起 + 4 笔)" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$IPI AND account_id=$CA")" "19368"
+  eq "收入链路-4 种类目各一笔 is_adjustment=0(真实外部流入)" "$(db "SELECT CONCAT(COUNT(*),'|',ROUND(SUM(amount))) FROM cash_flow WHERE period_id=$IPI AND account_id=$CA AND kind='INCOME' AND is_adjustment=0 AND deleted_at IS NULL")" "4|19368"
+  # 3) 真机建 STOCK 账户 + 录现金股息 4200(股票类收入)
+  POSTcode /accounts --data-urlencode "type=STOCK" --data-urlencode "displayName=e2e收入股票" --data-urlencode "currency=CNY" --data-urlencode "primaryOwnerMemberId=$MEM4" >/dev/null
+  SA="$(db "SELECT id FROM account WHERE family_id=$FAM AND display_name='e2e收入股票' AND archived_at IS NULL ORDER BY id DESC LIMIT 1")"
+  POSTcode /entry/income --data-urlencode "periodId=$IPI" --data-urlencode "accountId=$SA" --data-urlencode "categoryCode=dividend" --data-urlencode "amount=4200" >/dev/null
+  eq "收入链路-股票账户现金股息 +4200(落 CASH 现金行)" "$(db "SELECT ROUND(IFNULL(SUM(manual_value),0)) FROM stock_holding WHERE account_id=$SA AND valuation_mode='CASH' AND archived_at IS NULL")" "4200"
+  # 4) 回 dashboard 核对:净资产较基线 +23,568(19368+4200 · 本位币 delta 免 FX/PMC 口径歧义)
+  dash="$(GET /dashboard)"
+  nwA="$(dash_nw "$dash")"; nwA="${nwA:-0}"
+  eq "收入链路-dashboard 净资产较基线 +23,568(建账户→录4类现金+股息→总额对得上)" "$(( nwA - nwB ))" "23568"
+  eq "收入链路-dashboard 账户列表出现新账户余额 ¥19,368" "$(printf '%s' "$dash" | grep -q '19,368' && echo ok || echo miss)" "ok"
+else
+  bad "收入链路-无 OPEN 期/成员,跳过" "IPI=$IPI MEM4=$MEM4"
+fi
+
 # ============================================================================
 echo
 echo "════════════════════════════════════════"
