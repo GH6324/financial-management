@@ -325,7 +325,7 @@
         <div class="flex items-center gap-3 font-mono text-[10px] text-ink-soft flex-wrap">
           <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-sm" style="background:var(--forest)"></span>收入</span>
           <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-sm" style="background:var(--rust)"></span>支出</span>
-          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-sm" style="background:var(--brass-deep)"></span>净流入(人赚)</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-sm" style="background:#2b2118"></span>净流入(人赚)</span>
         </div>
       </div>
       <div class="h-[240px] sm:h-[300px]"><canvas id="cashflowTrendChart"></canvas></div>
@@ -841,9 +841,9 @@
               {type: 'bar', label: '支出', data: cf.map(p => Number(p.expense)), backgroundColor: expenseBg,
                 categoryPercentage: .62, barPercentage: .85,
                 datalabels: {anchor: 'end', align: 'end', color: '#9c4a2a', font: {size: window.innerWidth < 640 ? 8 : 9}, formatter: (v) => Number(v) === 0 ? '' : fmtMoney(v)}},
-              {type: 'line', label: '净流入(人赚)', data: cf.map(p => Number(p.netInflow)), borderColor: '#7a5a39',
-                borderWidth: 2.5, tension: .3, pointRadius: 3, pointBackgroundColor: '#7a5a39', fill: false,
-                datalabels: {anchor: 'start', align: 'top', color: '#7a5a39', font: {size: window.innerWidth < 640 ? 8 : 9, weight: '500'}, formatter: (v) => fmtMoney(v)}}
+              {type: 'line', label: '净流入(人赚)', data: cf.map(p => Number(p.netInflow)), borderColor: '#2b2118',
+                borderWidth: 2.75, tension: .3, pointRadius: 3, pointBackgroundColor: '#2b2118', fill: false,
+                datalabels: {anchor: 'start', align: 'top', color: '#2b2118', font: {size: window.innerWidth < 640 ? 8 : 9, weight: '600'}, formatter: (v) => fmtMoney(v)}}
             ]
           },
           options: {

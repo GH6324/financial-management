@@ -118,19 +118,19 @@
 
         <!-- 点击后反馈条(成功 / 失败 / 缓存命中) -->
         <div th:if="${rebalanceFlash == 'ok-fresh'}"
-             class="paper-card p-2 mb-3 text-[10px] text-forest"
+             class="paper-card p-2 mb-3 text-[10px] text-forest flex items-center gap-1.5"
              style="background:rgba(47,93,80,.08);border-left:3px solid var(--forest)">
-          ✓ AI 已生成新建议(见下方)
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>AI 已生成新建议(见下方)
         </div>
         <div th:if="${rebalanceFlash == 'ok-cache'}"
-             class="paper-card p-2 mb-3 text-[10px] text-ink-soft"
+             class="paper-card p-2 mb-3 text-[10px] text-ink-soft flex items-center gap-1.5"
              style="background:rgba(122,90,57,.06);border-left:3px solid var(--brass-deep)">
-          ✓ 已有近期建议(30 天内复用 · 见下方)
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>已有近期建议(30 天内复用 · 见下方)
         </div>
         <div th:if="${rebalanceFlash == 'fail'}"
-             class="paper-card p-2 mb-3 text-[10px] text-rust"
+             class="paper-card p-2 mb-3 text-[10px] text-rust flex items-center gap-1.5"
              style="background:rgba(159,74,58,.06);border-left:3px solid var(--rust)">
-          ⚠ 暂未能生成建议 · <span th:text="${rebalanceFlashReason ?: '请稍后再试'}">原因</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>暂未能生成建议 · <span th:text="${rebalanceFlashReason ?: '请稍后再试'}">原因</span></span>
         </div>
 
         <form th:if="${_csrf != null}" th:action="@{/reports/rebalance/advise}" method="post" class="mb-3">

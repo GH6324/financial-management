@@ -27,7 +27,10 @@
     <span th:classappend="${ownerColorMap != null and ownerColorMap.get(row.ownerName) != null ? 'avatar-' + ownerColorMap.get(row.ownerName) % 5 : 'avatar-4'}"
           class="w-6 h-6 sm:w-7 sm:h-7 rounded-full text-paper flex items-center justify-center text-[10px] sm:text-xs font-display flex-shrink-0"
           th:text="${row.ownerName != null ? #strings.substring(row.ownerName, 0, 1) : '共'}">迪</span>
-    <span th:class="${row.done ? 'tick-done' : 'tick-pending'}" th:text="${row.done ? '✓' : '·'}">✓</span>
+    <span th:class="${row.done ? 'tick-done' : 'tick-pending'}">
+      <svg th:if="${row.done}" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+      <th:block th:unless="${row.done}">·</th:block>
+    </span>
     <div class="flex-1 min-w-0">
       <div class="flex items-baseline gap-1.5 sm:gap-3">
         <span class="font-display text-sm sm:text-base truncate max-w-[120px] sm:max-w-none" th:text="${row.account.displayName}">招行储蓄卡-工资</span>
@@ -42,9 +45,9 @@
         <!-- v0.3 FR-52b · 持仓账户加持仓变动入口(v0.14 · 含 METAL 贵金属:走 supportsHoldings 覆盖整类)-->
         <a th:if="${T(com.family.finance.service.stock.StockHoldingService).supportsHoldings(row.account.type)}"
            th:href="@{|/accounts/${row.account.id}/holdings|}"
-           class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 border border-rule text-ink-subtle hover:border-brass-deep hover:text-brass-deep transition no-underline text-[10px]"
-           th:text="${row.account.type.name() == 'METAL' ? '持仓/重量?' : '📦 持仓变动?'}">
-          📦 持仓变动?
+           class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 border border-rule text-ink-subtle hover:border-brass-deep hover:text-brass-deep transition no-underline text-[10px]">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          <span th:text="${row.account.type.name() == 'METAL' ? '持仓/重量?' : '持仓变动?'}">持仓变动?</span>
         </a>
       </div>
     </div>
@@ -119,8 +122,9 @@
               th:text="${row.unexplainedLabel}">—</span>
       </div>
       <div th:if="${row.warning != null}" class="mt-2 text-rust" th:text="${row.warning}">warning</div>
-      <div th:if="${row.suggestTransfer}" class="mt-2 text-xs text-brass-deep italic">
-        💡 看起来像账户间划转?未解释金额超过 ¥3,000,通常意味着资金在你的两个账户之间流动(而非外部收入/支出)。
+      <div th:if="${row.suggestTransfer}" class="mt-2 text-xs text-brass-deep italic flex items-start gap-1.5">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>看起来像账户间划转?未解释金额超过 ¥3,000,通常意味着资金在你的两个账户之间流动(而非外部收入/支出)。</span>
       </div>
       <div th:if="${not #lists.isEmpty(row.incoming)}" class="mt-2 text-xs text-forest space-y-0.5">
         <div th:each="ref : ${row.incoming}">

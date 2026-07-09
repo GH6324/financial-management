@@ -62,7 +62,7 @@
       <!-- 水位状态文案 -->
       <div class="mt-3 paper-card p-3 bg-card-soft text-sm text-ink-soft"
            th:style="'border-left:3px solid ' + (${waterLevel.aboveM2} ? 'var(--forest)' : (${waterLevel.aboveCpi} ? 'var(--brass-deep)' : 'var(--rust)'))">
-        <span th:if="${waterLevel.aboveM2}">净资产高于 M2 社会财富线 ✓ —— 生活质量保住,社会排位也在上升。</span>
+        <span th:if="${waterLevel.aboveM2}">净资产高于 M2 社会财富线 —— 生活质量保住,社会排位也在上升。</span>
         <span th:if="${waterLevel.aboveCpi and !waterLevel.aboveM2}">净资产浮在 CPI 购买力线之上,但低于 M2 社会财富线 —— 活得下去,但社会排位在掉队。</span>
         <span th:if="${!waterLevel.aboveCpi}" class="text-rust">净资产已跌破 CPI 购买力线 —— 实际购买力在缩水。</span>
       </div>
