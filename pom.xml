@@ -70,6 +70,21 @@
             <version>${commons-math3.version}</version>
         </dependency>
 
+        <!-- v0.15 券商只读同步 · 老虎(Apache 2.0) -->
+        <dependency>
+            <groupId>io.github.tigerbrokers</groupId>
+            <artifactId>openapi-java-sdk</artifactId>
+            <version>2.4.2</version>
+        </dependency>
+        <!-- v0.15 券商只读同步 · 富途 futu-api
+             ⚠ 许可证 = FUTU API Code Non-Commercial License(非商业许可,非 OSS)·
+             应用户要求直接打进依赖 · 仅用其只读查询接口、永不下单 · 商用自托管者请自行评估该许可 -->
+        <dependency>
+            <groupId>com.futunn.openapi</groupId>
+            <artifactId>futu-api</artifactId>
+            <version>10.7.6708</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

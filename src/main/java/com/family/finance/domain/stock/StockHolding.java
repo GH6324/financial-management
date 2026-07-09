@@ -36,6 +36,9 @@ public class StockHolding {
     /** v0.14 · METAL 持仓计价单位:GRAM / OUNCE(其余类型为 null)· 见 {@link com.family.finance.service.stock.MetalUnit} */
     private String unit;
 
+    /** v0.15 · 券商同步来源:FUTU / TIGER;手填持仓为 null。reconcile 只动带此标记的行,不碰手填。 */
+    private String syncSource;
+
     // MANUAL 字段
     private BigDecimal manualValue;
     private LocalDateTime manualValueAt;
