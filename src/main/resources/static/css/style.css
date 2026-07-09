@@ -542,7 +542,11 @@ h1, h2, h3, h4 {
 /* 响应处理 */
 @media (max-width: 720px) {
   body { font-size: 14.5px; }
-  .kpi-value { font-size: 26px; }
+  /* v0.14.1 UED · 手机 2 列 KPI 卡:24px padding 偏重、挤内容 → 收紧留白节奏,值略降一档更贴合窄卡 */
+  .kpi-card { padding: 16px 15px; }
+  .kpi-eyebrow { margin-bottom: 10px; }
+  .kpi-value { font-size: 24px; }
+  .kpi-delta { margin-top: 8px; }
 }
 
 /* Print-像-账册的微动效 */
