@@ -59,22 +59,27 @@ public class DynamicScheduleConfig {
     private static final String DEFAULT_METAL_CRON        = "0 20 16 * * MON-FRI";
     private static final String DEFAULT_FX_CRON           = "0 30 2 1 * ?";
     private static final String DEFAULT_REPORT_REMIND_CRON = "0 0 10,20 * * *";
+    /** v0.15 · 券商同步默认:工作日 16:45(A/HK 收盘后)· 无 enabled 关联时空跑 */
+    private static final String DEFAULT_BROKER_SYNC_CRON  = "0 45 16 * * MON-FRI";
 
     private final FamilyConfigService configService;
     private final StockPriceScheduler stockScheduler;
     private final FxFetchJob fxFetchJob;
     private final ReportReminderScheduler reminderScheduler;
+    private final com.family.finance.service.broker.BrokerSyncService brokerSyncService; // v0.15
     private final TaskScheduler taskScheduler;
     private final Map<String, ScheduledFuture<?>> active = new HashMap<>();
 
     public DynamicScheduleConfig(FamilyConfigService configService,
                                  StockPriceScheduler stockScheduler,
                                  FxFetchJob fxFetchJob,
-                                 ReportReminderScheduler reminderScheduler) {
+                                 ReportReminderScheduler reminderScheduler,
+                                 com.family.finance.service.broker.BrokerSyncService brokerSyncService) {
         this.configService = configService;
         this.stockScheduler = stockScheduler;
         this.fxFetchJob = fxFetchJob;
         this.reminderScheduler = reminderScheduler;
+        this.brokerSyncService = brokerSyncService;
         this.taskScheduler = createScheduler();
     }
 
@@ -141,6 +146,11 @@ public class DynamicScheduleConfig {
         schedule("report-remind", configService.getString(FAMILY_ID,
                 FamilyConfigService.K_REPORT_REMIND_CRON, DEFAULT_REPORT_REMIND_CRON),
                 reminderScheduler::scheduled);
+
+        // v0.15 · 券商只读同步 · 遍历所有 enabled 关联(无关联时空跑)
+        schedule("broker-sync", configService.getString(FAMILY_ID,
+                FamilyConfigService.K_BROKER_SYNC_CRON, DEFAULT_BROKER_SYNC_CRON),
+                () -> brokerSyncService.syncAllEnabled(FAMILY_ID, null));
     }
 
     private void schedule(String name, String cronExpr, Runnable task) {

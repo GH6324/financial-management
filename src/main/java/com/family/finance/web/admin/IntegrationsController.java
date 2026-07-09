@@ -34,6 +34,7 @@ public class IntegrationsController {
     private final AuditLogService auditLogService;
     private final com.family.finance.service.macro.MacroBenchmarkService macroService; // v0.5 FR-76
     private final java.util.List<com.family.finance.service.checkup.llm.LlmClient> llmClients; // v0.7 FR-131 测试连接
+    private final java.util.List<com.family.finance.service.broker.BrokerClient> brokerClients; // v0.15 券商测试连接
 
     @GetMapping
     public String page(@AuthenticationPrincipal MemberPrincipal me, Model model) {
@@ -58,6 +59,13 @@ public class IntegrationsController {
         model.addAttribute("stockCronCrypto",       configService.getString(fid,  FamilyConfigService.K_STOCK_CRON_CRYPTO, "0 15 6 * * *"));
         // FX
         model.addAttribute("fxCron",                configService.getString(fid,  FamilyConfigService.K_FX_CRON, "0 30 2 1 * ?"));
+        // v0.15 · 券商只读同步(私钥不回显)
+        model.addAttribute("tigerId",               configService.getString(fid, FamilyConfigService.K_BROKER_TIGER_ID, ""));
+        model.addAttribute("tigerKeyConfigured",    configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_BROKER_TIGER_KEY));
+        model.addAttribute("tigerAccount",          configService.getString(fid, FamilyConfigService.K_BROKER_TIGER_ACCOUNT, ""));
+        model.addAttribute("futuHost",              configService.getString(fid, FamilyConfigService.K_BROKER_FUTU_HOST, ""));
+        model.addAttribute("futuPort",              configService.getString(fid, FamilyConfigService.K_BROKER_FUTU_PORT, "11111"));
+        model.addAttribute("brokerSyncCron",        configService.getString(fid, FamilyConfigService.K_BROKER_SYNC_CRON, "0 45 16 * * MON-FRI"));
         // v0.5 FR-76 · 宏观基准 CPI/M2
         model.addAttribute("macroAll",      macroService.all());
         model.addAttribute("macroLatest",   macroService.latest());
@@ -192,6 +200,91 @@ public class IntegrationsController {
                 "family_runtime_config", fid, "FX 拉取 cron = " + fxCron);
         ra.addFlashAttribute("flash", "FX 拉取配置已保存 · cron 已重排");
         return "redirect:/admin/integrations";
+    }
+
+    /**
+     * ⑥ 券商只读同步 · 老虎(tiger_id + RSA 私钥 + 账户)+ 富途(OpenD host/port)+ 同步 cron。
+     *
+     * <p>私密红线:RSA 私钥留空 = 保原值、永不回显、audit 只记"已配/未配"不记明文;
+     * 只读铁律:此处不存交易密码、不申请任何写权限。</p>
+     */
+    @PostMapping("/broker")
+    public String saveBroker(@AuthenticationPrincipal MemberPrincipal me,
+                             @RequestParam(value = "tigerId", required = false) String tigerId,
+                             @RequestParam(value = "tigerKey", required = false) String tigerKey,
+                             @RequestParam(value = "tigerAccount", required = false) String tigerAccount,
+                             @RequestParam(value = "futuHost", required = false) String futuHost,
+                             @RequestParam(value = "futuPort", required = false) String futuPort,
+                             @RequestParam("brokerSyncCron") String brokerSyncCron,
+                             RedirectAttributes ra) {
+        long fid = me.getFamilyId();
+        configService.set(fid, FamilyConfigService.K_BROKER_TIGER_ID, tigerId == null ? "" : tigerId.trim());
+        // 私钥:留空保原值(与 LLM key 同策略)
+        if (tigerKey != null && !tigerKey.isBlank()) {
+            configService.set(fid, FamilyConfigService.K_BROKER_TIGER_KEY, tigerKey.trim());
+        }
+        configService.set(fid, FamilyConfigService.K_BROKER_TIGER_ACCOUNT, tigerAccount == null ? "" : tigerAccount.trim());
+        configService.set(fid, FamilyConfigService.K_BROKER_FUTU_HOST, futuHost == null ? "" : futuHost.trim());
+        configService.set(fid, FamilyConfigService.K_BROKER_FUTU_PORT, sanitize(futuPort, "11111"));
+        configService.set(fid, FamilyConfigService.K_BROKER_SYNC_CRON, sanitize(brokerSyncCron, "0 45 16 * * MON-FRI"));
+        schedulerConfig.rescheduleAll();
+        // 审计 · 不记私钥明文
+        auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE,
+                "family_runtime_config", fid,
+                "券商同步配置 · tigerId=" + (tigerId != null && !tigerId.isBlank() ? "已填" : "空")
+                + " · tigerKey=" + (configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_BROKER_TIGER_KEY) ? "已配" : "未配")
+                + " · futuOpenD=" + (futuHost != null && !futuHost.isBlank() ? "已填" : "空")
+                + " · cron=" + brokerSyncCron);
+        ra.addFlashAttribute("flash", "券商同步配置已保存 · cron 已重排 · 只读、永不下单");
+        return "redirect:/admin/integrations";
+    }
+
+    /**
+     * ⑥ 券商 · 一键测试连接 · 用<b>已保存</b>凭据只拉一次账户/资产验证只读链路通不通。
+     * <p>只读铁律:测试也只走查询接口,绝不下单;失败原因脱敏后展示。</p>
+     */
+    @PostMapping("/broker/test")
+    public String testBroker(@AuthenticationPrincipal MemberPrincipal me,
+                             @RequestParam("vendor") String vendor,
+                             RedirectAttributes ra) {
+        long fid = me.getFamilyId();
+        com.family.finance.domain.broker.BrokerVendor v;
+        try {
+            v = com.family.finance.domain.broker.BrokerVendor.valueOf(vendor.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (Exception e) {
+            ra.addFlashAttribute("flashError", "未知券商:" + vendor);
+            return "redirect:/admin/integrations";
+        }
+        com.family.finance.service.broker.BrokerClient client = brokerClients.stream()
+                .filter(c -> c.vendor() == v).findFirst().orElse(null);
+        if (client == null) {
+            ra.addFlashAttribute("flashError", v.getLabel() + " 客户端不可用");
+            return "redirect:/admin/integrations";
+        }
+        try {
+            String detail = client.testConnection(fid);
+            auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE,
+                    "family_runtime_config", fid, "券商测试连接 · " + v.getLabel() + " · 成功");
+            ra.addFlashAttribute("flash", v.getLabel() + " 测试连接成功 · " + detail);
+        } catch (Exception e) {
+            String reason = brokerError(e.getMessage());
+            auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE,
+                    "family_runtime_config", fid, "券商测试连接 · " + v.getLabel() + " · 失败:" + reason);
+            ra.addFlashAttribute("flashError", v.getLabel() + " 测试失败 · " + reason);
+        }
+        return "redirect:/admin/integrations";
+    }
+
+    /** 券商测试异常 message 归类成无敏感信息的友好原因(绝不含私钥 / 原始 body)。 */
+    static String brokerError(String rawMsg) {
+        String m = rawMsg == null ? "" : rawMsg.toLowerCase(java.util.Locale.ROOT);
+        if (m.contains("待真机接线") || m.contains("unsupported")) return "适配器待真机接线(需在你的环境接通 OpenD / 凭据)";
+        if (m.contains("未配置") || m.contains("not configured") || m.contains("未配")) return "凭据未配置(请先填好并保存)";
+        if (m.contains("timeout") || m.contains("超时") || m.contains("connect") || m.contains("i/o") || m.contains("unknownhost"))
+            return "网络不通或超时(OpenD 未启动?)";
+        if (m.contains("sign") || m.contains("invalid") || m.contains("401") || m.contains("403") || m.contains("unauthor") || m.contains("permission"))
+            return "凭据无效或无权限";
+        return "调用失败(已脱敏)";
     }
 
     /**
