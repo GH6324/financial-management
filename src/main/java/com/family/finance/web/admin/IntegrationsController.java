@@ -154,7 +154,7 @@ public class IntegrationsController {
         return "redirect:/admin/integrations";
     }
 
-    /** ② 股票自动拉取 · 开关 + 3 市场 cron */
+    /** ② 股票自动拉取 · 开关 + 4 市场 cron(US/CN/HK/加密)· 贵金属 cron 见 /precious-metal */
     @PostMapping("/stock")
     public String saveStock(@AuthenticationPrincipal MemberPrincipal me,
                             @RequestParam(value = "enabled", defaultValue = "false") boolean enabled,
