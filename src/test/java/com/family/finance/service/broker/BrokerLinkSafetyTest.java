@@ -56,7 +56,7 @@ class BrokerLinkSafetyTest {
         when(sync.sync(anyLong(), anyLong(), any())).thenReturn("同步 · 新增 1 · 更新 0 · 归档 0");
 
         BrokerLinkService svc = new BrokerLinkService(lm, hm, am, audit, sync);
-        String msg = svc.link(1L, 100L, BrokerVendor.FUTU, "acct-x", 2L);
+        svc.link(1L, 100L, BrokerVendor.FUTU, "acct-x", 2L);
 
         // 顺序护栏:审计快照 → 归档 → 建绑定
         InOrder io = inOrder(audit, hm, lm);
@@ -67,7 +67,8 @@ class BrokerLinkSafetyTest {
 
         // 快照带上了归档前的持仓信息(可供找回)
         assertThat(snap.getValue()).contains("PRIV").contains("快照");
-        assertThat(msg).contains("已关联");
+        // 首次同步在关联事务提交后单独跑(不嵌套进关联事务 → 不会 rollback-only)
+        assertThat(svc.initialSync(1L, 100L, 2L, "富途")).contains("已关联");
     }
 
     @Test

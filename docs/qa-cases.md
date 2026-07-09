@@ -1773,5 +1773,7 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | (UT) BrokerTickerTest ×4 | 富途前缀 `HK./US./SH./SZ.`→Market;老虎 market 字段→Market(symbol 归一大写);未支持市场→null;`isEquity` STK/ETF/空→纳入、OPT/FUT/WAR→跳过 |
 | (UT) BrokerReconcileTest ×2 | reconcile 新增/更新/归档计数正确 + 手填行(sync_source=null)不被归档;跑 FUTU 对账不碰 TIGER 同步行 |
 | (UT) BrokerLinkSafetyTest ×3 | link 顺序:审计快照 → 归档 → 建绑定(InOrder);非持仓类账户拒关联;unlink 清 sync_source + 审计 |
+| v15-FIX-TX | 关联与首次同步<b>拆两段事务</b>:`link()` 只做快照+归档+建绑定(@Transactional),提交后由 controller 另起 `initialSync()` 跑首次同步 —— 修 `link()` 内嵌套 `sync()`(自带事务)抛错把外层标 rollback-only 导致「关联失败:Transaction rolled back」的 bug。beta 实测:新建证券账户关联富途 → 302 + flash「已关联 富途 · 首次同步待完成」(非 rollback) |
+| v15-UX | 二次确认走<b>自建弹窗</b>(`#lnkModal`/`#unlModal`,ESC/遮罩关闭),broker/link.html 无 native `confirm(`;建账户向导选「证券(STOCK)」时显 `#brokerSyncHint` 券商同步提示(searchable-select 原生 change 触发切换) |
 
 > 决策(承 prd/tech-design v0.15 · 用户 6 点评审):富途优先 + 老虎;只读铁律(富途永不 unlockTrade、老虎只查询,静态护栏钉死整类);关联高危留快照 + 软归档 + 两步确认(可找回);手动 + cron 双同步;币种以我方账户配置为准做 FX 折算;期权/期货本版跳过(见 `docs/backlog.md`)。适配器(尤其富途异步 OpenD)需用户自有环境接线验证,dev 无 OpenD/账户无法真机 e2e —— 核心 + UX + 护栏先交付。

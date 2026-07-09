@@ -3482,6 +3482,19 @@ BRO_HITS="$(grep -rnE 'unlockTrade\(|\.placeOrder|\.modifyOrder|\.cancelOrder|\.
   && log_ok "v15-ENTRY-1 持仓页有「券商自动同步」入口 + 同步持仓徽章" \
   || log_bad "v15-ENTRY-1 持仓页缺券商入口/徽章" "see stock/holdings.html"
 
+# v15-FIX-TX · 关联与首次同步拆两段事务(修 rollback-only:link() 不再嵌套 sync())
+{ grep -q 'public void link(' "$BLNK" && grep -q 'public String initialSync(' "$BLNK" && grep -q 'linkService.initialSync' "$BCTL"; } \
+  && log_ok "v15-FIX-TX 关联 link() 提交后另起事务 initialSync(不再嵌套 sync → 无 rollback-only)" \
+  || log_bad "v15-FIX-TX link() 仍嵌套首次同步(会 rollback-only)" "see BrokerLinkService/BrokerLinkController"
+
+# v15-UX · 二次确认走自建弹窗(无 native confirm)+ 创建证券账户显同步提示
+BLHTML="$RD/src/main/resources/templates/broker/link.html"
+WIZ="$RD/src/main/resources/templates/accounts/_template-wizard.html"
+{ ! grep -q 'confirm(' "$BLHTML" && grep -q 'id="lnkModal"' "$BLHTML" && grep -q 'id="unlModal"' "$BLHTML" \
+  && grep -q 'brokerSyncHint' "$WIZ"; } \
+  && log_ok "v15-UX 二次确认自建弹窗(无系统 confirm)+ 建证券账户显券商同步提示" \
+  || log_bad "v15-UX 仍用系统 confirm 或缺创建提示" "see broker/link.html / _template-wizard.html"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

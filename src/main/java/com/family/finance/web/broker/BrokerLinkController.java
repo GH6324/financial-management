@@ -69,15 +69,19 @@ public class BrokerLinkController {
             ra.addFlashAttribute("brokerError", "关联为高危不可自动回退操作,需勾选并二次确认后才能执行。");
             return "redirect:/accounts/" + accountId + "/broker";
         }
+        BrokerVendor v;
         try {
-            BrokerVendor v = BrokerVendor.valueOf(vendor.toUpperCase(java.util.Locale.ROOT));
-            String msg = linkService.link(me.getFamilyId(), accountId, v,
-                    blankToNull(brokerAccountId), me.getMemberId());
-            ra.addFlashAttribute("brokerOk", msg);
+            v = BrokerVendor.valueOf(vendor.toUpperCase(java.util.Locale.ROOT));
+            // 事务①:快照 + 软归档 + 建绑定(提交后才能被首次同步读到)
+            linkService.link(me.getFamilyId(), accountId, v, blankToNull(brokerAccountId), me.getMemberId());
         } catch (Exception e) {
             log.warn("broker link failed · account={}: {}", accountId, e.toString());
             ra.addFlashAttribute("brokerError", "关联失败:" + e.getMessage());
+            return "redirect:/accounts/" + accountId + "/broker";
         }
+        // 事务②:首次同步(独立事务;未接线/未配凭据 → 绑定仍成功,同步标待完成)
+        ra.addFlashAttribute("brokerOk",
+                linkService.initialSync(me.getFamilyId(), accountId, me.getMemberId(), v.getLabel()));
         return "redirect:/accounts/" + accountId + "/broker";
     }
 

@@ -74,10 +74,9 @@
         <button type="submit" class="btn-ink">立即同步</button>
       </form>
       <a th:href="@{|/accounts/${account.id}/holdings|}" class="btn-paper no-underline">查看持仓</a>
-      <form th:action="@{|/accounts/${account.id}/broker/unlink|}" method="post" class="ml-auto">
+      <form th:action="@{|/accounts/${account.id}/broker/unlink|}" method="post" class="ml-auto" id="unlinkForm">
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-        <button type="submit" class="btn-paper text-xs"
-                onclick="return confirm('解绑券商?\n\n同步来的持仓会转为普通持仓(可继续手动维护),关联前被归档的旧持仓仍可在归档区恢复。');">解绑</button>
+        <button type="button" id="unlBtn" class="btn-paper text-xs">解绑</button>
       </form>
     </div>
   </section>
@@ -128,10 +127,8 @@
         </label>
       </div>
 
-      <button type="submit" class="btn-ink"
-              onclick="return confirm('确认关联券商并归档现有持仓?\n\n关联前会留持仓快照到审计日志。此操作不可自动回退。');">
-        关联并同步
-      </button>
+      <button type="button" id="lnkBtn" class="btn-ink">关联并同步</button>
+      <p id="lnkCheckWarn" class="hidden font-mono text-[10px] mt-2" style="color:var(--rust)">请先勾选上面两项确认,再关联。</p>
       <p class="font-mono text-[10px] text-ink-subtle mt-3">
         未配券商凭据时,关联会成功但首次同步待完成 —— 请到「管理 → 数据源接入 → 券商同步」填好凭据后回此页点「立即同步」。
       </p>
@@ -150,8 +147,59 @@
     </ul>
   </section>
 
+  <!-- 自建二次确认弹窗(替代系统 confirm · 晚清账册风) -->
+  <div id="lnkModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background:rgba(26,23,20,.55)">
+    <div class="paper-card w-full max-w-md p-6">
+      <div class="flex items-start gap-3 mb-2">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-rust shrink-0 mt-0.5" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div>
+          <h3 class="font-display text-xl mb-1">确认关联并归档现有持仓?</h3>
+          <p class="text-sm text-ink-soft">关联前会把本账户现有持仓<b class="text-ink">留快照到审计日志并软归档</b>,改由券商同步接管。<b class="text-ink">此操作不可自动回退</b>(可从归档区 / 审计快照手动找回)。</p>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-5">
+        <button type="button" class="btn-paper" data-close="lnkModal">取消</button>
+        <button type="button" class="btn-ink" id="lnkConfirm">确认关联并同步</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="unlModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background:rgba(26,23,20,.55)">
+    <div class="paper-card w-full max-w-md p-6">
+      <h3 class="font-display text-xl mb-1">解绑券商?</h3>
+      <p class="text-sm text-ink-soft">同步来的持仓会转为普通持仓(可继续手动维护),关联前被归档的旧持仓仍可在归档区恢复。</p>
+      <div class="flex justify-end gap-3 mt-5">
+        <button type="button" class="btn-paper" data-close="unlModal">取消</button>
+        <button type="button" class="btn-ink" id="unlConfirm">确认解绑</button>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
+<script th:inline="none">
+(function(){
+  function open(id){ var m=document.getElementById(id); if(m){ m.classList.remove('hidden'); m.classList.add('flex'); } }
+  function close(id){ var m=document.getElementById(id); if(m){ m.classList.add('hidden'); m.classList.remove('flex'); } }
+  document.querySelectorAll('[data-close]').forEach(function(b){ b.addEventListener('click', function(){ close(b.getAttribute('data-close')); }); });
+  ['lnkModal','unlModal'].forEach(function(id){ var m=document.getElementById(id); if(m){ m.addEventListener('click', function(e){ if(e.target===m) close(id); }); } });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ close('lnkModal'); close('unlModal'); } });
+
+  var lnkBtn=document.getElementById('lnkBtn');
+  if(lnkBtn){ lnkBtn.addEventListener('click', function(){
+    var ack=document.querySelector('input[name=acknowledged]'), conf=document.querySelector('input[name=confirmed]');
+    if(!(ack&&ack.checked)||!(conf&&conf.checked)){ var w=document.getElementById('lnkCheckWarn'); if(w) w.classList.remove('hidden'); return; }
+    open('lnkModal');
+  }); }
+  var lnkConfirm=document.getElementById('lnkConfirm');
+  if(lnkConfirm){ lnkConfirm.addEventListener('click', function(){ var f=document.getElementById('linkForm'); if(f) f.submit(); }); }
+
+  var unlBtn=document.getElementById('unlBtn');
+  if(unlBtn){ unlBtn.addEventListener('click', function(){ open('unlModal'); }); }
+  var unlConfirm=document.getElementById('unlConfirm');
+  if(unlConfirm){ unlConfirm.addEventListener('click', function(){ var f=document.getElementById('unlinkForm'); if(f) f.submit(); }); }
+})();
+</script>
 </body>
 </html>

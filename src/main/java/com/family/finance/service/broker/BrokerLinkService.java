@@ -52,7 +52,7 @@ public class BrokerLinkService {
      * 两步确认由 controller 校验。
      */
     @Transactional
-    public String link(long familyId, long accountId, BrokerVendor vendor, String brokerAccountId, Long memberId) {
+    public void link(long familyId, long accountId, BrokerVendor vendor, String brokerAccountId, Long memberId) {
         Account acc = accountMapper.findById(accountId)
                 .orElseThrow(() -> new IllegalArgumentException("账户不存在"));
         if (!acc.getFamilyId().equals(familyId)) throw new IllegalArgumentException("无权访问账户");
@@ -71,14 +71,23 @@ public class BrokerLinkService {
 
         linkMapper.insert(BrokerLink.builder()
                 .accountId(accountId).vendor(vendor).brokerAccountId(brokerAccountId).enabled(true).build());
+        // 首次同步<b>不放在本事务里</b>:sync() 自带事务,若在此嵌套调用且其内部抛错,
+        // 会把本事务标记 rollback-only,导致提交时 UnexpectedRollbackException(关联被误报失败)。
+        // 由调用方在本事务提交后另起事务跑首次同步(见 initialSync)。
+    }
 
-        // 首次同步(适配器未接线 / 未配凭据 → 绑定保留,同步待用户环境补)
+    /**
+     * 关联后的首次同步 · <b>必须在 link() 事务提交后调用</b>(不在本类事务上下文内):
+     * 这样 sync() 的独立事务能读到已提交的 broker_link,且其失败不牵连关联本身。
+     * 未接线适配器 / 未配凭据 → 绑定已成功、同步标"待完成",用户配好后手动同步即可。
+     */
+    public String initialSync(long familyId, long accountId, Long memberId, String vendorLabel) {
         try {
-            return "已关联 · " + syncService.sync(familyId, accountId, memberId);
+            return "已关联 " + vendorLabel + " · " + syncService.sync(familyId, accountId, memberId);
         } catch (Exception e) {
             log.warn("initial broker sync pending · account={}: {}", accountId, e.toString());
-            linkMapper.markSynced(accountId, "待同步:" + e.getMessage());
-            return "已关联 " + vendor.getLabel() + " · 首次同步待完成(" + e.getMessage() + ")· 稍后可手动同步";
+            try { linkMapper.markSynced(accountId, "待同步:" + e.getMessage()); } catch (Exception ignored) {}
+            return "已关联 " + vendorLabel + " · 首次同步待完成 · 请到「管理 → 数据源接入 → 券商同步」配好凭据后回本页点「立即同步」";
         }
     }
 
