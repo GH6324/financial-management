@@ -337,7 +337,7 @@
 
   <!-- v0.4 FR-61a · 净资产趋势 + CPI 对照线 + CPI 切换器 -->
   <section id="dash-trend" class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-10" style="scroll-margin-top:80px">
-    <div class="paper-card p-6 lg:col-span-8">
+    <div class="paper-card p-6 lg:col-span-7">
       <div class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
         <div class="eyebrow">净资产趋势 · 名义 vs 购买力(CPI)</div>
         <!-- CPI 切换器 -->
@@ -354,7 +354,7 @@
       </div>
       <div class="h-[240px] sm:h-[360px]"><canvas id="netWorthChart"></canvas></div>
     </div>
-    <div class="paper-card p-6 lg:col-span-4">
+    <div class="paper-card p-6 lg:col-span-5">
       <div class="eyebrow mb-1">资产配置</div>
       <div class="h-[220px] sm:h-[360px]"><canvas id="allocationChart"></canvas></div>
     </div>
@@ -683,7 +683,15 @@
               title: {display: true, text: '净资产趋势 · ' + data.currency + (cpiSeries ? ' · 已叠加 CPI ' + cpiPct + '% 对照' : ''), padding: {bottom: 12}, font: {size: 13, weight: '500'}, color: '#3a302a'},
               tooltip: {callbacks: {label: (ctx) => ctx.dataset.label + ': ' + fmtMoney(ctx.parsed.y)}},
               datalabels: {
-                display: (ctx) => ctx.datasetIndex === 0,  // 只在名义线上显标签
+                // v0.14.1 · 只在名义线显标签;点多时稀疏(首/末/峰/谷)避免密集重叠发糊
+                display: (ctx) => {
+                  if (ctx.datasetIndex !== 0) return false;
+                  const arr = (ctx.dataset.data || []).map(Number), i = ctx.dataIndex, n = arr.length;
+                  if (n <= 7) return true;                                  // 点少全显
+                  if (i === 0 || i === n - 1) return true;                  // 首、末
+                  const mx = Math.max.apply(null, arr), mn = Math.min.apply(null, arr);
+                  return arr[i] === mx || arr[i] === mn;                    // 峰、谷
+                },
                 align: 'top', anchor: 'end', offset: 6,
                 color: '#3a302a', font: {size: 10, weight: '500'},
                 formatter: fmtMoney
@@ -753,8 +761,8 @@
                 formatter: (v, ctx) => {
                   if (!v || total === 0) return '';
                   const pct = (v * 100 / total);
-                  if (pct < 4) return ''; // 太小的扇片不挤数字,hover 看
-                  return fmtMoney(v) + '\n' + pct.toFixed(0) + '%';
+                  if (pct < 5) return ''; // 小片不挤,名称/金额看右侧图例 + hover
+                  return pct.toFixed(0) + '%';   // v0.14.1 · 窄环内只留占比一行,金额/名称移图例 → 不重叠
                 }
               }
             }
