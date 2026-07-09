@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.15 预览 · 券商自动同步(富途 / 老虎)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{paper:'var(--paper)',card:'var(--card)','card-soft':'var(--card-soft)',ink:{DEFAULT:'var(--ink)',soft:'var(--ink-soft)',subtle:'var(--ink-subtle)'},rule:{DEFAULT:'var(--rule)',soft:'var(--rule-soft)'},brass:{DEFAULT:'var(--brass)',deep:'var(--brass-deep)'},forest:'var(--forest)',rust:'var(--rust)'},fontFamily:{display:['Fraunces','Noto Serif SC','serif'],serif:['"Source Serif 4"','Noto Serif SC','serif'],mono:['JetBrains Mono','monospace']}}}}</script>
+  <style>
+    body{background:var(--paper);color:var(--ink)}
+    .eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass-deep)}
+    .paper-card{background:var(--card);border:1px solid var(--rule);box-shadow:0 1px 0 rgba(26,23,20,.04),0 8px 24px -12px rgba(26,23,20,.08)}
+    .annot{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-subtle);line-height:1.7}
+    .note{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-subtle)}
+    .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.06em;padding:2px 8px;border-radius:2px;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--rule);background:var(--card);color:var(--ink-soft)}
+    .pill-forest{background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)}
+    .pill-brass{background:rgba(180,138,58,.12);color:var(--brass-deep);border:1px solid var(--brass-deep)}
+    .pill-rust{background:rgba(159,74,58,.10);color:var(--rust);border:1px solid var(--rust)}
+    .num-pos{color:var(--forest)}.num-neg{color:var(--rust)}.tnum{font-feature-settings:"tnum" 1}
+    .seclabel{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.14em;background:rgba(180,138,58,.08);border:1px dashed #c79338;color:#b08a3a;padding:2px 8px;border-radius:2px;text-transform:uppercase}
+    .callout{border-left:3px solid var(--brass-deep);background:var(--card-soft);padding:12px 16px}
+    .callout.forest{border-left-color:var(--forest)}.callout.rust{border-left-color:var(--rust)}
+    .field-label{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-subtle);display:block;margin-bottom:4px}
+    .field-input{width:100%;font-family:"JetBrains Mono",monospace;font-size:14px;background:var(--paper-soft,#faf7f1);border:1px solid var(--rule);padding:8px 10px}
+    .opt{border:1px solid var(--rule);padding:12px 14px;cursor:pointer}
+    .opt.on{border-color:var(--brass-deep);background:var(--card-soft)}
+    table.g{width:100%;border-collapse:collapse;font-family:'Source Serif 4','Noto Serif SC',serif;font-size:13px}
+    table.g th{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-subtle);text-align:right;padding:7px 8px;border-bottom:1px solid var(--rule)}
+    table.g th:first-child,table.g td:first-child{text-align:left}
+    table.g td{padding:9px 8px;border-top:1px solid var(--rule-soft);text-align:right}
+    svg.ico{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;vertical-align:-2px}
+  </style>
+</head>
+<body class="min-h-screen">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<main class="max-w-[1040px] mx-auto px-6 lg:px-10 py-10">
+
+  <div class="mb-6">
+    <div class="eyebrow mb-2">V · 0 · 15 · 预 · 览 · 券 · 商 · 自 · 动 · 同 · 步</div>
+    <h1 class="font-display text-4xl sm:text-5xl font-medium tracking-tight">富途 / 老虎,持仓自己进来<span class="italic font-light text-brass-deep">。</span></h1>
+    <p class="annot mt-3 max-w-3xl">港美券商账户不用再手抄:授权后<b class="text-ink">只读</b>拉持仓 + 各币种现金,自动映射成账房的持仓,估值并入净资产。<b class="text-ink">永不下单</b> —— 富途根本不解锁交易、老虎只调查询接口。大陆(支付宝/招行/东财)无个人只读授权,不在本版。</p>
+  </div>
+
+  <div class="callout mb-6">
+    <div class="annot"><b class="text-ink">映射:</b> 券商一个交易账户 → 账房一个 STOCK 账户 · 每笔股票持仓 → 一条自动估值持仓 · 各币种现金 → 各一条现金行 · 期权/期货本版跳过并提示。同步来的持仓打<span class="pill pill-brass" style="font-size:9px">券商同步</span>标记,不碰你手填的持仓。</div>
+  </div>
+
+  <!-- A · 新建账户时关联 -->
+  <div class="paper-card p-6 mb-5">
+    <div class="eyebrow mb-3">① · 新 · 建 · 账 · 户 · 时 · 关 · 联</div>
+    <div class="grid md:grid-cols-2 gap-4 items-start">
+      <div>
+        <label class="field-label">账户类型</label>
+        <div class="opt on mb-2"><b>股票 / 券商</b> <span class="note">· 已选</span></div>
+        <label class="field-label mt-3">数据来源</label>
+        <div class="opt mb-2"><span class="note">手动维护持仓(默认)</span></div>
+        <div class="opt on"><b>券商自动同步(可选)</b></div>
+      </div>
+      <div>
+        <label class="field-label">选择券商</label>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <div class="opt on text-center"><b>富途 Futu</b><div class="note mt-1">需 OpenD 网关</div></div>
+          <div class="opt text-center"><b>老虎 Tiger</b><div class="note mt-1">API Key · 免网关</div></div>
+        </div>
+        <div class="callout forest" style="padding:8px 10px"><p class="note">✓ 建好账户后<b class="text-ink">立即首次同步</b>,持仓 + 现金自动灌入。未配券商凭据时会引导去「管理 → 数据源接入 → 券商同步」。</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- B · 已有账户关联 + 冲突 -->
+  <div class="paper-card p-6 mb-5">
+    <div class="eyebrow mb-3">② · 已 · 有 · 账 · 户 · 关 · 联(含冲突处理)</div>
+    <p class="annot mb-3">在已有股票账户的持仓页点<span class="pill pill-brass">关联券商自动同步</span> → 选券商 + 券商账户。若该账户已有手填持仓,弹提示:</p>
+    <div class="callout rust">
+      <div class="annot"><b class="text-ink">该账户已有 3 笔手填持仓。</b>关联后由券商同步接管,为避免重复,建议先归档手填持仓。</div>
+      <div class="flex gap-2 mt-3">
+        <span class="pill pill-rust">替换 · 归档手填,用同步持仓(推荐)</span>
+        <span class="pill">并存(可能重复计值)</span>
+        <span class="pill">取消</span>
+      </div>
+    </div>
+    <p class="note mt-3">↳ 关联后账户标「券商托管」· 可随时<b class="text-ink">解绑</b>(解绑后同步来的持仓保留为普通持仓,可手动维护)。</p>
+  </div>
+
+  <!-- 同步后持仓视图 -->
+  <div class="paper-card p-6 mb-5">
+    <div class="flex items-center justify-between mb-3">
+      <div class="eyebrow">同 · 步 · 后 · 持 · 仓(富途证券 · HKD)</div>
+      <span class="pill pill-brass"><svg class="ico" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.4 2.6"/><path d="M21 3v5h-5"/></svg> 同步券商 · 3 分钟前</span>
+    </div>
+    <table class="g">
+      <thead><tr><th>持仓</th><th>数量</th><th>成本(券商)</th><th>最新价</th><th>市值</th><th>盈亏</th></tr></thead>
+      <tbody>
+        <tr><td>腾讯控股 <span class="pill" style="font-size:9px">HK·00700</span> <span class="pill pill-brass" style="font-size:9px">券商同步</span></td><td class="tnum">200</td><td class="tnum">HK$380.00</td><td class="tnum">HK$401.20</td><td class="tnum">HK$80,240</td><td class="tnum num-pos">+HK$4,240</td></tr>
+        <tr><td>英伟达 <span class="pill" style="font-size:9px">US·NVDA</span> <span class="pill pill-brass" style="font-size:9px">券商同步</span></td><td class="tnum">50</td><td class="tnum">$92.00</td><td class="tnum">$118.50</td><td class="tnum">$5,925</td><td class="tnum num-pos">+$1,325</td></tr>
+        <tr><td>USD 现金 <span class="pill pill-forest" style="font-size:9px">现金</span> <span class="pill pill-brass" style="font-size:9px">券商同步</span></td><td class="tnum">—</td><td class="tnum">—</td><td class="tnum">—</td><td class="tnum">$12,300</td><td class="tnum text-ink-subtle">—</td></tr>
+        <tr><td>HKD 现金 <span class="pill pill-forest" style="font-size:9px">现金</span> <span class="pill pill-brass" style="font-size:9px">券商同步</span></td><td class="tnum">—</td><td class="tnum">—</td><td class="tnum">—</td><td class="tnum">HK$8,600</td><td class="tnum text-ink-subtle">—</td></tr>
+      </tbody>
+    </table>
+    <p class="note mt-3">↳ 成本价取券商用于盈亏;最新价仍走系统拉价引擎(与手填持仓同源)· <b class="text-ink">另有 2 笔期权未纳入</b>(本版不同步,请手动补)。</p>
+  </div>
+
+  <!-- 管理页配置段 -->
+  <div class="paper-card p-6 mb-6">
+    <div class="eyebrow mb-3">管 · 理 · 页 · 数 · 据 · 源 · 接 · 入 · ⑥ · 券 · 商 · 同 · 步</div>
+    <div class="grid md:grid-cols-2 gap-5">
+      <div>
+        <div class="pill pill-brass mb-2">老虎 Tiger</div>
+        <label class="field-label">tiger_id</label><input class="field-input mb-2" value="20xxxxxx">
+        <label class="field-label">RSA 私钥</label><input class="field-input" type="password" value="留空 = 不修改">
+        <p class="note mt-1">只调查询接口 · 永不下单 · 加密存 · key 可交易请视为高敏感、可随时吊销</p>
+      </div>
+      <div>
+        <div class="pill pill-brass mb-2">富途 Futu</div>
+        <label class="field-label">FutuOpenD 地址</label><input class="field-input mb-2" value="127.0.0.1:11111">
+        <label class="field-label">交易账户</label><input class="field-input" value="证券账户 · 自动列出">
+        <p class="note mt-1">只读查询、永不解锁交易 → 不存交易密码、物理上不能下单 · 需常驻 OpenD 网关</p>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4"><span class="pill pill-brass">保存</span><span class="pill">测试连接(只验证能拉到账户,不做写操作)</span></div>
+  </div>
+
+  <div class="callout forest">
+    <div class="seclabel" style="color:var(--forest);border-color:var(--forest);background:rgba(47,93,80,.08)">请你 review 的点</div>
+    <ul class="annot mt-2 space-y-1">
+      <li>① 富途 OpenD 要常驻+登录 → 放哪跑?<b>老虎先行、富途次之</b> 可否?</li>
+      <li>② 已有账户关联的默认冲突策略:<b>替换</b>(归档手填)vs 并存?</li>
+      <li>③ 同步节奏:只手动 + 关联时?还是也上 cron?</li>
+      <li>④ 期权/期货 v1 跳过+提示,可接受?</li>
+      <li>⑤ 关联账户币种:券商主币 / 用户选 / 本位币?</li>
+    </ul>
+  </div>
+
+</main>
+</body>
+</html>
