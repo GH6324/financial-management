@@ -45,6 +45,8 @@
     <a th:if="${account.type.name() != 'METAL'}" th:href="@{|/accounts/${account.id}/holdings/new-auto|}" class="btn-ink no-underline">+ 添加持仓 · 自动估值</a>
     <a th:if="${account.type.name() != 'METAL'}" th:href="@{|/accounts/${account.id}/holdings/new-manual|}" class="btn-paper no-underline">+ 添加持仓 · 手填市值</a>
     <a th:href="@{|/accounts/${account.id}/holdings/new-cash|}" class="btn-paper no-underline">+ 账户内现金</a>
+    <a th:href="@{|/accounts/${account.id}/broker|}" class="btn-paper no-underline inline-flex items-center gap-1.5" title="富途 / 老虎只读同步持仓 + 现金">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.4 2.6"/><path d="M21 3v5h-5"/></svg>券商自动同步</a>
     <form th:action="@{|/accounts/${account.id}/holdings/refresh|}" method="post">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
       <button type="submit" class="btn-paper">⟳ 手动刷价</button>
@@ -101,6 +103,8 @@
           <span class="pill text-[9px]" th:if="${h.valuationMode.name() == 'CASH' and h.currency != null and h.currency != account.currency}"
                 style="background:rgba(159,74,58,.08);color:var(--rust);border-color:var(--rust)"
                 th:text="'FX → ' + ${account.currency}">FX → HKD</span>
+          <span class="pill text-[9px]" th:if="${h.syncSource != null}"
+                style="background:rgba(180,138,58,.12);color:var(--brass-deep);border-color:var(--brass-deep)">券商同步</span>
           <span class="pill text-[9px]" th:if="${stale}"
                 style="background:rgba(159,74,58,.1);color:var(--rust);border-color:var(--rust)"
                 th:text="'陈旧 ' + ${price.staleDays} + ' 天'">陈旧 8 天</span>

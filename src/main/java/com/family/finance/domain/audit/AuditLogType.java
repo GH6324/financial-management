@@ -30,5 +30,7 @@ public enum AuditLogType {
     LLM_DEGRADED,
     /** v0.2 · 2026-05-10 修订 · LLM 综合诊断输出被 OutputValidator 拒绝(禁词 / 真名泄露 / 长度) */
     LLM_REJECTED,
+    /** v0.15 · 券商关联(替换接管)前的持仓快照留痕,供不可回退操作找回 */
+    BROKER_LINK,
     SYSTEM
 }

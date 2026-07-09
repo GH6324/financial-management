@@ -53,6 +53,13 @@ public class FamilyConfigService {
     public static final String K_LLM_TEMPERATURE    = "llm_temperature";
     /** v0.14 · 选定模型(随供应商级联;"auto"=保留 Qwen 轮询/各家默认) */
     public static final String K_LLM_MODEL          = "llm_model";
+    // Integrations · 券商只读同步(v0.15)· 私密凭据(不回显/不入 audit 明文)
+    public static final String K_BROKER_TIGER_ID       = "broker_tiger_id";
+    public static final String K_BROKER_TIGER_KEY      = "broker_tiger_private_key";
+    public static final String K_BROKER_TIGER_ACCOUNT  = "broker_tiger_account";
+    public static final String K_BROKER_FUTU_HOST      = "broker_futu_opend_host";
+    public static final String K_BROKER_FUTU_PORT      = "broker_futu_opend_port";
+    public static final String K_BROKER_SYNC_CRON      = "broker_sync_cron";
     // Integrations · 贵金属(v0.14)
     /** 贵金属默认价格源:sge(上海·CNY/克·默认) / intl(国际现货·USD/oz)· 仅作新建持仓默认 */
     public static final String K_METAL_PRICE_SOURCE = "metal_price_source";

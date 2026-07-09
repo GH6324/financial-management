@@ -91,6 +91,10 @@ public interface StockHoldingMapper {
     @Update("UPDATE stock_holding SET archived_at = NOW(3) WHERE id = #{id} AND archived_at IS NULL")
     int archive(@Param("id") long id);
 
+    /** v0.15 · 解绑券商:把该账户所有 sync_source 持仓清为普通持仓(保留可手动维护) */
+    @Update("UPDATE stock_holding SET sync_source = NULL WHERE account_id = #{accountId} AND sync_source IS NOT NULL")
+    int clearSyncSource(@Param("accountId") long accountId);
+
     @Update("UPDATE stock_holding SET archived_at = NULL WHERE id = #{id} AND archived_at IS NOT NULL")
     int restore(@Param("id") long id);
 
