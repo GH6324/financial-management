@@ -1757,3 +1757,21 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | (e2e) 主线10 贵金属 | 建 METAL 账户 → SGE 金 892/克×200克=¥178,400、盈亏(892−500)×200=+¥78,400 · 国际金 10/克×31.1035×3盎司≈USD 933(oz→g 因子)· 持仓页渲染 AU9999/XAU |
 
 > 决策(承 prd/tech-design v0.14):贵金属复用持仓/估值机器(METAL 类型对称加密)· ticker 编码品种×源、currency 定源币种 · 单位存用户原样、快照归一每克、估值层一次换算 · 全局价格源仅作新建默认、已建持仓各记各源 · LLM 主选/温度/模型走接入源页(模型级联下拉·越权回落 auto),业务 prompt 不动。
+
+---
+
+## v0.15 · 券商自动同步(富途 / 老虎 · 只读)
+
+| Case | 校验 |
+|---|---|
+| v15-RO-1(黑盒+UT) | **只读铁律**:`service/broker/` 全部源码无 `unlockTrade(` / `placeOrder` / `modifyOrder` / `cancelOrder` / `replaceOrder` 调用;`BrokerReadOnlyGuardTest` 去注释后静态扫,一处网住整类 |
+| v15-MAP-1 | 对账 `reconcile` 只动 `sync_source=本 vendor` 的持仓行(用户手填持仓绝不碰);券商有我方无→建 AUTO、都有→更 shares/cost、我方有券商无→软归档;现金按币种 upsert;期权/期货 `skippedNonEquity` 计数 |
+| v15-LINK-1 | 关联(替换接管)高危不可自动回退:关联前先 `AuditLogType.BROKER_LINK` 落持仓快照 → 软归档现有持仓 → 建绑定;两步确认硬门(`!confirmed || !acknowledged` 即拒) |
+| v15-CRON-1 | `broker-sync` 纳入 `DynamicScheduleConfig`(cron 可配 `K_BROKER_SYNC_CRON`、默认工作日 16:45、无 enabled 关联时空跑)· 手动同步走持仓页 / 关联页 |
+| v15-CFG-1 | 管理页 ⑥ 券商段:老虎(tiger_id/RSA 私钥留空保原值·`type=password` 不回显/账户)+ 富途(OpenD host/port)+ 同步 cron + 一键测试连接(只拉账户验证)· 审计不记私钥明文 |
+| v15-ENTRY-1 | 持仓页有「券商自动同步」入口(`/accounts/{id}/broker`)+ 同步来的持仓打「券商同步」徽章 |
+| (UT) BrokerTickerTest ×4 | 富途前缀 `HK./US./SH./SZ.`→Market;老虎 market 字段→Market(symbol 归一大写);未支持市场→null;`isEquity` STK/ETF/空→纳入、OPT/FUT/WAR→跳过 |
+| (UT) BrokerReconcileTest ×2 | reconcile 新增/更新/归档计数正确 + 手填行(sync_source=null)不被归档;跑 FUTU 对账不碰 TIGER 同步行 |
+| (UT) BrokerLinkSafetyTest ×3 | link 顺序:审计快照 → 归档 → 建绑定(InOrder);非持仓类账户拒关联;unlink 清 sync_source + 审计 |
+
+> 决策(承 prd/tech-design v0.15 · 用户 6 点评审):富途优先 + 老虎;只读铁律(富途永不 unlockTrade、老虎只查询,静态护栏钉死整类);关联高危留快照 + 软归档 + 两步确认(可找回);手动 + cron 双同步;币种以我方账户配置为准做 FX 折算;期权/期货本版跳过(见 `docs/backlog.md`)。适配器(尤其富途异步 OpenD)需用户自有环境接线验证,dev 无 OpenD/账户无法真机 e2e —— 核心 + UX + 护栏先交付。

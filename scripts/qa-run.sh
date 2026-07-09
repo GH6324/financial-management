@@ -3440,6 +3440,48 @@ SEC_HITS="$(cd "$RD" && git grep -InoE '(://|@)([0-9]{1,3}\.){3}[0-9]{1,3}' -- .
   && log_ok "vSEC-1 tracked 文件无 URL/SSH 上下文的公网 IP(敏感值不入公开库)" \
   || log_bad "vSEC-1 疑似公网 IP 进了公开库" "$(printf '%s' "$SEC_HITS" | head -2 | tr '\n' ' ')"
 
+# ═══ v0.15 · 券商只读同步(富途 / 老虎)═══
+BSVC="$RD/src/main/java/com/family/finance/service/broker/BrokerSyncService.java"
+BLNK="$RD/src/main/java/com/family/finance/service/broker/BrokerLinkService.java"
+BCTL="$RD/src/main/java/com/family/finance/web/broker/BrokerLinkController.java"
+BCLI="$RD/src/main/java/com/family/finance/service/broker/BrokerClient.java"
+DSC="$RD/src/main/java/com/family/finance/service/scheduling/DynamicScheduleConfig.java"
+INTG="$RD/src/main/resources/templates/admin/integrations.html"
+HOLD="$RD/src/main/resources/templates/stock/holdings.html"
+
+# v15-RO-1 · 只读铁律:适配器无写/交易调用(调用形态匹配 · 排除注释/文档说明)
+BRO_HITS="$(grep -rnE 'unlockTrade\(|\.placeOrder|\.modifyOrder|\.cancelOrder|\.replaceOrder' "$RD/src/main/java/com/family/finance/service/broker/" 2>/dev/null | grep -vE '永不|铁律|^\s*\*|//' || true)"
+{ [ -z "$BRO_HITS" ]; } \
+  && log_ok "v15-RO-1 只读铁律 · 券商适配器无下单/改单/撤单/解锁交易调用" \
+  || log_bad "v15-RO-1 券商出现写/交易调用(违反只读铁律)" "$(printf '%s' "$BRO_HITS" | head -1)"
+
+# v15-MAP-1 · reconcile 只动 sync_source=本 vendor 行(不碰手填持仓)
+{ grep -q 'src.equals(h.getSyncSource())' "$BSVC" && grep -q 'skippedNonEquity' "$BSVC"; } \
+  && log_ok "v15-MAP-1 对账只动 sync_source 行 · 期权/期货跳过计数" \
+  || log_bad "v15-MAP-1 对账未按 sync_source 隔离手填持仓" "see BrokerSyncService.reconcile"
+
+# v15-LINK-1 · 关联前留审计快照 + 软归档 + 两步确认硬门
+{ grep -q 'AuditLogType.BROKER_LINK' "$BLNK" && grep -q 'holdingMapper.archive' "$BLNK" \
+  && grep -q '!confirmed || !acknowledged' "$BCTL"; } \
+  && log_ok "v15-LINK-1 关联高危 · 快照留痕 + 软归档 + 两步确认(confirmed&&acknowledged)" \
+  || log_bad "v15-LINK-1 关联缺快照/两步确认" "see BrokerLinkService / BrokerLinkController"
+
+# v15-CRON-1 · broker-sync 进动态调度(可配 cron · 无关联空跑)
+{ grep -q '"broker-sync"' "$DSC" && grep -q 'syncAllEnabled' "$DSC" && grep -q 'K_BROKER_SYNC_CRON' "$DSC"; } \
+  && log_ok "v15-CRON-1 券商同步进动态调度 · cron 可配 · 无关联空跑" \
+  || log_bad "v15-CRON-1 broker-sync 未纳入 DynamicScheduleConfig" "see DynamicScheduleConfig"
+
+# v15-CFG-1 · 管理页 ⑥ 券商段在岗(老虎/富途 + 私钥不回显 + 测试连接)
+{ grep -q '券商同步' "$INTG" && grep -q 'name="tigerKey"' "$INTG" && grep -q 'type="password"' "$INTG" \
+  && grep -q '/admin/integrations/broker/test' "$INTG"; } \
+  && log_ok "v15-CFG-1 管理页 ⑥ 券商段 · 老虎/富途凭据(私钥不回显)+ 测试连接" \
+  || log_bad "v15-CFG-1 管理页券商段缺件" "see admin/integrations.html"
+
+# v15-ENTRY-1 · 持仓页有券商入口 + 券商同步徽章
+{ grep -q '/broker|}' "$HOLD" && grep -q '券商同步' "$HOLD"; } \
+  && log_ok "v15-ENTRY-1 持仓页有「券商自动同步」入口 + 同步持仓徽章" \
+  || log_bad "v15-ENTRY-1 持仓页缺券商入口/徽章" "see stock/holdings.html"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
