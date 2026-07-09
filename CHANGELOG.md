@@ -2,6 +2,16 @@
 
 按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
+## [v0.14.1] · 2026-07-09
+
+### Changed — UI 打磨(数据源接入 LLM 段 + UAT 巡检)
+
+- **数据源接入 · LLM 段重排**:凭据(API Key)与「调用设置」(主选供应商 / 模型级联 / 温度 / max_tokens / 超时)拆成两组,调用设置进等高统一网格,不再与带大段说明的 key 块参差混排。
+- **UAT 巡检修**(headless 真机截图 dashboard / 报表 / 填报 · PC + 手机端):
+  - 报表「账户表」类目列此前**裸露 product_category 代码**(`GOLD` / `US_STOCK` / `CASH_DEPOSIT` / `CRYPTO` / `PRECIOUS_METAL`)→ 改显中文名(`pcNameByAccount`),窄 pill 长名竖排堆叠 → `whitespace-nowrap` 横排。
+  - 填报账户行警告 `CASH/LOAN 出现未解释变化` 泄露英文枚举 → 改「余额出现未解释变化,建议补一笔收入 / 支出 / 转账对上账」。
+- 守护 `v14.1-UAT`(面向用户不泄露英文枚举/代码 · qa →**442**)。
+
 ## [v0.14.0] · 2026-07-08
 
 ### Added — 贵金属账户 + 自动金价(社区 issue #4 · @BetterQx)

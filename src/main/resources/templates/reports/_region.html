@@ -205,10 +205,10 @@
         </tr>
         </thead>
         <tbody>
-        <tr th:each="account : ${accountRows}" th:with="bm=${benchmarkByAccount.get(account.accountId)},pc=${pcCodeByAccount.get(account.accountId)}">
+        <tr th:each="account : ${accountRows}" th:with="bm=${benchmarkByAccount.get(account.accountId)},pc=${pcNameByAccount.get(account.accountId)}">
           <td class="acct-sticky"><a th:href="@{/accounts/{id}(id=${account.accountId})}" class="font-display hover:text-brass-deep no-underline" th:text="${account.accountName}">账户</a></td>
           <td><span class="pill" th:text="${account.accountType.label}">STOCK</span></td>
-          <td><span class="pill text-[9px]" th:if="${pc != null}" th:text="${pc}">—</span>
+          <td><span class="pill text-[9px] whitespace-nowrap" th:if="${pc != null}" th:text="${pc}">—</span>
               <span th:if="${pc == null}" class="text-ink-subtle text-[10px]">未设</span></td>
           <td class="num" data-priv
               th:text="${account.currentValue == null ? '—' : ((currency == 'USD' ? '$' : (currency == 'HKD' ? 'HK$' : '¥')) + #numbers.formatInteger(account.currentValue, 1, 'COMMA'))}">—</td>

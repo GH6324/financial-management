@@ -185,9 +185,14 @@ public class ReportsController {
             if (a.getProductCategoryCode() != null) pcCodeByAccountId.put(a.getId(), a.getProductCategoryCode());
         }
         java.util.Map<String, BigDecimal> benchmarkPctByPcCode = new java.util.HashMap<>();
+        java.util.Map<String, String> pcNameByCode = new java.util.HashMap<>();
         for (var pc : productCategoryService.listAll()) {
             if (pc.getBenchmarkPct() != null) benchmarkPctByPcCode.put(pc.getCode(), pc.getBenchmarkPct());
+            pcNameByCode.put(pc.getCode(), pc.getDisplayName());
         }
+        // v0.14.1 · 类目列显示中文名(不再裸露 GOLD/US_STOCK/PRECIOUS_METAL 等 code);无映射时兜底 code
+        java.util.Map<Long, String> pcNameByAccountId = new java.util.HashMap<>();
+        pcCodeByAccountId.forEach((aid, code) -> pcNameByAccountId.put(aid, pcNameByCode.getOrDefault(code, code)));
         // v0.11.4 · 账户表改为「复用管理页指标配置」渲染:直接迭代全字段 accountRows(AccountPerformance),
         //   基准对照数据按 accountId 建索引 map 供模板 zip;不再压成精简的 AccountBenchmarkRow 列表。
         java.util.Map<Long, AccountBenchmarkRow> benchmarkByAccount = new java.util.HashMap<>();
@@ -306,6 +311,7 @@ public class ReportsController {
         model.addAttribute("acctMetrics", acctMetrics);
         model.addAttribute("benchmarkByAccount", benchmarkByAccount);
         model.addAttribute("pcCodeByAccount", pcCodeByAccountId);
+        model.addAttribute("pcNameByAccount", pcNameByAccountId);
         model.addAttribute("fxRates", fxRates);
         model.addAttribute("fxFallback", fxFallback);
         model.addAttribute("requestedCurrency", requestedCurrency);

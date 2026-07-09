@@ -3422,6 +3422,16 @@ INTG="$RD/src/main/resources/templates/admin/integrations.html"
   && log_ok "v14-LLM-VENDOR 主选供应商(默认Qwen·可切DS)+ 温度可配 + 模型级联下拉(内置清单·越权回落auto)" \
   || log_bad "v14-LLM-VENDOR LLM 自选链路缺" "see FamilyConfigService/LlmDiagnoseService/QwenLlmClient/IntegrationsController/integrations.html"
 
+# v14.1-UAT · 面向用户不泄露英文枚举/代码([[feedback_user_friendly_naming]])· UAT 巡检修
+REG_REPORT="$RD/src/main/resources/templates/reports/_region.html"
+ENTS="$RD/src/main/java/com/family/finance/service/EntryService.java"
+RC="$RD/src/main/java/com/family/finance/web/report/ReportsController.java"
+{ grep -q 'pc=${pcNameByAccount' "$REG_REPORT" \
+  && grep -q 'pcNameByAccount' "$RC" \
+  && ! grep -q 'CASH/LOAN 出现' "$ENTS"; } \
+  && log_ok "v14.1-UAT 报表类目显中文名(不裸露 GOLD/US_STOCK/PRECIOUS_METAL)+ 填报警告无 CASH/LOAN 枚举" \
+  || log_bad "v14.1-UAT 仍泄露英文枚举/代码给用户" "see reports/_region.html 类目列 / EntryService 警告"
+
 # vSEC-1 · 敏感值不入公开库(L10)· 扫 tracked 文件里 URL/SSH 上下文的公网 IP(排除私网/环回)
 # 用上下文正则(://IP 或 @IP)避免版本号/SVG 数据误报;不硬编码任何具体 IP,守护自身不泄露、不自匹配
 SEC_HITS="$(cd "$RD" && git grep -InoE '(://|@)([0-9]{1,3}\.){3}[0-9]{1,3}' -- . ':(exclude)*.jpg' ':(exclude)*.png' ':(exclude)*.jpeg' 2>/dev/null \

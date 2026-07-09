@@ -542,7 +542,7 @@ public class EntryService {
                 : MoneyFormat.format(account.getCurrency(), currentBalance);
         String warning = (account.getType() == AccountType.CASH || account.getType() == AccountType.LOAN)
                 && unexplained.signum() != 0
-                ? "CASH/LOAN 出现未解释变化,建议补收入、支出或转账"
+                ? "余额出现未解释变化,建议补一笔收入 / 支出 / 转账对上账"
                 : null;
         // PRD §2.4 / FR-9:本期划转明细(供接收方看到"已收到来自 X 的 200")
         List<EntryRow.TransferRef> incoming = new ArrayList<>();
