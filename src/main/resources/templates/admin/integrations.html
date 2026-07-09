@@ -86,35 +86,40 @@
             <span class="font-mono text-[10px] text-ink-subtle">测已保存的 key · 发最小探测</span>
           </div>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      </div>
+
+      <!-- 调用设置 · 供应商 / 模型 / 参数(统一网格,不与凭据混排)-->
+      <div class="border-t border-rule-soft pt-5">
+        <div class="eyebrow-ink text-[11px] mb-3">调 · 用 · 设 · 置</div>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-x-5 gap-y-4">
           <div>
             <label class="field-label">主选 AI 供应商</label>
             <select class="field-input" id="llmVendorSel" name="primaryVendor" onchange="syncLlmModels()">
               <option value="qwen" th:selected="${llmPrimaryVendor != 'deepseek'}">Qwen(推荐)</option>
               <option value="deepseek" th:selected="${llmPrimaryVendor == 'deepseek'}">DeepSeek</option>
             </select>
-            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">主选故障自动切备源 · 两家都配 key 才生效</p>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">故障自动切备源</p>
           </div>
           <div>
             <label class="field-label">模型 · 随供应商级联</label>
             <select class="field-input" id="llmModelSel" name="model" th:attr="data-current=${llmModel}"></select>
-            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">下拉选 · 不手打型号 · 默认「自动(推荐)」</p>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">下拉选 · 默认「自动」</p>
           </div>
           <div>
             <label class="field-label">采样温度 · temperature</label>
-            <input class="field-input w-32" type="number" name="temperature" th:value="${llmTemperature}" step="0.1" min="0" max="1"/>
-            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">0 确定 ~ 1 发散 · 默认 0.5 · 实时生效</p>
+            <input class="field-input" type="number" name="temperature" th:value="${llmTemperature}" step="0.1" min="0" max="1"/>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">0 确定 ~ 1 发散 · 默认 0.5</p>
           </div>
-        </div>
-        <div>
-          <label class="field-label">max_tokens · 单次输出上限</label>
-          <input class="field-input w-32" type="number" name="maxTokens" th:value="${llmMaxTokens}" min="500" max="8000"/>
-          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">默认 2000 · 改小可能 JSON 截断 · 实时生效</p>
-        </div>
-        <div>
-          <label class="field-label">超时秒 · timeout</label>
-          <input class="field-input w-32" type="number" name="timeoutSeconds" th:value="${llmTimeoutSeconds}" min="5" max="120"/>
-          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">单次调用超时 · 改动需重启生效</p>
+          <div>
+            <label class="field-label">max_tokens · 输出上限</label>
+            <input class="field-input" type="number" name="maxTokens" th:value="${llmMaxTokens}" min="500" max="8000"/>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">默认 2000 · 改小可能截断</p>
+          </div>
+          <div>
+            <label class="field-label">超时秒 · timeout</label>
+            <input class="field-input" type="number" name="timeoutSeconds" th:value="${llmTimeoutSeconds}" min="5" max="120"/>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">默认 25 · 改动需重启</p>
+          </div>
         </div>
       </div>
 
