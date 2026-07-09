@@ -190,8 +190,11 @@ public class EntryController {
             model.addAttribute("toastText", "操作太频繁 · 请 " + wait + " 秒后再试");
             return "entry/_refresh-toast :: toast";
         }
+        // v0.14 · 市场清单单一来源 · 分母用 markets.size(),不再写死(修 prod「4/3」:市场从 3→4→5 增,分母停在 3 → 全成功被误报成"仅 X/3 · 详情查 journal")
+        List<Market> markets = List.of(Market.US, Market.CN, Market.HK, Market.CRYPTO, Market.METAL);
+        int total = markets.size();
         int marketsOk = 0;
-        for (Market mk : List.of(Market.US, Market.CN, Market.HK, Market.CRYPTO, Market.METAL)) {
+        for (Market mk : markets) {
             try {
                 stockScheduler.fetchMarket(mk);
                 marketsOk++;
@@ -208,21 +211,21 @@ public class EntryController {
         } catch (Exception e) {
             log.warn("entry-refresh valuation refresh failed: {}", e.toString());
         }
-        if (marketsOk == 3) {
+        if (marketsOk == total) {
             model.addAttribute("toastKind", "forest");
             model.addAttribute("toastIcon", "check");
             model.addAttribute("toastText",
-                "3 市场估值已刷新 · " + accountsRefreshed + " 账户");
+                total + " 市场估值已刷新 · " + accountsRefreshed + " 账户");
         } else if (marketsOk > 0) {
             model.addAttribute("toastKind", "rust");
             model.addAttribute("toastIcon", "warn");
             model.addAttribute("toastText",
-                "仅 " + marketsOk + "/3 市场估值刷新成功 · " + accountsRefreshed + " 账户已更新 · 详情查 journal");
+                "仅 " + marketsOk + "/" + total + " 市场估值刷新成功 · " + accountsRefreshed + " 账户已更新 · 详情查 journal");
         } else {
             model.addAttribute("toastKind", "rust");
             model.addAttribute("toastIcon", "fail");
             model.addAttribute("toastText",
-                "3 市场估值均刷新失败 · 上游限流/网络 · 详情查 journal");
+                total + " 市场估值均刷新失败 · 上游限流/网络 · 详情查 journal");
         }
         return "entry/_refresh-toast :: toast";
     }

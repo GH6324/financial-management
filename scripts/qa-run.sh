@@ -3403,6 +3403,11 @@ ECF="$RD/src/main/java/com/family/finance/web/entry/EntryController.java"
   && log_ok "v14-METAL-ENTRY 填报页持仓入口走 supportsHoldings(含 METAL)+ 一键刷新含 METAL 市场" \
   || log_bad "v14-METAL-ENTRY 填报页仍漏 METAL 入口" "see entry/_row.html supportsHoldings / EntryController.refresh-stocks"
 
+# v14-REFRESH-COUNT · 刷新估值 toast 分母动态(修 prod「4/3」:市场数增而分母写死 3 → 全成功误报成 warning)
+{ grep -q 'marketsOk == total' "$ECF" && ! grep -qE 'marketsOk == 3|/3 市场|"3 市场' "$ECF"; } \
+  && log_ok "v14-REFRESH-COUNT 刷新估值 toast 分母 = markets.size() 动态(不再写死 3)" \
+  || log_bad "v14-REFRESH-COUNT 刷新估值 toast 仍写死市场数(会误报 X/3)" "see EntryController.refreshStocks"
+
 # v14-LLM-VENDOR · LLM 主选供应商可配 + 温度 + 模型级联(FR-B)
 FCS="$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java"
 LDS="$RD/src/main/java/com/family/finance/service/checkup/llm/LlmDiagnoseService.java"
