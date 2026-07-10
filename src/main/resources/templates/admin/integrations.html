@@ -272,6 +272,8 @@
             <label class="field-label">OpenD 端口</label>
             <input class="field-input" name="futuPort" th:value="${futuPort}" placeholder="11111"/>
             <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">需常驻 OpenD 网关并保持登录态 · 只读查询、永不解锁交易 → 不存交易密码</p>
+          <a th:href="@{/admin/broker/opend}" class="inline-flex items-center gap-1 font-mono text-[11px] text-brass-deep underline hover:text-ink no-underline mt-2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>不想自己装?用一键安装 / 托管 OpenD 向导 →</a>
           </div>
         </div>
       </div>

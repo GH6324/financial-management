@@ -68,6 +68,7 @@ app:
   upload-root: ${UPLOAD_ROOT:/tmp/finance-uploads}
   remember-me-key: ${REMEMBER_ME_KEY:dev-only-key-change-in-prod}
   remember-me-validity-seconds: 2592000  # 30 天
+  broker-opend-home: ${FUTU_OPEND_HOME:/tmp/finance-futu-opend}  # v0.15 富途 OpenD 家目录(应用自管子进程)
 
 ---
 spring:

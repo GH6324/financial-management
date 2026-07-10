@@ -3511,6 +3511,17 @@ HCTL="$RD/src/main/java/com/family/finance/web/help/HelpController.java"
   && log_ok "v15-OPEND 富途 OpenD 部署方案(同机 systemd / docker sidecar / 家用机隧道)+ 文档 + 应用内说明" \
   || log_bad "v15-OPEND OpenD 部署方案缺件" "see deploy/futu-opend.* / docs/broker-sync-guide.md / help/broker-sync.html"
 
+# v15-OPEND-WIZ · 应用内 OpenD 傻瓜向导(自管子进程:下载/版本/依赖/配置启动/短信中继)
+OWMGR="$RD/src/main/java/com/family/finance/service/broker/opend/FutuOpendManager.java"
+OWCTL="$RD/src/main/java/com/family/finance/web/broker/FutuOpendController.java"
+OWTPL="$RD/src/main/resources/templates/broker/opend-wizard.html"
+{ [ -f "$OWMGR" ] && [ -f "$OWCTL" ] && [ -f "$OWTPL" ] \
+  && grep -q '/admin/broker/opend' "$OWCTL" && grep -q 'api_ip=127.0.0.1' "$OWMGR" \
+  && grep -q 'input_phone_verify_code' "$OWMGR" \
+  && grep -q '/admin/broker/opend' "$RD/src/main/resources/templates/admin/integrations.html"; } \
+  && log_ok "v15-OPEND-WIZ 应用内一键 OpenD 向导(下载/版本/依赖/配置启动/短信中继·只绑127.0.0.1)+ 管理页入口" \
+  || log_bad "v15-OPEND-WIZ OpenD 向导缺件" "see service/broker/opend / web/broker/FutuOpendController / broker/opend-wizard.html"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

@@ -12,5 +12,7 @@ public record AppProperties(
         @DefaultValue("dev-only-key-change-in-prod") String rememberMeKey,
         @DefaultValue("2592000") int rememberMeValiditySeconds,
         @DefaultValue("https://api.frankfurter.dev") String fxApiBase,
-        @DefaultValue("3000") long fxFetchTimeoutMs
+        @DefaultValue("3000") long fxFetchTimeoutMs,
+        // v0.15 · 富途 OpenD 傻瓜向导:应用自管子进程的家目录(下载/解压/配置/日志都在此)
+        @DefaultValue("/tmp/finance-futu-opend") String brokerOpendHome
 ) {}

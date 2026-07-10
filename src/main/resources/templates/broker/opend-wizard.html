@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('富途 OpenD 安装向导')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('accounts', ${me}, ${nav})}"></header>
+
+<main class="max-w-[900px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+
+  <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+    <a th:href="@{/admin/integrations}" class="hover:text-ink no-underline">数据源接入</a>
+    <span class="mx-2 text-rule">/</span><span class="text-ink">富途 OpenD 安装向导</span>
+  </div>
+
+  <div th:if="${flash}" class="paper-card p-3 mb-4 bg-card-soft text-sm" style="border-left:4px solid var(--forest)" th:text="${flash}"></div>
+  <div th:if="${flashError}" class="paper-card p-3 mb-4 bg-card-soft text-sm" style="border-left:4px solid var(--rust)" th:text="${flashError}"></div>
+
+  <div class="mb-6">
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-2">富 · 途 · O · p · e · n · D · 一 · 键 · 托 · 管</div>
+    <h1 class="font-display text-3xl font-medium tracking-tight mb-2">把 OpenD 装进系统,点几下就好</h1>
+    <p class="text-sm text-ink-soft">富途要经 OpenD 网关。下面由本系统<b class="text-ink">帮你在这台机器上下载、启动、守护</b> OpenD,你只需点几下 + 填账号。</p>
+  </div>
+
+  <!-- 实时状态条 -->
+  <section class="paper-card p-4 mb-6">
+    <div class="flex items-center justify-between mb-2">
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle">当 · 前 · 状 · 态</div>
+      <span id="phasePill" class="pill text-[10px]">—</span>
+    </div>
+    <div id="statusMsg" class="text-sm text-ink-soft" th:text="${status.message() ?: '尚未开始'}">尚未开始</div>
+    <pre id="logTail" class="mt-3 p-3 bg-paper border border-rule-soft font-mono text-[11px] overflow-auto max-h-40 whitespace-pre-wrap"></pre>
+    <form th:action="@{/admin/broker/opend/stop}" method="post" class="mt-3">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <button type="submit" class="btn-paper text-xs">停止 OpenD</button>
+    </form>
+  </section>
+
+  <!-- 第 0 步 · 唯一手动 -->
+  <section class="paper-card p-5 mb-4 bg-card-soft" style="border-left:4px solid var(--rust)">
+    <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">第 0 步 · 唯一需要你手动做的一次</div>
+    <p class="text-sm text-ink-soft">先用<b class="text-ink">富途牛牛 App / 网页</b>登录一次,完成富途的<b class="text-ink">问卷 + 协议确认</b>(这是富途绑账号的一次性动作,任何程序都替不了)。做过一次后,下面全自动。</p>
+  </section>
+
+  <!-- 第 1 步 · 下载 -->
+  <section class="paper-card p-5 mb-4">
+    <div class="font-mono text-[10px] uppercase text-brass-deep mb-3">第 1 步 · 帮你拉取 OpenD 到这台机器</div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+      <div>
+        <label class="field-label">系统(已自动探测)</label>
+        <select id="osTag" class="field-input bg-transparent">
+          <option value="Centos7" th:selected="${osTag == 'Centos7'}">Centos7(RHEL/Rocky/Alma)</option>
+          <option value="Ubuntu16.04" th:selected="${osTag == 'Ubuntu16.04'}">Ubuntu / Debian</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">版本号</label>
+        <input id="version" class="field-input" th:value="${versionExample}" placeholder="如 9.3.5308">
+      </div>
+      <div>
+        <label class="field-label">或粘完整下载 URL(可选)</label>
+        <input id="url" class="field-input" placeholder="softwarefile.futunn.com/...">
+      </div>
+    </div>
+    <p class="font-mono text-[10px] text-ink-subtle mb-3">版本会更新 → 去
+      <a href="https://openapi.futunn.com/futu-api-doc/opend/opend-cmd.html" target="_blank" rel="noopener" class="underline hover:text-ink">官方下载页</a>
+      抄最新版本号填这里(或直接粘那条 tar.gz 链接)。只允许从 softwarefile.futunn.com 下载。</p>
+    <button id="dlBtn" type="button" class="btn-ink">开始下载并解压</button>
+  </section>
+
+  <!-- 第 2 步 · 版本 + 依赖 -->
+  <section class="paper-card p-5 mb-4">
+    <div class="font-mono text-[10px] uppercase text-brass-deep mb-3">第 2 步 · 看版本 + 依赖体检</div>
+    <div class="text-sm text-ink-soft mb-3">已安装版本:<b id="verOut" class="text-ink" th:text="${status.version() ?: '(未安装)'}">(未安装)</b></div>
+    <button id="depBtn" type="button" class="btn-paper text-sm">依赖体检</button>
+    <div id="depOut" class="mt-3 text-sm text-ink-soft hidden">
+      <div id="depOk" class="hidden" style="color:var(--forest)">依赖齐全,可进入第 3 步。</div>
+      <div id="depBad" class="hidden">
+        <div style="color:var(--rust)">缺少依赖:<span id="depMissing" class="font-mono"></span></div>
+        <div class="mt-1">在这台机器执行(缺啥装啥):</div>
+        <pre id="depCmd" class="mt-1 p-2 bg-paper border border-rule-soft font-mono text-[11px] whitespace-pre-wrap"></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- 第 3 步 · 配置 + 启动 -->
+  <section class="paper-card p-5 mb-4">
+    <div class="font-mono text-[10px] uppercase text-brass-deep mb-3">第 3 步 · 傻瓜配置 + 启动</div>
+    <form th:action="@{/admin/broker/opend/config-start}" method="post" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <div>
+        <label class="field-label">富途账号</label>
+        <input name="account" class="field-input" placeholder="你的富途账号" required>
+      </div>
+      <div>
+        <label class="field-label">登录密码</label>
+        <input name="loginPwd" type="password" class="field-input" autocomplete="new-password" placeholder="服务端即时 MD5,不存明文" required>
+      </div>
+      <div>
+        <label class="field-label">端口</label>
+        <input name="port" class="field-input" value="11111">
+      </div>
+      <div class="sm:col-span-3">
+        <button type="submit" class="btn-ink">保存并启动 OpenD</button>
+        <span class="font-mono text-[10px] text-ink-subtle ml-2">密码只用于本机 OpenD 登录 · 服务端立即 MD5 · 绝不回显/不入库明文</span>
+      </div>
+    </form>
+
+    <!-- 短信验证码(phase=NEEDS_SMS 时由 JS 显示) -->
+    <div id="smsBox" class="paper-card p-4 mt-4 bg-card-soft hidden" style="border-left:4px solid var(--brass-deep)">
+      <div class="text-sm text-ink-soft mb-2">富途给你手机发了验证码(首次在新机器登录),填这里,我们替你转给 OpenD:</div>
+      <div class="flex gap-2">
+        <input id="smsCode" class="field-input" style="max-width:180px" placeholder="6 位验证码">
+        <button id="smsBtn" type="button" class="btn-ink text-sm">提交验证码</button>
+      </div>
+      <div id="smsMsg" class="font-mono text-[10px] text-ink-subtle mt-2"></div>
+    </div>
+
+    <!-- 成功 -->
+    <div id="doneBox" class="paper-card p-4 mt-4 bg-card-soft hidden" style="border-left:4px solid var(--forest)">
+      <div class="text-sm" style="color:var(--forest)">OpenD 已登录运行 · 已自动回填富途配置(127.0.0.1)。</div>
+      <div class="mt-2 flex gap-2">
+        <a th:href="@{/admin/integrations}" class="btn-paper text-xs no-underline">去测试连接</a>
+        <a th:href="@{/accounts}" class="btn-paper text-xs no-underline">去关联账户</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<script th:inline="none">
+(function(){
+  var csrfEl = document.querySelector('input[name="_csrf"]');
+  var csrfName = csrfEl ? csrfEl.name : '_csrf';
+  var csrfVal  = csrfEl ? csrfEl.value : '';
+  function post(url, body){
+    var b = body || {}; b[csrfName] = csrfVal;
+    return fetch(url, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: Object.keys(b).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(b[k]);}).join('&')});
+  }
+  function render(st){
+    if(!st) return;
+    document.getElementById('phasePill').textContent = st.phase || '—';
+    document.getElementById('statusMsg').textContent = st.message || '';
+    if(st.version) document.getElementById('verOut').textContent = st.version;
+    document.getElementById('logTail').textContent = (st.logTail||[]).join('\n');
+    document.getElementById('logTail').scrollTop = document.getElementById('logTail').scrollHeight;
+    document.getElementById('smsBox').classList.toggle('hidden', st.phase !== 'NEEDS_SMS');
+    document.getElementById('doneBox').classList.toggle('hidden', st.phase !== 'RUNNING');
+  }
+  function poll(){
+    fetch('status', {headers:{'Accept':'application/json'}}).then(function(r){return r.json();}).then(render).catch(function(){});
+  }
+  document.getElementById('dlBtn').addEventListener('click', function(){
+    var v = document.getElementById('version').value.trim();
+    var os = document.getElementById('osTag').value;
+    var url = document.getElementById('url').value.trim();
+    if(!v && !url){ alert('请填版本号,或粘完整下载 URL'); return; }
+    post('download', {version:v, osTag:os, url:url}).then(function(){ poll(); });
+  });
+  document.getElementById('depBtn').addEventListener('click', function(){
+    fetch('deps').then(function(r){return r.json();}).then(function(d){
+      document.getElementById('depOut').classList.remove('hidden');
+      document.getElementById('depOk').classList.toggle('hidden', !d.ok);
+      document.getElementById('depBad').classList.toggle('hidden', d.ok);
+      if(!d.ok){
+        document.getElementById('depMissing').textContent = (d.missing||[]).join(', ');
+        document.getElementById('depCmd').textContent = d.installCommand || '';
+      }
+    }).catch(function(){});
+  });
+  document.getElementById('smsBtn').addEventListener('click', function(){
+    var code = document.getElementById('smsCode').value.trim();
+    if(!code){ return; }
+    post('sms', {code:code}).then(function(r){return r.text();}).then(function(t){
+      document.getElementById('smsMsg').textContent = (t==='ok') ? '已提交,等待登录…' : '提交失败(OpenD 可能未在等验证码)';
+    });
+  });
+  poll();
+  setInterval(poll, 2500);
+})();
+</script>
+</body>
+</html>
