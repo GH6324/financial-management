@@ -1776,4 +1776,5 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v15-FIX-TX | 关联与首次同步<b>拆两段事务</b>:`link()` 只做快照+归档+建绑定(@Transactional),提交后由 controller 另起 `initialSync()` 跑首次同步 —— 修 `link()` 内嵌套 `sync()`(自带事务)抛错把外层标 rollback-only 导致「关联失败:Transaction rolled back」的 bug。beta 实测:新建证券账户关联富途 → 302 + flash「已关联 富途 · 首次同步待完成」(非 rollback) |
 | v15-UX | 二次确认走<b>自建弹窗</b>(`#lnkModal`/`#unlModal`,ESC/遮罩关闭),broker/link.html 无 native `confirm(`;建账户向导选「证券(STOCK)」时显 `#brokerSyncHint` 券商同步提示(searchable-select 原生 change 触发切换) |
 
-> 决策(承 prd/tech-design v0.15 · 用户 6 点评审):富途优先 + 老虎;只读铁律(富途永不 unlockTrade、老虎只查询,静态护栏钉死整类);关联高危留快照 + 软归档 + 两步确认(可找回);手动 + cron 双同步;币种以我方账户配置为准做 FX 折算;期权/期货本版跳过(见 `docs/backlog.md`)。适配器(尤其富途异步 OpenD)需用户自有环境接线验证,dev 无 OpenD/账户无法真机 e2e —— 核心 + UX + 护栏先交付。
+> 决策(承 prd/tech-design v0.15 · 用户 6 点评审):富途优先 + 老虎;只读铁律(富途永不 unlockTrade、老虎只查询,静态护栏钉死整类);关联高危留快照 + 软归档 + 两步确认(可找回);手动 + cron 双同步;币种以我方账户配置为准做 FX 折算;期权/期货本版跳过(见 `docs/backlog.md`)。
+> **富途适配器已真机接线并联调通过**(tech-design 决策 L):FutuSession 异步回调包同步、只调三个查询接口;beta 上对用户真实 OpenD 测试连接成功(实盘户 2/共 10)。老虎适配器待用户 key 真机验证。
