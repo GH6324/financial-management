@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('券商同步 · 图文向导')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('accounts', ${me}, ${nav})}"></header>
+
+<main class="max-w-[1000px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+
+  <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+    <a th:href="@{/admin/integrations}" class="hover:text-ink no-underline">数据源接入</a>
+    <span class="mx-2 text-rule">/</span><span class="text-ink">券商同步 · 图文向导</span>
+  </div>
+
+  <!-- 头 -->
+  <div class="mb-6">
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-2">券 · 商 · 同 · 步 · 图 · 文 · 向 · 导</div>
+    <h1 class="font-display text-3xl sm:text-4xl font-medium tracking-tight mb-2">一步步拿到富途 / 老虎的配置</h1>
+    <p class="text-sm text-ink-soft max-w-3xl">配好之后,系统每天(或你手动点一下)<b class="text-ink">只读</b>把券商里的持仓 + 各币种现金拉进账房,不用再手抄。下面按券商分两份,照着做即可。</p>
+  </div>
+
+  <!-- 只读 & 安全说明 -->
+  <section class="paper-card p-4 mb-6 bg-card-soft" style="border-left:4px solid var(--forest)">
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-1">先 · 说 · 安 · 全</div>
+    <ul class="text-sm text-ink-soft space-y-1">
+      <li>· 本系统<b class="text-ink">只查询、永不下单 / 划转</b>:富途只连本地网关查数据、从不解锁交易;老虎只调查询接口。</li>
+      <li>· 但你即将拿到的这把<b class="text-ink">私钥 / 网关本身权限较大</b>,请当成密码一样保管;担心时随时能在券商后台<b class="text-ink">吊销 / 重置</b>。</li>
+      <li>· 凭据在本机加密保存,页面上<b class="text-ink">私钥永不回显</b>。</li>
+    </ul>
+  </section>
+
+  <!-- 选券商 -->
+  <div class="flex flex-wrap gap-3 mb-8">
+    <a href="#tiger" class="btn-paper no-underline">老虎 Tiger 怎么配 ↓</a>
+    <a href="#futu" class="btn-paper no-underline">富途 Futu 怎么配 ↓</a>
+    <span class="ml-auto font-mono text-[10px] text-ink-subtle self-center">配完回 <a th:href="@{/admin/integrations}" class="underline hover:text-ink">管理 → 数据源接入 → ⑥ 券商同步</a> 填写</span>
+  </div>
+
+  <!-- ============ 老虎 ============ -->
+  <section id="tiger" class="mb-12 scroll-mt-24">
+    <div class="flex items-center gap-2 mb-4">
+      <span class="pill" style="background:rgba(180,138,58,.12);color:var(--brass-deep);border-color:var(--brass-deep)">老虎 Tiger</span>
+      <span class="font-mono text-[10px] text-ink-subtle">相对简单 · 全程网页操作 · 免装网关</span>
+    </div>
+
+    <div class="paper-card p-4 mb-5 bg-card-soft">
+      <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">开始前</div>
+      <p class="text-sm text-ink-soft">你得先有一个<b class="text-ink">老虎证券账户并已入金</b>(开放平台对已入金用户免费)。手机上就是「老虎国际 / TigerTrade」那个 App 的账户。</p>
+    </div>
+
+    <!-- 步骤 -->
+    <ol class="space-y-4">
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">1</span>
+          <div>
+            <div class="font-display text-lg mb-1">注册成为开发者</div>
+            <p class="text-sm text-ink-soft">打开老虎开放平台开发者页,用<b class="text-ink">手机号 + 验证码</b>登录 / 注册(和你的老虎账户同一手机号)。</p>
+            <a href="https://developer.itigerup.com/" target="_blank" rel="noopener" class="inline-flex items-center gap-1 font-mono text-xs text-brass-deep underline mt-2">developer.itigerup.com
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+          </div>
+        </div>
+      </li>
+
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">2</span>
+          <div class="w-full">
+            <div class="font-display text-lg mb-1">在「开发者信息」页记下 Tiger ID 和 资金账号</div>
+            <p class="text-sm text-ink-soft mb-3">登录后进入开发者信息 / 个人信息页,你会看到大致这样一屏 —— 把标出来的两项记下来:</p>
+            <!-- 示意图:老虎开发者信息页 -->
+            <svg viewBox="0 0 560 220" class="w-full max-w-xl border border-rule" style="background:var(--paper)" role="img" aria-label="老虎开发者信息页示意图">
+              <rect x="0" y="0" width="560" height="28" fill="#efe9dd"/>
+              <circle cx="16" cy="14" r="4" fill="#c98"/><circle cx="30" cy="14" r="4" fill="#cc9"/><circle cx="44" cy="14" r="4" fill="#9c9"/>
+              <text x="70" y="18" font-family="monospace" font-size="10" fill="#8a7a5a">developer.itigerup.com · 开发者信息</text>
+              <text x="24" y="62" font-family="monospace" font-size="13" fill="#2a2620">Tiger ID</text>
+              <rect x="140" y="48" width="180" height="22" fill="#faf7f1" stroke="#d8cdb8"/><text x="150" y="63" font-family="monospace" font-size="12" fill="#2a2620">20xxxxxx</text>
+              <text x="335" y="63" font-family="monospace" font-size="11" fill="#9f4a3a">← 记下:填「tiger_id」</text>
+              <text x="24" y="98" font-family="monospace" font-size="13" fill="#2a2620">资金账号</text>
+              <rect x="140" y="84" width="180" height="22" fill="#faf7f1" stroke="#d8cdb8"/><text x="150" y="99" font-family="monospace" font-size="12" fill="#2a2620">U12300123</text>
+              <text x="335" y="99" font-family="monospace" font-size="11" fill="#9f4a3a">← 记下:填「交易账户」</text>
+              <text x="24" y="134" font-family="monospace" font-size="11" fill="#8a7a5a">牌照 License</text>
+              <rect x="140" y="120" width="120" height="20" fill="#faf7f1" stroke="#d8cdb8"/><text x="150" y="134" font-family="monospace" font-size="11" fill="#6a6255">TBSG / TBHK…</text>
+              <text x="270" y="134" font-family="monospace" font-size="10" fill="#8a7a5a">(港股才用到,先记着)</text>
+              <rect x="24" y="160" width="150" height="34" rx="2" fill="#2f5d50"/><text x="52" y="182" font-family="monospace" font-size="12" fill="#f4efe6">生成 RSA 密钥对</text>
+              <text x="188" y="182" font-family="monospace" font-size="11" fill="#9f4a3a">← 第 3 步点它</text>
+            </svg>
+            <div class="mt-3 text-sm text-ink-soft">
+              <p>· <b class="text-ink">Tiger ID</b>:一串数字,填到我们的「tiger_id」。</p>
+              <p>· <b class="text-ink">资金账号</b>:环球账号 U 开头(如 U12300123)、综合账号是 5–10 位数字。填到我们的「交易账户」(留空则用默认账户也行)。</p>
+            </div>
+          </div>
+        </div>
+      </li>
+
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">3</span>
+          <div>
+            <div class="font-display text-lg mb-1">生成 RSA 密钥对,复制「私钥」</div>
+            <p class="text-sm text-ink-soft">点页面上的<b class="text-ink">「生成 RSA 密钥对」</b>。系统会给出一段公钥和一段私钥。</p>
+            <div class="paper-card p-3 mt-3 bg-card-soft" style="border-left:4px solid var(--rust)">
+              <p class="text-sm text-ink-soft"><b class="text-ink">最关键的一步,别关页面:</b>私钥只显示这一次、<b class="text-ink">刷新就没了</b>,老虎服务器也不保存。立刻整段复制下来。万一没存到,点「重新生成」再来一次即可。</p>
+            </div>
+            <p class="text-sm text-ink-soft mt-3">我们是 Java 程序,请选 / 保存 <b class="text-ink">PKCS#8 格式</b>的私钥(页面通常有 Java / Python 两种,选 Java 那份)。整段(含 <span class="font-mono text-xs">-----BEGIN…KEY-----</span> 到 <span class="font-mono text-xs">-----END…KEY-----</span>,或那串纯 Base64)粘到我们的「RSA 私钥」框。</p>
+          </div>
+        </div>
+      </li>
+
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">4</span>
+          <div class="w-full">
+            <div class="font-display text-lg mb-1">回本系统填写并测试</div>
+            <p class="text-sm text-ink-soft mb-3">到「管理 → 数据源接入 → ⑥ 券商同步」的<b class="text-ink">老虎 Tiger</b>那一栏,对应填入:</p>
+            <div class="overflow-hidden border border-rule rounded-sm">
+              <table class="w-full text-sm">
+                <tr class="bg-card-soft"><td class="p-2 font-mono text-[11px] text-ink-subtle border-b border-rule">我们的输入框</td><td class="p-2 font-mono text-[11px] text-ink-subtle border-b border-rule">填什么</td></tr>
+                <tr><td class="p-2 border-b border-rule-soft">tiger_id</td><td class="p-2 border-b border-rule-soft">第 2 步的 Tiger ID</td></tr>
+                <tr><td class="p-2 border-b border-rule-soft">RSA 私钥</td><td class="p-2 border-b border-rule-soft">第 3 步复制的私钥(PKCS#8)</td></tr>
+                <tr><td class="p-2">交易账户</td><td class="p-2">第 2 步的资金账号(可留空 = 默认账户)</td></tr>
+              </table>
+            </div>
+            <p class="text-sm text-ink-soft mt-3">点<b class="text-ink">「保存券商配置」</b>,再点<b class="text-ink">「测试老虎连接」</b>。显示「测试连接成功」就通了 —— 然后到证券账户的「持仓 → 券商自动同步」点关联即可。</p>
+          </div>
+        </div>
+      </li>
+    </ol>
+
+    <p class="font-mono text-[10px] text-ink-subtle mt-4">官方参考:
+      <a href="https://quant.itigerup.com/openapi/zh/python/quickStart/prepare.html" target="_blank" rel="noopener" class="underline hover:text-ink">准备工作(含截图)</a> ·
+      <a href="https://docs.itigerup.com/" target="_blank" rel="noopener" class="underline hover:text-ink">API 文档</a>
+    </p>
+  </section>
+
+  <!-- ============ 富途 ============ -->
+  <section id="futu" class="mb-12 scroll-mt-24">
+    <div class="flex items-center gap-2 mb-4">
+      <span class="pill" style="background:rgba(180,138,58,.12);color:var(--brass-deep);border-color:var(--brass-deep)">富途 Futu</span>
+      <span class="font-mono text-[10px] text-ink-subtle">需在电脑 / 服务器上常驻一个「OpenD」网关程序</span>
+    </div>
+
+    <div class="paper-card p-4 mb-5 bg-card-soft">
+      <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">开始前</div>
+      <p class="text-sm text-ink-soft">你得有<b class="text-ink">富途牛牛账户</b>并开通了对应市场权限。富途的机制是:官方给一个叫 <b class="text-ink">FutuOpenD</b> 的小网关程序,你在自己电脑上运行它、用富途账号登录;我们的系统连这个本地网关来<b class="text-ink">只读</b>取数据。<b class="text-ink">网关关掉就同步不了</b>,所以最好放在一台常开的电脑 / 服务器上。</p>
+    </div>
+
+    <ol class="space-y-4">
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">1</span>
+          <div>
+            <div class="font-display text-lg mb-1">下载 FutuOpenD 网关</div>
+            <p class="text-sm text-ink-soft">到富途 OpenAPI 下载页,下载 <b class="text-ink">FutuOpenD</b>。有「可视化(带界面)」和「命令行」两种 —— <b class="text-ink">入门选可视化版</b>更省事。支持 Windows / Mac / Linux。</p>
+            <a href="https://www.futunn.com/download/openAPI" target="_blank" rel="noopener" class="inline-flex items-center gap-1 font-mono text-xs text-brass-deep underline mt-2">futunn.com/download/openAPI
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+          </div>
+        </div>
+      </li>
+
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">2</span>
+          <div class="w-full">
+            <div class="font-display text-lg mb-1">运行 OpenD,用富途账号登录</div>
+            <p class="text-sm text-ink-soft mb-3">打开 FutuOpenD,输入富途<b class="text-ink">账号 + 登录密码</b>登录。首次登录可能要完成一次问卷 + 协议确认。登录成功后界面大致这样:</p>
+            <!-- 示意图:FutuOpenD 界面 -->
+            <svg viewBox="0 0 560 230" class="w-full max-w-xl border border-rule" style="background:var(--paper)" role="img" aria-label="FutuOpenD 界面示意图">
+              <rect x="0" y="0" width="560" height="28" fill="#efe9dd"/>
+              <circle cx="16" cy="14" r="4" fill="#c98"/><circle cx="30" cy="14" r="4" fill="#cc9"/><circle cx="44" cy="14" r="4" fill="#9c9"/>
+              <text x="70" y="18" font-family="monospace" font-size="10" fill="#8a7a5a">FutuOpenD</text>
+              <text x="24" y="60" font-family="monospace" font-size="12" fill="#2a2620">账号</text>
+              <rect x="90" y="46" width="200" height="22" fill="#faf7f1" stroke="#d8cdb8"/><text x="100" y="61" font-family="monospace" font-size="12" fill="#2a2620">你的富途账号</text>
+              <text x="24" y="92" font-family="monospace" font-size="12" fill="#2a2620">密码</text>
+              <rect x="90" y="78" width="200" height="22" fill="#faf7f1" stroke="#d8cdb8"/><text x="100" y="93" font-family="monospace" font-size="12" fill="#2a2620">••••••••</text>
+              <rect x="90" y="112" width="90" height="28" rx="2" fill="#2f5d50"/><text x="108" y="131" font-family="monospace" font-size="12" fill="#f4efe6">登录</text>
+              <line x1="24" y1="156" x2="536" y2="156" stroke="#e3dccb"/>
+              <text x="24" y="180" font-family="monospace" font-size="12" fill="#2f5d50">● 状态:已登录</text>
+              <text x="24" y="205" font-family="monospace" font-size="13" fill="#2a2620">监听地址  127.0.0.1 : 11111</text>
+              <text x="330" y="205" font-family="monospace" font-size="11" fill="#9f4a3a">← 这两个填到我们这</text>
+            </svg>
+          </div>
+        </div>
+      </li>
+
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">3</span>
+          <div class="w-full">
+            <div class="font-display text-lg mb-1">记下网关的「地址」和「端口」</div>
+            <p class="text-sm text-ink-soft mb-3">OpenD 界面上会显示监听地址,默认就是 <span class="font-mono">127.0.0.1</span> 和端口 <span class="font-mono">11111</span>。到「管理 → 数据源接入 → ⑥ 券商同步」的<b class="text-ink">富途 Futu</b>栏填:</p>
+            <div class="overflow-hidden border border-rule rounded-sm">
+              <table class="w-full text-sm">
+                <tr class="bg-card-soft"><td class="p-2 font-mono text-[11px] text-ink-subtle border-b border-rule">我们的输入框</td><td class="p-2 font-mono text-[11px] text-ink-subtle border-b border-rule">填什么</td></tr>
+                <tr><td class="p-2 border-b border-rule-soft">FutuOpenD 地址</td><td class="p-2 border-b border-rule-soft">OpenD 和本系统<b class="text-ink">在同一台机器</b>就填 <span class="font-mono">127.0.0.1</span>;在别的机器就填那台机器的内网 IP</td></tr>
+                <tr><td class="p-2">OpenD 端口</td><td class="p-2"><span class="font-mono">11111</span>(除非你在 OpenD 里改过)</td></tr>
+              </table>
+            </div>
+            <p class="text-sm text-ink-soft mt-3">保存后点<b class="text-ink">「测试富途连接」</b>验证。之后到证券账户「持仓 → 券商自动同步」点关联即可。</p>
+          </div>
+        </div>
+      </li>
+    </ol>
+
+    <div class="paper-card p-4 mt-5 bg-card-soft" style="border-left:4px solid var(--brass-deep)">
+      <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">两个提醒</div>
+      <ul class="text-sm text-ink-soft space-y-1">
+        <li>· <b class="text-ink">查持仓 / 现金不需要「解锁交易」</b>:解锁交易只在下单时才用,我们永远不下单,所以不用输交易密码。</li>
+        <li>· OpenD 若装在<b class="text-ink">云服务器</b>,别把监听地址设成 0.0.0.0 直接开公网端口 —— 用内网 / SSH 隧道更安全。</li>
+      </ul>
+    </div>
+
+    <p class="font-mono text-[10px] text-ink-subtle mt-4">官方参考:
+      <a href="https://openapi.futunn.com/futu-api-doc/intro/intro.html" target="_blank" rel="noopener" class="underline hover:text-ink">OpenAPI 文档</a> ·
+      <a href="https://openapi.futunn.com/futu-api-doc/qa/opend.html" target="_blank" rel="noopener" class="underline hover:text-ink">OpenD 常见问题</a>
+    </p>
+  </section>
+
+  <div class="flex flex-wrap gap-3">
+    <a th:href="@{/admin/integrations}" class="btn-ink no-underline">去填写券商配置</a>
+    <a th:href="@{/accounts}" class="btn-paper no-underline">返回账户</a>
+  </div>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

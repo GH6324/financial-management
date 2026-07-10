@@ -235,6 +235,8 @@
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
       <div class="flex items-baseline justify-between">
         <div class="eyebrow-ink">⑥ 券商同步 · 富途 / 老虎(只读)</div>
+        <a th:href="@{/help/broker-sync}" class="inline-flex items-center gap-1 font-mono text-[11px] text-brass-deep underline hover:text-ink no-underline">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>不知道怎么填?看图文教程</a>
       </div>
       <p class="font-mono text-[10px] text-ink-subtle tracking-wider" style="color:var(--forest)">
         只读铁律 · 富途走 OpenD 查询上下文、永不解锁交易;老虎只调查询接口 · 物理上不能下单 / 划转 · 凭据加密存、私钥永不回显

@@ -3495,6 +3495,15 @@ WIZ="$RD/src/main/resources/templates/accounts/_template-wizard.html"
   && log_ok "v15-UX 二次确认自建弹窗(无系统 confirm)+ 建证券账户显券商同步提示" \
   || log_bad "v15-UX 仍用系统 confirm 或缺创建提示" "see broker/link.html / _template-wizard.html"
 
+# v15-HELP · 券商凭据获取图文向导在岗 + 各入口挂教程链接
+HELP="$RD/src/main/resources/templates/help/broker-sync.html"
+HCTL="$RD/src/main/java/com/family/finance/web/help/HelpController.java"
+{ grep -q '/help/broker-sync' "$HCTL" && grep -q 'id="tiger"' "$HELP" && grep -q 'id="futu"' "$HELP" \
+  && grep -q 'developer.itigerup.com' "$HELP" && grep -q 'download/openAPI' "$HELP" \
+  && grep -q '/help/broker-sync' "$INTG" && grep -q '/help/broker-sync' "$BLHTML"; } \
+  && log_ok "v15-HELP 券商凭据图文向导(富途/老虎步骤+示意图)+ 管理页/关联页挂教程入口" \
+  || log_bad "v15-HELP 图文向导缺件或入口未挂" "see help/broker-sync.html / HelpController / integrations.html / broker/link.html"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
