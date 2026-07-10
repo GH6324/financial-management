@@ -102,6 +102,7 @@ public class FutuBrokerClient implements BrokerClient {
 
             for (TrdCommon.TrdAcc acc : accs) {
                 List<Integer> auth = acc.getTrdMarketAuthListList();
+                log.info("futu acc · accID={} accType={} auth={}", acc.getAccID(), acc.getAccType(), auth);
                 // 我们只做 HK/US/CN 证券市场;funds 是账户级(cashInfoList 按币种),header 用首个授权市场
                 List<Integer> markets = auth.stream()
                         .filter(m -> m == TrdCommon.TrdMarket.TrdMarket_HK_VALUE
@@ -110,6 +111,8 @@ public class FutuBrokerClient implements BrokerClient {
                 int fundsMarket = !auth.isEmpty() ? auth.get(0) : TrdCommon.TrdMarket.TrdMarket_HK_VALUE;
 
                 TrdCommon.Funds funds = s.funds(acc.getAccID(), fundsMarket).getS2C().getFunds();
+                log.info("futu funds · accID={} cashInfoCount={} fallbackCashCcy={}",
+                        acc.getAccID(), funds.getCashInfoListCount(), funds.getCurrency());
                 if (funds.getCashInfoListCount() > 0) {
                     for (TrdCommon.AccCashInfo ci : funds.getCashInfoListList()) {
                         String ccy = currencyCode(ci.getCurrency());
@@ -123,7 +126,9 @@ public class FutuBrokerClient implements BrokerClient {
                 }
 
                 for (int m : (markets.isEmpty() ? List.of(fundsMarket) : markets)) {
-                    for (TrdCommon.Position p : s.positions(acc.getAccID(), m).getS2C().getPositionListList()) {
+                    List<TrdCommon.Position> plist = s.positions(acc.getAccID(), m).getS2C().getPositionListList();
+                    log.info("futu positions · accID={} trdMarket={} count={}", acc.getAccID(), m, plist.size());
+                    for (TrdCommon.Position p : plist) {
                         if (p.getQty() == 0) continue;
                         String mk = marketOf(p.getSecMarket());
                         if (mk == null || p.getPositionSide() != TrdCommon.PositionSide.PositionSide_Long_VALUE) {
@@ -207,8 +212,9 @@ public class FutuBrokerClient implements BrokerClient {
 
         TrdGetAccList.Response accList() {
             fAcc = new CompletableFuture<>();
+            // needGeneralSecAccount=true 关键:富途已把用户迁到「综合证券账户」,不设 true 列表里没有它 → 拉到的全是空的旧账户
             TrdGetAccList.Request req = TrdGetAccList.Request.newBuilder()
-                    .setC2S(TrdGetAccList.C2S.newBuilder().setUserID(0)).build();
+                    .setC2S(TrdGetAccList.C2S.newBuilder().setUserID(0).setNeedGeneralSecAccount(true)).build();
             if (trd.getAccList(req) == 0) throw new IllegalStateException("发送账户列表请求失败");
             return checkRet(await(fAcc, "获取账户列表"));
         }
@@ -223,8 +229,10 @@ public class FutuBrokerClient implements BrokerClient {
 
         TrdGetFunds.Response funds(long accId, int trdMarket) {
             fFunds = new CompletableFuture<>();
+            // 综合账户必填 currency(仅决定 totalAssets 等汇总字段的展示币种);各币种现金仍从 cashInfoList 逐币种读
             TrdGetFunds.Request req = TrdGetFunds.Request.newBuilder()
-                    .setC2S(TrdGetFunds.C2S.newBuilder().setHeader(header(accId, trdMarket))).build();
+                    .setC2S(TrdGetFunds.C2S.newBuilder().setHeader(header(accId, trdMarket))
+                            .setCurrency(TrdCommon.Currency.Currency_HKD_VALUE)).build();
             if (trd.getFunds(req) == 0) throw new IllegalStateException("发送资金请求失败");
             return checkRet(await(fFunds, "获取资金"));
         }
