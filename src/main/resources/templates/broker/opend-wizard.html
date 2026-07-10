@@ -156,6 +156,7 @@
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <script th:inline="none">
 (function(){
+  var BASE = '/admin/broker/opend/';   // 绝对路径:页面在 /admin/broker/opend(无尾斜杠),相对 fetch 会解析成 /admin/broker/xxx → 404
   var csrfEl = document.querySelector('input[name="_csrf"]');
   var csrfName = csrfEl ? csrfEl.name : '_csrf';
   var csrfVal  = csrfEl ? csrfEl.value : '';
@@ -177,7 +178,7 @@
   }
   function poll(){
     if(!$('phasePill')) return; // Docker 渠道无托管步骤,不轮询
-    fetch('status', {headers:{'Accept':'application/json'}}).then(function(r){return r.json();}).then(render).catch(function(){});
+    fetch(BASE+'status', {headers:{'Accept':'application/json'}}).then(function(r){return r.json();}).then(render).catch(function(){});
   }
   var dlBtn=$('dlBtn');
   if(dlBtn) dlBtn.addEventListener('click', function(){
@@ -185,14 +186,14 @@
     var os = $('osTag').value;
     var url = $('url').value.trim();
     if(!v && !url){ alert('请填版本号,或粘完整下载 URL'); return; }
-    post('download', {version:v, osTag:os, url:url}).then(function(){ poll(); });
+    post(BASE+'download', {version:v, osTag:os, url:url}).then(function(){ poll(); });
   });
   var upBtn=$('upBtn');
   if(upBtn) upBtn.addEventListener('click', function(){
     var fi=$('pkgFile'); var f=fi&&fi.files?fi.files[0]:null;
     if(!f){ alert('先选一个 tar.gz 文件'); return; }
     set('upMsg','textContent','上传中…(大文件请稍候)');
-    fetch('upload?'+encodeURIComponent(csrfName)+'='+encodeURIComponent(csrfVal),
+    fetch(BASE+'upload?'+encodeURIComponent(csrfName)+'='+encodeURIComponent(csrfVal),
       {method:'POST', headers:{'Content-Type':'application/octet-stream'}, body:f})
       .then(function(r){return r.text();})
       .then(function(t){ set('upMsg','textContent', t==='ok' ? '已上传,解压中…看上方状态条' : ('失败:'+t)); poll(); })
@@ -200,7 +201,7 @@
   });
   var depBtn=$('depBtn');
   if(depBtn) depBtn.addEventListener('click', function(){
-    fetch('deps').then(function(r){return r.json();}).then(function(d){
+    fetch(BASE+'deps').then(function(r){return r.json();}).then(function(d){
       $('depOut').classList.remove('hidden');
       $('depOk').classList.toggle('hidden', !d.ok);
       $('depBad').classList.toggle('hidden', d.ok);
@@ -214,7 +215,7 @@
   if(smsBtn) smsBtn.addEventListener('click', function(){
     var code = $('smsCode').value.trim();
     if(!code){ return; }
-    post('sms', {code:code}).then(function(r){return r.text();}).then(function(t){
+    post(BASE+'sms', {code:code}).then(function(r){return r.text();}).then(function(t){
       set('smsMsg','textContent', (t==='ok') ? '已提交,等待登录…' : '提交失败(OpenD 可能未在等验证码)');
     });
   });
