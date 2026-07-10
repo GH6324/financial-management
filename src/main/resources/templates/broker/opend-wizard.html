@@ -88,6 +88,11 @@
         <input id="pkgFile" type="file" accept=".gz,.tgz,application/gzip" class="text-sm">
         <button id="upBtn" type="button" class="btn-paper text-sm">上传并解压</button>
       </div>
+      <div id="upBarWrap" class="hidden mt-2">
+        <div class="w-full bg-paper border border-rule-soft h-3 overflow-hidden">
+          <div id="upBar" class="h-3" style="width:0%;background:var(--brass-deep);transition:width .2s"></div>
+        </div>
+      </div>
       <p id="upMsg" class="font-mono text-[10px] text-ink-subtle mt-1"></p>
       <p class="font-mono text-[10px] text-ink-subtle mt-1">在任意能上网的机器下好 <span class="font-mono">FutuOpenD_&lt;版本&gt;_&lt;系统&gt;.tar.gz</span>,选它上传即可,本机<b class="text-ink">无需连 CDN</b>(墙内也能用)。若经反代上传大文件报 <b class="text-ink">413</b>,是 nginx <span class="font-mono">client_max_body_size</span> 太小 —— 改不了反代就用下面「服务器路径导入」。</p>
 
@@ -202,12 +207,30 @@
   if(upBtn) upBtn.addEventListener('click', function(){
     var fi=$('pkgFile'); var f=fi&&fi.files?fi.files[0]:null;
     if(!f){ alert('先选一个 tar.gz 文件'); return; }
-    set('upMsg','textContent','上传中…(大文件请稍候)');
-    fetch(BASE+'upload?'+encodeURIComponent(csrfName)+'='+encodeURIComponent(csrfVal),
-      {method:'POST', headers:{'Content-Type':'application/octet-stream'}, body:f})
-      .then(function(r){return r.text();})
-      .then(function(t){ set('upMsg','textContent', t==='ok' ? '已上传,解压中…看上方状态条' : ('失败:'+t)); poll(); })
-      .catch(function(e){ set('upMsg','textContent','上传出错:'+e); });
+    var wrap=$('upBarWrap'), bar=$('upBar');
+    function mb(n){ return (n/1048576).toFixed(1); }
+    if(wrap) wrap.classList.remove('hidden');
+    if(bar) bar.style.width='0%';
+    set('upMsg','textContent','上传中… 0%');
+    // 用 XHR(fetch 拿不到上传进度)· upload.onprogress 出百分比
+    var xhr=new XMLHttpRequest();
+    xhr.open('POST', BASE+'upload?'+encodeURIComponent(csrfName)+'='+encodeURIComponent(csrfVal));
+    xhr.setRequestHeader('Content-Type','application/octet-stream');
+    xhr.upload.onprogress=function(e){
+      if(e.lengthComputable){
+        var pct=Math.round(e.loaded/e.total*100);
+        if(bar) bar.style.width=pct+'%';
+        set('upMsg','textContent','上传中… '+pct+'%('+mb(e.loaded)+'/'+mb(e.total)+' MB)');
+      }
+    };
+    xhr.upload.onload=function(){ if(bar) bar.style.width='100%'; set('upMsg','textContent','上传完成,服务器解压中…(看上方状态条)'); };
+    xhr.onload=function(){
+      var t=(xhr.responseText||'').trim();
+      set('upMsg','textContent', t==='ok' ? '上传 + 解压完成 · 请继续第 3 步启动' : ('失败:'+(t||('HTTP '+xhr.status))));
+      poll();
+    };
+    xhr.onerror=function(){ set('upMsg','textContent','上传出错(网络/连接中断)'); };
+    xhr.send(f);
   });
   var depBtn=$('depBtn');
   if(depBtn) depBtn.addEventListener('click', function(){
