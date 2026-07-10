@@ -35,6 +35,7 @@ public class AccountController {
     private final ProductCategoryService productCategoryService;
     private final LedgerExporter ledgerExporter;
     private final AccountDetailService accountDetailService;
+    private final com.family.finance.repository.BrokerLinkMapper brokerLinkMapper; // v0.15.x 券商托管徽章
 
     @GetMapping
     public String index(@AuthenticationPrincipal MemberPrincipal me,
@@ -159,6 +160,12 @@ public class AccountController {
         int colorIdx = 0;
         for (String key : ownerGroups.keySet()) ownerColorMap.put(key, colorIdx++);
         model.addAttribute("ownerColorMap", ownerColorMap);
+        // v0.15.x · 券商托管徽章:账户id → 厂商中文名
+        var brokerLinks = new java.util.LinkedHashMap<Long, String>();
+        for (var bl : brokerLinkMapper.findByFamily(me.getFamilyId())) {
+            brokerLinks.put(bl.getAccountId(), bl.getVendor().getLabel());
+        }
+        model.addAttribute("brokerLinks", brokerLinks);
         model.addAttribute("form", new AccountForm());
         model.addAttribute("allCategories", productCategoryService.listAll());
         model.addAttribute("includeArchived", includeArchived);

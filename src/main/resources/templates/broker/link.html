@@ -28,6 +28,33 @@
     </div>
   </div>
 
+  <!-- v0.15.x · 测试连接富卡片:连的是哪个户、开了什么市场、里面有什么 -->
+  <section th:if="${brokerTestReport}" class="paper-card p-5 mb-5" style="border-left:4px solid var(--forest)">
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-3">测 · 试 · 连 · 接 · 报 · 告</div>
+    <div class="flex items-center gap-2 mb-3 flex-wrap">
+      <span class="pill text-[9px]" th:each="m : ${brokerTestReport.markets()}"
+            style="background:rgba(47,93,80,.12);color:var(--forest);border-color:var(--forest)" th:text="${m}">港股</span>
+      <span class="pill text-[9px]" th:if="${brokerTestReport.accountType() != null}" th:text="${brokerTestReport.accountType()}">保证金账户</span>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm mb-3">
+      <div>
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">券商账户</div>
+        <div class="font-mono" th:text="${brokerTestReport.accountMasked()}">…3682</div>
+      </div>
+      <div>
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">持仓笔数</div>
+        <div class="tnum" th:text="${brokerTestReport.positionCount() < 0 ? '待接线' : brokerTestReport.positionCount()}">5</div>
+      </div>
+    </div>
+    <div th:if="${!brokerTestReport.cashByCcy().isEmpty()}">
+      <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">各币种现金(负数 = 保证金借款)</div>
+      <div class="flex gap-4 flex-wrap text-sm tnum">
+        <span th:each="e : ${brokerTestReport.cashByCcy()}" data-priv
+              th:text="${e.key} + ' ' + ${#numbers.formatDecimal(e.value, 0, 'COMMA', 2, 'POINT')}">USD 17,705.41</span>
+      </div>
+    </div>
+  </section>
+
   <div class="mb-6">
     <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-2">券 · 商 · 自 · 动 · 同 · 步</div>
     <h1 class="font-display text-3xl font-medium tracking-tight mb-1" th:text="${account.displayName}">招商证券</h1>
@@ -75,7 +102,13 @@
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
         <button type="submit" class="btn-ink">立即同步</button>
       </form>
+      <form th:action="@{|/accounts/${account.id}/broker/test|}" method="post">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <button type="submit" class="btn-paper" title="用本关联的连接参数只读探测(不写不下单)">测试连接</button>
+      </form>
       <a th:href="@{|/accounts/${account.id}/holdings|}" class="btn-paper no-underline">查看持仓</a>
+      <span class="font-mono text-[10px] text-ink-subtle self-center" th:if="${link.vendor.name() == 'FUTU'}"
+            th:text="'OpenD · ' + (${link.opendHost != null} ? ${link.opendHost} + ':' + ${link.opendPort != null ? link.opendPort : 11111} : '全局默认 / 托管')">OpenD · 全局默认</span>
       <form th:action="@{|/accounts/${account.id}/broker/unlink|}" method="post" class="ml-auto" id="unlinkForm">
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
         <button type="button" id="unlBtn" class="btn-paper text-xs">解绑</button>
@@ -114,8 +147,22 @@
       </div>
 
       <label class="font-mono text-[10px] uppercase text-ink-subtle block mb-1">券商账户(可选)</label>
-      <input type="text" name="brokerAccountId" placeholder="留空 = 用凭据里的默认账户"
+      <input type="text" name="brokerAccountId" placeholder="留空 = 用凭据里的默认账户 / 聚合全部实盘户"
              class="font-mono text-sm bg-paper border border-rule px-3 py-2 w-full mb-5">
+
+      <!-- v0.15.x · 关联颗粒度连接:多个富途账号 = 多个 OpenD,本关联可专属一套 host:port -->
+      <div class="grid grid-cols-2 gap-3 mb-5">
+        <div>
+          <label class="font-mono text-[10px] uppercase text-ink-subtle block mb-1">本关联 OpenD 地址(富途 · 可选)</label>
+          <input type="text" name="opendHost" placeholder="留空 = 全局默认 / 托管 OpenD"
+                 class="font-mono text-sm bg-paper border border-rule px-3 py-2 w-full">
+        </div>
+        <div>
+          <label class="font-mono text-[10px] uppercase text-ink-subtle block mb-1">端口(可选)</label>
+          <input type="number" name="opendPort" placeholder="11111"
+                 class="font-mono text-sm bg-paper border border-rule px-3 py-2 w-full">
+        </div>
+      </div>
 
       <!-- 两步确认 -->
       <div class="space-y-2 mb-5">
