@@ -1,0 +1,46 @@
+# =========================================================
+# 富途 FutuOpenD 网关 · systemd 常驻模板(v0.15 · 拓扑 A:与 app 同机)
+#
+# 适用:app 走 systemd 部署在这台 Linux 服务器上,想把富途 OpenD 也常驻在同机,
+#       app 用 broker_futu_opend_host=127.0.0.1 / port=11111 连它。
+#
+# 用法:
+#   1) 先在一台【有桌面的机器】用可视化版 FutuOpenD 登录一次,完成【首次问卷 + 协议确认】
+#      —— 这一步富途要求人工做一次,headless 命令行版首登也过不了问卷。之后本机 headless 才能用。
+#   2) 下载【命令行版】FutuOpenD 到服务器,如 /opt/futu-opend/FutuOpenD
+#   3) cp deploy/futu-opend.service.example /etc/systemd/system/futu-opend.service
+#      并按下方 <...> 改路径;账号/密码放独立 env 文件 /etc/futu-opend.env(见文件尾),
+#      chmod 600 /etc/futu-opend.env(别写进本 unit、别进 git)
+#   4) sudo systemctl daemon-reload && sudo systemctl enable --now futu-opend
+#   5) 验证:ss -ltn | grep 11111 应在监听;journalctl -u futu-opend -f 看登录状态
+#
+# 安全:券商登录态会常驻在这台机器上。务必 api_ip=127.0.0.1(只本机可连,别 0.0.0.0 裸奔公网);
+#       密码用交易/登录密码的 MD5 密文更稳(见富途文档);随时可在富途 App 改密使其失效。
+# =========================================================
+[Unit]
+Description=Futu OpenD gateway (read-only, for financial-management broker sync)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 账号/密码/端口从独立 env 文件读,不写死在 unit 里
+EnvironmentFile=/etc/futu-opend.env
+WorkingDirectory=/opt/futu-opend
+# -api_ip=127.0.0.1 只允许本机(同机的 app)连;端口默认 11111
+ExecStart=/opt/futu-opend/FutuOpenD -login_account=${FUTU_ACCOUNT} -login_pwd_md5=${FUTU_PWD_MD5} -api_ip=127.0.0.1 -api_port=11111 -lang=chs
+Restart=on-failure
+RestartSec=15
+# 建议用低权限用户运行
+User=finance
+Group=finance
+
+[Install]
+WantedBy=multi-user.target
+
+# ---------------------------------------------------------
+# 配套 /etc/futu-opend.env(单独建,chmod 600,勿入 git):
+#   FUTU_ACCOUNT=你的富途账号
+#   FUTU_PWD_MD5=你交易/登录密码的32位MD5密文
+# 说明:命令行版也可改用 FutuOpenD.xml 配账号密码,二选一即可。
+# ---------------------------------------------------------

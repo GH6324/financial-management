@@ -3504,6 +3504,13 @@ HCTL="$RD/src/main/java/com/family/finance/web/help/HelpController.java"
   && log_ok "v15-HELP 券商凭据图文向导(富途/老虎步骤+示意图)+ 管理页/关联页挂教程入口" \
   || log_bad "v15-HELP 图文向导缺件或入口未挂" "see help/broker-sync.html / HelpController / integrations.html / broker/link.html"
 
+# v15-OPEND · 富途 OpenD 三拓扑部署方案齐全(systemd 模板 + compose 覆盖 + 文档 + 应用内块)
+{ [ -f "$RD/deploy/futu-opend.service.example" ] && [ -f "$RD/deploy/futu-opend.compose.yml" ] \
+  && grep -q 'OpenD 部署到哪' "$RD/docs/broker-sync-guide.md" \
+  && grep -q 'futu-opend.service.example' "$HELP"; } \
+  && log_ok "v15-OPEND 富途 OpenD 部署方案(同机 systemd / docker sidecar / 家用机隧道)+ 文档 + 应用内说明" \
+  || log_bad "v15-OPEND OpenD 部署方案缺件" "see deploy/futu-opend.* / docs/broker-sync-guide.md / help/broker-sync.html"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

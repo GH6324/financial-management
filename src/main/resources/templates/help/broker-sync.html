@@ -210,6 +210,26 @@
       </ul>
     </div>
 
+    <!-- OpenD 部署到哪(自托管在服务器时) -->
+    <div class="paper-card p-5 mt-5">
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-2">O · p · e · n · D · 部 · 署 · 到 · 哪</div>
+      <p class="text-sm text-ink-soft mb-3">富途<b class="text-ink">没有</b>「拿 key 直连的云端 API」—— SDK 只能连 OpenD 网关。所以 OpenD 必须<b class="text-ink">一直开着、且本系统能通过 host:port 连到它</b>。按你的部署形态三选一(<b class="text-ink">嫌麻烦就先用老虎,它直连、零网关</b>):</p>
+      <!-- 链路示意 -->
+      <svg viewBox="0 0 560 70" class="w-full max-w-lg mb-3" role="img" aria-label="富途链路示意">
+        <rect x="6" y="22" width="120" height="30" rx="3" fill="#faf7f1" stroke="#d8cdb8"/><text x="66" y="42" font-family="monospace" font-size="11" fill="#2a2620" text-anchor="middle">本系统 app</text>
+        <line x1="126" y1="37" x2="200" y2="37" stroke="#8a7a5a" stroke-width="1.5"/><polygon points="200,33 208,37 200,41" fill="#8a7a5a"/><text x="163" y="30" font-family="monospace" font-size="9" fill="#8a7a5a" text-anchor="middle">TCP host:port</text>
+        <rect x="210" y="22" width="130" height="30" rx="3" fill="#f0ead9" stroke="#c79338"/><text x="275" y="42" font-family="monospace" font-size="11" fill="#7a5a39" text-anchor="middle">FutuOpenD 网关</text>
+        <line x1="340" y1="37" x2="414" y2="37" stroke="#8a7a5a" stroke-width="1.5"/><polygon points="414,33 422,37 414,41" fill="#8a7a5a"/>
+        <rect x="424" y="22" width="130" height="30" rx="3" fill="#faf7f1" stroke="#d8cdb8"/><text x="489" y="42" font-family="monospace" font-size="11" fill="#2a2620" text-anchor="middle">富途服务器</text>
+      </svg>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+        <div class="paper-card p-3 bg-card-soft"><b class="text-ink">A · 与 app 同机</b><p class="text-ink-soft mt-1">systemd 部署首选。同机常驻命令行 OpenD,填 <span class="font-mono">127.0.0.1:11111</span>。用模板 <span class="font-mono text-[11px]">deploy/futu-opend.service.example</span>。</p></div>
+        <div class="paper-card p-3 bg-card-soft"><b class="text-ink">B · docker sidecar</b><p class="text-ink-soft mt-1">compose 部署时合并 <span class="font-mono text-[11px]">deploy/futu-opend.compose.yml</span>,填服务名 <span class="font-mono">opend:11111</span>(需自备 OpenD 镜像)。</p></div>
+        <div class="paper-card p-3 bg-card-soft"><b class="text-ink">C · 家用机 + 隧道</b><p class="text-ink-soft mt-1">不想在云机放登录态:OpenD 跑家里,SSH 反向隧道 <span class="font-mono text-[11px]">-R 11111:127.0.0.1:11111</span> 到 prod。</p></div>
+      </div>
+      <p class="text-sm text-ink-soft mt-3">⚠️ 三种都要先在<b class="text-ink">有桌面的机器</b>用可视化版 OpenD 登录一次、过掉<b class="text-ink">首次问卷 + 协议确认</b>,之后 headless 才能用。详见仓库文档 <span class="font-mono text-[11px]">docs/broker-sync-guide.md</span>。</p>
+    </div>
+
     <p class="font-mono text-[10px] text-ink-subtle mt-4">官方参考:
       <a href="https://openapi.futunn.com/futu-api-doc/intro/intro.html" target="_blank" rel="noopener" class="underline hover:text-ink">OpenAPI 文档</a> ·
       <a href="https://openapi.futunn.com/futu-api-doc/qa/opend.html" target="_blank" rel="noopener" class="underline hover:text-ink">OpenD 常见问题</a>

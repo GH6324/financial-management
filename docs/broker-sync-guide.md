@@ -58,3 +58,40 @@
 - OpenD 装云服务器时别把监听设成 `0.0.0.0` 直接开公网端口 —— 用内网 / SSH 隧道更安全。
 
 官方参考:[OpenAPI 文档](https://openapi.futunn.com/futu-api-doc/intro/intro.html) · [OpenD 常见问题](https://openapi.futunn.com/futu-api-doc/qa/opend.html)
+
+---
+
+## 富途 OpenD 部署到哪(自托管在服务器时)
+
+**先理解一件事**:富途没有「拿 key 直连的云端 API」——`futu-api` SDK 只能连 **FutuOpenD 网关**,网关再连富途。所以富途要生效,必须有一个 OpenD **一直开着、且本系统能通过 TCP(host:port)连到它**。老虎则是直连云端 API、不需要任何网关——如果你嫌 OpenD 麻烦,**老虎是零运维的那条路**。
+
+> ⚠️ **共同前提**:无论哪种拓扑,都要先在一台**有桌面的机器**上用**可视化版 OpenD 登录一次**,完成富途要求的**首次问卷 + 协议确认**;之后 headless(命令行 / 容器)才能正常登录。
+
+按你的部署形态三选一:
+
+### 拓扑 A · 与 app 同机(systemd 部署推荐)
+app 用 systemd 跑在某台 Linux 服务器上 → 把命令行版 OpenD 也常驻在同机,配 `127.0.0.1:11111`。
+- 用模板 [`deploy/futu-opend.service.example`](futu-opend.service.example) → `cp` 成 `/etc/systemd/system/futu-opend.service`,账号密码放 `chmod 600` 的 `/etc/futu-opend.env`。
+- `systemctl enable --now futu-opend`,`ss -ltn | grep 11111` 确认监听。
+- 管理页 ⑥ 富途填 `127.0.0.1` / `11111`。
+- 安全:`api_ip=127.0.0.1` 只本机可连,别设 `0.0.0.0` 开公网。
+
+### 拓扑 B · docker compose sidecar
+app 走 docker compose 时,用可选覆盖文件把 OpenD 挂成同网络的 sidecar:
+```
+docker compose -f docker-compose.yml -f deploy/futu-opend.compose.yml up -d
+```
+- 富途**没有官方 OpenD 镜像**,需自备镜像并写进 `.env` 的 `FUTU_OPEND_IMAGE`,配 `FUTU_ACCOUNT` / `FUTU_PWD_MD5`(见 [`deploy/futu-opend.compose.yml`](futu-opend.compose.yml) 顶部说明)。
+- 管理页 ⑥ 富途填服务名 `opend` / `11111`(compose 内网直连,不对外发布端口)。
+
+### 拓扑 C · OpenD 在家用机 / NAS + 反向隧道
+不想在云服务器上放券商登录态,就把 OpenD 跑在家里常开的机器,用 SSH 反向隧道把它的 11111 转到 prod 本地:
+```
+# 在家用机执行(把家里的 11111 反向暴露到 prod 的 127.0.0.1:11111)
+ssh -N -R 11111:127.0.0.1:11111 用户@prod服务器IP
+```
+- 管理页 ⑥ 富途填 `127.0.0.1` / `11111`(prod 上看到的是隧道口)。
+- 隧道断了就同步不了 → 建议用 `autossh` 保活。
+
+**共同点**:三种都要 OpenD 常开;查持仓 / 现金**不需要解锁交易**(我们永不下单)。嫌重就先用老虎。
+

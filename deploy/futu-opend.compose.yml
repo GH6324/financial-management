@@ -1,0 +1,33 @@
+# =========================================================
+# 富途 FutuOpenD · docker 覆盖文件(v0.15 · 拓扑 B:与 app 同 compose 网络的 sidecar)
+#
+# 这是【可选覆盖文件】,默认的 `docker compose up` 不会加载它,所以不影响正常部署。
+# 只有你显式合并时才生效:
+#   docker compose -f docker-compose.yml -f deploy/futu-opend.compose.yml up -d
+#
+# 前提(富途没有官方 OpenD docker 镜像,得你自备):
+#   1) 先在有桌面的机器用可视化版 OpenD 登录一次,过掉【首次问卷 + 协议确认】。
+#   2) 自备一个能跑命令行版 OpenD 的镜像,把镜像名写进 .env 的 FUTU_OPEND_IMAGE=...
+#      (可自己写 Dockerfile 拉官方命令行包构建;富途未提供官方镜像,社区镜像请自行评估。)
+#   3) .env 里配 FUTU_ACCOUNT / FUTU_PWD_MD5。
+#
+# 生效后,在【管理 → 数据源接入 → ⑥ 券商同步 → 富途】里:
+#   FutuOpenD 地址 = opend        (compose 内服务名,app 容器按服务名直连)
+#   OpenD 端口     = 11111
+# 不对宿主发布端口 —— 只在 compose 内网,app 能连即可,外部连不到,更安全。
+# =========================================================
+services:
+  opend:
+    image: ${FUTU_OPEND_IMAGE}
+    restart: unless-stopped
+    environment:
+      FUTU_ACCOUNT: ${FUTU_ACCOUNT:?请在 .env 设置富途账号}
+      FUTU_PWD_MD5: ${FUTU_PWD_MD5:?请在 .env 设置密码 MD5}
+      TZ: ${TZ:-Asia/Shanghai}
+    # 具体启动参数依你所用镜像而定,一般等价于:
+    #   FutuOpenD -login_account=$FUTU_ACCOUNT -login_pwd_md5=$FUTU_PWD_MD5 -api_ip=0.0.0.0 -api_port=11111 -lang=chs
+    # 注意:容器里 api_ip 需 0.0.0.0 才能被同网络的 app 容器连到(不对宿主发布端口即可保证不外露)。
+    expose:
+      - "11111"
+
+  # app 只需和 opend 同处默认 compose 网络即可按服务名 `opend` 直连,无需改 app 定义。
