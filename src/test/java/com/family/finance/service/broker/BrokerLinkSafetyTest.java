@@ -56,7 +56,7 @@ class BrokerLinkSafetyTest {
         when(sync.sync(anyLong(), anyLong(), any())).thenReturn("同步 · 新增 1 · 更新 0 · 归档 0");
 
         BrokerLinkService svc = new BrokerLinkService(lm, hm, am, audit, sync);
-        svc.link(1L, 100L, BrokerVendor.FUTU, "acct-x", 2L);
+        svc.link(1L, 100L, BrokerVendor.FUTU, "acct-x", null, null, 2L);
 
         // 顺序护栏:审计快照 → 归档 → 建绑定
         InOrder io = inOrder(audit, hm, lm);
@@ -83,7 +83,7 @@ class BrokerLinkSafetyTest {
                 mock(StockHoldingMapper.class), am, mock(AuditLogService.class), mock(BrokerSyncService.class));
 
         try {
-            svc.link(1L, 200L, BrokerVendor.TIGER, null, 2L);
+            svc.link(1L, 200L, BrokerVendor.TIGER, null, null, null, 2L);
             assertThat(false).as("应拒绝非持仓类账户").isTrue();
         } catch (IllegalArgumentException expected) {
             assertThat(expected.getMessage()).contains("持仓");

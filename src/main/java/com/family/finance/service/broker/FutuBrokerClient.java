@@ -1,5 +1,6 @@
 package com.family.finance.service.broker;
 
+import com.family.finance.domain.broker.BrokerLink;
 import com.family.finance.domain.broker.BrokerVendor;
 import com.family.finance.service.config.FamilyConfigService;
 import com.futu.openapi.FTAPI;
@@ -18,9 +19,11 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -30,6 +33,9 @@ import java.util.concurrent.TimeoutException;
  *
  * <p><b>只读铁律</b>:只连 OpenD 的查询上下文,仅调 getAccList / getPositionList / getFunds 三个查询接口;
  * 永不解锁交易 → 物理上不能下单 / 划转。</p>
+ *
+ * <p>连接参数按<b>关联颗粒度</b>解析(v0.15.x 决策 M):link.opendHost/Port 优先,NULL 回落全局默认 ——
+ * 多个富途账号 = 多个 OpenD 实例 = 多条关联各连各的。</p>
  *
  * <p>SDK 是异步 protobuf 回调 → {@link FutuSession} 用 CompletableFuture 把回调包成同步;
  * 每次调用开一条连接、顺序单请求(无 serial 竞态)、用完即关。</p>
@@ -47,15 +53,17 @@ public class FutuBrokerClient implements BrokerClient {
 
     @Override public BrokerVendor vendor() { return BrokerVendor.FUTU; }
 
-    // ---------- 配置 ----------
+    // ---------- 连接参数(per-link 优先,回落全局) ----------
 
-    private String host(long familyId) {
+    private String hostFor(long familyId, BrokerLink link) {
+        if (link != null && link.getOpendHost() != null && !link.getOpendHost().isBlank()) return link.getOpendHost().trim();
         String h = config.getString(familyId, FamilyConfigService.K_BROKER_FUTU_HOST, "");
-        if (h.isBlank()) throw new IllegalStateException("富途 OpenD 未配置(host:port)");
+        if (h.isBlank()) throw new IllegalStateException("富途 OpenD 未配置(本关联未填,且无全局默认;可用 OpenD 安装向导一键托管)");
         return h.trim();
     }
 
-    private int port(long familyId) {
+    private int portFor(long familyId, BrokerLink link) {
+        if (link != null && link.getOpendPort() != null && link.getOpendPort() > 0) return link.getOpendPort();
         try { return Integer.parseInt(config.getString(familyId, FamilyConfigService.K_BROKER_FUTU_PORT, "11111").trim()); }
         catch (NumberFormatException e) { return 11111; }
     }
@@ -64,28 +72,38 @@ public class FutuBrokerClient implements BrokerClient {
         if (!sdkInited) { FTAPI.init(); sdkInited = true; }
     }
 
-    private FutuSession openSession(long familyId) {
+    private FutuSession openSession(long familyId, BrokerLink link) {
         initSdkOnce();
         FutuSession s = new FutuSession();
-        s.connect(host(familyId), port(familyId));
+        s.connect(hostFor(familyId, link), portFor(familyId, link));
         return s;
     }
 
     // ---------- BrokerClient ----------
 
     @Override
-    public String testConnection(long familyId) {
-        FutuSession s = openSession(familyId);
-        try {
-            List<TrdCommon.TrdAcc> accs = s.accList().getS2C().getAccListList();
-            long real = accs.stream().filter(a -> a.getTrdEnv() == TRD_ENV_REAL).count();
-            return "OpenD 已连通 · 实盘交易账户 " + real + " 个(共 " + accs.size() + " 个)";
-        } finally { s.close(); }
+    public BrokerDtos.TestReport testConnection(long familyId, BrokerLink link) {
+        Collected c = collect(familyId, link);
+        String summary = "OpenD 已连通 · 账户尾号 " + c.accountMasked + " · 持仓 " + c.snapshot.positions().size()
+                + " 笔 · 现金 " + c.snapshot.cash().size() + " 种币";
+        Map<String, BigDecimal> cashMap = new LinkedHashMap<>();
+        c.snapshot.cash().forEach(x -> cashMap.put(x.currency(), x.amount()));
+        return new BrokerDtos.TestReport(summary, c.accountMasked, c.accountType,
+                new ArrayList<>(c.markets), c.snapshot.positions().size(), cashMap);
     }
 
     @Override
-    public BrokerDtos.Snapshot fetch(long familyId, String brokerAccountId) {
-        FutuSession s = openSession(familyId);
+    public BrokerDtos.Snapshot fetch(long familyId, BrokerLink link) {
+        return collect(familyId, link).snapshot;
+    }
+
+    /** 拉取结果 + 账户元信息(testConnection 富卡片与 fetch 共用一次采集)。 */
+    private record Collected(BrokerDtos.Snapshot snapshot, String accountMasked, String accountType, Set<String> markets) {}
+
+    private Collected collect(long familyId, BrokerLink link) {
+        String brokerAccountId = link == null ? null
+                : (link.getBrokerAccountId() == null || link.getBrokerAccountId().isBlank() ? null : link.getBrokerAccountId().trim());
+        FutuSession s = openSession(familyId, link);
         try {
             List<TrdCommon.TrdAcc> accs = s.accList().getS2C().getAccListList().stream()
                     .filter(a -> a.getTrdEnv() == TRD_ENV_REAL)
@@ -98,21 +116,25 @@ public class FutuBrokerClient implements BrokerClient {
 
             Map<String, BrokerDtos.Position> posByKey = new LinkedHashMap<>();
             Map<String, BigDecimal> cashByCcy = new LinkedHashMap<>();
+            Set<String> marketBadges = new LinkedHashSet<>();
             int skipped = 0;
+            String accountMasked = mask(accs.get(0).getAccID());
+            String accountType = accs.get(0).getAccType() == 2 ? "保证金账户" : "现金账户";
 
             for (TrdCommon.TrdAcc acc : accs) {
                 List<Integer> auth = acc.getTrdMarketAuthListList();
                 log.info("futu acc · accID={} accType={} auth={}", acc.getAccID(), acc.getAccType(), auth);
-                // 我们只做 HK/US/CN 证券市场;funds 是账户级(cashInfoList 按币种),header 用首个授权市场
+                // 综合账户通常持仓最多 → 用市场授权最多的账户号做展示尾号
+                if (auth.size() > 1) { accountMasked = mask(acc.getAccID()); accountType = acc.getAccType() == 2 ? "保证金账户" : "现金账户"; }
                 List<Integer> markets = auth.stream()
                         .filter(m -> m == TrdCommon.TrdMarket.TrdMarket_HK_VALUE
                                   || m == TrdCommon.TrdMarket.TrdMarket_US_VALUE
                                   || m == TrdCommon.TrdMarket.TrdMarket_CN_VALUE).toList();
+                markets.forEach(m -> marketBadges.add(m == 1 ? "港股" : m == 2 ? "美股" : "A股"));
                 int fundsMarket = !auth.isEmpty() ? auth.get(0) : TrdCommon.TrdMarket.TrdMarket_HK_VALUE;
 
                 TrdCommon.Funds funds = s.funds(acc.getAccID(), fundsMarket).getS2C().getFunds();
-                log.info("futu funds · accID={} cashInfoCount={} fallbackCashCcy={}",
-                        acc.getAccID(), funds.getCashInfoListCount(), funds.getCurrency());
+                log.info("futu funds · accID={} cashInfoCount={}", acc.getAccID(), funds.getCashInfoListCount());
                 if (funds.getCashInfoListCount() > 0) {
                     for (TrdCommon.AccCashInfo ci : funds.getCashInfoListList()) {
                         String ccy = currencyCode(ci.getCurrency());
@@ -137,7 +159,7 @@ public class FutuBrokerClient implements BrokerClient {
                         }
                         String ticker = p.getCode().trim().toUpperCase(Locale.ROOT);
                         posByKey.putIfAbsent(mk + "|" + ticker, new BrokerDtos.Position(
-                                mk, ticker,
+                                mk, ticker, p.getName(),
                                 BigDecimal.valueOf(p.getQty()),
                                 p.getCostPrice() > 0 ? BigDecimal.valueOf(p.getCostPrice()) : null,
                                 currencyOfMarket(mk), true));
@@ -148,8 +170,14 @@ public class FutuBrokerClient implements BrokerClient {
             List<BrokerDtos.Cash> cash = new ArrayList<>();
             cashByCcy.forEach((ccy, amt) -> cash.add(new BrokerDtos.Cash(ccy, amt)));
             log.info("futu fetch · positions={} cashCcy={} skipped={}", posByKey.size(), cash.size(), skipped);
-            return new BrokerDtos.Snapshot(new ArrayList<>(posByKey.values()), cash, skipped);
+            return new Collected(new BrokerDtos.Snapshot(new ArrayList<>(posByKey.values()), cash, skipped),
+                    accountMasked, accountType, marketBadges);
         } finally { s.close(); }
+    }
+
+    private static String mask(long accId) {
+        String s = String.valueOf(accId);
+        return s.length() <= 4 ? s : "…" + s.substring(s.length() - 4);
     }
 
     // ---------- 归一 ----------

@@ -1,5 +1,6 @@
 package com.family.finance.service.broker;
 
+import com.family.finance.domain.broker.BrokerLink;
 import com.family.finance.domain.broker.BrokerVendor;
 
 /**
@@ -14,12 +15,15 @@ public interface BrokerClient {
 
     BrokerVendor vendor();
 
-    /** 一键测试连接:仅拉账户信息验证链路,不做任何写操作。返回人类可读状态;失败抛异常。 */
-    String testConnection(long familyId);
+    /**
+     * 一键测试连接:仅拉账户信息验证链路,不做任何写操作。失败抛异常。
+     * @param link 关联(带 per-link 连接参数:OpenD host/port、券商账户号);null = 用全局默认凭据(管理台老虎开发者身份等)
+     */
+    BrokerDtos.TestReport testConnection(long familyId, BrokerLink link);
 
     /**
-     * 只读拉取某券商交易账户的持仓 + 各币种现金。
-     * @param brokerAccountId 券商侧账户号(可空 → 用默认账户)
+     * 只读拉取某关联的持仓 + 各币种现金。
+     * @param link 关联(brokerAccountId 可空 → 聚合默认/全部实盘账户;opendHost/Port 可空 → 全局默认)
      */
-    BrokerDtos.Snapshot fetch(long familyId, String brokerAccountId);
+    BrokerDtos.Snapshot fetch(long familyId, BrokerLink link);
 }

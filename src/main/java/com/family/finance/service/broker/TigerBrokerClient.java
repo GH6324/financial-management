@@ -49,22 +49,39 @@ public class TigerBrokerClient implements BrokerClient {
         return new TigerHttpClient().clientConfig(cc);
     }
 
+    /** 账户号解析:link.brokerAccountId 优先,回落全局默认(老虎一个开发者身份可管多资金账户)。 */
+    private String accountFor(long familyId, com.family.finance.domain.broker.BrokerLink link) {
+        if (link != null && link.getBrokerAccountId() != null && !link.getBrokerAccountId().isBlank()) {
+            return link.getBrokerAccountId().trim();
+        }
+        return config.getString(familyId, FamilyConfigService.K_BROKER_TIGER_ACCOUNT, "");
+    }
+
     @Override
-    public String testConnection(long familyId) {
-        String account = config.getString(familyId, FamilyConfigService.K_BROKER_TIGER_ACCOUNT, "");
+    public BrokerDtos.TestReport testConnection(long familyId, com.family.finance.domain.broker.BrokerLink link) {
+        String account = accountFor(familyId, link);
         PrimeAssetResponse resp = client(familyId).execute(PrimeAssetRequest.buildPrimeAssetRequest(account));
         if (resp == null || !resp.isSuccess()) {
             throw new IllegalStateException("老虎连接失败:" + (resp == null ? "无响应" : resp.getMessage()));
         }
-        return "老虎连接正常 · 已拉到账户资产";
+        java.util.Map<String, BigDecimal> cash = new java.util.LinkedHashMap<>();
+        java.util.List<String> markets = new ArrayList<>();
+        if (resp.getItem() != null && resp.getItem().getSegments() != null) {
+            resp.getItem().getSegments().forEach(seg -> {
+                if (seg.getCurrency() != null && seg.getCashBalance() != null) {
+                    cash.merge(seg.getCurrency(), BigDecimal.valueOf(seg.getCashBalance()), BigDecimal::add);
+                }
+            });
+        }
+        String masked = account.isBlank() ? "默认" : (account.length() <= 4 ? account : "…" + account.substring(account.length() - 4));
+        // 持仓请求尚待真机接线 → positionCount=-1 表示未知
+        return new BrokerDtos.TestReport("老虎连接正常 · 已拉到账户资产", masked, null, markets, -1, cash);
     }
 
     @Override
-    public BrokerDtos.Snapshot fetch(long familyId, String brokerAccountId) {
+    public BrokerDtos.Snapshot fetch(long familyId, com.family.finance.domain.broker.BrokerLink link) {
         TigerHttpClient c = client(familyId);
-        String account = (brokerAccountId != null && !brokerAccountId.isBlank())
-                ? brokerAccountId
-                : config.getString(familyId, FamilyConfigService.K_BROKER_TIGER_ACCOUNT, "");
+        String account = accountFor(familyId, link);
 
         // ---- 现金(PrimeAsset · segment 按币种)----
         List<BrokerDtos.Cash> cash = new ArrayList<>();
@@ -89,7 +106,7 @@ public class TigerBrokerClient implements BrokerClient {
                     var n = BrokerTicker.fromTiger(d.getMarket(), d.getSymbol());
                     if (n == null) { skipped++; continue; }
                     positions.add(new BrokerDtos.Position(
-                            n.market().name(), n.ticker(),
+                            n.market().name(), n.ticker(), null,
                             d.getPositionQty() == null ? BigDecimal.ZERO : BigDecimal.valueOf(d.getPositionQty()),
                             d.getAverageCost() == null ? null : BigDecimal.valueOf(d.getAverageCost()),
                             d.getCurrency(), true));

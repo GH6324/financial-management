@@ -61,6 +61,8 @@ public class BrokerLinkController {
                        @PathVariable long accountId,
                        @RequestParam String vendor,
                        @RequestParam(required = false) String brokerAccountId,
+                       @RequestParam(required = false) String opendHost,
+                       @RequestParam(required = false) Integer opendPort,
                        @RequestParam(value = "confirmed", defaultValue = "false") boolean confirmed,
                        @RequestParam(value = "acknowledged", defaultValue = "false") boolean acknowledged,
                        RedirectAttributes ra) {
@@ -73,7 +75,8 @@ public class BrokerLinkController {
         try {
             v = BrokerVendor.valueOf(vendor.toUpperCase(java.util.Locale.ROOT));
             // 事务①:快照 + 软归档 + 建绑定(提交后才能被首次同步读到)
-            linkService.link(me.getFamilyId(), accountId, v, blankToNull(brokerAccountId), me.getMemberId());
+            linkService.link(me.getFamilyId(), accountId, v, blankToNull(brokerAccountId),
+                    blankToNull(opendHost), opendPort, me.getMemberId());
         } catch (Exception e) {
             log.warn("broker link failed · account={}: {}", accountId, e.toString());
             ra.addFlashAttribute("brokerError", "关联失败:" + e.getMessage());
@@ -82,6 +85,23 @@ public class BrokerLinkController {
         // 事务②:首次同步(独立事务;未接线/未配凭据 → 绑定仍成功,同步标待完成)
         ra.addFlashAttribute("brokerOk",
                 linkService.initialSync(me.getFamilyId(), accountId, me.getMemberId(), v.getLabel()));
+        return "redirect:/accounts/" + accountId + "/broker";
+    }
+
+    /** per-link 测试连接(用本关联的 OpenD host/port / 券商账户号)· 只读探测,结果以富卡片呈现。 */
+    @PostMapping("/accounts/{accountId}/broker/test")
+    public String testLink(@AuthenticationPrincipal MemberPrincipal me,
+                           @PathVariable long accountId, RedirectAttributes ra) {
+        try {
+            var link = linkMapper.findByAccount(accountId)
+                    .orElseThrow(() -> new IllegalStateException("该账户未关联券商"));
+            var report = syncService.clientFor(link.getVendor()).testConnection(me.getFamilyId(), link);
+            ra.addFlashAttribute("brokerTestReport", report);
+            ra.addFlashAttribute("brokerOk", "测试连接成功 · " + report.summary());
+        } catch (Exception e) {
+            log.warn("broker link test failed · account={}: {}", accountId, e.toString());
+            ra.addFlashAttribute("brokerError", "测试失败:" + e.getMessage());
+        }
         return "redirect:/accounts/" + accountId + "/broker";
     }
 

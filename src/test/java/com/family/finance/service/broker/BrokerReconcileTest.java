@@ -57,8 +57,8 @@ class BrokerReconcileTest {
         when(hm.findActiveByAccount(ACC)).thenReturn(List.of(synced_aapl, synced_old, manual, synced_cash));
 
         BrokerDtos.Snapshot snap = new BrokerDtos.Snapshot(
-                List.of(new BrokerDtos.Position("US", "AAPL", BigDecimal.valueOf(20), BigDecimal.valueOf(95), "USD", true),
-                        new BrokerDtos.Position("US", "NVDA", BigDecimal.valueOf(5),  BigDecimal.valueOf(92), "USD", true)),
+                List.of(new BrokerDtos.Position("US", "AAPL", "苹果", BigDecimal.valueOf(20), BigDecimal.valueOf(95), "USD", true),
+                        new BrokerDtos.Position("US", "NVDA", "英伟达", BigDecimal.valueOf(5),  BigDecimal.valueOf(92), "USD", true)),
                 List.of(new BrokerDtos.Cash("USD", BigDecimal.valueOf(12300)),
                         new BrokerDtos.Cash("HKD", BigDecimal.valueOf(8600))),
                 2 /* skippedNonEquity */);
@@ -76,6 +76,8 @@ class BrokerReconcileTest {
         // AAPL 更新为券商新股数/成本
         assertThat(synced_aapl.getShares()).isEqualByComparingTo("20");
         assertThat(synced_aapl.getCostBasis()).isEqualByComparingTo("95");
+        // 显示名升级:旧名是裸代码/空 → 用券商证券名(用户改过的名不覆盖,由 null→苹果 这条路径覆盖)
+        assertThat(synced_aapl.getDisplayName()).isEqualTo("苹果");
     }
 
     @Test

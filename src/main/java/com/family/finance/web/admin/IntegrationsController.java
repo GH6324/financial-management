@@ -262,7 +262,7 @@ public class IntegrationsController {
             return "redirect:/admin/integrations";
         }
         try {
-            String detail = client.testConnection(fid);
+            String detail = client.testConnection(fid, null).summary();   // 全局默认凭据(link=null)
             auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE,
                     "family_runtime_config", fid, "券商测试连接 · " + v.getLabel() + " · 成功");
             ra.addFlashAttribute("flash", v.getLabel() + " 测试连接成功 · " + detail);

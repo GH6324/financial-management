@@ -41,7 +41,7 @@ public class BrokerSyncService {
         this.valuationService = valuationService;
     }
 
-    BrokerClient clientFor(BrokerVendor vendor) {
+    public BrokerClient clientFor(BrokerVendor vendor) {
         return clients.stream().filter(c -> c.vendor() == vendor).findFirst()
                 .orElseThrow(() -> new IllegalStateException("无券商客户端:" + vendor));
     }
@@ -52,7 +52,7 @@ public class BrokerSyncService {
         BrokerLink link = linkMapper.findByAccount(accountId)
                 .orElseThrow(() -> new IllegalStateException("该账户未关联券商"));
         if (!link.isEnabled()) throw new IllegalStateException("该账户券商同步已停用");
-        BrokerDtos.Snapshot snap = clientFor(link.getVendor()).fetch(familyId, link.getBrokerAccountId());
+        BrokerDtos.Snapshot snap = clientFor(link.getVendor()).fetch(familyId, link);
         String summary = reconcile(accountId, link.getVendor(), snap);
         linkMapper.markSynced(accountId, summary);
         try {
@@ -96,12 +96,18 @@ public class BrokerSyncService {
                 match.setShares(p.shares());
                 match.setCostBasis(p.costPrice());
                 match.setCurrency(p.currency());
+                // 显示名升级:旧名还是裸代码时,用券商给的证券名(不覆盖用户自己改过的名)
+                if (p.name() != null && !p.name().isBlank()
+                        && (match.getDisplayName() == null || match.getDisplayName().equalsIgnoreCase(p.ticker()))) {
+                    match.setDisplayName(p.name());
+                }
                 holdingMapper.update(match);
                 keepIds.add(match.getId());
                 updated++;
             } else {
                 StockHolding h = StockHolding.builder()
-                        .accountId(accountId).displayName(p.ticker())
+                        .accountId(accountId)
+                        .displayName(p.name() != null && !p.name().isBlank() ? p.name() : p.ticker())
                         .valuationMode(ValuationMode.AUTO)
                         .ticker(p.ticker()).market(Market.valueOf(p.market()))
                         .shares(p.shares()).costBasis(p.costPrice()).currency(p.currency())

@@ -52,7 +52,8 @@ public class BrokerLinkService {
      * 两步确认由 controller 校验。
      */
     @Transactional
-    public void link(long familyId, long accountId, BrokerVendor vendor, String brokerAccountId, Long memberId) {
+    public void link(long familyId, long accountId, BrokerVendor vendor, String brokerAccountId,
+                     String opendHost, Integer opendPort, Long memberId) {
         Account acc = accountMapper.findById(accountId)
                 .orElseThrow(() -> new IllegalArgumentException("账户不存在"));
         if (!acc.getFamilyId().equals(familyId)) throw new IllegalArgumentException("无权访问账户");
@@ -70,7 +71,8 @@ public class BrokerLinkService {
         for (StockHolding h : existing) holdingMapper.archive(h.getId());
 
         linkMapper.insert(BrokerLink.builder()
-                .accountId(accountId).vendor(vendor).brokerAccountId(brokerAccountId).enabled(true).build());
+                .accountId(accountId).vendor(vendor).brokerAccountId(brokerAccountId)
+                .opendHost(opendHost).opendPort(opendPort).enabled(true).build());
         // 首次同步<b>不放在本事务里</b>:sync() 自带事务,若在此嵌套调用且其内部抛错,
         // 会把本事务标记 rollback-only,导致提交时 UnexpectedRollbackException(关联被误报失败)。
         // 由调用方在本事务提交后另起事务跑首次同步(见 initialSync)。
