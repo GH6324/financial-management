@@ -225,6 +225,23 @@ public class FutuOpendManager {
         return extractAndFinish(pkg);
     }
 
+    /**
+     * 从服务器上<b>已存在</b>的 tar.gz 路径导入(scp 到服务器后填路径即可)。
+     * 彻底绕开 HTTP 上传的 nginx {@code client_max_body_size} / CDN 上传限额 / 本机连不连 CDN。
+     */
+    public synchronized String installFromServerPath(String path) throws IOException, InterruptedException {
+        if (env() == Env.DOCKER) throw new IOException("Docker 环境请用 sidecar(不在 app 容器内托管 OpenD)");
+        if (path == null || path.isBlank()) throw new IOException("请填服务器上 tar.gz 的绝对路径");
+        Path src = Path.of(path.trim());
+        if (!Files.isRegularFile(src)) throw new IOException("路径不存在或不是文件:" + src);
+        phase = Phase.DOWNLOADING; message = "从服务器路径导入…"; log("install from server path=" + src);
+        Files.createDirectories(home);
+        Path pkg = home.resolve("FutuOpenD.tar.gz");
+        Files.copy(src, pkg, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        message = "解压中…";
+        return extractAndFinish(pkg);
+    }
+
     /** tar 解压 + 定位可执行 + 版本 + 置 INSTALLED(download 与 upload 共用)。 */
     private String extractAndFinish(Path pkg) throws IOException, InterruptedException {
         int ex = new ProcessBuilder("tar", "-xzf", pkg.toString(), "-C", home.toString())

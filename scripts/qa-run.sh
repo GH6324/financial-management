@@ -3521,6 +3521,7 @@ OWTPL="$RD/src/main/resources/templates/broker/opend-wizard.html"
   && grep -q 'detectEnv' "$OWMGR" && grep -q '/.dockerenv' "$OWMGR" && grep -q 'packageTag' "$OWMGR" \
   && grep -q "channel == 'DOCKER'" "$OWTPL" \
   && grep -q 'installFromStream' "$OWMGR" && grep -q '"/upload"' "$OWCTL" && grep -q '上传并解压' "$OWTPL" \
+  && grep -q 'installFromServerPath' "$OWMGR" && grep -q 'import-path' "$OWCTL" && grep -q '从该路径导入' "$OWTPL" \
   && grep -q "var BASE = '/admin/broker/opend/'" "$OWTPL" \
   && ! grep -qE "fetch\('(status|deps|upload|download)|post\('(download|sms)" "$OWTPL" \
   && grep -q '/admin/broker/opend' "$RD/src/main/resources/templates/admin/integrations.html"; } \

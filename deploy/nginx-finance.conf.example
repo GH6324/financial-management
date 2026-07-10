@@ -33,6 +33,22 @@ server {
         try_files $uri =404;
     }
 
+    # v0.15 · 富途 OpenD tar.gz 上传(几十 MB)· 仅此路径放开体积限额 + 关闭请求缓冲(边收边转,不落盘整包)
+    # 其它路径仍受上面 256k 全局限额保护(logo)。改不了反代的,用向导「服务器路径导入」绕开。
+    location = /admin/broker/opend/upload {
+        client_max_body_size 600m;
+        proxy_request_buffering off;
+        proxy_pass         http://finance_backend;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto http;
+        proxy_set_header   Connection        "";
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
     # 所有其它请求(含 /css/ /js/ /img/ /vendor/ /favicon.ico /dashboard 等)
     # 统一走后端反代。Spring 已经在 link 上加 ?v=${buildVersion} 做 cache-busting,
     # 不需要再在 nginx 单独给静态资源加 expires。

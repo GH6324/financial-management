@@ -89,7 +89,17 @@
         <button id="upBtn" type="button" class="btn-paper text-sm">上传并解压</button>
       </div>
       <p id="upMsg" class="font-mono text-[10px] text-ink-subtle mt-1"></p>
-      <p class="font-mono text-[10px] text-ink-subtle mt-1">在任意能上网的机器下好 <span class="font-mono">FutuOpenD_&lt;版本&gt;_&lt;系统&gt;.tar.gz</span>,选它上传即可,本机<b class="text-ink">无需连 CDN</b>(墙内也能用)。</p>
+      <p class="font-mono text-[10px] text-ink-subtle mt-1">在任意能上网的机器下好 <span class="font-mono">FutuOpenD_&lt;版本&gt;_&lt;系统&gt;.tar.gz</span>,选它上传即可,本机<b class="text-ink">无需连 CDN</b>(墙内也能用)。若经反代上传大文件报 <b class="text-ink">413</b>,是 nginx <span class="font-mono">client_max_body_size</span> 太小 —— 改不了反代就用下面「服务器路径导入」。</p>
+
+      <div class="mt-3 pt-3 border-t border-rule-soft">
+        <label class="field-label">或:服务器上已有 tar.gz 的路径(彻底绕开上传 / CDN / 反代 413)</label>
+        <form th:action="@{/admin/broker/opend/import-path}" method="post" class="flex flex-wrap gap-2 items-center">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <input name="path" class="field-input" style="max-width:440px" placeholder="/root/FutuOpenD_9.3.5308_Centos7.tar.gz">
+          <button type="submit" class="btn-paper text-sm">从该路径导入</button>
+        </form>
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">先把包 <span class="font-mono">scp</span> 到服务器任意目录,填绝对路径即可 —— 免上传、免连 CDN、免改 nginx。</p>
+      </div>
     </div>
   </section>
 

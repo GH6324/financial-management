@@ -122,6 +122,20 @@ public class FutuOpendController {
         }
     }
 
+    /** 从服务器已有 tar.gz 路径导入(小 body 表单 POST · 免 HTTP 上传体积限额)。 */
+    @PostMapping("/import-path")
+    public String importPath(@RequestParam String path,
+                             org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
+        try {
+            opend.installFromServerPath(path);
+            ra.addFlashAttribute("flash", "已从服务器路径导入并解压 · 请继续第 3 步启动");
+        } catch (Exception e) {
+            log.warn("opend import-path failed: {}", e.toString());
+            ra.addFlashAttribute("flashError", "导入失败:" + e.getMessage());
+        }
+        return "redirect:/admin/broker/opend";
+    }
+
     @PostMapping("/stop")
     public String stop(org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
         opend.stop();
