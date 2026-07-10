@@ -3477,10 +3477,23 @@ BRO_HITS="$(grep -rnE 'unlockTrade\(|\.placeOrder|\.modifyOrder|\.cancelOrder|\.
   && log_ok "v15-CFG-1 管理页 ⑥ 券商段 · 老虎/富途凭据(私钥不回显)+ 测试连接" \
   || log_bad "v15-CFG-1 管理页券商段缺件" "see admin/integrations.html"
 
-# v15-ENTRY-1 · 持仓页有券商入口 + 券商同步徽章
-{ grep -q '/broker|}' "$HOLD" && grep -q '券商同步' "$HOLD"; } \
-  && log_ok "v15-ENTRY-1 持仓页有「券商自动同步」入口 + 同步持仓徽章" \
-  || log_bad "v15-ENTRY-1 持仓页缺券商入口/徽章" "see stock/holdings.html"
+# v15-ENTRY-1 · 券商入口在账户页(账户颗粒度)+ 持仓页保留同步徽章(v0.15.x 入口迁移)
+ACCIDX="$RD/src/main/resources/templates/accounts/index.html"
+{ grep -q '/broker(id=' "$ACCIDX" && grep -q '券商托管' "$ACCIDX" \
+  && grep -q '券商同步' "$HOLD" && ! grep -q '/broker|}' "$HOLD"; } \
+  && log_ok "v15-ENTRY-1 券商入口在账户页(+托管徽章)· 持仓页只留同步徽章" \
+  || log_bad "v15-ENTRY-1 入口/徽章位置不对" "see accounts/index.html / stock/holdings.html"
+
+# v15-GRAN · 连接配置下沉到关联颗粒度(V40)+ per-link 测试富卡片
+BLDOM="$RD/src/main/java/com/family/finance/domain/broker/BrokerLink.java"
+BLMAP="$RD/src/main/java/com/family/finance/repository/BrokerLinkMapper.java"
+{ [ -f "$RD/db/migration/V40__broker_link_conn.sql" ] \
+  && grep -q 'opendHost' "$BLDOM" && grep -q 'findByFamily' "$BLMAP" \
+  && grep -q '"/accounts/{accountId}/broker/test"' "$BCTL" \
+  && grep -q 'brokerTestReport' "$RD/src/main/resources/templates/broker/link.html" \
+  && grep -q 'TestReport testConnection(long familyId, BrokerLink link)' "$RD/src/main/java/com/family/finance/service/broker/BrokerClient.java"; } \
+  && log_ok "v15-GRAN 关联颗粒度连接(V40 opend_host/port·NULL=全局)+ per-link 测试连接富卡片" \
+  || log_bad "v15-GRAN 关联颗粒度模型缺件" "see V40/BrokerLink/BrokerLinkMapper/BrokerLinkController/link.html"
 
 # v15-FIX-TX · 关联与首次同步拆两段事务(修 rollback-only:link() 不再嵌套 sync())
 { grep -q 'public void link(' "$BLNK" && grep -q 'public String initialSync(' "$BLNK" && grep -q 'linkService.initialSync' "$BCTL"; } \

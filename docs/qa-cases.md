@@ -1778,3 +1778,4 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 
 > 决策(承 prd/tech-design v0.15 · 用户 6 点评审):富途优先 + 老虎;只读铁律(富途永不 unlockTrade、老虎只查询,静态护栏钉死整类);关联高危留快照 + 软归档 + 两步确认(可找回);手动 + cron 双同步;币种以我方账户配置为准做 FX 折算;期权/期货本版跳过(见 `docs/backlog.md`)。
 > **富途适配器已真机接线并联调通过**(tech-design 决策 L):FutuSession 异步回调包同步、只调三个查询接口;beta 上对用户真实 OpenD 测试连接成功(实盘户 2/共 10)。老虎适配器待用户 key 真机验证。
+> **v0.15.x 关联颗粒度重构**(决策 M · 守护 v15-GRAN/v15-ENTRY-1):V40 broker_link 加 opend_host/port(NULL=全局);入口迁账户页(徽章+「券商」操作);per-link 测试连接富卡片;OpenD 向导终端化;同步显示名用券商证券名。beta 真机全验:徽章/入口、OpenD 重启自动重拉、富卡片(港美徽章·尾号3682·5笔)、中文名升级(拼多多/阿里巴巴/小米集团-W/腾讯控股)。
