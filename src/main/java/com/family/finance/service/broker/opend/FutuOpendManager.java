@@ -200,10 +200,36 @@ public class FutuOpendManager {
             phase = Phase.ERROR; message = "下载失败 · HTTP " + resp.statusCode() + "(版本号或系统可能不对,可粘官网下载 URL 重试)";
             throw new IOException(message);
         }
-        // 解压:tar -xzf 到 home
+        return extractAndFinish(pkg);
+    }
+
+    /** 上传已下好的 tar.gz(<b>不依赖服务器能否连 CDN</b> · 墙内也能用):流式落盘(带上限)+ 解压就绪。 */
+    public synchronized String installFromStream(java.io.InputStream in, long maxBytes) throws IOException, InterruptedException {
+        if (env() == Env.DOCKER) { phase = Phase.ERROR; message = "Docker 环境请用 sidecar(不在 app 容器内托管 OpenD)"; throw new IOException(message); }
+        phase = Phase.DOWNLOADING; message = "接收上传的安装包…"; log("install from upload");
+        Files.createDirectories(home);
+        Path pkg = home.resolve("FutuOpenD.tar.gz");
+        long total = 0;
+        try (var out = Files.newOutputStream(pkg, java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.TRUNCATE_EXISTING)) {
+            byte[] buf = new byte[65536];
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                total += n;
+                if (total > maxBytes) { phase = Phase.ERROR; message = "上传文件过大(超过上限)"; throw new IOException(message); }
+                out.write(buf, 0, n);
+            }
+        }
+        log("uploaded pkg bytes=" + total);
+        message = "解压中…";
+        return extractAndFinish(pkg);
+    }
+
+    /** tar 解压 + 定位可执行 + 版本 + 置 INSTALLED(download 与 upload 共用)。 */
+    private String extractAndFinish(Path pkg) throws IOException, InterruptedException {
         int ex = new ProcessBuilder("tar", "-xzf", pkg.toString(), "-C", home.toString())
                 .redirectErrorStream(true).start().waitFor();
-        if (ex != 0) { phase = Phase.ERROR; message = "解压失败(tar exit=" + ex + ")"; throw new IOException(message); }
+        if (ex != 0) { phase = Phase.ERROR; message = "解压失败(tar exit=" + ex + " · 文件可能不是有效的 FutuOpenD tar.gz)"; throw new IOException(message); }
         Path bin = locateBinary();
         if (bin == null) { phase = Phase.ERROR; message = "解压后未找到 FutuOpenD 可执行文件"; throw new IOException(message); }
         bin.toFile().setExecutable(true);

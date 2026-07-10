@@ -6,8 +6,10 @@ import com.family.finance.service.AuditLogService;
 import com.family.finance.service.NavService;
 import com.family.finance.service.broker.opend.FutuOpendManager;
 import com.family.finance.service.config.FamilyConfigService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -102,6 +104,22 @@ public class FutuOpendController {
     @ResponseBody
     public String sms(@RequestParam String code) {
         return opend.submitSmsCode(code) ? "ok" : "fail";
+    }
+
+    /**
+     * 上传已下好的 OpenD tar.gz(裸 octet-stream 流,绕过 multipart 200KB 限额 · 不依赖服务器连 CDN)。
+     * CSRF 走 query 参数 {@code ?_csrf=};上限 500MB,后台不再依赖外网。
+     */
+    @PostMapping(value = "/upload", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    @ResponseBody
+    public String upload(HttpServletRequest request) {
+        try (var in = request.getInputStream()) {
+            opend.installFromStream(in, 500L * 1024 * 1024);
+            return "ok";
+        } catch (Exception e) {
+            log.warn("opend upload failed: {}", e.toString());
+            return "fail:" + e.getMessage();
+        }
     }
 
     @PostMapping("/stop")
