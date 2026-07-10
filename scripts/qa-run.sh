@@ -3518,9 +3518,11 @@ OWTPL="$RD/src/main/resources/templates/broker/opend-wizard.html"
 { [ -f "$OWMGR" ] && [ -f "$OWCTL" ] && [ -f "$OWTPL" ] \
   && grep -q '/admin/broker/opend' "$OWCTL" && grep -q 'api_ip=127.0.0.1' "$OWMGR" \
   && grep -q 'input_phone_verify_code' "$OWMGR" \
+  && grep -q 'detectEnv' "$OWMGR" && grep -q '/.dockerenv' "$OWMGR" && grep -q 'packageTag' "$OWMGR" \
+  && grep -q "channel == 'DOCKER'" "$OWTPL" \
   && grep -q '/admin/broker/opend' "$RD/src/main/resources/templates/admin/integrations.html"; } \
-  && log_ok "v15-OPEND-WIZ 应用内一键 OpenD 向导(下载/版本/依赖/配置启动/短信中继·只绑127.0.0.1)+ 管理页入口" \
-  || log_bad "v15-OPEND-WIZ OpenD 向导缺件" "see service/broker/opend / web/broker/FutuOpendController / broker/opend-wizard.html"
+  && log_ok "v15-OPEND-WIZ 应用内一键 OpenD 向导(下载/版本/依赖/配置启动/短信中继·只绑127.0.0.1)+ 渠道自适应(Linux子进程/Docker引导sidecar/macOS) + 管理页入口" \
+  || log_bad "v15-OPEND-WIZ OpenD 向导缺件或渠道未自适应" "see service/broker/opend / web/broker/FutuOpendController / broker/opend-wizard.html"
 
 echo
 echo "═══════════════════════════════════════"

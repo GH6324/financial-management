@@ -50,8 +50,11 @@ public class FutuOpendManager {
 
     public enum Phase { NOT_INSTALLED, DOWNLOADING, INSTALLED, STARTING, NEEDS_SMS, RUNNING, STOPPED, ERROR }
 
+    /** 部署渠道:决定 OpenD 怎么托管(Linux 子进程 / Docker 走 sidecar / macOS .app)。 */
+    public enum Env { LINUX, DOCKER, MACOS }
+
     public record Status(Phase phase, String version, String message, int apiPort, boolean processAlive,
-                         List<String> logTail) {}
+                         String channel, List<String> logTail) {}
     /** managed.json:重启重拉所需(pwdMd5 非明文) */
     record Creds(String account, String pwdMd5, int apiPort) {}
     public record Deps(boolean ok, List<String> missing, String installCommand) {}
@@ -72,6 +75,19 @@ public class FutuOpendManager {
     }
 
     // ========================= 纯逻辑(包可见 · 单测) =========================
+
+    /** 纯判定(单测):Mac 优先,其次 /.dockerenv,否则 Linux 原生。 */
+    static Env detectEnv(String osName, boolean dockerFlag) {
+        if (osName != null && osName.toLowerCase(Locale.ROOT).contains("mac")) return Env.MACOS;
+        if (dockerFlag) return Env.DOCKER;
+        return Env.LINUX;
+    }
+
+    /** 下载包系统后缀:Mac → Mac;否则按 /etc/os-release 判。 */
+    static String packageTag(String osName, String osRelease) {
+        if (osName != null && osName.toLowerCase(Locale.ROOT).contains("mac")) return "Mac";
+        return osTag(osRelease);
+    }
 
     /** 从 /etc/os-release 内容判定富途包系统后缀;认不出返回 "" 让 UI 下拉兜底。 */
     static String osTag(String osRelease) {
@@ -151,18 +167,22 @@ public class FutuOpendManager {
     // ========================= 实例 IO =========================
 
     public synchronized Status status() {
-        return new Status(phase, version, message, apiPort, process != null && process.isAlive(), tail());
+        return new Status(phase, version, message, apiPort, process != null && process.isAlive(), env().name(), tail());
     }
 
     public String osReleaseRaw() {
         try { return Files.readString(Path.of("/etc/os-release")); } catch (Exception e) { return ""; }
     }
 
-    /** 本机探测到的富途包系统后缀(供 controller;静态 {@link #osTag} 保持包可见给单测)。 */
-    public String detectedOsTag() { return osTag(osReleaseRaw()); }
+    /** 当前部署渠道(Mac / Docker / Linux)。 */
+    public Env env() { return detectEnv(System.getProperty("os.name"), Files.exists(Path.of("/.dockerenv"))); }
+
+    /** 本机探测到的富途包系统后缀(供 controller;静态 {@link #osTag}/{@link #packageTag} 保持包可见给单测)。 */
+    public String detectedOsTag() { return packageTag(System.getProperty("os.name"), osReleaseRaw()); }
 
     /** 下载 + 解压;返回解析到的版本。同步阻塞(controller 异步跑)。 */
     public synchronized String download(String version, String osTag, String override) throws IOException, InterruptedException {
+        if (env() == Env.DOCKER) { phase = Phase.ERROR; message = "Docker 环境请用 sidecar(不在 app 容器内托管 OpenD)"; throw new IOException(message); }
         phase = Phase.DOWNLOADING; message = "下载中…"; log("download start · version=" + version + " os=" + osTag);
         Files.createDirectories(home);
         String url = downloadUrl(version, osTag, override);
@@ -197,13 +217,15 @@ public class FutuOpendManager {
     /** 找解压出来的 FutuOpenD 可执行(命令行版在子文件夹里)。 */
     Path locateBinary() {
         if (!Files.isDirectory(home)) return null;
-        try (var s = Files.walk(home, 3)) {
+        // 深度 6:macOS 的 FutuOpenD.app/Contents/MacOS/FutuOpenD 也要够得到
+        try (var s = Files.walk(home, 6)) {
             return s.filter(p -> p.getFileName().toString().equals("FutuOpenD") && Files.isRegularFile(p))
                     .findFirst().orElse(null);
         } catch (IOException e) { return null; }
     }
 
     public Deps checkDeps() {
+        if (env() == Env.MACOS) return new Deps(true, List.of(), "macOS 无需 gtk3(.app 自带依赖)");
         Path bin = locateBinary();
         List<String> missing = new ArrayList<>();
         if (bin != null) {
@@ -224,6 +246,7 @@ public class FutuOpendManager {
 
     /** 傻瓜配置 + 启动:MD5 密码、持久化 600 managed.json、以 127.0.0.1 起进程并守护读日志。 */
     public synchronized void configureAndStart(String account, String pwdPlain, int port) throws IOException {
+        if (env() == Env.DOCKER) throw new IllegalStateException("Docker 环境请用 sidecar,不在 app 容器内托管 OpenD");
         Path bin = locateBinary();
         if (bin == null) throw new IllegalStateException("请先完成第 1 步下载 OpenD");
         this.apiPort = port > 0 ? port : 11111;

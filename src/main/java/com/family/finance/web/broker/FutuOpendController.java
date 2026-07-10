@@ -47,6 +47,7 @@ public class FutuOpendController {
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
         model.addAttribute("status", opend.status());
+        model.addAttribute("channel", opend.env().name());
         model.addAttribute("osTag", opend.detectedOsTag());
         // 版本号会随官网更新 → 给个占位示例,让用户去官网确认最新号
         model.addAttribute("versionExample", "9.3.5308");

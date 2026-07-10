@@ -70,6 +70,20 @@ class FutuOpendManagerTest {
     }
 
     @Test
+    void detectEnv_prioritises_mac_then_docker_then_linux() {
+        assertThat(FutuOpendManager.detectEnv("Mac OS X", true)).isEqualTo(FutuOpendManager.Env.MACOS);  // Mac 优先
+        assertThat(FutuOpendManager.detectEnv("Linux", true)).isEqualTo(FutuOpendManager.Env.DOCKER);   // 有 /.dockerenv
+        assertThat(FutuOpendManager.detectEnv("Linux", false)).isEqualTo(FutuOpendManager.Env.LINUX);
+    }
+
+    @Test
+    void packageTag_mac_vs_linux() {
+        assertThat(FutuOpendManager.packageTag("Mac OS X", "")).isEqualTo("Mac");
+        assertThat(FutuOpendManager.packageTag("Linux", "ID=centos")).isEqualTo("Centos7");
+        assertThat(FutuOpendManager.packageTag("Linux", "ID=ubuntu")).isEqualTo("Ubuntu16.04");
+    }
+
+    @Test
     void phaseFromLog_detects_sms_and_running() {
         assertThat(FutuOpendManager.phaseFromLog("请输入验证码 verify code")).isEqualTo(Phase.NEEDS_SMS);
         assertThat(FutuOpendManager.phaseFromLog("Login success!")).isEqualTo(Phase.RUNNING);
