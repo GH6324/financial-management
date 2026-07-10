@@ -125,8 +125,9 @@ public class FutuOpendManager {
     /** 从包文件名 / 解压目录名解析版本号(FutuOpenD_2.19.1252_Centos7 → 2.19.1252)。 */
     static String parseVersion(String nameOrDir) {
         if (nameOrDir == null) return null;
+        // 容忍两种命名:FutuOpenD_2.19.1252 / Futu_OpenD_10.8.6818(新版带下划线)
         java.util.regex.Matcher m = java.util.regex.Pattern
-                .compile("FutuOpenD[_-]([0-9]+(?:\\.[0-9]+)+)").matcher(nameOrDir);
+                .compile("Futu_?OpenD[_-]([0-9]+(?:\\.[0-9]+)+)").matcher(nameOrDir);
         return m.find() ? m.group(1) : null;
     }
 
@@ -158,9 +159,14 @@ public class FutuOpendManager {
     static Phase phaseFromLog(String line) {
         if (line == null) return null;
         String s = line.toLowerCase(Locale.ROOT);
-        if (s.contains("验证码") || s.contains("verify code") || s.contains("phone_verify") || s.contains("sms")) return Phase.NEEDS_SMS;
-        if (s.contains("登录成功") || s.contains("login success") || s.contains("login succeed") || s.contains("initconnect success")) return Phase.RUNNING;
-        if (s.contains("密码错误") || (s.contains("password") && s.contains("error")) || s.contains("login failed") || s.contains("登录失败")) return Phase.ERROR;
+        // 顺序要紧:先判失败(「验证码错误」也含「验证码」),再成功,最后「需要验证码」
+        if (s.contains("验证码错误") || s.contains("密码错误") || s.contains("登录失败")
+                || s.contains("login failed") || (s.contains("password") && s.contains("error"))) return Phase.ERROR;
+        if (s.contains("登录成功") || s.contains("login success") || s.contains("login succeed")
+                || s.contains("已登录") || s.contains("initconnect success")
+                || s.contains("拉取用户信息成功") || s.contains("行情权限")) return Phase.RUNNING;
+        // 只认 OpenD 的提示行,别被回显的 input_phone_verify_code 命令带偏
+        if (s.contains("需要手机验证码") || s.contains("req_phone_verify_code") || s.contains("verify code")) return Phase.NEEDS_SMS;
         return null;
     }
 
@@ -317,11 +323,14 @@ public class FutuOpendManager {
         try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = r.readLine()) != null) {
-                log(line);
-                try { Files.writeString(logFile, line + "\n",
+                String tl = line.trim();
+                // 跳过 OpenD 的 >>> 提示符 / 满屏空白行,日志才清爽可读
+                if (tl.isEmpty() || tl.chars().allMatch(c -> c == '>')) continue;
+                log(tl);
+                try { Files.writeString(logFile, tl + "\n",
                         StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND); }
                 catch (IOException ignored) {}
-                Phase next = phaseFromLog(line);
+                Phase next = phaseFromLog(tl);
                 if (next != null) {
                     phase = next;
                     if (next == Phase.NEEDS_SMS) message = "需要手机短信验证码";
@@ -336,20 +345,46 @@ public class FutuOpendManager {
     }
 
     /** 中继短信验证码:连 OpenD telnet 控制口发 input_phone_verify_code。 */
-    public synchronized boolean submitSmsCode(String code) {
-        try (Socket sock = new Socket("127.0.0.1", telnetPort)) {
-            sock.setSoTimeout(4000);
-            OutputStream os = sock.getOutputStream();
-            os.write(("input_phone_verify_code -code=" + code.trim() + "\n").getBytes(StandardCharsets.UTF_8));
-            os.flush();
-            log("sms code relayed to telnet:" + telnetPort);
-            message = "验证码已提交,等待登录…";
+    /** 让 OpenD 重发一条手机验证码(写 req_phone_verify_code 到 stdin)。 */
+    public synchronized boolean requestSmsCode() {
+        Process p = process;
+        if (p == null || !p.isAlive()) { message = "OpenD 未运行,无法请求验证码"; return false; }
+        try {
+            p.getOutputStream().write("req_phone_verify_code\n".getBytes(StandardCharsets.UTF_8));
+            p.getOutputStream().flush();
+            log("req_phone_verify_code -> opend stdin");
+            message = "已请求重发验证码 · 留意手机短信,再填入下方";
             return true;
-        } catch (Exception e) {
-            log("sms relay failed: " + e);
-            message = "验证码提交失败(OpenD 未在等待验证码?):" + shortErr(e.getMessage());
-            return false;
+        } catch (Exception e) { log("request sms failed: " + e); message = "请求验证码失败:" + shortErr(e.getMessage()); return false; }
+    }
+
+    public synchronized boolean submitSmsCode(String code) {
+        String cmd = "input_phone_verify_code -code=" + code.trim() + "\n";
+        boolean sent = false;
+        // 首选:写进 OpenD 进程 stdin —— 命令行版就是在 stdin 交互 REPL 上读命令(日志里的 >>> 就是它的提示符)
+        Process p = process;
+        if (p != null && p.isAlive()) {
+            try {
+                OutputStream os = p.getOutputStream();   // 子进程的 stdin
+                os.write(cmd.getBytes(StandardCharsets.UTF_8));
+                os.flush();
+                log("sms code -> opend stdin");
+                sent = true;
+            } catch (Exception e) { log("stdin relay failed: " + e); }
         }
+        // 兜底:telnet 控制口
+        if (!sent) {
+            try (Socket sock = new Socket("127.0.0.1", telnetPort)) {
+                sock.setSoTimeout(4000);
+                sock.getOutputStream().write(cmd.getBytes(StandardCharsets.UTF_8));
+                sock.getOutputStream().flush();
+                log("sms code -> telnet:" + telnetPort);
+                sent = true;
+            } catch (Exception e) { log("telnet relay failed: " + e); }
+        }
+        if (sent) { message = "验证码已提交给 OpenD · 正在登录,请看下方实时日志(出现「登录成功 / 运行中」即完成)"; return true; }
+        message = "验证码提交失败(OpenD 未在运行?):看下方日志";
+        return false;
     }
 
     public synchronized void stop() { stopProcess(); phase = Phase.STOPPED; message = "已停止"; }

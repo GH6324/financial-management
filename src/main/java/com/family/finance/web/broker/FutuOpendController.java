@@ -106,6 +106,13 @@ public class FutuOpendController {
         return opend.submitSmsCode(code) ? "ok" : "fail";
     }
 
+    /** 重新获取手机验证码(OpenD 重发短信)。 */
+    @PostMapping("/sms-request")
+    @ResponseBody
+    public String smsRequest() {
+        return opend.requestSmsCode() ? "ok" : "fail";
+    }
+
     /**
      * 上传已下好的 OpenD tar.gz(裸 octet-stream 流,绕过 multipart 200KB 限额 · 不依赖服务器连 CDN)。
      * CSRF 走 query 参数 {@code ?_csrf=};上限 500MB,后台不再依赖外网。

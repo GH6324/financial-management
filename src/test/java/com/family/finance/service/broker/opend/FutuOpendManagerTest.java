@@ -49,6 +49,7 @@ class FutuOpendManagerTest {
     void parseVersion_extracts_from_name() {
         assertThat(FutuOpendManager.parseVersion("FutuOpenD_2.19.1252_Centos7")).isEqualTo("2.19.1252");
         assertThat(FutuOpendManager.parseVersion("FutuOpenD_9.3.5308_Ubuntu16.04.tar.gz")).isEqualTo("9.3.5308");
+        assertThat(FutuOpendManager.parseVersion("Futu_OpenD_10.8.6818_Ubuntu18.04")).isEqualTo("10.8.6818"); // 新版带下划线
         assertThat(FutuOpendManager.parseVersion("garbage")).isNull();
     }
 
