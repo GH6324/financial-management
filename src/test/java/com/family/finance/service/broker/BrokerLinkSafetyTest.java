@@ -60,13 +60,17 @@ class BrokerLinkSafetyTest {
 
         // 顺序护栏:审计快照 → 归档 → 建绑定
         InOrder io = inOrder(audit, hm, lm);
-        ArgumentCaptor<String> snap = ArgumentCaptor.forClass(String.class);
-        io.verify(audit).record(eq(1L), eq(2L), eq(AuditLogType.BROKER_LINK), eq("account"), eq(100L), snap.capture());
+        ArgumentCaptor<String> summaryCap = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<java.util.Map> payloadCap = ArgumentCaptor.forClass(java.util.Map.class);
+        // summary 一句话(≤255);完整快照进 payload_json(修 Data too long for 'summary')
+        io.verify(audit).write(eq(1L), eq(2L), eq(AuditLogType.BROKER_LINK), eq("account"), eq(100L),
+                summaryCap.capture(), payloadCap.capture());
         io.verify(hm).archive(7L);
         io.verify(lm).insert(any(BrokerLink.class));
 
-        // 快照带上了归档前的持仓信息(可供找回)
-        assertThat(snap.getValue()).contains("PRIV").contains("快照");
+        // summary 短且含「快照」;归档前持仓明细(可供找回)落在 payload
+        assertThat(summaryCap.getValue()).contains("快照").hasSizeLessThanOrEqualTo(255);
+        assertThat(payloadCap.getValue().toString()).contains("PRIV");
         // 首次同步在关联事务提交后单独跑(不嵌套进关联事务 → 不会 rollback-only)
         assertThat(svc.initialSync(1L, 100L, 2L, "富途")).contains("已关联");
     }
