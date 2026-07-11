@@ -66,8 +66,10 @@ public class BrokerLinkService {
 
         // FR-B3 · 关联前快照(审计 JSON)+ 软归档
         List<StockHolding> existing = holdingMapper.findActiveByAccount(accountId);
-        auditLog.record(familyId, memberId, AuditLogType.BROKER_LINK, "account", accountId,
-                "关联 " + vendor.getLabel() + " 前快照 · " + snapshotJson(existing));
+        // summary 保持一句话(≤255);完整持仓快照放 payload_json(JSON 列),不再塞进 summary 撑爆
+        auditLog.write(familyId, memberId, AuditLogType.BROKER_LINK, "account", accountId,
+                "关联 " + vendor.getLabel() + " 前快照 · " + existing.size() + " 笔持仓",
+                Map.of("preLinkHoldings", snapshotRows(existing)));
         for (StockHolding h : existing) holdingMapper.archive(h.getId());
 
         linkMapper.insert(BrokerLink.builder()
@@ -103,7 +105,8 @@ public class BrokerLinkService {
         auditLog.record(familyId, memberId, AuditLogType.BROKER_LINK, "account", accountId, "解绑券商");
     }
 
-    private String snapshotJson(List<StockHolding> holdings) {
+    /** 关联前持仓快照(精选字段);存进审计 payload_json(JSON 列),供解绑找回/审计。 */
+    private List<Map<String, Object>> snapshotRows(List<StockHolding> holdings) {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (StockHolding h : holdings) {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -118,7 +121,6 @@ public class BrokerLinkService {
             m.put("manualValue", h.getManualValue());
             rows.add(m);
         }
-        try { return om.writeValueAsString(rows); }
-        catch (Exception e) { return "[]"; }
+        return rows;
     }
 }

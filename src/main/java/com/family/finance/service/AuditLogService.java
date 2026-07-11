@@ -18,6 +18,13 @@ public class AuditLogService {
     private final AuditMapper auditMapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /** summary 列是 VARCHAR(255);防御性截断,审计写入永不因超长拖垮业务事务(明细放 payload_json)。 */
+    static final int SUMMARY_MAX = 255;
+    private static String clip(String s) {
+        if (s == null || s.length() <= SUMMARY_MAX) return s;
+        return s.substring(0, SUMMARY_MAX - 1) + "…";
+    }
+
     /** 简版:无 payload */
     public void record(long familyId,
                        Long actorMemberId,
@@ -31,7 +38,7 @@ public class AuditLogService {
                 .type(type)
                 .targetType(targetType)
                 .targetId(targetId)
-                .summary(summary)
+                .summary(clip(summary))
                 .payloadJson(null)
                 .build());
     }
@@ -55,7 +62,7 @@ public class AuditLogService {
                 .type(type)
                 .targetType(targetType)
                 .targetId(targetId)
-                .summary(summary)
+                .summary(clip(summary))
                 .payloadJson(json)
                 .build());
     }
