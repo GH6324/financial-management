@@ -114,6 +114,7 @@ id finance >/dev/null 2>&1 && ok "已存在" || { useradd -r -m -d /home/finance
 say "6/15 目录"
 install -d -o finance -g finance -m 755 /opt/finance/{logs,db,db/migration,deploy}
 install -d -o finance -g finance -m 755 /var/finance/uploads
+install -d -o finance -g finance -m 755 /var/finance/futu-opend   # v0.15 富途 OpenD 家目录(持久·避开私有 /tmp)
 install -d -o finance -g finance -m 755 /var/backup/finance
 ok "/opt/finance · /var/finance · /var/backup/finance 就位"
 
@@ -155,6 +156,7 @@ DB_NAME=${DB_NAME}
 DB_USER=${DB_USER}
 DB_PASS=${DB_PASS}
 UPLOAD_ROOT=/var/finance/uploads
+FUTU_OPEND_HOME=/var/finance/futu-opend
 REMEMBER_ME_KEY=${REMEMBER_KEY}
 BACKUP_DIR=/var/backup/finance
 RETENTION_DAYS=56

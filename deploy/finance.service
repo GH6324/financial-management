@@ -35,14 +35,18 @@ SuccessExitStatus=143
 # Resource caps — 单家庭使用,限制保守
 LimitNPROC=512
 LimitNOFILE=4096
-MemoryMax=1G
+MemoryMax=1400M
+# 说明:OpenD(富途网关)是应用自管的子进程,和 JVM 同处本 unit 的 cgroup,
+# 一起算进 MemoryMax;1G 偏紧,给到 1400M(JVM~750M + OpenD~400M 之下)。
 
 # Hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/opt/finance/logs /var/finance/uploads /tmp
+# ReadWritePaths:PrivateTmp/ProtectSystem 下唯一可写的白名单。
+# /var/finance/futu-opend = OpenD 家目录(持久,不放私有 /tmp,重启不丢;见 FUTU_OPEND_HOME)。
+ReadWritePaths=/opt/finance/logs /var/finance/uploads /var/finance/futu-opend /tmp
 
 [Install]
 WantedBy=multi-user.target
