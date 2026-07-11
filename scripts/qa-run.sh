@@ -3503,6 +3503,48 @@ BLMAP="$RD/src/main/java/com/family/finance/repository/BrokerLinkMapper.java"
   && log_ok "v15-FIX-TX 关联 link() 提交后另起事务 initialSync(无 rollback-only)+ 快照进 payload_json、summary≤255 截断(无 Data too long)" \
   || log_bad "v15-FIX-TX link() 仍嵌套首次同步 / 快照仍塞 summary" "see BrokerLinkService/BrokerLinkController/AuditLogService"
 
+echo
+# ============================================================
+# v0.16 · 目标模块重构(通用追踪目标 · 绑 0–N 账户 + 追踪指标 + 时间范围)
+# ============================================================
+GDOM="$RD/src/main/java/com/family/finance/domain/goal"
+GSVC="$RD/src/main/java/com/family/finance/service/goal"
+
+# v16-GOAL-MIG · 迁移加列 + goal_account 表 + 回填
+{ [ -f "$RD/db/migration/V41__goal_generic.sql" ] && [ -f "$RD/db/migration/V42__goal_account.sql" ] \
+  && grep -q 'ADD COLUMN metric' "$RD/db/migration/V41__goal_generic.sql" \
+  && grep -q "CREATE TABLE goal_account" "$RD/db/migration/V42__goal_account.sql" \
+  && grep -q 'CUSTOM' "$GDOM/GoalType.java"; } \
+  && log_ok "v16-GOAL-MIG V41 加列 metric/comparator/time_mode + 回填 · V42 goal_account(0..N)· GoalType 加 CUSTOM" \
+  || log_bad "v16-GOAL-MIG 迁移/枚举缺件" "see db/migration/V41,V42 · GoalType"
+
+# v16-GOAL-EVAL · 指标聚合 + pace(纯函数 + 单测)
+{ [ -f "$GSVC/GoalMetricEvaluator.java" ] && [ -f "$GSVC/GoalPaceCalculator.java" ] \
+  && grep -q 'weighted' "$GSVC/GoalMetricEvaluator.java" \
+  && grep -q 'BEHIND_GAP' "$GSVC/GoalPaceCalculator.java" \
+  && grep -q 'isRate' "$GDOM/GoalMetric.java" \
+  && [ -f "$RD/src/test/java/com/family/finance/service/goal/GoalMetricEvaluatorTest.java" ] \
+  && [ -f "$RD/src/test/java/com/family/finance/service/goal/GoalPaceCalculatorTest.java" ]; } \
+  && log_ok "v16-GOAL-EVAL 指标价值加权聚合 + pace(金额判落后/比率仅倒计时)+ 单测在岗" \
+  || log_bad "v16-GOAL-EVAL evaluator/pace/单测缺件" "see service/goal"
+
+# v16-GOAL-CUSTOM · 自定义向导路由 + 账户多选 + 分流
+{ grep -q '"/goals/new/custom"' "$RD/src/main/java/com/family/finance/web/goal/GoalController.java" \
+  && grep -q 'createCustom' "$GSVC/GoalService.java" \
+  && grep -q 'computeCustom' "$GSVC/GoalProgressService.java" \
+  && [ -f "$RD/src/main/resources/templates/goals/new-custom.html" ] \
+  && grep -q 'name="accountIds"' "$RD/src/main/resources/templates/goals/new-custom.html"; } \
+  && log_ok "v16-GOAL-CUSTOM /goals/new/custom 向导 + 账户多选 + GoalProgressService 分流(预设三情景不变)" \
+  || log_bad "v16-GOAL-CUSTOM 向导/分流缺件" "see GoalController/GoalService/new-custom.html"
+
+# v16-GOAL-BAR · 移动端紧凑条(列表 + Dashboard 条带瘦身)
+{ [ -f "$RD/src/main/resources/templates/goals/_goal-bar.html" ] \
+  && grep -q '_goal-bar :: bar' "$RD/src/main/resources/templates/goals/index.html" \
+  && ! grep -q 'gp.scenarios' "$RD/src/main/resources/templates/goals/index.html" \
+  && grep -q "hidden md:flex" "$RD/src/main/resources/templates/goals/_progress-strip.html"; } \
+  && log_ok "v16-GOAL-BAR 紧凑条 fragment · 列表去 scenarios(CUSTOM 安全)· Dashboard 条带手机限 2 条" \
+  || log_bad "v16-GOAL-BAR 紧凑条/瘦身缺件" "see goals/_goal-bar.html · index.html · _progress-strip.html"
+
 # v15-UX · 二次确认走自建弹窗(无 native confirm)+ 创建证券账户显同步提示
 BLHTML="$RD/src/main/resources/templates/broker/link.html"
 WIZ="$RD/src/main/resources/templates/accounts/_template-wizard.html"

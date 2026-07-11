@@ -164,6 +164,10 @@ public class GoalService {
             .name(name == null || name.isBlank() ? defaultName(type) : name.trim())
             .targetValue(targetValue)
             .targetDate(targetDate)
+            // v0.16 · 预设三类的通用字段:退休/教育=全家净资产、应急=全家现金;长期 · GTE(NOT NULL 列必须给值)
+            .metric(type == GoalType.EMERGENCY ? GoalMetric.CASH_TOTAL : GoalMetric.AMOUNT_TOTAL)
+            .comparator(GoalComparator.GTE)
+            .timeMode(TimeMode.OPEN)
             .paramsJson(paramsJson)
             .build();
         goalMapper.insert(goal);

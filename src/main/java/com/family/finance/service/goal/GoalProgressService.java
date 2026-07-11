@@ -149,6 +149,15 @@ public class GoalProgressService {
         GoalPaceCalculator.Pace pace,
         int accountCount
     ) {
+        /** 向后兼容 7 参构造器(v0.3 老调用/测试继续用;新字段按 goal 默认回填)。 */
+        public GoalProgress(Goal goal, GoalParams params, BigDecimal pv, BigDecimal target, BigDecimal progress,
+                            BigDecimal monthlyContribution, GoalProjector.ScenarioResult scenarios) {
+            this(goal, params, pv, target, progress, monthlyContribution, scenarios,
+                 goal == null ? null : goal.metricOrDefault(),
+                 goal == null ? null : goal.comparatorOrDefault(),
+                 goal == null ? null : goal.timeModeOrDefault(), null, 0);
+        }
+
         /** 预设三类(退休/教育/应急)· 保留三情景,无 pace。 */
         static GoalProgress preset(Goal g, GoalParams p, BigDecimal pv, BigDecimal target, BigDecimal progress,
                                    BigDecimal contrib, GoalProjector.ScenarioResult sc) {

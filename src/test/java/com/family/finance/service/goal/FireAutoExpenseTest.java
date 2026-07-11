@@ -34,7 +34,8 @@ class FireAutoExpenseTest {
     void setUp() {
         goalMapper = mock(GoalMapper.class);
         pmcMapper = mock(PeriodMemberCashflowMapper.class);
-        svc = new GoalService(goalMapper, om, pmcMapper);
+        svc = new GoalService(goalMapper, om, pmcMapper,
+                mock(com.family.finance.repository.GoalAccountMapper.class));
     }
 
     private Goal autoGoal(String smoothing) throws Exception {
