@@ -44,9 +44,11 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-# ReadWritePaths:PrivateTmp/ProtectSystem 下唯一可写的白名单。
-# /var/finance/futu-opend = OpenD 家目录(持久,不放私有 /tmp,重启不丢;见 FUTU_OPEND_HOME)。
-ReadWritePaths=/opt/finance/logs /var/finance/uploads /var/finance/futu-opend /tmp
+# ReadWritePaths:PrivateTmp/ProtectSystem/ProtectHome 下的可写白名单(会在只读挂载上打洞)。
+# · /var/finance/futu-opend = OpenD 安装文件家目录(持久,不放私有 /tmp,重启不丢;见 FUTU_OPEND_HOME)
+# · /home/finance = OpenD 运行时按 getpwuid 家目录建 ~/.com.futunn.FutuOpenD(无视 $HOME),
+#   ProtectHome=read-only 会锁死它 → 必须放开;其它 home(/root 等)仍只读。
+ReadWritePaths=/opt/finance/logs /var/finance/uploads /var/finance/futu-opend /home/finance /tmp
 
 [Install]
 WantedBy=multi-user.target
