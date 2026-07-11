@@ -193,6 +193,7 @@ public class GoalLlmService {
                 请为 [应急储备] 目标推荐合理参数 · 输出严格 JSON:
                 {"months_target": 6, "auto_baseline": true, "rationale": "<60 字中文理由>"}
                 """.formatted(memberInfo, kpiSummary);
+            case CUSTOM -> ""; // v0.16:自定义追踪目标无参数 AI 推荐(目标值用户直填)
         };
     }
 

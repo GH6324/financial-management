@@ -38,6 +38,7 @@ public final class GoalProgressCalculator {
             case RETIREMENT -> computeRetirementTarget(params);
             case EDUCATION  -> computeEducationTarget(params);
             case EMERGENCY  -> computeEmergencyTarget(params, emergencyBaseline);
+            case CUSTOM     -> BigDecimal.ZERO; // v0.16:CUSTOM 目标值用户直填 target_value,不在此推导
         };
     }
 

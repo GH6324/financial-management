@@ -283,6 +283,7 @@ public class GoalService {
             case RETIREMENT -> "退休 / 自由生活";
             case EDUCATION -> "子女教育金";
             case EMERGENCY -> "应急储备";
+            case CUSTOM -> "自定义追踪目标";
         };
     }
 }
