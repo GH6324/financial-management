@@ -30,7 +30,18 @@ public class Goal {
     private BigDecimal targetValue;
     private LocalDate targetDate;
     private String paramsJson;
+    // ── v0.16 通用追踪目标 ──
+    private GoalMetric metric;         // 追踪指标(NULL 视为 AMOUNT_TOTAL)
+    private GoalComparator comparator; // 达标方向(默认 GTE)
+    private TimeMode timeMode;         // OPEN 长期 | DEADLINE 截止型
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime archivedAt;
+
+    /** 追踪指标(空安全,默认金额合计)。 */
+    public GoalMetric metricOrDefault() { return metric == null ? GoalMetric.AMOUNT_TOTAL : metric; }
+    /** 达标方向(空安全,默认 GTE)。 */
+    public GoalComparator comparatorOrDefault() { return comparator == null ? GoalComparator.GTE : comparator; }
+    /** 时间模式(空安全,默认 OPEN)。 */
+    public TimeMode timeModeOrDefault() { return timeMode == null ? TimeMode.OPEN : timeMode; }
 }

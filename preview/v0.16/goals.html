@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.16 预览 · 目标模块重构(通用追踪目标)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{paper:'var(--paper)',card:'var(--card)','card-soft':'var(--card-soft)',ink:{DEFAULT:'var(--ink)',soft:'var(--ink-soft)',subtle:'var(--ink-subtle)'},rule:{DEFAULT:'var(--rule)',soft:'var(--rule-soft)'},brass:{DEFAULT:'var(--brass)',deep:'var(--brass-deep)'},forest:'var(--forest)',rust:'var(--rust)'},fontFamily:{display:['Fraunces','Noto Serif SC','serif'],serif:['"Source Serif 4"','Noto Serif SC','serif'],mono:['JetBrains Mono','monospace']}}}}</script>
+  <style>
+    body{background:var(--paper);color:var(--ink)}
+    .eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass-deep)}
+    .paper-card{background:var(--card);border:1px solid var(--rule);box-shadow:0 1px 0 rgba(26,23,20,.04),0 8px 24px -12px rgba(26,23,20,.08)}
+    .annot{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-subtle);line-height:1.7}
+    .note{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-subtle)}
+    .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.06em;padding:2px 8px;border-radius:2px;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--rule);background:var(--card);color:var(--ink-soft)}
+    .pill-forest{background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)}
+    .pill-brass{background:rgba(180,138,58,.12);color:var(--brass-deep);border:1px solid var(--brass-deep)}
+    .pill-rust{background:rgba(159,74,58,.10);color:var(--rust);border:1px solid var(--rust)}
+    .num-pos{color:var(--forest)}.num-neg{color:var(--rust)}.tnum{font-feature-settings:"tnum" 1}
+    .seclabel{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.14em;background:rgba(180,138,58,.08);border:1px dashed #c79338;color:#b08a3a;padding:2px 8px;border-radius:2px;text-transform:uppercase}
+    .callout{border-left:3px solid var(--brass-deep);background:var(--card-soft);padding:12px 16px}
+    .callout.forest{border-left-color:var(--forest)}.callout.rust{border-left-color:var(--rust)}
+    .field-label{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-subtle);display:block;margin-bottom:4px}
+    .field-input{width:100%;font-family:"JetBrains Mono",monospace;font-size:14px;background:var(--paper-soft,#faf7f1);border:1px solid var(--rule);padding:8px 10px}
+    .opt{border:1px solid var(--rule);padding:12px 14px;cursor:pointer}
+    .opt.on{border-color:var(--brass-deep);background:var(--card-soft)}
+    .bar{height:8px;background:var(--rule-soft);border-radius:99px;overflow:hidden}
+    .bar > i{display:block;height:100%;border-radius:99px}
+    .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+    .phone{width:390px;border:10px solid #1a1714;border-radius:34px;overflow:hidden;background:var(--paper);box-shadow:0 20px 50px -20px rgba(0,0,0,.5)}
+    .phone-bar{height:26px;background:#1a1714}
+    svg.ico{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;vertical-align:-2px}
+  </style>
+</head>
+<body class="font-serif">
+
+<header class="max-w-[1180px] mx-auto px-6 pt-10 pb-4">
+  <div class="eyebrow mb-2">家庭账房 · v0.16 预览 · PRD 评审稿</div>
+  <h1 class="font-display text-4xl font-medium tracking-tight mb-2">目标模块重构 · 通用追踪目标</h1>
+  <p class="text-ink-soft max-w-3xl">一个目标 = 绑定 <b>0–多个账户</b> + 一个<b>追踪指标</b>(金额 / 收益率)+ 目标值 + 时间范围。旧退休 / 教育 / 应急三类作为<b>智能预设</b>完整保留。关联 <a class="text-brass-deep underline" href="https://github.com/LuoDi-Nate/financial-management/issues/5">issue #5</a>。多目标手机端瘦身。</p>
+  <div class="mt-3 flex gap-2 flex-wrap">
+    <span class="pill pill-brass">金额合计 / 现金合计</span>
+    <span class="pill pill-brass">收益率 · 年化 / YTD</span>
+    <span class="pill">绑定 0–N 账户</span>
+    <span class="pill">1年 / 3年 / 5年 / 自定义 / 长期</span>
+    <span class="pill pill-forest">进度 vs 时间 落后提醒</span>
+  </div>
+</header>
+
+<hr class="max-w-[1180px] mx-auto border-rule">
+
+<!-- ============ 1 · 新建目标选择(4 卡) ============ -->
+<section class="max-w-[1180px] mx-auto px-6 py-8">
+  <div class="flex items-center gap-3 mb-1"><span class="seclabel">屏 1</span><h2 class="font-display text-2xl">新建目标 · 选类型</h2></div>
+  <p class="annot mb-4">FR-16-9 · 在旧三类后新增第 4 张卡「自定义追踪目标」(issue #5 主场景)。</p>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="paper-card p-5"><div class="pill mb-2">长期预设</div><div class="font-display text-xl mb-1">退休 · FIRE</div><p class="text-sm text-ink-soft">按月支出/通胀/提取率推导本金需求 · 三情景达成年份 · AI 月报。<b>不变</b>。</p></div>
+    <div class="paper-card p-5"><div class="pill mb-2">长期预设</div><div class="font-display text-xl mb-1">子女教育金</div><p class="text-sm text-ink-soft">按目标年龄 + 通胀推导 · 三情景。<b>不变</b>。</p></div>
+    <div class="paper-card p-5"><div class="pill mb-2">长期预设</div><div class="font-display text-xl mb-1">应急储备</div><p class="text-sm text-ink-soft">月支出 × 月数 · 只算现金类。<b>不变</b>。</p></div>
+    <div class="paper-card p-5" style="border-color:var(--brass-deep);background:var(--card-soft)">
+      <div class="pill pill-brass mb-2">新增 · 通用</div>
+      <div class="font-display text-xl mb-1">自定义追踪目标</div>
+      <p class="text-sm text-ink-soft">绑账户 + 选指标 + 定目标 + 设期限。如「1 年内现金到 20 万」「某 3 账户年化到 20%」。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2 · 自定义追踪目标 · 向导 ============ -->
+<section class="max-w-[1180px] mx-auto px-6 py-8">
+  <div class="flex items-center gap-3 mb-1"><span class="seclabel">屏 2</span><h2 class="font-display text-2xl">自定义追踪目标 · 向导</h2></div>
+  <p class="annot mb-4">FR-16-2 · 起名 → 选指标 → 勾账户(0–N)→ 填目标值 → 选时间范围。</p>
+  <div class="paper-card p-6 max-w-3xl">
+    <div class="mb-5">
+      <label class="field-label">目标名称</label>
+      <input class="field-input" value="今年现金冲刺" readonly>
+    </div>
+
+    <div class="mb-5">
+      <label class="field-label">① 追踪指标 · 与账户/报表指标目录一一对应</label>
+      <div class="note mb-1">金额类 <span class="pill" style="margin-left:4px">达标率 + 时间落后判定</span></div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+        <div class="opt on text-center text-sm">金额合计</div>
+        <div class="opt text-center text-sm">现金合计</div>
+        <div class="opt text-center text-sm">累计净投入(本金)</div>
+        <div class="opt text-center text-sm">累计投资损益</div>
+        <div class="opt text-center text-sm">本期损益</div>
+        <div class="opt text-center text-sm">总资产</div>
+        <div class="opt text-center text-sm">总负债 <span class="note">≤</span></div>
+      </div>
+      <div class="note mb-1">比率类 <span class="pill" style="margin-left:4px">只给倒计时</span></div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+        <div class="opt text-center text-sm">年化收益率</div>
+        <div class="opt text-center text-sm">本位币收益率(含汇率)</div>
+        <div class="opt text-center text-sm">占家庭比重</div>
+        <div class="opt text-center text-sm">环比 MoM</div>
+        <div class="opt text-center text-sm">储蓄率</div>
+        <div class="opt text-center text-sm">最大回撤 <span class="note">≤</span></div>
+      </div>
+      <div class="note mb-1">月数 / 其它</div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div class="opt text-center text-sm">紧急储备月数</div>
+      </div>
+      <p class="note mt-2">金额类:Σ 绑定账户本位币(贷款计负)· 0 账户 = 全家对应总量。比率类:价值加权,只对可算收益账户有意义。方向默认「≥ 达到」;总负债/回撤为「≤ 降到」。</p>
+    </div>
+
+    <div class="mb-5">
+      <label class="field-label">② 绑定账户(多选 · 0–N · 0 = 全家)</label>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <label class="opt on flex items-center gap-2 text-sm"><input type="checkbox" checked> 招商银行活期 <span class="pill">CASH</span></label>
+        <label class="opt on flex items-center gap-2 text-sm"><input type="checkbox" checked> 支付宝余额宝 <span class="pill">CASH</span></label>
+        <label class="opt flex items-center gap-2 text-sm"><input type="checkbox"> 富途证券 <span class="pill">STOCK</span></label>
+        <label class="opt flex items-center gap-2 text-sm"><input type="checkbox"> 老虎证券 <span class="pill">STOCK</span></label>
+      </div>
+      <div class="flex gap-2 mt-2"><span class="pill">全选</span><span class="pill">清空</span><span class="note self-center">已选 2 个 · 合计现金口径</span></div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+      <div>
+        <label class="field-label">③ 目标值</label>
+        <div class="flex items-center gap-2"><input class="field-input" value="200,000" readonly><span class="note">CNY</span></div>
+      </div>
+      <div>
+        <label class="field-label">达标判定</label>
+        <input class="field-input" value="≥ 达到即完成" readonly>
+      </div>
+    </div>
+
+    <div class="mb-2">
+      <label class="field-label">④ 时间范围</label>
+      <div class="flex flex-wrap gap-2 mb-2">
+        <div class="opt on text-sm">1 年内</div>
+        <div class="opt text-sm">3 年内</div>
+        <div class="opt text-sm">5 年内</div>
+        <div class="opt text-sm">自定义日期</div>
+        <div class="opt text-sm">长期(不设期限)</div>
+      </div>
+      <p class="note">选 1/3/5 年自动生成截止日(2027-07-11);长期型不做时间对比(退休/教育仍用三情景达成年份)。</p>
+    </div>
+
+    <div class="mt-5 flex gap-3"><button class="px-5 py-2 text-sm text-white" style="background:var(--ink)">保存目标</button><button class="px-5 py-2 text-sm paper-card">取消</button></div>
+  </div>
+</section>
+
+<!-- ============ 3 · 详情 · 达标率 + 倒计时 + 落后提醒 ============ -->
+<section class="max-w-[1180px] mx-auto px-6 py-8">
+  <div class="flex items-center gap-3 mb-1"><span class="seclabel">屏 3</span><h2 class="font-display text-2xl">目标详情 · 倒计时 + 进度 vs 时间</h2></div>
+  <p class="annot mb-4">FR-16-3/4 · issue #5 核心可视化:达标率、倒计时、时间进度对比 → 良好/落后。</p>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- 良好 -->
+    <div class="paper-card p-6">
+      <div class="flex items-center gap-2 mb-1"><span class="dot" style="background:var(--forest)"></span><span class="pill pill-forest">进度良好</span><span class="pill">金额合计 · 2 账户</span></div>
+      <div class="font-display text-2xl mb-3">今年现金冲刺</div>
+      <div class="flex items-end justify-between mb-1"><div><div class="note">当前 / 目标</div><div class="tnum text-2xl">¥150,000 <span class="text-ink-subtle text-lg">/ ¥200,000</span></div></div><div class="text-right"><div class="note">达标率</div><div class="tnum text-2xl num-pos">75%</div></div></div>
+      <div class="bar mb-2"><i style="width:75%;background:var(--forest)"></i></div>
+      <div class="flex justify-between note"><span>还剩 145 天(截止 2027-07-11)</span><span>时间已过 60%</span></div>
+      <div class="callout forest mt-3 text-sm">达标率 75% 已领先时间进度 60% → <b>进度良好</b>,按当前节奏可提前达成。</div>
+    </div>
+    <!-- 落后 -->
+    <div class="paper-card p-6">
+      <div class="flex items-center gap-2 mb-1"><span class="dot" style="background:var(--rust)"></span><span class="pill pill-rust">进度落后</span><span class="pill">金额合计 · 1 账户</span></div>
+      <div class="font-display text-2xl mb-3">三年首付</div>
+      <div class="flex items-end justify-between mb-1"><div><div class="note">当前 / 目标</div><div class="tnum text-2xl">¥150,000 <span class="text-ink-subtle text-lg">/ ¥500,000</span></div></div><div class="text-right"><div class="note">达标率</div><div class="tnum text-2xl num-neg">30%</div></div></div>
+      <div class="bar mb-2"><i style="width:30%;background:var(--rust)"></i></div>
+      <div class="flex justify-between note"><span>还剩 540 天</span><span>时间已过 50%</span></div>
+      <div class="callout rust mt-3 text-sm">达标率 30% 落后时间进度 50%(差 20pp)→ <b>进度落后</b>,需每月多存约 ¥6,500 才能追平。</div>
+    </div>
+    <!-- 收益率型 -->
+    <div class="paper-card p-6">
+      <div class="flex items-center gap-2 mb-1"><span class="dot" style="background:var(--brass-deep)"></span><span class="pill pill-brass">追踪中</span><span class="pill">收益率·年化 · 3 账户</span></div>
+      <div class="font-display text-2xl mb-3">投资组合年化冲 20%</div>
+      <div class="flex items-end justify-between mb-1"><div><div class="note">当前 / 目标(年化)</div><div class="tnum text-2xl">12.3% <span class="text-ink-subtle text-lg">/ 20%</span></div></div><div class="text-right"><div class="note">达标率</div><div class="tnum text-2xl">62%</div></div></div>
+      <div class="bar mb-2"><i style="width:62%;background:var(--brass-deep)"></i></div>
+      <div class="flex justify-between note"><span>还剩 82 天</span><span>富途 · 老虎 · 支付宝理财</span></div>
+      <div class="callout mt-3 text-sm">FR-16-4b · 收益率型只给倒计时,不做「时间落后」硬判定(非线性,避免误导)。</div>
+    </div>
+    <!-- 长期(旧退休兼容) -->
+    <div class="paper-card p-6">
+      <div class="flex items-center gap-2 mb-1"><span class="dot" style="background:var(--ink-subtle)"></span><span class="pill">长期 · 预设</span><span class="pill">退休 FIRE · 全家净资产</span></div>
+      <div class="font-display text-2xl mb-3">退休自由</div>
+      <div class="flex items-end justify-between mb-1"><div><div class="note">已积累 / 本金需求</div><div class="tnum text-2xl">¥3.9M <span class="text-ink-subtle text-lg">/ ¥7.75M</span></div></div><div class="text-right"><div class="note">达标率</div><div class="tnum text-2xl">50%</div></div></div>
+      <div class="bar mb-2"><i style="width:50%;background:var(--brass)"></i></div>
+      <div class="flex justify-between note"><span>三情景达成:乐观 2039 / 中性 2043 / 保守 2051</span></div>
+      <div class="callout mt-3 text-sm">FR-16-8 · 旧三类不变:参数向导 / 三情景 / AI 月报 / FIRE 自动支出全保留,只是统一进度组件渲染。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4 · 列表:桌面紧凑卡 vs 手机紧凑条 ============ -->
+<section class="max-w-[1180px] mx-auto px-6 py-8">
+  <div class="flex items-center gap-3 mb-1"><span class="seclabel">屏 4</span><h2 class="font-display text-2xl">列表 · 移动端瘦身</h2></div>
+  <p class="annot mb-4">FR-16-7 · 手机上从「每目标一张大卡」→「紧凑条」,一屏多条、点开展开;临期截止型靠前。</p>
+  <div class="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8 items-start">
+    <!-- 桌面紧凑卡 -->
+    <div>
+      <div class="note mb-2">桌面端 · 压缩高度的卡片</div>
+      <div class="space-y-2">
+        <div class="paper-card p-3 flex items-center gap-3">
+          <span class="dot" style="background:var(--rust)"></span>
+          <div class="flex-1"><div class="flex justify-between text-sm"><b>三年首付</b><span class="note">还剩 540 天 · 时间 50%</span></div><div class="bar mt-1"><i style="width:30%;background:var(--rust)"></i></div></div>
+          <div class="tnum text-lg num-neg w-14 text-right">30%</div>
+        </div>
+        <div class="paper-card p-3 flex items-center gap-3">
+          <span class="dot" style="background:var(--forest)"></span>
+          <div class="flex-1"><div class="flex justify-between text-sm"><b>今年现金冲刺</b><span class="note">还剩 145 天 · 时间 60%</span></div><div class="bar mt-1"><i style="width:75%;background:var(--forest)"></i></div></div>
+          <div class="tnum text-lg num-pos w-14 text-right">75%</div>
+        </div>
+        <div class="paper-card p-3 flex items-center gap-3">
+          <span class="dot" style="background:var(--ink-subtle)"></span>
+          <div class="flex-1"><div class="flex justify-between text-sm"><b>退休自由</b><span class="note">长期 · 中性 2043</span></div><div class="bar mt-1"><i style="width:50%;background:var(--brass)"></i></div></div>
+          <div class="tnum text-lg w-14 text-right">50%</div>
+        </div>
+      </div>
+    </div>
+    <!-- 手机 -->
+    <div class="justify-self-center">
+      <div class="note mb-2 text-center">手机 · 紧凑条(一屏 5+ 条)</div>
+      <div class="phone">
+        <div class="phone-bar"></div>
+        <div class="p-3">
+          <div class="flex items-center justify-between mb-2"><div class="font-display text-lg">目标</div><span class="pill pill-brass">+ 新建</span></div>
+          <div class="space-y-1.5">
+            <div class="paper-card px-3 py-2">
+              <div class="flex items-center gap-2"><span class="dot" style="background:var(--rust)"></span><b class="text-sm flex-1">三年首付</b><span class="tnum text-sm num-neg">30%</span></div>
+              <div class="bar mt-1.5"><i style="width:30%;background:var(--rust)"></i></div>
+              <div class="note mt-1">¥15万/¥50万 · 还剩 540 天 · 落后</div>
+            </div>
+            <div class="paper-card px-3 py-2">
+              <div class="flex items-center gap-2"><span class="dot" style="background:var(--forest)"></span><b class="text-sm flex-1">今年现金冲刺</b><span class="tnum text-sm num-pos">75%</span></div>
+              <div class="bar mt-1.5"><i style="width:75%;background:var(--forest)"></i></div>
+              <div class="note mt-1">¥15万/¥20万 · 还剩 145 天 · 良好</div>
+            </div>
+            <div class="paper-card px-3 py-2 flex items-center gap-2">
+              <span class="dot" style="background:var(--brass-deep)"></span><b class="text-sm flex-1">组合年化 20%</b><span class="tnum text-sm">62%</span>
+              <span class="note">82天</span>
+            </div>
+            <div class="paper-card px-3 py-2 flex items-center gap-2">
+              <span class="dot" style="background:var(--ink-subtle)"></span><b class="text-sm flex-1">退休自由</b><span class="tnum text-sm">50%</span>
+              <span class="note">长期</span>
+            </div>
+            <div class="paper-card px-3 py-2 flex items-center gap-2">
+              <span class="dot" style="background:var(--ink-subtle)"></span><b class="text-sm flex-1">教育金</b><span class="tnum text-sm">41%</span>
+              <span class="note">长期</span>
+            </div>
+          </div>
+          <p class="note mt-2 text-center">点任一条 → 展开详情(倒计时 / 落后提醒 / 三情景)</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 · Dashboard 条带瘦身 ============ -->
+<section class="max-w-[1180px] mx-auto px-6 py-8">
+  <div class="flex items-center gap-3 mb-1"><span class="seclabel">屏 5</span><h2 class="font-display text-2xl">Dashboard 目标条带 · 手机瘦身</h2></div>
+  <p class="annot mb-4">FR-16-7 · 首页条带手机上最多 2 条 + 「查看全部」,不再刷屏。</p>
+  <div class="phone mx-auto">
+    <div class="phone-bar"></div>
+    <div class="p-3">
+      <div class="note mb-1">目标 · 追踪中</div>
+      <div class="space-y-1.5">
+        <div class="paper-card px-3 py-2"><div class="flex items-center gap-2"><span class="dot" style="background:var(--rust)"></span><b class="text-sm flex-1">三年首付</b><span class="tnum text-sm num-neg">30%</span></div><div class="bar mt-1.5"><i style="width:30%;background:var(--rust)"></i></div></div>
+        <div class="paper-card px-3 py-2"><div class="flex items-center gap-2"><span class="dot" style="background:var(--forest)"></span><b class="text-sm flex-1">今年现金冲刺</b><span class="tnum text-sm num-pos">75%</span></div><div class="bar mt-1.5"><i style="width:75%;background:var(--forest)"></i></div></div>
+      </div>
+      <div class="text-center mt-2"><span class="pill">查看全部 5 个目标 →</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="max-w-[1180px] mx-auto px-6 py-10 border-t border-rule">
+  <p class="annot">v0.16 PRD 评审稿 · 迁移零破坏(family_goal 加列 + goal_account 新表)· 旧三类目标行为不变 · 复用 FactViewService(净资产/收益率)+ 账户估值。评审通过后再出 tech-design(架构选型 + 取舍)与实现。</p>
+</footer>
+
+</body>
+</html>

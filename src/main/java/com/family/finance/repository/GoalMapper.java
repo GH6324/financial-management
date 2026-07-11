@@ -22,6 +22,7 @@ public interface GoalMapper {
 
     @Select("""
             SELECT id, family_id, goal_type, name, target_value, target_date,
+                   metric, comparator, time_mode,
                    params_json, created_at, updated_at, archived_at
               FROM family_goal
              WHERE id = #{id}
@@ -30,6 +31,7 @@ public interface GoalMapper {
 
     @Select("""
             SELECT id, family_id, goal_type, name, target_value, target_date,
+                   metric, comparator, time_mode,
                    params_json, created_at, updated_at, archived_at
               FROM family_goal
              WHERE family_id = #{familyId}
@@ -40,6 +42,7 @@ public interface GoalMapper {
 
     @Select("""
             SELECT id, family_id, goal_type, name, target_value, target_date,
+                   metric, comparator, time_mode,
                    params_json, created_at, updated_at, archived_at
               FROM family_goal
              WHERE family_id = #{familyId}
@@ -51,8 +54,10 @@ public interface GoalMapper {
                                          @Param("goalType") GoalType goalType);
 
     @Insert("""
-            INSERT INTO family_goal (family_id, goal_type, name, target_value, target_date, params_json)
-            VALUES (#{familyId}, #{goalType}, #{name}, #{targetValue}, #{targetDate}, #{paramsJson})
+            INSERT INTO family_goal (family_id, goal_type, name, target_value, target_date,
+                                     metric, comparator, time_mode, params_json)
+            VALUES (#{familyId}, #{goalType}, #{name}, #{targetValue}, #{targetDate},
+                    #{metric}, #{comparator}, #{timeMode}, #{paramsJson})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(Goal goal);
@@ -62,6 +67,9 @@ public interface GoalMapper {
                SET name = #{name},
                    target_value = #{targetValue},
                    target_date = #{targetDate},
+                   metric = #{metric},
+                   comparator = #{comparator},
+                   time_mode = #{timeMode},
                    params_json = #{paramsJson}
              WHERE id = #{id}
                AND family_id = #{familyId}
