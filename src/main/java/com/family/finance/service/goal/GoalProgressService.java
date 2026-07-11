@@ -3,13 +3,17 @@ package com.family.finance.service.goal;
 import com.family.finance.calc.GoalProgressCalculator;
 import com.family.finance.calc.GoalProjector;
 import com.family.finance.domain.goal.Goal;
+import com.family.finance.domain.goal.GoalComparator;
+import com.family.finance.domain.goal.GoalMetric;
 import com.family.finance.domain.goal.GoalParams;
 import com.family.finance.domain.goal.GoalType;
+import com.family.finance.domain.goal.TimeMode;
 import com.family.finance.domain.period.Period;
 import com.family.finance.factview.FactSlice;
 import com.family.finance.factview.FactViewService;
 import com.family.finance.factview.KpiSnapshot;
 import com.family.finance.repository.AccountMapper;
+import com.family.finance.repository.GoalAccountMapper;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.PeriodMemberCashflowMapper;
 import com.family.finance.repository.PeriodMemberCashflowMapper.FamilyPeriodAggregate;
@@ -20,7 +24,9 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 目标进度 + 三情景预测组合服务 · v0.3 FR-50。
@@ -42,8 +48,13 @@ public class GoalProgressService {
     private final AccountMapper accountMapper;
     private final SnapshotMapper snapshotMapper;
     private final PeriodMemberCashflowMapper memberCashflowMapper;
+    private final GoalMetricEvaluator metricEvaluator;   // v0.16 · CUSTOM 指标求值
+    private final GoalAccountMapper goalAccountMapper;   // v0.16 · 绑定账户
 
     public GoalProgress compute(long familyId, Goal goal) {
+        // v0.16 · 自定义追踪目标走通用 evaluator + pace;预设三类保持既有口径 + 三情景
+        if (goal.getGoalType() == GoalType.CUSTOM) return computeCustom(familyId, goal);
+
         GoalParams params = goalService.parseParams(goal);
         BigDecimal pv = computePv(familyId, goal.getGoalType());
         BigDecimal autoBaseline = (goal.getGoalType() == GoalType.EMERGENCY)
@@ -53,7 +64,22 @@ public class GoalProgressService {
         BigDecimal monthlyContribution = computeMonthlyContributionMedian(familyId);
         GoalProjector.ScenarioResult scenarios = GoalProjector.project(
             pv, monthlyContribution, target, PROJECTION_YEARS);
-        return new GoalProgress(goal, params, pv, target, progress, monthlyContribution, scenarios);
+        return GoalProgress.preset(goal, params, pv, target, progress, monthlyContribution, scenarios);
+    }
+
+    /** v0.16 · 自定义追踪目标:指标聚合当前值 + 达标率/倒计时/pace(无三情景)。 */
+    private GoalProgress computeCustom(long familyId, Goal goal) {
+        Set<Long> accountIds = new HashSet<>(goalAccountMapper.findAccountIds(goal.getId()));
+        GoalMetric metric = goal.metricOrDefault();
+        GoalComparator cmp = goal.comparatorOrDefault();
+        BigDecimal pv = metricEvaluator.current(familyId, metric, accountIds);
+        BigDecimal target = goal.getTargetValue();
+        LocalDate created = goal.getCreatedAt() == null ? LocalDate.now() : goal.getCreatedAt().toLocalDate();
+        LocalDate deadline = goal.timeModeOrDefault() == TimeMode.DEADLINE ? goal.getTargetDate() : null;
+        GoalPaceCalculator.Pace pace = GoalPaceCalculator.compute(
+            metric, cmp, pv, target, null, created, deadline, LocalDate.now());
+        BigDecimal progress = pace.attainPct() == null ? BigDecimal.ZERO : pace.attainPct();
+        return GoalProgress.custom(goal, null, pv, target, progress, pace, accountIds.size());
     }
 
     public List<GoalProgress> computeAll(long familyId) {
@@ -115,16 +141,47 @@ public class GoalProgressService {
         BigDecimal target,
         BigDecimal progress,
         BigDecimal monthlyContribution,
-        GoalProjector.ScenarioResult scenarios
+        GoalProjector.ScenarioResult scenarios,
+        // ── v0.16 通用追踪 ──
+        GoalMetric metric,
+        GoalComparator comparator,
+        TimeMode timeMode,
+        GoalPaceCalculator.Pace pace,
+        int accountCount
     ) {
+        /** 预设三类(退休/教育/应急)· 保留三情景,无 pace。 */
+        static GoalProgress preset(Goal g, GoalParams p, BigDecimal pv, BigDecimal target, BigDecimal progress,
+                                   BigDecimal contrib, GoalProjector.ScenarioResult sc) {
+            return new GoalProgress(g, p, pv, target, progress, contrib, sc,
+                g.metricOrDefault(), g.comparatorOrDefault(), g.timeModeOrDefault(), null, 0);
+        }
+        /** 自定义追踪 · 有 pace/倒计时,无三情景。 */
+        static GoalProgress custom(Goal g, GoalParams p, BigDecimal pv, BigDecimal target, BigDecimal progress,
+                                   GoalPaceCalculator.Pace pace, int accountCount) {
+            return new GoalProgress(g, p, pv, target, progress, null, null,
+                g.metricOrDefault(), g.comparatorOrDefault(), g.timeModeOrDefault(), pace, accountCount);
+        }
+
         public boolean targetReached() {
+            if (pace != null) return pace.status() == GoalPaceCalculator.Status.ACHIEVED;
             return target != null && pv != null && target.signum() > 0 && pv.compareTo(target) >= 0;
         }
         public BigDecimal progressPct() {
-            return progress.movePointRight(2).setScale(0, java.math.RoundingMode.HALF_EVEN);
+            return (progress == null ? BigDecimal.ZERO : progress)
+                .movePointRight(2).setScale(0, java.math.RoundingMode.HALF_EVEN);
         }
         public LocalDate neutralDate() {
             return scenarios == null ? null : scenarios.neutralDate();
+        }
+        // ── v0.16 视图辅助 ──
+        public boolean isCustom() { return goal.getGoalType() == GoalType.CUSTOM; }
+        public boolean isRate() { return metric != null && metric.isRate(); }
+        public Long daysLeft() { return pace == null ? null : pace.daysLeft(); }
+        public String paceStatus() { return pace == null ? "NONE" : pace.status().name(); }
+        /** 时间进度百分数(整数;长期/无截止为 null)。 */
+        public Integer timePctInt() {
+            if (pace == null || pace.timePct() == null) return null;
+            return pace.timePct().movePointRight(2).setScale(0, java.math.RoundingMode.HALF_EVEN).intValue();
         }
     }
 }
