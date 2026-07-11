@@ -43,14 +43,15 @@
     {
       "path": "/accounts",
       "name": "accounts",
-      "wait": 1500,
+      "wait": 4000,
       "full": false
     },
     {
       "path": "/accounts/20/holdings",
       "name": "holdings-synced",
       "wait": 2000,
-      "full": false
+      "full": false,
+      "waitFor": "text=拼多多"
     },
     {
       "path": "/admin/broker/opend",

@@ -50,6 +50,7 @@ const { chromium } = require(PW);
     for (const s of list) {
       try {
         await p.goto(BASE + s.path, { waitUntil: 'networkidle' });
+        if (s.waitFor) { await p.waitForSelector(s.waitFor, { timeout: 15000 }); }  // 等内容真渲染出来(治 loading 页截早)
         await p.waitForTimeout(s.wait || 1200);   // 图表/字体/轮询首帧
         const f = path.join(outDir, `${prefix}_${s.name}.jpg`);
         if (s.selector) {
