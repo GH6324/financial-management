@@ -276,7 +276,7 @@ public class IntegrationsController {
     }
 
     /** 券商测试异常 message 归类成无敏感信息的友好原因(绝不含私钥 / 原始 body)。 */
-    static String brokerError(String rawMsg) {
+    public static String brokerError(String rawMsg) {
         String m = rawMsg == null ? "" : rawMsg.toLowerCase(java.util.Locale.ROOT);
         if (m.contains("待真机接线") || m.contains("unsupported")) return "适配器待真机接线(需在你的环境接通 OpenD / 凭据)";
         if (m.contains("未配置") || m.contains("not configured") || m.contains("未配")) return "凭据未配置(请先填好并保存)";

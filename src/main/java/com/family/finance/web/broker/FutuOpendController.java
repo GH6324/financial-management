@@ -43,6 +43,7 @@ public class FutuOpendController {
     private final FamilyConfigService configService;
     private final AuditLogService auditLog;
     private final NavService navService;
+    private final java.util.List<com.family.finance.service.broker.BrokerClient> brokerClients; // v0.15.2 · OpenD 台测试连接
 
     @GetMapping
     public String page(@AuthenticationPrincipal MemberPrincipal me, Model model) {
@@ -67,6 +68,36 @@ public class FutuOpendController {
     @GetMapping("/deps")
     @ResponseBody
     public FutuOpendManager.Deps deps() { return opend.checkDeps(); }
+
+    /** 环境自检(可执行位/属主/家目录可写/OpenD 数据目录可写/依赖 · 结合 docker/linux/mac)。 */
+    @GetMapping("/selfcheck")
+    @ResponseBody
+    public FutuOpendManager.SelfCheck selfCheck() { return opend.selfCheck(); }
+
+    /**
+     * OpenD 台测试连接:用全局默认凭据(link=null → 本机托管的 OpenD)只拉一次账户/资产验证只读链路。
+     * <p>只读铁律:仅走查询接口,绝不下单;返回结构化报告(市场/户号尾4/持仓数/各币现金),失败原因脱敏。</p>
+     */
+    @PostMapping("/test")
+    @ResponseBody
+    public Object test(@AuthenticationPrincipal MemberPrincipal me) {
+        long fid = me.getFamilyId();
+        com.family.finance.service.broker.BrokerClient client = brokerClients.stream()
+                .filter(c -> c.vendor() == com.family.finance.domain.broker.BrokerVendor.FUTU)
+                .findFirst().orElse(null);
+        if (client == null) return java.util.Map.of("error", "富途客户端不可用");
+        try {
+            com.family.finance.service.broker.BrokerDtos.TestReport report = client.testConnection(fid, null);
+            auditLog.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE,
+                    "family_runtime_config", fid, "OpenD 台测试连接 · 富途 · 成功");
+            return report;
+        } catch (Exception e) {
+            String reason = com.family.finance.web.admin.IntegrationsController.brokerError(e.getMessage());
+            auditLog.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE,
+                    "family_runtime_config", fid, "OpenD 台测试连接 · 富途 · 失败:" + reason);
+            return java.util.Map.of("error", reason);
+        }
+    }
 
     @PostMapping("/download")
     @ResponseBody

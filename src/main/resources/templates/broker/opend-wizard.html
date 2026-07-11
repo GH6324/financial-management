@@ -69,12 +69,15 @@
         </div>
       </div>
 
-      <!-- 运行中提示(phase=RUNNING) -->
+      <!-- 运行中提示(phase=RUNNING)· 就地测试连接(拉账户,只读) -->
       <div id="doneBox" class="hidden mt-2 pt-2" style="border-top:1px dashed #30363d">
         <div class="font-mono text-[12px]" style="color:#3fb950">OpenD 已登录 · 运行中 —— 富途连接参数已自动回填(127.0.0.1)。</div>
-        <div class="mt-2 flex gap-2">
-          <a th:href="@{/accounts}" class="btn-paper text-xs no-underline">去账户页关联 / 测试连接</a>
+        <div class="mt-2 flex gap-2 flex-wrap items-center">
+          <button id="testBtn" type="button" class="font-mono text-[11px] px-3 py-1" style="background:#238636;color:#fff;border:1px solid #2ea043">测试连接(拉账户)</button>
+          <a th:href="@{/accounts}" class="btn-paper text-xs no-underline">去账户页关联</a>
         </div>
+        <!-- 测试报告:市场 / 户号尾4 / 账户类型 / 持仓数 / 各币现金(只读) -->
+        <div id="testOut" class="font-mono text-[11px] mt-2 whitespace-pre-wrap" style="color:#8b949e"></div>
       </div>
     </div>
   </section>
@@ -100,17 +103,11 @@
         <button id="reinstBtn" type="button" class="font-mono text-[10px] text-ink-subtle underline ml-auto hover:text-ink">重新安装 / 换包</button>
       </div>
       <div class="mt-3 flex flex-wrap items-center gap-3">
-        <button id="depBtn" type="button" class="btn-paper text-sm">依赖体检</button>
-        <span class="font-mono text-[10px] text-ink-subtle">装好了 · 到下方第 2 步填账号登录</span>
+        <button id="selfBtn" type="button" class="btn-paper text-sm">环境自检</button>
+        <span class="font-mono text-[10px] text-ink-subtle">查 可执行位 / 属主 / 家目录可写 / 依赖(docker·linux·mac)· 装好了到下方第 2 步登录</span>
       </div>
-      <div id="depOut" class="mt-2 text-sm text-ink-soft hidden">
-        <div id="depOk" class="hidden" style="color:var(--forest)">依赖齐全,可进行第 2 步登录。</div>
-        <div id="depBad" class="hidden">
-          <div style="color:var(--rust)">缺少依赖:<span id="depMissing" class="font-mono"></span></div>
-          <div class="mt-1">在这台机器执行(缺啥装啥):</div>
-          <pre id="depCmd" class="mt-1 p-2 bg-paper border border-rule-soft font-mono text-[11px] whitespace-pre-wrap"></pre>
-        </div>
-      </div>
+      <!-- 环境自检结果:逐项红/绿 + 可执行修复命令(治「Fail to create app dir」「Read-only」「权限/属主」这类) -->
+      <div id="selfOut" class="mt-2 space-y-2 hidden"></div>
     </div>
 
     <!-- 1·安装态:未装 → 三形式(单选级联) -->
@@ -331,17 +328,44 @@
     xhr.onerror=function(){ set('upMsg','textContent','上传出错(网络/连接中断)'); };
     xhr.send(f);
   });
-  var depBtn=$('depBtn');
-  if(depBtn) depBtn.addEventListener('click', function(){
-    fetch(BASE+'deps').then(function(r){return r.json();}).then(function(d){
-      $('depOut').classList.remove('hidden');
-      $('depOk').classList.toggle('hidden', !d.ok);
-      $('depBad').classList.toggle('hidden', d.ok);
-      if(!d.ok){
-        $('depMissing').textContent = (d.missing||[]).join(', ');
-        $('depCmd').textContent = d.installCommand || '';
-      }
-    }).catch(function(){});
+  function el(tag, cls, txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
+  var selfBtn=$('selfBtn');
+  if(selfBtn) selfBtn.addEventListener('click', function(){
+    var out=$('selfOut'); if(!out) return;
+    out.classList.remove('hidden'); out.textContent='自检中…';
+    fetch(BASE+'selfcheck').then(function(r){return r.json();}).then(function(sc){
+      out.textContent='';
+      (sc.items||[]).forEach(function(it){
+        var col = it.ok ? 'var(--forest)' : 'var(--rust)';
+        var row=el('div','paper-card p-2'); row.style.borderLeft='3px solid '+col;
+        var head=el('div','text-sm');
+        var status=el('span', null, it.ok ? '正常 · ' : (it.hard ? '待修复(阻断启动)· ' : '待修复 · '));
+        status.style.color=col; status.style.fontWeight='600';
+        head.appendChild(status); head.appendChild(el('b', null, it.name));
+        row.appendChild(head);
+        if(it.detail) row.appendChild(el('div','font-mono text-[10px] text-ink-subtle mt-0.5', it.detail));
+        if(!it.ok && it.fix){
+          row.appendChild(el('div','text-[10px] text-ink-subtle mt-1','修复:'));
+          row.appendChild(el('pre','mt-0.5 p-2 bg-paper border border-rule-soft font-mono text-[10px] whitespace-pre-wrap', it.fix));
+        }
+        out.appendChild(row);
+      });
+      if(!(sc.items||[]).length) out.textContent='无自检项';
+    }).catch(function(){ out.textContent='自检失败'; });
+  });
+  var testBtn=$('testBtn');
+  if(testBtn) testBtn.addEventListener('click', function(){
+    var out=$('testOut'); if(out){ out.style.color='#8b949e'; out.textContent='测试中…(拉账户,只读)'; }
+    post(BASE+'test', {}).then(function(r){return r.json();}).then(function(rep){
+      if(!out) return;
+      if(rep.error){ out.style.color='#e5534b'; out.textContent='测试失败:'+rep.error; return; }
+      var mk=(rep.markets||[]).join(' · ');
+      var cash=rep.cashByCcy?Object.keys(rep.cashByCcy).map(function(k){return k+' '+rep.cashByCcy[k];}).join('  '):'';
+      out.style.color='#3fb950';
+      out.textContent='连接 OK · '+(rep.summary||'')
+        +'\n户号 '+(rep.accountMasked||'-')+' · 类型 '+(rep.accountType||'-')+' · 市场 '+(mk||'-')
+        +'\n持仓 '+(rep.positionCount<0?'待接线':rep.positionCount)+' 笔 · 现金 '+(cash||'-');
+    }).catch(function(){ if(out){ out.style.color='#e5534b'; out.textContent='测试失败(网络/解析)'; } });
   });
   var smsReqBtn=$('smsReqBtn');
   if(smsReqBtn) smsReqBtn.addEventListener('click', function(){

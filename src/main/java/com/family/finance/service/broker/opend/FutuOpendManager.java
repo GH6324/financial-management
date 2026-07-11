@@ -58,6 +58,9 @@ public class FutuOpendManager {
     /** managed.json:重启重拉所需(pwdMd5 非明文) */
     record Creds(String account, String pwdMd5, int apiPort) {}
     public record Deps(boolean ok, List<String> missing, String installCommand) {}
+    /** 环境自检项(可执行位/属主/家目录可写/OpenD 数据目录可写/依赖);hard=true 的失败会拦住启动。 */
+    public record CheckItem(String name, boolean ok, boolean hard, String detail, String fix) {}
+    public record SelfCheck(boolean ok, String channel, List<CheckItem> items) {}
 
     private final Path home;
     private final ObjectMapper om = new ObjectMapper();
@@ -293,11 +296,77 @@ public class FutuOpendManager {
         return new Deps(missing.isEmpty(), missing, depsInstallCommand(isAptOs(os)));
     }
 
+    /**
+     * 环境自检:结合部署渠道(docker / linux / mac)逐项查
+     * 可执行位、家目录可写、OpenD 运行时数据目录可写(~/.com.futunn.FutuOpenD)、系统依赖,
+     * 每项给出可执行修复命令。用户把包自己放服务器上(属主/权限/只读挂载)最常踩的坑都在这里兜住。
+     */
+    public SelfCheck selfCheck() {
+        List<CheckItem> items = new ArrayList<>();
+        Env e = env();
+        if (e == Env.DOCKER) {
+            items.add(new CheckItem("部署渠道", false, true, "检测到 Docker · app 容器内不托管 OpenD",
+                    "改用 sidecar:docker compose -f docker-compose.yml -f deploy/futu-opend.compose.yml up -d"));
+            return new SelfCheck(false, e.name(), items);
+        }
+        // 1. 安装家目录可写(下载/解压/managed.json/日志都落这里)
+        boolean homeW = probeWritable(home);
+        items.add(new CheckItem("安装目录可写", homeW, true, home.toString(),
+                homeW ? null : "chown -R <应用用户> '" + home + "';若 systemd 加固,unit 里 ReadWritePaths= 追加 " + home + " 后 daemon-reload + 重启"));
+        // 2. OpenD 可执行文件 + 可执行位(自己 scp 上来常常丢 +x / 属主不对)
+        Path bin = locateBinary();
+        if (bin == null) {
+            items.add(new CheckItem("OpenD 可执行文件", false, false, "未找到(先完成第 1 步下载 / 导入)", null));
+        } else {
+            boolean exec = Files.isExecutable(bin);
+            items.add(new CheckItem("OpenD 可执行位", exec, true, bin.toString(),
+                    exec ? null : "chmod +x '" + bin + "';属主不对再 chown <应用用户> '" + bin + "'"));
+        }
+        // 3. OpenD 运行时数据目录可写:它按 getpwuid 家目录建 ~/.com.futunn.FutuOpenD(无视 $HOME)
+        //    —— 命中「Fail to create app dir: Read-only file system」(systemd ProtectHome=read-only)
+        Path osHome = Path.of(System.getProperty("user.home", "/root"));
+        boolean osHomeW = e == Env.MACOS || probeWritable(osHome);
+        items.add(new CheckItem("OpenD 数据目录可写(~/.com.futunn.FutuOpenD)", osHomeW, true, osHome.toString(),
+                osHomeW ? null : "该目录只读(常见于 systemd ProtectHome=read-only):unit 里 ReadWritePaths= 追加 " + osHome
+                        + " 后 daemon-reload + 重启;或把属主 chown 给应用用户"));
+        // 4. 系统依赖(linux 需 gtk3/fuse;mac 的 .app 自带)
+        if (e == Env.LINUX) {
+            Deps d = checkDeps();
+            items.add(new CheckItem("系统依赖(gtk3 / fuse)", d.ok(), false,
+                    d.ok() ? "齐全" : "缺:" + String.join(", ", d.missing()),
+                    d.ok() ? null : d.installCommand()));
+        }
+        boolean allOk = items.stream().allMatch(CheckItem::ok);
+        return new SelfCheck(allOk, e.name(), items);
+    }
+
+    /**
+     * 真实写探测(建一个临时文件再删):能识别 systemd 只读挂载(ProtectHome / ProtectSystem),
+     * 普通 {@link Files#isWritable} 只看 mode 位、对只读<b>挂载</b>会误判可写。
+     */
+    private boolean probeWritable(Path dir) {
+        try {
+            Files.createDirectories(dir);
+            Path probe = dir.resolve(".finance-write-probe");
+            Files.writeString(probe, "ok");
+            Files.deleteIfExists(probe);
+            return true;
+        } catch (Exception ex) { return false; }
+    }
+
     /** 傻瓜配置 + 启动:MD5 密码、持久化 600 managed.json、以 127.0.0.1 起进程并守护读日志。 */
     public synchronized void configureAndStart(String account, String pwdPlain, int port) throws IOException {
         if (env() == Env.DOCKER) throw new IllegalStateException("Docker 环境请用 sidecar,不在 app 容器内托管 OpenD");
         Path bin = locateBinary();
         if (bin == null) throw new IllegalStateException("请先完成第 1 步下载 OpenD");
+        // 启动前硬检:家目录/数据目录不可写、可执行位缺失等,直接给清晰中文原因 + 修复命令,
+        // 而不是等 OpenD 抛「Fail to create app dir: Read-only file system」这种天书
+        for (CheckItem it : selfCheck().items()) {
+            if (it.hard() && !it.ok()) {
+                throw new IllegalStateException("环境自检未过 · " + it.name() + ":" + it.detail()
+                        + (it.fix() != null ? " · 修复:" + it.fix() : ""));
+            }
+        }
         this.apiPort = port > 0 ? port : 11111;
         String md5 = md5Hex(pwdPlain);
         saveCreds(new Creds(account, md5, apiPort));   // 明文 pwdPlain 到此为止,不再引用

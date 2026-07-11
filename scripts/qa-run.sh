@@ -3543,6 +3543,10 @@ OWTPL="$RD/src/main/resources/templates/broker/opend-wizard.html"
   && grep -q 'id="step1Done"' "$OWTPL" && grep -q 'id="step1Full"' "$OWTPL" \
   && grep -q 'id="step2Locked"' "$OWTPL" && grep -q 'id="loginDone"' "$OWTPL" && grep -q 'id="loginForm"' "$OWTPL" \
   && grep -q 'addAttribute("installed"' "$OWCTL" && grep -q 'addAttribute("running"' "$OWCTL" \
+  && grep -q 'public SelfCheck selfCheck' "$OWMGR" && grep -q 'probeWritable' "$OWMGR" \
+  && grep -q '"/selfcheck"' "$OWCTL" && grep -q '"/test"' "$OWCTL" \
+  && grep -q 'id="selfBtn"' "$OWTPL" && grep -q 'id="testBtn"' "$OWTPL" \
+  && grep -q 'name="vendor" value="FUTU"' "$RD/src/main/resources/templates/admin/integrations.html" \
   && grep -q '/admin/broker/opend' "$RD/src/main/resources/templates/admin/integrations.html"; } \
   && log_ok "v15-OPEND-WIZ 应用内一键 OpenD 向导(下载/版本/依赖/配置启动/短信中继·只绑127.0.0.1)+ step-by-step 门控(装好收起第1步/亮第2步·运行中收起表单)+ 渠道自适应 + 管理页入口" \
   || log_bad "v15-OPEND-WIZ OpenD 向导缺件或渠道未自适应" "see service/broker/opend / web/broker/FutuOpendController / broker/opend-wizard.html"

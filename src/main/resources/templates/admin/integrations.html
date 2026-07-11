@@ -289,7 +289,7 @@
       </div>
     </form>
 
-    <!-- ⑥ 券商测试连接:老虎凭开发者身份可全局测;富途是关联颗粒度(1 账号=1 OpenD)→ 到各账户的关联页测 -->
+    <!-- ⑥ 券商测试连接:老虎凭开发者身份全局测;富途测「全局默认 OpenD」(上面填的 host/port,通常=本机托管的 127.0.0.1:11111) -->
     <div class="bracket-card max-w-3xl flex flex-wrap items-center gap-3">
       <div class="eyebrow-ink w-full">券商测试连接 · 只验证能拉到账户 / 资产,不做任何写操作</div>
       <form th:action="@{/admin/integrations/broker/test}" method="post" class="inline">
@@ -297,7 +297,12 @@
         <input type="hidden" name="vendor" value="TIGER"/>
         <button type="submit" class="btn-paper">测试老虎连接</button>
       </form>
-      <span class="font-mono text-[10px] text-ink-subtle">富途按关联测试:到「账户 → 券商」页,每条关联用自己的 OpenD 连接参数测(多富途账号=多 OpenD,全局测已不适用)。</span>
+      <form th:action="@{/admin/integrations/broker/test}" method="post" class="inline">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" name="vendor" value="FUTU"/>
+        <button type="submit" class="btn-paper">测试富途连接</button>
+      </form>
+      <span class="font-mono text-[10px] text-ink-subtle w-full">富途测的是上面填的<b class="text-ink">全局默认 OpenD</b>(host/port,通常即本机托管的 127.0.0.1:11111)。若一个家庭挂了多个富途账号(多 OpenD),各条关联另有自己的连接参数,请到「账户 → 券商」关联页按条测。</span>
     </div>
 
     <!-- ④ 宏观基准 CPI/M2 · v0.5 FR-76 -->
