@@ -48,7 +48,11 @@ public class FutuOpendController {
     public String page(@AuthenticationPrincipal MemberPrincipal me, Model model) {
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
-        model.addAttribute("status", opend.status());
+        FutuOpendManager.Status st = opend.status();
+        model.addAttribute("status", st);
+        // step-by-step 首屏判定(JS 轮询后同步更新):装好第 1 步才展示第 2 步;运行中收起表单
+        model.addAttribute("installed", st.version() != null);
+        model.addAttribute("running", st.phase() == FutuOpendManager.Phase.RUNNING);
         model.addAttribute("channel", opend.env().name());
         model.addAttribute("osTag", opend.detectedOsTag());
         // 版本号会随官网更新 → 给个占位示例,让用户去官网确认最新号

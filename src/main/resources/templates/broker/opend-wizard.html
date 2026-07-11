@@ -79,18 +79,42 @@
     </div>
   </section>
 
-  <!-- 第 0 步 · 唯一手动 -->
-  <section th:if="${channel != 'DOCKER'}" class="paper-card p-4 mb-4 bg-card-soft" style="border-left:4px solid var(--rust)">
+  <!-- 第 0 步 · 唯一手动(运行中即隐藏) -->
+  <section id="step0" th:if="${channel != 'DOCKER'}" th:classappend="${running} ? 'hidden' : ''" class="paper-card p-4 mb-4 bg-card-soft" style="border-left:4px solid var(--rust)">
     <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">第 0 步 · 唯一需要你手动做的一次</div>
     <p class="text-sm text-ink-soft">先用<b class="text-ink">富途牛牛 App / 网页</b>登录一次,完成富途的<b class="text-ink">问卷 + 协议确认</b>(账号级一次性动作,任何程序都替不了)。做过一次后,下面全自动。</p>
   </section>
 
-  <!-- 第 1 步 · 安装(三种形式 · 单选级联) -->
+  <!-- 第 1 步 · 安装 OpenD(装好后收起为成功态) -->
   <section th:if="${channel != 'DOCKER'}" class="paper-card p-5 mb-4">
     <div class="flex items-center justify-between mb-3">
-      <div class="font-mono text-[10px] uppercase text-brass-deep">第 1 步 · 把 OpenD 装到这台机器(已装会自动跳过)</div>
+      <div class="font-mono text-[10px] uppercase text-brass-deep">第 1 步 · 把 OpenD 装到这台机器</div>
       <span id="instState" class="font-mono text-[10px] text-ink-subtle"></span>
     </div>
+
+    <!-- 1·成功态:已锁定 OpenD 文件 → 收起一行 + 依赖体检 -->
+    <div id="step1Done" th:classappend="${installed} ? '' : 'hidden'">
+      <div class="flex items-center gap-2 p-3 bg-card-soft" style="border-left:4px solid var(--forest)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--forest)" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        <span class="text-sm">已成功获取 OpenD · 版本 <b id="verDone" class="text-ink" th:text="${status.version() ?: ''}"></b></span>
+        <button id="reinstBtn" type="button" class="font-mono text-[10px] text-ink-subtle underline ml-auto hover:text-ink">重新安装 / 换包</button>
+      </div>
+      <div class="mt-3 flex flex-wrap items-center gap-3">
+        <button id="depBtn" type="button" class="btn-paper text-sm">依赖体检</button>
+        <span class="font-mono text-[10px] text-ink-subtle">装好了 · 到下方第 2 步填账号登录</span>
+      </div>
+      <div id="depOut" class="mt-2 text-sm text-ink-soft hidden">
+        <div id="depOk" class="hidden" style="color:var(--forest)">依赖齐全,可进行第 2 步登录。</div>
+        <div id="depBad" class="hidden">
+          <div style="color:var(--rust)">缺少依赖:<span id="depMissing" class="font-mono"></span></div>
+          <div class="mt-1">在这台机器执行(缺啥装啥):</div>
+          <pre id="depCmd" class="mt-1 p-2 bg-paper border border-rule-soft font-mono text-[11px] whitespace-pre-wrap"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1·安装态:未装 → 三形式(单选级联) -->
+    <div id="step1Full" th:classappend="${installed} ? 'hidden' : ''">
     <p th:if="${channel == 'MACOS'}" class="font-mono text-[10px] text-ink-subtle mb-2">检测到 macOS · 会拉 Mac 包并启动 .app 内的 FutuOpenD。</p>
 
     <div class="flex gap-4 flex-wrap mb-4">
@@ -155,25 +179,29 @@
       <p class="font-mono text-[10px] text-ink-subtle">先 <span class="font-mono">scp</span> 到服务器任意目录,填绝对路径 —— 免上传、免连 CDN、免改 nginx。</p>
     </div>
 
-    <!-- 第 2 步内容并入:版本 + 依赖体检 -->
-    <div class="mt-4 pt-4 border-t border-rule-soft flex flex-wrap items-center gap-3">
-      <span class="text-sm text-ink-soft">已安装版本:<b id="verOut" class="text-ink" th:text="${status.version() ?: '(未安装)'}">(未安装)</b></span>
-      <button id="depBtn" type="button" class="btn-paper text-sm">依赖体检</button>
-      <div id="depOut" class="w-full text-sm text-ink-soft hidden">
-        <div id="depOk" class="hidden" style="color:var(--forest)">依赖齐全,可进行第 2 步登录。</div>
-        <div id="depBad" class="hidden">
-          <div style="color:var(--rust)">缺少依赖:<span id="depMissing" class="font-mono"></span></div>
-          <div class="mt-1">在这台机器执行(缺啥装啥):</div>
-          <pre id="depCmd" class="mt-1 p-2 bg-paper border border-rule-soft font-mono text-[11px] whitespace-pre-wrap"></pre>
-        </div>
-      </div>
+    </div><!-- /step1Full -->
+  </section>
+
+  <!-- 第 2 步 · 未装时锁定占位(装好前不展示登录 · 步骤才有意义) -->
+  <section id="step2Locked" th:if="${channel != 'DOCKER'}" th:classappend="${installed} ? 'hidden' : ''" class="paper-card p-4 mb-4" style="opacity:.6">
+    <div class="font-mono text-[10px] uppercase text-ink-subtle flex items-center gap-2">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      第 2 步 · 填富途账号登录 —— 完成第 1 步后在此解锁
     </div>
   </section>
 
-  <!-- 第 2 步 · 登录(验证码在上方终端里交互) -->
-  <section th:if="${channel != 'DOCKER'}" class="paper-card p-5 mb-4" id="loginSec">
+  <!-- 第 2 步 · 登录(验证码在上方终端里交互 · 装好才展示;运行中收起) -->
+  <section th:if="${channel != 'DOCKER'}" class="paper-card p-5 mb-4" id="loginSec" th:classappend="${installed} ? '' : 'hidden'">
     <div class="font-mono text-[10px] uppercase text-brass-deep mb-3">第 2 步 · 填富途账号,启动并登录(短信验证码会出现在上方终端里)</div>
-    <form th:action="@{/admin/broker/opend/config-start}" method="post" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+    <!-- 2·成功态:已登录运行中 → 收起 -->
+    <div id="loginDone" th:classappend="${running} ? '' : 'hidden'" class="flex items-center gap-2 p-3 bg-card-soft" style="border-left:4px solid var(--forest)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--forest)" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="text-sm">OpenD 已登录 · 运行中 · 富途连接参数已自动回填(127.0.0.1)</span>
+      <a th:href="@{/accounts}" class="btn-paper text-xs no-underline ml-auto">去账户页关联 / 测试连接</a>
+    </div>
+
+    <form id="loginForm" th:classappend="${running} ? 'hidden' : ''" th:action="@{/admin/broker/opend/config-start}" method="post" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
       <div>
         <label class="field-label">富途账号</label>
@@ -210,6 +238,8 @@
   }
   function $(id){ return document.getElementById(id); }
   function set(id, prop, val){ var e=$(id); if(e){ e[prop]=val; } }
+  function show(id, vis){ var e=$(id); if(e){ e.classList.toggle('hidden', !vis); } }
+  var reinstall = false;   // 用户点「重新安装/换包」→ 即便已装也展开安装 UI
 
   // 安装形式单选级联
   var PANES = {dl:'pane_dl', up:'pane_up', path:'pane_path'};
@@ -238,26 +268,42 @@
     }
     set('termMeta','textContent', (st.version ? ' v'+st.version : '') + (st.apiPort ? ' · :'+st.apiPort : ''));
     set('statusMsg','textContent', st.message || '');
-    if(st.version) set('verOut','textContent', st.version);
+    if(st.version) set('verDone','textContent', st.version);
     set('instState','textContent', st.version ? '已安装 v'+st.version : '');
     var lt=$('logTail'); if(lt){ lt.textContent=(st.logTail||[]).join('\n'); lt.scrollTop=lt.scrollHeight; }
     var sms=$('smsBox'); if(sms){ sms.classList.toggle('hidden', st.phase !== 'NEEDS_SMS'); }
     var done=$('doneBox'); if(done){ done.classList.toggle('hidden', st.phase !== 'RUNNING'); }
+    // —— step-by-step 门控:装好第 1 步(有版本号)才亮第 2 步;运行中收起表单/第 0 步 ——
+    var installed = !!st.version;
+    var running = st.phase === 'RUNNING';
+    show('step1Done', installed && !reinstall);
+    show('step1Full', !installed || reinstall);
+    show('step2Locked', !installed);
+    show('loginSec', installed);
+    show('loginDone', running);
+    show('loginForm', !running);
+    show('step0', !running);
   }
   function poll(){
     if(!$('phasePill')) return; // Docker 渠道无托管步骤,不轮询
     fetch(BASE+'status', {headers:{'Accept':'application/json'}}).then(function(r){return r.json();}).then(render).catch(function(){});
   }
+  var reinstBtn=$('reinstBtn');
+  if(reinstBtn) reinstBtn.addEventListener('click', function(){
+    reinstall = true; show('step1Full', true); show('step1Done', false);
+  });
   var dlBtn=$('dlBtn');
   if(dlBtn) dlBtn.addEventListener('click', function(){
     var v = $('version').value.trim();
     var os = $('osTag').value;
     var url = $('url').value.trim();
     if(!v && !url){ alert('请填版本号,或粘完整下载 URL'); return; }
+    reinstall = false;   // 新装完成后按 installed 自动收起
     post(BASE+'download', {version:v, osTag:os, url:url}).then(function(){ poll(); });
   });
   var upBtn=$('upBtn');
   if(upBtn) upBtn.addEventListener('click', function(){
+    reinstall = false;
     var fi=$('pkgFile'); var f=fi&&fi.files?fi.files[0]:null;
     if(!f){ alert('先选一个 tar.gz 文件'); return; }
     var wrap=$('upBarWrap'), bar=$('upBar');
