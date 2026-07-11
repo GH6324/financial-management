@@ -25,8 +25,53 @@
     </div>
   </div>
 
-  <!-- 顶部目标卡 -->
-  <section class="paper-card p-5 sm:p-8 mb-6">
+  <!-- v0.16 · 自定义追踪目标卡(达标率 + 倒计时 + pace 落后判定)-->
+  <section th:if="${progress.isCustom()}" class="paper-card p-5 sm:p-8 mb-6"
+           th:with="st=${progress.paceStatus},
+                    col=${st == 'BEHIND'} ? 'var(--rust)' : (${st == 'AHEAD' or st == 'ACHIEVED'} ? 'var(--forest)' : 'var(--brass-deep)')">
+    <div class="flex items-center gap-2 mb-3 flex-wrap">
+      <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">CUSTOM · 自定义追踪</span>
+      <span class="pill text-[9px]" th:text="${progress.metric != null} ? ${progress.metric.label()} : '金额合计'">金额合计</span>
+      <span class="pill text-[9px]" th:text="${progress.accountCount == 0} ? '全家口径' : ('绑定 ' + ${progress.accountCount} + ' 账户')">全家口径</span>
+      <span class="pill text-[9px]" th:switch="${st}" th:style="'color:' + ${col} + ';border-color:' + ${col}">
+        <span th:case="'BEHIND'">进度落后</span><span th:case="'AHEAD'">进度良好</span>
+        <span th:case="'ACHIEVED'">已达成</span><span th:case="'ON_TRACK'">追踪中</span>
+        <span th:case="*">追踪中</span>
+      </span>
+    </div>
+    <h1 class="font-display text-3xl sm:text-4xl font-medium tracking-tight mb-4 break-words" th:text="${goal.name}">今年现金冲刺</h1>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 mb-4">
+      <div>
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">当前 / 目标</div>
+        <div class="font-display text-2xl sm:text-3xl tnum" data-priv
+             th:text="${progress.isRate()} ? (${progress.pv} + '% / ' + ${progress.target} + '%') : ('¥' + ${#numbers.formatInteger(progress.pv,0,'COMMA')} + ' / ¥' + (${progress.target != null} ? ${#numbers.formatInteger(progress.target,0,'COMMA')} : '—'))">—</div>
+      </div>
+      <div>
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">达标率</div>
+        <div class="font-display text-2xl sm:text-3xl tnum" th:style="'color:' + ${col}" th:text="${progress.progressPct} + '%'">75%</div>
+      </div>
+      <div th:if="${progress.daysLeft != null}">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">倒计时</div>
+        <div class="font-display text-xl sm:text-2xl tnum" th:text="${progress.daysLeft} + ' 天'">145 天</div>
+      </div>
+      <div th:if="${progress.timePctInt() != null}">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">时间已过</div>
+        <div class="font-display text-xl sm:text-2xl tnum" th:text="${progress.timePctInt()} + '%'">60%</div>
+      </div>
+    </div>
+    <div class="w-full bg-rule-soft h-2.5 rounded-full overflow-hidden mb-1">
+      <div class="h-2.5 rounded-full" th:style="'background:' + ${col} + ';width:' + (${progress.progressPct} > 100 ? 100 : ${progress.progressPct}) + '%'"></div>
+    </div>
+    <p class="text-sm mt-3" th:switch="${st}" th:style="'color:' + ${col}">
+      <span th:case="'BEHIND'">达标率落后时间进度,按当前节奏偏慢,需加把劲。</span>
+      <span th:case="'AHEAD'">达标率领先时间进度,进度良好。</span>
+      <span th:case="'ACHIEVED'">已达成目标。</span>
+      <span th:case="*" class="text-ink-soft" th:text="${progress.isRate()} ? '收益率型 · 仅倒计时,不做时间落后判定(累计非线性)。' : '长期追踪,不设期限。'">追踪中</span>
+    </p>
+  </section>
+
+  <!-- 顶部目标卡(预设三类)-->
+  <section th:unless="${progress.isCustom()}" class="paper-card p-5 sm:p-8 mb-6">
     <div class="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 lg:gap-6 items-start">
       <div>
         <div class="flex items-center gap-3 mb-3">
@@ -65,8 +110,8 @@
     </div>
   </section>
 
-  <!-- 三情景大图 -->
-  <section class="paper-card p-5 sm:p-8 mb-6">
+  <!-- 三情景大图(预设三类;CUSTOM 无三情景)-->
+  <section th:unless="${progress.isCustom()}" class="paper-card p-5 sm:p-8 mb-6">
     <div class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-3 mb-6">
       <div>
         <div class="eyebrow mb-1">三 · 情 · 景 · 预 · 测</div>
@@ -122,7 +167,7 @@
   </section>
 
   <!-- v0.3 FR-53b · AI 月报 · v0.5.4 加锚点 id=ai-report(dashboard 目标条带「AI 阅读总结」直达)+ 重新生成 -->
-  <section id="ai-report" class="paper-card mb-6 overflow-hidden" style="border-left:4px solid var(--brass-deep);scroll-margin-top:80px">
+  <section th:unless="${progress.isCustom()}" id="ai-report" class="paper-card mb-6 overflow-hidden" style="border-left:4px solid var(--brass-deep);scroll-margin-top:80px">
     <details th:open="${aiMonthlyReport != null}">
       <summary class="px-6 py-4 flex items-center gap-3 cursor-pointer hover:bg-card-soft list-none border-b border-rule-soft">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep);flex-shrink:0">
@@ -169,7 +214,7 @@
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 
-<script th:inline="javascript">
+<script th:inline="javascript" th:if="${!progress.isCustom()}">
   /*<![CDATA[*/
   const opt   = /*[[${progress.scenarios.optimisticPath}]]*/  [];
   const neu   = /*[[${progress.scenarios.neutralPath}]]*/     [];

@@ -15,12 +15,12 @@
     <div class="eyebrow mb-2">新 · 建 · 目 · 标</div>
     <h1 class="font-display text-4xl md:text-5xl font-medium tracking-tight">你的家庭朝哪儿走?</h1>
     <p class="font-serif text-base text-ink-soft mt-3 max-w-2xl">
-      3 类长期目标 · 每类都是独立模块,计算公式 / 输入表单 / 进度可视化都不一样。
-      建议从最紧迫的一类开始。
+      3 类长期预设(退休 / 教育 / 应急)各有专属推导与三情景;第 4 类「自定义追踪」最灵活——
+      绑账户、选指标、定目标、设期限。建议从最紧迫的一类开始。
     </p>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-px bg-rule mb-8">
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-rule mb-8">
     <a th:href="@{/goals/new/retirement}" class="bg-card p-8 hover:bg-card-soft no-underline transition group block">
       <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-3">RETIREMENT · 退 · 休 · FIRE</div>
       <h2 class="font-display text-3xl font-medium tracking-tight mb-3 group-hover:text-brass-deep transition">退休 / 自由生活</h2>
@@ -46,6 +46,15 @@
         N 个月生活开支 · 系统从过去 3 期 total_expense 自动算基线 · 进度仅算 CASH 类账户。
       </p>
       <div class="mt-6 font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-forest transition">→ 进入向导</div>
+    </a>
+
+    <a th:href="@{/goals/new/custom}" class="bg-card-soft p-8 hover:bg-card no-underline transition group block" style="outline:1px solid var(--brass-deep);outline-offset:-1px">
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-3">CUSTOM · 自 · 定 · 义 · 追 · 踪</div>
+      <h2 class="font-display text-3xl font-medium tracking-tight mb-3 group-hover:text-brass-deep transition">自定义追踪目标</h2>
+      <p class="text-sm text-ink-soft mb-4 leading-relaxed">
+        绑 0–多个账户 + 选追踪指标(金额 / 收益率)+ 目标值 + 时间范围。如「1 年内现金到 20 万」「某 3 账户年化到 20%」。
+      </p>
+      <div class="mt-6 font-mono text-[11px] tracking-[0.16em] uppercase text-ink-subtle group-hover:text-brass-deep transition">→ 进入向导</div>
     </a>
   </div>
 
