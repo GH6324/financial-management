@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  v0.16 · 目标紧凑条 fragment · 列表页与 Dashboard 条带共用。
+  一行 = 状态点 + 名 + 达标% + 迷你进度条 + 一行元信息(倒计时/中性年份/长期 + 良好/落后)。
+  只显百分比与状态,不露金额;CUSTOM 与预设三类都安全(不碰 scenarios)。
+-->
+<body>
+<a th:fragment="bar(gp)" th:href="@{|/goals/${gp.goal.id}|}"
+   th:with="st=${gp.paceStatus},
+            col=${gp.targetReached()} ? 'var(--forest)' : (${st == 'BEHIND'} ? 'var(--rust)' : (${st == 'AHEAD'} ? 'var(--forest)' : 'var(--brass-deep)')),
+            pctCap=${gp.progressPct > 100 ? 100 : gp.progressPct}"
+   class="paper-card no-underline block px-3 py-2.5 mb-1.5 hover:bg-card-soft transition">
+  <div class="flex items-center gap-2">
+    <span th:style="'width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block;background:' + ${col}"></span>
+    <b class="text-sm flex-1 text-ink" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" th:text="${gp.goal.name}">目标名</b>
+    <span class="font-mono text-sm tnum" th:style="'color:' + ${col}" th:text="${gp.progressPct} + '%'">75%</span>
+  </div>
+  <div class="w-full bg-rule-soft rounded-full overflow-hidden mt-1.5" style="height:6px">
+    <div class="rounded-full" th:style="'height:6px;background:' + ${col} + ';width:' + ${pctCap} + '%'"></div>
+  </div>
+  <div class="font-mono text-[10px] text-ink-subtle mt-1 flex items-center gap-2 flex-wrap">
+    <span th:if="${gp.isCustom() and gp.daysLeft != null}" th:text="'还剩 ' + ${gp.daysLeft} + ' 天'">还剩 145 天</span>
+    <span th:if="${gp.isCustom()}" th:text="${gp.metric != null} ? ${gp.metric.label()} : '金额合计'">金额合计</span>
+    <span th:unless="${gp.isCustom()}" th:text="${gp.neutralDate != null} ? ('中性达成 · ' + ${#temporals.format(gp.neutralDate, 'yyyy')}) : '长期'">长期</span>
+    <span th:if="${st == 'BEHIND'}" style="color:var(--rust)">· 落后</span>
+    <span th:if="${st == 'AHEAD'}" style="color:var(--forest)">· 良好</span>
+  </div>
+</a>
+</body>
+</html>

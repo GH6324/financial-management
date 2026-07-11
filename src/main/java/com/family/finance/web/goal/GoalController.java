@@ -69,7 +69,9 @@ public class GoalController {
 
     @GetMapping("/goals")
     public String list(@AuthenticationPrincipal MemberPrincipal me, Model model) {
-        List<GoalProgress> goals = progressService.computeAll(me.getFamilyId());
+        List<GoalProgress> goals = new java.util.ArrayList<>(progressService.computeAll(me.getFamilyId()));
+        // FR-16-9 · 截止型按剩余天数升序在前(临期在前),长期型(daysLeft=null)在后
+        goals.sort(java.util.Comparator.comparing(g -> g.daysLeft() == null ? Long.MAX_VALUE : g.daysLeft()));
         model.addAttribute("nav", navService.load(me));
         model.addAttribute("goals", goals);
         return "goals/index";
