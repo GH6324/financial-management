@@ -31,10 +31,123 @@
 
   <!-- 选券商 -->
   <div class="flex flex-wrap gap-3 mb-8">
+    <a href="#futu" class="btn-ink no-underline">富途 Futu 怎么配 ↓</a>
     <a href="#tiger" class="btn-paper no-underline">老虎 Tiger 怎么配 ↓</a>
-    <a href="#futu" class="btn-paper no-underline">富途 Futu 怎么配 ↓</a>
     <span class="ml-auto font-mono text-[10px] text-ink-subtle self-center">配完回 <a th:href="@{/admin/integrations}" class="underline hover:text-ink">管理 → 数据源接入 → ⑥ 券商同步</a> 填写</span>
   </div>
+
+  <!-- ============ 富途 ============ -->
+  <section id="futu" class="mb-12 scroll-mt-24">
+    <div class="flex items-center gap-2 mb-4">
+      <span class="pill" style="background:rgba(180,138,58,.12);color:var(--brass-deep);border-color:var(--brass-deep)">富途 Futu</span>
+      <span class="font-mono text-[10px] text-ink-subtle">主推 · 一键安装向导全自动托管 OpenD(手动部署为进阶)</span>
+    </div>
+
+
+    <!-- 置顶主推:一键安装 / 托管 OpenD -->
+    <div class="paper-card p-5 mb-5" style="border-left:4px solid var(--forest)">
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-2">主 · 推 · 一 · 键 · 安 · 装</div>
+      <p class="text-sm text-ink-soft mb-3">富途要经 <b class="text-ink">OpenD 网关</b>,但<b class="text-ink">不用你手动装</b> —— 用应用内向导,系统帮你<b class="text-ink">下载、启动、守护</b> OpenD,短信验证码也在页面里填,全程点鼠标;完成后连接参数自动回填,直接去账户页点「关联」即可。</p>
+      <a th:href="@{/admin/broker/opend}" class="btn-ink no-underline inline-flex items-center gap-1.5">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>打开一键安装 / 托管 OpenD 向导</a>
+      <p class="font-mono text-[10px] text-ink-subtle mt-2">前置只有一件:先在富途牛牛 App / 网页完成一次「问卷 + 协议确认」(账号级,任何程序替不了)。</p>
+    </div>
+    <div class="paper-card p-4 mb-5 bg-card-soft">
+      <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">开始前</div>
+      <p class="text-sm text-ink-soft">你得有<b class="text-ink">富途牛牛账户</b>并开通了对应市场权限。富途的机制是:官方给一个叫 <b class="text-ink">FutuOpenD</b> 的小网关程序,你在自己电脑上运行它、用富途账号登录;我们的系统连这个本地网关来<b class="text-ink">只读</b>取数据。<b class="text-ink">网关关掉就同步不了</b>,所以最好放在一台常开的电脑 / 服务器上。</p>
+    </div>
+
+    <div class="font-mono text-[10px] uppercase text-ink-subtle mb-2">手动方案(进阶 · 不用向导时才需要)</div>
+    <ol class="space-y-4">
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">1</span>
+          <div>
+            <div class="font-display text-lg mb-1">下载 FutuOpenD 网关</div>
+            <p class="text-sm text-ink-soft">到富途 OpenAPI 下载页,下载 <b class="text-ink">FutuOpenD</b>。有「可视化(带界面)」和「命令行」两种 —— <b class="text-ink">入门选可视化版</b>更省事。支持 Windows / Mac / Linux。</p>
+            <a href="https://www.futunn.com/download/openAPI" target="_blank" rel="noopener" class="inline-flex items-center gap-1 font-mono text-xs text-brass-deep underline mt-2">futunn.com/download/openAPI
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+          </div>
+        </div>
+      </li>
+
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">2</span>
+          <div class="w-full">
+            <div class="font-display text-lg mb-1">运行 OpenD,用富途账号登录</div>
+            <p class="text-sm text-ink-soft mb-3">打开 FutuOpenD,输入富途<b class="text-ink">账号 + 登录密码</b>登录。首次登录可能要完成一次问卷 + 协议确认。登录成功后界面大致这样:</p>
+            <!-- 示意图:FutuOpenD 界面 -->
+            <svg viewBox="0 0 560 230" class="w-full max-w-xl border border-rule" style="background:var(--paper)" role="img" aria-label="FutuOpenD 界面示意图">
+              <rect x="0" y="0" width="560" height="28" fill="#efe9dd"/>
+              <circle cx="16" cy="14" r="4" fill="#c98"/><circle cx="30" cy="14" r="4" fill="#cc9"/><circle cx="44" cy="14" r="4" fill="#9c9"/>
+              <text x="70" y="18" font-family="monospace" font-size="10" fill="#8a7a5a">FutuOpenD</text>
+              <text x="24" y="60" font-family="monospace" font-size="12" fill="#2a2620">账号</text>
+              <rect x="90" y="46" width="200" height="22" fill="#faf7f1" stroke="#d8cdb8"/><text x="100" y="61" font-family="monospace" font-size="12" fill="#2a2620">你的富途账号</text>
+              <text x="24" y="92" font-family="monospace" font-size="12" fill="#2a2620">密码</text>
+              <rect x="90" y="78" width="200" height="22" fill="#faf7f1" stroke="#d8cdb8"/><text x="100" y="93" font-family="monospace" font-size="12" fill="#2a2620">••••••••</text>
+              <rect x="90" y="112" width="90" height="28" rx="2" fill="#2f5d50"/><text x="108" y="131" font-family="monospace" font-size="12" fill="#f4efe6">登录</text>
+              <line x1="24" y1="156" x2="536" y2="156" stroke="#e3dccb"/>
+              <text x="24" y="180" font-family="monospace" font-size="12" fill="#2f5d50">● 状态:已登录</text>
+              <text x="24" y="205" font-family="monospace" font-size="13" fill="#2a2620">监听地址  127.0.0.1 : 11111</text>
+              <text x="330" y="205" font-family="monospace" font-size="11" fill="#9f4a3a">← 这两个填到我们这</text>
+            </svg>
+          </div>
+        </div>
+      </li>
+
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">3</span>
+          <div class="w-full">
+            <div class="font-display text-lg mb-1">记下网关的「地址」和「端口」</div>
+            <p class="text-sm text-ink-soft mb-3">OpenD 界面上会显示监听地址,默认就是 <span class="font-mono">127.0.0.1</span> 和端口 <span class="font-mono">11111</span>。到「管理 → 数据源接入 → ⑥ 券商同步」的<b class="text-ink">富途 Futu</b>栏填:</p>
+            <div class="overflow-hidden border border-rule rounded-sm">
+              <table class="w-full text-sm">
+                <tr class="bg-card-soft"><td class="p-2 font-mono text-[11px] text-ink-subtle border-b border-rule">我们的输入框</td><td class="p-2 font-mono text-[11px] text-ink-subtle border-b border-rule">填什么</td></tr>
+                <tr><td class="p-2 border-b border-rule-soft">FutuOpenD 地址</td><td class="p-2 border-b border-rule-soft">OpenD 和本系统<b class="text-ink">在同一台机器</b>就填 <span class="font-mono">127.0.0.1</span>;在别的机器就填那台机器的内网 IP</td></tr>
+                <tr><td class="p-2">OpenD 端口</td><td class="p-2"><span class="font-mono">11111</span>(除非你在 OpenD 里改过)</td></tr>
+              </table>
+            </div>
+            <p class="text-sm text-ink-soft mt-3">保存后点<b class="text-ink">「测试富途连接」</b>验证。之后到证券账户「持仓 → 券商自动同步」点关联即可。</p>
+          </div>
+        </div>
+      </li>
+    </ol>
+
+    <div class="paper-card p-4 mt-5 bg-card-soft" style="border-left:4px solid var(--brass-deep)">
+      <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">两个提醒</div>
+      <ul class="text-sm text-ink-soft space-y-1">
+        <li>· <b class="text-ink">查持仓 / 现金不需要「解锁交易」</b>:解锁交易只在下单时才用,我们永远不下单,所以不用输交易密码。</li>
+        <li>· OpenD 若装在<b class="text-ink">云服务器</b>,别把监听地址设成 0.0.0.0 直接开公网端口 —— 用内网 / SSH 隧道更安全。</li>
+      </ul>
+    </div>
+
+    <!-- OpenD 部署到哪(自托管在服务器时) -->
+    <div class="paper-card p-5 mt-5">
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-2">进 · 阶 · O · p · e · n · D · 手 · 动 · 部 · 署</div>
+      <p class="text-sm text-ink-soft mb-3">富途<b class="text-ink">没有</b>「拿 key 直连的云端 API」—— SDK 只能连 OpenD 网关。所以 OpenD 必须<b class="text-ink">一直开着、且本系统能通过 host:port 连到它</b>。<b class="text-ink">主推用顶部的一键安装向导</b>(等价于拓扑 A);以下手动三拓扑供进阶 / 特殊部署形态参考:</p>
+      <!-- 链路示意 -->
+      <svg viewBox="0 0 560 70" class="w-full max-w-lg mb-3" role="img" aria-label="富途链路示意">
+        <rect x="6" y="22" width="120" height="30" rx="3" fill="#faf7f1" stroke="#d8cdb8"/><text x="66" y="42" font-family="monospace" font-size="11" fill="#2a2620" text-anchor="middle">本系统 app</text>
+        <line x1="126" y1="37" x2="200" y2="37" stroke="#8a7a5a" stroke-width="1.5"/><polygon points="200,33 208,37 200,41" fill="#8a7a5a"/><text x="163" y="30" font-family="monospace" font-size="9" fill="#8a7a5a" text-anchor="middle">TCP host:port</text>
+        <rect x="210" y="22" width="130" height="30" rx="3" fill="#f0ead9" stroke="#c79338"/><text x="275" y="42" font-family="monospace" font-size="11" fill="#7a5a39" text-anchor="middle">FutuOpenD 网关</text>
+        <line x1="340" y1="37" x2="414" y2="37" stroke="#8a7a5a" stroke-width="1.5"/><polygon points="414,33 422,37 414,41" fill="#8a7a5a"/>
+        <rect x="424" y="22" width="130" height="30" rx="3" fill="#faf7f1" stroke="#d8cdb8"/><text x="489" y="42" font-family="monospace" font-size="11" fill="#2a2620" text-anchor="middle">富途服务器</text>
+      </svg>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+        <div class="paper-card p-3 bg-card-soft"><b class="text-ink">A · 与 app 同机</b><p class="text-ink-soft mt-1">systemd 部署首选。同机常驻命令行 OpenD,填 <span class="font-mono">127.0.0.1:11111</span>。用模板 <span class="font-mono text-[11px]">deploy/futu-opend.service.example</span>。</p></div>
+        <div class="paper-card p-3 bg-card-soft"><b class="text-ink">B · docker sidecar</b><p class="text-ink-soft mt-1">compose 部署时合并 <span class="font-mono text-[11px]">deploy/futu-opend.compose.yml</span>,填服务名 <span class="font-mono">opend:11111</span>(需自备 OpenD 镜像)。</p></div>
+        <div class="paper-card p-3 bg-card-soft"><b class="text-ink">C · 家用机 + 隧道</b><p class="text-ink-soft mt-1">不想在云机放登录态:OpenD 跑家里,SSH 反向隧道 <span class="font-mono text-[11px]">-R 11111:127.0.0.1:11111</span> 到 prod。</p></div>
+      </div>
+      <p class="text-sm text-ink-soft mt-3">⚠️ 三种都要先在<b class="text-ink">有桌面的机器</b>用可视化版 OpenD 登录一次、过掉<b class="text-ink">首次问卷 + 协议确认</b>,之后 headless 才能用。详见仓库文档 <span class="font-mono text-[11px]">docs/broker-sync-guide.md</span>。</p>
+    </div>
+
+    <p class="font-mono text-[10px] text-ink-subtle mt-4">官方参考:
+      <a href="https://openapi.futunn.com/futu-api-doc/intro/intro.html" target="_blank" rel="noopener" class="underline hover:text-ink">OpenAPI 文档</a> ·
+      <a href="https://openapi.futunn.com/futu-api-doc/qa/opend.html" target="_blank" rel="noopener" class="underline hover:text-ink">OpenD 常见问题</a>
+    </p>
+  </section>
 
   <!-- ============ 老虎 ============ -->
   <section id="tiger" class="mb-12 scroll-mt-24">
@@ -130,115 +243,6 @@
     <p class="font-mono text-[10px] text-ink-subtle mt-4">官方参考:
       <a href="https://quant.itigerup.com/openapi/zh/python/quickStart/prepare.html" target="_blank" rel="noopener" class="underline hover:text-ink">准备工作(含截图)</a> ·
       <a href="https://docs.itigerup.com/" target="_blank" rel="noopener" class="underline hover:text-ink">API 文档</a>
-    </p>
-  </section>
-
-  <!-- ============ 富途 ============ -->
-  <section id="futu" class="mb-12 scroll-mt-24">
-    <div class="flex items-center gap-2 mb-4">
-      <span class="pill" style="background:rgba(180,138,58,.12);color:var(--brass-deep);border-color:var(--brass-deep)">富途 Futu</span>
-      <span class="font-mono text-[10px] text-ink-subtle">需在电脑 / 服务器上常驻一个「OpenD」网关程序</span>
-    </div>
-
-    <div class="paper-card p-4 mb-5 bg-card-soft">
-      <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">开始前</div>
-      <p class="text-sm text-ink-soft">你得有<b class="text-ink">富途牛牛账户</b>并开通了对应市场权限。富途的机制是:官方给一个叫 <b class="text-ink">FutuOpenD</b> 的小网关程序,你在自己电脑上运行它、用富途账号登录;我们的系统连这个本地网关来<b class="text-ink">只读</b>取数据。<b class="text-ink">网关关掉就同步不了</b>,所以最好放在一台常开的电脑 / 服务器上。</p>
-    </div>
-
-    <ol class="space-y-4">
-      <li class="paper-card p-5">
-        <div class="flex items-start gap-3">
-          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">1</span>
-          <div>
-            <div class="font-display text-lg mb-1">下载 FutuOpenD 网关</div>
-            <p class="text-sm text-ink-soft">到富途 OpenAPI 下载页,下载 <b class="text-ink">FutuOpenD</b>。有「可视化(带界面)」和「命令行」两种 —— <b class="text-ink">入门选可视化版</b>更省事。支持 Windows / Mac / Linux。</p>
-            <a href="https://www.futunn.com/download/openAPI" target="_blank" rel="noopener" class="inline-flex items-center gap-1 font-mono text-xs text-brass-deep underline mt-2">futunn.com/download/openAPI
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
-          </div>
-        </div>
-      </li>
-
-      <li class="paper-card p-5">
-        <div class="flex items-start gap-3">
-          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">2</span>
-          <div class="w-full">
-            <div class="font-display text-lg mb-1">运行 OpenD,用富途账号登录</div>
-            <p class="text-sm text-ink-soft mb-3">打开 FutuOpenD,输入富途<b class="text-ink">账号 + 登录密码</b>登录。首次登录可能要完成一次问卷 + 协议确认。登录成功后界面大致这样:</p>
-            <!-- 示意图:FutuOpenD 界面 -->
-            <svg viewBox="0 0 560 230" class="w-full max-w-xl border border-rule" style="background:var(--paper)" role="img" aria-label="FutuOpenD 界面示意图">
-              <rect x="0" y="0" width="560" height="28" fill="#efe9dd"/>
-              <circle cx="16" cy="14" r="4" fill="#c98"/><circle cx="30" cy="14" r="4" fill="#cc9"/><circle cx="44" cy="14" r="4" fill="#9c9"/>
-              <text x="70" y="18" font-family="monospace" font-size="10" fill="#8a7a5a">FutuOpenD</text>
-              <text x="24" y="60" font-family="monospace" font-size="12" fill="#2a2620">账号</text>
-              <rect x="90" y="46" width="200" height="22" fill="#faf7f1" stroke="#d8cdb8"/><text x="100" y="61" font-family="monospace" font-size="12" fill="#2a2620">你的富途账号</text>
-              <text x="24" y="92" font-family="monospace" font-size="12" fill="#2a2620">密码</text>
-              <rect x="90" y="78" width="200" height="22" fill="#faf7f1" stroke="#d8cdb8"/><text x="100" y="93" font-family="monospace" font-size="12" fill="#2a2620">••••••••</text>
-              <rect x="90" y="112" width="90" height="28" rx="2" fill="#2f5d50"/><text x="108" y="131" font-family="monospace" font-size="12" fill="#f4efe6">登录</text>
-              <line x1="24" y1="156" x2="536" y2="156" stroke="#e3dccb"/>
-              <text x="24" y="180" font-family="monospace" font-size="12" fill="#2f5d50">● 状态:已登录</text>
-              <text x="24" y="205" font-family="monospace" font-size="13" fill="#2a2620">监听地址  127.0.0.1 : 11111</text>
-              <text x="330" y="205" font-family="monospace" font-size="11" fill="#9f4a3a">← 这两个填到我们这</text>
-            </svg>
-          </div>
-        </div>
-      </li>
-
-      <li class="paper-card p-5">
-        <div class="flex items-start gap-3">
-          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">3</span>
-          <div class="w-full">
-            <div class="font-display text-lg mb-1">记下网关的「地址」和「端口」</div>
-            <p class="text-sm text-ink-soft mb-3">OpenD 界面上会显示监听地址,默认就是 <span class="font-mono">127.0.0.1</span> 和端口 <span class="font-mono">11111</span>。到「管理 → 数据源接入 → ⑥ 券商同步」的<b class="text-ink">富途 Futu</b>栏填:</p>
-            <div class="overflow-hidden border border-rule rounded-sm">
-              <table class="w-full text-sm">
-                <tr class="bg-card-soft"><td class="p-2 font-mono text-[11px] text-ink-subtle border-b border-rule">我们的输入框</td><td class="p-2 font-mono text-[11px] text-ink-subtle border-b border-rule">填什么</td></tr>
-                <tr><td class="p-2 border-b border-rule-soft">FutuOpenD 地址</td><td class="p-2 border-b border-rule-soft">OpenD 和本系统<b class="text-ink">在同一台机器</b>就填 <span class="font-mono">127.0.0.1</span>;在别的机器就填那台机器的内网 IP</td></tr>
-                <tr><td class="p-2">OpenD 端口</td><td class="p-2"><span class="font-mono">11111</span>(除非你在 OpenD 里改过)</td></tr>
-              </table>
-            </div>
-            <p class="text-sm text-ink-soft mt-3">保存后点<b class="text-ink">「测试富途连接」</b>验证。之后到证券账户「持仓 → 券商自动同步」点关联即可。</p>
-          </div>
-        </div>
-      </li>
-    </ol>
-
-    <div class="paper-card p-4 mt-5 bg-card-soft" style="border-left:4px solid var(--brass-deep)">
-      <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">两个提醒</div>
-      <ul class="text-sm text-ink-soft space-y-1">
-        <li>· <b class="text-ink">查持仓 / 现金不需要「解锁交易」</b>:解锁交易只在下单时才用,我们永远不下单,所以不用输交易密码。</li>
-        <li>· OpenD 若装在<b class="text-ink">云服务器</b>,别把监听地址设成 0.0.0.0 直接开公网端口 —— 用内网 / SSH 隧道更安全。</li>
-      </ul>
-    </div>
-
-    <!-- OpenD 部署到哪(自托管在服务器时) -->
-    <div class="paper-card p-5 mt-5">
-      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-2">O · p · e · n · D · 部 · 署 · 到 · 哪</div>
-      <p class="text-sm text-ink-soft mb-3">富途<b class="text-ink">没有</b>「拿 key 直连的云端 API」—— SDK 只能连 OpenD 网关。所以 OpenD 必须<b class="text-ink">一直开着、且本系统能通过 host:port 连到它</b>。按你的部署形态三选一(<b class="text-ink">嫌麻烦就先用老虎,它直连、零网关</b>):</p>
-      <div class="paper-card p-3 mb-3 bg-card-soft" style="border-left:4px solid var(--forest)">
-        <a th:href="@{/admin/broker/opend}" class="inline-flex items-center gap-1 text-sm text-forest underline hover:text-ink no-underline">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          <b>最省事:用应用内「一键安装 / 托管 OpenD 向导」</b> —— 系统帮你下载 / 启动 / 守护,点几下就好 →</a>
-        <p class="font-mono text-[10px] text-ink-subtle mt-1">(适用「与 app 同机」;下面三种是手动方案,供进阶 / 特殊拓扑参考)</p>
-      </div>
-      <!-- 链路示意 -->
-      <svg viewBox="0 0 560 70" class="w-full max-w-lg mb-3" role="img" aria-label="富途链路示意">
-        <rect x="6" y="22" width="120" height="30" rx="3" fill="#faf7f1" stroke="#d8cdb8"/><text x="66" y="42" font-family="monospace" font-size="11" fill="#2a2620" text-anchor="middle">本系统 app</text>
-        <line x1="126" y1="37" x2="200" y2="37" stroke="#8a7a5a" stroke-width="1.5"/><polygon points="200,33 208,37 200,41" fill="#8a7a5a"/><text x="163" y="30" font-family="monospace" font-size="9" fill="#8a7a5a" text-anchor="middle">TCP host:port</text>
-        <rect x="210" y="22" width="130" height="30" rx="3" fill="#f0ead9" stroke="#c79338"/><text x="275" y="42" font-family="monospace" font-size="11" fill="#7a5a39" text-anchor="middle">FutuOpenD 网关</text>
-        <line x1="340" y1="37" x2="414" y2="37" stroke="#8a7a5a" stroke-width="1.5"/><polygon points="414,33 422,37 414,41" fill="#8a7a5a"/>
-        <rect x="424" y="22" width="130" height="30" rx="3" fill="#faf7f1" stroke="#d8cdb8"/><text x="489" y="42" font-family="monospace" font-size="11" fill="#2a2620" text-anchor="middle">富途服务器</text>
-      </svg>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-        <div class="paper-card p-3 bg-card-soft"><b class="text-ink">A · 与 app 同机</b><p class="text-ink-soft mt-1">systemd 部署首选。同机常驻命令行 OpenD,填 <span class="font-mono">127.0.0.1:11111</span>。用模板 <span class="font-mono text-[11px]">deploy/futu-opend.service.example</span>。</p></div>
-        <div class="paper-card p-3 bg-card-soft"><b class="text-ink">B · docker sidecar</b><p class="text-ink-soft mt-1">compose 部署时合并 <span class="font-mono text-[11px]">deploy/futu-opend.compose.yml</span>,填服务名 <span class="font-mono">opend:11111</span>(需自备 OpenD 镜像)。</p></div>
-        <div class="paper-card p-3 bg-card-soft"><b class="text-ink">C · 家用机 + 隧道</b><p class="text-ink-soft mt-1">不想在云机放登录态:OpenD 跑家里,SSH 反向隧道 <span class="font-mono text-[11px]">-R 11111:127.0.0.1:11111</span> 到 prod。</p></div>
-      </div>
-      <p class="text-sm text-ink-soft mt-3">⚠️ 三种都要先在<b class="text-ink">有桌面的机器</b>用可视化版 OpenD 登录一次、过掉<b class="text-ink">首次问卷 + 协议确认</b>,之后 headless 才能用。详见仓库文档 <span class="font-mono text-[11px]">docs/broker-sync-guide.md</span>。</p>
-    </div>
-
-    <p class="font-mono text-[10px] text-ink-subtle mt-4">官方参考:
-      <a href="https://openapi.futunn.com/futu-api-doc/intro/intro.html" target="_blank" rel="noopener" class="underline hover:text-ink">OpenAPI 文档</a> ·
-      <a href="https://openapi.futunn.com/futu-api-doc/qa/opend.html" target="_blank" rel="noopener" class="underline hover:text-ink">OpenD 常见问题</a>
     </p>
   </section>
 
