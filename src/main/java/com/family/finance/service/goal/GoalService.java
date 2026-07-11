@@ -1,8 +1,12 @@
 package com.family.finance.service.goal;
 
 import com.family.finance.domain.goal.Goal;
+import com.family.finance.domain.goal.GoalComparator;
+import com.family.finance.domain.goal.GoalMetric;
 import com.family.finance.domain.goal.GoalParams;
 import com.family.finance.domain.goal.GoalType;
+import com.family.finance.domain.goal.TimeMode;
+import com.family.finance.repository.GoalAccountMapper;
 import com.family.finance.repository.GoalMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,6 +40,7 @@ public class GoalService {
     private final GoalMapper goalMapper;
     private final ObjectMapper objectMapper;
     private final com.family.finance.repository.PeriodMemberCashflowMapper periodMemberCashflowMapper; // v0.5 FR-82
+    private final GoalAccountMapper goalAccountMapper; // v0.16 · 自定义目标绑定账户
 
     // ---------- v0.5 FR-82 · FIRE 月支出自动派生 ----------
 
@@ -203,6 +208,54 @@ public class GoalService {
     @Transactional
     public void restore(long familyId, long goalId) {
         goalMapper.restore(familyId, goalId);
+    }
+
+    // ---------- v0.16 · 自定义追踪目标(CUSTOM)----------
+
+    @Transactional
+    public Goal createCustom(long familyId, String name, GoalMetric metric, GoalComparator cmp,
+                             BigDecimal targetValue, TimeMode timeMode, LocalDate targetDate, List<Long> accountIds) {
+        Goal goal = Goal.builder()
+            .familyId(familyId)
+            .goalType(GoalType.CUSTOM)
+            .name(name == null || name.isBlank() ? defaultName(GoalType.CUSTOM) : name.trim())
+            .metric(metric == null ? GoalMetric.AMOUNT_TOTAL : metric)
+            .comparator(cmp == null ? GoalComparator.GTE : cmp)
+            .targetValue(targetValue)
+            .timeMode(timeMode == null ? TimeMode.OPEN : timeMode)
+            .targetDate(timeMode == TimeMode.DEADLINE ? targetDate : null)
+            .paramsJson("{}")
+            .build();
+        goalMapper.insert(goal);
+        rebindAccounts(goal.getId(), accountIds);
+        return goal;
+    }
+
+    @Transactional
+    public void updateCustom(long familyId, long goalId, String name, GoalMetric metric, GoalComparator cmp,
+                             BigDecimal targetValue, TimeMode timeMode, LocalDate targetDate, List<Long> accountIds) {
+        Goal goal = require(familyId, goalId);
+        goal.setName(name == null || name.isBlank() ? defaultName(GoalType.CUSTOM) : name.trim());
+        goal.setMetric(metric == null ? GoalMetric.AMOUNT_TOTAL : metric);
+        goal.setComparator(cmp == null ? GoalComparator.GTE : cmp);
+        goal.setTargetValue(targetValue);
+        goal.setTimeMode(timeMode == null ? TimeMode.OPEN : timeMode);
+        goal.setTargetDate(timeMode == TimeMode.DEADLINE ? targetDate : null);
+        if (goal.getParamsJson() == null || goal.getParamsJson().isBlank()) goal.setParamsJson("{}");
+        goalMapper.update(goal);
+        rebindAccounts(goalId, accountIds);
+    }
+
+    /** 清并重绑账户(0..N;去重、跳过 null)。 */
+    private void rebindAccounts(long goalId, List<Long> accountIds) {
+        goalAccountMapper.clear(goalId);
+        if (accountIds == null) return;
+        for (Long a : accountIds) if (a != null) goalAccountMapper.bind(goalId, a);
+    }
+
+    /** 目标已绑定账户 id(供编辑回显)。 */
+    public List<Long> boundAccountIds(long goalId) {
+        return goalAccountMapper.findAccountIds(goalId);
     }
 
     // ---------- 参数校验 ----------

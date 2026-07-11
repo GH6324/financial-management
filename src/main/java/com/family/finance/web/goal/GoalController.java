@@ -2,11 +2,18 @@ package com.family.finance.web.goal;
 
 import com.family.finance.auth.MemberPrincipal;
 import com.family.finance.domain.goal.Goal;
+import com.family.finance.domain.goal.GoalComparator;
+import com.family.finance.domain.goal.GoalMetric;
 import com.family.finance.domain.goal.GoalParams;
 import com.family.finance.domain.goal.GoalType;
+import com.family.finance.domain.goal.TimeMode;
 import com.family.finance.domain.member.Member;
+import com.family.finance.repository.AccountMapper;
 import com.family.finance.repository.GoalAiReportMapper;
 import com.family.finance.repository.MemberMapper;
+import org.springframework.format.annotation.DateTimeFormat;
+
+import java.time.LocalDate;
 import com.family.finance.service.NavService;
 import com.family.finance.service.goal.GoalLlmService;
 import com.family.finance.service.goal.GoalProgressService;
@@ -55,6 +62,7 @@ public class GoalController {
     private final GoalReportService goalReportService;
     private final GoalAiReportMapper aiReportMapper;
     private final MemberMapper memberMapper;
+    private final AccountMapper accountMapper;   // v0.16 · 自定义目标账户多选
     private final NavService navService;
 
     // ---------- 列表 ----------
@@ -140,6 +148,63 @@ public class GoalController {
         return "redirect:/goals/" + created.getId();
     }
 
+    // ---------- 自定义追踪目标(CUSTOM · v0.16)----------
+
+    @GetMapping("/goals/new/custom")
+    public String newCustomForm(@AuthenticationPrincipal MemberPrincipal me, Model model) {
+        model.addAttribute("nav", navService.load(me));
+        model.addAttribute("accounts", accountMapper.findActiveByFamily(me.getFamilyId()));
+        model.addAttribute("metrics", GoalMetric.values());
+        model.addAttribute("editing", false);
+        return "goals/new-custom";
+    }
+
+    @PostMapping("/goals/new/custom")
+    public String createCustom(@AuthenticationPrincipal MemberPrincipal me,
+                               @RequestParam(required = false) String name,
+                               @RequestParam String metric,
+                               @RequestParam(required = false) String comparator,
+                               @RequestParam(required = false) BigDecimal targetValue,
+                               @RequestParam(required = false, defaultValue = "OPEN") String timeRange,
+                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate customDate,
+                               @RequestParam(required = false) List<Long> accountIds) {
+        GoalMetric m = GoalMetric.fromOrDefault(metric);
+        GoalComparator c = (comparator == null || comparator.isBlank()) ? m.defaultComparator() : GoalComparator.fromOrDefault(comparator);
+        Goal g = goalService.createCustom(me.getFamilyId(), name, m, c, targetValue,
+            timeModeFor(timeRange), deadlineFor(timeRange, customDate), accountIds);
+        return "redirect:/goals/" + g.getId();
+    }
+
+    @PostMapping("/goals/{id}/edit-custom")
+    public String updateCustom(@AuthenticationPrincipal MemberPrincipal me,
+                               @PathVariable long id,
+                               @RequestParam(required = false) String name,
+                               @RequestParam String metric,
+                               @RequestParam(required = false) String comparator,
+                               @RequestParam(required = false) BigDecimal targetValue,
+                               @RequestParam(required = false, defaultValue = "OPEN") String timeRange,
+                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate customDate,
+                               @RequestParam(required = false) List<Long> accountIds) {
+        GoalMetric m = GoalMetric.fromOrDefault(metric);
+        GoalComparator c = (comparator == null || comparator.isBlank()) ? m.defaultComparator() : GoalComparator.fromOrDefault(comparator);
+        goalService.updateCustom(me.getFamilyId(), id, name, m, c, targetValue,
+            timeModeFor(timeRange), deadlineFor(timeRange, customDate), accountIds);
+        return "redirect:/goals/" + id;
+    }
+
+    private static TimeMode timeModeFor(String timeRange) {
+        return (timeRange == null || "OPEN".equals(timeRange)) ? TimeMode.OPEN : TimeMode.DEADLINE;
+    }
+    private static LocalDate deadlineFor(String timeRange, LocalDate customDate) {
+        return switch (timeRange == null ? "OPEN" : timeRange) {
+            case "ONE_YEAR" -> LocalDate.now().plusYears(1);
+            case "THREE_YEAR" -> LocalDate.now().plusYears(3);
+            case "FIVE_YEAR" -> LocalDate.now().plusYears(5);
+            case "CUSTOM" -> customDate;
+            default -> null;
+        };
+    }
+
     // ---------- 详情 ----------
 
     @GetMapping("/goals/{id}")
@@ -184,6 +249,15 @@ public class GoalController {
                            @PathVariable long id,
                            Model model) {
         Goal goal = goalService.require(me.getFamilyId(), id);
+        if (goal.getGoalType() == GoalType.CUSTOM) {
+            model.addAttribute("nav", navService.load(me));
+            model.addAttribute("goal", goal);
+            model.addAttribute("accounts", accountMapper.findActiveByFamily(me.getFamilyId()));
+            model.addAttribute("metrics", GoalMetric.values());
+            model.addAttribute("boundIds", goalService.boundAccountIds(id));
+            model.addAttribute("editing", true);
+            return "goals/new-custom";
+        }
         GoalParams params = goalService.parseParams(goal);
         model.addAttribute("nav", navService.load(me));
         model.addAttribute("goal", goal);
