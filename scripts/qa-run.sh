@@ -3496,9 +3496,12 @@ BLMAP="$RD/src/main/java/com/family/finance/repository/BrokerLinkMapper.java"
   || log_bad "v15-GRAN 关联颗粒度模型缺件" "see V40/BrokerLink/BrokerLinkMapper/BrokerLinkController/link.html"
 
 # v15-FIX-TX · 关联与首次同步拆两段事务(修 rollback-only:link() 不再嵌套 sync())
-{ grep -q 'public void link(' "$BLNK" && grep -q 'public String initialSync(' "$BLNK" && grep -q 'linkService.initialSync' "$BCTL"; } \
-  && log_ok "v15-FIX-TX 关联 link() 提交后另起事务 initialSync(不再嵌套 sync → 无 rollback-only)" \
-  || log_bad "v15-FIX-TX link() 仍嵌套首次同步(会 rollback-only)" "see BrokerLinkService/BrokerLinkController"
+#            + 关联前快照进 payload_json、summary 防御截断(修 Data too long for 'summary')
+{ grep -q 'public void link(' "$BLNK" && grep -q 'public String initialSync(' "$BLNK" && grep -q 'linkService.initialSync' "$BCTL" \
+  && grep -q 'snapshotRows' "$BLNK" && grep -q 'preLinkHoldings' "$BLNK" \
+  && grep -q 'SUMMARY_MAX' "$RD/src/main/java/com/family/finance/service/AuditLogService.java"; } \
+  && log_ok "v15-FIX-TX 关联 link() 提交后另起事务 initialSync(无 rollback-only)+ 快照进 payload_json、summary≤255 截断(无 Data too long)" \
+  || log_bad "v15-FIX-TX link() 仍嵌套首次同步 / 快照仍塞 summary" "see BrokerLinkService/BrokerLinkController/AuditLogService"
 
 # v15-UX · 二次确认走自建弹窗(无 native confirm)+ 创建证券账户显同步提示
 BLHTML="$RD/src/main/resources/templates/broker/link.html"
