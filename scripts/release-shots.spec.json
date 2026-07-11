@@ -1,16 +1,17 @@
 {
-  "_comment": "每次发版按本次核心能力改这份清单(path 相对 beta 根;name 进文件名;wait 毫秒;full=false 只截视口)",
+  "_comment": "每次发版按本次核心能力改清单(path 相对 beta 根;selector=只截该元素·聚焦功能局部;wait 毫秒;full=false 只截视口)",
   "_version": "v0.15.0 · 券商只读同步(富途/老虎)",
   "pc": [
-    { "path": "/accounts",                "name": "accounts-broker-badge",  "wait": 1500 },
-    { "path": "/accounts/20/broker",      "name": "broker-link",            "wait": 1200 },
-    { "path": "/accounts/20/holdings",    "name": "holdings-synced",        "wait": 2000 },
-    { "path": "/admin/broker/opend",      "name": "opend-terminal",         "wait": 3000, "full": false },
-    { "path": "/help/broker-sync",        "name": "help-guide",             "wait": 1500 }
+    { "path": "/accounts",             "name": "accounts-broker-badge", "wait": 1500, "selector": "table.ledger-table" },
+    { "path": "/accounts/20/broker",   "name": "broker-link",           "wait": 1200, "selector": "section.paper-card:has-text(\"上次同步\")" },
+    { "path": "/accounts/20/holdings", "name": "holdings-synced",       "wait": 2000, "selector": "article:has-text(\"拼多多\")" },
+    { "path": "/accounts/20/holdings", "name": "holdings-cash",         "wait": 2000, "selector": "article:has-text(\"USD 现金\")" },
+    { "path": "/admin/broker/opend",   "name": "opend-terminal",        "wait": 3000, "selector": "section:has(#logTail)" },
+    { "path": "/help/broker-sync",     "name": "help-guide",            "wait": 1500, "selector": "#futu" }
   ],
   "mobile": [
-    { "path": "/accounts",                "name": "accounts",               "wait": 1500, "full": false },
-    { "path": "/accounts/20/holdings",    "name": "holdings-synced",        "wait": 2000, "full": false },
-    { "path": "/admin/broker/opend",      "name": "opend-terminal",         "wait": 3000, "full": false }
+    { "path": "/accounts",             "name": "accounts",              "wait": 1500, "full": false },
+    { "path": "/accounts/20/holdings", "name": "holdings-synced",       "wait": 2000, "selector": "article:has-text(\"拼多多\")" },
+    { "path": "/admin/broker/opend",   "name": "opend-terminal",        "wait": 3000, "selector": "section:has(#logTail)" }
   ]
 }

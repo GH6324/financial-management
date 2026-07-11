@@ -52,7 +52,12 @@ const { chromium } = require(PW);
         await p.goto(BASE + s.path, { waitUntil: 'networkidle' });
         await p.waitForTimeout(s.wait || 1200);   // 图表/字体/轮询首帧
         const f = path.join(outDir, `${prefix}_${s.name}.jpg`);
-        await p.screenshot({ path: f, type: 'jpeg', quality: 82, fullPage: s.full !== false });
+        if (s.selector) {
+          // 聚焦局部:只截该元素(裁掉导航/留白/无关区域)
+          await p.locator(s.selector).first().screenshot({ path: f, type: 'jpeg', quality: 82 });
+        } else {
+          await p.screenshot({ path: f, type: 'jpeg', quality: 82, fullPage: s.full !== false });
+        }
         console.log('shot', f, Math.round(fs.statSync(f).size / 1024) + 'KB');
       } catch (e) { console.error('FAIL', s.path, e.message); }
     }

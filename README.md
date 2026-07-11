@@ -95,6 +95,21 @@
   </tr>
 </table>
 
+## 近期更新 · Releases
+
+> 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
+
+### [v0.15.0 · 券商自动同步(富途 / 老虎 · 只读)](https://github.com/LuoDi-Nate/financial-management/releases/tag/v0.15.0)
+
+港美券商持仓 + 多币现金免手抄:**只读**拉取自动入账,永不下单 / 划转(静态护栏钉死)。富途主推**应用内一键安装 / 托管 OpenD**(SSH 风终端,验证码页面里填);账户颗粒度关联(多富途账号 = 多 OpenD)+ 两步确认 + 快照可找回。
+
+<table>
+  <tr>
+    <td width="50%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v0.15.0/pc_opend-terminal.jpg" width="100%"><br><sub><b>OpenD 一键托管终端</b> · 下载/启动/守护/验证码全在页面里</sub></td>
+    <td width="50%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v0.15.0/pc_holdings-synced.jpg" width="100%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v0.15.0/pc_accounts-broker-badge.jpg" width="100%"><br><sub><b>同步入账 + 账户页托管徽章</b> · 持仓直接用券商证券名</sub></td>
+  </tr>
+</table>
+
 ## 主要能力
 
 - **每月 10 分钟全家完成** — 月度 / 周度周期可切 · 自动生成「填余额」待办 · 夫妻异步填报 · 移动端响应式 + iOS 可加桌面 PWA
