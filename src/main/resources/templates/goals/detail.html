@@ -39,8 +39,9 @@
         <span th:case="*">追踪中</span>
       </span>
     </div>
-    <h1 class="font-display text-3xl sm:text-4xl font-medium tracking-tight mb-4 break-words" th:text="${goal.name}">今年现金冲刺</h1>
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 mb-4">
+    <h1 class="font-display text-3xl sm:text-4xl font-medium tracking-tight mb-1 break-words" th:text="${goal.name}">今年现金冲刺</h1>
+    <p th:if="${goal.description != null and !goal.description.isBlank()}" class="text-sm text-ink-soft mb-4 break-words" th:text="${goal.description}">目标描述</p>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 mb-4 mt-4">
       <div>
         <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">当前 / 目标</div>
         <div class="font-display text-2xl sm:text-3xl tnum" data-priv
@@ -68,6 +69,27 @@
       <span th:case="'ACHIEVED'">已达成目标。</span>
       <span th:case="*" class="text-ink-soft" th:text="${progress.isRate()} ? '收益率型 · 仅倒计时,不做时间落后判定(累计非线性)。' : '长期追踪,不设期限。'">追踪中</span>
     </p>
+  </section>
+
+  <!-- v0.16 · 达标节奏图(burn-up)· 仅金额类截止目标且未达成:理想节奏线 vs 实际累积 vs 预测 -->
+  <section th:if="${progress.isCustom() and !progress.isRate() and progress.daysLeft != null and !progress.targetReached()}"
+           class="paper-card p-5 sm:p-8 mb-6">
+    <div class="mb-4">
+      <div class="eyebrow mb-1">达 · 标 · 节 · 奏</div>
+      <h2 class="font-display text-xl sm:text-2xl font-medium">时间进度 vs 实际进度</h2>
+      <p class="text-sm text-ink-soft mt-1">灰色<b>理想节奏线</b>=匀速达标;圆点为<b>今日实际</b>位置——在灰线上方即领先、下方则需加速;红色虚线是按当前速度的预测落点。</p>
+    </div>
+    <div class="h-[240px] sm:h-[300px]">
+      <canvas id="burnup"
+              th:attr="data-target=${progress.target},data-current=${progress.pv},
+                       data-created=${#temporals.format(goal.createdAt,'yyyy-MM-dd')},
+                       data-deadline=${#temporals.format(goal.targetDate,'yyyy-MM-dd')}"></canvas>
+    </div>
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-mono mt-3 text-ink-soft">
+      <span class="flex items-center gap-1"><span class="w-3 border-t border-dashed" style="border-color:var(--ink-subtle)"></span>理想节奏</span>
+      <span class="flex items-center gap-1"><span style="width:8px;height:8px;border-radius:50%;background:var(--brass-deep);display:inline-block"></span>今日实际</span>
+      <span class="flex items-center gap-1"><span class="w-3 h-1" style="background:var(--rust)"></span>按当前速度预测</span>
+    </div>
   </section>
 
   <!-- 顶部目标卡(预设三类)-->
@@ -266,6 +288,51 @@
     }]
   });
   /*]]>*/
+</script>
+
+<!-- v0.16 · 达标节奏图(burn-up)· 纯浏览器 JS 读 canvas data 属性 -->
+<script th:if="${progress.isCustom() and !progress.isRate() and progress.daysLeft != null and !progress.targetReached()}">
+(function(){
+  var el = document.getElementById('burnup');
+  if (!el || typeof Chart === 'undefined') return;
+  var target = parseFloat(el.getAttribute('data-target') || '0');
+  var current = parseFloat(el.getAttribute('data-current') || '0');
+  var created = new Date(el.getAttribute('data-created'));
+  var deadline = new Date(el.getAttribute('data-deadline'));
+  var today = new Date();
+  if (!(target > 0) || isNaN(created.getTime()) || isNaN(deadline.getTime())) return;
+  var DAY = 86400000;
+  var totalDays = Math.max(1, Math.round((deadline - created) / DAY));
+  var elapsed = Math.max(0, Math.min(totalDays, Math.round((today - created) / DAY)));
+  var timeFrac = elapsed / totalDays;
+  // 按当前速度外推到截止日;早期(时间刚过)速度不稳,退化为目标;夹紧上限避免图失真
+  var projEnd = timeFrac > 0.05 ? Math.min(current / timeFrac, target * 1.5) : target;
+  if (projEnd < current) projEnd = current; // 累积单调不减
+  var months = Math.max(2, Math.min(36, Math.round(totalDays / 30)));
+  var todayIdx = Math.round(timeFrac * months);
+  var labels = [], ideal = [], todayPt = [], proj = [];
+  for (var i = 0; i <= months; i++) {
+    var frac = i / months;
+    var d = new Date(created.getTime() + frac * totalDays * DAY);
+    labels.push((d.getFullYear() % 100) + '/' + (d.getMonth() + 1));
+    ideal.push(Math.round(target * frac));                       // 理想匀速节奏线 0→目标
+    todayPt.push(i === todayIdx ? Math.round(current) : null);   // 今日实际(单点 · 无历史不臆造轨迹)
+    proj.push(i >= todayIdx ? Math.round(current + (projEnd - current) * ((i - todayIdx) / ((months - todayIdx) || 1))) : null); // 预测:今日→截止
+  }
+  new Chart(el.getContext('2d'), {
+    type: 'line',
+    data: { labels: labels, datasets: [
+      { label: '理想节奏', data: ideal, borderColor: 'rgba(26,23,20,.45)', borderDash: [4,4], pointRadius: 0, borderWidth: 1.5, tension: 0 },
+      { label: '今日实际', data: todayPt, borderColor: 'rgb(122,90,57)', backgroundColor: 'rgb(122,90,57)', pointRadius: 5, showLine: false },
+      { label: '按当前速度预测', data: proj, borderColor: 'rgb(159,74,58)', borderDash: [2,3], pointRadius: 0, borderWidth: 1.5, tension: 0, spanGaps: false }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: function(c){ return c.dataset.label + ': ¥' + (c.parsed.y/10000).toFixed(1) + 'w'; } } } },
+      scales: { y: { ticks: { callback: function(v){ return '¥' + (v/10000).toFixed(0) + 'w'; }, font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } },
+                x: { ticks: { font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 8 }, grid: { display: false } } } }
+  });
+})();
 </script>
 </body>
 </html>

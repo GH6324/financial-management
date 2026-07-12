@@ -20,15 +20,33 @@
   <form th:action="${editing} ? @{|/goals/${goal.id}/edit-custom|} : @{/goals/new/custom}" method="post" class="paper-card p-6 space-y-6">
     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
-    <!-- 名称 -->
+    <!-- 名称 + 可选描述 -->
     <div>
       <label class="field-label">目标名称</label>
       <input name="name" class="field-input" th:value="${editing} ? ${goal.name} : ''" placeholder="如 今年现金冲刺">
     </div>
-
-    <!-- ① 追踪指标(分组)-->
     <div>
-      <label class="field-label">① 追踪指标</label>
+      <label class="field-label">描述(可选)</label>
+      <textarea name="description" rows="2" class="field-input" placeholder="给这个目标写点备注,如「攒够首付就出手」" th:text="${editing} ? ${goal.description} : ''"></textarea>
+    </div>
+
+    <!-- ① 绑定账户(0..N · 先选账户再选指标)-->
+    <div>
+      <label class="field-label">① 绑定账户(多选 · 不选 = 全家)</label>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <label th:each="a : ${accounts}" class="flex items-center gap-2 text-sm cursor-pointer border border-rule px-2 py-1.5">
+          <input type="checkbox" name="accountIds" class="accent-brass-deep" th:value="${a.id}"
+                 th:checked="${boundIds != null and #lists.contains(boundIds, a.id)}">
+          <span th:text="${a.displayName}">账户</span>
+          <span class="pill text-[9px] ml-auto" th:text="${a.type}">CASH</span>
+        </label>
+      </div>
+      <p class="font-mono text-[10px] text-ink-subtle mt-1" th:if="${#lists.isEmpty(accounts)}">还没有账户;不选账户则按全家口径追踪。</p>
+    </div>
+
+    <!-- ② 追踪指标(分组)-->
+    <div>
+      <label class="field-label">② 追踪指标</label>
       <div class="font-mono text-[10px] text-ink-subtle mb-1">金额类 · 支持进度 vs 时间落后判定</div>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
         <label th:each="m : ${metrics}" th:if="${m.kind().name() == 'AMOUNT'}" class="flex items-center gap-1.5 text-sm cursor-pointer border border-rule px-2 py-1.5">
@@ -45,7 +63,7 @@
           <span th:text="${m.label()}">年化收益率</span>
         </label>
       </div>
-      <div class="font-mono text-[10px] text-ink-subtle mb-1">月数 / 其它</div>
+      <div class="font-mono text-[10px] text-ink-subtle mb-1">月数 / 其它(仅全家口径 · 建议不选账户)</div>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
         <label th:each="m : ${metrics}" th:if="${m.kind().name() == 'MONTHS'}" class="flex items-center gap-1.5 text-sm cursor-pointer border border-rule px-2 py-1.5">
           <input type="radio" name="metric" class="accent-brass-deep" th:value="${m.name()}"
@@ -53,21 +71,7 @@
           <span th:text="${m.label()}">紧急储备月数</span>
         </label>
       </div>
-      <p class="font-mono text-[10px] text-ink-subtle mt-2">金额类:Σ 绑定账户本位币(贷款计负)· 不选账户 = 全家对应总量。比率类:价值加权,只对可算收益账户有意义。</p>
-    </div>
-
-    <!-- ② 绑定账户(0..N)-->
-    <div>
-      <label class="field-label">② 绑定账户(多选 · 不选 = 全家)</label>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <label th:each="a : ${accounts}" class="flex items-center gap-2 text-sm cursor-pointer border border-rule px-2 py-1.5">
-          <input type="checkbox" name="accountIds" class="accent-brass-deep" th:value="${a.id}"
-                 th:checked="${boundIds != null and #lists.contains(boundIds, a.id)}">
-          <span th:text="${a.displayName}">账户</span>
-          <span class="pill text-[9px] ml-auto" th:text="${a.type}">CASH</span>
-        </label>
-      </div>
-      <p class="font-mono text-[10px] text-ink-subtle mt-1" th:if="${#lists.isEmpty(accounts)}">还没有账户;不选账户则按全家口径追踪。</p>
+      <p class="font-mono text-[10px] text-ink-subtle mt-2">金额类:Σ 上面所选账户本位币(贷款计负)· 不选账户 = 全家对应总量。比率类:所选账户价值加权,只对可算收益账户有意义。</p>
     </div>
 
     <!-- ③ 目标值 + 达标方向 -->

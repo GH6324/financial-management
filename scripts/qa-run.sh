@@ -3533,8 +3533,10 @@ GSVC="$RD/src/main/java/com/family/finance/service/goal"
   && grep -q 'createCustom' "$GSVC/GoalService.java" \
   && grep -q 'computeCustom' "$GSVC/GoalProgressService.java" \
   && [ -f "$RD/src/main/resources/templates/goals/new-custom.html" ] \
-  && grep -q 'name="accountIds"' "$RD/src/main/resources/templates/goals/new-custom.html"; } \
-  && log_ok "v16-GOAL-CUSTOM /goals/new/custom 向导 + 账户多选 + GoalProgressService 分流(预设三情景不变)" \
+  && grep -q 'name="accountIds"' "$RD/src/main/resources/templates/goals/new-custom.html" \
+  && grep -q 'name="description"' "$RD/src/main/resources/templates/goals/new-custom.html" \
+  && grep -q 'id="burnup"' "$RD/src/main/resources/templates/goals/detail.html"; } \
+  && log_ok "v16-GOAL-CUSTOM /goals/new/custom 向导(先账户后指标 + 可选描述)+ 分流 + 详情 burn-up 达标节奏图" \
   || log_bad "v16-GOAL-CUSTOM 向导/分流缺件" "see GoalController/GoalService/new-custom.html"
 
 # v16-GOAL-BAR · 移动端紧凑条(列表 + Dashboard 条带瘦身)

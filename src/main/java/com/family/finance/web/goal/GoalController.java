@@ -164,6 +164,7 @@ public class GoalController {
     @PostMapping("/goals/new/custom")
     public String createCustom(@AuthenticationPrincipal MemberPrincipal me,
                                @RequestParam(required = false) String name,
+                               @RequestParam(required = false) String description,
                                @RequestParam String metric,
                                @RequestParam(required = false) String comparator,
                                @RequestParam(required = false) BigDecimal targetValue,
@@ -172,7 +173,7 @@ public class GoalController {
                                @RequestParam(required = false) List<Long> accountIds) {
         GoalMetric m = GoalMetric.fromOrDefault(metric);
         GoalComparator c = (comparator == null || comparator.isBlank()) ? m.defaultComparator() : GoalComparator.fromOrDefault(comparator);
-        Goal g = goalService.createCustom(me.getFamilyId(), name, m, c, targetValue,
+        Goal g = goalService.createCustom(me.getFamilyId(), name, description, m, c, targetValue,
             timeModeFor(timeRange), deadlineFor(timeRange, customDate), accountIds);
         return "redirect:/goals/" + g.getId();
     }
@@ -181,6 +182,7 @@ public class GoalController {
     public String updateCustom(@AuthenticationPrincipal MemberPrincipal me,
                                @PathVariable long id,
                                @RequestParam(required = false) String name,
+                               @RequestParam(required = false) String description,
                                @RequestParam String metric,
                                @RequestParam(required = false) String comparator,
                                @RequestParam(required = false) BigDecimal targetValue,
@@ -189,7 +191,7 @@ public class GoalController {
                                @RequestParam(required = false) List<Long> accountIds) {
         GoalMetric m = GoalMetric.fromOrDefault(metric);
         GoalComparator c = (comparator == null || comparator.isBlank()) ? m.defaultComparator() : GoalComparator.fromOrDefault(comparator);
-        goalService.updateCustom(me.getFamilyId(), id, name, m, c, targetValue,
+        goalService.updateCustom(me.getFamilyId(), id, name, description, m, c, targetValue,
             timeModeFor(timeRange), deadlineFor(timeRange, customDate), accountIds);
         return "redirect:/goals/" + id;
     }

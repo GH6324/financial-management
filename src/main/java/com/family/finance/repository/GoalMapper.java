@@ -21,7 +21,7 @@ import java.util.Optional;
 public interface GoalMapper {
 
     @Select("""
-            SELECT id, family_id, goal_type, name, target_value, target_date,
+            SELECT id, family_id, goal_type, name, description, target_value, target_date,
                    metric, comparator, time_mode,
                    params_json, created_at, updated_at, archived_at
               FROM family_goal
@@ -30,7 +30,7 @@ public interface GoalMapper {
     Optional<Goal> findById(@Param("id") long id);
 
     @Select("""
-            SELECT id, family_id, goal_type, name, target_value, target_date,
+            SELECT id, family_id, goal_type, name, description, target_value, target_date,
                    metric, comparator, time_mode,
                    params_json, created_at, updated_at, archived_at
               FROM family_goal
@@ -41,7 +41,7 @@ public interface GoalMapper {
     List<Goal> findActiveByFamily(@Param("familyId") long familyId);
 
     @Select("""
-            SELECT id, family_id, goal_type, name, target_value, target_date,
+            SELECT id, family_id, goal_type, name, description, target_value, target_date,
                    metric, comparator, time_mode,
                    params_json, created_at, updated_at, archived_at
               FROM family_goal
@@ -54,9 +54,9 @@ public interface GoalMapper {
                                          @Param("goalType") GoalType goalType);
 
     @Insert("""
-            INSERT INTO family_goal (family_id, goal_type, name, target_value, target_date,
+            INSERT INTO family_goal (family_id, goal_type, name, description, target_value, target_date,
                                      metric, comparator, time_mode, params_json)
-            VALUES (#{familyId}, #{goalType}, #{name}, #{targetValue}, #{targetDate},
+            VALUES (#{familyId}, #{goalType}, #{name}, #{description}, #{targetValue}, #{targetDate},
                     #{metric}, #{comparator}, #{timeMode}, #{paramsJson})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
@@ -65,6 +65,7 @@ public interface GoalMapper {
     @Update("""
             UPDATE family_goal
                SET name = #{name},
+                   description = #{description},
                    target_value = #{targetValue},
                    target_date = #{targetDate},
                    metric = #{metric},

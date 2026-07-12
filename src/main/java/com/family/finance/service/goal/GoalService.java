@@ -217,12 +217,13 @@ public class GoalService {
     // ---------- v0.16 · 自定义追踪目标(CUSTOM)----------
 
     @Transactional
-    public Goal createCustom(long familyId, String name, GoalMetric metric, GoalComparator cmp,
+    public Goal createCustom(long familyId, String name, String description, GoalMetric metric, GoalComparator cmp,
                              BigDecimal targetValue, TimeMode timeMode, LocalDate targetDate, List<Long> accountIds) {
         Goal goal = Goal.builder()
             .familyId(familyId)
             .goalType(GoalType.CUSTOM)
             .name(name == null || name.isBlank() ? defaultName(GoalType.CUSTOM) : name.trim())
+            .description(description == null || description.isBlank() ? null : description.trim())
             .metric(metric == null ? GoalMetric.AMOUNT_TOTAL : metric)
             .comparator(cmp == null ? GoalComparator.GTE : cmp)
             .targetValue(targetValue)
@@ -236,10 +237,11 @@ public class GoalService {
     }
 
     @Transactional
-    public void updateCustom(long familyId, long goalId, String name, GoalMetric metric, GoalComparator cmp,
+    public void updateCustom(long familyId, long goalId, String name, String description, GoalMetric metric, GoalComparator cmp,
                              BigDecimal targetValue, TimeMode timeMode, LocalDate targetDate, List<Long> accountIds) {
         Goal goal = require(familyId, goalId);
         goal.setName(name == null || name.isBlank() ? defaultName(GoalType.CUSTOM) : name.trim());
+        goal.setDescription(description == null || description.isBlank() ? null : description.trim());
         goal.setMetric(metric == null ? GoalMetric.AMOUNT_TOTAL : metric);
         goal.setComparator(cmp == null ? GoalComparator.GTE : cmp);
         goal.setTargetValue(targetValue);

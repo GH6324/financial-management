@@ -27,6 +27,7 @@ public class Goal {
     private Long familyId;
     private GoalType goalType;
     private String name;
+    private String description;   // v0.16.x 可选描述
     private BigDecimal targetValue;
     private LocalDate targetDate;
     private String paramsJson;
