@@ -192,5 +192,14 @@ public class GoalProgressService {
             if (pace == null || pace.timePct() == null) return null;
             return pace.timePct().movePointRight(2).setScale(0, java.math.RoundingMode.HALF_EVEN).intValue();
         }
+        /** 条带用:当前值紧凑显示(收益率→N%;金额→N.N万)。 */
+        public String currentDisp() { return compactVal(pv); }
+        /** 条带用:目标值紧凑显示。 */
+        public String targetDisp() { return compactVal(target); }
+        private String compactVal(BigDecimal v) {
+            if (v == null) return "—";
+            if (isRate()) return v.setScale(0, java.math.RoundingMode.HALF_UP).toPlainString() + "%";
+            return v.divide(java.math.BigDecimal.valueOf(10000), 1, java.math.RoundingMode.HALF_UP).toPlainString() + "万";
+        }
     }
 }

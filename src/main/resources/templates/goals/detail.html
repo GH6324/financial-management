@@ -189,7 +189,7 @@
   </section>
 
   <!-- v0.3 FR-53b · AI 月报 · v0.5.4 加锚点 id=ai-report(dashboard 目标条带「AI 阅读总结」直达)+ 重新生成 -->
-  <section th:unless="${progress.isCustom()}" id="ai-report" class="paper-card mb-6 overflow-hidden" style="border-left:4px solid var(--brass-deep);scroll-margin-top:80px">
+  <section id="ai-report" class="paper-card mb-6 overflow-hidden" style="border-left:4px solid var(--brass-deep);scroll-margin-top:80px">
     <details th:open="${aiMonthlyReport != null}">
       <summary class="px-6 py-4 flex items-center gap-3 cursor-pointer hover:bg-card-soft list-none border-b border-rule-soft">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep);flex-shrink:0">

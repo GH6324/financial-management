@@ -198,6 +198,27 @@ public class GoalLlmService {
     }
 
     private String buildMonthlyReportPrompt(Goal goal, GoalProgressService.GoalProgress p) {
+        // v0.16 · 自定义追踪目标:按指标 / 当前·目标 / 达标率 / 倒计时 / pace 组 prompt(预设仍走下方)
+        if (goal.getGoalType() == GoalType.CUSTOM) {
+            String unit = p.isRate() ? "%" : "元";
+            String metricLabel = p.metric() != null ? p.metric().label() : "金额";
+            String timeInfo = p.daysLeft() != null ? ("还剩 " + p.daysLeft() + " 天") : "长期(不设期限)";
+            String paceInfo = switch (p.paceStatus() == null ? "NONE" : p.paceStatus()) {
+                case "AHEAD" -> "进度领先时间"; case "BEHIND" -> "进度落后时间";
+                case "ACHIEVED" -> "已达成"; default -> "追踪中"; };
+            return """
+                目标:%s(自定义追踪)%s
+                追踪指标:%s · 当前 %s%s / 目标 %s%s · 达标率 %.0f%%
+                时间:%s · 进度状态:%s
+                请生成本月叙事(150-300 字)· 结合达标率与时间进度点评 + 1 条可执行建议 · 不担保、不荐产品、不预测涨跌。
+                """.formatted(goal.getName(),
+                    goal.getDescription() == null || goal.getDescription().isBlank() ? "" : (" · 备注:" + goal.getDescription()),
+                    metricLabel,
+                    p.pv() == null ? "?" : p.pv().setScale(0, RoundingMode.HALF_UP).toPlainString(), unit,
+                    p.target() == null ? "?" : p.target().setScale(0, RoundingMode.HALF_UP).toPlainString(), unit,
+                    p.progress() == null ? 0d : p.progress().movePointRight(2).doubleValue(),
+                    timeInfo, paceInfo);
+        }
         BigDecimal pv = p.pv();
         BigDecimal target = p.target();
         BigDecimal progress = p.progress() == null ? BigDecimal.ZERO : p.progress();
