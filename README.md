@@ -99,6 +99,17 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v0.16.0 · 目标模块重构:通用追踪目标](https://github.com/LuoDi-Nate/financial-management/releases/tag/v0.16.0)
+
+财务目标重构为**通用追踪目标**:绑 0–多个账户 + 任一追踪指标(金额/收益率/负债…)+ 目标值 + 时间范围(1/3/5年/自定义/长期);截止型带**达标节奏图**(burn-up)与进度落后提醒。退休/教育/应急三类作为智能预设完整保留。移动端多目标瘦身。关联 [issue #5](https://github.com/LuoDi-Nate/financial-management/issues/5)。
+
+<table>
+  <tr>
+    <td width="50%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v0.16.0/pc_detail_burnup.jpg" width="100%"><br><sub><b>达标节奏图(burn-up)</b> · 理想线 vs 今日实际 vs 预测</sub></td>
+    <td width="50%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v0.16.0/pc_wizard.jpg" width="100%"><br><sub><b>自定义向导</b> · 先账户 → 再指标 → 目标 → 期限</sub></td>
+  </tr>
+</table>
+
 ### [v0.15.2 · 券商同步硬化:测试全覆盖 + OpenD 环境自检](https://github.com/LuoDi-Nate/financial-management/releases/tag/v0.15.2)
 
 修好关联报错;**OpenD 环境自检**(docker/linux/mac 三形:可写/可执行位/属主/数据目录/依赖 + 修复命令,启动前硬检拦住);券商测试全覆盖(管理页富途 + OpenD 台 + 关联页);向导 step-by-step。
@@ -109,10 +120,6 @@
     <td width="50%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v0.15.2/pc_broker-test.jpg" width="100%"><br><sub><b>券商测试全覆盖</b> · 富途 / 老虎,只读拉账户</sub></td>
   </tr>
 </table>
-
-### [v0.15.0 · 券商自动同步(富途 / 老虎 · 只读)](https://github.com/LuoDi-Nate/financial-management/releases/tag/v0.15.0)
-
-港美券商持仓 + 多币现金免手抄:**只读**拉取自动入账,永不下单 / 划转(静态护栏钉死)。富途主推**应用内一键安装 / 托管 OpenD**(SSH 风终端,验证码页面里填);账户颗粒度关联(多富途账号 = 多 OpenD)+ 两步确认 + 快照可找回。
 
 ## 主要能力
 
