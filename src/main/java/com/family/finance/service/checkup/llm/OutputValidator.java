@@ -125,11 +125,17 @@ public final class OutputValidator {
         }
 
         // 4. 至少包含一个金融术语(避免 LLM 跑题成"心灵鸡汤")
+        //    v0.16.1 · 补目标/金额类词汇:自定义追踪目标(账户金额/现金/储蓄达标)的叙事
+        //    此前一个原有术语都不含 → 被误判「跑题」反复无法生成(防跑题深度校验,非合规红线,可安全放宽)
         boolean hasFinanceTerm = trimmed.contains("年化") || trimmed.contains("配置")
                 || trimmed.contains("资产") || trimmed.contains("流动")
                 || trimmed.contains("风险") || trimmed.contains("收益")
                 || trimmed.contains("基准") || trimmed.contains("应急")
-                || trimmed.contains("负债") || trimmed.contains("偿还");
+                || trimmed.contains("负债") || trimmed.contains("偿还")
+                || trimmed.contains("目标") || trimmed.contains("达标") || trimmed.contains("达成")
+                || trimmed.contains("储蓄") || trimmed.contains("存款") || trimmed.contains("现金")
+                || trimmed.contains("余额") || trimmed.contains("账户") || trimmed.contains("本金")
+                || trimmed.contains("金额") || trimmed.contains("净值") || trimmed.contains("进度");
         if (!hasFinanceTerm) {
             return Result.reject("无金融术语,可能跑题");
         }
