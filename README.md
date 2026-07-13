@@ -99,20 +99,13 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v0.16.2 · 券商托管入口 + 安装脚本收敛](https://github.com/LuoDi-Nate/financial-management/releases/tag/v0.16.2)
+
+账户券商页「只读铁律」补一键托管 OpenD 提示 + 托管向导入口;OpenD 安装向导在已配置运行中时收起全部步骤、只留「我要重新配置」入口;**安装脚本收敛为每渠道一个**(Docker 全平台 `docker-up.sh`、直装 `deploy.sh`,Windows 经 WSL2 复用同一脚本),修非技术用户被旧脚本误导装孤立 compose 插件而卡死;修 README Star History 裂图。无数据库变更。
+
 ### [v0.16.1 · 目标模块细化(Dashboard 卡片 + AI 修复)](https://github.com/LuoDi-Nate/financial-management/releases/tag/v0.16.1)
 
 Dashboard 目标卡列「当前 / 目标」(单行不换行)+ ⓘ 描述图标;「AI洞察」覆盖自定义目标;修自定义目标 AI 月报被跑题校验器误杀导致「持续无法生成」。
-
-### [v0.16.0 · 目标模块重构:通用追踪目标](https://github.com/LuoDi-Nate/financial-management/releases/tag/v0.16.0)
-
-财务目标重构为**通用追踪目标**:绑 0–多个账户 + 任一追踪指标(金额/收益率/负债…)+ 目标值 + 时间范围(1/3/5年/自定义/长期);截止型带**达标节奏图**(burn-up)与进度落后提醒。退休/教育/应急三类作为智能预设完整保留。移动端多目标瘦身。关联 [issue #5](https://github.com/LuoDi-Nate/financial-management/issues/5)。
-
-<table>
-  <tr>
-    <td width="50%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v0.16.0/pc_detail_burnup.jpg" width="100%"><br><sub><b>达标节奏图(burn-up)</b> · 理想线 vs 今日实际 vs 预测</sub></td>
-    <td width="50%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v0.16.0/pc_wizard.jpg" width="100%"><br><sub><b>自定义向导</b> · 先账户 → 再指标 → 目标 → 期限</sub></td>
-  </tr>
-</table>
 
 ## 主要能力
 
