@@ -28,21 +28,28 @@ rm -f .env.bak
 chmod 600 .env
 echo "✓ 已生成 .env(随机 DB 密码 / root 密码 / REMEMBER_ME_KEY)"
 
-# 探测 compose 命令(v2 插件 `docker compose` 优先,回退老版 `docker-compose`)
+# 探测环境是否已就绪:引擎(daemon)起了吗 + Compose V2 在吗
+# 三件事(docker 装没装 / 引擎起没起 / compose 有没有)在这里只做一个「就绪?」判断,
+# 不就绪就不在这儿给零碎建议(容易把「根本没装 docker」的人误导去装孤零零的 compose 插件)——
+# 直接交给统一的一键脚本 docker-up.sh,它会逐项自检并按你这台机器给出可复制的修复命令。
 DC=""
-if docker compose version >/dev/null 2>&1; then
-  DC="docker compose"
-elif command -v docker-compose >/dev/null 2>&1; then
-  DC="docker-compose"
+if docker info >/dev/null 2>&1; then
+  if docker compose version >/dev/null 2>&1; then
+    DC="docker compose"
+  elif command -v docker-compose >/dev/null 2>&1; then
+    case "$(docker-compose version --short 2>/dev/null || true)" in 2.*|v2.*) DC="docker-compose" ;; esac
+  fi
 fi
 
 if [[ -n "$DC" ]]; then
-  echo "  下一步:$DC up -d"
+  echo "  环境已就绪,下一步:$DC up -d"
 else
-  echo "  ⚠ 没探测到可用的 compose:"
-  echo "    · 装了 Docker Desktop / OrbStack 一般自带 \`docker compose\`(v2),确认它在运行"
-  echo "    · 用 Homebrew 装的 docker CLI:再 \`brew install docker-compose\`,并按提示软链到"
-  echo "      ~/.docker/cli-plugins/docker-compose(否则 \`docker compose\` 带空格的写法用不了)"
-  echo "    · 实在不行可直接用老版:\`docker-compose up -d\`"
+  echo ""
+  echo "  ⚠ 这台机器的 Docker 环境还没就绪 —— 可能没装 docker、引擎(daemon)没启动、或缺 Compose V2。"
+  echo "    别自己一步步猜(在 Mac 上尤其容易踩坑:brew 装的 docker 只是命令行、引擎在虚拟机里要单独起)。"
+  echo "    直接跑下面这条,它会自检并按你的系统给出可直接复制的修复命令,再把服务起起来:"
+  echo ""
+  echo "        bash deploy/docker-up.sh"
+  echo ""
 fi
 echo "  LLM key / 短信 aksk / 阈值 等运营参数,登录后走管理页配置(不在 .env 里)。"

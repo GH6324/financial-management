@@ -1266,6 +1266,7 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v07-DOCKER-6 | migrate-to-docker.sh 同时识别 `/etc/finance.env`(systemd)与 `~/.finance/finance.env`(macOS) |
 | v07-DOCKER-7 | `docker-up.sh` 一键自检:探测 `docker info`(引擎)/`docker compose version`(V2)/`docker-compose --short`(拒老 V1)+ 验 `/health` |
 | v07-DOCKER-8 | 种子账号 prod 引导:`ProdSeedRunner`(`@Profile("prod")`)调 `findSeedPlaceholders`+`updatePasswordHash` 设临时密码(`seed.admin-password`),修 Docker 首登死锁;`.env.example` 有 `SEED_ADMIN_PASSWORD`;`docker-up.sh` 打印「首次登录」账号 |
+| v07-DOCKER-9 | 安装入口统一:`docker-init.sh` 先探 `docker info` 判就绪,环境没就绪(含没装 docker)时**不给零碎误导建议**,统一引导 `bash deploy/docker-up.sh`(它按平台区分「没装 docker / 引擎没起 / 缺 compose」);脚本内**不再出现** `brew install docker-compose` 误导串。修真实案例:非技术 Mac 用户跑 `docker-init.sh` 后无 docker 却被带去装孤立 compose 插件而卡死 |
 
 **人工 · 真机验收(Mac + Ubuntu 分别)**
 

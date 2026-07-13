@@ -2695,6 +2695,17 @@ PSR="$RD/src/main/java/com/family/finance/config/ProdSeedRunner.java"
   && log_ok "v07-DOCKER-8 ProdSeedRunner 引导种子密码(幂等)+ docker-up 打印首登账号" \
   || log_bad "v07-DOCKER-8 prod 种子账号引导缺失" "Docker 首登会死锁,see ProdSeedRunner"
 
+# v07-DOCKER-9 入口统一:docker-init.sh 环境没就绪(含没装 docker)时不给零碎误导建议,
+#   统一引导到一键脚本 docker-up.sh(先探 `docker info` 判就绪);不再出现「brew install docker-compose」误导
+INIT="$RD/deploy/docker-init.sh"
+{ [[ -f "$INIT" ]] \
+  && grep -q 'docker info' "$INIT" \
+  && grep -q 'bash deploy/docker-up.sh' "$INIT" \
+  && ! grep -q 'brew install docker-compose' "$INIT" \
+  && bash -n "$INIT" 2>/dev/null; } \
+  && log_ok "v07-DOCKER-9 docker-init.sh 环境未就绪时统一引导 docker-up.sh(去掉 brew compose 误导)" \
+  || log_bad "v07-DOCKER-9 安装入口未统一 / 仍有误导建议" "see deploy/docker-init.sh"
+
 # v07-CN-1 国内 Docker 阻断引导:docker-up.sh 单独探 mysql 归因 + 镜像源指引 + 不覆盖已有 daemon.json + 平台分流(Linux/Mac) + bash -n
 { [[ -f "$UP" ]] \
   && grep -q 'pull_one mysql:8.0' "$UP" \
