@@ -1770,6 +1770,7 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v15-CRON-1 | `broker-sync` 纳入 `DynamicScheduleConfig`(cron 可配 `K_BROKER_SYNC_CRON`、默认工作日 16:45、无 enabled 关联时空跑)· 手动同步走持仓页 / 关联页 |
 | v15-CFG-1 | 管理页 ⑥ 券商段:老虎(tiger_id/RSA 私钥留空保原值·`type=password` 不回显/账户)+ 富途(OpenD host/port)+ 同步 cron + 一键测试连接(只拉账户验证)· 审计不记私钥明文 |
 | v15-ENTRY-1 | 持仓页有「券商自动同步」入口(`/accounts/{id}/broker`)+ 同步来的持仓打「券商同步」徽章 |
+| v15-ENTRY-2 | 账户券商页 `broker/link.html` 只读铁律段口径含<b>一键托管</b>提示(「富途 OpenD 网关支持我们一键托管」)+ 直达 `/admin/broker/opend` 托管向导入口(不止 integrations 管理页有);保留图文教程链接 |
 | (UT) BrokerTickerTest ×4 | 富途前缀 `HK./US./SH./SZ.`→Market;老虎 market 字段→Market(symbol 归一大写);未支持市场→null;`isEquity` STK/ETF/空→纳入、OPT/FUT/WAR→跳过 |
 | (UT) BrokerReconcileTest ×2 | reconcile 新增/更新/归档计数正确 + 手填行(sync_source=null)不被归档;跑 FUTU 对账不碰 TIGER 同步行 |
 | (UT) BrokerLinkSafetyTest ×3 | link 顺序:审计快照 → 归档 → 建绑定(InOrder);非持仓类账户拒关联;unlink 清 sync_source + 审计 |
