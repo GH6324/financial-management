@@ -114,7 +114,7 @@ certbot 自动改 `finance.conf` 加 `listen 443 ssl` + 配 cron 续签。`deplo
 |---|---|
 | Linux:`deploy.sh` 步 7 mysql 失败 | `sudo mysql` 看能不能进(Ubuntu 默认 socket 鉴权) |
 | Linux:`deploy.sh` 步 14 服务 30s 不起 | 看 `journalctl -u finance --no-pager -n 100`(脚本自动打了 30 行);DB 密码错 / 端口被占最常见 |
-| macOS:`deploy-macos.sh` 步 6 ERROR 1045 Access denied for root | root 设了密码 · 重跑输入密码;真忘了:`brew services stop mysql && mysqld_safe --skip-grant-tables &` 重置 |
+| macOS:`deploy.sh` 步 6 ERROR 1045 Access denied for root | root 设了密码 · 重跑输入密码;真忘了:`brew services stop mysql && mysqld_safe --skip-grant-tables &` 重置 |
 | macOS:登入后看到 demo 数据 | 你 sentinel 已写但 TRUNCATE 没跑 · 删 `~/finance/.prod-cleaned` + 重跑 `deploy/deploy.sh` |
 | macOS:服务起不来 | `tail -f $HOME/finance/logs/app.log` 或前台跑 `bash $HOME/finance/start.sh` 看输出 |
 | 切币种 USD 显示 ¥ | `fx_rate` 缺,见 `/admin/fx`;或服务器拉不通 frankfurter.dev(防火墙) |
@@ -127,8 +127,9 @@ certbot 自动改 `finance.conf` 加 `listen 443 ssl` + 配 cron 续签。`deplo
 
 ```
 deploy/
-├── deploy.sh                       ← 主脚本(顶部 OS 探测 · Darwin 自动转 deploy-macos.sh)
-├── deploy-macos.sh                 ← macOS 路径($HOME/finance · brew · 无 sudo)
+├── deploy.sh                       ← 直装唯一入口(Linux+Mac · Darwin 自动转 _deploy-macos.sh)
+├── _deploy-macos.sh                ← deploy.sh 的 macOS 内部实现($HOME/finance · brew · 无 sudo · 别直接调)
+├── docker-up.sh                    ← Docker 唯一入口(全平台 · 自检+生成密钥+起+验健康)
 ├── finance.macos.plist.template    ← macOS launchd 自启模板(可选)
 ├── rollback.sh                     ← 紧急回滚(Linux)
 ├── nginx-setup.sh                  ← nginx 单独配置(deploy.sh 内部会调,macOS 不用)
@@ -158,7 +159,7 @@ deploy/
 ```bash
 git clone https://gitlab.com/xblteam/financial-management.git
 cd financial-management
-bash deploy/deploy.sh         # 或 deploy/deploy-macos.sh,二者等价(主脚本顶部自动分流)
+bash deploy/deploy.sh         # 直装唯一入口 · macOS 自动分流到内部实现(无需 sudo)
 ```
 
 脚本会(12 步幂等):
@@ -220,12 +221,14 @@ cd financial-management
 bash deploy/docker-up.sh          # 自检环境 + 生成密钥 + 起服务 + 验健康,一条命令
 ```
 
-`docker-up.sh` 会逐项自检并在卡住时给出可复制的修复命令:① docker 装没装 ② 引擎(daemon)起没起 ③ Compose **V2** 在不在(`docker compose` 优先,回退 V2 版 `docker-compose`,老 V1 直接拒并教你装)④ 镜像拉不到就本地源码构建 ⑤ 起完轮询 `/health`。macOS 上 Docker Desktop / OrbStack / colima 各种装法都适配。
+`docker-up.sh` 是 **Docker 渠道的唯一入口**(全平台一条命令)。它会逐项自检并在卡住时给出可复制的修复命令:① docker 装没装 ② 引擎(daemon)起没起 ③ Compose **V2** 在不在(`docker compose` 优先,回退 V2 版 `docker-compose`,老 V1 直接拒并教你装)④ 镜像拉不到就本地源码构建 ⑤ 起完轮询 `/health`;`.env`(随机 DB/root/REMEMBER_ME_KEY)也由它自动生成。macOS 上 Docker Desktop / OrbStack / colima 各种装法都适配。
 
-<details><summary>想手动控制每一步</summary>
+> **Windows**:装 [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/)(WSL2 后端,Home 版也支持)后,在 **WSL2(Ubuntu)终端**里 `git clone` 并跑**同一条** `bash deploy/docker-up.sh` —— WSL2 就是 Linux,脚本原样适用,`docker compose` 随 Docker Desktop 自带。仓库放 WSL2 文件系统内(`\\wsl$`,别放 `C:\`)性能才正常。前置一次性:BIOS 开虚拟化 + `wsl --install` + 重启(GUI/重启这步任何脚本都替不了)。
+
+<details><summary>想手动控制每一步(老手)</summary>
 
 ```bash
-bash deploy/docker-init.sh        # 仅生成 .env;或手动 cp .env.example .env 再改
+cp .env.example .env              # 手改密钥(docker-up.sh 会自动随机生成,手动则自己填)
 docker compose up -d              # 有预构建镜像就拉,没有就 docker compose build 后再 up
 ```
 报 `unknown shorthand flag: 'd' in -d` → 这台机 Compose V2 没装好,见下「国内镜像加速 / Apple Silicon」排障,或直接用上面的 `docker-up.sh`。
@@ -321,4 +324,4 @@ your.domain.com {
 - **`docker compose up -d` 报 `unknown shorthand flag: 'd' in -d`**:这台机的 Compose V2 插件没装好,docker 没把 `compose` 当子命令,把 `-d` 当成了顶层 flag。处理:
   - Docker Desktop / OrbStack 自带 V2 —— 确认它装好且在运行(`docker compose version` 应有输出)。
   - Homebrew 装的纯 docker CLI(常配 colima):`brew install docker-compose`,再按 caveat 软链到 `~/.docker/cli-plugins/docker-compose`,`docker compose`(带空格)才生效。
-  - 临时绕过:直接用老版连字符写法 `docker-compose up -d`(我们的 compose 文件两者都兼容)。`deploy/migrate-to-docker.sh` 与 `deploy/docker-init.sh` 已自动探测这两种写法。
+  - 临时绕过:直接用老版连字符写法 `docker-compose up -d`(我们的 compose 文件两者都兼容)。`deploy/docker-up.sh` 与 `deploy/migrate-to-docker.sh` 已自动探测这两种写法(V2 优先)。

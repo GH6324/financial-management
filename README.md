@@ -161,11 +161,13 @@ bash deploy/docker-up.sh       # 一条命令:自检环境 + 生成密钥 + 起�
 <details><summary>想手动控制每一步(老手)</summary>
 
 ```bash
-bash deploy/docker-init.sh     # 仅生成 .env(随机密钥);或 cp .env.example .env 手改
+cp .env.example .env           # 手改密钥(docker-up.sh 会自动生成随机密钥,手动则自己填)
 docker compose up -d           # 起 app + MySQL + 备份;有预构建镜像就拉,否则 docker compose build
 ```
 大陆拉不动 `mysql:8.0`(卡在 `docker compose pull`)→ 先配镜像源,见 [`deploy/README.md` § 国内镜像加速](deploy/README.md#国内镜像加速--apple-silicon)。若报 `unknown shorthand flag: 'd' in -d`,是这台机 Compose V2 没装好,同见该节排障。
 </details>
+
+> **Windows**:装 [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/)(WSL2 后端,Win10/11 Home 也支持)→ 打开一个 WSL2(Ubuntu)终端,在里面 `git clone` 后跑**同一条** `bash deploy/docker-up.sh`(WSL2 就是 Linux,脚本原样适用;`docker compose` 随 Docker Desktop 自带)。建议把仓库放在 WSL2 文件系统内(`\\wsl$` 而非 `C:\`)以获得正常性能。前置:BIOS 开虚拟化 + 一次 `wsl --install` 并重启。
 
 浏览器开 `http://<宿主>:20000`。**默认只发布到 loopback(`127.0.0.1`)**——本机 / NAS 直接开即可;**部署在远程 VPS 则从笔记本打不开**(这是安全默认,不是 bug):临时看用 SSH 隧道 `ssh -L 20000:127.0.0.1:20000 user@服务器`,长期用前置反代 + HTTPS(见 [FAQ](docs/faq.md) / [`deploy/README.md` § 反代](deploy/README.md#反代--httpscompose-不内置自己挂))。**起好后怎么登录、第一次怎么用 → 见下方「部署好了:第一次怎么用」一节**。数据持久化在命名卷,升级 `git pull && docker compose pull && docker compose up -d`。**已用下面 systemd 直装的存量用户**可一键迁移:`sudo bash deploy/migrate-to-docker.sh`(数据零丢)。详见 [`deploy/README.md` § Docker 部署](deploy/README.md#docker-部署v07--推荐)。
 
@@ -216,7 +218,7 @@ sudo bash deploy/rollback.sh
 # 前提:已装 Homebrew
 git clone https://github.com/LuoDi-Nate/financial-management.git
 cd financial-management
-bash deploy/deploy.sh   # 顶部 OS 探测 · macOS 自动转 deploy-macos.sh
+bash deploy/deploy.sh   # 直装唯一入口 · macOS 自动转内部实现(无需自己区分平台)
 ```
 
 跟 Linux 路径的差异:无 sudo · 用 brew 装依赖 · 文件全在 `$HOME/finance` · 启动用 `bash ~/finance/start.sh`(或 launchd 自启)· 没 nginx 反代,浏览器直接 `http://127.0.0.1:20000/`。详见 [`deploy/README.md` § macOS 本地部署](deploy/README.md#macos-本地部署)。
@@ -306,8 +308,9 @@ financial-management/
 │   ├── apply.sh                          # 版本化迁移运行器(sha256 校验)
 │   └── migration/V*__*.sql               # 数据库 schema + 种子
 ├── deploy/
-│   ├── deploy.sh                         # Linux 一键部署 · 顶部 OS 探测自动转 macOS
-│   ├── deploy-macos.sh                   # macOS 一键部署($HOME/finance · brew · 无 sudo)
+│   ├── deploy.sh                         # 直装唯一入口(Linux+Mac · Darwin 自动转内部实现)
+│   ├── _deploy-macos.sh                  # deploy.sh 的 macOS 内部实现($HOME/finance · brew · 无 sudo)
+│   ├── docker-up.sh                      # Docker 唯一入口(全平台 · 自检+生成密钥+起+验健康)
 │   ├── finance.macos.plist.template      # macOS launchd 开机自启模板(可选)
 │   ├── rollback.sh                       # Linux 紧急回滚
 │   ├── nginx-setup.sh                    # Linux 单独 nginx 配置

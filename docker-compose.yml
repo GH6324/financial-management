@@ -1,5 +1,6 @@
 # 家庭账房 · v0.7 一键部署
-# 用法:cp .env.example .env(或 bash deploy/docker-init.sh 自动生成密钥)→ docker compose up -d
+# 用法:bash deploy/docker-up.sh(唯一入口:自检环境 + 自动生成密钥 .env + 起服务 + 验健康)
+#       老手也可手动:cp .env.example .env → docker compose up -d
 # 只 app + MySQL;反代/HTTPS 由你在前面自己挂(见 deploy/README.md「反代/HTTPS」)。
 services:
   db:

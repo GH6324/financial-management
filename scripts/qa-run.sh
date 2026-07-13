@@ -2636,11 +2636,11 @@ RD="$(cd "$(dirname "$0")/.." && pwd)"   # 仓库根
 # v07-DOCKER-1 文件齐
 dmiss=0
 for f in Dockerfile docker-compose.yml .env.example .dockerignore \
-         docker/entrypoint.sh docker/backup.sh deploy/docker-init.sh deploy/docker-up.sh \
+         docker/entrypoint.sh docker/backup.sh deploy/docker-up.sh \
          deploy/migrate-to-docker.sh .github/workflows/docker-publish.yml; do
   [[ -f "$RD/$f" ]] || { dmiss=$((dmiss+1)); }
 done
-[[ $dmiss -eq 0 ]] && log_ok "v07-DOCKER-1 Docker 10 个文件齐" || log_bad "v07-DOCKER-1 缺 $dmiss 个 Docker 文件" "see Dockerfile/compose/..."
+[[ $dmiss -eq 0 ]] && log_ok "v07-DOCKER-1 Docker 9 个文件齐(docker-up.sh 为唯一 Docker 入口)" || log_bad "v07-DOCKER-1 缺 $dmiss 个 Docker 文件" "see Dockerfile/compose/..."
 
 # v07-DOCKER-2 多阶段 + 三服务 + 三卷
 { [[ "$(grep -c '^FROM' "$RD/Dockerfile")" -ge 2 ]] \
@@ -2656,10 +2656,10 @@ grep -q 'db/apply.sh' "$RD/docker/entrypoint.sh" \
 
 # v07-DOCKER-4 新 shell 语法
 sbad=0
-for f in docker/entrypoint.sh docker/backup.sh deploy/docker-init.sh deploy/docker-up.sh deploy/migrate-to-docker.sh; do
+for f in docker/entrypoint.sh docker/backup.sh deploy/docker-up.sh deploy/migrate-to-docker.sh; do
   bash -n "$RD/$f" 2>/dev/null || sbad=$((sbad+1))
 done
-[[ $sbad -eq 0 ]] && log_ok "v07-DOCKER-4 5 个 Docker shell bash -n 通过" || log_bad "v07-DOCKER-4 $sbad 个 shell 语法错" "bash -n"
+[[ $sbad -eq 0 ]] && log_ok "v07-DOCKER-4 4 个 Docker shell bash -n 通过" || log_bad "v07-DOCKER-4 $sbad 个 shell 语法错" "bash -n"
 
 # v07-DOCKER-5 防泄密:.env 被忽略 + .env.example 无真实密钥
 { grep -qxE '\.env' "$RD/.gitignore" \
@@ -2695,16 +2695,15 @@ PSR="$RD/src/main/java/com/family/finance/config/ProdSeedRunner.java"
   && log_ok "v07-DOCKER-8 ProdSeedRunner 引导种子密码(幂等)+ docker-up 打印首登账号" \
   || log_bad "v07-DOCKER-8 prod 种子账号引导缺失" "Docker 首登会死锁,see ProdSeedRunner"
 
-# v07-DOCKER-9 入口统一:docker-init.sh 环境没就绪(含没装 docker)时不给零碎误导建议,
-#   统一引导到一键脚本 docker-up.sh(先探 `docker info` 判就绪);不再出现「brew install docker-compose」误导
-INIT="$RD/deploy/docker-init.sh"
-{ [[ -f "$INIT" ]] \
-  && grep -q 'docker info' "$INIT" \
-  && grep -q 'bash deploy/docker-up.sh' "$INIT" \
-  && ! grep -q 'brew install docker-compose' "$INIT" \
-  && bash -n "$INIT" 2>/dev/null; } \
-  && log_ok "v07-DOCKER-9 docker-init.sh 环境未就绪时统一引导 docker-up.sh(去掉 brew compose 误导)" \
-  || log_bad "v07-DOCKER-9 安装入口未统一 / 仍有误导建议" "see deploy/docker-init.sh"
+# v07-DOCKER-9 安装入口收敛:Docker 只有 docker-up.sh 一个入口(docker-init.sh 已删、.env 生成内联);
+#   直装只有 deploy.sh 一个入口(macOS 自动 exec 到内部实现 _deploy-macos.sh)
+{ [[ ! -f "$RD/deploy/docker-init.sh" ]] \
+  && grep -q 'ensure_env' "$UP" && grep -q 'REMEMBER_ME_KEY' "$UP" && grep -q 'openssl rand' "$UP" \
+  && [[ -f "$RD/deploy/_deploy-macos.sh" ]] && [[ ! -f "$RD/deploy/deploy-macos.sh" ]] \
+  && grep -q '_deploy-macos.sh' "$RD/deploy/deploy.sh" \
+  && bash -n "$UP" 2>/dev/null && bash -n "$RD/deploy/deploy.sh" 2>/dev/null; } \
+  && log_ok "v07-DOCKER-9 安装入口收敛:docker-up.sh 唯一 Docker 入口(.env 内联)+ deploy.sh 唯一直装入口(Mac 转 _deploy-macos.sh)" \
+  || log_bad "v07-DOCKER-9 安装入口未收敛" "docker-init.sh 应删/内联;deploy-macos.sh 应改名 _deploy-macos.sh 并由 deploy.sh 分流"
 
 # v07-CN-1 国内 Docker 阻断引导:docker-up.sh 单独探 mysql 归因 + 镜像源指引 + 不覆盖已有 daemon.json + 平台分流(Linux/Mac) + bash -n
 { [[ -f "$UP" ]] \

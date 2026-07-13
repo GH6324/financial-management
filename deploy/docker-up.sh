@@ -21,6 +21,24 @@ _to(){ local s="$1"; shift
   else "$@"; fi; }
 pull_one(){ _to 50 docker pull "$1" >/dev/null 2>&1; }
 
+# 生成 .env(随机 DB/root/REMEMBER_ME_KEY)· 幂等:已存在直接返回。
+# v0.x 起 .env 生成内联到本脚本(原 deploy/docker-init.sh 已删),让 Docker 渠道只有这一个入口。
+ensure_env(){
+  [[ -f .env ]] && return 0
+  [[ -f .env.example ]] || die "找不到 .env.example,确认在仓库根目录跑本脚本。"
+  local dbp rootp rmk
+  dbp="$(openssl rand -hex 18)"; rootp="$(openssl rand -hex 18)"; rmk="$(openssl rand -hex 32)"
+  cp .env.example .env
+  # 跨平台 sed(GNU/BSD 都用 -i.bak 再删)
+  sed -i.bak \
+    -e "s|^DB_PASS=.*|DB_PASS=${dbp}|" \
+    -e "s|^MYSQL_ROOT_PASSWORD=.*|MYSQL_ROOT_PASSWORD=${rootp}|" \
+    -e "s|^REMEMBER_ME_KEY=.*|REMEMBER_ME_KEY=${rmk}|" \
+    .env
+  rm -f .env.bak
+  chmod 600 .env
+}
+
 # Docker Hub 被墙(拉 mysql 超时)时的引导。按平台分流:
 #   · Linux 原生 systemd 引擎 → 给 /etc/docker/daemon.json 指引,可征同意后自动写入并重启;
 #   · macOS(引擎在虚拟机里,不读宿主 /etc/docker/daemon.json)→ 按 colima / OrbStack / Docker Desktop
@@ -148,7 +166,7 @@ say "✓ 环境就绪 · 使用 \`$DC\`"
 # ── 4. .env(没有就生成随机密钥)────────────────────────────────────
 if [[ ! -f .env ]]; then
   say "· 没有 .env,生成中(随机 DB 密码 / root 密码 / REMEMBER_ME_KEY)…"
-  bash deploy/docker-init.sh >/dev/null
+  ensure_env
   say "  ✓ 已生成 .env"
 fi
 

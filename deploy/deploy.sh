@@ -19,9 +19,10 @@
 set -euo pipefail
 
 # ---------- macOS 分流 ----------
-# Linux 路径独占下方;macOS 走 deploy-macos.sh($HOME/finance,无 sudo / systemd / nginx)
+# 直装唯一入口就是本脚本;macOS 自动转内部实现 _deploy-macos.sh($HOME/finance,无 sudo / systemd / nginx)。
+# 用户永远只跑 deploy.sh —— 不要直接调 _deploy-macos.sh(下划线 = 内部文件)。
 if [[ "$(uname)" == "Darwin" ]]; then
-  exec bash "$(dirname -- "${BASH_SOURCE[0]}")/deploy-macos.sh" "$@"
+  exec bash "$(dirname -- "${BASH_SOURCE[0]}")/_deploy-macos.sh" "$@"
 fi
 
 # ---------- 颜色 + 辅助 ----------

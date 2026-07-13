@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # =========================================================
-# 家庭账房 · macOS 一键部署(本地开发 / 个人自用)
+# 家庭账房 · deploy.sh 的 macOS 内部实现($HOME/finance · brew · 无 sudo)
 #
-# 用法(在仓库根目录):
-#   bash deploy/deploy.sh         # ← Linux 入口自动 exec 到这
-#   bash deploy/deploy-macos.sh   # ← 直接调
+# 这是内部文件(文件名下划线前缀)· 不要直接调 —— 直装唯一入口是 deploy/deploy.sh,
+# 它在 macOS 上自动 exec 到本脚本。用户永远只需:bash deploy/deploy.sh
 #
 # 干啥:
 #   首装 — brew 装 JDK21 / Maven / MySQL · 建 DB+user · ~/.finance/finance.env
@@ -186,7 +185,7 @@ else
   REMEMBER_KEY=$(openssl rand -hex 32)
   SERVER_PORT=$(ask "服务监听端口" "20000")
   cat > "$ENV_FILE" <<EOF
-# $ENV_FILE — deploy-macos.sh 生成 $(date -Iseconds 2>/dev/null || date +%Y-%m-%dT%H:%M:%S)
+# $ENV_FILE — deploy.sh(macOS)生成 $(date -Iseconds 2>/dev/null || date +%Y-%m-%dT%H:%M:%S)
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_NAME=${DB_NAME}
@@ -260,7 +259,7 @@ if [[ "${PLACEHOLDER_COUNT:-0}" -gt 0 ]]; then
     HASH=$(htpasswd -bnBC 10 "" "$ADMIN_PW" | tr -d ':\n')
   else
     warn "htpasswd 不存在 · 跳过 PLACEHOLDER 重写 · 登录后首次启动会被 BCryptPasswordEncoder 校验失败"
-    warn "解决:brew install httpd · 然后重跑 deploy-macos.sh"
+    warn "解决:brew install httpd · 然后重跑 bash deploy/deploy.sh"
     HASH=""
   fi
   if [[ -n "$HASH" ]]; then
@@ -342,7 +341,7 @@ fi
 START_SH="$APP_HOME/start.sh"
 cat > "$START_SH" <<EOF
 #!/usr/bin/env bash
-# 自动生成 · deploy-macos.sh · $(date +%Y-%m-%d)
+# 自动生成 · deploy.sh(macOS)· $(date +%Y-%m-%d)
 set -euo pipefail
 cd "$APP_HOME"
 set -a; . "$ENV_FILE"; set +a
