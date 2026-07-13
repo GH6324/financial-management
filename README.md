@@ -99,13 +99,13 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v0.16.4 · 修 Docker 本地构建 AlreadyExists + 清理死脚本](https://github.com/LuoDi-Nate/financial-management/releases/tag/v0.16.4)
+
+补丁:修 `docker compose up --build` 在 **classic builder**(非 BuildKit)下报 `AlreadyExists`——`app`/`backup` 共用同一镜像 tag 且都带 `build:`,同名镜像被构建两遍撞 tag;现 `backup` 复用 `app` 镜像、不再自建。顺手删 `deploy/` 下 4 个空的孤儿脚本 + 修失效指引。无数据库变更。
+
 ### [v0.16.3 · 修首页快速开始命令](https://github.com/LuoDi-Nate/financial-management/releases/tag/v0.16.3)
 
 补丁:v0.16.2 收敛安装入口后,落地页「快速开始」与 `.env.example` 仍内嵌已删的 `docker-init.sh` → 改为单条 `bash deploy/docker-up.sh`;补 QA 守护防页面内嵌命令回归。无数据库变更。
-
-### [v0.16.2 · 券商托管入口 + 安装脚本收敛](https://github.com/LuoDi-Nate/financial-management/releases/tag/v0.16.2)
-
-账户券商页「只读铁律」补一键托管 OpenD 提示 + 托管向导入口;OpenD 安装向导在已配置运行中时收起全部步骤、只留「我要重新配置」入口;**安装脚本收敛为每渠道一个**(Docker 全平台 `docker-up.sh`、直装 `deploy.sh`,Windows 经 WSL2 复用同一脚本),修非技术用户被旧脚本误导装孤立 compose 插件而卡死;修 README Star History 裂图。无数据库变更。
 
 ## 主要能力
 
