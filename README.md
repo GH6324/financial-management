@@ -400,7 +400,11 @@ Apache 2.0 · 见 [`LICENSE`](LICENSE)。
 
 ## Star History
 
-<a href="https://star-history.com/#LuoDi-Nate/financial-management&Date">
-  <img src="https://api.star-history.com/svg?repos=LuoDi-Nate/financial-management&type=Date" alt="Star History Chart" width="640">
+<a href="https://www.star-history.com/?repos=LuoDi-Nate%2Ffinancial-management&type=date&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=LuoDi-Nate/financial-management&type=date&theme=dark&legend=bottom-right&sealed_token=s6BjKV6g9W299xIZnCP3iBRIMc9FPhFYC-g7JRsqSx0mcaD4XO4YpLjDp9QUSTkO6FWANgiH-ZiJKxg9luz4wK2pJqt4_YPmFRasqet8q6aQ9lDsDKdbOg" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=LuoDi-Nate/financial-management&type=date&legend=bottom-right&sealed_token=s6BjKV6g9W299xIZnCP3iBRIMc9FPhFYC-g7JRsqSx0mcaD4XO4YpLjDp9QUSTkO6FWANgiH-ZiJKxg9luz4wK2pJqt4_YPmFRasqet8q6aQ9lDsDKdbOg" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=LuoDi-Nate/financial-management&type=date&legend=bottom-right&sealed_token=s6BjKV6g9W299xIZnCP3iBRIMc9FPhFYC-g7JRsqSx0mcaD4XO4YpLjDp9QUSTkO6FWANgiH-ZiJKxg9luz4wK2pJqt4_YPmFRasqet8q6aQ9lDsDKdbOg" />
+ </picture>
 </a>
 
