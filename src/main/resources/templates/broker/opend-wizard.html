@@ -82,14 +82,36 @@
     </div>
   </section>
 
+  <!-- 已就绪总览:OpenD 已配置成功 + 运行中 → 收起全部向导步骤,只留「重新配置」入口 -->
+  <section id="readyBox" th:if="${channel != 'DOCKER'}" th:classappend="${running} ? '' : 'hidden'" class="paper-card p-5 mb-6" style="border-left:4px solid var(--forest)">
+    <div class="flex items-start gap-3">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--forest)" class="shrink-0 mt-0.5" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>
+      <div class="flex-1">
+        <div class="font-display text-xl mb-1">OpenD 已配置完成 · 运行中</div>
+        <p class="text-sm text-ink-soft">富途连接参数已自动回填(<span class="font-mono">127.0.0.1<span id="readyPort"></span></span>)。上方终端可看实时日志与「测试连接」;安装与登录步骤已收起,要换账号或换安装包再重新配置即可。</p>
+        <div class="mt-3 flex flex-wrap gap-3">
+          <a th:href="@{/accounts}" class="btn-ink no-underline text-sm">去账户页关联</a>
+          <button id="reconfigBtn" type="button" class="btn-paper text-sm">我要重新配置 OpenD</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 重新配置中横幅:OpenD 仍在跑,不改动可直接收起回就绪态 -->
+  <div id="reconfigBanner" th:if="${channel != 'DOCKER'}" class="hidden paper-card p-3 mb-4 bg-card-soft flex items-center gap-2 text-sm" style="border-left:4px solid var(--brass-deep)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)" class="shrink-0" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    <span>重新配置中 —— 你的 OpenD 仍在运行,不改动任何东西可直接收起。</span>
+    <button id="reconfigCancel" type="button" class="btn-paper text-xs ml-auto">收起,不改了</button>
+  </div>
+
   <!-- 第 0 步 · 唯一手动(运行中即隐藏) -->
   <section id="step0" th:if="${channel != 'DOCKER'}" th:classappend="${running} ? 'hidden' : ''" class="paper-card p-4 mb-4 bg-card-soft" style="border-left:4px solid var(--rust)">
     <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">第 0 步 · 唯一需要你手动做的一次</div>
     <p class="text-sm text-ink-soft">先用<b class="text-ink">富途牛牛 App / 网页</b>登录一次,完成富途的<b class="text-ink">问卷 + 协议确认</b>(账号级一次性动作,任何程序都替不了)。做过一次后,下面全自动。</p>
   </section>
 
-  <!-- 第 1 步 · 安装 OpenD(装好后收起为成功态) -->
-  <section th:if="${channel != 'DOCKER'}" class="paper-card p-5 mb-4">
+  <!-- 第 1 步 · 安装 OpenD(装好后收起为成功态;运行中整段收起,靠「重新配置」展开) -->
+  <section id="sec1" th:if="${channel != 'DOCKER'}" th:classappend="${running} ? 'hidden' : ''" class="paper-card p-5 mb-4">
     <div class="flex items-center justify-between mb-3">
       <div class="font-mono text-[10px] uppercase text-brass-deep">第 1 步 · 把 OpenD 装到这台机器</div>
       <span id="instState" class="font-mono text-[10px] text-ink-subtle"></span>
@@ -187,8 +209,8 @@
     </div>
   </section>
 
-  <!-- 第 2 步 · 登录(验证码在上方终端里交互 · 装好才展示;运行中收起) -->
-  <section th:if="${channel != 'DOCKER'}" class="paper-card p-5 mb-4" id="loginSec" th:classappend="${installed} ? '' : 'hidden'">
+  <!-- 第 2 步 · 登录(验证码在上方终端里交互 · 装好才展示;运行中整段收起,靠「重新配置」展开) -->
+  <section th:if="${channel != 'DOCKER'}" class="paper-card p-5 mb-4" id="loginSec" th:classappend="${installed and !running} ? '' : 'hidden'">
     <div class="font-mono text-[10px] uppercase text-brass-deep mb-3">第 2 步 · 填富途账号,启动并登录(短信验证码会出现在上方终端里)</div>
 
     <!-- 2·成功态:已登录运行中 → 收起 -->
@@ -237,6 +259,8 @@
   function set(id, prop, val){ var e=$(id); if(e){ e[prop]=val; } }
   function show(id, vis){ var e=$(id); if(e){ e.classList.toggle('hidden', !vis); } }
   var reinstall = false;   // 用户点「重新安装/换包」→ 即便已装也展开安装 UI
+  var reconfig  = false;   // 用户点「我要重新配置 OpenD」→ 即便运行中也展开全部向导步骤
+  var last = null;         // 最近一次 status,供按钮点击后就地重渲染(免等下一轮轮询)
 
   // 安装形式单选级联
   var PANES = {dl:'pane_dl', up:'pane_up', path:'pane_path'};
@@ -258,6 +282,7 @@
   };
   function render(st){
     if(!st) return;
+    last = st;
     var pill=$('phasePill');
     if(pill){
       var sty = PHASE_STYLE[st.phase] || ['#21262d','#8b949e', st.phase || '—'];
@@ -270,15 +295,22 @@
     var lt=$('logTail'); if(lt){ lt.textContent=(st.logTail||[]).join('\n'); lt.scrollTop=lt.scrollHeight; }
     var sms=$('smsBox'); if(sms){ sms.classList.toggle('hidden', st.phase !== 'NEEDS_SMS'); }
     var done=$('doneBox'); if(done){ done.classList.toggle('hidden', st.phase !== 'RUNNING'); }
-    // —— step-by-step 门控:装好第 1 步(有版本号)才亮第 2 步;运行中收起表单/第 0 步 ——
+    // —— step-by-step 门控 ——
+    // 已就绪(运行中且未点重新配置)→ 收起 0/1/2 全部步骤,只留就绪总览卡;
+    // 点「重新配置」(reconfig)→ 即便运行中也把向导重新展开,可换包/换账号。
     var installed = !!st.version;
     var running = st.phase === 'RUNNING';
+    var ready = running && !reconfig;
+    set('readyPort','textContent', st.apiPort ? ':'+st.apiPort : '');
+    show('readyBox', ready);
+    show('reconfigBanner', running && reconfig);
+    show('sec1', !ready);
     show('step1Done', installed && !reinstall);
     show('step1Full', !installed || reinstall);
-    show('step2Locked', !installed);
-    show('loginSec', installed);
-    show('loginDone', running);
-    show('loginForm', !running);
+    show('step2Locked', !installed && !ready);
+    show('loginSec', installed && !ready);
+    show('loginDone', running && !reconfig);
+    show('loginForm', !running || reconfig);
     show('step0', !running);
   }
   function poll(){
@@ -288,6 +320,17 @@
   var reinstBtn=$('reinstBtn');
   if(reinstBtn) reinstBtn.addEventListener('click', function(){
     reinstall = true; show('step1Full', true); show('step1Done', false);
+  });
+  // 就绪态 →「我要重新配置 OpenD」:展开全部向导步骤(不停 OpenD,仍在跑)
+  var reconfigBtn=$('reconfigBtn');
+  if(reconfigBtn) reconfigBtn.addEventListener('click', function(){
+    reconfig = true; if(last) render(last);
+    var s=$('reconfigBanner'); if(s) s.scrollIntoView({behavior:'smooth', block:'start'});
+  });
+  // 重新配置中 →「收起,不改了」:回到就绪总览
+  var reconfigCancel=$('reconfigCancel');
+  if(reconfigCancel) reconfigCancel.addEventListener('click', function(){
+    reconfig = false; reinstall = false; if(last) render(last);
   });
   var dlBtn=$('dlBtn');
   if(dlBtn) dlBtn.addEventListener('click', function(){
