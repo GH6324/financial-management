@@ -2697,10 +2697,13 @@ PSR="$RD/src/main/java/com/family/finance/config/ProdSeedRunner.java"
 
 # v07-DOCKER-9 安装入口收敛:Docker 只有 docker-up.sh 一个入口(docker-init.sh 已删、.env 生成内联);
 #   直装只有 deploy.sh 一个入口(macOS 自动 exec 到内部实现 _deploy-macos.sh)
+LAND="$RD/src/main/resources/templates/landing.html"
 { [[ ! -f "$RD/deploy/docker-init.sh" ]] \
   && grep -q 'ensure_env' "$UP" && grep -q 'REMEMBER_ME_KEY' "$UP" && grep -q 'openssl rand' "$UP" \
   && [[ -f "$RD/deploy/_deploy-macos.sh" ]] && [[ ! -f "$RD/deploy/deploy-macos.sh" ]] \
   && grep -q '_deploy-macos.sh' "$RD/deploy/deploy.sh" \
+  && grep -q 'docker-up.sh' "$LAND" && ! grep -q 'docker-init' "$LAND" \
+  && ! grep -q 'docker-init' "$RD/.env.example" \
   && bash -n "$UP" 2>/dev/null && bash -n "$RD/deploy/deploy.sh" 2>/dev/null; } \
   && log_ok "v07-DOCKER-9 安装入口收敛:docker-up.sh 唯一 Docker 入口(.env 内联)+ deploy.sh 唯一直装入口(Mac 转 _deploy-macos.sh)" \
   || log_bad "v07-DOCKER-9 安装入口未收敛" "docker-init.sh 应删/内联;deploy-macos.sh 应改名 _deploy-macos.sh 并由 deploy.sh 分流"

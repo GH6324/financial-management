@@ -1266,7 +1266,7 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v07-DOCKER-6 | migrate-to-docker.sh 同时识别 `/etc/finance.env`(systemd)与 `~/.finance/finance.env`(macOS) |
 | v07-DOCKER-7 | `docker-up.sh` 一键自检:探测 `docker info`(引擎)/`docker compose version`(V2)/`docker-compose --short`(拒老 V1)+ 验 `/health` |
 | v07-DOCKER-8 | 种子账号 prod 引导:`ProdSeedRunner`(`@Profile("prod")`)调 `findSeedPlaceholders`+`updatePasswordHash` 设临时密码(`seed.admin-password`),修 Docker 首登死锁;`.env.example` 有 `SEED_ADMIN_PASSWORD`;`docker-up.sh` 打印「首次登录」账号 |
-| v07-DOCKER-9 | 安装入口收敛:**Docker 只有 `docker-up.sh` 一个入口**(`docker-init.sh` 已删、`.env` 随机密钥生成内联为 `ensure_env`,含 `openssl rand`/`REMEMBER_ME_KEY`);**直装只有 `deploy.sh` 一个入口**(macOS 自动 `exec` 到内部实现 `_deploy-macos.sh`,`deploy-macos.sh` 已改名)。Windows 走 WSL2 复用 `docker-up.sh`(不另写脚本)。修真实案例:非技术 Mac 用户跑旧 `docker-init.sh` 无 docker 却被带去装孤立 compose 插件而卡死 → 现单入口 `docker-up.sh` 逐项自检 + 按平台给可复制修复命令 |
+| v07-DOCKER-9 | 安装入口收敛:**Docker 只有 `docker-up.sh` 一个入口**(`docker-init.sh` 已删、`.env` 随机密钥生成内联为 `ensure_env`,含 `openssl rand`/`REMEMBER_ME_KEY`);**直装只有 `deploy.sh` 一个入口**(macOS 自动 `exec` 到内部实现 `_deploy-macos.sh`,`deploy-macos.sh` 已改名)。Windows 走 WSL2 复用 `docker-up.sh`(不另写脚本)。**落地页 `landing.html` 快速开始 + `.env.example` 注释均引用 `docker-up.sh`、不得再出现 `docker-init`**(防页面内嵌命令回归)。修真实案例:非技术 Mac 用户跑旧 `docker-init.sh` 无 docker 却被带去装孤立 compose 插件而卡死 → 现单入口 `docker-up.sh` 逐项自检 + 按平台给可复制修复命令 |
 
 **人工 · 真机验收(Mac + Ubuntu 分别)**
 
