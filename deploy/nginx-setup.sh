@@ -30,7 +30,7 @@ die()  { echo "${R}✗${X} $*" >&2; exit 1; }
 [[ -f deploy/nginx-finance.conf.example ]] || die "找不到 deploy/nginx-finance.conf.example,先 cd 到 ~/finance-deploy"
 
 SERVER_NAME="${1:-_}"            # 默认 "_" 表示匹配任意 Host(纯 IP 访问也 OK)
-[[ -f /etc/finance.env ]] || die "/etc/finance.env 缺失,先跑 init-prod.sh"
+[[ -f /etc/finance.env ]] || die "/etc/finance.env 缺失,先跑 sudo bash deploy/deploy.sh(它会建好 /etc/finance.env 并自动配 nginx)"
 PORT="${NGINX_PORT:-$(grep '^SERVER_PORT=' /etc/finance.env | cut -d= -f2- | tr -d '"' || echo 20000)}"
 PORT="${PORT:-20000}"
 ok "后端端口 = ${PORT},server_name = ${SERVER_NAME}"
