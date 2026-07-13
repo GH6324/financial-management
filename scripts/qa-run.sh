@@ -2708,6 +2708,13 @@ LAND="$RD/src/main/resources/templates/landing.html"
   && log_ok "v07-DOCKER-9 安装入口收敛:docker-up.sh 唯一 Docker 入口(.env 内联)+ deploy.sh 唯一直装入口(Mac 转 _deploy-macos.sh)" \
   || log_bad "v07-DOCKER-9 安装入口未收敛" "docker-init.sh 应删/内联;deploy-macos.sh 应改名 _deploy-macos.sh 并由 deploy.sh 分流"
 
+# v07-DOCKER-10 单一构建:docker-compose.yml 只允许一个服务带 `build:`(app);backup 复用同 image tag、不得再写 build:。
+#   两个服务同 image+build 时 classic builder(非 BuildKit)会 build 两遍、第二遍打 tag 撞 AlreadyExists 而失败。
+{ [[ "$(grep -cE '^[[:space:]]*build:' "$RD/docker-compose.yml")" == "1" ]] \
+  && grep -qE '^[[:space:]]*app:' "$RD/docker-compose.yml"; } \
+  && log_ok "v07-DOCKER-10 compose 仅 app 带 build:(backup 复用镜像,不触发 classic builder 双构建 AlreadyExists)" \
+  || log_bad "v07-DOCKER-10 compose 出现多个 build:(会致 classic builder 同 image 双构建撞 AlreadyExists)" "见 docker-compose.yml backup 服务不应写 build:"
+
 # v07-CN-1 国内 Docker 阻断引导:docker-up.sh 单独探 mysql 归因 + 镜像源指引 + 不覆盖已有 daemon.json + 平台分流(Linux/Mac) + bash -n
 { [[ -f "$UP" ]] \
   && grep -q 'pull_one mysql:8.0' "$UP" \

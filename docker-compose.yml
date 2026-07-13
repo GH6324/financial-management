@@ -49,10 +49,12 @@ services:
     ports:
       - "127.0.0.1:${SERVER_PORT:-20000}:20000"
 
-  # 备份 sidecar:复用 app 镜像(自带 mysql client),只换入口为 backup.sh
+  # 备份 sidecar:复用 app 镜像(自带 mysql client + /app/backup.sh),只换入口为 backup.sh。
+  # 注意:这里不写 build: —— 镜像只由上面的 app 服务构建一次,backup 复用同一 tag。
+  # 若两个服务都写 build: 同一 image,classic builder(非 BuildKit)会把同名镜像 build 两遍,
+  # 第二遍打 tag 撞 "AlreadyExists" 而失败(BuildKit 会去重、不报;但不能依赖它)。
   backup:
     image: ghcr.io/luodi-nate/financial-management:latest
-    build: .
     restart: unless-stopped
     depends_on:
       db:
