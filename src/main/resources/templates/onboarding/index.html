@@ -7,6 +7,15 @@
 
 <main class="max-w-[820px] mx-auto px-6 lg:px-10 py-12 relative z-10">
 
+  <!-- 空账期兜底横幅:从 /entry /reports /checkup 被挡回来时显示(?needs=period)· 朱红醒目 -->
+  <div th:if="${needs == 'period'}" class="paper-card p-4 mb-6 flex items-start gap-3" style="border-left:4px solid var(--rust);background:rgba(159,74,58,.06)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-rust shrink-0 mt-0.5" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <div class="text-sm text-ink">
+      <b>还没有开账期 —— 记账 / 报表 / 资产体检都用不了。</b>
+      <span class="block text-ink-soft mt-0.5">本工具按「记账周期」运作:先完成下面第 <b>②</b> 步开一个本期周期,这些页面才有数据可看。</span>
+    </div>
+  </div>
+
   <div class="eyebrow mb-2">开 · 始 · 使 · 用</div>
   <h1 class="font-display text-3xl sm:text-4xl font-medium tracking-tight">三步,开始用家庭账房</h1>
   <p class="text-ink-soft text-sm mt-3 leading-relaxed max-w-2xl">
@@ -42,17 +51,21 @@
           <span th:if="${hasPeriod}" class="font-mono text-[10px] text-forest border border-forest px-1.5">已完成</span></div>
         <div class="text-ink-soft text-[13px] leading-relaxed">在周期管理里点「立即开下一周期」,开一个本月的记账周期。</div>
       </div>
-      <a th:href="@{/admin/periods}" class="btn-ink no-underline shrink-0" th:text="${hasPeriod} ? '去管理' : '去开周期'">去开周期</a>
+      <!-- 需先加账户才可开周期(按序解锁) -->
+      <a th:if="${hasAccount}" th:href="@{/admin/periods}" class="btn-ink no-underline shrink-0" th:text="${hasPeriod} ? '去管理' : '去开周期'">去开周期</a>
+      <span th:unless="${hasAccount}" class="btn-paper no-underline shrink-0 opacity-40" style="cursor:not-allowed" title="先完成第 ① 步「加账户」">先加账户</span>
     </div>
 
-    <!-- ③ 填余额 -->
-    <div class="bracket-card flex items-center gap-4 opacity-70">
+    <!-- ③ 填余额(需先开周期才可点) -->
+    <div class="bracket-card flex items-center gap-4" th:classappend="${hasPeriod} ? ' ring-1 ring-brass' : ' opacity-70'">
       <span class="shrink-0 w-8 h-8 rounded-full border-2 border-ink text-ink font-display flex items-center justify-center">3</span>
       <div class="flex-1 min-w-0">
-        <div class="font-display text-lg">填本期余额</div>
+        <div class="font-display text-lg">填本期余额 / 记账</div>
         <div class="text-ink-soft text-[13px] leading-relaxed">把各账户月末余额填一下(再记几笔大额收支),保存后就能在仪表盘看到净资产和真实收益。</div>
       </div>
-      <a th:href="@{/entry}" class="btn-paper no-underline shrink-0">去填报</a>
+      <!-- 需先开周期才可记账(否则点进 /entry 会没有账期) -->
+      <a th:if="${hasPeriod}" th:href="@{/entry}" class="btn-ink no-underline shrink-0">去填报</a>
+      <span th:unless="${hasPeriod}" class="btn-paper no-underline shrink-0 opacity-40" style="cursor:not-allowed" title="先完成第 ② 步「开本期周期」">先开周期</span>
     </div>
 
   </div>

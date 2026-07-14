@@ -2749,6 +2749,21 @@ CLEAN="$RD/docker/clean-dev-data.sh"; ENT="$RD/docker/entrypoint.sh"
   && log_ok "v07-CLEAN-1 全新库清演示数据(铁信号 schema_history + 互锁 + KEEP_DEMO 开关 + 与 step10 同表集)" \
   || log_bad "v07-CLEAN-1 全新 Docker 清空态逻辑缺件" "see docker/clean-dev-data.sh / entrypoint.sh / Dockerfile"
 
+# v16-EMPTY-1 全新部署空账期兜底:/entry /reports /checkup 在零周期时不再 orElseThrow → 500,
+#   而是 redirect:/?needs=period 回引导页;引导页横幅 + 第③步「去填报」需 hasPeriod 才放行(按序门控)。
+ENTRY="$RD/src/main/java/com/family/finance/web/entry/EntryController.java"
+RPT="$RD/src/main/java/com/family/finance/web/report/ReportsController.java"
+CHK="$RD/src/main/java/com/family/finance/web/checkup/CheckupController.java"
+OBH="$RD/src/main/resources/templates/onboarding/index.html"
+{ for f in "$ENTRY" "$RPT" "$CHK"; do
+    grep -q 'countByFamily(me.getFamilyId()) == 0' "$f" && grep -q 'redirect:/?needs=period' "$f" || exit 1
+  done
+  grep -qF "needs == 'period'" "$OBH" \
+  && grep -qF 'th:if="${hasPeriod}" th:href="@{/entry}"' "$OBH" \
+  && grep -qF 'th:if="${hasAccount}" th:href="@{/admin/periods}"' "$OBH"; } \
+  && log_ok "v16-EMPTY-1 空账期兜底:entry/reports/checkup 零周期 redirect 引导页(不 500)+ 引导横幅 + ②③按序门控" \
+  || log_bad "v16-EMPTY-1 空账期兜底缺件" "see EntryController/ReportsController/CheckupController guard + onboarding/index.html"
+
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
   && grep -q '289 单元' "$RD/README.md" && grep -q '412' "$RD/README.md" \

@@ -1310,8 +1310,9 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 |---|---|
 | v07-ONB-1 | `HomeController` `/` 智能路由(零周期/零账户→`onboarding/index`,有数据→`redirect:/dashboard`)+ `DashboardController` 零周期兜底 `redirect:/`(修首登 500);`onboarding/index.html` 存在 |
 | v07-ONB-2 | 引导页含「加账户 / 开本期周期」起步步骤;`/entry` 顶部有「周期流程」说明;`OnboardingRoutingTest` 在 |
+| v16-EMPTY-1 | 全新部署空账期兜底:`/entry`(原 `orElseThrow` 找不到周期)、`/reports`(原 `ReportsAnchorResolver` 抛「尚未创建周期」)、`/checkup` 在零周期时**不再 500**,统一 `redirect:/?needs=period` 回引导页;引导页显**朱红醒目横幅**(`needs=='period'`),第②步「去开周期」需 `hasAccount`、第③步「去填报」需 `hasPeriod` 才是活链接(否则灰禁用 + 提示),按序解锁。修真实案例:测试用户全新部署点「记账」直接 500 |
 
-**单元 · OnboardingRoutingTest**:零周期/零账户→onboarding;有账户无周期→onboarding;有周期无账户→onboarding;两者齐→redirect dashboard。
+**单元 · OnboardingRoutingTest**:零周期/零账户→onboarding;有账户无周期→onboarding;有周期无账户→onboarding;两者齐→redirect dashboard;`needs=period`→引导页横幅标志置位。
 
 **人工 · 真机验收(全新装)**
 

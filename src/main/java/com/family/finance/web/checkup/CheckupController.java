@@ -58,6 +58,10 @@ public class CheckupController {
     public String checkup(@AuthenticationPrincipal MemberPrincipal me,
                           @RequestParam(name = "account", required = false) Long accountId,
                           Model model) {
+        // v0.16.x 兜底:全新部署(零周期)→ 回引导页并提示先开周期(体检依赖账期快照数据,零周期无可诊断)。
+        if (periodMapper.countByFamily(me.getFamilyId()) == 0) {
+            return "redirect:/?needs=period";
+        }
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
         model.addAttribute("active", "checkup");

@@ -66,6 +66,11 @@ public class EntryController {
                         @RequestParam(value = "mine", defaultValue = "false") boolean mineOnly,
                         @RequestParam(value = "account", required = false) Long accountFilter,
                         Model model) {
+        // v0.16.x 兜底:全新部署(零周期)点「去填报」时,回引导页并提示先开周期,
+        // 而不是下面 orElseThrow 抛 IllegalStateException → 500 白页。对齐 DashboardController 的空态处理。
+        if (periodMapper.countByFamily(me.getFamilyId()) == 0) {
+            return "redirect:/?needs=period";
+        }
         Period period = entryService.findSelectedPeriod(me.getFamilyId(), periodParam)
                 .orElseThrow(() -> new IllegalStateException("找不到周期: " + periodParam));
         model.addAttribute("me", me);

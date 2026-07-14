@@ -20,6 +20,7 @@ import static org.mockito.Mockito.when;
  * v0.7 FR-133/134 · 落地页智能路由:
  * 未初始化(零周期 或 零账户)→ onboarding;有数据 → redirect dashboard。
  * 同时是首登 500 修复的回归保护(零周期不再无脑转 dashboard)。
+ * v0.16.x:新增 needs 参数(空账期兜底重定向回来时点亮引导页横幅)。
  */
 class OnboardingRoutingTest {
 
@@ -36,7 +37,7 @@ class OnboardingRoutingTest {
         when(periodMapper.countByFamily(1L)).thenReturn(0);
         when(accountMapper.findActiveByFamily(1L)).thenReturn(List.of());
         Model model = new ExtendedModelMap();
-        assertThat(controller.home(principal(), model)).isEqualTo("onboarding/index");
+        assertThat(controller.home(principal(), null, model)).isEqualTo("onboarding/index");
         assertThat(model.getAttribute("hasAccount")).isEqualTo(false);
         assertThat(model.getAttribute("hasPeriod")).isEqualTo(false);
     }
@@ -46,7 +47,7 @@ class OnboardingRoutingTest {
         when(periodMapper.countByFamily(1L)).thenReturn(0);
         when(accountMapper.findActiveByFamily(1L)).thenReturn(List.of(Account.builder().id(1L).build()));
         Model model = new ExtendedModelMap();
-        assertThat(controller.home(principal(), model)).isEqualTo("onboarding/index");
+        assertThat(controller.home(principal(), null, model)).isEqualTo("onboarding/index");
         assertThat(model.getAttribute("hasAccount")).isEqualTo(true);
         assertThat(model.getAttribute("hasPeriod")).isEqualTo(false);
     }
@@ -55,13 +56,23 @@ class OnboardingRoutingTest {
     void hasPeriodButZeroAccount_stillOnboarding() {
         when(periodMapper.countByFamily(1L)).thenReturn(2);
         when(accountMapper.findActiveByFamily(1L)).thenReturn(List.of());
-        assertThat(controller.home(principal(), new ExtendedModelMap())).isEqualTo("onboarding/index");
+        assertThat(controller.home(principal(), null, new ExtendedModelMap())).isEqualTo("onboarding/index");
     }
 
     @Test
     void hasPeriodAndAccount_redirectsToDashboard() {
         when(periodMapper.countByFamily(1L)).thenReturn(3);
         when(accountMapper.findActiveByFamily(1L)).thenReturn(List.of(Account.builder().id(1L).build()));
-        assertThat(controller.home(principal(), new ExtendedModelMap())).isEqualTo("redirect:/dashboard");
+        assertThat(controller.home(principal(), null, new ExtendedModelMap())).isEqualTo("redirect:/dashboard");
+    }
+
+    /** v0.16.x:/entry /reports /checkup 空账期兜底重定向回来(?needs=period)→ 引导页横幅点亮。 */
+    @Test
+    void needsPeriodParam_setsBannerFlag() {
+        when(periodMapper.countByFamily(1L)).thenReturn(0);
+        when(accountMapper.findActiveByFamily(1L)).thenReturn(List.of(Account.builder().id(1L).build()));
+        Model model = new ExtendedModelMap();
+        assertThat(controller.home(principal(), "period", model)).isEqualTo("onboarding/index");
+        assertThat(model.getAttribute("needs")).isEqualTo("period");
     }
 }

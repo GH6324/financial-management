@@ -80,6 +80,11 @@ public class ReportsController {
                           @RequestParam(required = false) String asof, // v0.11.5 · 观察账期(只在已关账期里选)
                           @RequestHeader(value = "HX-Request", required = false) String htmx,
                           Model model) {
+        // v0.16.x 兜底:全新部署(零周期)→ 回引导页并提示先开周期,
+        // 而不是 ReportsAnchorResolver 抛「尚未创建周期」IllegalStateException → 500。
+        if (periodMapper.countByFamily(me.getFamilyId()) == 0) {
+            return "redirect:/?needs=period";
+        }
         String accountsCsv = accounts == null || accounts.isEmpty()
                 ? null
                 : accounts.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));

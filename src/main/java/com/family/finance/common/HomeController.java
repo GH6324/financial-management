@@ -26,7 +26,9 @@ public class HomeController {
     private final AccountMapper accountMapper;
 
     @GetMapping("/")
-    public String home(@AuthenticationPrincipal MemberPrincipal me, Model model) {
+    public String home(@AuthenticationPrincipal MemberPrincipal me,
+                       @org.springframework.web.bind.annotation.RequestParam(required = false) String needs,
+                       Model model) {
         if (me == null) {
             return "landing";   // v0.9 FR-160:匿名访客 → 公开落地页
         }
@@ -38,6 +40,9 @@ public class HomeController {
         }
         model.addAttribute("hasAccount", hasAccount);
         model.addAttribute("hasPeriod", hasPeriod);
+        // v0.16.x:被 /entry /reports /checkup 的空账期兜底重定向回来时(?needs=period),
+        // 引导页顶部显示醒目横幅,告诉用户"先开账期"(而不是原来的 500 白页)。
+        model.addAttribute("needs", needs);
         return "onboarding/index";
     }
 }
