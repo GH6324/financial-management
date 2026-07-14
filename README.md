@@ -99,13 +99,13 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v0.16.5 · 修全新部署空账期 500 + 引导按序门控](https://github.com/LuoDi-Nate/financial-management/releases/tag/v0.16.5)
+
+补丁:全新部署(还没开账期)点「记账 / 报表 / 资产体检」原本直接 500 → 现统一兜底回引导页 + **朱红醒目横幅**提示先开周期;引导页第②③步按序解锁(需先加账户 / 先开周期才可点)。并对常见页面做了两种空态的全页真机巡检,确认无其它空态 500。无数据库变更。
+
 ### [v0.16.4 · 修 Docker 本地构建 AlreadyExists + 清理死脚本](https://github.com/LuoDi-Nate/financial-management/releases/tag/v0.16.4)
 
 补丁:修 `docker compose up --build` 在 **classic builder**(非 BuildKit)下报 `AlreadyExists`——`app`/`backup` 共用同一镜像 tag 且都带 `build:`,同名镜像被构建两遍撞 tag;现 `backup` 复用 `app` 镜像、不再自建。顺手删 `deploy/` 下 4 个空的孤儿脚本 + 修失效指引。无数据库变更。
-
-### [v0.16.3 · 修首页快速开始命令](https://github.com/LuoDi-Nate/financial-management/releases/tag/v0.16.3)
-
-补丁:v0.16.2 收敛安装入口后,落地页「快速开始」与 `.env.example` 仍内嵌已删的 `docker-init.sh` → 改为单条 `bash deploy/docker-up.sh`;补 QA 守护防页面内嵌命令回归。无数据库变更。
 
 ## 主要能力
 
