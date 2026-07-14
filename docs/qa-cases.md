@@ -1314,6 +1314,11 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 
 **单元 · OnboardingRoutingTest**:零周期/零账户→onboarding;有账户无周期→onboarding;有周期无账户→onboarding;两者齐→redirect dashboard;`needs=period`→引导页横幅标志置位。
 
+**空态全页巡检(2026-07-14 · beta 临时零账期家庭真机)**:两种空态逐页打状态码找 500 ——
+① 纯空(0 账户 0 账期):`/ /dashboard /entry /reports /checkup /accounts /accounts/new /goals /goals/new /goals/new/custom /my-todos /profile/password` + 全部 `/admin/*` = 200 或优雅 302(entry/reports/checkup→`/?needs=period`,dashboard→`/`,my-todos→`/entry`→引导);
+② 有账户+目标、零账期:`/accounts/{id}`(CASH/STOCK)`/accounts/{id}/edit` `/accounts/{id}/holdings` `holdings/new-auto|new-manual` `/accounts/{id}/broker` `/goals/{id}` = 全 200。
+**结论:除已修的 entry/reports/checkup 外,无其它空态 500;详情页/持仓/目标详情均空态安全。** 测试数据用后清零(残留=0)。
+
 **人工 · 真机验收(全新装)**
 
 | 场景 | 校验 |
