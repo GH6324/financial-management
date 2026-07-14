@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家庭账房 · v0.17 预览 · 保险账户(储蓄/理财型)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{paper:'var(--paper)',card:'var(--card)','card-soft':'var(--card-soft)',ink:{DEFAULT:'var(--ink)',soft:'var(--ink-soft)',subtle:'var(--ink-subtle)'},rule:{DEFAULT:'var(--rule)',soft:'var(--rule-soft)'},brass:{DEFAULT:'var(--brass)',deep:'var(--brass-deep)'},forest:'var(--forest)',rust:'var(--rust)'},fontFamily:{display:['Fraunces','Noto Serif SC','serif'],serif:['"Source Serif 4"','Noto Serif SC','serif'],mono:['JetBrains Mono','monospace']}}}}</script>
+  <style>
+    body{background:var(--paper);color:var(--ink)}
+    .eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass-deep)}
+    .paper-card{background:var(--card);border:1px solid var(--rule);box-shadow:0 1px 0 rgba(26,23,20,.04),0 8px 24px -12px rgba(26,23,20,.08)}
+    .annot{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-subtle);line-height:1.7}
+    .note{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-subtle)}
+    .pill{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.06em;padding:2px 8px;border-radius:2px;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--rule);background:var(--card);color:var(--ink-soft)}
+    .pill-forest{background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)}
+    .pill-brass{background:rgba(180,138,58,.12);color:var(--brass-deep);border:1px solid var(--brass-deep)}
+    .pill-rust{background:rgba(159,74,58,.10);color:var(--rust);border:1px solid var(--rust)}
+    .num-pos{color:var(--forest)}.num-neg{color:var(--rust)}.tnum{font-feature-settings:"tnum" 1}
+    .seclabel{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.14em;background:rgba(180,138,58,.08);border:1px dashed #c79338;color:#b08a3a;padding:2px 8px;border-radius:2px;text-transform:uppercase}
+    .callout{border-left:3px solid var(--brass-deep);background:var(--card-soft);padding:12px 16px}
+    .callout.forest{border-left-color:var(--forest)}.callout.rust{border-left-color:var(--rust)}
+    .field-label{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-subtle);display:block;margin-bottom:4px}
+    .field-input{width:100%;font-family:"JetBrains Mono",monospace;font-size:14px;background:var(--paper-soft,#faf7f1);border:1px solid var(--rule);padding:8px 10px}
+    .opt{border:1px solid var(--rule);padding:12px 14px;cursor:pointer}
+    .opt.on{border-color:var(--brass-deep);background:var(--card-soft)}
+    .bar{height:8px;background:var(--rule-soft);border-radius:99px;overflow:hidden}
+    .bar > i{display:block;height:100%;border-radius:99px}
+    .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+    .phone{width:390px;border:10px solid #1a1714;border-radius:34px;overflow:hidden;background:var(--paper);box-shadow:0 20px 50px -20px rgba(0,0,0,.5)}
+    .phone-bar{height:26px;background:#1a1714}
+    svg.ico{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;vertical-align:-2px}
+  </style>
+</head>
+<body class="font-serif">
+
+<header class="max-w-[1180px] mx-auto px-6 pt-10 pb-4">
+  <div class="eyebrow mb-2">家庭账房 · v0.17 预览 · PRD 评审稿</div>
+  <h1 class="font-display text-4xl font-medium tracking-tight mb-2">保险账户 · 储蓄 / 理财型</h1>
+  <p class="text-ink-soft max-w-3xl">把<b>有现金价值</b>的储蓄 / 理财型保险(年金险 / 增额终身寿 / 万能险 / 分红险)纳入家庭资产大盘。保险账户 = <b>又一类「按周期手填当前价值」的资产账户</b>,复用现有估值 / 净资产 / 配置链。关联 <a class="text-brass-deep underline" href="https://github.com/LuoDi-Nate/financial-management/issues/6">issue #6</a>。</p>
+  <div class="mt-3 flex gap-2 flex-wrap">
+    <span class="pill pill-brass">第 9 类账户 · INSURANCE</span>
+    <span class="pill">现金价值 = 手填余额</span>
+    <span class="pill pill-forest">计入总资产 / 净资产</span>
+    <span class="pill">保单登记字段 · 可选</span>
+    <span class="pill pill-rust">不做预算引擎 · 不算保单收益</span>
+  </div>
+</header>
+
+<hr class="max-w-[1180px] mx-auto border-rule">
+
+<!-- ============ 理念坚持 ============ -->
+<section class="max-w-[1180px] mx-auto px-6 py-6">
+  <div class="callout forest">
+    <div class="eyebrow mb-1" style="color:var(--forest)">坚 · 持 · 原 · 有 · 账 · 户 · 理 · 念</div>
+    <div class="text-sm text-ink-soft leading-relaxed">
+      ① 保险账户 = 手填「现金价值」的资产账户,和<b>理财 / 房产 / 贵金属</b>同一套估值链,<b>不新增估值范式</b>。
+      ② <b>不引入预算 / 现金流预测引擎</b>(issue 里的"自动生成流出预算"我们不做)—— 保费只作登记,真实流出由每期余额变化 + 现有净流入自然捕获。
+      ③ <b>消费型保险(车 / 医疗 / 定期寿)不建账户</b>(无现金价值 = 纯支出)。
+      ④ <b>不替系统 / LLM 算保单收益</b>(演示利率不可信 · LLM 禁数学)。
+    </div>
+  </div>
+</section>
+
+<!-- ============ 屏 1 · 建账户向导 ============ -->
+<section class="max-w-[1180px] mx-auto px-6 py-8">
+  <div class="flex items-center gap-3 mb-1"><span class="seclabel">屏 1</span><h2 class="font-display text-2xl">建账户 · 账户类型新增「保险」</h2></div>
+  <p class="annot mb-4">FR-17-1 · 第 9 类账户,与现有 8 类并列;选保险后选子类型 + 内置模板;对消费型给友好提示。</p>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- 类型选择 -->
+    <div class="paper-card p-5">
+      <label class="field-label mb-3">账户类型</label>
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <div class="opt text-center"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><div class="text-xs mt-1">现金</div></div>
+        <div class="opt text-center"><svg class="ico" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg><div class="text-xs mt-1">证券</div></div>
+        <div class="opt text-center"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2v20M6 6h9a3 3 0 0 1 0 6H8a3 3 0 0 0 0 6h10"/></svg><div class="text-xs mt-1">理财</div></div>
+        <div class="opt text-center"><svg class="ico" viewBox="0 0 24 24"><path d="M3 21h18M5 21V8l7-5 7 5v13"/></svg><div class="text-xs mt-1">房产</div></div>
+        <div class="opt text-center"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9 12h6"/></svg><div class="text-xs mt-1">贵金属</div></div>
+        <div class="opt on text-center" style="position:relative">
+          <span class="pill pill-brass" style="position:absolute;top:-9px;right:-6px;font-size:8px">新</span>
+          <svg class="ico" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+          <div class="text-xs mt-1 font-medium" style="color:var(--brass-deep)">保险</div>
+        </div>
+      </div>
+
+      <label class="field-label">保险子类型</label>
+      <div class="field-input mb-1 flex items-center justify-between"><span>增额终身寿</span><span class="note">▾</span></div>
+      <p class="note mb-4">年金险 · 增额终身寿 · 万能险 · 分红险 · 投连险 · 其他储蓄型 —— 仅展示 / 分组,不改估值。</p>
+
+      <label class="field-label">账户名称</label>
+      <input class="field-input mb-3" value="平安 · 御享财富(增额寿)" readonly>
+
+      <label class="field-label">币种</label>
+      <div class="field-input flex items-center justify-between"><span>CNY 人民币</span><span class="note">▾</span></div>
+    </div>
+
+    <!-- 消费型提示 + 内置模板 -->
+    <div class="space-y-4">
+      <div class="callout rust">
+        <div class="text-sm text-ink"><b>车险 / 医疗险 / 定期寿等消费型保险是纯支出、没有现金价值</b>,不建议建成资产账户。这里请建<b>有现金价值的储蓄 / 理财型保险</b>。</div>
+      </div>
+      <div class="paper-card p-5">
+        <div class="eyebrow mb-3">内 · 置 · 模 · 板</div>
+        <div class="space-y-2">
+          <div class="opt flex items-center gap-3"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg><div><div class="text-sm font-medium">增额终身寿 · 现金价值</div><div class="note">按期填现金价值,计入总资产</div></div></div>
+          <div class="opt flex items-center gap-3"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><div><div class="text-sm font-medium">年金险 · 账户价值</div><div class="note">缴费期填现金价值,领取期填余额</div></div></div>
+          <div class="opt flex items-center gap-3"><svg class="ico" viewBox="0 0 24 24"><path d="M4 12h16M12 4v16"/></svg><div><div class="text-sm font-medium">万能险 · 账户价值</div><div class="note">结算利率滚存后的账户价值,手填</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="max-w-[1180px] mx-auto border-rule">
+
+<!-- ============ 屏 2 · 保险账户详情 ============ -->
+<section class="max-w-[1180px] mx-auto px-6 py-8">
+  <div class="flex items-center gap-3 mb-1"><span class="seclabel">屏 2</span><h2 class="font-display text-2xl">保险账户详情 · 现金价值 + 保单登记</h2></div>
+  <p class="annot mb-4">FR-17-2/3/5 · 净资产只认「现金价值」(手填余额);保单字段全可选、纯展示;已缴保费 vs 现金价值只作两个数字并列(不算 IRR)。</p>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- 现金价值(计入资产) -->
+    <div class="paper-card p-5 lg:col-span-1">
+      <div class="flex items-center gap-2 mb-1"><span class="pill pill-brass">保险 · 增额终身寿</span></div>
+      <div class="field-label mt-3">当前现金价值(计入总资产)</div>
+      <div class="font-display text-3xl tnum" data-priv>¥82,400</div>
+      <div class="callout forest mt-3 py-2"><div class="note" style="color:var(--forest)">✓ 计入家庭总资产 / 净资产 / 资产配置</div></div>
+      <div class="mt-4">
+        <div class="field-label">本期填现金价值</div>
+        <input class="field-input" value="82,400" readonly>
+        <p class="note mt-1">和理财 / 房产一样,每期手填一次当前值。</p>
+      </div>
+      <div class="mt-4 pt-3 border-t border-rule-soft">
+        <div class="flex justify-between text-sm"><span class="text-ink-soft">已缴保费(登记)</span><span class="tnum" data-priv>¥120,000</span></div>
+        <div class="flex justify-between text-sm mt-1"><span class="text-ink-soft">当前现金价值</span><span class="tnum" data-priv>¥82,400</span></div>
+        <p class="note mt-2">早期年份现金价值 &lt; 已交保费是正常的(保障成本)。<b>只并列两个数,不算收益 / 好坏。</b></p>
+      </div>
+    </div>
+
+    <!-- 保单登记字段 -->
+    <div class="paper-card p-5 lg:col-span-2">
+      <div class="eyebrow mb-3">保 · 单 · 登 · 记(全部可选 · 留空即隐藏)</div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div><div class="field-label">承保公司</div><div class="text-sm">平安人寿</div></div>
+        <div><div class="field-label">保单号</div><div class="text-sm tnum" data-priv>P·····3682</div></div>
+        <div><div class="field-label">被保人</div><div class="text-sm">小孩 · 迪宝</div></div>
+        <div><div class="field-label">保额</div><div class="text-sm tnum" data-priv>¥500,000</div></div>
+        <div><div class="field-label">保费 · 缴费周期</div><div class="text-sm tnum" data-priv>¥12,000 / 年</div></div>
+        <div><div class="field-label">已缴 / 总期数</div><div class="text-sm tnum">10 / 10 期</div></div>
+        <div><div class="field-label">生效日</div><div class="text-sm tnum">2016-03-01</div></div>
+        <div><div class="field-label">满期 / 领取日</div><div class="text-sm tnum">2036-03-01</div></div>
+        <div><div class="field-label">投保人</div><div class="text-sm">迪娃</div></div>
+      </div>
+      <div class="callout mt-4 py-2"><div class="note">这些字段只回答"这张保单是什么" —— <b>不生成预算、不预测、不进净资产计算</b>。缴保费时像平常那样在填报里记一笔支出 / 转账即可(系统不自动生成)。</div></div>
+    </div>
+  </div>
+</section>
+
+<hr class="max-w-[1180px] mx-auto border-rule">
+
+<!-- ============ 屏 3 · 资产大盘独立类目 ============ -->
+<section class="max-w-[1180px] mx-auto px-6 py-8">
+  <div class="flex items-center gap-3 mb-1"><span class="seclabel">屏 3</span><h2 class="font-display text-2xl">资产配置 · 「保险」独立类目</h2></div>
+  <p class="annot mb-4">FR-17-4 · 保险作为独立类目进环形图 / 图例(不混进理财),数据标签直接浮在图上。</p>
+
+  <div class="paper-card p-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+    <div class="flex items-center justify-center">
+      <!-- 简化环形图 -->
+      <svg viewBox="0 0 42 42" width="200" height="200" style="transform:rotate(-90deg)">
+        <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--rule-soft)" stroke-width="6"/>
+        <circle cx="21" cy="21" r="15.9" fill="none" stroke="#2f5d50" stroke-width="6" stroke-dasharray="34 66" stroke-dashoffset="0"/>
+        <circle cx="21" cy="21" r="15.9" fill="none" stroke="#b48a3a" stroke-width="6" stroke-dasharray="24 76" stroke-dashoffset="-34"/>
+        <circle cx="21" cy="21" r="15.9" fill="none" stroke="#9f4a3a" stroke-width="6" stroke-dasharray="16 84" stroke-dashoffset="-58"/>
+        <circle cx="21" cy="21" r="15.9" fill="none" stroke="#8a7a63" stroke-width="6" stroke-dasharray="14 86" stroke-dashoffset="-74"/>
+        <circle cx="21" cy="21" r="15.9" fill="none" stroke="#c79338" stroke-width="6" stroke-dasharray="12 88" stroke-dashoffset="-88"/>
+      </svg>
+    </div>
+    <div class="space-y-2">
+      <div class="flex items-center justify-between"><span class="text-sm"><span class="dot" style="background:#2f5d50"></span> 证券</span><span class="tnum text-sm" data-priv>34% · ¥204,000</span></div>
+      <div class="flex items-center justify-between"><span class="text-sm"><span class="dot" style="background:#b48a3a"></span> 理财</span><span class="tnum text-sm" data-priv>24% · ¥144,000</span></div>
+      <div class="flex items-center justify-between"><span class="text-sm"><span class="dot" style="background:#9f4a3a"></span> 现金</span><span class="tnum text-sm" data-priv>16% · ¥96,000</span></div>
+      <div class="flex items-center justify-between"><span class="text-sm"><span class="dot" style="background:#8a7a63"></span> 房产</span><span class="tnum text-sm" data-priv>14% · ¥84,000</span></div>
+      <div class="flex items-center justify-between p-2" style="background:rgba(199,147,56,.10);border:1px dashed #c79338">
+        <span class="text-sm font-medium"><span class="dot" style="background:#c79338"></span> 保险 <span class="pill pill-brass" style="font-size:8px">新</span></span>
+        <span class="tnum text-sm font-medium" data-priv>12% · ¥82,400</span>
+      </div>
+      <div class="pt-2 mt-1 border-t border-rule flex items-center justify-between"><span class="text-sm text-ink-soft">家庭总资产</span><span class="font-display text-xl tnum" data-priv>¥610,400</span></div>
+    </div>
+  </div>
+</section>
+
+<hr class="max-w-[1180px] mx-auto border-rule">
+
+<!-- ============ 屏 4 · 移动端 ============ -->
+<section class="max-w-[1180px] mx-auto px-6 py-8">
+  <div class="flex items-center gap-3 mb-1"><span class="seclabel">屏 4</span><h2 class="font-display text-2xl">移动端 · 保险账户卡 + 填现金价值</h2></div>
+  <p class="annot mb-4">和其它资产账户同一张卡;填报里保险行填「现金价值」。</p>
+  <div class="flex gap-8 flex-wrap">
+    <div class="phone"><div class="phone-bar"></div>
+      <div class="p-4 space-y-3">
+        <div class="eyebrow">账 户 簿</div>
+        <div class="paper-card p-3">
+          <div class="flex items-center justify-between">
+            <div><div class="text-sm font-medium">平安 · 御享财富</div><span class="pill pill-brass" style="font-size:9px">保险 · 增额寿</span></div>
+            <div class="text-right"><div class="tnum text-sm" data-priv>¥82,400</div><div class="note">现金价值</div></div>
+          </div>
+        </div>
+        <div class="paper-card p-3">
+          <div class="flex items-center justify-between"><div class="text-sm font-medium">招行理财-稳健</div><div class="tnum text-sm" data-priv>¥144,000</div></div>
+        </div>
+        <div class="paper-card p-3">
+          <div class="flex items-center justify-between"><div class="text-sm font-medium">住宅-海淀</div><div class="tnum text-sm" data-priv>¥84,000</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="phone"><div class="phone-bar"></div>
+      <div class="p-4 space-y-3">
+        <div class="eyebrow">填 报 · 本 期</div>
+        <div class="paper-card p-3">
+          <div class="text-sm font-medium mb-2">平安 · 御享财富(保险)</div>
+          <div class="field-label">现金价值</div>
+          <input class="field-input" value="82,400">
+          <p class="note mt-1">从保单 / 保险 App 查当前现金价值,填进来。</p>
+        </div>
+        <div class="callout forest py-2"><div class="note" style="color:var(--forest)">保存后 → 计入本期净资产快照</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="max-w-[1180px] mx-auto px-6 py-10">
+  <div class="callout">
+    <div class="eyebrow mb-1">评 · 审 · 待 · 拍 · 板</div>
+    <div class="text-sm text-ink-soft leading-relaxed">
+      <b>D1</b> 独立第 9 类 INSURANCE(推荐)vs 复用理财 + 子标签 ·
+      <b>D2</b> 保单字段全集但全可选(推荐)vs 裁剪 ·
+      <b>D3</b> 消费型保费提醒本版不做(推荐,列 backlog)vs 顺带做。
+    </div>
+  </div>
+  <p class="note mt-4">家庭账房 · v0.17 预览稿 · 数字为示意 · 详见 <span class="font-mono">prd/v0.17.md</span></p>
+</footer>
+
+</body>
+</html>
