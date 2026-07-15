@@ -1,63 +1,48 @@
 {
   "_comment": "每次发版按核心能力改清单(PC 用 selector 裁剪聚焦;手机不裁剪、整屏 full=false 平铺 —— 用户定 2026-07-11)",
-  "_version": "v0.15.0 · 券商只读同步(富途/老虎)",
+  "_version": "v0.17.0 · 保险账户 + 向导模板卡回填 + 贷款趋势预测显式接受",
   "pc": [
     {
+      "path": "/accounts/24",
+      "name": "insurance-detail",
+      "wait": 1500,
+      "waitFor": "text=保单",
+      "selector": "section.paper-card:has-text(\"INSURANCE POLICY\")"
+    },
+    {
       "path": "/accounts",
-      "name": "accounts-broker-badge",
+      "name": "accounts-insurance",
       "wait": 1500,
-      "selector": "tr:has-text(\"富途 test\")"
+      "selector": "tr:has-text(\"泰康增额终身寿\")"
     },
     {
-      "path": "/accounts/20/broker",
-      "name": "broker-link",
-      "wait": 1200,
-      "selector": "section.paper-card:has-text(\"上次同步\")"
-    },
-    {
-      "path": "/accounts/20/holdings",
-      "name": "holdings-synced",
-      "wait": 2000,
-      "selector": "article:has-text(\"拼多多\")"
-    },
-    {
-      "path": "/accounts/20/holdings",
-      "name": "holdings-cash",
-      "wait": 2000,
-      "selector": "article:has-text(\"USD 现金\")"
-    },
-    {
-      "path": "/admin/broker/opend",
-      "name": "opend-terminal",
-      "wait": 3000,
-      "selector": "section:has(#logTail)"
-    },
-    {
-      "path": "/help/broker-sync",
-      "name": "help-guide",
+      "path": "/entry",
+      "name": "loan-prompt",
       "wait": 1500,
-      "selector": "#futu .paper-card"
+      "waitFor": "text=按上两月趋势",
+      "selector": "#entry-block-11"
+    },
+    {
+      "path": "/dashboard",
+      "name": "allocation-insurance",
+      "wait": 2500,
+      "selector": "div.paper-card:has(#allocationChart)"
     }
   ],
   "mobile": [
     {
-      "path": "/accounts",
-      "name": "accounts",
-      "wait": 4000,
-      "full": false
-    },
-    {
-      "path": "/accounts/20/holdings",
-      "name": "holdings-synced",
+      "path": "/accounts/24",
+      "name": "insurance-detail",
       "wait": 2000,
       "full": false,
-      "waitFor": "text=拼多多"
+      "waitFor": "text=保单"
     },
     {
-      "path": "/admin/broker/opend",
-      "name": "opend-terminal",
-      "wait": 3000,
-      "full": false
+      "path": "/entry",
+      "name": "loan-prompt",
+      "wait": 2500,
+      "full": false,
+      "waitFor": "text=按上两月趋势"
     }
   ]
 }
