@@ -129,6 +129,79 @@
                th:value="${account.annualRatePct}" placeholder="如 4.1">
         <div class="text-xs text-ink-subtle mt-1">用于「负债利率 vs 资产收益」对照(提前还贷信号)· 不填则跳过</div>
       </div>
+
+      <!-- v0.17 · 保险保单登记(仅 INSURANCE · 全选填 · 纯展示,不参与净资产计算)-->
+      <div id="insuranceFields" class="md:col-span-2" th:classappend="${account.type.name() == 'INSURANCE' ? '' : ' hidden'}">
+        <div class="rule-double my-2"></div>
+        <div class="eyebrow-ink mb-1">保单登记 <span class="text-ink-subtle font-mono text-[10px]">全部可选 · 纯展示,不影响净资产</span></div>
+        <p class="text-xs text-ink-soft mb-3">净资产只认你每期填的<b>现金价值</b>;这里登记「这张保单是什么」,不生成预算、不预测收益。</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label class="field-label">保险子类型</label>
+            <select name="insuranceKind" class="field-input bg-transparent">
+              <option value="">未选</option>
+              <option th:each="s : ${insuranceSubTypes}" th:value="${s.name()}"
+                      th:selected="${insurancePolicy != null and s.name() == insurancePolicy.insuranceKind}"
+                      th:text="${s.label}">年金险</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">缴费周期</label>
+            <select name="premiumFrequency" class="field-input bg-transparent">
+              <option value="">未选</option>
+              <option value="SINGLE"  th:selected="${insurancePolicy != null and insurancePolicy.premiumFrequency == 'SINGLE'}">趸交</option>
+              <option value="ANNUAL"  th:selected="${insurancePolicy != null and insurancePolicy.premiumFrequency == 'ANNUAL'}">年缴</option>
+              <option value="MONTHLY" th:selected="${insurancePolicy != null and insurancePolicy.premiumFrequency == 'MONTHLY'}">月缴</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">承保公司</label>
+            <input name="insurer" class="field-input" th:value="${insurancePolicy?.insurer}" placeholder="如 中国人寿">
+          </div>
+          <div>
+            <label class="field-label">保单号</label>
+            <input name="policyNo" class="field-input" th:value="${insurancePolicy?.policyNo}" placeholder="选填">
+          </div>
+          <div>
+            <label class="field-label">投保人</label>
+            <input name="policyHolder" class="field-input" th:value="${insurancePolicy?.policyHolder}" placeholder="自填">
+          </div>
+          <div>
+            <label class="field-label">被保人</label>
+            <input name="insuredPerson" class="field-input" th:value="${insurancePolicy?.insuredPerson}" placeholder="自填">
+          </div>
+          <div>
+            <label class="field-label">保额</label>
+            <input name="coverageAmount" type="number" step="0.01" min="0" class="field-input field-input-num"
+                   th:value="${insurancePolicy?.coverageAmount}" placeholder="身故 / 满期保额">
+          </div>
+          <div>
+            <label class="field-label">每期保费</label>
+            <input name="premiumAmount" type="number" step="0.01" min="0" class="field-input field-input-num"
+                   th:value="${insurancePolicy?.premiumAmount}" placeholder="如 12000">
+          </div>
+          <div>
+            <label class="field-label">已缴期数</label>
+            <input name="premiumTermsPaid" type="number" step="1" min="0" class="field-input field-input-num"
+                   th:value="${insurancePolicy?.premiumTermsPaid}" placeholder="如 3">
+          </div>
+          <div>
+            <label class="field-label">总期数</label>
+            <input name="premiumTermsTotal" type="number" step="1" min="0" class="field-input field-input-num"
+                   th:value="${insurancePolicy?.premiumTermsTotal}" placeholder="如 10">
+          </div>
+          <div>
+            <label class="field-label">生效日</label>
+            <input name="policyEffectiveDate" type="date" class="field-input bg-transparent"
+                   th:value="${insurancePolicy?.policyEffectiveDate}">
+          </div>
+          <div>
+            <label class="field-label">满期 / 领取日</label>
+            <input name="policyMaturityDate" type="date" class="field-input bg-transparent"
+                   th:value="${insurancePolicy?.policyMaturityDate}">
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-rule">
@@ -139,5 +212,15 @@
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
+<script th:inline="none">
+(function(){
+  var sel = document.querySelector('select[name=type]');
+  var box = document.getElementById('insuranceFields');
+  if(!sel || !box) return;
+  function sync(){ box.classList.toggle('hidden', sel.value !== 'INSURANCE'); }
+  sel.addEventListener('change', sync);
+  sync();
+})();
+</script>
 </body>
 </html>

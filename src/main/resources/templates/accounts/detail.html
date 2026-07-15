@@ -23,7 +23,7 @@
           th:text="${detail.account.displayName}">账户名</h1>
       <div class="flex items-center gap-2 flex-wrap">
         <span class="pill"
-              th:classappend="${detail.account.type.name() == 'LOAN' ? ' pill-rust' : (detail.account.type.name() == 'WEALTH' ? ' pill-forest' : (detail.account.type.name() == 'STOCK' ? ' pill-brass' : ''))}"
+              th:classappend="${detail.account.type.name() == 'LOAN' ? ' pill-rust' : (detail.account.type.name() == 'WEALTH' ? ' pill-forest' : (detail.account.type.name() == 'STOCK' ? ' pill-brass' : (detail.account.type.name() == 'INSURANCE' ? ' pill-slate' : '')))}"
               th:text="${detail.account.type.label} + ' (' + ${detail.account.type.name()} + ')'">现金 (CASH)</span>
         <span class="pill inline-flex items-center gap-1" th:if="${detail.category != null}"
               style="background:rgba(122,90,57,.10);border-color:var(--brass-deep);color:var(--brass-deep)">
@@ -58,6 +58,86 @@
              th:text="${detail.monthDelta != null ? (detail.monthDelta.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(detail.monthDelta, 1, 2) : '—'}">—</div>
       </div>
     </div>
+  </section>
+
+  <!-- v0.17 · 保险保单(仅 INSURANCE)-->
+  <section class="paper-card p-6 mb-6" th:if="${detail.account.type.name() == 'INSURANCE'}">
+    <div class="flex items-baseline justify-between gap-3 flex-wrap mb-3">
+      <h3 class="font-display text-lg font-medium flex items-baseline gap-3">
+        保单 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">INSURANCE POLICY</span>
+      </h3>
+      <a th:href="@{/accounts/{id}/edit(id=${detail.account.id})}" class="font-mono text-xs no-underline" style="color:var(--slate)">登记 / 修改 →</a>
+    </div>
+
+    <!-- 已缴保费 vs 现金价值 并列(纯登记数字 · 不算 IRR / 不判好坏)-->
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div class="paper-card p-4 bg-card-soft">
+        <div class="kpi-eyebrow">当前现金价值 · 计入总资产</div>
+        <div class="font-display text-2xl tnum mt-1" data-priv
+             th:text="${detail.currentBalance != null ? T(com.family.finance.service.MoneyFormat).symbol(detail.account.currency) + #numbers.formatDecimal(detail.currentBalance, 1, 2) : '— 待填'}">¥0.00</div>
+        <div class="font-mono text-[10px] text-ink-subtle mt-1">每期在填报里填当前退保价值</div>
+      </div>
+      <div class="paper-card p-4">
+        <div class="kpi-eyebrow">累计已缴保费</div>
+        <div class="font-display text-2xl tnum mt-1" data-priv
+             th:text="${insurancePolicy != null and insurancePolicy.paidPremiumTotal() != null ? T(com.family.finance.service.MoneyFormat).symbol(detail.account.currency) + #numbers.formatDecimal(insurancePolicy.paidPremiumTotal(), 1, 2) : '—'}">—</div>
+        <div class="font-mono text-[10px] text-ink-subtle mt-1">= 每期保费 × 已缴期数</div>
+      </div>
+    </div>
+    <p class="text-xs text-ink-soft mb-4" th:if="${insurancePolicy != null and insurancePolicy.paidPremiumTotal() != null and detail.currentBalance != null}">
+      早期年份「已缴保费 &gt; 现金价值」是正常的(保障成本),我们只并列陈述、不算收益率。
+    </p>
+
+    <!-- 保单登记字段(全部留空则提示去登记)-->
+    <div th:if="${insurancePolicy != null and insurancePolicy.hasAnyField()}"
+         class="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs border-t border-rule pt-4">
+      <div th:if="${insurancePolicy.insuranceKind != null}">
+        <div class="kpi-eyebrow">子类型</div>
+        <div class="font-mono text-sm mt-1" th:text="${insurancePolicy.kindLabel()}">年金险</div>
+      </div>
+      <div th:if="${insurancePolicy.insurer != null}">
+        <div class="kpi-eyebrow">承保公司</div>
+        <div class="font-mono text-sm mt-1" th:text="${insurancePolicy.insurer}">中国人寿</div>
+      </div>
+      <div th:if="${insurancePolicy.policyNo != null}">
+        <div class="kpi-eyebrow">保单号</div>
+        <div class="font-mono text-sm mt-1" data-priv th:text="${insurancePolicy.policyNo}">—</div>
+      </div>
+      <div th:if="${insurancePolicy.policyHolder != null}">
+        <div class="kpi-eyebrow">投保人</div>
+        <div class="font-mono text-sm mt-1" th:text="${insurancePolicy.policyHolder}">—</div>
+      </div>
+      <div th:if="${insurancePolicy.insuredPerson != null}">
+        <div class="kpi-eyebrow">被保人</div>
+        <div class="font-mono text-sm mt-1" th:text="${insurancePolicy.insuredPerson}">—</div>
+      </div>
+      <div th:if="${insurancePolicy.coverageAmount != null}">
+        <div class="kpi-eyebrow">保额</div>
+        <div class="font-mono text-sm mt-1" data-priv
+             th:text="${T(com.family.finance.service.MoneyFormat).symbol(detail.account.currency) + #numbers.formatDecimal(insurancePolicy.coverageAmount, 1, 0)}">¥0</div>
+      </div>
+      <div th:if="${insurancePolicy.premiumAmount != null}">
+        <div class="kpi-eyebrow">每期保费</div>
+        <div class="font-mono text-sm mt-1" data-priv
+             th:text="${T(com.family.finance.service.MoneyFormat).symbol(detail.account.currency) + #numbers.formatDecimal(insurancePolicy.premiumAmount, 1, 0) + (insurancePolicy.frequencyLabel() != '' ? ' / ' + insurancePolicy.frequencyLabel() : '')}">¥0</div>
+      </div>
+      <div th:if="${insurancePolicy.premiumTermsTotal != null or insurancePolicy.premiumTermsPaid != null}">
+        <div class="kpi-eyebrow">缴费进度</div>
+        <div class="font-mono text-sm mt-1"
+             th:text="${(insurancePolicy.premiumTermsPaid != null ? insurancePolicy.premiumTermsPaid : '?') + ' / ' + (insurancePolicy.premiumTermsTotal != null ? insurancePolicy.premiumTermsTotal : '?') + ' 期'}">3 / 10 期</div>
+      </div>
+      <div th:if="${insurancePolicy.policyEffectiveDate != null}">
+        <div class="kpi-eyebrow">生效日</div>
+        <div class="font-mono text-sm mt-1" th:text="${insurancePolicy.policyEffectiveDate}">—</div>
+      </div>
+      <div th:if="${insurancePolicy.policyMaturityDate != null}">
+        <div class="kpi-eyebrow">满期 / 领取日</div>
+        <div class="font-mono text-sm mt-1" th:text="${insurancePolicy.policyMaturityDate}">—</div>
+      </div>
+    </div>
+    <p th:unless="${insurancePolicy != null and insurancePolicy.hasAnyField()}" class="text-xs text-ink-subtle border-t border-rule pt-4">
+      还没登记保单信息(承保公司 / 保单号 / 保费 / 生效日等)· <a th:href="@{/accounts/{id}/edit(id=${detail.account.id})}" class="no-underline" style="color:var(--slate)">去登记 →</a>
+    </p>
   </section>
 
   <!-- 余额时间序列折线图 -->

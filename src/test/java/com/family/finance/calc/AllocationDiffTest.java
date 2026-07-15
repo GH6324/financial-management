@@ -93,4 +93,30 @@ class AllocationDiffTest {
         var pct = AllocationDiff.computeCurrentPct(entries);
         assertThat(pct.get(Bucket.INVEST)).isEqualByComparingTo("100.00");
     }
+
+    @Test
+    void insuranceRoutesToInsuranceBucketDespiteSemiLiquid() {
+        // v0.17 命门 · 保险产品类目 SAVINGS_INSURANCE 流动性 = SEMI_LIQUID,
+        // 若按 liquidity_class 分桶会误入 INVEST;pickBucket 必须先按 type 短路到 INSURANCE 桶。
+        var entries = List.of(
+            new AllocationEntry(new BigDecimal("200000"), "INSURANCE", "SEMI_LIQUID"),
+            new AllocationEntry(new BigDecimal("300000"), "STOCK", "SEMI_LIQUID")
+        );
+        var pct = AllocationDiff.computeCurrentPct(entries);
+        assertThat(pct.get(Bucket.INSURANCE)).isEqualByComparingTo("40.00"); // 200/500
+        assertThat(pct.get(Bucket.INVEST)).isEqualByComparingTo("60.00");    // 只有 STOCK,保险没混进来
+    }
+
+    @Test
+    void insuranceRoutesToInsuranceBucketWhenLiquidityMissing() {
+        // liquidity_class 缺失时,typeFallback 也要把 INSURANCE 落进保险桶
+        var entries = List.of(
+            new AllocationEntry(new BigDecimal("100000"), "INSURANCE", null),
+            new AllocationEntry(new BigDecimal("300000"), "PROPERTY", null)
+        );
+        var pct = AllocationDiff.computeCurrentPct(entries);
+        assertThat(pct.get(Bucket.INSURANCE)).isEqualByComparingTo("25.00");
+        assertThat(pct.get(Bucket.PROPERTY)).isEqualByComparingTo("75.00");
+        assertThat(pct.get(Bucket.INVEST)).isEqualByComparingTo("0.00");
+    }
 }

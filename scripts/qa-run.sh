@@ -2764,6 +2764,60 @@ OBH="$RD/src/main/resources/templates/onboarding/index.html"
   && log_ok "v16-EMPTY-1 空账期兜底:entry/reports/checkup 零周期 redirect 引导页(不 500)+ 引导横幅 + ②③按序门控" \
   || log_bad "v16-EMPTY-1 空账期兜底缺件" "see EntryController/ReportsController/CheckupController guard + onboarding/index.html"
 
+# v17-INSURANCE-1 保险账户类型全链落地(枚举 + 两处 CHECK 放宽 + 桶接线 + 洞察金融资产 + 保单旁表 + 种子)
+V44="$RD/db/migration/V44__insurance_account.sql"
+ADF="$RD/src/main/java/com/family/finance/calc/AllocationDiff.java"
+AIS="$RD/src/main/java/com/family/finance/service/insight/AssetInsightService.java"
+ACT="$RD/src/main/java/com/family/finance/domain/account/AccountType.java"
+{ grep -q 'INSURANCE("保险")' "$ACT" \
+  && [ -f "$V44" ] && [ "$(grep -c "'INSURANCE'" "$V44")" -ge 2 ] \
+  && grep -q 'account_insurance_policy' "$V44" && grep -q 'SAVINGS_INSURANCE' "$V44" \
+  && grep -q 'annuity_insurance' "$V44" && grep -q 'whole_life_insurance' "$V44" \
+  && grep -qF '"INSURANCE".equals(type)' "$ADF" && grep -q 'Bucket.INSURANCE' "$ADF" \
+  && grep -q 'AccountType.INSURANCE' "$AIS" \
+  && [ -f "$RD/src/main/java/com/family/finance/domain/insurance/InsurancePolicy.java" ] \
+  && [ -f "$RD/src/main/java/com/family/finance/repository/InsurancePolicyMapper.java" ] \
+  && [ -f "$RD/src/main/java/com/family/finance/domain/account/InsuranceSubType.java" ]; } \
+  && log_ok "v17-INSURANCE-1 保险类型全链:enum+2处CHECK放宽+pickBucket短路INSURANCE桶+financialSum含保险+保单旁表+SAVINGS_INSURANCE/2模板种子" \
+  || log_bad "v17-INSURANCE-1 保险类型全链缺件" "see AccountType/V44/AllocationDiff.pickBucket/AssetInsightService/InsurancePolicy(Mapper)"
+
+# v17-INSURANCE-2 pill-slate 四处徽章 + 向导消费型提示 + 手填不入持仓
+CSS17="$RD/src/main/resources/static/css/style.css"
+WIZ="$RD/src/main/resources/templates/accounts/_template-wizard.html"
+{ grep -q '.pill-slate' "$CSS17" \
+  && grep -qF "'INSURANCE' ? ' pill-slate'" "$RD/src/main/resources/templates/accounts/detail.html" \
+  && grep -qF "'INSURANCE' ? ' pill-slate'" "$RD/src/main/resources/templates/accounts/index.html" \
+  && grep -qF "'INSURANCE' ? ' pill-slate'" "$RD/src/main/resources/templates/entry/_row.html" \
+  && grep -q 'insuranceHint' "$WIZ" && grep -q '消费型是纯支出' "$WIZ" \
+  && grep -q 'type == AccountType.STOCK || type == AccountType.CRYPTO || type == AccountType.METAL' \
+        "$RD/src/main/java/com/family/finance/service/stock/StockHoldingService.java"; } \
+  && log_ok "v17-INSURANCE-2 pill-slate 应用四处 + 向导消费型友好提示 + supportsHoldings 不含 INSURANCE(手填非持仓)" \
+  || log_bad "v17-INSURANCE-2 保险 UI/手填缺件" "see style.css pill-slate / detail·index·_row pill / _template-wizard hint / StockHoldingService.supportsHoldings"
+
+# v17-WIZARD 模板卡真正驱动表单:点卡 → 回填类型/币种/建议名 + 高亮 + 隐藏 templateId(不再是死展示)
+WIZ17="$RD/src/main/resources/templates/accounts/_template-wizard.html"
+{ grep -q 'data-tpl-type=' "$WIZ17" && grep -q 'data-tpl-currency=' "$WIZ17" && grep -q 'data-tpl-name=' "$WIZ17" \
+  && grep -q 'tpl-selected' "$WIZ17" \
+  && grep -q 'name="templateId" id="tplId"' "$WIZ17" \
+  && grep -q "querySelectorAll('.tpl-card')" "$WIZ17" \
+  && grep -q 'newAcctHead' "$WIZ17" && grep -q 'scrollIntoView' "$WIZ17" \
+  && ! grep -q 'select name="type" data-searchable' "$WIZ17"; } \
+  && log_ok "v17-WIZARD 模板卡点击回填表单(data-tpl-* + tpl-card 点击 handler + 隐藏 templateId + type 去 searchable 便于赋值),非死展示" \
+  || log_bad "v17-WIZARD 模板卡未驱动表单" "see _template-wizard.html data-tpl-*/tpl-selected/tplId/click handler"
+
+# v17-LOAN-PROMPT 贷款趋势预测从「开账静默外推」改为「填报行内显式接受/保持上月」+ 兼容闸(committed==prev)
+POJ="$RD/src/main/java/com/family/finance/service/PeriodOpener.java"
+ESJ="$RD/src/main/java/com/family/finance/service/EntryService.java"
+ROW17="$RD/src/main/resources/templates/entry/_row.html"
+{ ! grep -q 'applyLoanPrefill' "$POJ" \
+  && grep -q 'predictLoanBalance' "$POJ" \
+  && grep -q 'static boolean loanPromptVisible' "$ESJ" \
+  && grep -q 'acceptLoanPrediction' "$ESJ" \
+  && grep -q 'accept-loan-prediction' "$RD/src/main/java/com/family/finance/web/entry/EntryController.java" \
+  && grep -qF 'showLoanPrompt' "$ROW17" && grep -q '按上两月趋势' "$ROW17"; } \
+  && log_ok "v17-LOAN-PROMPT 贷款不再静默外推(删 applyLoanPrefill)· PeriodOpener 延续 prev · 填报行提示条(接受/保持上月)· acceptLoanPrediction 复刻旧逻辑 · loanPromptVisible 兼容闸(committed==prev 屏蔽老账期)" \
+  || log_bad "v17-LOAN-PROMPT 贷款显式接受缺件" "see PeriodOpener(删applyLoanPrefill/留predictLoanBalance)/EntryService.loanPromptVisible+acceptLoanPrediction/EntryController/_row.html"
+
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
   && grep -q '289 单元' "$RD/README.md" && grep -q '412' "$RD/README.md" \

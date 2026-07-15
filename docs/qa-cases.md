@@ -1789,3 +1789,24 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 > 决策(承 prd/tech-design v0.15 · 用户 6 点评审):富途优先 + 老虎;只读铁律(富途永不 unlockTrade、老虎只查询,静态护栏钉死整类);关联高危留快照 + 软归档 + 两步确认(可找回);手动 + cron 双同步;币种以我方账户配置为准做 FX 折算;期权/期货本版跳过(见 `docs/backlog.md`)。
 > **富途适配器已真机接线并联调通过**(tech-design 决策 L):FutuSession 异步回调包同步、只调三个查询接口;beta 上对用户真实 OpenD 测试连接成功(实盘户 2/共 10)。老虎适配器待用户 key 真机验证。
 > **v0.15.x 关联颗粒度重构**(决策 M · 守护 v15-GRAN/v15-ENTRY-1):V40 broker_link 加 opend_host/port(NULL=全局);入口迁账户页(徽章+「券商」操作);per-link 测试连接富卡片;OpenD 向导终端化;同步显示名用券商证券名。beta 真机全验:徽章/入口、OpenD 重启自动重拉、富卡片(港美徽章·尾号3682·5笔)、中文名升级(拼多多/阿里巴巴/小米集团-W/腾讯控股)。
+
+---
+
+## v0.17 · 保险账户(储蓄/理财型)· issue #6
+
+| Case | 校验 |
+|---|---|
+| v17-INSURANCE-1(静态) | 保险类型全链落地:`AccountType.INSURANCE("保险")` · `V44` 两处 CHECK(account + account_template)放宽含 `INSURANCE` · `pickBucket` 短路 `"INSURANCE".equals(type)→Bucket.INSURANCE` · `AssetInsightService` financialSum 含 `AccountType.INSURANCE` · `account_insurance_policy` 旁表 + `SAVINGS_INSURANCE` 类目 + `annuity_insurance`/`whole_life_insurance` 两模板种子 · `InsurancePolicy(Mapper)`/`InsuranceSubType` 就位 |
+| v17-INSURANCE-2(静态) | UI/手填:`.pill-slate` 定义 + 四处徽章三元(detail/index/entry_row)含保险分支 · 向导 `#insuranceHint` 消费型友好提示(「消费型是纯支出」)+ `#insuranceKindWrap` 子类型下拉 · `supportsHoldings` 仅 STOCK/CRYPTO/METAL(保险走手填 snapshot 非持仓) |
+| v17-BUCKET(命门) | 保险产品类目流动性 = SEMI_LIQUID,但 `pickBucket` 必须先按 type 短路,否则会误分进「投资」桶。资产配置环形/报表 `_allocation-diff.html` 保险独立类目(`cur['INSURANCE']`),`allocation_anchor.SP_4321` 目标 20% 现成承接 |
+| v17-VALUE | 现金价值 = 每期手填 `period_snapshot`(与 WEALTH/PROPERTY 同路,`AccountValuationService` 零改动),计入净资产/总资产/配置;FX 折算复用 |
+| v17-POLICY | 保单登记(全可选·纯展示):建/编账户绑定 `InsurancePolicyMapper.upsert`;详情页「现金价值 vs 累计已缴保费」并列(不算 IRR/收益);改成非保险类型时 `deleteByAccount` 清理旁表 |
+| (UT) AllocationDiffTest +2 | 保险 SEMI_LIQUID → INSURANCE 桶(非 INVEST);liquidity 缺失时 typeFallback 也落 INSURANCE 桶 |
+| (UT) InsurancePolicyTest ×6 | INSURANCE 液性=SEMI_LIQUID/归类=ASSET · paidPremiumTotal=保费×已缴期数(任一缺→null)· hasAnyField · InsuranceSubType.labelOf 大小写不敏感 + 脏值/ null 返空串 · frequencyLabel 中文 |
+| (UT) CurrencyInvarianceTest +1 | 保险账户(手填现金价值)计入后:占比比值币种无关、现金价值金额按 fx 因子精确缩放(走同一 AccountPeriodFact 缩放链,不引入新范式) |
+| (e2e) 主线 保险 | 建保险账户(子类型=增额终身寿)→ 填现金价值 82,400 → 总资产 +82,400 · 资产配置环形出现「保险」类目 · 详情页登记保单(承保公司/保费/期数)→ 现金价值 vs 已缴保费并列 |
+| v17-WIZARD | 账户向导模板卡从**死展示**改为**真选择器**:点卡片(`.tpl-card` data-tpl-*)→ 回填类型/币种/建议名 + 高亮选中(`.tpl-selected`+「已选」)+ **平滑滚动到「新账户」表单区(`#newAcctHead` scrollIntoView)** + 光标落名字(focus preventScroll)+ 触发类型联动(券商/保险提示);删掉重复的「模板」下拉换隐藏 `#tplId`;type 去 `data-searchable` 便于 JS 赋值回显。beta 实测点「贵金属账户」→ METAL/CNY/名字回填 + 页面滚到表单(scrollY 0→3336、表单头进视口),点「增额终身寿」→ INSURANCE+子类型下拉联动 |
+| v17-LOAN-PROMPT | 贷款趋势预填从**开账静默外推**改为**填报页显式接受**:`PeriodOpener` 删 `applyLoanPrefill`,贷款开账延续上月值 `prev`(不再静默写 predicted、不再起草转账);`predictLoanBalance` 保留;填报贷款行内提示条「按上两月趋势本月预计还到 X(较上月 ±Y)· [接受] [保持上月]」;**接受** = `POST /entry/{id}/accept-loan-prediction` → `acceptLoanPrediction` 复刻旧逻辑(写 predicted + 起草还款转账 cash→loan + markDone),**保持上月** = 复用 `/entry/{id}/balance` 提交 prev。beta 真机验:房贷置提示态→渲染「预计还到 −¥1,185,640(较上月 +¥4,720)」→ POST 接受 → snapshot=-1185640 + 转账 acct1→11 ¥4720 + todo DONE |
+| v17-LOAN-COMPAT(兼容) | 显示闸 `loanPromptVisible(predicted,prev,committed,todoDone)`:仅 `predicted≠prev && !todoDone && committed==prev`(新默认态)才出提示。**老账期**(旧代码已把 committed 写成 predicted≠prev)与**已确认**(todo DONE)天然不出、不回改;`PeriodOpener.createPeriodAndTodos` 幂等只影响新开账期,零迁移。EntryLoanPromptTest ×6(新默认出/老账期隐/已确认隐/无建议隐/手改隐/null 守卫)|
+
+> 决策(承 prd/tech-design v0.17):**坚持原有账户理念**——保险 = 又一类「按周期手填当前价值」的资产账户,复用手填 snapshot 估值链、净资产、配置、报表,**不引入预算引擎、不做逐笔、不替 LLM 算保单收益/IRR**。①独立第 9 类 INSURANCE(配置桶/锚/洞察文案 v0.4–v0.5 早已预埋 INSURANCE,本版接线);②保单 11 字段落**独立旁表** `account_insurance_policy`(冷·纯展示,不污染热表);③子类型 Java 枚举存 name()(loanKind 式,无 DB CHECK);④现金价值手填计入总资产,消费型不建账户;⑤消费型保费提醒列 backlog。**命门**:`pickBucket` 按 type 短路 INSURANCE 桶,必须先于 liquidity_class(SEMI_LIQUID 否则漏进 INVEST)。

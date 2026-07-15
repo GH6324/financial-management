@@ -114,7 +114,7 @@
           </div>
         </td>
         <td>
-          <span class="pill" th:classappend="${row.account.type.name() == 'LOAN' ? ' pill-rust' : (row.account.type.name() == 'WEALTH' ? ' pill-forest' : (row.account.type.name() == 'STOCK' ? ' pill-brass' : ''))}"
+          <span class="pill" th:classappend="${row.account.type.name() == 'LOAN' ? ' pill-rust' : (row.account.type.name() == 'WEALTH' ? ' pill-forest' : (row.account.type.name() == 'STOCK' ? ' pill-brass' : (row.account.type.name() == 'INSURANCE' ? ' pill-slate' : '')))}"
                 th:text="${row.account.type.label} + ' (' + ${row.account.type.name()} + ')'">现金 (CASH)</span>
           <span class="pill text-[9px]" th:if="${brokerLinks != null and brokerLinks.containsKey(row.account.id)}"
                 style="background:rgba(180,138,58,.12);color:var(--brass-deep);border-color:var(--brass-deep)"
@@ -248,7 +248,7 @@
             </span>
           </div>
         </div>
-        <span class="pill text-[9px]" th:classappend="${row.account.type.name() == 'LOAN' ? ' pill-rust' : (row.account.type.name() == 'WEALTH' ? ' pill-forest' : (row.account.type.name() == 'STOCK' ? ' pill-brass' : ''))}"
+        <span class="pill text-[9px]" th:classappend="${row.account.type.name() == 'LOAN' ? ' pill-rust' : (row.account.type.name() == 'WEALTH' ? ' pill-forest' : (row.account.type.name() == 'STOCK' ? ' pill-brass' : (row.account.type.name() == 'INSURANCE' ? ' pill-slate' : '')))}"
               th:text="${brokerLinks != null and brokerLinks.containsKey(row.account.id) ? row.account.type.label + ' · 券商托管' : row.account.type.label}">现金</span>
       </div>
       <div class="flex items-baseline justify-between mt-3 pt-3 border-t border-rule-soft">

@@ -52,6 +52,7 @@ public class ProductCategoryService {
             case METAL    -> "PRECIOUS_METAL";
             case LOAN     -> "LIABILITY";
             case PROPERTY -> "PROPERTY_RES";
+            case INSURANCE -> "SAVINGS_INSURANCE";
             case OTHER    -> "OTHER";
         };
     }

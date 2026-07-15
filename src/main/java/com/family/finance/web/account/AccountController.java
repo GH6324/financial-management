@@ -3,6 +3,9 @@ package com.family.finance.web.account;
 import com.family.finance.auth.MemberPrincipal;
 import com.family.finance.domain.account.Account;
 import com.family.finance.domain.account.AccountType;
+import com.family.finance.domain.account.InsuranceSubType;
+import com.family.finance.domain.insurance.InsurancePolicy;
+import com.family.finance.repository.InsurancePolicyMapper;
 import com.family.finance.repository.MemberMapper;
 import com.family.finance.service.AccountDetailService;
 import com.family.finance.service.AccountService;
@@ -36,6 +39,7 @@ public class AccountController {
     private final LedgerExporter ledgerExporter;
     private final AccountDetailService accountDetailService;
     private final com.family.finance.repository.BrokerLinkMapper brokerLinkMapper; // v0.15.x 券商托管徽章
+    private final InsurancePolicyMapper insurancePolicyMapper; // v0.17 保单登记旁表
 
     @GetMapping
     public String index(@AuthenticationPrincipal MemberPrincipal me,
@@ -74,13 +78,22 @@ public class AccountController {
                            Model model) {
         Account account = accountService.require(me.getFamilyId(), accountId);
         addEditModel(me, model, account);
+        model.addAttribute("insurancePolicy",
+                insurancePolicyMapper.findByAccount(accountId).orElse(null));
         return "accounts/edit";
     }
 
     @PostMapping
     public String create(@AuthenticationPrincipal MemberPrincipal me,
                          @ModelAttribute AccountForm form) {
-        accountService.create(me, form.toAccount());
+        Account created = accountService.create(me, form.toAccount());
+        // v0.17 · 保险账户落保单登记旁表(仅 INSURANCE)
+        if (created.getType() == AccountType.INSURANCE) {
+            InsurancePolicy policy = form.toPolicy(created.getId());
+            if (policy.hasAnyField()) {
+                insurancePolicyMapper.upsert(policy);
+            }
+        }
         return "redirect:/accounts";
     }
 
@@ -89,6 +102,13 @@ public class AccountController {
                        @PathVariable("id") long accountId,
                        @ModelAttribute AccountForm form) {
         accountService.update(me, accountId, form.toAccount());
+        // v0.17 · 保单旁表:保险账户 upsert;若改成非保险则清理旁表(校验归属由 update 完成)
+        Account acc = accountService.require(me.getFamilyId(), accountId);
+        if (acc.getType() == AccountType.INSURANCE) {
+            insurancePolicyMapper.upsert(form.toPolicy(accountId));
+        } else {
+            insurancePolicyMapper.deleteByAccount(accountId);
+        }
         return "redirect:/accounts";
     }
 
@@ -122,6 +142,9 @@ public class AccountController {
         model.addAttribute("filterType", filterType == null ? "ALL" : filterType.toUpperCase());
         model.addAttribute("rangeMonths", rangeMonths == null ? 12 : rangeMonths);
         model.addAttribute("keyword", keyword == null ? "" : keyword);
+        // v0.17 · 保险账户带保单登记(非保险为 null,详情页不渲染保单段)
+        model.addAttribute("insurancePolicy",
+                insurancePolicyMapper.findByAccount(accountId).orElse(null));
         return "accounts/detail";
     }
 
@@ -168,6 +191,7 @@ public class AccountController {
         model.addAttribute("brokerLinks", brokerLinks);
         model.addAttribute("form", new AccountForm());
         model.addAttribute("allCategories", productCategoryService.listAll());
+        model.addAttribute("insuranceSubTypes", InsuranceSubType.values()); // v0.17 保险子类型下拉
         model.addAttribute("includeArchived", includeArchived);
         model.addAttribute("showWizard", showWizard);
     }
@@ -184,6 +208,7 @@ public class AccountController {
                 productCategoryService.findApplicableFor(account.getType()));
         model.addAttribute("currentCategory",
                 productCategoryService.findByCode(account.getProductCategoryCode()).orElse(null));
+        model.addAttribute("insuranceSubTypes", InsuranceSubType.values()); // v0.17 保险子类型下拉
     }
 
     @Data
@@ -206,6 +231,22 @@ public class AccountController {
         /** v0.8 · 预期年化收益率 %(选填 · NULL=回落品类 benchmark)· 预实 FR-152 */
         private java.math.BigDecimal expectedReturnPct;
 
+        // ---------- v0.17 · 保险保单登记(仅 INSURANCE · 全选填 · 落旁表 account_insurance_policy)----------
+        private String insuranceKind;
+        private String insurer;
+        private String policyNo;
+        private String policyHolder;
+        private String insuredPerson;
+        private java.math.BigDecimal coverageAmount;
+        private java.math.BigDecimal premiumAmount;
+        private String premiumFrequency;
+        private Integer premiumTermsTotal;
+        private Integer premiumTermsPaid;
+        @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+        private java.time.LocalDate policyEffectiveDate;
+        @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+        private java.time.LocalDate policyMaturityDate;
+
         Account toAccount() {
             return Account.builder()
                     .templateId(templateId)
@@ -221,6 +262,29 @@ public class AccountController {
                     .annualRatePct(annualRatePct)
                     .expectedReturnPct(expectedReturnPct)
                     .build();
+        }
+
+        /** v0.17 · 组装保单旁表对象(空串归一为 null,便于 hasAnyField 判空) */
+        InsurancePolicy toPolicy(Long accountId) {
+            return InsurancePolicy.builder()
+                    .accountId(accountId)
+                    .insuranceKind(blankToNull(insuranceKind))
+                    .insurer(blankToNull(insurer))
+                    .policyNo(blankToNull(policyNo))
+                    .policyHolder(blankToNull(policyHolder))
+                    .insuredPerson(blankToNull(insuredPerson))
+                    .coverageAmount(coverageAmount)
+                    .premiumAmount(premiumAmount)
+                    .premiumFrequency(blankToNull(premiumFrequency))
+                    .premiumTermsTotal(premiumTermsTotal)
+                    .premiumTermsPaid(premiumTermsPaid)
+                    .policyEffectiveDate(policyEffectiveDate)
+                    .policyMaturityDate(policyMaturityDate)
+                    .build();
+        }
+
+        private static String blankToNull(String s) {
+            return (s == null || s.isBlank()) ? null : s.trim();
         }
     }
 }

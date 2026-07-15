@@ -102,9 +102,9 @@
               <div class="absolute left-0 top-0 h-3 border-r-2 border-dashed"
                    th:style="'left: ' + ${tgt['INSURANCE']} + '%; border-color: var(--ink-subtle)'"></div>
             </div>
-            <div class="text-[10px] text-ink-subtle mt-0.5">
-              <span th:if="${tgt['INSURANCE'].signum() > 0}">保险账户类目即将上线后自动承接</span>
-            </div>
+            <div class="text-[10px] mt-0.5"
+                 th:classappend="${dif['INSURANCE'].doubleValue() > 5 ? 'text-rust' : (dif['INSURANCE'].doubleValue() < -5 ? 'text-rust' : 'text-ink-subtle')}"
+                 th:text="${dif['INSURANCE'].signum() > 0 ? '↑ 超配 +' + dif['INSURANCE'] + 'pp' : (dif['INSURANCE'].signum() < 0 ? '↓ 欠配 ' + dif['INSURANCE'] + 'pp' : '— 持平')}">— 持平</div>
           </div>
         </div>
       </div>

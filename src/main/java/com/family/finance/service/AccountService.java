@@ -117,6 +117,7 @@ public class AccountService {
             case PROPERTY -> 6;
             case LOAN -> 7;
             case OTHER -> 8;
+            case INSURANCE -> 9;
         }));
         return summary;
     }

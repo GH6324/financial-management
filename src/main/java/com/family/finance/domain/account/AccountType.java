@@ -8,7 +8,8 @@ public enum AccountType {
     METAL("贵金属"),
     PROPERTY("房产"),
     LOAN("贷款"),
-    OTHER("其他");
+    OTHER("其他"),
+    INSURANCE("保险");
 
     private final String label;
 

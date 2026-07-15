@@ -73,6 +73,9 @@ public final class AllocationDiff {
     private static Bucket pickBucket(AllocationEntry e) {
         String type = e.accountType();
         if ("LOAN".equals(type)) return null;
+        // v0.17 · 保险按类型硬定入 INSURANCE 桶 · 必须先于 liquidity_class 查询
+        // (SAVINGS_INSURANCE 流动性 = SEMI_LIQUID,否则会被误分进 INVEST 桶,永远进不了保险桶)
+        if ("INSURANCE".equals(type)) return Bucket.INSURANCE;
 
         String liq = e.liquidityClass();
         if (liq != null) {
@@ -91,7 +94,7 @@ public final class AllocationDiff {
             case "CASH" -> Bucket.CASH;
             case "STOCK", "WEALTH" -> Bucket.INVEST;
             case "PROPERTY" -> Bucket.PROPERTY;
-            // INSURANCE v0.5 引入 · v0.4 没账户能命中 INSURANCE
+            case "INSURANCE" -> Bucket.INSURANCE; // v0.17 · 保险独立桶(pickBucket 已短路,此为兜底)
             default -> Bucket.INVEST; // OTHER 兜底入投资
         };
     }

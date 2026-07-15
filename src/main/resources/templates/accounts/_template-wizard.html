@@ -8,14 +8,22 @@
       <a th:href="@{/accounts}" class="font-mono text-xs text-ink-subtle hover:text-ink no-underline">关闭 ×</a>
     </div>
     <h3 class="font-display text-2xl mb-1">挑一个模板,或自定义</h3>
-    <p class="text-sm text-ink-soft mb-5">13 个内置模板覆盖常见场景。具体行名在自定义名里写就行。</p>
+    <p class="text-sm text-ink-soft mb-5">点一个模板 → 下面自动带出<b class="text-ink">类型 / 币种</b>,你只需改个名字就能建好。也可点「自定义账户」从头填。</p>
+
+    <style>
+      .tpl-card.tpl-selected { border-color: var(--ink); background: var(--card-soft); box-shadow: inset 4px 0 0 var(--brass-deep); }
+      .tpl-card.tpl-selected .tpl-check { opacity: 1; }
+    </style>
 
     <div class="rule-double mb-4"></div>
 
     <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mb-5">
       <button th:each="tpl : ${templates}" type="button"
-              class="border border-rule p-3 text-left hover:border-ink hover:bg-card-soft"
-              th:classappend="${tpl.customSlot ? ' border-dashed md:col-span-3' : ''}">
+              class="tpl-card relative border border-rule p-3 text-left hover:border-ink hover:bg-card-soft transition"
+              th:classappend="${tpl.customSlot ? ' border-dashed md:col-span-3' : ''}"
+              th:attr="data-tpl-id=${tpl.id},data-tpl-name=${tpl.displayName},data-tpl-type=${tpl.type.name()},data-tpl-currency=${tpl.defaultCurrency},data-tpl-custom=${tpl.customSlot}">
+        <span class="tpl-check absolute top-2 right-2 inline-flex items-center gap-1 font-mono text-[10px] text-brass-deep" style="opacity:0">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>已选</span>
         <div class="font-display text-sm" th:text="${tpl.displayName}">招商银行</div>
         <div class="font-mono text-[9px] tracking-wider text-ink-subtle mt-1"
              th:text="${tpl.type.label} + ' · ' + ${tpl.defaultCurrency}">现金 · CNY</div>
@@ -24,22 +32,19 @@
 
     <form th:action="@{/accounts}" method="post" class="border-t border-rule pt-5">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-      <div class="eyebrow-ink mb-3">新账户</div>
+      <input type="hidden" name="templateId" id="tplId" value="">
+      <div id="newAcctHead" class="flex items-baseline justify-between mb-3 scroll-mt-6">
+        <div class="eyebrow-ink">新账户</div>
+        <div id="tplPickedHint" class="font-mono text-[10px] text-ink-subtle hidden">已套用模板 · <span id="tplPickedName">—</span> · 改个名字即可</div>
+      </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div>
-          <label class="field-label">模板</label>
-          <select name="templateId" data-searchable class="field-input bg-transparent">
-            <option value="">自定义账户</option>
-            <option th:each="tpl : ${templates}" th:value="${tpl.id}" th:text="${tpl.displayName}">招商银行</option>
-          </select>
-        </div>
-        <div>
+        <div class="md:col-span-2">
           <label class="field-label">显示名 ·必填</label>
           <input name="displayName" class="field-input" placeholder="如: 招行储蓄卡-工资" required>
         </div>
         <div>
           <label class="field-label">类型</label>
-          <select name="type" data-searchable class="field-input bg-transparent">
+          <select name="type" class="field-input bg-transparent">
             <option th:each="t : ${types}" th:value="${t}" th:text="${t.label} + ' (' + ${t.name()} + ')'">现金 (CASH)</option>
           </select>
         </div>
@@ -49,6 +54,20 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-brass-deep shrink-0 mt-0.5" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.4 2.6"/><path d="M21 3v5h-5"/></svg>
             <span>证券账户支持<b class="text-ink">关联富途 / 老虎自动同步</b>(只读拉持仓 + 各币种现金)。创建后到该账户「持仓 → 券商自动同步」开启。</span>
           </div>
+        </div>
+        <!-- v0.17 · 保险账户提示 + 子类型(仅 INSURANCE 显示,JS 切换)-->
+        <div id="insuranceHint" class="hidden md:col-span-2 paper-card p-3 bg-card-soft" style="border-left:4px solid var(--slate)">
+          <div class="flex items-start gap-2 text-sm text-ink-soft">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-0.5" style="color:var(--slate)" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>只建<b class="text-ink">有现金价值的储蓄 / 理财型保险</b>(年金险 / 增额终身寿 / 万能险 / 分红险)。车险 / 医疗险 / 定期寿等<b class="text-ink">消费型是纯支出、没有现金价值</b>,不建资产账户。每期在填报里填当前<b class="text-ink">现金价值(退保价值)</b>,计入家庭总资产。</span>
+          </div>
+        </div>
+        <div id="insuranceKindWrap" class="hidden">
+          <label class="field-label">保险子类型</label>
+          <select name="insuranceKind" class="field-input bg-transparent">
+            <option value="">未选</option>
+            <option th:each="s : ${insuranceSubTypes}" th:value="${s.name()}" th:text="${s.label}">年金险</option>
+          </select>
         </div>
         <div>
           <label class="field-label">币种</label>
@@ -94,12 +113,49 @@
   </div>
   <script th:inline="none">
   (function(){
-    var sel = document.querySelector('select[name=type]');
-    var hint = document.getElementById('brokerSyncHint');
-    if(!sel || !hint) return;
-    function sync(){ if(sel.value === 'STOCK') hint.classList.remove('hidden'); else hint.classList.add('hidden'); }
-    sel.addEventListener('change', sync);  // searchable-select 会在原生 select 上 dispatch change
-    sync();
+    var typeSel = document.querySelector('select[name=type]');
+    var curSel  = document.querySelector('select[name=currency]');
+    var nameInp = document.querySelector('input[name=displayName]');
+    var tplId   = document.getElementById('tplId');
+    var pickHint= document.getElementById('tplPickedHint');
+    var pickName= document.getElementById('tplPickedName');
+    var hint    = document.getElementById('brokerSyncHint');
+    var insHint = document.getElementById('insuranceHint');
+    var insKind = document.getElementById('insuranceKindWrap');
+    function toggle(el, show){ if(el){ el.classList.toggle('hidden', !show); } }
+    function syncType(){
+      if(!typeSel) return;
+      toggle(hint, typeSel.value === 'STOCK');
+      var isIns = typeSel.value === 'INSURANCE';
+      toggle(insHint, isIns);
+      toggle(insKind, isIns);
+    }
+    if(typeSel) typeSel.addEventListener('change', syncType);
+
+    // 点模板卡 → 回填表单(类型/币种/建议名)+ 高亮选中 + 光标落名字
+    var cards = document.querySelectorAll('.tpl-card');
+    cards.forEach(function(card){
+      card.addEventListener('click', function(){
+        cards.forEach(function(c){ c.classList.remove('tpl-selected'); });
+        card.classList.add('tpl-selected');
+        var isCustom = card.getAttribute('data-tpl-custom') === 'true';
+        var tname = card.getAttribute('data-tpl-name') || '';
+        if(tplId)  tplId.value = card.getAttribute('data-tpl-id') || '';
+        if(typeSel){ typeSel.value = card.getAttribute('data-tpl-type') || 'CASH'; }
+        if(curSel){ curSel.value = card.getAttribute('data-tpl-currency') || 'CNY'; }
+        syncType();
+        if(pickHint && pickName){ pickName.textContent = tname; pickHint.classList.remove('hidden'); }
+        // 滚动到「新账户」表单区,让用户看到带出的类型/币种并直接改名
+        var head = document.getElementById('newAcctHead');
+        if(head && head.scrollIntoView){ head.scrollIntoView({behavior:'smooth', block:'start'}); }
+        if(nameInp){
+          nameInp.value = isCustom ? '' : tname;   // 自定义卡留空让用户命名
+          nameInp.focus({preventScroll:true});      // 滚动交给 scrollIntoView,避免双重跳动
+          try { nameInp.select(); } catch(e){}
+        }
+      });
+    });
+    syncType();
   })();
   </script>
 </div>

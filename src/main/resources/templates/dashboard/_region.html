@@ -746,7 +746,7 @@
         const total = data.allocationValues.reduce((s, v) => s + Number(v || 0), 0);
         window.financeCharts.allocation = new Chart(donut, {
           type: 'doughnut',
-          data: {labels: donutLabels, datasets: [{data: data.allocationValues, backgroundColor: ['#a77b35','#2f5d50','#6f7f98','#8f6048','#333333','#7a4f6b']}]},
+          data: {labels: donutLabels, datasets: [{data: data.allocationValues, backgroundColor: ['#a77b35','#2f5d50','#6f7f98','#8f6048','#333333','#7a4f6b','#3c4a5a','#9c8b5a']}]},
           options: {
             maintainAspectRatio: false,
             layout: {padding: 12},

@@ -148,6 +148,32 @@ class CurrencyInvarianceTest {
     }
 
     /**
+     * v0.17 护栏 · 保险账户(储蓄型 · 手填现金价值 · SEMI_LIQUID)计入后仍满足币种不变性:
+     * 占比是比值 → 三币种无关;现金价值是金额 → 按 fx 因子精确缩放。保险不引入新估值范式,
+     * 走与其它资产账户完全相同的 AccountPeriodFact 缩放链,这道断言把它钉进属性护栏。
+     */
+    @Test
+    void insuranceAccount_sharePctInvariant_andCashValueScales() {
+        BigDecimal kUsd = bd("6.774");
+        java.util.function.Function<BigDecimal, FactSlice> mk = k -> {
+            List<AccountPeriodFact> rows = List.of(
+                    row(1, AccountType.CASH, AccountClass.ASSET, AccountLiquidity.LIQUID, 102, 2, "100000", "100000", "0", "0", k),
+                    row(3, AccountType.INSURANCE, AccountClass.ASSET, AccountLiquidity.SEMI_LIQUID, 102, 2, "60000", "82400", "0", "0", k));
+            FactFilter f = new FactFilter(1L, PeriodType.MONTHLY,
+                    LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), false, null,
+                    k.compareTo(BigDecimal.ONE) == 0 ? "CNY" : "USD");
+            return new FactSlice(f, rows, List.of(102L), 102L);
+        };
+        AccountPerformance insCny = svc().accountPerformance(mk.apply(BigDecimal.ONE)).stream()
+                .filter(p -> p.accountId() == 3L).findFirst().orElseThrow();
+        AccountPerformance insUsd = svc().accountPerformance(mk.apply(kUsd)).stream()
+                .filter(p -> p.accountId() == 3L).findFirst().orElseThrow();
+        assertThat(insUsd.sharePct()).as("保险账户占比币种无关").isEqualByComparingTo(insCny.sharePct());
+        assertThat(insUsd.currentValue()).as("保险现金价值按因子缩放")
+                .isEqualByComparingTo(insCny.currentValue().multiply(kUsd).setScale(2, RoundingMode.HALF_EVEN));
+    }
+
+    /**
      * v0.10 护栏 · 「人赚 vs 钱赚」拆解的币种不变性 + 同源恒等。
      * P2:家庭收入 8000 / 支出 3000 → 人赚 5000;ΔNW = 62000 − 50000 = 12000 → 钱赚 7000。
      */

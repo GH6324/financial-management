@@ -8,13 +8,11 @@ import com.family.finance.domain.period.Period;
 import com.family.finance.domain.snapshot.PeriodSnapshot;
 import com.family.finance.domain.snapshot.SnapshotTodo;
 import com.family.finance.domain.snapshot.TodoStatus;
-import com.family.finance.domain.transfer.Transfer;
 import com.family.finance.repository.AccountMapper;
 import com.family.finance.repository.MemberMapper;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.SnapshotMapper;
 import com.family.finance.repository.SnapshotTodoMapper;
-import com.family.finance.repository.TransferMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -35,7 +33,6 @@ public class PeriodOpener {
     private final PeriodMapper periodMapper;
     private final SnapshotMapper snapshotMapper;
     private final SnapshotTodoMapper snapshotTodoMapper;
-    private final TransferMapper transferMapper;
 
     @Scheduled(cron = "0 30 0 * * *")
     @Transactional
@@ -134,47 +131,19 @@ public class PeriodOpener {
         }
     }
 
-    /** 返回当前账户的预填余额:LOAN = prev + (prev - prevPrev),其它 = prev。无历史快照时返回 null(首期开通)。 */
+    /**
+     * 返回当前账户的预填余额 = 上月末值(prev)。所有账户一致 carry-forward,无历史快照返回 null(首期)。
+     *
+     * <p>v0.17.x · 贷款不再<b>静默</b>外推 prev+Δ(旧行为:开账即把趋势预测写进 snapshot + 起草还款转账,
+     * 用户不知情)。趋势预测改由填报页<b>贷款行内提示条</b>让用户显式「接受 / 保持上月」
+     * (见 {@link EntryService#acceptLoanPrediction} + {@link #predictLoanBalance})。
+     * 兼容:{@code createPeriodAndTodos} 幂等(已有 todo 则跳过),只影响将来新开账期,老账期不回改。</p>
+     */
     private BigDecimal computePrefillBalance(Period period, Account account, SnapshotTodo todo, Long systemMemberId) {
-        if (account.getType() == AccountType.LOAN) {
-            applyLoanPrefill(period, account, todo, systemMemberId);
-            return todo.getPrefilledBalance();
-        }
         return snapshotMapper.findLatestBefore(account.getId(), period.getPeriodStart(), 1)
                 .stream().findFirst()
                 .map(PeriodSnapshot::getEndBalance)
                 .orElse(null);
-    }
-
-    private void applyLoanPrefill(Period period, Account loan, SnapshotTodo todo, Long systemMemberId) {
-        List<PeriodSnapshot> previous = snapshotMapper.findLatestBefore(loan.getId(), period.getPeriodStart(), 2);
-        if (previous.isEmpty()) {
-            return;
-        }
-        BigDecimal prev = previous.get(0).getEndBalance();
-        BigDecimal prevPrev = previous.size() >= 2 ? previous.get(1).getEndBalance() : null;
-        BigDecimal predicted = predictLoanBalance(prev, prevPrev);
-        todo.setPrefilledBalance(predicted);
-
-        // 草稿还款额 = 本期预测的实际还款额(predicted − prev,>0 才是"还款使欠款减少");
-        //   夹零后若已还平(predicted==prev==0)则为 0,不再给已还清的贷款起草还款。
-        BigDecimal repay = predicted.subtract(prev);
-        if (systemMemberId != null
-                && loan.getDefaultPaymentSourceAccountId() != null
-                && repay.signum() > 0) {
-            Transfer draft = Transfer.builder()
-                    .periodId(period.getId())
-                    .fromAccountId(loan.getDefaultPaymentSourceAccountId())
-                    .toAccountId(loan.getId())
-                    .amount(repay)
-                    .occurredAt(period.getPeriodEnd())
-                    .note("系统根据上期贷款变化预填")
-                    .submittedBy(systemMemberId)
-                    .draft(true)
-                    .build();
-            transferMapper.insert(draft);
-            todo.setPrefilledTransferId(draft.getId());
-        }
     }
 
     /**
