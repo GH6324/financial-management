@@ -1810,3 +1810,21 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v17-LOAN-COMPAT(兼容) | 显示闸 `loanPromptVisible(predicted,prev,committed,todoDone)`:仅 `predicted≠prev && !todoDone && committed==prev`(新默认态)才出提示。**老账期**(旧代码已把 committed 写成 predicted≠prev)与**已确认**(todo DONE)天然不出、不回改;`PeriodOpener.createPeriodAndTodos` 幂等只影响新开账期,零迁移。EntryLoanPromptTest ×6(新默认出/老账期隐/已确认隐/无建议隐/手改隐/null 守卫)|
 
 > 决策(承 prd/tech-design v0.17):**坚持原有账户理念**——保险 = 又一类「按周期手填当前价值」的资产账户,复用手填 snapshot 估值链、净资产、配置、报表,**不引入预算引擎、不做逐笔、不替 LLM 算保单收益/IRR**。①独立第 9 类 INSURANCE(配置桶/锚/洞察文案 v0.4–v0.5 早已预埋 INSURANCE,本版接线);②保单 11 字段落**独立旁表** `account_insurance_policy`(冷·纯展示,不污染热表);③子类型 Java 枚举存 name()(loanKind 式,无 DB CHECK);④现金价值手填计入总资产,消费型不建账户;⑤消费型保费提醒列 backlog。**命门**:`pickBucket` 按 type 短路 INSURANCE 桶,必须先于 liquidity_class(SEMI_LIQUID 否则漏进 INVEST)。
+
+---
+
+## v1.1 · 资产透视(多维打标 + 统一查询网关 + 交叉透视 + 旭日下钻)
+
+| Case | 校验 |
+|---|---|
+| v11-LENS-1(静态) | 底座:`V45`(account 三列 asset_class/platform_tag/industry_tag + stock_holding.industry_tag + lens_board)· `AssetClass`(6大类·defaultFor 派生)/`IndustryTag`(12粗行业·D3)· `LensRegistry` ≥8维/5度量(一处登记全组件生效)· `POST /lens/query` 唯一网关 · `PivotEngine.holdingLevelSplit` 收益归因降级标记 |
+| v11-LENS-2(静态) | nav **双端**「透视」入口 · `lens.js`(drill 状态机/sunburst/lens-pivot)· 打标页「保存全部打标」显式接受 + 「AI 推荐打标」· `LensAiTagService.fromName` 枚举白名单 · `LENS-CON-1/2` 集中度规则 + `calc-tweaks` 阈值可配 |
+| v11-GATEWAY | 统一网关:旭日/切片排行/交叉透视/明细/预设与自定义看板全部走 `POST /lens/query`(spec=行/列/度量/筛选);响应带头寸目录,cells 索引引用 → 明细零额外请求;beta curl:风险×大类 grand ¥4.06M · 17 头寸 |
+| v11-ATTRIB(命门) | 收益归因诚实降级:账户级维度(风险/平台/大类/主理人/类型/币种)按 accountId 去重精确聚合 factview 度量;持仓级维度(行业/地域,含 filters)→ latestPnl/cumReturn=null(UI 显「—」+说明)、cumPnl 改持有口径(市值−成本);**绝不按市值比例假分摊**;不聚合 XIRR |
+| v11-VALUE | Σ头寸 ≡ factview 账户现值(统一 fx 因子缩放,与仪表盘同源);LOAN 排除;未填报账户跳过;未打标=「未分类」沉底照常参与 |
+| v11-TAGS | 打标:账户编辑页 3 控件(大类默认派生提示/平台 datalist/行业)+ 持仓页行内行业下拉(选完即存·CASH 行不标)+ /lens/tags 集中打标;AI 推荐只预填(AI 角标),显式保存才落库;保存只写非空白名单值;LLM 全不可用 → 入口降级隐藏 |
+| (UT) PivotEngineTest ×8 | 单/双维分组 · 行/列小计和=总计 · 未分类沉底 · 筛选内占比 · 账户级 pnl 去重精确(5000/20000/11.11%)· 持仓级降级(null+持有口径 15000)· **占比/累计收益率三币种相等+金额按 fx 缩放** · 注册表完整性(≥8维/5度量) |
+| (UT) LensTagsTest ×2 + LensAiTagServiceTest ×2 | AssetClass.defaultFor 穷尽(LOAN/OTHER→null 不装懂·货基→现金及等价)· 枚举 12 行业/安全解析 · AI 白名单(枚举外「半导体/BOND」丢弃·platform 截 40·未出现名称不入)· 无 client → available=false+suggest 空 |
+| (e2e) 主线 透视 | 登录 → nav「透视」→ 风险总览出旭日/排行/透视表 → 切「行业集中」看板 → 点透视格 → 明细抽屉(头寸→账户详情)→ /lens/tags 打标 → 手机视口复跑 |
+
+> 决策(承 prd/tech-design v1.1 · D1–D6 全拍板):**要 OLAP 的交互(切片/下钻/换维),不上 OLAP 引擎**(<200 头寸内存 group-by);**近似打标不做基金成分穿透**(个股准·基金粗标·UI 明示);头寸事实=查询时实时组装(不物化);维度/度量注册表一处登记;/lens 页前端例外走原生 JS(拖拽/联动状态机,项目其余仍 HTMX);AI 只做分类不做数学、白名单+显式接受;5 预设看板=spec 常量。

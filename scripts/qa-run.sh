@@ -2818,6 +2818,33 @@ ROW17="$RD/src/main/resources/templates/entry/_row.html"
   && log_ok "v17-LOAN-PROMPT 贷款不再静默外推(删 applyLoanPrefill)· PeriodOpener 延续 prev · 填报行提示条(接受/保持上月)· acceptLoanPrediction 复刻旧逻辑 · loanPromptVisible 兼容闸(committed==prev 屏蔽老账期)" \
   || log_bad "v17-LOAN-PROMPT 贷款显式接受缺件" "see PeriodOpener(删applyLoanPrefill/留predictLoanBalance)/EntryService.loanPromptVisible+acceptLoanPrediction/EntryController/_row.html"
 
+# v11-LENS-1 资产透视底座:V45 三列+lens_board · 枚举 · 注册表(≥8维5度量)· 唯一网关 · 纯函数引擎
+V45L="$RD/db/migration/V45__asset_lens.sql"
+LREG="$RD/src/main/java/com/family/finance/calc/lens/LensRegistry.java"
+{ [ -f "$V45L" ] && grep -q 'asset_class' "$V45L" && grep -q 'platform_tag' "$V45L" \
+  && grep -q 'industry_tag' "$V45L" && grep -q 'lens_board' "$V45L" \
+  && [ -f "$RD/src/main/java/com/family/finance/domain/lens/AssetClass.java" ] \
+  && [ -f "$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java" ] \
+  && [ "$(grep -c '        dim("' "$LREG")" -ge 8 ] && [ "$(grep -c '        measure("' "$LREG")" -eq 5 ] \
+  && grep -q 'PostMapping("/lens/query")' "$RD/src/main/java/com/family/finance/web/lens/LensController.java" \
+  && grep -q 'holdingLevelSplit' "$RD/src/main/java/com/family/finance/calc/lens/PivotEngine.java"; } \
+  && log_ok "v11-LENS-1 透视底座:V45(3列+lens_board)+ AssetClass/IndustryTag + 注册表 ≥8维/5度量 + POST /lens/query 唯一网关 + 引擎收益归因降级标记" \
+  || log_bad "v11-LENS-1 透视底座缺件" "see V45/domain.lens/LensRegistry/LensController/PivotEngine"
+
+# v11-LENS-2 前端与入口:nav 双端「透视」 · lens.js 状态机/旭日/透视表 · 打标页显式接受 · AI 白名单 · 集中度规则+阈值可配
+NAVF="$RD/src/main/resources/templates/fragments/nav.html"
+{ [ "$(grep -c '@{/lens}' "$NAVF")" -ge 2 ] \
+  && grep -q 'drill' "$RD/src/main/resources/static/js/lens.js" && grep -q 'sunburst' "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q 'lens-pivot' "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q '保存全部打标' "$RD/src/main/resources/templates/lens/tags.html" \
+  && grep -q 'AI 推荐打标' "$RD/src/main/resources/templates/lens/tags.html" \
+  && grep -q 'fromName' "$RD/src/main/java/com/family/finance/service/lens/LensAiTagService.java" \
+  && grep -q 'LENS-CON-1' "$RD/src/main/java/com/family/finance/service/checkup/rule/LensConcentrationRules.java" \
+  && grep -q 'LENS-CON-2' "$RD/src/main/java/com/family/finance/service/checkup/rule/LensConcentrationRules.java" \
+  && grep -q 'lensIndustryConc' "$RD/src/main/resources/templates/admin/calc-tweaks.html"; } \
+  && log_ok "v11-LENS-2 nav 双端透视入口 + lens.js(drill/旭日/透视表)+ 打标显式接受 + AI 枚举白名单 + LENS-CON-1/2 集中度(阈值 calc-tweaks 可配)" \
+  || log_bad "v11-LENS-2 透视前端/打标/集中度缺件" "see nav.html/lens.js/lens tags.html/LensAiTagService/LensConcentrationRules/calc-tweaks.html"
+
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
 { ! grep -q '<your-org>' "$RD/README.md" \
   && grep -q '289 单元' "$RD/README.md" && grep -q '412' "$RD/README.md" \
