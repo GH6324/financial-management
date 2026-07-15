@@ -1,0 +1,40 @@
+package com.family.finance.calc.lens;
+
+import java.math.BigDecimal;
+
+/**
+ * v1.1 · 资产透视的事实单元(头寸)· tech-design v1.1 决策 1。
+ *
+ * <p>手填账户 = 1 头寸(快照余额);持仓账户 = N 头寸(每个持仓一笔)。
+ * 各维度字段存<b>最终展示中文标签</b>(null = 未分类),由 LensQueryService 组装时算好,
+ * 引擎与注册表只做取值 + 分组,不再查库(纯函数可测)。</p>
+ *
+ * <p>账户级度量(latestPnl/cumPnl/netPrincipal)在同账户所有头寸上<b>重复携带</b>,
+ * 引擎按 accountId 去重聚合;持仓级持有收益 holdingCumPnl = 市值 − 成本(现汇近似),
+ * 手填账户该值 = 账户累计收益(整笔即账户本身)。见 {@link PivotEngine} 的归因规则。</p>
+ */
+public record Position(
+        long accountId,
+        Long holdingId,
+        String label,
+        String accountName,
+        /** 本位币现值(必有 · LOAN 不进 lens) */
+        BigDecimal valueBase,
+        // ---- 维度标签(null = 未分类)----
+        String type,
+        String risk,
+        String liquidity,
+        String currency,
+        String owner,
+        String assetClass,
+        String platform,
+        String industry,
+        String region,
+        // ---- 度量 ----
+        BigDecimal acctLatestPnl,
+        BigDecimal acctCumPnl,
+        BigDecimal acctNetPrincipal,
+        BigDecimal holdingCumPnl
+) {
+    public boolean isHolding() { return holdingId != null; }
+}

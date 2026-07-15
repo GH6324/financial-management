@@ -293,6 +293,62 @@ public class AccountValuationService {
      *   <li>链式:USD→CNY(用 1 / (CNY→USD))× CNY→HKD = 6.80 × 1.152 ≈ 7.83</li>
      * </ul>
      */
+    // ---------- v1.1 · 资产透视(lens)· 每持仓在账户币种下的现值/成本 ----------
+
+    /** v1.1 · lens 头寸组装用 · 与 valuateInternal 同口径(改口径需两处同步) */
+    public record HoldingLine(com.family.finance.domain.stock.StockHolding holding,
+                              BigDecimal valueAcctCcy, BigDecimal costAcctCcy) {}
+
+    /**
+     * 每个活跃持仓的账户币种现值 + 成本(供资产透视按行业/地域拆账户)。
+     * MANUAL = 单股手填值×股数(账户币种 · v0.12 语义),成本按 costBasis×shares(可空);
+     * CASH   = 各币种现金经 FX → 账户币种,成本=现值(现金无持有损益);
+     * AUTO   = 最新价×股数(METAL 每克归一)经 FX → 账户币种,缺价按 0 计(与 valuateInternal 的账户合计口径一致),成本可空。
+     */
+    public List<HoldingLine> perHoldingLines(Account acc) {
+        List<StockHolding> holdings = holdingMapper.findActiveByAccount(acc.getId());
+        List<HoldingLine> out = new java.util.ArrayList<>();
+        for (StockHolding h : holdings) {
+            BigDecimal value = BigDecimal.ZERO;
+            BigDecimal cost = null;
+            switch (h.getValuationMode()) {
+                case MANUAL -> {
+                    BigDecimal sh = h.getShares() == null ? BigDecimal.ONE : h.getShares();
+                    if (h.getManualValue() != null) value = h.getManualValue().multiply(sh);
+                    if (h.getCostBasis() != null) cost = h.getCostBasis().multiply(sh);
+                }
+                case CASH -> {
+                    if (h.getManualValue() != null && h.getCurrency() != null) {
+                        BigDecimal fx = resolveFxRate(acc.getFamilyId(), h.getCurrency(), acc.getCurrency());
+                        value = h.getManualValue().multiply(fx);
+                    }
+                    cost = value; // 现金头寸无持有损益
+                }
+                case AUTO -> {
+                    var priceOpt = priceMapper.findLatest(h.getTicker(), h.getMarket().name());
+                    if (priceOpt.isPresent() && h.getShares() != null) {
+                        var price = priceOpt.get();
+                        BigDecimal effectiveClose = h.getMarket() == Market.METAL
+                            ? MetalUnit.perHoldingUnit(h.getUnit(), price.getClosePrice())
+                            : price.getClosePrice();
+                        String quoteCcy = price.getCurrency() == null || price.getCurrency().isBlank()
+                            ? h.getCurrency() : price.getCurrency();
+                        BigDecimal fx = resolveFxRate(acc.getFamilyId(), quoteCcy, acc.getCurrency());
+                        value = effectiveClose.multiply(h.getShares()).multiply(fx);
+                        if (h.getCostBasis() != null && h.getCurrency() != null) {
+                            BigDecimal cfx = resolveFxRate(acc.getFamilyId(), h.getCurrency(), acc.getCurrency());
+                            cost = h.getCostBasis().multiply(h.getShares()).multiply(cfx);
+                        }
+                    }
+                }
+            }
+            out.add(new HoldingLine(h,
+                value.setScale(2, RoundingMode.HALF_EVEN),
+                cost == null ? null : cost.setScale(2, RoundingMode.HALF_EVEN)));
+        }
+        return out;
+    }
+
     private BigDecimal resolveFxRate(long familyId, String fromCurrency, String toCurrency) {
         if (fromCurrency == null || toCurrency == null || fromCurrency.equalsIgnoreCase(toCurrency)) {
             return BigDecimal.ONE;
