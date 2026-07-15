@@ -40,24 +40,14 @@ public class LensController {
     private final LensBoardMapper lensBoardMapper;
     private final NavService navService;
     private final ObjectMapper objectMapper;
+    private final com.family.finance.service.lens.LensMetaService lensMetaService;
 
     /** 透视页壳(组件渲染由 static/js/lens.js 走 /lens/query) */
     @GetMapping("/lens")
-    public String page(@AuthenticationPrincipal MemberPrincipal me, Model model) throws Exception {
+    public String page(@AuthenticationPrincipal MemberPrincipal me, Model model) {
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
-        model.addAttribute("dimsJson", objectMapper.writeValueAsString(
-                LensRegistry.DIMENSIONS.values().stream()
-                        .map(d -> Map.of("key", d.key(), "label", d.label(), "holdingLevel", d.holdingLevel()))
-                        .toList()));
-        model.addAttribute("measuresJson", objectMapper.writeValueAsString(
-                LensRegistry.MEASURES.values().stream()
-                        .map(m -> Map.of("key", m.key(), "label", m.label()))
-                        .toList()));
-        model.addAttribute("boardsJson", objectMapper.writeValueAsString(
-                lensBoardMapper.findByFamily(me.getFamilyId()).stream()
-                        .map(b -> Map.of("id", b.getId(), "name", b.getName(), "spec", b.getSpecJson()))
-                        .toList()));
+        lensMetaService.addMeta(me.getFamilyId(), model);
         return "lens/index";
     }
 

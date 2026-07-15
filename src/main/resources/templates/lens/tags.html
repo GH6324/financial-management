@@ -13,11 +13,11 @@
     <h1 class="font-display text-3xl md:text-4xl font-medium tracking-tight">给资产打标</h1>
     <p class="text-ink-soft text-sm mt-2">树状结构:<b>账户</b>(大类 / 平台 / 用途)→ 子行 = <b>具体持仓</b>(行业 · 准)。
       全部可选,不打标 = 「未分类」照常可用;基金 / 理财等无持仓账户在账户行直接给行业粗标(近似,不做成分穿透)。</p>
-    <a th:href="@{/lens}" class="font-mono text-xs no-underline" style="color:var(--brass-deep)">← 回资产透视</a>
+    <a th:href="@{/dashboard#lens-section}" class="font-mono text-xs no-underline" style="color:var(--brass-deep)">← 回资产透视</a>
   </section>
 
   <div th:if="${param.saved != null}" class="paper-card p-3 mb-4" style="border-left:4px solid var(--forest)">
-    <span class="text-sm">已保存打标。<a th:href="@{/lens}" class="no-underline" style="color:var(--forest)">去透视页看效果 →</a></span>
+    <span class="text-sm">已保存打标。<a th:href="@{/dashboard#lens-section}" class="no-underline" style="color:var(--forest)">去透视页看效果 →</a></span>
   </div>
 
   <form th:action="@{/lens/tags/save}" method="post">
@@ -129,7 +129,7 @@
     </section>
 
     <div class="flex justify-end gap-3">
-      <a th:href="@{/lens}" class="btn-paper no-underline">取消</a>
+      <a th:href="@{/dashboard#lens-section}" class="btn-paper no-underline">取消</a>
       <button class="btn-ink">保存全部打标</button>
     </div>
     <p class="text-[11px] text-ink-subtle text-right mt-2">留空 = 保持现状;要清掉已有标签请到账户编辑页。</p>

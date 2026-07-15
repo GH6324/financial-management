@@ -58,6 +58,7 @@ public class DashboardController {
     private final com.family.finance.service.config.FamilyConfigService configService;
     private final com.family.finance.service.explain.MetricExplainService metricExplain; // v0.5.3 口径真实数值
     private final com.family.finance.service.insight.AssetInsightService assetInsightService; // v0.6 资产洞察速览
+    private final com.family.finance.service.lens.LensMetaService lensMetaService; // v1.1 资产透视内嵌
 
     @GetMapping("/dashboard")
     public String dashboard(@AuthenticationPrincipal MemberPrincipal me,
@@ -78,6 +79,7 @@ public class DashboardController {
         if ("true".equalsIgnoreCase(htmx)) {
             return "dashboard/_region :: region";
         }
+        lensMetaService.addMeta(me.getFamilyId(), model);   // v1.1 · 透视主体内嵌(region 刷新不重载)
         return "dashboard/index";
     }
 
