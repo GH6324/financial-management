@@ -126,6 +126,15 @@
         </select>
       </div>
 
+      <div>
+        <label class="field-label">资金用途 <span class="text-ink-subtle font-mono text-[10px]">透视维度 · 可选 · 纯手标</span></label>
+        <select name="purposeTag" class="field-input bg-transparent">
+          <option value="">未分类</option>
+          <option th:each="pt : ${purposeTags}" th:value="${pt.name()}"
+                  th:selected="${pt.name() == account.purposeTag}" th:text="${pt.label}">应急金</option>
+        </select>
+      </div>
+
       <div class="md:col-span-2">
         <label class="field-label">默认还款来源(LOAN 类型用)</label>
         <select name="defaultPaymentSourceAccountId" data-searchable class="field-input bg-transparent">

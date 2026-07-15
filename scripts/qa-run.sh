@@ -2833,7 +2833,14 @@ LREG="$RD/src/main/java/com/family/finance/calc/lens/LensRegistry.java"
 
 # v11-LENS-2 前端与入口:nav 双端「透视」 · lens.js 状态机/旭日/透视表 · 打标页显式接受 · AI 白名单 · 集中度规则+阈值可配
 NAVF="$RD/src/main/resources/templates/fragments/nav.html"
-{ [ "$(grep -c '@{/lens}' "$NAVF")" -ge 2 ] \
+{ ! grep -q '@{/lens}' "$NAVF" \
+  && grep -q '/lens' "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q '@{/lens/tags}' "$RD/src/main/resources/templates/accounts/index.html" \
+  && grep -q '/lens' "$RD/src/main/resources/templates/reports/_allocation-diff.html" \
+  && grep -q '由持仓逐个标' "$RD/src/main/resources/templates/lens/tags.html" \
+  && grep -q 'name="only"' "$RD/src/main/resources/templates/lens/tags.html" \
+  && grep -q 'acct_purpose_' "$RD/src/main/resources/templates/lens/tags.html" \
+  && grep -q 'scrollIntoView' "$RD/src/main/resources/static/js/lens.js" \
   && grep -q 'drill' "$RD/src/main/resources/static/js/lens.js" && grep -q 'sunburst' "$RD/src/main/resources/static/js/lens.js" \
   && grep -q 'lens-pivot' "$RD/src/main/resources/static/js/lens.js" \
   && grep -q '保存全部打标' "$RD/src/main/resources/templates/lens/tags.html" \
@@ -2842,7 +2849,7 @@ NAVF="$RD/src/main/resources/templates/fragments/nav.html"
   && grep -q 'LENS-CON-1' "$RD/src/main/java/com/family/finance/service/checkup/rule/LensConcentrationRules.java" \
   && grep -q 'LENS-CON-2' "$RD/src/main/java/com/family/finance/service/checkup/rule/LensConcentrationRules.java" \
   && grep -q 'lensIndustryConc' "$RD/src/main/resources/templates/admin/calc-tweaks.html"; } \
-  && log_ok "v11-LENS-2 nav 双端透视入口 + lens.js(drill/旭日/透视表)+ 打标显式接受 + AI 枚举白名单 + LENS-CON-1/2 集中度(阈值 calc-tweaks 可配)" \
+  && log_ok "v11-LENS-2 入口=仪表盘/账户/报表(nav 不占 tab)+ 打标树状(账户›持仓·单行AI·用途列)+ 构建器展开滚动 + lens.js + AI 白名单 + LENS-CON-1/2(阈值可配)" \
   || log_bad "v11-LENS-2 透视前端/打标/集中度缺件" "see nav.html/lens.js/lens tags.html/LensAiTagService/LensConcentrationRules/calc-tweaks.html"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽

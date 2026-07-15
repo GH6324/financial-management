@@ -31,6 +31,7 @@ public final class LensRegistry {
         dim("platform",   "平台",   false, Position::platform);
         dim("type",       "类型",   false, Position::type);
         dim("owner",      "主理人", false, Position::owner);
+        dim("purpose",    "用途",   false, Position::purpose);
         dim("region",     "地域",   true,  Position::region);
         dim("currency",   "币种",   false, Position::currency);
         dim("liquidity",  "流动性", false, Position::liquidity);

@@ -28,7 +28,7 @@ class LensTagsTest {
         assertThat(IndustryTag.labelOf("new_energy")).isEqualTo("新能源电力");
         assertThat(IndustryTag.labelOf("BOGUS")).isEmpty();
         assertThat(AssetClass.labelOf(null)).isEmpty();
-        assertThat(IndustryTag.values()).hasSize(12);   // D3 已拍板 · 12 粗行业
+        assertThat(IndustryTag.values()).hasSize(17);   // 评审修订 · 17 粗行业
     }
 
 }

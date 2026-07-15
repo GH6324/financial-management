@@ -19,7 +19,8 @@
     { key: 'industry', name: '行业集中',   sun: ['industry', 'platform'], rows: ['industry'], cols: ['platform'],   filters: { assetClass: ['权益'] } },
     { key: 'platform', name: '平台安全',   sun: ['platform', 'assetClass'], rows: ['platform'], cols: ['assetClass'], filters: {} },
     { key: 'couple',   name: '夫妻结构',   sun: ['owner', 'risk'],        rows: ['owner'],    cols: ['assetClass'], filters: {} },
-    { key: 'ccy',      name: '币种与市场', sun: ['currency', 'region'],   rows: ['region'],   cols: ['industry'],   filters: {} }
+    { key: 'ccy',      name: '币种与市场', sun: ['currency', 'region'],   rows: ['region'],   cols: ['industry'],   filters: {} },
+    { key: 'purpose',  name: '资金用途',   sun: ['purpose', 'owner'],     rows: ['purpose'],  cols: ['assetClass'], filters: {} }
   ];
 
   var state = {
@@ -103,7 +104,11 @@
       };
     });
     document.getElementById('builderToggle').onclick = function () {
-      document.getElementById('builderWrap').classList.toggle('hidden');
+      var w = document.getElementById('builderWrap');
+      w.classList.toggle('hidden');
+      if (!w.classList.contains('hidden')) {   // 展开即滚动聚焦(修复:此前藏在页面底部,点了像没反应)
+        w.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     };
   }
   function csrfInput() {

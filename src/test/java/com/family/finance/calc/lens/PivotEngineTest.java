@@ -22,21 +22,21 @@ class PivotEngineTest {
         // 账户1 现金(手填·低风险·招行·迪娃):100000
         Position cash = new Position(1L, null, "招行储蓄卡", "招行储蓄卡", bd("100000").multiply(k),
                 "现金", "低风险", "灵活取用", "CNY", "迪娃",
-                "现金及等价", "招商银行", null, null,
+                "现金及等价", "招商银行", null, null, "应急金",
                 bd("0").multiply(k), bd("0").multiply(k), bd("100000").multiply(k), bd("0").multiply(k));
         // 账户2 股票(持仓×2·高风险·富途·迪娃):宁德 60000(新能源) + 茅台 40000(消费)
         Position h1 = new Position(2L, 21L, "宁德时代", "富途证券账户", bd("60000").multiply(k),
                 "股票", "高风险", "半灵活", "CNY", "迪娃",
-                "权益", "富途证券", "新能源电力", "A股",
+                "权益", "富途证券", "新能源电力", "A股", "长期增值",
                 bd("5000").multiply(k), bd("20000").multiply(k), bd("80000").multiply(k), bd("15000").multiply(k));
         Position h2 = new Position(2L, 22L, "贵州茅台", "富途证券账户", bd("40000").multiply(k),
                 "股票", "高风险", "半灵活", "CNY", "迪娃",
-                "权益", "富途证券", "白酒消费", "A股",
+                "权益", "富途证券", "白酒消费", "A股", "长期增值",
                 bd("5000").multiply(k), bd("20000").multiply(k), bd("80000").multiply(k), bd("5000").multiply(k));
         // 账户3 理财(手填·未打标行业·支付宝·妻子):100000
         Position wealth = new Position(3L, null, "蚂蚁理财", "蚂蚁理财", bd("100000").multiply(k),
                 "理财", "中风险", "半灵活", "CNY", "妻子",
-                "固收", "支付宝 · 蚂蚁财富", null, null,
+                "固收", "支付宝 · 蚂蚁财富", null, null, "教育金",
                 bd("1000").multiply(k), bd("3000").multiply(k), bd("97000").multiply(k), bd("3000").multiply(k));
         return List.of(cash, h1, h2, wealth);
     }

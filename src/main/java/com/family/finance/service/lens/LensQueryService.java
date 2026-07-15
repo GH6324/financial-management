@@ -68,6 +68,7 @@ public class LensQueryService {
             String assetClass = assetClassLabel(acc);
             String platform = blankToNull(acc.getPlatformTag());
             String acctIndustry = nullIfEmpty(IndustryTag.labelOf(acc.getIndustryTag()));
+            String purpose = nullIfEmpty(com.family.finance.domain.lens.PurposeTag.labelOf(acc.getPurposeTag()));
             String typeLabel = acc.getType().getLabel();
 
             boolean split = false;
@@ -91,6 +92,7 @@ public class LensQueryService {
                                 assetClass, platform,
                                 cashRow ? null : nullIfEmpty(IndustryTag.labelOf(h.getIndustryTag())),
                                 cashRow ? null : regionLabel(h.getMarket()),
+                                purpose,
                                 p.latestPnl(), p.cumPnl(), p.netPrincipal(), holdingCumPnl));
                     }
                     split = true;
@@ -100,7 +102,7 @@ public class LensQueryService {
                 out.add(new Position(
                         acc.getId(), null, acc.getDisplayName(), acc.getDisplayName(), p.currentValue(),
                         typeLabel, risk, liquidity, acc.getCurrency(), owner,
-                        assetClass, platform, acctIndustry, null,
+                        assetClass, platform, acctIndustry, null, purpose,
                         p.latestPnl(), p.cumPnl(), p.netPrincipal(), p.cumPnl()));
             }
         }

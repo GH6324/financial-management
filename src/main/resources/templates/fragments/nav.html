@@ -25,8 +25,6 @@
            th:classappend="${active == 'reports' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink'}">报表</a>
         <a th:href="@{/goals}" class="no-underline"
            th:classappend="${active == 'goals' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink'}">目标</a>
-        <a th:href="@{/lens}" class="no-underline"
-           th:classappend="${active == 'lens' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink'}">透视</a>
         <a th:href="@{/checkup}" class="no-underline"
            th:classappend="${active == 'checkup' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink'}">资产体检</a>
         <a th:href="@{/admin}" class="no-underline"
@@ -54,7 +52,6 @@
             <a th:href="@{/accounts}" class="px-6 py-4 hover:bg-card-soft no-underline">账户</a>
             <a th:href="@{/reports}" class="px-6 py-4 hover:bg-card-soft no-underline">报表</a>
             <a th:href="@{/goals}" class="px-6 py-4 hover:bg-card-soft no-underline">目标</a>
-            <a th:href="@{/lens}" class="px-6 py-4 hover:bg-card-soft no-underline">透视</a>
             <a th:href="@{/checkup}" class="px-6 py-4 hover:bg-card-soft no-underline">资产体检</a>
             <a th:href="@{/admin}" class="px-6 py-4 hover:bg-card-soft no-underline">管理</a>
             <form th:if="${_csrf != null}" th:action="@{/logout}" method="post" class="px-6 py-4 bg-card-soft">

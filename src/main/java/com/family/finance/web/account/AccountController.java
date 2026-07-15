@@ -215,6 +215,7 @@ public class AccountController {
         model.addAttribute("assetClassDefault",
                 com.family.finance.domain.lens.AssetClass.defaultFor(account.getType(), account.getProductCategoryCode()));
         model.addAttribute("platformSuggestions", PLATFORM_SUGGESTIONS);
+        model.addAttribute("purposeTags", com.family.finance.domain.lens.PurposeTag.values());
     }
 
     /** v1.1 · 平台/机构常用建议(datalist · 自由文本可另填) */
@@ -248,6 +249,7 @@ public class AccountController {
         private String assetClass;
         private String platformTag;
         private String industryTag;
+        private String purposeTag;
 
         // ---------- v0.17 · 保险保单登记(仅 INSURANCE · 全选填 · 落旁表 account_insurance_policy)----------
         private String insuranceKind;
@@ -282,6 +284,7 @@ public class AccountController {
                     .assetClass(blankToNull(assetClass))
                     .platformTag(blankToNull(platformTag))
                     .industryTag(blankToNull(industryTag))
+                    .purposeTag(blankToNull(purposeTag))
                     .build();
         }
 

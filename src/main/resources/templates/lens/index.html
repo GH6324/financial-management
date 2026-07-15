@@ -4,7 +4,7 @@
 <body class="min-h-screen relative">
 
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
-<header th:replace="~{fragments/nav :: nav('lens', ${me}, ${nav})}"></header>
+<header th:replace="~{fragments/nav :: nav('dashboard', ${me}, ${nav})}"></header>
 
 <main class="max-w-[1200px] mx-auto px-4 lg:px-10 py-8 relative z-10">
 
@@ -24,6 +24,26 @@
     <div class="flex items-center gap-2 mt-2 flex-wrap">
       <span class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle">路径</span>
       <div id="crumbs" class="flex items-center gap-1.5 flex-wrap font-mono text-xs text-brass-deep"></div>
+    </div>
+  </section>
+
+  <!-- 自定义构建器(折叠) -->
+  <section id="builderWrap" class="paper-card p-5 mb-4 hidden">
+    <h3 class="font-display text-lg font-medium mb-3">自定义透视 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">CUSTOM</span></h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono text-[11px] text-ink-soft">
+      <label>行维度 <select id="bRow" class="field-input bg-transparent text-sm"></select></label>
+      <label>行二级(可空) <select id="bRow2" class="field-input bg-transparent text-sm"></select></label>
+      <label>列维度(可空) <select id="bCol" class="field-input bg-transparent text-sm"></select></label>
+      <label>度量 <select id="bMeasure" class="field-input bg-transparent text-sm"></select></label>
+    </div>
+    <div class="flex items-center gap-3 mt-4 flex-wrap">
+      <button id="bApply" class="btn-ink text-xs px-4 py-1.5">应用</button>
+      <form th:action="@{/lens/boards}" method="post" class="flex items-center gap-2" id="bSaveForm">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <input type="hidden" name="specJson" id="bSpecJson">
+        <input name="name" class="field-input text-sm" style="width:160px" placeholder="看板名 · 如 支付宝体检" maxlength="20">
+        <button class="btn-paper text-xs px-4 py-1.5">存为我的看板</button>
+      </form>
     </div>
   </section>
 
@@ -69,25 +89,6 @@
     <div id="drawer" class="space-y-2 text-sm"></div>
   </section>
 
-  <!-- 自定义构建器(折叠) -->
-  <section id="builderWrap" class="paper-card p-5 mb-4 hidden">
-    <h3 class="font-display text-lg font-medium mb-3">自定义透视 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">CUSTOM</span></h3>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono text-[11px] text-ink-soft">
-      <label>行维度 <select id="bRow" class="field-input bg-transparent text-sm"></select></label>
-      <label>行二级(可空) <select id="bRow2" class="field-input bg-transparent text-sm"></select></label>
-      <label>列维度(可空) <select id="bCol" class="field-input bg-transparent text-sm"></select></label>
-      <label>度量 <select id="bMeasure" class="field-input bg-transparent text-sm"></select></label>
-    </div>
-    <div class="flex items-center gap-3 mt-4 flex-wrap">
-      <button id="bApply" class="btn-ink text-xs px-4 py-1.5">应用</button>
-      <form th:action="@{/lens/boards}" method="post" class="flex items-center gap-2" id="bSaveForm">
-        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-        <input type="hidden" name="specJson" id="bSpecJson">
-        <input name="name" class="field-input text-sm" style="width:160px" placeholder="看板名 · 如 支付宝体检" maxlength="20">
-        <button class="btn-paper text-xs px-4 py-1.5">存为我的看板</button>
-      </form>
-    </div>
-  </section>
 
 </main>
 

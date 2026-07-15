@@ -39,6 +39,8 @@ public class Account {
     private String platformTag;
     /** v1.1 · 行业/主题粗标(IndustryTag.name() · 账户级近似)· 资产透视维度 · NULL=未分类 */
     private String industryTag;
+    /** v1.1 · 资金用途(PurposeTag.name() · 应急金/教育金/养老/购房/增值/日常)· 纯手标 · NULL=未分类 */
+    private String purposeTag;
 
     /** v0.6 · 负债类型(MORTGAGE/CONSUMER/CREDIT_CARD/BORROW · 仅 LOAN · NULL=未填)· FR-103 */
     private String loanKind;

@@ -30,6 +30,7 @@ public record Position(
         String platform,
         String industry,
         String region,
+        String purpose,
         // ---- 度量 ----
         BigDecimal acctLatestPnl,
         BigDecimal acctCumPnl,
