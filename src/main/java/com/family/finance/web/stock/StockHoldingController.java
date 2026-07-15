@@ -112,6 +112,7 @@ public class StockHoldingController {
         model.addAttribute("holdings", active);
         model.addAttribute("valuation", valuation);
         model.addAttribute("latestPrices", latestPrices);
+        model.addAttribute("industryTags", com.family.finance.domain.lens.IndustryTag.values()); // v1.1 行业标下拉
         model.addAttribute("metalInfo", metalInfo);
         model.addAttribute("priceSourceLabel", switch (account.getType()) {
             case CRYPTO -> "数据源 · Binance(主) + CoinGecko/Coinbase(备)";
@@ -192,6 +193,18 @@ public class StockHoldingController {
         holdingService.updateManual(me.getFamilyId(), hid, shares, unitValue);
         try { valuationService.refreshAllForFamily(me.getFamilyId(),
             AccountValuationService.TriggerKind.HOLDING_CHANGE, me.getMemberId()); } catch (Exception ignored) {}
+        return "redirect:/accounts/" + accountId + "/holdings";
+    }
+
+    /** v1.1 · 行内改个股行业标(资产透视维度 · 空串=清标回未分类) */
+    @PostMapping("/accounts/{accountId}/holdings/{hid}/industry")
+    public String updateIndustry(@AuthenticationPrincipal MemberPrincipal me,
+                                 @PathVariable long accountId,
+                                 @PathVariable long hid,
+                                 @RequestParam(required = false) String industryTag) {
+        holdingService.updateIndustry(me.getFamilyId(), hid,
+                com.family.finance.domain.lens.IndustryTag.fromName(industryTag) == null
+                        ? null : industryTag.trim().toUpperCase());
         return "redirect:/accounts/" + accountId + "/holdings";
     }
 

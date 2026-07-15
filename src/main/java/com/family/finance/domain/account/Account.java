@@ -33,6 +33,13 @@ public class Account {
     /** v0.8 · 账户预期年化收益率 %(NULL = 回落品类 benchmark_pct)· 预实分析 FR-152 */
     private BigDecimal expectedReturnPct;
 
+    /** v1.1 · 大类资产(AssetClass.name() · NULL=按类型派生默认)· 资产透视维度 */
+    private String assetClass;
+    /** v1.1 · 平台/机构标(自由文本 · 如 招商银行/支付宝/富途)· 资产透视维度 */
+    private String platformTag;
+    /** v1.1 · 行业/主题粗标(IndustryTag.name() · 账户级近似)· 资产透视维度 · NULL=未分类 */
+    private String industryTag;
+
     /** v0.6 · 负债类型(MORTGAGE/CONSUMER/CREDIT_CARD/BORROW · 仅 LOAN · NULL=未填)· FR-103 */
     private String loanKind;
     /** v0.6 · 负债年利率 %(仅 LOAN · NULL=未填则资产负债表利率对照降级)· FR-103 */

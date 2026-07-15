@@ -65,6 +65,13 @@ public class StockHoldingService {
         return h;
     }
 
+    /** v1.1 · 改个股行业标(资产透视维度)· 归属校验走 require */
+    @Transactional
+    public void updateIndustry(long familyId, long holdingId, String industryTag) {
+        require(familyId, holdingId);
+        holdingMapper.updateIndustry(holdingId, industryTag);
+    }
+
     @Transactional
     public StockHolding createAuto(long familyId, long accountId,
                                    String displayName, String ticker, Market market,

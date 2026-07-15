@@ -39,6 +39,9 @@ public class StockHolding {
     /** v0.15 · 券商同步来源:FUTU / TIGER;手填持仓为 null。reconcile 只动带此标记的行,不碰手填。 */
     private String syncSource;
 
+    /** v1.1 · 个股行业标(IndustryTag.name() · 准)· 资产透视行业维度 · NULL=未分类 */
+    private String industryTag;
+
     // MANUAL 字段
     private BigDecimal manualValue;
     private LocalDateTime manualValueAt;

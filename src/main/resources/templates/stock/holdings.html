@@ -107,6 +107,19 @@
           <span class="pill text-[9px]" th:if="${stale}"
                 style="background:rgba(159,74,58,.1);color:var(--rust);border-color:var(--rust)"
                 th:text="'陈旧 ' + ${price.staleDays} + ' 天'">陈旧 8 天</span>
+          <!-- v1.1 · 个股行业标(资产透视维度 · 选完即存)· 账户内现金不标行业 -->
+          <form th:if="${h.valuationMode.name() != 'CASH'}"
+                th:action="@{|/accounts/${account.id}/holdings/${h.id}/industry|}" method="post" class="inline-flex items-center">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <select name="industryTag" onchange="this.form.submit()"
+                    class="pill text-[9px] bg-transparent cursor-pointer"
+                    style="appearance:auto;border-color:var(--slate);color:var(--slate)"
+                    title="行业标 · 资产透视用">
+              <option value="" th:selected="${h.industryTag == null}">行业?</option>
+              <option th:each="t : ${industryTags}" th:value="${t.name()}"
+                      th:selected="${t.name() == h.industryTag}" th:text="${t.label}">宽基综合</option>
+            </select>
+          </form>
         </div>
         <!-- v0.14 · 贵金属持仓展示 -->
         <div class="grid grid-cols-4 gap-6 text-sm" th:if="${h.valuationMode.name() == 'AUTO' and h.market.name() == 'METAL'}"

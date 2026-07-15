@@ -100,6 +100,32 @@
         </div>
       </div>
 
+      <!-- v1.1 · 资产透视维度打标(全选填 · 未打标=未分类) -->
+      <div>
+        <label class="field-label">大类资产 <span class="text-ink-subtle font-mono text-[10px]">透视维度 · 可选</span></label>
+        <select name="assetClass" class="field-input bg-transparent">
+          <option value="" th:text="${assetClassDefault != null ? '默认 · ' + assetClassDefault.label + '(按类型派生)' : '默认 · 未分类'}">默认 · 权益(按类型派生)</option>
+          <option th:each="c : ${assetClasses}" th:value="${c.name()}"
+                  th:selected="${c.name() == account.assetClass}" th:text="${c.label}">权益</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">平台 / 机构 <span class="text-ink-subtle font-mono text-[10px]">透视维度 · 可选</span></label>
+        <input name="platformTag" class="field-input" list="platformList"
+               th:value="${account.platformTag}" placeholder="如 招商银行 / 支付宝 · 蚂蚁财富">
+        <datalist id="platformList">
+          <option th:each="p : ${platformSuggestions}" th:value="${p}"></option>
+        </datalist>
+      </div>
+      <div class="md:col-span-2">
+        <label class="field-label">行业 / 主题 <span class="text-ink-subtle font-mono text-[10px]">账户级粗标 · 近似,非成分穿透;个股请在持仓页逐个标</span></label>
+        <select name="industryTag" class="field-input bg-transparent">
+          <option value="">未分类</option>
+          <option th:each="t : ${industryTags}" th:value="${t.name()}"
+                  th:selected="${t.name() == account.industryTag}" th:text="${t.label}">宽基综合</option>
+        </select>
+      </div>
+
       <div class="md:col-span-2">
         <label class="field-label">默认还款来源(LOAN 类型用)</label>
         <select name="defaultPaymentSourceAccountId" data-searchable class="field-input bg-transparent">

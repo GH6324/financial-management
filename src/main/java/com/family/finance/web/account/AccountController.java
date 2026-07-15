@@ -209,7 +209,20 @@ public class AccountController {
         model.addAttribute("currentCategory",
                 productCategoryService.findByCode(account.getProductCategoryCode()).orElse(null));
         model.addAttribute("insuranceSubTypes", InsuranceSubType.values()); // v0.17 保险子类型下拉
+        // v1.1 · 资产透视打标下拉(大类默认派生提示 + 行业清单 + 平台常用建议)
+        model.addAttribute("assetClasses", com.family.finance.domain.lens.AssetClass.values());
+        model.addAttribute("industryTags", com.family.finance.domain.lens.IndustryTag.values());
+        model.addAttribute("assetClassDefault",
+                com.family.finance.domain.lens.AssetClass.defaultFor(account.getType(), account.getProductCategoryCode()));
+        model.addAttribute("platformSuggestions", PLATFORM_SUGGESTIONS);
     }
+
+    /** v1.1 · 平台/机构常用建议(datalist · 自由文本可另填) */
+    private static final String[] PLATFORM_SUGGESTIONS = {
+            "招商银行", "工商银行", "建设银行", "中国银行", "支付宝 · 蚂蚁财富", "微信 · 理财通",
+            "富途证券", "老虎证券", "华泰证券", "中信证券", "天天基金", "京东金融",
+            "中国人寿", "平安保险", "泰康保险", "币安", "欧易", "其他"
+    };
 
     @Data
     public static class AccountForm {
@@ -230,6 +243,11 @@ public class AccountController {
         private java.math.BigDecimal annualRatePct;
         /** v0.8 · 预期年化收益率 %(选填 · NULL=回落品类 benchmark)· 预实 FR-152 */
         private java.math.BigDecimal expectedReturnPct;
+
+        // ---------- v1.1 · 资产透视维度打标(全选填 · 直落 account 三列)----------
+        private String assetClass;
+        private String platformTag;
+        private String industryTag;
 
         // ---------- v0.17 · 保险保单登记(仅 INSURANCE · 全选填 · 落旁表 account_insurance_policy)----------
         private String insuranceKind;
@@ -261,6 +279,9 @@ public class AccountController {
                     .loanKind(loanKind)
                     .annualRatePct(annualRatePct)
                     .expectedReturnPct(expectedReturnPct)
+                    .assetClass(blankToNull(assetClass))
+                    .platformTag(blankToNull(platformTag))
+                    .industryTag(blankToNull(industryTag))
                     .build();
         }
 
