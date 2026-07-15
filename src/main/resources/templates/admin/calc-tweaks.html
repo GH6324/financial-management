@@ -72,6 +72,14 @@
         <div>
           <label class="field-label">子类目集中度上限</label>
           <input class="field-input w-28" type="number" name="concentration" th:value="${checkupConcentration}" min="0.1" max="0.8" step="0.05"/>
+        </div>
+        <div>
+          <label class="field-label">行业集中度阈值(占权益 · 透视维度)</label>
+          <input class="field-input w-28" type="number" name="lensIndustryConc" th:value="${lensIndustryConc}" min="0.1" max="0.8" step="0.05"/>
+        </div>
+        <div>
+          <label class="field-label">平台集中度阈值(占总资产 · 透视维度)</label>
+          <input class="field-input w-28" type="number" name="lensPlatformConc" th:value="${lensPlatformConc}" min="0.1" max="0.8" step="0.05"/>
           <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">单子类目占比 &gt; 此 · 触发"分散化"建议(默认 0.40 即 40%)</p>
         </div>
         <div>

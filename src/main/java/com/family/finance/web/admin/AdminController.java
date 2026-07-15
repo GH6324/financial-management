@@ -396,6 +396,9 @@ public class AdminController {
         model.addAttribute("checkupHighRisk",      cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_CHECKUP_HIGH_RISK, 0.40));
         model.addAttribute("liquidBuffer",          cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_LIQUID_BUFFER, 1.5));
         model.addAttribute("emergencyMonths",       cs.getInt(fid, com.family.finance.service.config.FamilyConfigService.K_EMERGENCY_MONTHS, 6));
+        // v1.1 · 透视集中度阈值(LENS-CON-1/2)
+        model.addAttribute("lensIndustryConc", cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_LENS_INDUSTRY_CONC, 0.40));
+        model.addAttribute("lensPlatformConc", cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_LENS_PLATFORM_CONC, 0.40));
         // ③ 会话
         model.addAttribute("rememberMeSeconds",     cs.getLong(fid, com.family.finance.service.config.FamilyConfigService.K_REMEMBER_ME_SECONDS, 2592000L));
         return "admin/calc-tweaks";
@@ -427,6 +430,8 @@ public class AdminController {
                                         @org.springframework.web.bind.annotation.RequestParam("highRisk") double highRisk,
                                         @org.springframework.web.bind.annotation.RequestParam("liquidBuffer") double liquidBuffer,
                                         @org.springframework.web.bind.annotation.RequestParam("emergencyMonths") int emergencyMonths,
+                                        @org.springframework.web.bind.annotation.RequestParam(value = "lensIndustryConc", defaultValue = "0.40") double lensIndustryConc,
+                                        @org.springframework.web.bind.annotation.RequestParam(value = "lensPlatformConc", defaultValue = "0.40") double lensPlatformConc,
                                         org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
         long fid = me.getFamilyId();
         // 防呆:百分比合理区间 / 月数 ≥ 1
@@ -434,6 +439,8 @@ public class AdminController {
         configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_CHECKUP_HIGH_RISK,     String.valueOf(clamp01(highRisk)));
         configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_LIQUID_BUFFER,         String.valueOf(Math.max(1.0, liquidBuffer)));
         configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_EMERGENCY_MONTHS,      String.valueOf(Math.max(1, Math.min(emergencyMonths, 24))));
+        configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_LENS_INDUSTRY_CONC,    String.valueOf(clamp01(lensIndustryConc)));
+        configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_LENS_PLATFORM_CONC,    String.valueOf(clamp01(lensPlatformConc)));
         auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE, "family_runtime_config", fid,
                 "体检阈值 · concentration=" + concentration + " · highRisk=" + highRisk + " · liquidBuffer=" + liquidBuffer + "x · emergencyMonths=" + emergencyMonths);
         ra.addFlashAttribute("flash", "体检阈值已保存 · 下次诊断生效");
