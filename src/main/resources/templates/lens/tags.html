@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('多维打标 · 家庭账房')}"></head>
+<body class="min-h-screen relative">
+
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('lens', ${me}, ${nav})}"></header>
+
+<main class="max-w-[1080px] mx-auto px-4 lg:px-10 py-8 relative z-10">
+
+  <section class="mb-6">
+    <div class="eyebrow mb-2">多 · 维 · 打 · 标</div>
+    <h1 class="font-display text-3xl md:text-4xl font-medium tracking-tight">给资产打标</h1>
+    <p class="text-ink-soft text-sm mt-2">补上 大类 / 平台 / 行业 三个维度,透视页就能按它们切与下钻。全部可选,不打标 = 「未分类」照常可用。
+      行业是<b>账户 / 持仓级近似</b>(个股准 · 基金/理财粗标),不做基金成分穿透。</p>
+    <a th:href="@{/lens}" class="font-mono text-xs no-underline" style="color:var(--brass-deep)">← 回资产透视</a>
+  </section>
+
+  <div th:if="${param.saved != null}" class="paper-card p-3 mb-4" style="border-left:4px solid var(--forest)">
+    <span class="text-sm">已保存打标。<a th:href="@{/lens}" class="no-underline" style="color:var(--forest)">去透视页看效果 →</a></span>
+  </div>
+
+  <!-- AI 推荐入口(LLM 不可用则降级隐藏 · 结果仅预填,显式保存才落库) -->
+  <section class="paper-card p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
+    <div class="text-sm text-ink-soft">
+      <b class="text-ink">AI 推荐默认选型</b>:把名称交给 AI 推断 平台 / 行业 / 大类,<b>只预填不落库</b>,你核对后点「保存全部」才生效。
+      <span th:unless="${aiAvailable}" class="text-rust">(AI 暂不可用 · 请先在管理页配置 LLM,或直接手动打标)</span>
+      <span th:if="${aiRan}" class="text-brass-deep">已生成推荐,带「AI」角标的为预填项,请核对。</span>
+    </div>
+    <form th:if="${aiAvailable}" th:action="@{/lens/tags/ai}" method="post">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <button class="btn-ink text-xs px-4 py-1.5">AI 推荐打标</button>
+    </form>
+  </section>
+
+  <form th:action="@{/lens/tags/save}" method="post">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+    <!-- 账户级 -->
+    <section class="paper-card p-5 mb-4">
+      <h3 class="font-display text-lg font-medium mb-3">账户(大类 / 平台 / 行业)</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm" style="border-collapse:collapse">
+          <tr class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle text-left">
+            <th class="py-2 pr-3">账户</th><th class="py-2 pr-3">大类资产</th><th class="py-2 pr-3">平台 / 机构</th><th class="py-2">行业(粗标)</th>
+          </tr>
+          <tr th:each="a : ${accounts}" class="border-t" style="border-color:var(--rule)"
+              th:with="sug=${suggestions.get(a.displayName)}">
+            <td class="py-2 pr-3">
+              <b th:text="${a.displayName}">账户名</b>
+              <span class="pill text-[9px] ml-1" th:text="${a.type.label}">现金</span>
+            </td>
+            <td class="py-2 pr-3">
+              <span th:if="${sug != null and sug.assetClass != null and a.assetClass == null}" class="pill text-[9px]" style="background:var(--brass-soft);border-color:var(--brass)">AI</span>
+              <select th:name="'acct_class_' + ${a.id}" class="border border-rule bg-card px-1.5 py-1 text-xs">
+                <option value="" th:text="'默认 · ' + ${defaults.get(a.id)}">默认 · 权益</option>
+                <option th:each="c : ${assetClasses}" th:value="${c.name()}"
+                        th:selected="${a.assetClass == c.name() or (a.assetClass == null and sug != null and sug.assetClass == c.name())}"
+                        th:text="${c.label}">权益</option>
+              </select>
+            </td>
+            <td class="py-2 pr-3">
+              <span th:if="${sug != null and sug.platform != null and a.platformTag == null}" class="pill text-[9px]" style="background:var(--brass-soft);border-color:var(--brass)">AI</span>
+              <input th:name="'acct_platform_' + ${a.id}" list="platformList" class="border border-rule bg-card px-1.5 py-1 text-xs" style="width:150px"
+                     th:value="${a.platformTag != null ? a.platformTag : (sug != null ? sug.platform : null)}" placeholder="未标">
+            </td>
+            <td class="py-2">
+              <span th:if="${sug != null and sug.industry != null and a.industryTag == null}" class="pill text-[9px]" style="background:var(--brass-soft);border-color:var(--brass)">AI</span>
+              <select th:name="'acct_industry_' + ${a.id}" class="border border-rule bg-card px-1.5 py-1 text-xs">
+                <option value="">未分类</option>
+                <option th:each="t : ${industryTags}" th:value="${t.name()}"
+                        th:selected="${a.industryTag == t.name() or (a.industryTag == null and sug != null and sug.industry == t.name())}"
+                        th:text="${t.label}">宽基综合</option>
+              </select>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <datalist id="platformList">
+        <option value="招商银行"></option><option value="工商银行"></option><option value="建设银行"></option><option value="中国银行"></option>
+        <option value="支付宝 · 蚂蚁财富"></option><option value="微信 · 理财通"></option><option value="富途证券"></option><option value="老虎证券"></option>
+        <option value="天天基金"></option><option value="京东金融"></option><option value="中国人寿"></option><option value="平安保险"></option><option value="泰康保险"></option>
+      </datalist>
+    </section>
+
+    <!-- 持仓级(行业 · 准) -->
+    <section class="paper-card p-5 mb-4" th:if="${!#lists.isEmpty(holdings)}">
+      <h3 class="font-display text-lg font-medium mb-3">个股持仓(行业 · 准)</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm" style="border-collapse:collapse">
+          <tr class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle text-left">
+            <th class="py-2 pr-3">持仓</th><th class="py-2 pr-3">所属账户</th><th class="py-2">行业</th>
+          </tr>
+          <tr th:each="row : ${holdings}" class="border-t" style="border-color:var(--rule)"
+              th:with="sug=${suggestions.get(row.holding.displayName)}">
+            <td class="py-2 pr-3"><b th:text="${row.holding.displayName}">宁德时代</b>
+              <span class="pill text-[9px] ml-1" th:if="${row.holding.market != null}" th:text="${row.holding.market}">CN</span></td>
+            <td class="py-2 pr-3 text-ink-soft" th:text="${row.accountName}">富途证券账户</td>
+            <td class="py-2">
+              <span th:if="${sug != null and sug.industry != null and row.holding.industryTag == null}" class="pill text-[9px]" style="background:var(--brass-soft);border-color:var(--brass)">AI</span>
+              <select th:name="'hold_industry_' + ${row.holding.id}" class="border border-rule bg-card px-1.5 py-1 text-xs">
+                <option value="">未分类</option>
+                <option th:each="t : ${industryTags}" th:value="${t.name()}"
+                        th:selected="${row.holding.industryTag == t.name() or (row.holding.industryTag == null and sug != null and sug.industry == t.name())}"
+                        th:text="${t.label}">新能源电力</option>
+              </select>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </section>
+
+    <div class="flex justify-end gap-3">
+      <a th:href="@{/lens}" class="btn-paper no-underline">取消</a>
+      <button class="btn-ink">保存全部打标</button>
+    </div>
+    <p class="text-[11px] text-ink-subtle text-right mt-2">留空 = 保持现状;要清掉已有标签请到账户编辑页。</p>
+  </form>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

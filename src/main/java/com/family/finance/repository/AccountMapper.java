@@ -96,6 +96,20 @@ public interface AccountMapper {
             """)
     int update(Account account);
 
+    /** v1.1 · 只更三个透视标签(打标页批量保存 · 不触碰其它列) */
+    @Update("""
+            UPDATE account
+               SET asset_class = #{assetClass},
+                   platform_tag = #{platformTag},
+                   industry_tag = #{industryTag}
+             WHERE id = #{id}
+               AND family_id = #{familyId}
+            """)
+    int updateLensTags(@Param("familyId") long familyId, @Param("id") long id,
+                       @Param("assetClass") String assetClass,
+                       @Param("platformTag") String platformTag,
+                       @Param("industryTag") String industryTag);
+
     @Update("""
             UPDATE account
                SET archived_at = NOW(3)
