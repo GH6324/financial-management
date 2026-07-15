@@ -3,200 +3,242 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>v1.1 · 资产透视(多维打标 + OLAP-lite 下钻)· 预览</title>
+<title>v1.1 · 资产透视(多维查询网关 + 交叉透视表 + 旭日下钻)· 预览</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+SC:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/style.css">
 <style>
-  :root{ --paper:#F4EEE2; --ink:#1A1714; --brass:#B08642; --brass-deep:#8C6A33; --forest:#4F6B47; --rust:#9C4A2A; --slate:#3C4A5A; --plum:#5C3A4B; --rule:#C9BDA8; --card:#FBF7EE; --card-soft:#EFE7D6; }
+  :root{ --paper:#F4EEE2; --ink:#1A1714; --brass:#B08642; --brass-deep:#8C6A33; --forest:#4F6B47; --forest-deep:#3D5636; --rust:#9C4A2A; --slate:#3C4A5A; --plum:#5C3A4B; --rule:#C9BDA8; --card:#FBF7EE; --card-soft:#EFE7D6; --ink-soft:#5C5147; --ink-subtle:#A09486; }
   body{ background:var(--paper); color:var(--ink); font-family:"Source Serif 4","Noto Serif SC",serif; }
   .font-display{ font-family:"Fraunces","Noto Serif SC",serif; }
   .font-mono{ font-family:"JetBrains Mono",monospace; }
   .paper-card{ background:var(--card); border:1px solid var(--rule); box-shadow:0 1px 0 rgba(26,23,20,.04),0 8px 24px -12px rgba(26,23,20,.08); }
-  .eyebrow{ font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:#A09486; }
+  .eyebrow{ font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-subtle); }
   .eyebrow-ink{ font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--brass-deep); }
-  .pill{ display:inline-flex; align-items:center; gap:.3rem; font-family:"JetBrains Mono",monospace; font-size:11px; padding:2px 10px; border:1px solid var(--rule); border-radius:999px; background:var(--card-soft); }
+  .pill{ display:inline-flex; align-items:center; gap:.3rem; font-family:"JetBrains Mono",monospace; font-size:11px; padding:2px 10px; border:1px solid var(--rule); border-radius:999px; background:var(--card-soft); white-space:nowrap; }
   .pill-active{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+  .pill-slot{ border-style:dashed; background:transparent; color:var(--ink-subtle); }
   .callout{ border-left:4px solid var(--forest); background:#EEF1E8; padding:14px 18px; }
-  .callout-slate{ border-left:4px solid var(--slate); background:#EAEDF1; padding:14px 18px; }
-  .bar{ height:22px; background:var(--card-soft); position:relative; overflow:hidden; }
+  .bar{ height:20px; background:var(--card-soft); position:relative; overflow:hidden; }
   .bar > span{ position:absolute; left:0; top:0; height:100%; }
   .tnum{ font-variant-numeric:tabular-nums; }
   .crumb{ font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--brass-deep); }
   .screen-label{ position:absolute; top:12px; right:14px; }
+  .gw-badge{ position:absolute; top:12px; left:14px; font-family:"JetBrains Mono",monospace; font-size:9px; letter-spacing:.08em; color:var(--ink-subtle); border:1px dashed var(--rule); padding:1px 8px; border-radius:999px; }
+  .comp-tag{ display:inline-block; font-family:"JetBrains Mono",monospace; font-size:10px; background:var(--brass-deep); color:var(--paper); padding:1px 7px; border-radius:3px; margin-right:6px; }
+  table.pivot{ border-collapse:collapse; width:100%; font-size:13px; }
+  table.pivot th, table.pivot td{ border:1px solid var(--rule); padding:6px 10px; text-align:right; font-family:"JetBrains Mono",monospace; }
+  table.pivot th{ background:var(--card-soft); font-family:"Noto Serif SC",serif; font-size:12px; }
+  table.pivot td.rowhead{ text-align:left; background:var(--card-soft); font-family:"Noto Serif SC",serif; }
+  .phone{ width:300px; border:2px solid var(--ink); border-radius:24px; padding:14px 10px; background:var(--card); }
 </style>
 </head>
 <body class="pb-24">
-
-<div class="max-w-[1120px] mx-auto px-6 py-10">
+<div class="max-w-[1140px] mx-auto px-6 py-10">
 
   <div class="eyebrow mb-2">FINANCIAL · MANAGEMENT · PREVIEW</div>
   <h1 class="font-display text-4xl font-medium tracking-tight mb-1">v1.1 · 资产透视</h1>
-  <p class="text-lg text-ink-soft mb-6" style="color:#5C5147">多维打标 + OLAP-lite 下钻 —— 让家庭资金"按任意维度切、点进去再拆"。</p>
+  <p class="text-lg mb-6" style="color:var(--ink-soft)">统一多维查询网关 · Excel 式交叉透视 · 旭日多层下钻 · 钻到账户明细 · 预设看板 + 自由分析 · 手机可用。</p>
 
-  <!-- 理念坚持 -->
+  <!-- 理念 + 架构 -->
   <div class="callout mb-3">
-    <div class="eyebrow-ink mb-1" style="color:var(--forest)">坚持理念</div>
-    <p class="text-sm leading-relaxed">① <b>近似打标,不做基金成分穿透</b>(个股标准行业、基金/理财给主题粗标)· ② <b>要 OLAP 的交互(切片/下钻/换维),不上 OLAP 的重型引擎</b>(内存 group-by,毫秒级)· ③ 复用既有维度(类型/风险/流动性/币种/主理人/地域),只新增<b>行业/大类/平台</b>三维 · ④ 全部可选、未打标退化为「未分类」。</p>
+    <div class="eyebrow-ink mb-1" style="color:var(--forest)">坚持理念 · 一个网关撑起所有组件</div>
+    <p class="text-sm leading-relaxed">后台一个通用接口 <b class="font-mono text-xs">POST /lens/query</b>{ 行维度 · 列维度 · 度量 · 筛选 } → 交叉结果 + 每格头寸 id。<b>事实 = 头寸粒度</b>(手填账户 1 笔 / 持仓账户 N 笔),全家 &lt;200 头寸,<b>内存 group-by 毫秒级,不上外部 OLAP/BI</b>。维度/度量注册一次,旭日/透视/看板/自定义全自动支持。近似打标不做基金成分穿透。</p>
   </div>
 
-  <!-- ══════════ 屏 1 · 资产透视页 ══════════ -->
-  <div class="paper-card p-6 mb-6 relative">
-    <span class="pill screen-label">屏 1 · 资产透视</span>
-    <div class="eyebrow-ink mb-3">资产透视 · ASSET LENS</div>
+  <!-- ══════ 屏 1 · 透视页整体布局(组件 A/B + 看板 chips) ══════ -->
+  <div class="paper-card p-6 pt-10 mb-6 relative">
+    <span class="pill screen-label">屏 1 · 页面布局 + 旭日下钻</span>
+    <span class="gw-badge">POST /lens/query</span>
 
-    <!-- 维度选择 + 度量 -->
-    <div class="flex flex-wrap items-center gap-2 mb-1">
-      <span class="text-xs text-ink-soft mr-1" style="color:#5C5147">按维度:</span>
-      <span class="pill pill-active">风险</span>
-      <span class="pill">大类</span>
-      <span class="pill">行业</span>
-      <span class="pill">平台</span>
-      <span class="pill">类型</span>
-      <span class="pill">主理人</span>
-      <span class="pill">地域</span>
+    <!-- 看板 chip 行 -->
+    <div class="flex flex-wrap items-center gap-2 mb-2">
+      <span class="text-xs mr-1" style="color:var(--ink-soft)">预设看板:</span>
+      <span class="pill pill-active">风险总览</span>
+      <span class="pill">行业集中</span>
+      <span class="pill">平台安全</span>
+      <span class="pill">夫妻结构</span>
+      <span class="pill">币种与市场</span>
+      <span class="pill" style="border-color:var(--brass-deep);color:var(--brass-deep)">我的:支付宝体检</span>
+      <span class="pill pill-slot">+ 自定义</span>
     </div>
-    <div class="flex flex-wrap items-center gap-2 mb-4">
-      <span class="text-xs text-ink-soft mr-1" style="color:#5C5147">度量:</span>
-      <span class="pill pill-active">金额</span>
-      <span class="pill">占比</span>
-      <span class="pill" style="opacity:.5">收益率 <span class="text-[9px]">· v1.2</span></span>
-      <span class="pill" style="opacity:.5">收益额 <span class="text-[9px]">· v1.2</span></span>
-    </div>
+    <div class="crumb mb-5">全部资产 <span style="color:var(--ink-subtle)">›</span> <b>风险 = 低</b> <span style="color:var(--ink-subtle)">›</span> 外环按 <b>主理人 ▾</b> 展开 &nbsp;<span class="pill text-[10px]">← 上卷</span></div>
 
-    <div class="crumb mb-4">全部资产 · 按 风险 分布</div>
-
-    <div class="grid md:grid-cols-2 gap-8 items-center">
-      <!-- 环形(conic) -->
-      <div class="flex justify-center">
-        <div style="width:220px;height:220px;border-radius:50%;background:conic-gradient(var(--forest) 0 34%, var(--brass) 34% 62%, var(--rust) 62% 100%);position:relative">
-          <div style="position:absolute;inset:44px;background:var(--card);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center">
-            <div class="eyebrow">总资产</div>
-            <div class="font-display text-2xl tnum">¥4.06M</div>
+    <div class="grid md:grid-cols-5 gap-8 items-center">
+      <!-- 组件 A · 旭日双环 -->
+      <div class="md:col-span-3">
+        <div class="mb-2"><span class="comp-tag">A</span><span class="text-xs" style="color:var(--ink-soft)">旭日图 · 点块下钻(外环长出下一层)· 点中心上卷</span></div>
+        <div class="flex justify-center py-2">
+          <div style="width:250px;height:250px;position:relative">
+            <!-- 外环:仅低风险弧段(0-34%)按主理人分解 -->
+            <div style="position:absolute;inset:0;border-radius:50%;background:conic-gradient(var(--forest-deep) 0 20%, #7A9471 20% 34%, transparent 34% 100%)"></div>
+            <!-- 内环:风险三档 -->
+            <div style="position:absolute;inset:36px;border-radius:50%;background:conic-gradient(var(--forest) 0 34%, var(--brass) 34% 62%, var(--rust) 62% 100%);box-shadow:0 0 0 3px var(--card)"></div>
+            <!-- 中心 -->
+            <div style="position:absolute;inset:86px;background:var(--card);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center">
+              <div class="eyebrow">低风险</div>
+              <div class="font-display text-xl tnum">¥1.38M</div>
+            </div>
           </div>
         </div>
-      </div>
-      <!-- 条形 + 数字浮图 -->
-      <div class="space-y-3">
-        <div>
-          <div class="flex justify-between text-sm mb-1"><span>低风险(现金/固收)</span><span class="tnum font-mono">¥1.38M · 34%</span></div>
-          <div class="bar"><span style="width:34%;background:var(--forest)"></span></div>
-        </div>
-        <div>
-          <div class="flex justify-between text-sm mb-1"><span>中风险(理财/房产)</span><span class="tnum font-mono">¥1.14M · 28%</span></div>
-          <div class="bar"><span style="width:28%;background:var(--brass)"></span></div>
-        </div>
-        <div>
-          <div class="flex justify-between text-sm mb-1"><span>高风险(股票/加密)</span><span class="tnum font-mono">¥1.54M · 38%</span></div>
-          <div class="bar"><span style="width:38%;background:var(--rust)"></span></div>
-        </div>
-        <p class="text-xs text-ink-subtle pt-1" style="color:#A09486">点任意一档 → 下钻:在该档内换维度看(如「高风险里的行业分布」)。</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════ 屏 2 · 下钻(点"高风险"→换"行业") ══════════ -->
-  <div class="paper-card p-6 mb-6 relative">
-    <span class="pill screen-label">屏 2 · 下钻</span>
-    <div class="eyebrow-ink mb-3">下钻 · DRILL-DOWN</div>
-
-    <div class="crumb mb-4">全部资产 <span class="text-ink-subtle">›</span> <b>风险 = 高</b> <span class="text-ink-subtle">›</span> 按 <b>行业</b> 分布 &nbsp; <span class="pill text-[10px]">← 返回上一层</span></div>
-
-    <div class="grid md:grid-cols-2 gap-8 items-center">
-      <div class="flex justify-center">
-        <div style="width:200px;height:200px;border-radius:50%;background:conic-gradient(#5b7a3a 0 52%, var(--rust) 52% 74%, var(--slate) 74% 90%, #A09486 90% 100%);position:relative">
-          <div style="position:absolute;inset:40px;background:var(--card);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center">
-            <div class="eyebrow">高风险</div>
-            <div class="font-display text-xl tnum">¥1.54M</div>
-          </div>
+        <div class="flex justify-center gap-4 text-[11px] font-mono" style="color:var(--ink-soft)">
+          <span><span style="display:inline-block;width:9px;height:9px;background:var(--forest)"></span> 低 34%</span>
+          <span><span style="display:inline-block;width:9px;height:9px;background:var(--brass)"></span> 中 28%</span>
+          <span><span style="display:inline-block;width:9px;height:9px;background:var(--rust)"></span> 高 38%</span>
+          <span style="color:var(--ink-subtle)">|</span>
+          <span><span style="display:inline-block;width:9px;height:9px;background:var(--forest-deep)"></span> 外环·迪娃</span>
+          <span><span style="display:inline-block;width:9px;height:9px;background:#7A9471"></span> 外环·妻子</span>
         </div>
       </div>
-      <div class="space-y-3">
-        <div>
-          <div class="flex justify-between text-sm mb-1"><span>新能源 / 电力</span><span class="tnum font-mono">¥800K · 52%</span></div>
-          <div class="bar"><span style="width:52%;background:#5b7a3a"></span></div>
+      <!-- 组件 B · 切片排行 -->
+      <div class="md:col-span-2">
+        <div class="mb-2"><span class="comp-tag">B</span><span class="text-xs" style="color:var(--ink-soft)">切片排行 · 与旭日联动</span></div>
+        <div class="eyebrow mb-2">低风险 · 按主理人</div>
+        <div class="space-y-3">
+          <div><div class="flex justify-between text-sm mb-1"><span>迪娃</span><span class="tnum font-mono">¥812K · 59%</span></div><div class="bar"><span style="width:59%;background:var(--forest-deep)"></span></div></div>
+          <div><div class="flex justify-between text-sm mb-1"><span>妻子</span><span class="tnum font-mono">¥402K · 29%</span></div><div class="bar"><span style="width:29%;background:#7A9471"></span></div></div>
+          <div><div class="flex justify-between text-sm mb-1"><span>共同</span><span class="tnum font-mono">¥166K · 12%</span></div><div class="bar"><span style="width:12%;background:var(--ink-subtle)"></span></div></div>
         </div>
-        <div>
-          <div class="flex justify-between text-sm mb-1"><span>科技 / 互联网</span><span class="tnum font-mono">¥339K · 22%</span></div>
-          <div class="bar"><span style="width:22%;background:var(--rust)"></span></div>
-        </div>
-        <div>
-          <div class="flex justify-between text-sm mb-1"><span>加密</span><span class="tnum font-mono">¥246K · 16%</span></div>
-          <div class="bar"><span style="width:16%;background:var(--slate)"></span></div>
-        </div>
-        <div>
-          <div class="flex justify-between text-sm mb-1"><span class="text-ink-subtle" style="color:#A09486">未分类</span><span class="tnum font-mono text-ink-subtle">¥155K · 10%</span></div>
-          <div class="bar"><span style="width:10%;background:#A09486"></span></div>
-        </div>
-        <p class="text-xs pt-1" style="color:var(--rust)">高风险资产里 <b>52% 集中在新能源</b> —— 触发体检「行业过度集中」预警(见屏 4)。</p>
+        <p class="text-[11px] mt-3" style="color:var(--ink-subtle)">再点「迪娃」→ 第三层(手机端限 2 环,改为重定心)。</p>
       </div>
     </div>
+    <p class="text-xs mt-4 pt-3 border-t" style="color:var(--ink-soft);border-color:var(--rule)"><b>默认 4 组件 + 1 自由区</b>:A 旭日 · B 切片排行 · C 交叉透视表(下屏) · D 明细抽屉(屏 3,默认折叠) —— 全部吃同一个 drill-path,点谁都联动。</p>
   </div>
 
-  <!-- ══════════ 屏 3 · 多维打标(账户 + 持仓) ══════════ -->
-  <div class="paper-card p-6 mb-6 relative">
-    <span class="pill screen-label">屏 3 · 打标</span>
-    <div class="eyebrow-ink mb-1">多维打标 · TAGGING(全部可选 · 有默认)</div>
-    <p class="text-xs text-ink-soft mb-4" style="color:#5C5147">给账户/持仓补维度。不打标也能用,退化为「未分类」。</p>
+  <!-- ══════ 屏 2 · 交叉透视表(组件 C) ══════ -->
+  <div class="paper-card p-6 pt-10 mb-6 relative">
+    <span class="pill screen-label">屏 2 · 交叉透视表</span>
+    <span class="gw-badge">POST /lens/query</span>
+    <div class="mb-2"><span class="comp-tag">C</span><span class="eyebrow-ink">交叉透视 · PIVOT(Excel 式 · 行/列/度量 chip 可拖拽)</span></div>
 
+    <div class="flex flex-wrap items-center gap-2 mb-4 text-xs">
+      <span style="color:var(--ink-soft)">行:</span><span class="pill pill-active">风险 ⠿</span>
+      <span style="color:var(--ink-soft)">列:</span><span class="pill pill-active">行业 ⠿</span>
+      <span style="color:var(--ink-soft)">度量:</span><span class="pill">金额 ▾</span>
+      <span style="color:var(--ink-soft)">筛选:</span><span class="pill pill-slot">+ 拖维度进来</span>
+      <span class="pill pill-slot" style="margin-left:auto">⠿ 拖拽换行列 · 点表头排序</span>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="pivot">
+        <tr><th style="text-align:left">风险 \ 行业</th><th>新能源</th><th>科技</th><th>消费</th><th>宽基/债</th><th>加密</th><th>未分类</th><th>小计</th></tr>
+        <tr><td class="rowhead">低风险</td><td>—</td><td>—</td><td>—</td><td style="background:rgba(176,134,66,.22)">380K</td><td>—</td><td style="background:rgba(160,148,134,.35)">1.00M</td><td><b>1.38M</b></td></tr>
+        <tr><td class="rowhead">中风险</td><td>—</td><td>—</td><td style="background:rgba(176,134,66,.12)">140K</td><td style="background:rgba(176,134,66,.18)">300K</td><td>—</td><td style="background:rgba(160,148,134,.28)">700K</td><td><b>1.14M</b></td></tr>
+        <tr><td class="rowhead">高风险</td><td style="background:rgba(156,74,42,.5);outline:2px solid var(--rust)"><b>800K</b></td><td style="background:rgba(156,74,42,.22)">339K</td><td>—</td><td>—</td><td style="background:rgba(156,74,42,.16)">246K</td><td style="background:rgba(160,148,134,.12)">155K</td><td><b>1.54M</b></td></tr>
+        <tr><td class="rowhead"><b>合计</b></td><td><b>800K</b></td><td><b>339K</b></td><td><b>140K</b></td><td><b>680K</b></td><td><b>246K</b></td><td><b>1.86M</b></td><td><b>¥4.06M</b></td></tr>
+      </table>
+    </div>
+    <p class="text-xs mt-3" style="color:var(--rust)">热力着色一眼看出交叉集中:<b>高风险 × 新能源 = 800K</b>(红框格)· 点格 → 屏 3 明细抽屉展开。</p>
+  </div>
+
+  <!-- ══════ 屏 3 · 明细叶子(组件 D) ══════ -->
+  <div class="paper-card p-6 pt-10 mb-6 relative">
+    <span class="pill screen-label">屏 3 · 下钻到明细</span>
+    <span class="gw-badge">POST /lens/query → positionIds</span>
+    <div class="mb-2"><span class="comp-tag">D</span><span class="eyebrow-ink">明细抽屉 · 叶子 = 头寸 → 账户详情页</span></div>
+    <div class="crumb mb-4">风险 = 高 <span style="color:var(--ink-subtle)">›</span> 行业 = 新能源 <span style="color:var(--ink-subtle)">›</span> 明细(3 笔头寸 · ¥800K)</div>
+
+    <div class="space-y-2 text-sm">
+      <div class="flex items-center justify-between border p-3" style="border-color:var(--rule)">
+        <div><b>宁德时代</b> <span class="pill text-[9px] ml-1">个股持仓</span><div class="text-[11px] mt-0.5" style="color:var(--ink-subtle)">富途证券账户 · A股 · 行业标=新能源(准)</div></div>
+        <div class="text-right"><div class="tnum font-mono">¥520,000</div><a class="text-[11px] font-mono no-underline" style="color:var(--brass-deep)">账户详情 →</a></div>
+      </div>
+      <div class="flex items-center justify-between border p-3" style="border-color:var(--rule)">
+        <div><b>隆基绿能</b> <span class="pill text-[9px] ml-1">个股持仓</span><div class="text-[11px] mt-0.5" style="color:var(--ink-subtle)">富途证券账户 · A股 · 行业标=新能源(准)</div></div>
+        <div class="text-right"><div class="tnum font-mono">¥180,000</div><a class="text-[11px] font-mono no-underline" style="color:var(--brass-deep)">账户详情 →</a></div>
+      </div>
+      <div class="flex items-center justify-between border p-3" style="border-color:var(--rule)">
+        <div><b>蚂蚁财富-新能源基金</b> <span class="pill text-[9px] ml-1">账户整笔</span><div class="text-[11px] mt-0.5" style="color:var(--ink-subtle)">支付宝 · 账户级粗标=新能源(近似 · 非成分穿透)</div></div>
+        <div class="text-right"><div class="tnum font-mono">¥100,000</div><a class="text-[11px] font-mono no-underline" style="color:var(--brass-deep)">账户详情 →</a></div>
+      </div>
+    </div>
+    <p class="text-xs mt-3" style="color:var(--ink-soft)">明细 = <b>头寸</b>(手填账户 1 笔 / 持仓账户 N 笔);点任一条进入<b>现有账户详情页</b>(复用,不新建明细页)。近似打标的头寸带「近似」说明,不给假精确。</p>
+  </div>
+
+  <!-- ══════ 屏 4 · 自定义透视构建器 ══════ -->
+  <div class="paper-card p-6 pt-10 mb-6 relative">
+    <span class="pill screen-label">屏 4 · 自定义透视</span>
+    <span class="gw-badge">同一网关 · 存 query spec</span>
+    <div class="eyebrow-ink mb-3">+ 自定义 · 拖维度进槽 → 即时出表 → 存为我的看板</div>
     <div class="grid md:grid-cols-2 gap-6">
-      <!-- 账户级 -->
-      <div class="border border-rule p-4" style="border-color:var(--rule)">
-        <div class="font-display text-lg mb-3">账户 · 蚂蚁财富-新能源基金</div>
-        <div class="space-y-3 text-sm">
-          <div class="flex justify-between items-center"><span class="text-ink-soft" style="color:#5C5147">大类资产</span><span class="pill">权益 ▾ <span class="text-[9px] text-ink-subtle">默认按类型</span></span></div>
-          <div class="flex justify-between items-center"><span class="text-ink-soft" style="color:#5C5147">平台 / 机构</span><span class="pill">支付宝 · 蚂蚁财富 ▾</span></div>
-          <div class="flex justify-between items-center"><span class="text-ink-soft" style="color:#5C5147">行业 / 主题</span><span class="pill">新能源 / 电力 ▾</span></div>
-          <div class="flex justify-between items-center text-ink-subtle" style="color:#A09486"><span>风险 / 类型 / 币种 / 主理人</span><span class="text-xs">已有</span></div>
+      <div>
+        <div class="eyebrow mb-2">可用维度 / 度量(注册表自动列出)</div>
+        <div class="flex flex-wrap gap-2">
+          <span class="pill">风险 ⠿</span><span class="pill">大类 ⠿</span><span class="pill">行业 ⠿</span><span class="pill">平台 ⠿</span><span class="pill">类型 ⠿</span><span class="pill">主理人 ⠿</span><span class="pill">地域 ⠿</span><span class="pill">币种 ⠿</span>
+          <span class="pill" style="border-color:var(--brass)">金额</span><span class="pill" style="border-color:var(--brass)">占比</span><span class="pill" style="border-color:var(--brass);opacity:.5">收益率 · v1.2</span>
         </div>
+        <p class="text-[11px] mt-3" style="color:var(--ink-subtle)">新维度只需在注册表登记一次,这里(和所有组件)自动出现 —— 一处网住整类。</p>
       </div>
-      <!-- 持仓级 -->
-      <div class="border border-rule p-4" style="border-color:var(--rule)">
-        <div class="font-display text-lg mb-3">个股持仓(准 · 穿透到标的)</div>
-        <div class="space-y-2 text-sm">
-          <div class="flex justify-between items-center"><span>宁德时代 <span class="text-ink-subtle font-mono text-[10px]">A股</span></span><span class="pill">新能源 / 电力 ▾</span></div>
-          <div class="flex justify-between items-center"><span>贵州茅台 <span class="text-ink-subtle font-mono text-[10px]">A股</span></span><span class="pill">消费 ▾</span></div>
-          <div class="flex justify-between items-center"><span>英伟达 <span class="text-ink-subtle font-mono text-[10px]">美股</span></span><span class="pill">科技 / 互联网 ▾</span></div>
-        </div>
-        <p class="text-[11px] text-ink-subtle mt-3" style="color:#A09486">内置约 10–12 个家庭友好粗行业(非 GICS 全集),防选择过载。</p>
+      <div class="space-y-2 text-xs">
+        <div class="flex items-center gap-2"><span style="color:var(--ink-soft);width:40px">行槽</span><span class="pill pill-active">平台</span></div>
+        <div class="flex items-center gap-2"><span style="color:var(--ink-soft);width:40px">列槽</span><span class="pill pill-active">大类</span></div>
+        <div class="flex items-center gap-2"><span style="color:var(--ink-soft);width:40px">度量</span><span class="pill pill-active">占比</span></div>
+        <div class="flex items-center gap-2"><span style="color:var(--ink-soft);width:40px">筛选</span><span class="pill">主理人 = 迪娃 ×</span><span class="pill pill-slot">+</span></div>
+        <div class="pt-2"><span class="pill" style="background:var(--ink);color:var(--paper)">存为我的看板:「支付宝体检」</span></div>
       </div>
     </div>
   </div>
 
-  <!-- ══════════ 屏 4 · 体检增强(集中度) ══════════ -->
-  <div class="paper-card p-6 mb-6 relative">
-    <span class="pill screen-label">屏 4 · 体检增强</span>
-    <div class="eyebrow-ink mb-3">资产体检 · 新增集中度诊断</div>
-    <div class="grid md:grid-cols-2 gap-4">
-      <div class="callout" style="border-left-color:var(--rust);background:#F3E4DC">
-        <div class="flex items-center gap-2 mb-1">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rust)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <b class="text-sm">行业过度集中</b>
+  <!-- ══════ 屏 5 · 移动端 ══════ -->
+  <div class="paper-card p-6 pt-10 mb-6 relative">
+    <span class="pill screen-label">屏 5 · 移动端</span>
+    <div class="eyebrow-ink mb-3">手机适配 · 组件纵向堆叠 · 触摸下钻</div>
+    <div class="flex flex-wrap gap-6 justify-center">
+      <div class="phone">
+        <div class="flex gap-1.5 overflow-hidden mb-2"><span class="pill pill-active text-[9px]">风险总览</span><span class="pill text-[9px]">行业集中</span><span class="pill text-[9px]">平台…</span><span class="text-[9px]" style="color:var(--ink-subtle)">←横滑</span></div>
+        <div class="crumb text-[10px] mb-2">全部 › 风险=低 › 主理人</div>
+        <div class="flex justify-center py-1">
+          <div style="width:150px;height:150px;position:relative">
+            <div style="position:absolute;inset:0;border-radius:50%;background:conic-gradient(var(--forest-deep) 0 20%, #7A9471 20% 34%, transparent 34% 100%)"></div>
+            <div style="position:absolute;inset:22px;border-radius:50%;background:conic-gradient(var(--forest) 0 34%, var(--brass) 34% 62%, var(--rust) 62% 100%);box-shadow:0 0 0 2px var(--card)"></div>
+            <div style="position:absolute;inset:52px;background:var(--card);border-radius:50%;display:flex;align-items:center;justify-content:center"><span class="font-display text-[11px] tnum">¥1.38M</span></div>
+          </div>
         </div>
-        <p class="text-sm">新能源 / 电力 占权益 <b class="tnum">65%</b>(阈值 40%)· 单一行业波动会放大你的组合回撤。</p>
-      </div>
-      <div class="callout-slate">
-        <div class="flex items-center gap-2 mb-1">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--slate)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <b class="text-sm">平台集中度</b>
+        <p class="text-[9px] text-center" style="color:var(--ink-subtle)">旭日限 2 环 · 点块=重定心 · 面包屑回退</p>
+        <div class="mt-2 overflow-x-auto">
+          <table class="pivot" style="font-size:9px"><tr><th style="text-align:left">风\行业</th><th>新能</th><th>科技</th><th>…</th></tr><tr><td class="rowhead">高</td><td style="background:rgba(156,74,42,.5)">800K</td><td style="background:rgba(156,74,42,.2)">339K</td><td>→</td></tr></table>
         </div>
-        <p class="text-sm">总资产 <b class="tnum">45%</b> 在支付宝(阈值 40%)· 平台 / 账户安全风险,建议分散。</p>
+        <p class="text-[9px] text-center mt-1" style="color:var(--ink-subtle)">透视表横滚 + 冻结首列 · 点格出明细卡片</p>
       </div>
     </div>
-    <p class="text-xs text-ink-subtle mt-3" style="color:#A09486">阈值走管理页可配;结构化结论喂 AI 洞察 → 更可执行的调仓建议(v1.2)。</p>
+  </div>
+
+  <!-- ══════ 屏 6 · 打标 + 体检(浓缩) ══════ -->
+  <div class="paper-card p-6 pt-10 mb-6 relative">
+    <span class="pill screen-label">屏 6 · 打标 + 体检</span>
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <div class="eyebrow-ink mb-2">多维打标(维度基础 · 全可选有默认)</div>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between items-center"><span style="color:var(--ink-soft)">账户 · 大类资产</span><span class="pill">权益 ▾ <span class="text-[9px]" style="color:var(--ink-subtle)">默认按类型</span></span></div>
+          <div class="flex justify-between items-center"><span style="color:var(--ink-soft)">账户 · 平台/机构</span><span class="pill">支付宝 · 蚂蚁财富 ▾</span></div>
+          <div class="flex justify-between items-center"><span style="color:var(--ink-soft)">账户 · 行业/主题(粗标)</span><span class="pill">新能源 ▾</span></div>
+          <div class="flex justify-between items-center"><span style="color:var(--ink-soft)">个股持仓 · 行业(准)</span><span class="pill">宁德时代 → 新能源 ▾</span></div>
+        </div>
+        <p class="text-[11px] mt-2" style="color:var(--ink-subtle)">内置约 10–12 个家庭友好粗行业 · 未打标=「未分类」照常可用。</p>
+      </div>
+      <div>
+        <div class="eyebrow-ink mb-2">体检增强 · 集中度诊断(喂 AI)</div>
+        <div class="callout mb-2" style="border-left-color:var(--rust);background:#F3E4DC"><p class="text-sm"><b>行业过度集中</b> · 新能源占权益 <b class="tnum">65%</b>(阈值 40%)</p></div>
+        <div class="callout" style="border-left-color:var(--slate);background:#EAEDF1"><p class="text-sm"><b>平台集中度</b> · 总资产 <b class="tnum">45%</b> 在支付宝(阈值 40%)</p></div>
+        <p class="text-[11px] mt-2" style="color:var(--ink-subtle)">阈值管理页可配 · 结构化结论喂 AI 洞察(可执行建议 v1.2)。</p>
+      </div>
+    </div>
   </div>
 
   <!-- 待拍板 -->
   <div class="paper-card p-6" style="background:var(--card-soft)">
     <div class="eyebrow-ink mb-2">评审 · 待你拍板</div>
     <ul class="text-sm space-y-1.5 leading-relaxed">
-      <li><b>D1 行业粒度</b>:约 10–12 个粗行业(推荐 · 防过载)vs 更细 GICS?</li>
-      <li><b>D2 平台标来源</b>:手填 / 下拉(推荐 · 准)vs 从账户名自动派生(省事但脏)?</li>
-      <li><b>D3 收益维度</b>:v1.1 先只做金额/占比、收益率/收益额留 v1.2(推荐)vs 现在就做?</li>
-      <li><b>D4 大类资产</b>:作独立维度(权益/固收/另类… 推荐)vs 复用「类型」够了?</li>
+      <li><b>D1 v1.1 切多深</b>:网关+打标+旭日+透视表+明细+预设看板 一次做全(推荐 · 打能力底座)vs 拆两版?</li>
+      <li><b>D2 自定义透视</b>:v1.1 就放开拖拽存看板(推荐 · 兑现"完全自由查询")vs 留 v1.2?</li>
+      <li><b>D3 行业粒度</b>:~10–12 粗行业(推荐)vs GICS 细分?</li>
+      <li><b>D4 平台标来源</b>:手填/下拉(推荐 · 准)vs 账户名自动派生?</li>
+      <li><b>D5 收益度量</b>:v1.1 先金额/占比,收益率/额留 v1.2(推荐)?</li>
+      <li><b>D6 预设看板集</b>:风险总览 / 行业集中 / 平台安全 / 夫妻结构 / 币种与市场 —— 这 5 块认可/删改?</li>
     </ul>
-    <p class="text-xs text-ink-subtle mt-3" style="color:#A09486">评审通过 + 定 D1–D4 → 出 tech-design/v1.1.md(维度落库 + 透视 group-by/下钻架构 + 行业清单 + 取舍)→ 再评审 → 写码 + QA。</p>
+    <p class="text-xs mt-3" style="color:var(--ink-subtle)">评审通过 + 定 D1–D6 → tech-design/v1.1.md(头寸事实模型 + 维度注册表 + /lens/query pivot + 前端组件)→ 二次评审 → 写码 + QA。</p>
   </div>
 
 </div>
