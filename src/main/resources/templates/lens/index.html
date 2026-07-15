@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('资产透视 · 家庭账房')}"></head>
+<body class="min-h-screen relative">
+
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('lens', ${me}, ${nav})}"></header>
+
+<main class="max-w-[1200px] mx-auto px-4 lg:px-10 py-8 relative z-10">
+
+  <section class="mb-5">
+    <div class="eyebrow mb-2">资 · 产 · 透 · 视</div>
+    <h1 class="font-display text-3xl md:text-4xl font-medium tracking-tight">资产透视</h1>
+    <p class="text-ink-soft text-sm mt-2">按任意维度切、点进去再拆。旭日 / 交叉透视 / 明细全部联动;负债(贷款)不计入。
+      收益在行业 / 地域维度下按<b>持有口径</b>(市值−成本),算不出的显「—」,不做假分摊。</p>
+  </section>
+
+  <!-- 看板 chips + 面包屑 -->
+  <section class="paper-card px-4 py-3 mb-4">
+    <div id="boardChips" class="flex items-center gap-2 overflow-x-auto pb-1"></div>
+    <div class="flex items-center gap-2 mt-2 flex-wrap">
+      <span class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle">路径</span>
+      <div id="crumbs" class="flex items-center gap-1.5 flex-wrap font-mono text-xs text-brass-deep"></div>
+    </div>
+  </section>
+
+  <!-- 组件 A 旭日 + B 切片排行 -->
+  <section class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">
+    <div class="paper-card p-5 lg:col-span-3">
+      <div class="flex items-baseline justify-between flex-wrap gap-2 mb-2">
+        <h3 class="font-display text-lg font-medium">旭日下钻 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">SUNBURST</span></h3>
+        <label class="font-mono text-[11px] text-ink-soft">下一层按
+          <select id="nextDimSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select>
+        </label>
+      </div>
+      <div id="sunburst" style="height:340px"></div>
+      <p class="text-[11px] text-ink-subtle mt-1">点内环块 = 下钻(外环展开下一维度)· 面包屑可回退 · 手机端限 2 环</p>
+    </div>
+    <div class="paper-card p-5 lg:col-span-2">
+      <h3 class="font-display text-lg font-medium mb-3">切片排行 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">RANKING</span></h3>
+      <div id="ranking" class="space-y-3"></div>
+    </div>
+  </section>
+
+  <!-- 组件 C 交叉透视表 -->
+  <section class="paper-card p-5 mb-4">
+    <div class="flex items-baseline justify-between flex-wrap gap-2 mb-3">
+      <h3 class="font-display text-lg font-medium">交叉透视 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">PIVOT</span></h3>
+      <div class="flex items-center gap-2 flex-wrap font-mono text-[11px] text-ink-soft">
+        <label>行 <select id="pivotRowSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
+        <label>列 <select id="pivotColSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
+        <label>度量 <select id="measureSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
+      </div>
+    </div>
+    <div id="pivot" class="overflow-x-auto"></div>
+    <p class="text-[11px] text-ink-subtle mt-2">热力=值相对深浅 · 点单元格看明细 · 手机横滑(首列固定)</p>
+  </section>
+
+  <!-- 组件 D 明细抽屉 -->
+  <section id="drawerWrap" class="paper-card p-5 mb-4 hidden">
+    <div class="flex items-baseline justify-between mb-3">
+      <h3 class="font-display text-lg font-medium">明细 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">POSITIONS</span>
+        <span id="drawerScope" class="font-mono text-xs text-brass-deep ml-2"></span></h3>
+      <button id="drawerClose" class="font-mono text-xs text-ink-subtle hover:text-ink">收起 ×</button>
+    </div>
+    <div id="drawer" class="space-y-2 text-sm"></div>
+  </section>
+
+  <!-- 自定义构建器(折叠) -->
+  <section id="builderWrap" class="paper-card p-5 mb-4 hidden">
+    <h3 class="font-display text-lg font-medium mb-3">自定义透视 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">CUSTOM</span></h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono text-[11px] text-ink-soft">
+      <label>行维度 <select id="bRow" class="field-input bg-transparent text-sm"></select></label>
+      <label>行二级(可空) <select id="bRow2" class="field-input bg-transparent text-sm"></select></label>
+      <label>列维度(可空) <select id="bCol" class="field-input bg-transparent text-sm"></select></label>
+      <label>度量 <select id="bMeasure" class="field-input bg-transparent text-sm"></select></label>
+    </div>
+    <div class="flex items-center gap-3 mt-4 flex-wrap">
+      <button id="bApply" class="btn-ink text-xs px-4 py-1.5">应用</button>
+      <form th:action="@{/lens/boards}" method="post" class="flex items-center gap-2" id="bSaveForm">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <input type="hidden" name="specJson" id="bSpecJson">
+        <input name="name" class="field-input text-sm" style="width:160px" placeholder="看板名 · 如 支付宝体检" maxlength="20">
+        <button class="btn-paper text-xs px-4 py-1.5">存为我的看板</button>
+      </form>
+    </div>
+  </section>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+<!-- 数据岛:注册表元数据 + 用户看板(JSON 由后端 ObjectMapper 序列化) -->
+<script th:inline="javascript">
+  window.LENS_META = {
+    dims: /*[[${dimsJson}]]*/ '[]',
+    measures: /*[[${measuresJson}]]*/ '[]',
+    boards: /*[[${boardsJson}]]*/ '[]'
+  };
+</script>
+<script th:src="@{/vendor/echarts.min.js}"></script>
+<script th:src="@{/js/lens.js}"></script>
+</body>
+</html>
