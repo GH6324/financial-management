@@ -7,22 +7,29 @@
 <header th:replace="~{fragments/nav :: nav('accounts', ${me}, ${nav})}"></header>
 
 <style>
-  /* v1.1.1 · UED 修订:PC 固定列宽 + 控件满宽 + AI 预填=控件高亮(不挤位);手机卡片化 */
+  /* v1.1.x · UED 重排(2026-07-17):全部行内控件统一 32px 高(lsel 按钮/平台 input/AI 钮),
+     账户行与持仓子行的 AI 钮同款同宽同位;账户行加 meta 小字(主理人/币种 = 来自账户资料的维度示意) */
   .tags-table{ border-collapse:collapse; width:100%; table-layout:fixed; }
   .tags-table th{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em;
     text-transform:uppercase; color:var(--ink-subtle); text-align:left; padding:8px 10px 8px 0; }
-  .tags-table td{ padding:7px 10px 7px 0; vertical-align:middle; }
-  .tags-table select,.tags-table input{ width:100%; box-sizing:border-box;
+  .tags-table td{ padding:8px 10px 8px 0; vertical-align:middle; }
+  .tags-table select,.tags-table input,.tags-table .lsel-btn{
+    width:100%; box-sizing:border-box; height:32px; line-height:20px;
     border:1px solid var(--rule); background:var(--card); padding:5px 8px; font-size:12px; }
+  .tags-table .lsel-btn{ padding-right:24px; }
   .tags-table .acct-row td{ background:var(--card-soft); border-top:2px solid var(--rule);
     padding-left:8px; padding-right:8px; }
   .tags-table .hold-row td{ border-top:1px solid var(--rule-soft); }
+  .tags-table .hold-row td:first-child{ padding-left:22px; }
+  .acct-meta{ display:block; font-family:'JetBrains Mono',monospace; font-size:10px;
+    color:var(--ink-subtle); margin-top:2px; font-weight:normal; letter-spacing:.04em; }
   .ai-filled{ border-color:var(--brass) !important; background:var(--brass-soft) !important; }
   .ai-hint-note{ display:none; }
   .aiRan .ai-hint-note{ display:inline; }
   .muted-cell{ font-size:11px; color:var(--ink-subtle); }
-  .ai-btn{ font-family:'JetBrains Mono',monospace; font-size:10px; padding:3px 9px;
-    border:1px solid var(--rule); border-radius:999px; background:var(--card-soft); cursor:pointer; white-space:nowrap; }
+  .ai-btn{ font-family:'JetBrains Mono',monospace; font-size:10px; height:32px; width:100%;
+    box-sizing:border-box; padding:0 6px; border:1px solid var(--rule); border-radius:999px;
+    background:var(--card); cursor:pointer; white-space:nowrap; }
   .ai-btn:hover{ border-color:var(--brass-deep); color:var(--brass-deep); }
   @media(max-width:820px){
     .tags-table thead{ display:none; }
@@ -30,6 +37,7 @@
     .tags-table tr{ border:1px solid var(--rule); background:var(--card); margin-bottom:10px; padding:10px 12px; }
     .tags-table .acct-row{ background:var(--card-soft); border-width:2px; margin-top:14px; }
     .tags-table .hold-row{ margin-left:14px; border-left:3px solid var(--brass-soft); }
+    .tags-table .hold-row td:first-child{ padding-left:0; }
     .tags-table td{ display:flex; align-items:center; justify-content:space-between; gap:10px;
       border:0 !important; background:transparent !important; padding:4px 0; }
     .tags-table td[data-label]::before{ content:attr(data-label); flex:0 0 76px;
@@ -37,6 +45,7 @@
     .tags-table td select,.tags-table td input{ flex:1; width:auto; min-width:0; }
     .tags-table td.name-cell{ display:block; font-size:14px; padding-bottom:6px; }
     .tags-table td:empty{ display:none; }
+    .ai-btn{ width:auto; padding:0 14px; }
   }
 </style>
 
@@ -47,6 +56,8 @@
     <h1 class="font-display text-3xl md:text-4xl font-medium tracking-tight">给资产打标</h1>
     <p class="text-ink-soft text-sm mt-2">树状结构:<b>账户</b>(资产类型 / 平台 / 用途)→ 子行 = <b>具体持仓</b>(行业 · 准)。
       全部可选,不打标 = 「未分类」照常可用;基金 / 理财等无持仓账户在账户行直接给行业粗标(近似,不做成分穿透)。</p>
+    <p class="text-[11px] text-ink-subtle mt-1.5">透视里的其余维度 —— <b>风险 / 流动性 / 账户类型 / 主理人 / 币种</b> 来自账户资料、<b>市场地域</b>来自持仓市场,
+      不在此打标:去 <a th:href="@{/accounts}" class="brass-link">账户管理</a> 编辑对应账户即可(下方每个账户名下的小字即这些属性)。</p>
     <a th:href="@{/dashboard#lens-section}" class="font-mono text-xs no-underline" style="color:var(--brass-deep)">← 回资产透视</a>
   </section>
 
@@ -94,6 +105,8 @@
             <td class="name-cell">
               <b th:text="${a.displayName}">账户名</b>
               <span class="pill text-[9px] ml-1" th:text="${a.type.label}">现金</span>
+              <span class="acct-meta"
+                    th:text="${(a.primaryOwnerMemberId != null and ownerNames.get(a.primaryOwnerMemberId) != null ? ownerNames.get(a.primaryOwnerMemberId) : '共同') + ' · ' + a.currency}">迪娃 · CNY</span>
             </td>
             <td data-label="资产类型">
               <select data-lsel th:name="'acct_class_' + ${a.id}"

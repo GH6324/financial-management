@@ -56,7 +56,8 @@ public class LensAiTagService {
                    必须取枚举 code(%s)。判定规则:
                    - 个股 → 该公司所在行业(如 宁德时代→NEW_ENERGY,贵州茅台→CONSUMER,腾讯→TECH_INTERNET,阿里巴巴→ECOMMERCE_RETAIL);
                    - 行业/主题基金 → 对应行业;宽基指数(沪深300/标普500等)→ BROAD_INDEX;
-                   - 纯债基金/银行固收理财 → FIXED_BOND;
+                   - 纯债基金/银行固收理财 → FIXED_BOND;固收+/偏债混合/FOF/目标日期养老 → MIXED_ALLOC;
+                   - 红利策略/公用事业(长江电力/中证红利/水电燃气)→ DIVIDEND_UTIL;
                    - 货币基金/余额宝/零钱通/活期存款/储蓄卡 → MONEY_CASH(货币现金 · 现金管理类的专属投向);
                    - FINANCE 仅指投向银行/券商/保险公司股票的持仓(如 招商银行股票/中信证券),"金融产品"本身不算;
                    - ESTATE_CONSTRUCTION 指投向房地产/建筑公司股票的持仓(如 万科);

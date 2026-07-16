@@ -3441,6 +3441,25 @@ LSJ="$RD/src/main/resources/static/js/lens-select.js"
   && log_ok "v11-LSEL 自研搜索下拉(拼音三路匹配 · 移动bottom sheet+portal · 16px防iOS聚焦放大 · 动态options自动重建)" \
   || log_bad "v11-LSEL 自研下拉缺件" "see lens-select.js / tags.html / _section.html data-lsel/data-py"
 
+# v11-ROUND3 · 2026-07-17 第三轮评审 9 项(打标排版/行业20/全维看板/builder收起/维度说明/隐私随动/AI洞察/多维pivot/引导线根治)
+{ grep -q '成员结构' "$LJS" && [ "$(grep -c "key: '" "$LJS" | head -1)" -ge 10 ] \
+  && grep -q "builderWrap');           // 切看板 = 放弃自定义" "$LJS" \
+  && grep -q 'pivotRow2Sel' "$LJS" && grep -q 'pivotCol2Sel' "$LJS" && grep -q 'groupStable' "$LJS" \
+  && grep -q 'lensInsightBtn' "$LJS" \
+  && grep -q 'noteItems' "$LJS" \
+  && grep -q 'MIXED_ALLOC' "$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java" \
+  && grep -q 'DIVIDEND_UTIL' "$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java" \
+  && grep -q '货币基金/存款' "$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java" \
+  && grep -q 'acct-meta' "$RD/src/main/resources/templates/lens/tags.html" \
+  && grep -q '透视里的其余维度' "$RD/src/main/resources/templates/lens/tags.html" \
+  && [ "$(grep -c 'data-priv' "$RD/src/main/resources/templates/dashboard/_region.html")" -ge 3 ] \
+  && grep -q '/lens/insight' "$RD/src/main/java/com/family/finance/web/lens/LensController.java" \
+  && grep -q 'anonymize' "$RD/src/main/java/com/family/finance/service/lens/LensInsightService.java" \
+  && grep -q '严禁做任何计算' "$RD/src/main/java/com/family/finance/service/lens/LensInsightService.java" \
+  && grep -q 'pivotRow2Sel' "$RD/src/main/resources/templates/lens/_section.html"; } \
+  && log_ok "v11-ROUND3 第三轮9项(打标32px等高+meta行 · 行业20 · 10看板成员结构 · builder自收 · 应急金data-priv · AI洞察脱敏+禁算 · 多维pivot分组稳定 · 引导线内环转补注)" \
+  || log_bad "v11-ROUND3 第三轮修复缺件" "see lens.js/tags.html/_region.html/LensController/LensInsightService"
+
 # ===================== v0.12 · 收支填报收入侧升级 =====================
 # v12-INCOME-CAT · 类目绑定账户类型 + 股票类收入类目(V34)
 CFC="$RD/db/migration/V34__income_category_account_type.sql"

@@ -40,6 +40,7 @@ public class LensTagController {
     private final StockHoldingService holdingService;
     private final LensAiTagService aiTagService;
     private final NavService navService;
+    private final com.family.finance.repository.MemberMapper memberMapper;   // 账户 meta 行:主理人名(维度来源示意)
     private final com.family.finance.service.lens.LensQueryService lensQueryService; // 打标保存后失效头寸缓存
 
     /** 树节点:账户 + 持仓子行(holdingAccount=true 时账户级行业不标,归子行) */
@@ -136,6 +137,10 @@ public class LensTagController {
             defaults.put(n.account().getId(), d == null ? "未分类" : d.getLabel());
         }
         model.addAttribute("defaults", defaults);
+        // 维度来源示意(#5):风险/流动性/地域/账户类型/主理人/币种 来自账户资料,不在此打标 → meta 行展示 主理人+币种
+        Map<Long, String> ownerNames = new LinkedHashMap<>();
+        memberMapper.findActiveByFamily(me.getFamilyId()).forEach(m -> ownerNames.put(m.getId(), m.getDisplayName()));
+        model.addAttribute("ownerNames", ownerNames);
     }
 
     private List<TreeNode> tree(long familyId) {

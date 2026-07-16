@@ -20,8 +20,19 @@
     <div id="boardChips" class="flex items-center gap-2 overflow-x-auto pb-1"></div>
     <div class="flex items-center gap-2 mt-2 flex-wrap">
       <span class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle">路径</span>
-      <div id="crumbs" class="flex items-center gap-1.5 flex-wrap font-mono text-xs text-brass-deep"></div>
+      <div id="crumbs" class="flex items-center gap-1.5 flex-wrap font-mono text-xs text-brass-deep flex-1"></div>
+      <button th:if="${lensAiAvailable}" id="lensInsightBtn" class="pill whitespace-nowrap" style="border-color:var(--brass-deep);color:var(--brass-deep)">AI 解读当前视图</button>
     </div>
+  </section>
+
+  <!-- v1.1.x #7 · AI 洞察结果卡(数字工程算好 · LLM 只解读 · 真名脱敏) -->
+  <section id="lensInsightCard" class="paper-card p-4 mb-4 hidden" style="border-left:4px solid var(--brass-deep)">
+    <div class="flex items-baseline justify-between mb-1">
+      <span class="eyebrow">AI 解读 · 当前视图</span>
+      <button id="lensInsightClose" class="font-mono text-xs text-ink-subtle hover:text-ink">收起 ×</button>
+    </div>
+    <div id="lensInsightBody" class="text-sm leading-relaxed text-ink-soft" style="white-space:pre-line"></div>
+    <p class="text-[10px] text-ink-subtle mt-2">所有数字由系统算好,AI 只负责解读;不构成投资建议。</p>
   </section>
 
   <!-- 自定义构建器(折叠) -->
@@ -74,7 +85,9 @@
       <h3 class="font-display text-lg font-medium">交叉透视 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">PIVOT</span></h3>
       <div class="flex items-center gap-2 flex-wrap font-mono text-[11px] text-ink-soft">
         <label>行 <select data-lsel id="pivotRowSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
+        <label>行2 <select data-lsel id="pivotRow2Sel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
         <label>列 <select data-lsel id="pivotColSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
+        <label>列2 <select data-lsel id="pivotCol2Sel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
         <label>度量 <select data-lsel id="measureSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
       </div>
     </div>

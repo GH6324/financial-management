@@ -28,13 +28,15 @@ class LensTagsTest {
         assertThat(IndustryTag.labelOf("new_energy")).isEqualTo("新能源电力");
         assertThat(IndustryTag.labelOf("BOGUS")).isEmpty();
         assertThat(AssetClass.labelOf(null)).isEmpty();
-        assertThat(IndustryTag.values()).hasSize(18);   // v1.1.x 修订 · 18 粗行业(+货币现金 · 拆金融地产 · 删海外市场)
-        assertThat(IndustryTag.labelOf("MONEY_CASH")).isEqualTo("货币现金");
+        assertThat(IndustryTag.values()).hasSize(20);   // v1.1.x 修订二 · 20 粗行业(+混合配置/红利公用 · prod 数据复盘)
+        assertThat(IndustryTag.labelOf("MIXED_ALLOC")).isEqualTo("混合配置");
+        assertThat(IndustryTag.labelOf("DIVIDEND_UTIL")).isEqualTo("红利公用");
+        assertThat(IndustryTag.labelOf("MONEY_CASH")).isEqualTo("货币基金/存款");
         assertThat(IndustryTag.labelOf("FINANCE")).isEqualTo("银行券商保险");
         assertThat(IndustryTag.fromName("FINANCE_ESTATE")).isNull();   // 已拆分,老 code 由 V47 迁移
         assertThat(IndustryTag.fromName("OVERSEAS")).isNull();          // 已删,与地域维重复
         assertThat(AssetClass.labelOf("EQUITY")).isEqualTo("股票股权"); // 平民化命名
-        assertThat(IndustryTag.MONEY_CASH.getPinyin()).isEqualTo("huo bi xian jin");
+        assertThat(IndustryTag.MONEY_CASH.getPinyin()).isEqualTo("huo bi ji jin cun kuan");
     }
 
 }

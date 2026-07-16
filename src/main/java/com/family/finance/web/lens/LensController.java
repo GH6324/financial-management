@@ -41,6 +41,7 @@ public class LensController {
     private final NavService navService;
     private final ObjectMapper objectMapper;
     private final com.family.finance.service.lens.LensMetaService lensMetaService;
+    private final com.family.finance.service.lens.LensInsightService lensInsightService;   // v1.1.x #7 AI 洞察
 
     /** 透视页壳(组件渲染由 static/js/lens.js 走 /lens/query) */
     @GetMapping("/lens")
@@ -57,9 +58,27 @@ public class LensController {
 
     public record LensView(PivotEngine.Result result, List<PosView> positions) {}
 
+    /** v1.1.x #7 · 透视 AI 洞察:工程算好事实(PivotEngine)→ LLM 只解读 · 真名脱敏 */
+    @PostMapping("/lens/insight")
+    @ResponseBody
+    public java.util.Map<String, Object> insight(@AuthenticationPrincipal MemberPrincipal me, @RequestBody LensQuery q) {
+        if (!lensInsightService.available()) {
+            return java.util.Map.of("ok", false, "text", "AI 暂不可用 · 管理页配置 LLM 后开启");
+        }
+        if (q.rowsSafe().size() > 3 || q.colsSafe().size() > 2) {
+            throw new IllegalArgumentException("行维度最多 3 个 · 列维度最多 2 个");
+        }
+        String text = lensInsightService.interpret(me.getFamilyId(), q);
+        return text == null ? java.util.Map.of("ok", false, "text", "AI 服务暂时不可用,稍后再试")
+                            : java.util.Map.of("ok", true, "text", text);
+    }
+
     @PostMapping("/lens/query")
     @ResponseBody
     public LensView query(@AuthenticationPrincipal MemberPrincipal me, @RequestBody LensQuery q) {
+        if (q.rowsSafe().size() > 3 || q.colsSafe().size() > 2) {
+            throw new IllegalArgumentException("行维度最多 3 个 · 列维度最多 2 个");   // 防御:笛卡尔爆炸(前端限 2+2)
+        }
         List<Position> ps = lensQueryService.positions(me.getFamilyId());
         PivotEngine.Result result = PivotEngine.pivot(ps, q);
         List<PosView> catalog = ps.stream()

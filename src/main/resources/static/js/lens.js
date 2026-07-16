@@ -57,14 +57,19 @@
     return map;
   }
 
-  /* 预设 5 看板(prd v1.1 FR-6 · 已拍板 D6)—— 只是 query spec,非硬编码页面 */
+  /* 预设看板 · 全维度覆盖(2026-07-17 评审:10 维每维一块;「夫妻结构」→「成员结构」,家庭不一定只两人)
+     只是 query spec,非硬编码页面;chips 行 overflow-x 横滑 */
   var PRESETS = [
-    { key: 'risk',     name: '风险总览',   sun: ['risk', 'assetClass'],   rows: ['risk'],     cols: ['assetClass'], filters: {} },
-    { key: 'industry', name: '行业集中',   sun: ['industry', 'platform'], rows: ['industry'], cols: ['platform'],   filters: { assetClass: ['股票股权'] } },
-    { key: 'platform', name: '平台安全',   sun: ['platform', 'assetClass'], rows: ['platform'], cols: ['assetClass'], filters: {} },
-    { key: 'couple',   name: '夫妻结构',   sun: ['owner', 'risk'],        rows: ['owner'],    cols: ['assetClass'], filters: {} },
-    { key: 'ccy',      name: '币种与市场', sun: ['currency', 'region'],   rows: ['region'],   cols: ['industry'],   filters: {} },
-    { key: 'purpose',  name: '资金用途',   sun: ['purpose', 'owner'],     rows: ['purpose'],  cols: ['assetClass'], filters: {} }
+    { key: 'risk',      name: '风险总览',  sun: ['risk', 'assetClass'],     rows: ['risk'],       cols: ['assetClass'], filters: {} },
+    { key: 'assetcls',  name: '资产类型',  sun: ['assetClass', 'risk'],     rows: ['assetClass'], cols: ['owner'],      filters: {} },
+    { key: 'industry',  name: '行业集中',  sun: ['industry', 'platform'],   rows: ['industry'],   cols: ['platform'],   filters: { assetClass: ['股票股权'] } },
+    { key: 'platform',  name: '平台安全',  sun: ['platform', 'assetClass'], rows: ['platform'],   cols: ['assetClass'], filters: {} },
+    { key: 'member',    name: '成员结构',  sun: ['owner', 'risk'],          rows: ['owner'],      cols: ['assetClass'], filters: {} },
+    { key: 'purpose',   name: '资金用途',  sun: ['purpose', 'owner'],       rows: ['purpose'],    cols: ['assetClass'], filters: {} },
+    { key: 'ccy',       name: '币种敞口',  sun: ['currency', 'region'],     rows: ['currency'],   cols: ['assetClass'], filters: {} },
+    { key: 'region',    name: '市场地域',  sun: ['region', 'industry'],     rows: ['region'],     cols: ['industry'],   filters: {} },
+    { key: 'liquidity', name: '流动性',    sun: ['liquidity', 'assetClass'], rows: ['liquidity'], cols: ['owner'],      filters: {} },
+    { key: 'acctype',   name: '账户类型',  sun: ['type', 'owner'],          rows: ['type'],       cols: ['owner'],      filters: {} }
   ];
 
   var state = {
@@ -131,6 +136,8 @@
     Object.keys(b.filters || {}).forEach(function (dim) {
       (b.filters[dim] || []).forEach(function (v) { state.drill.push({ dim: dim, value: v }); });
     });
+    var bw = document.getElementById('builderWrap');           // 切看板 = 放弃自定义,构建器收起
+    if (bw) bw.classList.add('hidden');
     syncSelectors(); renderBoards(); refresh();
   }
   function renderBoards() {
@@ -222,7 +229,7 @@
       };
       /* PC 收窄外半径给引导线标签腾空间;移动端空间不够,小块信息走图下补注(见 renderLeaders) */
       var compact = el.clientWidth < 480;
-      var rOuter = compact ? '88%' : '76%', rMid = compact ? '58%' : '52%';
+      var rOuter = compact ? '88%' : '82%', rMid = compact ? '58%' : '54%';
       chart.setOption({
         series: [{
           type: 'sunburst', radius: ['24%', rOuter], data: data, sort: null,
@@ -281,55 +288,57 @@
    * 移动(容器 <480px):外侧空间放不下文字 → 退化为图下「小块补注」清单,信息等价不丢。 */
   function renderLeaders(data, grand, el, compact, rOuterPct, rMidPct) {
     var MIN_DEG = 14;
-    var items = [];
+    var lineItems = [], noteItems = [];
     var cum = 0;
     data.forEach(function (n) {
       var span = grand ? n.value * 360 / grand : 0;
       var pctN = grand ? n.value * 100 / grand : 0;
-      if (span > 0 && span < MIN_DEG && pctN >= 0.1) items.push({ mid: cum + span / 2, name: n.name, pct: pctN, color: n.itemStyle.color, r: (0.24 + rMidPct) / 2 });
+      /* 内环小块不拉线:径向长线要穿过整个外环,与外环小块的引导线大量交叉(2026-07-17 修)→ 落图下补注 */
+      if (span > 0 && span < MIN_DEG && pctN >= 0.1) noteItems.push({ name: n.name, pct: pctN, color: n.itemStyle.color });
       var ccum = cum;
       (n.children || []).forEach(function (c) {
         var cspan = grand ? c.value * 360 / grand : 0;
         var pctC = grand ? c.value * 100 / grand : 0;
-        if (cspan > 0 && cspan < MIN_DEG && pctC >= 0.1) items.push({ mid: ccum + cspan / 2, name: c.name, pct: pctC, color: c.itemStyle.color, r: (rMidPct + rOuterPct) / 2 });
+        if (cspan > 0 && cspan < MIN_DEG && pctC >= 0.1) lineItems.push({ mid: ccum + cspan / 2, name: c.name, pct: pctC, color: c.itemStyle.color });
         ccum += cspan;
       });
       cum += span;
     });
     var notes = document.getElementById('sunSmallNotes');
-    if (compact) {   // 移动:图下补注
-      if (notes) {
-        notes.innerHTML = items.length ? '<span class="text-ink-subtle mr-1">小块:</span>' + items.map(function (it) {
-          return '<span class="inline-flex items-center gap-1 mr-3 whitespace-nowrap"><span style="width:7px;height:7px;background:' + it.color + ';display:inline-block"></span>' +
-            esc(it.name) + ' <span class="font-mono">' + it.pct.toFixed(1) + '%</span></span>';
-        }).join('') : '';
-      }
+    if (compact) {   // 移动:全部走图下补注
+      noteItems = noteItems.concat(lineItems);
+      lineItems = [];
+    }
+    if (notes) {
+      notes.innerHTML = noteItems.length ? '<span class="text-ink-subtle mr-1">' + (compact ? '小块:' : '内环小块:') + '</span>' + noteItems.map(function (it) {
+        return '<span class="inline-flex items-center gap-1 mr-3 whitespace-nowrap"><span style="width:7px;height:7px;background:' + it.color + ';display:inline-block"></span>' +
+          esc(it.name) + ' <span class="font-mono">' + it.pct.toFixed(1) + '%</span></span>';
+      }).join('') : '';
+    }
+    if (!lineItems.length) {
       chart.setOption({ graphic: { elements: [{ id: 'leaders', type: 'group', $action: 'replace', children: [] }] } });
       return;
     }
-    if (notes) notes.innerHTML = '';
     var W = el.clientWidth, H = el.clientHeight, cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2;
     var pt = function (rp, deg) {   // deg = 自 12 点顺时针
       var rad = (90 - deg) * Math.PI / 180;
       return [cx + rp * R * Math.cos(rad), cy - rp * R * Math.sin(rad)];
     };
     var sides = { right: [], left: [] };
-    items.forEach(function (it) { sides[((it.mid % 360) + 360) % 360 < 180 ? 'right' : 'left'].push(it); });
+    lineItems.forEach(function (it) { sides[((it.mid % 360) + 360) % 360 < 180 ? 'right' : 'left'].push(it); });
     var children = [];
     ['right', 'left'].forEach(function (side) {
+      /* 同侧按弧上出口 y 排序 → 标签槽位保序;源点全在同一圆弧、末段全水平 → 斜段互不相交 */
       var arr = sides[side].slice(0, 8);
       arr.forEach(function (it) { it.iy = pt(rOuterPct, it.mid)[1]; });
       arr.sort(function (a, b) { return a.iy - b.iy; });
       var prevY = -1e9;
-      arr.forEach(function (it, i) {
+      arr.forEach(function (it) {
         var y = Math.min(Math.max(it.iy, 10, prevY + 14), H - 10);
         prevY = y;
-        /* 防交叉:① 出口径向分层(束内相邻线错开半径,径向段不重叠)② 斜段只到"肘点"、
-           最后一段水平进标签(标签 y 保序 + 肘点共线 → 斜段互不相交) */
-        var rOut = rOuterPct + 0.03 + (i % 3) * 0.014;
-        var p0 = pt(it.r, it.mid), p1 = pt(rOut, it.mid);
-        var lx = side === 'right' ? cx + R * (rOuterPct + 0.13) : cx - R * (rOuterPct + 0.13);
-        var elbowX = side === 'right' ? lx - 14 : lx + 14;
+        var p0 = pt((rMidPct + rOuterPct) / 2, it.mid), p1 = pt(rOuterPct + 0.03, it.mid);
+        var lx = side === 'right' ? cx + R * (rOuterPct + 0.11) : cx - R * (rOuterPct + 0.11);
+        var elbowX = side === 'right' ? lx - 12 : lx + 12;
         children.push({ type: 'polyline', silent: true, shape: { points: [p0, p1, [elbowX, y], [side === 'right' ? lx - 4 : lx + 4, y]] },
           style: { stroke: '#8a8172', fill: 'none', lineWidth: 1, opacity: 0.8 } });
         children.push({ type: 'rect', silent: true, shape: { x: side === 'right' ? lx : lx - 7, y: y - 3.5, width: 7, height: 7 }, style: { fill: it.color } });
@@ -379,27 +388,80 @@
       };
       var cellMap = {};
       r.cells.forEach(function (c, i) { cellMap[c.row.join('|') + '×' + c.col.join('|')] = i; });
+      /* 2 维行/列时引擎输出的 key 序第一维可能不连续(未分类沉底等排序规则)→ rowspan/colspan 合并会断开、
+         同一父值出现两组。按"第一维首现顺序"分组稳定重排(组内保序),totals 随索引映射。 */
+      var groupStable = function (keys) {
+        if (!keys.length || keys[0].length < 2) return keys.map(function (_, i) { return i; });
+        var groups = {}, order = [];
+        keys.forEach(function (k, i) {
+          if (!groups[k[0]]) { groups[k[0]] = []; order.push(k[0]); }
+          groups[k[0]].push(i);
+        });
+        var idx = [];
+        order.forEach(function (g) { groups[g].forEach(function (i) { idx.push(i); }); });
+        return idx;
+      };
+      var rIdx = groupStable(r.rowKeys), cIdx = groupStable(r.colKeys);
+      var rowKeys = rIdx.map(function (i) { return r.rowKeys[i]; });
+      var colKeys = cIdx.map(function (i) { return r.colKeys[i]; });
+      var rowTotals = rIdx.map(function (i) { return r.rowTotals[i]; });
+      var colTotals = cIdx.map(function (i) { return r.colTotals[i]; });
       var moneyLike = state.measure !== 'share' && state.measure !== 'cumReturn';
       var showTotalCol = cols.length > 0;
-      var html = '<table class="lens-pivot"><tr><th class="sticky-col">' +
-        esc(rows.map(function (k) { return DIM_LABEL[k]; }).join(' / ') || '—') +
-        (cols.length ? ' \\ ' + esc(cols.map(function (k) { return DIM_LABEL[k]; }).join(' / ')) : '') + '</th>';
-      r.colKeys.forEach(function (ck) { html += '<th>' + esc(ck.join(' · ') || '合计') + '</th>'; });
-      if (showTotalCol) html += '<th>小计</th>';
-      html += '</tr>';
-      r.rowKeys.forEach(function (rk, ri) {
-        html += '<tr><td class="sticky-col rowhead">' + esc(rk.join(' · ') || '合计') + '</td>';
-        r.colKeys.forEach(function (ck) {
+      var rowDims = rows.length || 1, colDims = cols.length;
+      /* Excel 式多级表头:列 2 维时两行列头(第一级 colspan 合并);行 2 维时两列行头(第一级 rowspan 合并) */
+      var html = '<table class="lens-pivot">';
+      if (colDims === 2) {
+        html += '<tr><th class="sticky-col" colspan="' + rowDims + '" rowspan="2">' +
+          esc(rows.map(function (k) { return DIM_LABEL[k]; }).join(' / ')) +
+          ' \\ ' + esc(cols.map(function (k) { return DIM_LABEL[k]; }).join(' / ')) + '</th>';
+        var runs = [];
+        colKeys.forEach(function (ck) {
+          if (runs.length && runs[runs.length - 1].v === ck[0]) runs[runs.length - 1].n++;
+          else runs.push({ v: ck[0], n: 1 });
+        });
+        runs.forEach(function (g) { html += '<th colspan="' + g.n + '">' + esc(g.v) + '</th>'; });
+        if (showTotalCol) html += '<th rowspan="2">小计</th>';
+        html += '</tr><tr>';
+        colKeys.forEach(function (ck) { html += '<th>' + esc(ck[1]) + '</th>'; });
+        html += '</tr>';
+      } else {
+        html += '<tr><th class="sticky-col" colspan="' + rowDims + '">' +
+          esc(rows.map(function (k) { return DIM_LABEL[k]; }).join(' / ') || '—') +
+          (cols.length ? ' \\ ' + esc(cols.map(function (k) { return DIM_LABEL[k]; }).join(' / ')) : '') + '</th>';
+        colKeys.forEach(function (ck) { html += '<th>' + esc(ck.join(' · ') || '合计') + '</th>'; });
+        if (showTotalCol) html += '<th>小计</th>';
+        html += '</tr>';
+      }
+      /* 行体:行 2 维时第一级 rowspan 合并 */
+      var rowSpan = {};
+      if (rows.length === 2) {
+        rowKeys.forEach(function (rk, ri) {
+          if (ri > 0 && rowKeys[ri - 1][0] === rk[0]) return;
+          var n = 0;
+          for (var j = ri; j < rowKeys.length && rowKeys[j][0] === rk[0]; j++) n++;
+          rowSpan[ri] = n;
+        });
+      }
+      rowKeys.forEach(function (rk, ri) {
+        html += '<tr>';
+        if (rows.length === 2) {
+          if (rowSpan[ri]) html += '<td class="sticky-col rowhead" rowspan="' + rowSpan[ri] + '"><b>' + esc(rk[0]) + '</b></td>';
+          html += '<td class="rowhead">' + esc(rk[1]) + '</td>';
+        } else {
+          html += '<td class="sticky-col rowhead">' + esc(rk.join(' · ') || '合计') + '</td>';
+        }
+        colKeys.forEach(function (ck) {
           var idx = cellMap[rk.join('|') + '×' + ck.join('|')];
           if (idx === undefined) { html += '<td class="tnum">—</td>'; return; }
           var v = r.cells[idx].values[mi];
           html += '<td class="tnum lens-cell" data-cell="' + idx + '" style="' + heat(v) + ';cursor:pointer"' + (moneyLike ? ' data-priv' : '') + '>' + fmtVal(state.measure, v) + '</td>';
         });
-        if (showTotalCol) html += '<td class="tnum"' + (moneyLike ? ' data-priv' : '') + '><b>' + fmtVal(state.measure, r.rowTotals[ri][mi]) + '</b></td>';
+        if (showTotalCol) html += '<td class="tnum"' + (moneyLike ? ' data-priv' : '') + '><b>' + fmtVal(state.measure, rowTotals[ri][mi]) + '</b></td>';
         html += '</tr>';
       });
-      html += '<tr><td class="sticky-col rowhead"><b>合计</b></td>';
-      r.colKeys.forEach(function (ck, ci) { html += '<td class="tnum"' + (moneyLike ? ' data-priv' : '') + '><b>' + fmtVal(state.measure, r.colTotals[ci][mi]) + '</b></td>'; });
+      html += '<tr><td class="sticky-col rowhead" colspan="' + rowDims + '"><b>合计</b></td>';
+      colKeys.forEach(function (ck, ci) { html += '<td class="tnum"' + (moneyLike ? ' data-priv' : '') + '><b>' + fmtVal(state.measure, colTotals[ci][mi]) + '</b></td>'; });
       if (showTotalCol) html += '<td class="tnum"' + (moneyLike ? ' data-priv' : '') + '><b>' + fmtVal(state.measure, r.grand[mi]) + '</b></td>';
       html += '</tr></table>';
       if (r.holdingLevelSplit && (state.measure === 'latestPnl' || state.measure === 'cumReturn')) {
@@ -444,7 +506,9 @@
   function syncSelectors() {
     fillDimSelect(document.getElementById('nextDimSel'), false, state.sunDims[1]);
     fillDimSelect(document.getElementById('pivotRowSel'), false, state.pivotRows[0]);
+    fillDimSelect(document.getElementById('pivotRow2Sel'), true, state.pivotRows[1] || '');
     fillDimSelect(document.getElementById('pivotColSel'), true, state.pivotCols[0] || '');
+    fillDimSelect(document.getElementById('pivotCol2Sel'), true, state.pivotCols[1] || '');
     var ms = document.getElementById('measureSel');
     ms.innerHTML = MEASURES.map(function (m) { return '<option value="' + m.key + '" data-py="' + esc(m.key) + '"' + (m.key === state.measure ? ' selected' : '') + '>' + esc(m.label) + '</option>'; }).join('');
     renderCrumbs();
@@ -464,10 +528,45 @@
     if (state.sunDims[1] === state.sunDims[0]) state.sunDims[0] = nextDimAfter(state.sunDims[1]);
     refresh();
   });
-  document.getElementById('pivotRowSel').addEventListener('change', function () { state.pivotRows = [this.value]; renderPivot(); });
-  document.getElementById('pivotColSel').addEventListener('change', function () { state.pivotCols = this.value ? [this.value] : []; renderPivot(); });
+  function pivotDimsChanged() {   // Excel 式多维:行≤2 列≤2,同一维度去重
+    var seen = {};
+    var pick = function (id) {
+      var v = document.getElementById(id).value;
+      if (!v || seen[v]) return null;
+      seen[v] = 1; return v;
+    };
+    state.pivotRows = [pick('pivotRowSel'), pick('pivotRow2Sel')].filter(Boolean);
+    state.pivotCols = [pick('pivotColSel'), pick('pivotCol2Sel')].filter(Boolean);
+    if (!state.pivotRows.length) state.pivotRows = [DIMS[0].key];
+    renderPivot();
+  }
+  ['pivotRowSel', 'pivotRow2Sel', 'pivotColSel', 'pivotCol2Sel'].forEach(function (id) {
+    document.getElementById(id).addEventListener('change', pivotDimsChanged);
+  });
   document.getElementById('measureSel').addEventListener('change', function () { state.measure = this.value; renderPivot(); });
   document.getElementById('drawerClose').onclick = function () { document.getElementById('drawerWrap').classList.add('hidden'); };
+
+  /* ---------- v1.1.x #7 · AI 解读当前视图(数字工程算好 · LLM 只解读) ---------- */
+  var insightBtn = document.getElementById('lensInsightBtn');
+  if (insightBtn) {
+    insightBtn.addEventListener('click', function () {
+      var card = document.getElementById('lensInsightCard');
+      var body = document.getElementById('lensInsightBody');
+      insightBtn.disabled = true; insightBtn.textContent = 'AI 解读中…';
+      card.classList.remove('hidden');
+      body.textContent = '正在解读当前视图(按 ' + (DIM_LABEL[state.pivotRows[0]] || '') + ' 切分)…';
+      var c = csrf(); var headers = { 'Content-Type': 'application/json' }; headers[c.header] = c.token;
+      fetch('/lens/insight', { method: 'POST', headers: headers,
+        body: JSON.stringify({ rows: state.pivotRows, cols: [], measures: ['value', 'share'], filters: filtersObj() }) })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (resp) { body.textContent = resp.text || '暂无解读。'; })
+        .catch(function (e) { body.textContent = '解读失败:' + e.message + ' · 稍后再试'; })
+        .finally(function () { insightBtn.disabled = false; insightBtn.textContent = 'AI 解读当前视图'; });
+    });
+    document.getElementById('lensInsightClose').onclick = function () {
+      document.getElementById('lensInsightCard').classList.add('hidden');
+    };
+  }
 
   /* 构建器 */
   fillDimSelect(document.getElementById('bRow'), false, 'platform');

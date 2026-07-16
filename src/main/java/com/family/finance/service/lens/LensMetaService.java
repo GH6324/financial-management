@@ -25,6 +25,7 @@ public class LensMetaService {
 
     private final LensBoardMapper lensBoardMapper;
     private final FamilyConfigService configService;
+    private final LensInsightService lensInsightService;   // v1.1.x #7 · AI 解读按钮可用性
     private final ObjectMapper objectMapper;
 
     /** 当前生效的配色方案 key(脏值回落默认) */
@@ -35,6 +36,7 @@ public class LensMetaService {
 
     public void addMeta(long familyId, Model model) {
         model.addAttribute("lensPalette", palette(familyId));
+        model.addAttribute("lensAiAvailable", lensInsightService.available());
         try {
             model.addAttribute("dimsJson", objectMapper.writeValueAsString(
                     LensRegistry.DIMENSIONS.values().stream()
