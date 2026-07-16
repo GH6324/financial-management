@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>旭日环级配色方案 Preview · 基于飞书图表(VChart)官方色板</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../../src/main/resources/static/vendor/echarts.min.js"></script>
+<style>
+  .swatch { display:inline-block; width:34px; height:34px; border-radius:3px; border:1px solid rgba(0,0,0,.08); }
+  .plan-card { background:var(--card, #fffdf6); border:1px solid var(--line, #d8cfba); }
+  .sun { width:100%; height:330px; }
+  .bar-wrap { height:16px; background:rgba(0,0,0,.05); position:relative; overflow:hidden; }
+</style>
+</head>
+<body class="min-h-screen" style="background:var(--paper,#f5efe2)">
+<div class="max-w-6xl mx-auto px-6 py-10">
+  <p class="eyebrow" style="letter-spacing:.2em">PREVIEW · 待拍板</p>
+  <h1 class="font-display text-4xl mt-1" style="color:var(--ink,#2b2620)">旭日环级配色 · 三方案</h1>
+  <p class="mt-3 text-sm leading-relaxed" style="color:var(--ink-subtle,#6b6353);max-width:56rem">
+    色源 = <b>飞书文档图表(字节 VisActor/VChart)官方默认色板</b>:10 色主板 + 官方为每个主色配好的浅色伴生(20 色板的偶数位)。
+    下面每个方案用<b>与线上完全相同的字典序防撞分配逻辑</b>和真实感数据渲染,所见即所得。
+    每方案两个看板样例:左「风险总览」(内环=风险 · 外环=资产类型),右「夫妻结构」(内环=主理人 · 外环=风险);排行条 = 外环色系。
+  </p>
+
+  <div id="plans" class="mt-8 space-y-10"></div>
+
+  <div class="mt-10 text-xs" style="color:var(--ink-subtle,#6b6353)">
+    <p>· 三方案色源一致,差别只在「哪一环用原版主板、另一环怎么派生」。</p>
+    <p>· 回复 A / B / C 拍板;也可以指定微调(如「B,但内环再暗一点」)。</p>
+  </div>
+</div>
+
+<script>
+/* 本页为纯静态 preview:以下 innerHTML 全部来自页内硬编码常量,无任何用户/外部输入,无 XSS 面 */
+
+/* ── 与线上 lens.js 完全一致的环内字典序防撞分配 ── */
+function colorMapFor(values, pal) {
+  var uniq = []; var seen = {};
+  values.forEach(function (v) { v = String(v); if (!seen[v]) { seen[v] = 1; uniq.push(v); } });
+  uniq.sort();
+  var used = {}; var map = {};
+  uniq.forEach(function (v) {
+    var h = 0;
+    for (var i = 0; i < v.length; i++) h = (h * 31 + v.charCodeAt(i)) >>> 0;
+    var idx = h % pal.length;
+    for (var k = 0; k < pal.length; k++) {
+      var c = pal[(idx + k) % pal.length];
+      if (!used[c]) { used[c] = 1; map[v] = c; return; }
+    }
+    map[v] = pal[idx];
+  });
+  return map;
+}
+
+/* ── 飞书 VChart 官方色板 ── */
+var FEISHU_MAIN  = ['#1664FF','#1AC6FF','#FF8A00','#3CC780','#7442D4','#FFC400','#304D77','#B48DEB','#009488','#FF7DDA'];
+var FEISHU_LIGHT = ['#B2CFFF','#94EFFF','#FFCE7A','#B9EDCD','#DDC5FA','#FAE878','#8B959E','#EFE3FF','#59BAA8','#FFCFEE'];
+function darken(hex, f) {
+  var n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  var d = function (x) { return Math.round(x * f); };
+  return '#' + ((1 << 24) + (d(r) << 16) + (d(g) << 8) + d(b)).toString(16).slice(1);
+}
+function rotate(arr, k) { return arr.slice(k).concat(arr.slice(0, k)); }
+
+var PLANS = [
+  { key: 'A', name: '方案 A · 飞书原味 深内浅外',
+    desc: '内环 = 飞书 10 色主板原色 · 外环 = 官方为每个主色配好的浅色伴生(一一对应,官方深浅节奏)。血统最纯正;内外同色相族对位时会像同色渐变,但内外是不同维度、哈希独立,实际撞族概率低。',
+    inner: FEISHU_MAIN, outer: FEISHU_LIGHT },
+  { key: 'B', name: '方案 B · 外环原版主打 内环压墨托底',
+    desc: '外环(面积大 · 信息主体)= 飞书 10 色主板原色,最漂亮的颜色给最大的面积 · 内环 = 主板整体压暗 28% 托底。层级感最强,外环观感与飞书文档图表完全一致。',
+    inner: FEISHU_MAIN.map(function (c) { return darken(c, 0.72); }), outer: FEISHU_MAIN },
+  { key: 'C', name: '方案 C · 深内浅外 + 色相错位',
+    desc: '内环 = 飞书主板 · 外环 = 官方浅色档循环错 3 位(蓝的浅伴生不再对位蓝,而对位绿系)。父子扇区几乎不可能撞同色相族,「两层完全不一样」的感受最强。',
+    inner: FEISHU_MAIN, outer: rotate(FEISHU_LIGHT, 3) }
+];
+
+/* ── 真实感样例数据 ── */
+var SAMPLE_RISK = {  // 内环=风险 · 外环=资产类型
+  '未分类': { '不动产': 96, '固收': 14, '权益': 6, '现金及等价': 9 },
+  '高风险': { '权益': 40, '另类': 16, '现金及等价': 2 },
+  '中风险': { '固收': 5, '权益': 4 },
+  '低风险': { '保险': 4, '现金及等价': 6 }
+};
+var SAMPLE_COUPLE = {  // 内环=主理人 · 外环=风险
+  '共同':   { '未分类': 70, '高风险': 22, '低风险': 6 },
+  '迪娃':   { '高风险': 18, '未分类': 8, '中风险': 5 },
+  '王二狗': { '高风险': 15, '未分类': 9, '低风险': 4 }
+};
+
+function sunOption(sample, innerPal, outerPal) {
+  var innerVals = Object.keys(sample);
+  var outerVals = [];
+  innerVals.forEach(function (k) { Object.keys(sample[k]).forEach(function (c) { outerVals.push(c); }); });
+  var im = colorMapFor(innerVals, innerPal), om = colorMapFor(outerVals, outerPal);
+  var data = innerVals.map(function (k) {
+    var kids = Object.keys(sample[k]).map(function (c) {
+      return { name: c, value: sample[k][c], itemStyle: { color: om[c] } };
+    });
+    return { name: k, value: kids.reduce(function (s, x) { return s + x.value; }, 0), itemStyle: { color: im[k] }, children: kids };
+  });
+  return {
+    series: [{ type: 'sunburst', radius: ['18%', '92%'], data: data, sort: null,
+      label: { fontSize: 11, minAngle: 12 },
+      levels: [{}, { r0: '18%', r: '58%' }, { r0: '58%', r: '92%', label: { fontSize: 10 } }],
+      nodeClick: false }]
+  };
+}
+
+function rankingHtml(sample, outerPal) {
+  var agg = {};
+  Object.keys(sample).forEach(function (k) {
+    Object.keys(sample[k]).forEach(function (c) { agg[c] = (agg[c] || 0) + sample[k][c]; });
+  });
+  var keys = Object.keys(agg).sort(function (a, b) { return agg[b] - agg[a]; });
+  var total = keys.reduce(function (s, k) { return s + agg[k]; }, 0);
+  var om = colorMapFor(keys, outerPal);
+  return keys.map(function (k) {
+    var pct = (agg[k] * 100 / total);
+    return '<div class="mb-2"><div class="flex justify-between text-xs mb-0.5"><span>' + k + '</span><span class="font-mono">' + pct.toFixed(1) + '%</span></div>' +
+      '<div class="bar-wrap"><span style="position:absolute;left:0;top:0;height:100%;width:' + pct + '%;background:' + om[k] + '"></span></div></div>';
+  }).join('');
+}
+
+var wrap = document.getElementById('plans');
+PLANS.forEach(function (p) {
+  var el = document.createElement('section');
+  el.className = 'plan-card p-6';
+  el.innerHTML =
+    '<h2 class="font-display text-2xl" style="color:var(--ink,#2b2620)">' + p.name + '</h2>' +
+    '<p class="mt-1 text-xs leading-relaxed" style="color:var(--ink-subtle,#6b6353);max-width:52rem">' + p.desc + '</p>' +
+    '<div class="mt-3 flex flex-wrap items-center gap-4 text-[10px]" style="color:var(--ink-subtle,#6b6353)">' +
+      '<span class="font-mono tracking-widest">内环</span><span class="flex gap-1">' + p.inner.map(function (c) { return '<span class="swatch" style="background:' + c + '"></span>'; }).join('') + '</span>' +
+      '<span class="font-mono tracking-widest">外环</span><span class="flex gap-1">' + p.outer.map(function (c) { return '<span class="swatch" style="background:' + c + '"></span>'; }).join('') + '</span>' +
+    '</div>' +
+    '<div class="mt-4 grid md:grid-cols-3 gap-5 items-start">' +
+      '<div><p class="eyebrow mb-1">风险总览 · 内=风险 外=资产类型</p><div class="sun" id="sun-' + p.key + '-risk"></div></div>' +
+      '<div><p class="eyebrow mb-1">夫妻结构 · 内=主理人 外=风险</p><div class="sun" id="sun-' + p.key + '-couple"></div></div>' +
+      '<div><p class="eyebrow mb-1">切片排行 · 外环色系</p><div class="mt-2" id="rank-' + p.key + '"></div></div>' +
+    '</div>';
+  wrap.appendChild(el);
+});
+PLANS.forEach(function (p) {
+  echarts.init(document.getElementById('sun-' + p.key + '-risk')).setOption(sunOption(SAMPLE_RISK, p.inner, p.outer));
+  echarts.init(document.getElementById('sun-' + p.key + '-couple')).setOption(sunOption(SAMPLE_COUPLE, p.inner, p.outer));
+  document.getElementById('rank-' + p.key).innerHTML = rankingHtml(SAMPLE_RISK, p.outer);
+});
+</script>
+</body>
+</html>
