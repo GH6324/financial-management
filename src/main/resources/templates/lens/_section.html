@@ -28,10 +28,10 @@
   <section id="builderWrap" class="paper-card p-5 mb-4 hidden">
     <h3 class="font-display text-lg font-medium mb-3">自定义透视 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">CUSTOM</span></h3>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono text-[11px] text-ink-soft">
-      <label>行维度 <select id="bRow" class="field-input bg-transparent text-sm"></select></label>
-      <label>行二级(可空) <select id="bRow2" class="field-input bg-transparent text-sm"></select></label>
-      <label>列维度(可空) <select id="bCol" class="field-input bg-transparent text-sm"></select></label>
-      <label>度量 <select id="bMeasure" class="field-input bg-transparent text-sm"></select></label>
+      <label>行维度 <select data-lsel id="bRow" class="field-input bg-transparent text-sm"></select></label>
+      <label>行二级(可空) <select data-lsel id="bRow2" class="field-input bg-transparent text-sm"></select></label>
+      <label>列维度(可空) <select data-lsel id="bCol" class="field-input bg-transparent text-sm"></select></label>
+      <label>度量 <select data-lsel id="bMeasure" class="field-input bg-transparent text-sm"></select></label>
     </div>
     <div class="flex items-center gap-3 mt-4 flex-wrap">
       <button id="bApply" class="btn-ink text-xs px-4 py-1.5">应用</button>
@@ -50,7 +50,7 @@
       <div class="flex items-baseline justify-between flex-wrap gap-2 mb-2">
         <h3 class="font-display text-lg font-medium">旭日下钻 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">SUNBURST</span></h3>
         <label class="font-mono text-[11px] text-ink-soft">下一层按
-          <select id="nextDimSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select>
+          <select data-lsel id="nextDimSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select>
         </label>
       </div>
       <div style="position:relative">
@@ -71,9 +71,9 @@
     <div class="flex items-baseline justify-between flex-wrap gap-2 mb-3">
       <h3 class="font-display text-lg font-medium">交叉透视 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">PIVOT</span></h3>
       <div class="flex items-center gap-2 flex-wrap font-mono text-[11px] text-ink-soft">
-        <label>行 <select id="pivotRowSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
-        <label>列 <select id="pivotColSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
-        <label>度量 <select id="measureSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
+        <label>行 <select data-lsel id="pivotRowSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
+        <label>列 <select data-lsel id="pivotColSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
+        <label>度量 <select data-lsel id="measureSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
       </div>
     </div>
     <div id="pivot" class="overflow-x-auto"></div>
@@ -99,6 +99,7 @@
   };
 </script>
   <script th:src="@{/vendor/echarts.min.js}"></script>
+  <script th:src="@{/js/lens-select.js}"></script>
   <script th:src="@{/js/lens.js}"></script>
 </section>
 </body>

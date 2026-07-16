@@ -1,36 +1,41 @@
 package com.family.finance.domain.lens;
 
 /**
- * v1.1 · 行业/主题维度(资产透视)· prd/v1.1 FR-1 · 已拍板 D3=粗分。
+ * v1.1 · 行业/主题维度(资产透视)· prd/v1.1 FR-1 · 已拍板 D3=粗分 · v1.1.x 修订(2026-07-16 拍板)。
  *
- * <p><b>17 个家庭友好粗行业</b>(v1.1 评审后从 12 扩充:补电商零售/半导体/汽车出行/游戏传媒/能源化工)(非 GICS 全集,防选择过载)。账户级粗标(基金/理财 · 近似)
- * 与个股持仓级细标(准)共用本枚举;存 {@link #name()},DB 不加 CHECK(加值免迁移)。
- * 未打标 = 「未分类」照常参与透视,不做基金成分穿透、不给假精确。</p>
+ * <p><b>18 个家庭友好粗行业 · 「投向」语义</b>(非 GICS 全集,防选择过载)。修订史:12 → 17(补电商/半导体/汽车/游戏/能化)
+ * → 18(新增 货币现金;金融地产拆为 银行券商保险 + 地产建筑;删 海外市场——与地域维完全重复;白酒消费→消费食饮、医药→医药健康)。
+ * 账户级粗标(基金/理财 · 近似)与个股持仓级细标(准)共用本枚举;存 {@link #name()},DB 不加 CHECK(加值免迁移;
+ * 删值/改 code 需迁移,见 V47)。未打标 = 「未分类」照常参与透视,不做基金成分穿透、不给假精确。</p>
  */
 public enum IndustryTag {
-    BROAD_INDEX("宽基综合"),
-    CONSUMER("白酒消费"),
-    TECH_INTERNET("科技互联网"),
-    ECOMMERCE_RETAIL("电商零售"),
-    SEMICONDUCTOR("半导体芯片"),
-    AUTO_MOBILITY("汽车出行"),
-    GAME_MEDIA("游戏传媒"),
-    ENERGY_CHEM("能源化工"),
-    NEW_ENERGY("新能源电力"),
-    HEALTHCARE("医药"),
-    FINANCE_ESTATE("金融地产"),
-    MANUFACTURING("制造军工"),
-    FIXED_BOND("固收债"),
-    METAL_COMMODITY("贵金属商品"),
-    CRYPTO_ASSET("加密"),
-    OVERSEAS("海外市场"),
-    OTHER("其他");
+    BROAD_INDEX("宽基综合", "kuan ji zong he"),
+    MONEY_CASH("货币现金", "huo bi xian jin"),
+    FIXED_BOND("固收债", "gu shou zhai"),
+    CONSUMER("消费食饮", "xiao fei shi yin"),
+    TECH_INTERNET("科技互联网", "ke ji hu lian wang"),
+    ECOMMERCE_RETAIL("电商零售", "dian shang ling shou"),
+    SEMICONDUCTOR("半导体芯片", "ban dao ti xin pian"),
+    AUTO_MOBILITY("汽车出行", "qi che chu xing"),
+    GAME_MEDIA("游戏传媒", "you xi chuan mei"),
+    ENERGY_CHEM("能源化工", "neng yuan hua gong"),
+    NEW_ENERGY("新能源电力", "xin neng yuan dian li"),
+    HEALTHCARE("医药健康", "yi yao jian kang"),
+    FINANCE("银行券商保险", "yin hang quan shang bao xian"),
+    ESTATE_CONSTRUCTION("地产建筑", "di chan jian zhu"),
+    MANUFACTURING("制造军工", "zhi zao jun gong"),
+    METAL_COMMODITY("贵金属商品", "gui jin shu shang pin"),
+    CRYPTO_ASSET("加密", "jia mi"),
+    OTHER("其他", "qi ta");
 
     private final String label;
+    private final String pinyin;   // 全拼(空格分节)· 自研下拉搜索用,首字母由分节推导
 
-    IndustryTag(String label) { this.label = label; }
+    IndustryTag(String label, String pinyin) { this.label = label; this.pinyin = pinyin; }
 
     public String getLabel() { return label; }
+
+    public String getPinyin() { return pinyin; }
 
     /** 安全解析 · 非法/空返回 null(脏值不抛) */
     public static IndustryTag fromName(String name) {

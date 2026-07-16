@@ -52,7 +52,7 @@ public class LensConcentrationRules {
                 double threshold = configService.getDouble(FAMILY_ID,
                         FamilyConfigService.K_LENS_INDUSTRY_CONC, 0.40);
                 var top = topSlice(lensQueryService.positions(FAMILY_ID), "industry",
-                        Map.of("assetClass", List.of("权益")));
+                        Map.of("assetClass", List.of("股票股权")));
                 if (top.isEmpty()) return Optional.empty();
                 String label = (String) top.get()[0];
                 BigDecimal share = (BigDecimal) top.get()[1];

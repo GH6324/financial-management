@@ -96,10 +96,10 @@
               <span class="pill text-[9px] ml-1" th:text="${a.type.label}">现金</span>
             </td>
             <td data-label="资产类型">
-              <select th:name="'acct_class_' + ${a.id}"
+              <select data-lsel th:name="'acct_class_' + ${a.id}"
                       th:classappend="${a.assetClass == null and sug != null and sug.assetClass != null} ? ' ai-filled' : ''">
                 <option value="" th:text="'默认 · ' + ${defaults.get(a.id)}">默认 · 权益</option>
-                <option th:each="c : ${assetClasses}" th:value="${c.name()}"
+                <option th:each="c : ${assetClasses}" th:value="${c.name()}" th:attr="data-py=${c.pinyin}"
                         th:selected="${a.assetClass == c.name() or (a.assetClass == null and sug != null and sug.assetClass == c.name())}"
                         th:text="${c.label}">权益</option>
               </select>
@@ -111,18 +111,18 @@
             </td>
             <td data-label="行业">
               <span th:if="${node.holdingAccount}" class="muted-cell">由持仓逐个标 ↓</span>
-              <select th:unless="${node.holdingAccount}" th:name="'acct_industry_' + ${a.id}"
+              <select data-lsel th:unless="${node.holdingAccount}" th:name="'acct_industry_' + ${a.id}"
                       th:classappend="${a.industryTag == null and sug != null and sug.industry != null} ? ' ai-filled' : ''">
                 <option value="">未分类</option>
-                <option th:each="t : ${industryTags}" th:value="${t.name()}"
+                <option th:each="t : ${industryTags}" th:value="${t.name()}" th:attr="data-py=${t.pinyin}"
                         th:selected="${a.industryTag == t.name() or (a.industryTag == null and sug != null and sug.industry == t.name())}"
                         th:text="${t.label}">宽基综合</option>
               </select>
             </td>
             <td data-label="用途">
-              <select th:name="'acct_purpose_' + ${a.id}">
+              <select data-lsel th:name="'acct_purpose_' + ${a.id}">
                 <option value="">未分类</option>
-                <option th:each="pt : ${purposeTags}" th:value="${pt.name()}"
+                <option th:each="pt : ${purposeTags}" th:value="${pt.name()}" th:attr="data-py=${pt.pinyin}"
                         th:selected="${a.purposeTag == pt.name()}" th:text="${pt.label}">应急金</option>
               </select>
             </td>
@@ -141,10 +141,10 @@
             <td></td>
             <td class="muted-cell hidden md:table-cell">随账户</td>
             <td data-label="行业">
-              <select th:name="'hold_industry_' + ${h.id}"
+              <select data-lsel th:name="'hold_industry_' + ${h.id}"
                       th:classappend="${h.industryTag == null and sug != null and sug.industry != null} ? ' ai-filled' : ''">
                 <option value="">未分类</option>
-                <option th:each="t : ${industryTags}" th:value="${t.name()}"
+                <option th:each="t : ${industryTags}" th:value="${t.name()}" th:attr="data-py=${t.pinyin}"
                         th:selected="${h.industryTag == t.name() or (h.industryTag == null and sug != null and sug.industry == t.name())}"
                         th:text="${t.label}">新能源电力</option>
               </select>
@@ -176,5 +176,6 @@
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
+<script th:src="@{/js/lens-select.js}"></script>
 </body>
 </html>

@@ -10,18 +10,21 @@ import com.family.finance.domain.account.AccountType;
  * NULL = 按 {@link #defaultFor} 派生默认;LOAN 是负债不进资产大类(lens 不计入分母)。</p>
  */
 public enum AssetClass {
-    CASH_EQ("现金及等价"),
-    FIXED_INCOME("固收"),
-    EQUITY("权益"),
-    ALTERNATIVE("另类"),
-    REAL_ESTATE("不动产"),
-    INSURANCE("保险");
+    CASH_EQ("现金活钱", "xian jin huo qian"),
+    FIXED_INCOME("债券理财", "zhai quan li cai"),
+    EQUITY("股票股权", "gu piao gu quan"),
+    ALTERNATIVE("黄金加密", "huang jin jia mi"),
+    REAL_ESTATE("房产", "fang chan"),
+    INSURANCE("保险", "bao xian");
 
     private final String label;
+    private final String pinyin;   // 全拼(空格分节)· 自研下拉搜索用
 
-    AssetClass(String label) { this.label = label; }
+    AssetClass(String label, String pinyin) { this.label = label; this.pinyin = pinyin; }
 
     public String getLabel() { return label; }
+
+    public String getPinyin() { return pinyin; }
 
     /** 安全解析 · 非法/空返回 null(脏值不抛) */
     public static AssetClass fromName(String name) {

@@ -3407,6 +3407,35 @@ LJS="$RD/src/main/resources/static/js/lens.js"
   && log_ok "v11-SUN-RINGCOLOR 旭日五套环级配色(管理页可配默认D · 环内字典序防撞 · 扇区占比/金额label隐私感知 · 中心信息盘hover联动)" \
   || log_bad "v11-SUN-RINGCOLOR 旭日配色/信息交互缺件" "see lens.js PALETTE_PLANS/fmtShort/sunCenter · AdminController lens-palette"
 
+# v11-DIM-REV2 · 维值修订三(2026-07-16 TUI 拍板):资产类型平民化命名 + 行业 17→18(+货币现金/拆金融地产/删海外市场)+ V47 迁移
+ACJ="$RD/src/main/java/com/family/finance/domain/lens/AssetClass.java"
+ITJ="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
+{ grep -q '股票股权' "$ACJ" && grep -q '债券理财' "$ACJ" && grep -q '现金活钱' "$ACJ" \
+  && grep -q '黄金加密' "$ACJ" && ! grep -q '"权益"' "$ACJ" \
+  && grep -q 'MONEY_CASH' "$ITJ" && grep -q '银行券商保险' "$ITJ" && grep -q 'ESTATE_CONSTRUCTION' "$ITJ" \
+  && ! grep -q 'FINANCE_ESTATE' "$ITJ" && ! grep -q 'OVERSEAS' "$ITJ" \
+  && [ "$(grep -c '", "' "$ITJ")" -ge 18 ] \
+  && [ -f "$RD/db/migration/V47__industry_revision.sql" ] \
+  && grep -q "FINANCE_ESTATE" "$RD/db/migration/V47__industry_revision.sql" \
+  && grep -q "OVERSEAS" "$RD/db/migration/V47__industry_revision.sql" \
+  && grep -q "股票股权" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "股票股权" "$RD/src/main/java/com/family/finance/service/checkup/rule/LensConcentrationRules.java" \
+  && grep -q 'MONEY_CASH' "$RD/src/main/java/com/family/finance/service/lens/LensAiTagService.java"; } \
+  && log_ok "v11-DIM-REV2 维值修订三(资产类型平民化 · 行业18含货币现金/银行券商保险/地产建筑 · 老值V47迁移 · 筛选与AI prompt联动)" \
+  || log_bad "v11-DIM-REV2 维值修订不完整" "see AssetClass/IndustryTag/V47/lens.js/LensConcentrationRules/LensAiTagService"
+
+# v11-LSEL · 自研搜索下拉(打标页 + 透视构建器/选择器 · 中文/全拼/首字母)
+LSJ="$RD/src/main/resources/static/js/lens-select.js"
+{ [ -f "$LSJ" ] && grep -q 'data-lsel' "$LSJ" && grep -q 'pyInit' "$LSJ" && grep -q 'MutationObserver' "$LSJ" \
+  && [ "$(grep -c 'data-lsel' "$RD/src/main/resources/templates/lens/tags.html")" -ge 4 ] \
+  && [ "$(grep -c 'data-lsel' "$RD/src/main/resources/templates/lens/_section.html")" -ge 8 ] \
+  && grep -q 'data-py' "$RD/src/main/resources/templates/lens/tags.html" \
+  && grep -q 'getPinyin' "$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java" \
+  && grep -q 'lens-select.js' "$RD/src/main/resources/templates/lens/tags.html" \
+  && grep -q 'lens-select.js' "$RD/src/main/resources/templates/lens/_section.html"; } \
+  && log_ok "v11-LSEL 自研搜索下拉(渐进增强 · 拼音三路匹配 · 打标页+透视选择器全覆盖 · 动态options自动重建)" \
+  || log_bad "v11-LSEL 自研下拉缺件" "see lens-select.js / tags.html / _section.html data-lsel/data-py"
+
 # ===================== v0.12 · 收支填报收入侧升级 =====================
 # v12-INCOME-CAT · 类目绑定账户类型 + 股票类收入类目(V34)
 CFC="$RD/db/migration/V34__income_category_account_type.sql"

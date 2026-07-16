@@ -6,19 +6,22 @@ package com.family.finance.domain.lens;
  * 存 name(),DB 不加 CHECK;NULL = 未分类。
  */
 public enum PurposeTag {
-    EMERGENCY("应急金"),
-    EDUCATION("教育金"),
-    RETIREMENT("养老储备"),
-    HOUSING("购房置业"),
-    GROWTH("长期增值"),
-    DAILY("日常备用"),
-    OTHER("其他用途");
+    EMERGENCY("应急金", "ying ji jin"),
+    EDUCATION("教育金", "jiao yu jin"),
+    RETIREMENT("养老储备", "yang lao chu bei"),
+    HOUSING("购房置业", "gou fang zhi ye"),
+    GROWTH("长期增值", "chang qi zeng zhi"),
+    DAILY("日常备用", "ri chang bei yong"),
+    OTHER("其他用途", "qi ta yong tu");
 
     private final String label;
+    private final String pinyin;   // 全拼(空格分节)· 自研下拉搜索用
 
-    PurposeTag(String label) { this.label = label; }
+    PurposeTag(String label, String pinyin) { this.label = label; this.pinyin = pinyin; }
 
     public String getLabel() { return label; }
+
+    public String getPinyin() { return pinyin; }
 
     public static PurposeTag fromName(String name) {
         if (name == null || name.isBlank()) return null;

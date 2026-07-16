@@ -11,9 +11,6 @@
   var USER_BOARDS = parse(window.LENS_META.boards);
   var DIM_LABEL = {}; DIMS.forEach(function (d) { DIM_LABEL[d.key] = d.label; });
   var ALL_MEASURES = MEASURES.map(function (m) { return m.key; });
-  /* 每环一套配色(评审修订):内外环是两个独立维度 → 各环用独立色系,一眼分清层级;
-   * 环内仍旧同维值同色(值→色稳定哈希,"高风险"在本环任何父块/任何看板下都同色)。
-   * 内环 · 深调沉稳(主维度定基调);外环 · 浅调温润(次维度作铺陈)。切片排行按外环维度排,用外环色系。 */
   /* 五套环级配色方案(preview/v1.1/sunburst-palette.html · 2026-07-16 拍板):管理页可配,默认 D 莫兰迪。
    * 每套 [内环, 外环];色值与 admin/calc-tweaks.html 的色卡预览同源,改动需两处同步。 */
   var PALETTE_PLANS = {
@@ -63,7 +60,7 @@
   /* 预设 5 看板(prd v1.1 FR-6 · 已拍板 D6)—— 只是 query spec,非硬编码页面 */
   var PRESETS = [
     { key: 'risk',     name: '风险总览',   sun: ['risk', 'assetClass'],   rows: ['risk'],     cols: ['assetClass'], filters: {} },
-    { key: 'industry', name: '行业集中',   sun: ['industry', 'platform'], rows: ['industry'], cols: ['platform'],   filters: { assetClass: ['权益'] } },
+    { key: 'industry', name: '行业集中',   sun: ['industry', 'platform'], rows: ['industry'], cols: ['platform'],   filters: { assetClass: ['股票股权'] } },
     { key: 'platform', name: '平台安全',   sun: ['platform', 'assetClass'], rows: ['platform'], cols: ['assetClass'], filters: {} },
     { key: 'couple',   name: '夫妻结构',   sun: ['owner', 'risk'],        rows: ['owner'],    cols: ['assetClass'], filters: {} },
     { key: 'ccy',      name: '币种与市场', sun: ['currency', 'region'],   rows: ['region'],   cols: ['industry'],   filters: {} },
@@ -371,7 +368,7 @@
   /* ---------- 选择器 ---------- */
   function fillDimSelect(sel, allowEmpty, current) {
     var html = allowEmpty ? '<option value="">(无)</option>' : '';
-    DIMS.forEach(function (d) { html += '<option value="' + d.key + '"' + (d.key === current ? ' selected' : '') + '>' + esc(d.label) + '</option>'; });
+    DIMS.forEach(function (d) { html += '<option value="' + d.key + '" data-py="' + esc(d.key) + '"' + (d.key === current ? ' selected' : '') + '>' + esc(d.label) + '</option>'; });
     sel.innerHTML = html;
   }
   function syncSelectors() {
@@ -379,7 +376,7 @@
     fillDimSelect(document.getElementById('pivotRowSel'), false, state.pivotRows[0]);
     fillDimSelect(document.getElementById('pivotColSel'), true, state.pivotCols[0] || '');
     var ms = document.getElementById('measureSel');
-    ms.innerHTML = MEASURES.map(function (m) { return '<option value="' + m.key + '"' + (m.key === state.measure ? ' selected' : '') + '>' + esc(m.label) + '</option>'; }).join('');
+    ms.innerHTML = MEASURES.map(function (m) { return '<option value="' + m.key + '" data-py="' + esc(m.key) + '"' + (m.key === state.measure ? ' selected' : '') + '>' + esc(m.label) + '</option>'; }).join('');
     renderCrumbs();
   }
 
@@ -406,7 +403,7 @@
   fillDimSelect(document.getElementById('bRow'), false, 'platform');
   fillDimSelect(document.getElementById('bRow2'), true, '');
   fillDimSelect(document.getElementById('bCol'), true, 'assetClass');
-  document.getElementById('bMeasure').innerHTML = MEASURES.map(function (m) { return '<option value="' + m.key + '">' + esc(m.label) + '</option>'; }).join('');
+  document.getElementById('bMeasure').innerHTML = MEASURES.map(function (m) { return '<option value="' + m.key + '" data-py="' + esc(m.key) + '">' + esc(m.label) + '</option>'; }).join('');
   function builderSpec() {
     var rows = [document.getElementById('bRow').value];
     var r2 = document.getElementById('bRow2').value; if (r2 && r2 !== rows[0]) rows.push(r2);
