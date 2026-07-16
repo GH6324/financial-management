@@ -14,12 +14,31 @@
   /* 每环一套配色(评审修订):内外环是两个独立维度 → 各环用独立色系,一眼分清层级;
    * 环内仍旧同维值同色(值→色稳定哈希,"高风险"在本环任何父块/任何看板下都同色)。
    * 内环 · 深调沉稳(主维度定基调);外环 · 浅调温润(次维度作铺陈)。切片排行按外环维度排,用外环色系。 */
-  /* 方案 A(2026-07-16 拍板 · preview/v1.1/sunburst-palette.html):飞书文档图表(VisActor/VChart)官方默认色板 ——
-   * 内环 = 10 色主板原色 · 外环 = 官方为每个主色配好的浅色伴生(20 色板偶数位),官方深浅节奏。 */
-  var RING_PALETTES = [
-    ['#1664FF', '#1AC6FF', '#FF8A00', '#3CC780', '#7442D4', '#FFC400', '#304D77', '#B48DEB', '#009488', '#FF7DDA'],
-    ['#B2CFFF', '#94EFFF', '#FFCE7A', '#B9EDCD', '#DDC5FA', '#FAE878', '#8B959E', '#EFE3FF', '#59BAA8', '#FFCFEE']
-  ];
+  /* 五套环级配色方案(preview/v1.1/sunburst-palette.html · 2026-07-16 拍板):管理页可配,默认 D 莫兰迪。
+   * 每套 [内环, 外环];色值与 admin/calc-tweaks.html 的色卡预览同源,改动需两处同步。 */
+  var PALETTE_PLANS = {
+    A: [ /* 飞书原味 深内浅外(VChart 官方主板 + 官方浅色伴生) */
+      ['#1664FF', '#1AC6FF', '#FF8A00', '#3CC780', '#7442D4', '#FFC400', '#304D77', '#B48DEB', '#009488', '#FF7DDA'],
+      ['#B2CFFF', '#94EFFF', '#FFCE7A', '#B9EDCD', '#DDC5FA', '#FAE878', '#8B959E', '#EFE3FF', '#59BAA8', '#FFCFEE']
+    ],
+    B: [ /* 外环原版主打 内环压墨托底(主板 ×0.72 预计算) */
+      ['#1048B8', '#138FB8', '#B86300', '#2B8F5C', '#543099', '#B88D00', '#233756', '#8266A9', '#006B62', '#B85A9D'],
+      ['#1664FF', '#1AC6FF', '#FF8A00', '#3CC780', '#7442D4', '#FFC400', '#304D77', '#B48DEB', '#009488', '#FF7DDA']
+    ],
+    C: [ /* 深内浅外 + 色相错位(浅档循环错 3 位) */
+      ['#1664FF', '#1AC6FF', '#FF8A00', '#3CC780', '#7442D4', '#FFC400', '#304D77', '#B48DEB', '#009488', '#FF7DDA'],
+      ['#B9EDCD', '#DDC5FA', '#FAE878', '#8B959E', '#EFE3FF', '#59BAA8', '#FFCFEE', '#B2CFFF', '#94EFFF', '#FFCE7A']
+    ],
+    D: [ /* 莫兰迪高级灰(默认) */
+      ['#5B6A78', '#8A6E63', '#6E7F5C', '#7D6A85', '#A9865F', '#5F7E7B', '#946B6B', '#6B7FA0', '#867E58', '#75616E'],
+      ['#B9C2CC', '#D6C3BB', '#C2CCB4', '#CBBFD1', '#E0CDAE', '#B7CCCA', '#D8BFBF', '#BFC9DC', '#D3CDB0', '#C9B9C4']
+    ],
+    E: [ /* 国风传统色(青黛/胭脂/缃金/竹青…) */
+      ['#2B5E7D', '#9D2933', '#3C7A63', '#B8823B', '#5A4A78', '#316B65', '#8C4356', '#6B7A3A', '#7A4E2D', '#44506B'],
+      ['#A8C4D4', '#E0A9A9', '#A9CBB7', '#E4C98E', '#C3B5D6', '#9FC9C3', '#D4A9B8', '#C5CB9A', '#D0AF93', '#AEB8CC']
+    ]
+  };
+  var RING_PALETTES = PALETTE_PLANS[window.LENS_META.palette] || PALETTE_PLANS.D;
   /* 环内防撞:对本环出现的全部维值按字典序统一分配 —— 哈希定起点、线性探测避让已用色,
    * 值≤色数时保证互不同色;字典序使分配与遍历顺序无关(旭日外环与排行条对同一值集必得同色)。 */
   function colorMapFor(values, ring) {
@@ -88,6 +107,14 @@
     if (key === 'share' || key === 'cumReturn') return Number(v).toFixed(2) + '%';
     return fmtMoney(v);
   }
+  /* 短金额(旭日扇区/中心盘用):¥98万 · ¥1.02亿 · <1万 取整 */
+  function fmtShort(v) {
+    var n = Number(v || 0), a = Math.abs(n), s = n < 0 ? '−' : '';
+    if (a >= 1e8) return s + '¥' + (a / 1e8).toFixed(a >= 1e9 ? 0 : 2) + '亿';
+    if (a >= 1e4) return s + '¥' + (a / 1e4).toFixed(a >= 1e6 ? 0 : 1) + '万';
+    return s + '¥' + Math.round(a);
+  }
+  function privacyOn() { return document.documentElement.classList.contains('privacy'); }
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
   function nextDimAfter(key) {
     var used = state.drill.map(function (d) { return d.dim; }).concat([key]);
@@ -187,22 +214,45 @@
       });
       var el = document.getElementById('sunburst');
       if (!chart) chart = echarts.init(el);
+      var grand = Number(r.grand[0] || 0);
+      /* 扇区常显 名称+占比;角度足够(≥28°)且非隐私 → 第三行短金额。角度 = 值占总比 × 360(sunburst 按值分角) */
+      var sliceLabel = function (p) {
+        if (!grand) return p.name;
+        var pct = p.value * 100 / grand;
+        var lines = [p.name, pct.toFixed(1) + '%'];
+        if (pct * 3.6 >= 28 && !privacyOn()) lines.push(fmtShort(p.value));
+        return lines.join('\n');
+      };
       chart.setOption({
         series: [{
-          type: 'sunburst', radius: ['18%', '92%'], data: data, sort: null,
-          label: { fontSize: 11, minAngle: 12, formatter: function (p) { return p.name; } },
-          levels: [{}, { r0: '18%', r: '58%' }, { r0: '58%', r: '92%', label: { fontSize: 10 } }],
+          type: 'sunburst', radius: ['26%', '92%'], data: data, sort: null,
+          label: { fontSize: 11, minAngle: 14, lineHeight: 15, formatter: sliceLabel },
+          levels: [{}, { r0: '26%', r: '60%' }, { r0: '60%', r: '92%', label: { fontSize: 10, lineHeight: 13 } }],
           emphasis: { focus: 'ancestor' },
           nodeClick: false
         }],
         tooltip: {
           formatter: function (p) {
-            var grand = Number(r.grand[0] || 0);
             var pct = grand > 0 ? (p.value * 100 / grand).toFixed(1) + '%' : '';
-            return esc(p.name) + '<br>' + fmtMoney(p.value) + ' · ' + pct;
+            return esc(p.name) + '<br>' + (privacyOn() ? '···' : fmtMoney(p.value)) + ' · ' + pct;
           }
         }
       }, true);
+      /* 中心信息盘:默认 = 当前范围合计;hover 任一环扇区 = 该块 名称/金额/占比(内环金额难放扇区里,由此补齐) */
+      var center = document.getElementById('sunCenter');
+      var centerHtml = function (name, val, pct) {
+        return '<div class="text-[11px] text-ink-subtle leading-tight" style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(name) + '</div>' +
+          '<div class="font-display text-sm leading-tight" data-priv>' + fmtShort(val) + '</div>' +
+          (pct === null ? '' : '<div class="font-mono text-[10px] text-ink-subtle leading-tight">' + pct.toFixed(1) + '%</div>');
+      };
+      if (center) {
+        center.innerHTML = centerHtml('合计', grand, null);
+        chart.off('mouseover'); chart.off('mouseout');
+        chart.on('mouseover', function (p) {
+          if (p.data && p.data.name && grand) center.innerHTML = centerHtml(p.data.name, p.value, p.value * 100 / grand);
+        });
+        chart.on('mouseout', function () { center.innerHTML = centerHtml('合计', grand, null); });
+      }
       chart.off('click');
       chart.on('click', function (p) {
         if (!p.data || !p.data.name) return;
@@ -385,7 +435,12 @@
   /* 启动 · 懒加载(性能 B):透视区在仪表盘底部,滚到附近才初始化(ECharts + 3 查询),
      首屏不被透视拖累;锚点直达 #lens-section 会立刻进入视口 → IO 立即触发,天然覆盖;
      无 IntersectionObserver 的老浏览器降级为立即启动。 */
-  function boot() { renderBoards(); applyBoard(PRESETS[0], 'risk'); }
+  function boot() {
+    renderBoards(); applyBoard(PRESETS[0], 'risk');
+    /* 隐私模式开关切换(html.privacy)→ 重绘旭日:canvas 里的金额 label 不受 CSS 模糊管辖,必须重出图 */
+    new MutationObserver(function () { if (chart) renderSunburst(); })
+      .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  }
   var lensSec = document.getElementById('lens-section');
   if (lensSec && 'IntersectionObserver' in window) {
     var io = new IntersectionObserver(function (entries) {

@@ -104,6 +104,58 @@
       </div>
     </form>
 
+    <!-- ②.5 · 旭日环级配色方案(v1.1.x · 五套内置 · 默认 D 莫兰迪) -->
+    <form th:action="@{/admin/calc-tweaks/lens-palette}" method="post" class="bracket-card max-w-3xl space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <div class="flex items-baseline justify-between">
+        <div class="eyebrow-ink">②.5 资产透视 · 旭日配色方案</div>
+        <span class="font-mono text-[10px] text-ink-subtle tracking-wider">保存即生效 · 刷新透视区可见</span>
+      </div>
+      <p class="font-mono text-[10px] text-ink-subtle tracking-wider leading-relaxed">
+        内外环是两个独立维度 · 每方案 = 内环一套 + 外环一套 · 环内同维值同色。色卡上排 = 内环,下排 = 外环。
+      </p>
+      <div class="space-y-3">
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input type="radio" name="lensPalette" value="A" th:checked="${lensPalette == 'A'}" class="mt-1"/>
+          <span class="flex-1"><span class="text-sm">方案 A · 飞书原味(深内浅外)</span>
+            <span class="block mt-1"><span th:each="c : ${ {'#1664FF','#1AC6FF','#FF8A00','#3CC780','#7442D4','#FFC400','#304D77','#B48DEB','#009488','#FF7DDA'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#B2CFFF','#94EFFF','#FFCE7A','#B9EDCD','#DDC5FA','#FAE878','#8B959E','#EFE3FF','#59BAA8','#FFCFEE'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+          </span>
+        </label>
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input type="radio" name="lensPalette" value="B" th:checked="${lensPalette == 'B'}" class="mt-1"/>
+          <span class="flex-1"><span class="text-sm">方案 B · 外环原版主打 · 内环压墨托底</span>
+            <span class="block mt-1"><span th:each="c : ${ {'#1048B8','#138FB8','#B86300','#2B8F5C','#543099','#B88D00','#233756','#8266A9','#006B62','#B85A9D'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#1664FF','#1AC6FF','#FF8A00','#3CC780','#7442D4','#FFC400','#304D77','#B48DEB','#009488','#FF7DDA'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+          </span>
+        </label>
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input type="radio" name="lensPalette" value="C" th:checked="${lensPalette == 'C'}" class="mt-1"/>
+          <span class="flex-1"><span class="text-sm">方案 C · 深内浅外 + 色相错位</span>
+            <span class="block mt-1"><span th:each="c : ${ {'#1664FF','#1AC6FF','#FF8A00','#3CC780','#7442D4','#FFC400','#304D77','#B48DEB','#009488','#FF7DDA'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#B9EDCD','#DDC5FA','#FAE878','#8B959E','#EFE3FF','#59BAA8','#FFCFEE','#B2CFFF','#94EFFF','#FFCE7A'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+          </span>
+        </label>
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input type="radio" name="lensPalette" value="D" th:checked="${lensPalette == 'D'}" class="mt-1"/>
+          <span class="flex-1"><span class="text-sm">方案 D · 莫兰迪高级灰<span class="font-mono text-[10px] text-brass-deep ml-2">默认</span></span>
+            <span class="block mt-1"><span th:each="c : ${ {'#5B6A78','#8A6E63','#6E7F5C','#7D6A85','#A9865F','#5F7E7B','#946B6B','#6B7FA0','#867E58','#75616E'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#B9C2CC','#D6C3BB','#C2CCB4','#CBBFD1','#E0CDAE','#B7CCCA','#D8BFBF','#BFC9DC','#D3CDB0','#C9B9C4'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+          </span>
+        </label>
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input type="radio" name="lensPalette" value="E" th:checked="${lensPalette == 'E'}" class="mt-1"/>
+          <span class="flex-1"><span class="text-sm">方案 E · 国风传统色(与账册气质同源)</span>
+            <span class="block mt-1"><span th:each="c : ${ {'#2B5E7D','#9D2933','#3C7A63','#B8823B','#5A4A78','#316B65','#8C4356','#6B7A3A','#7A4E2D','#44506B'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#A8C4D4','#E0A9A9','#A9CBB7','#E4C98E','#C3B5D6','#9FC9C3','#D4A9B8','#C5CB9A','#D0AF93','#AEB8CC'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+          </span>
+        </label>
+      </div>
+      <div class="flex justify-end">
+        <button type="submit" class="btn-ink">保存配色方案</button>
+      </div>
+    </form>
+
     <!-- ③ 会话 -->
     <form th:action="@{/admin/calc-tweaks/session}" method="post" class="bracket-card max-w-3xl space-y-5">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>

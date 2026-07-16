@@ -3390,15 +3390,22 @@ MTC="$RD/src/main/java/com/family/finance/web/todo/MyTodosController.java"
 #   RING_PALETTES ≥2 套;colorMapFor(values, ring) 环内字典序防撞(哈希起点+线性探测,值≤色数保证互不同色);
 #   内环 ring 0 / 外环 ring 1 / 排行条走外环色系(ring 1),字典序分配保证排行条与旭日外环同值同色。
 LJS="$RD/src/main/resources/static/js/lens.js"
-{ grep -q 'RING_PALETTES' "$LJS" \
+{ grep -q 'PALETTE_PLANS' "$LJS" \
+  && grep -q "LENS_META.palette" "$LJS" \
   && grep -q 'function colorMapFor(values, ring)' "$LJS" \
   && grep -q 'colorMapFor(order, 0)' "$LJS" \
   && grep -q 'colorMapFor(outerVals, 1)' "$LJS" \
   && grep -q 'colorMapFor(r.rowKeys.map' "$LJS" \
   && grep -q 'uniq.sort()' "$LJS" \
-  && [ "$(grep -c "^\s*\['#" "$LJS")" -ge 2 ]; } \
-  && log_ok "v11-SUN-RINGCOLOR 旭日每环独立配色(RING_PALETTES 深/浅两套 · 环内字典序防撞同值同色 · 排行=外环色系)" \
-  || log_bad "v11-SUN-RINGCOLOR 旭日环级配色缺失/退化" "see static/js/lens.js colorMapFor/RING_PALETTES"
+  && [ "$(grep -c "^\s*\['#" "$LJS")" -ge 10 ] \
+  && grep -q 'K_LENS_PALETTE' "$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java" \
+  && grep -q 'calc-tweaks/lens-palette' "$RD/src/main/java/com/family/finance/web/admin/AdminController.java" \
+  && grep -q 'lensPalette' "$RD/src/main/resources/templates/admin/calc-tweaks.html" \
+  && grep -q 'sunCenter' "$RD/src/main/resources/templates/lens/_section.html" \
+  && grep -q 'fmtShort' "$LJS" \
+  && grep -q 'privacyOn()' "$LJS"; } \
+  && log_ok "v11-SUN-RINGCOLOR 旭日五套环级配色(管理页可配默认D · 环内字典序防撞 · 扇区占比/金额label隐私感知 · 中心信息盘hover联动)" \
+  || log_bad "v11-SUN-RINGCOLOR 旭日配色/信息交互缺件" "see lens.js PALETTE_PLANS/fmtShort/sunCenter · AdminController lens-palette"
 
 # ===================== v0.12 · 收支填报收入侧升级 =====================
 # v12-INCOME-CAT · 类目绑定账户类型 + 股票类收入类目(V34)

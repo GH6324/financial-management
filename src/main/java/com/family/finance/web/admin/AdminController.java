@@ -64,6 +64,8 @@ public class AdminController {
     private final com.family.finance.repository.RebalanceAdviceCacheMapper rebalanceCacheMapper;
     // v0.4.18 · 数值阈值可编辑(详 prd §22)
     private final com.family.finance.service.config.FamilyConfigService configService;
+    // v1.1.x · 旭日环级配色方案(A-E · calc-tweaks 可配)
+    private final com.family.finance.service.lens.LensMetaService lensMetaService;
     // v0.8 · 我关心的指标(可配置指标集 · 详 prd §FR-149/150)
     private final com.family.finance.service.MetricPrefsService metricPrefsService;
 
@@ -401,7 +403,25 @@ public class AdminController {
         model.addAttribute("lensPlatformConc", cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_LENS_PLATFORM_CONC, 0.40));
         // ③ 会话
         model.addAttribute("rememberMeSeconds",     cs.getLong(fid, com.family.finance.service.config.FamilyConfigService.K_REMEMBER_ME_SECONDS, 2592000L));
+        // v1.1.x · 旭日环级配色方案(A-E · 默认 D 莫兰迪)
+        model.addAttribute("lensPalette", lensMetaService.palette(fid));
         return "admin/calc-tweaks";
+    }
+
+    /** v1.1.x · 旭日环级配色方案保存(A-E 白名单 · 改即生效,前端下次渲染读新值) */
+    @PostMapping("/calc-tweaks/lens-palette")
+    public String saveLensPalette(@org.springframework.security.core.annotation.AuthenticationPrincipal
+                                  com.family.finance.auth.MemberPrincipal me,
+                                  @org.springframework.web.bind.annotation.RequestParam("lensPalette") String lensPalette,
+                                  org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
+        long fid = me.getFamilyId();
+        String p = com.family.finance.service.lens.LensMetaService.PALETTE_PLANS.contains(lensPalette)
+                ? lensPalette : com.family.finance.service.lens.LensMetaService.PALETTE_DEFAULT;
+        configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_LENS_PALETTE, p);
+        auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE, "family_runtime_config", fid,
+                "旭日配色方案 · palette=" + p);
+        ra.addFlashAttribute("flash", "旭日配色已切换为方案 " + p + " · 刷新透视区生效");
+        return "redirect:/admin/calc-tweaks";
     }
 
     /** v0.4.18 · ① 录入提示阈值保存 */

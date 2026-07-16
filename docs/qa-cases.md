@@ -1690,7 +1690,7 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | Case | 校验 |
 |---|---|
 | v11-TODO-RETIRE | 导航 `nav.html` 不再含 `@{/my-todos}`;「填报」项承接 `state.pendingCount > 0` 的「·N」角标;`MyTodosController` 为 `redirect:/entry?mine=true`;`my-todos.html` 模板已删 |
-| v11-SUN-RINGCOLOR | 旭日每环独立配色(2026-07-16 评审修订):`lens.js` 含 `RING_PALETTES`(深/浅 ≥2 套)、`colorMapFor(values, ring)` 环内字典序防撞(哈希起点+线性探测,值≤色数保证互不同色 · 撞色实例:夫妻结构「王二狗」「共同」曾同深棕);内环 ring 0 / 外环 ring 1 / 排行条 ring 1,字典序分配与遍历序无关 → 排行条与旭日外环同值必同色 |
+| v11-SUN-RINGCOLOR | 旭日环级配色(2026-07-16 两轮评审):`lens.js` 含 `PALETTE_PLANS` 五套方案(A 飞书原味/B 外环原版/C 色相错位/D 莫兰迪默认/E 国风),`LENS_META.palette` 由 `FamilyConfigService.K_LENS_PALETTE` 驱动(`/admin/calc-tweaks` ②.5 区块 radio+色卡可配,白名单 A-E 脏值回落 D);`colorMapFor(values, ring)` 环内字典序防撞;信息可见性:扇区常显 名称+占比(`≥28°` 且非隐私加 `fmtShort` 短金额),中心信息盘 `#sunCenter` 默认合计 hover 显 名称/金额/占比(金额 data-priv),隐私切换 MutationObserver 重绘(canvas 金额不受 CSS blur 管辖) |
 | FR6-1(改) | GET `/my-todos` → 302(退休重定向,保老书签) |
 | FR6-2(改) | 跟随 `/my-todos` 重定向落到 `/entry?mine=true`(含「保存我的本月收支 / 应填账户」) |
 | v04-UX-7(改) | `/entry?mine=true`(承接待办)不暴露 `SNAPSHOT_TODO` enum / 类型英文括号 |

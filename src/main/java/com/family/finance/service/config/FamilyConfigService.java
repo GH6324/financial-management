@@ -44,6 +44,8 @@ public class FamilyConfigService {
     // v1.1 · 资产透视集中度阈值(体检 LENS-CON-1/2 · /admin/calc-tweaks 可配)
     public static final String K_LENS_INDUSTRY_CONC = "lens_industry_concentration";
     public static final String K_LENS_PLATFORM_CONC = "lens_platform_concentration";
+    /** v1.1.x · 旭日环级配色方案(A-E · lens.js PALETTE_PLANS 同源)· /admin/calc-tweaks 可配 · 默认 D 莫兰迪 */
+    public static final String K_LENS_PALETTE = "lens_sunburst_palette";
 
     public static final String K_LLM_QWEN_KEY      = "llm_qwen_api_key";
     public static final String K_LLM_DEEPSEEK_KEY  = "llm_deepseek_api_key";

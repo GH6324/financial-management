@@ -53,7 +53,11 @@
           <select id="nextDimSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select>
         </label>
       </div>
-      <div id="sunburst" style="height:340px"></div>
+      <div style="position:relative">
+        <div id="sunburst" style="height:340px"></div>
+        <!-- 中心信息盘:默认合计,hover 扇区显示 名称/金额/占比(内环金额由此补齐,canvas 内放不下) -->
+        <div id="sunCenter" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:26%;text-align:center;pointer-events:none"></div>
+      </div>
       <p class="text-[11px] text-ink-subtle mt-1">点内环块 = 下钻(外环展开下一维度)· 面包屑可回退 · 手机端限 2 环</p>
     </div>
     <div class="paper-card p-5 lg:col-span-2">
@@ -90,7 +94,8 @@
   window.LENS_META = {
     dims: /*[[${dimsJson}]]*/ '[]',
     measures: /*[[${measuresJson}]]*/ '[]',
-    boards: /*[[${boardsJson}]]*/ '[]'
+    boards: /*[[${boardsJson}]]*/ '[]',
+    palette: /*[[${lensPalette}]]*/ 'D'
   };
 </script>
   <script th:src="@{/vendor/echarts.min.js}"></script>
