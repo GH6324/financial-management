@@ -220,11 +220,14 @@
         if (pct * 3.6 >= 28 && !privacyOn()) lines.push(fmtShort(p.value));
         return lines.join('\n');
       };
+      /* PC 收窄外半径给引导线标签腾空间;移动端空间不够,小块信息走图下补注(见 renderLeaders) */
+      var compact = el.clientWidth < 480;
+      var rOuter = compact ? '88%' : '76%', rMid = compact ? '58%' : '52%';
       chart.setOption({
         series: [{
-          type: 'sunburst', radius: ['26%', '92%'], data: data, sort: null,
+          type: 'sunburst', radius: ['24%', rOuter], data: data, sort: null,
           label: { fontSize: 11, minAngle: 14, lineHeight: 15, formatter: sliceLabel },
-          levels: [{}, { r0: '26%', r: '60%' }, { r0: '60%', r: '92%', label: { fontSize: 10, lineHeight: 13 } }],
+          levels: [{}, { r0: '24%', r: rMid }, { r0: rMid, r: rOuter, label: { fontSize: 10, lineHeight: 13 } }],
           emphasis: { focus: 'ancestor' },
           nodeClick: false
         }],
@@ -235,6 +238,7 @@
           }
         }
       }, true);
+      renderLeaders(data, grand, el, compact, parseFloat(rOuter) / 100, parseFloat(rMid) / 100);
       /* 中心信息盘:默认 = 当前范围合计;hover 任一环扇区 = 该块 名称/金额/占比(内环金额难放扇区里,由此补齐) */
       var center = document.getElementById('sunCenter');
       var centerHtml = function (name, val, pct) {
@@ -269,6 +273,68 @@
         syncSelectors(); refresh();
       });
     });
+  }
+
+  /* ---------- 组件 A.5 · 小扇区引导线(Excel 式)----------
+   * ECharts sunburst 原生无 labelLine:角度 < minAngle(14°)的块 label 被隐藏,比例/名称不可见。
+   * PC:graphic 自绘 折线引导 到圆外空白,线端 色点+名称+占比,左右分侧 + 纵向避让(每侧 ≤8 条);
+   * 移动(容器 <480px):外侧空间放不下文字 → 退化为图下「小块补注」清单,信息等价不丢。 */
+  function renderLeaders(data, grand, el, compact, rOuterPct, rMidPct) {
+    var MIN_DEG = 14;
+    var items = [];
+    var cum = 0;
+    data.forEach(function (n) {
+      var span = grand ? n.value * 360 / grand : 0;
+      var pctN = grand ? n.value * 100 / grand : 0;
+      if (span > 0 && span < MIN_DEG && pctN >= 0.1) items.push({ mid: cum + span / 2, name: n.name, pct: pctN, color: n.itemStyle.color, r: (0.24 + rMidPct) / 2 });
+      var ccum = cum;
+      (n.children || []).forEach(function (c) {
+        var cspan = grand ? c.value * 360 / grand : 0;
+        var pctC = grand ? c.value * 100 / grand : 0;
+        if (cspan > 0 && cspan < MIN_DEG && pctC >= 0.1) items.push({ mid: ccum + cspan / 2, name: c.name, pct: pctC, color: c.itemStyle.color, r: (rMidPct + rOuterPct) / 2 });
+        ccum += cspan;
+      });
+      cum += span;
+    });
+    var notes = document.getElementById('sunSmallNotes');
+    if (compact) {   // 移动:图下补注
+      if (notes) {
+        notes.innerHTML = items.length ? '<span class="text-ink-subtle mr-1">小块:</span>' + items.map(function (it) {
+          return '<span class="inline-flex items-center gap-1 mr-3 whitespace-nowrap"><span style="width:7px;height:7px;background:' + it.color + ';display:inline-block"></span>' +
+            esc(it.name) + ' <span class="font-mono">' + it.pct.toFixed(1) + '%</span></span>';
+        }).join('') : '';
+      }
+      chart.setOption({ graphic: { elements: [{ id: 'leaders', type: 'group', $action: 'replace', children: [] }] } });
+      return;
+    }
+    if (notes) notes.innerHTML = '';
+    var W = el.clientWidth, H = el.clientHeight, cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2;
+    var pt = function (rp, deg) {   // deg = 自 12 点顺时针
+      var rad = (90 - deg) * Math.PI / 180;
+      return [cx + rp * R * Math.cos(rad), cy - rp * R * Math.sin(rad)];
+    };
+    var sides = { right: [], left: [] };
+    items.forEach(function (it) { sides[((it.mid % 360) + 360) % 360 < 180 ? 'right' : 'left'].push(it); });
+    var children = [];
+    ['right', 'left'].forEach(function (side) {
+      var arr = sides[side].slice(0, 8);
+      arr.forEach(function (it) { it.iy = pt(rOuterPct, it.mid)[1]; });
+      arr.sort(function (a, b) { return a.iy - b.iy; });
+      var prevY = -1e9;
+      arr.forEach(function (it) {
+        var y = Math.min(Math.max(it.iy, 10, prevY + 14), H - 10);
+        prevY = y;
+        var p0 = pt(it.r, it.mid), p1 = pt(rOuterPct + 0.04, it.mid);
+        var lx = side === 'right' ? cx + R * (rOuterPct + 0.12) : cx - R * (rOuterPct + 0.12);
+        children.push({ type: 'polyline', silent: true, shape: { points: [p0, p1, [side === 'right' ? lx - 4 : lx + 4, y]] },
+          style: { stroke: '#8a8172', fill: 'none', lineWidth: 1, opacity: 0.8 } });
+        children.push({ type: 'rect', silent: true, shape: { x: side === 'right' ? lx : lx - 7, y: y - 3.5, width: 7, height: 7 }, style: { fill: it.color } });
+        children.push({ type: 'text', silent: true, x: side === 'right' ? lx + 11 : lx - 11, y: y,
+          style: { text: it.name + ' ' + it.pct.toFixed(1) + '%', fill: '#6b6353', font: '10px sans-serif',
+                   align: side === 'right' ? 'left' : 'right', verticalAlign: 'middle' } });
+      });
+    });
+    chart.setOption({ graphic: { elements: [{ id: 'leaders', type: 'group', $action: 'replace', children: children }] } });
   }
 
   /* ---------- 组件 B · 切片排行 ---------- */

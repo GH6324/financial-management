@@ -3403,8 +3403,10 @@ LJS="$RD/src/main/resources/static/js/lens.js"
   && grep -q 'lensPalette' "$RD/src/main/resources/templates/admin/calc-tweaks.html" \
   && grep -q 'sunCenter' "$RD/src/main/resources/templates/lens/_section.html" \
   && grep -q 'fmtShort' "$LJS" \
+  && grep -q 'renderLeaders' "$LJS" \
+  && grep -q 'sunSmallNotes' "$RD/src/main/resources/templates/lens/_section.html" \
   && grep -q 'privacyOn()' "$LJS"; } \
-  && log_ok "v11-SUN-RINGCOLOR 旭日五套环级配色(管理页可配默认D · 环内字典序防撞 · 扇区占比/金额label隐私感知 · 中心信息盘hover联动)" \
+  && log_ok "v11-SUN-RINGCOLOR 旭日五套环级配色 + 信息交互(管理页可配默认D · 防撞 · 扇区label隐私感知 · 中心盘hover · 小扇区引导线PC/补注移动)" \
   || log_bad "v11-SUN-RINGCOLOR 旭日配色/信息交互缺件" "see lens.js PALETTE_PLANS/fmtShort/sunCenter · AdminController lens-palette"
 
 # v11-DIM-REV2 · 维值修订三(2026-07-16 TUI 拍板):资产类型平民化命名 + 行业 17→18(+货币现金/拆金融地产/删海外市场)+ V47 迁移
