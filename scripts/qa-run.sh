@@ -3039,7 +3039,7 @@ loc=$($CURL -o /dev/null -w "%{redirect_url}" "$BASE/dashboard")   # 匿名访�
   || log_bad "v09-LAND-5 精修元素缺" "see landing.html"
 
 # v09-LAND-6 · 主页数字带联动(与 release skill 同口径:版本/迁移自动算,单测/黑盒随 README)
-v_ver=$(ls "$RD"/prd/v0.*.md 2>/dev/null | wc -l | tr -d ' ')
+v_ver=$(ls "$RD"/prd/v*.md 2>/dev/null | wc -l | tr -d ' ')
 v_mig=$(ls "$RD"/db/migration/V*.sql 2>/dev/null | wc -l | tr -d ' ')
 v_tst=$(grep -oE '[0-9]+ 单元' "$RD/README.md" | head -1 | grep -oE '[0-9]+')
 v_bbx=$(grep -oE '[0-9]+ 黑盒回归' "$RD/README.md" | head -1 | grep -oE '[0-9]+')
