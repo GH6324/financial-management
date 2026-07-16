@@ -103,13 +103,14 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v1.1.4 · 旭日引导线防交叉 + 移动端下拉体验修复](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.1.4)
+
+补丁:**① 小扇区引导线防交叉** — 水平肘段 + 出口径向分层,线束整齐平行;**② 移动端下拉不再放大页面** — iOS Safari 对 <16px 输入框聚焦自动放大整页,搜索框强制 16px 根治;面板改贴底 bottom sheet + portal 到 body(不被浮动控件遮挡)。无数据库变更。
+
 ### [v1.1.3 · 透视配色可配 + 旭日信息盘 + 维值平民化 + 拼音搜索下拉](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.1.3)
 
 补丁:**① 五套旭日配色**(飞书原味/压墨/错位/莫兰迪默认/国风)管理页 radio+色卡即改即生效;**② 旭日信息可见性** — 扇区常显名称+占比(大扇区加短金额)+ 中心信息盘 hover 联动(隐私模式 canvas 金额不绘制);**③ 维值平民化** — 资产类型说人话(股票股权/债券理财/现金活钱/房产/黄金加密),行业 17→18(+货币现金 · 拆金融地产 · 删海外市场,V47 自动迁移),AI 推荐同步修准;**④ 自研搜索下拉** — 打标页/透视选择器支持中文/全拼/首字母搜索。
 
-### [v1.1.2 · 旭日下钻环级配色重做](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.1.2)
-
-补丁:旭日内外环是两个独立维度 → 改为**每环一套独立配色**(内环深调 / 外环浅调,精修双色板),环内同维值同色升级为**字典序防撞分配**(值≤色数保证互不同色);切片排行条同步外环色系。README 功能截图排版重做(桌面 3 列 / 移动等宽)。无数据库变更。
 
 
 
