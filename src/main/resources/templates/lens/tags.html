@@ -6,6 +6,40 @@
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('accounts', ${me}, ${nav})}"></header>
 
+<style>
+  /* v1.1.1 · UED 修订:PC 固定列宽 + 控件满宽 + AI 预填=控件高亮(不挤位);手机卡片化 */
+  .tags-table{ border-collapse:collapse; width:100%; table-layout:fixed; }
+  .tags-table th{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--ink-subtle); text-align:left; padding:8px 10px 8px 0; }
+  .tags-table td{ padding:7px 10px 7px 0; vertical-align:middle; }
+  .tags-table select,.tags-table input{ width:100%; box-sizing:border-box;
+    border:1px solid var(--rule); background:var(--card); padding:5px 8px; font-size:12px; }
+  .tags-table .acct-row td{ background:var(--card-soft); border-top:2px solid var(--rule);
+    padding-left:8px; padding-right:8px; }
+  .tags-table .hold-row td{ border-top:1px solid var(--rule-soft); }
+  .ai-filled{ border-color:var(--brass) !important; background:var(--brass-soft) !important; }
+  .ai-hint-note{ display:none; }
+  .aiRan .ai-hint-note{ display:inline; }
+  .muted-cell{ font-size:11px; color:var(--ink-subtle); }
+  .ai-btn{ font-family:'JetBrains Mono',monospace; font-size:10px; padding:3px 9px;
+    border:1px solid var(--rule); border-radius:999px; background:var(--card-soft); cursor:pointer; white-space:nowrap; }
+  .ai-btn:hover{ border-color:var(--brass-deep); color:var(--brass-deep); }
+  @media(max-width:820px){
+    .tags-table thead{ display:none; }
+    .tags-table, .tags-table tbody, .tags-table tr, .tags-table td{ display:block; width:100%; }
+    .tags-table tr{ border:1px solid var(--rule); background:var(--card); margin-bottom:10px; padding:10px 12px; }
+    .tags-table .acct-row{ background:var(--card-soft); border-width:2px; margin-top:14px; }
+    .tags-table .hold-row{ margin-left:14px; border-left:3px solid var(--brass-soft); }
+    .tags-table td{ display:flex; align-items:center; justify-content:space-between; gap:10px;
+      border:0 !important; background:transparent !important; padding:4px 0; }
+    .tags-table td[data-label]::before{ content:attr(data-label); flex:0 0 76px;
+      font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-subtle); }
+    .tags-table td select,.tags-table td input{ flex:1; width:auto; min-width:0; }
+    .tags-table td.name-cell{ display:block; font-size:14px; padding-bottom:6px; }
+    .tags-table td:empty{ display:none; }
+  }
+</style>
+
 <main class="max-w-[1120px] mx-auto px-4 lg:px-10 py-8 relative z-10">
 
   <section class="mb-6">
@@ -20,7 +54,7 @@
     <span class="text-sm">已保存打标。<a th:href="@{/dashboard#lens-section}" class="no-underline" style="color:var(--forest)">去透视页看效果 →</a></span>
   </div>
 
-  <form th:action="@{/lens/tags/save}" method="post">
+  <form th:action="@{/lens/tags/save}" method="post" th:classappend="${aiRan} ? ' aiRan' : ''">
     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
     <!-- AI 推荐(全部 / 单行 · 只预填不落库 · 显式保存才生效) -->
@@ -29,96 +63,100 @@
         <b class="text-ink">AI 推荐默认选型</b>:整页或逐行(行尾「AI」钮)推断 平台 / 行业 / 大类,<b>只预填不落库</b>,核对后点「保存全部」。
         用途不由 AI 猜(个人意图,纯手标)。
         <span th:unless="${aiAvailable}" class="text-rust">(AI 暂不可用 · 管理页配置 LLM 后开启,手动打标不受影响)</span>
-        <span th:if="${aiRan}" class="text-brass-deep">已生成推荐,带「AI」角标的为预填项,请核对。注意:点 AI 会刷新页面,未保存的手改会重置。</span>
+        <span th:if="${aiRan}" class="text-brass-deep">AI 已预填 —— <b>金色高亮的控件</b>为推荐值,请核对后保存;点 AI 会刷新页面,未保存的手改会重置。</span>
       </div>
       <button th:if="${aiAvailable}" type="submit" th:formaction="@{/lens/tags/ai}"
               class="btn-ink text-xs px-4 py-1.5">AI 推荐(全部未打标)</button>
     </section>
 
-    <!-- 树状打标:账户行 → 持仓子行 -->
+    <!-- 树状打标:账户行 → 持仓子行(PC 表格 · 手机自动卡片化) -->
     <section class="paper-card p-5 mb-4">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm" style="border-collapse:collapse">
-          <tr class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle text-left">
-            <th class="py-2 pr-3">资产(账户 › 持仓)</th>
-            <th class="py-2 pr-3">大类资产</th>
-            <th class="py-2 pr-3">平台 / 机构</th>
-            <th class="py-2 pr-3">行业</th>
-            <th class="py-2 pr-3">用途</th>
-            <th class="py-2" th:if="${aiAvailable}">AI</th>
+      <div>
+        <table class="tags-table">
+          <colgroup>
+            <col style="width:27%"><col style="width:16%"><col style="width:19%">
+            <col style="width:16%"><col style="width:14%"><col style="width:8%">
+          </colgroup>
+          <thead>
+          <tr>
+            <th>资产(账户 › 持仓)</th>
+            <th>大类资产</th>
+            <th>平台 / 机构</th>
+            <th>行业</th>
+            <th>用途</th>
+            <th th:if="${aiAvailable}">AI</th>
           </tr>
+          </thead>
+          <tbody>
           <th:block th:each="node : ${tree}">
           <!-- 账户行 -->
-          <tr class="border-t-2" style="border-color:var(--rule);background:var(--card-soft)"
-              th:with="a=${node.account},sug=${suggestions.get(node.account.displayName)}">
-            <td class="py-2.5 pr-3">
+          <tr class="acct-row" th:with="a=${node.account},sug=${suggestions.get(node.account.displayName)}">
+            <td class="name-cell">
               <b th:text="${a.displayName}">账户名</b>
               <span class="pill text-[9px] ml-1" th:text="${a.type.label}">现金</span>
             </td>
-            <td class="py-2 pr-3">
-              <span th:if="${sug != null and sug.assetClass != null and a.assetClass == null}" class="pill text-[9px]" style="background:var(--brass-soft);border-color:var(--brass)">AI</span>
-              <select th:name="'acct_class_' + ${a.id}" class="border border-rule bg-card px-1.5 py-1 text-xs">
+            <td data-label="大类">
+              <select th:name="'acct_class_' + ${a.id}"
+                      th:classappend="${a.assetClass == null and sug != null and sug.assetClass != null} ? ' ai-filled' : ''">
                 <option value="" th:text="'默认 · ' + ${defaults.get(a.id)}">默认 · 权益</option>
                 <option th:each="c : ${assetClasses}" th:value="${c.name()}"
                         th:selected="${a.assetClass == c.name() or (a.assetClass == null and sug != null and sug.assetClass == c.name())}"
                         th:text="${c.label}">权益</option>
               </select>
             </td>
-            <td class="py-2 pr-3">
-              <span th:if="${sug != null and sug.platform != null and a.platformTag == null}" class="pill text-[9px]" style="background:var(--brass-soft);border-color:var(--brass)">AI</span>
-              <input th:name="'acct_platform_' + ${a.id}" list="platformList" class="border border-rule bg-card px-1.5 py-1 text-xs" style="width:140px"
+            <td data-label="平台">
+              <input th:name="'acct_platform_' + ${a.id}" list="platformList"
+                     th:classappend="${a.platformTag == null and sug != null and sug.platform != null} ? ' ai-filled' : ''"
                      th:value="${a.platformTag != null ? a.platformTag : (sug != null ? sug.platform : null)}" placeholder="未标">
             </td>
-            <td class="py-2 pr-3">
-              <!-- 持仓账户:行业归子行,账户级不标 -->
-              <span th:if="${node.holdingAccount}" class="text-[11px] text-ink-subtle">由持仓逐个标 ↓</span>
-              <th:block th:unless="${node.holdingAccount}">
-                <span th:if="${sug != null and sug.industry != null and a.industryTag == null}" class="pill text-[9px]" style="background:var(--brass-soft);border-color:var(--brass)">AI</span>
-                <select th:name="'acct_industry_' + ${a.id}" class="border border-rule bg-card px-1.5 py-1 text-xs">
-                  <option value="">未分类</option>
-                  <option th:each="t : ${industryTags}" th:value="${t.name()}"
-                          th:selected="${a.industryTag == t.name() or (a.industryTag == null and sug != null and sug.industry == t.name())}"
-                          th:text="${t.label}">宽基综合</option>
-                </select>
-              </th:block>
+            <td data-label="行业">
+              <span th:if="${node.holdingAccount}" class="muted-cell">由持仓逐个标 ↓</span>
+              <select th:unless="${node.holdingAccount}" th:name="'acct_industry_' + ${a.id}"
+                      th:classappend="${a.industryTag == null and sug != null and sug.industry != null} ? ' ai-filled' : ''">
+                <option value="">未分类</option>
+                <option th:each="t : ${industryTags}" th:value="${t.name()}"
+                        th:selected="${a.industryTag == t.name() or (a.industryTag == null and sug != null and sug.industry == t.name())}"
+                        th:text="${t.label}">宽基综合</option>
+              </select>
             </td>
-            <td class="py-2 pr-3">
-              <select th:name="'acct_purpose_' + ${a.id}" class="border border-rule bg-card px-1.5 py-1 text-xs">
+            <td data-label="用途">
+              <select th:name="'acct_purpose_' + ${a.id}">
                 <option value="">未分类</option>
                 <option th:each="pt : ${purposeTags}" th:value="${pt.name()}"
                         th:selected="${a.purposeTag == pt.name()}" th:text="${pt.label}">应急金</option>
               </select>
             </td>
-            <td class="py-2" th:if="${aiAvailable}">
+            <td th:if="${aiAvailable}" data-label="AI">
               <button type="submit" th:formaction="@{/lens/tags/ai}" name="only" th:value="${a.displayName}"
-                      class="pill text-[10px]" title="只对这一行 AI 推荐">AI</button>
+                      class="ai-btn" title="只对这一行 AI 推荐">AI 推荐</button>
             </td>
           </tr>
           <!-- 持仓子行 -->
-          <tr th:each="h : ${node.holdings}" class="border-t" style="border-color:var(--rule)"
-              th:with="sug=${suggestions.get(h.displayName)}">
-            <td class="py-2 pr-3 pl-6">
-              <span class="text-ink-subtle font-mono text-xs mr-1">└</span>
+          <tr class="hold-row" th:each="h : ${node.holdings}" th:with="sug=${suggestions.get(h.displayName)}">
+            <td class="name-cell">
+              <span class="text-ink-subtle font-mono text-xs mr-1 hidden md:inline">└</span>
               <span th:text="${h.displayName}">宁德时代</span>
               <span class="pill text-[9px] ml-1" th:if="${h.market != null}" th:text="${h.market}">CN</span>
             </td>
-            <td class="py-2 pr-3 text-[11px] text-ink-subtle" colspan="2">随账户</td>
-            <td class="py-2 pr-3">
-              <span th:if="${sug != null and sug.industry != null and h.industryTag == null}" class="pill text-[9px]" style="background:var(--brass-soft);border-color:var(--brass)">AI</span>
-              <select th:name="'hold_industry_' + ${h.id}" class="border border-rule bg-card px-1.5 py-1 text-xs">
+            <td></td>
+            <td class="muted-cell hidden md:table-cell">随账户</td>
+            <td data-label="行业">
+              <select th:name="'hold_industry_' + ${h.id}"
+                      th:classappend="${h.industryTag == null and sug != null and sug.industry != null} ? ' ai-filled' : ''">
                 <option value="">未分类</option>
                 <option th:each="t : ${industryTags}" th:value="${t.name()}"
                         th:selected="${h.industryTag == t.name() or (h.industryTag == null and sug != null and sug.industry == t.name())}"
                         th:text="${t.label}">新能源电力</option>
               </select>
             </td>
-            <td class="py-2 pr-3 text-[11px] text-ink-subtle">随账户</td>
-            <td class="py-2" th:if="${aiAvailable}">
+            <td></td>
+            <td th:if="${aiAvailable}" data-label="AI">
               <button type="submit" th:formaction="@{/lens/tags/ai}" name="only" th:value="${h.displayName}"
-                      class="pill text-[10px]" title="只对这一行 AI 推荐">AI</button>
+                      class="ai-btn" title="只对这一行 AI 推荐">AI 推荐</button>
             </td>
           </tr>
           </th:block>
+          </tbody>
         </table>
       </div>
       <datalist id="platformList">

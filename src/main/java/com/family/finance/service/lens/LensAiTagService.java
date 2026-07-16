@@ -48,10 +48,29 @@ public class LensAiTagService {
         String classes = java.util.Arrays.stream(AssetClass.values())
                 .map(c -> c.name() + "=" + c.getLabel()).collect(Collectors.joining(", "));
         String system = """
-                你是家庭记账软件的资产分类助手。只做分类,不做任何计算。
-                对每个资产名称推断三个标签:platform(平台/机构中文名,如 招商银行/支付宝 · 蚂蚁财富/富途证券,不确定给 null)、
-                industry(必须取枚举 code:%s,不确定给 null)、
-                assetClass(必须取枚举 code:%s,不确定给 null)。
+                你是家庭记账软件的资产分类助手。只做分类,不做任何计算。对每个资产名称推断三个标签:
+
+                1. platform(平台/机构):从名称中提取钱所在的机构中文名(如 招商银行/支付宝 · 蚂蚁财富/富途证券/天天基金)。
+                   名称里认不出机构就给 null,不要猜。
+                2. industry(行业/投向):指这笔钱**底层投向**的行业主题,不是"产品属于什么行业"。
+                   必须取枚举 code(%s)。判定规则:
+                   - 个股 → 该公司所在行业(如 宁德时代→NEW_ENERGY,贵州茅台→CONSUMER,腾讯→TECH_INTERNET,阿里巴巴→ECOMMERCE_RETAIL);
+                   - 行业/主题基金 → 对应行业;宽基指数(沪深300/标普500等)→ BROAD_INDEX;
+                   - 纯债基金/银行固收理财 → FIXED_BOND;
+                   - 货币基金/余额宝/零钱通/活期存款/储蓄卡 → **null**(现金管理没有行业投向,绝不要标 FINANCE_ESTATE);
+                   - FINANCE_ESTATE 仅指投向银行券商保险公司股票或房地产股的持仓(如 招商银行股票/万科),"金融产品"本身不算;
+                   - 判断不了就 null,宁缺勿滥。
+                3. assetClass(大类资产):必须取枚举 code(%s)。
+                   货币基金/余额宝/存款/储蓄卡 → CASH_EQ;银行理财/债基 → FIXED_INCOME;股票/股基/指数基金 → EQUITY;
+                   黄金/加密 → ALTERNATIVE;房产 → REAL_ESTATE;储蓄型保险 → INSURANCE;判断不了 → null。
+
+                示例(严格照此风格输出):
+                {"萝卜-余额宝":{"platform":"支付宝 · 蚂蚁财富","industry":null,"assetClass":"CASH_EQ"},
+                 "招行储蓄卡-工资":{"platform":"招商银行","industry":null,"assetClass":"CASH_EQ"},
+                 "宁德时代":{"platform":null,"industry":"NEW_ENERGY","assetClass":"EQUITY"},
+                 "天天基金-沪深300ETF":{"platform":"天天基金","industry":"BROAD_INDEX","assetClass":"EQUITY"},
+                 "工行-稳健理财R2":{"platform":"工商银行","industry":"FIXED_BOND","assetClass":"FIXED_INCOME"}}
+
                 只输出一个严格 JSON 对象,键=输入名称原文,值={"platform":...,"industry":...,"assetClass":...}。
                 不要输出任何其它文字、注释或 markdown。""".formatted(industries, classes);
         String user;
