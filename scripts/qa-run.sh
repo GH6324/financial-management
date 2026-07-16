@@ -3429,13 +3429,16 @@ ITJ="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
 # v11-LSEL · 自研搜索下拉(打标页 + 透视构建器/选择器 · 中文/全拼/首字母)
 LSJ="$RD/src/main/resources/static/js/lens-select.js"
 { [ -f "$LSJ" ] && grep -q 'data-lsel' "$LSJ" && grep -q 'pyInit' "$LSJ" && grep -q 'MutationObserver' "$LSJ" \
+  && grep -q 'font-size:16px !important' "$LSJ" \
+  && grep -q "max-width:640px" "$LSJ" \
+  && grep -q 'document.body.appendChild(panel)' "$LSJ" \
   && [ "$(grep -c 'data-lsel' "$RD/src/main/resources/templates/lens/tags.html")" -ge 4 ] \
   && [ "$(grep -c 'data-lsel' "$RD/src/main/resources/templates/lens/_section.html")" -ge 8 ] \
   && grep -q 'data-py' "$RD/src/main/resources/templates/lens/tags.html" \
   && grep -q 'getPinyin' "$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java" \
   && grep -q 'lens-select.js' "$RD/src/main/resources/templates/lens/tags.html" \
   && grep -q 'lens-select.js' "$RD/src/main/resources/templates/lens/_section.html"; } \
-  && log_ok "v11-LSEL 自研搜索下拉(渐进增强 · 拼音三路匹配 · 打标页+透视选择器全覆盖 · 动态options自动重建)" \
+  && log_ok "v11-LSEL 自研搜索下拉(拼音三路匹配 · 移动bottom sheet+portal · 16px防iOS聚焦放大 · 动态options自动重建)" \
   || log_bad "v11-LSEL 自研下拉缺件" "see lens-select.js / tags.html / _section.html data-lsel/data-py"
 
 # ===================== v0.12 · 收支填报收入侧升级 =====================

@@ -321,12 +321,16 @@
       arr.forEach(function (it) { it.iy = pt(rOuterPct, it.mid)[1]; });
       arr.sort(function (a, b) { return a.iy - b.iy; });
       var prevY = -1e9;
-      arr.forEach(function (it) {
+      arr.forEach(function (it, i) {
         var y = Math.min(Math.max(it.iy, 10, prevY + 14), H - 10);
         prevY = y;
-        var p0 = pt(it.r, it.mid), p1 = pt(rOuterPct + 0.04, it.mid);
-        var lx = side === 'right' ? cx + R * (rOuterPct + 0.12) : cx - R * (rOuterPct + 0.12);
-        children.push({ type: 'polyline', silent: true, shape: { points: [p0, p1, [side === 'right' ? lx - 4 : lx + 4, y]] },
+        /* 防交叉:① 出口径向分层(束内相邻线错开半径,径向段不重叠)② 斜段只到"肘点"、
+           最后一段水平进标签(标签 y 保序 + 肘点共线 → 斜段互不相交) */
+        var rOut = rOuterPct + 0.03 + (i % 3) * 0.014;
+        var p0 = pt(it.r, it.mid), p1 = pt(rOut, it.mid);
+        var lx = side === 'right' ? cx + R * (rOuterPct + 0.13) : cx - R * (rOuterPct + 0.13);
+        var elbowX = side === 'right' ? lx - 14 : lx + 14;
+        children.push({ type: 'polyline', silent: true, shape: { points: [p0, p1, [elbowX, y], [side === 'right' ? lx - 4 : lx + 4, y]] },
           style: { stroke: '#8a8172', fill: 'none', lineWidth: 1, opacity: 0.8 } });
         children.push({ type: 'rect', silent: true, shape: { x: side === 'right' ? lx : lx - 7, y: y - 3.5, width: 7, height: 7 }, style: { fill: it.color } });
         children.push({ type: 'text', silent: true, x: side === 'right' ? lx + 11 : lx - 11, y: y,

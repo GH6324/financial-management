@@ -51,13 +51,21 @@
       btn.textContent = o ? o.textContent.trim() : '';
       btn.classList.toggle('lsel-empty', !sel.value);
     }
-    function close() { panel.hidden = true; if (OPEN === panel) OPEN = null; }
+    function close() {
+      panel.hidden = true;
+      if (panel.parentNode === document.body) wrap.appendChild(panel);   // portal 归位
+      if (OPEN === panel) OPEN = null;
+    }
     function open() {
-      if (OPEN && OPEN !== panel) OPEN.hidden = true;
+      if (OPEN && OPEN !== panel) { OPEN.hidden = true; if (OPEN.parentNode === document.body) OPEN._lselWrap.appendChild(OPEN); }
       OPEN = panel; panel.hidden = false;
+      /* 移动端 bottom sheet:祖先(卡片/表格)可能创建层叠上下文困住 z-index → portal 到 body,
+         保证盖过隐私/目录浮钮;fixed 定位不受挂载点影响 */
+      if (window.matchMedia && window.matchMedia('(max-width:640px)').matches) document.body.appendChild(panel);
       q.value = ''; render(''); active = -1;
       q.focus();
     }
+    panel._lselWrap = wrap;
     function pick(v) {
       sel.value = v;
       sel.dispatchEvent(new Event('change', { bubbles: true }));
@@ -105,7 +113,7 @@
         if (li) pick(li.getAttribute('data-v'));
       } else if (e.key === 'Escape') { close(); }
     });
-    document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) close(); });
+    document.addEventListener('click', function (e) { if (!wrap.contains(e.target) && !panel.contains(e.target)) close(); });
 
     /* 动态 options(lens.js 重填)/ 外部改值 → 自动重建与同步 */
     new MutationObserver(function () { items = buildItems(sel); syncBtn(); })
@@ -139,7 +147,16 @@
     '.lsel-list li{padding:6px 12px;font-size:13px;cursor:pointer;white-space:nowrap}' +
     '.lsel-list li:hover,.lsel-list li.lsel-act{background:var(--card-soft,#f3ecdb)}' +
     '.lsel-list li.lsel-cur{font-weight:600}' +
-    '.lsel-list li.lsel-none{color:var(--ink-subtle,#8a8172);cursor:default}';
+    '.lsel-list li.lsel-none{color:var(--ink-subtle,#8a8172);cursor:default}' +
+    /* 移动端:面板改贴底 bottom sheet(面板在按钮下方会跑出视口);搜索框 ≥16px —— iOS Safari 对
+       <16px 的 input 聚焦时会自动放大整页(用户主诉"点击后被放大很多"),16px 起不触发 zoom */
+    '@media (max-width:640px){' +
+      '.lsel-panel{position:fixed;left:10px;right:10px;bottom:10px;top:auto;width:auto;min-width:0;max-width:none;' +
+        'max-height:62vh;z-index:10050;box-shadow:0 -8px 28px rgba(33,30,23,.22);border-radius:4px 4px 0 0}' +   /* z 高于隐私/目录浮钮 */
+      '.lsel-q{font-size:16px !important;width:100% !important;flex:none !important;padding:11px 14px}' +   /* !important:打标页 .tags-table td input(优先级更高)会压回 12px 重新触发 iOS zoom / flex:1 挤窄输入框 */
+      '.lsel-list{max-height:46vh;padding:6px 0}' +
+      '.lsel-list li{padding:11px 16px;font-size:15px}' +
+    '}';
   document.head.appendChild(style);
 
   if (document.readyState === 'loading') {
