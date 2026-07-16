@@ -2845,6 +2845,11 @@ NAVF="$RD/src/main/resources/templates/fragments/nav.html"
   && grep -q 'scrollIntoView' "$RD/src/main/resources/static/js/lens.js" \
   && grep -q 'IntersectionObserver' "$RD/src/main/resources/static/js/lens.js" \
   && grep -q 'CACHE_TTL_MS' "$RD/src/main/java/com/family/finance/service/lens/LensQueryService.java" \
+  && grep -q 'TransactionalEventListener' "$RD/src/main/java/com/family/finance/service/lens/LensQueryService.java" \
+  && grep -q 'ApplicationReadyEvent' "$RD/src/main/java/com/family/finance/service/lens/LensQueryService.java" \
+  && grep -q 'LensStaleEvent' "$RD/src/main/java/com/family/finance/service/EntryService.java" \
+  && grep -q 'LensStaleEvent' "$RD/src/main/java/com/family/finance/service/AccountService.java" \
+  && grep -q 'LensStaleEvent' "$RD/src/main/java/com/family/finance/service/stock/AccountValuationService.java" \
   && grep -q 'lensQueryService.evict' "$RD/src/main/java/com/family/finance/web/lens/LensTagController.java" \
   && grep -q 'lensQueryService.evict' "$RD/src/main/java/com/family/finance/web/stock/StockHoldingController.java" \
   && grep -q 'drill' "$RD/src/main/resources/static/js/lens.js" && grep -q 'sunburst' "$RD/src/main/resources/static/js/lens.js" \

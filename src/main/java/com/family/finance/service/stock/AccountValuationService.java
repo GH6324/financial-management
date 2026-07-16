@@ -51,6 +51,7 @@ public class AccountValuationService {
     private final PeriodMapper periodMapper;
     private final MemberMapper memberMapper;
     private final FxService fxService;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher; // v1.1.1 lens 缓存失效事件
     private final FamilyService familyService;
     /** v0.4.1 FR-52f · 估值事件审计 + ledger 显示 */
     private final StockValuationEventMapper valuationEventMapper;
@@ -65,6 +66,7 @@ public class AccountValuationService {
                                    PeriodMapper periodMapper,
                                    MemberMapper memberMapper,
                                    FxService fxService,
+                                   org.springframework.context.ApplicationEventPublisher eventPublisher,
                                    FamilyService familyService,
                                    StockValuationEventMapper valuationEventMapper) {
         this.accountMapper = accountMapper;
@@ -74,6 +76,7 @@ public class AccountValuationService {
         this.periodMapper = periodMapper;
         this.memberMapper = memberMapper;
         this.fxService = fxService;
+        this.eventPublisher = eventPublisher;
         this.familyService = familyService;
         this.valuationEventMapper = valuationEventMapper;
     }
@@ -135,6 +138,7 @@ public class AccountValuationService {
             refreshed++;
         }
         log.info("family={} valuation refresh · trigger={} refreshed={}", familyId, trigger, refreshed);
+        eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
         return refreshed;
     }
 

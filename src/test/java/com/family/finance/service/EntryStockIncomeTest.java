@@ -50,6 +50,7 @@ class EntryStockIncomeTest {
         stockHoldingService = mock(StockHoldingService.class);
         svc = new EntryService(
                 accountMapper, mock(MemberMapper.class), periodMapper, snapshotMapper, snapshotTodoMapper,
+                mock(org.springframework.context.ApplicationEventPublisher.class),
                 cashFlowMapper, mock(TransferMapper.class), mock(AuditLogService.class),
                 mock(FamilyConfigService.class), mock(StockValuationEventMapper.class),
                 categoryMapper, stockHoldingService);

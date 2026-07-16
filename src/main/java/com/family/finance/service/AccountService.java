@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 public class AccountService {
 
     private final AccountMapper accountMapper;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher; // v1.1.1 lens 缓存失效事件
     private final MemberMapper memberMapper;
     private final PeriodMapper periodMapper;
     private final SnapshotMapper snapshotMapper;
@@ -143,6 +144,7 @@ public class AccountService {
             account.setDisplayOrder(nextDisplayOrder(me.getFamilyId()));
         }
         accountMapper.insert(account);
+        eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(me.getFamilyId())); // v1.1.1 透视缓存后台换新
         auditLogService.record(me.getFamilyId(), me.getMemberId(), AuditLogType.ACCOUNT_CREATE,
                 "account", account.getId(), "创建账户 " + account.getDisplayName());
         return account;
@@ -159,6 +161,7 @@ public class AccountService {
             update.setProductCategoryCode(existing.getProductCategoryCode());
         }
         accountMapper.update(update);
+        eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(me.getFamilyId())); // v1.1.1 透视缓存后台换新
         auditLogService.record(me.getFamilyId(), me.getMemberId(), AuditLogType.ACCOUNT_UPDATE,
                 "account", accountId, "更新账户 " + update.getDisplayName());
     }
@@ -166,6 +169,7 @@ public class AccountService {
     @Transactional
     public void archive(MemberPrincipal me, long accountId) {
         accountMapper.archive(me.getFamilyId(), accountId);
+        eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(me.getFamilyId())); // v1.1.1 透视缓存后台换新
         auditLogService.record(me.getFamilyId(), me.getMemberId(), AuditLogType.ACCOUNT_ARCHIVE,
                 "account", accountId, "归档账户");
     }
@@ -173,6 +177,7 @@ public class AccountService {
     @Transactional
     public void restore(MemberPrincipal me, long accountId) {
         accountMapper.restore(me.getFamilyId(), accountId);
+        eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(me.getFamilyId())); // v1.1.1 透视缓存后台换新
         auditLogService.record(me.getFamilyId(), me.getMemberId(), AuditLogType.ACCOUNT_RESTORE,
                 "account", accountId, "恢复账户");
     }

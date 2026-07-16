@@ -45,34 +45,76 @@ public class LensQueryService {
     private final FactViewService factViewService;
     private final AccountValuationService valuationService;
 
-    /** 头寸快照缓存:family → (positions, 组装时刻)。TTL 60s(数据每月才变,零风险);
-     *  打标/持仓行业修改走 {@link #evict} 即时失效;余额/估值变化靠 TTL 收敛(≤60s 延迟,
-     *  填报后立刻看透视的场景极罕见,不为此引入 AccountValuationService→本类 的循环依赖)。
-     *  per-family 锁 + 双检:页面初载 3 个并发查询只组装一遍,其余等锁后命中。 */
-    private static final long CACHE_TTL_MS = 60_000;
+    /** 头寸快照缓存 · v1.1.1 重设计(prod 实测根因:60s TTL 让用户每分钟踩一次同步冷组装):
+     *  ① TTL 12h,仅作兜底 —— 写路径已全覆盖失效({@link LensStaleEvent}:填报/转账/估值刷新/账户增改档/打标);
+     *  ② stale-while-revalidate:过期不阻塞,先返回旧数据,后台单飞异步重组装 —— 用户任何时刻都不等组装;
+     *  ③ 启动预热(ApplicationReady 异步组装)—— 重启后首个用户也不冷;
+     *  ④ per-family 锁 + 双检:并发首载只组装一遍。 */
+    private static final long CACHE_TTL_MS = 12 * 60 * 60 * 1000L;
     private record CacheEntry(List<Position> positions, long at) {}
     private final java.util.concurrent.ConcurrentHashMap<Long, CacheEntry> cache = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentHashMap<Long, Object> locks = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, Boolean> refreshing = new java.util.concurrent.ConcurrentHashMap<>();
+    /** 后台刷新单线程(守护)· 不依赖 @EnableAsync 配置 */
+    private final java.util.concurrent.ExecutorService refresher =
+            java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "lens-refresh");
+                t.setDaemon(true);
+                return t;
+            });
 
     public List<Position> positions(long familyId) {
         CacheEntry e = cache.get(familyId);
-        if (fresh(e)) return e.positions();
+        if (e != null) {
+            if (isStale(e)) triggerRefresh(familyId);   // 过期:先用旧值,后台刷(SWR)
+            return e.positions();
+        }
         synchronized (locks.computeIfAbsent(familyId, k -> new Object())) {
             e = cache.get(familyId);
-            if (fresh(e)) return e.positions();
+            if (e != null) return e.positions();
             List<Position> ps = List.copyOf(assemble(familyId));
             cache.put(familyId, new CacheEntry(ps, System.currentTimeMillis()));
             return ps;
         }
     }
 
-    /** 打标保存 / 持仓行业修改后调用 · 下次查询重组装 */
+    /** 数据变更(填报/转账/估值/账户增改档/打标)→ 不清缓存,后台重组装换新 —— 期间读旧值,不产生阻塞窗口 */
     public void evict(long familyId) {
-        cache.remove(familyId);
+        triggerRefresh(familyId);
     }
 
-    private static boolean fresh(CacheEntry e) {
-        return e != null && System.currentTimeMillis() - e.at() < CACHE_TTL_MS;
+    /** AFTER_COMMIT:发布方多为 @Transactional 写路径,必须等事务提交后再重组装,
+     *  否则后台线程读到未提交旧数据、缓存被换成旧值(beta 实测踩过);
+     *  fallbackExecution=true 兼容无事务上下文的发布方。 */
+    @org.springframework.transaction.event.TransactionalEventListener(
+            phase = org.springframework.transaction.event.TransactionPhase.AFTER_COMMIT,
+            fallbackExecution = true)
+    public void onStale(LensStaleEvent ev) {
+        triggerRefresh(ev.familyId());
+    }
+
+    /** 启动预热 · 单家庭模式 family=1(与 FamilyRules 同假设);失败静默,首个请求走同步组装兜底 */
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void warmUp() {
+        triggerRefresh(1L);
+    }
+
+    private void triggerRefresh(long familyId) {
+        if (refreshing.putIfAbsent(familyId, Boolean.TRUE) != null) return;   // 单飞
+        refresher.submit(() -> {
+            try {
+                List<Position> ps = List.copyOf(assemble(familyId));
+                cache.put(familyId, new CacheEntry(ps, System.currentTimeMillis()));
+            } catch (Exception ignored) {
+                // 组装失败保留旧缓存 · 下次触发再试
+            } finally {
+                refreshing.remove(familyId);
+            }
+        });
+    }
+
+    private static boolean isStale(CacheEntry e) {
+        return System.currentTimeMillis() - e.at() >= CACHE_TTL_MS;
     }
 
     private List<Position> assemble(long familyId) {

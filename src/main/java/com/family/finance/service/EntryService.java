@@ -53,6 +53,7 @@ public class EntryService {
     private final PeriodMapper periodMapper;
     private final SnapshotMapper snapshotMapper;
     private final SnapshotTodoMapper snapshotTodoMapper;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher; // v1.1.1 lens 缓存失效事件
     private final CashFlowMapper cashFlowMapper;
     private final TransferMapper transferMapper;
     private final AuditLogService auditLogService;
@@ -166,6 +167,8 @@ public class EntryService {
 
         auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "period_snapshot", accountId,
                 overwriting ? "覆盖余额快照" : "提交余额快照");
+        eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
+
         EntryRow row = rowFor(familyId, memberId, periodId, accountId);
         if ((account.getType() == AccountType.CASH || account.getType() == AccountType.LOAN)
                 && row.unexplained() != null
@@ -222,6 +225,8 @@ public class EntryService {
         snapshotTodoMapper.markDone(periodId, accountId, memberId);
         auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "period_snapshot", accountId,
                 "接受贷款趋势预测 " + MoneyFormat.format(loan.getCurrency(), predicted));
+        eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
+
         return rowFor(familyId, memberId, periodId, accountId);
     }
 
@@ -245,6 +250,8 @@ public class EntryService {
         snapshotTodoMapper.markDone(periodId, accountId, memberId);
         auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "cash_flow", accountId,
                 "新增现金流 " + kind + " " + money(amount));
+        eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
+
         return rowFor(familyId, memberId, periodId, accountId);
     }
 
@@ -269,6 +276,7 @@ public class EntryService {
         snapshotTodoMapper.markDone(periodId, accountId, memberId);
         auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "cash_flow", accountId,
                 "收入录入 " + cat.getDisplayName() + " " + money(amt) + " → " + account.getDisplayName());
+        eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
         return rowFor(familyId, memberId, periodId, accountId);
     }
 
@@ -486,6 +494,7 @@ public class EntryService {
         snapshotTodoMapper.markDone(periodId, toAccountId, memberId);
         auditLogService.record(familyId, memberId, AuditLogType.TRANSFER_CREATE, "transfer", fromAccountId,
                 "新增转账 " + fromAccountId + " → " + toAccountId + " " + money(amount));
+        eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
         return rowFor(familyId, memberId, periodId, fromAccountId);
     }
 
@@ -553,6 +562,7 @@ public class EntryService {
         Period period = periodId == null
                 ? periodMapper.findCurrentOpen(familyId).orElseThrow(() -> new IllegalStateException("当前没有 OPEN 周期"))
                 : requireOpenPeriod(familyId, periodId);
+        eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
         return addTransfer(familyId, memberId, period.getId(), fromAccountId, toAccountId, amount, toAmount, note, confirmDuplicate);
     }
 
