@@ -60,7 +60,7 @@ public class LensAiTagService {
                    - 货币基金/余额宝/零钱通/活期存款/储蓄卡 → **null**(现金管理没有行业投向,绝不要标 FINANCE_ESTATE);
                    - FINANCE_ESTATE 仅指投向银行券商保险公司股票或房地产股的持仓(如 招商银行股票/万科),"金融产品"本身不算;
                    - 判断不了就 null,宁缺勿滥。
-                3. assetClass(大类资产):必须取枚举 code(%s)。
+                3. assetClass(资产类型):必须取枚举 code(%s)。
                    货币基金/余额宝/存款/储蓄卡 → CASH_EQ;银行理财/债基 → FIXED_INCOME;股票/股基/指数基金 → EQUITY;
                    黄金/加密 → ALTERNATIVE;房产 → REAL_ESTATE;储蓄型保险 → INSURANCE;判断不了 → null。
 

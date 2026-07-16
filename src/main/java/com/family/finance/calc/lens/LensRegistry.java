@@ -26,10 +26,10 @@ public final class LensRegistry {
 
     static {
         dim("risk",       "风险",   false, Position::risk);
-        dim("assetClass", "大类",   false, Position::assetClass);
+        dim("assetClass", "资产类型", false, Position::assetClass);
         dim("industry",   "行业",   true,  Position::industry);
         dim("platform",   "平台",   false, Position::platform);
-        dim("type",       "类型",   false, Position::type);
+        dim("type",       "账户类型", false, Position::type);
         dim("owner",      "主理人", false, Position::owner);
         dim("purpose",    "用途",   false, Position::purpose);
         dim("region",     "地域",   true,  Position::region);

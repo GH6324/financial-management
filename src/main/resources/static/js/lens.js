@@ -11,6 +11,12 @@
   var USER_BOARDS = parse(window.LENS_META.boards);
   var DIM_LABEL = {}; DIMS.forEach(function (d) { DIM_LABEL[d.key] = d.label; });
   var ALL_MEASURES = MEASURES.map(function (m) { return m.key; });
+  /* 同一维值全局同色(评审拍板):值→色用稳定哈希,"高风险"在任何环/任何看板都同色 */
+  function colorFor(v) {
+    var h = 0; v = String(v);
+    for (var i = 0; i < v.length; i++) h = (h * 31 + v.charCodeAt(i)) >>> 0;
+    return PALETTE[h % PALETTE.length];
+  }
   var PALETTE = ['#4F6B47', '#B08642', '#9C4A2A', '#3C4A5A', '#5C3A4B', '#7A9471', '#8C6A33', '#5b7a3a', '#6f7f98', '#A09486', '#3d5636', '#c4a35a'];
 
   /* 预设 5 看板(prd v1.1 FR-6 · 已拍板 D6)—— 只是 query spec,非硬编码页面 */
@@ -147,8 +153,10 @@
         level1[k1].value += Number(c.values[0] || 0);
         level1[k1].children.push({ name: k2, value: Number(c.values[0] || 0) });
       });
-      var data = order.map(function (k, i) {
-        var n = level1[k]; n.itemStyle = { color: PALETTE[i % PALETTE.length] };
+      var data = order.map(function (k) {
+        var n = level1[k];
+        n.itemStyle = { color: colorFor(k) };
+        n.children.forEach(function (c) { c.itemStyle = { color: colorFor(c.name) }; });  // 外环同值同色
         return n;
       });
       var el = document.getElementById('sunburst');
@@ -202,7 +210,7 @@
         html += '<div><div class="flex justify-between text-sm mb-1"><span>' + esc(rk[0]) + '</span>' +
           '<span class="font-mono tnum" data-priv>' + fmtMoney(t[0]) + ' · ' + pct.toFixed(1) + '%</span></div>' +
           '<div style="height:18px;background:var(--card-soft);position:relative;overflow:hidden">' +
-          '<span style="position:absolute;left:0;top:0;height:100%;width:' + Math.min(pct, 100) + '%;background:' + PALETTE[i % PALETTE.length] + '"></span></div></div>';
+          '<span style="position:absolute;left:0;top:0;height:100%;width:' + Math.min(pct, 100) + '%;background:' + colorFor(rk[0]) + '"></span></div></div>';
       });
       if (!r.rowKeys.length) html += '<p class="text-sm text-ink-subtle">当前范围没有头寸。</p>';
       document.getElementById('ranking').innerHTML = html;

@@ -45,7 +45,7 @@
   <section class="mb-6">
     <div class="eyebrow mb-2">多 · 维 · 打 · 标</div>
     <h1 class="font-display text-3xl md:text-4xl font-medium tracking-tight">给资产打标</h1>
-    <p class="text-ink-soft text-sm mt-2">树状结构:<b>账户</b>(大类 / 平台 / 用途)→ 子行 = <b>具体持仓</b>(行业 · 准)。
+    <p class="text-ink-soft text-sm mt-2">树状结构:<b>账户</b>(资产类型 / 平台 / 用途)→ 子行 = <b>具体持仓</b>(行业 · 准)。
       全部可选,不打标 = 「未分类」照常可用;基金 / 理财等无持仓账户在账户行直接给行业粗标(近似,不做成分穿透)。</p>
     <a th:href="@{/dashboard#lens-section}" class="font-mono text-xs no-underline" style="color:var(--brass-deep)">← 回资产透视</a>
   </section>
@@ -60,7 +60,7 @@
     <!-- AI 推荐(全部 / 单行 · 只预填不落库 · 显式保存才生效) -->
     <section class="paper-card p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
       <div class="text-sm text-ink-soft">
-        <b class="text-ink">AI 推荐默认选型</b>:整页或逐行(行尾「AI」钮)推断 平台 / 行业 / 大类,<b>只预填不落库</b>,核对后点「保存全部」。
+        <b class="text-ink">AI 推荐默认选型</b>:整页或逐行(行尾「AI」钮)推断 平台 / 行业 / 资产类型,<b>只预填不落库</b>,核对后点「保存全部」。
         用途不由 AI 猜(个人意图,纯手标)。
         <span th:unless="${aiAvailable}" class="text-rust">(AI 暂不可用 · 管理页配置 LLM 后开启,手动打标不受影响)</span>
         <span th:if="${aiRan}" class="text-brass-deep">AI 已预填 —— <b>金色高亮的控件</b>为推荐值,请核对后保存;点 AI 会刷新页面,未保存的手改会重置。</span>
@@ -80,7 +80,7 @@
           <thead>
           <tr>
             <th>资产(账户 › 持仓)</th>
-            <th>大类资产</th>
+            <th>资产类型</th>
             <th>平台 / 机构</th>
             <th>行业</th>
             <th>用途</th>
@@ -95,7 +95,7 @@
               <b th:text="${a.displayName}">账户名</b>
               <span class="pill text-[9px] ml-1" th:text="${a.type.label}">现金</span>
             </td>
-            <td data-label="大类">
+            <td data-label="资产类型">
               <select th:name="'acct_class_' + ${a.id}"
                       th:classappend="${a.assetClass == null and sug != null and sug.assetClass != null} ? ' ai-filled' : ''">
                 <option value="" th:text="'默认 · ' + ${defaults.get(a.id)}">默认 · 权益</option>

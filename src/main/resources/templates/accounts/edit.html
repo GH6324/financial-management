@@ -102,7 +102,7 @@
 
       <!-- v1.1 · 资产透视维度打标(全选填 · 未打标=未分类) -->
       <div>
-        <label class="field-label">大类资产 <span class="text-ink-subtle font-mono text-[10px]">透视维度 · 可选</span></label>
+        <label class="field-label">资产类型 <span class="text-ink-subtle font-mono text-[10px]">透视维度 · 可选</span></label>
         <select name="assetClass" class="field-input bg-transparent">
           <option value="" th:text="${assetClassDefault != null ? '默认 · ' + assetClassDefault.label + '(按类型派生)' : '默认 · 未分类'}">默认 · 权益(按类型派生)</option>
           <option th:each="c : ${assetClasses}" th:value="${c.name()}"
