@@ -2838,7 +2838,7 @@ NAVF="$RD/src/main/resources/templates/fragments/nav.html"
   && grep -q "label:'资产透视'" "$RD/src/main/resources/templates/dashboard/index.html" \
   && grep -q '#lens-section' "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q '@{/lens/tags}' "$RD/src/main/resources/templates/accounts/index.html" \
-  && grep -q '/lens' "$RD/src/main/resources/templates/reports/_allocation-diff.html" \
+  && grep -q 'dashboard#lens-section' "$RD/src/main/resources/templates/reports/_allocation-diff.html" \
   && grep -q '由持仓逐个标' "$RD/src/main/resources/templates/lens/tags.html" \
   && grep -q 'name="only"' "$RD/src/main/resources/templates/lens/tags.html" \
   && grep -q 'acct_purpose_' "$RD/src/main/resources/templates/lens/tags.html" \
@@ -2855,7 +2855,7 @@ NAVF="$RD/src/main/resources/templates/fragments/nav.html"
   && grep -q 'drill' "$RD/src/main/resources/static/js/lens.js" && grep -q 'sunburst' "$RD/src/main/resources/static/js/lens.js" \
   && grep -q 'lens-pivot' "$RD/src/main/resources/static/js/lens.js" \
   && grep -q '保存全部打标' "$RD/src/main/resources/templates/lens/tags.html" \
-  && grep -q 'AI 推荐打标' "$RD/src/main/resources/templates/lens/tags.html" \
+  && grep -q 'AI 推荐(全部未打标)' "$RD/src/main/resources/templates/lens/tags.html" \
   && grep -q 'fromName' "$RD/src/main/java/com/family/finance/service/lens/LensAiTagService.java" \
   && grep -q 'LENS-CON-1' "$RD/src/main/java/com/family/finance/service/checkup/rule/LensConcentrationRules.java" \
   && grep -q 'LENS-CON-2' "$RD/src/main/java/com/family/finance/service/checkup/rule/LensConcentrationRules.java" \
@@ -3385,6 +3385,20 @@ MTC="$RD/src/main/java/com/family/finance/web/todo/MyTodosController.java"
   && [[ ! -f "$RD/src/main/resources/templates/my-todos.html" ]]; } \
   && log_ok "v11-TODO-RETIRE 待办已折叠进填报(导航无 /my-todos · 填报承接角标 · /my-todos 302→/entry · 模板已删)" \
   || log_bad "v11-TODO-RETIRE 待办退休不完整" "see nav.html / MyTodosController / my-todos.html"
+
+# v11-SUN-RINGCOLOR · 旭日每环一套独立配色(内外环=独立维度,共色系层级不可辨 · 2026-07-16 评审修订):
+#   RING_PALETTES ≥2 套;colorMapFor(values, ring) 环内字典序防撞(哈希起点+线性探测,值≤色数保证互不同色);
+#   内环 ring 0 / 外环 ring 1 / 排行条走外环色系(ring 1),字典序分配保证排行条与旭日外环同值同色。
+LJS="$RD/src/main/resources/static/js/lens.js"
+{ grep -q 'RING_PALETTES' "$LJS" \
+  && grep -q 'function colorMapFor(values, ring)' "$LJS" \
+  && grep -q 'colorMapFor(order, 0)' "$LJS" \
+  && grep -q 'colorMapFor(outerVals, 1)' "$LJS" \
+  && grep -q 'colorMapFor(r.rowKeys.map' "$LJS" \
+  && grep -q 'uniq.sort()' "$LJS" \
+  && [ "$(grep -c "^\s*\['#" "$LJS")" -ge 2 ]; } \
+  && log_ok "v11-SUN-RINGCOLOR 旭日每环独立配色(RING_PALETTES 深/浅两套 · 环内字典序防撞同值同色 · 排行=外环色系)" \
+  || log_bad "v11-SUN-RINGCOLOR 旭日环级配色缺失/退化" "see static/js/lens.js colorMapFor/RING_PALETTES"
 
 # ===================== v0.12 · 收支填报收入侧升级 =====================
 # v12-INCOME-CAT · 类目绑定账户类型 + 股票类收入类目(V34)

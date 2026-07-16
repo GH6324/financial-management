@@ -11,13 +11,34 @@
   var USER_BOARDS = parse(window.LENS_META.boards);
   var DIM_LABEL = {}; DIMS.forEach(function (d) { DIM_LABEL[d.key] = d.label; });
   var ALL_MEASURES = MEASURES.map(function (m) { return m.key; });
-  /* 同一维值全局同色(评审拍板):值→色用稳定哈希,"高风险"在任何环/任何看板都同色 */
-  function colorFor(v) {
-    var h = 0; v = String(v);
-    for (var i = 0; i < v.length; i++) h = (h * 31 + v.charCodeAt(i)) >>> 0;
-    return PALETTE[h % PALETTE.length];
+  /* 每环一套配色(评审修订):内外环是两个独立维度 → 各环用独立色系,一眼分清层级;
+   * 环内仍旧同维值同色(值→色稳定哈希,"高风险"在本环任何父块/任何看板下都同色)。
+   * 内环 · 深调沉稳(主维度定基调);外环 · 浅调温润(次维度作铺陈)。切片排行按外环维度排,用外环色系。 */
+  /* 每套 10 色 · 板内两两色相拉开(此前 12 色板含 #6E4A35/#603E2E 两只近似深棕,夫妻结构内环肉眼不可辨) */
+  var RING_PALETTES = [
+    ['#31506B', '#94402F', '#3D5941', '#8A6425', '#5E3D6B', '#1F6159', '#7C2F4F', '#6B722E', '#2E6B7C', '#4E3A2A'],
+    ['#93AEC4', '#C9897B', '#A3B18A', '#D9A76A', '#B5A4C4', '#7FB3A6', '#C48BA3', '#BFB07A', '#A9A18C', '#D6C9A3']
+  ];
+  /* 环内防撞:对本环出现的全部维值按字典序统一分配 —— 哈希定起点、线性探测避让已用色,
+   * 值≤色数时保证互不同色;字典序使分配与遍历顺序无关(旭日外环与排行条对同一值集必得同色)。 */
+  function colorMapFor(values, ring) {
+    var pal = RING_PALETTES[(ring || 0) % RING_PALETTES.length];
+    var uniq = []; var seen = {};
+    values.forEach(function (v) { v = String(v); if (!seen[v]) { seen[v] = 1; uniq.push(v); } });
+    uniq.sort();
+    var used = {}; var map = {};
+    uniq.forEach(function (v) {
+      var h = 0;
+      for (var i = 0; i < v.length; i++) h = (h * 31 + v.charCodeAt(i)) >>> 0;
+      var idx = h % pal.length;
+      for (var k = 0; k < pal.length; k++) {
+        var c = pal[(idx + k) % pal.length];
+        if (!used[c]) { used[c] = 1; map[v] = c; return; }
+      }
+      map[v] = pal[idx];   // 值多于色数才会复用
+    });
+    return map;
   }
-  var PALETTE = ['#4F6B47', '#B08642', '#9C4A2A', '#3C4A5A', '#5C3A4B', '#7A9471', '#8C6A33', '#5b7a3a', '#6f7f98', '#A09486', '#3d5636', '#c4a35a'];
 
   /* 预设 5 看板(prd v1.1 FR-6 · 已拍板 D6)—— 只是 query spec,非硬编码页面 */
   var PRESETS = [
@@ -153,10 +174,14 @@
         level1[k1].value += Number(c.values[0] || 0);
         level1[k1].children.push({ name: k2, value: Number(c.values[0] || 0) });
       });
+      var outerVals = [];
+      order.forEach(function (k) { level1[k].children.forEach(function (c) { outerVals.push(c.name); }); });
+      var innerColor = colorMapFor(order, 0);      // 内环 · 深调
+      var outerColor = colorMapFor(outerVals, 1);  // 外环 · 浅调独立色系 · 环内同值同色(跨父块)
       var data = order.map(function (k) {
         var n = level1[k];
-        n.itemStyle = { color: colorFor(k) };
-        n.children.forEach(function (c) { c.itemStyle = { color: colorFor(c.name) }; });  // 外环同值同色
+        n.itemStyle = { color: innerColor[k] };
+        n.children.forEach(function (c) { c.itemStyle = { color: outerColor[c.name] }; });
         return n;
       });
       var el = document.getElementById('sunburst');
@@ -203,6 +228,7 @@
     var spec = { rows: [state.sunDims[1]], cols: [], measures: ['value', 'share'], filters: filtersObj() };
     return query(spec).then(function (resp) {
       var r = resp.result;
+      var barColor = colorMapFor(r.rowKeys.map(function (rk) { return rk[0]; }), 1);  // 排行=外环维度 → 外环色系,与旭日外环同色
       var html = '<div class="eyebrow mb-1">当前范围 · 按 ' + esc(DIM_LABEL[state.sunDims[1]]) + '</div>';
       r.rowKeys.forEach(function (rk, i) {
         var t = r.rowTotals[i];
@@ -210,7 +236,7 @@
         html += '<div><div class="flex justify-between text-sm mb-1"><span>' + esc(rk[0]) + '</span>' +
           '<span class="font-mono tnum" data-priv>' + fmtMoney(t[0]) + ' · ' + pct.toFixed(1) + '%</span></div>' +
           '<div style="height:18px;background:var(--card-soft);position:relative;overflow:hidden">' +
-          '<span style="position:absolute;left:0;top:0;height:100%;width:' + Math.min(pct, 100) + '%;background:' + colorFor(rk[0]) + '"></span></div></div>';
+          '<span style="position:absolute;left:0;top:0;height:100%;width:' + Math.min(pct, 100) + '%;background:' + barColor[rk[0]] + '"></span></div></div>';
       });
       if (!r.rowKeys.length) html += '<p class="text-sm text-ink-subtle">当前范围没有头寸。</p>';
       document.getElementById('ranking').innerHTML = html;

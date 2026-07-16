@@ -1690,6 +1690,7 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | Case | 校验 |
 |---|---|
 | v11-TODO-RETIRE | 导航 `nav.html` 不再含 `@{/my-todos}`;「填报」项承接 `state.pendingCount > 0` 的「·N」角标;`MyTodosController` 为 `redirect:/entry?mine=true`;`my-todos.html` 模板已删 |
+| v11-SUN-RINGCOLOR | 旭日每环独立配色(2026-07-16 评审修订):`lens.js` 含 `RING_PALETTES`(深/浅 ≥2 套)、`colorMapFor(values, ring)` 环内字典序防撞(哈希起点+线性探测,值≤色数保证互不同色 · 撞色实例:夫妻结构「王二狗」「共同」曾同深棕);内环 ring 0 / 外环 ring 1 / 排行条 ring 1,字典序分配与遍历序无关 → 排行条与旭日外环同值必同色 |
 | FR6-1(改) | GET `/my-todos` → 302(退休重定向,保老书签) |
 | FR6-2(改) | 跟随 `/my-todos` 重定向落到 `/entry?mine=true`(含「保存我的本月收支 / 应填账户」) |
 | v04-UX-7(改) | `/entry?mine=true`(承接待办)不暴露 `SNAPSHOT_TODO` enum / 类型英文括号 |
@@ -1828,7 +1829,7 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | v11-REVIEW(评审修订) | 透视主体**内嵌仪表盘**(lens/_section fragment · region 外 · TOC「资产透视」条目;/lens=直链别名;配置卡锚点↓);打标页**树状**(账户›└持仓 · 持仓账户行业归子行);行业 12→17;新增**用途**维度(V46 · 纯手标)+ 第 6 预设看板「资金用途」;**单行 AI**(formaction+only 参数);「+自定义」上移+scrollIntoView 修复。beta e2e:6 看板 chips/用途透视出「长期增值/应急金」/树状└/21 个单行 AI 钮/构建器在视口内,零 JS 错误 |
 | v11-PERF(性能 · v1.1.1 重设计) | 头寸快照缓存:**TTL 12h 仅兜底** + **SWR 过期不阻塞**(旧值直返·后台单飞换新)+ **启动预热**(ApplicationReady)+ **写路径事件全覆盖**(LensStaleEvent:填报/收支/转账/估值刷新/账户增改档,`@TransactionalEventListener(AFTER_COMMIT)` 防读未提交旧数据)→ 用户任何时刻不等组装。prod 慢根因 = v1.1.0 的 60s TTL 每分钟踩一次同步冷组装(prod 数据/机器均排除:21账户/2核/负载0.03)。beta 实测:重启首查 84ms · 90s 连打全 8–20ms 无慢点 · 填报→2s 内 lens 精确 +12345(注意:测试须用**活跃**账户,归档账户不进 factview——曾两轮误判)。v1.1.0 期(60s TTL · per-family 锁双检 · 并发初载只组装一遍)+ 打标保存/持仓行业改 **evict 即时失效**(余额/估值靠 TTL 收敛,注释说明取舍)+ 透视区 **IntersectionObserver 懒加载**(首屏 0 查询 · 锚点直达/无 IO 降级均覆盖)。beta 实测:/lens/query 命中 200–400ms→**10–60ms**;切看板 ~0.9s→**~0.2s**;首屏 lens 查询 3→**0**;evict 改行业立现。初载"5 次查询"复测 3 次均为 3 次 = 测量误差,无冗余 |
 | v11-UED(体验修订) | /lens/tags UED 重做:PC `table-layout:fixed`+colgroup 固定列宽+控件满宽;**AI 预填 = 控件金色高亮**(替代挤位的 pill 角标);手机 ≤820px **表格卡片化**(td 变行+data-label · 子行铜边缩进)。AI prompt 重写:**底层投向**语义 + 判定规则(货基/余额宝/储蓄 → 行业 null 绝不 FINANCE_ESTATE)+ few-shot 5 例 + 宁缺勿滥;beta 实测「支付宝-余额宝」→ CASH_EQ/支付宝·蚂蚁财富/行业未分类(修复前误标金融地产)。打标入口:透视区头部 + 账户页 + **管理页 tile**。双端截图 UED 复核(承 feedback_ui_ued_review) |
-| v11-DIM-FINAL(维度拍板) | 「大类资产」→**「资产类型」**(「类型」→「账户类型」防混淆,注册表 label 一处改全组件生效);平台维度保留(A);行业清单=「投向」语义混合清单(A);旭日/排行**同值同色**(colorFor 稳定哈希:值→PALETTE,"高风险"任何环/看板同色)。beta 截图验证:夫妻结构看板外环风险三档跨主理人扇区同色、排行条一致 |
+| v11-DIM-FINAL(维度拍板) | 「大类资产」→**「资产类型」**(「类型」→「账户类型」防混淆,注册表 label 一处改全组件生效);平台维度保留(A);行业清单=「投向」语义混合清单(A);旭日**每环一套独立配色**(RING_PALETTES 内环深调/外环浅调 · 修订自"全局同色":内外环是独立维度,共色系层级不可辨),**环内**同维值同色(colorFor(v, ring) 稳定哈希),排行按外环维度用外环色系。beta 截图验证:双环色系一眼可辨、外环同值跨父块同色、排行条与外环一致 |
 | (e2e) 主线 透视 | 登录 → 仪表盘「深入透视」→ 风险总览出旭日/排行/透视表 → 切「行业集中」看板 → 点透视格 → 明细抽屉(头寸→账户详情)→ /lens/tags 打标 → 手机视口复跑 |
 
 > 决策(承 prd/tech-design v1.1 · D1–D6 全拍板):**要 OLAP 的交互(切片/下钻/换维),不上 OLAP 引擎**(<200 头寸内存 group-by);**近似打标不做基金成分穿透**(个股准·基金粗标·UI 明示);头寸事实=查询时实时组装(不物化);维度/度量注册表一处登记;/lens 页前端例外走原生 JS(拖拽/联动状态机,项目其余仍 HTMX);AI 只做分类不做数学、白名单+显式接受;5 预设看板=spec 常量。
