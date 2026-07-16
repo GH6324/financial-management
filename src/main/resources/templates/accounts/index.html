@@ -16,7 +16,10 @@
         <a th:href="@{/entry}" class="brass-link">填报页</a>。
       </p>
     </div>
-    <a th:href="@{/lens/tags}" class="btn-paper no-underline mr-2">资产打标</a><a th:href="@{/accounts/new}" class="btn-ink no-underline">+ 添加账户(开向导)</a>
+    <div class="flex items-center gap-3">
+      <a th:href="@{/lens/tags}" class="btn-paper no-underline whitespace-nowrap">资产打标</a>
+      <a th:href="@{/accounts/new}" class="btn-ink no-underline whitespace-nowrap">+ 添加账户(开向导)</a>
+    </div>
   </section>
 
   <section class="grid grid-cols-2 md:grid-cols-6 gap-px bg-rule mb-8">
