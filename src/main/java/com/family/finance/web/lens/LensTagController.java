@@ -40,6 +40,7 @@ public class LensTagController {
     private final StockHoldingService holdingService;
     private final LensAiTagService aiTagService;
     private final NavService navService;
+    private final com.family.finance.service.lens.LensQueryService lensQueryService; // 打标保存后失效头寸缓存
 
     /** 树节点:账户 + 持仓子行(holdingAccount=true 时账户级行业不标,归子行) */
     public record TreeNode(Account account, boolean holdingAccount, List<StockHolding> holdings) {}
@@ -111,6 +112,7 @@ public class LensTagController {
                 }
             }
         }
+        lensQueryService.evict(me.getFamilyId());   // 打标即时生效(透视缓存失效)
         return "redirect:/lens/tags?saved=1";
     }
 

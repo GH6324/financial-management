@@ -61,6 +61,7 @@ public class StockHoldingController {
     private final AccountMapper accountMapper;
     private final NavService navService;
     private final FamilyConfigService configService;
+    private final com.family.finance.service.lens.LensQueryService lensQueryService; // v1.1 行业标改后失效透视缓存
 
     @GetMapping("/accounts/{accountId}/holdings")
     public String list(@AuthenticationPrincipal MemberPrincipal me,
@@ -205,6 +206,7 @@ public class StockHoldingController {
         holdingService.updateIndustry(me.getFamilyId(), hid,
                 com.family.finance.domain.lens.IndustryTag.fromName(industryTag) == null
                         ? null : industryTag.trim().toUpperCase());
+        lensQueryService.evict(me.getFamilyId());   // 行业标即时生效(透视缓存失效)
         return "redirect:/accounts/" + accountId + "/holdings";
     }
 

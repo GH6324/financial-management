@@ -45,7 +45,37 @@ public class LensQueryService {
     private final FactViewService factViewService;
     private final AccountValuationService valuationService;
 
+    /** 头寸快照缓存:family → (positions, 组装时刻)。TTL 60s(数据每月才变,零风险);
+     *  打标/持仓行业修改走 {@link #evict} 即时失效;余额/估值变化靠 TTL 收敛(≤60s 延迟,
+     *  填报后立刻看透视的场景极罕见,不为此引入 AccountValuationService→本类 的循环依赖)。
+     *  per-family 锁 + 双检:页面初载 3 个并发查询只组装一遍,其余等锁后命中。 */
+    private static final long CACHE_TTL_MS = 60_000;
+    private record CacheEntry(List<Position> positions, long at) {}
+    private final java.util.concurrent.ConcurrentHashMap<Long, CacheEntry> cache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, Object> locks = new java.util.concurrent.ConcurrentHashMap<>();
+
     public List<Position> positions(long familyId) {
+        CacheEntry e = cache.get(familyId);
+        if (fresh(e)) return e.positions();
+        synchronized (locks.computeIfAbsent(familyId, k -> new Object())) {
+            e = cache.get(familyId);
+            if (fresh(e)) return e.positions();
+            List<Position> ps = List.copyOf(assemble(familyId));
+            cache.put(familyId, new CacheEntry(ps, System.currentTimeMillis()));
+            return ps;
+        }
+    }
+
+    /** 打标保存 / 持仓行业修改后调用 · 下次查询重组装 */
+    public void evict(long familyId) {
+        cache.remove(familyId);
+    }
+
+    private static boolean fresh(CacheEntry e) {
+        return e != null && System.currentTimeMillis() - e.at() < CACHE_TTL_MS;
+    }
+
+    private List<Position> assemble(long familyId) {
         Map<Long, String> memberName = memberMapper.findActiveByFamily(familyId).stream()
                 .collect(Collectors.toMap(Member::getId, Member::getDisplayName));
         Map<Long, AccountPerformance> perf = factViewService

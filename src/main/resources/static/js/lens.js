@@ -347,7 +347,17 @@
     '.pill-ink-active{background:var(--ink);color:var(--paper);border-color:var(--ink)}';
   document.head.appendChild(style);
 
-  /* 启动 */
-  renderBoards();
-  applyBoard(PRESETS[0], 'risk');
+  /* 启动 · 懒加载(性能 B):透视区在仪表盘底部,滚到附近才初始化(ECharts + 3 查询),
+     首屏不被透视拖累;锚点直达 #lens-section 会立刻进入视口 → IO 立即触发,天然覆盖;
+     无 IntersectionObserver 的老浏览器降级为立即启动。 */
+  function boot() { renderBoards(); applyBoard(PRESETS[0], 'risk'); }
+  var lensSec = document.getElementById('lens-section');
+  if (lensSec && 'IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      if (entries.some(function (e) { return e.isIntersecting; })) { io.disconnect(); boot(); }
+    }, { rootMargin: '400px' });
+    io.observe(lensSec);
+  } else {
+    boot();
+  }
 })();

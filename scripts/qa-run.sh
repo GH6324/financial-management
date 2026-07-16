@@ -2843,6 +2843,10 @@ NAVF="$RD/src/main/resources/templates/fragments/nav.html"
   && grep -q 'name="only"' "$RD/src/main/resources/templates/lens/tags.html" \
   && grep -q 'acct_purpose_' "$RD/src/main/resources/templates/lens/tags.html" \
   && grep -q 'scrollIntoView' "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q 'IntersectionObserver' "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q 'CACHE_TTL_MS' "$RD/src/main/java/com/family/finance/service/lens/LensQueryService.java" \
+  && grep -q 'lensQueryService.evict' "$RD/src/main/java/com/family/finance/web/lens/LensTagController.java" \
+  && grep -q 'lensQueryService.evict' "$RD/src/main/java/com/family/finance/web/stock/StockHoldingController.java" \
   && grep -q 'drill' "$RD/src/main/resources/static/js/lens.js" && grep -q 'sunburst' "$RD/src/main/resources/static/js/lens.js" \
   && grep -q 'lens-pivot' "$RD/src/main/resources/static/js/lens.js" \
   && grep -q '保存全部打标' "$RD/src/main/resources/templates/lens/tags.html" \
@@ -2851,7 +2855,7 @@ NAVF="$RD/src/main/resources/templates/fragments/nav.html"
   && grep -q 'LENS-CON-1' "$RD/src/main/java/com/family/finance/service/checkup/rule/LensConcentrationRules.java" \
   && grep -q 'LENS-CON-2' "$RD/src/main/java/com/family/finance/service/checkup/rule/LensConcentrationRules.java" \
   && grep -q 'lensIndustryConc' "$RD/src/main/resources/templates/admin/calc-tweaks.html"; } \
-  && log_ok "v11-LENS-2 透视内嵌仪表盘(fragment+TOC条目·region外不随币种刷)+ 打标树状(账户›持仓·单行AI·用途列)+ 构建器展开滚动 + lens.js + AI 白名单 + LENS-CON-1/2(阈值可配)" \
+  && log_ok "v11-LENS-2 透视内嵌仪表盘 + 懒加载(IO·首屏0查询)+ 头寸缓存(60sTTL+打标/行业evict)+ 打标树状(账户›持仓·单行AI·用途列)+ 构建器展开滚动 + lens.js + AI 白名单 + LENS-CON-1/2(阈值可配)" \
   || log_bad "v11-LENS-2 透视前端/打标/集中度缺件" "see nav.html/lens.js/lens tags.html/LensAiTagService/LensConcentrationRules/calc-tweaks.html"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
