@@ -74,23 +74,29 @@
     <td width="50%"><img src="docs/screenshots/pc_account.jpg" alt="账户簿"><br><sub><b>账户簿</b> · 6 类账户 · 按成员归集 · 划转 / 体检 / 账本 / 一键导出</sub></td>
     <td width="50%"><img src="docs/screenshots/pc_setting.jpg" alt="可运营管理页"><br><sub><b>可运营管理页</b> · 品牌 / 成员 / 周期 / 提醒 / 汇率 / 数据源 / 阈值 共 14 项 · 改即热生效不重启</sub></td>
   </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/pc_lens.jpg" alt="资产透视"><br><sub><b>资产透视</b> · 旭日多层下钻 + Excel 式交叉透视(热力 + 小计)+ 钻到持仓明细 · 6 块预设看板 + 自定义 · 同一维值全局同色</sub></td>
+    <td width="50%"><img src="docs/screenshots/pc_lens_tags.jpg" alt="多维打标"><br><sub><b>多维打标</b> · 账户 › 持仓树状 · 资产类型 / 平台 / 行业 / 用途 · AI 推荐(按底层投向 · 显式接受才落库)</sub></td>
+  </tr>
 </table>
 
 ### 移动端 · 响应式 + iOS PWA
 
 <table>
   <tr>
-    <td width="20%"><img src="docs/screenshots/mobilez_dashboard.jpg" alt="移动端仪表盘"></td>
-    <td width="20%"><img src="docs/screenshots/mobile_account.jpg" alt="移动端填报"></td>
-    <td width="20%"><img src="docs/screenshots/mobile_analysis.jpg" alt="移动端资产体检"></td>
-    <td width="20%"><img src="docs/screenshots/mobile_ai_analysis.jpg" alt="移动端 AI 调仓"></td>
-    <td width="20%"><img src="docs/screenshots/mobile_ios_deck.jpg" alt="iOS 主屏 PWA"></td>
+    <td width="17%"><img src="docs/screenshots/mobilez_dashboard.jpg" alt="移动端仪表盘"></td>
+    <td width="17%"><img src="docs/screenshots/mobile_account.jpg" alt="移动端填报"></td>
+    <td width="17%"><img src="docs/screenshots/mobile_analysis.jpg" alt="移动端资产体检"></td>
+    <td width="17%"><img src="docs/screenshots/mobile_ai_analysis.jpg" alt="移动端 AI 调仓"></td>
+    <td width="17%"><img src="docs/screenshots/mobile_lens.jpg" alt="移动端资产透视"></td>
+    <td width="17%"><img src="docs/screenshots/mobile_ios_deck.jpg" alt="iOS 主屏 PWA"></td>
   </tr>
   <tr>
     <td align="center"><sub>仪表盘 · 洞察速览</sub></td>
     <td align="center"><sub>每月填报</sub></td>
     <td align="center"><sub>资产体检</sub></td>
     <td align="center"><sub>AI 调仓建议</sub></td>
+    <td align="center"><sub>资产透视下钻</sub></td>
     <td align="center"><sub>装为 App</sub></td>
   </tr>
 </table>
