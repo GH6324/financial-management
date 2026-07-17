@@ -30,6 +30,7 @@ public class LensAiTagService {
 
     private final List<LlmClient> clients;
     private final ObjectMapper objectMapper;
+    private final com.family.finance.service.config.FamilyConfigService configService;   // 管理页主选 vendor(ds/qwen)
 
     public boolean available() {
         return clients.stream().anyMatch(LlmClient::available);
@@ -41,7 +42,7 @@ public class LensAiTagService {
     /**
      * 名称 → 建议标签。任一 client 成功即返回;全失败返回空 map(页面提示稍后再试)。
      */
-    public Map<String, Tags> suggest(List<String> names) {
+    public Map<String, Tags> suggest(long familyId, List<String> names) {
         if (names == null || names.isEmpty()) return Map.of();
         String industries = java.util.Arrays.stream(IndustryTag.values())
                 .map(t -> t.name() + "=" + t.getLabel()).collect(Collectors.joining(", "));
@@ -82,7 +83,9 @@ public class LensAiTagService {
         } catch (Exception e) {
             return Map.of();
         }
-        for (LlmClient client : clients) {
+        String primary = configService.getString(familyId,
+                com.family.finance.service.config.FamilyConfigService.K_LLM_PRIMARY_VENDOR, "qwen");
+        for (LlmClient client : com.family.finance.service.checkup.llm.LlmDiagnoseService.orderByPrimaryVendor(clients, primary)) {
             if (!client.available()) continue;
             try {
                 String raw = client.chat(system, user);

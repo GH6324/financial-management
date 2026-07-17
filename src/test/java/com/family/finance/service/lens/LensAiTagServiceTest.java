@@ -6,13 +6,23 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /** v1.1 · AI 推荐打标 · 白名单校验(枚举外丢弃 · platform 截 40 · 无 client 降级) */
 class LensAiTagServiceTest {
 
+    private static com.family.finance.service.config.FamilyConfigService mockConfig() {
+        var cs = mock(com.family.finance.service.config.FamilyConfigService.class);
+        when(cs.getString(anyLong(), anyString(), anyString())).thenReturn("qwen");
+        return cs;
+    }
+
     @Test
     void aiWhitelist_dropsNonEnumValues_andTruncatesPlatform() {
-        LensAiTagService svc = new LensAiTagService(List.of(), new ObjectMapper());
+        LensAiTagService svc = new LensAiTagService(List.of(), new ObjectMapper(), mockConfig());
         String raw = """
                 前置废话 {"宁德时代":{"platform":"富途证券","industry":"NEW_ENERGY","assetClass":"EQUITY"},
                  "神秘资产":{"platform":"%s","industry":"半导体","assetClass":"BOND"}} 后置废话
@@ -28,8 +38,8 @@ class LensAiTagServiceTest {
 
     @Test
     void aiUnavailable_whenNoClients() {
-        LensAiTagService svc = new LensAiTagService(List.of(), new ObjectMapper());
+        LensAiTagService svc = new LensAiTagService(List.of(), new ObjectMapper(), mockConfig());
         assertThat(svc.available()).isFalse();                    // 入口降级隐藏
-        assertThat(svc.suggest(List.of("x"))).isEmpty();
+        assertThat(svc.suggest(1L, List.of("x"))).isEmpty();
     }
 }

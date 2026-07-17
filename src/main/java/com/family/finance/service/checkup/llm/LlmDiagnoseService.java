@@ -65,7 +65,7 @@ public class LlmDiagnoseService {
      * v0.14 · 把「主选供应商」排到最前(稳定排序 · 其余保持原顺序)· 主选故障后按序切备。
      * 抽成静态方法便于单测(LlmVendorOrderingTest)。
      */
-    static java.util.List<LlmClient> orderByPrimaryVendor(java.util.List<LlmClient> clients, String primaryVendor) {
+    public static java.util.List<LlmClient> orderByPrimaryVendor(java.util.List<LlmClient> clients, String primaryVendor) {
         String v = primaryVendor == null ? "qwen" : primaryVendor;
         return clients.stream()
                 .sorted((a, b) -> Boolean.compare(

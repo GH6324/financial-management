@@ -60,25 +60,27 @@
   /* 预设看板 · 全维度覆盖(2026-07-17 评审:10 维每维一块;「夫妻结构」→「成员结构」,家庭不一定只两人)
      只是 query spec,非硬编码页面;chips 行 overflow-x 横滑 */
   var PRESETS = [
-    { key: 'risk',      name: '风险总览',  sun: ['risk', 'assetClass'],     rows: ['risk'],       cols: ['assetClass'], filters: {} },
+    /* 排序 = 家庭用户关心度(2026-07-17 评审 #3):先看钱是什么(资产类型)→ 风险高不高 → 谁在管
+       → 篮子安不安全 → 是否押注单一行业 → 每笔钱为谁服务 → 变现能力 → 汇率/地域敞口 → 记账口径 */
     { key: 'assetcls',  name: '资产类型',  sun: ['assetClass', 'risk'],     rows: ['assetClass'], cols: ['owner'],      filters: {} },
-    { key: 'industry',  name: '行业集中',  sun: ['industry', 'platform'],   rows: ['industry'],   cols: ['platform'],   filters: { assetClass: ['股票股权'] } },
-    { key: 'platform',  name: '平台安全',  sun: ['platform', 'assetClass'], rows: ['platform'],   cols: ['assetClass'], filters: {} },
+    { key: 'risk',      name: '风险总览',  sun: ['risk', 'assetClass'],     rows: ['risk'],       cols: ['assetClass'], filters: {} },
     { key: 'member',    name: '成员结构',  sun: ['owner', 'risk'],          rows: ['owner'],      cols: ['assetClass'], filters: {} },
+    { key: 'platform',  name: '平台安全',  sun: ['platform', 'assetClass'], rows: ['platform'],   cols: ['assetClass'], filters: {} },
+    { key: 'industry',  name: '行业集中',  sun: ['industry', 'platform'],   rows: ['industry'],   cols: ['platform'],   filters: { assetClass: ['股票股权'] } },
     { key: 'purpose',   name: '资金用途',  sun: ['purpose', 'owner'],       rows: ['purpose'],    cols: ['assetClass'], filters: {} },
+    { key: 'liquidity', name: '流动性',    sun: ['liquidity', 'assetClass'], rows: ['liquidity'], cols: ['owner'],      filters: {} },
     { key: 'ccy',       name: '币种敞口',  sun: ['currency', 'region'],     rows: ['currency'],   cols: ['assetClass'], filters: {} },
     { key: 'region',    name: '市场地域',  sun: ['region', 'industry'],     rows: ['region'],     cols: ['industry'],   filters: {} },
-    { key: 'liquidity', name: '流动性',    sun: ['liquidity', 'assetClass'], rows: ['liquidity'], cols: ['owner'],      filters: {} },
     { key: 'acctype',   name: '账户类型',  sun: ['type', 'owner'],          rows: ['type'],       cols: ['owner'],      filters: {} }
   ];
 
   var state = {
-    boardKey: 'risk',
-    sunDims: ['risk', 'assetClass'],
+    boardKey: 'assetcls',
+    sunDims: ['assetClass', 'risk'],
     dimStack: [],            // 下钻前的 sunDims 快照,回退恢复
     drill: [],               // [{dim, value}] 筛选栈(含看板预置筛选,均可移除)
-    pivotRows: ['risk'], pivotCols: ['assetClass'],
-    measure: 'value',
+    pivotRows: ['assetClass'], pivotCols: ['owner'],
+    measures: ['value', 'share'],   // 指标多选(2026-07-17 #2)· 默认 金额+占比 · 至少 1 个
     lastPivot: null
   };
   var chart = null;
@@ -386,7 +388,8 @@
     return query(spec).then(function (resp) {
       state.lastPivot = resp;
       var r = resp.result;
-      var mi = ALL_MEASURES.indexOf(state.measure);
+      var mis = state.measures.map(function (k) { return ALL_MEASURES.indexOf(k); });   // 选中指标索引(≥1)
+      var mi = mis[0];                                                                   // 热力/排序基准 = 第一个指标
       var maxAbs = 0;
       r.cells.forEach(function (c) { var v = c.values[mi]; if (v !== null) maxAbs = Math.max(maxAbs, Math.abs(Number(v))); });
       var heat = function (v) {
@@ -415,7 +418,14 @@
       var colKeys = cIdx.map(function (i) { return r.colKeys[i]; });
       var rowTotals = rIdx.map(function (i) { return r.rowTotals[i]; });
       var colTotals = cIdx.map(function (i) { return r.colTotals[i]; });
-      var moneyLike = state.measure !== 'share' && state.measure !== 'cumReturn';
+      var moneyLike = state.measures.some(function (k) { return k !== 'share' && k !== 'cumReturn'; });   // 含金额类指标才需要隐私模糊
+      /* 多指标单元格:每个选中指标一行(第一行=热力基准) */
+      var cellHtml = function (values) {
+        return mis.map(function (m, j) {
+          var key = state.measures[j];
+          return '<div' + (j > 0 ? ' class="text-[11px] text-ink-subtle"' : '') + '>' + fmtVal(key, values[m]) + '</div>';
+        }).join('');
+      };
       var showTotalCol = cols.length > 0;
       var rowDims = rows.length || 1, colDims = cols.length;
       /* Excel 式多级表头:列 2 维时两行列头(第一级 colspan 合并);行 2 维时两列行头(第一级 rowspan 合并) */
@@ -464,16 +474,16 @@
           var idx = cellMap[rk.join('|') + '×' + ck.join('|')];
           if (idx === undefined) { html += '<td class="tnum">—</td>'; return; }
           var v = r.cells[idx].values[mi];
-          html += '<td class="tnum lens-cell" data-cell="' + idx + '" style="' + heat(v) + ';cursor:pointer"' + (moneyLike ? ' data-priv' : '') + '>' + fmtVal(state.measure, v) + '</td>';
+          html += '<td class="tnum lens-cell" data-cell="' + idx + '" style="' + heat(v) + ';cursor:pointer"' + (moneyLike ? ' data-priv' : '') + '>' + cellHtml(r.cells[idx].values) + '</td>';
         });
-        if (showTotalCol) html += '<td class="tnum"' + (moneyLike ? ' data-priv' : '') + '><b>' + fmtVal(state.measure, rowTotals[ri][mi]) + '</b></td>';
+        if (showTotalCol) html += '<td class="tnum"' + (moneyLike ? ' data-priv' : '') + '><b>' + cellHtml(rowTotals[ri]) + '</b></td>';
         html += '</tr>';
       });
       html += '<tr><td class="sticky-col rowhead" colspan="' + rowDims + '"><b>合计</b></td>';
-      colKeys.forEach(function (ck, ci) { html += '<td class="tnum"' + (moneyLike ? ' data-priv' : '') + '><b>' + fmtVal(state.measure, colTotals[ci][mi]) + '</b></td>'; });
-      if (showTotalCol) html += '<td class="tnum"' + (moneyLike ? ' data-priv' : '') + '><b>' + fmtVal(state.measure, r.grand[mi]) + '</b></td>';
+      colKeys.forEach(function (ck, ci) { html += '<td class="tnum"' + (moneyLike ? ' data-priv' : '') + '><b>' + cellHtml(colTotals[ci]) + '</b></td>'; });
+      if (showTotalCol) html += '<td class="tnum"' + (moneyLike ? ' data-priv' : '') + '><b>' + cellHtml(r.grand) + '</b></td>';
       html += '</tr></table>';
-      if (r.holdingLevelSplit && (state.measure === 'latestPnl' || state.measure === 'cumReturn')) {
+      if (r.holdingLevelSplit && (state.measures.indexOf('latestPnl') >= 0 || state.measures.indexOf('cumReturn') >= 0)) {
         html += '<p class="text-[11px] mt-2" style="color:var(--rust)">行业 / 地域维度会拆开持仓账户 —— 本期收益额 / 累计收益率无法精确归因,显示「—」;累计收益额按持有口径(市值−成本)。</p>';
       }
       document.getElementById('pivot').innerHTML = html;
@@ -518,9 +528,26 @@
     fillDimSelect(document.getElementById('pivotRow2Sel'), true, state.pivotRows[1] || '');
     fillDimSelect(document.getElementById('pivotColSel'), true, state.pivotCols[0] || '');
     fillDimSelect(document.getElementById('pivotCol2Sel'), true, state.pivotCols[1] || '');
-    var ms = document.getElementById('measureSel');
-    ms.innerHTML = MEASURES.map(function (m) { return '<option value="' + m.key + '" data-py="' + esc(m.key) + '"' + (m.key === state.measure ? ' selected' : '') + '>' + esc(m.label) + '</option>'; }).join('');
+    renderMeasurePills();
     renderCrumbs();
+  }
+
+  /* ---------- 指标 pills(多选 · 至少 1 个) ---------- */
+  function renderMeasurePills() {
+    var el = document.getElementById('measurePills');
+    if (!el) return;
+    el.innerHTML = MEASURES.map(function (m) {
+      var on = state.measures.indexOf(m.key) >= 0;
+      return '<button type="button" data-m="' + m.key + '" class="pill text-[10px]' + (on ? ' pill-ink-active' : '') + '">' + esc(m.label) + '</button>';
+    }).join('');
+    el.querySelectorAll('[data-m]').forEach(function (btn) {
+      btn.onclick = function () {
+        var k = btn.dataset.m, i = state.measures.indexOf(k);
+        if (i >= 0) { if (state.measures.length > 1) state.measures.splice(i, 1); }   // 至少留 1 个
+        else state.measures.push(k);
+        renderMeasurePills(); renderPivot();
+      };
+    });
   }
 
   /* ---------- 刷新(三组件并发 · 同一 drill-path) ---------- */
@@ -553,7 +580,6 @@
   ['pivotRowSel', 'pivotRow2Sel', 'pivotColSel', 'pivotCol2Sel'].forEach(function (id) {
     document.getElementById(id).addEventListener('change', pivotDimsChanged);
   });
-  document.getElementById('measureSel').addEventListener('change', function () { state.measure = this.value; renderPivot(); });
   document.getElementById('drawerClose').onclick = function () { document.getElementById('drawerWrap').classList.add('hidden'); };
 
   /* ---------- v1.1.x #7 · AI 洞察(工程判信号 · LLM 只解读)· 按视图键缓存,切换视图自动显隐恢复 ---------- */
@@ -627,7 +653,7 @@
   }
   document.getElementById('bApply').onclick = function () {
     var s = builderSpec();
-    state.measure = document.getElementById('bMeasure').value;
+    state.measures = [document.getElementById('bMeasure').value || 'value'];   // 构建器单选 → 指标集重置为该项
     applyBoard({ sun: s.rows.length > 1 ? s.rows : [s.rows[0], s.cols[0] || nextDimAfter(s.rows[0])], rows: [s.rows[0]], cols: s.cols, filters: {} }, 'custom');
   };
   document.getElementById('bSaveForm').addEventListener('submit', function () {
@@ -637,7 +663,10 @@
   /* 透视表样式(sticky 首列 + 晚清账册) */
   var style = document.createElement('style');
   style.textContent = '.lens-pivot{border-collapse:collapse;width:100%;font-size:13px}' +
-    '.lens-pivot th,.lens-pivot td{border:1px solid var(--rule);padding:6px 10px;text-align:right;font-family:"JetBrains Mono",monospace;white-space:nowrap}' +
+    /* 宽度自适配(2026-07-17 #1):数值列 min-width 保证数据区不被行头挤瘪,表格恒铺满容器 */
+    '.lens-pivot th,.lens-pivot td{border:1px solid var(--rule);padding:9px 12px;text-align:right;font-family:"JetBrains Mono",monospace;white-space:nowrap}' +
+    '.lens-pivot td.tnum{min-width:92px}' +
+    '.lens-pivot .rowhead{min-width:96px}' +
     '.lens-pivot th{background:var(--card-soft);font-family:"Noto Serif SC",serif;font-size:12px}' +
     '.lens-pivot .rowhead{text-align:left;background:var(--card-soft);font-family:"Noto Serif SC",serif}' +
     '.lens-pivot .sticky-col{position:sticky;left:0;z-index:1}' +
@@ -648,7 +677,7 @@
      首屏不被透视拖累;锚点直达 #lens-section 会立刻进入视口 → IO 立即触发,天然覆盖;
      无 IntersectionObserver 的老浏览器降级为立即启动。 */
   function boot() {
-    renderBoards(); applyBoard(PRESETS[0], 'risk');
+    renderBoards(); applyBoard(PRESETS[0], PRESETS[0].key);
     /* 隐私模式开关切换(html.privacy)→ 重绘旭日:canvas 里的金额 label 不受 CSS 模糊管辖,必须重出图 */
     new MutationObserver(function () { if (chart) renderSunburst(); })
       .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });

@@ -59,8 +59,9 @@
     <h1 class="font-display text-3xl md:text-4xl font-medium tracking-tight">给资产打标</h1>
     <p class="text-ink-soft text-sm mt-2">树状结构:<b>账户</b>(资产类型 / 平台 / 用途)→ 子行 = <b>具体持仓</b>(行业 · 准)。
       全部可选,不打标 = 「未分类」照常可用;基金 / 理财等无持仓账户在账户行直接给行业粗标(近似,不做成分穿透)。</p>
-    <p class="text-[11px] text-ink-subtle mt-1.5">透视里的其余维度 —— <b>风险 / 流动性 / 账户类型 / 主理人 / 币种</b> 来自账户资料、<b>市场地域</b>来自持仓市场,
-      不在此打标:去 <a th:href="@{/accounts}" class="brass-link">账户管理</a> 编辑对应账户即可(下方每个账户名下的小字即这些属性)。</p>
+    <p class="text-[11px] text-ink-subtle mt-1.5">透视里的其余维度不在此打标,但每行都给了直达入口 ——
+      <b>风险 / 主理人 / 币种 / 账户类型 / 流动性</b> 在账户资料里(点各账户行的「改资料 →」);
+      <b>市场地域</b> 来自每笔持仓的市场(点持仓账户行的「持仓 →」到账户详情改)。</p>
     <a th:href="@{/dashboard#lens-section}" class="font-mono text-xs no-underline" style="color:var(--brass-deep)">← 回资产透视</a>
   </section>
 
@@ -108,8 +109,11 @@
             <td class="name-cell">
               <b th:text="${a.displayName}">账户名</b>
               <span class="pill text-[9px] ml-1" th:text="${a.type.label}">现金</span>
-              <span class="acct-meta"
-                    th:text="${(a.primaryOwnerMemberId != null and ownerNames.get(a.primaryOwnerMemberId) != null ? ownerNames.get(a.primaryOwnerMemberId) : '共同') + ' · ' + a.currency}">迪娃 · CNY</span>
+              <span class="acct-meta">
+                <span th:text="${(a.primaryOwnerMemberId != null and ownerNames.get(a.primaryOwnerMemberId) != null ? ownerNames.get(a.primaryOwnerMemberId) : '共同') + ' · ' + a.currency}">迪娃 · CNY</span>
+                · <a th:href="@{'/accounts/' + ${a.id} + '/edit'}" class="no-underline" style="color:var(--brass-deep)" title="风险 / 主理人 / 币种 / 流动性 在账户资料里改">改资料 →</a>
+                <a th:if="${node.holdingAccount}" th:href="@{'/accounts/' + ${a.id}}" class="no-underline ml-1" style="color:var(--brass-deep)" title="市场地域来自每笔持仓,在账户详情里改">持仓 →</a>
+              </span>
             </td>
             <td data-label="资产类型">
               <select data-lsel th:name="'acct_class_' + ${a.id}"

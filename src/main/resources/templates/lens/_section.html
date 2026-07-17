@@ -45,7 +45,7 @@
       <label>行维度 <select data-lsel id="bRow" class="field-input bg-transparent text-sm"></select></label>
       <label>行二级(可空) <select data-lsel id="bRow2" class="field-input bg-transparent text-sm"></select></label>
       <label>列维度(可空) <select data-lsel id="bCol" class="field-input bg-transparent text-sm"></select></label>
-      <label>度量 <select data-lsel id="bMeasure" class="field-input bg-transparent text-sm"></select></label>
+      <label>指标 <select data-lsel id="bMeasure" class="field-input bg-transparent text-sm"></select></label>
     </div>
     <div class="flex items-center gap-3 mt-4 flex-wrap">
       <button id="bApply" class="btn-ink text-xs px-4 py-1.5">应用</button>
@@ -91,7 +91,7 @@
         <label>行2 <select data-lsel id="pivotRow2Sel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
         <label>列 <select data-lsel id="pivotColSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
         <label>列2 <select data-lsel id="pivotCol2Sel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
-        <label>度量 <select data-lsel id="measureSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select></label>
+        <span class="inline-flex items-center gap-1.5 flex-wrap">指标 <span id="measurePills" class="inline-flex items-center gap-1 flex-wrap"></span></span>
       </div>
     </div>
     <div id="pivot" class="overflow-x-auto"></div>

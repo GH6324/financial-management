@@ -3462,8 +3462,15 @@ LSJ="$RD/src/main/resources/static/js/lens-select.js"
   && grep -q 'slotY' "$LJS" \
   && grep -q 'lensInsightRefresh' "$RD/src/main/resources/templates/lens/_section.html" \
   && grep -q '异常信号' "$RD/src/main/java/com/family/finance/service/lens/LensInsightService.java" \
-  && grep -q 'hold-row td:last-child' "$RD/src/main/resources/templates/lens/tags.html"; } \
-  && log_ok "v11-ROUND3 第三/四轮(打标列盒模型统一 · 行业20 · 10看板 · builder自收 · data-priv · AI洞察=信号驱动+视图缓存+刷新+vendor · 多维pivot · 引导线等距散开)" \
+  && grep -q 'hold-row td:last-child' "$RD/src/main/resources/templates/lens/tags.html" \
+  && grep -q 'measurePills' "$LJS" \
+  && grep -q "measures: \['value', 'share'\]" "$LJS" \
+  && grep -q "'assetcls'" "$LJS" \
+  && grep -q '改资料 →' "$RD/src/main/resources/templates/lens/tags.html" \
+  && grep -q 'orderByPrimaryVendor' "$RD/src/main/java/com/family/finance/service/lens/LensInsightService.java" \
+  && grep -q 'orderByPrimaryVendor' "$RD/src/main/java/com/family/finance/service/lens/LensAiTagService.java" \
+  && grep -q 'min-width:92px' "$LJS"; } \
+  && log_ok "v11-ROUND3 三/四/五轮(打标列对齐+每行改资料/持仓入口 · 指标pills多选默认金额+占比 · 看板按关心度排序默认资产类型 · pivot宽度自适配 · AI follow管理页主选vendor · 洞察信号驱动+缓存)" \
   || log_bad "v11-ROUND3 第三轮修复缺件" "see lens.js/tags.html/_region.html/LensController/LensInsightService"
 
 # ===================== v0.12 · 收支填报收入侧升级 =====================

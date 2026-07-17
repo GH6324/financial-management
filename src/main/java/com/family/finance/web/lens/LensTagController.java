@@ -75,7 +75,7 @@ public class LensTagController {
                 }
             }
         }
-        Map<String, LensAiTagService.Tags> suggestions = aiTagService.suggest(names);
+        Map<String, LensAiTagService.Tags> suggestions = aiTagService.suggest(me.getFamilyId(), names);
         addModel(me, model, suggestions, true);
         return "lens/tags";
     }

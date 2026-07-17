@@ -63,7 +63,8 @@ public class LensInsightService {
                 5. 「异常信号」为空时,如实说结构无显著异常,再给一句最值得留意的观察,不要硬编异常;
                 6. 不推荐任何具体产品、不预测涨跌、不用黑话。
                 只输出要点行,不要标题、开场白、markdown。""";
-        for (LlmClient client : clients) {
+        String primary = configService.getString(familyId, FamilyConfigService.K_LLM_PRIMARY_VENDOR, "qwen");
+        for (LlmClient client : com.family.finance.service.checkup.llm.LlmDiagnoseService.orderByPrimaryVendor(clients, primary)) {
             if (!client.available()) continue;
             try {
                 String out = client.chat(system, facts);
