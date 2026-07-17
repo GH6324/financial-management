@@ -166,29 +166,40 @@
       </div>
     </div>
 
-    <div class="xl:col-span-4 flex flex-col gap-2">
-      <div class="flex flex-wrap gap-2 items-center">
-        <!-- v0.12 · 收入统一在上方「收支填报 · 收入」逐笔录(选类目 + 目标账户,直接入账不虚高)· 这里只留支出/划转 -->
-        <span class="font-mono text-[10px] text-ink-subtle">收入 → 上方「收支填报」录</span>
-        <form th:hx-post="@{/entry/{id}/cash-flow(id=${row.account.id})}" th:hx-target="'#entry-block-' + ${row.account.id}" hx-swap="outerHTML" method="post" class="flex gap-1">
+    <!-- v1.1.x UED 重排(2026-07-17):右列操作区控件统一 h-8 等高,划转改两行网格(select 全宽 + 金额/到账/按钮一行),
+         与左列 h-9 表单节奏对齐;快捷支出与划转各有 eyebrow,不再文字/表单混挤一行 -->
+    <div class="xl:col-span-4 flex flex-col gap-3">
+      <div>
+        <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-1">快捷支出
+          <span class="normal-case tracking-normal">· 收入去上方「收支填报」录</span></div>
+        <form th:hx-post="@{/entry/{id}/cash-flow(id=${row.account.id})}" th:hx-target="'#entry-block-' + ${row.account.id}" hx-swap="outerHTML" method="post" class="flex gap-2">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
           <input type="hidden" name="periodId" th:value="${period.id}">
           <input type="hidden" name="kind" value="EXPENSE">
           <input type="hidden" name="categoryCode" value="consumption">
-          <input name="amount" type="number" step="0.01" min="0.01" required placeholder="-支出" class="w-24 border border-rule bg-card px-2 py-1 font-mono text-xs">
-          <button class="btn-paper text-[10px]">-支出</button>
+          <input name="amount" type="number" step="0.01" min="0.01" required placeholder="金额"
+                 class="flex-1 min-w-0 h-8 border border-rule bg-card px-2 font-mono text-xs">
+          <button class="btn-paper text-[10px] h-8 px-3 whitespace-nowrap">− 支出</button>
         </form>
       </div>
-      <form th:hx-post="@{/entry/{id}/transfer(id=${row.account.id})}" th:hx-target="'#entry-block-' + ${row.account.id}" hx-swap="outerHTML" method="post" class="flex flex-wrap gap-1">
-        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-        <input type="hidden" name="periodId" th:value="${period.id}">
-        <select name="toAccountId" data-searchable class="border border-rule bg-card px-2 py-1 text-xs">
-          <option th:each="account : ${accounts}" th:if="${account.id != row.account.id}" th:value="${account.id}" th:text="${account.displayName}">目标账户</option>
-        </select>
-        <input name="amount" type="number" step="0.01" min="0.01" required placeholder="划转金额" class="w-28 border border-rule bg-card px-2 py-1 font-mono text-xs">
-        <input name="toAmount" type="number" step="0.01" placeholder="到账额(跨币种填)" title="仅当转入账户币种与本账户不同时填:对方账户实际收到的金额(其本币)" class="w-32 border border-rule bg-card px-2 py-1 font-mono text-xs">
-        <button class="btn-paper text-[10px]" title="把本账户的钱划转到另一个账户(例:工资卡转去理财账户)">↔ 划转到</button>
-      </form>
+      <div>
+        <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-1">账户间划转</div>
+        <form th:hx-post="@{/entry/{id}/transfer(id=${row.account.id})}" th:hx-target="'#entry-block-' + ${row.account.id}" hx-swap="outerHTML" method="post" class="flex flex-col gap-1.5">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <input type="hidden" name="periodId" th:value="${period.id}">
+          <select name="toAccountId" data-searchable class="w-full h-8 border border-rule bg-card px-2 text-xs">
+            <option th:each="account : ${accounts}" th:if="${account.id != row.account.id}" th:value="${account.id}" th:text="${account.displayName}">目标账户</option>
+          </select>
+          <div class="flex gap-2">
+            <input name="amount" type="number" step="0.01" min="0.01" required placeholder="划转金额"
+                   class="flex-1 min-w-0 h-8 border border-rule bg-card px-2 font-mono text-xs">
+            <input name="toAmount" type="number" step="0.01" placeholder="到账额(跨币种)"
+                   title="仅当转入账户币种与本账户不同时填:对方账户实际收到的金额(其本币)"
+                   class="flex-1 min-w-0 h-8 border border-rule bg-card px-2 font-mono text-xs">
+            <button class="btn-paper text-[10px] h-8 px-3 whitespace-nowrap" title="把本账户的钱划转到另一个账户(例:工资卡转去理财账户)">↔ 划转</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 

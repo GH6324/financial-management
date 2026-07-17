@@ -3483,6 +3483,18 @@ LSJ="$RD/src/main/resources/static/js/lens-select.js"
   && log_ok "v11-CASHROW 券商现金语义定死(现金活钱·货币基金/存款·低风险·灵活取用)+ 打标页只读展示去向" \
   || log_bad "v11-CASHROW 券商现金部分仍遗漏" "see LensQueryService cashRow / LensTagController cashHoldings / tags.html"
 
+# v11-ENTRY-UX · 填报页(2026-07-17 评审):收入记录行 主理人头像+填报日期;右列操作区控件统一 h-8;收入表单 h-9
+{ grep -q 'ownerName, java.time.LocalDateTime submittedAt' "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
+  && grep -q "COALESCE(m.display_name, '共同') AS ownerName" "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
+  && grep -q "temporals.format(e.submittedAt, 'MM-dd')" "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q "ownerColorMap.get(e.ownerName)" "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q '快捷支出' "$RD/src/main/resources/templates/entry/_row.html" \
+  && grep -q '账户间划转' "$RD/src/main/resources/templates/entry/_row.html" \
+  && [ "$(grep -c 'h-8 border border-rule' "$RD/src/main/resources/templates/entry/_row.html")" -ge 4 ] \
+  && [ "$(grep -c 'h-9 ' "$RD/src/main/resources/templates/entry/index.html")" -ge 4 ]; } \
+  && log_ok "v11-ENTRY-UX 填报页(收入记录行头像+MM-dd填报日期 · 右列操作区h-8等高两段式 · 收入表单h-9统一)" \
+  || log_bad "v11-ENTRY-UX 填报页体验修缺件" "see CashFlowMapper/entry/index.html/_row.html"
+
 # ===================== v0.12 · 收支填报收入侧升级 =====================
 # v12-INCOME-CAT · 类目绑定账户类型 + 股票类收入类目(V34)
 CFC="$RD/db/migration/V34__income_category_account_type.sql"

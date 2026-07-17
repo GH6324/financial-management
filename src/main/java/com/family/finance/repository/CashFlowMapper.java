@@ -74,9 +74,12 @@ public interface CashFlowMapper {
                    a.type AS accountType, a.currency AS currency,
                    cf.category_code AS categoryCode,
                    COALESCE(cat.display_name, cf.category_code) AS categoryName,
-                   cf.amount AS amount, cf.note AS note
+                   cf.amount AS amount, cf.note AS note,
+                   COALESCE(m.display_name, '共同') AS ownerName,
+                   cf.submitted_at AS submittedAt
               FROM cash_flow cf
               JOIN account a ON a.id = cf.account_id
+              LEFT JOIN member m ON m.id = a.primary_owner_member_id
               LEFT JOIN cash_flow_category cat ON cat.code = cf.category_code
              WHERE cf.period_id = #{periodId}
                AND a.family_id = #{familyId}
@@ -91,5 +94,6 @@ public interface CashFlowMapper {
     /** v0.12 · 收入侧列表行(展示用投影)。 */
     record IncomeEntryRow(Long id, Long accountId, String accountName, String accountType,
                           String currency, String categoryCode, String categoryName,
-                          java.math.BigDecimal amount, String note) {}
+                          java.math.BigDecimal amount, String note,
+                          String ownerName, java.time.LocalDateTime submittedAt) {}
 }
