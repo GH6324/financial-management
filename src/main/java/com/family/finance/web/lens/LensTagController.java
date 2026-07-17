@@ -43,8 +43,10 @@ public class LensTagController {
     private final com.family.finance.repository.MemberMapper memberMapper;   // 账户 meta 行:主理人名(维度来源示意)
     private final com.family.finance.service.lens.LensQueryService lensQueryService; // 打标保存后失效头寸缓存
 
-    /** 树节点:账户 + 持仓子行(holdingAccount=true 时账户级行业不标,归子行) */
-    public record TreeNode(Account account, boolean holdingAccount, List<StockHolding> holdings) {}
+    /** 树节点:账户 + 持仓子行(holdingAccount=true 时账户级行业不标,归子行);
+     *  cashHoldings = 券商现金部分,只读展示(系统定死 现金活钱·货币基金/存款·低风险,不可标) */
+    public record TreeNode(Account account, boolean holdingAccount, List<StockHolding> holdings,
+                           List<StockHolding> cashHoldings) {}
 
     @GetMapping("/lens/tags")
     public String page(@AuthenticationPrincipal MemberPrincipal me, Model model) {
@@ -148,13 +150,18 @@ public class LensTagController {
         for (Account a : accountMapper.findActiveByFamily(familyId)) {
             if (a.getType() == AccountType.LOAN) continue;
             List<StockHolding> holdings = List.of();
+            List<StockHolding> cashHoldings = List.of();
             boolean holdingAccount = StockHoldingService.supportsHoldings(a.getType());
             if (holdingAccount) {
-                holdings = holdingService.findActiveByAccount(familyId, a.getId()).stream()
+                List<StockHolding> all = holdingService.findActiveByAccount(familyId, a.getId());
+                holdings = all.stream()
                         .filter(h -> h.getValuationMode() == null || !"CASH".equals(h.getValuationMode().name()))
                         .toList();
+                cashHoldings = all.stream()
+                        .filter(h -> h.getValuationMode() != null && "CASH".equals(h.getValuationMode().name()))
+                        .toList();
             }
-            out.add(new TreeNode(a, holdingAccount, holdings));
+            out.add(new TreeNode(a, holdingAccount, holdings, cashHoldings));
         }
         return out;
     }

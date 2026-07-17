@@ -3473,6 +3473,16 @@ LSJ="$RD/src/main/resources/static/js/lens-select.js"
   && log_ok "v11-ROUND3 三/四/五轮(打标列对齐+每行改资料/持仓入口 · 指标pills多选默认金额+占比 · 看板按关心度排序默认资产类型 · pivot宽度自适配 · AI follow管理页主选vendor · 洞察信号驱动+缓存)" \
   || log_bad "v11-ROUND3 第三轮修复缺件" "see lens.js/tags.html/_region.html/LensController/LensInsightService"
 
+# v11-CASHROW · 券商现金部分语义(2026-07-17 修遗漏):透视头寸 cashRow 定死 现金活钱/货币基金/存款/低风险/灵活取用;
+#   打标树保留现金行为只读展示(告知去向 · 不可标 · AI 不碰)
+{ grep -q 'cashRow ? "低风险" : risk' "$RD/src/main/java/com/family/finance/service/lens/LensQueryService.java" \
+  && grep -q 'cashRow ? AssetClass.CASH_EQ.getLabel() : assetClass' "$RD/src/main/java/com/family/finance/service/lens/LensQueryService.java" \
+  && grep -q 'cashRow ? IndustryTag.MONEY_CASH.getLabel()' "$RD/src/main/java/com/family/finance/service/lens/LensQueryService.java" \
+  && grep -q 'cashHoldings' "$RD/src/main/java/com/family/finance/web/lens/LensTagController.java" \
+  && grep -q '系统归类,不可改' "$RD/src/main/resources/templates/lens/tags.html"; } \
+  && log_ok "v11-CASHROW 券商现金语义定死(现金活钱·货币基金/存款·低风险·灵活取用)+ 打标页只读展示去向" \
+  || log_bad "v11-CASHROW 券商现金部分仍遗漏" "see LensQueryService cashRow / LensTagController cashHoldings / tags.html"
+
 # ===================== v0.12 · 收支填报收入侧升级 =====================
 # v12-INCOME-CAT · 类目绑定账户类型 + 股票类收入类目(V34)
 CFC="$RD/db/migration/V34__income_category_account_type.sql"

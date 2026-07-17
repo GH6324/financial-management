@@ -158,11 +158,17 @@ public class LensQueryService {
                                 : line.costAcctCcy().multiply(factor).setScale(2, RoundingMode.HALF_EVEN);
                         BigDecimal holdingCumPnl = costBase == null ? null : valueBase.subtract(costBase);
                         boolean cashRow = h.getValuationMode() != null && "CASH".equals(h.getValuationMode().name());
+                        /* 券商/交易账户里的现金部分(2026-07-17 修遗漏):不是股票股权、不是高风险 ——
+                           语义系统定死:现金活钱 · 货币基金/存款 · 低风险 · 灵活取用(打标页只读展示,不可改) */
                         out.add(new Position(
                                 acc.getId(), h.getId(), h.getDisplayName(), acc.getDisplayName(), valueBase,
-                                typeLabel, risk, liquidity, acc.getCurrency(), owner,
-                                assetClass, platform,
-                                cashRow ? null : nullIfEmpty(IndustryTag.labelOf(h.getIndustryTag())),
+                                typeLabel,
+                                cashRow ? "低风险" : risk,
+                                cashRow ? "灵活取用" : liquidity,
+                                acc.getCurrency(), owner,
+                                cashRow ? AssetClass.CASH_EQ.getLabel() : assetClass,
+                                platform,
+                                cashRow ? IndustryTag.MONEY_CASH.getLabel() : nullIfEmpty(IndustryTag.labelOf(h.getIndustryTag())),
                                 cashRow ? null : regionLabel(h.getMarket()),
                                 purpose,
                                 p.latestPnl(), p.cumPnl(), p.netPrincipal(), holdingCumPnl));

@@ -151,6 +151,19 @@
                       class="ai-btn" title="只对这一行 AI 推荐">AI 推荐</button>
             </td>
           </tr>
+          <!-- 券商现金只读子行(系统定死语义,告知去向,不可标) -->
+          <tr class="hold-row" th:each="ch : ${node.cashHoldings}">
+            <td class="name-cell">
+              <span class="text-ink-subtle font-mono text-xs mr-1 hidden md:inline">└</span>
+              <span th:text="${ch.displayName}">富途账户余额</span>
+              <span class="pill text-[9px] ml-1">现金</span>
+            </td>
+            <td class="muted-cell hidden md:table-cell">现金活钱 · 自动</td>
+            <td class="muted-cell hidden md:table-cell">随账户</td>
+            <td data-label="行业"><span class="muted-cell">货币基金/存款 · 系统归类,不可改</span></td>
+            <td></td>
+            <td th:if="${aiAvailable}"></td>
+          </tr>
           <!-- 持仓子行 -->
           <tr class="hold-row" th:each="h : ${node.holdings}" th:with="sug=${suggestions.get(h.displayName)}">
             <td class="name-cell">
