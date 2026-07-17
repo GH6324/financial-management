@@ -95,13 +95,14 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v1.1.9 · 填报页:记录行头像与日期 + 操作区重排](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.1.9)
+
+补丁:收入记录行新增 账户主理人头像 + 填报日期(MM-dd);账户行右侧操作区改「快捷支出/账户间划转」两段式、控件统一等高;收入表单同高。全家可见(全部/仅我)保留。无数据库变更。
+
 ### [v1.1.8 · 券商现金部分归位](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.1.8)
 
 补丁:券商/交易账户里的**现金余额**此前被错算成「股票股权·高风险·未分类」且在打标页不可见 → 语义系统定死(现金活钱 · 货币基金/存款 · 低风险 · 灵活取用),打标页只读展示去向,AI 不触碰。所有看板即刻反映修正口径。无数据库变更。
 
-### [v1.1.7 · 指标多选 + 看板重排 + 打标直达入口 + AI 供应商跟随配置](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.1.7)
-
-补丁:**①** 交叉透视「指标」多选(默认金额+占比双行)+ 宽度自适配铺满;**②** 预设看板按用户关心度重排,默认「资产类型」;**③** 打标页每行「改资料 →/持仓 →」直达维度数据源;**④** AI 洞察/打标跟随管理页主选 LLM 供应商(DeepSeek/通义)。无数据库变更。
 
 
 
