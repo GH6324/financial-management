@@ -103,13 +103,14 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v1.1.6 · 洞察信号化 + 视图缓存 + 细节对齐](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.1.6)
+
+补丁:**① 洞察重做** — 工程先按体检阈值判定异常信号(过度集中/打标缺口/高风险超标/过度分散/碎片化),LLM 只把信号讲成洞察+一条最优先动作;**② 洞察视图缓存** — 切走隐藏/切回恢复,显示模型与时间,可强刷;**③** 引导线标签等距散开、打标页列像素级对齐。无数据库变更。
+
 ### [v1.1.5 · 透视 AI 洞察 + Excel 式多维交叉透视 + 九项体验修复](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.1.5)
 
 补丁:**① AI 洞察** — 透视区一键解读当前视图(数字工程算好 · LLM 只解读 · 真名脱敏);**② 多维透视** — 行/列各 2 维,两层表头+合并行头,真·数据透视表;**③ 七项体验修复** — 打标页等高排版/行业 20 值(货币基金/混合配置/红利公用)/10 预设看板+成员结构/构建器自收/应急金隐私随动/维度来源明示/旭日引导线根治。无数据库变更。
 
-### [v1.1.4 · 旭日引导线防交叉 + 移动端下拉体验修复](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.1.4)
-
-补丁:**① 小扇区引导线防交叉** — 水平肘段 + 出口径向分层,线束整齐平行;**② 移动端下拉不再放大页面** — iOS Safari 对 <16px 输入框聚焦自动放大整页,搜索框强制 16px 根治;面板改贴底 bottom sheet + portal 到 body(不被浮动控件遮挡)。无数据库变更。
 
 
 
