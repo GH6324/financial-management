@@ -8,13 +8,43 @@
 [![Java 21](https://img.shields.io/badge/Java-21-orange)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot 3.3](https://img.shields.io/badge/Spring%20Boot-3.3-green)](https://spring.io/projects/spring-boot)
 
-<p align="center">
-  <img src="docs/screenshots/pc_dashboard.jpg" width="100%" alt="家庭账房 · 仪表盘">
-  <br>
-  <sub><b>仪表盘</b> · 全家净资产 / 趋势(叠加 CPI 购买力线 + M2 社会财富线)/ 资产配置 — 一屏总览</sub>
-</p>
+## 功能截图
 
----
+### 桌面端
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/pc_dashboard.jpg" alt="仪表盘"><br><sub><b>仪表盘</b> · 净资产趋势(CPI 购买力线 + M2 社会财富线)+ 配置环形 + KPI</sub></td>
+    <td width="33%"><img src="docs/screenshots/pc_ai_analysis.jpg" alt="AI 综合诊断"><br><sub><b>AI 综合诊断</b> · 总评 + 四维卡 + 优先行动(数字工程算,LLM 只解读)</sub></td>
+    <td width="33%"><img src="docs/screenshots/pc_lens.jpg?v=2" alt="资产透视"><br><sub><b>资产透视</b> · 旭日下钻 + 交叉透视表 + 钻到持仓明细 · 6 块预设看板 · 同维值同色</sub></td>
+  </tr>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/pc_account.jpg" alt="账户簿"><br><sub><b>账户簿</b> · 6 类账户 · 按成员归集 · 划转 / 体检 / 账本 / 一键导出</sub></td>
+    <td width="33%"><img src="docs/screenshots/pc_setting.jpg" alt="可运营管理页"><br><sub><b>可运营管理页</b> · 品牌 / 成员 / 周期 / 汇率 / 数据源等 14 项 · 改即热生效</sub></td>
+    <td width="33%"><img src="docs/screenshots/pc_lens_tags.jpg?v=2" alt="多维打标"><br><sub><b>多维打标</b> · 账户 › 持仓树状 · 资产类型 / 平台 / 行业 / 用途 · AI 按底层投向推荐</sub></td>
+  </tr>
+</table>
+
+### 移动端 · 响应式 + iOS PWA
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/mobilez_dashboard.jpg" width="118" alt="移动端仪表盘"></td>
+    <td align="center"><img src="docs/screenshots/mobile_account.jpg" width="118" alt="移动端填报"></td>
+    <td align="center"><img src="docs/screenshots/mobile_analysis.jpg" width="118" alt="移动端资产体检"></td>
+    <td align="center"><img src="docs/screenshots/mobile_ai_analysis.jpg" width="118" alt="移动端 AI 调仓"></td>
+    <td align="center"><img src="docs/screenshots/mobile_lens.jpg?v=2" width="118" alt="移动端资产透视"></td>
+    <td align="center"><img src="docs/screenshots/mobile_ios_deck.jpg" width="118" alt="iOS 主屏 PWA"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>仪表盘 · 洞察速览</sub></td>
+    <td align="center"><sub>每月填报</sub></td>
+    <td align="center"><sub>资产体检</sub></td>
+    <td align="center"><sub>AI 调仓建议</sub></td>
+    <td align="center"><sub>资产透视下钻</sub></td>
+    <td align="center"><sub>装为 App</sub></td>
+  </tr>
+</table>
 
 ## 在线体验 · Live Demo(无需部署)
 
@@ -60,44 +90,6 @@
 - **颗粒度**:仅到"账户月末快照 + 当月外部现金流",不到单券持仓
 - **恒等式**:`本期投资损益 = 期末余额 − 期初余额 − 净外部流入`
 - **不做**:个股持仓 / 定投提醒 / 预算包络 / 券商 API 直连 / 银行账单 OCR(都与"每月 10 分钟"冲突)
-
-## 功能截图
-
-### 桌面端
-
-<table>
-  <tr>
-    <td width="33%"><img src="docs/screenshots/pc_dashboard.jpg" alt="仪表盘"><br><sub><b>仪表盘</b> · 净资产趋势(CPI 购买力线 + M2 社会财富线)+ 配置环形 + KPI</sub></td>
-    <td width="33%"><img src="docs/screenshots/pc_ai_analysis.jpg" alt="AI 综合诊断"><br><sub><b>AI 综合诊断</b> · 总评 + 四维卡 + 优先行动(数字工程算,LLM 只解读)</sub></td>
-    <td width="33%"><img src="docs/screenshots/pc_lens.jpg?v=2" alt="资产透视"><br><sub><b>资产透视</b> · 旭日下钻 + 交叉透视表 + 钻到持仓明细 · 6 块预设看板 · 同维值同色</sub></td>
-  </tr>
-  <tr>
-    <td width="33%"><img src="docs/screenshots/pc_account.jpg" alt="账户簿"><br><sub><b>账户簿</b> · 6 类账户 · 按成员归集 · 划转 / 体检 / 账本 / 一键导出</sub></td>
-    <td width="33%"><img src="docs/screenshots/pc_setting.jpg" alt="可运营管理页"><br><sub><b>可运营管理页</b> · 品牌 / 成员 / 周期 / 汇率 / 数据源等 14 项 · 改即热生效</sub></td>
-    <td width="33%"><img src="docs/screenshots/pc_lens_tags.jpg?v=2" alt="多维打标"><br><sub><b>多维打标</b> · 账户 › 持仓树状 · 资产类型 / 平台 / 行业 / 用途 · AI 按底层投向推荐</sub></td>
-  </tr>
-</table>
-
-### 移动端 · 响应式 + iOS PWA
-
-<table>
-  <tr>
-    <td align="center"><img src="docs/screenshots/mobilez_dashboard.jpg" width="118" alt="移动端仪表盘"></td>
-    <td align="center"><img src="docs/screenshots/mobile_account.jpg" width="118" alt="移动端填报"></td>
-    <td align="center"><img src="docs/screenshots/mobile_analysis.jpg" width="118" alt="移动端资产体检"></td>
-    <td align="center"><img src="docs/screenshots/mobile_ai_analysis.jpg" width="118" alt="移动端 AI 调仓"></td>
-    <td align="center"><img src="docs/screenshots/mobile_lens.jpg?v=2" width="118" alt="移动端资产透视"></td>
-    <td align="center"><img src="docs/screenshots/mobile_ios_deck.jpg" width="118" alt="iOS 主屏 PWA"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>仪表盘 · 洞察速览</sub></td>
-    <td align="center"><sub>每月填报</sub></td>
-    <td align="center"><sub>资产体检</sub></td>
-    <td align="center"><sub>AI 调仓建议</sub></td>
-    <td align="center"><sub>资产透视下钻</sub></td>
-    <td align="center"><sub>装为 App</sub></td>
-  </tr>
-</table>
 
 ## 近期更新 · Releases
 
