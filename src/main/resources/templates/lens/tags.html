@@ -13,14 +13,17 @@
   .tags-table th{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em;
     text-transform:uppercase; color:var(--ink-subtle); text-align:left; padding:8px 10px 8px 0; }
   .tags-table td{ padding:8px 10px 8px 0; vertical-align:middle; }
+  /* 列对齐铁律:账户行与持仓子行除第一列外 padding 完全一致 → 控件/按钮跨行同宽同位;缩进只落在第一列 */
   .tags-table select,.tags-table input,.tags-table .lsel-btn{
     width:100%; box-sizing:border-box; height:32px; line-height:20px;
     border:1px solid var(--rule); background:var(--card); padding:5px 8px; font-size:12px; }
   .tags-table .lsel-btn{ padding-right:24px; }
-  .tags-table .acct-row td{ background:var(--card-soft); border-top:2px solid var(--rule);
-    padding-left:8px; padding-right:8px; }
+  .tags-table .acct-row td{ background:var(--card-soft); border-top:2px solid var(--rule); }
+  .tags-table .acct-row td:first-child{ padding-left:8px; }
+  .tags-table .acct-row td:last-child{ padding-right:8px; }
   .tags-table .hold-row td{ border-top:1px solid var(--rule-soft); }
   .tags-table .hold-row td:first-child{ padding-left:22px; }
+  .tags-table .hold-row td:last-child{ padding-right:8px; }
   .acct-meta{ display:block; font-family:'JetBrains Mono',monospace; font-size:10px;
     color:var(--ink-subtle); margin-top:2px; font-weight:normal; letter-spacing:.04em; }
   .ai-filled{ border-color:var(--brass) !important; background:var(--brass-soft) !important; }

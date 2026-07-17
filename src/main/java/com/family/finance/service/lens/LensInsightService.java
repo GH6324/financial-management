@@ -6,6 +6,7 @@ import com.family.finance.calc.lens.PivotEngine;
 import com.family.finance.calc.lens.Position;
 import com.family.finance.repository.MemberMapper;
 import com.family.finance.service.checkup.llm.LlmClient;
+import com.family.finance.service.config.FamilyConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,13 +19,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * v1.1.x · 透视 AI 洞察解读(2026-07-17 评审 #7)。
+ * v1.1.x · 透视 AI 洞察(2026-07-17 #7 · 同日评审重做 #4:总结≠洞察)。
  *
- * <p><b>LLM 严禁做数学</b>(feedback_llm_no_math):本类先用 {@link PivotEngine} 把当前 drill 视图
- * 的结构化事实全部算好(合计 / top 分布及占比 / 未分类率 / 集中度),LLM 只负责把数字解读成
- * 2-4 条家庭听得懂的观察 + 建议方向,不荐产品、不预测涨跌。
- * <b>真名脱敏</b>(隐私红线):成员真名(主理人维值 / 账户名里出现)统一替换为「成员A/B/…」再喂 LLM。
- * 全部 client 不可用 → available()=false,前端按钮降级隐藏。</p>
+ * <p><b>洞察 = 工程先判信号,LLM 只把信号讲成人话</b>:本类先用 {@link PivotEngine} 算出当前视图
+ * 的分布事实,再由工程规则对照<b>体检阈值</b>(集中度 / 高风险占比,管理页可配)判定异常信号
+ * (过度集中 / 打标缺口 / 过度分散 / 碎片化 / 高风险超标);LLM 基于信号输出洞察与一条可执行动作,
+ * <b>严禁计算</b>(feedback_llm_no_math)、不荐产品、不预测涨跌。无信号时如实说结构无显著异常。
+ * <b>真名脱敏</b>:成员真名统一替换「成员A/B/…」再喂 LLM(隐私红线)。</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -34,46 +35,62 @@ public class LensInsightService {
     private final List<LlmClient> clients;
     private final LensQueryService lensQueryService;
     private final MemberMapper memberMapper;
+    private final FamilyConfigService configService;
 
     public boolean available() {
         return clients.stream().anyMatch(LlmClient::available);
     }
 
-    /** 当前透视视图 → AI 解读文本(2-4 条要点);LLM 全失败返回 null(前端提示稍后再试) */
-    public String interpret(long familyId, LensQuery q) {
+    /** 解读结果:文本 + 出洞察的模型(前端展示) */
+    public record Insight(String text, String vendor) {}
+
+    /** 当前透视视图 → 洞察;LLM 全失败返回 null(前端提示稍后再试) */
+    public Insight interpret(long familyId, LensQuery q) {
         List<Position> ps = lensQueryService.positions(familyId);
         PivotEngine.Result r = PivotEngine.pivot(ps, q);
-        String facts = buildFacts(q, r);
-        if (facts == null) return "当前范围没有头寸,无可解读。";
+        String facts = buildFactsAndSignals(familyId, q, r);
+        if (facts == null) return new Insight("当前范围没有头寸,无可解读。", "-");
         facts = anonymize(familyId, facts);
 
         String system = """
-                你是家庭资产报表的解读助手。下面给你一份**已经计算好**的资产透视事实(JSON 风格文本)。
+                你是家庭资产报表的洞察助手。下面是一份**已经计算好**的透视事实,末尾的「异常信号」
+                是系统按体检阈值判定好的结论(含数字与阈值)。你的任务不是复述分布,而是把信号讲成洞察。
                 规则(必须遵守):
-                1. 严禁做任何计算(不要加减乘除、不要重新算占比),只引用给出的数字;
-                2. 输出 2-4 条要点,每条一行,以「· 」开头;每条 ≤50 字,家庭成员听得懂的大白话;
-                3. 先说结构上最显著的事实(谁最大 / 是否集中 / 未分类多不多),再给"值得看一眼"的方向;
-                4. 不推荐任何具体产品、不预测涨跌、不使用专业黑话;
-                5. 「未分类」占比高时提醒去打标,不要臆测未分类里是什么。
-                只输出要点行,不要标题、不要开场白、不要 markdown 加粗。""";
+                1. 严禁做任何计算,只引用给出的数字;
+                2. 输出 2-4 条,每条一行以「· 」开头,每条 ≤55 字,大白话;
+                3. 每条洞察必须落在某个异常信号上(为什么不合理 / 意味着什么风险),按信号严重程度排序;
+                4. 最后一条固定是「值得做的一件事」:从信号推出的最优先动作(如 去打标 / 分散某平台 / 降高风险仓);
+                5. 「异常信号」为空时,如实说结构无显著异常,再给一句最值得留意的观察,不要硬编异常;
+                6. 不推荐任何具体产品、不预测涨跌、不用黑话。
+                只输出要点行,不要标题、开场白、markdown。""";
         for (LlmClient client : clients) {
             if (!client.available()) continue;
             try {
                 String out = client.chat(system, facts);
-                if (out != null && !out.isBlank()) return out.trim();
+                if (out != null && !out.isBlank()) return new Insight(out.trim(), client.vendor());
             } catch (Exception e) {
-                log.warn("透视 AI 解读 vendor={} 失败: {}", client.vendor(), e.toString());
+                log.warn("透视 AI 洞察 vendor={} 失败: {}", client.vendor(), e.toString());
             }
         }
         return null;
     }
 
-    /** 工程侧算好全部数字(金额 · 占比%);返回 null = 无头寸 */
-    private String buildFacts(LensQuery q, PivotEngine.Result r) {
+    /** 分布事实 + 工程判定的异常信号(全部数字算好);返回 null = 无头寸 */
+    private String buildFactsAndSignals(long familyId, LensQuery q, PivotEngine.Result r) {
         BigDecimal grand = r.grand().isEmpty() ? BigDecimal.ZERO : nz(r.grand().get(0));
         if (grand.signum() == 0 || r.rowKeys().isEmpty()) return null;
+        String dimKey = q.rowsSafe().isEmpty() ? "" : q.rowsSafe().get(0);
         String rowDim = q.rowsSafe().stream().map(k -> LensRegistry.DIMENSIONS.get(k).label())
                 .reduce((a, b) -> a + "×" + b).orElse("维度");
+
+        record Slice(String name, BigDecimal v, BigDecimal pct) {}
+        List<Slice> slices = new ArrayList<>();
+        for (int i = 0; i < r.rowKeys().size(); i++) {
+            BigDecimal v = nz(r.rowTotals().get(i).get(0));
+            slices.add(new Slice(String.join("·", r.rowKeys().get(i)), v, pct(v, grand)));
+        }
+        slices.sort((a, b) -> b.v().compareTo(a.v()));
+
         StringBuilder sb = new StringBuilder();
         sb.append("视角: 按「").append(rowDim).append("」切分");
         if (q.filters() != null && !q.filters().isEmpty()) {
@@ -81,26 +98,53 @@ public class LensInsightService {
             q.filters().forEach((k, v) -> sb.append(LensRegistry.DIMENSIONS.containsKey(k) ? LensRegistry.DIMENSIONS.get(k).label() : k)
                     .append(String.join("/", v)).append(" "));
         }
-        sb.append("\n合计: ").append(money(grand)).append("\n分布(全量 · 占比为合计的百分比):\n");
-        record Slice(String name, BigDecimal v) {}
-        List<Slice> slices = new ArrayList<>();
-        for (int i = 0; i < r.rowKeys().size(); i++) {
-            slices.add(new Slice(String.join("·", r.rowKeys().get(i)), nz(r.rowTotals().get(i).get(0))));
-        }
-        slices.sort((a, b) -> b.v().compareTo(a.v()));
+        sb.append("\n合计: ").append(money(grand)).append("\n分布:\n");
         BigDecimal unclassified = BigDecimal.ZERO;
+        int tiny = 0;
         for (Slice sl : slices) {
-            BigDecimal pct = sl.v().multiply(BigDecimal.valueOf(100)).divide(grand, 1, RoundingMode.HALF_UP);
-            sb.append("  ").append(sl.name()).append(": ").append(money(sl.v())).append(" (").append(pct).append("%)\n");
+            sb.append("  ").append(sl.name()).append(": ").append(money(sl.v())).append(" (").append(sl.pct()).append("%)\n");
             if (sl.name().contains("未分类")) unclassified = unclassified.add(sl.v());
+            if (sl.pct().compareTo(BigDecimal.ONE) < 0) tiny++;
         }
-        BigDecimal top1 = slices.get(0).v().multiply(BigDecimal.valueOf(100)).divide(grand, 1, RoundingMode.HALF_UP);
-        sb.append("最大一块: ").append(slices.get(0).name()).append(" 占 ").append(top1).append("%\n");
-        sb.append("未分类占比: ").append(unclassified.multiply(BigDecimal.valueOf(100)).divide(grand, 1, RoundingMode.HALF_UP)).append("%\n");
+
+        // ── 工程判定异常信号(对照管理页体检阈值) ──
+        double concTh = switch (dimKey) {
+            case "industry" -> configService.getDouble(familyId, FamilyConfigService.K_LENS_INDUSTRY_CONC, 0.40);
+            case "platform" -> configService.getDouble(familyId, FamilyConfigService.K_LENS_PLATFORM_CONC, 0.40);
+            default -> 0.50;
+        };
+        double highRiskTh = configService.getDouble(familyId, FamilyConfigService.K_CHECKUP_HIGH_RISK, 0.40);
+        List<String> signals = new ArrayList<>();
+        Slice top1 = slices.get(0);
+        if (!top1.name().contains("未分类") && top1.pct().doubleValue() >= concTh * 100) {
+            signals.add("过度集中: 最大一块「" + top1.name() + "」占 " + top1.pct() + "%,超过集中度阈值 " + Math.round(concTh * 100) + "%");
+        }
+        BigDecimal unclPct = pct(unclassified, grand);
+        if (unclPct.doubleValue() >= 30) {
+            signals.add("打标缺口: 「未分类」合计占 " + unclPct + "%(金额 " + money(unclassified) + "),这部分结构不可见");
+        }
+        if ("risk".equals(dimKey)) {
+            for (Slice sl : slices) {
+                if (sl.name().contains("高风险") && sl.pct().doubleValue() >= highRiskTh * 100) {
+                    signals.add("高风险超标: 高风险占 " + sl.pct() + "%,超过体检阈值 " + Math.round(highRiskTh * 100) + "%");
+                }
+            }
+        }
+        BigDecimal top3 = slices.stream().limit(3).map(Slice::pct).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (slices.size() >= 8 && top3.doubleValue() < 50) {
+            signals.add("过度分散: 切成 " + slices.size() + " 块且前 3 块合计仅 " + top3 + "%,管理成本高、单块难起作用");
+        }
+        if (tiny >= 3) {
+            signals.add("碎片化: 有 " + tiny + " 块占比不足 1% 的零碎头寸,可考虑归并");
+        }
+
+        sb.append("异常信号(系统按阈值判定,共 ").append(signals.size()).append(" 条):\n");
+        if (signals.isEmpty()) sb.append("  (无 · 本视角结构无显著异常)\n");
+        else signals.forEach(sig -> sb.append("  - ").append(sig).append('\n'));
         return sb.toString();
     }
 
-    /** 成员真名 → 成员A/B/…(按家庭成员表全量替换,含主理人维值与账户名中出现) */
+    /** 成员真名 → 成员A/B/…(主理人维值与账户名中出现的都替换) */
     private String anonymize(long familyId, String text) {
         Map<String, String> repl = new LinkedHashMap<>();
         char c = 'A';
@@ -112,6 +156,10 @@ public class LensInsightService {
     }
 
     private static BigDecimal nz(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }
+
+    private static BigDecimal pct(BigDecimal v, BigDecimal grand) {
+        return v.multiply(BigDecimal.valueOf(100)).divide(grand, 1, RoundingMode.HALF_UP);
+    }
 
     private static String money(BigDecimal v) {
         return "¥" + v.setScale(0, RoundingMode.HALF_UP).toPlainString();

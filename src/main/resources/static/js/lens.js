@@ -332,10 +332,19 @@
       var arr = sides[side].slice(0, 8);
       arr.forEach(function (it) { it.iy = pt(rOuterPct, it.mid)[1]; });
       arr.sort(function (a, b) { return a.iy - b.iy; });
-      var prevY = -1e9;
+      /* 均匀散开(2026-07-17 修"挤在一起"):以出口点质心为中心、按 18px 等距分配槽位,
+         而不是只向下推挤 —— 一束密集小块的标签会对称展开,单条时仍贴出口点 */
+      var GAP = 18;
+      if (arr.length > 1) {
+        var centroid = arr.reduce(function (t, it) { return t + it.iy; }, 0) / arr.length;
+        var start = centroid - (arr.length - 1) * GAP / 2;
+        start = Math.min(Math.max(start, 12), H - 12 - (arr.length - 1) * GAP);
+        arr.forEach(function (it, i) { it.slotY = start + i * GAP; });
+      } else if (arr.length === 1) {
+        arr[0].slotY = Math.min(Math.max(arr[0].iy, 12), H - 12);
+      }
       arr.forEach(function (it) {
-        var y = Math.min(Math.max(it.iy, 10, prevY + 14), H - 10);
-        prevY = y;
+        var y = it.slotY;
         var p0 = pt((rMidPct + rOuterPct) / 2, it.mid), p1 = pt(rOuterPct + 0.03, it.mid);
         var lx = side === 'right' ? cx + R * (rOuterPct + 0.11) : cx - R * (rOuterPct + 0.11);
         var elbowX = side === 'right' ? lx - 12 : lx + 12;
@@ -517,6 +526,7 @@
   /* ---------- 刷新(三组件并发 · 同一 drill-path) ---------- */
   function refresh() {
     renderCrumbs();
+    if (typeof syncInsightCard === 'function') syncInsightCard();   // 洞察卡随视图键显隐(缓存恢复/切走隐藏)
     Promise.all([renderSunburst(), renderRanking(), renderPivot()]).catch(function (e) {
       document.getElementById('pivot').innerHTML = '<p class="text-sm" style="color:var(--rust)">加载失败:' + esc(e.message) + '</p>';
     });
@@ -546,24 +556,60 @@
   document.getElementById('measureSel').addEventListener('change', function () { state.measure = this.value; renderPivot(); });
   document.getElementById('drawerClose').onclick = function () { document.getElementById('drawerWrap').classList.add('hidden'); };
 
-  /* ---------- v1.1.x #7 · AI 解读当前视图(数字工程算好 · LLM 只解读) ---------- */
+  /* ---------- v1.1.x #7 · AI 洞察(工程判信号 · LLM 只解读)· 按视图键缓存,切换视图自动显隐恢复 ---------- */
+  var INSIGHT_CACHE = {};   // viewKey → {text, vendor, at, dismissed}
+  function insightKey() {
+    return JSON.stringify({ b: state.boardKey, r: state.pivotRows, f: filtersObj() });
+  }
+  function showInsight(entry) {
+    var card = document.getElementById('lensInsightCard');
+    if (!card) return;
+    document.getElementById('lensInsightBody').textContent = entry.text;
+    document.getElementById('lensInsightMeta').textContent = '· ' + entry.vendor + ' · ' + entry.at;
+    card.classList.remove('hidden');
+  }
+  /* 视图切换钩子:本视图有缓存且未被收起 → 恢复展示;否则隐藏(上个视图的洞察不残留) */
+  function syncInsightCard() {
+    var card = document.getElementById('lensInsightCard');
+    if (!card) return;
+    var e = INSIGHT_CACHE[insightKey()];
+    if (e && !e.dismissed) showInsight(e); else card.classList.add('hidden');
+  }
+  function fetchInsight(force) {
+    var key = insightKey();
+    if (!force && INSIGHT_CACHE[key]) { INSIGHT_CACHE[key].dismissed = false; showInsight(INSIGHT_CACHE[key]); return; }
+    var btn = document.getElementById('lensInsightBtn');
+    var card = document.getElementById('lensInsightCard');
+    var body = document.getElementById('lensInsightBody');
+    if (btn) { btn.disabled = true; btn.textContent = 'AI 解读中…'; }
+    card.classList.remove('hidden');
+    document.getElementById('lensInsightMeta').textContent = '';
+    body.textContent = '正在解读当前视图(按 ' + (DIM_LABEL[state.pivotRows[0]] || '') + ' 切分)…';
+    var c = csrf(); var headers = { 'Content-Type': 'application/json' }; headers[c.header] = c.token;
+    fetch('/lens/insight', { method: 'POST', headers: headers,
+      body: JSON.stringify({ rows: state.pivotRows, cols: [], measures: ['value', 'share'], filters: filtersObj() }) })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (resp) {
+        if (resp.ok) {
+          var now = new Date();
+          var entry = { text: resp.text, vendor: resp.vendor || 'AI',
+            at: ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2), dismissed: false };
+          INSIGHT_CACHE[key] = entry;
+          showInsight(entry);
+        } else {
+          body.textContent = resp.text || '暂无解读。';
+        }
+      })
+      .catch(function (e) { body.textContent = '解读失败:' + e.message + ' · 稍后再试'; })
+      .finally(function () { if (btn) { btn.disabled = false; btn.textContent = 'AI 解读当前视图'; } });
+  }
   var insightBtn = document.getElementById('lensInsightBtn');
   if (insightBtn) {
-    insightBtn.addEventListener('click', function () {
-      var card = document.getElementById('lensInsightCard');
-      var body = document.getElementById('lensInsightBody');
-      insightBtn.disabled = true; insightBtn.textContent = 'AI 解读中…';
-      card.classList.remove('hidden');
-      body.textContent = '正在解读当前视图(按 ' + (DIM_LABEL[state.pivotRows[0]] || '') + ' 切分)…';
-      var c = csrf(); var headers = { 'Content-Type': 'application/json' }; headers[c.header] = c.token;
-      fetch('/lens/insight', { method: 'POST', headers: headers,
-        body: JSON.stringify({ rows: state.pivotRows, cols: [], measures: ['value', 'share'], filters: filtersObj() }) })
-        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function (resp) { body.textContent = resp.text || '暂无解读。'; })
-        .catch(function (e) { body.textContent = '解读失败:' + e.message + ' · 稍后再试'; })
-        .finally(function () { insightBtn.disabled = false; insightBtn.textContent = 'AI 解读当前视图'; });
-    });
+    insightBtn.addEventListener('click', function () { fetchInsight(false); });
+    document.getElementById('lensInsightRefresh').onclick = function () { fetchInsight(true); };
     document.getElementById('lensInsightClose').onclick = function () {
+      var e = INSIGHT_CACHE[insightKey()];
+      if (e) e.dismissed = true;   // 记住"这个视图我收起了",切回来不自动弹
       document.getElementById('lensInsightCard').classList.add('hidden');
     };
   }

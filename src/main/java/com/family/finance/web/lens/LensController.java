@@ -68,9 +68,9 @@ public class LensController {
         if (q.rowsSafe().size() > 3 || q.colsSafe().size() > 2) {
             throw new IllegalArgumentException("行维度最多 3 个 · 列维度最多 2 个");
         }
-        String text = lensInsightService.interpret(me.getFamilyId(), q);
-        return text == null ? java.util.Map.of("ok", false, "text", "AI 服务暂时不可用,稍后再试")
-                            : java.util.Map.of("ok", true, "text", text);
+        com.family.finance.service.lens.LensInsightService.Insight ins = lensInsightService.interpret(me.getFamilyId(), q);
+        return ins == null ? java.util.Map.of("ok", false, "text", "AI 服务暂时不可用,稍后再试")
+                           : java.util.Map.of("ok", true, "text", ins.text(), "vendor", ins.vendor());
     }
 
     @PostMapping("/lens/query")
