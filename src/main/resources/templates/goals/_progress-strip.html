@@ -9,7 +9,7 @@
 -->
 <section th:fragment="strip(goals)" th:if="${goals != null and !#lists.isEmpty(goals)}"
          class="mb-6 border border-rule" style="background:var(--paper-soft)">
-  <div class="px-6 py-4">
+  <div class="px-3 py-3 sm:px-6 sm:py-4">
     <div class="flex items-baseline justify-between mb-3">
       <div class="flex items-center gap-3">
         <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">财 · 务 · 目 · 标</span>
@@ -18,14 +18,14 @@
       <a th:href="@{/goals}" class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep hover:text-ink no-underline">→ 完整看板</a>
     </div>
 
-    <!-- 2026-07-18 UED:移动单列 —— 两列时格宽 ~150px,底行 nowrap(15/50万 中性2053)必然溢出框体 -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+    <!-- 2026-07-19 评审:移动保持两列提密度(外/内边距收窄腾格宽),底行允许换行不溢出 -->
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-1.5 sm:gap-2">
       <!-- v0.5.4 · 每个目标 = 主卡链接 + 右侧「AI 阅读总结」小入口(直达本期月报锚点)· 两个并列 <a> 不嵌套 -->
       <div th:each="gp, gpStat : ${goals}"
            th:classappend="${gpStat.index >= 2} ? 'hidden md:flex' : 'flex'"
            class="items-stretch border border-rule-soft hover:bg-paper transition group">
         <a th:href="@{|/goals/${gp.goal.id}|}"
-           class="flex items-center gap-2.5 px-3 py-2 flex-1 min-w-0 no-underline">
+           class="flex items-center gap-2 px-2 py-1.5 sm:gap-2.5 sm:px-3 sm:py-2 flex-1 min-w-0 no-underline">
           <span class="w-2 h-2 rounded-full flex-shrink-0"
                 th:style="${gp.goal.goalType.name() == 'EMERGENCY' ? 'background:var(--forest)'
                                                                   : (gp.goal.goalType.name() == 'EDUCATION' ? 'background:var(--rust)'
@@ -45,7 +45,7 @@
                    th:style="'width:' + ${gp.progressPct > 100 ? 100 : gp.progressPct} + '%'"></div>
             </div>
             <!-- 当前/目标(万/%缩写 · data-priv)+ 时间 · 一行分居左右不换行 -->
-            <div class="flex items-baseline justify-between gap-2 mt-0.5 font-mono text-[9px] text-ink-subtle" style="white-space:nowrap">
+            <div class="flex items-baseline justify-between gap-x-2 flex-wrap mt-0.5 font-mono text-[9px] text-ink-subtle">
               <span data-priv th:text="${gp.currentDisp()} + ' / ' + ${gp.targetDisp()}">15/50万</span>
               <span th:if="${!gp.isCustom() and gp.neutralDate != null}" th:text="'中性 ' + ${#temporals.format(gp.neutralDate, 'yyyy')}">中性 2053</span>
               <span th:if="${gp.isCustom() and gp.daysLeft != null}" th:text="'还剩 ' + ${gp.daysLeft} + ' 天'">还剩 145 天</span>

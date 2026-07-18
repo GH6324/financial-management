@@ -209,18 +209,18 @@
                   data-priv th:text="${cfDeltaLabel}">+¥28,200</span>
           </div>
         </div>
-        <!-- 2026-07-18 UED:移动横排(原 flex-col 在窄屏竖占两行且突兀),PC 保持右缘竖排 -->
-        <div class="flex flex-wrap items-center gap-1.5 sm:flex-col sm:items-end">
-          <span class="pill pill-brass">本期 <span th:text="${#temporals.format(anchorPeriod.periodStart,'yyyy-MM')}">2026-06</span><span
+        <!-- 2026-07-19 评审:两 pill 强制同行不换行(移动缩字号 10px 放得下),PC 保持右缘竖排 -->
+        <div class="flex flex-nowrap items-center gap-1.5 sm:flex-col sm:items-end">
+          <span class="pill pill-brass whitespace-nowrap text-[10px] sm:text-xs">本期 <span th:text="${#temporals.format(anchorPeriod.periodStart,'yyyy-MM')}">2026-06</span><span
                 th:if="${currentOpen != null and anchorPeriod != null and currentOpen.id == anchorPeriod.id}"> · 进行中</span></span>
-          <span th:if="${cashflowSplit.empty()}" class="pill pill-mute">本期未填收支</span>
-          <span th:if="${cashflowSplit.partial()}" class="pill"
+          <span th:if="${cashflowSplit.empty()}" class="pill pill-mute whitespace-nowrap text-[10px] sm:text-xs">本期未填收支</span>
+          <span th:if="${cashflowSplit.partial()}" class="pill whitespace-nowrap text-[10px] sm:text-xs"
                 style="background:rgba(180,120,40,.1);color:#9a6a1f;border:1px solid #c79338">已填
             <span th:text="${cashflowSplit.filledMembers()}">1</span>/<span th:text="${cashflowSplit.totalMembers()}">5</span> · 收支可能不全</span>
-          <span th:if="${!cashflowSplit.empty() and !cashflowSplit.partial() and cashflowSplit.filledMembers() > 0}" class="pill pill-forest">已填
+          <span th:if="${!cashflowSplit.empty() and !cashflowSplit.partial() and cashflowSplit.filledMembers() > 0}" class="pill pill-forest whitespace-nowrap text-[10px] sm:text-xs">已填
             <span th:text="${cashflowSplit.filledMembers()}">3</span>/<span th:text="${cashflowSplit.totalMembers()}">3</span></span>
           <!-- v0.12.2:收入来自收入录入(cash_flow)、PMC 2框未填时,不显误导的「已填 0/N」 -->
-          <span th:if="${!cashflowSplit.empty() and cashflowSplit.filledMembers() <= 0}" class="pill pill-forest">收入已录入</span>
+          <span th:if="${!cashflowSplit.empty() and cashflowSplit.filledMembers() <= 0}" class="pill pill-forest whitespace-nowrap text-[10px] sm:text-xs">收入已录入</span>
         </div>
       </div>
 
@@ -353,6 +353,8 @@
           </select>
         </form>
       </div>
+      <!-- 2026-07-19 · 移动自绘图例(Chart.js legend 在窄屏对中文项宽计算不稳仍会折行 → 移动端隐藏原生图例,HTML 一行永不换) -->
+      <div id="nwLegendM" class="sm:hidden flex justify-center items-center gap-3 text-[10px] text-ink-soft whitespace-nowrap overflow-x-auto mb-1"></div>
       <div class="h-[240px] sm:h-[360px]"><canvas id="netWorthChart"></canvas></div>
     </div>
     <div class="paper-card p-6 lg:col-span-5">
@@ -678,6 +680,12 @@
         if (m2Series) {
           datasets.push({label: mobLegend ? 'M2 财富线' : 'M2 社会财富线 (' + m2Pct + '%)', data: m2Series, borderColor: '#9c4a2a', borderDash: [3, 3], borderWidth: 1.5, backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 0});
         }
+        const nwLegendM = document.getElementById('nwLegendM');
+        if (nwLegendM && mobLegend && cpiSeries) {
+          nwLegendM.innerHTML = datasets.map(d =>
+            '<span class="inline-flex items-center gap-1"><span style="width:12px;height:3px;background:' + d.borderColor + ';display:inline-block"></span>' + d.label + '</span>'
+          ).join('');
+        }
         window.financeCharts.netWorth = new Chart(line, {
           type: 'line',
           data: {labels: data.labels, datasets: datasets},
@@ -685,7 +693,7 @@
             maintainAspectRatio: false,
             layout: {padding: {top: mobLegend ? 40 : 28, right: 16}},   // 窄屏加顶距:首末点 datalabel 不蹭图例行
             plugins: {
-              legend: {display: cpiSeries != null, position: 'top', labels: {font: {size: mobLegend ? 9 : 11}, boxWidth: mobLegend ? 16 : 40, padding: mobLegend ? 6 : 10}},
+              legend: {display: cpiSeries != null && !mobLegend, position: 'top', labels: {font: {size: 11}, boxWidth: 40, padding: 10}},
               title: {display: true, text: '净资产趋势 · ' + data.currency + (cpiSeries ? ' · 已叠加 CPI ' + cpiPct + '% 对照' : ''), padding: {bottom: 12}, font: {size: 13, weight: '500'}, color: '#3a302a'},
               tooltip: {callbacks: {label: (ctx) => ctx.dataset.label + ': ' + fmtMoney(ctx.parsed.y)}},
               datalabels: {

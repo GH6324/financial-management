@@ -517,15 +517,14 @@ public class EntryController {
                 case VALUATION -> { kindClass = "text-brass-deep"; kindLabel = "△ 估值"; }   // v0.10.6 去 emoji(no-emoji 纪律)· 与 detail.html VALUATION 渲染一致
                 default -> { kindClass = "text-ink-subtle"; kindLabel = "= 校准余额"; }
             }
-            sb.append("<li class=\"py-1.5 flex items-baseline gap-3 flex-wrap\">");
-            sb.append("<span class=\"w-24 inline-flex items-center gap-1 ").append(kindClass).append("\">").append(kindLabel).append("</span>");
-            sb.append("<span class=\"tnum w-28\" data-priv>").append(escapeHtml(le.amountSignedLabel())).append("</span>");  // v0.11 隐私模式:账本金额遮
+            // 2026-07-19 UED:账本式两行布局 —— 行1 类型|摘要|金额(金额右对齐成列,窄屏不再乱换行),行2 时间与摘要对齐
+            sb.append("<li class=\"py-1.5\">");
+            sb.append("<div class=\"flex items-baseline gap-2\">");
+            sb.append("<span class=\"w-16 flex-shrink-0 inline-flex items-center gap-1 ").append(kindClass).append("\">").append(kindLabel).append("</span>");
             String label = le.label() != null ? le.label()
                     : (le.kind() == EntryRow.LedgerKind.SNAPSHOT ? "用户校准余额" : "");
-            sb.append("<span class=\"text-ink-soft flex-1 min-w-[120px]\">").append(escapeHtml(label)).append("</span>");
-            if (le.occurredAt() != null) {
-                sb.append("<span class=\"text-ink-subtle text-[10px]\">").append(le.occurredAt().format(fmt)).append("</span>");
-            }
+            sb.append("<span class=\"text-ink-soft flex-1 min-w-0 truncate\">").append(escapeHtml(label)).append("</span>");
+            sb.append("<span class=\"tnum flex-shrink-0 text-right ").append(kindClass).append("\" data-priv>").append(escapeHtml(le.amountSignedLabel())).append("</span>");  // v0.11 隐私模式:账本金额遮
             // v0.2 FR-32 · OPEN 周期下的 cash_flow / transfer 加 ⋮ 删除按钮(SNAPSHOT 不能删)
             if (le.periodOpen() && le.sourceId() != null
                     && le.kind() != EntryRow.LedgerKind.SNAPSHOT) {
@@ -540,8 +539,12 @@ public class EntryController {
                         .append("hx-headers='{\"X-XSRF-TOKEN\":\"").append(escapeHtml(csrfToken)).append("\"}'>")
                         .append("✕</button>");
             }
-            if (le.note() != null && !le.note().isBlank()) {
-                sb.append("<span class=\"w-full text-ink-subtle italic pl-24\">· ").append(escapeHtml(le.note())).append("</span>");
+            sb.append("</div>");   // 行1 结束(类型|摘要|金额|删)
+            if (le.occurredAt() != null || (le.note() != null && !le.note().isBlank())) {
+                sb.append("<div class=\"text-[10px] text-ink-subtle pl-[72px] flex items-baseline gap-2 flex-wrap\">");
+                if (le.occurredAt() != null) sb.append("<span>").append(le.occurredAt().format(fmt)).append("</span>");
+                if (le.note() != null && !le.note().isBlank()) sb.append("<span class=\"italic\">· ").append(escapeHtml(le.note())).append("</span>");
+                sb.append("</div>");
             }
             sb.append("</li>");
         }

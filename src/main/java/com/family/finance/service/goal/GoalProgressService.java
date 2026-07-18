@@ -176,8 +176,9 @@ public class GoalProgressService {
             return target != null && pv != null && target.signum() > 0 && pv.compareTo(target) >= 0;
         }
         public BigDecimal progressPct() {
+            // 2026-07-19 评审:百分比精度 2 位小数(57% → 57.38%)
             return (progress == null ? BigDecimal.ZERO : progress)
-                .movePointRight(2).setScale(0, java.math.RoundingMode.HALF_EVEN);
+                .movePointRight(2).setScale(2, java.math.RoundingMode.HALF_EVEN);
         }
         public LocalDate neutralDate() {
             return scenarios == null ? null : scenarios.neutralDate();

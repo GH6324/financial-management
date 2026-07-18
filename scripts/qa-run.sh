@@ -3508,6 +3508,20 @@ LSJ="$RD/src/main/resources/static/js/lens-select.js"
   && log_ok "v11-UED8 八项细节(支出/收入tab/按钮nowrap/sheet不聚焦/目标单列/洞察分层/pills横排/图例短标签)" \
   || log_bad "v11-UED8 细节修复缺件" "see entry/index.html lens-select.js _progress-strip _insight-strip _region.html"
 
+# v11-R6 · 2026-07-19 六项:目标条带两列提密度 · 本期pills强制同行 · 移动自绘图例 · 流水账本式两行 · 账户tile中文 · 目标pct两位小数
+{ grep -q 'grid-cols-2 md:grid-cols-3 gap-1.5 sm:gap-2' "$RD/src/main/resources/templates/goals/_progress-strip.html" \
+  && grep -q 'px-3 py-3 sm:px-6 sm:py-4' "$RD/src/main/resources/templates/goals/_progress-strip.html" \
+  && [ "$(grep -c 'whitespace-nowrap text-\[10px\] sm:text-xs' "$RD/src/main/resources/templates/dashboard/_region.html")" -ge 4 ] \
+  && grep -q 'flex flex-nowrap items-center gap-1.5 sm:flex-col' "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q 'nwLegendM' "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q 'cpiSeries != null && !mobLegend' "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q 'w-16 flex-shrink-0 inline-flex' "$RD/src/main/java/com/family/finance/web/entry/EntryController.java" \
+  && grep -q 'pl-\[72px\]' "$RD/src/main/java/com/family/finance/web/entry/EntryController.java" \
+  && grep -q 's.type.label' "$RD/src/main/resources/templates/accounts/index.html" \
+  && grep -q 'setScale(2, java.math.RoundingMode.HALF_EVEN)' "$RD/src/main/java/com/family/finance/service/goal/GoalProgressService.java"; } \
+  && log_ok "v11-R6 六项(目标两列密度/pills同行/自绘图例一行/流水两行金额成列/账户tile中文/目标pct两位小数)" \
+  || log_bad "v11-R6 六项修复缺件" "see _progress-strip/_region/EntryController/accounts/GoalProgressService"
+
 # ===================== v0.12 · 收支填报收入侧升级 =====================
 # v12-INCOME-CAT · 类目绑定账户类型 + 股票类收入类目(V34)
 CFC="$RD/db/migration/V34__income_category_account_type.sql"
