@@ -3495,6 +3495,19 @@ LSJ="$RD/src/main/resources/static/js/lens-select.js"
   && log_ok "v11-ENTRY-UX 填报页(收入记录行头像+MM-dd填报日期 · 右列操作区h-8等高两段式 · 收入表单h-9统一)" \
   || log_bad "v11-ENTRY-UX 填报页体验修缺件" "see CashFlowMapper/entry/index.html/_row.html"
 
+# v11-UED8 · 2026-07-18 八项细节:支出对齐h-11 · 收入tab同行 · 移动按钮nowrap · sheet不自动聚焦 ·
+#   目标条带移动单列 · 洞察卡标题/信号分层 · 本期pills移动横排 · 趋势图例窄屏短标签
+{ [ "$(grep -c 'h-11' "$RD/src/main/resources/templates/entry/index.html")" -ge 2 ] \
+  && [ "$(grep -c 'class="tab-cash' "$RD/src/main/resources/templates/entry/index.html")" -ge 2 ] \
+  && grep -q 'gap-1.5 whitespace-nowrap' "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q 'if (!mobile) q.focus()' "$RD/src/main/resources/static/js/lens-select.js" \
+  && grep -q 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3' "$RD/src/main/resources/templates/goals/_progress-strip.html" \
+  && grep -q 'flex flex-col sm:flex-row sm:items-center' "$RD/src/main/resources/templates/dashboard/_insight-strip.html" \
+  && grep -q 'sm:flex-col sm:items-end' "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q 'mobLegend' "$RD/src/main/resources/templates/dashboard/_region.html"; } \
+  && log_ok "v11-UED8 八项细节(支出/收入tab/按钮nowrap/sheet不聚焦/目标单列/洞察分层/pills横排/图例短标签)" \
+  || log_bad "v11-UED8 细节修复缺件" "see entry/index.html lens-select.js _progress-strip _insight-strip _region.html"
+
 # ===================== v0.12 · 收支填报收入侧升级 =====================
 # v12-INCOME-CAT · 类目绑定账户类型 + 股票类收入类目(V34)
 CFC="$RD/db/migration/V34__income_category_account_type.sql"

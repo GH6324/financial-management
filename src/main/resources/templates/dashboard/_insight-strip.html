@@ -9,13 +9,15 @@
          th:if="${insight != null and insight.available()}"
          class="paper-card px-4 py-3 mb-4" style="scroll-margin-top:80px; border-left:3px solid var(--brass-deep)">
   <div class="flex items-center justify-between gap-3 flex-wrap">
-    <div class="flex items-center gap-2 flex-wrap">
-      <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep inline-flex items-center gap-1.5">
+    <!-- 2026-07-18 UED:标题与信号 pills 分层(此前混在同一 wrap 流,移动端换行参差) -->
+    <div class="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+      <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep inline-flex items-center gap-1.5 flex-shrink-0">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle>
           <path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg>
         AI · 资产洞察
       </span>
+      <span class="flex items-center flex-wrap gap-1.5 min-w-0">
 
       <!-- 集中度头条:房产占比 -->
       <span th:if="${insight.concentration() != null and insight.concentration().property() != null and insight.concentration().property().pct() != null}"
@@ -45,6 +47,7 @@
       <span th:if="${insight.behaviorSignals() != null and !insight.behaviorSignals().isEmpty()}"
             class="font-mono text-[10px] px-2 py-0.5 border" style="color:var(--brass-deep);border-color:var(--brass-deep)"
             th:text="${insight.behaviorSignals().size() + ' 条行为提醒'}">1 条行为提醒</span>
+      </span>
     </div>
 
     <a href="/checkup#checkup-insight"

@@ -61,9 +61,10 @@
       OPEN = panel; panel.hidden = false;
       /* 移动端 bottom sheet:祖先(卡片/表格)可能创建层叠上下文困住 z-index → portal 到 body,
          保证盖过隐私/目录浮钮;fixed 定位不受挂载点影响 */
-      if (window.matchMedia && window.matchMedia('(max-width:640px)').matches) document.body.appendChild(panel);
+      var mobile = window.matchMedia && window.matchMedia('(max-width:640px)').matches;
+      if (mobile) document.body.appendChild(panel);
       q.value = ''; render(''); active = -1;
-      q.focus();
+      if (!mobile) q.focus();   // 移动端不自动聚焦:弹键盘会挡住选项列表,让用户先滑动挑选(2026-07-18)
     }
     panel._lselWrap = wrap;
     function pick(v) {

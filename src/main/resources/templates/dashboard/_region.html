@@ -209,7 +209,8 @@
                   data-priv th:text="${cfDeltaLabel}">+¥28,200</span>
           </div>
         </div>
-        <div class="flex flex-col items-end gap-1.5">
+        <!-- 2026-07-18 UED:移动横排(原 flex-col 在窄屏竖占两行且突兀),PC 保持右缘竖排 -->
+        <div class="flex flex-wrap items-center gap-1.5 sm:flex-col sm:items-end">
           <span class="pill pill-brass">本期 <span th:text="${#temporals.format(anchorPeriod.periodStart,'yyyy-MM')}">2026-06</span><span
                 th:if="${currentOpen != null and anchorPeriod != null and currentOpen.id == anchorPeriod.id}"> · 进行中</span></span>
           <span th:if="${cashflowSplit.empty()}" class="pill pill-mute">本期未填收支</span>
@@ -666,23 +667,25 @@
 
       const line = document.getElementById('netWorthChart');
       if (line) {
+        // 2026-07-18 UED:窄屏图例用短标签+小色块,三项一行放下(原三项各占一行)
+        const mobLegend = window.innerWidth < 640;
         const datasets = [
           {label: '名义净资产', data: data.netWorth, borderColor: '#7a5a39', backgroundColor: 'rgba(122,90,57,.08)', tension: .35, fill: true, pointRadius: 4, pointBackgroundColor: '#7a5a39', borderWidth: 2.5}
         ];
         if (cpiSeries) {
-          datasets.push({label: 'CPI 购买力线 (' + cpiPct + '%)', data: cpiSeries, borderColor: '#2f5d50', borderDash: [6, 4], borderWidth: 2, backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 0});
+          datasets.push({label: mobLegend ? 'CPI 购买力' : 'CPI 购买力线 (' + cpiPct + '%)', data: cpiSeries, borderColor: '#2f5d50', borderDash: [6, 4], borderWidth: 2, backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 0});
         }
         if (m2Series) {
-          datasets.push({label: 'M2 社会财富线 (' + m2Pct + '%)', data: m2Series, borderColor: '#9c4a2a', borderDash: [3, 3], borderWidth: 1.5, backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 0});
+          datasets.push({label: mobLegend ? 'M2 财富线' : 'M2 社会财富线 (' + m2Pct + '%)', data: m2Series, borderColor: '#9c4a2a', borderDash: [3, 3], borderWidth: 1.5, backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 0});
         }
         window.financeCharts.netWorth = new Chart(line, {
           type: 'line',
           data: {labels: data.labels, datasets: datasets},
           options: {
             maintainAspectRatio: false,
-            layout: {padding: {top: 28, right: 16}},
+            layout: {padding: {top: mobLegend ? 40 : 28, right: 16}},   // 窄屏加顶距:首末点 datalabel 不蹭图例行
             plugins: {
-              legend: {display: cpiSeries != null, position: 'top', labels: {font: {size: 11}}},
+              legend: {display: cpiSeries != null, position: 'top', labels: {font: {size: mobLegend ? 9 : 11}, boxWidth: mobLegend ? 16 : 40, padding: mobLegend ? 6 : 10}},
               title: {display: true, text: '净资产趋势 · ' + data.currency + (cpiSeries ? ' · 已叠加 CPI ' + cpiPct + '% 对照' : ''), padding: {bottom: 12}, font: {size: 13, weight: '500'}, color: '#3a302a'},
               tooltip: {callbacks: {label: (ctx) => ctx.dataset.label + ': ' + fmtMoney(ctx.parsed.y)}},
               datalabels: {

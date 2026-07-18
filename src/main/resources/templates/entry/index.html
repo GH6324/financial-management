@@ -49,15 +49,13 @@
           <span class="font-mono text-[10px] text-ink-subtle">先选类型 · 现金填金额 / 股票按持仓入账 · 一次录入处处正确</span>
         </div>
 
-        <!-- 类型切换 -->
-        <div class="flex gap-2 mb-4" role="tablist">
-          <button type="button" id="tab-cash" class="pill" style="padding:6px 16px;cursor:pointer">现金收入</button>
-          <button type="button" id="tab-stock" class="pill" style="padding:6px 16px;cursor:pointer">股票收入</button>
-        </div>
-
-        <!-- 现金收入 -->
+        <!-- 现金收入(类型切换 tab 与表单同一行 · 2026-07-18 UED:tab 不再独占一行、字号与控件一致) -->
         <div id="income-cash-block">
           <form th:action="@{/entry/income}" method="post" class="flex flex-wrap items-end gap-2 mb-1">
+            <span class="flex gap-1 self-end" role="tablist">
+              <button type="button" class="tab-cash pill text-xs h-9 px-3 cursor-pointer">现金收入</button>
+              <button type="button" class="tab-stock pill text-xs h-9 px-3 cursor-pointer">股票收入</button>
+            </span>
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <input type="hidden" name="periodId" th:value="${period.id}">
             <div>
@@ -91,6 +89,10 @@
         <!-- 股票收入:选账户 → 联动持仓 -->
         <div id="income-stock-block" style="display:none">
           <div class="flex flex-wrap items-end gap-2 mb-1">
+            <span class="flex gap-1 self-end" role="tablist">
+              <button type="button" class="tab-cash pill text-xs h-9 px-3 cursor-pointer">现金收入</button>
+              <button type="button" class="tab-stock pill text-xs h-9 px-3 cursor-pointer">股票收入</button>
+            </span>
             <div>
               <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">股票账户</label>
               <select id="stock-acct" name="accountId"
@@ -152,16 +154,21 @@
             <span class="pill" style="background:rgba(159,74,58,.10);color:var(--rust);border-color:var(--rust)">支出</span>
             <span class="font-mono text-[10px] text-ink-subtle">本月总支出(一个数)</span>
           </div>
-          <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block"><span th:text="${me.displayName}">我</span> 的本月总支出 ¥</label>
-          <input type="number" name="totalExpenseInput" step="0.01" min="0" max="99999999"
-                 th:value="${myCashflow != null ? myCashflow.totalExpenseInput : null}"
-                 placeholder="0 · 留空表示未填"
-                 class="w-48 font-mono text-lg bg-paper border border-rule px-3 py-2.5 tnum text-right">
+          <!-- 输入框与按钮同一 items-end 流(2026-07-18 UED:此前参考行垫高左列,按钮与输入框错位) -->
+          <div class="flex flex-wrap items-end gap-3">
+            <label class="block">
+              <span class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block"><span th:text="${me.displayName}">我</span> 的本月总支出 ¥</span>
+              <input type="number" name="totalExpenseInput" step="0.01" min="0" max="99999999"
+                     th:value="${myCashflow != null ? myCashflow.totalExpenseInput : null}"
+                     placeholder="0 · 留空表示未填"
+                     class="w-48 h-11 font-mono text-lg bg-paper border border-rule px-3 tnum text-right">
+            </label>
+            <button type="submit" class="btn-ink text-sm h-11 px-4">保存本月总支出</button>
+          </div>
           <p class="font-mono text-[10px] text-ink-subtle mt-1"
              th:if="${myPrevCashflow != null and myPrevCashflow.totalExpenseInput != null}"
              th:text="'↳ 上期你填的 · ¥' + ${#numbers.formatInteger(myPrevCashflow.totalExpenseInput, 0, 'COMMA')}">↳ 上期 · ¥0</p>
         </div>
-        <button type="submit" class="btn-ink text-sm">保存本月总支出</button>
       </form>
 
       <div class="text-xs text-ink-soft pt-1 font-mono">家庭本月已填收支:<b th:text="${(filledMembers != null ? filledMembers.size() : 0) + ' / ' + (totalMembers ?: 0) + ' 人'}">0 / 2 人</b></div>
@@ -171,19 +178,19 @@
   <!-- v0.12 FR-150 · 收入侧类型切换:现金 / 股票 -->
   <script>
     (function () {
-      var tabCash = document.getElementById('tab-cash');
-      var tabStock = document.getElementById('tab-stock');
+      var tabsCash = document.querySelectorAll('.tab-cash');
+      var tabsStock = document.querySelectorAll('.tab-stock');
       var cashBlk = document.getElementById('income-cash-block');
       var stockBlk = document.getElementById('income-stock-block');
-      if (!tabCash || !tabStock || !cashBlk || !stockBlk) return;
+      if (!tabsCash.length || !cashBlk || !stockBlk) return;
       function pick(stock) {
         cashBlk.style.display = stock ? 'none' : '';
         stockBlk.style.display = stock ? '' : 'none';
-        tabStock.classList.toggle('pill-forest', stock);
-        tabCash.classList.toggle('pill-forest', !stock);
+        tabsStock.forEach(function (t) { t.classList.toggle('pill-forest', stock); });
+        tabsCash.forEach(function (t) { t.classList.toggle('pill-forest', !stock); });
       }
-      tabCash.addEventListener('click', function () { pick(false); });
-      tabStock.addEventListener('click', function () { pick(true); });
+      tabsCash.forEach(function (t) { t.addEventListener('click', function () { pick(false); }); });
+      tabsStock.forEach(function (t) { t.addEventListener('click', function () { pick(true); }); });
       pick(false);   // 默认现金
     })();
   </script>
@@ -241,7 +248,7 @@
               hx-target="#refresh-toast"
               hx-swap="innerHTML"
               hx-disabled-elt="this"
-              class="btn-paper inline-flex items-center gap-1.5"
+              class="btn-paper inline-flex items-center gap-1.5 whitespace-nowrap"
               title="同步 US/CN/HK/加密/贵金属 最新价 + 重算持仓账户余额(估值刷新)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M23 4v6h-6"/>
@@ -260,7 +267,7 @@
           <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
         </svg>
       </button>
-      <a th:href="@{/accounts/new}" class="btn-paper no-underline">+ 新账户</a>
+      <a th:href="@{/accounts/new}" class="btn-paper no-underline whitespace-nowrap">+ 新账户</a>
     </div>
   </section>
 
