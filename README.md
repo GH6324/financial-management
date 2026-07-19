@@ -95,13 +95,14 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v1.1.11 · 六项移动端与细节修复](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.1.11)
+
+补丁:目标条带移动两列提密度、状态标签强制同行、趋势图例自绘一行根治折行、流水账本式两行金额成列、账户看板中文为主、目标百分比两位小数。无数据库变更。
+
 ### [v1.1.10 · 八项 UED 细节修复](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.1.10)
 
 补丁:填报页支出对齐/收入 tab 同行/移动按钮不折字;下拉移动端不自动弹键盘;仪表盘移动端 目标卡溢出根治、洞察卡分层、状态标签横排、趋势图例一行。无数据库变更。
 
-### [v1.1.9 · 填报页:记录行头像与日期 + 操作区重排](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.1.9)
-
-补丁:收入记录行新增 账户主理人头像 + 填报日期(MM-dd);账户行右侧操作区改「快捷支出/账户间划转」两段式、控件统一等高;收入表单同高。全家可见(全部/仅我)保留。无数据库变更。
 
 
 
