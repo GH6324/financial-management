@@ -531,7 +531,7 @@ public class EntryController {
                 String url = (le.kind() == EntryRow.LedgerKind.TRANSFER_IN || le.kind() == EntryRow.LedgerKind.TRANSFER_OUT)
                         ? "/entry/transfer/" + le.sourceId() + "/delete"
                         : "/entry/cash-flow/" + le.sourceId() + "/delete";
-                sb.append("<button class=\"text-[11px] text-ink-subtle hover:text-rust px-1\" title=\"删除此条\" ")
+                sb.append("<button class=\"tap text-[11px] text-ink-subtle hover:text-rust px-1\" title=\"删除此条\" ")
                         .append("hx-post=\"").append(url).append("\" ")
                         .append("hx-target=\"#row-").append(row.account().getId()).append("\" ")
                         .append("hx-swap=\"outerHTML\" ")

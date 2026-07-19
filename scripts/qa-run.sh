@@ -3522,6 +3522,19 @@ LSJ="$RD/src/main/resources/static/js/lens-select.js"
   && log_ok "v11-R6 六项(目标两列密度/pills同行/自绘图例一行/流水两行金额成列/账户tile中文/目标pct两位小数)" \
   || log_bad "v11-R6 六项修复缺件" "see _progress-strip/_region/EntryController/accounts/GoalProgressService"
 
+# v11-R7 · 2026-07-19 五项:目标ⓘ点击弹描述不跳详情 · 小图标热区扩38px · 自绘图例可点toggle曲线 · lens截图v3 · CI直连central
+{ grep -q '_kpi-info :: i(${gp.goal.description' "$RD/src/main/resources/templates/goals/_progress-strip.html" \
+  && grep -q '.kpi-info-btn::after, .tap::after' "$RD/src/main/resources/static/css/style.css" \
+  && grep -q 'inset: -12px' "$RD/src/main/resources/static/css/style.css" \
+  && grep -q 'setDatasetVisibility' "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q 'tap text-\[11px\] text-ink-subtle hover:text-rust' "$RD/src/main/java/com/family/finance/web/entry/EntryController.java" \
+  && grep -q 'CN_MIRROR' "$RD/Dockerfile" \
+  && grep -q 'CN_MIRROR=0' "$RD/.github/workflows/docker-publish.yml" \
+  && [ -f "$RD/deploy/maven-settings-central.xml" ] \
+  && grep -q 'pc_lens.jpg?v=3' "$RD/README.md"; } \
+  && log_ok "v11-R7 五项(目标ⓘ弹描述stopPropagation · 热区::after-12px · 图例toggle回归 · lens截图成员结构v3 · CI去aliyun单点)" \
+  || log_bad "v11-R7 五项缺件" "see _progress-strip/style.css/_region/EntryController/Dockerfile/workflow"
+
 # ===================== v0.12 · 收支填报收入侧升级 =====================
 # v12-INCOME-CAT · 类目绑定账户类型 + 股票类收入类目(V34)
 CFC="$RD/db/migration/V34__income_category_account_type.sql"

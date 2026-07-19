@@ -5,7 +5,10 @@
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /src
 COPY pom.xml .
-COPY deploy/maven-settings.xml ./maven-settings.xml
+COPY deploy/maven-settings.xml deploy/maven-settings-central.xml ./
+# CN_MIRROR=1(默认)走阿里云加速(中国大陆本地构建);CI 传 0 直连 central(GitHub 机房,aliyun 反成单点故障源)
+ARG CN_MIRROR=1
+RUN if [ "$CN_MIRROR" = "0" ]; then cp maven-settings-central.xml maven-settings.xml; fi
 # 先拉依赖,利用层缓存(源码变动不重拉依赖)
 RUN mvn -s maven-settings.xml -B -q dependency:go-offline -DskipTests || true
 COPY src ./src

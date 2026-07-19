@@ -33,11 +33,8 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-1">
               <span class="text-sm text-ink truncate group-hover:text-brass-deep transition" th:text="${gp.goal.name}">退休</span>
-              <!-- ⓘ hover 看描述(无描述回落名称)· 原生 title 浮层 -->
-              <span class="flex-shrink-0 inline-flex text-ink-subtle" style="cursor:help"
-                    th:title="${gp.goal.description != null and !gp.goal.description.isBlank()} ? ${gp.goal.description} : ${gp.goal.name}">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              </span>
+              <!-- 2026-07-19:ⓘ 换 kpi-info 组件 —— 点击弹描述(stopPropagation,不再误跳目标详情);热区随全局扩大 -->
+              <th:block th:insert="~{fragments/_kpi-info :: i(${gp.goal.description != null and !gp.goal.description.isBlank() ? gp.goal.description : gp.goal.name}, null)}"/>
               <span class="font-mono text-xs text-ink-subtle ml-auto flex-shrink-0" th:text="${gp.progressPct} + '%'">57%</span>
             </div>
             <div class="w-full bg-card-soft h-1.5 mt-1 overflow-hidden">

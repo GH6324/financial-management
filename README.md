@@ -16,7 +16,7 @@
   <tr>
     <td width="33%"><img src="docs/screenshots/pc_dashboard.jpg" alt="仪表盘"><br><sub><b>仪表盘</b> · 净资产趋势(CPI 购买力线 + M2 社会财富线)+ 配置环形 + KPI</sub></td>
     <td width="33%"><img src="docs/screenshots/pc_ai_analysis.jpg" alt="AI 综合诊断"><br><sub><b>AI 综合诊断</b> · 总评 + 四维卡 + 优先行动(数字工程算,LLM 只解读)</sub></td>
-    <td width="33%"><img src="docs/screenshots/pc_lens.jpg?v=2" alt="资产透视"><br><sub><b>资产透视</b> · 旭日下钻 + 交叉透视表 + 钻到持仓明细 · 6 块预设看板 · 同维值同色</sub></td>
+    <td width="33%"><img src="docs/screenshots/pc_lens.jpg?v=3" alt="资产透视"><br><sub><b>资产透视</b> · 旭日下钻 + 交叉透视表 + 钻到持仓明细 · 6 块预设看板 · 同维值同色</sub></td>
   </tr>
   <tr>
     <td width="33%"><img src="docs/screenshots/pc_account.jpg" alt="账户簿"><br><sub><b>账户簿</b> · 6 类账户 · 按成员归集 · 划转 / 体检 / 账本 / 一键导出</sub></td>
@@ -140,7 +140,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 414 单元(含 PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护)/ 55 e2e 断言(11 主线)/ 472 黑盒回归 |
+| 测试 | JUnit 5 · 414 单元(含 PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护)/ 55 e2e 断言(11 主线)/ 473 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
@@ -271,7 +271,7 @@ mvn spring-boot:run
 
 ```bash
 mvn test                       # JUnit 单元测试(414)
-bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(472)
+bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(473)
 bash scripts/e2e.sh            # 端到端主线真验收(11 主线 · 唤起 beta 调接口 + DB 真值判定 · mysqldump 快照/还原,不清库)
 ```
 

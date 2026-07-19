@@ -343,6 +343,12 @@ h1, h2, h3, h4 {
   flex-shrink: 0; padding: 0; background: none;
 }
 .kpi-info-btn:hover { color: var(--brass-deep); }
+/* 2026-07-19 · 移动可点性:视觉 14px 的小图标,触摸热区扩到 ~38px(::after 不占布局,只吃点击) */
+.kpi-info-btn { position: relative; }
+.kpi-info-btn::after, .tap::after {
+  content: ''; position: absolute; inset: -12px;
+}
+.tap { position: relative; }
 .kpi-info-panel {
   /* absolute 浮层 · 不撑开 parent card 布局 */
   position: absolute;
