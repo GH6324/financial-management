@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>v1.2 Preview · 再平衡执行闭环</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .num-pos{color:var(--forest,#2f5d50)} .num-neg{color:var(--rust,#9c4a2a)}
+  .card{background:var(--card,#fffdf6);border:1px solid var(--rule,#d8cfba)}
+  .step{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--ink-subtle,#6b6353)}
+</style>
+</head>
+<body class="min-h-screen" style="background:var(--paper,#f5efe2)">
+<div class="max-w-4xl mx-auto px-4 lg:px-8 py-8">
+  <p class="eyebrow" style="letter-spacing:.2em">PREVIEW · V1.2 · 主题 D · 待评审</p>
+  <h1 class="font-display text-3xl lg:text-4xl mt-1" style="color:var(--ink,#2b2620)">再平衡执行闭环</h1>
+  <p class="mt-2 text-sm" style="color:var(--ink-subtle,#6b6353);max-width:44rem">
+    建议 → 计划 → 站内划转自动核销 → 进度。计划条目只到<b>自家账户与金额</b>,永不出现具体产品/标的;
+    执行真值 = 账本(你在外部操作后回填报页做划转,系统自动对上账)。</p>
+
+  <!-- 第 1 步 · AI 建议采纳 -->
+  <section class="card p-5 mt-6">
+    <div class="step mb-2">STEP 1 · 体检页 · AI 调仓建议(现有能力 + 新增「采纳」)</div>
+    <div class="space-y-2 text-sm">
+      <label class="flex items-start gap-2.5 p-2.5 border border-rule bg-paper cursor-pointer">
+        <input type="checkbox" checked class="mt-1">
+        <span class="flex-1">从 <b>华泰证券-A股</b> 调 <b class="font-mono">¥50,000</b> 到 <b>招行-稳健理财</b>
+          <span class="block text-[11px] mt-0.5" style="color:var(--ink-subtle,#6b6353)">高风险占比 47% 超过阈值 40%,建议降至阈内</span></span>
+      </label>
+      <label class="flex items-start gap-2.5 p-2.5 border border-rule bg-paper cursor-pointer">
+        <input type="checkbox" checked class="mt-1">
+        <span class="flex-1">从 <b>富途证券-港美股</b> 调 <b class="font-mono">¥30,000</b> 到 <b>支付宝-余额宝</b>
+          <span class="block text-[11px] mt-0.5" style="color:var(--ink-subtle,#6b6353)">应急金 5.1 月 &lt; 目标 6 月,补足流动性</span></span>
+      </label>
+      <label class="flex items-start gap-2.5 p-2.5 border border-rule bg-paper cursor-pointer opacity-60">
+        <input type="checkbox" class="mt-1">
+        <span class="flex-1">从 <b>币安</b> 调 <b class="font-mono">¥8,000</b> 到 <b>黄金积存</b>
+          <span class="block text-[11px] mt-0.5" style="color:var(--ink-subtle,#6b6353)">加密占另类比重偏高(未勾选 = 不采纳)</span></span>
+      </label>
+    </div>
+    <div class="flex items-center gap-3 mt-3">
+      <button class="btn-ink text-sm px-4 py-1.5">采纳 2 条为本期计划</button>
+      <button class="btn-paper text-sm px-4 py-1.5">+ 手动加一条</button>
+      <span class="text-[10px]" style="color:var(--ink-subtle,#6b6353)">金额可改 · 只在自家账户间调结构,不涉及任何产品推荐</span>
+    </div>
+  </section>
+
+  <!-- 第 2 步 · 活动计划与核销 -->
+  <section class="card p-5 mt-4">
+    <div class="flex items-baseline justify-between flex-wrap gap-2 mb-2">
+      <div class="step">STEP 2 · 本期再平衡计划(2026-08)· 进度 1 / 2 · 已调 ¥50,000 / ¥80,000</div>
+      <span class="font-mono text-[10px]" style="color:var(--ink-subtle,#6b6353)">账期关账时自动归档 · 可回看</span>
+    </div>
+    <div class="w-full bg-card-soft h-2 mb-4 overflow-hidden" style="background:rgba(0,0,0,.06)">
+      <div style="height:100%;width:62.5%;background:var(--forest,#2f5d50)"></div>
+    </div>
+    <div class="space-y-2 text-sm">
+      <div class="flex items-center gap-3 p-2.5 border border-rule" style="background:rgba(47,93,80,.05)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--forest)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <span class="flex-1">华泰证券-A股 → 招行-稳健理财 <b class="font-mono">¥50,000</b></span>
+        <span class="font-mono text-[10px] num-pos">已执行 · 划转核销 08-05</span>
+      </div>
+      <div class="flex items-center gap-3 p-2.5 border border-rule bg-paper">
+        <span style="width:15px;text-align:center;color:var(--ink-subtle)">·</span>
+        <span class="flex-1">富途证券-港美股 → 支付宝-余额宝 <b class="font-mono">¥30,000</b></span>
+        <span class="flex items-center gap-2">
+          <span class="font-mono text-[10px]" style="color:var(--ink-subtle,#6b6353)">待执行</span>
+          <button class="btn-paper text-[10px] px-2 py-0.5">已在外部完成</button>
+        </span>
+      </div>
+    </div>
+    <p class="text-[10px] mt-3" style="color:var(--ink-subtle,#6b6353)">
+      核销规则:填报页发生 同 from/to 账户 且 金额 ≥ 条目 80% 的划转 → 自动标记已执行并回链流水;
+      「已在外部完成」为手动确认(标注未经核销)。</p>
+  </section>
+
+  <!-- 第 3 步 · 闭环回响 -->
+  <section class="card p-5 mt-4" style="border-left:4px solid var(--brass-deep,#7a5a39)">
+    <div class="step mb-2">STEP 3 · 下月体检 · AI 看到执行结果(闭环)</div>
+    <div class="text-sm leading-relaxed" style="color:var(--ink-soft,#4a4238);white-space:pre-line">· 上期再平衡计划执行 2/2:高风险占比 47% → 39%,已回到阈内
+· 应急金 5.1 月 → 6.2 月,达标
+· 值得做的一件事:本月无需调仓,保持观察</div>
+    <p class="text-[10px] mt-2" style="color:var(--ink-subtle,#6b6353)">计划执行率成为下次诊断的输入信号 · LLM 只解读进度,不生成买卖指令。</p>
+  </section>
+
+  <p class="mt-6 text-xs" style="color:var(--ink-subtle,#6b6353)">铁律:永不推荐具体产品/标的/时点;条目仅 账户+金额;核销为本地规则匹配,不涉 LLM。</p>
+</div>
+</body>
+</html>
