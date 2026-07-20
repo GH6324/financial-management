@@ -22,13 +22,13 @@
   <!-- v0.3 FR-53a · AI 推荐默认值 -->
   <div class="paper-card p-4 mb-4 bg-card-soft flex items-center justify-between" style="border-left:4px solid var(--brass-deep)">
     <div>
-      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">🤖 AI · 推 · 荐 · 默 · 认 · 值</div>
+      <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">AI · 推 · 荐 · 默 · 认 · 值</div>
       <p class="text-xs text-ink-soft mt-1">不确定怎么填?让 AI 基于你家庭基础信息(成员/净资产)推荐合理参数。</p>
     </div>
     <button type="button" id="ai-advise-btn"
             onclick="adviseRetirement(this)"
             class="btn-paper text-sm" style="border-color:var(--brass-deep);color:var(--brass-deep)">
-      🤖 AI 推荐
+      AI 推荐
     </button>
   </div>
   <div id="ai-rationale" class="hidden paper-card p-3 mb-4 bg-card-soft text-sm font-serif text-ink-soft"></div>
@@ -96,7 +96,7 @@
 
     async function adviseRetirement(btn) {
       const orig = btn.textContent;
-      btn.textContent = '🤖 思考中...';
+      btn.textContent = '思考中...';
       btn.disabled = true;
       try {
         const resp = await fetch('/goals/advise/retirement', {

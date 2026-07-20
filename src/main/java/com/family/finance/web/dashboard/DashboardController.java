@@ -49,6 +49,7 @@ public class DashboardController {
     private final AccountMapper accountMapper;
     private final MemberMapper memberMapper;
     private final EntryService entryService;
+    private final com.family.finance.repository.SnapshotTodoMapper snapshotTodoMapper;   // v1.2 F 未填计数轻查询
     private final NavService navService;
     private final FxService fxService;
     private final com.family.finance.service.MetricPrefsService metricPrefsService;   // v0.8 可配置指标
@@ -134,10 +135,15 @@ public class DashboardController {
         Period anchor = resolveAsOf(asof, allPeriods, periodMapper.findCurrentOpen(me.getFamilyId()).orElse(null));
         List<Long> accountIds = parseAccountIds(accountsCsv);
         String viewCurrency = parseCurrency(currency, family.getBaseCurrency());
+        // v1.2 F · momYoy 复用条件:显示窗口已覆盖 asof−12 月(默认 1Y/ALL 命中)→ 免第二次 load;
+        //   短窗口(1M/3M/6M/YTD)保持独立 load,主 slice 范围不动 → 趋势等显示零回归
+        java.time.LocalDate displayStart = rangeStart(range, anchor.getPeriodStart());
+        java.time.LocalDate momStart = anchor.getPeriodStart().minusMonths(12);
+        boolean momReuse = displayStart == null || !displayStart.isAfter(momStart);
         FactFilter filter = new FactFilter(
                 me.getFamilyId(),
                 family.getPeriodType(),
-                rangeStart(range, anchor.getPeriodStart()),
+                displayStart,
                 anchor.getPeriodStart(),
                 false,
                 accountIds,
@@ -190,10 +196,10 @@ public class DashboardController {
         List<com.family.finance.factview.CashflowPoint> cashflowSeries =
                 factViewService.cashflowSeries(slice, 6, currentOpen == null ? null : currentOpen.getId());
         // v0.8 FR-145:MoM/YoY 用 [as-of−12, as-of] 最小窗口算,与显示窗口解耦,缺对比期显数据不足
-        com.family.finance.factview.MomYoy momYoy = factViewService.momYoy(new FactFilter(
-                me.getFamilyId(), family.getPeriodType(),
-                anchor.getPeriodStart().minusMonths(12), anchor.getPeriodStart(),
-                false, accountIds, viewCurrency));
+        com.family.finance.factview.MomYoy momYoy = momReuse
+                ? factViewService.momYoy(slice)   // v1.2 F · 复用主 slice(窗口已覆盖 12 月)
+                : factViewService.momYoy(new FactFilter(me.getFamilyId(), family.getPeriodType(),
+                        momStart, anchor.getPeriodStart(), false, accountIds, viewCurrency));
 
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
@@ -215,9 +221,9 @@ public class DashboardController {
         model.addAttribute("anchorPeriod", anchor);
         model.addAttribute("currentOpen", currentOpen);
         model.addAttribute("rebalancePlanView", rebalancePlanService.activePlan(me.getFamilyId()));   // v1.2 洞察条 pill
-        model.addAttribute("pendingRows", currentOpen == null ? List.of() : entryService.listRows(me.getFamilyId(), me.getMemberId(), currentOpen, false).stream()
-                .filter(row -> !row.done())
-                .toList());
+        // v1.2 F · 模板只消费"未填个数" → 由全行装配(listRows 含流水,~百ms)换成 todo 计数轻查询
+        model.addAttribute("pendingCount", currentOpen == null ? 0
+                : snapshotTodoMapper.countPendingByPeriod(currentOpen.getId()));
 
         // v0.3 FR-50d · 目标进度条带数据(失败容忍 · 不阻塞 dashboard 渲染)
         try {

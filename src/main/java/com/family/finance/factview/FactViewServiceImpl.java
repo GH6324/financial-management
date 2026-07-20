@@ -489,7 +489,11 @@ public class FactViewServiceImpl implements FactViewService {
 
     @Override
     public MomYoy momYoy(FactFilter filter) {
-        FactSlice slice = load(filter);
+        return momYoy(load(filter));
+    }
+
+    @Override
+    public MomYoy momYoy(FactSlice slice) {
         Long last = slice.lastPeriodId();
         if (last == null) return new MomYoy(null, null, null, null, null);
         BigDecimal nwNow = netWorth(slice, last);

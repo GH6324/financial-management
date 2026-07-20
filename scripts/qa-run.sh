@@ -3535,6 +3535,48 @@ LSJ="$RD/src/main/resources/static/js/lens-select.js"
   && log_ok "v11-R7 五项(目标ⓘ弹描述stopPropagation · 热区::after-12px · 图例toggle回归 · lens截图成员结构v3 · CI去aliyun单点)" \
   || log_bad "v11-R7 五项缺件" "see _progress-strip/style.css/_region/EntryController/Dockerfile/workflow"
 
+# ===================== v1.2 · 归因复盘 + 再平衡闭环 + 性能底盘 =====================
+# v12-ATTR · 归因引擎(纯函数·两步法fx拆分·未归因显性)+ dashboard 懒加载 fragment + 6 维度
+{ grep -q 'class AttributionEngine' "$RD/src/main/java/com/family/finance/calc/review/AttributionEngine.java" \
+  && grep -q 'subtract(underlying)' "$RD/src/main/java/com/family/finance/calc/review/AttributionEngine.java" \
+  && grep -q 'unattributed' "$RD/src/main/java/com/family/finance/calc/review/AttributionEngine.java" \
+  && grep -q '行业不做' "$RD/src/main/java/com/family/finance/service/review/AttributionService.java" \
+  && grep -q '/dashboard/attribution' "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \
+  && grep -q 'attribution-mount' "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q 'hx-trigger="revealed"' "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q 'attrWaterfall' "$RD/src/main/resources/templates/dashboard/_attribution.html"; } \
+  && log_ok "v12-ATTR 归因引擎+fragment(两步法fx闭合 · 未归因显性 · revealed懒加载 · 瀑布/贡献榜/12期)" \
+  || log_bad "v12-ATTR 归因缺件" "see calc/review + _attribution.html"
+
+# v12-REVIEW-AI · AI 月度复盘(信号驱动 · V48 缓存 · 脱敏 · 禁算)
+{ grep -q '严禁做任何计算' "$RD/src/main/java/com/family/finance/service/review/ReviewInsightService.java" \
+  && grep -q 'anonymize' "$RD/src/main/java/com/family/finance/service/review/ReviewInsightService.java" \
+  && grep -q 'review_ai_cache' "$RD/db/migration/V48__review_and_rebalance_plan.sql" \
+  && grep -q 'orderByPrimaryVendor' "$RD/src/main/java/com/family/finance/service/review/ReviewInsightService.java" \
+  && grep -q '/review/insight' "$RD/src/main/java/com/family/finance/web/review/ReviewController.java"; } \
+  && log_ok "v12-REVIEW-AI 月度复盘(信号驱动+V48缓存+脱敏+禁算+follow主选vendor)" \
+  || log_bad "v12-REVIEW-AI 复盘缺件" "see ReviewInsightService/ReviewController/V48"
+
+# v12-PLAN · 再平衡闭环(采纳/80%核销/关账归档/铁律)
+{ grep -q 'rebalance_plan_item' "$RD/db/migration/V48__review_and_rebalance_plan.sql" \
+  && grep -q 'K_REBALANCE_MATCH_PCT' "$RD/src/main/java/com/family/finance/service/review/RebalancePlanService.java" \
+  && grep -q 'TransferCreatedEvent' "$RD/src/main/java/com/family/finance/service/EntryService.java" \
+  && grep -q 'archiveOnClose' "$RD/src/main/java/com/family/finance/service/PeriodService.java" \
+  && grep -q '/rebalance-plan/adopt' "$RD/src/main/java/com/family/finance/web/review/RebalancePlanController.java" \
+  && grep -q '再平衡计划执行情况' "$RD/src/main/java/com/family/finance/service/checkup/llm/LlmDiagnoseService.java" \
+  && grep -q '本期再平衡计划' "$RD/src/main/resources/templates/reports/_rebalance-plan.html" \
+  && grep -q '不要生成新的买卖指令' "$RD/src/main/java/com/family/finance/service/checkup/llm/LlmDiagnoseService.java"; } \
+  && log_ok "v12-PLAN 再平衡闭环(V48两表 · 采纳解析 · AFTER_COMMIT核销80%可配 · 关账归档 · 执行率喂诊断只解读)" \
+  || log_bad "v12-PLAN 计划闭环缺件" "see RebalancePlanService/Controller/EntryService/PeriodService"
+
+# v12-PERF · 性能底盘(momYoy条件复用 · pending轻查询 · beta实测 P50 476→364ms)
+{ grep -q 'MomYoy momYoy(FactSlice slice)' "$RD/src/main/java/com/family/finance/factview/FactViewService.java" \
+  && grep -q 'momReuse' "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \
+  && grep -q 'pendingCount' "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \
+  && ! grep -q 'pendingRows' "$RD/src/main/resources/templates/dashboard/_region.html"; } \
+  && log_ok "v12-PERF 性能底盘(momYoy slice复用条件保显示零回归 · pending计数轻查询 · P50 476→364ms)" \
+  || log_bad "v12-PERF 性能缺件" "see DashboardController/FactViewService"
+
 # ===================== v0.12 · 收支填报收入侧升级 =====================
 # v12-INCOME-CAT · 类目绑定账户类型 + 股票类收入类目(V34)
 CFC="$RD/db/migration/V34__income_category_account_type.sql"
@@ -3568,7 +3610,7 @@ FV="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
 # v12-INCOME-UI · 收入侧类型优先(现金/股票 tab · 股票联动持仓)· 账户行不再硬编码 +收入
 REG_ENTRY="$RD/src/main/resources/templates/entry/index.html"
 ROW="$RD/src/main/resources/templates/entry/_row.html"
-{ grep -q 'id="tab-stock"' "$REG_ENTRY" && grep -q 'id="income-cash-block"' "$REG_ENTRY" \
+{ grep -q 'class="tab-stock' "$REG_ENTRY" && grep -q 'id="income-cash-block"' "$REG_ENTRY" \
   && grep -q 'stock-holdings-target' "$REG_ENTRY" && grep -q '/entry/income' "$REG_ENTRY" \
   && ! grep -q 'name="kind" value="INCOME"' "$ROW"; } \
   && log_ok "v12-INCOME-UI 收入侧类型优先(现金/股票 tab + 联动持仓)· 账户行无硬编码 +收入" \

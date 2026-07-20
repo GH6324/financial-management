@@ -1841,3 +1841,13 @@ Docker 化部署 + systemd/macOS 存量零丢迁移。**真机冒烟(docker buil
 | (e2e) 主线 透视 | 登录 → 仪表盘「深入透视」→ 风险总览出旭日/排行/透视表 → 切「行业集中」看板 → 点透视格 → 明细抽屉(头寸→账户详情)→ /lens/tags 打标 → 手机视口复跑 |
 
 > 决策(承 prd/tech-design v1.1 · D1–D6 全拍板):**要 OLAP 的交互(切片/下钻/换维),不上 OLAP 引擎**(<200 头寸内存 group-by);**近似打标不做基金成分穿透**(个股准·基金粗标·UI 明示);头寸事实=查询时实时组装(不物化);维度/度量注册表一处登记;/lens 页前端例外走原生 JS(拖拽/联动状态机,项目其余仍 HTMX);AI 只做分类不做数学、白名单+显式接受;5 预设看板=spec 常量。
+
+
+## v1.2 · 月度归因复盘 + 再平衡执行闭环 + 性能底盘(2026-07-20)
+
+| Case | 断言 |
+|---|---|
+| v12-ATTR | 归因引擎纯函数(calc/review):恒等式 ΔNW=人赚+Σ账户钱赚+开账+未归因 严格闭合;两步法汇率拆分(标的=pnlOrig×fx_end,汇率=pnlBase−标的,两项和≡pnlBase 零残差,CNY 恒 0,清仓回退期初 fx);未归因如实显示不吞;6 归因维度(账户/资产类型/成员/平台/币种/账户类型,**行业不做**:持仓账户账户级行业恒空会误导);dashboard「本期怎么变的」卡内 `hx-trigger=revealed` 懒加载 fragment(瀑布/贡献榜/12 期趋势/维度 chips);4 单测绿。e2e:chips 6 维、维度切换、隐私下 canvas 金额不绘 |
+| v12-REVIEW-AI | AI 月度复盘:工程信号(集中拖累≥50%/汇率占比≥20%/入不敷出/口径缺口)→ LLM 禁算只解读;V48 review_ai_cache UNIQUE(family,period,dim) 覆盖写,关账期可回看;真名脱敏;follow 主选 vendor。e2e 真调:输出合规要点行,二次点击「· deepseek · 缓存」 |
+| v12-PLAN | 再平衡闭环:V48 rebalance_plan/item 两表;建议 content_json.actions 勾选采纳(账户名→id 精确匹配失配跳过);划转 AFTER_COMMIT 核销(同 from/to 且金额 ≥ 条目×K_REBALANCE_MATCH_PCT 默认 0.8,只核最早一条 PENDING);「已在外部完成」=MANUAL_DONE 标注未经核销;关账自动归档;诊断 prompt 注入执行率(只解读不生成指令);dashboard 洞察条「再平衡计划 x/y」pill。4 单测绿;e2e:采纳 2 条落库、手动完成后 pill 1/2。曾修:insertPlan @Param 嵌套引用 `#{plan.familyId}`(裸 `#{familyId}` BindingException 500) |
+| v12-PERF | dashboard TTFB:beta 实测 P50 476ms→**364ms**(目标≤400 ✓)P95 586ms(≤800 ✓);手段:momYoy(FactSlice) 重载——显示窗口覆盖 12 月时(默认 1Y/ALL)复用主 slice 免二次 load,短窗口保持独立 load **显示零回归**;pendingRows 全行装配(含流水)→ todo 计数轻查询(模板只消费个数);归因区懒加载(fragment 独立 128ms 不拖首屏);数值口径零变化(422 单测背书) |

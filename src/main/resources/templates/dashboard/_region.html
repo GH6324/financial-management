@@ -47,10 +47,10 @@
       </div>
     </div>
 
-    <div th:if="${!#lists.isEmpty(pendingRows)}" class="border border-rust bg-rust/[0.04] px-5 py-3 flex items-center justify-between gap-4 flex-wrap">
+    <div th:if="${pendingCount != null and pendingCount > 0}" class="border border-rust bg-rust/[0.04] px-5 py-3 flex items-center justify-between gap-4 flex-wrap">
       <div class="flex items-center gap-4">
         <span class="pill pill-rust">未结账</span>
-        <p class="text-sm">本期还有 <span class="font-mono text-rust" th:text="${#lists.size(pendingRows)} + ' 个账户'">2 个账户</span>未填。</p>
+        <p class="text-sm">本期还有 <span class="font-mono text-rust" th:text="${pendingCount} + ' 个账户'">2 个账户</span>未填。</p>
       </div>
       <a th:href="@{/entry}" class="btn-paper text-[10px] no-underline">前往填报 →</a>
     </div>

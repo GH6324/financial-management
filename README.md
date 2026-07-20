@@ -141,7 +141,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 414 单元(含 PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护)/ 55 e2e 断言(11 主线)/ 473 黑盒回归 |
+| 测试 | JUnit 5 · 422 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护)/ 55 e2e 断言(11 主线)/ 477 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
@@ -272,14 +272,14 @@ mvn spring-boot:run
 
 ```bash
 mvn test                       # JUnit 单元测试(414)
-bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(473)
+bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(477)
 bash scripts/e2e.sh            # 端到端主线真验收(11 主线 · 唤起 beta 调接口 + DB 真值判定 · mysqldump 快照/还原,不清库)
 ```
 
 ## 文档
 
-- **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md) · [`prd/v0.3.md`](prd/v0.3.md) · [`prd/v0.4.md`](prd/v0.4.md) · [`prd/v0.5.md`](prd/v0.5.md) · [`prd/v0.6.md`](prd/v0.6.md) · [`prd/v0.7.md`](prd/v0.7.md) · [`prd/v0.8.md`](prd/v0.8.md) · [`prd/v0.9.md`](prd/v0.9.md) · [`prd/v0.10.md`](prd/v0.10.md) · [`prd/v0.11.md`](prd/v0.11.md) · [`prd/v0.12.md`](prd/v0.12.md) · [`prd/v0.13.md`](prd/v0.13.md) · [`prd/v0.14.md`](prd/v0.14.md) · [`prd/v0.15.md`](prd/v0.15.md) · [`prd/v0.16.md`](prd/v0.16.md) · [`prd/v0.17.md`](prd/v0.17.md) · [`prd/v1.1.md`](prd/v1.1.md)
-- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md) · [`tech-design/v0.4.md`](tech-design/v0.4.md) · [`tech-design/v0.5.md`](tech-design/v0.5.md) · [`tech-design/v0.6.md`](tech-design/v0.6.md) · [`tech-design/v0.7.md`](tech-design/v0.7.md) · [`tech-design/v0.8.md`](tech-design/v0.8.md) · [`tech-design/v0.9.md`](tech-design/v0.9.md) · [`tech-design/v0.10.md`](tech-design/v0.10.md) · [`tech-design/v0.11.md`](tech-design/v0.11.md) · [`tech-design/v0.12.md`](tech-design/v0.12.md) · [`tech-design/v0.13.md`](tech-design/v0.13.md) · [`tech-design/v0.14.md`](tech-design/v0.14.md) · [`tech-design/v0.15.md`](tech-design/v0.15.md) · [`tech-design/v0.16.md`](tech-design/v0.16.md) · [`tech-design/v0.17.md`](tech-design/v0.17.md) · [`tech-design/v1.1.md`](tech-design/v1.1.md)
+- **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md) · [`prd/v0.3.md`](prd/v0.3.md) · [`prd/v0.4.md`](prd/v0.4.md) · [`prd/v0.5.md`](prd/v0.5.md) · [`prd/v0.6.md`](prd/v0.6.md) · [`prd/v0.7.md`](prd/v0.7.md) · [`prd/v0.8.md`](prd/v0.8.md) · [`prd/v0.9.md`](prd/v0.9.md) · [`prd/v0.10.md`](prd/v0.10.md) · [`prd/v0.11.md`](prd/v0.11.md) · [`prd/v0.12.md`](prd/v0.12.md) · [`prd/v0.13.md`](prd/v0.13.md) · [`prd/v0.14.md`](prd/v0.14.md) · [`prd/v0.15.md`](prd/v0.15.md) · [`prd/v0.16.md`](prd/v0.16.md) · [`prd/v0.17.md`](prd/v0.17.md) · [`prd/v1.1.md`](prd/v1.1.md) · [`prd/v1.2.md`](prd/v1.2.md)
+- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md) · [`tech-design/v0.4.md`](tech-design/v0.4.md) · [`tech-design/v0.5.md`](tech-design/v0.5.md) · [`tech-design/v0.6.md`](tech-design/v0.6.md) · [`tech-design/v0.7.md`](tech-design/v0.7.md) · [`tech-design/v0.8.md`](tech-design/v0.8.md) · [`tech-design/v0.9.md`](tech-design/v0.9.md) · [`tech-design/v0.10.md`](tech-design/v0.10.md) · [`tech-design/v0.11.md`](tech-design/v0.11.md) · [`tech-design/v0.12.md`](tech-design/v0.12.md) · [`tech-design/v0.13.md`](tech-design/v0.13.md) · [`tech-design/v0.14.md`](tech-design/v0.14.md) · [`tech-design/v0.15.md`](tech-design/v0.15.md) · [`tech-design/v0.16.md`](tech-design/v0.16.md) · [`tech-design/v0.17.md`](tech-design/v0.17.md) · [`tech-design/v1.1.md`](tech-design/v1.1.md) · [`tech-design/v1.2.md`](tech-design/v1.2.md)
 - **预览原型**:[`preview/index.html`](preview/index.html)(Tailwind CDN 静态预览)· [`preview/v0.4/`](preview/v0.4/index.html) · [`preview/v0.5/`](preview/v0.5/index.html) · [`preview/v0.6/`](preview/v0.6/index.html)(财富水位 / 股票现金联动 / FIRE 自适应 / PWA 引导)· [`preview/v0.14/`](preview/v0.14/precious-metals.html)(贵金属账户 + 自动金价 / LLM 供应商自选 / 配置开放梳理)
 - **配置与接入**:[`docs/configuration.md`](docs/configuration.md)(AI / 短信 等外部服务配置总指南 · 全部可选)
 - **券商同步图文向导**:[`docs/broker-sync-guide.md`](docs/broker-sync-guide.md)(富途 / 老虎凭据一步步获取 · 应用内同款 `/help/broker-sync` 带示意图)

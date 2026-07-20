@@ -52,4 +52,7 @@ public interface FactViewService {
      * 对比账期缺失则对应字段为 null。
      */
     MomYoy momYoy(FactFilter filter);
+
+    /** v1.2 F · 复用已加载 slice(窗口须覆盖 asof−12 月)· 消灭 dashboard 第二次 load */
+    MomYoy momYoy(FactSlice slice);
 }

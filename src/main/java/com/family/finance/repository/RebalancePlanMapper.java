@@ -23,7 +23,7 @@ public interface RebalancePlanMapper {
     @Select("SELECT id, family_id AS familyId, period_id AS periodId, status FROM rebalance_plan WHERE family_id=#{familyId} AND status='ACTIVE' LIMIT 1")
     Plan findActive(@Param("familyId") long familyId);
 
-    @Insert("INSERT INTO rebalance_plan (family_id, period_id) VALUES (#{familyId}, #{periodId})")
+    @Insert("INSERT INTO rebalance_plan (family_id, period_id) VALUES (#{plan.familyId}, #{plan.periodId})")
     @Options(useGeneratedKeys = true, keyProperty = "plan.id")
     int insertPlan(@Param("plan") PlanRow plan);
 
