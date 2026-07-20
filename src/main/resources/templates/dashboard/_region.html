@@ -307,9 +307,11 @@
       </div>
 
       <!-- v1.2 · 归因复盘(卡内展开 · HTMX 滚近才加载,不拖首屏)-->
+      <!-- hx-target="this" 必须显式:region 根上有继承性 hx-target=#dashboard-region(币种镜头机制),
+           不写会把整个 region 连同所有看板吞掉(2026-07-20 事故根因) -->
       <div id="attribution-mount"
            th:attr="hx-get=@{/dashboard/attribution(asof=${asof},currency=${currency},accounts=${accountsCsv})}"
-           hx-trigger="revealed" hx-swap="outerHTML">
+           hx-trigger="revealed" hx-target="this" hx-swap="outerHTML">
         <div class="border-t border-rule mt-4 pt-4 font-mono text-[11px] text-ink-subtle">归因复盘加载中 · 谁贡献 / 谁拖累 / 12 期趋势…</div>
       </div>
     </div>
