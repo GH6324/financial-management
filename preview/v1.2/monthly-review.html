@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>v1.2 Preview · 月度归因复盘</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../../src/main/resources/static/vendor/echarts.min.js"></script>
+<style>
+  .num-pos{color:var(--forest,#2f5d50)} .num-neg{color:var(--rust,#9c4a2a)}
+  .chip{font-family:'JetBrains Mono',monospace;font-size:11px;padding:5px 12px;border:1px solid var(--rule,#d8cfba);cursor:pointer;white-space:nowrap;background:var(--card,#fffdf6)}
+  .chip.on{background:var(--ink,#2b2620);color:var(--paper,#f5efe2);border-color:var(--ink,#2b2620)}
+</style>
+</head>
+<body class="min-h-screen" style="background:var(--paper,#f5efe2)">
+<div class="max-w-5xl mx-auto px-4 lg:px-8 py-8">
+  <p class="eyebrow" style="letter-spacing:.2em">PREVIEW · v1.2 · 待评审</p>
+  <h1 class="font-display text-3xl lg:text-4xl mt-1" style="color:var(--ink,#2b2620)">月度归因复盘 · 钱为什么变了</h1>
+  <p class="mt-2 text-sm" style="color:var(--ink-subtle,#6b6353);max-width:46rem">
+    dashboard「本期怎么变的」卡原地升级(demo 为仿真数据)。恒等式:ΔNW = 人赚 + 钱赚 + 开账基线 + 汇率重估;
+    钱赚可按 账户/资产类型/行业/成员/平台/币种 下钻,算不平显「未归因」。</p>
+
+  <!-- 总览层(现有三段拆解保留) -->
+  <section class="paper-card p-5 mt-6" style="background:var(--card,#fffdf6);border:1px solid var(--rule,#d8cfba)">
+    <div class="flex items-baseline justify-between flex-wrap gap-2">
+      <div>
+        <div class="eyebrow mb-1">本 · 期 · 怎 · 么 · 变 · 的</div>
+        <span class="font-mono text-[11px]" style="color:var(--ink-subtle,#6b6353)">本期净资产变化 ΔNW</span>
+        <span class="font-display text-3xl num-neg ml-2">¥-29,854</span>
+      </div>
+      <span class="chip on">本期 2026-07</span>
+    </div>
+
+    <!-- FR-2 · 瀑布图 -->
+    <div class="mt-4">
+      <div class="flex items-center gap-2 flex-wrap mb-2">
+        <span class="font-mono text-[10px] tracking-[0.14em] uppercase" style="color:var(--ink-subtle,#6b6353)">钱赚按</span>
+        <span class="chip on" data-d="acct">账户</span>
+        <span class="chip" data-d="cls">资产类型</span>
+        <span class="chip" data-d="ind">行业</span>
+        <span class="chip" data-d="own">成员</span>
+        <span class="chip" data-d="ccy">币种</span>
+      </div>
+      <div id="waterfall" style="width:100%;height:300px"></div>
+      <p class="font-mono text-[10px]" style="color:var(--ink-subtle,#6b6353)">期初 → 人赚 → 钱赚(按当前维度 TopN)→ 汇率重估 → 开账基线 → 期末 · 未归因 ¥0</p>
+    </div>
+  </section>
+
+  <!-- FR-2 · 贡献榜 -->
+  <section class="grid md:grid-cols-2 gap-4 mt-4">
+    <div class="paper-card p-5" style="background:var(--card,#fffdf6);border:1px solid var(--rule,#d8cfba)">
+      <div class="eyebrow mb-2">本月功臣</div>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between items-baseline"><span>支付宝-余额宝 <span class="pill text-[9px]">现金</span></span><span class="font-mono num-pos">+¥3,120 · 3.4%</span></div>
+        <div class="flex justify-between items-baseline"><span>招行-稳健理财 <span class="pill text-[9px]">理财</span></span><span class="font-mono num-pos">+¥1,860 · 2.0%</span></div>
+        <div class="flex justify-between items-baseline"><span>黄金积存 <span class="pill text-[9px]">贵金属</span></span><span class="font-mono num-pos">+¥940 · 1.0%</span></div>
+      </div>
+    </div>
+    <div class="paper-card p-5" style="background:var(--card,#fffdf6);border:1px solid var(--rule,#d8cfba)">
+      <div class="eyebrow mb-2">本月拖累</div>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between items-baseline"><span>富途证券-港美股 <span class="pill text-[9px]">股票</span></span><span class="font-mono num-neg">−¥86,400 · 93.2%</span></div>
+        <div class="flex justify-between items-baseline"><span>华泰证券-A股 <span class="pill text-[9px]">股票</span></span><span class="font-mono num-neg">−¥11,020 · 11.9%</span></div>
+        <div class="flex justify-between items-baseline"><span>币安 <span class="pill text-[9px]">加密</span></span><span class="font-mono num-neg">−¥1,340 · 1.4%</span></div>
+      </div>
+      <p class="font-mono text-[10px] mt-2" style="color:var(--ink-subtle,#6b6353)">占比 = 占「钱赚」亏损侧比重 · 点击行直达账户详情</p>
+    </div>
+  </section>
+
+  <!-- FR-3 · AI 复盘 -->
+  <section class="paper-card p-5 mt-4" style="background:var(--card,#fffdf6);border-left:4px solid var(--brass-deep,#7a5a39);border-top:1px solid var(--rule,#d8cfba);border-right:1px solid var(--rule,#d8cfba);border-bottom:1px solid var(--rule,#d8cfba)">
+    <div class="flex items-baseline justify-between mb-1">
+      <span class="eyebrow">AI 月度复盘 <span class="normal-case tracking-normal" style="color:var(--ink-subtle,#6b6353)">· deepseek · 关账后生成 · 可回看</span></span>
+      <button class="font-mono text-xs" style="color:var(--brass-deep,#7a5a39)">重新解读</button>
+    </div>
+    <div class="text-sm leading-relaxed" style="color:var(--ink-soft,#4a4238);white-space:pre-line">· 本月净资产 -2.98 万,不是花多了:你们存下 6.09 万(人赚),是市场亏掉 9.27 万
+· 拖累几乎全部来自「富途证券-港美股」(-8.64 万,占亏损 93%),其中约 -0.8 万是美元贬值的折算损失,不是标的本身
+· 余额宝与稳健理财合计 +0.5 万,防守仓位在起作用
+· 值得做的一件事:富途已连续 3 个月是最大拖累,去资产透视看它的行业集中度,确认是否单一持仓押注过重</div>
+    <p class="text-[10px] mt-2" style="color:var(--ink-subtle,#6b6353)">所有数字由系统算好,AI 只解读;不构成投资建议。</p>
+  </section>
+
+  <!-- FR-4 · 12 期趋势 -->
+  <section class="paper-card p-5 mt-4" style="background:var(--card,#fffdf6);border:1px solid var(--rule,#d8cfba)">
+    <div class="eyebrow mb-2">近 12 期「钱赚」· 按资产类型</div>
+    <div id="trend12" style="width:100%;height:220px"></div>
+  </section>
+
+  <p class="mt-6 text-xs" style="color:var(--ink-subtle,#6b6353)">评审点:D1 卡内展开 vs 独立页 · D2 默认维度 · D3 汇率独立柱 · D4 12期趋势本版做否 · D5 AI 复盘落库缓存。</p>
+</div>
+
+<script>
+/* 仿真数据 · 与线上同风格(晚清账册色) */
+var F='#2f5d50', R='#9c4a2a', BRASS='#7a5a39', INK='#3a302a';
+var wf = echarts.init(document.getElementById('waterfall'));
+/* 瀑布:期初 275.9万 → +人赚6.09 → 富途-8.64 → A股-1.10 → 其他钱赚+0.47 → 汇率-0.80 → 开账+1.00 → 期末 272.9万 */
+var base  = [0, 2759000, 2759000+60944-86400, 2759000+60944-86400-11020, 2759000+60944-86400-11020+4700, 2759000+60944-86400-11020+4700-8000, 2759000+60944-86400-11020+4700-8000+10000, 0];
+var deltas= [2759000, 60944, -86400, -11020, 4700, -8000, 10000, 2729653];
+var labels= ['期初','人赚','富途-港美股','华泰-A股','其他钱赚','汇率重估','开账基线','期末'];
+var invisible = labels.map(function(_,i){
+  if(i===0||i===labels.length-1) return 0;
+  return Math.min(base[i], base[i]+deltas[i]) - 0;
+});
+invisible = labels.map(function(_,i){
+  if(i===0||i===labels.length-1) return 0;
+  return deltas[i]>=0 ? base[i] : base[i]+deltas[i];
+});
+wf.setOption({
+  grid:{left:10,right:10,top:24,bottom:10,containLabel:true},
+  xAxis:{type:'category',data:labels,axisLabel:{fontSize:10,interval:0,rotate:window.innerWidth<640?32:0,color:INK}},
+  yAxis:{type:'value',min:2550000,axisLabel:{formatter:function(v){return '¥'+(v/10000).toFixed(0)+'万'},fontSize:10},splitLine:{lineStyle:{color:'rgba(0,0,0,.06)'}}},
+  series:[
+    {type:'bar',stack:'w',itemStyle:{color:'transparent'},emphasis:{itemStyle:{color:'transparent'}},data:invisible,silent:true},
+    {type:'bar',stack:'w',barWidth:'55%',
+     data:labels.map(function(l,i){
+       var v=(i===0||i===labels.length-1)?deltas[i]:Math.abs(deltas[i]);
+       var c=(i===0||i===labels.length-1)?BRASS:(deltas[i]>=0?F:R);
+       return {value:v,itemStyle:{color:c}};
+     }),
+     label:{show:true,position:'top',fontSize:9,color:INK,
+       formatter:function(p){var d=deltas[p.dataIndex];var s=(p.dataIndex===0||p.dataIndex===labels.length-1)?'':(d>=0?'+':'−');return s+'¥'+Math.abs(d/10000).toFixed(1)+'万'}}}
+  ]
+});
+var t12 = echarts.init(document.getElementById('trend12'));
+var months=['25-08','25-09','25-10','25-11','25-12','26-01','26-02','26-03','26-04','26-05','26-06','26-07'];
+function seed(a){return months.map(function(_,i){return Math.round(a*Math.sin(i/2+a)+a*1.2*(i%3===0?-1:1)*Math.random())})}
+t12.setOption({
+  grid:{left:10,right:10,top:30,bottom:10,containLabel:true},
+  legend:{top:0,textStyle:{fontSize:10},itemWidth:12,itemHeight:8},
+  xAxis:{type:'category',data:months,axisLabel:{fontSize:9}},
+  yAxis:{type:'value',axisLabel:{formatter:function(v){return (v/10000)+'万'},fontSize:9},splitLine:{lineStyle:{color:'rgba(0,0,0,.06)'}}},
+  series:[
+    {name:'股票股权',type:'bar',stack:'p',color:'#7D6A85',data:[12000,-30000,42000,8000,-52000,31000,22000,-9000,-120000,64000,88000,-97420]},
+    {name:'债券理财',type:'bar',stack:'p',color:'#C2CCB4',data:[2100,1900,2000,2200,1800,2100,2050,1900,2000,2100,1950,1860]},
+    {name:'货币基金/存款',type:'bar',stack:'p',color:'#B9C2CC',data:[900,950,980,1010,990,1020,1050,1080,1100,1150,1180,3120]},
+    {name:'黄金加密',type:'bar',stack:'p',color:'#A9865F',data:[3000,-2000,5000,1000,-4000,2500,6000,-1500,9000,-3000,2000,-400]}
+  ]
+});
+document.querySelectorAll('.chip[data-d]').forEach(function(c){
+  c.onclick=function(){document.querySelectorAll('.chip[data-d]').forEach(function(x){x.classList.remove('on')});c.classList.add('on');};
+});
+</script>
+</body>
+</html>
