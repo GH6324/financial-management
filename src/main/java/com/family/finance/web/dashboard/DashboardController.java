@@ -57,6 +57,8 @@ public class DashboardController {
     private final HouseholdCashflowService householdCashflowService;
     private final com.family.finance.service.config.FamilyConfigService configService;
     private final com.family.finance.service.explain.MetricExplainService metricExplain; // v0.5.3 口径真实数值
+    private final com.family.finance.service.review.AttributionService attributionService; // v1.2 归因复盘
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     private final com.family.finance.service.insight.AssetInsightService assetInsightService; // v0.6 资产洞察速览
     private final com.family.finance.service.lens.LensMetaService lensMetaService; // v1.1 资产透视内嵌
 
@@ -82,6 +84,47 @@ public class DashboardController {
         lensMetaService.addMeta(me.getFamilyId(), model);   // v1.1 · 透视主体内嵌(region 刷新不重载)
         return "dashboard/index";
     }
+
+    /** v1.2 · 归因复盘 fragment(HTMX 懒加载 · tech-design v1.2 §1.3):瀑布 + 贡献榜 + 12 期趋势 */
+    @org.springframework.web.bind.annotation.GetMapping("/dashboard/attribution")
+    public String attribution(@org.springframework.security.core.annotation.AuthenticationPrincipal MemberPrincipal me,
+                              @org.springframework.web.bind.annotation.RequestParam(required = false) String asof,
+                              @org.springframework.web.bind.annotation.RequestParam(defaultValue = "acct") String dim,
+                              @org.springframework.web.bind.annotation.RequestParam(required = false) String currency,
+                              @org.springframework.web.bind.annotation.RequestParam(value = "accounts", required = false) String accountsCsv,
+                              Model model) throws Exception {
+        Family family = familyService.require(me.getFamilyId());
+        List<Period> allPeriods = periodMapper.findAllByFamily(me.getFamilyId());
+        Period anchor = resolveAsOf(asof, allPeriods, periodMapper.findCurrentOpen(me.getFamilyId()).orElse(null));
+        List<Long> accountIds = parseAccountIds(accountsCsv);
+        String viewCurrency = parseCurrency(currency, family.getBaseCurrency());
+        if (!attributionService.DIMS.containsKey(dim)) dim = "acct";
+        FactFilter filter = new FactFilter(me.getFamilyId(), family.getPeriodType(),
+                anchor.getPeriodStart().minusMonths(12), anchor.getPeriodStart(), false, accountIds, viewCurrency);
+        FactSlice slice = factViewService.load(filter);
+        KpiSnapshot kpis = factViewService.kpis(slice);
+        com.family.finance.factview.CashflowBreakdown cf = factViewService.cashflowBreakdown(slice, slice.lastPeriodId());
+        java.math.BigDecimal human = (cf == null ? java.math.BigDecimal.ZERO
+                : nz(cf.income()).subtract(nz(cf.expense())));
+        var result = attributionService.attribute(me.getFamilyId(),
+                slice.byPeriod().getOrDefault(slice.lastPeriodId(), List.of()),
+                kpis.netWorthDelta(), human, kpis.openingBaselineLast());
+        var grouped = com.family.finance.calc.review.AttributionEngine.groupBy(result, "acct".equals(dim) ? null : dim);
+        var trend = attributionService.trend(me.getFamilyId(), slice, dim, 12);
+        model.addAttribute("attr", result);
+        model.addAttribute("attrGroupedJson", objectMapper.writeValueAsString(grouped));
+        model.addAttribute("attrTrendJson", objectMapper.writeValueAsString(
+                trend.stream().map(t -> java.util.Map.of("p", t.periodLabel(), "g", t.byGroup())).toList()));
+        model.addAttribute("attrDims", com.family.finance.service.review.AttributionService.DIMS);
+        model.addAttribute("attrDim", dim);
+        model.addAttribute("attrAsof", anchor.getPeriodStart().toString());
+        model.addAttribute("attrCurrency", viewCurrency);
+        model.addAttribute("attrAccountsCsv", accountsCsv == null ? "" : accountsCsv);
+        model.addAttribute("anchorPeriod", anchor);
+        return "dashboard/_attribution :: section";
+    }
+
+    private static java.math.BigDecimal nz(java.math.BigDecimal v) { return v == null ? java.math.BigDecimal.ZERO : v; }
 
     private void populateModel(MemberPrincipal me, String range, String asof, String accountsCsv, String currency, Model model) {
         Family family = familyService.require(me.getFamilyId());

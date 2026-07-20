@@ -305,6 +305,13 @@
         </div>
         <p class="font-mono text-[10px] text-ink-subtle mt-3">ΔNW = 人赚 + 钱赚 · 与上面「本月资产收益」同源(那个 KPI 剔除的"收入"就是这里的人赚)。</p>
       </div>
+
+      <!-- v1.2 · 归因复盘(卡内展开 · HTMX 滚近才加载,不拖首屏)-->
+      <div id="attribution-mount"
+           th:attr="hx-get=@{/dashboard/attribution(asof=${asof},currency=${currency},accounts=${accountsCsv})}"
+           hx-trigger="revealed" hx-swap="outerHTML">
+        <div class="border-t border-rule mt-4 pt-4 font-mono text-[11px] text-ink-subtle">归因复盘加载中 · 谁贡献 / 谁拖累 / 12 期趋势…</div>
+      </div>
     </div>
 
     <!-- ② 实时收支趋势(含进行中本月 · 区别于 /reports 已关账快照)· 独立目录锚点(v0.10.3)-->

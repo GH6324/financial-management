@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- v1.2 · 归因复盘 fragment(prd v1.2 主题A · D1 卡内展开 · HTMX 懒加载)
+     数据:attr(Result)/attrGroupedJson/attrTrendJson/attrDims/attrDim
+     XSS:innerHTML 动态值(账户名/维值)一律 esc();金额为数字格式化输出 -->
+<div th:fragment="section" id="attribution-section">
+  <div class="border-t border-rule mt-4 pt-4">
+    <div class="flex items-center gap-2 flex-wrap mb-2">
+      <span class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle">归因 · 钱赚按</span>
+      <button th:each="d : ${attrDims}" type="button"
+              class="pill text-[10px] whitespace-nowrap"
+              th:classappend="${attrDim == d.key} ? ' pill-ink-active' : ''"
+              th:attr="hx-get=@{/dashboard/attribution(asof=${attrAsof},dim=${d.key},currency=${attrCurrency},accounts=${attrAccountsCsv})}"
+              hx-target="#attribution-section" hx-swap="outerHTML"
+              th:text="${d.value}">账户</button>
+      <span class="ml-auto font-mono text-[10px] text-ink-subtle" th:if="${attr.unattributed().abs().intValue() > 1}">
+        未归因 <span data-priv th:text="${'¥' + #numbers.formatInteger(attr.unattributed(), 0, 'COMMA')}">¥0</span></span>
+    </div>
+
+    <div id="attrWaterfall" style="width:100%;height:280px"></div>
+    <p class="font-mono text-[10px] text-ink-subtle mt-1">基准(期初)→ 人赚 → 钱赚(按当前维度 · TopN)→ 开账基线 → 本期净变化 · 恒等闭合,算不平显「未归因」</p>
+
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div>
+        <div class="eyebrow mb-2">本期功臣</div>
+        <div id="attrWinners" class="space-y-1.5 text-sm"></div>
+      </div>
+      <div>
+        <div class="eyebrow mb-2">本期拖累</div>
+        <div id="attrLosers" class="space-y-1.5 text-sm"></div>
+      </div>
+    </div>
+
+    <div class="mt-5">
+      <div class="eyebrow mb-1">近 12 期「钱赚」· 按 <span th:text="${attrDims.get(attrDim)}">账户</span></div>
+      <div id="attrTrend12" style="width:100%;height:200px"></div>
+    </div>
+
+    <div class="mt-4 flex items-center gap-3 flex-wrap">
+      <button id="reviewAiBtn" class="pill whitespace-nowrap" style="border-color:var(--brass-deep);color:var(--brass-deep)">AI 月度复盘</button>
+      <span class="font-mono text-[10px] text-ink-subtle">工程算好信号 · AI 只解读 · 关账后结果缓存可回看</span>
+    </div>
+    <div id="reviewAiCard" class="mt-2 paper-card p-4 hidden" style="border-left:4px solid var(--brass-deep)">
+      <div class="flex items-baseline justify-between mb-1">
+        <span class="eyebrow">AI 月度复盘 <span id="reviewAiMeta" class="normal-case tracking-normal text-ink-subtle"></span></span>
+        <span class="flex items-center gap-3">
+          <button id="reviewAiRefresh" class="font-mono text-xs" style="color:var(--brass-deep)">重新解读</button>
+          <button id="reviewAiClose" class="font-mono text-xs text-ink-subtle hover:text-ink">收起 ×</button>
+        </span>
+      </div>
+      <div id="reviewAiBody" class="text-sm leading-relaxed text-ink-soft" style="white-space:pre-line"></div>
+      <p class="text-[10px] text-ink-subtle mt-2">所有数字由系统算好,AI 只解读;不构成投资建议。</p>
+    </div>
+  </div>
+
+  <script th:inline="javascript">
+  (function () {
+    var DELTA = /*[[${attr.delta()}]]*/ 0;
+    var HUMAN = /*[[${attr.humanEarned()}]]*/ 0;
+    var OPENING = /*[[${attr.opening()}]]*/ 0;
+    var FX = /*[[${attr.fxTotal()}]]*/ 0;
+    var GROUPED = /*[[${attrGroupedJson}]]*/ '{}';
+    var TREND = /*[[${attrTrendJson}]]*/ '[]';
+    var ASOF = /*[[${attrAsof}]]*/ '';
+    var DIM = /*[[${attrDim}]]*/ 'acct';
+    var CCY = /*[[${attrCurrency}]]*/ 'CNY';
+    var ACCTS = /*[[${attrAccountsCsv}]]*/ '';
+    if (typeof GROUPED === 'string') GROUPED = JSON.parse(GROUPED);
+    if (typeof TREND === 'string') TREND = JSON.parse(TREND);
+    var privacy = document.documentElement.classList.contains('privacy');
+
+    var F = '#2f5d50', R = '#9c4a2a', BRASS = '#7a5a39', INK = '#3a302a';
+    function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+    function fmtShort(v){var n=Number(v||0),a=Math.abs(n),s=n<0?'−':'+';
+      if(a>=1e8)return s+'¥'+(a/1e8).toFixed(2)+'亿'; if(a>=1e4)return s+'¥'+(a/1e4).toFixed(1)+'万'; return s+'¥'+Math.round(a);}
+
+    function boot() {
+      /* 瀑布(相对基准模式,严格闭合):基准0 → 人赚 → 钱赚TopN+其他 → 开账 → (未归因) → 本期净变化 */
+      var entries = Object.entries(GROUPED);
+      var top = entries.slice(0, 4);
+      var otherSum = entries.slice(4).reduce(function (t, e) { return t + Number(e[1]); }, 0);
+      var labels = ['基准', '人赚'];
+      var deltas = [null, Number(HUMAN)];
+      top.forEach(function (e) { labels.push(e[0]); deltas.push(Number(e[1])); });
+      if (Math.abs(otherSum) > 0.5) { labels.push('其他钱赚'); deltas.push(otherSum); }
+      labels.push('开账基线'); deltas.push(Number(OPENING));
+      var UNATTR = Number(DELTA) - deltas.slice(1).reduce(function (t, v) { return t + v; }, 0);
+      if (Math.abs(UNATTR) > 1) { labels.push('未归因'); deltas.push(UNATTR); }
+      labels.push('净变化');
+
+      var cum = 0, inv = [0], val = [0], col = [BRASS], lab = [''];
+      for (var i = 1; i < labels.length - 1; i++) {
+        var d = deltas[i];
+        inv.push(d >= 0 ? cum : cum + d);
+        val.push(Math.abs(d));
+        col.push(d >= 0 ? F : R);
+        lab.push(fmtShort(d));
+        cum += d;
+      }
+      inv.push(cum >= 0 ? 0 : cum); val.push(Math.abs(cum)); col.push(BRASS); lab.push(fmtShort(cum));
+
+      var wf = echarts.init(document.getElementById('attrWaterfall'));
+      wf.setOption({
+        grid: {left: 6, right: 6, top: 22, bottom: 4, containLabel: true},
+        xAxis: {type: 'category', data: labels, axisLabel: {fontSize: 9, interval: 0, rotate: window.innerWidth < 640 ? 34 : 0, color: INK}},
+        yAxis: {type: 'value', axisLabel: {show: false}, splitLine: {lineStyle: {color: 'rgba(0,0,0,.05)'}}},
+        series: [
+          {type: 'bar', stack: 'w', itemStyle: {color: 'transparent'}, silent: true, data: inv},
+          {type: 'bar', stack: 'w', barWidth: '55%',
+           data: val.map(function (v, i) { return {value: v, itemStyle: {color: col[i]}}; }),
+           label: {show: !privacy, position: 'top', fontSize: 9, color: INK,
+                   formatter: function (p) { return lab[p.dataIndex]; }}}
+        ]
+      });
+
+      var winners = entries.filter(function (e) { return Number(e[1]) > 0; }).slice(0, 3);
+      var losers = entries.filter(function (e) { return Number(e[1]) < 0; }).slice(0, 3);
+      var fxNote = Math.abs(Number(FX)) > 1 ? '<p class="font-mono text-[10px] text-ink-subtle mt-1.5">其中汇率重估合计 <span data-priv>' + fmtShort(FX) + '</span>(存量与损益的折算影响 · 两步法)</p>' : '';
+      function rows(list, cls) {
+        if (!list.length) return '<p class="text-xs text-ink-subtle">无</p>';
+        return list.map(function (e) {
+          return '<div class="flex justify-between items-baseline gap-2"><span class="truncate">' + esc(e[0]) + '</span>' +
+            '<span class="font-mono tnum ' + cls + ' shrink-0" data-priv>' + fmtShort(e[1]) + '</span></div>';
+        }).join('');
+      }
+      document.getElementById('attrWinners').innerHTML = rows(winners, 'num-pos');
+      document.getElementById('attrLosers').innerHTML = rows(losers, 'num-neg') + fxNote;
+
+      var keys = {};
+      TREND.forEach(function (t) { Object.keys(t.g || {}).forEach(function (k) { keys[k] = (keys[k] || 0) + Math.abs(Number(t.g[k])); }); });
+      var topKeys = Object.entries(keys).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 5).map(function (e) { return e[0]; });
+      var PAL = ['#7D6A85', '#5F7E7B', '#A9865F', '#B9C2CC', '#946B6B', '#C2CCB4'];
+      var series = topKeys.map(function (k, i) {
+        return {name: k, type: 'bar', stack: 'p', color: PAL[i % PAL.length],
+                data: TREND.map(function (t) { return Number((t.g || {})[k] || 0); })};
+      });
+      var others = TREND.map(function (t) {
+        return Object.entries(t.g || {}).filter(function (e) { return topKeys.indexOf(e[0]) < 0; })
+          .reduce(function (s, e) { return s + Number(e[1]); }, 0);
+      });
+      if (others.some(function (v) { return Math.abs(v) > 0.5; })) {
+        series.push({name: '其他', type: 'bar', stack: 'p', color: '#CFC8B8', data: others});
+      }
+      echarts.init(document.getElementById('attrTrend12')).setOption({
+        grid: {left: 6, right: 6, top: 26, bottom: 4, containLabel: true},
+        legend: {top: 0, textStyle: {fontSize: 9}, itemWidth: 10, itemHeight: 7},
+        xAxis: {type: 'category', data: TREND.map(function (t) { return t.p; }), axisLabel: {fontSize: 8}},
+        yAxis: {type: 'value', axisLabel: {show: false}, splitLine: {lineStyle: {color: 'rgba(0,0,0,.05)'}}},
+        series: series
+      });
+
+      function csrf() {
+        var t = document.querySelector('meta[name="_csrf"]');
+        var h = document.querySelector('meta[name="_csrf_header"]');
+        return {header: h ? h.content : 'X-XSRF-TOKEN', token: t ? t.content : ''};
+      }
+      function fetchReview(force) {
+        var btn = document.getElementById('reviewAiBtn');
+        var card = document.getElementById('reviewAiCard');
+        var body = document.getElementById('reviewAiBody');
+        btn.disabled = true; btn.textContent = 'AI 复盘中…';
+        card.classList.remove('hidden');
+        body.textContent = '正在复盘本期归因…';
+        var c = csrf(); var headers = {'Content-Type': 'application/json'}; headers[c.header] = c.token;
+        fetch('/review/insight', {method: 'POST', headers: headers,
+          body: JSON.stringify({asof: ASOF, dim: DIM, force: !!force, currency: CCY, accounts: ACCTS})})
+          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(function (resp) {
+            body.textContent = resp.text || '暂无复盘。';
+            document.getElementById('reviewAiMeta').textContent = resp.vendor ? ('· ' + resp.vendor + (resp.cached ? ' · 缓存' : '')) : '';
+          })
+          .catch(function (e) { body.textContent = '复盘失败:' + e.message + ' · 稍后再试'; })
+          .finally(function () { btn.disabled = false; btn.textContent = 'AI 月度复盘'; });
+      }
+      document.getElementById('reviewAiBtn').onclick = function () { fetchReview(false); };
+      document.getElementById('reviewAiRefresh').onclick = function () { fetchReview(true); };
+      document.getElementById('reviewAiClose').onclick = function () { document.getElementById('reviewAiCard').classList.add('hidden'); };
+    }
+
+    if (window.echarts) boot();
+    else {   // 归因区先于 lens 的 echarts 加载 → 动态补
+      var s = document.createElement('script');
+      s.src = '/vendor/echarts.min.js';
+      s.onload = boot;
+      document.head.appendChild(s);
+    }
+  })();
+  </script>
+</div>
+</body>
+</html>
