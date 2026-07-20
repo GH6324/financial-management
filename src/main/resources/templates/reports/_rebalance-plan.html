@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- v1.2 · 本期再平衡计划卡(FR-7/8)· model: rebalancePlanView(可 null)· planAccounts(手动条目下拉) -->
+<div th:fragment="card" class="mt-4">
+  <div th:if="${rebalancePlanView != null}" class="paper-card p-4" style="border-left:4px solid var(--forest)">
+    <div class="flex items-baseline justify-between flex-wrap gap-2 mb-2">
+      <span class="eyebrow">本期再平衡计划
+        <span class="normal-case tracking-normal text-ink-subtle"
+              th:text="'· 进度 ' + ${rebalancePlanView.done()} + ' / ' + ${rebalancePlanView.total()}">· 进度 1 / 2</span></span>
+      <span class="font-mono text-[10px] text-ink-subtle" data-priv
+            th:text="'已调 ¥' + ${#numbers.formatInteger(rebalancePlanView.doneAmount(),0,'COMMA')} + ' / ¥' + ${#numbers.formatInteger(rebalancePlanView.totalAmount(),0,'COMMA')}">已调</span>
+    </div>
+    <div class="w-full h-1.5 mb-3 overflow-hidden" style="background:rgba(0,0,0,.07)">
+      <div th:style="'height:100%;background:var(--forest);width:' + ${rebalancePlanView.total() == 0 ? 0 : rebalancePlanView.done() * 100 / rebalancePlanView.total()} + '%'"></div>
+    </div>
+    <div class="space-y-2 text-sm">
+      <div th:each="it : ${rebalancePlanView.items()}"
+           class="flex items-center gap-2.5 px-3 py-2 border border-rule flex-wrap"
+           th:style="${it.status() != 'PENDING'} ? 'background:rgba(47,93,80,.05)' : ''">
+        <svg th:if="${it.status() == 'EXECUTED'}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--forest)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+        <span th:if="${it.status() == 'MANUAL_DONE'}" class="font-mono text-[10px] text-forest flex-shrink-0">手动</span>
+        <span th:if="${it.status() == 'PENDING'}" class="text-ink-subtle flex-shrink-0">·</span>
+        <span class="flex-1 min-w-0"><span th:text="${it.fromName()}">A</span> → <span th:text="${it.toName()}">B</span>
+          <b class="font-mono tnum" data-priv th:text="'¥' + ${#numbers.formatInteger(it.amountBase(),0,'COMMA')}">¥50,000</b>
+          <span class="block text-[10px] text-ink-subtle truncate" th:if="${it.note() != null}" th:text="${it.note()}">原因</span></span>
+        <span th:if="${it.status() == 'EXECUTED'}" class="font-mono text-[10px] num-pos flex-shrink-0">已执行 · 划转核销</span>
+        <span th:if="${it.status() == 'MANUAL_DONE'}" class="font-mono text-[10px] text-ink-subtle flex-shrink-0">外部完成 · 未经核销</span>
+        <span th:if="${it.status() == 'PENDING'}" class="flex items-center gap-2 flex-shrink-0">
+          <form th:action="@{'/rebalance-plan/item/' + ${it.id()} + '/manual-done'}" method="post" class="inline">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <button class="btn-paper text-[10px] px-2 py-0.5 whitespace-nowrap">已在外部完成</button>
+          </form>
+          <form th:action="@{'/rebalance-plan/item/' + ${it.id()} + '/delete'}" method="post" class="inline">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <button class="tap font-mono text-[11px] text-ink-subtle hover:text-rust" title="删除条目">✕</button>
+          </form>
+        </span>
+      </div>
+    </div>
+    <p class="font-mono text-[10px] text-ink-subtle mt-2">到填报页做同 from/to 划转(金额 ≥ 条目 80%,阈值管理页可配)即自动核销 · 关账时自动归档</p>
+  </div>
+
+  <!-- 手动加条目(无论有无计划都可加,首次加即建计划) -->
+  <details class="mt-3">
+    <summary class="font-mono text-[11px] text-brass-deep cursor-pointer select-none">+ 手动加一条计划(不依赖 AI)</summary>
+    <form th:action="@{/rebalance-plan/items}" method="post" class="flex flex-wrap items-end gap-2 mt-2">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <label class="block"><span class="font-mono text-[10px] uppercase text-ink-subtle block mb-1">从</span>
+        <select name="fromAccountId" class="h-9 border border-rule bg-card px-2 text-xs">
+          <option th:each="a : ${planAccounts}" th:value="${a.id}" th:text="${a.displayName}">账户</option>
+        </select></label>
+      <label class="block"><span class="font-mono text-[10px] uppercase text-ink-subtle block mb-1">到</span>
+        <select name="toAccountId" class="h-9 border border-rule bg-card px-2 text-xs">
+          <option th:each="a : ${planAccounts}" th:value="${a.id}" th:text="${a.displayName}">账户</option>
+        </select></label>
+      <label class="block"><span class="font-mono text-[10px] uppercase text-ink-subtle block mb-1">金额 ¥</span>
+        <input name="amount" type="number" step="0.01" min="0.01" required class="w-32 h-9 border border-rule bg-card px-2 font-mono text-xs text-right"></label>
+      <label class="block flex-1 min-w-[140px]"><span class="font-mono text-[10px] uppercase text-ink-subtle block mb-1">备注(选填)</span>
+        <input name="note" maxlength="120" class="w-full h-9 border border-rule bg-card px-2 text-xs"></label>
+      <button class="btn-paper text-xs h-9 px-3 whitespace-nowrap">加入计划</button>
+    </form>
+  </details>
+</div>
+</body>
+</html>

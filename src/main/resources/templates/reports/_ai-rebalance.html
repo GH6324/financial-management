@@ -28,17 +28,26 @@
        class="text-xs text-ink-soft leading-relaxed font-serif mb-3"
        th:text="${rebalanceAdvice.narrative}">叙事...</p>
 
-    <div th:if="${rebalanceAdvice.actions != null and !rebalanceAdvice.actions.isEmpty()}" class="space-y-2">
-      <div th:each="a, it : ${rebalanceAdvice.actions}"
-           class="flex items-center gap-2 lg:gap-3 px-3 py-2 paper-card bg-paper text-xs lg:text-sm flex-wrap">
-        <span class="font-mono text-[10px] text-brass-deep w-8 flex-shrink-0" th:text="${it.index + 1} + '.'">1.</span>
+    <!-- v1.2 · 建议可勾选采纳为计划(FR-6):条目仅 账户+金额,永不出现产品/标的 -->
+    <form th:if="${rebalanceAdvice.actions != null and !rebalanceAdvice.actions.isEmpty()}"
+          th:action="@{/rebalance-plan/adopt}" method="post" class="space-y-2">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <label th:each="a, it : ${rebalanceAdvice.actions}"
+             class="flex items-center gap-2 lg:gap-3 px-3 py-2 paper-card bg-paper text-xs lg:text-sm flex-wrap cursor-pointer">
+        <input type="checkbox" name="idx" th:value="${it.index}" class="flex-shrink-0">
+        <span class="font-mono text-[10px] text-brass-deep w-6 flex-shrink-0" th:text="${it.index + 1} + '.'">1.</span>
         <span class="flex-1">从 <b th:text="${a.from_account}">账户 X</b> 调出</span>
-        <span class="font-mono tnum text-brass-deep" th:text="'¥' + ${a.amount}">¥X</span>
+        <span class="font-mono tnum text-brass-deep" data-priv th:text="'¥' + ${a.amount}">¥X</span>
         <span>→</span>
         <span class="text-sm">到 <b th:text="${a.to_account}">账户 Y</b></span>
         <span class="text-[10px] text-ink-subtle w-full" th:text="'· ' + ${a.reason}">· 原因</span>
+      </label>
+      <div class="flex items-center gap-3 flex-wrap">
+        <button type="submit" class="btn-ink text-xs px-4 py-1.5">采纳勾选条目为本期计划</button>
+        <span class="font-mono text-[10px] text-ink-subtle">采纳后到填报页做划转即自动核销 · 金额可在计划里改</span>
       </div>
-    </div>
+    </form>
+    <div th:replace="~{reports/_rebalance-plan :: card}"></div>
 
     <p class="text-[10px] text-ink-subtle mt-3 italic">
       ※ 投资有风险 · AI 建议仅供参考,具体操作前请结合你对市场的判断。

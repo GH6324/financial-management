@@ -65,6 +65,7 @@ public class ReportsController {
     private final AllocationService allocationService;
     private final com.family.finance.repository.AllocationAnchorMapper allocationAnchorMapper;
     private final com.family.finance.repository.RebalanceAdviceCacheMapper rebalanceAdviceCacheMapper;
+    private final com.family.finance.service.review.RebalancePlanService rebalancePlanService;   // v1.2 计划卡
     // v0.5 FR-72/73/74 · 财富水位
     private final com.family.finance.service.macro.WaterLevelService waterLevelService;
     private final com.family.finance.service.macro.MacroBenchmarkService macroBenchmarkService;
@@ -331,6 +332,9 @@ public class ReportsController {
         model.addAttribute("allocationAnchors", allocationAnchors);
         // v0.4 FR-62b · 调仓建议
         model.addAttribute("rebalanceAdvice", rebalanceAdvice);
+        // v1.2 · 本期再平衡计划(FR-7/8)
+        model.addAttribute("rebalancePlanView", rebalancePlanService.activePlan(me.getFamilyId()));
+        model.addAttribute("planAccounts", accountMapper.findActiveByFamily(me.getFamilyId()));
 
         // labels = 全部账期标签(N 期)· 修 bug:原来错接成 decomposition 标签(N−1 期)导致
         //   负债曲线(用 data.labels + N 个 debtValues)少一个标签 → 只画 N−1 点;

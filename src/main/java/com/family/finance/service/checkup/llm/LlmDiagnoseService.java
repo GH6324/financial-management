@@ -45,6 +45,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class LlmDiagnoseService {
 
     private final List<LlmClient> clients;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.family.finance.service.review.RebalancePlanService rebalancePlanService;   // v1.2 执行率信号
     private final com.family.finance.service.config.FamilyConfigService configService;
     private final AuditLogService auditLogService;
     private final MemberMapper memberMapper;
@@ -111,6 +113,17 @@ public class LlmDiagnoseService {
             if (goalSection != null && !goalSection.isBlank()) {
                 userPrompt = userPrompt + "\n\n" + goalSection;
             }
+
+            // v1.2 FR-8 · 注入本期再平衡计划执行率(闭环:AI 看到建议被执行了多少,只解读不生成新指令)
+            try {
+                if (rebalancePlanService != null) {
+                    var pv = rebalancePlanService.activePlan(familyId);
+                    if (pv != null && pv.total() > 0) {
+                        userPrompt = userPrompt + "\n\n[再平衡计划执行情况(系统事实,仅解读)] 本期计划共 "
+                                + pv.total() + " 条,已执行 " + pv.done() + " 条;评估已执行动作对配置的改善,不要生成新的买卖指令。";
+                    }
+                }
+            } catch (Exception ignored) { /* 计划注入失败不影响诊断 */ }
 
             String systemPrompt = PromptBuilder.systemPromptForDiagnose();
 

@@ -58,6 +58,7 @@ public class DashboardController {
     private final com.family.finance.service.config.FamilyConfigService configService;
     private final com.family.finance.service.explain.MetricExplainService metricExplain; // v0.5.3 口径真实数值
     private final com.family.finance.service.review.AttributionService attributionService; // v1.2 归因复盘
+    private final com.family.finance.service.review.RebalancePlanService rebalancePlanService; // v1.2 计划进度 pill
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     private final com.family.finance.service.insight.AssetInsightService assetInsightService; // v0.6 资产洞察速览
     private final com.family.finance.service.lens.LensMetaService lensMetaService; // v1.1 资产透视内嵌
@@ -213,6 +214,7 @@ public class DashboardController {
         model.addAttribute("allAccounts", allAccounts);
         model.addAttribute("anchorPeriod", anchor);
         model.addAttribute("currentOpen", currentOpen);
+        model.addAttribute("rebalancePlanView", rebalancePlanService.activePlan(me.getFamilyId()));   // v1.2 洞察条 pill
         model.addAttribute("pendingRows", currentOpen == null ? List.of() : entryService.listRows(me.getFamilyId(), me.getMemberId(), currentOpen, false).stream()
                 .filter(row -> !row.done())
                 .toList());

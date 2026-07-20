@@ -486,8 +486,13 @@ public class EntryService {
                 "↱ 划出到 " + toAccount.getDisplayName() + " " + money(amount));
         applyDeltaToBalance(period, toAccount, memberId, effToAmount,
                 "↳ 收到来自 " + fromAccount.getDisplayName() + " " + money(effToAmount));
-        insertTransfer(period, familyId, fromAccountId, toAccountId, amount,
+        Transfer created = insertTransfer(period, familyId, fromAccountId, toAccountId, amount,
                 crossCcy ? effToAmount : null, note, memberId, confirmDuplicate);
+        // v1.2 · 再平衡计划核销事件(AFTER_COMMIT 消费 · 纯本地规则 · 失败不影响划转)
+        if (created != null && created.getId() != null) {
+            eventPublisher.publishEvent(new com.family.finance.service.review.RebalancePlanService.TransferCreatedEvent(
+                    familyId, created.getId(), fromAccountId, toAccountId, amount));
+        }
         // v0.2 bug 修(2026-05-10): 转账路径双端都要把 todo 标 DONE,
         // 否则 forceClose 会因 PENDING 把"上期末"覆盖回 snapshot,丢失真实数据
         snapshotTodoMapper.markDone(periodId, fromAccountId, memberId);

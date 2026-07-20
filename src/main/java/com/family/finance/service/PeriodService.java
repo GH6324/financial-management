@@ -46,6 +46,9 @@ public class PeriodService {
     // v0.5 FR-82 · 周期关闭时重算 AUTO 模式 FIRE 目标月支出
     @Autowired(required = false)
     private com.family.finance.service.goal.GoalService goalService;
+    // v1.2 · 关账时归档再平衡活动计划
+    @Autowired(required = false)
+    private com.family.finance.service.review.RebalancePlanService rebalancePlanService;
 
     public Optional<Period> findCurrentOpen(long familyId) {
         return periodMapper.findCurrentOpen(familyId);
@@ -211,6 +214,15 @@ public class PeriodService {
             }
         } catch (Exception e) {
             log.warn("post-close FIRE expense recompute failed (non-blocking): {}", e.toString());
+        }
+
+        // v1.2 · 关账 = 再平衡活动计划归档(可回看 · 失败不阻塞)
+        try {
+            if (rebalancePlanService != null) {
+                rebalancePlanService.archiveOnClose(period.getFamilyId());
+            }
+        } catch (Exception e) {
+            log.warn("post-close rebalance plan archive failed (non-blocking): {}", e.toString());
         }
 
         // v0.3 FR-53b/c · 异步触发 AI 月报 + 偏离预警 · 失败不阻塞 close 主流程

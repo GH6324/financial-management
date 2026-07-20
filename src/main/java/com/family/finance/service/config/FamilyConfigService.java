@@ -46,6 +46,8 @@ public class FamilyConfigService {
     public static final String K_LENS_PLATFORM_CONC = "lens_platform_concentration";
     /** v1.1.x · 旭日环级配色方案(A-E · lens.js PALETTE_PLANS 同源)· /admin/calc-tweaks 可配 · 默认 D 莫兰迪 */
     public static final String K_LENS_PALETTE = "lens_sunburst_palette";
+    /** v1.2 · 再平衡划转核销金额阈值(划转 ≥ 条目×此值即核销 · 默认 0.8)*/
+    public static final String K_REBALANCE_MATCH_PCT = "rebalance_match_pct";
 
     public static final String K_LLM_QWEN_KEY      = "llm_qwen_api_key";
     public static final String K_LLM_DEEPSEEK_KEY  = "llm_deepseek_api_key";
