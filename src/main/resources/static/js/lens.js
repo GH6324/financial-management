@@ -5,6 +5,7 @@
  * XSS:所有插入 innerHTML 的动态值(维度标签/账户名/看板名)一律经 esc() 转义。 */
 (function () {
   'use strict';
+  var chartFont = window.chartFont || function (b) { return b; };   // v1.2.2 字号档位:旭日/引线字号跟随
   var parse = function (v) { return typeof v === 'string' ? JSON.parse(v) : (v || []); };
   var DIMS = parse(window.LENS_META.dims);
   var MEASURES = parse(window.LENS_META.measures);
@@ -235,8 +236,8 @@
       chart.setOption({
         series: [{
           type: 'sunburst', radius: ['24%', rOuter], data: data, sort: null,
-          label: { fontSize: 11, minAngle: 14, lineHeight: 15, formatter: sliceLabel },
-          levels: [{}, { r0: '24%', r: rMid }, { r0: rMid, r: rOuter, label: { fontSize: 10, lineHeight: 13 } }],
+          label: { fontSize: chartFont(11), minAngle: 14, lineHeight: 15, formatter: sliceLabel },
+          levels: [{}, { r0: '24%', r: rMid }, { r0: rMid, r: rOuter, label: { fontSize: chartFont(10), lineHeight: 13 } }],
           emphasis: { focus: 'ancestor' },
           nodeClick: false
         }],
@@ -354,7 +355,7 @@
           style: { stroke: '#8a8172', fill: 'none', lineWidth: 1, opacity: 0.8 } });
         children.push({ type: 'rect', silent: true, shape: { x: side === 'right' ? lx : lx - 7, y: y - 3.5, width: 7, height: 7 }, style: { fill: it.color } });
         children.push({ type: 'text', silent: true, x: side === 'right' ? lx + 11 : lx - 11, y: y,
-          style: { text: it.name + ' ' + it.pct.toFixed(1) + '%', fill: '#6b6353', font: '10px sans-serif',
+          style: { text: it.name + ' ' + it.pct.toFixed(1) + '%', fill: '#6b6353', font: chartFont(10) + 'px sans-serif',
                    align: side === 'right' ? 'left' : 'right', verticalAlign: 'middle' } });
       });
     });
@@ -662,12 +663,12 @@
 
   /* 透视表样式(sticky 首列 + 晚清账册) */
   var style = document.createElement('style');
-  style.textContent = '.lens-pivot{border-collapse:collapse;width:100%;font-size:13px}' +
+  style.textContent = '.lens-pivot{border-collapse:collapse;width:100%;font-size:calc(13px*var(--fs-scale,1))}' +
     /* 宽度自适配(2026-07-17 #1):数值列 min-width 保证数据区不被行头挤瘪,表格恒铺满容器 */
     '.lens-pivot th,.lens-pivot td{border:1px solid var(--rule);padding:9px 12px;text-align:right;font-family:"JetBrains Mono",monospace;white-space:nowrap}' +
     '.lens-pivot td.tnum{min-width:92px}' +
     '.lens-pivot .rowhead{min-width:96px}' +
-    '.lens-pivot th{background:var(--card-soft);font-family:"Noto Serif SC",serif;font-size:12px}' +
+    '.lens-pivot th{background:var(--card-soft);font-family:"Noto Serif SC",serif;font-size:calc(12px*var(--fs-scale,1))}' +
     '.lens-pivot .rowhead{text-align:left;background:var(--card-soft);font-family:"Noto Serif SC",serif}' +
     '.lens-pivot .sticky-col{position:sticky;left:0;z-index:1}' +
     '.pill-ink-active{background:var(--ink);color:var(--paper);border-color:var(--ink)}';

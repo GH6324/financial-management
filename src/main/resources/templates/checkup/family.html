@@ -262,11 +262,11 @@
             maintainAspectRatio: false,
             layout: { padding: 12 },
             plugins: {
-              legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+              legend: { position: 'right', labels: { boxWidth: 12, font: { size: chartFont(11) } } },
               tooltip: { callbacks: { label: (ctx) => ctx.label + ': ' + fmtMoney(ctx.parsed) + ' · ' + (allocTotal > 0 ? (ctx.parsed*100/allocTotal).toFixed(1) + '%' : '') } },
               datalabels: {
                 color: '#fffaf0',
-                font: { size: 11, weight: '600' },
+                font: { size: chartFont(11), weight: '600' },
                 textStrokeColor: 'rgba(26,23,20,.55)', textStrokeWidth: 2,
                 formatter: (v, ctx) => {
                   if (!v || allocTotal === 0) return '';
@@ -307,11 +307,11 @@
             cutout: '52%',
             layout: { padding: { top: 6, bottom: 6 } },
             plugins: {
-              legend: { position: 'right', labels: { font: { size: 10 }, color: '#3a302a', padding: 6, boxWidth: 10 } },
+              legend: { position: 'right', labels: { font: { size: chartFont(10) }, color: '#3a302a', padding: 6, boxWidth: 10 } },
               tooltip: { callbacks: { label: (ctx) => ctx.label + ': ' + fmtMoney(ctx.parsed) + ' · ' + (riskTotal > 0 ? (ctx.parsed * 100 / riskTotal).toFixed(1) : 0) + '%' } },
               datalabels: {
                 color: '#fffaf0',
-                font: { size: 10, weight: '600' },
+                font: { size: chartFont(10), weight: '600' },
                 textStrokeColor: 'rgba(26,23,20,.55)', textStrokeWidth: 2,
                 formatter: (v) => {
                   if (!v || riskTotal === 0) return '';

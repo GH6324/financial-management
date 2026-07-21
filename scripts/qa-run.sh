@@ -3922,6 +3922,24 @@ OWTPL="$RD/src/main/resources/templates/broker/opend-wizard.html"
   && log_ok "v15-OPEND-WIZ 应用内一键 OpenD 向导(下载/版本/依赖/配置启动/短信中继·只绑127.0.0.1)+ step-by-step 门控(装好收起第1步/亮第2步·运行中收起表单)+ 渠道自适应 + 管理页入口" \
   || log_bad "v15-OPEND-WIZ OpenD 向导缺件或渠道未自适应" "see service/broker/opend / web/broker/FutuOpendController / broker/opend-wizard.html"
 
+# v12-2-FONTSCALE · 全局字号调节(issue #7)· 标准档零回归(calc×var,scale=1 等价)+ 5 层覆盖 + 控件 + FOUC + 图表跟随
+FSCSS="$RD/src/main/resources/static/css/style.css"
+FSLAY="$RD/src/main/resources/templates/fragments/layout.html"
+FSNAV="$RD/src/main/resources/templates/fragments/nav.html"
+{ grep -q 'html\[data-fs="lg"\]' "$FSCSS" && grep -q 'html\[data-fs="xl"\]' "$FSCSS" \
+  && grep -qF 'font-size: calc(10px * var(--fs-scale,1)) !important' "$FSCSS" \
+  && grep -qF 'font-size: calc(11px * var(--fs-scale,1)) !important' "$FSCSS" \
+  && grep -qF 'font-size: calc(15px * var(--fs-scale,1))' "$FSCSS" \
+  && grep -qF "max(16px, calc(14px * var(--fs-scale,1)))" "$FSCSS" \
+  && grep -qF "localStorage.getItem('fontScale')" "$FSLAY" \
+  && grep -q 'window.setFontScale' "$FSLAY" && grep -q 'window.chartFont' "$FSLAY" && grep -q 'fontscalechange' "$FSLAY" \
+  && grep -q 'data-fs-opt' "$FSNAV" && grep -q 'setFontScale(' "$FSNAV" \
+  && grep -q 'chartFont(' "$RD/src/main/resources/templates/dashboard/_attribution.html" \
+  && grep -q 'chartFont(' "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q 'fontscalechange' "$RD/src/main/resources/templates/dashboard/_attribution.html"; } \
+  && log_ok "v12-2-FONTSCALE 字号档位(标准零回归 calc×--fs-scale · 层2 六类!important压PlayCDN · iOS16px地板限lg/xl · FOUC · Aa控件双端 · 图表chartFont跟随+归因活重绘)" \
+  || log_bad "v12-2-FONTSCALE 字号档位缺件" "see style.css(--fs-scale/text-[Npx]) + layout.html(FOUC/setFontScale/chartFont) + nav.html(data-fs-opt)"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

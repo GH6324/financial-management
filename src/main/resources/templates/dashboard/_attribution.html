@@ -69,6 +69,7 @@
     if (typeof GROUPED === 'string') GROUPED = JSON.parse(GROUPED);
     if (typeof TREND === 'string') TREND = JSON.parse(TREND);
     var privacy = document.documentElement.classList.contains('privacy');
+    var chartFont = window.chartFont || function (b) { return b; };   // v1.2.2 字号档位:canvas 字号跟随(单独渲染时兜底原值)
 
     var F = '#2f5d50', R = '#9c4a2a', BRASS = '#7a5a39', INK = '#3a302a';
     function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
@@ -100,16 +101,17 @@
       }
       inv.push(cum >= 0 ? 0 : cum); val.push(Math.abs(cum)); col.push(BRASS); lab.push(fmtShort(cum));
 
-      var wf = echarts.init(document.getElementById('attrWaterfall'));
+      var wfEl = document.getElementById('attrWaterfall');
+      var wf = echarts.getInstanceByDom(wfEl) || echarts.init(wfEl);
       wf.setOption({
         grid: {left: 6, right: 6, top: 22, bottom: 4, containLabel: true},
-        xAxis: {type: 'category', data: labels, axisLabel: {fontSize: 9, interval: 0, rotate: window.innerWidth < 640 ? 34 : 0, color: INK}},
+        xAxis: {type: 'category', data: labels, axisLabel: {fontSize: chartFont(9), interval: 0, rotate: window.innerWidth < 640 ? 34 : 0, color: INK}},
         yAxis: {type: 'value', axisLabel: {show: false}, splitLine: {lineStyle: {color: 'rgba(0,0,0,.05)'}}},
         series: [
           {type: 'bar', stack: 'w', itemStyle: {color: 'transparent'}, silent: true, data: inv},
           {type: 'bar', stack: 'w', barWidth: '55%',
            data: val.map(function (v, i) { return {value: v, itemStyle: {color: col[i]}}; }),
-           label: {show: !privacy, position: 'top', fontSize: 9, color: INK,
+           label: {show: !privacy, position: 'top', fontSize: chartFont(9), color: INK,
                    formatter: function (p) { return lab[p.dataIndex]; }}}
         ]
       });
@@ -142,10 +144,11 @@
       if (others.some(function (v) { return Math.abs(v) > 0.5; })) {
         series.push({name: '其他', type: 'bar', stack: 'p', color: '#CFC8B8', data: others});
       }
-      echarts.init(document.getElementById('attrTrend12')).setOption({
+      var tEl = document.getElementById('attrTrend12');
+      (echarts.getInstanceByDom(tEl) || echarts.init(tEl)).setOption({
         grid: {left: 6, right: 6, top: 26, bottom: 4, containLabel: true},
-        legend: {top: 0, textStyle: {fontSize: 9}, itemWidth: 10, itemHeight: 7},
-        xAxis: {type: 'category', data: TREND.map(function (t) { return t.p; }), axisLabel: {fontSize: 8}},
+        legend: {top: 0, textStyle: {fontSize: chartFont(9)}, itemWidth: 10, itemHeight: 7},
+        xAxis: {type: 'category', data: TREND.map(function (t) { return t.p; }), axisLabel: {fontSize: chartFont(8)}},
         yAxis: {type: 'value', axisLabel: {show: false}, splitLine: {lineStyle: {color: 'rgba(0,0,0,.05)'}}},
         series: series
       });
@@ -176,6 +179,13 @@
       document.getElementById('reviewAiBtn').onclick = function () { fetchReview(false); };
       document.getElementById('reviewAiRefresh').onclick = function () { fetchReview(true); };
       document.getElementById('reviewAiClose').onclick = function () { document.getElementById('reviewAiCard').classList.add('hidden'); };
+    }
+
+    // v1.2.2 字号档位:切档重绘(全局单次绑定,指针指向最新 boot;HTMX 重换片不累加监听)
+    window.__attrBoot = boot;
+    if (!window.__attrFsBound) {
+      window.__attrFsBound = true;
+      window.addEventListener('fontscalechange', function () { if (window.__attrBoot) window.__attrBoot(); });
     }
 
     if (window.echarts) boot();

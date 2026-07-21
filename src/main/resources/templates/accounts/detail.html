@@ -338,7 +338,7 @@
             tooltip: { callbacks: { label: (c) => fmtMoney(c.parsed.y) } },
             datalabels: {
               anchor: 'end', align: 'top', offset: 6,
-              color: '#3a302a', font: { size: 10, weight: '500' },
+              color: '#3a302a', font: { size: chartFont(10), weight: '500' },
               formatter: (v) => v == null ? '' : fmtMoney(v)
             }
           },

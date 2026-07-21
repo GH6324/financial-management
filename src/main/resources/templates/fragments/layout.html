@@ -12,6 +12,8 @@
   <title th:text="${title} ?: '家庭账房'">家庭账房</title>
   <!-- v0.11 隐私模式 · FOUC 防闪(决策 129):DOM 构建前据 sessionStorage 设 html.privacy,避免明文闪现 -->
   <script>try{if(sessionStorage.getItem('privacy')==='1')document.documentElement.classList.add('privacy');}catch(e){}</script>
+  <!-- v1.2.2 字号档位 · FOUC 防闪(issue #7):DOM 构建前据 localStorage 设 html[data-fs],避免大字号闪一下再缩 -->
+  <script>try{var _fs=localStorage.getItem('fontScale');if(_fs==='lg'||_fs==='xl')document.documentElement.setAttribute('data-fs',_fs);}catch(e){}</script>
   <!-- v0.2 FR-1/FR-34 · favicon 优先用户自定义 WebP,否则用预设(默认 icon2);apple-touch-icon 永远跟 family.logoPreset(WebP 不适合 iOS)
        BUG-FIX(2026-05-11):删 alternate icon SVG —— Chrome 见 SVG 备选会优先选 SVG(矢量任意 DPI 都清晰),
        把我们的 PNG 预设跳过去。只保留 PNG + 显式 sizes,Chrome 会按 DPI 选最大那张 (192/512)。 -->
@@ -88,6 +90,27 @@
     }
     window.togglePrivacy = togglePrivacy;
     window.isPrivacy = function(){ return document.documentElement.classList.contains('privacy'); };
+
+    // v1.2.2 · 全局字号档位(issue #7)。CSS 靠 --fs-scale 缩放文字;图表 canvas 字号在 JS 里读 chartFont() 缩放。
+    window.FS_STEPS = { std: 1, lg: 1.15, xl: 1.30 };
+    window.currentFontScale = function(){ return document.documentElement.getAttribute('data-fs') || 'std'; };
+    window.appFontScale = function(){ return window.FS_STEPS[window.currentFontScale()] || 1; };
+    window.chartFont = function(base){ return Math.round(base * window.appFontScale()); };
+    function syncFsButtons(lv){
+      document.querySelectorAll('[data-fs-opt]').forEach(function(b){
+        b.setAttribute('aria-pressed', b.getAttribute('data-fs-opt') === lv ? 'true' : 'false'); });
+    }
+    window.setFontScale = function(lv){
+      if(!window.FS_STEPS[lv]) lv = 'std';
+      if(lv === 'std') document.documentElement.removeAttribute('data-fs');
+      else document.documentElement.setAttribute('data-fs', lv);
+      try{ localStorage.setItem('fontScale', lv); }catch(e){}
+      syncFsButtons(lv);
+      // 图表跟随:通知各图表页按新档重绘(监听 fontscalechange;canvas 字号 CSS 够不到)
+      try{ window.dispatchEvent(new Event('fontscalechange')); }catch(e){}
+    };
+    // 载入时把控件高亮同步到已生效的档位(FOUC 脚本已设好 data-fs)
+    document.addEventListener('DOMContentLoaded', function(){ syncFsButtons(window.currentFontScale()); });
     // v0.11 · 按住临时查看(peek):隐私态下「长按」某个被遮金额 → 临时显示,松开/滑走/滚动/失焦 → 复原。
     //   多数金额在 <a> 链接内(KPI 跳 /checkup、账户行跳详情),故:短按=正常跳转(数字仍隐藏);
     //   长按(≥阈值)=peek 显示 + 抑制松手那一次 click(不跳转)。事件委托覆盖 HTMX 片段。
