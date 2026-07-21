@@ -95,13 +95,20 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v1.2.2 · 全局字号调节(看着舒服)](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.2.2)
+
+补丁(a11y · issue #7):顶栏 **`Aa`** 一键切 `标准 / 大 / 特大`,全站文字 + 间距同比放大,长辈 / 视力一般的家人也好读;按设备记住、进入无闪烁。单变量 `--fs-scale` 驱动五层(根字号 + 820 处写死字号重定义 + 组件类 + 图表 canvas 跟随 + 移动 16px 地板);**标准档逐像素等价旧版**,零回归。纯前端,无 schema 变更。
+
+<table>
+  <tr>
+    <td width="50%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.2.2/v122_pc_xl.jpg"><br><sub><b>桌面 · 特大档</b></sub></td>
+    <td width="25%" align="center"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.2.2/v122_m_xl.jpg"><br><sub><b>移动 · 特大档</b></sub></td>
+  </tr>
+</table>
+
 ### [v1.2.1 · 归因复盘措辞打磨(赚得最多/亏得最多 · AI 零责怪)](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.2.1)
 
 补丁:贡献榜两列 `本期功臣/本期拖累` → **`赚得最多/亏得最多`**(对仗 + 口径准 + 零责怪);AI 月度复盘 prompt 同步去责怪(`主要怪谁`→`主要来自哪几块`、信号名 `集中拖累`→`亏损集中`)。纯文案/语气,无 schema 变更,向后兼容。
-
-### [v1.2.0 · 月度归因复盘 + 再平衡执行闭环 + 性能底盘](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.2.0)
-
-大版本:**① 归因复盘** — 每月自动回答「钱为什么变了、主要来自哪」:恒等式严格闭合的瀑布图 + 汇率两步法单拆 + 赚得最多/亏得最多榜 + 6 维度 + 12 期趋势 + AI 复盘(信号驱动 · 关账落库可回看);**② 再平衡闭环** — AI 建议勾选采纳为计划 → 站内划转自动核销(80% 阈值可配)→ 进度跟踪 → 执行率回喂下月诊断,条目仅账户+金额永不荐产品;**③ 性能** — 仪表盘首屏 P50 476→364ms。含 V48 迁移(纯新增向后兼容)。
 
 
 
