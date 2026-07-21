@@ -12,6 +12,27 @@
   var USER_BOARDS = parse(window.LENS_META.boards);
   var DIM_LABEL = {}; DIMS.forEach(function (d) { DIM_LABEL[d.key] = d.label; });
   var ALL_MEASURES = MEASURES.map(function (m) { return m.key; });
+  var MEASURE_LABEL = {}; MEASURES.forEach(function (m) { MEASURE_LABEL[m.key] = m.label; });
+  var DIM_HOLDING = {}; DIMS.forEach(function (d) { DIM_HOLDING[d.key] = !!d.holdingLevel; });
+
+  /* v1.3 · 旭日可选分析指标(子集 + 渲染类型):
+       amount 弧长=金额,维值配色 · pnl 弧长=|收益额|,绿赚赭亏 · ratio 弧长=市值,颜色=收益率热力(比率不可按角度分)。
+     持仓级维度(行业/地域)下账户级收益(latestPnl/cumReturn)不可精确归因 → 灰置(承 PivotEngine 诚实降级)。 */
+  var SUN_METRICS = [
+    { key: 'value', kind: 'amount' }, { key: 'latestPnl', kind: 'pnl' },
+    { key: 'cumPnl', kind: 'pnl' }, { key: 'cumReturn', kind: 'ratio' }
+  ];
+  var SUN_KIND = {}; SUN_METRICS.forEach(function (m) { SUN_KIND[m.key] = m.kind; });
+  function sunMetricUnavailable(mkey) {
+    var holding = DIM_HOLDING[state.sunDims[0]] || DIM_HOLDING[state.sunDims[1]];
+    return holding && (mkey === 'latestPnl' || mkey === 'cumReturn');
+  }
+  /* 收益色:绿赚赭亏(深浅按幅度)/ 收益率热力(绿高→赭负) */
+  var CLR_F = '#4f6b47', CLR_R = '#9c4a2a';
+  function hex2(x) { return [parseInt(x.slice(1, 3), 16), parseInt(x.slice(3, 5), 16), parseInt(x.slice(5, 7), 16)]; }
+  function mixHex(a, b, t) { var A = hex2(a), B = hex2(b); return '#' + [0, 1, 2].map(function (i) { return Math.round(A[i] + (B[i] - A[i]) * t).toString(16).padStart(2, '0'); }).join(''); }
+  function pnlColor(v, maxA) { var a = Math.min(1, Math.abs(Number(v || 0)) / (maxA || 1)), t = 0.32 + 0.55 * a; return Number(v) >= 0 ? mixHex('#cfe0c4', CLR_F, t) : mixHex('#e8cabb', CLR_R, t); }
+  function rateColor(r) { if (r === null || r === undefined) return '#d8cfba'; var c = Math.max(-1, Math.min(1, Number(r) / 15)); return c >= 0 ? mixHex('#eef1e9', CLR_F, c) : mixHex('#f0e0d8', CLR_R, -c); }
   /* 五套环级配色方案(preview/v1.1/sunburst-palette.html · 2026-07-16 拍板):管理页可配,默认 D 莫兰迪。
    * 每套 [内环, 外环];色值与 admin/calc-tweaks.html 的色卡预览同源,改动需两处同步。 */
   var PALETTE_PLANS = {
@@ -82,6 +103,7 @@
     drill: [],               // [{dim, value}] 筛选栈(含看板预置筛选,均可移除)
     pivotRows: ['assetClass'], pivotCols: ['owner'],
     measures: ['value', 'share'],   // 指标多选(2026-07-17 #2)· 默认 金额+占比 · 至少 1 个
+    sunMetric: 'value',             // v1.3 · 旭日分析指标(单选)· 默认金额
     lastPivot: null
   };
   var chart = null;
@@ -197,40 +219,56 @@
     });
   }
 
-  /* ---------- 组件 A · 旭日 ---------- */
+  /* ---------- 组件 A · 旭日(v1.3 可选分析指标) ----------
+     rows=[内] cols=[外] → rowTotals 给内环"正确聚合"(比率类父级 ≠ 子级之和,必须引擎算,不能前端求和)。
+     三模式:amount 弧长=金额+维值色 · pnl 弧长=|收益额|+绿赚赭亏 · ratio 弧长=市值+颜色收益率热力。 */
   function renderSunburst() {
-    var spec = { rows: [state.sunDims[0], state.sunDims[1]], cols: [], measures: ['value', 'share'], filters: filtersObj() };
+    var mkey = state.sunMetric, kind = SUN_KIND[mkey] || 'amount';
+    var measures = mkey === 'value' ? ['value'] : ['value', mkey];
+    var mi = measures.indexOf(mkey), vi = measures.indexOf('value');
+    var spec = { rows: [state.sunDims[0]], cols: [state.sunDims[1]], measures: measures, filters: filtersObj() };
     return query(spec).then(function (resp) {
       var r = resp.result;
-      var level1 = {}; var order = [];
+      var inners = r.rowKeys.map(function (rk) { return rk[0]; });
+      var childrenByInner = {}, childNames = [];
       r.cells.forEach(function (c) {
-        var k1 = c.row[0], k2 = c.row[1];
-        if (!level1[k1]) { level1[k1] = { name: k1, value: 0, children: [] }; order.push(k1); }
-        level1[k1].value += Number(c.values[0] || 0);
-        level1[k1].children.push({ name: k2, value: Number(c.values[0] || 0) });
+        var ik = c.row[0], ok = c.col[0];
+        (childrenByInner[ik] = childrenByInner[ik] || []).push({ name: ok, mv: c.values[mi], val: c.values[vi] });
+        childNames.push(ok);
       });
-      var outerVals = [];
-      order.forEach(function (k) { level1[k].children.forEach(function (c) { outerVals.push(c.name); }); });
-      var innerColor = colorMapFor(order, 0);      // 内环 · 深调
-      var outerColor = colorMapFor(outerVals, 1);  // 外环 · 浅调独立色系 · 环内同值同色(跨父块)
-      var data = order.map(function (k) {
-        var n = level1[k];
-        n.itemStyle = { color: innerColor[k] };
-        n.children.forEach(function (c) { c.itemStyle = { color: outerColor[c.name] }; });
-        return n;
+      var innerColor = colorMapFor(inners, 0), outerColor = colorMapFor(childNames, 1);
+      var maxPnl = 0;
+      if (kind === 'pnl') {
+        r.rowTotals.forEach(function (t) { maxPnl = Math.max(maxPnl, Math.abs(Number(t[mi] || 0))); });
+        r.cells.forEach(function (c) { maxPnl = Math.max(maxPnl, Math.abs(Number(c.values[mi] || 0))); });
+      }
+      function arcSize(mv, val) { return kind === 'pnl' ? Math.abs(Number(mv || 0)) : Number(val || 0); }   // amount/ratio 用市值,pnl 用 |收益额|
+      function colorFor(mv, name, isInner) {
+        if (kind === 'amount') return isInner ? innerColor[name] : outerColor[name];
+        return kind === 'pnl' ? pnlColor(mv, maxPnl) : rateColor(mv);
+      }
+      var data = inners.map(function (ik, i) {
+        var t = r.rowTotals[i];
+        return { name: ik, value: arcSize(t[mi], t[vi]), _mv: t[mi], _val: t[vi], itemStyle: { color: colorFor(t[mi], ik, true) },
+          children: (childrenByInner[ik] || []).map(function (c) {
+            return { name: c.name, value: arcSize(c.mv, c.val), _mv: c.mv, _val: c.val, itemStyle: { color: colorFor(c.mv, c.name, false) } };
+          }) };
       });
+      var totalSize = data.reduce(function (s, d) { return s + d.value; }, 0);
+      function lblFor(mv, val) {   // 金额→占比% · 收益额→±短金额 · 收益率→率%
+        if (kind === 'ratio') return (mv === null || mv === undefined) ? '—' : (Number(mv) >= 0 ? '+' : '') + Number(mv).toFixed(1) + '%';
+        if (kind === 'pnl') return fmtShort(mv);
+        return (totalSize ? val * 100 / totalSize : 0).toFixed(1) + '%';
+      }
+      data.forEach(function (n) { n._lbl = lblFor(n._mv, n._val); n.children.forEach(function (c) { c._lbl = lblFor(c._mv, c._val); }); });
+
       var el = document.getElementById('sunburst');
       if (!chart) chart = echarts.init(el);
-      var grand = Number(r.grand[0] || 0);
-      /* 扇区常显 名称+占比;角度足够(≥28°)且非隐私 → 第三行短金额。角度 = 值占总比 × 360(sunburst 按值分角) */
       var sliceLabel = function (p) {
-        if (!grand) return p.name;
-        var pct = p.value * 100 / grand;
-        var lines = [p.name, pct.toFixed(1) + '%'];
-        if (pct * 3.6 >= 28 && !privacyOn()) lines.push(fmtShort(p.value));
+        var d = p.data, lines = [d.name, d._lbl];
+        if (kind === 'amount' && !privacyOn() && totalSize && p.value * 360 / totalSize >= 28) lines.push(fmtShort(d._val));
         return lines.join('\n');
       };
-      /* PC 收窄外半径给引导线标签腾空间;移动端空间不够,小块信息走图下补注(见 renderLeaders) */
       var compact = el.clientWidth < 480;
       var rOuter = compact ? '88%' : '82%', rMid = compact ? '58%' : '54%';
       chart.setOption({
@@ -243,27 +281,21 @@
         }],
         tooltip: {
           formatter: function (p) {
-            var pct = grand > 0 ? (p.value * 100 / grand).toFixed(1) + '%' : '';
-            return esc(p.name) + '<br>' + (privacyOn() ? '···' : fmtMoney(p.value)) + ' · ' + pct;
+            var d = p.data;
+            if (kind === 'ratio') return esc(d.name) + '<br>' + d._lbl + ' · 市值 ' + (privacyOn() ? '···' : fmtShort(d._val));
+            if (kind === 'pnl') return esc(d.name) + '<br>' + (privacyOn() ? '···' : fmtMoney(d._mv));
+            return esc(d.name) + '<br>' + (privacyOn() ? '···' : fmtMoney(d._val)) + ' · ' + d._lbl;
           }
         }
       }, true);
-      renderLeaders(data, grand, el, compact, parseFloat(rOuter) / 100, parseFloat(rMid) / 100);
-      /* 中心信息盘:默认 = 当前范围合计;hover 任一环扇区 = 该块 名称/金额/占比(内环金额难放扇区里,由此补齐) */
+      renderLeaders(data, totalSize, el, compact, parseFloat(rOuter) / 100, parseFloat(rMid) / 100);
+      /* 中心信息盘:当前指标的总计(点击 → 换指标,见 renderSunMetricBar / boot 绑定);hover 扇区 = 该块 */
       var center = document.getElementById('sunCenter');
-      var centerHtml = function (name, val, pct) {
-        return '<div class="text-[11px] text-ink-subtle leading-tight" style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(name) + '</div>' +
-          '<div class="font-display text-sm leading-tight" data-priv>' + fmtShort(val) + '</div>' +
-          (pct === null ? '' : '<div class="font-mono text-[10px] text-ink-subtle leading-tight">' + pct.toFixed(1) + '%</div>');
-      };
-      if (center) {
-        center.innerHTML = centerHtml('合计', grand, null);
-        chart.off('mouseover'); chart.off('mouseout');
-        chart.on('mouseover', function (p) {
-          if (p.data && p.data.name && grand) center.innerHTML = centerHtml(p.data.name, p.value, p.value * 100 / grand);
-        });
-        chart.on('mouseout', function () { center.innerHTML = centerHtml('合计', grand, null); });
-      }
+      var gm = r.grand[mi];
+      renderSunCenter(center, kind, mkey, gm, null);
+      chart.off('mouseover'); chart.off('mouseout');
+      chart.on('mouseover', function (p) { if (p.data && p.data.name) renderSunCenter(center, kind, mkey, gm, p.data); });
+      chart.on('mouseout', function () { renderSunCenter(center, kind, mkey, gm, null); });
       chart.off('click');
       chart.on('click', function (p) {
         if (!p.data || !p.data.name) return;
@@ -285,6 +317,54 @@
     });
   }
 
+  /* 中心信息盘渲染(按指标)· node=null 显总计+换指标提示;node=悬停块 */
+  function renderSunCenter(center, kind, mkey, grand, node) {
+    if (!center) return;
+    var head, big, cls = '', mv = node ? node._mv : grand;
+    if (node) {
+      head = node.name;
+      if (kind === 'ratio') { big = (mv == null) ? '—' : (Number(mv) >= 0 ? '+' : '') + Number(mv).toFixed(1) + '%'; cls = Number(mv) >= 0 ? 'num-pos' : 'num-neg'; }
+      else if (kind === 'pnl') { big = fmtShort(mv); cls = Number(mv) >= 0 ? 'num-pos' : 'num-neg'; }
+      else { big = fmtShort(node._val); }
+    } else if (kind === 'ratio') { head = '整体收益率'; big = (grand == null) ? '—' : (Number(grand) >= 0 ? '+' : '') + Number(grand).toFixed(1) + '%'; cls = Number(grand) >= 0 ? 'num-pos' : 'num-neg'; }
+    else if (kind === 'pnl') { head = mkey === 'latestPnl' ? '本期净收益' : '累计净收益'; big = (Number(grand) >= 0 ? '+' : '') + fmtShort(grand); cls = Number(grand) >= 0 ? 'num-pos' : 'num-neg'; }
+    else { head = '合计'; big = fmtShort(grand); }
+    var priv = (kind !== 'ratio') ? ' data-priv' : '';
+    center.innerHTML = '<div class="text-[11px] text-ink-subtle leading-tight" style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(head) + '</div>' +
+      '<div class="font-display text-sm leading-tight ' + cls + '"' + priv + '>' + big + '</div>' +
+      (node ? '' : '<div class="font-mono text-[9px] leading-tight" style="color:var(--brass-deep)">▾ 点换指标</div>');
+  }
+
+  /* ---------- 组件 A.1 · 分析指标选择器(v1.3)· 持仓级维度下收益类灰置 ---------- */
+  function setSunMetric(k) {
+    if (!SUN_KIND[k] || sunMetricUnavailable(k)) return;
+    state.sunMetric = k;
+    renderSunMetricBar();
+    Promise.all([renderSunburst(), renderRanking()]);
+  }
+  function renderSunMetricBar() {
+    var anyOff = false;
+    var pillHtml = function (m, forPop) {
+      var off = sunMetricUnavailable(m.key); if (off) anyOff = true;
+      var on = state.sunMetric === m.key;
+      if (forPop) return '<button type="button" data-sm="' + m.key + '"' + (off ? ' disabled' : '') + ' class="' + (on ? 'on' : '') + (off ? ' off' : '') + '">' + esc(MEASURE_LABEL[m.key]) + '</button>';
+      return '<button type="button" data-sm="' + m.key + '"' + (off ? ' disabled title="行业/地域(持仓级)维度下账户级收益不可精确归因"' : '') +
+        ' class="pill text-[10px]' + (on ? ' pill-ink-active' : '') + (off ? ' sun-m-off' : '') + '">' + esc(MEASURE_LABEL[m.key]) + '</button>';
+    };
+    var bar = document.getElementById('sunMetricBar');
+    if (bar) {
+      bar.innerHTML = SUN_METRICS.map(function (m) { return pillHtml(m, false); }).join('');
+      bar.querySelectorAll('[data-sm]').forEach(function (btn) { if (!btn.disabled) btn.onclick = function () { setSunMetric(btn.dataset.sm); }; });
+    }
+    var pop = document.getElementById('sunMetricPop');
+    if (pop) {
+      pop.innerHTML = SUN_METRICS.map(function (m) { return pillHtml(m, true); }).join('');
+      pop.querySelectorAll('[data-sm]').forEach(function (btn) { if (!btn.disabled) btn.onclick = function (e) { e.stopPropagation(); pop.classList.add('hidden'); setSunMetric(btn.dataset.sm); }; });
+    }
+    var note = document.getElementById('sunDegradeNote');
+    if (note) note.classList.toggle('hidden', !anyOff);
+  }
+
   /* ---------- 组件 A.5 · 小扇区引导线(Excel 式)----------
    * ECharts sunburst 原生无 labelLine:角度 < minAngle(14°)的块 label 被隐藏,比例/名称不可见。
    * PC:graphic 自绘 折线引导 到圆外空白,线端 色点+名称+占比,左右分侧 + 纵向避让(每侧 ≤8 条);
@@ -297,12 +377,12 @@
       var span = grand ? n.value * 360 / grand : 0;
       var pctN = grand ? n.value * 100 / grand : 0;
       /* 内环小块不拉线:径向长线要穿过整个外环,与外环小块的引导线大量交叉(2026-07-17 修)→ 落图下补注 */
-      if (span > 0 && span < MIN_DEG && pctN >= 0.1) noteItems.push({ name: n.name, pct: pctN, color: n.itemStyle.color });
+      if (span > 0 && span < MIN_DEG && pctN >= 0.1) noteItems.push({ name: n.name, pct: pctN, lbl: n._lbl, color: n.itemStyle.color });
       var ccum = cum;
       (n.children || []).forEach(function (c) {
         var cspan = grand ? c.value * 360 / grand : 0;
         var pctC = grand ? c.value * 100 / grand : 0;
-        if (cspan > 0 && cspan < MIN_DEG && pctC >= 0.1) lineItems.push({ mid: ccum + cspan / 2, name: c.name, pct: pctC, color: c.itemStyle.color });
+        if (cspan > 0 && cspan < MIN_DEG && pctC >= 0.1) lineItems.push({ mid: ccum + cspan / 2, name: c.name, pct: pctC, lbl: c._lbl, color: c.itemStyle.color });
         ccum += cspan;
       });
       cum += span;
@@ -315,7 +395,7 @@
     if (notes) {
       notes.innerHTML = noteItems.length ? '<span class="text-ink-subtle mr-1">' + (compact ? '小块:' : '内环小块:') + '</span>' + noteItems.map(function (it) {
         return '<span class="inline-flex items-center gap-1 mr-3 whitespace-nowrap"><span style="width:7px;height:7px;background:' + it.color + ';display:inline-block"></span>' +
-          esc(it.name) + ' <span class="font-mono">' + it.pct.toFixed(1) + '%</span></span>';
+          esc(it.name) + ' <span class="font-mono">' + (it.lbl != null ? it.lbl : it.pct.toFixed(1) + '%') + '</span></span>';
       }).join('') : '';
     }
     if (!lineItems.length) {
@@ -355,7 +435,7 @@
           style: { stroke: '#8a8172', fill: 'none', lineWidth: 1, opacity: 0.8 } });
         children.push({ type: 'rect', silent: true, shape: { x: side === 'right' ? lx : lx - 7, y: y - 3.5, width: 7, height: 7 }, style: { fill: it.color } });
         children.push({ type: 'text', silent: true, x: side === 'right' ? lx + 11 : lx - 11, y: y,
-          style: { text: it.name + ' ' + it.pct.toFixed(1) + '%', fill: '#6b6353', font: chartFont(10) + 'px sans-serif',
+          style: { text: it.name + ' ' + (it.lbl != null ? it.lbl : it.pct.toFixed(1) + '%'), fill: '#6b6353', font: chartFont(10) + 'px sans-serif',
                    align: side === 'right' ? 'left' : 'right', verticalAlign: 'middle' } });
       });
     });
@@ -364,20 +444,40 @@
 
   /* ---------- 组件 B · 切片排行 ---------- */
   function renderRanking() {
-    var spec = { rows: [state.sunDims[1]], cols: [], measures: ['value', 'share'], filters: filtersObj() };
+    var mkey = state.sunMetric, kind = SUN_KIND[mkey] || 'amount';
+    var measures = mkey === 'value' ? ['value', 'share'] : ['value', mkey];
+    var mi = measures.indexOf(mkey), vi = measures.indexOf('value');
+    var spec = { rows: [state.sunDims[1]], cols: [], measures: measures, filters: filtersObj() };
     return query(spec).then(function (resp) {
       var r = resp.result;
-      var barColor = colorMapFor(r.rowKeys.map(function (rk) { return rk[0]; }), 1);  // 排行=外环维度 → 外环色系,与旭日外环同色
-      var html = '<div class="eyebrow mb-1">当前范围 · 按 ' + esc(DIM_LABEL[state.sunDims[1]]) + '</div>';
-      r.rowKeys.forEach(function (rk, i) {
-        var t = r.rowTotals[i];
-        var pct = t[1] === null ? 0 : Number(t[1]);
-        html += '<div><div class="flex justify-between text-sm mb-1"><span>' + esc(rk[0]) + '</span>' +
-          '<span class="font-mono tnum" data-priv>' + fmtMoney(t[0]) + ' · ' + pct.toFixed(1) + '%</span></div>' +
-          '<div style="height:18px;background:var(--card-soft);position:relative;overflow:hidden">' +
-          '<span style="position:absolute;left:0;top:0;height:100%;width:' + Math.min(pct, 100) + '%;background:' + barColor[rk[0]] + '"></span></div></div>';
+      var rows = r.rowKeys.map(function (rk, i) { return { name: rk[0], mv: r.rowTotals[i][mi], val: r.rowTotals[i][vi] }; });
+      rows.sort(function (a, b) {
+        if (kind === 'pnl') return Math.abs(Number(b.mv || 0)) - Math.abs(Number(a.mv || 0));
+        if (kind === 'ratio') return (b.mv == null ? -1e18 : Number(b.mv)) - (a.mv == null ? -1e18 : Number(a.mv));
+        return Number(b.val || 0) - Number(a.val || 0);
       });
-      if (!r.rowKeys.length) html += '<p class="text-sm text-ink-subtle">当前范围没有头寸。</p>';
+      var barColor = colorMapFor(rows.map(function (x) { return x.name; }), 1);   // 与旭日外环同色
+      var totalVal = rows.reduce(function (s, x) { return s + Number(x.val || 0); }, 0);
+      var maxAbs = rows.reduce(function (m, x) { return Math.max(m, Math.abs(Number(x.mv || 0))); }, 0);
+      var html = '<div class="eyebrow mb-1">当前范围 · 按 ' + esc(MEASURE_LABEL[mkey] || '金额') + ' · ' + esc(DIM_LABEL[state.sunDims[1]]) + '</div>';
+      rows.forEach(function (x) {
+        var right, barW, barBg = barColor[x.name], rcls = '', priv = ' data-priv';
+        if (kind === 'ratio') {
+          right = (x.mv == null) ? '—' : (Number(x.mv) >= 0 ? '+' : '') + Number(x.mv).toFixed(1) + '%';
+          barW = maxAbs ? Math.abs(Number(x.mv || 0)) / maxAbs * 100 : 0; barBg = Number(x.mv) < 0 ? CLR_R : CLR_F;
+          rcls = Number(x.mv) >= 0 ? 'num-pos' : 'num-neg'; priv = '';
+        } else if (kind === 'pnl') {
+          right = fmtShort(x.mv); barW = maxAbs ? Math.abs(Number(x.mv || 0)) / maxAbs * 100 : 0;
+          barBg = Number(x.mv) < 0 ? CLR_R : CLR_F; rcls = Number(x.mv) >= 0 ? 'num-pos' : 'num-neg';
+        } else {
+          var pct = totalVal ? Number(x.val) * 100 / totalVal : 0; right = fmtMoney(x.val) + ' · ' + pct.toFixed(1) + '%'; barW = Math.min(pct, 100);
+        }
+        html += '<div><div class="flex justify-between text-sm mb-1"><span>' + esc(x.name) + '</span>' +
+          '<span class="font-mono tnum ' + rcls + '"' + priv + '>' + right + '</span></div>' +
+          '<div style="height:18px;background:var(--card-soft);position:relative;overflow:hidden">' +
+          '<span style="position:absolute;left:0;top:0;height:100%;width:' + barW + '%;background:' + barBg + '"></span></div></div>';
+      });
+      if (!rows.length) html += '<p class="text-sm text-ink-subtle">当前范围没有头寸。</p>';
       document.getElementById('ranking').innerHTML = html;
     });
   }
@@ -554,6 +654,8 @@
   /* ---------- 刷新(三组件并发 · 同一 drill-path) ---------- */
   function refresh() {
     renderCrumbs();
+    if (sunMetricUnavailable(state.sunMetric)) state.sunMetric = 'cumPnl';   // v1.3 · 维度变持仓级 → 回退到可用指标
+    renderSunMetricBar();
     if (typeof syncInsightCard === 'function') syncInsightCard();   // 洞察卡随视图键显隐(缓存恢复/切走隐藏)
     Promise.all([renderSunburst(), renderRanking(), renderPivot()]).catch(function (e) {
       document.getElementById('pivot').innerHTML = '<p class="text-sm" style="color:var(--rust)">加载失败:' + esc(e.message) + '</p>';
@@ -679,6 +781,10 @@
      无 IntersectionObserver 的老浏览器降级为立即启动。 */
   function boot() {
     renderBoards(); applyBoard(PRESETS[0], PRESETS[0].key);
+    /* v1.3 · 点旭日中心圆 = 换分析指标(弹层);点别处收起 */
+    var sc = document.getElementById('sunCenter');
+    if (sc) sc.onclick = function (e) { e.stopPropagation(); var pop = document.getElementById('sunMetricPop'); if (pop) pop.classList.toggle('hidden'); };
+    document.addEventListener('click', function () { var pop = document.getElementById('sunMetricPop'); if (pop) pop.classList.add('hidden'); });
     /* 隐私模式开关切换(html.privacy)→ 重绘旭日:canvas 里的金额 label 不受 CSS 模糊管辖,必须重出图 */
     new MutationObserver(function () { if (chart) renderSunburst(); })
       .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });

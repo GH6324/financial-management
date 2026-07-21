@@ -716,3 +716,12 @@ details:not([open]) > summary .lg-when-open  { display: none; }
 .fs-opt-m[aria-pressed="true"] { background:var(--ink); color:var(--paper); border-color:var(--ink); }
 #fs-menu > summary::-webkit-details-marker { display:none; }
 #fs-menu > summary::marker { content:''; }
+
+/* v1.3 · 旭日分析指标选择器 */
+.sun-m-off { opacity:.42; text-decoration:line-through; cursor:not-allowed; }
+#sunMetricPop button { display:block; width:100%; text-align:left; background:none; border:0; cursor:pointer;
+  font-family:"JetBrains Mono",monospace; font-size: calc(12px * var(--fs-scale,1)); color:var(--ink-soft);
+  padding:6px 14px; white-space:nowrap; }
+#sunMetricPop button:hover { background:var(--card-soft); color:var(--ink); }
+#sunMetricPop button.on { background:var(--ink); color:var(--paper); }
+#sunMetricPop button.off { opacity:.42; text-decoration:line-through; cursor:not-allowed; }

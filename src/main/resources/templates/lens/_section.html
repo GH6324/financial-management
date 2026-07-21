@@ -67,10 +67,19 @@
           <select data-lsel id="nextDimSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select>
         </label>
       </div>
+      <!-- v1.3 · 分析指标选择器(点中心圆亦可换)· 持仓级维度下收益类灰置 -->
+      <div class="flex items-center gap-2 flex-wrap mb-2">
+        <span class="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-subtle">分析指标</span>
+        <span id="sunMetricBar" class="flex gap-1.5 flex-wrap"></span>
+      </div>
+      <div id="sunDegradeNote" class="hidden text-[11px] mb-2 px-2.5 py-1" style="background:var(--rust-soft);color:var(--rust);border-left:3px solid var(--rust)">
+        行业 / 地域(持仓级)维度会把持仓账户拆开 → 本期收益额 / 累计收益率无法精确归因(已灰置)· 累计收益额改用持有口径(市值−成本)仍可看。</div>
       <div style="position:relative">
         <div id="sunburst" style="height:340px"></div>
-        <!-- 中心信息盘:默认合计,hover 扇区显示 名称/金额/占比(内环金额由此补齐,canvas 内放不下) -->
-        <div id="sunCenter" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:26%;text-align:center;pointer-events:none"></div>
+        <!-- 中心信息盘:当前指标总计;点击 = 换分析指标(弹层)。hover 扇区显示该块 -->
+        <div id="sunCenter" title="点我换分析指标" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:30%;text-align:center;cursor:pointer;z-index:2"></div>
+        <!-- 指标切换弹层(中心) -->
+        <div id="sunMetricPop" class="hidden" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;background:var(--card);border:1px solid var(--ink);box-shadow:0 10px 30px rgba(0,0,0,.2);padding:5px"></div>
       </div>
       <!-- 移动端小块补注(PC 用引导线,此处为空) -->
       <div id="sunSmallNotes" class="text-[11px] leading-relaxed mt-1"></div>

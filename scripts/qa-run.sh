@@ -3940,6 +3940,18 @@ FSNAV="$RD/src/main/resources/templates/fragments/nav.html"
   && log_ok "v12-2-FONTSCALE 字号档位(标准零回归 calc×--fs-scale · 层2 六类!important压PlayCDN · iOS16px地板限lg/xl · FOUC · Aa控件双端 · 图表chartFont跟随+归因活重绘)" \
   || log_bad "v12-2-FONTSCALE 字号档位缺件" "see style.css(--fs-scale/text-[Npx]) + layout.html(FOUC/setFontScale/chartFont) + nav.html(data-fs-opt)"
 
+# v13-SUN-METRIC · 旭日可选分析指标(后端零改动 · 复用 /lens/query + PivotEngine 全指标 · 两渲染模式 · 持仓级诚实降级)
+SMJS="$RD/src/main/resources/static/js/lens.js"
+SMTPL="$RD/src/main/resources/templates/lens/_section.html"
+{ grep -q 'SUN_METRICS' "$SMJS" && grep -q 'function sunMetricUnavailable' "$SMJS" \
+  && grep -q 'function rateColor' "$SMJS" && grep -q 'function pnlColor' "$SMJS" \
+  && grep -q 'function renderSunMetricBar' "$SMJS" && grep -q "sunMetric: 'value'" "$SMJS" \
+  && grep -qF 'rows: [state.sunDims[0]], cols: [state.sunDims[1]]' "$SMJS" \
+  && grep -q 'renderSunCenter' "$SMJS" \
+  && grep -q 'id="sunMetricBar"' "$SMTPL" && grep -q 'id="sunMetricPop"' "$SMTPL" && grep -q 'id="sunDegradeNote"' "$SMTPL"; } \
+  && log_ok "v13-SUN-METRIC 旭日多指标(金额/本期收益额/累计收益额/累计收益率 · 可加→弧长/比率→市值+热力 · 中心圆换指标 · 持仓级灰置+回退 · 后端零改动复用PivotEngine)" \
+  || log_bad "v13-SUN-METRIC 旭日多指标缺件" "see lens.js(SUN_METRICS/renderSunburst rows=[内]cols=[外]) + lens/_section.html(sunMetricBar/Pop/DegradeNote)"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
