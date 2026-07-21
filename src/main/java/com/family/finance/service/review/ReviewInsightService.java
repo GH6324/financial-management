@@ -21,7 +21,7 @@ import java.util.Map;
  * v1.2 · AI 月度复盘(tech-design v1.2 §2 · 照 LensInsightService 模式)。
  *
  * <p><b>信号驱动 + LLM 禁算</b>:归因结果(AttributionEngine 已算好)→ 工程规则判信号
- * (最大拖累占比 / 汇率占比 / 入不敷出 / 无异常如实说)→ LLM 只解读 + 一条最优先动作。
+ * (亏损集中占比 / 汇率占比 / 入不敷出 / 无异常如实说)→ LLM 只解读 + 一条最优先动作。
  * <b>真名脱敏</b>:成员名替换「成员A/B」。<b>缓存落库</b>(D5):UNIQUE(family,period,dim) 覆盖写,
  * 关账期结果不可变可长期回看;force=true 重新生成。</p>
  */
@@ -53,7 +53,7 @@ public class ReviewInsightService {
                 规则(必须遵守):
                 1. 严禁做任何计算,只引用给出的数字;
                 2. 输出 3-4 条,每条一行以「· 」开头,≤55 字,大白话;
-                3. 先回答"这个月钱为什么变了、主要怪谁"(基于信号),再给一条「值得做的一件事」收尾;
+                3. 先回答"这个月钱为什么变了、主要来自哪几块"(基于信号,就事论事不责怪),再给一条「值得做的一件事」收尾;
                 4. 信号为空时如实说本期结构无显著异常,给一句观察即可;
                 5. 不推荐任何具体产品、不预测涨跌、不用黑话。
                 只输出要点行,不要标题、开场白、markdown。""";
@@ -99,7 +99,7 @@ public class ReviewInsightService {
                 BigDecimal share = worst.getValue().multiply(BigDecimal.valueOf(100))
                         .divide(lossTotal, 0, RoundingMode.HALF_UP);
                 if (share.intValue() >= 50) {
-                    signals.add("集中拖累: 「" + worst.getKey() + "」贡献了亏损侧的 " + share + "%(" + money(worst.getValue()) + ")");
+                    signals.add("亏损集中: 「" + worst.getKey() + "」占了亏损侧的 " + share + "%(" + money(worst.getValue()) + ")");
                 }
             }
         }
