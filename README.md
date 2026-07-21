@@ -14,14 +14,14 @@
 
 <table>
   <tr>
-    <td width="33%"><img src="docs/screenshots/pc_dashboard.jpg" alt="仪表盘"><br><sub><b>仪表盘</b> · 净资产趋势(CPI 购买力线 + M2 社会财富线)+ 配置环形 + KPI</sub></td>
-    <td width="33%"><img src="docs/screenshots/pc_ai_analysis.jpg" alt="AI 综合诊断"><br><sub><b>AI 综合诊断</b> · 总评 + 四维卡 + 优先行动(数字工程算,LLM 只解读)</sub></td>
-    <td width="33%"><img src="docs/screenshots/pc_lens.jpg?v=3" alt="资产透视"><br><sub><b>资产透视</b> · 旭日下钻 + 交叉透视表 + 钻到持仓明细 · 6 块预设看板 · 同维值同色</sub></td>
+    <td width="33%"><img src="docs/screenshots/fs_dashboard.jpg" alt="仪表盘"><br><sub><b>仪表盘</b> · 净资产趋势(CPI 购买力线 + M2 社会财富线)+ 资产配置环形 + KPI 横条</sub></td>
+    <td width="33%"><img src="docs/screenshots/fs_checkup.jpg" alt="资产体检"><br><sub><b>资产体检</b> · 配置 / 风险 / 流动性 / 收益 四维 + AI 综合诊断(数字工程算,LLM 只解读)</sub></td>
+    <td width="33%"><img src="docs/screenshots/fs_lens.jpg" alt="资产透视"><br><sub><b>资产透视</b> · 旭日下钻 + 交叉透视表 + 钻到持仓明细 · 6 块预设看板 · 同维值同色</sub></td>
   </tr>
   <tr>
-    <td width="33%"><img src="docs/screenshots/pc_account.jpg" alt="账户簿"><br><sub><b>账户簿</b> · 6 类账户 · 按成员归集 · 划转 / 体检 / 账本 / 一键导出</sub></td>
-    <td width="33%"><img src="docs/screenshots/pc_setting.jpg" alt="可运营管理页"><br><sub><b>可运营管理页</b> · 品牌 / 成员 / 周期 / 汇率 / 数据源等 14 项 · 改即热生效</sub></td>
-    <td width="33%"><img src="docs/screenshots/pc_lens_tags.jpg?v=2" alt="多维打标"><br><sub><b>多维打标</b> · 账户 › 持仓树状 · 资产类型 / 平台 / 行业 / 用途 · AI 按底层投向推荐</sub></td>
+    <td width="33%"><img src="docs/screenshots/fs_accounts.jpg" alt="账户簿"><br><sub><b>账户簿</b> · 9 类账户 · 按成员归集 · 划转 / 体检 / 账本 / 一键导出</sub></td>
+    <td width="33%"><img src="docs/screenshots/fs_tags.jpg" alt="多维打标"><br><sub><b>多维打标</b> · 账户 › 持仓 · 资产类型 / 平台 / 行业 / 用途 · AI 按底层投向推荐</sub></td>
+    <td width="33%"><img src="docs/screenshots/fs_admin.jpg" alt="可运营管理页"><br><sub><b>可运营管理页</b> · 品牌 / 成员 / 周期 / 汇率 / 数据源等 14 项 · 改即热生效</sub></td>
   </tr>
 </table>
 
@@ -29,19 +29,19 @@
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/mobilez_dashboard.jpg" width="118" alt="移动端仪表盘"></td>
-    <td align="center"><img src="docs/screenshots/mobile_account.jpg" width="118" alt="移动端填报"></td>
-    <td align="center"><img src="docs/screenshots/mobile_analysis.jpg" width="118" alt="移动端资产体检"></td>
-    <td align="center"><img src="docs/screenshots/mobile_ai_analysis.jpg" width="118" alt="移动端 AI 调仓"></td>
-    <td align="center"><img src="docs/screenshots/mobile_lens.jpg?v=2" width="118" alt="移动端资产透视"></td>
-    <td align="center"><img src="docs/screenshots/mobile_ios_deck.jpg" width="118" alt="iOS 主屏 PWA"></td>
+    <td align="center"><img src="docs/screenshots/fs_m_dashboard.jpg" width="130" alt="移动端仪表盘"></td>
+    <td align="center"><img src="docs/screenshots/fs_m_entry.jpg" width="130" alt="移动端填报"></td>
+    <td align="center"><img src="docs/screenshots/fs_m_checkup.jpg" width="130" alt="移动端资产体检"></td>
+    <td align="center"><img src="docs/screenshots/fs_m_lens.jpg" width="130" alt="移动端资产透视"></td>
+    <td align="center"><img src="docs/screenshots/fs_m_reports.jpg" width="130" alt="移动端真实收益"></td>
+    <td align="center"><img src="docs/screenshots/fs_m_app.jpg" width="130" alt="iOS 主屏 PWA"></td>
   </tr>
   <tr>
     <td align="center"><sub>仪表盘 · 洞察速览</sub></td>
     <td align="center"><sub>每月填报</sub></td>
     <td align="center"><sub>资产体检</sub></td>
-    <td align="center"><sub>AI 调仓建议</sub></td>
     <td align="center"><sub>资产透视下钻</sub></td>
+    <td align="center"><sub>真实收益 · XIRR/TWR</sub></td>
     <td align="center"><sub>装为 App</sub></td>
   </tr>
 </table>
