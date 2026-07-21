@@ -95,20 +95,13 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v1.2.4 · 功能截图套浏览器/手机框(门面升级)](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.2.4)
+
+补丁:首页 + README 功能截图按开源通行做法套框 —— 桌面套极简浏览器窗口框(圆点 + 地址栏)、移动套手机边框 + 投影,像真实产品陈列;首页集合图同时重制最新 UI + 2x 高清。纯静态资源,无 schema 变更。
+
 ### [v1.2.3 · 主页功能集合图重制](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.2.3)
 
 补丁:主页功能截图集合图按最新 UI 真机重拍合成 —— 桌面 6 图(+资产透视 / 多维打标)+ 移动 6 图(+真实收益 XIRR),体积 484KB→366KB。纯静态资源,无 schema 变更。
-
-### [v1.2.2 · 全局字号调节(看着舒服)](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.2.2)
-
-补丁(a11y · issue #7):顶栏 **`Aa`** 一键切 `标准 / 大 / 特大`,全站文字 + 间距同比放大,长辈 / 视力一般的家人也好读;按设备记住、进入无闪烁。单变量 `--fs-scale` 驱动五层(根字号 + 820 处写死字号重定义 + 组件类 + 图表 canvas 跟随 + 移动 16px 地板);**标准档逐像素等价旧版**,零回归。纯前端,无 schema 变更。
-
-<table>
-  <tr>
-    <td width="50%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.2.2/v122_pc_xl.jpg"><br><sub><b>桌面 · 特大档</b></sub></td>
-    <td width="25%" align="center"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.2.2/v122_m_xl.jpg"><br><sub><b>移动 · 特大档</b></sub></td>
-  </tr>
-</table>
 
 
 
