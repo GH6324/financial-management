@@ -3544,8 +3544,10 @@ LSJ="$RD/src/main/resources/static/js/lens-select.js"
   && grep -q '/dashboard/attribution' "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \
   && grep -q 'attribution-mount' "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q 'hx-trigger="revealed" hx-target="this"' "$RD/src/main/resources/templates/dashboard/_region.html" \
-  && grep -q 'attrWaterfall' "$RD/src/main/resources/templates/dashboard/_attribution.html"; } \
-  && log_ok "v12-ATTR 归因引擎+fragment(两步法fx闭合 · 未归因显性 · revealed懒加载 · 瀑布/贡献榜/12期)" \
+  && grep -q 'attrWaterfall' "$RD/src/main/resources/templates/dashboard/_attribution.html" \
+  && grep -q '赚得最多' "$RD/src/main/resources/templates/dashboard/_attribution.html" \
+  && grep -q '亏得最多' "$RD/src/main/resources/templates/dashboard/_attribution.html"; } \
+  && log_ok "v12-ATTR 归因引擎+fragment(两步法fx闭合 · 未归因显性 · revealed懒加载 · 瀑布/赚得最多·亏得最多榜/12期)" \
   || log_bad "v12-ATTR 归因缺件" "see calc/review + _attribution.html"
 
 # v12-REVIEW-AI · AI 月度复盘(信号驱动 · V48 缓存 · 脱敏 · 禁算)
