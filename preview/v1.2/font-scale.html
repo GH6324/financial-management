@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-fs="std">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>v1.2.2 Preview · 字号调节(issue #7)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../../src/main/resources/static/vendor/echarts.min.js"></script>
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      paper:'var(--paper)','paper-soft':'var(--paper-soft)','paper-deep':'var(--paper-deep)',
+      card:'var(--card)','card-soft':'var(--card-soft)',
+      ink:{DEFAULT:'var(--ink)',soft:'var(--ink-soft)',subtle:'var(--ink-subtle)'},
+      rule:{DEFAULT:'var(--rule)',soft:'var(--rule-soft)'},
+      brass:{DEFAULT:'var(--brass)',deep:'var(--brass-deep)',soft:'var(--brass-soft)'},
+      forest:'var(--forest)',rust:'var(--rust)'
+    }
+  }}}
+</script>
+
+<!-- ============================================================
+     字号调节机制(preview 与生产同款 Play CDN → 此处跑通=应用跑通)
+     一个变量 --fs-scale 驱动全部 5 层
+     ============================================================ -->
+<style>
+  :root{ --fs-scale: 1; }
+  html[data-fs="lg"]{ --fs-scale: 1.15; }
+  html[data-fs="xl"]{ --fs-scale: 1.30; }
+
+  /* — 层1:根字号 → 所有 rem 语义类(text-sm/base/xl…)+ rem 间距(p-4/gap-2)+ 正文继承,全部自动缩放 — */
+  html, body{ font-size: calc(15px * var(--fs-scale)); }
+
+  /* — 层2:6 个写死的 arbitrary 字号类,用 calc×scale 重定义;!important 压 Play CDN 生成的绝对 px —
+       用 html:not(.naive) 作用域:打开「天真对比」时这一层失效,故意让你看见崩坏 — */
+  html:not(.naive) .text-\[8px\] { font-size: calc(8px  * var(--fs-scale)) !important; }
+  html:not(.naive) .text-\[9px\] { font-size: calc(9px  * var(--fs-scale)) !important; }
+  html:not(.naive) .text-\[10px\]{ font-size: calc(10px * var(--fs-scale)) !important; }
+  html:not(.naive) .text-\[11px\]{ font-size: calc(11px * var(--fs-scale)) !important; }
+  html:not(.naive) .text-\[12px\]{ font-size: calc(12px * var(--fs-scale)) !important; }
+  html:not(.naive) .text-\[13px\]{ font-size: calc(13px * var(--fs-scale)) !important; }
+
+  /* — 层3:style.css 组件类本身的绝对 px 也集中改 calc(生产里就在 style.css 一处改十几类) — */
+  html:not(.naive) .eyebrow      { font-size: calc(10.5px * var(--fs-scale)); }
+  html:not(.naive) .pill         { font-size: calc(10.5px * var(--fs-scale)); }
+  html:not(.naive) .btn-paper    { font-size: calc(12px * var(--fs-scale)); }
+  html:not(.naive) .kpi-eyebrow  { font-size: calc(10px * var(--fs-scale)); }
+  html:not(.naive) .kpi-value    { font-size: calc(30px * var(--fs-scale)); }
+  html:not(.naive) .kpi-delta    { font-size: calc(12px * var(--fs-scale)); }
+
+  /* — 层5:iOS 输入框 16px 地板(<16px 聚焦会触发整页放大);放大时取更大值 — */
+  @media (max-width: 640px){
+    .demo input, .demo select, .demo textarea{ font-size: max(16px, calc(14px * var(--fs-scale))) !important; }
+  }
+
+  /* —— 控件本体固定尺寸(它是"仪表",不随演示缩放,当稳定参照) —— */
+  #fsbar{ position:fixed; top:14px; right:14px; z-index:80; display:flex; gap:0; align-items:stretch;
+    background:var(--card); border:1px solid var(--rule); border-radius:3px; box-shadow:0 3px 14px rgba(0,0,0,.14);
+    font-family:"JetBrains Mono",monospace; overflow:hidden; }
+  #fsbar button{ border:0; background:transparent; cursor:pointer; color:var(--ink-soft);
+    padding:7px 10px; line-height:1; border-left:1px solid var(--rule-soft); white-space:nowrap; }
+  #fsbar button:first-child{ border-left:0; }
+  #fsbar button[aria-pressed="true"]{ background:var(--ink); color:var(--paper); }
+  #fsbar .lab-s{ font-size:12px; } #fsbar .lab-m{ font-size:14px; } #fsbar .lab-l{ font-size:16px; }
+  #naivebar{ position:fixed; top:56px; right:14px; z-index:80; display:flex; gap:7px; align-items:center;
+    background:var(--card); border:1px solid var(--rule); border-radius:3px; padding:6px 10px;
+    box-shadow:0 3px 14px rgba(0,0,0,.14); font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--ink-soft); }
+  #readout{ font-family:"JetBrains Mono",monospace; font-size:11px; }
+  .tag{ display:inline-block; font-family:"JetBrains Mono",monospace; font-size:9px; letter-spacing:.06em;
+    padding:1px 6px; border-radius:2px; border:1px solid var(--rule); color:var(--ink-soft); white-space:nowrap; vertical-align:middle; }
+  .tag-rem{ background:var(--forest-soft); border-color:var(--forest); color:var(--forest); }
+  .tag-px{ background:var(--brass-soft); border-color:var(--brass); color:var(--brass-deep); }
+  .tag-js{ background:var(--slate-soft,#c5cdd8); border-color:var(--slate,#3c4a5a); color:var(--slate,#3c4a5a); }
+  .tag-ios{ background:var(--rust-soft); border-color:var(--rust); color:var(--rust); }
+  .gallery-card{ background:var(--card); border:1px solid var(--rule); padding:1rem 1.1rem; }
+  .mtx th,.mtx td{ border:1px solid var(--rule-soft); padding:7px 9px; vertical-align:top; text-align:left; }
+  .mtx th{ background:var(--paper-soft); font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); }
+</style>
+</head>
+
+<body class="min-h-screen" style="background:var(--paper)">
+
+<!-- ===== 字号仪表(固定,不缩放) ===== -->
+<div id="fsbar" role="group" aria-label="字号">
+  <button type="button" data-fs="std" aria-pressed="true"><span class="lab-s">A</span> 标准</button>
+  <button type="button" data-fs="lg"  aria-pressed="false"><span class="lab-m">A</span> 大</button>
+  <button type="button" data-fs="xl"  aria-pressed="false"><span class="lab-l">A</span> 特大</button>
+</div>
+<label id="naivebar"><input type="checkbox" id="naive"> 天真对比:只改根字号(不修写死px)</label>
+
+<div class="demo max-w-5xl mx-auto px-4 lg:px-8 py-10">
+
+  <p class="eyebrow" style="letter-spacing:.2em">PREVIEW · v1.2.2 · 待评审 · issue #7 字号字体</p>
+  <h1 class="font-display text-3xl lg:text-4xl mt-1" style="color:var(--ink)">全局字号调节 · 组件全谱 × 缩放叠加</h1>
+  <p class="mt-3 text-sm" style="color:var(--ink-soft);max-width:52rem">
+    右上角切 <b>标准 / 大 / 特大</b>,全站文字与间距同比放大。难点不是加滑块,而是我们有
+    <b>820 处写死的 <code class="font-mono text-[12px]">text-[10px]</code></b> 之类绝对像素、加上图表里 JS 写死的字号——
+    根字号放大不会动它们。勾选右上「天真对比」可<b>亲眼看到只改根字号的崩坏</b>(大标题涨、小注冻住),再取消看我们方案如何一致缩放。
+    <span id="readout" class="block mt-2" style="color:var(--brass-deep)"></span>
+  </p>
+
+  <!-- ============ 一、组件全谱画廊 ============ -->
+  <div class="eyebrow-ink mt-9 mb-1" style="font-size:12px;letter-spacing:.12em;color:var(--ink)">一 · 组件全谱(每块标注缩放机制)</div>
+  <p class="text-xs mb-4" style="color:var(--ink-subtle)">
+    <span class="tag tag-rem">rem 自动</span> 语义类/间距,改根字号即缩放 ·
+    <span class="tag tag-px">px 重定义</span> 写死像素,层2/3 用 calc×scale 重定义 ·
+    <span class="tag tag-js">JS 图表</span> canvas 字号 JS 乘 scale + 重绘 ·
+    <span class="tag tag-ios">iOS 地板</span> 输入框不低于 16px
+  </p>
+
+  <div class="grid md:grid-cols-2 gap-4">
+
+    <!-- KPI 数字 -->
+    <div class="gallery-card">
+      <div class="flex items-center justify-between mb-2">
+        <span class="eyebrow">KPI 主数字</span><span class="tag tag-px">px 重定义</span>
+      </div>
+      <div class="kpi-card" style="border:1px solid var(--rule);padding:14px 15px">
+        <div class="kpi-eyebrow">净资产</div>
+        <div class="kpi-value tnum"><span class="kpi-currency">¥</span>2,846,300</div>
+        <div class="kpi-delta num-pos">▲ 1.8% · 本月 +¥50,120</div>
+      </div>
+      <p class="text-[10px] mt-2" style="color:var(--ink-subtle)">.kpi-value 30px / .kpi-eyebrow 10px 原为绝对 px,层3 集中改 calc。</p>
+    </div>
+
+    <!-- 段标 eyebrow -->
+    <div class="gallery-card">
+      <div class="flex items-center justify-between mb-2">
+        <span class="eyebrow">段落标签 eyebrow</span><span class="tag tag-px">px 重定义</span>
+      </div>
+      <div class="eyebrow mb-1">本 · 期 · 怎 · 么 · 变 · 的</div>
+      <div class="eyebrow-ink" style="font-size:11px;color:var(--ink)">资产透视 · 多维打标</div>
+      <p class="text-[10px] mt-2" style="color:var(--ink-subtle)">大写 + letter-spacing 用 em,放大时字间距同比,不会散架。</p>
+    </div>
+
+    <!-- pills 单选/多选/彩色 -->
+    <div class="gallery-card">
+      <div class="flex items-center justify-between mb-2">
+        <span class="eyebrow">Pills · 筛选/标签/指标</span><span class="tag tag-px">px 重定义</span>
+      </div>
+      <div class="flex flex-wrap gap-1.5 items-center">
+        <span class="pill pill-ink">资产类型</span>
+        <span class="pill">行业</span><span class="pill">成员</span>
+        <span class="pill pill-brass">金额</span><span class="pill pill-forest">占比</span>
+        <span class="pill pill-rust">未归因</span>
+      </div>
+      <p class="text-[10px] mt-2" style="color:var(--ink-subtle)">padding 用 em/rem,pill 随字一起长高,不会字大框小。</p>
+    </div>
+
+    <!-- mono 小注 / 脚注 -->
+    <div class="gallery-card">
+      <div class="flex items-center justify-between mb-2">
+        <span class="eyebrow">Mono 小注 · 脚注(重灾区)</span><span class="tag tag-px">px 重定义</span>
+      </div>
+      <p class="font-mono text-[10px]" style="color:var(--ink-subtle)">基准(期初)→ 人赚 → 钱赚(按当前维度 · TopN)→ 开账基线 → 本期净变化 · 恒等闭合,算不平显「未归因」</p>
+      <p class="font-mono text-[9px] mt-1" style="color:var(--ink-subtle)">占比 = 占「钱赚」亏损侧比重 · 汇率重估为两步法折算影响</p>
+      <p class="text-[10px] mt-2" style="color:var(--ink-subtle)">全站 601 处 <code class="font-mono">text-[10px]</code>、70 处 <code class="font-mono">text-[9px]</code> 都在这层被一网打尽。</p>
+    </div>
+
+    <!-- 表格 / 流水行 -->
+    <div class="gallery-card">
+      <div class="flex items-center justify-between mb-2">
+        <span class="eyebrow">表格 · 流水行</span><span class="tag tag-rem">rem 自动</span><span class="tag tag-px">px 重定义</span>
+      </div>
+      <div class="text-sm">
+        <div class="flex justify-between items-baseline py-1.5" style="border-bottom:1px solid var(--rule-soft)">
+          <span>招商银行 · 活期</span><span class="font-mono text-[11px] num-pos" >+¥12,400</span></div>
+        <div class="flex justify-between items-baseline py-1.5" style="border-bottom:1px solid var(--rule-soft)">
+          <span>富途证券 · 港美股</span><span class="font-mono text-[11px] num-neg">−¥86,400</span></div>
+        <div class="flex justify-between items-baseline py-1.5">
+          <span>余额宝 · 货币基金</span><span class="font-mono text-[11px] num-pos">+¥3,120</span></div>
+      </div>
+      <p class="text-[10px] mt-2" style="color:var(--ink-subtle)">名称 text-sm(rem 自动)+ 金额 text-[11px](重定义),两者同比,行不错位。</p>
+    </div>
+
+    <!-- 按钮 / 输入 -->
+    <div class="gallery-card">
+      <div class="flex items-center justify-between mb-2">
+        <span class="eyebrow">按钮 · 表单输入</span><span class="tag tag-px">px 重定义</span><span class="tag tag-ios">iOS 地板</span>
+      </div>
+      <div class="flex flex-wrap gap-2 items-center">
+        <button class="btn-paper">保存本月</button>
+        <button class="pill pill-ink" style="cursor:pointer">+ 新账户</button>
+      </div>
+      <input class="mt-2 w-full h-9 px-2 text-sm" style="border:1px solid var(--rule);background:var(--card)" placeholder="金额输入框(移动端聚焦不放大)">
+      <p class="text-[10px] mt-2" style="color:var(--ink-subtle)">输入框 <code class="font-mono">max(16px, 14px×scale)</code>:放大时更大,但永不跌破 iOS 16px 地板。</p>
+    </div>
+
+    <!-- AI 正文 -->
+    <div class="gallery-card md:col-span-2">
+      <div class="flex items-center justify-between mb-2">
+        <span class="eyebrow">AI 复盘正文(阅读主体 · 最该放大)</span><span class="tag tag-rem">rem 自动</span>
+      </div>
+      <div class="text-sm leading-relaxed" style="color:var(--ink-soft);white-space:pre-line">· 本月净资产 -2.98 万,不是花多了:你们存下 6.09 万(人赚),是市场亏掉 9.27 万
+· 亏得最多的是「富途证券-港美股」(-8.64 万,占亏损 93%),其中约 -0.8 万是美元贬值的折算损失
+· 值得做的一件事:富途已连续 3 个月亏得最多,去资产透视看它的行业集中度</div>
+      <p class="text-[10px] mt-2" style="color:var(--ink-subtle)">正文是 issue 主诉「看着难受」的核心;text-sm 是 rem,改根字号即变大,零改动收益最大。</p>
+    </div>
+
+  </div>
+
+  <!-- ============ 二、图表(canvas 字号 JS 跟随) ============ -->
+  <div class="eyebrow-ink mt-10 mb-1" style="font-size:12px;letter-spacing:.12em;color:var(--ink)">二 · 图表 <span class="tag tag-js">JS 图表</span></div>
+  <p class="text-xs mb-3" style="color:var(--ink-subtle)">ECharts/Chart.js 的字号是 JS 里写死 px,CSS 管不到 → 读 scale 乘进 fontSize + 切档时重绘(复用隐私模式的 canvas 重绘钩子范式)。切档看轴标签/数据标签一起变大。</p>
+  <div class="gallery-card">
+    <div id="demoChart" style="width:100%;height:300px"></div>
+  </div>
+
+  <!-- ============ 三、叠加矩阵 ============ -->
+  <div class="eyebrow-ink mt-10 mb-2" style="font-size:12px;letter-spacing:.12em;color:var(--ink)">三 · 组件 × 缩放 叠加矩阵(UED 视角逐类过)</div>
+  <div class="overflow-x-auto">
+  <table class="mtx text-sm" style="width:100%;border-collapse:collapse;color:var(--ink-soft)">
+    <thead><tr><th>组件类型</th><th>字号现状</th><th>缩放机制</th><th>叠加坑 / 边界</th><th>处置</th></tr></thead>
+    <tbody>
+      <tr><td>正文/描述/表名 text-sm·base</td><td>rem</td><td class="num-pos">根字号自动</td><td>—</td><td>零改动,直接受益</td></tr>
+      <tr><td>大标题 font-display text-3xl~5xl</td><td>rem</td><td class="num-pos">根字号自动</td><td>特大档可能撑行 → 换行/截断</td><td>验证换行不溢出;必要处允许 wrap</td></tr>
+      <tr><td>rem 间距 p-4 / gap-2</td><td>rem</td><td class="num-pos">根字号自动</td><td>—</td><td>容器随字"呼吸",密度不挤</td></tr>
+      <tr><td>写死小字 text-[10/11/9px] ×820</td><td>绝对px</td><td class="tag-px" style="color:var(--brass-deep)">层2 · 6 类 !important 重定义</td><td>Play CDN 生成绝对 px,同级后写才压得住</td><td>!important(仓库已验证手法)</td></tr>
+      <tr><td>组件类 .kpi-value/.pill/.eyebrow/.btn</td><td>绝对px</td><td class="tag-px" style="color:var(--brass-deep)">层3 · style.css 集中 calc</td><td>单文件十几类,低风险</td><td>base×var(--fs-scale)</td></tr>
+      <tr><td>图表轴/图例/数据标签 ×~10 页</td><td>JS px</td><td class="tag-js" style="color:var(--slate,#3c4a5a)">层4 · JS 乘 scale + 重绘</td><td>CSS 够不到 canvas;切档要重渲</td><td>统一 chartFont(base) 助手 + 档变钩子</td></tr>
+      <tr><td>旭日/引线标签(lens.js canvas)</td><td>JS px</td><td class="tag-js" style="color:var(--slate,#3c4a5a)">层4 · 同上</td><td>引线布局按字宽算,放大要重排</td><td>renderLeaders 读 scale 重算槽位</td></tr>
+      <tr><td>表单 input/select</td><td>—</td><td class="tag-ios" style="color:var(--rust)">层5 · iOS 16px 地板</td><td>&lt;16px 聚焦触发整页放大(既有坑)</td><td>max(16px, 14px×scale)</td></tr>
+      <tr><td>隐私模糊 blur(7px)</td><td>绝对px</td><td>基本无关</td><td>特大档数字大,7px 遮挡略弱</td><td>可选:blur 也 ×scale(次要)</td></tr>
+      <tr><td>触控热区 ::after inset -12px</td><td>绝对px</td><td>独立</td><td>—</td><td>不动,已够大</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- ============ 四、方案与决策 ============ -->
+  <div class="eyebrow-ink mt-10 mb-2" style="font-size:12px;letter-spacing:.12em;color:var(--ink)">四 · 方案与待拍板决策</div>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="gallery-card">
+      <div class="eyebrow mb-2">机制 · 一个变量五层</div>
+      <ul class="text-sm space-y-1.5" style="color:var(--ink-soft)">
+        <li>· <b>--fs-scale</b> 由 <code class="font-mono text-[12px]">html[data-fs]</code> 设,标准 1.0 / 大 1.15 / 特大 1.30</li>
+        <li>· 层1 根字号 calc → rem 类 + 间距 + 正文</li>
+        <li>· 层2 六个 text-[Npx] !important 重定义</li>
+        <li>· 层3 style.css 组件类集中 calc</li>
+        <li>· 层4 图表 JS 乘 scale + 切档重绘</li>
+        <li>· 层5 输入框 iOS 16px 地板</li>
+      </ul>
+    </div>
+    <div class="gallery-card">
+      <div class="eyebrow mb-2">待你拍板(我给了推荐值)</div>
+      <ul class="text-sm space-y-1.5" style="color:var(--ink-soft)">
+        <li>· <b>离散三档</b>(标准/大/特大)而非自由滑块 <span class="tag">推荐</span>—— 家人好懂、可穷尽验证、不会滑到怪比例</li>
+        <li>· 幅度 <b>1.0 / 1.15 / 1.30</b> <span class="tag">推荐</span>(要不要再加"特小/更大"?)</li>
+        <li>· 控件位置:<b>顶栏 Aa 按钮 + 弹层三档</b> <span class="tag">推荐</span>(对齐隐私眼睛的范式;要不要也放设置页?)</li>
+        <li>· 记忆:<b>localStorage 按设备</b> <span class="tag">推荐</span>(无障碍偏好跟设备走,不入库、不跨端同步)</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="font-mono text-[10px] mt-8" style="color:var(--ink-subtle)">
+    preview 与生产同款 Tailwind Play CDN + style.css → 此页缩放跑通即证明应用可行。落地改动:style.css(层2/3)+ layout.html(FOUC 内联脚本 + Aa 控件 + 图表重绘钩子)+ 各图表页统一 chartFont 助手。
+  </p>
+</div>
+
+<script>
+  var SCALE = { std:1, lg:1.15, xl:1.30 };
+  var chart = echarts.init(document.getElementById('demoChart'));
+
+  function chartFont(base){ return Math.round(base * SCALE[document.documentElement.dataset.fs||'std']); }
+
+  function renderChart(){
+    var F='#4F6B47', R='#9C4A2A', INK='#3a302a';
+    chart.setOption({
+      grid:{left:6,right:6,top:26,bottom:4,containLabel:true},
+      xAxis:{type:'category',data:['招行','余额宝','黄金','华泰','富途','币安'],
+        axisLabel:{fontSize:chartFont(11),color:INK}},
+      yAxis:{type:'value',axisLabel:{fontSize:chartFont(10),color:INK},splitLine:{lineStyle:{color:'rgba(0,0,0,.06)'}}},
+      series:[{type:'bar',barWidth:'52%',
+        data:[{value:12400,itemStyle:{color:F}},{value:3120,itemStyle:{color:F}},{value:940,itemStyle:{color:F}},
+              {value:-11020,itemStyle:{color:R}},{value:-86400,itemStyle:{color:R}},{value:-1340,itemStyle:{color:R}}],
+        label:{show:true,position:'top',fontSize:chartFont(10),color:INK,
+          formatter:function(p){var v=p.value,a=Math.abs(v);return (v<0?'−':'+')+'¥'+(a>=1e4?(a/1e4).toFixed(1)+'万':a);}}}]
+    });
+  }
+
+  function readout(){
+    var el=document.querySelector('.text-\\[10px\\]');
+    var px=el?getComputedStyle(el).fontSize:'?';
+    var lv=document.documentElement.dataset.fs;
+    var naive=document.getElementById('naive').checked;
+    document.getElementById('readout').textContent =
+      '此刻:'+({std:'标准 ×1.0',lg:'大 ×1.15',xl:'特大 ×1.30'}[lv])
+      +' · text-[10px] 实测 '+px+(naive?'  ⚠ 天真对比开启:写死px 被冻结,只有 rem 类在长 → 看崩坏':'  ✓ 一致缩放');
+  }
+
+  function setFs(lv){
+    document.documentElement.dataset.fs = lv;
+    document.querySelectorAll('#fsbar button').forEach(function(b){
+      b.setAttribute('aria-pressed', b.dataset.fs===lv ? 'true':'false'); });
+    try{ localStorage.setItem('fontScale', lv); }catch(e){}
+    renderChart(); readout();
+  }
+
+  document.querySelectorAll('#fsbar button').forEach(function(b){
+    b.addEventListener('click', function(){ setFs(b.dataset.fs); }); });
+  document.getElementById('naive').addEventListener('change', function(){
+    document.documentElement.classList.toggle('naive', this.checked); readout(); });
+
+  (function(){
+    var saved='std'; try{ saved=localStorage.getItem('fontScale')||'std'; }catch(e){}
+    setFs(saved);
+    window.addEventListener('resize', function(){ chart.resize(); });
+  })();
+</script>
+</body>
+</html>
