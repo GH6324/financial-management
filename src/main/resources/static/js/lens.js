@@ -355,11 +355,12 @@
       var on = state.sunMetric === m.key;
       if (forPop) return '<button type="button" data-sm="' + m.key + '"' + (off ? ' disabled' : '') + ' class="' + (on ? 'on' : '') + (off ? ' off' : '') + '">' + esc(MEASURE_LABEL[m.key]) + '</button>';
       return '<button type="button" data-sm="' + m.key + '"' + (off ? ' disabled title="行业/地域(持仓级)维度下账户级收益不可精确归因"' : '') +
-        ' class="pill text-[10px]' + (on ? ' pill-ink-active' : '') + (off ? ' sun-m-off' : '') + '">' + esc(MEASURE_LABEL[m.key]) + '</button>';
+        ' class="pill whitespace-nowrap' + (on ? ' pill-ink-active' : '') + (off ? ' sun-m-off' : '') + '">' + esc(MEASURE_LABEL[m.key]) + '</button>';
     };
     var bar = document.getElementById('sunMetricBar');
-    if (bar) {
-      bar.innerHTML = SUN_METRICS.map(function (m) { return pillHtml(m, false); }).join('');
+    if (bar) {   // 与看板 chips 同结构:标签 + pills · overflow-x 横滑不换行
+      bar.innerHTML = '<span class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle mr-1 whitespace-nowrap">分析指标</span>' +
+        SUN_METRICS.map(function (m) { return pillHtml(m, false); }).join('');
       bar.querySelectorAll('[data-sm]').forEach(function (btn) { if (!btn.disabled) btn.onclick = function () { setSunMetric(btn.dataset.sm); }; });
     }
     var pop = document.getElementById('sunMetricPop');
