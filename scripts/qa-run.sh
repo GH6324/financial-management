@@ -2825,7 +2825,7 @@ LREG="$RD/src/main/java/com/family/finance/calc/lens/LensRegistry.java"
   && grep -q 'industry_tag' "$V45L" && grep -q 'lens_board' "$V45L" \
   && [ -f "$RD/src/main/java/com/family/finance/domain/lens/AssetClass.java" ] \
   && [ -f "$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java" ] \
-  && [ "$(grep -c '        dim("' "$LREG")" -ge 8 ] && [ "$(grep -c '        measure("' "$LREG")" -eq 5 ] \
+  && [ "$(grep -c '        dim("' "$LREG")" -ge 8 ] && [ "$(grep -c 'measure("' "$LREG")" -ge 7 ] \
   && grep -q 'PostMapping("/lens/query")' "$RD/src/main/java/com/family/finance/web/lens/LensController.java" \
   && grep -q 'holdingLevelSplit' "$RD/src/main/java/com/family/finance/calc/lens/PivotEngine.java"; } \
   && log_ok "v11-LENS-1 透视底座:V45(3列+lens_board)+ AssetClass/IndustryTag + 注册表 ≥8维/5度量 + POST /lens/query 唯一网关 + 引擎收益归因降级标记" \
@@ -3393,9 +3393,9 @@ LJS="$RD/src/main/resources/static/js/lens.js"
 { grep -q 'PALETTE_PLANS' "$LJS" \
   && grep -q "LENS_META.palette" "$LJS" \
   && grep -q 'function colorMapFor(values, ring)' "$LJS" \
-  && grep -q 'colorMapFor(order, 0)' "$LJS" \
-  && grep -q 'colorMapFor(outerVals, 1)' "$LJS" \
-  && grep -q 'colorMapFor(r.rowKeys.map' "$LJS" \
+  && grep -q 'colorMapFor(inners, 0)' "$LJS" \
+  && grep -q 'colorMapFor(childNames, 1)' "$LJS" \
+  && grep -q 'colorMapFor(rows.map' "$LJS" \
   && grep -q 'uniq.sort()' "$LJS" \
   && [ "$(grep -c "^\s*\['#" "$LJS")" -ge 10 ] \
   && grep -q 'K_LENS_PALETTE' "$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java" \
