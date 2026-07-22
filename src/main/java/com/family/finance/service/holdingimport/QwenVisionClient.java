@@ -102,7 +102,7 @@ public class QwenVisionClient {
 
     /** 抽首个 JSON 数组(容忍 ```json 围栏)· 逐项取字段 · 市值只做格式规整(去逗号/币符),不做运算 */
     @SuppressWarnings("unchecked")
-    List<ParsedRow> parse(String raw) {
+    static List<ParsedRow> parse(String raw) {
         List<ParsedRow> out = new ArrayList<>();
         if (raw == null) return out;
         int lb = raw.indexOf('['), rb = raw.lastIndexOf(']');

@@ -3964,6 +3964,30 @@ NVNAV="$RD/src/main/resources/templates/fragments/nav.html"
   && log_ok "v13-1-NAVVER nav 版本徽记(app.version 单一来源 → appVersion 注入 → logo 下 ◇v 徽记)" \
   || log_bad "v13-1-NAVVER 版本徽记缺件" "see application.yml(app.version) + GlobalModelAdvice(appVersion) + nav.html(◇v${appVersion})"
 
+# v14-HOLDING-IMPORT · 持仓截图智能解析(视觉识别→三态比对→确认落库)· 关键护栏静态断言
+HISVC="$RD/src/main/java/com/family/finance/service/holdingimport/HoldingImportService.java"
+HIVIS="$RD/src/main/java/com/family/finance/service/holdingimport/QwenVisionClient.java"
+HICTL="$RD/src/main/java/com/family/finance/web/holdingimport/HoldingImportController.java"
+HIVAL="$RD/src/main/java/com/family/finance/service/stock/AccountValuationService.java"
+HIHOLD="$RD/src/main/java/com/family/finance/service/stock/StockHoldingService.java"
+HIROW="$RD/src/main/resources/templates/entry/_row.html"
+{ test -f "$RD/db/migration/V49__holding_screenshot_tags.sql" && test -f "$RD/db/migration/V50__holding_import.sql" \
+  && grep -q 'holding_import' "$RD/db/migration/V50__holding_import.sql" \
+  && grep -q 'ref_import_id' "$RD/db/migration/V50__holding_import.sql" \
+  && grep -q 'VARCHAR(16)' "$RD/db/migration/V49__holding_screenshot_tags.sql" \
+  && grep -q 'K_LLM_VISION_MODEL' "$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java" \
+  && grep -q '只转写\|不做任何计算\|绝不计算' "$HIVIS" \
+  && grep -q 'SYNC_SOURCE = "SCREENSHOT"' "$HISVC" \
+  && grep -q 'UPDATE\|NEW\|SOLD' "$HISVC" \
+  && grep -q 'refreshOneAccount' "$HISVC" && grep -q 'TriggerKind.IMPORT' "$HISVC" \
+  && grep -q 'AccountType.WEALTH\|AccountType.CASH' "$HIHOLD" \
+  && grep -q 'holdings.isEmpty()' "$HIVAL" \
+  && grep -q 'refreshOneAccount' "$HIVAL" \
+  && grep -q 'entry/import' "$HIROW" \
+  && grep -q '/entry/import/item' "$HICTL"; } \
+  && log_ok "v14-HOLDING-IMPORT 持仓截图导入(V49/V50 迁移 + 视觉禁算 + SCREENSHOT 隔离 + 三态 + IMPORT 估值交接 + WEALTH/CASH 放开+无持仓不接管红线 + 填报入口)" \
+  || log_bad "v14-HOLDING-IMPORT 持仓截图导入缺件" "see HoldingImportService/QwenVisionClient/AccountValuationService/StockHoldingService/entry/_row.html + V49/V50"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
