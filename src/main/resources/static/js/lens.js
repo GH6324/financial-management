@@ -170,7 +170,7 @@
   }
   function renderBoards() {
     var el = document.getElementById('boardChips');
-    var html = '<span class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle mr-1 whitespace-nowrap">看板</span>';
+    var html = '<span class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle flex-none w-14 whitespace-nowrap">看板</span>';
     PRESETS.forEach(function (p) {
       html += '<button data-board="' + p.key + '" class="pill whitespace-nowrap' + (state.boardKey === p.key ? ' pill-ink-active' : '') + '">' + esc(p.name) + '</button>';
     });
@@ -359,7 +359,7 @@
     };
     var bar = document.getElementById('sunMetricBar');
     if (bar) {   // 与看板 chips 同结构:标签 + pills · overflow-x 横滑不换行
-      bar.innerHTML = '<span class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle mr-1 whitespace-nowrap">分析指标</span>' +
+      bar.innerHTML = '<span class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle flex-none w-14 whitespace-nowrap">分析指标</span>' +
         SUN_METRICS.map(function (m) { return pillHtml(m, false); }).join('');
       bar.querySelectorAll('[data-sm]').forEach(function (btn) { if (!btn.disabled) btn.onclick = function () { setSunMetric(btn.dataset.sm); }; });
     }
