@@ -188,9 +188,46 @@
     <div class="mt-4 mono text-[11px]" style="color:var(--ink-subtle)">从此这个账户在旭日下钻里不再是「一坨」,而是按<b>真实基金的行业 / 资产类型</b>拆开(承 PivotEngine 持仓级机制,零额外改)。</div>
   </section>
 
+  <!-- 再次上传 · 三态对账 -->
+  <div class="flex items-center gap-3 mt-10 mb-4">
+    <div class="step-dot" style="background:var(--brass)">&#8635;</div><div class="font-display text-xl">下次再传 &middot; 自动对账</div>
+    <span class="mono text-[12px]" style="color:var(--ink-subtle)">&middot; 和已有持仓比:新增 / 涨跌 / 卖出 &middot; 不用重录</span>
+  </div>
+  <section class="card p-4 lg:p-5 rounded">
+    <p class="text-sm mb-3" style="color:var(--ink-soft)">过阵子再截图上传,系统按<b>基金代码 / 名称</b>匹配已有持仓,只提示<b>变化</b>。多张截图先合并再比对 —— <b>没截到的不算卖出</b>,交你定夺(只动截图导入的持仓,你手填/券商同步的绝不碰)。</p>
+    <div class="overflow-x-auto"><table class="w-full text-sm" style="border-collapse:collapse">
+      <thead><tr class="mono text-[11px]" style="color:var(--ink-subtle);text-align:left">
+        <th class="py-2 pr-3">状态</th><th class="py-2 pr-3">持仓</th><th class="py-2 pr-3">市值变化</th><th class="py-2">处理</th></tr></thead>
+      <tbody>
+        <tr style="border-top:1px solid var(--rule)">
+          <td class="py-2 pr-3"><span class="badge" style="background:var(--forest-soft);color:var(--forest);border-color:var(--forest)">新增</span></td>
+          <td class="py-2 pr-3">广发多元新兴混合</td>
+          <td class="py-2 pr-3 mono">&mdash; &rarr; ¥12,000</td>
+          <td class="py-2 mono" style="color:var(--forest)">建新持仓</td></tr>
+        <tr style="border-top:1px solid var(--rule)">
+          <td class="py-2 pr-3"><span class="badge" style="background:#f7dede;color:#c0392b;border-color:#e0a0a0">涨</span></td>
+          <td class="py-2 pr-3">易方达蓝筹精选混合</td>
+          <td class="py-2 pr-3 mono">¥42,300 &rarr; ¥43,880 <span style="color:#c0392b">+1,580</span></td>
+          <td class="py-2 mono" style="color:var(--ink-soft)">更新市值</td></tr>
+        <tr style="border-top:1px solid var(--rule)">
+          <td class="py-2 pr-3"><span class="badge" style="background:var(--forest-soft);color:var(--forest);border-color:var(--forest)">跌</span></td>
+          <td class="py-2 pr-3">华夏国证半导体芯片ETF联接</td>
+          <td class="py-2 pr-3 mono">¥19,850 &rarr; ¥18,210 <span style="color:var(--forest)">-1,640</span></td>
+          <td class="py-2 mono" style="color:var(--ink-soft)">更新市值</td></tr>
+        <tr class="warn" style="border-top:1px solid var(--rule)">
+          <td class="py-2 pr-3"><span class="badge" style="background:#fbf2d9;color:var(--brass-deep);border-color:var(--brass)">未出现</span></td>
+          <td class="py-2 pr-3">天弘余额宝货币 <div class="mono text-[10px]" style="color:var(--ink-subtle)">本次没截到 &ne; 一定卖出</div></td>
+          <td class="py-2 pr-3 mono" style="color:var(--ink-subtle)">本次未截到</td>
+          <td class="py-2"><span class="badge" style="cursor:pointer">保留</span> <span class="badge" style="cursor:pointer;color:var(--rust);border-color:var(--rust)">归档(卖出)</span></td></tr>
+      </tbody>
+    </table></div>
+    <div class="mt-3 mono text-[11px]" style="color:var(--ink-subtle)">入口两处:<b>填报时</b>录到某个基金/理财账户旁给「截图导入」快捷键;<b>账户详情页</b>顶部按钮做日常维护。</div>
+  </section>
+
   <p class="mt-8 mono text-[11px]" style="color:var(--ink-subtle);max-width:56rem;line-height:1.7">
     诚实边界:市值取屏幕值、识别不确定的行标黄让你核;对账差异只提示不自动改;收益率 / 成本这类「算出来的」一律不让模型编,缺就空着你补。
     非目标:不做每支基金实时净值自动定价(截图市值 = 最新,再传即刷新)&middot; 不做券商下单 &middot; 不做零确认全自动。
+    向后兼容:线上老账户历史净值曲线不动 &middot; 有持仓才接管估值、没持仓绝不碰你的手填。
   </p>
 </div>
 
