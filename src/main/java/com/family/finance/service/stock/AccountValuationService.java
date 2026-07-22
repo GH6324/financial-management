@@ -142,12 +142,40 @@ public class AccountValuationService {
         return refreshed;
     }
 
-    /** 触发源枚举 · 用于 stock_valuation_event 审计 */
-    public enum TriggerKind { CRON, MANUAL, HOLDING_CHANGE }
+    /** 触发源枚举 · 用于 stock_valuation_event 审计 · v1.4 加 IMPORT(截图导入) */
+    public enum TriggerKind { CRON, MANUAL, HOLDING_CHANGE, IMPORT }
+
+    /**
+     * v1.4 · 只刷新单个账户(截图导入确认后调用)· 估值事件挂 refImportId,ledger 可展开看导入明细。
+     * 复用 valuate + writeBack + 事件写入;没有持仓则不接管(红线不变)。
+     */
+    public void refreshOneAccount(long familyId, long accountId, TriggerKind trigger,
+                                  Long triggeredByMemberId, Long refImportId) {
+        Period currentOpen = periodMapper.findCurrentOpen(familyId).orElse(null);
+        if (currentOpen == null) return;
+        Account acc = accountMapper.findById(accountId).orElse(null);
+        if (acc == null || !StockHoldingService.supportsHoldings(acc.getType())) return;
+        List<StockHolding> holdings = holdingMapper.findActiveByAccount(accountId);
+        if (holdings.isEmpty()) return;   // 红线:无持仓不接管
+        ValuationResult r = valuateInternal(acc);
+        BigDecimal prevBalance = snapshotMapper.findByPeriodAndAccount(currentOpen.getId(), accountId)
+            .map(s -> s.getEndBalance()).orElse(null);
+        writeBackBalance(familyId, currentOpen.getId(), acc, r.totalBaseValue());
+        recordValuationEventIfChanged(familyId, accountId, currentOpen.getId(),
+            prevBalance, r.totalBaseValue(), trigger, triggeredByMemberId, refImportId);
+        eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId));
+    }
 
     private void recordValuationEventIfChanged(long familyId, long accountId, long periodId,
                                                BigDecimal prevBalance, BigDecimal newBalance,
                                                TriggerKind trigger, Long triggeredByMemberId) {
+        recordValuationEventIfChanged(familyId, accountId, periodId, prevBalance, newBalance,
+                trigger, triggeredByMemberId, null);
+    }
+
+    private void recordValuationEventIfChanged(long familyId, long accountId, long periodId,
+                                               BigDecimal prevBalance, BigDecimal newBalance,
+                                               TriggerKind trigger, Long triggeredByMemberId, Long refImportId) {
         if (newBalance == null) return;
         BigDecimal delta = newBalance.subtract(prevBalance == null ? BigDecimal.ZERO : prevBalance);
         if (delta.abs().compareTo(EVENT_THRESHOLD) <= 0) {
@@ -165,6 +193,7 @@ public class AccountValuationService {
                 .triggerKind(trigger == null ? TriggerKind.CRON.name() : trigger.name())
                 .triggeredByMemberId(triggeredByMemberId)
                 .note(null)
+                .refImportId(refImportId)
                 .build());
         } catch (Exception e) {
             log.warn("write stock_valuation_event failed · account={} delta={}: {}",

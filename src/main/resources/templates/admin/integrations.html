@@ -111,6 +111,15 @@
             <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">0 确定 ~ 1 发散 · 默认 0.5</p>
           </div>
           <div>
+            <label class="field-label">视觉识别模型 · 持仓截图导入</label>
+            <select class="field-input" name="visionModel">
+              <option value="qwen-vl-max" th:selected="${llmVisionModel == 'qwen-vl-max'}">Qwen VL-Max · 更准(推荐)</option>
+              <option value="qwen-vl-plus" th:selected="${llmVisionModel == 'qwen-vl-plus'}">Qwen VL-Plus · 省半价</option>
+              <option value="off" th:selected="${llmVisionModel == 'off'}">关闭(不做截图导入)</option>
+            </select>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">用现有 Qwen key · 单张几分钱 · 免费额度内≈0</p>
+          </div>
+          <div>
             <label class="field-label">max_tokens · 输出上限</label>
             <input class="field-input" type="number" name="maxTokens" th:value="${llmMaxTokens}" min="500" max="8000"/>
             <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">默认 2000 · 改小可能截断</p>

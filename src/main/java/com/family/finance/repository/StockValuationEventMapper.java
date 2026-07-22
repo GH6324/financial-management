@@ -18,10 +18,10 @@ public interface StockValuationEventMapper {
     @Insert("""
             INSERT INTO stock_valuation_event
                 (family_id, account_id, period_id, prev_balance, new_balance, delta,
-                 trigger_kind, triggered_by_member_id, note)
+                 trigger_kind, triggered_by_member_id, note, ref_import_id)
             VALUES
                 (#{familyId}, #{accountId}, #{periodId}, #{prevBalance}, #{newBalance}, #{delta},
-                 #{triggerKind}, #{triggeredByMemberId}, #{note})
+                 #{triggerKind}, #{triggeredByMemberId}, #{note}, #{refImportId})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(StockValuationEvent e);
@@ -29,7 +29,7 @@ public interface StockValuationEventMapper {
     /** 按账户 + 周期查事件 · 给 ledger view 用 · 按 triggered_at 升序 */
     @Select("""
             SELECT id, family_id, account_id, period_id, prev_balance, new_balance, delta,
-                   trigger_kind, triggered_by_member_id, note, triggered_at
+                   trigger_kind, triggered_by_member_id, note, ref_import_id AS refImportId, triggered_at
               FROM stock_valuation_event
              WHERE account_id = #{accountId} AND period_id = #{periodId}
              ORDER BY triggered_at
@@ -40,7 +40,7 @@ public interface StockValuationEventMapper {
     /** 按账户查所有期事件 · 给 accounts/{id} 详情页用 · 倒序 */
     @Select("""
             SELECT id, family_id, account_id, period_id, prev_balance, new_balance, delta,
-                   trigger_kind, triggered_by_member_id, note, triggered_at
+                   trigger_kind, triggered_by_member_id, note, ref_import_id AS refImportId, triggered_at
               FROM stock_valuation_event
              WHERE account_id = #{accountId}
              ORDER BY triggered_at DESC

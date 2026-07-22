@@ -19,7 +19,8 @@ public interface StockHoldingMapper {
 
     @Select("""
             SELECT id, account_id, display_name, valuation_mode, ticker, market, shares,
-                   cost_basis, currency, unit, sync_source AS syncSource, industry_tag AS industryTag, manual_value, manual_value_at, cash_linked AS cashLinked,
+                   cost_basis, currency, unit, sync_source AS syncSource, industry_tag AS industryTag,
+                   asset_class_tag AS assetClassTag, risk_tag AS riskTag, liquidity_tag AS liquidityTag, manual_value, manual_value_at, cash_linked AS cashLinked,
                    archived_at, created_at, updated_at
               FROM stock_holding
              WHERE id = #{id}
@@ -28,7 +29,8 @@ public interface StockHoldingMapper {
 
     @Select("""
             SELECT id, account_id, display_name, valuation_mode, ticker, market, shares,
-                   cost_basis, currency, unit, sync_source AS syncSource, industry_tag AS industryTag, manual_value, manual_value_at, cash_linked AS cashLinked,
+                   cost_basis, currency, unit, sync_source AS syncSource, industry_tag AS industryTag,
+                   asset_class_tag AS assetClassTag, risk_tag AS riskTag, liquidity_tag AS liquidityTag, manual_value, manual_value_at, cash_linked AS cashLinked,
                    archived_at, created_at, updated_at
               FROM stock_holding
              WHERE account_id = #{accountId}
@@ -39,7 +41,8 @@ public interface StockHoldingMapper {
 
     @Select("""
             SELECT id, account_id, display_name, valuation_mode, ticker, market, shares,
-                   cost_basis, currency, unit, sync_source AS syncSource, industry_tag AS industryTag, manual_value, manual_value_at, cash_linked AS cashLinked,
+                   cost_basis, currency, unit, sync_source AS syncSource, industry_tag AS industryTag,
+                   asset_class_tag AS assetClassTag, risk_tag AS riskTag, liquidity_tag AS liquidityTag, manual_value, manual_value_at, cash_linked AS cashLinked,
                    archived_at, created_at, updated_at
               FROM stock_holding
              WHERE account_id = #{accountId}
@@ -62,9 +65,11 @@ public interface StockHoldingMapper {
 
     @Insert("""
             INSERT INTO stock_holding (account_id, display_name, valuation_mode, ticker, market, shares,
-                                       cost_basis, currency, unit, sync_source, industry_tag, manual_value, manual_value_at, cash_linked)
+                                       cost_basis, currency, unit, sync_source, industry_tag,
+                                       asset_class_tag, risk_tag, liquidity_tag, manual_value, manual_value_at, cash_linked)
             VALUES (#{accountId}, #{displayName}, #{valuationMode}, #{ticker}, #{market}, #{shares},
-                    #{costBasis}, #{currency}, #{unit}, #{syncSource}, #{industryTag}, #{manualValue}, #{manualValueAt}, #{cashLinked})
+                    #{costBasis}, #{currency}, #{unit}, #{syncSource}, #{industryTag},
+                    #{assetClassTag}, #{riskTag}, #{liquidityTag}, #{manualValue}, #{manualValueAt}, #{cashLinked})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(StockHolding holding);
@@ -81,6 +86,9 @@ public interface StockHoldingMapper {
                    unit = #{unit},
                    sync_source = #{syncSource},
                    industry_tag = #{industryTag},
+                   asset_class_tag = #{assetClassTag},
+                   risk_tag = #{riskTag},
+                   liquidity_tag = #{liquidityTag},
                    manual_value = #{manualValue},
                    manual_value_at = #{manualValueAt},
                    cash_linked = #{cashLinked}

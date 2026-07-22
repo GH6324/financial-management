@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('导入明细 · ' + ${account.displayName})}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('entry', ${me}, ${nav})}"></header>
+<main class="max-w-[900px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+  <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
+    <a th:href="@{/entry}" class="hover:text-ink no-underline">填报</a>
+    <span class="mx-2 text-rule">/</span><span class="text-ink" th:text="${account.displayName}">账户</span>
+    <span class="mx-2 text-rule">/</span><span class="text-ink">导入明细</span>
+  </div>
+  <section class="paper-card p-6 mb-5">
+    <h1 class="font-display text-2xl mb-1">截图导入明细</h1>
+    <p class="font-mono text-[12px] text-ink-subtle" th:text="${account.displayName} + ' · ' + ${#temporals.format(imp.confirmedAt, 'yyyy-MM-dd HH:mm')} + ' · 模型 ' + ${imp.visionModel}">…</p>
+  </section>
+
+  <section class="paper-card p-5 mb-5">
+    <div class="eyebrow mb-3">逐 · 项 · 变 · 化</div>
+    <div th:each="it : ${items}" class="flex items-center justify-between gap-2 py-2 border-t border-rule text-sm">
+      <span class="flex items-center gap-2">
+        <span th:if="${it.matchState=='NEW'}" class="pill" style="border-color:var(--forest);color:var(--forest)">新增</span>
+        <span th:if="${it.matchState=='UPDATE'}" class="pill" style="border-color:var(--brass);color:var(--brass-deep)">更新</span>
+        <span th:if="${it.matchState=='SOLD'}" class="pill" style="border-color:var(--rust);color:var(--rust)" th:text="${it.userDecision=='ARCHIVE'} ? '卖出' : '保留'">卖出</span>
+        <span th:text="${it.parsedName}">名称</span>
+      </span>
+      <span class="font-mono text-[12px]" data-priv>
+        <span th:if="${it.matchState=='UPDATE' and it.oldValue != null}" class="text-ink-subtle"
+              th:text="'¥' + ${#numbers.formatDecimal(it.oldValue,1,'COMMA',2,'POINT')} + ' → '"></span>
+        <span th:if="${it.marketValue != null}" th:text="'¥' + ${#numbers.formatDecimal(it.marketValue,1,'COMMA',2,'POINT')}">¥0</span>
+      </span>
+    </div>
+  </section>
+
+  <section class="paper-card p-5" th:if="${!shots.isEmpty()}">
+    <div class="eyebrow mb-3">当 · 时 · 原 · 图</div>
+    <div class="flex flex-wrap gap-3">
+      <a th:each="s : ${shots}" th:href="@{'/uploads/' + ${s}}" target="_blank"
+         class="block" style="width:96px;height:168px;border:1px solid var(--rule);border-radius:6px;overflow:hidden">
+        <img th:src="@{'/uploads/' + ${s}}" style="width:100%;height:100%;object-fit:cover" alt="导入原图"/>
+      </a>
+    </div>
+    <p class="font-mono text-[10px] text-ink-subtle mt-3">原图压缩留存 · 随库备份 · 仅你可见。</p>
+  </section>
+</main>
+</body>
+</html>

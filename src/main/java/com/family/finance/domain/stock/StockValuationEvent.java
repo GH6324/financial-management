@@ -30,5 +30,7 @@ public class StockValuationEvent {
     private String triggerKind;
     private Long triggeredByMemberId;
     private String note;
+    /** v1.4 · 截图导入触发的估值事件 → 指向 holding_import · ledger 可展开看导入明细+原图 */
+    private Long refImportId;
     private LocalDateTime triggeredAt;
 }

@@ -168,7 +168,7 @@ public class LensQueryService {
                                 cashRow ? "低风险" : risk,
                                 cashRow ? "灵活取用" : liquidity,
                                 acc.getCurrency(), owner,
-                                cashRow ? AssetClass.CASH_EQ.getLabel() : assetClass,
+                                cashRow ? AssetClass.CASH_EQ.getLabel() : assetClassOf(h, assetClass),
                                 platform,
                                 cashRow ? IndustryTag.MONEY_CASH.getLabel() : nullIfEmpty(IndustryTag.labelOf(h.getIndustryTag())),
                                 cashRow ? null : regionLabel(h.getMarket()),
@@ -207,6 +207,15 @@ public class LensQueryService {
             case ILLIQUID -> "低流动";
             case NA -> null;
         };
+    }
+
+    /** v1.4 · 持仓级资产类型标(截图导入的基金逐支)· 空则回落账户级 */
+    private static String assetClassOf(StockHolding h, String acctDefault) {
+        if (h.getAssetClassTag() != null && !h.getAssetClassTag().isBlank()) {
+            String lbl = AssetClass.labelOf(h.getAssetClassTag());
+            if (lbl != null) return lbl;
+        }
+        return acctDefault;
     }
 
     private static String assetClassLabel(Account acc) {

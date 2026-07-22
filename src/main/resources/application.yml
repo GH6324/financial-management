@@ -16,8 +16,8 @@ spring:
       connection-timeout: 5000
   servlet:
     multipart:
-      max-file-size: 200KB
-      max-request-size: 256KB
+      max-file-size: 12MB   # v1.4 · 持仓截图导入(前端已压缩~300KB · 给足余量)
+      max-request-size: 64MB
   thymeleaf:
     cache: true
     prefix: classpath:/templates/

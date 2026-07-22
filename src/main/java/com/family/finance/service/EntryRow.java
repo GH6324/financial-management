@@ -73,7 +73,9 @@ public record EntryRow(
             /** v0.2 FR-32 · 行 id(cash_flow.id 或 transfer.id);SNAPSHOT 类型为 null */
             Long sourceId,
             /** v0.2 · 此条目所属的周期是否 OPEN(决定是否显示删除按钮) */
-            boolean periodOpen
+            boolean periodOpen,
+            /** v1.4 · VALUATION 若由截图导入触发 → 指向 holding_import,ledger 显「看明细」链接;否则 null */
+            Long refImportId
     ) {}
 
     public enum LedgerKind {

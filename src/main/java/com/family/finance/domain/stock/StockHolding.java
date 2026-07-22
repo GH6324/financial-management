@@ -42,6 +42,13 @@ public class StockHolding {
     /** v1.1 · 个股行业标(IndustryTag.name() · 准)· 资产透视行业维度 · NULL=未分类 */
     private String industryTag;
 
+    /** v1.4 · 持仓级资产类型标(AssetClass.name)· 截图导入基金逐支打标 · NULL=回落账户级 */
+    private String assetClassTag;
+    /** v1.4 · 持仓级风险档 · NULL=回落账户级 */
+    private String riskTag;
+    /** v1.4 · 持仓级流动性档 · NULL=回落账户级 */
+    private String liquidityTag;
+
     // MANUAL 字段
     private BigDecimal manualValue;
     private LocalDateTime manualValueAt;

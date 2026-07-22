@@ -539,6 +539,11 @@ public class EntryController {
                         .append("hx-headers='{\"X-XSRF-TOKEN\":\"").append(escapeHtml(csrfToken)).append("\"}'>")
                         .append("✕</button>");
             }
+            // v1.4 · 截图导入触发的估值 → 看明细(逐项变化 + 当时原图)
+            if (le.kind() == EntryRow.LedgerKind.VALUATION && le.refImportId() != null) {
+                sb.append("<a class=\"tap text-[11px] text-brass-deep hover:underline px-1\" title=\"看导入明细 + 原图\" ")
+                        .append("href=\"/entry/import/").append(le.refImportId()).append("/detail\">看明细</a>");
+            }
             sb.append("</div>");   // 行1 结束(类型|摘要|金额|删)
             if (le.occurredAt() != null || (le.note() != null && !le.note().isBlank())) {
                 sb.append("<div class=\"text-[10px] text-ink-subtle pl-[72px] flex items-baseline gap-2 flex-wrap\">");

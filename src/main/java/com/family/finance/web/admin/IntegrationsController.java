@@ -48,6 +48,8 @@ public class IntegrationsController {
         model.addAttribute("llmPrimaryVendor",      configService.getString(fid, FamilyConfigService.K_LLM_PRIMARY_VENDOR, "qwen"));
         model.addAttribute("llmTemperature",        configService.getString(fid, FamilyConfigService.K_LLM_TEMPERATURE, "0.5"));
         model.addAttribute("llmModel",              configService.getString(fid, FamilyConfigService.K_LLM_MODEL, "auto"));
+        // v1.4 · 视觉识别模型(持仓截图导入)
+        model.addAttribute("llmVisionModel",        configService.getString(fid, FamilyConfigService.K_LLM_VISION_MODEL, "qwen-vl-max"));
         // v0.14 · 贵金属价格源 / cron
         model.addAttribute("metalPriceSource",      configService.getString(fid, FamilyConfigService.K_METAL_PRICE_SOURCE, "sge"));
         model.addAttribute("metalCron",             configService.getString(fid, FamilyConfigService.K_METAL_CRON, "0 20 16 * * MON-FRI"));
@@ -101,6 +103,7 @@ public class IntegrationsController {
                           @RequestParam(value = "primaryVendor", required = false) String primaryVendor,
                           @RequestParam(value = "temperature", required = false) Double temperature,
                           @RequestParam(value = "model", required = false) String model,
+                          @RequestParam(value = "visionModel", required = false) String visionModel,
                           @RequestParam("maxTokens") int maxTokens,
                           @RequestParam("timeoutSeconds") int timeoutSeconds,
                           RedirectAttributes ra) {
@@ -120,6 +123,10 @@ public class IntegrationsController {
         // v0.14 · 模型(级联下拉;越权/空 → auto)· 校验属于所选供应商内置清单,否则回落 auto
         String mdl = normalizeLlmModel(vendor, model);
         configService.set(fid, FamilyConfigService.K_LLM_MODEL, mdl);
+        // v1.4 · 视觉模型:白名单 qwen-vl-max / qwen-vl-plus / off,否则回落 qwen-vl-max
+        String vis = "qwen-vl-plus".equals(visionModel) ? "qwen-vl-plus"
+                : "off".equals(visionModel) ? "off" : "qwen-vl-max";
+        configService.set(fid, FamilyConfigService.K_LLM_VISION_MODEL, vis);
         int mt = Math.max(500, Math.min(maxTokens, 8000));
         int ts = Math.max(5, Math.min(timeoutSeconds, 120));
         configService.set(fid, FamilyConfigService.K_LLM_MAX_TOKENS, String.valueOf(mt));

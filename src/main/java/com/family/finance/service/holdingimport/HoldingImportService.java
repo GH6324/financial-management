@@ -1,0 +1,318 @@
+package com.family.finance.service.holdingimport;
+
+import com.family.finance.config.AppProperties;
+import com.family.finance.domain.account.Account;
+import com.family.finance.domain.holdingimport.HoldingImport;
+import com.family.finance.domain.holdingimport.HoldingImportItem;
+import com.family.finance.domain.period.Period;
+import com.family.finance.domain.stock.StockHolding;
+import com.family.finance.domain.stock.ValuationMode;
+import com.family.finance.repository.AccountMapper;
+import com.family.finance.repository.HoldingImportItemMapper;
+import com.family.finance.repository.HoldingImportMapper;
+import com.family.finance.repository.PeriodMapper;
+import com.family.finance.repository.StockHoldingMapper;
+import com.family.finance.service.lens.LensAiTagService;
+import com.family.finance.service.stock.AccountValuationService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+/**
+ * v1.4 · 持仓截图导入服务(状态机 job + 异步识别 + 三态匹配 + 确认落库)。
+ *
+ * <p>UPLOADING(收图/存压缩)→ SCANNING(@Async 视觉识别+合并去重+打标+三态匹配)→
+ * REVIEW(待用户比对确认)→ CONFIRMED(落库+估值交接) / ABANDONED。</p>
+ *
+ * <p>只在同账户、{@code sync_source=SCREENSHOT} 的持仓间做增删改;手填/券商持仓永不被碰。</p>
+ */
+@Service
+@Slf4j
+@RequiredArgsConstructor
+public class HoldingImportService {
+
+    public static final String SYNC_SOURCE = "SCREENSHOT";
+    private static final long FAMILY_ID = 1L;
+
+    private final HoldingImportMapper importMapper;
+    private final HoldingImportItemMapper itemMapper;
+    private final StockHoldingMapper holdingMapper;
+    private final AccountMapper accountMapper;
+    private final PeriodMapper periodMapper;
+    private final QwenVisionClient vision;
+    private final LensAiTagService tagService;
+    private final AccountValuationService valuationService;
+    private final AppProperties props;
+
+    // ---------- 状态机 ----------
+
+    /** 进某账户导入页:有未完成(SCANNING/REVIEW)的则续看,否则新建 UPLOADING。 */
+    @Transactional
+    public HoldingImport startOrResume(long accountId) {
+        Optional<HoldingImport> open = importMapper.findOpenByAccount(accountId);
+        if (open.isPresent()) return open.get();
+        Account acc = accountMapper.findById(accountId).orElseThrow(() -> new IllegalArgumentException("账户不存在"));
+        Period period = periodMapper.findCurrentOpen(acc.getFamilyId())
+                .orElseThrow(() -> new IllegalStateException("没有开账期,无法导入"));
+        HoldingImport imp = HoldingImport.builder()
+                .familyId(acc.getFamilyId()).accountId(accountId).periodId(period.getId())
+                .status(HoldingImport.UPLOADING).visionModel(vision.model())
+                .imgCount(0).build();
+        importMapper.insert(imp);
+        return imp;
+    }
+
+    public Optional<HoldingImport> get(long importId) { return importMapper.findById(importId); }
+
+    public List<HoldingImportItem> items(long importId) { return itemMapper.findByImport(importId); }
+
+    // ---------- 上传(压缩图已由前端做,服务端存 + 校验) ----------
+
+    /** 存一张压缩图到 uploadRoot/family-{fid}/holdingshots/{importId}-{n}.{ext};返回相对路径。 */
+    public String saveImage(HoldingImport imp, byte[] bytes, String contentType) throws IOException {
+        if (bytes == null || bytes.length == 0) throw new IllegalArgumentException("空文件");
+        if (bytes.length > 8 * 1024 * 1024) throw new IllegalArgumentException("单图超过 8MB");
+        String ct = contentType == null ? "" : contentType;
+        if (!ct.startsWith("image/")) throw new IllegalArgumentException("仅支持图片");
+        String ext = ct.contains("png") ? "png" : ct.contains("webp") ? "webp" : "jpg";
+        Path root = Paths.get(props.uploadRoot()).toAbsolutePath().normalize();
+        Path dir = root.resolve("family-" + imp.getFamilyId()).resolve("holdingshots");
+        Files.createDirectories(dir);
+        int n = (imp.getImgCount() == null ? 0 : imp.getImgCount()) + 1;
+        String rel = "family-" + imp.getFamilyId() + "/holdingshots/" + imp.getId() + "-" + n + "." + ext;
+        Path target = root.resolve(rel).normalize();
+        if (!target.startsWith(root)) throw new IllegalStateException("非法路径");
+        Files.write(target, bytes);
+        importMapper.updateImgCount(imp.getId(), n);
+        imp.setImgCount(n);
+        return rel;
+    }
+
+    // ---------- 异步识别 + 三态匹配 ----------
+
+    /** 后台识别(controller 跨 bean 调 = 代理生效 = 真异步)。失败 markScanError,不抛给前端。 */
+    @Async
+    public void scanAsync(long importId) {
+        HoldingImport imp = importMapper.findById(importId).orElse(null);
+        if (imp == null) return;
+        importMapper.markScanning(importId);
+        try {
+            List<Path> images = listImages(imp);
+            // 1. 逐图视觉转写 + 记来源图
+            record Parsed(QwenVisionClient.ParsedRow row, String shot) {}
+            List<Parsed> parsedAll = new ArrayList<>();
+            for (Path p : images) {
+                try {
+                    byte[] b = Files.readAllBytes(p);
+                    String mime = mimeOf(p.getFileName().toString());
+                    String rel = relOf(imp, p);
+                    for (QwenVisionClient.ParsedRow r : vision.extract(b, mime)) parsedAll.add(new Parsed(r, rel));
+                } catch (Exception e) {
+                    log.warn("import {} 图 {} 识别失败: {}", importId, p.getFileName(), e.toString());
+                }
+            }
+            // 2. 合并去重(按 code 优先,否则归一化名称;保留第一条有市值的)
+            Map<String, Parsed> merged = new LinkedHashMap<>();
+            for (Parsed p : parsedAll) {
+                String key = dedupKey(p.row());
+                Parsed exist = merged.get(key);
+                if (exist == null || (exist.row().marketValue() == null && p.row().marketValue() != null)) {
+                    merged.put(key, p);
+                }
+            }
+            List<Parsed> rows = new ArrayList<>(merged.values());
+            // 3. 白名单打标(复用 LensAiTag · 文本)
+            List<String> names = rows.stream().map(x -> x.row().name()).collect(Collectors.toList());
+            Map<String, LensAiTagService.Tags> tags;
+            try { tags = tagService.available() ? tagService.suggest(FAMILY_ID, names) : Map.of(); }
+            catch (Exception e) { tags = Map.of(); }
+            // 4. 三态匹配(只比对本账户 SCREENSHOT 活持仓)
+            List<StockHolding> existing = holdingMapper.findActiveByAccount(imp.getAccountId()).stream()
+                    .filter(h -> SYNC_SOURCE.equals(h.getSyncSource()))
+                    .collect(Collectors.toList());
+            Map<String, StockHolding> existingByKey = new LinkedHashMap<>();
+            for (StockHolding h : existing) existingByKey.put(normalize(h.getDisplayName()), h);
+            java.util.Set<Long> matchedIds = new java.util.HashSet<>();
+
+            itemMapper.deleteByImport(importId);  // 重扫覆盖旧结果
+            int sort = 0;
+            for (Parsed p : rows) {
+                QwenVisionClient.ParsedRow r = p.row();
+                LensAiTagService.Tags t = tags.get(r.name());
+                StockHolding hit = existingByKey.get(normalize(r.name()));
+                String state; Long hid = null; BigDecimal oldVal = null;
+                if (hit != null) {
+                    state = HoldingImportItem.UPDATE; hid = hit.getId();
+                    oldVal = marketValueOf(hit);
+                    matchedIds.add(hit.getId());
+                } else {
+                    state = HoldingImportItem.NEW;
+                }
+                itemMapper.insert(HoldingImportItem.builder()
+                        .importId(importId).parsedName(r.name()).parsedCode(emptyToNull(r.code()))
+                        .marketValue(r.marketValue()).confidence(r.confidence())
+                        .matchState(state).matchedHid(hid).oldValue(oldVal)
+                        .assetClassTag(t == null ? null : t.assetClass())
+                        .industryTag(t == null ? null : t.industry())
+                        .platformTag(t == null ? null : t.platform())
+                        .shotPath(p.shot())
+                        .selected(true).sortNo(sort++).build());
+            }
+            // 5. 消失(库有本次没截到)→ SOLD · 默认 KEEP,用户定夺
+            for (StockHolding h : existing) {
+                if (matchedIds.contains(h.getId())) continue;
+                itemMapper.insert(HoldingImportItem.builder()
+                        .importId(importId).parsedName(h.getDisplayName())
+                        .marketValue(marketValueOf(h)).confidence("high")
+                        .matchState(HoldingImportItem.SOLD).matchedHid(h.getId())
+                        .oldValue(marketValueOf(h)).userDecision(HoldingImportItem.KEEP)
+                        .shotPath(null).selected(true).sortNo(sort++).build());
+            }
+            importMapper.markReview(importId);
+        } catch (Exception e) {
+            log.error("import {} 扫描失败", importId, e);
+            importMapper.markScanError(importId, friendly(e));
+        }
+    }
+
+    // ---------- 确认落库 ----------
+
+    /** 用户确认:按 item 增/改/归档 → 估值交接(IMPORT 事件挂 refImportId)→ CONFIRMED。 */
+    @Transactional
+    public void confirm(long importId, Long memberId) {
+        HoldingImport imp = importMapper.findById(importId).orElseThrow(() -> new IllegalArgumentException("导入不存在"));
+        if (!HoldingImport.REVIEW.equals(imp.getStatus())) throw new IllegalStateException("当前状态不可确认");
+        for (HoldingImportItem it : itemMapper.findByImport(importId)) {
+            if (it.getSelected() != null && !it.getSelected()) continue;
+            switch (it.getMatchState()) {
+                case HoldingImportItem.NEW -> {
+                    if (it.getMarketValue() == null) break;
+                    holdingMapper.insert(StockHolding.builder()
+                            .accountId(imp.getAccountId()).displayName(it.getParsedName())
+                            .valuationMode(ValuationMode.MANUAL).shares(BigDecimal.ONE)
+                            .manualValue(it.getMarketValue()).manualValueAt(LocalDateTime.now())
+                            .syncSource(SYNC_SOURCE).cashLinked(false)
+                            .industryTag(it.getIndustryTag()).assetClassTag(it.getAssetClassTag())
+                            .build());
+                }
+                case HoldingImportItem.UPDATE -> {
+                    if (it.getMatchedHid() == null || it.getMarketValue() == null) break;
+                    holdingMapper.findById(it.getMatchedHid()).ifPresent(h -> {
+                        h.setManualValue(it.getMarketValue());
+                        h.setShares(BigDecimal.ONE);
+                        h.setManualValueAt(LocalDateTime.now());
+                        if (it.getIndustryTag() != null) h.setIndustryTag(it.getIndustryTag());
+                        if (it.getAssetClassTag() != null) h.setAssetClassTag(it.getAssetClassTag());
+                        holdingMapper.update(h);
+                    });
+                }
+                case HoldingImportItem.SOLD -> {
+                    if (HoldingImportItem.ARCHIVE.equals(it.getUserDecision()) && it.getMatchedHid() != null) {
+                        holdingMapper.archive(it.getMatchedHid());
+                    }
+                }
+                default -> { }
+            }
+        }
+        // 估值交接:写回当期快照 + 记 IMPORT 估值事件(挂 refImportId,ledger 可展开明细)
+        valuationService.refreshOneAccount(imp.getFamilyId(), imp.getAccountId(),
+                AccountValuationService.TriggerKind.IMPORT, memberId, importId);
+        importMapper.markConfirmed(importId);
+    }
+
+    @Transactional
+    public void abandon(long importId) { importMapper.updateStatus(importId, HoldingImport.ABANDONED); }
+
+    /** 用户在比对表编辑一项 · 只覆盖传入的非空字段(selected 显式传即覆盖) */
+    @Transactional
+    public void editItem(long familyId, long itemId, HoldingImportItem edit) {
+        HoldingImportItem it = itemMapper.findById(itemId).orElseThrow(() -> new IllegalArgumentException("项不存在"));
+        HoldingImport imp = importMapper.findById(it.getImportId()).orElseThrow(() -> new IllegalArgumentException("导入不存在"));
+        if (imp.getFamilyId() != familyId) throw new IllegalArgumentException("无权访问");
+        if (edit.getParsedName() != null) it.setParsedName(edit.getParsedName());
+        if (edit.getMarketValue() != null) it.setMarketValue(edit.getMarketValue());
+        if (edit.getMatchState() != null) it.setMatchState(edit.getMatchState());
+        if (edit.getMatchedHid() != null) it.setMatchedHid(edit.getMatchedHid());
+        if (edit.getIndustryTag() != null) it.setIndustryTag(edit.getIndustryTag());
+        if (edit.getAssetClassTag() != null) it.setAssetClassTag(edit.getAssetClassTag());
+        if (edit.getPlatformTag() != null) it.setPlatformTag(edit.getPlatformTag());
+        if (edit.getUserDecision() != null) it.setUserDecision(edit.getUserDecision());
+        if (edit.getSelected() != null) it.setSelected(edit.getSelected());
+        itemMapper.update(it);
+    }
+
+    // ---------- 内部 ----------
+
+    private List<Path> listImages(HoldingImport imp) throws IOException {
+        Path dir = Paths.get(props.uploadRoot()).toAbsolutePath()
+                .resolve("family-" + imp.getFamilyId()).resolve("holdingshots");
+        if (!Files.isDirectory(dir)) return List.of();
+        String prefix = imp.getId() + "-";
+        try (Stream<Path> s = Files.list(dir)) {
+            return s.filter(Files::isRegularFile)
+                    .filter(p -> p.getFileName().toString().startsWith(prefix))
+                    .sorted().collect(Collectors.toList());
+        }
+    }
+
+    private String relOf(HoldingImport imp, Path p) {
+        return "family-" + imp.getFamilyId() + "/holdingshots/" + p.getFileName();
+    }
+
+    private static String mimeOf(String fn) {
+        String f = fn.toLowerCase();
+        return f.endsWith(".png") ? "image/png" : f.endsWith(".webp") ? "image/webp" : "image/jpeg";
+    }
+
+    /** 归一化匹配键:去空格/全角、小写 · 仅用于匹配,展示名保留原文 */
+    static String normalize(String s) {
+        if (s == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (char c : s.toCharArray()) {
+            if (c == '　' || Character.isWhitespace(c)) continue;
+            if (c >= '！' && c <= '～') c -= 0xFEE0;   // 全角→半角
+            sb.append(Character.toLowerCase(c));
+        }
+        return sb.toString();
+    }
+
+    private static String dedupKey(QwenVisionClient.ParsedRow r) {
+        if (r.code() != null && !r.code().isBlank() && !"null".equalsIgnoreCase(r.code().trim())) {
+            return "code:" + r.code().trim();
+        }
+        return "name:" + normalize(r.name());
+    }
+
+    private static BigDecimal marketValueOf(StockHolding h) {
+        if (h.getManualValue() == null) return null;
+        BigDecimal sh = h.getShares() == null ? BigDecimal.ONE : h.getShares();
+        return h.getManualValue().multiply(sh);
+    }
+
+    private static String emptyToNull(String s) {
+        return (s == null || s.isBlank() || "null".equalsIgnoreCase(s.trim())) ? null : s.trim();
+    }
+
+    private static String friendly(Exception e) {
+        String m = e.getMessage();
+        if (m == null) return "识别失败,请重试";
+        if (m.contains("key")) return "视觉模型未配置或不可用";
+        return "识别失败,请重试";
+    }
+}

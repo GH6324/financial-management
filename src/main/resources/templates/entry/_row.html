@@ -49,6 +49,13 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
           <span th:text="${row.account.type.name() == 'METAL' ? '持仓/重量?' : '持仓变动?'}">持仓变动?</span>
         </a>
+        <!-- v1.4 · AI 截图识别导入持仓(基金/理财/券商大账户拆真实持仓)· METAL 除外 -->
+        <a th:if="${T(com.family.finance.service.stock.StockHoldingService).supportsHoldings(row.account.type) and row.account.type.name() != 'METAL'}"
+           th:href="@{|/entry/import/${row.account.id}|}"
+           class="ml-1 inline-flex items-center gap-1 px-2 py-0.5 border border-rule text-ink-subtle hover:border-brass-deep hover:text-brass-deep transition no-underline text-[10px]">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span>AI 截图导入</span>
+        </a>
       </div>
     </div>
     <div class="text-right min-w-[90px] sm:min-w-[140px]">

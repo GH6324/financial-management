@@ -627,7 +627,7 @@ public class EntryService {
                         name,
                         t.getNote(),
                         t.getId(),
-                        period.getStatus() == PeriodStatus.OPEN));
+                        period.getStatus() == PeriodStatus.OPEN, null));
             } else if (t.getFromAccountId().equals(account.getId())) {
                 Account to = allAccountsById.get(t.getToAccountId());
                 String name = to == null ? "其他账户" : to.getDisplayName();
@@ -641,7 +641,7 @@ public class EntryService {
                         name,
                         t.getNote(),
                         t.getId(),
-                        period.getStatus() == PeriodStatus.OPEN));
+                        period.getStatus() == PeriodStatus.OPEN, null));
             }
         }
         for (CashFlow cf : cashFlowMapper.findByPeriodAndAccount(period.getId(), account.getId())) {
@@ -656,7 +656,7 @@ public class EntryService {
                     cf.getCategoryCode(),
                     cf.getNote(),
                     cf.getId(),
-                    period.getStatus() == PeriodStatus.OPEN));
+                    period.getStatus() == PeriodStatus.OPEN, null));
         }
         if (current != null) {
             // v0.4.4:历史遗留的英文系统标记替换为中文,避免用户面暴露内部代号
@@ -672,7 +672,7 @@ public class EntryService {
                     null,
                     snapNote,
                     null,
-                    period.getStatus() == PeriodStatus.OPEN));
+                    period.getStatus() == PeriodStatus.OPEN, null));
         }
         // v0.4.1 FR-52f · 持仓账户估值事件作为第 4 种流水
         if (com.family.finance.service.stock.StockHoldingService.supportsHoldings(account.getType())) {
@@ -694,7 +694,8 @@ public class EntryService {
                         label,
                         note,
                         ev.getId(),
-                        false  // 估值事件不可删除 · 不显操作按钮
+                        false,  // 估值事件不可删除 · 不显操作按钮
+                        ev.getRefImportId()   // v1.4 · 截图导入触发的估值 → ledger 显「看明细」
                     ));
                 }
             } catch (Exception ignored) {

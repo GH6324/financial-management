@@ -61,6 +61,8 @@ public class FamilyConfigService {
     public static final String K_LLM_TEMPERATURE    = "llm_temperature";
     /** v0.14 · 选定模型(随供应商级联;"auto"=保留 Qwen 轮询/各家默认) */
     public static final String K_LLM_MODEL          = "llm_model";
+    /** v1.4 · 视觉识别模型(持仓截图导入)· qwen-vl-max(默认) / qwen-vl-plus / off(关闭) */
+    public static final String K_LLM_VISION_MODEL   = "llm_vision_model";
     // Integrations · 券商只读同步(v0.15)· 私密凭据(不回显/不入 audit 明文)
     public static final String K_BROKER_TIGER_ID       = "broker_tiger_id";
     public static final String K_BROKER_TIGER_KEY      = "broker_tiger_private_key";

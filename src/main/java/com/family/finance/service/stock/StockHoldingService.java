@@ -462,7 +462,10 @@ public class StockHoldingService {
     }
 
     public static boolean supportsHoldings(AccountType type) {
-        return type == AccountType.STOCK || type == AccountType.CRYPTO || type == AccountType.METAL;
+        // v1.4 · 放开 WEALTH/CASH(基金/理财/支付宝)· 支持截图导入多真实持仓。
+        // 红线不变:没有持仓的账户,AccountValuationService.holdings.isEmpty()→skip,系统绝不碰其手填余额。
+        return type == AccountType.STOCK || type == AccountType.CRYPTO || type == AccountType.METAL
+                || type == AccountType.WEALTH || type == AccountType.CASH;
     }
 
     private void validateMarketForAccount(AccountType accountType, Market market) {
