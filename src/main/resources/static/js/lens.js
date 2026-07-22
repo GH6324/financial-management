@@ -19,13 +19,16 @@
        amount 弧长=金额,维值配色 · pnl 弧长=|收益额|,绿赚赭亏 · ratio 弧长=市值,颜色=收益率热力(比率不可按角度分)。
      持仓级维度(行业/地域)下账户级收益(latestPnl/cumReturn)不可精确归因 → 灰置(承 PivotEngine 诚实降级)。 */
   var SUN_METRICS = [
-    { key: 'value', kind: 'amount' }, { key: 'latestPnl', kind: 'pnl' },
+    { key: 'value', kind: 'amount' }, { key: 'netPrincipal', kind: 'amount' },
+    { key: 'latestPnl', kind: 'pnl' }, { key: 'latestReturn', kind: 'ratio' },
     { key: 'cumPnl', kind: 'pnl' }, { key: 'cumReturn', kind: 'ratio' }
   ];
   var SUN_KIND = {}; SUN_METRICS.forEach(function (m) { SUN_KIND[m.key] = m.kind; });
+  /* 账户级度量,持仓级维度(行业/地域)下不可精确归因 → 灰置(cumPnl 有持有口径兜底,value 恒可) */
+  var SUN_HOLDING_DEGRADE = { netPrincipal: 1, latestPnl: 1, latestReturn: 1, cumReturn: 1 };
   function sunMetricUnavailable(mkey) {
     var holding = DIM_HOLDING[state.sunDims[0]] || DIM_HOLDING[state.sunDims[1]];
-    return holding && (mkey === 'latestPnl' || mkey === 'cumReturn');
+    return holding && !!SUN_HOLDING_DEGRADE[mkey];
   }
   /* 收益色:绿赚赭亏(深浅按幅度)/ 收益率热力(绿高→赭负) */
   var CLR_F = '#4f6b47', CLR_R = '#9c4a2a';
@@ -237,16 +240,10 @@
         childNames.push(ok);
       });
       var innerColor = colorMapFor(inners, 0), outerColor = colorMapFor(childNames, 1);
-      var maxPnl = 0;
-      if (kind === 'pnl') {
-        r.rowTotals.forEach(function (t) { maxPnl = Math.max(maxPnl, Math.abs(Number(t[mi] || 0))); });
-        r.cells.forEach(function (c) { maxPnl = Math.max(maxPnl, Math.abs(Number(c.values[mi] || 0))); });
-      }
-      function arcSize(mv, val) { return kind === 'pnl' ? Math.abs(Number(mv || 0)) : Number(val || 0); }   // amount/ratio 用市值,pnl 用 |收益额|
-      function colorFor(mv, name, isInner) {
-        if (kind === 'amount') return isInner ? innerColor[name] : outerColor[name];
-        return kind === 'pnl' ? pnlColor(mv, maxPnl) : rateColor(mv);
-      }
+      /* 弧长:比率类=市值(不能按比率分角)· 其余(金额/净投入/收益额)= |该指标| */
+      function arcSize(mv, val) { return kind === 'ratio' ? Number(val || 0) : Math.abs(Number(mv || 0)); }
+      /* #2 修:所有指标下环色都用配色方案(follow 管理页设置);指标靠 弧长+标签+中心+排行 表达,不再用绿赭覆盖环色 */
+      function colorFor(mv, name, isInner) { return isInner ? innerColor[name] : outerColor[name]; }
       var data = inners.map(function (ik, i) {
         var t = r.rowTotals[i];
         return { name: ik, value: arcSize(t[mi], t[vi]), _mv: t[mi], _val: t[vi], itemStyle: { color: colorFor(t[mi], ik, true) },
@@ -255,18 +252,18 @@
           }) };
       });
       var totalSize = data.reduce(function (s, d) { return s + d.value; }, 0);
-      function lblFor(mv, val) {   // 金额→占比% · 收益额→±短金额 · 收益率→率%
+      function lblFor(mv) {   // 金额/净投入→占比% · 收益额→±短金额 · 收益率→率%
         if (kind === 'ratio') return (mv === null || mv === undefined) ? '—' : (Number(mv) >= 0 ? '+' : '') + Number(mv).toFixed(1) + '%';
         if (kind === 'pnl') return fmtShort(mv);
-        return (totalSize ? val * 100 / totalSize : 0).toFixed(1) + '%';
+        return (totalSize ? Math.abs(Number(mv || 0)) * 100 / totalSize : 0).toFixed(1) + '%';
       }
-      data.forEach(function (n) { n._lbl = lblFor(n._mv, n._val); n.children.forEach(function (c) { c._lbl = lblFor(c._mv, c._val); }); });
+      data.forEach(function (n) { n._lbl = lblFor(n._mv); n.children.forEach(function (c) { c._lbl = lblFor(c._mv); }); });
 
       var el = document.getElementById('sunburst');
       if (!chart) chart = echarts.init(el);
       var sliceLabel = function (p) {
         var d = p.data, lines = [d.name, d._lbl];
-        if (kind === 'amount' && !privacyOn() && totalSize && p.value * 360 / totalSize >= 28) lines.push(fmtShort(d._val));
+        if (kind === 'amount' && !privacyOn() && totalSize && p.value * 360 / totalSize >= 28) lines.push(fmtShort(d._mv));
         return lines.join('\n');
       };
       var compact = el.clientWidth < 480;
@@ -284,7 +281,7 @@
             var d = p.data;
             if (kind === 'ratio') return esc(d.name) + '<br>' + d._lbl + ' · 市值 ' + (privacyOn() ? '···' : fmtShort(d._val));
             if (kind === 'pnl') return esc(d.name) + '<br>' + (privacyOn() ? '···' : fmtMoney(d._mv));
-            return esc(d.name) + '<br>' + (privacyOn() ? '···' : fmtMoney(d._val)) + ' · ' + d._lbl;
+            return esc(d.name) + '<br>' + (privacyOn() ? '···' : fmtMoney(d._mv)) + ' · ' + d._lbl;
           }
         }
       }, true);
@@ -325,10 +322,10 @@
       head = node.name;
       if (kind === 'ratio') { big = (mv == null) ? '—' : (Number(mv) >= 0 ? '+' : '') + Number(mv).toFixed(1) + '%'; cls = Number(mv) >= 0 ? 'num-pos' : 'num-neg'; }
       else if (kind === 'pnl') { big = fmtShort(mv); cls = Number(mv) >= 0 ? 'num-pos' : 'num-neg'; }
-      else { big = fmtShort(node._val); }
-    } else if (kind === 'ratio') { head = '整体收益率'; big = (grand == null) ? '—' : (Number(grand) >= 0 ? '+' : '') + Number(grand).toFixed(1) + '%'; cls = Number(grand) >= 0 ? 'num-pos' : 'num-neg'; }
+      else { big = fmtShort(node._mv); }
+    } else if (kind === 'ratio') { head = mkey === 'latestReturn' ? '本期收益率' : '整体收益率'; big = (grand == null) ? '—' : (Number(grand) >= 0 ? '+' : '') + Number(grand).toFixed(1) + '%'; cls = Number(grand) >= 0 ? 'num-pos' : 'num-neg'; }
     else if (kind === 'pnl') { head = mkey === 'latestPnl' ? '本期净收益' : '累计净收益'; big = (Number(grand) >= 0 ? '+' : '') + fmtShort(grand); cls = Number(grand) >= 0 ? 'num-pos' : 'num-neg'; }
-    else { head = '合计'; big = fmtShort(grand); }
+    else { head = mkey === 'value' ? '合计' : (MEASURE_LABEL[mkey] || '合计'); big = fmtShort(grand); }
     var priv = (kind !== 'ratio') ? ' data-priv' : '';
     center.innerHTML = '<div class="text-[11px] text-ink-subtle leading-tight" style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(head) + '</div>' +
       '<div class="font-display text-sm leading-tight ' + cls + '"' + priv + '>' + big + '</div>' +
@@ -336,6 +333,15 @@
   }
 
   /* ---------- 组件 A.1 · 分析指标选择器(v1.3)· 持仓级维度下收益类灰置 ---------- */
+  /* v1.3 #3 · 重置:回到当前看板初始视图(清下钻/复位维度与指标)· 深度分析后一键恢复,不必刷新页面 */
+  function resetLens() {
+    state.sunMetric = 'value';
+    var preset = PRESETS.find(function (p) { return p.key === state.boardKey; });
+    if (preset) { applyBoard(preset, preset.key); return; }
+    var ub = USER_BOARDS.find(function (b) { return 'u' + b.id === state.boardKey; });
+    if (ub) { var spec = parse(ub.spec); applyBoard({ rows: spec.rows, cols: spec.cols, filters: spec.filters }, state.boardKey); return; }
+    state.drill = []; state.dimStack = []; syncSelectors(); refresh();   // 自定义/兜底
+  }
   function setSunMetric(k) {
     if (!SUN_KIND[k] || sunMetricUnavailable(k)) return;
     state.sunMetric = k;
@@ -387,58 +393,50 @@
       });
       cum += span;
     });
-    var notes = document.getElementById('sunSmallNotes');
-    if (compact) {   // 移动:全部走图下补注
-      noteItems = noteItems.concat(lineItems);
-      lineItems = [];
-    }
-    if (notes) {
-      notes.innerHTML = noteItems.length ? '<span class="text-ink-subtle mr-1">' + (compact ? '小块:' : '内环小块:') + '</span>' + noteItems.map(function (it) {
-        return '<span class="inline-flex items-center gap-1 mr-3 whitespace-nowrap"><span style="width:7px;height:7px;background:' + it.color + ';display:inline-block"></span>' +
-          esc(it.name) + ' <span class="font-mono">' + (it.lbl != null ? it.lbl : it.pct.toFixed(1) + '%') + '</span></span>';
-      }).join('') : '';
-    }
-    if (!lineItems.length) {
-      chart.setOption({ graphic: { elements: [{ id: 'leaders', type: 'group', $action: 'replace', children: [] }] } });
-      return;
-    }
     var W = el.clientWidth, H = el.clientHeight, cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2;
     var pt = function (rp, deg) {   // deg = 自 12 点顺时针
       var rad = (90 - deg) * Math.PI / 180;
       return [cx + rp * R * Math.cos(rad), cy - rp * R * Math.sin(rad)];
     };
+    /* 移动:引线无处放 → 全走图下补注;PC:外环小块拉引线,超出容纳数的也落补注 */
     var sides = { right: [], left: [] };
-    lineItems.forEach(function (it) { sides[((it.mid % 360) + 360) % 360 < 180 ? 'right' : 'left'].push(it); });
+    if (compact) { noteItems = noteItems.concat(lineItems); }
+    else { lineItems.forEach(function (it) { sides[((it.mid % 360) + 360) % 360 < 180 ? 'right' : 'left'].push(it); }); }
+
+    var GAP = 17, top = 13, bot = H - 13, maxFit = Math.max(1, Math.floor((bot - top) / GAP) + 1);
     var children = [];
     ['right', 'left'].forEach(function (side) {
-      /* 同侧按弧上出口 y 排序 → 标签槽位保序;源点全在同一圆弧、末段全水平 → 斜段互不相交 */
-      var arr = sides[side].slice(0, 8);
-      arr.forEach(function (it) { it.iy = pt(rOuterPct, it.mid)[1]; });
+      var arr = sides[side];
+      if (!arr.length) return;
+      arr.forEach(function (it) { it.iy = pt(rOuterPct, it.mid)[1]; });   // 理想 y = 外环出口点
       arr.sort(function (a, b) { return a.iy - b.iy; });
-      /* 均匀散开(2026-07-17 修"挤在一起"):以出口点质心为中心、按 18px 等距分配槽位,
-         而不是只向下推挤 —— 一束密集小块的标签会对称展开,单条时仍贴出口点 */
-      var GAP = 18;
-      if (arr.length > 1) {
-        var centroid = arr.reduce(function (t, it) { return t + it.iy; }, 0) / arr.length;
-        var start = centroid - (arr.length - 1) * GAP / 2;
-        start = Math.min(Math.max(start, 12), H - 12 - (arr.length - 1) * GAP);
-        arr.forEach(function (it, i) { it.slotY = start + i * GAP; });
-      } else if (arr.length === 1) {
-        arr[0].slotY = Math.min(Math.max(arr[0].iy, 12), H - 12);
+      if (arr.length > maxFit) { arr.slice(maxFit).forEach(function (it) { noteItems.push(it); }); arr = arr.slice(0, maxFit); }
+      /* 贪心自上而下:每条不低于上一条 + GAP(理想位=出口 y)→ 保序、不重叠;整体越底再上移并补间距 */
+      var prev = top - GAP;
+      arr.forEach(function (it) { it.slotY = Math.max(it.iy, prev + GAP); prev = it.slotY; });
+      var over = arr.length ? arr[arr.length - 1].slotY - bot : 0;
+      if (over > 0) {
+        arr.forEach(function (it) { it.slotY = Math.max(top, it.slotY - over); });
+        for (var i = 1; i < arr.length; i++) if (arr[i].slotY < arr[i - 1].slotY + GAP) arr[i].slotY = arr[i - 1].slotY + GAP;
       }
+      var colX = side === 'right' ? cx + R * rOuterPct + 18 : cx - R * rOuterPct - 18;   // 标签列 · 环外
       arr.forEach(function (it) {
-        var y = it.slotY;
-        var p0 = pt((rMidPct + rOuterPct) / 2, it.mid), p1 = pt(rOuterPct + 0.03, it.mid);
-        var lx = side === 'right' ? cx + R * (rOuterPct + 0.11) : cx - R * (rOuterPct + 0.11);
-        var elbowX = side === 'right' ? lx - 12 : lx + 12;
-        children.push({ type: 'polyline', silent: true, shape: { points: [p0, p1, [elbowX, y], [side === 'right' ? lx - 4 : lx + 4, y]] },
-          style: { stroke: '#8a8172', fill: 'none', lineWidth: 1, opacity: 0.8 } });
-        children.push({ type: 'rect', silent: true, shape: { x: side === 'right' ? lx : lx - 7, y: y - 3.5, width: 7, height: 7 }, style: { fill: it.color } });
-        children.push({ type: 'text', silent: true, x: side === 'right' ? lx + 11 : lx - 11, y: y,
-          style: { text: it.name + ' ' + (it.lbl != null ? it.lbl : it.pct.toFixed(1) + '%'), fill: '#6b6353', font: chartFont(10) + 'px sans-serif',
-                   align: side === 'right' ? 'left' : 'right', verticalAlign: 'middle' } });
+        var y = it.slotY, edge = pt(rOuterPct + 0.005, it.mid), elbowX = side === 'right' ? colX - 13 : colX + 13;
+        children.push({ type: 'polyline', silent: true, z: 5, shape: { points: [edge, [elbowX, y], [colX, y]] },
+          style: { stroke: '#a79d89', fill: 'none', lineWidth: 1 } });   // 外缘 → 斜 → 平(保序不交叉)
+        children.push({ type: 'rect', silent: true, z: 5, shape: { x: side === 'right' ? colX + 2 : colX - 9, y: y - 3.5, width: 7, height: 7 }, style: { fill: it.color } });
+        children.push({ type: 'text', silent: true, z: 5, x: side === 'right' ? colX + 13 : colX - 13, y: y,
+          style: { text: it.name + ' ' + it.lbl, fill: '#6b6353', font: chartFont(10) + 'px sans-serif', align: side === 'right' ? 'left' : 'right', verticalAlign: 'middle' } });
       });
     });
+
+    var notes = document.getElementById('sunSmallNotes');
+    if (notes) {
+      notes.innerHTML = noteItems.length ? '<span class="text-ink-subtle mr-1">' + (compact ? '小块:' : '其余小块:') + '</span>' + noteItems.map(function (it) {
+        return '<span class="inline-flex items-center gap-1 mr-3 whitespace-nowrap"><span style="width:7px;height:7px;background:' + it.color + ';display:inline-block"></span>' +
+          esc(it.name) + ' <span class="font-mono">' + it.lbl + '</span></span>';
+      }).join('') : '';
+    }
     chart.setOption({ graphic: { elements: [{ id: 'leaders', type: 'group', $action: 'replace', children: children }] } });
   }
 
@@ -454,10 +452,10 @@
       rows.sort(function (a, b) {
         if (kind === 'pnl') return Math.abs(Number(b.mv || 0)) - Math.abs(Number(a.mv || 0));
         if (kind === 'ratio') return (b.mv == null ? -1e18 : Number(b.mv)) - (a.mv == null ? -1e18 : Number(a.mv));
-        return Number(b.val || 0) - Number(a.val || 0);
+        return Number(b.mv || 0) - Number(a.mv || 0);   // amount(金额/净投入)按该指标降序
       });
       var barColor = colorMapFor(rows.map(function (x) { return x.name; }), 1);   // 与旭日外环同色
-      var totalVal = rows.reduce(function (s, x) { return s + Number(x.val || 0); }, 0);
+      var totalMv = rows.reduce(function (s, x) { return s + Number(x.mv || 0); }, 0);
       var maxAbs = rows.reduce(function (m, x) { return Math.max(m, Math.abs(Number(x.mv || 0))); }, 0);
       var html = '<div class="eyebrow mb-1">当前范围 · 按 ' + esc(MEASURE_LABEL[mkey] || '金额') + ' · ' + esc(DIM_LABEL[state.sunDims[1]]) + '</div>';
       rows.forEach(function (x) {
@@ -470,7 +468,7 @@
           right = fmtShort(x.mv); barW = maxAbs ? Math.abs(Number(x.mv || 0)) / maxAbs * 100 : 0;
           barBg = Number(x.mv) < 0 ? CLR_R : CLR_F; rcls = Number(x.mv) >= 0 ? 'num-pos' : 'num-neg';
         } else {
-          var pct = totalVal ? Number(x.val) * 100 / totalVal : 0; right = fmtMoney(x.val) + ' · ' + pct.toFixed(1) + '%'; barW = Math.min(pct, 100);
+          var pct = totalMv ? Number(x.mv || 0) * 100 / totalMv : 0; right = fmtMoney(x.mv) + ' · ' + pct.toFixed(1) + '%'; barW = Math.min(pct, 100);
         }
         html += '<div><div class="flex justify-between text-sm mb-1"><span>' + esc(x.name) + '</span>' +
           '<span class="font-mono tnum ' + rcls + '"' + priv + '>' + right + '</span></div>' +
@@ -784,6 +782,7 @@
     /* v1.3 · 点旭日中心圆 = 换分析指标(弹层);点别处收起 */
     var sc = document.getElementById('sunCenter');
     if (sc) sc.onclick = function (e) { e.stopPropagation(); var pop = document.getElementById('sunMetricPop'); if (pop) pop.classList.toggle('hidden'); };
+    var rb = document.getElementById('sunResetBtn'); if (rb) rb.onclick = resetLens;   // v1.3 #3 重置
     document.addEventListener('click', function () { var pop = document.getElementById('sunMetricPop'); if (pop) pop.classList.add('hidden'); });
     /* 隐私模式开关切换(html.privacy)→ 重绘旭日:canvas 里的金额 label 不受 CSS 模糊管辖,必须重出图 */
     new MutationObserver(function () { if (chart) renderSunburst(); })

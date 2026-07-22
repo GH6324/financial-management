@@ -15,6 +15,16 @@
   <p class="text-ink-soft text-sm mb-4">按任意维度切、点进去再拆;旭日 / 交叉透视 / 明细联动;负债(贷款)不计入 · 本位币口径。
     收益在行业 / 地域维度下按<b>持有口径</b>(市值−成本),算不出的显「—」,不做假分摊。</p>
 
+  <!-- v1.3 · 分析指标选择器(看板之上 · 点旭日中心圆亦可换)· 持仓级维度下收益类灰置 -->
+  <section class="paper-card px-4 py-3 mb-4">
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle">分析指标</span>
+      <span id="sunMetricBar" class="flex gap-1.5 flex-wrap"></span>
+    </div>
+    <div id="sunDegradeNote" class="hidden text-[11px] mt-2 px-2.5 py-1" style="background:var(--rust-soft);color:var(--rust);border-left:3px solid var(--rust)">
+      行业 / 地域(持仓级)维度会把持仓账户拆开 → 净投入 / 本期收益额 / 本期收益率 / 累计收益率无法精确归因(已灰置)· 累计收益额改用持有口径(市值−成本)仍可看。</div>
+  </section>
+
   <!-- 看板 chips + 面包屑 -->
   <section class="paper-card px-4 py-3 mb-4">
     <div id="boardChips" class="flex items-center gap-2 overflow-x-auto pb-1"></div>
@@ -63,17 +73,15 @@
     <div class="paper-card p-5 lg:col-span-3">
       <div class="flex items-baseline justify-between flex-wrap gap-2 mb-2">
         <h3 class="font-display text-lg font-medium">旭日下钻 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">SUNBURST</span></h3>
-        <label class="font-mono text-[11px] text-ink-soft">下一层按
-          <select data-lsel id="nextDimSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select>
-        </label>
+        <div class="flex items-center gap-2 flex-wrap">
+          <!-- v1.3 · 重置:深度下钻后一键回当前看板初始 -->
+          <button id="sunResetBtn" type="button" class="pill text-[11px] whitespace-nowrap inline-flex items-center gap-1" title="回到当前看板初始视图" style="cursor:pointer">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>重置</button>
+          <label class="font-mono text-[11px] text-ink-soft">下一层按
+            <select data-lsel id="nextDimSel" class="border border-rule bg-card px-1.5 py-0.5 text-[11px]"></select>
+          </label>
+        </div>
       </div>
-      <!-- v1.3 · 分析指标选择器(点中心圆亦可换)· 持仓级维度下收益类灰置 -->
-      <div class="flex items-center gap-2 flex-wrap mb-2">
-        <span class="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-subtle">分析指标</span>
-        <span id="sunMetricBar" class="flex gap-1.5 flex-wrap"></span>
-      </div>
-      <div id="sunDegradeNote" class="hidden text-[11px] mb-2 px-2.5 py-1" style="background:var(--rust-soft);color:var(--rust);border-left:3px solid var(--rust)">
-        行业 / 地域(持仓级)维度会把持仓账户拆开 → 本期收益额 / 累计收益率无法精确归因(已灰置)· 累计收益额改用持有口径(市值−成本)仍可看。</div>
       <div style="position:relative">
         <div id="sunburst" style="height:340px"></div>
         <!-- 中心信息盘:当前指标总计;点击 = 换分析指标(弹层)。hover 扇区显示该块 -->

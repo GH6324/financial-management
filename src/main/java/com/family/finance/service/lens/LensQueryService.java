@@ -129,6 +129,8 @@ public class LensQueryService {
             if (acc.getType() == AccountType.LOAN) continue;      // 负债不进资产透视
             AccountPerformance p = perf.get(acc.getId());
             if (p == null || p.currentValue() == null) continue;  // 未填报 · 无现值
+            // 账户级期初市值 = 期末 − 较上期变化(momAmount)· 本期收益率分母;momAmount 缺则不可算
+            BigDecimal openVal = p.momAmount() == null ? null : p.currentValue().subtract(p.momAmount());
 
             ProductCategory cat = productCategoryService.findByCode(acc.getProductCategoryCode()).orElse(null);
             String risk = riskLabel(acc.getRiskLevelOverride() != null
@@ -171,7 +173,7 @@ public class LensQueryService {
                                 cashRow ? IndustryTag.MONEY_CASH.getLabel() : nullIfEmpty(IndustryTag.labelOf(h.getIndustryTag())),
                                 cashRow ? null : regionLabel(h.getMarket()),
                                 purpose,
-                                p.latestPnl(), p.cumPnl(), p.netPrincipal(), holdingCumPnl));
+                                p.latestPnl(), p.cumPnl(), p.netPrincipal(), holdingCumPnl, openVal));
                     }
                     split = true;
                 }
@@ -181,7 +183,7 @@ public class LensQueryService {
                         acc.getId(), null, acc.getDisplayName(), acc.getDisplayName(), p.currentValue(),
                         typeLabel, risk, liquidity, acc.getCurrency(), owner,
                         assetClass, platform, acctIndustry, null, purpose,
-                        p.latestPnl(), p.cumPnl(), p.netPrincipal(), p.cumPnl()));
+                        p.latestPnl(), p.cumPnl(), p.netPrincipal(), p.cumPnl(), openVal));
             }
         }
         return out;

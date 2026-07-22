@@ -47,20 +47,24 @@ public class LensInsightService {
     /** 当前透视视图 → 洞察;LLM 全失败返回 null(前端提示稍后再试) */
     public Insight interpret(long familyId, LensQuery q) {
         List<Position> ps = lensQueryService.positions(familyId);
-        PivotEngine.Result r = PivotEngine.pivot(ps, q);
+        // v1.3 · 洞察不止金额:固定按「金额 + 本期收益额 + 累计收益额 + 累计收益率」聚合当前维度,
+        //   既判金额分布信号,也判收益信号(最大拖累 / 最赚 / 收益率最低)· 持仓级维度收益自动降级为 null。
+        LensQuery iq = new LensQuery(q.rowsSafe(), java.util.List.of(),
+                java.util.List.of("value", "latestPnl", "cumPnl", "cumReturn"), q.filtersSafe());
+        PivotEngine.Result r = PivotEngine.pivot(ps, iq);
         String facts = buildFactsAndSignals(familyId, q, r);
         if (facts == null) return new Insight("当前范围没有头寸,无可解读。", "-");
         facts = anonymize(familyId, facts);
 
         String system = """
-                你是家庭资产报表的洞察助手。下面是一份**已经计算好**的透视事实,末尾的「异常信号」
-                是系统按体检阈值判定好的结论(含数字与阈值)。你的任务不是复述分布,而是把信号讲成洞察。
+                你是家庭资产报表的洞察助手。下面是一份**已经计算好**的透视事实,末尾的「信号」
+                是系统判定好的结论(结构异常 + 收益亮点/拖累,含数字)。你的任务不是复述分布,而是把信号讲成洞察。
                 规则(必须遵守):
                 1. 严禁做任何计算,只引用给出的数字;
                 2. 输出 2-4 条,每条一行以「· 」开头,每条 ≤55 字,大白话;
-                3. 每条洞察必须落在某个异常信号上(为什么不合理 / 意味着什么风险),按信号严重程度排序;
-                4. 最后一条固定是「值得做的一件事」:从信号推出的最优先动作(如 去打标 / 分散某平台 / 降高风险仓);
-                5. 「异常信号」为空时,如实说结构无显著异常,再给一句最值得留意的观察,不要硬编异常;
+                3. 每条洞察必须落在某个信号上(结构为什么不合理/什么风险,或哪块本期拖累/收益率差),按重要度排序;
+                4. 最后一条固定是「值得做的一件事」:从信号推出的最优先动作(如 去打标 / 分散某平台 / 降高风险仓 / 复盘最大拖累那块);
+                5. 「信号」为空时,如实说结构与收益均无显著异常,再给一句最值得留意的观察,不要硬编;
                 6. 不推荐任何具体产品、不预测涨跌、不用黑话。
                 只输出要点行,不要标题、开场白、markdown。""";
         String primary = configService.getString(familyId, FamilyConfigService.K_LLM_PRIMARY_VENDOR, "qwen");
@@ -139,7 +143,27 @@ public class LensInsightService {
             signals.add("碎片化: 有 " + tiny + " 块占比不足 1% 的零碎头寸,可考虑归并");
         }
 
-        sb.append("异常信号(系统按阈值判定,共 ").append(signals.size()).append(" 条):\n");
+        // ── v1.3 · 收益信号(持仓级维度收益不可精确归因则跳过 · latestPnl=1 / cumReturn=3) ──
+        if (!r.holdingLevelSplit()) {
+            record RSlice(String name, BigDecimal latest, BigDecimal cumR) {}
+            List<RSlice> rs = new ArrayList<>();
+            for (int i = 0; i < r.rowKeys().size(); i++) {
+                rs.add(new RSlice(String.join("·", r.rowKeys().get(i)),
+                        r.rowTotals().get(i).get(1), r.rowTotals().get(i).get(3)));
+            }
+            RSlice worst = rs.stream().filter(x -> x.latest() != null && x.latest().signum() < 0)
+                    .min((a, b) -> a.latest().compareTo(b.latest())).orElse(null);
+            if (worst != null) signals.add("本期最大拖累: 「" + worst.name() + "」本期亏 " + money(worst.latest()));
+            RSlice best = rs.stream().filter(x -> x.latest() != null && x.latest().signum() > 0)
+                    .max((a, b) -> a.latest().compareTo(b.latest())).orElse(null);
+            if (best != null) signals.add("本期最赚: 「" + best.name() + "」本期赚 " + money(best.latest()));
+            RSlice lowR = rs.stream().filter(x -> x.cumR() != null)
+                    .min((a, b) -> a.cumR().compareTo(b.cumR())).orElse(null);
+            if (lowR != null && lowR.cumR().signum() < 0)
+                signals.add("累计收益率最低: 「" + lowR.name() + "」累计 " + lowR.cumR() + "%");
+        }
+
+        sb.append("信号(系统判定,含结构异常与收益亮点/拖累,共 ").append(signals.size()).append(" 条):\n");
         if (signals.isEmpty()) sb.append("  (无 · 本视角结构无显著异常)\n");
         else signals.forEach(sig -> sb.append("  - ").append(sig).append('\n'));
         return sb.toString();

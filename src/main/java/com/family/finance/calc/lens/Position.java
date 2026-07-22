@@ -35,7 +35,9 @@ public record Position(
         BigDecimal acctLatestPnl,
         BigDecimal acctCumPnl,
         BigDecimal acctNetPrincipal,
-        BigDecimal holdingCumPnl
+        BigDecimal holdingCumPnl,
+        /** 账户级期初市值(= 期末 − 较上期变化 momAmount)· 本期收益率分母;null = 不可算 */
+        BigDecimal acctOpenValue
 ) {
     public boolean isHolding() { return holdingId != null; }
 }

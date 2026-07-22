@@ -36,11 +36,13 @@ public final class LensRegistry {
         dim("currency",   "币种",   false, Position::currency);
         dim("liquidity",  "流动性", false, Position::liquidity);
 
-        measure("value",     "金额");
-        measure("share",     "占比");
-        measure("latestPnl", "本期收益额");
-        measure("cumPnl",    "累计收益额");
-        measure("cumReturn", "累计收益率");
+        measure("value",       "金额");
+        measure("netPrincipal","净投入");
+        measure("share",       "占比");
+        measure("latestPnl",   "本期收益额");
+        measure("latestReturn","本期收益率");
+        measure("cumPnl",      "累计收益额");
+        measure("cumReturn",   "累计收益率");
     }
 
     private static void dim(String key, String label, boolean holdingLevel, Function<Position, String> f) {

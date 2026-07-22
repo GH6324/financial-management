@@ -23,21 +23,21 @@ class PivotEngineTest {
         Position cash = new Position(1L, null, "招行储蓄卡", "招行储蓄卡", bd("100000").multiply(k),
                 "现金", "低风险", "灵活取用", "CNY", "迪娃",
                 "现金及等价", "招商银行", null, null, "应急金",
-                bd("0").multiply(k), bd("0").multiply(k), bd("100000").multiply(k), bd("0").multiply(k));
+                bd("0").multiply(k), bd("0").multiply(k), bd("100000").multiply(k), bd("0").multiply(k), bd("100000").multiply(k));
         // 账户2 股票(持仓×2·高风险·富途·迪娃):宁德 60000(新能源) + 茅台 40000(消费)
         Position h1 = new Position(2L, 21L, "宁德时代", "富途证券账户", bd("60000").multiply(k),
                 "股票", "高风险", "半灵活", "CNY", "迪娃",
                 "权益", "富途证券", "新能源电力", "A股", "长期增值",
-                bd("5000").multiply(k), bd("20000").multiply(k), bd("80000").multiply(k), bd("15000").multiply(k));
+                bd("5000").multiply(k), bd("20000").multiply(k), bd("80000").multiply(k), bd("15000").multiply(k), bd("95000").multiply(k));
         Position h2 = new Position(2L, 22L, "贵州茅台", "富途证券账户", bd("40000").multiply(k),
                 "股票", "高风险", "半灵活", "CNY", "迪娃",
                 "权益", "富途证券", "白酒消费", "A股", "长期增值",
-                bd("5000").multiply(k), bd("20000").multiply(k), bd("80000").multiply(k), bd("5000").multiply(k));
+                bd("5000").multiply(k), bd("20000").multiply(k), bd("80000").multiply(k), bd("5000").multiply(k), bd("95000").multiply(k));
         // 账户3 理财(手填·未打标行业·支付宝·妻子):100000
         Position wealth = new Position(3L, null, "蚂蚁理财", "蚂蚁理财", bd("100000").multiply(k),
                 "理财", "中风险", "半灵活", "CNY", "妻子",
                 "固收", "支付宝 · 蚂蚁财富", null, null, "教育金",
-                bd("1000").multiply(k), bd("3000").multiply(k), bd("97000").multiply(k), bd("3000").multiply(k));
+                bd("1000").multiply(k), bd("3000").multiply(k), bd("97000").multiply(k), bd("3000").multiply(k), bd("99000").multiply(k));
         return List.of(cash, h1, h2, wealth);
     }
 
@@ -132,7 +132,20 @@ class PivotEngineTest {
             assertThat(d.label()).isNotBlank();
             d.extract().apply(p);   // 不抛即可(null=未分类合法)
         });
-        assertThat(LensRegistry.MEASURES).hasSize(5);
+        assertThat(LensRegistry.MEASURES).hasSize(7);
+        assertThat(LensRegistry.MEASURES).containsKeys("value", "netPrincipal", "share",
+                "latestPnl", "latestReturn", "cumPnl", "cumReturn");   // v1.3 · 新增 净投入 / 本期收益率
         assertThat(LensRegistry.DIMENSIONS).hasSizeGreaterThanOrEqualTo(8);
+    }
+
+    @Test
+    void v13NewMeasures_netPrincipalSums_latestReturnAggregatesByOpenValue() {
+        // 按风险聚合:净投入 = Σ账户净投入 · 本期收益率 = Σ本期收益 / Σ期初市值(账户级去重)
+        var r = PivotEngine.pivot(fixture(BigDecimal.ONE),
+                new LensQuery(List.of("owner"), List.of(), List.of("netPrincipal", "latestReturn"), Map.of()));
+        int diwa = r.rowKeys().indexOf(List.of("迪娃"));   // 账户1(净投入10万·期初10万·本期0)+ 账户2(净投入8万·期初9.5万·本期0.5万)
+        assertThat(r.rowTotals().get(diwa).get(0)).isEqualByComparingTo("180000");   // 净投入 10万+8万
+        // 本期收益率 = (0 + 5000) / (100000 + 95000) × 100 = 2.56%
+        assertThat(r.rowTotals().get(diwa).get(1)).isEqualByComparingTo("2.56");
     }
 }

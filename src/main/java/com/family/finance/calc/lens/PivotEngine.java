@@ -165,9 +165,11 @@ public final class PivotEngine {
                 case "value" -> out.add(value);
                 case "share" -> out.add(grandValue.signum() == 0 ? BigDecimal.ZERO
                         : value.multiply(new BigDecimal("100")).divide(grandValue, 2, RoundingMode.HALF_EVEN));
+                case "netPrincipal" -> out.add(holdingSplit ? null : sumAcct(byAccount, Position::acctNetPrincipal));
                 case "latestPnl" -> out.add(holdingSplit ? null : sumAcct(byAccount, Position::acctLatestPnl));
+                case "latestReturn" -> out.add(holdingSplit ? null : ratio(byAccount, Position::acctLatestPnl, Position::acctOpenValue));
                 case "cumPnl" -> out.add(holdingSplit ? sumHolding(all, idx) : sumAcct(byAccount, Position::acctCumPnl));
-                case "cumReturn" -> out.add(holdingSplit ? null : cumReturn(byAccount));
+                case "cumReturn" -> out.add(holdingSplit ? null : ratio(byAccount, Position::acctCumPnl, Position::acctNetPrincipal));
                 default -> out.add(null);
             }
         }
@@ -193,17 +195,22 @@ public final class PivotEngine {
         return s == null ? null : s.setScale(2, RoundingMode.HALF_EVEN);
     }
 
-    /** 累计收益率 % = Σ累计收益 / Σ净投入(仅净投入>0 的账户集合 · 分子分母同源) */
-    private static BigDecimal cumReturn(Map<Long, Position> byAccount) {
-        BigDecimal pnl = BigDecimal.ZERO, principal = BigDecimal.ZERO;
+    /** 收益率 % = Σ分子 / Σ分母(仅分母>0 的账户集合 · 分子分母同源;比率不可加,必须此处聚合)。
+     *  累计收益率 = Σ累计收益 / Σ净投入 · 本期收益率 = Σ本期收益 / Σ期初市值 */
+    private static BigDecimal ratio(Map<Long, Position> byAccount,
+                                    java.util.function.Function<Position, BigDecimal> numFn,
+                                    java.util.function.Function<Position, BigDecimal> denFn) {
+        BigDecimal num = BigDecimal.ZERO, den = BigDecimal.ZERO;
         Set<Long> counted = new HashSet<>();
         for (Position p : byAccount.values()) {
-            if (p.acctNetPrincipal() == null || p.acctNetPrincipal().signum() <= 0) continue;
+            BigDecimal d = denFn.apply(p);
+            if (d == null || d.signum() <= 0) continue;
             counted.add(p.accountId());
-            principal = principal.add(p.acctNetPrincipal());
-            if (p.acctCumPnl() != null) pnl = pnl.add(p.acctCumPnl());
+            den = den.add(d);
+            BigDecimal n = numFn.apply(p);
+            if (n != null) num = num.add(n);
         }
-        if (counted.isEmpty() || principal.signum() == 0) return null;
-        return pnl.multiply(new BigDecimal("100")).divide(principal, 2, RoundingMode.HALF_EVEN);
+        if (counted.isEmpty() || den.signum() == 0) return null;
+        return num.multiply(new BigDecimal("100")).divide(den, 2, RoundingMode.HALF_EVEN);
     }
 }

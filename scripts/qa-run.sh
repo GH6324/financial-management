@@ -3948,7 +3948,7 @@ SMTPL="$RD/src/main/resources/templates/lens/_section.html"
   && grep -q 'function renderSunMetricBar' "$SMJS" && grep -q "sunMetric: 'value'" "$SMJS" \
   && grep -qF 'rows: [state.sunDims[0]], cols: [state.sunDims[1]]' "$SMJS" \
   && grep -q 'renderSunCenter' "$SMJS" \
-  && grep -q 'id="sunMetricBar"' "$SMTPL" && grep -q 'id="sunMetricPop"' "$SMTPL" && grep -q 'id="sunDegradeNote"' "$SMTPL"; } \
+  && grep -q 'id="sunMetricBar"' "$SMTPL" && grep -q 'id="sunMetricPop"' "$SMTPL" && grep -q 'id="sunDegradeNote"' "$SMTPL" && grep -q 'id="sunResetBtn"' "$SMTPL" && grep -q 'function resetLens' "$SMJS" && grep -q 'SUN_HOLDING_DEGRADE' "$SMJS" && grep -q 'netPrincipal' "$RD/src/main/java/com/family/finance/calc/lens/LensRegistry.java" && grep -q 'latestReturn' "$RD/src/main/java/com/family/finance/calc/lens/LensRegistry.java"; } \
   && log_ok "v13-SUN-METRIC 旭日多指标(金额/本期收益额/累计收益额/累计收益率 · 可加→弧长/比率→市值+热力 · 中心圆换指标 · 持仓级灰置+回退 · 后端零改动复用PivotEngine)" \
   || log_bad "v13-SUN-METRIC 旭日多指标缺件" "see lens.js(SUN_METRICS/renderSunburst rows=[内]cols=[外]) + lens/_section.html(sunMetricBar/Pop/DegradeNote)"
 
