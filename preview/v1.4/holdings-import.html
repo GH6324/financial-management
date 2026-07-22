@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>v1.4 Preview · 持仓截图智能解析</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  :root{
+    --paper:#f5efe2;--ink:#2b2620;--ink-soft:#5c5147;--ink-subtle:#6b6353;
+    --card:#fffdf6;--card-soft:#faf4e6;--rule:#d8cfba;
+    --brass:#b08642;--brass-deep:#8c6a33;--brass-soft:#e8d9b6;
+    --rust:#9c4a2a;--rust-soft:#ead3c6;--forest:#4f6b47;--forest-soft:#d6e0cf;
+  }
+  body{background:var(--paper);color:var(--ink)}
+  .card{background:var(--card);border:1px solid var(--rule)}
+  .mono{font-family:'JetBrains Mono',monospace}
+  .num-pos{color:var(--forest)} .num-neg{color:var(--rust)}
+  .phone{width:300px;border:10px solid #1d1a15;border-radius:34px;background:var(--card);box-shadow:0 18px 40px rgba(0,0,0,.22);overflow:hidden}
+  .phone-notch{height:22px;background:#1d1a15;border-radius:0 0 14px 14px;width:120px;margin:0 auto}
+  .thumb{width:76px;height:132px;border:1px solid var(--rule);border-radius:6px;background:linear-gradient(160deg,#fff,#f0ead9);position:relative;overflow:hidden}
+  .thumb .lines{position:absolute;inset:10px 8px auto 8px}
+  .thumb .ln{height:5px;border-radius:3px;background:var(--brass-soft);margin-bottom:6px}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 7px;border-radius:2px;border:1px solid var(--rule);background:var(--card-soft);color:var(--ink-soft);white-space:nowrap}
+  .sel{font-family:'JetBrains Mono',monospace;font-size:12px;border:1px solid var(--rule);background:var(--card);padding:3px 6px;border-radius:3px;color:var(--ink-soft)}
+  .inp{font-family:'JetBrains Mono',monospace;font-size:13px;border:1px solid var(--rule);background:var(--card);padding:4px 8px;border-radius:3px;color:var(--ink);width:100%}
+  tr.warn td{background:#fbf2d9}
+  .step-dot{width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--paper);font-family:'JetBrains Mono',monospace;font-size:13px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+  .seg{height:22px;display:inline-block}
+  .btn-ink{background:var(--ink);color:var(--paper);font-family:'JetBrains Mono',monospace;font-size:13px;padding:9px 20px;border-radius:3px;border:0;cursor:pointer}
+  .btn-paper{background:var(--card);color:var(--ink-soft);font-family:'JetBrains Mono',monospace;font-size:12px;padding:6px 13px;border:1px solid var(--rule);border-radius:3px;cursor:pointer}
+  .x{cursor:pointer;color:var(--ink-subtle)} .x:hover{color:var(--rust)}
+</style>
+</head>
+<body class="min-h-screen">
+<div class="max-w-6xl mx-auto px-4 lg:px-8 py-8">
+
+  <p class="eyebrow" style="letter-spacing:.2em;color:var(--brass-deep)">PREVIEW · v1.4 · 待评审</p>
+  <h1 class="font-display text-3xl lg:text-4xl mt-1">持仓截图智能解析 <span class="mono text-base align-middle" style="color:var(--ink-subtle)">大账户拆真实持仓</span></h1>
+  <p class="mt-3 text-sm leading-relaxed" style="color:var(--ink-subtle);max-width:56rem">
+    基金 / 理财 / 券商这类大账户里堆着十几支真实持仓,手 key 太累没人维护 →
+    用户咔咔<b>截图上传</b>,AI 视觉自动解析出每一支持仓(名称 + 市值),逐个建模并打标,
+    <b>扫一眼确认即入库</b>;让旭日下钻 / 交叉透视 / 资产体检能下钻到<b>真实持仓</b>,而不是「一个大账户一套粗糙标签」。
+    <span class="mono text-[12px]">(仿真数据 · 交互为示意)</span>
+  </p>
+
+  <section class="card p-5 mt-7 rounded">
+    <div class="eyebrow mb-3">痛 · 点</div>
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <div class="mono text-[12px] mb-2" style="color:var(--rust)">现在:一个账户 = 一坨,标不准</div>
+        <div class="text-sm font-medium mb-1">蚂蚁财富-基金 · <span class="mono">¥221,500</span></div>
+        <div class="w-full rounded overflow-hidden" style="border:1px solid var(--rule)">
+          <div class="seg" style="width:100%;background:#c9bfa8"></div>
+        </div>
+        <div class="mono text-[11px] mt-2" style="color:var(--ink-subtle)">
+          资产类型 = 权益(勉强)· 行业 = <b style="color:var(--rust)">?未知</b>(内含消费/科技/医药/债/货币,给不出单一行业)
+        </div>
+      </div>
+      <div>
+        <div class="mono text-[12px] mb-2" style="color:var(--forest)">解析后:拆成 8 支真实持仓,各自准确</div>
+        <div class="text-sm font-medium mb-1">蚂蚁财富-基金 · <span class="mono">8 支持仓</span></div>
+        <div class="w-full rounded overflow-hidden flex" style="border:1px solid var(--rule)">
+          <div class="seg" style="width:35.8%;background:#b0783c" title="消费 71000"></div>
+          <div class="seg" style="width:17.7%;background:#7c8f6b" title="货币现金 35050"></div>
+          <div class="seg" style="width:11.6%;background:#5f7bb0" title="科技互联网 23100"></div>
+          <div class="seg" style="width:10.0%;background:#9c6bb0" title="半导体 19850"></div>
+          <div class="seg" style="width:9.5%;background:#b04a4a" title="债 18900"></div>
+          <div class="seg" style="width:8.3%;background:#4f9b8e" title="医药 16400"></div>
+          <div class="seg" style="width:7.1%;background:#c9a24a" title="混合 14200"></div>
+        </div>
+        <div class="mono text-[11px] mt-2 flex flex-wrap gap-x-3 gap-y-1" style="color:var(--ink-subtle)">
+          <span><span style="color:#b0783c">&#9632;</span>消费</span><span><span style="color:#7c8f6b">&#9632;</span>货币现金</span>
+          <span><span style="color:#5f7bb0">&#9632;</span>科技互联网</span><span><span style="color:#9c6bb0">&#9632;</span>半导体</span>
+          <span><span style="color:#b04a4a">&#9632;</span>债</span><span><span style="color:#4f9b8e">&#9632;</span>医药</span><span><span style="color:#c9a24a">&#9632;</span>混合</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="flex items-center gap-3 mt-9 mb-4">
+    <div class="step-dot">1</div><div class="font-display text-xl">拍图上传</div>
+    <span class="mono text-[12px]" style="color:var(--ink-subtle)">&middot; 移动优先 &middot; 多张连拍</span>
+  </div>
+
+  <section class="grid lg:grid-cols-[300px_1fr] gap-7 items-start">
+    <div class="phone mx-auto">
+      <div class="phone-notch"></div>
+      <div class="p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="mono text-[11px]" style="color:var(--brass-deep)">&larr; 蚂蚁财富-基金</span>
+        </div>
+        <div class="text-[13px] font-medium mb-1">截图导入持仓</div>
+        <div class="mono text-[10px] mb-3" style="color:var(--ink-subtle)">把 app 的持仓列表页截图,选进来即可</div>
+        <div class="grid grid-cols-3 gap-2 mb-3">
+          <div class="thumb"><div class="lines"><div class="ln" style="width:80%"></div><div class="ln" style="width:60%"></div><div class="ln" style="width:70%"></div><div class="ln" style="width:50%"></div></div></div>
+          <div class="thumb"><div class="lines"><div class="ln" style="width:70%"></div><div class="ln" style="width:80%"></div><div class="ln" style="width:55%"></div><div class="ln" style="width:65%"></div></div></div>
+          <div class="rounded border-2 border-dashed flex items-center justify-center text-2xl" style="border-color:var(--rule);color:var(--ink-subtle);height:132px">&#65291;</div>
+        </div>
+        <button class="btn-ink w-full">识别这 2 张</button>
+        <div class="mono text-[9px] mt-2 leading-snug" style="color:var(--ink-subtle)">图片仅用于识别,识别完即删,不长期保存。仅你确认过的结果入库。</div>
+      </div>
+    </div>
+
+    <div class="card p-5 rounded self-stretch">
+      <div class="eyebrow mb-2">怎么做到的</div>
+      <ol class="text-sm space-y-3" style="color:var(--ink-soft)">
+        <li class="flex gap-3"><span class="badge">读</span><div><b>视觉转写</b>:截图 &rarr; 视觉大模型(qwen-vl),逐支持仓<b>原样读出</b>「名称 + 屏幕上的市值」。只读屏幕已有的数字,<b>不做任何计算</b>(收益率不让它算、成本不反推)。</div></li>
+        <li class="flex gap-3"><span class="badge">判</span><div><b>白名单打标</b>:每支持仓名 &rarr; 资产类型 / 行业 / 平台(复用现有 AI 打标白名单,枚举外的丢弃)。</div></li>
+        <li class="flex gap-3"><span class="badge">定</span><div><b>人在环确认</b>:进可编辑表,你改 / 删 / 加 + 对账,<b>显式点确认才落库</b>。所有加总 / 对账差由系统算好给你看。</div></li>
+      </ol>
+      <div class="mt-4 mono text-[11px] px-3 py-2 rounded" style="background:var(--card-soft);color:var(--ink-subtle);border-left:3px solid var(--brass)">
+        复用现有 Qwen / DashScope 基建(同端点换视觉模型)+ 现有持仓管线(PivotEngine 已支持持仓级拆分)&rarr; 高杠杆、下游近零改动。
+      </div>
+    </div>
+  </section>
+
+  <div class="flex items-center gap-3 mt-9 mb-4">
+    <div class="step-dot">2</div><div class="font-display text-xl">识别中</div>
+    <span class="mono text-[12px]" style="color:var(--ink-subtle)">&middot; 几秒 &middot; 逐张进度</span>
+  </div>
+  <section class="card p-5 rounded flex items-center gap-6 flex-wrap">
+    <div class="flex gap-3">
+      <div class="thumb" style="width:60px;height:104px;opacity:.55"></div>
+      <div class="thumb" style="width:60px;height:104px;opacity:.85;border-color:var(--brass)"></div>
+    </div>
+    <div class="flex-1 min-w-[220px]">
+      <div class="mono text-[12px] mb-2" style="color:var(--ink-soft)">第 2 / 2 张 &middot; 识别中&hellip;已读出 8 支持仓</div>
+      <div class="w-full rounded overflow-hidden" style="background:var(--card-soft);border:1px solid var(--rule);height:10px">
+        <div style="width:82%;height:100%;background:var(--brass)"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="flex items-center gap-3 mt-9 mb-4">
+    <div class="step-dot">3</div><div class="font-display text-xl">确认 &middot; 可编辑</div>
+    <span class="mono text-[12px]" style="color:var(--ink-subtle)">&middot; 改 / 删 / 加 &middot; 标黄=请核对 &middot; 确认才入库</span>
+  </div>
+
+  <section class="card p-4 lg:p-5 rounded">
+    <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+      <div class="text-sm"><b>蚂蚁财富-基金</b> · 识别到 <b id="cnt">8</b> 支持仓 <span class="mono text-[11px]" style="color:var(--ink-subtle)">(勾选要导入的)</span></div>
+      <button class="btn-paper" onclick="addRow()">&#65291; 手动加一行</button>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm" style="border-collapse:collapse">
+        <thead>
+          <tr class="mono text-[11px]" style="color:var(--ink-subtle);text-align:left">
+            <th class="py-2 pr-2"></th>
+            <th class="py-2 pr-3">持仓名称</th>
+            <th class="py-2 pr-3" style="text-align:right">市值 &yen;</th>
+            <th class="py-2 pr-3">资产类型</th>
+            <th class="py-2 pr-3">行业投向</th>
+            <th class="py-2 pr-3">平台</th>
+            <th class="py-2"></th>
+          </tr>
+        </thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+
+    <div class="mt-4 rounded px-4 py-3 flex items-center justify-between flex-wrap gap-3" style="background:var(--card-soft);border:1px solid var(--rule)">
+      <div class="mono text-[12px]" style="color:var(--ink-soft)">
+        &Sigma; 勾选持仓 = <b id="sum" class="num-pos">&yen;198,500</b>
+        &nbsp;&middot;&nbsp; 账户原记 = <b>&yen;221,500</b>
+        &nbsp;&middot;&nbsp; 差 <b id="diff" class="num-neg">&yen;23,000</b>
+      </div>
+      <div id="reconMsg" class="mono text-[11px]" style="color:var(--rust)">
+        差 &yen;23,000 未识别 &rarr; 建议补一笔「现金 / 其他」行,或以持仓为准更新账户。系统不会悄悄改你的账户总额。
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-3 mt-4">
+      <button class="btn-paper">取消</button>
+      <button class="btn-ink" id="confirmBtn">确认导入 <span id="cnt2">8</span> 支</button>
+    </div>
+  </section>
+
+  <div class="flex items-center gap-3 mt-9 mb-4">
+    <div class="step-dot" style="background:var(--forest)">&#10003;</div><div class="font-display text-xl">导入后</div>
+    <span class="mono text-[12px]" style="color:var(--ink-subtle)">&middot; 账户详情直接显示 N 支持仓 &middot; 旭日/透视/体检自动细分</span>
+  </div>
+  <section class="card p-5 rounded">
+    <div class="text-sm mb-3"><b>蚂蚁财富-基金</b> · 8 支持仓 · <span class="mono">&yen;198,500</span> <span class="mono text-[11px]" style="color:var(--ink-subtle)">+ 现金差 &yen;23,000(待补)</span></div>
+    <div id="resultList" class="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm"></div>
+    <div class="mt-4 mono text-[11px]" style="color:var(--ink-subtle)">从此这个账户在旭日下钻里不再是「一坨」,而是按<b>真实基金的行业 / 资产类型</b>拆开(承 PivotEngine 持仓级机制,零额外改)。</div>
+  </section>
+
+  <p class="mt-8 mono text-[11px]" style="color:var(--ink-subtle);max-width:56rem;line-height:1.7">
+    诚实边界:市值取屏幕值、识别不确定的行标黄让你核;对账差异只提示不自动改;收益率 / 成本这类「算出来的」一律不让模型编,缺就空着你补。
+    非目标:不做每支基金实时净值自动定价(截图市值 = 最新,再传即刷新)&middot; 不做券商下单 &middot; 不做零确认全自动。
+  </p>
+</div>
+
+<script>
+  const DATA = [
+    {n:'易方达蓝筹精选混合',      v:42300, a:'权益',   i:'消费',       p:'支付宝', warn:false},
+    {n:'招商中证白酒指数(LOF)',   v:28700, a:'权益',   i:'消费',       p:'支付宝', warn:false},
+    {n:'天弘余额宝货币',          v:35050, a:'现金等价', i:'货币现金',   p:'支付宝', warn:false},
+    {n:'广发纳斯达克100(QDII)',   v:23100, a:'权益',   i:'科技互联网', p:'支付宝', warn:false},
+    {n:'华夏国证半导体芯片ETF联接', v:19850, a:'权益',   i:'半导体',     p:'支付宝', warn:false},
+    {n:'易方达中短期债券',        v:18900, a:'固定收益', i:'债',         p:'支付宝', warn:false},
+    {n:'中欧医疗健康混合',        v:16400, a:'权益',   i:'医药',       p:'支付宝', warn:false},
+    {n:'富国天惠成长混合',        v:14200, a:'权益',   i:'混合配置',   p:'支付宝', warn:true},
+  ];
+  const ACLS=['权益','固定收益','现金等价','另类','不动产','保险'];
+  const IND =['消费','科技互联网','半导体','医药','债','货币现金','混合配置','新能源','金融','红利公用','其他'];
+  const ACCOUNT_ORIG = 221500;
+  const COL={'消费':'#b0783c','货币现金':'#7c8f6b','科技互联网':'#5f7bb0','半导体':'#9c6bb0','债':'#b04a4a','医药':'#4f9b8e','混合配置':'#c9a24a'};
+
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function opt(list,cur){return list.map(function(x){return '<option '+(x===cur?'selected':'')+'>'+esc(x)+'</option>';}).join('');}
+
+  function render(){
+    var tb=document.getElementById('tb'); tb.textContent='';
+    DATA.forEach(function(r,idx){
+      var tr=document.createElement('tr');
+      tr.style.borderTop='1px solid var(--rule)';
+      if(r.warn) tr.className='warn';
+      tr.innerHTML=
+        '<td class="py-2 pr-2"><input type="checkbox" '+(r.on!==false?'checked':'')+' onchange="DATA['+idx+'].on=this.checked;recalc()"></td>'+
+        '<td class="py-2 pr-3"><input class="inp" value="'+esc(r.n)+'" onchange="DATA['+idx+'].n=this.value;buildResult()">'+
+            (r.warn?'<div class="mono text-[10px]" style="color:var(--rust)">&#9873; 名称部分遮挡,请核对</div>':'')+'</td>'+
+        '<td class="py-2 pr-3" style="text-align:right"><input class="inp mono" style="width:96px;text-align:right" value="'+r.v+'" onchange="DATA['+idx+'].v=+this.value||0;recalc()"></td>'+
+        '<td class="py-2 pr-3"><select class="sel" onchange="DATA['+idx+'].a=this.value">'+opt(ACLS,r.a)+'</select></td>'+
+        '<td class="py-2 pr-3"><select class="sel" onchange="DATA['+idx+'].i=this.value;buildResult()">'+opt(IND,r.i)+'</select></td>'+
+        '<td class="py-2 pr-3"><input class="inp" style="width:92px" value="'+esc(r.p)+'" onchange="DATA['+idx+'].p=this.value"></td>'+
+        '<td class="py-2"><span class="x" title="删除" onclick="DATA.splice('+idx+',1);render();recalc();buildResult()">&#10005;</span></td>';
+      tb.appendChild(tr);
+    });
+    recalc(); buildResult();
+  }
+  function recalc(){
+    var sum=DATA.filter(function(r){return r.on!==false;}).reduce(function(s,r){return s+(+r.v||0);},0);
+    var diff=ACCOUNT_ORIG-sum;
+    document.getElementById('sum').textContent='¥'+sum.toLocaleString();
+    var d=document.getElementById('diff'); d.textContent=(diff<0?'-¥':'¥')+Math.abs(diff).toLocaleString();
+    d.className=diff===0?'num-pos':'num-neg';
+    var n=DATA.filter(function(r){return r.on!==false;}).length;
+    document.getElementById('cnt').textContent=DATA.length;
+    document.getElementById('cnt2').textContent=n;
+    var msg=document.getElementById('reconMsg');
+    if(Math.abs(diff)<500){ msg.style.color='var(--forest)'; msg.textContent='✓ 与账户原额基本吻合(差 <¥500),可直接导入。'; }
+    else if(diff>0){ msg.style.color='var(--rust)'; msg.textContent='差 ¥'+diff.toLocaleString()+' 未识别 → 建议补一笔「现金 / 其他」行,或以持仓为准更新账户。系统不会悄悄改你的账户总额。'; }
+    else { msg.style.color='var(--rust)'; msg.textContent='Σ 持仓超出账户原额 ¥'+Math.abs(diff).toLocaleString()+' → 请核对是否多识别 / 重复。'; }
+  }
+  function addRow(){ DATA.push({n:'新持仓',v:0,a:'权益',i:'其他',p:'支付宝',on:true}); render(); }
+  function buildResult(){
+    var el=document.getElementById('resultList'); el.textContent='';
+    DATA.filter(function(r){return r.on!==false;}).forEach(function(r){
+      var c=COL[r.i]||'#b08642';
+      var row=document.createElement('div');
+      row.className='flex items-center justify-between gap-2 py-1';
+      row.style.borderBottom='1px dashed var(--rule)';
+      row.innerHTML='<span class="flex items-center gap-2 truncate"><span style="width:9px;height:9px;background:'+c+';border-radius:2px;flex:none"></span><span class="truncate">'+esc(r.n)+'</span>'+
+        '<span class="badge">'+esc(r.i)+'</span></span><span class="mono" style="color:var(--ink-soft)">¥'+(+r.v||0).toLocaleString()+'</span>';
+      el.appendChild(row);
+    });
+  }
+  document.getElementById('confirmBtn').onclick=function(){
+    var n=DATA.filter(function(r){return r.on!==false;}).length;
+    alert('(示意)将创建 '+n+' 支持仓到「蚂蚁财富-基金」账户。真实实现会显式落库 + 记审计,原图识别后即删。');
+  };
+  render();
+</script>
+</body>
+</html>
