@@ -4,14 +4,24 @@
 <header th:fragment="nav(active, me, state)" class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
   <div class="max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
     <div class="flex items-center gap-12">
-      <a th:href="@{/}" class="flex items-center gap-2 no-underline"
+      <a th:href="@{/}" class="flex items-center gap-2.5 no-underline"
          th:with="preset=${state.family.logoPreset != null ? state.family.logoPreset : 'icon2'}">
         <img th:src="${state.family.logoPath != null} ? @{|/uploads/${state.family.logoPath}|} : @{/img/presets/{p}-192.png(p=${preset},v=${buildVersion})}"
              onerror="this.onerror=null;this.src='/img/default-logo.svg'"
              alt="logo" class="w-7 h-7 object-contain"/>
-        <span class="font-display text-xl font-medium" th:text="${state.family.brandText}">账房</span>
-        <span class="font-mono text-[10px] tracking-[0.2em] text-ink-subtle"
-              th:text="'№ ' + ${#strings.substring(state.family.name, 0, 1)}">№ 张</span>
+        <span class="flex flex-col leading-none">
+          <span class="flex items-baseline gap-2">
+            <span class="font-display text-xl font-medium" th:text="${state.family.brandText}">账房</span>
+            <span class="font-mono text-[10px] tracking-[0.2em] text-ink-subtle"
+                  th:text="'№ ' + ${#strings.substring(state.family.name, 0, 1)}">№ 张</span>
+          </span>
+          <!-- v1.3.1 · 版本号(账册「版次」标记 · brass 细线徽记)· 来源 app.version -->
+          <span th:if="${appVersion != null}"
+                class="inline-flex items-center gap-1 font-mono text-[9px] tracking-[0.16em] text-brass-deep mt-[3px]">
+            <span class="inline-block w-1.5 h-1.5 border border-brass-deep rotate-45" style="opacity:.7"></span>
+            <span th:text="'v' + ${appVersion}">v1.3.0</span>
+          </span>
+        </span>
       </a>
       <nav class="hidden md:flex items-center gap-7 font-mono text-[11px] tracking-[0.14em] uppercase">
         <a th:href="@{/dashboard}" class="no-underline"

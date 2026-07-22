@@ -3952,6 +3952,18 @@ SMTPL="$RD/src/main/resources/templates/lens/_section.html"
   && log_ok "v13-SUN-METRIC 旭日多指标(金额/本期收益额/累计收益额/累计收益率 · 可加→弧长/比率→市值+热力 · 中心圆换指标 · 持仓级灰置+回退 · 后端零改动复用PivotEngine)" \
   || log_bad "v13-SUN-METRIC 旭日多指标缺件" "see lens.js(SUN_METRICS/renderSunburst rows=[内]cols=[外]) + lens/_section.html(sunMetricBar/Pop/DegradeNote)"
 
+# v13-1-NAVVER · nav logo 下版本徽记(app.version → GlobalModelAdvice appVersion → nav.html 渲染)
+# 注:app.version 与发布 tag 的一致性由 release-prod 预检硬门(本地工具)保证,此处只守随仓库发布的 3 个文件
+NVYML="$RD/src/main/resources/application.yml"
+NVADV="$RD/src/main/java/com/family/finance/common/GlobalModelAdvice.java"
+NVNAV="$RD/src/main/resources/templates/fragments/nav.html"
+{ grep -qE 'version: \$\{APP_VERSION:[0-9]+\.[0-9]+\.[0-9]+' "$NVYML" \
+  && grep -q '@ModelAttribute("appVersion")' "$NVADV" \
+  && grep -q "@Value(\"\${app.version" "$NVADV" \
+  && grep -q "'v' + \${appVersion}" "$NVNAV"; } \
+  && log_ok "v13-1-NAVVER nav 版本徽记(app.version 单一来源 → appVersion 注入 → logo 下 ◇v 徽记)" \
+  || log_bad "v13-1-NAVVER 版本徽记缺件" "see application.yml(app.version) + GlobalModelAdvice(appVersion) + nav.html(◇v${appVersion})"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
