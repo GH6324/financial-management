@@ -95,6 +95,10 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v1.3.1 · 版本徽记](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.3.1)
+
+小更新:页面左上角 logo / 名称下方显示**当前版本号**(`◇ v1.3.1`,brass 菱形徽记,账册「版次」风格,PC / 移动一致)。版本号来自 `app.version` 单一来源,发布预检加硬门锁定与发布 tag 一致,prod 版本号永不滞后。无 schema 变更,向后兼容。
+
 ### [v1.3.0 · 旭日下钻 · 可选分析指标](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.3.0)
 
 旭日不再只能看「金额」——像交叉表一样选**任意指标**分析(**金额 / 净投入 / 本期收益额 / 本期收益率 / 累计收益额 / 累计收益率**),按任意维度下钻;点中心圆换指标、切片排行与引线随动。比率类(收益率)不按角度分、弧长仍是市值+数值落标签(诚实);行业/地域持仓级下收益类灰置不假分摊;AI 洞察加收益信号(本期最大拖累/最赚/收益率最低)。后端近零改动(复用 `/lens/query` + PivotEngine),无 schema 变更。
@@ -105,10 +109,6 @@
     <td width="20%" align="center"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.3.0/v130_lens_m.jpg"><br><sub><b>移动 · 收益额</b></sub></td>
   </tr>
 </table>
-
-### [v1.2.4 · 功能截图套浏览器/手机框(门面升级)](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.2.4)
-
-补丁:首页 + README 功能截图按开源通行做法套框 —— 桌面套极简浏览器窗口框(圆点 + 地址栏)、移动套手机边框 + 投影,像真实产品陈列;首页集合图同时重制最新 UI + 2x 高清。纯静态资源,无 schema 变更。
 
 
 
