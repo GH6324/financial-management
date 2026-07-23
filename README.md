@@ -21,7 +21,7 @@
   <tr>
     <td width="33%"><img src="docs/screenshots/fs_accounts.jpg" alt="账户簿"><br><sub><b>账户簿</b> · 9 类账户 · 按成员归集 · 划转 / 体检 / 账本 / 一键导出</sub></td>
     <td width="33%"><img src="docs/screenshots/fs_tags.jpg" alt="多维打标"><br><sub><b>多维打标</b> · 账户 › 持仓 · 资产类型 / 平台 / 行业 / 用途 · AI 按底层投向推荐</sub></td>
-    <td width="33%"><img src="docs/screenshots/fs_import.jpg" alt="AI 截图导入持仓"><br><sub><b>AI 截图导入持仓</b> · 拍张持仓截图 → 识别每支「名称+市值」自动打标 → 左旧右新三态比对(更新/新增/卖出)· 低置信标疑 ⚑</sub></td>
+    <td width="33%"><img src="docs/screenshots/fs_import.jpg" alt="AI 截图导入持仓"><br><sub><b>AI 截图导入持仓</b> · 拍图识别每支「名称+市值」+ 自动打标 · 左旧右新三态比对确认</sub></td>
   </tr>
 </table>
 
