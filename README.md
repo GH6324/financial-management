@@ -95,9 +95,9 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
-### [v1.4.2 · 填报/导入打磨与 bug 修复](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.4.2)
+### [v1.4.3 · 旭日「重置」回到初始视图](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.4.3)
 
-承 v1.4.0/v1.4.1 的一轮实测打磨 + 一处 bug 修复:**本期流水删除 ✕ 之前点了没反应(HTMX 目标失效)已修复**,删转账流水二次确认点明「同时影响两个账户」;AI 截图导入确认后回到进入的填报页;划转目标下拉加「账户名 · 主理人 + 头像」防重名选错;手机端「填报」AI 徽记补齐;导入图片可点开放大缩小 + ✕ 删错图 + 失败后重新识别。无迁移无 schema,平滑升级。
+资产透视旭日下钻的「重置」此前只重置到当前看板 —— 切了别的看板再点回不到刷新初始态。改为**完全回到页面刷新后的初始状态**:默认看板「资产类型」+ 默认指标 + 清空下钻/明细。无迁移无 schema,平滑升级。(承 v1.4.2:流水删除 ✕ 失效修复 + 转账双账户二次确认 + 导入回填报页 + 划转主理人头像 + 手机 AI 徽记 + 导入图片查看/放大/删除。)
 
 ### [v1.4.0 · 持仓截图智能解析](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.4.0)
 
