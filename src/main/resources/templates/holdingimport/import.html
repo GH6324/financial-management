@@ -24,7 +24,7 @@
     <p class="text-ink-soft text-sm">视觉识别未启用。请到 <a th:href="@{/admin/integrations}" class="text-brass-deep">管理 · 集成中心</a> 配置通义千问 key 并选择视觉模型(Qwen VL-Max)。</p>
   </section>
 
-  <div th:unless="${visionUnavailable}" th:with="st=${imp.status}">
+  <div th:if="${imp != null}">
     <section class="paper-card p-6 mb-5">
       <div class="flex items-baseline justify-between flex-wrap gap-2">
         <h1 class="font-display text-2xl">截图导入持仓 · <span th:text="${account.displayName}">账户</span></h1>
@@ -34,7 +34,7 @@
     </section>
 
     <!-- ============ UPLOADING:上传 + 压缩 + 成本 ============ -->
-    <section th:if="${st == 'UPLOADING'}" id="uploadSection" class="paper-card p-6" th:attr="data-import=${imp.id},data-model=${visionModel}">
+    <section th:if="${imp.status == 'UPLOADING'}" id="uploadSection" class="paper-card p-6" th:attr="data-import=${imp.id},data-model=${visionModel}">
       <input id="fileInput" type="file" accept="image/*" multiple class="hidden">
       <div id="dropZone" class="border-2 border-dashed border-rule rounded-lg p-8 text-center cursor-pointer hover:bg-card-soft" onclick="document.getElementById('fileInput').click()">
         <div class="font-display text-lg text-ink-soft">＋ 选择 / 拍摄持仓截图</div>
@@ -53,7 +53,7 @@
     </section>
 
     <!-- ============ SCANNING:扫描动画 + 轮询 ============ -->
-    <section th:if="${st == 'SCANNING'}" class="paper-card p-6" th:attr="data-import=${imp.id}" id="scanSection">
+    <section th:if="${imp.status == 'SCANNING'}" class="paper-card p-6" th:attr="data-import=${imp.id}" id="scanSection">
       <div class="flex items-center gap-5 flex-wrap">
         <div class="scanbox"></div>
         <div class="flex-1 min-w-[220px]">
@@ -66,7 +66,7 @@
     </section>
 
     <!-- ============ REVIEW:左旧右新比对 ============ -->
-    <form th:if="${st == 'REVIEW'}" th:action="@{'/entry/import/' + ${imp.id} + '/confirm'}" method="post" class="paper-card p-5" id="reviewForm">
+    <form th:if="${imp.status == 'REVIEW'}" th:action="@{'/entry/import/' + ${imp.id} + '/confirm'}" method="post" class="paper-card p-5" id="reviewForm">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
       <div th:if="${imp.scanError != null}" class="font-mono text-[12px] text-rust mb-3" th:text="'部分识别有问题:' + ${imp.scanError}"></div>
       <div class="grid grid-cols-[1fr_auto_1fr] gap-2 mb-2 font-mono text-[11px] text-ink-subtle">
