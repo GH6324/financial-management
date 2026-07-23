@@ -95,20 +95,20 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
-### [v1.3.1 · 版本徽记](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.3.1)
+### [v1.4.0 · 持仓截图智能解析](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.4.0)
 
-小更新:页面左上角 logo / 名称下方显示**当前版本号**(`◇ v1.3.1`,brass 菱形徽记,账册「版次」风格,PC / 移动一致)。版本号来自 `app.version` 单一来源,发布预检加硬门锁定与发布 tag 一致,prod 版本号永不滞后。无 schema 变更,向后兼容。
-
-### [v1.3.0 · 旭日下钻 · 可选分析指标](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.3.0)
-
-旭日不再只能看「金额」——像交叉表一样选**任意指标**分析(**金额 / 净投入 / 本期收益额 / 本期收益率 / 累计收益额 / 累计收益率**),按任意维度下钻;点中心圆换指标、切片排行与引线随动。比率类(收益率)不按角度分、弧长仍是市值+数值落标签(诚实);行业/地域持仓级下收益类灰置不假分摊;AI 洞察加收益信号(本期最大拖累/最赚/收益率最低)。后端近零改动(复用 `/lens/query` + PivotEngine),无 schema 变更。
+基金/理财/券商大账户里堆着十几支真实持仓,手 key 太累没人维护 → **咔咔截图上传,AI 视觉识别出每一支「名称+市值」并自动打标**,和已有持仓做左旧右新三态比对(匹配更新/新增/卖出),扫一眼确认即入库;之后旭日/透视/体检自动下钻到真实基金。`qwen-vl-max` 只转写不算数、识别不准诚实标疑、跳汇总行;状态机断点续看;记「估值调整」流水(钱赚非人赚)可回看逐项+原图;只动截图导入的持仓不碰手填/券商。成本几毛/月(免费额度内)。含 2 个向后兼容迁移,老账户曲线不动。
 
 <table>
   <tr>
-    <td width="60%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.3.0/v130_lens_value_pc.jpg"><br><sub><b>桌面 · 6 指标选择器 + 旭日 + 切片排行</b></sub></td>
-    <td width="20%" align="center"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.3.0/v130_lens_m.jpg"><br><sub><b>移动 · 收益额</b></sub></td>
+    <td width="62%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.4.0/v140_compare_pc.jpg"><br><sub><b>左旧右新三态比对</b> · 每支基金 + 自动打标 · 金额隐私糊</sub></td>
+    <td width="22%" align="center"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.4.0/v140_compare_m.jpg"><br><sub><b>移动端比对</b></sub></td>
   </tr>
 </table>
+
+### [v1.3.1 · 版本徽记](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.3.1)
+
+小更新:页面左上角 logo / 名称下方显示**当前版本号**(brass 菱形徽记,账册「版次」风格,PC / 移动一致)。版本号来自 `app.version` 单一来源,发布预检加硬门锁定与发布 tag 一致。无 schema 变更,向后兼容。
 
 
 
