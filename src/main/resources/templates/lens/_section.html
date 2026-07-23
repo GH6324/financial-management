@@ -17,16 +17,19 @@
 
   <!-- v1.3 · 指标 + 看板 + 路径 同卡对齐(指标在上;两行都横滑不换行,与看板一致)· 点旭日中心圆亦可换指标 -->
   <section class="paper-card px-4 py-3 mb-4">
-    <!-- 分析指标(标签 + pills 由 lens.js 填 · overflow-x 横滑) -->
-    <div id="sunMetricBar" class="flex items-center gap-2 overflow-x-auto pb-1"></div>
+    <!-- 分析指标(标签 + pills 由 lens.js 填 · overflow-x 横滑 · .lens-hscroll 右缘渐隐提示还有更多) -->
+    <div class="lens-hscroll"><div id="sunMetricBar" class="flex items-center gap-2 overflow-x-auto pb-1"></div></div>
     <div id="sunDegradeNote" class="hidden text-[11px] mt-2 px-2.5 py-1" style="background:var(--rust-soft);color:var(--rust);border-left:3px solid var(--rust)">
       行业 / 地域(持仓级)维度会把持仓账户拆开 → 净投入 / 本期收益额 / 本期收益率 / 累计收益率无法精确归因(已灰置)· 累计收益额改用持有口径(市值−成本)仍可看。</div>
-    <!-- 看板 chips -->
-    <div id="boardChips" class="flex items-center gap-2 overflow-x-auto pb-1 mt-2"></div>
-    <!-- 路径 + 重置 + AI 解读(操作统一放这) -->
+    <!-- 看板 chips(同样横滑 + 渐隐提示) -->
+    <div class="lens-hscroll mt-2"><div id="boardChips" class="flex items-center gap-2 overflow-x-auto pb-1"></div></div>
+    <!-- 路径(当前范围) -->
     <div class="flex items-center gap-2 mt-2 flex-wrap">
       <span class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle flex-none w-14 whitespace-nowrap">当前范围</span>
       <div id="crumbs" class="flex items-center gap-1.5 flex-wrap font-mono text-xs text-brass-deep flex-1"></div>
+    </div>
+    <!-- v1.4.x · 重置 + AI 解读:独立成行、右对齐(此前与面包屑挤一行,手机易乱换行) -->
+    <div class="flex items-center justify-end gap-2 mt-2 flex-wrap">
       <button id="sunResetBtn" type="button" class="pill whitespace-nowrap inline-flex items-center gap-1" title="回到初始视图(默认看板「资产类型」· 清空下钻与指标 · 等同刷新后)" style="cursor:pointer">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>重置</button>
       <button th:if="${lensAiAvailable}" id="lensInsightBtn" class="pill whitespace-nowrap" style="border-color:var(--brass-deep);color:var(--brass-deep)">AI 解读当前视图</button>

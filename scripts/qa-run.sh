@@ -4015,6 +4015,19 @@ HILENS="$RD/src/main/resources/static/js/lens.js"
   && log_ok "v142-LENS-RESET(旭日重置回默认看板 PRESETS[0]+复位 measures,不再只重置当前看板)" \
   || log_bad "v142-LENS-RESET 缺件" "see lens.js resetLens 应 applyBoard(PRESETS[0]) + 复位 measures"
 
+# v143-LENS-TOC-UX · 三点 UX(隐私浮标不遮TOC + 横滑提示 + 重置/AI按钮独立行)
+HITOC="$RD/src/main/resources/static/js/toc.js"
+HICSS="$RD/src/main/resources/static/css/style.css"
+HILENSSEC="$RD/src/main/resources/templates/lens/_section.html"
+{ grep -q "classList.add('toc-open')" "$HITOC" && grep -q "classList.remove('toc-open')" "$HITOC" \
+  && grep -qF 'body.toc-open #priv-float' "$HICSS" \
+  && grep -q '.lens-hscroll' "$HICSS" \
+  && grep -q 'lens-hscroll' "$HILENSSEC" \
+  && grep -q 'markHScroll' "$HILENS" \
+  && grep -q 'justify-end' "$HILENSSEC"; } \
+  && log_ok "v143-LENS-TOC-UX(TOC开时隐藏隐私浮标 + 旭日指标/看板横滑渐隐提示 + 重置/AI按钮独立右对齐行)" \
+  || log_bad "v143-LENS-TOC-UX 缺件" "see toc.js(toc-open) + style.css(body.toc-open/#priv-float + .lens-hscroll) + _section.html(lens-hscroll/justify-end) + lens.js(markHScroll)"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

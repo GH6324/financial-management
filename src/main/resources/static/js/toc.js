@@ -41,8 +41,9 @@
     var fab = document.getElementById('toc-fab-btn'),
         sheet = document.getElementById('toc-sheet'),
         mask = document.getElementById('toc-mask');
-    function closeSheet() { if (!sheet) return; sheet.classList.remove('open'); mask.classList.remove('open'); if (fab) fab.setAttribute('aria-expanded', 'false'); }
-    function openSheet() { if (!sheet) return; sheet.classList.add('open'); mask.classList.add('open'); if (fab) fab.setAttribute('aria-expanded', 'true'); }
+    // v1.4.x · sheet 开时给 body 加 toc-open → CSS 隐藏隐私眼睛浮标/目录浮钮(否则左下浮标压住 sheet 底部条目)
+    function closeSheet() { if (!sheet) return; sheet.classList.remove('open'); mask.classList.remove('open'); document.body.classList.remove('toc-open'); if (fab) fab.setAttribute('aria-expanded', 'false'); }
+    function openSheet() { if (!sheet) return; sheet.classList.add('open'); mask.classList.add('open'); document.body.classList.add('toc-open'); if (fab) fab.setAttribute('aria-expanded', 'true'); }
     if (fab && sheet && mask) {
       fab.addEventListener('click', openSheet);
       mask.addEventListener('click', closeSheet);

@@ -10,13 +10,24 @@
 
 ## 功能截图
 
+### 旗舰 · AI 截图导入持仓(v1.4）
+
+基金 / 理财 / 券商大账户里堆着十几支真实持仓,手 key 太累、没人愿意维护 —— **拍张持仓截图上传,视觉大模型识别出每一支「名称 + 市值」并自动按底层投向打标**(资产类型 / 行业),和你已有持仓做左旧右新三态比对(更新 / 新增 / 卖出),扫一眼确认即入库。之后旭日 / 透视 / 资产体检自动下钻到真实基金颗粒。识别只转写不算数、识别不准诚实标疑 ⚑、差额只提示不乱改账户总额;只动截图导入的持仓,手填 / 券商持仓永不被碰。
+
+<table>
+  <tr>
+    <td width="72%"><img src="docs/screenshots/fs_import.jpg" alt="AI 截图导入持仓 · 三态比对"><br><sub><b>左旧右新三态比对</b> · 识别市值 + 自动打标(资产类型 / 行业)· 低置信标疑 ⚑ · Σ 差额只提示</sub></td>
+    <td width="28%" align="center"><img src="docs/screenshots/fs_m_import.jpg" width="170" alt="移动端 AI 截图导入"><br><sub><b>移动端</b> · 拍照即传即识别</sub></td>
+  </tr>
+</table>
+
 ### 桌面端
 
 <table>
   <tr>
     <td width="33%"><img src="docs/screenshots/fs_dashboard.jpg" alt="仪表盘"><br><sub><b>仪表盘</b> · 净资产趋势(CPI 购买力线 + M2 社会财富线)+ 资产配置环形 + KPI 横条</sub></td>
     <td width="33%"><img src="docs/screenshots/fs_checkup.jpg" alt="资产体检"><br><sub><b>资产体检</b> · 配置 / 风险 / 流动性 / 收益 四维 + AI 综合诊断(数字工程算,LLM 只解读)</sub></td>
-    <td width="33%"><img src="docs/screenshots/fs_lens.jpg" alt="资产透视"><br><sub><b>资产透视</b> · 旭日下钻 + 交叉透视表 + 钻到持仓明细 · 6 块预设看板 · 同维值同色</sub></td>
+    <td width="33%"><img src="docs/screenshots/fs_lens.jpg" alt="资产透视"><br><sub><b>资产透视</b> · 旭日下钻 + 交叉透视表 + 钻到持仓明细 · 10 块预设看板 · 6 分析指标 · 同维值同色</sub></td>
   </tr>
   <tr>
     <td width="33%"><img src="docs/screenshots/fs_accounts.jpg" alt="账户簿"><br><sub><b>账户簿</b> · 9 类账户 · 按成员归集 · 划转 / 体检 / 账本 / 一键导出</sub></td>

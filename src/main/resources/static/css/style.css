@@ -451,6 +451,20 @@ h1, h2, h3, h4 {
 .toc-sheet-x { width:32px; height:32px; border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size: calc(20px * var(--fs-scale,1)); line-height:1; }
 .toc-sheet .toc-node { padding-top:11px; padding-bottom:11px; min-height:44px; box-sizing:border-box; }
 .toc-sheet .toc-node .lbl { font-size: calc(15px * var(--fs-scale,1)); }
+/* v1.4.x · 目录 sheet 打开时,收起左下角浮钮(隐私眼睛 + 目录浮钮),避免压住 sheet 底部条目 */
+body.toc-open #priv-float, body.toc-open .toc-fab { display: none !important; }
+/* v1.4.x · 旭日「分析指标 / 看板」横滑行的"还有更多"提示:右缘渐隐 + › 箭头,溢出且未滑到底时出现 */
+.lens-hscroll { position: relative; }
+.lens-hscroll > .overflow-x-auto { scrollbar-width: none; }
+.lens-hscroll > .overflow-x-auto::-webkit-scrollbar { display: none; }
+.lens-hscroll::after {
+  content: '\203A'; position: absolute; top: 0; right: 0; bottom: 5px; width: 34px;
+  display: flex; align-items: center; justify-content: flex-end; padding-right: 5px;
+  color: var(--brass-deep); font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700;
+  background: linear-gradient(to left, var(--card) 38%, transparent);
+  pointer-events: none; opacity: 0; transition: opacity .2s; border-radius: 0 8px 8px 0;
+}
+.lens-hscroll.more::after { opacity: 1; }
 @media (max-width: 640px) {
   .kpi-info-panel {
     /* 手机端:固定到屏幕顶部 · 不跟 button 位置 */

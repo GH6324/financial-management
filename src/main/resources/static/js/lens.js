@@ -151,6 +151,13 @@
     for (var i = 0; i < DIMS.length; i++) if (used.indexOf(DIMS[i].key) < 0) return DIMS[i].key;
     return DIMS[0].key;
   }
+  /* v1.4.x · 横滑行"还有更多"提示:溢出且未滑到底 → 给 .lens-hscroll 包裹加 .more(CSS 右缘渐隐 + ›) */
+  function markHScroll(scroller) {
+    if (!scroller) return;
+    var wrap = scroller.parentElement;
+    if (!wrap || wrap.className.indexOf('lens-hscroll') < 0) return;
+    wrap.classList.toggle('more', (scroller.scrollWidth - scroller.clientWidth - scroller.scrollLeft) > 4);
+  }
 
   /* ---------- 看板 ---------- */
   function applyBoard(b, key) {
@@ -190,6 +197,7 @@
         applyBoard({ rows: spec.rows, cols: spec.cols, filters: spec.filters }, 'u' + b.id);
       };
     });
+    requestAnimationFrame(function () { markHScroll(el); });
     document.getElementById('builderToggle').onclick = function () {
       var w = document.getElementById('builderWrap');
       w.classList.toggle('hidden');
@@ -362,6 +370,7 @@
       bar.innerHTML = '<span class="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-subtle flex-none w-14 whitespace-nowrap">分析指标</span>' +
         SUN_METRICS.map(function (m) { return pillHtml(m, false); }).join('');
       bar.querySelectorAll('[data-sm]').forEach(function (btn) { if (!btn.disabled) btn.onclick = function () { setSunMetric(btn.dataset.sm); }; });
+      requestAnimationFrame(function () { markHScroll(bar); });
     }
     var pop = document.getElementById('sunMetricPop');
     if (pop) {
@@ -785,6 +794,11 @@
     if (sc) sc.onclick = function (e) { e.stopPropagation(); var pop = document.getElementById('sunMetricPop'); if (pop) pop.classList.toggle('hidden'); };
     var rb = document.getElementById('sunResetBtn'); if (rb) rb.onclick = resetLens;   // v1.3 #3 重置
     document.addEventListener('click', function () { var pop = document.getElementById('sunMetricPop'); if (pop) pop.classList.add('hidden'); });
+    /* v1.4.x · 横滑行滚动/窗口缩放时更新"还有更多"渐隐提示 */
+    var _smb = document.getElementById('sunMetricBar'), _bc = document.getElementById('boardChips');
+    if (_smb) _smb.addEventListener('scroll', function () { markHScroll(_smb); });
+    if (_bc) _bc.addEventListener('scroll', function () { markHScroll(_bc); });
+    window.addEventListener('resize', function () { markHScroll(_smb); markHScroll(_bc); });
     /* 隐私模式开关切换(html.privacy)→ 重绘旭日:canvas 里的金额 label 不受 CSS 模糊管辖,必须重出图 */
     new MutationObserver(function () { if (chart) renderSunburst(); })
       .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
