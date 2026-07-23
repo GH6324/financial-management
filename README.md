@@ -10,17 +10,6 @@
 
 ## 功能截图
 
-### 旗舰 · AI 截图导入持仓(v1.4）
-
-基金 / 理财 / 券商大账户里堆着十几支真实持仓,手 key 太累、没人愿意维护 —— **拍张持仓截图上传,视觉大模型识别出每一支「名称 + 市值」并自动按底层投向打标**(资产类型 / 行业),和你已有持仓做左旧右新三态比对(更新 / 新增 / 卖出),扫一眼确认即入库。之后旭日 / 透视 / 资产体检自动下钻到真实基金颗粒。识别只转写不算数、识别不准诚实标疑 ⚑、差额只提示不乱改账户总额;只动截图导入的持仓,手填 / 券商持仓永不被碰。
-
-<table>
-  <tr>
-    <td width="72%"><img src="docs/screenshots/fs_import.jpg" alt="AI 截图导入持仓 · 三态比对"><br><sub><b>左旧右新三态比对</b> · 识别市值 + 自动打标(资产类型 / 行业)· 低置信标疑 ⚑ · Σ 差额只提示</sub></td>
-    <td width="28%" align="center"><img src="docs/screenshots/fs_m_import.jpg" width="170" alt="移动端 AI 截图导入"><br><sub><b>移动端</b> · 拍照即传即识别</sub></td>
-  </tr>
-</table>
-
 ### 桌面端
 
 <table>
@@ -32,7 +21,7 @@
   <tr>
     <td width="33%"><img src="docs/screenshots/fs_accounts.jpg" alt="账户簿"><br><sub><b>账户簿</b> · 9 类账户 · 按成员归集 · 划转 / 体检 / 账本 / 一键导出</sub></td>
     <td width="33%"><img src="docs/screenshots/fs_tags.jpg" alt="多维打标"><br><sub><b>多维打标</b> · 账户 › 持仓 · 资产类型 / 平台 / 行业 / 用途 · AI 按底层投向推荐</sub></td>
-    <td width="33%"><img src="docs/screenshots/fs_admin.jpg" alt="可运营管理页"><br><sub><b>可运营管理页</b> · 品牌 / 成员 / 周期 / 汇率 / 数据源等 14 项 · 改即热生效</sub></td>
+    <td width="33%"><img src="docs/screenshots/fs_import.jpg" alt="AI 截图导入持仓"><br><sub><b>AI 截图导入持仓</b> · 拍张持仓截图 → 识别每支「名称+市值」自动打标 → 左旧右新三态比对(更新/新增/卖出)· 低置信标疑 ⚑</sub></td>
   </tr>
 </table>
 
@@ -45,7 +34,7 @@
     <td align="center"><img src="docs/screenshots/fs_m_checkup.jpg" width="130" alt="移动端资产体检"></td>
     <td align="center"><img src="docs/screenshots/fs_m_lens.jpg" width="130" alt="移动端资产透视"></td>
     <td align="center"><img src="docs/screenshots/fs_m_reports.jpg" width="130" alt="移动端真实收益"></td>
-    <td align="center"><img src="docs/screenshots/fs_m_app.jpg" width="130" alt="iOS 主屏 PWA"></td>
+    <td align="center"><img src="docs/screenshots/fs_m_import.jpg" width="130" alt="移动端 AI 截图导入"></td>
   </tr>
   <tr>
     <td align="center"><sub>仪表盘 · 洞察速览</sub></td>
@@ -53,7 +42,7 @@
     <td align="center"><sub>资产体检</sub></td>
     <td align="center"><sub>资产透视下钻</sub></td>
     <td align="center"><sub>真实收益 · XIRR/TWR</sub></td>
-    <td align="center"><sub>装为 App</sub></td>
+    <td align="center"><sub>AI 截图导入持仓</sub></td>
   </tr>
 </table>
 
