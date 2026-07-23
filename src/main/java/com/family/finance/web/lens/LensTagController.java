@@ -17,6 +17,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -42,6 +43,11 @@ public class LensTagController {
     private final NavService navService;
     private final com.family.finance.repository.MemberMapper memberMapper;   // 账户 meta 行:主理人名(维度来源示意)
     private final com.family.finance.service.lens.LensQueryService lensQueryService; // 打标保存后失效头寸缓存
+    private final com.family.finance.service.penetration.FundPenetrationService penetrationService; // v1.5 穿透
+    private final com.family.finance.repository.HoldingAllocationMapper allocMapper;                // v1.5 持仓方向读
+
+    /** 持仓方向视图行(打标页展示) */
+    public record AllocView(String label, String assetClassLabel, int pct, String source, boolean manual) {}
 
     /** 树节点:账户 + 持仓子行(holdingAccount=true 时账户级行业不标,归子行);
      *  cashHoldings = 券商现金部分,只读展示(系统定死 现金活钱·货币基金/存款·低风险,不可标) */
@@ -119,6 +125,26 @@ public class LensTagController {
         return "redirect:/lens/tags?saved=1";
     }
 
+    /** v1.5 · 单支持仓发起穿透拉取(核对/纠正后)· 同步 · 完成失效缓存 */
+    @PostMapping("/lens/tags/penetrate/{holdingId}")
+    public String penetrate(@AuthenticationPrincipal MemberPrincipal me, @PathVariable long holdingId) {
+        // 归属校验:该持仓必须属于本家庭
+        boolean own = tree(me.getFamilyId()).stream().flatMap(n -> n.holdings().stream())
+                .anyMatch(h -> h.getId() == holdingId);
+        if (own) {
+            penetrationService.penetrateHolding(holdingId);
+            lensQueryService.evict(me.getFamilyId());
+        }
+        return "redirect:/lens/tags?penetrated=1";
+    }
+
+    /** v1.5 · 全家一键穿透(后台跑 · 完成自动失效缓存) */
+    @PostMapping("/lens/tags/penetrate-all")
+    public String penetrateAll(@AuthenticationPrincipal MemberPrincipal me) {
+        penetrationService.penetrateFamilyAsync(me.getFamilyId());
+        return "redirect:/lens/tags?penetrating=1";
+    }
+
     // ---------- 内部 ----------
 
     private void addModel(MemberPrincipal me, Model model,
@@ -130,6 +156,24 @@ public class LensTagController {
         model.addAttribute("assetClasses", AssetClass.values());
         model.addAttribute("industryTags", IndustryTag.values());
         model.addAttribute("purposeTags", PurposeTag.values());
+        // v1.5 · 每持仓的穿透方向(有则展示明细 + 覆盖)
+        Map<Long, List<AllocView>> allocsByHolding = new LinkedHashMap<>();
+        for (TreeNode n : tree) {
+            for (StockHolding h : n.holdings()) {
+                var list = allocMapper.findByHolding(h.getId());
+                if (list == null || list.isEmpty()) continue;
+                List<AllocView> views = new java.util.ArrayList<>();
+                for (var a : list) {
+                    String lbl = a.getIndustry() != null ? IndustryTag.labelOf(a.getIndustry()) : "";
+                    if (lbl == null || lbl.isBlank()) lbl = "其他";
+                    if ("OTHER".equals(a.getKind())) lbl = "其他持仓";
+                    views.add(new AllocView(lbl, AssetClass.labelOf(a.getAssetClass()),
+                            (int) Math.round(a.getWeightBp() / 100.0), a.getSource(), "MANUAL".equals(a.getSource())));
+                }
+                allocsByHolding.put(h.getId(), views);
+            }
+        }
+        model.addAttribute("allocsByHolding", allocsByHolding);
         model.addAttribute("suggestions", suggestions);
         model.addAttribute("aiRan", aiRan);
         model.addAttribute("aiAvailable", aiTagService.available());

@@ -44,6 +44,8 @@ public class LensQueryService {
     private final ProductCategoryService productCategoryService;
     private final FactViewService factViewService;
     private final AccountValuationService valuationService;
+    /** v1.5 · 持仓方向(穿透)· 有则按权重把一持仓拆成多头寸 */
+    private final com.family.finance.repository.HoldingAllocationMapper allocMapper;
 
     /** 头寸快照缓存 · v1.1.1 重设计(prod 实测根因:60s TTL 让用户每分钟踩一次同步冷组装):
      *  ① TTL 12h,仅作兜底 —— 写路径已全覆盖失效({@link LensStaleEvent}:填报/转账/估值刷新/账户增改档/打标);
@@ -162,6 +164,30 @@ public class LensQueryService {
                         boolean cashRow = h.getValuationMode() != null && "CASH".equals(h.getValuationMode().name());
                         /* 券商/交易账户里的现金部分(2026-07-17 修遗漏):不是股票股权、不是高风险 ——
                            语义系统定死:现金活钱 · 货币基金/存款 · 低风险 · 灵活取用(打标页只读展示,不可改) */
+                        // v1.5 · 穿透:非现金持仓若有持仓方向 → 按权重拆成多头寸(旭日/透视自然出真实分布)
+                        java.util.List<com.family.finance.domain.penetration.HoldingAllocation> allocs =
+                                cashRow ? null : allocMapper.findByHolding(h.getId());
+                        if (allocs != null && !allocs.isEmpty()) {
+                            for (var al : allocs) {
+                                BigDecimal w = BigDecimal.valueOf(al.getWeightBp())
+                                        .divide(BigDecimal.valueOf(10000), MathContext.DECIMAL64);
+                                BigDecimal vb = valueBase.multiply(w).setScale(2, RoundingMode.HALF_EVEN);
+                                BigDecimal cumSplit = holdingCumPnl == null ? null
+                                        : holdingCumPnl.multiply(w).setScale(2, RoundingMode.HALF_EVEN);
+                                String acLbl = al.getAssetClass() != null ? nullIfEmpty(AssetClass.labelOf(al.getAssetClass()))
+                                        : assetClassOf(h, assetClass);
+                                String indLbl = "OTHER".equals(al.getKind()) ? "其他持仓"
+                                        : nullIfEmpty(IndustryTag.labelOf(al.getIndustry()));
+                                out.add(new Position(
+                                        acc.getId(), h.getId(), h.getDisplayName(), acc.getDisplayName(), vb,
+                                        typeLabel, risk, liquidity, acc.getCurrency(), owner,
+                                        acLbl, platform,
+                                        indLbl,
+                                        regionLabel(h.getMarket()), purpose,
+                                        p.latestPnl(), p.cumPnl(), p.netPrincipal(), cumSplit, openVal));
+                            }
+                            continue;   // 已按方向拆,跳过单头寸
+                        }
                         out.add(new Position(
                                 acc.getId(), h.getId(), h.getDisplayName(), acc.getDisplayName(), valueBase,
                                 typeLabel,

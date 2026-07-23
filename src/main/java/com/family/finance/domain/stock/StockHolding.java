@@ -60,4 +60,9 @@ public class StockHolding {
     private LocalDateTime archivedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    /** v1.5 · 穿透键:匹配到的公募基金代码(可空) */
+    private String fundCode;
+    /** v1.5 · PENDING/RESOLVED/MANUAL/UNPENETRATED */
+    private String penetrateState;
 }

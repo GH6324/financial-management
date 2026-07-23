@@ -20,7 +20,7 @@ public interface StockHoldingMapper {
     @Select("""
             SELECT id, account_id, display_name, valuation_mode, ticker, market, shares,
                    cost_basis, currency, unit, sync_source AS syncSource, industry_tag AS industryTag,
-                   asset_class_tag AS assetClassTag, risk_tag AS riskTag, liquidity_tag AS liquidityTag, manual_value, manual_value_at, cash_linked AS cashLinked,
+                   asset_class_tag AS assetClassTag, risk_tag AS riskTag, liquidity_tag AS liquidityTag, manual_value, manual_value_at, cash_linked AS cashLinked, fund_code AS fundCode, penetrate_state AS penetrateState,
                    archived_at, created_at, updated_at
               FROM stock_holding
              WHERE id = #{id}
@@ -30,7 +30,7 @@ public interface StockHoldingMapper {
     @Select("""
             SELECT id, account_id, display_name, valuation_mode, ticker, market, shares,
                    cost_basis, currency, unit, sync_source AS syncSource, industry_tag AS industryTag,
-                   asset_class_tag AS assetClassTag, risk_tag AS riskTag, liquidity_tag AS liquidityTag, manual_value, manual_value_at, cash_linked AS cashLinked,
+                   asset_class_tag AS assetClassTag, risk_tag AS riskTag, liquidity_tag AS liquidityTag, manual_value, manual_value_at, cash_linked AS cashLinked, fund_code AS fundCode, penetrate_state AS penetrateState,
                    archived_at, created_at, updated_at
               FROM stock_holding
              WHERE account_id = #{accountId}
@@ -42,7 +42,7 @@ public interface StockHoldingMapper {
     @Select("""
             SELECT id, account_id, display_name, valuation_mode, ticker, market, shares,
                    cost_basis, currency, unit, sync_source AS syncSource, industry_tag AS industryTag,
-                   asset_class_tag AS assetClassTag, risk_tag AS riskTag, liquidity_tag AS liquidityTag, manual_value, manual_value_at, cash_linked AS cashLinked,
+                   asset_class_tag AS assetClassTag, risk_tag AS riskTag, liquidity_tag AS liquidityTag, manual_value, manual_value_at, cash_linked AS cashLinked, fund_code AS fundCode, penetrate_state AS penetrateState,
                    archived_at, created_at, updated_at
               FROM stock_holding
              WHERE account_id = #{accountId}
@@ -110,6 +110,17 @@ public interface StockHoldingMapper {
     /** v1.1 · 单改行业标(持仓页行内下拉 · 资产透视维度) */
     @Update("UPDATE stock_holding SET industry_tag = #{industryTag} WHERE id = #{id}")
     int updateIndustry(@Param("id") long id, @Param("industryTag") String industryTag);
+
+    /** v1.5 · 穿透后回写代码 + 状态 */
+    @Update("UPDATE stock_holding SET fund_code = #{fundCode}, penetrate_state = #{state} WHERE id = #{id}")
+    int updatePenetrate(@Param("id") long id, @Param("fundCode") String fundCode, @Param("state") String state);
+
+    /** v1.5 · 某家庭全部活持仓(穿透批量拉取用)· 关联账户过滤 family */
+    @Select("""
+            SELECT h.id FROM stock_holding h JOIN account a ON a.id = h.account_id
+            WHERE a.family_id = #{familyId} AND h.archived_at IS NULL
+            """)
+    List<Long> findActiveHoldingIdsByFamily(@Param("familyId") long familyId);
 
     /**
      * 轻量值对象 · 仅给 fetcher cron 用。

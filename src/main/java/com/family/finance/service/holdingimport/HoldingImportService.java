@@ -59,6 +59,7 @@ public class HoldingImportService {
     private final LensAiTagService tagService;
     private final AccountValuationService valuationService;
     private final AppProperties props;
+    private final com.family.finance.service.penetration.FundPenetrationService penetrationService; // v1.5
 
     // ---------- 状态机 ----------
 
@@ -282,6 +283,8 @@ public class HoldingImportService {
         valuationService.refreshOneAccount(imp.getFamilyId(), imp.getAccountId(),
                 AccountValuationService.TriggerKind.IMPORT, memberId, importId);
         importMapper.markConfirmed(importId);
+        // v1.5 · 导入的基金后台自动穿透(真实行业/资产分布)· 首次略慢,结果全体共享缓存
+        try { penetrationService.penetrateFamilyAsync(imp.getFamilyId()); } catch (Exception ignored) {}
     }
 
     @Transactional

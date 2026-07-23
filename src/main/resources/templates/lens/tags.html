@@ -68,6 +68,22 @@
   <div th:if="${param.saved != null}" class="paper-card p-3 mb-4" style="border-left:4px solid var(--forest)">
     <span class="text-sm">已保存打标。<a th:href="@{/dashboard#lens-section}" class="no-underline" style="color:var(--forest)">去透视页看效果 →</a></span>
   </div>
+  <div th:if="${param.penetrating != null}" class="paper-card p-3 mb-4" style="border-left:4px solid var(--brass-deep)">
+    <span class="text-sm">正在后台穿透全家基金(首次略慢,拉真实行业分布)· 稍后刷新本页看「持仓方向」,或去透视页看效果。</span>
+  </div>
+  <div th:if="${param.penetrated != null}" class="paper-card p-3 mb-4" style="border-left:4px solid var(--brass-deep)">
+    <span class="text-sm">已拉取穿透。<a th:href="@{/dashboard#lens-section}" class="no-underline" style="color:var(--brass-deep)">去透视页看真实行业分布 →</a></span>
+  </div>
+
+  <!-- v1.5 · 全家一键穿透(独立 form · 不与打标 save 冲突) -->
+  <form th:action="@{/lens/tags/penetrate-all}" method="post" class="paper-card p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+    <div class="text-sm text-ink-soft">
+      <b class="text-ink">基金穿透(v1.5)</b>:把每支公募基金拆成真实<b>股 / 债 / 现金 + 申万行业</b>(如 兴全合润 = 食品饮料 / 家电 / … / 债 / 现金)。
+      旭日 / 透视复用同一结果;理财 / 券商产品无公募代码 → 标「未穿透」。<span class="text-brass-deep">首次拉取略慢(抓东财 · 结果全体家庭共享缓存)。</span>
+    </div>
+    <button type="submit" class="btn-ink text-xs px-4 py-1.5 whitespace-nowrap">↻ 全家一键穿透</button>
+  </form>
 
   <form th:action="@{/lens/tags/save}" method="post" th:classappend="${aiRan} ? ' aiRan' : ''">
     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
@@ -164,12 +180,14 @@
             <td></td>
             <td th:if="${aiAvailable}"></td>
           </tr>
-          <!-- 持仓子行 -->
-          <tr class="hold-row" th:each="h : ${node.holdings}" th:with="sug=${suggestions.get(h.displayName)}">
+          <!-- 持仓子行(+ v1.5 穿透方向明细行) -->
+          <th:block th:each="h : ${node.holdings}" th:with="sug=${suggestions.get(h.displayName)},allocs=${allocsByHolding.get(h.id)}">
+          <tr class="hold-row">
             <td class="name-cell">
               <span class="text-ink-subtle font-mono text-xs mr-1 hidden md:inline">└</span>
               <span th:text="${h.displayName}">宁德时代</span>
               <span class="pill text-[9px] ml-1" th:if="${h.market != null}" th:text="${h.market}">CN</span>
+              <span th:if="${allocs != null}" class="pill text-[9px] ml-1" style="border-color:var(--brass);color:var(--brass-deep)">已穿透</span>
             </td>
             <td></td>
             <td class="muted-cell hidden md:table-cell">随账户</td>
@@ -181,13 +199,27 @@
                         th:selected="${h.industryTag == t.name() or (h.industryTag == null and sug != null and sug.industry == t.name())}"
                         th:text="${t.label}">新能源电力</option>
               </select>
+              <span th:if="${allocs != null}" class="text-[10px] text-ink-subtle block mt-0.5">穿透后按方向分布,单标签仅作回落</span>
             </td>
-            <td></td>
+            <td data-label="穿透">
+              <button type="submit" th:formaction="@{/lens/tags/penetrate/{id}(id=${h.id})}" formmethod="post"
+                      class="ai-btn" style="border-color:var(--brass-deep);color:var(--brass-deep)"
+                      th:text="${allocs != null ? '↻ 重新拉取' : '↻ 拉取穿透'}" title="拉取该基金真实行业穿透(公募)">↻ 拉取穿透</button>
+            </td>
             <td th:if="${aiAvailable}" data-label="AI">
               <button type="submit" th:formaction="@{/lens/tags/ai}" name="only" th:value="${h.displayName}"
                       class="ai-btn" title="只对这一行 AI 推荐">AI 推荐</button>
             </td>
           </tr>
+          <tr th:if="${allocs != null and !allocs.isEmpty()}" class="alloc-row">
+            <td th:attr="colspan=${aiAvailable ? 6 : 5}" class="py-1.5" style="background:var(--card-soft);padding-left:2rem">
+              <span class="text-[10px] text-ink-subtle mr-2 font-mono">持仓方向:</span>
+              <span th:each="al : ${allocs}" class="pill text-[10px] mr-1 mb-1 inline-block"
+                    th:classappend="${al.manual} ? ' pill-brass' : ''"
+                    th:text="${al.label} + ' ' + ${al.pct} + '%'">食品饮料 18%</span>
+            </td>
+          </tr>
+          </th:block>
           </th:block>
           </tbody>
         </table>

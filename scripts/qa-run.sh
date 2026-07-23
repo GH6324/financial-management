@@ -4028,6 +4028,24 @@ HILENSSEC="$RD/src/main/resources/templates/lens/_section.html"
   && log_ok "v143-LENS-TOC-UX(TOC开时隐藏隐私浮标 + 旭日指标/看板横滑渐隐提示 + 重置/AI按钮独立右对齐行)" \
   || log_bad "v143-LENS-TOC-UX 缺件" "see toc.js(toc-open) + style.css(body.toc-open/#priv-float + .lens-hscroll) + _section.html(lens-hscroll/justify-end) + lens.js(markHScroll)"
 
+# v15-PENETRATION · 基金持仓穿透(账户→持仓→持仓方向 · 真实股债现金+申万行业)
+V15MIG="$RD/db/migration/V51__fund_penetration.sql"
+V15CLI="$RD/src/main/java/com/family/finance/service/penetration/EastMoneyFundClient.java"
+V15SVC="$RD/src/main/java/com/family/finance/service/penetration/FundPenetrationService.java"
+V15LENS="$RD/src/main/java/com/family/finance/service/lens/LensQueryService.java"
+V15CTL="$RD/src/main/java/com/family/finance/web/lens/LensTagController.java"
+V15TAGS="$RD/src/main/resources/templates/lens/tags.html"
+V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
+{ test -f "$V15MIG" && grep -q 'holding_allocation' "$V15MIG" && grep -q 'fund_penetration_cache' "$V15MIG" && grep -q 'penetrate_state' "$V15MIG" \
+  && grep -q 'HOME_APPLIANCE' "$V15IND" && grep -q 'FOOD_BEVERAGE' "$V15IND" \
+  && grep -q 'resolveCode' "$V15CLI" && grep -q 'assetAllocation' "$V15CLI" && grep -q 'topHoldings' "$V15CLI" && grep -q 'stockIndustry' "$V15CLI" && grep -q 'mapIndustry' "$V15CLI" \
+  && grep -q 'penetrateHolding' "$V15SVC" && grep -q 'KIND_OTHER\|其他持仓\|OTHER' "$V15SVC" && grep -q 'scaleTo' "$V15SVC" \
+  && grep -q 'allocMapper.findByHolding' "$V15LENS" && grep -q 'getWeightBp' "$V15LENS" \
+  && grep -q '/lens/tags/penetrate' "$V15CTL" \
+  && grep -q '持仓方向\|拉取穿透\|penetrate-all' "$V15TAGS"; } \
+  && log_ok "v15-PENETRATION(持仓方向层 + 东财穿透client 资产配置/前十大→申万/股票行业 + lens按方向拆头寸 + 打标页拉取 + 理财未穿透诚实降级)" \
+  || log_bad "v15-PENETRATION 缺件" "see V51迁移 + IndustryTag扩容 + EastMoneyFundClient + FundPenetrationService + LensQueryService分拆 + LensTagController端点 + tags.html"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
