@@ -3988,6 +3988,25 @@ HIROW="$RD/src/main/resources/templates/entry/_row.html"
   && log_ok "v14-HOLDING-IMPORT 持仓截图导入(V49/V50 迁移 + 视觉禁算 + SCREENSHOT 隔离 + 三态 + IMPORT 估值交接 + WEALTH/CASH 放开+无持仓不接管红线 + 填报入口)" \
   || log_bad "v14-HOLDING-IMPORT 持仓截图导入缺件" "see HoldingImportService/QwenVisionClient/AccountValuationService/StockHoldingService/entry/_row.html + V49/V50"
 
+# v142-ENTRY-IMPORT-FIX · v1.4.2 五点(流水删除 bug + 转账双账户确认 + 导入回来源页 + 划转主理人头像 + 手机AI徽记 + 图片查看删除)
+HICTL2="$RD/src/main/java/com/family/finance/web/entry/EntryController.java"
+HINAV="$RD/src/main/resources/templates/fragments/nav.html"
+HISS="$RD/src/main/resources/static/js/searchable-select.js"
+HIIMPHTML="$RD/src/main/resources/templates/holdingimport/import.html"
+{ grep -qF 'hx-target=\"#entry-block-' "$HICTL2" \
+  && ! grep -qF 'hx-target=\"#row-' "$HICTL2" \
+  && grep -q '同时影响两个账户' "$HICTL2" \
+  && grep -q 'safeLocalPath' "$HICTL" \
+  && grep -q 'addAccountOwnerMeta' "$HICTL2" && grep -q 'memberNameById' "$HICTL2" \
+  && grep -q 'data-owner' "$HIROW" \
+  && grep -qF 'opt.dataset.owner' "$HISS" \
+  && grep -q 'image/delete' "$HICTL" && grep -q 'imageRels' "$HISVC" && grep -q 'deleteImage' "$HISVC" \
+  && grep -q 'nextImageIndex' "$HISVC" \
+  && grep -q 'js-gallery' "$HIIMPHTML" && grep -qF 'id="lb"' "$HIIMPHTML" && grep -q 'rescanBtn' "$HIIMPHTML" \
+  && [ "$(grep -c '支持 AI 截图导入' "$HINAV")" -ge 2 ]; } \
+  && log_ok "v142-ENTRY-IMPORT-FIX(流水删除 hx-target 修正 + 转账双账户二次确认 + 导入回来源页 safeLocalPath + 划转主理人头像 + 手机端AI徽记双端 + 图片查看放大删除+重扫)" \
+  || log_bad "v142-ENTRY-IMPORT-FIX 缺件" "see EntryController(hx-target/confirm/ownerMeta) + HoldingImport(image endpoints) + nav.html 移动AI + searchable-select data-owner + import.html 画廊/灯箱"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

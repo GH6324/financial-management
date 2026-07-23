@@ -52,9 +52,20 @@ public class HoldingImportController {
 
     // ---------- 页面 ----------
 
+    /**
+     * v1.4.2 · 消毒来源地址:只允许站内相对路径(防开放重定向)。用于导入完成后「回到进入的页面」。
+     */
+    private static String safeLocalPath(String from, String fallback) {
+        if (from == null || from.isBlank()) return fallback;
+        if (from.startsWith("/") && !from.startsWith("//") && from.matches("/[A-Za-z0-9/_?=&.\\-]*")) return from;
+        return fallback;
+    }
+
     @GetMapping("/entry/import/{accountId}")
-    public String page(@AuthenticationPrincipal MemberPrincipal me, @PathVariable long accountId, Model model) {
+    public String page(@AuthenticationPrincipal MemberPrincipal me, @PathVariable long accountId,
+                       @RequestParam(required = false) String from, Model model) {
         Account account = requireAccount(me.getFamilyId(), accountId);
+        model.addAttribute("from", safeLocalPath(from, "/entry"));   // v1.4.2 · 回来源页
         if (!vision.available()) {
             model.addAttribute("account", account);
             model.addAttribute("visionUnavailable", true);
@@ -71,6 +82,7 @@ public class HoldingImportController {
         }
         model.addAttribute("account", account);
         model.addAttribute("imp", imp);
+        model.addAttribute("imageRels", importService.imageRels(imp.getId()));   // v1.4.2 · 查看/删除已上传图
         model.addAttribute("visionModel", vision.model());
         if (HoldingImport.REVIEW.equals(imp.getStatus())) {
             model.addAttribute("items", importService.items(imp.getId()));
@@ -110,6 +122,17 @@ public class HoldingImportController {
         return Map.of("status", HoldingImport.SCANNING);
     }
 
+    /** v1.4.2 · 删一张已上传截图(上传态/识别失败态可用)· 返回剩余张数 */
+    @PostMapping("/entry/import/{importId}/image/delete")
+    @ResponseBody
+    public Map<String, Object> deleteImage(@AuthenticationPrincipal MemberPrincipal me,
+                                           @PathVariable long importId,
+                                           @RequestParam String rel) {
+        importService.deleteImage(me.getFamilyId(), importId, rel);
+        HoldingImport imp = requireImport(me.getFamilyId(), importId);
+        return Map.of("ok", true, "imgCount", imp.getImgCount() == null ? 0 : imp.getImgCount());
+    }
+
     @GetMapping("/entry/import/{importId}/status")
     @ResponseBody
     public Map<String, Object> status(@AuthenticationPrincipal MemberPrincipal me, @PathVariable long importId) {
@@ -145,17 +168,19 @@ public class HoldingImportController {
     }
 
     @PostMapping("/entry/import/{importId}/confirm")
-    public String confirm(@AuthenticationPrincipal MemberPrincipal me, @PathVariable long importId) {
-        HoldingImport imp = requireImport(me.getFamilyId(), importId);
+    public String confirm(@AuthenticationPrincipal MemberPrincipal me, @PathVariable long importId,
+                          @RequestParam(required = false) String from) {
+        requireImport(me.getFamilyId(), importId);
         importService.confirm(importId, me.getMemberId());
-        return "redirect:/entry?account=" + imp.getAccountId();
+        return "redirect:" + safeLocalPath(from, "/entry");   // v1.4.2 · 回进入页(默认填报页)
     }
 
     @PostMapping("/entry/import/{importId}/abandon")
-    public String abandon(@AuthenticationPrincipal MemberPrincipal me, @PathVariable long importId) {
-        HoldingImport imp = requireImport(me.getFamilyId(), importId);
+    public String abandon(@AuthenticationPrincipal MemberPrincipal me, @PathVariable long importId,
+                          @RequestParam(required = false) String from) {
+        requireImport(me.getFamilyId(), importId);
         importService.abandon(importId);
-        return "redirect:/entry?account=" + imp.getAccountId();
+        return "redirect:" + safeLocalPath(from, "/entry");   // v1.4.2 · 回进入页(默认填报页)
     }
 
     /** v1.4 · 从流水「看明细」进入:逐项变化 + 当时上传的原图(只读) */

@@ -94,14 +94,62 @@ public class HoldingImportService {
         Path root = Paths.get(props.uploadRoot()).toAbsolutePath().normalize();
         Path dir = root.resolve("family-" + imp.getFamilyId()).resolve("holdingshots");
         Files.createDirectories(dir);
-        int n = (imp.getImgCount() == null ? 0 : imp.getImgCount()) + 1;
+        // v1.4.2 · 文件序号取"现存最大 +1"(不再用 imgCount+1)· 删中间张后下次上传不会覆盖已有图
+        int n = nextImageIndex(imp);
         String rel = "family-" + imp.getFamilyId() + "/holdingshots/" + imp.getId() + "-" + n + "." + ext;
         Path target = root.resolve(rel).normalize();
         if (!target.startsWith(root)) throw new IllegalStateException("非法路径");
         Files.write(target, bytes);
-        importMapper.updateImgCount(imp.getId(), n);
-        imp.setImgCount(n);
+        int count = listImages(imp).size();   // imgCount = 实际文件数(含刚写的),与删除后计数自洽
+        importMapper.updateImgCount(imp.getId(), count);
+        imp.setImgCount(count);
         return rel;
+    }
+
+    /** v1.4.2 · 下一个图片序号 = 现存 {importId}-{n} 的最大 n + 1(删除后不复用旧号,防覆盖)。 */
+    private int nextImageIndex(HoldingImport imp) throws IOException {
+        int max = 0;
+        for (Path p : listImages(imp)) {
+            String fn = p.getFileName().toString();
+            int dot = fn.lastIndexOf('.');
+            String stem = dot > 0 ? fn.substring(0, dot) : fn;   // {importId}-{n}
+            int dash = stem.lastIndexOf('-');
+            if (dash >= 0) {
+                try { max = Math.max(max, Integer.parseInt(stem.substring(dash + 1))); }
+                catch (NumberFormatException ignored) {}
+            }
+        }
+        return max + 1;
+    }
+
+    /** v1.4.2 · 列出某导入已存截图的相对路径(上传态/失败态查看+删除用)。 */
+    public List<String> imageRels(long importId) {
+        HoldingImport imp = importMapper.findById(importId).orElse(null);
+        if (imp == null) return List.of();
+        try {
+            return listImages(imp).stream().map(p -> relOf(imp, p)).collect(Collectors.toList());
+        } catch (IOException e) {
+            log.warn("import {} 列图失败: {}", importId, e.toString());
+            return List.of();
+        }
+    }
+
+    /** v1.4.2 · 删一张已上传截图(校验属于本导入)· 递减 imgCount 为实际剩余数。 */
+    @Transactional
+    public void deleteImage(long familyId, long importId, String rel) {
+        HoldingImport imp = importMapper.findById(importId).orElseThrow(() -> new IllegalArgumentException("导入不存在"));
+        if (imp.getFamilyId() != familyId) throw new IllegalArgumentException("无权访问");
+        if (rel == null || rel.isBlank()) throw new IllegalArgumentException("缺少图片");
+        Path root = Paths.get(props.uploadRoot()).toAbsolutePath().normalize();
+        Path target = root.resolve(rel).normalize();
+        String expectedPrefix = "family-" + imp.getFamilyId() + "/holdingshots/" + imp.getId() + "-";
+        if (!target.startsWith(root) || !rel.startsWith(expectedPrefix)) throw new IllegalStateException("非法路径");
+        try {
+            Files.deleteIfExists(target);
+        } catch (IOException e) {
+            throw new IllegalStateException("删除失败: " + e.getMessage());
+        }
+        importMapper.updateImgCount(importId, imageRels(importId).size());
     }
 
     // ---------- 异步识别 + 三态匹配 ----------

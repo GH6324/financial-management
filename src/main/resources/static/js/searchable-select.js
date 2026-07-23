@@ -92,7 +92,21 @@
         const item = document.createElement('div');
         item.className = 'ss-item px-3 py-2.5 cursor-pointer text-sm border-b border-rule-soft last:border-b-0';
         if (i === sel.selectedIndex) item.classList.add('bg-card-soft', 'font-medium');
-        item.textContent = txt;
+        // v1.4.2 · option 带 data-owner 时(如划转目标账户)渲染主理人头像色圆,首字母 + avatar-N 背景
+        if (opt.dataset && opt.dataset.owner) {
+          item.classList.add('flex', 'items-center', 'gap-2');
+          const av = document.createElement('span');
+          av.className = 'avatar-' + (opt.dataset.oc || '4');
+          av.style.cssText = 'width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--paper);flex:none';
+          av.textContent = opt.dataset.owner.slice(0, 1);
+          item.appendChild(av);
+          const tx = document.createElement('span');
+          tx.className = 'truncate';
+          tx.textContent = txt;
+          item.appendChild(tx);
+        } else {
+          item.textContent = txt;
+        }
         item.setAttribute('role', 'option');
         item.dataset.value = val;
 

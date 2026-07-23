@@ -69,7 +69,8 @@
         <div class="fixed inset-x-0 top-16 bg-card border-y border-rule shadow-xl z-40">
           <nav class="flex flex-col font-mono text-[12px] tracking-[0.14em] uppercase divide-y divide-rule">
             <a th:href="@{/dashboard}" class="px-6 py-4 hover:bg-card-soft no-underline">仪表盘</a>
-            <a th:href="@{/entry}" class="px-6 py-4 hover:bg-card-soft no-underline">填报
+            <a th:href="@{/entry}" class="px-6 py-4 hover:bg-card-soft no-underline">填报<span
+                class="ml-1 px-1 rounded-sm bg-brass-soft text-brass-deep text-[9px] tracking-normal normal-case align-middle" title="支持 AI 截图导入持仓填报">AI</span>
               <span th:if="${state.pendingCount > 0}" class="ml-2 text-rust" th:text="'·' + ${state.pendingCount}">·2</span></a>
             <a th:href="@{/accounts}" class="px-6 py-4 hover:bg-card-soft no-underline">账户</a>
             <a th:href="@{/reports}" class="px-6 py-4 hover:bg-card-soft no-underline">报表</a>

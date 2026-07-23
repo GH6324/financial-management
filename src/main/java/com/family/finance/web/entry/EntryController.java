@@ -88,6 +88,7 @@ public class EntryController {
         model.addAttribute("period", period);
         model.addAttribute("periods", periodMapper.findLatest(me.getFamilyId(), 12));
         model.addAttribute("accounts", accountMapper.findActiveByFamily(me.getFamilyId()));
+        addAccountOwnerMeta(me.getFamilyId(), model);   // v1.4.2 · 划转下拉主理人头像/名
         model.addAttribute("rows", rows);
         model.addAttribute("doneCount", rows.stream().filter(EntryRow::done).count());
 
@@ -526,16 +527,38 @@ public class EntryController {
             sb.append("<span class=\"text-ink-soft flex-1 min-w-0 truncate\">").append(escapeHtml(label)).append("</span>");
             sb.append("<span class=\"tnum flex-shrink-0 text-right ").append(kindClass).append("\" data-priv>").append(escapeHtml(le.amountSignedLabel())).append("</span>");  // v0.11 隐私模式:账本金额遮
             // v0.2 FR-32 · OPEN 周期下的 cash_flow / transfer 加 ⋮ 删除按钮(SNAPSHOT 不能删)
+            // v1.4.2 修 bug:hx-target 之前指向不存在的 #row-{id}(实际块 id 为 #entry-block-{id})→ HTMX targetError,
+            //         请求根本没发出,点 ✕ 无反应。改为 #entry-block-{id}(删除端点返回的正是该 block)。
             if (le.periodOpen() && le.sourceId() != null
                     && le.kind() != EntryRow.LedgerKind.SNAPSHOT) {
-                String url = (le.kind() == EntryRow.LedgerKind.TRANSFER_IN || le.kind() == EntryRow.LedgerKind.TRANSFER_OUT)
+                boolean isTransfer = le.kind() == EntryRow.LedgerKind.TRANSFER_IN || le.kind() == EntryRow.LedgerKind.TRANSFER_OUT;
+                String url = isTransfer
                         ? "/entry/transfer/" + le.sourceId() + "/delete"
                         : "/entry/cash-flow/" + le.sourceId() + "/delete";
-                sb.append("<button class=\"tap text-[11px] text-ink-subtle hover:text-rust px-1\" title=\"删除此条\" ")
+                // v1.4.2 · 转账二次确认要点明"同时影响两个账户"(本账户 ± / 对方 ∓),避免用户误以为只动一边
+                String confirmMsg;
+                if (isTransfer) {
+                    String amt = "¥" + new java.text.DecimalFormat("#,##0.00")
+                            .format(le.amount() == null ? BigDecimal.ZERO : le.amount().abs());
+                    String self = row.account().getDisplayName();
+                    String other = (le.label() != null && !le.label().isBlank()) ? le.label() : "对方账户";
+                    if (le.kind() == EntryRow.LedgerKind.TRANSFER_OUT) {
+                        // 本账户曾划出 → 删除反向冲销:本账户退回 +,对方减少 −
+                        confirmMsg = "删除这笔划转会同时影响两个账户:「" + self + "」退回 +" + amt
+                                + ",「" + other + "」减少 −" + amt + "。确定删除?";
+                    } else {
+                        // 本账户曾划入 → 删除反向冲销:本账户减少 −,对方退回 +
+                        confirmMsg = "删除这笔划转会同时影响两个账户:「" + self + "」减少 −" + amt
+                                + ",「" + other + "」退回 +" + amt + "。确定删除?";
+                    }
+                } else {
+                    confirmMsg = "确定删除这条流水?余额会自动反向冲销。";
+                }
+                sb.append("<button type=\"button\" class=\"tap text-[11px] text-ink-subtle hover:text-rust px-1\" title=\"删除此条\" ")
                         .append("hx-post=\"").append(url).append("\" ")
-                        .append("hx-target=\"#row-").append(row.account().getId()).append("\" ")
+                        .append("hx-target=\"#entry-block-").append(row.account().getId()).append("\" ")
                         .append("hx-swap=\"outerHTML\" ")
-                        .append("hx-confirm=\"确定删除这条流水?余额会自动反向冲销。\" ")
+                        .append("hx-confirm=\"").append(escapeHtml(confirmMsg)).append("\" ")
                         .append("hx-headers='{\"X-XSRF-TOKEN\":\"").append(escapeHtml(csrfToken)).append("\"}'>")
                         .append("✕</button>");
             }
@@ -580,10 +603,28 @@ public class EntryController {
         model.addAttribute("row", row);
         model.addAttribute("period", periodMapper.findById(periodId).orElse(null));
         model.addAttribute("accounts", accountMapper.findActiveByFamily(me.getFamilyId()));
+        addAccountOwnerMeta(me.getFamilyId(), model);   // v1.4.2 · HTMX 换行块也要带主理人元信息(否则换行后头像丢)
         java.util.Map<String, String> singleLedger = new java.util.LinkedHashMap<>();
         singleLedger.put(String.valueOf(row.account().getId()), renderLedgerHtml(row));
         model.addAttribute("ledgerHtmlByAccount", singleLedger);
         return "entry/_row :: block(row=${row}, oob=null)";
+    }
+
+    /**
+     * v1.4.2 · 划转目标账户下拉:补主理人名 + 头像色。两账户可能重名(不同主理人)→ 光看名字会选错。
+     * memberColorById 与填报页 owner 分组同法(active 成员按序 0..4),头像色跨 entry/换行块稳定一致。
+     */
+    private void addAccountOwnerMeta(long familyId, Model model) {
+        var members = memberMapper.findActiveByFamily(familyId);
+        java.util.Map<Long, String> nameById = new java.util.LinkedHashMap<>();
+        java.util.Map<Long, Integer> colorById = new java.util.LinkedHashMap<>();
+        int i = 0;
+        for (var m : members) {
+            nameById.put(m.getId(), m.getDisplayName());
+            colorById.put(m.getId(), i++ % 5);
+        }
+        model.addAttribute("memberNameById", nameById);
+        model.addAttribute("memberColorById", colorById);
     }
 
     private List<EntryService.CashFlowLine> cashFlowLines(MultiValueMap<String, String> params) {
