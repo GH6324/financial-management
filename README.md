@@ -95,9 +95,9 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
-### [v1.4.1 · 打磨与隐私修复](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.4.1)
+### [v1.4.2 · 填报/导入打磨与 bug 修复](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.4.2)
 
-承 v1.4.0 的一轮打磨 + 一处隐私修复:**旭日下钻切「收益额」类指标时,扇区金额标签现已响应隐私模式**(公共场合/分享不再裸露盈亏);首个分析指标「金额」更名「总资产」对齐仪表盘;顶部「填报」右侧加「AI」徽记提示可用 AI 截图导入。无迁移无 schema 改动,平滑升级。
+承 v1.4.0/v1.4.1 的一轮实测打磨 + 一处 bug 修复:**本期流水删除 ✕ 之前点了没反应(HTMX 目标失效)已修复**,删转账流水二次确认点明「同时影响两个账户」;AI 截图导入确认后回到进入的填报页;划转目标下拉加「账户名 · 主理人 + 头像」防重名选错;手机端「填报」AI 徽记补齐;导入图片可点开放大缩小 + ✕ 删错图 + 失败后重新识别。无迁移无 schema,平滑升级。
 
 ### [v1.4.0 · 持仓截图智能解析](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.4.0)
 
