@@ -334,14 +334,13 @@
   }
 
   /* ---------- 组件 A.1 · 分析指标选择器(v1.3)· 持仓级维度下收益类灰置 ---------- */
-  /* v1.3 #3 · 重置:回到当前看板初始视图(清下钻/复位维度与指标)· 深度分析后一键恢复,不必刷新页面 */
+  /* v1.4.2 · 重置 = 完全回到"页面刷新后的初始状态":默认看板(资产类型)+ 默认指标(金额+占比 / 总资产)
+     + 无下钻 + 收起明细/自定义。此前只重置"当前看板"→ 切了别的看板再点回不到刷新初始态,用户反馈很奇怪。 */
   function resetLens() {
     state.sunMetric = 'value';
-    var preset = PRESETS.find(function (p) { return p.key === state.boardKey; });
-    if (preset) { applyBoard(preset, preset.key); return; }
-    var ub = USER_BOARDS.find(function (b) { return 'u' + b.id === state.boardKey; });
-    if (ub) { var spec = parse(ub.spec); applyBoard({ rows: spec.rows, cols: spec.cols, filters: spec.filters }, state.boardKey); return; }
-    state.drill = []; state.dimStack = []; syncSelectors(); refresh();   // 自定义/兜底
+    state.measures = ['value', 'share'];   // 透视指标复位默认(与 boot 初始态一致)
+    var dw = document.getElementById('drawerWrap'); if (dw) dw.classList.add('hidden');   // 收起明细抽屉
+    applyBoard(PRESETS[0], PRESETS[0].key);   // 默认看板 → 清 drill/dimStack/pivot + syncSelectors + renderBoards + refresh(refresh 内 syncInsightCard 管 AI 卡显隐)
   }
   function setSunMetric(k) {
     if (!SUN_KIND[k] || sunMetricUnavailable(k)) return;

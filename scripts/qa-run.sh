@@ -4007,6 +4007,14 @@ HIIMPHTML="$RD/src/main/resources/templates/holdingimport/import.html"
   && log_ok "v142-ENTRY-IMPORT-FIX(流水删除 hx-target 修正 + 转账双账户二次确认 + 导入回来源页 safeLocalPath + 划转主理人头像 + 手机端AI徽记双端 + 图片查看放大删除+重扫)" \
   || log_bad "v142-ENTRY-IMPORT-FIX 缺件" "see EntryController(hx-target/confirm/ownerMeta) + HoldingImport(image endpoints) + nav.html 移动AI + searchable-select data-owner + import.html 画廊/灯箱"
 
+# v142-LENS-RESET · 旭日重置回"页面刷新初始态"(默认看板+默认指标),非只重置当前看板
+HILENS="$RD/src/main/resources/static/js/lens.js"
+{ awk '/function resetLens\(\)/,/^  }/' "$HILENS" | grep -q 'applyBoard(PRESETS\[0\]' \
+  && awk '/function resetLens\(\)/,/^  }/' "$HILENS" | grep -q "state.measures = \['value', 'share'\]" \
+  && ! awk '/function resetLens\(\)/,/^  }/' "$HILENS" | grep -q 'state.boardKey'; } \
+  && log_ok "v142-LENS-RESET(旭日重置回默认看板 PRESETS[0]+复位 measures,不再只重置当前看板)" \
+  || log_bad "v142-LENS-RESET 缺件" "see lens.js resetLens 应 applyBoard(PRESETS[0]) + 复位 measures"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
