@@ -36,7 +36,7 @@ public final class LensRegistry {
         dim("currency",   "币种",   false, Position::currency);
         dim("liquidity",  "流动性", false, Position::liquidity);
 
-        measure("value",       "金额");
+        measure("value",       "总资产");
         measure("netPrincipal","净投入");
         measure("share",       "占比");
         measure("latestPnl",   "本期收益额");

@@ -254,7 +254,8 @@
       var totalSize = data.reduce(function (s, d) { return s + d.value; }, 0);
       function lblFor(mv) {   // 金额/净投入→占比% · 收益额→±短金额 · 收益率→率%
         if (kind === 'ratio') return (mv === null || mv === undefined) ? '—' : (Number(mv) >= 0 ? '+' : '') + Number(mv).toFixed(1) + '%';
-        if (kind === 'pnl') return fmtShort(mv);
+        // 收益额是金额 · 隐私模式糊(扇区标签在 canvas 上,CSS data-priv 管不到,渲染时判)
+        if (kind === 'pnl') return privacyOn() ? '···' : fmtShort(mv);
         return (totalSize ? Math.abs(Number(mv || 0)) * 100 / totalSize : 0).toFixed(1) + '%';
       }
       data.forEach(function (n) { n._lbl = lblFor(n._mv); n.children.forEach(function (c) { c._lbl = lblFor(c._mv); }); });
@@ -458,7 +459,7 @@
       var barColor = colorMapFor(rows.map(function (x) { return x.name; }), 1);   // 与旭日外环同色
       var totalMv = rows.reduce(function (s, x) { return s + Number(x.mv || 0); }, 0);
       var maxAbs = rows.reduce(function (m, x) { return Math.max(m, Math.abs(Number(x.mv || 0))); }, 0);
-      var html = '<div class="eyebrow mb-1">当前范围 · 按 ' + esc(MEASURE_LABEL[mkey] || '金额') + ' · ' + esc(DIM_LABEL[state.sunDims[1]]) + '</div>';
+      var html = '<div class="eyebrow mb-1">当前范围 · 按 ' + esc(MEASURE_LABEL[mkey] || '总资产') + ' · ' + esc(DIM_LABEL[state.sunDims[1]]) + '</div>';
       rows.forEach(function (x) {
         var right, barW, barBg = barColor[x.name], rcls = '', priv = ' data-priv';
         if (kind === 'ratio') {
