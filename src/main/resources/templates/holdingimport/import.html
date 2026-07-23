@@ -4,123 +4,114 @@
 <body class="min-h-screen relative">
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('entry', ${me}, ${nav})}"></header>
+<style>
+  .thumb{position:relative;width:78px;height:136px;border:1px solid var(--rule);border-radius:8px;overflow:hidden;background:var(--card-soft);flex:none}
+  .thumb img{width:100%;height:100%;object-fit:cover}
+  .thumb .rm{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:12px;line-height:18px;text-align:center;cursor:pointer}
+  .thumb.scan::after{content:'';position:absolute;left:0;right:0;top:-24px;height:24px;background:linear-gradient(180deg,rgba(176,134,66,0),rgba(176,134,66,.7),rgba(176,134,66,0));animation:scanln 1.3s linear infinite}
+  .thumb.scan{box-shadow:0 0 0 2px var(--brass) inset}
+  @keyframes scanln{0%{top:-24px}100%{top:136px}}
+  .cmp-amt{font-variant-numeric:tabular-nums;font-family:'JetBrains Mono',monospace}
+  .revrow{border-top:1px solid var(--rule)}
+  .revrow:hover{background:var(--card-soft)}
+</style>
 
-<main class="max-w-[1100px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+<main class="max-w-[880px] mx-auto px-4 lg:px-8 py-8 relative z-10">
   <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
     <a th:href="@{/entry}" class="hover:text-ink no-underline">填报</a>
     <span class="mx-2 text-rule">/</span><span class="text-ink" th:text="${account.displayName}">账户</span>
     <span class="mx-2 text-rule">/</span><span class="text-ink">截图导入持仓</span>
   </div>
 
-  <!-- 没有开账期 -->
   <section th:if="${noPeriod}" class="paper-card p-6">
     <h1 class="font-display text-2xl mb-2">截图导入持仓</h1>
     <p class="text-ink-soft text-sm">当前没有开账期。请先到 <a th:href="@{/entry}" class="text-brass-deep">填报页</a> 开账,再回来导入持仓。</p>
   </section>
-
-  <!-- 视觉不可用 -->
   <section th:if="${visionUnavailable}" class="paper-card p-6">
     <h1 class="font-display text-2xl mb-2">截图导入持仓</h1>
-    <p class="text-ink-soft text-sm">视觉识别未启用。请到 <a th:href="@{/admin/integrations}" class="text-brass-deep">管理 · 集成中心</a> 配置通义千问 key 并选择视觉模型(Qwen VL-Max)。</p>
+    <p class="text-ink-soft text-sm">视觉识别未启用。请到 <a th:href="@{/admin/integrations}" class="text-brass-deep">管理 · 集成中心</a> 配置通义千问 key 并选视觉模型。</p>
   </section>
 
   <div th:if="${imp != null}">
-    <section class="paper-card p-6 mb-5">
-      <div class="flex items-baseline justify-between flex-wrap gap-2">
-        <h1 class="font-display text-2xl">截图导入持仓 · <span th:text="${account.displayName}">账户</span></h1>
-        <span class="font-mono text-[11px] text-ink-subtle">视觉模型 · <span th:text="${visionModel}">qwen-vl-max</span></span>
-      </div>
-      <p class="text-ink-soft text-sm mt-1">把该账户在 app 里的<b>持仓列表页</b>截图传上来,AI 识别每支持仓,和已有持仓比对后确认导入。</p>
-    </section>
+    <div class="flex items-baseline justify-between flex-wrap gap-2 mb-4">
+      <h1 class="font-display text-2xl">截图导入持仓 · <span th:text="${account.displayName}">账户</span></h1>
+      <span class="font-mono text-[11px] text-ink-subtle">视觉模型 · <span th:text="${visionModel}">qwen-vl-max</span></span>
+    </div>
 
-    <!-- ============ UPLOADING:上传 + 压缩 + 成本 ============ -->
-    <section th:if="${imp.status == 'UPLOADING'}" id="uploadSection" class="paper-card p-6" th:attr="data-import=${imp.id},data-model=${visionModel}">
+    <!-- ===== 上传 + 识别(一步流)===== -->
+    <section th:if="${imp.status == 'UPLOADING' or imp.status == 'SCANNING'}" class="paper-card p-5"
+             th:attr="data-import=${imp.id},data-model=${visionModel},data-status=${imp.status}" id="importSection">
+      <ol class="flex items-center gap-2 font-mono text-[11px] text-ink-subtle mb-4">
+        <li class="text-ink"><b>1</b> 选图</li><li class="text-rule">→</li>
+        <li id="stepScan"><b>2</b> 开始识别</li><li class="text-rule">→</li>
+        <li id="stepReview"><b>3</b> 比对确认</li>
+      </ol>
       <input id="fileInput" type="file" accept="image/*" multiple class="hidden">
-      <div id="dropZone" class="border-2 border-dashed border-rule rounded-lg p-8 text-center cursor-pointer hover:bg-card-soft" onclick="document.getElementById('fileInput').click()">
+      <div id="dropZone" class="border-2 border-dashed border-rule rounded-lg p-6 text-center cursor-pointer hover:bg-card-soft" onclick="document.getElementById('fileInput').click()">
         <div class="font-display text-lg text-ink-soft">＋ 选择 / 拍摄持仓截图</div>
-        <div class="font-mono text-[11px] text-ink-subtle mt-1">可多选 · 长列表分段截图 · 上传前自动压缩</div>
+        <div class="font-mono text-[11px] text-ink-subtle mt-1">可多选 · 长列表分段截图 · 选好即自动上传(前端已压缩省流量)</div>
       </div>
       <div id="thumbs" class="flex flex-wrap gap-3 mt-4"></div>
+      <div id="scanHint" class="hidden font-mono text-[12px] text-brass-deep mt-3">AI 扫描中… <span id="eta"></span> · 识别在后台跑,退出再进会回到这里,不用重来</div>
+      <div id="scanErr" class="hidden font-mono text-[12px] text-rust mt-3"></div>
       <div class="mt-5 flex items-center justify-between flex-wrap gap-3">
-        <div class="font-mono text-[12px] text-ink-soft">本次 <b id="imgN">0</b> 张 · 预估 <b id="costV" class="text-brass-deep">≈ ¥0.00</b>
-          <span class="text-ink-subtle">· 免费额度内≈0</span></div>
-        <div class="flex items-center gap-3">
-          <button id="uploadBtn" class="btn-paper" disabled>上传</button>
-          <button id="scanBtn" class="btn-ink" disabled>开始识别</button>
-        </div>
-      </div>
-      <p class="font-mono text-[10px] text-ink-subtle mt-3">图片发给 AI 视觉服务识别 · 压缩原图会留存供你日后在流水里回看。</p>
-    </section>
-
-    <!-- ============ SCANNING:扫描动画 + 轮询 ============ -->
-    <section th:if="${imp.status == 'SCANNING'}" class="paper-card p-6" th:attr="data-import=${imp.id}" id="scanSection">
-      <div class="flex items-center gap-5 flex-wrap">
-        <div class="scanbox"></div>
-        <div class="flex-1 min-w-[220px]">
-          <div class="font-mono text-sm text-ink-soft mb-2">AI 扫描中… <span id="eta"></span></div>
-          <div class="w-full rounded overflow-hidden bg-card-soft border border-rule h-2"><div id="bar" class="h-full bg-brass" style="width:20%;transition:width .6s"></div></div>
-          <div id="scanErr" class="hidden font-mono text-[12px] text-rust mt-2"></div>
-          <p class="font-mono text-[11px] text-ink-subtle mt-2">识别在后台跑 · 你退出也没关系,下次进这个账户会直接回到「待比对」,不用重来。</p>
-        </div>
+        <div class="font-mono text-[12px] text-ink-soft">本次 <b id="imgN">0</b> 张 · 预估 <b id="costV" class="text-brass-deep">≈ ¥0.00</b> <span class="text-ink-subtle">· 免费额度内≈0</span></div>
+        <button id="scanBtn" class="btn-ink" disabled>开始识别</button>
       </div>
     </section>
 
-    <!-- ============ REVIEW:左旧右新比对 ============ -->
-    <form th:if="${imp.status == 'REVIEW'}" th:action="@{'/entry/import/' + ${imp.id} + '/confirm'}" method="post" class="paper-card p-5" id="reviewForm">
+    <!-- ===== 比对确认(左旧右新 · 金额对齐)===== -->
+    <form th:if="${imp.status == 'REVIEW'}" th:action="@{'/entry/import/' + ${imp.id} + '/confirm'}" method="post" class="paper-card p-4 lg:p-5" id="reviewForm">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-      <div th:if="${imp.scanError != null}" class="font-mono text-[12px] text-rust mb-3" th:text="'部分识别有问题:' + ${imp.scanError}"></div>
-      <div class="grid grid-cols-[1fr_auto_1fr] gap-2 mb-2 font-mono text-[11px] text-ink-subtle">
-        <div>已有持仓(旧)</div><div>状态</div><div>识别导入(新)· 可编辑</div>
+      <div class="flex items-baseline justify-between flex-wrap gap-2 mb-3">
+        <div class="eyebrow">识别到 <b th:text="${#lists.size(items)}">N</b> 项 · 勾选要导入的</div>
+        <div th:if="${imp.scanError != null}" class="font-mono text-[11px] text-rust" th:text="'部分识别有问题:' + ${imp.scanError}"></div>
       </div>
-      <div th:each="it : ${items}" class="grid grid-cols-[1fr_auto_1fr] gap-2 items-center py-2 border-t border-rule"
-           th:attr="data-item=${it.id}" th:classappend="${it.matchState == 'SOLD'} ? 'bg-card-soft' : ''">
-        <!-- 左:旧 -->
-        <div th:if="${it.matchState != 'NEW'}" class="text-sm">
-          <span th:text="${it.parsedName}">名称</span>
-          <span class="font-mono block text-[11px] text-ink-subtle" data-priv
-                th:text="${it.oldValue != null} ? ('¥' + ${#numbers.formatDecimal(it.oldValue,1,'COMMA',2,'POINT')}) : ''"></span>
+
+      <div th:each="it : ${items}" class="revrow py-3" th:attr="data-item=${it.id}">
+        <!-- 主行:勾选 + 状态 + 名称 + 旧→新金额(同行对齐)-->
+        <div class="flex items-center gap-2.5">
+          <input th:if="${it.matchState != 'SOLD'}" type="checkbox" class="j-sel flex-none" th:checked="${it.selected}">
+          <span class="flex-none" style="width:52px;text-align:center">
+            <span th:if="${it.matchState == 'UPDATE'}" class="badge" style="border-color:var(--brass);color:var(--brass-deep)">更新</span>
+            <span th:if="${it.matchState == 'NEW'}" class="badge" style="border-color:var(--forest);color:var(--forest)">新增</span>
+            <span th:if="${it.matchState == 'SOLD'}" class="badge" style="border-color:var(--rust);color:var(--rust)">卖出?</span>
+          </span>
+          <span class="flex-1 min-w-0 truncate text-sm" th:text="${it.parsedName}"
+                th:classappend="${it.confidence == 'low'} ? ' text-rust' : ''">名称</span>
+          <!-- 金额对比:旧 → 新,同字体同行,右对齐 -->
+          <span class="flex-none cmp-amt text-sm text-right" data-priv>
+            <span th:if="${it.matchState != 'NEW' and it.oldValue != null}" class="text-ink-subtle"
+                  th:text="'¥' + ${#numbers.formatDecimal(it.oldValue,1,'COMMA',2,'POINT')}">¥旧</span>
+            <span th:if="${it.matchState == 'UPDATE'}" class="text-ink-subtle mx-1">→</span>
+            <span th:unless="${it.matchState == 'SOLD'}" class="text-ink font-medium"
+                  th:text="${it.marketValue != null} ? ('¥' + ${#numbers.formatDecimal(it.marketValue,1,'COMMA',2,'POINT')}) : '—'">¥新</span>
+          </span>
         </div>
-        <div th:if="${it.matchState == 'NEW'}" class="text-sm text-ink-subtle" style="opacity:.5">（无对应旧持仓）</div>
-        <!-- 中:状态 -->
-        <div class="text-center">
-          <span th:if="${it.matchState == 'UPDATE'}" class="pill" style="border-color:var(--brass);color:var(--brass-deep)">更新</span>
-          <span th:if="${it.matchState == 'NEW'}" class="pill" style="border-color:var(--forest);color:var(--forest)">新增</span>
-          <span th:if="${it.matchState == 'SOLD'}" class="pill" style="border-color:var(--rust);color:var(--rust)">卖出?</span>
+        <!-- 副行:可编辑(NEW/UPDATE)/ 定夺(SOLD)-->
+        <div th:unless="${it.matchState == 'SOLD'}" class="flex items-center gap-2 mt-2 flex-wrap pl-[62px]">
+          <span th:if="${it.confidence == 'low'}" class="badge" style="color:var(--rust);border-color:var(--rust)">⚑ 核对</span>
+          <label class="font-mono text-[11px] text-ink-subtle">市值 ¥
+            <input type="number" step="0.01" class="j-mv field-input" style="width:108px;padding:2px 6px;margin-left:2px" th:value="${it.marketValue}"></label>
+          <select class="j-ac field-input text-[12px]" style="padding:2px 4px;width:150px;flex:none">
+            <option value="">资产类型</option>
+            <option th:each="a : ${assetClasses}" th:value="${a.name()}" th:text="${a.getLabel()}" th:selected="${a.name() == it.assetClassTag}"></option>
+          </select>
+          <select class="j-ind field-input text-[12px]" style="padding:2px 4px;width:150px;flex:none">
+            <option value="">行业</option>
+            <option th:each="g : ${industryTags}" th:value="${g.name()}" th:text="${g.getLabel()}" th:selected="${g.name() == it.industryTag}"></option>
+          </select>
         </div>
-        <!-- 右:新(可编辑) -->
-        <div th:if="${it.matchState != 'SOLD'}" class="text-sm">
-          <div class="flex items-center gap-1.5">
-            <input type="checkbox" class="j-sel" th:checked="${it.selected}">
-            <span th:text="${it.parsedName}" th:classappend="${it.confidence == 'low'} ? 'text-rust' : ''">名称</span>
-            <span th:if="${it.confidence == 'low'}" class="font-mono text-[10px] text-rust">⚑核对</span>
-          </div>
-          <div class="flex items-center gap-2 mt-1 flex-wrap">
-            <span class="font-mono text-[11px] text-ink-subtle">¥</span>
-            <input type="number" step="0.01" class="j-mv field-input" style="width:110px;padding:2px 6px"
-                   th:value="${it.marketValue}">
-            <select class="j-ac field-input text-[12px]" style="padding:2px 4px">
-              <option value="">资产类型</option>
-              <option th:each="a : ${assetClasses}" th:value="${a.name()}" th:text="${a.getLabel()}" th:selected="${a.name() == it.assetClassTag}"></option>
-            </select>
-            <select class="j-ind field-input text-[12px]" style="padding:2px 4px">
-              <option value="">行业</option>
-              <option th:each="g : ${industryTags}" th:value="${g.name()}" th:text="${g.getLabel()}" th:selected="${g.name() == it.industryTag}"></option>
-            </select>
-          </div>
-        </div>
-        <!-- SOLD:定夺 -->
-        <div th:if="${it.matchState == 'SOLD'}" class="text-sm">
-          <span class="font-mono text-[11px] text-ink-subtle">本次没截到 ≠ 一定卖出</span>
-          <div class="flex items-center gap-3 mt-1 font-mono text-[12px]">
-            <label><input type="radio" th:name="'dec' + ${it.id}" class="j-dec" value="KEEP" th:checked="${it.userDecision != 'ARCHIVE'}"> 保留</label>
-            <label class="text-rust"><input type="radio" th:name="'dec' + ${it.id}" class="j-dec" value="ARCHIVE" th:checked="${it.userDecision == 'ARCHIVE'}"> 确认卖出(归档)</label>
-          </div>
+        <div th:if="${it.matchState == 'SOLD'}" class="flex items-center gap-3 mt-2 pl-[62px] font-mono text-[12px]">
+          <span class="text-ink-subtle">本次没截到 ≠ 一定卖出:</span>
+          <label><input type="radio" th:name="'dec' + ${it.id}" class="j-dec" value="KEEP" th:checked="${it.userDecision != 'ARCHIVE'}"> 保留</label>
+          <label class="text-rust"><input type="radio" th:name="'dec' + ${it.id}" class="j-dec" value="ARCHIVE" th:checked="${it.userDecision == 'ARCHIVE'}"> 确认卖出</label>
         </div>
       </div>
 
       <div class="mt-4 rounded px-4 py-3 flex items-center justify-between flex-wrap gap-3 bg-card-soft border border-rule">
         <div class="font-mono text-[12px] text-ink-soft">Σ 勾选持仓 = <b id="sumV" class="text-forest" data-priv>—</b></div>
-        <div class="font-mono text-[11px] text-ink-subtle">差额只提示不自动改账户总额</div>
+        <div class="font-mono text-[11px] text-ink-subtle">差额只提示,不自动改账户总额</div>
       </div>
       <div class="flex items-center justify-end gap-3 mt-4">
         <button type="submit" th:formaction="@{'/entry/import/' + ${imp.id} + '/abandon'}" class="btn-paper" formnovalidate>放弃本次</button>
@@ -132,120 +123,70 @@
 
 <script th:inline="javascript">
 (function(){
-  var CSRF = document.querySelector('meta[name="_csrf"]');
-  CSRF = CSRF ? CSRF.content : '';
-  function post(url, body, isForm){
-    var opt = {method:'POST', headers:{'X-XSRF-TOKEN':CSRF}};
-    if (isForm){ opt.body = body; } else if (body){ opt.headers['Content-Type']='application/x-www-form-urlencoded'; opt.body = body; }
-    return fetch(url, opt);
-  }
-  var RATE = {'qwen-vl-max':0.01,'qwen-vl-plus':0.005};
+  var CSRF=(document.querySelector('meta[name="_csrf"]')||{}).content||'';
+  function post(url,body,form){var o={method:'POST',headers:{'X-XSRF-TOKEN':CSRF}};if(form){o.body=body;}else if(body){o.headers['Content-Type']='application/x-www-form-urlencoded';o.body=body;}return fetch(url,o);}
+  var RATE={'qwen-vl-max':0.01,'qwen-vl-plus':0.005};
 
-  // ---------- UPLOADING ----------
-  var up = document.getElementById('uploadSection');
-  if (up){
-    var importId = up.getAttribute('data-import');
-    var model = up.getAttribute('data-model') || 'qwen-vl-max';
-    var compressed = [];
-    var fi = document.getElementById('fileInput');
-    var thumbs = document.getElementById('thumbs');
-    var uploadBtn = document.getElementById('uploadBtn');
-    var scanBtn = document.getElementById('scanBtn');
-    function updCost(){
-      document.getElementById('imgN').textContent = compressed.length;
-      var c = compressed.length * (RATE[model]||0.01);
-      document.getElementById('costV').textContent = '≈ ¥' + c.toFixed(2);
-      uploadBtn.disabled = compressed.length === 0;
-    }
-    function compress(file){
-      return new Promise(function(res){
-        var img = new Image();
-        img.onload = function(){
-          var max = 2000, r = Math.min(max/img.width, max/img.height, 1);
-          var c = document.createElement('canvas');
-          c.width = Math.round(img.width*r); c.height = Math.round(img.height*r);
-          c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-          c.toBlob(function(b){ res(b); }, 'image/jpeg', 0.82);
-        };
-        img.onerror = function(){ res(null); };
-        img.src = URL.createObjectURL(file);
-      });
-    }
-    fi.addEventListener('change', function(){
-      var files = Array.prototype.slice.call(fi.files);
+  // ===== 上传 + 识别 =====
+  var sec=document.getElementById('importSection');
+  if(sec){
+    var iid=sec.getAttribute('data-import'), model=sec.getAttribute('data-model')||'qwen-vl-max';
+    var status=sec.getAttribute('data-status');
+    var fi=document.getElementById('fileInput'), thumbs=document.getElementById('thumbs');
+    var scanBtn=document.getElementById('scanBtn'), imgN=document.getElementById('imgN'), costV=document.getElementById('costV');
+    var uploaded=0, uploading=0;
+    function upd(){imgN.textContent=uploaded;costV.textContent='≈ ¥'+(uploaded*(RATE[model]||0.01)).toFixed(2);scanBtn.disabled=uploaded===0||uploading>0;}
+    function compress(file){return new Promise(function(res){var img=new Image();img.onload=function(){var mx=2000,r=Math.min(mx/img.width,mx/img.height,1);var c=document.createElement('canvas');c.width=Math.round(img.width*r);c.height=Math.round(img.height*r);c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(function(b){res(b);},'image/jpeg',0.82);};img.onerror=function(){res(null);};img.src=URL.createObjectURL(file);});}
+    function addThumb(blob){var d=document.createElement('div');d.className='thumb';var im=document.createElement('img');im.src=URL.createObjectURL(blob);d.appendChild(im);thumbs.appendChild(d);return d;}
+    fi.addEventListener('change',function(){
+      var files=Array.prototype.slice.call(fi.files); fi.value='';
       files.forEach(function(f){
+        uploading++; upd();
         compress(f).then(function(blob){
-          if(!blob) return;
-          compressed.push(blob);
-          var d = document.createElement('div');
-          d.style.cssText='width:70px;height:120px;border:1px solid var(--rule);border-radius:6px;overflow:hidden';
-          var im = document.createElement('img'); im.src = URL.createObjectURL(blob);
-          im.style.cssText='width:100%;height:100%;object-fit:cover'; d.appendChild(im);
-          thumbs.appendChild(d); updCost();
+          if(!blob){uploading--;upd();return;}
+          var d=addThumb(blob); d.classList.add('scan');
+          var fd=new FormData(); fd.append('files',blob,'shot.jpg');
+          post('/entry/import/'+iid+'/upload',fd,true).then(function(r){return r.json();}).then(function(){
+            d.classList.remove('scan'); uploaded++; uploading--; upd();
+          }).catch(function(){d.classList.remove('scan');d.style.opacity=.4;uploading--;upd();});
         });
       });
-      fi.value='';
     });
-    uploadBtn.addEventListener('click', function(){
-      if(!compressed.length) return;
-      uploadBtn.disabled = true; uploadBtn.textContent='上传中…';
-      var fd = new FormData();
-      compressed.forEach(function(b,i){ fd.append('files', b, 'shot'+i+'.jpg'); });
-      post('/entry/import/'+importId+'/upload', fd, true).then(function(r){return r.json();}).then(function(){
-        uploadBtn.textContent='已上传 ✓'; scanBtn.disabled=false;
-      }).catch(function(){ uploadBtn.disabled=false; uploadBtn.textContent='上传(重试)'; });
-    });
-    scanBtn.addEventListener('click', function(){
+    function startPoll(){
+      document.getElementById('scanHint').classList.remove('hidden');
+      document.getElementById('stepScan').classList.add('text-ink');
+      [].forEach.call(thumbs.children,function(t){t.classList.add('scan');});
+      var t0=Date.now(), est=Math.max(8,uploaded*10);
+      document.getElementById('eta').textContent='预计约 '+est+' 秒';
+      (function poll(){
+        fetch('/entry/import/'+iid+'/status').then(function(r){return r.json();}).then(function(j){
+          if(j.status==='REVIEW'){location.reload();return;}
+          if(j.scanError){document.getElementById('scanErr').classList.remove('hidden');document.getElementById('scanErr').textContent='识别有问题:'+j.scanError;}
+          setTimeout(poll,2500);
+        }).catch(function(){setTimeout(poll,3000);});
+      })();
+    }
+    scanBtn.addEventListener('click',function(){
       scanBtn.disabled=true; scanBtn.textContent='识别中…';
-      post('/entry/import/'+importId+'/scan').then(function(r){return r.json();}).then(function(j){
-        if(j.error){ alert(j.error); scanBtn.disabled=false; scanBtn.textContent='开始识别'; return; }
-        location.reload();
+      post('/entry/import/'+iid+'/scan').then(function(r){return r.json();}).then(function(j){
+        if(j.error){alert(j.error);scanBtn.disabled=false;scanBtn.textContent='开始识别';return;}
+        startPoll();
       });
     });
-    updCost();
+    // 断点续看:进来就是 SCANNING → 直接进扫描态轮询(无原图缩略,占位)
+    if(status==='SCANNING'){scanBtn.style.display='none';var ph=document.createElement('div');ph.className='thumb scan';thumbs.appendChild(ph);startPoll();}
+    upd();
   }
 
-  // ---------- SCANNING poll ----------
-  var scan = document.getElementById('scanSection');
-  if (scan){
-    var iid = scan.getAttribute('data-import');
-    var bar = document.getElementById('bar'), p=20;
-    var tick = setInterval(function(){ p=Math.min(p+6,90); bar.style.width=p+'%'; }, 1500);
-    function poll(){
-      fetch('/entry/import/'+iid+'/status').then(function(r){return r.json();}).then(function(j){
-        if(j.status==='REVIEW'){ clearInterval(tick); bar.style.width='100%'; setTimeout(function(){location.reload();},400); return; }
-        if(j.scanError){ document.getElementById('scanErr').classList.remove('hidden'); document.getElementById('scanErr').textContent='识别有问题:'+j.scanError; }
-        setTimeout(poll, 2500);
-      }).catch(function(){ setTimeout(poll,3000); });
-    }
-    setTimeout(poll, 2000);
-  }
-
-  // ---------- REVIEW inline edit + Σ ----------
-  var form = document.getElementById('reviewForm');
-  if (form){
-    function saveItem(row, extra){
-      var id = row.getAttribute('data-item');
-      var b = extra || {};
-      var mv = row.querySelector('.j-mv'); if(mv) b.marketValue = mv.value;
-      var ac = row.querySelector('.j-ac'); if(ac) b.assetClassTag = ac.value;
-      var ind = row.querySelector('.j-ind'); if(ind) b.industryTag = ind.value;
-      var sel = row.querySelector('.j-sel'); if(sel) b.selected = sel.checked;
-      var params = Object.keys(b).filter(function(k){return b[k]!==''&&b[k]!=null;}).map(function(k){return k+'='+encodeURIComponent(b[k]);}).join('&');
-      post('/entry/import/item/'+id, params);
-    }
-    function recalc(){
-      var s=0;
-      form.querySelectorAll('[data-item]').forEach(function(row){
-        var sel=row.querySelector('.j-sel'), mv=row.querySelector('.j-mv');
-        if(sel && sel.checked && mv && mv.value) s += parseFloat(mv.value)||0;
-      });
-      document.getElementById('sumV').textContent = '¥'+s.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-    }
+  // ===== 比对:内联编辑 + Σ =====
+  var form=document.getElementById('reviewForm');
+  if(form){
+    function save(row,extra){var id=row.getAttribute('data-item'),b=extra||{};var mv=row.querySelector('.j-mv');if(mv)b.marketValue=mv.value;var ac=row.querySelector('.j-ac');if(ac)b.assetClassTag=ac.value;var ind=row.querySelector('.j-ind');if(ind)b.industryTag=ind.value;var sel=row.querySelector('.j-sel');if(sel)b.selected=sel.checked;var p=Object.keys(b).filter(function(k){return b[k]!==''&&b[k]!=null;}).map(function(k){return k+'='+encodeURIComponent(b[k]);}).join('&');post('/entry/import/item/'+id,p);}
+    function recalc(){var s=0;form.querySelectorAll('[data-item]').forEach(function(row){var sel=row.querySelector('.j-sel'),mv=row.querySelector('.j-mv');if(sel&&sel.checked&&mv&&mv.value)s+=parseFloat(mv.value)||0;});document.getElementById('sumV').textContent='¥'+s.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
     form.querySelectorAll('[data-item]').forEach(function(row){
-      row.querySelectorAll('.j-mv,.j-ac,.j-ind').forEach(function(el){ el.addEventListener('change', function(){ saveItem(row); recalc(); }); });
-      var sel=row.querySelector('.j-sel'); if(sel) sel.addEventListener('change', function(){ saveItem(row); recalc(); });
-      row.querySelectorAll('.j-dec').forEach(function(rd){ rd.addEventListener('change', function(){ saveItem(row, {userDecision: rd.value}); }); });
+      row.querySelectorAll('.j-mv,.j-ac,.j-ind').forEach(function(el){el.addEventListener('change',function(){save(row);recalc();});});
+      var sel=row.querySelector('.j-sel');if(sel)sel.addEventListener('change',function(){save(row);recalc();});
+      row.querySelectorAll('.j-dec').forEach(function(rd){rd.addEventListener('change',function(){save(row,{userDecision:rd.value});});});
     });
     recalc();
   }

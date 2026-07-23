@@ -4,6 +4,14 @@
 <body class="min-h-screen relative">
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('entry', ${me}, ${nav})}"></header>
+<style>
+  #lb{position:fixed;inset:0;background:rgba(20,17,14,.92);z-index:60;display:none;align-items:center;justify-content:center;touch-action:none}
+  #lb.on{display:flex}
+  #lb img{max-width:94vw;max-height:90vh;border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,.5);will-change:transform}
+  #lb .tip{position:fixed;bottom:22px;left:0;right:0;text-align:center;color:rgba(255,255,255,.75);font-family:'JetBrains Mono',monospace;font-size:12px}
+  .shot{width:96px;height:168px;border:1px solid var(--rule);border-radius:8px;overflow:hidden;cursor:zoom-in;flex:none}
+  .shot img{width:100%;height:100%;object-fit:cover}
+</style>
 <main class="max-w-[900px] mx-auto px-6 lg:px-10 py-10 relative z-10">
   <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
     <a th:href="@{/entry}" class="hover:text-ink no-underline">填报</a>
@@ -18,13 +26,13 @@
   <section class="paper-card p-5 mb-5">
     <div class="eyebrow mb-3">逐 · 项 · 变 · 化</div>
     <div th:each="it : ${items}" class="flex items-center justify-between gap-2 py-2 border-t border-rule text-sm">
-      <span class="flex items-center gap-2">
-        <span th:if="${it.matchState=='NEW'}" class="pill" style="border-color:var(--forest);color:var(--forest)">新增</span>
-        <span th:if="${it.matchState=='UPDATE'}" class="pill" style="border-color:var(--brass);color:var(--brass-deep)">更新</span>
-        <span th:if="${it.matchState=='SOLD'}" class="pill" style="border-color:var(--rust);color:var(--rust)" th:text="${it.userDecision=='ARCHIVE'} ? '卖出' : '保留'">卖出</span>
-        <span th:text="${it.parsedName}">名称</span>
+      <span class="flex items-center gap-2 min-w-0">
+        <span th:if="${it.matchState=='NEW'}" class="badge" style="border-color:var(--forest);color:var(--forest)">新增</span>
+        <span th:if="${it.matchState=='UPDATE'}" class="badge" style="border-color:var(--brass);color:var(--brass-deep)">更新</span>
+        <span th:if="${it.matchState=='SOLD'}" class="badge" style="border-color:var(--rust);color:var(--rust)" th:text="${it.userDecision=='ARCHIVE'} ? '卖出' : '保留'">卖出</span>
+        <span class="truncate" th:text="${it.parsedName}">名称</span>
       </span>
-      <span class="font-mono text-[12px]" data-priv>
+      <span class="font-mono text-[12px] flex-none" style="font-variant-numeric:tabular-nums" data-priv>
         <span th:if="${it.matchState=='UPDATE' and it.oldValue != null}" class="text-ink-subtle"
               th:text="'¥' + ${#numbers.formatDecimal(it.oldValue,1,'COMMA',2,'POINT')} + ' → '"></span>
         <span th:if="${it.marketValue != null}" th:text="'¥' + ${#numbers.formatDecimal(it.marketValue,1,'COMMA',2,'POINT')}">¥0</span>
@@ -33,15 +41,40 @@
   </section>
 
   <section class="paper-card p-5" th:if="${!shots.isEmpty()}">
-    <div class="eyebrow mb-3">当 · 时 · 原 · 图</div>
+    <div class="eyebrow mb-3">当 · 时 · 原 · 图 <span class="normal-case tracking-normal font-mono text-[10px] text-ink-subtle">点开放大 · 再点或下拉关闭</span></div>
     <div class="flex flex-wrap gap-3">
-      <a th:each="s : ${shots}" th:href="@{'/uploads/' + ${s}}" target="_blank"
-         class="block" style="width:96px;height:168px;border:1px solid var(--rule);border-radius:6px;overflow:hidden">
-        <img th:src="@{'/uploads/' + ${s}}" style="width:100%;height:100%;object-fit:cover" alt="导入原图"/>
-      </a>
+      <div th:each="s : ${shots}" class="shot" th:attr="data-src=@{'/uploads/' + ${s}}">
+        <img th:src="@{'/uploads/' + ${s}}" alt="导入原图"/>
+      </div>
     </div>
     <p class="font-mono text-[10px] text-ink-subtle mt-3">原图压缩留存 · 随库备份 · 仅你可见。</p>
   </section>
 </main>
+
+<div id="lb"><img id="lbImg" src="" alt="原图放大"/><div class="tip">再点图片 / 单指下拉 关闭</div></div>
+
+<script>
+(function(){
+  var lb=document.getElementById('lb'), lbImg=document.getElementById('lbImg');
+  document.querySelectorAll('.shot').forEach(function(el){
+    el.addEventListener('click',function(){lbImg.style.transform='';lbImg.src=el.getAttribute('data-src');lb.classList.add('on');});
+  });
+  function close(){lb.classList.remove('on');lbImg.style.transform='';}
+  // 再点图片关闭
+  lb.addEventListener('click',function(){close();});
+  // 单指下拉关闭(拖动图片向下 → 缩小/取消放大)
+  var sy=null;
+  lb.addEventListener('touchstart',function(e){if(e.touches.length===1)sy=e.touches[0].clientY;},{passive:true});
+  lb.addEventListener('touchmove',function(e){
+    if(sy===null)return;var dy=e.touches[0].clientY-sy;
+    if(dy>0){var sc=Math.max(.5,1-dy/600);lbImg.style.transform='translateY('+dy+'px) scale('+sc+')';lbImg.style.opacity=Math.max(.3,1-dy/500);}
+  },{passive:true});
+  lb.addEventListener('touchend',function(e){
+    var dy=(e.changedTouches[0].clientY-(sy||0));
+    if(sy!==null && dy>90){close();} else {lbImg.style.transform='';lbImg.style.opacity='';}
+    sy=null;
+  });
+})();
+</script>
 </body>
 </html>
