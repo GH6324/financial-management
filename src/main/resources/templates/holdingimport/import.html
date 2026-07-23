@@ -68,44 +68,61 @@
         <div th:if="${imp.scanError != null}" class="font-mono text-[11px] text-rust" th:text="'部分识别有问题:' + ${imp.scanError}"></div>
       </div>
 
-      <div th:each="it : ${items}" class="revrow py-3" th:attr="data-item=${it.id}">
-        <!-- 主行:勾选 + 状态 + 名称 + 旧→新金额(同行对齐)-->
-        <div class="flex items-center gap-2.5">
-          <input th:if="${it.matchState != 'SOLD'}" type="checkbox" class="j-sel flex-none" th:checked="${it.selected}">
-          <span class="flex-none" style="width:52px;text-align:center">
-            <span th:if="${it.matchState == 'UPDATE'}" class="badge" style="border-color:var(--brass);color:var(--brass-deep)">更新</span>
-            <span th:if="${it.matchState == 'NEW'}" class="badge" style="border-color:var(--forest);color:var(--forest)">新增</span>
-            <span th:if="${it.matchState == 'SOLD'}" class="badge" style="border-color:var(--rust);color:var(--rust)">卖出?</span>
-          </span>
-          <span class="flex-1 min-w-0 truncate text-sm" th:text="${it.parsedName}"
-                th:classappend="${it.confidence == 'low'} ? ' text-rust' : ''">名称</span>
-          <!-- 金额对比:旧 → 新,同字体同行,右对齐 -->
-          <span class="flex-none cmp-amt text-sm text-right" data-priv>
-            <span th:if="${it.matchState != 'NEW' and it.oldValue != null}" class="text-ink-subtle"
-                  th:text="'¥' + ${#numbers.formatDecimal(it.oldValue,1,'COMMA',2,'POINT')}">¥旧</span>
-            <span th:if="${it.matchState == 'UPDATE'}" class="text-ink-subtle mx-1">→</span>
-            <span th:unless="${it.matchState == 'SOLD'}" class="text-ink font-medium"
-                  th:text="${it.marketValue != null} ? ('¥' + ${#numbers.formatDecimal(it.marketValue,1,'COMMA',2,'POINT')}) : '—'">¥新</span>
-          </span>
+      <!-- 三列表头 -->
+      <div class="grid grid-cols-[1fr_64px_1fr] gap-2 sm:gap-3 mb-1 font-mono text-[10px] tracking-wide text-ink-subtle">
+        <div class="text-right pr-1">已有持仓(旧)</div><div class="text-center">状态</div><div>识别导入(新)· 可编辑</div>
+      </div>
+      <div th:each="it : ${items}" class="revrow grid grid-cols-[1fr_64px_1fr] gap-2 sm:gap-3 items-start py-3" th:attr="data-item=${it.id}">
+        <!-- 左:旧持仓(名称 + 金额,右对齐向中间;金额与右侧新金额同一行对齐)-->
+        <div class="text-right min-w-0">
+          <div th:if="${it.matchState != 'NEW'}">
+            <div class="text-sm text-ink-soft truncate" th:text="${it.parsedName}">旧名称</div>
+            <div class="cmp-amt text-sm text-ink-subtle mt-0.5" data-priv
+                 th:text="${it.oldValue != null} ? ('¥' + ${#numbers.formatDecimal(it.oldValue,1,'COMMA',2,'POINT')}) : ''">¥旧</div>
+          </div>
+          <div th:if="${it.matchState == 'NEW'}" class="text-xs text-ink-subtle pt-1" style="opacity:.45">（无对应旧持仓）</div>
         </div>
-        <!-- 副行:可编辑(NEW/UPDATE)/ 定夺(SOLD)-->
-        <div th:unless="${it.matchState == 'SOLD'}" class="flex items-center gap-2 mt-2 flex-wrap pl-[62px]">
-          <span th:if="${it.confidence == 'low'}" class="badge" style="color:var(--rust);border-color:var(--rust)">⚑ 核对</span>
-          <label class="font-mono text-[11px] text-ink-subtle">市值 ¥
-            <input type="number" step="0.01" class="j-mv field-input" style="width:108px;padding:2px 6px;margin-left:2px" th:value="${it.marketValue}"></label>
-          <select class="j-ac field-input text-[12px]" style="padding:2px 4px;width:150px;flex:none">
-            <option value="">资产类型</option>
-            <option th:each="a : ${assetClasses}" th:value="${a.name()}" th:text="${a.getLabel()}" th:selected="${a.name() == it.assetClassTag}"></option>
-          </select>
-          <select class="j-ind field-input text-[12px]" style="padding:2px 4px;width:150px;flex:none">
-            <option value="">行业</option>
-            <option th:each="g : ${industryTags}" th:value="${g.name()}" th:text="${g.getLabel()}" th:selected="${g.name() == it.industryTag}"></option>
-          </select>
+        <!-- 中:状态 -->
+        <div class="text-center">
+          <span th:if="${it.matchState == 'UPDATE'}" class="badge" style="border-color:var(--brass);color:var(--brass-deep)">更新</span>
+          <span th:if="${it.matchState == 'NEW'}" class="badge" style="border-color:var(--forest);color:var(--forest)">新增</span>
+          <span th:if="${it.matchState == 'SOLD'}" class="badge" style="border-color:var(--rust);color:var(--rust)">卖出?</span>
+          <div class="text-ink-subtle text-xs mt-1">→</div>
         </div>
-        <div th:if="${it.matchState == 'SOLD'}" class="flex items-center gap-3 mt-2 pl-[62px] font-mono text-[12px]">
-          <span class="text-ink-subtle">本次没截到 ≠ 一定卖出:</span>
-          <label><input type="radio" th:name="'dec' + ${it.id}" class="j-dec" value="KEEP" th:checked="${it.userDecision != 'ARCHIVE'}"> 保留</label>
-          <label class="text-rust"><input type="radio" th:name="'dec' + ${it.id}" class="j-dec" value="ARCHIVE" th:checked="${it.userDecision == 'ARCHIVE'}"> 确认卖出</label>
+        <!-- 右:本次 AI 识别 -->
+        <div class="min-w-0">
+          <div th:unless="${it.matchState == 'SOLD'}">
+            <div class="flex items-center gap-1.5">
+              <input type="checkbox" class="j-sel flex-none" th:checked="${it.selected}">
+              <span class="text-sm truncate flex-1 min-w-0" th:text="${it.parsedName}"
+                    th:classappend="${it.confidence == 'low'} ? ' text-rust' : ''">新名称</span>
+              <span th:if="${it.confidence == 'low'}" class="badge flex-none" style="color:var(--rust);border-color:var(--rust)">⚑</span>
+            </div>
+            <!-- 金额(可编辑,与左侧旧金额同一横行对齐、同字体)-->
+            <div class="flex items-center gap-0.5 mt-0.5">
+              <span class="cmp-amt text-sm text-ink-subtle">¥</span>
+              <input type="number" step="0.01" class="j-mv cmp-amt" data-priv
+                     style="width:130px;padding:1px 2px;border:0;border-bottom:1px solid var(--rule);background:transparent;font-size:14px;font-weight:500;color:var(--ink)" th:value="${it.marketValue}">
+            </div>
+            <!-- 打标:另起一行,与金额区分(点5)-->
+            <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+              <select class="j-ac field-input text-[12px]" style="padding:2px 4px;width:128px;flex:none">
+                <option value="">资产类型</option>
+                <option th:each="a : ${assetClasses}" th:value="${a.name()}" th:text="${a.getLabel()}" th:selected="${a.name() == it.assetClassTag}"></option>
+              </select>
+              <select class="j-ind field-input text-[12px]" style="padding:2px 4px;width:128px;flex:none">
+                <option value="">行业</option>
+                <option th:each="g : ${industryTags}" th:value="${g.name()}" th:text="${g.getLabel()}" th:selected="${g.name() == it.industryTag}"></option>
+              </select>
+            </div>
+          </div>
+          <div th:if="${it.matchState == 'SOLD'}">
+            <div class="font-mono text-[11px] text-ink-subtle">本次没截到 ≠ 一定卖出</div>
+            <div class="flex items-center gap-3 mt-1 font-mono text-[12px]">
+              <label><input type="radio" th:name="'dec' + ${it.id}" class="j-dec" value="KEEP" th:checked="${it.userDecision != 'ARCHIVE'}"> 保留</label>
+              <label class="text-rust"><input type="radio" th:name="'dec' + ${it.id}" class="j-dec" value="ARCHIVE" th:checked="${it.userDecision == 'ARCHIVE'}"> 确认卖出</label>
+            </div>
+          </div>
         </div>
       </div>
 

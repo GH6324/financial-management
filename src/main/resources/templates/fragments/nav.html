@@ -15,11 +15,13 @@
             <span class="font-mono text-[10px] tracking-[0.2em] text-ink-subtle"
                   th:text="'№ ' + ${#strings.substring(state.family.name, 0, 1)}">№ 张</span>
           </span>
-          <!-- v1.3.1 · 版本号(账册「版次」标记 · brass 细线徽记)· 来源 app.version -->
+          <!-- v1.4 · 版本号 · 烫金(金箔高光渐变 · background-clip:text)· 来源 app.version -->
           <span th:if="${appVersion != null}"
-                class="inline-flex items-center gap-1 font-mono text-[9px] tracking-[0.16em] text-brass-deep mt-[3px]">
-            <span class="inline-block w-1.5 h-1.5 border border-brass-deep rotate-45" style="opacity:.7"></span>
-            <span th:text="'v' + ${appVersion}">v1.3.0</span>
+                class="inline-flex items-center gap-1 font-mono text-[10px] tracking-[0.18em] font-semibold mt-[3px]">
+            <span class="inline-block w-1.5 h-1.5 rotate-45"
+                  style="background:linear-gradient(135deg,#9a7420,#f3dd8e,#fffbe8,#e9cf7a,#9a7420);box-shadow:0 0 2px rgba(190,150,55,.55)"></span>
+            <span th:text="'v' + ${appVersion}"
+                  style="background:linear-gradient(120deg,#8a6a1e 0%,#c99a3a 28%,#f7e39c 46%,#fffbe8 52%,#efd583 62%,#a8791f 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;text-shadow:0 0.5px 0 rgba(120,85,20,.18)">v1.4.0</span>
           </span>
         </span>
       </a>
