@@ -109,6 +109,30 @@
     </div>
   </section>
 
+  <!-- ============ C · 打标页:账户→持仓→持仓方向 + 发起拉取 ============ -->
+  <div class="eyebrow mb-2">C · 多维打标页迭代 —— 树加第三级「持仓方向」+ 已有持仓也能发起拉取(FR-8/9)</div>
+  <section class="paper-card p-5 mb-10">
+    <div class="mono text-[12px]">
+      <div class="flex items-center gap-2 py-2 border-b border-rule">
+        <b>支付宝-基金</b> <span class="badge">账户 · 平台=支付宝</span>
+      </div>
+      <div class="pl-5 py-2 border-b border-rule-soft flex items-center justify-between flex-wrap gap-2">
+        <span>└ 兴全合润混合(LOF)A <span class="badge" style="color:var(--brass-deep);border-color:var(--brass)">已穿透 · 163406</span></span>
+        <span class="flex gap-2"><span class="chip">▸ 展开 3 个持仓方向</span><span class="chip" style="border-color:var(--brass-deep);color:var(--brass-deep)">↻ 重新拉取</span></span>
+      </div>
+      <div class="pl-10 text-[11px] text-ink-soft">
+        <div class="py-1 flex items-center justify-between"><span>· 食品饮料 18% · 家用电器 9% · 医药生物 11% …(股票 62%)</span><span class="badge">来源 穿透</span></div>
+        <div class="py-1 flex items-center justify-between"><span>· 其他持仓 29%(股票未覆盖部分)</span><span class="badge">残差</span></div>
+        <div class="py-1 flex items-center justify-between"><span>· 固收(债) 5% · 现金 5%</span><span class="badge">资产配置</span></div>
+      </div>
+      <div class="pl-5 py-2 border-t border-rule-soft flex items-center justify-between flex-wrap gap-2">
+        <span>└ 世纪双周盈022号 <span class="badge">未穿透(券商)</span></span>
+        <span class="flex gap-2 items-center"><span class="mono text-[10px] text-ink-subtle">行业:</span><span class="chip">固收债 ▾(手标)</span><span class="chip" style="border-style:dashed">发起拉取(非公募·不可)</span></span>
+      </div>
+    </div>
+    <p class="mono text-[10px] text-ink-subtle mt-3">未穿透持仓仍是单行单标签、手标不受影响;穿透方向可手工微调(标 MANUAL,重拉不覆盖)。旭日 / 透视复用同一份持仓方向结果。</p>
+  </section>
+
   <div class="mono text-[10px] text-ink-subtle border-t border-rule pt-4">
     数据源:东财天天基金 F10 / pingzhongdata(境内直连 · spike 已验证)· 共享缓存季度刷新 · 只用公开代码查、金额不出服务器。<br>
     详见 <b>prd/v1.5.md</b>。图中数字为示意,非真实持仓。
