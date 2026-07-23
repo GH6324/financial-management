@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.5 Preview · 基金持仓穿透(真实行业 / 资产分布)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .mono{font-family:'JetBrains Mono',monospace}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 7px;border-radius:2px;border:1px solid var(--rule);background:var(--card-soft);color:var(--ink-soft);white-space:nowrap}
+  .chip{font-family:'JetBrains Mono',monospace;font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--rule);background:var(--card);white-space:nowrap}
+  .seg{height:26px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'JetBrains Mono',monospace;font-size:11px;overflow:hidden;white-space:nowrap}
+  .row-fund{border-top:1px solid var(--rule)}
+  h2{font-family:var(--font-display,serif)}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+</style>
+</head>
+<body class="min-h-screen">
+<div style="max-width:960px;margin:0 auto;padding:32px 20px" class="relative">
+
+  <div class="eyebrow mb-1">v1.5 · Preview</div>
+  <h2 class="text-3xl font-medium mb-2">基金持仓穿透 · 真实行业 / 资产分布</h2>
+  <p class="text-ink-soft text-sm mb-8" style="max-width:640px">
+    承 v1.4 把大账户拆成一支支真实基金后,再穿透每支公募基金的底层:
+    <b>股 / 债 / 现金</b> 拆分 + <b>前十大重仓股 → 申万行业</b>。旭日 / 透视 / 体检的「行业」维度从"猜一个标签"升级为"真实金额分布"。穿不透的理财 / 投顾诚实标「未穿透」。</p>
+
+  <!-- ============ A · 导入确认页:加「基金代码」核对列 ============ -->
+  <div class="eyebrow mb-2">A · 截图导入确认 —— 每行多一枚「基金代码」核对(FR-1)</div>
+  <section class="paper-card p-5 mb-10">
+    <div class="grid mono text-[10px] text-ink-subtle mb-1" style="grid-template-columns:1.6fr 1.3fr 0.7fr 0.9fr">
+      <div>识别导入(新)</div><div>自动匹配基金代码 · 可核对/纠正</div><div class="text-right">市值</div><div class="text-center">穿透</div>
+    </div>
+
+    <div class="row-fund grid items-center py-3" style="grid-template-columns:1.6fr 1.3fr 0.7fr 0.9fr">
+      <div class="text-sm">兴全合润混合(LOF)A</div>
+      <div><span class="chip">163406 · 兴全合润混合(LOF)</span> <span class="badge" style="color:var(--forest);border-color:var(--forest)">匹配✓</span></div>
+      <div class="text-right mono text-sm">¥222,650</div>
+      <div class="text-center"><span class="badge" style="color:var(--brass-deep);border-color:var(--brass)">可穿透</span></div>
+    </div>
+
+    <div class="row-fund grid items-center py-3" style="grid-template-columns:1.6fr 1.3fr 0.7fr 0.9fr">
+      <div class="text-sm text-rust">交银施罗德中证海外中国互联网指数(QDII-LOF)A</div>
+      <div><span class="chip">164906 · 交银中证海外中国互联网指数(QDII-LOF)</span>
+        <span class="badge" style="color:var(--rust);border-color:var(--rust)">⚑ 请核对</span>
+        <span class="mono text-[10px] text-ink-subtle">份额A/C 归并</span></div>
+      <div class="text-right mono text-sm">¥164,082</div>
+      <div class="text-center"><span class="badge" style="color:var(--brass-deep);border-color:var(--brass)">QDII·部分</span></div>
+    </div>
+
+    <div class="row-fund grid items-center py-3" style="grid-template-columns:1.6fr 1.3fr 0.7fr 0.9fr">
+      <div class="text-sm">世纪双周盈022号</div>
+      <div><span class="chip" style="border-style:dashed;color:var(--ink-subtle)">未匹配到公募 · 标为「非公募」</span></div>
+      <div class="text-right mono text-sm">¥305,308</div>
+      <div class="text-center"><span class="badge">未穿透</span></div>
+    </div>
+
+    <p class="mono text-[10px] text-ink-subtle mt-3">代码自动匹配(剥份额后缀 / 公司别名);低置信 ⚑ 或多候选留你核对——防"月月宝→天弘月月宝"那类误匹配落库。份额 A/C 底层相同,穿透结果一致。</p>
+  </section>
+
+  <!-- ============ B · 旭日「行业」维度:穿透后真实分布 ============ -->
+  <div class="eyebrow mb-2">B · 旭日 / 透视「行业」维度 —— 穿透后的真实金额分布(FR-3)</div>
+  <section class="paper-card p-5 mb-4">
+    <div class="flex items-baseline justify-between flex-wrap gap-2 mb-3">
+      <div class="text-sm text-ink-soft">全家权益 + 固收 + 现金 · 穿透真实分布 <span class="mono text-[10px] text-ink-subtle">(示意)</span></div>
+      <div class="mono text-[11px] text-ink-subtle">口径:股票按申万行业 · 债/现金按资产配置 · 覆盖不到记「其他持仓」</div>
+    </div>
+
+    <!-- 堆叠条 -->
+    <div class="flex w-full rounded overflow-hidden mb-3" style="border:1px solid var(--rule)">
+      <div class="seg" style="width:34%;background:#4a5568">现金 34%</div>
+      <div class="seg" style="width:38%;background:#3b6998">固收(债) 38%</div>
+      <div class="seg" style="width:7%;background:#a1543a">消费 7%</div>
+      <div class="seg" style="width:4%;background:#8a6d3b">家电 4%</div>
+      <div class="seg" style="width:5%;background:#2f5d50">半导体 5%</div>
+      <div class="seg" style="width:5%;background:#6b5b8a">互联网 5%</div>
+      <div class="seg" style="width:4%;background:#9a9a9a">其他持仓 4%</div>
+      <div class="seg" style="width:3%;background:#c9c2b4;color:var(--ink)">未穿透 3%</div>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mono text-[11px] text-ink-soft">
+      <div>■ 现金 ¥1.98M</div><div>■ 固收(债) ¥2.21M</div><div>■ 消费(食品饮料) ¥410k</div><div>■ 家用电器 ¥230k</div>
+      <div>■ 半导体 ¥290k</div><div>■ 互联网传媒 ¥295k</div><div>■ 其他持仓 ¥238k</div><div>■ 未穿透 ¥175k</div>
+    </div>
+    <p class="mono text-[10px] text-ink-subtle mt-3">对比 v1.4:此前"兴全合润"整支只算一个「混合」标签;现在它的 ¥222k 被摊进 消费/家电/半导体/债/现金 —— 家庭行业集中度、体检风险敞口都变真实。</p>
+  </section>
+
+  <!-- 单支基金穿透饼 + 覆盖度 -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-10">
+    <div class="paper-card p-5">
+      <div class="text-sm font-medium mb-1">兴全合润混合(LOF) · 单支穿透 <span class="badge">2026-06-30 季报</span></div>
+      <div class="flex w-full rounded overflow-hidden my-3" style="border:1px solid var(--rule)">
+        <div class="seg" style="width:62%;background:#a1543a">股票 91.7%(前十大覆盖 62%)</div>
+        <div class="seg" style="width:5%;background:#3b6998">债 5%</div>
+        <div class="seg" style="width:5%;background:#4a5568">现金 5%</div>
+      </div>
+      <div class="mono text-[11px] text-ink-soft space-y-1">
+        <div>前十大重仓 → 申万:食品饮料 18% · 电力设备 14% · 医药 11% · 家用电器 9% · 银行 7% …</div>
+        <div class="text-ink-subtle">前十大覆盖股票仓位 62%,余 38% 归「其他持仓」(季报只披露前十大)。</div>
+      </div>
+    </div>
+    <div class="paper-card p-5">
+      <div class="text-sm font-medium mb-2">未穿透 · 诚实标注(FR-4/5)</div>
+      <div class="mono text-[11px] text-ink-soft space-y-1.5">
+        <div>· 世纪双周盈 / 东证融汇钻石月 <span class="badge">券商收益凭证</span> — 无公募代码</div>
+        <div>· 兴银理财 / 招银理财 / 浦银理财 <span class="badge">银行理财</span> — 底层不披露到个股</div>
+        <div>· 帮你投 · 活钱+ <span class="badge">投顾组合</span> — 组合非单只基金</div>
+      </div>
+      <p class="mono text-[10px] text-ink-subtle mt-3">这些保持账户级资产类别(固收/现金),单列「未穿透」块,<b>绝不假分摊</b>。</p>
+    </div>
+  </section>
+
+  <div class="mono text-[10px] text-ink-subtle border-t border-rule pt-4">
+    数据源:东财天天基金 F10 / pingzhongdata(境内直连 · spike 已验证)· 共享缓存季度刷新 · 只用公开代码查、金额不出服务器。<br>
+    详见 <b>prd/v1.5.md</b>。图中数字为示意,非真实持仓。
+  </div>
+</div>
+</body>
+</html>
