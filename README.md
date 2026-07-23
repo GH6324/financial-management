@@ -106,9 +106,9 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
-### [v1.4.3 · 旭日「重置」回到初始视图](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.4.3)
+### [v1.4.4 · 透视/目录交互打磨 + README 补 AI 截图导入](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.4.4)
 
-资产透视旭日下钻的「重置」此前只重置到当前看板 —— 切了别的看板再点回不到刷新初始态。改为**完全回到页面刷新后的初始状态**:默认看板「资产类型」+ 默认指标 + 清空下钻/明细。无迁移无 schema,平滑升级。(承 v1.4.2:流水删除 ✕ 失效修复 + 转账双账户二次确认 + 导入回填报页 + 划转主理人头像 + 手机 AI 徽记 + 导入图片查看/放大/删除。)
+体验打磨:移动端开「本页目录」时隐私浮标自动收起不再遮挡;资产透视「分析指标 / 看板」横滑行加渐隐 + `›` 提示可左右滑;「重置 / AI 解读」按钮独立成行;功能截图置顶补上 **AI 截图导入持仓** 旗舰能力。无迁移无 schema,平滑升级。(承 v1.4.1~v1.4.3:旭日重置回初始视图、流水删除 ✕ 修复、转账双账户确认、划转主理人头像、导入图片查看/放大/删除等。)
 
 ### [v1.4.0 · 持仓截图智能解析](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.4.0)
 
