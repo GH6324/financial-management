@@ -4046,6 +4046,17 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && log_ok "v15-PENETRATION(持仓方向层 + 东财穿透client 资产配置/前十大→申万/股票行业 + lens按方向拆头寸 + 打标页拉取 + 理财未穿透诚实降级)" \
   || log_bad "v15-PENETRATION 缺件" "see V51迁移 + IndustryTag扩容 + EastMoneyFundClient + FundPenetrationService + LensQueryService分拆 + LensTagController端点 + tags.html"
 
+# v151-PEN-STREAM · 穿透 SSE 流式逐支揭示 + 旭日行业集中去股票硬过滤
+{ grep -q '/lens/tags/penetrate-stream' "$RD/src/main/java/com/family/finance/web/lens/LensTagController.java" \
+  && grep -q 'SseEmitter' "$RD/src/main/java/com/family/finance/web/lens/LensTagController.java" \
+  && grep -q 'streamPenetrateFamily' "$RD/src/main/java/com/family/finance/service/penetration/FundPenetrationService.java" \
+  && grep -q 'penetrateHoldingResult' "$RD/src/main/java/com/family/finance/service/penetration/FundPenetrationService.java" \
+  && grep -q 'penStreamBtn' "$RD/src/main/resources/templates/lens/tags.html" \
+  && grep -q 'EventSource' "$RD/src/main/resources/templates/lens/tags.html" \
+  && grep -q "name: '行业集中',  sun: \['industry', 'platform'\],   rows: \['industry'\],   cols: \['platform'\],   filters: {} " "$RD/src/main/resources/static/js/lens.js"; } \
+  && log_ok "v151-PEN-STREAM(穿透 SSE 流式逐支反馈弹层 + 行业集中去掉股票硬过滤)" \
+  || log_bad "v151-PEN-STREAM 缺件" "see LensTagController SseEmitter端点 + FundPenetrationService.streamPenetrateFamily + tags.html EventSource弹层 + lens.js 行业集中 filters:{}"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
