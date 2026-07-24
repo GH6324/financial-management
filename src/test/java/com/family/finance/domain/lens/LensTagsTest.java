@@ -28,7 +28,9 @@ class LensTagsTest {
         assertThat(IndustryTag.labelOf("new_energy")).isEqualTo("新能源电力");
         assertThat(IndustryTag.labelOf("BOGUS")).isEmpty();
         assertThat(AssetClass.labelOf(null)).isEmpty();
-        assertThat(IndustryTag.values()).hasSize(20);   // v1.1.x 修订二 · 20 粗行业(+混合配置/红利公用 · prod 数据复盘)
+        assertThat(IndustryTag.values()).hasSize(49);   // v1.5 · 20 旧粗值 + 29 申万一级细行业(穿透扩容 · 家电/白酒/电子…)
+        assertThat(IndustryTag.labelOf("HOME_APPLIANCE")).isEqualTo("家用电器");   // v1.5 扩容抽查
+        assertThat(IndustryTag.labelOf("FOOD_BEVERAGE")).isEqualTo("食品饮料");
         assertThat(IndustryTag.labelOf("MIXED_ALLOC")).isEqualTo("混合配置");
         assertThat(IndustryTag.labelOf("DIVIDEND_UTIL")).isEqualTo("红利公用");
         assertThat(IndustryTag.labelOf("MONEY_CASH")).isEqualTo("货币基金/存款");
