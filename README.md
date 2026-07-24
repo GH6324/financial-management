@@ -33,7 +33,7 @@
     <td align="center"><img src="docs/screenshots/fs_m_entry.jpg" width="130" alt="移动端填报"></td>
     <td align="center"><img src="docs/screenshots/fs_m_checkup.jpg" width="130" alt="移动端资产体检"></td>
     <td align="center"><img src="docs/screenshots/fs_m_lens.jpg" width="130" alt="移动端资产透视"></td>
-    <td align="center"><img src="docs/screenshots/fs_m_reports.jpg" width="130" alt="移动端真实收益"></td>
+    <td align="center"><img src="docs/screenshots/fs_m_app.jpg" width="130" alt="iOS 主屏 PWA"></td>
     <td align="center"><img src="docs/screenshots/fs_m_import.jpg" width="130" alt="移动端 AI 截图导入"></td>
   </tr>
   <tr>
@@ -41,7 +41,7 @@
     <td align="center"><sub>每月填报</sub></td>
     <td align="center"><sub>资产体检</sub></td>
     <td align="center"><sub>资产透视下钻</sub></td>
-    <td align="center"><sub>真实收益率</sub></td>
+    <td align="center"><sub>装为 App(iOS PWA)</sub></td>
     <td align="center"><sub>AI 截图导入持仓</sub></td>
   </tr>
 </table>
@@ -413,11 +413,25 @@ Apache 2.0 · 见 [`LICENSE`](LICENSE)。
 
 ## 致谢
 
+**开源框架 / 工具**
+
 - [Spring Boot](https://spring.io/projects/spring-boot) · [MyBatis](https://mybatis.org/) · [HTMX](https://htmx.org/) · [Chart.js](https://www.chartjs.org/) · [ECharts](https://echarts.apache.org/) · [Thymeleaf](https://www.thymeleaf.org/)
-- [Frankfurter](https://www.frankfurter.dev/)(免费 ECB 汇率 API)
 - [阿里云 Maven Mirror](https://maven.aliyun.com/)(国内拉依赖加速)
 - 字体:Fraunces / Source Serif 4 / Noto Serif SC / JetBrains Mono(均为开源字体)
 - 美学:晚清账册风 + 中式纸面信笺(墨/纸/黄铜/朱印 配色)
+
+**公开数据来源**(自动估值 / 汇率 / 穿透 / 财富水位 —— 仅只读取用公开行情与披露,不涉及账户接入)
+
+- 汇率:[Frankfurter](https://www.frankfurter.dev/)(免费 ECB 汇率 API)
+- 股票行情:[新浪财经](https://finance.sina.com.cn/) · [腾讯财经](https://stockapp.finance.qq.com/)(A / 港 / 美股实时价,主备双源)
+- 加密货币:[Binance](https://www.binance.com/) · [CoinGecko](https://www.coingecko.com/) · [Coinbase](https://www.coinbase.com/)(主备三源)
+- 贵金属:[上海黄金交易所](https://www.sge.com.cn/) / 国际现货(经新浪,金银铂钯按克 · 盎司)
+- 基金穿透(v1.5):[东方财富 · 天天基金](https://fund.eastmoney.com/)(公募基金资产配置 / 前十大重仓股 / 个股行业,仅用公开基金代码查询)
+- 财富水位基线:国家统计局 CPI · 中国人民银行 M2(公开宏观序列)
+
+**社区贡献**
+
+- 加密货币账户(PR)· 贵金属账户 + 自动金价(issue)等来自社区,见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases) / [CHANGELOG](CHANGELOG.md) 的致谢标注。感谢每一位贡献者。
 
 ## Star History
 

@@ -91,7 +91,7 @@
     { key: 'risk',      name: '风险总览',  sun: ['risk', 'assetClass'],     rows: ['risk'],       cols: ['assetClass'], filters: {} },
     { key: 'member',    name: '成员结构',  sun: ['owner', 'risk'],          rows: ['owner'],      cols: ['assetClass'], filters: {} },
     { key: 'platform',  name: '平台安全',  sun: ['platform', 'assetClass'], rows: ['platform'],   cols: ['assetClass'], filters: {} },
-    { key: 'industry',  name: '行业集中',  sun: ['industry', 'platform'],   rows: ['industry'],   cols: ['platform'],   filters: { assetClass: ['股票股权'] } },
+    { key: 'industry',  name: '行业集中',  sun: ['industry', 'platform'],   rows: ['industry'],   cols: ['platform'],   filters: {}  },
     { key: 'purpose',   name: '资金用途',  sun: ['purpose', 'owner'],       rows: ['purpose'],    cols: ['assetClass'], filters: {} },
     { key: 'liquidity', name: '流动性',    sun: ['liquidity', 'assetClass'], rows: ['liquidity'], cols: ['owner'],      filters: {} },
     { key: 'ccy',       name: '币种敞口',  sun: ['currency', 'region'],     rows: ['currency'],   cols: ['assetClass'], filters: {} },
