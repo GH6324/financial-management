@@ -95,20 +95,13 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v1.5.2 · 交叉表可读性 + 打标一致性](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.5.2)
+
+交叉透视多选指标不再挤在一格 —— **指标参与列/行笛卡尔、每格单值**,给「指标放 列/行」拨片(默认列);手机竖屏加可关闭的横屏/横滑提示 + 首列固定阴影;打标「平台」维度改为**建户时从账户模板自动带出**(招商 / 支付宝 / 蚂蚁财富…),默认即与真实账户一致,管理页模板表新增平台列。含 1 个向后兼容迁移(附加 nullable 列)。
+
 ### [v1.5.1 · 穿透流式逐支揭示](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.5.1)
 
 承 v1.5.0:「全家一键穿透」从后台闷跑改成**实时流式、逐支反馈** —— 点一下弹层实时刷「兴全合润 → 半导体 26% / 电子 11% / …」一支支揭示 + 进度条,理财诚实标未穿透;旭日「行业集中」去掉股票硬过滤(债/现金也显示);致谢补齐公开数据来源(行情 / 加密 / 贵金属 / 基金穿透)。无迁移无 schema。
-
-### [v1.5.0 · 基金持仓穿透(拆到真实行业)](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.5.0)
-
-承 v1.4 把大账户拆成一支支真实基金后,再进一步:**穿透每支公募基金的底层,拿到真实的「股 / 债 / 现金」拆分 + 申万一级行业构成**。旭日 / 透视 / 体检的「行业」维度从"猜一个标签"升级为"真实金额分布"——「兴全合润」不再只算一个「混合配置」,而是被拆成 半导体 26% / 电子 11% / 化工 / 通信 / 医药 / 其他持仓 35% / 债 5% / 现金 5%。实体加「持仓方向」层(老数据零迁移);IndustryTag 对齐申万一级扩容;数据只用公开基金代码查、金额永不出服务器、按代码全体共享缓存;理财 / 投顾无公募代码 → 诚实标「未穿透」不假分摊。含 1 个向后兼容迁移。
-
-<table>
-  <tr>
-    <td width="62%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.5.0/v150_tags_pc.jpg"><br><sub><b>账户 → 持仓 → 持仓方向</b> · 每支基金拆成真实申万行业 + 债/现金 · 「↻ 拉取穿透」· 理财诚实标未穿透</sub></td>
-    <td width="22%" align="center"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.5.0/v150_tags_m.jpg"><br><sub><b>移动端</b></sub></td>
-  </tr>
-</table>
 
 
 
