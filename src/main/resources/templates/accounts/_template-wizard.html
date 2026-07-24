@@ -21,7 +21,7 @@
       <button th:each="tpl : ${templates}" type="button"
               class="tpl-card relative border border-rule p-3 text-left hover:border-ink hover:bg-card-soft transition"
               th:classappend="${tpl.customSlot ? ' border-dashed md:col-span-3' : ''}"
-              th:attr="data-tpl-id=${tpl.id},data-tpl-name=${tpl.displayName},data-tpl-type=${tpl.type.name()},data-tpl-currency=${tpl.defaultCurrency},data-tpl-custom=${tpl.customSlot}">
+              th:attr="data-tpl-id=${tpl.id},data-tpl-name=${tpl.displayName},data-tpl-type=${tpl.type.name()},data-tpl-currency=${tpl.defaultCurrency},data-tpl-custom=${tpl.customSlot},data-tpl-platform=${tpl.platform}">
         <span class="tpl-check absolute top-2 right-2 inline-flex items-center gap-1 font-mono text-[10px] text-brass-deep" style="opacity:0">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>已选</span>
         <div class="font-display text-sm" th:text="${tpl.displayName}">招商银行</div>
@@ -35,7 +35,7 @@
       <input type="hidden" name="templateId" id="tplId" value="">
       <div id="newAcctHead" class="flex items-baseline justify-between mb-3 scroll-mt-6">
         <div class="eyebrow-ink">新账户</div>
-        <div id="tplPickedHint" class="font-mono text-[10px] text-ink-subtle hidden">已套用模板 · <span id="tplPickedName">—</span> · 改个名字即可</div>
+        <div id="tplPickedHint" class="font-mono text-[10px] text-ink-subtle hidden">已套用模板 · <span id="tplPickedName">—</span><span id="tplPickedPlatform"></span> · 改个名字即可</div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div class="md:col-span-2">
@@ -119,6 +119,7 @@
     var tplId   = document.getElementById('tplId');
     var pickHint= document.getElementById('tplPickedHint');
     var pickName= document.getElementById('tplPickedName');
+    var pickPlat= document.getElementById('tplPickedPlatform');
     var hint    = document.getElementById('brokerSyncHint');
     var insHint = document.getElementById('insuranceHint');
     var insKind = document.getElementById('insuranceKindWrap');
@@ -145,6 +146,8 @@
         if(curSel){ curSel.value = card.getAttribute('data-tpl-currency') || 'CNY'; }
         syncType();
         if(pickHint && pickName){ pickName.textContent = tname; pickHint.classList.remove('hidden'); }
+        // v1.5.2 · 告知将带出的「平台」打标(仅平台明确的模板有值),回应打标一致性
+        if(pickPlat){ var plat = card.getAttribute('data-tpl-platform') || ''; pickPlat.textContent = plat ? ' · 平台自动标记「' + plat + '」' : ''; }
         // 滚动到「新账户」表单区,让用户看到带出的类型/币种并直接改名
         var head = document.getElementById('newAcctHead');
         if(head && head.scrollIntoView){ head.scrollIntoView({behavior:'smooth', block:'start'}); }

@@ -2,6 +2,7 @@ package com.family.finance.web.account;
 
 import com.family.finance.auth.MemberPrincipal;
 import com.family.finance.domain.account.Account;
+import com.family.finance.domain.account.AccountTemplate;
 import com.family.finance.domain.account.AccountType;
 import com.family.finance.domain.account.InsuranceSubType;
 import com.family.finance.domain.insurance.InsurancePolicy;
@@ -86,7 +87,15 @@ public class AccountController {
     @PostMapping
     public String create(@AuthenticationPrincipal MemberPrincipal me,
                          @ModelAttribute AccountForm form) {
-        Account created = accountService.create(me, form.toAccount());
+        Account toCreate = form.toAccount();
+        // v1.5.2 · 建户向导没有「平台」输入框:用户未填时,从所选模板带出平台默认值 → 打标默认即与真实账户一致(item6)
+        if (toCreate.getPlatformTag() == null && toCreate.getTemplateId() != null) {
+            accountTemplateService.find(toCreate.getTemplateId())
+                    .map(AccountTemplate::getPlatform)
+                    .filter(p -> p != null && !p.isBlank())
+                    .ifPresent(toCreate::setPlatformTag);
+        }
+        Account created = accountService.create(me, toCreate);
         // v0.17 · 保险账户落保单登记旁表(仅 INSURANCE)
         if (created.getType() == AccountType.INSURANCE) {
             InsurancePolicy policy = form.toPolicy(created.getId());

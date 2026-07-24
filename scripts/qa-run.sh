@@ -4057,6 +4057,34 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && log_ok "v151-PEN-STREAM(穿透 SSE 流式逐支反馈弹层 + 行业集中去掉股票硬过滤)" \
   || log_bad "v151-PEN-STREAM 缺件" "see LensTagController SseEmitter端点 + FundPenetrationService.streamPenetrateFamily + tags.html EventSource弹层 + lens.js 行业集中 filters:{}"
 
+# v152-PIVOT-CARTESIAN · 交叉表多指标参与列/行笛卡尔(指标作维度 · 拨片切列/行 · 默认列最后一级)
+{ grep -q "measurePos: 'col'" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "多指标 → 指标作维度参与笛卡尔" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "data-mp=\"col\"" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "data-mp=\"row\"" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q '指标放' "$RD/src/main/resources/static/js/lens.js"; } \
+  && log_ok "v152-PIVOT-CARTESIAN(多指标参与笛卡尔 · 指标放列/行拨片 · 单值/格)" \
+  || log_bad "v152-PIVOT-CARTESIAN 缺件" "see lens.js state.measurePos + renderPivot 多指标分支 + renderMeasurePills 指标放列/行拨片"
+
+# v152-PIVOT-MOBILE-HINT · 交叉表移动端横屏提示(可×掉·会话内记忆)+ 首列 sticky 阴影(竖屏重排)
+{ grep -q 'id="pivotHint"' "$RD/src/main/resources/templates/lens/_section.html" \
+  && grep -q 'pivotHintClose' "$RD/src/main/resources/templates/lens/_section.html" \
+  && grep -q 'md:hidden' "$RD/src/main/resources/templates/lens/_section.html" \
+  && grep -q "pivotHintX" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "sticky-col{position:sticky;left:0;z-index:1;box-shadow" "$RD/src/main/resources/static/js/lens.js"; } \
+  && log_ok "v152-PIVOT-MOBILE-HINT(移动端横屏提示可×掉 + 首列 sticky 阴影)" \
+  || log_bad "v152-PIVOT-MOBILE-HINT 缺件" "see _section.html #pivotHint + lens.js pivotHintX 记忆 + sticky-col box-shadow"
+
+# v152-TPL-PLATFORM · 账户模板补平台默认 + 建户未填自动带出(打标平台一致性 item6)
+{ grep -q "ADD COLUMN platform" "$RD/db/migration/V52__account_template_platform.sql" \
+  && grep -q "private String platform" "$RD/src/main/java/com/family/finance/domain/account/AccountTemplate.java" \
+  && grep -q "icon, platform, sort_order" "$RD/src/main/java/com/family/finance/repository/AccountTemplateMapper.java" \
+  && grep -q "getTemplateId() != null" "$RD/src/main/java/com/family/finance/web/account/AccountController.java" \
+  && grep -q "AccountTemplate::getPlatform" "$RD/src/main/java/com/family/finance/web/account/AccountController.java" \
+  && grep -q "data-tpl-platform" "$RD/src/main/resources/templates/accounts/_template-wizard.html"; } \
+  && log_ok "v152-TPL-PLATFORM(账户模板平台默认 + 建户未填自动带出 + 向导告知 + 管理页可见)" \
+  || log_bad "v152-TPL-PLATFORM 缺件" "see V52迁移 + AccountTemplate.platform + mapper SELECT platform + AccountController create默认 + 向导 data-tpl-platform"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

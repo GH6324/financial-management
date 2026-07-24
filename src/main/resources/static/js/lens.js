@@ -106,6 +106,7 @@
     drill: [],               // [{dim, value}] 筛选栈(含看板预置筛选,均可移除)
     pivotRows: ['assetClass'], pivotCols: ['owner'],
     measures: ['value', 'share'],   // 指标多选(2026-07-17 #2)· 默认 金额+占比 · 至少 1 个
+    measurePos: 'col',             // v1.5.2 · 多指标参与笛卡尔:放列(默认)或行
     sunMetric: 'value',             // v1.3 · 旭日分析指标(单选)· 默认金额
     lastPivot: null
   };
@@ -497,29 +498,15 @@
     return query(spec).then(function (resp) {
       state.lastPivot = resp;
       var r = resp.result;
-      var mis = state.measures.map(function (k) { return ALL_MEASURES.indexOf(k); });   // 选中指标索引(≥1)
-      var mi = mis[0];                                                                   // 热力/排序基准 = 第一个指标
-      var maxAbs = 0;
-      r.cells.forEach(function (c) { var v = c.values[mi]; if (v !== null) maxAbs = Math.max(maxAbs, Math.abs(Number(v))); });
-      var heat = function (v) {
-        if (v === null || maxAbs === 0) return '';
-        var a = Math.min(0.55, 0.08 + 0.47 * Math.abs(Number(v)) / maxAbs);
-        var base = Number(v) < 0 ? '156,74,42' : '176,134,66';
-        return 'background:rgba(' + base + ',' + a.toFixed(2) + ')';
-      };
-      var cellMap = {};
-      r.cells.forEach(function (c, i) { cellMap[c.row.join('|') + '×' + c.col.join('|')] = i; });
-      /* 2 维行/列时引擎输出的 key 序第一维可能不连续(未分类沉底等排序规则)→ rowspan/colspan 合并会断开、
-         同一父值出现两组。按"第一维首现顺序"分组稳定重排(组内保序),totals 随索引映射。 */
+      var mkeys = state.measures.slice();
+      var mis = mkeys.map(function (k) { return ALL_MEASURES.indexOf(k); });
+      var multi = mkeys.length > 1;                      // v1.5.2 · 多指标 → 指标作维度参与笛卡尔
+      var mpos = state.measurePos === 'row' ? 'row' : 'col';
       var groupStable = function (keys) {
         if (!keys.length || keys[0].length < 2) return keys.map(function (_, i) { return i; });
         var groups = {}, order = [];
-        keys.forEach(function (k, i) {
-          if (!groups[k[0]]) { groups[k[0]] = []; order.push(k[0]); }
-          groups[k[0]].push(i);
-        });
-        var idx = [];
-        order.forEach(function (g) { groups[g].forEach(function (i) { idx.push(i); }); });
+        keys.forEach(function (k, i) { if (!groups[k[0]]) { groups[k[0]] = []; order.push(k[0]); } groups[k[0]].push(i); });
+        var idx = []; order.forEach(function (g) { groups[g].forEach(function (i) { idx.push(i); }); });
         return idx;
       };
       var rIdx = groupStable(r.rowKeys), cIdx = groupStable(r.colKeys);
@@ -527,78 +514,107 @@
       var colKeys = cIdx.map(function (i) { return r.colKeys[i]; });
       var rowTotals = rIdx.map(function (i) { return r.rowTotals[i]; });
       var colTotals = cIdx.map(function (i) { return r.colTotals[i]; });
-      var moneyLike = state.measures.some(function (k) { return k !== 'share' && k !== 'cumReturn'; });   // 含金额类指标才需要隐私模糊
-      /* 多指标单元格:每个选中指标一行(第一行=热力基准) */
-      var cellHtml = function (values) {
-        return mis.map(function (m, j) {
-          var key = state.measures[j];
-          return '<div' + (j > 0 ? ' class="text-[11px] text-ink-subtle"' : '') + '>' + fmtVal(key, values[m]) + '</div>';
-        }).join('');
+      var cellMap = {};
+      r.cells.forEach(function (c, i) { cellMap[c.row.join('|') + '×' + c.col.join('|')] = i; });
+      var maxAbsByM = {};   // 热力按每个指标各自量纲
+      mis.forEach(function (m) { var mx = 0; r.cells.forEach(function (c) { var v = c.values[m]; if (v !== null) mx = Math.max(mx, Math.abs(Number(v))); }); maxAbsByM[m] = mx; });
+      var priv = function (k) { return k !== 'share' && k !== 'cumReturn'; };
+      var heatM = function (v, m) { var mx = maxAbsByM[m]; if (v === null || !mx) return ''; var a = Math.min(0.55, 0.08 + 0.47 * Math.abs(Number(v)) / mx); var base = Number(v) < 0 ? '156,74,42' : '176,134,66'; return 'background:rgba(' + base + ',' + a.toFixed(2) + ')'; };
+      var dimLabels = function (ds) { return esc(ds.map(function (k) { return DIM_LABEL[k]; }).join(' / ')); };
+      var rowDims = rows.length || 1, hasCol = cols.length > 0;
+      var td = function (rk, ck, m, j) {
+        var idx = cellMap[rk.join('|') + '×' + ck.join('|')];
+        if (idx === undefined) return '<td class="tnum">—</td>';
+        var v = r.cells[idx].values[m];
+        return '<td class="tnum lens-cell" data-cell="' + idx + '" style="' + heatM(v, m) + ';cursor:pointer"' + (priv(mkeys[j]) ? ' data-priv' : '') + '>' + fmtVal(mkeys[j], v) + '</td>';
       };
-      var showTotalCol = cols.length > 0;
-      var rowDims = rows.length || 1, colDims = cols.length;
-      /* Excel 式多级表头:列 2 维时两行列头(第一级 colspan 合并);行 2 维时两列行头(第一级 rowspan 合并) */
+      var totTd = function (vals, m, j) { return '<td class="tnum"' + (priv(mkeys[j]) ? ' data-priv' : '') + '><b>' + fmtVal(mkeys[j], vals[m]) + '</b></td>'; };
+      var mHeadTh = function () { var h = ''; mkeys.forEach(function (k) { h += '<th class="text-[10px]">' + esc(MEASURE_LABEL[k]) + '</th>'; }); return h; };
+      var span2 = {};
+      if (rows.length === 2) { rowKeys.forEach(function (rk, ri) { if (ri > 0 && rowKeys[ri - 1][0] === rk[0]) return; var n = 0; for (var j = ri; j < rowKeys.length && rowKeys[j][0] === rk[0]; j++) n++; span2[ri] = n; }); }
+      var rowHead = function (rk, ri) {
+        if (rows.length === 2) return (span2[ri] ? '<td class="sticky-col rowhead" rowspan="' + span2[ri] + '"><b>' + esc(rk[0]) + '</b></td>' : '') + '<td class="rowhead">' + esc(rk[1]) + '</td>';
+        return '<td class="sticky-col rowhead">' + esc(rk.join(' · ') || '合计') + '</td>';
+      };
       var html = '<table class="lens-pivot">';
-      if (colDims === 2) {
-        html += '<tr><th class="sticky-col" colspan="' + rowDims + '" rowspan="2">' +
-          esc(rows.map(function (k) { return DIM_LABEL[k]; }).join(' / ')) +
-          ' \\ ' + esc(cols.map(function (k) { return DIM_LABEL[k]; }).join(' / ')) + '</th>';
-        var runs = [];
-        colKeys.forEach(function (ck) {
-          if (runs.length && runs[runs.length - 1].v === ck[0]) runs[runs.length - 1].n++;
-          else runs.push({ v: ck[0], n: 1 });
+
+      if (!multi) {
+        var m0 = mis[0];
+        if (cols.length === 2) {
+          html += '<tr><th class="sticky-col" colspan="' + rowDims + '" rowspan="2">' + dimLabels(rows) + ' \\ ' + dimLabels(cols) + '</th>';
+          var runs = []; colKeys.forEach(function (ck) { if (runs.length && runs[runs.length - 1].v === ck[0]) runs[runs.length - 1].n++; else runs.push({ v: ck[0], n: 1 }); });
+          runs.forEach(function (g) { html += '<th colspan="' + g.n + '">' + esc(g.v) + '</th>'; });
+          html += '<th rowspan="2">小计</th></tr><tr>';
+          colKeys.forEach(function (ck) { html += '<th>' + esc(ck[1]) + '</th>'; });
+          html += '</tr>';
+        } else {
+          html += '<tr><th class="sticky-col" colspan="' + rowDims + '">' + (dimLabels(rows) || '—') + (hasCol ? ' \\ ' + dimLabels(cols) : '') + '</th>';
+          colKeys.forEach(function (ck) { html += '<th>' + esc(ck.join(' · ') || '合计') + '</th>'; });
+          if (hasCol) html += '<th>小计</th>';
+          html += '</tr>';
+        }
+        rowKeys.forEach(function (rk, ri) {
+          html += '<tr>' + rowHead(rk, ri);
+          colKeys.forEach(function (ck) { html += td(rk, ck, m0, 0); });
+          if (hasCol) html += totTd(rowTotals[ri], m0, 0);
+          html += '</tr>';
         });
-        runs.forEach(function (g) { html += '<th colspan="' + g.n + '">' + esc(g.v) + '</th>'; });
-        if (showTotalCol) html += '<th rowspan="2">小计</th>';
-        html += '</tr><tr>';
-        colKeys.forEach(function (ck) { html += '<th>' + esc(ck[1]) + '</th>'; });
+        html += '<tr><td class="sticky-col rowhead" colspan="' + rowDims + '"><b>合计</b></td>';
+        colKeys.forEach(function (ck, ci) { html += totTd(colTotals[ci], m0, 0); });
+        if (hasCol) html += totTd(r.grand, m0, 0);
+        html += '</tr>';
+      } else if (mpos === 'col') {
+        var mC = mkeys.length;
+        if (hasCol) {
+          html += '<tr><th class="sticky-col" colspan="' + rowDims + '" rowspan="2">' + (dimLabels(rows) || '—') + ' \\ ' + dimLabels(cols) + '</th>';
+          colKeys.forEach(function (ck) { html += '<th colspan="' + mC + '">' + esc(ck.join(' · ')) + '</th>'; });
+          html += '<th colspan="' + mC + '">小计</th></tr><tr>';
+          colKeys.forEach(function () { html += mHeadTh(); });
+          html += mHeadTh() + '</tr>';
+        } else {
+          html += '<tr><th class="sticky-col" colspan="' + rowDims + '">' + (dimLabels(rows) || '—') + '</th>' + mHeadTh() + '</tr>';
+        }
+        rowKeys.forEach(function (rk, ri) {
+          html += '<tr>' + rowHead(rk, ri);
+          colKeys.forEach(function (ck) { mis.forEach(function (m, j) { html += td(rk, ck, m, j); }); });
+          if (hasCol) mis.forEach(function (m, j) { html += totTd(rowTotals[ri], m, j); });
+          html += '</tr>';
+        });
+        html += '<tr><td class="sticky-col rowhead" colspan="' + rowDims + '"><b>合计</b></td>';
+        colKeys.forEach(function (ck, ci) { mis.forEach(function (m, j) { html += totTd(colTotals[ci], m, j); }); });
+        if (hasCol) mis.forEach(function (m, j) { html += totTd(r.grand, m, j); });
         html += '</tr>';
       } else {
-        html += '<tr><th class="sticky-col" colspan="' + rowDims + '">' +
-          esc(rows.map(function (k) { return DIM_LABEL[k]; }).join(' / ') || '—') +
-          (cols.length ? ' \\ ' + esc(cols.map(function (k) { return DIM_LABEL[k]; }).join(' / ')) : '') + '</th>';
+        var mR = mkeys.length;
+        html += '<tr><th class="sticky-col" colspan="' + (rowDims + 1) + '">' + (dimLabels(rows) || '—') + ' · 指标' + (hasCol ? ' \\ ' + dimLabels(cols) : '') + '</th>';
         colKeys.forEach(function (ck) { html += '<th>' + esc(ck.join(' · ') || '合计') + '</th>'; });
-        if (showTotalCol) html += '<th>小计</th>';
+        if (hasCol) html += '<th>小计</th>';
         html += '</tr>';
-      }
-      /* 行体:行 2 维时第一级 rowspan 合并 */
-      var rowSpan = {};
-      if (rows.length === 2) {
         rowKeys.forEach(function (rk, ri) {
-          if (ri > 0 && rowKeys[ri - 1][0] === rk[0]) return;
-          var n = 0;
-          for (var j = ri; j < rowKeys.length && rowKeys[j][0] === rk[0]; j++) n++;
-          rowSpan[ri] = n;
+          mis.forEach(function (m, j) {
+            html += '<tr>';
+            if (j === 0) html += '<td class="sticky-col rowhead" rowspan="' + mR + '"><b>' + esc(rk.join(' · ') || '合计') + '</b></td>';
+            html += '<td class="rowhead text-[11px]">' + esc(MEASURE_LABEL[mkeys[j]]) + '</td>';
+            colKeys.forEach(function (ck) { html += td(rk, ck, m, j); });
+            if (hasCol) html += totTd(rowTotals[ri], m, j);
+            html += '</tr>';
+          });
+        });
+        mis.forEach(function (m, j) {
+          html += '<tr>';
+          if (j === 0) html += '<td class="sticky-col rowhead" rowspan="' + mR + '"><b>合计</b></td>';
+          html += '<td class="rowhead text-[11px]">' + esc(MEASURE_LABEL[mkeys[j]]) + '</td>';
+          colKeys.forEach(function (ck, ci) { html += totTd(colTotals[ci], m, j); });
+          if (hasCol) html += totTd(r.grand, m, j);
+          html += '</tr>';
         });
       }
-      rowKeys.forEach(function (rk, ri) {
-        html += '<tr>';
-        if (rows.length === 2) {
-          if (rowSpan[ri]) html += '<td class="sticky-col rowhead" rowspan="' + rowSpan[ri] + '"><b>' + esc(rk[0]) + '</b></td>';
-          html += '<td class="rowhead">' + esc(rk[1]) + '</td>';
-        } else {
-          html += '<td class="sticky-col rowhead">' + esc(rk.join(' · ') || '合计') + '</td>';
-        }
-        colKeys.forEach(function (ck) {
-          var idx = cellMap[rk.join('|') + '×' + ck.join('|')];
-          if (idx === undefined) { html += '<td class="tnum">—</td>'; return; }
-          var v = r.cells[idx].values[mi];
-          html += '<td class="tnum lens-cell" data-cell="' + idx + '" style="' + heat(v) + ';cursor:pointer"' + (moneyLike ? ' data-priv' : '') + '>' + cellHtml(r.cells[idx].values) + '</td>';
-        });
-        if (showTotalCol) html += '<td class="tnum"' + (moneyLike ? ' data-priv' : '') + '><b>' + cellHtml(rowTotals[ri]) + '</b></td>';
-        html += '</tr>';
-      });
-      html += '<tr><td class="sticky-col rowhead" colspan="' + rowDims + '"><b>合计</b></td>';
-      colKeys.forEach(function (ck, ci) { html += '<td class="tnum"' + (moneyLike ? ' data-priv' : '') + '><b>' + cellHtml(colTotals[ci]) + '</b></td>'; });
-      if (showTotalCol) html += '<td class="tnum"' + (moneyLike ? ' data-priv' : '') + '><b>' + cellHtml(r.grand) + '</b></td>';
-      html += '</tr></table>';
+      html += '</table>';
       if (r.holdingLevelSplit && (state.measures.indexOf('latestPnl') >= 0 || state.measures.indexOf('cumReturn') >= 0)) {
         html += '<p class="text-[11px] mt-2" style="color:var(--rust)">行业 / 地域维度会拆开持仓账户 —— 本期收益额 / 累计收益率无法精确归因,显示「—」;累计收益额按持有口径(市值−成本)。</p>';
       }
       document.getElementById('pivot').innerHTML = html;
-      document.querySelectorAll('.lens-cell').forEach(function (td) {
-        td.onclick = function () { openDrawer(Number(td.dataset.cell)); };
-      });
+      document.querySelectorAll('.lens-cell').forEach(function (cell) { cell.onclick = function () { openDrawer(Number(cell.dataset.cell)); }; });
     });
   }
 
@@ -645,10 +661,20 @@
   function renderMeasurePills() {
     var el = document.getElementById('measurePills');
     if (!el) return;
-    el.innerHTML = MEASURES.map(function (m) {
+    var html = MEASURES.map(function (m) {
       var on = state.measures.indexOf(m.key) >= 0;
       return '<button type="button" data-m="' + m.key + '" class="pill text-[10px]' + (on ? ' pill-ink-active' : '') + '">' + esc(m.label) + '</button>';
     }).join('');
+    // v1.5.2 · 多指标时:指标作为一个维度参与笛卡尔,拨片选放「列」(默认)还是「行」
+    if (state.measures.length > 1) {
+      var pos = state.measurePos === 'row' ? 'row' : 'col';
+      html += '<span class="ml-2 text-[10px] text-ink-subtle whitespace-nowrap">指标放</span>'
+        + '<span class="inline-flex" style="border:1px solid var(--rule);border-radius:999px;overflow:hidden">'
+        + '<button type="button" data-mp="col" class="text-[10px] px-2 py-0.5" style="' + (pos === 'col' ? 'background:var(--ink);color:var(--paper)' : 'color:var(--ink-soft)') + '">列</button>'
+        + '<button type="button" data-mp="row" class="text-[10px] px-2 py-0.5" style="' + (pos === 'row' ? 'background:var(--ink);color:var(--paper)' : 'color:var(--ink-soft)') + '">行</button>'
+        + '</span>';
+    }
+    el.innerHTML = html;
     el.querySelectorAll('[data-m]').forEach(function (btn) {
       btn.onclick = function () {
         var k = btn.dataset.m, i = state.measures.indexOf(k);
@@ -656,6 +682,9 @@
         else state.measures.push(k);
         renderMeasurePills(); renderPivot();
       };
+    });
+    el.querySelectorAll('[data-mp]').forEach(function (btn) {
+      btn.onclick = function () { state.measurePos = btn.dataset.mp; renderMeasurePills(); renderPivot(); };
     });
   }
 
@@ -780,7 +809,7 @@
     '.lens-pivot .rowhead{min-width:96px}' +
     '.lens-pivot th{background:var(--card-soft);font-family:"Noto Serif SC",serif;font-size:calc(12px*var(--fs-scale,1))}' +
     '.lens-pivot .rowhead{text-align:left;background:var(--card-soft);font-family:"Noto Serif SC",serif}' +
-    '.lens-pivot .sticky-col{position:sticky;left:0;z-index:1}' +
+    '.lens-pivot .sticky-col{position:sticky;left:0;z-index:1;box-shadow:2px 0 5px -3px rgba(60,44,20,.35)}' +
     '.pill-ink-active{background:var(--ink);color:var(--paper);border-color:var(--ink)}';
   document.head.appendChild(style);
 
@@ -799,6 +828,13 @@
     if (_smb) _smb.addEventListener('scroll', function () { markHScroll(_smb); });
     if (_bc) _bc.addEventListener('scroll', function () { markHScroll(_bc); });
     window.addEventListener('resize', function () { markHScroll(_smb); markHScroll(_bc); });
+    /* v1.5.2 · 交叉表移动端横屏提示(可×掉 · 会话内不再打扰) */
+    var _ph = document.getElementById('pivotHint');
+    if (_ph) {
+      try { if (sessionStorage.getItem('pivotHintX')) _ph.style.display = 'none'; } catch (e) {}
+      var _phc = document.getElementById('pivotHintClose');
+      if (_phc) _phc.onclick = function () { _ph.style.display = 'none'; try { sessionStorage.setItem('pivotHintX', '1'); } catch (e) {} };
+    }
     /* 隐私模式开关切换(html.privacy)→ 重绘旭日:canvas 里的金额 label 不受 CSS 模糊管辖,必须重出图 */
     new MutationObserver(function () { if (chart) renderSunburst(); })
       .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });

@@ -107,6 +107,11 @@
         <span class="inline-flex items-center gap-1.5 flex-wrap">指标 <span id="measurePills" class="inline-flex items-center gap-1 flex-wrap"></span></span>
       </div>
     </div>
+    <div id="pivotHint" class="md:hidden flex items-start gap-2 mb-2 px-3 py-2 text-[11px] leading-relaxed" style="background:var(--brass-soft,#f3ecd8);border-left:3px solid var(--brass-deep,#b08d3f);border-radius:4px">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-px text-ink-soft" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M18 9l4-2v10l-4-2"/></svg>
+      <span class="flex-1 text-ink-soft">手机看交叉表:<b>左右滑动</b>查看更多列(首列固定不动),<b>横屏</b>更清晰。</span>
+      <button type="button" id="pivotHintClose" class="shrink-0 text-ink-subtle leading-none" style="font-size:15px" aria-label="关闭提示">&times;</button>
+    </div>
     <div id="pivot" class="overflow-x-auto"></div>
     <p class="text-[11px] text-ink-subtle mt-2">热力=值相对深浅 · 点单元格看明细 · 手机横滑(首列固定)</p>
   </section>

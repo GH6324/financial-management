@@ -12,7 +12,7 @@
     <div class="mb-8 flex items-end justify-between">
       <div>
         <div class="eyebrow mb-2">账 · 户 · 模 · 板</div>
-        <h1 class="font-display text-4xl font-medium">14 个内置模板</h1>
+        <h1 class="font-display text-4xl font-medium"><span th:text="${templates.size()}">17</span> 个内置模板</h1>
         <p class="text-ink-soft text-sm mt-2">系统内置常用账户模板;后续版本支持自定义</p>
       </div>
       <span class="pill pill-rust">系统内置</span>
@@ -27,7 +27,8 @@
           <th>code</th>
           <th>类型</th>
           <th>默认币种</th>
-          <th>类型</th>
+          <th>平台默认</th>
+          <th>来源</th>
         </tr>
         </thead>
         <tbody>
@@ -37,6 +38,8 @@
           <td class="font-mono text-xs text-ink-soft" th:text="${t.code}">cmb</td>
           <td><span class="pill" th:text="${t.type}">CASH</span></td>
           <td class="font-mono text-xs" th:text="${t.defaultCurrency}">CNY</td>
+          <td class="text-xs" th:text="${t.platform != null ? t.platform : '—'}"
+              th:classappend="${t.platform != null ? '' : ' text-ink-subtle'}">招商银行</td>
           <td class="text-xs text-ink-subtle" th:text="${t.customSlot} ? '自定义占位' : '内置'">内置</td>
         </tr>
         </tbody>

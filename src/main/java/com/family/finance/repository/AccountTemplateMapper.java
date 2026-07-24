@@ -12,14 +12,14 @@ import java.util.Optional;
 public interface AccountTemplateMapper {
 
     @Select("""
-            SELECT id, code, display_name, type, default_currency, icon, sort_order, is_custom_slot AS custom_slot
+            SELECT id, code, display_name, type, default_currency, icon, platform, sort_order, is_custom_slot AS custom_slot
               FROM account_template
              ORDER BY sort_order, id
             """)
     List<AccountTemplate> listOrdered();
 
     @Select("""
-            SELECT id, code, display_name, type, default_currency, icon, sort_order, is_custom_slot AS custom_slot
+            SELECT id, code, display_name, type, default_currency, icon, platform, sort_order, is_custom_slot AS custom_slot
               FROM account_template
              WHERE id = #{id}
             """)
