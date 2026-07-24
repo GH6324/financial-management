@@ -138,11 +138,24 @@ public class LensTagController {
         return "redirect:/lens/tags?penetrated=1";
     }
 
-    /** v1.5 · 全家一键穿透(后台跑 · 完成自动失效缓存) */
+    /** v1.5 · 全家一键穿透(后台跑 · 完成自动失效缓存)· 兜底非流式入口 */
     @PostMapping("/lens/tags/penetrate-all")
     public String penetrateAll(@AuthenticationPrincipal MemberPrincipal me) {
         penetrationService.penetrateFamilyAsync(me.getFamilyId());
         return "redirect:/lens/tags?penetrating=1";
+    }
+
+    /** v1.5 · 流式穿透全家基金(SSE · 逐支反馈)· 前端弹层持续 loading + 逐支揭示 */
+    private static final java.util.concurrent.ExecutorService PENETRATE_POOL =
+            java.util.concurrent.Executors.newFixedThreadPool(2);
+
+    @GetMapping("/lens/tags/penetrate-stream")
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter penetrateStream(
+            @AuthenticationPrincipal MemberPrincipal me) {
+        var emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(300_000L);
+        long familyId = me.getFamilyId();
+        PENETRATE_POOL.submit(() -> penetrationService.streamPenetrateFamily(familyId, emitter));
+        return emitter;
     }
 
     // ---------- 内部 ----------

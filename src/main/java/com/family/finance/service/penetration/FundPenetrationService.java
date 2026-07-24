@@ -146,7 +146,7 @@ public class FundPenetrationService {
     /** v1.5 · 批量穿透某家庭全部活持仓(后台跑 · 首次略慢,之后走缓存)· 完成失效 lens 缓存 */
     @org.springframework.scheduling.annotation.Async
     public void penetrateFamilyAsync(long familyId) {
-        List<Long> ids = holdingMapper.findActiveHoldingIdsByFamily(familyId);
+        List<Long> ids = holdingMapper.findActiveFundHoldingIdsByFamily(familyId);
         int ok = 0;
         for (Long id : ids) {
             try { if ("RESOLVED".equals(penetrateHolding(id))) ok++; }
@@ -154,6 +154,55 @@ public class FundPenetrationService {
         }
         log.info("穿透批量 · family={} · {}/{} 支成功穿透", familyId, ok, ids.size());
         events.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId));
+    }
+
+    /** 单支穿透 + 组装结果(供流式逐支反馈) */
+    public record PenetrateResult(long holdingId, String name, String code, String state, List<String> dirs) {}
+
+    public PenetrateResult penetrateHoldingResult(long holdingId) {
+        String name = holdingMapper.findById(holdingId).map(StockHolding::getDisplayName).orElse("?");
+        String state = penetrateHolding(holdingId);
+        String code = holdingMapper.findById(holdingId).map(StockHolding::getFundCode).orElse(null);
+        List<String> dirs = new ArrayList<>();
+        if ("RESOLVED".equals(state)) {
+            for (var a : allocMapper.findByHolding(holdingId)) {
+                String lbl = "OTHER".equals(a.getKind()) ? "其他持仓"
+                        : com.family.finance.domain.lens.IndustryTag.labelOf(a.getIndustry());
+                if (lbl == null || lbl.isBlank()) lbl = "其他";
+                dirs.add(lbl + " " + Math.round(a.getWeightBp() / 100.0) + "%");
+            }
+        }
+        return new PenetrateResult(holdingId, name, code, state, dirs);
+    }
+
+    /** v1.5 · 流式穿透全家基金(SSE)· 逐支穿透 + 推送结果 · 完成失效 lens 缓存。同步跑在提交线程。 */
+    public void streamPenetrateFamily(long familyId, org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter) {
+        try {
+            List<Long> ids = holdingMapper.findActiveFundHoldingIdsByFamily(familyId);
+            int total = ids.size(), i = 0, resolved = 0;
+            emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                    .name("start").data("{\"total\":" + total + "}"));
+            for (Long id : ids) {
+                i++;
+                PenetrateResult r;
+                try { r = penetrateHoldingResult(id); }
+                catch (Exception e) { r = new PenetrateResult(id, "?", null, "FAILED", List.of()); }
+                if ("RESOLVED".equals(r.state())) resolved++;
+                String data;
+                try { data = json.writeValueAsString(java.util.Map.of(
+                        "i", i, "total", total, "name", r.name(),
+                        "code", r.code() == null ? "" : r.code(), "state", r.state(), "dirs", r.dirs())); }
+                catch (Exception e) { data = "{\"i\":" + i + ",\"total\":" + total + ",\"state\":\"FAILED\"}"; }
+                emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event().name("fund").data(data));
+            }
+            events.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId));
+            emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                    .name("done").data("{\"total\":" + total + ",\"resolved\":" + resolved + "}"));
+            emitter.complete();
+        } catch (Exception e) {
+            log.warn("流式穿透失败 · family={} · {}", familyId, e.toString());
+            emitter.completeWithError(e);
+        }
     }
 
     // ---------- 归一化 / 工具 ----------

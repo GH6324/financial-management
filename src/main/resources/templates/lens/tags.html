@@ -75,15 +75,30 @@
     <span class="text-sm">已拉取穿透。<a th:href="@{/dashboard#lens-section}" class="no-underline" style="color:var(--brass-deep)">去透视页看真实行业分布 →</a></span>
   </div>
 
-  <!-- v1.5 · 全家一键穿透(独立 form · 不与打标 save 冲突) -->
-  <form th:action="@{/lens/tags/penetrate-all}" method="post" class="paper-card p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
-    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+  <!-- v1.5 · 全家一键穿透(流式弹层 · 逐支反馈) -->
+  <div class="paper-card p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
     <div class="text-sm text-ink-soft">
       <b class="text-ink">基金穿透(v1.5)</b>:把每支公募基金拆成真实<b>股 / 债 / 现金 + 申万行业</b>(如 兴全合润 = 食品饮料 / 家电 / … / 债 / 现金)。
-      旭日 / 透视复用同一结果;理财 / 券商产品无公募代码 → 标「未穿透」。<span class="text-brass-deep">首次拉取略慢(抓东财 · 结果全体家庭共享缓存)。</span>
+      旭日 / 透视复用同一结果;理财 / 券商产品无公募代码 → 标「未穿透」。<span class="text-brass-deep">逐支实时反馈(结果全体家庭共享缓存,拉过的秒出)。</span>
     </div>
-    <button type="submit" class="btn-ink text-xs px-4 py-1.5 whitespace-nowrap">↻ 全家一键穿透</button>
-  </form>
+    <button type="button" id="penStreamBtn" class="btn-ink text-xs px-4 py-1.5 whitespace-nowrap">↻ 全家一键穿透</button>
+  </div>
+
+  <!-- 流式穿透弹层 -->
+  <div id="penModal" style="display:none;position:fixed;inset:0;background:rgba(20,17,14,.55);z-index:70;align-items:center;justify-content:center">
+    <div class="paper-card" style="width:min(560px,92vw);max-height:82vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+      <div class="flex items-center justify-between px-5 py-3 border-b border-rule">
+        <div><b class="text-ink">基金穿透中…</b> <span id="penProg" class="font-mono text-[11px] text-ink-subtle ml-1">0 / 0</span></div>
+        <button type="button" id="penClose" class="text-ink-subtle hover:text-ink" style="font-size:20px;line-height:1">×</button>
+      </div>
+      <div style="height:4px;background:var(--rule-soft)"><div id="penBar" style="height:100%;width:0;background:var(--brass-deep);transition:width .3s"></div></div>
+      <div id="penList" class="px-5 py-3 overflow-auto" style="flex:1"></div>
+      <div id="penFoot" class="px-5 py-3 border-t border-rule hidden flex items-center justify-between">
+        <span id="penDone" class="text-sm text-forest"></span>
+        <a th:href="@{/dashboard#lens-section}" class="btn-ink text-xs px-4 py-1.5 no-underline">去透视看真实分布 →</a>
+      </div>
+    </div>
+  </div>
 
   <form th:action="@{/lens/tags/save}" method="post" th:classappend="${aiRan} ? ' aiRan' : ''">
     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
@@ -242,5 +257,49 @@
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <script th:src="@{/js/lens-select.js}"></script>
+<script>
+/* v1.5 · 全家一键穿透:SSE 流式逐支揭示(DOM 构建 · 无 innerHTML) */
+(function(){
+  var btn=document.getElementById('penStreamBtn'), modal=document.getElementById('penModal');
+  if(!btn||!modal) return;
+  var list=document.getElementById('penList'), prog=document.getElementById('penProg'),
+      bar=document.getElementById('penBar'), foot=document.getElementById('penFoot'),
+      doneEl=document.getElementById('penDone'), closeBtn=document.getElementById('penClose'),
+      titleEl=modal.querySelector('b');
+  var es=null;
+  function span(cls,txt,css){var s=document.createElement('span');if(cls)s.className=cls;if(css)s.style.cssText=css;if(txt!=null)s.textContent=txt;return s;}
+  function close(){modal.style.display='none';if(es){es.close();es=null;}}
+  closeBtn.onclick=close;
+  modal.addEventListener('click',function(e){if(e.target===modal)close();});
+  btn.onclick=function(){
+    modal.style.display='flex';list.textContent='';foot.classList.add('hidden');prog.textContent='0 / 0';bar.style.width='0';titleEl.textContent='基金穿透中…';
+    es=new EventSource('/lens/tags/penetrate-stream');
+    es.addEventListener('start',function(ev){prog.textContent='0 / '+((JSON.parse(ev.data).total)||0);});
+    es.addEventListener('fund',function(ev){
+      var d=JSON.parse(ev.data);
+      prog.textContent=d.i+' / '+d.total;
+      bar.style.width=(d.total?Math.round(d.i*100/d.total):0)+'%';
+      var row=document.createElement('div');row.className='py-1.5 border-b border-rule-soft text-sm';
+      row.appendChild(span('font-medium',d.name));
+      if(d.state==='RESOLVED'){
+        row.appendChild(span('pill text-[9px] ml-1','已穿透 '+(d.code||''),'border-color:var(--brass);color:var(--brass-deep)'));
+        var wrap=document.createElement('div');wrap.className='mt-1';
+        (d.dirs||[]).forEach(function(x){wrap.appendChild(span('pill text-[10px] mr-1 mb-1 inline-block',x));});
+        row.appendChild(wrap);
+      }else{
+        row.appendChild(span('pill text-[9px] text-ink-subtle ml-1','未穿透 · 非公募 / 无季报'));
+      }
+      list.appendChild(row);list.scrollTop=list.scrollHeight;
+    });
+    es.addEventListener('done',function(ev){
+      var d=JSON.parse(ev.data);es.close();es=null;
+      prog.textContent=d.total+' / '+d.total;bar.style.width='100%';titleEl.textContent='基金穿透完成';
+      doneEl.textContent='完成 · '+d.resolved+' 支已穿透 / 共 '+d.total+' 支';
+      foot.classList.remove('hidden');
+    });
+    es.onerror=function(){if(es){es.close();es=null;}doneEl.textContent='连接中断,可刷新重试';foot.classList.remove('hidden');};
+  };
+})();
+</script>
 </body>
 </html>

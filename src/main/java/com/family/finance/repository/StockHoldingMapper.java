@@ -122,6 +122,15 @@ public interface StockHoldingMapper {
             """)
     List<Long> findActiveHoldingIdsByFamily(@Param("familyId") long familyId);
 
+    /** v1.5 · 家庭活的「基金」持仓(MANUAL 估值 = 截图导入的基金/理财,穿透候选;个股/现金不进)· 流式穿透用 */
+    @Select("""
+            SELECT h.id FROM stock_holding h JOIN account a ON a.id = h.account_id
+            WHERE a.family_id = #{familyId} AND h.archived_at IS NULL
+              AND h.valuation_mode = 'MANUAL'
+            ORDER BY h.account_id, h.id
+            """)
+    List<Long> findActiveFundHoldingIdsByFamily(@Param("familyId") long familyId);
+
     /**
      * 轻量值对象 · 仅给 fetcher cron 用。
      */
