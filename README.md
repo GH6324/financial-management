@@ -95,6 +95,10 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v1.5.1 · 穿透流式逐支揭示](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.5.1)
+
+承 v1.5.0:「全家一键穿透」从后台闷跑改成**实时流式、逐支反馈** —— 点一下弹层实时刷「兴全合润 → 半导体 26% / 电子 11% / …」一支支揭示 + 进度条,理财诚实标未穿透;旭日「行业集中」去掉股票硬过滤(债/现金也显示);致谢补齐公开数据来源(行情 / 加密 / 贵金属 / 基金穿透)。无迁移无 schema。
+
 ### [v1.5.0 · 基金持仓穿透(拆到真实行业)](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.5.0)
 
 承 v1.4 把大账户拆成一支支真实基金后,再进一步:**穿透每支公募基金的底层,拿到真实的「股 / 债 / 现金」拆分 + 申万一级行业构成**。旭日 / 透视 / 体检的「行业」维度从"猜一个标签"升级为"真实金额分布"——「兴全合润」不再只算一个「混合配置」,而是被拆成 半导体 26% / 电子 11% / 化工 / 通信 / 医药 / 其他持仓 35% / 债 5% / 现金 5%。实体加「持仓方向」层(老数据零迁移);IndustryTag 对齐申万一级扩容;数据只用公开基金代码查、金额永不出服务器、按代码全体共享缓存;理财 / 投顾无公募代码 → 诚实标「未穿透」不假分摊。含 1 个向后兼容迁移。
@@ -106,16 +110,6 @@
   </tr>
 </table>
 
-### [v1.4.0 · 持仓截图智能解析](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.4.0)
-
-基金/理财/券商大账户里堆着十几支真实持仓,手 key 太累没人维护 → **咔咔截图上传,AI 视觉识别出每一支「名称+市值」并自动打标**,和已有持仓做左旧右新三态比对(匹配更新/新增/卖出),扫一眼确认即入库;之后旭日/透视/体检自动下钻到真实基金。`qwen-vl-max` 只转写不算数、识别不准诚实标疑、跳汇总行;状态机断点续看;记「估值调整」流水(钱赚非人赚)可回看逐项+原图;只动截图导入的持仓不碰手填/券商。成本几毛/月(免费额度内)。含 2 个向后兼容迁移,老账户曲线不动。
-
-<table>
-  <tr>
-    <td width="62%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.4.0/v140_compare_pc.jpg"><br><sub><b>左旧右新三态比对</b> · 每支基金 + 自动打标 · 金额隐私糊</sub></td>
-    <td width="22%" align="center"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.4.0/v140_compare_m.jpg"><br><sub><b>移动端比对</b></sub></td>
-  </tr>
-</table>
 
 
 
