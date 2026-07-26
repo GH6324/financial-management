@@ -81,7 +81,7 @@
     </div>
   </section>
 
-  <section class="grid grid-cols-2 md:grid-cols-4 gap-px bg-rule mb-12">
+  <section class="grid grid-cols-2 md:grid-cols-4 grid-hairline mb-12">
     <div class="kpi-card">
       <span class="kpi-eyebrow">家庭 XIRR · 含收入 <th:block th:insert="~{fragments/_kpi-info :: i('资金加权内部收益率（含工资净流入）。反映你和资产一起赚多少。', ${calc.familyXirr})}"/></span>
       <div class="kpi-value tnum num-pos font-display" th:text="${familyXirr}">—</div>

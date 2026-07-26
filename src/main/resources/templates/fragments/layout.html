@@ -73,10 +73,15 @@
     /* 按住临时查看(peek):按住时去模糊,松开复原。更具体选择器 → 无需 !important */
     html.privacy [data-priv].priv-peek{ filter:none; -webkit-filter:none; }
     .priv-eye-off{ display:none; } html.privacy .priv-eye-on{ display:none; } html.privacy .priv-eye-off{ display:inline-flex; }
-    #priv-float{ position:fixed; left:14px; bottom:18px; z-index:55; display:inline-flex; align-items:center; gap:6px;
+    /* v1.6 UED · 浮钮从左下改右下(左下是内容起始边,曾压住 dashboard 金额/图表标签/筛选行 · review A1)
+       + iOS home indicator 安全区 + 滚动中淡出(不挡阅读),停止滚动后恢复 */
+    #priv-float{ position:fixed; right:14px; bottom:max(18px, env(safe-area-inset-bottom)); z-index:55;
+      display:inline-flex; align-items:center; gap:6px;
       background:var(--card); color:var(--ink-soft); border:1px solid var(--rule); border-radius:999px; padding:8px 11px;
-      box-shadow:0 3px 12px rgba(0,0,0,.16); cursor:pointer; font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.04em; }
+      box-shadow:0 3px 12px rgba(0,0,0,.16); cursor:pointer; font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.04em;
+      transition:opacity .25s ease, border-color .18s ease; }
     #priv-float:hover{ border-color:var(--ink-soft); }
+    body.is-scrolling #priv-float, body.is-scrolling .toc-fab{ opacity:.28; }
     #priv-float .priv-float-label{ display:none; white-space:nowrap; }
     html.privacy #priv-float{ background:var(--brass-soft); color:var(--brass-deep); border-color:var(--brass); }
     html.privacy #priv-float .priv-float-label{ display:inline; }
@@ -146,6 +151,15 @@
         if (!document.documentElement.classList.contains('privacy')) return;
         if (e.target.closest && e.target.closest('[data-priv]')) e.preventDefault();
       }, true);
+    })();
+    // v1.6 UED(review A1)· 滚动中把右下浮钮淡出,停止 650ms 后恢复 —— 长页阅读时不挡内容
+    (function () {
+      var t = null;
+      window.addEventListener('scroll', function () {
+        document.body.classList.add('is-scrolling');
+        if (t) clearTimeout(t);
+        t = setTimeout(function () { document.body.classList.remove('is-scrolling'); }, 650);
+      }, { passive: true });
     })();
   </script>
   <!-- v0.2 全局错误兜底:HTMX 5xx / 网络错误 / JS 致命异常,统一 toast 反馈 -->

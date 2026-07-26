@@ -34,7 +34,7 @@
       <div style="height:320px"><canvas id="waterLevelChart"></canvas></div>
 
       <!-- 水位状态 + 收益 KPI -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-rule mt-4">
+      <div class="grid grid-cols-2 md:grid-cols-4 grid-hairline mt-4">
         <div class="kpi-card">
           <span class="kpi-eyebrow">净资产名义增长</span>
           <div class="font-display text-2xl mt-1" th:classappend="${waterLevel.nominalGrowthPct != null and waterLevel.nominalGrowthPct.signum() >= 0} ? ' num-pos' : ' num-neg'"

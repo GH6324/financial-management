@@ -19,9 +19,11 @@
         <p class="text-ink-soft text-sm mt-2">余额驱动填报:保存期末余额后,系统会按已登记的收入/支出/账户间划转实时轧差。</p>
         <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">周期流程:开周期 → <b class="text-ink">填本期余额(本页)</b> → 关周期 → 出净资产 / 收益报告</p>
         <!-- v1.4 · AI 截图导入 · 优雅小提示(含失败兜底)-->
-        <p class="inline-flex items-center gap-1.5 mt-2 font-mono text-[10px] text-brass-deep">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          基金 / 理财 / 券商账户可试试「AI 截图导入」拆真实持仓 · <span class="text-ink-subtle">识别不准或失败都能随时手动改,不影响填报</span>
+        <!-- v1.6 UED(review B2-5)· 原 inline-flex + items-center 在窄屏让图标与两段文字错位换行 →
+             改 flex items-start,文字整体包一层 span 内部自然 wrap -->
+        <p class="flex items-start gap-1.5 mt-2 font-mono text-[10px] text-brass-deep leading-relaxed">
+          <svg class="flex-shrink-0 mt-[2px]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span>基金 / 理财 / 券商账户可试试「AI 截图导入」拆真实持仓 · <span class="text-ink-subtle">识别不准或失败都能随时手动改,不影响填报</span></span>
         </p>
       </div>
       <div class="flex items-center gap-3">

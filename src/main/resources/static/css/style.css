@@ -434,9 +434,12 @@ h1, h2, h3, h4 {
 .toc-children > .toc-node[aria-current="true"]::before { background:var(--brass-deep); }
 /* 手机:左上角唤醒钮(icon-only 小圆钮)+ 底部 sheet · ≥1024px 隐藏(用右栏) */
 /* v0.11 · 移动端目录浮钮挪到左下,与隐私浮控(#priv-float, bottom:18px)叠成同一操作区 */
-.toc-fab { position:fixed; left:14px; bottom:66px; z-index:60; width:38px; height:38px; border-radius:50%;
+/* v1.6 UED(review A1)· 浮钮从左下改右下 + iOS 安全区:左下是内容起始边,曾压住金额/图例/筛选行 */
+.toc-fab { position:fixed; right:14px; bottom:calc(max(18px, env(safe-area-inset-bottom)) + 48px); z-index:60;
+  width:38px; height:38px; border-radius:50%;
   background:var(--ink); color:var(--paper); border:none; box-shadow:0 3px 12px rgba(0,0,0,.22);
-  display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
+  display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
+  transition:opacity .25s ease; }
 @media (min-width: 1024px) { .toc-fab { display: none !important; } }
 .toc-sheet-mask { position:fixed; inset:0; background:rgba(26,23,20,.4); z-index:70; opacity:0; pointer-events:none; transition:opacity .2s; }
 .toc-sheet-mask.open { opacity:1; pointer-events:auto; }
@@ -457,6 +460,23 @@ body.toc-open #priv-float, body.toc-open .toc-fab { display: none !important; }
 .lens-hscroll { position: relative; }
 .lens-hscroll > .overflow-x-auto { scrollbar-width: none; }
 .lens-hscroll > .overflow-x-auto::-webkit-scrollbar { display: none; }
+/* v1.6 UED(review A9)· iOS 硬约束:
+   ① overscroll-behavior-x:contain —— 横滑到尽头继续拖不再触发 Safari 返回/前进手势(此前会莫名离开页面)
+   ② scroll-snap —— 横滑停在完整 pill/卡片边界,不再半个被截断 */
+.lens-hscroll > .overflow-x-auto,
+.hscroll-x {
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+.hscroll-x { overflow-x: auto; scrollbar-width: none; }
+.hscroll-x::-webkit-scrollbar { display: none; }
+.lens-hscroll > .overflow-x-auto > * > *,
+.hscroll-x > * { scroll-snap-align: start; }
+/* 内部纵向滚动容器不带动整页(iOS momentum 串联) */
+.toc-sheet, .scroll-contain { overscroll-behavior: contain; }
+/* 图表容器:长按不弹系统「拷贝图片」菜单(review A9 ⑦) */
+.chart-card canvas, canvas[id], .echart-box { -webkit-touch-callout: none; }
 .lens-hscroll::after {
   content: '\203A'; position: absolute; top: 0; right: 0; bottom: 5px; width: 34px;
   display: flex; align-items: center; justify-content: flex-end; padding-right: 5px;
@@ -739,3 +759,39 @@ details:not([open]) > summary .lg-when-open  { display: none; }
 #sunMetricPop button:hover { background:var(--card-soft); color:var(--ink); }
 #sunMetricPop button.on { background:var(--ink); color:var(--paper); }
 #sunMetricPop button.off { opacity:.42; text-decoration:line-through; cursor:not-allowed; }
+
+/* ============================================================
+   v1.6 · UED review 修复(docs/ued-review-2026-07.md)
+   ============================================================ */
+
+/* 补 .pill-mute —— 3 处模板在用(nav 字号钮/隐私钮 · dashboard「本期未填收支」)但此前无定义,
+   语义 = 中性/未启用/无数据(spec §6.2 状态标签第 4 档) */
+.pill-mute { background: transparent; border-color: var(--rule-soft); color: var(--ink-subtle); }
+button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); color: var(--ink-soft); }
+
+/* PC 上目录 sheet 与遮罩彻底不参与渲染(此前仅靠 transform 移出视口,仍在合成层里) */
+@media (min-width: 1024px) {
+  .toc-sheet, .toc-sheet-mask { display: none !important; }
+}
+
+/* review A5 · 1px 发丝网格。
+   旧写法 `gap-px bg-rule` 靠容器底色从缝隙透出来画线 —— 格子数不满一行时,空位也透出米灰色,
+   形成突兀色块(accounts 9 类型 ÷ 6 列空 3 格 / checkup 5 KPI ÷ 2 列空 1 格)。
+   改为:容器白底 + 上左外边线,子项各自画右下线 → 线条一致,空位自然是白底。 */
+.grid-hairline { background: var(--card); border-top: 1px solid var(--rule); border-left: 1px solid var(--rule); }
+.grid-hairline > * { border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+
+/* review B3-4 · 表格窄列里的中文被挤成竖排 → 关键列不换行 */
+.ledger-table td.nowrap, .ledger-table th.nowrap { white-space: nowrap; }
+
+/* spec §5 · 尊重系统「减少动态效果」偏好 —— 前庭障碍用户会因动画产生生理不适。
+   功能性 loader(htmx-indicator / animate-spin)保留,装饰性动画一律停。 */
+@media (prefers-reduced-motion: reduce) {
+  .fade-in, .fade-in-delay-1, .fade-in-delay-2, .fade-in-delay-3, .fade-in-delay-4 {
+    animation: none !important; opacity: 1 !important; transform: none !important;
+  }
+  #page-overlay, #page-overlay * { animation: none !important; }
+  #page-progress::before { animation: none !important; }
+  .kpi-info-panel { animation: none !important; }
+  .toc-sheet { transition-duration: .01ms !important; }
+}

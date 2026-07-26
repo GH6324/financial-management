@@ -22,25 +22,25 @@
   </section>
 
   <!-- 顶部 KPI 横条 -->
-  <section id="checkup-overview" class="grid grid-cols-2 lg:grid-cols-5 gap-px bg-rule mb-8" style="scroll-margin-top:80px">
+  <section id="checkup-overview" class="grid grid-cols-2 lg:grid-cols-5 grid-hairline mb-8" style="scroll-margin-top:80px">
     <div class="kpi-card">
       <span class="kpi-eyebrow">净资产<th:block th:insert="~{fragments/_kpi-info :: i('总资产 − 总负债。含全部账户,本位币换算。', ${calc.netWorth})}"/></span>
       <div class="kpi-value tnum"
-           data-priv th:text="${diagnose.kpi.netWorth != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.netWorth, 1, 0) : '—'}">¥0</div>
+           data-priv th:text="${diagnose.kpi.netWorth != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.netWorth, 1, 'COMMA', 0, 'POINT') : '—'}">¥0</div>
       <div class="kpi-delta"
            th:classappend="${diagnose.kpi.netWorthDelta != null and diagnose.kpi.netWorthDelta.signum() > 0 ? ' num-pos' : (diagnose.kpi.netWorthDelta != null and diagnose.kpi.netWorthDelta.signum() < 0 ? ' num-neg' : '')}"
-           data-priv th:text="${diagnose.kpi.netWorthDelta != null ? (diagnose.kpi.netWorthDelta.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(diagnose.kpi.netWorthDelta, 1, 0) : '较上期 —'}">较上期 —</div>
+           data-priv th:text="${diagnose.kpi.netWorthDelta != null ? (diagnose.kpi.netWorthDelta.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(diagnose.kpi.netWorthDelta, 1, 'COMMA', 0, 'POINT') : '较上期 —'}">较上期 —</div>
     </div>
     <div class="kpi-card">
       <span class="kpi-eyebrow">总资产<th:block th:insert="~{fragments/_kpi-info :: i('CASH + STOCK + WEALTH + PROPERTY 合计,不含 LOAN。', ${calc.totalAssets})}"/></span>
       <div class="kpi-value tnum"
-           data-priv th:text="${diagnose.kpi.totalAssets != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.totalAssets, 1, 0) : '—'}">¥0</div>
+           data-priv th:text="${diagnose.kpi.totalAssets != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.totalAssets, 1, 'COMMA', 0, 'POINT') : '—'}">¥0</div>
       <div class="kpi-delta">不含 LOAN</div>
     </div>
     <div class="kpi-card">
       <span class="kpi-eyebrow">总负债<th:block th:insert="~{fragments/_kpi-info :: i('仅 LOAN 类型(房贷 + 信用卡)绝对值合计。', ${calc.totalLiabilities})}"/></span>
       <div class="kpi-value tnum num-neg"
-           data-priv th:text="${diagnose.kpi.totalLiabilities != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.totalLiabilities, 1, 0) : '—'}">¥0</div>
+           data-priv th:text="${diagnose.kpi.totalLiabilities != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.totalLiabilities, 1, 'COMMA', 0, 'POINT') : '—'}">¥0</div>
       <div class="kpi-delta">仅 LOAN</div>
     </div>
     <div class="kpi-card">
@@ -58,12 +58,12 @@
   </section>
 
   <!-- 4 张体检卡 -->
-  <section class="grid grid-cols-1 lg:grid-cols-2 gap-px bg-rule mb-8">
+  <section class="grid grid-cols-1 lg:grid-cols-2 grid-hairline mb-8">
 
     <!-- 资产配置 · mini 横向条(详细环形图在 dashboard) -->
     <div id="allocation" class="bg-card p-6 scroll-mt-32">
       <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3">
-        资产配置 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">A · L · L · O · C · A · T · I · O · N</span>
+        资产配置 <span class="hidden sm:inline font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">A · L · L · O · C · A · T · I · O · N</span>
       </h3>
       <div class="space-y-2.5 text-xs">
         <div th:each="a : ${diagnose.allocation}"
@@ -85,7 +85,7 @@
     <!-- 风险敞口 · 等级分布饼图 -->
     <div id="risk" class="bg-card p-6 scroll-mt-32">
       <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3">
-        风险敞口 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">R · I · S · K</span>
+        风险敞口 <span class="hidden sm:inline font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">R · I · S · K</span>
       </h3>
       <div th:if="${diagnose.riskDistribution != null and !diagnose.riskDistribution.isEmpty()}"
            style="height:200px"><canvas id="riskChart"></canvas></div>
@@ -96,13 +96,13 @@
     <!-- 卡 3 · 流动性 -->
     <div id="liquidity" class="bg-card p-6 scroll-mt-32">
       <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3">
-        流动性 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">LIQUIDITY</span>
+        流动性 <span class="hidden sm:inline font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">LIQUIDITY</span>
       </h3>
       <div class="grid grid-cols-2 gap-x-6 gap-y-4">
         <div>
           <div class="kpi-eyebrow">流动资产<th:block th:insert="~{fragments/_kpi-info :: i('CASH 类型 + 货币基金等 LIQUID 类目合计。', ${calc.liquidAssets})}"/></div>
           <div class="font-display text-2xl tnum mt-1"
-               data-priv th:text="${diagnose.liquidAssets != null ? '¥' + #numbers.formatDecimal(diagnose.liquidAssets, 1, 0) : '—'}">¥0</div>
+               data-priv th:text="${diagnose.liquidAssets != null ? '¥' + #numbers.formatDecimal(diagnose.liquidAssets, 1, 'COMMA', 0, 'POINT') : '—'}">¥0</div>
           <div class="font-mono text-[10px] text-ink-soft">CASH + 货币基金等(类目 = LIQUID)</div>
         </div>
         <div>
@@ -129,7 +129,7 @@
     <!-- 卡 4 · 收益质量 · v0.4.2 升级为「人赚 vs 钱赚」二分布局 -->
     <div id="return" class="bg-card p-6 scroll-mt-32">
       <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3">
-        收益质量 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">R · E · T · U · R · N</span>
+        收益质量 <span class="hidden sm:inline font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">R · E · T · U · R · N</span>
       </h3>
       <div class="grid grid-cols-2 gap-x-6 gap-y-4">
         <!-- 行 1 · 资产年化(剔除收入 · ★ 优先突出) -->
@@ -162,7 +162,7 @@
           <div class="kpi-eyebrow">本年累计损益(钱赚的 · YTD)<th:block th:insert="~{fragments/_kpi-info :: i('1 月至今的投资 PnL 合计(ΔNetWorth − 净流入逐月累加)。', ${calc.ytdPnl})}"/></div>
           <div class="font-display text-2xl tnum mt-1"
                th:classappend="${diagnose.cumulativeYtdPnl != null and diagnose.cumulativeYtdPnl.signum() > 0 ? ' num-pos' : (diagnose.cumulativeYtdPnl != null and diagnose.cumulativeYtdPnl.signum() < 0 ? ' num-neg' : '')}"
-               data-priv th:text="${diagnose.cumulativeYtdPnl != null ? ((diagnose.cumulativeYtdPnl.signum() >= 0 ? '+' : '') + '¥' + #numbers.formatDecimal(diagnose.cumulativeYtdPnl.abs(), 1, 0)) : '—'}">+¥0</div>
+               data-priv th:text="${diagnose.cumulativeYtdPnl != null ? ((diagnose.cumulativeYtdPnl.signum() >= 0 ? '+' : '') + '¥' + #numbers.formatDecimal(diagnose.cumulativeYtdPnl.abs(), 1, 'COMMA', 0, 'POINT')) : '—'}">+¥0</div>
           <div class="font-mono text-[10px] text-ink-soft">自然年 · 已剔除外部资金 + 转账</div>
         </div>
       </div>

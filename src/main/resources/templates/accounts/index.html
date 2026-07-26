@@ -22,7 +22,7 @@
     </div>
   </section>
 
-  <section class="grid grid-cols-2 md:grid-cols-6 gap-px bg-rule mb-8">
+  <section class="grid grid-cols-2 md:grid-cols-6 grid-hairline mb-8">
     <div th:each="s : ${summary}" class="bg-card p-4">
       <!-- 2026-07-19 评审:中文为主 code 为辅(面向家庭成员不裸露 code) -->
       <div class="font-mono text-[10px] tracking-wider"
@@ -127,8 +127,9 @@
                 th:text="'券商托管 · ' + ${brokerLinks.get(row.account.id)}">券商托管 · 富途</span>
         </td>
         <td class="font-mono text-xs" th:text="${row.account.currency}">CNY</td>
-        <td class="text-ink-soft" th:text="${row.ownerName}">Alice</td>
-        <td class="text-ink-subtle" th:text="${row.paymentSourceName}">—</td>
+        <!-- v1.6 UED(review B3-4)· 列宽不足时中文被挤成竖排("王二狗"渲染成三行)→ nowrap -->
+        <td class="text-ink-soft nowrap" th:text="${row.ownerName}">Alice</td>
+        <td class="text-ink-subtle nowrap" th:text="${row.paymentSourceName}">—</td>
         <td class="num" th:classappend="${row.account.type.name() == 'LOAN' ? ' num-neg' : ''}" data-priv th:text="${row.balanceLabel}">¥73,200</td>
         <td class="text-right whitespace-nowrap">
           <!-- v0.2 操作 icon · Lucide 风格 inline SVG · stroke=currentColor 跟随 .btn-ghost 文字色 -->

@@ -99,27 +99,271 @@ WEALTH → pill-forest    STOCK → pill-brass    INSURANCE → pill-slate
 
 ## 2. 组件与交互规则
 
-### 2.1 按钮:四级层次
+### 2.1 按钮规格(spec)
 
-| 类 | 视觉 | 语义 | 尺寸 |
-|---|---|---|---|
-| `btn-ink` | 墨底纸字,hover → brass-deep | **页面唯一主操作** | padding 12/20 |
-| `btn-paper` | 透明 + 1px 墨边,hover 反白 | 次操作 / 并列操作 | padding 11/19 |
-| `btn-brass` | 铜底纸字 | 特殊强调(极少用) | padding 12/20 |
-| `btn-ghost` | 无边无底,hover 才出 rule 边 | 行内轻操作(列表行) | padding 8/14 |
+> 标注约定:**「已有」** = style.css 已实现;**「待补」** = 现状缺失,本规格要求补上。
 
-共性:全部 mono + uppercase + `letter-spacing .12em` + `inline-flex; gap:10px`(为了装 SVG 图标)+ `transition 150~180ms`。
+#### 2.1.1 选哪个按钮:决策树
 
-**主操作唯一性**:每个页面/区块只允许一个 `btn-ink`。核查通过 —— 填报页只有"加一笔"/"保存本月总支出"/"保存"/"SIGN OFF" 各自在独立区块;账户页只有"+ 添加账户(开向导)"。
+```
+这个操作会不可逆地删掉/改掉数据?
+├─ 是 → btn-danger【待补】(rust 系)
+└─ 否 ↓
+   它是本区块用户最该点的那一个?
+   ├─ 是 → btn-ink(每区块唯一)
+   └─ 否 ↓
+      它和别的操作并列、地位相当?
+      ├─ 是 → btn-paper
+      └─ 否 ↓
+         它在列表行/表格单元格内,是密集的轻操作?
+         ├─ 是 → btn-ghost
+         └─ 否 → 它是引导用户进入付费/AI/新功能的钩子? → btn-brass(全站 ≤3 处)
+```
 
-**按钮文案带后果**:不写"提交",写"我已记账完毕 · SIGN OFF";不写"确定",写"保持上月"/"接受"。
+#### 2.1.2 五个变体的完整规格
 
-### 2.2 pill:状态与分类的唯一载体
+| 变体 | 底 | 字 | 边 | 语义 | 单页上限 |
+|---|---|---|---|---|---|
+| `btn-ink`【已有】 | `--ink` | `--paper` | 无 | 本区块主操作 | 每区块 1 个 |
+| `btn-paper`【已有】 | 透明 | `--ink` | 1px `--ink` | 并列次操作 | 不限 |
+| `btn-ghost`【已有】 | 透明 | `--ink-soft` | 1px transparent(hover 才显 `--rule`) | 行内轻操作 | 行内 ≤3 个,超出收进 `⋯` |
+| `btn-brass`【已有】 | `--brass` | `--paper` | 无 | 新功能/AI 钩子 | 全站 ≤3 处 |
+| `btn-danger`【待补】 | 透明 | `--rust` | 1px `--rust` | 删除/归档/强制关账 | 每页 ≤1 个显式 |
 
-基类 + 5 变体(`pill-brass/forest/rust/slate/ink`)。约定:
-- `pill-ink`(墨底反白)= **当前选中**,用于筛选器("全部" / 各类型)
-- 数值型 pill 用行内 style 微调透明度(如 `rgba(122,90,57,.10)`)而不新增类 —— 避免类爆炸
-- pill 内可嵌 11px SVG 图标 + 文字
+**`btn-danger` 为什么必须补**:现在删除/归档混用 `btn-ghost`(账户归档)、`btn-paper`(目标归档)、裸 `text-rust`(删收入笔)三种写法,与"编辑""导出"完全同权重。不可逆操作在视觉上必须与可逆操作可区分。
+
+设计取舍:**用描边而非实心 rust 底**。实心红按钮会抢走 `btn-ink` 主操作的视觉焦点(删除永远不该是页面最醒目的东西),描边足以警示。
+
+```css
+/* 待补 · 追加到 style.css Buttons 段 */
+.btn-danger {
+  background: transparent; color: var(--rust);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: calc(12px * var(--fs-scale,1));
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 11px 19px; border: 1px solid var(--rust);
+  cursor: pointer; transition: all 180ms ease;
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.btn-danger:hover { background: var(--rust); color: var(--paper); }
+```
+
+#### 2.1.3 共性规格(五个变体都必须满足)
+
+| 属性 | 值 | 为什么 |
+|---|---|---|
+| 字体 | JetBrains Mono | 账册"打字机标签"隐喻 |
+| 字号 | `calc(12px * var(--fs-scale,1))`(ghost 11.5px) | 必须走 scale 变量,否则字号档位失效 |
+| 字距 | `letter-spacing: .12em` | 全站统一,不许改 |
+| 大小写 | `text-transform: uppercase` | 中文不受影响,英文/数字统一 |
+| 布局 | `display:inline-flex; align-items:center; gap:10px` | 预留图标位,图标文字自动垂直居中 |
+| 圆角 | 0(不写 border-radius) | 账册纸张感;pill 才有 1px 圆角 |
+| 过渡 | `transition: all 180ms ease`(ghost 150ms) | — |
+
+#### 2.1.4 三档尺寸
+
+现状是靠 Tailwind 覆写高度(`h-8` / `h-9` / `h-11`)+ 覆写字号(`text-[10px]` / `text-xs` / `text-sm`)。规格化为三档,**语义绑定尺寸**:
+
+| 档 | 高度 | padding | 字号 | 用在哪 |
+|---|---|---|---|---|
+| `sm` | 32px(`h-8`) | 0 12px | 10px | 列表行内、快捷支出、划转 |
+| `md`(默认) | 36px(`h-9`) | 11-12px / 19-20px | 12px | 常规表单、页头操作 |
+| `lg` | 44px(`h-11`) | 0 16px | 13px | 页面唯一重点(保存本月总支出、SIGN OFF) |
+
+**移动端地板【待补】**:`<768px` 时 `sm` 档也必须 `min-height:40px`(见审计 P0-1)。视觉高度可以维持,靠 `.tap::after{inset:-12px}` 扩热区更好 —— 不改布局。
+
+#### 2.1.5 六个状态(现状只实现了 2 个)
+
+| 状态 | 规格 | 现状 |
+|---|---|---|
+| default | 见 2.1.2 | 已有 |
+| `:hover` | ink→brass-deep / paper→反白 / ghost→出边 / danger→填充 | 已有 |
+| `:active` | `transform: translateY(1px)` + 无阴影 | **待补** |
+| `:focus-visible` | `outline: 2px solid var(--brass); outline-offset: 2px` | **待补** |
+| `[disabled]` | `opacity:.45; cursor:not-allowed; pointer-events:none` | **待补** |
+| loading | 文字保留 + 尾部 `htmx-indicator` 旋转 SVG + `hx-disabled-elt="this"` | 部分(仅 1 处) |
+
+三个缺失态的实际影响:
+- **`:active` 缺失** → 移动端**没有 hover**,`:active` 是唯一的按下反馈。现在移动端点按钮完全无触觉确认,只能等页面响应。
+- **`:focus-visible` 缺失** → Tailwind preflight 重置了 outline,键盘 Tab 走到按钮时看不到焦点在哪。
+- **`[disabled]` 缺失** → `entry/index.html:255` 的"刷新持仓估值"用了 `hx-disabled-elt="this"`,请求期间按钮真的被 disable 了,但**外观完全不变**,用户会重复点。
+
+```css
+/* 待补 · 一次覆盖全部按钮 */
+.btn-ink:active, .btn-paper:active, .btn-brass:active,
+.btn-ghost:active, .btn-danger:active { transform: translateY(1px); }
+
+.btn-ink:focus-visible, .btn-paper:focus-visible, .btn-brass:focus-visible,
+.btn-ghost:focus-visible, .btn-danger:focus-visible {
+  outline: 2px solid var(--brass); outline-offset: 2px;
+}
+
+.btn-ink[disabled], .btn-paper[disabled], .btn-brass[disabled],
+.btn-ghost[disabled], .btn-danger[disabled] {
+  opacity: .45; cursor: not-allowed; pointer-events: none;
+}
+```
+
+#### 2.1.6 图标与文字的组合
+
+- 图标一律 inline SVG,`stroke="currentColor"`(**关键**:自动继承按钮各状态的文字色,不用为图标单独写状态)
+- 尺寸:`sm` 档配 12px,`md` 配 13-14px,`lg` 配 14-15px
+- 图标在**左**表示动作类型(`+ 加一笔`、`↻ 刷新`);在**右**表示方向/流转(`跨期流水档案 →`)
+- 图标必须带 `aria-hidden="true"`(文字已表意,避免读屏重复)
+- **纯图标按钮**(无文字)必须有 `aria-label` + `title`,且尺寸 ≥32px
+
+#### 2.1.7 排列与文案规则
+
+- **主操作唯一性**:每个页面/区块只允许一个 `btn-ink`。已核查通过 —— 填报页的"加一笔"/"保存本月总支出"/"保存"/"SIGN OFF" 各在独立区块。
+- **顺序**:次操作在左,主操作在右(`← 取消` / `保存 →` 的阅读顺序);移动端竖排时主操作在上。
+- **行内按钮上限 3 个**,超出收进 `⋯` 下拉(见审计 P1-7,现状列表行有 7 个)。
+- **文案带后果**:不写"提交"写"我已记账完毕 · SIGN OFF";不写"确定"写"保持上月"/"接受";危险操作文案必须含动词 + 对象("归档此账户"而非"归档")。
+- **耗时预告**:预期 >3s 的操作在按钮旁标时长(现有范例:填报区的 `+15s`)。
+
+#### 2.1.8 反例(不许这么做)
+
+| 反例 | 为什么错 |
+|---|---|
+| 同一区块两个 `btn-ink` | 主操作失去唯一性,用户不知道该点哪个 |
+| 删除操作用 `btn-ink` | 不可逆操作占据最强视觉权重 |
+| 实心 rust 底的删除按钮 | 抢走主操作焦点 |
+| 按钮加 `border-radius` > 2px | 破坏账册纸张隐喻 |
+| 字号写死 `font-size:12px` | 绕过 `--fs-scale`,字号档位对它失效 |
+| 图标写死 `stroke="#1A1714"` | hover/disabled 时图标不跟随变色 |
+| 用 `<div onclick>` 当按钮 | 键盘不可达,无原生 disabled |
+
+---
+
+### 2.2 标签规格(spec)
+
+现状是**一个 `.pill` 类承担了四种语义完全不同的角色**,靠行内 style 和尺寸覆写勉强区分(64 处覆写 `.pill` 基类字号)。规格上必须先把四类拆开 —— 它们的**行为**不同,不只是颜色不同。
+
+#### 2.2.1 四类标签(核心区分)
+
+| 类型 | 语义 | 可点? | 色彩来源 | 举例 |
+|---|---|---|---|---|
+| **分类标签** Category | 这条数据"是什么" | 否 | 由数据的枚举值**固定映射** | `现金 (CASH)`、`货币基金`、`风险 ★★` |
+| **状态标签** Status | 这条数据"处于什么状态" | 否 | 由状态语义决定 | `已入账 + 流水`、`我未填`、`本期未填收支`、`UNPENETRATED` |
+| **筛选标签** Filter | 用户"要看什么" | **是** | 选中 = `pill-ink`,未选 = 基类 | 账户页类型筛选行、`全部` |
+| **计数标签** Count | 附属数量 | 否 | 永远 `ink-subtle`,无边无底 | `3个`、`· 11 个账户` |
+
+**这四类现在都是 `<span class="pill">`,视觉上不可区分** —— 尤其筛选标签(可点)和分类标签(只读)长得一模一样,用户不知道哪个能点。这是标签体系最大的问题。
+
+#### 2.2.2 分类标签:色彩固定映射表(不许出现第二种写法)
+
+| 枚举值 | 变体 | 色 |
+|---|---|---|
+| `LOAN` | `pill-rust` | rust |
+| `WEALTH` | `pill-forest` | forest |
+| `STOCK` | `pill-brass` | brass |
+| `INSURANCE` | `pill-slate` | slate |
+| `CASH` / `CRYPTO` / `METAL` / 其余 | 基类 | paper-soft 底 + ink-soft 字 |
+
+**加新枚举值时必须同步这张表** —— 项目已有教训(v0.14 加 `METAL` 时漏了模板里的硬编码类型判断,上线才发现)。
+
+#### 2.2.3 状态标签:语义色映射
+
+| 状态性质 | 变体 | 举例 |
+|---|---|---|
+| 完成 / 正向 / 已生效 | `pill-forest` | `已入账 + 流水`、`我已填` |
+| 缺失 / 逾期 / 异常 | `pill-rust` | `我未填`、`本期已过截止日` |
+| 进行中 / 当前 | `pill-brass` | 账期 `2026 · 05 · OPEN` |
+| 中性 / 未启用 / 无数据 | `pill-mute`【待补定义】 | `本期未填收支`、`UNPENETRATED` |
+
+**`.pill-mute` 是死类名**:3 处模板在用(`nav.html:48` 字号钮、`nav.html:59` 隐私钮、`dashboard/_region.html:216` 本期未填收支),但 `style.css` 里**没有定义** —— 这些元素现在只吃基类样式,作者想要的"弱化"语义丢失了。
+
+```css
+/* 待补 · 补上死类名 */
+.pill-mute {
+  background: transparent;
+  border-color: var(--rule-soft);
+  color: var(--ink-subtle);
+}
+.pill-mute:hover { border-color: var(--rule); color: var(--ink-soft); }  /* 仅当它是按钮时 */
+```
+
+#### 2.2.4 筛选标签:必须与只读标签视觉可区分【待补】
+
+三态规格:
+
+| 态 | 视觉 |
+|---|---|
+| 未选中 | 基类 + `cursor:pointer` + **hover 时 border 变 `--brass`**(暗示可点) |
+| 选中 | `pill-ink`(墨底反白) |
+| 选中且可清除 | `pill-ink` + 尾部 `×`(12px SVG),点 `×` 单独移除该条件 |
+
+```css
+/* 待补 · 可点标签的 affordance */
+.pill-filter { cursor: pointer; transition: border-color 150ms ease, color 150ms ease; }
+.pill-filter:hover { border-color: var(--brass); color: var(--brass-deep); }
+.pill-filter:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+```
+
+现状筛选行(`accounts/index.html:40-47`)是 `<a class="pill">`,没有 hover 反馈也没有 focus 态 —— 只有选中项的 `pill-ink` 能看出"这里可交互"。
+
+#### 2.2.5 三档尺寸(收敛 64 处覆写)
+
+现状:`text-[9px]` 37 处、`text-[10px]` 22 处、`text-xs` 5 处,全都在覆写基类的 10.5px。等于基类尺寸没人用。规格化:
+
+| 档 | 类 | 字号 | padding | 用在哪 |
+|---|---|---|---|---|
+| xs | `pill-xs`【待补】 | 9px | 2px 7px | 卡片右上角类型角标、次级附注 |
+| sm(默认) | `pill` | 10.5px | 4px 10px | 列表行、筛选器、状态标签 |
+| md | `pill-md`【待补】 | 12px | 5px 12px | 页头账期、KPI 旁强调 |
+
+```css
+/* 待补 · 尺寸档,替代散落的 text-[9px]/text-[10px] 覆写 */
+.pill-xs { font-size: calc(9px * var(--fs-scale,1));  padding: 2px 7px; }
+.pill-md { font-size: calc(12px * var(--fs-scale,1)); padding: 5px 12px; }
+```
+
+#### 2.2.6 标签共性规格
+
+| 属性 | 值 |
+|---|---|
+| 字体 | JetBrains Mono |
+| 字距 | `letter-spacing: .1em`(比按钮的 .12em 略紧) |
+| 圆角 | `1px`(**唯一有圆角的组件族**,与按钮的 0 区分) |
+| 边框 | 恒 1px(即便同色)—— 保证与纯文字区分 |
+| 布局 | `inline-flex; align-items:center; gap:6px` |
+| 内嵌图标 | 11px SVG,`stroke="currentColor"` |
+| 换行 | 长文案加 `whitespace-nowrap`,容器负责 `flex-wrap` |
+
+#### 2.2.7 计数标签:不用 pill
+
+数量附注(`3个`、`11 个账户`)**不套 `.pill`** —— 无边无底,只用 `font-mono text-ink-subtle`。理由:计数不是"状态",给它加边框会与真正的状态标签抢注意力。现状已经是这么做的,写进规格防止后来人"顺手加个 pill"。
+
+#### 2.2.8 反例(不许这么做)
+
+| 反例 | 为什么错 |
+|---|---|
+| 用 `pill-forest` 表示"可点击" | forest 已占用"正向/完成"语义 |
+| 分类标签自己选颜色(不查映射表) | 同一类型在两个页面显示不同色 |
+| 筛选标签与分类标签同样式 | 用户不知道哪个能点 |
+| 用行内 style 造新变体色 | 已有 5 变体够用;真需要新语义应加类并进本表 |
+| 计数套 `.pill` | 与状态标签抢视觉权重 |
+| pill 内放两行文字 | pill 是单行原子,多行内容用 `paper-card-soft` |
+
+---
+
+### 2.2b 表单标签(field-label)—— 规范失效最严重的一处
+
+`.field-label` 在 `style.css:260-268` 定义得很完整(mono / 10.5px / `.14em` 字距 / uppercase / `ink-soft` / `margin-bottom:6px`),但:
+
+- **只有 13 个模板在用这个类**
+- **有 237 处手写等效样式**(`font-mono text-[10px] ... uppercase text-ink-subtle mb-1` 各种排列组合)
+
+后果是标签样式没有单一来源:字号在 10px / 10.5px 之间飘,颜色在 `ink-soft` / `ink-subtle` 之间飘,间距在 `mb-1`(4px)/ `mb-1.5` / 6px 之间飘。改一次全局标签样式需要动 237 处。
+
+**规格**:所有表单字段标签一律用 `.field-label`。需要变体时加修饰类,不手写:
+
+```css
+/* 待补 · 标签变体,替代手写 */
+.field-label-inline { display: inline-block; margin-bottom: 0; margin-right: 8px; }  /* 行内紧凑表单 */
+.field-label-req::after { content: ' *'; color: var(--rust); }                        /* 必填标记 */
+```
+
+这项不影响外观(等效样式本来就一样),纯粹是可维护性 —— 但 237 处的量级意味着它是全站最大的"复制粘贴债"。
 
 ### 2.3 图标:inline SVG,零 emoji
 
@@ -553,6 +797,50 @@ PC 表格操作列:`划转 / 流水档案 / 体检 / 账本 / 编辑 / 券商 / 
 `layout.html:29` — `<meta name="theme-color" content="#1a1714">`(墨黑),而 UI 全亮(paper 米色)。iOS PWA 全屏下状态栏深色、页面米色,接缝明显。`prefers-color-scheme` 全站 0 处使用。
 
 **建议**:短期把 `theme-color` 改成 `#F4EFE6`(与 paper 一致,接缝消失);长期是否做深色模式另议 —— "账册"隐喻本身偏亮,做深色需要重新定义整套隐喻,不建议轻启。
+
+---
+
+## 补充发现(写按钮/标签规格时新增)
+
+沿用 1-15 的编号继续,优先级单独标注。
+
+### 16. 按钮缺 3 个交互态 —— P1
+
+只实现了 `default` + `:hover`,缺 `:active` / `:focus-visible` / `[disabled]`(见 §2.1.5)。
+
+- `:active` 缺失最实际:**移动端没有 hover**,`:active` 是唯一的按下反馈。现在手机上点任何按钮都没有触觉确认,只能等页面响应 —— 在慢网络下用户会重复点。
+- `[disabled]` 缺失有具体触发点:`entry/index.html:255` 的"刷新持仓估值"用了 `hx-disabled-elt="this"`,请求期间按钮真被 disable,但**外观零变化**。
+- `:focus-visible` 缺失:Tailwind preflight 重置了 outline,键盘 Tab 时焦点不可见。
+
+修复成本:一个 CSS 块,约 12 行,覆盖全部按钮变体。
+
+### 17. 没有危险操作按钮变体 —— P1
+
+全站无 `btn-danger` / `btn-rust`。删除/归档当前三种写法混用:`btn-ghost`(账户归档)、`btn-paper`(目标归档)、裸 `text-rust`(删收入笔)。不可逆操作与"编辑""导出"完全同权重。
+
+规格与 CSS 见 §2.1.2。取舍是**描边而非实心** —— 实心红会抢走 `btn-ink` 主操作焦点。
+
+### 18. `.pill-mute` 是死类名 —— P1
+
+3 处模板在用(`nav.html:48`、`nav.html:59`、`dashboard/_region.html:216`),`style.css` 中**无定义**。这些元素现在只吃 `.pill` 基类,作者想表达的"弱化/中性"语义丢失。补 4 行 CSS 即可(§2.2.3)。
+
+顺带核实:`pill-pulse` 不是类,是彩蛋里 `e520-pill-pulse` 动画名被 grep 误匹配;`pill-heart` 在 `easter520.html:187` 有定义。这两个不用管。
+
+### 19. 筛选标签与只读标签视觉不可区分 —— P1
+
+`.pill` 一个类承担四种语义(分类 / 状态 / 筛选 / 计数,见 §2.2.1)。其中**筛选标签可点、分类标签只读,但长得一模一样** —— 账户页类型筛选行(`accounts/index.html:40-47`)是 `<a class="pill">`,无 hover 反馈、无 focus 态,只有已选中项的 `pill-ink` 能暗示"这里可交互"。
+
+用户扫一眼无法判断哪些标签能点。补 `.pill-filter`(hover 变 brass 边)即可(§2.2.4)。
+
+### 20. `.field-label` 有 237 处手写副本 —— P2
+
+`style.css:260-268` 定义完整,但只 13 个模板用类名,**237 处手写等效样式**。后果:字号在 10 / 10.5px 飘,颜色在 `ink-soft` / `ink-subtle` 飘,间距在 4 / 6px 飘;改一次全局标签样式要动 237 处。
+
+不影响当前外观(等效样式本来一致),纯可维护性债 —— 但量级是全站最大的一处复制粘贴。详见 §2.2b。
+
+### 21. `.pill` 基类字号实际无人使用 —— P2
+
+基类是 10.5px,但 64 处在覆写:`text-[9px]` 37 处 / `text-[10px]` 22 处 / `text-xs` 5 处。说明需要的是**显式尺寸档**而不是一个默认值。补 `.pill-xs` / `.pill-md` 两个类收敛(§2.2.5)。
 
 ---
 
