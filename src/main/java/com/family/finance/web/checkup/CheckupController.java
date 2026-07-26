@@ -99,6 +99,9 @@ public class CheckupController {
             model.addAttribute("diagnose", diagnose);
             model.addAttribute("advice", advice);
             model.addAttribute("liquidSurplus", liquidSurplus);
+            // v1.6 UED review A2 · 体检此前完全不显示数据账期,与仪表盘数值不一致时用户无从分辨。
+            // 回显 anchor 期(与 dashboard 同规则解析)到页面标题下。
+            model.addAttribute("anchorPeriod", familyDiagnoseService.resolveAnchor(me.getFamilyId()));
             // v0.5.3 · 计算指标真实数值(ⓘ tooltip)· checkup 走家庭本位币
             // 紧急储备分母在 service 内部取 diagnose.kpi().avgExpense()(与 emergencyMonths 同源 · 见决策 51)
             model.addAttribute("calc", metricExplain.checkup(diagnose, familyEntity.getBaseCurrency()));

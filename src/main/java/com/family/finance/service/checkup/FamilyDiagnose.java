@@ -28,9 +28,24 @@ public record FamilyDiagnose(
         Integer accountCount,
         Integer pendingAccountCount
 ) {
+    /** v1.6 UED review A7 · 超过此月数视为分母(月均支出)过小导致的失真,不再报数字 */
+    public static final BigDecimal EMERGENCY_OUTLIER_MONTHS = new BigDecimal("36");
+
+    /**
+     * v1.6 UED review A7 · 异常值兜底。
+     * 紧急储备 = 流动资产 ÷ 月均支出。月均支出接近 0 时会算出荒谬值(实测 723.0 个月 = 60 年),
+     * 且与旁边「建议 ≥ 3 个月」并列,读起来像系统在胡说 —— 直接击穿指标可信度。
+     * 超界一律收敛为语义值,并由 {@link #emergencyOutlier()} 驱动页面提示去补支出数据。
+     */
     public String emergencyMonthsLabel() {
         if (emergencyMonths == null) return "—";
+        if (emergencyOutlier()) return "> 36 个月";
         return emergencyMonths.setScale(1, RoundingMode.HALF_EVEN).toPlainString() + " 个月";
+    }
+
+    /** 月数失真(分母过小)· 页面据此提示「月均支出偏低,数据可能不完整」 */
+    public boolean emergencyOutlier() {
+        return emergencyMonths != null && emergencyMonths.compareTo(EMERGENCY_OUTLIER_MONTHS) > 0;
     }
 
     public String familyXirrPctLabel() {

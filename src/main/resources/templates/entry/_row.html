@@ -78,7 +78,7 @@
   </div>
 
   <!-- v0.17.x · 贷款趋势预测行内提示条(仅"未确认 且 当前=上月值"时显示;老账期/已确认不出)-->
-  <div th:if="${row.showLoanPrompt}" class="mt-3 paper-card p-3 bg-card-soft" style="border-left:4px solid var(--brass-deep)">
+  <div th:if="${row.showLoanPrompt and period.status.name() != 'CLOSED'}" class="mt-3 paper-card p-3 bg-card-soft" style="border-left:4px solid var(--brass-deep)">
     <div class="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-brass-deep shrink-0" aria-hidden="true"><path d="M3 3v18h18"/><path d="M19 9l-5 5-4-4-3 3"/></svg>
       <span class="text-ink-soft">按上两月趋势,本月预计还到
@@ -104,7 +104,19 @@
   </div>
 
   <div class="mt-4 border-t border-rule pt-4 grid grid-cols-1 xl:grid-cols-12 gap-4">
-    <form class="xl:col-span-4"
+    <!-- v1.6 review B2-1 · 已关账 → 表单位置换成只读定稿值 -->
+    <div th:if="${period.status.name() == 'CLOSED'}" class="xl:col-span-4">
+      <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-1">本期余额 · 已定稿</div>
+      <div class="font-mono tnum text-lg" th:classappend="${row.account.type.name() == 'LOAN' ? ' num-neg' : ''}"
+           data-priv th:text="${row.currentBalanceLabel}">¥0</div>
+      <div class="font-mono text-[10px] text-ink-subtle mt-1 inline-flex items-center gap-1">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        本期已关账 · 不可修改
+      </div>
+    </div>
+    <!-- v1.6 UED review B2-1 · 已关账(CLOSED)时不再渲染可写表单。
+         此前账期已关闭,18 个账户卡片仍是完整可编辑表单 + 保存按钮,状态与可操作性矛盾。 -->
+    <form th:if="${period.status.name() != 'CLOSED'}" class="xl:col-span-4"
           th:hx-post="@{/entry/{id}/balance(id=${row.account.id})}"
           th:hx-target="'#entry-block-' + ${row.account.id}"
           hx-swap="outerHTML"
@@ -177,7 +189,8 @@
 
     <!-- v1.1.x UED 重排(2026-07-17):右列操作区控件统一 h-8 等高,划转改两行网格(select 全宽 + 金额/到账/按钮一行),
          与左列 h-9 表单节奏对齐;快捷支出与划转各有 eyebrow,不再文字/表单混挤一行 -->
-    <div class="xl:col-span-4 flex flex-col gap-3">
+    <!-- v1.6 review B2-1 · 已关账时隐藏快捷支出/划转(写操作) -->
+    <div th:if="${period.status.name() != 'CLOSED'}" class="xl:col-span-4 flex flex-col gap-3">
       <div>
         <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-1">快捷支出
           <span class="normal-case tracking-normal">· 收入去上方「收支填报」录</span></div>

@@ -19,6 +19,13 @@
     <p class="text-ink-soft text-sm mt-3 max-w-2xl">
       4 个核心维度:流动性 / 风险与配置 / 收益质量 / 负债健康。点击账户列表行可下钻到「账户级体检」。
     </p>
+    <!-- v1.6 UED review A2 · 显式标出数据账期(与仪表盘同一 anchor 规则)。
+         此前本页不显示账期,若与仪表盘落到不同期,用户看到两个净资产却无从分辨谁对。 -->
+    <p th:if="${anchorPeriod != null}" class="font-mono text-[11px] text-ink-subtle mt-2 tracking-wider">
+      数据截至
+      <b class="text-ink" th:text="${#temporals.format(anchorPeriod.periodStart, 'yyyy 年 M 月')}">2026 年 7 月</b>
+      · 与<a th:href="@{/dashboard}" class="brass-link no-underline">仪表盘</a>同期口径
+    </p>
   </section>
 
   <!-- 顶部 KPI 横条 -->
@@ -53,7 +60,10 @@
     <div class="kpi-card">
       <span class="kpi-eyebrow">紧急储备<th:block th:insert="~{fragments/_kpi-info :: i('流动资产 ÷ 月均支出。LIQUID 类目计入。建议 ≥ 3-6 月。', ${calc.emergency})}"/></span>
       <div class="kpi-value tnum" th:text="${diagnose.emergencyMonthsLabel()}">—</div>
-      <div class="kpi-delta">流动资产 / 月均支出</div>
+      <!-- v1.6 UED review A7 · 分母(月均支出)过小会算出荒谬月数(实测 723 个月)→ 收敛显示 + 点明原因 -->
+      <div class="kpi-delta" th:unless="${diagnose.emergencyOutlier()}">流动资产 / 月均支出</div>
+      <div class="kpi-delta text-rust" th:if="${diagnose.emergencyOutlier()}">月均支出偏低 · 先去
+        <a th:href="@{/entry}" class="underline" style="color:var(--rust)">填报</a>补支出</div>
     </div>
   </section>
 
@@ -108,7 +118,8 @@
         <div>
           <div class="kpi-eyebrow">紧急储备月数<th:block th:insert="~{fragments/_kpi-info :: i('流动资产 ÷ 月均支出。', ${calc.emergency})}"/></div>
           <div class="font-display text-2xl tnum mt-1" th:text="${diagnose.emergencyMonthsLabel()}">—</div>
-          <div class="font-mono text-[10px] text-ink-soft">流动资产 / 月均支出</div>
+          <div class="font-mono text-[10px] text-ink-soft" th:unless="${diagnose.emergencyOutlier()}">流动资产 / 月均支出</div>
+          <div class="font-mono text-[10px] text-rust" th:if="${diagnose.emergencyOutlier()}">月均支出偏低 · 月数已失真</div>
         </div>
       </div>
       <!-- 应急金不闲置提示(仅当流动资产 > 应急需求 × 1.5x 时显示) -->

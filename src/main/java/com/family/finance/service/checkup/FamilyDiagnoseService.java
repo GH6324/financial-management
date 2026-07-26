@@ -39,15 +39,39 @@ public class FamilyDiagnoseService {
     private final FamilyMapper familyMapper;
     private final PeriodMapper periodMapper;
 
+    /**
+     * v1.6 UED review A2 · 与 {@code DashboardController.resolveAsOf} 完全同口径的 anchor 选取:
+     * ① 优先进行中(OPEN)周期 → ② 否则「不晚于今天」的最新期(排除未来测试期)→ ③ 兜底最新期。
+     * <p>public 是为了让 CheckupController 把这一期回显到页面("数据截至 X"),
+     * 使用户能看出体检与仪表盘是否同期 —— 此前 checkup 完全不显示账期,数值不一致时无从分辨。
+     */
+    public Period resolveAnchor(long familyId) {
+        Period open = periodMapper.findCurrentOpen(familyId).orElse(null);
+        if (open != null) return open;
+        List<Period> all = periodMapper.findAllByFamily(familyId);
+        java.time.LocalDate today = java.time.LocalDate.now();
+        return all.stream()
+                .filter(p -> p.getPeriodStart() != null && !p.getPeriodStart().isAfter(today))
+                .max(java.util.Comparator.comparing(Period::getPeriodStart))
+                .orElseGet(() -> all.stream().max(java.util.Comparator.comparing(Period::getPeriodStart))
+                        .orElseThrow(() -> new IllegalStateException("尚未创建周期")));
+    }
+
     public FamilyDiagnose diagnose(long familyId) {
         // v0.2 bug 修(2026-05-10): 旧实现 factViewService.loadDefault 用 LocalDate.now() 作 end,
-        // 当用户测试期间生成了未来期(>当前日期),那些期会被排除,与 /dashboard(用 latest period 作 anchor)不一致。
-        // 改为与 dashboard 同口径:取 latest period(无论 OPEN/CLOSED)作 end,前推 11 个月。
+        // 当用户测试期间生成了未来期(>当前日期),那些期会被排除,与 /dashboard 不一致。
+        //
+        // v1.6 UED review A2(2026-07-26)· 上面那次修错了 dashboard 的口径:
+        //   dashboard 的 resolveAsOf 是「优先进行中(OPEN)→ 否则不晚于今天的最新期 → 兜底最新期」,
+        //   会**排除未来期**;而这里写成了裸 findLatest(含未来期)。
+        //   beta/测试库里存在未来账期(如 2029-09)时,两页 anchor 落到不同账期 →
+        //   净资产/总资产/紧急储备等同名指标数值不同(实测差 119 万、紧急储备 7.2 月 vs 723 月),
+        //   用户无从分辨谁对,直接击穿对全部数字的信任。
+        //   现改为与 dashboard 完全同规则,并把 anchor 期回传给页面显示(见 CheckupController)。
         Family family = familyMapper.findById(familyId)
                 .orElseThrow(() -> new IllegalArgumentException("家庭不存在: " + familyId));
-        Period latest = periodMapper.findLatest(familyId, 1).stream().findFirst()
-                .orElseThrow(() -> new IllegalStateException("尚未创建周期"));
-        java.time.LocalDate end = latest.getPeriodStart();
+        Period anchor = resolveAnchor(familyId);
+        java.time.LocalDate end = anchor.getPeriodStart();
         java.time.LocalDate start = end.minusMonths(11);
         FactSlice slice = factViewService.load(new FactFilter(
                 familyId, family.getPeriodType(), start, end, false, null, family.getBaseCurrency()));

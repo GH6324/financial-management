@@ -238,7 +238,8 @@ public class DashboardController {
         model.addAttribute("kpiNetWorth", money(viewCurrency, kpis.netWorth()));
         model.addAttribute("kpiAssets", money(viewCurrency, kpis.totalAssets()));
         model.addAttribute("kpiLiabilities", money(viewCurrency, kpis.totalLiabilities()));
-        model.addAttribute("kpiEmergency", kpis.emergencyFundMonths() == null ? "—" : kpis.emergencyFundMonths().toPlainString() + " 月");
+        // v1.6 UED review A7 · 与 checkup 同口径的异常值兜底 + 小数位收敛(此前裸 toPlainString 会甩一长串小数)
+        model.addAttribute("kpiEmergency", emergencyLabel(kpis.emergencyFundMonths()));
         model.addAttribute("kpiDebtRatio", percent(kpis.debtToAssetRatio()));
         model.addAttribute("kpiDelta", moneyDelta(viewCurrency, kpis.netWorthDelta()));
         // v0.3:优先用 period.total_*_input(用户在 /entry 第一步填的家庭口径)· fallback v0.2 cash_flow
@@ -375,6 +376,17 @@ public class DashboardController {
      * 优先当前 OPEN 期,否则取最近一个已开始(period_start ≤ 今天)的期,
      * 都没有再退回 max —— 避免锚到 dev/未来的 stray 期(如 beta 的 2034-01)。
      */
+    /**
+     * v1.6 UED review A7 · 紧急储备月数展示。
+     * 分母(月均支出)接近 0 时会算出荒谬值,收敛为语义值;正常值保留 1 位小数。
+     * 阈值与 {@code FamilyDiagnose.EMERGENCY_OUTLIER_MONTHS} 保持一致(36 月)。
+     */
+    private static String emergencyLabel(java.math.BigDecimal months) {
+        if (months == null) return "—";
+        if (months.compareTo(com.family.finance.service.checkup.FamilyDiagnose.EMERGENCY_OUTLIER_MONTHS) > 0) return "> 36 月";
+        return months.setScale(1, java.math.RoundingMode.HALF_EVEN).toPlainString() + " 月";
+    }
+
     private Period resolveAsOf(String asof, List<Period> all, Period openPeriod) {
         if (asof != null && !asof.isBlank()) {
             for (Period p : all) {
