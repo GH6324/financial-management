@@ -18,11 +18,7 @@
              advice.severity().name() == 'OK'     ? 'color:var(--forest)' :
                                                    'color:var(--ink-soft)'
           }"
-          th:text="${
-             (advice.severity().name() == 'DANGER' ? '⚠️  ' :
-              advice.severity().name() == 'WARN'   ? '🔔  ' :
-              advice.severity().name() == 'OK'     ? '✓  ' : 'ℹ️  ') + advice.category()
-          }">⚠️  集中度告警</span>
+          th:text="${advice.category()}">集中度告警</span>
     <span class="font-mono text-[9px] uppercase text-ink-subtle" th:text="${advice.ruleId()}">RET-3</span>
   </div>
   <h4 class="font-display text-lg font-medium mb-2" th:text="${advice.rawTitle()}">建议标题</h4>

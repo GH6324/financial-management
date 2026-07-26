@@ -16,18 +16,20 @@
         预设三类(退休/教育/应急)三情景预测达成日;自定义追踪目标绑账户、选指标、设期限,带倒计时与进度落后提醒。
       </p>
     </div>
-    <a th:href="@{/goals/new}" class="btn-ink no-underline">+ 新建目标</a>
+    <!-- v1.6 review B7-1 · 空状态时隐藏(卡内已有 4 个更具体的入口,且两个 btn-ink 破坏主操作唯一性) -->
+    <a th:href="@{/goals/new}" th:unless="${#lists.isEmpty(goals)}" class="btn-ink no-underline">+ 新建目标</a>
   </div>
 
   <!-- 空状态 · 无目标时 -->
-  <div th:if="${#lists.isEmpty(goals)}" class="paper-card p-8 text-center">
+  <div th:if="${#lists.isEmpty(goals)}" class="paper-card p-8 text-center mx-auto" style="max-width:640px">
     <div class="font-display text-2xl mb-2">还没有目标</div>
     <p class="text-ink-soft mb-6">你的家庭在朝哪儿走?设定第一个目标开始。</p>
-    <div class="flex flex-wrap justify-center gap-3">
-      <a th:href="@{/goals/new/retirement}" class="btn-paper no-underline">+ 退休 / FIRE</a>
-      <a th:href="@{/goals/new/education}" class="btn-paper no-underline">+ 子女教育金</a>
-      <a th:href="@{/goals/new/emergency}" class="btn-paper no-underline">+ 应急储备</a>
-      <a th:href="@{/goals/new/custom}" class="btn-ink no-underline">+ 自定义追踪</a>
+    <!-- v1.6 review B7-2/B7-3 · 等宽 2×2 网格(按钮宽度不再随文字长度变化)+ FIRE 补中文 -->
+    <div class="grid grid-cols-2 gap-3">
+      <a th:href="@{/goals/new/retirement}" class="btn-paper no-underline justify-center">+ 退休 / 提前退休</a>
+      <a th:href="@{/goals/new/education}" class="btn-paper no-underline justify-center">+ 子女教育金</a>
+      <a th:href="@{/goals/new/emergency}" class="btn-paper no-underline justify-center">+ 应急储备</a>
+      <a th:href="@{/goals/new/custom}" class="btn-ink no-underline justify-center">+ 自定义追踪</a>
     </div>
   </div>
 

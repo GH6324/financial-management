@@ -99,15 +99,12 @@
       <div class="font-mono text-[10px] mt-1" th:if="${familyBenchmarkPct != null}">
         <span class="text-ink-soft">vs 基准 <th:block th:insert="~{fragments/_kpi-info :: i('按你各账户所属产品类目的长期年化基准(美股 10.5% / A股 8% / 中债 4.5% / 货基 2% 等),以账户余额加权得出。是长期参考值、非实时行情。可在 管理 → 产品类目 查看/调整每个类目的基准。', ${calc.benchmark})}"/></span>
         <span class="tnum" th:text="${familyBenchmarkPct} + '%'">5.4%</span>
-        <span th:if="${familyBeatStatus == 'BEAT'}" class="pill text-[9px] ml-1"
-              style="background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)"
-              th:text="'跑赢 +' + ${familyBenchmarkDiff} + 'pp'">跑赢 +1.8pp</span>
-        <span th:if="${familyBeatStatus == 'MISS'}" class="pill text-[9px] ml-1"
-              style="background:rgba(159,74,58,.10);color:var(--rust);border:1px solid var(--rust)"
-              th:text="'跑输 ' + ${familyBenchmarkDiff} + 'pp'">跑输 -2.1pp</span>
-        <span th:if="${familyBeatStatus == 'FLAT'}" class="pill text-[9px] ml-1"
-              style="border:1px solid var(--ink-subtle);color:var(--ink-soft)"
-              th:text="'持平 ' + ${familyBenchmarkDiff} + 'pp'">持平 +0.5pp</span>
+        <span th:if="${familyBeatStatus == 'BEAT'}" class="font-mono text-[11px] ml-1.5 num-pos"
+              th:text="'跑赢基准 +' + ${familyBenchmarkDiff} + ' 个百分点'">跑赢基准 +1.8 个百分点</span>
+        <span th:if="${familyBeatStatus == 'MISS'}" class="font-mono text-[11px] ml-1.5 num-neg"
+              th:text="'落后基准 ' + ${familyBenchmarkDiff} + ' 个百分点'">落后基准 -2.1 个百分点</span>
+        <span th:if="${familyBeatStatus == 'FLAT'}" class="font-mono text-[11px] ml-1.5 text-ink-soft"
+              th:text="'与基准基本持平(' + ${familyBenchmarkDiff} + ' 个百分点)'">与基准基本持平</span>
       </div>
       <div class="kpi-delta" th:if="${familyBenchmarkPct == null}">资金加权</div>
     </div>
@@ -386,7 +383,9 @@
             tooltip: {callbacks: {label: (ctx) => fmtMoney(ctx.parsed.y)}},
             datalabels: {anchor: 'end', align: 'top', offset: 6, color: '#3a302a', font: {size: chartFont(10), weight: '500'}, formatter: fmtMoney}
           },
-          scales: {y: {ticks: {callback: fmtMoney}}}
+          // v1.6 UED review B5-5 · Y 轴此前自适应(实测 118 万–125 万),把 5% 的降幅画成陡坡,
+          // 视觉上夸大跌幅 —— 这是可视化误导。负债这类「绝对量」曲线从零起才诚实。
+          scales: {y: {beginAtZero: true, ticks: {callback: fmtMoney}}}
         },
         plugins: [ChartDataLabels]
       });

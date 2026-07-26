@@ -24,7 +24,7 @@
       <form th:action="@{/admin/periods/open-next}" method="post"
             onsubmit="return confirm('确认立即开启下一周期?会自动生成 snapshot_todo 与 LOAN 预填。');">
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-        <button class="btn-ink">🚀 立即开下一周期</button>
+        <button class="btn-ink">立即开下一周期</button>
       </form>
     </div>
     <div th:if="${currentPeriod != null}" class="mb-6 paper-card px-5 py-3 flex items-center justify-between gap-4 flex-wrap">
@@ -32,7 +32,7 @@
       <form th:action="@{/admin/periods/open-next}" method="post"
             onsubmit="return confirm('当前已有 OPEN 周期。确认强制开启下一周期?');">
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-        <button class="btn-paper text-[10px]">🚀 立即开下一周期(测试)</button>
+        <button class="btn-paper text-[10px]">立即开下一周期(测试)</button>
       </form>
     </div>
 

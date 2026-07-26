@@ -13,7 +13,7 @@
     <h1 class="font-display text-3xl sm:text-5xl font-medium tracking-tight">
       所 有 设 置 · <span class="italic font-light text-brass-deep">在此一处</span>
     </h1>
-    <p class="text-ink-soft text-sm mt-3 max-w-2xl">家庭、成员、指标、周期、提醒、汇率、数据源接入、数值阈值、备份、审计 — 凡 PRD 中可配置之事,皆汇于此。任意成员皆可访问;每次变更自动写审计日志。</p>
+    <p class="text-ink-soft text-sm mt-3 max-w-2xl">家庭、成员、指标、周期、提醒、汇率、数据源接入、数值阈值、备份、审计 — 凡可配置之事,皆汇于此。任意成员皆可访问;每次变更自动写审计日志。</p>
   </section>
 
   <!-- 状态总览 -->
@@ -21,17 +21,21 @@
     <div class="kpi-card">
       <span class="kpi-eyebrow">系统状态</span>
       <div class="font-display text-2xl mt-1 num-pos">运行中</div>
-      <div class="font-mono text-xs text-ink-soft mt-1">Spring Boot 3.3</div>
+      <div class="font-mono text-xs text-ink-soft mt-1">服务正常响应</div>
     </div>
     <div class="kpi-card">
       <span class="kpi-eyebrow">当前周期</span>
       <div class="font-display text-2xl mt-1" th:text="${currentPeriod != null ? #temporals.format(currentPeriod.periodStart,'yyyy · MM') : '—'}">2026 · 04</div>
-      <div class="font-mono text-xs text-brass-deep mt-1" th:text="${currentPeriod != null ? currentPeriod.status : '—'}">OPEN</div>
+      <div class="font-mono text-xs mt-1" th:if="${currentPeriod != null}"
+           th:classappend="${currentPeriod.status.name() == 'CLOSED' ? ' text-ink-subtle' : ' text-brass-deep'}"
+           th:text="${currentPeriod.status.name() == 'CLOSED' ? '已关账' : '进行中'}">进行中</div>
+      <a th:unless="${currentPeriod != null}" th:href="@{/admin/periods}"
+         class="font-mono text-xs text-rust mt-1 inline-block no-underline">无进行中周期 · 去开账 →</a>
     </div>
     <div class="kpi-card">
       <span class="kpi-eyebrow">最近备份</span>
       <div class="font-display text-2xl mt-1" th:text="${lastBackup != null ? #temporals.format(lastBackup.startedAt,'M月d日') : '—'}">5 月 4 日</div>
-      <div class="font-mono text-xs num-pos mt-1" th:if="${lastBackup != null}" th:text="${lastBackup.status == 'SUCCESS' ? '✓ SUCCESS' : '⚠ ' + lastBackup.status}">✓ SUCCESS</div>
+      <div class="font-mono text-xs num-pos mt-1" th:if="${lastBackup != null}" th:text="${lastBackup.status == 'SUCCESS' ? '成功' : '失败 · ' + lastBackup.status}">成功</div>
     </div>
     <div class="kpi-card">
       <span class="kpi-eyebrow">汇率服务</span>
@@ -41,10 +45,16 @@
   </section>
 
   <!-- 子页导航 -->
-  <section class="grid grid-cols-1 md:grid-cols-3 grid-hairline">
+    <!-- v1.6 UED review A10/B8-2 · 15 个入口此前 3×5 平铺、无分组无层次,用户只能逐个扫 -->
+  <div class="mt-8 mb-2 flex items-baseline gap-3">
+    <div class="eyebrow">家 · 庭 · 基 · 础</div>
+    <span class="font-mono text-[10px] text-ink-subtle">谁在用、有哪些账户</span>
+    <div class="h-px flex-1 bg-rule"></div>
+  </div>
+  <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 grid-hairline">
     <a th:href="@{/admin/family}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
       <div>
-        <div class="eyebrow-ink mb-2">/admin/family</div>
+        <div class="eyebrow-ink mb-2">家庭 · 基础</div>
         <h3 class="font-display text-xl">家庭设置</h3>
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">家庭名 · 品牌 / Logo · 本位币 · 周期类型</p>
       </div>
@@ -52,7 +62,7 @@
     </a>
     <a th:href="@{/admin/members}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
       <div>
-        <div class="eyebrow-ink mb-2">/admin/members</div>
+        <div class="eyebrow-ink mb-2">家庭 · 成员</div>
         <h3 class="font-display text-xl">成员管理</h3>
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">改名 · 角色标签 · 重置密码</p>
       </div>
@@ -60,95 +70,119 @@
     </a>
     <a th:href="@{/accounts}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
       <div>
-        <div class="eyebrow-ink mb-2">/accounts</div>
+        <div class="eyebrow-ink mb-2">家庭 · 账户</div>
         <h3 class="font-display text-xl">账户管理</h3>
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">增改归档</p>
       </div>
       <span class="font-mono text-xs text-brass tracking-widest opacity-0 group-hover:opacity-100 transition">→</span>
     </a>
+    <a th:href="@{/admin/account-templates}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
+      <div>
+        <div class="eyebrow-ink mb-2">家庭 · 建户模板</div>
+        <h3 class="font-display text-xl">账户模板</h3>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">16 内置模板(只读)</p>
+      </div>
+    </a>
+  </section>
+  <!-- v1.6 UED review A10/B8-2 · 15 个入口此前 3×5 平铺、无分组无层次,用户只能逐个扫 -->
+  <div class="mt-8 mb-2 flex items-baseline gap-3">
+    <div class="eyebrow">口 · 径 · 与 · 标 · 签</div>
+    <span class="font-mono text-[10px] text-ink-subtle">数字怎么算、资产怎么归类</span>
+    <div class="h-px flex-1 bg-rule"></div>
+  </div>
+  <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 grid-hairline">
     <a th:href="@{/admin/metrics}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
       <div>
-        <div class="eyebrow-ink mb-2">/admin/metrics</div>
+        <div class="eyebrow-ink mb-2">口径 · 指标</div>
         <h3 class="font-display text-xl">指标设置</h3>
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">勾选「我关心的指标」· 控制主页 / 报表显示哪些指标与豆腐块 · 手机端展示上限</p>
       </div>
       <span class="font-mono text-xs text-brass tracking-widest opacity-0 group-hover:opacity-100 transition">→</span>
     </a>
-    <a th:href="@{/admin/account-templates}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
-      <div>
-        <div class="eyebrow-ink mb-2">/admin/account-templates</div>
-        <h3 class="font-display text-xl">账户模板</h3>
-        <p class="text-sm text-ink-soft mt-2 leading-relaxed">16 内置模板(只读)</p>
-      </div>
-    </a>
     <a th:href="@{/lens/tags}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
       <div>
-        <div class="eyebrow-ink mb-2">/lens/tags</div>
+        <div class="eyebrow-ink mb-2">口径 · 资产标签</div>
         <h3 class="font-display text-xl">资产打标</h3>
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">资产类型 / 平台 / 行业 / 用途 · 支持 AI 推荐 · 供资产透视</p>
       </div>
     </a>
-    <a th:href="@{/admin/cash-flow-categories}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
-      <div>
-        <div class="eyebrow-ink mb-2">/admin/cash-flow-categories</div>
-        <h3 class="font-display text-xl">现金流类别</h3>
-        <p class="text-sm text-ink-soft mt-2 leading-relaxed">8 类别(只读)</p>
-      </div>
-    </a>
     <a th:href="@{/admin/product-categories}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
       <div>
-        <div class="eyebrow-ink mb-2">/admin/product-categories</div>
+        <div class="eyebrow-ink mb-2">口径 · 产品类目</div>
         <h3 class="font-display text-xl">产品类目</h3>
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">17 类目(只读)· 风险 + 基准</p>
       </div>
     </a>
+    <a th:href="@{/admin/cash-flow-categories}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
+      <div>
+        <div class="eyebrow-ink mb-2">口径 · 收支类别</div>
+        <h3 class="font-display text-xl">现金流类别</h3>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">8 类别(只读)</p>
+      </div>
+    </a>
+    <a th:href="@{/admin/calc-tweaks}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
+      <div>
+        <div class="eyebrow-ink mb-2">口径 · 数值阈值</div>
+        <h3 class="font-display text-xl">数值阈值</h3>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">智能转账阈值 · 体检 4 阈值(集中度 / 高风险 / 流动性 / 应急金)· 会话有效期</p>
+      </div>
+    </a>
+  </section>
+  <!-- v1.6 UED review A10/B8-2 · 15 个入口此前 3×5 平铺、无分组无层次,用户只能逐个扫 -->
+  <div class="mt-8 mb-2 flex items-baseline gap-3">
+    <div class="eyebrow">日 · 常 · 运 · 营</div>
+    <span class="font-mono text-[10px] text-ink-subtle">账期节奏、提醒与外部数据</span>
+    <div class="h-px flex-1 bg-rule"></div>
+  </div>
+  <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 grid-hairline">
     <a th:href="@{/admin/periods}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
       <div>
-        <div class="eyebrow-ink mb-2">/admin/periods</div>
+        <div class="eyebrow-ink mb-2">运营 · 账期</div>
         <h3 class="font-display text-xl">周期管理</h3>
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">列表 · 重新打开(必填理由)</p>
       </div>
     </a>
     <a th:href="@{/admin/reminders}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
       <div>
-        <div class="eyebrow-ink mb-2">/admin/reminders</div>
+        <div class="eyebrow-ink mb-2">运营 · 提醒</div>
         <h3 class="font-display text-xl">提醒</h3>
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">填报模板 · 阿里云短信 · 截止前强提醒 · 成员手机号</p>
       </div>
     </a>
     <a th:href="@{/admin/fx}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
       <div>
-        <div class="eyebrow-ink mb-2">/admin/fx</div>
+        <div class="eyebrow-ink mb-2">运营 · 汇率</div>
         <h3 class="font-display text-xl">汇率维护</h3>
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">手填覆盖 · 立即拉取</p>
       </div>
     </a>
     <a th:href="@{/admin/integrations}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
       <div>
-        <div class="eyebrow-ink mb-2">/admin/integrations</div>
+        <div class="eyebrow-ink mb-2">运营 · 数据源</div>
         <h3 class="font-display text-xl">数据源接入</h3>
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">AI 大模型凭据 · 股票每日拉价节奏 · 汇率每月拉取 · 实时生效不重启</p>
       </div>
     </a>
+  </section>
+  <!-- v1.6 UED review A10/B8-2 · 15 个入口此前 3×5 平铺、无分组无层次,用户只能逐个扫 -->
+  <div class="mt-8 mb-2 flex items-baseline gap-3">
+    <div class="eyebrow">系 · 统</div>
+    <span class="font-mono text-[10px] text-ink-subtle">备份与留痕</span>
+    <div class="h-px flex-1 bg-rule"></div>
+  </div>
+  <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 grid-hairline">
     <a th:href="@{/admin/backup}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
       <div>
-        <div class="eyebrow-ink mb-2">/admin/backup</div>
+        <div class="eyebrow-ink mb-2">系统 · 备份</div>
         <h3 class="font-display text-xl">备份与恢复</h3>
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">每周日自动备份 · 最近 8 次状态 · 一键恢复</p>
       </div>
     </a>
     <a th:href="@{/admin/audit}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
       <div>
-        <div class="eyebrow-ink mb-2">/admin/audit</div>
+        <div class="eyebrow-ink mb-2">系统 · 审计</div>
         <h3 class="font-display text-xl">审计日志</h3>
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">谁、何时、改了什么</p>
-      </div>
-    </a>
-    <a th:href="@{/admin/calc-tweaks}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
-      <div>
-        <div class="eyebrow-ink mb-2">/admin/calc-tweaks</div>
-        <h3 class="font-display text-xl">数值阈值</h3>
-        <p class="text-sm text-ink-soft mt-2 leading-relaxed">智能转账阈值 · 体检 4 阈值(集中度 / 高风险 / 流动性 / 应急金)· 会话有效期</p>
       </div>
     </a>
   </section>

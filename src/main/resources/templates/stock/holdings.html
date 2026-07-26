@@ -98,7 +98,7 @@
           <span class="pill text-[9px]" th:if="${h.valuationMode.name() == 'MANUAL'}"
                 style="background:rgba(196,148,62,.15);color:var(--brass-deep);border-color:var(--brass-deep)">手填市值</span>
           <span class="pill text-[9px]" th:if="${h.valuationMode.name() == 'CASH'}"
-                style="background:rgba(47,93,80,.10);color:var(--forest);border-color:var(--forest)">💰 账户内现金</span>
+                style="background:rgba(47,93,80,.10);color:var(--forest);border-color:var(--forest)"><svg class="inline-block align-[-2px] mr-1" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>账户内现金</span>
           <span class="pill text-[9px]" th:if="${h.valuationMode.name() == 'CASH' and h.currency != null and h.currency != account.currency}"
                 style="background:rgba(159,74,58,.08);color:var(--rust);border-color:var(--rust)"
                 th:text="'FX → ' + ${account.currency}">FX → HKD</span>
@@ -233,7 +233,7 @@
         <form th:action="@{|/accounts/${account.id}/holdings/${h.id}/archive|}" method="post">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
           <button type="submit" class="btn-paper text-xs"
-                  onclick="return confirm('归档此持仓(可恢复)?');">🗄 归档</button>
+                  onclick="return confirm('归档此持仓(可恢复)?');"><svg class="inline-block align-[-2px] mr-1" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/></svg>归档</button>
         </form>
       </div>
     </div>

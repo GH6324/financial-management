@@ -127,7 +127,7 @@
       <div th:if="${liquidSurplus != null and liquidSurplus.shouldNotify()}"
            class="border-t border-rule-soft mt-4 pt-3 paper-card p-3"
            style="background:rgba(122,90,57,.04); border-left:3px solid var(--brass-deep)">
-        <span class="font-mono text-[10px] text-brass-deep">💡 不 · 闲 · 置</span>
+        <span class="font-mono text-[10px] text-brass-deep">不 · 闲 · 置</span>
         <p class="text-xs text-ink-soft mt-1">
           超额 <b class="tnum" th:text="'¥' + ${#numbers.formatInteger(liquidSurplus.surplus, 0, 'COMMA')}">¥0</b> ·
           建议转货币基金(2%+ 年化)避免活期闲置。

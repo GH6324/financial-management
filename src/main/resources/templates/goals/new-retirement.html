@@ -116,7 +116,7 @@
         if (data.withdrawalRate) form.elements['withdrawalRate'].value = data.withdrawalRate;
         if (data.rationale) {
           const r = document.getElementById('ai-rationale');
-          r.textContent = '✨ ' + data.rationale;
+          r.textContent = data.rationale;
           r.classList.remove('hidden');
         }
       } catch (e) {

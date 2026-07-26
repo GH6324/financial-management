@@ -792,6 +792,34 @@ button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); col
 /* review B3-4 · 表格窄列里的中文被挤成竖排 → 关键列不换行 */
 .ledger-table td.nowrap, .ledger-table th.nowrap { white-space: nowrap; }
 
+/* review B3-3 · 列表行「更多操作」下拉:高频操作留行内,低频收进 ⋯(spec §6.1 行内 ≤3) */
+.row-more { position: relative; display: inline-block; vertical-align: middle; }
+.row-more > summary {
+  list-style: none; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 30px; color: var(--ink-subtle);
+  border: 1px solid transparent; transition: color .15s, border-color .15s;
+}
+.row-more > summary::-webkit-details-marker { display: none; }
+.row-more > summary::marker { content: ''; }
+.row-more > summary:hover { color: var(--ink); border-color: var(--rule); }
+.row-more[open] > summary { color: var(--ink); border-color: var(--rule); }
+.row-more-pop {
+  position: absolute; right: 0; top: 100%; z-index: 45; min-width: 156px;
+  background: var(--card); border: 1px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--paper-deep), var(--shadow-deep);
+  padding: 4px 0; text-align: left;
+}
+.row-more-pop > a, .row-more-pop button {
+  display: block; width: 100%; text-align: left; background: none; border: 0; cursor: pointer;
+  padding: 8px 14px; font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: calc(11px * var(--fs-scale,1)); color: var(--ink-soft); white-space: nowrap;
+}
+.row-more-pop > a:hover, .row-more-pop button:hover { background: var(--card-soft); color: var(--ink); }
+/* 不可逆操作用 rust 描边语义(spec §6.1 danger:有色=要你做决定) */
+.row-more-pop .row-more-danger { color: var(--rust); }
+.row-more-pop .row-more-danger:hover { background: rgba(156,74,42,.07); color: var(--rust); }
+
 /* review B2-2 · 填报行折叠(移动端 13.9 屏 → 约 3 屏)· summary 满足 40px 触摸高度 */
 .entry-fold > summary {
   list-style: none; cursor: pointer;
@@ -829,9 +857,11 @@ button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); col
 
 /* review B1-6 · KPI 带:窄屏「英雄数字 + 横滑 chip」。
    主 KPI(第一个)近满宽 + 字号升档,其余横滑 —— 五个同等大小的数字等于没有重点。 */
+/* !important 必要:Tailwind Play CDN 在 style.css 之后注入,其 .grid{display:grid} 同为单类选择器
+   会盖掉这里的 display:flex(仓库既有手法,见文件末 text-[Npx] 档位)。 */
 @media (max-width: 767px) {
   .kpi-band {
-    display: flex; overflow-x: auto;
+    display: flex !important; overflow-x: auto;
     overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
     scroll-snap-type: x mandatory; scrollbar-width: none;
   }
@@ -844,12 +874,12 @@ button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); col
 /* review B3-2 · 类型汇总带:窄屏由多行网格改横滑单行(9 个类型曾占满整个首屏 ~950px) */
 @media (max-width: 767px) {
   .summary-band {
-    display: flex; overflow-x: auto;
+    display: flex !important; overflow-x: auto;
     overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
     scroll-snap-type: x proximity; scrollbar-width: none;
   }
   .summary-band::-webkit-scrollbar { display: none; }
-  .summary-band > * { flex: 0 0 44%; scroll-snap-align: start; }
+  .summary-band > * { flex: 0 0 44% !important; scroll-snap-align: start; }
 }
 
 /* spec §5 · 尊重系统「减少动态效果」偏好 —— 前庭障碍用户会因动画产生生理不适。
@@ -862,4 +892,20 @@ button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); col
   #page-progress::before { animation: none !important; }
   .kpi-info-panel { animation: none !important; }
   .toc-sheet { transition-duration: .01ms !important; }
+}
+
+/* review B1-7 · 资产透视三个区块(旭日/排行/交叉表)靠 JS 异步填充,填充前是三个大空白框,
+   用户不知道是坏了还是在算 → 给统一的计算中占位。JS 渲染时会覆盖。 */
+.lens-skeleton {
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  min-height: 120px; height: 100%;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: calc(11px * var(--fs-scale,1)); letter-spacing: .08em; color: var(--ink-subtle);
+}
+
+/* review B3-7 · ★ 在 JetBrains Mono 里没有字形,回落后被渲染成点/方块(实测「风险 ······」)。
+   星级单独指定有该字形的字体族。 */
+.stars {
+  font-family: "Noto Serif SC", "Segoe UI Symbol", "Apple Symbols", sans-serif;
+  letter-spacing: .04em;
 }

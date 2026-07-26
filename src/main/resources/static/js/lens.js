@@ -63,7 +63,29 @@
   var RING_PALETTES = PALETTE_PLANS[window.LENS_META.palette] || PALETTE_PLANS.D;
   /* 环内防撞:对本环出现的全部维值按字典序统一分配 —— 哈希定起点、线性探测避让已用色,
    * 值≤色数时保证互不同色;字典序使分配与遍历顺序无关(旭日外环与排行条对同一值集必得同色)。 */
+  /* v1.6 UED review B4-3 · 风险是有序(ordinal)维度,套分类色板会得到
+     「高风险=紫 / 中风险=粉紫 / 低风险=青」这种从颜色读不出高低的组合 —— 用户无法凭色判断轻重。
+     检测到风险等级维值时改用低→高顺序色阶(与 checkup riskChart 的 riskColors 同一套)。 */
+  var RISK_RANK = {
+    '无风险': 0, '无': 0, '极低风险': 1, '极低': 1, '低风险': 2, '低': 2, '中低风险': 3, '中低': 3,
+    '中风险': 4, '中': 4, '中高风险': 5, '中高': 5, '高风险': 6, '高': 6, '极高风险': 7, '极高': 7
+  };
+  var RISK_SCALE = ['#9bb09a', '#8fa892', '#7ea08a', '#a89a55', '#c1873b', '#b06a3c', '#a55540', '#8a3220'];
+  function riskColorMap(values) {
+    var map = {}, hit = 0;
+    values.forEach(function (v) {
+      v = String(v);
+      if (map[v] !== undefined) return;
+      var r = RISK_RANK[v];
+      if (r !== undefined) { map[v] = RISK_SCALE[r]; hit++; }
+      else map[v] = '#c8c0ae';                 // 未分类 / 其他 → 中性纸灰,不参与冷暖序
+    });
+    return hit >= 2 ? map : null;              // 至少两档命中才认定这是风险维度
+  }
+
   function colorMapFor(values, ring) {
+    var riskMap = riskColorMap(values);
+    if (riskMap) return riskMap;
     var pal = RING_PALETTES[(ring || 0) % RING_PALETTES.length];
     var uniq = []; var seen = {};
     values.forEach(function (v) { v = String(v); if (!seen[v]) { seen[v] = 1; uniq.push(v); } });
@@ -280,7 +302,12 @@
          且不旋转(rotate:0)。 */
       var sliceLabel = function (p) {
         var d = p.data;
-        if (compact) return (totalSize && p.value * 360 / totalSize >= 40) ? d._lbl : '';
+        if (compact) {
+          var deg = totalSize ? p.value * 360 / totalSize : 0;
+          // ≥60°(约 17%)的块横排放得下两行「名称 + 占比」;40–60° 只放占比;更小的留白(看下方排行)
+          if (deg >= 60) return d.name + '\n' + d._lbl;
+          return deg >= 40 ? d._lbl : '';
+        }
         var lines = [d.name, d._lbl];
         if (kind === 'amount' && !privacyOn() && totalSize && p.value * 360 / totalSize >= 28) lines.push(fmtShort(d._mv));
         return lines.join('\n');

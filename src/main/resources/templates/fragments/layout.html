@@ -79,9 +79,15 @@
       display:inline-flex; align-items:center; gap:6px;
       background:var(--card); color:var(--ink-soft); border:1px solid var(--rule); border-radius:999px; padding:8px 11px;
       box-shadow:0 3px 12px rgba(0,0,0,.16); cursor:pointer; font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.04em;
-      transition:opacity .25s ease, border-color .18s ease; }
-    #priv-float:hover{ border-color:var(--ink-soft); }
-    body.is-scrolling #priv-float, body.is-scrolling .toc-fab{ opacity:.28; }
+      transition:opacity .25s ease, border-color .18s ease;
+      /* v1.6 UED review A1(二次修正)· 移到右下后会压住右对齐的金额(列表卡「本期末 ¥10,000」)。
+         浮钮是常驻控件、不是内容,默认半透明让下方数字仍可读;交互时恢复不透明。 */
+      opacity:.62; }
+    #priv-float:hover, #priv-float:active, #priv-float:focus-visible{ border-color:var(--ink-soft); opacity:1; }
+    html.privacy #priv-float{ opacity:1; }   /* 隐私态是「当前状态提示」,必须清晰可见 */
+    .toc-fab{ opacity:.62; }
+    .toc-fab:hover, .toc-fab:active, .toc-fab:focus-visible{ opacity:1; }
+    body.is-scrolling #priv-float, body.is-scrolling .toc-fab{ opacity:.22; }
     #priv-float .priv-float-label{ display:none; white-space:nowrap; }
     html.privacy #priv-float{ background:var(--brass-soft); color:var(--brass-deep); border-color:var(--brass); }
     html.privacy #priv-float .priv-float-label{ display:inline; }

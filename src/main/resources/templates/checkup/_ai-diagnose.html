@@ -13,12 +13,12 @@
     <div class="flex items-baseline gap-3">
       <span class="font-mono text-[10px] tracking-[0.18em] uppercase font-medium"
             th:style="${result.available() ? 'color:var(--brass-deep)' : 'color:var(--ink-soft)'}"
-            th:text="${result.available() ? '✨  AI · 综合智能诊断' : 'ℹ️  AI · 暂不可用'}">
-        ✨  AI · 综合智能诊断
+            th:text="${result.available() ? 'AI · 综合智能诊断' : 'AI · 暂不可用'}">
+        AI · 综合智能诊断
       </span>
       <span th:if="${result.available()}" class="font-mono text-[9px] uppercase text-ink-subtle">
         <span th:text="${result.vendor()}">qwen</span>
-        <span th:if="${result.fromCache()}" class="ml-1 px-1.5 py-px border border-rule-soft text-ink-subtle">cached</span>
+        <span th:if="${result.fromCache()}" class="ml-1 px-1.5 py-px border border-rule-soft text-ink-subtle">已缓存</span>
       </span>
     </div>
     <button type="button"
@@ -58,14 +58,15 @@
                        'border-left:3px solid var(--forest)')}">
         <div class="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
           <div class="flex items-baseline gap-2">
-            <span class="text-base" th:text="${d.icon()}">📊</span>
+            <!-- v1.6 review A6 · 去掉 d.icon() 的 emoji(项目纪律:不用 emoji;维度名本身已表意) -->
             <span class="font-display text-sm font-medium" th:text="${d.name()}">资产配置</span>
           </div>
+          <!-- v1.6 review B6-5 · 状态徽标英文 OK/WARN/RISK 对非技术家庭成员不可懂 → 中文 -->
           <span class="font-mono text-[10px] px-1.5 py-px border"
                 th:style="${dv == 'RISK' ? 'color:var(--rust); border-color:var(--rust); background:rgba(159,74,58,.05)' :
                            (dv == 'WARN' ? 'color:var(--brass-deep); border-color:var(--brass-deep); background:rgba(196,148,62,.06)' :
                            'color:var(--forest); border-color:var(--forest); background:rgba(47,93,80,.05)')}"
-                th:text="${dv}">OK</span>
+                th:text="${dv == 'RISK' ? '风险' : (dv == 'WARN' ? '注意' : '正常')}">正常</span>
         </div>
         <p class="text-xs text-ink leading-relaxed mb-1" th:text="${d.finding()}">诊断结论</p>
         <p class="text-[11px] text-ink-subtle font-mono leading-relaxed"
@@ -78,7 +79,7 @@
     <div th:if="${s.actions() != null and !s.actions().isEmpty()}"
          class="paper-card px-3 py-2.5"
          style="background:rgba(122,90,57,.04); border-left:3px solid var(--brass-deep)">
-      <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep mb-2">🎯 优 · 先 · 行 · 动</div>
+      <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep mb-2">优 · 先 · 行 · 动</div>
       <ol class="space-y-1 text-xs text-ink list-decimal list-inside leading-relaxed">
         <li th:each="a : ${s.actions()}" th:text="${a}">行动</li>
       </ol>
@@ -89,7 +90,7 @@
   <div th:if="${result.truncated()}"
        class="paper-card p-3 text-xs text-ink-soft"
        style="border-left:3px solid var(--rust); background:rgba(159,74,58,.04)">
-    <span class="font-mono text-rust">⚠ AI 输出被截断</span>
+    <span class="font-mono text-rust"><svg class="inline-block align-[-2px] mr-1" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>AI 输出被截断</span>
     <p class="mt-1">本次 AI 返回的内容不完整 · 请点右上方「↻ 刷新」重试 · 或稍后再试。</p>
   </div>
 
@@ -116,7 +117,7 @@
          hx-swap="outerHTML">
   <div class="flex items-baseline justify-between mb-3">
     <span class="font-mono text-[10px] tracking-[0.18em] uppercase font-medium text-brass-deep">
-      ✨  AI · 综合智能诊断
+      AI · 综合智能诊断
     </span>
     <span class="font-mono text-[9px] uppercase text-ink-subtle">分析中...</span>
   </div>

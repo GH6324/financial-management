@@ -4085,6 +4085,82 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && log_ok "v152-TPL-PLATFORM(账户模板平台默认 + 建户未填自动带出 + 向导告知 + 管理页可见)" \
   || log_bad "v152-TPL-PLATFORM 缺件" "see V52迁移 + AccountTemplate.platform + mapper SELECT platform + AccountController create默认 + 向导 data-tpl-platform"
 
+# ── v1.6 UED 专项(docs/ued-review-2026-07.md · 61 条双端截图审计)────────────────
+
+# v16-UED-TRUST · 跨页口径统一 + 异常值兜底 + 已关账只读(review A2/A7/B2-1)
+{ grep -q "resolveAnchor" "$RD/src/main/java/com/family/finance/service/checkup/FamilyDiagnoseService.java" \
+  && grep -q "findCurrentOpen" "$RD/src/main/java/com/family/finance/service/checkup/FamilyDiagnoseService.java" \
+  && grep -q "EMERGENCY_OUTLIER_MONTHS" "$RD/src/main/java/com/family/finance/service/checkup/FamilyDiagnose.java" \
+  && grep -q "emergencyOutlier" "$RD/src/main/java/com/family/finance/service/checkup/FamilyDiagnose.java" \
+  && grep -q "emergencyLabel" "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \
+  && grep -q "anchorPeriod" "$RD/src/main/java/com/family/finance/web/checkup/CheckupController.java" \
+  && grep -q "数据截至" "$RD/src/main/resources/templates/checkup/family.html" \
+  && grep -q "本期已关账" "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q "status.name() != 'CLOSED'" "$RD/src/main/resources/templates/entry/_row.html"; } \
+  && log_ok "v16-UED-TRUST(体检与仪表盘同 anchor + 账期标注 + 紧急储备兜底 + 已关账只读)" \
+  || log_bad "v16-UED-TRUST 缺件" "see FamilyDiagnoseService.resolveAnchor / FamilyDiagnose.emergencyOutlier / checkup 数据截至 / entry CLOSED 只读"
+
+# v16-UED-MONEY · 金额千分位(review A3 · 此前 checkup/detail 共 32 处裸输出)
+{ ! grep -qE 'formatDecimal\([^)]*, 1, [0-9]\)' "$RD/src/main/resources/templates/checkup/family.html" \
+  && ! grep -qE 'formatDecimal\([^)]*, 1, [0-9]\)' "$RD/src/main/resources/templates/checkup/account.html" \
+  && ! grep -qE 'formatDecimal\([^)]*, 1, [0-9]\)' "$RD/src/main/resources/templates/accounts/detail.html" \
+  && grep -q "COMMA" "$RD/src/main/resources/templates/checkup/family.html"; } \
+  && log_ok "v16-UED-MONEY(体检/账户详情金额一律带千分位)" \
+  || log_bad "v16-UED-MONEY 缺件" "see checkup/family+account、accounts/detail 的 formatDecimal 需带 'COMMA'"
+
+# v16-UED-CONTRAST · 对比度与色彩 token(review B6/A6 · visual-spec §1.2)
+{ grep -q -- "--ink-subtle:   #706657" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q -- "--ink-faint" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q -- "--brass-text" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "prefers-reduced-motion" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "pill-mute" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "grid-hairline" "$RD/src/main/resources/static/css/style.css"; } \
+  && log_ok "v16-UED-CONTRAST(ink-subtle 过 AA + ink-faint/brass-text + reduced-motion + pill-mute + 发丝网格)" \
+  || log_bad "v16-UED-CONTRAST 缺件" "see style.css :root token + prefers-reduced-motion + .pill-mute + .grid-hairline"
+
+# v16-UED-MOBILE · 移动端首屏折叠 + 大组件形态(review A4/B1/B2/B4)
+{ grep -q "filter-fold" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "filter-fold" "$RD/src/main/resources/templates/reports/_region.html" \
+  && grep -q "本 · 期 · 一 · 句 · 话" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "entry-fold" "$RD/src/main/resources/templates/entry/_row.html" \
+  && grep -q "kpi-band" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "summary-band" "$RD/src/main/resources/templates/accounts/index.html" \
+  && grep -q "flatAlloc" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "barRows" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q 'display: flex !important' "$RD/src/main/resources/static/css/style.css"; } \
+  && log_ok "v16-UED-MOBILE(口径折叠+一句话结论+填报行折叠+KPI横滑+汇总带横滑+环图转条形+双向柱TopN)" \
+  || log_bad "v16-UED-MOBILE 缺件" "see filter-fold/entry-fold/kpi-band/summary-band + flatAlloc/barRows + Tailwind 覆盖需 !important"
+
+# v16-UED-IOS · iOS 硬约束(review A9)
+{ grep -q "overscroll-behavior-x: contain" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "scroll-snap-type" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "env(safe-area-inset-bottom)" "$RD/src/main/resources/templates/fragments/layout.html" \
+  && grep -q "env(safe-area-inset-bottom)" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "touch-callout: none" "$RD/src/main/resources/static/css/style.css"; } \
+  && log_ok "v16-UED-IOS(横滑不触发 Safari 返回手势 + scroll-snap + 安全区 + 图表长按不弹菜单)" \
+  || log_bad "v16-UED-IOS 缺件" "see style.css overscroll-behavior-x/scroll-snap/touch-callout + layout.html safe-area"
+
+# v16-UED-COPY · 去技术化文案 + emoji 清零(review A6/A10/B8)
+{ ! grep -q 'eyebrow-ink mb-2">/' "$RD/src/main/resources/templates/admin/index.html" \
+  && grep -q "家 · 庭 · 基 · 础" "$RD/src/main/resources/templates/admin/index.html" \
+  && grep -q "口 · 径 · 与 · 标 · 签" "$RD/src/main/resources/templates/admin/index.html" \
+  && ! grep -q "Spring Boot 3.3" "$RD/src/main/resources/templates/admin/index.html" \
+  && ! grep -q "PRD 中可配置" "$RD/src/main/resources/templates/admin/index.html" \
+  && grep -q "无进行中周期" "$RD/src/main/resources/templates/admin/index.html" \
+  && grep -q "dv == 'RISK' ? '风险'" "$RD/src/main/resources/templates/checkup/_ai-diagnose.html" \
+  && [ "$(grep -rloP '[\x{1F300}-\x{1FAFF}\x{2728}\x{2705}\x{26A0}\x{1F514}\x{1F4A1}\x{FE0F}]' "$RD/src/main/resources/templates" 2>/dev/null | grep -v easter520 | wc -l)" = "0" ]; } \
+  && log_ok "v16-UED-COPY(管理页中文分类+4组重排 · 状态中文 · 无技术栈/PRD 术语 · emoji 清零)" \
+  || log_bad "v16-UED-COPY 缺件" "see admin/index.html 中文 eyebrow + 分组标题 + 空状态 · _ai-diagnose 中文徽标 · templates 内 emoji 残留"
+
+# v16-UED-AFFORD · 假 affordance 与操作收纳(review B3-3/B3-5/B7-1)
+{ ! grep -q "·☰" "$RD/src/main/resources/templates/accounts/index.html" \
+  && grep -q "row-more" "$RD/src/main/resources/templates/accounts/index.html" \
+  && grep -q "row-more-pop" "$RD/src/main/resources/static/css/style.css" \
+  && grep -qF 'th:unless="${#lists.isEmpty(goals)}"' "$RD/src/main/resources/templates/goals/index.html" \
+  && grep -q "nowrap" "$RD/src/main/resources/templates/accounts/index.html"; } \
+  && log_ok "v16-UED-AFFORD(去掉假拖拽 ☰ + 行内操作收纳 ⋯ + 目标页主操作唯一 + 主理人列不竖排)" \
+  || log_bad "v16-UED-AFFORD 缺件" "see accounts/index.html 去 ☰ / row-more 下拉 / goals 空状态隐藏重复主按钮"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

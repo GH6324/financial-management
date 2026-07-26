@@ -14,11 +14,11 @@
           家庭仪表盘,<span class="italic font-light text-brass-deep">实时汇总。</span>
         </h1>
         <p class="text-ink-soft mt-3 max-w-xl text-sm" th:if="${momYoy != null}">
-          <span th:if="${famMetrics.contains('nw_mom')}">环比(MoM)
+          <span th:if="${famMetrics.contains('nw_mom')}">环比
             <span class="font-mono" th:classappend="${momYoy.momPct == null ? '' : (momYoy.momPct.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
                   th:text="${momYoy.momPct == null ? '数据不足' : ((momYoy.momPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(momYoy.momPct,1,2) + '%')}">+2.1%</span>
             <span th:if="${famMetrics.contains('nw_yoy') or famMetrics.contains('savings_rate')}"> · </span></span>
-          <span th:if="${famMetrics.contains('nw_yoy')}">同比(YoY)
+          <span th:if="${famMetrics.contains('nw_yoy')}">同比
             <span class="font-mono" th:classappend="${momYoy.yoyPct == null ? '' : (momYoy.yoyPct.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
                   th:text="${momYoy.yoyPct == null ? '数据不足' : ((momYoy.yoyPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(momYoy.yoyPct,1,2) + '%')}">数据不足</span>
             <span th:if="${famMetrics.contains('savings_rate')}"> · </span></span>
