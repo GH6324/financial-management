@@ -5,7 +5,7 @@
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('goals', ${me}, ${nav})}"></header>
 
-<main class="max-w-[900px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+<main class="max-w-[900px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10">
   <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
     <a th:href="@{/goals}" class="hover:text-ink no-underline">目标</a>
     <span class="mx-2 text-rule">/</span><span class="text-ink" th:text="${editing} ? '编辑自定义目标' : '新建自定义追踪目标'">自定义追踪</span>

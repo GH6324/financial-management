@@ -271,18 +271,28 @@
 
       var el = document.getElementById('sunburst');
       if (!chart) chart = echarts.init(el);
+      var compact = el.clientWidth < 480;
+      /* v1.6 UED review B4-1 · 窄屏环内不写字。
+         ECharts 把标签沿弧旋转,在小半径上中文会被转到接近垂直 —— 竖排中文读不了
+         (实测「黄金加密」「债券理财」「未分类」多处),小块标签还溢出圆外。
+         规范 §7.4 的做法:环只负责结构感,精确读数交给下方已有的「切片排行」列表
+         (同一份数据、可精确读、可点)。窄屏只在足够大的块(≥40° ≈ 11%)留一个占比作方位锚点,
+         且不旋转(rotate:0)。 */
       var sliceLabel = function (p) {
-        var d = p.data, lines = [d.name, d._lbl];
+        var d = p.data;
+        if (compact) return (totalSize && p.value * 360 / totalSize >= 40) ? d._lbl : '';
+        var lines = [d.name, d._lbl];
         if (kind === 'amount' && !privacyOn() && totalSize && p.value * 360 / totalSize >= 28) lines.push(fmtShort(d._mv));
         return lines.join('\n');
       };
-      var compact = el.clientWidth < 480;
       var rOuter = compact ? '88%' : '82%', rMid = compact ? '58%' : '54%';
       chart.setOption({
         series: [{
           type: 'sunburst', radius: ['24%', rOuter], data: data, sort: null,
-          label: { fontSize: chartFont(11), minAngle: 14, lineHeight: 15, formatter: sliceLabel },
-          levels: [{}, { r0: '24%', r: rMid }, { r0: rMid, r: rOuter, label: { fontSize: chartFont(10), lineHeight: 13 } }],
+          label: { fontSize: chartFont(compact ? 12 : 11), minAngle: compact ? 40 : 14, lineHeight: 15,
+                   rotate: compact ? 0 : 'radial', formatter: sliceLabel },
+          levels: [{}, { r0: '24%', r: rMid }, { r0: rMid, r: rOuter,
+                   label: { fontSize: chartFont(compact ? 11 : 10), lineHeight: 13, rotate: compact ? 0 : 'radial' } }],
           emphasis: { focus: 'ancestor' },
           nodeClick: false
         }],
@@ -388,6 +398,10 @@
    * 移动(容器 <480px):外侧空间放不下文字 → 退化为图下「小块补注」清单,信息等价不丢。 */
   function renderLeaders(data, grand, el, compact, rOuterPct, rMidPct) {
     var MIN_DEG = 14;
+    /* v1.6 UED review B4-2 · PC 上占比极小的块也拉引导线,几条线在同一侧堆成平行线,反而更难读
+       (实测「低风险 1.5% / 低风险 0.6% / 中风险 2.1%」三条挤在左侧)。
+       低于此占比不拉线,直接落图下「其余小块」补注 —— 信息不丢,画面干净。 */
+    var LINE_MIN_PCT = 2.0;
     var lineItems = [], noteItems = [];
     var cum = 0;
     data.forEach(function (n) {
@@ -399,7 +413,10 @@
       (n.children || []).forEach(function (c) {
         var cspan = grand ? c.value * 360 / grand : 0;
         var pctC = grand ? c.value * 100 / grand : 0;
-        if (cspan > 0 && cspan < MIN_DEG && pctC >= 0.1) lineItems.push({ mid: ccum + cspan / 2, name: c.name, pct: pctC, lbl: c._lbl, color: c.itemStyle.color });
+        if (cspan > 0 && cspan < MIN_DEG && pctC >= 0.1) {
+          if (pctC >= LINE_MIN_PCT) lineItems.push({ mid: ccum + cspan / 2, name: c.name, pct: pctC, lbl: c._lbl, color: c.itemStyle.color });
+          else noteItems.push({ name: c.name, pct: pctC, lbl: c._lbl, color: c.itemStyle.color });   // v1.6 B4-2
+        }
         ccum += cspan;
       });
       cum += span;

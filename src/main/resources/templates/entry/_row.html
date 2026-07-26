@@ -103,6 +103,16 @@
     </div>
   </div>
 
+  <!-- v1.6 UED review B2-2 · 填报区折叠。
+       移动端整页曾 11,711px ≈ 13.9 屏(18 个同构卡片各约 400px),滚动中完全失去位置感。
+       折叠后每卡只剩摘要行,18 行约 3 屏。PC 默认保持展开(零回归),窄屏由 entry/index.html 的脚本收起。 -->
+  <details class="entry-fold" open>
+    <summary>
+      <svg class="fold-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+      <span class="fold-when-closed" th:text="${period.status.name() == 'CLOSED' ? '展开本期明细' : (row.done ? '改本期余额 / 记一笔' : '填本期余额')}">填本期余额</span>
+      <span class="fold-when-open">收起</span>
+      <span th:if="${!row.done and period.status.name() != 'CLOSED'}" class="pill pill-rust ml-auto" style="font-size:calc(9px*var(--fs-scale,1))">待填</span>
+    </summary>
   <div class="mt-4 border-t border-rule pt-4 grid grid-cols-1 xl:grid-cols-12 gap-4">
     <!-- v1.6 review B2-1 · 已关账 → 表单位置换成只读定稿值 -->
     <div th:if="${period.status.name() == 'CLOSED'}" class="xl:col-span-4">
@@ -228,6 +238,8 @@
       </div>
     </div>
   </div>
+
+  </details>
 
   <!-- 本期流水明细 · PRD FR-7/8/9 + §7.9 维护变更.
        NOTE: 真正的 details 列表渲染在 entry/index.html 的 each 内,fragment row 之外。

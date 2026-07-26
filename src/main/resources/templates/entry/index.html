@@ -6,7 +6,7 @@
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('entry', ${me}, ${nav})}"></header>
 
-<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+<main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10">
   <section class="mb-8">
     <div class="flex items-end justify-between flex-wrap gap-6">
       <div>
@@ -16,8 +16,10 @@
           <span class="font-mono text-xs sm:text-base text-ink-subtle ml-2 sm:ml-3"
                 th:text="${#temporals.format(period.periodStart, 'yyyy.MM.dd')} + ' - ' + ${#temporals.format(period.periodEnd, 'yyyy.MM.dd')}">2026.05.01 - 2026.05.31</span>
         </h1>
+        <!-- v1.6 UED review B2-3 · 移动端首屏此前被 3 段说明 + 进度卡占满(844pt 内看不到任何账户行)。
+             流程说明属于「第二次才需要」的信息 → 窄屏隐藏,PC 保留。 -->
         <p class="text-ink-soft text-sm mt-2">余额驱动填报:保存期末余额后,系统会按已登记的收入/支出/账户间划转实时轧差。</p>
-        <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">周期流程:开周期 → <b class="text-ink">填本期余额(本页)</b> → 关周期 → 出净资产 / 收益报告</p>
+        <p class="hidden sm:block font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">周期流程:开周期 → <b class="text-ink">填本期余额(本页)</b> → 关周期 → 出净资产 / 收益报告</p>
         <!-- v1.4 · AI 截图导入 · 优雅小提示(含失败兜底)-->
         <!-- v1.6 UED(review B2-5)· 原 inline-flex + items-center 在窄屏让图标与两段文字错位换行 →
              改 flex items-start,文字整体包一层 span 内部自然 wrap -->
@@ -223,31 +225,49 @@
     })();
   </script>
 
-  <section class="mb-8 paper-card p-6">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 col-rule">
+  <!-- v1.6 UED review B2-2 · 窄屏默认收起填报行(PC 保持展开 → 零回归)。
+       移动端此前整页 13.9 屏,收起后 18 行摘要约 3 屏。
+       HTMX 换入的行不再收起 —— 那是用户正在操作的行。 -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.innerWidth >= 768) return;
+      document.querySelectorAll('details.entry-fold').forEach(function (d) { d.open = false; });
+    });
+  </script>
+
+  <!-- v1.6 UED review B2-4 · 进度卡:
+       ① 移动端此前 1 列垂直堆叠约 700px → 改 3 列紧凑(约 130px)
+       ② 「全家」「CLOSED」是状态标签不是数据,此前用 39px 英雄字号,视觉权重盖过真正重要的进度数字
+          → 状态降档,只有 doneCount 保留大字 -->
+  <section class="mb-8 paper-card p-4 sm:p-6">
+    <div class="grid grid-cols-3 gap-3 sm:gap-8 col-rule">
       <div>
         <div class="eyebrow-ink mb-2">本期总进度</div>
-        <div class="flex items-baseline gap-2 mb-3">
-          <span class="font-display text-4xl tnum" th:text="${doneCount}">5</span>
-          <span class="text-ink-soft font-mono" th:text="'/ ' + ${#lists.size(rows)} + ' 账户'">/ 7 账户</span>
+        <div class="flex items-baseline gap-1.5 mb-3 flex-wrap">
+          <span class="font-display text-2xl sm:text-4xl tnum" th:text="${doneCount}">5</span>
+          <span class="text-ink-soft font-mono text-[11px] sm:text-base" th:text="'/ ' + ${#lists.size(rows)}">/ 7</span>
         </div>
         <div class="h-1 bg-paper-deep">
-          <div class="h-1 bg-ink" style="width: 70%"></div>
+          <div class="h-1 bg-ink"
+               th:style="'width:' + ${#lists.size(rows) > 0 ? (doneCount * 100 / #lists.size(rows)) : 0} + '%'"
+               style="width: 70%"></div>
         </div>
       </div>
       <div>
         <div class="eyebrow-ink mb-2">当前视图</div>
-        <div class="flex items-baseline gap-2 mb-3">
-          <span class="font-display text-4xl tnum" th:text="${mineOnly ? '仅我' : '全家'}">全家</span>
+        <div class="flex items-baseline gap-2 mb-2">
+          <span class="font-display text-lg sm:text-2xl" th:text="${mineOnly ? '仅我' : '全家'}">全家</span>
         </div>
-        <p class="text-xs text-ink-soft mt-2">每行可填:本期末余额、收入/支出、账户间划转。</p>
+        <p class="hidden sm:block text-xs text-ink-soft">每行可填:本期末余额、收入/支出、账户间划转。</p>
       </div>
       <div>
         <div class="eyebrow-ink mb-2">周期状态</div>
-        <div class="flex items-baseline gap-2 mb-3">
-          <span class="font-display text-4xl tnum" th:text="${period.status}">OPEN</span>
+        <div class="flex items-baseline gap-2 mb-2">
+          <span class="font-display text-lg sm:text-2xl"
+                th:classappend="${period.status.name() == 'CLOSED' ? ' text-ink-soft' : ''}"
+                th:text="${period.status.name() == 'CLOSED' ? '已关账' : '进行中'}">进行中</span>
         </div>
-        <p class="text-xs text-ink-soft mt-2" th:text="'本期截止 ' + ${#temporals.format(period.periodEnd, 'dd 日')}">本期截止 31 日</p>
+        <p class="text-[11px] sm:text-xs text-ink-soft" th:text="'截止 ' + ${#temporals.format(period.periodEnd, 'M 月 d 日')}">截止 5 月 31 日</p>
       </div>
     </div>
   </section>

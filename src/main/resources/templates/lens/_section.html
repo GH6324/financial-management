@@ -12,8 +12,15 @@
     </div>
     <a th:href="@{/lens/tags}" class="font-mono text-xs no-underline" style="color:var(--brass-deep)">去打标(资产类型 / 平台 / 行业 / 用途 · 支持 AI)→</a>
   </div>
-  <p class="text-ink-soft text-sm mb-4">按任意维度切、点进去再拆;旭日 / 交叉透视 / 明细联动;负债(贷款)不计入 · 本位币口径。
+  <!-- v1.6 UED review B4-5 · 这段是给「要较真口径」的人看的,窄屏占 5 行约 150px 挤在首屏。
+       移动端收成可展开的一行,PC 保持全文。 -->
+  <p class="hidden sm:block text-ink-soft text-sm mb-4">按任意维度切、点进去再拆;旭日 / 交叉透视 / 明细联动;负债(贷款)不计入 · 本位币口径。
     收益在行业 / 地域维度下按<b>持有口径</b>(市值−成本),算不出的显「—」,不做假分摊。</p>
+  <details class="sm:hidden help-fold mb-3">
+    <summary>口径说明</summary>
+    <div class="help-body">按任意维度切、点进去再拆;旭日 / 交叉透视 / 明细联动;负债(贷款)不计入 · 本位币口径。
+      收益在行业 / 地域维度下按<b>持有口径</b>(市值−成本),算不出的显「—」,不做假分摊。</div>
+  </details>
 
   <!-- v1.3 · 指标 + 看板 + 路径 同卡对齐(指标在上;两行都横滑不换行,与看板一致)· 点旭日中心圆亦可换指标 -->
   <section class="paper-card px-4 py-3 mb-4">
@@ -87,7 +94,11 @@
       </div>
       <!-- 移动端小块补注(PC 用引导线,此处为空) -->
       <div id="sunSmallNotes" class="text-[11px] leading-relaxed mt-1"></div>
-      <p class="text-[11px] text-ink-subtle mt-1">点内环块 = 下钻(外环展开下一维度)· 面包屑可回退 · 手机端限 2 环</p>
+      <!-- v1.6 review B4-1 · 窄屏环内不再写字,明确告诉用户去哪读数 -->
+      <p class="text-[11px] text-ink-subtle mt-1">
+        <span class="sm:hidden">环只看结构 · <b class="text-ink">精确数字看下方「切片排行」</b> · 点内环块下钻,面包屑可回退</span>
+        <span class="hidden sm:inline">点内环块 = 下钻(外环展开下一维度)· 面包屑可回退 · 手机端限 2 环</span>
+      </p>
     </div>
     <div class="paper-card p-5 lg:col-span-2">
       <h3 class="font-display text-lg font-medium mb-3">切片排行 <span class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">RANKING</span></h3>

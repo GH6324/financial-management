@@ -75,6 +75,17 @@
   </section>
 
   <section class="mb-8">
+    <!-- v1.6 UED review A4 · 移动端首屏此前被控件占满(账期+区间+账户范围+币种+多选),
+         KPI 第 3 个才露头,用户看不到任何结论。窄屏收进折叠条,summary 摘要显示当前口径;
+         PC 上 summary 隐藏且默认展开 → 零回归。收起状态由页尾脚本按断点设置。 -->
+    <details class="filter-fold" open>
+      <summary>
+        <svg class="fold-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        <span>口径</span>
+        <span class="text-ink" th:text="${selectedAccountCount} + ' 个账户 · ' + ${currency} + ' · ' + ${range}">18 个账户 · CNY · 1Y</span>
+        <span class="fold-when-closed ml-auto text-ink-subtle">改</span>
+        <span class="fold-when-open ml-auto text-ink-subtle">收起</span>
+      </summary>
     <div class="paper-card px-5 py-3 flex items-center justify-between flex-wrap gap-4">
       <div class="flex items-center gap-3 flex-wrap">
         <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-soft">账户范围</span>
@@ -127,11 +138,35 @@
         </div>
       </form>
     </details>
+    </details><!-- /filter-fold -->
   </section>
 
+  <!-- v1.6 UED review A4 · L1 结论层(仅移动端)。
+       一个月来一次的用户打开仪表盘的第一个问题是「这个月还好吗」——
+       这个问题该由文字直接回答,不该让他看柱子高低自己推断。PC 上同信息已在标题下的副标题里。 -->
+  <div class="md:hidden mb-5 paper-card px-4 py-3" style="border-left:4px solid var(--brass-deep)">
+    <div class="eyebrow mb-1.5">本 · 期 · 一 · 句 · 话</div>
+    <p class="text-[15px] leading-relaxed text-ink">
+      净资产 <b class="font-mono tnum" data-priv th:text="${kpiNetWorth}">¥0</b>,较上期
+      <span class="font-mono tnum"
+            th:classappend="${kpiDelta != null and #strings.startsWith(kpiDelta, '-') ? 'num-neg' : 'num-pos'}"
+            data-priv th:text="${kpiDelta}">+¥0</span><th:block
+        th:if="${momYoy != null and momYoy.momPct != null}">(环比 <span class="font-mono"
+            th:classappend="${momYoy.momPct.signum() &lt; 0 ? 'num-neg' : 'num-pos'}"
+            th:text="${(momYoy.momPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(momYoy.momPct,1,2) + '%'}">+2.1%</span>)</th:block>。
+      <th:block th:if="${savingsRate != null and famMetrics.contains('savings_rate')}">本期储蓄率
+        <b class="font-mono" th:text="${savingsRate}">—</b>。</th:block>
+      <span th:if="${pendingCount != null and pendingCount > 0}" class="text-rust">还有
+        <b th:text="${pendingCount}">2</b> 个账户没填,数字可能不完整。</span>
+    </p>
+  </div>
+
   <!-- v0.4 FR-60a · KPI 收敛 9→5 · 负债率搬 /checkup · 月均收入/支出/储蓄率/已填月份 搬 /reports 储蓄区 -->
-  <!-- 手机 2 列(第 5 个 KPI 跨 2 列居中)→ sm 起 3 列 → lg 起 5 列 -->
-  <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 grid-hairline mb-6 lg:mb-8">
+  <!-- v1.6 UED review B1-6 · 移动端改「英雄数字 + 横滑 chip」:
+       此前 2 列 × 3 行,第 5 个独占整行导致布局失衡,且 5 个同等大小的数字 = 没有重点。
+       现在净资产占近满宽(露出右侧一角暗示可滑)、字号升档,其余 4 个横滑 + scroll-snap。
+       sm 起恢复网格 → PC 零回归。 -->
+  <section class="kpi-band grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 grid-hairline mb-6 lg:mb-8">
     <a th:href="@{/checkup}" th:if="${famMetrics.contains('net_worth')}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
       <span class="kpi-eyebrow">净资产 <th:block th:insert="~{fragments/_kpi-info :: i('总资产 − 总负债。含 CASH/STOCK/WEALTH/PROPERTY 全部账户,按本位币换算。', ${calc.netWorth})}"/></span>
       <div class="kpi-value tnum" data-priv th:text="${kpiNetWorth}">¥0</div>
@@ -373,7 +408,8 @@
         <div class="eyebrow mb-1">资产配置</div>
         <a href="#lens-section" class="font-mono text-[10px] no-underline" style="color:var(--brass-deep)">深入透视(行业/平台/用途下钻)↓</a>
       </div>
-      <div class="h-[220px] sm:h-[360px]"><canvas id="allocationChart"></canvas></div>
+      <!-- v1.6 review B1-3 · 类目 > 6 时改横向条形(见 JS),需要更高容器:每行 ≥24px + 轴/标题 -->
+      <div class="h-[300px] sm:h-[360px]"><canvas id="allocationChart"></canvas></div>
     </div>
   </section>
 
@@ -394,7 +430,10 @@
       <div class="eyebrow">按账户分布</div>
       <span class="font-mono text-[10px] text-ink-subtle">资产向右 · 负债向左 · 0 居中</span>
     </div>
-    <div th:style="'height:' + (${#lists.size(accountRows)} * 28 + 60) + 'px; min-height:200px'">
+    <!-- v1.6 UED review B1-4 · 高度按 TopN 后的条数算(此前 21 个账户 × 28px ≈ 648px,
+         且长尾账户(¥5,000/¥2,000)的条在图上几乎不可见)。上限 11 条(Top10 + 其他)。 -->
+    <div th:with="nBar=${#lists.size(accountRows) < 11 ? #lists.size(accountRows) : 11}"
+         th:style="'height:' + (${nBar} * 30 + 70) + 'px; min-height:220px'">
       <canvas id="accountDivergeChart"></canvas>
     </div>
   </section>
@@ -782,7 +821,46 @@
       if (donut) {
         const donutLabels = data.allocationLabels.map(s => String(s).split('\n'));
         const total = data.allocationValues.reduce((s, v) => s + Number(v || 0), 0);
-        window.financeCharts.allocation = new Chart(donut, {
+        // v1.6 UED review B1-3 · 类目 > 6 时环图必然不可读:小扇片(3%/5%)标签互相重叠,
+        // 引导线在窄侧堆成平行线,PC 上就已经糊。人眼也无法比较相近扇形角度。
+        // → 换横向条形:纵向排列不受宽度限制、标签有完整空间、金额与占比都能精确标注(规范 §7.4)。
+        // ≤6 类仍用环图 —— 那时环图的「整体感」确实更好。
+        const flatAlloc = donutLabels.length > 6;
+        const ALLOC_PAL = ['#a77b35','#2f5d50','#6f7f98','#8f6048','#333333','#7a4f6b','#3c4a5a','#9c8b5a','#5f7e7b'];
+        window.financeCharts.allocation = flatAlloc ? new Chart(donut, {
+          type: 'bar',
+          data: {
+            labels: donutLabels,
+            datasets: [{
+              data: data.allocationValues,
+              backgroundColor: donutLabels.map((_, i) => ALLOC_PAL[i % ALLOC_PAL.length]),
+              borderWidth: 0, barThickness: window.innerWidth < 640 ? 16 : 20
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            maintainAspectRatio: false,
+            layout: {padding: {right: window.innerWidth < 640 ? 52 : 68, left: 2, top: 2, bottom: 2}},
+            plugins: {
+              title: {display: true, text: '资产配置 · ' + data.currency, padding: {bottom: 8}, font: {size: chartFont(window.innerWidth < 640 ? 11 : 13), weight: '500'}, color: '#3a302a'},
+              legend: {display: false},
+              tooltip: {callbacks: {label: (ctx) => fmtMoney(ctx.parsed.x) + ' · ' + (total > 0 ? (ctx.parsed.x * 100 / total).toFixed(1) + '%' : '')}},
+              datalabels: {
+                anchor: 'end', align: 'end', offset: 4, clamp: true,
+                color: '#3a302a', font: {size: chartFont(window.innerWidth < 640 ? 9 : 10), weight: '600'},
+                formatter: (v) => {
+                  if (!v || total === 0) return '';
+                  return (window.isPrivacy && window.isPrivacy() ? '' : fmtMoney(v) + ' · ') + (v * 100 / total).toFixed(1) + '%';
+                }
+              }
+            },
+            scales: {
+              x: {grid: {color: 'rgba(58,48,42,.06)'}, ticks: {callback: (v) => fmtMoney(v), font: {size: chartFont(9)}}},
+              y: {grid: {display: false}, ticks: {font: {size: chartFont(window.innerWidth < 640 ? 10 : 11)}}}
+            }
+          },
+          plugins: [ChartDataLabels]
+        }) : new Chart(donut, {
           type: 'doughnut',
           data: {labels: donutLabels, datasets: [{data: data.allocationValues, backgroundColor: ['#a77b35','#2f5d50','#6f7f98','#8f6048','#333333','#7a4f6b','#3c4a5a','#9c8b5a']}]},
           options: {
@@ -815,10 +893,24 @@
       if (divCanvas && rows.length) {
         // 按 abs(currentValue) DESC 排
         rows.sort((a, b) => Math.abs(Number(b.currentValue || 0)) - Math.abs(Number(a.currentValue || 0)));
+        // v1.6 UED review B1-4 · TopN + 「其他」聚合。
+        // 此前把全部账户(实测 21 个)都画进去:长尾账户的条只有几像素,等于没画;
+        // 而且图高 648px,移动端占近一屏。现在 Top N 保留形状可比性,尾部合成一条。
+        const TOPN = window.innerWidth < 640 ? 7 : 10;
+        let barRows = rows;
+        if (rows.length > TOPN + 1) {
+          const tail = rows.slice(TOPN);
+          const tailSum = tail.reduce((s, r) => s + Number(r.currentValue || 0), 0);
+          barRows = rows.slice(0, TOPN).concat([{
+            accountName: '其他 ' + tail.length + ' 个',
+            currentValue: tailSum,
+            accountType: tailSum < 0 ? 'LOAN' : 'OTHER'
+          }]);
+        }
         const colorMap = { CASH: '#a77b35', STOCK: '#2f5d50', WEALTH: '#6f7f98', PROPERTY: '#8f6048', OTHER: '#7a4f6b', LOAN: '#9f4a3a' };
-        const labels = rows.map(r => r.accountName);
-        const values = rows.map(r => Number(r.currentValue));
-        const colors = rows.map(r => colorMap[r.accountType] || '#444');
+        const labels = barRows.map(r => r.accountName);
+        const values = barRows.map(r => Number(r.currentValue));
+        const colors = barRows.map(r => colorMap[r.accountType] || '#444');
         const maxAbs = values.reduce((m, v) => Math.max(m, Math.abs(v)), 1);
 
         window.financeCharts.accountDiverge = new Chart(divCanvas, {

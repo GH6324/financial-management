@@ -6,7 +6,7 @@
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('dashboard', ${me}, ${nav})}"></header>
 
-<main class="max-w-[1200px] mx-auto px-4 lg:px-10 py-8 relative z-10">
+<main class="max-w-[1200px] mx-auto px-4 lg:px-10 py-4 sm:py-8 relative z-10">
   <!-- v1.1 评审修订:透视主体已内嵌仪表盘;本页保留为直链别名(体检/外链用),同一 fragment -->
   <th:block th:replace="~{lens/_section :: section}"></th:block>
 </main>

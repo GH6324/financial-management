@@ -161,6 +161,16 @@
         t = setTimeout(function () { document.body.classList.remove('is-scrolling'); }, 650);
       }, { passive: true });
     })();
+    // v1.6 UED(review A4)· 窄屏收起分析页顶部的口径折叠条(PC ≥768 恒展开 · summary 由 CSS 隐藏)。
+    // HTMX 换入的区块也要处理 —— 用户刚改完口径,应当直接看结果而不是又对着一屏控件。
+    (function () {
+      function fold(scope) {
+        if (window.innerWidth >= 768) return;
+        (scope || document).querySelectorAll('details.filter-fold').forEach(function (d) { d.open = false; });
+      }
+      document.addEventListener('DOMContentLoaded', function () { fold(document); });
+      document.addEventListener('htmx:load', function (e) { fold(e.target); });
+    })();
   </script>
   <!-- v0.2 全局错误兜底:HTMX 5xx / 网络错误 / JS 致命异常,统一 toast 反馈 -->
   <script>

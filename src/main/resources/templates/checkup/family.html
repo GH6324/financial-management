@@ -8,7 +8,7 @@
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('checkup', ${me}, ${nav})}"></header>
 
-<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10"
+<main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10"
       th:with="tocItems=${ { {label:'概览',href:'#checkup-overview'}, {label:'资产配置',href:'#allocation'}, {label:'风险敞口',href:'#risk'}, {label:'流动性',href:'#liquidity'}, {label:'收益质量',href:'#return'}, {label:'智能建议',href:'#checkup-advice'}, {label:'AI 综合诊断',href:'#checkup-ai'}, {label:'AI 资产洞察',href:'#checkup-insight'}, {label:'单账户体检',href:'#checkup-accounts'} } }">
  <div class="toc-cols">
   <div class="toc-cols-main">
@@ -29,7 +29,8 @@
   </section>
 
   <!-- 顶部 KPI 横条 -->
-  <section id="checkup-overview" class="grid grid-cols-2 lg:grid-cols-5 grid-hairline mb-8" style="scroll-margin-top:80px">
+  <!-- v1.6 review A5/B6-3 · 5 个 KPI ÷ 2 列会空出 1 格露底色 → 窄屏改英雄数字 + 横滑(同 dashboard) -->
+  <section id="checkup-overview" class="kpi-band grid grid-cols-2 lg:grid-cols-5 grid-hairline mb-8" style="scroll-margin-top:80px">
     <div class="kpi-card">
       <span class="kpi-eyebrow">净资产<th:block th:insert="~{fragments/_kpi-info :: i('总资产 − 总负债。含全部账户,本位币换算。', ${calc.netWorth})}"/></span>
       <div class="kpi-value tnum"

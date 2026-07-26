@@ -6,7 +6,7 @@
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('accounts', ${me}, ${nav})}"></header>
 
-<main class="max-w-[1400px] mx-auto px-6 lg:px-10 py-10 relative z-10">
+<main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10">
   <section class="mb-8 flex items-end justify-between flex-wrap gap-6">
     <div>
       <div class="eyebrow mb-2">账 · 户 · 全 · 览</div>
@@ -22,16 +22,20 @@
     </div>
   </section>
 
-  <section class="grid grid-cols-2 md:grid-cols-6 grid-hairline mb-8">
+  <!-- v1.6 UED review B3-2/B3-8/A6 · 汇总带三处改动:
+       ① 移动端改横滑单行(此前 9 个类型 ÷ 2 列 = 5 行约 950px,占满整个首屏,看不到任何账户)
+       ② 金额升为主角、计数降为附注(此前计数 20px / 金额 12px,层级反了 —— 账户簿页金额才是主体)
+       ③ 枚举 code 移动端隐藏(窄屏宽度金贵,CASH/STOCK 对家庭成员是噪音;PC 保留便于对照) -->
+  <section class="summary-band grid grid-cols-2 md:grid-cols-6 grid-hairline mb-8">
     <div th:each="s : ${summary}" class="bg-card p-4">
-      <!-- 2026-07-19 评审:中文为主 code 为辅(面向家庭成员不裸露 code) -->
       <div class="font-mono text-[10px] tracking-wider"
            th:classappend="${s.type.name() == 'LOAN' ? ' text-rust' : ' text-ink-subtle'}">
         <span class="font-display text-xs tracking-normal" th:text="${s.type.label}">现金</span>
-        <span class="opacity-60 ml-1" th:text="${s.type}">CASH</span>
+        <span class="opacity-60 ml-1 hidden sm:inline" th:text="${s.type}">CASH</span>
       </div>
-      <div class="font-display text-xl tnum mt-1" th:classappend="${s.type.name() == 'LOAN' ? ' text-rust' : ''}" th:text="${s.count}">4</div>
-      <div class="font-mono text-xs text-ink-soft mt-1" data-priv th:text="${s.amountLabel}">¥304k</div>
+      <div class="font-display text-base sm:text-lg tnum mt-1.5 whitespace-nowrap"
+           th:classappend="${s.type.name() == 'LOAN' ? ' text-rust' : ''}" data-priv th:text="${s.amountLabel}">¥304k</div>
+      <div class="font-mono text-[10px] text-ink-subtle mt-1" th:text="${s.count} + ' 个'">4 个</div>
     </div>
   </section>
 
