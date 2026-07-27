@@ -4179,16 +4179,26 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && log_ok "v161-LANDSCAPE(自建横屏 rotate+转屏自动扶正 · 折叠 CTA+›箭头 · KPI 主次网格一屏 · 一句话 13px)" \
   || log_bad "v161-LANDSCAPE 缺件" "see landscape.js(rot-rotate/orientationchange)· style.css(rot-inner.rot-rotate/rot-hint/fold-cta/rotate(-90deg)/grid-column auto)· lens data-landscape · dashboard 点开筛选账户 + 13px"
 
-# v162-SUNBURST-LABEL · 旭日标签无盲区(v1.6.2 · 用户反馈:大量扇块既无名字也无数字)
-#   铁律:环内标签阈值与图下补注阈值必须是同一个常量。v1.6.1 环内用 40°、补注用 14°,
-#   3.9%~11% 的块两边都不收 → 信息黑洞。且不许有「只给占比不给名字」的中间档(等于半个盲区)。
-{ grep -q "SUN_LABEL_MIN_DEG = " "$RD/src/main/resources/static/js/lens.js" \
-  && grep -q "deg >= SUN_LABEL_MIN_DEG ? (d.name" "$RD/src/main/resources/static/js/lens.js" \
-  && grep -q "compact ? SUN_LABEL_MIN_DEG : 14" "$RD/src/main/resources/static/js/lens.js" \
-  && grep -q "minAngle: compact ? SUN_LABEL_MIN_DEG" "$RD/src/main/resources/static/js/lens.js" \
+# v163-SUNBURST-AGG · 旭日「大量空块」根治:小块聚合 + 三处共用阈值 + 崩溃兜底
+#   演进史(三次才对):
+#     v1.6.1 环内阈值 40° / 补注阈值 14° → 3.9%~11% 两边不收 = 信息黑洞
+#     v1.6.2 两阈值合一(32°)→ 但窄屏无引导线,32° 以下全靠补注,「行业集中」59 块只有 6 块有标签
+#     v1.6.3 承认图型容量有限 → 小块聚合成「其他 N 项」(Top N + Other 惯例),59 块 → 内环 6 块
+#   另修两个隐蔽点:①窄屏判断不能用 clientWidth(布局时机不同会读到 630/321 两个值,导致阈值悄悄走 PC 档)
+#                  ②聚合块必须带 children(下游多处直接 .forEach),否则 TypeError 被 Promise.all catch 静默吞掉
+{ grep -q "function aggSmall" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "AGG_MIN_DEG = isNarrow() ? 18 : 4" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "其他 ' + small.length + ' 项" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "_agg: true, children: \[\]" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "function isNarrow()" "$RD/src/main/resources/static/js/lens.js" \
+  && ! grep -q "= el.clientWidth < 480" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "(n.children || \[\]).forEach" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "p.data._agg" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "console.error('lens 渲染失败" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "SUN_LABEL_MIN_DEG = 24" "$RD/src/main/resources/static/js/lens.js" \
   && ! grep -qE "deg >= (40|50|60)" "$RD/src/main/resources/static/js/lens.js"; } \
-  && log_ok "v162-SUNBURST-LABEL(环内阈值与补注阈值共用同一常量 · 无盲区 · 无「只占比无名字」中间档)" \
-  || log_bad "v162-SUNBURST-LABEL 缺件" "see lens.js SUN_LABEL_MIN_DEG 必须同时用于 sliceLabel / minAngle / renderLeaders,且不得回退到硬编码角度"
+  && log_ok "v163-SUNBURST-AGG(小块聚合 Top N + 其他 · isNarrow 不用 clientWidth · 聚合块带 children · 聚合块禁下钻 · 渲染失败不静默)" \
+  || log_bad "v163-SUNBURST-AGG 缺件" "see lens.js aggSmall/AGG_MIN_DEG/isNarrow/_agg children/(n.children||[])/console.error('lens 渲染失败')"
 
 # v162-LANDSCAPE-GLOBAL · 全局横屏为顶级功能 + 与系统横屏和平共处(v1.6.2 用户反馈②③)
 { grep -q "force-landscape" "$RD/src/main/resources/static/js/landscape.js" \

@@ -18,12 +18,15 @@
   /* v1.3 · 旭日可选分析指标(子集 + 渲染类型):
        amount 弧长=金额,维值配色 · pnl 弧长=|收益额|,绿赚赭亏 · ratio 弧长=市值,颜色=收益率热力(比率不可按角度分)。
      持仓级维度(行业/地域)下账户级收益(latestPnl/cumReturn)不可精确归因 → 灰置(承 PivotEngine 诚实降级)。 */
-  /* v1.6.2 · 窄屏旭日「环内标签 / 图下补注」的分界角。
-     这一个数同时被 sliceLabel(环内)与 renderLeaders(补注)使用 —— 必须共用,
-     否则两边不一致就会出现「既不在环上、也不在补注里」的信息黑洞(v1.6.1 的 bug)。
-     32° ≈ 占比 8.9%:低于它的块即使塞下占比也没地方放名字,而「只有数字没有名字」
-     对用户等于没有信息 —— 所以不留中间档,一律整块进补注。 */
-  var SUN_LABEL_MIN_DEG = 32;
+  /* v1.6.3 · 窄屏旭日的三档标注分界(必须三档全覆盖,任意两档之间不留缝):
+       ≥ SUN_LABEL_MIN_DEG          → 环内直接写「名称 + 占比」
+       SUN_LEADER_MIN_DEG ~ 上者    → 引导线拉到环外写「名称 占比」(v1.6.3 新给窄屏也开)
+       < SUN_LEADER_MIN_DEG         → 图下「小块」补注
+     v1.6.2 的错:窄屏只有「环内 / 补注」两档且分界在 32°(8.9%),
+     而窄屏此前完全禁用引导线 —— 于是 0.1%~8.9% 这一大段(在环上明明看得见)全都无字。
+     实测「行业集中」看板 59 块里只有 6 块环内有标签,用户看到的就是一环无字色块。 */
+  var SUN_LABEL_MIN_DEG = 24;    // ≈ 6.7% · 窄屏:≥ 此角度环内写「名称+占比」,更小的进图下补注
+  var SUN_LEADER_MIN_DEG = 7;    // ≈ 1.9% · 仅 PC 用(窄屏不画引导线,见 renderLeaders)
 
   var SUN_METRICS = [
     { key: 'value', kind: 'amount' }, { key: 'netPrincipal', kind: 'amount' },
@@ -263,6 +266,12 @@
   /* ---------- 组件 A · 旭日(v1.3 可选分析指标) ----------
      rows=[内] cols=[外] → rowTotals 给内环"正确聚合"(比率类父级 ≠ 子级之和,必须引擎算,不能前端求和)。
      三模式:amount 弧长=金额+维值色 · pnl 弧长=|收益额|+绿赚赭亏 · ratio 弧长=市值+颜色收益率热力。 */
+  /* v1.6.3 · 窄屏判断统一用 window.innerWidth。
+     原先用 `#sunburst` 的 clientWidth < 480 —— 那个值依赖布局时机,首次渲染时读到的可能还不是
+     最终宽度(实测同一元素在不同时机得到 630 / 321),于是聚合阈值悄悄走了 PC 档、改了也不生效。
+     innerWidth 与项目其它响应式断点(md=768)同源,稳定可靠。 */
+  function isNarrow() { return window.innerWidth < 768; }
+
   function renderSunburst() {
     var mkey = state.sunMetric, kind = SUN_KIND[mkey] || 'amount';
     var measures = mkey === 'value' ? ['value'] : ['value', mkey];
@@ -290,17 +299,47 @@
           }) };
       });
       var totalSize = data.reduce(function (s, d) { return s + d.value; }, 0);
+      /* ══ v1.6.3 · 小块聚合(Top N + 其他)══
+         这是旭日「大量空块」的根本解法。此前只在标注策略上打补丁(阈值/引导线/补注),
+         但实测「行业集中」看板有 59 块、「市场地域」28 块 —— 一个 320px 的环里塞 59 块,
+         平均每块 6°,无论怎么标注都不可能可读:引导线名称被容器裁成残字、
+         补注列到 22 项还出现 7 个重复的「支付宝·蚂蚁财富」(不同行业下的同一平台)。
+         正确做法是承认图型容量有限,把小块合并 —— 这也是数据可视化的通行惯例(Top N + Other)。
+         合并后每块都够大、都有名有数;要穷举请看下方「切片排行」(它本来就是完整列表)。 */
+      /* 窄屏 18°(≈5%):低于此角度的同级块一律合并 —— 环上不留放不下字的碎块。
+         PC 4°:PC 有引导线兜底,可以保留更多细节。 */
+      var AGG_MIN_DEG = isNarrow() ? 18 : 4;
+      function aggSmall(items, grand) {
+        if (!grand || items.length < 4) return items;         // 块本来就少,不必合并
+        var keep = [], small = [];
+        items.forEach(function (it) {
+          ((it.value * 360 / grand) >= AGG_MIN_DEG ? keep : small).push(it);
+        });
+        if (small.length < 2) return items;                    // 只有一个小块,合并没意义
+        var sumV = 0, sumMv = 0, sumVal = 0;
+        small.forEach(function (x) { sumV += x.value; sumMv += Number(x._mv || 0); sumVal += Number(x._val || 0); });
+        keep.push({
+          name: '其他 ' + small.length + ' 项', value: sumV,
+          _mv: kind === 'ratio' ? null : sumMv,                // 比率不能相加,聚合块不给率
+          _val: sumVal, _agg: true, children: [],              // children 必须给 —— 下游多处直接 .forEach
+          itemStyle: { color: '#c9c2b2' }                      // 中性纸灰:聚合块不参与维值配色
+        });
+        return keep;
+      }
+      data = aggSmall(data, totalSize);
+      data.forEach(function (d) { if (d.children && d.children.length) d.children = aggSmall(d.children, totalSize); });
+      totalSize = data.reduce(function (s, d) { return s + d.value; }, 0);
       function lblFor(mv) {   // 金额/净投入→占比% · 收益额→±短金额 · 收益率→率%
         if (kind === 'ratio') return (mv === null || mv === undefined) ? '—' : (Number(mv) >= 0 ? '+' : '') + Number(mv).toFixed(1) + '%';
         // 收益额是金额 · 隐私模式糊(扇区标签在 canvas 上,CSS data-priv 管不到,渲染时判)
         if (kind === 'pnl') return privacyOn() ? '···' : fmtShort(mv);
         return (totalSize ? Math.abs(Number(mv || 0)) * 100 / totalSize : 0).toFixed(1) + '%';
       }
-      data.forEach(function (n) { n._lbl = lblFor(n._mv); n.children.forEach(function (c) { c._lbl = lblFor(c._mv); }); });
+      data.forEach(function (n) { n._lbl = lblFor(n._mv); (n.children || []).forEach(function (c) { c._lbl = lblFor(c._mv); }); });
 
       var el = document.getElementById('sunburst');
       if (!chart) chart = echarts.init(el);
-      var compact = el.clientWidth < 480;
+      var compact = isNarrow();
       /* v1.6 UED review B4-1 · 窄屏环内不写字。
          ECharts 把标签沿弧旋转,在小半径上中文会被转到接近垂直 —— 竖排中文读不了
          (实测「黄金加密」「债券理财」「未分类」多处),小块标签还溢出圆外。
@@ -311,14 +350,16 @@
         var d = p.data;
         if (compact) {
           var deg = totalSize ? p.value * 360 / totalSize : 0;
-          /* v1.6.2 · 与图下补注共用 SUN_LABEL_MIN_DEG,不留盲区,也不留「只有数字没名字」的半盲区:
-             ≥32° 环内给「名称 + 占比」两行;小于 32° 的整块交给图下补注(renderLeaders)。 */
+          /* v1.6.3 · ≥24° 环内给「名称 + 占比」两行;更小的交给引导线或图下补注(renderLeaders),
+             三档由 SUN_LABEL_MIN_DEG / SUN_LEADER_MIN_DEG 划定,互补且无缝。 */
           return deg >= SUN_LABEL_MIN_DEG ? (d.name + '\n' + d._lbl) : '';
         }
         var lines = [d.name, d._lbl];
         if (kind === 'amount' && !privacyOn() && totalSize && p.value * 360 / totalSize >= 28) lines.push(fmtShort(d._mv));
         return lines.join('\n');
       };
+      /* v1.6.3 定稿 · 窄屏恢复大环:引导线方案作废(见下),环带必须够宽才放得下「名称+占比」两行。
+         320px 容器下 88%/58% → 内环带宽约 54px、外环约 48px,两行 11px 字放得下。 */
       var rOuter = compact ? '88%' : '82%', rMid = compact ? '58%' : '54%';
       chart.setOption({
         series: [{
@@ -333,6 +374,7 @@
         tooltip: {
           formatter: function (p) {
             var d = p.data;
+            if (d._agg) return esc(d.name) + '<br>' + (privacyOn() ? '···' : fmtMoney(d._mv)) + ' · ' + d._lbl + '<br><span style="opacity:.7">过小的块已合并 · 明细见切片排行</span>';
             if (kind === 'ratio') return esc(d.name) + '<br>' + d._lbl + ' · 市值 ' + (privacyOn() ? '···' : fmtShort(d._val));
             if (kind === 'pnl') return esc(d.name) + '<br>' + (privacyOn() ? '···' : fmtMoney(d._mv));
             return esc(d.name) + '<br>' + (privacyOn() ? '···' : fmtMoney(d._mv)) + ' · ' + d._lbl;
@@ -350,6 +392,14 @@
       chart.off('click');
       chart.on('click', function (p) {
         if (!p.data || !p.data.name) return;
+        /* v1.6.3 · 「其他 N 项」是聚合出来的虚拟块,没有对应维值,不能下钻 —— 点它给个说明。
+           想看这些小项请用下方「切片排行」(完整列表)。 */
+        if (p.data._agg) {
+          if (typeof window.showToast === 'function') {
+            window.showToast({ message: '「' + p.data.name + '」是把过小的块合并显示的,不能再往下拆 · 完整明细看下方「切片排行」', level: 'info' });
+          }
+          return;
+        }
         var depth = p.treePathInfo ? p.treePathInfo.length - 1 : 1;
         if (depth >= 2) {  // 点外环:先落内环值再落外环值(两级下钻)
           var parent = p.treePathInfo[1] && p.treePathInfo[1].name;
@@ -447,14 +497,16 @@
       var span = grand ? n.value * 360 / grand : 0;
       var pctN = grand ? n.value * 100 / grand : 0;
       /* 内环小块不拉线:径向长线要穿过整个外环,与外环小块的引导线大量交叉(2026-07-17 修)→ 落图下补注 */
-      if (span > 0 && span < MIN_DEG && pctN >= 0.1) noteItems.push({ name: n.name, pct: pctN, lbl: n._lbl, color: n.itemStyle.color });
+      if (span > 0 && span < MIN_DEG && pctN >= 0.02) noteItems.push({ name: n.name, pct: pctN, lbl: n._lbl, color: n.itemStyle.color });
       var ccum = cum;
       (n.children || []).forEach(function (c) {
         var cspan = grand ? c.value * 360 / grand : 0;
         var pctC = grand ? c.value * 100 / grand : 0;
-        if (cspan > 0 && cspan < MIN_DEG && pctC >= 0.1) {
-          if (pctC >= LINE_MIN_PCT) lineItems.push({ mid: ccum + cspan / 2, name: c.name, pct: pctC, lbl: c._lbl, color: c.itemStyle.color });
-          else noteItems.push({ name: c.name, pct: pctC, lbl: c._lbl, color: c.itemStyle.color });   // v1.6 B4-2
+        if (cspan > 0 && cspan < MIN_DEG && pctC >= 0.02) {
+          /* 中等块 → 引导线;极小块 → 图下补注。窄屏按角度分(与环内阈值同一把尺),PC 按占比分。 */
+          var leadable = compact ? (cspan >= SUN_LEADER_MIN_DEG) : (pctC >= LINE_MIN_PCT);
+          if (leadable) lineItems.push({ mid: ccum + cspan / 2, name: c.name, pct: pctC, lbl: c._lbl, color: c.itemStyle.color });
+          else noteItems.push({ name: c.name, pct: pctC, lbl: c._lbl, color: c.itemStyle.color });
         }
         ccum += cspan;
       });
@@ -465,7 +517,9 @@
       var rad = (90 - deg) * Math.PI / 180;
       return [cx + rp * R * Math.cos(rad), cy - rp * R * Math.sin(rad)];
     };
-    /* 移动:引线无处放 → 全走图下补注;PC:外环小块拉引线,超出容纳数的也落补注 */
+    /* v1.6.3 定稿 · 窄屏仍不画引导线:容器外侧只有约 40px,任何中文名称都会被裁成残字
+       (实测「货币基金/存款 4.6%」渲染成「⌐ 4.6%」),比没有更糟。
+       窄屏的小块由上游「聚合」消化掉,剩余的进图下补注 —— 那里有完整的名称与占比。 */
     var sides = { right: [], left: [] };
     if (compact) { noteItems = noteItems.concat(lineItems); }
     else { lineItems.forEach(function (it) { sides[((it.mid % 360) + 360) % 360 < 180 ? 'right' : 'left'].push(it); }); }
@@ -493,7 +547,7 @@
           style: { stroke: '#a79d89', fill: 'none', lineWidth: 1 } });   // 外缘 → 斜 → 平(保序不交叉)
         children.push({ type: 'rect', silent: true, z: 5, shape: { x: side === 'right' ? colX + 2 : colX - 9, y: y - 3.5, width: 7, height: 7 }, style: { fill: it.color } });
         children.push({ type: 'text', silent: true, z: 5, x: side === 'right' ? colX + 13 : colX - 13, y: y,
-          style: { text: it.name + ' ' + it.lbl, fill: '#6b6353', font: chartFont(10) + 'px sans-serif', align: side === 'right' ? 'left' : 'right', verticalAlign: 'middle' } });
+          style: { text: (it.name.length > 6 ? it.name.slice(0, 6) + '…' : it.name) + ' ' + it.lbl, fill: '#6b6353', font: chartFont(compact ? 9 : 10) + 'px sans-serif', align: side === 'right' ? 'left' : 'right', verticalAlign: 'middle' } });
       });
     });
 
@@ -751,7 +805,13 @@
     renderSunMetricBar();
     if (typeof syncInsightCard === 'function') syncInsightCard();   // 洞察卡随视图键显隐(缓存恢复/切走隐藏)
     Promise.all([renderSunburst(), renderRanking(), renderPivot()]).catch(function (e) {
-      document.getElementById('pivot').innerHTML = '<p class="text-sm" style="color:var(--rust)">加载失败:' + esc(e.message) + '</p>';
+      /* v1.6.3 · 此前这里只写 #pivot,而 renderPivot 若自己成功会把这段覆盖掉 →
+         旭日崩了却全站无声(排查这个 bug 时正是卡在这一点)。改为同时 console.error + 就地报错。 */
+      if (window.console) console.error('lens 渲染失败:', e);
+      var sun = document.getElementById('sunburst');
+      if (sun) sun.innerHTML = '<p class="lens-skeleton" style="color:var(--rust)">图表渲染失败:' + esc(e.message) + '</p>';
+      var pv = document.getElementById('pivot');
+      if (pv && !pv.querySelector('table')) pv.innerHTML = '<p class="text-sm" style="color:var(--rust)">加载失败:' + esc(e.message) + '</p>';
     });
   }
 

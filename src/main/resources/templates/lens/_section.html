@@ -154,9 +154,9 @@
     palette: /*[[${lensPalette}]]*/ 'D'
   };
 </script>
-  <script th:src="@{/vendor/echarts.min.js}"></script>
-  <script th:src="@{/js/lens-select.js}"></script>
-  <script th:src="@{/js/lens.js}"></script>
+  <script th:src="@{/vendor/echarts.min.js(v=${buildVersion})}"></script>
+  <script th:src="@{/js/lens-select.js(v=${buildVersion})}"></script>
+  <script th:src="@{/js/lens.js(v=${buildVersion})}"></script>
 </section>
 </body>
 </html>
