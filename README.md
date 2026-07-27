@@ -95,6 +95,11 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v1.6.1 · 自建横竖屏切换](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.6.1)
+
+交叉透视表右上多了「横屏看」(手机才出现)—— 点开表格铺满横向空间、所有列一次看全,**把手机转过来后画面自动扶正**,退出有按钮 / Esc / 返回三条路。此前两版都写着「iOS 不支持强制横屏只能提示你自己转」,这个说法是错的:拿不到系统 API 不等于做不出横屏。
+同时把 v1.6.0 做过头的地方改回来:**5 个核心指标退回宫格**(横滑等于把指标藏到屏幕外,与「一目了然」相悖)· 折叠筛选条加「点开筛选账户 / 币种」+ 箭头改 `›`/`⌄` · 「本期一句话」字号降到 13px。
+
 ### [v1.6.0 · UED 专项:看得清、点得中、信得过](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.6.0)
 
 不加功能,只修体验 —— 一次完整的双端截图审计(8 页 × PC/移动 = 16 张真机图,对照设计规范提出 61 条,分 5 批全部落地)。
