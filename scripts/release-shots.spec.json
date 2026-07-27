@@ -1,48 +1,55 @@
 {
   "_comment": "每次发版按核心能力改清单(PC 用 selector 裁剪聚焦;手机不裁剪、整屏 full=false 平铺 —— 用户定 2026-07-11)",
-  "_version": "v0.17.0 · 保险账户 + 向导模板卡回填 + 贷款趋势预测显式接受",
+  "_version": "v1.6.0 · UED 专项:移动端首屏重构 + 图表形态改造 + 跨页口径统一",
   "pc": [
     {
-      "path": "/accounts/24",
-      "name": "insurance-detail",
-      "wait": 1500,
-      "waitFor": "text=保单",
-      "selector": "section.paper-card:has-text(\"INSURANCE POLICY\")"
-    },
-    {
       "path": "/accounts",
-      "name": "accounts-insurance",
-      "wait": 1500,
-      "selector": "tr:has-text(\"泰康增额终身寿\")"
+      "name": "accounts-actions",
+      "wait": 1800,
+      "waitFor": "text=账户簿",
+      "selector": "section.paper-card:has(table.ledger-table)"
     },
     {
-      "path": "/entry",
-      "name": "loan-prompt",
+      "path": "/admin",
+      "name": "admin-grouped",
       "wait": 1500,
-      "waitFor": "text=按上两月趋势",
-      "selector": "#entry-block-11"
+      "waitFor": "text=家 · 庭 · 基 · 础",
+      "selector": "main"
     },
     {
       "path": "/dashboard",
-      "name": "allocation-insurance",
-      "wait": 2500,
+      "name": "allocation-bars",
+      "wait": 3000,
       "selector": "div.paper-card:has(#allocationChart)"
+    },
+    {
+      "path": "/lens",
+      "name": "sunburst-leaders",
+      "wait": 3400,
+      "selector": "div.paper-card:has(#sunburst)"
     }
   ],
   "mobile": [
     {
-      "path": "/accounts/24",
-      "name": "insurance-detail",
-      "wait": 2000,
+      "path": "/dashboard",
+      "name": "conclusion-kpi",
+      "wait": 3000,
       "full": false,
-      "waitFor": "text=保单"
+      "waitFor": "text=本 · 期 · 一 · 句 · 话"
     },
     {
       "path": "/entry",
-      "name": "loan-prompt",
-      "wait": 2500,
+      "name": "closed-readonly",
+      "wait": 2200,
       "full": false,
-      "waitFor": "text=按上两月趋势"
+      "waitFor": "text=本期已关账"
+    },
+    {
+      "path": "/accounts",
+      "name": "summary-band",
+      "wait": 2000,
+      "full": false,
+      "waitFor": "text=账户簿"
     }
   ]
 }

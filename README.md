@@ -95,27 +95,26 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v1.6.0 · UED 专项:看得清、点得中、信得过](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.6.0)
+
+不加功能,只修体验 —— 一次完整的双端截图审计(8 页 × PC/移动 = 16 张真机图,对照设计规范提出 61 条,分 5 批全部落地)。
+最要紧的是**数字信得过**:同一时刻仪表盘与体检的净资产差 119 万、紧急储备 7.2 月 vs 723 月,根因是两处「看哪个账期」的规则不同 —— 现已统一,并在体检页标出「数据截至 X · 与仪表盘同期口径」;体检与流水档案 32 处金额补上千分位。
+**已关账不再假装可以填**(此前照样铺满可编辑表单,填完才发现改不动)。
+**手机上先给结论**:口径控件收成一行、新增「本期一句话」、KPI 改主数字 + 横滑,填报页从 13.9 屏压到 6.6 屏。
+**图表换成窄屏读得懂的形态**:旭日标签不再竖排中文、7 类环图改横向条形、21 个账户双向柱 TopN 聚合、风险配色改顺序色阶。
+另有 iOS 专项(横滑不再误触 Safari 返回手势)、文字对比度提到过 AA、管理页 15 个入口按功能分组、全站 emoji 清零。
+
+<table>
+<tr>
+<td width="33%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.6.0/mobile_conclusion-kpi.jpg"><br><sub><b>手机 · 先给结论</b></sub></td>
+<td width="33%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.6.0/mobile_closed-readonly.jpg"><br><sub><b>已关账只读</b></sub></td>
+<td width="33%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.6.0/pc_sunburst-leaders.jpg"><br><sub><b>旭日标签全部可读</b></sub></td>
+</tr>
+</table>
+
 ### [v1.5.2 · 交叉表可读性 + 打标一致性](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.5.2)
 
-交叉透视多选指标不再挤在一格 —— **指标参与列/行笛卡尔、每格单值**,给「指标放 列/行」拨片(默认列);手机竖屏加可关闭的横屏/横滑提示 + 首列固定阴影;打标「平台」维度改为**建户时从账户模板自动带出**(招商 / 支付宝 / 蚂蚁财富…),默认即与真实账户一致,管理页模板表新增平台列。含 1 个向后兼容迁移(附加 nullable 列)。
-
-### [v1.5.1 · 穿透流式逐支揭示](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.5.1)
-
-承 v1.5.0:「全家一键穿透」从后台闷跑改成**实时流式、逐支反馈** —— 点一下弹层实时刷「兴全合润 → 半导体 26% / 电子 11% / …」一支支揭示 + 进度条,理财诚实标未穿透;旭日「行业集中」去掉股票硬过滤(债/现金也显示);致谢补齐公开数据来源(行情 / 加密 / 贵金属 / 基金穿透)。无迁移无 schema。
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+交叉透视多选指标不再挤在一格 —— **指标参与列/行笛卡尔、每格单值**,给「指标放 列/行」拨片(默认列);手机竖屏加可关闭的横屏提示 + 首列固定阴影;打标「平台」由账户模板预填,建户即与真实账户一致。
 
 ## 主要能力
 
