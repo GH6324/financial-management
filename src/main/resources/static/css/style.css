@@ -983,3 +983,25 @@ html.rot-on #pivotHint { display: none !important; }   /* 已经在横屏了,不
 /* 触发按钮(仅窄屏出现:桌面本来就宽) */
 .landscape-btn { display: none; }
 @media (max-width: 767px) { .landscape-btn { display: inline-flex; } }
+
+/* ── v1.6.2 · 全局横屏(整页)· 用户反馈②:横屏该是顶级功能,不只是交叉表的局部能力 ──
+   转 <body>:nav / 浮钮 / 全部内容一起转。body 成为 transform 容器后,
+   里面的 position:fixed 元素(nav 墨条 / 隐私浮钮 / 目录 FAB)会相对 body 定位 —— 正好跟着一起转。 */
+html.force-landscape { overflow: hidden; height: 100%; }
+html.force-landscape body {
+  position: fixed; top: 0; left: 0;
+  /* body 带 Tailwind 的 min-h-screen(min-height:100vh),横屏下会把高度撑回竖屏高度 → 必须清掉 */
+  min-height: 0 !important;
+  width: 100dvh; height: 100vw;
+  transform: translate(100vw, 0) rotate(90deg);
+  transform-origin: 0 0;
+  overflow-x: hidden; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+@supports not (height: 100dvh) { html.force-landscape body { width: 100vh; } }
+/* 已经整页横屏了,局部的「横屏看」入口没意义 */
+html.force-landscape .landscape-btn { display: none !important; }
+/* 全局横屏按钮:仅窄屏出现(PC 本来就宽)· 激活态用墨底反白,与隐私眼的激活态语言一致 */
+.ls-global-btn { cursor: pointer; }
+.ls-global-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }

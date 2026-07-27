@@ -18,6 +18,13 @@
   /* v1.3 · 旭日可选分析指标(子集 + 渲染类型):
        amount 弧长=金额,维值配色 · pnl 弧长=|收益额|,绿赚赭亏 · ratio 弧长=市值,颜色=收益率热力(比率不可按角度分)。
      持仓级维度(行业/地域)下账户级收益(latestPnl/cumReturn)不可精确归因 → 灰置(承 PivotEngine 诚实降级)。 */
+  /* v1.6.2 · 窄屏旭日「环内标签 / 图下补注」的分界角。
+     这一个数同时被 sliceLabel(环内)与 renderLeaders(补注)使用 —— 必须共用,
+     否则两边不一致就会出现「既不在环上、也不在补注里」的信息黑洞(v1.6.1 的 bug)。
+     32° ≈ 占比 8.9%:低于它的块即使塞下占比也没地方放名字,而「只有数字没有名字」
+     对用户等于没有信息 —— 所以不留中间档,一律整块进补注。 */
+  var SUN_LABEL_MIN_DEG = 32;
+
   var SUN_METRICS = [
     { key: 'value', kind: 'amount' }, { key: 'netPrincipal', kind: 'amount' },
     { key: 'latestPnl', kind: 'pnl' }, { key: 'latestReturn', kind: 'ratio' },
@@ -304,9 +311,9 @@
         var d = p.data;
         if (compact) {
           var deg = totalSize ? p.value * 360 / totalSize : 0;
-          // ≥60°(约 17%)的块横排放得下两行「名称 + 占比」;40–60° 只放占比;更小的留白(看下方排行)
-          if (deg >= 60) return d.name + '\n' + d._lbl;
-          return deg >= 40 ? d._lbl : '';
+          /* v1.6.2 · 与图下补注共用 SUN_LABEL_MIN_DEG,不留盲区,也不留「只有数字没名字」的半盲区:
+             ≥32° 环内给「名称 + 占比」两行;小于 32° 的整块交给图下补注(renderLeaders)。 */
+          return deg >= SUN_LABEL_MIN_DEG ? (d.name + '\n' + d._lbl) : '';
         }
         var lines = [d.name, d._lbl];
         if (kind === 'amount' && !privacyOn() && totalSize && p.value * 360 / totalSize >= 28) lines.push(fmtShort(d._mv));
@@ -316,7 +323,7 @@
       chart.setOption({
         series: [{
           type: 'sunburst', radius: ['24%', rOuter], data: data, sort: null,
-          label: { fontSize: chartFont(compact ? 12 : 11), minAngle: compact ? 40 : 14, lineHeight: 15,
+          label: { fontSize: chartFont(compact ? 12 : 11), minAngle: compact ? SUN_LABEL_MIN_DEG : 14, lineHeight: 15,
                    rotate: compact ? 0 : 'radial', formatter: sliceLabel },
           levels: [{}, { r0: '24%', r: rMid }, { r0: rMid, r: rOuter,
                    label: { fontSize: chartFont(compact ? 11 : 10), lineHeight: 13, rotate: compact ? 0 : 'radial' } }],
@@ -424,7 +431,12 @@
    * PC:graphic 自绘 折线引导 到圆外空白,线端 色点+名称+占比,左右分侧 + 纵向避让(每侧 ≤8 条);
    * 移动(容器 <480px):外侧空间放不下文字 → 退化为图下「小块补注」清单,信息等价不丢。 */
   function renderLeaders(data, grand, el, compact, rOuterPct, rMidPct) {
-    var MIN_DEG = 14;
+    /* v1.6.2 BUG 修(用户反馈:大量扇形块既没名字也没数字,组件几乎不可用)
+       v1.6.1 把窄屏环内标签阈值提到 40°(11%),但这里的补注阈值仍是 14°(3.9%)——
+       于是 3.9%~11% 的块「环内不显示、补注也不收」,信息彻底丢失,而真实数据里这个区间的块最多。
+       修法:两个阈值必须是同一个数,中间不能有缝。
+       窄屏统一用 SUN_LABEL_MIN_DEG,PC 保持 14°(PC 有引导线兜底,盲区本就不存在)。 */
+    var MIN_DEG = compact ? SUN_LABEL_MIN_DEG : 14;
     /* v1.6 UED review B4-2 · PC 上占比极小的块也拉引导线,几条线在同一侧堆成平行线,反而更难读
        (实测「低风险 1.5% / 低风险 0.6% / 中风险 2.1%」三条挤在左侧)。
        低于此占比不拉线,直接落图下「其余小块」补注 —— 信息不丢,画面干净。 */

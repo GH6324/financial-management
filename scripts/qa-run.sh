@@ -4179,6 +4179,31 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && log_ok "v161-LANDSCAPE(自建横屏 rotate+转屏自动扶正 · 折叠 CTA+›箭头 · KPI 主次网格一屏 · 一句话 13px)" \
   || log_bad "v161-LANDSCAPE 缺件" "see landscape.js(rot-rotate/orientationchange)· style.css(rot-inner.rot-rotate/rot-hint/fold-cta/rotate(-90deg)/grid-column auto)· lens data-landscape · dashboard 点开筛选账户 + 13px"
 
+# v162-SUNBURST-LABEL · 旭日标签无盲区(v1.6.2 · 用户反馈:大量扇块既无名字也无数字)
+#   铁律:环内标签阈值与图下补注阈值必须是同一个常量。v1.6.1 环内用 40°、补注用 14°,
+#   3.9%~11% 的块两边都不收 → 信息黑洞。且不许有「只给占比不给名字」的中间档(等于半个盲区)。
+{ grep -q "SUN_LABEL_MIN_DEG = " "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "deg >= SUN_LABEL_MIN_DEG ? (d.name" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "compact ? SUN_LABEL_MIN_DEG : 14" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "minAngle: compact ? SUN_LABEL_MIN_DEG" "$RD/src/main/resources/static/js/lens.js" \
+  && ! grep -qE "deg >= (40|50|60)" "$RD/src/main/resources/static/js/lens.js"; } \
+  && log_ok "v162-SUNBURST-LABEL(环内阈值与补注阈值共用同一常量 · 无盲区 · 无「只占比无名字」中间档)" \
+  || log_bad "v162-SUNBURST-LABEL 缺件" "see lens.js SUN_LABEL_MIN_DEG 必须同时用于 sliceLabel / minAngle / renderLeaders,且不得回退到硬编码角度"
+
+# v162-LANDSCAPE-GLOBAL · 全局横屏为顶级功能 + 与系统横屏和平共处(v1.6.2 用户反馈②③)
+{ grep -q "force-landscape" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "toggleGlobalLandscape" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "isPhysicalLandscape" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "data-landscape-global" "$RD/src/main/resources/templates/fragments/nav.html" \
+  && [ "$(grep -c 'data-landscape-global' "$RD/src/main/resources/templates/fragments/nav.html")" -ge 2 ] \
+  && grep -q "html.force-landscape body" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "min-height: 0 !important" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "landscapeGlobal" "$RD/src/main/resources/templates/fragments/layout.html" \
+  && grep -q "js/landscape.js" "$RD/src/main/resources/templates/fragments/layout.html" \
+  && grep -q '"orientation", "portrait"' "$RD/src/main/java/com/family/finance/web/ManifestController.java"; } \
+  && log_ok "v162-LANDSCAPE-GLOBAL(nav 顶级入口双处 + 转 body 整页横屏 + 清 min-h-screen + FOUC 恢复 + 物理横屏自动让位)" \
+  || log_bad "v162-LANDSCAPE-GLOBAL 缺件" "see landscape.js(toggleGlobalLandscape/isPhysicalLandscape)· nav 两处入口 · style.css html.force-landscape body + min-height:0 · layout FOUC + 全站引入"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

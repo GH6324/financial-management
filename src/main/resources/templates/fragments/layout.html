@@ -12,6 +12,8 @@
   <title th:text="${title} ?: '家庭账房'">家庭账房</title>
   <!-- v0.11 隐私模式 · FOUC 防闪(决策 129):DOM 构建前据 sessionStorage 设 html.privacy,避免明文闪现 -->
   <script>try{if(sessionStorage.getItem('privacy')==='1')document.documentElement.classList.add('privacy');}catch(e){}</script>
+  <!-- v1.6.2 横屏态 · FOUC 防闪:DOM 构建前恢复,避免竖屏闪一下再转 -->
+  <script>try{if(sessionStorage.getItem('landscapeGlobal')==='1'&&window.innerWidth<=window.innerHeight)document.documentElement.classList.add('force-landscape');}catch(e){}</script>
   <!-- v1.2.2 字号档位 · FOUC 防闪(issue #7):DOM 构建前据 localStorage 设 html[data-fs],避免大字号闪一下再缩 -->
   <script>try{var _fs=localStorage.getItem('fontScale');if(_fs==='lg'||_fs==='xl')document.documentElement.setAttribute('data-fs',_fs);}catch(e){}</script>
   <!-- v0.2 FR-1/FR-34 · favicon 优先用户自定义 WebP,否则用预设(默认 icon2);apple-touch-icon 永远跟 family.logoPreset(WebP 不适合 iOS)
@@ -398,6 +400,8 @@
       });
     })();
   </script>
+  <!-- v1.6.2 · 横屏查看(全局 + 局部)· nav 入口在所有页面都要能用,故提为全站脚本 -->
+  <script th:src="@{/js/landscape.js(v=${buildVersion})}" defer></script>
   <!-- v0.2 FR-33 / FR-34 · 移动端引导(微信内 + iOS Safari PWA) -->
   <script th:src="@{/js/mobile-guide.js(v=${buildVersion})}" defer></script>
 </head>
