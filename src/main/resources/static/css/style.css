@@ -982,37 +982,68 @@ html.rot-on #pivotHint { display: none !important; }   /* 已经在横屏了,不
 
 /* 触发按钮(仅窄屏出现:桌面本来就宽) */
 .landscape-btn { display: none; }
-@media (max-width: 767px) { .landscape-btn { display: inline-flex; } }
+@media (pointer: coarse) { .landscape-btn { display: inline-flex; } }
 
-/* ── v1.6.4 · 屏幕方向锁定(整页 · 双向)· 用户反馈②③ ──
-   方向只由右下浮钮决定,不响应手机自身横竖屏:
-     设备方向 == 期望 → 不加任何 class(零开销、零回归)
-     设备竖屏 + 要横屏 → .ori-rot90   顺时针 90°
-     设备横屏 + 要竖屏 → .ori-rotm90  逆时针 90°(把内容转回竖直 = 屏蔽系统横屏)
-   转 <body>:body 成为 transform 容器后,其内 position:fixed 元素(nav 墨条 / 三个浮钮)
-   改为相对 body 定位,正好跟着一起转。 */
-html.ori-lock { overflow: hidden; height: 100%; }
-html.ori-lock body {
-  position: fixed; top: 0; left: 0;
-  /* body 带 Tailwind min-h-screen(min-height:100vh),旋转后会把高度撑回未旋转前的视口高 */
-  min-height: 0 !important;
-  width: 100dvh; height: 100vw;
-  overflow-x: hidden; overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+/* ── v1.6.5 · 横屏查看(局部)· 整页旋转方案已废弃 ──
+   放弃原因见 static/js/landscape.js 顶部注释:CSS 媒体查询只认 viewport 不认 transform,
+   设备横屏时 viewport=844px,7 处 max-width 移动端样式 + 347 处 Tailwind sm:/md: 全部切到
+   宽屏分支 → 浮钮消失、布局跳成 PC 版。这三条无法用 class 覆盖,故只旋转具体的宽内容元素。 */
+html.rot-on, html.rot-on body { overflow: hidden !important; }
+html.rot-on #priv-float, html.rot-on .toc-fab, html.rot-on #ori-float { display: none !important; }
+html.rot-on #pivotHint { display: none !important; }
+
+.rot-shell { position: fixed; inset: 0; z-index: 9000; background: var(--paper); }
+.rot-inner {
+  position: absolute; top: 0; left: 0;
+  width: 100vw; height: 100dvh;
+  overflow: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
   background: var(--paper);
+  padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
 }
-@supports not (height: 100dvh) { html.ori-lock body { width: 100vh; } }
-html.ori-rot90  body { transform: translate(100vw, 0) rotate(90deg);   transform-origin: 0 0; }
-html.ori-rotm90 body { transform: translate(0, 100dvh) rotate(-90deg); transform-origin: 0 0; }
-@supports not (height: 100dvh) { html.ori-rotm90 body { transform: translate(0, 100vh) rotate(-90deg); } }
+/* 仅当设备还竖着时由我们代转 90°;用户真把手机转横后,摘掉旋转交给系统(见 landscape.js sync) */
+.rot-inner.rot-rotate {
+  width: 100dvh; height: 100vw;
+  transform: translate(100vw, 0) rotate(90deg);
+  transform-origin: 0 0;
+}
+@supports not (height: 100dvh) {
+  .rot-inner { height: 100vh; }
+  .rot-inner.rot-rotate { width: 100vh; }
+}
+.rot-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--rule);
+}
+.rot-title {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: calc(11px * var(--fs-scale,1)); letter-spacing: .1em; color: var(--ink-soft);
+}
+.rot-exit {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 36px; padding: 0 14px; cursor: pointer;
+  background: var(--ink); color: var(--paper); border: none;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: calc(11px * var(--fs-scale,1)); letter-spacing: .1em;
+}
+.rot-exit:active { transform: translateY(1px); }
+.rot-hint {
+  display: inline-flex; align-items: center; gap: 7px;
+  margin-bottom: 9px; padding: 6px 11px;
+  background: var(--brass-soft); border-left: 3px solid var(--brass-deep);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: calc(11px * var(--fs-scale,1)); color: var(--ink-soft); line-height: 1.5;
+}
+.rot-inner .lens-pivot table { width: auto; min-width: 100%; }
 
-/* 方向浮钮:与隐私眼 / 目录钮同一列(右下),激活态墨底反白 */
+/* 横屏浮钮:与隐私眼 / 目录钮同列。
+   可见性只由「触屏」+ JS(本页有无可横屏内容)决定 —— **不能带 max-width**:
+   设备横屏时 viewport 变宽会让按钮消失,那正是用户报的问题②。 */
 #ori-float {
   position: fixed; right: 14px;
   bottom: calc(max(18px, env(safe-area-inset-bottom)) + 96px);
   z-index: 56;
-  display: none;                     /* 仅触屏小屏出现,见下 */
+  display: none;
   align-items: center; justify-content: center;
   width: 38px; height: 38px; border-radius: 50%;
   background: var(--card); color: var(--ink-soft);
@@ -1020,7 +1051,7 @@ html.ori-rotm90 body { transform: translate(0, 100dvh) rotate(-90deg); transform
   cursor: pointer; opacity: .62;
   transition: opacity .25s ease, border-color .18s ease;
 }
-@media (max-width: 767px) and (pointer: coarse) { #ori-float { display: inline-flex; } }
+@media (pointer: coarse) { #ori-float { display: inline-flex; } }
 #ori-float:hover, #ori-float:active, #ori-float:focus-visible { opacity: 1; border-color: var(--ink-soft); }
 #ori-float[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); opacity: 1; }
 body.is-scrolling #ori-float { opacity: .22; }

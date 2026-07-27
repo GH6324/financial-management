@@ -1,112 +1,174 @@
-/* 家庭账房 · 屏幕方向锁定(v1.6.4 重写)
+/* 家庭账房 · 横屏查看(v1.6.5 · 回到「局部旋转」)
  *
- * ── 目标(用户要求)────────────────────────────────────────────
- *  方向只由我们的按钮决定,**完全不响应手机自身的横竖屏切换**。
- *  用户转手机时页面不跟着转 —— 等效于「系统竖屏锁定」,只不过锁的方向由我们说了算。
+ * ══ 为什么放弃「整页旋转」 ══════════════════════════════════════
+ * v1.6.2–v1.6.4 试过转 <body> 做整页横屏,真机暴露三个问题(用户反馈):
+ *   ① 横屏后顶部菜单会莫名展开   ② 三个浮钮消失/不稳定   ③ 转手机时页面大幅重排
+ * 根因是同一个,而且是结构性的:
+ *   **CSS 媒体查询只认 viewport,不认我们的 transform。**
+ *   设备横屏时 viewport = 844px,于是
+ *     · 我为 v1.6 加的 7 处 max-width:767/640 移动端样式全部失效
+ *       (KPI 带回网格、汇总带回网格、折叠条 summary 显形、浮钮 display:none ← 问题②)
+ *     · 模板里 347 处 Tailwind sm:/md: 前缀全部切到宽屏分支 → 布局跳成 PC 版 ← 问题③
+ *   而 Tailwind 那 347 处是媒体查询编译出来的,**无法用 class 覆盖**。
+ *   要让「旋转后仍按窄屏渲染」,只能把全站响应式改成 container query 或塞进 iframe —— 都不现实。
  *
- * ── 为什么这能做到(前两版我判断错了)────────────────────────
- *  拿不到 `screen.orientation.lock()`(iOS 不支持)≠ 做不到方向锁定。
- *  系统旋转屏幕这件事我们阻止不了,但「页面要不要跟着转」完全在我们手里:
- *    设备方向 == 期望方向  → 不旋转(0°)
- *    设备竖屏 + 期望横屏   → 顺时针 90°
- *    设备横屏 + 期望竖屏   → **逆时针 90°(把内容转回竖直)**  ← 关键的一步
- *  最后一条就是「屏蔽系统横屏」:用户把手机转横,我们反向转回来,
- *  内容相对机身始终不动,视觉效果与系统竖屏锁定一致。
+ * ══ 现在的做法 ══════════════════════════════════════════════
+ * 只旋转**具体的宽内容元素**(交叉透视表这类),不动 body:
+ *   · 被旋转的是一个独立容器,它内部不依赖响应式断点 → 不会触发上面任何一条
+ *   · 页面其余部分完全不受影响,浮钮/菜单/布局都保持原状
+ * 页面通过 `data-landscape-target` 声明「本页可横屏看的元素」;没有声明的页面浮钮自动隐藏。
  *
- * ── 安全边界 ────────────────────────────────────────────────
- *  只在「触屏 + 小屏」启用。桌面浏览器恒满足 innerWidth > innerHeight,
- *  若不设边界,PC 会被永久反转 90° —— 那是灾难。
+ * 关于「屏蔽系统横竖屏」:iOS 既不支持 screen.orientation.lock(),也不读 manifest 的
+ * orientation 字段,而 CSS 旋转方案又与响应式冲突 —— 因此**页面级方向锁定做不到**,
+ * 这是平台与技术栈的共同约束,不是没实现。局部横屏不受此限,因为它不关心设备方向。
  */
 (function () {
   'use strict';
 
-  var KEY = 'oriLock';                 // sessionStorage: 'portrait' | 'landscape'
-  var C_LOCK = 'ori-lock', C_CW = 'ori-rot90', C_CCW = 'ori-rotm90';
+  var active = null;
 
-  function want() {
-    try { return sessionStorage.getItem(KEY) === 'landscape' ? 'landscape' : 'portrait'; }
-    catch (e) { return 'portrait'; }
+  function svgIcon(paths, size) {
+    var NS = 'http://www.w3.org/2000/svg';
+    var s = document.createElementNS(NS, 'svg');
+    s.setAttribute('viewBox', '0 0 24 24');
+    s.setAttribute('width', size || 14);
+    s.setAttribute('height', size || 14);
+    s.setAttribute('fill', 'none');
+    s.setAttribute('stroke', 'currentColor');
+    s.setAttribute('stroke-width', '2');
+    s.setAttribute('stroke-linecap', 'round');
+    s.setAttribute('stroke-linejoin', 'round');
+    s.setAttribute('aria-hidden', 'true');
+    (Array.isArray(paths) ? paths : [paths]).forEach(function (d) {
+      var p = document.createElementNS(NS, 'path');
+      p.setAttribute('d', d);
+      s.appendChild(p);
+    });
+    return s;
   }
 
-  /** 只在触屏小屏设备上锁方向 —— PC 必须排除(它恒为「横屏」)。
-   *  尺寸必须用 screen(屏幕物理尺寸,恒定),**不能用 innerWidth/innerHeight**:
-   *  body 被旋转后浏览器会重算 layout viewport(实测 390×844 → 807×1745),
-   *  用 inner* 判断会让 lockable 在两次 resize 之间翻转 → 反复加/删 class → 自激振荡。 */
-  function lockable() {
-    var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-    var sw = window.screen ? Math.max(window.screen.width || 0, window.screen.height || 0) : 0;
-    if (!sw) sw = Math.max(window.innerWidth, window.innerHeight);
-    return !!coarse && sw < 1200;
-  }
+  function target() { return document.querySelector('[data-landscape-target]'); }
 
-  /** 当前已施加的旋转 class(用于幂等判断) */
-  function currentRot() {
-    var c = document.documentElement.classList;
-    return c.contains(C_CW) ? C_CW : (c.contains(C_CCW) ? C_CCW : '');
-  }
-
-  /* 调试钩子:方向锁这类「多次触发、最后一次说话」的逻辑很难靠猜排障,留一份最近的判断记录。 */
-  window.__oriLog = [];
-  function apply(src) {
-    var html = document.documentElement;
-    var lk = lockable();
-    /* 方向判断用宽高比:body 旋转后 inner* 会被等比缩放(390×844 → 807×1745),
-       比例不变,所以「谁大谁小」仍然可靠。 */
-    var devLandscape = window.innerWidth > window.innerHeight;
-    var wantLandscape = want() === 'landscape';
-    var target = (lk && wantLandscape !== devLandscape) ? (wantLandscape ? C_CW : C_CCW) : '';
-    var cur = currentRot();
-    window.__oriLog.push({ src: src || '?', lockable: lk, iw: window.innerWidth, ih: window.innerHeight,
-                           devL: devLandscape, wantL: wantLandscape, cur: cur, target: target });
-    if (window.__oriLog.length > 12) window.__oriLog.shift();
-    /* 幂等:结论没变就一个字节都不改 DOM。
-       这是止住振荡的第二道闸 —— 改 class 会引起 layout 变化、可能再触发 resize,
-       若每次 resize 都无条件重写 class,就会自己喂自己。 */
-    if (target === cur) { syncBtn(); return; }
-    html.classList.remove(C_LOCK, C_CW, C_CCW);
-    if (target) html.classList.add(C_LOCK, target);
-    syncBtn();
-    /* 图表按新可视尺寸重绘。这里**不再主动派发 resize** —— 那正是振荡的源头;
-       直接点名调用图表实例的 resize。 */
-    setTimeout(function () {
-      try {
-        if (window.financeCharts) {
-          Object.keys(window.financeCharts).forEach(function (k) {
-            var ch = window.financeCharts[k];
-            if (ch && typeof ch.resize === 'function') ch.resize();
-          });
-        }
-        if (window.echarts) {
-          document.querySelectorAll('#sunburst, .echart-box').forEach(function (el) {
-            var i = window.echarts.getInstanceByDom(el);
-            if (i) i.resize();
-          });
-        }
-      } catch (e) {}
-    }, 140);
-  }
-
+  /** 浮钮只在「本页有可横屏内容」时出现 —— 没有目标就没有意义 */
   function syncBtn() {
-    var on = want() === 'landscape';
+    var has = !!target();
     document.querySelectorAll('[data-orientation-toggle]').forEach(function (b) {
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      b.title = on ? '当前:横屏(点击回竖屏)· 转动手机不会改变方向' : '整页横屏查看(适合宽表格)· 转动手机不会改变方向';
-      var lb = b.querySelector('.ori-label');
-      if (lb) lb.textContent = on ? '回竖屏' : '横屏看';
+      b.style.display = has ? '' : 'none';
+      b.setAttribute('aria-pressed', active ? 'true' : 'false');
+      b.title = active ? '退出横屏查看' : '把宽表格转成横屏看(页面其余部分不变)';
     });
   }
 
-  window.toggleOrientation = function () {
-    var next = want() === 'landscape' ? 'portrait' : 'landscape';
-    try { sessionStorage.setItem(KEY, next); } catch (e) {}
-    apply('toggle');
-    if (typeof window.showToast === 'function') {
-      window.showToast({
-        message: next === 'landscape' ? '已切到横屏 · 把手机转横过来看 · 转动手机不会再改变方向'
-                                      : '已回竖屏 · 转动手机不会再改变方向',
-        level: 'info'
-      });
+  function resizeCharts() {
+    try {
+      if (window.echarts) {
+        document.querySelectorAll('#sunburst, .echart-box').forEach(function (el) {
+          var i = window.echarts.getInstanceByDom(el);
+          if (i) i.resize();
+        });
+      }
+    } catch (e) {}
+  }
+
+  function enter(el) {
+    if (active) return;
+    var ph = document.createElement('div');
+    ph.className = 'rot-placeholder';
+    el.parentNode.insertBefore(ph, el);
+
+    var shell = document.createElement('div');
+    shell.className = 'rot-shell';
+    shell.setAttribute('role', 'dialog');
+    shell.setAttribute('aria-modal', 'true');
+
+    var inner = document.createElement('div');
+    inner.className = 'rot-inner';
+
+    var bar = document.createElement('div');
+    bar.className = 'rot-bar';
+    var label = document.createElement('span');
+    label.className = 'rot-title';
+    label.appendChild(svgIcon(['M3 7h13a2 2 0 0 1 2 2v8', 'M14 3l4 4-4 4'], 13));
+    var t = document.createElement('span');
+    t.textContent = el.getAttribute('data-landscape-target') || '横屏查看';
+    label.appendChild(t);
+
+    var exitBtn = document.createElement('button');
+    exitBtn.type = 'button';
+    exitBtn.className = 'rot-exit';
+    exitBtn.appendChild(svgIcon('M18 6 6 18M6 6l12 12', 13));
+    var et = document.createElement('span');
+    et.textContent = '退出横屏';
+    exitBtn.appendChild(et);
+
+    bar.appendChild(label);
+    bar.appendChild(exitBtn);
+    inner.appendChild(bar);
+
+    var hint = document.createElement('div');
+    hint.className = 'rot-hint';
+    hint.appendChild(svgIcon(['M3 7h13a2 2 0 0 1 2 2v8', 'M14 3l4 4-4 4'], 15));
+    var ht = document.createElement('span');
+    ht.textContent = '把手机转横过来看';
+    hint.appendChild(ht);
+    inner.appendChild(hint);
+
+    inner.appendChild(el);
+    shell.appendChild(inner);
+    document.body.appendChild(shell);
+    document.documentElement.classList.add('rot-on');
+
+    var pushed = false;
+    try { history.pushState({ rot: 1 }, ''); pushed = true; } catch (e) {}
+
+    function sync() {
+      /* 设备已经物理横屏 → 不必再由我们转(否则又转回竖的);仅在竖屏时代转。
+         注意这里只影响这一个覆盖层,不碰 body,所以不会牵动全站响应式。 */
+      var portrait = window.innerHeight >= window.innerWidth;
+      inner.classList.toggle('rot-rotate', portrait);
+      hint.style.display = portrait ? '' : 'none';
+      resizeCharts();
     }
+    sync();
+
+    function exit(fromPop) {
+      if (!active) return;
+      active = null;
+      if (ph.parentNode) ph.parentNode.replaceChild(el, ph);
+      shell.remove();
+      document.documentElement.classList.remove('rot-on');
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener('resize', sync);
+      window.removeEventListener('orientationchange', onOrient);
+      syncBtn();
+      resizeCharts();
+      if (pushed && !fromPop) { try { history.back(); } catch (e) {} }
+    }
+    function onKey(e) { if (e.key === 'Escape') exit(false); }
+    function onPop() { exit(true); }
+    function onOrient() { setTimeout(sync, 220); }
+
+    exitBtn.addEventListener('click', function () { exit(false); });
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('popstate', onPop);
+    window.addEventListener('resize', sync);
+    window.addEventListener('orientationchange', onOrient);
+
+    active = { exit: exit };
+    syncBtn();
+  }
+
+  window.toggleOrientation = function () {
+    if (active) { active.exit(false); return; }
+    var el = target();
+    if (!el) {
+      if (typeof window.showToast === 'function') {
+        window.showToast({ message: '本页没有需要横屏看的宽内容', level: 'info' });
+      }
+      return;
+    }
+    enter(el);
   };
 
   document.addEventListener('click', function (e) {
@@ -115,9 +177,6 @@
     if (b) { e.preventDefault(); window.toggleOrientation(); }
   });
 
-  /* 设备转向时重算 —— 这里不是「跟随系统」,而恰恰是为了**抵消**系统的旋转 */
-  window.addEventListener('resize', function () { apply('resize'); });
-  window.addEventListener('orientationchange', function () { setTimeout(function () { apply('orient'); }, 220); });
-  document.addEventListener('DOMContentLoaded', function () { apply('domready'); });
-  apply('init');
+  document.addEventListener('DOMContentLoaded', syncBtn);
+  syncBtn();
 })();

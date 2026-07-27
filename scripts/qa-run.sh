@@ -4195,26 +4195,23 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && log_ok "v163-SUNBURST-AGG(小块聚合 Top N + 其他 · isNarrow 不用 clientWidth · 聚合块带 children · 聚合块禁下钻 · 渲染失败不静默)" \
   || log_bad "v163-SUNBURST-AGG 缺件" "see lens.js aggSmall/AGG_MIN_DEG/isNarrow/_agg children/(n.children||[])/console.error('lens 渲染失败')"
 
-# v164-ORIENTATION · 屏幕方向锁定(用户反馈②③:浮钮入口 + 不响应手机自身横竖屏)
-#   实现要点(每条都踩过坑):
-#     ① 双向:设备竖屏+要横屏 → ori-rot90;设备横屏+要竖屏 → ori-rotm90(反向转回 = 屏蔽系统横屏)
-#     ② lockable() 尺寸必须用 screen 而非 innerWidth —— body 旋转后浏览器会重算 layout viewport
-#        (实测 390×844 → 807×1745),用 inner* 会让判断在两次 resize 间翻转 → 自激振荡
-#     ③ 幂等:结论不变就不动 DOM;且 apply 内不再主动派发 resize(那是振荡源头),改点名调 chart.resize
-#     ④ PC 必须排除(桌面恒「横屏」,否则被永久反转 90°)
-{ grep -q "ori-rotm90" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q "window.screen.width" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q "if (target === cur)" "$RD/src/main/resources/static/js/landscape.js" \
-  && ! grep -q "dispatchEvent(new Event('resize'))" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q "pointer: coarse" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q "toggleOrientation" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q 'id="ori-float"' "$RD/src/main/resources/templates/fragments/layout.html" \
-  && grep -q "data-orientation-toggle" "$RD/src/main/resources/templates/fragments/layout.html" \
-  && ! grep -q "data-landscape-global" "$RD/src/main/resources/templates/fragments/nav.html" \
-  && grep -q "html.ori-rotm90 body" "$RD/src/main/resources/static/css/style.css" \
-  && grep -q "oriLock" "$RD/src/main/resources/templates/fragments/layout.html"; } \
-  && log_ok "v164-ORIENTATION(方向浮钮右下 + 双向锁定屏蔽系统横竖屏 + screen 尺寸判定 + 幂等防振荡 + PC 排除)" \
-  || log_bad "v164-ORIENTATION 缺件" "see landscape.js(ori-rotm90/screen.width/幂等/无自派发 resize)· layout #ori-float + FOUC oriLock · nav 已移除旧钮 · style.css ori-rotm90"
+# v165-LANDSCAPE-LOCAL · 横屏查看只旋转宽内容,不旋转整页(用户反馈:整页旋转三个副作用)
+#   整页旋转(v1.6.2–v1.6.4)在真机暴露:①顶部菜单莫名展开 ②浮钮消失/不稳定 ③转手机时大幅重排。
+#   根因结构性:CSS 媒体查询只认 viewport 不认 transform —— 设备横屏时 viewport=844px,
+#   7 处 max-width 移动端样式 + 347 处 Tailwind sm:/md: 全部切宽屏分支,而后者无法用 class 覆盖。
+#   故:只旋转 [data-landscape-target] 声明的元素;body 永不旋转;浮钮可见性不得依赖 max-width。
+{ ! grep -q "html.ori-lock body" "$RD/src/main/resources/static/css/style.css" \
+  && ! grep -q "ori-rotm90" "$RD/src/main/resources/static/css/style.css" \
+  && ! grep -q "force-landscape" "$RD/src/main/resources/static/css/style.css" \
+  && ! grep -q "oriLock" "$RD/src/main/resources/templates/fragments/layout.html" \
+  && grep -q "data-landscape-target" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "data-landscape-target" "$RD/src/main/resources/templates/lens/_section.html" \
+  && grep -q "rot-inner.rot-rotate" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "@media (pointer: coarse) { #ori-float" "$RD/src/main/resources/static/css/style.css" \
+  && ! grep -qE "@media \(max-width: [0-9]+px\) \{ \.landscape-btn" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q 'id="ori-float"' "$RD/src/main/resources/templates/fragments/layout.html"; } \
+  && log_ok "v165-LANDSCAPE-LOCAL(只转 data-landscape-target 元素 · body 不转 · 浮钮可见性不依赖 max-width)" \
+  || log_bad "v165-LANDSCAPE-LOCAL 缺件" "see style.css 不得残留 ori-lock/ori-rotm90/force-landscape · layout 不得残留 oriLock · landscape.js + lens 需 data-landscape-target · #ori-float 与 .landscape-btn 的可见性不得带 max-width"
 
 # v164-CHART-PARITY · dashboard 两图窄屏形态一致(用户反馈④)
 #   「资产配置」与「按成员分布」此前一个环一个条,手机上并列看着不是一套东西。

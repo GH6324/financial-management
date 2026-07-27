@@ -12,17 +12,6 @@
   <title th:text="${title} ?: '家庭账房'">家庭账房</title>
   <!-- v0.11 隐私模式 · FOUC 防闪(决策 129):DOM 构建前据 sessionStorage 设 html.privacy,避免明文闪现 -->
   <script>try{if(sessionStorage.getItem('privacy')==='1')document.documentElement.classList.add('privacy');}catch(e){}</script>
-  <!-- v1.6.4 方向锁定 · FOUC 防闪:DOM 构建前定好方向,避免先按设备方向渲染再被转过去。
-       与 landscape.js 的 apply() 同一套判断(触屏 + 小屏才锁;PC 恒「横屏」必须排除)。 -->
-  <script>try{
-    var _oc=window.matchMedia&&window.matchMedia('(pointer: coarse)').matches;
-    var _os=Math.max(window.innerWidth,window.innerHeight)<1200;
-    if(_oc&&_os){
-      var _ow=sessionStorage.getItem('oriLock')==='landscape';
-      var _od=window.innerWidth>window.innerHeight;
-      if(_ow!==_od){var _c=document.documentElement.classList;_c.add('ori-lock');_c.add(_ow?'ori-rot90':'ori-rotm90');}
-    }
-  }catch(e){}</script>
   <!-- v1.2.2 字号档位 · FOUC 防闪(issue #7):DOM 构建前据 localStorage 设 html[data-fs],避免大字号闪一下再缩 -->
   <script>try{var _fs=localStorage.getItem('fontScale');if(_fs==='lg'||_fs==='xl')document.documentElement.setAttribute('data-fs',_fs);}catch(e){}</script>
   <!-- v0.2 FR-1/FR-34 · favicon 优先用户自定义 WebP,否则用预设(默认 icon2);apple-touch-icon 永远跟 family.logoPreset(WebP 不适合 iOS)
