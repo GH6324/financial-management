@@ -30,6 +30,17 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="账房">
+  <!-- v1.6.7 · 嵌套自检必须早于样式表:断点新增「短边 ≥480」判据后,横屏 iframe(844×390)的短边只有 390,
+       会被误判成「手机横屏」而套上移动规则 —— 那正是我们主动要的宽屏视图,必须排除。
+       内联在 head 里执行 = 首屏绘制前 class 已就位,无 FOUC。 -->
+  <script>try{if(window.self!==window.top)document.documentElement.classList.add('is-embedded');}catch(e){document.documentElement.classList.add('is-embedded');}</script>
+  <!-- v1.6.7 · 窄屏判据的唯一出处 —— 必须与 tailwind screens / style.css 的 @media 完全同源。
+       图表脚本里原有 22 处硬编码 `window.innerWidth` 宽度比较,手机横屏(844×390)会全部误判成宽屏
+       → 字号/阈值/形态集体切换,这正是用户看到的「转手机图表也跟着变」。
+       判据 = 宽度不足 **或** 短边不足 480;嵌套(横屏 iframe)是主动要的宽屏视图 → 只看宽度。 -->
+  <script>window.vpNarrow=function(w){w=w||768;
+    if(document.documentElement.classList.contains('is-embedded'))return window.innerWidth<w;
+    return window.innerWidth<w||window.innerHeight<480;};</script>
   <link rel="stylesheet" th:href="@{/css/style.css(v=${buildVersion})}">
   <script th:src="@{/vendor/tailwind.js(v=${buildVersion})}"></script>
   <script th:src="@{/vendor/htmx.min.js(v=${buildVersion})}"></script>
@@ -38,22 +49,37 @@
   <!-- v0.4.13 · KPI 口径说明 tooltip(点击 ? 展开说明) -->
   <script th:src="@{/js/kpi-info.js(v=${buildVersion})}" defer></script>
   <script th:inline="javascript">
+    /* v1.6.7 · 断点必须同时看「短边」,不能只看宽度 ————————————————————————
+       手机横屏是 844×390:只判宽度 → 844 被当成宽屏设备 → 模板里 453 处
+       sm:/md:/lg: 集体切到宽屏分支,这就是用户看到的「一转手机页面就变了」。
+       真正的判据是短边:iPhone 横屏 innerHeight ≤ 440(最大的 16 Pro Max 短边 440),
+       而 PC 窗口极少矮于 480 → 阈值取 480,一处改动纠正全部 453 处。
+       例外:横屏 iframe(844×390)是用户主动点出来的宽屏视图,走「只看宽度」那一套。 */
+    var TW_EMBEDDED = false;
+    try { TW_EMBEDDED = window.self !== window.top; } catch (e) { TW_EMBEDDED = true; }
+    var bp = function (w) {
+      return TW_EMBEDDED ? { raw: '(min-width: ' + w + 'px)' }
+                         : { raw: '(min-width: ' + w + 'px) and (min-height: 480px)' };
+    };
     tailwind.config = {
-      theme: { extend: {
-        colors: {
-          paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)',
-          card: 'var(--card)', 'card-soft': 'var(--card-soft)',
-          ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' },
-          rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' },
-          brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' },
-          forest: 'var(--forest)', rust: 'var(--rust)'
-        },
-        fontFamily: {
-          display: ['Fraunces', 'Noto Serif SC', 'serif'],
-          serif:   ['"Source Serif 4"', 'Noto Serif SC', 'serif'],
-          mono:    ['JetBrains Mono', 'monospace']
+      theme: {
+        screens: { sm: bp(640), md: bp(768), lg: bp(1024), xl: bp(1280), '2xl': bp(1536) },
+        extend: {
+          colors: {
+            paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)',
+            card: 'var(--card)', 'card-soft': 'var(--card-soft)',
+            ink: { DEFAULT: 'var(--ink)', soft: 'var(--ink-soft)', subtle: 'var(--ink-subtle)' },
+            rule: { DEFAULT: 'var(--rule)', soft: 'var(--rule-soft)' },
+            brass: { DEFAULT: 'var(--brass)', deep: 'var(--brass-deep)', soft: 'var(--brass-soft)' },
+            forest: 'var(--forest)', rust: 'var(--rust)'
+          },
+          fontFamily: {
+            display: ['Fraunces', 'Noto Serif SC', 'serif'],
+            serif:   ['"Source Serif 4"', 'Noto Serif SC', 'serif'],
+            mono:    ['JetBrains Mono', 'monospace']
+          }
         }
-      }}
+      }
     }
   </script>
   <script>
@@ -171,7 +197,7 @@
     // HTMX 换入的区块也要处理 —— 用户刚改完口径,应当直接看结果而不是又对着一屏控件。
     (function () {
       function fold(scope) {
-        if (window.innerWidth >= 768) return;
+        if (!vpNarrow(768)) return;
         (scope || document).querySelectorAll('details.filter-fold').forEach(function (d) { d.open = false; });
       }
       document.addEventListener('DOMContentLoaded', function () { fold(document); });

@@ -266,11 +266,11 @@
   /* ---------- 组件 A · 旭日(v1.3 可选分析指标) ----------
      rows=[内] cols=[外] → rowTotals 给内环"正确聚合"(比率类父级 ≠ 子级之和,必须引擎算,不能前端求和)。
      三模式:amount 弧长=金额+维值色 · pnl 弧长=|收益额|+绿赚赭亏 · ratio 弧长=市值+颜色收益率热力。 */
-  /* v1.6.3 · 窄屏判断统一用 window.innerWidth。
-     原先用 `#sunburst` 的 clientWidth < 480 —— 那个值依赖布局时机,首次渲染时读到的可能还不是
-     最终宽度(实测同一元素在不同时机得到 630 / 321),于是聚合阈值悄悄走了 PC 档、改了也不生效。
-     innerWidth 与项目其它响应式断点(md=768)同源,稳定可靠。 */
-  function isNarrow() { return window.innerWidth < 768; }
+  /* 窄屏判断走全局 vpNarrow(layout.html 定义)—— 与 tailwind screens、style.css 的 @media 同一判据。
+     v1.6.3 曾用 el.clientWidth,同一元素读到 630/321 两个值 → 参数改了像没生效,故改成 window 级。
+     v1.6.7 再修一次:光看宽度不够,手机横屏是 844×390,只看宽度会当成宽屏 →
+     判据必须是「宽度不足 或 短边不足 480」。 */
+  function isNarrow() { return vpNarrow(768); }
 
   function renderSunburst() {
     var mkey = state.sunMetric, kind = SUN_KIND[mkey] || 'amount';

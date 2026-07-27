@@ -105,7 +105,7 @@
       var wf = echarts.getInstanceByDom(wfEl) || echarts.init(wfEl);
       wf.setOption({
         grid: {left: 6, right: 6, top: 22, bottom: 4, containLabel: true},
-        xAxis: {type: 'category', data: labels, axisLabel: {fontSize: chartFont(9), interval: 0, rotate: window.innerWidth < 640 ? 34 : 0, color: INK}},
+        xAxis: {type: 'category', data: labels, axisLabel: {fontSize: chartFont(9), interval: 0, rotate: vpNarrow(640) ? 34 : 0, color: INK}},
         yAxis: {type: 'value', axisLabel: {show: false}, splitLine: {lineStyle: {color: 'rgba(0,0,0,.05)'}}},
         series: [
           {type: 'bar', stack: 'w', itemStyle: {color: 'transparent'}, silent: true, data: inv},

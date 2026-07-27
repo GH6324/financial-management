@@ -4217,12 +4217,41 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && log_ok "v166-LANDSCAPE-IFRAME(iframe 独立 viewport · 尺寸定死零重排 · 嵌套自检防套娃 · 浮钮可见性不带 max-width)" \
   || log_bad "v166-LANDSCAPE-IFRAME 缺件" "see landscape.js(self!==top 嵌套自检 / ls-frame / 进入时定尺寸)· style.css(ls-stage.ls-rotate / is-embedded 隐藏入口 / 不得残留整页 body 旋转)"
 
+# v167-VP-SHORTSIDE · 响应式判据必须同时看「短边」(用户第 5 次反馈:转手机页面还是变了)
+#   前四版横屏方案都在跟「方向」较劲,方向找错了 —— 真正的 bug 是**断点只判宽度**:
+#   手机横屏是 844×390,只看宽度 → 844 被当成宽屏设备 → 453 处 sm:/md:/lg: 集体切换。
+#   手机横屏的特征是**短边只有 390**,不是宽边有 844。iPhone 横屏 innerHeight ≤ 440
+#   (最大的 16 Pro Max 短边 440),PC 窗口极少矮于 480 → 阈值 480。
+#   三处判据必须同源,少一处就会出现「CSS 是移动的、JS 是 PC 的」这种半修状态:
+#     ① tailwind.config screens(453 处 Tailwind 断点)
+#     ② style.css 自有 @media
+#     ③ window.vpNarrow(图表脚本里原本 22 处硬编码宽度比较)
+#   例外:横屏 iframe 也是 844×390,但那是用户主动点出来的宽屏视图 → is-embedded 排除。
+#   顺带守护 v1.6.7 的旋转遮帘:iOS 那 0.4s 旋转动画抹不掉(manifest.orientation iOS 不支持 /
+#   screen.orientation.lock 需 fullscreen / orientationchange 不可 cancel),只能盖住,且必须瞬盖。
+LAY="$RD/src/main/resources/templates/fragments/layout.html"
+CSS="$RD/src/main/resources/static/css/style.css"
+{ [ "$(grep -c 'min-height: 480px' "$LAY")" -ge 1 ] \
+  && grep -qF "screens: { sm: bp(640), md: bp(768), lg: bp(1024), xl: bp(1280), '2xl': bp(1536) }" "$LAY" \
+  && grep -q "window.vpNarrow=function" "$LAY" \
+  && grep -q "window.innerWidth<w||window.innerHeight<480" "$LAY" \
+  && [ "$(grep -c 'max-height: 479px' "$CSS")" -ge 6 ] \
+  && [ "$(grep -c 'and (min-height: 480px)' "$CSS")" -ge 4 ] \
+  && grep -q "html:not(.is-embedded) .kpi-band" "$CSS" \
+  && grep -q "html:not(.is-embedded) .summary-band" "$CSS" \
+  && grep -q "html.is-embedded .filter-fold > summary" "$CSS" \
+  && grep -qF ".ls-shell.ls-turning .ls-stage > * { opacity: 0; transition: none; }" "$CSS" \
+  && grep -q "ls-turning" "$RD/src/main/resources/static/js/landscape.js" \
+  && [ "$(grep -rn 'window.innerWidth *[<>]=* *[0-9]' "$RD/src/main/resources/templates" "$RD/src/main/resources/static/js" | grep -v 'vpNarrow=function' | wc -l)" -eq 0 ]; } \
+  && log_ok "v167-VP-SHORTSIDE(断点/自有@media/vpNarrow 三处同源看短边 · iframe 例外 · 旋转遮帘瞬盖淡揭 · 无残留硬编码宽度判定)" \
+  || log_bad "v167-VP-SHORTSIDE 缺件" "see layout.html(screens bp() + vpNarrow)· style.css(max-height:479px / min-height:480px / html:not(.is-embedded) 排除 iframe / ls-turning 瞬盖)· 且模板与 js 里不得残留 window.innerWidth<数字"
+
 # v164-CHART-PARITY · dashboard 两图窄屏形态一致(用户反馈④)
 #   「资产配置」与「按成员分布」此前一个环一个条,手机上并列看着不是一套东西。
 #   抽 hBarConfig 共用工厂,窄屏一律横向条形(窄屏环图标签必然重叠)。
 { grep -q "function hBarConfig" "$RD/src/main/resources/templates/dashboard/_region.html" \
-  && grep -q "const memFlat = window.innerWidth < 640" "$RD/src/main/resources/templates/dashboard/_region.html" \
-  && grep -q "const flatAlloc = window.innerWidth < 640" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "const memFlat = vpNarrow(640)" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "const flatAlloc = vpNarrow(640)" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q "hBarConfig(data.memberAllocationLabels" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q "hBarConfig(donutLabels" "$RD/src/main/resources/templates/dashboard/_region.html"; } \
   && log_ok "v164-CHART-PARITY(资产配置与按成员分布共用 hBarConfig · 窄屏同为横向条形)" \

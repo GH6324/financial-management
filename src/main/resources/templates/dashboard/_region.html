@@ -721,7 +721,7 @@
       const line = document.getElementById('netWorthChart');
       if (line) {
         // 2026-07-18 UED:窄屏图例用短标签+小色块,三项一行放下(原三项各占一行)
-        const mobLegend = window.innerWidth < 640;
+        const mobLegend = vpNarrow(640);
         const datasets = [
           {label: '名义净资产', data: data.netWorth, borderColor: '#7a5a39', backgroundColor: 'rgba(122,90,57,.08)', tension: .35, fill: true, pointRadius: 4, pointBackgroundColor: '#7a5a39', borderWidth: 2.5}
         ];
@@ -786,7 +786,7 @@
          抽一个共用工厂:窄屏两个都用横向条形(窄屏环图标签必然重叠),
          PC 保持「>6 类用条形、≤6 类用环图」的规则(空间够时环图的整体感更好)。 */
       function hBarConfig(labels, values, total, titleText, palette) {
-        const nar = window.innerWidth < 640;
+        const nar = vpNarrow(640);
         return {
           type: 'bar',
           data: { labels: labels, datasets: [{ data: values, borderWidth: 0,
@@ -824,7 +824,7 @@
       if (memberDonut && data.memberAllocationValues && data.memberAllocationValues.length) {
         const memberTotal = data.memberAllocationValues.reduce((s, v) => s + Number(v || 0), 0);
         const MEM_PAL = ['#2f5d50', '#a77b35', '#6f7f98', '#8f6048', '#7a4f6b', '#3c4a5a', '#9c8b5a'];
-        const memFlat = window.innerWidth < 640 || data.memberAllocationLabels.length > 6;
+        const memFlat = vpNarrow(640) || data.memberAllocationLabels.length > 6;
         window.financeCharts.memberAllocation = memFlat
           ? new Chart(memberDonut, Object.assign(hBarConfig(data.memberAllocationLabels,
               data.memberAllocationValues, memberTotal, '按成员分布 · ' + data.currency, MEM_PAL),
@@ -869,7 +869,7 @@
         // → 换横向条形:纵向排列不受宽度限制、标签有完整空间、金额与占比都能精确标注(规范 §7.4)。
         // ≤6 类仍用环图 —— 那时环图的「整体感」确实更好。
         /* v1.6.4 · 判定加窄屏:窄屏一律条形,与「按成员分布」保持一致(用户反馈④) */
-        const flatAlloc = window.innerWidth < 640 || donutLabels.length > 6;
+        const flatAlloc = vpNarrow(640) || donutLabels.length > 6;
         const ALLOC_PAL = ['#a77b35','#2f5d50','#6f7f98','#8f6048','#333333','#7a4f6b','#3c4a5a','#9c8b5a','#5f7e7b'];
         window.financeCharts.allocation = flatAlloc
           ? new Chart(donut, Object.assign(hBarConfig(donutLabels, data.allocationValues, total,
@@ -911,7 +911,7 @@
         // v1.6 UED review B1-4 · TopN + 「其他」聚合。
         // 此前把全部账户(实测 21 个)都画进去:长尾账户的条只有几像素,等于没画;
         // 而且图高 648px,移动端占近一屏。现在 Top N 保留形状可比性,尾部合成一条。
-        const TOPN = window.innerWidth < 640 ? 7 : 10;
+        const TOPN = vpNarrow(640) ? 7 : 10;
         let barRows = rows;
         if (rows.length > TOPN + 1) {
           const tail = rows.slice(TOPN);
@@ -941,17 +941,17 @@
             indexAxis: 'y',
             maintainAspectRatio: false,
             // 手机端 left/right padding 大幅缩小(375px 宽 - 80*2 = 只剩 215px 给图表)
-            layout: { padding: { right: window.innerWidth < 640 ? 10 : 80, left: window.innerWidth < 640 ? 10 : 80 } },
+            layout: { padding: { right: vpNarrow(640) ? 10 : 80, left: vpNarrow(640) ? 10 : 80 } },
             plugins: {
               legend: { display: false },
-              title: { display: true, text: window.innerWidth < 640 ? '按账户分布 · ' + data.currency : '按账户分布 · ' + data.currency + '(资产 → 右 / 负债 → 左)', padding: { bottom: 8 }, font: { size: chartFont(window.innerWidth < 640 ? 11 : 13), weight: '500' }, color: '#3a302a' },
+              title: { display: true, text: vpNarrow(640) ? '按账户分布 · ' + data.currency : '按账户分布 · ' + data.currency + '(资产 → 右 / 负债 → 左)', padding: { bottom: 8 }, font: { size: chartFont(vpNarrow(640) ? 11 : 13), weight: '500' }, color: '#3a302a' },
               tooltip: { callbacks: { label: (ctx) => fmtMoney(ctx.parsed.x) } },
               datalabels: {
                 anchor: (ctx) => ctx.dataset.data[ctx.dataIndex] < 0 ? 'start' : 'end',
                 align: (ctx) => ctx.dataset.data[ctx.dataIndex] < 0 ? 'start' : 'end',
-                offset: window.innerWidth < 640 ? 2 : 6,
+                offset: vpNarrow(640) ? 2 : 6,
                 color: '#3a302a',
-                font: { size: chartFont(window.innerWidth < 640 ? 8 : 10), weight: '500' },
+                font: { size: chartFont(vpNarrow(640) ? 8 : 10), weight: '500' },
                 formatter: (v) => v == null || Number(v) === 0 ? '' : fmtMoney(v)
               }
             },
@@ -960,9 +960,9 @@
                 min: -maxAbs * 1.1,
                 max:  maxAbs * 1.1,
                 grid: { color: (ctx) => ctx.tick.value === 0 ? '#3a302a' : 'rgba(58,48,42,.05)', lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1 },
-                ticks: { callback: (v) => fmtMoney(v), font: { size: chartFont(window.innerWidth < 640 ? 8 : 11) } }
+                ticks: { callback: (v) => fmtMoney(v), font: { size: chartFont(vpNarrow(640) ? 8 : 11) } }
               },
-              y: { grid: { display: false }, ticks: { font: { size: chartFont(window.innerWidth < 640 ? 9 : 11) } } }
+              y: { grid: { display: false }, ticks: { font: { size: chartFont(vpNarrow(640) ? 9 : 11) } } }
             }
           },
           plugins: [ChartDataLabels]
@@ -982,13 +982,13 @@
             datasets: [
               {type: 'bar', label: '收入', data: cf.map(p => Number(p.income)), backgroundColor: incomeBg,
                 categoryPercentage: .62, barPercentage: .85,
-                datalabels: {anchor: 'end', align: 'end', color: '#2f5d50', font: {size: chartFont(window.innerWidth < 640 ? 8 : 9)}, formatter: (v) => Number(v) === 0 ? '' : fmtMoney(v)}},
+                datalabels: {anchor: 'end', align: 'end', color: '#2f5d50', font: {size: chartFont(vpNarrow(640) ? 8 : 9)}, formatter: (v) => Number(v) === 0 ? '' : fmtMoney(v)}},
               {type: 'bar', label: '支出', data: cf.map(p => Number(p.expense)), backgroundColor: expenseBg,
                 categoryPercentage: .62, barPercentage: .85,
-                datalabels: {anchor: 'end', align: 'end', color: '#9c4a2a', font: {size: chartFont(window.innerWidth < 640 ? 8 : 9)}, formatter: (v) => Number(v) === 0 ? '' : fmtMoney(v)}},
+                datalabels: {anchor: 'end', align: 'end', color: '#9c4a2a', font: {size: chartFont(vpNarrow(640) ? 8 : 9)}, formatter: (v) => Number(v) === 0 ? '' : fmtMoney(v)}},
               {type: 'line', label: '净流入(人赚)', data: cf.map(p => Number(p.netInflow)), borderColor: '#2b2118',
                 borderWidth: 2.75, tension: .3, pointRadius: 3, pointBackgroundColor: '#2b2118', fill: false,
-                datalabels: {anchor: 'start', align: 'top', color: '#2b2118', font: {size: chartFont(window.innerWidth < 640 ? 8 : 9), weight: '600'}, formatter: (v) => fmtMoney(v)}}
+                datalabels: {anchor: 'start', align: 'top', color: '#2b2118', font: {size: chartFont(vpNarrow(640) ? 8 : 9), weight: '600'}, formatter: (v) => fmtMoney(v)}}
             ]
           },
           options: {
@@ -999,8 +999,8 @@
               tooltip: {callbacks: {label: (ctx) => ctx.dataset.label + ': ' + fmtMoney(ctx.parsed.y)}}
             },
             scales: {
-              y: {grid: {color: 'rgba(58,48,42,.06)'}, ticks: {callback: (v) => fmtMoney(v), font: {size: chartFont(window.innerWidth < 640 ? 9 : 11)}}},
-              x: {grid: {display: false}, ticks: {font: {size: chartFont(window.innerWidth < 640 ? 9 : 11)}}}
+              y: {grid: {color: 'rgba(58,48,42,.06)'}, ticks: {callback: (v) => fmtMoney(v), font: {size: chartFont(vpNarrow(640) ? 9 : 11)}}},
+              x: {grid: {display: false}, ticks: {font: {size: chartFont(vpNarrow(640) ? 9 : 11)}}}
             }
           },
           plugins: [ChartDataLabels]

@@ -230,7 +230,7 @@
        HTMX 换入的行不再收起 —— 那是用户正在操作的行。 -->
   <script>
     document.addEventListener('DOMContentLoaded', function () {
-      if (window.innerWidth >= 768) return;
+      if (!vpNarrow(768)) return;
       document.querySelectorAll('details.entry-fold').forEach(function (d) { d.open = false; });
     });
   </script>

@@ -1,3 +1,7 @@
+/* v1.6.7 · 自有 @media 与 Tailwind 断点同一判据:同时看短边。
+   手机横屏 844×390 → 移动规则若只按 max-width 判定会全部失效(用户看到的「转手机就变样」)。
+   横屏 iframe 也是 844×390,但那是主动要的宽屏视图 → 会真正改变观感的规则用
+   html:not(.is-embedded) 排除掉它(纯字号/内距一类无害的不排除,少改一点)。 */
 /* ============================================================
    家庭账房 · Private Counting House
    一份起居室里的银行家账册
@@ -409,7 +413,7 @@ h1, h2, h3, h4 {
   font-size: calc(13px * var(--fs-scale,1)); letter-spacing: 3px; line-height: 1;
   opacity: .92;
 }
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 479px) {
   .report-seal { font-size: calc(12px * var(--fs-scale,1)); letter-spacing: 2px; padding: 2px 5px 2px 7px; }
 }
 
@@ -417,7 +421,7 @@ h1, h2, h3, h4 {
 /* 布局自管(不依赖 Tailwind lg: · 重页 JIT 不稳)· 窄屏单列+FAB · ≥1024px 双列 */
 .toc-cols-main { min-width: 0; }
 .toc-rail { display: none; }
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (min-height: 480px) {
   .toc-cols { display: flex; gap: 2rem; align-items: flex-start; }
   .toc-cols-main { flex: 1 1 0%; min-width: 0; }
   /* order:-1 把目录栏放到左列(内容在右)· DOM 仍内容优先(阅读/可访问顺序不变)*/
@@ -448,7 +452,7 @@ h1, h2, h3, h4 {
   background:var(--ink); color:var(--paper); border:none; box-shadow:0 3px 12px rgba(0,0,0,.22);
   display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
   transition:opacity .25s ease; }
-@media (min-width: 1024px) { .toc-fab { display: none !important; } }
+@media (min-width: 1024px) and (min-height: 480px) { .toc-fab { display: none !important; } }
 .toc-sheet-mask { position:fixed; inset:0; background:rgba(26,23,20,.4); z-index:70; opacity:0; pointer-events:none; transition:opacity .2s; }
 .toc-sheet-mask.open { opacity:1; pointer-events:auto; }
 .toc-sheet { position:fixed; left:0; right:0; bottom:0; z-index:80; background:var(--card);
@@ -493,7 +497,7 @@ body.toc-open #priv-float, body.toc-open .toc-fab { display: none !important; }
   pointer-events: none; opacity: 0; transition: opacity .2s; border-radius: 0 8px 8px 0;
 }
 .lens-hscroll.more::after { opacity: 1; }
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 479px) {
   .kpi-info-panel {
     /* 手机端:固定到屏幕顶部 · 不跟 button 位置 */
     position: fixed;
@@ -597,7 +601,7 @@ body.toc-open #priv-float, body.toc-open .toc-fab { display: none !important; }
 }
 
 /* 响应处理 */
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 479px) {
   body { font-size: calc(14.5px * var(--fs-scale,1)); }
   /* v0.14.1 UED · 手机 2 列 KPI 卡:24px padding 偏重、挤内容 → 收紧留白节奏,值略降一档更贴合窄卡 */
   .kpi-card { padding: 16px 15px; }
@@ -740,7 +744,7 @@ details:not([open]) > summary .lg-when-open  { display: none; }
 /* 层5:移动端输入框 16px 地板(<16px 聚焦触发 iOS 整页放大)。
    只在 大/特大 档生效 → 标准档输入框完全不动,零回归;
    放大档取 max(16px, 14px×scale) 保证既变大又不触发 zoom。 */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 479px) {
   html[data-fs="lg"] input,  html[data-fs="lg"] select,  html[data-fs="lg"] textarea,
   html[data-fs="xl"] input,  html[data-fs="xl"] select,  html[data-fs="xl"] textarea {
     font-size: max(16px, calc(14px * var(--fs-scale,1))) !important;
@@ -778,7 +782,7 @@ details:not([open]) > summary .lg-when-open  { display: none; }
 button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); color: var(--ink-soft); }
 
 /* PC 上目录 sheet 与遮罩彻底不参与渲染(此前仅靠 transform 移出视口,仍在合成层里) */
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (min-height: 480px) {
   .toc-sheet, .toc-sheet-mask { display: none !important; }
 }
 
@@ -858,7 +862,9 @@ button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); col
 /* 收起态的行动号召:明确写出点开能干什么,而不是一个「改」字 */
 .filter-fold > summary .fold-cta { color: var(--brass-text, #85642F); white-space: nowrap; }
 .filter-fold:not([open]) > summary { border-color: var(--brass); background: var(--card-soft); }
-@media (min-width: 768px) { .filter-fold > summary { display: none; } }
+@media (min-width: 768px) and (min-height: 480px) { .filter-fold > summary { display: none; } }
+/* 横屏 iframe 短边只有 390 但确是宽屏视图 → 把手照旧隐藏 */
+@media (min-width: 768px) { html.is-embedded .filter-fold > summary { display: none; } }
 
 /* review B1-6 · KPI 带:窄屏「英雄数字 + 横滑 chip」。
    主 KPI(第一个)近满宽 + 字号升档,其余横滑 —— 五个同等大小的数字等于没有重点。 */
@@ -867,30 +873,30 @@ button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); col
    改法:保留主次(净资产跨两列 + 大字),但把格子做紧凑(padding / eyebrow / value 全部收一档),
    让 5 个指标在一屏内同时可见。
    !important 必要:Tailwind Play CDN 在 style.css 之后注入,其 .grid-cols-2 同为单类选择器。 */
-@media (max-width: 767px) {
-  .kpi-band { display: grid !important; grid-template-columns: 1fr 1fr !important; }
-  .kpi-band > * { padding: 11px 12px !important; }
-  .kpi-band > * .kpi-eyebrow { margin-bottom: 5px; font-size: calc(9.5px * var(--fs-scale,1)); letter-spacing: .12em; }
-  .kpi-band > * .kpi-value { font-size: calc(19px * var(--fs-scale,1)); line-height: 1.15; }
-  .kpi-band > * .kpi-delta { margin-top: 4px; font-size: calc(10px * var(--fs-scale,1)); }
+@media (max-width: 767px), (max-height: 479px) {
+  html:not(.is-embedded) .kpi-band { display: grid !important; grid-template-columns: 1fr 1fr !important; }
+  html:not(.is-embedded) .kpi-band > * { padding: 11px 12px !important; }
+  html:not(.is-embedded) .kpi-band > * .kpi-eyebrow { margin-bottom: 5px; font-size: calc(9.5px * var(--fs-scale,1)); letter-spacing: .12em; }
+  html:not(.is-embedded) .kpi-band > * .kpi-value { font-size: calc(19px * var(--fs-scale,1)); line-height: 1.15; }
+  html:not(.is-embedded) .kpi-band > * .kpi-delta { margin-top: 4px; font-size: calc(10px * var(--fs-scale,1)); }
   /* 主指标:跨两列 + 字号升档,仍是视觉锚点 */
-  .kpi-band > *:first-child { grid-column: 1 / -1 !important; padding: 13px 14px !important; }
+  html:not(.is-embedded) .kpi-band > *:first-child { grid-column: 1 / -1 !important; padding: 13px 14px !important; }
   /* 其余一律单列 —— 模板里第 5 个 KPI 原本带 col-span-2(那是「5 个平铺、最后一个居中」的老布局),
      现在主指标已占满第一行,第 5 个若还跨列就会让第 4 个旁边空一格。 */
-  .kpi-band > *:not(:first-child) { grid-column: auto !important; }
-  .kpi-band > *:first-child .kpi-value { font-size: calc(30px * var(--fs-scale,1)); }
-  .kpi-band > *:first-child .kpi-delta { font-size: calc(11px * var(--fs-scale,1)); }
+  html:not(.is-embedded) .kpi-band > *:not(:first-child) { grid-column: auto !important; }
+  html:not(.is-embedded) .kpi-band > *:first-child .kpi-value { font-size: calc(30px * var(--fs-scale,1)); }
+  html:not(.is-embedded) .kpi-band > *:first-child .kpi-delta { font-size: calc(11px * var(--fs-scale,1)); }
 }
 
 /* review B3-2 · 类型汇总带:窄屏由多行网格改横滑单行(9 个类型曾占满整个首屏 ~950px) */
-@media (max-width: 767px) {
-  .summary-band {
+@media (max-width: 767px), (max-height: 479px) {
+  html:not(.is-embedded) .summary-band {
     display: flex !important; overflow-x: auto;
     overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
     scroll-snap-type: x proximity; scrollbar-width: none;
   }
-  .summary-band::-webkit-scrollbar { display: none; }
-  .summary-band > * { flex: 0 0 44% !important; scroll-snap-align: start; }
+  html:not(.is-embedded) .summary-band::-webkit-scrollbar { display: none; }
+  html:not(.is-embedded) .summary-band > * { flex: 0 0 44% !important; scroll-snap-align: start; }
 }
 
 /* spec §5 · 尊重系统「减少动态效果」偏好 —— 前庭障碍用户会因动画产生生理不适。
@@ -999,6 +1005,12 @@ html.ls-on #priv-float, html.ls-on .toc-fab, html.ls-on #ori-float { display: no
 .ls-stage.ls-rotate { transform: translate(var(--ls-short), 0) rotate(90deg); }
 
 .ls-frame { display: block; width: 100%; height: 100%; border: 0; background: var(--paper); }
+/* 旋转遮帘:iOS 那段旋转动画抹不掉,但转的是一张纯色纸面就看不出在转。
+   盖上必须**瞬间**(transition:none)—— 否则旋转已经开始、内容还在淡出,那一眼就露了;
+   揭开才淡入(.18s),避免生硬闪现。 */
+.ls-shell.ls-turning { background: var(--paper); }
+.ls-shell.ls-turning .ls-stage > * { opacity: 0; transition: none; }
+.ls-stage > * { transition: opacity .18s linear; }
 
 /* 退出按钮放在舞台内 → 跟着一起转,视觉位置永远正确 */
 .ls-bar { position: absolute; top: 8px; right: 10px; z-index: 2; }
