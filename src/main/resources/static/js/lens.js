@@ -321,7 +321,12 @@
         keep.push({
           name: '其他 ' + small.length + ' 项', value: sumV,
           _mv: kind === 'ratio' ? null : sumMv,                // 比率不能相加,聚合块不给率
-          _val: sumVal, _agg: true, children: [],              // children 必须给 —— 下游多处直接 .forEach
+          _val: sumVal, _agg: true,
+          /* v1.6.4 BUG 修(用户报「一块饼图直接消失」):
+             聚合块此前 children:[] —— 旭日里内环块没有子块,它对应的那段外环就是**白色缺口**,
+             看上去像饼图缺了一块。必须给一个占满父角度的同族子块(更浅一档灰,不抢维值配色)。 */
+          children: [{ name: '其他', value: sumV, _mv: kind === 'ratio' ? null : sumMv, _val: sumVal,
+                       _agg: true, itemStyle: { color: '#dcd6c8' } }],
           itemStyle: { color: '#c9c2b2' }                      // 中性纸灰:聚合块不参与维值配色
         });
         return keep;

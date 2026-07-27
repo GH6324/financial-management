@@ -12,8 +12,17 @@
   <title th:text="${title} ?: '家庭账房'">家庭账房</title>
   <!-- v0.11 隐私模式 · FOUC 防闪(决策 129):DOM 构建前据 sessionStorage 设 html.privacy,避免明文闪现 -->
   <script>try{if(sessionStorage.getItem('privacy')==='1')document.documentElement.classList.add('privacy');}catch(e){}</script>
-  <!-- v1.6.2 横屏态 · FOUC 防闪:DOM 构建前恢复,避免竖屏闪一下再转 -->
-  <script>try{if(sessionStorage.getItem('landscapeGlobal')==='1'&&window.innerWidth<=window.innerHeight)document.documentElement.classList.add('force-landscape');}catch(e){}</script>
+  <!-- v1.6.4 方向锁定 · FOUC 防闪:DOM 构建前定好方向,避免先按设备方向渲染再被转过去。
+       与 landscape.js 的 apply() 同一套判断(触屏 + 小屏才锁;PC 恒「横屏」必须排除)。 -->
+  <script>try{
+    var _oc=window.matchMedia&&window.matchMedia('(pointer: coarse)').matches;
+    var _os=Math.max(window.innerWidth,window.innerHeight)<1200;
+    if(_oc&&_os){
+      var _ow=sessionStorage.getItem('oriLock')==='landscape';
+      var _od=window.innerWidth>window.innerHeight;
+      if(_ow!==_od){var _c=document.documentElement.classList;_c.add('ori-lock');_c.add(_ow?'ori-rot90':'ori-rotm90');}
+    }
+  }catch(e){}</script>
   <!-- v1.2.2 字号档位 · FOUC 防闪(issue #7):DOM 构建前据 localStorage 设 html[data-fs],避免大字号闪一下再缩 -->
   <script>try{var _fs=localStorage.getItem('fontScale');if(_fs==='lg'||_fs==='xl')document.documentElement.setAttribute('data-fs',_fs);}catch(e){}</script>
   <!-- v0.2 FR-1/FR-34 · favicon 优先用户自定义 WebP,否则用预设(默认 icon2);apple-touch-icon 永远跟 family.logoPreset(WebP 不适合 iOS)
@@ -419,6 +428,12 @@
     <svg class="priv-eye-on" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
     <svg class="priv-eye-off" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
     <span class="priv-float-label">金额已隐藏 · 长按可看 · 点我恢复</span>
+  </button>
+  <!-- v1.6.4 用户反馈② · 方向切换做成右下浮钮,与隐私眼 / 目录钮同一列(顶级常驻控件)。
+       方向只由这个钮决定 —— 转动手机不会改变页面方向(见 static/js/landscape.js)。 -->
+  <button id="ori-float" type="button" data-orientation-toggle aria-pressed="false"
+          aria-label="切换横屏 / 竖屏" title="整页横屏查看(适合宽表格)· 转动手机不会改变方向">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M18 9l4-2v10l-4-2"/></svg>
   </button>
   <!-- 全局 Toast 容器(HX-Trigger=showToast 触发) — 居中顶部,z-index 高于 nav 与 progress -->
   <div id="toast-stack"

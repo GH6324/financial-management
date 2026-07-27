@@ -4162,22 +4162,17 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && log_ok "v16-UED-AFFORD(去掉假拖拽 ☰ + 行内操作收纳 ⋯ + 目标页主操作唯一 + 主理人列不竖排)" \
   || log_bad "v16-UED-AFFORD 缺件" "see accounts/index.html 去 ☰ / row-more 下拉 / goals 空状态隐藏重复主按钮"
 
-# v161-LANDSCAPE · 自建横屏查看 + 折叠可发现性 + KPI 一屏可见(v1.6.1 用户反馈①②③⑤)
-{ [ -f "$RD/src/main/resources/static/js/landscape.js" ] \
-  && grep -q "rot-rotate" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q "orientationchange" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q "100dvh" "$RD/src/main/resources/static/css/style.css" \
-  && grep -q "rot-inner.rot-rotate" "$RD/src/main/resources/static/css/style.css" \
-  && grep -q "rot-hint" "$RD/src/main/resources/static/css/style.css" \
-  && grep -q 'data-landscape="#pivot"' "$RD/src/main/resources/templates/lens/_section.html" \
-  && grep -q "landscape.js" "$RD/src/main/resources/templates/lens/_section.html" \
-  && grep -q "fold-cta" "$RD/src/main/resources/static/css/style.css" \
+# v161-UI3 · v1.6.1 的三条 UI 反馈(横屏部分已由 v164-ORIENTATION 接管)
+#   ①「本期一句话」15px→13px(用户:像老年机)②折叠条 CTA + 箭头收起 ›/展开 ⌄
+#   ③KPI 退回主次网格(横滑等于把核心指标藏到屏幕外,与「一目了然」相悖)
+{ grep -q "fold-cta" "$RD/src/main/resources/static/css/style.css" \
   && grep -q "点开筛选账户" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q "rotate(-90deg)" "$RD/src/main/resources/static/css/style.css" \
   && grep -q 'grid-column: auto !important' "$RD/src/main/resources/static/css/style.css" \
-  && grep -q 'text-\[13px\] leading-relaxed text-ink' "$RD/src/main/resources/templates/dashboard/_region.html"; } \
-  && log_ok "v161-LANDSCAPE(自建横屏 rotate+转屏自动扶正 · 折叠 CTA+›箭头 · KPI 主次网格一屏 · 一句话 13px)" \
-  || log_bad "v161-LANDSCAPE 缺件" "see landscape.js(rot-rotate/orientationchange)· style.css(rot-inner.rot-rotate/rot-hint/fold-cta/rotate(-90deg)/grid-column auto)· lens data-landscape · dashboard 点开筛选账户 + 13px"
+  && grep -qF 'text-[13px] leading-relaxed text-ink' "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q 'grid-template-columns: 1fr 1fr !important' "$RD/src/main/resources/static/css/style.css"; } \
+  && log_ok "v161-UI3(一句话 13px · 折叠 CTA + ›/⌄ 箭头 · KPI 主次网格一屏可见)" \
+  || log_bad "v161-UI3 缺件" "see style.css fold-cta/rotate(-90deg)/grid-column auto/grid-template-columns · dashboard 点开筛选账户 + 13px"
 
 # v163-SUNBURST-AGG · 旭日「大量空块」根治:小块聚合 + 三处共用阈值 + 崩溃兜底
 #   演进史(三次才对):
@@ -4189,7 +4184,7 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
 { grep -q "function aggSmall" "$RD/src/main/resources/static/js/lens.js" \
   && grep -q "AGG_MIN_DEG = isNarrow() ? 18 : 4" "$RD/src/main/resources/static/js/lens.js" \
   && grep -q "其他 ' + small.length + ' 项" "$RD/src/main/resources/static/js/lens.js" \
-  && grep -q "_agg: true, children: \[\]" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -qF "children: [{ name: '其他'" "$RD/src/main/resources/static/js/lens.js" \
   && grep -q "function isNarrow()" "$RD/src/main/resources/static/js/lens.js" \
   && ! grep -q "= el.clientWidth < 480" "$RD/src/main/resources/static/js/lens.js" \
   && grep -q "(n.children || \[\]).forEach" "$RD/src/main/resources/static/js/lens.js" \
@@ -4200,19 +4195,37 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && log_ok "v163-SUNBURST-AGG(小块聚合 Top N + 其他 · isNarrow 不用 clientWidth · 聚合块带 children · 聚合块禁下钻 · 渲染失败不静默)" \
   || log_bad "v163-SUNBURST-AGG 缺件" "see lens.js aggSmall/AGG_MIN_DEG/isNarrow/_agg children/(n.children||[])/console.error('lens 渲染失败')"
 
-# v162-LANDSCAPE-GLOBAL · 全局横屏为顶级功能 + 与系统横屏和平共处(v1.6.2 用户反馈②③)
-{ grep -q "force-landscape" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q "toggleGlobalLandscape" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q "isPhysicalLandscape" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q "data-landscape-global" "$RD/src/main/resources/templates/fragments/nav.html" \
-  && [ "$(grep -c 'data-landscape-global' "$RD/src/main/resources/templates/fragments/nav.html")" -ge 2 ] \
-  && grep -q "html.force-landscape body" "$RD/src/main/resources/static/css/style.css" \
-  && grep -q "min-height: 0 !important" "$RD/src/main/resources/static/css/style.css" \
-  && grep -q "landscapeGlobal" "$RD/src/main/resources/templates/fragments/layout.html" \
-  && grep -q "js/landscape.js" "$RD/src/main/resources/templates/fragments/layout.html" \
-  && grep -q '"orientation", "portrait"' "$RD/src/main/java/com/family/finance/web/ManifestController.java"; } \
-  && log_ok "v162-LANDSCAPE-GLOBAL(nav 顶级入口双处 + 转 body 整页横屏 + 清 min-h-screen + FOUC 恢复 + 物理横屏自动让位)" \
-  || log_bad "v162-LANDSCAPE-GLOBAL 缺件" "see landscape.js(toggleGlobalLandscape/isPhysicalLandscape)· nav 两处入口 · style.css html.force-landscape body + min-height:0 · layout FOUC + 全站引入"
+# v164-ORIENTATION · 屏幕方向锁定(用户反馈②③:浮钮入口 + 不响应手机自身横竖屏)
+#   实现要点(每条都踩过坑):
+#     ① 双向:设备竖屏+要横屏 → ori-rot90;设备横屏+要竖屏 → ori-rotm90(反向转回 = 屏蔽系统横屏)
+#     ② lockable() 尺寸必须用 screen 而非 innerWidth —— body 旋转后浏览器会重算 layout viewport
+#        (实测 390×844 → 807×1745),用 inner* 会让判断在两次 resize 间翻转 → 自激振荡
+#     ③ 幂等:结论不变就不动 DOM;且 apply 内不再主动派发 resize(那是振荡源头),改点名调 chart.resize
+#     ④ PC 必须排除(桌面恒「横屏」,否则被永久反转 90°)
+{ grep -q "ori-rotm90" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "window.screen.width" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "if (target === cur)" "$RD/src/main/resources/static/js/landscape.js" \
+  && ! grep -q "dispatchEvent(new Event('resize'))" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "pointer: coarse" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "toggleOrientation" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q 'id="ori-float"' "$RD/src/main/resources/templates/fragments/layout.html" \
+  && grep -q "data-orientation-toggle" "$RD/src/main/resources/templates/fragments/layout.html" \
+  && ! grep -q "data-landscape-global" "$RD/src/main/resources/templates/fragments/nav.html" \
+  && grep -q "html.ori-rotm90 body" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "oriLock" "$RD/src/main/resources/templates/fragments/layout.html"; } \
+  && log_ok "v164-ORIENTATION(方向浮钮右下 + 双向锁定屏蔽系统横竖屏 + screen 尺寸判定 + 幂等防振荡 + PC 排除)" \
+  || log_bad "v164-ORIENTATION 缺件" "see landscape.js(ori-rotm90/screen.width/幂等/无自派发 resize)· layout #ori-float + FOUC oriLock · nav 已移除旧钮 · style.css ori-rotm90"
+
+# v164-CHART-PARITY · dashboard 两图窄屏形态一致(用户反馈④)
+#   「资产配置」与「按成员分布」此前一个环一个条,手机上并列看着不是一套东西。
+#   抽 hBarConfig 共用工厂,窄屏一律横向条形(窄屏环图标签必然重叠)。
+{ grep -q "function hBarConfig" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "const memFlat = window.innerWidth < 640" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "const flatAlloc = window.innerWidth < 640" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "hBarConfig(data.memberAllocationLabels" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "hBarConfig(donutLabels" "$RD/src/main/resources/templates/dashboard/_region.html"; } \
+  && log_ok "v164-CHART-PARITY(资产配置与按成员分布共用 hBarConfig · 窄屏同为横向条形)" \
+  || log_bad "v164-CHART-PARITY 缺件" "see dashboard/_region.html hBarConfig 工厂 + memFlat/flatAlloc 均含窄屏判定"
 
 echo
 echo "═══════════════════════════════════════"

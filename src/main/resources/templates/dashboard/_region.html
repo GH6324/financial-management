@@ -782,11 +782,54 @@
 
       // v0.4 FR-60a 砍 incomeExpenseChart · 储蓄区已有更专业版
 
+      /* v1.6.4 用户反馈④ · 「资产配置」与「按成员分布」在手机上一个是环、一个是条,样式不一致。
+         抽一个共用工厂:窄屏两个都用横向条形(窄屏环图标签必然重叠),
+         PC 保持「>6 类用条形、≤6 类用环图」的规则(空间够时环图的整体感更好)。 */
+      function hBarConfig(labels, values, total, titleText, palette) {
+        const nar = window.innerWidth < 640;
+        return {
+          type: 'bar',
+          data: { labels: labels, datasets: [{ data: values, borderWidth: 0,
+                  backgroundColor: labels.map((_, i) => palette[i % palette.length]),
+                  barThickness: nar ? 16 : 20 }] },
+          options: {
+            indexAxis: 'y', maintainAspectRatio: false,
+            layout: { padding: { right: nar ? 52 : 68, left: 2, top: 2, bottom: 2 } },
+            plugins: {
+              title: { display: true, text: titleText, padding: { bottom: 8 },
+                       font: { size: chartFont(nar ? 11 : 13), weight: '500' }, color: '#3a302a' },
+              legend: { display: false },
+              tooltip: { callbacks: { label: (ctx) => fmtMoney(ctx.parsed.x) + ' · '
+                          + (total > 0 ? (ctx.parsed.x * 100 / total).toFixed(1) + '%' : '') } },
+              datalabels: {
+                anchor: 'end', align: 'end', offset: 4, clamp: true,
+                color: '#3a302a', font: { size: chartFont(nar ? 9 : 10), weight: '600' },
+                formatter: (v) => {
+                  if (!v || total === 0) return '';
+                  return (window.isPrivacy && window.isPrivacy() ? '' : fmtMoney(v) + ' · ')
+                       + (v * 100 / total).toFixed(1) + '%';
+                }
+              }
+            },
+            scales: {
+              x: { grid: { color: 'rgba(58,48,42,.06)' }, ticks: { callback: (v) => fmtMoney(v), font: { size: chartFont(9) } } },
+              y: { grid: { display: false }, ticks: { font: { size: chartFont(nar ? 10 : 11) } } }
+            }
+          },
+          plugins: [ChartDataLabels]
+        };
+      }
+
       // v0.2.1(2026-05-11)· 按成员维度饼图(成员A / 成员B / 共同 · LOAN 不计)
       const memberDonut = document.getElementById('memberAllocationChart');
       if (memberDonut && data.memberAllocationValues && data.memberAllocationValues.length) {
         const memberTotal = data.memberAllocationValues.reduce((s, v) => s + Number(v || 0), 0);
-        window.financeCharts.memberAllocation = new Chart(memberDonut, {
+        const MEM_PAL = ['#2f5d50', '#a77b35', '#6f7f98', '#8f6048', '#7a4f6b', '#3c4a5a', '#9c8b5a'];
+        const memFlat = window.innerWidth < 640 || data.memberAllocationLabels.length > 6;
+        window.financeCharts.memberAllocation = memFlat
+          ? new Chart(memberDonut, hBarConfig(data.memberAllocationLabels, data.memberAllocationValues,
+              memberTotal, '按成员分布 · ' + data.currency, MEM_PAL))
+          : new Chart(memberDonut, {
           type: 'doughnut',
           data: { labels: data.memberAllocationLabels,
                   datasets: [{ data: data.memberAllocationValues,
@@ -825,42 +868,14 @@
         // 引导线在窄侧堆成平行线,PC 上就已经糊。人眼也无法比较相近扇形角度。
         // → 换横向条形:纵向排列不受宽度限制、标签有完整空间、金额与占比都能精确标注(规范 §7.4)。
         // ≤6 类仍用环图 —— 那时环图的「整体感」确实更好。
-        const flatAlloc = donutLabels.length > 6;
+        /* v1.6.4 · 判定加窄屏:窄屏一律条形,与「按成员分布」保持一致(用户反馈④) */
+        const flatAlloc = window.innerWidth < 640 || donutLabels.length > 6;
         const ALLOC_PAL = ['#a77b35','#2f5d50','#6f7f98','#8f6048','#333333','#7a4f6b','#3c4a5a','#9c8b5a','#5f7e7b'];
-        window.financeCharts.allocation = flatAlloc ? new Chart(donut, {
-          type: 'bar',
-          data: {
-            labels: donutLabels,
-            datasets: [{
-              data: data.allocationValues,
-              backgroundColor: donutLabels.map((_, i) => ALLOC_PAL[i % ALLOC_PAL.length]),
-              borderWidth: 0, barThickness: window.innerWidth < 640 ? 16 : 20
-            }]
-          },
-          options: {
-            indexAxis: 'y',
-            maintainAspectRatio: false,
-            layout: {padding: {right: window.innerWidth < 640 ? 52 : 68, left: 2, top: 2, bottom: 2}},
-            plugins: {
-              title: {display: true, text: '资产配置 · ' + data.currency, padding: {bottom: 8}, font: {size: chartFont(window.innerWidth < 640 ? 11 : 13), weight: '500'}, color: '#3a302a'},
-              legend: {display: false},
-              tooltip: {callbacks: {label: (ctx) => fmtMoney(ctx.parsed.x) + ' · ' + (total > 0 ? (ctx.parsed.x * 100 / total).toFixed(1) + '%' : '')}},
-              datalabels: {
-                anchor: 'end', align: 'end', offset: 4, clamp: true,
-                color: '#3a302a', font: {size: chartFont(window.innerWidth < 640 ? 9 : 10), weight: '600'},
-                formatter: (v) => {
-                  if (!v || total === 0) return '';
-                  return (window.isPrivacy && window.isPrivacy() ? '' : fmtMoney(v) + ' · ') + (v * 100 / total).toFixed(1) + '%';
-                }
-              }
-            },
-            scales: {
-              x: {grid: {color: 'rgba(58,48,42,.06)'}, ticks: {callback: (v) => fmtMoney(v), font: {size: chartFont(9)}}},
-              y: {grid: {display: false}, ticks: {font: {size: chartFont(window.innerWidth < 640 ? 10 : 11)}}}
-            }
-          },
-          plugins: [ChartDataLabels]
-        }) : new Chart(donut, {
+        window.financeCharts.allocation = flatAlloc
+          ? new Chart(donut, hBarConfig(donutLabels, data.allocationValues, total,
+              '资产配置 · ' + data.currency, ALLOC_PAL))
+          : new Chart(donut, {
+
           type: 'doughnut',
           data: {labels: donutLabels, datasets: [{data: data.allocationValues, backgroundColor: ['#a77b35','#2f5d50','#6f7f98','#8f6048','#333333','#7a4f6b','#3c4a5a','#9c8b5a']}]},
           options: {

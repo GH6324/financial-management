@@ -984,24 +984,43 @@ html.rot-on #pivotHint { display: none !important; }   /* 已经在横屏了,不
 .landscape-btn { display: none; }
 @media (max-width: 767px) { .landscape-btn { display: inline-flex; } }
 
-/* ── v1.6.2 · 全局横屏(整页)· 用户反馈②:横屏该是顶级功能,不只是交叉表的局部能力 ──
-   转 <body>:nav / 浮钮 / 全部内容一起转。body 成为 transform 容器后,
-   里面的 position:fixed 元素(nav 墨条 / 隐私浮钮 / 目录 FAB)会相对 body 定位 —— 正好跟着一起转。 */
-html.force-landscape { overflow: hidden; height: 100%; }
-html.force-landscape body {
+/* ── v1.6.4 · 屏幕方向锁定(整页 · 双向)· 用户反馈②③ ──
+   方向只由右下浮钮决定,不响应手机自身横竖屏:
+     设备方向 == 期望 → 不加任何 class(零开销、零回归)
+     设备竖屏 + 要横屏 → .ori-rot90   顺时针 90°
+     设备横屏 + 要竖屏 → .ori-rotm90  逆时针 90°(把内容转回竖直 = 屏蔽系统横屏)
+   转 <body>:body 成为 transform 容器后,其内 position:fixed 元素(nav 墨条 / 三个浮钮)
+   改为相对 body 定位,正好跟着一起转。 */
+html.ori-lock { overflow: hidden; height: 100%; }
+html.ori-lock body {
   position: fixed; top: 0; left: 0;
-  /* body 带 Tailwind 的 min-h-screen(min-height:100vh),横屏下会把高度撑回竖屏高度 → 必须清掉 */
+  /* body 带 Tailwind min-h-screen(min-height:100vh),旋转后会把高度撑回未旋转前的视口高 */
   min-height: 0 !important;
   width: 100dvh; height: 100vw;
-  transform: translate(100vw, 0) rotate(90deg);
-  transform-origin: 0 0;
   overflow-x: hidden; overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  background: var(--paper);
 }
-@supports not (height: 100dvh) { html.force-landscape body { width: 100vh; } }
-/* 已经整页横屏了,局部的「横屏看」入口没意义 */
-html.force-landscape .landscape-btn { display: none !important; }
-/* 全局横屏按钮:仅窄屏出现(PC 本来就宽)· 激活态用墨底反白,与隐私眼的激活态语言一致 */
-.ls-global-btn { cursor: pointer; }
-.ls-global-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+@supports not (height: 100dvh) { html.ori-lock body { width: 100vh; } }
+html.ori-rot90  body { transform: translate(100vw, 0) rotate(90deg);   transform-origin: 0 0; }
+html.ori-rotm90 body { transform: translate(0, 100dvh) rotate(-90deg); transform-origin: 0 0; }
+@supports not (height: 100dvh) { html.ori-rotm90 body { transform: translate(0, 100vh) rotate(-90deg); } }
+
+/* 方向浮钮:与隐私眼 / 目录钮同一列(右下),激活态墨底反白 */
+#ori-float {
+  position: fixed; right: 14px;
+  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 96px);
+  z-index: 56;
+  display: none;                     /* 仅触屏小屏出现,见下 */
+  align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--card); color: var(--ink-soft);
+  border: 1px solid var(--rule); box-shadow: 0 3px 12px rgba(0,0,0,.16);
+  cursor: pointer; opacity: .62;
+  transition: opacity .25s ease, border-color .18s ease;
+}
+@media (max-width: 767px) and (pointer: coarse) { #ori-float { display: inline-flex; } }
+#ori-float:hover, #ori-float:active, #ori-float:focus-visible { opacity: 1; border-color: var(--ink-soft); }
+#ori-float[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); opacity: 1; }
+body.is-scrolling #ori-float { opacity: .22; }
