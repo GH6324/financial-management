@@ -4127,8 +4127,9 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && grep -q "summary-band" "$RD/src/main/resources/templates/accounts/index.html" \
   && grep -q "flatAlloc" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q "barRows" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q 'display: grid !important' "$RD/src/main/resources/static/css/style.css" \
   && grep -q 'display: flex !important' "$RD/src/main/resources/static/css/style.css"; } \
-  && log_ok "v16-UED-MOBILE(口径折叠+一句话结论+填报行折叠+KPI横滑+汇总带横滑+环图转条形+双向柱TopN)" \
+  && log_ok "v16-UED-MOBILE(口径折叠+一句话结论+填报行折叠+KPI主次网格+汇总带横滑+环图转条形+双向柱TopN)" \
   || log_bad "v16-UED-MOBILE 缺件" "see filter-fold/entry-fold/kpi-band/summary-band + flatAlloc/barRows + Tailwind 覆盖需 !important"
 
 # v16-UED-IOS · iOS 硬约束(review A9)
@@ -4160,6 +4161,23 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && grep -q "nowrap" "$RD/src/main/resources/templates/accounts/index.html"; } \
   && log_ok "v16-UED-AFFORD(去掉假拖拽 ☰ + 行内操作收纳 ⋯ + 目标页主操作唯一 + 主理人列不竖排)" \
   || log_bad "v16-UED-AFFORD 缺件" "see accounts/index.html 去 ☰ / row-more 下拉 / goals 空状态隐藏重复主按钮"
+
+# v161-LANDSCAPE · 自建横屏查看 + 折叠可发现性 + KPI 一屏可见(v1.6.1 用户反馈①②③⑤)
+{ [ -f "$RD/src/main/resources/static/js/landscape.js" ] \
+  && grep -q "rot-rotate" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "orientationchange" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "100dvh" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "rot-inner.rot-rotate" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "rot-hint" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q 'data-landscape="#pivot"' "$RD/src/main/resources/templates/lens/_section.html" \
+  && grep -q "landscape.js" "$RD/src/main/resources/templates/lens/_section.html" \
+  && grep -q "fold-cta" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "点开筛选账户" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "rotate(-90deg)" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q 'grid-column: auto !important' "$RD/src/main/resources/static/css/style.css" \
+  && grep -q 'text-\[13px\] leading-relaxed text-ink' "$RD/src/main/resources/templates/dashboard/_region.html"; } \
+  && log_ok "v161-LANDSCAPE(自建横屏 rotate+转屏自动扶正 · 折叠 CTA+›箭头 · KPI 主次网格一屏 · 一句话 13px)" \
+  || log_bad "v161-LANDSCAPE 缺件" "see landscape.js(rot-rotate/orientationchange)· style.css(rot-inner.rot-rotate/rot-hint/fold-cta/rotate(-90deg)/grid-column auto)· lens data-landscape · dashboard 点开筛选账户 + 13px"
 
 echo
 echo "═══════════════════════════════════════"

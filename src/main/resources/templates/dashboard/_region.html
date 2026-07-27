@@ -80,10 +80,9 @@
          PC 上 summary 隐藏且默认展开 → 零回归。收起状态由页尾脚本按断点设置。 -->
     <details class="filter-fold" open>
       <summary>
-        <svg class="fold-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-        <span>口径</span>
+        <svg class="fold-chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
         <span class="text-ink" th:text="${selectedAccountCount} + ' 个账户 · ' + ${currency} + ' · ' + ${range}">18 个账户 · CNY · 1Y</span>
-        <span class="fold-when-closed ml-auto text-ink-subtle">改</span>
+        <span class="fold-when-closed ml-auto fold-cta">点开筛选账户 / 币种</span>
         <span class="fold-when-open ml-auto text-ink-subtle">收起</span>
       </summary>
     <div class="paper-card px-5 py-3 flex items-center justify-between flex-wrap gap-4">
@@ -146,7 +145,8 @@
        这个问题该由文字直接回答,不该让他看柱子高低自己推断。PC 上同信息已在标题下的副标题里。 -->
   <div class="md:hidden mb-5 paper-card px-4 py-3" style="border-left:4px solid var(--brass-deep)">
     <div class="eyebrow mb-1.5">本 · 期 · 一 · 句 · 话</div>
-    <p class="text-[15px] leading-relaxed text-ink">
+    <!-- v1.6.1 · 用户反馈:15px 显得像老年机 → 降到 13px(仍高于 12px 中文红线),金额靠 mono+粗体承担强调 -->
+    <p class="text-[13px] leading-relaxed text-ink">
       净资产 <b class="font-mono tnum" data-priv th:text="${kpiNetWorth}">¥0</b>,较上期
       <span class="font-mono tnum"
             th:classappend="${kpiDelta != null and #strings.startsWith(kpiDelta, '-') ? 'num-neg' : 'num-pos'}"

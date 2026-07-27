@@ -849,26 +849,37 @@ button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); col
 }
 .filter-fold > summary::-webkit-details-marker { display: none; }
 .filter-fold > summary::marker { content: ''; }
-.filter-fold > summary .fold-chev { transition: transform .18s ease; flex-shrink: 0; }
-.filter-fold[open] > summary .fold-chev { transform: rotate(180deg); }
+/* v1.6.1 用户反馈②·箭头方向要符合直觉:收起 = ›(向右,「点开」)· 展开 = ⌄(向下)。
+   此前是 ⌄ / ⌃,收起态看不出「这里能点开」。 */
+.filter-fold > summary .fold-chev { transition: transform .18s ease; flex-shrink: 0; transform: rotate(-90deg); }
+.filter-fold[open] > summary .fold-chev { transform: rotate(0deg); }
 .filter-fold[open] > summary .fold-when-closed { display: none; }
 .filter-fold:not([open]) > summary .fold-when-open { display: none; }
+/* 收起态的行动号召:明确写出点开能干什么,而不是一个「改」字 */
+.filter-fold > summary .fold-cta { color: var(--brass-text, #85642F); white-space: nowrap; }
+.filter-fold:not([open]) > summary { border-color: var(--brass); background: var(--card-soft); }
 @media (min-width: 768px) { .filter-fold > summary { display: none; } }
 
 /* review B1-6 · KPI 带:窄屏「英雄数字 + 横滑 chip」。
    主 KPI(第一个)近满宽 + 字号升档,其余横滑 —— 五个同等大小的数字等于没有重点。 */
-/* !important 必要:Tailwind Play CDN 在 style.css 之后注入,其 .grid{display:grid} 同为单类选择器
-   会盖掉这里的 display:flex(仓库既有手法,见文件末 text-[Npx] 档位)。 */
+/* v1.6.1 用户反馈③ · 横滑方案退回网格。
+   核心指标的要求是「一目了然」—— 横滑意味着有指标藏在屏幕外,得划一下才知道,这与目的相悖。
+   改法:保留主次(净资产跨两列 + 大字),但把格子做紧凑(padding / eyebrow / value 全部收一档),
+   让 5 个指标在一屏内同时可见。
+   !important 必要:Tailwind Play CDN 在 style.css 之后注入,其 .grid-cols-2 同为单类选择器。 */
 @media (max-width: 767px) {
-  .kpi-band {
-    display: flex !important; overflow-x: auto;
-    overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory; scrollbar-width: none;
-  }
-  .kpi-band::-webkit-scrollbar { display: none; }
-  .kpi-band > * { flex: 0 0 62%; scroll-snap-align: start; }
-  .kpi-band > *:first-child { flex: 0 0 88%; }   /* 露出右侧一角 → 暗示还有更多 */
-  .kpi-band > *:first-child .kpi-value { font-size: calc(31px * var(--fs-scale,1)); }
+  .kpi-band { display: grid !important; grid-template-columns: 1fr 1fr !important; }
+  .kpi-band > * { padding: 11px 12px !important; }
+  .kpi-band > * .kpi-eyebrow { margin-bottom: 5px; font-size: calc(9.5px * var(--fs-scale,1)); letter-spacing: .12em; }
+  .kpi-band > * .kpi-value { font-size: calc(19px * var(--fs-scale,1)); line-height: 1.15; }
+  .kpi-band > * .kpi-delta { margin-top: 4px; font-size: calc(10px * var(--fs-scale,1)); }
+  /* 主指标:跨两列 + 字号升档,仍是视觉锚点 */
+  .kpi-band > *:first-child { grid-column: 1 / -1 !important; padding: 13px 14px !important; }
+  /* 其余一律单列 —— 模板里第 5 个 KPI 原本带 col-span-2(那是「5 个平铺、最后一个居中」的老布局),
+     现在主指标已占满第一行,第 5 个若还跨列就会让第 4 个旁边空一格。 */
+  .kpi-band > *:not(:first-child) { grid-column: auto !important; }
+  .kpi-band > *:first-child .kpi-value { font-size: calc(30px * var(--fs-scale,1)); }
+  .kpi-band > *:first-child .kpi-delta { font-size: calc(11px * var(--fs-scale,1)); }
 }
 
 /* review B3-2 · 类型汇总带:窄屏由多行网格改横滑单行(9 个类型曾占满整个首屏 ~950px) */
@@ -909,3 +920,66 @@ button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); col
   font-family: "Noto Serif SC", "Segoe UI Symbol", "Apple Symbols", sans-serif;
   letter-spacing: .04em;
 }
+
+/* ============================================================
+   v1.6.1 · 自建横屏查看(用户反馈⑤:iOS 拿不到 orientation.lock,
+   就照游戏/漫画类 PWA 的做法,自己用 CSS transform 转 90°)
+   ============================================================ */
+html.rot-on, html.rot-on body { overflow: hidden !important; }
+html.rot-on #priv-float, html.rot-on .toc-fab { display: none !important; }
+html.rot-on #pivotHint { display: none !important; }   /* 已经在横屏了,不必再提示「横屏更清晰」 */
+
+.rot-shell { position: fixed; inset: 0; z-index: 9000; background: var(--paper); }
+.rot-inner {
+  position: absolute; top: 0; left: 0;
+  width: 100vw; height: 100dvh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: var(--paper);
+  padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
+}
+/* 只有「设备还竖着」时才由我们代转 90°(宽高互换 + 绕左上角旋转,正好铺满屏幕)。
+   用户真把手机转横之后,浏览器自己已经是横屏 —— 这时 landscape.js 会摘掉 .rot-rotate,
+   否则会被转回竖的。用 dvh 而非 vh:iOS 地址栏收放会改变 vh。 */
+.rot-inner.rot-rotate {
+  width: 100dvh; height: 100vw;
+  transform: translate(100vw, 0) rotate(90deg);
+  transform-origin: 0 0;
+}
+@supports not (height: 100dvh) {
+  .rot-inner { height: 100vh; }
+  .rot-inner.rot-rotate { width: 100vh; }
+}
+.rot-hint {
+  display: inline-flex; align-items: center; gap: 7px;
+  margin-bottom: 9px; padding: 6px 11px;
+  background: var(--brass-soft); border-left: 3px solid var(--brass-deep);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: calc(11px * var(--fs-scale,1)); color: var(--ink-soft); line-height: 1.5;
+}
+
+.rot-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--rule);
+}
+.rot-title {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: calc(11px * var(--fs-scale,1)); letter-spacing: .1em;
+  color: var(--ink-soft);
+}
+.rot-exit {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 36px; padding: 0 14px; cursor: pointer;
+  background: var(--ink); color: var(--paper); border: none;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: calc(11px * var(--fs-scale,1)); letter-spacing: .1em;
+}
+.rot-exit:active { transform: translateY(1px); }
+/* 横屏里表格可以铺满,不再需要首列 sticky 的挤压感,但保留固定列仍有用 */
+.rot-inner .lens-pivot table { width: auto; min-width: 100%; }
+
+/* 触发按钮(仅窄屏出现:桌面本来就宽) */
+.landscape-btn { display: none; }
+@media (max-width: 767px) { .landscape-btn { display: inline-flex; } }
