@@ -1,31 +1,46 @@
-/* 家庭账房 · 横屏查看(v1.6.5 · 回到「局部旋转」)
+/* 家庭账房 · 整页横屏(v1.6.6 · iframe 隔离方案)
  *
- * ══ 为什么放弃「整页旋转」 ══════════════════════════════════════
- * v1.6.2–v1.6.4 试过转 <body> 做整页横屏,真机暴露三个问题(用户反馈):
- *   ① 横屏后顶部菜单会莫名展开   ② 三个浮钮消失/不稳定   ③ 转手机时页面大幅重排
- * 根因是同一个,而且是结构性的:
- *   **CSS 媒体查询只认 viewport,不认我们的 transform。**
- *   设备横屏时 viewport = 844px,于是
- *     · 我为 v1.6 加的 7 处 max-width:767/640 移动端样式全部失效
- *       (KPI 带回网格、汇总带回网格、折叠条 summary 显形、浮钮 display:none ← 问题②)
- *     · 模板里 347 处 Tailwind sm:/md: 前缀全部切到宽屏分支 → 布局跳成 PC 版 ← 问题③
- *   而 Tailwind 那 347 处是媒体查询编译出来的,**无法用 class 覆盖**。
- *   要让「旋转后仍按窄屏渲染」,只能把全站响应式改成 container query 或塞进 iframe —— 都不现实。
+ * ══ 为什么用 iframe(前四版都失败在同一处)══════════════════════
+ * v1.6.2–v1.6.4 试过直接 transform <body>,真机三个副作用(菜单展开 / 浮钮消失 / 转手机大幅重排),
+ * 根因是结构性的:**CSS 媒体查询只认 viewport,不认 transform**。
+ * 设备横屏时 viewport = 844px,于是模板里 453 处 Tailwind sm:/md: 与 13 处自有 @media
+ * 全部切到宽屏分支;而 Tailwind 那 453 处是媒体查询编译产物,无法用 class 覆盖。
  *
- * ══ 现在的做法 ══════════════════════════════════════════════
- * 只旋转**具体的宽内容元素**(交叉透视表这类),不动 body:
- *   · 被旋转的是一个独立容器,它内部不依赖响应式断点 → 不会触发上面任何一条
- *   · 页面其余部分完全不受影响,浮钮/菜单/布局都保持原状
- * 页面通过 `data-landscape-target` 声明「本页可横屏看的元素」;没有声明的页面浮钮自动隐藏。
+ * iframe 有**自己的 viewport**。把页面装进一个固定尺寸的 iframe:
+ *   · iframe 内的媒体查询基于 iframe 宽度 → 453 处响应式一行不用改,全部正确
+ *   · iframe 尺寸创建后固定不变 → 用户转手机时**内部零重排**(这正是用户要的)
+ *   · 只有外层那一个 iframe 元素的 transform 在变,内容不动
  *
- * 关于「屏蔽系统横竖屏」:iOS 既不支持 screen.orientation.lock(),也不读 manifest 的
- * orientation 字段,而 CSS 旋转方案又与响应式冲突 —— 因此**页面级方向锁定做不到**,
- * 这是平台与技术栈的共同约束,不是没实现。局部横屏不受此限,因为它不关心设备方向。
+ * ══ 尺寸取横屏布局(长边 × 短边)══════════════════════════════
+ * iframe 宽 = 屏幕长边(如 844)、高 = 短边(如 390):
+ *   · 内部 viewport 844 → md: 生效 → 宽表格真正铺开(这才是「横屏化」的目的)
+ *   · 设备已横屏 → transform: none,直接铺满
+ *   · 设备还竖着 → 转 90° 放进竖屏屏幕
+ * 两种情况 iframe 内 viewport 都是 844,所以转手机只换外层 transform,**内容零重排**。
+ *
+ * ══ 嵌套自检 ══════════════════════════════════════════════
+ * iframe 里加载的是同一套页面,靠 `window.self !== window.top` 自检:
+ * 嵌套态不再渲染横屏入口、跳过首屏印章动画 —— 不需要任何 URL 参数或服务端改动。
  */
 (function () {
   'use strict';
 
-  var active = null;
+  var EMBEDDED = false;
+  try { EMBEDDED = window.self !== window.top; } catch (e) { EMBEDDED = true; }
+
+  /* ── 嵌套态:关掉横屏入口与首屏动画,其余一切照常 ── */
+  if (EMBEDDED) {
+    document.documentElement.classList.add('is-embedded');
+    var killOverlay = function () {
+      var o = document.getElementById('page-overlay');
+      if (o) o.classList.add('hidden');
+    };
+    killOverlay();
+    document.addEventListener('DOMContentLoaded', killOverlay);
+    return;
+  }
+
+  var shell = null;
 
   function svgIcon(paths, size) {
     var NS = 'http://www.w3.org/2000/svg';
@@ -47,128 +62,107 @@
     return s;
   }
 
-  function target() { return document.querySelector('[data-landscape-target]'); }
-
-  /** 浮钮只在「本页有可横屏内容」时出现 —— 没有目标就没有意义 */
   function syncBtn() {
-    var has = !!target();
     document.querySelectorAll('[data-orientation-toggle]').forEach(function (b) {
-      b.style.display = has ? '' : 'none';
-      b.setAttribute('aria-pressed', active ? 'true' : 'false');
-      b.title = active ? '退出横屏查看' : '把宽表格转成横屏看(页面其余部分不变)';
+      b.setAttribute('aria-pressed', shell ? 'true' : 'false');
+      b.title = shell ? '退出横屏' : '整页横屏查看 · 转动手机页面不会重排';
     });
   }
 
-  function resizeCharts() {
-    try {
-      if (window.echarts) {
-        document.querySelectorAll('#sunburst, .echart-box').forEach(function (el) {
-          var i = window.echarts.getInstanceByDom(el);
-          if (i) i.resize();
-        });
-      }
-    } catch (e) {}
-  }
+  function enter() {
+    if (shell) return;
 
-  function enter(el) {
-    if (active) return;
-    var ph = document.createElement('div');
-    ph.className = 'rot-placeholder';
-    el.parentNode.insertBefore(ph, el);
+    /* 尺寸在进入时定一次,之后**固定不变** —— 这是「转手机零重排」的关键。
+       用 inner*(贴合当前可视区,已扣掉 iOS 地址栏)而不是 screen(会多出地址栏高度导致底部被裁)。 */
+    var L = Math.max(window.innerWidth, window.innerHeight);
+    var S = Math.min(window.innerWidth, window.innerHeight);
 
-    var shell = document.createElement('div');
-    shell.className = 'rot-shell';
+    shell = document.createElement('div');
+    shell.className = 'ls-shell';
     shell.setAttribute('role', 'dialog');
     shell.setAttribute('aria-modal', 'true');
 
-    var inner = document.createElement('div');
-    inner.className = 'rot-inner';
+    var stage = document.createElement('div');
+    stage.className = 'ls-stage';
+    stage.style.width = L + 'px';
+    stage.style.height = S + 'px';
+    stage.style.setProperty('--ls-short', S + 'px');
+
+    var frame = document.createElement('iframe');
+    frame.className = 'ls-frame';
+    frame.setAttribute('title', '横屏视图');
+    /* 同源 iframe:cookie / sessionStorage 共享 → 登录态、隐私模式、字号档位全部沿用 */
+    frame.src = window.location.href;
+    stage.appendChild(frame);
 
     var bar = document.createElement('div');
-    bar.className = 'rot-bar';
-    var label = document.createElement('span');
-    label.className = 'rot-title';
-    label.appendChild(svgIcon(['M3 7h13a2 2 0 0 1 2 2v8', 'M14 3l4 4-4 4'], 13));
-    var t = document.createElement('span');
-    t.textContent = el.getAttribute('data-landscape-target') || '横屏查看';
-    label.appendChild(t);
-
+    bar.className = 'ls-bar';
     var exitBtn = document.createElement('button');
     exitBtn.type = 'button';
-    exitBtn.className = 'rot-exit';
+    exitBtn.className = 'ls-exit';
     exitBtn.appendChild(svgIcon('M18 6 6 18M6 6l12 12', 13));
     var et = document.createElement('span');
     et.textContent = '退出横屏';
     exitBtn.appendChild(et);
-
-    bar.appendChild(label);
     bar.appendChild(exitBtn);
-    inner.appendChild(bar);
+    stage.appendChild(bar);
 
-    var hint = document.createElement('div');
-    hint.className = 'rot-hint';
-    hint.appendChild(svgIcon(['M3 7h13a2 2 0 0 1 2 2v8', 'M14 3l4 4-4 4'], 15));
-    var ht = document.createElement('span');
-    ht.textContent = '把手机转横过来看';
-    hint.appendChild(ht);
-    inner.appendChild(hint);
-
-    inner.appendChild(el);
-    shell.appendChild(inner);
+    shell.appendChild(stage);
     document.body.appendChild(shell);
-    document.documentElement.classList.add('rot-on');
+    document.documentElement.classList.add('ls-on');
+
+    /* 设备方向只决定外层要不要转 90°;iframe 内部尺寸恒定,内容不受影响 */
+    function syncRotation() {
+      var devLandscape = window.innerWidth > window.innerHeight;
+      stage.classList.toggle('ls-rotate', !devLandscape);
+    }
+    syncRotation();
 
     var pushed = false;
-    try { history.pushState({ rot: 1 }, ''); pushed = true; } catch (e) {}
-
-    function sync() {
-      /* 设备已经物理横屏 → 不必再由我们转(否则又转回竖的);仅在竖屏时代转。
-         注意这里只影响这一个覆盖层,不碰 body,所以不会牵动全站响应式。 */
-      var portrait = window.innerHeight >= window.innerWidth;
-      inner.classList.toggle('rot-rotate', portrait);
-      hint.style.display = portrait ? '' : 'none';
-      resizeCharts();
-    }
-    sync();
+    try { history.pushState({ ls: 1 }, ''); pushed = true; } catch (e) {}
 
     function exit(fromPop) {
-      if (!active) return;
-      active = null;
-      if (ph.parentNode) ph.parentNode.replaceChild(el, ph);
+      if (!shell) return;
+      /* iframe 里可能已经导航到别的页面 —— 退出时把父页面同步过去,别让用户白点 */
+      var inner = null;
+      try {
+        var loc = frame.contentWindow && frame.contentWindow.location;
+        if (loc && loc.href && loc.href !== 'about:blank') inner = loc.href;
+      } catch (e) { inner = null; }
+
       shell.remove();
-      document.documentElement.classList.remove('rot-on');
+      shell = null;
+      document.documentElement.classList.remove('ls-on');
+      window.removeEventListener('resize', syncRotation);
+      window.removeEventListener('orientationchange', onOrient);
       document.removeEventListener('keydown', onKey);
       window.removeEventListener('popstate', onPop);
-      window.removeEventListener('resize', sync);
-      window.removeEventListener('orientationchange', onOrient);
       syncBtn();
-      resizeCharts();
       if (pushed && !fromPop) { try { history.back(); } catch (e) {} }
+      if (inner && inner.split('#')[0] !== window.location.href.split('#')[0]) {
+        window.location.href = inner;
+      }
     }
     function onKey(e) { if (e.key === 'Escape') exit(false); }
     function onPop() { exit(true); }
-    function onOrient() { setTimeout(sync, 220); }
+    function onOrient() { setTimeout(syncRotation, 220); }
 
     exitBtn.addEventListener('click', function () { exit(false); });
+    window.addEventListener('resize', syncRotation);
+    window.addEventListener('orientationchange', onOrient);
     document.addEventListener('keydown', onKey);
     window.addEventListener('popstate', onPop);
-    window.addEventListener('resize', sync);
-    window.addEventListener('orientationchange', onOrient);
 
-    active = { exit: exit };
     syncBtn();
   }
 
   window.toggleOrientation = function () {
-    if (active) { active.exit(false); return; }
-    var el = target();
-    if (!el) {
-      if (typeof window.showToast === 'function') {
-        window.showToast({ message: '本页没有需要横屏看的宽内容', level: 'info' });
-      }
+    if (shell) {
+      var b = document.querySelector('.ls-exit');
+      if (b) b.click();
       return;
     }
-    enter(el);
+    enter();
   };
 
   document.addEventListener('click', function (e) {

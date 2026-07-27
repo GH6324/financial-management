@@ -4195,23 +4195,27 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && log_ok "v163-SUNBURST-AGG(小块聚合 Top N + 其他 · isNarrow 不用 clientWidth · 聚合块带 children · 聚合块禁下钻 · 渲染失败不静默)" \
   || log_bad "v163-SUNBURST-AGG 缺件" "see lens.js aggSmall/AGG_MIN_DEG/isNarrow/_agg children/(n.children||[])/console.error('lens 渲染失败')"
 
-# v165-LANDSCAPE-LOCAL · 横屏查看只旋转宽内容,不旋转整页(用户反馈:整页旋转三个副作用)
-#   整页旋转(v1.6.2–v1.6.4)在真机暴露:①顶部菜单莫名展开 ②浮钮消失/不稳定 ③转手机时大幅重排。
-#   根因结构性:CSS 媒体查询只认 viewport 不认 transform —— 设备横屏时 viewport=844px,
-#   7 处 max-width 移动端样式 + 347 处 Tailwind sm:/md: 全部切宽屏分支,而后者无法用 class 覆盖。
-#   故:只旋转 [data-landscape-target] 声明的元素;body 永不旋转;浮钮可见性不得依赖 max-width。
-{ ! grep -q "html.ori-lock body" "$RD/src/main/resources/static/css/style.css" \
-  && ! grep -q "ori-rotm90" "$RD/src/main/resources/static/css/style.css" \
-  && ! grep -q "force-landscape" "$RD/src/main/resources/static/css/style.css" \
-  && ! grep -q "oriLock" "$RD/src/main/resources/templates/fragments/layout.html" \
-  && grep -q "data-landscape-target" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q "data-landscape-target" "$RD/src/main/resources/templates/lens/_section.html" \
-  && grep -q "rot-inner.rot-rotate" "$RD/src/main/resources/static/css/style.css" \
+# v166-LANDSCAPE-IFRAME · 整页横屏 · iframe 隔离(用户拍板方案 A)
+#   演进史(前四版都栽在同一处):v1.6.2/1.6.3/1.6.4 直接 transform <body>,真机三个副作用
+#   (顶部菜单展开 / 浮钮消失 / 转手机大幅重排)。结构性根因:
+#     **CSS 媒体查询只认 viewport,不认 transform** —— 设备横屏时 viewport=844px,
+#     模板里 453 处 Tailwind sm:/md: + 13 处自有 @media 全部切宽屏分支,
+#     而前者是媒体查询编译产物,无法用 class 覆盖。
+#   iframe 有独立 viewport → 响应式一行不改就正确;iframe 尺寸进入时定死 → 转手机零重排。
+#   尺寸取「长边 × 短边」:内部 viewport=844 → md: 生效 → 宽表格真正铺开(横屏化的目的)。
+{ grep -q "window.self !== window.top" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "is-embedded" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "ls-frame" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "Math.max(window.innerWidth, window.innerHeight)" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "ls-stage.ls-rotate" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "html.is-embedded #ori-float" "$RD/src/main/resources/static/css/style.css" \
   && grep -q "@media (pointer: coarse) { #ori-float" "$RD/src/main/resources/static/css/style.css" \
-  && ! grep -qE "@media \(max-width: [0-9]+px\) \{ \.landscape-btn" "$RD/src/main/resources/static/css/style.css" \
+  && ! grep -qE "@media \(max-width: [0-9]+px\) \{ (#ori-float|\.landscape-btn)" "$RD/src/main/resources/static/css/style.css" \
+  && ! grep -q "html.ori-lock body" "$RD/src/main/resources/static/css/style.css" \
+  && ! grep -q "force-landscape" "$RD/src/main/resources/static/css/style.css" \
   && grep -q 'id="ori-float"' "$RD/src/main/resources/templates/fragments/layout.html"; } \
-  && log_ok "v165-LANDSCAPE-LOCAL(只转 data-landscape-target 元素 · body 不转 · 浮钮可见性不依赖 max-width)" \
-  || log_bad "v165-LANDSCAPE-LOCAL 缺件" "see style.css 不得残留 ori-lock/ori-rotm90/force-landscape · layout 不得残留 oriLock · landscape.js + lens 需 data-landscape-target · #ori-float 与 .landscape-btn 的可见性不得带 max-width"
+  && log_ok "v166-LANDSCAPE-IFRAME(iframe 独立 viewport · 尺寸定死零重排 · 嵌套自检防套娃 · 浮钮可见性不带 max-width)" \
+  || log_bad "v166-LANDSCAPE-IFRAME 缺件" "see landscape.js(self!==top 嵌套自检 / ls-frame / 进入时定尺寸)· style.css(ls-stage.ls-rotate / is-embedded 隐藏入口 / 不得残留整页 body 旋转)"
 
 # v164-CHART-PARITY · dashboard 两图窄屏形态一致(用户反馈④)
 #   「资产配置」与「按成员分布」此前一个环一个条,手机上并列看着不是一套东西。

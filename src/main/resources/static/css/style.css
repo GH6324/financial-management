@@ -984,61 +984,39 @@ html.rot-on #pivotHint { display: none !important; }   /* 已经在横屏了,不
 .landscape-btn { display: none; }
 @media (pointer: coarse) { .landscape-btn { display: inline-flex; } }
 
-/* ── v1.6.5 · 横屏查看(局部)· 整页旋转方案已废弃 ──
-   放弃原因见 static/js/landscape.js 顶部注释:CSS 媒体查询只认 viewport 不认 transform,
-   设备横屏时 viewport=844px,7 处 max-width 移动端样式 + 347 处 Tailwind sm:/md: 全部切到
-   宽屏分支 → 浮钮消失、布局跳成 PC 版。这三条无法用 class 覆盖,故只旋转具体的宽内容元素。 */
-html.rot-on, html.rot-on body { overflow: hidden !important; }
-html.rot-on #priv-float, html.rot-on .toc-fab, html.rot-on #ori-float { display: none !important; }
-html.rot-on #pivotHint { display: none !important; }
+/* ── v1.6.6 · 整页横屏 · iframe 隔离 ────────────────────────────
+   为什么用 iframe:CSS 媒体查询只认 viewport 不认 transform,直接转 <body> 会让
+   453 处 Tailwind sm:/md: 与 13 处自有 @media 全部切到宽屏分支(真机三个副作用的根因)。
+   iframe 有独立 viewport → 响应式一行不用改就正确,且 iframe 尺寸固定 → 转手机零重排。 */
+html.ls-on, html.ls-on body { overflow: hidden !important; }
+html.ls-on #priv-float, html.ls-on .toc-fab, html.ls-on #ori-float { display: none !important; }
 
-.rot-shell { position: fixed; inset: 0; z-index: 9000; background: var(--paper); }
-.rot-inner {
-  position: absolute; top: 0; left: 0;
-  width: 100vw; height: 100dvh;
-  overflow: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
-  background: var(--paper);
-  padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
-}
-/* 仅当设备还竖着时由我们代转 90°;用户真把手机转横后,摘掉旋转交给系统(见 landscape.js sync) */
-.rot-inner.rot-rotate {
-  width: 100dvh; height: 100vw;
-  transform: translate(100vw, 0) rotate(90deg);
-  transform-origin: 0 0;
-}
-@supports not (height: 100dvh) {
-  .rot-inner { height: 100vh; }
-  .rot-inner.rot-rotate { width: 100vh; }
-}
-.rot-bar {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--rule);
-}
-.rot-title {
+.ls-shell { position: fixed; inset: 0; z-index: 9000; background: #14100c; overflow: hidden; }
+
+/* 舞台 = iframe 的容器,尺寸由 JS 在进入时定死(长边 × 短边),此后不随设备方向变化 */
+.ls-stage { position: absolute; top: 0; left: 0; transform-origin: 0 0; background: var(--paper); }
+/* 设备还竖着 → 把舞台转 90° 放进竖屏;设备已横屏 → 不转,直接铺满 */
+.ls-stage.ls-rotate { transform: translate(var(--ls-short), 0) rotate(90deg); }
+
+.ls-frame { display: block; width: 100%; height: 100%; border: 0; background: var(--paper); }
+
+/* 退出按钮放在舞台内 → 跟着一起转,视觉位置永远正确 */
+.ls-bar { position: absolute; top: 8px; right: 10px; z-index: 2; }
+.ls-exit {
   display: inline-flex; align-items: center; gap: 6px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: calc(11px * var(--fs-scale,1)); letter-spacing: .1em; color: var(--ink-soft);
-}
-.rot-exit {
-  display: inline-flex; align-items: center; gap: 6px;
-  min-height: 36px; padding: 0 14px; cursor: pointer;
-  background: var(--ink); color: var(--paper); border: none;
+  min-height: 34px; padding: 0 13px; cursor: pointer;
+  background: rgba(26,23,20,.86); color: var(--paper); border: none; border-radius: 3px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: calc(11px * var(--fs-scale,1)); letter-spacing: .1em;
+  backdrop-filter: blur(4px);
 }
-.rot-exit:active { transform: translateY(1px); }
-.rot-hint {
-  display: inline-flex; align-items: center; gap: 7px;
-  margin-bottom: 9px; padding: 6px 11px;
-  background: var(--brass-soft); border-left: 3px solid var(--brass-deep);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: calc(11px * var(--fs-scale,1)); color: var(--ink-soft); line-height: 1.5;
-}
-.rot-inner .lens-pivot table { width: auto; min-width: 100%; }
+.ls-exit:active { transform: translateY(1px); }
+
+/* 嵌套态(iframe 内)· 不再出现横屏入口,避免套娃 */
+html.is-embedded #ori-float, html.is-embedded .landscape-btn { display: none !important; }
 
 /* 横屏浮钮:与隐私眼 / 目录钮同列。
-   可见性只由「触屏」+ JS(本页有无可横屏内容)决定 —— **不能带 max-width**:
-   设备横屏时 viewport 变宽会让按钮消失,那正是用户报的问题②。 */
+   可见性只由「触屏」决定 —— **不能带 max-width**:设备横屏时 viewport 变宽会让按钮消失。 */
 #ori-float {
   position: fixed; right: 14px;
   bottom: calc(max(18px, env(safe-area-inset-bottom)) + 96px);

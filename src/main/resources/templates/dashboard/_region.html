@@ -815,8 +815,7 @@
               x: { grid: { color: 'rgba(58,48,42,.06)' }, ticks: { callback: (v) => fmtMoney(v), font: { size: chartFont(9) } } },
               y: { grid: { display: false }, ticks: { font: { size: chartFont(nar ? 10 : 11) } } }
             }
-          },
-          plugins: [ChartDataLabels]
+          }
         };
       }
 
@@ -827,8 +826,9 @@
         const MEM_PAL = ['#2f5d50', '#a77b35', '#6f7f98', '#8f6048', '#7a4f6b', '#3c4a5a', '#9c8b5a'];
         const memFlat = window.innerWidth < 640 || data.memberAllocationLabels.length > 6;
         window.financeCharts.memberAllocation = memFlat
-          ? new Chart(memberDonut, hBarConfig(data.memberAllocationLabels, data.memberAllocationValues,
-              memberTotal, '按成员分布 · ' + data.currency, MEM_PAL))
+          ? new Chart(memberDonut, Object.assign(hBarConfig(data.memberAllocationLabels,
+              data.memberAllocationValues, memberTotal, '按成员分布 · ' + data.currency, MEM_PAL),
+              { plugins: [ChartDataLabels] }))
           : new Chart(memberDonut, {
           type: 'doughnut',
           data: { labels: data.memberAllocationLabels,
@@ -872,8 +872,8 @@
         const flatAlloc = window.innerWidth < 640 || donutLabels.length > 6;
         const ALLOC_PAL = ['#a77b35','#2f5d50','#6f7f98','#8f6048','#333333','#7a4f6b','#3c4a5a','#9c8b5a','#5f7e7b'];
         window.financeCharts.allocation = flatAlloc
-          ? new Chart(donut, hBarConfig(donutLabels, data.allocationValues, total,
-              '资产配置 · ' + data.currency, ALLOC_PAL))
+          ? new Chart(donut, Object.assign(hBarConfig(donutLabels, data.allocationValues, total,
+              '资产配置 · ' + data.currency, ALLOC_PAL), { plugins: [ChartDataLabels] }))
           : new Chart(donut, {
 
           type: 'doughnut',
