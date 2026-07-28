@@ -95,28 +95,17 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v1.6.12 · 两个分布图改回饼图并统一尺度](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.6.12)
+
+「资产配置」与「按成员分布」现在两端都是环图,而且**逐像素同大**。手机端此前被改成横向条形,理由是"窄屏环图标签必然重叠"——这个理由站不住:重叠的根因不是环图不行,是**类目太多**,解法用旭日图那边验证过的 **Top N + 其他 N 项**(小类合并、环里不超过 6 片、金额落在下方图例)。
+改成都是环图后又出了新问题:两个环一大一小。因为容器高度各写各的,而 Chart.js 环图半径默认是 `f(容器高 − 标题 − 图例)`,两图图例行数不同(5 项 3 行 / 3 项 1 行)→ **容器同高也不等于同直径**。现在两个 canvas 共用同一个容器 class、半径写死、所有尺度参数收进一个共享常量,一致性由结构保证;同时删掉"按类目数决定图型"的逻辑(判据各自算,数据不同就必然分叉),PC 端也因此统一成环图。
+顺带写进设计规范:新增「并列同类图表 / 并列同类元素」一节 —— 同一屏里语义同级、并列展示的元素必须共用同一套尺度,尺度要落在共享常量或共用 class 上,附交付前自查清单与回归守护。
+
 ### [v1.6.10 · 手机方向控制重做:转手机页面不再乱动](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.6.10)
 
 只解决一件事:**手机转来转去的时候页面不要乱动**。改了七版,前四版都错在同一处 —— 453 处响应式断点**全都只判宽度**,而手机横屏是 844×390,844 被当成"宽屏设备",一转手机整页变样。真正的判据是**短边只有 390**,断点加一条 `and (min-height: 480px)` 就一次纠正全部 453 处。
 第二个根本错误是**用 JS 量尺寸**:iOS 竖屏工具栏 ≠ 横屏工具栏,竖屏量到的像素换个方向就不成立;而 JS 监听 `orientationchange` 再扳正永远晚于 iOS 自己的旋转动画,于是"先跟着转一圈再被扳回"。调研 GitHub 上通行的强制横屏实现(同类写法 4192 处命中)后照着改:**尺寸用交换后的视口单位、旋转由媒体查询驱动、JS 里零监听**。
 现在:普通模式转手机页面一动不动(排版与竖屏逐像素相同、滚动位置不丢);右下角专用**屏幕旋转**钮点开整页横屏,内部 844 宽让宽表格真正铺开,导航按 844×390 重排(7 tab 单行、栏高 64→38px、首卡片 221→169px,不删任何内容)。
-
-### [v1.6.0 · UED 专项:看得清、点得中、信得过](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.6.0)
-
-不加功能,只修体验 —— 一次完整的双端截图审计(8 页 × PC/移动 = 16 张真机图,对照设计规范提出 61 条,分 5 批全部落地)。
-最要紧的是**数字信得过**:同一时刻仪表盘与体检的净资产差 119 万、紧急储备 7.2 月 vs 723 月,根因是两处「看哪个账期」的规则不同 —— 现已统一,并在体检页标出「数据截至 X · 与仪表盘同期口径」;体检与流水档案 32 处金额补上千分位。
-**已关账不再假装可以填**(此前照样铺满可编辑表单,填完才发现改不动)。
-**手机上先给结论**:口径控件收成一行、新增「本期一句话」、KPI 改主数字 + 横滑,填报页从 13.9 屏压到 6.6 屏。
-**图表换成窄屏读得懂的形态**:旭日标签不再竖排中文、7 类环图改横向条形、21 个账户双向柱 TopN 聚合、风险配色改顺序色阶。
-另有 iOS 专项(横滑不再误触 Safari 返回手势)、文字对比度提到过 AA、管理页 15 个入口按功能分组、全站 emoji 清零。
-
-<table>
-<tr>
-<td width="33%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.6.0/mobile_conclusion-kpi.jpg"><br><sub><b>手机 · 先给结论</b></sub></td>
-<td width="33%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.6.0/mobile_closed-readonly.jpg"><br><sub><b>已关账只读</b></sub></td>
-<td width="33%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.6.0/pc_sunburst-leaders.jpg"><br><sub><b>旭日标签全部可读</b></sub></td>
-</tr>
-</table>
 
 ## 主要能力
 
