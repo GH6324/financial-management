@@ -138,7 +138,13 @@
 - 选型对比表**只放用户能感知的维度**,别把"我写代码省不省事"伪装成用户价值。
 - 每次代码改动**主动同步文档**(prd/tech-design/CHANGELOG/qa-cases),不等提醒。
 
+**写守护(qa-run.sh)**
+- **否定断言只盯代码构造,不盯裸标识符/ 裸字面量。** 写 `! grep -q "function X"` / `! grep -qF "Object.assign(X"` / `! grep -qE "color: *'#abc'"`,**不要**写 `! grep -q "X("` 或 `! grep -q "#abc"` —— 讲解这段历史的注释里必然会出现那个词,自己把自己扫红。已踩 **4 次**:`100dvh`(注释在辨析 vh/dvh)、`window.innerWidth<`(注释举例)、`hBarConfig(`、`#c8c0ae`(注释在列旧色值)。第 4 次是在同一轮刚给自己写完这条规矩之后 —— 所以它必须写在这里,不能只写在守护注释里。
+- 含 `${` / `[{` / `[]` 的模式一律 `grep -qF`(BRE 会把 `{}` 当区间量词,静默不匹配)。
+- 一致性问题**能用"只有一处"消除的,不要用"两处保持相等"去守护**(共享常量 / 共用 class 优于比较两个值)。
+
 **代码 / 技术**
+- **并列同类元素必须同尺度**:同一屏语义同级、并列展示的元素(两个饼图 / 并列 KPI 卡 / 并列按钮组)图型·容器高度·主体尺寸·字号·图例位置全同,尺度落共享常量或共用 class。环图这类"主体尺寸由剩余空间推导"的图**必须写死半径**(容器同高 ≠ 同直径)。规范见 `docs/visual-spec.md`「并列同类图表」。
 - **LLM 严禁做数学**:所有计算类指标工程算好填进 prompt;SYSTEM 加禁数学约束;prompt 里数字先 read 验证;LLM 输出胡话先怀疑 prompt。LLM 校验失败先抓 prompt + raw output。
 - **图表数字浮层**:Chart.js 图用 datalabels 把金额/百分比绘在扇片/柱顶/数据点上,hover tooltip 不算。
 - **Thymeleaf**:`#xxx.yyy()` utility 必须在 `${}` 内;conditional render 必须 force-trigger 验证;诊断 prod 栈先找最早 ERROR。

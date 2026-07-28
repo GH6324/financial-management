@@ -4292,6 +4292,8 @@ JSL="$RD/src/main/resources/static/js/landscape.js"
 #   方案 B 的固有代价:body 被 transform 后,内部 position:fixed 浮层的包含块从视口变成 body 盒子,
 #   那些按「未旋转视口」写的几何会错位(实测目录抽屉漏进屏内)→ 几何脆弱的浮层冻结态一律藏掉,
 #   但方向钮必须留(用户可能就是横着拿再点开横屏视图)。
+#   注:图标具体形状的断言已移交 v1613-ORI-ICON(v1.6.13 换成竖框+横框+双向箭头),
+#   这里只守"不得回退成摄像机图标"。
 { grep -qF "html.ori-cw:not(.ls-on):not(.is-embedded) > body" "$CSS" \
   && grep -qF "overflow-y: auto; overflow-x: hidden;" "$CSS" \
   && grep -q "html:not(.ls-on):not(.is-embedded) .toc-sheet-mask" "$CSS" \
@@ -4302,10 +4304,9 @@ JSL="$RD/src/main/resources/static/js/landscape.js"
   && grep -q "function restoreY" "$JSL" \
   && grep -qF "document.addEventListener('scroll', trackY, true)" "$JSL" \
   && ! grep -rq "M18 9l4-2v10l-4-2" "$RD/src/main/resources" \
-  && [ "$(grep -rc "M19.5 11.5A8 8 0 0 1 11.5 19.5" "$RD/src/main/resources/templates/fragments/layout.html" "$RD/src/main/resources/templates/lens/_section.html" | awk -F: '{s+=$2} END{print s}')" -ge 3 ] \
   && grep -q 'aria-pressed="true"\] svg' "$CSS"; } \
-  && log_ok "v169-ORI-PIN(反向旋转钉设备坐标系 · 旋转符号跟 angle · 滚动位置交接 · 脆弱浮层冻结态藏掉但留方向钮 · 专用屏幕旋转图标已换掉摄像机图标)" \
-  || log_bad "v169-ORI-PIN 缺件" "see style.css(ori-cw 分支 / body 滚动容器 / 冻结态藏 toc-sheet+toast 但不藏 #ori-float / aria-pressed 图标转向)· landscape.js(screen.orientation.angle + ori-cw + restoreY + capture 滚动跟踪)· 三处摄像机图标必须已换成屏幕旋转图标"
+  && log_ok "v169-ORI-PIN(反向旋转钉设备坐标系 · 旋转符号跟 angle · 滚动位置交接 · 脆弱浮层冻结态藏掉但留方向钮)" \
+  || log_bad "v169-ORI-PIN 缺件" "see style.css(ori-cw 分支 / body 滚动容器 / 冻结态藏 toc-sheet+toast 但不藏 #ori-float / aria-pressed 图标转向)· landscape.js(screen.orientation.angle + ori-cw + restoreY + capture 滚动跟踪)· 不得回退成摄像机图标(形状断言见 v1613-ORI-ICON)"
 
 # v1610-LS-NAV · 横屏模式必须有顶部导航,但按 844×390 自己的尺度重排
 #   v1.6.8 我把导航整个藏了,理由是「844 宽放不下、390 高太贵」。用户要求加回来 ——
@@ -4327,12 +4328,12 @@ NAVF="$RD/src/main/resources/templates/fragments/nav.html"
   && grep -qF "html.is-embedded .nav-brandtext { display: none !important; }" "$CSS" \
   && grep -qF "html.is-embedded .nav-tabs > a[class*=\"border-b-2\"] { padding-bottom: 4px !important; }" "$CSS" \
   && grep -qF "html.is-embedded .nav-actions > .nav-priv { display: inline-flex !important; }" "$CSS" \
-  && grep -qF "html.is-embedded #priv-float, html.is-embedded .toc-fab { display: none !important; }" "$CSS" \
+  && grep -qF "html.is-embedded #priv-float { display: none !important; }" "$CSS" \
   && grep -qF "html.is-embedded main { padding-top: 8px !important; padding-bottom: 14px !important; }" "$CSS" \
   && grep -q "html.is-embedded main .text-3xl" "$CSS" \
   && ! grep -q "html.is-embedded main .text-2xl" "$CSS"; } \
   && log_ok "v1610-LS-NAV(横屏导航 7 tab 单行 38px 高 · 右侧给退出钮留 118px · 品牌只留印章 · 隐私钮进栏内空档 · 垂直节奏压缩不删内容 · text-2xl 金额档不压)" \
-  || log_bad "v1610-LS-NAV 缺件" "see nav.html 六个定位类(nav-inner/nav-lead/nav-brandtext/nav-tabs/nav-actions/nav-priv)· style.css(header 不得再 display:none · 38px 栏高 · 118px 右留白 · 选中态 pb 重算 · nav-priv 保留 · 浮钮收起 · main 8/14 内边距 · 只压 text-3xl/4xl)"
+  || log_bad "v1610-LS-NAV 缺件" "see nav.html 六个定位类(nav-inner/nav-lead/nav-brandtext/nav-tabs/nav-actions/nav-priv)· style.css(header 不得再 display:none · 38px 栏高 · 118px 右留白 · 选中态 pb 重算 · nav-priv 保留 · 隐私浮钮收起(目录钮见 v1613-LS-TOC)· main 8/14 内边距 · 只压 text-3xl/4xl)"
 
 # v1612-CHART-UNIFORM · 并列同类图表必须共用同一套尺度(用户 2026-07-28 要求写进规范)
 #   用户原话:「都是饼图 那就保持大小样式一样,现在奇奇怪怪的,两个饼图差距很大,
@@ -4362,6 +4363,62 @@ RG="$RD/src/main/resources/templates/dashboard/_region.html"
   && grep -q "并列同类图表" "$RD/docs/visual-spec.md"; } \
   && log_ok "v1612-CHART-UNIFORM(并列两图共用 .chart-pair-box + PAIR 共享尺度 + 半径写死 · 无图型分叉 · 规范已收录)" \
   || log_bad "v1612-CHART-UNIFORM 缺件" "see _region.html:两个 canvas 容器都用 class=\"chart-pair-box\"(不许各写 h-[]) + PAIR 常量 + radius 写死 + 不得残留 hBarConfig/useBar · style.css 有 .chart-pair-box · docs/visual-spec.md 有「并列同类图表」一节"
+
+# v1613-LENS-PALETTE · 旭日的有序色阶与中性色必须**按方案给**,不许全局硬编码
+#   用户反馈:「旭日下钻之前专心搞过很多主题配色,这次优化后怎么完全没有 follow」。
+#   查证后:不是忘了 follow,是配色体系缺两块 ——
+#     ① 有序维度(风险)必须用色阶不能套分类色板(v1.6 UED B4-3 判断正确),
+#        但那条色阶 RISK_SCALE 被硬编码在全局 → 换方案 A~E 外环一点都不变;
+#        而且它是砖红 #a55540 + 橙 #c1873b,与莫兰迪内环不是一家人。
+#     ② 「未分类 / 其他(聚合)」用了三个各不相同的硬编码灰(#c8c0ae/#c9c2b2/#dcd6c8),
+#        既不属于任何方案,彼此也不一致。
+#   改法:三锚点(低/中/高)按方案给 → 插值 8 档;中性色按方案 + 按环深给;
+#   聚合块再向纸面提亮一档(aggTint)以便与「未分类」分开 —— 前者是桶、后者是真实维值。
+#   锚点判据(自查踩到过):**相邻档 RGB 距离 ≥20 且 中↔高 ≥40**,不是「亮度单调下降」
+#   （绿→黄→红本就中间最亮,有序性靠色相约定)。第一版 D 取方案自身三色,中↔高 只有 20,
+#   实测两档肉眼分不出高低 —— 那正是用户看到的"没 follow"的观感来源,现为 70。
+#   两处同步:lens.js 的锚点 == admin/calc-tweaks.html 色卡第 3 排的首尾色(t=0/t=1 即锚点)。
+{ grep -q "var PLAN_ORDINAL = {" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "var PLAN_NEUTRAL = {" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "function rampOf" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "function aggTint" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q "var ORDINAL_SCALE = rampOf" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -qF "function riskColorMap(values, ring)" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -qF "riskColorMap(values, ring)" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -qF "function aggSmall(items, grand, ring)" "$RD/src/main/resources/static/js/lens.js" \
+  && ! grep -q "var RISK_SCALE" "$RD/src/main/resources/static/js/lens.js" \
+  && ! grep -qE "color: *'#(c8c0ae|c9c2b2|dcd6c8)'" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -qi "#3cc780" "$RD/src/main/resources/templates/admin/calc-tweaks.html" && grep -qi "#f5222d" "$RD/src/main/resources/templates/admin/calc-tweaks.html" \
+  && grep -qi "#2b8f5c" "$RD/src/main/resources/templates/admin/calc-tweaks.html" && grep -qi "#a61b1b" "$RD/src/main/resources/templates/admin/calc-tweaks.html" \
+  && grep -qi "#3cc780" "$RD/src/main/resources/templates/admin/calc-tweaks.html" && grep -qi "#ff4d4f" "$RD/src/main/resources/templates/admin/calc-tweaks.html" \
+  && grep -qi "#a3b79a" "$RD/src/main/resources/templates/admin/calc-tweaks.html" && grep -qi "#8a4034" "$RD/src/main/resources/templates/admin/calc-tweaks.html" \
+  && grep -qi "#5b8c74" "$RD/src/main/resources/templates/admin/calc-tweaks.html" && grep -qi "#8e2231" "$RD/src/main/resources/templates/admin/calc-tweaks.html"; } \
+  && log_ok "v1613-LENS-PALETTE(有序色阶+中性色按方案给 · 聚合块与未分类分色 · 无全局 RISK_SCALE / 无三个硬编码灰 · 五套锚点与 admin 色卡同步)" \
+  || log_bad "v1613-LENS-PALETTE 缺件" "see lens.js:PLAN_ORDINAL/PLAN_NEUTRAL/rampOf/aggTint + riskColorMap(values,ring) + aggSmall(...,ring),且不得残留 RISK_SCALE 与 #c8c0ae/#c9c2b2/#dcd6c8;五套锚点首尾色必须同时出现在 admin/calc-tweaks.html 色卡"
+
+# v1613-LS-TOC · 横屏模式必须能用「本页目录」,且按横屏空间重排交互
+#   v1.6.10 我把目录钮一起藏了,理由「横屏整页就一屏多点,目录无意义」——判断错了:
+#   横屏高度只有 390,一屏能看的内容反而更少,跨节跳转比竖屏更需要。
+#   交互按横屏的空间特性重排:入口进导航行(390 高里浮钮必压内容)、
+#   面板从底部 sheet 改**右侧侧栏**(横屏宽度富余、高度稀缺,正好反过来用)。
+{ grep -qF "html.is-embedded body:not(.toc-open) .toc-fab" "$CSS" \
+  && grep -qF "html.is-embedded .toc-sheet {" "$CSS" \
+  && grep -qF "html.is-embedded .toc-sheet.open { transform: translateX(0); }" "$CSS" \
+  && grep -qF "html.is-embedded .toc-sheet-handle { display: none; }" "$CSS" \
+  && ! grep -qF "html.is-embedded #priv-float, html.is-embedded .toc-fab { display: none" "$CSS"; } \
+  && log_ok "v1613-LS-TOC(横屏目录钮进导航行 + 抽屉改右侧侧栏 · 不再整体隐藏)" \
+  || log_bad "v1613-LS-TOC 缺件" "see style.css:html.is-embedded 下 .toc-fab 显示且定位到导航行 · .toc-sheet 改 translateX 右侧侧栏 · handle 隐藏 · 不得再把 .toc-fab 一并 display:none"
+
+# v1613-ORI-ICON · 方向切换图标 = 竖框 + 横框 + 双向箭头(用户第二次要求换)
+#   历次:摄像机图标(语义完全不对)→ 屏幕旋转弧(用户仍不满意)→ 现在按用户描述做。
+#   全仓三处必须一致:右下方向浮钮 / 交叉表「横屏看」按钮 / 交叉表「手机看」提示。
+{ [ "$(grep -rc 'M8.2 12h5.6' "$RD/src/main/resources/templates/fragments/layout.html" "$RD/src/main/resources/templates/lens/_section.html" | awk -F: '{s+=$2} END{print s}')" -eq 3 ] \
+  && grep -q 'rect x="1" y="4.5" width="6" height="15"' "$RD/src/main/resources/templates/fragments/layout.html" \
+  && grep -q 'rect x="14.5" y="9.2" width="8.5" height="5.6"' "$RD/src/main/resources/templates/fragments/layout.html" \
+  && ! grep -rq "M18 9l4-2v10l-4-2" "$RD/src/main/resources" \
+  && ! grep -rq "M19.5 11.5A8" "$RD/src/main/resources"; } \
+  && log_ok "v1613-ORI-ICON(竖框+横框+双向箭头 · 全仓三处一致 · 摄像机与旋转弧两代旧图标均已清)" \
+  || log_bad "v1613-ORI-ICON 缺件" "see layout.html + lens/_section.html 三处必须是竖框(1,4.5,6×15)+横框(14.5,9.2,8.5×5.6)+双向箭头(M8.2 12h5.6),且不得残留摄像机 M18 9l4-2 与旋转弧 M19.5 11.5A8"
 
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),

@@ -112,7 +112,9 @@
         <span class="font-mono text-[10px] text-ink-subtle tracking-wider">保存即生效 · 刷新透视区可见</span>
       </div>
       <p class="font-mono text-[10px] text-ink-subtle tracking-wider leading-relaxed">
-        内外环是两个独立维度 · 每方案 = 内环一套 + 外环一套 · 环内同维值同色。色卡上排 = 内环,下排 = 外环。
+        内外环是两个独立维度 · 每方案 = 内环一套 + 外环一套 · 环内同维值同色。色卡第 1 排 = 内环,第 2 排 = 外环。
+        第 3 排 = <b>有序色阶</b>(风险这类有高低之分的维度用它,套分类色板会让颜色读不出轻重);
+        第 4 排 = <b>中性色</b>(未分类 / 「其他 N 项」聚合块用,内环深一档、外环浅一档)。
       </p>
       <div class="space-y-3">
         <label class="flex items-start gap-3 cursor-pointer">
@@ -120,6 +122,8 @@
           <span class="flex-1"><span class="text-sm">方案 A · 飞书原味(深内浅外)</span>
             <span class="block mt-1"><span th:each="c : ${ {'#1664FF','#1AC6FF','#FF8A00','#3CC780','#7442D4','#FFC400','#304D77','#B48DEB','#009488','#FF7DDA'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
             <span class="block mt-0.5"><span th:each="c : ${ {'#B2CFFF','#94EFFF','#FFCE7A','#B9EDCD','#DDC5FA','#FAE878','#8B959E','#EFE3FF','#59BAA8','#FFCFEE'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#3cc780','#74c65b','#abc537','#e3c412','#fead06','#fb7f13','#f85020','#f5222d'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span><span class="font-mono text-[9px] text-ink-subtle ml-1">有序色阶 低→高</span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#8B959E','#D6DBDF'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span><span class="font-mono text-[9px] text-ink-subtle ml-1">中性色 内/外</span></span>
           </span>
         </label>
         <label class="flex items-start gap-3 cursor-pointer">
@@ -127,6 +131,8 @@
           <span class="flex-1"><span class="text-sm">方案 B · 外环原版主打 · 内环压墨托底</span>
             <span class="block mt-1"><span th:each="c : ${ {'#1048B8','#138FB8','#B86300','#2B8F5C','#543099','#B88D00','#233756','#8266A9','#006B62','#B85A9D'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
             <span class="block mt-0.5"><span th:each="c : ${ {'#1664FF','#1AC6FF','#FF8A00','#3CC780','#7442D4','#FFC400','#304D77','#B48DEB','#009488','#FF7DDA'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#2b8f5c','#538e42','#7c8e27','#a48d0d','#b57d04','#b05c0c','#ab3c13','#a61b1b'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span><span class="font-mono text-[9px] text-ink-subtle ml-1">有序色阶 低→高</span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#4A5568','#A9B2BC'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span><span class="font-mono text-[9px] text-ink-subtle ml-1">中性色 内/外</span></span>
           </span>
         </label>
         <label class="flex items-start gap-3 cursor-pointer">
@@ -134,6 +140,8 @@
           <span class="flex-1"><span class="text-sm">方案 C · 深内浅外 + 色相错位</span>
             <span class="block mt-1"><span th:each="c : ${ {'#1664FF','#1AC6FF','#FF8A00','#3CC780','#7442D4','#FFC400','#304D77','#B48DEB','#009488','#FF7DDA'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
             <span class="block mt-0.5"><span th:each="c : ${ {'#B9EDCD','#DDC5FA','#FAE878','#8B959E','#EFE3FF','#59BAA8','#FFCFEE','#B2CFFF','#94EFFF','#FFCE7A'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#3cc780','#74c65b','#abc537','#e3c412','#ffb30b','#ff9122','#ff6f38','#ff4d4f'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span><span class="font-mono text-[9px] text-ink-subtle ml-1">有序色阶 低→高</span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#8B959E','#D6DBDF'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span><span class="font-mono text-[9px] text-ink-subtle ml-1">中性色 内/外</span></span>
           </span>
         </label>
         <label class="flex items-start gap-3 cursor-pointer">
@@ -141,6 +149,8 @@
           <span class="flex-1"><span class="text-sm">方案 D · 莫兰迪高级灰<span class="font-mono text-[10px] text-brass-deep ml-2">默认</span></span>
             <span class="block mt-1"><span th:each="c : ${ {'#5B6A78','#8A6E63','#6E7F5C','#7D6A85','#A9865F','#5F7E7B','#946B6B','#6B7FA0','#867E58','#75616E'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
             <span class="block mt-0.5"><span th:each="c : ${ {'#B9C2CC','#D6C3BB','#C2CCB4','#CBBFD1','#E0CDAE','#B7CCCA','#D8BFBF','#BFC9DC','#D3CDB0','#C9B9C4'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#a3b79a','#aeb187','#b9ab74','#c4a561','#c09452','#ae7848','#9c5c3e','#8a4034'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span><span class="font-mono text-[9px] text-ink-subtle ml-1">有序色阶 低→高</span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#8A857B','#D3CFC5'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span><span class="font-mono text-[9px] text-ink-subtle ml-1">中性色 内/外</span></span>
           </span>
         </label>
         <label class="flex items-start gap-3 cursor-pointer">
@@ -148,6 +158,8 @@
           <span class="flex-1"><span class="text-sm">方案 E · 国风传统色(与账册气质同源)</span>
             <span class="block mt-1"><span th:each="c : ${ {'#2B5E7D','#9D2933','#3C7A63','#B8823B','#5A4A78','#316B65','#8C4356','#6B7A3A','#7A4E2D','#44506B'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
             <span class="block mt-0.5"><span th:each="c : ${ {'#A8C4D4','#E0A9A9','#A9CBB7','#E4C98E','#C3B5D6','#9FC9C3','#D4A9B8','#C5CB9A','#D0AF93','#AEB8CC'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#5b8c74','#7a9067','#999559','#b8994c','#c08a42','#af673c','#9f4537','#8e2231'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span><span class="font-mono text-[9px] text-ink-subtle ml-1">有序色阶 低→高</span></span>
+            <span class="block mt-0.5"><span th:each="c : ${ {'#6E6A62','#CFC9BE'} }" class="inline-block w-5 h-5 mr-0.5 align-middle border border-rule" th:style="'background:' + ${c}"></span><span class="font-mono text-[9px] text-ink-subtle ml-1">中性色 内/外</span></span>
           </span>
         </label>
       </div>

@@ -70,7 +70,54 @@
       ['#A8C4D4', '#E0A9A9', '#A9CBB7', '#E4C98E', '#C3B5D6', '#9FC9C3', '#D4A9B8', '#C5CB9A', '#D0AF93', '#AEB8CC']
     ]
   };
-  var RING_PALETTES = PALETTE_PLANS[window.LENS_META.palette] || PALETTE_PLANS.D;
+  /* ── v1.6.13 · 每套方案自带「有序色阶」与「中性色」──────────────────────
+     用户反馈:旭日外环在风险维度下是砖红 #a55540 + 橙 #c1873b,而内环是莫兰迪 ——
+     两者不是一家人,而且换方案 A~E 外环一点都不变。
+     根因不是"忘了 follow",是配色体系缺两块:
+       ① 有序维度(风险)必须用色阶、不能套分类色板(否则颜色读不出高低)——
+          v1.6 UED B4-3 这条判断是对的,但那条色阶被硬编码在全局,与方案无关。
+       ② 「未分类 / 其他(聚合)」用了三个各不相同的硬编码灰
+          (#c8c0ae / #c9c2b2 / #dcd6c8):既不属于任何方案,彼此也不一致。
+     改法:色阶与中性色都按方案给,方案一换全图跟着走。
+     色阶用三锚点(低/中/高)插值出 8 档 —— 锚点尽量取自该方案自身的色相,
+     所以 D 的风险阶是「苔绿 → 暖沙 → 暗砖」,天然和莫兰迪内环同族。
+     ⚠ 锚点与中性色在 admin/calc-tweaks.html 的色卡有第三/第四排预览,改动需两处同步
+     (守护 v1613-LENS-PALETTE 会比对)。 */
+  /* 锚点选取有硬要求:低→高必须**亮度单调下降 + 冷→暖**,否则"有序"就白设了。
+     自查踩到过:第一版 D 取了方案自身的 #6E7F5C/#A9865F/#946B6B,三者亮度太接近,
+     实测「中风险 #a68261」与「高风险 #9a7368」肉眼分不出高低 —— 有序色阶的意义直接归零。
+     判据用「相邻档 RGB 距离 ≥20 + 中↔高 ≥40」,不是「亮度单调下降」——
+     绿→黄→红本来就中间最亮,有序性靠色相约定,拿亮度单调去卡会把标准配色也判错。
+     实测各方案:A 相邻最小 37/中↔高 97 · B 25/67 · C 33/82 · D 23/70 · E 20/77;
+     第一版 D 的中↔高 只有 20,那就是用户看到的"两档几乎同色"。
+     同时保持方案性格:D 仍是浅苔 → 暖沙 → 深砖的莫兰迪调,不是霓虹红绿(饱和峰 0.62)。 */
+  var PLAN_ORDINAL = {
+    A: ['#3CC780', '#FFC400', '#F5222D'],
+    B: ['#2B8F5C', '#B88D00', '#A61B1B'],
+    C: ['#3CC780', '#FFC400', '#FF4D4F'],
+    D: ['#A3B79A', '#C9A257', '#8A4034'],   /* 浅苔 → 暖沙 → 深砖(莫兰迪调) */
+    E: ['#5B8C74', '#C89B45', '#8E2231']    /* 竹青 → 缃金 → 胭脂 */
+  };
+  var PLAN_NEUTRAL = {      /* [内环, 外环] · 与该方案同明度族的中性色 */
+    A: ['#8B959E', '#D6DBDF'],
+    B: ['#4A5568', '#A9B2BC'],
+    C: ['#8B959E', '#D6DBDF'],
+    D: ['#8A857B', '#D3CFC5'],
+    E: ['#6E6A62', '#CFC9BE']
+  };
+  var PLAN_KEY = PALETTE_PLANS[window.LENS_META.palette] ? window.LENS_META.palette : 'D';
+  var RING_PALETTES = PALETTE_PLANS[PLAN_KEY];
+  function rampOf(a) {
+    var out = [];
+    for (var i = 0; i < 8; i++) {
+      var t = i / 7;
+      out.push(t < 0.5 ? mixHex(a[0], a[1], t * 2) : mixHex(a[1], a[2], (t - 0.5) * 2));
+    }
+    return out;
+  }
+  var ORDINAL_SCALE = rampOf(PLAN_ORDINAL[PLAN_KEY]);
+  var NEUTRAL = PLAN_NEUTRAL[PLAN_KEY];      /* NEUTRAL[0]=内环 · NEUTRAL[1]=外环 */
+  function aggTint(ring) { return mixHex(NEUTRAL[ring ? 1 : 0], '#F4EFE6', 0.34); }
   /* 环内防撞:对本环出现的全部维值按字典序统一分配 —— 哈希定起点、线性探测避让已用色,
    * 值≤色数时保证互不同色;字典序使分配与遍历顺序无关(旭日外环与排行条对同一值集必得同色)。 */
   /* v1.6 UED review B4-3 · 风险是有序(ordinal)维度,套分类色板会得到
@@ -80,21 +127,21 @@
     '无风险': 0, '无': 0, '极低风险': 1, '极低': 1, '低风险': 2, '低': 2, '中低风险': 3, '中低': 3,
     '中风险': 4, '中': 4, '中高风险': 5, '中高': 5, '高风险': 6, '高': 6, '极高风险': 7, '极高': 7
   };
-  var RISK_SCALE = ['#9bb09a', '#8fa892', '#7ea08a', '#a89a55', '#c1873b', '#b06a3c', '#a55540', '#8a3220'];
-  function riskColorMap(values) {
-    var map = {}, hit = 0;
+  /* 旧的全局 RISK_SCALE 已删 —— 它与方案无关,是「换方案外环不变」的直接原因。 */
+  function riskColorMap(values, ring) {
+    var map = {}, hit = 0, neutral = NEUTRAL[(ring || 0) ? 1 : 0];
     values.forEach(function (v) {
       v = String(v);
       if (map[v] !== undefined) return;
       var r = RISK_RANK[v];
-      if (r !== undefined) { map[v] = RISK_SCALE[r]; hit++; }
-      else map[v] = '#c8c0ae';                 // 未分类 / 其他 → 中性纸灰,不参与冷暖序
+      if (r !== undefined) { map[v] = ORDINAL_SCALE[r]; hit++; }
+      else map[v] = neutral;                   // 未分类 → 该方案的中性色(按环深取),不参与冷暖序
     });
-    return hit >= 2 ? map : null;              // 至少两档命中才认定这是风险维度
+    return hit >= 2 ? map : null;              // 至少两档命中才认定这是有序维度
   }
 
   function colorMapFor(values, ring) {
-    var riskMap = riskColorMap(values);
+    var riskMap = riskColorMap(values, ring);
     if (riskMap) return riskMap;
     var pal = RING_PALETTES[(ring || 0) % RING_PALETTES.length];
     var uniq = []; var seen = {};
@@ -309,7 +356,7 @@
       /* 窄屏 18°(≈5%):低于此角度的同级块一律合并 —— 环上不留放不下字的碎块。
          PC 4°:PC 有引导线兜底,可以保留更多细节。 */
       var AGG_MIN_DEG = isNarrow() ? 18 : 4;
-      function aggSmall(items, grand) {
+      function aggSmall(items, grand, ring) {
         if (!grand || items.length < 4) return items;         // 块本来就少,不必合并
         var keep = [], small = [];
         items.forEach(function (it) {
@@ -326,13 +373,15 @@
              聚合块此前 children:[] —— 旭日里内环块没有子块,它对应的那段外环就是**白色缺口**,
              看上去像饼图缺了一块。必须给一个占满父角度的同族子块(更浅一档灰,不抢维值配色)。 */
           children: [{ name: '其他', value: sumV, _mv: kind === 'ratio' ? null : sumMv, _val: sumVal,
-                       _agg: true, itemStyle: { color: '#dcd6c8' } }],
-          itemStyle: { color: '#c9c2b2' }                      // 中性纸灰:聚合块不参与维值配色
+                       _agg: true, itemStyle: { color: aggTint(1) } }],
+          /* 聚合块不能与「未分类」同色 —— 前者是一堆小块的桶、后者是真实维值,同色会读混。
+             取同族中性色向纸面提亮一档:仍是一家人,但分得开。 */
+          itemStyle: { color: aggTint(ring || 0) }
         });
         return keep;
       }
-      data = aggSmall(data, totalSize);
-      data.forEach(function (d) { if (d.children && d.children.length) d.children = aggSmall(d.children, totalSize); });
+      data = aggSmall(data, totalSize, 0);
+      data.forEach(function (d) { if (d.children && d.children.length) d.children = aggSmall(d.children, totalSize, 1); });
       totalSize = data.reduce(function (s, d) { return s + d.value; }, 0);
       function lblFor(mv) {   // 金额/净投入→占比% · 收益额→±短金额 · 收益率→率%
         if (kind === 'ratio') return (mv === null || mv === undefined) ? '—' : (Number(mv) >= 0 ? '+' : '') + Number(mv).toFixed(1) + '%';

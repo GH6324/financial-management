@@ -1085,7 +1085,32 @@ html.is-embedded .nav-actions > .nav-priv { display: inline-flex !important; }
 /* 浮钮取舍:隐私浮钮在 390 高的横屏里会压住内容(实测压住交叉表的「AI 解读当前视图」按钮)。
    横屏导航条里 tab 结束在 335px、退出钮从 726px 开始 —— 中间 390px 全是空的,
    把隐私钮放回导航条既不压内容又更好找。目录钮在横屏无意义(整页就一屏多点)一并收起。 */
-html.is-embedded #priv-float, html.is-embedded .toc-fab { display: none !important; }
+html.is-embedded #priv-float { display: none !important; }
+
+/* ── v1.6.13 · 横屏模式下的「本页目录」──────────────────────────────
+   v1.6.10 我把目录钮一起藏了,理由是「横屏整页就一屏多点,目录无意义」。
+   这个判断错了:横屏高度只有 390,一屏能看的内容反而**更少**,跨节跳转比竖屏更需要。
+   交互按横屏的空间特性重排:
+     · 入口:不用右下浮钮(390 高里浮钮必压内容)→ 放进导航行,与隐私钮同列
+     · 面板:不用底部 sheet(竖屏的做法 —— 横屏里它会盖掉大半屏)
+              → 改**右侧侧栏**:横屏宽度富余、高度稀缺,侧栏正好反过来用
+     · 点条目跳转后 toc.js 原逻辑自动关闭,无需额外处理 */
+html.is-embedded body:not(.toc-open) .toc-fab {
+  display: inline-flex !important;
+  top: 4px; bottom: auto; right: 132px;
+  width: 30px; height: 30px;
+}
+html.is-embedded .toc-sheet {
+  left: auto; right: 0; top: 0; bottom: 0;
+  width: min(320px, 42vw); max-height: none;
+  border-radius: 14px 0 0 14px;
+  box-shadow: -8px 0 32px rgba(0,0,0,.22);
+  transform: translateX(110%);
+  padding: 10px 8px 12px;
+}
+html.is-embedded .toc-sheet.open { transform: translateX(0); }
+html.is-embedded .toc-sheet-handle { display: none; }
+html.is-embedded .toc-sheet .toc-node { padding-top: 9px; padding-bottom: 9px; min-height: 38px; }
 
 /* ── 横屏的垂直节奏:390 高是真正稀缺的资源 ────────────────────────
    实测(交叉表页):header 39 + main 上内边距 30 + 标题块 mt-10(37.5)+ 标题 51
