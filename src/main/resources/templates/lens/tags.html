@@ -47,6 +47,9 @@
       font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-subtle); }
     .tags-table td select,.tags-table td input{ flex:1; width:auto; min-width:0; }
     .tags-table td.name-cell{ display:block; font-size:14px; padding-bottom:6px; }
+    /* v1.6.17 · 「持仓方向」整行的 td 要恢复块级:上面那条把 td 变成 flex 横排,
+       会把横条和标签行并成两列,横条实测只剩 95px(卡片宽 320)。 */
+    .tags-table .alloc-row td{ display:block; }
     .tags-table td:empty{ display:none; }
     .ai-btn{ width:auto; padding:0 14px; }
   }
@@ -257,11 +260,26 @@
             </td>
           </tr>
           <tr th:if="${allocs != null and !allocs.isEmpty()}" class="alloc-row">
+            <!-- v1.6.17 · 持仓方向:加回 UED 稿里的横条占比示意 + 标签不再换行(改横滑)。
+                 原来是一堆 pill 自动换行,方向多了就把行撑成好几行(用户反馈⑤)。
+                 横条只表达"比例"(同一色系按深浅循环,不冒充维值配色 ——
+                 维值配色在旭日那边由 JS 的方案色板决定,服务端渲染取不到,
+                 这里若自己造一套会与旭日不一致,反而更糟)。 -->
             <td th:attr="colspan=${aiAvailable ? 6 : 5}" class="py-1.5" style="background:var(--card-soft);padding-left:2rem">
-              <span class="text-[10px] text-ink-subtle mr-2 font-mono">持仓方向:</span>
-              <span th:each="al : ${allocs}" class="pill text-[10px] mr-1 mb-1 inline-block"
-                    th:classappend="${al.manual} ? ' pill-brass' : ''"
-                    th:text="${al.label} + ' ' + ${al.pct} + '%'">食品饮料 18%</span>
+              <div class="alloc-head">
+                <span class="text-[10px] text-ink-subtle font-mono shrink-0">持仓方向</span>
+                <div class="alloc-bar" th:attr="aria-label='持仓方向占比'">
+                  <span th:each="al,st : ${allocs}" class="alloc-seg"
+                        th:classappend="${'seg-' + (st.index % 6)}"
+                        th:style="'width:' + ${al.pct} + '%'"
+                        th:title="${al.label} + ' ' + ${al.pct} + '%'"></span>
+                </div>
+              </div>
+              <div class="alloc-pills hscroll-x mt-1">
+                <span th:each="al : ${allocs}" class="pill text-[10px] mr-1 whitespace-nowrap"
+                      th:classappend="${al.manual} ? ' pill-brass' : ''"
+                      th:text="${al.label} + ' ' + ${al.pct} + '%'">食品饮料 18%</span>
+              </div>
             </td>
           </tr>
           </th:block>

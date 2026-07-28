@@ -4403,15 +4403,21 @@ RG="$RD/src/main/resources/templates/dashboard/_region.html"
 #   历次:摄像机图标(语义完全不对)→ 屏幕旋转弧 → 自绘「竖框+横框+双向箭头」(用户仍说丑)
 #   → v1.6.15 用**真实图标库**:Tabler Icons(MIT · 描边 24×24 stroke-2,与本项目同款)。
 #   按钮显示**目标状态**:竖屏时显示"横屏手机"(点它去横屏),横屏时显示"竖屏手机"。
-#   三处:右下方向浮钮 / 交叉表「横屏看」按钮(这两处双态)/ 交叉表「手机看」提示(单态)。
-{ [ "$(grep -rc 'M3 8a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -8' "$LAY" "$RD/src/main/resources/templates/lens/_section.html" | awk -F: '{s+=$2} END{print s}')" -eq 3 ] \
-  && [ "$(grep -rc 'M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14' "$LAY" "$RD/src/main/resources/templates/lens/_section.html" | awk -F: '{s+=$2} END{print s}')" -eq 2 ] \
+#   v1.6.17 分档(用户反馈③:只有"横屏"传达不出"旋转"):
+#     · 右下方向浮钮(20px)= 横屏手机 **+ 旋转弧箭头** —— 它是主控件,尺寸够放得下弧
+#     · 交叉表「横屏看」按钮 / 「手机看」提示(14–15px)= 只用横屏手机 ——
+#       该尺寸下 6px 半径的弧糊成一团,按 visual-spec「可读 > 可懂」不硬塞。
+# 注:grep -c 对**单个文件**只输出数字、不带「文件名:」前缀 → 不能再套 awk -F: 取 $2(会得 0)
+{ [ "$(grep -c 'M3 8a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -8' "$RD/src/main/resources/templates/lens/_section.html")" -eq 2 ] \
+  && grep -qF 'M2.5 10.5a1.8 1.8 0 0 1 1.8 -1.8h12.4' "$LAY" \
+  && grep -qF 'M15.5 5.4a6 6 0 0 1 5.9 5.1' "$LAY" \
+  && [ "$(grep -rc 'M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14' "$LAY" "$RD/src/main/resources/templates/lens/_section.html" | awk -F: '{s+=$2} END{print s}')" -ge 2 ] \
   && grep -qF ".ori-ico-port { display: none; }" "$CSS" \
   && grep -qF '[aria-pressed="true"] .ori-ico-land { display: none; }' "$CSS" \
   && ! grep -rq "M18 9l4-2v10l-4-2" "$RD/src/main/resources" \
   && ! grep -rq "M19.5 11.5A8" "$RD/src/main/resources" \
   && ! grep -rq "M8.2 12h5.6" "$RD/src/main/resources"; } \
-  && log_ok "v1613-ORI-ICON(Tabler device-mobile 双态 · 显示目标状态 · 三处一致 · 三代旧图标均已清)" \
+  && log_ok "v1613-ORI-ICON(Tabler device-mobile 双态 · 显示目标状态 · 浮钮带旋转弧 / 小尺寸不硬塞 · 三代旧图标均已清)" \
   || log_bad "v1613-ORI-ICON 缺件" "see layout.html + lens/_section.html:横屏手机图标 3 处 / 竖屏手机图标 2 处(提示位单态)· style.css 双态显隐 · 不得残留摄像机 M18 9l4-2 / 旋转弧 M19.5 11.5A8 / 自绘双向箭头 M8.2 12h5.6"
 
 # v1616-SIX · 用户第 6 轮反馈六项(环上标签 / 旭日不撞色 / 触摸目标 / 切换重排 / 打标页 / 文案)
@@ -4458,6 +4464,43 @@ LJS="$RD/src/main/resources/static/js/lens.js"
   && grep -q "重仓了什么行业" "$RD/src/main/resources/templates/landing.html"; } \
   && log_ok "v1616-SIX(环上名称+占比按弧长分档 · 旭日色板旋色相扩容 77/45 且内外环明度带分离 · 触摸目标 34/44px + touch-action + 横屏去毛玻璃 · 图表显式给容器尺寸重排 · 打标页只看未打标+常驻保存 · 穿透卖点两处文案)" \
   || log_bad "v1616-SIX 缺件" "see _region.html(弧长阈值)· lens.js(buildRingColors/shiftColor/RING_EXT/跨环互斥/超限 warn)· style.css(34px 钮 + 44px 行 + touch-action + 横屏去 backdrop-filter + tags-savebar)· landscape.js(relayoutCharts 显式尺寸 + ECharts isDisposed)· tags.html(tagsOnlyTodo/tags-savebar/tags-intro)· README + landing 均含「重仓了什么行业」"
+
+# v1617-FIVE · 用户第 7 轮反馈五项
+#   ① 系统浮钮不该被页面加载进度绑住:首屏遮罩(z-index 9998)原本挂 `window.load`,
+#      而 load 要等**所有子资源**(echarts / 图表脚本),旭日重的页面拖到两三秒 →
+#      三个浮钮被压在遮罩下,用户看到"等旭日加载完才浮现"。
+#      改:遮罩挂 DOMContentLoaded + 印章一周期(兜底 2.5s);三个浮钮基础 z-index 抬到 9999。
+#      实测 /lens 从"等 load"变成 701ms 可点(dashboard 2.3s = 该页 HTML 解析时间,不再是图表)。
+#   ② 「下一层按」下拉顺序原来是 LensRegistry 注册序、**风险第一**,用户觉得不合适。
+#      重排依据:下钻是"再切一刀看结构",最常问的是结构性问题(是什么/在哪/投向/谁的/为什么);
+#      风险 / 流动性是属性判断且已有专门看板,后置;账户类型是记账口径最技术,放最后。
+#      同时把「成员结构」看板的第二层从 风险 改 资产类型("谁持有"之后自然追问"持的是什么")。
+#   ③ 方向图标补旋转弧箭头:原来只有"横屏手机",传达不出"旋转"这个动作。
+#   ④ 三个浮钮进 flex dock:原来各写死 bottom 偏移(18 / +48 / +96),页面缺一个
+#      (打标页没有目录钮)就在栈里留一个空洞。flex 列后有几个排几个,实测打标页 2 钮间距 10px 无洞。
+#   ⑤ 打标页「持仓方向」加回 UED 稿的横条占比示意 + 标签不换行改横滑。
+#      两个坑:手机端 .tags-table td 被改成 flex 横排 → 横条与标签行各占一半(实测横条 95px);
+#      td 还需恢复 display:block 才能整宽(修后 217px)。
+LR="$RD/src/main/java/com/family/finance/calc/lens/LensRegistry.java"
+TAG2="$RD/src/main/resources/templates/lens/tags.html"
+{ grep -qF "setTimeout(function () { ov.classList.add('hidden'); }, 950);" "$LAY" \
+  && grep -qF "}, 2500);" "$LAY" \
+  && grep -qF "#priv-float{ position:fixed; right:14px; bottom:max(18px, env(safe-area-inset-bottom)); z-index:9999;" "$LAY" \
+  && grep -qF "#ori-float { z-index: 9999; }" "$CSS" \
+  && grep -q "z-index:9999" "$CSS" \
+  && grep -q "float-dock" "$CSS" \
+  && grep -q "function dockFloats" "$JSL" \
+  && grep -qF "['#ori-float', '.toc-fab', '#priv-float']" "$JSL" \
+  && grep -nq "dim(\"assetClass\"" "$LR" \
+  && [ "$(grep -n 'dim("assetClass"' "$LR" | cut -d: -f1)" -lt "$(grep -n 'dim("risk"' "$LR" | cut -d: -f1)" ] \
+  && [ "$(grep -n 'dim("type"' "$LR" | cut -d: -f1)" -gt "$(grep -n 'dim("region"' "$LR" | cut -d: -f1)" ] \
+  && grep -qF "sun: ['owner', 'assetClass']" "$LJS" \
+  && grep -qF 'M15.5 5.4a6 6 0 0 1 5.9 5.1' "$LAY" \
+  && grep -q "alloc-head" "$CSS" && grep -q "alloc-seg" "$CSS" \
+  && grep -q "alloc-bar" "$TAG2" && grep -q "alloc-pills hscroll-x" "$TAG2" \
+  && grep -qF ".tags-table .alloc-row td{ display:block; }" "$TAG2"; } \
+  && log_ok "v1617-FIVE(遮罩改 DOMContentLoaded + 浮钮 z-index 9999 不被加载绑住 · 维度顺序结构类在前 · 成员结构第二层改资产类型 · 图标补旋转弧 · 浮钮 flex dock 无空洞 · 持仓方向横条整宽+标签横滑)" \
+  || log_bad "v1617-FIVE 缺件" "see layout.html(遮罩 950ms/2500ms 兜底 + priv-float z-index 9999 + 图标旋转弧)· style.css(#ori-float z-index 9999 / float-dock / alloc-head / alloc-seg)· landscape.js(dockFloats 三钮顺序)· LensRegistry(assetClass 在 risk 之前、type 在 region 之后)· lens.js(member 看板 sun 第二层 assetClass)· tags.html(alloc-bar / alloc-pills hscroll-x / alloc-row td display:block)"
 
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),

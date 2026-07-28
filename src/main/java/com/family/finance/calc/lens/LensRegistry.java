@@ -25,16 +25,23 @@ public final class LensRegistry {
     public static final Map<String, Measure> MEASURES = new LinkedHashMap<>();
 
     static {
-        dim("risk",       "风险",   false, Position::risk);
+        /* v1.6.17 · 注册顺序 = 前端「下一层按」下拉与透视行/列下拉的排列顺序(LinkedHashMap)。
+           用户反馈「风险作为第一个不是很合适」。重排的依据:下钻是"再切一刀看结构",
+           最常问的是**结构性**问题(是什么 / 在哪 / 投向哪 / 谁的 / 为什么);
+           而风险 / 流动性这类是**属性判断**,本身已有专门看板(风险总览 / 流动性),
+           随手下钻的需求低。账户类型是记账口径、最技术,放最后。
+           ── 结构类 ───────────────────────────── */
         dim("assetClass", "资产类型", false, Position::assetClass);
-        dim("industry",   "行业",   true,  Position::industry);
         dim("platform",   "平台",   false, Position::platform);
-        dim("type",       "账户类型", false, Position::type);
+        dim("industry",   "行业",   true,  Position::industry);
         dim("owner",      "主理人", false, Position::owner);
         dim("purpose",    "用途",   false, Position::purpose);
-        dim("region",     "地域",   true,  Position::region);
-        dim("currency",   "币种",   false, Position::currency);
+        /* ── 属性类 ───────────────────────────── */
+        dim("risk",       "风险",   false, Position::risk);
         dim("liquidity",  "流动性", false, Position::liquidity);
+        dim("currency",   "币种",   false, Position::currency);
+        dim("region",     "地域",   true,  Position::region);
+        dim("type",       "账户类型", false, Position::type);
 
         measure("value",       "总资产");
         measure("netPrincipal","净投入");

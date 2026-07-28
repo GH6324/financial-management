@@ -173,7 +173,8 @@
     if (into) {
       if (fab.parentElement !== acts) { fab.setAttribute('data-toc-moved', '1'); acts.insertBefore(fab, acts.firstChild); }
     } else if (fab.getAttribute('data-toc-moved') && fab.parentElement === acts) {
-      document.body.appendChild(fab); fab.removeAttribute('data-toc-moved');
+      var dock = document.getElementById('float-dock');
+      (dock || document.body).appendChild(fab); fab.removeAttribute('data-toc-moved');
     }
   }
 
@@ -215,6 +216,7 @@
     setScreens(window.TW_SCREENS_BASE);
     tocIntoNav(false);
     if (exitBtn) { exitBtn.remove(); exitBtn = null; }
+    dockFloats();
     relayoutCharts();
     restoreAnchor(anchor, y);
     syncBtn();
@@ -233,7 +235,29 @@
     if (e.key === 'Escape' && root.classList.contains('ls-wide')) exit();
   });
 
-  document.addEventListener('DOMContentLoaded', syncBtn);
+  /* ── 系统浮钮进 flex dock(v1.6.17)──────────────────────────────────
+     原来三个浮钮各写死 bottom 偏移(隐私 18 / 目录 +48 / 方向 +96)。
+     哪个页面缺一个(如打标页没有目录钮)就在栈里留一个空洞 —— 用户反馈④a。
+     改成塞进一个 flex 列容器:有几个排几个,不可能留空位;
+     dock 的 z-index 高于首屏遮罩 → 系统能力不被页面加载进度绑住(反馈①/④b)。 */
+  function dockFloats() {
+    if (root.classList.contains('ls-wide')) return;      /* 横屏态浮钮另有安排 */
+    var dock = document.getElementById('float-dock');
+    if (!dock) {
+      dock = document.createElement('div');
+      dock.id = 'float-dock';
+      document.body.appendChild(dock);
+    }
+    /* 顺序:方向 → 目录 → 隐私(从上到下,最常用的隐私眼离拇指最近) */
+    ['#ori-float', '.toc-fab', '#priv-float'].forEach(function (sel) {
+      var el = document.querySelector(sel);
+      if (el && el.parentElement !== dock) dock.appendChild(el);
+    });
+    return dock;
+  }
+
+  document.addEventListener('DOMContentLoaded', function () { syncBtn(); dockFloats(); });
+  dockFloats();
   syncBtn();
 
   /* ══ 普通模式(未进横屏)· 把内容钉在设备坐标系 ══════════════════════

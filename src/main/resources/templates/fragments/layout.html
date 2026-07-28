@@ -103,7 +103,7 @@
     .priv-eye-off{ display:none; } html.privacy .priv-eye-on{ display:none; } html.privacy .priv-eye-off{ display:inline-flex; }
     /* v1.6 UED · 浮钮从左下改右下(左下是内容起始边,曾压住 dashboard 金额/图表标签/筛选行 · review A1)
        + iOS home indicator 安全区 + 滚动中淡出(不挡阅读),停止滚动后恢复 */
-    #priv-float{ position:fixed; right:14px; bottom:max(18px, env(safe-area-inset-bottom)); z-index:55;
+    #priv-float{ position:fixed; right:14px; bottom:max(18px, env(safe-area-inset-bottom)); z-index:9999;
       display:inline-flex; align-items:center; gap:6px;
       background:var(--card); color:var(--ink-soft); border:1px solid var(--rule); border-radius:999px; padding:8px 11px;
       box-shadow:0 3px 12px rgba(0,0,0,.16); cursor:pointer; font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.04em;
@@ -397,16 +397,25 @@
       var lbl = el('div', {class: 'seal-label'}, stamp);
       lbl.textContent = '家 · 庭 · 账 · 房';
 
-      window.addEventListener('DOMContentLoaded', function () { p.style.width = '70%'; });
+      /* v1.6.17 · 遮罩撤除不再挂在 window load 上 ————————————————————————
+         用户反馈:「进入页面后右下角三个控制按钮不出现,等旭日下钻加载完才浮现」。
+         根因就是这里:遮罩(z-index 9998)原本等 `load` —— 而 load 要等**所有子资源**
+         (echarts / 图表脚本 / 图片),旭日重的页面能拖到两三秒,浮钮被压在遮罩下。
+         系统级能力不该被页面内容的加载进度绑住,所以:
+           · 遮罩改挂 DOMContentLoaded(结构就绪即可)+ 印章一个周期
+           · 三个浮钮的 z-index 抬到遮罩之上(见 #float-dock),遮着也能点 */
+      window.addEventListener('DOMContentLoaded', function () {
+        p.style.width = '70%';
+        setTimeout(function () { ov.classList.add('hidden'); }, 950);
+      });
       window.addEventListener('load', function () {
         p.style.width = '100%';
         setTimeout(function () { p.classList.add('done'); }, 250);
         setTimeout(function () { p.style.width = '0%'; p.classList.remove('done'); }, 700);
-        // 给印章动画一个完整周期(~1.6s,首屏看完一次再淡出)
-        setTimeout(function () { ov.classList.add('hidden'); }, 1200);
+        ov.classList.add('hidden');
       });
-      // 兜底:任意资源 hang 也最多遮 3.5s
-      setTimeout(function () { ov.classList.add('hidden'); }, 3500);
+      // 兜底:DOMContentLoaded 也没来(解析被阻塞)最多遮 2.5s
+      setTimeout(function () { ov.classList.add('hidden'); }, 2500);
 
       function rearm() { p.classList.remove('done'); p.style.width = '40%'; }
       document.addEventListener('click', function (e) {
@@ -448,9 +457,13 @@
   </button>
   <!-- v1.6.4 用户反馈② · 方向切换做成右下浮钮,与隐私眼 / 目录钮同一列(顶级常驻控件)。
        方向只由这个钮决定 —— 转动手机不会改变页面方向(见 static/js/landscape.js)。 -->
+  <!-- v1.6.17 · 三个系统浮钮统一进 #float-dock(flex 列)——
+       原来各写死 bottom 偏移(18 / +48 / +96),哪个页面缺一个(如打标页没有目录钮)
+       就在栈里留一个空洞(用户反馈④a)。改成 flex 列后,有几个排几个,不可能留空位。
+       dock 的 z-index 高于首屏遮罩:系统能力不被页面加载进度绑住(反馈①/④b)。 -->
   <button id="ori-float" type="button" data-orientation-toggle aria-pressed="false"
           aria-label="切换横屏 / 竖屏" title="整页横屏查看(适合宽表格)· 转动手机不会改变方向">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ori-ico-land"><path d="M3 8a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -8"/><path d="M20 11v2"/><path d="M7 12h-.01"/></svg><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ori-ico-port"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14"/><path d="M11 4h2"/><path d="M12 17v.01"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ori-ico-land"><path d="M2.5 10.5a1.8 1.8 0 0 1 1.8 -1.8h12.4a1.8 1.8 0 0 1 1.8 1.8v6.7a1.8 1.8 0 0 1 -1.8 1.8h-12.4a1.8 1.8 0 0 1 -1.8 -1.8z"/><path d="M17.2 13.2v1.3"/><path d="M6 14h-.01"/><path d="M15.5 5.4a6 6 0 0 1 5.9 5.1"/><path d="M13.6 6.9 15.6 5.3l1.5 2.1"/></svg><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ori-ico-port"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14"/><path d="M11 4h2"/><path d="M12 17v.01"/></svg>
   </button>
   <!-- 全局 Toast 容器(HX-Trigger=showToast 触发) — 居中顶部,z-index 高于 nav 与 progress -->
   <div id="toast-stack"

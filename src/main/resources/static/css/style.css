@@ -447,7 +447,7 @@ h1, h2, h3, h4 {
 /* 手机:左上角唤醒钮(icon-only 小圆钮)+ 底部 sheet · ≥1024px 隐藏(用右栏) */
 /* v0.11 · 移动端目录浮钮挪到左下,与隐私浮控(#priv-float, bottom:18px)叠成同一操作区 */
 /* v1.6 UED(review A1)· 浮钮从左下改右下 + iOS 安全区:左下是内容起始边,曾压住金额/图例/筛选行 */
-.toc-fab { position:fixed; right:14px; bottom:calc(max(18px, env(safe-area-inset-bottom)) + 48px); z-index:60;
+.toc-fab { position:fixed; right:14px; bottom:calc(max(18px, env(safe-area-inset-bottom)) + 48px); z-index:9999;
   width:38px; height:38px; border-radius:50%;
   background:var(--ink); color:var(--paper); border:none; box-shadow:0 3px 12px rgba(0,0,0,.22);
   display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
@@ -1213,3 +1213,56 @@ body:has(.tags-savebar) main { padding-bottom: 76px; }
   min-height: 34px; touch-action: manipulation;
 }
 .tags-todo-toggle input { width: 16px; height: 16px; accent-color: var(--brass-deep); }
+
+
+/* ── v1.6.17 · 系统浮钮 dock ─────────────────────────────────────────
+   三个浮钮(方向 / 本页目录 / 隐藏金额)原来各写死 bottom 偏移,页面缺一个就留空洞
+   (打标页没有目录钮 → 中间一个洞,用户反馈④a)。改成 flex 列:有几个排几个。
+   z-index 9999 > 首屏遮罩 9998:系统能力不被页面内容的加载进度绑住(反馈①/④b)。 */
+#float-dock {
+  position: fixed; right: 14px;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 9999;
+  display: none;
+  flex-direction: column; align-items: center; gap: 10px;
+}
+@media (pointer: coarse) { #float-dock { display: flex; } }
+/* dock 里的按钮交给 flex 排,自己不再定位 */
+#float-dock > #ori-float,
+#float-dock > .toc-fab,
+#float-dock > #priv-float {
+  position: static !important; right: auto !important; bottom: auto !important;
+  display: inline-flex !important;
+}
+/* 目录抽屉打开时只藏隐私眼(它会压住抽屉底部条目),目录钮自身留着当关闭入口 */
+body.toc-open #float-dock > #priv-float { display: none !important; }
+html.ls-wide #float-dock { display: none !important; }
+
+
+/* ── v1.6.17 · 打标页「持仓方向」横条占比示意 ──────────────────────
+   加回最初 UED 稿的横条(用户反馈⑤:原来一堆 pill 会换行,方向多了撑成好几行)。
+   横条只表达比例,用同一色系按深浅循环 —— 不冒充"维值配色":
+   维值配色由旭日那边 JS 的方案色板决定,服务端渲染取不到,这里自造一套只会与旭日不一致。 */
+/* 手机端 .tags-table 会卡片化(td 变块级、宽度由内容决定)→ 横条必须显式吃满宽,
+   否则 flex:1 拿不到可分配空间,实测塌成 3px。 */
+.alloc-head { display: flex; align-items: center; gap: 8px; width: 100%; }
+.alloc-bar {
+  display: flex; flex: 1 1 auto; min-width: 60px; width: 100%;
+  height: 9px; border-radius: 5px; overflow: hidden;
+  background: var(--rule-soft);
+}
+.alloc-seg { display: block; height: 100%; min-width: 2px; }
+.alloc-seg.seg-0 { background: #8a6a3a; }
+.alloc-seg.seg-1 { background: #a98a5c; }
+.alloc-seg.seg-2 { background: #6f7f6a; }
+.alloc-seg.seg-3 { background: #93a08e; }
+.alloc-seg.seg-4 { background: #6f7a8c; }
+.alloc-seg.seg-5 { background: #9aa3b0; }
+/* 标签行:不换行,超出横滑(复用 .hscroll-x 的 iOS 护栏:不触发 Safari 返回手势) */
+.alloc-pills { display: flex; align-items: center; padding-bottom: 2px; }
+
+
+/* v1.6.17 · 三个系统浮钮**基础态**就抬到首屏遮罩(9998)之上。
+   #float-dock 是 landscape.js(defer)建的,建之前这三个钮还按各自定位渲染 ——
+   实测 dashboard 上要到 3.2s 才可点(等 DOMContentLoaded)。抬 z-index 后首屏即可点。 */
+#ori-float { z-index: 9999; }
