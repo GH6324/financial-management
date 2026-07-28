@@ -1095,13 +1095,35 @@ html.is-embedded #priv-float { display: none !important; }
      · 面板:不用底部 sheet(竖屏的做法 —— 横屏里它会盖掉大半屏)
               → 改**右侧侧栏**:横屏宽度富余、高度稀缺,侧栏正好反过来用
      · 点条目跳转后 toc.js 原逻辑自动关闭,无需额外处理 */
-html.is-embedded body:not(.toc-open) .toc-fab {
+/* 目录钮参与导航行的 flex 排列(由 landscape.js 搬进 .nav-actions)——
+   不用 position:fixed 摆坐标:那样必须和隐私钮的宽度"保持相等",一变就撞。 */
+html.is-embedded .nav-actions > .toc-fab {
   display: inline-flex !important;
-  top: 4px; bottom: auto; right: 132px;
-  width: 30px; height: 30px;
+  position: static !important;
+  top: auto; right: auto; bottom: auto; left: auto;
+  margin-right: 8px;
+  /* 与隔壁隐私钮**同款**:.pill + .pill-mute 的描边样式 ——
+     并列同级控件必须同尺度同样式(AGENTS.md 护栏 / visual-spec「并列同类元素」)。
+     原来它是 38px 深色实心圆(为右下浮钮设计的),搁在描边 pill 旁边像两个系统的东西。 */
+  width: auto; height: auto; border-radius: 0;
+  padding: 4px 9px;
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  color: var(--ink-subtle);
+  box-shadow: none;
+  opacity: 1;
 }
+html.is-embedded .nav-actions > .toc-fab svg { width: 14px; height: 14px; }
+html.is-embedded .nav-actions > .toc-fab:hover,
+html.is-embedded .nav-actions > .toc-fab:active { color: var(--ink-soft); border-color: var(--rule); }
+/* top 从 38px(横屏导航栏高)起,不是 0 ——————————————————————————
+   `<main>` 带 `relative z-10`,它本身就是一个**层叠上下文**;抽屉在 main 里面,
+   所以 `.toc-sheet` 的 z-index:80 永远升不到 z-30 的导航之上(实测抽屉的关闭 ×
+   被 nav-inner 压住)。同一个原因也让 v1.6.13 的目录浮钮被隐私钮压住。
+   与其去拆 main 的层叠上下文(牵连全站),不如让抽屉从导航条下方开始 ——
+   顺带导航在抽屉打开时仍可点,体验反而更好。 */
 html.is-embedded .toc-sheet {
-  left: auto; right: 0; top: 0; bottom: 0;
+  left: auto; right: 0; top: 38px; bottom: 0;
   width: min(320px, 42vw); max-height: none;
   border-radius: 14px 0 0 14px;
   box-shadow: -8px 0 32px rgba(0,0,0,.22);
@@ -1109,6 +1131,7 @@ html.is-embedded .toc-sheet {
   padding: 10px 8px 12px;
 }
 html.is-embedded .toc-sheet.open { transform: translateX(0); }
+html.is-embedded .toc-sheet-mask { top: 38px; }   /* 遮罩同样不盖导航条 */
 html.is-embedded .toc-sheet-handle { display: none; }
 html.is-embedded .toc-sheet .toc-node { padding-top: 9px; padding-bottom: 9px; min-height: 38px; }
 

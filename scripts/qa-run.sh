@@ -4401,13 +4401,27 @@ RG="$RD/src/main/resources/templates/dashboard/_region.html"
 #   横屏高度只有 390,一屏能看的内容反而更少,跨节跳转比竖屏更需要。
 #   交互按横屏的空间特性重排:入口进导航行(390 高里浮钮必压内容)、
 #   面板从底部 sheet 改**右侧侧栏**(横屏宽度富余、高度稀缺,正好反过来用)。
-{ grep -qF "html.is-embedded body:not(.toc-open) .toc-fab" "$CSS" \
-  && grep -qF "html.is-embedded .toc-sheet {" "$CSS" \
+#   v1.6.14 两处修正(用户反馈「横屏了以后还是看不到」):
+#     ① 目录钮原来用 position:fixed + right:132px 摆在导航行上,与隐私钮(690..726)
+#        重叠 22px 且被画在下面 → 改成由 landscape.js 搬进 .nav-actions 参与 flex 排,
+#        结构上不可能重叠(挪坐标只是"两处保持相等",隐私钮宽度一变就再撞)。
+#     ② 抽屉 top 从 0 改 38px(导航栏高):`<main>` 带 relative z-10 本身就是层叠上下文,
+#        抽屉在 main 里,z-index:80 永远升不到 z-30 的导航之上 —— 实测关闭 × 被 nav-inner 压住。
+#        与其拆 main 的层叠上下文(牵连全站),不如让抽屉从导航下方开始,顺带导航仍可点。
+#     ③ 目录钮改成与隐私钮同款描边(原来是 38px 深色实心圆,为右下浮钮设计的)——
+#        并列同级控件必须同尺度同样式,见 AGENTS.md 护栏。
+{ grep -qF "html.is-embedded .nav-actions > .toc-fab" "$CSS" \
+  && grep -qF "position: static !important;" "$CSS" \
+  && grep -qF "border: 1px solid var(--rule-soft);" "$CSS" \
+  && grep -qF "left: auto; right: 0; top: 38px; bottom: 0;" "$CSS" \
+  && grep -qF "html.is-embedded .toc-sheet-mask { top: 38px; }" "$CSS" \
   && grep -qF "html.is-embedded .toc-sheet.open { transform: translateX(0); }" "$CSS" \
   && grep -qF "html.is-embedded .toc-sheet-handle { display: none; }" "$CSS" \
+  && grep -q "function tocIntoNav\|var tocIntoNav" "$JSL" \
+  && grep -qF "acts.insertBefore(fab, acts.firstChild)" "$JSL" \
   && ! grep -qF "html.is-embedded #priv-float, html.is-embedded .toc-fab { display: none" "$CSS"; } \
-  && log_ok "v1613-LS-TOC(横屏目录钮进导航行 + 抽屉改右侧侧栏 · 不再整体隐藏)" \
-  || log_bad "v1613-LS-TOC 缺件" "see style.css:html.is-embedded 下 .toc-fab 显示且定位到导航行 · .toc-sheet 改 translateX 右侧侧栏 · handle 隐藏 · 不得再把 .toc-fab 一并 display:none"
+  && log_ok "v1613-LS-TOC(横屏目录钮搬进导航 flex 流 · 与隐私钮同款描边 · 抽屉右侧侧栏且避开导航层叠上下文)" \
+  || log_bad "v1613-LS-TOC 缺件" "see landscape.js tocIntoNav 把 .toc-fab 搬进 .nav-actions · style.css 下 .nav-actions > .toc-fab 为 static 描边款 · .toc-sheet/mask top:38px 右侧侧栏 · handle 隐藏"
 
 # v1613-ORI-ICON · 方向切换图标 = 竖框 + 横框 + 双向箭头(用户第二次要求换)
 #   历次:摄像机图标(语义完全不对)→ 屏幕旋转弧(用户仍不满意)→ 现在按用户描述做。

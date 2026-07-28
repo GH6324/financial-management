@@ -138,6 +138,10 @@
 - 选型对比表**只放用户能感知的维度**,别把"我写代码省不省事"伪装成用户价值。
 - 每次代码改动**主动同步文档**(prd/tech-design/CHANGELOG/qa-cases),不等提醒。
 
+**验收 UI 的两条硬纪律(踩过)**
+- **浮层/按钮别只验 `display`,必须验遮挡**:取元素中心点跑 `document.elementsFromPoint(cx,cy)[0]`,最顶层必须是它自己或它的后代。v1.6.13 的横屏目录钮 `display:inline-flex`、坐标也对,但被隐私钮压在下面 —— 我断言了"显示"就收工,用户一句"还是看不到"打回来。
+- **`<main>` 带 `relative z-10` 是层叠上下文**:任何放在 main 里的 `position:fixed` 浮层(抽屉/遮罩/模态)**都升不到 `z-30` 的 nav 之上**,写多大 z-index 都没用。要么让它避开 nav 的区域(如抽屉 `top:38px`),要么把节点搬出 main —— 别去调 z-index 空耗。
+
 **写守护(qa-run.sh)**
 - **否定断言只盯代码构造,不盯裸标识符/ 裸字面量。** 写 `! grep -q "function X"` / `! grep -qF "Object.assign(X"` / `! grep -qE "color: *'#abc'"`,**不要**写 `! grep -q "X("` 或 `! grep -q "#abc"` —— 讲解这段历史的注释里必然会出现那个词,自己把自己扫红。已踩 **4 次**:`100dvh`(注释在辨析 vh/dvh)、`window.innerWidth<`(注释举例)、`hBarConfig(`、`#c8c0ae`(注释在列旧色值)。第 4 次是在同一轮刚给自己写完这条规矩之后 —— 所以它必须写在这里,不能只写在守护注释里。
 - 含 `${` / `[{` / `[]` 的模式一律 `grep -qF`(BRE 会把 `{}` 当区间量词,静默不匹配)。

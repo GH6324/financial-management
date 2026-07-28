@@ -35,7 +35,18 @@
       if (o) o.classList.add('hidden');
     };
     killOverlay();
-    document.addEventListener('DOMContentLoaded', killOverlay);
+    /* v1.6.14 · 把「本页目录」钮搬进导航行的 flex 流里 ————————————————
+       v1.6.13 我用 position:fixed + right:132px 把它摆到导航行上,结果与隐私钮
+       (690..726)重叠 22px 且被画在下面 —— 用户反馈"横屏了还是看不到"。
+       挪坐标只是"两处保持相等",隐私钮宽度一变就再撞一次。
+       改成搬进 .nav-actions 让 flex 排:结构上不可能重叠,顺序 目录 → 隐私。 */
+    var tocIntoNav = function () {
+      var fab = document.querySelector('.toc-fab');
+      var acts = document.querySelector('.nav-actions');
+      if (fab && acts && fab.parentElement !== acts) acts.insertBefore(fab, acts.firstChild);
+    };
+    tocIntoNav();
+    document.addEventListener('DOMContentLoaded', function () { killOverlay(); tocIntoNav(); });
     return;
   }
 
