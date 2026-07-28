@@ -73,7 +73,13 @@
 
     var F = '#2f5d50', R = '#9c4a2a', BRASS = '#7a5a39', INK = '#3a302a';
     function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
-    function fmtShort(v){var n=Number(v||0),a=Math.abs(n),s=n<0?'−':'+';
+    /* v1.6.18 · 隐私红线:归因的数字是画在 **canvas** 上的(柱顶 label / tooltip),
+       CSS 的 html.privacy [data-priv] 模糊管不到 canvas —— 用户反馈「归因部分坐标没有正确脱敏」。
+       两件事都要做:① 生成文案时就判隐私(下面这个函数)② 隐私开关切换后**重出图**
+       (canvas 已经画好的像素不会自己变,见文件末尾的 privacy 监听)。 */
+    function privOn(){ return document.documentElement.classList.contains('privacy'); }
+    function fmtShort(v){ if(privOn()) return '···';
+      var n=Number(v||0),a=Math.abs(n),s=n<0?'−':'+';
       if(a>=1e8)return s+'¥'+(a/1e8).toFixed(2)+'亿'; if(a>=1e4)return s+'¥'+(a/1e4).toFixed(1)+'万'; return s+'¥'+Math.round(a);}
 
     function boot() {
@@ -187,6 +193,16 @@
       window.__attrFsBound = true;
       window.addEventListener('fontscalechange', function () { if (window.__attrBoot) window.__attrBoot(); });
     }
+
+    /* 隐私开关 → 重出图(canvas 里的金额不受 CSS 模糊管辖)。
+       与 lens.js 里旭日的同类监听同一套做法。 */
+    (function () {
+      var last = document.documentElement.classList.contains('privacy');
+      new MutationObserver(function () {
+        var now = document.documentElement.classList.contains('privacy');
+        if (now !== last) { last = now; if (window.echarts) { try { boot(); } catch (e) {} } }
+      }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    })();
 
     if (window.echarts) boot();
     else {   // 归因区先于 lens 的 echarts 加载 → 动态补

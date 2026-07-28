@@ -1266,3 +1266,16 @@ html.ls-wide #float-dock { display: none !important; }
    #float-dock 是 landscape.js(defer)建的,建之前这三个钮还按各自定位渲染 ——
    实测 dashboard 上要到 3.2s 才可点(等 DOMContentLoaded)。抬 z-index 后首屏即可点。 */
 #ori-float { z-index: 9999; }
+
+
+/* v1.6.18 · 明细抽屉打开时闪一下边框 —— 指标放行时表格很高,
+   用户点完需要一个"响应了"的确认(否则以为没下钻)。 */
+@keyframes drawer-flash { 0%,100% { box-shadow: 0 0 0 0 rgba(176,141,63,0); } 25% { box-shadow: 0 0 0 3px rgba(176,141,63,.55); } }
+.drawer-flash { animation: drawer-flash .9s ease-out 1; }
+@media (prefers-reduced-motion: reduce) { .drawer-flash { animation: none; } }
+
+/* v1.6.18 · ⑥ 浮钮 dock 右对齐 ——
+   隐私态下 #priv-float 会显出文字标签变宽,而 dock 原来是 align-items:center,
+   dock 宽度被最宽的那个撑开 → 另外两个居中钮跟着左移(用户反馈:位置偏移)。
+   右对齐后每个钮的右缘固定,谁变宽只往左长,其余不动。 */
+#float-dock { align-items: flex-end !important; }

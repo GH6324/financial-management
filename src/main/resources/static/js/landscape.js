@@ -134,15 +134,10 @@
     window.tailwind.config = { theme: { screens: screens, extend: window.TW_EXTEND_BASE || {} } };
     return true;
   }
-  /* 横屏档:sm/md 强制命中 —— 布局宽度是长边,但媒体查询看的是 innerWidth(短边),
-     所以不能靠 min-width,只能强制;lg/xl 仍按宽度。 */
-  var WIDE_SCREENS = {
-    sm: { raw: '(min-width: 1px)' },
-    md: { raw: '(min-width: 1px)' },
-    lg: { raw: '(min-width: 1024px)' },
-    xl: { raw: '(min-width: 1280px)' },
-    '2xl': { raw: '(min-width: 1536px)' }
-  };
+  /* 横屏档在 layout.html 的 window.TW_SCREENS_WIDE(单一出处)——
+     那里必须在**首次编译前**就能用上它,才能做到跨页面保持横屏时不闪一下竖屏。 */
+  function wideScreens() { return window.TW_SCREENS_WIDE; }
+
 
   function svgIcon(d, size) {
     var NS = 'http://www.w3.org/2000/svg';
@@ -200,8 +195,9 @@
   function enter() {
     if (root.classList.contains('ls-wide')) return;
     var y = curY() || lastY, anchor = currentAnchor();
-    if (!setScreens(WIDE_SCREENS)) return;      /* 运行时编译器不在 → 不做半套 */
+    if (!setScreens(wideScreens())) return;      /* 运行时编译器不在 → 不做半套 */
     root.classList.add('ls-wide');
+    try { sessionStorage.setItem('lsWide', '1'); } catch (e) {}   /* 跨页面保持 */
     ensureExit();
     tocIntoNav(true);
     relayoutCharts();
@@ -213,6 +209,7 @@
     if (!root.classList.contains('ls-wide')) return;
     var y = curY() || lastY, anchor = currentAnchor();
     root.classList.remove('ls-wide');
+    try { sessionStorage.removeItem('lsWide'); } catch (e) {}
     setScreens(window.TW_SCREENS_BASE);
     tocIntoNav(false);
     if (exitBtn) { exitBtn.remove(); exitBtn = null; }
@@ -256,8 +253,18 @@
     return dock;
   }
 
-  document.addEventListener('DOMContentLoaded', function () { syncBtn(); dockFloats(); });
+  /* 跨页面保持横屏(用户:点账户详情跳过去就变回竖屏了)。
+     head 里已据 sessionStorage 贴好 html.ls-wide 并让 tailwind 首次编译就用宽屏档,
+     这里只补齐 JS 侧那几件:退出钮 / 目录钮进导航 / 图表按新宽度重排 / 按钮态。 */
+  function adoptWideOnLoad() {
+    if (!root.classList.contains('ls-wide')) return;
+    ensureExit();
+    tocIntoNav(true);
+    relayoutCharts();
+  }
+  document.addEventListener('DOMContentLoaded', function () { syncBtn(); dockFloats(); adoptWideOnLoad(); });
   dockFloats();
+  adoptWideOnLoad();
   syncBtn();
 
   /* ══ 普通模式(未进横屏)· 把内容钉在设备坐标系 ══════════════════════

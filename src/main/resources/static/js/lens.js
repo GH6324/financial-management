@@ -888,8 +888,17 @@
     });
     document.getElementById('drawerScope').textContent = scope + ' · ' + list.length + ' 笔头寸';
     document.getElementById('drawer').innerHTML = html || '<p class="text-sm text-ink-subtle">无头寸。</p>';
-    document.getElementById('drawerWrap').classList.remove('hidden');
-    document.getElementById('drawerWrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    /* v1.6.18 · 用户反馈「指标放行上点数字没有下钻能力」。
+       实测两种位置抽屉**都会打开**(无头里都验过),但指标放行时每个实体占 N 行、
+       表格高出数倍,抽屉在表格下方很远处;原来用 block:'nearest' —— 它只滚"最小距离",
+       抽屉常停在视口边缘之外,看着就像"点了没反应"。改成 block:'start' 直接带到视口顶部,
+       并闪一下边框给出"响应了"的确认。 */
+    var wrap = document.getElementById('drawerWrap');
+    wrap.classList.remove('hidden');
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    wrap.classList.remove('drawer-flash');
+    void wrap.offsetWidth;                 /* 重启动画 */
+    wrap.classList.add('drawer-flash');
   }
 
   /* ---------- 选择器 ---------- */

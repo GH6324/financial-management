@@ -328,7 +328,7 @@
           <div class="p-4" style="background:var(--card-soft);border-left:3px solid var(--forest)">
             <div class="font-mono text-[10px] uppercase text-ink-soft tracking-wider">人赚 · 你主动存下的</div>
             <div class="font-display text-2xl mt-1 tnum" th:classappend="${cashflowSplit.renPos()} ? ' num-pos' : ' num-neg'" data-priv th:text="${cfRenLabel}">+¥12,000</div>
-            <p class="font-mono text-[11px] text-ink-subtle mt-2">本期收入 <b class="num-pos" th:text="${cfIncomeLabel}">¥38,000</b> − 支出 <b class="num-neg" th:text="${cfExpenseLabel}">¥26,000</b></p>
+            <p class="font-mono text-[11px] text-ink-subtle mt-2">本期收入 <b class="num-pos" data-priv th:text="${cfIncomeLabel}">¥38,000</b> − 支出 <b class="num-neg" data-priv th:text="${cfExpenseLabel}">¥26,000</b></p>
             <p class="font-mono text-[10px] text-ink-subtle mt-1" th:text="${cashflowSplit.renPos()} ? '你能控制的那部分:挣得多、花得少,这个数就大。' : '这月花得比挣得多,人赚为负。'">你能控制的那部分</p>
           </div>
           <div class="p-4" style="background:var(--card-soft);border-left:3px solid var(--brass-deep)">
@@ -879,6 +879,11 @@
                   const lab = ctx.chart.data.labels[ctx.dataIndex];
                   const name = Array.isArray(lab) ? lab.join(' ') : String(lab);
                   const shortName = name.replace(/\s*\([^)]*\)\s*/g, '').trim();  // 去掉「(WEALTH)」这类英文码
+                  const money = fmtMoney(v);                     // 隐私态返回空串 → 自动降一档,不留空行
+                  /* v1.6.18 · 用户:不只要占比,具体数字也要在环上。
+                     三行(名称 / 金额 / 占比)对径向空间要求 ≈ 3 × 11px = 33px < 环带 42px,放得下;
+                     真正的约束还是弧长 —— 最宽那行是金额(约 8 字符 ≈ 40px),所以三行档要 arc ≥ 58。 */
+                  if (arc >= 58 && money) return shortName + '\n' + money + '\n' + pct.toFixed(0) + '%';
                   if (arc >= 52) return shortName + '\n' + pct.toFixed(0) + '%';
                   if (arc >= 26) return pct.toFixed(0) + '%';
                   return '';                                     // 太小 → 看图例(图例带名称+金额)

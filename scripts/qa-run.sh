@@ -4214,8 +4214,9 @@ LAY="$RD/src/main/resources/templates/fragments/layout.html"
   && grep -q "window.TW_SCREENS_BASE" "$LAY" \
   && grep -q "window.TW_EXTEND_BASE" "$LAY" \
   && grep -qF "extend: window.TW_EXTEND_BASE || {}" "$JSL" \
-  && grep -q "var WIDE_SCREENS" "$JSL" \
-  && grep -qF "sm: { raw: '(min-width: 1px)' }" "$JSL" \
+  && grep -q "window.TW_SCREENS_WIDE" "$LAY" \
+  && grep -q "function wideScreens" "$JSL" \
+  && grep -qF "sm: { raw: '(min-width: 1px)' }" "$LAY" \
   && grep -qF "html.ls-wide > body {" "$CSS" \
   && grep -qF "min-height: 0 !important;" "$CSS" \
   && grep -qF "width: 100vh; height: 100vw;" "$CSS" \
@@ -4225,7 +4226,7 @@ LAY="$RD/src/main/resources/templates/fragments/layout.html"
   && grep -q "function currentAnchor" "$JSL" \
   && ! grep -qE "\.scrollIntoView\(" "$JSL"; } \
   && log_ok "v1615-LS-INPLACE(原地换断点 ~300ms 零文档请求 · 断点基线单一出处 · body 锁长边+视口单位交换旋转 · min-height 清零 · 退出钮在导航行 · 章节按布局坐标还原)" \
-  || log_bad "v1615-LS-INPLACE 缺件" "see landscape.js(不得有 iframe/ls-shell · setScreens 复用 TW_EXTEND_BASE · WIDE_SCREENS 强制 sm/md · 退出钮进 .nav-actions · layoutTop/currentAnchor 且不用 scrollIntoView)· style.css(html.ls-wide > body 锁长边 + min-height:0 + 视口单位交换旋转)· layout.html 暴露 TW_SCREENS_BASE / TW_EXTEND_BASE"
+  || log_bad "v1615-LS-INPLACE 缺件" "see landscape.js(不得有 iframe/ls-shell · setScreens 复用 TW_EXTEND_BASE · 宽屏档在 layout.html 的 TW_SCREENS_WIDE(单一出处,首次编译前要用得上)· 退出钮进 .nav-actions · layoutTop/currentAnchor 且不用 scrollIntoView)· style.css(html.ls-wide > body 锁长边 + min-height:0 + 视口单位交换旋转)· layout.html 暴露 TW_SCREENS_BASE / TW_EXTEND_BASE"
 
 # v167-VP-SHORTSIDE · 响应式判据必须同时看「短边」(用户第 5 次反馈:转手机页面还是变了)
 #   前四版横屏方案都在跟「方向」较劲,方向找错了 —— 真正的 bug 是**断点只判宽度**:
@@ -4501,6 +4502,39 @@ TAG2="$RD/src/main/resources/templates/lens/tags.html"
   && grep -qF ".tags-table .alloc-row td{ display:block; }" "$TAG2"; } \
   && log_ok "v1617-FIVE(遮罩改 DOMContentLoaded + 浮钮 z-index 9999 不被加载绑住 · 维度顺序结构类在前 · 成员结构第二层改资产类型 · 图标补旋转弧 · 浮钮 flex dock 无空洞 · 持仓方向横条整宽+标签横滑)" \
   || log_bad "v1617-FIVE 缺件" "see layout.html(遮罩 950ms/2500ms 兜底 + priv-float z-index 9999 + 图标旋转弧)· style.css(#ori-float z-index 9999 / float-dock / alloc-head / alloc-seg)· landscape.js(dockFloats 三钮顺序)· LensRegistry(assetClass 在 risk 之前、type 在 region 之后)· lens.js(member 看板 sun 第二层 assetClass)· tags.html(alloc-bar / alloc-pills hscroll-x / alloc-row td display:block)"
+
+# v1618-SIX · 用户第 8 轮反馈六项
+#   ① 环上不只要占比,具体金额也要:三行(名称/金额/占比)对径向要求 ≈ 3×11px = 33px < 环带 42px;
+#      真正约束仍是弧长 —— 最宽那行是金额(≈8 字符 ≈40px)→ 三行档 arc ≥ 58。
+#      隐私态 fmtMoney 返回空串 → 自动降回两行,不留空行。
+#   ② 「本期怎么变的」里「本期收入 / 支出」两个 <b> **根本没挂 data-priv** → 隐私态下明文暴露。
+#      注:PrivacyIsolationTest 管的是 LLM 脱敏(手机号/姓名),与 UI 的 data-priv 模糊无关,本来抓不到。
+#      本守护补上这一类:_region.html 里**所有** ${cf*Label}(绝对金额)必须带 data-priv,
+#      新增的也会被抓 —— 不是只补这两处。
+#   ③ 「指标放行上点数字没有下钻能力」:实测两种位置抽屉**都会打开**(无头逐一验过),
+#      但指标放行时每个实体占 N 行、表格高出数倍,而原来用 block:'nearest'(只滚最小距离)
+#      → 抽屉常停在视口外,看着像"点了没反应"。改 block:'start' + 打开时闪一下边框给确认。
+#   ④ 横屏要跨页面保持:状态写 sessionStorage;**关键是要在 tailwind 首次编译前**就据它选断点档
+#      并贴上 html.ls-wide,否则新页面先按竖屏排一遍再被 JS 扳过去,会闪。
+#   ⑤ 归因的数字画在 **canvas** 上,CSS 的 html.privacy [data-priv] 管不到 →
+#      两件事都要:生成文案时判隐私 + 隐私开关切换后**重出图**(已画的像素不会自己变)。
+#   ⑥ 隐私态 #priv-float 会显出文字标签变宽,dock 原来 align-items:center → dock 宽度被撑开、
+#      另外两个居中钮左移。改右对齐:每个钮右缘固定,谁变宽只往左长。
+ATTR="$RD/src/main/resources/templates/dashboard/_attribution.html"
+{ grep -qF "if (arc >= 58 && money) return shortName" "$RG" \
+  && [ "$(grep -oE '<[a-zA-Z][^>]*\$\{cf[A-Za-z]*Label\}[^>]*>' "$RG" | wc -l)" -eq "$(grep -oE '<[a-zA-Z][^>]*\$\{cf[A-Za-z]*Label\}[^>]*>' "$RG" | grep -c 'data-priv')" ] \
+  && grep -qF "wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });" "$LJS" \
+  && grep -q "drawer-flash" "$CSS" \
+  && grep -q "window.TW_SCREENS_WIDE" "$LAY" \
+  && grep -qF "sessionStorage.getItem('lsWide') === '1'" "$LAY" \
+  && grep -qF "sessionStorage.setItem('lsWide', '1')" "$JSL" \
+  && grep -q "function adoptWideOnLoad" "$JSL" \
+  && grep -q "function privOn()" "$ATTR" \
+  && grep -qF "function fmtShort(v){ if(privOn()) return '···';" "$ATTR" \
+  && grep -q "MutationObserver" "$ATTR" \
+  && grep -qF "#float-dock { align-items: flex-end !important; }" "$CSS"; } \
+  && log_ok "v1618-SIX(环上补金额按弧长分档 · 所有 cf*Label 必带 data-priv · 抽屉 block:start+闪确认 · 横屏跨页保持且首次编译即宽屏档 · 归因 canvas 生成时判隐私+切换重绘 · dock 右对齐不偏移)" \
+  || log_bad "v1618-SIX 缺件" "see _region.html(arc>=58 三行档 · 所有 \${cf*Label} 必须带 data-priv)· lens.js(drawerWrap block:start)· style.css(drawer-flash / float-dock flex-end)· layout.html(TW_SCREENS_WIDE + sessionStorage lsWide 预贴)· landscape.js(setItem lsWide + adoptWideOnLoad)· _attribution.html(privOn + fmtShort 判隐私 + MutationObserver 重绘)"
 
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),

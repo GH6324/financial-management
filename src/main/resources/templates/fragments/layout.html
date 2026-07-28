@@ -62,9 +62,17 @@
     /* v1.6.15 · 断点基线暴露成全局:横屏模式要**原地**换断点(不再靠 iframe 重载整页),
        换完还得换回来,所以基线只能有一处出处 —— 见 static/js/landscape.js。 */
     window.TW_SCREENS_BASE = { sm: bp(640), md: bp(768), lg: bp(1024), xl: bp(1280), '2xl': bp(1536) };
+    /* v1.6.18 · 横屏要跨页面保持(用户:点账户详情跳过去就变回竖屏了)。
+       与隐私模式的 FOUC 防闪同一手法:在**首次编译之前**就据 sessionStorage 决定用哪档断点,
+       并把 html.ls-wide 贴上 —— 否则新页面会先按竖屏排一遍再被 JS 扳过去,闪一下。 */
+    window.TW_SCREENS_WIDE = { sm: { raw: '(min-width: 1px)' }, md: { raw: '(min-width: 1px)' },
+                               lg: bp(1024), xl: bp(1280), '2xl': bp(1536) };
+    var LS_KEEP = false;
+    try { LS_KEEP = sessionStorage.getItem('lsWide') === '1'; } catch (e) {}
+    if (LS_KEEP) document.documentElement.classList.add('ls-wide');
     tailwind.config = {
       theme: {
-        screens: window.TW_SCREENS_BASE,
+        screens: LS_KEEP ? window.TW_SCREENS_WIDE : window.TW_SCREENS_BASE,
         extend: {
           colors: {
             paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)',
