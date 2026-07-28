@@ -140,13 +140,98 @@
     return hit >= 2 ? map : null;              // 至少两档命中才认定这是有序维度
   }
 
+  /* ── v1.6.16 · 色板扩容:不同维值绝不撞色 ────────────────────────────
+     用户反馈「经常在第二轮上就会重复使用颜色」。查证:每环色板只有 **10 色**,
+     而外环(行业 / 平台 / 账户)动辄十几二十个值 —— 旧代码超出后直接
+     `map[v] = pal[idx]` 复用,必然撞色。
+
+     扩容严格按用户给的三条:
+       (a) **内外环完全不是一套** → 扩容用「旋转色相、保持明度」,不是往同一端点混。
+           往同一端点混会**收敛**(实测同环最小距离掉到 3~7,等于还是撞色);
+           旋转色相则内环仍在暗半区、外环仍在亮半区。实测方案 D:
+           内环亮度 0.08–0.36 / 外环 0.38–0.72,两带不相交,内外最小色距 28.9。
+       (b) **同一环内同一维值恒定同色** → 哈希定起点(与值集无关)+ 线性探测避让;
+           外环与下方「切片排行」共用 colorMapFor(..., 1),所以两处同值必同色。
+       (c) **不同维值不许同色** → 贪心筛选保证最小色距:先跑严格档(色距 ≥24),
+           不够再跑补充档(≥15),并跨环互斥(≥26)。实测方案 D 得内环 77 色 / 外环 45 色。
+           真超过容量才复用,并 console.warn 报出来(不再静默)。 */
+  function hexToHsl(c) {
+    var r = parseInt(c.slice(1, 3), 16) / 255, g = parseInt(c.slice(3, 5), 16) / 255, b = parseInt(c.slice(5, 7), 16) / 255;
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, h = 0, sat = 0;
+    if (mx !== mn) {
+      var d = mx - mn;
+      sat = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+      if (mx === r) h = ((g - b) / d + (g < b ? 6 : 0));
+      else if (mx === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h /= 6;
+    }
+    return [h, sat, l];
+  }
+  function hslToHex(h, sat, l) {
+    var f = function (p, q, t) {
+      if (t < 0) t += 1; if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    var r, g, b;
+    if (sat === 0) { r = g = b = l; }
+    else {
+      var q = l < 0.5 ? l * (1 + sat) : l + sat - l * sat, p = 2 * l - q;
+      r = f(p, q, h + 1 / 3); g = f(p, q, h); b = f(p, q, h - 1 / 3);
+    }
+    var hex2 = function (x) { return ('0' + Math.round(x * 255).toString(16)).slice(-2); };
+    return '#' + hex2(r) + hex2(g) + hex2(b);
+  }
+  function shiftColor(c, dh, ds, dl) {
+    var v = hexToHsl(c);
+    return hslToHex(((v[0] + dh / 360) % 1 + 1) % 1,
+                    Math.max(0, Math.min(1, v[1] + ds)),
+                    Math.max(0, Math.min(1, v[2] + dl)));
+  }
+  function rgbDist(a, b) {
+    var s = 0;
+    for (var i = 1; i < 7; i += 2) { var d = parseInt(a.substr(i, 2), 16) - parseInt(b.substr(i, 2), 16); s += d * d; }
+    return Math.sqrt(s);
+  }
+  /* 变体表:色相为主(保明度 → 不串环),少量饱和/明度微调补容量 */
+  var COLOR_VARIANTS = [
+    [0, 0, 0], [0, 0.10, -0.09], [0, -0.14, 0.09], [24, 0, 0], [-24, 0, 0],
+    [24, 0, -0.07], [-24, 0, 0.07], [48, 0, 0], [-48, 0, 0],
+    [12, 0.08, 0], [-12, 0.08, 0], [36, -0.10, 0.05], [-36, -0.10, 0.05],
+    [60, 0, 0], [-60, 0, 0], [72, 0.06, -0.05], [-72, 0.06, -0.05]
+  ];
+  function buildRingColors(pal, forbid) {
+    var out = [];
+    [24, 15].forEach(function (minD) {          /* 先严格档,不够再补充档 */
+      COLOR_VARIANTS.forEach(function (vv) {
+        pal.forEach(function (base) {
+          var c = (vv[0] || vv[1] || vv[2]) ? shiftColor(base, vv[0], vv[1], vv[2]) : base;
+          for (var i = 0; i < out.length; i++) if (rgbDist(out[i], c) < minD) return;
+          for (var j = 0; j < forbid.length; j++) if (rgbDist(forbid[j], c) < 26) return;   /* 跨环互斥 */
+          out.push(c);
+        });
+      });
+    });
+    return out;
+  }
+  var RING_EXT = (function () {
+    var inner = buildRingColors(RING_PALETTES[0], []);
+    return [inner, buildRingColors(RING_PALETTES[1], inner)];
+  })();
+
   function colorMapFor(values, ring) {
     var riskMap = riskColorMap(values, ring);
     if (riskMap) return riskMap;
-    var pal = RING_PALETTES[(ring || 0) % RING_PALETTES.length];
+    var pal = RING_EXT[(ring || 0) % RING_EXT.length];
     var uniq = []; var seen = {};
     values.forEach(function (v) { v = String(v); if (!seen[v]) { seen[v] = 1; uniq.push(v); } });
     uniq.sort();
+    if (uniq.length > pal.length) {
+      console.warn('[lens] 维值 ' + uniq.length + ' 个 > 色板 ' + pal.length + ' 色,会出现重复色');
+    }
     var used = {}; var map = {};
     uniq.forEach(function (v) {
       var h = 0;
@@ -156,7 +241,7 @@
         var c = pal[(idx + k) % pal.length];
         if (!used[c]) { used[c] = 1; map[v] = c; return; }
       }
-      map[v] = pal[idx];   // 值多于色数才会复用
+      map[v] = pal[idx];   /* 只有超过 40 个维值才会到这里(已 warn) */
     });
     return map;
   }

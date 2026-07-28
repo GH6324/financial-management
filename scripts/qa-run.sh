@@ -4299,17 +4299,17 @@ NAVF="$RD/src/main/resources/templates/fragments/nav.html"
   && grep -q 'class="nav-brandtext' "$NAVF" && grep -q 'class="nav-tabs' "$NAVF" \
   && grep -q 'class="nav-actions' "$NAVF" && grep -q 'class="nav-priv' "$NAVF" \
   && ! grep -qF "html.ls-wide > body > header { display: none" "$CSS" \
-  && grep -qF "height: 38px !important;" "$CSS" \
+  && grep -qF "height: 44px !important;" "$CSS" \
   && grep -qF "padding-right: 26px !important;" "$CSS" \
   && grep -qF "html.ls-wide .nav-brandtext { display: none !important; }" "$CSS" \
   && grep -qF "html.ls-wide .nav-tabs > a[class*=\"border-b-2\"] { padding-bottom: 4px !important; }" "$CSS" \
-  && grep -qF "html.ls-wide .nav-actions > .nav-priv { display: inline-flex !important; }" "$CSS" \
+  && grep -qF "html.ls-wide .nav-actions > .nav-priv { display: inline-flex !important;" "$CSS" \
   && grep -qF "html.ls-wide #priv-float { display: none !important; }" "$CSS" \
   && grep -qF "html.ls-wide main { padding-top: 8px !important; padding-bottom: 14px !important; }" "$CSS" \
   && grep -q "html.ls-wide main .text-3xl" "$CSS" \
   && ! grep -q "html.ls-wide main .text-2xl" "$CSS"; } \
-  && log_ok "v1610-LS-NAV(横屏导航 7 tab 单行 38px 高 · 右侧给退出钮留 118px · 品牌只留印章 · 隐私钮进栏内空档 · 垂直节奏压缩不删内容 · text-2xl 金额档不压)" \
-  || log_bad "v1610-LS-NAV 缺件" "see nav.html 六个定位类(nav-inner/nav-lead/nav-brandtext/nav-tabs/nav-actions/nav-priv)· style.css(header 不得再 display:none · 38px 栏高 · 右侧 26px 内缩避 iPhone 圆角 · 选中态 pb 重算 · nav-priv 保留 · 隐私浮钮收起(目录钮见 v1613-LS-TOC)· main 8/14 内边距 · 只压 text-3xl/4xl)"
+  && log_ok "v1610-LS-NAV(横屏导航 7 tab 单行 44px 高 · 右侧 26px 内缩避 iPhone 圆角 · 品牌只留印章 · 隐私钮进栏内空档 · 垂直节奏压缩不删内容 · text-2xl 金额档不压)" \
+  || log_bad "v1610-LS-NAV 缺件" "see nav.html 六个定位类(nav-inner/nav-lead/nav-brandtext/nav-tabs/nav-actions/nav-priv)· style.css(header 不得再 display:none · 44px 栏高(=iOS 最小触摸目标)· 右侧 26px 内缩避 iPhone 圆角 · 选中态 pb 重算 · nav-priv 保留 · 隐私浮钮收起(目录钮见 v1613-LS-TOC)· main 8/14 内边距 · 只压 text-3xl/4xl)"
 
 # v1612-CHART-UNIFORM · 并列同类图表必须共用同一套尺度(用户 2026-07-28 要求写进规范)
 #   用户原话:「都是饼图 那就保持大小样式一样,现在奇奇怪怪的,两个饼图差距很大,
@@ -4389,15 +4389,15 @@ RG="$RD/src/main/resources/templates/dashboard/_region.html"
 { grep -qF "html.ls-wide .nav-actions > .toc-fab" "$CSS" \
   && grep -qF "position: static !important;" "$CSS" \
   && grep -qF "border: 1px solid var(--rule-soft);" "$CSS" \
-  && grep -qF "left: auto; right: 0; top: 38px; bottom: 0;" "$CSS" \
-  && grep -qF "html.ls-wide .toc-sheet-mask { top: 38px; }" "$CSS" \
+  && grep -qF "left: auto; right: 0; top: 44px; bottom: 0;" "$CSS" \
+  && grep -qF "html.ls-wide .toc-sheet-mask { top: 44px; }" "$CSS" \
   && grep -qF "html.ls-wide .toc-sheet.open { transform: translateX(0); }" "$CSS" \
   && grep -qF "html.ls-wide .toc-sheet-handle { display: none; }" "$CSS" \
   && grep -q "function tocIntoNav\|var tocIntoNav" "$JSL" \
   && grep -qF "acts.insertBefore(fab, acts.firstChild)" "$JSL" \
   && ! grep -qF "html.ls-wide #priv-float, html.ls-wide .toc-fab { display: none" "$CSS"; } \
   && log_ok "v1613-LS-TOC(横屏目录钮搬进导航 flex 流 · 与隐私钮同款描边 · 抽屉右侧侧栏且避开导航层叠上下文)" \
-  || log_bad "v1613-LS-TOC 缺件" "see landscape.js tocIntoNav 把 .toc-fab 搬进 .nav-actions · style.css 下 .nav-actions > .toc-fab 为 static 描边款 · .toc-sheet/mask top:38px 右侧侧栏 · handle 隐藏"
+  || log_bad "v1613-LS-TOC 缺件" "see landscape.js tocIntoNav 把 .toc-fab 搬进 .nav-actions · style.css 下 .nav-actions > .toc-fab 为 static 描边款 · .toc-sheet/mask top:44px 右侧侧栏 · handle 隐藏"
 
 # v1613-ORI-ICON · 方向切换图标 = Tabler device-mobile / device-mobile-rotated 双态
 #   历次:摄像机图标(语义完全不对)→ 屏幕旋转弧 → 自绘「竖框+横框+双向箭头」(用户仍说丑)
@@ -4413,6 +4413,51 @@ RG="$RD/src/main/resources/templates/dashboard/_region.html"
   && ! grep -rq "M8.2 12h5.6" "$RD/src/main/resources"; } \
   && log_ok "v1613-ORI-ICON(Tabler device-mobile 双态 · 显示目标状态 · 三处一致 · 三代旧图标均已清)" \
   || log_bad "v1613-ORI-ICON 缺件" "see layout.html + lens/_section.html:横屏手机图标 3 处 / 竖屏手机图标 2 处(提示位单态)· style.css 双态显隐 · 不得残留摄像机 M18 9l4-2 / 旋转弧 M19.5 11.5A8 / 自绘双向箭头 M8.2 12h5.6"
+
+# v1616-SIX · 用户第 6 轮反馈六项(环上标签 / 旭日不撞色 / 触摸目标 / 切换重排 / 打标页 / 文案)
+#   ① 环图名称+数字标在环上:阈值按**弧长**算(2π·中半径·占比),不是按占比拍死 ——
+#      弧长才是"放不放得下"的真实约束。够大标「名称+占比」两行,中等只标占比,太小交给图例。
+#   ② 旭日不撞色:每环色板原来只有 10 色,超出直接复用 → 用户看到"第二轮就重复颜色"。
+#      扩容用**旋转色相保明度**(不是往同一端点混 —— 那会收敛,实测同环最小色距掉到 3~7),
+#      贪心筛选保证同环 ≥24(不够再放宽到 ≥15)、跨环 ≥26。实测方案 D 内环 77 / 外环 45 色。
+#      内外环明度带完全分开(D:内 0.08–0.36 / 外 0.38–0.72)→ 满足"内外环不是一套"。
+#      唯一共用色是「其他 N 项」聚合桶之间(本来就该同色),真实维值 0 撞色。
+#   ③ 退出钮"点很多次才响应":旧 min-height 26px,旋转后在屏幕上只有 26px 宽一条,
+#      远低于 iOS HIG 的 44pt → 加到 34px、导航行抬到 44px、加 touch-action:manipulation
+#      (去掉双击缩放的 300ms 等待,等待期内的点击会被吞)、横屏态去掉 backdrop-filter
+#      (被 transform 的容器里它是 iOS 已知的命中/合成干扰源)。
+#   ④ 切换后图表溢出:只派发 window resize 不够 —— Chart.js 无参 resize() 实测读到旧尺寸
+#      (横屏后画布仍是竖屏宽,比容器窄 400+px),ECharts 根本不跟容器。
+#      改为**显式给容器 offsetWidth/Height**(布局坐标,不能用 rect:旋转后宽高互换),
+#      并在重编译落定后补两次(rAF×2 + 180ms + 420ms)。
+#   ⑤ 打标页手机端:真正瓶颈不是说明段(只占 186px),是 62 行 × 卡片化 ≈ 13800px →
+#      加「只看未打标」纯前端过滤(手机默认开),说明段收成 details,底部常驻保存条。
+#      过滤只切 display,隐藏行照样随「保存全部」提交,不丢数据。
+RG="$RD/src/main/resources/templates/dashboard/_region.html"
+TAG="$RD/src/main/resources/templates/lens/tags.html"
+LJS="$RD/src/main/resources/static/js/lens.js"
+{ grep -qF "const arc = 2 * Math.PI * (PAIR.r() * 0.79) * (pct / 100);" "$RG" \
+  && grep -qF "if (arc >= 52) return shortName" "$RG" \
+  && grep -q "function buildRingColors" "$LJS" \
+  && grep -q "function shiftColor" "$LJS" \
+  && grep -qF "var RING_EXT = (function () {" "$LJS" \
+  && grep -qF "if (rgbDist(forbid[j], c) < 26) return;" "$LJS" \
+  && grep -q "维值 .* 个 > 色板" "$LJS" \
+  && grep -qF "min-height: 34px; padding: 0 12px; margin-left: 8px; cursor: pointer;" "$CSS" \
+  && grep -qF "touch-action: manipulation; -webkit-tap-highlight-color" "$CSS" \
+  && grep -qF "height: 44px !important;" "$CSS" \
+  && grep -qF "backdrop-filter: none !important;" "$CSS" \
+  && grep -q "function relayoutCharts" "$JSL" \
+  && grep -qF "ch.resize(box.offsetWidth, box.offsetHeight);" "$JSL" \
+  && grep -q "isDisposed()" "$JSL" \
+  && grep -q 'id="tagsOnlyTodo"' "$TAG" \
+  && grep -q "tags-savebar" "$TAG" \
+  && grep -q "tags-intro" "$TAG" \
+  && grep -q "tags-savebar" "$CSS" \
+  && grep -q "重仓了什么行业" "$RD/README.md" \
+  && grep -q "重仓了什么行业" "$RD/src/main/resources/templates/landing.html"; } \
+  && log_ok "v1616-SIX(环上名称+占比按弧长分档 · 旭日色板旋色相扩容 77/45 且内外环明度带分离 · 触摸目标 34/44px + touch-action + 横屏去毛玻璃 · 图表显式给容器尺寸重排 · 打标页只看未打标+常驻保存 · 穿透卖点两处文案)" \
+  || log_bad "v1616-SIX 缺件" "see _region.html(弧长阈值)· lens.js(buildRingColors/shiftColor/RING_EXT/跨环互斥/超限 warn)· style.css(34px 钮 + 44px 行 + touch-action + 横屏去 backdrop-filter + tags-savebar)· landscape.js(relayoutCharts 显式尺寸 + ECharts isDisposed)· tags.html(tagsOnlyTodo/tags-savebar/tags-intro)· README + landing 均含「重仓了什么行业」"
 
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),

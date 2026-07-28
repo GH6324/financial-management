@@ -976,7 +976,12 @@ html.ls-wide > body {
    放进导航行同时解决「被 iPhone 屏幕圆角切到、按不稳」(nav-inner 自带内距)。 */
 .ls-exit {
   display: inline-flex; align-items: center; gap: 5px;
-  min-height: 26px; padding: 0 10px; margin-left: 8px; cursor: pointer;
+  /* v1.6.16 · 用户反馈「经常点击没反应,要点很多次」。
+     旧值 min-height:26px —— 旋转后它在屏幕上只有 26px 宽的一条,远低于 iOS HIG 的 44pt
+     最小触摸目标,拇指很容易点在边上。加高到 34px,并把整行抬到 44px(见 .nav-inner)。
+     touch-action:manipulation 去掉双击缩放的 300ms 等待(等待期内的点击会被吞)。 */
+  min-height: 34px; padding: 0 12px; margin-left: 8px; cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: rgba(26,23,20,.18);
   background: rgba(26,23,20,.88); color: var(--paper); border: none; border-radius: 3px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: calc(11px * var(--fs-scale,1)); letter-spacing: .1em;
@@ -1054,9 +1059,15 @@ html.ls-wide #ori-float, html.ls-wide .landscape-btn { display: none !important;
    390 高才是真正稀缺的:导航从 64px 压到 38px,省下的 26px 直接给内容。
    取舍:品牌只留印章(文字/版本在这个高度里是纯消耗)· 右侧那组整组收起
    (隐私有右下浮钮、字号退出再调),换来 7 个 tab 全部一行放下。 */
-html.ls-wide > body > header { position: sticky; top: 0; }
+html.ls-wide > body > header {
+  position: sticky; top: 0;
+  /* 横屏态去掉毛玻璃:backdrop-filter 在被 transform 的容器里是 iOS 已知的
+     命中测试/合成干扰源,而这里它只是装饰(纸面本来就不透明感强)。 */
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  background: var(--paper) !important;
+}
 html.ls-wide .nav-inner {
-  height: 38px !important;
+  height: 44px !important;   /* 44 = iOS 最小触摸目标;内含 34px 高的钮 */
   padding-left: 12px !important;
   /* 退出钮已放进 .nav-actions 参与 flex 排,不再需要为它预留右侧空白;
      只留一点内缩避开 iPhone 屏幕圆角(圆角半径约 44–55pt,贴边元素会被切)。 */
@@ -1076,7 +1087,7 @@ html.ls-wide .nav-tabs > a[class*="border-b-2"] { padding-bottom: 4px !important
 /* 右侧那组默认收起,但**保留隐私钮**并放进导航条 —— 原因见下面的浮钮取舍。 */
 html.ls-wide .nav-actions { display: flex !important; gap: 0 !important; }
 html.ls-wide .nav-actions > * { display: none !important; }
-html.ls-wide .nav-actions > .nav-priv { display: inline-flex !important; }
+html.ls-wide .nav-actions > .nav-priv { display: inline-flex !important; min-height: 34px; touch-action: manipulation; }
 html.ls-wide .nav-actions > .ls-exit { display: inline-flex !important; }
 
 /* 浮钮取舍:隐私浮钮在 390 高的横屏里会压住内容(实测压住交叉表的「AI 解读当前视图」按钮)。
@@ -1097,6 +1108,7 @@ html.ls-wide #priv-float { display: none !important; }
 html.ls-wide .nav-actions > .toc-fab {
   display: inline-flex !important;
   position: static !important;
+  min-height: 34px; touch-action: manipulation;
   top: auto; right: auto; bottom: auto; left: auto;
   margin-right: 8px;
   /* 与隔壁隐私钮**同款**:.pill + .pill-mute 的描边样式 ——
@@ -1120,7 +1132,7 @@ html.ls-wide .nav-actions > .toc-fab:active { color: var(--ink-soft); border-col
    与其去拆 main 的层叠上下文(牵连全站),不如让抽屉从导航条下方开始 ——
    顺带导航在抽屉打开时仍可点,体验反而更好。 */
 html.ls-wide .toc-sheet {
-  left: auto; right: 0; top: 38px; bottom: 0;
+  left: auto; right: 0; top: 44px; bottom: 0;
   width: min(320px, 42vw); max-height: none;
   border-radius: 14px 0 0 14px;
   box-shadow: -8px 0 32px rgba(0,0,0,.22);
@@ -1128,7 +1140,7 @@ html.ls-wide .toc-sheet {
   padding: 10px 8px 12px;
 }
 html.ls-wide .toc-sheet.open { transform: translateX(0); }
-html.ls-wide .toc-sheet-mask { top: 38px; }   /* 遮罩同样不盖导航条 */
+html.ls-wide .toc-sheet-mask { top: 44px; }   /* 遮罩同样不盖导航条 */
 html.ls-wide .toc-sheet-handle { display: none; }
 html.ls-wide .toc-sheet .toc-node { padding-top: 9px; padding-bottom: 9px; min-height: 38px; }
 
@@ -1177,3 +1189,27 @@ body.is-scrolling #ori-float { opacity: .22; }
    任何一侧要改高度都会同时改到另一侧,不可能再单边漂移。 */
 .chart-pair-box { height: 336px; }
 @media (min-width: 640px) and (min-height: 480px) { .chart-pair-box { height: 380px; } }
+
+
+/* ── v1.6.16 · 打标页手机端 ─────────────────────────────────────────
+   实测 390 宽下:页头两段说明 + 穿透卡 + AI 卡共约 1200px,要滑一整屏才见到第一个
+   可操作控件;整页 14054px 高(62 行卡片化),保存钮在最底部。
+   做法:说明收成 <details>(PC 全文常显)+ 底部常驻保存条。不删任何信息。 */
+.tags-intro > summary { list-style: none; cursor: pointer; }
+.tags-intro > summary::-webkit-details-marker { display: none; }
+.tags-savebar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 55;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 9px 14px calc(9px + env(safe-area-inset-bottom));
+  background: var(--paper); border-top: 1px solid var(--rule);
+  box-shadow: 0 -6px 20px rgba(26,23,20,.10);
+}
+/* 保存条会盖住最后一行 → 给页面补底部留白 */
+body:has(.tags-savebar) main { padding-bottom: 76px; }
+
+.tags-todo-toggle {
+  display: inline-flex; align-items: center; gap: 7px; margin-bottom: 12px;
+  font-size: calc(12px * var(--fs-scale,1)); color: var(--ink-soft); cursor: pointer;
+  min-height: 34px; touch-action: manipulation;
+}
+.tags-todo-toggle input { width: 16px; height: 16px; accent-color: var(--brass-deep); }

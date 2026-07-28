@@ -92,6 +92,42 @@
     setTimeout(run, 400);
   }
 
+  /* ── 图表重排 ──────────────────────────────────────────────────────
+     用户反馈:「横竖屏切换后,归因模块的柱子都排到屏幕外了」。
+     只派发 window resize 不够可靠:
+       · Chart.js 的自适应靠容器 ResizeObserver,但重编译是异步的(~114ms),
+         派发那一刻容器尺寸还没落定 → 它按旧宽度重算,之后就不再动了;
+       · ECharts 根本不自动跟容器,必须显式 resize();
+       · 归因等区块是 HTMX 懒加载的,进入横屏时可能刚渲染完,时机更飘。
+     所以显式点名重排,并在重编译落定后再补两次(与滚动还原同一节奏)。 */
+  function relayoutCharts() {
+    var run = function () {
+      window.dispatchEvent(new Event('resize'));
+      try {
+        /* Chart.js:**显式给容器尺寸**。无参 resize() 实测在这里不生效 ——
+           横屏后画布仍停在竖屏宽度(比容器窄 400+px,半张图空着)。
+           容器尺寸用 offsetWidth/Height(布局坐标),不用 rect:body 被旋转后 rect 宽高会互换。 */
+        if (window.Chart && Chart.getChart) {
+          document.querySelectorAll('canvas').forEach(function (cv) {
+            var ch = Chart.getChart(cv); if (!ch) return;
+            var box = cv.parentElement;
+            if (box && box.offsetWidth > 0) ch.resize(box.offsetWidth, box.offsetHeight);
+            else ch.resize();
+          });
+        }
+        if (window.echarts) {
+          document.querySelectorAll('[_echarts_instance_]').forEach(function (el) {
+            var ec = window.echarts.getInstanceByDom(el);
+            if (ec && !ec.isDisposed()) ec.resize();
+          });
+        }
+      } catch (e) { console.warn('[landscape] 图表重排异常', e); }
+    };
+    requestAnimationFrame(function () { requestAnimationFrame(run); });
+    setTimeout(run, 180);
+    setTimeout(run, 420);
+  }
+
   /* ── 断点切换 ── */
   function setScreens(screens) {
     if (!window.tailwind || !screens) return false;
@@ -167,8 +203,7 @@
     root.classList.add('ls-wide');
     ensureExit();
     tocIntoNav(true);
-    /* 图表按容器宽度自适应:body 宽度变了,派发一次 resize 让 Chart.js / ECharts 重排 */
-    window.dispatchEvent(new Event('resize'));
+    relayoutCharts();
     restoreAnchor(anchor, y);
     syncBtn();
   }
@@ -180,7 +215,7 @@
     setScreens(window.TW_SCREENS_BASE);
     tocIntoNav(false);
     if (exitBtn) { exitBtn.remove(); exitBtn = null; }
-    window.dispatchEvent(new Event('resize'));
+    relayoutCharts();
     restoreAnchor(anchor, y);
     syncBtn();
   }

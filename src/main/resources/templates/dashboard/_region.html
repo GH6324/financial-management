@@ -864,13 +864,24 @@
               },
               tooltip: { callbacks: { label: (ctx) => flat(ctx.label) + ': ' + fmtMoney(ctx.parsed)
                           + ' · ' + (total > 0 ? (ctx.parsed * 100 / total).toFixed(1) + '%' : '') } },
+              /* v1.6.16 · 名称与数字直接标在环上(用户:「只有百分比太不直观」)。
+                 环带宽 = (100% − cutout 58%) × 半径 ≈ 42px,放得下两行 9px 字。
+                 分档:够大的片标「名称 + 占比」两行;中等的只标占比;太小的交给图例(它带金额)。
+                 阈值按弧长算而不是按占比拍 —— 弧长 = 2π·中半径·占比,才是"放不放得下"的真实约束。 */
               datalabels: {
                 color: '#fffaf0', font: { size: chartFont(PAIR.pctSize()), weight: '600' },
-                textStrokeColor: 'rgba(26,23,20,.55)', textStrokeWidth: 2,
-                formatter: (v) => {
+                textStrokeColor: 'rgba(26,23,20,.62)', textStrokeWidth: 2.4,
+                textAlign: 'center', lineHeight: 1.15,
+                formatter: (v, ctx) => {
                   if (!v || total === 0) return '';
                   const pct = v * 100 / total;
-                  return pct < (nar ? 6 : 5) ? '' : pct.toFixed(0) + '%';   // 标不下的片看下方/右侧图例
+                  const arc = 2 * Math.PI * (PAIR.r() * 0.79) * (pct / 100);   // 该片在中半径处的弧长(px)
+                  const lab = ctx.chart.data.labels[ctx.dataIndex];
+                  const name = Array.isArray(lab) ? lab.join(' ') : String(lab);
+                  const shortName = name.replace(/\s*\([^)]*\)\s*/g, '').trim();  // 去掉「(WEALTH)」这类英文码
+                  if (arc >= 52) return shortName + '\n' + pct.toFixed(0) + '%';
+                  if (arc >= 26) return pct.toFixed(0) + '%';
+                  return '';                                     // 太小 → 看图例(图例带名称+金额)
                 }
               }
             }

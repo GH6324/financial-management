@@ -57,11 +57,24 @@
   <section class="mb-6">
     <div class="eyebrow mb-2">多 · 维 · 打 · 标</div>
     <h1 class="font-display text-3xl md:text-4xl font-medium tracking-tight">给资产打标</h1>
-    <p class="text-ink-soft text-sm mt-2">树状结构:<b>账户</b>(资产类型 / 平台 / 用途)→ 子行 = <b>具体持仓</b>(行业 · 准)。
-      全部可选,不打标 = 「未分类」照常可用;基金 / 理财等无持仓账户在账户行直接给行业粗标(近似,不做成分穿透)。</p>
-    <p class="text-[11px] text-ink-subtle mt-1.5">透视里的其余维度不在此打标,但每行都给了直达入口 ——
-      <b>风险 / 主理人 / 币种 / 账户类型 / 流动性</b> 在账户资料里(点各账户行的「改资料 →」);
-      <b>市场地域</b> 来自每笔持仓的市场(点持仓账户行的「持仓 →」到账户详情改)。</p>
+    <!-- v1.6.16 · 手机端把两段长说明收成可展开:实测这两段 + 下面两张说明卡在 390 宽下
+         占掉约 1200px,用户要滑过一整屏才看到第一个可操作的控件(反馈「简直是灾难」)。
+         PC 空间够,保持全文常显。 -->
+    <details class="tags-intro md:hidden mt-2">
+      <summary class="fold-cta">怎么打标 · 点开说明</summary>
+      <p class="text-ink-soft text-sm mt-2">树状结构:<b>账户</b>(资产类型 / 平台 / 用途)→ 子行 = <b>具体持仓</b>(行业 · 准)。
+        全部可选,不打标 = 「未分类」照常可用;基金 / 理财等无持仓账户在账户行直接给行业粗标(近似,不做成分穿透)。</p>
+      <p class="text-[11px] text-ink-subtle mt-1.5">其余维度不在此打标,但每行都有直达入口 ——
+        <b>风险 / 主理人 / 币种 / 账户类型 / 流动性</b> 在账户资料(行内「改资料 →」);
+        <b>市场地域</b> 来自每笔持仓的市场(行内「持仓 →」)。</p>
+    </details>
+    <div class="hidden md:block">
+      <p class="text-ink-soft text-sm mt-2">树状结构:<b>账户</b>(资产类型 / 平台 / 用途)→ 子行 = <b>具体持仓</b>(行业 · 准)。
+        全部可选,不打标 = 「未分类」照常可用;基金 / 理财等无持仓账户在账户行直接给行业粗标(近似,不做成分穿透)。</p>
+      <p class="text-[11px] text-ink-subtle mt-1.5">透视里的其余维度不在此打标,但每行都给了直达入口 ——
+        <b>风险 / 主理人 / 币种 / 账户类型 / 流动性</b> 在账户资料里(点各账户行的「改资料 →」);
+        <b>市场地域</b> 来自每笔持仓的市场(点持仓账户行的「持仓 →」到账户详情改)。</p>
+    </div>
     <a th:href="@{/dashboard#lens-section}" class="font-mono text-xs no-underline" style="color:var(--brass-deep)">← 回资产透视</a>
   </section>
 
@@ -77,9 +90,13 @@
 
   <!-- v1.5 · 全家一键穿透(流式弹层 · 逐支反馈) -->
   <div class="paper-card p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
-    <div class="text-sm text-ink-soft">
-      <b class="text-ink">基金穿透(v1.5)</b>:把每支公募基金拆成真实<b>股 / 债 / 现金 + 申万行业</b>(如 兴全合润 = 食品饮料 / 家电 / … / 债 / 现金)。
-      旭日 / 透视复用同一结果;理财 / 券商产品无公募代码 → 标「未穿透」。<span class="text-brass-deep">逐支实时反馈(结果全体家庭共享缓存,拉过的秒出)。</span>
+    <div class="text-sm text-ink-soft flex-1 min-w-0">
+      <b class="text-ink">基金穿透(v1.5)</b>
+      <span class="hidden md:inline">:把每支公募基金拆成真实<b>股 / 债 / 现金 + 申万行业</b>(如 兴全合润 = 食品饮料 / 家电 / … / 债 / 现金)。
+        旭日 / 透视复用同一结果;理财 / 券商产品无公募代码 → 标「未穿透」。<span class="text-brass-deep">逐支实时反馈(结果全体家庭共享缓存,拉过的秒出)。</span></span>
+      <details class="md:hidden mt-1"><summary class="fold-cta">这是什么</summary>
+        <span class="block mt-1 text-[12px]">把每支公募基金拆成真实<b>股 / 债 / 现金 + 申万行业</b>;旭日 / 透视复用同一结果;
+          理财 / 券商产品无公募代码 → 标「未穿透」。结果全家共享缓存,拉过的秒出。</span></details>
     </div>
     <button type="button" id="penStreamBtn" class="btn-ink text-xs px-4 py-1.5 whitespace-nowrap">↻ 全家一键穿透</button>
   </div>
@@ -105,9 +122,13 @@
 
     <!-- AI 推荐(全部 / 单行 · 只预填不落库 · 显式保存才生效) -->
     <section class="paper-card p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
-      <div class="text-sm text-ink-soft">
-        <b class="text-ink">AI 推荐默认选型</b>:整页或逐行(行尾「AI」钮)推断 平台 / 行业 / 资产类型,<b>只预填不落库</b>,核对后点「保存全部」。
-        用途不由 AI 猜(个人意图,纯手标)。
+      <div class="text-sm text-ink-soft flex-1 min-w-0">
+        <b class="text-ink">AI 推荐默认选型</b>
+        <span class="hidden md:inline">:整页或逐行(行尾「AI」钮)推断 平台 / 行业 / 资产类型,<b>只预填不落库</b>,核对后点「保存全部」。
+          用途不由 AI 猜(个人意图,纯手标)。</span>
+        <details class="md:hidden mt-1"><summary class="fold-cta">这是什么</summary>
+          <span class="block mt-1 text-[12px]">整页或逐行推断 平台 / 行业 / 资产类型,<b>只预填不落库</b>,核对后点「保存全部」。
+            用途不由 AI 猜。</span></details>
         <span th:unless="${aiAvailable}" class="text-rust">(AI 暂不可用 · 管理页配置 LLM 后开启,手动打标不受影响)</span>
         <span th:if="${aiRan}" class="text-brass-deep">AI 已预填 —— <b>金色高亮的控件</b>为推荐值,请核对后保存;点 AI 会刷新页面,未保存的手改会重置。</span>
       </div>
@@ -117,6 +138,15 @@
 
     <!-- 树状打标:账户行 → 持仓子行(PC 表格 · 手机自动卡片化) -->
     <section class="paper-card p-5 mb-4">
+      <!-- v1.6.16 · 「只看未打标」——手机端真正的瓶颈不是说明段(那只占 186px),
+           是 62 行 × 卡片化 ≈ 13800px。打标是"把没标的标上"的任务,已标完的行没有再看的必要。
+           手机默认开(先给一屏能干完的活),PC 默认关(空间够,全量核对更方便)。
+           纯前端过滤:只切 display,不动表单值 —— 隐藏的行照样随「保存全部」提交,不会丢数据。 -->
+      <label class="tags-todo-toggle">
+        <input type="checkbox" id="tagsOnlyTodo">
+        <span>只看未打标</span>
+        <span id="tagsTodoCount" class="font-mono text-[11px] text-ink-subtle"></span>
+      </label>
       <div>
         <table class="tags-table">
           <colgroup>
@@ -251,7 +281,53 @@
       <button class="btn-ink">保存全部打标</button>
     </div>
     <p class="text-[11px] text-ink-subtle text-right mt-2">留空 = 保持现状;要清掉已有标签请到账户编辑页。</p>
-  </form>
+      <!-- v1.6.16 · 手机端常驻保存条:页面实测 14054px 高(62 行卡片化),
+         保存钮在最底部等于要滑一万四千像素。底部固定一条,拇指可达。 -->
+    <div class="tags-savebar md:hidden">
+      <span class="font-mono text-[11px] text-ink-subtle">改完随时保存</span>
+      <button type="submit" class="btn-ink text-xs px-5 py-2">保存全部</button>
+    </div>
+</form>
+  <script>
+    /* 「只看未打标」· 纯前端过滤 ————————————————————————————————
+       判定:该行的 select 全部还是空值(即"默认 ·"那一项)且文本输入为空 → 未打标。
+       行分两级(账户行 + 持仓子行),父行未标完就连带显示,避免子行孤零零挂着。
+       只切 display:隐藏行的 name/value 一律保留,「保存全部」照常提交(不会丢已有值)。 */
+    (function () {
+      var box = document.getElementById('tagsOnlyTodo');
+      if (!box) return;
+      var rows = [].slice.call(document.querySelectorAll('.tags-table tbody tr'));
+      function untagged(tr) {
+        var ctrls = tr.querySelectorAll('select, input[type="text"]');
+        if (!ctrls.length) return false;
+        for (var i = 0; i < ctrls.length; i++) {
+          var c = ctrls[i];
+          if (c.tagName === 'SELECT') { if (!c.value) return true; }
+          else if (!String(c.value || '').trim()) return true;
+        }
+        return false;
+      }
+      function apply() {
+        var on = box.checked, todo = 0, lastAcctShown = true;
+        rows.forEach(function (tr) {
+          var isAcct = tr.classList.contains('acct-row');
+          var need = untagged(tr);
+          if (need) todo++;
+          if (!on) { tr.style.display = ''; return; }
+          if (isAcct) { lastAcctShown = need; tr.style.display = need ? '' : 'none'; }
+          else { tr.style.display = (need || lastAcctShown) ? '' : 'none'; }
+        });
+        var lab = document.getElementById('tagsTodoCount');
+        if (lab) lab.textContent = todo ? '· 还有 ' + todo + ' 行未标' : '· 全部已标';
+      }
+      /* 手机默认开:先给一屏能干完的活;PC 默认关(空间够,全量核对更方便) */
+      box.checked = window.vpNarrow(768);   /* 判据只走 vpNarrow(唯一出处),不再自己比宽度 */
+      box.addEventListener('change', apply);
+      document.querySelector('.tags-table').addEventListener('change', function () { apply(); });
+      apply();
+    })();
+  </script>
+
 
 </main>
 

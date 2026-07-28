@@ -72,6 +72,7 @@
 - **「我们家现在到底有多少钱?」** —— 散成 N 处,没人看得到全局。
 - **「这一年是变富了还是变穷了?」** —— 没有趋势,更别说扣掉通胀后**真实购买力**变没变。
 - **「攒下来的和投资赚的混一起,投资到底行不行?」** —— 分不清「人赚的」和「钱赚的」。
+- **「买了一堆基金,家里到底重仓了什么行业?」** —— 基金看不见成分,行业风险藏在名字后面。**穿透**到每支基金的真实持仓(股 / 债 / 现金 + 申万行业),再以**家庭为整体**汇总 —— 看清真实行业敞口,而不是一堆基金名字。
 - **「夫妻俩时间错开,谁来记?」** —— 缺一个全家共用、异步填报的载体。
 
 ## 为什么不用现成的
@@ -135,7 +136,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 431 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护)/ 55 e2e 断言(11 主线)/ 503 黑盒回归 |
+| 测试 | JUnit 5 · 431 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护)/ 55 e2e 断言(11 主线)/ 504 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
