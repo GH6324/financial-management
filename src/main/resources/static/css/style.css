@@ -1,7 +1,7 @@
 /* v1.6.7 · 自有 @media 与 Tailwind 断点同一判据:同时看短边。
    手机横屏 844×390 → 移动规则若只按 max-width 判定会全部失效(用户看到的「转手机就变样」)。
    横屏 iframe 也是 844×390,但那是主动要的宽屏视图 → 会真正改变观感的规则用
-   html:not(.is-embedded) 排除掉它(纯字号/内距一类无害的不排除,少改一点)。 */
+   html:not(.ls-wide) 排除掉它(纯字号/内距一类无害的不排除,少改一点)。 */
 /* ============================================================
    家庭账房 · Private Counting House
    一份起居室里的银行家账册
@@ -864,7 +864,7 @@ button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); col
 .filter-fold:not([open]) > summary { border-color: var(--brass); background: var(--card-soft); }
 @media (min-width: 768px) and (min-height: 480px) { .filter-fold > summary { display: none; } }
 /* 横屏 iframe 短边只有 390 但确是宽屏视图 → 把手照旧隐藏 */
-@media (min-width: 768px) { html.is-embedded .filter-fold > summary { display: none; } }
+@media (min-width: 768px) { html.ls-wide .filter-fold > summary { display: none; } }
 
 /* review B1-6 · KPI 带:窄屏「英雄数字 + 横滑 chip」。
    主 KPI(第一个)近满宽 + 字号升档,其余横滑 —— 五个同等大小的数字等于没有重点。 */
@@ -874,29 +874,29 @@ button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); col
    让 5 个指标在一屏内同时可见。
    !important 必要:Tailwind Play CDN 在 style.css 之后注入,其 .grid-cols-2 同为单类选择器。 */
 @media (max-width: 767px), (max-height: 479px) {
-  html:not(.is-embedded) .kpi-band { display: grid !important; grid-template-columns: 1fr 1fr !important; }
-  html:not(.is-embedded) .kpi-band > * { padding: 11px 12px !important; }
-  html:not(.is-embedded) .kpi-band > * .kpi-eyebrow { margin-bottom: 5px; font-size: calc(9.5px * var(--fs-scale,1)); letter-spacing: .12em; }
-  html:not(.is-embedded) .kpi-band > * .kpi-value { font-size: calc(19px * var(--fs-scale,1)); line-height: 1.15; }
-  html:not(.is-embedded) .kpi-band > * .kpi-delta { margin-top: 4px; font-size: calc(10px * var(--fs-scale,1)); }
+  html:not(.ls-wide) .kpi-band { display: grid !important; grid-template-columns: 1fr 1fr !important; }
+  html:not(.ls-wide) .kpi-band > * { padding: 11px 12px !important; }
+  html:not(.ls-wide) .kpi-band > * .kpi-eyebrow { margin-bottom: 5px; font-size: calc(9.5px * var(--fs-scale,1)); letter-spacing: .12em; }
+  html:not(.ls-wide) .kpi-band > * .kpi-value { font-size: calc(19px * var(--fs-scale,1)); line-height: 1.15; }
+  html:not(.ls-wide) .kpi-band > * .kpi-delta { margin-top: 4px; font-size: calc(10px * var(--fs-scale,1)); }
   /* 主指标:跨两列 + 字号升档,仍是视觉锚点 */
-  html:not(.is-embedded) .kpi-band > *:first-child { grid-column: 1 / -1 !important; padding: 13px 14px !important; }
+  html:not(.ls-wide) .kpi-band > *:first-child { grid-column: 1 / -1 !important; padding: 13px 14px !important; }
   /* 其余一律单列 —— 模板里第 5 个 KPI 原本带 col-span-2(那是「5 个平铺、最后一个居中」的老布局),
      现在主指标已占满第一行,第 5 个若还跨列就会让第 4 个旁边空一格。 */
-  html:not(.is-embedded) .kpi-band > *:not(:first-child) { grid-column: auto !important; }
-  html:not(.is-embedded) .kpi-band > *:first-child .kpi-value { font-size: calc(30px * var(--fs-scale,1)); }
-  html:not(.is-embedded) .kpi-band > *:first-child .kpi-delta { font-size: calc(11px * var(--fs-scale,1)); }
+  html:not(.ls-wide) .kpi-band > *:not(:first-child) { grid-column: auto !important; }
+  html:not(.ls-wide) .kpi-band > *:first-child .kpi-value { font-size: calc(30px * var(--fs-scale,1)); }
+  html:not(.ls-wide) .kpi-band > *:first-child .kpi-delta { font-size: calc(11px * var(--fs-scale,1)); }
 }
 
 /* review B3-2 · 类型汇总带:窄屏由多行网格改横滑单行(9 个类型曾占满整个首屏 ~950px) */
 @media (max-width: 767px), (max-height: 479px) {
-  html:not(.is-embedded) .summary-band {
+  html:not(.ls-wide) .summary-band {
     display: flex !important; overflow-x: auto;
     overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
     scroll-snap-type: x proximity; scrollbar-width: none;
   }
-  html:not(.is-embedded) .summary-band::-webkit-scrollbar { display: none; }
-  html:not(.is-embedded) .summary-band > * { flex: 0 0 44% !important; scroll-snap-align: start; }
+  html:not(.ls-wide) .summary-band::-webkit-scrollbar { display: none; }
+  html:not(.ls-wide) .summary-band > * { flex: 0 0 44% !important; scroll-snap-align: start; }
 }
 
 /* spec §5 · 尊重系统「减少动态效果」偏好 —— 前庭障碍用户会因动画产生生理不适。
@@ -937,53 +937,47 @@ button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); col
 .landscape-btn { display: none; }
 @media (pointer: coarse) { .landscape-btn { display: inline-flex; } }
 
-/* ── v1.6.6 · 整页横屏 · iframe 隔离 ────────────────────────────
-   为什么用 iframe:CSS 媒体查询只认 viewport 不认 transform,直接转 <body> 会让
-   453 处 Tailwind sm:/md: 与 13 处自有 @media 全部切到宽屏分支(真机三个副作用的根因)。
-   iframe 有独立 viewport → 响应式一行不用改就正确,且 iframe 尺寸固定 → 转手机零重排。 */
-html.ls-on, html.ls-on body { overflow: hidden !important; }
-html.ls-on #priv-float, html.ls-on .toc-fab, html.ls-on #ori-float { display: none !important; }
+/* ── v1.6.15 · 整页横屏 · **原地**改断点(不再用 iframe 重载页面)────────────
+   历史:v1.6.6–v1.6.14 用同源 iframe 拿"独立 viewport"。有效,但点一下 = 一次完整
+   后端渲染 + 12 个脚本重跑(实测 1362ms),而且新文档必然丢滚动位置。
+   现在断点由 landscape.js 原地重编译(Play CDN 运行时编译器 · 实测 114ms),
+   这里只负责把布局宽度锁成屏幕**长边**,并在设备竖屏时转 90°。
 
-.ls-shell { position: fixed; inset: 0; z-index: 9000; background: #14100c; overflow: hidden; }
-
-/* 舞台尺寸:**纯 CSS 视口单位交换**,不用 JS 量(v1.6.8 · 照 GitHub 上通行写法)
-   ───────────────────────────────────────────────────────────────
-   竖屏设备:width=100vh(长边)· height=100vw(短边)· 转 90°
-   横屏设备:width=100vw(长边)· height=100vh(短边)· 不转
-   两种情况盒子都是「长边 × 短边」= **同一个物理矩形**,所以 iframe 内 viewport 恒定、零重排,
-   而且切换由媒体查询完成,和 iOS 自己的重排同一时刻生效 —— 没有 JS 监听可以慢一拍。
-
-   v1.6.6 的做法(进入时 JS 量 innerWidth/innerHeight 写死 px)错在两处:
-     ① iOS 竖屏工具栏 ≠ 横屏工具栏,竖屏量到的短边在横屏并不成立 → 旋转后尺寸错 → 位移
-     ② JS 监听 orientationchange 再 toggle class,永远晚于 iOS 的旋转动画 → 先跟着转再被扳回
-
-   旋转量 translate(100vw,0):绕左上角转 90° 后盒子整体落到 x 轴负侧,
-   需右移一个「盒子高度」= 100vw。参考 MapoMagpie/comic-looms 的 `left:100vw` 同理。
-
-   `max-width: 479px` 是软键盘护栏:竖屏弹键盘会让 height<width 使 orientation 翻成 landscape
-   (SO 8883163 · 112★),但宽度仍是 390 → 仍留在竖屏分支,不会莫名转向。 */
-.ls-stage {
-  position: absolute; top: 0; left: 0; transform-origin: 0 0; background: var(--paper);
-  width: 100vw; height: 100vh; transform: none;
+   尺寸用交换后的视口单位(与 v1.6.8 调研的通行写法同一套):
+     设备竖屏:width=100vh(长边)· height=100vw(短边)· 转 90°
+     设备横屏:width=100vw(长边)· height=100vh(短边)· 不转
+   两种情况都是「长边 × 短边」= 同一个物理矩形 → 转手机零重排,且切换由媒体查询完成。
+   `max-width: 479px` 是软键盘护栏(竖屏弹键盘会让 orientation 翻成 landscape · SO 8883163)。 */
+html.ls-wide { overflow: hidden; }
+html.ls-wide > body {
+  position: fixed; top: 0; left: 0; margin: 0;
+  width: 100vw; height: 100vh;
+  /* body 自带 Tailwind `min-h-screen`(min-height:100vh)。不清掉它,height 就被压过去 ——
+     实测 body 变成 844×844(应为 844×390),旋转后底部整段跑到屏外,
+     连 position:fixed 的退出钮都被算到屏外(rect 3964,730)。 */
+  min-height: 0 !important;
+  overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  transform-origin: 0 0; transform: none;
 }
 @media (orientation: portrait) and (max-width: 479px) {
-  .ls-stage { width: 100vh; height: 100vw; transform: translate(100vw, 0) rotate(90deg); }
+  html.ls-wide > body {
+    width: 100vh; height: 100vw;
+    transform: translate(100vw, 0) rotate(90deg);
+  }
 }
 
-.ls-frame { display: block; width: 100%; height: 100%; border: 0; background: var(--paper); }
-/* 旋转遮帘:iOS 那段旋转动画抹不掉,但转的是一张纯色纸面就看不出在转。
-   盖上必须**瞬间**(transition:none)—— 否则旋转已经开始、内容还在淡出,那一眼就露了;
-   揭开才淡入(.18s),避免生硬闪现。 */
-.ls-shell.ls-turning { background: var(--paper); }
-.ls-shell.ls-turning .ls-stage > * { opacity: 0; transition: none; }
-.ls-stage > * { transition: opacity .18s linear; }
-
-/* 退出按钮放在舞台内 → 跟着一起转,视觉位置永远正确 */
-.ls-bar { position: absolute; top: 5px; right: 8px; z-index: 40; }
+/* 退出钮:跟着 body 一起转,位置天然正确。
+   内缩量按 iPhone 圆角给足 —— 用户反馈「会被 iPhone 的圆角遮挡导致按不稳」:
+   iPhone 的屏幕圆角半径约 44–55pt,贴边 8px 的按钮有一角落在圆角外侧。
+   右/上各留 26px,并把 nav 的右侧预留同步加大(见 .nav-inner padding-right)。 */
+/* 退出钮由 landscape.js 放进 .nav-actions(随 sticky 导航常驻)。
+   不用 position:fixed —— body 被 transform 后 fixed 的包含块变成 body,会跟着内容滚走;
+   放进导航行同时解决「被 iPhone 屏幕圆角切到、按不稳」(nav-inner 自带内距)。 */
 .ls-exit {
   display: inline-flex; align-items: center; gap: 5px;
-  min-height: 28px; padding: 0 10px; cursor: pointer;
-  background: rgba(26,23,20,.86); color: var(--paper); border: none; border-radius: 3px;
+  min-height: 26px; padding: 0 10px; margin-left: 8px; cursor: pointer;
+  background: rgba(26,23,20,.88); color: var(--paper); border: none; border-radius: 3px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: calc(11px * var(--fs-scale,1)); letter-spacing: .1em;
   backdrop-filter: blur(4px);
@@ -1009,13 +1003,13 @@ html.ls-on #priv-float, html.ls-on .toc-fab, html.ls-on #ori-float { display: no
    转 +90° 后落到 x 轴负侧 → 右移一个盒子高度(100vw)。
 
    护栏:pointer:coarse 挡 PC 矮窗 · min-width:480 挡竖屏软键盘假横屏(SO 8883163 · 112★)
-   · :not(.ls-on) 让主动横屏模式不受影响 · :not(.is-embedded) 让 iframe 内不受影响。
+   · :not(.ls-on) 让主动横屏模式不受影响 · :not(.ls-wide) 让 iframe 内不受影响。
 
    fixed 浮层(浮钮 / toast)会以被 transform 的 body 为包含块 → 自动跟着一起转,
    位置天然正确,不需要单独校正。 */
 @media (pointer: coarse) and (orientation: landscape) and (max-height: 479px) and (min-width: 480px) {
-  html:not(.ls-on):not(.is-embedded) { overflow: hidden; }
-  html:not(.ls-on):not(.is-embedded) > body {
+  html:not(.ls-wide) { overflow: hidden; }
+  html:not(.ls-wide) > body {
     position: fixed; top: 0; left: 0; margin: 0;
     width: 100vh; height: 100vw;
     overflow-y: auto; overflow-x: hidden;
@@ -1023,7 +1017,7 @@ html.ls-on #priv-float, html.ls-on .toc-fab, html.ls-on #ori-float { display: no
     transform-origin: 0 0;
     transform: translate(0, 100vh) rotate(-90deg);
   }
-  html.ori-cw:not(.ls-on):not(.is-embedded) > body {
+  html.ori-cw:not(.ls-wide) > body {
     transform: translate(100vw, 0) rotate(90deg);
   }
   /* 方案 B 固有代价:body 被 transform 之后,它内部所有 position:fixed 浮层的包含块
@@ -1033,12 +1027,12 @@ html.ls-on #priv-float, html.ls-on .toc-fab, html.ls-on #ori-float { display: no
      冻结态的语义是「用户误转了手机、马上会转回来」的过渡态,不需要这些浮层 →
      几何脆弱的一律藏掉,只留内容本身 + 两个小圆浮钮(它们随 body 一起转,位置自洽,
      而且方向钮必须留着:用户可能就是想横着拿再点开横屏视图)。 */
-  html:not(.ls-on):not(.is-embedded) #toc-sheet,
-  html:not(.ls-on):not(.is-embedded) .toc-sheet,
-  html:not(.ls-on):not(.is-embedded) .toc-sheet-mask,
-  html:not(.ls-on):not(.is-embedded) .toc-fab,
-  html:not(.ls-on):not(.is-embedded) #page-progress,
-  html:not(.ls-on):not(.is-embedded) #toast-stack { display: none !important; }
+  html:not(.ls-wide) #toc-sheet,
+  html:not(.ls-wide) .toc-sheet,
+  html:not(.ls-wide) .toc-sheet-mask,
+  html:not(.ls-wide) .toc-fab,
+  html:not(.ls-wide) #page-progress,
+  html:not(.ls-wide) #toast-stack { display: none !important; }
 }
 
 /* 旋转遮帘(普通模式):iOS 自己的旋转动画抹不掉,盖成纯纸面就看不出在转 */
@@ -1046,7 +1040,7 @@ html.ori-turning > body { background: var(--paper); }
 html.ori-turning > body > * { opacity: 0 !important; }
 
 /* 嵌套态(iframe 内)· 不再出现横屏入口,避免套娃 */
-html.is-embedded #ori-float, html.is-embedded .landscape-btn { display: none !important; }
+html.ls-wide #ori-float, html.ls-wide .landscape-btn { display: none !important; }
 
 /* v1.6.10 · 横屏模式的导航条:加回来,但按 844×390 重排 ——————————————
    v1.6.8 我把它整个藏了,理由是「844 宽放不下、390 高太贵」。用户要求加回来 ——
@@ -1060,32 +1054,35 @@ html.is-embedded #ori-float, html.is-embedded .landscape-btn { display: none !im
    390 高才是真正稀缺的:导航从 64px 压到 38px,省下的 26px 直接给内容。
    取舍:品牌只留印章(文字/版本在这个高度里是纯消耗)· 右侧那组整组收起
    (隐私有右下浮钮、字号退出再调),换来 7 个 tab 全部一行放下。 */
-html.is-embedded > body > header { position: sticky; top: 0; }
-html.is-embedded .nav-inner {
+html.ls-wide > body > header { position: sticky; top: 0; }
+html.ls-wide .nav-inner {
   height: 38px !important;
   padding-left: 12px !important;
-  padding-right: 118px !important;   /* 给舞台上的「退出横屏」钮留位,否则最后一个 tab 被压住 */
+  /* 退出钮已放进 .nav-actions 参与 flex 排,不再需要为它预留右侧空白;
+     只留一点内缩避开 iPhone 屏幕圆角(圆角半径约 44–55pt,贴边元素会被切)。 */
+  padding-right: 26px !important;
 }
-html.is-embedded .nav-lead { gap: 18px !important; }
-html.is-embedded .nav-brandtext { display: none !important; }
-html.is-embedded .nav-inner img { width: 21px !important; height: 21px !important; }
-html.is-embedded .nav-tabs {
+html.ls-wide .nav-lead { gap: 18px !important; }
+html.ls-wide .nav-brandtext { display: none !important; }
+html.ls-wide .nav-inner img { width: 21px !important; height: 21px !important; }
+html.ls-wide .nav-tabs {
   gap: 13px !important;
   font-size: calc(10px * var(--fs-scale, 1)) !important;
   letter-spacing: .1em !important;
 }
 /* 选中态下划线原本用 pb-[18px] 撑到 h-16 的底,压扁后必须重算,否则下划线跑到栏外 */
-html.is-embedded .nav-tabs > a { white-space: nowrap !important; padding-bottom: 0 !important; }
-html.is-embedded .nav-tabs > a[class*="border-b-2"] { padding-bottom: 4px !important; }
+html.ls-wide .nav-tabs > a { white-space: nowrap !important; padding-bottom: 0 !important; }
+html.ls-wide .nav-tabs > a[class*="border-b-2"] { padding-bottom: 4px !important; }
 /* 右侧那组默认收起,但**保留隐私钮**并放进导航条 —— 原因见下面的浮钮取舍。 */
-html.is-embedded .nav-actions { display: flex !important; gap: 0 !important; }
-html.is-embedded .nav-actions > * { display: none !important; }
-html.is-embedded .nav-actions > .nav-priv { display: inline-flex !important; }
+html.ls-wide .nav-actions { display: flex !important; gap: 0 !important; }
+html.ls-wide .nav-actions > * { display: none !important; }
+html.ls-wide .nav-actions > .nav-priv { display: inline-flex !important; }
+html.ls-wide .nav-actions > .ls-exit { display: inline-flex !important; }
 
 /* 浮钮取舍:隐私浮钮在 390 高的横屏里会压住内容(实测压住交叉表的「AI 解读当前视图」按钮)。
    横屏导航条里 tab 结束在 335px、退出钮从 726px 开始 —— 中间 390px 全是空的,
    把隐私钮放回导航条既不压内容又更好找。目录钮在横屏无意义(整页就一屏多点)一并收起。 */
-html.is-embedded #priv-float { display: none !important; }
+html.ls-wide #priv-float { display: none !important; }
 
 /* ── v1.6.13 · 横屏模式下的「本页目录」──────────────────────────────
    v1.6.10 我把目录钮一起藏了,理由是「横屏整页就一屏多点,目录无意义」。
@@ -1097,7 +1094,7 @@ html.is-embedded #priv-float { display: none !important; }
      · 点条目跳转后 toc.js 原逻辑自动关闭,无需额外处理 */
 /* 目录钮参与导航行的 flex 排列(由 landscape.js 搬进 .nav-actions)——
    不用 position:fixed 摆坐标:那样必须和隐私钮的宽度"保持相等",一变就撞。 */
-html.is-embedded .nav-actions > .toc-fab {
+html.ls-wide .nav-actions > .toc-fab {
   display: inline-flex !important;
   position: static !important;
   top: auto; right: auto; bottom: auto; left: auto;
@@ -1113,16 +1110,16 @@ html.is-embedded .nav-actions > .toc-fab {
   box-shadow: none;
   opacity: 1;
 }
-html.is-embedded .nav-actions > .toc-fab svg { width: 14px; height: 14px; }
-html.is-embedded .nav-actions > .toc-fab:hover,
-html.is-embedded .nav-actions > .toc-fab:active { color: var(--ink-soft); border-color: var(--rule); }
+html.ls-wide .nav-actions > .toc-fab svg { width: 14px; height: 14px; }
+html.ls-wide .nav-actions > .toc-fab:hover,
+html.ls-wide .nav-actions > .toc-fab:active { color: var(--ink-soft); border-color: var(--rule); }
 /* top 从 38px(横屏导航栏高)起,不是 0 ——————————————————————————
    `<main>` 带 `relative z-10`,它本身就是一个**层叠上下文**;抽屉在 main 里面,
    所以 `.toc-sheet` 的 z-index:80 永远升不到 z-30 的导航之上(实测抽屉的关闭 ×
    被 nav-inner 压住)。同一个原因也让 v1.6.13 的目录浮钮被隐私钮压住。
    与其去拆 main 的层叠上下文(牵连全站),不如让抽屉从导航条下方开始 ——
    顺带导航在抽屉打开时仍可点,体验反而更好。 */
-html.is-embedded .toc-sheet {
+html.ls-wide .toc-sheet {
   left: auto; right: 0; top: 38px; bottom: 0;
   width: min(320px, 42vw); max-height: none;
   border-radius: 14px 0 0 14px;
@@ -1130,23 +1127,23 @@ html.is-embedded .toc-sheet {
   transform: translateX(110%);
   padding: 10px 8px 12px;
 }
-html.is-embedded .toc-sheet.open { transform: translateX(0); }
-html.is-embedded .toc-sheet-mask { top: 38px; }   /* 遮罩同样不盖导航条 */
-html.is-embedded .toc-sheet-handle { display: none; }
-html.is-embedded .toc-sheet .toc-node { padding-top: 9px; padding-bottom: 9px; min-height: 38px; }
+html.ls-wide .toc-sheet.open { transform: translateX(0); }
+html.ls-wide .toc-sheet-mask { top: 38px; }   /* 遮罩同样不盖导航条 */
+html.ls-wide .toc-sheet-handle { display: none; }
+html.ls-wide .toc-sheet .toc-node { padding-top: 9px; padding-bottom: 9px; min-height: 38px; }
 
 /* ── 横屏的垂直节奏:390 高是真正稀缺的资源 ────────────────────────
    实测(交叉表页):header 39 + main 上内边距 30 + 标题块 mt-10(37.5)+ 标题 51
    + 说明段 53 → 首张卡片被推到 **221px = 屏高的 57%**。横屏是为了看表格,
    不是为了看留白。压缩的是间距与标题字号,**不删任何内容**。 */
-html.is-embedded main { padding-top: 8px !important; padding-bottom: 14px !important; }
-html.is-embedded main .mt-8, html.is-embedded main .mt-10, html.is-embedded main .mt-12 { margin-top: 8px !important; }
-html.is-embedded main .mb-8, html.is-embedded main .mb-10, html.is-embedded main .mb-12 { margin-bottom: 10px !important; }
+html.ls-wide main { padding-top: 8px !important; padding-bottom: 14px !important; }
+html.ls-wide main .mt-8, html.ls-wide main .mt-10, html.ls-wide main .mt-12 { margin-top: 8px !important; }
+html.ls-wide main .mb-8, html.ls-wide main .mb-10, html.ls-wide main .mb-12 { margin-bottom: 10px !important; }
 /* 页面大标题降一档(text-2xl 不动:那一档大量用在金额上,压了会伤可读性) */
-html.is-embedded main .text-4xl { font-size: calc(24px * var(--fs-scale, 1)) !important; line-height: 1.2 !important; }
-html.is-embedded main .text-3xl { font-size: calc(22px * var(--fs-scale, 1)) !important; line-height: 1.2 !important; }
+html.ls-wide main .text-4xl { font-size: calc(24px * var(--fs-scale, 1)) !important; line-height: 1.2 !important; }
+html.ls-wide main .text-3xl { font-size: calc(22px * var(--fs-scale, 1)) !important; line-height: 1.2 !important; }
 /* 首屏印章动画在嵌套态也跳过(landscape.js 已处理),这里兜底避免遮挡 */
-html.is-embedded #page-overlay { display: none !important; }
+html.ls-wide #page-overlay { display: none !important; }
 
 /* 横屏浮钮:与隐私眼 / 目录钮同列。
    可见性只由「触屏」决定 —— **不能带 max-width**:设备横屏时 viewport 变宽会让按钮消失。 */
@@ -1164,9 +1161,11 @@ html.is-embedded #page-overlay { display: none !important; }
 }
 @media (pointer: coarse) { #ori-float { display: inline-flex; } }
 #ori-float:hover, #ori-float:active, #ori-float:focus-visible { opacity: 1; border-color: var(--ink-soft); }
-/* 图标状态反馈:已在横屏 → 图标本身转 90°,不用看文字就知道当前是哪种状态 */
-#ori-float svg, .landscape-btn svg { transition: transform .22s ease; }
-#ori-float[aria-pressed="true"] svg, .landscape-btn[aria-pressed="true"] svg { transform: rotate(90deg); }
+/* 方向图标双态(Tabler device-mobile / device-mobile-rotated · MIT · 同款描边):
+   按钮显示**目标状态** —— 竖屏时显示"横屏手机"(点它去横屏),横屏时显示"竖屏手机"。 */
+.ori-ico-port { display: none; }
+[aria-pressed="true"] .ori-ico-land { display: none; }
+[aria-pressed="true"] .ori-ico-port { display: inline; }
 #ori-float[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); opacity: 1; }
 body.is-scrolling #ori-float { opacity: .22; }
 

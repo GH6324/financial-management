@@ -30,16 +30,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="账房">
-  <!-- v1.6.7 · 嵌套自检必须早于样式表:断点新增「短边 ≥480」判据后,横屏 iframe(844×390)的短边只有 390,
-       会被误判成「手机横屏」而套上移动规则 —— 那正是我们主动要的宽屏视图,必须排除。
-       内联在 head 里执行 = 首屏绘制前 class 已就位,无 FOUC。 -->
-  <script>try{if(window.self!==window.top)document.documentElement.classList.add('is-embedded');}catch(e){document.documentElement.classList.add('is-embedded');}</script>
   <!-- v1.6.7 · 窄屏判据的唯一出处 —— 必须与 tailwind screens / style.css 的 @media 完全同源。
        图表脚本里原有 22 处硬编码 `window.innerWidth` 宽度比较,手机横屏(844×390)会全部误判成宽屏
        → 字号/阈值/形态集体切换,这正是用户看到的「转手机图表也跟着变」。
        判据 = 宽度不足 **或** 短边不足 480;嵌套(横屏 iframe)是主动要的宽屏视图 → 只看宽度。 -->
   <script>window.vpNarrow=function(w){w=w||768;
-    if(document.documentElement.classList.contains('is-embedded'))return window.innerWidth<w;
+    /* 横屏模式(ls-wide):布局宽度被锁成屏幕**长边**,而 innerWidth 仍是短边 → 按长边判 */
+    if(document.documentElement.classList.contains('ls-wide'))
+      return Math.max(window.innerWidth,window.innerHeight)<w;
     return window.innerWidth<w||window.innerHeight<480;};</script>
   <link rel="stylesheet" th:href="@{/css/style.css(v=${buildVersion})}">
   <script th:src="@{/vendor/tailwind.js(v=${buildVersion})}"></script>
@@ -61,9 +59,12 @@
       return TW_EMBEDDED ? { raw: '(min-width: ' + w + 'px)' }
                          : { raw: '(min-width: ' + w + 'px) and (min-height: 480px)' };
     };
+    /* v1.6.15 · 断点基线暴露成全局:横屏模式要**原地**换断点(不再靠 iframe 重载整页),
+       换完还得换回来,所以基线只能有一处出处 —— 见 static/js/landscape.js。 */
+    window.TW_SCREENS_BASE = { sm: bp(640), md: bp(768), lg: bp(1024), xl: bp(1280), '2xl': bp(1536) };
     tailwind.config = {
       theme: {
-        screens: { sm: bp(640), md: bp(768), lg: bp(1024), xl: bp(1280), '2xl': bp(1536) },
+        screens: window.TW_SCREENS_BASE,
         extend: {
           colors: {
             paper: 'var(--paper)', 'paper-soft': 'var(--paper-soft)', 'paper-deep': 'var(--paper-deep)',
@@ -80,7 +81,8 @@
           }
         }
       }
-    }
+    };
+    window.TW_EXTEND_BASE = tailwind.config.theme.extend;
   </script>
   <script>
     document.addEventListener('htmx:configRequest', function (event) {
@@ -448,7 +450,7 @@
        方向只由这个钮决定 —— 转动手机不会改变页面方向(见 static/js/landscape.js)。 -->
   <button id="ori-float" type="button" data-orientation-toggle aria-pressed="false"
           aria-label="切换横屏 / 竖屏" title="整页横屏查看(适合宽表格)· 转动手机不会改变方向">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="4.5" width="6" height="15" rx="1.2"/><rect x="14.5" y="9.2" width="8.5" height="5.6" rx="1.2"/><path d="M8.2 12h5.6"/><path d="M9.8 10.4 8.2 12l1.6 1.6"/><path d="M12.2 10.4 13.8 12l-1.6 1.6"/></svg>
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ori-ico-land"><path d="M3 8a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -8"/><path d="M20 11v2"/><path d="M7 12h-.01"/></svg><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ori-ico-port"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14"/><path d="M11 4h2"/><path d="M12 17v.01"/></svg>
   </button>
   <!-- 全局 Toast 容器(HX-Trigger=showToast 触发) — 居中顶部,z-index 高于 nav 与 progress -->
   <div id="toast-stack"

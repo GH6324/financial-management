@@ -4195,27 +4195,37 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && log_ok "v163-SUNBURST-AGG(小块聚合 Top N + 其他 · isNarrow 不用 clientWidth · 聚合块带 children · 聚合块禁下钻 · 渲染失败不静默)" \
   || log_bad "v163-SUNBURST-AGG 缺件" "see lens.js aggSmall/AGG_MIN_DEG/isNarrow/_agg children/(n.children||[])/console.error('lens 渲染失败')"
 
-# v166-LANDSCAPE-IFRAME · 整页横屏 · iframe 隔离(用户拍板方案 A)
-#   演进史(前四版都栽在同一处):v1.6.2/1.6.3/1.6.4 直接 transform <body>,真机三个副作用
-#   (顶部菜单展开 / 浮钮消失 / 转手机大幅重排)。结构性根因:
-#     **CSS 媒体查询只认 viewport,不认 transform** —— 设备横屏时 viewport=844px,
-#     模板里 453 处 Tailwind sm:/md: + 13 处自有 @media 全部切宽屏分支,
-#     而前者是媒体查询编译产物,无法用 class 覆盖。
-#   iframe 有独立 viewport → 响应式一行不改就正确;iframe 尺寸进入时定死 → 转手机零重排。
-#   尺寸取「长边 × 短边」:内部 viewport=844 → md: 生效 → 宽表格真正铺开(横屏化的目的)。
-{ grep -q "window.self !== window.top" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q "is-embedded" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q "ls-frame" "$RD/src/main/resources/static/js/landscape.js" \
-  && ! grep -q "stage.style.width" "$RD/src/main/resources/static/js/landscape.js" \
-  && ! grep -q "ls-short" "$RD/src/main/resources/static/css/style.css" \
-  && grep -q "html.is-embedded #ori-float" "$RD/src/main/resources/static/css/style.css" \
-  && grep -q "@media (pointer: coarse) { #ori-float" "$RD/src/main/resources/static/css/style.css" \
-  && ! grep -qE "@media \(max-width: [0-9]+px\) \{ (#ori-float|\.landscape-btn)" "$RD/src/main/resources/static/css/style.css" \
-  && ! grep -q "html.ori-lock body" "$RD/src/main/resources/static/css/style.css" \
-  && ! grep -q "force-landscape" "$RD/src/main/resources/static/css/style.css" \
-  && grep -q 'id="ori-float"' "$RD/src/main/resources/templates/fragments/layout.html"; } \
-  && log_ok "v166-LANDSCAPE-IFRAME(iframe 独立 viewport · 尺寸不由 JS 定 · 嵌套自检防套娃 · 浮钮可见性不带 max-width)" \
-  || log_bad "v166-LANDSCAPE-IFRAME 缺件" "see landscape.js(self!==top 嵌套自检 / ls-frame / 进入时定尺寸)· style.css(ls-stage.ls-rotate / is-embedded 隐藏入口 / 不得残留整页 body 旋转)"
+# v1615-LS-INPLACE · 整页横屏 = **原地换断点**,不许再回到 iframe 重载
+#   退役 v166-LANDSCAPE-IFRAME 与 v168-ORI-CSS(它们守的是 iframe/舞台那套实现)。
+#   用户反馈「一段很长的卡顿,这本该只是前端样式变化」—— 实测点一下横屏 = 一次完整
+#   /dashboard 后端渲染 + 12 个脚本重跑,**1362ms**;而且 iframe 是新文档,滚动位置必然丢。
+#   现在:Tailwind 是 Play CDN 运行时编译器,重新赋值 tailwind.config 就地重编译(实测 114ms)
+#   → sm/md 换成「永远匹配」的 raw 查询;body 锁成长边×短边并在设备竖屏时转 90°。
+#   实测切换 ~300ms、零文档请求、章节位置两个方向都还原。
+#   踩过的三个坑,都在断言里:
+#     ① body 自带 Tailwind min-h-screen,不清掉 min-height 就压过 height(实测 844×844)
+#     ② body 被 transform 后 position:fixed 会跟着内容滚走 → 退出钮必须放进导航行
+#     ③ 章节定位不能用 getBoundingClientRect/scrollIntoView(旋转后是屏幕坐标)→ 累加 offsetTop
+CSS="$RD/src/main/resources/static/css/style.css"
+JSL="$RD/src/main/resources/static/js/landscape.js"
+LAY="$RD/src/main/resources/templates/fragments/layout.html"
+{ ! grep -q "ls-frame\|ls-shell\|createElement('iframe')" "$JSL" \
+  && ! grep -q "\.ls-stage\|\.ls-frame\|\.ls-shell" "$CSS" \
+  && grep -q "window.TW_SCREENS_BASE" "$LAY" \
+  && grep -q "window.TW_EXTEND_BASE" "$LAY" \
+  && grep -qF "extend: window.TW_EXTEND_BASE || {}" "$JSL" \
+  && grep -q "var WIDE_SCREENS" "$JSL" \
+  && grep -qF "sm: { raw: '(min-width: 1px)' }" "$JSL" \
+  && grep -qF "html.ls-wide > body {" "$CSS" \
+  && grep -qF "min-height: 0 !important;" "$CSS" \
+  && grep -qF "width: 100vh; height: 100vw;" "$CSS" \
+  && grep -qF "transform: translate(100vw, 0) rotate(90deg);" "$CSS" \
+  && grep -qF "(acts || document.body).appendChild(exitBtn);" "$JSL" \
+  && grep -q "function layoutTop" "$JSL" \
+  && grep -q "function currentAnchor" "$JSL" \
+  && ! grep -qE "\.scrollIntoView\(" "$JSL"; } \
+  && log_ok "v1615-LS-INPLACE(原地换断点 ~300ms 零文档请求 · 断点基线单一出处 · body 锁长边+视口单位交换旋转 · min-height 清零 · 退出钮在导航行 · 章节按布局坐标还原)" \
+  || log_bad "v1615-LS-INPLACE 缺件" "see landscape.js(不得有 iframe/ls-shell · setScreens 复用 TW_EXTEND_BASE · WIDE_SCREENS 强制 sm/md · 退出钮进 .nav-actions · layoutTop/currentAnchor 且不用 scrollIntoView)· style.css(html.ls-wide > body 锁长边 + min-height:0 + 视口单位交换旋转)· layout.html 暴露 TW_SCREENS_BASE / TW_EXTEND_BASE"
 
 # v167-VP-SHORTSIDE · 响应式判据必须同时看「短边」(用户第 5 次反馈:转手机页面还是变了)
 #   前四版横屏方案都在跟「方向」较劲,方向找错了 —— 真正的 bug 是**断点只判宽度**:
@@ -4226,58 +4236,24 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
 #     ① tailwind.config screens(453 处 Tailwind 断点)
 #     ② style.css 自有 @media
 #     ③ window.vpNarrow(图表脚本里原本 22 处硬编码宽度比较)
-#   例外:横屏 iframe 也是 844×390,但那是用户主动点出来的宽屏视图 → is-embedded 排除。
+#   例外:横屏模式(ls-wide)布局宽度锁成长边,是用户主动要的宽屏视图 → 三处判据都排除它。
 #   顺带守护 v1.6.7 的旋转遮帘:iOS 那 0.4s 旋转动画抹不掉(manifest.orientation iOS 不支持 /
 #   screen.orientation.lock 需 fullscreen / orientationchange 不可 cancel),只能盖住,且必须瞬盖。
 LAY="$RD/src/main/resources/templates/fragments/layout.html"
 CSS="$RD/src/main/resources/static/css/style.css"
 { [ "$(grep -c 'min-height: 480px' "$LAY")" -ge 1 ] \
-  && grep -qF "screens: { sm: bp(640), md: bp(768), lg: bp(1024), xl: bp(1280), '2xl': bp(1536) }" "$LAY" \
+  && grep -qF "window.TW_SCREENS_BASE = { sm: bp(640), md: bp(768), lg: bp(1024), xl: bp(1280), '2xl': bp(1536) };" "$LAY" \
   && grep -q "window.vpNarrow=function" "$LAY" \
   && grep -q "window.innerWidth<w||window.innerHeight<480" "$LAY" \
   && [ "$(grep -c 'max-height: 479px' "$CSS")" -ge 6 ] \
   && [ "$(grep -c 'and (min-height: 480px)' "$CSS")" -ge 4 ] \
-  && grep -q "html:not(.is-embedded) .kpi-band" "$CSS" \
-  && grep -q "html:not(.is-embedded) .summary-band" "$CSS" \
-  && grep -q "html.is-embedded .filter-fold > summary" "$CSS" \
-  && grep -qF ".ls-shell.ls-turning .ls-stage > * { opacity: 0; transition: none; }" "$CSS" \
-  && grep -q "ls-turning" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -q "html:not(.ls-wide) .kpi-band" "$CSS" \
+  && grep -q "html:not(.ls-wide) .summary-band" "$CSS" \
+  && grep -q "html.ls-wide .filter-fold > summary" "$CSS" \
+  && grep -q "ori-turning" "$RD/src/main/resources/static/js/landscape.js" \
   && [ "$(grep -rn 'window.innerWidth *[<>]=* *[0-9]' "$RD/src/main/resources/templates" "$RD/src/main/resources/static/js" | grep -v 'vpNarrow=function' | wc -l)" -eq 0 ]; } \
   && log_ok "v167-VP-SHORTSIDE(断点/自有@media/vpNarrow 三处同源看短边 · iframe 例外 · 旋转遮帘瞬盖淡揭 · 无残留硬编码宽度判定)" \
-  || log_bad "v167-VP-SHORTSIDE 缺件" "see layout.html(screens bp() + vpNarrow)· style.css(max-height:479px / min-height:480px / html:not(.is-embedded) 排除 iframe / ls-turning 瞬盖)· 且模板与 js 里不得残留 window.innerWidth<数字"
-
-# v168-ORI-CSS · 方向控制的尺寸必须由 CSS 视口单位决定,不许 JS 量
-#   调研 GitHub 上通行的强制横屏实现(QiShaoXuan/css_tricks 横屏范文 4192 处同类命中、
-#   MapoMagpie/comic-looms 漫画阅读器 `width:100vh;height:100vw;translate(100vw,0) rotate(90deg)`、
-#   izzapay 游戏方向插件 BASE_W/BASE_H 固定设计稿),共同点是:
-#     尺寸用**交换后的视口单位**,旋转由**媒体查询**驱动,JS 里一个监听都没有。
-#   v1.6.6 反过来做(JS 量 innerWidth/innerHeight 写死 px + 监听 orientationchange toggle class),
-#   必然有两个后果:
-#     ① iOS 竖屏工具栏 ≠ 横屏工具栏 → 竖屏量到的短边在横屏不成立 → 旋转后尺寸错、位移
-#     ② JS 扳正永远晚于 iOS 的旋转动画 → 先跟着转一圈再被扳回 = 两次运动
-#   护栏还钉住软键盘陷阱(SO 8883163 · 112★):竖屏弹键盘会让 height<width 使 orientation
-#   翻成 landscape,所以横屏分支必须叠宽度条件,否则打字时页面会莫名变向。
-#   单位辨析(v1.6.1 曾把这条写反并一路带到 v1.6.6):vh 是 large viewport,恒定;
-#   dvh 才随工具栏收放变化 —— 固定尺寸只能用 vh,不能用 dvh。
-CSS="$RD/src/main/resources/static/css/style.css"
-JSL="$RD/src/main/resources/static/js/landscape.js"
-{ grep -qF "width: 100vw; height: 100vh; transform: none;" "$CSS" \
-  && grep -qF "@media (orientation: portrait) and (max-width: 479px)" "$CSS" \
-  && grep -qF "width: 100vh; height: 100vw; transform: translate(100vw, 0) rotate(90deg);" "$CSS" \
-  && grep -qF "@media (pointer: coarse) and (orientation: landscape) and (max-height: 479px) and (min-width: 480px)" "$CSS" \
-  && grep -q "html:not(.ls-on):not(.is-embedded) > body" "$CSS" \
-  && grep -qF "transform: translate(0, 100vh) rotate(-90deg);" "$CSS" \
-  && grep -qF "transform: translate(100vw, 0) rotate(90deg);" "$CSS" \
-  && grep -qF "html.is-embedded > body > header { position: sticky; top: 0; }" "$CSS" \
-  && ! grep -q "rot-shell\|rot-inner\|rot-exit" "$CSS" \
-  && ! grep -qE "^[[:space:]]*(width|height)[[:space:]]*:[[:space:]]*[0-9.]+dvh" "$CSS" \
-  && ! grep -q "stage.style" "$JSL" \
-  && ! grep -q "ls-rotate" "$JSL" \
-  && ! grep -qF "addEventListener('resize'" "$JSL" \
-  && grep -q "ori-turning" "$JSL" \
-  && grep -q "matchMedia(FREEZE_Q)" "$JSL"; } \
-  && log_ok "v168-ORI-CSS(舞台尺寸纯 CSS 视口单位交换 · JS 零尺寸零 resize 监听 · 软键盘护栏 · rot-* 死代码已清)" \
-  || log_bad "v168-ORI-CSS 缺件" "see style.css(.ls-stage 默认 100vw/100vh + 竖屏分支 100vh/100vw 且带 max-width:479px 软键盘护栏 · 冻结块四条护栏齐)· landscape.js(不得有 stage.style / ls-rotate / resize 监听)"
+  || log_bad "v167-VP-SHORTSIDE 缺件" "see layout.html(screens bp() + vpNarrow)· style.css(max-height:479px / min-height:480px / html:not(.ls-wide) 排除横屏模式 / ori-turning 遮帘)· 且模板与 js 里不得残留 window.innerWidth<数字"
 
 # v169-ORI-PIN · 普通模式把内容钉在设备坐标系(方案 B · 用户在 A/B 里选定)+ 专用方向图标
 #   效果 = 只对本 app 生效的「竖屏方向锁定」:转手机时页面在屏幕上一动不动,要读得转回来。
@@ -4294,17 +4270,17 @@ JSL="$RD/src/main/resources/static/js/landscape.js"
 #   但方向钮必须留(用户可能就是横着拿再点开横屏视图)。
 #   注:图标具体形状的断言已移交 v1613-ORI-ICON(v1.6.13 换成竖框+横框+双向箭头),
 #   这里只守"不得回退成摄像机图标"。
-{ grep -qF "html.ori-cw:not(.ls-on):not(.is-embedded) > body" "$CSS" \
+{ grep -qF "html.ori-cw:not(.ls-wide) > body" "$CSS" \
   && grep -qF "overflow-y: auto; overflow-x: hidden;" "$CSS" \
-  && grep -q "html:not(.ls-on):not(.is-embedded) .toc-sheet-mask" "$CSS" \
-  && grep -q "html:not(.ls-on):not(.is-embedded) #toast-stack" "$CSS" \
-  && ! grep -qE "not\(.is-embedded\)[^{]*#ori-float[^{]*display: none" "$CSS" \
+  && grep -q "html:not(.ls-wide) .toc-sheet-mask" "$CSS" \
+  && grep -q "html:not(.ls-wide) #toast-stack" "$CSS" \
+  && ! grep -qE "not\(.ls-wide\)[^{]*#ori-float[^{]*display: none" "$CSS" \
   && grep -q "screen.orientation.angle" "$JSL" \
   && grep -qF "root.classList.toggle('ori-cw', a === 270)" "$JSL" \
   && grep -q "function restoreY" "$JSL" \
   && grep -qF "document.addEventListener('scroll', trackY, true)" "$JSL" \
   && ! grep -rq "M18 9l4-2v10l-4-2" "$RD/src/main/resources" \
-  && grep -q 'aria-pressed="true"\] svg' "$CSS"; } \
+  && grep -qF '[aria-pressed="true"] .ori-ico-port { display: inline; }' "$CSS"; } \
   && log_ok "v169-ORI-PIN(反向旋转钉设备坐标系 · 旋转符号跟 angle · 滚动位置交接 · 脆弱浮层冻结态藏掉但留方向钮)" \
   || log_bad "v169-ORI-PIN 缺件" "see style.css(ori-cw 分支 / body 滚动容器 / 冻结态藏 toc-sheet+toast 但不藏 #ori-float / aria-pressed 图标转向)· landscape.js(screen.orientation.angle + ori-cw + restoreY + capture 滚动跟踪)· 不得回退成摄像机图标(形状断言见 v1613-ORI-ICON)"
 
@@ -4322,18 +4298,18 @@ NAVF="$RD/src/main/resources/templates/fragments/nav.html"
 { grep -q 'class="nav-inner' "$NAVF" && grep -q 'class="nav-lead' "$NAVF" \
   && grep -q 'class="nav-brandtext' "$NAVF" && grep -q 'class="nav-tabs' "$NAVF" \
   && grep -q 'class="nav-actions' "$NAVF" && grep -q 'class="nav-priv' "$NAVF" \
-  && ! grep -qF "html.is-embedded > body > header { display: none" "$CSS" \
+  && ! grep -qF "html.ls-wide > body > header { display: none" "$CSS" \
   && grep -qF "height: 38px !important;" "$CSS" \
-  && grep -qF "padding-right: 118px !important;" "$CSS" \
-  && grep -qF "html.is-embedded .nav-brandtext { display: none !important; }" "$CSS" \
-  && grep -qF "html.is-embedded .nav-tabs > a[class*=\"border-b-2\"] { padding-bottom: 4px !important; }" "$CSS" \
-  && grep -qF "html.is-embedded .nav-actions > .nav-priv { display: inline-flex !important; }" "$CSS" \
-  && grep -qF "html.is-embedded #priv-float { display: none !important; }" "$CSS" \
-  && grep -qF "html.is-embedded main { padding-top: 8px !important; padding-bottom: 14px !important; }" "$CSS" \
-  && grep -q "html.is-embedded main .text-3xl" "$CSS" \
-  && ! grep -q "html.is-embedded main .text-2xl" "$CSS"; } \
+  && grep -qF "padding-right: 26px !important;" "$CSS" \
+  && grep -qF "html.ls-wide .nav-brandtext { display: none !important; }" "$CSS" \
+  && grep -qF "html.ls-wide .nav-tabs > a[class*=\"border-b-2\"] { padding-bottom: 4px !important; }" "$CSS" \
+  && grep -qF "html.ls-wide .nav-actions > .nav-priv { display: inline-flex !important; }" "$CSS" \
+  && grep -qF "html.ls-wide #priv-float { display: none !important; }" "$CSS" \
+  && grep -qF "html.ls-wide main { padding-top: 8px !important; padding-bottom: 14px !important; }" "$CSS" \
+  && grep -q "html.ls-wide main .text-3xl" "$CSS" \
+  && ! grep -q "html.ls-wide main .text-2xl" "$CSS"; } \
   && log_ok "v1610-LS-NAV(横屏导航 7 tab 单行 38px 高 · 右侧给退出钮留 118px · 品牌只留印章 · 隐私钮进栏内空档 · 垂直节奏压缩不删内容 · text-2xl 金额档不压)" \
-  || log_bad "v1610-LS-NAV 缺件" "see nav.html 六个定位类(nav-inner/nav-lead/nav-brandtext/nav-tabs/nav-actions/nav-priv)· style.css(header 不得再 display:none · 38px 栏高 · 118px 右留白 · 选中态 pb 重算 · nav-priv 保留 · 隐私浮钮收起(目录钮见 v1613-LS-TOC)· main 8/14 内边距 · 只压 text-3xl/4xl)"
+  || log_bad "v1610-LS-NAV 缺件" "see nav.html 六个定位类(nav-inner/nav-lead/nav-brandtext/nav-tabs/nav-actions/nav-priv)· style.css(header 不得再 display:none · 38px 栏高 · 右侧 26px 内缩避 iPhone 圆角 · 选中态 pb 重算 · nav-priv 保留 · 隐私浮钮收起(目录钮见 v1613-LS-TOC)· main 8/14 内边距 · 只压 text-3xl/4xl)"
 
 # v1612-CHART-UNIFORM · 并列同类图表必须共用同一套尺度(用户 2026-07-28 要求写进规范)
 #   用户原话:「都是饼图 那就保持大小样式一样,现在奇奇怪怪的,两个饼图差距很大,
@@ -4410,29 +4386,33 @@ RG="$RD/src/main/resources/templates/dashboard/_region.html"
 #        与其拆 main 的层叠上下文(牵连全站),不如让抽屉从导航下方开始,顺带导航仍可点。
 #     ③ 目录钮改成与隐私钮同款描边(原来是 38px 深色实心圆,为右下浮钮设计的)——
 #        并列同级控件必须同尺度同样式,见 AGENTS.md 护栏。
-{ grep -qF "html.is-embedded .nav-actions > .toc-fab" "$CSS" \
+{ grep -qF "html.ls-wide .nav-actions > .toc-fab" "$CSS" \
   && grep -qF "position: static !important;" "$CSS" \
   && grep -qF "border: 1px solid var(--rule-soft);" "$CSS" \
   && grep -qF "left: auto; right: 0; top: 38px; bottom: 0;" "$CSS" \
-  && grep -qF "html.is-embedded .toc-sheet-mask { top: 38px; }" "$CSS" \
-  && grep -qF "html.is-embedded .toc-sheet.open { transform: translateX(0); }" "$CSS" \
-  && grep -qF "html.is-embedded .toc-sheet-handle { display: none; }" "$CSS" \
+  && grep -qF "html.ls-wide .toc-sheet-mask { top: 38px; }" "$CSS" \
+  && grep -qF "html.ls-wide .toc-sheet.open { transform: translateX(0); }" "$CSS" \
+  && grep -qF "html.ls-wide .toc-sheet-handle { display: none; }" "$CSS" \
   && grep -q "function tocIntoNav\|var tocIntoNav" "$JSL" \
   && grep -qF "acts.insertBefore(fab, acts.firstChild)" "$JSL" \
-  && ! grep -qF "html.is-embedded #priv-float, html.is-embedded .toc-fab { display: none" "$CSS"; } \
+  && ! grep -qF "html.ls-wide #priv-float, html.ls-wide .toc-fab { display: none" "$CSS"; } \
   && log_ok "v1613-LS-TOC(横屏目录钮搬进导航 flex 流 · 与隐私钮同款描边 · 抽屉右侧侧栏且避开导航层叠上下文)" \
   || log_bad "v1613-LS-TOC 缺件" "see landscape.js tocIntoNav 把 .toc-fab 搬进 .nav-actions · style.css 下 .nav-actions > .toc-fab 为 static 描边款 · .toc-sheet/mask top:38px 右侧侧栏 · handle 隐藏"
 
-# v1613-ORI-ICON · 方向切换图标 = 竖框 + 横框 + 双向箭头(用户第二次要求换)
-#   历次:摄像机图标(语义完全不对)→ 屏幕旋转弧(用户仍不满意)→ 现在按用户描述做。
-#   全仓三处必须一致:右下方向浮钮 / 交叉表「横屏看」按钮 / 交叉表「手机看」提示。
-{ [ "$(grep -rc 'M8.2 12h5.6' "$RD/src/main/resources/templates/fragments/layout.html" "$RD/src/main/resources/templates/lens/_section.html" | awk -F: '{s+=$2} END{print s}')" -eq 3 ] \
-  && grep -q 'rect x="1" y="4.5" width="6" height="15"' "$RD/src/main/resources/templates/fragments/layout.html" \
-  && grep -q 'rect x="14.5" y="9.2" width="8.5" height="5.6"' "$RD/src/main/resources/templates/fragments/layout.html" \
+# v1613-ORI-ICON · 方向切换图标 = Tabler device-mobile / device-mobile-rotated 双态
+#   历次:摄像机图标(语义完全不对)→ 屏幕旋转弧 → 自绘「竖框+横框+双向箭头」(用户仍说丑)
+#   → v1.6.15 用**真实图标库**:Tabler Icons(MIT · 描边 24×24 stroke-2,与本项目同款)。
+#   按钮显示**目标状态**:竖屏时显示"横屏手机"(点它去横屏),横屏时显示"竖屏手机"。
+#   三处:右下方向浮钮 / 交叉表「横屏看」按钮(这两处双态)/ 交叉表「手机看」提示(单态)。
+{ [ "$(grep -rc 'M3 8a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -8' "$LAY" "$RD/src/main/resources/templates/lens/_section.html" | awk -F: '{s+=$2} END{print s}')" -eq 3 ] \
+  && [ "$(grep -rc 'M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14' "$LAY" "$RD/src/main/resources/templates/lens/_section.html" | awk -F: '{s+=$2} END{print s}')" -eq 2 ] \
+  && grep -qF ".ori-ico-port { display: none; }" "$CSS" \
+  && grep -qF '[aria-pressed="true"] .ori-ico-land { display: none; }' "$CSS" \
   && ! grep -rq "M18 9l4-2v10l-4-2" "$RD/src/main/resources" \
-  && ! grep -rq "M19.5 11.5A8" "$RD/src/main/resources"; } \
-  && log_ok "v1613-ORI-ICON(竖框+横框+双向箭头 · 全仓三处一致 · 摄像机与旋转弧两代旧图标均已清)" \
-  || log_bad "v1613-ORI-ICON 缺件" "see layout.html + lens/_section.html 三处必须是竖框(1,4.5,6×15)+横框(14.5,9.2,8.5×5.6)+双向箭头(M8.2 12h5.6),且不得残留摄像机 M18 9l4-2 与旋转弧 M19.5 11.5A8"
+  && ! grep -rq "M19.5 11.5A8" "$RD/src/main/resources" \
+  && ! grep -rq "M8.2 12h5.6" "$RD/src/main/resources"; } \
+  && log_ok "v1613-ORI-ICON(Tabler device-mobile 双态 · 显示目标状态 · 三处一致 · 三代旧图标均已清)" \
+  || log_bad "v1613-ORI-ICON 缺件" "see layout.html + lens/_section.html:横屏手机图标 3 处 / 竖屏手机图标 2 处(提示位单态)· style.css 双态显隐 · 不得残留摄像机 M18 9l4-2 / 旋转弧 M19.5 11.5A8 / 自绘双向箭头 M8.2 12h5.6"
 
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),
