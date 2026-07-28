@@ -409,7 +409,7 @@
         <a href="#lens-section" class="font-mono text-[10px] no-underline" style="color:var(--brass-deep)">深入透视(行业/平台/用途下钻)↓</a>
       </div>
       <!-- v1.6 review B1-3 · 类目 > 6 时改横向条形(见 JS),需要更高容器:每行 ≥24px + 轴/标题 -->
-      <div class="h-[300px] sm:h-[360px]"><canvas id="allocationChart"></canvas></div>
+      <div class="h-[348px] sm:h-[360px]"><canvas id="allocationChart"></canvas></div>
     </div>
   </section>
 
@@ -420,7 +420,7 @@
         <div class="eyebrow">按成员分布</div>
         <span class="font-mono text-[10px] text-ink-subtle">LOAN 不计</span>
       </div>
-      <div class="h-[220px] sm:h-[320px]"><canvas id="memberAllocationChart"></canvas></div>
+      <div class="h-[262px] sm:h-[320px]"><canvas id="memberAllocationChart"></canvas></div>
     </div>
   </section>
 
@@ -819,88 +819,110 @@
         };
       }
 
-      // v0.2.1(2026-05-11)· 按成员维度饼图(成员A / 成员B / 共同 · LOAN 不计)
+      /* ── v1.6.11 · 手机端改回环图(用户反馈:横向条形太不直观)────────────────
+         v1.6.4 我把窄屏两个图都改成横向条形,理由是「窄屏环图标签必然重叠」。
+         这个理由站不住:重叠的根因不是"环图不行",是**类目太多** ——
+         和旭日图 v1.6.3 完全同一个问题,那里已经验证过解法,这里用同一个:
+         **Top N + 其他 N 项**。同层过小的片合并成一片,环里只剩 ≤6 片,每片都标得下占比。
+         另外窄屏图例改到**下方**:390px 宽里右侧图例会把环挤成一条缝。
+         保留的判断:PC 且类目 > 6 仍用横向条形(那时空间够,精确标注每一类比合并更有价值)。 */
+      function aggSlices(labels, values, minPct, keepMax) {
+        const total = values.reduce((s, v) => s + Number(v || 0), 0);
+        if (!total) return { labels: labels, values: values, agg: 0 };
+        const order = values.map((v, i) => i).sort((a, b) => Number(values[b]) - Number(values[a]));
+        const keep = [], small = [];
+        order.forEach((i, rank) => {
+          const pct = Number(values[i]) * 100 / total;
+          (rank < keepMax && pct >= minPct) ? keep.push(i) : small.push(i);
+        });
+        if (small.length < 2) return { labels: labels, values: values, agg: 0 };   // 只剩一个小项就不值得合并
+        const sum = small.reduce((t, i) => t + Number(values[i] || 0), 0);
+        return {
+          labels: keep.map(i => labels[i]).concat(['其他 ' + small.length + ' 项']),
+          values: keep.map(i => Number(values[i])).concat([sum]),
+          agg: small.length
+        };
+      }
+
+      const AGG_GREY = '#c9c2b2';
+      function donutConfig(labels, values, titleText, palette) {
+        const nar = vpNarrow(640);
+        let L = labels, V = values, agg = 0;
+        if (nar) { const a = aggSlices(labels, values, 4, 6); L = a.labels; V = a.values; agg = a.agg; }
+        const total = V.reduce((s, v) => s + Number(v || 0), 0);
+        const flat = (x) => Array.isArray(x) ? x.join(' ') : String(x);
+        const colors = L.map((lab, i) => (agg && i === L.length - 1) ? AGG_GREY : palette[i % palette.length]);
+        return {
+          type: 'doughnut',
+          data: { labels: L, datasets: [{ data: V, backgroundColor: colors, borderWidth: 0 }] },
+          options: {
+            maintainAspectRatio: false,
+            layout: { padding: nar ? 6 : 12 },
+            plugins: {
+              title: { display: true, text: titleText, padding: { bottom: nar ? 4 : 8 },
+                       font: { size: chartFont(nar ? 11 : 13), weight: '500' }, color: '#3a302a' },
+              legend: {
+                position: nar ? 'bottom' : 'right',
+                labels: {
+                  boxWidth: nar ? 9 : 14, boxHeight: nar ? 9 : 12,
+                  padding: nar ? 7 : 10, font: { size: chartFont(nar ? 10 : 12) },
+                  /* 图例带金额:规范要求数字直接落在图上,不能只靠 hover。
+                     环内放占比、图例放金额,两者互补且都不重叠。 */
+                  generateLabels: (chart) => {
+                    const ds = chart.data.datasets[0];
+                    return chart.data.labels.map((lab, i) => {
+                      const money = fmtMoney(Number(ds.data[i] || 0));
+                      return { text: flat(lab) + (money ? ' ' + money : ''),
+                               fillStyle: ds.backgroundColor[i], strokeStyle: ds.backgroundColor[i],
+                               lineWidth: 0, fontColor: '#3a302a', hidden: false, index: i };
+                    });
+                  }
+                }
+              },
+              tooltip: { callbacks: { label: (ctx) => flat(ctx.label) + ': ' + fmtMoney(ctx.parsed)
+                          + ' · ' + (total > 0 ? (ctx.parsed * 100 / total).toFixed(1) + '%' : '') } },
+              datalabels: {
+                color: '#fffaf0', font: { size: chartFont(nar ? 10 : 11), weight: '600' },
+                textStrokeColor: 'rgba(26,23,20,.55)', textStrokeWidth: 2,
+                formatter: (v) => {
+                  if (!v || total === 0) return '';
+                  const pct = v * 100 / total;
+                  return pct < (nar ? 6 : 5) ? '' : pct.toFixed(0) + '%';   // 标不下的片看下方/右侧图例
+                }
+              }
+            }
+          }
+        };
+      }
+
+      /* 两个图共用同一条判断 → 形态永远一致(v1.6.4 用户反馈④的诉求) */
+      function useBar(labels) { return !vpNarrow(640) && labels.length > 6; }
+
+      // v0.2.1(2026-05-11)· 按成员维度分布(成员A / 成员B / 共同 · LOAN 不计)
       const memberDonut = document.getElementById('memberAllocationChart');
       if (memberDonut && data.memberAllocationValues && data.memberAllocationValues.length) {
         const memberTotal = data.memberAllocationValues.reduce((s, v) => s + Number(v || 0), 0);
         const MEM_PAL = ['#2f5d50', '#a77b35', '#6f7f98', '#8f6048', '#7a4f6b', '#3c4a5a', '#9c8b5a'];
-        const memFlat = vpNarrow(640) || data.memberAllocationLabels.length > 6;
-        window.financeCharts.memberAllocation = memFlat
-          ? new Chart(memberDonut, Object.assign(hBarConfig(data.memberAllocationLabels,
-              data.memberAllocationValues, memberTotal, '按成员分布 · ' + data.currency, MEM_PAL),
-              { plugins: [ChartDataLabels] }))
-          : new Chart(memberDonut, {
-          type: 'doughnut',
-          data: { labels: data.memberAllocationLabels,
-                  datasets: [{ data: data.memberAllocationValues,
-                               backgroundColor: ['#2f5d50', '#a77b35', '#6f7f98', '#8f6048', '#7a4f6b'] }] },
-          options: {
-            maintainAspectRatio: false,
-            layout: { padding: 12 },
-            plugins: {
-              title: { display: true, text: '按成员分布 · ' + data.currency,
-                       padding: { bottom: 8 }, font: { size: chartFont(13), weight: '500' }, color: '#3a302a' },
-              legend: { position: 'right', labels: { boxWidth: 14, font: { size: chartFont(12) } } },
-              tooltip: { callbacks: { label: (ctx) => String(ctx.label) + ': ' + fmtMoney(ctx.parsed)
-                          + ' · ' + (memberTotal > 0 ? (ctx.parsed * 100 / memberTotal).toFixed(1) + '%' : '') } },
-              datalabels: {
-                color: '#fffaf0',
-                font: { size: chartFont(11), weight: '600' },
-                textStrokeColor: 'rgba(26,23,20,.55)', textStrokeWidth: 2,
-                formatter: (v) => {
-                  if (!v || memberTotal === 0) return '';
-                  const pct = v * 100 / memberTotal;
-                  if (pct < 4) return '';
-                  return fmtMoney(v) + '\n' + pct.toFixed(0) + '%';
-                }
-              }
-            }
-          },
-          plugins: [ChartDataLabels]
-        });
+        const memLabels = data.memberAllocationLabels;
+        window.financeCharts.memberAllocation = useBar(memLabels)
+          ? new Chart(memberDonut, Object.assign(hBarConfig(memLabels, data.memberAllocationValues,
+              memberTotal, '按成员分布 · ' + data.currency, MEM_PAL), { plugins: [ChartDataLabels] }))
+          : new Chart(memberDonut, Object.assign(donutConfig(memLabels, data.memberAllocationValues,
+              '按成员分布 · ' + data.currency, MEM_PAL), { plugins: [ChartDataLabels] }));
       }
 
       const donut = document.getElementById('allocationChart');
       if (donut) {
         const donutLabels = data.allocationLabels.map(s => String(s).split('\n'));
         const total = data.allocationValues.reduce((s, v) => s + Number(v || 0), 0);
-        // v1.6 UED review B1-3 · 类目 > 6 时环图必然不可读:小扇片(3%/5%)标签互相重叠,
-        // 引导线在窄侧堆成平行线,PC 上就已经糊。人眼也无法比较相近扇形角度。
-        // → 换横向条形:纵向排列不受宽度限制、标签有完整空间、金额与占比都能精确标注(规范 §7.4)。
-        // ≤6 类仍用环图 —— 那时环图的「整体感」确实更好。
-        /* v1.6.4 · 判定加窄屏:窄屏一律条形,与「按成员分布」保持一致(用户反馈④) */
-        const flatAlloc = vpNarrow(640) || donutLabels.length > 6;
         const ALLOC_PAL = ['#a77b35','#2f5d50','#6f7f98','#8f6048','#333333','#7a4f6b','#3c4a5a','#9c8b5a','#5f7e7b'];
-        window.financeCharts.allocation = flatAlloc
+        window.financeCharts.allocation = useBar(donutLabels)
           ? new Chart(donut, Object.assign(hBarConfig(donutLabels, data.allocationValues, total,
               '资产配置 · ' + data.currency, ALLOC_PAL), { plugins: [ChartDataLabels] }))
-          : new Chart(donut, {
-
-          type: 'doughnut',
-          data: {labels: donutLabels, datasets: [{data: data.allocationValues, backgroundColor: ['#a77b35','#2f5d50','#6f7f98','#8f6048','#333333','#7a4f6b','#3c4a5a','#9c8b5a']}]},
-          options: {
-            maintainAspectRatio: false,
-            layout: {padding: 12},
-            plugins: {
-              title: {display: true, text: '资产配置 · ' + data.currency, padding: {bottom: 8}, font: {size: chartFont(13), weight: '500'}, color: '#3a302a'},
-              legend: {position: 'right', labels: {boxWidth: 14, font: {size: chartFont(12)}}},
-              tooltip: {callbacks: {label: (ctx) => (Array.isArray(ctx.label) ? ctx.label.join(' ') : String(ctx.label).replace('\n', ' ')) + ': ' + fmtMoney(ctx.parsed) + ' · ' + (total > 0 ? (ctx.parsed * 100 / total).toFixed(1) + '%' : '')}},
-              datalabels: {
-                color: '#fffaf0',
-                font: {size: chartFont(11), weight: '600'},
-                textStrokeColor: 'rgba(26,23,20,.55)', textStrokeWidth: 2,
-                formatter: (v, ctx) => {
-                  if (!v || total === 0) return '';
-                  const pct = (v * 100 / total);
-                  if (pct < 5) return ''; // 小片不挤,名称/金额看右侧图例 + hover
-                  return pct.toFixed(0) + '%';   // v0.14.1 · 窄环内只留占比一行,金额/名称移图例 → 不重叠
-                }
-              }
-            }
-          },
-          plugins: [ChartDataLabels]
-        });
+          : new Chart(donut, Object.assign(donutConfig(donutLabels, data.allocationValues,
+              '资产配置 · ' + data.currency, ALLOC_PAL), { plugins: [ChartDataLabels] }));
       }
+
 
       // v0.2(2026-05-10)· 按账户分布:横向 bar,资产 → 右,LOAN → 左,0 居中
       const divCanvas = document.getElementById('accountDivergeChart');

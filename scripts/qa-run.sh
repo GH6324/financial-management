@@ -4125,12 +4125,12 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && grep -q "entry-fold" "$RD/src/main/resources/templates/entry/_row.html" \
   && grep -q "kpi-band" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q "summary-band" "$RD/src/main/resources/templates/accounts/index.html" \
-  && grep -q "flatAlloc" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "donutConfig" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q "barRows" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q 'display: grid !important' "$RD/src/main/resources/static/css/style.css" \
   && grep -q 'display: flex !important' "$RD/src/main/resources/static/css/style.css"; } \
   && log_ok "v16-UED-MOBILE(口径折叠+一句话结论+填报行折叠+KPI主次网格+汇总带横滑+环图转条形+双向柱TopN)" \
-  || log_bad "v16-UED-MOBILE 缺件" "see filter-fold/entry-fold/kpi-band/summary-band + flatAlloc/barRows + Tailwind 覆盖需 !important"
+  || log_bad "v16-UED-MOBILE 缺件" "see filter-fold/entry-fold/kpi-band/summary-band + donutConfig/barRows + Tailwind 覆盖需 !important"
 
 # v16-UED-IOS · iOS 硬约束(review A9)
 { grep -q "overscroll-behavior-x: contain" "$RD/src/main/resources/static/css/style.css" \
@@ -4334,16 +4334,29 @@ NAVF="$RD/src/main/resources/templates/fragments/nav.html"
   && log_ok "v1610-LS-NAV(横屏导航 7 tab 单行 38px 高 · 右侧给退出钮留 118px · 品牌只留印章 · 隐私钮进栏内空档 · 垂直节奏压缩不删内容 · text-2xl 金额档不压)" \
   || log_bad "v1610-LS-NAV 缺件" "see nav.html 六个定位类(nav-inner/nav-lead/nav-brandtext/nav-tabs/nav-actions/nav-priv)· style.css(header 不得再 display:none · 38px 栏高 · 118px 右留白 · 选中态 pb 重算 · nav-priv 保留 · 浮钮收起 · main 8/14 内边距 · 只压 text-3xl/4xl)"
 
-# v164-CHART-PARITY · dashboard 两图窄屏形态一致(用户反馈④)
-#   「资产配置」与「按成员分布」此前一个环一个条,手机上并列看着不是一套东西。
-#   抽 hBarConfig 共用工厂,窄屏一律横向条形(窄屏环图标签必然重叠)。
-{ grep -q "function hBarConfig" "$RD/src/main/resources/templates/dashboard/_region.html" \
-  && grep -q "const memFlat = vpNarrow(640)" "$RD/src/main/resources/templates/dashboard/_region.html" \
-  && grep -q "const flatAlloc = vpNarrow(640)" "$RD/src/main/resources/templates/dashboard/_region.html" \
-  && grep -q "hBarConfig(data.memberAllocationLabels" "$RD/src/main/resources/templates/dashboard/_region.html" \
-  && grep -q "hBarConfig(donutLabels" "$RD/src/main/resources/templates/dashboard/_region.html"; } \
-  && log_ok "v164-CHART-PARITY(资产配置与按成员分布共用 hBarConfig · 窄屏同为横向条形)" \
-  || log_bad "v164-CHART-PARITY 缺件" "see dashboard/_region.html hBarConfig 工厂 + memFlat/flatAlloc 均含窄屏判定"
+# v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
+#   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),
+#   而 useBar 在窄屏恒为 false → **窄屏两图必定同为环图**(用户反馈④与本次反馈的交集)。
+#   注意口径:PC 上 useBar 仍看各自类目数,所以 PC 可能一个条一个环(资产配置 7 类 > 6)。
+#   要不要在 PC 也统一成环图,是产品取舍(聚合已让多类目环图可读),留给用户定,不在此守护范围。
+#   实现翻过一次:v1.6.4 我让窄屏两个都走横向条形,理由写的是「窄屏环图标签必然重叠」。
+#   用户反馈条形「太不直观」,要求改回环图 —— 而且那个理由本来就站不住:
+#   重叠的根因不是"环图不行",是**类目太多**,与旭日图 v1.6.3 完全同一个问题。
+#   那里验证过的解法直接搬过来:**Top N + 其他 N 项**(aggSlices),环里只剩 ≤6 片,
+#   每片都标得下占比;窄屏图例改到下方(390px 宽里右侧图例会把环挤成一条缝);
+#   金额落在图例上(规范要求数字直接在图上,不能只靠 hover)。
+#   保留的判断:PC 且类目 > 6 仍用横向条形 —— 那时空间够,精确标注每一类比合并更有价值。
+{ grep -q "function donutConfig" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "function aggSlices" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -qF "function useBar(labels) { return !vpNarrow(640) && labels.length > 6; }" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && [ "$(grep -c "useBar(" "$RD/src/main/resources/templates/dashboard/_region.html")" -ge 3 ] \
+  && grep -q "donutConfig(memLabels" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "donutConfig(donutLabels" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -qF "position: nar ? 'bottom' : 'right'" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q "generateLabels" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && ! grep -q "memFlat\|flatAlloc" "$RD/src/main/resources/templates/dashboard/_region.html"; } \
+  && log_ok "v164-CHART-PARITY(窄屏两图必同为环图 · Top N 聚合 + 图例下移带金额 · PC 保留「多类目走条形」)" \
+  || log_bad "v164-CHART-PARITY 缺件" "see dashboard/_region.html:aggSlices + donutConfig + useBar 三件齐 · 两图都走 donutConfig · 窄屏图例 bottom + generateLabels 带金额 · 不得残留 memFlat/flatAlloc"
 
 echo
 echo "═══════════════════════════════════════"
