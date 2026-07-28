@@ -4268,7 +4268,7 @@ JSL="$RD/src/main/resources/static/js/landscape.js"
   && grep -q "html:not(.ls-on):not(.is-embedded) > body" "$CSS" \
   && grep -qF "transform: translate(0, 100vh) rotate(-90deg);" "$CSS" \
   && grep -qF "transform: translate(100vw, 0) rotate(90deg);" "$CSS" \
-  && grep -q "html.is-embedded > body > header" "$CSS" \
+  && grep -qF "html.is-embedded > body > header { position: sticky; top: 0; }" "$CSS" \
   && ! grep -q "rot-shell\|rot-inner\|rot-exit" "$CSS" \
   && ! grep -qE "^[[:space:]]*(width|height)[[:space:]]*:[[:space:]]*[0-9.]+dvh" "$CSS" \
   && ! grep -q "stage.style" "$JSL" \
@@ -4276,8 +4276,8 @@ JSL="$RD/src/main/resources/static/js/landscape.js"
   && ! grep -qF "addEventListener('resize'" "$JSL" \
   && grep -q "ori-turning" "$JSL" \
   && grep -q "matchMedia(FREEZE_Q)" "$JSL"; } \
-  && log_ok "v168-ORI-CSS(舞台尺寸纯 CSS 视口单位交换 · JS 零尺寸零 resize 监听 · 软键盘护栏 · 横屏去导航 · rot-* 死代码已清)" \
-  || log_bad "v168-ORI-CSS 缺件" "see style.css(.ls-stage 默认 100vw/100vh + 竖屏分支 100vh/100vw 且带 max-width:479px 软键盘护栏 · 冻结块四条护栏齐 · is-embedded 去导航)· landscape.js(不得有 stage.style / ls-rotate / resize 监听)"
+  && log_ok "v168-ORI-CSS(舞台尺寸纯 CSS 视口单位交换 · JS 零尺寸零 resize 监听 · 软键盘护栏 · rot-* 死代码已清)" \
+  || log_bad "v168-ORI-CSS 缺件" "see style.css(.ls-stage 默认 100vw/100vh + 竖屏分支 100vh/100vw 且带 max-width:479px 软键盘护栏 · 冻结块四条护栏齐)· landscape.js(不得有 stage.style / ls-rotate / resize 监听)"
 
 # v169-ORI-PIN · 普通模式把内容钉在设备坐标系(方案 B · 用户在 A/B 里选定)+ 专用方向图标
 #   效果 = 只对本 app 生效的「竖屏方向锁定」:转手机时页面在屏幕上一动不动,要读得转回来。
@@ -4306,6 +4306,33 @@ JSL="$RD/src/main/resources/static/js/landscape.js"
   && grep -q 'aria-pressed="true"\] svg' "$CSS"; } \
   && log_ok "v169-ORI-PIN(反向旋转钉设备坐标系 · 旋转符号跟 angle · 滚动位置交接 · 脆弱浮层冻结态藏掉但留方向钮 · 专用屏幕旋转图标已换掉摄像机图标)" \
   || log_bad "v169-ORI-PIN 缺件" "see style.css(ori-cw 分支 / body 滚动容器 / 冻结态藏 toc-sheet+toast 但不藏 #ori-float / aria-pressed 图标转向)· landscape.js(screen.orientation.angle + ori-cw + restoreY + capture 滚动跟踪)· 三处摄像机图标必须已换成屏幕旋转图标"
+
+# v1610-LS-NAV · 横屏模式必须有顶部导航,但按 844×390 自己的尺度重排
+#   v1.6.8 我把导航整个藏了,理由是「844 宽放不下、390 高太贵」。用户要求加回来 ——
+#   **藏掉能力不是解决排版问题的办法**,该做的是给横屏一套自己的尺度。
+#   宽度账(实测):退出钮占 ~112px 必须留 → 可用 ~700px;7 个 tab 压到 10px + 13px 间距
+#   共 284px,加印章 21px ≈ 310px。v1.6.8 折行不是 tab 多,是 gap-12(48)+ gap-7(28)
+#   + 完整品牌文字 + 版本徽记 + 字号钮 + 隐私钮 + 账期 pill + 用户名 一起挤的。
+#   高度账:390 高才是稀缺资源。导航 64→38px;实测首张卡片从 221px(屏高 57%)提到 169px,
+#   压的是间距与大标题字号,**不删任何内容**(text-2xl 那一档不压:大量用在金额上)。
+#   浮钮:隐私浮钮在 390 高里会压住内容(实测压住交叉表「AI 解读当前视图」)→ 收进导航条
+#   那段 335~726px 的空档,既不压内容又更好找;目录钮在横屏无意义一并收起。
+NAVF="$RD/src/main/resources/templates/fragments/nav.html"
+{ grep -q 'class="nav-inner' "$NAVF" && grep -q 'class="nav-lead' "$NAVF" \
+  && grep -q 'class="nav-brandtext' "$NAVF" && grep -q 'class="nav-tabs' "$NAVF" \
+  && grep -q 'class="nav-actions' "$NAVF" && grep -q 'class="nav-priv' "$NAVF" \
+  && ! grep -qF "html.is-embedded > body > header { display: none" "$CSS" \
+  && grep -qF "height: 38px !important;" "$CSS" \
+  && grep -qF "padding-right: 118px !important;" "$CSS" \
+  && grep -qF "html.is-embedded .nav-brandtext { display: none !important; }" "$CSS" \
+  && grep -qF "html.is-embedded .nav-tabs > a[class*=\"border-b-2\"] { padding-bottom: 4px !important; }" "$CSS" \
+  && grep -qF "html.is-embedded .nav-actions > .nav-priv { display: inline-flex !important; }" "$CSS" \
+  && grep -qF "html.is-embedded #priv-float, html.is-embedded .toc-fab { display: none !important; }" "$CSS" \
+  && grep -qF "html.is-embedded main { padding-top: 8px !important; padding-bottom: 14px !important; }" "$CSS" \
+  && grep -q "html.is-embedded main .text-3xl" "$CSS" \
+  && ! grep -q "html.is-embedded main .text-2xl" "$CSS"; } \
+  && log_ok "v1610-LS-NAV(横屏导航 7 tab 单行 38px 高 · 右侧给退出钮留 118px · 品牌只留印章 · 隐私钮进栏内空档 · 垂直节奏压缩不删内容 · text-2xl 金额档不压)" \
+  || log_bad "v1610-LS-NAV 缺件" "see nav.html 六个定位类(nav-inner/nav-lead/nav-brandtext/nav-tabs/nav-actions/nav-priv)· style.css(header 不得再 display:none · 38px 栏高 · 118px 右留白 · 选中态 pb 重算 · nav-priv 保留 · 浮钮收起 · main 8/14 内边距 · 只压 text-3xl/4xl)"
 
 # v164-CHART-PARITY · dashboard 两图窄屏形态一致(用户反馈④)
 #   「资产配置」与「按成员分布」此前一个环一个条,手机上并列看着不是一套东西。

@@ -979,10 +979,10 @@ html.ls-on #priv-float, html.ls-on .toc-fab, html.ls-on #ori-float { display: no
 .ls-stage > * { transition: opacity .18s linear; }
 
 /* 退出按钮放在舞台内 → 跟着一起转,视觉位置永远正确 */
-.ls-bar { position: absolute; top: 8px; right: 10px; z-index: 2; }
+.ls-bar { position: absolute; top: 5px; right: 8px; z-index: 40; }
 .ls-exit {
-  display: inline-flex; align-items: center; gap: 6px;
-  min-height: 34px; padding: 0 13px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  min-height: 28px; padding: 0 10px; cursor: pointer;
   background: rgba(26,23,20,.86); color: var(--paper); border: none; border-radius: 3px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: calc(11px * var(--fs-scale,1)); letter-spacing: .1em;
@@ -1048,13 +1048,55 @@ html.ori-turning > body > * { opacity: 0 !important; }
 /* 嵌套态(iframe 内)· 不再出现横屏入口,避免套娃 */
 html.is-embedded #ori-float, html.is-embedded .landscape-btn { display: none !important; }
 
-/* v1.6.8 · 横屏模式里不要顶部导航条 ————————————————————————
-   三个理由,都是实测出来的:
-     ① 844 宽放不下 7 个 tab + 字号钮 + 隐私钮 + 用户名,实测每一项都折成两行,很难看
-     ② 屏幕只有 390 高,导航占掉 64px = 六分之一,而横屏就是为了多看内容
-     ③ 用户在 v1.6.4 明确反馈过「横屏以后会莫名其妙打开顶部系统 tab 菜单栏」
-   横屏是一次性的阅读视野,退出钮就在右上角,不需要在里面导航。 */
-html.is-embedded > body > header { display: none !important; }
+/* v1.6.10 · 横屏模式的导航条:加回来,但按 844×390 重排 ——————————————
+   v1.6.8 我把它整个藏了,理由是「844 宽放不下、390 高太贵」。用户要求加回来 ——
+   这是对的:藏掉能力不是解决排版问题的办法。真正要做的是给横屏一套自己的尺度。
+
+   844 宽的账本(实测):退出钮占 ~112px 必须留出 → 可用 ~700px;
+   7 个 tab 压到 10px + 13px 间距 ≈ 268px,加印章 20px ≈ 310px —— 宽度其实很宽裕。
+   v1.6.8 之所以折行,不是 tab 太多,是 gap-12(48px)+ gap-7(28px)+ 完整品牌文字
+   + 版本徽记 + 字号钮 + 隐私钮 + 账期 pill + 用户名 一起挤的结果。
+
+   390 高才是真正稀缺的:导航从 64px 压到 38px,省下的 26px 直接给内容。
+   取舍:品牌只留印章(文字/版本在这个高度里是纯消耗)· 右侧那组整组收起
+   (隐私有右下浮钮、字号退出再调),换来 7 个 tab 全部一行放下。 */
+html.is-embedded > body > header { position: sticky; top: 0; }
+html.is-embedded .nav-inner {
+  height: 38px !important;
+  padding-left: 12px !important;
+  padding-right: 118px !important;   /* 给舞台上的「退出横屏」钮留位,否则最后一个 tab 被压住 */
+}
+html.is-embedded .nav-lead { gap: 18px !important; }
+html.is-embedded .nav-brandtext { display: none !important; }
+html.is-embedded .nav-inner img { width: 21px !important; height: 21px !important; }
+html.is-embedded .nav-tabs {
+  gap: 13px !important;
+  font-size: calc(10px * var(--fs-scale, 1)) !important;
+  letter-spacing: .1em !important;
+}
+/* 选中态下划线原本用 pb-[18px] 撑到 h-16 的底,压扁后必须重算,否则下划线跑到栏外 */
+html.is-embedded .nav-tabs > a { white-space: nowrap !important; padding-bottom: 0 !important; }
+html.is-embedded .nav-tabs > a[class*="border-b-2"] { padding-bottom: 4px !important; }
+/* 右侧那组默认收起,但**保留隐私钮**并放进导航条 —— 原因见下面的浮钮取舍。 */
+html.is-embedded .nav-actions { display: flex !important; gap: 0 !important; }
+html.is-embedded .nav-actions > * { display: none !important; }
+html.is-embedded .nav-actions > .nav-priv { display: inline-flex !important; }
+
+/* 浮钮取舍:隐私浮钮在 390 高的横屏里会压住内容(实测压住交叉表的「AI 解读当前视图」按钮)。
+   横屏导航条里 tab 结束在 335px、退出钮从 726px 开始 —— 中间 390px 全是空的,
+   把隐私钮放回导航条既不压内容又更好找。目录钮在横屏无意义(整页就一屏多点)一并收起。 */
+html.is-embedded #priv-float, html.is-embedded .toc-fab { display: none !important; }
+
+/* ── 横屏的垂直节奏:390 高是真正稀缺的资源 ────────────────────────
+   实测(交叉表页):header 39 + main 上内边距 30 + 标题块 mt-10(37.5)+ 标题 51
+   + 说明段 53 → 首张卡片被推到 **221px = 屏高的 57%**。横屏是为了看表格,
+   不是为了看留白。压缩的是间距与标题字号,**不删任何内容**。 */
+html.is-embedded main { padding-top: 8px !important; padding-bottom: 14px !important; }
+html.is-embedded main .mt-8, html.is-embedded main .mt-10, html.is-embedded main .mt-12 { margin-top: 8px !important; }
+html.is-embedded main .mb-8, html.is-embedded main .mb-10, html.is-embedded main .mb-12 { margin-bottom: 10px !important; }
+/* 页面大标题降一档(text-2xl 不动:那一档大量用在金额上,压了会伤可读性) */
+html.is-embedded main .text-4xl { font-size: calc(24px * var(--fs-scale, 1)) !important; line-height: 1.2 !important; }
+html.is-embedded main .text-3xl { font-size: calc(22px * var(--fs-scale, 1)) !important; line-height: 1.2 !important; }
 /* 首屏印章动画在嵌套态也跳过(landscape.js 已处理),这里兜底避免遮挡 */
 html.is-embedded #page-overlay { display: none !important; }
 
