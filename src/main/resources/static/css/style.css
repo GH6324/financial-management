@@ -990,37 +990,55 @@ html.ls-on #priv-float, html.ls-on .toc-fab, html.ls-on #ori-float { display: no
 }
 .ls-exit:active { transform: translateY(1px); }
 
-/* ── v1.6.8 · 普通模式:手机横屏时把排版冻结成竖屏 ──────────────────
-   场景①(用户反馈:普通页面下转手机页面就变了)。v1.6.7 已让断点不再切宽屏分支,
-   但内容还会横向拉宽到 844。这里把 body 宽度锁回**短边**(= 竖屏那个宽度)并居中:
-     · 排版宽度与竖屏逐像素相同 → 内容一个字都不动
-     · 不做 transform、不改滚动容器 → 没有旋转方向歧义、不丢滚动位置、fixed 浮层不受影响
-   `100vh` 在横屏 = 短边(vh 是 large viewport,恒定;dvh 才会随工具栏变)。
+/* ── v1.6.9 · 普通模式:手机横屏时把内容钉在设备坐标系(方案 B,用户选定)──────
+   效果 = 就像开了系统的「竖屏方向锁定」,只对本 app 生效:
+   转手机时页面在屏幕上**一动不动**,要读还得把手机转回来。
 
-   为什么不做「反向旋转钉在设备坐标系」(等同系统旋转锁定):
-   那种做法要判断用户是顺时针还是逆时针转的手机(window.orientation 90 / -90)才能定旋转
-   符号,判错就是内容上下颠倒;而且 body 变成滚动容器会丢滚动位置。信箱式居中没有这些代价,
-   而且转过去仍然是**可读**的(钉在设备坐标系则是躺倒的,用户还得转回来)。
-   两者是一行之差,取哪个由用户定。
+   为什么能做到零重排:
+     · body 盒子 = 100vh × 100vw = 短边 × 长边 = **竖屏那个形状**(视口单位在横屏下自动交换)
+     · 排版宽度仍是短边 → 与竖屏逐像素相同(断点也已在 v1.6.7 改成看短边)
+     · 反向旋转把 OS 的旋转抵消掉 → 内容在设备上的位置不变
 
-   护栏:(pointer: coarse) 挡住 PC 矮窗口 · min-width 480 挡住竖屏软键盘假横屏 ·
-   :not(.ls-on) 让主动横屏模式不受影响 · :not(.is-embedded) 让 iframe 内不受影响。 */
+   旋转符号必须跟着设备转向走(v1.6.8 记录的正是这个风险):
+     screen.orientation.angle 的定义 = viewport 相对自然方向**顺时针**转过的角度,
+     要抵消就得转 -angle。angle 90(设备逆时针转)→ -90°;angle 270(设备顺时针转)→ +90°。
+     angle 由 landscape.js 读出并挂 html.ori-cw(iOS 16.4+ 有 screen.orientation,
+     更老的回落 window.orientation)。判错的表现是内容上下颠倒 —— 一个 class 之差。
+
+   旋转量:绕左上角转 -90° 后盒子落到 y 轴负侧 → 下移一个盒子宽度(100vh);
+   转 +90° 后落到 x 轴负侧 → 右移一个盒子高度(100vw)。
+
+   护栏:pointer:coarse 挡 PC 矮窗 · min-width:480 挡竖屏软键盘假横屏(SO 8883163 · 112★)
+   · :not(.ls-on) 让主动横屏模式不受影响 · :not(.is-embedded) 让 iframe 内不受影响。
+
+   fixed 浮层(浮钮 / toast)会以被 transform 的 body 为包含块 → 自动跟着一起转,
+   位置天然正确,不需要单独校正。 */
 @media (pointer: coarse) and (orientation: landscape) and (max-height: 479px) and (min-width: 480px) {
+  html:not(.ls-on):not(.is-embedded) { overflow: hidden; }
   html:not(.ls-on):not(.is-embedded) > body {
-    width: 100vh;
-    margin-left: auto; margin-right: auto;
-    /* 用 box-shadow 画边线而不是 border:border 会把盒子撑宽 2px,那就和竖屏差了 2px */
-    box-shadow: 0 0 0 1px var(--rule-soft);
+    position: fixed; top: 0; left: 0; margin: 0;
+    width: 100vh; height: 100vw;
+    overflow-y: auto; overflow-x: hidden;
+    overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    transform-origin: 0 0;
+    transform: translate(0, 100vh) rotate(-90deg);
   }
-  /* 两侧留白压深一档 → 读成「刻意的信箱边距」而不是「布局坏了」 */
-  html:not(.ls-on):not(.is-embedded) { background: var(--paper-deep); }
-  /* 浮钮收进内容栏内,否则它们飘在栏外像是掉出去了。
-     (100vw - 100vh)/2 就是左右留白宽度 —— 全是视口单位,不需要 JS 量。 */
-  html:not(.ls-on):not(.is-embedded) #priv-float,
-  html:not(.ls-on):not(.is-embedded) #ori-float,
-  html:not(.ls-on):not(.is-embedded) .toc-fab {
-    right: calc((100vw - 100vh) / 2 + 14px);
+  html.ori-cw:not(.ls-on):not(.is-embedded) > body {
+    transform: translate(100vw, 0) rotate(90deg);
   }
+  /* 方案 B 固有代价:body 被 transform 之后,它内部所有 position:fixed 浮层的包含块
+     从视口变成了 body 盒子。这些浮层的几何(inset-x-0 / bottom:0 / translateY(110%) 收起态)
+     都是按「未旋转的视口」写的,放进旋转容器就会错位 —— 实测目录抽屉会漏进屏内、
+     顶部进度条会横向溢出 988px。
+     冻结态的语义是「用户误转了手机、马上会转回来」的过渡态,不需要这些浮层 →
+     几何脆弱的一律藏掉,只留内容本身 + 两个小圆浮钮(它们随 body 一起转,位置自洽,
+     而且方向钮必须留着:用户可能就是想横着拿再点开横屏视图)。 */
+  html:not(.ls-on):not(.is-embedded) #toc-sheet,
+  html:not(.ls-on):not(.is-embedded) .toc-sheet,
+  html:not(.ls-on):not(.is-embedded) .toc-sheet-mask,
+  html:not(.ls-on):not(.is-embedded) .toc-fab,
+  html:not(.ls-on):not(.is-embedded) #page-progress,
+  html:not(.ls-on):not(.is-embedded) #toast-stack { display: none !important; }
 }
 
 /* 旋转遮帘(普通模式):iOS 自己的旋转动画抹不掉,盖成纯纸面就看不出在转 */
@@ -1056,5 +1074,8 @@ html.is-embedded #page-overlay { display: none !important; }
 }
 @media (pointer: coarse) { #ori-float { display: inline-flex; } }
 #ori-float:hover, #ori-float:active, #ori-float:focus-visible { opacity: 1; border-color: var(--ink-soft); }
+/* 图标状态反馈:已在横屏 → 图标本身转 90°,不用看文字就知道当前是哪种状态 */
+#ori-float svg, .landscape-btn svg { transition: transform .22s ease; }
+#ori-float[aria-pressed="true"] svg, .landscape-btn[aria-pressed="true"] svg { transform: rotate(90deg); }
 #ori-float[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); opacity: 1; }
 body.is-scrolling #ori-float { opacity: .22; }

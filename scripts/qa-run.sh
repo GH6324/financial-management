@@ -4266,8 +4266,8 @@ JSL="$RD/src/main/resources/static/js/landscape.js"
   && grep -qF "width: 100vh; height: 100vw; transform: translate(100vw, 0) rotate(90deg);" "$CSS" \
   && grep -qF "@media (pointer: coarse) and (orientation: landscape) and (max-height: 479px) and (min-width: 480px)" "$CSS" \
   && grep -q "html:not(.ls-on):not(.is-embedded) > body" "$CSS" \
-  && grep -qF "box-shadow: 0 0 0 1px var(--rule-soft);" "$CSS" \
-  && grep -qF "right: calc((100vw - 100vh) / 2 + 14px);" "$CSS" \
+  && grep -qF "transform: translate(0, 100vh) rotate(-90deg);" "$CSS" \
+  && grep -qF "transform: translate(100vw, 0) rotate(90deg);" "$CSS" \
   && grep -q "html.is-embedded > body > header" "$CSS" \
   && ! grep -q "rot-shell\|rot-inner\|rot-exit" "$CSS" \
   && ! grep -qE "^[[:space:]]*(width|height)[[:space:]]*:[[:space:]]*[0-9.]+dvh" "$CSS" \
@@ -4276,8 +4276,36 @@ JSL="$RD/src/main/resources/static/js/landscape.js"
   && ! grep -qF "addEventListener('resize'" "$JSL" \
   && grep -q "ori-turning" "$JSL" \
   && grep -q "matchMedia(FREEZE_Q)" "$JSL"; } \
-  && log_ok "v168-ORI-CSS(舞台尺寸纯 CSS 视口单位交换 · JS 零尺寸零 resize 监听 · 手机横屏信箱式冻结 · 软键盘护栏 · 横屏去导航 · rot-* 死代码已清)" \
+  && log_ok "v168-ORI-CSS(舞台尺寸纯 CSS 视口单位交换 · JS 零尺寸零 resize 监听 · 软键盘护栏 · 横屏去导航 · rot-* 死代码已清)" \
   || log_bad "v168-ORI-CSS 缺件" "see style.css(.ls-stage 默认 100vw/100vh + 竖屏分支 100vh/100vw 且带 max-width:479px 软键盘护栏 · 冻结块四条护栏齐 · is-embedded 去导航)· landscape.js(不得有 stage.style / ls-rotate / resize 监听)"
+
+# v169-ORI-PIN · 普通模式把内容钉在设备坐标系(方案 B · 用户在 A/B 里选定)+ 专用方向图标
+#   效果 = 只对本 app 生效的「竖屏方向锁定」:转手机时页面在屏幕上一动不动,要读得转回来。
+#   零重排的来源:body 盒子 = 100vh × 100vw = 短边 × 长边 = 竖屏那个形状(视口单位在横屏自动交换),
+#   排版宽度仍是短边 → 与竖屏逐像素相同(实测 body 390 / 卡片 360×92 / KPI 360 两向全同)。
+#   旋转符号必须跟设备转向走:screen.orientation.angle 定义为 viewport 相对自然方向**顺时针**
+#   转过的角度,要抵消就转 -angle → angle 90(设备逆时针)取 -90°,angle 270(设备顺时针)取 +90°
+#   (挂 html.ori-cw)。判错的表现是内容上下颠倒。iOS 16.4+ 有 screen.orientation(MDN BCD 实测),
+#   更老回落 window.orientation。
+#   滚动位置必须交接:冻结时滚动容器从 html 变成 body,两者 scrollTop 是两套值,
+#   不接就跳回顶部 —— 而「跳回顶部」正是用户最反感的那种"页面动了"。
+#   方案 B 的固有代价:body 被 transform 后,内部 position:fixed 浮层的包含块从视口变成 body 盒子,
+#   那些按「未旋转视口」写的几何会错位(实测目录抽屉漏进屏内)→ 几何脆弱的浮层冻结态一律藏掉,
+#   但方向钮必须留(用户可能就是横着拿再点开横屏视图)。
+{ grep -qF "html.ori-cw:not(.ls-on):not(.is-embedded) > body" "$CSS" \
+  && grep -qF "overflow-y: auto; overflow-x: hidden;" "$CSS" \
+  && grep -q "html:not(.ls-on):not(.is-embedded) .toc-sheet-mask" "$CSS" \
+  && grep -q "html:not(.ls-on):not(.is-embedded) #toast-stack" "$CSS" \
+  && ! grep -qE "not\(.is-embedded\)[^{]*#ori-float[^{]*display: none" "$CSS" \
+  && grep -q "screen.orientation.angle" "$JSL" \
+  && grep -qF "root.classList.toggle('ori-cw', a === 270)" "$JSL" \
+  && grep -q "function restoreY" "$JSL" \
+  && grep -qF "document.addEventListener('scroll', trackY, true)" "$JSL" \
+  && ! grep -rq "M18 9l4-2v10l-4-2" "$RD/src/main/resources" \
+  && [ "$(grep -rc "M19.5 11.5A8 8 0 0 1 11.5 19.5" "$RD/src/main/resources/templates/fragments/layout.html" "$RD/src/main/resources/templates/lens/_section.html" | awk -F: '{s+=$2} END{print s}')" -ge 3 ] \
+  && grep -q 'aria-pressed="true"\] svg' "$CSS"; } \
+  && log_ok "v169-ORI-PIN(反向旋转钉设备坐标系 · 旋转符号跟 angle · 滚动位置交接 · 脆弱浮层冻结态藏掉但留方向钮 · 专用屏幕旋转图标已换掉摄像机图标)" \
+  || log_bad "v169-ORI-PIN 缺件" "see style.css(ori-cw 分支 / body 滚动容器 / 冻结态藏 toc-sheet+toast 但不藏 #ori-float / aria-pressed 图标转向)· landscape.js(screen.orientation.angle + ori-cw + restoreY + capture 滚动跟踪)· 三处摄像机图标必须已换成屏幕旋转图标"
 
 # v164-CHART-PARITY · dashboard 两图窄屏形态一致(用户反馈④)
 #   「资产配置」与「按成员分布」此前一个环一个条,手机上并列看着不是一套东西。

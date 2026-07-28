@@ -171,27 +171,74 @@
   document.addEventListener('DOMContentLoaded', syncBtn);
   syncBtn();
 
-  /* ── 普通模式的旋转遮帘 ──────────────────────────────────────────
-     普通页面(没进横屏模式)转手机时,排版由 style.css 冻结成竖屏宽度、一个字不动,
-     但 iOS 自己的旋转动画照样会演一遍。同样盖成纯纸面。
-     用 matchMedia 而不是自己算尺寸:监听的就是 CSS 里那条完全相同的查询,
-     所以揭帘时刻与样式切换时刻严格同步,不会出现「样式已换、遮帘还在」。 */
+  /* ══ 普通模式:把内容钉在设备坐标系(方案 B)══════════════════════════
+     样式全在 style.css 的冻结块里。这里只做两件 CSS 做不到的事:
+
+     ① 旋转符号。screen.orientation.angle = viewport 相对自然方向**顺时针**转过的角度,
+        要抵消就转 -angle:angle 90(设备逆时针转)→ -90°(默认分支);
+        angle 270(设备顺时针转)→ +90°(挂 html.ori-cw)。
+        iOS 16.4+ 有 screen.orientation(实测 MDN BCD:angle/type/change 均 16.4);
+        更老的回落 window.orientation(-90 / 270 视为顺时针)。
+     ② 滚动位置交接。冻结时滚动容器从 html 变成 body,两者的 scrollTop 是两套值,
+        不接一下就会跳回顶部 —— 而"跳回顶部"正是用户最反感的那种"页面动了"。 */
   var FREEZE_Q = '(pointer: coarse) and (orientation: landscape) and (max-height: 479px) and (min-width: 480px)';
   var root = document.documentElement;
   var oriTimer = null;
+  var lastY = 0;
+
+  function trackY() {
+    var y = Math.max(document.body ? document.body.scrollTop : 0, root.scrollTop || 0, window.scrollY || 0);
+    if (y > 0) lastY = y;
+  }
+  /* capture 阶段才能收到元素级滚动(body 当滚动容器时 scroll 不冒泡) */
+  document.addEventListener('scroll', trackY, true);
+
+  function syncAngle() {
+    var a = null;
+    if (window.screen && window.screen.orientation && typeof window.screen.orientation.angle === 'number') {
+      a = window.screen.orientation.angle;
+    } else if (typeof window.orientation === 'number') {
+      a = window.orientation < 0 ? 270 : window.orientation;
+    }
+    root.classList.toggle('ori-cw', a === 270);
+  }
+
+  function restoreY() {
+    var y = lastY;
+    if (!y) return;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        if (document.body && document.body.scrollTop === 0 && getComputedStyle(document.body).position === 'fixed') {
+          document.body.scrollTop = y;               /* 进冻结:body 成为滚动容器 */
+        } else if ((root.scrollTop || 0) === 0) {
+          window.scrollTo(0, y);                     /* 出冻结:回到文档滚动 */
+        }
+      });
+    });
+  }
+
+  /* iOS 自己那 0.4s 旋转动画抹不掉(manifest.orientation 不支持 / orientation.lock 在 Safari
+     是 false / orientationchange 不可 cancel),旋转期间盖成纯纸面:纯色转动看不出转动。
+     注意 iOS 的 orientationchange 往往在旋转**之后**才派发,所以三个信号都接上,谁先到算谁。 */
   function oriCurtain() {
+    if (shell) return;
     root.classList.add('ori-turning');
     if (oriTimer) clearTimeout(oriTimer);
     oriTimer = setTimeout(function () {
       oriTimer = null;
       root.classList.remove('ori-turning');
-    }, 420);
+    }, 460);
   }
+  function onTurn() { syncAngle(); oriCurtain(); restoreY(); }
+
+  syncAngle();
   if (window.matchMedia) {
     var mq = window.matchMedia(FREEZE_Q);
-    var onMq = function () { if (!shell) oriCurtain(); };
-    if (mq.addEventListener) mq.addEventListener('change', onMq);
-    else if (mq.addListener) mq.addListener(onMq);
+    if (mq.addEventListener) mq.addEventListener('change', onTurn);
+    else if (mq.addListener) mq.addListener(onTurn);
   }
-  window.addEventListener('orientationchange', function () { if (!shell) oriCurtain(); });
+  window.addEventListener('orientationchange', onTurn);
+  if (window.screen && window.screen.orientation && window.screen.orientation.addEventListener) {
+    window.screen.orientation.addEventListener('change', onTurn);
+  }
 })();
