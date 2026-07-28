@@ -409,7 +409,7 @@
         <a href="#lens-section" class="font-mono text-[10px] no-underline" style="color:var(--brass-deep)">深入透视(行业/平台/用途下钻)↓</a>
       </div>
       <!-- v1.6 review B1-3 · 类目 > 6 时改横向条形(见 JS),需要更高容器:每行 ≥24px + 轴/标题 -->
-      <div class="h-[348px] sm:h-[360px]"><canvas id="allocationChart"></canvas></div>
+      <div class="chart-pair-box"><canvas id="allocationChart"></canvas></div>
     </div>
   </section>
 
@@ -420,7 +420,7 @@
         <div class="eyebrow">按成员分布</div>
         <span class="font-mono text-[10px] text-ink-subtle">LOAN 不计</span>
       </div>
-      <div class="h-[262px] sm:h-[320px]"><canvas id="memberAllocationChart"></canvas></div>
+      <div class="chart-pair-box"><canvas id="memberAllocationChart"></canvas></div>
     </div>
   </section>
 
@@ -782,42 +782,8 @@
 
       // v0.4 FR-60a 砍 incomeExpenseChart · 储蓄区已有更专业版
 
-      /* v1.6.4 用户反馈④ · 「资产配置」与「按成员分布」在手机上一个是环、一个是条,样式不一致。
-         抽一个共用工厂:窄屏两个都用横向条形(窄屏环图标签必然重叠),
-         PC 保持「>6 类用条形、≤6 类用环图」的规则(空间够时环图的整体感更好)。 */
-      function hBarConfig(labels, values, total, titleText, palette) {
-        const nar = vpNarrow(640);
-        return {
-          type: 'bar',
-          data: { labels: labels, datasets: [{ data: values, borderWidth: 0,
-                  backgroundColor: labels.map((_, i) => palette[i % palette.length]),
-                  barThickness: nar ? 16 : 20 }] },
-          options: {
-            indexAxis: 'y', maintainAspectRatio: false,
-            layout: { padding: { right: nar ? 52 : 68, left: 2, top: 2, bottom: 2 } },
-            plugins: {
-              title: { display: true, text: titleText, padding: { bottom: 8 },
-                       font: { size: chartFont(nar ? 11 : 13), weight: '500' }, color: '#3a302a' },
-              legend: { display: false },
-              tooltip: { callbacks: { label: (ctx) => fmtMoney(ctx.parsed.x) + ' · '
-                          + (total > 0 ? (ctx.parsed.x * 100 / total).toFixed(1) + '%' : '') } },
-              datalabels: {
-                anchor: 'end', align: 'end', offset: 4, clamp: true,
-                color: '#3a302a', font: { size: chartFont(nar ? 9 : 10), weight: '600' },
-                formatter: (v) => {
-                  if (!v || total === 0) return '';
-                  return (window.isPrivacy && window.isPrivacy() ? '' : fmtMoney(v) + ' · ')
-                       + (v * 100 / total).toFixed(1) + '%';
-                }
-              }
-            },
-            scales: {
-              x: { grid: { color: 'rgba(58,48,42,.06)' }, ticks: { callback: (v) => fmtMoney(v), font: { size: chartFont(9) } } },
-              y: { grid: { display: false }, ticks: { font: { size: chartFont(nar ? 10 : 11) } } }
-            }
-          }
-        };
-      }
+      /* v1.6.4 的 hBarConfig(窄屏横向条形)已删:两个图统一环图后它成了死代码。
+         那条路子的问题见 tech-design §22 —— 按类目数分叉图型,必然产出「同类并列不一致」。 */
 
       /* ── v1.6.11 · 手机端改回环图(用户反馈:横向条形太不直观)────────────────
          v1.6.4 我把窄屏两个图都改成横向条形,理由是「窄屏环图标签必然重叠」。
@@ -845,10 +811,26 @@
       }
 
       const AGG_GREY = '#c9c2b2';
+      /* ── 并列同类图表必须同尺度(v1.6.12 · 用户反馈:两个饼图差距很大)──────────
+         环图直径默认由「容器高度 − 标题 − 图例」推出来,而两个图的图例行数不同
+         (资产配置 3 行 / 按成员 1 行)→ 直径必然不同,看着就是两个不相干的图。
+         所以**把半径写死**:两个图传同一组尺度参数,直径逐像素相同,图例行数再变也不影响。
+         容器高度也共用同一个 class(.chart-pair-box),不再各写各的 h-[]。 */
+      const PAIR = {
+        r:      () => vpNarrow(640) ? 100 : 118,   // 环外半径(px · 写死 → 两图同大)
+        cutout: '58%',
+        titleSize: () => vpNarrow(640) ? 11 : 13,
+        legendSize: () => vpNarrow(640) ? 10 : 12,
+        pctSize: () => vpNarrow(640) ? 10 : 11,
+        pad:    () => vpNarrow(640) ? 6 : 12
+      };
       function donutConfig(labels, values, titleText, palette) {
         const nar = vpNarrow(640);
-        let L = labels, V = values, agg = 0;
-        if (nar) { const a = aggSlices(labels, values, 4, 6); L = a.labels; V = a.values; agg = a.agg; }
+        /* 聚合两端都做:窄屏留 6 类、PC 留 8 类。
+           这也是 PC 能统一成环图的前提 —— v1.6.0 审计「>6 类环图不可读 → 条形」的
+           那个前提被聚合去掉了,不再需要为多类目单独换图型。 */
+        const a = aggSlices(labels, values, nar ? 4 : 2, nar ? 6 : 8);
+        let L = a.labels, V = a.values, agg = a.agg;
         const total = V.reduce((s, v) => s + Number(v || 0), 0);
         const flat = (x) => Array.isArray(x) ? x.join(' ') : String(x);
         const colors = L.map((lab, i) => (agg && i === L.length - 1) ? AGG_GREY : palette[i % palette.length]);
@@ -857,15 +839,16 @@
           data: { labels: L, datasets: [{ data: V, backgroundColor: colors, borderWidth: 0 }] },
           options: {
             maintainAspectRatio: false,
-            layout: { padding: nar ? 6 : 12 },
+            radius: PAIR.r(), cutout: PAIR.cutout,
+            layout: { padding: PAIR.pad() },
             plugins: {
               title: { display: true, text: titleText, padding: { bottom: nar ? 4 : 8 },
-                       font: { size: chartFont(nar ? 11 : 13), weight: '500' }, color: '#3a302a' },
+                       font: { size: chartFont(PAIR.titleSize()), weight: '500' }, color: '#3a302a' },
               legend: {
                 position: nar ? 'bottom' : 'right',
                 labels: {
                   boxWidth: nar ? 9 : 14, boxHeight: nar ? 9 : 12,
-                  padding: nar ? 7 : 10, font: { size: chartFont(nar ? 10 : 12) },
+                  padding: nar ? 7 : 10, font: { size: chartFont(PAIR.legendSize()) },
                   /* 图例带金额:规范要求数字直接落在图上,不能只靠 hover。
                      环内放占比、图例放金额,两者互补且都不重叠。 */
                   generateLabels: (chart) => {
@@ -882,7 +865,7 @@
               tooltip: { callbacks: { label: (ctx) => flat(ctx.label) + ': ' + fmtMoney(ctx.parsed)
                           + ' · ' + (total > 0 ? (ctx.parsed * 100 / total).toFixed(1) + '%' : '') } },
               datalabels: {
-                color: '#fffaf0', font: { size: chartFont(nar ? 10 : 11), weight: '600' },
+                color: '#fffaf0', font: { size: chartFont(PAIR.pctSize()), weight: '600' },
                 textStrokeColor: 'rgba(26,23,20,.55)', textStrokeWidth: 2,
                 formatter: (v) => {
                   if (!v || total === 0) return '';
@@ -895,8 +878,7 @@
         };
       }
 
-      /* 两个图共用同一条判断 → 形态永远一致(v1.6.4 用户反馈④的诉求) */
-      function useBar(labels) { return !vpNarrow(640) && labels.length > 6; }
+      /* 两个图一律环图 —— 不再按类目数分叉图型:分叉就是「同类并列不一致」的来源。 */
 
       // v0.2.1(2026-05-11)· 按成员维度分布(成员A / 成员B / 共同 · LOAN 不计)
       const memberDonut = document.getElementById('memberAllocationChart');
@@ -904,11 +886,9 @@
         const memberTotal = data.memberAllocationValues.reduce((s, v) => s + Number(v || 0), 0);
         const MEM_PAL = ['#2f5d50', '#a77b35', '#6f7f98', '#8f6048', '#7a4f6b', '#3c4a5a', '#9c8b5a'];
         const memLabels = data.memberAllocationLabels;
-        window.financeCharts.memberAllocation = useBar(memLabels)
-          ? new Chart(memberDonut, Object.assign(hBarConfig(memLabels, data.memberAllocationValues,
-              memberTotal, '按成员分布 · ' + data.currency, MEM_PAL), { plugins: [ChartDataLabels] }))
-          : new Chart(memberDonut, Object.assign(donutConfig(memLabels, data.memberAllocationValues,
-              '按成员分布 · ' + data.currency, MEM_PAL), { plugins: [ChartDataLabels] }));
+        window.financeCharts.memberAllocation = new Chart(memberDonut,
+          Object.assign(donutConfig(memLabels, data.memberAllocationValues,
+            '按成员分布 · ' + data.currency, MEM_PAL), { plugins: [ChartDataLabels] }));
       }
 
       const donut = document.getElementById('allocationChart');
@@ -916,11 +896,9 @@
         const donutLabels = data.allocationLabels.map(s => String(s).split('\n'));
         const total = data.allocationValues.reduce((s, v) => s + Number(v || 0), 0);
         const ALLOC_PAL = ['#a77b35','#2f5d50','#6f7f98','#8f6048','#333333','#7a4f6b','#3c4a5a','#9c8b5a','#5f7e7b'];
-        window.financeCharts.allocation = useBar(donutLabels)
-          ? new Chart(donut, Object.assign(hBarConfig(donutLabels, data.allocationValues, total,
-              '资产配置 · ' + data.currency, ALLOC_PAL), { plugins: [ChartDataLabels] }))
-          : new Chart(donut, Object.assign(donutConfig(donutLabels, data.allocationValues,
-              '资产配置 · ' + data.currency, ALLOC_PAL), { plugins: [ChartDataLabels] }));
+        window.financeCharts.allocation = new Chart(donut,
+          Object.assign(donutConfig(donutLabels, data.allocationValues,
+            '资产配置 · ' + data.currency, ALLOC_PAL), { plugins: [ChartDataLabels] }));
       }
 
 

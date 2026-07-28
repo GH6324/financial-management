@@ -1121,3 +1121,12 @@ html.is-embedded #page-overlay { display: none !important; }
 #ori-float[aria-pressed="true"] svg, .landscape-btn[aria-pressed="true"] svg { transform: rotate(90deg); }
 #ori-float[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); opacity: 1; }
 body.is-scrolling #ori-float { opacity: .22; }
+
+
+/* ── 并列同类图表的公共容器(v1.6.12)────────────────────────────────
+   「资产配置」与「按成员分布」是语义同级、并列展示的一对图。它们的容器高度
+   原来各写各的 h-[348px]/h-[262px],于是两个环一大一小 —— 用户一眼就看出不对。
+   规则(见 docs/visual-spec.md「并列同类图表」):**并列同类图表共用同一个容器 class**,
+   任何一侧要改高度都会同时改到另一侧,不可能再单边漂移。 */
+.chart-pair-box { height: 336px; }
+@media (min-width: 640px) and (min-height: 480px) { .chart-pair-box { height: 380px; } }

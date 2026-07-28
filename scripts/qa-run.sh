@@ -4334,6 +4334,35 @@ NAVF="$RD/src/main/resources/templates/fragments/nav.html"
   && log_ok "v1610-LS-NAV(横屏导航 7 tab 单行 38px 高 · 右侧给退出钮留 118px · 品牌只留印章 · 隐私钮进栏内空档 · 垂直节奏压缩不删内容 · text-2xl 金额档不压)" \
   || log_bad "v1610-LS-NAV 缺件" "see nav.html 六个定位类(nav-inner/nav-lead/nav-brandtext/nav-tabs/nav-actions/nav-priv)· style.css(header 不得再 display:none · 38px 栏高 · 118px 右留白 · 选中态 pb 重算 · nav-priv 保留 · 浮钮收起 · main 8/14 内边距 · 只压 text-3xl/4xl)"
 
+# v1612-CHART-UNIFORM · 并列同类图表必须共用同一套尺度(用户 2026-07-28 要求写进规范)
+#   用户原话:「都是饼图 那就保持大小样式一样,现在奇奇怪怪的,两个饼图差距很大,
+#   这种常识问题,落到记忆和规范里面,不要我每次提出来,你自己要先自查」。
+#   同一件事他提了两次:v1.6.4 按类目数分叉图型(7 类走条形 / 3 类走环图)→ 一个条一个环;
+#   改成都是环图后 v1.6.11 又变成一大一小 —— 容器高度各写各的(348/262)+ 半径由
+#   「容器高 − 标题 − 图例」推导,而两图图例行数不同(5 项 3 行 / 3 项 1 行)。
+#   **容器高度相同还不够,半径必须写死。**
+#   踩坑第三次:否定断言不能盯**裸标识符**(`! grep -q "hBarConfig("`)—— 讲解这段历史的
+#   注释里就含 `hBarConfig(窄屏…`,自己把自己扫红了(前两次是 `100dvh`、`window.innerWidth<`)。
+#   否定断言一律盯**代码构造**:函数定义 `function X`、调用点 `Object.assign(X`。
+#   本守护钉三件事:① 容器共用同一个 class,不许各写 h-[] ② 尺度收进共享常量并写死半径
+#   ③ 不许残留"按数据量分叉图型"的逻辑。规范全文见 docs/visual-spec.md。
+RG="$RD/src/main/resources/templates/dashboard/_region.html"
+{ [ "$(grep -c 'class="chart-pair-box"' "$RG")" -eq 2 ] \
+  && ! grep -qE 'h-\[[0-9]+px\][^"]*"><canvas id="(allocationChart|memberAllocationChart)"' "$RG" \
+  && grep -q "const PAIR = {" "$RG" \
+  && grep -qF "radius: PAIR.r(), cutout: PAIR.cutout," "$RG" \
+  && grep -qF "size: chartFont(PAIR.titleSize())" "$RG" \
+  && grep -qF "size: chartFont(PAIR.legendSize())" "$RG" \
+  && grep -qF "size: chartFont(PAIR.pctSize())" "$RG" \
+  && ! grep -q "function hBarConfig" "$RG" \
+  && ! grep -qF "Object.assign(hBarConfig" "$RG" \
+  && ! grep -q "function useBar" "$RG" \
+  && [ "$(grep -c "donutConfig(" "$RG")" -ge 3 ] \
+  && grep -q "chart-pair-box" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "并列同类图表" "$RD/docs/visual-spec.md"; } \
+  && log_ok "v1612-CHART-UNIFORM(并列两图共用 .chart-pair-box + PAIR 共享尺度 + 半径写死 · 无图型分叉 · 规范已收录)" \
+  || log_bad "v1612-CHART-UNIFORM 缺件" "see _region.html:两个 canvas 容器都用 class=\"chart-pair-box\"(不许各写 h-[]) + PAIR 常量 + radius 写死 + 不得残留 hBarConfig/useBar · style.css 有 .chart-pair-box · docs/visual-spec.md 有「并列同类图表」一节"
+
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),
 #   而 useBar 在窄屏恒为 false → **窄屏两图必定同为环图**(用户反馈④与本次反馈的交集)。
@@ -4348,14 +4377,13 @@ NAVF="$RD/src/main/resources/templates/fragments/nav.html"
 #   保留的判断:PC 且类目 > 6 仍用横向条形 —— 那时空间够,精确标注每一类比合并更有价值。
 { grep -q "function donutConfig" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q "function aggSlices" "$RD/src/main/resources/templates/dashboard/_region.html" \
-  && grep -qF "function useBar(labels) { return !vpNarrow(640) && labels.length > 6; }" "$RD/src/main/resources/templates/dashboard/_region.html" \
-  && [ "$(grep -c "useBar(" "$RD/src/main/resources/templates/dashboard/_region.html")" -ge 3 ] \
+  && ! grep -q "function useBar" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q "donutConfig(memLabels" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q "donutConfig(donutLabels" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -qF "position: nar ? 'bottom' : 'right'" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q "generateLabels" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && ! grep -q "memFlat\|flatAlloc" "$RD/src/main/resources/templates/dashboard/_region.html"; } \
-  && log_ok "v164-CHART-PARITY(窄屏两图必同为环图 · Top N 聚合 + 图例下移带金额 · PC 保留「多类目走条形」)" \
+  && log_ok "v164-CHART-PARITY(两图一律环图 · 不再按类目数分叉图型 · Top N 聚合 + 窄屏图例下移带金额)" \
   || log_bad "v164-CHART-PARITY 缺件" "see dashboard/_region.html:aggSlices + donutConfig + useBar 三件齐 · 两图都走 donutConfig · 窄屏图例 bottom + generateLabels 带金额 · 不得残留 memFlat/flatAlloc"
 
 echo
