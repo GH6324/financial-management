@@ -927,64 +927,11 @@ button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); col
   letter-spacing: .04em;
 }
 
-/* ============================================================
-   v1.6.1 · 自建横屏查看(用户反馈⑤:iOS 拿不到 orientation.lock,
-   就照游戏/漫画类 PWA 的做法,自己用 CSS transform 转 90°)
-   ============================================================ */
-html.rot-on, html.rot-on body { overflow: hidden !important; }
-html.rot-on #priv-float, html.rot-on .toc-fab { display: none !important; }
-html.rot-on #pivotHint { display: none !important; }   /* 已经在横屏了,不必再提示「横屏更清晰」 */
-
-.rot-shell { position: fixed; inset: 0; z-index: 9000; background: var(--paper); }
-.rot-inner {
-  position: absolute; top: 0; left: 0;
-  width: 100vw; height: 100dvh;
-  overflow: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  background: var(--paper);
-  padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
-}
-/* 只有「设备还竖着」时才由我们代转 90°(宽高互换 + 绕左上角旋转,正好铺满屏幕)。
-   用户真把手机转横之后,浏览器自己已经是横屏 —— 这时 landscape.js 会摘掉 .rot-rotate,
-   否则会被转回竖的。用 dvh 而非 vh:iOS 地址栏收放会改变 vh。 */
-.rot-inner.rot-rotate {
-  width: 100dvh; height: 100vw;
-  transform: translate(100vw, 0) rotate(90deg);
-  transform-origin: 0 0;
-}
-@supports not (height: 100dvh) {
-  .rot-inner { height: 100vh; }
-  .rot-inner.rot-rotate { width: 100vh; }
-}
-.rot-hint {
-  display: inline-flex; align-items: center; gap: 7px;
-  margin-bottom: 9px; padding: 6px 11px;
-  background: var(--brass-soft); border-left: 3px solid var(--brass-deep);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: calc(11px * var(--fs-scale,1)); color: var(--ink-soft); line-height: 1.5;
-}
-
-.rot-bar {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--rule);
-}
-.rot-title {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: calc(11px * var(--fs-scale,1)); letter-spacing: .1em;
-  color: var(--ink-soft);
-}
-.rot-exit {
-  display: inline-flex; align-items: center; gap: 6px;
-  min-height: 36px; padding: 0 14px; cursor: pointer;
-  background: var(--ink); color: var(--paper); border: none;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: calc(11px * var(--fs-scale,1)); letter-spacing: .1em;
-}
-.rot-exit:active { transform: translateY(1px); }
-/* 横屏里表格可以铺满,不再需要首列 sticky 的挤压感,但保留固定列仍有用 */
-.rot-inner .lens-pivot table { width: auto; min-width: 100%; }
+/* v1.6.1 的 .rot-* 局部旋转层已删(JS 已无引用)。
+   它当年就用对了典范写法 `width:100dvh; height:100vw; transform:translate(100vw,0) rotate(90deg)`,
+   只错了一个单位:注释里写「用 dvh 而非 vh,因为 iOS 地址栏收放会改变 vh」—— **正好说反了**。
+   vh 是 large viewport(工具栏收起时的高度,恒定),dvh 才是会随工具栏变化的那个。
+   用 dvh 当固定尺寸 → 工具栏一收放盒子就变 → 重排。这个误解一路带到 v1.6.6 改成 JS 量 px。 */
 
 /* 触发按钮(仅窄屏出现:桌面本来就宽) */
 .landscape-btn { display: none; }
@@ -999,10 +946,29 @@ html.ls-on #priv-float, html.ls-on .toc-fab, html.ls-on #ori-float { display: no
 
 .ls-shell { position: fixed; inset: 0; z-index: 9000; background: #14100c; overflow: hidden; }
 
-/* 舞台 = iframe 的容器,尺寸由 JS 在进入时定死(长边 × 短边),此后不随设备方向变化 */
-.ls-stage { position: absolute; top: 0; left: 0; transform-origin: 0 0; background: var(--paper); }
-/* 设备还竖着 → 把舞台转 90° 放进竖屏;设备已横屏 → 不转,直接铺满 */
-.ls-stage.ls-rotate { transform: translate(var(--ls-short), 0) rotate(90deg); }
+/* 舞台尺寸:**纯 CSS 视口单位交换**,不用 JS 量(v1.6.8 · 照 GitHub 上通行写法)
+   ───────────────────────────────────────────────────────────────
+   竖屏设备:width=100vh(长边)· height=100vw(短边)· 转 90°
+   横屏设备:width=100vw(长边)· height=100vh(短边)· 不转
+   两种情况盒子都是「长边 × 短边」= **同一个物理矩形**,所以 iframe 内 viewport 恒定、零重排,
+   而且切换由媒体查询完成,和 iOS 自己的重排同一时刻生效 —— 没有 JS 监听可以慢一拍。
+
+   v1.6.6 的做法(进入时 JS 量 innerWidth/innerHeight 写死 px)错在两处:
+     ① iOS 竖屏工具栏 ≠ 横屏工具栏,竖屏量到的短边在横屏并不成立 → 旋转后尺寸错 → 位移
+     ② JS 监听 orientationchange 再 toggle class,永远晚于 iOS 的旋转动画 → 先跟着转再被扳回
+
+   旋转量 translate(100vw,0):绕左上角转 90° 后盒子整体落到 x 轴负侧,
+   需右移一个「盒子高度」= 100vw。参考 MapoMagpie/comic-looms 的 `left:100vw` 同理。
+
+   `max-width: 479px` 是软键盘护栏:竖屏弹键盘会让 height<width 使 orientation 翻成 landscape
+   (SO 8883163 · 112★),但宽度仍是 390 → 仍留在竖屏分支,不会莫名转向。 */
+.ls-stage {
+  position: absolute; top: 0; left: 0; transform-origin: 0 0; background: var(--paper);
+  width: 100vw; height: 100vh; transform: none;
+}
+@media (orientation: portrait) and (max-width: 479px) {
+  .ls-stage { width: 100vh; height: 100vw; transform: translate(100vw, 0) rotate(90deg); }
+}
 
 .ls-frame { display: block; width: 100%; height: 100%; border: 0; background: var(--paper); }
 /* 旋转遮帘:iOS 那段旋转动画抹不掉,但转的是一张纯色纸面就看不出在转。
@@ -1024,8 +990,55 @@ html.ls-on #priv-float, html.ls-on .toc-fab, html.ls-on #ori-float { display: no
 }
 .ls-exit:active { transform: translateY(1px); }
 
+/* ── v1.6.8 · 普通模式:手机横屏时把排版冻结成竖屏 ──────────────────
+   场景①(用户反馈:普通页面下转手机页面就变了)。v1.6.7 已让断点不再切宽屏分支,
+   但内容还会横向拉宽到 844。这里把 body 宽度锁回**短边**(= 竖屏那个宽度)并居中:
+     · 排版宽度与竖屏逐像素相同 → 内容一个字都不动
+     · 不做 transform、不改滚动容器 → 没有旋转方向歧义、不丢滚动位置、fixed 浮层不受影响
+   `100vh` 在横屏 = 短边(vh 是 large viewport,恒定;dvh 才会随工具栏变)。
+
+   为什么不做「反向旋转钉在设备坐标系」(等同系统旋转锁定):
+   那种做法要判断用户是顺时针还是逆时针转的手机(window.orientation 90 / -90)才能定旋转
+   符号,判错就是内容上下颠倒;而且 body 变成滚动容器会丢滚动位置。信箱式居中没有这些代价,
+   而且转过去仍然是**可读**的(钉在设备坐标系则是躺倒的,用户还得转回来)。
+   两者是一行之差,取哪个由用户定。
+
+   护栏:(pointer: coarse) 挡住 PC 矮窗口 · min-width 480 挡住竖屏软键盘假横屏 ·
+   :not(.ls-on) 让主动横屏模式不受影响 · :not(.is-embedded) 让 iframe 内不受影响。 */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 479px) and (min-width: 480px) {
+  html:not(.ls-on):not(.is-embedded) > body {
+    width: 100vh;
+    margin-left: auto; margin-right: auto;
+    /* 用 box-shadow 画边线而不是 border:border 会把盒子撑宽 2px,那就和竖屏差了 2px */
+    box-shadow: 0 0 0 1px var(--rule-soft);
+  }
+  /* 两侧留白压深一档 → 读成「刻意的信箱边距」而不是「布局坏了」 */
+  html:not(.ls-on):not(.is-embedded) { background: var(--paper-deep); }
+  /* 浮钮收进内容栏内,否则它们飘在栏外像是掉出去了。
+     (100vw - 100vh)/2 就是左右留白宽度 —— 全是视口单位,不需要 JS 量。 */
+  html:not(.ls-on):not(.is-embedded) #priv-float,
+  html:not(.ls-on):not(.is-embedded) #ori-float,
+  html:not(.ls-on):not(.is-embedded) .toc-fab {
+    right: calc((100vw - 100vh) / 2 + 14px);
+  }
+}
+
+/* 旋转遮帘(普通模式):iOS 自己的旋转动画抹不掉,盖成纯纸面就看不出在转 */
+html.ori-turning > body { background: var(--paper); }
+html.ori-turning > body > * { opacity: 0 !important; }
+
 /* 嵌套态(iframe 内)· 不再出现横屏入口,避免套娃 */
 html.is-embedded #ori-float, html.is-embedded .landscape-btn { display: none !important; }
+
+/* v1.6.8 · 横屏模式里不要顶部导航条 ————————————————————————
+   三个理由,都是实测出来的:
+     ① 844 宽放不下 7 个 tab + 字号钮 + 隐私钮 + 用户名,实测每一项都折成两行,很难看
+     ② 屏幕只有 390 高,导航占掉 64px = 六分之一,而横屏就是为了多看内容
+     ③ 用户在 v1.6.4 明确反馈过「横屏以后会莫名其妙打开顶部系统 tab 菜单栏」
+   横屏是一次性的阅读视野,退出钮就在右上角,不需要在里面导航。 */
+html.is-embedded > body > header { display: none !important; }
+/* 首屏印章动画在嵌套态也跳过(landscape.js 已处理),这里兜底避免遮挡 */
+html.is-embedded #page-overlay { display: none !important; }
 
 /* 横屏浮钮:与隐私眼 / 目录钮同列。
    可见性只由「触屏」决定 —— **不能带 max-width**:设备横屏时 viewport 变宽会让按钮消失。 */

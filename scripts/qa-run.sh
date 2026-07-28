@@ -4206,15 +4206,15 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
 { grep -q "window.self !== window.top" "$RD/src/main/resources/static/js/landscape.js" \
   && grep -q "is-embedded" "$RD/src/main/resources/static/js/landscape.js" \
   && grep -q "ls-frame" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q "Math.max(window.innerWidth, window.innerHeight)" "$RD/src/main/resources/static/js/landscape.js" \
-  && grep -q "ls-stage.ls-rotate" "$RD/src/main/resources/static/css/style.css" \
+  && ! grep -q "stage.style.width" "$RD/src/main/resources/static/js/landscape.js" \
+  && ! grep -q "ls-short" "$RD/src/main/resources/static/css/style.css" \
   && grep -q "html.is-embedded #ori-float" "$RD/src/main/resources/static/css/style.css" \
   && grep -q "@media (pointer: coarse) { #ori-float" "$RD/src/main/resources/static/css/style.css" \
   && ! grep -qE "@media \(max-width: [0-9]+px\) \{ (#ori-float|\.landscape-btn)" "$RD/src/main/resources/static/css/style.css" \
   && ! grep -q "html.ori-lock body" "$RD/src/main/resources/static/css/style.css" \
   && ! grep -q "force-landscape" "$RD/src/main/resources/static/css/style.css" \
   && grep -q 'id="ori-float"' "$RD/src/main/resources/templates/fragments/layout.html"; } \
-  && log_ok "v166-LANDSCAPE-IFRAME(iframe 独立 viewport · 尺寸定死零重排 · 嵌套自检防套娃 · 浮钮可见性不带 max-width)" \
+  && log_ok "v166-LANDSCAPE-IFRAME(iframe 独立 viewport · 尺寸不由 JS 定 · 嵌套自检防套娃 · 浮钮可见性不带 max-width)" \
   || log_bad "v166-LANDSCAPE-IFRAME 缺件" "see landscape.js(self!==top 嵌套自检 / ls-frame / 进入时定尺寸)· style.css(ls-stage.ls-rotate / is-embedded 隐藏入口 / 不得残留整页 body 旋转)"
 
 # v167-VP-SHORTSIDE · 响应式判据必须同时看「短边」(用户第 5 次反馈:转手机页面还是变了)
@@ -4245,6 +4245,39 @@ CSS="$RD/src/main/resources/static/css/style.css"
   && [ "$(grep -rn 'window.innerWidth *[<>]=* *[0-9]' "$RD/src/main/resources/templates" "$RD/src/main/resources/static/js" | grep -v 'vpNarrow=function' | wc -l)" -eq 0 ]; } \
   && log_ok "v167-VP-SHORTSIDE(断点/自有@media/vpNarrow 三处同源看短边 · iframe 例外 · 旋转遮帘瞬盖淡揭 · 无残留硬编码宽度判定)" \
   || log_bad "v167-VP-SHORTSIDE 缺件" "see layout.html(screens bp() + vpNarrow)· style.css(max-height:479px / min-height:480px / html:not(.is-embedded) 排除 iframe / ls-turning 瞬盖)· 且模板与 js 里不得残留 window.innerWidth<数字"
+
+# v168-ORI-CSS · 方向控制的尺寸必须由 CSS 视口单位决定,不许 JS 量
+#   调研 GitHub 上通行的强制横屏实现(QiShaoXuan/css_tricks 横屏范文 4192 处同类命中、
+#   MapoMagpie/comic-looms 漫画阅读器 `width:100vh;height:100vw;translate(100vw,0) rotate(90deg)`、
+#   izzapay 游戏方向插件 BASE_W/BASE_H 固定设计稿),共同点是:
+#     尺寸用**交换后的视口单位**,旋转由**媒体查询**驱动,JS 里一个监听都没有。
+#   v1.6.6 反过来做(JS 量 innerWidth/innerHeight 写死 px + 监听 orientationchange toggle class),
+#   必然有两个后果:
+#     ① iOS 竖屏工具栏 ≠ 横屏工具栏 → 竖屏量到的短边在横屏不成立 → 旋转后尺寸错、位移
+#     ② JS 扳正永远晚于 iOS 的旋转动画 → 先跟着转一圈再被扳回 = 两次运动
+#   护栏还钉住软键盘陷阱(SO 8883163 · 112★):竖屏弹键盘会让 height<width 使 orientation
+#   翻成 landscape,所以横屏分支必须叠宽度条件,否则打字时页面会莫名变向。
+#   单位辨析(v1.6.1 曾把这条写反并一路带到 v1.6.6):vh 是 large viewport,恒定;
+#   dvh 才随工具栏收放变化 —— 固定尺寸只能用 vh,不能用 dvh。
+CSS="$RD/src/main/resources/static/css/style.css"
+JSL="$RD/src/main/resources/static/js/landscape.js"
+{ grep -qF "width: 100vw; height: 100vh; transform: none;" "$CSS" \
+  && grep -qF "@media (orientation: portrait) and (max-width: 479px)" "$CSS" \
+  && grep -qF "width: 100vh; height: 100vw; transform: translate(100vw, 0) rotate(90deg);" "$CSS" \
+  && grep -qF "@media (pointer: coarse) and (orientation: landscape) and (max-height: 479px) and (min-width: 480px)" "$CSS" \
+  && grep -q "html:not(.ls-on):not(.is-embedded) > body" "$CSS" \
+  && grep -qF "box-shadow: 0 0 0 1px var(--rule-soft);" "$CSS" \
+  && grep -qF "right: calc((100vw - 100vh) / 2 + 14px);" "$CSS" \
+  && grep -q "html.is-embedded > body > header" "$CSS" \
+  && ! grep -q "rot-shell\|rot-inner\|rot-exit" "$CSS" \
+  && ! grep -qE "^[[:space:]]*(width|height)[[:space:]]*:[[:space:]]*[0-9.]+dvh" "$CSS" \
+  && ! grep -q "stage.style" "$JSL" \
+  && ! grep -q "ls-rotate" "$JSL" \
+  && ! grep -qF "addEventListener('resize'" "$JSL" \
+  && grep -q "ori-turning" "$JSL" \
+  && grep -q "matchMedia(FREEZE_Q)" "$JSL"; } \
+  && log_ok "v168-ORI-CSS(舞台尺寸纯 CSS 视口单位交换 · JS 零尺寸零 resize 监听 · 手机横屏信箱式冻结 · 软键盘护栏 · 横屏去导航 · rot-* 死代码已清)" \
+  || log_bad "v168-ORI-CSS 缺件" "see style.css(.ls-stage 默认 100vw/100vh + 竖屏分支 100vh/100vw 且带 max-width:479px 软键盘护栏 · 冻结块四条护栏齐 · is-embedded 去导航)· landscape.js(不得有 stage.style / ls-rotate / resize 监听)"
 
 # v164-CHART-PARITY · dashboard 两图窄屏形态一致(用户反馈④)
 #   「资产配置」与「按成员分布」此前一个环一个条,手机上并列看着不是一套东西。
