@@ -135,7 +135,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 431 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护)/ 55 e2e 断言(11 主线)/ 508 黑盒回归 |
+| 测试 | JUnit 5 · 431 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护)/ 55 e2e 断言(11 主线)/ 509 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
@@ -151,7 +151,7 @@ bash deploy/docker-up.sh       # 一条命令:自检环境 + 生成密钥 + 起�
 
 `docker-up.sh` 会自检 docker / 引擎 / Compose V2 是否就绪(macOS 上 Docker Desktop、OrbStack、colima 各种装法都适配),卡住时直接给你可复制的修复命令;镜像拉不到就本地构建。
 
-> **中国大陆**:Docker Hub 的 `mysql:8.0` 基础镜像在大陆会被限速/阻断,直接 `docker compose pull` 会卡死(我们自己的 app 镜像在 GHCR,能直连;`docker compose build` 救不了 mysql 这步)。`docker-up.sh` 会自动探测并引导你配国内镜像源(Linux 还能征你同意后自动写 `daemon.json`)。手动配法见 [`deploy/README.md` § 国内镜像加速](deploy/README.md#国内镜像加速--apple-silicon)。
+> **中国大陆:不用额外配任何东西**(v1.6.21 起)。数据库镜像默认取 **GHCR 上我们镜像的同一份 `mysql:8.0`** —— 和 app 镜像同一个源,大陆直连,不碰被限速的 Docker Hub。万一 GHCR 也不通,`docker-up.sh` 会自动退回 Docker Hub;两条都不通时它会**问你一句、然后自己把国内镜像源配好并重启 Docker**(colima / Docker Desktop / Linux 原生都覆盖),不再要你手改引擎配置文件。手动配法(OrbStack、或你想自己来)见 [`deploy/README.md` § 国内镜像加速](deploy/README.md#国内镜像加速--apple-silicon)。
 
 <details><summary>想手动控制每一步(老手)</summary>
 
@@ -159,7 +159,7 @@ bash deploy/docker-up.sh       # 一条命令:自检环境 + 生成密钥 + 起�
 cp .env.example .env           # 手改密钥(docker-up.sh 会自动生成随机密钥,手动则自己填)
 docker compose up -d           # 起 app + MySQL + 备份;有预构建镜像就拉,否则 docker compose build
 ```
-大陆拉不动 `mysql:8.0`(卡在 `docker compose pull`)→ 先配镜像源,见 [`deploy/README.md` § 国内镜像加速](deploy/README.md#国内镜像加速--apple-silicon)。若报 `unknown shorthand flag: 'd' in -d`,是这台机 Compose V2 没装好,同见该节排障。
+`db` 默认用 GHCR 上的 `mysql:8.0` 副本(大陆直连);想走 Docker Hub 官方源就在 `.env` 里设 `MYSQL_IMAGE=mysql:8.0`。手动路径不做源探测,拉不动就自己配镜像源(注意 `docker compose build` **救不了** —— 本地构建要从 Docker Hub 拉 `maven`/`eclipse-temurin` 基础镜像,同样过不了墙),见 [`deploy/README.md` § 国内镜像加速](deploy/README.md#国内镜像加速--apple-silicon)(跑 `docker-up.sh` 则会自动探测并代你配)。若报 `unknown shorthand flag: 'd' in -d`,是这台机 Compose V2 没装好,同见该节排障。
 </details>
 
 > **Windows**:装 [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/)(WSL2 后端,Win10/11 Home 也支持)→ 打开一个 WSL2(Ubuntu)终端,在里面 `git clone` 后跑**同一条** `bash deploy/docker-up.sh`(WSL2 就是 Linux,脚本原样适用;`docker compose` 随 Docker Desktop 自带)。建议把仓库放在 WSL2 文件系统内(`\\wsl$` 而非 `C:\`)以获得正常性能。前置:BIOS 开虚拟化 + 一次 `wsl --install` 并重启。

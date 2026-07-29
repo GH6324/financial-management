@@ -4,7 +4,10 @@
 # 只 app + MySQL;反代/HTTPS 由你在前面自己挂(见 deploy/README.md「反代/HTTPS」)。
 services:
   db:
-    image: mysql:8.0
+    # 默认走 GHCR 上我们镜像的同一份 mysql:8.0 —— GHCR 大陆直连,而 Docker Hub 被限速会
+    # 把大陆新手卡在第一步(v1.6.21)。想用官方源:.env 里设 MYSQL_IMAGE=mysql:8.0
+    # (docker-up.sh 探不到 GHCR 副本时会自动这么兜,并把结果写回 .env)。
+    image: ${MYSQL_IMAGE:-ghcr.io/luodi-nate/financial-management-mysql:8.0}
     restart: unless-stopped
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
     environment:

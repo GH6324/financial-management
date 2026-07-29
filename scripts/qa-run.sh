@@ -2715,24 +2715,30 @@ LAND="$RD/src/main/resources/templates/landing.html"
   && log_ok "v07-DOCKER-10 compose 仅 app 带 build:(backup 复用镜像,不触发 classic builder 双构建 AlreadyExists)" \
   || log_bad "v07-DOCKER-10 compose 出现多个 build:(会致 classic builder 同 image 双构建撞 AlreadyExists)" "见 docker-compose.yml backup 服务不应写 build:"
 
-# v07-CN-1 国内 Docker 阻断引导:docker-up.sh 单独探 mysql 归因 + 镜像源指引 + 不覆盖已有 daemon.json + 平台分流(Linux/Mac) + bash -n
+# v07-CN-1 国内 Docker 阻断引导:docker-up.sh 单独探 Docker Hub 归因 + 镜像源指引 + 不覆盖已有 registry-mirrors + 平台分流(Linux/Mac) + bash -n
+#   v1.6.21 起断言跟随新实现:探的是 $DB_UPSTREAM(双源里的 Docker Hub 那条),不再是写死的 mysql:8.0;
+#   「不覆盖」的判据从「文件不存在才写」改成「已有 registry-mirrors 就不动」(两处:Desktop / Linux),
+#   因为现在有内容时会用 python3 合并而非拒写 —— 真正要守的不变量是不破坏用户既有的镜像源配置。
 { [[ -f "$UP" ]] \
-  && grep -q 'pull_one mysql:8.0' "$UP" \
+  && grep -qF 'pull_one "$DB_UPSTREAM"' "$UP" \
   && grep -q 'cn_hub_blocked_guide' "$UP" \
   && grep -q 'registry-mirrors' "$UP" \
   && grep -q 'docker.m.daocloud.io' "$UP" \
-  && grep -q '\[\[ ! -e "\$DAEMON_JSON" \]\]' "$UP" \
+  && [ "$(grep -c '里已有 registry-mirrors' "$UP")" -eq 2 ] \
   && grep -q 'uname -s.*Darwin\|Darwin.*_cn_guide_mac' "$UP" \
   && grep -q '_cn_guide_mac' "$UP" \
   && grep -q 'colima.yaml\|\.colima/default' "$UP" \
   && grep -q 'orb config docker' "$UP" \
   && bash -n "$UP" 2>/dev/null; } \
-  && log_ok "v07-CN-1 docker-up.sh 探 Docker Hub 阻断 + 镜像源引导 + 不覆盖已有 daemon.json + Mac 分引擎(colima/orb/Desktop)" \
+  && log_ok "v07-CN-1 docker-up.sh 探 Docker Hub 阻断 + 镜像源引导 + 不覆盖已有 registry-mirrors + Mac 分引擎(colima/orb/Desktop)" \
   || log_bad "v07-CN-1 国内阻断引导逻辑缺件" "see deploy/docker-up.sh step5 / cn_hub_blocked_guide"
 
 # v07-CN-2 文档守护:三处文档给对镜像源,且纠正了「build 救不了 mysql」的误导
+#   v1.6.21 起 README 不再教用户写 daemon.json(默认 GHCR 副本 + MYSQL_IMAGE 覆盖),故断言换成这两个词;
+#   「build 救不了」仍必须在 README/deploy-README/faq 三处保留 —— 本地构建要拉 maven/temurin,同样过不了墙。
 { grep -q 'registry-mirrors' "$RD/deploy/README.md" && grep -q 'docker.m.daocloud.io' "$RD/deploy/README.md" && grep -q '救不了' "$RD/deploy/README.md" \
-  && grep -q 'mysql:8.0' "$RD/README.md" && grep -q '救不了' "$RD/README.md" && grep -q 'daemon.json' "$RD/README.md" \
+  && grep -q 'mysql:8.0' "$RD/README.md" && grep -q '救不了' "$RD/README.md" \
+  && grep -q 'MYSQL_IMAGE' "$RD/README.md" && grep -q 'GHCR' "$RD/README.md" \
   && grep -q 'registry-mirrors' "$RD/docs/faq.md" && grep -q 'docker.m.daocloud.io' "$RD/docs/faq.md" && grep -q 'mysql:8.0' "$RD/docs/faq.md"; } \
   && log_ok "v07-CN-2 README/deploy-README/faq 均给对国内镜像源 + 纠正 build 误导" \
   || log_bad "v07-CN-2 国内镜像源文档缺失或仍有误导" "see deploy/README.md / README.md / docs/faq.md"
@@ -4598,6 +4604,48 @@ TAGS="$RD/src/main/resources/templates/lens/tags.html"
   && grep -qF "html.ls-wide .tags-savebar { display: flex !important; }" "$CSS"; } \
   && log_ok "v1620-TAGS-LS(打标页窄屏自动横屏一次+尊重退出+PC不动 · 卡片化限定 not(.ls-wide) 每个逗号选择器都带前缀 · 横屏页头压缩表头 418→278px · 说明横屏仍折叠 · 保存条横屏留存)" \
   || log_bad "v1620-TAGS-LS 缺件" "see tags.html(卡片化段每个选择器都要 html:not(.ls-wide) 前缀,且不得残留裸 .tags-table · tagsLsOptOut + pointer:coarse + toggleOrientation · tags-head/tags-note/tags-intro-full/tags-note-full 类名)· style.css(横屏压 eyebrow/标题/说明卡 + 说明保持折叠 + 保存条留存)"
+
+# v1621-CN-INSTALL · 大陆装机不再依赖 Docker Hub + 镜像源由脚本代劳(用户第 11 轮反馈)
+#   起因是一次真实的上手失败:大陆 Mac 用户跑 docker-up.sh,卡在拉 mysql:8.0,
+#   脚本给的动作是「手改 ~/.colima/default/colima.yaml 或 Docker Desktop 的 Docker Engine JSON」→ 他放弃了。
+#   诊断和指引都没错,错在**这一档的天花板就在这**:让非技术家庭用户手改 Docker 引擎配置 = 死路。
+#   两层修法(缺任何一层大陆用户都可能装不上):
+#     ① **把失败点删掉**:mysql:8.0 是默认路径上唯一还走 Docker Hub 的一跳 →
+#        CI 用 `imagetools create` 把官方多架构 manifest 原样复制到 GHCR(registry→registry,不 pull 不重建),
+#        compose 默认指 GHCR 副本(与 app 镜像同源、大陆直连)。本地 gh token 没有 write:packages,
+#        所以推送只能在 Actions 里用 GITHUB_TOKEN 完成。
+#     ② **代劳而非教程**:兜底路径问一句 [Y/n] 后按引擎类型自己配 registry-mirrors 并重启重试。
+#        三个引擎落点完全不同:colima → VM 内 daemon.json(+ 补 colima.yaml 的 docker: 段,
+#        否则下次 colima restart 会按 yaml 重写把它抹掉)· Desktop → 宿主 ~/.docker/daemon.json + 重启 App ·
+#        Linux → /etc/docker/daemon.json + systemctl。OrbStack **不自动改**(机制不稳,宁可退回手动)。
+#   不变量:已有 registry-mirrors 不覆盖 + 改前留 .bak + 探到的源写回 .env(否则用户手敲 compose 又撞不通的源)。
+#   两个实现坑:root 下 `$SUDO -E python3` 会把 -E 当命令名(单独维护 SUDOE);
+#   等引擎必须「先等它掉下去再等它起回来」—— 直接轮询 docker info 会命中重启前的老 daemon 而误判成功。
+DUP="$RD/deploy/docker-up.sh"; DCY="$RD/docker-compose.yml"; DPW="$RD/.github/workflows/docker-publish.yml"
+{ grep -qF 'image: ${MYSQL_IMAGE:-ghcr.io/luodi-nate/financial-management-mysql:8.0}' "$DCY" \
+  && ! grep -qE '^[[:space:]]*image: mysql:8\.0[[:space:]]*$' "$DCY" \
+  && grep -q '^  mirror-mysql:' "$DPW" \
+  && grep -qF 'imagetools create' "$DPW" \
+  && grep -qF 'ghcr.io/luodi-nate/financial-management-mysql:8.0' "$DPW" \
+  && grep -q '^DB_MIRROR=' "$DUP" && grep -qF 'DB_UPSTREAM="mysql:8.0"' "$DUP" \
+  && grep -q '^cn_autofix_mirrors()' "$DUP" \
+  && grep -q '^_mirror_colima()' "$DUP" && grep -q '^_mirror_desktop()' "$DUP" \
+  && grep -q '^_mirror_linux()' "$DUP" && grep -q '^_wait_engine()' "$DUP" \
+  && ! grep -qE 'kind=orb' "$DUP" \
+  && grep -qF 'SUDOE="$SUDO -E"' "$DUP" && ! grep -qE '\$SUDO -E python3' "$DUP" \
+  && grep -qF "grep -qx 'docker: {}'" "$DUP" \
+  && [ "$(grep -c '里已有 registry-mirrors' "$DUP")" -eq 2 ] \
+  && [ "$(grep -c 'daemon.json.bak\|\$f.bak\|yml.bak' "$DUP")" -ge 3 ] \
+  && grep -qF "printf 'MYSQL_IMAGE=%s" "$DUP" \
+  && grep -qF 'pull_one eclipse-temurin:21-jre' "$DUP" \
+  && grep -qF 'local what=' "$DUP" \
+  && grep -qF 'cn_hub_blocked_guide "JDK 基础镜像"' "$DUP" \
+  && grep -q '^# MYSQL_IMAGE=' "$RD/.env.example" \
+  && grep -qF 'MIG_DB_MIRROR=' "$RD/deploy/migrate-to-docker.sh" \
+  && grep -qF "printf 'MYSQL_IMAGE=%s" "$RD/deploy/migrate-to-docker.sh" \
+  && bash -n "$DUP" && bash -n "$RD/deploy/migrate-to-docker.sh"; } \
+  && log_ok "v1621-CN-INSTALL(db 默认走 GHCR 副本·compose 无裸 mysql:8.0 · CI mirror-mysql 用 imagetools 复制多架构 · 双源探测+写回 .env · 镜像源脚本代劳三引擎分流 · OrbStack 不自动改 · 已有源不覆盖+留 .bak · SUDOE 修 root 下 -E · JDK 分支单独探+文案参数化)" \
+  || log_bad "v1621-CN-INSTALL 缺件" "see docker-compose.yml(db image 必须 \${MYSQL_IMAGE:-ghcr…-mysql:8.0}、不得留裸 image: mysql:8.0)· .github/workflows/docker-publish.yml(mirror-mysql job + imagetools create)· deploy/docker-up.sh(DB_MIRROR/DB_UPSTREAM 双源 · cn_autofix_mirrors + _mirror_colima/_mirror_desktop/_mirror_linux/_wait_engine · 不得有 kind=orb · SUDOE 而非 \$SUDO -E python3 · colima.yaml 仅在 'docker: {}' 时改 · 两处已有 registry-mirrors 不覆盖 · 三处 .bak · 写回 MYSQL_IMAGE · JDK 基础镜像单独探 · 文案参数化)· .env.example(MYSQL_IMAGE 说明)"
 
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),

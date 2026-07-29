@@ -292,12 +292,16 @@ your.domain.com {
 
 ## 国内镜像加速 / Apple Silicon
 
-**中国大陆部署:先配镜像源,否则会卡死在拉 mysql。** 实测(2026-06)大陆网络下:
-- **我们自己的 app 镜像在 GHCR,能直连**,不用管;
-- **被卡住的是 Docker Hub 的 `mysql:8.0` 基础镜像**(`registry-1.docker.io` 被限速/阻断,`docker compose pull` 会一直超时)。
-- ⚠ 注意:`docker compose build` **救不了**这一步 —— build 只构建 app,`db` 服务照样要从 Docker Hub 拉 `mysql:8.0`。必须先过墙。
+**v1.6.21 起,大陆装机默认不需要配任何东西。** 这一节现在是**兜底**说明。
 
-修复:给 Docker 配国内镜像源(`registry-mirrors`)。镜像源**只对 Docker Hub 生效**,正好兜 mysql;GHCR 的 app 镜像不受影响。配法按你的装法分(写哪里、怎么重启都不一样):
+原先的死路:`db` 服务写死 `mysql:8.0`,大陆拉 Docker Hub 会一直超时,而修复要用户手改 Docker 引擎配置 —— 对非技术用户等于劝退(真实发生过)。现在:
+
+- **数据库镜像默认取 GHCR 上的副本** `ghcr.io/luodi-nate/financial-management-mysql:8.0`(由 `.github/workflows/docker-publish.yml` 的 `mirror-mysql` job 用 `docker buildx imagetools create` 把官方多架构 manifest 原样复制过去)。**和 app 镜像同一个源、大陆直连**,默认安装路径因此完全不碰 Docker Hub。
+- `docker-up.sh` 会按 **GHCR 副本 → Docker Hub 官方 → 配镜像源后重试** 顺序探,选定后把结果写回 `.env` 的 `MYSQL_IMAGE`(之后你手敲 `docker compose` 也不会又去撞不通的源)。
+- 想强制走官方源(海外机器 / 已配好加速):`.env` 里设 `MYSQL_IMAGE=mysql:8.0`。
+- ⚠ 仍然成立的一条:**`docker compose build` 救不了拉不动的问题** —— 本地构建要从 Docker Hub 拉 `maven` / `eclipse-temurin` 基础镜像,同样会被卡;`docker-up.sh` 走到本地构建分支时会先探 JDK 基础镜像,拉不动就走下面的镜像源修复。
+
+下面是**手动**配国内镜像源的办法(`registry-mirrors` **只对 Docker Hub 生效**,GHCR 不受影响),用于:OrbStack(脚本不自动改它)、你拒绝了脚本代劳、或已有别的镜像源配置需要自己合。写哪里、怎么重启按装法分:
 
 **Linux 原生 Docker** —— 写 `/etc/docker/daemon.json`(已有就把 `registry-mirrors` 并进去,**别覆盖**其它配置),再 `sudo systemctl restart docker`:
 ```json
@@ -317,7 +321,12 @@ your.domain.com {
 - **Docker Desktop**:Settings → Docker Engine,把 `registry-mirrors` 并进 JSON,Apply & Restart。
 
 配好后 `docker compose up -d`(或重跑 `bash deploy/docker-up.sh`)。
-> `docker-up.sh` 会**自动探测**这一步:`pull` 失败时它单独探 `mysql:8.0`,确认是 Docker Hub 被墙就**按你的平台**打印对应修复(Linux / colima / OrbStack / Docker Desktop);**Linux 原生 Docker** 还会征得你同意后自动写入 `daemon.json` 并重启重试(已有 `daemon.json` 则只提示、不覆盖)。Mac 上不自动改 VM 配置,只给精确步骤。
+> **`docker-up.sh` 会代你做上面这些**(v1.6.21):两个源都拉不动时它问一句 `[Y/n]`,同意后按引擎类型自己配好并重启,再自动重试 —
+> - **colima**:写 VM 内的 `/etc/docker/daemon.json`(+ 尽力把 `docker:` 段补进 `~/.colima/default/colima.yaml`,否则下次 `colima restart` 会被 colima 按 yaml 重写抹掉),优先在 VM 内 `systemctl restart docker`;
+> - **Docker Desktop**:合并进宿主 `~/.docker/daemon.json`,`osascript` 退出 + `open -a Docker` 重启;
+> - **Linux 原生**:合并进 `/etc/docker/daemon.json` + `systemctl restart docker`。
+>
+> 三条硬规矩:**已有 `registry-mirrors` 就不覆盖**(可能是你自己配的别的源)、改前一律留 `.bak`、**OrbStack 不自动改**(配置机制不稳定,宁可退回上面的手动步骤也不写坏你的引擎配置)。非交互环境(无 tty)默认不动你的机器,要自动化就设 `FINANCE_ASSUME_YES=1`。
 
 - **macOS / Apple Silicon**:Docker Desktop / OrbStack / colima 均可;`docker compose build` 原生 arm64,预构建镜像也是 amd64+arm64 多架构,`pull` 自动取对的那个。(Apple Silicon 拉 `mysql:8.0` 同样可能被 Docker Hub 限速,需上面的镜像源。)
 - **`brew install docker` 后报「连不上 daemon / Cannot connect to the Docker daemon」**:brew 装的 docker **只是命令行客户端,没有引擎**——Mac 上 docker 引擎跑在一个小 Linux 虚拟机里,要单独装一个。最省事的命令行方案:`brew install colima docker-compose && colima start`(第一次起约 1-2 分钟),再 `bash deploy/docker-up.sh`。或装带界面的 `brew install orbstack`(/ Docker Desktop)打开 App 即可。`docker-up.sh` 已能自检这一步并给出对应你机器的命令。

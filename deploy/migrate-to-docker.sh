@@ -92,6 +92,23 @@ RETENTION_DAYS=56
 EOF
 chmod 600 "$REPO/.env"; ok ".env 就绪(沿用 DB 名/用户/密码 + 端口 + REMEMBER_ME_KEY)"
 
+# ---------- 2.5 数据库镜像源(v1.6.21)----------
+# compose 的 db 默认取 GHCR 上的 mysql 副本(大陆直连);这里探一下,不通就退官方 Docker Hub,
+# 结果写进 .env,避免之后手敲 docker compose 时又撞不通的源。
+# 完整版(含「问一句后代你配好 registry-mirrors 并重启引擎」)在 deploy/docker-up.sh ——
+# 迁移场景面向已部署的管理员,这里只做双源探测,真拉不动就指路过去,不在迁移流程里改人家的引擎配置。
+_mig_pull(){ if command -v timeout >/dev/null 2>&1; then timeout 50 docker pull "$1" >/dev/null 2>&1
+             else docker pull "$1" >/dev/null 2>&1; fi; }
+MIG_DB_MIRROR="ghcr.io/luodi-nate/financial-management-mysql:8.0"
+if _mig_pull "$MIG_DB_MIRROR"; then
+  printf 'MYSQL_IMAGE=%s\n' "$MIG_DB_MIRROR" >> "$REPO/.env"; ok "数据库镜像:GHCR 副本(大陆直连)"
+elif _mig_pull mysql:8.0; then
+  printf 'MYSQL_IMAGE=%s\n' 'mysql:8.0' >> "$REPO/.env"; ok "数据库镜像:Docker Hub 官方"
+else
+  die "两个源都拉不到数据库镜像(${MIG_DB_MIRROR} / mysql:8.0)。
+  大陆网络请先配国内镜像源 —— 跑一次 \`bash deploy/docker-up.sh\`,它会问你一句并代你配好并重启引擎,然后重跑本脚本。"
+fi
+
 # ---------- 3. 停旧 app 腾端口 ----------
 say "3/6 停旧应用(只停 app,不删任何东西)"
 if [[ "$MODE" == "systemd" ]]; then

@@ -11,12 +11,19 @@ A：默认只绑定 `127.0.0.1`(loopback),不对公网开放——这是安全�
 - **长期用**:在服务器上前置反代(nginx / Caddy)并配 HTTPS,把 80/443 转到容器的 20000。片段见 [`deploy/README.md`](../deploy/README.md) 的「反代 / HTTPS」。
 - (不推荐)直接公网裸奔:把 `.env` 的 `SERVER_PORT` 映射改成 `0.0.0.0` / 或 compose 端口去掉 `127.0.0.1:` 前缀——务必先配好登录强密码,且家庭财务数据建议别裸奔。
 
-**Q:(中国大陆)`docker compose up` 卡在拉取 `mysql:8.0` 一直超时怎么办?**
-A:大陆访问 Docker Hub(`registry-1.docker.io`)会被限速/阻断,卡住的就是 `mysql:8.0` 基础镜像(我们自己的 app 镜像在 GHCR,能直连;`docker compose build` **救不了**这步——build 只构建 app,`db` 还是要从 Docker Hub 拉 mysql)。修复:给 Docker 配国内镜像源,把这段写进 `/etc/docker/daemon.json`(已有则把 `registry-mirrors` 并进去,别覆盖其它配置):
+**Q:(中国大陆)拉镜像一直超时怎么办?**
+A:**v1.6.21 起正常情况下不会再遇到** —— 数据库镜像默认取 GHCR 上我们镜像的同一份 `mysql:8.0`(`ghcr.io/luodi-nate/financial-management-mysql:8.0`),和 app 镜像同一个源、大陆直连,默认安装路径完全不碰被限速的 Docker Hub。
+
+还是卡住的话分两种:
+
+- **用 `bash deploy/docker-up.sh` 起的**:它会按 GHCR 副本 → Docker Hub 官方 → 配镜像源后重试的顺序自己探,两条都不通时**问你一句 `[Y/n]`,同意后自己把国内镜像源配好并重启 Docker**(colima 写虚拟机内的 `daemon.json` 并补 `colima.yaml`、Docker Desktop 合并宿主 `~/.docker/daemon.json` 后重启 App、Linux 原生写 `/etc/docker/daemon.json` + `systemctl`),不需要你手改任何配置文件。已有 `registry-mirrors` 配置它不会覆盖;OrbStack 它不自动改,会给你手动步骤。
+- **手动 `docker compose up -d` 的**:这条路不做源探测。拉不动就自己配国内镜像源,把这段写进 Docker 引擎配置(Linux 是 `/etc/docker/daemon.json`,已有则把 `registry-mirrors` 并进去、别覆盖其它配置):
+
 ```json
 { "registry-mirrors": ["https://docker.m.daocloud.io", "https://docker.1ms.run"] }
 ```
-然后 `sudo systemctl restart docker` 再重试。**macOS 上述路径无效**——引擎在虚拟机里不读宿主 `/etc/docker/daemon.json`,要按装法配:colima 改 `~/.colima/default/colima.yaml` 的 `docker:` 段再 `colima restart`;OrbStack 用 `orb config docker` 加 `registry-mirrors` 再 `orb restart docker`;Docker Desktop 在 Settings → Docker Engine 加再 Apply & Restart。用 `bash deploy/docker-up.sh` 起的话,它会自动探测并**按你的平台**给对应指引(Linux 还能征你同意后自动写入 `daemon.json` 重试)。详见 [`deploy/README.md` § 国内镜像加速](../deploy/README.md#国内镜像加速--apple-silicon)。
+
+再 `sudo systemctl restart docker`。**macOS 上这个路径无效** —— 引擎在虚拟机里不读宿主的 `/etc/docker/daemon.json`,要按装法配,见 [`deploy/README.md` § 国内镜像加速](../deploy/README.md#国内镜像加速--apple-silicon)。另:`docker compose build` **救不了**拉不动 —— 本地构建要从 Docker Hub 拉 `maven`/`eclipse-temurin` 基础镜像,同样会被卡。
 
 **Q:`docker compose down` 会丢数据吗?**
 A:不会。数据在命名卷(`db-data` / `uploads` / `backups`),`down` 不删卷。除非你 `down -v`(那会删卷,慎用)。
