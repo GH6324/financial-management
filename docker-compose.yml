@@ -20,7 +20,10 @@ services:
       - db-data:/var/lib/mysql
     # 不对宿主发布 3306 —— 只走 compose 内网,避免撞宿主已有 MySQL
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      # 用真实查询,不用 mysqladmin ping —— ping 在「Access denied」时**也返回 0**
+      # (MySQL 文档:服务器有应答就算活着),密码不对的库照样报 Healthy,故障被推到 app 里才炸。
+      # v1.6.22 实测:老数据卷 + 新 .env 密码,旧判据给出 healthy,app 却 1045 崩溃重启不停。
+      test: ["CMD-SHELL", "mysql -h127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" -e 'SELECT 1' >/dev/null 2>&1"]
       interval: 10s
       timeout: 5s
       retries: 12

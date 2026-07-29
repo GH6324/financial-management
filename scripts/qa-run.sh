@@ -4647,6 +4647,40 @@ DUP="$RD/deploy/docker-up.sh"; DCY="$RD/docker-compose.yml"; DPW="$RD/.github/wo
   && log_ok "v1621-CN-INSTALL(db 默认走 GHCR 副本·compose 无裸 mysql:8.0 · CI mirror-mysql 用 imagetools 复制多架构 · 双源探测+写回 .env · 镜像源脚本代劳三引擎分流 · OrbStack 不自动改 · 已有源不覆盖+留 .bak · SUDOE 修 root 下 -E · JDK 分支单独探+文案参数化)" \
   || log_bad "v1621-CN-INSTALL 缺件" "see docker-compose.yml(db image 必须 \${MYSQL_IMAGE:-ghcr…-mysql:8.0}、不得留裸 image: mysql:8.0)· .github/workflows/docker-publish.yml(mirror-mysql job + imagetools create)· deploy/docker-up.sh(DB_MIRROR/DB_UPSTREAM 双源 · cn_autofix_mirrors + _mirror_colima/_mirror_desktop/_mirror_linux/_wait_engine · 不得有 kind=orb · SUDOE 而非 \$SUDO -E python3 · colima.yaml 仅在 'docker: {}' 时改 · 两处已有 registry-mirrors 不覆盖 · 三处 .bak · 写回 MYSQL_IMAGE · JDK 基础镜像单独探 · 文案参数化)· .env.example(MYSQL_IMAGE 说明)"
 
+# v1622-DB-CRED · 数据卷老密码 / .env 新密码 → 自愈,且判据不许说谎(用户第 12 轮反馈)
+#   v1.6.21 修好镜像后用户换了个地方卡住:app 无限 `Access denied for user 'finance'` 重启。
+#   真因:MySQL 只在**首次初始化数据卷**时写入 MYSQL_USER/PASSWORD,而**命名卷不随仓库目录消失** ——
+#   用户为拿修复重新克隆 → .env 新随机密码 → 与卷里老密码不匹配。是我们的升级指引造成的。
+#   最坑的是三处判据同时给假阳性,因为它们用了**同一个不可靠原语**:
+#     `mysqladmin ping` 在密码错误时**也 exit 0**(实测 $?=0;MySQL 语义:服务器有应答就算活着)。
+#     → compose healthcheck 报 Healthy · entrypoint 报「MySQL 就绪」;
+#     另加 FRESH_DB 探测的 `|| echo 1` 把「查询失败」和「表存在」压成同一个值 → 报「表存在数=1」。
+#   所以本守护同时钉三件事:
+#     ① 两处就绪/健康判据必须是**真实查询**(SELECT 1),不得再出现 mysqladmin ping 作判据;
+#     ② FRESH_DB 探测不得用 `|| echo 1` 这类把失败翻译成正常值的兜底;
+#     ③ docker-up.sh 要能检测并**不删数据**地修(mysqld --init-file,MySQL 官方重置手法,不需要旧密码),
+#        且 `up -d` 失败也要走到自愈 —— 健康检查改严后 db unhealthy 会让 depends_on 让 up -d 非零退出,
+#        set -e 会在自愈前就打断(实测撞到);删数据(down -v)只能是用户手动选项,FINANCE_ASSUME_YES 不放行。
+EP="$RD/docker/entrypoint.sh"
+{ grep -qF "mysql -h\"\$DB_HOST\" -P\"\$DB_PORT\" -u\"\$DB_USER\" -sN -e 'SELECT 1'" "$EP" \
+  && ! grep -qE '^[[:space:]]*if mysqladmin ping' "$EP" \
+  && grep -q 'AUTH_ERR' "$EP" && grep -q 'DB_READY' "$EP" \
+  && ! grep -qF "2>/dev/null || echo 1" "$EP" \
+  && grep -qF '全新空库判不了' "$EP" \
+  && grep -qF "CMD-SHELL" "$DCY" && grep -qF "SELECT 1" "$DCY" \
+  && ! grep -qE '"mysqladmin", "ping"' "$DCY" \
+  && grep -q '^ensure_db_credentials()' "$DUP" \
+  && grep -q '^resync_db_credentials()' "$DUP" \
+  && grep -q '^db_auth_ok()' "$DUP" && grep -q '^db_root_ok()' "$DUP" \
+  && grep -qF 'mysqld --init-file=/pwfix.sql' "$DUP" \
+  && grep -qF 'ALTER USER' "$DUP" \
+  && [ "$(grep -c 'UP_FAILED' "$DUP")" -ge 6 ] \
+  && grep -qF 'down -v 会**删掉数据库卷里的全部数据**' "$DUP" \
+  && grep -qF 'Address already in use' "$DUP" \
+  && bash -n "$EP" && bash -n "$DUP"; } \
+  && log_ok "v1622-DB-CRED(entrypoint/healthcheck 改真实查询 SELECT 1·不再用 mysqladmin ping 作判据 · FRESH_DB 不再 ||echo 1 且如实报判不了 · docker-up 检测+init-file 不删数据同步密码 · up -d 失败也走自愈 · 删卷只作手动选项)" \
+  || log_bad "v1622-DB-CRED 缺件" "see docker/entrypoint.sh(SELECT 1 真实查询 + AUTH_ERR/DB_READY 分流 + 不得留 mysqladmin ping 判据或 '2>/dev/null || echo 1' + 查询失败要说「全新空库判不了」)· docker-compose.yml(db healthcheck 改 CMD-SHELL + SELECT 1,不得留 mysqladmin ping)· deploy/docker-up.sh(ensure_db_credentials/resync_db_credentials/db_auth_ok + mysqld --init-file + ALTER USER + UP_FAILED 兜住 up -d 失败 + down -v 数据不可恢复警示 + 端口占用归因)"
+
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),
 #   而 useBar 在窄屏恒为 false → **窄屏两图必定同为环图**(用户反馈④与本次反馈的交集)。

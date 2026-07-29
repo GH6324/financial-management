@@ -322,9 +322,116 @@ else
   grep -q '^MYSQL_IMAGE=' .env 2>/dev/null || printf 'MYSQL_IMAGE=%s\n' "$MYSQL_IMAGE" >> .env
 fi
 
+# ── 数据库凭据自愈(v1.6.22)────────────────────────────────────────
+# 真实上手失败:用户重新下载仓库 → .env 里生成了新随机密码,但**命名卷还是老的**。
+# MySQL 只在第一次初始化数据卷时写入账号密码,之后换 .env 不会同步进去 → app 一直 1045 崩溃重启。
+# 当时三处判据全给了假阳性(compose healthcheck / entrypoint 的 mysqladmin ping / FRESH_DB 探测),
+# 用户只看到「90s 没就绪」+ 一屏 Access denied,完全不知道该干什么。
+# 现在:主动验一次账号,不通就讲清原因,并**在不删数据的前提下**把新密码同步进已有库。
+envval(){ grep -E "^$1=" .env 2>/dev/null | head -1 | cut -d= -f2-; }
+
+# 从 db 容器内用真实查询验账号(不能用 mysqladmin ping —— 它在 Access denied 时也返回 0)
+db_auth_ok(){ $DC exec -T db env MYSQL_PWD="$2" mysql -h127.0.0.1 -u"$1" -sN -e 'SELECT 1' >/dev/null 2>&1; }
+
+# root 也要验:db 的健康检查用的是 root,而 app 的 depends_on 读健康检查。
+# 只验 finance 会漏掉「finance 密码对、root 密码不对」——那时 db 永远 unhealthy、app 永远起不来,
+# 而自愈却不触发(这是把健康检查改严之后我自己引入的缺口)。
+db_root_ok(){ $DC exec -T db env MYSQL_PWD="$1" mysql -h127.0.0.1 -uroot -sN -e 'SELECT 1' >/dev/null 2>&1; }
+
+# 用 mysqld --init-file 把 .env 里的密码写进已有数据卷 —— 这是 MySQL 官方的密码重置手法:
+# init 文件由服务器在启动时以最高权限执行,**不需要旧密码**,也**不动任何业务数据**。
+resync_db_credentials(){
+  local dbu="$1" dbp="$2" dbn="$3" rootp="$4" sql ok="" i
+  sql="$(mktemp /tmp/finance-pwfix.XXXXXX)" || return 1
+  {
+    [[ -n "$rootp" ]] && { printf "ALTER USER IF EXISTS 'root'@'localhost' IDENTIFIED BY '%s';\n" "$rootp"
+                           printf "ALTER USER IF EXISTS 'root'@'%%' IDENTIFIED BY '%s';\n" "$rootp"; }
+    printf "CREATE USER IF NOT EXISTS '%s'@'%%' IDENTIFIED BY '%s';\n" "$dbu" "$dbp"
+    printf "ALTER USER '%s'@'%%' IDENTIFIED BY '%s';\n" "$dbu" "$dbp"
+    printf "CREATE DATABASE IF NOT EXISTS \`%s\` CHARACTER SET utf8mb4;\n" "$dbn"
+    printf "GRANT ALL PRIVILEGES ON \`%s\`.* TO '%s'@'%%';\n" "$dbn" "$dbu"
+    printf "FLUSH PRIVILEGES;\n"
+  } > "$sql"
+  chmod 644 "$sql"
+  say "  · 同步密码中(临时以恢复模式起一次数据库,不动数据)…"
+  $DC stop db >/dev/null 2>&1 || true
+  docker rm -f finance-pwfix >/dev/null 2>&1 || true
+  $DC run -d --rm --name finance-pwfix -v "$sql":/pwfix.sql:ro db mysqld --init-file=/pwfix.sql >/dev/null 2>&1 \
+    || { say "  ✗ 恢复模式起不来"; rm -f "$sql"; return 1; }
+  for i in $(seq 1 45); do
+    docker exec finance-pwfix env MYSQL_PWD="$dbp" mysql -h127.0.0.1 -u"$dbu" -sN -e 'SELECT 1' >/dev/null 2>&1 \
+      && { ok=1; break; }
+    sleep 2
+  done
+  docker stop finance-pwfix >/dev/null 2>&1 || true
+  rm -f "$sql"
+  [[ -n "$ok" ]] || { say "  ✗ 密码没同步成功"; return 1; }
+  say "  ✓ 密码已同步进已有数据库(数据未动)"
+  # 这里 up 失败先不判死:健康检查要几秒才翻绿,外层还会再等再验
+  $DC up -d >/dev/null 2>&1 || say "  · 重新起服务时报了错,继续等健康检查"
+  return 0
+}
+
+ensure_db_credentials(){
+  local dbu dbp dbn rootp i ans
+  dbu="$(envval DB_USER)"; dbu="${dbu:-finance}"
+  dbp="$(envval DB_PASS)"; dbn="$(envval DB_NAME)"; dbn="${dbn:-finance}"
+  rootp="$(envval MYSQL_ROOT_PASSWORD)"
+  [[ -n "$dbp" ]] || return 0
+  # 先等数据库端口活过来(这一步只问「有没有应答」,不问密码)
+  for i in $(seq 1 45); do
+    $DC exec -T db mysqladmin ping -h127.0.0.1 --silent >/dev/null 2>&1 && break
+    sleep 2
+  done
+  local who=""
+  db_auth_ok "$dbu" "$dbp" || who="$dbu"
+  if [[ -z "$who" && -n "$rootp" ]]; then
+    db_root_ok "$rootp" || who="root"      # root 不对 → db 永远 unhealthy → app 起不来
+  fi
+  [[ -n "$who" ]] || { say "  ✓ 数据库账号已验证(${dbu} + root)"; return 0; }
+
+  say ""
+  say "  ⚠ 数据库起来了,但 .env 里的密码进不去(Access denied for user '${who}')。"
+  say "    原因:MySQL 的账号密码**只在第一次创建数据卷时**写入。你之前跑过一次(或重新下载过本仓库、"
+  say "    .env 里换了新的随机密码),而数据卷不会随仓库目录一起消失 —— 卷里还是老密码。"
+  say ""
+  say "    我可以把新密码同步进那个已有数据库,**不会删任何数据**。"
+  if [[ -n "${FINANCE_ASSUME_YES:-}" ]]; then ans=y
+  elif [[ -t 0 || -e /dev/tty ]]; then
+    printf '    现在就修吗?[Y/n] '; read -r ans </dev/tty || ans=""; [[ -z "$ans" ]] && ans=y
+  else ans=n; fi
+
+  if [[ "$ans" =~ ^[Yy] ]] && resync_db_credentials "$dbu" "$dbp" "$dbn" "$rootp"; then
+    for i in $(seq 1 45); do
+      if db_auth_ok "$dbu" "$dbp" && { [[ -z "$rootp" ]] || db_root_ok "$rootp"; }; then return 0; fi
+      sleep 2
+    done
+    return 0
+  fi
+
+  # 同步不成(或用户不要)→ 给两条真实出路,并且**不擅自删数据**
+  say ""
+  say "  两条出路,自己挑:"
+  say "    ① 你还留着以前那份 .env(或记得旧密码)→ 放回去 / 把 DB_PASS、MYSQL_ROOT_PASSWORD 改回旧值,"
+  say "       再重跑 bash deploy/docker-up.sh。数据完整保留,这是最稳的一条。"
+  say "    ② 那个数据库你从没真正用过(没登录进去记过账)→ 可以整卷删掉从零开始:"
+  say "         $DC down -v && bash deploy/docker-up.sh"
+  say "       ⚠ down -v 会**删掉数据库卷里的全部数据**,不可恢复。确认里面没有你要的记账数据再做。"
+  die "数据库账号进不去,已停在这一步(没有动你的数据)。按上面两条之一处理后重跑本脚本。"
+}
+
 say "· 准备 app 镜像(优先拉预构建,首次约几分钟)…"
 if $DC pull >/dev/null 2>&1; then
-  $DC up -d
+  # 注意 `|| UP_FAILED=1`:db 的健康检查现在是真实查询,root 密码不匹配时 db 会 unhealthy,
+  # 于是 app 的 depends_on: service_healthy 不满足、`up -d` 直接非零退出 —— 而这恰恰是最需要自愈的场景。
+  # 若在这里就被 set -e 打断,用户又只能看到一句 docker 的原始报错。
+  UP_FAILED=""
+  $DC up -d || UP_FAILED=1
+  # docker 自己那句报错(如 dependency failed to start: container ... is unhealthy)对普通用户只是惊吓,
+  # 先安抚一句再去查真因 —— 否则用户以为已经失败、直接关窗口了。
+  [[ -z "$UP_FAILED" ]] || say "  (上面这条 docker 报错先别管,我来看看到底卡在哪 …)"
+  ensure_db_credentials
+  [[ -z "$UP_FAILED" ]] || $DC up -d
 else
   # db 镜像上面已确认能拉 → 这里缺的只是预构建 app 镜像(如尚未发版)→ 本地源码构建。
   # 但本地构建要从 Docker Hub 拉 JDK 基础镜像,大陆同样会卡,所以先探一下再决定。
@@ -335,7 +442,10 @@ else
     pull_one eclipse-temurin:21-jre \
       || die "JDK 基础镜像仍拉不下来,没法本地构建。按上面指引配好镜像源后重跑 bash deploy/docker-up.sh。"
   fi
-  $DC up -d --build
+  UP_FAILED=""
+  $DC up -d --build || UP_FAILED=1
+  ensure_db_credentials
+  [[ -z "$UP_FAILED" ]] || $DC up -d
 fi
 
 # ── 6. 等就绪 + 验 /health ─────────────────────────────────────────
@@ -372,6 +482,33 @@ elif [[ "$ok" == "skip" ]]; then
   login_hint
   say "  停:$DC down   日志:$DC logs -f app"
 else
-  die "应用 90s 内没就绪。看日志定位(常见:DB 还在初始化 / 端口被占):
+  # 别只丢一句「看日志」+ 一串猜测(v1.6.22 前写的是「DB 还在初始化 / 端口被占」,而真实原因是
+  # 数据卷老密码不匹配 —— 两个猜测都不对,用户拿到一屏 Access denied 完全不知道该干什么)。
+  # 这里直接读 app 日志按特征归因,能自愈的当场自愈。
+  LOGS="$($DC logs --tail=120 app 2>&1 || true)"
+  case "$LOGS" in
+    *1045*|*"Access denied"*)
+      say ""
+      say "  ⚠ 定位到了:数据库拒绝了应用的密码(Access denied / ERROR 1045),不是启动慢。"
+      ensure_db_credentials
+      say "· 再等应用就绪(最多 ~90s)…"
+      for _ in $(seq 1 45); do
+        curl -fsS "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1 && { ok=1; break; }
+        sleep 2
+      done
+      if [[ "$ok" == "1" ]]; then
+        say ""; say "✓ 起好了 → http://127.0.0.1:${PORT}"; login_hint
+        say "  停:$DC down(不删数据卷,数据还在)   日志:$DC logs -f app"
+      else
+        die "密码问题已处理,但应用仍没就绪。看日志:$DC logs --tail=80 app db"
+      fi
+      ;;
+    *"Address already in use"*|*"port is already allocated"*)
+      die "端口 ${PORT} 被别的程序占了。改 .env 里的 SERVER_PORT 换一个,再重跑 bash deploy/docker-up.sh。"
+      ;;
+    *)
+      die "应用 90s 内没就绪。把下面这条的输出发出来最容易定位:
   $DC logs --tail=80 app db"
+      ;;
+  esac
 fi

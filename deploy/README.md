@@ -290,6 +290,18 @@ your.domain.com {
 }
 ```
 
+## 数据卷密码不匹配(`ERROR 1045 Access denied`)
+
+**症状**:`docker-up.sh` 报「应用 90s 内没就绪」,`docker compose logs app` 一直刷 `Access denied for user 'finance'`,容器不停重启。
+
+**原因**:MySQL 只在**第一次初始化数据卷**时写入 `MYSQL_USER` / `MYSQL_PASSWORD`;之后改 `.env` 不会同步进去。而 Docker 的**命名卷不随仓库目录消失** —— 重新克隆仓库 → `.env` 生成新随机密码 → 与卷里老密码不匹配。
+
+**处理(v1.6.22 起脚本自己做)**:`bash deploy/docker-up.sh` 会主动验一次账号,进不去就用 `mysqld --init-file` 临时以恢复模式起一次数据库,把 `.env` 里的新密码写进已有库 —— MySQL 官方的密码重置手法,**不需要旧密码、不动任何业务数据**,修完自动继续。
+
+同步失败或你不同意时,脚本**停在原地不动数据**,两条出路:① 放回旧 `.env`(数据完整保留,最稳);② 确认那个库从没真正用过 → `docker compose down -v` 重来(**会删全部数据、不可恢复**)。自动化环境里 `FINANCE_ASSUME_YES=1` 只放行不删数据的同步,**永远不会**触发删卷。
+
+**顺带**:db 的健康检查与容器入口的就绪检查都已改成**真实查询**(`SELECT 1`)。原先用的 `mysqladmin ping` 在密码错误时**也返回成功**(MySQL 语义:服务器有应答就算活着),会让密码不对的库照样报 `Healthy`、入口照样打印「MySQL 就绪」,把故障推到很后面才爆。
+
 ## 国内镜像加速 / Apple Silicon
 
 **v1.6.21 起,大陆装机默认不需要配任何东西。** 这一节现在是**兜底**说明。
