@@ -1,0 +1,131 @@
+{
+  "_doc": "功能入口登记表 · 单一事实来源(人读的策略说明见 docs/entry-points.md)。",
+  "_why": "v1.6.23 起。起因:v1.6 UED 批次5「收纳」把账户页 PC 行内的「券商」按钮塞进了没有文字的 ⋯ 菜单,券商自动对接(富途/老虎)这套完整能力在电脑端事实上找不到了。而守护 v15-ENTRY-1 断言的是 `grep '/broker(id='`(模板里有这个字符串)→ 一直是 PASS。grep 类守护结构上抓不到「东西还在但用户找不到」。",
+  "_levels": {
+    "obvious": "一眼可见 —— 进入该页面无需任何展开/悬停/点击就能看到。能力入口(通往一整套有自己页面或流程的功能)必须是这一档。",
+    "collapsible": "允许收纳进 ⋯ / details —— 仅限低频维护动作(归档、删除、导出、恢复)。"
+  },
+  "_check": "scripts/entry-points-check.cjs 按 viewports 渲染真页面,对每条 obvious 断言:①至少一个匹配链接有面积 ②该链接命中自己(未被遮挡)③不在未展开的 details 或 .row-more-pop 内。",
+  "viewports": {
+    "pc": {
+      "width": 1440,
+      "height": 900
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "isMobile": true
+    }
+  },
+  "entries": [
+    {
+      "id": "broker-sync",
+      "name": "券商只读同步(富途 / 老虎)· 账户颗粒度",
+      "page": "/accounts",
+      "hrefContains": "/broker",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "旗舰自动化能力,唯一入口在账户行内。v1.6 UED 批次5 曾被收进 ⋯ → 这条守护就是为它建的。"
+    },
+    {
+      "id": "holdings",
+      "name": "持仓管理(逐笔持仓 · 自动估值)",
+      "page": "/accounts",
+      "hrefContains": "/holdings",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "入口在账户详情页(点账户行的「流水档案」进去),账户列表页从来没有过 —— git log -S 证实,不是回归。登记表第一版我把 page 写成了 /accounts 导致误报,这里用 pageFrom 表达「二级页入口」。",
+      "pageFrom": {
+        "clickHrefMatches": "^/accounts/\\d+$"
+      }
+    },
+    {
+      "id": "shots-import",
+      "name": "AI 截图智能填报(v1.4 视觉大模型识别持仓)",
+      "page": "/entry",
+      "hrefContains": "/entry/import/",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "旗舰能力,入口在填报页账户行内。"
+    },
+    {
+      "id": "refinance",
+      "name": "提前还贷决策器(NPV 18 年视角)",
+      "page": "/reports",
+      "hrefContains": "/reports/refinance",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "v1.6.23 排查发现**此前全站零入口** —— 页面从 v0.4 就在(/reports/refinance),README 与落地页都在宣传这个能力,但没有任何模板链接指过去(git log -S 只命中它自己的 form action),只能手敲 URL;dashboard 洞察条还会提示「可考虑加速偿还」却不给去处。现已挂在报表页负债段,并把那枚 pill 改成可点。"
+    },
+    {
+      "id": "lens-tags",
+      "name": "资产打标(含 AI 推荐 / 基金穿透)",
+      "page": "/lens",
+      "hrefContains": "/lens/tags",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "穿透与打标作业面,入口在资产透视页。"
+    },
+    {
+      "id": "futu-opend",
+      "name": "富途 OpenD 网关向导(下载 / 配置 / 自检)",
+      "page": "/admin/integrations",
+      "hrefContains": "/admin/broker/opend",
+      "level": "obvious",
+      "viewports": [
+        "pc"
+      ],
+      "note": "券商对接的前置网关,入口在数据源接入页 ⑥ 券商段。"
+    },
+    {
+      "id": "integrations",
+      "name": "数据源接入(LLM key / 短信 aksk / 券商凭据)",
+      "page": "/admin",
+      "hrefContains": "/admin/integrations",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "所有外部平台接入的总入口。"
+    },
+    {
+      "id": "backup",
+      "name": "备份与导出",
+      "page": "/admin",
+      "hrefContains": "/admin/backup",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ]
+    }
+  ],
+  "collapsible_ok": [
+    {
+      "page": "/accounts",
+      "hrefContains": "/ledger.csv",
+      "name": "导出账本 CSV(低频维护动作)"
+    },
+    {
+      "page": "/accounts",
+      "formAction": "/archive",
+      "name": "归档此账户(低频 · 不可逆)"
+    }
+  ]
+}

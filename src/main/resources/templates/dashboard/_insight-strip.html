@@ -34,8 +34,11 @@
             th:text="${band == 'ALERT' ? '负债警戒' : (band == 'ELEVATED' ? '负债偏高' : '负债健康')}">负债健康</span>
 
       <!-- 提前还贷信号 -->
-      <span th:if="${insight.balanceSheet() != null and insight.balanceSheet().prepaySignal() != null and insight.balanceSheet().prepaySignal()}"
-            class="font-mono text-[10px] px-2 py-0.5 border" style="color:var(--rust);border-color:var(--rust);background:rgba(159,74,58,.05)">可考虑加速偿还</span>
+      <!-- 原来这里是纯文本:提示「可考虑加速偿还」却不给去处,而决策器页面就在 /reports/refinance。
+           提示与能力之间断了链是最亏的一种 —— 用户正好在这一刻想知道该不该还(v1.6.23 补链)。 -->
+      <a th:if="${insight.balanceSheet() != null and insight.balanceSheet().prepaySignal() != null and insight.balanceSheet().prepaySignal()}"
+         th:href="@{/reports/refinance}" title="打开提前还贷决策器(NPV 对照)"
+         class="font-mono text-[10px] px-2 py-0.5 border no-underline" style="color:var(--rust);border-color:var(--rust);background:rgba(159,74,58,.05)">可考虑加速偿还 →</a>
 
       <!-- 净资产名义增长(不扣通胀;通胀对比见净资产趋势的 CPI 购买力线)-->
       <span th:if="${insight.lowRate() != null and insight.lowRate().nominalGrowthPct() != null}"

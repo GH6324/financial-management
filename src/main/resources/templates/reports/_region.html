@@ -153,6 +153,19 @@
     <div class="paper-card p-6">
       <div class="eyebrow mb-1">第 二 表</div>
       <h3 class="font-display text-xl font-medium">负债下降曲线</h3>
+      <!-- 提前还贷决策器的入口。此前**全站零入口** —— 页面从 v0.4 就在(/reports/refinance),
+           README 与落地页都在宣传这个能力,但没有任何链接指过去,只能手敲 URL(v1.6.23 排查发现)。
+           挂在负债段是它的用武之地:看完负债曲线自然会问「要不要提前还」。 -->
+      <!-- 用 btn-paper(有框)而不是下划线文字链:按 visual-spec §6.1「有框=要你做决定」,
+           能力入口要读起来像动作。第一版做成文字链,渲染出来像副标题说明 —— 自查改掉。 -->
+      <a th:href="@{/reports/refinance}"
+         class="btn-paper text-[10px] no-underline inline-flex items-center gap-1 mt-2 mb-1"
+         title="提前还贷决策器 · 用 NPV 比「提前还贷省的利息」与「同笔钱投资的收益」">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+        <span>要不要提前还贷?打开决策器</span>
+      </a>
       <div class="rule-x pt-2 mb-3"></div>
       <div class="h-[200px] sm:h-[280px]"><canvas id="debtChart"></canvas></div>
     </div>

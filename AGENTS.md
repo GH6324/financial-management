@@ -125,6 +125,7 @@
 | L8 · UI 规范 | 新增 UI 文案/图标 | **禁 emoji**,用 inline SVG(Feather 24×24 `stroke=currentColor`);入口/按钮命名**避免技术词**(集成/API/接口)让非技术家庭成员看得懂 | `TODO: no-emoji grep 守护` |
 | L9 · 运营参数 | 新增阈值/aksk/节奏/手机号等运营配置 | 走**管理页**配(DB > env > 代码默认 三层 fallback)· 不写服务器配置文件;涉及外部平台接入配一键测试入口 | 人工 |
 | L10 · 敏感值不入公开库 | 写文档/脚本/配置涉及 IP / SSH / 域名后台 / 凭据 / 密钥 / 部署路径 / 邮箱等 | **不进任何 tracked 文件**(仓库是公开开源库)· 具体值放 git-ignored `AGENTS.local.md` 或 Claude memory · 正文只留占位/通用说法 · 误提交后需**重写历史 + 强推**(`git filter-repo`)清除 | `vSEC-1`(扫 tracked 文件里 URL/SSH 上下文的公网 IP) |
+| L11 · 功能入口可见性 | **收纳 / 精简 / 去杂**类 UI 改动;或新增能力 | diff 里每个被移除/移动/塞进折叠容器的 `th:href` 逐个确认在别处仍**一眼可见**;新能力同时登记进 `scripts/entry-points.json`。判据见 `docs/entry-points.md`:能力入口必须 `obvious`,`⋯`/`details` 只放低频维护动作(归档/导出/恢复) | `v1623-ENTRY-VIS`(运行时·PC+移动)· `v15-ENTRY-1`(静态·券商不得落在 `row-more-pop` 里) |
 
 **新链怎么加**:出现"改 A 漏了 B"事故 → 加一行(触发/必须同步/守护)+ `qa-run.sh` 加静态 grep 把它网住,下次它自己 fail。
 
@@ -161,6 +162,9 @@
 - **Thymeleaf**:`#xxx.yyy()` utility 必须在 `${}` 内;conditional render 必须 force-trigger 验证;诊断 prod 栈先找最早 ERROR。
 - **RestTemplate 调签名 URL**:自己签名+pctEncode 过的 URL 传 `URI.create(s)`,别传 String(会被二次编码 → `SignatureDoesNotMatch`)。
 - **跨账户转账走 `transfer` 表**,绝不合并进 `cash_flow`(账户级方案红线)。
+- **`grep` 类守护抓不到「东西还在但用户找不到」**(v1.6.23):`v15-ENTRY-1` 断言 `grep '/broker(id='` 一直是 PASS,而券商入口已被收进没有文字的 `⋯` 菜单、用户实际报障。**可见性/可达性必须用运行时判据**(渲染真页面 + 有面积 + `elementFromPoint` 命中自己 + 不在折叠容器内),见 `scripts/entry-points-check.cjs`。同源教训在 v1.6.14 就写过(「显示 ≠ 看得见」),但我只当成"以后写新守护要注意",**从没回头拿这把尺子重量已有的 500+ 条守护** —— 写下教训 ≠ 教训生效;新增一条通用护栏后要问「已有守护里有多少条正踩这个坑」。
+- **UI 收纳按"是什么"分,不按"有多少"分**:能力入口(通往一整套功能)与低频维护动作(归档/导出/恢复)是两类东西,不能因为"行内按钮太多"一刀切收进 `⋯`。能力入口进了 `⋯` 就等于没有入口。
+- **「提示」和「能力」之间不能断链**:dashboard 洞察条提示「可考虑加速偿还」却不给去处,而决策器页面 `/reports/refinance` 就在那儿 —— 且**它从 v0.4 起全站零入口**、README 还在宣传。新页面上线时必须问一句「用户从哪进来」,`git log -S '<路由>' -- src/main/resources/templates` 能一眼看出有没有人指向它。
 - **「连通性探针」不能当「可用性判据」**(v1.6.22 一次踩出三处假阳性):健康检查/就绪探测必须执行一次**需要权限的真实操作**(`SELECT 1`),不能问「对方在不在」。典型:`mysqladmin ping` 在**密码错误时也 exit 0**(MySQL 语义:服务器有应答就算活着)→ 同一个原语被 compose healthcheck、容器入口就绪检查同时误用,一起报「一切正常」,故障推迟到很后面才爆。HTTP 200 之于「登录能不能用」同理。
 - **`|| echo <默认值>` 不许用在判据上**:它把「失败」翻译成一个看起来正常的值(实测:`mysql … 2>/dev/null || echo 1` 让连不上库时照样打印「表存在数=1」,把认证失败完全盖住)。兜底方向选对(fail-safe)也不够,**必须把「判不了」如实说出来** —— 诊断信息的价值在于它**故障时**说的话。
 - **把判据由宽改严,要顺依赖链问一遍「谁在读它」**:v1.6.22 把 db healthcheck 改成真实查询后,`depends_on: service_healthy` 让 `docker compose up -d` 直接非零退出,`set -e` 在自愈逻辑之前就打断了脚本 —— 健康检查从「提示」变成了**控制流**。

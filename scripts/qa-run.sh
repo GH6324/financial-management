@@ -3812,10 +3812,15 @@ BRO_HITS="$(grep -rnE 'unlockTrade\(|\.placeOrder|\.modifyOrder|\.cancelOrder|\.
 
 # v15-ENTRY-1 · 券商入口在账户页(账户颗粒度)+ 持仓页保留同步徽章(v0.15.x 入口迁移)
 ACCIDX="$RD/src/main/resources/templates/accounts/index.html"
+# v1.6.23 补强:原来只断言「模板里有 /broker(id=」—— 入口被塞进 ⋯ 收纳菜单后它照样 PASS,
+#   用户实际找不到(见 v1623-ENTRY-VIS)。这里静态加一条:⋯ 菜单块(row-more-pop…</details>)里
+#   不得出现 /broker —— 能力入口只能在行内。这条不依赖浏览器,是运行时守护的廉价互补。
+MOREPOP="$(sed -n '/row-more-pop/,/<\/details>/p' "$ACCIDX")"
 { grep -q '/broker(id=' "$ACCIDX" && grep -q '券商托管' "$ACCIDX" \
+  && ! printf '%s' "$MOREPOP" | grep -q '/broker' \
   && grep -q '券商同步' "$HOLD" && ! grep -q '/broker|}' "$HOLD"; } \
-  && log_ok "v15-ENTRY-1 券商入口在账户页(+托管徽章)· 持仓页只留同步徽章" \
-  || log_bad "v15-ENTRY-1 入口/徽章位置不对" "see accounts/index.html / stock/holdings.html"
+  && log_ok "v15-ENTRY-1 券商入口在账户页行内(不在 ⋯ 收纳里)+ 托管徽章 · 持仓页只留同步徽章" \
+  || log_bad "v15-ENTRY-1 入口/徽章位置不对(或券商入口被收进 ⋯ 菜单)" "see accounts/index.html / stock/holdings.html · 能力入口不得进 row-more-pop"
 
 # v15-GRAN · 连接配置下沉到关联颗粒度(V40)+ per-link 测试富卡片
 BLDOM="$RD/src/main/java/com/family/finance/domain/broker/BrokerLink.java"
@@ -4680,6 +4685,38 @@ EP="$RD/docker/entrypoint.sh"
   && bash -n "$EP" && bash -n "$DUP"; } \
   && log_ok "v1622-DB-CRED(entrypoint/healthcheck 改真实查询 SELECT 1·不再用 mysqladmin ping 作判据 · FRESH_DB 不再 ||echo 1 且如实报判不了 · docker-up 检测+init-file 不删数据同步密码 · up -d 失败也走自愈 · 删卷只作手动选项)" \
   || log_bad "v1622-DB-CRED 缺件" "see docker/entrypoint.sh(SELECT 1 真实查询 + AUTH_ERR/DB_READY 分流 + 不得留 mysqladmin ping 判据或 '2>/dev/null || echo 1' + 查询失败要说「全新空库判不了」)· docker-compose.yml(db healthcheck 改 CMD-SHELL + SELECT 1,不得留 mysqladmin ping)· deploy/docker-up.sh(ensure_db_credentials/resync_db_credentials/db_auth_ok + mysqld --init-file + ALTER USER + UP_FAILED 兜住 up -d 失败 + down -v 数据不可恢复警示 + 端口占用归因)"
+
+# v1623-ENTRY-VIS · 功能入口可见性 —— 运行时判据,不是 grep(用户第 13 轮反馈)
+#   用户报「券商自动对接的入口是不是上次优化 UI 丢了」。查证:功能一行没丢,是 v1.6 UED 批次5
+#   把账户页 PC 行内的「券商」按钮按「行内按钮太多」的视觉密度一刀切收进了没有文字的 ⋯ 菜单。
+#   对用户来说「还在但找不到」和「没了」没区别。**而已有守护 v15-ENTRY-1 一直是 PASS** ——
+#   它断言的是 `grep '/broker(id='`(模板里有这个字符串),grep 类守护结构上抓不到可见性。
+#   这正是 v1.6.14 那条「显示 ≠ 看得见」的教训:我当时只把它当成「以后写新守护要注意」,
+#   从没回头拿这把尺子重量已有的 500 多条守护。写下教训 ≠ 教训生效。
+#   顺带扫出第二个、更严重的:**/reports/refinance 提前还贷决策器全站零入口** ——
+#   页面从 v0.4 就在、README 与落地页都在宣传,但没有任何模板链接指过去(git log -S 只命中它自己的
+#   form action),只能手敲 URL;dashboard 洞察条还提示「可考虑加速偿还」却不给去处。已补两处入口。
+#   机制:scripts/entry-points.json 是功能入口登记表(能力→入口页→期望可见层级),
+#   scripts/entry-points-check.cjs 渲染真页面(PC 1440×900 + 移动 390×844)逐条断言:
+#     ①有面积 ②elementFromPoint 命中自己(未被遮挡)③不在未展开 details / .row-more-pop 内。
+#   没浏览器/应用没起 → 脚本退 2 → 本守护 SKIP(不制造假 FAIL)。
+EPJ="$RD/scripts/entry-points.json"; EPC="$RD/scripts/entry-points-check.cjs"
+if [[ ! -f "$EPJ" || ! -f "$EPC" ]]; then
+  log_bad "v1623-ENTRY-VIS 登记表/检查器缺失" "需要 scripts/entry-points.json + scripts/entry-points-check.cjs"
+elif ! command -v node >/dev/null 2>&1; then
+  log_skip "v1623-ENTRY-VIS 功能入口可见性" "本机没 node"
+else
+  # 本机 chromium 缺 libXdamage,补上解包目录(不存在就不加,交由脚本自己判定并 SKIP)
+  EP_LD=""; [[ -d /tmp/xdmg/usr/lib/x86_64-linux-gnu ]] && EP_LD="/tmp/xdmg/usr/lib/x86_64-linux-gnu"
+  EP_OUT="$(LD_LIBRARY_PATH="${EP_LD}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            node "$EPC" "${BASE:-http://127.0.0.1:20000}" 2>&1)"; EP_RC=$?
+  EP_SUM="$(printf '%s' "$EP_OUT" | grep -E '^合计' | tail -1)"
+  case "$EP_RC" in
+    0) log_ok "v1623-ENTRY-VIS 功能入口全部一眼可见(${EP_SUM:-登记表逐条 PASS} · PC+移动双端 · 判据=有面积+命中自己+不在 ⋯/details 内)" ;;
+    2) log_skip "v1623-ENTRY-VIS 功能入口可见性" "$(printf '%s' "$EP_OUT" | grep -m1 SKIP || echo '环境不具备')" ;;
+    *) log_bad "v1623-ENTRY-VIS 有功能入口用户看不见" "$(printf '%s' "$EP_OUT" | grep -m2 '✗' | tr '\n' ' ')" ;;
+  esac
+fi
 
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),
