@@ -34,30 +34,36 @@
     box-sizing:border-box; padding:0 6px; border:1px solid var(--rule); border-radius:999px;
     background:var(--card); cursor:pointer; white-space:nowrap; }
   .ai-btn:hover{ border-color:var(--brass-deep); color:var(--brass-deep); }
+  /* v1.6.20 · 卡片化整段限定 html:not(.ls-wide) —— 横屏模式要回到 PC 表格形态。
+     注意为什么必须加这个限定:横屏模式是"锁布局宽度为长边 + 旋转",**viewport 仍是短边 390**,
+     所以 max-width:820px 照样命中,卡片化不会自己退场(Tailwind 的 md: 是靠原地换断点解决的,
+     自有媒体查询没这个机制)。 */
   @media(max-width:820px){
-    .tags-table thead{ display:none; }
-    .tags-table, .tags-table tbody, .tags-table tr, .tags-table td{ display:block; width:100%; }
-    .tags-table tr{ border:1px solid var(--rule); background:var(--card); margin-bottom:10px; padding:10px 12px; }
-    .tags-table .acct-row{ background:var(--card-soft); border-width:2px; margin-top:14px; }
-    .tags-table .hold-row{ margin-left:14px; border-left:3px solid var(--brass-soft); }
-    .tags-table .hold-row td:first-child{ padding-left:0; }
-    .tags-table td{ display:flex; align-items:center; justify-content:space-between; gap:10px;
+    html:not(.ls-wide) .tags-table thead{ display:none; }
+    html:not(.ls-wide) .tags-table, html:not(.ls-wide) .tags-table tbody,
+    html:not(.ls-wide) .tags-table tr, html:not(.ls-wide) .tags-table td{ display:block; width:100%; }
+    html:not(.ls-wide) .tags-table tr{ border:1px solid var(--rule); background:var(--card); margin-bottom:10px; padding:10px 12px; }
+    html:not(.ls-wide) .tags-table .acct-row{ background:var(--card-soft); border-width:2px; margin-top:14px; }
+    html:not(.ls-wide) .tags-table .hold-row{ margin-left:14px; border-left:3px solid var(--brass-soft); }
+    html:not(.ls-wide) .tags-table .hold-row td:first-child{ padding-left:0; }
+    html:not(.ls-wide) .tags-table td{ display:flex; align-items:center; justify-content:space-between; gap:10px;
       border:0 !important; background:transparent !important; padding:4px 0; }
-    .tags-table td[data-label]::before{ content:attr(data-label); flex:0 0 76px;
+    html:not(.ls-wide) .tags-table td[data-label]::before{ content:attr(data-label); flex:0 0 76px;
       font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-subtle); }
-    .tags-table td select,.tags-table td input{ flex:1; width:auto; min-width:0; }
-    .tags-table td.name-cell{ display:block; font-size:14px; padding-bottom:6px; }
+    html:not(.ls-wide) .tags-table td select,
+    html:not(.ls-wide) .tags-table td input{ flex:1; width:auto; min-width:0; }
+    html:not(.ls-wide) .tags-table td.name-cell{ display:block; font-size:14px; padding-bottom:6px; }
     /* v1.6.17 · 「持仓方向」整行的 td 要恢复块级:上面那条把 td 变成 flex 横排,
        会把横条和标签行并成两列,横条实测只剩 95px(卡片宽 320)。 */
-    .tags-table .alloc-row td{ display:block; }
-    .tags-table td:empty{ display:none; }
-    .ai-btn{ width:auto; padding:0 14px; }
+    html:not(.ls-wide) .tags-table .alloc-row td{ display:block; }
+    html:not(.ls-wide) .tags-table td:empty{ display:none; }
+    html:not(.ls-wide) .ai-btn{ width:auto; padding:0 14px; }
   }
 </style>
 
 <main class="max-w-[1120px] mx-auto px-4 lg:px-10 py-8 relative z-10">
 
-  <section class="mb-6">
+  <section class="tags-head mb-6">
     <div class="eyebrow mb-2">多 · 维 · 打 · 标</div>
     <h1 class="font-display text-3xl md:text-4xl font-medium tracking-tight">给资产打标</h1>
     <!-- v1.6.16 · 手机端把两段长说明收成可展开:实测这两段 + 下面两张说明卡在 390 宽下
@@ -71,7 +77,7 @@
         <b>风险 / 主理人 / 币种 / 账户类型 / 流动性</b> 在账户资料(行内「改资料 →」);
         <b>市场地域</b> 来自每笔持仓的市场(行内「持仓 →」)。</p>
     </details>
-    <div class="hidden md:block">
+    <div class="tags-intro-full hidden md:block">
       <p class="text-ink-soft text-sm mt-2">树状结构:<b>账户</b>(资产类型 / 平台 / 用途)→ 子行 = <b>具体持仓</b>(行业 · 准)。
         全部可选,不打标 = 「未分类」照常可用;基金 / 理财等无持仓账户在账户行直接给行业粗标(近似,不做成分穿透)。</p>
       <p class="text-[11px] text-ink-subtle mt-1.5">透视里的其余维度不在此打标,但每行都给了直达入口 ——
@@ -92,12 +98,12 @@
   </div>
 
   <!-- v1.5 · 全家一键穿透(流式弹层 · 逐支反馈) -->
-  <div class="paper-card p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
+  <div class="tags-note paper-card p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
     <div class="text-sm text-ink-soft flex-1 min-w-0">
       <b class="text-ink">基金穿透(v1.5)</b>
-      <span class="hidden md:inline">:把每支公募基金拆成真实<b>股 / 债 / 现金 + 申万行业</b>(如 兴全合润 = 食品饮料 / 家电 / … / 债 / 现金)。
+      <span class="tags-note-full hidden md:inline">:把每支公募基金拆成真实<b>股 / 债 / 现金 + 申万行业</b>(如 兴全合润 = 食品饮料 / 家电 / … / 债 / 现金)。
         旭日 / 透视复用同一结果;理财 / 券商产品无公募代码 → 标「未穿透」。<span class="text-brass-deep">逐支实时反馈(结果全体家庭共享缓存,拉过的秒出)。</span></span>
-      <details class="md:hidden mt-1"><summary class="fold-cta">这是什么</summary>
+      <details class="tags-note-fold md:hidden mt-1"><summary class="fold-cta">这是什么</summary>
         <span class="block mt-1 text-[12px]">把每支公募基金拆成真实<b>股 / 债 / 现金 + 申万行业</b>;旭日 / 透视复用同一结果;
           理财 / 券商产品无公募代码 → 标「未穿透」。结果全家共享缓存,拉过的秒出。</span></details>
     </div>
@@ -124,12 +130,12 @@
     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
     <!-- AI 推荐(全部 / 单行 · 只预填不落库 · 显式保存才生效) -->
-    <section class="paper-card p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
+    <section class="tags-note paper-card p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
       <div class="text-sm text-ink-soft flex-1 min-w-0">
         <b class="text-ink">AI 推荐默认选型</b>
-        <span class="hidden md:inline">:整页或逐行(行尾「AI」钮)推断 平台 / 行业 / 资产类型,<b>只预填不落库</b>,核对后点「保存全部」。
+        <span class="tags-note-full hidden md:inline">:整页或逐行(行尾「AI」钮)推断 平台 / 行业 / 资产类型,<b>只预填不落库</b>,核对后点「保存全部」。
           用途不由 AI 猜(个人意图,纯手标)。</span>
-        <details class="md:hidden mt-1"><summary class="fold-cta">这是什么</summary>
+        <details class="tags-note-fold md:hidden mt-1"><summary class="fold-cta">这是什么</summary>
           <span class="block mt-1 text-[12px]">整页或逐行推断 平台 / 行业 / 资产类型,<b>只预填不落库</b>,核对后点「保存全部」。
             用途不由 AI 猜。</span></details>
         <span th:unless="${aiAvailable}" class="text-rust">(AI 暂不可用 · 管理页配置 LLM 后开启,手动打标不受影响)</span>
@@ -306,6 +312,45 @@
       <button type="submit" class="btn-ink text-xs px-5 py-2">保存全部</button>
     </div>
 </form>
+  <script>
+    /* v1.6.20 · 打标页在手机上**强制横屏**(用户要求)———————————————————
+       理由:这页是宽表格作业面 —— 6 列 × 62 行。竖屏只能卡片化,一行一屏、上下滑一万多像素;
+       横屏下布局宽度锁成长边、Tailwind 断点原地切到宽屏档、卡片化退场 → 回到 PC 表格形态,
+       一屏能看好几行,才是能干活的样子。
+       两条纪律:
+         · 只自动切**一次**;用户手动退出后本会话不再纠缠(否则变成打架)
+         · 只在窄屏 + 触屏上切,PC 一律不动 */
+    (function () {
+      if (!window.vpNarrow || !window.vpNarrow(768)) return;          /* 宽屏本来就是表格 */
+      if (!window.matchMedia || !window.matchMedia('(pointer: coarse)').matches) return;
+      var KEY = 'tagsLsOptOut';
+      try { if (sessionStorage.getItem(KEY) === '1') return; } catch (e) {}
+      var root = document.documentElement;
+      if (root.classList.contains('ls-wide')) return;                 /* 已经是横屏(跨页面带过来的) */
+      /* 等 landscape.js 就绪(它是 defer) */
+      var tries = 0;
+      (function go() {
+        if (typeof window.toggleOrientation === 'function') {
+          window.toggleOrientation();
+          if (window.showToast) window.showToast({
+            message: '打标已切到横屏 —— 表格能横着铺开。右上角「退出横屏」可切回',
+            level: 'info'
+          });
+          /* 用户手动退出 → 记下来,本会话不再自动切 */
+          var mo = new MutationObserver(function () {
+            if (!root.classList.contains('ls-wide')) {
+              try { sessionStorage.setItem(KEY, '1'); } catch (e) {}
+              mo.disconnect();
+            }
+          });
+          mo.observe(root, { attributes: true, attributeFilter: ['class'] });
+          return;
+        }
+        if (tries++ < 40) setTimeout(go, 50);
+      })();
+    })();
+  </script>
+
   <script>
     /* 「只看未打标」· 纯前端过滤 ————————————————————————————————
        判定:该行的 select 全部还是空值(即"默认 ·"那一项)且文本输入为空 → 未打标。

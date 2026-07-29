@@ -4566,6 +4566,39 @@ ATTR="$RD/src/main/resources/templates/dashboard/_attribution.html"
   && log_ok "v1619-THREE(环图图例移下方+PC 半径 104+图例文案缩短 → 四档宽度零重叠 · 默认看板成员结构且第二层平台且排第一 · 切片排行 Top5 折叠可展开)" \
   || log_bad "v1619-THREE 缺件" "see _region.html(legend position:'bottom' · PC 半径 104 · 图例 arc>=58 不重复金额 + 去英文码 · 不得残留 nar?bottom:right)· lens.js(member 看板 sun 第二层 platform 且排第一 + boardKey member + TOP_N=5 + rank-more/rankToggle/展示全部)"
 
+# v1620-TAGS-LS · 打标页手机端**强制横屏** + 横屏布局靠向 PC(用户第 10 轮反馈③)
+#   v1.6.16 我走的是"竖屏优化"(说明折叠 + 只看未打标 + 常驻保存条),用户试过后要求强制横屏。
+#   这页确实是宽表格作业面(6 列 × 62 行):竖屏只能卡片化,一行一屏、上下滑一万三千像素。
+#   三件事必须同时做,少一件横屏就白切:
+#     ① **卡片化那段媒体查询要限定 html:not(.ls-wide)** —— 横屏是"锁布局宽度为长边 + 旋转",
+#        **viewport 仍是短边 390**,所以 max-width:820px 照样命中,卡片化不会自己退场
+#        (Tailwind 的 md: 靠原地换断点解决,自有媒体查询没这个机制)。
+#        踩坑:逗号选择器要**每个**都加前缀 —— 只给第一个加,后面几个仍无条件生效
+#        (实测 td 仍是 display:block,表格没回来)。所以这里直接断言那两条逗号列表的完整形态,
+#        不用「不得出现裸 .tags-table」那种宽泛否定 —— 它会扫到媒体查询**外面**的基础表格样式
+#        (那些本来就该无前缀),又是一次「否定断言盯裸标识符」。
+#     ② 自动切横屏只切**一次**,用户手动退出后本会话不再纠缠(sessionStorage tagsLsOptOut),
+#        且只在窄屏 + 触屏上切,PC 一律不动。
+#     ③ 横屏态**页头要压到最小**:横屏只有 390 竖向像素,未压缩时表头在 418px、一行表格都看不到。
+#        压 eyebrow/标题/说明卡(说明保持折叠 —— 横屏竖向比竖屏更紧,全文正是最该收的),
+#        表格本身不动。实测表头 418 → 278px。
+TAGS="$RD/src/main/resources/templates/lens/tags.html"
+{ [ "$(grep -c 'html:not(.ls-wide) .tags-table\|html:not(.ls-wide) .ai-btn' "$TAGS")" -ge 15 ] \
+  && grep -qF "html:not(.ls-wide) .tags-table tr, html:not(.ls-wide) .tags-table td{ display:block" "$TAGS" \
+  && grep -qF "html:not(.ls-wide) .tags-table td select," "$TAGS" \
+  && grep -q "tagsLsOptOut" "$TAGS" \
+  && grep -qF "window.matchMedia('(pointer: coarse)').matches" "$TAGS" \
+  && grep -qF "window.toggleOrientation()" "$TAGS" \
+  && grep -q "class=\"tags-head" "$TAGS" \
+  && [ "$(grep -c 'class="tags-note ' "$TAGS")" -eq 2 ] \
+  && grep -q "tags-intro-full" "$TAGS" \
+  && [ "$(grep -c 'tags-note-full' "$TAGS")" -ge 2 ] \
+  && grep -qF "html.ls-wide .tags-head .eyebrow { display: none !important; }" "$CSS" \
+  && grep -qF "html.ls-wide .tags-intro-full," "$CSS" \
+  && grep -qF "html.ls-wide .tags-savebar { display: flex !important; }" "$CSS"; } \
+  && log_ok "v1620-TAGS-LS(打标页窄屏自动横屏一次+尊重退出+PC不动 · 卡片化限定 not(.ls-wide) 每个逗号选择器都带前缀 · 横屏页头压缩表头 418→278px · 说明横屏仍折叠 · 保存条横屏留存)" \
+  || log_bad "v1620-TAGS-LS 缺件" "see tags.html(卡片化段每个选择器都要 html:not(.ls-wide) 前缀,且不得残留裸 .tags-table · tagsLsOptOut + pointer:coarse + toggleOrientation · tags-head/tags-note/tags-intro-full/tags-note-full 类名)· style.css(横屏压 eyebrow/标题/说明卡 + 说明保持折叠 + 保存条留存)"
+
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),
 #   而 useBar 在窄屏恒为 false → **窄屏两图必定同为环图**(用户反馈④与本次反馈的交集)。

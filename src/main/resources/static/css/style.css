@@ -1279,3 +1279,35 @@ html.ls-wide #float-dock { display: none !important; }
    dock 宽度被最宽的那个撑开 → 另外两个居中钮跟着左移(用户反馈:位置偏移)。
    右对齐后每个钮的右缘固定,谁变宽只往左长,其余不动。 */
 #float-dock { align-items: flex-end !important; }
+
+
+/* v1.6.20 · 打标页横屏态:保存条要留着。
+   .tags-savebar 带 md:hidden,而横屏模式把 md: 强制打开 → 它会被藏掉;
+   但横屏下 62 行表格仍有两千多像素,保存钮还是不该只在最底部。 */
+html.ls-wide .tags-savebar { display: flex !important; }
+
+
+/* v1.6.20 · 打标页横屏态:说明仍保持折叠。
+   横屏把 md: 强制打开 → `hidden md:block` 的全文版会现身、`md:hidden` 的折叠版会消失,
+   但**横屏的竖向空间(390)比竖屏(844)更紧**,说明全文正是最该收起来的东西。
+   横屏要的是"表格铺开",不是"把说明也铺开"。 */
+html.ls-wide .tags-intro,
+html.ls-wide .tags-note-fold { display: block !important; }
+html.ls-wide .tags-intro-full,
+html.ls-wide .tags-note-full { display: none !important; }
+
+
+/* ── v1.6.20 · 打标页横屏态:页头压到最小,让表格进首屏 ─────────────────
+   横屏成了这页的**默认工作模式**,而横屏只有 390 竖向像素。
+   实测未压缩前:表头在 418px —— 整个首屏被 eyebrow + 大标题 + 两张说明卡占满,
+   一行表格都看不到,等于还是干不了活。
+   压的是页头与说明卡(它们已折叠成一行),表格本身一点不动。 */
+html.ls-wide .tags-head { margin-bottom: 6px !important; }
+html.ls-wide .tags-head .eyebrow { display: none !important; }
+html.ls-wide .tags-head h1 { font-size: calc(19px * var(--fs-scale, 1)) !important; line-height: 1.2 !important; }
+html.ls-wide .tags-head .tags-intro { margin-top: 2px !important; }
+html.ls-wide .tags-head > a { font-size: calc(10px * var(--fs-scale, 1)) !important; }
+/* 说明卡:内距压薄 + 标题与「这是什么」同一行 */
+html.ls-wide .tags-note { padding: 6px 12px !important; margin-bottom: 6px !important; }
+html.ls-wide .tags-note .tags-note-fold { display: inline-block !important; margin-top: 0 !important; margin-left: 8px; }
+html.ls-wide .tags-note .btn-ink { padding-top: .25rem !important; padding-bottom: .25rem !important; }
