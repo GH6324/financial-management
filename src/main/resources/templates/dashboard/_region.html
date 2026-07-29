@@ -817,7 +817,10 @@
          所以**把半径写死**:两个图传同一组尺度参数,直径逐像素相同,图例行数再变也不影响。
          容器高度也共用同一个 class(.chart-pair-box),不再各写各的 h-[]。 */
       const PAIR = {
-        r:      () => vpNarrow(640) ? 100 : 118,   // 环外半径(px · 写死 → 两图同大)
+        /* PC 118 → 104(v1.6.19):图例改到下方后,窄卡(1280 视口下「资产配置」卡约 336px)
+           里图例要排 4 行,118 的环会压到图例上。104 在 1024/1280/1440 三档都留有余量。
+           两图取同一个值 —— 「并列同类图表同尺度」是硬要求,不能一个大一个小。 */
+        r:      () => vpNarrow(640) ? 100 : 104,   // 环外半径(px · 写死 → 两图同大)
         cutout: '58%',
         titleSize: () => vpNarrow(640) ? 11 : 13,
         legendSize: () => vpNarrow(640) ? 10 : 12,
@@ -844,18 +847,36 @@
             plugins: {
               title: { display: true, text: titleText, padding: { bottom: nar ? 4 : 8 },
                        font: { size: chartFont(PAIR.titleSize()), weight: '500' }, color: '#3a302a' },
+              /* v1.6.19 · 图例一律放**下方**(原来 PC 走右侧)。
+                 实测:PC 上「资产配置」的画布只有 386px 宽(它在窄卡里),右侧图例吃掉 181px,
+                 而半径是写死的 118 → 环右缘 221 > 图例左缘 193,**压进图例 28px**;
+                 「按成员分布」画布 1024 宽所以看不出问题。两张卡宽度差这么多,右侧图例没法都安全
+                 (半径写死是为了两图同大 —— 那是上一版用户明确要的,不能退回自适应)。
+                 放下方后环拿到整幅宽度,且两图图例位置也统一了。 */
               legend: {
-                position: nar ? 'bottom' : 'right',
+                position: 'bottom',
                 labels: {
                   boxWidth: nar ? 9 : 14, boxHeight: nar ? 9 : 12,
                   padding: nar ? 7 : 10, font: { size: chartFont(PAIR.legendSize()) },
                   /* 图例带金额:规范要求数字直接落在图上,不能只靠 hover。
                      环内放占比、图例放金额,两者互补且都不重叠。 */
+                  /* v1.6.19 · 图例只在**环上标不下金额时**才补金额。
+                     v1.6.18 起大扇片已经在环上标了「名称/金额/占比」,图例再重复一遍
+                     只会把条目撑长 —— 实测 1024 视口下「资产配置」卡仅 229px 宽,
+                     带金额的条目 1 行 1 条 × 8 条 ≈ 176px,把环挤到压住图例。
+                     判据与环上标签用**同一个弧长公式**,所以不会出现"两边都没有金额"。 */
                   generateLabels: (chart) => {
                     const ds = chart.data.datasets[0];
+                    const tot = ds.data.reduce((a, b) => a + Number(b || 0), 0);
                     return chart.data.labels.map((lab, i) => {
-                      const money = fmtMoney(Number(ds.data[i] || 0));
-                      return { text: flat(lab) + (money ? ' ' + money : ''),
+                      const v = Number(ds.data[i] || 0);
+                      const arc = tot ? 2 * Math.PI * (PAIR.r() * 0.79) * (v / tot) : 0;
+                      const money = arc >= 58 ? '' : fmtMoney(v);   // 环上已有金额 → 图例不重复
+                      /* 名称也去掉「(WEALTH)」这类英文码 —— 与环上标签用同一套写法。
+                         实测 1024 视口下卡宽仅 229px,带英文码的条目每行只放 1 条 → 6 行 142px,
+                         图区被压到 190px 而环直径 208px,于是环压住图例。去码后两条一行,行数减半。 */
+                      const short = flat(lab).replace(/\s*\([^)]*\)\s*/g, '').trim();
+                      return { text: short + (money ? ' ' + money : ''),
                                fillStyle: ds.backgroundColor[i], strokeStyle: ds.backgroundColor[i],
                                lineWidth: 0, fontColor: '#3a302a', hidden: false, index: i };
                     });

@@ -250,12 +250,13 @@
      只是 query spec,非硬编码页面;chips 行 overflow-x 横滑 */
   var PRESETS = [
     /* 排序 = 家庭用户关心度(2026-07-17 评审 #3):先看钱是什么(资产类型)→ 风险高不高 → 谁在管
-       → 篮子安不安全 → 是否押注单一行业 → 每笔钱为谁服务 → 变现能力 → 汇率/地域敞口 → 记账口径 */
+       → 篮子安不安全 → 是否押注单一行业 → 每笔钱为谁服务 → 变现能力 → 汇率/地域敞口 → 记账口径
+       v1.6.19 · 用户指定:默认看板 = 成员结构,且第二层默认 = 平台。
+       默认项挪到第一位 —— 默认却不在最左会让人以为选错了(chips 是横滑的,第 3 个未必在视野内)。 */
+    { key: 'member',    name: '成员结构',  sun: ['owner', 'platform'],      rows: ['owner'],      cols: ['assetClass'], filters: {} },
     { key: 'assetcls',  name: '资产类型',  sun: ['assetClass', 'risk'],     rows: ['assetClass'], cols: ['owner'],      filters: {} },
     { key: 'risk',      name: '风险总览',  sun: ['risk', 'assetClass'],     rows: ['risk'],       cols: ['assetClass'], filters: {} },
-    /* v1.6.17 · 成员结构的第二层从「风险」改「资产类型」——「谁持有」之后最自然的追问是
-       "各自持的是什么钱",而不是"各自的风险档位"(风险有专门看板)。 */
-    { key: 'member',    name: '成员结构',  sun: ['owner', 'assetClass'],    rows: ['owner'],      cols: ['assetClass'], filters: {} },
+
     { key: 'platform',  name: '平台安全',  sun: ['platform', 'assetClass'], rows: ['platform'],   cols: ['assetClass'], filters: {} },
     { key: 'industry',  name: '行业集中',  sun: ['industry', 'platform'],   rows: ['industry'],   cols: ['platform'],   filters: {}  },
     { key: 'purpose',   name: '资金用途',  sun: ['purpose', 'owner'],       rows: ['purpose'],    cols: ['assetClass'], filters: {} },
@@ -266,7 +267,7 @@
   ];
 
   var state = {
-    boardKey: 'assetcls',
+    boardKey: 'member',      /* v1.6.19 · 用户指定默认看板 */
     sunDims: ['assetClass', 'risk'],
     dimStack: [],            // 下钻前的 sunDims 快照,回退恢复
     drill: [],               // [{dim, value}] 筛选栈(含看板预置筛选,均可移除)
@@ -720,7 +721,11 @@
       var totalMv = rows.reduce(function (s, x) { return s + Number(x.mv || 0); }, 0);
       var maxAbs = rows.reduce(function (m, x) { return Math.max(m, Math.abs(Number(x.mv || 0))); }, 0);
       var html = '<div class="eyebrow mb-1">当前范围 · 按 ' + esc(MEASURE_LABEL[mkey] || '总资产') + ' · ' + esc(DIM_LABEL[state.sunDims[1]]) + '</div>';
-      rows.forEach(function (x) {
+      /* v1.6.19 · 默认只出前 5 条,其余折起(用户:列表太长)。
+         这里是**完整列表**的角色(旭日把小块合并成「其他」时会指路到这儿),
+         所以不能真的截断 —— 只是默认收起,点「展示全部」原地展开,不再发请求。 */
+      var TOP_N = 5, hidden = Math.max(0, rows.length - TOP_N);
+      rows.forEach(function (x, ri) {
         var right, barW, barBg = barColor[x.name], rcls = '', priv = ' data-priv';
         if (kind === 'ratio') {
           right = (x.mv == null) ? '—' : (Number(x.mv) >= 0 ? '+' : '') + Number(x.mv).toFixed(1) + '%';
@@ -732,13 +737,24 @@
         } else {
           var pct = totalMv ? Number(x.mv || 0) * 100 / totalMv : 0; right = fmtMoney(x.mv) + ' · ' + pct.toFixed(1) + '%'; barW = Math.min(pct, 100);
         }
-        html += '<div><div class="flex justify-between text-sm mb-1"><span>' + esc(x.name) + '</span>' +
+        html += '<div' + (ri >= TOP_N ? ' class="rank-more hidden"' : '') + '><div class="flex justify-between text-sm mb-1"><span>' + esc(x.name) + '</span>' +
           '<span class="font-mono tnum ' + rcls + '"' + priv + '>' + right + '</span></div>' +
           '<div style="height:18px;background:var(--card-soft);position:relative;overflow:hidden">' +
           '<span style="position:absolute;left:0;top:0;height:100%;width:' + barW + '%;background:' + barBg + '"></span></div></div>';
       });
+      if (hidden > 0) {
+        html += '<button type="button" id="rankToggle" class="fold-cta mt-1" data-n="' + hidden + '">' +
+                '展示全部(还有 ' + hidden + ' 项)</button>';
+      }
       if (!rows.length) html += '<p class="text-sm text-ink-subtle">当前范围没有头寸。</p>';
       document.getElementById('ranking').innerHTML = html;
+      var tg = document.getElementById('rankToggle');
+      if (tg) tg.onclick = function () {
+        var open = tg.getAttribute('data-open') === '1';
+        document.querySelectorAll('#ranking .rank-more').forEach(function (e) { e.classList.toggle('hidden', open); });
+        tg.setAttribute('data-open', open ? '0' : '1');
+        tg.textContent = open ? ('展示全部(还有 ' + tg.dataset.n + ' 项)') : '收起';
+      };
     });
   }
 

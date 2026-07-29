@@ -4495,13 +4495,13 @@ TAG2="$RD/src/main/resources/templates/lens/tags.html"
   && grep -nq "dim(\"assetClass\"" "$LR" \
   && [ "$(grep -n 'dim("assetClass"' "$LR" | cut -d: -f1)" -lt "$(grep -n 'dim("risk"' "$LR" | cut -d: -f1)" ] \
   && [ "$(grep -n 'dim("type"' "$LR" | cut -d: -f1)" -gt "$(grep -n 'dim("region"' "$LR" | cut -d: -f1)" ] \
-  && grep -qF "sun: ['owner', 'assetClass']" "$LJS" \
+  && grep -q "key: 'member'" "$LJS" \
   && grep -qF 'M15.5 5.4a6 6 0 0 1 5.9 5.1' "$LAY" \
   && grep -q "alloc-head" "$CSS" && grep -q "alloc-seg" "$CSS" \
   && grep -q "alloc-bar" "$TAG2" && grep -q "alloc-pills hscroll-x" "$TAG2" \
   && grep -qF ".tags-table .alloc-row td{ display:block; }" "$TAG2"; } \
-  && log_ok "v1617-FIVE(遮罩改 DOMContentLoaded + 浮钮 z-index 9999 不被加载绑住 · 维度顺序结构类在前 · 成员结构第二层改资产类型 · 图标补旋转弧 · 浮钮 flex dock 无空洞 · 持仓方向横条整宽+标签横滑)" \
-  || log_bad "v1617-FIVE 缺件" "see layout.html(遮罩 950ms/2500ms 兜底 + priv-float z-index 9999 + 图标旋转弧)· style.css(#ori-float z-index 9999 / float-dock / alloc-head / alloc-seg)· landscape.js(dockFloats 三钮顺序)· LensRegistry(assetClass 在 risk 之前、type 在 region 之后)· lens.js(member 看板 sun 第二层 assetClass)· tags.html(alloc-bar / alloc-pills hscroll-x / alloc-row td display:block)"
+  && log_ok "v1617-FIVE(遮罩改 DOMContentLoaded + 浮钮 z-index 9999 不被加载绑住 · 维度顺序结构类在前(第二层默认见 v1619)· 图标补旋转弧 · 浮钮 flex dock 无空洞 · 持仓方向横条整宽+标签横滑)" \
+  || log_bad "v1617-FIVE 缺件" "see layout.html(遮罩 950ms/2500ms 兜底 + priv-float z-index 9999 + 图标旋转弧)· style.css(#ori-float z-index 9999 / float-dock / alloc-head / alloc-seg)· landscape.js(dockFloats 三钮顺序)· LensRegistry(assetClass 在 risk 之前、type 在 region 之后)· lens.js(member 看板存在;第二层现由 v1619-THREE 守护为 platform)· tags.html(alloc-bar / alloc-pills hscroll-x / alloc-row td display:block)"
 
 # v1618-SIX · 用户第 8 轮反馈六项
 #   ① 环上不只要占比,具体金额也要:三行(名称/金额/占比)对径向要求 ≈ 3×11px = 33px < 环带 42px;
@@ -4536,6 +4536,36 @@ ATTR="$RD/src/main/resources/templates/dashboard/_attribution.html"
   && log_ok "v1618-SIX(环上补金额按弧长分档 · 所有 cf*Label 必带 data-priv · 抽屉 block:start+闪确认 · 横屏跨页保持且首次编译即宽屏档 · 归因 canvas 生成时判隐私+切换重绘 · dock 右对齐不偏移)" \
   || log_bad "v1618-SIX 缺件" "see _region.html(arc>=58 三行档 · 所有 \${cf*Label} 必须带 data-priv)· lens.js(drawerWrap block:start)· style.css(drawer-flash / float-dock flex-end)· layout.html(TW_SCREENS_WIDE + sessionStorage lsWide 预贴)· landscape.js(setItem lsWide + adoptWideOnLoad)· _attribution.html(privOn + fmtShort 判隐私 + MutationObserver 重绘)"
 
+# v1619-THREE · 用户第 9 轮反馈三项
+#   ① PC 上「资产配置」环压住右侧图例。查证:该卡在 PC 只有 386px 宽(1024 视口下仅 229px),
+#      右侧图例吃掉 181px,而半径是**写死的**(v1.6.12 用户明确要"两图同大",不能退回自适应)
+#      → 环右缘 221 > 图例左缘 193,压进去 28px;「按成员分布」卡宽 1024 所以看不出。
+#      三步修到四档宽度(1440/1280/1024/390)全不重叠:
+#        · 图例一律移到**下方**(两张卡宽度差 4 倍,右侧图例没法都安全)
+#        · PC 半径 118 → 104
+#        · 图例文案缩短:环上已有金额的片(arc ≥58)图例不重复金额;名称也去掉「(WEALTH)」英文码
+#          —— 与环上标签同一套写法。1024 下这一步是决定性的:带码条目每行只放 1 条 → 6 行 142px,
+#          图区被压到 190px 而环直径 208px。
+#   ② 默认看板 = 成员结构、第二层默认 = 平台(用户指定)。默认项同时挪到第一位 ——
+#      默认却不在最左会让人以为选错了(chips 横滑,第 3 个未必在视野内)。
+#   ③ 「切片排行」默认只出前 5 条,其余折起 + 「展示全部(还有 N 项)」。
+#      它是**完整列表**的角色(旭日合并小块时指路到这儿),所以只能折不能截断;
+#      展开是纯前端切 display,不再发请求。
+{ grep -qF "position: 'bottom'," "$RG" \
+  && grep -qF "vpNarrow(640) ? 100 : 104," "$RG" \
+  && grep -qF "const money = arc >= 58 ? '' : fmtMoney(v);" "$RG" \
+  && grep -qF "const short = flat(lab).replace(" "$RG" \
+  && ! grep -qF "position: nar ? 'bottom' : 'right'," "$RG" \
+  && grep -qF "{ key: 'member',    name: '成员结构',  sun: ['owner', 'platform']" "$LJS" \
+  && grep -qF "boardKey: 'member'," "$LJS" \
+  && [ "$(grep -n "key: 'member'" "$LJS" | head -1 | cut -d: -f1)" -lt "$(grep -n "key: 'assetcls'" "$LJS" | head -1 | cut -d: -f1)" ] \
+  && grep -qF "var TOP_N = 5, hidden = Math.max(0, rows.length - TOP_N);" "$LJS" \
+  && grep -q "rank-more" "$LJS" \
+  && grep -qF "id=\"rankToggle\"" "$LJS" \
+  && grep -q "展示全部" "$LJS"; } \
+  && log_ok "v1619-THREE(环图图例移下方+PC 半径 104+图例文案缩短 → 四档宽度零重叠 · 默认看板成员结构且第二层平台且排第一 · 切片排行 Top5 折叠可展开)" \
+  || log_bad "v1619-THREE 缺件" "see _region.html(legend position:'bottom' · PC 半径 104 · 图例 arc>=58 不重复金额 + 去英文码 · 不得残留 nar?bottom:right)· lens.js(member 看板 sun 第二层 platform 且排第一 + boardKey member + TOP_N=5 + rank-more/rankToggle/展示全部)"
+
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),
 #   而 useBar 在窄屏恒为 false → **窄屏两图必定同为环图**(用户反馈④与本次反馈的交集)。
@@ -4553,10 +4583,10 @@ ATTR="$RD/src/main/resources/templates/dashboard/_attribution.html"
   && ! grep -q "function useBar" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q "donutConfig(memLabels" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q "donutConfig(donutLabels" "$RD/src/main/resources/templates/dashboard/_region.html" \
-  && grep -qF "position: nar ? 'bottom' : 'right'" "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -qF "position: 'bottom'," "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q "generateLabels" "$RD/src/main/resources/templates/dashboard/_region.html" \
   && ! grep -q "memFlat\|flatAlloc" "$RD/src/main/resources/templates/dashboard/_region.html"; } \
-  && log_ok "v164-CHART-PARITY(两图一律环图 · 不再按类目数分叉图型 · Top N 聚合 + 窄屏图例下移带金额)" \
+  && log_ok "v164-CHART-PARITY(两图一律环图 · 不再按类目数分叉图型 · Top N 聚合 + 图例统一下方)" \
   || log_bad "v164-CHART-PARITY 缺件" "see dashboard/_region.html:aggSlices + donutConfig + useBar 三件齐 · 两图都走 donutConfig · 窄屏图例 bottom + generateLabels 带金额 · 不得残留 memFlat/flatAlloc"
 
 echo
