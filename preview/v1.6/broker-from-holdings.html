@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.6.24 Preview · 持仓页的券商对接状态条</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .mono{font-family:'JetBrains Mono',monospace}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  h2,h3{font-family:var(--font-display,serif)}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 7px;border:1px solid var(--rule);background:var(--card-soft);color:var(--ink-soft);white-space:nowrap}
+  /* 状态条:与 paper-card 同族,但用左侧竖线表示「这是一条状态/关联信息」而非一个卡片区块 */
+  .link-strip{border:1px solid var(--rule);border-left:3px solid var(--brass-deep);background:var(--card);padding:12px 16px}
+  .link-strip.none{border-left-color:var(--ink-subtle)}
+  .kv{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft)}
+  .kv b{color:var(--ink)}
+  .btn-sm{font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 12px;border:1px solid var(--ink);background:var(--card);color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .btn-sm.ghost{border-color:var(--rule);color:var(--ink-soft)}
+  .note{font-size:11px;color:var(--ink-subtle);line-height:1.6}
+  .fake-nav{border-bottom:1px solid var(--rule);padding:10px 0;margin-bottom:22px}
+</style>
+</head>
+<body class="min-h-screen">
+<div style="max-width:980px;margin:0 auto;padding:32px 20px" class="relative">
+
+  <div class="eyebrow mb-1">v1.6.24 · Preview</div>
+  <h2 class="text-3xl font-medium mb-2">持仓页的「券商对接」状态条</h2>
+  <p class="text-ink-soft text-sm mb-3" style="max-width:680px">
+    用户路径:<b class="text-ink">填报页 → 持仓管理</b>。到了持仓页却看不到这个账户跟富途/老虎是什么关系,
+    要回账户页才能找到配置入口 —— 绕。这一版在持仓页标题下加一条状态条:
+    <b class="text-ink">一眼看到对接状况</b> + <b class="text-ink">一步去重新配置</b>。
+  </p>
+  <p class="note mb-8" style="max-width:680px">
+    模型不变(V39 起就是这样):<b>一个账房账户 ↔ 一个券商交易账户,1:1</b>(`broker_link` 上有
+    `UNIQUE(account_id)`)。你有多个富途/老虎账户,就是多个账房账户各自关联一条 —— 整个账房对券商是 1:N。
+    状态条上会把这句话说给用户听,免得被误解成"全局设置"。
+  </p>
+
+  <!-- ============ A · 已关联(主态) ============ -->
+  <div class="eyebrow mb-2">A · 已关联 —— 状态 + 两个去处(PC)</div>
+  <section class="paper-card p-6 mb-4">
+    <div class="fake-nav mono text-[10px] text-ink-subtle">账户 / 华泰证券-A股 / <span class="text-ink">持仓管理</span></div>
+
+    <h3 class="text-2xl font-medium">华泰证券-A股 · 持仓管理</h3>
+    <div class="kv mt-1">股票(STOCK) · CNY · 迪娃 · 12 支持仓 · 账户内现金 2 笔</div>
+
+    <!-- ▼ 本次新增 -->
+    <div class="link-strip mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+      <div class="flex items-center gap-2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.4 2.6"/><path d="M21 3v5h-5"/></svg>
+        <span class="mono text-[11px]" style="color:var(--brass-deep)">券商对接</span>
+      </div>
+      <div class="kv"><b>富途 Futu</b> · 交易账户 <b>283****91</b></div>
+      <div class="kv"><span class="badge" style="color:var(--forest);border-color:var(--forest);background:rgba(47,93,80,.10)">同步已启用</span></div>
+      <div class="kv">上次同步 <b>07-29 10:12</b></div>
+      <div class="kv">OpenD <b>127.0.0.1:11111</b></div>
+      <div class="ml-auto flex gap-2">
+        <a class="btn-sm" href="#">券商配置</a>
+        <a class="btn-sm ghost" href="#">OpenD 网关</a>
+      </div>
+    </div>
+    <div class="note mt-2">一个账房账户 ↔ 一个券商交易账户(1:1)。多个富途/老虎账户 → 各建一个账房账户分别关联。</div>
+    <!-- ▲ 本次新增 -->
+
+    <div class="mt-6 flex flex-wrap gap-3">
+      <span class="btn-sm" style="border-color:var(--ink);background:var(--ink);color:var(--paper)">+ 添加持仓 · 自动估值</span>
+      <span class="btn-sm ghost">+ 添加持仓 · 手填市值</span>
+      <span class="btn-sm ghost">+ 账户内现金</span>
+      <span class="btn-sm ghost">⟳ 手动刷价</span>
+    </div>
+  </section>
+  <p class="note mb-10" style="max-width:680px">
+    条上刻意<b>不放</b>「新增 / 更新 / 归档」这层同步明细 —— 它在券商配置页里有,
+    放在条上会把状态条挤成两行、两个按钮孤零零掉到第二行(实测 1100 宽就会;见 B 态一行到底的样子)。
+    状态条要回答的是"有没有对接、通不通、上次什么时候",明细是点进去才关心的。<br>
+    两个去处的分工:<b>券商配置</b> = 本账户那条 1:1 关联(改 vendor / 凭据 / 本关联的 OpenD 地址 / 立即同步 / 测试连接 / 解除关联);
+    <b>OpenD 网关</b> = 富途那个常驻网关本身(下载 / 托管 / 自检),带 <span class="mono">?account=</span> 上下文进去,
+    向导顶部会显示「正在为【华泰证券-A股】配置」,完成后一键回到这个账户的券商配置页。
+  </p>
+
+  <!-- ============ B · 未关联 ============ -->
+  <div class="eyebrow mb-2">B · 未关联 —— 引导去关联,不假装有状态</div>
+  <section class="paper-card p-6 mb-3">
+    <h3 class="text-2xl font-medium">招商证券-港股通 · 持仓管理</h3>
+    <div class="kv mt-1">股票(STOCK) · HKD · 王二狗 · 5 支持仓(手填)</div>
+    <div class="link-strip none mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+      <div class="flex items-center gap-2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-subtle)"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.4 2.6"/><path d="M21 3v5h-5"/></svg>
+        <span class="mono text-[11px] text-ink-subtle">券商对接</span>
+      </div>
+      <div class="kv">本账户<b>未关联</b>券商 —— 持仓都是手填的</div>
+      <div class="ml-auto flex gap-2">
+        <a class="btn-sm" href="#">关联富途 / 老虎</a>
+        <a class="btn-sm ghost" href="#">这是什么?</a>
+      </div>
+    </div>
+  </section>
+  <p class="note mb-10" style="max-width:680px">
+    未关联时**不显示**「上次同步 / OpenD」这些空字段(空态里摆一排「—」是假信息);
+    只说清"现在没关联、持仓是手填的"+ 一个去关联的入口。「这是什么?」指向已有的帮助页。
+  </p>
+
+  <!-- ============ C · 移动端 ============ -->
+  <div class="eyebrow mb-2">C · 手机 390 宽 —— 同一条,竖向堆叠</div>
+  <section class="paper-card p-4 mb-3" style="max-width:390px">
+    <h3 class="text-lg font-medium">华泰证券-A股</h3>
+    <div class="kv mt-0.5">持仓管理 · 12 支</div>
+    <div class="link-strip mt-3">
+      <div class="flex items-center gap-2 mb-1.5">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.4 2.6"/><path d="M21 3v5h-5"/></svg>
+        <span class="mono text-[11px]" style="color:var(--brass-deep)">券商对接</span>
+        <span class="badge ml-auto" style="color:var(--forest);border-color:var(--forest);background:rgba(47,93,80,.10)">已启用</span>
+      </div>
+      <div class="kv"><b>富途 Futu</b> · 283****91</div>
+      <div class="kv">上次同步 07-29 10:12</div>
+      <div class="kv">OpenD 127.0.0.1:11111</div>
+      <div class="flex gap-2 mt-2.5">
+        <a class="btn-sm" href="#" style="flex:1;justify-content:center">券商配置</a>
+        <a class="btn-sm ghost" href="#" style="flex:1;justify-content:center">OpenD</a>
+      </div>
+    </div>
+  </section>
+  <p class="note mb-10" style="max-width:680px">
+    手机上信息竖排、两个按钮各占一半宽(44px 高,满足 iOS 触摸目标);状态徽章右对齐到标题行,不额外占一行。
+  </p>
+
+  <!-- ============ D · 要反转的旧决定 ============ -->
+  <div class="eyebrow mb-2">D · 需要显式反转的一个旧决定</div>
+  <section class="paper-card p-6">
+    <div class="kv" style="line-height:1.9">
+      v0.15.x 当时刻意<b>把券商入口"迁到账户页"</b>,持仓页只留持仓行上的「券商同步」徽章,
+      守护 <span class="mono">v15-ENTRY-1</span> 里还有一条<b>明文禁止</b>持仓页出现券商链接:
+      <div class="mono text-[11px] mt-2 mb-2" style="padding:8px 12px;background:var(--card-soft);border:1px solid var(--rule)">
+        &amp;&amp; grep -q '券商同步' "$HOLD" &amp;&amp; ! grep -q '/broker|}' "$HOLD"
+      </div>
+      当时的理由是"配置是账户颗粒度的,应该在账户页配"。<b>现在看这个理由站不住</b> ——
+      配置确实是账户颗粒度,但<b>持仓页本身就是账户颗粒度的页面</b>,而且是用户从填报页进来干活的地方;
+      让他为了看一眼对接状况绕回账户页,是把"信息架构的整洁"摆在了"手头的活"前面。
+      本次反转它,并把理由记进 tech-design(否则下一个人看到守护被改会以为是随手放宽)。
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
