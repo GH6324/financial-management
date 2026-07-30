@@ -42,6 +42,25 @@ running_version(){   # 读 /health 的 version;读不到输出空
   _to 6 curl -fsS "http://127.0.0.1:${port}/health" 2>/dev/null \
     | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
 }
+# 最新**能真的拉到的镜像**版本 —— 直接问 GHCR。这才是"我能更新到什么"的权威来源。
+# 为什么不只问 GitHub release(v1.6.26 实测踩到):release 已经发布了,但 CI 构建失败 →
+# GHCR 上没有那个镜像,用户怎么拉都拉不到。拿 release 去比会告诉他"有新版",然后他更新不了。
+# 顺带:大陆直连 GHCR 比 api.github.com 稳得多(用户那次就是 GitHub API 没通 → 我这条检查静默了)。
+latest_image_tag(){
+  [[ -z "${FINANCE_NO_UPDATE_CHECK:-}" ]] || return 0
+  command -v curl >/dev/null 2>&1 || return 0
+  local repo="luodi-nate/financial-management" tk
+  tk="$(_to 8 curl -fsS "https://ghcr.io/token?scope=repository:${repo}:pull&service=ghcr.io" 2>/dev/null \
+        | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+  [[ -n "$tk" ]] || return 0
+  _to 10 curl -fsS -H "Authorization: Bearer ${tk}" "https://ghcr.io/v2/${repo}/tags/list" 2>/dev/null \
+    | tr ',' '\n' | sed -n 's/.*"v\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)".*/\1/p' \
+    | sort -t. -k1,1n -k2,2n -k3,3n | tail -1
+}
+
+# a > b ?(语义版本数值比较)
+ver_gt(){ [[ "$1" != "$2" ]] && [[ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)" == "$1" ]]; }
+
 latest_release_tag(){   # GitHub 最新 release 的 tag;失败或被关闭时输出空
   [[ -z "${FINANCE_NO_UPDATE_CHECK:-}" ]] || return 0
   command -v curl >/dev/null 2>&1 || return 0
@@ -530,31 +549,61 @@ fresh_db_notice(){
 
 # 版本结论(v1.6.25)· 这段就是为了不让"静默拿到旧版"再发生
 version_verdict(){
-  local now latest
+  local now img rel
   now="$(running_version "$PORT" || true)"
-  latest="$(latest_release_tag || true)"; latest="${latest#v}"
-  # 读不到版本 ≠ 不用管:恰恰是**旧镜像**才不返回 version,而这些用户最需要「最新是 vX」这句话。
+  img="$(latest_image_tag || true)"                      # 最新可拉镜像(权威:GHCR)
+  rel="$(latest_release_tag || true)"; rel="${rel#v}"    # GitHub 最新 release(镜像可能还没出)
+
+  # ── 本地这次跑起来的版本有没有变 ──
   if [[ -z "$now" ]]; then
     say "  · 读不到版本(/health 不返回 version → 你的镜像早于 v1.6.25)"
-    [[ -n "$latest" ]] && say "    最新发布版是 **v${latest}**;更新到它之后这里就会直接显示版本号。"
-    return 0
-  fi
-  if [[ -n "$VER_BEFORE" && "$VER_BEFORE" != "$now" ]]; then
+  elif [[ -n "$VER_BEFORE" && "$VER_BEFORE" != "$now" ]]; then
     say "  ✓ 已更新:v${VER_BEFORE} → **v${now}**"
   elif [[ -n "$VER_BEFORE" ]]; then
     say "  · 版本无变化:仍是 v${now}"
   else
     say "  · 当前版本 v${now}"
   fi
-  [[ -n "$latest" ]] || return 0
-  if [[ "$latest" == "$now" ]]; then
-    say "  ✓ 已是最新发布版(GitHub 最新 release = v${latest})"
+
+  # ── 和"外面最新的"比 ──
+  # v1.6.26 修:两个来源都查不到时**必须说出来**。此前是静默 return,用户无法区分
+  # 「已是最新」和「查不了」(用户第 17 轮就是撞在这:GitHub API 没通 → 什么都不打印)。
+  if [[ -z "$img" && -z "$rel" ]]; then
+    say "  · 查不到最新版本(ghcr.io 与 api.github.com 都没通 —— 网络问题,不影响已起好的服务)"
+    say "    想关掉这项检查:FINANCE_NO_UPDATE_CHECK=1"
+    return 0
+  fi
+
+  local base="${now:-}"
+  if [[ -n "$img" ]]; then
+    if [[ -z "$base" ]]; then
+      say "  · 最新可拉镜像是 **v${img}**;更新到它之后这里就会直接显示版本号。"
+    elif [[ "$img" == "$base" ]]; then
+      say "  ✓ 已是最新可用镜像(v${img})"
+    elif ver_gt "$img" "$base"; then
+      say ""
+      say "  ⚠ 有新版镜像 **v${img}**(你在跑 v${base})→ 重跑本脚本即可更新。"
+    else
+      say "  · 你在跑 v${base},比 GHCR 上最新镜像 v${img} 还新(本地构建过?)"
+    fi
+    # release 比镜像新 = 刚打完 tag、镜像还在 CI 里(或构建失败)
+    if [[ -n "$rel" ]] && ver_gt "$rel" "$img"; then
+      say "    (GitHub 上已发布 v${rel},但镜像还没推上来 —— CI 构建约 12 分钟;若久等不来说明构建失败了)"
+    fi
   else
-    say ""
-    say "  ⚠ 你在跑 v${now},但最新发布版是 **v${latest}**。"
-    say "    最常见原因:刚打 tag 不久,预构建镜像还在 CI 里(约 12 分钟)—— 过几分钟重跑本脚本即可。"
-    say "    (镜像 tag :latest 是 CI 构建完才更新的;git pull 拉到的新代码不会进容器,"
-    say "     它只影响 compose 文件与本脚本自身。想立刻用上新代码可本地构建:$DC up -d --build)"
+    # GHCR 查不到,只能拿 release 说事 —— 必须注明"镜像是否已发布未确认"
+    if [[ -n "$base" && "$rel" != "$base" ]]; then
+      say ""
+      say "  ⚠ GitHub 上最新发布版是 **v${rel}**(你在跑 v${base});ghcr.io 没查通,**镜像是否已发布未确认**。"
+      say "    刚打 tag 不久的话镜像还在 CI 里(约 12 分钟),过几分钟重跑本脚本。"
+    elif [[ -n "$base" ]]; then
+      say "  ✓ 与 GitHub 最新发布版一致(v${rel});ghcr.io 没查通,未复核镜像。"
+    fi
+  fi
+  # git pull 的作用范围:这条对"拉了代码却没变新版"的困惑最有解释力,保留
+  if [[ -n "$img$rel" && -n "$base" ]] && { [[ -n "$img" ]] && ver_gt "$img" "$base"; } then
+    say "    (git pull 拉到的新代码不会进容器,它只影响 compose 文件与本脚本自身;"
+    say "     想立刻用上仓库里的代码可本地构建:$DC up -d --build)"
   fi
 }
 

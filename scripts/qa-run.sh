@@ -4864,6 +4864,40 @@ CLEAN="$RD/docker/clean-dev-data.sh"; DEP="$RD/deploy/deploy.sh"; ENTP="$RD/dock
   && log_ok "v1626-CLEAN-SAFE(清理链 fail-closed:probe 失败→不清 · 四条使用痕迹信号含 must_change_pw/已改名 · 清理前强制 dump 且 dump 失败不清 · entrypoint 有数据即降级非全新 · docker-up 告知全新空库 + down -v 降为第三条并要求确认)" \
   || log_bad "v1626-CLEAN-SAFE 缺件" "see docker/clean-dev-data.sh(probe+bail_no_clean 四处 || bail · 不得留 || echo 0 · must_change_pw/Alice,Bob 信号 · mysqldump pre-clean 且失败放弃)· deploy/deploy.sh step10(_step10_probe/_step10_bail 四处)· docker/entrypoint.sh(降级为非全新库 + account+cash_flow 行数判据)· deploy/docker-up.sh(fresh_db_notice + 全新空库告知 + COMPOSE_PROJECT_NAME 出路 + 三条出路 · 不得再出现"你从没真正用过")"
 
+# v1627-UPDATE-TRUTH · 更新检查要对比「真能拉到的镜像」+ 查不到必须说出来 + 发布必须验镜像(用户第 17 轮)
+#   用户在 v1.6.25 上 git pull + 重跑 docker-up.sh,输出「· 版本无变化:仍是 v1.6.25」,
+#   而且**后面一行都没有** —— 既没说"已是最新",也没说"最新是 v1.6.26"。查证出三件事:
+#   ① **v1.6.26 的 docker-publish CI 失败了**(Maven Central 瞬时 403 拉不到 spring-boot-starter-parent)
+#      → GHCR 上没有 v1.6.26 镜像,:latest 还是 v1.6.25 → 用户**怎么更新都拿不到**。
+#      而我发布时**没有检查 CI 结果**就报告"已上 prod"(prod 是 systemd 直装,确实上了)。
+#      **prod 健康 ≠ 发布完成**:Docker 是主推安装方式,镜像没出就只发了一半。
+#      → release skill 加**必做**阶段 3.5 `verify-image`:等 CI 结论 + 探 GHCR manifest 匿名可拉,不在就 die。
+#   ② **查不到最新版时静默 return** —— 用户那边 api.github.com 没通,于是什么都不打印,
+#      他无法区分「已是最新」和「查不了」。这是 v1.6.25 我给"读不到本地版本"补过的同一个漏洞,
+#      **同一版里漏了另一半**。现在两个来源都查不到时明确说出来 + 给 FINANCE_NO_UPDATE_CHECK=1。
+#   ③ **对比对象选错了**:原来只问 GitHub 最新 release。release 存在但镜像没构建出来时(正是本次),
+#      拿它去比会告诉用户"有新版",他却怎么都拉不到。**权威来源是 GHCR 的 tag 列表**
+#      = "我真能更新到什么";而且大陆直连 GHCR 比 api.github.com 稳。
+#      现在:优先 GHCR(latest_image_tag),GitHub release 降为补充信息 ——
+#      release 比镜像新时提示"镜像还在 CI 里(约 12 分钟);久等不来说明构建失败了"。
+DUPX="$DUP"
+{ grep -q '^latest_image_tag()' "$DUPX" && grep -q '^ver_gt()' "$DUPX" \
+  && grep -qF 'ghcr.io/v2/${repo}/tags/list' "$DUPX" \
+  && grep -qF '查不到最新版本' "$DUPX" \
+  && grep -qF '已是最新可用镜像' "$DUPX" \
+  && grep -qF '有新版镜像' "$DUPX" \
+  && grep -qF '镜像还没推上来' "$DUPX" \
+  && grep -qF '镜像是否已发布未确认' "$DUPX" \
+  && grep -qF 'FINANCE_NO_UPDATE_CHECK' "$DUPX" \
+  && grep -q '^verify-image)' "$RD/.claude/skills/release-prod/release.sh" \
+  && grep -qF 'ghcr.io/v2/${REPO}/manifests/' "$RD/.claude/skills/release-prod/release.sh" \
+  && grep -qF '镜像发布验证失败' "$RD/.claude/skills/release-prod/release.sh" \
+  && grep -qF '阶段 3.5 · Docker 镜像发布验证(必做' "$RD/.claude/skills/release-prod/SKILL.md" \
+  && grep -qF 'prod 健康' "$RD/.claude/skills/release-prod/SKILL.md" \
+  && bash -n "$DUPX" && bash -n "$RD/.claude/skills/release-prod/release.sh"; } \
+  && log_ok "v1627-UPDATE-TRUTH(更新检查以 GHCR tag 列表为权威 + 查不到明确说出来 + release/GHCR 不一致时归因 CI · 发布加必做阶段 3.5 verify-image 探 manifest)" \
+  || log_bad "v1627-UPDATE-TRUTH 缺件" "see deploy/docker-up.sh(latest_image_tag 问 GHCR tags/list + ver_gt + 四种文案:查不到最新版本/已是最新可用镜像/有新版镜像/镜像还没推上来/镜像是否已发布未确认)· release.sh(verify-image 子命令 + 探 manifests + die)· SKILL.md(阶段 3.5 必做 + prod 健康≠发布完成)"
+
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),
 #   而 useBar 在窄屏恒为 false → **窄屏两图必定同为环图**(用户反馈④与本次反馈的交集)。
