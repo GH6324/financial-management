@@ -39,13 +39,76 @@
     </div>
   </section>
 
+  <!-- 券商对接状态条(v1.6.24)· 反转 v0.15.x「入口迁到账户页」的决定:
+       配置确实是账户颗粒度,但**持仓页本身就是账户颗粒度的页面**,而且是用户从填报页进来干活的地方;
+       为看一眼对接状况绕回账户页,是把信息架构的整洁摆在手头的活前面。理由见 tech-design §34。
+       模型:一个账房账户 ↔ 一个券商交易账户(1:1,broker_link 上有 UNIQUE(account_id));
+       多个富途/老虎账户 → 各建一个账房账户分别关联,所以整个账房对券商是 1:N。 -->
+  <section th:if="${T(com.family.finance.service.stock.StockHoldingService).supportsHoldings(account.type)}" class="mb-5">
+    <!-- 已关联 -->
+    <div th:if="${brokerLink != null}" class="link-strip">
+      <span class="inline-flex items-center gap-1.5" style="color:var(--brass-deep)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.4 2.6"/><path d="M21 3v5h-5"/>
+        </svg>
+        <span class="font-mono text-[11px]">券商对接</span>
+      </span>
+      <span class="ls-kv">
+        <b th:text="${brokerLink.vendor.name() == 'FUTU' ? '富途 Futu' : '老虎 Tiger'}">富途 Futu</b>
+        <span th:if="${brokerLink.brokerAccountId != null}"
+              th:text="' · 交易账户 ' + ${#strings.length(brokerLink.brokerAccountId) > 4
+                        ? '***' + #strings.substring(brokerLink.brokerAccountId, #strings.length(brokerLink.brokerAccountId) - 4, #strings.length(brokerLink.brokerAccountId))
+                        : brokerLink.brokerAccountId}"> · 交易账户 ***4891</span>
+      </span>
+      <span class="ls-kv">
+        <span th:if="${brokerLink.enabled}" class="font-mono text-[10px] px-2 py-0.5 border"
+              style="color:var(--forest);border-color:var(--forest);background:rgba(47,93,80,.10)">同步已启用</span>
+        <span th:unless="${brokerLink.enabled}" class="font-mono text-[10px] px-2 py-0.5 border"
+              style="color:var(--rust);border-color:var(--rust);background:rgba(159,74,58,.08)">同步已停用</span>
+      </span>
+      <span class="ls-kv" th:if="${brokerLink.lastSyncedAt != null}"
+            th:text="'上次同步 ' + ${#temporals.format(brokerLink.lastSyncedAt, 'MM-dd HH:mm')}">上次同步 07-29 10:12</span>
+      <span class="ls-kv" th:unless="${brokerLink.lastSyncedAt != null}">尚未同步过</span>
+      <span class="ls-kv" th:text="'OpenD ' + (${brokerLink.opendHost != null}
+              ? ${brokerLink.opendHost} + ':' + ${brokerLink.opendPort != null ? brokerLink.opendPort : 11111}
+              : '全局默认 / 托管')">OpenD 全局默认 / 托管</span>
+      <span class="ls-acts">
+        <!-- 两个按钮**同款** btn-paper:并列同类控件不能一个有框一个无框(visual-spec 并列同尺度那条)。
+             text-transform:none 是必须的 —— btn-* 全带 uppercase,不关掉「OpenD」会被渲染成「OPEND」,
+             那是个专有名词,大写后读起来像另一个东西(实测截图发现)。 -->
+        <a th:href="@{|/accounts/${account.id}/broker|}" class="btn-paper text-[11px] no-underline"
+           title="本账户那条 1:1 关联:改券商 / 凭据 / OpenD 地址 · 立即同步 · 测试连接 · 解除关联">券商配置</a>
+        <a th:href="@{/admin/broker/opend(account=${account.id})}" class="btn-paper text-[11px] no-underline"
+           style="text-transform:none"
+           title="富途 OpenD 常驻网关:一键下载 / 托管 / 自检">OpenD 网关</a>
+      </span>
+    </div>
+    <!-- 未关联:不摆「上次同步 / OpenD」这些空字段(空态排一列「—」是假信息)-->
+    <div th:if="${brokerLink == null}" class="link-strip is-none">
+      <span class="inline-flex items-center gap-1.5 text-ink-subtle">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.4 2.6"/><path d="M21 3v5h-5"/>
+        </svg>
+        <span class="font-mono text-[11px]">券商对接</span>
+      </span>
+      <span class="ls-kv">本账户<b>未关联</b>券商 —— 持仓都是手填的</span>
+      <span class="ls-acts">
+        <a th:href="@{|/accounts/${account.id}/broker|}" class="btn-paper text-[11px] no-underline">关联富途 / 老虎</a>
+        <a th:href="@{/help/broker-sync}" class="btn-paper text-[11px] no-underline">这是什么?</a>
+      </span>
+    </div>
+    <p class="font-mono text-[10px] text-ink-subtle mt-1.5">
+      一个账户 ↔ 一个券商交易账户(1:1)。有多个富途 / 老虎账户,就各建一个账户分别关联。
+    </p>
+  </section>
+
   <!-- 操作栏 -->
   <section class="flex flex-wrap gap-3 mb-6">
     <a th:if="${account.type.name() == 'METAL'}" th:href="@{|/accounts/${account.id}/holdings/new-metal|}" class="btn-ink no-underline">+ 添加贵金属</a>
     <a th:if="${account.type.name() != 'METAL'}" th:href="@{|/accounts/${account.id}/holdings/new-auto|}" class="btn-ink no-underline">+ 添加持仓 · 自动估值</a>
     <a th:if="${account.type.name() != 'METAL'}" th:href="@{|/accounts/${account.id}/holdings/new-manual|}" class="btn-paper no-underline">+ 添加持仓 · 手填市值</a>
     <a th:href="@{|/accounts/${account.id}/holdings/new-cash|}" class="btn-paper no-underline">+ 账户内现金</a>
-    <!-- v0.15.x · 券商同步入口迁到账户页(账户颗粒度配置);此处仅保留持仓行上的「券商同步」徽章 -->
+    <!-- 券商入口见上方「券商对接」状态条(v1.6.24 从账户页搬回来);持仓行上另有「券商同步」来源徽章 -->
     <form th:action="@{|/accounts/${account.id}/holdings/refresh|}" method="post">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
       <button type="submit" class="btn-paper">⟳ 手动刷价</button>

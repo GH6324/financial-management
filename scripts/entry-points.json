@@ -114,6 +114,33 @@
         "pc",
         "mobile"
       ]
+    },
+    {
+      "id": "broker-from-entry",
+      "name": "券商对接 · 填报页账户行直达(v1.6.24)",
+      "page": "/entry",
+      "hrefContains": "/broker",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "用户第 14 轮要求「增加入口」:填报页那一行加第三个按钮直达本账户 1:1 关联的配置页。容器已改 flex-wrap,窄屏折行而不撑破卡片。"
+    },
+    {
+      "id": "broker-from-holdings",
+      "name": "券商对接状态条 · 持仓页(v1.6.24)",
+      "page": "/entry",
+      "pageFrom": {
+        "clickHrefMatches": "^/accounts/\\d+/holdings$"
+      },
+      "hrefContains": "/broker",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "用户路径是「填报 → 持仓管理」,到持仓页要能看到对接状况并一步去重配。反转了 v0.15.x「入口迁到账户页」的决定(理由见 tech-design §34)。登记为 page=/entry + pageFrom 点进持仓页,如实表达这条二级路径。"
     }
   ],
   "collapsible_ok": [

@@ -12,6 +12,18 @@
     <span class="mx-2 text-rule">/</span><span class="text-ink">富途 OpenD 安装向导</span>
   </div>
 
+  <!-- v1.6.24 · 账户上下文条:从某个账户的持仓页/券商配置页带 ?account=<id> 进来时显示。
+       OpenD 网关是**进程级**常驻服务、天然全局,所以向导本身不按账户分;但 1:N 场景下
+       (用户有多个富途账户 = 多个账房账户各自 1:1 关联)进了全局页容易忘了刚才在弄哪个,
+       所以显示来处并给一键回跳。不带参数时这条不渲染,行为与之前完全一致。 -->
+  <div th:if="${ctxAccountId != null}" class="link-strip mb-4">
+    <span class="ls-kv">正在为账户 <b th:text="${ctxAccountName}">华泰证券-A股</b> 配置 OpenD 网关</span>
+    <span class="ls-kv">网关是全局常驻服务;该账户单独指向别的网关可在券商配置页填 OpenD 地址</span>
+    <span class="ls-acts">
+      <a th:href="@{|/accounts/${ctxAccountId}/broker|}" class="btn-paper text-[11px] no-underline">← 回该账户的券商配置</a>
+    </span>
+  </div>
+
   <div th:if="${flash}" class="paper-card p-3 mb-4 bg-card-soft text-sm" style="border-left:4px solid var(--forest)" th:text="${flash}"></div>
   <div th:if="${flashError}" class="paper-card p-3 mb-4 bg-card-soft text-sm" style="border-left:4px solid var(--rust)" th:text="${flashError}"></div>
 

@@ -43,12 +43,26 @@ public class FutuOpendController {
     private final FamilyConfigService configService;
     private final AuditLogService auditLog;
     private final NavService navService;
+    private final com.family.finance.repository.AccountMapper accountMapper;  // v1.6.24 · ?account 上下文显示
     private final java.util.List<com.family.finance.service.broker.BrokerClient> brokerClients; // v0.15.2 · OpenD 台测试连接
 
+    // v1.6.24 · 可带 ?account=<id> 上下文:1:N 场景下用户可能有好几个富途账户,
+    // 从某个账户点进全局向导后容易忘了刚才在弄哪个 → 顶部显示"正在为【X】配置",完成能一键回那个账户的券商配置页。
+    // 不带参数时行为完全不变(仍是全局网关管理页)。account 只用于显示与回跳,不参与任何网关配置逻辑。
     @GetMapping
-    public String page(@AuthenticationPrincipal MemberPrincipal me, Model model) {
+    public String page(@AuthenticationPrincipal MemberPrincipal me,
+                       @RequestParam(name = "account", required = false) Long accountId,
+                       Model model) {
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
+        if (accountId != null) {
+            accountMapper.findById(accountId)
+                .filter(a -> a.getFamilyId().equals(me.getFamilyId()))   // 越权直接当没传
+                .ifPresent(a -> {
+                    model.addAttribute("ctxAccountId", a.getId());
+                    model.addAttribute("ctxAccountName", a.getDisplayName());
+                });
+        }
         FutuOpendManager.Status st = opend.status();
         model.addAttribute("status", st);
         // step-by-step 首屏判定(JS 轮询后同步更新):装好第 1 步才展示第 2 步;运行中收起表单

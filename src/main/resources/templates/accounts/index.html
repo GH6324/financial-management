@@ -155,7 +155,7 @@
                v1.6 UED 批次5 曾把它收进下面的 ⋯ —— 那次是按「行内按钮太多」的视觉密度一刀切收纳的,
                但 ⋯ 只该放低频维护动作(归档/导出/恢复);能力入口进了 ⋯ 就等于没有入口(用户实际报障)。
                只有 STOCK/CRYPTO/METAL 账户显示,21 行里约 6 行,密度代价很小。 -->
-          <a th:if="${row.account.type.name() == 'STOCK' or row.account.type.name() == 'CRYPTO' or row.account.type.name() == 'METAL'}"
+          <a th:if="${T(com.family.finance.service.stock.StockHoldingService).supportsHoldings(row.account.type)}"
              th:href="@{/accounts/{id}/broker(id=${row.account.id})}"
              class="btn-ghost no-underline inline-flex items-center gap-1" title="券商只读同步 · 富途 / 老虎(关联 · 测试 · 同步)">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -274,7 +274,7 @@
           </svg>
           <span>编辑</span>
         </a>
-        <a th:if="${row.account.type.name() == 'STOCK' or row.account.type.name() == 'CRYPTO' or row.account.type.name() == 'METAL'}"
+        <a th:if="${T(com.family.finance.service.stock.StockHoldingService).supportsHoldings(row.account.type)}"
            th:href="@{/accounts/{id}/broker(id=${row.account.id})}" class="btn-paper text-[10px] no-underline inline-flex items-center gap-1" title="券商同步">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.4 2.6"/><path d="M21 3v5h-5"/>

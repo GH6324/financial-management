@@ -3812,15 +3812,18 @@ BRO_HITS="$(grep -rnE 'unlockTrade\(|\.placeOrder|\.modifyOrder|\.cancelOrder|\.
 
 # v15-ENTRY-1 · 券商入口在账户页(账户颗粒度)+ 持仓页保留同步徽章(v0.15.x 入口迁移)
 ACCIDX="$RD/src/main/resources/templates/accounts/index.html"
+# v1.6.24 反转:原来这里有一条 `! grep -q '/broker|}' "$HOLD"` **禁止**持仓页出现券商链接
+#   (v0.15.x「入口迁到账户页」的决定)。用户第 14 轮指出那个结论不对 —— 配置确实是账户颗粒度,
+#   但持仓页本身就是账户颗粒度的页面、且是用户从填报页进来干活的地方。禁令改成**要求**。理由见 tech-design §34。
 # v1.6.23 补强:原来只断言「模板里有 /broker(id=」—— 入口被塞进 ⋯ 收纳菜单后它照样 PASS,
 #   用户实际找不到(见 v1623-ENTRY-VIS)。这里静态加一条:⋯ 菜单块(row-more-pop…</details>)里
 #   不得出现 /broker —— 能力入口只能在行内。这条不依赖浏览器,是运行时守护的廉价互补。
 MOREPOP="$(sed -n '/row-more-pop/,/<\/details>/p' "$ACCIDX")"
 { grep -q '/broker(id=' "$ACCIDX" && grep -q '券商托管' "$ACCIDX" \
   && ! printf '%s' "$MOREPOP" | grep -q '/broker' \
-  && grep -q '券商同步' "$HOLD" && ! grep -q '/broker|}' "$HOLD"; } \
-  && log_ok "v15-ENTRY-1 券商入口在账户页行内(不在 ⋯ 收纳里)+ 托管徽章 · 持仓页只留同步徽章" \
-  || log_bad "v15-ENTRY-1 入口/徽章位置不对(或券商入口被收进 ⋯ 菜单)" "see accounts/index.html / stock/holdings.html · 能力入口不得进 row-more-pop"
+  && grep -q '券商同步' "$HOLD" && grep -q '/broker|}' "$HOLD"; } \
+  && log_ok "v15-ENTRY-1 券商入口在账户页行内(不在 ⋯ 收纳里)+ 托管徽章 · 持仓页也有入口(v1.6.24 反转旧禁令)" \
+  || log_bad "v15-ENTRY-1 入口/徽章位置不对(或券商入口被收进 ⋯ 菜单 / 持仓页丢了入口)" "see accounts/index.html / stock/holdings.html · 能力入口不得进 row-more-pop"
 
 # v15-GRAN · 连接配置下沉到关联颗粒度(V40)+ per-link 测试富卡片
 BLDOM="$RD/src/main/java/com/family/finance/domain/broker/BrokerLink.java"
@@ -4717,6 +4720,48 @@ else
     *) log_bad "v1623-ENTRY-VIS 有功能入口用户看不见" "$(printf '%s' "$EP_OUT" | grep -m2 '✗' | tr '\n' ' ')" ;;
   esac
 fi
+
+# v1624-BROKER-CTX · 持仓页券商对接状态条 + OpenD 向导带账户上下文(用户第 14 轮反馈)
+#   用户路径是「填报 → 持仓管理」:到了持仓页看不到这个账户跟富途/老虎是什么关系,要绕回账户页找配置。
+#   模型确认(不动 schema):V39 有 uq_broker_link_account UNIQUE(account_id) → 一个账房账户 ↔ 一个券商
+#   交易账户 1:1;多账户各自关联 → 整个账房对券商 1:N。用户描述的模型与实现一致。
+#   三件事:
+#     ① 持仓页标题下「券商对接」状态条:已关联给 vendor/启用状态/上次同步/本关联 OpenD 地址 + 两个去处;
+#        未关联**不摆空字段**(空态排一列「—」是假信息),只给去关联入口。
+#     ② OpenD 向导可带 ?account=<id>:顶部显示"正在为【X】配置"+ 一键回该账户配置页;
+#        不带参数时行为完全不变(网关是**进程级**常驻服务、天然全局,只补上下文提示,不按账户分)。
+#     ③ 判据统一到 supportsHoldings ——账户页原先硬编码 'STOCK' or 'CRYPTO' or 'METAL' 三串,
+#        而 BrokerLinkController.requireHoldingAccount 用的是 supportsHoldings(含 WEALTH/CASH)→ 会漂移;
+#        模板里硬编码枚举列表是 AGENTS.md 明令要避免的(加类型必漏)。
+#   两个 UED 自查(实测截图发现):两个并列按钮原本一个 btn-paper 一个 btn-ghost(有框/无框不一致,
+#   违反 visual-spec 并列同尺度那条)→ 都改 btn-paper;btn-* 全带 text-transform:uppercase,
+#   会把专有名词「OpenD」渲染成「OPEND」→ 该处局部 text-transform:none。
+HOLDT="$RD/src/main/resources/templates/stock/holdings.html"
+ROWT="$RD/src/main/resources/templates/entry/_row.html"
+OPENDT="$RD/src/main/resources/templates/broker/opend-wizard.html"
+OPENDC="$RD/src/main/java/com/family/finance/web/broker/FutuOpendController.java"
+HOLDC="$RD/src/main/java/com/family/finance/web/stock/StockHoldingController.java"
+LINKT="$RD/src/main/resources/templates/broker/link.html"
+{ [ "$(grep -c 'link-strip' "$HOLDT")" -ge 2 ] \
+  && grep -qF 'brokerLink != null' "$HOLDT" && grep -qF 'brokerLink == null' "$HOLDT" \
+  && grep -qF 'is-none' "$HOLDT" \
+  && grep -qF 'lastSyncedAt' "$HOLDT" && grep -qF 'opendHost' "$HOLDT" \
+  && [ "$(grep -c 'btn-paper text-\[11px\] no-underline' "$HOLDT")" -ge 4 ] \
+  && ! grep -qF 'btn-ghost text-[11px] no-underline' "$HOLDT" \
+  && grep -qF 'text-transform:none' "$HOLDT" \
+  && grep -qF '/admin/broker/opend(account=' "$HOLDT" \
+  && grep -qF '/admin/broker/opend(account=' "$LINKT" \
+  && grep -qF 'brokerLinkMapper.findByAccount' "$HOLDC" \
+  && grep -qF 'name = "account", required = false' "$OPENDC" \
+  && grep -qF 'ctxAccountId' "$OPENDC" && grep -qF 'ctxAccountId != null' "$OPENDT" \
+  && grep -qF 'getFamilyId().equals(me.getFamilyId())' "$OPENDC" \
+  && grep -qF 'flex flex-wrap items-center gap-1.5' "$ROWT" \
+  && grep -qF '/broker|}' "$ROWT" \
+  && [ "$(grep -c 'supportsHoldings' "$RD/src/main/resources/templates/accounts/index.html")" -eq 2 ] \
+  && ! grep -qF "== 'STOCK' or" "$RD/src/main/resources/templates/accounts/index.html" \
+  && grep -qF '.link-strip' "$CSS" && grep -qF 'min-height: 44px' "$CSS"; } \
+  && log_ok "v1624-BROKER-CTX(持仓页状态条两态·未关联不摆空字段 · 两按钮同款 btn-paper + OpenD 不被大写 · 向导 ?account 上下文且校验同家庭 · 填报行加入口且 flex-wrap · 账户页判据统一 supportsHoldings 不再硬编码枚举)" \
+  || log_bad "v1624-BROKER-CTX 缺件" "see stock/holdings.html(link-strip 两态 + is-none + lastSyncedAt/opendHost + 4 处 btn-paper 且不得留 btn-ghost + text-transform:none + opend(account=)· broker/link.html(向导链接带 account)· StockHoldingController(brokerLinkMapper)· FutuOpendController(?account + ctxAccountId + 同家庭校验)· opend-wizard.html(ctxAccountId 条件)· entry/_row.html(flex-wrap + /broker 入口)· accounts/index.html(2 处 supportsHoldings、不得留 == 'STOCK' or)· style.css(.link-strip + 手机 44px)"
 
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),

@@ -1311,3 +1311,24 @@ html.ls-wide .tags-head > a { font-size: calc(10px * var(--fs-scale, 1)) !import
 html.ls-wide .tags-note { padding: 6px 12px !important; margin-bottom: 6px !important; }
 html.ls-wide .tags-note .tags-note-fold { display: inline-block !important; margin-top: 0 !important; margin-left: 8px; }
 html.ls-wide .tags-note .btn-ink { padding-top: .25rem !important; padding-bottom: .25rem !important; }
+
+/* 券商对接状态条(v1.6.24)· 持仓页标题下,一眼看到本账户 ↔ 富途/老虎的 1:1 关联状况。
+   用「左侧竖线 + 细框」而不是 paper-card:它是一条**关联信息**,不是一个内容区块;
+   竖线用 brass(已关联)/ ink-subtle(未关联)区分,不靠文字才能读出状态。 */
+.link-strip {
+  border: 1px solid var(--rule); border-left: 3px solid var(--brass-deep);
+  background: var(--card); padding: 12px 16px;
+  display: flex; flex-wrap: wrap; align-items: center; column-gap: 20px; row-gap: 8px;
+}
+.link-strip.is-none { border-left-color: var(--ink-subtle); }
+.link-strip .ls-kv { font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: calc(11px * var(--fs-scale,1)); color: var(--ink-soft); }
+.link-strip .ls-kv b { color: var(--ink); }
+.link-strip .ls-acts { margin-left: auto; display: flex; gap: 8px; }
+/* 手机:竖排 + 两个按钮各占一半宽(44px 高满足 iOS 触摸目标 · visual-spec §7.6)*/
+@media (max-width: 639px) {
+  .link-strip { flex-direction: column; align-items: stretch; row-gap: 4px; }
+  .link-strip .ls-acts { margin-left: 0; margin-top: 8px; }
+  .link-strip .ls-acts > a { flex: 1; justify-content: center; min-height: 44px; }
+}
+

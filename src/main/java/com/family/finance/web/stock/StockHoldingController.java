@@ -7,6 +7,7 @@ import com.family.finance.domain.stock.Market;
 import com.family.finance.domain.stock.StockHolding;
 import com.family.finance.domain.stock.ValuationMode;
 import com.family.finance.repository.AccountMapper;
+import com.family.finance.repository.BrokerLinkMapper;
 import com.family.finance.repository.StockPriceSnapshotMapper;
 import com.family.finance.service.NavService;
 import com.family.finance.service.config.FamilyConfigService;
@@ -58,6 +59,7 @@ public class StockHoldingController {
     private final AccountValuationService valuationService;
     private final StockPriceScheduler scheduler;
     private final StockPriceSnapshotMapper priceMapper;
+    private final BrokerLinkMapper brokerLinkMapper;   // v1.6.24 · 持仓页展示本账户的券商对接状态(1:1)
     private final AccountMapper accountMapper;
     private final NavService navService;
     private final FamilyConfigService configService;
@@ -114,6 +116,9 @@ public class StockHoldingController {
         model.addAttribute("valuation", valuation);
         model.addAttribute("latestPrices", latestPrices);
         model.addAttribute("industryTags", com.family.finance.domain.lens.IndustryTag.values()); // v1.1 行业标下拉
+        // v1.6.24 · 券商对接状态条:一个账房账户 ↔ 一个券商交易账户(broker_link 上有 UNIQUE(account_id))。
+        // 用户路径是「填报 → 持仓管理」,到这儿要能看到对接状况并一步去重配,而不用绕回账户页。
+        model.addAttribute("brokerLink", brokerLinkMapper.findByAccount(accountId).orElse(null));
         model.addAttribute("metalInfo", metalInfo);
         model.addAttribute("priceSourceLabel", switch (account.getType()) {
             case CRYPTO -> "数据源 · Binance(主) + CoinGecko/Coinbase(备)";
