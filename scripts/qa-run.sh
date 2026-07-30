@@ -12,6 +12,11 @@ FAILED=()
 
 log_ok()   { echo -e "\033[32m PASS \033[0m $1"; PASS=$((PASS+1)); }
 log_bad()  { echo -e "\033[31m FAIL \033[0m $1  ::  ${2:-}"; FAIL=$((FAIL+1)); FAILED+=("$1 :: ${2:-}"); }
+# 否定断言前先剥掉**整行注释** —— "否定断言被自己解释历史的注释扫红"这个坑本项目踩了 7 次
+# (AGENTS.md 有专条),而"每次记得盯代码构造"显然不管用。机械剥注释,结构上不可能再撞。
+# 只去掉整行注释(^\s*#),不动行尾的 # —— 后者可能是字符串里的合法字符。
+code_only(){ sed -e 's/^[[:space:]]*#.*$//' "$1"; }
+
 log_skip() { echo -e "\033[33m SKIP \033[0m $1  ::  ${2:-}"; SKIP=$((SKIP+1)); }
 section()  { echo; echo -e "\033[1;36m─── $1 ───\033[0m"; }
 
@@ -4664,6 +4669,8 @@ DUP="$RD/deploy/docker-up.sh"; DCY="$RD/docker-compose.yml"; DPW="$RD/.github/wo
   || log_bad "v1621-CN-INSTALL 缺件" "see docker-compose.yml(db image 必须 \${MYSQL_IMAGE:-ghcr…-mysql:8.0}、不得留裸 image: mysql:8.0)· .github/workflows/docker-publish.yml(mirror-mysql job + imagetools create)· deploy/docker-up.sh(DB_MIRROR/DB_UPSTREAM 双源 · cn_autofix_mirrors + _mirror_colima/_mirror_desktop/_mirror_linux/_wait_engine · 不得有 kind=orb · SUDOE 而非 \$SUDO -E python3 · colima.yaml 仅在 'docker: {}' 时改 · 两处已有 registry-mirrors 不覆盖 · 三处 .bak · 写回 MYSQL_IMAGE · JDK 基础镜像单独探 · 文案参数化)· .env.example(MYSQL_IMAGE 说明)"
 
 # v1622-DB-CRED · 数据卷老密码 / .env 新密码 → 自愈,且判据不许说谎(用户第 12 轮反馈)
+#   v1.6.26 更新:原来钉的是旧文案「down -v 会删掉数据库卷里的全部数据」,而那段「两条出路」
+#   已被 v1.6.26 重写成「三条出路」(down -v 降为第三条,前两条都不丢数据)→ 断言跟随新文案。
 #   v1.6.21 修好镜像后用户换了个地方卡住:app 无限 `Access denied for user 'finance'` 重启。
 #   真因:MySQL 只在**首次初始化数据卷**时写入 MYSQL_USER/PASSWORD,而**命名卷不随仓库目录消失** ——
 #   用户为拿修复重新克隆 → .env 新随机密码 → 与卷里老密码不匹配。是我们的升级指引造成的。
@@ -4691,7 +4698,9 @@ EP="$RD/docker/entrypoint.sh"
   && grep -qF 'mysqld --init-file=/pwfix.sql' "$DUP" \
   && grep -qF 'ALTER USER' "$DUP" \
   && [ "$(grep -c 'UP_FAILED' "$DUP")" -ge 6 ] \
-  && grep -qF 'down -v 会**删掉数据库卷里的全部数据**' "$DUP" \
+  && grep -qF '永久删除那个库里的一切' "$DUP" \
+  && grep -qF '三条出路' "$DUP" \
+  && grep -qF 'COMPOSE_PROJECT_NAME=finance-new' "$DUP" \
   && grep -qF 'Address already in use' "$DUP" \
   && bash -n "$EP" && bash -n "$DUP"; } \
   && log_ok "v1622-DB-CRED(entrypoint/healthcheck 改真实查询 SELECT 1·不再用 mysqladmin ping 作判据 · FRESH_DB 不再 ||echo 1 且如实报判不了 · docker-up 检测+init-file 不删数据同步密码 · up -d 失败也走自愈 · 删卷只作手动选项)" \
@@ -4815,6 +4824,45 @@ LINKT="$RD/src/main/resources/templates/broker/link.html"
   && bash -n "$DUP"; } \
   && log_ok "v1625-UPDATE-PATH(/health 带 version · 脚本报「vA→vB / 无变化 / 落后+CI 12min」且旧镜像也给最新版提示 · 三处文档独立更新小节 · 全仓无 th:if+th:replace 同元素 · error 页 head 零依赖 + 条件外提 · 持仓异常文案与判据一致)" \
   || log_bad "v1625-UPDATE-PATH 缺件" "see HealthController(version + app.version:dev)· deploy/docker-up.sh(running_version/latest_release_tag/version_verdict + VER_BEFORE + FINANCE_NO_UPDATE_CHECK + 三种结论文案 + 约 12 分钟)· README「## 更新到新版本」/ deploy-README / faq · templates 不得有 th:if 与 th:replace/th:insert 同元素(优先级 1 > 3,replace 先跑)· error.html 用 th:block 外提 · StockHoldingController 文案"
+
+# v1626-CLEAN-SAFE · 唯一会 TRUNCATE 用户数据的路径必须处处 fail-closed(用户第 16 轮报数据丢失)
+#   用户原话:「起了一个项目已经设置好了成员也更新了密码,更新了以后多了两个成员把我旧账户也刷掉了,多了 Alice bob」
+#   **定性**:Alice/Bob 是 db/migration/V2__seed.sql 里两个内置账号的 display_name(id 1/2),不是新增演示成员。
+#   它们出现只可能是**全新空库跑了 V2 种子** —— 因为 V1__init.sql 用的是**裸 CREATE TABLE**(14 个,0 个
+#   IF NOT EXISTS),迁移在已有库上重放会在 V1 就失败,所以"迁移把种子重灌进你的库"物理上不成立。
+#   → 那次是**数据卷被换/删**(目录名变→compose 项目名变→新卷;或执行过 down -v)。
+#   **而 v1.6.22 我给的凭据不匹配指引里,`down -v` 是并列的第二条出路,还写着"你从没真正用过就可以整卷删掉"**
+#   —— 用户刚建过成员改过密码,凭记忆判断"我没什么数据"极易判错,而删卷不可恢复。这是我给的选项的责任。
+#   排查中又发现清理链上两个真缺陷(与本次事故无关,但都能在别的场景真删数据):
+#     ① **互锁 fail-open**:`$(... 2>/dev/null || echo 0)` → 查询一失败当 0,而 0 = "没有真实数据、可以清"。
+#        保命互锁在失败时选了破坏性那边。改 fail-closed。
+#     ② **信号太少**:只看 audit_log 与 member.id>2 → 用内置两账号 + 改过密码的真实用户两条都不响。
+#        补 must_change_pw=0(完成首登改密)与"种子成员已改名"(Alice/Bob 是默认名)。
+#   还有一个**我自己在修的时候踩出来的 bash 陷阱**:probe 函数里用 exit/die 终止**无效** ——
+#   它跑在 `$(...)` 子 shell 里,exit 只结束子 shell,主脚本会带着错误信息当数值继续跑
+#   (实测打出一堆 `[[: syntax error: operand expected`,没删数据纯属运气)。
+#   正确形状:失败 return 非零,由调用处 `|| bail` 终止。两个脚本都按这个改。
+#   本守护钉住五件事:fail-closed probe(且不含子 shell exit)· 四条信号 · 清理前强制 dump ·
+#   entrypoint 第二重判据(有数据就算没 schema_history 也不算全新)· down -v 不再是并列选项。
+CLEAN="$RD/docker/clean-dev-data.sh"; DEP="$RD/deploy/deploy.sh"; ENTP="$RD/docker/entrypoint.sh"
+{ grep -q '^probe()' "$CLEAN" && grep -q '^bail_no_clean()' "$CLEAN" \
+  && [ "$(code_only "$CLEAN" | grep -c '|| bail_no_clean')" -eq 4 ] \
+  && ! code_only "$CLEAN" | grep -qE '\|\| echo 0' \
+  && grep -qF 'must_change_pw = 0' "$CLEAN" && grep -qF "display_name NOT IN ('Alice','Bob')" "$CLEAN" \
+  && grep -qF 'mysqldump' "$CLEAN" && grep -qF 'pre-clean-' "$CLEAN" \
+  && grep -qF '放弃清理' "$CLEAN" \
+  && grep -q '_step10_probe()' "$DEP" && grep -q '_step10_bail()' "$DEP" \
+  && [ "$(code_only "$DEP" | grep -c '|| _step10_bail')" -eq 4 ] \
+  && ! code_only "$DEP" | grep -qE 'actor_member_id IS NOT NULL" 2>/dev/null \|\| echo 0' \
+  && grep -qF '降级为非全新库' "$ENTP" \
+  && grep -qF 'account) + (SELECT COUNT(*) FROM cash_flow' "$ENTP" \
+  && grep -q '^fresh_db_notice()' "$DUP" && grep -qF '全新空库' "$DUP" \
+  && grep -qF 'COMPOSE_PROJECT_NAME=' "$DUP" \
+  && grep -qF '三条出路' "$DUP" \
+  && ! code_only "$DUP" | grep -qF '你从没真正用过' \
+  && bash -n "$CLEAN" && bash -n "$DEP" && bash -n "$ENTP" && bash -n "$DUP"; } \
+  && log_ok "v1626-CLEAN-SAFE(清理链 fail-closed:probe 失败→不清 · 四条使用痕迹信号含 must_change_pw/已改名 · 清理前强制 dump 且 dump 失败不清 · entrypoint 有数据即降级非全新 · docker-up 告知全新空库 + down -v 降为第三条并要求确认)" \
+  || log_bad "v1626-CLEAN-SAFE 缺件" "see docker/clean-dev-data.sh(probe+bail_no_clean 四处 || bail · 不得留 || echo 0 · must_change_pw/Alice,Bob 信号 · mysqldump pre-clean 且失败放弃)· deploy/deploy.sh step10(_step10_probe/_step10_bail 四处)· docker/entrypoint.sh(降级为非全新库 + account+cash_flow 行数判据)· deploy/docker-up.sh(fresh_db_notice + 全新空库告知 + COMPOSE_PROJECT_NAME 出路 + 三条出路 · 不得再出现"你从没真正用过")"
 
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),

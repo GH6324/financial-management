@@ -263,11 +263,26 @@ SENTINEL=/opt/finance/.prod-cleaned
 if [[ -f "$SENTINEL" ]]; then
   ok "已清过($SENTINEL 存在)"
 else
-  AUDIT_COUNT=$(mysql_run -sN -e "SELECT COUNT(*) FROM audit_log WHERE actor_member_id IS NOT NULL" 2>/dev/null || echo 0)
-  EXTRA_MEMBERS=$(mysql_run -sN -e "SELECT COUNT(*) FROM member WHERE id > 2" 2>/dev/null || echo 0)
-  if [[ "${AUDIT_COUNT:-0}" -gt 50 || "${EXTRA_MEMBERS:-0}" -gt 0 ]]; then
+  # v1.6.26 · 互锁改 fail-closed + 补信号(与 docker/clean-dev-data.sh 同口径)。
+  #   原写法 `|| echo 0` 在查询失败时当作"没有真实数据"→ 继续 TRUNCATE,**保命互锁失败时选了破坏性那边**。
+  #   现在:任何一条判据查不出来 → 直接 die,不清。
+  #   信号也补齐:只看 audit/额外成员,会漏掉"用内置两个账号 + 改过密码"的真实用户。
+  # 同 docker/clean-dev-data.sh:probe **不能在自己内部 die** —— 它跑在 `$(...)` 子 shell 里,
+  # die 只结束子 shell,主脚本会带着错误信息当数值继续跑。失败返回非零,由调用处 `|| _step10_bail` 终止。
+  _step10_probe(){   # 成功:stdout=数字 返回 0 · 失败:说明写 stderr 返回 1
+    local out
+    out="$(mysql_run -sN -e "$2" 2>&1)" || { printf '互锁判据「%s」查不出来:%s\n' "$1" "$out" >&2; return 1; }
+    case "$out" in ''|*[!0-9]*) printf '互锁判据「%s」返回非数字:%s\n' "$1" "$out" >&2; return 1 ;; esac
+    printf '%s' "$out"
+  }
+  _step10_bail(){ err "═══ 互锁判据失败 ═══"; die "保命规则:判据查不出来一律当作有真实数据 → 拒绝 TRUNCATE"; }
+  AUDIT_COUNT=$(_step10_probe 'audit_log 真实操作数' "SELECT COUNT(*) FROM audit_log WHERE actor_member_id IS NOT NULL") || _step10_bail
+  EXTRA_MEMBERS=$(_step10_probe '额外成员(id>2)' "SELECT COUNT(*) FROM member WHERE id > 2") || _step10_bail
+  PW_DONE=$(_step10_probe '已完成改密的成员' "SELECT COUNT(*) FROM member WHERE must_change_pw = 0") || _step10_bail
+  RENAMED=$(_step10_probe '种子成员已改名' "SELECT COUNT(*) FROM member WHERE id IN (1,2) AND display_name NOT IN ('Alice','Bob')") || _step10_bail
+  if [[ "${AUDIT_COUNT:-0}" -gt 50 || "${EXTRA_MEMBERS:-0}" -gt 0 || "${PW_DONE:-0}" -gt 0 || "${RENAMED:-0}" -gt 0 ]]; then
     err "═══ 真实数据拦截 ═══"
-    err "audit_log=${AUDIT_COUNT} / 额外成员=${EXTRA_MEMBERS} → 拒绝 TRUNCATE"
+    err "audit_log=${AUDIT_COUNT} / 额外成员=${EXTRA_MEMBERS} / 已改密=${PW_DONE} / 已改名=${RENAMED} → 拒绝 TRUNCATE"
     err "若确实想清:手动 mysqldump → TRUNCATE → touch $SENTINEL → 重跑"
     die "中止"
   fi

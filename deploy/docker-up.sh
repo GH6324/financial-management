@@ -354,7 +354,7 @@ fi
 # 当时三处判据全给了假阳性(compose healthcheck / entrypoint 的 mysqladmin ping / FRESH_DB 探测),
 # 用户只看到「90s 没就绪」+ 一屏 Access denied,完全不知道该干什么。
 # 现在:主动验一次账号,不通就讲清原因,并**在不删数据的前提下**把新密码同步进已有库。
-envval(){ grep -E "^$1=" .env 2>/dev/null | head -1 | cut -d= -f2-; }
+envval(){ grep -E "^$1=" .env 2>/dev/null | head -1 | cut -d= -f2- || true; }   # 键缺失时输出空、退出 0(pipefail 下不拖累调用处)
 
 # 从 db 容器内用真实查询验账号(不能用 mysqladmin ping —— 它在 Access denied 时也返回 0)
 db_auth_ok(){ $DC exec -T db env MYSQL_PWD="$2" mysql -h127.0.0.1 -u"$1" -sN -e 'SELECT 1' >/dev/null 2>&1; }
@@ -436,14 +436,21 @@ ensure_db_credentials(){
   fi
 
   # 同步不成(或用户不要)→ 给两条真实出路,并且**不擅自删数据**
+  # v1.6.26 修:这里原来把 `down -v` 作为并列的第二条出路,还写着"你从没真正用过就可以整卷删掉"。
+  # 用户凭记忆判断"我没什么数据"很容易判错(刚建过成员、改过密码就已经是数据了),而删卷不可恢复。
+  # 现在:**先给两条都不丢数据的出路**,删卷降到第三条并要求明确确认。
   say ""
-  say "  两条出路,自己挑:"
-  say "    ① 你还留着以前那份 .env(或记得旧密码)→ 放回去 / 把 DB_PASS、MYSQL_ROOT_PASSWORD 改回旧值,"
-  say "       再重跑 bash deploy/docker-up.sh。数据完整保留,这是最稳的一条。"
-  say "    ② 那个数据库你从没真正用过(没登录进去记过账)→ 可以整卷删掉从零开始:"
+  say "  三条出路,按「越靠前越安全」排:"
+  say "    ① 放回旧密码(最稳,数据完整保留)"
+  say "       你还留着以前那份 .env,或记得旧的 DB_PASS / MYSQL_ROOT_PASSWORD → 改回旧值,重跑本脚本。"
+  say "    ② 保住旧卷,换个新项目名从零开始(旧数据留着,以后随时能捞回来)"
+  say "         COMPOSE_PROJECT_NAME=finance-new bash deploy/docker-up.sh"
+  say "       旧卷原封不动待在那儿($DC 的卷名带项目名前缀),想回去就用回原来的项目名/目录名。"
+  say "    ③ 真的确定旧库不要了,才删卷重来:"
   say "         $DC down -v && bash deploy/docker-up.sh"
-  say "       ⚠ down -v 会**删掉数据库卷里的全部数据**,不可恢复。确认里面没有你要的记账数据再做。"
-  die "数据库账号进不去,已停在这一步(没有动你的数据)。按上面两条之一处理后重跑本脚本。"
+  say "       ⚠ **这会永久删除那个库里的一切,包括你已经建好的成员、账户、账期、改过的密码 —— 不可恢复。**"
+  say "       判断标准不是「我印象里没用过」,而是:你有没有登录进去建过成员 / 账户?建过就走 ① 或 ②。"
+  die "数据库账号进不去,已停在这一步(**没有动你的数据**)。按上面三条之一处理后重跑本脚本。"
 }
 
 say "· 准备 app 镜像(优先拉预构建,首次约几分钟)…"
@@ -497,6 +504,30 @@ login_hint(){
   say "  ──────────────────────────────────────────"
 }
 
+# 全新空库告知(v1.6.26)· 起因:用户报「更新后多了 Alice/Bob、旧账户被刷掉」——
+# 复盘是**换了/删了数据卷**导致连到一个全新库(V1 用裸 CREATE TABLE,迁移不可能在已有库上重放,
+# 所以"Alice/Bob 出现"只可能是全新库跑了 V2 种子)。而全新库这件事**只写在容器日志里**
+# (`[entrypoint] FRESH_DB=yes`),脚本输出一个字都没提 → 用户直到发现数据没了才知道。
+# 这里在**用户看得见的地方**说出来,并给出"我的数据是不是在另一个卷里"的自查命令。
+fresh_db_notice(){
+  local mem acc pwdone
+  mem="$($DC exec -T db env MYSQL_PWD="$1" mysql -h127.0.0.1 -u"$2" "$3" -sN \
+        -e 'SELECT COUNT(*) FROM member' 2>/dev/null || true)"
+  [[ "$mem" =~ ^[0-9]+$ ]] || return 0     # 读不到就别猜
+  acc="$($DC exec -T db env MYSQL_PWD="$1" mysql -h127.0.0.1 -u"$2" "$3" -sN \
+        -e 'SELECT COUNT(*) FROM account' 2>/dev/null || echo -1)"
+  pwdone="$($DC exec -T db env MYSQL_PWD="$1" mysql -h127.0.0.1 -u"$2" "$3" -sN \
+        -e 'SELECT COUNT(*) FROM member WHERE must_change_pw = 0' 2>/dev/null || echo -1)"
+  # "全新" = 只有两个种子成员、零账户、且没人改过密码(= 从没被真人用过)
+  [[ "$mem" == "2" && "$acc" == "0" && "$pwdone" == "0" ]] || return 0
+  say ""
+  say "  ⚠ 这个数据库是**全新空库**(只有 2 个内置成员、0 个账户、没人登录改过密码)。"
+  say "    首次安装本该如此 —— 但**如果你之前在这台机器上已经录过数据**,那说明现在连的不是原来那个数据卷:"
+  say "      docker volume ls | grep db-data      # 看看是不是存在另一个 *_db-data 卷"
+  say "    常见原因:仓库目录名变了(compose 项目名跟着变 → 换了新卷)· 或者执行过 down -v。"
+  say "    旧卷还在的话数据没丢:用原来的目录名、或 COMPOSE_PROJECT_NAME=<原项目名> 重跑本脚本即可回到旧数据。"
+}
+
 # 版本结论(v1.6.25)· 这段就是为了不让"静默拿到旧版"再发生
 version_verdict(){
   local now latest
@@ -531,6 +562,8 @@ if [[ "$ok" == "1" ]]; then
   say ""
   say "✓ 起好了 → http://127.0.0.1:${PORT}  (默认只发布到 loopback,公网请前置反代加 HTTPS)"
   version_verdict
+  _fdu="$(envval DB_USER)"; _fdn="$(envval DB_NAME)"
+  fresh_db_notice "$(envval DB_PASS)" "${_fdu:-finance}" "${_fdn:-finance}"
   login_hint
   say "  停:$DC down(不删数据卷,数据还在)   日志:$DC logs -f app"
 elif [[ "$ok" == "skip" ]]; then

@@ -11,6 +11,25 @@ A：默认只绑定 `127.0.0.1`(loopback),不对公网开放——这是安全�
 - **长期用**:在服务器上前置反代(nginx / Caddy)并配 HTTPS,把 80/443 转到容器的 20000。片段见 [`deploy/README.md`](../deploy/README.md) 的「反代 / HTTPS」。
 - (不推荐)直接公网裸奔:把 `.env` 的 `SERVER_PORT` 映射改成 `0.0.0.0` / 或 compose 端口去掉 `127.0.0.1:` 前缀——务必先配好登录强密码,且家庭财务数据建议别裸奔。
 
+**Q:更新后数据"没了",还多出两个叫 Alice / Bob 的成员,怎么回事?**
+A:**Alice / Bob 是内置的两个种子账号的默认显示名**(`diwa` / `wangergou`),不是新增的演示成员。它们出现说明你连上的是一个**全新的空数据库** —— 迁移脚本不可能把种子重新灌进已有的库(建表用的是裸 `CREATE TABLE`,重放会直接失败),所以只有"库是新的"这一种可能。
+
+最常见的两个原因:
+
+- **仓库目录名变了** → compose 项目名跟着变 → 用的是**另一个数据卷**。旧卷还在,数据没丢:
+  ```bash
+  docker volume ls | grep db-data          # 看看是不是有两个 *_db-data
+  ```
+  用回原来的目录名,或 `COMPOSE_PROJECT_NAME=<原项目名> bash deploy/docker-up.sh`,数据就回来了。
+- **执行过 `docker compose down -v`** → 卷被删,那是不可恢复的。备份 sidecar 每周日 03:00 会 dump 一份到 `backups` 卷(保留 56 天),可以从那里恢复:
+  ```bash
+  docker compose exec backup ls -la /data/backups/
+  ```
+
+v1.6.26 起,`docker-up.sh` 在检测到"全新空库"时会**主动告诉你**并给出上面的自查命令,而不是默默起好;同时 `down -v` 在凭据不匹配的指引里已降为第三选项(前两条都不丢数据)。
+
+---
+
 **Q:我 `git pull` 了新代码、重跑了 `bash deploy/docker-up.sh`,为什么还是旧版本?**
 A:两个原因,v1.6.25 起脚本会直接告诉你是哪一个。
 

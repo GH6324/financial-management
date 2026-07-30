@@ -54,6 +54,26 @@ else
   HAS_HISTORY=""
 fi
 
+# v1.6.26 · 第二重判据:schema_history 缺失**不等于**库是空的。
+# 恢复过 dump(未含 schema_history)、手工建过库、迁移中途断掉,都会出现"有数据但没迁移记录"。
+# 那种情况下按"全新"处理会把 TRUNCATE 落到真实数据上 → 只要业务表里有行,一律降级为非全新。
+if [[ "$FRESH_DB" == "yes" ]]; then
+  BIZ="$(MYSQL_PWD="$DB_PASS" mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -sN -e "
+      SELECT COALESCE(SUM(c),0) FROM (
+        SELECT COUNT(*) c FROM information_schema.tables
+         WHERE table_schema='$DB_NAME' AND table_name IN ('account','cash_flow','period','member')
+      ) t" 2>/dev/null || echo -1)"
+  if [[ "$BIZ" != "0" ]]; then
+    ROWS="$(MYSQL_PWD="$DB_PASS" mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" "$DB_NAME" -sN -e "
+        SELECT (SELECT COUNT(*) FROM account) + (SELECT COUNT(*) FROM cash_flow)" 2>/dev/null || echo -1)"
+    if [[ "$ROWS" != "0" ]]; then
+      FRESH_DB=no
+      echo "[entrypoint] 但业务表里已有数据(account+cash_flow=${ROWS})→ **降级为非全新库**,绝不清理"
+      echo "[entrypoint]   (schema_history 缺失 ≠ 空库:恢复过 dump / 手工建库 / 迁移中断都会这样)"
+    fi
+  fi
+fi
+
 echo "[entrypoint] 应用数据库迁移(db/apply.sh · schema_history 幂等)..."
 DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_USER="$DB_USER" DB_PASS="$DB_PASS" DB_NAME="$DB_NAME" \
   bash /app/db/apply.sh
