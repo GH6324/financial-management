@@ -134,7 +134,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 431 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护)/ 55 e2e 断言(11 主线)/ 515 黑盒回归 |
+| 测试 | JUnit 5 · 431 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护)/ 55 e2e 断言(11 主线)/ 516 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
@@ -263,6 +263,26 @@ curl -s http://127.0.0.1:20000/health     # {"status":"UP","version":"1.6.25"}
 ```
 
 不想让脚本联网查最新版本:设 `FINANCE_NO_UPDATE_CHECK=1`。
+
+### 日常运维速查(Docker)
+
+| 要做什么 | 命令 |
+|---|---|
+| 看日志 | `docker compose logs -f app`(只看错误:`docker compose logs --tail=200 app \| grep -i error`) |
+| 停 / 起 / 重启 | `docker compose stop` / `docker compose start` / `docker compose restart app` |
+| 更新 | `git pull && bash deploy/docker-up.sh` |
+| 改配置 | 编辑 `.env` 后 `docker compose up -d`(运营参数如 key/阈值走**管理页**,改 `.env` 无效) |
+| **立刻备份一份** | `bash deploy/backup-now.sh [输出目录]`(备完会校验能不能解开;给目录则同时拷到宿主机) |
+| **从备份恢复** | `bash deploy/restore.sh`(列出备份让你选 · **灌入前先把当前库另存当退路**) |
+| **出问题收集信息** | `bash deploy/doctor.sh`(版本/容器/磁盘/最近错误日志 · 已脱敏 · 可直接贴 issue) |
+| 数据在哪 | Docker **命名卷**,不在仓库目录里:`docker volume ls \| grep db-data` |
+| 彻底重来 | `docker compose down -v && bash deploy/docker-up.sh` ⚠ `down -v` 会删光数据库,先备份 |
+
+`bash deploy/docker-up.sh` 跑完也会把这张表打印出来,不用回头翻文档。
+
+**备份节奏**:Docker 下由 `backup` 容器每 24 小时 dump 一次到 `backups` 卷(`finance-*.sql.gz`,默认保留 56 天,
+`RETENTION_DAYS` 可调);systemd 直装由 `finance-backup.timer` 每天 03:30 跑到 `/var/backup/finance/`。
+**重要操作前请自己 `backup-now.sh` 一份** —— 自动备份最多是"昨天那一份"。
 
 ### systemd 直装
 

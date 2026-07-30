@@ -4898,6 +4898,47 @@ DUPX="$DUP"
   && log_ok "v1627-UPDATE-TRUTH(更新检查以 GHCR tag 列表为权威 + 查不到明确说出来 + release/GHCR 不一致时归因 CI · 发布加必做阶段 3.5 verify-image 探 manifest)" \
   || log_bad "v1627-UPDATE-TRUTH 缺件" "see deploy/docker-up.sh(latest_image_tag 问 GHCR tags/list + ver_gt + 四种文案:查不到最新版本/已是最新可用镜像/有新版镜像/镜像还没推上来/镜像是否已发布未确认)· release.sh(verify-image 子命令 + 探 manifests + die)· SKILL.md(阶段 3.5 必做 + prod 健康≠发布完成)"
 
+# v1628-OPS · 日常运维的四件事必须有入口(用户第 18 轮:「要做到告知用户如何停止、启动、重新来、
+#   更新以及如何查看日志;你从一个开发者拿到手一个开源软件的视角,自己审视下需要哪些信息?」)
+#   审视后对账,缺的是四样:①手动备份入口(Docker 下没有 —— 而我们刚在 v1.6.26 让用户"更新前先备份")
+#   ②恢复脚本(只存在于 FAQ 的一段裸命令:要用户自己找文件、手填 root 密码、还得记得先停 app)
+#   ③诊断入口(用户卡住时不知道该收集什么,我们也拿不到有效信息)④脚本末尾只给了"停 + 日志"两条。
+#   **一处更正**:我一开始判定"备份 sidecar 因 restart:unless-stopped + 一次性脚本而死循环",
+#   查证后是**错的** —— 镜像里装的是 docker/backup.sh(有 while+sleep 86400),我读的是 deploy/backup.sh
+#   (systemd 那条,由 timer 触发,一次性是对的)。两个同名不同文件,别再混。
+#   顺带露出真的文档不一致:文档写"每周日 03:00 / 每日 03:30",Docker 实际是"容器启动后每 24h",
+#   文件名是 finance-*.sql.gz 而非 dump-* → 已改文档。
+#   **我在写这三个脚本时自己踩的 bug(两次,同一个)**:Docker 分支把 dump 写成
+#   `mysqldump | cat > 文件.sql.gz` —— **忘了 gzip**,文件名在撒谎;而 `du -h` 看得到文件,
+#   于是打印了"✓ 已备份",restore 时才 `gzip: not in gzip format`。**报了成功的坏备份比没有备份更危险。**
+#   更险的是 restore.sh 里"恢复前另存当前库"那份也是同一个写法 —— 退路本身不可用。
+#   两处都补 gzip **并加完整性校验**(gunzip -t + 解出来必须含 CREATE TABLE),校验不过就删掉不留假备份。
+#   **唯一能证明备份可用的方法是恢复它** —— 所以验证必须做"插标记→备份→删标记→恢复→标记回来"的往返,
+#   以及"撤销一次恢复"(用 before-restore 快照回退)。只验"文件生成了"会放过这个 bug。
+OPSC="$RD/deploy/_common-env.sh"; BKN="$RD/deploy/backup-now.sh"; RST="$RD/deploy/restore.sh"; DOC="$RD/deploy/doctor.sh"
+{ [[ -f "$OPSC" && -f "$BKN" && -f "$RST" && -f "$DOC" ]] \
+  && grep -qF 'MODE=docker' "$OPSC" && grep -qF 'MODE=systemd' "$OPSC" \
+  && [ "$(code_only "$BKN" | grep -c 'gzip -9')" -ge 1 ] \
+  && ! code_only "$BKN" | grep -qE 'mysqldump[^|]*\|[^|]*cat > ' \
+  && [ "$(code_only "$BKN" | grep -c 'gunzip -t')" -ge 2 ] \
+  && grep -qF 'CREATE TABLE' "$BKN" \
+  && [ "$(code_only "$RST" | grep -c 'gzip -9')" -ge 1 ] \
+  && ! code_only "$RST" | grep -qE 'mysqldump[^|]*\|[^|]*cat > ' \
+  && grep -qF 'gunzip -t' "$RST" \
+  && grep -qF 'before-restore-' "$RST" \
+  && grep -qF 'FINANCE_RESTORE_CONFIRM' "$RST" \
+  && grep -qF '中止恢复' "$RST" \
+  && grep -qF '已脱敏' "$DOC" && grep -qF 'PASS|PASSWORD|KEY|SECRET' "$DOC" \
+  && [ "$(grep -c '── 常用操作' "$DUP")" -eq 3 ] \
+  && grep -qF 'bash deploy/backup-now.sh' "$DUP" && grep -qF 'bash deploy/restore.sh' "$DUP" \
+  && grep -qF 'bash deploy/doctor.sh' "$DUP" && grep -qF 'docker volume ls | grep db-data' "$DUP" \
+  && grep -qF '日常运维速查(Docker)' "$RD/README.md" \
+  && grep -qF '每 24 小时' "$RD/README.md" \
+  && ! code_only "$RD/docs/faq.md" | grep -qF '备份 sidecar 每周日 03:00' \
+  && bash -n "$OPSC" && bash -n "$BKN" && bash -n "$RST" && bash -n "$DOC"; } \
+  && log_ok "v1628-OPS(_common-env 形态探测 + backup-now/restore/doctor 三脚本 · dump 必 gzip 且 gunzip -t+CREATE TABLE 校验 · restore 先另存退路且校验不过就中止 + RESTORE 确认 fail-closed · doctor 脱敏 · docker-up 三处末尾给完整常用操作 · 文档修正备份节奏)" \
+  || log_bad "v1628-OPS 缺件" "see deploy/_common-env.sh(MODE 探测)· backup-now.sh(gzip -9 + 两处 gunzip -t 校验 + 不得留 mysqldump|cat>)· restore.sh(gzip+校验 + before-restore 退路 + 校验不过中止 + FINANCE_RESTORE_CONFIRM)· doctor.sh(脱敏)· docker-up.sh(3 处常用操作块含 backup-now/restore/doctor/volume)· README(日常运维速查 + 每 24 小时)· faq(不得再写'每周日 03:00')"
+
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),
 #   而 useBar 在窄屏恒为 false → **窄屏两图必定同为环图**(用户反馈④与本次反馈的交集)。

@@ -34,7 +34,7 @@ A:**Alice / Bob 是内置的两个种子账号的默认显示名**(`diwa` / `wan
   docker volume ls | grep db-data          # 看看是不是有两个 *_db-data
   ```
   用回原来的目录名,或 `COMPOSE_PROJECT_NAME=<原项目名> bash deploy/docker-up.sh`,数据就回来了。
-- **执行过 `docker compose down -v`** → 卷被删,那是不可恢复的。备份 sidecar 每周日 03:00 会 dump 一份到 `backups` 卷(保留 56 天),可以从那里恢复:
+- **执行过 `docker compose down -v`** → 卷被删,那是不可恢复的。备份容器每 **24 小时**(从容器启动起算)dump 一份到 `backups` 卷(`finance-*.sql.gz`,默认保留 56 天),可以从那里恢复 —— 最省事的办法是 `bash deploy/restore.sh`,它会列出可用备份让你选,并在灌入前先把当前库另存一份当退路:
   ```bash
   docker compose exec backup ls -la /data/backups/
   ```
@@ -96,7 +96,19 @@ A：升级 `git pull && docker compose pull && docker compose up -d`(entrypoint 
 ## 数据 / 备份
 
 **Q：备份怎么恢复?**
-A:备份是每日 `mysqldump` 到 `backups` 卷 / `/var/backup/finance`。恢复:
+A:**直接用脚本**(v1.6.28 起):
+
+```bash
+bash deploy/restore.sh          # 列出可用备份 → 选一个 → 自动停 app、另存当前库当退路、灌入、起回来
+```
+
+它会要你输入 `RESTORE` 确认(覆盖性操作不接受顺手回车),并且**灌入前先把当前库 dump 成 `before-restore-*`** ——
+恢复选错了还能用它撤销回来。非交互场景(灾备演练)用 `FINANCE_RESTORE_CONFIRM=RESTORE`。
+
+**备份节奏**:Docker 是备份容器每 24 小时一次(`finance-*.sql.gz`);systemd 直装是 `finance-backup.timer` 每天 03:30
+(`/var/backup/finance/dump-*.sql.gz`)。重要操作前建议自己先备一份:`bash deploy/backup-now.sh`。
+
+想手工来也可以:
 ```bash
 # Docker:把某个备份灌回 db 容器
 gunzip -c 备份文件.sql.gz | docker compose exec -T db mysql -uroot -p<MYSQL_ROOT_PASSWORD> finance

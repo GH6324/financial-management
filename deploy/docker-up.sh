@@ -614,13 +614,39 @@ if [[ "$ok" == "1" ]]; then
   _fdu="$(envval DB_USER)"; _fdn="$(envval DB_NAME)"
   fresh_db_notice "$(envval DB_PASS)" "${_fdu:-finance}" "${_fdn:-finance}"
   login_hint
-  say "  停:$DC down(不删数据卷,数据还在)   日志:$DC logs -f app"
+  say ""
+  say "  ── 常用操作 ────────────────────────────────"
+  say "   看日志   $DC logs -f app              (只看错误:$DC logs --tail=200 app | grep -i error)"
+  say "   停       $DC stop                     (数据都在,随时能起回来)"
+  say "   起       $DC start                    (或直接重跑 bash deploy/docker-up.sh)"
+  say "   重启     $DC restart app"
+  say "   更新     git pull && bash deploy/docker-up.sh   (会告诉你从哪一版升到哪一版)"
+  say "   改配置   编辑 .env 后 $DC up -d        (运营参数如 key/阈值走管理页,改 .env 无效)"
+  say "   备份     bash deploy/backup-now.sh    (立刻备一份 · 加个目录参数可同时拷到宿主机)"
+  say "   恢复     bash deploy/restore.sh       (列出备份让你选 · 会先另存当前库当退路)"
+  say "   出问题   bash deploy/doctor.sh        (一键收集诊断信息 · 已脱敏 · 可直接贴 issue)"
+  say "   数据在哪 Docker 命名卷(不在仓库目录里):docker volume ls | grep db-data"
+  say "   彻底重来 $DC down -v && bash deploy/docker-up.sh   ⚠ down -v 会删光数据库,先备份"
+  say "  ────────────────────────────────────────────"
 elif [[ "$ok" == "skip" ]]; then
   say ""
   say "✓ 容器已起 → http://127.0.0.1:${PORT}  · 浏览器自行确认"
   version_verdict
   login_hint
-  say "  停:$DC down   日志:$DC logs -f app"
+  say ""
+  say "  ── 常用操作 ────────────────────────────────"
+  say "   看日志   $DC logs -f app              (只看错误:$DC logs --tail=200 app | grep -i error)"
+  say "   停       $DC stop                     (数据都在,随时能起回来)"
+  say "   起       $DC start                    (或直接重跑 bash deploy/docker-up.sh)"
+  say "   重启     $DC restart app"
+  say "   更新     git pull && bash deploy/docker-up.sh   (会告诉你从哪一版升到哪一版)"
+  say "   改配置   编辑 .env 后 $DC up -d        (运营参数如 key/阈值走管理页,改 .env 无效)"
+  say "   备份     bash deploy/backup-now.sh    (立刻备一份 · 加个目录参数可同时拷到宿主机)"
+  say "   恢复     bash deploy/restore.sh       (列出备份让你选 · 会先另存当前库当退路)"
+  say "   出问题   bash deploy/doctor.sh        (一键收集诊断信息 · 已脱敏 · 可直接贴 issue)"
+  say "   数据在哪 Docker 命名卷(不在仓库目录里):docker volume ls | grep db-data"
+  say "   彻底重来 $DC down -v && bash deploy/docker-up.sh   ⚠ down -v 会删光数据库,先备份"
+  say "  ────────────────────────────────────────────"
 else
   # 别只丢一句「看日志」+ 一串猜测(v1.6.22 前写的是「DB 还在初始化 / 端口被占」,而真实原因是
   # 数据卷老密码不匹配 —— 两个猜测都不对,用户拿到一屏 Access denied 完全不知道该干什么)。
@@ -638,7 +664,20 @@ else
       done
       if [[ "$ok" == "1" ]]; then
         say ""; say "✓ 起好了 → http://127.0.0.1:${PORT}"; login_hint
-        say "  停:$DC down(不删数据卷,数据还在)   日志:$DC logs -f app"
+        say ""
+  say "  ── 常用操作 ────────────────────────────────"
+  say "   看日志   $DC logs -f app              (只看错误:$DC logs --tail=200 app | grep -i error)"
+  say "   停       $DC stop                     (数据都在,随时能起回来)"
+  say "   起       $DC start                    (或直接重跑 bash deploy/docker-up.sh)"
+  say "   重启     $DC restart app"
+  say "   更新     git pull && bash deploy/docker-up.sh   (会告诉你从哪一版升到哪一版)"
+  say "   改配置   编辑 .env 后 $DC up -d        (运营参数如 key/阈值走管理页,改 .env 无效)"
+  say "   备份     bash deploy/backup-now.sh    (立刻备一份 · 加个目录参数可同时拷到宿主机)"
+  say "   恢复     bash deploy/restore.sh       (列出备份让你选 · 会先另存当前库当退路)"
+  say "   出问题   bash deploy/doctor.sh        (一键收集诊断信息 · 已脱敏 · 可直接贴 issue)"
+  say "   数据在哪 Docker 命名卷(不在仓库目录里):docker volume ls | grep db-data"
+  say "   彻底重来 $DC down -v && bash deploy/docker-up.sh   ⚠ down -v 会删光数据库,先备份"
+  say "  ────────────────────────────────────────────"
       else
         die "密码问题已处理,但应用仍没就绪。看日志:$DC logs --tail=80 app db"
       fi

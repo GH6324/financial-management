@@ -290,6 +290,28 @@ your.domain.com {
 }
 ```
 
+## 日常运维(Docker)
+
+| 要做什么 | 命令 |
+|---|---|
+| 看日志 | `docker compose logs -f app`(只看错误:`... \| grep -i error`) |
+| 停 / 起 / 重启 | `docker compose stop` / `start` / `restart app` |
+| 更新 | `git pull && bash deploy/docker-up.sh` |
+| 改配置 | 编辑 `.env` 后 `docker compose up -d`(运营参数走管理页,改 `.env` 无效) |
+| 立刻备份 | `bash deploy/backup-now.sh [输出目录]` —— 备完会 `gunzip -t` 校验,校验不过删掉不留假备份 |
+| 从备份恢复 | `bash deploy/restore.sh` —— 列出备份让你选,**灌入前先把当前库另存 `before-restore-*` 当退路** |
+| 诊断 | `bash deploy/doctor.sh` —— 只读 + 已脱敏,可直接贴 issue |
+| 数据在哪 | Docker 命名卷:`docker volume ls \| grep db-data` |
+| 彻底重来 | `docker compose down -v && bash deploy/docker-up.sh` ⚠ 先备份 |
+
+**备份节奏**:Docker 是 `backup` 容器每 **24 小时**(容器启动起算)dump 到 `backups` 卷(`finance-*.sql.gz`,保留 `RETENTION_DAYS` 天,默认 56);
+systemd 直装是 `finance-backup.timer` 每天 03:30 到 `/var/backup/finance/`。
+**自动备份最多是"昨天那一份"** —— 重要操作前自己 `backup-now.sh` 一次。
+
+恢复的确认闸门:交互时手输 `RESTORE`;非交互(灾备演练)用 `FINANCE_RESTORE_CONFIRM=RESTORE`;两者都没有则拒绝执行。
+
+---
+
 ## 怎么更新到新版本(Docker)
 
 ```bash
