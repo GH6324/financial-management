@@ -136,7 +136,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 431 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护)/ 55 e2e 断言(11 主线)/ 512 黑盒回归 |
+| 测试 | JUnit 5 · 431 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护)/ 55 e2e 断言(11 主线)/ 513 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
@@ -165,7 +165,7 @@ docker compose up -d           # 起 app + MySQL + 备份;有预构建镜像就�
 
 > **Windows**:装 [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/)(WSL2 后端,Win10/11 Home 也支持)→ 打开一个 WSL2(Ubuntu)终端,在里面 `git clone` 后跑**同一条** `bash deploy/docker-up.sh`(WSL2 就是 Linux,脚本原样适用;`docker compose` 随 Docker Desktop 自带)。建议把仓库放在 WSL2 文件系统内(`\\wsl$` 而非 `C:\`)以获得正常性能。前置:BIOS 开虚拟化 + 一次 `wsl --install` 并重启。
 
-浏览器开 `http://<宿主>:20000`。**默认只发布到 loopback(`127.0.0.1`)**——本机 / NAS 直接开即可;**部署在远程 VPS 则从笔记本打不开**(这是安全默认,不是 bug):临时看用 SSH 隧道 `ssh -L 20000:127.0.0.1:20000 user@服务器`,长期用前置反代 + HTTPS(见 [FAQ](docs/faq.md) / [`deploy/README.md` § 反代](deploy/README.md#反代--httpscompose-不内置自己挂))。**起好后怎么登录、第一次怎么用 → 见下方「部署好了:第一次怎么用」一节**。数据持久化在命名卷,升级 `git pull && docker compose pull && docker compose up -d`。**已用下面 systemd 直装的存量用户**可一键迁移:`sudo bash deploy/migrate-to-docker.sh`(数据零丢)。详见 [`deploy/README.md` § Docker 部署](deploy/README.md#docker-部署v07--推荐)。
+浏览器开 `http://<宿主>:20000`。**默认只发布到 loopback(`127.0.0.1`)**——本机 / NAS 直接开即可;**部署在远程 VPS 则从笔记本打不开**(这是安全默认,不是 bug):临时看用 SSH 隧道 `ssh -L 20000:127.0.0.1:20000 user@服务器`,长期用前置反代 + HTTPS(见 [FAQ](docs/faq.md) / [`deploy/README.md` § 反代](deploy/README.md#反代--httpscompose-不内置自己挂))。**起好后怎么登录、第一次怎么用 → 见下方「部署好了:第一次怎么用」一节**。数据持久化在命名卷。**怎么更新到新版本 → 见下方「[更新到新版本](#更新到新版本)」一节**(一条命令,会告诉你从哪一版升到哪一版)。**已用下面 systemd 直装的存量用户**可一键迁移:`sudo bash deploy/migrate-to-docker.sh`(数据零丢)。详见 [`deploy/README.md` § Docker 部署](deploy/README.md#docker-部署v07--推荐)。
 
 ### 方式二 · 直装(systemd · 无 Docker 环境)
 
@@ -220,6 +220,57 @@ bash deploy/deploy.sh   # 直装唯一入口 · macOS 自动转内部实现(无�
 跟 Linux 路径的差异:无 sudo · 用 brew 装依赖 · 文件全在 `$HOME/finance` · 启动用 `bash ~/finance/start.sh`(或 launchd 自启)· 没 nginx 反代,浏览器直接 `http://127.0.0.1:20000/`。详见 [`deploy/README.md` § macOS 本地部署](deploy/README.md#macos-本地部署)。
 
 详细部署文档:[`deploy/README.md`](deploy/README.md)
+
+## 更新到新版本
+
+### Docker(推荐)
+
+```bash
+git pull                       # 更新 compose 文件与部署脚本本身
+bash deploy/docker-up.sh       # 拉新镜像 + 重建容器 + 告诉你从哪一版升到哪一版
+```
+
+**同一条命令既是首装也是更新**,幂等、可反复跑。数据在命名卷里,更新不动数据。跑完它会明确告诉你结果:
+
+```
+✓ 已更新:v1.6.24 → v1.6.25
+✓ 已是最新发布版(GitHub 最新 release = v1.6.25)
+```
+
+或者:
+
+```
+· 当前版本 v1.6.24
+⚠ 你在跑 v1.6.24,但最新发布版是 v1.6.25。
+  最常见原因:刚打 tag 不久,预构建镜像还在 CI 里(约 12 分钟)—— 过几分钟重跑本脚本即可。
+```
+
+**两件容易误解的事**(v1.6.25 之前我们没说清,给用户造成过困扰):
+
+1. **`git pull` 拉到的新代码不会进容器。** 应用来自预构建镜像(GHCR),`git pull` 只影响
+   **compose 文件**和**部署脚本本身**(它们确实会随版本变,比如 v1.6.21 换了数据库镜像源、
+   v1.6.22 改了健康检查判据)。想立刻用上仓库里的代码而不等镜像:`docker compose up -d --build`(本地构建)。
+2. **打完 tag 到镜像可用,中间有约 12 分钟的 CI 构建时间。** 看到发布消息立刻更新,大概率还是拉到旧镜像。
+   脚本现在会替你分辨「已经最新」和「镜像还没构建好」这两种情况。
+
+想确认当前版本,不用登录:
+
+```bash
+curl -s http://127.0.0.1:20000/health     # {"status":"UP","version":"1.6.25"}
+```
+
+不想让脚本联网查最新版本:设 `FINANCE_NO_UPDATE_CHECK=1`。
+
+### systemd 直装
+
+```bash
+git pull
+sudo bash deploy/deploy.sh     # 幂等 · 内置迁移 + 失败自动回滚 jar
+```
+
+回滚上一版:`bash deploy/rollback.sh`(deploy 会把旧 jar 留成 `app.jar.prev`)。
+
+---
 
 ## 部署好了:第一次怎么用(Docker / 直装通用)
 

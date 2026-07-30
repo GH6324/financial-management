@@ -139,7 +139,10 @@
         </form>
 
         <!-- 已有缓存的建议在这里渲染 -->
-        <div th:if="${rebalanceAdvice != null}" th:insert="~{reports/_ai-rebalance :: card}"></div>
+        <!-- 条件外提(v1.6.25):th:insert 优先级高于 th:if,同元素写会无条件插入片段 -->
+        <th:block th:if="${rebalanceAdvice != null}">
+          <div th:insert="~{reports/_ai-rebalance :: card}"></div>
+        </th:block>
 
         <p th:if="${rebalanceAdvice == null and rebalanceFlash == null}" class="text-[10px] text-ink-subtle italic">
           点按钮即可生成调仓步骤与文字说明。

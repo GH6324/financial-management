@@ -4,8 +4,12 @@
   统一错误兜底页 · 已登录复用 fragments/layout + nav(与其它页面顶栏一致),
   未登录走极简自包含 fallback(无 nav,只一个简化顶栏)。
 -->
-<head th:if="${nav != null}" th:replace="~{fragments/layout :: head('出错了 · 家庭账房')}"></head>
-<head th:unless="${nav != null}">
+<!--
+  v1.6.25 · head 固定走自包含版本,不再按登录态切到 layout::head。
+  原因:错误页依赖的正是刚刚出错的那套机制 —— 错误页必须**零依赖**才靠得住。
+  自包含 head 已包含同一套字体 + style.css + tailwind,视觉上没有损失。
+-->
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>出错了 · 家庭账房</title>
@@ -20,8 +24,14 @@
 
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 
-<!-- 已登录:复用完整 nav(与其它页面一致) -->
-<header th:if="${nav != null}" th:replace="~{fragments/nav :: nav('error', ${me}, ${nav})}"></header>
+<!-- 已登录:复用完整 nav(与其它页面一致)。
+     **条件必须放在外层元素上**:th:replace 的优先级(1)高于 th:if(3),
+     写在同一个元素上时 replace 先执行 —— nav 片段会带着 null 参数被渲染,
+     在 `state.family.logoPreset` 抛 SpelEvaluationException,响应**截断在 nav 中间**
+     (未登录出错时用户拿到的就是这么一个半截页面,而且它会盖住真正的报错)。v1.6.25 实测确认。 -->
+<th:block th:if="${nav != null}">
+  <header th:replace="~{fragments/nav :: nav('error', ${me}, ${nav})}"></header>
+</th:block>
 
 <!-- 未登录:简化顶栏 -->
 <header th:unless="${nav != null}" class="sticky top-1 backdrop-blur border-b border-rule z-30"

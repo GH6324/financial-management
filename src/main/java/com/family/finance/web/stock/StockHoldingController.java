@@ -341,7 +341,7 @@ public class StockHoldingController {
             throw new IllegalArgumentException("无权访问账户");
         }
         if (!StockHoldingService.supportsHoldings(acc.getType())) {
-            throw new IllegalArgumentException("仅 STOCK / CRYPTO / METAL 类型账户支持持仓管理");
+            throw new IllegalArgumentException("该账户类型不支持持仓管理(支持:股票 / 加密 / 贵金属 / 理财 / 现金)· 当前 " + acc.getType());
         }
         return acc;
     }

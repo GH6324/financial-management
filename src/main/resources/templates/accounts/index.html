@@ -311,7 +311,10 @@
     </th:block>
   </section>
 
-  <th:block th:if="${showWizard}" th:replace="~{accounts/_template-wizard :: wizard}"></th:block>
+  <!-- 条件外提:th:if 与 th:replace 不能放同一元素(replace 优先级更高会先执行)· v1.6.25 -->
+  <th:block th:if="${showWizard}">
+    <th:block th:replace="~{accounts/_template-wizard :: wizard}"></th:block>
+  </th:block>
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>

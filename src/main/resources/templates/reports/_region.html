@@ -181,7 +181,10 @@
   <!-- v0.4 FR-60b 砍:第五·半 风险敞口明细表(与风险等级分布环形信息重复)· 详情见 /checkup -->
   <!-- 风险等级分布环形已搬到上方第三表(单留一处)-->
   <!-- 配置 diff + AI 调仓建议放在账户级收益之后 · 见下方 _allocation-diff fragment -->
-  <section th:if="${allocationDiff != null}" class="mb-12" th:insert="~{reports/_allocation-diff :: section}"></section>
+  <!-- 条件外提(v1.6.25):同上 -->
+  <th:block th:if="${allocationDiff != null}">
+    <section class="mb-12" th:insert="~{reports/_allocation-diff :: section}"></section>
+  </th:block>
 
   <section id="sec-accounts" class="mb-12" style="scroll-margin-top:80px">
     <div class="flex items-end justify-between mb-3 flex-wrap gap-2">

@@ -29,6 +29,27 @@ _to(){ local s="$1"; shift
   else "$@"; fi; }
 pull_one(){ _to 50 docker pull "$1" >/dev/null 2>&1; }
 
+# ── 版本可见性(v1.6.25)────────────────────────────────────────────
+# 起因:用户 git pull 后重跑本脚本,拿到的仍是旧版本,而**脚本从头到尾不说跑的是哪一版**
+# (版本徽记只在登录后的 nav 里),于是"静默拿到旧版"无法自查。现在:
+#   ① 起之前读一次版本、起之后再读一次 → 明确打印「vA → vB 已更新」或「已是 vB,无变化」;
+#   ② 和 GitHub 上最新 release 比 → 落后就说清楚,尤其区分「已经最新」和「镜像还在构建」
+#      (打 tag 后 CI 约 12 分钟才推出镜像,用户一看到发版消息就来更新必然拿到旧的 —— 就是这个坑)。
+# 关掉联网检查:FINANCE_NO_UPDATE_CHECK=1(脚本本来就要联网拉镜像,查一个 tag 不新增暴露,但给开关)
+running_version(){   # 读 /health 的 version;读不到输出空
+  local port="$1"
+  command -v curl >/dev/null 2>&1 || return 0
+  _to 6 curl -fsS "http://127.0.0.1:${port}/health" 2>/dev/null \
+    | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
+}
+latest_release_tag(){   # GitHub 最新 release 的 tag;失败或被关闭时输出空
+  [[ -z "${FINANCE_NO_UPDATE_CHECK:-}" ]] || return 0
+  command -v curl >/dev/null 2>&1 || return 0
+  _to 8 curl -fsS -H 'Accept: application/vnd.github+json' \
+    https://api.github.com/repos/LuoDi-Nate/financial-management/releases/latest 2>/dev/null \
+    | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1
+}
+
 # 生成 .env(随机 DB/root/REMEMBER_ME_KEY)· 幂等:已存在直接返回。
 # v0.x 起 .env 生成内联到本脚本(原 deploy/docker-init.sh 已删),让 Docker 渠道只有这一个入口。
 ensure_env(){
@@ -295,6 +316,11 @@ if [[ ! -f .env ]]; then
   say "  ✓ 已生成 .env"
 fi
 
+# 起之前先记下"现在跑的是哪一版"(可能没在跑 → 空,那就是首装)
+PORT_PRE="$(grep -E '^SERVER_PORT=' .env 2>/dev/null | cut -d= -f2 || true)"; PORT_PRE="${PORT_PRE:-20000}"
+VER_BEFORE="$(running_version "$PORT_PRE" || true)"
+[[ -n "$VER_BEFORE" ]] && say "· 当前在跑 v${VER_BEFORE}(准备检查更新)"
+
 # ── 5. 镜像:先定数据库镜像(双源)→ 再拉 app 预构建 → 拉不到才本地构建 ──
 # 用户显式指定优先(环境变量 或 .env 里的 MYSQL_IMAGE);否则 GHCR 副本 → Docker Hub 顺序探。
 if [[ -z "${MYSQL_IMAGE:-}" ]]; then
@@ -471,14 +497,46 @@ login_hint(){
   say "  ──────────────────────────────────────────"
 }
 
+# 版本结论(v1.6.25)· 这段就是为了不让"静默拿到旧版"再发生
+version_verdict(){
+  local now latest
+  now="$(running_version "$PORT" || true)"
+  latest="$(latest_release_tag || true)"; latest="${latest#v}"
+  # 读不到版本 ≠ 不用管:恰恰是**旧镜像**才不返回 version,而这些用户最需要「最新是 vX」这句话。
+  if [[ -z "$now" ]]; then
+    say "  · 读不到版本(/health 不返回 version → 你的镜像早于 v1.6.25)"
+    [[ -n "$latest" ]] && say "    最新发布版是 **v${latest}**;更新到它之后这里就会直接显示版本号。"
+    return 0
+  fi
+  if [[ -n "$VER_BEFORE" && "$VER_BEFORE" != "$now" ]]; then
+    say "  ✓ 已更新:v${VER_BEFORE} → **v${now}**"
+  elif [[ -n "$VER_BEFORE" ]]; then
+    say "  · 版本无变化:仍是 v${now}"
+  else
+    say "  · 当前版本 v${now}"
+  fi
+  [[ -n "$latest" ]] || return 0
+  if [[ "$latest" == "$now" ]]; then
+    say "  ✓ 已是最新发布版(GitHub 最新 release = v${latest})"
+  else
+    say ""
+    say "  ⚠ 你在跑 v${now},但最新发布版是 **v${latest}**。"
+    say "    最常见原因:刚打 tag 不久,预构建镜像还在 CI 里(约 12 分钟)—— 过几分钟重跑本脚本即可。"
+    say "    (镜像 tag :latest 是 CI 构建完才更新的;git pull 拉到的新代码不会进容器,"
+    say "     它只影响 compose 文件与本脚本自身。想立刻用上新代码可本地构建:$DC up -d --build)"
+  fi
+}
+
 if [[ "$ok" == "1" ]]; then
   say ""
   say "✓ 起好了 → http://127.0.0.1:${PORT}  (默认只发布到 loopback,公网请前置反代加 HTTPS)"
+  version_verdict
   login_hint
   say "  停:$DC down(不删数据卷,数据还在)   日志:$DC logs -f app"
 elif [[ "$ok" == "skip" ]]; then
   say ""
   say "✓ 容器已起 → http://127.0.0.1:${PORT}  · 浏览器自行确认"
+  version_verdict
   login_hint
   say "  停:$DC down   日志:$DC logs -f app"
 else

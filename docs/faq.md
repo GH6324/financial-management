@@ -11,6 +11,22 @@ A：默认只绑定 `127.0.0.1`(loopback),不对公网开放——这是安全�
 - **长期用**:在服务器上前置反代(nginx / Caddy)并配 HTTPS,把 80/443 转到容器的 20000。片段见 [`deploy/README.md`](../deploy/README.md) 的「反代 / HTTPS」。
 - (不推荐)直接公网裸奔:把 `.env` 的 `SERVER_PORT` 映射改成 `0.0.0.0` / 或 compose 端口去掉 `127.0.0.1:` 前缀——务必先配好登录强密码,且家庭财务数据建议别裸奔。
 
+**Q:我 `git pull` 了新代码、重跑了 `bash deploy/docker-up.sh`,为什么还是旧版本?**
+A:两个原因,v1.6.25 起脚本会直接告诉你是哪一个。
+
+- **`git pull` 拉到的新代码不会进容器。** 应用跑的是预构建镜像(GHCR),`git pull` 只影响 compose 文件和部署脚本本身。想立刻用上仓库里的代码:`docker compose up -d --build`(本地构建,慢一些)。
+- **打完 tag 到镜像可用之间有约 12 分钟的 CI 构建时间。** 看到发布消息立刻更新,大概率还是拉到旧镜像 —— 过几分钟重跑脚本即可。
+
+确认当前跑的版本,不用登录:
+
+```bash
+curl -s http://127.0.0.1:20000/health     # {"status":"UP","version":"1.6.25"}
+```
+
+v1.6.25 之前的镜像不返回 `version`,那时只能登录后看导航栏右上的版本徽记。
+
+---
+
 **Q:应用起不来,日志一直刷 `Access denied for user 'finance'` / `ERROR 1045` 怎么办?**
 A:**跑一次 `bash deploy/docker-up.sh` 就会自动修好,不会删你的数据**(v1.6.22 起)。
 

@@ -118,7 +118,15 @@ grep -q "</html>" "$TMP" && log_ok "FR2-2 /admin/account-templates" || log_bad "
 # ---------- FR-3 ----------
 section "FR-3 · 账户管理"
 $CURL -b $COOKIE "$BASE/accounts" -o "$TMP" -w ""
-grep -q "招行储蓄卡-工资" "$TMP" && log_ok "FR3-1 /accounts 列表" || log_bad "FR3-1 /accounts" "missing accounts"
+# v1.6.25 修正:原断言 grep 的是「招行储蓄卡-工资」—— 那**根本不是账户行**,而是建户向导里
+#   `<input name="displayName" placeholder="如: 招行储蓄卡-工资">` 的占位符;而向导片段因为
+#   `th:if` 与 `th:replace` 写在同一元素(优先级 1 > 3)被**无条件渲染**,占位符一直在 HTML 里。
+#   叫这个名字的账户 2026-06-28 就归档了(默认列表不含归档)→ 这条守护**一个月来没在验账户列表**。
+#   修好片段条件后它才露出来。改成从 DB 取**真实活跃账户名**,不再写死文案(免得再次腐烂)。
+ACC1_NAME=$(mysql -ufinance -pfinance finance -sN -e "SELECT display_name FROM account WHERE family_id=1 AND archived_at IS NULL ORDER BY id LIMIT 1" 2>/dev/null)
+{ [ -n "$ACC1_NAME" ] && grep -qF "$ACC1_NAME" "$TMP" && grep -q 'ledger-table' "$TMP"; } \
+  && log_ok "FR3-1 /accounts 列表(含活跃账户「${ACC1_NAME}」+ 表格结构)" \
+  || log_bad "FR3-1 /accounts" "列表里没有活跃账户「${ACC1_NAME:-取不到}」或缺 ledger-table"
 
 $CURL -b $COOKIE "$BASE/accounts/1/edit" -o "$TMP" -w ""
 { grep -q "保存对账户的修改" "$TMP" && grep -q "招行储蓄卡-工资" "$TMP"; } && log_ok "FR3-3 编辑专属页正确" || log_bad "FR3-3 编辑页" "missing"
@@ -4762,6 +4770,51 @@ LINKT="$RD/src/main/resources/templates/broker/link.html"
   && grep -qF '.link-strip' "$CSS" && grep -qF 'min-height: 44px' "$CSS"; } \
   && log_ok "v1624-BROKER-CTX(持仓页状态条两态·未关联不摆空字段 · 两按钮同款 btn-paper + OpenD 不被大写 · 向导 ?account 上下文且校验同家庭 · 填报行加入口且 flex-wrap · 账户页判据统一 supportsHoldings 不再硬编码枚举)" \
   || log_bad "v1624-BROKER-CTX 缺件" "see stock/holdings.html(link-strip 两态 + is-none + lastSyncedAt/opendHost + 4 处 btn-paper 且不得留 btn-ghost + text-transform:none + opend(account=)· broker/link.html(向导链接带 account)· StockHoldingController(brokerLinkMapper)· FutuOpendController(?account + ctxAccountId + 同家庭校验)· opend-wizard.html(ctxAccountId 条件)· entry/_row.html(flex-wrap + /broker 入口)· accounts/index.html(2 处 supportsHoldings、不得留 == 'STOCK' or)· style.css(.link-strip + 手机 44px)"
+
+# v1625-UPDATE-PATH · 更新路径可自查 + Thymeleaf 条件片段陷阱(用户第 15 轮反馈)
+#   用户原话:「我拉了新的代码重新运行了 bash deploy/docker-up.sh,依然是旧代码版本,
+#   我们期望我们的用户如何更新版本?」—— 端到端复现后确认**脚本本身没坏**
+#   (旧镜像在跑 → 跑脚本 → 容器确实换成新镜像 1ff63fb→7f78edc)。真因是三条叠加:
+#     ① `git pull` 拉到的新代码**不进容器** —— app 来自 GHCR 预构建镜像,git pull 只影响
+#        compose 文件与脚本本身;而 README 把三条命令并列埋在一大段文字里,让人以为 git pull 是关键那步。
+#     ② 打 tag 到镜像可用之间有**约 12 分钟 CI 构建**(实测 build-push 12m7s)。看到发版消息立刻更新 → 拉到旧的。
+#     ③ **脚本从头到尾不说版本**(grep 版本 = 0 处),/health 只有 {"status":"UP"},落地页也没有,
+#        版本徽记只在**登录后**的 nav 里 → "静默拿到旧版"无法自查。这条是用户困惑的直接原因。
+#   修:/health 带 version;脚本起前起后各读一次并打印「vA → vB」/「无变化」/「落后且镜像未就绪」;
+#   与 GitHub 最新 release 对比(FINANCE_NO_UPDATE_CHECK=1 可关);README/deploy-README/faq 提独立小节。
+#   **读不到版本时仍要给「最新是 vX」** —— 恰恰是旧镜像才不返回 version,这些用户最需要那句话(自查补的)。
+#
+#   顺带修两个既存缺陷(上一版记录、本版兑现):
+#     · Thymeleaf 陷阱:`th:if` 与 `th:replace`/`th:insert` **不能放同一元素** ——
+#       片段包含优先级(1)高于条件求值(3),replace 先执行 → 片段带着 null 参数被渲染。
+#       error.html 上就是这样:未登录出错时 nav 片段拿到 state=null,在 `state.family.logoPreset`
+#       抛 SpelEvaluationException,**响应截断在 nav 中间**(实测:输出里有 nav-inner/nav-lead
+#       但没有 tabs、没有错误页正文、没有 fallback 顶栏、只有一个 <header>)。
+#       而且它**会盖住真因** —— 排查时先看到的是 nav 的二次异常。修法:条件外提到 th:block;
+#       error 页的 head 干脆固定自包含(**错误页必须零依赖**:它依赖的正是刚出错的那套机制)。
+#       全仓同类共 5 处(error 2 + accounts 1 + reports 2),一并外提;本守护钉住"不得再出现"。
+#     · StockHoldingController 异常文案与判据不一致(仍写「仅 STOCK/CRYPTO/METAL」而 supportsHoldings
+#       自 v1.4 起含 WEALTH/CASH)→ 改成按实际支持集表述,免得排查被文案带偏(我这次就被带偏一次)。
+{ grep -qF '"version", appVersion' "$RD/src/main/java/com/family/finance/web/HealthController.java" \
+  && grep -qF 'app.version:dev' "$RD/src/main/java/com/family/finance/web/HealthController.java" \
+  && grep -q '^running_version()' "$DUP" && grep -q '^latest_release_tag()' "$DUP" \
+  && grep -q '^version_verdict()' "$DUP" \
+  && grep -qF 'FINANCE_NO_UPDATE_CHECK' "$DUP" \
+  && grep -qF 'VER_BEFORE' "$DUP" \
+  && grep -qF '已更新:v' "$DUP" && grep -qF '版本无变化' "$DUP" \
+  && grep -qF '不返回 version' "$DUP" \
+  && grep -qF '约 12 分钟' "$DUP" \
+  && [ "$(grep -c 'version_verdict' "$DUP")" -ge 3 ] \
+  && grep -q '^## 更新到新版本' "$RD/README.md" \
+  && grep -qF '怎么更新到新版本' "$RD/deploy/README.md" \
+  && grep -qF '为什么还是旧版本' "$RD/docs/faq.md" \
+  && [ "$(grep -rlE 'th:(if|unless)="[^"]*"[^>]*th:(replace|insert)=|th:(replace|insert)="[^"]*"[^>]*th:(if|unless)=' --include='*.html' "$RD/src/main/resources/templates" | wc -l)" -eq 0 ] \
+  && grep -qF '<th:block th:if="${nav != null}">' "$RD/src/main/resources/templates/error.html" \
+  && ! grep -qF 'th:if="${nav != null}" th:replace' "$RD/src/main/resources/templates/error.html" \
+  && ! grep -qF '仅 STOCK / CRYPTO / METAL 类型账户支持持仓管理' "$RD/src/main/java/com/family/finance/web/stock/StockHoldingController.java" \
+  && bash -n "$DUP"; } \
+  && log_ok "v1625-UPDATE-PATH(/health 带 version · 脚本报「vA→vB / 无变化 / 落后+CI 12min」且旧镜像也给最新版提示 · 三处文档独立更新小节 · 全仓无 th:if+th:replace 同元素 · error 页 head 零依赖 + 条件外提 · 持仓异常文案与判据一致)" \
+  || log_bad "v1625-UPDATE-PATH 缺件" "see HealthController(version + app.version:dev)· deploy/docker-up.sh(running_version/latest_release_tag/version_verdict + VER_BEFORE + FINANCE_NO_UPDATE_CHECK + 三种结论文案 + 约 12 分钟)· README「## 更新到新版本」/ deploy-README / faq · templates 不得有 th:if 与 th:replace/th:insert 同元素(优先级 1 > 3,replace 先跑)· error.html 用 th:block 外提 · StockHoldingController 文案"
 
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),

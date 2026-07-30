@@ -11,8 +11,20 @@ import java.util.Map;
 @RestController
 public class HealthController {
 
+    /** 发布语义版本 · application.yml app.version(与 nav 徽记同源)*/
+    @org.springframework.beans.factory.annotation.Value("${app.version:dev}")
+    private String appVersion;
+
+
+    /**
+     * v1.6.25 · 带上版本号。
+     * 起因:用户拉了新代码、重跑 docker-up.sh,却不知道自己到底跑的是哪一版 ——
+     * 而版本徽记只在**登录后**的 nav 里,/health 只有 {"status":"UP"},落地页也没有。
+     * 结果是"静默拿到旧版本"无法自查。这里暴露出来,用户和部署脚本都能不登录确认。
+     * 只暴露语义版本(与 nav 徽记同源 app.version),不含构建号/主机/路径等运维细节。
+     */
     @GetMapping(value = "/health", produces = "application/json")
     public Map<String, String> health() {
-        return Map.of("status", "UP");
+        return Map.of("status", "UP", "version", appVersion);
     }
 }
