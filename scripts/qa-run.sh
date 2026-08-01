@@ -5034,6 +5034,29 @@ CKF="$RD/src/main/resources/templates/checkup/family.html"
   && log_ok "v1630-CLOSED-ANCHOR(收益类锚最新已关账期 · 存量类仍锚末期 · openingBaselineLast 不动保「本期怎么变」恒等式 · savingsRate 走 PMC 优先 · 总资产口径文案补全 CRYPTO/METAL/INSURANCE · 两页 KPI 标注口径期)" \
   || log_bad "v1630-CLOSED-ANCHOR 缺件" "see FactSlice(returnPeriodIds/filingInProgress)· FactMapper(+xml findClosedPeriodIds status='CLOSED')· FactViewServiceImpl(familyXirr/familyTwr/ytd/拆解 走 returnPeriodIds · savingsRate 走 netInflowIncome 不得再用 periodIncome(lastPeriodId) · openingBaselineLast 必须仍锚 last)· KpiSnapshot(returnAnchorNetWorth/returnPeriodCount)· ReportsController(familyMonths 改 returnPeriodIds)· dashboard/_region.html + checkup/family.html(总资产文案不得再出现 CASH + STOCK + WEALTH + PROPERTY · 须带 returnAnchorMonth 口径期标注)"
 
+# v1631-RPT-ACCT-M · 报表「账户级收益 · vs 基准」必须有手机端卡片布局(用户第 21 轮:「手机端那个账户明细 排版差劲的不行」)
+#   实测证据(390×844):该 section 原先手机上只有 PC 宽表 + overflow-x-auto ——
+#   **17 列共 1653px 塞进 358px 容器**,首屏只看得到「账户/类型/类目」三列,
+#   **一个叫「账户级收益」的表在手机上一个收益数字都看不到**;类型 pill 被压到 ~40px 宽把
+#   「现金」折成两行;行高 ~140px × 18 行 = 1480px 却几乎不承载信息;且 有手机块=false
+#   (仪表盘 v0.8 起就有 sm:hidden 卡片块,报表这块一直漏做)。
+#   改:PC 表限定 hidden sm:block;<sm 用 details 卡片(同一份 accountRows / 同一套 acctMetrics 门控 /
+#   同样带 data-mcol 所以顶部 chips 继续管得到)。主行 [类型pill][账户名] … [vs基准pill],
+#   次行 [当前价值 · 收益率] … [展开],两行都 justify-between → 有/无 pill 的卡片等高不参差
+#   (实测 18 张卡折叠态高度集 = {67},唯一值)。
+#   基准% 刻意不放次行:实测窄屏会折行并拖出一个孤立的「·」,改进展开区。
+#   顺带修 `.pill{text-transform:uppercase}` 把「跑赢/跑输 ±N pp」的**单位 pp 渲染成 PP** ——
+#   加 .pill-vs{text-transform:none},PC 与手机同一处修(只给 6 个 vs pill,不动类型/类目 pill)。
+RGN="$RD/src/main/resources/templates/reports/_region.html"
+{ grep -qF 'sm:hidden space-y-2' "$RGN" \
+  && grep -qF 'overflow-x-auto hidden sm:block' "$RGN" \
+  && [ "$(grep -c 'pill pill-vs' "$RGN")" -eq 6 ] \
+  && grep -qF '.pill-vs{ text-transform:none; }' "$RGN" \
+  && [ "$(grep -c 'data-mcol' "$RGN")" -ge 24 ] \
+  && grep -qF 'min-width:3.4em' "$RGN"; } \
+  && log_ok "v1631-RPT-ACCT-M(报表账户段手机卡片布局 · PC 表限定 sm:block · chips 仍管手机卡 · 类型 pill 固定宽防折行 · vs pill 的单位 pp 不再被大写)" \
+  || log_bad "v1631-RPT-ACCT-M 缺件" "see reports/_region.html:需 sm:hidden 卡片块 + PC 表 hidden sm:block + 恰好 6 处 pill-vs(3 PC + 3 手机,不含类型/类目 pill)+ .pill-vs{text-transform:none} + 手机卡带 data-mcol(chips 联动)+ 类型 pill min-width:3.4em"
+
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),
 #   而 useBar 在窄屏恒为 false → **窄屏两图必定同为环图**(用户反馈④与本次反馈的交集)。

@@ -205,7 +205,87 @@
       <span class="font-mono text-[9px] text-ink-subtle ml-1">· 与仪表盘同源 · <a th:href="@{/admin/metrics}" class="text-brass-deep hover:underline no-underline">增减指标</a></span>
     </div>
 
-    <div class="paper-card overflow-x-auto">
+    <!-- ══ 手机端(<sm)· 每账户一张可展开卡片 ══════════════════════════════════════════
+         v1.6.30 修排版:本节原先手机上只有那张 PC 宽表 + overflow-x-auto —— 17 列共 1653px
+         塞进 358px 容器,首屏只看得到「账户/类型/类目」三列,**这个叫「账户级收益」的表在手机上
+         一个收益数字都看不到**;类型 pill 被压到 ~40px 宽把「现金」折成两行;行高 ~140px × 18 行
+         = 1480px 却几乎不承载信息。
+         做法沿用仪表盘早就有的同一套范式(同一份 accountRows / 同一套 acctMetrics 门控 /
+         同样带 data-mcol 所以顶部 chips 继续管得到),差别是本节主题是「vs 基准」,
+         所以主行右侧放 vs 基准判定(跑赢/跑输/持平 ±N pp)、次行放 当前价值 与 收益率,
+         基准% 与其余指标进展开区 —— 次行不放基准是实测结论:窄屏会折行并拖出一个孤立的「·」。
+         主行/次行都用 justify-between,保证有 pill 与没 pill 的卡片结构一致、右侧不参差
+         (memory:并列同类元素必须同尺寸同样式)。 -->
+    <div class="sm:hidden space-y-2">
+      <details th:each="account : ${accountRows}" class="paper-card px-3 py-2.5"
+               th:with="bm=${benchmarkByAccount.get(account.accountId)},pc=${pcNameByAccount.get(account.accountId)}">
+        <summary class="cursor-pointer list-none">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <!-- 类型 pill 前置 + 固定宽度(与 PC 表 / 仪表盘手机卡一致 · 防「现金」折行) -->
+              <span class="pill text-center shrink-0 whitespace-nowrap" style="min-width:3.4em"
+                    th:text="${account.accountType.label}">现金</span>
+              <a th:href="@{/accounts/{id}(id=${account.accountId})}"
+                 class="font-display text-sm hover:text-brass-deep no-underline truncate"
+                 th:text="${account.accountName}">账户</a>
+            </div>
+            <span th:if="${bm != null and bm.beatStatus == 'BEAT'}" class="pill pill-vs text-[9px] whitespace-nowrap shrink-0"
+                  style="background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)"
+                  th:text="'跑赢 +' + ${bm.diffPct} + 'pp'">跑赢</span>
+            <span th:if="${bm != null and bm.beatStatus == 'MISS'}" class="pill pill-vs text-[9px] whitespace-nowrap shrink-0"
+                  style="background:rgba(159,74,58,.10);color:var(--rust);border:1px solid var(--rust)"
+                  th:text="'跑输 ' + ${bm.diffPct} + 'pp'">跑输</span>
+            <span th:if="${bm != null and bm.beatStatus == 'FLAT'}" class="pill pill-vs text-[9px] whitespace-nowrap shrink-0"
+                  style="border:1px solid var(--ink-subtle);color:var(--ink-soft)"
+                  th:text="'持平 ' + ${bm.diffPct} + 'pp'">持平</span>
+          </div>
+          <div class="flex items-baseline justify-between gap-2 mt-1">
+            <div class="font-mono text-[11px] text-ink-subtle min-w-0 truncate">
+              <span data-priv th:text="${account.currentValue == null ? '—' : ((currency == 'USD' ? '$' : (currency == 'HKD' ? 'HK$' : '¥')) + #numbers.formatInteger(account.currentValue, 1, 'COMMA'))}">¥0</span>
+              <span data-mcol="xirr" th:if="${acctMetrics.contains('xirr')}">
+                · 收益率 <span th:text="${account.xirr == null ? '—' : (#numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">—</span><sup
+                    th:if="${account.xirr != null and account.monthsHeld != null and account.monthsHeld &lt; 12}"
+                    class="text-ink-subtle text-[8px] ml-0.5" title="不足 12 期 · 此为累计回报(未年化)">累</sup>
+              </span>
+            </div>
+            <span class="font-mono text-[10px] text-ink-subtle shrink-0">展开</span>
+          </div>
+        </summary>
+        <dl class="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-rule-soft font-mono text-[11px]">
+          <div class="flex justify-between col-span-2"><dt class="text-ink-subtle">类目</dt>
+            <dd th:if="${pc != null}" th:text="${pc}">—</dd>
+            <dd th:if="${pc == null}" class="text-ink-subtle">未设</dd></div>
+          <div class="flex justify-between"><dt class="text-ink-subtle">基准</dt>
+            <dd th:text="${bm != null and bm.benchmarkPct != null ? bm.benchmarkPct + '%' : '—'}">—</dd></div>
+          <div class="flex justify-between" data-mcol="return_base" th:if="${acctMetrics.contains('return_base') and account.returnBase != null}"><dt class="text-ink-subtle">本位币年化</dt>
+            <dd th:text="${#numbers.formatDecimal(account.returnBase * 100, 1, 2) + '%'}">—</dd></div>
+          <div class="flex justify-between" data-mcol="cum_pnl" th:if="${acctMetrics.contains('cum_pnl')}"><dt class="text-ink-subtle">累计损益</dt>
+            <dd th:classappend="${account.cumPnl == null ? '' : (account.cumPnl.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
+                data-priv th:text="${account.cumPnl == null ? '—' : ((account.cumPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.cumPnl, 1, 'COMMA'))}">—</dd></div>
+          <div class="flex justify-between" data-mcol="net_principal" th:if="${acctMetrics.contains('net_principal')}"><dt class="text-ink-subtle">累计净投入</dt>
+            <dd data-priv th:text="${account.netPrincipal == null ? '—' : #numbers.formatInteger(account.netPrincipal, 1, 'COMMA')}">—</dd></div>
+          <div class="flex justify-between" data-mcol="period_return" th:if="${acctMetrics.contains('period_return')}"><dt class="text-ink-subtle">本期损益</dt>
+            <dd th:classappend="${account.latestPnl == null ? '' : (account.latestPnl.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
+                data-priv th:text="${account.latestPnl == null ? '—' : ((account.latestPnl.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.latestPnl, 1, 'COMMA'))}">—</dd></div>
+          <div class="flex justify-between" data-mcol="mom_delta" th:if="${acctMetrics.contains('mom_delta')}"><dt class="text-ink-subtle">本期Δ</dt>
+            <dd th:classappend="${account.momAmount == null ? '' : (account.momAmount.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
+                data-priv th:text="${account.momAmount == null ? '—' : ((account.momAmount.signum() &gt; 0 ? '+' : '') + #numbers.formatInteger(account.momAmount, 1, 'COMMA'))}">—</dd></div>
+          <div class="flex justify-between" data-mcol="max_drawdown" th:if="${acctMetrics.contains('max_drawdown')}"><dt class="text-ink-subtle">最大回撤</dt>
+            <dd th:classappend="${account.maxDrawdownPct == null ? '' : (account.maxDrawdownPct.signum() &lt; 0 ? 'num-neg' : '')}"
+                th:text="${account.maxDrawdownPct == null ? '—' : (#numbers.formatDecimal(account.maxDrawdownPct, 1, 1) + '%')}">—</dd></div>
+          <div class="flex justify-between" data-mcol="share_pct" th:if="${acctMetrics.contains('share_pct')}"><dt class="text-ink-subtle">占比</dt>
+            <dd th:text="${account.sharePct == null ? '—' : (#numbers.formatDecimal(account.sharePct, 1, 1) + '%')}">—</dd></div>
+          <div class="flex justify-between" data-mcol="months_held" th:if="${acctMetrics.contains('months_held')}"><dt class="text-ink-subtle">持有期数</dt>
+            <dd th:text="${account.monthsHeld == null ? '—' : account.monthsHeld}">—</dd></div>
+          <div class="flex justify-between" data-mcol="plan_actual" th:if="${acctMetrics.contains('plan_actual') and account.expectedReturnPct != null}"><dt class="text-ink-subtle">预实</dt>
+            <dd th:classappend="${account.planActualDiffPct == null ? '' : (account.planActualDiffPct.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
+                th:text="${account.planActualDiffPct == null ? '数据不足' : ((account.planActualDiffPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(account.planActualDiffPct, 1, 2) + 'pp')}">—</dd></div>
+        </dl>
+      </details>
+    </div>
+
+    <!-- PC(≥sm)· 宽表;手机端改用上面的卡片块,不再让用户横向滚 17 列 -->
+    <div class="paper-card overflow-x-auto hidden sm:block">
       <table class="ledger-table min-w-[760px]">
         <thead>
         <tr>
@@ -273,13 +353,13 @@
           </td>
           <td class="num tnum" th:text="${bm != null and bm.benchmarkPct != null ? bm.benchmarkPct + '%' : '—'}">—</td>
           <td>
-            <span th:if="${bm != null and bm.beatStatus == 'BEAT'}" class="pill text-[9px]"
+            <span th:if="${bm != null and bm.beatStatus == 'BEAT'}" class="pill pill-vs text-[9px]"
                   style="background:rgba(47,93,80,.12);color:var(--forest);border:1px solid var(--forest)"
                   th:text="'跑赢 +' + ${bm.diffPct} + 'pp'">跑赢</span>
-            <span th:if="${bm != null and bm.beatStatus == 'MISS'}" class="pill text-[9px]"
+            <span th:if="${bm != null and bm.beatStatus == 'MISS'}" class="pill pill-vs text-[9px]"
                   style="background:rgba(159,74,58,.10);color:var(--rust);border:1px solid var(--rust)"
                   th:text="'跑输 ' + ${bm.diffPct} + 'pp'">跑输</span>
-            <span th:if="${bm != null and bm.beatStatus == 'FLAT'}" class="pill text-[9px]"
+            <span th:if="${bm != null and bm.beatStatus == 'FLAT'}" class="pill pill-vs text-[9px]"
                   style="border:1px solid var(--ink-subtle);color:var(--ink-soft)"
                   th:text="'持平 ' + ${bm.diffPct} + 'pp'">持平</span>
             <span th:if="${bm == null or bm.beatStatus == 'NA'}" class="text-ink-subtle text-[10px]">—</span>
@@ -296,6 +376,9 @@
       #reports-region .ledger-table thead th{ white-space:nowrap; }
       #reports-region .mchip.off{ opacity:.4; text-decoration:line-through; border-style:dashed; }
       #reports-region .mchip{ cursor:pointer; }
+      /* v1.6.30 · 「跑赢/跑输/持平 ±N pp」里的 pp 是单位(百分点),不是缩写 ——
+         .pill 的 text-transform:uppercase 会把它渲染成 PP。PC 与手机同一处修。 */
+      #reports-region .pill-vs{ text-transform:none; }
     </style>
     <!-- 指标 chips:点选即时切列显隐(纯前端)· 与仪表盘共享 localStorage 键 acctHiddenCols(两页隐藏集一致)-->
     <script>
