@@ -166,6 +166,7 @@ public class MetricExplainService {
             int periodCount, int decompCount,
             BigDecimal familyXirr, BigDecimal familyTwr,
             BigDecimal cumulativeNetInflow, BigDecimal cumulativePnl,
+            BigDecimal cumulativeOpeningBaseline,
             BigDecimal familyBenchmarkPct, int benchmarkAccountCount, BigDecimal benchmarkTotalBalance,
             boolean savingsAvailable, int filledCount, int totalMonths,
             BigDecimal sumIncome, BigDecimal sumExpense, BigDecimal avgIncome, BigDecimal avgExpense,
@@ -178,12 +179,20 @@ public class MetricExplainService {
         String v = in.viewCcy();
 
         // 家庭 XIRR(含收入)· 迭代解 → 展示真实现金流端点 + 解得值
+        // v1.6.29 修 · 这两个端点原先取自 netWorthTrendExOpening(剔除开账基线的趋势,给财富水位用),
+        //   其首点按构造恒为 0 → tooltip 长年显示「期初净资产 −¥0」,末点也不是真实净资产。
+        //   一个号称"给你看真实中间数值"的 tooltip 显示另一套数,比没有更糟:用户据此判断指标算错了。
+        //   现在与 familyXirr 同源,取真实 netWorth;开账基线单列说明(它确实计入外部流入)。
         m.put("familyXirr",
                 "资金流序列:期初净资产 −" + money(v, in.firstNetWorth())
                         + (in.firstLabel() != null ? "(" + in.firstLabel() + ")" : "")
-                        + " → 各期外部净流入 → 期末净资产 +" + money(v, in.lastNetWorth())
+                        + " → 各期外部净流入(工资等 · 与「人赚」同口径"
+                        + (in.cumulativeOpeningBaseline() != null && in.cumulativeOpeningBaseline().signum() != 0
+                           ? ",含中途纳入的存量账户本金 " + money(v, in.cumulativeOpeningBaseline()) : "")
+                        + ") → 期末净资产 +" + money(v, in.lastNetWorth())
                         + (in.lastLabel() != null ? "(" + in.lastLabel() + ")" : "")
-                        + ",按 " + in.periodCount() + " 期数值求解年化 = " + pct2Signed(in.familyXirr()));
+                        + ",按 " + in.periodCount() + " 期数值求解 = " + pct2Signed(in.familyXirr())
+                        + (in.periodCount() < 12 ? "(不满 12 期 · 累计口径非年化)" : "(年化)"));
 
         // vs 基准(余额加权)
         m.put("benchmark",

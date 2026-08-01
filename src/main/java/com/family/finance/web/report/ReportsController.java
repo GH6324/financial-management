@@ -413,10 +413,18 @@ public class ReportsController {
         }
 
         // v0.5.3 · 计算指标真实数值(ⓘ tooltip)· KPI 区 viewCurrency · 储蓄区本位币
-        BigDecimal firstNW = trend.isEmpty() ? null : trend.get(0).value();
-        BigDecimal lastNW = trend.isEmpty() ? null : trend.get(trend.size() - 1).value();
-        String firstLabel = trend.isEmpty() ? null : trend.get(0).label();
-        String lastLabel = trend.isEmpty() ? null : trend.get(trend.size() - 1).label();
+        // v1.6.29 修 · 这里原先取 `trend`(= netWorthTrendExOpening,剔除累计开账基线,给财富水位用),
+        //   而 XIRR 用的是真实 netWorth → tooltip 显示的端点与指标实际输入是两套数,
+        //   且该序列首点按构造恒为 0(首期全部账户都算"首次出现")→ 长年显示「期初净资产 −¥0」。
+        //   改取 netWorthTrend(与 familyXirr 同源);两者之差就是累计开账基线,单列进 tooltip 说清。
+        List<TrendPoint> nwTrend = factViewService.netWorthTrend(slice);
+        BigDecimal firstNW = nwTrend.isEmpty() ? null : nwTrend.get(0).value();
+        BigDecimal lastNW = nwTrend.isEmpty() ? null : nwTrend.get(nwTrend.size() - 1).value();
+        String firstLabel = nwTrend.isEmpty() ? null : nwTrend.get(0).label();
+        String lastLabel = nwTrend.isEmpty() ? null : nwTrend.get(nwTrend.size() - 1).label();
+        BigDecimal cumOpeningBaseline = (lastNW == null || trend.isEmpty())
+                ? BigDecimal.ZERO
+                : lastNW.subtract(trend.get(trend.size() - 1).value());
         BigDecimal bmTotalBal = bmInputs.stream()
                 .map(BenchmarkAggregator.BenchmarkInput::balanceBase)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -428,6 +436,7 @@ public class ReportsController {
                 slice.periodIds().size(), decomposition.size(),
                 familyXirrDecimal, familyTwrDecimal,
                 cumNetInflow, cumPnl,
+                cumOpeningBaseline,
                 familyBenchmarkPct, bmInputs.size(), bmTotalBal,
                 savAvail, savFilled, savTotal,
                 savSumInc, savSumExp, savAvgInc, savAvgExp,

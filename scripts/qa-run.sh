@@ -4939,6 +4939,40 @@ OPSC="$RD/deploy/_common-env.sh"; BKN="$RD/deploy/backup-now.sh"; RST="$RD/deplo
   && log_ok "v1628-OPS(_common-env 形态探测 + backup-now/restore/doctor 三脚本 · dump 必 gzip 且 gunzip -t+CREATE TABLE 校验 · restore 先另存退路且校验不过就中止 + RESTORE 确认 fail-closed · doctor 脱敏 · docker-up 三处末尾给完整常用操作 · 文档修正备份节奏)" \
   || log_bad "v1628-OPS 缺件" "see deploy/_common-env.sh(MODE 探测)· backup-now.sh(gzip -9 + 两处 gunzip -t 校验 + 不得留 mysqldump|cat>)· restore.sh(gzip+校验 + before-restore 退路 + 校验不过中止 + FINANCE_RESTORE_CONFIRM)· doctor.sh(脱敏)· docker-up.sh(3 处常用操作块含 backup-now/restore/doctor/volume)· README(日常运维速查 + 每 24 小时)· faq(不得再写'每周日 03:00')"
 
+# v1629-XIRR-LEDGER · 报表 XIRR:tooltip 端点必须与指标同源 + 收入口径全页统一(用户第 19 轮)
+#   用户报「prod 新关一期后家庭 XIRR(含收入)是 0,不对吧」。**先复算再改**:在 prod 数据上逐步还原,
+#   6 月投资损益 -330,336.95、7 月 +330,335.91,合计 -1.04 元 → -0.00001% → 显示 0.00%。
+#   **XIRR 本身算得是对的**(排查中我一度把 12,434 USD 的开账基线当成 CNY,得出 0.79%,已更正)。
+#   但顺着查出两个真缺陷:
+#     ① **tooltip 显示的端点不是 XIRR 用的那两个数**:firstNW/lastNW 取自 netWorthTrendExOpening
+#        (剔除累计开账基线的趋势,给财富水位用),而该序列**首点按构造恒为 0**(首期全部账户都算"首次出现")
+#        → 长年显示「期初净资产 −¥0」,末点也不是真实净资产(prod 上显示 733,258,真实 9,233,404)。
+#        **一个号称"给你看真实中间数值"的 tooltip 显示另一套数,比没有更糟** —— 用户正是据此判断指标算错了。
+#        改:端点取 netWorthTrend(与 familyXirr 同源);两序列之差 = 累计开账基线,单列进文案;
+#        并标明「不满 12 期 · 累计口径非年化」还是「年化」(原文案一律写"年化",<12 期时也在说谎)。
+#     ② **同页两套收入口径**:familyXirr/familyTwr 只读 cash_flow,而同页「人赚/累计净投入/本金vs收益」
+#        走 pmcFirstNetInflow(PMC 优先否则 cash_flow)。prod 实据:6 月 PMC 收入 151,547 vs cash_flow 81,462;
+#        7 月用户填在 PMC 的 21,837 支出 XIRR 完全没扣 → 同一屏两个 KPI 互相矛盾。
+#        这正是 AGENTS.md 联动不变量 L1 登记要防的。改:两者统一走 pmcFirstNetInflow。
+#        **会改变线上数值**:prod 该指标 0.00% → -0.20%(是修正不是回归 —— 原值漏扣了用户已填报的支出)。
+#   线上处置:零 schema 迁移、零存量数据改写;AI 缓存按 period_id 分片(是"那一期的建议"历史快照)不必清;
+#   GoalMetricEvaluator 实时算不落库。回滚只回 jar 即可。
+FVI="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
+MES="$RD/src/main/java/com/family/finance/service/explain/MetricExplainService.java"
+RPC="$RD/src/main/java/com/family/finance/web/report/ReportsController.java"
+{ [ "$(code_only "$FVI" | grep -c 'pmcFirstNetInflow(slice, periodId)')" -ge 2 ] \
+  && code_only "$FVI" | grep -qF 'pmcFirstNetInflow(slice, current)' \
+  && ! code_only "$FVI" | grep -qE 'periodIncome\(slice, periodId\)\.subtract\(periodExpense' \
+  && ! code_only "$FVI" | grep -qE 'periodIncome\(slice, current\)\.subtract\(periodExpense' \
+  && code_only "$RPC" | grep -qF 'factViewService.netWorthTrend(slice)' \
+  && code_only "$RPC" | grep -qF 'cumOpeningBaseline' \
+  && ! code_only "$RPC" | grep -qE 'firstNW = trend\.get\(0\)' \
+  && grep -qF 'cumulativeOpeningBaseline' "$MES" \
+  && grep -qF '与「人赚」同口径' "$MES" \
+  && grep -qF '累计口径非年化' "$MES"; } \
+  && log_ok "v1629-XIRR-LEDGER(tooltip 端点改用真实 netWorth 与指标同源 + 开账基线单列 + 标明年化/累计 · familyXirr/familyTwr 与「人赚」统一走 pmcFirstNetInflow)" \
+  || log_bad "v1629-XIRR-LEDGER 缺件" "see FactViewServiceImpl(familyXirr/familyTwr 必须用 pmcFirstNetInflow,不得再出现 periodIncome-periodExpense 组合)· ReportsController(端点改 netWorthTrend + cumOpeningBaseline,不得再从 trend 取 firstNW)· MetricExplainService(cumulativeOpeningBaseline 字段 + 与「人赚」同口径 + 累计口径非年化)"
+
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),
 #   而 useBar 在窄屏恒为 false → **窄屏两图必定同为环图**(用户反馈④与本次反馈的交集)。

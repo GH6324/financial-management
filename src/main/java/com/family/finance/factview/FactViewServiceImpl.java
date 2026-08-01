@@ -396,7 +396,11 @@ public class FactViewServiceImpl implements FactViewService {
         for (int i = 1; i < slice.periodIds().size(); i++) {
             Long periodId = slice.periodIds().get(i);
             // v0.13 · 开账基线并入外部资本流入(补录存量账户不抬高年化)
-            BigDecimal external = periodIncome(slice, periodId).subtract(periodExpense(slice, periodId))
+            // v1.6.29 修 · 外部净流入必须与同页「人赚 / 累计净投入」同源(pmcFirstNetInflow:PMC 优先否则 cash_flow)。
+            //   原实现只读 cash_flow → prod 上 6 月页面「人赚」按 PMC 15.15 万算而 XIRR 只扣了 8.15 万、
+            //   7 月用户填在 PMC 的 21,837 支出 XIRR 完全没扣 → 同一屏两个 KPI 互相矛盾。
+            //   这正是 AGENTS.md 联动不变量 L1 要防的:改收支来源口径必须同步 familyXirr。
+            BigDecimal external = pmcFirstNetInflow(slice, periodId)
                     .add(openingBaseline(slice, periodId));
             if (external.signum() != 0) {
                 flows.add(new XirrCalculator.CashFlowPoint(periodEnd(slice, periodId), external.negate()));
@@ -419,7 +423,8 @@ public class FactViewServiceImpl implements FactViewService {
                     netWorth(slice, previous),
                     netWorth(slice, current),
                     // v0.13 · 开账基线并入当期外部流入 → TWR 不因补录存量账户跳升
-                    periodIncome(slice, current).subtract(periodExpense(slice, current))
+                    // v1.6.29 修 · 同 familyXirr:外部净流入统一走 pmcFirstNetInflow(与「人赚」同源)
+                    pmcFirstNetInflow(slice, current)
                             .add(openingBaseline(slice, current))
             ));
         }
