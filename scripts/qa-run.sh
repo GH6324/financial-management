@@ -459,8 +459,11 @@ INSERT INTO fx_rate (family_id, base_currency, quote_currency, period_id, rate, 
   ON DUPLICATE KEY UPDATE rate=VALUES(rate), source=VALUES(source);" 2>/dev/null
 
 extract_one_pct() {   # 单个 eyebrow 标签下首个 kpi-value(如本月资产收益率)
+  # v1.6.30 · 原实现按 `kpi-eyebrow">标签` 紧邻匹配,标签一旦被包进 <span>(为显示口径期)就抓空,
+  #   导致 v08-CCY-INV-2 报「币种漂移」而其实是取数失败 —— 三个币种全取到空串也会判不相等。
+  #   改成按标签文本就近匹配(容忍嵌套标签),并要求调用方传两种文案的公共子串。
   $CURL -b $COOKIE "$BASE/dashboard?currency=$1" -o "$TMP" -w ""
-  grep -A3 "kpi-eyebrow\">$2" "$TMP" | grep 'kpi-value' | head -1 | sed -E 's/<[^>]+>//g' | tr -d ' \n'
+  grep -A4 "$2" "$TMP" | grep 'kpi-value' | head -1 | sed -E 's/<[^>]+>//g' | tr -d ' \n'
 }
 extract_ratio_kpis() {  # 所有含 % 或「月」的 kpi-value(比值类);金额带币种符号天然不入选
   $CURL -b $COOKIE "$BASE/dashboard?currency=$1" -o "$TMP" -w ""
@@ -468,7 +471,7 @@ extract_ratio_kpis() {  # 所有含 % 或「月」的 kpi-value(比值类);金�
 }
 
 # v08-CCY-INV-2:本月资产收益率(用户实际踩雷点)币种无关
-pr_cny=$(extract_one_pct CNY 本月资产收益); pr_usd=$(extract_one_pct USD 本月资产收益); pr_hkd=$(extract_one_pct HKD 本月资产收益)
+pr_cny=$(extract_one_pct CNY 资产收益); pr_usd=$(extract_one_pct USD 资产收益); pr_hkd=$(extract_one_pct HKD 资产收益)
 if [[ -n "$pr_cny" && "$pr_cny" == "$pr_usd" && "$pr_cny" == "$pr_hkd" ]]; then
   log_ok "v08-CCY-INV-2 本月资产收益率币种无关 (CNY=$pr_cny USD=$pr_usd HKD=$pr_hkd)"
 else
