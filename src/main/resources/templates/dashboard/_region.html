@@ -168,14 +168,14 @@
        sm 起恢复网格 → PC 零回归。 -->
   <section class="kpi-band grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 grid-hairline mb-6 lg:mb-8">
     <a th:href="@{/checkup}" th:if="${famMetrics.contains('net_worth')}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
-      <span class="kpi-eyebrow">净资产 <th:block th:insert="~{fragments/_kpi-info :: i('总资产 − 总负债。含 CASH/STOCK/WEALTH/PROPERTY 全部账户,按本位币换算。', ${calc.netWorth})}"/></span>
+      <span class="kpi-eyebrow">净资产 <th:block th:insert="~{fragments/_kpi-info :: i('总资产 − 总负债。含全部未归档账户(现金/股票/理财/房产/加密/贵金属/保险/其他 与 贷款),按本位币换算。', ${calc.netWorth})}"/></span>
       <div class="kpi-value tnum" data-priv th:text="${kpiNetWorth}">¥0</div>
       <div class="kpi-delta"
            th:classappend="${kpiDelta != null and kpiDelta.startsWith('+') ? ' num-pos' : (kpiDelta != null and kpiDelta.startsWith('-') ? ' num-neg' : '')}"
            data-priv th:text="${kpiDelta}">—</div>
     </a>
     <a href="/checkup#allocation" th:if="${famMetrics.contains('total_assets')}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors">
-      <span class="kpi-eyebrow">总资产 <th:block th:insert="~{fragments/_kpi-info :: i('CASH + STOCK + WEALTH + PROPERTY 类型合计,不含 LOAN。', ${calc.totalAssets})}"/></span>
+      <span class="kpi-eyebrow">总资产 <th:block th:insert="~{fragments/_kpi-info :: i('除贷款外的全部资产类型合计:现金 / 股票 / 理财 / 房产 / 加密 / 贵金属 / 保险 / 其他。', ${calc.totalAssets})}"/></span>
       <div class="kpi-value tnum" data-priv th:text="${kpiAssets}">¥0</div>
       <div class="kpi-delta">不含 LOAN</div>
     </a>
@@ -191,7 +191,11 @@
     </a>
     <!-- v0.4.2 新增 · 本月资产收益 · 手机端第 5 个 KPI 跨 2 列居中(col-span-2 sm:col-span-1)-->
     <a th:href="@{/reports}" th:if="${famMetrics.contains('period_return')}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors col-span-2 sm:col-span-1">
-      <span class="kpi-eyebrow">本月资产收益 <th:block th:insert="~{fragments/_kpi-info :: i('(期末净资产 − 期初 − 本月净流入) ÷ 期初。剔除工资,纯投资回报。', ${calc.monthlyPnl})}"/></span>
+      <!-- v1.6.30 · 口径期随收益锚点走:进行中的账期收支未录齐,收益类锚最新已关账期 →
+           标题必须显示到底算的是哪个月,否则用户看到 8 月净资产配 7 月收益率无从判断。 -->
+      <span class="kpi-eyebrow"><span th:text="${kpis != null and kpis.filingInProgress() and kpis.returnAnchorMonth() != null
+              ? '资产收益 ' + #strings.substring(kpis.returnAnchorMonth().toString(), 0, 7)
+              : '本月资产收益'}">本月资产收益</span> <th:block th:insert="~{fragments/_kpi-info :: i('(期末净资产 − 期初 − 本月净流入) ÷ 期初。剔除工资,纯投资回报。口径期 = 最新已关账账期。', ${calc.monthlyPnl})}"/></span>
       <div class="kpi-value tnum"
            th:classappend="${monthlyPnlPctLabel != null and monthlyPnlPctLabel.startsWith('+') ? ' num-pos' : (monthlyPnlPctLabel != null and monthlyPnlPctLabel.startsWith('-') ? ' num-neg' : '')}"
            th:text="${monthlyPnlPctLabel}">+0.00%</div>

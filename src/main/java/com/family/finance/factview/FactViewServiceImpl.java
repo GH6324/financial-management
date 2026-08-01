@@ -69,7 +69,11 @@ public class FactViewServiceImpl implements FactViewService {
                 .map(Map.Entry::getKey)
                 .toList();
         Long lastPeriodId = periodIds.isEmpty() ? null : periodIds.getLast();
-        return new FactSlice(filter, rows, periodIds, lastPeriodId);
+        // v1.6.30 · 另查窗口内已关账期:queryBase 不过滤 status(存量指标要看进行中的期),
+        // 收益类指标据此锚到最新 CLOSED 期。取交集并按 periodIds 顺序排,保证升序且不含窗口外的期。
+        java.util.Set<Long> closed = new java.util.HashSet<>(factMapper.findClosedPeriodIds(filter));
+        List<Long> closedPeriodIds = periodIds.stream().filter(closed::contains).toList();
+        return new FactSlice(filter, rows, periodIds, lastPeriodId, closedPeriodIds);
     }
 
     @Override
@@ -90,7 +94,12 @@ public class FactViewServiceImpl implements FactViewService {
                 .map(BigDecimal::abs)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(2, RoundingMode.HALF_EVEN);
-        // PRD § 5.11 流动资产 = LIQUID(仅 CASH);WEALTH 是 SEMI_LIQUID 不计入紧急储备月数
+        // 流动资产 = liquidity == LIQUID 的账户期末合计。
+        // v1.6.30 修注释 · 原注释写「仅 CASH;WEALTH 是 SEMI_LIQUID 不计入」,与实际行为不符 ——
+        //   v0.3.3 起 FactProjector.liquidityOf 是 product_category.liquidity_class 优先、
+        //   缺省才按 AccountType 兜底,所以货币基金(WEALTH + MONEY_FUND)**计入** LIQUID。
+        //   prod 实测:流动资产 546,432.63 里 CASH 只占 164,924.63,其余来自被标 LIQUID 的理财账户。
+        //   实际行为是对的(T+0 可赎回本就该算流动),错的是这条注释和 PRD 的两处旧措辞。
         BigDecimal liquidAssets = sumEnd(slice, last,
                 row -> row.accountLiquidity() == AccountLiquidity.LIQUID);
         BigDecimal avgExpense = averageExpense(slice, 12);
@@ -106,16 +115,32 @@ public class FactViewServiceImpl implements FactViewService {
                 : delta.divide(previousNetWorth, 6, RoundingMode.HALF_EVEN);
 
         // v0.4.2 · "资产年化"二分(剔除外部现金流的纯投资视角)
+        // v1.6.30 · 收益类锚点改成「最新已关账期」。原先锚 lastPeriodId,而进行中的期
+        //   余额已填、收支未录 → (期末 − 期初 − 净流入) 里净流入=0,未录的收支被整个算成投资收益。
+        //   prod 2026-08 实测:21 条余额全填 / 0 条收支 → 9.1 万变化 100% 记为投资收益。
+        //   存量类(netWorth/totalAssets/totalLiabilities/liquidAssets/环比)仍锚最后一期:
+        //   填报过程中就该看到最新余额,且缺快照会结转上期,不会凭空缺口。
+        List<Long> returnIds = slice.returnPeriodIds();
+        Long returnAnchor = slice.returnAnchorPeriodId();
+        Long returnPrev = returnIds.size() >= 2 ? returnIds.get(returnIds.size() - 2) : null;
+        BigDecimal returnAnchorNetWorth = returnAnchor == null ? netWorth : netWorth(slice, returnAnchor);
+        BigDecimal returnPrevNetWorth = returnPrev == null ? null : netWorth(slice, returnPrev);
         // v0.5.3 · lastNetInflow 提到 if 外:无论上期是否存在都算出来,供 tooltip 展示真实净流入
-        BigDecimal lastNetInflow = netInflowForPeriod(slice, last);
-        // v0.13 · 本期开账基线(新纳入账户存量本金)· 从收益里剔除 + 卡片第三项
+        // v1.6.30 · 改锚收益期(唯一消费方是「本月资产收益」的 tooltip)
+        BigDecimal lastNetInflow = returnAnchor == null ? zero() : netInflowForPeriod(slice, returnAnchor);
+        // v0.13 · 本期开账基线(新纳入账户存量本金)· 卡片第三项
+        // v1.6.30 · **保持锚最后一期不动**:dashboard/review 的「本期怎么变」卡靠
+        //   ΔNW = 人赚 + 钱赚 + 开账基线 这个恒等式成立,而 ΔNW(netWorthDelta)与人赚(cashflowBreakdown)
+        //   都取 lastPeriodId。把这项挪到收益锚点会让三者不同期、恒等式当场破掉。
+        //   收益计算另用 returnAnchorOb,两者分开。
         BigDecimal openingBaselineLast = openingBaseline(slice, last);
+        BigDecimal returnAnchorOb = returnAnchor == null ? zero() : openingBaseline(slice, returnAnchor);
         BigDecimal monthlyPnlAmount = null;
         BigDecimal monthlyInvestReturnPct = null;
-        if (previousNetWorth != null && previousNetWorth.signum() > 0) {
+        if (returnPrevNetWorth != null && returnPrevNetWorth.signum() > 0) {
             // 期末剔除开账基线(视作已在期初的资本)→ 本月资产收益不因补录存量账户虚高
             var monthly = com.family.finance.calc.InvestmentReturnCalculator.monthly(
-                previousNetWorth, netWorth.subtract(openingBaselineLast), lastNetInflow);
+                returnPrevNetWorth, returnAnchorNetWorth.subtract(returnAnchorOb), lastNetInflow);
             monthlyPnlAmount = monthly.pnlAmount();
             monthlyInvestReturnPct = monthly.pnlPct();
         }
@@ -127,7 +152,10 @@ public class FactViewServiceImpl implements FactViewService {
         return new KpiSnapshot(netWorth, totalAssets, totalLiabilities, emergencyMonths, debtRatio, delta, deltaPct,
             monthlyPnlAmount, monthlyInvestReturnPct, annualizedInvestReturnPct, ytdInvestPnl,
             // v0.5.3 · 透明化中间量(viewCurrency 口径 · 与上面 KPI 同币种)
-            liquidAssets, avgExpense, previousNetWorth, lastNetInflow, openingBaselineLast);
+            // v1.6.30 · prevNetWorth 改成「收益锚点的上一期」(本月资产收益 tooltip 的期初),
+            //   与 monthlyPnl* 同锚;净资产环比 delta/deltaPct 仍用存量口径的 previousNetWorth。
+            liquidAssets, avgExpense, returnPrevNetWorth, lastNetInflow, openingBaselineLast,
+            returnAnchorNetWorth, slice.periodStartOf(returnAnchor), slice.filingInProgress(), returnIds.size());
     }
 
     /**
@@ -280,7 +308,8 @@ public class FactViewServiceImpl implements FactViewService {
         }
         int currentYear = now.getYear();
         List<com.family.finance.calc.TwrCalculator.TwrPoint> ytdPoints = new ArrayList<>();
-        for (Long periodId : ytdSlice.periodIds()) {
+        // v1.6.30 · 只累计已关账期:进行中的期收支未录,计入会把未录收支当成投资损益。
+        for (Long periodId : ytdSlice.returnPeriodIds()) {
             java.time.LocalDate pStart = periodStart(ytdSlice, periodId);
             if (pStart == null || pStart.getYear() != currentYear) continue;
             Long prev = previousPeriodId(ytdSlice, periodId);
@@ -359,15 +388,32 @@ public class FactViewServiceImpl implements FactViewService {
     }
 
     @Override
+    /**
+     * 储蓄率 = (收入 − 支出) ÷ 收入 · 锚最新已关账期。
+     *
+     * <p>v1.6.30 修 · 起因:本方法是 {@code GoalMetricEvaluator} 算 SAVINGS_RATE 类目标当前值的唯一来源
+     * ({@code nz(pct(factView.savingsRate(slice)))}),而原实现有两个毛病叠在一起:</p>
+     * <ol>
+     *   <li>只读 {@code cash_flow}(periodIncome/periodExpense),不走 PMC 优先 —— 与 reports 页
+     *       「当期储蓄率」({@code HouseholdCashflowService.currentSavingsRate},PMC 优先 + cash_flow 回落)
+     *       是两套口径,同一个概念两页两个数;</li>
+     *   <li>锚 {@code lastPeriodId} = 可能是进行中的期。prod 2026-08 没有 cash_flow 收入 →
+     *       返回 null → {@code nz()} 兜成 0 → <b>任何"储蓄率达到 X%"的家庭目标进度恒显示 0%</b>。</li>
+     * </ol>
+     *
+     * <p>改成与 {@code pmcFirstNetInflow} / 人赚 / XIRR 完全同源(PMC 优先否则 cash_flow),
+     * 并锚到最新已关账期。这样全站"收入/支出"只有一套口径。</p>
+     */
     public BigDecimal savingsRate(FactSlice slice) {
-        if (slice.lastPeriodId() == null) {
+        Long anchor = slice.returnAnchorPeriodId();
+        if (anchor == null) {
             return null;
         }
-        BigDecimal income = periodIncome(slice, slice.lastPeriodId());
+        BigDecimal income = netInflowIncome(slice, anchor);
         if (income.signum() == 0) {
             return null;
         }
-        return income.subtract(periodExpense(slice, slice.lastPeriodId()))
+        return income.subtract(netInflowExpense(slice, anchor))
                 .divide(income, 6, RoundingMode.HALF_EVEN);
     }
 
@@ -386,15 +432,17 @@ public class FactViewServiceImpl implements FactViewService {
 
     @Override
     public BigDecimal familyXirr(FactSlice slice) {
-        if (slice.periodIds().size() < 2) {
+        // v1.6.30 · 只用已关账期:进行中的期余额已填而收支未填,拿它当终值会把未录收支算成投资收益。
+        List<Long> ids = slice.returnPeriodIds();
+        if (ids.size() < 2) {
             return null;
         }
         List<XirrCalculator.CashFlowPoint> flows = new ArrayList<>();
-        Long first = slice.periodIds().getFirst();
-        Long last = slice.periodIds().getLast();
+        Long first = ids.getFirst();
+        Long last = ids.getLast();
         flows.add(new XirrCalculator.CashFlowPoint(periodEnd(slice, first), netWorth(slice, first).negate()));
-        for (int i = 1; i < slice.periodIds().size(); i++) {
-            Long periodId = slice.periodIds().get(i);
+        for (int i = 1; i < ids.size(); i++) {
+            Long periodId = ids.get(i);
             // v0.13 · 开账基线并入外部资本流入(补录存量账户不抬高年化)
             // v1.6.29 修 · 外部净流入必须与同页「人赚 / 累计净投入」同源(pmcFirstNetInflow:PMC 优先否则 cash_flow)。
             //   原实现只读 cash_flow → prod 上 6 月页面「人赚」按 PMC 15.15 万算而 XIRR 只扣了 8.15 万、
@@ -407,18 +455,20 @@ public class FactViewServiceImpl implements FactViewService {
             }
         }
         flows.add(new XirrCalculator.CashFlowPoint(periodEnd(slice, last), netWorth(slice, last)));
-        return XirrCalculator.annualizedOrCumulative(flows, slice.periodIds().size());
+        return XirrCalculator.annualizedOrCumulative(flows, ids.size());
     }
 
     @Override
     public BigDecimal familyTwr(FactSlice slice) {
-        if (slice.periodIds().size() < 2) {
+        // v1.6.30 · 同 familyXirr:只用已关账期,进行中的期不参与分段收益率连乘。
+        List<Long> ids = slice.returnPeriodIds();
+        if (ids.size() < 2) {
             return null;
         }
         List<TwrCalculator.TwrPoint> points = new ArrayList<>();
-        for (int i = 1; i < slice.periodIds().size(); i++) {
-            Long previous = slice.periodIds().get(i - 1);
-            Long current = slice.periodIds().get(i);
+        for (int i = 1; i < ids.size(); i++) {
+            Long previous = ids.get(i - 1);
+            Long current = ids.get(i);
             points.add(new TwrCalculator.TwrPoint(
                     netWorth(slice, previous),
                     netWorth(slice, current),
@@ -436,9 +486,12 @@ public class FactViewServiceImpl implements FactViewService {
         List<DecompositionPoint> result = new ArrayList<>();
         BigDecimal cumulativeExternal = BigDecimal.ZERO;
         BigDecimal cumulativePnl = BigDecimal.ZERO;
-        for (int i = 1; i < slice.periodIds().size(); i++) {
-            Long periodId = slice.periodIds().get(i);
-            Long prevId = slice.periodIds().get(i - 1);
+        // v1.6.30 · 只走已关账期(与 familyXirr / familyTwr / 本月资产收益 同锚)。
+        //   进行中的期收支未录 → netInflow=0 → 该期的 ΔNW 会整块落进「钱赚」,把未录工资算成投资收益。
+        List<Long> ids = slice.returnPeriodIds();
+        for (int i = 1; i < ids.size(); i++) {
+            Long periodId = ids.get(i);
+            Long prevId = ids.get(i - 1);
             // v0.5 FR-84 · 人赚 = PMC 优先净流入;钱赚 = ΔNW − 人赚(由构造保证 人赚 + 钱赚 = ΔNetWorth)。
             // 原实现:人赚只读 account cash_flow(用户填 PMC 时恒为 0)· 钱赚读 periodPnlBase(把工资增长误算成投资)。
             BigDecimal netInflow = pmcFirstNetInflow(slice, periodId);

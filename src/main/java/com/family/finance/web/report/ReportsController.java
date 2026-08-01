@@ -234,7 +234,9 @@ public class ReportsController {
         BigDecimal familyXirrDecimal = factViewService.familyXirr(slice);
         // v0.11.4:家庭 pill 实际 = 卡片头条显示的那个「家庭 XIRR」本身(<12 期累计 / ≥12 期年化)− 加权基准 → pp。
         //   修 v0.10.5「累计PnL/累计净投入 当实际」的爆值 + 与头条 XIRR 脱节(头条 8.3% 却显示跑输 -243%)。
-        int familyMonths = slice.periodIds().size();
+        // v1.6.30 · 期数改用已关账期:familyXirr/familyTwr 已只走已关账期,这里的月数必须同源,
+        //   否则「按 N 期求解」的 N、年化/累计 判定、基准按窗口折算的分母 都会比实际参与计算的期数多一期。
+        int familyMonths = slice.returnPeriodIds().size();
         BigDecimal familyDiffPct = BenchmarkAggregator.displayedDiffPercentPoints(familyXirrDecimal, familyBenchmarkPct, familyMonths);
         BenchmarkAggregator.BeatStatus familyBeat = BenchmarkAggregator.beatStatusDisplayed(familyDiffPct, familyMonths);
 
@@ -280,7 +282,7 @@ public class ReportsController {
 
         BigDecimal familyTwrDecimal = factViewService.familyTwr(slice);
         // v0.5.5 FR-95 · 四指标需 ≥2 个已关账账期才有意义(要上一期做基准);不足 → 显「—」不显误导性 0
-        boolean reportsHasMetrics = closedSnapshot && slice.periodIds().size() >= 2;
+        boolean reportsHasMetrics = closedSnapshot && slice.returnPeriodIds().size() >= 2;
         model.addAttribute("closedSnapshot", closedSnapshot);
         model.addAttribute("reportsHasMetrics", reportsHasMetrics);
         // v0.10.5 · 资产年化 仅满 12 期才是真年化(12月滚动几何);不足为累计 → 动态标签「资产累计」
@@ -417,14 +419,26 @@ public class ReportsController {
         //   而 XIRR 用的是真实 netWorth → tooltip 显示的端点与指标实际输入是两套数,
         //   且该序列首点按构造恒为 0(首期全部账户都算"首次出现")→ 长年显示「期初净资产 −¥0」。
         //   改取 netWorthTrend(与 familyXirr 同源);两者之差就是累计开账基线,单列进 tooltip 说清。
-        List<TrendPoint> nwTrend = factViewService.netWorthTrend(slice);
+        // v1.6.30 · 只取 XIRR 真正用到的期(已关账)· 趋势图本身仍画全部期(含填报中),
+        //   但 tooltip 里的「期初 → 期末」必须是参与求解的首末两期,否则口径串台。
+        java.util.Set<Long> retIds = new java.util.HashSet<>(slice.returnPeriodIds());
+        List<TrendPoint> nwTrend = factViewService.netWorthTrend(slice).stream()
+                .filter(tp -> retIds.contains(tp.periodId()))
+                .toList();
         BigDecimal firstNW = nwTrend.isEmpty() ? null : nwTrend.get(0).value();
         BigDecimal lastNW = nwTrend.isEmpty() ? null : nwTrend.get(nwTrend.size() - 1).value();
         String firstLabel = nwTrend.isEmpty() ? null : nwTrend.get(0).label();
         String lastLabel = nwTrend.isEmpty() ? null : nwTrend.get(nwTrend.size() - 1).label();
-        BigDecimal cumOpeningBaseline = (lastNW == null || trend.isEmpty())
+        // v1.6.30 · lastNW 已改成「最后一个已关账期」,这里的被减项必须取同一期,
+        //   否则拿"末期净资产 − 另一期的剔基线净资产"相减,累计开账基线会算错一期的量。
+        BigDecimal lastExOpening = trend.stream()
+                .filter(tp -> retIds.contains(tp.periodId()))
+                .map(TrendPoint::value)
+                .reduce((a, b) -> b)
+                .orElse(null);
+        BigDecimal cumOpeningBaseline = (lastNW == null || lastExOpening == null)
                 ? BigDecimal.ZERO
-                : lastNW.subtract(trend.get(trend.size() - 1).value());
+                : lastNW.subtract(lastExOpening);
         BigDecimal bmTotalBal = bmInputs.stream()
                 .map(BenchmarkAggregator.BenchmarkInput::balanceBase)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -433,7 +447,7 @@ public class ReportsController {
         var reportsInputs = new com.family.finance.service.explain.MetricExplainService.ReportsMetricInputs(
                 viewCurrency, family.getBaseCurrency(),
                 firstNW, lastNW, firstLabel, lastLabel,
-                slice.periodIds().size(), decomposition.size(),
+                slice.returnPeriodIds().size(), decomposition.size(),
                 familyXirrDecimal, familyTwrDecimal,
                 cumNetInflow, cumPnl,
                 cumOpeningBaseline,

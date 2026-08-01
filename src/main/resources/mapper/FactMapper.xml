@@ -25,6 +25,17 @@
     </constructor>
   </resultMap>
 
+  <!-- v1.6.30 · 窗口内已关账期(升序)· 供收益类指标锚到最新 CLOSED 期,不受进行中 OPEN 期影响 -->
+  <select id="findClosedPeriodIds" resultType="java.lang.Long">
+    SELECT p.id
+      FROM period p
+     WHERE p.family_id = #{f.familyId}
+       AND p.period_type = #{f.periodType}
+       AND p.status = 'CLOSED'
+       AND p.period_start BETWEEN #{f.rangeStart} AND #{f.rangeEnd}
+     ORDER BY p.period_start
+  </select>
+
   <select id="queryBase" resultMap="FactBaseRowMap">
     SELECT
         a.id AS account_id,

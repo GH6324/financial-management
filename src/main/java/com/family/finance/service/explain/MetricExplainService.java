@@ -101,8 +101,9 @@ public class MetricExplainService {
         m.put("totalAssets", totalAssetsCalc(ccy, allocation, k.totalAssets()));
         m.put("totalLiabilities", totalLiabilitiesCalc(ccy, accountRows, k.totalLiabilities()));
         m.put("emergency", emergencyCalc(ccy, k.liquidAssets(), k.avgExpense(), k.emergencyFundMonths()));
-        m.put("monthlyPnl", monthlyPnlCalc(ccy, k.netWorth(), k.prevNetWorth(), k.lastNetInflow(),
-                k.monthlyInvestReturnPct()));
+        // v1.6.30 · 期末取「收益锚点期」的净资产而非 k.netWorth()(后者可能是进行中的期)
+        m.put("monthlyPnl", monthlyPnlCalc(ccy, k.returnAnchorNetWorth(), k.prevNetWorth(), k.lastNetInflow(),
+                k.monthlyInvestReturnPct(), k.returnAnchorMonth(), k.filingInProgress()));
         return m;
     }
 
@@ -116,15 +117,18 @@ public class MetricExplainService {
         m.put("totalAssets", totalAssetsCalc(ccy, d.allocation(), k.totalAssets()));
         m.put("totalLiabilities",
                 "仅 LOAN 类型账户期末余额绝对值合计 = " + money(ccy, k.totalLiabilities()));
-        m.put("familyXirr", familyXirrCalc(ccy, k.netWorth(), d.familyXirr()));
+        // v1.6.30 · 期末取收益锚点净资产(非最后一期),并补齐 reports 页早就有的三件事:
+        //   与「人赚」同口径 / 参与求解的期数 / 年化还是累计。同一指标两页两种解释是 v1.6.29 漏掉的。
+        m.put("familyXirr", familyXirrCalc(ccy, k.returnAnchorNetWorth(), d.familyXirr(),
+                k.returnPeriodCount(), k.returnAnchorMonth(), k.filingInProgress()));
         m.put("familyTwr", familyTwrCalc(d.familyTwr()));
         // 紧急储备:三项全取 KpiSnapshot 同源(d.emergencyMonths() == kpi.emergencyFundMonths()),
         // 保证「分子 ÷ 分母 = 结果」自洽且与 KPI 卡完全一致(勿引第二份 avgExpense 源,否则漂移)
         m.put("emergency", emergencyCalc(ccy, k.liquidAssets(), k.avgExpense(), k.emergencyFundMonths()));
         m.put("liquidAssets",
                 "LIQUID 类目(CASH + 货币基金等)期末合计 = " + money(ccy, d.liquidAssets()));
-        m.put("monthlyPnl", monthlyPnlCalc(ccy, k.netWorth(), k.prevNetWorth(), k.lastNetInflow(),
-                k.monthlyInvestReturnPct()));
+        m.put("monthlyPnl", monthlyPnlCalc(ccy, k.returnAnchorNetWorth(), k.prevNetWorth(), k.lastNetInflow(),
+                k.monthlyInvestReturnPct(), k.returnAnchorMonth(), k.filingInProgress()));
         m.put("ytdPnl",
                 "本年逐月 (净资产变化 − 净流入) 累加 = " + signedMoney(ccy, d.cumulativeYtdPnl()));
         return m;
@@ -281,19 +285,45 @@ public class MetricExplainService {
                 + " = " + months(months) + " 个月";
     }
 
+    /**
+     * v1.6.30 · 加 anchorMonth / filingInProgress 两个入参。
+     *
+     * <p>收益类指标锚「最新已关账期」而非最后一期,所以 tooltip 必须说清算的是哪一期 ——
+     * 否则用户看到卡片上是 8 月的净资产、收益率却是 7 月的,无从判断哪个对。</p>
+     */
     private String monthlyPnlCalc(String ccy, BigDecimal netWorth, BigDecimal prevNetWorth,
-                                  BigDecimal netInflow, BigDecimal pctDecimal) {
+                                  BigDecimal netInflow, BigDecimal pctDecimal,
+                                  java.time.LocalDate anchorMonth, boolean filingInProgress) {
         if (prevNetWorth == null || prevNetWorth.signum() <= 0) {
             return "上期净资产缺失或为 0,暂无法计算本月资产收益率";
         }
-        return "(期末净资产 " + money(ccy, netWorth) + " − 期初 " + money(ccy, prevNetWorth)
+        String head = anchorMonth == null ? "" : ("口径期 " + anchorMonth.toString().substring(0, 7)
+                + (filingInProgress ? "(最新已关账期;当前月仍在填报,收支未录齐故不参与收益计算)" : "") + " · ");
+        return head + "(期末净资产 " + money(ccy, netWorth) + " − 期初 " + money(ccy, prevNetWorth)
                 + " − 本月净流入 " + signedMoney(ccy, netInflow) + ") ÷ 期初 " + money(ccy, prevNetWorth)
                 + " = " + pct2Signed(pctDecimal);
     }
 
-    private String familyXirrCalc(String ccy, BigDecimal netWorth, BigDecimal xirr) {
-        return "含工资的资金加权 IRR:期初投入与各期工资视为现金流出、当前净资产 "
-                + money(ccy, netWorth) + " 视为流入,数值求解年化 = " + pct2Signed(xirr);
+    private String familyXirrCalc(String ccy, BigDecimal netWorth, BigDecimal xirr,
+                                 Integer periodCount, java.time.LocalDate anchorMonth,
+                                 boolean filingInProgress) {
+        StringBuilder sb = new StringBuilder("含工资的资金加权 IRR:期初投入与各期外部净流入")
+                .append("(工资等 · 与「人赚」同口径)视为现金流出、期末净资产 ")
+                .append(money(ccy, netWorth));
+        if (anchorMonth != null) {
+            sb.append('(').append(anchorMonth.toString(), 0, 7).append(')');
+        }
+        sb.append(" 视为流入,");
+        if (periodCount != null) {
+            sb.append("按 ").append(periodCount).append(" 期数值求解 = ").append(pct2Signed(xirr))
+              .append(periodCount < 12 ? "(不满 12 期 · 累计口径非年化)" : "(年化)");
+        } else {
+            sb.append("数值求解 = ").append(pct2Signed(xirr));
+        }
+        if (filingInProgress) {
+            sb.append(" · 当前月仍在填报,未参与计算");
+        }
+        return sb.toString();
     }
 
     private String familyTwrCalc(BigDecimal twr) {

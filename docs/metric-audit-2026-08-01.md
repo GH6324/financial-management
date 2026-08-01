@@ -1,5 +1,9 @@
 # 全站指标核查报告 · 2026-08-01
 
+> **状态**:本报告列出的问题已在 **v1.6.30** 修复(设计见 [`prd/v1.6.md` §35](../prd/v1.6.md) 与
+> [`tech-design/v1.6.md` §40](../tech-design/v1.6.md),守护 `v1630-CLOSED-ANCHOR` + 单测 `ClosedPeriodAnchorTest`)。
+> 修复过程中在**双端渲染验收**时又发现两条本报告初稿没有的缺陷,已一并修掉,记在文末 §6。
+
 对 prod(`dixi-token.top`)与 beta(`43.106.119.1`)的**全部页面指标**做一次逐项核查:列清单 → 取当前值 →
 对齐计算逻辑 → 判三件事:**① 算得对不对 ② 计算逻辑对不对 ③ 指标定义本身对不对(是否符合 PRD)**。
 
@@ -217,11 +221,21 @@ PRD `v0.1.md:1625` 又写「流动资产 = LIQUID(现金类)」;
 v1.6.29 重写了 reports 页 familyXirr 的 tooltip(加了「与「人赚」同口径」、开账基线、年化/累计标注),
 checkup 页仍在用旧的 `familyXirrCalc(ccy, netWorth, xirr)` 短格式。同一个指标两页两种解释。
 
-### P2 · 存在一个未被使用的第二份 savingsRate 实现
+### P1 · goals 页「储蓄率」目标进度在 prod 上恒为 0%
 
-`FactViewServiceImpl.savingsRate()` 只读 `cash_flow`、锚在 `lastPeriodId`(=未关账期)。
-reports 页用的是 `householdCashflowService.currentSavingsRate()`,两者不是一回事。
-前者在 prod 上会返回 null(8 月 cash_flow 收入为 0)。若确无调用方,应删,否则早晚被误用。
+存在第二份 `savingsRate` 实现:`FactViewServiceImpl.savingsRate()` —— 只读 `cash_flow`、
+锚在 `lastPeriodId`(= 未关账期)。它**不是死代码**,`GoalMetricEvaluator:35` 在用它算
+`SAVINGS_RATE` 类目标的当前值:
+
+```java
+BigDecimal savings = pct(factView.savingsRate(slice));   // → case SAVINGS_RATE -> nz(savingsRatePct)
+```
+
+prod 的 2026-08 没有 cash_flow 收入 → `income.signum()==0` → 返回 `null` → `nz()` 兜成 **0**。
+**任何"储蓄率达到 X%"的家庭目标,进度都会显示 0%。**
+
+而 reports 页用的是 `householdCashflowService.currentSavingsRate()`(PMC 优先 + cash_flow 回落,
+取最近有 PMC 的那一期)= 96.66%。同一个"储蓄率"概念,goals 显示 0、reports 显示 96.66%。
 
 ### P2 · 6 月大幅回撤后 7 月几乎等额收复,建议核一眼 6 月估值
 
@@ -252,9 +266,46 @@ reports 页用的是 `householdCashflowService.currentSavingsRate()`,两者不�
 | P1 | 流动资产定义 PRD/注释/代码三个版本 | 文档 |
 | P2 | XIRR(累计) vs 基准(年化) 并排展示 | 展示 |
 | P2 | checkup 的 XIRR tooltip 未跟上 v1.6.29 | 一致性 |
-| P2 | 未使用的第二份 savingsRate 实现 | 死代码 |
+| P1 | goals 页「储蓄率」目标进度在 prod 上恒为 0% | 正确性 |
 | P2 | 6 月 −37 万 / 7 月 +35.2 万近乎等额反转,建议核 6 月估值 | 数据质量 |
 
 **计算正确性(检查①)本身没有发现错误** —— 24 个 KPI 的数值都能从原始表精确复现,
 恒等式(净资产=总资产−总负债、钱赚=ΔNW−人赚、总资产=分类型加总)全部成立。
 问题集中在**锚点选择(P0)**、**口径文案与实现脱节(P0/P1)** 和**跨页/跨 PRD 的定义漂移(P1/P2)**。
+
+---
+
+## 6 · 修复期间新发现(报告初稿没有 · 渲染验收才暴露)
+
+### 6.1 同名指标跨页两个数:体检 −0.21% vs 报表 +1.11%
+
+把收益类改锚已关账期后,在 beta 上复采页面才发现:体检页窗口(锚进行中期 `−11 月`)里只剩
+**11** 个已关账期 → 走「不满 12 期」的累计口径;报表页(自 v0.5.5 起锚最新已关账期)拿得到 **12** 个 → 走年化。
+同一个「家庭 XIRR」两页给出 −0.21% 与 +1.11%,还分别走了两条不同分支。
+
+根因是**各页窗口宽度本就不一致**(报表锚已关账期 / 仪表盘 `−12 月` / 体检 `−11 月`),属既存问题,
+但被本次改动放大成「连分支都不同」。两处一起改才闭合:`returnPeriodIds()` 统一截到最近 ≤12 个已关账期,
+体检页在填报中时窗口回退 12 个月。改完三页收敛:XIRR 均 **+1.11%**(12 期 · 年化 · 终值同为
+2026-07 的 ¥4,208,586),TWR 均 **−6.55%**。
+
+### 6.2 体检页「本年累计损益」负号被吃掉 —— 亏损显示成盈利
+
+模板对负数给的前缀是空串、又取了绝对值:
+
+```
+(cumulativeYtdPnl.signum() >= 0 ? '+' : '') + '¥' + formatDecimal(cumulativeYtdPnl.abs(), …)
+```
+
+于是 **−¥1,580,715 渲染成「¥1,580,715」**,只有颜色类透出亏损,数字本身读起来是盈利
+(同文件「本月资产收益」用的 `'+¥' : '−¥'` 才是对的)。
+
+**这条是肉眼看渲染结果发现的** —— 表达式语法合法、指标值也算对了,错在展示,grep 类守护与单测都抓不到;
+本报告初稿只比对了 tooltip 里的算式串,没跟卡片上的数字互相对照,所以漏了。
+全站扫了 12 处同类写法,只此 1 处同时取了绝对值 → 只此 1 处是缺陷,已修。
+
+### 6.3 排版:口径期标注初版在移动端溢出
+
+初版 KPI 标题「资产收益 · 2026-07」在体检页移动端(容器 145px)实测 **154px 溢出**。
+在浏览器里逐个量候选串后改用「资产收益 2026-07」= 145px 正好放下,且保留空格 →
+字号放大时换行而非溢出。PC/移动 × 仪表盘/体检 四处复测 `scrollWidth == clientWidth`,均无溢出。
+

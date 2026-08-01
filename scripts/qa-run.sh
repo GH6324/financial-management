@@ -4973,6 +4973,64 @@ RPC="$RD/src/main/java/com/family/finance/web/report/ReportsController.java"
   && log_ok "v1629-XIRR-LEDGER(tooltip 端点改用真实 netWorth 与指标同源 + 开账基线单列 + 标明年化/累计 · familyXirr/familyTwr 与「人赚」统一走 pmcFirstNetInflow)" \
   || log_bad "v1629-XIRR-LEDGER 缺件" "see FactViewServiceImpl(familyXirr/familyTwr 必须用 pmcFirstNetInflow,不得再出现 periodIncome-periodExpense 组合)· ReportsController(端点改 netWorthTrend + cumOpeningBaseline,不得再从 trend 取 firstNW)· MetricExplainService(cumulativeOpeningBaseline 字段 + 与「人赚」同口径 + 累计口径非年化)"
 
+# v1630-CLOSED-ANCHOR · 收益类指标必须锚「最新已关账期」,不得被进行中账期污染(2026-08-01 全站指标核查 P0)
+#   起因:全站 24 个 KPI 逐项核查。计算正确性本身没查出错(恒等式与逐期 PnL 合计全自洽),
+#   但发现**锚点选错**:queryBase 是 account × period 全交叉且不过滤 period.status,
+#   于是进行中的 OPEN 期进切片并成为 lastPeriodId,而它的典型状态是**余额已填、收支未录**
+#   (prod 2026-08 实测:21 条余额快照 / 0 条现金流 / 无 PMC)。后果:
+#     (期末 − 期初 − 净流入) 里净流入 = 0 → **还没录的工资被整块算成投资收益**。
+#     prod 实测「本月资产收益 +0.99%」,那 9.1 万一分钱收支都没扣。
+#   改:存量类(净资产/总资产/总负债/流动资产/环比)继续锚最后一期 —— 填报中就该看到最新余额,
+#       缺快照还会结转上期,不会凭空缺口;
+#       收益类(本月资产收益 / XIRR / TWR / YTD / 人赚钱赚拆解 / 储蓄率)改锚 returnPeriodIds(已关账期)。
+#   附带修:① 总资产/净资产口径文案漏列 CRYPTO/METAL/INSURANCE(实际是"除 LOAN 外全部");
+#          ② savingsRate 原只读 cash_flow 且锚进行中期 → prod 恒返回 null → GoalMetricEvaluator 的
+#             nz() 兜成 0 → **储蓄率类家庭目标进度恒显示 0%**;改成 PMC 优先 + 锚已关账期;
+#          ③ checkup 的 XIRR tooltip 补齐 reports 早就有的「与人赚同口径 / N 期 / 年化还是累计」。
+#   **会改变线上数值**(是修正不是回归):prod 本月资产收益 +0.99% → 锚 2026-07;XIRR 0.79% → 只算 3 个已关账期。
+#   线上处置:零 schema 迁移、零存量数据改写、纯读路径;回滚只回 jar。
+#   ④ **checkup 的 YTD 累计损益吃掉负号**:模板写 `(signum()>=0 ? '+' : '') + '¥' + formatDecimal(abs())`
+#      —— 负数分支前缀是空串,又套了 .abs() → 亏损 −¥1,580,715 渲染成「¥1,580,715」,
+#      只有颜色类 num-neg 透出亏损,数字本身读起来是盈利。同文件 170 行(本月资产收益)的写法
+#      `'+¥' : '−¥'` 才是对的。**这条是渲染验收时肉眼发现的,grep/单测都抓不到**(表达式语法完全合法、
+#      指标值也算对了,错在展示)。全站扫了 12 处同类写法,只此 1 处同时用了 abs() → 只此 1 处是 bug。
+#   护栏形状:openingBaselineLast 必须**仍锚 last** —— dashboard/review 的「本期怎么变」卡靠
+#   ΔNW = 人赚 + 钱赚 + 开账基线 成立,而 ΔNW 与人赚都取 lastPeriodId,挪走会当场破掉恒等式。
+FVI="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
+FSL="$RD/src/main/java/com/family/finance/factview/FactSlice.java"
+KPS="$RD/src/main/java/com/family/finance/factview/KpiSnapshot.java"
+FMP="$RD/src/main/java/com/family/finance/repository/FactMapper.java"
+FMX="$RD/src/main/resources/mapper/FactMapper.xml"
+MES="$RD/src/main/java/com/family/finance/service/explain/MetricExplainService.java"
+RPC="$RD/src/main/java/com/family/finance/web/report/ReportsController.java"
+DRG="$RD/src/main/resources/templates/dashboard/_region.html"
+CKF="$RD/src/main/resources/templates/checkup/family.html"
+{ code_only "$FSL" | grep -qF 'returnPeriodIds()' \
+  && code_only "$FSL" | grep -qF 'filingInProgress()' \
+  && code_only "$FMP" | grep -qF 'findClosedPeriodIds' \
+  && grep -qF "status = 'CLOSED'" "$FMX" \
+  && code_only "$FVI" | grep -qF 'factMapper.findClosedPeriodIds(filter)' \
+  && [ "$(code_only "$FVI" | grep -c 'slice.returnPeriodIds()')" -ge 4 ] \
+  && code_only "$FVI" | grep -qF 'ytdSlice.returnPeriodIds()' \
+  && code_only "$FVI" | grep -qF 'netInflowIncome(slice, anchor)' \
+  && ! code_only "$FVI" | grep -qE 'periodIncome\(slice, slice\.lastPeriodId\(\)\)' \
+  && code_only "$FVI" | grep -qF 'BigDecimal openingBaselineLast = openingBaseline(slice, last);' \
+  && code_only "$KPS" | grep -qF 'returnAnchorNetWorth' \
+  && code_only "$KPS" | grep -qF 'returnPeriodCount' \
+  && code_only "$RPC" | grep -qF 'slice.returnPeriodIds().size()' \
+  && ! code_only "$RPC" | grep -qE 'int familyMonths = slice\.periodIds\(\)\.size\(\)' \
+  && grep -qF '口径期' "$MES" \
+  && grep -qF '除贷款外的全部资产类型合计' "$DRG" \
+  && grep -qF '除贷款外的全部资产类型合计' "$CKF" \
+  && ! grep -qF 'CASH + STOCK + WEALTH + PROPERTY' "$DRG" \
+  && ! grep -qF 'CASH + STOCK + WEALTH + PROPERTY' "$CKF" \
+  && grep -qF 'returnAnchorMonth' "$DRG" \
+  && grep -qF 'returnAnchorMonth' "$CKF" \
+  && grep -qF "cumulativeYtdPnl.signum() >= 0 ? '+¥' : '−¥'" "$CKF" \
+  && [ "$(grep -c "signum() >= 0 ? '+' : ''" "$CKF" | tr -d ' ')" -le 2 ]; } \
+  && log_ok "v1630-CLOSED-ANCHOR(收益类锚最新已关账期 · 存量类仍锚末期 · openingBaselineLast 不动保「本期怎么变」恒等式 · savingsRate 走 PMC 优先 · 总资产口径文案补全 CRYPTO/METAL/INSURANCE · 两页 KPI 标注口径期)" \
+  || log_bad "v1630-CLOSED-ANCHOR 缺件" "see FactSlice(returnPeriodIds/filingInProgress)· FactMapper(+xml findClosedPeriodIds status='CLOSED')· FactViewServiceImpl(familyXirr/familyTwr/ytd/拆解 走 returnPeriodIds · savingsRate 走 netInflowIncome 不得再用 periodIncome(lastPeriodId) · openingBaselineLast 必须仍锚 last)· KpiSnapshot(returnAnchorNetWorth/returnPeriodCount)· ReportsController(familyMonths 改 returnPeriodIds)· dashboard/_region.html + checkup/family.html(总资产文案不得再出现 CASH + STOCK + WEALTH + PROPERTY · 须带 returnAnchorMonth 口径期标注)"
+
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),
 #   而 useBar 在窄屏恒为 false → **窄屏两图必定同为环图**(用户反馈④与本次反馈的交集)。

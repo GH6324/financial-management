@@ -72,7 +72,11 @@ public class FamilyDiagnoseService {
                 .orElseThrow(() -> new IllegalArgumentException("家庭不存在: " + familyId));
         Period anchor = resolveAnchor(familyId);
         java.time.LocalDate end = anchor.getPeriodStart();
-        java.time.LocalDate start = end.minusMonths(11);
+        // v1.6.30 · 锚点期若还在填报(OPEN),minusMonths(11) 的窗口里只剩 11 个已关账期 →
+        //   收益类落到「不满 12 期」的累计口径,而 reports(窗口锚最新已关账期)拿得到 12 个 → 走年化。
+        //   同一个「家庭 XIRR」两页给出 −0.21% 与 +1.11%。多回一个月,让两处取到同一批已关账期。
+        boolean anchorOpen = anchor.getStatus() != null && !"CLOSED".equals(anchor.getStatus().name());
+        java.time.LocalDate start = end.minusMonths(anchorOpen ? 12 : 11);
         FactSlice slice = factViewService.load(new FactFilter(
                 familyId, family.getPeriodType(), start, end, false, null, family.getBaseCurrency()));
         KpiSnapshot kpi = factViewService.kpis(slice);

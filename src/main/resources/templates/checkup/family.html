@@ -40,7 +40,7 @@
            data-priv th:text="${diagnose.kpi.netWorthDelta != null ? (diagnose.kpi.netWorthDelta.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(diagnose.kpi.netWorthDelta, 1, 'COMMA', 0, 'POINT') : '较上期 —'}">较上期 —</div>
     </div>
     <div class="kpi-card">
-      <span class="kpi-eyebrow">总资产<th:block th:insert="~{fragments/_kpi-info :: i('CASH + STOCK + WEALTH + PROPERTY 合计,不含 LOAN。', ${calc.totalAssets})}"/></span>
+      <span class="kpi-eyebrow">总资产<th:block th:insert="~{fragments/_kpi-info :: i('除贷款外的全部资产类型合计:现金 / 股票 / 理财 / 房产 / 加密 / 贵金属 / 保险 / 其他。', ${calc.totalAssets})}"/></span>
       <div class="kpi-value tnum"
            data-priv th:text="${diagnose.kpi.totalAssets != null ? '¥' + #numbers.formatDecimal(diagnose.kpi.totalAssets, 1, 'COMMA', 0, 'POINT') : '—'}">¥0</div>
       <div class="kpi-delta">不含 LOAN</div>
@@ -162,7 +162,10 @@
         </div>
         <!-- 行 2 · 本月资产收益 -->
         <div>
-          <div class="kpi-eyebrow">本月资产收益<th:block th:insert="~{fragments/_kpi-info :: i('(期末净资产 − 期初 − 净流入) ÷ 期初。剔除工资。', ${calc.monthlyPnl})}"/></div>
+          <!-- v1.6.30 · 同 dashboard:标题带上收益锚点期(最新已关账账期) -->
+          <div class="kpi-eyebrow"><span th:text="${diagnose.kpi != null and diagnose.kpi.filingInProgress() and diagnose.kpi.returnAnchorMonth() != null
+                  ? '资产收益 ' + #strings.substring(diagnose.kpi.returnAnchorMonth().toString(), 0, 7)
+                  : '本月资产收益'}">本月资产收益</span><th:block th:insert="~{fragments/_kpi-info :: i('(期末净资产 − 期初 − 净流入) ÷ 期初。剔除工资。口径期 = 最新已关账账期。', ${calc.monthlyPnl})}"/></div>
           <div class="font-display text-2xl tnum mt-1"
                th:classappend="${diagnose.kpi.monthlyPnlAmount != null and diagnose.kpi.monthlyPnlAmount.signum() > 0 ? ' num-pos' : (diagnose.kpi.monthlyPnlAmount != null and diagnose.kpi.monthlyPnlAmount.signum() < 0 ? ' num-neg' : '')}"
                th:text="${diagnose.kpi.monthlyInvestReturnPct != null ? ((diagnose.kpi.monthlyInvestReturnPct.signum() >= 0 ? '+' : '') + #numbers.formatDecimal(diagnose.kpi.monthlyInvestReturnPct.multiply(new java.math.BigDecimal(100)), 1, 2) + '%') : '—'}">+0.00%</div>
@@ -174,7 +177,7 @@
           <div class="kpi-eyebrow">本年累计损益(钱赚的 · YTD)<th:block th:insert="~{fragments/_kpi-info :: i('1 月至今的投资 PnL 合计(ΔNetWorth − 净流入逐月累加)。', ${calc.ytdPnl})}"/></div>
           <div class="font-display text-2xl tnum mt-1"
                th:classappend="${diagnose.cumulativeYtdPnl != null and diagnose.cumulativeYtdPnl.signum() > 0 ? ' num-pos' : (diagnose.cumulativeYtdPnl != null and diagnose.cumulativeYtdPnl.signum() < 0 ? ' num-neg' : '')}"
-               data-priv th:text="${diagnose.cumulativeYtdPnl != null ? ((diagnose.cumulativeYtdPnl.signum() >= 0 ? '+' : '') + '¥' + #numbers.formatDecimal(diagnose.cumulativeYtdPnl.abs(), 1, 'COMMA', 0, 'POINT')) : '—'}">+¥0</div>
+               data-priv th:text="${diagnose.cumulativeYtdPnl != null ? ((diagnose.cumulativeYtdPnl.signum() >= 0 ? '+¥' : '−¥') + #numbers.formatDecimal(diagnose.cumulativeYtdPnl.abs(), 1, 'COMMA', 0, 'POINT')) : '—'}">+¥0</div>
           <div class="font-mono text-[10px] text-ink-soft">自然年 · 已剔除外部资金 + 转账</div>
         </div>
       </div>

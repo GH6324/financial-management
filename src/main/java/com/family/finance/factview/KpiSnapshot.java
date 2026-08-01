@@ -46,7 +46,22 @@ public record KpiSnapshot(
         BigDecimal prevNetWorth,
         BigDecimal lastNetInflow,
         // v0.13 · 本期「开账基线」(新纳入账户存量本金 · viewCurrency)· 供「本期怎么变」卡第三项 + 收益指标剔除 · 可空
-        BigDecimal openingBaselineLast
+        BigDecimal openingBaselineLast,
+        /**
+         * v1.6.30 · 收益锚点期的期末净资产(viewCurrency)。
+         *
+         * <p>存量类 KPI({@code netWorth} 等)锚最后一期(可能是进行中的 OPEN 期,余额已填 → 该看最新);
+         * 收益类({@code monthlyPnlAmount / monthlyInvestReturnPct})锚**最新已关账期** ——
+         * 进行中的期收支通常还没录,拿它算收益会把未录收支整个算成投资收益。
+         * 两者可能不是同一期,所以 tooltip 需要单独知道收益锚点的期末值。</p>
+         */
+        BigDecimal returnAnchorNetWorth,
+        /** v1.6.30 · 收益锚点期的月份(给「锚定 2026-07」这类文案)· 可空 */
+        java.time.LocalDate returnAnchorMonth,
+        /** v1.6.30 · 最后一期是否「填报中」(在窗口内但未关账)· 页面据此提示口径 */
+        boolean filingInProgress,
+        /** v1.6.30 · 参与收益类计算的期数(= 已关账期数)· 决定 XIRR 是年化还是累计口径 · 可空 */
+        Integer returnPeriodCount
 ) {
     /** v0.4.2 加字段时的 backward-compat 构造器 · 老调用方继续传 7 参数 */
     public KpiSnapshot(BigDecimal netWorth, BigDecimal totalAssets, BigDecimal totalLiabilities,
@@ -79,5 +94,23 @@ public record KpiSnapshot(
              netWorthDelta, netWorthDeltaPct, monthlyPnlAmount, monthlyInvestReturnPct,
              annualizedInvestReturnPct, ytdInvestPnl, liquidAssets, avgExpense,
              prevNetWorth, lastNetInflow, null);
+    }
+
+    /**
+     * v1.6.30 加 3 个收益锚点字段时的 backward-compat 构造器 · 老调用方继续传 16 参数。
+     * 默认视为「收益锚点 = 最后一期、无填报中提示」= v1.6.30 之前的行为。
+     */
+    public KpiSnapshot(BigDecimal netWorth, BigDecimal totalAssets, BigDecimal totalLiabilities,
+                       BigDecimal emergencyFundMonths, BigDecimal debtToAssetRatio,
+                       BigDecimal netWorthDelta, BigDecimal netWorthDeltaPct,
+                       BigDecimal monthlyPnlAmount, BigDecimal monthlyInvestReturnPct,
+                       BigDecimal annualizedInvestReturnPct, BigDecimal ytdInvestPnl,
+                       BigDecimal liquidAssets, BigDecimal avgExpense,
+                       BigDecimal prevNetWorth, BigDecimal lastNetInflow,
+                       BigDecimal openingBaselineLast) {
+        this(netWorth, totalAssets, totalLiabilities, emergencyFundMonths, debtToAssetRatio,
+             netWorthDelta, netWorthDeltaPct, monthlyPnlAmount, monthlyInvestReturnPct,
+             annualizedInvestReturnPct, ytdInvestPnl, liquidAssets, avgExpense,
+             prevNetWorth, lastNetInflow, openingBaselineLast, netWorth, null, false, null);
     }
 }
