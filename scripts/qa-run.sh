@@ -5069,6 +5069,16 @@ RGN="$RD/src/main/resources/templates/reports/_region.html"
 #     · 常驻:导航栏「手册」(PC 主栏 + 移动抽屉)+ 填报页标题旁「怎么填?」
 #   **守护重点**:引导卡一年后会消失,所以**不能只靠那张卡** —— 卡消失后导航栏与填报页那两处必须还在。
 #   entry-points.json 已登记 id=manual(level=obvious · pc+mobile),由 v1623-ENTRY-VIS 运行时兜底。
+#   v1.6.32 二轮(用户第 25 轮反馈):
+#     ① 第一版是「按我想到的写」而不是按功能全集写 —— 目标模块整个没提,dashboard 一堆区块也没讲,
+#        分析部分只写了用户举例的那条旭日路径。改法:先把 70+ 路由 / 管理页 15 块穷举成 33 个功能点,
+#        分成必修 8 + 选修 25(省力 / 分析 / 决策 / 进阶四类),再据此排章节。
+#        成品:主教程 5 章(必修)+ 选修 A5 / B7 / C4 / D3 共 19 节,顶部 24 张章节卡可锚点直达。
+#        守护断言章节卡 ≥20 张、必修/选修徽记都在、五个代表性锚点(ch1/a1/b3/c3/d1)存在。
+#     ② 导航:「手册」挪到主栏最末(不插在功能项中间);既然它有 icon,**所有菜单项都得有** ——
+#        8 项统一 Feather 风格 inline SVG。顺带修掉自己引入的对齐 bug:加 inline-flex 后激活项比
+#        其他项高 10px(激活态 pb-[18px] 撑高 + 容器底对齐),给未激活项补 border-transparent + 同 padding
+#        后 8 项图标中心 Y 全部对齐到同一像素。守护断言 nav.html 内 svg ≥16(PC 8 + 移动 8)。
 HC="$RD/src/main/java/com/family/finance/web/help/HelpController.java"
 HTPL="$RD/src/main/resources/templates/help/how-to-use.html"
 HINT="$RD/src/main/resources/templates/fragments/_manual-hint.html"
@@ -5080,6 +5090,11 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && grep -qF 'fragments/layout :: head' "$HTPL" \
   && ! grep -qF 'PREVIEW' "$HTPL" \
   && grep -qF 'manualHintDismissedAt' "$HINT" \
+  && [ "$(grep -c 'toc-card' "$HTPL")" -ge 20 ] \
+  && grep -qF 'badge-req' "$HTPL" && grep -qF 'badge-opt' "$HTPL" \
+  && grep -qF 'id="ch1"' "$HTPL" && grep -qF 'id="a1"' "$HTPL" \
+  && grep -qF 'id="b3"' "$HTPL" && grep -qF 'id="c3"' "$HTPL" && grep -qF 'id="d1"' "$HTPL" \
+  && [ "$(grep -c '<svg' "$NAV")" -ge 16 ] \
   && grep -qF "display:none" "$HINT" \
   && [ "$(grep -c '/help/how-to-use' "$NAV")" -ge 2 ] \
   && grep -qF '/help/how-to-use' "$ENT" \
