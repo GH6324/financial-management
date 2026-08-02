@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preview · 站内使用手册(主流程 + 分析路径)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* 视觉沿用纸账本调性:纸底 + 细分隔线 + 衬线大标 + 等宽数字。动画只用来解释,不做装饰。 */
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .rule{height:1px;background:var(--rule-soft)}
+  .chapter{max-width:940px;margin:0 auto;padding:0 20px}
+
+  /* ── 滚动进场:分段 stagger ── */
+  .reveal{opacity:0;transform:translateY(14px);transition:opacity .55s ease,transform .55s ease}
+  .reveal.in{opacity:1;transform:none}
+
+  /* ── 时间轴 ── */
+  .tl{position:relative;padding-left:30px}
+  .tl:before{content:'';position:absolute;left:7px;top:6px;bottom:6px;width:1px;background:var(--rule-soft)}
+  .tl-node{position:relative;padding:14px 0}
+  .tl-node:before{content:'';position:absolute;left:-27px;top:20px;width:9px;height:9px;border-radius:50%;
+    background:var(--paper);border:1px solid var(--rule);transition:background .4s ease,border-color .4s ease,transform .4s ease}
+  .tl-node.in:before{background:var(--brass-deep);border-color:var(--brass-deep);transform:scale(1.25)}
+  .tl-when{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--brass-text)}
+
+  /* ── 演示台 ── */
+  .stage{border:1px solid var(--rule);background:var(--card)}
+  .stage-hd{padding:10px 16px;border-bottom:1px solid var(--rule-soft);background:var(--card-soft);
+    display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .btn-run{font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 14px;border:1px solid var(--ink);
+    background:var(--ink);color:var(--paper);cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+  .btn-run[disabled]{opacity:.45;cursor:default}
+  .btn-ghost{font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 12px;border:1px solid var(--rule);
+    background:transparent;color:var(--ink-soft);cursor:pointer}
+
+  /* ── 演示 A · 填报顺序 ── */
+  .lane{border:1px solid var(--rule-soft);padding:16px;background:var(--card)}
+  .lane.ok{border-left:3px solid var(--forest)}
+  .lane.bad{border-left:3px solid var(--rust)}
+  .step-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 0;
+    opacity:.28;transition:opacity .45s ease}
+  .step-row.on{opacity:1}
+  .step-row + .step-row{border-top:1px dashed var(--rule-soft)}
+  .amount{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1;font-size:17px;transition:color .4s ease}
+  .verdict{margin-top:14px;padding:10px 12px;font-size:12.5px;line-height:1.65;opacity:0;
+    transform:translateY(6px);transition:opacity .5s ease,transform .5s ease}
+  .verdict.on{opacity:1;transform:none}
+  .verdict.ok{background:rgba(79,107,71,.10);border:1px solid var(--forest);color:var(--forest)}
+  .verdict.bad{background:rgba(156,74,42,.09);border:1px solid var(--rust);color:var(--rust)}
+
+  /* ── 演示 B · 下钻三步 ── */
+  .steps{display:flex;gap:6px;flex-wrap:wrap}
+  .pip{font-family:'JetBrains Mono',monospace;font-size:10px;padding:5px 10px;border:1px solid var(--rule);
+    color:var(--ink-subtle);cursor:pointer;background:transparent;transition:all .3s ease}
+  .pip.on{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+  .panelwrap{position:relative;min-height:330px;padding:18px;display:grid;
+    grid-template-columns:minmax(0,270px) minmax(0,1fr);gap:20px;align-items:start}
+  @media(max-width:760px){.panelwrap{grid-template-columns:1fr;min-height:0}}
+
+  .seg{transition:opacity .5s ease,stroke-width .35s ease;cursor:default}
+  .seg.dim{opacity:.22}
+  .seg.hot{stroke-width:30}
+
+  .chip{display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10.5px;
+    padding:4px 9px;border:1px solid var(--brass-deep);color:var(--brass-text);background:var(--brass-soft);
+    opacity:0;transform:translateX(-6px);transition:opacity .45s ease,transform .45s ease}
+  .chip.on{opacity:1;transform:none}
+
+  table.demo{width:100%;border-collapse:collapse;font-size:12px;opacity:.25;transition:opacity .5s ease}
+  table.demo.on{opacity:1}
+  table.demo th,table.demo td{border:1px solid var(--rule-soft);padding:7px 9px;text-align:right}
+  table.demo th{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:400;color:var(--ink-subtle);
+    background:var(--card-soft);letter-spacing:.06em}
+  table.demo td:first-child,table.demo th:first-child{text-align:left}
+  td.cell{font-family:'JetBrains Mono',monospace;cursor:pointer;transition:background .4s ease,box-shadow .4s ease}
+  td.cell.hot{background:var(--brass-soft);box-shadow:inset 0 0 0 2px var(--brass-deep)}
+
+  .drawer{border:1px solid var(--rule);background:var(--card);padding:12px;margin-top:14px;
+    opacity:0;transform:translateY(10px);transition:opacity .5s ease,transform .5s ease}
+  .drawer.on{opacity:1;transform:none}
+  .pos{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    border:1px solid var(--rule-soft);padding:9px 11px}
+  .pos + .pos{margin-top:7px}
+  .tag{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 6px;border:1px solid var(--rule);color:var(--ink-soft)}
+
+  .qtable{width:100%;border-collapse:collapse;font-size:13px}
+  .qtable td{border-bottom:1px solid var(--rule-soft);padding:11px 8px;vertical-align:top}
+  .qtable tr:hover td{background:var(--card-soft)}
+  .where{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--brass-text);white-space:nowrap}
+
+  @media (prefers-reduced-motion: reduce){
+    .reveal,.step-row,.verdict,.chip,.drawer,table.demo,.seg{transition:none!important}
+    .reveal{opacity:1;transform:none}
+  }
+</style>
+</head>
+<body class="min-h-screen" style="background:var(--paper)">
+
+<!-- ══ 预览说明条(仅预览稿有,嵌入 app 时删掉)══ -->
+<div class="mono" style="background:var(--ink);color:var(--paper);font-size:11px;padding:8px 20px;text-align:center">
+  PREVIEW · 拟做成站内页 /help/how-to-use(同时导出为公开网页)· 视觉沿用现有设计令牌 · 动画只用于解释
+</div>
+
+<header class="chapter" style="padding-top:56px;padding-bottom:30px">
+  <div class="eyebrow mb-3">账 · 房 · 使 · 用 · 手 · 册</div>
+  <h1 class="text-4xl sm:text-5xl font-medium leading-tight mb-4">每月十分钟,<br>和一整套追问的路径</h1>
+  <p class="text-ink-soft" style="max-width:640px;line-height:1.85">
+    这个软件只有两种用法。搞清楚它们的分工,你就不会在里面迷路。
+  </p>
+
+  <div class="grid sm:grid-cols-2 gap-4 mt-8">
+    <div class="stage p-5 reveal">
+      <div class="flex items-center gap-2 mb-2">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)">
+          <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        <h3 class="text-lg font-medium">录入</h3>
+        <span class="mono ml-auto" style="font-size:10px;color:var(--ink-subtle)">每月一次 · ~10 分钟</span>
+      </div>
+      <p class="text-sm text-ink-soft" style="line-height:1.8">流程固定,照着走。<br>录收入 → 填支出 → 核余额 → 关账。</p>
+    </div>
+    <div class="stage p-5 reveal">
+      <div class="flex items-center gap-2 mb-2">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round" style="color:var(--forest)">
+          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <h3 class="text-lg font-medium">分析</h3>
+        <span class="mono ml-auto" style="font-size:10px;color:var(--ink-subtle)">随时 · 带着问题来</span>
+      </div>
+      <p class="text-sm text-ink-soft" style="line-height:1.8">路径不固定,但有套路。<br>从全貌一路钻到具体某一笔。</p>
+    </div>
+  </div>
+</header>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<!-- ══ 第一部分 · 月度主流程 ══ -->
+<section class="chapter" style="padding:48px 20px">
+  <div class="eyebrow mb-2">第 一 部 分</div>
+  <h2 class="text-3xl font-medium mb-8">月度主流程</h2>
+
+  <div class="tl">
+    <div class="tl-node reveal">
+      <div class="tl-when mb-1">月初 1 号</div>
+      <h4 class="text-lg font-medium mb-1">你什么都不用做</h4>
+      <p class="text-sm text-ink-soft" style="line-height:1.8">
+        系统自动开新账期、按上月账户生成「填余额」待办、贷款账户按月供预填。
+      </p>
+    </div>
+    <div class="tl-node reveal">
+      <div class="tl-when mb-1">月初任意一天 · 约 10 分钟</div>
+      <h4 class="text-lg font-medium mb-1">流程 1 · 填报(顺序有讲究)</h4>
+      <p class="text-sm text-ink-soft mb-3" style="line-height:1.8">
+        <b class="text-ink">① 先录收入</b>(逐笔 · 金额 + 类目 + 进哪个账户)→
+        <b class="text-ink">② 再填支出</b>(每人一个总数)→
+        <b class="text-ink">③ 最后核余额</b>。
+      </p>
+      <p class="text-sm" style="line-height:1.8;color:var(--rust)">
+        顺序反了会重复计算 —— 下面这个演示就是讲这件事。
+      </p>
+    </div>
+    <div class="tl-node reveal">
+      <div class="tl-when mb-1">填完当下 · 约 1 分钟</div>
+      <h4 class="text-lg font-medium mb-1">流程 2 · 自查并关账</h4>
+      <p class="text-sm text-ink-soft" style="line-height:1.8">
+        页面显示「家庭本月已填收支:N / M 人」和哪些账户还没填。<br>
+        <b class="text-ink">关账不是走形式</b>:收益类指标只统计已关账的账期 —— 填报中的月份通常"余额填了、收支没录齐",
+        拿它算收益会把没录的收支当成投资收益。
+      </p>
+    </div>
+    <div class="tl-node reveal">
+      <div class="tl-when mb-1">关账后 · 约 5 分钟</div>
+      <h4 class="text-lg font-medium mb-1">流程 3 · 看这个月发生了什么</h4>
+      <p class="text-sm text-ink-soft" style="line-height:1.8">
+        由粗到细四步:<b class="text-ink">概览</b>(净资产 / 环比 / 紧急储备)→
+        <b class="text-ink">人赚 vs 钱赚</b>(多少是攒的、多少是赚的)→
+        <b class="text-ink">归因复盘</b>(具体谁贡献的)→
+        <b class="text-ink">资产洞察</b>(系统给的提示)。
+      </p>
+    </div>
+    <div class="tl-node reveal">
+      <div class="tl-when mb-1">每季 / 半年 · 约 15 分钟</div>
+      <h4 class="text-lg font-medium mb-1">流程 4 · 体检与调仓</h4>
+      <p class="text-sm text-ink-soft" style="line-height:1.8">
+        资产体检(配置 / 风险 / 流动性 / 收益 四维)→ 配置对照 → 调仓建议 → 目标进度。
+      </p>
+    </div>
+    <div class="tl-node reveal">
+      <div class="tl-when mb-1">不定期</div>
+      <h4 class="text-lg font-medium mb-1">流程 5 · 事件驱动</h4>
+      <p class="text-sm text-ink-soft" style="line-height:1.8">
+        补录老账户(自动识别为开账基线,不虚高收益)· 买房贷款 · 换券商 · 大额跨账户搬钱 · 截图批量填报。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 演示 A · 填报顺序 ══ -->
+<section class="chapter" style="padding:10px 20px 48px">
+  <div class="stage reveal">
+    <div class="stage-hd">
+      <div>
+        <div class="eyebrow">演 示 A</div>
+        <h3 class="text-lg font-medium mt-0.5">为什么必须「先录收入,后核余额」</h3>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn-run" id="runA">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l14 8-14 8z"/></svg>
+          播放
+        </button>
+        <button class="btn-ghost" id="resetA">重置</button>
+      </div>
+    </div>
+    <div class="p-5">
+      <p class="text-sm text-ink-soft mb-4" style="line-height:1.8">
+        关键机制:<b class="text-ink">录一笔收入,系统会立刻把这笔钱加进那个账户的余额</b>。
+        所以两种顺序的结果完全不同 —— 左边对,右边多算了一次。
+      </p>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <!-- 正确 -->
+        <div class="lane ok" id="laneA-ok">
+          <div class="mono mb-3" style="font-size:10.5px;color:var(--forest)">① 先录收入 → ② 后核余额　（正确）</div>
+          <div class="step-row" data-i="1">
+            <span class="text-sm">月初账户余额</span>
+            <span class="amount" style="color:var(--ink-soft)">¥16,519</span>
+          </div>
+          <div class="step-row" data-i="2">
+            <span class="text-sm">录入工资 <span class="mono" style="font-size:11px">+10,000</span></span>
+            <span class="amount" style="color:var(--forest)">自动入账</span>
+          </div>
+          <div class="step-row" data-i="3">
+            <span class="text-sm">账户余额变成</span>
+            <span class="amount ok-total" style="color:var(--ink)">¥26,519</span>
+          </div>
+          <div class="step-row" data-i="4">
+            <span class="text-sm">核对月末余额:与银行 App 一致</span>
+            <span class="amount" style="color:var(--forest)">无需改动</span>
+          </div>
+          <div class="verdict ok" id="verdA-ok">
+            余额 <b>¥26,519</b> 正确。收入既进了余额,也留下了一条流水 —— 之后「人赚 / 储蓄率」都算得对。
+          </div>
+        </div>
+        <!-- 错误 -->
+        <div class="lane bad" id="laneA-bad">
+          <div class="mono mb-3" style="font-size:10.5px;color:var(--rust)">① 先填余额 → ② 再录收入　（会重复计）</div>
+          <div class="step-row" data-i="1">
+            <span class="text-sm">月初账户余额</span>
+            <span class="amount" style="color:var(--ink-soft)">¥16,519</span>
+          </div>
+          <div class="step-row" data-i="2">
+            <span class="text-sm">直接填月末余额(已含工资)</span>
+            <span class="amount bad-total" style="color:var(--ink)">¥26,519</span>
+          </div>
+          <div class="step-row" data-i="3">
+            <span class="text-sm">又去录了那笔工资 <span class="mono" style="font-size:11px">+10,000</span></span>
+            <span class="amount" style="color:var(--rust)">再次入账</span>
+          </div>
+          <div class="step-row" data-i="4">
+            <span class="text-sm">账户余额变成</span>
+            <span class="amount bad-final" style="color:var(--rust)">¥36,519</span>
+          </div>
+          <div class="verdict bad" id="verdA-bad">
+            凭空多了 <b>¥10,000</b>。净资产虚高,而且这笔钱会被算成「人赚的」两次 —— 储蓄率、收益率跟着一起错。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<!-- ══ 第二部分 · 分析路径 ══ -->
+<section class="chapter" style="padding:48px 20px 10px">
+  <div class="eyebrow mb-2">第 二 部 分</div>
+  <h2 class="text-3xl font-medium mb-3">分析路径</h2>
+  <p class="text-ink-soft mb-8" style="max-width:660px;line-height:1.85">
+    带着一个具体问题来,而不是漫无目的地看图。下面是常见的十个问题,以及它们各自该去哪。
+  </p>
+
+  <table class="qtable reveal">
+    <tr><td>这个月净资产变化是<b>谁</b>造成的</td><td class="where">仪表盘 · 归因复盘</td></tr>
+    <tr><td>我是<b>靠工资攒的还是靠投资赚的</b></td><td class="where">仪表盘 · 人赚 vs 钱赚</td></tr>
+    <tr><td>我的投资<b>跑赢基准</b>了吗、谁拖后腿</td><td class="where">报表 · 账户级收益 vs 基准</td></tr>
+    <tr><td>我家<b>高风险资产</b>有多少、谁在管、具体哪几笔</td><td class="where">资产透视 → 见下方演示</td></tr>
+    <tr><td>我是不是<b>押注了单一行业</b></td><td class="where">资产透视 ·「行业集中」</td></tr>
+    <tr><td>钱<b>够花几个月</b></td><td class="where">资产体检 · 紧急储备</td></tr>
+    <tr><td><b>扣掉通胀</b>,我真的变富了吗</td><td class="where">报表 · 财富水位</td></tr>
+    <tr><td>该不该<b>提前还房贷</b></td><td class="where">报表 · 提前还贷决策器</td></tr>
+    <tr><td>我离 <b>FIRE</b> 还有多远</td><td class="where">财务目标</td></tr>
+    <tr><td>配置<b>偏离</b>目标了吗、怎么调</td><td class="where">报表 · 配置对照 → 调仓建议</td></tr>
+  </table>
+</section>
+
+<!-- ══ 演示 B · 下钻三步 ══ -->
+<section class="chapter" style="padding:34px 20px 56px">
+  <div class="stage reveal">
+    <div class="stage-hd">
+      <div>
+        <div class="eyebrow">演 示 B</div>
+        <h3 class="text-lg font-medium mt-0.5">从「全家高风险占多少」钻到「具体是哪一笔」</h3>
+      </div>
+      <div class="steps">
+        <button class="pip on" data-step="1">1 · 看全貌</button>
+        <button class="pip" data-step="2">2 · 点内环下钻</button>
+        <button class="pip" data-step="3">3 · 点格子看明细</button>
+      </div>
+    </div>
+
+    <div class="panelwrap">
+      <!-- 左:旭日 -->
+      <div>
+        <div class="eyebrow mb-2">旭日下钻</div>
+        <svg viewBox="0 0 200 200" style="width:100%;max-width:250px">
+          <!-- 外环 · 资产类型 -->
+          <g fill="none" stroke-width="22" transform="rotate(-90 100 100)">
+            <circle class="seg outer" data-risk="high" cx="100" cy="100" r="78" stroke="#C9B79A"
+                    stroke-dasharray="85 405" stroke-dashoffset="0"></circle>
+            <circle class="seg outer" data-risk="high" cx="100" cy="100" r="78" stroke="#BFA9B4"
+                    stroke-dasharray="74 416" stroke-dashoffset="-85"></circle>
+            <circle class="seg outer" data-risk="other" cx="100" cy="100" r="78" stroke="#A9B6C2"
+                    stroke-dasharray="211 279" stroke-dashoffset="-159"></circle>
+            <circle class="seg outer" data-risk="other" cx="100" cy="100" r="78" stroke="#B9C8AE"
+                    stroke-dasharray="120 370" stroke-dashoffset="-370"></circle>
+          </g>
+          <!-- 内环 · 风险 -->
+          <g fill="none" stroke-width="26" transform="rotate(-90 100 100)">
+            <circle class="seg inner" id="segHigh" data-risk="high" cx="100" cy="100" r="52" stroke="#8A5A3C"
+                    stroke-dasharray="113 214" stroke-dashoffset="0"></circle>
+            <circle class="seg inner" data-risk="other" cx="100" cy="100" r="52" stroke="#8B8378"
+                    stroke-dasharray="195 132" stroke-dashoffset="-113"></circle>
+            <circle class="seg inner" data-risk="other" cx="100" cy="100" r="52" stroke="#B9A96F"
+                    stroke-dasharray="19 308" stroke-dashoffset="-308"></circle>
+          </g>
+          <text x="100" y="97" text-anchor="middle" class="mono" style="font-size:8px;fill:var(--ink-subtle)">合计</text>
+          <text x="100" y="109" text-anchor="middle" class="mono" style="font-size:7px;fill:var(--brass-text)">点换指标</text>
+        </svg>
+        <p class="mono mt-2" style="font-size:10px;color:var(--ink-subtle);line-height:1.7">
+          内环 = 风险等级 · 外环 = 资产类型<br>
+          <span id="sunHint">高风险 34.5% · 未分类 59.7%</span>
+        </p>
+      </div>
+
+      <!-- 右:筛选 + 透视 + 抽屉 -->
+      <div>
+        <div class="mb-3" style="min-height:26px">
+          <span class="chip" id="chip1">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6 6 18"/></svg>
+            风险 = 高风险
+          </span>
+        </div>
+        <div class="eyebrow mb-2">交叉透视 · 行 = 主理人 &nbsp;列 = 行业</div>
+        <table class="demo" id="tblB">
+          <thead><tr><th>主理人 \ 行业</th><th>半导体</th><th>消费</th><th>金融</th></tr></thead>
+          <tbody>
+            <tr><td>迪娃</td><td class="cell">¥182,400</td><td class="cell">¥61,200</td><td class="cell">¥24,000</td></tr>
+            <tr><td>配偶</td><td class="cell" id="cellHot">¥413,700</td><td class="cell">¥38,500</td><td class="cell">—</td></tr>
+            <tr><td>共同</td><td class="cell">—</td><td class="cell">¥12,000</td><td class="cell">¥9,800</td></tr>
+          </tbody>
+        </table>
+        <p class="mono mt-2" style="font-size:10px;color:var(--ink-subtle)">
+          热力 = 值相对深浅 · 指标可多选(总资产 / 占比 / 累计收益率…)
+        </p>
+
+        <div class="drawer" id="drawerB">
+          <div class="flex items-baseline justify-between mb-2">
+            <div class="eyebrow">明细 POSITIONS</div>
+            <span class="mono" style="font-size:10px;color:var(--brass-text)">配偶 × 半导体 · 3 笔头寸</span>
+          </div>
+          <div class="pos">
+            <div><b class="text-sm">中芯国际</b> <span class="tag">持仓</span>
+              <div class="mono" style="font-size:10px;color:var(--ink-subtle)">富途证券-港美股 · 富途 · 半导体</div></div>
+            <div class="text-right"><div class="mono text-sm">¥228,900</div>
+              <span class="mono" style="font-size:10px;color:var(--brass-text)">账户详情 →</span></div>
+          </div>
+          <div class="pos">
+            <div><b class="text-sm">台积电 ADR</b> <span class="tag">持仓</span>
+              <div class="mono" style="font-size:10px;color:var(--ink-subtle)">富途证券-港美股 · 富途 · 半导体</div></div>
+            <div class="text-right"><div class="mono text-sm">¥141,300</div>
+              <span class="mono" style="font-size:10px;color:var(--brass-text)">账户详情 →</span></div>
+          </div>
+          <div class="pos">
+            <div><b class="text-sm">半导体 ETF</b> <span class="tag">持仓</span>
+              <div class="mono" style="font-size:10px;color:var(--ink-subtle)">蚂蚁财富-基金 · 支付宝 · 半导体(穿透)</div></div>
+            <div class="text-right"><div class="mono text-sm">¥43,500</div>
+              <span class="mono" style="font-size:10px;color:var(--brass-text)">账户详情 →</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rule"></div>
+    <div class="p-5">
+      <p class="text-sm text-ink-soft" style="line-height:1.85">
+        <b class="text-ink">这条路径最容易卡住的一点</b>:明细抽屉<b class="text-ink">只能从交叉透视的格子点开</b> ——
+        旭日负责缩小范围,透视负责定位,抽屉才落到具体持仓。很多人在旭日上反复点,以为哪里能看到明细。
+      </p>
+      <p class="text-sm mt-3" style="line-height:1.85;color:var(--brass-text)">
+        走完这一路,你得到的结论形如:「我家高风险资产占 34.5%,其中大头在配偶名下的半导体,
+        具体是富途账户那 3 支,累计收益率 −12%。」
+      </p>
+    </div>
+  </div>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<!-- ══ 第三部分 · 记账速查 ══ -->
+<section class="chapter" style="padding:48px 20px 70px">
+  <div class="eyebrow mb-2">第 三 部 分</div>
+  <h2 class="text-3xl font-medium mb-3">一条总原则</h2>
+  <p class="text-ink-soft mb-6" style="max-width:660px;line-height:1.85">
+    记住这句,九成"这笔钱要不要记"的问题自己就有答案了。
+  </p>
+
+  <div class="grid sm:grid-cols-2 gap-4">
+    <div class="stage p-5 reveal" style="border-left:3px solid var(--ink-subtle)">
+      <div class="mono mb-2" style="font-size:10.5px;color:var(--ink-subtle)">不算收支</div>
+      <h4 class="text-lg font-medium mb-2">钱在你自己账户之间移动</h4>
+      <p class="text-sm text-ink-soft" style="line-height:1.85">
+        转账、买基金、卖股票、还房贷本金 —— 你没变穷也没变富,只是钱换了个地方待着。
+        只影响各账户余额,照实填即可。
+      </p>
+    </div>
+    <div class="stage p-5 reveal" style="border-left:3px solid var(--brass-deep)">
+      <div class="mono mb-2" style="font-size:10.5px;color:var(--brass-text)">算收支</div>
+      <h4 class="text-lg font-medium mb-2">钱真正进出你家</h4>
+      <p class="text-sm text-ink-soft" style="line-height:1.85">
+        工资、奖金、吃饭、房租、利息 —— 收入逐笔录(选进账账户),支出填一个总数。
+      </p>
+    </div>
+  </div>
+
+  <details class="stage p-5 mt-4">
+    <summary class="cursor-pointer text-sm" style="color:var(--brass-text)">展开:9 个常见场景速查表</summary>
+    <table class="qtable mt-4">
+      <tr><td>发工资 / 收奖金</td><td class="where">逐笔录「现金收入」,选进账账户</td></tr>
+      <tr><td>吃饭、房租、买东西</td><td class="where">填「本月总支出」一个总数</td></tr>
+      <tr><td>同一账户里买卖基金</td><td class="where">什么都不用做</td></tr>
+      <tr><td>从银行卡转钱去基金账户</td><td class="where">用「账户间划转」</td></tr>
+      <tr><td>借房贷 / 消费贷 / 跟人借</td><td class="where">建「贷款」账户 · 正负号系统自动处理</td></tr>
+      <tr><td>还房贷</td><td class="where">贷款余额减 + 现金减 · 利息自动体现</td></tr>
+      <tr><td>借钱给别人</td><td class="where">建「其他」账户记应收</td></tr>
+      <tr><td>股息 / 利息到账</td><td class="where">留在账户不用记 · 取出来则录收入</td></tr>
+      <tr><td>补录一个已有钱的老账户</td><td class="where">直接建 · 自动识别为「开账基线」</td></tr>
+    </table>
+  </details>
+</section>
+
+
+<div class="chapter"><div class="rule"></div></div>
+
+<!-- ══ 入口方案(给评审看的,不进正式页)══ -->
+<section class="chapter" style="padding:48px 20px 10px">
+  <div class="eyebrow mb-2">入 口 方 案 · 待 评 审</div>
+  <h2 class="text-3xl font-medium mb-3">新手很醒目,老手不打扰</h2>
+  <p class="text-ink-soft mb-3" style="max-width:680px;line-height:1.85">
+    判据用<b class="text-ink">「这个家庭还没关账过任何一期」</b>,不用 localStorage、不加数据库字段 ——
+    换设备、换浏览器都不会重复打扰,走完第一个完整月份后醒目卡<b class="text-ink">自动退场</b>,入口转为常驻。
+  </p>
+  <p class="mono mb-8" style="font-size:11px;color:var(--ink-subtle)">
+    实现上就是 <span style="color:var(--brass-text)">periodMapper.findLatestClosedAsOf(familyId, today).isEmpty()</span> —— 现成查询,零迁移。
+  </p>
+
+  <div class="eyebrow mb-2">状 态 一 · 新手(还没关过账)· 放在仪表盘与填报页顶部</div>
+  <div class="stage reveal" style="border-left:3px solid var(--brass-deep);padding:20px 22px;margin-bottom:8px">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div style="min-width:260px;flex:1">
+        <div class="flex items-center gap-2 mb-1.5">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)">
+            <path d="M4 19.5V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-1.5Z"/><path d="M8 7h8M8 11h6"/></svg>
+          <h3 class="text-xl font-medium">第一次用?十分钟走通一个月</h3>
+        </div>
+        <p class="text-sm text-ink-soft mb-3" style="line-height:1.85">
+          这个软件不用记流水 —— 每月只做四件事:
+          <b class="text-ink">录收入 → 填支出 → 核余额 → 关账</b>。
+          手册里有带演示的完整流程,以及「怎么从全貌钻到具体某一笔」。
+        </p>
+        <div class="flex items-center gap-3 flex-wrap">
+          <span class="btn-run" style="cursor:default">打开使用手册</span>
+          <span class="mono" style="font-size:11px;color:var(--ink-subtle)">约 4 分钟读完</span>
+        </div>
+      </div>
+      <div class="mono" style="font-size:10px;color:var(--ink-subtle);line-height:1.9;max-width:210px;
+                  border-left:1px solid var(--rule-soft);padding-left:14px">
+        完成第一次关账后<br>这张卡自动收起<br>
+        <span style="color:var(--brass-text)">入口保留在导航栏</span>
+      </div>
+    </div>
+  </div>
+  <p class="mono mb-10" style="font-size:10.5px;color:var(--ink-subtle);line-height:1.8">
+    右侧那句「完成第一次关账后自动收起」是刻意写出来的 —— 用户看到醒目卡片第一反应是「这玩意会不会一直杵在这」。
+    先告诉他何时消失,比给一个「不再提示」的关闭按钮更好:关闭按钮会让真正需要的人误关,而这张卡本来就该在他学会之后自己走。
+  </p>
+
+  <div class="eyebrow mb-2">状 态 二 · 用过之后 · 常驻入口(三处)</div>
+  <div class="grid sm:grid-cols-3 gap-3">
+    <div class="stage p-4 reveal">
+      <div class="mono mb-2" style="font-size:10px;color:var(--brass-text)">① 导航栏 · 全站可达</div>
+      <div class="flex items-center gap-3 p-2" style="border:1px solid var(--rule-soft);background:var(--card-soft)">
+        <span class="mono" style="font-size:11px;color:var(--ink-subtle)">…&nbsp; 资产体检&nbsp; 管理</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border:1px solid var(--brass-deep);color:var(--brass-text)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-1.5Z"/></svg>
+          <span class="mono" style="font-size:10.5px">手册</span>
+        </span>
+      </div>
+      <p class="text-[11px] text-ink-subtle mt-2" style="line-height:1.7">任何页面都能回到手册。</p>
+    </div>
+    <div class="stage p-4 reveal">
+      <div class="mono mb-2" style="font-size:10px;color:var(--brass-text)">② 填报页标题旁</div>
+      <div class="p-2" style="border:1px solid var(--rule-soft);background:var(--card-soft)">
+        <span class="font-display text-base">迪娃 的本月收支</span>
+        <span class="mono" style="font-size:10.5px;color:var(--brass-text)">&nbsp;· 怎么填?</span>
+      </div>
+      <p class="text-[11px] text-ink-subtle mt-2" style="line-height:1.7">卡在填报当下时,手册就在手边。</p>
+    </div>
+    <div class="stage p-4 reveal">
+      <div class="mono mb-2" style="font-size:10px;color:var(--brass-text)">③ 落地页 / README</div>
+      <div class="p-2 mono" style="font-size:10.5px;border:1px solid var(--rule-soft);background:var(--card-soft);color:var(--ink-soft)">
+        使用手册 · 常见问题 · 券商同步
+      </div>
+      <p class="text-[11px] text-ink-subtle mt-2" style="line-height:1.7">还没装的人也能先看懂它怎么用。</p>
+    </div>
+  </div>
+</section>
+
+<footer class="chapter" style="padding-bottom:60px">
+  <div class="rule mb-4"></div>
+  <p class="mono" style="font-size:10.5px;color:var(--ink-subtle);line-height:1.9">
+    预览稿 · 待评审后落为站内页 <b style="color:var(--ink)">/help/how-to-use</b>,并导出公开网页版<br>
+    正文内容同 <b style="color:var(--ink)">docs/how-to-use.md</b> · 动画仅用于解释「填报顺序」与「下钻链路」两处易错点
+  </p>
+</footer>
+
+<script>
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ── 滚动进场 ── */
+  var io = new IntersectionObserver(function(es){
+    es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, {threshold:.15});
+  document.querySelectorAll('.reveal, .tl-node').forEach(function(el, i){
+    el.style.transitionDelay = (Math.min(i,6)*70) + 'ms';
+    io.observe(el);
+  });
+
+  /* ── 演示 A · 分步播放 ── */
+  var runA = document.getElementById('runA'), resetA = document.getElementById('resetA');
+  var timers = [];
+  function clearA(){
+    timers.forEach(clearTimeout); timers = [];
+    document.querySelectorAll('#laneA-ok .step-row, #laneA-bad .step-row').forEach(function(r){ r.classList.remove('on'); });
+    document.getElementById('verdA-ok').classList.remove('on');
+    document.getElementById('verdA-bad').classList.remove('on');
+    runA.disabled = false;
+  }
+  function playA(){
+    clearA(); runA.disabled = true;
+    var rows = [1,2,3,4], gap = reduce ? 0 : 620;
+    rows.forEach(function(i, k){
+      timers.push(setTimeout(function(){
+        document.querySelectorAll('.step-row[data-i="'+i+'"]').forEach(function(r){ r.classList.add('on'); });
+      }, k*gap));
+    });
+    timers.push(setTimeout(function(){
+      document.getElementById('verdA-ok').classList.add('on');
+      document.getElementById('verdA-bad').classList.add('on');
+      runA.disabled = false;
+    }, rows.length*gap + 250));
+  }
+  runA.addEventListener('click', playA);
+  resetA.addEventListener('click', clearA);
+
+  /* ── 演示 B · 三步下钻 ── */
+  var pips = [].slice.call(document.querySelectorAll('.pip'));
+  var chip1 = document.getElementById('chip1'), tblB = document.getElementById('tblB'),
+      cellHot = document.getElementById('cellHot'), drawerB = document.getElementById('drawerB'),
+      sunHint = document.getElementById('sunHint');
+  function setStep(n){
+    pips.forEach(function(p){ p.classList.toggle('on', +p.dataset.step === n); });
+    // 旭日:第 2 步起把非高风险的块压暗、高风险加粗
+    document.querySelectorAll('.seg').forEach(function(s){
+      var isHigh = s.dataset.risk === 'high';
+      s.classList.toggle('dim', n >= 2 && !isHigh);
+      s.classList.toggle('hot', n >= 2 && isHigh && s.classList.contains('inner'));
+    });
+    chip1.classList.toggle('on', n >= 2);
+    tblB.classList.toggle('on', n >= 2);
+    cellHot.classList.toggle('hot', n >= 3);
+    drawerB.classList.toggle('on', n >= 3);
+    sunHint.textContent = n === 1 ? '高风险 34.5% · 未分类 59.7%'
+      : (n === 2 ? '已筛出「高风险」· 其余压暗' : '范围已锁定 · 明细见右侧抽屉');
+  }
+  pips.forEach(function(p){ p.addEventListener('click', function(){ setStep(+p.dataset.step); }); });
+  document.getElementById('segHigh').addEventListener('click', function(){ setStep(2); });
+  cellHot.addEventListener('click', function(){ setStep(3); });
+  setStep(1);
+
+  /* 演示 B 进入视口时自动走一遍(只走一次,不打扰) */
+  var demoB = document.getElementById('tblB').closest('.stage');
+  var ioB = new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      if(!e.isIntersecting || reduce) return;
+      ioB.unobserve(e.target);
+      setTimeout(function(){ setStep(2); }, 700);
+      setTimeout(function(){ setStep(3); }, 1900);
+    });
+  }, {threshold:.35});
+  if (demoB) ioB.observe(demoB);
+})();
+</script>
+</body>
+</html>
