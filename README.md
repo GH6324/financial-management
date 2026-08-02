@@ -316,6 +316,7 @@ sudo bash deploy/deploy.sh     # 幂等 · 内置迁移 + 失败自动回滚 jar
 5. `/entry` 填本期余额 → 关周期,就能在仪表盘看到净资产和收益
 6.(可选)接 AI 体检 / 短信提醒 → [配置与接入指南](docs/configuration.md)(全部可选,核心零配置即用)
 
+> 不确定某笔钱该怎么记(工资 / 买基金 / 还房贷 / 账户间转钱)→ 见 **[怎么记 · 常见场景对照手册](docs/how-to-record.md)**(带截图)。
 > 卡住 / 想了解远程访问、备份恢复、忘记密码等 → 见 [常见问题 FAQ](docs/faq.md)。
 
 ## 本地开发
@@ -353,6 +354,7 @@ bash scripts/e2e.sh            # 端到端主线真验收(11 主线 · 唤起 be
 - **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md) · [`tech-design/v0.4.md`](tech-design/v0.4.md) · [`tech-design/v0.5.md`](tech-design/v0.5.md) · [`tech-design/v0.6.md`](tech-design/v0.6.md) · [`tech-design/v0.7.md`](tech-design/v0.7.md) · [`tech-design/v0.8.md`](tech-design/v0.8.md) · [`tech-design/v0.9.md`](tech-design/v0.9.md) · [`tech-design/v0.10.md`](tech-design/v0.10.md) · [`tech-design/v0.11.md`](tech-design/v0.11.md) · [`tech-design/v0.12.md`](tech-design/v0.12.md) · [`tech-design/v0.13.md`](tech-design/v0.13.md) · [`tech-design/v0.14.md`](tech-design/v0.14.md) · [`tech-design/v0.15.md`](tech-design/v0.15.md) · [`tech-design/v0.16.md`](tech-design/v0.16.md) · [`tech-design/v0.17.md`](tech-design/v0.17.md) · [`tech-design/v1.1.md`](tech-design/v1.1.md) · [`tech-design/v1.2.md`](tech-design/v1.2.md) · [`tech-design/v1.2.2.md`](tech-design/v1.2.2.md) · [`tech-design/v1.3.md`](tech-design/v1.3.md) · [`tech-design/v1.4.md`](tech-design/v1.4.md) · [`tech-design/v1.5.md`](tech-design/v1.5.md) · [`tech-design/v1.6.md`](tech-design/v1.6.md)
 - **预览原型**:[`preview/index.html`](preview/index.html)(Tailwind CDN 静态预览)· [`preview/v0.4/`](preview/v0.4/index.html) · [`preview/v0.5/`](preview/v0.5/index.html) · [`preview/v0.6/`](preview/v0.6/index.html)(财富水位 / 股票现金联动 / FIRE 自适应 / PWA 引导)· [`preview/v0.14/`](preview/v0.14/precious-metals.html)(贵金属账户 + 自动金价 / LLM 供应商自选 / 配置开放梳理)
 - **视觉设计规范**:[`docs/visual-spec.md`](docs/visual-spec.md)(UED 规范:色彩轴 / 对比度底线 / 组件规格 / iOS 约束 / 大组件移动化) · [`docs/ued-review-2026-07.md`](docs/ued-review-2026-07.md)(全站双端截图审计 61 条) · [`docs/design-system.md`](docs/design-system.md)(现状梳理)
+- **怎么记账(新手先看)**:[`docs/how-to-record.md`](docs/how-to-record.md)(带截图 · 工资/消费/买卖基金/借钱还贷/账户间转钱 逐场景对照 · 没有财会背景也能看懂)
 - **配置与接入**:[`docs/configuration.md`](docs/configuration.md)(AI / 短信 等外部服务配置总指南 · 全部可选)
 - **券商同步图文向导**:[`docs/broker-sync-guide.md`](docs/broker-sync-guide.md)(富途 / 老虎凭据一步步获取 · 应用内同款 `/help/broker-sync` 带示意图)
 - **常见问题**:[`docs/faq.md`](docs/faq.md)(最低配置 / 远程访问 / 备份恢复 / 忘记密码 / 多家庭 …)
