@@ -141,6 +141,18 @@
         "mobile"
       ],
       "note": "用户路径是「填报 → 持仓管理」,到持仓页要能看到对接状况并一步去重配。反转了 v0.15.x「入口迁到账户页」的决定(理由见 tech-design §34)。登记为 page=/entry + pageFrom 点进持仓页,如实表达这条二级路径。"
+    },
+    {
+      "id": "manual",
+      "name": "使用手册(主流程 + 分析路径)",
+      "page": "/entry",
+      "hrefContains": "/help/how-to-use",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "v1.6.32 · issue #9:用户自述没有财会背景、不知道理财买卖/借钱怎么记。手册页 /help/how-to-use。入口三处:导航栏常驻「手册」、填报页标题旁「怎么填?」、以及新手引导卡的主按钮(localStorage 一年后不再显示,所以**不能只靠这张卡**——卡消失后前两处必须还在,这条守护就是防这个)。"
     }
   ],
   "collapsible_ok": [

@@ -5057,6 +5057,39 @@ RGN="$RD/src/main/resources/templates/reports/_region.html"
   && log_ok "v1631-RPT-ACCT-M(报表账户段手机卡片布局 · PC 表限定 sm:block · chips 仍管手机卡 · 类型 pill 固定宽防折行 · vs pill 的单位 pp 不再被大写)" \
   || log_bad "v1631-RPT-ACCT-M 缺件" "see reports/_region.html:需 sm:hidden 卡片块 + PC 表 hidden sm:block + 恰好 6 处 pill-vs(3 PC + 3 手机,不含类型/类目 pill)+ .pill-vs{text-transform:none} + 手机卡带 data-mcol(chips 联动)+ 类型 pill min-width:3.4em"
 
+# v1632-MANUAL · 站内使用手册 + 新手引导卡 + 常驻入口(issue #9)
+#   起因:一位用户(自述没有财会背景)在 issue #9 问「理财的买入卖出、借钱等如何在这些体现」。
+#   查证属实:此前站内帮助页只有 broker-sync 一篇,docs/faq.md 四章全是部署/备份/登录/AI 这类运维题,
+#   **一条「业务上该怎么记」都没有** —— 等于把门槛原封不动留给了没有财会背景的人。
+#   做法:docs/how-to-use.md(主流程 + 分析路径)+ docs/how-to-record.md(场景速查)+
+#   站内页 /help/how-to-use(正文同前者,另带两处解释性动画:填报顺序 / 明细抽屉从哪来)。
+#   入口策略(用户拍板):第一次用要很醒目,用过之后要保留入口。
+#     · 醒目:仪表盘 + 填报页顶部引导卡,localStorage `manualHintDismissedAt` 一年
+#       (用户明确选 localStorage 而非服务端状态;代价是每台设备各提示一次,可接受)
+#     · 常驻:导航栏「手册」(PC 主栏 + 移动抽屉)+ 填报页标题旁「怎么填?」
+#   **守护重点**:引导卡一年后会消失,所以**不能只靠那张卡** —— 卡消失后导航栏与填报页那两处必须还在。
+#   entry-points.json 已登记 id=manual(level=obvious · pc+mobile),由 v1623-ENTRY-VIS 运行时兜底。
+HC="$RD/src/main/java/com/family/finance/web/help/HelpController.java"
+HTPL="$RD/src/main/resources/templates/help/how-to-use.html"
+HINT="$RD/src/main/resources/templates/fragments/_manual-hint.html"
+NAV="$RD/src/main/resources/templates/fragments/nav.html"
+ENT="$RD/src/main/resources/templates/entry/index.html"
+DASH="$RD/src/main/resources/templates/dashboard/index.html"
+{ code_only "$HC" | grep -qF '/help/how-to-use' \
+  && [ -f "$HTPL" ] && [ -f "$HINT" ] \
+  && grep -qF 'fragments/layout :: head' "$HTPL" \
+  && ! grep -qF 'PREVIEW' "$HTPL" \
+  && grep -qF 'manualHintDismissedAt' "$HINT" \
+  && grep -qF "display:none" "$HINT" \
+  && [ "$(grep -c '/help/how-to-use' "$NAV")" -ge 2 ] \
+  && grep -qF '/help/how-to-use' "$ENT" \
+  && grep -qF '_manual-hint' "$ENT" \
+  && grep -qF '_manual-hint' "$DASH" \
+  && grep -qF '"id": "manual"' "$RD/scripts/entry-points.json" \
+  && [ -f "$RD/docs/how-to-use.md" ] && [ -f "$RD/docs/how-to-record.md" ]; } \
+  && log_ok "v1632-MANUAL(站内 /help/how-to-use + 新手卡 localStorage 一年 + 导航栏与填报页常驻入口 · 卡消失后入口仍在)" \
+  || log_bad "v1632-MANUAL 缺件" "see HelpController(/help/how-to-use)· templates/help/how-to-use.html(须套 layout · 不得残留 PREVIEW 条)· fragments/_manual-hint.html(manualHintDismissedAt + 默认 display:none 防闪)· nav.html 至少 2 处入口(PC+移动)· entry/index.html 与 dashboard/index.html 挂卡 · entry-points.json 登记 id=manual · docs/how-to-use.md + how-to-record.md"
+
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),
 #   而 useBar 在窄屏恒为 false → **窄屏两图必定同为环图**(用户反馈④与本次反馈的交集)。

@@ -7,6 +7,10 @@
 <header th:replace="~{fragments/nav :: nav('entry', ${me}, ${nav})}"></header>
 
 <main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10">
+
+  <!-- v1.6.32 · 新手引导卡(localStorage 一年 · 见 fragments/_manual-hint) -->
+  <th:block th:insert="~{fragments/_manual-hint :: card}"></th:block>
+
   <section class="mb-8">
     <div class="flex items-end justify-between flex-wrap gap-6">
       <div>
@@ -66,6 +70,8 @@
       <div>
         <div class="eyebrow mb-1" style="color:var(--brass-deep)">第 · 一 · 步 · 本 · 月 · 收 · 支</div>
         <h3 class="font-display text-xl font-medium"><span th:text="${me.displayName}">我</span> 的本月收支</h3>
+        <a th:href="@{/help/how-to-use}" class="font-mono text-[10.5px] no-underline hover:underline"
+           style="color:var(--brass-text)" title="使用手册 · 每月怎么走一遍">· 怎么填?</a>
         <p class="text-xs text-ink-soft mt-1">收入逐笔录到账户(直接入账 + 留流水 · 股票收入不虚高收益率)· 支出填一个总数 · 家庭总额 = SUM(成员)</p>
       </div>
       <span class="font-mono text-[10px] text-ink-subtle">+15s</span>

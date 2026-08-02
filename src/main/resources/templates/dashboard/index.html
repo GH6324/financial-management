@@ -9,6 +9,10 @@
 
 <main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10"
       th:with="tocItems=${ { {label:'概览',href:'#dashboard-region'}, {label:'资产洞察',href:'#dash-insight'}, {label:'人赚 vs 钱赚',href:'#dash-cashflow'}, {label:'归因复盘',href:'#dash-attribution'}, {label:'收支趋势',href:'#dash-cashflow-trend'}, {label:'净资产趋势',href:'#dash-trend'}, {label:'按成员分布',href:'#dash-member'}, {label:'按账户分布',href:'#dash-dist'}, {label:'账户列表',href:'#dash-list'}, {label:'资产透视',href:'#lens-section'} } }">
+
+  <!-- v1.6.32 · 新手引导卡(localStorage 一年 · 见 fragments/_manual-hint) -->
+  <th:block th:insert="~{fragments/_manual-hint :: card}"></th:block>
+
   <div class="toc-cols">
     <div class="toc-cols-main">
       <!-- v0.11.6 · 目标进度 + AI洞察 已下移到 region 内「KPI 总览之后」(先看家底再看目标/洞察)· 见 _region.html -->

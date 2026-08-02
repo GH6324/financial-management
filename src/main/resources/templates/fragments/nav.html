@@ -38,6 +38,13 @@
            th:classappend="${active == 'goals' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink'}">目标</a>
         <a th:href="@{/checkup}" class="no-underline"
            th:classappend="${active == 'checkup' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink'}">资产体检</a>
+        <!-- v1.6.32 · 使用手册常驻入口(新手卡消失后靠它回到手册)-->
+        <a th:href="@{/help/how-to-use}" class="no-underline inline-flex items-center gap-1" title="使用手册 · 主流程与分析路径"
+           th:classappend="${active == 'help' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink'}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-1.5Z"/></svg>
+          手册
+        </a>
         <a th:href="@{/admin}" class="no-underline"
    th:classappend="${active == 'admin' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink'}">管理</a>
       </nav>
@@ -76,6 +83,7 @@
             <a th:href="@{/reports}" class="px-6 py-4 hover:bg-card-soft no-underline">报表</a>
             <a th:href="@{/goals}" class="px-6 py-4 hover:bg-card-soft no-underline">目标</a>
             <a th:href="@{/checkup}" class="px-6 py-4 hover:bg-card-soft no-underline">资产体检</a>
+            <a th:href="@{/help/how-to-use}" class="px-6 py-4 hover:bg-card-soft no-underline">使用手册</a>
             <a th:href="@{/admin}" class="px-6 py-4 hover:bg-card-soft no-underline">管理</a>
             <form th:if="${_csrf != null}" th:action="@{/logout}" method="post" class="px-6 py-4 bg-card-soft">
               <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
