@@ -4,7 +4,24 @@
 <body class="min-h-screen relative" id="top">
 <div id="readbar"></div>
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
-<header th:replace="~{fragments/nav :: nav('help', ${me}, ${nav})}"></header>
+<!-- 登录态:完整导航。用 th:block 包住 —— th:replace 优先级(1)高于 th:if(3),
+     直接把 th:if 写在 <header> 上不起作用,片段照样会被渲染。 -->
+<th:block th:if="${me != null}">
+  <header th:replace="~{fragments/nav :: nav('help', ${me}, ${nav})}"></header>
+</th:block>
+<!-- 匿名态:轻头(本页免登录,潜在用户也能读) -->
+<header th:if="${me == null}" class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
+  <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-3 flex items-center justify-between gap-4">
+    <a th:href="@{/}" class="no-underline flex items-baseline gap-2">
+      <span class="font-display text-lg text-ink">账房</span>
+      <span class="font-mono text-[10px] text-ink-subtle">使用手册</span>
+    </a>
+    <div class="flex items-center gap-3">
+      <a th:href="@{/}" class="font-mono text-[11px] text-ink-soft hover:text-ink no-underline">项目首页</a>
+      <a th:href="@{/login}" class="btn-ink text-[11px] no-underline">登录</a>
+    </div>
+  </div>
+</header>
 
 <style>
   /* 视觉沿用纸账本调性:纸底 + 细分隔线 + 衬线大标 + 等宽数字。动画只用来解释,不做装饰。 */
@@ -160,12 +177,56 @@
   /* 阅读进度条 */
   #readbar{position:fixed;left:0;top:0;height:2px;background:var(--brass-deep);width:0;z-index:60;
     transition:width .12s linear}
+
+  /* ── 仿真控件:照真实页面的观感做,让教程里学的动作能直接对应到系统 ── */
+  .simrow{border:1px solid var(--rule-soft);background:var(--card);padding:10px 12px;margin-bottom:8px}
+  .simhd{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+  .simpill{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);
+    background:var(--paper-soft);color:var(--ink-soft)}
+  .simpill.inc{border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)}
+  .simpill.acct{border-color:var(--rule);color:var(--ink-soft)}
+  .simfields{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap}
+  .simlab{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-subtle);
+    display:flex;flex-direction:column;gap:3px;text-transform:uppercase;letter-spacing:.08em}
+  .siminput{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1;font-size:12.5px;
+    width:88px;height:30px;padding:0 8px;text-align:right;background:var(--paper);
+    border:1px solid var(--rule);color:var(--ink)}
+  .siminput.wide{width:118px}
+  .simsel{font-family:'JetBrains Mono',monospace;font-size:11px;height:30px;padding:0 8px;
+    display:inline-flex;align-items:center;background:var(--paper);border:1px solid var(--rule);color:var(--ink-soft)}
+  .simbtn{font-family:'JetBrains Mono',monospace;font-size:10.5px;height:30px;padding:0 10px;
+    border:1px solid var(--rule);background:transparent;color:var(--ink-soft)}
+  .simbtn.on{border-color:var(--forest);background:rgba(79,107,71,.10);color:var(--forest)}
+  .simadd{font-family:'JetBrains Mono',monospace;font-size:10.5px;height:30px;padding:0 12px;
+    display:inline-flex;align-items:center;background:var(--ink);color:var(--paper)}
+  .simadd.bad{background:var(--rust)}
+  .simnote{font-size:9.5px;color:var(--ink-subtle);align-self:center}
+
+  /* ── 演示 C · 币种切换(比值不变)── */
+  .ccybtn{font-family:'JetBrains Mono',monospace;font-size:11px;padding:5px 13px;border:1px solid var(--rule);
+    background:transparent;color:var(--ink-soft);cursor:pointer;transition:all .25s ease}
+  .ccybtn.on{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+  .ccyrow{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:9px 0}
+  .ccyrow + .ccyrow{border-top:1px dashed var(--rule-soft)}
+  .ccyval{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1;font-size:15px;
+    transition:color .35s ease}
+  .ccyval.scaled{color:var(--brass-text)}
+  .ccyval.fixed{color:var(--forest)}
+
+  /* ── 演示 D · 人赚 vs 钱赚 ── */
+  .splitbar{height:26px;display:flex;border:1px solid var(--rule);background:var(--paper-soft);overflow:hidden}
+  .splitbar span{display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;
+    font-size:10px;color:var(--paper);transition:width .8s cubic-bezier(.4,0,.2,1)}
+  .seg-human{background:var(--brass-deep)}
+  .seg-money{background:var(--forest)}
+  .seg-base{background:var(--ink-subtle)}
 </style>
 
 <main class="relative z-10" style="padding-top:8px">
   <div class="chapter" style="padding-top:18px">
     <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle">
-      <a th:href="@{/dashboard}" class="hover:text-ink no-underline">仪表盘</a>
+      <a th:if="${me != null}" th:href="@{/dashboard}" class="hover:text-ink no-underline">仪表盘</a>
+      <a th:if="${me == null}" th:href="@{/}" class="hover:text-ink no-underline">首页</a>
       <span class="mx-2 text-rule">/</span><span class="text-ink">使用手册</span>
     </div>
   </div>
@@ -185,7 +246,6 @@
     <div class="hero-no hidden sm:block">24</div>
   </div>
 </header>
-
 <section class="chapter" style="padding-bottom:30px">
   <div class="flex items-baseline gap-3 mb-3 flex-wrap">
     <h2 class="text-2xl font-medium">主教程 · 第一个月</h2><span class="badge-req">必修 · 5 章</span>
@@ -320,12 +380,12 @@
     <a class="toc-card" href="#d1">
       <span class="no">D1</span> <span class="badge-opt">选修</span>
       <span class="tt">多币种</span>
-      <span class="dd">本位币定家庭主币,视图币种只是显示镜头。…</span>
+      <span class="dd">本位币定家庭主币,视图币种只是显示镜头 —— 切换它不会改变你的钱,只改变用哪种货币来看。…</span>
     </a>
     <a class="toc-card" href="#d2">
       <span class="no">D2</span> <span class="badge-opt">选修</span>
       <span class="tt">指标设置与产品类目</span>
-      <span class="dd">这两处决定了很多指标怎么算,值得看一眼。…</span>
+      <span class="dd">这两处不起眼,但决定了很多指标怎么算 —— 紧急储备算不算某个账户、体检怎么判风险、基准对标…</span>
     </a>
     <a class="toc-card" href="#d3">
       <span class="no">D3</span> <span class="badge-opt">选修</span>
@@ -401,12 +461,12 @@
   </div>
   <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
-<!-- ══ 演示 A · 填报顺序 ══ -->
-<section class="chapter" style="padding:10px 20px 48px">
+<!-- ══ 演示 A · 仿真填报页(v1.7 重做:控件与文案照真实页面 1:1,避免"教程学会了到系统还是不会用")══ -->
+<section class="chapter" style="padding:10px 20px 44px">
   <div class="stage reveal">
     <div class="stage-hd">
       <div>
-        <div class="eyebrow">演 示 A</div>
+        <div class="eyebrow">演 示 A · 仿 真 操 作</div>
         <h3 class="text-lg font-medium mt-0.5">为什么必须「先录收入,后核余额」</h3>
       </div>
       <div class="flex gap-2">
@@ -418,61 +478,108 @@
       </div>
     </div>
     <div class="p-5">
-      <p class="text-sm text-ink-soft mb-4" style="line-height:1.8">
-        关键机制:<b class="text-ink">录一笔收入,系统会立刻把这笔钱加进那个账户的余额</b>。
-        所以两种顺序的结果完全不同 —— 左边对,右边多算了一次。
+      <p class="text-sm text-ink-soft mb-4" style="line-height:1.85">
+        下面两台是<b class="text-ink">仿真的填报页</b>(控件与真实页面一致)。同一个月、同一笔工资,
+        只是操作顺序不同 —— 左边对,右边把工资算了两次。
       </p>
-      <div class="grid sm:grid-cols-2 gap-4">
-        <!-- 正确 -->
+
+      <div class="grid lg:grid-cols-2 gap-4">
+        <!-- ───────── 正确顺序 ───────── -->
         <div class="lane ok" id="laneA-ok">
           <div class="mono mb-3" style="font-size:10.5px;color:var(--forest)">① 先录收入 → ② 后核余额　（正确）</div>
-          <div class="step-row" data-i="1">
-            <span class="text-sm">月初账户余额</span>
-            <span class="amount" style="color:var(--ink-soft)">¥16,519</span>
+
+          <!-- 仿真:收入录入行 -->
+          <div class="simrow step-row" data-i="1">
+            <div class="simhd"><span class="simpill inc">收入</span>
+              <span class="mono" style="font-size:9.5px;color:var(--ink-subtle)">先选类型 · 现金填金额</span></div>
+            <div class="simfields">
+              <button type="button" class="simbtn on">现金收入</button>
+              <button type="button" class="simbtn">股票收入</button>
+              <label class="simlab">金额 ¥<input class="siminput" value="10,000" readonly></label>
+              <label class="simlab">类目<span class="simsel">工资</span></label>
+              <label class="simlab">现金账户<span class="simsel">招行储蓄卡-工资</span></label>
+              <span class="simadd">+ 加一笔</span>
+            </div>
           </div>
+
+          <!-- 仿真:账户余额行 -->
+          <div class="simrow step-row" data-i="3">
+            <div class="simhd"><span class="simpill acct">现金</span>
+              <span class="font-display" style="font-size:13px">招行储蓄卡-工资</span></div>
+            <div class="simfields">
+              <label class="simlab">本期余额
+                <input class="siminput wide ok-total" value="26,519.00" readonly></label>
+              <span class="mono simnote" style="color:var(--forest)">收入已自动入账,核对一下就行</span>
+            </div>
+          </div>
+
           <div class="step-row" data-i="2">
-            <span class="text-sm">录入工资 <span class="mono" style="font-size:11px">+10,000</span></span>
-            <span class="amount" style="color:var(--forest)">自动入账</span>
-          </div>
-          <div class="step-row" data-i="3">
-            <span class="text-sm">账户余额变成</span>
-            <span class="amount ok-total" style="color:var(--ink)">¥26,519</span>
+            <span class="text-sm">录入后账户余额</span>
+            <span class="amount" style="color:var(--forest)">16,519 + 10,000 = 26,519</span>
           </div>
           <div class="step-row" data-i="4">
-            <span class="text-sm">核对月末余额:与银行 App 一致</span>
-            <span class="amount" style="color:var(--forest)">无需改动</span>
+            <span class="text-sm">与银行 App 对照</span>
+            <span class="amount" style="color:var(--forest)">一致 · 无需改动</span>
           </div>
+
           <div class="verdict ok" id="verdA-ok">
-            余额 <b>¥26,519</b> 正确。收入既进了余额,也留下了一条流水 —— 之后「人赚 / 储蓄率」都算得对。
+            余额 <b>¥26,519</b> 正确。这笔钱既进了余额、也留下一条流水 —— 之后「人赚 / 储蓄率 / XIRR」都算得对。
           </div>
         </div>
-        <!-- 错误 -->
+
+        <!-- ───────── 错误顺序 ───────── -->
         <div class="lane bad" id="laneA-bad">
           <div class="mono mb-3" style="font-size:10.5px;color:var(--rust)">① 先填余额 → ② 再录收入　（会重复计）</div>
-          <div class="step-row" data-i="1">
-            <span class="text-sm">月初账户余额</span>
-            <span class="amount" style="color:var(--ink-soft)">¥16,519</span>
+
+          <div class="simrow step-row" data-i="1">
+            <div class="simhd"><span class="simpill acct">现金</span>
+              <span class="font-display" style="font-size:13px">招行储蓄卡-工资</span></div>
+            <div class="simfields">
+              <label class="simlab">本期余额
+                <input class="siminput wide" value="26,519.00" readonly></label>
+              <span class="mono simnote">照银行 App 填的,已含这月工资</span>
+            </div>
           </div>
-          <div class="step-row" data-i="2">
-            <span class="text-sm">直接填月末余额(已含工资)</span>
-            <span class="amount bad-total" style="color:var(--ink)">¥26,519</span>
+
+          <div class="simrow step-row" data-i="2">
+            <div class="simhd"><span class="simpill inc">收入</span>
+              <span class="mono" style="font-size:9.5px;color:var(--ink-subtle)">又去补录那笔工资</span></div>
+            <div class="simfields">
+              <button type="button" class="simbtn on">现金收入</button>
+              <label class="simlab">金额 ¥<input class="siminput" value="10,000" readonly></label>
+              <label class="simlab">现金账户<span class="simsel">招行储蓄卡-工资</span></label>
+              <span class="simadd bad">+ 加一笔</span>
+            </div>
           </div>
+
           <div class="step-row" data-i="3">
-            <span class="text-sm">又去录了那笔工资 <span class="mono" style="font-size:11px">+10,000</span></span>
-            <span class="amount" style="color:var(--rust)">再次入账</span>
+            <span class="text-sm">系统再次自动入账</span>
+            <span class="amount" style="color:var(--rust)">26,519 + 10,000</span>
           </div>
-          <div class="step-row" data-i="4">
-            <span class="text-sm">账户余额变成</span>
-            <span class="amount bad-final" style="color:var(--rust)">¥36,519</span>
+          <div class="simrow step-row" data-i="4">
+            <div class="simhd"><span class="simpill acct">现金</span>
+              <span class="font-display" style="font-size:13px">招行储蓄卡-工资</span></div>
+            <div class="simfields">
+              <label class="simlab">本期余额
+                <input class="siminput wide bad-final" value="36,519.00" readonly></label>
+              <span class="mono simnote" style="color:var(--rust)">比银行 App 多了 10,000</span>
+            </div>
           </div>
+
           <div class="verdict bad" id="verdA-bad">
-            凭空多了 <b>¥10,000</b>。净资产虚高,而且这笔钱会被算成「人赚的」两次 —— 储蓄率、收益率跟着一起错。
+            凭空多了 <b>¥10,000</b>。净资产虚高,而且这笔钱被当成「人赚的」算了两次 —— 储蓄率、收益率跟着一起错。
           </div>
         </div>
       </div>
+
+      <p class="mono mt-4" style="font-size:10.5px;color:var(--ink-subtle);line-height:1.8">
+        记住这条机制就够了:<b style="color:var(--ink)">录一笔收入 = 往那个账户的余额上加一笔</b>。
+        所以先录收入,余额会自己变对;反过来则会加两次。
+      </p>
     </div>
   </div>
 </section>
+
 
 <div class="chapter"><div class="rule"></div></div>
 
@@ -535,6 +642,53 @@
   </figure>
   <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
+<!-- ══ 演示 D · 人赚 vs 钱赚 ══ -->
+<section class="chapter" style="padding:6px 20px 34px">
+  <div class="stage reveal">
+    <div class="stage-hd">
+      <div>
+        <div class="eyebrow">演 示 D</div>
+        <h3 class="text-lg font-medium mt-0.5">同样是净资产 +10 万,含义可能完全不同</h3>
+      </div>
+      <div class="steps">
+        <button class="pip on" data-case="1">全靠工资攒</button>
+        <button class="pip" data-case="2">一半攒一半赚</button>
+        <button class="pip" data-case="3">工资攒了但投资亏</button>
+      </div>
+    </div>
+    <div class="p-5">
+      <p class="text-sm text-ink-soft mb-4" style="line-height:1.85">
+        这三种情况净资产都涨了 10 万,但<b class="text-ink">你该做的事完全不同</b>。点上面三个按钮看拆解。
+      </p>
+      <div class="mb-2 flex items-baseline justify-between">
+        <span class="mono" style="font-size:11px;color:var(--ink-subtle)">本期净资产变化</span>
+        <span class="mono" style="font-size:16px" id="dNW">+¥100,000</span>
+      </div>
+      <div class="splitbar mb-3">
+        <span class="seg-human" id="segHuman" style="width:100%">人赚</span>
+        <span class="seg-money" id="segMoney" style="width:0%">钱赚</span>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-3 mb-4">
+        <div class="lane" style="border-left:3px solid var(--brass-deep)">
+          <div class="mono mb-1" style="font-size:10px;color:var(--brass-text)">人赚的 · 工资攒下来的</div>
+          <div class="amount" id="valHuman" style="color:var(--brass-text)">+¥100,000</div>
+        </div>
+        <div class="lane" style="border-left:3px solid var(--forest)">
+          <div class="mono mb-1" style="font-size:10px;color:var(--forest)">钱赚的 · 投资真正赚的</div>
+          <div class="amount" id="valMoney" style="color:var(--forest)">¥0</div>
+        </div>
+      </div>
+      <div class="verdict on" id="dVerdict" style="background:var(--card-soft);border:1px solid var(--rule);color:var(--ink-soft)">
+        资产全靠往里存钱,投资没产生任何回报 —— 该检查配置是不是过于保守、或者钱是不是躺在活期里。
+      </div>
+      <p class="mono mt-3" style="font-size:10.5px;color:var(--ink-subtle);line-height:1.8">
+        公式:<b style="color:var(--ink)">净资产变化 = 人赚的 + 钱赚的 + 开账基线</b>。
+        少填收支这两个数,这个拆解就做不出来 —— 这也是「为什么要填那两个数」的答案。
+      </p>
+    </div>
+  </div>
+</section>
+
 
 <div class="chapter"><div class="rule"></div></div>
 
@@ -613,6 +767,10 @@
          stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     去账户页关联券商
   </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/a2-integrations.jpg}" alt="数据源接入页:LLM key / 短信 aksk / 券商凭据都在这里配,每项都有一键测试。" loading="lazy">
+    <figcaption>数据源接入页:LLM key / 短信 aksk / 券商凭据都在这里配,每项都有一键测试。</figcaption>
+  </figure>
   <div class="lesson reveal">
     <h4 class="font-display font-medium">模型是 1:1 <span class="where2">账户 → 券商</span></h4>
     <p>一个账房账户对应一个券商交易账户。有多个券商账户就各建一个账房账户分别关联。凭据在「数据源接入」里配,持仓页有状态条显示同步状况。</p>
@@ -632,9 +790,17 @@
          stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     去数据源接入 → 券商段
   </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/a3-opend.jpg}" alt="富途 OpenD 网关向导:下载、托管、自检三步走,端口只绑 127.0.0.1。" loading="lazy">
+    <figcaption>富途 OpenD 网关向导:下载、托管、自检三步走,端口只绑 127.0.0.1。</figcaption>
+  </figure>
   <div class="lesson reveal">
     <h4 class="font-display font-medium">安全边界 <span class="where2">管理 → 数据源接入</span></h4>
     <p>只绑 127.0.0.1、密码只存 MD5、下载走白名单。配好后从持仓页状态条能看到「同步已启用 / 上次同步 / OpenD 地址」。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">还有一份逐步图文向导 <span class="where2">/help/broker-sync</span></h4>
+    <p>券商凭据怎么拿、OpenD 怎么起、连不上怎么排查 —— 站内另有一份专门的图文向导,比这里更细。</p>
   </div>
   <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
@@ -1024,6 +1190,10 @@
     <h4 class="font-display font-medium">自定义目标 <span class="where2">目标 → 自定义</span></h4>
     <p>可挂在净投入 / 储蓄率 / 应急月数 / 资产年化等指标上,设定阈值与期限。每个目标给乐观 / 中性 / 悲观三情景预测和进度落后判定。</p>
   </div>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/c3-goals-new.jpg}" alt="新建目标:三个预设(退休 / 教育 / 应急)+ 自定义,填完即出三情景预测。" loading="lazy">
+    <figcaption>新建目标:三个预设(退休 / 教育 / 应急)+ 自定义,填完即出三情景预测。</figcaption>
+  </figure>
   <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
 
@@ -1065,7 +1235,7 @@
   <span class="ch-water">D1</span>
   <div class="ch-hd"><span class="ch-no">D1</span><span class="badge-opt">选修</span></div>
   <h2 class="text-3xl font-medium mb-3">多币种</h2>
-  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">本位币定家庭主币,视图币种只是<b class="text-ink">显示镜头</b>。</p>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">本位币定家庭主币,视图币种只是<b class="text-ink">显示镜头</b> —— 切换它不会改变你的钱,只改变用哪种货币来看。</p>
   <a class="goto" th:href="@{/admin/fx}">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
          stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
@@ -1076,11 +1246,64 @@
     <figcaption>汇率维护:自动拉取,也可手工覆盖某一期的汇率。</figcaption>
   </figure>
   <div class="lesson reveal">
-    <h4 class="font-display font-medium">比值类指标币种无关 <span class="where2">管理 → 汇率维护</span></h4>
-    <p>切币种时金额按汇率缩放,而<b class="text-ink">比值类指标(收益率、储蓄率、紧急储备月数)在三种币种下完全相等</b> —— 这是硬约束,有专门守护网住。汇率自动拉取,也可手工覆盖。</p>
+    <h4 class="font-display font-medium">切币种时什么变、什么不变 <span class="where2">页面右上角币种切换</span></h4>
+    <p><b class="text-ink">金额</b>按汇率缩放;<b class="text-ink">比值类指标(收益率 / 储蓄率 / 紧急储备月数 / 负债率)三种币种下完全相等</b>。这是硬约束 —— 历史上这块漏过三次,现在有属性级守护遍历所有比值 KPI 逐一比对。下面的演示可以自己点着试。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">汇率从哪来 <span class="where2">管理 → 汇率维护</span></h4>
+    <p>每月自动拉取,失败时可手工覆盖某一期。多币种账户按「单一镜头」换算 —— 同一账户在所有账期用同一组汇率,避免跨期差额不缩放。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">账户币种怎么定 <span class="where2">账户 → 编辑</span></h4>
+    <p>账户建的时候选 CNY / USD / HKD。港美股账户建议按券商实际记账币种来,系统会自动折算进家庭本位币。</p>
   </div>
   <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
+<!-- ══ 演示 C · 币种是「显示镜头」:金额缩放,比值不变 ══ -->
+<section class="chapter" style="padding:6px 20px 34px">
+  <div class="stage reveal">
+    <div class="stage-hd">
+      <div>
+        <div class="eyebrow">演 示 C</div>
+        <h3 class="text-lg font-medium mt-0.5">切换币种时,什么会变、什么不该变</h3>
+      </div>
+      <div class="steps">
+        <button class="ccybtn on" data-ccy="CNY">CNY</button>
+        <button class="ccybtn" data-ccy="USD">USD</button>
+        <button class="ccybtn" data-ccy="HKD">HKD</button>
+      </div>
+    </div>
+    <div class="p-5">
+      <p class="text-sm text-ink-soft mb-4" style="line-height:1.85">
+        视图币种只是<b class="text-ink">显示镜头</b> —— 点上面三个按钮试试:
+        <b style="color:var(--brass-text)">金额</b>按汇率缩放,
+        而<b style="color:var(--forest)">比值类指标</b>三种币种下<b class="text-ink">完全相等</b>。
+        这是硬约束,有专门的守护网住(历史上这块漏过三次)。
+      </p>
+      <div class="grid sm:grid-cols-2 gap-5">
+        <div>
+          <div class="eyebrow mb-2">金额类 · 按汇率缩放</div>
+          <div class="ccyrow"><span class="text-sm">净资产</span><span class="ccyval scaled" data-amt="2729069">¥2,729,069</span></div>
+          <div class="ccyrow"><span class="text-sm">总资产</span><span class="ccyval scaled" data-amt="3915769">¥3,915,769</span></div>
+          <div class="ccyrow"><span class="text-sm">总负债</span><span class="ccyval scaled" data-amt="1186700">¥1,186,700</span></div>
+          <div class="ccyrow"><span class="text-sm">流动资产</span><span class="ccyval scaled" data-amt="59690">¥59,690</span></div>
+        </div>
+        <div>
+          <div class="eyebrow mb-2">比值类 · 三币种完全相等</div>
+          <div class="ccyrow"><span class="text-sm">紧急储备</span><span class="ccyval fixed">7.6 个月</span></div>
+          <div class="ccyrow"><span class="text-sm">负债率</span><span class="ccyval fixed">30.31%</span></div>
+          <div class="ccyrow"><span class="text-sm">家庭 XIRR</span><span class="ccyval fixed">+1.11%</span></div>
+          <div class="ccyrow"><span class="text-sm">本月资产收益</span><span class="ccyval fixed">+4.51%</span></div>
+        </div>
+      </div>
+      <p class="mono mt-4" style="font-size:10.5px;color:var(--ink-subtle);line-height:1.8">
+        当前汇率:<span id="ccyRate">1 CNY = 1.0000 CNY</span> ·
+        右侧四项<b style="color:var(--forest)">一个数字都没动</b> —— 这正是「币种无关」的意思。
+      </p>
+    </div>
+  </div>
+</section>
+
 
 <div class="chapter"><div class="rule"></div></div>
 
@@ -1088,20 +1311,36 @@
   <span class="ch-water">D2</span>
   <div class="ch-hd"><span class="ch-no">D2</span><span class="badge-opt">选修</span></div>
   <h2 class="text-3xl font-medium mb-3">指标设置与产品类目</h2>
-  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">这两处决定了很多指标怎么算,值得看一眼。</p>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">这两处不起眼,但<b class="text-ink">决定了很多指标怎么算</b> —— 紧急储备算不算某个账户、体检怎么判风险、基准对标多少,都在这里。</p>
   <a class="goto" th:href="@{/admin/product-categories}">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
          stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     去产品类目
   </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/d2-metrics.jpg}" alt="指标设置:勾选账户级表格显示哪些列,仪表盘与报表共用这一套开关。" loading="lazy">
+    <figcaption>指标设置:勾选账户级表格显示哪些列,仪表盘与报表共用这一套开关。</figcaption>
+  </figure>
   <div class="lesson reveal">
     <h4 class="font-display font-medium">指标设置 <span class="where2">管理 → 指标设置</span></h4>
-    <p>控制账户级表格显示哪些列,仪表盘与报表<b class="text-ink">共用一套开关</b>,顶部 chips 点一下两处同时生效。</p>
+    <p>控制账户级表格显示哪些列。仪表盘与报表<b class="text-ink">共用一套开关</b>,顶部 chips 点一下两处同时生效,不用配两遍。</p>
   </div>
   <div class="lesson reveal">
-    <h4 class="font-display font-medium">产品类目 <span class="where2">管理 → 产品类目</span></h4>
-    <p>定义每类产品的<b class="text-ink">流动性、风险等级、长期基准%</b> —— 紧急储备算不算它、体检怎么判风险、基准对标多少,全由这里决定。</p>
+    <h4 class="font-display font-medium">产品类目 · 流动性 <span class="where2">管理 → 产品类目</span></h4>
+    <p>决定「紧急储备」的分子。货币基金标成 LIQUID,它就算进随时能拿出来的钱;标成 SEMI_LIQUID 就不算。<b class="text-ink">标错会直接让应急金结论失真。</b></p>
   </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">产品类目 · 风险等级 <span class="where2">管理 → 产品类目</span></h4>
+    <p>决定资产透视「风险」维度和体检的风险判定。没设的会归到「未分类」。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">产品类目 · 长期基准% <span class="where2">管理 → 产品类目</span></h4>
+    <p>决定报表里「账户级收益 vs 基准」拿什么来比。A 股 8% / 货币基金 2% 这类,可按自己的预期微调。</p>
+  </div>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/d2-categories.jpg}" alt="产品类目:每类产品的流动性、风险等级、长期基准% —— 很多指标的算法前提都在这张表里。" loading="lazy">
+    <figcaption>产品类目:每类产品的流动性、风险等级、长期基准% —— 很多指标的算法前提都在这张表里。</figcaption>
+  </figure>
   <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
 
@@ -1111,28 +1350,36 @@
   <span class="ch-water">D3</span>
   <div class="ch-hd"><span class="ch-no">D3</span><span class="badge-opt">选修</span></div>
   <h2 class="text-3xl font-medium mb-3">提醒、备份与审计</h2>
-  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">让它自己跑起来,以及出事能回滚。</p>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">让它自己跑起来,以及<b class="text-ink">出事能回滚</b>。</p>
   <a class="goto" th:href="@{/admin}">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
          stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     去管理页
   </a>
   <figure class="fig reveal">
-    <img th:src="@{/img/manual/d3-admin.jpg}" alt="管理页:家庭 / 成员 / 账户 / 口径 / 周期 / 提醒 / 汇率 / 数据源 / 备份 / 审计 共 15 块。" loading="lazy">
-    <figcaption>管理页:家庭 / 成员 / 账户 / 口径 / 周期 / 提醒 / 汇率 / 数据源 / 备份 / 审计 共 15 块。</figcaption>
+    <img th:src="@{/img/manual/d3-backup.jpg}" alt="备份与恢复:一键备份、从备份恢复、导出 CSV 账本。" loading="lazy">
+    <figcaption>备份与恢复:一键备份、从备份恢复、导出 CSV 账本。</figcaption>
   </figure>
   <div class="lesson reveal">
     <h4 class="font-display font-medium">提醒 <span class="where2">管理 → 提醒</span></h4>
-    <p>截止前 N 天发短信(阿里云,可选),站内 banner 兜底。</p>
+    <p>截止前 N 天发短信(阿里云,可选,需自己配 aksk),站内 banner 兜底。设置每月几号提醒、提前几天。</p>
   </div>
   <div class="lesson reveal">
-    <h4 class="font-display font-medium">备份与导出 <span class="where2">管理 → 备份与恢复</span></h4>
-    <p>一键备份、从备份恢复、导出 CSV 账本。</p>
+    <h4 class="font-display font-medium">备份 <span class="where2">管理 → 备份与恢复</span></h4>
+    <p>Docker 部署每 24 小时自动备份一次。也可手动一键备份、从备份恢复;命令行还有 <span class="mono">deploy/backup-now.sh</span> 与 <span class="mono">deploy/restore.sh</span>,恢复前会先把当前库另存一份当退路。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">导出 <span class="where2">管理 → 备份与恢复</span></h4>
+    <p>一键导出 CSV 账本,数据随时可以带走 —— 自托管的意义就在这。</p>
   </div>
   <div class="lesson reveal">
     <h4 class="font-display font-medium">审计日志 <span class="where2">管理 → 审计日志</span></h4>
-    <p>谁在什么时候改了什么,都有记录。</p>
+    <p>谁在什么时候改了什么(账户、快照、收支、配置)都有记录。多人共用一个家庭时特别有用。</p>
   </div>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/d3-audit.jpg}" alt="审计日志:谁在什么时候改了什么,逐条可查。" loading="lazy">
+    <figcaption>审计日志:谁在什么时候改了什么,逐条可查。</figcaption>
+  </figure>
   <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
 
@@ -1230,6 +1477,43 @@
     };
     addEventListener('scroll', tick, {passive:true}); tick();
   }
+  /* ── 演示 C · 币种切换 ── */
+  var RATE = {CNY:[1,'¥','1 CNY = 1.0000 CNY'], USD:[0.148120,'$','1 CNY = 0.1481 USD'], HKD:[1.161700,'HK$','1 CNY = 1.1617 HKD']};
+  function fmtAmt(v, sym){ return sym + Math.round(v).toLocaleString('en-US'); }
+  document.querySelectorAll('.ccybtn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var k = btn.dataset.ccy, r = RATE[k];
+      document.querySelectorAll('.ccybtn').forEach(function (b) { b.classList.toggle('on', b === btn); });
+      document.querySelectorAll('.ccyval.scaled').forEach(function (el) {
+        el.textContent = fmtAmt(Number(el.dataset.amt) * r[0], r[1]);
+      });
+      var rt = document.getElementById('ccyRate'); if (rt) rt.textContent = r[2];
+    });
+  });
+
+  /* ── 演示 D · 人赚 vs 钱赚 ── */
+  var CASES = {
+    1: {h:100000, m:0,      t:'资产全靠往里存钱,投资没产生任何回报 —— 该检查配置是不是过于保守、或者钱是不是躺在活期里。'},
+    2: {h:50000,  m:50000,  t:'一半是攒的、一半是投资赚的 —— 比较健康的结构,继续保持。'},
+    3: {h:160000, m:-60000, t:'看着涨了 10 万,其实<b>投资亏了 6 万</b>,全靠工资硬填。只看净资产会完全误判 —— 这正是要拆开看的理由。'}
+  };
+  document.querySelectorAll('[data-case]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var c = CASES[btn.dataset.case];
+      document.querySelectorAll('[data-case]').forEach(function (b) { b.classList.toggle('on', b === btn); });
+      var tot = Math.abs(c.h) + Math.abs(c.m) || 1;
+      document.getElementById('segHuman').style.width = (Math.abs(c.h) / tot * 100) + '%';
+      document.getElementById('segMoney').style.width = (Math.abs(c.m) / tot * 100) + '%';
+      document.getElementById('segMoney').className = c.m < 0 ? 'seg-base' : 'seg-money';
+      document.getElementById('segMoney').textContent = c.m < 0 ? '钱亏' : '钱赚';
+      var sign = function (v) { return (v >= 0 ? '+¥' : '−¥') + Math.abs(v).toLocaleString('en-US'); };
+      document.getElementById('valHuman').textContent = sign(c.h);
+      document.getElementById('valMoney').textContent = sign(c.m);
+      document.getElementById('valMoney').style.color = c.m < 0 ? 'var(--rust)' : 'var(--forest)';
+      document.getElementById('dVerdict').innerHTML = c.t;
+    });
+  });
+
 })();
 </script>
 </body>

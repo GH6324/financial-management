@@ -5085,6 +5085,22 @@ RGN="$RD/src/main/resources/templates/reports/_region.html"
 #         (b1-tags 一度变成 2242×8959 / 1.7MB);正确做法是从 *.raw.jpg 重来,只套一次。
 #       · 视觉外放:章节大编号水印、hero 描边数字、分组封面条、配图悬停微抬、阅读进度条。
 #         仍在现有设计令牌内(纸感底 / Fraunces / 等宽数字 / 黄铜森绿铁锈),不引新色系、不加载外部字体。
+#     v1.7.0 四轮(用户第 27 轮 · 六条):
+#       ① 手册**免登录**:潜在用户在决定要不要自建之前就该读懂它怎么用。SecurityConfig 放行 +
+#          匿名轻头。**坑**:`th:replace` 优先级(1)高于 `th:if`(3),直接在 <header> 上写 th:if
+#          拦不住,片段照样渲染 → 必须用 <th:block th:if> 包住。守护断言两者都在。
+#       ② 交互演示比截图更能教会人 → 从 2 个扩到 4 个:A 填报顺序 · B 下钻三步 ·
+#          C 币种是显示镜头(点 CNY/USD/HKD:金额缩放、比值四项一个数不动)·
+#          D 人赚 vs 钱赚(三种情形切换,含「涨了 10 万其实投资亏 6 万」)。
+#       ③ 复杂章节必须图文并茂:补 数据源接入 / 富途 OpenD / 新建目标 / 指标设置 /
+#          产品类目 / 备份 / 审计 共 7 张,配图 15 → 21 张。
+#       ④ beta 非真实数据 → **关闭隐私模式重拍**(SHOT_PRIVACY=0),不再糊金额。
+#          坑:补拍时第二次跑忘带 SHOT_PRIVACY=0,把不打码的图覆盖回打码版,只能整批重来。
+#       ⑤ 演示 A 重做成**仿真填报页**:控件、标签、配色照真实页面 1:1
+#          (收入绿标签 / 现金收入·股票收入 / 金额·类目·现金账户 / 「+ 加一笔」黑按钮 / 「本期余额」)
+#          —— 否则在教程里学会了、到真实系统 UI 差异太大还是不会用。守护断言 .simrow 存在。
+#       ⑥ D 段(进阶与维护)原来过薄且配图无教学价值(汇率页 300 行重复行):
+#          课节 3 → 11 条、配图 2 → 5 张、汇率图裁到顶部一屏,并把演示 C 挂在多币种章。
 #     ② 导航:「手册」挪到主栏最末(不插在功能项中间);既然它有 icon,**所有菜单项都得有** ——
 #        8 项统一 Feather 风格 inline SVG。顺带修掉自己引入的对齐 bug:加 inline-flex 后激活项比
 #        其他项高 10px(激活态 pb-[18px] 撑高 + 容器底对齐),给未激活项补 border-transparent + 同 padding
@@ -5109,6 +5125,11 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && [ "$(grep -c 'figure class="fig' "$HTPL")" -ge 12 ] \
   && [ "$(ls "$RD/src/main/resources/static/img/manual/" 2>/dev/null | grep -c '\.jpg$')" -ge 12 ] \
   && ! grep -qE 'href="/[a-z]' "$HTPL" \
+  && [ "$(grep -c 'figure class="fig' "$HTPL")" -ge 18 ] \
+  && grep -qF 'class="simrow' "$HTPL" \
+  && grep -qF 'data-ccy' "$HTPL" && grep -qF 'data-case' "$HTPL" \
+  && grep -qF '/help/how-to-use' "$RD/src/main/java/com/family/finance/auth/SecurityConfig.java" \
+  && grep -qF 'th:if="${me != null}"' "$HTPL" \
   && grep -qF "display:none" "$HINT" \
   && [ "$(grep -c '/help/how-to-use' "$NAV")" -ge 2 ] \
   && grep -qF '/help/how-to-use' "$ENT" \

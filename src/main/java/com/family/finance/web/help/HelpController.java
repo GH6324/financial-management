@@ -32,8 +32,11 @@ public class HelpController {
      */
     @GetMapping("/help/how-to-use")
     public String howToUse(@AuthenticationPrincipal MemberPrincipal me, Model model) {
+        // v1.7 · 本页**免登录**:潜在用户在决定要不要自建之前就该能读懂它怎么用。
+        //   匿名访问时 me / nav 为 null,模板里用 th:block 包住 nav 片段做条件渲染
+        //   (注意:th:replace 优先级高于 th:if,直接在 <header> 上写 th:if 拦不住)。
         model.addAttribute("me", me);
-        model.addAttribute("nav", navService.load(me));
+        model.addAttribute("nav", me == null ? null : navService.load(me));
         return "help/how-to-use";
     }
 
