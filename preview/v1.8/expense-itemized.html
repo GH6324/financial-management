@@ -108,7 +108,7 @@
           <span class="mono" style="font-size:9.5px;color:var(--ink-subtle)">先选账户 · 填金额 · 选类目</span></div>
         <div class="simfields">
           <label class="simlab">金额 ¥<input class="siminput" value="3,200" readonly></label>
-          <label class="simlab">类目<span class="simsel">餐饮</span></label>
+          <label class="simlab">类目<span class="simsel">日常开支</span></label>
           <label class="simlab">支出账户<span class="simsel">招行储蓄卡-工资</span></label>
           <span class="simadd">+ 加一笔</span>
         </div>
@@ -150,7 +150,7 @@
         <span class="mono" style="font-size:9.5px;color:var(--brass-text)">v1.8 · 先选账户 · 填金额 · 选类目 —— 录入后会从该账户余额中扣除</span></div>
       <div class="simfields">
         <label class="simlab">金额 ¥<input class="siminput" value="3,200" readonly></label>
-        <label class="simlab">类目<span class="simsel">餐饮</span></label>
+        <label class="simlab">类目<span class="simsel">日常开支</span></label>
         <label class="simlab">支出账户<span class="simsel">招行储蓄卡-工资</span></label>
         <label class="simlab">备注(选填)<span class="simsel" style="width:150px">如 8 月饭钱</span></label>
         <span class="simadd">+ 加一笔</span>
@@ -162,7 +162,7 @@
       <span class="mono ml-auto" style="color:var(--rust)">−¥6,800</span>
       <span class="mono" style="font-size:10px;color:var(--ink-subtle)">08-01</span>
       <span class="ok-tag">已出账 + 流水</span><span class="del">删</span></div>
-    <div class="flowline"><span class="badge">餐饮</span><b>招行储蓄卡-工资</b>
+    <div class="flowline"><span class="badge">日常开支</span><b>招行储蓄卡-工资</b>
       <span class="mono ml-auto" style="color:var(--rust)">−¥3,200</span>
       <span class="mono" style="font-size:10px;color:var(--ink-subtle)">08-15</span>
       <span class="ok-tag">已出账 + 流水</span><span class="del">删</span></div>
@@ -256,43 +256,47 @@
       <span class="badge new">按类目</span><span class="badge">按账户</span><span class="badge">按成员</span>
       <span class="mono ml-auto" style="font-size:10px;color:var(--ink-subtle)">本期 · 近 6 期 · 近 12 期</span>
     </div>
-    <div class="bar mb-3">
-      <span style="width:34%;background:#8A5A3C">还贷 34%</span>
-      <span style="width:22%;background:#B08642">餐饮 22%</span>
-      <span style="width:16%;background:#4F6B47">居住 16%</span>
-      <span style="width:11%;background:#7A8B93">交通 11%</span>
-      <span style="width:9%;background:#9C7BA8">教育 9%</span>
-      <span style="width:8%;background:#8B8378">其他 8%</span>
+    <div class="bar mb-1">
+      <span style="width:47%;background:#8A5A3C">还贷 47%</span>
+      <span style="width:9%;background:#9C4A2A">利息 9%</span>
+      <span style="width:38%;background:#B08642">日常开支 38%</span>
+      <span style="width:6%;background:#8B8378">转亲属 6%</span>
+    </div>
+    <div class="flex mb-3" style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-subtle)">
+      <span style="width:56%;border-top:1px solid var(--rust);padding-top:3px;color:var(--rust)">刚性支出 56% · 压不下去</span>
+      <span style="width:44%;border-top:1px solid var(--brass-deep);padding-top:3px;color:var(--brass-text);text-align:right">可调部分 44%</span>
     </div>
     <table class="t">
-      <tr><th>类目</th><th style="text-align:right">金额</th><th style="text-align:right">占比</th><th>明细</th></tr>
-      <tr><td>还贷</td><td class="mono" style="text-align:right">¥6,800</td><td class="mono" style="text-align:right">34.0%</td><td class="mono" style="color:var(--brass-text)">1 笔 →</td></tr>
-      <tr><td>餐饮</td><td class="mono" style="text-align:right">¥4,400</td><td class="mono" style="text-align:right">22.0%</td><td class="mono" style="color:var(--brass-text)">9 笔 →</td></tr>
-      <tr><td>居住</td><td class="mono" style="text-align:right">¥3,200</td><td class="mono" style="text-align:right">16.0%</td><td class="mono" style="color:var(--brass-text)">2 笔 →</td></tr>
+      <tr><th>类目</th><th style="text-align:right">金额</th><th style="text-align:right">占比</th><th>性质</th><th>明细</th></tr>
+      <tr><td>还贷</td><td class="mono" style="text-align:right">¥9,400</td><td class="mono" style="text-align:right">47.0%</td><td style="color:var(--rust)">刚性</td><td class="mono" style="color:var(--brass-text)">1 笔 →</td></tr>
+      <tr><td>日常开支</td><td class="mono" style="text-align:right">¥7,600</td><td class="mono" style="text-align:right">38.0%</td><td style="color:var(--brass-text)">可调</td><td class="mono" style="color:var(--brass-text)">6 笔 →</td></tr>
+      <tr><td>利息支出</td><td class="mono" style="text-align:right">¥1,800</td><td class="mono" style="text-align:right">9.0%</td><td style="color:var(--rust)">刚性</td><td class="mono" style="color:var(--brass-text)">1 笔 →</td></tr>
+      <tr><td>转账给亲属</td><td class="mono" style="text-align:right">¥1,200</td><td class="mono" style="text-align:right">6.0%</td><td>—</td><td class="mono" style="color:var(--brass-text)">1 笔 →</td></tr>
     </table>
     <p class="note mt-3">
       点「N 笔 →」弹明细抽屉(复用资产透视那套形态)。<br>
-      <b style="color:var(--ink)">只填了总数的月份</b>标「只填了总数 · 无构成」;
-      <b style="color:var(--ink)">老逐笔数据</b>(类目都是 <span class="mono">consumption</span>)标「未细分」——
-      不隐藏、不假装没有。
+      <b style="color:var(--ink)">只填了总数的月份</b>标「只填了总数 · 无构成」,不隐藏、不假装没有。<br>
+      历史逐笔行的类目都是 <span class="mono">consumption</span>,改名后自动显示为「日常开支」,
+      <b style="color:var(--ink)">无需迁移</b>。
     </p>
   </div>
 
-  <div class="paper-card p-5 mt-4" style="border-left:3px solid var(--rust)">
-    <div class="flex items-center gap-2 mb-2"><span class="badge risk">待你拍板</span>
-      <h3 class="text-base font-medium">类目体系怎么定</h3></div>
+  <div class="paper-card p-5 mt-4" style="border-left:3px solid var(--forest)">
+    <div class="flex items-center gap-2 mb-2"><span class="badge" style="border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)">已定</span>
+      <h3 class="text-base font-medium">类目停在「性质」这一层,不做消费品类</h3></div>
     <p class="note">
-      现有 <span class="mono">cash_flow_category</span> 的支出类目<b style="color:var(--ink)">只有 4 个,而且是「会计性质」不是「消费品类」</b>:
-      消费 / 还贷 / 利息支出 / 转账给亲属。所以只复用现有类目的话,构成就是这四项 ——
-      而 issue #9 那位用户想看的多半是「餐饮占几成」。
+      沿用现有 4 个支出类目,<b style="color:var(--ink)">不新增品类</b>,只把 <span class="mono">consumption</span>
+      的显示名从「消费」改成「<b style="color:var(--ink)">日常开支</b>」——
+      <b style="color:var(--ink)">只改 display_name,code 不动</b>,历史行零影响、立刻显示成新名字。
+      新建一笔支出默认选中「日常开支」。想细分的家庭可在管理页自行添加,我们不预置。
     </p>
-    <table class="t mt-3">
-      <tr><th>方案</th><th>做法</th><th>取舍</th></tr>
-      <tr><td>A</td><td>只用现有 4 类</td><td>零改动;但答不上「餐饮多少」,等于没兑现</td></tr>
-      <tr style="background:var(--brass-soft)"><td><b>B</b> 建议</td><td>补一批消费品类(餐饮/居住/交通/教育/医疗/娱乐/其他),与现有 4 类并列;<span class="mono">consumption</span> 保留为「未细分」</td><td>老数据零迁移、显示为「未细分」;<b>管理页本来就能增删</b>,所以固定大类与自定义两者都满足</td></tr>
-      <tr><td>C</td><td>加 <span class="mono">parent_code</span> 做父子两级</td><td>表达最准,但要改表 + 管理页 + 所有读类目处,成本高于收益</td></tr>
-    </table>
-    <p class="note mt-3">本预览图里用的是 <b style="color:var(--ink)">方案 B</b> 的效果。</p>
+    <div class="warnbox mt-3">
+      <b>这个决定改变了构成视图能回答什么,记在这里免得以后误解</b>:它回答的不是「餐饮占几成」,
+      而是「<b>刚性支出(还贷 + 利息)占多少、日常开支占多少</b>」。对家庭账其实更有用 ——
+      刚性压不下去,日常才是可调的部分。<br>
+      但这<b>不完全等于 issue #9 那位用户可能想要的</b>;他至今没回粒度问题,
+      回复他时要说清是这个层级,别让他以为能看到品类明细。
+    </div>
   </div>
 </section>
 
@@ -355,7 +359,7 @@
   <div class="rule mb-4"></div>
   <p class="mono" style="font-size:10.5px;color:var(--ink-subtle);line-height:1.9">
     预览稿 · 对应 <b style="color:var(--ink)">prd/v1.8.md</b> · 评审通过后再写 tech-design,然后才动代码<br>
-    <b style="color:var(--rust)">两处需要你拍板</b>:类目体系选 A / B / C(建议 B)· 支出录入方式的默认值是否维持「总额」
+    <b style="color:var(--forest)">两处已拍板</b>:类目停在「日常开支 / 还贷」这一层(不做消费品类)· 新建支出默认类目 =「日常开支」· 录入方式默认仍是「总额」
   </p>
 </footer>
 </body>
