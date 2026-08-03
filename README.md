@@ -96,6 +96,17 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v1.7.1 · 手册进首页:与「直接装」并列的一条路径](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.7.1)
+
+上一版把[使用手册](https://dixi-token.top/help/how-to-use)做成了**免登录可读**,这一版顺着这件事改了首页 —— 因为它改变了首页的逻辑:**以前你只能「信」我写的文案,现在可以自己点进去验**。所以不是加个链接,而是给了一条和「直接装」并列的路径:命令块下面是「还没决定要不要装?」+ 手册卡,右上角标着**不用装 · 不用登录**(没人会为一个还不确定适不适合自己的东西先装一套环境)。
+首页中段那几个问题 ——「这一年是变富了还是变穷了?」「攒下来的和投资赚的混一起,投资到底行不行?」「买了一堆基金,家里到底重仓了什么行业?」—— 写得挺准,但**此前没有下一步**,点头认同完就没了。现在每个问题后面挂了手册对应章节的锚点,点过去直接落到讲这件事的那一节,而且那几节都带能点着玩的演示。页脚也加了「先看使用手册」按钮。
+顺带修掉一条一直红着的自检:它断言首页命令块必须含 `docker compose up -d`,而安装入口收敛那版之后首页给的就是 `bash deploy/docker-up.sh`(内部才调 compose)——**断言的是已被淘汰的命令,等于长期失效**。**纯页面改动**:无迁移、无口径变化、任何数字都不会变。
+
+<table><tr>
+<td width="58%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.7.1/pc_landing-hero.jpg"><br><sub><b>首页 hero</b> · 「直接装」与「先看手册」并列</sub></td>
+<td width="42%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.7.1/pc_landing-questions.jpg"><br><sub><b>中段五问</b> · 每个问题挂到手册对应章节</sub></td>
+</tr></table>
+
 ### [v1.7.0 · 交互式使用手册(免登录可读)](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.7.0)
 
 一位用户在 [issue #9](https://github.com/LuoDi-Nate/financial-management/issues/9) 里说他没有财会背景,「理财的买入卖出、借钱等如何在这些体现,还是有些不好理解」。去查了一下他说得对:站内帮助页只有券商同步一篇,文档里全是部署/备份/登录/AI 这类**运维**问题,**一条「业务上该怎么记」都没有** —— 等于把门槛原封不动留给了最需要帮助的人。所以这一版补的不是功能,是**教会你用**:一个站内交互式手册,而且**不用登录就能读**(你在决定要不要自己部署之前就该先看懂它怎么用)→ **[dixi-token.top/help/how-to-use](https://dixi-token.top/help/how-to-use)**。
@@ -107,12 +118,6 @@
 <td width="60%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.7.0/pc_manual-toc.jpg"><br><sub><b>章节目录</b> · 必修 5 章 + 选修 19 节,点任意一章直达</sub></td>
 <td width="40%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.7.0/mobile_manual.jpg"><br><sub><b>手机端</b> · 同一套内容</sub></td>
 </tr></table>
-
-### [v1.6.31 · 报表「账户级收益」手机端改卡片布局(原先收益数字全在屏外)](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.6.31)
-
-用户原话:「报表页面手机端那个账户明细,排版差劲的不行」。上手一量比"不好看"严重得多(390×844 实测):**17 列共 1653px 塞进 358px 容器**,手机首屏只看得到「账户/类型/类目」三列 —— **一个叫「账户级收益」的表,收益数字全在屏外**;类型标签被压到 ~40px 宽把「现金」竖着折成两行;行高 ~140px × 18 行 = 1480px,每行却只承载账户名 + 折行标签 + 「未设」;**压根没有手机布局**(仪表盘早就有,报表这块一直漏做)。现在电脑端宽表不变,手机端换成每账户一张可展开卡片:主行 `[类型][账户名] … [跑赢/跑输 ±N pp]`、次行 `[当前价值 · 收益率] … [展开]`、展开给类目/基准%/你勾的其余指标。关键是**复用而不是新造** —— 数据源、指标门控、顶部 chips 的存储键全和仪表盘共用,点一下 chip **电脑端的列和手机卡的条目同时显隐**,不需要第二套开关。两处细节是量出来才定的:两行都两端对齐(第一版把判定标签和「展开」竖堆右侧,结果有标签的卡右侧两行、没标签的一行,高度参差;改完 18 张卡折叠态高度是唯一值)、基准% 从次行挪进展开区(留在次行窄屏会折行,还把行首那个「·」孤零零留在第二行开头)。
-顺带修:标签样式带 `text-transform:uppercase`,把「跑赢 +9.07pp」一直渲染成「+9.07**PP**」—— pp 是百分点这个单位,不是缩写,电脑端和手机端同一处修好(账户类型标签仍保持大写)。
-**纯展示层改动**:无数据库迁移、无计算口径变化、任何数字都不会变,只是手机上排得下了。
 
 ## 主要能力
 
