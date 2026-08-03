@@ -83,6 +83,24 @@ public interface PeriodMapper {
     List<Period> findLatest(@Param("familyId") long familyId, @Param("limit") int limit);
 
     /**
+     * v1.8 · 近 N 期,但**不超过 asOf**。
+     *
+     * <p>不能直接用 {@link #findLatest}:账期表可能预建到很多年以后(beta 就排到了 2038),
+     * 按 period_start 倒序取「最近 1 期」会取到未来的空期,支出构成直接空图。</p>
+     */
+    @Select("""
+            SELECT id, family_id, period_type, period_start, period_end, status, closed_at, created_at
+              FROM period
+             WHERE family_id = #{familyId}
+               AND period_start <= #{asOf}
+             ORDER BY period_start DESC
+             LIMIT #{limit}
+            """)
+    List<Period> findRecentAsOf(@Param("familyId") long familyId,
+                                @Param("asOf") java.time.LocalDate asOf,
+                                @Param("limit") int limit);
+
+    /**
      * v0.5.5 · 报表快照锚定 · 最近一个「已关账(CLOSED)且 period_start ≤ asOf」的账期。
      * <p>asOf 通常传服务器今天 —— 顺带挡掉测试/误建的未来 CLOSED 账期(如 2032)。</p>
      */

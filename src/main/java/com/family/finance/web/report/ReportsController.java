@@ -60,6 +60,10 @@ public class ReportsController {
     private final FamilyDiagnoseService familyDiagnoseService;
     private final GoalProgressService goalProgressService;
     private final HouseholdCashflowService householdCashflowService;
+    /** v1.8 · 家庭支出唯一口径入口 —— 本页 KPI / 折线 / tooltip 必须同源 */
+    private final com.family.finance.service.expense.ExpenseLedgerService expenseLedger;
+    private final com.family.finance.repository.CashFlowMapper cashFlowMapper;
+    private final com.family.finance.repository.FamilyMapper familyMapper;
     // v0.4 新依赖
     private final ProductCategoryService productCategoryService;
     private final AllocationService allocationService;
@@ -79,6 +83,9 @@ public class ReportsController {
                           @RequestParam(name = "accounts", required = false) List<Long> accounts,
                           @RequestParam(required = false) String currency,
                           @RequestParam(required = false) String asof, // v0.11.5 · 观察账期(只在已关账期里选)
+                          // v1.8 FR-272 · 支出构成的维度与窗口(白名单解析 · 脏值兜底)
+                          @RequestParam(required = false) String mix,
+                          @RequestParam(name = "mixWin", required = false) Integer mixWin,
                           @RequestHeader(value = "HX-Request", required = false) String htmx,
                           Model model) {
         // v0.16.x 兜底:全新部署(零周期)→ 回引导页并提示先开周期,
@@ -90,10 +97,59 @@ public class ReportsController {
                 ? null
                 : accounts.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
         populateModel(me, range, accountsCsv, currency, asof, model);
+        populateExpenseComposition(me, mix, mixWin, model);
         if ("true".equalsIgnoreCase(htmx)) {
             return "reports/_region :: region";
         }
         return "reports/index";
+    }
+
+    /**
+     * v1.8 FR-272 · 支出构成。只在**逐笔模式**下渲染 —— 总额模式没有构成可言,
+     * 硬塞一个空图比不显示更糟。窗口 1/6/12 期,取「近 N 个已关账期 + 当前进行中期」。
+     */
+    private void populateExpenseComposition(MemberPrincipal me, String mix, Integer mixWin, Model model) {
+        var mode = expenseLedger.modeOf(me.getFamilyId());
+        model.addAttribute("mixEnabled", mode == com.family.finance.domain.family.ExpenseEntryMode.ITEMIZED);
+        if (mode != com.family.finance.domain.family.ExpenseEntryMode.ITEMIZED) {
+            return;
+        }
+        int win = (mixWin != null && (mixWin == 1 || mixWin == 6 || mixWin == 12)) ? mixWin : 1;
+        var dim = com.family.finance.service.expense.ExpenseLedgerService.Dim.fromCode(mix);
+        var periods = periodMapper.findRecentAsOf(me.getFamilyId(), java.time.LocalDate.now(), win);
+        var periodIds = periods.stream().map(com.family.finance.domain.period.Period::getId).toList();
+        var comp = expenseLedger.composition(me.getFamilyId(), periodIds, dim);
+
+        model.addAttribute("mixDims", com.family.finance.service.expense.ExpenseLedgerService.Dim.values());
+        model.addAttribute("mixDim", dim);
+        model.addAttribute("mixWinValue", win);
+        model.addAttribute("mixComposition", comp);
+        model.addAttribute("mixPeriodIds", periodIds);
+        model.addAttribute("mixWindowLabel", win == 1 ? "本期" : ("近 " + win + " 期"));
+        // 只填了总数的账期 → 如实列出月份,不隐藏
+        model.addAttribute("mixTotalOnlyLabels", comp.totalOnlyPeriodIds().stream()
+                .map(pid -> periods.stream().filter(pp -> pp.getId().equals(pid)).findFirst()
+                        .map(pp -> pp.getPeriodStart().toString().substring(0, 7)).orElse(String.valueOf(pid)))
+                .toList());
+    }
+
+    /** v1.8 FR-272 · 某一格的逐笔明细(HTMX 抽屉)。 */
+    @GetMapping("/reports/expense-mix/detail")
+    public String expenseMixDetail(@AuthenticationPrincipal MemberPrincipal me,
+                                   @RequestParam String dim,
+                                   @RequestParam String groupKey,
+                                   @RequestParam(name = "mixWin", required = false) Integer mixWin,
+                                   Model model) {
+        int win = (mixWin != null && (mixWin == 1 || mixWin == 6 || mixWin == 12)) ? mixWin : 1;
+        var d = com.family.finance.service.expense.ExpenseLedgerService.Dim.fromCode(dim);
+        var periodIds = periodMapper.findRecentAsOf(me.getFamilyId(), java.time.LocalDate.now(), win).stream()
+                .map(com.family.finance.domain.period.Period::getId).toList();
+        model.addAttribute("mixDetailRows", periodIds.isEmpty() ? java.util.List.of()
+                : cashFlowMapper.expenseBreakdownDetail(me.getFamilyId(), periodIds, d.code(), groupKey));
+        model.addAttribute("mixDetailLabel", d.displayName());
+        model.addAttribute("baseCurrency", familyMapper.findById(me.getFamilyId())
+                .map(f -> f.getBaseCurrency()).orElse("CNY"));
+        return "reports/_expense-mix :: detail";
     }
 
     @GetMapping("/reports/period/{periodId}")
@@ -367,15 +423,14 @@ public class ReportsController {
                    savAvgInc = null, savAvgExp = null, savLatestInc = null, savLatestExp = null,
                    savRateDec = null, savMedian = null;
         try {
-            // 近 12 期家庭聚合 · 升序排列给图表用
-            var aggs = householdCashflowService.findRecentAggregates(me.getFamilyId(), 12);
-            var sortedAggs = aggs.stream()
-                .sorted((a, b) -> a.periodStart().compareTo(b.periodStart()))
-                .toList();
-            List<String> savLabels = sortedAggs.stream()
-                .map(a -> a.periodStart().toString().substring(2, 7)).toList();
-            List<BigDecimal> savIncome = sortedAggs.stream().map(a -> a.totalIncome()).toList();
-            List<BigDecimal> savExpense = sortedAggs.stream().map(a -> a.totalExpense()).toList();
+            // v1.8 · 折线与本段 KPI 必须同口径同期集合(见 HouseholdCashflowService.recentSeries 注释:
+            // 直读 PMC 会造成「KPI 有值、折线空白」——正是 v1.6.29 那类被用户报障的同屏矛盾)。
+            var series = householdCashflowService.recentSeries(me.getFamilyId(), 12);
+            List<String> savLabels = series.stream()
+                .map(pt -> pt.periodStart() == null ? String.valueOf(pt.periodId())
+                                                    : pt.periodStart().toString().substring(2, 7)).toList();
+            List<BigDecimal> savIncome = series.stream().map(pt -> pt.income()).toList();
+            List<BigDecimal> savExpense = series.stream().map(pt -> pt.expense()).toList();
             int[] ratio = householdCashflowService.filledMonthRatio(me.getFamilyId());
             savAvgInc = householdCashflowService.avgMonthlyIncome(me.getFamilyId());
             savAvgExp = householdCashflowService.avgMonthlyExpense(me.getFamilyId());
@@ -398,10 +453,10 @@ public class ReportsController {
             savTotal = ratio[1];
             for (BigDecimal x : savIncome) if (x != null) savSumInc = savSumInc.add(x);
             for (BigDecimal x : savExpense) if (x != null) savSumExp = savSumExp.add(x);
-            if (!sortedAggs.isEmpty()) {
-                var latest = sortedAggs.get(sortedAggs.size() - 1);
-                savLatestInc = latest.totalIncome();
-                savLatestExp = latest.totalExpense();
+            if (!series.isEmpty()) {
+                var latest = series.get(series.size() - 1);
+                savLatestInc = latest.income();
+                savLatestExp = latest.expense();
             }
         } catch (Exception e) {
             model.addAttribute("savingsAvailable", false);

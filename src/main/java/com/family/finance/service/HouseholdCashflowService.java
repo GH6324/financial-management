@@ -91,6 +91,61 @@ public class HouseholdCashflowService {
     }
 
     /** v0.12 · 单期收入:PMC 手填收入>0 用之(历史),否则用该期 cash_flow INCOME 汇总(新账期收入侧录入)。 */
+    /**
+     * v1.8 · 储蓄能力折线的数据源:近 N 期(升序)的收入 / 支出,**各按自己的口径**取。
+     *
+     * <p>为什么要有这个方法:折线原来直接铺 PMC 聚合,于是出现两个毛病 ——</p>
+     * <ul>
+     *   <li>老毛病:家庭只逐笔录收入、没填过 PMC 时,折线整条空白(beta 一直如此),
+     *       而同一段的 KPI「月均收入」却有值(它会回落 cash_flow)。同屏自相矛盾。</li>
+     *   <li>v1.8 新增的毛病:{@code filledMonthRatio} 改判「统一口径有值」后,
+     *       逐笔家庭会被判成「有数据」→ 渲染 KPI 卡,而折线仍取 PMC → 图区空白。</li>
+     * </ul>
+     *
+     * <p>所以期集合取「PMC 期 ∪ 统一口径有支出的期」,收入用 incomeBlend(PMC 优先否则 cash_flow),
+     * 支出用 {@link com.family.finance.service.expense.ExpenseLedgerService}。没数据的点留 null → 灰柱。</p>
+     */
+    public List<SeriesPoint> recentSeries(long familyId, int limit) {
+        var pmc = cashflowMapper.findFamilyAggregateRecent(familyId, limit);
+        Map<Long, FamilyPeriodAggregate> pmcById = new java.util.LinkedHashMap<>();
+        Map<Long, java.time.LocalDate> startById = new java.util.LinkedHashMap<>();
+        for (var a : pmc) {
+            pmcById.put(a.periodId(), a);
+            startById.put(a.periodId(), a.periodStart());
+        }
+        // 统一口径有支出、但 PMC 里没有的期(逐笔家庭的常态)
+        for (var pe : expenseLedger.recent(familyId, limit)) {
+            startById.putIfAbsent(pe.periodId(), pe.periodStart());
+        }
+        if (startById.isEmpty()) return List.of();
+
+        var expByPeriod = expenseLedger.byPeriods(familyId, new java.util.ArrayList<>(startById.keySet()));
+        Map<Long, BigDecimal> cashInc = cashIncomeByPeriod(familyId);
+
+        List<SeriesPoint> out = new java.util.ArrayList<>();
+        for (var e : startById.entrySet()) {
+            Long pid = e.getKey();
+            var agg = pmcById.get(pid);
+            BigDecimal income = agg != null ? incomeBlend(agg, cashInc) : cashInc.get(pid);
+            var pe = expByPeriod.get(pid);
+            BigDecimal expense = (pe != null && pe.filled()) ? pe.amountBase() : null;
+            out.add(new SeriesPoint(pid, e.getValue(), income, expense));
+        }
+        // 期起始升序(缺日期的排在前面,用 id 兜底)
+        out.sort((x, y) -> {
+            if (x.periodStart() == null && y.periodStart() == null) return Long.compare(x.periodId(), y.periodId());
+            if (x.periodStart() == null) return -1;
+            if (y.periodStart() == null) return 1;
+            return x.periodStart().compareTo(y.periodStart());
+        });
+        if (out.size() > limit) out = out.subList(out.size() - limit, out.size());
+        return out;
+    }
+
+    /** 折线上的一个点。income / expense 可为 null(该月没数据 → 灰柱)。 */
+    public record SeriesPoint(Long periodId, java.time.LocalDate periodStart,
+                              BigDecimal income, BigDecimal expense) {}
+
     private BigDecimal incomeBlend(FamilyPeriodAggregate a, Map<Long, BigDecimal> cashIncomeByPeriod) {
         if (a.totalIncome() != null && a.totalIncome().signum() > 0) return a.totalIncome();
         return cashIncomeByPeriod.getOrDefault(a.periodId(), BigDecimal.ZERO);
@@ -125,13 +180,17 @@ public class HouseholdCashflowService {
                 .orElse(0);
     }
 
-    private BigDecimal avgFromMemberCashflow(long familyId, boolean expense) {
+    /**
+     * v1.8 · 收窄成只算收入。原来有个 {@code expense} 开关,但支出侧已全部改走
+     * {@link com.family.finance.service.expense.ExpenseLedgerService},那个分支成了死路 ——
+     * 留着会让下一个人以为「支出也可以从这儿读」,正是口径散落的起点。
+     */
+    private BigDecimal avgIncomeFromMemberCashflow(long familyId) {
         List<FamilyPeriodAggregate> recent = cashflowMapper.findFamilyAggregateRecent(familyId, LOOKBACK_PERIODS);
         if (recent.isEmpty()) return null;
         BigDecimal sum = BigDecimal.ZERO;
         for (FamilyPeriodAggregate a : recent) {
-            BigDecimal v = expense ? a.totalExpense() : a.totalIncome();
-            if (v != null) sum = sum.add(v);
+            if (a.totalIncome() != null) sum = sum.add(a.totalIncome());
         }
         return sum.divide(BigDecimal.valueOf(recent.size()), 2, RoundingMode.HALF_EVEN);
     }

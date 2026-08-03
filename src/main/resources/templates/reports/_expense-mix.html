@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  v1.8 FR-272 · 支出构成
+  · 只在「逐笔」模式下渲染 —— 总额模式没有构成可言,硬塞一个空图比不显示更糟
+  · 三个维度(类目 / 账户 / 成员)· 三个窗口(本期 / 近 6 期 / 近 12 期)· 服务端渲染,链接切换
+  · 只填了总数的月份如实标出来,不隐藏、不假装没有
+  · 每一格可点开看逐笔明细(HTMX 抽屉)
+-->
+<section th:fragment="section" th:if="${mixEnabled}" id="sec-expense-mix" style="scroll-margin-top:80px"
+         class="mt-12 border-t-4 border-double border-ink pt-8">
+
+  <div class="mb-6">
+    <div class="eyebrow mb-2" style="color:var(--rust)">支 · 出 · 构 · 成</div>
+    <h2 class="font-display text-3xl font-medium tracking-tight">钱花在哪了</h2>
+    <p class="font-serif text-sm text-ink-soft mt-2 max-w-2xl">
+      来自<a th:href="@{/entry}" class="text-brass-deep hover:underline">填报页的逐笔支出</a> ·
+      刚性支出(还贷 + 利息)压不下去,<b>日常开支才是可调的那部分</b>。
+    </p>
+  </div>
+
+  <!-- 维度 + 窗口切换 -->
+  <div class="flex items-center gap-2 flex-wrap mb-4">
+    <a th:each="d : ${mixDims}"
+       th:href="@{/reports(mix=${d.code()},mixWin=${mixWinValue})}"
+       class="pill text-xs h-8 px-3 no-underline flex items-center"
+       th:classappend="${mixDim.code() == d.code()} ? ' pill-brass' : ''"
+       th:title="${d.hintText()}"
+       th:text="${d.displayName()}">按类目</a>
+    <span class="text-rule mx-1">|</span>
+    <a th:each="w : ${ {1, 6, 12} }"
+       th:href="@{/reports(mix=${mixDim.code()},mixWin=${w})}"
+       class="pill text-xs h-8 px-3 no-underline flex items-center"
+       th:classappend="${mixWinValue == w} ? ' pill-brass' : ''"
+       th:text="${w == 1} ? '本期' : ('近 ' + ${w} + ' 期')">本期</a>
+    <span class="font-mono text-[10px] text-ink-subtle ml-auto" th:text="${mixDim.hintText()}">说明</span>
+  </div>
+
+  <!-- 无逐笔数据 -->
+  <div th:unless="${mixComposition.hasData()}" class="paper-card p-6 bg-card-soft"
+       style="border-left:4px solid var(--rust)">
+    <p class="text-ink-soft mb-2">
+      <b th:text="${mixWindowLabel}">本期</b>还没有逐笔支出,所以没有构成可看。
+    </p>
+    <p class="text-xs text-ink-subtle mb-4">
+      去填报页的支出区逐笔录几笔(选账户 + 类目),这里就会出现刚性 vs 日常的占比。
+    </p>
+    <a th:href="@{/entry}" class="btn-paper no-underline">→ 去填报页录支出</a>
+  </div>
+
+  <th:block th:if="${mixComposition.hasData()}">
+    <!-- 只填了总数的月份 · 如实标注 -->
+    <p th:if="${mixComposition.hasTotalOnlyPeriods()}"
+       class="font-mono text-[11px] text-ink-subtle mb-4 border border-dashed border-rule px-4 py-2.5 bg-card-soft">
+      注:<b th:text="${#strings.listJoin(mixTotalOnlyLabels, ' / ')}">2026-06</b>
+      只填了总数、没有逐笔,<b>不在下面的构成里</b> —— 那几个月的支出仍然照总额参与储蓄率与人赚计算。
+    </p>
+
+    <div class="grid md:grid-cols-2 gap-6 grid-hairline">
+      <!-- 图 · 数字直接标在扇片上(不靠 hover) -->
+      <div class="bg-card p-5">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-3"
+             th:text="${mixDim.displayName()} + ' · ' + ${mixWindowLabel} + ' 占比'">按类目 · 本期占比</div>
+        <div style="height:260px"><canvas id="expenseMixChart"></canvas></div>
+      </div>
+
+      <!-- 表 · 点开看逐笔 -->
+      <div class="bg-card p-5">
+        <div class="flex items-baseline justify-between mb-3">
+          <span class="font-mono text-[10px] uppercase text-ink-subtle">明细 · 点一行看逐笔</span>
+          <span class="font-display text-lg tnum num-neg" data-priv
+                th:text="${T(com.family.finance.service.MoneyFormat).format2(baseCurrency, mixComposition.totalBase())}">¥0</span>
+        </div>
+        <div class="divide-y divide-rule-soft">
+          <div th:each="sl : ${mixComposition.slices()}" class="py-2">
+            <button type="button"
+                    class="w-full flex items-center gap-3 text-left cursor-pointer hover:bg-card-soft px-1"
+                    th:hx-get="@{/reports/expense-mix/detail(dim=${mixDim.code()},groupKey=${sl.groupKey()},mixWin=${mixWinValue})}"
+                    th:hx-target="'#mix-detail-' + ${sl.groupKey()}"
+                    hx-swap="innerHTML">
+              <span class="pill text-[10px]" th:text="${sl.label()}">日常开支</span>
+              <span class="font-mono text-[10px] text-ink-subtle" th:text="${sl.itemCount()} + ' 笔'">3 笔</span>
+              <span class="font-mono tnum ml-auto" data-priv
+                    th:text="${T(com.family.finance.service.MoneyFormat).format2(baseCurrency, sl.amountBase())}">¥0</span>
+              <span class="font-mono text-xs tnum w-14 text-right text-brass-deep"
+                    th:text="${sl.pct()} + '%'">0%</span>
+            </button>
+            <div th:id="'mix-detail-' + ${sl.groupKey()}" class="mt-1"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script th:inline="javascript">
+      /*<![CDATA[*/
+      (function () {
+        var labels = /*[[${mixComposition.slices().![label]}]]*/ [];
+        var values = /*[[${mixComposition.slices().![amountBase]}]]*/ [];
+        var pcts   = /*[[${mixComposition.slices().![pct]}]]*/ [];
+        var el = document.getElementById('expenseMixChart');
+        if (!el || !labels.length) return;
+        // 与全站一致:金额/百分比直接绘在扇片上,不依赖 hover tooltip
+        new Chart(el, {
+          type: 'doughnut',
+          data: { labels: labels, datasets: [{
+            data: values,
+            backgroundColor: ['rgba(159,74,58,.82)','rgba(176,141,87,.82)','rgba(47,93,80,.72)',
+                              'rgba(90,90,110,.72)','rgba(120,80,140,.68)','rgba(70,110,140,.68)'],
+            borderColor: 'rgba(255,255,255,.9)', borderWidth: 2
+          }]},
+          options: {
+            responsive: true, maintainAspectRatio: false, cutout: '52%',
+            plugins: {
+              legend: { position: 'bottom',
+                        labels: { font: { family: 'JetBrains Mono', size: 10 }, boxWidth: 10, padding: 8 } },
+              tooltip: { callbacks: { label: function (c) {
+                return c.label + ': ¥' + Number(c.parsed).toLocaleString() + ' · ' + pcts[c.dataIndex] + '%'; } } },
+              datalabels: {
+                color: '#fff', font: { family: 'JetBrains Mono', size: 10, weight: 'bold' },
+                formatter: function (v, c) {
+                  var p = Number(pcts[c.dataIndex]);
+                  return p < 6 ? '' : p.toFixed(0) + '%';      // 太窄的扇片不标,免叠字
+                }
+              }
+            }
+          },
+          plugins: [ChartDataLabels]
+        });
+      })();
+      /*]]>*/
+    </script>
+  </th:block>
+</section>
+
+<!-- HTMX 明细抽屉 -->
+<div th:fragment="detail">
+  <div th:if="${#lists.isEmpty(mixDetailRows)}"
+       class="font-mono text-[10px] text-ink-subtle px-1 py-2">这一格没有可展开的逐笔明细。</div>
+  <div th:unless="${#lists.isEmpty(mixDetailRows)}" class="border border-rule-soft bg-card-soft">
+    <div th:each="r : ${mixDetailRows}"
+         class="px-3 py-1.5 flex items-center gap-2 border-b border-rule-soft text-xs flex-wrap">
+      <span class="pill text-[9px]" th:text="${r.categoryName()}">日常开支</span>
+      <span class="font-display" th:text="${r.accountName()}">账户</span>
+      <span class="font-mono text-[10px] text-ink-subtle" th:text="${r.ownerName()}">共同</span>
+      <span class="font-mono text-[10px] text-ink-subtle" th:if="${r.note() != null}" th:text="${r.note()}">备注</span>
+      <span class="font-mono tnum num-neg ml-auto" data-priv
+            th:text="'−' + ${T(com.family.finance.service.MoneyFormat).format2(r.currency(), r.amount())}">−¥0</span>
+      <span class="font-mono text-[10px] text-ink-subtle" th:if="${r.submittedAt() != null}"
+            th:text="${#temporals.format(r.submittedAt(), 'MM-dd')}">08-01</span>
+    </div>
+    <div class="px-3 py-1.5 font-mono text-[10px] text-ink-subtle" th:if="${#lists.size(mixDetailRows) >= 200}">
+      只显示最近 200 笔。
+    </div>
+  </div>
+</div>
+</body>
+</html>

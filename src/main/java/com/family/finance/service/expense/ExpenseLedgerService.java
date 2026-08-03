@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -79,14 +80,25 @@ public class ExpenseLedgerService {
     /** v1.8 · 读家庭的 expense_entry_mode —— 优先级必须受它约束,见类注释「为什么优先级不能无条件」 */
     private final FamilyMapper familyMapper;
 
-    /** 一期支出的口径结果。source 让页面能说清「用的是哪一种」,itemCount 供文案显示「逐笔 · N 笔」。 */
-    public record PeriodExpense(Long periodId, BigDecimal amountBase, Source source, int itemCount) {
+    /**
+     * 一期支出的口径结果。source 让页面能说清「用的是哪一种」,itemCount 供文案显示「逐笔 · N 笔」。
+     *
+     * <p>{@code periodStart} 只有 {@link #recent} 会填(它本来就握着日期);
+     * {@link #byPeriod}/{@link #byPeriods} 是按 id 点查,不额外为了日期再查一次表 —— 那里是 null。
+     * 需要按时间排序/打标签的调用方请用 {@code recent}。</p>
+     */
+    public record PeriodExpense(Long periodId, java.time.LocalDate periodStart,
+                                BigDecimal amountBase, Source source, int itemCount) {
         public enum Source { ITEMIZED, TOTAL, NONE }
 
         public boolean filled() { return source != Source.NONE; }
 
         public static PeriodExpense none(Long periodId) {
-            return new PeriodExpense(periodId, BigDecimal.ZERO, Source.NONE, 0);
+            return new PeriodExpense(periodId, null, BigDecimal.ZERO, Source.NONE, 0);
+        }
+
+        PeriodExpense withStart(java.time.LocalDate start) {
+            return new PeriodExpense(periodId, start, amountBase, source, itemCount);
         }
     }
 
@@ -160,9 +172,15 @@ public class ExpenseLedgerService {
         }
 
         // ② 逐笔独有的期 · 仅 ITEMIZED 模式并入(TOTAL 模式并进来会改掉月均的分母)
+        //    并且**不并入未来账期**:账期表可能预建到很多年以后(beta 排到了 2038),
+        //    「近 12 期」若把 2029 年的一笔算进来,月均支出/紧急储备就不是「近 12 个月」了。
+        //    只约束这条新增路径 —— PMC 那条查询一行不动,总额模式才能逐位不变。
         if (itemizedFirst) {
+            java.time.LocalDate today = java.time.LocalDate.now();
             for (var r : cashFlowMapper.sumRealExpenseByPeriod(familyId, null)) {
-                if (r.periodId() != null) startById.putIfAbsent(r.periodId(), r.periodStart());
+                if (r.periodId() == null) continue;
+                if (r.periodStart() != null && r.periodStart().isAfter(today)) continue;
+                startById.putIfAbsent(r.periodId(), r.periodStart());
             }
         }
         if (startById.isEmpty()) return List.of();
@@ -182,10 +200,75 @@ public class ExpenseLedgerService {
         for (Long pid : ordered) {
             PeriodExpense pe = all.get(pid);
             if (pe == null || !pe.filled()) continue;      // 与现行语义一致:没填的期不参与均值/中位
-            out.add(pe);
+            // TOTAL 分支的日期来自 PMC 聚合,ITEMIZED 分支的来自逐笔查询 —— 两边都补齐,
+            // 否则调用方拿不到日期只能退化成按 id 排序/打标签(图表 x 轴会乱序)。
+            out.add(pe.periodStart() == null ? pe.withStart(startById.get(pid)) : pe);
             if (out.size() >= limit) break;
         }
         return out;
+    }
+
+    /** v1.8 FR-272 · 支出构成的一个可切维度。参数不进 SQL 结构,只用白名单枚举。 */
+    public enum Dim {
+        CATEGORY("category", "按类目", "刚性支出(还贷 + 利息)vs 日常开支 —— 刚性压不下去,日常才是可调的"),
+        ACCOUNT("account", "按账户", "钱主要从哪张卡出去"),
+        MEMBER("member", "按成员", "家庭内部对账用");
+
+        private final String code;
+        private final String displayName;
+        private final String hintText;
+        Dim(String code, String displayName, String hintText) {
+            this.code = code; this.displayName = displayName; this.hintText = hintText;
+        }
+        public String code() { return code; }
+        public String displayName() { return displayName; }
+        public String hintText() { return hintText; }
+        public static Dim fromCode(String c) {
+            if (c != null) for (Dim d : values()) if (d.code.equalsIgnoreCase(c.trim())) return d;
+            return CATEGORY;
+        }
+    }
+
+    /**
+     * v1.8 FR-272 · 支出构成。
+     *
+     * @param periodIds 参与统计的账期(调用方按「本期 / 近 6 期 / 近 12 期」给)
+     * @return 分组 + 占比 + 「只填了总数、没有构成」的账期清单(不隐藏、不假装没有)
+     */
+    public Composition composition(long familyId, Collection<Long> periodIds, Dim dim) {
+        if (periodIds == null || periodIds.isEmpty()) {
+            return new Composition(dim, List.of(), BigDecimal.ZERO, List.of());
+        }
+        var groups = cashFlowMapper.expenseBreakdown(familyId, periodIds, dim.code());
+        BigDecimal total = BigDecimal.ZERO;
+        for (var g : groups) if (g.amountBase() != null) total = total.add(g.amountBase());
+
+        List<Slice> slices = new ArrayList<>();
+        for (var g : groups) {
+            BigDecimal amt = g.amountBase() == null ? BigDecimal.ZERO : g.amountBase();
+            BigDecimal pct = total.signum() == 0 ? BigDecimal.ZERO
+                    : amt.multiply(new BigDecimal("100")).divide(total, 1, RoundingMode.HALF_EVEN);
+            slices.add(new Slice(g.groupKey(), g.groupLabel(),
+                    amt.setScale(2, RoundingMode.HALF_EVEN), pct, g.itemCount()));
+        }
+
+        // 哪些账期只有总额、没有逐笔 —— 页面要如实标出来,否则用户会以为构成覆盖了全部支出
+        var byPeriod = byPeriods(familyId, periodIds);
+        List<Long> totalOnly = new ArrayList<>();
+        for (Long pid : periodIds) {
+            var pe = byPeriod.get(pid);
+            if (pe != null && pe.source() == PeriodExpense.Source.TOTAL) totalOnly.add(pid);
+        }
+        return new Composition(dim, slices, total.setScale(2, RoundingMode.HALF_EVEN), totalOnly);
+    }
+
+    /** 一格构成。pct 是 0–100 的百分数(图上直接标数字,不靠 hover)。 */
+    public record Slice(String groupKey, String label, BigDecimal amountBase,
+                        BigDecimal pct, int itemCount) {}
+
+    public record Composition(Dim dim, List<Slice> slices, BigDecimal totalBase, List<Long> totalOnlyPeriodIds) {
+        public boolean hasData() { return !slices.isEmpty() && totalBase.signum() > 0; }
+        public boolean hasTotalOnlyPeriods() { return !totalOnlyPeriodIds.isEmpty(); }
     }
 
     // ── 内部 ────────────────────────────────────────────────────────────
@@ -195,10 +278,11 @@ public class ExpenseLedgerService {
         boolean hasItem = itemized != null && itemized.amount() != null && itemized.amount().signum() > 0;
         boolean hasTotal = total != null && total.signum() > 0;
         PeriodExpense item = hasItem
-                ? new PeriodExpense(periodId, itemized.amount(), PeriodExpense.Source.ITEMIZED, itemized.itemCount())
+                ? new PeriodExpense(periodId, itemized.periodStart(), itemized.amount(),
+                                    PeriodExpense.Source.ITEMIZED, itemized.itemCount())
                 : null;
         PeriodExpense tot = hasTotal
-                ? new PeriodExpense(periodId, total, PeriodExpense.Source.TOTAL, 0)
+                ? new PeriodExpense(periodId, null, total, PeriodExpense.Source.TOTAL, 0)
                 : null;
         if (itemizedFirst) {
             if (item != null) return item;

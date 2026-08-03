@@ -188,6 +188,96 @@ public interface CashFlowMapper {
     List<IncomeEntryRow> findExpenseEntries(@Param("familyId") long familyId,
                                             @Param("periodId") long periodId);
 
+    /**
+     * v1.8 FR-272 · 支出构成:按维度分组的逐笔支出(口径 A · 已折本位币)。
+     *
+     * <p>{@code dim} 三选一:{@code category} / {@code account} / {@code member}。
+     * 用 {@code <choose>} 而不是拼字符串 —— 分组键必须来自白名单,不能让参数进 SQL 结构。
+     * 归档过滤 / 换汇规则与 {@link #sumRealExpenseByPeriod} 完全一致(同一口径,别分叉)。</p>
+     */
+    @Select("""
+            <script>
+            SELECT
+              <choose>
+                <when test="dim == 'account'">a.id AS groupKey, a.display_name AS groupLabel</when>
+                <when test="dim == 'member'">
+                  COALESCE(m.id, 0) AS groupKey, COALESCE(m.display_name, '共同') AS groupLabel
+                </when>
+                <otherwise>
+                  cf.category_code AS groupKey,
+                  COALESCE(cat.display_name, cf.category_code) AS groupLabel
+                </otherwise>
+              </choose>,
+                   SUM(CASE WHEN a.currency = fam.base_currency THEN cf.amount
+                            ELSE cf.amount / COALESCE((
+                                   SELECT fr.rate FROM fx_rate fr JOIN period pp ON pp.id = fr.period_id
+                                    WHERE fr.family_id      = a.family_id
+                                      AND fr.base_currency  = fam.base_currency
+                                      AND fr.quote_currency = a.currency
+                                      AND pp.period_start  &lt;= p.period_start
+                                    ORDER BY pp.period_start DESC LIMIT 1), 1)
+                       END) AS amountBase,
+                   COUNT(*) AS itemCount
+              FROM cash_flow cf
+              JOIN account a   ON a.id   = cf.account_id
+              JOIN family  fam ON fam.id = a.family_id
+              JOIN period  p   ON p.id   = cf.period_id
+              LEFT JOIN member m ON m.id = a.primary_owner_member_id
+              LEFT JOIN cash_flow_category cat ON cat.code = cf.category_code
+             WHERE a.family_id = #{familyId}
+               AND a.archived_at IS NULL
+               AND cf.kind = 'EXPENSE'
+               AND cf.deleted_at IS NULL
+               AND cf.is_adjustment = 0
+               AND cf.period_id IN
+               <foreach collection="periodIds" item="pid" open="(" separator="," close=")">#{pid}</foreach>
+             GROUP BY groupKey, groupLabel
+             ORDER BY amountBase DESC
+            </script>
+            """)
+    List<ExpenseGroup> expenseBreakdown(@Param("familyId") long familyId,
+                                        @Param("periodIds") java.util.Collection<Long> periodIds,
+                                        @Param("dim") String dim);
+
+    /** v1.8 · 支出构成的一组(维度值 → 本位币金额 + 笔数)。 */
+    record ExpenseGroup(String groupKey, String groupLabel,
+                        java.math.BigDecimal amountBase, int itemCount) {}
+
+    /** v1.8 FR-272 · 某一组的逐笔明细(抽屉用)· dim 白名单同上。 */
+    @Select("""
+            <script>
+            SELECT cf.id AS id, cf.account_id AS accountId, a.display_name AS accountName,
+                   a.type AS accountType, a.currency AS currency,
+                   cf.category_code AS categoryCode,
+                   COALESCE(cat.display_name, cf.category_code) AS categoryName,
+                   cf.amount AS amount, cf.note AS note,
+                   COALESCE(m.display_name, '共同') AS ownerName,
+                   cf.submitted_at AS submittedAt
+              FROM cash_flow cf
+              JOIN account a ON a.id = cf.account_id
+              LEFT JOIN member m ON m.id = a.primary_owner_member_id
+              LEFT JOIN cash_flow_category cat ON cat.code = cf.category_code
+             WHERE a.family_id = #{familyId}
+               AND a.archived_at IS NULL
+               AND cf.kind = 'EXPENSE'
+               AND cf.deleted_at IS NULL
+               AND cf.is_adjustment = 0
+               AND cf.period_id IN
+               <foreach collection="periodIds" item="pid" open="(" separator="," close=")">#{pid}</foreach>
+              <choose>
+                <when test="dim == 'account'">AND a.id = #{groupKey}</when>
+                <when test="dim == 'member'">AND COALESCE(m.id, 0) = #{groupKey}</when>
+                <otherwise>AND cf.category_code = #{groupKey}</otherwise>
+              </choose>
+             ORDER BY cf.period_id DESC, cf.id DESC
+             LIMIT 200
+            </script>
+            """)
+    List<IncomeEntryRow> expenseBreakdownDetail(@Param("familyId") long familyId,
+                                                @Param("periodIds") java.util.Collection<Long> periodIds,
+                                                @Param("dim") String dim,
+                                                @Param("groupKey") String groupKey);
+
     /** v0.12 · 收入侧列表行(展示用投影)· v1.8 起支出侧复用同一投影。 */
     record IncomeEntryRow(Long id, Long accountId, String accountName, String accountType,
                           String currency, String categoryCode, String categoryName,

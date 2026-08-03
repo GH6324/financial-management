@@ -143,6 +143,28 @@ class ExpenseLedgerServiceTest {
     }
 
     @Test
+    void recent返回的每一项都带periodStart_否则图表x轴会按id乱序() {
+        var s = itemizedSvc(List.of(item(3L, "3000", 1), item(1L, "5000", 1)), List.of());
+        var list = s.recent(1L, 12);
+        assertThat(list).hasSize(2);
+        assertThat(list).allSatisfy(pe -> assertThat(pe.periodStart()).isNotNull());
+        // 按 period_start 倒序:period 3 → 2026-03,period 1 → 2026-01
+        assertThat(list.get(0).periodStart()).isEqualTo(LocalDate.of(2026, 3, 1));
+    }
+
+    @Test
+    void 未来账期的逐笔不得并入近N期() {
+        // 账期表可能预建到很多年以后。「近 12 期」若把未来那笔算进来,
+        // 月均支出 / 紧急储备就不是「近 12 个月」了。
+        var future = new CashFlowMapper.RealExpenseSum(
+                99L, new BigDecimal("50000"), 1, LocalDate.now().plusYears(3));
+        var s = itemizedSvc(List.of(item(1L, "3000", 1), future), List.of());
+        var list = s.recent(1L, 12);
+        assertThat(list).extracting(ExpenseLedgerService.PeriodExpense::periodId)
+                .containsExactly(1L);   // 未来那期被挡掉
+    }
+
+    @Test
     void 总额模式下取期集合只看PMC_分母不能变() {
         // period 2 只有逐笔。ITEMIZED 会并进来(2 期),TOTAL 必须只算 PMC 那 1 期,
         // 否则月均支出的分母变了 —— 即使每期取值都对,均值也会和 v1.8 之前不同。

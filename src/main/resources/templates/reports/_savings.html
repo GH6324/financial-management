@@ -13,16 +13,19 @@
     <div class="eyebrow mb-2" style="color:var(--brass-deep)">储 · 蓄 · 能 · 力</div>
     <h2 class="font-display text-3xl font-medium tracking-tight">月度收支 + 反推目标月供</h2>
     <p class="font-serif text-sm text-ink-soft mt-2 max-w-2xl">
-      数据来自 <a th:href="@{/entry}" class="text-brass-deep hover:underline">填报页家庭口径</a> 2 框 ·
+      数据来自<a th:href="@{/entry}" class="text-brass-deep hover:underline">填报页</a> ·
       没填的月份显灰柱,不参与中位计算。
+      <span th:if="${mixEnabled}">支出走<b>逐笔</b>口径(你已切到逐笔录入),构成见下一段。</span>
+      <span th:unless="${mixEnabled}">支出走<b>总额</b>口径(每人每月一个数)。</span>
     </p>
   </div>
 
   <!-- 无数据时引导卡 -->
   <div th:if="${!savingsAvailable}" class="paper-card p-6 bg-card-soft text-center" style="border-left:4px solid var(--brass-deep)">
     <p class="text-ink-soft mb-3">
-      这一区只统计填报页底部的「家庭月度总收入 / 总支出」两个框 ——
-      你在各账户里一笔笔记的收入/支出流水<b>不计入</b>这里。
+      这一区统计的是家庭口径的月度收入与支出。收入取「填报页逐笔收入」,
+      支出按你选的方式取:<b>总额</b>模式取每人每月填的那个总数,<b>逐笔</b>模式取逐笔支出之和 ——
+      <b>两者永不相加</b>。
     </p>
     <p class="text-xs text-ink-subtle mb-4">
       去填报页底部,给每个月填一次「家庭本月总收入 / 总支出」(~15 秒),
