@@ -35,7 +35,12 @@ class FireAutoExpenseTest {
         goalMapper = mock(GoalMapper.class);
         pmcMapper = mock(PeriodMemberCashflowMapper.class);
         svc = new GoalService(goalMapper, om, pmcMapper,
-                mock(com.family.finance.repository.GoalAccountMapper.class));
+                mock(com.family.finance.repository.GoalAccountMapper.class),
+                // v1.8 · 真实 ExpenseLedgerService + 同一个 pmcMapper:默认 TOTAL 模式,
+                // 行为与 v1.8 之前一致,同时让本测试真的跑到统一口径的生产代码
+                new com.family.finance.service.expense.ExpenseLedgerService(
+                        mock(com.family.finance.repository.CashFlowMapper.class), pmcMapper,
+                        mock(com.family.finance.repository.FamilyMapper.class)));
     }
 
     private Goal autoGoal(String smoothing) throws Exception {

@@ -31,6 +31,8 @@ public class Family {
     private String riskAppetite;
     /** v0.4.14 FR-63a · 家庭级填报模板 code · 见 ReportingTemplate · 默认 T1 */
     private String reportingTemplate;
+    /** v1.8 · 支出录入方式 · TOTAL(默认 · 现状)/ ITEMIZED(逐笔落账户)· 见 {@link ExpenseEntryMode} */
+    private String expenseEntryMode;
     /** v0.4.14 FR-63c · 距填报截止前几天开始强提醒 · 默认 2 */
     private Integer reportRemindLeadDays;
     /** v0.8 FR-149 · 指标勾选配置 JSON {"family":[...],"account":[...]};NULL=代码默认集 */

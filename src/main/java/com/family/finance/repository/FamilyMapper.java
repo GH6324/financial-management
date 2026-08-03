@@ -16,7 +16,7 @@ public interface FamilyMapper {
     @Select("""
             SELECT id, name, brand_text, logo_path, logo_preset, base_currency, period_type,
                    cpi_assumption, allocation_anchor, allocation_anchor_custom, risk_appetite,
-                   reporting_template, report_remind_lead_days, metric_prefs,
+                   reporting_template, expense_entry_mode, report_remind_lead_days, metric_prefs,
                    created_at, updated_at
               FROM family
              ORDER BY id
@@ -26,7 +26,7 @@ public interface FamilyMapper {
     @Select("""
             SELECT id, name, brand_text, logo_path, logo_preset, base_currency, period_type,
                    cpi_assumption, allocation_anchor, allocation_anchor_custom, risk_appetite,
-                   reporting_template, report_remind_lead_days, metric_prefs,
+                   reporting_template, expense_entry_mode, report_remind_lead_days, metric_prefs,
                    created_at, updated_at
               FROM family
              WHERE id = #{id}
@@ -78,6 +78,10 @@ public interface FamilyMapper {
     // ---------- v0.4.14 FR-63 填报规范化 ----------
 
     /** FR-63a · 切换家庭级填报模板(全家统一 · 见 ReportingTemplate) */
+    /** v1.8 · 支出录入方式开关(家庭级)· 值域见 ExpenseEntryMode */
+    @Update("UPDATE family SET expense_entry_mode = #{mode} WHERE id = #{familyId}")
+    int updateExpenseEntryMode(@Param("familyId") long familyId, @Param("mode") String mode);
+
     @Update("UPDATE family SET reporting_template = #{template} WHERE id = #{familyId}")
     int updateReportingTemplate(@Param("familyId") long familyId, @Param("template") String template);
 

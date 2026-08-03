@@ -68,6 +68,75 @@ public interface CashFlowMapper {
             """)
     int softDelete(@Param("id") long id);
 
+    /**
+     * v1.8 · **口径 A · 家庭支出**:按账期汇总真实家庭支出。
+     *
+     * <p>三个过滤条件都不是可选的:</p>
+     * <ul>
+     *   <li>{@code kind='EXPENSE'} —— 只要支出</li>
+     *   <li>{@code deleted_at IS NULL} —— 排除软删</li>
+     *   <li>{@code is_adjustment = 0} —— <b>排除「现金调整」</b>。调整语义上是本金进出,
+     *       必须计入账户外部流出(口径 B · 给 PnL 剔除用),但它<b>不是家庭消费</b>。
+     *       beta 实测存在 39 条 is_adjustment=1 的行;若不排除,储蓄率 / 月均支出 /
+     *       紧急储备分母会被污染。填报页支出类目下拉只取 kind='EXPENSE',
+     *       天然排除 kind='BOTH' 的 cash_adjust,所以这条过滤是<b>语义边界</b>而非防御性写法。</li>
+     * </ul>
+     *
+     * <p>与口径 B 的区别见 FactMapper.queryBase 里的 expense_orig(含调整,一行不动)。
+     *
+     * <p><b>两条必须与事实表对齐的规则</b>(开发中都踩过):</p>
+     * <ul>
+     *   <li>{@code a.archived_at IS NULL} —— 事实表默认镜头就排除归档账户。beta 上 43 条支出里
+     *       24 条(¥395,340 · 74%)属于归档账户,漏掉这个过滤会让家庭 XIRR 从 −56.19% 漂到 −50.60%。</li>
+     *   <li><b>换算到本位币</b> —— {@code cf.amount} 是账户原币。裸 {@code SUM(amount)} 会把
+     *       USD 和 CNY 直接相加。这里按「该账期可得的最新 base→账户币 汇率」折回本位币,
+     *       与事实表的 {@code fx_ba} 取法同构。残留差异:事实表用的是**窗口末**锚定的单一镜头汇率,
+     *       本查询用**逐期**汇率 —— 只在「多币种 + 逐笔模式 + 看历史窗口」三者同时成立时才会显现,
+     *       见 prd/v1.8.md 的「未做」。</li>
+     * </ul>
+     * 方法名刻意用 RealExpense 与之拉开距离 —— 不要「顺手统一」这两者。</p>
+     */
+    @Select("""
+            <script>
+            SELECT cf.period_id AS periodId,
+                   SUM(CASE WHEN a.currency = fam.base_currency THEN cf.amount
+                            ELSE cf.amount / COALESCE((
+                                   SELECT fr.rate FROM fx_rate fr JOIN period pp ON pp.id = fr.period_id
+                                    WHERE fr.family_id      = a.family_id
+                                      AND fr.base_currency  = fam.base_currency
+                                      AND fr.quote_currency = a.currency
+                                      AND pp.period_start  &lt;= p.period_start
+                                    ORDER BY pp.period_start DESC LIMIT 1), 1)
+                       END) AS amount,
+                   COUNT(*) AS itemCount,
+                   MIN(p.period_start) AS periodStart
+              FROM cash_flow cf
+              JOIN account a   ON a.id   = cf.account_id
+              JOIN family  fam ON fam.id = a.family_id
+              JOIN period  p   ON p.id   = cf.period_id
+             WHERE a.family_id = #{familyId}
+               AND a.archived_at IS NULL
+               AND cf.kind = 'EXPENSE'
+               AND cf.deleted_at IS NULL
+               AND cf.is_adjustment = 0
+               <if test="periodIds != null and !periodIds.isEmpty()">
+                 AND cf.period_id IN
+                 <foreach collection="periodIds" item="pid" open="(" separator="," close=")">#{pid}</foreach>
+               </if>
+             GROUP BY cf.period_id
+            </script>
+            """)
+    List<RealExpenseSum> sumRealExpenseByPeriod(@Param("familyId") long familyId,
+                                                @Param("periodIds") java.util.Collection<Long> periodIds);
+
+    /**
+     * v1.8 · 口径 A 的按期汇总行。
+     * periodStart 让 ExpenseLedgerService 能排序「只有逐笔、PMC 里没有」的账期,
+     * 不必再全表扫一遍 PMC 去补日期。
+     */
+    record RealExpenseSum(Long periodId, java.math.BigDecimal amount, int itemCount,
+                          java.time.LocalDate periodStart) {}
+
     /** v0.12 · 收入侧列表:某账期该家庭的「真实收入」流水(is_adjustment=0)· join 账户名/类型 + 类目名。 */
     @Select("""
             SELECT cf.id AS id, cf.account_id AS accountId, a.display_name AS accountName,

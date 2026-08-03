@@ -42,6 +42,11 @@ public class FactViewServiceImpl implements FactViewService {
     private final com.family.finance.service.ProductCategoryService productCategoryService;
     /** v0.13 · 开账基线检测(账户首次出现) */
     private final com.family.finance.repository.SnapshotMapper snapshotMapper;
+    /**
+     * v1.8 · 家庭支出的唯一口径入口(逐笔 > 总额,不相加;排除现金调整)。
+     * 只依赖 mapper,注入到这里不会成环。见 ExpenseLedgerService 类注释。
+     */
+    private final com.family.finance.service.expense.ExpenseLedgerService expenseLedger;
 
     @Override
     public FactSlice loadDefault(Long familyId) {
@@ -235,10 +240,20 @@ public class FactViewServiceImpl implements FactViewService {
     }
 
     /** v0.12 · 支出侧口径不变:PMC 手填支出优先,否则回退 cash_flow。 */
+    /**
+     * v1.8 · 改走统一口径 {@code ExpenseLedgerService}(逐笔 > 总额,不相加,排除现金调整)。
+     *
+     * <p>⚠ <b>注意与收入侧优先级相反</b>:收入是「PMC 手填 &gt; 0 则用之,否则 cash_flow 汇总」,
+     * 支出是「逐笔 &gt; 0 则用之,否则 PMC」。方向反的原因是历史数据分布不同 ——
+     * 收入的历史事实在 PMC 里,支出的更细事实在逐笔里。别「顺手统一」。</p>
+     *
+     * <p>口径服务返回本位币,这里乘 baseToViewFactor 换到视图币种(与原 PMC 分支同一手法)。
+     * 都取不到时回落 {@code periodExpense}(cash_flow 汇总 · 含调整),保持原有兜底行为。</p>
+     */
     private BigDecimal netInflowExpense(FactSlice slice, Long periodId) {
-        var pmc = periodMemberCashflowMapper.findFamilyAggregateForPeriod(periodId).orElse(null);
-        if (pmc != null && pmc.totalExpense() != null && pmc.totalExpense().signum() > 0) {
-            return pmc.totalExpense().multiply(baseToViewFactor(slice)).setScale(2, RoundingMode.HALF_EVEN);
+        var pe = expenseLedger.byPeriod(slice.filter().familyId(), periodId);
+        if (pe.filled()) {
+            return pe.amountBase().multiply(baseToViewFactor(slice)).setScale(2, RoundingMode.HALF_EVEN);
         }
         return periodExpense(slice, periodId);
     }
@@ -823,15 +838,14 @@ public class FactViewServiceImpl implements FactViewService {
      * <p>backward compat:PMC 空 → fallback 老 cash_flow 加和路径。</p>
      */
     private BigDecimal averageExpense(FactSlice slice, int maxPeriods) {
-        // 1) PMC 优先(v0.3 用户填家庭口径)
+        // 1) v1.8 · 走统一口径(逐笔 > 总额,不相加,排除现金调整)。
+        //    维持现行语义:除以**实际取到的期数**而不是固定除 maxPeriods —— 数据不足时不低估月均支出。
         long familyId = slice.filter().familyId();
-        var recent = periodMemberCashflowMapper.findFamilyAggregateRecent(familyId, maxPeriods);
+        var recent = expenseLedger.recent(familyId, maxPeriods);
         if (!recent.isEmpty()) {
             BigDecimal sum = BigDecimal.ZERO;
-            for (var a : recent) {
-                if (a.totalExpense() != null) sum = sum.add(a.totalExpense());
-            }
-            // v0.5 修 · PMC 本位币 → view(与 endBalanceBase 同口径 · 紧急储备比值不随币种漂移)
+            for (var pe : recent) sum = sum.add(pe.amountBase());
+            // v0.5 修 · 本位币 → view(与 endBalanceBase 同口径 · 紧急储备比值不随币种漂移)
             return sum.divide(BigDecimal.valueOf(recent.size()), 2, RoundingMode.HALF_EVEN)
                     .multiply(baseToViewFactor(slice)).setScale(2, RoundingMode.HALF_EVEN);
         }

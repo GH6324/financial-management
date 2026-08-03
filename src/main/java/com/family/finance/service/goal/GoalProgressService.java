@@ -50,6 +50,8 @@ public class GoalProgressService {
     private final PeriodMemberCashflowMapper memberCashflowMapper;
     private final GoalMetricEvaluator metricEvaluator;   // v0.16 · CUSTOM 指标求值
     private final GoalAccountMapper goalAccountMapper;   // v0.16 · 绑定账户
+    /** v1.8 · 家庭支出唯一口径入口(逐笔 > 总额)· 见 ExpenseLedgerService 类注释 */
+    private final com.family.finance.service.expense.ExpenseLedgerService expenseLedger;
 
     public GoalProgress compute(long familyId, Goal goal) {
         // v0.16 · 自定义追踪目标走通用 evaluator + pace;预设三类保持既有口径 + 三情景
@@ -116,7 +118,8 @@ public class GoalProgressService {
         List<FamilyPeriodAggregate> recent = memberCashflowMapper
             .findFamilyAggregateRecent(familyId, CONTRIBUTION_LOOKBACK_PERIODS);
         List<BigDecimal> savings = recent.stream()
-            .map(a -> a.totalIncome().subtract(a.totalExpense()))
+            // v1.8 · 支出走统一口径(逐笔 > 总额);收入侧不动
+            .map(a -> a.totalIncome().subtract(expenseLedger.byPeriod(familyId, a.periodId()).amountBase()))
             .toList();
         return GoalProgressCalculator.medianMonthlyContribution(savings);
     }
@@ -125,10 +128,20 @@ public class GoalProgressService {
      * 应急 auto_baseline = 过去 3 期 SUM(member total_expense_input) 的中位。
      */
     public BigDecimal computeEmergencyAutoBaseline(long familyId) {
-        List<FamilyPeriodAggregate> recent = memberCashflowMapper
+        // v1.8 · 走统一口径(逐笔 > 总额)。**这是最隐蔽的一处** —— 若漏改,启用逐笔的家庭
+        // 会因 PMC 里没有总额而拿到偏小甚至 null 的基线,应急目标凭空变容易达成,
+        // 而页面上完全看不出异常。
+        // 期集合仍取 PMC 近 3 期(与 v1.8 之前一致 —— 那时「填了但支出为 0」的月份是以 0 参与中位的,
+        // 若换成 ledger.recent 会把这些月剔掉,基线从 0 变 null,应急目标的判定语义就变了);
+        // 金额则走统一口径。
+        List<FamilyPeriodAggregate> pmc = memberCashflowMapper
             .findFamilyAggregateRecent(familyId, EMERGENCY_BASELINE_LOOKBACK);
-        if (recent.isEmpty()) return null;
-        List<BigDecimal> expenses = recent.stream().map(FamilyPeriodAggregate::totalExpense).toList();
+        if (pmc.isEmpty()) return null;
+        var byPeriod = expenseLedger.byPeriods(familyId,
+            pmc.stream().map(FamilyPeriodAggregate::periodId).toList());
+        List<BigDecimal> expenses = pmc.stream()
+            .map(a -> byPeriod.get(a.periodId()).amountBase())
+            .toList();
         return GoalProgressCalculator.medianMonthlyContribution(expenses);
     }
 

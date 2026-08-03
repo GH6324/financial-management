@@ -31,10 +31,17 @@ public class HouseholdCashflowService {
 
     private final PeriodMemberCashflowMapper cashflowMapper;
     private final FactViewService factViewService;
+    /** v1.8 · 家庭支出唯一口径入口(逐笔 > 总额)· 见 ExpenseLedgerService 类注释 */
+    private final com.family.finance.service.expense.ExpenseLedgerService expenseLedger;
 
+    /** v1.8 · 走统一口径(逐笔 > 总额);都没有时才回落 cash_flow 汇总。 */
     public BigDecimal avgMonthlyExpense(long familyId) {
-        BigDecimal preferred = avgFromMemberCashflow(familyId, true);
-        if (preferred != null) return preferred;
+        var recent = expenseLedger.recent(familyId, LOOKBACK_PERIODS);
+        if (!recent.isEmpty()) {
+            BigDecimal sum = BigDecimal.ZERO;
+            for (var pe : recent) sum = sum.add(pe.amountBase());
+            return sum.divide(BigDecimal.valueOf(recent.size()), 2, RoundingMode.HALF_EVEN);
+        }
         return avgFromCashFlow(familyId, false);
     }
 
@@ -55,7 +62,8 @@ public class HouseholdCashflowService {
             FamilyPeriodAggregate a = recent.get(0);
             BigDecimal income = incomeBlend(a, cashIncomeByPeriod(familyId));
             if (income.signum() > 0) {
-                BigDecimal expense = a.totalExpense() == null ? BigDecimal.ZERO : a.totalExpense();
+                // v1.8 · 支出改走统一口径(逐笔 > 总额);收入侧口径不动
+                BigDecimal expense = expenseLedger.byPeriod(familyId, a.periodId()).amountBase();
                 return income.subtract(expense).divide(income, 6, RoundingMode.HALF_EVEN);
             }
         }
@@ -68,8 +76,13 @@ public class HouseholdCashflowService {
             return avgMonthlyIncome(familyId).subtract(avgMonthlyExpense(familyId));
         }
         Map<Long, BigDecimal> cashInc = cashIncomeByPeriod(familyId);
+        // v1.8 · 支出改走统一口径(逐笔 > 总额);收入仍用 incomeBlend
+        var expByPeriod = expenseLedger.byPeriods(familyId,
+                recent.stream().map(FamilyPeriodAggregate::periodId).toList());
         List<BigDecimal> savings = recent.stream()
-            .map(a -> incomeBlend(a, cashInc).subtract(a.totalExpense() == null ? BigDecimal.ZERO : a.totalExpense()))
+            .map(a -> incomeBlend(a, cashInc).subtract(
+                    expByPeriod.containsKey(a.periodId())
+                        ? expByPeriod.get(a.periodId()).amountBase() : BigDecimal.ZERO))
             .sorted().toList();
         int n = savings.size();
         if (n % 2 == 1) return savings.get(n / 2);
@@ -92,9 +105,12 @@ public class HouseholdCashflowService {
                 Collectors.reducing(BigDecimal.ZERO, AccountPeriodFact::incomeBase, BigDecimal::add)));
     }
 
+    /**
+     * v1.8 · 判据从「PMC 有行」改成「统一口径 source != NONE」。
+     * 否则只录了逐笔、没填过总额的月份会被判成「没填」,导致已填月数偏少、月储蓄中位数取样变小。
+     */
     public int[] filledMonthRatio(long familyId) {
-        List<FamilyPeriodAggregate> recent = cashflowMapper.findFamilyAggregateRecent(familyId, LOOKBACK_PERIODS);
-        return new int[]{recent.size(), LOOKBACK_PERIODS};
+        return new int[]{expenseLedger.recent(familyId, LOOKBACK_PERIODS).size(), LOOKBACK_PERIODS};
     }
 
     public List<FamilyPeriodAggregate> findRecentAggregates(long familyId, int limit) {

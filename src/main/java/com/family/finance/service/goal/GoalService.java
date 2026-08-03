@@ -40,7 +40,12 @@ public class GoalService {
     private final GoalMapper goalMapper;
     private final ObjectMapper objectMapper;
     private final com.family.finance.repository.PeriodMemberCashflowMapper periodMemberCashflowMapper; // v0.5 FR-82
-    private final GoalAccountMapper goalAccountMapper; // v0.16 · 自定义目标绑定账户
+    private final GoalAccountMapper goalAccountMapper;
+    /**
+     * v1.8 · 家庭支出唯一口径入口。ExpenseLedgerService 只依赖 mapper,
+     * 所以本类(原本只依赖 mapper 层)注入它不会引入循环依赖。
+     */
+    private final com.family.finance.service.expense.ExpenseLedgerService expenseLedger; // v0.16 · 自定义目标绑定账户
 
     // ---------- v0.5 FR-82 · FIRE 月支出自动派生 ----------
 
@@ -65,9 +70,9 @@ public class GoalService {
                 if (!"AUTO_MONTHLY".equalsIgnoreCase(p.getExpenseMode())) continue;
                 int window = p.getExpenseWindowMonths() != null && p.getExpenseWindowMonths() > 0
                         ? p.getExpenseWindowMonths() : 12;
-                var recent = periodMemberCashflowMapper.findFamilyAggregateRecent(familyId, window);
-                List<BigDecimal> expenses = recent.stream()
-                        .map(a -> a.totalExpense())
+                // v1.8 · FIRE「自适应近月真实支出」走统一口径(逐笔 > 总额)
+                List<BigDecimal> expenses = expenseLedger.recent(familyId, window).stream()
+                        .map(com.family.finance.service.expense.ExpenseLedgerService.PeriodExpense::amountBase)
                         .filter(java.util.Objects::nonNull)
                         .filter(v -> v.signum() > 0)
                         .toList();

@@ -142,8 +142,9 @@ public class CheckupController {
     }
 
     /**
-     * 家庭近 12 月月均 EXPENSE(本位币),用于流动性规则。
-     * v0.3:优先 period.total_expense_input(用户在 /entry 填的家庭口径),fallback v0.2 cash_flow。
+     * 家庭近 12 月月均支出(本位币),用于流动性规则。
+     * v1.8:委托 householdCashflowService.avgMonthlyExpense,后者已改走 ExpenseLedgerService
+     * 统一口径(逐笔 > 总额,不相加,排除现金调整)。本处无需再判断口径。
      */
     private BigDecimal computeAvgMonthlyExpense(long familyId) {
         return householdCashflowService.avgMonthlyExpense(familyId);
