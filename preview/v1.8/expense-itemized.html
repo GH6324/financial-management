@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.8 Preview · 支出链路改造(逐笔 + 落到账户)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 20px}
+  .rule{height:1px;background:var(--rule-soft)}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);color:var(--ink-soft)}
+  .badge.now{border-color:var(--ink-subtle);color:var(--ink-soft)}
+  .badge.new{border-color:var(--brass-deep);color:var(--brass-text);background:var(--brass-soft)}
+  .badge.risk{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)}
+
+  /* 仿真控件(与站内手册同一套,便于对照真实页面) */
+  .simrow{border:1px solid var(--rule-soft);background:var(--card);padding:10px 12px;margin-bottom:8px}
+  .simhd{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+  .simpill{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);
+    background:var(--paper-soft);color:var(--ink-soft)}
+  .simpill.exp{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.10)}
+  .simpill.inc{border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)}
+  .simfields{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap}
+  .simlab{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-subtle);
+    display:flex;flex-direction:column;gap:3px;text-transform:uppercase;letter-spacing:.08em}
+  .siminput{font-family:'JetBrains Mono',monospace;font-size:12.5px;width:92px;height:30px;padding:0 8px;
+    text-align:right;background:var(--paper);border:1px solid var(--rule);color:var(--ink)}
+  .simsel{font-family:'JetBrains Mono',monospace;font-size:11px;height:30px;padding:0 8px;display:inline-flex;
+    align-items:center;background:var(--paper);border:1px solid var(--rule);color:var(--ink-soft)}
+  .simadd{font-family:'JetBrains Mono',monospace;font-size:10.5px;height:30px;padding:0 12px;display:inline-flex;
+    align-items:center;background:var(--ink);color:var(--paper)}
+  .flowline{display:flex;align-items:center;gap:10px;border:1px solid var(--rule-soft);padding:8px 11px;
+    background:var(--card);font-size:12.5px;flex-wrap:wrap}
+  .flowline + .flowline{margin-top:6px}
+  .ok-tag{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--forest);
+    color:var(--forest);background:rgba(79,107,71,.10)}
+  .del{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--rust)}
+
+  .col2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:820px){.col2{grid-template-columns:1fr}}
+  table.t{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.t th,table.t td{border:1px solid var(--rule-soft);padding:8px 10px;text-align:left;vertical-align:top}
+  table.t th{background:var(--card-soft);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:400;
+    color:var(--ink-subtle);letter-spacing:.06em}
+  .bar{height:22px;display:flex;border:1px solid var(--rule);overflow:hidden;background:var(--paper-soft)}
+  .bar span{display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;
+    font-size:9.5px;color:var(--paper)}
+  .warnbox{border:1px solid var(--rust);background:rgba(156,74,42,.07);padding:12px 14px;font-size:12.5px;
+    line-height:1.8;color:var(--rust)}
+  .okbox{border:1px solid var(--forest);background:rgba(79,107,71,.08);padding:12px 14px;font-size:12.5px;
+    line-height:1.8;color:var(--forest)}
+</style>
+</head>
+<body class="min-h-screen" style="background:var(--paper)">
+
+<div class="mono" style="background:var(--ink);color:var(--paper);font-size:11px;padding:8px 20px;text-align:center">
+  PREVIEW · v1.8 支出链路改造 · 对应 prd/v1.8.md · 尚未写任何代码,等评审
+</div>
+
+<header class="wrap" style="padding:44px 20px 26px">
+  <div class="eyebrow mb-3">v1.8 · Preview</div>
+  <h1 class="text-3xl sm:text-4xl font-medium mb-4">支出也能逐笔录、也能落到账户</h1>
+  <p class="text-ink-soft" style="max-width:700px;line-height:1.9">
+    收入侧从 v0.12 起就是「逐笔 + 选账户 + 自动入账」,支出侧一直停在「每人一个月一个总数」。
+    这一版把两侧对齐,顺带兑现 issue #9 想看支出构成的诉求。<br>
+    <b class="text-ink">前提:总额那条路不删</b> —— 支出笔数远多于收入,强制逐笔会直接违反「每月 10 分钟」。
+  </p>
+</header>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- ① 两种模式 -->
+<section class="wrap" style="padding:36px 20px 10px">
+  <div class="eyebrow mb-2">① 两 种 模 式 并 存 · 家 庭 级 开 关</div>
+  <h2 class="text-2xl font-medium mb-4">支出录入方式</h2>
+  <div class="col2">
+    <div class="paper-card p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="badge now">现状 · 默认</span>
+        <h3 class="text-lg font-medium">总额</h3>
+      </div>
+      <div class="simrow">
+        <div class="simhd"><span class="simpill exp">支出</span>
+          <span class="mono" style="font-size:9.5px;color:var(--ink-subtle)">本月总支出(一个数)</span></div>
+        <div class="simfields">
+          <label class="simlab">迪娃 的本月总支出 ¥<input class="siminput" value="10,000" readonly></label>
+          <span class="simadd">保存本月总支出</span>
+        </div>
+      </div>
+      <p class="note mt-3">
+        一个月一个数,从各端账单抄总数过来。<br>
+        <b style="color:var(--ink)">得到</b>:储蓄率 / 紧急储备 / 人赚钱赚 照常算。<br>
+        <b style="color:var(--ink)">得不到</b>:支出构成;账户级收益率仍会把消费当成投资亏损。
+      </p>
+    </div>
+    <div class="paper-card p-5" style="border-left:3px solid var(--brass-deep)">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="badge new">v1.8 新增</span>
+        <h3 class="text-lg font-medium">逐笔</h3>
+      </div>
+      <div class="simrow">
+        <div class="simhd"><span class="simpill exp">支出</span>
+          <span class="mono" style="font-size:9.5px;color:var(--ink-subtle)">先选账户 · 填金额 · 选类目</span></div>
+        <div class="simfields">
+          <label class="simlab">金额 ¥<input class="siminput" value="3,200" readonly></label>
+          <label class="simlab">类目<span class="simsel">餐饮</span></label>
+          <label class="simlab">支出账户<span class="simsel">招行储蓄卡-工资</span></label>
+          <span class="simadd">+ 加一笔</span>
+        </div>
+      </div>
+      <p class="note mt-3">
+        与收入区<b style="color:var(--ink)">同构</b>。每条写一行流水,并<b style="color:var(--rust)">从所选账户余额中扣除</b>。<br>
+        <b style="color:var(--ink)">额外得到</b>:支出构成;账户级收益率变准。
+      </p>
+    </div>
+  </div>
+  <p class="note mt-4">
+    开关放「家庭设置 → 填报模板」旁,默认<b style="color:var(--ink)">总额</b>。切到逐笔后支出区变形态;
+    切回总额时<b style="color:var(--ink)">已录的逐笔数据保留、不删</b>。
+  </p>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- ② 逐笔模式下的填报页 -->
+<section class="wrap" style="padding:36px 20px 10px">
+  <div class="eyebrow mb-2">② 逐 笔 模 式 · 填 报 页 支 出 区</div>
+  <h2 class="text-2xl font-medium mb-4">和收入区长一个样</h2>
+
+  <div class="paper-card p-5">
+    <div class="simrow">
+      <div class="simhd"><span class="simpill inc">收入</span>
+        <span class="mono" style="font-size:9.5px;color:var(--ink-subtle)">先选类型 · 现金填金额(现状,不动)</span></div>
+      <div class="simfields">
+        <span class="simsel" style="border-color:var(--forest);color:var(--forest)">现金收入</span>
+        <label class="simlab">金额 ¥<input class="siminput" value="10,000" readonly></label>
+        <label class="simlab">类目<span class="simsel">工资</span></label>
+        <label class="simlab">现金账户<span class="simsel">招行储蓄卡-工资</span></label>
+        <span class="simadd">+ 加一笔</span>
+      </div>
+    </div>
+
+    <div class="simrow" style="border-left:3px solid var(--brass-deep)">
+      <div class="simhd"><span class="simpill exp">支出</span>
+        <span class="mono" style="font-size:9.5px;color:var(--brass-text)">v1.8 · 先选账户 · 填金额 · 选类目 —— 录入后会从该账户余额中扣除</span></div>
+      <div class="simfields">
+        <label class="simlab">金额 ¥<input class="siminput" value="3,200" readonly></label>
+        <label class="simlab">类目<span class="simsel">餐饮</span></label>
+        <label class="simlab">支出账户<span class="simsel">招行储蓄卡-工资</span></label>
+        <label class="simlab">备注(选填)<span class="simsel" style="width:150px">如 8 月饭钱</span></label>
+        <span class="simadd">+ 加一笔</span>
+      </div>
+    </div>
+
+    <div class="eyebrow mt-4 mb-2">本 月 已 录 支 出</div>
+    <div class="flowline"><span class="badge">还贷</span><b>招行储蓄卡-工资</b>
+      <span class="mono ml-auto" style="color:var(--rust)">−¥6,800</span>
+      <span class="mono" style="font-size:10px;color:var(--ink-subtle)">08-01</span>
+      <span class="ok-tag">已出账 + 流水</span><span class="del">删</span></div>
+    <div class="flowline"><span class="badge">餐饮</span><b>招行储蓄卡-工资</b>
+      <span class="mono ml-auto" style="color:var(--rust)">−¥3,200</span>
+      <span class="mono" style="font-size:10px;color:var(--ink-subtle)">08-15</span>
+      <span class="ok-tag">已出账 + 流水</span><span class="del">删</span></div>
+
+    <div class="flex items-baseline justify-between mt-4 pt-3" style="border-top:1px solid var(--rule-soft)">
+      <span class="mono" style="font-size:10.5px;color:var(--ink-subtle)">本月家庭支出(本位币)= Σ 支出录入 · 汇入人赚 / 储蓄率</span>
+      <span class="mono" style="font-size:16px">¥10,000</span>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- ③ 最大风险:重复扣 -->
+<section class="wrap" style="padding:36px 20px 10px">
+  <div class="eyebrow mb-2">③ 最 大 风 险</div>
+  <h2 class="text-2xl font-medium mb-2">支出扣余额 = 收入那个坑的镜像</h2>
+  <p class="text-ink-soft mb-4" style="max-width:700px;line-height:1.9">
+    收入侧的坑是<b class="text-ink">加两次</b>,支出侧就是<b class="text-ink">扣两次</b> ——
+    用户照银行 App 填的月末余额本来就已经含了这笔消费,再录一笔就又扣一次。
+  </p>
+  <div class="col2">
+    <div>
+      <div class="mono mb-2" style="font-size:10.5px;color:var(--forest)">先录支出 → 后核余额(正确)</div>
+      <table class="t">
+        <tr><th>动作</th><th style="text-align:right">该账户余额</th></tr>
+        <tr><td>月初</td><td class="mono" style="text-align:right">26,519</td></tr>
+        <tr><td>录一笔支出 3,200</td><td class="mono" style="text-align:right;color:var(--forest)">23,319 自动扣</td></tr>
+        <tr><td>核对:与银行 App 一致</td><td class="mono" style="text-align:right">无需改动</td></tr>
+      </table>
+      <div class="okbox mt-3">余额与流水都对,该期支出 = 3,200。</div>
+    </div>
+    <div>
+      <div class="mono mb-2" style="font-size:10.5px;color:var(--rust)">先填余额 → 再录支出(扣两次)</div>
+      <table class="t">
+        <tr><th>动作</th><th style="text-align:right">该账户余额</th></tr>
+        <tr><td>照银行 App 填(已含消费)</td><td class="mono" style="text-align:right">23,319</td></tr>
+        <tr><td>又去补录那笔 3,200</td><td class="mono" style="text-align:right;color:var(--rust)">20,119 再扣一次</td></tr>
+        <tr><td>与银行 App 对照</td><td class="mono" style="text-align:right;color:var(--rust)">少了 3,200</td></tr>
+      </table>
+      <div class="warnbox mt-3">净资产凭空少一笔,而且这笔钱在「人赚」里被扣了两次。</div>
+    </div>
+  </div>
+  <div class="paper-card p-4 mt-4">
+    <div class="eyebrow mb-2">四 道 防 线</div>
+    <p class="note">
+      <b style="color:var(--ink)">① 顺序引导</b> —— 支出区文案与手册统一为「先录收支,最后核对余额」,
+      并明写「录入后会从所选账户余额中扣除」。<br>
+      <b style="color:var(--ink)">② 即时可见</b> —— 每录一笔,该账户行余额闪一次并显示 <span class="mono" style="color:var(--rust)">−3,200</span>,
+      让用户看见余额被改了。<br>
+      <b style="color:var(--ink)">③ 对账提示</b> —— 某账户本期既有逐笔支出、又被手工改过余额时,
+      在该账户行提示「本期已录 N 笔支出(共 ¥X),若你填的余额已含这些消费,请勿重复扣减」。
+      <b style="color:var(--rust)">只提示、不阻断</b>(用户可能确实要手工修正)。<br>
+      <b style="color:var(--ink)">④ 手册补演示</b> —— 现有「演示 A」只讲了收入侧,补上支出侧对照。
+    </p>
+  </div>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- ④ 口径优先级 -->
+<section class="wrap" style="padding:36px 20px 10px">
+  <div class="eyebrow mb-2">④ 口 径 优 先 级</div>
+  <h2 class="text-2xl font-medium mb-2">同一个月两种数据都有,怎么算</h2>
+  <div class="paper-card p-5">
+    <p style="font-size:14px;line-height:1.9">
+      <b class="text-ink">同一账期内,若有逐笔支出记录,则该期支出 = Σ 逐笔;否则 = 总额。二者不相加。</b>
+    </p>
+    <table class="t mt-4">
+      <tr><th>该期数据</th><th>取哪个</th><th>页面怎么标</th></tr>
+      <tr><td>只有总额 10,000</td><td>10,000</td><td class="mono">总额 · 手填</td></tr>
+      <tr><td>只有逐笔 6,800 + 3,200</td><td>10,000</td><td class="mono">逐笔 · 2 笔</td></tr>
+      <tr><td>总额 10,000 且逐笔 6,800</td><td class="mono" style="color:var(--brass-text)">6,800(逐笔优先)</td><td class="mono">逐笔 · 1 笔 · 另有手填总额 10,000 未采用</td></tr>
+    </table>
+    <div class="warnbox mt-4">
+      <b>注意一处历史遗留的不一致</b>:收入侧的规则是「手填总额 &gt; 0 则用之,否则用逐笔」——
+      <b>优先级和支出侧相反</b>。因为收入的历史数据在总额表里,而支出的更细事实在逐笔里。
+      这个不一致必须写进 tooltip 和文档,不能让下一个人靠猜。
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- ⑤ 支出构成 -->
+<section class="wrap" style="padding:36px 20px 10px">
+  <div class="eyebrow mb-2">⑤ 兑 现 issue #9</div>
+  <h2 class="text-2xl font-medium mb-4">支出构成(报表页 · 储蓄能力段下方)</h2>
+  <div class="paper-card p-5">
+    <div class="flex items-center gap-2 mb-3 flex-wrap">
+      <span class="badge new">按类目</span><span class="badge">按账户</span><span class="badge">按成员</span>
+      <span class="mono ml-auto" style="font-size:10px;color:var(--ink-subtle)">本期 · 近 6 期 · 近 12 期</span>
+    </div>
+    <div class="bar mb-3">
+      <span style="width:34%;background:#8A5A3C">还贷 34%</span>
+      <span style="width:22%;background:#B08642">餐饮 22%</span>
+      <span style="width:16%;background:#4F6B47">居住 16%</span>
+      <span style="width:11%;background:#7A8B93">交通 11%</span>
+      <span style="width:9%;background:#9C7BA8">教育 9%</span>
+      <span style="width:8%;background:#8B8378">其他 8%</span>
+    </div>
+    <table class="t">
+      <tr><th>类目</th><th style="text-align:right">金额</th><th style="text-align:right">占比</th><th>明细</th></tr>
+      <tr><td>还贷</td><td class="mono" style="text-align:right">¥6,800</td><td class="mono" style="text-align:right">34.0%</td><td class="mono" style="color:var(--brass-text)">1 笔 →</td></tr>
+      <tr><td>餐饮</td><td class="mono" style="text-align:right">¥4,400</td><td class="mono" style="text-align:right">22.0%</td><td class="mono" style="color:var(--brass-text)">9 笔 →</td></tr>
+      <tr><td>居住</td><td class="mono" style="text-align:right">¥3,200</td><td class="mono" style="text-align:right">16.0%</td><td class="mono" style="color:var(--brass-text)">2 笔 →</td></tr>
+    </table>
+    <p class="note mt-3">
+      点「N 笔 →」弹明细抽屉(复用资产透视那套形态)。<br>
+      <b style="color:var(--ink)">只填了总数的月份</b>标「只填了总数 · 无构成」;
+      <b style="color:var(--ink)">老逐笔数据</b>(类目都是 <span class="mono">consumption</span>)标「未细分」——
+      不隐藏、不假装没有。
+    </p>
+  </div>
+
+  <div class="paper-card p-5 mt-4" style="border-left:3px solid var(--rust)">
+    <div class="flex items-center gap-2 mb-2"><span class="badge risk">待你拍板</span>
+      <h3 class="text-base font-medium">类目体系怎么定</h3></div>
+    <p class="note">
+      现有 <span class="mono">cash_flow_category</span> 的支出类目<b style="color:var(--ink)">只有 4 个,而且是「会计性质」不是「消费品类」</b>:
+      消费 / 还贷 / 利息支出 / 转账给亲属。所以只复用现有类目的话,构成就是这四项 ——
+      而 issue #9 那位用户想看的多半是「餐饮占几成」。
+    </p>
+    <table class="t mt-3">
+      <tr><th>方案</th><th>做法</th><th>取舍</th></tr>
+      <tr><td>A</td><td>只用现有 4 类</td><td>零改动;但答不上「餐饮多少」,等于没兑现</td></tr>
+      <tr style="background:var(--brass-soft)"><td><b>B</b> 建议</td><td>补一批消费品类(餐饮/居住/交通/教育/医疗/娱乐/其他),与现有 4 类并列;<span class="mono">consumption</span> 保留为「未细分」</td><td>老数据零迁移、显示为「未细分」;<b>管理页本来就能增删</b>,所以固定大类与自定义两者都满足</td></tr>
+      <tr><td>C</td><td>加 <span class="mono">parent_code</span> 做父子两级</td><td>表达最准,但要改表 + 管理页 + 所有读类目处,成本高于收益</td></tr>
+    </table>
+    <p class="note mt-3">本预览图里用的是 <b style="color:var(--ink)">方案 B</b> 的效果。</p>
+  </div>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- ⑥ 兼容 + 影响面 -->
+<section class="wrap" style="padding:36px 20px 60px">
+  <div class="eyebrow mb-2">⑥ 历 史 兼 容 与 影 响 面</div>
+  <h2 class="text-2xl font-medium mb-4">一行历史数据都不改</h2>
+
+  <div class="col2">
+    <div class="paper-card p-5">
+      <h3 class="text-base font-medium mb-2">兼容做法</h3>
+      <p class="note">
+        · <span class="mono">total_expense_input</span> 保持原样,不迁移、不清空<br>
+        · 不新增表,逐笔支出复用现有 <span class="mono">cash_flow</span>(kind=EXPENSE)<br>
+        · 唯一 schema 改动:<span class="mono">family</span> 加一列
+        <span class="mono">expense_entry_mode</span>(TOTAL / ITEMIZED,默认 TOTAL)<br>
+        · 回滚只回 jar:老 jar 不认这列 → 全部退回总额模式,已录逐笔仍在 <span class="mono">cash_flow</span> 里,
+        <b style="color:var(--ink)">不丢数据、不双算</b>(老逻辑是总额优先)
+      </p>
+    </div>
+    <div class="paper-card p-5">
+      <h3 class="text-base font-medium mb-2">受影响功能:17 处已逐个确认</h3>
+      <p class="note">
+        <b style="color:var(--ink)">10 处要接新口径</b>:净流入 · 月均支出(紧急储备分母)· 报表月均 ·
+        当期储蓄率 · 月储蓄中位数 · 已填月数 · <b style="color:var(--rust)">应急目标 auto_baseline(过去 3 期支出中位数,最隐蔽)</b> ·
+        储蓄率类目标 · 体检流动性规则 · FIRE 自适应支出<br>
+        → 全部收敛到<b style="color:var(--ink)">一个方法</b> <span class="mono">expenseForPeriod()</span>,
+        不允许各处自己判断(v1.6.29「同页两套收入口径」的教训)<br><br>
+        <b style="color:var(--ink)">4 处数值会变</b>:账户级 PnL / NAV 与回撤 / vs 基准 / 透视收益度量
+        —— <b>只影响启用逐笔的家庭</b>,总额模式与今天逐位相同<br><br>
+        <b style="color:var(--ink)">3 处展示跟改</b>:填报支出区 · 报表储蓄能力段 · 仪表盘收支趋势
+      </p>
+    </div>
+  </div>
+
+  <div class="paper-card p-5 mt-4">
+    <div class="eyebrow mb-2">明 确 不 受 影 响(也写出来)</div>
+    <p class="note">
+      转账划转(独立表)· 开账基线(只看快照首现)· 家庭 XIRR / TWR(走统一方法,自动跟上)·
+      贷款符号归一 · 持仓估值 · 券商同步 · 基金穿透 · 审计日志(复用既有写入路径)· CSV 导出(已按 cash_flow 导)
+    </p>
+  </div>
+
+  <div class="paper-card p-5 mt-4" style="border-left:3px solid var(--forest)">
+    <div class="eyebrow mb-2">验 收 标 准</div>
+    <p class="note">
+      ① 总额模式下全站指标与升级前<b style="color:var(--ink)">逐位相同</b>(用 v1.6.30 那套模拟器复算 prod 快照比对)·
+      ② 逐笔模式下 Σ逐笔 == 该期口径值,且储蓄率/紧急储备/人赚钱赚三者自洽 ·
+      ③ 两种数据并存时不相加且页面标明 ·
+      ④ 应急目标 auto_baseline 与手工中位数一致 ·
+      ⑤ 删一笔支出,余额与该期总额同时回退 ·
+      ⑥ 老 jar 回滚退回总额模式,不丢数据不双算
+    </p>
+  </div>
+</section>
+
+<footer class="wrap" style="padding-bottom:60px">
+  <div class="rule mb-4"></div>
+  <p class="mono" style="font-size:10.5px;color:var(--ink-subtle);line-height:1.9">
+    预览稿 · 对应 <b style="color:var(--ink)">prd/v1.8.md</b> · 评审通过后再写 tech-design,然后才动代码<br>
+    <b style="color:var(--rust)">两处需要你拍板</b>:类目体系选 A / B / C(建议 B)· 支出录入方式的默认值是否维持「总额」
+  </p>
+</footer>
+</body>
+</html>
