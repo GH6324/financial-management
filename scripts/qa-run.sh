@@ -3053,8 +3053,11 @@ loc=$($CURL -o /dev/null -w "%{redirect_url}" "$BASE/dashboard")   # 匿名访�
   || log_bad "v09-LAND-4 鉴权回归异常" "匿名 /dashboard redirect=$loc(应含 /login)"
 
 # v09-LAND-5 · v0.9.1 精修元素都在(GitHub 角标 + 真实命令块 + 它解决什么四问 + 数字带)
+#   v1.7 修:原断言要求落地页命令块含 `docker compose up -d`,但安装入口收敛那版起
+#   落地页给的就是 `bash deploy/docker-up.sh`(它内部才去调 compose)。这条断言自那以后
+#   一直是红的 —— 守护断言的是**已被淘汰的命令**,等于长期失效。改成断言现口径。
 { grep -q 'github-corner' "$anon" && grep -q 'cmd-block' "$anon" \
-  && grep -q 'git clone' "$anon" && grep -q 'docker compose up -d' "$anon" \
+  && grep -q 'git clone' "$anon" && grep -q 'deploy/docker-up.sh' "$anon" \
   && grep -q '它 解 决 什 么' "$anon" && grep -q '我们家现在到底有多少钱' "$anon" \
   && grep -q 'data-stat="version"' "$anon"; } \
   && log_ok "v09-LAND-5 落地页精修元素在(GitHub 角标 + 真实4步命令 + 它解决什么 + 数字带)" \
@@ -5101,6 +5104,16 @@ RGN="$RD/src/main/resources/templates/reports/_region.html"
 #          —— 否则在教程里学会了、到真实系统 UI 差异太大还是不会用。守护断言 .simrow 存在。
 #       ⑥ D 段(进阶与维护)原来过薄且配图无教学价值(汇率页 300 行重复行):
 #          课节 3 → 11 条、配图 2 → 5 张、汇率图裁到顶部一屏,并把演示 C 挂在多币种章。
+#     v1.7.0 五轮(用户第 28 轮:手册要在 / 落地页体现):
+#       手册免登录改变了落地页的逻辑 —— 以前访客只能「信」文案,现在能「自己验」。三处各干不同的活:
+#         · hero:命令块下面加「还没决定要不要装?」分隔 + 手册卡(不用装/不用登录)。
+#           **不能左右并排** —— 命令块里 git clone 那行 URL 不可断行,并排时会把手册卡挤成
+#           88px 宽的细条(实测),改上下堆叠后 PC 600×106 / 移动 345×129 正常。
+#         · 中段「你大概也在问这几个问题」的 3 个问题挂手册章节锚点(#b6 财富水位 /
+#           #ch4 人赚vs钱赚 / #b3 钻到具体持仓)—— 问题本来就写好了,只是此前没有出口,
+#           读者点头认同完就没下一步。锚点对匿名访客同样有效。
+#         · footer CTA 加第三个按钮「先看使用手册」。
+#       守护断言 landing.html 内 /help/how-to-use ≥4 处且含「还没决定要不要装」。
 #     ② 导航:「手册」挪到主栏最末(不插在功能项中间);既然它有 icon,**所有菜单项都得有** ——
 #        8 项统一 Feather 风格 inline SVG。顺带修掉自己引入的对齐 bug:加 inline-flex 后激活项比
 #        其他项高 10px(激活态 pb-[18px] 撑高 + 容器底对齐),给未激活项补 border-transparent + 同 padding
@@ -5130,6 +5143,8 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && grep -qF 'data-ccy' "$HTPL" && grep -qF 'data-case' "$HTPL" \
   && grep -qF '/help/how-to-use' "$RD/src/main/java/com/family/finance/auth/SecurityConfig.java" \
   && grep -qF 'th:if="${me != null}"' "$HTPL" \
+  && [ "$(grep -c '/help/how-to-use' "$RD/src/main/resources/templates/landing.html")" -ge 4 ] \
+  && grep -qF '还没决定要不要装' "$RD/src/main/resources/templates/landing.html" \
   && grep -qF "display:none" "$HINT" \
   && [ "$(grep -c '/help/how-to-use' "$NAV")" -ge 2 ] \
   && grep -qF '/help/how-to-use' "$ENT" \

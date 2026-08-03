@@ -67,7 +67,9 @@
   <p class="font-serif text-lg text-ink-soft mt-6 leading-relaxed reveal" style="animation-delay:180ms">
     算得出真实年化,分得清「人赚的」和「钱赚的」;AI 帮你诊断持仓、看清风险 —— 只解读,不荐产品、不预测涨跌。
   </p>
-  <!-- c · 真实快速开始 -->
+  <!-- c · 两条路径 · v1.7:装之前先能看懂它怎么用(手册免登录)
+       没人会为一个还不确定适不适合自己的东西先装一套环境,所以「先看」与「直接装」并列给出。
+       用上下堆叠而不是左右并排:命令块里那行 git clone URL 不可断行,并排时会把另一列挤成细条(实测 88px)。 -->
   <div class="mt-9 reveal" style="animation-delay:240ms">
     <div class="eyebrow mb-2">快 速 开 始 · QUICK START</div>
     <div class="cmd-block mx-auto" style="max-width:40rem">
@@ -76,6 +78,27 @@
 cd financial-management
 bash deploy/docker-up.sh</code></pre>
     </div>
+
+    <div class="flex items-center gap-3 mx-auto mt-6 mb-4" style="max-width:40rem">
+      <div class="h-px flex-1" style="background:var(--rule-soft)"></div>
+      <span class="font-mono text-[10px] text-ink-subtle">还没决定要不要装?</span>
+      <div class="h-px flex-1" style="background:var(--rule-soft)"></div>
+    </div>
+
+    <a th:href="@{/help/how-to-use}" class="block no-underline mx-auto text-left border border-rule bg-card
+       hover:border-brass-deep transition p-4" style="max-width:40rem">
+      <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)">
+          <path d="M4 19.5V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-1.5Z"/><path d="M8 7h8M8 11h6"/></svg>
+        <span class="font-display text-base text-ink">先看使用手册</span>
+        <span class="font-mono text-[10px] ml-auto" style="color:var(--brass-text)">不用装 · 不用登录 →</span>
+      </div>
+      <p class="font-serif text-sm text-ink-soft" style="line-height:1.75">
+        「每月 10 分钟」到底做哪几件事?24 章、21 张实拍图、4 个能点着玩的演示 ——
+        <span style="color:var(--brass-text)">先看懂再决定要不要装。</span>
+      </p>
+    </a>
   </div>
 </section>
 
@@ -86,9 +109,9 @@ bash deploy/docker-up.sh</code></pre>
   <p class="text-center text-ink-soft mt-3 text-sm leading-relaxed">家庭资产散在 N 个渠道(银行 / 支付宝 / 券商 / 房产 / 房贷……),日常没系统记录:</p>
   <div class="mt-8 space-y-6">
     <div class="q-item"><div class="q">「我们家现在到底有多少钱?」</div><div class="a">散成 N 处,没人看得到全局。</div></div>
-    <div class="q-item"><div class="q">「这一年是变富了还是变穷了?」</div><div class="a">没有趋势,更别说扣掉通胀后真实购买力变没变。</div></div>
-    <div class="q-item"><div class="q">「攒下来的和投资赚的混一起,投资到底行不行?」</div><div class="a">分不清「人赚的」和「钱赚的」。</div></div>
-    <div class="q-item"><div class="q">「买了一堆基金,家里到底重仓了什么行业?」</div><div class="a">基金看不见成分,行业风险藏在名字后面 —— 穿透到申万行业,以家庭为整体看清真实敞口。</div></div>
+    <div class="q-item"><div class="q">「这一年是变富了还是变穷了?」</div><div class="a">没有趋势,更别说扣掉通胀后真实购买力变没变。 <a th:href="@{/help/how-to-use} + '#b6'" class="font-mono text-[10.5px] no-underline hover:underline" style="color:var(--brass-text)">→ 看财富水位怎么答</a></div></div>
+    <div class="q-item"><div class="q">「攒下来的和投资赚的混一起,投资到底行不行?」</div><div class="a">分不清「人赚的」和「钱赚的」。 <a th:href="@{/help/how-to-use} + '#ch4'" class="font-mono text-[10.5px] no-underline hover:underline" style="color:var(--brass-text)">→ 看「人赚 vs 钱赚」演示</a></div></div>
+    <div class="q-item"><div class="q">「买了一堆基金,家里到底重仓了什么行业?」</div><div class="a">基金看不见成分,行业风险藏在名字后面 —— 穿透到申万行业,以家庭为整体看清真实敞口。 <a th:href="@{/help/how-to-use} + '#b3'" class="font-mono text-[10.5px] no-underline hover:underline" style="color:var(--brass-text)">→ 看怎么钻到具体持仓</a></div></div>
     <div class="q-item"><div class="q">「夫妻俩时间错开,谁来记?」</div><div class="a">缺一个全家共用、异步填报的载体。</div></div>
   </div>
 </section>
@@ -171,6 +194,8 @@ bash deploy/docker-up.sh</code></pre>
   <h2 class="font-display text-3xl md:text-4xl font-medium tracking-tight">自托管一份,数据只待在你自己手里。</h2>
   <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
     <a th:href="@{/login}" class="bg-ink text-paper px-7 py-3 rounded-sm hover:bg-brass-deep transition">登录账房</a>
+    <a th:href="@{/help/how-to-use}" class="border px-7 py-3 rounded-sm no-underline hover:bg-card-soft transition"
+       style="border-color:var(--brass-deep);color:var(--brass-text)">先看使用手册</a>
     <a href="https://github.com/LuoDi-Nate/financial-management" rel="noopener" target="_blank" class="border border-rule px-7 py-3 rounded-sm text-ink hover:bg-card-soft">查看源码 · 快速开始</a>
   </div>
   <div class="font-mono text-xs text-ink-subtle mt-8 break-all">https://github.com/LuoDi-Nate/financial-management</div>
