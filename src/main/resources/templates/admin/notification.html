@@ -53,6 +53,39 @@
       </div>
     </form>
 
+    <!-- v1.8 FR-271 · 支出录入方式 · 全家统一 -->
+    <form th:action="@{/admin/reminders/expense-mode}" method="post" class="card-ink p-6 space-y-4">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <div class="eyebrow-ink">①′ 支出录入方式 · 全家统一</div>
+      <p class="font-mono text-[11px] text-ink-soft leading-relaxed">
+        收入侧一直是「逐笔 + 选账户 + 自动入账」,支出侧原本是「每人每月一个总数」。
+        两种都留着:支出笔数远多于收入,强制逐笔会撑破「每月 10 分钟」。
+        <b>切换不动任何已录数据</b> —— 切到逐笔后原来填的总额还在,切回总额后已录的逐笔也不删。
+      </p>
+
+      <div class="space-y-3">
+        <label th:each="m : ${expenseModes}"
+               class="flex items-start gap-3 border border-rule p-3 cursor-pointer hover:border-ink transition"
+               th:classappend="${currentExpenseMode.name() == m.name()} ? 'border-ink bg-card-soft' : ''">
+          <input type="radio" name="expenseMode" th:value="${m.name()}" class="mt-1"
+                 th:checked="${currentExpenseMode.name() == m.name()}"/>
+          <span>
+            <span class="font-display text-sm text-ink" th:text="${m.displayName()}">方式</span>
+            <span class="block font-mono text-[11px] text-ink-soft mt-1 leading-relaxed"
+                  th:text="${m.hintText()}">说明</span>
+          </span>
+        </label>
+      </div>
+
+      <div class="flex items-center gap-4 pt-2 border-t border-rule">
+        <p class="font-mono text-[10px] text-ink-subtle leading-relaxed">
+          同一个月两种数据都有时:<b>逐笔模式</b>以逐笔为准,<b>总额模式</b>以总额为准 —— 两者永不相加。
+          页面上会标明当期用的是哪一种。
+        </p>
+        <button type="submit" class="btn-ink ml-auto whitespace-nowrap">保存方式</button>
+      </div>
+    </form>
+
     <!-- ② 短信渠道 -->
     <form th:action="@{/admin/reminders/sms}" method="post" class="bracket-card max-w-3xl space-y-5">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>

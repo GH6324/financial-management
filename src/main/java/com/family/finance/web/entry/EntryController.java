@@ -50,6 +50,8 @@ public class EntryController {
     private final FamilyMapper familyMapper;
     /** v0.12 · 收入侧:类目下拉 + 本期收入列表 */
     private final com.family.finance.repository.CashFlowCategoryMapper cashFlowCategoryMapper;
+    /** v1.8 · 读家庭的支出录入方式(总额 / 逐笔) */
+    private final com.family.finance.service.expense.ExpenseLedgerService expenseLedger;
     private final com.family.finance.repository.CashFlowMapper cashFlowMapper;
     /** v0.4.22 · /entry 一键拉取股价按钮 · 三件套依赖 */
     private final StockPriceScheduler stockScheduler;
@@ -173,6 +175,31 @@ public class EntryController {
         model.addAttribute("incomeBaseById", incomeBaseById);
         model.addAttribute("incomeBaseTotal", incomeBaseTotal.setScale(2, java.math.RoundingMode.HALF_EVEN));
 
+        // v1.8 FR-270/271 · 支出侧:模式决定这一区渲染成「逐笔」还是「一个总数」。
+        // 默认 TOTAL(存量家庭升级后行为不变)。
+        var expenseMode = expenseLedger.modeOf(me.getFamilyId());
+        model.addAttribute("expenseMode", expenseMode.name());
+        model.addAttribute("expenseModeLabel", expenseMode.displayName());
+        model.addAttribute("expenseModeHint", expenseMode.hintText());
+        if (expenseMode == com.family.finance.domain.family.ExpenseEntryMode.ITEMIZED) {
+            model.addAttribute("expenseCategories", cashFlowCategoryMapper.listExpenseOrdered());
+            // 支出可以从任何非贷款账户流出(现金为主,但理财/贵金属也可能直接付款)
+            model.addAttribute("expenseAccounts", accountMapper.findActiveByFamily(me.getFamilyId()).stream()
+                    .filter(a -> a.getType() != null && a.getType() != com.family.finance.domain.account.AccountType.LOAN)
+                    .toList());
+            var expenseEntries = cashFlowMapper.findExpenseEntries(me.getFamilyId(), period.getId());
+            model.addAttribute("expenseEntries", expenseEntries);
+            java.util.Map<Long, BigDecimal> expenseBaseById = new java.util.LinkedHashMap<>();
+            BigDecimal expenseBaseTotal = BigDecimal.ZERO;
+            for (var e : expenseEntries) {
+                BigDecimal b = toBaseAmount(me.getFamilyId(), e.amount(), e.currency(), baseCcy, period.getId());
+                expenseBaseById.put(e.id(), b);
+                expenseBaseTotal = expenseBaseTotal.add(b);
+            }
+            model.addAttribute("expenseBaseById", expenseBaseById);
+            model.addAttribute("expenseBaseTotal", expenseBaseTotal.setScale(2, java.math.RoundingMode.HALF_EVEN));
+        }
+
         return "entry/index";
     }
 
@@ -284,6 +311,27 @@ public class EntryController {
     public String deleteIncome(@AuthenticationPrincipal MemberPrincipal me,
                                @PathVariable("id") long cashFlowId,
                                @RequestParam long periodId) {
+        entryService.softDeleteCashFlow(me.getFamilyId(), me.getMemberId(), cashFlowId);
+        return "redirect:/entry?period=" + periodId;
+    }
+
+    /** v1.8 FR-270 · 录一笔支出 = 金额 + 类目 + 支出账户 → 扣该账户余额 + 留流水。 */
+    @PostMapping("/entry/expense")
+    public String recordExpense(@AuthenticationPrincipal MemberPrincipal me,
+                                @RequestParam long periodId,
+                                @RequestParam long accountId,
+                                @RequestParam(defaultValue = "consumption") String categoryCode,
+                                @RequestParam BigDecimal amount,
+                                @RequestParam(required = false) String note) {
+        entryService.recordExpense(me.getFamilyId(), me.getMemberId(), periodId, accountId, categoryCode, amount, note);
+        return "redirect:/entry?period=" + periodId;
+    }
+
+    /** v1.8 FR-270 · 删一笔支出 = 软删该 cash_flow + 把金额加回账户余额(与收入侧删除同一条实现)。 */
+    @PostMapping("/entry/expense/{id}/delete")
+    public String deleteExpense(@AuthenticationPrincipal MemberPrincipal me,
+                                @PathVariable("id") long cashFlowId,
+                                @RequestParam long periodId) {
         entryService.softDeleteCashFlow(me.getFamilyId(), me.getMemberId(), cashFlowId);
         return "redirect:/entry?period=" + periodId;
     }

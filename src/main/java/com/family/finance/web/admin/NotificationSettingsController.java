@@ -3,6 +3,7 @@ package com.family.finance.web.admin;
 import com.family.finance.auth.MemberPrincipal;
 import com.family.finance.domain.audit.AuditLogType;
 import com.family.finance.domain.family.Family;
+import com.family.finance.domain.family.ExpenseEntryMode;
 import com.family.finance.domain.family.ReportingTemplate;
 import com.family.finance.domain.member.Member;
 import com.family.finance.domain.notify.FamilyNotifyConfig;
@@ -78,6 +79,9 @@ public class NotificationSettingsController {
         model.addAttribute("templates", ReportingTemplate.values());
         model.addAttribute("currentTemplate",
                 ReportingTemplate.fromCode(family.getReportingTemplate()));
+        // v1.8 FR-271 · 支出录入方式(总额 / 逐笔)· 与填报模板同属「全家统一的填报口径」
+        model.addAttribute("expenseModes", ExpenseEntryMode.values());
+        model.addAttribute("currentExpenseMode", ExpenseEntryMode.fromCode(family.getExpenseEntryMode()));
         model.addAttribute("leadDays",
                 family.getReportRemindLeadDays() == null ? 2 : family.getReportRemindLeadDays());
         model.addAttribute("cfg", cfg);
@@ -119,6 +123,22 @@ public class NotificationSettingsController {
         model.addAttribute("logTotalPages", totalPages);
         model.addAttribute("logTotal", totalLogs);
         return "admin/notification";
+    }
+
+    /**
+     * v1.8 FR-271 · 支出录入方式(家庭级)。切换只改口径开关,**不动任何已录数据** ——
+     * 切到逐笔后原来填的总额还在(切回来立刻生效),切回总额后已录的逐笔也不删。
+     */
+    @PostMapping("/expense-mode")
+    public String saveExpenseMode(@AuthenticationPrincipal MemberPrincipal me,
+                                  @RequestParam("expenseMode") String expenseMode,
+                                  RedirectAttributes ra) {
+        ExpenseEntryMode m = ExpenseEntryMode.fromCode(expenseMode);
+        familyMapper.updateExpenseEntryMode(me.getFamilyId(), m.name());
+        auditLogService.record(me.getFamilyId(), me.getMemberId(), AuditLogType.FAMILY_UPDATE,
+                "family", me.getFamilyId(), "支出录入方式=" + m.name());
+        ra.addFlashAttribute("flash", "支出录入方式已改为「" + m.displayName() + "」· 已录数据都保留");
+        return "redirect:/admin/reminders";
     }
 
     /** 填报模板 + 提醒提前天数 */

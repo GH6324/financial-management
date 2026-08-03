@@ -280,6 +280,55 @@ public class EntryService {
         return rowFor(familyId, memberId, periodId, accountId);
     }
 
+    /**
+     * v1.8 FR-270 · 支出侧结构化录入:一笔支出 = 金额 + 类目 + 支出账户。与 recordIncome 同构,
+     * 只是余额方向相反(从所选账户**扣**掉)。写 cash_flow(EXPENSE · is_adjustment=0 · 口径 A
+     * 的家庭支出)+ 扣账 + 标 todo done。
+     *
+     * <p>⚠ FR-274 · 与收入侧同源的坑:录一笔支出会从账户余额扣掉。如果用户**已经**照银行 App
+     * 填了月末余额(那个数本就含这笔消费),再录这笔就会扣第二次。所以填报页文案统一为
+     * 「先录收支,最后核对余额」,且每笔录入后要让用户看见余额被改了。</p>
+     *
+     * <p>不允许落到 LOAN 账户:在贷款账户上记一笔支出等于「又借了一笔」,不是花钱。
+     * 还贷应当记在**钱实际流出的那个现金账户**上(类目选「还贷」),贷款余额本身由
+     * 账户间划转或期末余额体现。</p>
+     */
+    @Transactional
+    public EntryRow recordExpense(long familyId, long memberId, long periodId,
+                                  long accountId, String categoryCode, BigDecimal amount, String note) {
+        Period period = requireOpenPeriod(familyId, periodId);
+        Account account = requireAccount(familyId, accountId);
+        if (account.getType() == AccountType.LOAN) {
+            throw new IllegalArgumentException("负债账户不能录入支出 · 还贷请记在钱实际流出的现金账户上,类目选「还贷」");
+        }
+        var cat = requireExpenseCategory(categoryCode);
+        BigDecimal amt = positiveMoney(amount);
+        creditAccountBalance(familyId, period, account, memberId, amt.negate(),
+                "-支出 " + cat.getDisplayName() + " " + money(amt));
+        insertCashFlow(period, account, memberId,
+                new CashFlowLine(CashFlowKind.EXPENSE, categoryCode, amt, note));
+        snapshotTodoMapper.markDone(periodId, accountId, memberId);
+        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "cash_flow", accountId,
+                "支出录入 " + cat.getDisplayName() + " " + money(amt) + " ← " + account.getDisplayName());
+        eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // 透视缓存后台换新
+        return rowFor(familyId, memberId, periodId, accountId);
+    }
+
+    /**
+     * 校验支出类目存在且 kind=EXPENSE。
+     * 支出类目都不绑定 account_type(见 FR-270a 的 4 个类目),所以不做类目↔账户类型校验;
+     * 但要挡住 {@code cash_adjust}(kind=BOTH)—— 那是余额对账用的现金调整,不是家庭支出,
+     * 混进来会让「支出构成」里冒出一条用户没花的钱。
+     */
+    private com.family.finance.domain.flow.CashFlowCategory requireExpenseCategory(String categoryCode) {
+        var cat = cashFlowCategoryMapper.findByCode(categoryCode)
+                .orElseThrow(() -> new IllegalArgumentException("支出类目不存在: " + categoryCode));
+        if (!"EXPENSE".equals(cat.getKind())) {
+            throw new IllegalArgumentException("类目「" + cat.getDisplayName() + "」不是支出类目");
+        }
+        return cat;
+    }
+
     /** 校验收入类目存在 + 是 INCOME + 绑定账户类型与目标账户一致(NULL=不限)· 返回类目。 */
     private com.family.finance.domain.flow.CashFlowCategory requireIncomeCategoryForAccount(
             String categoryCode, Account account) {

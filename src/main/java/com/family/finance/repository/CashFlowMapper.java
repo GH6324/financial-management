@@ -160,7 +160,35 @@ public interface CashFlowMapper {
     List<IncomeEntryRow> findIncomeEntries(@Param("familyId") long familyId,
                                            @Param("periodId") long periodId);
 
-    /** v0.12 · 收入侧列表行(展示用投影)。 */
+    /**
+     * v1.8 FR-270 · 支出侧列表:某账期该家庭的逐笔支出(口径 A · is_adjustment=0)。
+     * 与 findIncomeEntries 同构,只换 kind。归档账户的历史行**仍要列出**
+     * (用户得看得见、删得掉),所以这里不加 archived_at 过滤 —— 与按期汇总的口径不同,
+     * 汇总要跟事实表对齐才加了归档过滤。
+     */
+    @Select("""
+            SELECT cf.id AS id, cf.account_id AS accountId, a.display_name AS accountName,
+                   a.type AS accountType, a.currency AS currency,
+                   cf.category_code AS categoryCode,
+                   COALESCE(cat.display_name, cf.category_code) AS categoryName,
+                   cf.amount AS amount, cf.note AS note,
+                   COALESCE(m.display_name, '共同') AS ownerName,
+                   cf.submitted_at AS submittedAt
+              FROM cash_flow cf
+              JOIN account a ON a.id = cf.account_id
+              LEFT JOIN member m ON m.id = a.primary_owner_member_id
+              LEFT JOIN cash_flow_category cat ON cat.code = cf.category_code
+             WHERE cf.period_id = #{periodId}
+               AND a.family_id = #{familyId}
+               AND cf.kind = 'EXPENSE'
+               AND cf.is_adjustment = 0
+               AND cf.deleted_at IS NULL
+             ORDER BY cf.id DESC
+            """)
+    List<IncomeEntryRow> findExpenseEntries(@Param("familyId") long familyId,
+                                            @Param("periodId") long periodId);
+
+    /** v0.12 · 收入侧列表行(展示用投影)· v1.8 起支出侧复用同一投影。 */
     record IncomeEntryRow(Long id, Long accountId, String accountName, String accountType,
                           String currency, String categoryCode, String categoryName,
                           java.math.BigDecimal amount, String note,

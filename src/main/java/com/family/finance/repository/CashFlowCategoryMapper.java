@@ -31,6 +31,19 @@ public interface CashFlowCategoryMapper {
             """)
     List<CashFlowCategory> listIncomeOrdered();
 
+    /**
+     * v1.8 FR-270a · 支出类目下拉。停在「性质」这一层(日常开支 / 还贷 / 利息支出 / 转账给亲属),
+     * 不预置消费品类 —— 想细分的家庭自己在管理页加。
+     * 排除 {@code cash_adjust}(kind=BOTH):那是余额对账用的现金调整,不是家庭支出。
+     */
+    @Select("""
+            SELECT code, display_name, kind, sort_order, account_type
+              FROM cash_flow_category
+             WHERE kind = 'EXPENSE'
+             ORDER BY sort_order, code
+            """)
+    List<CashFlowCategory> listExpenseOrdered();
+
     @Select("""
             SELECT code, display_name, kind, sort_order, account_type
               FROM cash_flow_category
