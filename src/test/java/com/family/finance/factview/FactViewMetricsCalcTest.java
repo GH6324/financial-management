@@ -45,7 +45,8 @@ class FactViewMetricsCalcTest {
                 mock(PeriodMemberCashflowMapper.class), am, mock(ProductCategoryService.class), mock(com.family.finance.repository.SnapshotMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(
                         mock(com.family.finance.repository.CashFlowMapper.class), mock(PeriodMemberCashflowMapper.class),
-                        mock(com.family.finance.repository.FamilyMapper.class)));
+                        mock(com.family.finance.repository.FamilyMapper.class),
+                        mock(com.family.finance.repository.PeriodMapper.class)));
     }
 
     /** 一行账户事实:orig==base(fx=1),periodPnl 用真实公式算(首期 prev=null→null)。 */

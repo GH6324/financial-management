@@ -239,6 +239,33 @@ public interface CashFlowMapper {
                                         @Param("periodIds") java.util.Collection<Long> periodIds,
                                         @Param("dim") String dim);
 
+    /**
+     * v1.8 · 落在**已归档账户**上的逐笔支出(与构成口径互补)。
+     *
+     * <p>全站统计都排除归档账户,所以这些行不进构成。但**不能不说** —— 用户看到「录了 6 笔,
+     * 构成里只有 3 笔」会以为程序丢数据。v1.8 起服务端已拦住往归档账户记支出,
+     * 这个查询是为**历史数据**准备的:先记账、后来把账户归档了的那些行。</p>
+     */
+    @Select("""
+            <script>
+            SELECT COUNT(*) AS itemCount, COALESCE(SUM(cf.amount), 0) AS amount
+              FROM cash_flow cf
+              JOIN account a ON a.id = cf.account_id
+             WHERE a.family_id = #{familyId}
+               AND a.archived_at IS NOT NULL
+               AND cf.kind = 'EXPENSE'
+               AND cf.deleted_at IS NULL
+               AND cf.is_adjustment = 0
+               AND cf.period_id IN
+               <foreach collection="periodIds" item="pid" open="(" separator="," close=")">#{pid}</foreach>
+            </script>
+            """)
+    ArchivedExpense sumArchivedExpense(@Param("familyId") long familyId,
+                                       @Param("periodIds") java.util.Collection<Long> periodIds);
+
+    /** v1.8 · 归档账户上的支出汇总(原币直加,只用于「有多少笔没进构成」的提示,不进任何计算)。 */
+    record ArchivedExpense(int itemCount, java.math.BigDecimal amount) {}
+
     /** v1.8 · 支出构成的一组(维度值 → 本位币金额 + 笔数)。 */
     record ExpenseGroup(String groupKey, String groupLabel,
                         java.math.BigDecimal amountBase, int itemCount) {}

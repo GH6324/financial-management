@@ -57,7 +57,8 @@ class CurrencyInvarianceTest {
         return new FactViewServiceImpl(fm, famMapper, pmc, am, mock(ProductCategoryService.class), mock(com.family.finance.repository.SnapshotMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(
                         mock(com.family.finance.repository.CashFlowMapper.class), pmc,
-                        mock(com.family.finance.repository.FamilyMapper.class)));
+                        mock(com.family.finance.repository.FamilyMapper.class),
+                        mock(com.family.finance.repository.PeriodMapper.class)));
     }
 
     private static BigDecimal bd(String s) { return new BigDecimal(s); }

@@ -108,6 +108,21 @@ public class ReportsController {
      * v1.8 FR-272 · 支出构成。只在**逐笔模式**下渲染 —— 总额模式没有构成可言,
      * 硬塞一个空图比不显示更糟。窗口 1/6/12 期,取「近 N 个已关账期 + 当前进行中期」。
      */
+    /**
+     * 支出构成的「本期」锚点:**优先取进行中(OPEN)的那一期**,没有再退回「不晚于今天的最近一期」。
+     *
+     * <p>不能只用 today:家庭可以提前开下一期(比如 8 月就把 9 月开出来开始录),
+     * 那时用户心里的「本期」是那个 OPEN 期,而 {@code period_start <= today} 会把它排除,
+     * 构成直接空图。反过来也不能只用 OPEN 期 —— 有的家庭关账后迟迟不开新期,那时得回落到今天。</p>
+     */
+    private java.time.LocalDate compositionAsOf(long familyId) {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        return periodMapper.findCurrentOpen(familyId)
+                .map(com.family.finance.domain.period.Period::getPeriodStart)
+                .filter(start -> start.isAfter(today))
+                .orElse(today);
+    }
+
     private void populateExpenseComposition(MemberPrincipal me, String mix, Integer mixWin, Model model) {
         var mode = expenseLedger.modeOf(me.getFamilyId());
         model.addAttribute("mixEnabled", mode == com.family.finance.domain.family.ExpenseEntryMode.ITEMIZED);
@@ -116,7 +131,7 @@ public class ReportsController {
         }
         int win = (mixWin != null && (mixWin == 1 || mixWin == 6 || mixWin == 12)) ? mixWin : 1;
         var dim = com.family.finance.service.expense.ExpenseLedgerService.Dim.fromCode(mix);
-        var periods = periodMapper.findRecentAsOf(me.getFamilyId(), java.time.LocalDate.now(), win);
+        var periods = periodMapper.findRecentAsOf(me.getFamilyId(), compositionAsOf(me.getFamilyId()), win);
         var periodIds = periods.stream().map(com.family.finance.domain.period.Period::getId).toList();
         var comp = expenseLedger.composition(me.getFamilyId(), periodIds, dim);
 
@@ -127,6 +142,11 @@ public class ReportsController {
         model.addAttribute("mixPeriodIds", periodIds);
         model.addAttribute("mixWindowLabel", win == 1 ? "本期" : ("近 " + win + " 期"));
         // 只填了总数的账期 → 如实列出月份,不隐藏
+        // 归档账户上的历史逐笔:不进构成(全站统计都排归档),但如实说清有多少笔,
+        // 否则用户看到「录了 6 笔、构成只有 3 笔」会以为程序丢数据。
+        var arch = periodIds.isEmpty() ? null : cashFlowMapper.sumArchivedExpense(me.getFamilyId(), periodIds);
+        model.addAttribute("mixArchivedCount", arch == null ? 0 : arch.itemCount());
+        model.addAttribute("mixArchivedAmount", arch == null ? java.math.BigDecimal.ZERO : arch.amount());
         model.addAttribute("mixTotalOnlyLabels", comp.totalOnlyPeriodIds().stream()
                 .map(pid -> periods.stream().filter(pp -> pp.getId().equals(pid)).findFirst()
                         .map(pp -> pp.getPeriodStart().toString().substring(0, 7)).orElse(String.valueOf(pid)))
@@ -142,7 +162,7 @@ public class ReportsController {
                                    Model model) {
         int win = (mixWin != null && (mixWin == 1 || mixWin == 6 || mixWin == 12)) ? mixWin : 1;
         var d = com.family.finance.service.expense.ExpenseLedgerService.Dim.fromCode(dim);
-        var periodIds = periodMapper.findRecentAsOf(me.getFamilyId(), java.time.LocalDate.now(), win).stream()
+        var periodIds = periodMapper.findRecentAsOf(me.getFamilyId(), compositionAsOf(me.getFamilyId()), win).stream()
                 .map(com.family.finance.domain.period.Period::getId).toList();
         model.addAttribute("mixDetailRows", periodIds.isEmpty() ? java.util.List.of()
                 : cashFlowMapper.expenseBreakdownDetail(me.getFamilyId(), periodIds, d.code(), groupKey));

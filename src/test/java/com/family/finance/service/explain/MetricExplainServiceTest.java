@@ -147,7 +147,13 @@ class MetricExplainServiceTest {
         assertThat(m.get("benchmark")).contains("6 个账户", "5.4%");
         assertThat(m.get("avgIncome")).isEqualTo("近 12 月有填 8 个月 · 收入合计 ¥280,000 ÷ 8 = ¥35,000");
         assertThat(m.get("savingsRate")).contains("收入 ¥36,000", "支出 ¥17,000", "= 52.8%");
-        assertThat(m.get("filledMonths")).isEqualTo("近 12 期中实际填过收入/支出的有 8 期");
+        // v1.8 · 这条 tooltip 额外写明支出口径 + 「与收入侧方向相反」——
+        //   那条反直觉的不一致必须同时出现在四处(类注释 / 方法注释 / 本 tooltip / how-to-record),
+        //   少写一处下一个人就会靠猜,所以断言从 isEqualTo 收紧成「包含四处该有的话」。
+        assertThat(m.get("filledMonths"))
+                .contains("近 12 期中实际填过收入/支出的有 8 期")
+                .contains("逐笔模式取逐笔之和", "总额模式取每人手填的总数", "永不相加")
+                .contains("与收入侧方向相反");
     }
 
     @Test

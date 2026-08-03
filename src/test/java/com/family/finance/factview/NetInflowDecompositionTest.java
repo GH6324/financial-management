@@ -36,7 +36,8 @@ class NetInflowDecompositionTest {
                 mock(com.family.finance.service.ProductCategoryService.class), mock(com.family.finance.repository.SnapshotMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(
                         mock(com.family.finance.repository.CashFlowMapper.class), pmc,
-                        mock(com.family.finance.repository.FamilyMapper.class)));
+                        mock(com.family.finance.repository.FamilyMapper.class),
+                        mock(com.family.finance.repository.PeriodMapper.class)));
     }
 
     /** 一行账户事实 · 只关心 endBalanceBase / incomeBase / expenseBase,其余填 0/null。 */

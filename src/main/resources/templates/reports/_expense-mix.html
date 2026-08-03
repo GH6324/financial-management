@@ -21,21 +21,24 @@
   </div>
 
   <!-- 维度 + 窗口切换 -->
-  <div class="flex items-center gap-2 flex-wrap mb-4">
+  <!-- 维度与窗口分成两组各自成行:窄屏下混在一个 flex-wrap 里会把「近 12 期」挤成孤零零一行 -->
+  <div class="flex items-center gap-2 flex-wrap mb-2">
     <a th:each="d : ${mixDims}"
        th:href="@{/reports(mix=${d.code()},mixWin=${mixWinValue})}"
        class="pill text-xs h-8 px-3 no-underline flex items-center"
        th:classappend="${mixDim.code() == d.code()} ? ' pill-brass' : ''"
        th:title="${d.hintText()}"
        th:text="${d.displayName()}">按类目</a>
-    <span class="text-rule mx-1">|</span>
+    <span class="font-mono text-[10px] text-ink-subtle ml-auto hidden md:inline" th:text="${mixDim.hintText()}">说明</span>
+  </div>
+  <div class="flex items-center gap-2 flex-wrap mb-2">
     <a th:each="w : ${ {1, 6, 12} }"
        th:href="@{/reports(mix=${mixDim.code()},mixWin=${w})}"
        class="pill text-xs h-8 px-3 no-underline flex items-center"
        th:classappend="${mixWinValue == w} ? ' pill-brass' : ''"
        th:text="${w == 1} ? '本期' : ('近 ' + ${w} + ' 期')">本期</a>
-    <span class="font-mono text-[10px] text-ink-subtle ml-auto" th:text="${mixDim.hintText()}">说明</span>
   </div>
+  <p class="font-mono text-[10px] text-ink-subtle mb-4 md:hidden" th:text="${mixDim.hintText()}">说明</p>
 
   <!-- 无逐笔数据 -->
   <div th:unless="${mixComposition.hasData()}" class="paper-card p-6 bg-card-soft"
@@ -57,11 +60,20 @@
       只填了总数、没有逐笔,<b>不在下面的构成里</b> —— 那几个月的支出仍然照总额参与储蓄率与人赚计算。
     </p>
 
+    <!-- 归档账户上的历史逐笔 · 不进构成但如实说明 -->
+    <p th:if="${mixArchivedCount > 0}"
+       class="font-mono text-[11px] text-ink-subtle mb-4 border border-dashed border-rule px-4 py-2.5 bg-card-soft">
+      另有 <b th:text="${mixArchivedCount} + ' 笔'">0 笔</b>
+      (<span data-priv th:text="${T(com.family.finance.service.MoneyFormat).format2(baseCurrency, mixArchivedAmount)}">¥0</span>)
+      落在<b>已归档账户</b>上,<b>不计入下面的构成</b> —— 全站统计一律排除归档账户,口径一致。
+      这些是历史数据;现在已经不允许往归档账户记支出了。
+    </p>
+
     <div class="grid md:grid-cols-2 gap-6 grid-hairline">
       <!-- 图 · 数字直接标在扇片上(不靠 hover) -->
       <div class="bg-card p-5">
         <div class="font-mono text-[10px] uppercase text-ink-subtle mb-3"
-             th:text="${mixDim.displayName()} + ' · ' + ${mixWindowLabel} + ' 占比'">按类目 · 本期占比</div>
+             th:text="${mixDim.displayName()} + ' · ' + ${mixWindowLabel} + '占比'">按类目 · 本期占比</div>
         <div style="height:260px"><canvas id="expenseMixChart"></canvas></div>
       </div>
 
@@ -86,9 +98,13 @@
               <span class="font-mono text-xs tnum w-14 text-right text-brass-deep"
                     th:text="${sl.pct()} + '%'">0%</span>
             </button>
-            <div th:id="'mix-detail-' + ${sl.groupKey()}" class="mt-1"></div>
+              <div th:id="'mix-detail-' + ${sl.groupKey()}" class="mt-1"></div>
           </div>
         </div>
+        <p class="font-mono text-[10px] text-ink-subtle mt-4 pt-3 border-t border-rule-soft leading-relaxed">
+          合计 = 本期家庭支出,<b>与储蓄率 / 人赚用的是同一个数</b>(逐笔模式下以逐笔为准,不与手填总额相加)。
+          点任意一行展开那一格的逐笔明细。
+        </p>
       </div>
     </div>
 

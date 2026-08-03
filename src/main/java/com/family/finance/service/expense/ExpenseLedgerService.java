@@ -79,6 +79,8 @@ public class ExpenseLedgerService {
     private final PeriodMemberCashflowMapper pmcMapper;
     /** v1.8 · 读家庭的 expense_entry_mode —— 优先级必须受它约束,见类注释「为什么优先级不能无条件」 */
     private final FamilyMapper familyMapper;
+    /** v1.8 · 只用来取「进行中账期」,判定近 N 期的上边界 —— 见 latestRecordableStart */
+    private final com.family.finance.repository.PeriodMapper periodMapper;
 
     /**
      * 一期支出的口径结果。source 让页面能说清「用的是哪一种」,itemCount 供文案显示「逐笔 · N 笔」。
@@ -174,9 +176,11 @@ public class ExpenseLedgerService {
         // ② 逐笔独有的期 · 仅 ITEMIZED 模式并入(TOTAL 模式并进来会改掉月均的分母)
         //    并且**不并入未来账期**:账期表可能预建到很多年以后(beta 排到了 2038),
         //    「近 12 期」若把 2029 年的一笔算进来,月均支出/紧急储备就不是「近 12 个月」了。
+        //    边界取「今天」与「进行中账期的起始」的较晚者 —— 家庭可以提前开下一期并开始录,
+        //    那一期是用户心里的当期,不能因为 period_start 在未来就被剔掉。
         //    只约束这条新增路径 —— PMC 那条查询一行不动,总额模式才能逐位不变。
         if (itemizedFirst) {
-            java.time.LocalDate today = java.time.LocalDate.now();
+            java.time.LocalDate today = latestRecordableStart(familyId);
             for (var r : cashFlowMapper.sumRealExpenseByPeriod(familyId, null)) {
                 if (r.periodId() == null) continue;
                 if (r.periodStart() != null && r.periodStart().isAfter(today)) continue;
@@ -269,6 +273,19 @@ public class ExpenseLedgerService {
     public record Composition(Dim dim, List<Slice> slices, BigDecimal totalBase, List<Long> totalOnlyPeriodIds) {
         public boolean hasData() { return !slices.isEmpty() && totalBase.signum() > 0; }
         public boolean hasTotalOnlyPeriods() { return !totalOnlyPeriodIds.isEmpty(); }
+    }
+
+    /**
+     * 「可计入的最晚账期起始」= 今天与**进行中账期起始**的较晚者。
+     * 家庭可以提前开下一期并开始录(8 月就把 9 月开出来),那一期是用户心里的当期,
+     * 不能因为 period_start 落在未来就被「不超过今天」剔掉。
+     */
+    private java.time.LocalDate latestRecordableStart(long familyId) {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        return periodMapper.findCurrentOpen(familyId)
+                .map(p -> p.getPeriodStart())
+                .filter(start -> start.isAfter(today))
+                .orElse(today);
     }
 
     // ── 内部 ────────────────────────────────────────────────────────────

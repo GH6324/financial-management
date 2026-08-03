@@ -24,11 +24,16 @@ section(){ echo; echo -e "\033[1;36m════ $1 ════\033[0m"; }
 
 restore(){
   echo; echo "▸ 还原 beta 基线(策略 A)..."
-  if mysql -u"$DBU" -p"$DBP" "$DBN" < "$DUMP" 2>/dev/null; then
+  # 不再 2>/dev/null 吞错:还原静默失败会让下一次跑基于污染状态,表现成一堆假 bug。
+  # 注意不能写成 `mysql ... | grep -v ...` —— 那样退出码变成 grep 的,正常还原时(只有一条
+  # password warning、被过滤后无输出)grep 返回 1,会把成功报成失败。先跑、再判、错误另行打印。
+  RESTORE_ERR="$(mysql -u"$DBU" -p"$DBP" "$DBN" < "$DUMP" 2>&1 | grep -v "Using a password" || true)"
+  if [ -z "$RESTORE_ERR" ]; then
     sudo -n /bin/systemctl restart finance 2>/dev/null && sleep 8
     echo "✓ 已还原 + 重启"
   else
-    echo "✗ 还原失败!请手动:mysql $DBN < $DUMP"
+    echo "✗ 还原失败!$RESTORE_ERR"
+    echo "  请手动:mysql $DBN < $DUMP"
   fi
   rm -f "$CK"
 }
@@ -77,7 +82,17 @@ eq "报表-labels 与 debt 等长(负债曲线不少画一期)" "$L_labels" "$L_
 [ "$L_labels" -ge 1 ] && eq "报表-分解图点数=全期-1" "$L_dpnl" "$((L_labels-1))" || bad "报表-无 labels" "labels=$L_labels"
 # 负债曲线最后一点 = 最近关账期 LOAN 绝对值汇总(DB 真值,本位币近似:base=CNY)
 anchor_pid="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='CLOSED' AND period_start<=CURDATE() ORDER BY period_start DESC LIMIT 1")"
-db_debt="$(db "SELECT ROUND(ABS(SUM(ps.end_balance))) FROM period_snapshot ps JOIN account a ON a.id=ps.account_id WHERE ps.period_id=$anchor_pid AND a.type='LOAN'")"
+# 2026-08-04 修:原来直接取 anchor 期的 period_snapshot 汇总,但应用侧的事实表是**结转**的
+# (COALESCE 到「≤ 当期的最近一条快照」)。某账户当期没填过就没有行,这条 SQL 会漏掉它 ——
+# 于是「DB 真值」比图上少了一整笔房贷(1160 vs 1186700),看起来像图错了,其实是断言的取数太天真。
+# 改成逐账户取「≤ anchor 期的最近一条快照」再汇总,与应用同口径。
+anchor_start="$(db "SELECT period_start FROM period WHERE id=$anchor_pid")"
+db_debt="$(db "SELECT ROUND(ABS(SUM(v.bal))) FROM (
+    SELECT a.id, (SELECT ps.end_balance FROM period_snapshot ps JOIN period p2 ON p2.id=ps.period_id
+                   WHERE ps.account_id=a.id AND p2.period_start <= '$anchor_start' AND ps.end_balance IS NOT NULL
+                   ORDER BY p2.period_start DESC LIMIT 1) AS bal
+      FROM account a WHERE a.family_id=$FAM AND a.type='LOAN' AND a.archived_at IS NULL) v
+   WHERE v.bal IS NOT NULL")"
 rep_debt_last="$(printf '%s' "$H" | grep -oE 'debt: \[[^]]*\]' | head -1 | grep -oE '[0-9]+(\.[0-9]+)?' | tail -1)"
 rep_debt_last_r="$(printf '%.0f' "${rep_debt_last:-0}")"
 eq "报表-负债曲线末点 ≈ DB 最近关账期 LOAN 汇总" "$rep_debt_last_r" "$db_debt"
@@ -108,7 +123,16 @@ x_cny="$(fxirr CNY)"; x_usd="$(fxirr USD)"
 # ============================================================================
 section "主线 1 · 记账闭环(改数据 · 录余额+收支+转账 → 精确算术 + 转账双边)"
 # 精华取自旧 qa-e2e:录已知起点余额 → 加收入/减支出/转账 → 断言期末 = 起点 + Σ流水(DB 真值)
+# 2026-08-04 修:主线 1 起就需要一个 OPEN 期,但 beta 的 OPEN 期可能已被别的回归(qa-run)关掉,
+# 于是这里拿到空 periodId → 所有 POST 400 → 后面 8 条断言连锁报空,看起来像 8 个 bug。
+# 让 e2e **自备前置条件**:没有 OPEN 期就用应用自己的入口开一期(不直接改库)。
 OPEN_PID="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='OPEN' ORDER BY period_start DESC LIMIT 1")"
+if [ -z "$OPEN_PID" ]; then
+  echo "  (beta 当前无 OPEN 期 · 走 /admin/periods/open-next 自备一期)"
+  POSTcode /admin/periods/open-next >/dev/null
+  OPEN_PID="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='OPEN' ORDER BY period_start DESC LIMIT 1")"
+fi
+[ -z "$OPEN_PID" ] && bad "前置-无法取得 OPEN 账期(后续主线会连锁失败)" "open-next 未生效"
 ACC_A="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='CASH' AND archived_at IS NULL ORDER BY id LIMIT 1")"
 ACC_B="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='CASH' AND archived_at IS NULL AND id<>$ACC_A ORDER BY id LIMIT 1")"
 [ -z "$ACC_B" ] && ACC_B="$(db "SELECT id FROM account WHERE family_id=$FAM AND archived_at IS NULL AND type<>'LOAN' AND id<>$ACC_A ORDER BY id LIMIT 1")"
@@ -129,25 +153,39 @@ eq "记账-新增转账落库(+1 条)" "$(( $(db "SELECT COUNT(*) FROM transfer 
 # ============================================================================
 section "主线 2+6 · 账期滚动 + LOAN 还款归零(改数据 · 开下一期→上期关+LOAN夹零)"
 # 构造 bug2 场景:选一个 LOAN,把「新期开启前的最近两期」设成 prevPrev=-72000, prev=0(还平)
+# 2026-08-04 修(两处):
+#  ① 原来把「当前开账期」写死成 2026-07、新期写死 2026-08。脚本写于 7 月,进了 8 月必然失败。
+#  ② 更要紧的:新期**不是**「当前 OPEN 期 + 1 月」。PeriodOpener.openNextNow 的 seed 取的是
+#     findLatest(family,1) —— 即 **period_start 最大的那一期** —— 然后开它的下一期。
+#     账期表若预建到很多年以后(beta 排到 2038),「开下一期」就在末端追加,与今天无关。
+#     所以 prev = 最大期,新期 = 最大期 + 1 月;而「上期自动关」关的是那个原本 OPEN 的期。
 LOAN_ACCT="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='LOAN' AND archived_at IS NULL ORDER BY id LIMIT 1")"
-P_JUN="$(db "SELECT id FROM period WHERE family_id=$FAM AND period_start='2026-06-01'")"   # prevPrev
-P_JUL="$OPEN_PID"                                                                          # prev(当前开账期 2026-07)
-echo "  LOAN 账户=$LOAN_ACCT · prevPrev(06)=$P_JUN · prev(07)=$P_JUL"
+P_MAX_START="$(db "SELECT MAX(period_start) FROM period WHERE family_id=$FAM")"
+P_PREV="$(db "SELECT id FROM period WHERE family_id=$FAM AND period_start='$P_MAX_START'")"   # 新期的「上一期」= 最大期
+P_PREV_START="$P_MAX_START"
+P_PREVPREV="$(db "SELECT id FROM period WHERE family_id=$FAM AND period_start < '$P_MAX_START' ORDER BY period_start DESC LIMIT 1")"
+P_NEXT_START="$(db "SELECT DATE_ADD('$P_MAX_START', INTERVAL 1 MONTH)")"
+P_WAS_OPEN="$OPEN_PID"                                                                       # 原本 OPEN 的期(应被自动关)
+P_JUN="$P_PREVPREV"   # 兼容下方旧变量名
+P_JUL="$P_PREV"
+echo "  LOAN 账户=$LOAN_ACCT · 最大期=$P_PREV($P_MAX_START) · 其前一期=$P_PREVPREV · 期望新期=$P_NEXT_START · 原 OPEN 期=$P_WAS_OPEN"
 db "UPDATE period_snapshot SET end_balance=-72000 WHERE period_id=$P_JUN AND account_id=$LOAN_ACCT"
 db "INSERT INTO period_snapshot (period_id,account_id,end_balance,submitted_by) VALUES ($P_JUL,$LOAN_ACCT,0,1)
     ON DUPLICATE KEY UPDATE end_balance=0"
 prior_before="$(db "SELECT status FROM period WHERE id=$P_JUL")"
 code="$(POSTcode /admin/periods/open-next)"
 eq "滚动-open-next HTTP 2xx/3xx" "$([ "$code" -ge 200 ] && [ "$code" -lt 400 ] && echo ok || echo "$code")" "ok"
-NEW_PID="$(db "SELECT id FROM period WHERE family_id=$FAM AND period_start='2026-08-01'")"
-eq "滚动-新期 2026-08 已开(OPEN)" "$(db "SELECT status FROM period WHERE id=$NEW_PID")" "OPEN"
-eq "滚动-上期 2026-07 已自动关(bug1)" "$(db "SELECT status FROM period WHERE id=$P_JUL")" "CLOSED"
+NEW_PID="$(db "SELECT id FROM period WHERE family_id=$FAM AND period_start='$P_NEXT_START'")"
+eq "滚动-新期 $P_NEXT_START 已开(OPEN)" "$(db "SELECT status FROM period WHERE id=$NEW_PID")" "OPEN"
+eq "滚动-原 OPEN 期已自动关(bug1)" "$(db "SELECT status FROM period WHERE id=$P_WAS_OPEN")" "CLOSED"
 loan_prefill="$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$NEW_PID AND account_id=$LOAN_ACCT")"
 eq "LOAN-还平后新期预填夹零(非+72000)(bug2)" "$loan_prefill" "0"
 loan_pos="$(db "SELECT COUNT(*) FROM period_snapshot ps JOIN account a ON a.id=ps.account_id WHERE ps.period_id=$NEW_PID AND a.type='LOAN' AND ps.end_balance>0")"
 eq "LOAN-新期无任何贷款预填为正" "$loan_pos" "0"
 # 精华取自旧 qa-e2e:非 LOAN 账户开新期自动延续上期末(A 在 07 期末=10500 → 08 预填=10500)
-eq "滚动-非LOAN账户新期延续上期末(carry 10500)" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$NEW_PID AND account_id=$ACC_A")" "10500"
+# 期望值同样从 DB 取(原来写死 10500,依赖前面主线刚好把 A 做成那个数)
+CARRY_EXP="$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$P_PREV AND account_id=$ACC_A")"
+eq "滚动-非LOAN账户新期延续上期末(carry ${CARRY_EXP:-?})" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$NEW_PID AND account_id=$ACC_A")" "${CARRY_EXP:-0}"
 
 # ============================================================================
 section "主线 7 · 收入侧录入(v0.12 持仓版 · 股票收入按持仓入账 · 现金股息 / +股数 · 类目校验 · 删除冲回)"
@@ -287,6 +325,79 @@ if [ -n "$IPI" ] && [ -n "$MEM4" ]; then
   eq "收入链路-dashboard 账户列表出现新账户余额 ¥19,368" "$(printf '%s' "$dash" | grep -q '19,368' && echo ok || echo miss)" "ok"
 else
   bad "收入链路-无 OPEN 期/成员,跳过" "IPI=$IPI MEM4=$MEM4"
+fi
+
+# ============================================================================
+section "主线 12 · 支出逐笔化(v1.8 · 模式开关 + 扣余额 + 删除冲回 + 三条红线 + 支出构成)"
+XP="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='OPEN' ORDER BY period_start DESC LIMIT 1")"
+XA="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='CASH' AND archived_at IS NULL ORDER BY id LIMIT 1")"
+XL="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='LOAN' AND archived_at IS NULL ORDER BY id LIMIT 1")"
+if [ -n "$XP" ] && [ -n "$XA" ]; then
+  mode0="$(db "SELECT expense_entry_mode FROM family WHERE id=$FAM")"
+
+  # ① 总额模式(默认):填报页渲染总额框,不渲染逐笔表单
+  POSTcode /admin/reminders/expense-mode --data-urlencode "expenseMode=TOTAL" >/dev/null
+  H="$(GET /entry)"
+  case "$H" in *'本月总支出(一个数)'*) eq "支出-总额模式渲染总额框" ok ok ;;
+                *) bad "支出-总额模式缺总额框" "see /entry" ;; esac
+  case "$H" in *'action="/entry/expense"'*) bad "支出-总额模式不该有逐笔表单" "see /entry" ;;
+                *) eq "支出-总额模式不渲染逐笔表单" ok ok ;; esac
+
+  # ② 切逐笔:开关落库 + 页面换形态
+  code="$(POSTcode /admin/reminders/expense-mode --data-urlencode "expenseMode=ITEMIZED")"
+  eq "支出-切逐笔 HTTP 2xx/3xx" "$([ "$code" -ge 200 ] && [ "$code" -lt 400 ] && echo ok || echo "$code")" "ok"
+  eq "支出-模式落库 ITEMIZED" "$(db "SELECT expense_entry_mode FROM family WHERE id=$FAM")" "ITEMIZED"
+  H2="$(GET /entry)"
+  case "$H2" in *'/entry/expense'*) eq "支出-逐笔模式渲染逐笔表单" ok ok ;;
+                 *) bad "支出-逐笔表单未渲染" "see /entry" ;; esac
+  case "$H2" in *'本月总支出(一个数)'*) bad "支出-逐笔模式总额框应隐藏" "see /entry" ;;
+                 *) eq "支出-逐笔模式隐藏总额框" ok ok ;; esac
+
+  # ③ 录一笔 → 从所选账户余额扣除(FR-274 的核心行为)
+  xb0="$(db "SELECT ROUND(IFNULL(end_balance,0)) FROM period_snapshot WHERE period_id=$XP AND account_id=$XA")"
+  c="$(POSTcode /entry/expense --data-urlencode "periodId=$XP" --data-urlencode "accountId=$XA" \
+        --data-urlencode "categoryCode=consumption" --data-urlencode "amount=3200" --data-urlencode "note=e2e日常")"
+  eq "支出-录入 HTTP 2xx/3xx" "$([ "$c" -ge 200 ] && [ "$c" -lt 400 ] && echo ok || echo "$c")" "ok"
+  eq "支出-账户余额 −3200(录入即出账)" "$(( xb0 - $(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$XP AND account_id=$XA") ))" "3200"
+  eq "支出-流水 kind=EXPENSE 且 is_adjustment=0(口径 A · 家庭支出)" \
+     "$(db "SELECT CONCAT(kind,'|',is_adjustment) FROM cash_flow WHERE period_id=$XP AND account_id=$XA AND note='e2e日常' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1")" "EXPENSE|0"
+
+  # ④ 三条服务端红线
+  r1="$(POSTcode /entry/expense --data-urlencode "periodId=$XP" --data-urlencode "accountId=$XA" \
+        --data-urlencode "categoryCode=salary" --data-urlencode "amount=100")"
+  eq "支出-拒收入类目(salary)" "$([ "$r1" -ge 400 ] && echo rejected || echo "$r1")" "rejected"
+  r2="$(POSTcode /entry/expense --data-urlencode "periodId=$XP" --data-urlencode "accountId=$XA" \
+        --data-urlencode "categoryCode=cash_adjust" --data-urlencode "amount=100")"
+  eq "支出-拒现金调整类目(那不是家庭支出)" "$([ "$r2" -ge 400 ] && echo rejected || echo "$r2")" "rejected"
+  if [ -n "$XL" ]; then
+    r3="$(POSTcode /entry/expense --data-urlencode "periodId=$XP" --data-urlencode "accountId=$XL" \
+          --data-urlencode "categoryCode=consumption" --data-urlencode "amount=100")"
+    eq "支出-拒落到贷款账户(还贷该记在现金账户)" "$([ "$r3" -ge 400 ] && echo rejected || echo "$r3")" "rejected"
+  fi
+  eq "支出-红线拒绝后未写库" \
+     "$(db "SELECT COUNT(*) FROM cash_flow WHERE period_id=$XP AND kind='EXPENSE' AND category_code IN ('salary','cash_adjust') AND deleted_at IS NULL")" "0"
+
+  # ⑤ 支出构成:段出现 + 该类目金额进得去
+  R="$(GET /reports)"
+  case "$R" in *'sec-expense-mix'*) eq "支出-报表出现支出构成段" ok ok ;;
+                *) bad "支出-构成段未渲染" "see /reports" ;; esac
+  case "$R" in *'日常开支'*) eq "支出-构成含「日常开支」分组(consumption 已改名)" ok ok ;;
+                *) bad "支出-构成缺日常开支" "see /reports" ;; esac
+  DT="$(GET "/reports/expense-mix/detail?dim=category&groupKey=consumption&mixWin=1")"
+  case "$DT" in *'e2e日常'*) eq "支出-构成明细抽屉出逐笔" ok ok ;;
+                 *) bad "支出-明细抽屉无数据" "see /reports/expense-mix/detail" ;; esac
+
+  # ⑥ 删除 → 余额冲回原值
+  xcf="$(db "SELECT id FROM cash_flow WHERE period_id=$XP AND account_id=$XA AND note='e2e日常' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1")"
+  POSTcode "/entry/expense/$xcf/delete" --data-urlencode "periodId=$XP" >/dev/null
+  eq "支出-删除后余额冲回" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$XP AND account_id=$XA")" "$xb0"
+  eq "支出-删除是软删(留痕可追)" "$(db "SELECT IF(deleted_at IS NULL,'no','yes') FROM cash_flow WHERE id=$xcf")" "yes"
+
+  # ⑦ 切回总额:已录数据保留、不删(FR-271)
+  POSTcode /admin/reminders/expense-mode --data-urlencode "expenseMode=${mode0:-TOTAL}" >/dev/null
+  eq "支出-切回原模式" "$(db "SELECT expense_entry_mode FROM family WHERE id=$FAM")" "${mode0:-TOTAL}"
+else
+  bad "支出链路-无 OPEN 期/现金账户,跳过" "XP=$XP XA=$XA"
 fi
 
 # ============================================================================

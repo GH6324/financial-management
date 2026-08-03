@@ -54,9 +54,9 @@
     </form>
 
     <!-- v1.8 FR-271 · 支出录入方式 · 全家统一 -->
-    <form th:action="@{/admin/reminders/expense-mode}" method="post" class="card-ink p-6 space-y-4">
+    <form th:action="@{/admin/reminders/expense-mode}" method="post" class="bracket-card max-w-3xl space-y-6">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-      <div class="eyebrow-ink">①′ 支出录入方式 · 全家统一</div>
+      <div class="eyebrow-ink">② 支出录入方式 · 全家统一</div>
       <p class="font-mono text-[11px] text-ink-soft leading-relaxed">
         收入侧一直是「逐笔 + 选账户 + 自动入账」,支出侧原本是「每人每月一个总数」。
         两种都留着:支出笔数远多于收入,强制逐笔会撑破「每月 10 分钟」。
@@ -89,7 +89,7 @@
     <!-- ② 短信渠道 -->
     <form th:action="@{/admin/reminders/sms}" method="post" class="bracket-card max-w-3xl space-y-5">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-      <div class="eyebrow-ink">② 短信渠道 · 私密(不进 AI)</div>
+      <div class="eyebrow-ink">③ 短信渠道 · 私密(不进 AI)</div>
       <div class="border-l-2 border-brass bg-brass/[0.05] px-4 py-3">
         <p class="text-[13px] text-ink leading-relaxed">
           <b>可选</b>。不配 → 截止提醒只走站内 banner,不影响记账。签名要实名报备、模板要审核,
@@ -152,7 +152,7 @@
     <form th:action="@{/admin/reminders/sms-test}" method="post" class="bracket-card max-w-3xl space-y-5"
           style="background: linear-gradient(180deg, var(--brass-soft) 0%, var(--card) 30%);">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-      <div class="eyebrow-ink">③ 一键测试短信 · 验证配置链路</div>
+      <div class="eyebrow-ink">④ 一键测试短信 · 验证配置链路</div>
       <p class="text-sm text-ink-soft leading-relaxed">
         配完 aksk + 签名 + 模板后,在这里发一条<b>测试专用文案</b>的短信
         (<code class="font-mono text-[11px] bg-card-soft px-1.5 py-0.5 border border-rule">brand=家庭别名 · period=配置测试 · days=99 · progress=测试模式</code>)。
@@ -182,7 +182,7 @@
 
     <!-- ④ 成员手机号 -->
     <div class="bracket-card max-w-3xl space-y-4">
-      <div class="eyebrow-ink">④ 成员手机号 · 私密(短信触达用)</div>
+      <div class="eyebrow-ink">⑤ 成员手机号 · 私密(短信触达用)</div>
       <div th:each="m : ${members}" class="flex items-center gap-4 border-b border-rule pb-3">
         <span class="font-display text-sm text-ink w-28" th:text="${m.displayName}">成员</span>
         <form th:action="@{'/admin/reminders/member/' + ${m.id} + '/phone'}" method="post"

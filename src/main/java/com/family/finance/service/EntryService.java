@@ -301,6 +301,13 @@ public class EntryService {
         if (account.getType() == AccountType.LOAN) {
             throw new IllegalArgumentException("负债账户不能录入支出 · 还贷请记在钱实际流出的现金账户上,类目选「还贷」");
         }
+        // 已归档账户必须拦住:全站统计(事实表 / 支出构成 / 月均支出)都按 archived_at IS NULL 排除归档账户,
+        // 一旦让支出落进去,这笔钱在**所有**口径里都看不见 —— 是静默丢数据,比看得见的错更糟。
+        // 填报页下拉本来就只列未归档账户(findActiveByFamily),但服务端不能只靠前端。
+        if (account.getArchivedAt() != null) {
+            throw new IllegalArgumentException("账户「" + account.getDisplayName()
+                    + "」已归档,不能再记支出 · 归档账户不参与任何统计,记进去的钱会在报表里消失");
+        }
         var cat = requireExpenseCategory(categoryCode);
         BigDecimal amt = positiveMoney(amount);
         creditAccountBalance(familyId, period, account, memberId, amt.negate(),

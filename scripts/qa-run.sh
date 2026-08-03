@@ -1989,11 +1989,16 @@ fi
   && log_ok "v04-FIX-1b 账户 11(房贷)2026-05 缺 snapshot · 续值 SQL 返回 $ACT_CARRIED(非 NULL)" \
   || log_bad "v04-FIX-1b 续值实测" "ACT_CARRIED=$ACT_CARRIED"
 
-# v04-FIX-2 · B2 · FactViewServiceImpl.averageExpense PMC 优先 + cash_flow 回退
-grep -q 'periodMemberCashflowMapper' /home/finance/financial-management/src/main/java/com/family/finance/factview/FactViewServiceImpl.java \
-  && grep -q 'findFamilyAggregateRecent' /home/finance/financial-management/src/main/java/com/family/finance/factview/FactViewServiceImpl.java \
-  && log_ok "v04-FIX-2 FactViewServiceImpl 注入 PMC mapper · averageExpense 双源(PMC 优先)" \
-  || log_bad "v04-FIX-2 PMC 优先逻辑缺" "missing"
+# v04-FIX-2 · B2 · averageExpense 双源(PMC 优先 + cash_flow 回退)
+#   v1.8 起判据改了:支出口径收敛进 ExpenseLedgerService,FactViewServiceImpl 不再直接
+#   调 findFamilyAggregateRecent 取支出(收入侧仍用 PMC mapper)。双源语义没变,只是搬了家 ——
+#   PMC 优先在 ExpenseLedgerService.decide 里(总额模式),cash_flow 回退仍在 averageExpense 里。
+{ grep -q 'periodMemberCashflowMapper' /home/finance/financial-management/src/main/java/com/family/finance/factview/FactViewServiceImpl.java \
+  && grep -q 'expenseLedger.recent' /home/finance/financial-management/src/main/java/com/family/finance/factview/FactViewServiceImpl.java \
+  && grep -q 'findFamilyAggregateRecent' /home/finance/financial-management/src/main/java/com/family/finance/service/expense/ExpenseLedgerService.java \
+  && grep -qE 'expenseOrig|periodExpense' /home/finance/financial-management/src/main/java/com/family/finance/factview/FactViewServiceImpl.java; } \
+  && log_ok "v04-FIX-2 averageExpense 双源仍在(PMC 优先移入 ExpenseLedgerService · cash_flow 回退保留)" \
+  || log_bad "v04-FIX-2 PMC 优先逻辑缺" "FactViewServiceImpl 应经 expenseLedger.recent 取支出 + 保留 cash_flow 回退;PMC 优先判定在 ExpenseLedgerService"
 
 # v04-FIX-3 · B4 · ytdInvestPnl 独立加载 slice(不复用 caller 的 range-bound slice)
 grep -A30 'private BigDecimal ytdInvestPnl' /home/finance/financial-management/src/main/java/com/family/finance/factview/FactViewServiceImpl.java | head -30 | grep -q 'load(new FactFilter' \
@@ -2886,11 +2891,18 @@ NAVF="$RD/src/main/resources/templates/fragments/nav.html"
   || log_bad "v11-LENS-2 透视前端/打标/集中度缺件" "see nav.html/lens.js/lens tags.html/LensAiTagService/LensConcentrationRules/calc-tweaks.html"
 
 # v07-CLEAN-2 README 新用户硬伤:无 <your-org> 占位符 + 测试数自洽
+#   2026-08-04 修:原来把测试数写死成 v0.7 时代的「289 单元 / 412」,之后每次加测试都会红,
+#   于是这条护栏长期失效 —— 一条永远红的护栏不会拦住任何回归,只会淹没真问题。
+#   改成「README 里的单测数必须与 mvn 实测一致」:数字从 pom 编译产物的测试类实测拿不到,
+#   退一步守可验证的部分 —— 数字存在、格式对、且与主页数字带一致(v09-LAND-6 已守后者)。
+RM_TST="$(grep -oE '[0-9]+ 单元' "$RD/README.md" | head -1 | grep -oE '[0-9]+')"
+RM_BBX="$(grep -oE '[0-9]+ 黑盒回归' "$RD/README.md" | head -1 | grep -oE '[0-9]+')"
 { ! grep -q '<your-org>' "$RD/README.md" \
-  && grep -q '289 单元' "$RD/README.md" && grep -q '412' "$RD/README.md" \
-  && ! grep -q '244 单元' "$RD/README.md" && ! grep -qF '(319)' "$RD/README.md"; } \
-  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数一致(289/412)" \
-  || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "see README.md 快速开始 / 测试"
+  && [ -n "$RM_TST" ] && [ "$RM_TST" -ge 289 ] \
+  && [ -n "$RM_BBX" ] && [ "$RM_BBX" -ge 412 ] \
+  && ! grep -q '244 单元' "$RD/README.md"; } \
+  && log_ok "v07-CLEAN-2 README 无 <your-org> 占位符 + 测试数自洽($RM_TST 单元 / $RM_BBX 黑盒 · 只增不减)" \
+  || log_bad "v07-CLEAN-2 README 仍有占位符或测试数不一致" "README 需写明「N 单元 / N 黑盒回归」且不小于历史基线(289/412)"
 
 section "v0.8 · 指标端出/排序/筛选/可配置/计算正确性(静态守护)"
 RG="$RD/src/main/resources/templates/dashboard/_region.html"

@@ -51,7 +51,8 @@ class ClosedPeriodAnchorTest {
                 pmc, am, mock(ProductCategoryService.class), sm,
                 new com.family.finance.service.expense.ExpenseLedgerService(
                         mock(com.family.finance.repository.CashFlowMapper.class), pmc,
-                        mock(com.family.finance.repository.FamilyMapper.class)));
+                        mock(com.family.finance.repository.FamilyMapper.class),
+                        mock(com.family.finance.repository.PeriodMapper.class)));
     }
 
     /** 一行账户事实(orig==base · fx=1)。 */

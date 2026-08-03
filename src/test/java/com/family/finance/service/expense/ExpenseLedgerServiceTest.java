@@ -60,7 +60,7 @@ class ExpenseLedgerServiceTest {
         Family f = new Family();
         f.setExpenseEntryMode(mode.name());
         when(fam.findById(anyLong())).thenReturn(Optional.of(f));
-        return new ExpenseLedgerService(cf, pmc, fam);
+        return new ExpenseLedgerService(cf, pmc, fam, mock(com.family.finance.repository.PeriodMapper.class));
     }
 
     private CashFlowMapper.RealExpenseSum item(long periodId, String amount, int cnt) {
@@ -188,7 +188,8 @@ class ExpenseLedgerServiceTest {
     void 模式脏值或家庭缺失时兜底总额模式() {
         FamilyMapper fam = mock(FamilyMapper.class);
         when(fam.findById(anyLong())).thenReturn(Optional.empty());
-        var s = new ExpenseLedgerService(mock(CashFlowMapper.class), mock(PeriodMemberCashflowMapper.class), fam);
+        var s = new ExpenseLedgerService(mock(CashFlowMapper.class), mock(PeriodMemberCashflowMapper.class), fam,
+                mock(com.family.finance.repository.PeriodMapper.class));
         assertThat(s.modeOf(1L)).isEqualTo(ExpenseEntryMode.TOTAL);
     }
 
