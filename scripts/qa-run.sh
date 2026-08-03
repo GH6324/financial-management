@@ -5178,6 +5178,93 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && log_ok "v164-CHART-PARITY(两图一律环图 · 不再按类目数分叉图型 · Top N 聚合 + 图例统一下方)" \
   || log_bad "v164-CHART-PARITY 缺件" "see dashboard/_region.html:aggSlices + donutConfig + useBar 三件齐 · 两图都走 donutConfig · 窄屏图例 bottom + generateLabels 带金额 · 不得残留 memFlat/flatAlloc"
 
+# ══════════════════════════════════════════════════════════════════════════════
+# v1.8 · 支出逐笔化 + 口径唯一入口
+# ══════════════════════════════════════════════════════════════════════════════
+
+# v18-EXPENSE-ONE-SOURCE · 家庭支出口径只有一份实现
+#   v1.6.29 踩过一次「同一屏两套收入口径」,根因是判断散落在各调用点。本版把支出口径
+#   收敛到 ExpenseLedgerService,所以护栏直接断言:**全仓 totalExpense() 只出现在那一个文件里**。
+#   开发中真的漏过两处(报表折线的支出序列 + tooltip 的上期支出),就是这条 grep 抓出来的。
+{ [[ "$(grep -rl 'totalExpense()' "$RD/src/main/java/" | grep -v 'service/expense/ExpenseLedgerService.java' | wc -l)" == "0" ]] \
+  && grep -q "class ExpenseLedgerService" "$RD/src/main/java/com/family/finance/service/expense/ExpenseLedgerService.java" \
+  && grep -q "expenseLedger" "$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java" \
+  && grep -q "expenseLedger" "$RD/src/main/java/com/family/finance/service/HouseholdCashflowService.java" \
+  && grep -q "expenseLedger" "$RD/src/main/java/com/family/finance/service/goal/GoalService.java" \
+  && grep -q "expenseLedger" "$RD/src/main/java/com/family/finance/service/goal/GoalProgressService.java" \
+  && grep -q "expenseLedger" "$RD/src/main/java/com/family/finance/web/report/ReportsController.java"; } \
+  && log_ok "v18-EXPENSE-ONE-SOURCE(全仓 totalExpense() 只在 ExpenseLedgerService · 5 个调用方都经过它)" \
+  || log_bad "v18-EXPENSE-ONE-SOURCE 有旁路" "grep -rn 'totalExpense()' src/main/java 应只命中 ExpenseLedgerService;新加的支出读取必须走口径服务,别直读 PMC"
+
+# v18-EXPENSE-MODE-GUARD · 优先级必须受 expense_entry_mode 约束
+#   PRD 初稿写的是「无条件逐笔优先」,那会让 prod 2026-06 的 PMC 总额 ¥32,797 被 ¥3,000 的
+#   逐笔顶掉(少算 89%),连带污染储蓄率/月均/紧急储备/人赚钱赚/XIRR/应急基线。
+#   总额模式下口径服务还必须**返回 NONE 交回调用方原路径**(调用方回落事实切片:排归档 + 已换汇),
+#   否则 beta 家庭 XIRR 会从 −56.19% 漂到 −50.60%。
+{ grep -q "V53__expense_entry_mode.sql" <<< "$(ls "$RD/db/migration/")" \
+  && grep -q "expense_entry_mode" "$RD/db/migration/V53__expense_entry_mode.sql" \
+  && grep -q "DEFAULT 'TOTAL'" "$RD/db/migration/V53__expense_entry_mode.sql" \
+  && grep -q "itemizedFirst" "$RD/src/main/java/com/family/finance/service/expense/ExpenseLedgerService.java" \
+  && grep -q "modeOf" "$RD/src/main/java/com/family/finance/service/expense/ExpenseLedgerService.java" \
+  && grep -q "archived_at IS NULL" "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
+  && grep -q "base_currency" "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
+  && grep -q "总额模式下逐笔不得顶掉PMC总额" "$RD/src/test/java/com/family/finance/service/expense/ExpenseLedgerServiceTest.java" \
+  && grep -q "总额模式下取期集合只看PMC_分母不能变" "$RD/src/test/java/com/family/finance/service/expense/ExpenseLedgerServiceTest.java" \
+  && grep -q "总额模式下无PMC时返回NONE_把兜底交回调用方" "$RD/src/test/java/com/family/finance/service/expense/ExpenseLedgerServiceTest.java" \
+  && grep -q "未来账期的逐笔不得并入近N期" "$RD/src/test/java/com/family/finance/service/expense/ExpenseLedgerServiceTest.java"; } \
+  && log_ok "v18-EXPENSE-MODE-GUARD(逐笔优先受模式约束 + 逐笔 SQL 排归档/已换汇 + 4 条单测守着)" \
+  || log_bad "v18-EXPENSE-MODE-GUARD 缺件" "V53 默认 TOTAL / decide 走 itemizedFirst / 逐笔 SQL 带 archived_at + 折本位币 / 4 条护栏单测齐"
+
+# v18-EXPENSE-WRITE · 支出写入链路与收入侧同构 + 三条服务端红线
+{ grep -q "recordExpense" "$RD/src/main/java/com/family/finance/service/EntryService.java" \
+  && grep -q "requireExpenseCategory" "$RD/src/main/java/com/family/finance/service/EntryService.java" \
+  && grep -q "AccountType.LOAN" "$RD/src/main/java/com/family/finance/service/EntryService.java" \
+  && grep -q '@PostMapping("/entry/expense")' "$RD/src/main/java/com/family/finance/web/entry/EntryController.java" \
+  && grep -q '@PostMapping("/entry/expense/{id}/delete")' "$RD/src/main/java/com/family/finance/web/entry/EntryController.java" \
+  && grep -q "listExpenseOrdered" "$RD/src/main/java/com/family/finance/repository/CashFlowCategoryMapper.java" \
+  && grep -q "findExpenseEntries" "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
+  && grep -q "expenseMode == 'ITEMIZED'" "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q "expenseMode != 'ITEMIZED'" "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q "entry/expense" "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q "admin/reminders/expense-mode" "$RD/src/main/resources/templates/admin/notification.html"; } \
+  && log_ok "v18-EXPENSE-WRITE(recordExpense + 删除冲回 + 类目/贷款红线 + 填报页两形态 + 管理页开关)" \
+  || log_bad "v18-EXPENSE-WRITE 缺件" "见 EntryService.recordExpense / EntryController 两端点 / entry 模板按 expenseMode 二选一 / 管理页 expense-mode 表单"
+
+# v18-MIX-COMPOSITION · 支出构成段 + 长文目录同步 + 数字直接标在图上
+#   memory feedback_toc_sync:加 section 必须同步该页长文目录,否则锚点漏节。
+#   memory feedback_chart_datalabels:金额/百分比必须绘在图上,hover tooltip 不算。
+{ [[ -f "$RD/src/main/resources/templates/reports/_expense-mix.html" ]] \
+  && grep -q 'id="sec-expense-mix"' "$RD/src/main/resources/templates/reports/_expense-mix.html" \
+  && grep -q "ChartDataLabels" "$RD/src/main/resources/templates/reports/_expense-mix.html" \
+  && grep -q "datalabels" "$RD/src/main/resources/templates/reports/_expense-mix.html" \
+  && grep -q "reports/_expense-mix :: section" "$RD/src/main/resources/templates/reports/index.html" \
+  && grep -q "sec-expense-mix" "$RD/src/main/resources/templates/reports/index.html" \
+  && grep -q "expenseBreakdown" "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
+  && grep -q "expenseBreakdownDetail" "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
+  && grep -q "reports/expense-mix/detail" "$RD/src/main/java/com/family/finance/web/report/ReportsController.java" \
+  && grep -q "mixEnabled" "$RD/src/main/java/com/family/finance/web/report/ReportsController.java"; } \
+  && log_ok "v18-MIX-COMPOSITION(支出构成段 + 目录锚点同步 + datalabels + 明细抽屉)" \
+  || log_bad "v18-MIX-COMPOSITION 缺件" "_expense-mix.html 存在且挂进 reports/index + tocItems 含 #sec-expense-mix + datalabels + detail 端点"
+
+# v18-EXPENSE-DOC-4X · 「支出优先级与收入相反」必须同时出现在四处
+#   这条反直觉的不一致少写一处,下一个人就会靠猜 —— 所以把「四处」本身做成护栏。
+{ grep -q "与收入侧优先级相反\|与收入侧相反" "$RD/src/main/java/com/family/finance/service/expense/ExpenseLedgerService.java" \
+  && grep -q "注意与收入侧优先级相反" "$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java" \
+  && grep -q "与收入侧方向相反" "$RD/src/main/java/com/family/finance/service/explain/MetricExplainService.java" \
+  && grep -q "方向是反的" "$RD/docs/how-to-record.md" \
+  && grep -q "永不相加" "$RD/docs/how-to-record.md"; } \
+  && log_ok "v18-EXPENSE-DOC-4X(类注释 + 方法注释 + 页面 tooltip + how-to-record 四处都写明「与收入侧相反」)" \
+  || log_bad "v18-EXPENSE-DOC-4X 缺一处" "ExpenseLedgerService 类注释 / FactViewServiceImpl.netInflowExpense / MetricExplainService tooltip / docs/how-to-record.md"
+
+# v18-MANUAL-B8 · 手册新增「支出构成」章 + 目录卡 + 组内节数
+{ grep -q 'id="b8"' "$RD/src/main/resources/templates/help/how-to-use.html" \
+  && grep -q 'href="#b8"' "$RD/src/main/resources/templates/help/how-to-use.html" \
+  && grep -q "选修 B · 看懂自己的钱</h2><span class=\"badge-opt\">8 节" "$RD/src/main/resources/templates/help/how-to-use.html" \
+  && grep -q "支出录入方式" "$RD/src/main/resources/templates/help/how-to-use.html" \
+  && [[ "$(grep -c 'class="toc-card"' "$RD/src/main/resources/templates/help/how-to-use.html")" == "25" ]]; } \
+  && log_ok "v18-MANUAL-B8(手册 B8 支出构成 + 目录卡 25 张 + 选修 B 计 8 节)" \
+  || log_bad "v18-MANUAL-B8 缺件" "how-to-use.html 需有 #b8 章 + 目录卡 + 「8 节」计数一致(目录卡应 25 张)"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

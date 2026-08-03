@@ -309,7 +309,7 @@
     </a>
   </div>
   <div class="flex items-baseline gap-3 mb-3 flex-wrap">
-    <h2 class="text-2xl font-medium">选修 B · 看懂自己的钱</h2><span class="badge-opt">7 节</span>
+    <h2 class="text-2xl font-medium">选修 B · 看懂自己的钱</h2><span class="badge-opt">8 节</span>
   </div>
   <div class="toc-grid mb-9">
     <a class="toc-card" href="#b1">
@@ -346,6 +346,11 @@
       <span class="no">B7</span> <span class="badge-opt">选修</span>
       <span class="tt">储蓄能力</span>
       <span class="dd">你每月到底能攒下多少,这块全靠你填的那两侧收支。…</span>
+    </a>
+    <a class="toc-card" href="#b8">
+      <span class="no">B8</span> <span class="badge-opt">选修</span>
+      <span class="tt">支出构成</span>
+      <span class="dd">刚性支出压不下去,日常开支才是可调的那部分。需要先切到逐笔录入。…</span>
     </a>
   </div>
   <div class="flex items-baseline gap-3 mb-3 flex-wrap">
@@ -440,16 +445,33 @@
     去填报页
   </a>
   <figure class="fig reveal">
-    <img th:src="@{/img/manual/ch2-entry.jpg}" alt="填报页「本月收支」:上半是逐笔收入(金额 + 类目 + 进哪个账户),下半是支出一个总数。副标题就写着这条规则。" loading="lazy">
-    <figcaption>填报页「本月收支」:上半是逐笔收入(金额 + 类目 + 进哪个账户),下半是支出一个总数。副标题就写着这条规则。</figcaption>
+    <img th:src="@{/img/manual/ch2-entry.jpg}" alt="填报页「本月收支」:上半是逐笔收入(金额 + 类目 + 进哪个账户),下半是支出(默认一个总数,可切成逐笔)。副标题就写着当前用的是哪种。" loading="lazy">
+    <figcaption>填报页「本月收支」:上半是逐笔收入(金额 + 类目 + 进哪个账户),下半是支出(默认一个总数,可切成逐笔)。副标题就写着当前用的是哪种。</figcaption>
   </figure>
   <div class="lesson reveal">
     <h4 class="font-display font-medium">① 先录收入(逐笔) <span class="where2">现金收入 / 股票收入</span></h4>
     <p>填金额 + 类目 + <b class="text-ink">这笔钱进了哪个账户</b>。工资、奖金、股息、利息都这么记。录一笔,系统<b class="text-ink">立即把钱加进那个账户的余额</b>,还留一条流水。</p>
   </div>
   <div class="lesson reveal">
-    <h4 class="font-display font-medium">② 再填支出(一个总数) <span class="where2">本月总支出</span></h4>
-    <p>每位成员各填一个数,从微信 / 支付宝 / 信用卡账单抄总数过来。<b class="text-ink">不用拆分类、不用逐笔</b> —— 这个软件分析的是余额变动,不是支出构成。</p>
+    <h4 class="font-display font-medium">② 再填支出 <span class="where2">本月总支出 / 逐笔支出</span></h4>
+    <p><b class="text-ink">支出有两种填法,自己选</b>(默认「总额」,老用户升级后一切不变):</p>
+    <ul style="margin:.5rem 0 .25rem 1.1rem;line-height:1.9">
+      <li><b class="text-ink">总额</b> —— 每位成员各填一个数,从微信 / 支付宝 / 信用卡账单抄总数过来。不用拆分类、不用逐笔。</li>
+      <li><b class="text-ink">逐笔</b> —— 每笔选账户 + 类目,自动从该账户余额扣除。多花点时间,换来<b class="text-ink">支出构成</b>与更准的账户级收益率。</li>
+    </ul>
+    <p>在<b class="text-ink">管理 → 提醒与模板 → 支出录入方式</b>里切。切换<b class="text-ink">不动任何已录数据</b>:
+       切到逐笔后原来填的总额还在,切回总额后已录的逐笔也不删。</p>
+    <a class="goto" th:href="@{/admin/reminders}">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      去切换支出录入方式
+    </a>
+    <p class="mt-3" style="line-height:1.9">类目停在「性质」这一层 —— <b class="text-ink">日常开支 / 还贷 / 利息支出 / 转账给亲属</b>,
+       不预置「餐饮」这种消费品类。所以「支出构成」回答的不是「餐饮占几成」,而是
+       <b class="text-ink">刚性支出(还贷 + 利息)占多少、日常开支占多少</b> —— 刚性压不下去,日常才是可调的那部分。</p>
+    <p class="mt-2" style="line-height:1.9"><b class="text-ink">⚠ 逐笔录入会扣余额</b>,所以第 ③ 步的顺序更要紧:
+       如果你已经照银行 App 填了月末余额(那个数本就含这笔消费),再录这笔就会扣第二次。
+       记住「<b class="text-ink">先录收支,最后核对余额</b>」就不会踩。</p>
   </div>
   <div class="lesson reveal">
     <h4 class="font-display font-medium">③ 最后核对余额 <span class="where2">各账户行</span></h4>
@@ -1114,6 +1136,55 @@
   </div>
   <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
+
+  <div class="chapter"><div class="rule"></div></div>
+
+  <section class="chapter ch" id="b8" style="padding:40px 20px 8px">
+    <span class="ch-water">B8</span>
+    <div class="ch-hd"><span class="ch-no">B8</span><span class="badge-opt">选修</span></div>
+    <h2 class="text-3xl font-medium mb-3">支出构成</h2>
+    <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">
+      钱花在哪了。<b class="text-ink">刚性支出(还贷 + 利息)压不下去,日常开支才是可调的那部分</b> ——
+      这个划分比「餐饮占几成」对家庭账更有用。
+    </p>
+    <a class="goto" th:href="@{/reports}">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      去报表 → 支出构成
+    </a>
+    <div class="lesson reveal">
+      <h4 class="font-display font-medium">先切到逐笔录入 <span class="where2">管理 → 提醒与模板</span></h4>
+      <p>这一段只在<b class="text-ink">逐笔</b>模式下出现 —— 总额模式只有一个总数,没有构成可言,
+         硬塞一个空图比不显示更糟。切换<b class="text-ink">不动任何已录数据</b>,想回去随时回去。</p>
+      <a class="goto" th:href="@{/admin/reminders}">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        去切换支出录入方式
+      </a>
+    </div>
+    <div class="lesson reveal">
+      <h4 class="font-display font-medium">三个维度,各回答一个问题 <span class="where2">报表 → 支出构成</span></h4>
+      <p>
+        <b class="text-ink">按类目</b> —— 刚性 vs 日常的比例;
+        <b class="text-ink">按账户</b> —— 钱主要从哪张卡出去;
+        <b class="text-ink">按成员</b> —— 家庭内部对账。
+        每个维度都能切「本期 / 近 6 期 / 近 12 期」,<b class="text-ink">点任意一格能展开那一格的逐笔明细</b>。
+      </p>
+    </div>
+    <div class="lesson reveal">
+      <h4 class="font-display font-medium">只填了总数的月份会如实标出来 <span class="where2">段首提示</span></h4>
+      <p>那些月份<b class="text-ink">不在构成里</b>(没有逐笔就拆不出构成),但它们的支出仍然照总额参与
+         储蓄率与人赚的计算 —— 不隐藏、不假装没有。</p>
+    </div>
+    <div class="lesson reveal">
+      <h4 class="font-display font-medium">类目想细分可以自己加 <span class="where2">管理 → 现金流类别</span></h4>
+      <p>默认只给四个:<b class="text-ink">日常开支 / 还贷 / 利息支出 / 转账给亲属</b>。
+         不预置「餐饮」这类消费品类 —— 那件事微信 / 支付宝 / 银行 App 已经做得很好。
+         真想细分的家庭可以在管理页自己加。</p>
+    </div>
+    <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+  </section>
+
 
 <div class="chapter"><div class="rule"></div></div>
 <section class="chapter" style="padding:44px 20px 4px">

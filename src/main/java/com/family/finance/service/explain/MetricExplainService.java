@@ -236,7 +236,9 @@ public class MetricExplainService {
             m.put("savingsMedian",
                     "近 " + n + " 个填报月每月(收入 − 支出)排序取中位 = " + signedMoney(b, in.savingsMedian()));
             m.put("filledMonths",
-                    "近 " + in.totalMonths() + " 期中实际填过收入/支出的有 " + n + " 期");
+                    "近 " + in.totalMonths() + " 期中实际填过收入/支出的有 " + n + " 期"
+                    + " · 支出口径:逐笔模式取逐笔之和,总额模式取每人手填的总数,两者永不相加"
+                    + "(注意与收入侧方向相反 —— 收入是手填优先、否则取流水汇总)");
         }
         return m;
     }
