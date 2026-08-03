@@ -356,6 +356,7 @@ bash scripts/e2e.sh            # 端到端主线真验收(11 主线 · 唤起 be
 - **预览原型**:[`preview/index.html`](preview/index.html)(Tailwind CDN 静态预览)· [`preview/v0.4/`](preview/v0.4/index.html) · [`preview/v0.5/`](preview/v0.5/index.html) · [`preview/v0.6/`](preview/v0.6/index.html)(财富水位 / 股票现金联动 / FIRE 自适应 / PWA 引导)· [`preview/v0.14/`](preview/v0.14/precious-metals.html)(贵金属账户 + 自动金价 / LLM 供应商自选 / 配置开放梳理)
 - **视觉设计规范**:[`docs/visual-spec.md`](docs/visual-spec.md)(UED 规范:色彩轴 / 对比度底线 / 组件规格 / iOS 约束 / 大组件移动化) · [`docs/ued-review-2026-07.md`](docs/ued-review-2026-07.md)(全站双端截图审计 61 条) · [`docs/design-system.md`](docs/design-system.md)(现状梳理)
 - **使用手册(新手先看)**:[`docs/how-to-use.md`](docs/how-to-use.md)(带截图 · **月度主流程**:填报顺序 → 关账 → 看结果 → 季度体检;**分析路径**:「高风险资产在谁手上、具体哪几笔」这类问题从旭日一路钻到单笔持仓)
+- **v1.7 设计文档**:[`prd/v1.7.md`](prd/v1.7.md) · [`tech-design/v1.7.md`](tech-design/v1.7.md)(交互式使用手册:功能全集 → 必修/选修分类 → 24 章)
 - **怎么记账 · 场景速查**:[`docs/how-to-record.md`](docs/how-to-record.md)(工资/消费/买卖基金/借钱还贷/账户间转钱 逐场景对照 · 没有财会背景也能看懂)
 - **配置与接入**:[`docs/configuration.md`](docs/configuration.md)(AI / 短信 等外部服务配置总指南 · 全部可选)
 - **券商同步图文向导**:[`docs/broker-sync-guide.md`](docs/broker-sync-guide.md)(富途 / 老虎凭据一步步获取 · 应用内同款 `/help/broker-sync` 带示意图)

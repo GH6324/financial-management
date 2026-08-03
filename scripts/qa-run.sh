@@ -5075,6 +5075,16 @@ RGN="$RD/src/main/resources/templates/reports/_region.html"
 #        分成必修 8 + 选修 25(省力 / 分析 / 决策 / 进阶四类),再据此排章节。
 #        成品:主教程 5 章(必修)+ 选修 A5 / B7 / C4 / D3 共 19 节,顶部 24 张章节卡可锚点直达。
 #        守护断言章节卡 ≥20 张、必修/选修徽记都在、五个代表性锚点(ch1/a1/b3/c3/d1)存在。
+#     v1.7.0 三轮(用户第 26 轮:滚大版本 + 每章要链接 + 每章要配图 + 表现可以更外放):
+#       · **每章一个真实入口链接**(class=goto · 24 个):读到哪就能点进去做,如「建账户」→ /accounts、
+#         「财务目标」→ /goals、「提前还贷」→ /reports/refinance。一律 th:href="@{...}" 不写死路径 ——
+#         守护里那条 `! grep -qE 'href="/[a-z]'` 就是防有人图省事写成裸路径(部署在子路径下会全断)。
+#       · **每章配图**(15 张 · beta 实拍 · 隐私模式糊金额 · 统一套外框 · 压到 1500px 宽共 1.9MB),
+#         放 static/img/manual/,页面用 loading=lazy。
+#         踩过的坑:frame-shots.py 对同一目录跑第二次会**给已套框的图再套一层框**并还原体积
+#         (b1-tags 一度变成 2242×8959 / 1.7MB);正确做法是从 *.raw.jpg 重来,只套一次。
+#       · 视觉外放:章节大编号水印、hero 描边数字、分组封面条、配图悬停微抬、阅读进度条。
+#         仍在现有设计令牌内(纸感底 / Fraunces / 等宽数字 / 黄铜森绿铁锈),不引新色系、不加载外部字体。
 #     ② 导航:「手册」挪到主栏最末(不插在功能项中间);既然它有 icon,**所有菜单项都得有** ——
 #        8 项统一 Feather 风格 inline SVG。顺带修掉自己引入的对齐 bug:加 inline-flex 后激活项比
 #        其他项高 10px(激活态 pb-[18px] 撑高 + 容器底对齐),给未激活项补 border-transparent + 同 padding
@@ -5095,6 +5105,10 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && grep -qF 'id="ch1"' "$HTPL" && grep -qF 'id="a1"' "$HTPL" \
   && grep -qF 'id="b3"' "$HTPL" && grep -qF 'id="c3"' "$HTPL" && grep -qF 'id="d1"' "$HTPL" \
   && [ "$(grep -c '<svg' "$NAV")" -ge 16 ] \
+  && [ "$(grep -c 'class="goto"' "$HTPL")" -ge 20 ] \
+  && [ "$(grep -c 'figure class="fig' "$HTPL")" -ge 12 ] \
+  && [ "$(ls "$RD/src/main/resources/static/img/manual/" 2>/dev/null | grep -c '\.jpg$')" -ge 12 ] \
+  && ! grep -qE 'href="/[a-z]' "$HTPL" \
   && grep -qF "display:none" "$HINT" \
   && [ "$(grep -c '/help/how-to-use' "$NAV")" -ge 2 ] \
   && grep -qF '/help/how-to-use' "$ENT" \

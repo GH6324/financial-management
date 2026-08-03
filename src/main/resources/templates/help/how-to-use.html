@@ -2,6 +2,7 @@
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/layout :: head('使用手册 · 主教程与选修课')}"></head>
 <body class="min-h-screen relative" id="top">
+<div id="readbar"></div>
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('help', ${me}, ${nav})}"></header>
 
@@ -117,6 +118,48 @@
   .where2{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--brass-text)}
   .backtop{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-subtle);text-decoration:none}
   .backtop:hover{color:var(--brass-text)}
+
+  /* ══ v1.7 · 教程页专属:比功能页更外放(它是读物,不是高频操作页)══ */
+  body{background:
+    radial-gradient(1200px 500px at 12% -8%, rgba(176,134,66,.12), transparent 60%),
+    radial-gradient(900px 420px at 92% 4%, rgba(79,107,71,.10), transparent 62%),
+    var(--paper)}
+  .hero-no{font-family:'Fraunces','Noto Serif SC',serif;font-size:clamp(64px,13vw,150px);line-height:.82;
+    color:transparent;-webkit-text-stroke:1.4px var(--rule);opacity:.55;user-select:none}
+  .kicker{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:10px;
+    letter-spacing:.24em;text-transform:uppercase;color:var(--brass-text);
+    border:1px solid var(--brass);background:var(--brass-soft);padding:5px 12px}
+  /* 章节大编号水印 */
+  .ch{position:relative}
+  .ch-water{position:absolute;right:-6px;top:-26px;font-family:'Fraunces',serif;font-size:120px;line-height:1;
+    color:transparent;-webkit-text-stroke:1px var(--rule-soft);opacity:.7;pointer-events:none;user-select:none}
+  @media(max-width:700px){.ch-water{font-size:74px;top:-14px}}
+  /* 配图:带框 + 悬停微抬 + 图注 */
+  figure.fig{margin:16px 0 6px;border:1px solid var(--rule);background:var(--card);padding:8px;
+    transition:transform .3s ease,box-shadow .3s ease}
+  figure.fig:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(26,23,20,.10)}
+  figure.fig img{display:block;width:100%;height:auto}
+  figure.fig figcaption{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-subtle);
+    line-height:1.7;padding:8px 4px 2px}
+  /* 「去做这件事」链接 */
+  .goto{display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;
+    padding:5px 11px;border:1px solid var(--brass-deep);color:var(--brass-text);background:var(--card);
+    text-decoration:none;transition:background .25s ease,color .25s ease,transform .25s ease}
+  .goto:hover{background:var(--brass-deep);color:var(--paper);transform:translateX(2px)}
+  /* 课节卡片化 */
+  .lesson{border:1px solid var(--rule-soft);border-left:3px solid var(--brass);background:var(--card);
+    padding:16px 18px;margin:16px 0;transition:border-left-color .3s ease}
+  .lesson:hover{border-left-color:var(--brass-deep)}
+  .lesson h4{font-size:17px;margin-bottom:6px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .lesson p{font-size:13.5px;color:var(--ink-soft);line-height:1.9}
+  /* 分组封面条 */
+  .grp{border:1px solid var(--rule);background:linear-gradient(100deg,var(--card-soft),var(--card));
+    padding:22px 24px;margin:0 0 22px}
+  .grp h2{font-size:30px;margin-bottom:6px}
+  .grp .gd{font-size:13px;color:var(--ink-soft);line-height:1.8;max-width:640px}
+  /* 阅读进度条 */
+  #readbar{position:fixed;left:0;top:0;height:2px;background:var(--brass-deep);width:0;z-index:60;
+    transition:width .12s linear}
 </style>
 
 <main class="relative z-10" style="padding-top:8px">
@@ -126,231 +169,238 @@
       <span class="mx-2 text-rule">/</span><span class="text-ink">使用手册</span>
     </div>
   </div>
-
-<header class="chapter" style="padding-top:34px;padding-bottom:26px">
-  <div class="eyebrow mb-3">账 · 房 · 使 · 用 · 手 · 册</div>
-  <h1 class="text-4xl sm:text-5xl font-medium leading-tight mb-4">先走通一个月,<br>其余的按需再学</h1>
-  <p class="text-ink-soft" style="max-width:660px;line-height:1.85">
-    手册分成两部分:<b class="text-ink">主教程(必修 5 章)</b>是每个人都要走一遍的完整闭环,大约十分钟;
-    后面的<b class="text-ink">选修课</b>按需要挑着看,每章独立,不看也不影响记账。
-  </p>
+<header class="chapter" style="padding-top:30px;padding-bottom:20px">
+  <div class="flex items-start justify-between gap-6">
+    <div style="flex:1;min-width:0">
+      <div class="kicker mb-4">账房 · 使用手册 · v1.7</div>
+      <h1 class="font-display font-medium leading-[1.05] mb-5" style="font-size:clamp(34px,5.4vw,60px)">
+        先走通一个月,<br>其余的按需再学
+      </h1>
+      <p class="text-ink-soft" style="max-width:640px;line-height:1.95;font-size:15px">
+        手册分两部分:<b class="text-ink">主教程(必修 5 章)</b>是每个人都要走一遍的完整闭环,约十分钟;
+        后面 <b class="text-ink">19 节选修课</b>按需挑着看,每章独立,不看也不影响记账。
+        <b class="text-ink">每一章都能直接点进对应页面</b>,读到哪就去做哪。
+      </p>
+    </div>
+    <div class="hero-no hidden sm:block">24</div>
+  </div>
 </header>
 
-<section class="chapter" style="padding-bottom:34px">
+<section class="chapter" style="padding-bottom:30px">
   <div class="flex items-baseline gap-3 mb-3 flex-wrap">
-    <h2 class="text-2xl font-medium">主教程 · 第一个月</h2>
-    <span class="badge-req">必修 · 5 章</span>
+    <h2 class="text-2xl font-medium">主教程 · 第一个月</h2><span class="badge-req">必修 · 5 章</span>
     <span class="mono" style="font-size:10.5px;color:var(--ink-subtle)">走完就能独立完成每月记账并看懂报表</span>
   </div>
   <div class="toc-grid mb-9">
     <a class="toc-card" href="#ch1">
       <span class="no">01</span> <span class="badge-req">必修</span>
       <span class="tt">建账户</span>
-      <span class="dd">把家里的钱分门别类装进 9 类账户,16 个模板可套</span>
+      <span class="dd">先把家里的钱分门别类装进账户。账户是这个软件的基本单位 —— 之后所有余额、收益、分析都挂在…</span>
     </a>
     <a class="toc-card" href="#ch2">
       <span class="no">02</span> <span class="badge-req">必修</span>
       <span class="tt">每月填报</span>
-      <span class="dd">录收入 → 填支出 → 核余额。顺序反了会重复计</span>
+      <span class="dd">这个软件不用记流水。每月进填报页做三件事,顺序照下面来能少返工。…</span>
     </a>
     <a class="toc-card" href="#ch3">
       <span class="no">03</span> <span class="badge-req">必修</span>
       <span class="tt">关账</span>
-      <span class="dd">关账后这一期才进收益统计</span>
+      <span class="dd">填报页会显示「家庭本月已填收支:N / M 人」和哪些账户还没填。都齐了就关账。…</span>
     </a>
     <a class="toc-card" href="#ch4">
       <span class="no">04</span> <span class="badge-req">必修</span>
       <span class="tt">看这个月发生了什么</span>
-      <span class="dd">概览 → 人赚vs钱赚 → 归因 → 洞察</span>
+      <span class="dd">仪表盘上由粗到细看四步,五分钟。…</span>
     </a>
     <a class="toc-card" href="#ch5">
       <span class="no">05</span> <span class="badge-req">必修</span>
       <span class="tt">一条总原则</span>
-      <span class="dd">什么算收支、什么只是钱换了地方</span>
+      <span class="dd">记住这句,九成「这笔钱要不要记」的问题自己就有答案。…</span>
     </a>
   </div>
-
   <div class="flex items-baseline gap-3 mb-3 flex-wrap">
-    <h2 class="text-2xl font-medium">选修 A · 让录入更省力</h2>
-    <span class="badge-opt">5 节</span>
-    <span class="mono" style="font-size:10.5px;color:var(--ink-subtle)">持仓多、手输烦的时候再看</span>
+    <h2 class="text-2xl font-medium">选修 A · 让录入更省力</h2><span class="badge-opt">5 节</span>
   </div>
   <div class="toc-grid mb-9">
     <a class="toc-card" href="#a1">
       <span class="no">A1</span> <span class="badge-opt">选修</span>
       <span class="tt">AI 截图智能填报</span>
-      <span class="dd">持仓截图上传,视觉模型认出名称 + 市值</span>
+      <span class="dd">基金 / 券商 App 里堆着十几支持仓、手 key 太累?截图上传即可。…</span>
     </a>
     <a class="toc-card" href="#a2">
       <span class="no">A2</span> <span class="badge-opt">选修</span>
       <span class="tt">券商自动同步</span>
-      <span class="dd">富途 / 老虎只读同步持仓与现金</span>
+      <span class="dd">富途 / 老虎的只读同步:自动拉持仓与账户现金,不下单、不动钱。…</span>
     </a>
     <a class="toc-card" href="#a3">
       <span class="no">A3</span> <span class="badge-opt">选修</span>
       <span class="tt">富途 OpenD 网关</span>
-      <span class="dd">下载 / 托管 / 自检,券商同步的前置</span>
+      <span class="dd">富途的同步要先在本机跑一个 OpenD 网关,向导里能下载、托管、自检。…</span>
     </a>
     <a class="toc-card" href="#a4">
       <span class="no">A4</span> <span class="badge-opt">选修</span>
       <span class="tt">逐笔持仓与自动估值</span>
-      <span class="dd">填代码和份额,每天自动拉价,余额不用手填</span>
+      <span class="dd">填代码 + 份额,系统每天自动拉价估值,连月末余额都不用手填。…</span>
     </a>
     <a class="toc-card" href="#a5">
       <span class="no">A5</span> <span class="badge-opt">选修</span>
       <span class="tt">贵金属与加密</span>
-      <span class="dd">金银铂钯按克/盎司,加密走三家行情源</span>
+      <span class="dd">贵金属按克 / 盎司录;加密走三家行情源。…</span>
     </a>
   </div>
-
   <div class="flex items-baseline gap-3 mb-3 flex-wrap">
-    <h2 class="text-2xl font-medium">选修 B · 看懂自己的钱</h2>
-    <span class="badge-opt">7 节</span>
-    <span class="mono" style="font-size:10.5px;color:var(--ink-subtle)">攒够两三期数据后最有价值</span>
+    <h2 class="text-2xl font-medium">选修 B · 看懂自己的钱</h2><span class="badge-opt">7 节</span>
   </div>
   <div class="toc-grid mb-9">
     <a class="toc-card" href="#b1">
       <span class="no">B1</span> <span class="badge-opt">选修</span>
       <span class="tt">资产打标</span>
-      <span class="dd">给每笔钱贴上风险/行业/用途标签,含 AI 推荐</span>
+      <span class="dd">给每笔钱贴上标签,后面所有分析视角都靠它。…</span>
     </a>
     <a class="toc-card" href="#b2">
       <span class="no">B2</span> <span class="badge-opt">选修</span>
       <span class="tt">基金穿透</span>
-      <span class="dd">公募基金拆成真实的股/债/行业</span>
+      <span class="dd">公募基金拆成背后真实的「股 / 债 / 现金 + 申万行业」。…</span>
     </a>
     <a class="toc-card" href="#b3">
       <span class="no">B3</span> <span class="badge-opt">选修</span>
-      <span class="tt">资产透视:钻到具体一笔</span>
-      <span class="dd">旭日 → 交叉透视 → 明细抽屉</span>
+      <span class="tt">资产透视:从全貌钻到具体一笔</span>
+      <span class="dd">10 个维度 × 7 个指标 × 10 块预设看板。四个组件分工不同,下面的演示专门讲清它们…</span>
     </a>
     <a class="toc-card" href="#b4">
       <span class="no">B4</span> <span class="badge-opt">选修</span>
       <span class="tt">归因复盘</span>
-      <span class="dd">这个月的变化,是谁造成的</span>
+      <span class="dd">这个月净资产的变化,到底是谁造成的。…</span>
     </a>
     <a class="toc-card" href="#b5">
       <span class="no">B5</span> <span class="badge-opt">选修</span>
       <span class="tt">收益与基准</span>
-      <span class="dd">XIRR / 资产年化 / 账户级 vs 基准</span>
+      <span class="dd">两个收益率口径要分清,别混着看。…</span>
     </a>
     <a class="toc-card" href="#b6">
       <span class="no">B6</span> <span class="badge-opt">选修</span>
       <span class="tt">财富水位</span>
-      <span class="dd">扣掉通胀和 M2,你真的变富了吗</span>
+      <span class="dd">扣掉通胀和社会财富增长,你到底有没有变富。…</span>
     </a>
     <a class="toc-card" href="#b7">
       <span class="no">B7</span> <span class="badge-opt">选修</span>
       <span class="tt">储蓄能力</span>
-      <span class="dd">月均收支 / 储蓄率 / 月储蓄中位数</span>
+      <span class="dd">你每月到底能攒下多少,这块全靠你填的那两侧收支。…</span>
     </a>
   </div>
-
   <div class="flex items-baseline gap-3 mb-3 flex-wrap">
-    <h2 class="text-2xl font-medium">选修 C · 规划与决策</h2>
-    <span class="badge-opt">4 节</span>
+    <h2 class="text-2xl font-medium">选修 C · 规划与决策</h2><span class="badge-opt">4 节</span>
   </div>
   <div class="toc-grid mb-9">
     <a class="toc-card" href="#c1">
       <span class="no">C1</span> <span class="badge-opt">选修</span>
       <span class="tt">资产体检</span>
-      <span class="dd">配置 / 风险 / 流动性 / 收益 四维诊断</span>
+      <span class="dd">配置 / 风险 / 流动性 / 收益 四个维度的诊断。…</span>
     </a>
     <a class="toc-card" href="#c2">
       <span class="no">C2</span> <span class="badge-opt">选修</span>
       <span class="tt">配置对照与调仓建议</span>
-      <span class="dd">现状 vs 目标锚,给出「从 X 调 N 到 Y」</span>
+      <span class="dd">先定目标配置,再看偏离,最后拿到具体动作。…</span>
     </a>
     <a class="toc-card" href="#c3">
       <span class="no">C3</span> <span class="badge-opt">选修</span>
       <span class="tt">财务目标</span>
-      <span class="dd">FIRE / 教育金 / 应急储备 / 自定义</span>
+      <span class="dd">三个预设 + 自定义,每个目标都给三情景预测。…</span>
     </a>
     <a class="toc-card" href="#c4">
       <span class="no">C4</span> <span class="badge-opt">选修</span>
       <span class="tt">提前还贷决策器</span>
-      <span class="dd">按 18 年 NPV 算该不该提前还</span>
+      <span class="dd">该不该提前还房贷,用 18 年 NPV 视角算给你看。…</span>
     </a>
   </div>
-
   <div class="flex items-baseline gap-3 mb-3 flex-wrap">
-    <h2 class="text-2xl font-medium">选修 D · 进阶与维护</h2>
-    <span class="badge-opt">3 节</span>
+    <h2 class="text-2xl font-medium">选修 D · 进阶与维护</h2><span class="badge-opt">3 节</span>
   </div>
-  <div class="toc-grid">
+  <div class="toc-grid mb-9">
     <a class="toc-card" href="#d1">
       <span class="no">D1</span> <span class="badge-opt">选修</span>
       <span class="tt">多币种</span>
-      <span class="dd">本位币与视图币种 · 汇率维护</span>
+      <span class="dd">本位币定家庭主币,视图币种只是显示镜头。…</span>
     </a>
     <a class="toc-card" href="#d2">
       <span class="no">D2</span> <span class="badge-opt">选修</span>
       <span class="tt">指标设置与产品类目</span>
-      <span class="dd">账户级指标开关 · 流动性/风险/基准%</span>
+      <span class="dd">这两处决定了很多指标怎么算,值得看一眼。…</span>
     </a>
     <a class="toc-card" href="#d3">
       <span class="no">D3</span> <span class="badge-opt">选修</span>
-      <span class="tt">提醒与备份</span>
-      <span class="dd">截止前短信 · 备份恢复 · CSV 导出 · 审计</span>
+      <span class="tt">提醒、备份与审计</span>
+      <span class="dd">让它自己跑起来,以及出事能回滚。…</span>
     </a>
   </div>
 </section>
 
+
 <div class="chapter"><div class="rule"></div></div>
 
-<!-- ════════ 主教程 ════════ -->
-<section class="chapter ch" id="ch1" style="padding:44px 20px 10px">
-  <div class="ch-hd"><span class="ch-no">主 教 程 · 01</span><span class="badge-req">必修</span></div>
-  <h2 class="text-3xl font-medium mb-4">建账户</h2>
-  <p class="text-ink-soft mb-4" style="max-width:680px;line-height:1.85">
-    先把家里的钱分门别类装进账户。账户是这个软件的基本单位 —— 之后所有的余额、收益、分析都挂在账户上。
-  </p>
-  <div class="lesson">
-    <h4 class="font-display font-medium">9 类账户 <span class="where2">账户 → 新建</span></h4>
-    <p>现金 / 股票 / 理财 / 加密 / 贵金属 / 房产 / 贷款 / 保险 / 其他。有 16 个内置模板可以直接套(招行储蓄卡、余额宝、富途证券…),
-      套模板会帮你把平台、币种、产品类目一起填好。</p>
+<section class="chapter ch" id="ch1" style="padding:40px 20px 8px">
+  <span class="ch-water">01</span>
+  <div class="ch-hd"><span class="ch-no">01</span><span class="badge-req">必修</span></div>
+  <h2 class="text-3xl font-medium mb-3">建账户</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">先把家里的钱分门别类装进账户。账户是这个软件的基本单位 —— 之后所有余额、收益、分析都挂在账户上。</p>
+  <a class="goto" th:href="@{/accounts}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去账户页建账户
+  </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/ch1-accounts.jpg}" alt="账户簿:一行一个账户,类型标签前置,行内可直达持仓管理 / 券商对接 / 流水档案。" loading="lazy">
+    <figcaption>账户簿:一行一个账户,类型标签前置,行内可直达持仓管理 / 券商对接 / 流水档案。</figcaption>
+  </figure>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">9 类账户,16 个模板可套 <span class="where2">账户 → 新建</span></h4>
+    <p>现金 / 股票 / 理财 / 加密 / 贵金属 / 房产 / 贷款 / 保险 / 其他。套模板(招行储蓄卡、余额宝、富途证券…)会帮你把平台、币种、产品类目一并填好。</p>
   </div>
-  <div class="lesson">
+  <div class="lesson reveal">
     <h4 class="font-display font-medium">每个账户填三件事 <span class="where2">主理人 · 平台 · 币种</span></h4>
-    <p><b class="text-ink">主理人</b>决定「按成员看」时算谁的;<b class="text-ink">平台</b>决定「平台安全」视角;
-      <b class="text-ink">币种</b>支持 CNY / USD / HKD,系统自动换算。这三个现在随手填,后面分析时就有得切。</p>
+    <p><b class="text-ink">主理人</b>决定「按成员看」算谁的;<b class="text-ink">平台</b>决定「平台安全」视角;<b class="text-ink">币种</b>支持 CNY / USD / HKD 自动换算。现在随手填,后面分析时才有得切。</p>
   </div>
-  <div class="lesson">
+  <div class="lesson reveal">
     <h4 class="font-display font-medium">贷款账户 <span class="where2">正负号系统自动处理</span></h4>
-    <p>房贷、消费贷、信用卡都建成「贷款」类型,余额填还欠多少。<b class="text-ink">填正数或负数都可以</b>,系统会统一存成负债,不会算错。</p>
+    <p>房贷、消费贷、信用卡都建成「贷款」类型,余额填还欠多少。<b class="text-ink">填正数或负数都行</b>,系统统一存成负债,不会算错。</p>
   </div>
-  <p class="mt-6"><a class="backtop" href="#top">↑ 回目录</a></p>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
 
 <div class="chapter"><div class="rule"></div></div>
 
-<section class="chapter ch" id="ch2" style="padding:44px 20px 10px">
-  <div class="ch-hd"><span class="ch-no">主 教 程 · 02</span><span class="badge-req">必修</span></div>
-  <h2 class="text-3xl font-medium mb-4">每月填报</h2>
-  <p class="text-ink-soft mb-2" style="max-width:680px;line-height:1.85">
-    这个软件<b class="text-ink">不用记流水</b>。每月进填报页做三件事,顺序照下面来能少返工。
-  </p>
-  <div class="lesson">
-    <h4 class="font-display font-medium">① 先录收入(逐笔) <span class="where2">填报 → 现金收入 / 股票收入</span></h4>
-    <p>填金额 + 类目 + <b class="text-ink">这笔钱进了哪个账户</b>。工资、奖金、股息、利息都这么记。
-      录一笔,系统会<b class="text-ink">立即把钱加进那个账户的余额</b>,还留下一条流水。收入笔数少,逐笔记得起来。</p>
+<section class="chapter ch" id="ch2" style="padding:40px 20px 8px">
+  <span class="ch-water">02</span>
+  <div class="ch-hd"><span class="ch-no">02</span><span class="badge-req">必修</span></div>
+  <h2 class="text-3xl font-medium mb-3">每月填报</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">这个软件<b class="text-ink">不用记流水</b>。每月进填报页做三件事,顺序照下面来能少返工。</p>
+  <a class="goto" th:href="@{/entry}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去填报页
+  </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/ch2-entry.jpg}" alt="填报页「本月收支」:上半是逐笔收入(金额 + 类目 + 进哪个账户),下半是支出一个总数。副标题就写着这条规则。" loading="lazy">
+    <figcaption>填报页「本月收支」:上半是逐笔收入(金额 + 类目 + 进哪个账户),下半是支出一个总数。副标题就写着这条规则。</figcaption>
+  </figure>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">① 先录收入(逐笔) <span class="where2">现金收入 / 股票收入</span></h4>
+    <p>填金额 + 类目 + <b class="text-ink">这笔钱进了哪个账户</b>。工资、奖金、股息、利息都这么记。录一笔,系统<b class="text-ink">立即把钱加进那个账户的余额</b>,还留一条流水。</p>
   </div>
-  <div class="lesson">
-    <h4 class="font-display font-medium">② 再填支出(一个总数) <span class="where2">填报 → 本月总支出</span></h4>
-    <p>每位家庭成员各填一个数,从微信 / 支付宝 / 信用卡账单抄总数过来即可。<b class="text-ink">不用拆分类、不用逐笔</b> ——
-      支出笔数太多,逐笔不现实,而这个软件分析的是余额变动,不是支出构成。</p>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">② 再填支出(一个总数) <span class="where2">本月总支出</span></h4>
+    <p>每位成员各填一个数,从微信 / 支付宝 / 信用卡账单抄总数过来。<b class="text-ink">不用拆分类、不用逐笔</b> —— 这个软件分析的是余额变动,不是支出构成。</p>
   </div>
-  <div class="lesson">
-    <h4 class="font-display font-medium">③ 最后核对余额 <span class="where2">填报 → 各账户行</span></h4>
-    <p>收入已经在第 ① 步自动进去了,这里通常只需确认。某个账户忘填也不会缺口 —— 系统会沿用上一期余额,但数就不准了。</p>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">③ 最后核对余额 <span class="where2">各账户行</span></h4>
+    <p>收入已在第 ① 步自动进去了,这里通常只需确认。某账户忘填不会缺口(沿用上一期),但数就不准了。</p>
   </div>
-  <div class="lesson">
-    <h4 class="font-display font-medium">跨账户搬钱要记一笔 <span class="where2">填报 → 账户间划转</span></h4>
-    <p>从工资卡转 5 万去证券账户,用「划转」记,系统知道那是搬家、<b class="text-ink">不算收入也不算支出</b>。
-      不记的话总净资产还是对的,但账户级收益率会失真(转出的看起来亏了 5 万)。</p>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">跨账户搬钱要记一笔 <span class="where2">账户间划转</span></h4>
+    <p>从工资卡转 5 万去证券账户,用「划转」记 —— 系统知道那是搬家,<b class="text-ink">不算收入也不算支出</b>。不记的话总净资产还对,但账户级收益率会失真。</p>
   </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
-
 <!-- ══ 演示 A · 填报顺序 ══ -->
 <section class="chapter" style="padding:10px 20px 48px">
   <div class="stage reveal">
@@ -424,67 +474,89 @@
   </div>
 </section>
 
-<section class="chapter" style="padding:0 20px 10px">
-  <p><a class="backtop" href="#top">↑ 回目录</a></p>
-</section>
-
 <div class="chapter"><div class="rule"></div></div>
 
-<section class="chapter ch" id="ch3" style="padding:44px 20px 10px">
-  <div class="ch-hd"><span class="ch-no">主 教 程 · 03</span><span class="badge-req">必修</span></div>
-  <h2 class="text-3xl font-medium mb-4">关账</h2>
-  <p class="text-ink-soft mb-4" style="max-width:680px;line-height:1.85">
-    填报页会显示「家庭本月已填收支:N / M 人」和哪些账户还没填。都齐了就关账。
-  </p>
-  <div class="lesson">
+<section class="chapter ch" id="ch3" style="padding:40px 20px 8px">
+  <span class="ch-water">03</span>
+  <div class="ch-hd"><span class="ch-no">03</span><span class="badge-req">必修</span></div>
+  <h2 class="text-3xl font-medium mb-3">关账</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">填报页会显示「家庭本月已填收支:N / M 人」和哪些账户还没填。都齐了就关账。</p>
+  <a class="goto" th:href="@{/admin/periods}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去周期管理关账
+  </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/ch3-periods.jpg}" alt="周期管理:开新账期 / 关账 / 重开,每期状态一目了然。" loading="lazy">
+    <figcaption>周期管理:开新账期 / 关账 / 重开,每期状态一目了然。</figcaption>
+  </figure>
+  <div class="lesson reveal">
     <h4 class="font-display font-medium">关账不是走形式 <span class="where2">管理 → 周期管理</span></h4>
-    <p>收益类指标(本月资产收益 / 家庭 XIRR / 资产年化 / 人赚钱赚)<b class="text-ink">只统计已关账的账期</b>。
-      因为填报中的月份通常是「余额填了、收支还没录齐」,拿它算收益会把没录的收支当成投资收益。
-      所以<b class="text-ink">没关账 = 这个月不进收益统计</b>,页面上会标明当前算的是哪一期。</p>
+    <p>收益类指标(本月资产收益 / 家庭 XIRR / 资产年化 / 人赚钱赚)<b class="text-ink">只统计已关账的账期</b>。填报中的月份通常「余额填了、收支没录齐」,拿它算收益会把没录的收支当成投资收益。所以<b class="text-ink">没关账 = 这个月不进收益统计</b>,页面会标明当前算的是哪一期。</p>
   </div>
-  <p class="mt-6"><a class="backtop" href="#top">↑ 回目录</a></p>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
 
 <div class="chapter"><div class="rule"></div></div>
 
-<section class="chapter ch" id="ch4" style="padding:44px 20px 10px">
-  <div class="ch-hd"><span class="ch-no">主 教 程 · 04</span><span class="badge-req">必修</span></div>
-  <h2 class="text-3xl font-medium mb-4">看这个月发生了什么</h2>
-  <p class="text-ink-soft mb-4" style="max-width:680px;line-height:1.85">仪表盘上由粗到细看四步,五分钟。</p>
-  <div class="lesson" id="">
+<section class="chapter ch" id="ch4" style="padding:40px 20px 8px">
+  <span class="ch-water">04</span>
+  <div class="ch-hd"><span class="ch-no">04</span><span class="badge-req">必修</span></div>
+  <h2 class="text-3xl font-medium mb-3">看这个月发生了什么</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">仪表盘上由粗到细看四步,五分钟。</p>
+  <a class="goto" th:href="@{/dashboard}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去仪表盘
+  </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/ch4-kpi.jpg}" alt="仪表盘 KPI 带:净资产 / 总资产 / 总负债 / 紧急储备 / 资产收益。收益类会标明口径期。" loading="lazy">
+    <figcaption>仪表盘 KPI 带:净资产 / 总资产 / 总负债 / 紧急储备 / 资产收益。收益类会标明口径期。</figcaption>
+  </figure>
+  <div class="lesson reveal">
     <h4 class="font-display font-medium">① 概览 <span class="where2">仪表盘顶部</span></h4>
     <p>净资产多少、比上月涨跌多少、紧急储备够几个月、总资产总负债各多少。</p>
   </div>
-  <div class="lesson" id="">
-    <h4 class="font-display font-medium">② 人赚 vs 钱赚 <span class="where2">仪表盘 · 本期怎么变</span></h4>
-    <p>这个月资产变化里,多少是工资攒下来的(人赚),多少是投资赚的(钱赚)。等式:ΔNW = 人赚 + 钱赚 + 开账基线。</p>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">② 人赚 vs 钱赚 <span class="where2">本期怎么变</span></h4>
+    <p>资产变化里多少是工资攒的(人赚)、多少是投资赚的(钱赚)。等式:ΔNW = 人赚 + 钱赚 + 开账基线。</p>
   </div>
-  <div class="lesson" id="">
-    <h4 class="font-display font-medium">③ 归因复盘 <span class="where2">仪表盘 · 归因复盘</span></h4>
-    <p>变化具体由谁贡献。可切「账户 / 成员 / 平台 / 币种 / 账户类型」五个视角,还有 12 期趋势。</p>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">③ 归因复盘 <span class="where2">归因复盘</span></h4>
+    <p>变化具体由谁贡献,五个视角可切,带 12 期趋势。</p>
   </div>
-  <div class="lesson" id="">
-    <h4 class="font-display font-medium">④ 资产洞察 <span class="where2">仪表盘 · 洞察条</span></h4>
-    <p>系统按规则自动给的提示:负债率偏高、应急金不足、过度集中、可考虑提前还贷等。</p>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">④ 资产洞察 <span class="where2">洞察条</span></h4>
+    <p>系统按规则给的提示:负债率偏高、应急金不足、过度集中、可考虑提前还贷等。</p>
   </div>
-  <p class="mt-6"><a class="backtop" href="#top">↑ 回目录</a></p>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/ch4-attr.jpg}" alt="归因复盘:把这个月的变化拆到各贡献方,可切账户 / 成员 / 平台 / 币种 / 账户类型五个视角。" loading="lazy">
+    <figcaption>归因复盘:把这个月的变化拆到各贡献方,可切账户 / 成员 / 平台 / 币种 / 账户类型五个视角。</figcaption>
+  </figure>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
 
 <div class="chapter"><div class="rule"></div></div>
 
-<section class="chapter ch" id="ch5" style="padding:44px 20px 10px">
-  <div class="ch-hd"><span class="ch-no">主 教 程 · 05</span><span class="badge-req">必修</span></div>
-  <h2 class="text-3xl font-medium mb-4">一条总原则</h2>
-  <p class="text-ink-soft mb-6" style="max-width:660px;line-height:1.85">记住这句,九成「这笔钱要不要记」的问题自己就有答案。</p>
-  <div class="grid sm:grid-cols-2 gap-4">
+<section class="chapter ch" id="ch5" style="padding:40px 20px 8px">
+  <span class="ch-water">05</span>
+  <div class="ch-hd"><span class="ch-no">05</span><span class="badge-req">必修</span></div>
+  <h2 class="text-3xl font-medium mb-3">一条总原则</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">记住这句,九成「这笔钱要不要记」的问题自己就有答案。</p>
+  <a class="goto" th:href="@{/entry}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    回填报页练一遍
+  </a>
+  <div class="grid sm:grid-cols-2 gap-4 mt-4">
     <div class="stage p-5" style="border-left:3px solid var(--ink-subtle)">
       <div class="mono mb-2" style="font-size:10.5px;color:var(--ink-subtle)">不算收支</div>
-      <h4 class="text-lg font-medium mb-2">钱在你自己账户之间移动</h4>
+      <h4 class="font-display text-lg font-medium mb-2">钱在你自己账户之间移动</h4>
       <p class="text-sm text-ink-soft" style="line-height:1.85">转账、买基金、卖股票、还房贷本金 —— 你没变穷也没变富,只是钱换了个地方待着。只影响各账户余额。</p>
     </div>
     <div class="stage p-5" style="border-left:3px solid var(--brass-deep)">
       <div class="mono mb-2" style="font-size:10.5px;color:var(--brass-text)">算收支</div>
-      <h4 class="text-lg font-medium mb-2">钱真正进出你家</h4>
+      <h4 class="font-display text-lg font-medium mb-2">钱真正进出你家</h4>
       <p class="text-sm text-ink-soft" style="line-height:1.85">工资、奖金、吃饭、房租、利息 —— 收入逐笔录(选进账账户),支出填一个总数。</p>
     </div>
   </div>
@@ -498,60 +570,182 @@
       <tr><td>补录一个已有钱的老账户</td><td class="where">直接建 · 自动识别为「开账基线」,不虚高收益</td></tr>
     </table>
   </div>
-  <p class="mt-6"><a class="backtop" href="#top">↑ 回目录</a></p>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+<section class="chapter" style="padding:44px 20px 4px">
+  <div class="grp reveal">
+    <div class="kicker mb-3">选修 A</div>
+    <h2 class="font-display font-medium">让录入更省力</h2>
+    <p class="gd">持仓多、手输烦的时候再看。这几项都<b class="text-ink">不影响记账正确性</b>,只是省事。</p>
+  </div>
 </section>
 
 <div class="chapter"><div class="rule"></div></div>
 
-<!-- ════════ 选修 A ════════ -->
-<section class="chapter" style="padding:44px 20px 10px">
-  <div class="ch-hd"><span class="ch-no">选 修 A</span><span class="badge-opt">让录入更省力</span></div>
-  <h2 class="text-3xl font-medium mb-2">让录入更省力</h2>
-  <p class="text-ink-soft mb-2" style="max-width:680px;line-height:1.85">持仓多、手输烦的时候再看。这几项都<b class="text-ink">不影响记账正确性</b>,只是省事。</p>
-  <div class="lesson" id="a1">
-    <h4 class="font-display font-medium">A1 · AI 截图智能填报 <span class="where2">填报 → 账户行「AI 截图导入」</span></h4>
-    <p>基金/券商 App 里堆着十几支持仓、手 key 太累?截图上传,视觉大模型识别出每支的「名称 + 市值」并自动打标,和已有持仓做左旧右新三态比对(更新 / 新增 / 卖出),扫一眼确认即入库。只转写不算数,识别不准会诚实标疑。用你自己的通义千问 key,成本几毛/月。</p>
+<section class="chapter ch" id="a1" style="padding:40px 20px 8px">
+  <span class="ch-water">A1</span>
+  <div class="ch-hd"><span class="ch-no">A1</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">AI 截图智能填报</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">基金 / 券商 App 里堆着十几支持仓、手 key 太累?截图上传即可。</p>
+  <a class="goto" th:href="@{/entry}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去填报页找「AI 截图导入」
+  </a>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">怎么用 <span class="where2">填报 → 账户行「AI 截图导入」</span></h4>
+    <p>上传持仓截图,视觉大模型识别出每支的「名称 + 市值」并自动打标,与已有持仓做左旧右新三态比对(更新 / 新增 / 卖出),扫一眼确认即入库。<b class="text-ink">只转写不算数</b>,识别不准会诚实标疑。用你自己的通义千问 key,成本几毛/月。</p>
   </div>
-  <div class="lesson" id="a2">
-    <h4 class="font-display font-medium">A2 · 券商自动同步 <span class="where2">账户 → 券商 / 填报页账户行「券商」</span></h4>
-    <p>富途 / 老虎的<b class="text-ink">只读</b>同步:自动拉持仓与账户现金,不下单、不动钱。一个账房账户对应一个券商交易账户(1:1),有多个券商账户就各建一个。凭据在「数据源接入」里配。</p>
-  </div>
-  <div class="lesson" id="a3">
-    <h4 class="font-display font-medium">A3 · 富途 OpenD 网关 <span class="where2">管理 → 数据源接入 → 券商段</span></h4>
-    <p>富途的同步要先在本机跑一个 OpenD 网关。向导里能下载、托管、自检,只绑 127.0.0.1、密码只存 MD5。配好后从持仓页的状态条能一眼看到「同步已启用 / 上次同步时间 / OpenD 地址」。</p>
-  </div>
-  <div class="lesson" id="a4">
-    <h4 class="font-display font-medium">A4 · 逐笔持仓与自动估值 <span class="where2">账户 → 持仓管理</span></h4>
-    <p>填代码 + 份额,系统每天自动拉价估值,<b class="text-ink">连月末余额都不用手填</b>。股票支持美股 / A 股 / 港股(新浪主 + 腾讯备)。添加持仓时可勾「从账户现金划转买入」,自动扣掉「股数 × 成本」。</p>
-  </div>
-  <div class="lesson" id="a5">
-    <h4 class="font-display font-medium">A5 · 贵金属与加密 <span class="where2">持仓管理 → 添加持仓</span></h4>
-    <p>贵金属按<b class="text-ink">克 / 盎司</b>录,金银铂钯走新浪 SGE 上海价或国际现货价;加密走 Binance 主源,CoinGecko / Coinbase 备源。</p>
-  </div>
-  <p class="mt-6"><a class="backtop" href="#top">↑ 回目录</a></p>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
 
 <div class="chapter"><div class="rule"></div></div>
 
-<!-- ════════ 选修 B ════════ -->
-<section class="chapter" style="padding:44px 20px 10px">
-  <div class="ch-hd"><span class="ch-no">选 修 B</span><span class="badge-opt">看懂自己的钱</span></div>
-  <h2 class="text-3xl font-medium mb-2">看懂自己的钱</h2>
-  <p class="text-ink-soft mb-2" style="max-width:680px;line-height:1.85">攒够两三期数据后,这部分最有价值。</p>
-  <div class="lesson" id="b1">
-    <h4 class="font-display font-medium">B1 · 资产打标 <span class="where2">资产透视 → 资产打标</span></h4>
-    <p>给每笔钱贴上<b class="text-ink">风险 / 大类 / 行业 / 用途 / 地域</b>等标签。不打标的资产在分析里会显示成一大块「未分类」,风险视图就失真了。支持 AI 推荐打标,一次批量处理。</p>
+<section class="chapter ch" id="a2" style="padding:40px 20px 8px">
+  <span class="ch-water">A2</span>
+  <div class="ch-hd"><span class="ch-no">A2</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">券商自动同步</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">富途 / 老虎的<b class="text-ink">只读</b>同步:自动拉持仓与账户现金,不下单、不动钱。</p>
+  <a class="goto" th:href="@{/accounts}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去账户页关联券商
+  </a>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">模型是 1:1 <span class="where2">账户 → 券商</span></h4>
+    <p>一个账房账户对应一个券商交易账户。有多个券商账户就各建一个账房账户分别关联。凭据在「数据源接入」里配,持仓页有状态条显示同步状况。</p>
   </div>
-  <div class="lesson" id="b2">
-    <h4 class="font-display font-medium">B2 · 基金穿透 <span class="where2">资产打标 → 穿透</span></h4>
-    <p>公募基金拆成背后真实的「股 / 债 / 现金 + 申万行业」,行业维度出的是真实分布而不是一个「基金」单标签。只用公开代码查,金额不出服务器。理财类查不到的会诚实标「未穿透」。</p>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="a3" style="padding:40px 20px 8px">
+  <span class="ch-water">A3</span>
+  <div class="ch-hd"><span class="ch-no">A3</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">富途 OpenD 网关</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">富途的同步要先在本机跑一个 OpenD 网关,向导里能下载、托管、自检。</p>
+  <a class="goto" th:href="@{/admin/integrations}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去数据源接入 → 券商段
+  </a>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">安全边界 <span class="where2">管理 → 数据源接入</span></h4>
+    <p>只绑 127.0.0.1、密码只存 MD5、下载走白名单。配好后从持仓页状态条能看到「同步已启用 / 上次同步 / OpenD 地址」。</p>
   </div>
-  <div class="lesson" id="b3">
-    <h4 class="font-display font-medium">B3 · 资产透视:从全貌钻到具体一笔 <span class="where2">资产透视</span></h4>
-    <p>10 个维度 × 7 个指标 × 10 块预设看板。四个组件分工不同,下面这个演示专门讲清楚它们怎么配合 —— 这是最多人卡住的地方。</p>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="a4" style="padding:40px 20px 8px">
+  <span class="ch-water">A4</span>
+  <div class="ch-hd"><span class="ch-no">A4</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">逐笔持仓与自动估值</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">填代码 + 份额,系统每天自动拉价估值,<b class="text-ink">连月末余额都不用手填</b>。</p>
+  <a class="goto" th:href="@{/accounts}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去账户页 → 持仓管理
+  </a>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">买入可联动扣现金 <span class="where2">持仓管理 → 添加持仓</span></h4>
+    <p>支持美股 / A 股 / 港股(新浪主 + 腾讯备)。勾「从账户现金划转买入」并填成本,自动扣掉「股数 × 成本」;卖出同理加回。</p>
+  </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="a5" style="padding:40px 20px 8px">
+  <span class="ch-water">A5</span>
+  <div class="ch-hd"><span class="ch-no">A5</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">贵金属与加密</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">贵金属按<b class="text-ink">克 / 盎司</b>录;加密走三家行情源。</p>
+  <a class="goto" th:href="@{/accounts}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去账户页 → 持仓管理
+  </a>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">行情源 <span class="where2">持仓管理 → 添加持仓</span></h4>
+    <p>金银铂钯走新浪 SGE 上海价或国际现货价;加密以 Binance 为主源,CoinGecko / Coinbase 备源。</p>
+  </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+<section class="chapter" style="padding:44px 20px 4px">
+  <div class="grp reveal">
+    <div class="kicker mb-3">选修 B</div>
+    <h2 class="font-display font-medium">看懂自己的钱</h2>
+    <p class="gd">攒够两三期数据后,这部分最有价值 —— 它回答的是「我到底赚没赚、钱都在哪」。</p>
   </div>
 </section>
 
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="b1" style="padding:40px 20px 8px">
+  <span class="ch-water">B1</span>
+  <div class="ch-hd"><span class="ch-no">B1</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">资产打标</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">给每笔钱贴上标签,后面所有分析视角都靠它。</p>
+  <a class="goto" th:href="@{/lens/tags}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去资产打标
+  </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/b1-tags.jpg}" alt="资产打标:逐个账户 / 持仓贴风险、大类、行业、用途、地域标签,支持 AI 批量推荐。" loading="lazy">
+    <figcaption>资产打标:逐个账户 / 持仓贴风险、大类、行业、用途、地域标签,支持 AI 批量推荐。</figcaption>
+  </figure>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">不打标会怎样 <span class="where2">资产透视 → 资产打标</span></h4>
+    <p>不打标的资产在分析里会显示成一大块<b class="text-ink">「未分类」</b>,风险视图直接失真(演示数据里就占了 59.7%)。支持 AI 推荐打标,一次批量处理。</p>
+  </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="b2" style="padding:40px 20px 8px">
+  <span class="ch-water">B2</span>
+  <div class="ch-hd"><span class="ch-no">B2</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">基金穿透</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">公募基金拆成背后真实的「股 / 债 / 现金 + 申万行业」。</p>
+  <a class="goto" th:href="@{/lens/tags}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去打标页做穿透
+  </a>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">为什么要穿透 <span class="where2">资产打标 → 穿透</span></h4>
+    <p>不穿透的话,一支行业主题基金在「行业」维度只是一个「基金」单标签,看不出真实敞口。穿透后行业分布是真实的。只用公开代码查、<b class="text-ink">金额不出服务器</b>;理财类查不到会诚实标「未穿透」。</p>
+  </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="b3" style="padding:40px 20px 8px">
+  <span class="ch-water">B3</span>
+  <div class="ch-hd"><span class="ch-no">B3</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">资产透视:从全貌钻到具体一笔</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">10 个维度 × 7 个指标 × 10 块预设看板。四个组件分工不同,下面的演示专门讲清它们怎么配合 —— 这是最多人卡住的地方。</p>
+  <a class="goto" th:href="@{/lens}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去资产透视
+  </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/b3-lens.jpg}" alt="「风险总览」看板的旭日图:内圈风险等级、外圈资产类型。右上换维度、圆心换指标。" loading="lazy">
+    <figcaption>「风险总览」看板的旭日图:内圈风险等级、外圈资产类型。右上换维度、圆心换指标。</figcaption>
+  </figure>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
 <!-- ══ 演示 B · 下钻三步 ══ -->
 <section class="chapter" style="padding:34px 20px 56px">
   <div class="stage reveal">
@@ -663,80 +857,293 @@
   </div>
 </section>
 
-<section class="chapter" style="padding:8px 20px 10px">
-  <div class="lesson" id="b4">
-    <h4 class="font-display font-medium">B4 · 归因复盘 <span class="where2">仪表盘 → 归因复盘</span></h4>
-    <p>把这个月净资产的变化拆到各个贡献方,可切账户 / 成员 / 平台 / 币种 / 账户类型五个视角,并有 12 期趋势。它回答「变化<b class="text-ink">从哪来</b>」,和「人赚 vs 钱赚」回答的「变化<b class="text-ink">是什么性质</b>」互补。</p>
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="b4" style="padding:40px 20px 8px">
+  <span class="ch-water">B4</span>
+  <div class="ch-hd"><span class="ch-no">B4</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">归因复盘</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">这个月净资产的变化,到底是谁造成的。</p>
+  <a class="goto" th:href="@{/dashboard}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去仪表盘 → 归因复盘
+  </a>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">和「人赚 vs 钱赚」互补 <span class="where2">仪表盘 → 归因复盘</span></h4>
+    <p>归因回答「变化<b class="text-ink">从哪来</b>」(哪个账户 / 谁 / 哪个平台),人赚钱赚回答「变化<b class="text-ink">是什么性质</b>」(攒的还是赚的)。两个一起看才完整。可切五个视角,带 12 期趋势。</p>
   </div>
-  <div class="lesson" id="b5">
-    <h4 class="font-display font-medium">B5 · 收益与基准 <span class="where2">报表 → 收益概览 / 账户级收益 vs 基准</span></h4>
-    <p><b class="text-ink">家庭 XIRR(含收入)</b>是资金加权,把工资也当投入;<b class="text-ink">资产年化 TWR(剔收入)</b>剔除工资,纯看钱替你赚的。账户级那张表逐个账户对标其产品类目的长期基准,给出跑赢 / 跑输多少个百分点。不满 12 期时基准会按窗口折算再比,不会拿年化硬套三个月。</p>
-  </div>
-  <div class="lesson" id="b6">
-    <h4 class="font-display font-medium">B6 · 财富水位 <span class="where2">报表 → 财富水位</span></h4>
-    <p>在净资产曲线上叠两条线:<b class="text-ink">CPI 购买力线</b>(你的钱还买得起当年同样的生活吗)和 <b class="text-ink">M2 社会财富线</b>(你在社会财富里的位置是升还是降)。名义涨 8% 但跑输 M2,意味着相对位置其实在退。</p>
-  </div>
-  <div class="lesson" id="b7">
-    <h4 class="font-display font-medium">B7 · 储蓄能力 <span class="where2">报表 → 储蓄能力</span></h4>
-    <p>月均收入 / 月均支出 / 储蓄率 / 月储蓄能力(近 6 期中位数)/ 已填月份 N/12,外加近 12 期收支双柱图。没填的月份画灰柱且不参与中位数计算,免得空月份把结论带偏。</p>
-  </div>
-  <p class="mt-6"><a class="backtop" href="#top">↑ 回目录</a></p>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
 
 <div class="chapter"><div class="rule"></div></div>
 
-<!-- ════════ 选修 C ════════ -->
-<section class="chapter" style="padding:44px 20px 10px">
-  <div class="ch-hd"><span class="ch-no">选 修 C</span><span class="badge-opt">规划与决策</span></div>
-  <h2 class="text-3xl font-medium mb-2">规划与决策</h2>
-  <div class="lesson" id="c1">
-    <h4 class="font-display font-medium">C1 · 资产体检 <span class="where2">资产体检</span></h4>
-    <p>配置 / 风险 / 流动性 / 收益 四个维度的诊断,点账户列表行可下钻到<b class="text-ink">单账户体检</b>。可接 AI 出解读 —— 所有数字都是工程算好的,AI 只负责解释,不荐产品、不预测涨跌。</p>
+<section class="chapter ch" id="b5" style="padding:40px 20px 8px">
+  <span class="ch-water">B5</span>
+  <div class="ch-hd"><span class="ch-no">B5</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">收益与基准</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">两个收益率口径要分清,别混着看。</p>
+  <a class="goto" th:href="@{/reports}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去报表 → 收益概览
+  </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/b5-accounts.jpg}" alt="账户级收益 vs 基准:逐个账户对标其产品类目的长期基准,给出跑赢 / 跑输多少个百分点。" loading="lazy">
+    <figcaption>账户级收益 vs 基准:逐个账户对标其产品类目的长期基准,给出跑赢 / 跑输多少个百分点。</figcaption>
+  </figure>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">含收入 vs 剔收入 <span class="where2">报表 → 收益概览</span></h4>
+    <p><b class="text-ink">家庭 XIRR(含收入)</b>是资金加权,把工资也当投入;<b class="text-ink">资产年化 TWR(剔收入)</b>剔除工资,纯看钱替你赚的能力。</p>
   </div>
-  <div class="lesson" id="c2">
-    <h4 class="font-display font-medium">C2 · 配置对照与调仓建议 <span class="where2">报表 → 资产配置对照 / 调仓建议</span></h4>
-    <p>先在管理页设定各大类的目标占比(配置锚),报表里就会显示现状与目标的偏离。再往下是 AI 给的具体动作:「从 X 调 ¥N 到 Y」,可以采纳成计划并逐条核销。</p>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">基准怎么比 <span class="where2">账户级收益 vs 基准</span></h4>
+    <p>基准来自产品类目的长期年化,可在管理页微调。<b class="text-ink">不满 12 期时基准会按窗口折算</b>再比较,不会拿年化硬套三个月的收益。</p>
   </div>
-  <div class="lesson" id="c3">
-    <h4 class="font-display font-medium">C3 · 财务目标 <span class="where2">目标</span></h4>
-    <p>三个预设:<b class="text-ink">FIRE 退休</b>(通胀现值 + 4% 提取率,目标支出可自适应近月真实支出)、<b class="text-ink">子女教育</b>、<b class="text-ink">应急储备</b>;也可以自定义目标,挂在净投入 / 储蓄率 / 应急月数 / 资产年化等指标上。每个目标给三情景预测(乐观 / 中性 / 悲观)和进度落后判定。</p>
-  </div>
-  <div class="lesson" id="c4">
-    <h4 class="font-display font-medium">C4 · 提前还贷决策器 <span class="where2">报表 → 提前还贷</span></h4>
-    <p>按 18 年 NPV 视角,把「提前还贷省下的利息」和「这笔钱拿去投资的预期收益」放在一起比,算该不该提前还。</p>
-  </div>
-  <p class="mt-6"><a class="backtop" href="#top">↑ 回目录</a></p>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
 
 <div class="chapter"><div class="rule"></div></div>
 
-<!-- ════════ 选修 D ════════ -->
-<section class="chapter" style="padding:44px 20px 10px">
-  <div class="ch-hd"><span class="ch-no">选 修 D</span><span class="badge-opt">进阶与维护</span></div>
-  <h2 class="text-3xl font-medium mb-2">进阶与维护</h2>
-  <div class="lesson" id="d1">
-    <h4 class="font-display font-medium">D1 · 多币种 <span class="where2">管理 → 汇率维护 / 页面右上角币种切换</span></h4>
-    <p>本位币定家庭主币,视图币种是<b class="text-ink">显示镜头</b> —— 切币种时金额按汇率缩放,而比值类指标(收益率、储蓄率、紧急储备月数)三种币种下完全相等。汇率自动拉取,也可手工覆盖。</p>
+<section class="chapter ch" id="b6" style="padding:40px 20px 8px">
+  <span class="ch-water">B6</span>
+  <div class="ch-hd"><span class="ch-no">B6</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">财富水位</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">扣掉通胀和社会财富增长,你到底有没有变富。</p>
+  <a class="goto" th:href="@{/reports}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去报表 → 财富水位
+  </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/b6-wealth.jpg}" alt="财富水位:净资产曲线叠 CPI 购买力线与 M2 社会财富线。" loading="lazy">
+    <figcaption>财富水位:净资产曲线叠 CPI 购买力线与 M2 社会财富线。</figcaption>
+  </figure>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">两条参照线 <span class="where2">报表 → 财富水位</span></h4>
+    <p><b class="text-ink">CPI 购买力线</b> —— 你的钱还买得起当年同样的生活吗;<b class="text-ink">M2 社会财富线</b> —— 你在社会财富里的位置是升还是降。名义涨 8% 但跑输 M2,意味着相对位置其实在退。历史底座 1990–2025。</p>
   </div>
-  <div class="lesson" id="d2">
-    <h4 class="font-display font-medium">D2 · 指标设置与产品类目 <span class="where2">管理 → 指标设置 / 产品类目</span></h4>
-    <p>「指标设置」控制账户级表格显示哪些列(仪表盘与报表共用一套开关);「产品类目」定义每类产品的流动性、风险等级和长期基准% —— 紧急储备算不算它、体检怎么判风险、基准对标多少,都由这里决定。</p>
-  </div>
-  <div class="lesson" id="d3">
-    <h4 class="font-display font-medium">D3 · 提醒、备份与审计 <span class="where2">管理 → 提醒 / 备份与恢复 / 审计日志</span></h4>
-    <p>截止前 N 天发短信提醒(阿里云,可选),站内 banner 兜底;备份可一键导出、也可从备份恢复,还能导出 CSV 账本;审计日志记录谁在什么时候改了什么。</p>
-  </div>
-  <p class="mt-6"><a class="backtop" href="#top">↑ 回目录</a></p>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
 
-<footer class="chapter" style="padding:30px 20px 60px">
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="b7" style="padding:40px 20px 8px">
+  <span class="ch-water">B7</span>
+  <div class="ch-hd"><span class="ch-no">B7</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">储蓄能力</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">你每月到底能攒下多少,这块全靠你填的那两侧收支。</p>
+  <a class="goto" th:href="@{/reports}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去报表 → 储蓄能力
+  </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/b7-savings.jpg}" alt="储蓄能力:月均收入 / 月均支出 / 储蓄率 / 月储蓄能力 / 已填月份。" loading="lazy">
+    <figcaption>储蓄能力:月均收入 / 月均支出 / 储蓄率 / 月储蓄能力 / 已填月份。</figcaption>
+  </figure>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">没填的月不参与计算 <span class="where2">报表 → 储蓄能力</span></h4>
+    <p>月均收入 / 月均支出 / 储蓄率 / 月储蓄能力(近 6 期中位数)/ 已填月份 N/12,外加近 12 期收支双柱图。<b class="text-ink">没填的月份画灰柱且不参与中位数计算</b>,免得空月份把结论带偏。</p>
+  </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+<section class="chapter" style="padding:44px 20px 4px">
+  <div class="grp reveal">
+    <div class="kicker mb-3">选修 C</div>
+    <h2 class="font-display font-medium">规划与决策</h2>
+    <p class="gd">把数据变成决定:该怎么调、离目标多远、要不要提前还贷。</p>
+  </div>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="c1" style="padding:40px 20px 8px">
+  <span class="ch-water">C1</span>
+  <div class="ch-hd"><span class="ch-no">C1</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">资产体检</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">配置 / 风险 / 流动性 / 收益 四个维度的诊断。</p>
+  <a class="goto" th:href="@{/checkup}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去资产体检
+  </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/c1-checkup.jpg}" alt="家庭体检 KPI:净资产 / 总资产 / 总负债 / 家庭年化 / 紧急储备等。" loading="lazy">
+    <figcaption>家庭体检 KPI:净资产 / 总资产 / 总负债 / 家庭年化 / 紧急储备等。</figcaption>
+  </figure>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">可下钻到单账户 <span class="where2">资产体检 → 点账户列表行</span></h4>
+    <p>四维诊断给规则型结论,点账户行可下钻到<b class="text-ink">单账户体检</b>。可接 AI 出解读 —— 所有数字都是工程算好的,AI 只负责解释,<b class="text-ink">不荐产品、不预测涨跌</b>。</p>
+  </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="c2" style="padding:40px 20px 8px">
+  <span class="ch-water">C2</span>
+  <div class="ch-hd"><span class="ch-no">C2</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">配置对照与调仓建议</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">先定目标配置,再看偏离,最后拿到具体动作。</p>
+  <a class="goto" th:href="@{/reports}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去报表 → 资产配置对照
+  </a>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">从偏离到动作 <span class="where2">报表 → 配置对照 / 调仓建议</span></h4>
+    <p>在管理页设定各大类的目标占比(配置锚),报表里显示现状与目标的偏离。往下是 AI 给的具体动作「从 X 调 ¥N 到 Y」,可采纳成计划并逐条核销。</p>
+  </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="c3" style="padding:40px 20px 8px">
+  <span class="ch-water">C3</span>
+  <div class="ch-hd"><span class="ch-no">C3</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">财务目标</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">三个预设 + 自定义,每个目标都给三情景预测。</p>
+  <a class="goto" th:href="@{/goals}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去设定财务目标
+  </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/c3-goals.jpg}" alt="目标页:每个目标一条进度带,含三情景预测与落后判定。" loading="lazy">
+    <figcaption>目标页:每个目标一条进度带,含三情景预测与落后判定。</figcaption>
+  </figure>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">三个预设 <span class="where2">目标 → 新建</span></h4>
+    <p><b class="text-ink">FIRE 退休</b>(通胀现值 + 4% 提取率,目标支出可自适应近月真实支出)、<b class="text-ink">子女教育</b>、<b class="text-ink">应急储备</b>。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">自定义目标 <span class="where2">目标 → 自定义</span></h4>
+    <p>可挂在净投入 / 储蓄率 / 应急月数 / 资产年化等指标上,设定阈值与期限。每个目标给乐观 / 中性 / 悲观三情景预测和进度落后判定。</p>
+  </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="c4" style="padding:40px 20px 8px">
+  <span class="ch-water">C4</span>
+  <div class="ch-hd"><span class="ch-no">C4</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">提前还贷决策器</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">该不该提前还房贷,用 18 年 NPV 视角算给你看。</p>
+  <a class="goto" th:href="@{/reports/refinance}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去打开决策器
+  </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/c4-refinance.jpg}" alt="提前还贷决策器:把省下的利息与这笔钱投资的预期收益放在一起比。" loading="lazy">
+    <figcaption>提前还贷决策器:把省下的利息与这笔钱投资的预期收益放在一起比。</figcaption>
+  </figure>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">怎么判 <span class="where2">报表 → 提前还贷</span></h4>
+    <p>把「提前还贷省下的利息」和「这笔钱拿去投资的预期收益」按 18 年净现值放在一起比较,而不是只看利率高低。</p>
+  </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+<section class="chapter" style="padding:44px 20px 4px">
+  <div class="grp reveal">
+    <div class="kicker mb-3">选修 D</div>
+    <h2 class="font-display font-medium">进阶与维护</h2>
+    <p class="gd">多币种、口径微调、提醒与备份。</p>
+  </div>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="d1" style="padding:40px 20px 8px">
+  <span class="ch-water">D1</span>
+  <div class="ch-hd"><span class="ch-no">D1</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">多币种</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">本位币定家庭主币,视图币种只是<b class="text-ink">显示镜头</b>。</p>
+  <a class="goto" th:href="@{/admin/fx}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去汇率维护
+  </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/d1-fx.jpg}" alt="汇率维护:自动拉取,也可手工覆盖某一期的汇率。" loading="lazy">
+    <figcaption>汇率维护:自动拉取,也可手工覆盖某一期的汇率。</figcaption>
+  </figure>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">比值类指标币种无关 <span class="where2">管理 → 汇率维护</span></h4>
+    <p>切币种时金额按汇率缩放,而<b class="text-ink">比值类指标(收益率、储蓄率、紧急储备月数)在三种币种下完全相等</b> —— 这是硬约束,有专门守护网住。汇率自动拉取,也可手工覆盖。</p>
+  </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="d2" style="padding:40px 20px 8px">
+  <span class="ch-water">D2</span>
+  <div class="ch-hd"><span class="ch-no">D2</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">指标设置与产品类目</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">这两处决定了很多指标怎么算,值得看一眼。</p>
+  <a class="goto" th:href="@{/admin/product-categories}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去产品类目
+  </a>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">指标设置 <span class="where2">管理 → 指标设置</span></h4>
+    <p>控制账户级表格显示哪些列,仪表盘与报表<b class="text-ink">共用一套开关</b>,顶部 chips 点一下两处同时生效。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">产品类目 <span class="where2">管理 → 产品类目</span></h4>
+    <p>定义每类产品的<b class="text-ink">流动性、风险等级、长期基准%</b> —— 紧急储备算不算它、体检怎么判风险、基准对标多少,全由这里决定。</p>
+  </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="d3" style="padding:40px 20px 8px">
+  <span class="ch-water">D3</span>
+  <div class="ch-hd"><span class="ch-no">D3</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">提醒、备份与审计</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">让它自己跑起来,以及出事能回滚。</p>
+  <a class="goto" th:href="@{/admin}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去管理页
+  </a>
+  <figure class="fig reveal">
+    <img th:src="@{/img/manual/d3-admin.jpg}" alt="管理页:家庭 / 成员 / 账户 / 口径 / 周期 / 提醒 / 汇率 / 数据源 / 备份 / 审计 共 15 块。" loading="lazy">
+    <figcaption>管理页:家庭 / 成员 / 账户 / 口径 / 周期 / 提醒 / 汇率 / 数据源 / 备份 / 审计 共 15 块。</figcaption>
+  </figure>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">提醒 <span class="where2">管理 → 提醒</span></h4>
+    <p>截止前 N 天发短信(阿里云,可选),站内 banner 兜底。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">备份与导出 <span class="where2">管理 → 备份与恢复</span></h4>
+    <p>一键备份、从备份恢复、导出 CSV 账本。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">审计日志 <span class="where2">管理 → 审计日志</span></h4>
+    <p>谁在什么时候改了什么,都有记录。</p>
+  </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<footer class="chapter" style="padding:34px 20px 64px">
   <div class="rule mb-4"></div>
   <p class="mono" style="font-size:10.5px;color:var(--ink-subtle);line-height:1.9">
-    还想知道某笔钱具体怎么记 → 仓库文档 <b style="color:var(--ink)">docs/how-to-record.md</b>(9 个场景速查)<br>
-    部署 / 备份 / 忘记密码 → <b style="color:var(--ink)">docs/faq.md</b> · 券商同步图文向导 → <b style="color:var(--ink)">/help/broker-sync</b>
+    某笔钱具体怎么记 → 仓库文档 <b style="color:var(--ink)">docs/how-to-record.md</b>(9 个场景速查)<br>
+    部署 / 备份 / 忘记密码 → <b style="color:var(--ink)">docs/faq.md</b> ·
+    券商同步图文向导 → <a th:href="@{/help/broker-sync}" style="color:var(--brass-text)">/help/broker-sync</a>
   </p>
 </footer>
-
 </main>
 <script>
 (function(){
@@ -814,6 +1221,15 @@
     });
   }, {threshold:.35});
   if (demoB) ioB.observe(demoB);
+  /* 阅读进度条(教程页是读物,给个进度感) */
+  var bar = document.getElementById('readbar');
+  if (bar) {
+    var tick = function () {
+      var h = document.body.scrollHeight - innerHeight;
+      bar.style.width = (h > 0 ? Math.min(100, scrollY / h * 100) : 0) + '%';
+    };
+    addEventListener('scroll', tick, {passive:true}); tick();
+  }
 })();
 </script>
 </body>
