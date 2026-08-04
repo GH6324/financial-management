@@ -245,10 +245,14 @@
       dock.id = 'float-dock';
       document.body.appendChild(dock);
     }
-    /* 顺序:方向 → 目录 → 隐私(从上到下,最常用的隐私眼离拇指最近) */
+    /* 顺序:方向 → 目录 → 隐私(从上到下,最常用的隐私眼离拇指最近)
+       注意:必须**每次都按序 append 全部三个**,不能加「已在 dock 里就跳过」的守卫。
+       横屏时 tocIntoNav 把目录钮搬进了导航栏,切回竖屏时它不在 dock 里 —— 带守卫的话
+       它被 append 到末尾、另两个原位不动,顺序就变成 方向/隐私/目录(用户报的 bug)。
+       appendChild 对已在容器内的节点等于「移到末尾」,按序全 append 一遍即得声明顺序,幂等。 */
     ['#ori-float', '.toc-fab', '#priv-float'].forEach(function (sel) {
       var el = document.querySelector(sel);
-      if (el && el.parentElement !== dock) dock.appendChild(el);
+      if (el) dock.appendChild(el);
     });
     return dock;
   }

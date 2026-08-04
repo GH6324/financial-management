@@ -13,16 +13,19 @@ public class AuthController {
     public String login(@AuthenticationPrincipal MemberPrincipal me,
                         @RequestParam(value = "error", required = false) String error,
                         @RequestParam(value = "logout", required = false) String logout,
+                        @RequestParam(value = "stale", required = false) String stale,
                         Model model) {
         // 已登录用户访问 /login(常见:书签 = /login)· 直接送去 /dashboard,
         // 不再展示登录表单。注:logout 后 Spring 已清 session · 此时 me == null · 正常落到表单。
         // 若用户 must_change_pw,MustChangePasswordInterceptor 会在 /dashboard 那一层
         // 再次拦截并送去 /profile/password,这里不需要特殊判断。
-        if (me != null && logout == null) {
+        if (me != null && logout == null && stale == null) {
             return "redirect:/dashboard";
         }
         if (error != null)  model.addAttribute("error", "用户名或密码错误");
         if (logout != null) model.addAttribute("logout", "已退出");
+        // CSRF token 失效(页面开太久 / 服务重启过 / 点了后退再提交)· 见 SecurityConfig.staleFormAccessDeniedHandler
+        if (stale != null)  model.addAttribute("stale", "这个页面停留太久了,请重新登录一次。");
         return "auth/login";
     }
 }

@@ -5314,6 +5314,39 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && log_ok "v18-PERIOD-PICKER(账期下拉候选走 findRecentAsOf · 不超过今天/进行中期 · 当前期必在列表内)" \
   || log_bad "v18-PERIOD-PICKER 仍用 findLatest" "EntryController 的 periods 应走 periodMapper.findRecentAsOf(上界=max(今天, 进行中期起始))"
 
+# v181-CSRF-STALE · CSRF 失效回登录页,不甩「印泥洒了」错误页
+#   用户报「登录后 URL 还停在 /login + 报错页」。根因是 CSRF token 失效走了 AccessDeniedHandler
+#   → 403 → 渲染 error.html,URL 自然停在 /login。触发场景全是日常事:登录页开着放久了、
+#   服务重启过、点了后退再提交、在另一个标签页登录登出过。
+#   注意:只有 CsrfException 才跳登录页,真正的权限不足必须仍返回 403(那才该报错)。
+{ grep -q 'staleFormAccessDeniedHandler' "$RD/src/main/java/com/family/finance/auth/SecurityConfig.java" \
+  && grep -q 'CsrfException' "$RD/src/main/java/com/family/finance/auth/SecurityConfig.java" \
+  && grep -q 'login?stale' "$RD/src/main/java/com/family/finance/auth/SecurityConfig.java" \
+  && grep -q 'AccessDeniedHandlerImpl' "$RD/src/main/java/com/family/finance/auth/SecurityConfig.java" \
+  && grep -q '"stale"' "$RD/src/main/java/com/family/finance/auth/AuthController.java" \
+  && grep -q 'th:if="${stale}"' "$RD/src/main/resources/templates/auth/login.html"; } \
+  && log_ok "v181-CSRF-STALE(CsrfException → /login?stale + 提示文案 · 其余 AccessDenied 仍走 403)" \
+  || log_bad "v181-CSRF-STALE 缺件" "SecurityConfig 需 staleFormAccessDeniedHandler(只拦 CsrfException,其余交回 AccessDeniedHandlerImpl)+ AuthController 接 stale + login.html 提示分支"
+
+# v181-FLOAT-DOCK · 三个浮钮的顺序在横竖屏来回切之后不能变
+#   dockFloats 原来带「已在 dock 里就跳过」的守卫。横屏时 tocIntoNav 把目录钮搬进导航栏,
+#   切回竖屏时它不在 dock 里 → 被 append 到末尾、另两个原位不动 → 顺序变成 方向/隐私/目录。
+#   正解:每次按序 append 全部三个(appendChild 对已在容器内的节点=移到末尾),幂等。
+{ grep -q "'#ori-float', '.toc-fab', '#priv-float'" "$RD/src/main/resources/static/js/landscape.js" \
+  && ! grep -q "el.parentElement !== dock" "$RD/src/main/resources/static/js/landscape.js" \
+  && grep -qE 'if \(el\) dock\.appendChild\(el\)' "$RD/src/main/resources/static/js/landscape.js"; } \
+  && log_ok "v181-FLOAT-DOCK(浮钮按序全 append · 横竖屏来回切顺序不变)" \
+  || log_bad "v181-FLOAT-DOCK 守卫回退了" "landscape.js 的 dockFloats 不得再用 el.parentElement !== dock 跳过已入 dock 的节点 —— 那会让横屏搬走过的目录钮回来时落到末尾"
+
+# v181-README-BRIEF · README 近期更新段要短(用户 2026-08-04:篇幅太大)
+#   每版 2–4 行 + 不内嵌截图 + 只留最近 1–2 版;细节和宫格图放 Release 页。README 是落地页不是变更日志。
+RN_SEG="$(awk '/^## 近期更新/,/^## 主要能力/' "$RD/README.md")"
+RN_IMG="$(printf '%s' "$RN_SEG" | grep -c 'releases/download' || true)"
+RN_LINE="$(printf '%s' "$RN_SEG" | wc -l | tr -d ' ')"
+{ [ "$RN_IMG" = "0" ] && [ "$RN_LINE" -le 16 ]; } \
+  && log_ok "v181-README-BRIEF(近期更新段 $RN_LINE 行 · 无内嵌 release 截图)" \
+  || log_bad "v181-README-BRIEF 段落又变长了" "近期更新段应 ≤16 行且不内嵌 releases/download 图(当前 $RN_LINE 行 / $RN_IMG 张图)· 细节放 Release 页"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

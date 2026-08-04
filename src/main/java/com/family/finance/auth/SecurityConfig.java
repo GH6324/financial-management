@@ -80,6 +80,30 @@ public class SecurityConfig {
         return h;
     }
 
+    /**
+     * CSRF / 权限被拒时的落点。
+     *
+     * <p>CSRF 失败在 Spring Security 里走 {@code AccessDeniedHandler}
+     * ({@code InvalidCsrfTokenException} / {@code MissingCsrfTokenException})。默认行为是 403 +
+     * 错误页,而这类失败**几乎总是"页面放太久了"**,不是攻击 —— 甩错误页只会让用户懵。</p>
+     *
+     * <p>处置:CSRF 类失败一律 302 回 {@code /login?stale};其余真正的权限不足仍返回 403
+     * (那才是"你不该访问这里",错误页是对的)。POST 回登录页而不是原路重放 ——
+     * 表单里的密码不会被带走,让用户自己重填一次最干净。</p>
+     */
+    @Bean
+    public org.springframework.security.web.access.AccessDeniedHandler staleFormAccessDeniedHandler() {
+        var fallback = new org.springframework.security.web.access.AccessDeniedHandlerImpl();
+        return (request, response, ex) -> {
+            if (ex instanceof org.springframework.security.web.csrf.CsrfException) {
+                String ctx = request.getContextPath() == null ? "" : request.getContextPath();
+                response.sendRedirect(ctx + "/login?stale");
+                return;
+            }
+            fallback.handle(request, response, ex);
+        };
+    }
+
     @Bean
     public AuthenticationFailureHandler failureHandler() {
         return new SimpleUrlAuthenticationFailureHandler("/login?error");
@@ -116,6 +140,11 @@ public class SecurityConfig {
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())  // 非 XOR · 表单 _csrf 与 cookie 一致
             )
+            // CSRF token 失效不该甩一个「印泥洒了」错误页。这个场景太日常了:
+            // 登录页开着放久了 / 服务重启过 / 点了后退再提交 / 在另一个标签页登录登出过 ——
+            // 用户看到的是「登录后 URL 还停在 /login + 报错页」,完全不知道该做什么。
+            // 一律回登录页并说清「页面停留太久」,让他重填一次就好。
+            .exceptionHandling(e -> e.accessDeniedHandler(staleFormAccessDeniedHandler()))
             .headers(h -> h
                 .frameOptions(f -> f.disable())
                 .cacheControl(c -> c.disable())  // 改由 WebMvcConfig+CacheHeaderInterceptor 精细控制

@@ -39,6 +39,9 @@
       <div th:if="${error}"
            class="border border-rust bg-rust/[0.04] px-4 py-3 mb-6 text-sm"
            th:text="${error}">用户名或密码错误</div>
+      <div th:if="${stale}"
+           class="border border-rust bg-rust/[0.04] px-4 py-3 mb-6 text-sm"
+           th:text="${stale}">这个页面停留太久了,请重新登录一次。</div>
       <div th:if="${logout}"
            class="border border-forest bg-forest/[0.05] px-4 py-3 mb-6 text-sm"
            th:text="${logout}">已退出</div>
