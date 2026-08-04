@@ -88,7 +88,12 @@ public class EntryController {
         }
         model.addAttribute("ledgerHtmlByAccount", ledgerHtmlByAccount);
         model.addAttribute("period", period);
-        model.addAttribute("periods", periodMapper.findLatest(me.getFamilyId(), 12));
+        // 账期选择器的候选:近 12 期,但**不能用 findLatest** —— 它按 period_start 倒序取,
+        // 账期表若预建到很多年以后(beta 排到 2038),取到的 12 期全是未来空期,
+        // 当前账期根本不在列表里 → 没有 option 带 selected → 选择器显示成「2038 · 12 · CLOSED」。
+        // 上界取「今天」与「进行中账期起始」的较晚者(家庭可以提前开下一期并在其中填报)。
+        model.addAttribute("periods", periodMapper.findRecentAsOf(me.getFamilyId(),
+                entryPeriodListUpperBound(me.getFamilyId()), 12));
         model.addAttribute("accounts", accountMapper.findActiveByFamily(me.getFamilyId()));
         addAccountOwnerMeta(me.getFamilyId(), model);   // v1.4.2 · 划转下拉主理人头像/名
         model.addAttribute("rows", rows);
@@ -201,6 +206,15 @@ public class EntryController {
         }
 
         return "entry/index";
+    }
+
+    /** 账期下拉的时间上界 = 今天与进行中账期起始的较晚者(见 periods 那行的说明)。 */
+    private java.time.LocalDate entryPeriodListUpperBound(long familyId) {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        return periodMapper.findCurrentOpen(familyId)
+                .map(p -> p.getPeriodStart())
+                .filter(start -> start.isAfter(today))
+                .orElse(today);
     }
 
     /**

@@ -108,13 +108,31 @@
     const expense = /*[[${savingsExpense}]]*/ [];
     const ctx = document.getElementById('savings-bars').getContext('2d');
     if (typeof Chart === 'undefined') return;
+
+    /* 项目铁律:金额要直接绘在柱顶,不能只靠 hover tooltip。
+       但 12 期 × 2 组柱子全标会糊成一片 —— 只标最近 3 期(用户最关心的近况),
+       更早的月份靠 y 轴刻度 + hover 就够。万元以上用「万」,免得柱顶挤不下。
+       这个图此前漏了 datalabels,是 v1.8 逐笔模式让 beta 这段有了数据才暴露出来的。 */
+    function barLabel(color) {
+      return {
+        color: color, anchor: 'end', align: 'end', offset: 2,
+        font: { family: 'JetBrains Mono', size: 9, weight: '600' },
+        display: (c) => c.dataIndex >= c.dataset.data.length - 3 && c.dataset.data[c.dataIndex] != null,
+        formatter: (v) => {
+          const n = Number(v);
+          return n >= 10000 ? '¥' + (n / 10000).toFixed(1) + '万' : '¥' + Math.round(n / 1000) + 'k';
+        }
+      };
+    }
     new Chart(ctx, {
       type: 'bar',
       data: {
         labels: labels,
         datasets: [
-          { label: '收入', data: income,  backgroundColor: 'rgba(47,93,80,.85)',  borderColor: 'rgba(47,93,80,1)',  borderWidth: 1 },
-          { label: '支出', data: expense, backgroundColor: 'rgba(159,74,58,.75)', borderColor: 'rgba(159,74,58,1)', borderWidth: 1 }
+          { label: '收入', data: income,  backgroundColor: 'rgba(47,93,80,.85)',  borderColor: 'rgba(47,93,80,1)',  borderWidth: 1,
+            datalabels: barLabel('#2f5d50') },
+          { label: '支出', data: expense, backgroundColor: 'rgba(159,74,58,.75)', borderColor: 'rgba(159,74,58,1)', borderWidth: 1,
+            datalabels: barLabel('#9c4a2a') }
         ]
       },
       options: {
@@ -127,7 +145,8 @@
           y: { beginAtZero: true, ticks: { callback: v => '¥' + (v/1000).toFixed(0) + 'k', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } },
           x: { ticks: { font: { family: 'JetBrains Mono', size: 10 } }, grid: { display: false } }
         }
-      }
+      },
+      plugins: [ChartDataLabels]
     });
 
     // v0.5 FR-85 · 收支趋势线(收入线 + 支出线 + 储蓄填充)

@@ -65,7 +65,7 @@
   </section>
 
   <!-- v0.12 · 第一步 · 本月收支填报:收入侧结构化(金额+类目+目标账户 → 直接入账+留流水)· 支出侧总额(维持) -->
-  <section class="mb-6 border-2 border-ink" style="background:var(--paper-soft)" th:if="${period.status.name() != 'CLOSED'}">
+  <section id="cashflow-entry" class="mb-6 border-2 border-ink" style="background:var(--paper-soft)" th:if="${period.status.name() != 'CLOSED'}">
     <div class="px-6 py-4 border-b border-rule-soft flex items-baseline justify-between flex-wrap gap-3">
       <div>
         <div class="eyebrow mb-1" style="color:var(--brass-deep)">第 · 一 · 步 · 本 · 月 · 收 · 支</div>
@@ -102,14 +102,14 @@
             </div>
             <div>
               <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">类目</label>
-              <select name="categoryCode" class="h-9 font-mono text-xs bg-paper border border-rule px-3">
+              <select data-lsel name="categoryCode" class="h-9 font-mono text-xs bg-paper border border-rule px-3">
                 <option th:each="c : ${incomeCategories}" th:if="${c.accountType == null or c.accountType != 'STOCK'}"
                         th:value="${c.code}" th:text="${c.displayName}">工资</option>
               </select>
             </div>
             <div>
               <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">现金账户</label>
-              <select name="accountId" class="h-9 font-mono text-xs bg-paper border border-rule px-3">
+              <select data-lsel name="accountId" class="h-9 font-mono text-xs bg-paper border border-rule px-3">
                 <option th:each="a : ${incomeAccounts}" th:if="${a.type.name() == 'CASH'}"
                         th:value="${a.id}" th:text="${a.displayName} + ' · ' + ${a.type.label}">账户</option>
               </select>
@@ -132,7 +132,7 @@
             </span>
             <div>
               <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">股票账户</label>
-              <select id="stock-acct" name="accountId"
+              <select data-lsel id="stock-acct" name="accountId"
                       hx-get="/entry/income/stock/holdings"
                       th:attr="hx-vals='{&quot;periodId&quot;: ' + ${period.id} + '}'"
                       hx-target="#stock-holdings-target" hx-trigger="change"
@@ -209,14 +209,14 @@
           </div>
           <div>
             <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">类目</label>
-            <select name="categoryCode" class="h-9 font-mono text-xs bg-paper border border-rule px-3">
+            <select data-lsel name="categoryCode" class="h-9 font-mono text-xs bg-paper border border-rule px-3">
               <option th:each="c : ${expenseCategories}" th:value="${c.code}" th:text="${c.displayName}"
                       th:selected="${c.code == 'consumption'}">日常开支</option>
             </select>
           </div>
           <div>
             <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">支出账户</label>
-            <select name="accountId" class="h-9 font-mono text-xs bg-paper border border-rule px-3">
+            <select data-lsel name="accountId" class="h-9 font-mono text-xs bg-paper border border-rule px-3">
               <option th:each="a : ${expenseAccounts}"
                       th:value="${a.id}" th:text="${a.displayName} + ' · ' + ${a.type.label}">账户</option>
             </select>
@@ -305,6 +305,26 @@
       <div class="text-xs text-ink-soft pt-1 font-mono" th:unless="${expenseMode == 'ITEMIZED'}">家庭本月已填收支:<b th:text="${(filledMembers != null ? filledMembers.size() : 0) + ' / ' + (totalMembers ?: 0) + ' 人'}">0 / 2 人</b></div>
     </div>
   </section>
+
+  <!-- v1.8 · 收支两区的下拉换成自研件(data-lsel)· 见 /js/lens-select.js -->
+  <script th:src="@{/js/lens-select.js(v=${buildVersion})}"></script>
+  <style>
+    /* 自研下拉的按钮要和旁边的 input(h-9 font-mono text-xs bg-paper)长得一样高、一样字号,
+       否则同一行控件参差不齐(并列同类元素必须同尺寸)。lens-select 自带的是通用纸面样式,
+       这里按本页的控件规格覆盖 —— 与打标页 .tags-table .lsel-btn 同一手法。
+
+       注意:一律用 rem 不用 px:顶栏有字号缩放(A A),根字号会变成 15px 甚至更大。
+       写死 36px/12px 时实测按钮 36px、旁边 h-9 的输入框 33.75px,差 2px 且字号也不一致。
+       2.25rem = h-9,0.75rem = text-xs,0.75rem = px-3 —— 与 Tailwind 同一套刻度,一起缩放。 */
+    #cashflow-entry .lsel-btn{
+      height:2.25rem; padding:0 1.6rem 0 0.75rem; display:flex; align-items:center;
+      font-family:var(--font-mono,ui-monospace,monospace); font-size:0.75rem;
+      background:var(--paper,#faf6ec); border-color:var(--rule,#d8cfba);
+    }
+    #cashflow-entry .lsel{ min-width:8.25rem; }
+    /* 股票账户那个下拉在弹性行里,给它宽一点免得账户名被截 */
+    #cashflow-entry .lsel:has(#stock-acct){ min-width:11.5rem; }
+  </style>
 
   <!-- v0.12 FR-150 · 收入侧类型切换:现金 / 股票 -->
   <script>

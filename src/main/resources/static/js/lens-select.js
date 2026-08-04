@@ -3,10 +3,13 @@
  * 渲染 按钮 + 弹出面板(搜索框 + 选项列表)。搜索三路匹配:中文子串 / 全拼连写 / 首字母
  * (option 的 data-py="quan pin fen jie" 由后端枚举 getPinyin() 输出;无 data-py 的选项只按中文匹配)。
  * 动态 options(lens.js syncSelectors 重填)经 MutationObserver 自动重建,零耦合。
+ * v1.8 起也用在填报页收入/支出区(类目 / 账户)。选项 ≤5 时自动不显示搜索框(短列表里它是噪音),
+ * 需要强制保留的写 data-lsel-search。
  * XSS:选项 label 来自枚举/维度注册表(受控),仍一律走 textContent 赋值,不拼 HTML。 */
 (function () {
   'use strict';
   var OPEN = null;   // 当前打开的面板(同时只开一个)
+  var SEARCH_THRESHOLD = 5;   // 选项 ≤ 此数时不显示搜索框(见 syncSearchVisibility)
 
   function norm(s) { return String(s || '').toLowerCase().replace(/\s+/g, ''); }
   function initials(py) {
@@ -43,6 +46,15 @@
     panel.appendChild(q); panel.appendChild(list);
     wrap.appendChild(panel);
 
+    /* v1.8 · 选项很少时不渲染搜索框:4 个类目上面顶一个「搜索 · 中文/拼音/首字母」纯属噪音,
+       还多占一行、在移动端 sheet 里把可选项挤下去。阈值 5 以内隐藏;
+       动态 options 越过阈值会在下面的 MutationObserver 里重新判定。
+       想强制保留搜索框的调用方写 data-lsel-search。 */
+    function syncSearchVisibility() {
+      var forced = sel.hasAttribute('data-lsel-search');
+      q.hidden = !forced && sel.options.length <= SEARCH_THRESHOLD;
+    }
+
     var items = buildItems(sel);
     var active = -1;
 
@@ -64,7 +76,9 @@
       var mobile = window.matchMedia && window.matchMedia('(max-width:640px)').matches;
       if (mobile) document.body.appendChild(panel);
       q.value = ''; render(''); active = -1;
-      if (!mobile) q.focus();   // 移动端不自动聚焦:弹键盘会挡住选项列表,让用户先滑动挑选(2026-07-18)
+      // 移动端不自动聚焦:弹键盘会挡住选项列表,让用户先滑动挑选(2026-07-18)
+      // 搜索框被隐藏(短列表)时当然也不聚焦
+      if (!mobile && !q.hidden) q.focus();
     }
     panel._lselWrap = wrap;
     function pick(v) {
@@ -103,6 +117,17 @@
     }
 
     btn.addEventListener('click', function () { panel.hidden ? open() : close(); });
+    /* 搜索框隐藏时,上下键/回车要仍然可用 —— 原来这些监听只挂在搜索框上 */
+    btn.addEventListener('keydown', function (e) {
+      if (panel.hidden) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+      else if (e.key === 'Enter' && active >= 0) {
+        e.preventDefault();
+        var li = list.querySelectorAll('li[data-v]')[active];
+        if (li) pick(li.getAttribute('data-v'));
+      } else if (e.key === 'Escape') { close(); }
+    });
     q.addEventListener('input', function () { active = -1; render(q.value); });
     q.addEventListener('keydown', function (e) {
       if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
@@ -117,11 +142,12 @@
     document.addEventListener('click', function (e) { if (!wrap.contains(e.target) && !panel.contains(e.target)) close(); });
 
     /* 动态 options(lens.js 重填)/ 外部改值 → 自动重建与同步 */
-    new MutationObserver(function () { items = buildItems(sel); syncBtn(); })
+    new MutationObserver(function () { items = buildItems(sel); syncBtn(); syncSearchVisibility(); })
       .observe(sel, { childList: true, subtree: true, attributes: true });
     sel.addEventListener('change', syncBtn);
 
     syncBtn();
+    syncSearchVisibility();
     sel._lsel = true;
   }
 
@@ -142,6 +168,7 @@
     '.lsel-btn.lsel-empty{color:var(--ink-subtle,#8a8172)}' +
     '.lsel-panel{position:absolute;left:0;top:calc(100% + 2px);z-index:60;min-width:100%;width:max-content;max-width:280px;' +
       'background:var(--card,#fffdf6);border:1px solid var(--rule,#d8cfba);box-shadow:0 6px 18px rgba(33,30,23,.14)}' +
+    '.lsel-q[hidden]{display:none}' +   /* 短列表不显示搜索框 · 见 syncSearchVisibility */
     '.lsel-q{display:block;width:100%;box-sizing:border-box;border:0;border-bottom:1px solid var(--rule,#d8cfba);' +
       'background:transparent;padding:7px 10px;font-size:13px;outline:none}' +
     '.lsel-list{list-style:none;margin:0;padding:4px 0;max-height:240px;overflow-y:auto}' +

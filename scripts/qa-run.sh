@@ -1431,8 +1431,12 @@ in_out=$(mysql -ufinance -pfinance finance -sN -e "SELECT CONCAT(IFNULL(total_in
 # v03-IND-4 · /reports 储蓄区块渲染(无数据态 → 引导卡)
 #   v0.4.4 文案专业化:「/entry」→「填报页」
 $CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
-{ grep -q '储蓄能力' "$TMP" && grep -q '去填报页' "$TMP"; } \
-  && log_ok "v03-IND-4 /reports 无数据时显储蓄引导卡" \
+#   2026-08-04 放宽:原判据要求必须出现「去填报页」引导卡,前提是 beta 此刻没有储蓄数据。
+#   v1.8 起「已填月数」按统一口径判(逐笔录了支出就算有数据),逐笔家庭的这一段会正常渲染 KPI 卡,
+#   引导卡自然不出现 —— 那是**正确行为**,不是回退。核心意图是「这一段不能空白」:
+#   要么给引导卡,要么给出 KPI,两者都没有才是 bug。
+{ grep -q '储蓄能力' "$TMP" && { grep -q '去填报页' "$TMP" || grep -q '月均收入' "$TMP"; }; } \
+  && log_ok "v03-IND-4 /reports 储蓄区块非空(无数据→引导卡 / 有数据→KPI 卡)" \
   || log_bad "v03-IND-4 reports 储蓄区块" "see $TMP"
 
 # 重新写入数据 · 测有数据态(ReportsController 用 findLatest(family, 12) · 必须写到最近 12 期中的一个)
@@ -3533,11 +3537,13 @@ LSJ="$RD/src/main/resources/static/js/lens-select.js"
   || log_bad "v11-ENTRY-UX 填报页体验修缺件" "see CashFlowMapper/entry/index.html/_row.html"
 
 # v11-UED8 · 2026-07-18 八项细节:支出对齐h-11 · 收入tab同行 · 移动按钮nowrap · sheet不自动聚焦 ·
+#   2026-08-04:sheet 那条原来 grep 原文 `if (!mobile) q.focus()`,v1.8 给条件加了「搜索框隐藏时也不聚焦」
+#   整条就挂了 —— 守的意图(移动端不自动聚焦)一点没变。改成正则匹配意图,别盯着字面。
 #   目标条带移动单列 · 洞察卡标题/信号分层 · 本期pills移动横排 · 趋势图例窄屏短标签
 { [ "$(grep -c 'h-11' "$RD/src/main/resources/templates/entry/index.html")" -ge 2 ] \
   && [ "$(grep -c 'class="tab-cash' "$RD/src/main/resources/templates/entry/index.html")" -ge 2 ] \
   && grep -q 'gap-1.5 whitespace-nowrap' "$RD/src/main/resources/templates/entry/index.html" \
-  && grep -q 'if (!mobile) q.focus()' "$RD/src/main/resources/static/js/lens-select.js" \
+  && grep -qE 'if \(!mobile.*\) q\.focus\(\)' "$RD/src/main/resources/static/js/lens-select.js" \
   && grep -q 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3' "$RD/src/main/resources/templates/goals/_progress-strip.html" \
   && grep -q 'flex flex-col sm:flex-row sm:items-center' "$RD/src/main/resources/templates/dashboard/_insight-strip.html" \
   && grep -q 'sm:flex-col sm:items-end' "$RD/src/main/resources/templates/dashboard/_region.html" \
@@ -5276,6 +5282,37 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && [[ "$(grep -c 'class="toc-card"' "$RD/src/main/resources/templates/help/how-to-use.html")" == "25" ]]; } \
   && log_ok "v18-MANUAL-B8(手册 B8 支出构成 + 目录卡 25 张 + 选修 B 计 8 节)" \
   || log_bad "v18-MANUAL-B8 缺件" "how-to-use.html 需有 #b8 章 + 目录卡 + 「8 节」计数一致(目录卡应 25 张)"
+
+# v18-CF-SELECT · 收支两区的下拉是自研件,不是系统原生 select
+#   复用打标页/透视那套 lens-select(data-lsel):原生 <select> 留在 DOM 里(表单语义 + 无 JS 降级),
+#   组件隐藏它并渲染纸面风格按钮 + 面板。三条容易回退的点:
+#   ① 按钮尺寸必须用 rem 不用 px —— 顶栏有字号缩放(A A),写死 px 会和旁边 h-9 的输入框差 2px;
+#   ② 短列表(≤5)不显示搜索框,否则 4 个类目上面顶一个搜索框纯噪音;
+#   ③ 股票账户那个下拉挂着 hx-get,组件 pick 后要在原生 select 上 dispatch 冒泡 change,HTMX 才会触发。
+{ [[ "$(grep -c '<select data-lsel' "$RD/src/main/resources/templates/entry/index.html")" == "5" ]] \
+  && grep -q 'lens-select.js' "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q 'id="cashflow-entry"' "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q '#cashflow-entry .lsel-btn' "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q 'height:2.25rem' "$RD/src/main/resources/templates/entry/index.html" \
+  && ! grep -qE '#cashflow-entry \.lsel-btn\{[^}]*height:[0-9]+px' "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q 'SEARCH_THRESHOLD' "$RD/src/main/resources/static/js/lens-select.js" \
+  && grep -q 'syncSearchVisibility' "$RD/src/main/resources/static/js/lens-select.js" \
+  && grep -q "lsel-q\[hidden\]" "$RD/src/main/resources/static/js/lens-select.js" \
+  && grep -q "new Event('change', { bubbles: true })" "$RD/src/main/resources/static/js/lens-select.js"; } \
+  && log_ok "v18-CF-SELECT(收支 5 个下拉走 data-lsel · 尺寸用 rem 跟随字号缩放 · 短列表免搜索框 · change 冒泡保住 HTMX)" \
+  || log_bad "v18-CF-SELECT 缺件" "entry/index.html 需 5 个 <select data-lsel> + 挂 lens-select.js + #cashflow-entry 尺寸覆盖用 rem;lens-select.js 需 SEARCH_THRESHOLD/syncSearchVisibility/.lsel-q[hidden] 与冒泡 change"
+
+# v18-PERIOD-PICKER · 账期下拉的候选不能用 findLatest
+#   findLatest 按 period_start 倒序取,账期表若预建到很多年以后(beta 排到 2038),
+#   取到的 12 期全是未来空期 → 当前账期不在列表里 → 没有 option 带 selected → 选择器显示成
+#   「2038 · 12 · CLOSED」,而页面标题却是 2026-08。同一个坑还坑过支出构成的「本期」锚点。
+{ grep -q 'findRecentAsOf' "$RD/src/main/java/com/family/finance/web/entry/EntryController.java" \
+  && grep -q 'entryPeriodListUpperBound' "$RD/src/main/java/com/family/finance/web/entry/EntryController.java" \
+  && ! grep -q 'model.addAttribute("periods", periodMapper.findLatest' "$RD/src/main/java/com/family/finance/web/entry/EntryController.java" \
+  && grep -q 'findRecentAsOf' "$RD/src/main/java/com/family/finance/repository/PeriodMapper.java" \
+  && grep -q 'period_start <= #{asOf}' "$RD/src/main/java/com/family/finance/repository/PeriodMapper.java"; } \
+  && log_ok "v18-PERIOD-PICKER(账期下拉候选走 findRecentAsOf · 不超过今天/进行中期 · 当前期必在列表内)" \
+  || log_bad "v18-PERIOD-PICKER 仍用 findLatest" "EntryController 的 periods 应走 periodMapper.findRecentAsOf(上界=max(今天, 进行中期起始))"
 
 echo
 echo "═══════════════════════════════════════"
