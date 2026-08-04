@@ -96,12 +96,12 @@
 
 > 完整发布记录与截图见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段每版只留 2–4 行,细节不搬过来)。
 
+**[v1.8.1](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.8.1) · 三个小修**
+登录页停留太久后提交,不再甩一个「印泥洒了」错误页 —— CSRF 失效改成回登录页提示重登(真正的权限不足仍报 403)。手机端三个浮钮横屏切回来后顺序不再错乱。另修一处假文案:此前写「想细分可在管理页自己加类目」,而那个页面其实是只读的。
+
 **[v1.8.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.8.0) · 支出可以逐笔记了(而且不强制)**
 支出对齐收入侧:每笔选账户 + 类目,录入即从该账户余额扣除并留流水。但**默认仍是「填一个总数」** —— 强制逐笔会撑破「每月 10 分钟」这条硬约束,所以两种方式并存、家庭自己选,升级后不改设置则一切照旧([issue #9](https://github.com/LuoDi-Nate/financial-management/issues/9))。逐笔模式下报表多出「支出构成」:刚性支出(还贷 + 利息)vs 日常开支,可按类目 / 账户 / 成员切,点一行看逐笔。
 配套把「这个月家庭花了多少」从散落 10 处收敛到一个入口,并立了守护(全仓 `totalExpense()` 只许出现在那一个文件里)。改口径前先建「零差异基线」逐位比对,拦下三个页面上看不出、却会静默改坏数字的问题 —— 其中一个会让某月支出少算 89%。
-
-**[v1.7.1](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.7.1) · 手册进首页**
-[使用手册](https://dixi-token.top/help/how-to-use)免登录可读之后,首页从「怎么装」改成「先看它解决什么问题」:hero 加了与「直接装」并列的第二条路径,中段五个问题各自直链到对应章节。
 
 ## 主要能力
 
@@ -131,7 +131,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 451 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表))/ 55 e2e 断言(11 主线)/ 533 黑盒回归 |
+| 测试 | JUnit 5 · 451 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表))/ 55 e2e 断言(11 主线)/ 538 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
