@@ -1,55 +1,57 @@
 {
   "_comment": "每次发版按核心能力改清单(PC 用 selector 裁剪聚焦;手机不裁剪、整屏 full=false 平铺 —— 用户定 2026-07-11)",
-  "_version": "v1.6.0 · UED 专项:移动端首屏重构 + 图表形态改造 + 跨页口径统一",
+  "_version": "v1.8.0 · 支出逐笔化:逐笔录入落到账户 + 支出构成(刚性 vs 日常)+ 家庭级总额/逐笔开关",
   "pc": [
     {
-      "path": "/accounts",
-      "name": "accounts-actions",
-      "wait": 1800,
-      "waitFor": "text=账户簿",
-      "selector": "section.paper-card:has(table.ledger-table)"
+      "path": "/entry",
+      "name": "expense-itemized",
+      "wait": 2600,
+      "waitFor": "text=逐笔录入",
+      "selector": "#cashflow-entry"
     },
     {
-      "path": "/admin",
-      "name": "admin-grouped",
-      "wait": 1500,
-      "waitFor": "text=家 · 庭 · 基 · 础",
-      "selector": "main"
-    },
-    {
-      "path": "/dashboard",
-      "name": "allocation-bars",
-      "wait": 3000,
-      "selector": "div.paper-card:has(#allocationChart)"
-    },
-    {
-      "path": "/lens",
-      "name": "sunburst-leaders",
+      "path": "/reports",
+      "name": "expense-mix",
       "wait": 3400,
-      "selector": "div.paper-card:has(#sunburst)"
+      "waitFor": "text=钱花在哪了",
+      "selector": "section#sec-expense-mix"
+    },
+    {
+      "path": "/admin/reminders",
+      "name": "expense-mode-switch",
+      "wait": 1800,
+      "waitFor": "text=支出录入方式 · 全家统一",
+      "selector": "form:has-text('支出录入方式 · 全家统一')"
+    },
+    {
+      "path": "/reports",
+      "name": "savings-bars",
+      "wait": 3200,
+      "waitFor": "text=月度收支 + 反推目标月供",
+      "selector": "section:has(#savings-bars)"
     }
   ],
   "mobile": [
     {
-      "path": "/dashboard",
-      "name": "conclusion-kpi",
-      "wait": 3000,
-      "full": false,
-      "waitFor": "text=本 · 期 · 一 · 句 · 话"
-    },
-    {
       "path": "/entry",
-      "name": "closed-readonly",
-      "wait": 2200,
+      "name": "expense-itemized",
+      "wait": 2600,
       "full": false,
-      "waitFor": "text=本期已关账"
+      "waitFor": "text=逐笔录入"
     },
     {
-      "path": "/accounts",
-      "name": "summary-band",
-      "wait": 2000,
+      "path": "/reports",
+      "name": "expense-mix",
+      "wait": 3400,
       "full": false,
-      "waitFor": "text=账户簿"
+      "waitFor": "text=钱花在哪了"
+    },
+    {
+      "path": "/admin/reminders",
+      "name": "expense-mode-switch",
+      "wait": 1900,
+      "full": false,
+      "waitFor": "text=支出录入方式 · 全家统一"
     }
   ]
 }

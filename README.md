@@ -96,6 +96,17 @@
 
 > 完整发布记录见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段只保留最近 1–2 个版本)。
 
+### [v1.8.0 · 支出可以逐笔记了(而且不强制)](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.8.0)
+
+在此之前收入是「逐笔 + 选账户 + 自动入账」,支出只有「每人每月填一个总数」。有用户在 [issue #9](https://github.com/LuoDi-Nate/financial-management/issues/9) 提出想看支出构成,这一版把支出侧对齐了收入侧:每笔选账户 + 类目,录入即从该账户余额扣除并留一条流水,删除自动冲回。
+但**没有强制迁移** —— 支出笔数远多于收入,强制逐笔会撑破「每月 10 分钟填完」这条硬约束,所以两种方式并存、家庭自己选,**默认仍是总额**,老用户升级后行为完全不变。类目停在「性质」这一层(日常开支 / 还贷 / 利息支出 / 转账给亲属),所以构成回答的是「刚性支出占多少、日常占多少」,不是「餐饮占几成」。
+最花时间的部分不在 UI:「这个月家庭花了多少」原来散落在 10 处代码里各读各的表,这次收敛到一个入口,并立了一条守护 —— **全仓 `totalExpense()` 只许出现在那一个文件里**,这条 grep 当场抓出人工清单漏掉的两处。改口径前先建「零差异基线」逐位比对,拦下三个页面上看不出来、但会静默改坏数字的问题(其中一个会让某月支出少算 89%);最终确认同一份数据上新旧两版 22 项指标逐位相同。
+
+<table><tr>
+<td width="50%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.8.0/pc_expense-itemized.jpg"><br><sub><b>逐笔录入</b> · 与收入区同构 · 录入即出账 + 留流水</sub></td>
+<td width="50%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.8.0/pc_expense-mix.jpg"><br><sub><b>支出构成</b> · 刚性(还贷+利息)vs 日常 · 可点开看逐笔</sub></td>
+</tr></table>
+
 ### [v1.7.1 · 手册进首页:与「直接装」并列的一条路径](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.7.1)
 
 上一版把[使用手册](https://dixi-token.top/help/how-to-use)做成了**免登录可读**,这一版顺着这件事改了首页 —— 因为它改变了首页的逻辑:**以前你只能「信」我写的文案,现在可以自己点进去验**。所以不是加个链接,而是给了一条和「直接装」并列的路径:命令块下面是「还没决定要不要装?」+ 手册卡,右上角标着**不用装 · 不用登录**(没人会为一个还不确定适不适合自己的东西先装一套环境)。
@@ -105,18 +116,6 @@
 <table><tr>
 <td width="58%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.7.1/pc_landing-hero.jpg"><br><sub><b>首页 hero</b> · 「直接装」与「先看手册」并列</sub></td>
 <td width="42%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.7.1/pc_landing-questions.jpg"><br><sub><b>中段五问</b> · 每个问题挂到手册对应章节</sub></td>
-</tr></table>
-
-### [v1.7.0 · 交互式使用手册(免登录可读)](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.7.0)
-
-一位用户在 [issue #9](https://github.com/LuoDi-Nate/financial-management/issues/9) 里说他没有财会背景,「理财的买入卖出、借钱等如何在这些体现,还是有些不好理解」。去查了一下他说得对:站内帮助页只有券商同步一篇,文档里全是部署/备份/登录/AI 这类**运维**问题,**一条「业务上该怎么记」都没有** —— 等于把门槛原封不动留给了最需要帮助的人。所以这一版补的不是功能,是**教会你用**:一个站内交互式手册,而且**不用登录就能读**(你在决定要不要自己部署之前就该先看懂它怎么用)→ **[dixi-token.top/help/how-to-use](https://dixi-token.top/help/how-to-use)**。
-内容不是按页面罗列,而是**先把功能穷举再按学习路径排**:70+ 路由 + 管理页 15 块 → 33 个功能点 → 必修 8 + 选修 25。**主教程 5 章**(建账户 → 每月填报 → 关账 → 看这个月发生了什么 → 一条总原则)走完就能独立记账并看懂报表;**选修 19 节**按需挑(省力 5 / 看懂自己的钱 7 / 规划决策 4 / 进阶维护 3)。每章都能**直接点进对应页面**(24 个链接),配 **21 张真实界面图**。
-**四个可交互演示** —— 有些事讲不清、点一下就懂:①「先录收入后核余额」用两台仿真填报页并排播放,同一笔工资右边算了两次(因为录收入会立即加进余额);②切币种时**金额按汇率缩放、比值指标一个数字都不动**(这条硬约束历史上漏过三次);③从「全家高风险占多少」钻到「具体哪一笔」;④同样净资产 +10 万,含义可能完全不同(含"涨了 10 万其实投资亏 6 万")。
-新手在仪表盘/填报页顶部有醒目引导卡(点「知道了」一年内不再出现),之后入口常驻在导航栏最末的「手册」与填报页的「怎么填?」;顺带把导航栏 8 项全配上了图标。**无数据库迁移、无口径变化、任何数字都不会变。**
-
-<table><tr>
-<td width="60%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.7.0/pc_manual-toc.jpg"><br><sub><b>章节目录</b> · 必修 5 章 + 选修 19 节,点任意一章直达</sub></td>
-<td width="40%"><img src="https://github.com/LuoDi-Nate/financial-management/releases/download/v1.7.0/mobile_manual.jpg"><br><sub><b>手机端</b> · 同一套内容</sub></td>
 </tr></table>
 
 ## 主要能力
