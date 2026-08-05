@@ -61,12 +61,20 @@ public class DynamicScheduleConfig {
     private static final String DEFAULT_REPORT_REMIND_CRON = "0 0 10,20 * * *";
     /** v0.15 · 券商同步默认:工作日 16:45(A/HK 收盘后)· 无 enabled 关联时空跑 */
     private static final String DEFAULT_BROKER_SYNC_CRON  = "0 45 16 * * MON-FRI";
+    /**
+     * v1.9 · 版本检查默认:每天 03:17。
+     * **刻意错开整点**,别和汇率(02:30)/ 股价 / 提醒挤在一起 —— 也别让所有自部署实例
+     * 在同一秒打 GitHub。
+     */
+    private static final String DEFAULT_UPDATE_CHECK_CRON = "0 17 3 * * *";
 
     private final FamilyConfigService configService;
     private final StockPriceScheduler stockScheduler;
     private final FxFetchJob fxFetchJob;
     private final ReportReminderScheduler reminderScheduler;
     private final com.family.finance.service.broker.BrokerSyncService brokerSyncService; // v0.15
+    /** v1.9 · 版本检查(只查不改)· 关掉开关时一个请求都不发 */
+    private final com.family.finance.service.update.UpdateCheckJob updateCheckJob;
     private final TaskScheduler taskScheduler;
     private final Map<String, ScheduledFuture<?>> active = new HashMap<>();
 
@@ -74,12 +82,14 @@ public class DynamicScheduleConfig {
                                  StockPriceScheduler stockScheduler,
                                  FxFetchJob fxFetchJob,
                                  ReportReminderScheduler reminderScheduler,
-                                 com.family.finance.service.broker.BrokerSyncService brokerSyncService) {
+                                 com.family.finance.service.broker.BrokerSyncService brokerSyncService,
+                                 com.family.finance.service.update.UpdateCheckJob updateCheckJob) {
         this.configService = configService;
         this.stockScheduler = stockScheduler;
         this.fxFetchJob = fxFetchJob;
         this.reminderScheduler = reminderScheduler;
         this.brokerSyncService = brokerSyncService;
+        this.updateCheckJob = updateCheckJob;
         this.taskScheduler = createScheduler();
     }
 
@@ -103,6 +113,8 @@ public class DynamicScheduleConfig {
     public void registerAll() {
         log.info("DynamicScheduleConfig · register all managed cron tasks");
         rescheduleAll();
+        // v1.9 · 把上次的版本检查结果读进内存缓存(只读库、不出网 —— 启动不被外部网络拖住)
+        updateCheckJob.warmUp();
     }
 
     /**
@@ -151,6 +163,11 @@ public class DynamicScheduleConfig {
         schedule("broker-sync", configService.getString(FAMILY_ID,
                 FamilyConfigService.K_BROKER_SYNC_CRON, DEFAULT_BROKER_SYNC_CRON),
                 () -> brokerSyncService.syncAllEnabled(FAMILY_ID, null));
+
+        // v1.9 · 版本检查(只查不改)· cron 可在管理页改;关掉开关时 UpdateCheckJob 第一步就返回
+        schedule("update-check", configService.getString(FAMILY_ID,
+                "update.check.cron", DEFAULT_UPDATE_CHECK_CRON),
+                updateCheckJob::run);
     }
 
     private void schedule(String name, String cronExpr, Runnable task) {

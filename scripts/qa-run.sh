@@ -5347,6 +5347,68 @@ RN_LINE="$(printf '%s' "$RN_SEG" | wc -l | tr -d ' ')"
   && log_ok "v181-README-BRIEF(近期更新段 $RN_LINE 行 · 无内嵌 release 截图)" \
   || log_bad "v181-README-BRIEF 段落又变长了" "近期更新段应 ≤16 行且不内嵌 releases/download 图(当前 $RN_LINE 行 / $RN_IMG 张图)· 细节放 Release 页"
 
+# ══════════════════════════════════════════════════════════════════════════════
+# v1.9 · 自动版本查询(只查不改)
+# ══════════════════════════════════════════════════════════════════════════════
+UCS="$RD/src/main/java/com/family/finance/service/update/UpdateCheckService.java"
+
+# v19-UPD-NO-TELEMETRY · 不把版本号发给 GitHub
+#   GitHub 要求请求带 UA,顺手写成 financial-management/1.9.0 是最自然的写法 ——
+#   那就等于把版本号发出去了,与 PRD FR-303「不带版本号、不带实例标识」冲突。
+#   这个冲突是写 TDD 时才发现的,不是想出来的。
+{ grep -qF 'String UA = "financial-management"' "$UCS" \
+  && ! grep -qE 'UA *\+ *"/"|UA *= *"[^"]*" *\+' "$UCS" \
+  && ! grep -qE '"User-Agent", *UA *\+' "$UCS" \
+  && grep -qF 'REPO = "LuoDi-Nate/financial-management"' "$UCS"; } \
+  && log_ok "v19-UPD-NO-TELEMETRY(UA 不含版本号 · 仓库地址写死不可配置)" \
+  || log_bad "v19-UPD-NO-TELEMETRY 可能带上了版本号" "UA 必须是固定串 financial-management;仓库地址不得做成可配置项(可配置 = 可被指向任意仓库)"
+
+# v19-UPD-NO-IO-IN-ADVICE · GlobalModelAdvice 每个请求都跑,只许一次内存读
+{ grep -q 'updateCheckService.cached' "$RD/src/main/java/com/family/finance/common/GlobalModelAdvice.java" \
+  && ! grep -qE 'Mapper|RestTemplate|HttpClient|checkNow' "$RD/src/main/java/com/family/finance/common/GlobalModelAdvice.java"; } \
+  && log_ok "v19-UPD-NO-IO-IN-ADVICE(advice 只调 cached() · 无 Mapper/HTTP/checkNow)" \
+  || log_bad "v19-UPD-NO-IO-IN-ADVICE 把 IO 放进了每请求路径" "GlobalModelAdvice 每个请求都会跑,不得查库/出网;只能读 UpdateCheckService.cached() 的内存字段"
+
+# v19-UPD-FAIL-CLOSED · 迁移判定「查不出来」必须是「未知」不是「没有」
+#   报「无 schema 变更」是错误且危险的结论(用户会以为能安全回退)。
+#   同一类老毛病:`|| echo 0` 把失败翻译成一个看起来正常的值。
+{ grep -q 'COMPARE_FILES_CAP' "$UCS" \
+  && grep -qE 'files.size\(\) *>= *COMPARE_FILES_CAP' "$UCS" \
+  && grep -q 'truncated' "$UCS" \
+  && grep -q '总额模式\|known' "$UCS" \
+  && grep -q '未来账期\|new Migrations(0, List.of(), false)' "$UCS" \
+  && grep -q '文件清单被截断时必须标未知_不能报没有迁移' "$RD/src/test/java/com/family/finance/service/update/UpdateCheckServiceTest.java"; } \
+  && log_ok "v19-UPD-FAIL-CLOSED(compare files 截断/失败 → known=false · 单测守着)" \
+  || log_bad "v19-UPD-FAIL-CLOSED 缺件" "detectMigrations 必须在 truncated/null 时返回 known=false;单测「文件清单被截断时必须标未知」必须在"
+
+# v19-UPD-DEGRADE · 一次失败不许把页面从「有新版」变成「什么都没有」
+{ grep -q 'writeAttempt(familyId, false' "$UCS" \
+  && ! grep -qE 'catch *\([^)]*\) *\{[^}]*KEY_RESULT' "$UCS" \
+  && grep -q 'KEY_ATTEMPT' "$UCS" && grep -q 'KEY_RESULT' "$UCS"; } \
+  && log_ok "v19-UPD-DEGRADE(失败只写 lastAttempt · 不动 result / 不动内存)" \
+  || log_bad "v19-UPD-DEGRADE 失败路径动了 result" "checkNow 的 catch 只能写 lastAttempt;result 保持上次成功值"
+
+# v19-UPD-BADGE · 徽记可点 + 圆点绝对定位 + 不嵌套 <a>
+#   徽记原先嵌在 logo 的 <a th:href="@{/}"> 里,直接加 href 会变成 <a> 套 <a>(非法 HTML,
+#   浏览器自动拆开、布局散架)→ v1.9 把 nav 拆成三个并列 <a>。
+{ grep -q 'ver-badge' "$RD/src/main/resources/templates/fragments/nav.html" \
+  && grep -q 'ver-dot' "$RD/src/main/resources/templates/fragments/nav.html" \
+  && grep -q "admin(tab='version')" "$RD/src/main/resources/templates/fragments/nav.html" \
+  && grep -q 'position: absolute' "$RD/src/main/resources/static/css/style.css" \
+  && grep -qF '.ver-dot' "$RD/src/main/resources/static/css/style.css" \
+  && grep -q 'id="version"' "$RD/src/main/resources/templates/admin/index.html"; } \
+  && log_ok "v19-UPD-BADGE(徽记 <a> 可点 · 圆点 .ver-dot 绝对定位 · 管理页 #version 锚点)" \
+  || log_bad "v19-UPD-BADGE 缺件" "nav.html 需 ver-badge/ver-dot + 跳 admin?tab=version;style.css 需 .ver-dot 绝对定位;admin 需 id=version"
+
+# v19-UPD-OFF-NO-CALL · 关掉开关后一个请求都不发
+#   判定必须在任何 HTTP 构造之前 —— 别在判定前先把 URL/请求对象拼好
+#   (那样看着没发,其实已经在准备发了,而且后人很容易把顺序改反)。
+{ grep -q 'enabled(FAMILY_ID)' "$RD/src/main/java/com/family/finance/service/update/UpdateCheckJob.java" \
+  && grep -q 'if (!updateCheckService.enabled(FAMILY_ID))' "$RD/src/main/java/com/family/finance/service/update/UpdateCheckJob.java" \
+  && grep -q 'if (!enabled(familyId))' "$UCS"; } \
+  && log_ok "v19-UPD-OFF-NO-CALL(Job 与 checkNow 都在最前面判 enabled)" \
+  || log_bad "v19-UPD-OFF-NO-CALL 判定位置不对" "UpdateCheckJob.run 与 UpdateCheckService.checkNow 的第一件事都必须是判 enabled"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

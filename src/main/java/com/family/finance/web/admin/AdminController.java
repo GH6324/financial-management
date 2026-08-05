@@ -68,6 +68,12 @@ public class AdminController {
     private final com.family.finance.service.lens.LensMetaService lensMetaService;
     // v0.8 · 我关心的指标(可配置指标集 · 详 prd §FR-149/150)
     private final com.family.finance.service.MetricPrefsService metricPrefsService;
+    // v1.9 · 版本落后检查(只查不改)
+    private final com.family.finance.service.update.UpdateCheckService updateCheckService;
+
+    /** v1.9 · 当前发布版本(与 nav 徽记、/health 同源)· @Value 字段注入,不能当 handler 参数 */
+    @org.springframework.beans.factory.annotation.Value("${app.version:dev}")
+    private String appVersion;
 
     // ---------------------------------------------------------------------
     // 1. /admin · 总览
@@ -82,7 +88,45 @@ public class AdminController {
         model.addAttribute("currentPeriod", current);
         model.addAttribute("lastBackup", lastBackup);
         model.addAttribute("fxRecent", fx);
+        // v1.9 · 版本卡:全部读缓存,**这里不出网**(出网只在定时器和「立即检查」里)
+        model.addAttribute("updateInfo", updateCheckService.cached(me.getFamilyId()));
+        model.addAttribute("updateEnabled", updateCheckService.enabled(me.getFamilyId()));
+        var updAtt = updateCheckService.lastAttempt(me.getFamilyId());
+        model.addAttribute("updateAttempt", updAtt);
+        // 时间在服务端格式化好 —— Instant 在 Thymeleaf 里要绕 zone,不值当
+        model.addAttribute("updateCheckedAt", updAtt.at() == null ? null
+                : java.time.LocalDateTime.ofInstant(updAtt.at(), java.time.ZoneId.systemDefault())
+                    .format(java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm")));
+        model.addAttribute("updateRepo", com.family.finance.service.update.UpdateCheckService.REPO);
         return "admin/index";
+    }
+
+    // ---------------------------------------------------------------------
+    // v1.9 · 版本检查:立即检查 / 开关
+    // ---------------------------------------------------------------------
+
+    /** 手动触发一次检查(会出网)· 这是**唯一**一条用户能主动触发出网的路径。 */
+    @PostMapping("/update-check/now")
+    public String updateCheckNow(@AuthenticationPrincipal MemberPrincipal me,
+                                 RedirectAttributes ra) {
+        var info = updateCheckService.checkNow(me.getFamilyId(), appVersion);
+        var att = updateCheckService.lastAttempt(me.getFamilyId());
+        ra.addFlashAttribute("flash", att.ok()
+                ? (info.hasUpdate() ? "检查完成 · 有新版 " + info.latest() : "检查完成 · 已是最新")
+                : "检查失败:" + (att.error() == null ? "未知原因" : att.error()));
+        return "redirect:/admin?tab=version";
+    }
+
+    /** 开 / 关自动检查。关掉后零后台请求,圆点立刻消失。 */
+    @PostMapping("/update-check/toggle")
+    public String updateCheckToggle(@AuthenticationPrincipal MemberPrincipal me,
+                                    @RequestParam(defaultValue = "false") boolean enabled,
+                                    RedirectAttributes ra) {
+        updateCheckService.setEnabled(me.getFamilyId(), enabled);
+        auditLogService.record(me.getFamilyId(), me.getMemberId(), AuditLogType.FAMILY_UPDATE,
+                "family", me.getFamilyId(), "自动检查更新=" + (enabled ? "开" : "关"));
+        ra.addFlashAttribute("flash", enabled ? "已开启自动检查更新" : "已关闭 · 不再有任何后台请求");
+        return "redirect:/admin?tab=version";
     }
 
     // ---------------------------------------------------------------------

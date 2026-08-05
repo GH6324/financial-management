@@ -1332,3 +1332,15 @@ html.ls-wide .tags-note .btn-ink { padding-top: .25rem !important; padding-botto
   .link-strip .ls-acts > a { flex: 1; justify-content: center; min-height: 44px; }
 }
 
+/* v1.9 · 版本徽记的「有新版」圆点 ————————————————————————————
+   绝对定位、不进文档流:徽记只有 9px 高、贴在 logo 下面一行,
+   任何进流的元素都会把它和 nav 一起撑歪(验收要求两态几何逐项相同)。
+   brass 描边不是红色 —— 这是「有个新版本存在」的事实陈述,不是告警。 */
+.ver-badge { text-decoration: none; }
+.ver-badge:hover { color: var(--brass-text); text-decoration: none; }
+.ver-dot {
+  position: absolute; top: -2px; right: -7px;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--brass-soft); border: 1.5px solid var(--brass-deep);
+  pointer-events: none;
+}

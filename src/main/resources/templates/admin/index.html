@@ -44,6 +44,127 @@
     </div>
   </section>
 
+  <!-- v1.9 · 版本卡(PRD FR-302)· 四态:有新版 / 已最新 / 查不通 / 已关闭
+       数据全部来自 updateInfo(进程内缓存),**模板里不做任何计算、不触发任何出网**。 -->
+  <section id="version" class="bracket-card max-w-3xl space-y-4 mb-10" style="scroll-margin-top:80px">
+    <div class="eyebrow-ink">版 本</div>
+
+    <th:block th:if="${updateInfo != null and updateInfo.hasUpdate()}">
+      <div class="flex items-baseline gap-2.5 flex-wrap">
+        <span class="font-mono text-[10px] uppercase text-ink-subtle tracking-wider">当前</span>
+        <span class="font-mono text-lg" th:text="${updateInfo.current()}">v1.6.4</span>
+        <span class="text-ink-subtle">&#8594;</span>
+        <span class="font-mono text-[10px] uppercase text-ink-subtle tracking-wider">最新</span>
+        <span class="font-mono text-lg text-brass-deep" th:text="${updateInfo.latest()}">v1.9.0</span>
+        <span class="pill pill-brass text-[10px]" th:if="${updateInfo.behind() > 0}"
+              th:text="'落后 ' + ${updateInfo.behind()} + ' 个版本'">落后 3 个版本</span>
+      </div>
+
+      <div th:if="${updateInfo.migrations().hasAny()}"
+           style="border:1px solid var(--rust);background:rgba(156,74,42,.06);padding:11px 13px">
+        <div class="flex items-baseline gap-2 flex-wrap mb-1">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--rust)" stroke-width="2.2"
+               stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <b class="text-sm" th:text="'这中间含 ' + ${updateInfo.migrations().count()} + ' 个 DB 迁移'">含迁移</b>
+          <span class="pill text-[9px]" style="border-color:var(--rust);color:var(--rust);text-transform:none">回滚只回 jar 不回 DB</span>
+        </div>
+        <p class="font-mono text-[10px] text-ink-subtle leading-relaxed">
+          <span th:text="${#strings.listJoin(updateInfo.migrations().ids(), ' ')}">V53</span> ·
+          升级后若要退回,jar 能换回去但 schema 不会退 —— 旧 jar 读新 schema 通常没事(迁移只加带默认值的列),
+          但<b>升级前请自行确认</b>。
+        </p>
+      </div>
+      <div th:if="${!updateInfo.migrations().known()}"
+           class="font-mono text-[10px] text-ink-subtle border border-dashed border-rule px-3 py-2 bg-card-soft">
+        <b>无法确定</b>这中间有没有 DB 迁移(拿不到改动清单或清单被截断)· 升级前请自行核对 <span class="text-ink">db/migration</span>
+      </div>
+      <div th:if="${updateInfo.migrations().known() and updateInfo.migrations().count() == 0}"
+           class="font-mono text-[10px] num-pos">无 schema 变更 · 可随时回退到当前版本</div>
+
+      <div th:unless="${#lists.isEmpty(updateInfo.items())}">
+        <div class="eyebrow-ink mb-1.5">这 中 间 改 了 什 么</div>
+        <div class="border border-rule-soft bg-card-soft">
+          <a th:each="it : ${updateInfo.items()}"
+             th:href="'https://github.com/' + ${updateRepo} + '/releases/tag/' + ${it.version()}"
+             target="_blank" rel="noopener"
+             class="no-underline px-3 py-1.5 flex gap-2.5 items-baseline border-b border-rule-soft text-xs hover:bg-card">
+            <span class="font-mono text-[10px] text-brass-deep" style="min-width:52px" th:text="${it.version()}">v1.9.0</span>
+            <span class="text-ink" th:text="${it.title()}">主题</span>
+          </a>
+        </div>
+      </div>
+
+      <div>
+        <div class="eyebrow-ink mb-1.5">怎 么 升 级</div>
+        <!-- 注释不放进 <pre>:窄屏 overflow-x 会把「# Docker」横向截掉,手机上只剩一个 # -->
+        <div class="space-y-1.5">
+          <div>
+            <div class="font-mono text-[10px] text-ink-subtle mb-0.5">Docker</div>
+            <pre class="font-mono text-[11px] bg-paper border border-rule-soft px-3 py-2 overflow-x-auto">git pull &amp;&amp; bash deploy/docker-up.sh</pre>
+          </div>
+          <div>
+            <div class="font-mono text-[10px] text-ink-subtle mb-0.5">直装</div>
+            <pre class="font-mono text-[11px] bg-paper border border-rule-soft px-3 py-2 overflow-x-auto">git pull &amp;&amp; bash deploy/deploy.sh</pre>
+          </div>
+        </div>
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">
+          两种都给 —— 没法可靠判断你是哪种装法。本版<b>不提供一键更新按钮</b>,理由见 tech-design/v1.9.md &sect;7。
+        </p>
+      </div>
+    </th:block>
+
+    <div th:if="${updateInfo != null and !updateInfo.hasUpdate() and updateInfo.checkedAt() != null}"
+         class="flex items-baseline gap-2.5 flex-wrap">
+      <span class="font-mono text-lg" th:text="${updateInfo.current()}">v1.9.0</span>
+      <span class="pill text-[10px]" style="border-color:var(--forest);color:var(--forest)">已是最新</span>
+    </div>
+
+    <div th:if="${updateInfo == null or updateInfo.checkedAt() == null}">
+      <div class="flex items-baseline gap-2.5 flex-wrap">
+        <span class="font-mono text-lg" th:text="'v' + ${appVersion}">v1.9.0</span>
+        <span class="pill text-[10px]" th:if="${updateEnabled}"
+              th:text="${updateAttempt != null and updateAttempt.never()} ? '尚未检查' : '未能连上 GitHub'">尚未检查</span>
+        <span class="pill text-[10px]" th:unless="${updateEnabled}">自动检查已关闭</span>
+      </div>
+      <p class="font-mono text-[10px] text-ink-subtle mt-1.5 leading-relaxed"
+         th:if="${updateAttempt != null and !updateAttempt.never() and !updateAttempt.ok()}">
+        上次尝试失败:<span th:text="${updateAttempt.error()}">timeout</span><br>
+        从来没查成功过 &#8594; 不知道有没有新版,所以不显示落后数、不显示圆点。内网部署或不想让它出网都属正常。
+      </p>
+    </div>
+
+    <div class="flex items-center gap-3 flex-wrap font-mono text-[10px] text-ink-subtle">
+      <span th:if="${updateCheckedAt != null}"
+            th:text="'上次检查 ' + ${updateCheckedAt} + (${updateEnabled} ? ' · 每天自动查一次' : '')">上次检查</span>
+      <form th:action="@{/admin/update-check/now}" method="post" class="inline">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <button class="text-brass-deep hover:underline">立即检查</button>
+      </form>
+    </div>
+
+    <div style="height:1px;background:var(--rule-soft)"></div>
+
+    <form th:action="@{/admin/update-check/toggle}" method="post">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <input type="hidden" name="enabled" th:value="${!updateEnabled}">
+      <div class="flex items-center justify-between gap-3 flex-wrap mb-2">
+        <b class="text-sm">自动检查更新</b>
+        <button class="btn-paper text-xs" th:text="${updateEnabled} ? '已开启 · 点此关闭' : '已关闭 · 点此开启'">已开启</button>
+      </div>
+    </form>
+    <div class="grid gap-1" style="grid-template-columns:auto 1fr;column-gap:12px">
+      <span class="font-mono text-[10px] uppercase text-ink-subtle tracking-wider">会做什么</span>
+      <span class="font-mono text-[10px] text-ink-subtle">每天一次 GET api.github.com 读本仓库的 Releases</span>
+      <span class="font-mono text-[10px] uppercase text-ink-subtle tracking-wider">发出去什么</span>
+      <span class="font-mono text-[10px] text-ink-subtle">只有这个请求本身。<b class="text-ink">不带版本号、不带实例标识、不带任何用户数据</b></span>
+      <span class="font-mono text-[10px] uppercase text-ink-subtle tracking-wider">代价</span>
+      <span class="font-mono text-[10px] text-ink-subtle">GitHub 会看到你服务器的 IP。介意就关掉,关掉后零后台请求</span>
+    </div>
+  </section>
+
+
   <!-- 子页导航 -->
     <!-- v1.6 UED review A10/B8-2 · 15 个入口此前 3×5 平铺、无分组无层次,用户只能逐个扫 -->
   <div class="mt-8 mb-2 flex items-baseline gap-3">

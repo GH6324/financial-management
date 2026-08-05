@@ -4,25 +4,36 @@
 <header th:fragment="nav(active, me, state)" class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
   <div class="nav-inner max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
     <div class="nav-lead flex items-center gap-12">
-      <a th:href="@{/}" class="flex items-center gap-2.5 no-underline"
-         th:with="preset=${state.family.logoPreset != null ? state.family.logoPreset : 'icon2'}">
+      <!-- v1.9 · 徽记从 logo 的 <a> 里搬出来了。
+           原因:徽记要能点(跳管理页版本卡),而它原先嵌在 <a th:href="@{/}"> 内部 ——
+           <a> 套 <a> 是非法 HTML,浏览器会自动把外层拆开、布局散架。
+           拆成:图标一个 <a>、品牌行一个 <a>、徽记自己一个 <a>,三者视觉位置与改动前完全一致
+           (验收:img / brand / ver 的 top·left·height 与改动前逐项相同)。 -->
+      <div class="flex items-center gap-2.5"
+           th:with="preset=${state.family.logoPreset != null ? state.family.logoPreset : 'icon2'}">
+        <a th:href="@{/}" class="no-underline flex items-center">
         <img th:src="${state.family.logoPath != null} ? @{|/uploads/${state.family.logoPath}|} : @{/img/presets/{p}-192.png(p=${preset},v=${buildVersion})}"
              onerror="this.onerror=null;this.src='/img/default-logo.svg'"
              alt="logo" class="w-7 h-7 object-contain"/>
+        </a>
         <span class="nav-brandtext flex flex-col leading-none">
-          <span class="flex items-baseline gap-2">
+          <a th:href="@{/}" class="no-underline flex items-baseline gap-2">
             <span class="font-display text-xl font-medium" th:text="${state.family.brandText}">账房</span>
             <span class="font-mono text-[10px] tracking-[0.2em] text-ink-subtle"
                   th:text="'№ ' + ${#strings.substring(state.family.name, 0, 1)}">№ 张</span>
-          </span>
-          <!-- 版本号(账册「版次」标记 · brass 细线徽记)· 来源 app.version -->
-          <span th:if="${appVersion != null}"
-                class="inline-flex items-center gap-1 font-mono text-[9px] tracking-[0.16em] text-brass-deep mt-[3px]">
+          </a>
+          <!-- 版本号(账册「版次」标记 · brass 细线徽记)· 来源 app.version
+               v1.9:可点 → 管理页版本卡;有新版时右上角一个 5px 描边圆点。
+               圆点绝对定位、不进文档流 —— 徽记只有 9px 高,进流就把 nav 撑歪了。 -->
+          <a th:if="${appVersion != null}" th:href="@{/admin(tab='version')}"
+             class="ver-badge no-underline relative inline-flex items-center gap-1 font-mono text-[9px] tracking-[0.16em] text-brass-deep mt-[3px]"
+             th:title="${updateInfo != null and updateInfo.hasUpdate()} ? '有新版 ' + ${updateInfo.latest()} + ' · 点击查看' : '当前版本 · 点击查看'">
             <span class="inline-block w-1.5 h-1.5 border border-brass-deep rotate-45" style="opacity:.7"></span>
             <span th:text="'v' + ${appVersion}">v1.4.0</span>
-          </span>
+            <i th:if="${updateInfo != null and updateInfo.hasUpdate()}" class="ver-dot" aria-hidden="true"></i>
+          </a>
         </span>
-      </a>
+      </div>
       <nav class="nav-tabs hidden md:flex items-center gap-7 font-mono text-[11px] tracking-[0.14em] uppercase">
         <a th:href="@{/dashboard}" class="no-underline inline-flex items-center gap-1.5"
            th:classappend="${active == 'dashboard' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink border-b-2 border-transparent pb-[18px]'}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>仪表盘</a>

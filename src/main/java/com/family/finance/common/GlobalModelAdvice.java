@@ -25,6 +25,8 @@ import java.time.Instant;
 public class GlobalModelAdvice {
 
     private final NavService navService;
+    /** v1.9 · 只调 cached()(内存字段),绝不在这里查库/出网 */
+    private final com.family.finance.service.update.UpdateCheckService updateCheckService;
     private final ObjectProvider<BuildProperties> buildPropertiesProvider;
 
     /** 发布语义版本(nav logo 下展示)· application.yml app.version · 发版随 tag 同步 */
@@ -34,6 +36,21 @@ public class GlobalModelAdvice {
     @ModelAttribute("appVersion")
     public String appVersion() {
         return appVersion;
+    }
+
+    /**
+     * v1.9 · 版本检查结果 —— nav 徽记的圆点看它。
+     *
+     * <p><b>这里每个请求都会跑,所以只允许一次内存字段读</b>:不查库、不出网。
+     * {@code UpdateCheckService.cached()} 返回的是进程内 volatile 字段
+     * (启动时预热 + 每次检查后刷新)。守护 {@code v19-UPD-NO-IO-IN-ADVICE} 盯着这条。</p>
+     *
+     * <p>未登录时返回 null —— 落地页不显示任何更新信息(PRD 验收 11)。</p>
+     */
+    @ModelAttribute("updateInfo")
+    public com.family.finance.service.update.UpdateCheckService.UpdateInfo updateInfo(
+            @AuthenticationPrincipal MemberPrincipal me) {
+        return me == null ? null : updateCheckService.cached(me.getFamilyId());
     }
 
     @ModelAttribute("me")
