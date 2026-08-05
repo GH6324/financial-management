@@ -1,57 +1,29 @@
 {
   "_comment": "每次发版按核心能力改清单(PC 用 selector 裁剪聚焦;手机不裁剪、整屏 full=false 平铺 —— 用户定 2026-07-11)",
-  "_version": "v1.8.0 · 支出逐笔化:逐笔录入落到账户 + 支出构成(刚性 vs 日常)+ 家庭级总额/逐笔开关",
+  "_version": "v1.9.0 · 自动版本查询:落后几个版本 + 这中间有没有 DB 迁移(只查不改)",
   "pc": [
     {
-      "path": "/entry",
-      "name": "expense-itemized",
-      "wait": 2600,
-      "waitFor": "text=逐笔录入",
-      "selector": "#cashflow-entry"
+      "path": "/admin",
+      "name": "version-card",
+      "wait": 2200,
+      "waitFor": "text=这中间含",
+      "selector": "section#version"
     },
     {
-      "path": "/reports",
-      "name": "expense-mix",
-      "wait": 3400,
-      "waitFor": "text=钱花在哪了",
-      "selector": "section#sec-expense-mix"
-    },
-    {
-      "path": "/admin/reminders",
-      "name": "expense-mode-switch",
+      "path": "/admin",
+      "name": "badge-dot",
       "wait": 1800,
-      "waitFor": "text=支出录入方式 · 全家统一",
-      "selector": "form:has-text('支出录入方式 · 全家统一')"
-    },
-    {
-      "path": "/reports",
-      "name": "savings-bars",
-      "wait": 3200,
-      "waitFor": "text=月度收支 + 反推目标月供",
-      "selector": "section:has(#savings-bars)"
+      "waitFor": "text=版 本",
+      "selector": ".nav-lead"
     }
   ],
   "mobile": [
     {
-      "path": "/entry",
-      "name": "expense-itemized",
-      "wait": 2600,
+      "path": "/admin",
+      "name": "version-card",
+      "wait": 2400,
       "full": false,
-      "waitFor": "text=逐笔录入"
-    },
-    {
-      "path": "/reports",
-      "name": "expense-mix",
-      "wait": 3400,
-      "full": false,
-      "waitFor": "text=钱花在哪了"
-    },
-    {
-      "path": "/admin/reminders",
-      "name": "expense-mode-switch",
-      "wait": 1900,
-      "full": false,
-      "waitFor": "text=支出录入方式 · 全家统一"
+      "waitFor": "text=这中间含"
     }
   ]
 }
