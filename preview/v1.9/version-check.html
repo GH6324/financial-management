@@ -24,9 +24,15 @@
   .navlogo{display:flex;flex-direction:column;line-height:1.1;margin-right:8px}
   .navtab{position:relative;font-size:13px;color:var(--ink-soft);padding-bottom:4px;border-bottom:2px solid transparent;white-space:nowrap}
   .navtab.on{color:var(--ink);border-bottom-color:var(--brass-deep)}
-  /* FR-301 · 圆点:绝对定位,不改 tab 高度/基线 */
-  .navdot{position:absolute;top:-3px;right:-9px;width:6px;height:6px;border-radius:50%;
+  /* FR-301(维护者拍板)· 圆点在版本徽记上 · 绝对定位,不得撑歪徽记与 logo 的基线 */
+  .vbadge{position:relative;display:inline-block;text-decoration:none;cursor:pointer}
+  .vbadge:hover{color:var(--brass-deep)}
+  .navdot{position:absolute;top:-2px;right:-8px;width:5px;height:5px;border-radius:50%;
           background:var(--brass-soft);border:1.5px solid var(--brass-deep)}
+  /* hover 出的一行说明 —— 让非技术家人看到点之后有明确下一步 */
+  .vtip{position:absolute;top:16px;left:-4px;white-space:nowrap;font-family:'JetBrains Mono',monospace;
+        font-size:9.5px;color:var(--ink);background:var(--card);border:1px solid var(--rule);
+        padding:3px 7px;box-shadow:0 3px 10px rgba(33,30,23,.12);z-index:5}
 
   /* 版本卡 */
   .vcard{border:1px solid var(--rule);background:var(--card);padding:18px 20px}
@@ -66,14 +72,16 @@
   </div>
 
   <p class="note mb-2">
-    ① <b>圆点只加在「管理」tab 上</b>,不加在版本徽记上 —— 徽记全家都看,妻子看到点不知道该做什么也没法做;
-    「管理」本来就是维护者的地盘。② 圆点是 brass 描边不是红色:这不是告警。
+    ① <b>圆点加在版本徽记上</b>(维护者拍板 · 发现率优先)。代价是非技术家人也会看到,
+    所以配了缓解:<b>徽记变成可点</b>(跳版本卡)+ <b>hover 出一行说明</b> —— 看到点的人一定有下一步,不会盯着一个谜。
+    ② 圆点 5px brass 描边、不是红色:这是「有个新版本存在」的事实陈述,不是催办。
+    ③ <b>进过版本卡之后圆点不消失</b> —— 它反映事实状态,不是未读消息。
   </p>
 
   <div class="navbar" style="margin-bottom:14px">
     <span class="navlogo">
       <span style="font-family:'Fraunces',serif;font-size:15px;color:var(--ink)">账房</span>
-      <span class="mono" style="font-size:9px;color:var(--brass-text)">◇v1.6.4</span>
+      <a class="mono vbadge" style="font-size:9px;color:var(--brass-text)">◇v1.6.4<i class="navdot"></i><span class="vtip">有新版 v1.9.0 · 点击查看</span></a>
     </span>
     <span class="navtab">仪表盘</span>
     <span class="navtab">填报</span>
@@ -81,11 +89,11 @@
     <span class="navtab">报表</span>
     <span class="navtab">目标</span>
     <span class="navtab">资产体检</span>
-    <span class="navtab on">管理<i class="navdot"></i></span>
+    <span class="navtab on">管理</span>
     <span class="navtab">手册</span>
   </div>
   <p class="note" style="margin:-6px 0 18px">
-    ↑ 徽记仍显示自己在跑的 <span class="mono">v1.6.4</span>(不改)· 圆点绝对定位,<b>不得改变 tab 高度与基线</b>(8 个图标已对齐到一个像素)
+    ↑ 徽记仍显示自己在跑的 <span class="mono">v1.6.4</span> · 圆点绝对定位,<b>不得撑歪徽记与 logo 的基线</b>(徽记字号只有 9px,极易被撑歪)· 「管理」tab 这次不碰
   </p>
 
   <div class="vcard">
@@ -163,7 +171,7 @@
   <div class="navbar" style="margin-bottom:14px">
     <span class="navlogo">
       <span style="font-family:'Fraunces',serif;font-size:15px;color:var(--ink)">账房</span>
-      <span class="mono" style="font-size:9px;color:var(--brass-text)">◇v1.9.0</span>
+      <a class="mono vbadge" style="font-size:9px;color:var(--brass-text)">◇v1.9.0</a>
     </span>
     <span class="navtab">仪表盘</span><span class="navtab">填报</span><span class="navtab">账户</span>
     <span class="navtab">报表</span><span class="navtab">目标</span><span class="navtab">资产体检</span>
@@ -198,13 +206,13 @@
   <div class="navbar" style="margin-bottom:14px">
     <span class="navlogo">
       <span style="font-family:'Fraunces',serif;font-size:15px;color:var(--ink)">账房</span>
-      <span class="mono" style="font-size:9px;color:var(--brass-text)">◇v1.6.4</span>
+      <a class="mono vbadge" style="font-size:9px;color:var(--brass-text)">◇v1.6.4</a>
     </span>
     <span class="navtab">仪表盘</span><span class="navtab">填报</span><span class="navtab">账户</span>
     <span class="navtab">报表</span><span class="navtab">目标</span><span class="navtab">资产体检</span>
     <span class="navtab on">管理</span><span class="navtab">手册</span>
   </div>
-  <p class="note" style="margin:-6px 0 18px">↑ <b>无圆点</b> —— 「查不通」不等于「有新版」,不能拿圆点吓人</p>
+  <p class="note" style="margin:-6px 0 18px">↑ <b>徽记无圆点</b> —— 「查不通」不等于「有新版」,不能拿圆点吓人。徽记仍可点(去看为什么查不通)</p>
 
   <div class="vcard">
     <div class="eyebrow" style="margin-bottom:12px">运 行 中</div>
@@ -254,10 +262,12 @@
 
   <div class="vcard" style="background:var(--card-soft)">
     <p class="note" style="margin-bottom:12px">
-      <b style="color:var(--ink)">① 圆点放「管理」tab,而不是版本徽记上。</b>
-      根因是 <span class="mono">member.role_label</span> 是自由文本(丈夫/妻子/foo),<b>项目里没有管理员角色</b>,
-      <span class="mono">/admin</span> 也不做权限区分 —— 全家都能进。所以没法「只给维护者看」。
-      架构上更正的答案是引入维护者角色,但为一个提示引入角色体系本末倒置 → 记进 PRD §8「以后要做」。
+      <b style="color:var(--ink)">① 圆点放版本徽记上 —— 已拍板,发现率优先。</b>
+      背景:<span class="mono">member.role_label</span> 是自由文本(丈夫/妻子/foo),<b>项目里没有管理员角色</b>,
+      <span class="mono">/admin</span> 也不做权限区分 —— 全家都能进,所以做不到「只给维护者看」。
+      我评审时提的反对是「非技术家人也会看到,而她既不理解也无法处理」,维护者接受这个代价。
+      <b>既然选了它,就得把「看到点之后不知道干什么」解决掉</b>:徽记可点 + hover 一行说明。
+      彻底消掉这个代价要引入维护者角色 → 记进 PRD §8。
     </p>
     <p class="note" style="margin-bottom:12px">
       <b style="color:var(--ink)">② 自动检查默认开。</b>
