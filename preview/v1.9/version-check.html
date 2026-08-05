@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.9 Preview · 自动版本查询(知道自己落后了,以及升级安不安全)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 20px}
+  .rule{height:1px;background:var(--rule-soft)}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);color:var(--ink-soft)}
+  .badge.now{border-color:var(--ink-subtle);color:var(--ink-soft)}
+  .badge.new{border-color:var(--brass-deep);color:var(--brass-text);background:var(--brass-soft)}
+  .badge.risk{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)}
+  .badge.ok{border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)}
+
+  /* 仿真导航栏 */
+  .navbar{border-bottom:1px solid var(--rule);background:var(--paper);padding:10px 16px;display:flex;align-items:flex-end;gap:18px}
+  .navlogo{display:flex;flex-direction:column;line-height:1.1;margin-right:8px}
+  .navtab{position:relative;font-size:13px;color:var(--ink-soft);padding-bottom:4px;border-bottom:2px solid transparent;white-space:nowrap}
+  .navtab.on{color:var(--ink);border-bottom-color:var(--brass-deep)}
+  /* FR-301 · 圆点:绝对定位,不改 tab 高度/基线 */
+  .navdot{position:absolute;top:-3px;right:-9px;width:6px;height:6px;border-radius:50%;
+          background:var(--brass-soft);border:1.5px solid var(--brass-deep)}
+
+  /* 版本卡 */
+  .vcard{border:1px solid var(--rule);background:var(--card);padding:18px 20px}
+  .vrow{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .vbig{font-family:'JetBrains Mono',monospace;font-size:19px;color:var(--ink)}
+  .arrow{color:var(--ink-subtle);font-size:13px}
+  .vlist{border:1px solid var(--rule-soft);background:var(--card-soft)}
+  .vitem{padding:7px 12px;border-bottom:1px solid var(--rule-soft);display:flex;gap:10px;align-items:baseline;font-size:12.5px}
+  .vitem:last-child{border-bottom:0}
+  .vtag{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--brass-text);min-width:52px}
+  .cmd{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--paper-soft);
+       border:1px solid var(--rule-soft);padding:7px 10px;color:var(--ink);white-space:pre;overflow-x:auto}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:11.5px}
+  .kvk{color:var(--ink-subtle);font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+  .sw{width:34px;height:19px;border-radius:10px;border:1px solid var(--rule);background:var(--card-soft);position:relative;display:inline-block;vertical-align:-4px}
+  .sw i{position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:var(--ink-subtle)}
+  .sw.on{background:var(--brass-soft);border-color:var(--brass-deep)}
+  .sw.on i{left:auto;right:2px;background:var(--brass-deep)}
+  .state{border-left:3px solid var(--brass-deep);padding-left:12px;margin:26px 0 12px}
+</style>
+</head>
+<body style="background:var(--paper-soft)">
+
+<div class="wrap" style="padding-top:34px;padding-bottom:60px">
+
+  <div class="eyebrow" style="color:var(--brass-deep)">v 1 . 9 &nbsp;·&nbsp; p r e v i e w</div>
+  <h1 class="text-3xl mt-2" style="color:var(--ink)">自动版本查询</h1>
+  <p class="note mt-2" style="max-width:660px">
+    只做「查」不做「改」。要回答的是三个问题:<b>我落后多少</b> / <b>这中间改了什么</b> / <b>升级安不安全</b>。
+    对应 <span class="mono">prd/v1.9.md</span> FR-300~304。下面四种状态都画出来了 —— 一个功能的形状,一半在它的异常态里。
+  </p>
+
+  <!-- ══════════════ 状态 A ══════════════ -->
+  <div class="state">
+    <div class="eyebrow">状 态 A</div>
+    <h2 class="text-xl mt-1" style="color:var(--ink)">有新版(落后 14 个版本 · 中间含迁移)</h2>
+  </div>
+
+  <p class="note mb-2">
+    ① <b>圆点只加在「管理」tab 上</b>,不加在版本徽记上 —— 徽记全家都看,妻子看到点不知道该做什么也没法做;
+    「管理」本来就是维护者的地盘。② 圆点是 brass 描边不是红色:这不是告警。
+  </p>
+
+  <div class="navbar" style="margin-bottom:14px">
+    <span class="navlogo">
+      <span style="font-family:'Fraunces',serif;font-size:15px;color:var(--ink)">账房</span>
+      <span class="mono" style="font-size:9px;color:var(--brass-text)">◇v1.6.4</span>
+    </span>
+    <span class="navtab">仪表盘</span>
+    <span class="navtab">填报</span>
+    <span class="navtab">账户</span>
+    <span class="navtab">报表</span>
+    <span class="navtab">目标</span>
+    <span class="navtab">资产体检</span>
+    <span class="navtab on">管理<i class="navdot"></i></span>
+    <span class="navtab">手册</span>
+  </div>
+  <p class="note" style="margin:-6px 0 18px">
+    ↑ 徽记仍显示自己在跑的 <span class="mono">v1.6.4</span>(不改)· 圆点绝对定位,<b>不得改变 tab 高度与基线</b>(8 个图标已对齐到一个像素)
+  </p>
+
+  <div class="vcard">
+    <div class="eyebrow" style="margin-bottom:12px">运 行 中</div>
+
+    <div class="vrow" style="margin-bottom:4px">
+      <span class="eyebrow" style="letter-spacing:.1em">当前</span>
+      <span class="vbig">v1.6.4</span>
+      <span class="arrow">→</span>
+      <span class="eyebrow" style="letter-spacing:.1em">最新</span>
+      <span class="vbig" style="color:var(--brass-text)">v1.9.0</span>
+      <span class="badge new">落后 14 个版本</span>
+    </div>
+    <p class="note" style="margin-bottom:14px">检查于 8 分钟前 · 每天自动查一次</p>
+
+    <!-- ③ 升级安不安全 —— 和别人不一样的那一格 -->
+    <div style="border:1px solid var(--rust);background:rgba(156,74,42,.06);padding:11px 13px;margin-bottom:14px">
+      <div class="vrow" style="gap:8px;margin-bottom:5px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--rust)" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px">
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <b style="font-size:13px;color:var(--ink)">这中间含 4 个 DB 迁移</b>
+        <span class="badge risk">回滚只回 jar 不回 DB</span>
+      </div>
+      <p class="note" style="margin:0">
+        <span class="mono">V50 V51 V52 V53</span> · 升级后若要退回 v1.6.4,jar 能换回去但 schema 不会退 ——
+        旧 jar 读新 schema 通常没事(迁移只加带默认值的列),但<b>升级前请自行确认</b>。
+        <a href="#" style="color:var(--brass-deep)">看升级说明 →</a>
+      </p>
+    </div>
+
+    <!-- ② 中间改了什么 -->
+    <div class="eyebrow" style="margin-bottom:6px">这 中 间 改 了 什 么</div>
+    <div class="vlist" style="margin-bottom:6px">
+      <div class="vitem"><span class="vtag">v1.9.0</span><span>自动版本查询(知道自己落后了,以及升级安不安全)</span></div>
+      <div class="vitem"><span class="vtag">v1.8.1</span><span>登录页停留太久后提交不再甩报错页 · 浮钮横竖屏顺序 · 一处假文案</span></div>
+      <div class="vitem"><span class="vtag">v1.8.0</span><span>支出可以逐笔记了(而且不强制)· 支出构成</span></div>
+      <div class="vitem"><span class="vtag">v1.7.1</span><span>手册进首页</span></div>
+      <div class="vitem"><span class="vtag">v1.7.0</span><span>交互式使用手册(免登录可读)</span></div>
+    </div>
+    <p class="note" style="margin-bottom:14px">
+      <a href="#" style="color:var(--brass-deep)">另有 9 个更早版本 ▾</a> · 每行可点开对应 Release 页
+    </p>
+
+    <!-- ④ 怎么升:给命令不给按钮 -->
+    <div class="eyebrow" style="margin-bottom:6px">怎 么 升 级</div>
+    <div class="cmd" style="margin-bottom:5px">git pull &amp;&amp; bash deploy/docker-up.sh     # Docker</div>
+    <div class="cmd">git pull &amp;&amp; bash deploy/deploy.sh        # 直装</div>
+    <p class="note" style="margin-top:6px">
+      两种都给 —— 我们没法可靠判断你是哪种装法。<b>本版不提供一键更新按钮</b>,理由见 PRD §7。
+    </p>
+
+    <div class="rule" style="margin:16px 0 12px"></div>
+
+    <!-- FR-303 · 隐私 -->
+    <div class="vrow" style="justify-content:space-between;margin-bottom:8px">
+      <b style="font-size:12.5px;color:var(--ink)">自动检查更新</b>
+      <span><span class="sw on"><i></i></span> <span class="note">已开启</span></span>
+    </div>
+    <div class="kv">
+      <span class="kvk">会做什么</span><span class="note" style="margin:0">每天一次 GET <span class="mono">api.github.com</span> 读本仓库的 Releases</span>
+      <span class="kvk">发出去什么</span><span class="note" style="margin:0">只有这个请求本身。<b>不带版本号、不带实例标识、不带任何用户数据</b>(即无遥测)</span>
+      <span class="kvk">代价</span><span class="note" style="margin:0">GitHub 会看到你服务器的 IP。介意就关掉,关掉后零后台请求</span>
+    </div>
+  </div>
+
+  <!-- ══════════════ 状态 B ══════════════ -->
+  <div class="state" style="border-color:var(--forest)">
+    <div class="eyebrow">状 态 B</div>
+    <h2 class="text-xl mt-1" style="color:var(--ink)">已是最新(无圆点)</h2>
+  </div>
+  <p class="note mb-2">最常见的状态。要足够安静 —— 不表功、不占地方。</p>
+
+  <div class="navbar" style="margin-bottom:14px">
+    <span class="navlogo">
+      <span style="font-family:'Fraunces',serif;font-size:15px;color:var(--ink)">账房</span>
+      <span class="mono" style="font-size:9px;color:var(--brass-text)">◇v1.9.0</span>
+    </span>
+    <span class="navtab">仪表盘</span><span class="navtab">填报</span><span class="navtab">账户</span>
+    <span class="navtab">报表</span><span class="navtab">目标</span><span class="navtab">资产体检</span>
+    <span class="navtab on">管理</span><span class="navtab">手册</span>
+  </div>
+
+  <div class="vcard">
+    <div class="eyebrow" style="margin-bottom:12px">运 行 中</div>
+    <div class="vrow">
+      <span class="vbig">v1.9.0</span>
+      <span class="badge ok">已是最新</span>
+      <span class="note" style="margin:0">检查于 3 小时前</span>
+      <a href="#" class="note" style="margin:0;color:var(--brass-deep)">立即检查</a>
+    </div>
+    <div class="rule" style="margin:14px 0 12px"></div>
+    <div class="vrow" style="justify-content:space-between">
+      <b style="font-size:12.5px;color:var(--ink)">自动检查更新</b>
+      <span><span class="sw on"><i></i></span> <span class="note">已开启</span></span>
+    </div>
+  </div>
+
+  <!-- ══════════════ 状态 C ══════════════ -->
+  <div class="state" style="border-color:var(--ink-subtle)">
+    <div class="eyebrow">状 态 C</div>
+    <h2 class="text-xl mt-1" style="color:var(--ink)">查不通(内网部署 / GitHub 不可达)</h2>
+  </div>
+  <p class="note mb-2">
+    <b>这是最容易做错的一个状态。</b>不能在全站甩「检查失败」的红字 —— 对非技术家人毫无意义,
+    而且会让人以为是软件坏了。全站什么都不显示,只有这张卡里说明,而且<b>页面渲染永不等网络</b>。
+  </p>
+
+  <div class="navbar" style="margin-bottom:14px">
+    <span class="navlogo">
+      <span style="font-family:'Fraunces',serif;font-size:15px;color:var(--ink)">账房</span>
+      <span class="mono" style="font-size:9px;color:var(--brass-text)">◇v1.6.4</span>
+    </span>
+    <span class="navtab">仪表盘</span><span class="navtab">填报</span><span class="navtab">账户</span>
+    <span class="navtab">报表</span><span class="navtab">目标</span><span class="navtab">资产体检</span>
+    <span class="navtab on">管理</span><span class="navtab">手册</span>
+  </div>
+  <p class="note" style="margin:-6px 0 18px">↑ <b>无圆点</b> —— 「查不通」不等于「有新版」,不能拿圆点吓人</p>
+
+  <div class="vcard">
+    <div class="eyebrow" style="margin-bottom:12px">运 行 中</div>
+    <div class="vrow">
+      <span class="vbig">v1.6.4</span>
+      <span class="badge now">未能连上 GitHub</span>
+      <a href="#" class="note" style="margin:0;color:var(--brass-deep)">重试</a>
+    </div>
+    <p class="note" style="margin-top:8px">
+      上次尝试:12 分钟前 · <span class="mono">connect timeout</span><br>
+      从来没查成功过 → 不知道有没有新版,所以<b>不显示落后数、不显示圆点</b>。
+      内网部署或不想让它出网都属正常,可以直接关掉开关。
+    </p>
+    <div class="rule" style="margin:14px 0 12px"></div>
+    <div class="vrow" style="justify-content:space-between">
+      <b style="font-size:12.5px;color:var(--ink)">自动检查更新</b>
+      <span><span class="sw on"><i></i></span> <span class="note">已开启</span></span>
+    </div>
+  </div>
+
+  <!-- ══════════════ 状态 D ══════════════ -->
+  <div class="state" style="border-color:var(--ink-subtle)">
+    <div class="eyebrow">状 态 D</div>
+    <h2 class="text-xl mt-1" style="color:var(--ink)">已关闭(零后台请求)</h2>
+  </div>
+  <p class="note mb-2">关掉之后卡片退化成「当前版本 + 手动检查」,不再有任何定时请求。</p>
+
+  <div class="vcard">
+    <div class="eyebrow" style="margin-bottom:12px">运 行 中</div>
+    <div class="vrow">
+      <span class="vbig">v1.6.4</span>
+      <span class="badge now">自动检查已关闭</span>
+      <a href="#" class="note" style="margin:0;color:var(--brass-deep)">检查一次</a>
+    </div>
+    <p class="note" style="margin-top:8px">不会有任何后台请求。想知道有没有新版就点上面那个,查完仍然不会定时查。</p>
+    <div class="rule" style="margin:14px 0 12px"></div>
+    <div class="vrow" style="justify-content:space-between">
+      <b style="font-size:12.5px;color:var(--ink)">自动检查更新</b>
+      <span><span class="sw"><i></i></span> <span class="note">已关闭</span></span>
+    </div>
+  </div>
+
+  <!-- ══════════════ 设计取舍 ══════════════ -->
+  <div class="state" style="border-color:var(--brass-deep)">
+    <div class="eyebrow">需 要 你 拍 板 的 取 舍</div>
+  </div>
+
+  <div class="vcard" style="background:var(--card-soft)">
+    <p class="note" style="margin-bottom:12px">
+      <b style="color:var(--ink)">① 圆点放「管理」tab,而不是版本徽记上。</b>
+      根因是 <span class="mono">member.role_label</span> 是自由文本(丈夫/妻子/foo),<b>项目里没有管理员角色</b>,
+      <span class="mono">/admin</span> 也不做权限区分 —— 全家都能进。所以没法「只给维护者看」。
+      架构上更正的答案是引入维护者角色,但为一个提示引入角色体系本末倒置 → 记进 PRD §8「以后要做」。
+    </p>
+    <p class="note" style="margin-bottom:12px">
+      <b style="color:var(--ink)">② 自动检查默认开。</b>
+      默认关 → 绝大多数人永远不知道有更新,功能等于没做。默认开 → 一天一个不带身份信息的 GET,
+      代价是服务器 IP 对 GitHub 可见。我选默认开 + 把「发了什么」写在用户眼前。<b>这条你可能不同意,评审时说。</b>
+    </p>
+    <p class="note" style="margin-bottom:12px">
+      <b style="color:var(--ink)">③ 「含 N 个迁移」这一格是本版和同类实现最不一样的地方。</b>
+      写 PRD 时实测过 GitHub 的 compare API 能给出两 tag 之间的改动文件清单
+      (<span class="mono">v1.7.1...v1.8.0</span> 精确报出 <span class="mono">V53__expense_entry_mode.sql</span>),
+      所以不是猜的。拿不到时显示「无法确定,升级前自行核对」,<b>不假装没有</b>。
+    </p>
+    <p class="note" style="margin:0">
+      <b style="color:var(--ink)">④ 不给一键更新按钮。</b>
+      四道坎:unit 是 <span class="mono">Restart=on-failure</span>(退出码 0 不会被拉起)、
+      jar 是 <span class="mono">root:root</span> 而 app 跑 <span class="mono">finance</span> 用户(无权替换自己)、
+      Release 没有 jar 资产、以及我们有 DB 迁移。详见 PRD §7。
+    </p>
+  </div>
+
+  <p class="note" style="margin-top:28px;text-align:center">
+    preview/v1.9/version-check.html · 配 prd/v1.9.md · 评审通过后再写 tech-design/v1.9.md
+  </p>
+</div>
+</body>
+</html>
