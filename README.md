@@ -353,6 +353,7 @@ bash scripts/e2e.sh            # 端到端主线真验收(11 主线 · 唤起 be
 - **使用手册(新手先看)**:[`docs/how-to-use.md`](docs/how-to-use.md)(带截图 · **月度主流程**:填报顺序 → 关账 → 看结果 → 季度体检;**分析路径**:「高风险资产在谁手上、具体哪几笔」这类问题从旭日一路钻到单笔持仓)
 - **v1.7 设计文档**:[`prd/v1.7.md`](prd/v1.7.md) · [`tech-design/v1.7.md`](tech-design/v1.7.md)(交互式使用手册:功能全集 → 必修/选修分类 → 24 章)
 - **v1.8 设计文档**:[`prd/v1.8.md`](prd/v1.8.md) · [`tech-design/v1.8.md`](tech-design/v1.8.md)(支出逐笔化:口径收敛到一处 → 两个「支出」必须分开 → 总额模式逐位不变;tech-design §8 记了施工中被分水岭比对拦下的三处)
+- **v1.9 设计文档**:[`prd/v1.9.md`](prd/v1.9.md) · [`tech-design/v1.9.md`](tech-design/v1.9.md)(自动版本查询:只查不改 —— 落后几个版本 + 这中间有没有 DB 迁移;tech-design §7 记了「能不能做一键更新/自动更新」的可行性与风险分析)
 - **怎么记账 · 场景速查**:[`docs/how-to-record.md`](docs/how-to-record.md)(工资/消费/买卖基金/借钱还贷/账户间转钱 逐场景对照 · 没有财会背景也能看懂)
 - **配置与接入**:[`docs/configuration.md`](docs/configuration.md)(AI / 短信 等外部服务配置总指南 · 全部可选)
 - **券商同步图文向导**:[`docs/broker-sync-guide.md`](docs/broker-sync-guide.md)(富途 / 老虎凭据一步步获取 · 应用内同款 `/help/broker-sync` 带示意图)
