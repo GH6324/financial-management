@@ -354,8 +354,25 @@ public class FactViewServiceImpl implements FactViewService {
     public List<TrendPoint> netWorthTrendExOpening(FactSlice slice) {
         List<TrendPoint> out = new ArrayList<>();
         BigDecimal cumOpening = BigDecimal.ZERO;
+        boolean first = true;
         for (Long periodId : slice.periodIds()) {
-            cumOpening = cumOpening.add(openingBaseline(slice, periodId));
+            // v1.9.4 · **窗口首期的开账基线不减**。
+            //
+            // 原来是每期都减,包括首期 —— 而首期的「首次出现账户」按定义就是全部账户,
+            // 于是首点恒等于 0(ReportsController v1.6.29 的注释里已经写下过这个事实,
+            // 但当时只把 tooltip 那个消费方改成 netWorthTrend,财富水位这个**主**消费方留在了坏序列上)。
+            //
+            // 后果:WaterLevelService 以首点为锚(anchor),anchor<=0 直接判 unavailable ——
+            // 只要时间窗包含家庭首期,财富水位就永久显示「需要至少 2 期净资产数据」。
+            // 新用户只有两三期、任何窗口都含首期 → 这一节对他们从来没出现过(prod 实报)。
+            //
+            // 语义上首期那笔存量本金**就是起跑线**,不是「注入」:购买力线要拿它当基数复利。
+            // 第二期起新出现的账户仍然剔除(那才是「本来就有、现在才开始记」的外部资本纳入),
+            // 所以对不含首期的窗口(3M/6M/YTD/1Y)本方法输出**逐点不变** —— 零差异,已实测。
+            if (!first) {
+                cumOpening = cumOpening.add(openingBaseline(slice, periodId));
+            }
+            first = false;
             BigDecimal v = netWorth(slice, periodId).subtract(cumOpening).setScale(2, RoundingMode.HALF_EVEN);
             out.add(new TrendPoint(periodId, periodStart(slice, periodId), label(slice, periodId), v));
         }

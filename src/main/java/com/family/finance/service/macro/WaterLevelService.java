@@ -28,9 +28,13 @@ public class WaterLevelService {
     private final MacroBenchmarkService macroService;
 
     public WaterLevel compute(List<TrendPoint> trend) {
-        if (trend == null || trend.size() < 2) return WaterLevel.unavailable();
+        if (trend == null || trend.size() < 2) return WaterLevel.unavailable(Reason.NOT_ENOUGH_PERIODS);
         BigDecimal anchor = trend.getFirst().value();
-        if (anchor == null || anchor.signum() <= 0) return WaterLevel.unavailable();
+        // 锚必须是正数:购买力线是「起跑本金 × 通胀复利」,从 0 或负数起算没有意义。
+        // v1.9.4 起首点不再恒为 0(见 FactViewServiceImpl.netWorthTrendExOpening),
+        // 所以走到这里基本只剩「窗口起点净资产确实 ≤ 0」这一种真实情形(例:房贷 > 总资产)——
+        // 那是个**真实的处境**而不是数据不足,得说清楚,别再让用户以为「多记几期就好了」。
+        if (anchor == null || anchor.signum() <= 0) return WaterLevel.unavailable(Reason.NON_POSITIVE_ANCHOR);
 
         Map<Integer, BigDecimal> cpiByYear = new HashMap<>();
         Map<Integer, BigDecimal> m2ByYear = new HashMap<>();
@@ -79,7 +83,7 @@ public class WaterLevelService {
                 anchor, last, cpiLine.getLast(), m2Line.getLast(),
                 last.compareTo(cpiLine.getLast()) >= 0,
                 last.compareTo(m2Line.getLast()) >= 0,
-                true);
+                true, null);
     }
 
     private double rate(Map<Integer, BigDecimal> map, int year, BigDecimal fallback) {
@@ -107,10 +111,27 @@ public class WaterLevelService {
             BigDecimal m2Baseline,
             boolean aboveCpi,
             boolean aboveM2,
-            boolean available) {
-        static WaterLevel unavailable() {
+            boolean available,
+            /** 不可用的原因;available=true 时为 null。用来让页面说真话,别把两种情形混成一句。 */
+            Reason reason) {
+        static WaterLevel unavailable(Reason reason) {
             return new WaterLevel(List.of(), List.of(), List.of(), List.of(),
-                    null, null, null, null, null, null, null, false, false, false);
+                    null, null, null, null, null, null, null, false, false, false, reason);
         }
+    }
+
+    /**
+     * 财富水位不可用的原因。
+     *
+     * <p>原先只有一个布尔 available,页面统一显示「需要至少 2 期净资产数据 + 宏观基准」——
+     * 三个问题:① 期数够了也可能不可用,用户照着提示继续记账没有用;
+     * ② 「宏观基准」根本不是条件(缺了有三法均值 fallback,见 cpiAverages/m2Averages);
+     * ③ 两种完全不同的处境给同一句话,没法自查。</p>
+     */
+    public enum Reason {
+        /** 窗口里少于 2 期净资产数据 —— 继续记账确实会解决。 */
+        NOT_ENOUGH_PERIODS,
+        /** 窗口起点净资产 ≤ 0(例:房贷大于总资产)—— 购买力线无法从非正数起算,不是数据不足。 */
+        NON_POSITIVE_ANCHOR
     }
 }

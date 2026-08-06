@@ -5475,6 +5475,51 @@ CSSF="$RD/src/main/resources/static/css/style.css"
   && log_ok "v192-UPD-MODAL-DEGRADE(徽记 href 仍可用 · JS 在时才拦成弹窗 · Esc/遮罩可关)" \
   || log_bad "v192-UPD-MODAL-DEGRADE 退化路径断了" "徽记 href 必须留 /admin?tab=version;弹窗靠 preventDefault 接管,不许 href=# 或换 <button>"
 
+# ── v1.9.4 · 财富水位「关了三期还说期数不足」──────────────────────────
+# v194-WL-ANCHOR · 财富水位序列首点不许恒为 0
+#   现象(prod 实报):已关账 3 期,报表页财富水位仍显示「需要至少 2 期净资产数据 + 宏观基准」。
+#   根因:netWorthTrendExOpening 每期都减掉「本期首次出现账户的期末净值」——**包括窗口首期**,
+#   而首期的「首次出现账户」按定义就是全部账户 → 首点恒等于 0。
+#   WaterLevelService 以首点为锚、anchor<=0 判不可用 → 只要时间窗包含家庭首期,这一节永久不出现。
+#   新用户只有两三期、任何窗口都含首期,所以从来没见过它;**加一个新账户**也会让短窗口的首期
+#   含「首次出现账户」,同样打死(beta 实测 range=ALL 复现)。
+#   ReportsController v1.6.29 的注释里已经写下过「该序列首点按构造恒为 0」,
+#   但当时只把 tooltip 消费方改成 netWorthTrend,财富水位这个**主**消费方留在了坏序列上。
+#   修法:窗口首期的开账基线不减(那笔存量本金就是起跑线,不是注入),第二期起照旧剔除
+#   → 对不含首期的窗口逐点零差异(3M/6M/YTD/1Y 指纹实测逐字相同)。
+FVI2="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
+{ grep -q 'boolean first = true;' "$FVI2" \
+  && grep -A3 'if (!first) {' "$FVI2" | grep -q 'cumOpening = cumOpening.add(openingBaseline(slice, periodId));' \
+  && grep -q '窗口首期的首点必须是真实净资产_不能恒为0' \
+       "$RD/src/test/java/com/family/finance/factview/NetWorthTrendExOpeningTest.java" \
+  && grep -q '第二期起新出现的账户仍然要剔除' \
+       "$RD/src/test/java/com/family/finance/factview/NetWorthTrendExOpeningTest.java" \
+  && grep -q '不含首期的窗口逐点不变_零差异' \
+       "$RD/src/test/java/com/family/finance/factview/NetWorthTrendExOpeningTest.java"; } \
+  && log_ok "v194-WL-ANCHOR(财富水位序列首期不减开账基线 · 首点=真实净资产 · 后续注入仍剔除 · 零差异单测守着)" \
+  || log_bad "v194-WL-ANCHOR 首点又会恒为 0" "netWorthTrendExOpening 必须跳过窗口首期的 openingBaseline,否则含首期的窗口财富水位永久不可用"
+
+# v194-WL-REASON · 不可用要说真话,别把两种处境混成一句
+#   原文案:「财富水位需要至少 2 期净资产数据 + 宏观基准」。三个错:
+#   ① 期数够了也可能不可用(上面那个 bug 就是),用户照提示继续记账没有用;
+#   ② 「宏观基准」根本不是条件 —— 缺了走三法均值 fallback(cpiAverages/m2Averages);
+#   ③ 两种完全不同的处境给同一句话,用户没法自查。
+WLS="$RD/src/main/java/com/family/finance/service/macro/WaterLevelService.java"
+WLT="$RD/src/main/resources/templates/reports/_wealth-level.html"
+{ grep -q 'public enum Reason' "$WLS" \
+  && grep -q 'NOT_ENOUGH_PERIODS' "$WLS" && grep -q 'NON_POSITIVE_ANCHOR' "$WLS" \
+  && grep -q 'unavailable(Reason.NOT_ENOUGH_PERIODS)' "$WLS" \
+  && grep -q 'unavailable(Reason.NON_POSITIVE_ANCHOR)' "$WLS" \
+  && ! grep -q '财富水位需要至少 2 期净资产数据 + 宏观基准' "$WLT" \
+  && grep -q '起点净资产不是正数' "$WLT" \
+  && grep -q '不到 2 期净资产数据' "$WLT" \
+  && grep -q '缺宏观数据不影响可用性_走三法均值fallback' \
+       "$RD/src/test/java/com/family/finance/service/macro/WaterLevelServiceTest.java" \
+  && grep -q '起点净资产非正的原因不是期数不足' \
+       "$RD/src/test/java/com/family/finance/service/macro/WaterLevelServiceTest.java"; } \
+  && log_ok "v194-WL-REASON(不可用分 NOT_ENOUGH_PERIODS / NON_POSITIVE_ANCHOR · 文案各说各的 · 不再谎称缺宏观基准)" \
+  || log_bad "v194-WL-REASON 兜底文案又混成一句" "WaterLevel 需带 Reason;模板按原因分开渲染;不许再出现「需要至少 2 期净资产数据 + 宏观基准」"
+
 # ── v1.9.3 · 账户表行高(中文列被压成竖排)────────────────────────────
 # v193-TABLE-NUM-NOWRAP · 账户表数字格不许折行 + 类型 pill 不许竖排
 #   现象(用户报 prod):报表页账户表「类型」列竖着排,「现金」两行、「贵金属」三行,行高 71px。

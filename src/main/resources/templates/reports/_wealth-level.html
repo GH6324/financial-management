@@ -13,9 +13,24 @@
     <div class="h-px flex-1" style="background:var(--brass-deep);opacity:.4"></div>
   </div>
 
-  <!-- 数据不足兜底 -->
-  <div th:unless="${waterLevel != null and waterLevel.available}" class="paper-card p-6 bg-card-soft text-center" style="border-left:4px solid var(--brass-deep)">
-    <p class="text-ink-soft text-sm">财富水位需要至少 2 期净资产数据 + 宏观基准。继续记账后这里会显示你跑赢 CPI / M2 的情况。</p>
+  <!-- v1.9.4 · 不可用兜底 · 按原因分开说。
+       原来不论什么原因都显示「需要至少 2 期净资产数据 + 宏观基准」,而:
+       ① 期数够了也可能不可用(首点恒 0 那个老 bug 就是这样,用户照提示继续记账没有用);
+       ② 「宏观基准」根本不是条件 —— 缺了走三法均值 fallback;
+       ③ 两种完全不同的处境给同一句话,用户没法自查。 -->
+  <div th:if="${waterLevel != null and !waterLevel.available and waterLevel.reason != null and waterLevel.reason.name() == 'NON_POSITIVE_ANCHOR'}"
+       class="paper-card p-6 bg-card-soft text-center" style="border-left:4px solid var(--rust)">
+    <p class="text-ink-soft text-sm">
+      这段时间的<b>起点净资产不是正数</b>(比如房贷大于总资产)。购买力线是「起跑本金 × 通胀复利」,
+      从零或负数起算没有意义,所以这里先不画。
+    </p>
+    <p class="text-ink-subtle text-xs mt-2">
+      换一个起点净资产已转正的时间范围就能看到;净资产转正后这里也会自动出现。
+    </p>
+  </div>
+  <div th:if="${waterLevel == null or (!waterLevel.available and (waterLevel.reason == null or waterLevel.reason.name() != 'NON_POSITIVE_ANCHOR'))}"
+       class="paper-card p-6 bg-card-soft text-center" style="border-left:4px solid var(--brass-deep)">
+    <p class="text-ink-soft text-sm">这个时间范围里只有不到 2 期净资产数据。继续记账并关账,这里就会显示你跑赢 CPI / M2 的情况。</p>
   </div>
 
   <th:block th:if="${waterLevel != null and waterLevel.available}">
