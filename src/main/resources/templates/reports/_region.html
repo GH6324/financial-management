@@ -309,7 +309,12 @@
         <tbody>
         <tr th:each="account : ${accountRows}" th:with="bm=${benchmarkByAccount.get(account.accountId)},pc=${pcNameByAccount.get(account.accountId)}">
           <td class="acct-sticky"><a th:href="@{/accounts/{id}(id=${account.accountId})}" class="font-display hover:text-brass-deep no-underline" th:text="${account.accountName}">账户</a></td>
-          <td><span class="pill" th:text="${account.accountType.label}">STOCK</span></td>
+          <!-- v1.9.3 · 必须 whitespace-nowrap。这张表 17 列、自然宽 ~1768px 远超容器,
+               table-layout:auto 会把**能折行的中文列压到 min-content**(1 字/行)再把宽度让给数字列 ——
+               于是「现金」竖成两行、「贵金属」三行,行高从 54px 涨到 71px。
+               min-width/justify-center 与仪表盘账户表的类型 pill 对齐(那边是 3.4em 居中)。 -->
+          <td><span class="pill whitespace-nowrap justify-center" style="min-width:3.4em"
+                    th:text="${account.accountType.label}">现金</span></td>
           <td><span class="pill text-[9px] whitespace-nowrap" th:if="${pc != null}" th:text="${pc}">—</span>
               <span th:if="${pc == null}" class="text-ink-subtle text-[10px]">未设</span></td>
           <td class="num" data-priv
@@ -378,7 +383,9 @@
       #reports-region .mchip{ cursor:pointer; }
       /* v1.6.30 · 「跑赢/跑输/持平 ±N pp」里的 pp 是单位(百分点),不是缩写 ——
          .pill 的 text-transform:uppercase 会把它渲染成 PP。PC 与手机同一处修。 */
-      #reports-region .pill-vs{ text-transform:none; }
+      /* v1.9.3 · 加 nowrap:PC 宽表 17 列挤压下这格只有 ~107px,「跑输 -87.10pp」会折成两行、
+         把行高从 55px 顶到 67px;而窄值行(如「跑赢 +2.1pp」)不折 —— 同一列有的一行有的两行。 */
+      #reports-region .pill-vs{ text-transform:none; white-space:nowrap; }
     </style>
     <!-- 指标 chips:点选即时切列显隐(纯前端)· 与仪表盘共享 localStorage 键 acctHiddenCols(两页隐藏集一致)-->
     <script>

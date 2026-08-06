@@ -554,6 +554,15 @@ body.toc-open #priv-float, body.toc-open .toc-fab { display: none !important; }
   vertical-align: middle;
   font-size: calc(14.5px * var(--fs-scale,1));
 }
+/* v1.9.3 · 账户表的数字格一律不折行。
+   这两张表最多 17 列、自然宽远超容器,table-layout:auto 会把**能折行的内容压到 min-content**
+   再把宽度让给别的列 —— 于是「930.85%」后面那个「累」上标、「-6.00pp」后面的上标、
+   「跑输 -87.10pp」都会掉到第二行,行高从 55px 顶到 67~73px;而窄值行不折,同一列有的一行有的两行。
+   逐个格补 whitespace-nowrap 是逐点补:下次加个指标列又会漏。这里按「数字格」这个属性一次网住,
+   新增 data-mcol 列自动继承。守护 v193-TABLE-NUM-NOWRAP。 */
+#dash-list .ledger-table tbody td.num,
+#reports-region .ledger-table tbody td.num { white-space: nowrap; }
+
 .ledger-table tbody td.num {
   font-family: "JetBrains Mono", monospace;
   font-variant-numeric: tabular-nums;

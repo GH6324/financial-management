@@ -15,7 +15,10 @@
       <tbody>
       <tr th:each="row : ${rows}">
         <td th:text="${row.accountName}">账户</td>
-        <td><span class="pill" th:text="${row.accountType}">CASH</span></td>
+        <!-- v1.9.3 · ${row.accountType} 是 AccountType 枚举本身,渲染出来是 CASH/STOCK ——
+             面向用户裸露 code(其余表一律用 .label)。顺带补 nowrap,同 PC 宽表。 -->
+        <td><span class="pill whitespace-nowrap justify-center" style="min-width:3.4em"
+                  th:text="${row.accountType.label}">现金</span></td>
         <td class="num" th:text="${row.endBalanceBase == null ? '—' : row.endBalanceBase}">0</td>
         <td class="num" th:text="${row.incomeBase}">0</td>
         <td class="num" th:text="${row.expenseBase}">0</td>

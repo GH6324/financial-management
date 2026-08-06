@@ -5068,11 +5068,15 @@ CKF="$RD/src/main/resources/templates/checkup/family.html"
 #   基准% 刻意不放次行:实测窄屏会折行并拖出一个孤立的「·」,改进展开区。
 #   顺带修 `.pill{text-transform:uppercase}` 把「跑赢/跑输 ±N pp」的**单位 pp 渲染成 PP** ——
 #   加 .pill-vs{text-transform:none},PC 与手机同一处修(只给 6 个 vs pill,不动类型/类目 pill)。
+#   2026-08-06(v1.9.3):这条原来 grep `.pill-vs{ text-transform:none; }` **逐字**匹配,
+#   给该规则补 white-space:nowrap 之后整条就红了 —— 守的意图(pp 不被 uppercase 成 PP)一点没变。
+#   同 v11-UED8 的教训:护栏盯字面就会被无关改动打红,改成正则匹配意图。顺带把 nowrap 纳入守护。
 RGN="$RD/src/main/resources/templates/reports/_region.html"
 { grep -qF 'sm:hidden space-y-2' "$RGN" \
   && grep -qF 'overflow-x-auto hidden sm:block' "$RGN" \
   && [ "$(grep -c 'pill pill-vs' "$RGN")" -eq 6 ] \
-  && grep -qF '.pill-vs{ text-transform:none; }' "$RGN" \
+  && grep -qE '\.pill-vs\{[^}]*text-transform:none' "$RGN" \
+  && grep -qE '\.pill-vs\{[^}]*white-space:nowrap' "$RGN" \
   && [ "$(grep -c 'data-mcol' "$RGN")" -ge 24 ] \
   && grep -qF 'min-width:3.4em' "$RGN"; } \
   && log_ok "v1631-RPT-ACCT-M(报表账户段手机卡片布局 · PC 表限定 sm:block · chips 仍管手机卡 · 类型 pill 固定宽防折行 · vs pill 的单位 pp 不再被大写)" \
@@ -5470,6 +5474,34 @@ CSSF="$RD/src/main/resources/static/css/style.css"
   && grep -q "e.key === 'Escape'" "$UPM"; } \
   && log_ok "v192-UPD-MODAL-DEGRADE(徽记 href 仍可用 · JS 在时才拦成弹窗 · Esc/遮罩可关)" \
   || log_bad "v192-UPD-MODAL-DEGRADE 退化路径断了" "徽记 href 必须留 /admin?tab=version;弹窗靠 preventDefault 接管,不许 href=# 或换 <button>"
+
+# ── v1.9.3 · 账户表行高(中文列被压成竖排)────────────────────────────
+# v193-TABLE-NUM-NOWRAP · 账户表数字格不许折行 + 类型 pill 不许竖排
+#   现象(用户报 prod):报表页账户表「类型」列竖着排,「现金」两行、「贵金属」三行,行高 71px。
+#   根因:两张账户表最多 17 列、自然宽 ~1790px 远超容器 ~1071px,table-layout:auto 会把
+#   **能折行的内容压到 min-content**(中文 1 字/行)再把宽度让给别的列。
+#   同一挤压还打中:收益率/本位币年化的「累」上标、预实的上标、vs 基准的「跑输 -87.10pp」——
+#   宽值行折两行、窄值行不折,同一列有的一行有的两行。
+#   修法刻意用**属性级**规则(数字格整类 nowrap)而不是逐个格补:逐点补下次加指标列又会漏。
+{ grep -q '#dash-list .ledger-table tbody td.num,' "$RD/src/main/resources/static/css/style.css" \
+  && grep -q '#reports-region .ledger-table tbody td.num { white-space: nowrap; }' "$RD/src/main/resources/static/css/style.css" \
+  && grep -q 'white-space:nowrap' <(grep 'pill-vs{' "$RD/src/main/resources/templates/reports/_region.html") \
+  && grep -q 'pill whitespace-nowrap justify-center' "$RD/src/main/resources/templates/reports/_region.html" \
+  && grep -q 'pill whitespace-nowrap justify-center' "$RD/src/main/resources/templates/reports/_drilldown.html" \
+  && ! grep -qE '<td><span class="pill" th:text="\$\{(account|row)\.accountType' \
+        "$RD/src/main/resources/templates/reports/_region.html" \
+        "$RD/src/main/resources/templates/reports/_drilldown.html"; } \
+  && log_ok "v193-TABLE-NUM-NOWRAP(账户表数字格整类 nowrap · 类型/vs基准 pill 不折行)" \
+  || log_bad "v193-TABLE-NUM-NOWRAP 表格又会被压成竖排" "style.css 需 #dash-list/#reports-region 的 td.num 整类 nowrap;类型 pill 需 whitespace-nowrap + min-width"
+
+# v193-TYPE-LABEL · 账户类型面向用户不许裸露枚举 code
+#   reports/_drilldown.html 原来写 ${row.accountType}(AccountType 枚举本身)→ 渲染成 CASH/STOCK。
+#   其余表一律 .label。裸 code 违反「面向用户的命名避免技术词」。
+{ ! grep -qE 'th:text="\$\{(row|account)\.accountType\}"' "$RD/src/main/resources/templates/reports/_drilldown.html" \
+  && grep -q 'row.accountType.label' "$RD/src/main/resources/templates/reports/_drilldown.html" \
+  && [ "$(grep -rlE 'th:text="\$\{[a-zA-Z.]*accountType\}"' "$RD/src/main/resources/templates" | wc -l)" -eq 0 ]; } \
+  && log_ok "v193-TYPE-LABEL(账户类型一律出 .label · 模板里没有裸 accountType 枚举)" \
+  || log_bad "v193-TYPE-LABEL 面向用户裸露了枚举 code" "账户类型渲染必须用 .label,不能直接输出 AccountType"
 
 # v192-UPD-STALE-CURRENT · 升级完之后不许继续提示有新版
 #   KV 行里的 current 是「上次检查时在跑的版本」。用户照提示升级完 jar、重启,这行还没刷新 ——
