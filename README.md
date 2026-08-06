@@ -96,12 +96,13 @@
 
 > 完整发布记录与截图见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段每版只留 2–4 行,细节不搬过来)。
 
+**[v1.9.3](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.9.3) · 账户表的「类型」列不再竖着排**
+报表页账户表 17 列、自然宽远超容器,`table-layout:auto` 会把**能折行的内容压到 min-content** —— 中文 1 字/行,「现金」两行、「贵金属」三行,行高 71px。同一挤压还打中「累」上标与「跑输 -87.10pp」(宽值行折、窄值行不折)。改成两张账户表的数字格**整类** nowrap,行高统一 55px。
+顺手修掉周期下钻弹窗里裸露的 `CASH`/`STOCK`(其余表一律出中文标签)。**无 DB 迁移。**
+
 **[v1.9.2](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.9.2) · 更新提示看得见了 —— 点它就知道新版是什么**
 v1.9.0 那个描边小圆点实测对比度只有 1.2:1(WCAG 门槛 3:1),等于看不见 —— 换成实心「NEW」标签(≈4.1:1)。点它不再跳配置页,而是**就地弹窗**给出:最新版本 + 发布日期、该版本的 GitHub Release 链接、说明摘要,以及本项目独有的**有没有 DB 迁移**(回滚只回 jar 不回 DB,这格决定能不能退回来)。
 顺手修掉一个真 bug:升级完之后徽记会继续挂着 NEW 最长 24 小时 —— 缓存行里的「当前版本」是上次检查时的,现在一律用正在跑的版本覆盖。**无 DB 迁移。**
-
-**[v1.9.1](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.9.1) · 修掉「有没有 DB 迁移」那格永远显示「无法确定」**
-`app.version` 是 `1.9.0`(配置里不带 `v`)而 git tag 是 `v1.9.0`,原样拼进 GitHub compare 的 URL 会 404,于是那一格总是落到 fail-closed 分支。**v1.9.0 的自测抓不到它**:该分支只在「有新版」时执行,而开发机版本号总比线上新(纪律要求动手就先 bump),分支从未被执行过 —— 教训已写进回归用例:只在「本机比线上新」这一种情形下测过的分支,等于没测。
 
 ## 主要能力
 
