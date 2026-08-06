@@ -136,6 +136,25 @@ public class UpdateCheckService {
         return 0;
     }
 
+    /**
+     * 版本号 → **git tag 引用**。
+     *
+     * <p>{@code app.version} 是 {@code 1.9.0}(application.yml 里不带 v),而我们的 tag 是
+     * {@code v1.9.0}。compare API 要的是**真实存在的 ref** —— 直接把 app.version 拼进 URL
+     * 会得到 {@code /compare/1.9.0...v1.9.1} → <b>404</b>,于是迁移判定永远落到「无法确定」,
+     * 版本卡上最有价值的那一格彻底失效。</p>
+     *
+     * <p>这个 bug 在 beta 上测不出来:那个分支只在「有新版」时才走,而 beta 的版本总是比
+     * 已发布的最新版更新(在研版本号先行),分支根本不执行。是准备发 v1.9.1 做真机验证时
+     * 核 URL 才发现的。</p>
+     */
+    static String tagOf(String version) {
+        if (version == null) return null;
+        String s = version.trim();
+        if (s.isEmpty()) return null;
+        return (s.startsWith("v") || s.startsWith("V")) ? s : "v" + s;
+    }
+
     static int[] parse(String v) {
         if (v == null) return null;
         String s = v.trim();
@@ -326,7 +345,8 @@ public class UpdateCheckService {
                 List<Item> newer = fetchNewerReleases(currentVersion);
                 behind = newer.size();
                 items = newer.size() <= MAX_ITEMS ? newer : newer.subList(0, MAX_ITEMS);
-                mig = fetchMigrations(currentVersion, latest);
+                // 必须传 **tag 引用**,不能传 app.version 原样(见 tagOf 的注释)
+                mig = fetchMigrations(tagOf(currentVersion), tagOf(latest));
             }
 
             UpdateInfo info = new UpdateInfo(Instant.now(), currentVersion, latest, behind, mig, items);

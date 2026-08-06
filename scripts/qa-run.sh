@@ -5381,6 +5381,19 @@ UCS="$RD/src/main/java/com/family/finance/service/update/UpdateCheckService.java
   && log_ok "v19-UPD-FAIL-CLOSED(compare files 截断/失败 → known=false · 单测守着)" \
   || log_bad "v19-UPD-FAIL-CLOSED 缺件" "detectMigrations 必须在 truncated/null 时返回 known=false;单测「文件清单被截断时必须标未知」必须在"
 
+# v191-UPD-TAG-REF · compare 必须传 git tag 引用,不能传 app.version 原样
+#   app.version 是 1.9.0(application.yml 里不带 v),tag 是 v1.9.0。
+#   直接拼 → /compare/1.9.0...v1.9.1 → 404 → 迁移判定永远「无法确定」,
+#   版本卡上最有价值的那一格彻底失效。
+#   这个 bug 在 beta 上测不出来:那个分支只在「有新版」时才走,而 beta 的在研版本号总是
+#   比已发布最新版更新,分支根本不执行 —— 是准备发 v1.9.1 做真机验证时核 URL 才发现的。
+{ grep -q 'static String tagOf' "$UCS" \
+  && grep -q 'fetchMigrations(tagOf(currentVersion), tagOf(latest))' "$UCS" \
+  && ! grep -qE 'fetchMigrations\(currentVersion' "$UCS" \
+  && grep -q '版本号要归一化成tag引用_否则compare必然404' "$RD/src/test/java/com/family/finance/service/update/UpdateCheckServiceTest.java"; } \
+  && log_ok "v191-UPD-TAG-REF(compare 走 tagOf 归一化 · 单测守着)" \
+  || log_bad "v191-UPD-TAG-REF 又把 app.version 原样拼进 compare 了" "必须 fetchMigrations(tagOf(current), tagOf(latest));app.version 不带 v 而 tag 带 v,原样拼必然 404"
+
 # v19-UPD-DEGRADE · 一次失败不许把页面从「有新版」变成「什么都没有」
 { grep -q 'writeAttempt(familyId, false' "$UCS" \
   && ! grep -qE 'catch *\([^)]*\) *\{[^}]*KEY_RESULT' "$UCS" \

@@ -66,6 +66,20 @@ class UpdateCheckServiceTest {
         assertThat(UpdateCheckService.UpdateInfo.unknown().hasUpdate()).isFalse();
     }
 
+    // ── compare 的 ref 必须是真实 tag ────────────────────────────────────
+
+    @Test
+    void 版本号要归一化成tag引用_否则compare必然404() {
+        // app.version 是 "1.9.0"(不带 v),而 tag 是 "v1.9.0"。
+        // 直接拼进 compare URL → /compare/1.9.0...v1.9.1 → 404 → 迁移判定永远「无法确定」。
+        assertThat(UpdateCheckService.tagOf("1.9.0")).isEqualTo("v1.9.0");
+        assertThat(UpdateCheckService.tagOf("v1.9.0")).isEqualTo("v1.9.0");   // 已带 v 不重复加
+        assertThat(UpdateCheckService.tagOf("V1.9.0")).isEqualTo("V1.9.0");
+        assertThat(UpdateCheckService.tagOf("  1.9.0  ")).isEqualTo("v1.9.0");
+        assertThat(UpdateCheckService.tagOf(null)).isNull();
+        assertThat(UpdateCheckService.tagOf("  ")).isNull();
+    }
+
     // ── 迁移判定 · fail-closed ──────────────────────────────────────────
 
     @Test
