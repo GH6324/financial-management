@@ -5405,13 +5405,84 @@ UCS="$RD/src/main/java/com/family/finance/service/update/UpdateCheckService.java
 #   徽记原先嵌在 logo 的 <a th:href="@{/}"> 里,直接加 href 会变成 <a> 套 <a>(非法 HTML,
 #   浏览器自动拆开、布局散架)→ v1.9 把 nav 拆成三个并列 <a>。
 { grep -q 'ver-badge' "$RD/src/main/resources/templates/fragments/nav.html" \
-  && grep -q 'ver-dot' "$RD/src/main/resources/templates/fragments/nav.html" \
+  && grep -q 'ver-new' "$RD/src/main/resources/templates/fragments/nav.html" \
   && grep -q "admin(tab='version')" "$RD/src/main/resources/templates/fragments/nav.html" \
-  && grep -q 'position: absolute' "$RD/src/main/resources/static/css/style.css" \
-  && grep -qF '.ver-dot' "$RD/src/main/resources/static/css/style.css" \
+  && [ "$(grep -c '<a ' "$RD/src/main/resources/templates/fragments/nav.html")" -ge 3 ] \
   && grep -q 'id="version"' "$RD/src/main/resources/templates/admin/index.html"; } \
-  && log_ok "v19-UPD-BADGE(徽记 <a> 可点 · 圆点 .ver-dot 绝对定位 · 管理页 #version 锚点)" \
-  || log_bad "v19-UPD-BADGE 缺件" "nav.html 需 ver-badge/ver-dot + 跳 admin?tab=version;style.css 需 .ver-dot 绝对定位;admin 需 id=version"
+  && log_ok "v19-UPD-BADGE(徽记 <a> 可点 · 不嵌套 <a> · 管理页 #version 锚点)" \
+  || log_bad "v19-UPD-BADGE 缺件" "nav.html 需 ver-badge/ver-new + 跳 admin?tab=version;admin 需 id=version"
+
+# ── v1.9.2 · 提示醒目度 + 就地弹窗 ──────────────────────────────────────
+UPM="$RD/src/main/resources/templates/fragments/_update-modal.html"
+NAVH="$RD/src/main/resources/templates/fragments/nav.html"
+CSSF="$RD/src/main/resources/static/css/style.css"
+
+# v192-UPD-BADGE-CONTRAST · 提示必须是实心高对比,不许退回描边圆点
+#   v1.9.0 用 .ver-dot:brass-soft #E8D9B6 填色落在 paper #F4EFE6 上,对比度约 1.2:1
+#   (WCAG 非文本元素门槛 3:1)—— 用户反馈「太弱了,和背景色过于相似」,实测等于看不见。
+#   换成实心「NEW」文字标签:brass-deep #8C6A33 底 + paper 字 ≈ 4.1:1。
+#   这里同时钉住「.ver-dot 已彻底删掉」,防后人照着旧文档把描边圆点加回来。
+{ grep -qF '.ver-new' "$CSSF" \
+  && ! grep -qE '^[[:space:]]*\.ver-dot[[:space:]]*\{' "$CSSF" \
+  && ! grep -q 'ver-dot' "$NAVH" \
+  && grep -A6 -F '.ver-new {' "$CSSF" | grep -q 'background: var(--brass-deep)' \
+  && grep -A6 -F '.ver-new {' "$CSSF" | grep -q 'color: var(--paper)' \
+  && grep -q '>NEW<' "$NAVH"; } \
+  && log_ok "v192-UPD-BADGE-CONTRAST(实心 NEW 标签 · brass-deep 底 + 纸色字 ≈ 4.1:1 · .ver-dot 已除)" \
+  || log_bad "v192-UPD-BADGE-CONTRAST 提示又变弱了" "禁用 .ver-dot 描边圆点(1.2:1);.ver-new 必须 background:var(--brass-deep) + color:var(--paper)"
+
+# v192-UPD-MODAL-BODY-LEVEL · 弹窗必须挂在 <main> 外面
+#   main 带 `relative z-10` 是**层叠上下文**:放在它里面的 position:fixed 浮层
+#   永远升不到 z-30 的 nav 之上,遮罩会被顶栏压穿(项目里踩过)。
+#   所以由 layout 的 footer 片段引入(footer 只有 relative、没有 z-index,不成上下文)。
+{ [ -f "$UPM" ] \
+  && grep -q '_update-modal :: updateModal' "$RD/src/main/resources/templates/fragments/layout.html" \
+  && ! grep -rq '_update-modal' "$RD/src/main/resources/templates/dashboard/index.html" \
+  && grep -A4 -F '.upd-modal {' "$CSSF" | grep -q 'position: fixed' \
+  && grep -A4 -F '.upd-mask {' "$CSSF" | grep -q 'position: fixed' \
+  && grep -q 'body.upd-open #float-dock' "$CSSF" \
+  && grep -qF '.upd-modal, .upd-modal * { text-align: left; }' "$CSSF" \
+  && grep -q "classList.add('upd-open')" "$UPM"; } \
+  && log_ok "v192-UPD-MODAL-BODY-LEVEL(弹窗由 footer 片段引入 · 在 main 之外 · fixed 遮罩)" \
+  || log_bad "v192-UPD-MODAL-BODY-LEVEL 弹窗挂错层" "必须经 fragments/layout.html 的 footer 引入;放进 main(relative z-10)会被 nav 压穿"
+
+# v192-UPD-MODAL-FIELDS · 弹窗三要素 + 迁移判定
+#   用户要求至少给:a 最新版本 b 该版本的 GitHub Release 链接 c 版本说明摘要。
+#   再加一条本项目独有的迁移判定 —— 回滚只回 jar 不回 DB,这格决定升级能不能退回来。
+{ grep -q 'updateInfo.latest()' "$UPM" \
+  && grep -q 'updateInfo.currentTag()' "$UPM" \
+  && grep -q 'updateInfo.releaseUrl()' "$UPM" \
+  && grep -q 'updateInfo.summary()' "$UPM" \
+  && grep -q 'updateInfo.publishedAt()' "$UPM" \
+  && grep -q 'migrations().known()' "$UPM" \
+  && grep -q 'target="_blank"' "$UPM" && grep -q 'rel="noopener"' "$UPM" \
+  && grep -q 'updateInfo.hasUpdate()' "$UPM"; } \
+  && log_ok "v192-UPD-MODAL-FIELDS(最新版本 + Release 链接 + 说明摘要 + 迁移判定 · 仅有新版时渲染)" \
+  || log_bad "v192-UPD-MODAL-FIELDS 弹窗缺件" "需 latest / releaseUrl / summary / publishedAt / 迁移判定,且整块 th:if hasUpdate"
+
+# v192-UPD-MODAL-DEGRADE · 没 JS 时徽记仍然是条能用的链接
+#   弹窗是渐进增强:href 保留指向管理页版本卡,JS 在时才 preventDefault 拦成弹窗。
+#   别改成 href="#" 或 <button> —— 那样禁用 JS 的浏览器点了什么都不会发生。
+{ grep -q "th:href=\"@{/admin(tab='version')}\"" "$NAVH" \
+  && ! grep -q 'href="#"' "$NAVH" \
+  && grep -q 'preventDefault' "$UPM" \
+  && grep -q "querySelectorAll('.ver-badge')" "$UPM" \
+  && grep -q "e.key === 'Escape'" "$UPM"; } \
+  && log_ok "v192-UPD-MODAL-DEGRADE(徽记 href 仍可用 · JS 在时才拦成弹窗 · Esc/遮罩可关)" \
+  || log_bad "v192-UPD-MODAL-DEGRADE 退化路径断了" "徽记 href 必须留 /admin?tab=version;弹窗靠 preventDefault 接管,不许 href=# 或换 <button>"
+
+# v192-UPD-STALE-CURRENT · 升级完之后不许继续提示有新版
+#   KV 行里的 current 是「上次检查时在跑的版本」。用户照提示升级完 jar、重启,这行还没刷新 ——
+#   拿旧 current 去比,**已经升到最新版**的实例会继续挂 NEW,一直挂到隔天定时器跑过。
+#   latest 是关于 GitHub 的事实(可以旧),current 必须是关于本进程的事实(不能旧)。
+#   覆盖动作必须在 reloadMemo 里面(读缓存入口有三个:预热/开关切换/检查后回写),
+#   不能靠调用方各自传参 —— 最初只在预热那条路传了,一开关就把过期 current 复活了。
+{ grep -q 'UpdateInfo withCurrent(String running)' "$UCS" \
+  && grep -q 'i.withCurrent(appVersion)' "$UCS" \
+  && [ "$(grep -c 'withCurrent(' "$UCS")" -eq 2 ] \
+  && grep -q '升级完之后不能继续显示有新版_current要用正在跑的版本' "$RD/src/test/java/com/family/finance/service/update/UpdateCheckServiceTest.java"; } \
+  && log_ok "v192-UPD-STALE-CURRENT(warmUp 用正在跑的 app.version 覆盖 KV 里的 current)" \
+  || log_bad "v192-UPD-STALE-CURRENT 缓存 current 会过期" "reloadMemo 内部必须 withCurrent(appVersion),否则升级后徽记不消失"
 
 # v19-UPD-OFF-NO-CALL · 关掉开关后一个请求都不发
 #   判定必须在任何 HTTP 构造之前 —— 别在判定前先把 URL/请求对象拼好

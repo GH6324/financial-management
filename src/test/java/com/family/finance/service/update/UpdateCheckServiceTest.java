@@ -56,7 +56,7 @@ class UpdateCheckServiceTest {
     @Test
     void 版本解析不了时hasUpdate必须是false() {
         var info = new UpdateCheckService.UpdateInfo(Instant.now(), "dev", "v1.9.0", 3,
-                new UpdateCheckService.Migrations(0, List.of(), true), List.of());
+                new UpdateCheckService.Migrations(0, List.of(), true), List.of(), null, null);
         assertThat(info.hasUpdate()).isFalse();
     }
 
@@ -134,7 +134,7 @@ class UpdateCheckServiceTest {
                     "这是一个非常长的版本主题用来把 JSON 撑爆看看会不会被正确截断处理掉"));
         }
         var info = new UpdateCheckService.UpdateInfo(Instant.now(), "v1.0.0", "v1.9.0", 5,
-                new UpdateCheckService.Migrations(4, List.of("V50", "V51", "V52", "V53"), true), many);
+                new UpdateCheckService.Migrations(4, List.of("V50", "V51", "V52", "V53"), true), many, "2026-08-06", null);
 
         var s = svc().serializeWithin(info);
         assertThat(s).isPresent();
@@ -147,7 +147,7 @@ class UpdateCheckServiceTest {
     void 短结果原样序列化不丢items() {
         var info = new UpdateCheckService.UpdateInfo(Instant.now(), "v1.8.1", "v1.9.0", 1,
                 new UpdateCheckService.Migrations(0, List.of(), true),
-                List.of(new UpdateCheckService.Item("v1.9.0", "自动版本查询")));
+                List.of(new UpdateCheckService.Item("v1.9.0", "自动版本查询")), "2026-08-05", null);
         var s = svc().serializeWithin(info).orElseThrow();
         assertThat(s).contains("v1.9.0", "自动版本查询");
         assertThat(s.length()).isLessThanOrEqualTo(UpdateCheckService.VALUE_MAX);
@@ -158,6 +158,90 @@ class UpdateCheckServiceTest {
         String t = "a".repeat(200);
         assertThat(UpdateCheckService.trimTitle(t).length())
                 .isLessThanOrEqualTo(UpdateCheckService.MAX_TITLE);
+    }
+
+    // ── release body → 摘要 ─────────────────────────────────────────────
+
+    @Test
+    void 摘要跳过标题和宫格图_只取第一段正文() {
+        // 我们的发布说明开头往往是 ## 标题,紧跟一个 <table> 宫格图 ——
+        // 直接截前 N 字会得到一段 markdown 残渣
+        String body = "## 你现在能知道自己落后了\n\n"
+                + "自部署工具有个结构性缺陷:装完之后没人告诉你有新版。\n\n"
+                + "<table>\n<tr><td><img src=\"x.jpg\"></td></tr>\n</table>\n";
+        String s = UpdateCheckService.summarize(body);
+        assertThat(s).isEqualTo("自部署工具有个结构性缺陷:装完之后没人告诉你有新版。");
+        assertThat(s).doesNotContain("##").doesNotContain("<table").doesNotContain("img");
+    }
+
+    @Test
+    void 摘要去掉粗体和行内代码标记() {
+        String s = UpdateCheckService.summarize("一个修复,**无 UI 变化**、无 `DB` 迁移。");
+        assertThat(s).isEqualTo("一个修复,无 UI 变化、无 DB 迁移。");
+    }
+
+    @Test
+    void 摘要里的链接只留文字() {
+        String s = UpdateCheckService.summarize("详见 [issue #9](https://example.com/9) 的讨论。");
+        assertThat(s).isEqualTo("详见 issue #9 的讨论。");
+    }
+
+    @Test
+    void 摘要超长截断() {
+        String s = UpdateCheckService.summarize("啊".repeat(600));
+        assertThat(s.length()).isLessThanOrEqualTo(UpdateCheckService.MAX_SUMMARY);
+    }
+
+    @Test
+    void 全是标题和图时摘要返回null_不显示残渣() {
+        assertThat(UpdateCheckService.summarize("## 标题\n\n<table></table>")).isNull();
+        assertThat(UpdateCheckService.summarize("")).isNull();
+        assertThat(UpdateCheckService.summarize(null)).isNull();
+    }
+
+    @Test
+    void 当前版本展示时补v前缀_否则弹窗里是1_9_0箭头v1_9_1() {
+        // current 来自 app.version(不带 v),latest 来自 tag(带 v)—— 并排显示会不齐
+        var info = new UpdateCheckService.UpdateInfo(Instant.now(), "1.9.0", "v1.9.1", 1,
+                new UpdateCheckService.Migrations(0, List.of(), true), List.of(), "2026-08-06", null);
+        assertThat(info.currentTag()).isEqualTo("v1.9.0");
+    }
+
+    @Test
+    void releaseUrl指向该版本的release页() {
+        var info = new UpdateCheckService.UpdateInfo(Instant.now(), "v1.9.0", "v1.9.1", 1,
+                new UpdateCheckService.Migrations(0, List.of(), true), List.of(), "2026-08-06", "摘要");
+        assertThat(info.releaseUrl())
+                .isEqualTo("https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.9.1");
+    }
+
+    // ── 缓存行里的 current 会过期 ────────────────────────────────────────
+
+    @Test
+    void 升级完之后不能继续显示有新版_current要用正在跑的版本() {
+        // 场景:跑 v1.9.0 时查到 latest=v1.9.1,KV 落了 current=v1.9.0。
+        // 用户照提示升到 v1.9.1 重启 —— KV 行还没刷新。
+        // 拿旧 current 去比 → 仍然 hasUpdate=true → 已经最新的实例继续挂 NEW,挂到隔天定时器跑过。
+        var stale = new UpdateCheckService.UpdateInfo(Instant.now(), "v1.9.0", "v1.9.1", 1,
+                new UpdateCheckService.Migrations(0, List.of(), true), List.of(), "2026-07-26", "摘要");
+        assertThat(stale.hasUpdate()).isTrue();                       // 升级前:确实有新版
+
+        assertThat(stale.withCurrent("1.9.1").hasUpdate()).isFalse(); // 升级后:必须闭嘴(不带 v 也认)
+        assertThat(stale.withCurrent("1.9.2").hasUpdate()).isFalse(); // 本机比线上还新
+        assertThat(stale.withCurrent("1.8.0").hasUpdate()).isTrue();  // 降级回去:又该提示了
+    }
+
+    @Test
+    void 覆盖current不动latest和摘要() {
+        // latest / pub / summary 是关于 GitHub 的事实,不该被本地版本号带走
+        var i = new UpdateCheckService.UpdateInfo(Instant.now(), "v1.9.0", "v1.9.1", 1,
+                new UpdateCheckService.Migrations(1, List.of("V60"), true), List.of(), "2026-07-26", "摘要")
+                .withCurrent("1.9.0");
+        assertThat(i.latest()).isEqualTo("v1.9.1");
+        assertThat(i.publishedAt()).isEqualTo("2026-07-26");
+        assertThat(i.summary()).isEqualTo("摘要");
+        assertThat(i.migrations().ids()).containsExactly("V60");
+        assertThat(i.current()).isEqualTo("1.9.0");
     }
 
     // ── 不带遥测 ────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -55,6 +56,12 @@ public class UpdateCheckService {
     static final String KEY_ENABLED = "update.check.enabled";
     static final String KEY_RESULT = "update.check.result";
     static final String KEY_ATTEMPT = "update.check.lastAttempt";
+    /**
+     * v1.9.2 · 最新版的一段摘要(弹窗里给用户看「这版干了什么」)。
+     * **单独一个键**:release body 动辄几千字,塞进 result 会把那 512 字节的预算挤爆,
+     * 而 result 里的落后数/迁移判定是不能被挤掉的关键字段。
+     */
+    static final String KEY_SUMMARY = "update.check.summary";
 
     /** family_runtime_config.value_text 是 VARCHAR(512),不为这个功能改表 → 写入前必须收敛长度。 */
     static final int VALUE_MAX = 512;
@@ -80,6 +87,11 @@ public class UpdateCheckService {
      */
     private volatile UpdateInfo memo = UpdateInfo.unknown();
 
+    /** 正在跑的 jar 版本。reloadMemo 用它盖掉 KV 里可能已过期的 current。
+     *  用字段注入而不是构造器参数:单测直接 new 这个类,不想为它多传一个参。 */
+    @Value("${app.version:dev}")
+    private String appVersion;
+
     // ── 对外 ────────────────────────────────────────────────────────────
 
     /** 页面用:只读内存,零 IO。 */
@@ -104,13 +116,26 @@ public class UpdateCheckService {
         }
     }
 
-    /** 启动时 / 每次写库后:把 KV 里的结果读进内存。 */
+    /**
+     * 启动时 / 每次写库后:把 KV 里的结果读进内存,**并用正在跑的版本覆盖里面的 current**。
+     *
+     * <p>为什么要覆盖:KV 行是上次检查时写的,里面的 current 是**那时候**在跑的版本。
+     * 用户按提示升级完 jar、重启,这行还没刷新 —— 拿旧 current 去比,已经升到最新版的实例
+     * 依然显示 NEW,一直挂到隔天定时器跑过。</p>
+     *
+     * <p>覆盖动作放在**这里**而不是调用方:读缓存的入口有三个(启动预热 / 开关切换 / 检查后回写),
+     * 靠每个调用方各自记得传版本号,漏一个就能把过期的 current 复活 ——
+     * 最初就是只在预热那条路上传了参,一开关就露。守护 {@code v192-UPD-STALE-CURRENT}。</p>
+     */
     public void reloadMemo(long familyId) {
         if (!enabled(familyId)) {
             memo = UpdateInfo.unknown();
             return;
         }
-        memo = readResult(familyId).orElse(UpdateInfo.unknown());
+        memo = readResult(familyId)
+                .map(i -> i.withSummary(configMapper.findValue(familyId, KEY_SUMMARY).orElse(null)))
+                .map(i -> i.withCurrent(appVersion))
+                .orElse(UpdateInfo.unknown());
     }
 
     /** 最近一次尝试(含失败)· 管理页显示「检查于 X · 失败原因 Y」用。 */
@@ -217,6 +242,7 @@ public class UpdateCheckService {
             n.put("current", i.current());
             n.put("latest", i.latest());
             n.put("behind", i.behind());
+            n.put("pub", i.publishedAt());          // 只 10 字符,便宜;summary 走单独的键
             ObjectNode m = n.putObject("mig");
             m.put("n", i.migrations().count());
             m.put("known", i.migrations().known());
@@ -233,6 +259,41 @@ public class UpdateCheckService {
             log.warn("update check · 结果序列化失败", e);
             return null;
         }
+    }
+
+    /** 摘要最大长度(存 VARCHAR(512),留足余量) */
+    static final int MAX_SUMMARY = 260;
+
+    /**
+     * 从 release body(markdown)里抠一段摘要。
+     *
+     * <p>取**第一段正文** —— 跳过标题行(`#`)、图片/表格/HTML、引用和列表符号,
+     * 因为我们的发布说明开头往往是 `<table>` 宫格图。取不到就返回 null,
+     * 弹窗那一段直接不显示(**不显示一段乱码般的 markdown 残渣**)。</p>
+     */
+    static String summarize(String body) {
+        if (body == null || body.isBlank()) return null;
+        StringBuilder out = new StringBuilder();
+        for (String raw : body.replace("\r", "").split("\n")) {
+            String l = raw.trim();
+            if (l.isEmpty()) { if (out.length() > 0) break; else continue; }   // 遇到空行=段落结束
+            if (l.startsWith("#") || l.startsWith("|") || l.startsWith(">")
+                    || l.startsWith("<") || l.startsWith("!") || l.startsWith("---")
+                    || l.startsWith("```") || l.startsWith("- ") || l.startsWith("* ")) {
+                if (out.length() > 0) break;    // 正文已经开始了,遇到这些就收尾
+                continue;                        // 还没开始,跳过
+            }
+            if (out.length() > 0) out.append(' ');
+            out.append(l);
+            if (out.length() >= MAX_SUMMARY) break;
+        }
+        String s = out.toString()
+                .replaceAll("\\*\\*(.+?)\\*\\*", "$1")          // 去粗体标记
+                .replaceAll("`([^`]+)`", "$1")                          // 去行内代码标记
+                .replaceAll("\\[([^\\]]+)\\]\\([^)]*\\)", "$1")   // 链接只留文字
+                .trim();
+        if (s.isEmpty()) return null;
+        return s.length() <= MAX_SUMMARY ? s : s.substring(0, MAX_SUMMARY - 1) + "…";
     }
 
     static String trimTitle(String t) {
@@ -263,7 +324,9 @@ public class UpdateCheckService {
                     n.path("behind").asInt(0),
                     new Migrations(n.path("mig").path("n").asInt(0), ids,
                             n.path("mig").path("known").asBoolean(false)),
-                    items));
+                    items,
+                    n.path("pub").isNull() ? null : n.path("pub").asText(null),
+                    null));   // summary 单独读
         } catch (Exception e) {
             log.warn("update check · 缓存结果解析失败,当作没有", e);
             return Optional.empty();
@@ -329,6 +392,9 @@ public class UpdateCheckService {
                 throw new IllegalStateException("latest 是 draft/prerelease");
             }
             String latest = rel.path("tag_name").asText(null);
+            String published = rel.path("published_at").asText("");
+            published = published.length() >= 10 ? published.substring(0, 10) : null;   // 只留 yyyy-MM-dd
+            String summary = summarize(rel.path("body").asText(""));
             Integer cmp = compare(currentVersion, latest);
             if (cmp == null) {
                 // 解析不了就别猜(自己 fork 改过版本号的情况)
@@ -349,8 +415,10 @@ public class UpdateCheckService {
                 mig = fetchMigrations(tagOf(currentVersion), tagOf(latest));
             }
 
-            UpdateInfo info = new UpdateInfo(Instant.now(), currentVersion, latest, behind, mig, items);
+            UpdateInfo info = new UpdateInfo(Instant.now(), currentVersion, latest, behind, mig, items,
+                    published, summary);
             serializeWithin(info).ifPresent(s -> configMapper.upsert(familyId, KEY_RESULT, s));
+            configMapper.upsert(familyId, KEY_SUMMARY, summary == null ? "" : summary);
             writeAttempt(familyId, true, null);
             memo = info;
             return info;
@@ -413,10 +481,17 @@ public class UpdateCheckService {
     }
 
     public record UpdateInfo(Instant checkedAt, String current, String latest,
-                             int behind, Migrations migrations, List<Item> items) {
+                             int behind, Migrations migrations, List<Item> items,
+                             String publishedAt, String summary) {
 
         public static UpdateInfo unknown() {
-            return new UpdateInfo(null, null, null, 0, new Migrations(0, List.of(), false), List.of());
+            return new UpdateInfo(null, null, null, 0, new Migrations(0, List.of(), false), List.of(), null, null);
+        }
+
+        /** GitHub 上这一版的发布说明页。模板直接用,别在模板里拼字符串。 */
+        public String releaseUrl() {
+            return latest == null ? "https://github.com/" + REPO + "/releases"
+                    : "https://github.com/" + REPO + "/releases/tag/" + latest;
         }
 
         /** 有没有新版 —— 圆点、卡片都看它。**从来没查成功过时必须是 false。** */
@@ -426,8 +501,29 @@ public class UpdateCheckService {
             return c != null && c < 0;
         }
 
+        /** 展示用的当前版本:app.version 不带 v(1.9.0),latest 带(v1.9.1),
+         *  直接并排就成了「1.9.0 → v1.9.1」。统一补上前缀。 */
+        public String currentTag() {
+            return tagOf(current);
+        }
+
         UpdateInfo withItems(List<Item> newItems) {
-            return new UpdateInfo(checkedAt, current, latest, behind, migrations, newItems);
+            return new UpdateInfo(checkedAt, current, latest, behind, migrations, newItems, publishedAt, summary);
+        }
+
+        /**
+         * 把 current 换成**正在跑的** jar 版本。
+         *
+         * <p>KV 里存的 current 是「上次检查时在跑的版本」。用户升级完 jar 之后这行还没刷新,
+         * 如果继续拿它比,就会在**已经升到最新版**的实例上继续显示 NEW,一直挂到隔天定时器跑过。
+         * latest 是关于 GitHub 的事实(可以旧),current 必须是关于本进程的事实(不能旧)。</p>
+         */
+        UpdateInfo withCurrent(String running) {
+            return new UpdateInfo(checkedAt, running, latest, behind, migrations, items, publishedAt, summary);
+        }
+
+        UpdateInfo withSummary(String s) {
+            return new UpdateInfo(checkedAt, current, latest, behind, migrations, items, publishedAt, s);
         }
     }
 }

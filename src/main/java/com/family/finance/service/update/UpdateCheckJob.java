@@ -51,6 +51,7 @@ public class UpdateCheckJob {
      */
     public void warmUp() {
         try {
+            // reloadMemo 内部会用正在跑的 app.version 盖掉 KV 里可能已过期的 current
             updateCheckService.reloadMemo(FAMILY_ID);
         } catch (Exception e) {
             log.info("update check · 预热失败(不影响启动): {}", e.toString());

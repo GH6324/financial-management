@@ -288,6 +288,107 @@
     </p>
   </div>
 
+  <!-- ══ v1.9.2 · 徽记样式备选对比 ══════════════════════════════════════ -->
+  <h2 style="margin-top:44px">徽记提示样式 · 四个备选(v1.9.2 改版)</h2>
+  <p class="note">
+    v1.9.0 用的是 <b>描边小圆点</b>。实测 <span class="mono">--brass-soft #E8D9B6</span> 落在
+    <span class="mono">--paper #F4EFE6</span> 上,对比度只有约 <b>1.2:1</b>(WCAG 非文本元素最低要求 3:1)——
+    等于看不见。下面是四个备选,底色都是本页真实的纸色。
+  </p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-top:16px">
+
+    <div class="card" style="padding:16px">
+      <div style="background:#F4EFE6;border:1px dashed #D9CFBE;padding:18px 12px;text-align:center">
+        <span class="mono" style="font-size:9px;letter-spacing:.16em;color:#8C6A33;position:relative">
+          ◇ v1.9.0<i style="position:absolute;top:-2px;right:-7px;width:5px;height:5px;border-radius:50%;
+            background:#E8D9B6;border:1.5px solid #8C6A33;display:block"></i>
+        </span>
+      </div>
+      <p class="note" style="margin-top:10px"><b>A · 描边圆点(v1.9.0 现状)</b><br>
+        对比度 ≈ 1.2:1 · 5px · <b style="color:#9C4A2A">已否决:太弱</b></p>
+    </div>
+
+    <div class="card" style="padding:16px;outline:2px solid #8C6A33;outline-offset:2px">
+      <div style="background:#F4EFE6;border:1px dashed #D9CFBE;padding:18px 12px;text-align:center">
+        <span class="mono" style="font-size:9px;letter-spacing:.16em;color:#8C6A33">
+          ◇ v1.9.0<i style="display:inline-block;margin-left:3px;background:#8C6A33;color:#F4EFE6;
+            font-size:7.5px;letter-spacing:.1em;padding:2.5px 3.5px 2px;border-radius:2px;
+            vertical-align:1px;font-weight:600;font-style:normal">NEW</i>
+        </span>
+      </div>
+      <p class="note" style="margin-top:10px"><b>B · 实心 NEW 标签</b> ← <b style="color:#4F6B47">选定</b><br>
+        对比度 ≈ 4.1:1 · 是文字不用猜 · 不动、不闪</p>
+    </div>
+
+    <div class="card" style="padding:16px">
+      <div style="background:#F4EFE6;border:1px dashed #D9CFBE;padding:18px 12px;text-align:center">
+        <span class="mono" style="font-size:9px;letter-spacing:.16em;color:#9C4A2A;position:relative">
+          ◇ v1.9.0<i style="position:absolute;top:-6px;right:-14px;background:#d63638;color:#fff;
+            font-size:8px;min-width:14px;height:14px;line-height:14px;border-radius:9px;padding:0 4px;
+            display:block;font-style:normal;text-align:center">1</i>
+        </span>
+      </div>
+      <p class="note" style="margin-top:10px"><b>C · WordPress 式红色计数药丸</b><br>
+        最醒目,但红色在本项目里是<b>告警语义</b>;「有新版」是事实不是事故 · <b style="color:#9C4A2A">否决</b></p>
+    </div>
+
+    <div class="card" style="padding:16px">
+      <div style="background:#F4EFE6;border:1px dashed #D9CFBE;padding:18px 12px;text-align:center">
+        <span class="mono" style="font-size:9px;letter-spacing:.16em;color:#6B5533;background:#E8D9B6;
+          border:1px solid #8C6A33;padding:3px 7px">
+          ◇ v1.9.0 · 有新版
+        </span>
+      </div>
+      <p class="note" style="margin-top:10px"><b>D · sub2api 式整体变 chip</b><br>
+        够醒目,但整块换底会跟 logo 抢视线,顶栏本来就窄 · <b style="color:#9C4A2A">否决</b></p>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:14px">
+    选 B 的理由:① 对比度从 1.2:1 提到 <b>4.1:1</b>,过 3:1 门槛;② 「NEW」是<b>文字</b>,不需要用户学会「圆点=有新版」;
+    ③ 不用红色 —— 红在本项目是告警色,占用它会稀释真告警;④ 静态不闪,符合「每月十分钟、不打扰」的定位。
+    另外 hover 时标签底色转墨色,给一点可点击的暗示。
+  </p>
+
+  <h2 style="margin-top:40px">点徽记 → 弹窗(不再跳配置页)</h2>
+  <p class="note">
+    v1.9.0 点徽记是跳 <span class="mono">/admin?tab=version</span> —— 用户被丢进「配置」语境,还得自己在页面里找那张卡。
+    参考 sub2api 的 <span class="mono">VersionBadge</span>(点徽记展开面板、不跳页)与 WordPress 的更新弹层,改成就地开弹窗:
+  </p>
+  <div class="card" style="max-width:440px;margin-top:14px;padding:0;border:1px solid #211E17">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid #E6DDCB">
+      <span class="mono" style="font-size:9px;letter-spacing:.22em;color:#8C6A33">有 · 新 · 版 · 本</span>
+      <span class="mono" style="color:#8A8175">✕</span>
+    </div>
+    <div style="padding:14px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="mono" style="font-size:15px;color:#4A4438">v1.9.1</span>
+        <span style="color:#8A8175">→</span>
+        <span class="mono" style="font-size:17px;font-weight:600;color:#F4EFE6;background:#8C6A33;padding:1px 7px;border-radius:2px">v1.9.2</span>
+        <span class="mono" style="font-size:9px;border:1px solid #8C6A33;color:#6B5533;background:#E8D9B6;padding:2px 6px">落后 2 个版本</span>
+      </div>
+      <p class="mono" style="font-size:10px;color:#8A8175;margin-top:5px">发布于 2026-08-06</p>
+      <p style="font-size:12.5px;line-height:1.8;margin-top:10px">
+        版本提示从描边圆点换成实心 NEW 标签,点它就地开弹窗给出最新版本、发布日期与说明摘要。
+      </p>
+      <p class="mono" style="font-size:10.5px;line-height:1.7;margin-top:11px;padding:7px 9px;
+        border:1px solid #4F6B47;color:#4F6B47;background:rgba(79,107,71,.07)">
+        无 schema 变更 · 可随时回退到当前版本
+      </p>
+    </div>
+    <div style="display:flex;gap:9px;padding:12px 14px;border-top:1px solid #E6DDCB;background:#FBF8F1">
+      <span class="mono" style="font-size:12px;background:#211E17;color:#F4EFE6;padding:6px 11px">看完整发布说明 →</span>
+      <span class="mono" style="font-size:12px;border:1px solid #211E17;padding:6px 11px">升级说明与开关</span>
+    </div>
+  </div>
+  <p class="note" style="margin-top:12px">
+    弹窗里至少给三样:<b>a. 最新版本号</b>(带当前版本对照、落后几个版本)· <b>b. 该版本的 GitHub Release 链接</b> ·
+    <b>c. 版本说明摘要</b>(从 release body 抽第一段正文,跳过标题和宫格图)。
+    外加一条本项目独有的<b>迁移判定</b> —— 因为回滚只回 jar 不回 DB,这条直接决定升级能不能退回来。
+    手机端弹窗改成从底部升起的抽屉,按钮撑满一行。
+  </p>
+
   <p class="note" style="margin-top:28px;text-align:center">
     preview/v1.9/version-check.html · 配 prd/v1.9.md · 评审通过后再写 tech-design/v1.9.md
   </p>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  v1.9.2 · 「有新版」弹窗
+
+  为什么是弹窗而不是跳配置页(用户反馈):点一个提示被丢到管理页,得自己在页面里找,
+  而且那是「配置」语境 —— 用户此刻要的只是「新版是什么 / 说明在哪」三句话。
+  参考 sub2api 的 VersionBadge:点徽记展开面板(不跳页),面板里给 当前版本 / 最新版本 /
+  发布时间 / release 链接。
+
+  注意 · 挂载位置:必须在 <main> **外面**。main 带 `relative z-10` 是层叠上下文,
+  放里面的 position:fixed 浮层永远升不到 z-30 的 nav 之上(项目纪律里踩过)。
+  这里由 layout 的 footer 片段引入 —— footer 只有 relative、没有 z-index,不成上下文。
+
+  只在「确实有新版」时才渲染整块(未登录 / 已最新 / 查不通都不出现)。
+-->
+<th:block th:fragment="updateModal(updateInfo)" th:if="${updateInfo != null and updateInfo.hasUpdate()}">
+
+  <div id="upd-mask" class="upd-mask" aria-hidden="true"></div>
+
+  <div id="upd-modal" class="upd-modal" role="dialog" aria-modal="true" aria-labelledby="upd-title" hidden>
+    <div class="upd-head">
+      <span class="eyebrow" style="color:var(--brass-deep)">有 · 新 · 版 · 本</span>
+      <button type="button" id="upd-x" class="upd-x" aria-label="关闭">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="upd-body">
+      <!-- a. 最新版本 -->
+      <div class="upd-vers">
+        <span class="upd-cur" th:text="${updateInfo.currentTag()}">v1.9.0</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-subtle)" aria-hidden="true">
+          <path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <span class="upd-new" th:text="${updateInfo.latest()}">v1.9.1</span>
+        <span class="upd-behind" th:if="${updateInfo.behind() > 1}"
+              th:text="'落后 ' + ${updateInfo.behind()} + ' 个版本'">落后 3 个版本</span>
+      </div>
+      <p class="upd-meta" th:if="${updateInfo.publishedAt() != null}"
+         th:text="'发布于 ' + ${updateInfo.publishedAt()}">发布于 2026-08-06</p>
+
+      <!-- c. 版本说明摘要 -->
+      <p class="upd-sum" th:if="${updateInfo.summary() != null and !updateInfo.summary().isEmpty()}"
+         th:text="${updateInfo.summary()}">这一版做了什么。</p>
+
+      <!-- 升级安不安全:最有价值的一条,弹窗里也给 -->
+      <p class="upd-mig risk" th:if="${updateInfo.migrations().hasAny()}">
+        <b th:text="'含 ' + ${updateInfo.migrations().count()} + ' 个 DB 迁移'">含迁移</b>
+        · 回滚只回 jar 不回 DB,升级前请自行确认
+      </p>
+      <p class="upd-mig ok" th:if="${updateInfo.migrations().known() and updateInfo.migrations().count() == 0}">
+        无 schema 变更 · 可随时回退到当前版本
+      </p>
+      <p class="upd-mig" th:if="${!updateInfo.migrations().known()}">
+        无法确定这中间有没有 DB 迁移 · 升级前请自行核对 db/migration
+      </p>
+    </div>
+
+    <div class="upd-foot">
+      <!-- b. GitHub release 页面链接 -->
+      <a th:href="${updateInfo.releaseUrl()}" target="_blank" rel="noopener" class="btn-ink no-underline upd-btn">
+        看完整发布说明 →
+      </a>
+      <a th:href="@{/admin(tab='version')}" class="btn-paper no-underline upd-btn">升级说明与开关</a>
+    </div>
+  </div>
+
+  <script>
+    /* 弹窗开合。徽记是个 <a href="/admin?tab=version"> —— 有 JS 时拦下来开弹窗,
+       没 JS 时它仍然是条能用的链接(渐进增强,不是「必须有 JS 才能用」)。 */
+    (function () {
+      var modal = document.getElementById('upd-modal');
+      var mask  = document.getElementById('upd-mask');
+      if (!modal || !mask) return;
+
+      function open()  { modal.hidden = false; mask.classList.add('open');
+                         document.body.classList.add('upd-open');   // 收掉 z-index 9999 的悬浮件
+                         document.addEventListener('keydown', esc); }
+      function close() { modal.hidden = true;  mask.classList.remove('open');
+                         document.body.classList.remove('upd-open');
+                         document.removeEventListener('keydown', esc); }
+      function esc(e)  { if (e.key === 'Escape') close(); }
+
+      document.querySelectorAll('.ver-badge').forEach(function (b) {
+        b.addEventListener('click', function (e) { e.preventDefault(); open(); });
+      });
+      document.getElementById('upd-x').addEventListener('click', close);
+      mask.addEventListener('click', close);
+    })();
+  </script>
+</th:block>
+</body>
+</html>

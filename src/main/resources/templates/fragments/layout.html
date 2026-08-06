@@ -534,6 +534,9 @@
   </script>
   <!-- v0.4.17 · 520 一日限定彩蛋 · 服务器时区 Asia/Shanghai 仅 05-20 注入 · 详 prd §21 -->
   <th:block th:replace="~{fragments/easter520 :: easter520(${nav != null ? nav.family : null})}"></th:block>
+  <!-- v1.9.2 · 「有新版」弹窗 · 挂在 footer(body 层)而不是 main 里面 ——
+       main 带 relative z-10 是层叠上下文,放里面的 fixed 浮层升不到 z-30 的 nav 之上 -->
+  <th:block th:replace="~{fragments/_update-modal :: updateModal(${updateInfo})}"></th:block>
 </footer>
 </body>
 </html>

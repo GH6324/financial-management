@@ -1338,9 +1338,82 @@ html.ls-wide .tags-note .btn-ink { padding-top: .25rem !important; padding-botto
    brass 描边不是红色 —— 这是「有个新版本存在」的事实陈述,不是告警。 */
 .ver-badge { text-decoration: none; }
 .ver-badge:hover { color: var(--brass-text); text-decoration: none; }
-.ver-dot {
-  position: absolute; top: -2px; right: -7px;
-  width: 5px; height: 5px; border-radius: 50%;
-  background: var(--brass-soft); border: 1.5px solid var(--brass-deep);
+/* v1.9.2 · 原 .ver-dot 用 brass-soft 填色,在 paper 背景上只有约 1.2:1 对比度 —— 用户反馈
+   「太弱了,和背景色过于相似」,实测确实等于看不见。换成实心文字标签:
+   brass-deep 底 + paper 字 ≈ 4.1:1,而且「NEW」是文字、不需要猜含义。
+   参考 WordPress 的 #d63638 实心药丸 + 白字(border-radius:9px / font-size:11px / min-width:18px)
+   与 sub2api 的「整个徽记变琥珀 chip + 实心点」。
+   刻意不用 rust(红):红色在本项目里是告警语义,而「有新版」是事实陈述不是事故。 */
+.ver-new {
+  display: inline-block; margin-left: 3px;
+  background: var(--brass-deep); color: var(--paper);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 7.5px; line-height: 1; letter-spacing: .1em;
+  padding: 2.5px 3.5px 2px; border-radius: 2px;
+  vertical-align: 1px; font-weight: 600;
   pointer-events: none;
+}
+/* 有更新时整个徽记也提一档(sub2api 的做法:chip 本身换色,不只挂个角标) */
+.ver-badge.has-upd { color: var(--brass-deep); }
+.ver-badge.has-upd:hover .ver-new { background: var(--ink); }
+
+/* ── v1.9.2 · 「有新版」弹窗 ───────────────────────────────────────────── */
+.upd-mask {
+  position: fixed; inset: 0; background: rgba(26,23,20,.42);
+  z-index: 10000; opacity: 0; pointer-events: none; transition: opacity .16s ease;
+}
+.upd-mask.open { opacity: 1; pointer-events: auto; }
+.upd-modal {
+  position: fixed; z-index: 10001;
+  left: 50%; top: 84px; transform: translateX(-50%);
+  width: min(440px, calc(100vw - 28px));
+  background: var(--card); border: 1px solid var(--ink);
+  box-shadow: 0 14px 40px rgba(33,30,23,.24);
+}
+.upd-modal[hidden] { display: none; }
+/* 弹窗挂在 <footer class="... text-center"> 里 —— 不显式左对齐就会继承居中,
+   正文和发布日期全跑到中间(移动端尤其明显)。 */
+.upd-modal, .upd-modal * { text-align: left; }
+/* 弹窗打开时收掉悬浮件:记账/目录/隐私三个 fab 的 z-index 是 9999,
+   跟弹窗同级,会直接压在弹窗上面(移动端弹窗贴底,正好撞在按钮区)。 */
+body.upd-open #float-dock,
+body.upd-open .toc-fab,
+body.upd-open #ori-float,
+body.upd-open #priv-float { display: none !important; }
+.upd-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px; border-bottom: 1px solid var(--rule-soft);
+}
+.upd-x { background: none; border: 0; cursor: pointer; color: var(--ink-subtle); padding: 2px; line-height: 0; }
+.upd-x:hover { color: var(--ink); }
+.upd-body { padding: 14px; }
+.upd-vers { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.upd-cur { font-family: 'JetBrains Mono', monospace; font-size: 0.94rem; color: var(--ink-soft); }
+.upd-new {
+  font-family: 'JetBrains Mono', monospace; font-size: 1.06rem; font-weight: 600;
+  color: var(--paper); background: var(--brass-deep); padding: 1px 7px; border-radius: 2px;
+}
+.upd-behind {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.56rem; letter-spacing: .08em;
+  border: 1px solid var(--brass-deep); color: var(--brass-text);
+  background: var(--brass-soft); padding: 2px 6px;
+}
+.upd-meta { font-family: 'JetBrains Mono', monospace; font-size: 0.63rem; color: var(--ink-subtle); margin-top: 5px; }
+.upd-sum { font-size: 0.78rem; color: var(--ink); line-height: 1.8; margin-top: 10px; }
+.upd-mig {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; line-height: 1.7;
+  margin-top: 11px; padding: 7px 9px; border: 1px dashed var(--rule); color: var(--ink-subtle);
+}
+.upd-mig.risk { border: 1px solid var(--rust); border-style: solid; color: var(--rust); background: rgba(156,74,42,.06); }
+.upd-mig.ok   { border-style: solid; border-color: var(--forest); color: var(--forest); background: rgba(79,107,71,.07); }
+.upd-foot {
+  display: flex; gap: 9px; flex-wrap: wrap;
+  padding: 12px 14px; border-top: 1px solid var(--rule-soft); background: var(--card-soft);
+}
+.upd-btn { font-size: 0.75rem; }
+@media (max-width: 640px) {
+  .upd-modal { top: auto; bottom: 0; left: 0; right: 0; transform: none; width: auto; border-bottom: 0; }
+  /* 贴底抽屉的按钮行要躲开 iPhone 的 home indicator,否则最后一行按钮压在手势条下面 */
+  .upd-foot { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .upd-foot .upd-btn { flex: 1; text-align: center; }
 }

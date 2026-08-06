@@ -27,10 +27,14 @@
                圆点绝对定位、不进文档流 —— 徽记只有 9px 高,进流就把 nav 撑歪了。 -->
           <a th:if="${appVersion != null}" th:href="@{/admin(tab='version')}"
              class="ver-badge no-underline relative inline-flex items-center gap-1 font-mono text-[9px] tracking-[0.16em] text-brass-deep mt-[3px]"
-             th:title="${updateInfo != null and updateInfo.hasUpdate()} ? '有新版 ' + ${updateInfo.latest()} + ' · 点击查看' : '当前版本 · 点击查看'">
+             th:title="${updateInfo != null and updateInfo.hasUpdate()} ? '有新版 ' + ${updateInfo.latest()} + ' · 点击查看' : '当前版本 · 点击查看'"
+           th:classappend="${updateInfo != null and updateInfo.hasUpdate()} ? ' has-upd' : ''">
             <span class="inline-block w-1.5 h-1.5 border border-brass-deep rotate-45" style="opacity:.7"></span>
             <span th:text="'v' + ${appVersion}">v1.4.0</span>
-            <i th:if="${updateInfo != null and updateInfo.hasUpdate()}" class="ver-dot" aria-hidden="true"></i>
+            <!-- v1.9.2 · 原来是个 brass-soft 描边圆点,填色对比度只有 1.2:1 —— 等于看不见(用户反馈)。
+                 换成实心「NEW」标签:brass-deep 底 + 纸色字 ≈ 4.1:1,而且是文字、不用猜含义。
+                 参考 WordPress(#d63638 实心药丸 + 白字)与 sub2api(整个徽记变琥珀 chip + 实心点)。 -->
+            <i th:if="${updateInfo != null and updateInfo.hasUpdate()}" class="ver-new" aria-hidden="true">NEW</i>
           </a>
         </span>
       </div>
