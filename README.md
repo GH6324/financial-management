@@ -355,7 +355,7 @@ bash scripts/e2e.sh            # 端到端主线真验收(11 主线 · 唤起 be
 - **v1.7 设计文档**:[`prd/v1.7.md`](prd/v1.7.md) · [`tech-design/v1.7.md`](tech-design/v1.7.md)(交互式使用手册:功能全集 → 必修/选修分类 → 24 章)
 - **v1.8 设计文档**:[`prd/v1.8.md`](prd/v1.8.md) · [`tech-design/v1.8.md`](tech-design/v1.8.md)(支出逐笔化:口径收敛到一处 → 两个「支出」必须分开 → 总额模式逐位不变;tech-design §8 记了施工中被分水岭比对拦下的三处)
 - **v1.9 设计文档**:[`prd/v1.9.md`](prd/v1.9.md) · [`tech-design/v1.9.md`](tech-design/v1.9.md)(自动版本查询:只查不改 —— 落后几个版本 + 这中间有没有 DB 迁移;tech-design §7 记了「能不能做一键更新/自动更新」的可行性与风险分析)
-- **v1.10 设计文档**:[`prd/v1.10.md`](prd/v1.10.md)(报表页进化为月度封板快照:期末资产负债表 + 资金流瀑布(含恒等式校验)+ 环比/同比三列对照 + 集中度/流动性分层 + 本期归因;`range` 只管趋势区 · **待评审**)
+- **v1.10 设计文档**:[`prd/v1.10.md`](prd/v1.10.md) · [`tech-design/v1.10.md`](tech-design/v1.10.md)(报表页进化为月度封板快照:期末资产负债表 + 资金流瀑布(含恒等式校验)+ 环比/同比三列对照 + 集中度/流动性分层 + 本期归因;`range` 只管趋势区 · 指标不落库但修掉会改写历史的漂移源 · **待评审**)
 - **怎么记账 · 场景速查**:[`docs/how-to-record.md`](docs/how-to-record.md)(工资/消费/买卖基金/借钱还贷/账户间转钱 逐场景对照 · 没有财会背景也能看懂)
 - **配置与接入**:[`docs/configuration.md`](docs/configuration.md)(AI / 短信 等外部服务配置总指南 · 全部可选)
 - **券商同步图文向导**:[`docs/broker-sync-guide.md`](docs/broker-sync-guide.md)(富途 / 老虎凭据一步步获取 · 应用内同款 `/help/broker-sync` 带示意图)
