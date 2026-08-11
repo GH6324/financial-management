@@ -289,13 +289,28 @@ public class DashboardController {
 
         // v0.4.2 · 「钱赚的」二分指标 · 本月资产收益(剔除外部现金流)
         // 顶替"月储蓄能力"为第 5 KPI · 储蓄能力保留在 /reports 储蓄区
+        // v1.10 FR-327 · 仪表盘按两页分工代表「当月实时」→ 这一格改用 live 口径(锚当前期)。
+        //   v1.6.30 起它锚的是「最新已关账期」,那是为了躲开一个 P0:进行中期收支未录齐时,
+        //   (期末−期初−净流入) 会把还没录的工资整块算成投资收益。维护者拍板:显示实时真实值 +
+        //   把口径和偏差方向讲清楚,而不是藏起来(tech-design v1.10 §6.2)。
+        //   **报表页封板快照仍用 monthlyPnl*(锚已关账期),两套并存互不影响。**
+        java.math.BigDecimal shownPnl = kpis.liveMonthlyPnlAmount() != null
+            ? kpis.liveMonthlyPnlAmount() : kpis.monthlyPnlAmount();
+        java.math.BigDecimal shownPct = kpis.liveMonthlyInvestReturnPct() != null
+            ? kpis.liveMonthlyInvestReturnPct() : kpis.monthlyInvestReturnPct();
         model.addAttribute("monthlyPnlMoney",
-            kpis.monthlyPnlAmount() == null ? "—"
-                : (kpis.monthlyPnlAmount().signum() >= 0 ? "+" : "−")
-                  + money(viewCurrency, kpis.monthlyPnlAmount().abs()).replaceFirst("^[+−]", ""));
+            shownPnl == null ? "—"
+                : (shownPnl.signum() >= 0 ? "+" : "−")
+                  + money(viewCurrency, shownPnl.abs()).replaceFirst("^[+−]", ""));
         model.addAttribute("monthlyPnlPctLabel",
-            kpis.monthlyInvestReturnPct() == null ? "—"
-                : String.format("%+.2f%%", kpis.monthlyInvestReturnPct().doubleValue() * 100));
+            shownPct == null ? "—" : String.format("%+.2f%%", shownPct.doubleValue() * 100));
+        // 这个实时值有多可信,取决于本期收支录了多少 —— 一笔没录时偏差最大(全部 ΔNW 落进"钱赚")
+        boolean noFlowYet = nzz(kpis.liveIncome()).signum() == 0 && nzz(kpis.liveExpense()).signum() == 0;
+        model.addAttribute("liveReturnNoFlow", noFlowYet);
+        model.addAttribute("liveReturnFlowLabel",
+            noFlowYet ? "尚未录入任何收支"
+                : ("已录收入 " + money(viewCurrency, nzz(kpis.liveIncome())).replaceFirst("^[+−]", "")
+                   + " · 支出 " + money(viewCurrency, nzz(kpis.liveExpense())).replaceFirst("^[+−]", "")));
         model.addAttribute("annualizedInvestReturnLabel",
             kpis.annualizedInvestReturnPct() == null ? "—"
                 : String.format("%+.2f%%", kpis.annualizedInvestReturnPct().doubleValue() * 100));
@@ -381,10 +396,13 @@ public class DashboardController {
      * 分母(月均支出)接近 0 时会算出荒谬值,收敛为语义值;正常值保留 1 位小数。
      * 阈值与 {@code FamilyDiagnose.EMERGENCY_OUTLIER_MONTHS} 保持一致(36 月)。
      */
+    /** v1.10 · 规则移到 SealedSnapshot.emergencyLabel,两页共用一份(报表页也要显示这个 KPI)。 */
+    private static java.math.BigDecimal nzz(java.math.BigDecimal v) {
+        return v == null ? java.math.BigDecimal.ZERO : v;
+    }
+
     private static String emergencyLabel(java.math.BigDecimal months) {
-        if (months == null) return "—";
-        if (months.compareTo(com.family.finance.service.checkup.FamilyDiagnose.EMERGENCY_OUTLIER_MONTHS) > 0) return "> 36 月";
-        return months.setScale(1, java.math.RoundingMode.HALF_EVEN).toPlainString() + " 月";
+        return com.family.finance.service.report.SealedSnapshot.emergencyLabel(months);
     }
 
     private Period resolveAsOf(String asof, List<Period> all, Period openPeriod) {

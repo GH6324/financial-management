@@ -101,9 +101,10 @@ public class MetricExplainService {
         m.put("totalAssets", totalAssetsCalc(ccy, allocation, k.totalAssets()));
         m.put("totalLiabilities", totalLiabilitiesCalc(ccy, accountRows, k.totalLiabilities()));
         m.put("emergency", emergencyCalc(ccy, k.liquidAssets(), k.avgExpense(), k.emergencyFundMonths()));
-        // v1.6.30 · 期末取「收益锚点期」的净资产而非 k.netWorth()(后者可能是进行中的期)
-        m.put("monthlyPnl", monthlyPnlCalc(ccy, k.returnAnchorNetWorth(), k.prevNetWorth(), k.lastNetInflow(),
-                k.monthlyInvestReturnPct(), k.returnAnchorMonth(), k.filingInProgress()));
+        // v1.10 FR-327 · 仪表盘那格已改成**实时本月**口径(锚当前期),所以 tooltip 必须跟着改 ——
+        //   否则会出现"卡上显示 +46.02%、tooltip 解释 +4.51%"这种自相矛盾。
+        //   checkup 页仍用锚已关账期那套(见下面的 checkup(...)),两页各说各的口径。
+        m.put("monthlyPnl", liveMonthlyPnlCalc(ccy, k));
         return m;
     }
 
@@ -293,6 +294,32 @@ public class MetricExplainService {
      * <p>收益类指标锚「最新已关账期」而非最后一期,所以 tooltip 必须说清算的是哪一期 ——
      * 否则用户看到卡片上是 8 月的净资产、收益率却是 7 月的,无从判断哪个对。</p>
      */
+    /**
+     * v1.10 FR-327 · 仪表盘的「本月资产收益」tooltip —— **实时本月**口径。
+     *
+     * <p>与卡片上显示的数字同源(都取 live* 字段)。未关账时明说是按已录事实算的,
+     * 并点出偏差方向:还没录的收入会被算进投资损益 → 数值可能虚高。
+     * 这是维护者拍板的口径(显示真实值 + 讲清口径,而不是藏起来)。</p>
+     */
+    private String liveMonthlyPnlCalc(String ccy, KpiSnapshot k) {
+        BigDecimal pct = k.liveMonthlyInvestReturnPct() != null
+                ? k.liveMonthlyInvestReturnPct() : k.monthlyInvestReturnPct();
+        if (pct == null || k.netWorthDelta() == null) {
+            return "上期净资产缺失或为 0,暂无法计算本月资产收益率";
+        }
+        BigDecimal open = k.netWorth().subtract(k.netWorthDelta());
+        BigDecimal closeExOb = k.netWorth().subtract(
+                k.openingBaselineLast() == null ? BigDecimal.ZERO : k.openingBaselineLast());
+        BigDecimal inflow = (k.liveIncome() == null ? BigDecimal.ZERO : k.liveIncome())
+                .subtract(k.liveExpense() == null ? BigDecimal.ZERO : k.liveExpense());
+        String head = k.filingInProgress()
+                ? "本月尚未关账 · 按已录事实实时计算(还没录的收入会被算进投资损益,数值可能虚高)· "
+                : "本月已关账 · 数值已定格 · ";
+        return head + "(期末净资产 " + money(ccy, closeExOb) + " − 期初 " + money(ccy, open)
+                + " − 本月净流入 " + signedMoney(ccy, inflow) + ") ÷ 期初 " + money(ccy, open)
+                + " = " + pct2Signed(pct);
+    }
+
     private String monthlyPnlCalc(String ccy, BigDecimal netWorth, BigDecimal prevNetWorth,
                                   BigDecimal netInflow, BigDecimal pctDecimal,
                                   java.time.LocalDate anchorMonth, boolean filingInProgress) {

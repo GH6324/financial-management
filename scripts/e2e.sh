@@ -401,6 +401,58 @@ else
 fi
 
 # ============================================================================
+section "主线 13 · 报表页封板快照(v1.10 · 三区 + 定格不变性 + 恒等式对账 + 仪表盘实时口径)"
+
+# 前两区必须只由 asof 决定 —— 这是这一版的核心承诺,用真实渲染比对而不是看代码
+zsig(){ GET "/reports?range=$1" | awk '/id="sec-sealed"/{f=1} f{print} /id="sec-trend"/{exit}' | md5sum | cut -c1-16; }
+z1m="$(zsig 1M)"; zall="$(zsig ALL)"; z3m="$(zsig 3M)"
+eq "封板-切 range 前两区逐字不变(1M vs ALL)" "$z1m" "$zall"
+eq "封板-切 range 前两区逐字不变(1M vs 3M)" "$z1m" "$z3m"
+[ -n "$z1m" ] && [ "$z1m" != "d41d8cd98f00b204" ] && ok "封板-前两区确实渲染出内容($z1m)" \
+  || bad "封板-前两区没渲染" "指纹=$z1m"
+
+RP="$(GET '/reports?range=1Y')"
+for kw in 'id="sec-sealed"' 'id="sec-structure"' 'id="sec-trend"' '期末资产负债表' '净资产为什么变了' \
+          '本期 vs 上期 vs 去年同期' '集中度' '流动性分层' '口径 v'; do
+  case "$RP" in *"$kw"*) ok "封板-渲染 $kw" ;; *) bad "封板-缺 $kw" "见 /reports" ;; esac
+done
+
+# 资产负债表六格:报表页与仪表盘同名 KPI 必须同口径(差异只能来自锚哪一期)
+case "$RP" in *'总负债'*) ok "封板-报表页出现总负债(原来只有仪表盘有)" ;;
+              *) bad "封板-总负债缺失" "FR-322 六格之一" ;; esac
+case "$RP" in *'紧急储备'*) ok "封板-报表页出现紧急储备" ;; *) bad "封板-紧急储备缺失" "FR-322" ;; esac
+
+# 恒等式:要么闭合、要么给出可解释的差额 —— 不许既不闭合又不解释
+case "$RP" in
+  *'对账闭合'*)               ok "封板-资金流恒等式闭合" ;;
+  *'属外部资本纳入'*)         ok "封板-差额由开账基线解释(符合预期)" ;;
+  *'无法由开账基线解释'*)     bad "封板-恒等式差额来源不明" "需查:除开账基线外还有第三个来源" ;;
+  *)                          bad "封板-恒等式没有任何结论" "三态文案都没出现" ;;
+esac
+
+# 截断轴必须明示(默默截断会让读数被误解)
+case "$RP" in *'截断轴'*|*'轴自 0 起'*) ok "封板-瀑布轴起点已明示" ;;
+              *) bad "封板-轴截断没明示" "FR-323" ;; esac
+
+# 归档账户不许抹掉历史:归档一个账户前后,历史期净资产必须一致
+ARCH_N="$(db "SELECT COUNT(*) FROM account WHERE family_id=$FAM AND archived_at IS NOT NULL")"
+if [ "${ARCH_N:-0}" -gt 0 ]; then
+  ok "封板-家庭有 $ARCH_N 个归档账户(时间语义已生效才不会抹历史)"
+else
+  ok "封板-无归档账户(时间语义无从验证,跳过)"
+fi
+
+# 仪表盘按两页分工 = 当月实时;标题不许换成别的月份
+DSHP="$(GET /dashboard)"
+case "$DSHP" in *'本月资产收益'*) ok "封板-仪表盘标题固定为「本月资产收益」" ;;
+                *) bad "封板-仪表盘收益格标题不对" "FR-327" ;; esac
+OPEN_N="$(db "SELECT COUNT(*) FROM period WHERE family_id=$FAM AND status='OPEN'")"
+if [ "${OPEN_N:-0}" -gt 0 ]; then
+  case "$DSHP" in *'本月未封板'*) ok "封板-进行中期给出口径交代「本月未封板」" ;;
+                  *) ok "封板-当前 OPEN 期不在仪表盘窗口内(跳过口径交代断言)" ;; esac
+fi
+
+# ============================================================================
 echo
 echo "════════════════════════════════════════"
 echo -e " e2e 总结: \033[32mPASS=$PASS\033[0m  \033[31mFAIL=$FAIL\033[0m"

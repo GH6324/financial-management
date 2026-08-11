@@ -72,6 +72,7 @@ public class ReportsController {
     private final com.family.finance.service.review.RebalancePlanService rebalancePlanService;   // v1.2 计划卡
     // v0.5 FR-72/73/74 · 财富水位
     private final com.family.finance.service.macro.WaterLevelService waterLevelService;
+    private final com.family.finance.service.report.SealedPeriodService sealedPeriodService;
     private final com.family.finance.service.macro.MacroBenchmarkService macroBenchmarkService;
     private final com.family.finance.service.explain.MetricExplainService metricExplain; // v0.5.3 口径真实数值
     private final com.family.finance.service.MetricPrefsService metricPrefsService; // v0.11.4 账户表复用管理页指标配置
@@ -242,6 +243,13 @@ public class ReportsController {
                 fxService.ensureRate(me.getFamilyId(), family.getBaseCurrency(), viewCurrency, ensurePeriodIds);
             }
         }
+        // v1.10 · 一区/二区(封板快照)· **只吃 asof,不吃 range** —— 切片由 SealedPeriodService 自备。
+        //   放在主切片之前算,是为了让「前两区与 range 无关」这件事在代码顺序上也看得出来。
+        model.addAttribute("sealed",
+                sealedPeriodService.load(me.getFamilyId(), anchor, closedSnapshot, viewCurrency));
+        model.addAttribute("currencySymbol",
+                "USD".equals(viewCurrency) ? "$" : ("HKD".equals(viewCurrency) ? "HK$" : "¥"));
+
         FactSlice slice = factViewService.load(new FactFilter(
                 me.getFamilyId(),
                 family.getPeriodType(),

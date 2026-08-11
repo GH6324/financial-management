@@ -193,13 +193,20 @@
     <a th:href="@{/reports}" th:if="${famMetrics.contains('period_return')}" class="kpi-card group no-underline relative hover:bg-card-soft transition-colors col-span-2 sm:col-span-1">
       <!-- v1.6.30 · 口径期随收益锚点走:进行中的账期收支未录齐,收益类锚最新已关账期 →
            标题必须显示到底算的是哪个月,否则用户看到 8 月净资产配 7 月收益率无从判断。 -->
-      <span class="kpi-eyebrow"><span th:text="${kpis != null and kpis.filingInProgress() and kpis.returnAnchorMonth() != null
-              ? '资产收益 ' + #strings.substring(kpis.returnAnchorMonth().toString(), 0, 7)
-              : '本月资产收益'}">本月资产收益</span> <th:block th:insert="~{fragments/_kpi-info :: i('(期末净资产 − 期初 − 本月净流入) ÷ 期初。剔除工资,纯投资回报。口径期 = 最新已关账账期。', ${calc.monthlyPnl})}"/></span>
+      <!-- v1.10 FR-327 · 标题**永远是「本月资产收益」** —— 仪表盘代表当月实时,
+           不再偷偷换成「资产收益 2026-07」(那会让人以为看的是本月)。 -->
+      <span class="kpi-eyebrow"><span>本月资产收益</span> <th:block th:insert="~{fragments/_kpi-info :: i('(期末净资产 − 期初 − 本月净流入) ÷ 期初。剔除工资,纯投资回报。本月未关账时按已录事实实时计算 —— 还没录的收入(如这个月工资)会被算进投资损益,数值可能虚高;关账后定格并进报表页封板快照。历史口径:最新已关账账期。', ${calc.monthlyPnl})}"/></span>
       <div class="kpi-value tnum"
            th:classappend="${monthlyPnlPctLabel != null and monthlyPnlPctLabel.startsWith('+') ? ' num-pos' : (monthlyPnlPctLabel != null and monthlyPnlPctLabel.startsWith('-') ? ' num-neg' : '')}"
            th:text="${monthlyPnlPctLabel}">+0.00%</div>
       <div class="kpi-delta" data-priv th:text="${monthlyPnlMoney} + ' · 剔除收入'">+¥0 · 剔除收入</div>
+      <!-- 口径交代 + 完整度:本期没关账时说清「按已录事实实时算」,并点明偏差方向。
+           一笔收支都没录时最危险(未录的工资会整块落进"钱赚"),那时变 rust 色直说。 -->
+      <div th:if="${kpis != null and kpis.filingInProgress()}" class="font-mono text-[9px] mt-1 leading-snug"
+           th:style="${liveReturnNoFlow} ? 'color:var(--rust)' : 'color:var(--ink-subtle)'">
+        <span th:text="'本月未封板 · ' + ${liveReturnFlowLabel}">本月未封板</span>
+        <span th:if="${liveReturnNoFlow}"><br>该数值几乎等于净资产变动,不宜作为收益判断</span>
+      </div>
     </a>
   </section>
 

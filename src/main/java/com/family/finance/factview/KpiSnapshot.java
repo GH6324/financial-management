@@ -61,7 +61,22 @@ public record KpiSnapshot(
         /** v1.6.30 · 最后一期是否「填报中」(在窗口内但未关账)· 页面据此提示口径 */
         boolean filingInProgress,
         /** v1.6.30 · 参与收益类计算的期数(= 已关账期数)· 决定 XIRR 是年化还是累计口径 · 可空 */
-        Integer returnPeriodCount
+        Integer returnPeriodCount,
+
+        // ── v1.10 FR-327 · 「实时本月」口径(仪表盘专用)────────────────────────────
+        //   上面那组收益字段锚**最新已关账期**,给报表页的封板快照用 —— 那是对的,不动。
+        //   仪表盘按两页分工要显示**当月实时**,所以并列加一组锚**当前期**(含进行中)的值。
+        //   刻意用加字段而不是给 FactFilter 加策略参数:纯加法,现有字段与全部现有护栏/单测
+        //   (ClosedPeriodAnchorTest)一字不动,而且口径差异在字段名上就看得见(带 live)。
+        //   算法与上面那组**完全同一个** InvestmentReturnCalculator.monthly(),只换锚点。
+        /** 当前期(可能进行中)的投资损益金额 · 可空 */
+        BigDecimal liveMonthlyPnlAmount,
+        /** 当前期(可能进行中)的资产收益率 · 可空 */
+        BigDecimal liveMonthlyInvestReturnPct,
+        /** 当前期已录收入 · 用来判断这个实时值有多可信(录得越少,收益越虚高) */
+        BigDecimal liveIncome,
+        /** 当前期已录支出 */
+        BigDecimal liveExpense
 ) {
     /** v0.4.2 加字段时的 backward-compat 构造器 · 老调用方继续传 7 参数 */
     public KpiSnapshot(BigDecimal netWorth, BigDecimal totalAssets, BigDecimal totalLiabilities,
@@ -111,6 +126,7 @@ public record KpiSnapshot(
         this(netWorth, totalAssets, totalLiabilities, emergencyFundMonths, debtToAssetRatio,
              netWorthDelta, netWorthDeltaPct, monthlyPnlAmount, monthlyInvestReturnPct,
              annualizedInvestReturnPct, ytdInvestPnl, liquidAssets, avgExpense,
-             prevNetWorth, lastNetInflow, openingBaselineLast, netWorth, null, false, null);
+             prevNetWorth, lastNetInflow, openingBaselineLast, netWorth, null, false, null,
+             null, null, null, null);   // v1.10 · live 口径:老调用方不关心,补 null
     }
 }

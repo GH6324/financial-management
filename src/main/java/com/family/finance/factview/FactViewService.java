@@ -40,6 +40,19 @@ public interface FactViewService {
 
     BigDecimal familyTwr(FactSlice slice);
 
+    /**
+     * v1.10 · **逐期**资金流分解(ΔNW = 人赚 + 开账基线 + 钱赚)。
+     * 只走已关账期,与 familyXirr / familyTwr / 本月资产收益 同锚。
+     * {@link #principalVsReturnDecomposition} 的累计值由它累加而来 —— 逐期口径只有这一份实现。
+     */
+    List<PeriodFlow> periodFlows(FactSlice slice);
+
+    /**
+     * v1.10 · 某一期的存量余额切面(净资产 / 总资产 / 总负债 / 流动资产)。
+     * {@code kpis()} 内部也走它 —— ASSET/LIABILITY/LIQUID 三个谓词只有一份实现。
+     */
+    PeriodBalance balanceAt(FactSlice slice, Long periodId);
+
     List<DecompositionPoint> principalVsReturnDecomposition(FactSlice slice);
 
     List<TrendPoint> debtTrend(FactSlice slice);

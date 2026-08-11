@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  v1.10 · 报表页页头 —— 从 _region 里整段搬出来的。
+
+  为什么要搬:三区结构要求顺序是「页头 → 一区本期封板 → 二区结构与风险 → 三区趋势」,
+  而页头原来长在 _region(= 三区内容)的开头,插不进去。搬出来之后 index.html 才能正确编排。
+
+  同时把「范围」chips 从这里挪到**三区标题旁** —— 它只影响三区,放在页头会让人以为管全页
+  (prd v1.10 FR-320)。chips 是普通链接(hx-get 缺失,hx-target 是历史残留),整页刷新,搬动安全。
+-->
+<th:block th:fragment="pagehead">
+  <section class="mb-8 flex items-end justify-between flex-wrap gap-6">
+    <div>
+      <div class="eyebrow mb-2">月 · 度 · 大 · 账</div>
+      <div class="flex items-center gap-7 sm:gap-9">
+        <h1 class="font-display text-3xl sm:text-5xl font-medium tracking-tight">数 · 字 · <span class="italic font-light text-brass-deep">所至</span></h1>
+        <!-- v0.5.5 FR-97 · 朱印「已关账」横排小印(仅快照态显)· gap 给足与标题间距 -->
+        <span th:if="${closedSnapshot}" class="report-seal" title="本页只统计已关账账期">已关账</span>
+      </div>
+      <p class="text-ink-soft text-sm mt-3 max-w-xl">收益率、现金流、负债与本金收益分解全部来自同一份 Fact View。</p>
+      <!-- v0.5.5 FR-97 · 已关账快照透出(替换原"进行中·实时更新"提示) -->
+      <p th:if="${closedSnapshot}" class="font-mono text-[11px] text-brass-deep mt-2">
+        <span class="text-ink">本页为已关账账期的稳定快照</span> · 数据截至 <span style="color:var(--rust)" th:text="${#temporals.format(anchorPeriod.periodStart,'yyyy 年 M 月')}">2026 年 5 月</span> · 进行中的本月请看 <a th:href="@{/dashboard}" class="text-brass-deep hover:text-ink no-underline" style="border-bottom:1px solid var(--rule)">仪表盘 →</a>
+      </p>
+      <p th:unless="${closedSnapshot}" class="font-mono text-[11px] text-ink-subtle mt-2">
+        尚无已关账账期 · 完成本月填报并关账后,这里出现收益快照。
+      </p>
+    </div>
+    <div class="flex items-end gap-3 flex-wrap">
+      <!-- v0.11.5 · 观察账期:报表是每月快照,可回看任一「已关账」账期(只列 CLOSED)· 与仪表盘 as-of 一致 -->
+      <label class="font-mono text-[10px] text-ink-subtle tracking-[0.12em] flex items-center">账期
+        <select th:if="${periods != null and !periods.isEmpty()}"
+                th:attr="data-base=@{/reports(range=${range},currency=${currency},accounts=${accountsCsv})}"
+                onchange="if(this.value){window.location.href=this.dataset.base+'&asof='+encodeURIComponent(this.value);}"
+                class="ml-1 font-mono text-[11px] border border-rule bg-paper px-1.5 py-1">
+          <option th:each="p : ${periods}" th:value="${p.periodStart}"
+                  th:text="${#temporals.format(p.periodStart,'yyyy-MM')}"
+                  th:selected="${p.periodStart.toString() == asof}">2026-05</option>
+        </select>
+        <span th:if="${periods == null or periods.isEmpty()}" class="ml-1 text-ink-subtle">— 无已关账</span>
+      </label>
+    </div>
+  </section>
+</th:block>
+</body>
+</html>

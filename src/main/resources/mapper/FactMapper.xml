@@ -158,7 +158,14 @@
     WHERE a.family_id = #{f.familyId}
       AND p.period_start BETWEEN #{f.rangeStart} AND #{f.rangeEnd}
       <if test="!f.includeArchived">
-        AND a.archived_at IS NULL
+        <!-- v1.10 · 归档过滤必须带**时间语义**。
+             原来是裸的 `a.archived_at IS NULL`:归档动作一执行,该账户的**全部历史事实行**
+             立刻从切片里消失,于是所有历史期的净资产 / 总资产 / 集中度分母 / 分层占比都变小 ——
+             一个纯整理动作(归档一个已经不用的账户)就能改写去年 12 月的报表,
+             把「封板快照不会二次变动」直接证伪(tech-design v1.10 §2.2 ①)。
+             改成:归档**之前**的期照常计入,归档**之后**的期不计入。
+             守护 v110-ARCHIVED-TIME 禁止再出现裸写法。 -->
+        AND (a.archived_at IS NULL OR a.archived_at &gt; p.period_end)
       </if>
       <if test="f.accountIds != null and !f.accountIds.isEmpty()">
         AND a.id IN

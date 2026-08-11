@@ -3394,11 +3394,14 @@ WLV="$RD/src/main/resources/templates/reports/_wealth-level.html"
 #   控制器收 asof + 注入 periods/asof;模板有 账期 下拉(data-base 保留 range/currency,onchange 带 asof)。
 RC="$RD/src/main/java/com/family/finance/web/report/ReportsController.java"
 REG="$RD/src/main/resources/templates/reports/_region.html"
+# v1.10:账期下拉从 _region.html 搬到了 _pagehead.html(三区重构要「页头→一区→二区→三区」的顺序,
+# 而页头原来长在 _region 开头插不进去)。功能一点没变 —— 所以改成**在 reports 模板目录里找**,
+# 别盯单个文件路径(同 v1631-RPT-ACCT-M / v11-UED8 的教训:盯字面或路径会被无关搬动打红)。
 { grep -q 'String asof' "$RC" \
   && grep -q 'addAttribute("periods", closedPeriods)' "$RC" \
   && grep -q 'addAttribute("asof"' "$RC" \
-  && grep -q "asof='+encodeURIComponent(this.value)" "$REG" \
-  && grep -q 'th:each="p : ${periods}"' "$REG"; } \
+  && grep -rq "asof='+encodeURIComponent(this.value)" "$RD/src/main/resources/templates/reports/" \
+  && grep -rq 'th:each="p : ${periods}"' "$RD/src/main/resources/templates/reports/"; } \
   && log_ok "v11-REPORTS-ASOF 报表观察账期筛选器(已关账期下拉 · 回看任一月快照)" \
   || log_bad "v11-REPORTS-ASOF 报表缺观察账期筛选器" "see ReportsController / reports/_region.html"
 
@@ -5029,6 +5032,10 @@ MES="$RD/src/main/java/com/family/finance/service/explain/MetricExplainService.j
 RPC="$RD/src/main/java/com/family/finance/web/report/ReportsController.java"
 DRG="$RD/src/main/resources/templates/dashboard/_region.html"
 CKF="$RD/src/main/resources/templates/checkup/family.html"
+# v1.10 FR-327:仪表盘那格改成**实时本月**(两页分工:仪表盘=当月实时 / 报表页=封板),
+# 标题不再切成「资产收益 2026-07」,所以原来那条 grep returnAnchorMonth "$DRG" 去掉了。
+# 但本条护栏守的 P0 一点没松 —— 锚已关账期那套口径**仍然存在且仍被用**(报表页封板走它),
+# 下面三条钉住这一点:字段还在 / 关账口径的 explain 还在 / checkup 仍显示锚月。
 { code_only "$FSL" | grep -qF 'returnPeriodIds()' \
   && code_only "$FSL" | grep -qF 'filingInProgress()' \
   && code_only "$FMP" | grep -qF 'findClosedPeriodIds' \
@@ -5048,7 +5055,9 @@ CKF="$RD/src/main/resources/templates/checkup/family.html"
   && grep -qF '除贷款外的全部资产类型合计' "$CKF" \
   && ! grep -qF 'CASH + STOCK + WEALTH + PROPERTY' "$DRG" \
   && ! grep -qF 'CASH + STOCK + WEALTH + PROPERTY' "$CKF" \
-  && grep -qF 'returnAnchorMonth' "$DRG" \
+    && code_only "$KPS" | grep -qF 'returnAnchorMonth' \
+    && code_only "$FVI" | grep -qF 'monthlyInvestReturnPct' \
+    && grep -qF 'monthlyPnlCalc' "$MES" \
   && grep -qF 'returnAnchorMonth' "$CKF" \
   && grep -qF "cumulativeYtdPnl.signum() >= 0 ? '+¥' : '−¥'" "$CKF" \
   && [ "$(grep -c "signum() >= 0 ? '+' : ''" "$CKF" | tr -d ' ')" -le 2 ]; } \
@@ -5474,6 +5483,101 @@ CSSF="$RD/src/main/resources/static/css/style.css"
   && grep -q "e.key === 'Escape'" "$UPM"; } \
   && log_ok "v192-UPD-MODAL-DEGRADE(徽记 href 仍可用 · JS 在时才拦成弹窗 · Esc/遮罩可关)" \
   || log_bad "v192-UPD-MODAL-DEGRADE 退化路径断了" "徽记 href 必须留 /admin?tab=version;弹窗靠 preventDefault 接管,不许 href=# 或换 <button>"
+
+# ── v1.10 · 报表页三区(封板快照)──────────────────────────────────────
+SPS="$RD/src/main/java/com/family/finance/service/report/SealedPeriodService.java"
+SSN="$RD/src/main/java/com/family/finance/service/report/SealedSnapshot.java"
+SZT="$RD/src/main/resources/templates/reports/_sealed.html"
+RIX="$RD/src/main/resources/templates/reports/index.html"
+
+# v110-SEALED-SINGLE-ENTRY · 前两区必须只经 SealedPeriodService,且它的签名里不许有 range
+#   报表页承诺「封板期指标不会二次变动」。要兑现它,前两区每个数字只能由「哪一期」决定。
+#   原来指标散在控制器里逐个调 factViewService.xxx(pageSlice),而 pageSlice 的 rangeStart 由 range 决定 ——
+#   「紧急储备 N 月」就随 range 变(tech-design v1.10 §2.2 ②)。收口成单一入口之后,
+#   后人想把 range 传进来**没有地方放**;v1.11 要把指标落库时也只改这一个类。
+{ [ -f "$SPS" ] \
+  && grep -q 'public SealedSnapshot load(long familyId, Period anchor, boolean closedSnapshot, String viewCurrency)' "$SPS" \
+  && ! grep -qE 'String range|rangeStart\(' "$SPS" \
+  && grep -q 'sealedPeriodService.load(' "$RD/src/main/java/com/family/finance/web/report/ReportsController.java" \
+  && grep -q 'EXPENSE_WINDOW_PERIODS' "$SPS"; } \
+  && log_ok "v110-SEALED-SINGLE-ENTRY(前两区单一入口 · 签名无 range · 支出窗口取常量)" \
+  || log_bad "v110-SEALED-SINGLE-ENTRY 前两区又能被 range 污染" "SealedPeriodService 不许出现 range/rangeStart;前两区只能经它取数"
+
+# v110-ARCHIVED-TIME · 归档过滤必须带时间语义
+#   裸 `archived_at IS NULL` 会让归档动作抹掉该账户的**全部历史事实** ——
+#   归档一个不用了的账户就能改写去年 12 月的报表,把「封板不变」直接证伪(§2.2 ①)。
+{ grep -q 'a.archived_at IS NULL OR a.archived_at &gt; p.period_end' "$RD/src/main/resources/mapper/FactMapper.xml" \
+  && ! grep -qE '^\s*AND a\.archived_at IS NULL\s*$' "$RD/src/main/resources/mapper/FactMapper.xml" \
+  && grep -q '归档账户在归档之前的期仍计入' \
+       "$RD/src/test/java/com/family/finance/factview/ArchivedTimeSemanticsTest.java"; } \
+  && log_ok "v110-ARCHIVED-TIME(归档过滤带时间语义 · 归档不再抹掉历史 · 单测守着)" \
+  || log_bad "v110-ARCHIVED-TIME 归档又会抹掉历史" "FactMapper 必须 (archived_at IS NULL OR archived_at > p.period_end)"
+
+# v110-ZONE-TOC · 三区 section id 与长文目录一一对应(改 section 必同步 TOC 铁律)
+{ grep -q 'id="sec-sealed"' "$SZT" && grep -q 'id="sec-structure"' "$SZT" \
+  && grep -q 'id="sec-trend"' "$RIX" \
+  && grep -q "href:'#sec-sealed'" "$RIX" \
+  && grep -q "href:'#sec-structure'" "$RIX" \
+  && grep -q "href:'#sec-trend'" "$RIX" \
+  && grep -q '_pagehead :: pagehead' "$RIX" \
+  && grep -q '_sealed :: zones' "$RIX"; } \
+  && log_ok "v110-ZONE-TOC(三区锚点与目录条目一一对应 · 页头/封板片段已编排)" \
+  || log_bad "v110-ZONE-TOC 区锚点与目录不同步" "sec-sealed / sec-structure / sec-trend 三个 id 与 tocItems 必须成对存在"
+
+# v110-WF-AXIS-DISCLOSED · 瀑布截断轴必须明示,且恒等式差额不许吞掉
+#   月度流量与存量差两个数量级,全量轴下中间三段细成一条线 → 必须截断轴;
+#   但**默默截断**同样是错的(读数会被误解),所以页面要写出轴的起点。
+{ grep -q 'axisTruncated()' "$SZT" && grep -q '截断轴' "$SZT" \
+  && grep -q 'identityHolds()' "$SZT" \
+  && grep -q 'diffExplainedByOpening()' "$SZT" \
+  && grep -q '无法由开账基线解释' "$SZT" \
+  && grep -q 'axisTruncated' "$SSN"; } \
+  && log_ok "v110-WF-AXIS-DISCLOSED(截断轴明示 · 恒等式三态文案:闭合/开账基线可解释/来源不明)" \
+  || log_bad "v110-WF-AXIS-DISCLOSED 截断或差额被藏起来了" "轴截断要写出起点;恒等式不闭合要如实给差额与原因"
+
+# v110-CMP-MISSING-PERIOD · 缺上期/去年同期时 Δ 必须是 —,不许给 0 或 100%
+#   新用户的第一期必然缺期,给出 Δ 就是误导。分母为 0 时也不许出 ∞。
+{ grep -q '缺上期或去年同期时Δ必须是null_不是0也不是100pct' \
+       "$RD/src/test/java/com/family/finance/service/report/SealedPeriodServiceTest.java" \
+  && grep -q '分母为0时百分比是null不是无穷' \
+       "$RD/src/test/java/com/family/finance/service/report/SealedPeriodServiceTest.java" \
+  && grep -q 'ratio || cur == null || base == null || base.signum() == 0' "$SSN"; } \
+  && log_ok "v110-CMP-MISSING-PERIOD(缺期与零分母都出 — · 单测守着)" \
+  || log_bad "v110-CMP-MISSING-PERIOD 缺期时给了误导性的 Δ" "prev/yoy 缺失或分母 0 → Δ 与 % 都必须 null"
+
+# v110-HHI-ABS-DENOM · 集中度分母必须取绝对值
+#   直接拿净值求和的话,一笔大额房贷会把分母压到接近 0,HHI 当场爆表 ——
+#   集中度就成了「有没有房贷」的函数,而不是分散度。
+{ grep -q 'endBalanceBase().abs()' "$SPS" \
+  && grep -q 'HHI分母取绝对值_大额房贷不许把集中度顶到1' \
+       "$RD/src/test/java/com/family/finance/service/report/SealedPeriodServiceTest.java" \
+  && grep -q '占比按余额绝对值算' "$SZT"; } \
+  && log_ok "v110-HHI-ABS-DENOM(集中度分母取绝对值 · 大额负债不会顶爆 HHI · 单测守着)" \
+  || log_bad "v110-HHI-ABS-DENOM 集中度会被负债顶爆" "share/HHI 的分母必须用 |余额| 求和"
+
+# v110-DASH-LIVE-RETURN · 仪表盘「本月资产收益」= 实时本月,且必须讲清偏差方向
+#   两页分工:仪表盘=当月实时(会变)· 报表页=封板(不再变)。
+#   v1.6.30 起这一格锚「最新已关账期」是为了躲一个 P0(进行中期收支未录齐 → 未录工资被算成投资收益)。
+#   维护者拍板(tech-design §6.2):显示实时真实值 + 把口径与偏差方向说清,而不是藏起来。
+#   实现刻意用**加字段**(live*)而不是改现有口径 —— 报表页封板仍走 monthlyPnl*,
+#   ClosedPeriodAnchorTest 一字不动仍然有效。
+DSH="$RD/src/main/resources/templates/dashboard/_region.html"
+{ grep -q 'liveMonthlyInvestReturnPct' "$RD/src/main/java/com/family/finance/factview/KpiSnapshot.java" \
+  && grep -q 'liveMonthlyPnlAmount' "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \
+  && grep -q '本月未封板' "$DSH" \
+  && grep -q 'liveReturnNoFlow' "$DSH" \
+  && ! grep -q "'资产收益 ' + #strings.substring" "$DSH" \
+  && grep -q 'liveMonthlyPnlCalc' "$RD/src/main/java/com/family/finance/service/explain/MetricExplainService.java" \
+  && [ -f "$RD/src/test/java/com/family/finance/factview/ClosedPeriodAnchorTest.java" ]; } \
+  && log_ok "v110-DASH-LIVE-RETURN(仪表盘实时本月 + 口径交代 + 偏差方向 · 封板口径与 ClosedPeriodAnchorTest 未动)" \
+  || log_bad "v110-DASH-LIVE-RETURN 仪表盘收益格口径不对" "必须用 live* 字段 + 显示「本月未封板」完整度;标题不许换成别的月份"
+
+# v110-FORMULA-VERSION · 口径版本号必须存在并显示在封板抬头
+{ grep -q 'public static final int CURRENT' "$RD/src/main/java/com/family/finance/service/report/MetricFormulaVersion.java" \
+  && grep -q 'formulaVersion()' "$SZT" \
+  && grep -q '口径 v' "$SZT"; } \
+  && log_ok "v110-FORMULA-VERSION(口径版本号存在且在抬头显示)" \
+  || log_bad "v110-FORMULA-VERSION 口径版本没露出来" "改口径要 +1 并在封板抬头显示,用户才能分辨数字是哪套口径算的"
 
 # ── v1.9.4 · 财富水位「关了三期还说期数不足」──────────────────────────
 # v194-WL-ANCHOR · 财富水位序列首点不许恒为 0

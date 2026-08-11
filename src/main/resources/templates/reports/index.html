@@ -8,9 +8,33 @@
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('reports', ${me}, ${nav})}"></header>
 <main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10"
-      th:with="tocItems=${ { {label:'收益概览',href:'#reports-region'}, {label:'本金 vs 投资损益',href:'#sec-decompose'}, {label:'负债 / 风险分布',href:'#sec-risk'}, {label:'资产配置对照',href:'#allocation-diff'}, {label:'调仓建议与计划',href:'#ai-rebalance'}, {label:'账户级收益 · vs 基准',href:'#sec-accounts'}, {label:'财富水位',href:'#sec-wealth'}, {label:'储蓄能力',href:'#sec-savings'}, {label:'支出构成',href:'#sec-expense-mix'} } }">
+      th:with="tocItems=${ { {label:'一 · 本期封板',href:'#sec-sealed'}, {label:'二 · 结构与风险',href:'#sec-structure'}, {label:'三 · 趋势',href:'#sec-trend'}, {label:'收益概览',href:'#reports-region'}, {label:'本金 vs 投资损益',href:'#sec-decompose'}, {label:'负债 / 风险分布',href:'#sec-risk'}, {label:'资产配置对照',href:'#allocation-diff'}, {label:'调仓建议与计划',href:'#ai-rebalance'}, {label:'账户级收益 · vs 基准',href:'#sec-accounts'}, {label:'财富水位',href:'#sec-wealth'}, {label:'储蓄能力',href:'#sec-savings'}, {label:'支出构成',href:'#sec-expense-mix'} } }">
   <div class="toc-cols">
     <div class="toc-cols-main">
+      <!-- v1.10 · 页头(账期 / 币种 / 朱印)· 从 _region 搬出来,好让三区按顺序编排 -->
+      <th:block th:replace="~{reports/_pagehead :: pagehead}"></th:block>
+      <!-- v1.10 · 一区 本期封板 + 二区 结构与风险 · 只吃 asof,与 range 无关 -->
+      <th:block th:replace="~{reports/_sealed :: zones}"></th:block>
+
+      <!-- 三区 · 趋势 —— range 只作用于这一区,所以 chips 放在这里的标题旁 -->
+      <section id="sec-trend" class="mb-6" style="scroll-margin-top:80px">
+        <div class="zone-head">
+          <span class="zone-no">三</span>
+          <div>
+            <div class="zone-t">趋势</div>
+            <div class="zone-sub">滚动窗口 · <b>时间范围只影响这一区</b>,上面两区定格在所选账期不动</div>
+          </div>
+          <span class="flex-1"></span>
+          <div class="flex border border-rule">
+            <a th:each="r : ${ranges}"
+               th:href="@{/reports(range=${r},currency=${currency},accounts=${accountsCsv},asof=${asof})}"
+               class="font-mono text-[11px] px-4 py-2 no-underline border-l border-rule first:border-l-0"
+               th:classappend="${range == r ? ' bg-ink text-paper' : ' text-ink-soft hover:bg-card-soft'}"
+               th:text="${r}">1Y</a>
+          </div>
+        </div>
+        <div class="zone-line"></div>
+      </section>
       <div id="reports-region" th:replace="~{reports/_region :: region}"></div>
       <!-- v0.5 FR-72/73/74 · 财富水位 section(净资产 vs CPI/M2)· 接在 KPI/分解之后 -->
       <th:block th:replace="~{reports/_wealth-level :: section}"></th:block>

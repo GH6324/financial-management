@@ -1426,3 +1426,105 @@ body.upd-open #priv-float { display: none !important; }
   .upd-foot { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
   .upd-foot .upd-btn { flex: 1; text-align: center; }
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   v1.10 · 报表页三区(封板快照)
+   一区/二区定格于 asof,三区随 range —— 视觉上必须让用户看出这个分界,
+   否则「切范围前两区不动」会被当成页面没反应。
+   ════════════════════════════════════════════════════════════════════ */
+.zone-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+.zone-no {
+  font-family: "JetBrains Mono", monospace; font-size: 1.1rem; line-height: 1;
+  color: var(--paper); background: var(--brass-deep); padding: 5px 9px; letter-spacing: 0;
+}
+.zone-t { font-family: "Fraunces", "Noto Serif SC", serif; font-size: 1.25rem; }
+.zone-sub { font-size: 0.72rem; color: var(--ink-subtle); line-height: 1.6; }
+.zone-line { height: 2px; background: var(--brass-deep); opacity: .35; margin: 10px 0 18px; }
+
+/* 资产 / 负债 对称条 · 左右同一比例尺 */
+.sym-bar { display: flex; align-items: stretch; height: 34px; border: 1px solid var(--ink); margin-top: 14px; }
+.sym-a { background: var(--brass-soft); display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; overflow: hidden; }
+.sym-l { background: rgba(156,74,42,.16); display: flex; align-items: center; padding-left: 8px; border-left: 2px solid var(--ink); overflow: hidden; }
+.sym-a span, .sym-l span { white-space: nowrap; }
+
+/* 瀑布 · 截断轴 + 连接线。月度流量与存量差两个数量级,全量轴下中间段看不见 —— 故必须截断轴。 */
+.wf-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.wf { display: flex; align-items: flex-end; height: 220px; margin-top: 12px;
+      border-bottom: 1px solid var(--rule); min-width: 460px; }
+.wf-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
+.wf-bar { width: 62%; position: relative; min-height: 2px; }
+/* 连接线:本段端点水平延伸到下一段起点 —— 没有它就读成普通柱状图,丢掉「分解」语义 */
+.wf-bar::after {
+  content: ""; position: absolute; top: 0; right: -61.3%; width: 61.3%; height: 1px;
+  background: var(--ink-subtle); opacity: .5;
+}
+.wf-col:last-child .wf-bar::after { display: none; }
+.wf-dl {
+  position: absolute; left: -20%; right: -20%; top: -1.05rem; text-align: center;
+  font-family: "JetBrains Mono", monospace; font-size: 0.62rem; font-weight: 600; white-space: nowrap;
+}
+.wf-lab { font-family: "JetBrains Mono", monospace; font-size: 0.56rem; color: var(--ink-subtle);
+          margin-top: 6px; text-align: center; line-height: 1.35; }
+
+/* 三列对照表 · 封板要精确值,所以用表不用图 */
+.cmp-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cmp-table { width: 100%; border-collapse: collapse; min-width: 620px; }
+.cmp-table th {
+  font-family: "JetBrains Mono", monospace; font-size: calc(9.5px * var(--fs-scale,1));
+  letter-spacing: .14em; color: var(--ink-soft); text-align: right;
+  padding: 8px 10px; border-bottom: 1px solid var(--ink); white-space: nowrap;
+}
+.cmp-table th:first-child { text-align: left; }
+.cmp-table td {
+  padding: 9px 10px; border-bottom: 1px solid var(--rule-soft); text-align: right;
+  font-family: "JetBrains Mono", monospace; font-size: calc(12px * var(--fs-scale,1)); white-space: nowrap;
+}
+.cmp-table td:first-child {
+  text-align: left; font-family: inherit; font-size: calc(13px * var(--fs-scale,1));
+  position: sticky; left: 0; background: var(--card); white-space: nowrap;
+}
+
+/* 集中度 · 横条 + 阈值线 + 上期幽灵条(没有上期时不画,而不是画成 0) */
+.conc-row { margin-bottom: 12px; }
+.conc-cap { display: flex; justify-content: space-between; gap: 10px;
+            font-family: "JetBrains Mono", monospace; font-size: calc(10px * var(--fs-scale,1)); margin-bottom: 3px; }
+.conc-track { position: relative; height: 16px; background: var(--paper-soft); border: 1px solid var(--rule-soft); }
+.conc-ghost { position: absolute; top: 0; bottom: 0; background: rgba(140,106,51,.18); }
+.conc-fill { position: absolute; top: 0; bottom: 0; background: var(--brass-deep); opacity: .75; }
+.conc-thr { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--rust); }
+
+/* 流动性分层 · 单条堆叠 */
+.stack { display: flex; height: 42px; border: 1px solid var(--ink); margin-top: 10px; }
+.stack > div { display: flex; align-items: center; justify-content: center; overflow: hidden;
+               font-family: "JetBrains Mono", monospace; font-size: calc(10px * var(--fs-scale,1)); white-space: nowrap; }
+.stack-liquid { background: var(--brass-soft); }
+.stack-semi { background: rgba(140,106,51,.30); border-left: 1px solid var(--ink); }
+.stack-illiquid { background: rgba(33,30,23,.14); border-left: 1px solid var(--ink); }
+
+/* 归因 · 双向条形(零轴居中,正右负左) */
+.biv-row { display: grid; grid-template-columns: 1fr 150px 1fr; align-items: center; gap: 8px; margin-bottom: 7px; }
+.biv-name { font-size: calc(12px * var(--fs-scale,1)); text-align: center; }
+.biv-left { display: flex; justify-content: flex-end; align-items: center; }
+.biv-right { display: flex; align-items: center; }
+.biv-bar { height: 15px; min-width: 2px; }
+.biv-pos { background: rgba(79,107,71,.55); }
+.biv-neg { background: rgba(156,74,42,.5); }
+.biv-amt { font-family: "JetBrains Mono", monospace; font-size: calc(10px * var(--fs-scale,1));
+           padding: 0 5px; white-space: nowrap; }
+@media (max-width: 560px) {
+  .biv-row { grid-template-columns: 1fr 96px 1fr; gap: 5px; }
+  .biv-name { font-size: calc(11px * var(--fs-scale,1)); }
+  .zone-t { font-size: 1.1rem; }
+}
+
+/* v1.10 · 截断轴的柱底标记。
+   瀑布用截断轴是必须的(月度流量与存量差两个数量级),但代价是存量柱的相对高度失真 ——
+   实测 beta:期初柱 11% 高、期末柱 87% 高,而两者金额只差 45%,不加提示会被读成「涨了 8 倍」。
+   所以轴被截断时在柱底压一道斜纹带(标准 broken-axis 标记),让人一眼知道柱子不是从 0 起。 */
+.wf-truncated { position: relative; }
+.wf-truncated::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 7px;
+  background: repeating-linear-gradient(115deg, var(--paper) 0 4px, var(--rule) 4px 5px);
+  border-top: 1px solid var(--ink-subtle); pointer-events: none;
+}

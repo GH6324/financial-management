@@ -90,23 +90,17 @@ public class FactViewServiceImpl implements FactViewService {
         Long previous = previousPeriodId(slice, last);
         BigDecimal netWorth = netWorth(slice, last);
         BigDecimal previousNetWorth = previous == null ? null : netWorth(slice, previous);
-        BigDecimal totalAssets = sumEnd(slice, last, row -> row.accountClass() == AccountClass.ASSET);
-        BigDecimal totalLiabilities = slice.rows().stream()
-                .filter(row -> Objects.equals(row.periodId(), last))
-                .filter(row -> row.accountClass() == AccountClass.LIABILITY)
-                .map(AccountPeriodFact::endBalanceBase)
-                .filter(Objects::nonNull)
-                .map(BigDecimal::abs)
-                .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .setScale(2, RoundingMode.HALF_EVEN);
+        // v1.10 · 谓词收进 balanceAt(),逐期口径只有一份实现
+        PeriodBalance bal = balanceAt(slice, last);
+        BigDecimal totalAssets = bal.totalAssets();
+        BigDecimal totalLiabilities = bal.totalLiabilities();
         // 流动资产 = liquidity == LIQUID 的账户期末合计。
         // v1.6.30 修注释 · 原注释写「仅 CASH;WEALTH 是 SEMI_LIQUID 不计入」,与实际行为不符 ——
         //   v0.3.3 起 FactProjector.liquidityOf 是 product_category.liquidity_class 优先、
         //   缺省才按 AccountType 兜底,所以货币基金(WEALTH + MONEY_FUND)**计入** LIQUID。
         //   prod 实测:流动资产 546,432.63 里 CASH 只占 164,924.63,其余来自被标 LIQUID 的理财账户。
         //   实际行为是对的(T+0 可赎回本就该算流动),错的是这条注释和 PRD 的两处旧措辞。
-        BigDecimal liquidAssets = sumEnd(slice, last,
-                row -> row.accountLiquidity() == AccountLiquidity.LIQUID);
+        BigDecimal liquidAssets = bal.liquidAssets();
         BigDecimal avgExpense = averageExpense(slice, 12);
         BigDecimal emergencyMonths = avgExpense.signum() == 0
                 ? null
@@ -154,13 +148,33 @@ public class FactViewServiceImpl implements FactViewService {
         // 本年(自然年)累计纯投资 PnL
         BigDecimal ytdInvestPnl = ytdInvestPnl(slice);
 
+        // v1.10 FR-327 · 「实时本月」口径 —— 锚**当前期**(可能进行中),给仪表盘用。
+        //   与上面那组锚「最新已关账期」的字段并列存在,互不影响(报表页封板仍用上面那组)。
+        //   算法是同一个 InvestmentReturnCalculator.monthly(),只把锚从 returnAnchor 换成 last。
+        //   注意:进行中期的收支典型是没录齐的,那时未录的收入会被公式归到投资损益名下 →
+        //   数值会**虚高**。所以同时给出 liveIncome/liveExpense,让页面能把可信度说清楚
+        //   (维护者拍板:显示真实值 + 说明口径,而不是藏起来 · tech-design v1.10 §6.2)。
+        BigDecimal livePnlAmount = null;
+        BigDecimal livePnlPct = null;
+        BigDecimal livePrevNetWorth = previous == null ? null : netWorth(slice, previous);
+        if (livePrevNetWorth != null && livePrevNetWorth.signum() > 0) {
+            var live = com.family.finance.calc.InvestmentReturnCalculator.monthly(
+                    livePrevNetWorth,
+                    netWorth.subtract(openingBaselineLast),
+                    pmcFirstNetInflow(slice, last));
+            livePnlAmount = live.pnlAmount();
+            livePnlPct = live.pnlPct();
+        }
+        CashflowBreakdown liveCf = cashflowBreakdown(slice, last);
+
         return new KpiSnapshot(netWorth, totalAssets, totalLiabilities, emergencyMonths, debtRatio, delta, deltaPct,
             monthlyPnlAmount, monthlyInvestReturnPct, annualizedInvestReturnPct, ytdInvestPnl,
             // v0.5.3 · 透明化中间量(viewCurrency 口径 · 与上面 KPI 同币种)
             // v1.6.30 · prevNetWorth 改成「收益锚点的上一期」(本月资产收益 tooltip 的期初),
             //   与 monthlyPnl* 同锚;净资产环比 delta/deltaPct 仍用存量口径的 previousNetWorth。
             liquidAssets, avgExpense, returnPrevNetWorth, lastNetInflow, openingBaselineLast,
-            returnAnchorNetWorth, slice.periodStartOf(returnAnchor), slice.filingInProgress(), returnIds.size());
+            returnAnchorNetWorth, slice.periodStartOf(returnAnchor), slice.filingInProgress(), returnIds.size(),
+            livePnlAmount, livePnlPct, liveCf.income(), liveCf.expense());
     }
 
     /**
@@ -514,10 +528,8 @@ public class FactViewServiceImpl implements FactViewService {
     }
 
     @Override
-    public List<DecompositionPoint> principalVsReturnDecomposition(FactSlice slice) {
-        List<DecompositionPoint> result = new ArrayList<>();
-        BigDecimal cumulativeExternal = BigDecimal.ZERO;
-        BigDecimal cumulativePnl = BigDecimal.ZERO;
+    public List<PeriodFlow> periodFlows(FactSlice slice) {
+        List<PeriodFlow> out = new ArrayList<>();
         // v1.6.30 · 只走已关账期(与 familyXirr / familyTwr / 本月资产收益 同锚)。
         //   进行中的期收支未录 → netInflow=0 → 该期的 ΔNW 会整块落进「钱赚」,把未录工资算成投资收益。
         List<Long> ids = slice.returnPeriodIds();
@@ -529,14 +541,32 @@ public class FactViewServiceImpl implements FactViewService {
             BigDecimal netInflow = pmcFirstNetInflow(slice, periodId);
             // v0.13 · 开账基线归入"本金(external)"、剔出"投资损益(pnl)"
             BigDecimal ob = openingBaseline(slice, periodId);
-            BigDecimal nwDelta = netWorth(slice, periodId).subtract(netWorth(slice, prevId));
+            BigDecimal nw = netWorth(slice, periodId);
+            BigDecimal prevNw = netWorth(slice, prevId);
+            BigDecimal nwDelta = nw.subtract(prevNw);
             BigDecimal pnl = nwDelta.subtract(netInflow).subtract(ob);
-            cumulativeExternal = cumulativeExternal.add(netInflow).add(ob);
-            cumulativePnl = cumulativePnl.add(pnl);
+            out.add(new PeriodFlow(periodId, periodStart(slice, periodId), label(slice, periodId),
+                    netInflow, ob, nwDelta, pnl, nw, prevNw));
+        }
+        return out;
+    }
+
+    /**
+     * v1.10 · 改为消费 {@link #periodFlows(FactSlice)} —— 逐期分解只保留一份实现。
+     * 累计逻辑与口径**逐字未变**(同一个循环、同一组公式、同样的 setScale 位置)。
+     */
+    @Override
+    public List<DecompositionPoint> principalVsReturnDecomposition(FactSlice slice) {
+        List<DecompositionPoint> result = new ArrayList<>();
+        BigDecimal cumulativeExternal = BigDecimal.ZERO;
+        BigDecimal cumulativePnl = BigDecimal.ZERO;
+        for (PeriodFlow f : periodFlows(slice)) {
+            cumulativeExternal = cumulativeExternal.add(f.netInflow()).add(f.openingBaseline());
+            cumulativePnl = cumulativePnl.add(f.pnl());
             result.add(new DecompositionPoint(
-                    periodId,
-                    periodStart(slice, periodId),
-                    label(slice, periodId),
+                    f.periodId(),
+                    f.periodStart(),
+                    f.label(),
                     cumulativeExternal.setScale(2, RoundingMode.HALF_EVEN),
                     cumulativePnl.setScale(2, RoundingMode.HALF_EVEN)
             ));
@@ -570,8 +600,20 @@ public class FactViewServiceImpl implements FactViewService {
         for (Long pid : slice.periodIds()) {
             newInWindow.addAll(snapshotMapper.firstAppearingAccountIds(slice.filter().familyId(), pid));
         }
+        // v1.10 · **列表只列锚期仍在册的账户**。
+        //   归档过滤加了时间语义之后(archived_at > period_end),归档账户的历史事实回到了切片里 ——
+        //   这对"历史期的净资产/集中度不再被归档动作改写"是必须的,但**账户列表**不该因此
+        //   把已归档账户重新列出来(用户归档就是为了让它从当前列表消失)。
+        //   queryBase 是 account × period 全交叉,所以"在锚期有行" 恰好等价于 "锚期时未归档"。
+        java.util.Set<Long> activeAtAnchor = lastPid == null
+                ? null
+                : slice.rows().stream()
+                        .filter(row -> java.util.Objects.equals(row.periodId(), lastPid))
+                        .map(AccountPeriodFact::accountId)
+                        .collect(Collectors.toSet());
         return slice.byAccount().values().stream()
                 .map(rows -> rows.stream().sorted(Comparator.comparing(AccountPeriodFact::periodStart)).toList())
+                .filter(rows -> activeAtAnchor == null || activeAtAnchor.contains(rows.getFirst().accountId()))
                 .map(rows -> buildAccountPerformance(rows, xirr, familyNetWorth, expected, newInWindow))
                 .sorted(Comparator.comparing(AccountPerformance::accountId))
                 .toList();
@@ -796,6 +838,26 @@ public class FactViewServiceImpl implements FactViewService {
 
     private BigDecimal netWorth(FactSlice slice, Long periodId) {
         return sumEnd(slice, periodId, row -> true);
+    }
+
+    /**
+     * v1.10 · 某一期的存量余额切面。{@code kpis()} 与三列对照共用它 ——
+     * ASSET / LIABILITY / LIQUID 三个谓词只在这里出现一次。
+     */
+    @Override
+    public PeriodBalance balanceAt(FactSlice slice, Long periodId) {
+        BigDecimal nw = sumEnd(slice, periodId, row -> true);
+        BigDecimal assets = sumEnd(slice, periodId, row -> row.accountClass() == AccountClass.ASSET);
+        BigDecimal liabilities = slice.rows().stream()
+                .filter(row -> Objects.equals(row.periodId(), periodId))
+                .filter(row -> row.accountClass() == AccountClass.LIABILITY)
+                .map(AccountPeriodFact::endBalanceBase)
+                .filter(Objects::nonNull)
+                .map(BigDecimal::abs)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_EVEN);
+        BigDecimal liquid = sumEnd(slice, periodId, row -> row.accountLiquidity() == AccountLiquidity.LIQUID);
+        return new PeriodBalance(nw, assets, liabilities, liquid);
     }
 
     /**

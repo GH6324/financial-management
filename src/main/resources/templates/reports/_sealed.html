@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  v1.10 · 报表页 一区「本期封板」+ 二区「结构与风险」
+
+  这两区的每个数字**只由 asof(哪一期)决定**,与 range 无关 —— 数据全部来自
+  SealedPeriodService(它的签名里没有 range,从类型上就传不进去)。
+  守护 v110-SNAPSHOT-RANGE-INVARIANT 会抓两个不同 range 的渲染结果逐字比对。
+-->
+<th:block th:fragment="zones">
+
+  <!-- ══════ 外壳态:还没有任何已关账期 ══════ -->
+  <section th:if="${sealed == null or !sealed.available()}" id="sec-sealed" class="mb-12" style="scroll-margin-top:80px">
+    <div class="zone-head">
+      <span class="zone-no">一</span>
+      <div>
+        <div class="zone-t">本期封板</div>
+        <div class="zone-sub">关账后这里出现该期的定格快照</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+    <div class="paper-card p-6 bg-card-soft text-center" style="border-left:4px solid var(--brass-deep)">
+      <p class="text-ink-soft text-sm">还没有已关账的账期。完成本月填报并关账后,这里会出现该期的资产负债表、资金流瀑布与环比同比对照。</p>
+    </div>
+  </section>
+
+  <th:block th:if="${sealed != null and sealed.available()}">
+
+  <!-- ══════════════ 一区 · 本期封板 ══════════════ -->
+  <section id="sec-sealed" class="mb-12" style="scroll-margin-top:80px">
+    <div class="zone-head">
+      <span class="zone-no">一</span>
+      <div>
+        <div class="zone-t">本期封板</div>
+        <div class="zone-sub">
+          定格于 <span class="font-mono" th:text="${#temporals.format(sealed.period().periodStart,'yyyy-MM')}">2026-07</span>
+          · 这一区每个数字只由「哪一期」决定,与看多长的窗口无关
+          · <span class="font-mono">口径 v<span th:text="${sealed.formulaVersion()}">1</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <!-- ── FR-321 · 封板抬头 · 数据完整度 ──
+         不知道完整度的报表没法拿去分析。四项并列,用户自己就能判断这份快照可信不可信。 -->
+    <div class="paper-card px-4 py-3 mb-5" th:if="${sealed.completeness() != null}" th:with="cp=${sealed.completeness()}"
+         style="border-left:3px solid var(--brass-deep)">
+      <div class="flex items-center gap-x-5 gap-y-2 flex-wrap font-mono text-[10.5px]">
+        <span class="text-ink">
+          <b th:text="${#temporals.format(sealed.period().periodStart,'yyyy-MM')} + ' 月度账册'">账册</b>
+          <span th:if="${cp.closedAt() != null}" th:text="' · 关账于 ' + ${#temporals.format(cp.closedAt(),'yyyy-MM-dd')}"></span>
+        </span>
+        <span th:if="${cp.complete()}" class="pill whitespace-nowrap"
+              style="border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)"
+              th:text="${cp.filled()} + ' / ' + ${cp.expected()} + ' 个账户已填'">已填</span>
+        <a th:unless="${cp.complete()}" th:href="@{/entry}" class="pill no-underline"
+           style="white-space:normal;text-align:left;max-width:100%;border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)"
+           th:text="${cp.filled()} + ' / ' + ${cp.expected()} + ' 已填 · 缺 '
+                    + ${#strings.listJoin(cp.missingNames(), '、')}
+                    + ${cp.missingCount() > 3 ? ' 等 ' + cp.missingCount() + ' 个' : ''}">未填</a>
+        <span class="pill whitespace-nowrap"
+              th:text="'估值 · 自动 ' + ${cp.autoValued()} + ' · 手填 ' + ${cp.manualValued()}">估值</span>
+        <span class="pill whitespace-nowrap" th:if="${cp.fxDate() != null}"
+              th:text="'汇率日期 ' + ${#temporals.format(cp.fxDate(),'yyyy-MM-dd')}">汇率</span>
+      </div>
+    </div>
+
+    <!-- ── FR-322 · 期末资产负债表 ── -->
+    <div class="mb-6" th:with="bs=${sealed.balanceSheet()}">
+      <h3 class="font-display text-xl lg:text-2xl font-medium mb-1">期末资产负债表</h3>
+      <p class="text-xs text-ink-subtle mb-3">这个月末家里有多少、欠多少、能撑几个月。后面所有比率的分母都在这里。</p>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 grid-hairline">
+        <div class="kpi-card">
+          <span class="kpi-eyebrow">期末净资产</span>
+          <div class="font-display text-2xl mt-1" data-priv
+               th:text="${bs.netWorth() == null ? '—' : (currencySymbol + #numbers.formatInteger(bs.netWorth(),1,'COMMA'))}">—</div>
+          <div class="font-mono text-[10px] text-ink-soft mt-1">资产 − 负债</div>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-eyebrow">总资产</span>
+          <div class="font-display text-2xl mt-1" data-priv
+               th:text="${bs.totalAssets() == null ? '—' : (currencySymbol + #numbers.formatInteger(bs.totalAssets(),1,'COMMA'))}">—</div>
+          <div class="font-mono text-[10px] text-ink-soft mt-1">不含 LOAN</div>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-eyebrow">总负债</span>
+          <div class="font-display text-2xl mt-1" data-priv
+               th:text="${bs.totalLiabilities() == null ? '—' : (currencySymbol + #numbers.formatInteger(bs.totalLiabilities(),1,'COMMA'))}">—</div>
+          <div class="font-mono text-[10px] text-ink-soft mt-1">仅 LOAN</div>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-eyebrow">资产负债率</span>
+          <div class="font-display text-2xl mt-1"
+               th:text="${bs.debtToAssetRatio() == null ? '—' : (#numbers.formatDecimal(bs.debtToAssetRatio()*100,1,2) + '%')}">—</div>
+          <div class="font-mono text-[10px] text-ink-soft mt-1">负债 ÷ 资产</div>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-eyebrow">流动资产</span>
+          <div class="font-display text-2xl mt-1" data-priv
+               th:text="${bs.liquidAssets() == null ? '—' : (currencySymbol + #numbers.formatInteger(bs.liquidAssets(),1,'COMMA'))}">—</div>
+          <div class="font-mono text-[10px] text-ink-soft mt-1">可随时动用</div>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-eyebrow">紧急储备</span>
+          <div class="font-display text-2xl mt-1"
+               th:text="${T(com.family.finance.service.report.SealedSnapshot).emergencyLabel(bs.emergencyFundMonths())}">—</div>
+          <div class="font-mono text-[10px] text-ink-soft mt-1">
+            流动 ÷ 近 <span th:text="${bs.expenseWindowPeriods()}">12</span> 期月均支出
+          </div>
+        </div>
+      </div>
+      <!-- 资产 / 负债 对称条 · 左右同一比例尺 -->
+      <div class="sym-bar" th:with="ap=${bs.assetSharePct()}">
+        <div class="sym-a" style="justify-content:flex-start;padding-left:8px;padding-right:0"
+             th:style="'width:' + ${ap} + '%;justify-content:flex-start;padding-left:8px;padding-right:0'">
+          <span class="font-mono text-[10px]" data-priv
+                th:text="'资产 ' + ${currencySymbol} + ${#numbers.formatInteger(bs.totalAssets(),1,'COMMA')}">资产</span>
+        </div>
+        <div class="sym-l" style="justify-content:flex-end;padding-right:8px;padding-left:0"
+             th:style="'width:' + ${100 - ap} + '%;justify-content:flex-end;padding-right:8px;padding-left:0'">
+          <span class="font-mono text-[10px]" data-priv
+                th:text="'负债 ' + ${currencySymbol} + ${#numbers.formatInteger(bs.totalLiabilities(),1,'COMMA')}">负债</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FR-323 · 资金流瀑布 ── -->
+    <div class="paper-card p-5 lg:p-6 mb-6" th:if="${sealed.waterfall() != null}" th:with="wf=${sealed.waterfall()}">
+      <h3 class="font-display text-xl lg:text-2xl font-medium">净资产为什么变了</h3>
+      <p class="text-xs text-ink-subtle mt-1 mb-3">
+        期初 → 收入 → 支出 → 投资损益 → 期末。这条链是个恒等式,所以它同时是一张<b>对账表</b>。
+      </p>
+      <div class="wf-scroll" th:classappend="${wf.axisTruncated()} ? ' wf-truncated' : ''">
+        <div class="wf" th:with="axis=${wf.axis()},lo=${wf.axisLo()},cum=${wf.cumulative()}">
+          <!-- 期初 -->
+          <div class="wf-col">
+            <div class="wf-bar" style="background:#7a5a39"
+                 th:style="'background:#7a5a39;height:' + ${(cum[0] - lo) * 100 / axis} + '%'">
+              <span class="wf-dl" data-priv th:text="${currencySymbol + #numbers.formatInteger(wf.openNetWorth(),1,'COMMA')}">—</span>
+            </div>
+            <div class="wf-lab">期初净资产<br><span th:text="${sealed.comparison() != null and sealed.comparison().prevPeriod() != null
+                 ? #temporals.format(sealed.comparison().prevPeriod().periodStart,'yyyy-MM') : ''}">—</span></div>
+          </div>
+          <!-- 收入 -->
+          <div class="wf-col">
+            <div class="wf-bar" th:style="'background:rgba(79,107,71,.6);height:' + ${wf.income() * 100 / axis}
+                 + '%;margin-bottom:' + ${(cum[0] - lo) * 100 / axis} + '%'">
+              <span class="wf-dl num-pos" data-priv th:text="'+' + ${currencySymbol + #numbers.formatInteger(wf.income(),1,'COMMA')}">—</span>
+            </div>
+            <div class="wf-lab">+ 收入</div>
+          </div>
+          <!-- 支出 -->
+          <div class="wf-col">
+            <div class="wf-bar" th:style="'background:rgba(156,74,42,.55);height:' + ${wf.expense() * 100 / axis}
+                 + '%;margin-bottom:' + ${(cum[2] - lo) * 100 / axis} + '%'">
+              <span class="wf-dl num-neg" data-priv th:text="'−' + ${currencySymbol + #numbers.formatInteger(wf.expense(),1,'COMMA')}">—</span>
+            </div>
+            <div class="wf-lab">− 支出</div>
+          </div>
+          <!-- 投资损益 -->
+          <div class="wf-col">
+            <div class="wf-bar"
+                 th:style="'background:' + ${wf.investPnl().signum() < 0 ? 'rgba(156,74,42,.55)' : 'rgba(79,107,71,.6)'}
+                 + ';height:' + ${(wf.investPnl().abs()) * 100 / axis}
+                 + '%;margin-bottom:' + ${(wf.investPnl().signum() < 0 ? (cum[2] - lo - wf.investPnl().abs()) : (cum[2] - lo)) * 100 / axis} + '%'">
+              <span class="wf-dl" data-priv th:classappend="${wf.investPnl().signum() < 0 ? ' num-neg' : ' num-pos'}"
+                    th:text="${(wf.investPnl().signum() >= 0 ? '+' : '−') + currencySymbol + #numbers.formatInteger(wf.investPnl().abs(),1,'COMMA')}">—</span>
+            </div>
+            <div class="wf-lab">± 投资损益</div>
+          </div>
+          <!-- 期末 -->
+          <div class="wf-col">
+            <div class="wf-bar" th:style="'background:#7a5a39;height:' + ${(cum[3] - lo) * 100 / axis} + '%'">
+              <span class="wf-dl" data-priv th:text="${currencySymbol + #numbers.formatInteger(wf.closeNetWorth(),1,'COMMA')}">—</span>
+            </div>
+            <div class="wf-lab">期末净资产<br><span th:text="${#temporals.format(sealed.period().periodStart,'yyyy-MM')}">—</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- 截断轴必须明示 —— 不能默默从 0 起也不能默默截断 -->
+      <div class="font-mono text-[9px] text-ink-subtle mt-1 flex justify-between">
+        <span th:if="${wf.axisTruncated()}" data-priv
+              th:text="'轴自 ' + ${currencySymbol + #numbers.formatInteger(wf.axisLo(),1,'COMMA')} + ' 起 · 截断轴'">截断轴</span>
+        <span th:unless="${wf.axisTruncated()}">轴自 0 起</span>
+        <span data-priv th:text="'轴顶 ' + ${currencySymbol + #numbers.formatInteger(wf.axisHi(),1,'COMMA')}">轴顶</span>
+      </div>
+      <!-- 恒等式校验 · 不闭合就如实说,不假装闭合 -->
+      <p th:if="${wf.identityHolds()}" class="font-mono text-[10.5px] mt-3 px-2 py-1.5"
+         style="border-left:3px solid var(--forest);color:var(--forest);background:rgba(79,107,71,.06)">
+        对账闭合 · 期末 − 期初 = (收入 − 支出) + 投资损益
+      </p>
+      <p th:if="${!wf.identityHolds() and wf.diffExplainedByOpening()}" class="text-[11px] mt-3 px-2 py-1.5"
+         style="border-left:3px solid var(--brass-deep);background:var(--card-soft)">
+        <b>等式差额 <span data-priv th:text="${currencySymbol + #numbers.formatInteger(wf.identityDiff(),1,'COMMA')}">—</span></b>
+        —— 本期有账户首次出现,其开账基线属<b>外部资本纳入</b>,既不算人赚也不算钱赚,所以不进这条链。
+      </p>
+      <p th:if="${!wf.identityHolds() and !wf.diffExplainedByOpening()}" class="text-[11px] mt-3 px-2 py-1.5"
+         style="border-left:3px solid var(--rust);color:var(--rust);background:rgba(156,74,42,.06)">
+        <b>等式差额 <span data-priv th:text="${currencySymbol + #numbers.formatInteger(wf.identityDiff(),1,'COMMA')}">—</span></b>
+        —— 无法由开账基线解释。这可能是数据问题,烦请反馈。
+      </p>
+    </div>
+
+    <!-- ── FR-324 · 三列对照 ── -->
+    <div class="paper-card p-5 lg:p-6 mb-6" th:if="${sealed.comparison() != null}" th:with="cmp=${sealed.comparison()}">
+      <h3 class="font-display text-xl lg:text-2xl font-medium">本期 vs 上期 vs 去年同期</h3>
+      <p class="text-xs text-ink-subtle mt-1 mb-3">
+        封板快照的价值在于<b>可比</b>。孤立的一个数看不出是异常月还是趋势拐点。
+      </p>
+      <div class="cmp-scroll">
+        <table class="cmp-table">
+          <thead>
+          <tr>
+            <th>指标</th>
+            <th th:text="'本期 ' + ${#temporals.format(sealed.period().periodStart,'yyyy-MM')}">本期</th>
+            <th th:text="${cmp.prevPeriod() != null ? '上期 ' + #temporals.format(cmp.prevPeriod().periodStart,'yyyy-MM') : '上期'}">上期</th>
+            <th th:text="${cmp.yoyPeriod() != null ? '去年同期 ' + #temporals.format(cmp.yoyPeriod().periodStart,'yyyy-MM') : '去年同期'}">去年同期</th>
+            <th>Δ 环比</th>
+            <th>Δ 同比</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr th:each="r : ${cmp.rows()}">
+            <td th:text="${r.label()}">指标</td>
+            <td data-priv th:text="${r.current() == null ? '—' : (r.ratio()
+                  ? #numbers.formatDecimal(r.current()*100,1,2) + '%'
+                  : #numbers.formatInteger(r.current(),1,'COMMA'))}">—</td>
+            <td data-priv th:text="${r.prev() == null ? '—' : (r.ratio()
+                  ? #numbers.formatDecimal(r.prev()*100,1,2) + '%'
+                  : #numbers.formatInteger(r.prev(),1,'COMMA'))}">—</td>
+            <td data-priv th:text="${r.yoy() == null ? '—' : (r.ratio()
+                  ? #numbers.formatDecimal(r.yoy()*100,1,2) + '%'
+                  : #numbers.formatInteger(r.yoy(),1,'COMMA'))}">—</td>
+            <td th:with="d=${r.momDelta()},p=${r.momPct()}"
+                th:classappend="${d == null ? '' : ((r.lowerIsBetter() ? d.signum() < 0 : d.signum() > 0) ? ' num-pos' : (d.signum() == 0 ? '' : ' num-neg'))}"
+                data-priv
+                th:text="${d == null ? '—' : (r.ratio()
+                  ? ((d.signum() > 0 ? '+' : '') + #numbers.formatDecimal(d*100,1,1) + ' pp')
+                  : ((d.signum() > 0 ? '+' : '') + #numbers.formatInteger(d,1,'COMMA')
+                     + (p == null ? '' : ' · ' + (p.signum() > 0 ? '+' : '') + #numbers.formatDecimal(p,1,1) + '%')))}">—</td>
+            <td th:with="d=${r.yoyDelta()},p=${r.yoyPct()}"
+                th:classappend="${d == null ? '' : ((r.lowerIsBetter() ? d.signum() < 0 : d.signum() > 0) ? ' num-pos' : (d.signum() == 0 ? '' : ' num-neg'))}"
+                data-priv
+                th:text="${d == null ? '—' : (r.ratio()
+                  ? ((d.signum() > 0 ? '+' : '') + #numbers.formatDecimal(d*100,1,1) + ' pp')
+                  : ((d.signum() > 0 ? '+' : '') + #numbers.formatInteger(d,1,'COMMA')
+                     + (p == null ? '' : ' · ' + (p.signum() > 0 ? '+' : '') + #numbers.formatDecimal(p,1,1) + '%')))}">—</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="font-mono text-[10px] text-ink-subtle mt-2">
+        比率类给 pp(百分点)· 金额类给绝对值与 %
+        <span th:if="${cmp.prevPeriod() == null}"> · 没有更早的已关账期,环比留空</span>
+        <span th:if="${cmp.yoyPeriod() == null}"> · 去年同月没有已关账期,同比留空</span>
+      </p>
+    </div>
+
+    <!-- ── FR-326 · 本期归因 ── -->
+    <div class="paper-card p-5 lg:p-6" th:if="${sealed.attribution() != null}" th:with="at=${sealed.attribution()}">
+      <h3 class="font-display text-xl lg:text-2xl font-medium">本期归因 · 谁把净资产推上去 / 拉下来</h3>
+      <p class="text-xs text-ink-subtle mt-1 mb-3">
+        本期净资产变动 <b data-priv th:text="${(at.netWorthDelta().signum() >= 0 ? '+' : '') + currencySymbol
+            + #numbers.formatInteger(at.netWorthDelta(),1,'COMMA')}">—</b>
+      </p>
+      <div class="biv">
+        <div class="biv-row" th:each="c : ${at.negatives()}">
+          <div class="biv-left">
+            <span class="biv-amt num-neg" data-priv th:text="${currencySymbol + #numbers.formatInteger(c.amount(),1,'COMMA')}">—</span>
+            <div class="biv-bar biv-neg" th:style="'width:' + ${c.sharePct() == null ? 10 : (c.sharePct().abs() > 100 ? 100 : c.sharePct().abs())} + '%'"></div>
+          </div>
+          <div class="biv-name" th:text="${c.accountName()}">账户</div>
+          <div></div>
+        </div>
+        <div class="biv-row" th:each="c : ${at.positives()}">
+          <div></div>
+          <div class="biv-name" th:text="${c.accountName()}">账户</div>
+          <div class="biv-right">
+            <div class="biv-bar biv-pos" th:style="'width:' + ${c.sharePct() == null ? 10 : (c.sharePct().abs() > 100 ? 100 : c.sharePct().abs())} + '%'"></div>
+            <span class="biv-amt num-pos" data-priv th:text="'+' + ${currencySymbol + #numbers.formatInteger(c.amount(),1,'COMMA')}">—</span>
+          </div>
+        </div>
+      </div>
+      <p th:if="${!at.opened().isEmpty()}" class="text-[11px] mt-3 px-2 py-1.5"
+         style="border-left:3px solid var(--brass-deep);background:var(--card-soft)">
+        本期<b>新增</b>账户(资本纳入,不是赚来的,所以不进上面的排名):
+        <span th:each="c,i : ${at.opened()}" data-priv
+              th:text="${(i.index > 0 ? ' · ' : '') + c.accountName() + ' ' + currencySymbol + #numbers.formatInteger(c.amount(),1,'COMMA')}"></span>
+      </p>
+      <p th:if="${!at.archived().isEmpty()}" class="text-[11px] mt-2 px-2 py-1.5"
+         style="border-left:3px solid var(--rule);background:var(--card-soft)">
+        本期<b>移出</b>账户(归档,不是亏掉的):
+        <span th:each="c,i : ${at.archived()}" data-priv
+              th:text="${(i.index > 0 ? ' · ' : '') + c.accountName() + ' ' + currencySymbol + #numbers.formatInteger(c.amount(),1,'COMMA')}"></span>
+      </p>
+    </div>
+  </section>
+
+  <!-- ══════════════ 二区 · 结构与风险 ══════════════ -->
+  <section id="sec-structure" class="mb-12" style="scroll-margin-top:80px">
+    <div class="zone-head">
+      <span class="zone-no">二</span>
+      <div>
+        <div class="zone-t">结构与风险</div>
+        <div class="zone-sub">同样定格于本期 · 鸡蛋是不是在一个篮子里、钱能不能拿得出来</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <!-- ── FR-325a · 集中度 ── -->
+    <div class="paper-card p-5 lg:p-6 mb-4" th:if="${sealed.concentration() != null}" th:with="c=${sealed.concentration()}">
+      <h3 class="font-display text-xl font-medium">集中度</h3>
+      <p class="text-xs text-ink-subtle mt-1 mb-3">
+        风险等级分布看得出结构,但月月对比不了 —— 集中度得是<b>数字</b>。淡色是上期,一眼看出在升还是在降。
+      </p>
+      <div class="conc">
+        <div class="conc-row">
+          <div class="conc-cap">
+            <span>最大单一账户占比 <span class="text-ink-subtle" th:text="'· ' + ${c.top1Name()}"></span></span>
+            <span><b th:text="${#numbers.formatDecimal(c.top1Pct(),1,2)} + '%'">—</b>
+              <span class="text-ink-subtle" th:if="${c.prev() != null}"
+                    th:text="' 上期 ' + ${#numbers.formatDecimal(c.prev().top1Pct(),1,2)} + '%'"></span></span>
+          </div>
+          <div class="conc-track">
+            <div class="conc-ghost" th:if="${c.prev() != null}" th:style="'width:' + ${c.prev().top1Pct()} + '%'"></div>
+            <div class="conc-fill" th:style="'width:' + ${c.top1Pct()} + '%'"></div>
+            <div class="conc-thr" style="left:30%" title="经验阈值 30%"></div>
+          </div>
+        </div>
+        <div class="conc-row">
+          <div class="conc-cap">
+            <span>Top3 账户占比</span>
+            <span><b th:text="${#numbers.formatDecimal(c.top3Pct(),1,2)} + '%'">—</b>
+              <span class="text-ink-subtle" th:if="${c.prev() != null}"
+                    th:text="' 上期 ' + ${#numbers.formatDecimal(c.prev().top3Pct(),1,2)} + '%'"></span></span>
+          </div>
+          <div class="conc-track">
+            <div class="conc-ghost" th:if="${c.prev() != null}" th:style="'width:' + ${c.prev().top3Pct()} + '%'"></div>
+            <div class="conc-fill" th:style="'width:' + ${c.top3Pct()} + '%'"></div>
+            <div class="conc-thr" style="left:60%" title="经验阈值 60%"></div>
+          </div>
+        </div>
+        <div class="conc-row">
+          <div class="conc-cap">
+            <span>HHI 赫芬达尔指数
+              <th:block th:insert="~{fragments/_kpi-info :: i('各账户占比的平方和(占比按余额绝对值算)。0 到 1,越大越集中;0.25 以上通常算高度集中。刻意用绝对值而不是净值——否则一笔大额房贷会把分母压到接近 0,指数当场爆表。', null)}"></th:block>
+            </span>
+            <span><b th:text="${#numbers.formatDecimal(c.hhi(),1,3)}">—</b>
+              <span class="text-ink-subtle" th:if="${c.prev() != null}"
+                    th:text="' 上期 ' + ${#numbers.formatDecimal(c.prev().hhi(),1,3)}"></span></span>
+          </div>
+          <div class="conc-track">
+            <div class="conc-ghost" th:if="${c.prev() != null}" th:style="'width:' + ${c.prev().hhi()*100} + '%'"></div>
+            <div class="conc-fill" th:style="'width:' + ${c.hhi()*100} + '%'"></div>
+            <div class="conc-thr" style="left:25%" title="0.25 = 高度集中"></div>
+          </div>
+        </div>
+        <div class="conc-row" th:if="${c.topPlatformPct() != null}">
+          <div class="conc-cap">
+            <span>最大单一类型占比 <span class="text-ink-subtle" th:text="'· ' + ${c.topPlatformName()}"></span></span>
+            <span><b th:text="${#numbers.formatDecimal(c.topPlatformPct(),1,2)} + '%'">—</b>
+              <span class="text-ink-subtle" th:if="${c.prev() != null and c.prev().topPlatformPct() != null}"
+                    th:text="' 上期 ' + ${#numbers.formatDecimal(c.prev().topPlatformPct(),1,2)} + '%'"></span></span>
+          </div>
+          <div class="conc-track">
+            <div class="conc-ghost" th:if="${c.prev() != null and c.prev().topPlatformPct() != null}"
+                 th:style="'width:' + ${c.prev().topPlatformPct()} + '%'"></div>
+            <div class="conc-fill" th:style="'width:' + ${c.topPlatformPct()} + '%'"></div>
+            <div class="conc-thr" style="left:40%" title="经验阈值 40%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FR-325b · 流动性分层 ── -->
+    <div class="paper-card p-5 lg:p-6" th:if="${sealed.liquidity() != null}" th:with="t=${sealed.liquidity()}">
+      <h3 class="font-display text-xl font-medium">流动性分层</h3>
+      <p class="text-xs text-ink-subtle mt-1 mb-2">
+        紧急储备只是一个数,分层才看得出结构 —— 极端情况下能立刻拿出多少。
+      </p>
+      <div class="stack">
+        <div class="stack-liquid" th:style="'width:' + ${t.liquidPct()} + '%'"
+             th:title="'即时可用 ' + ${t.liquidPct()} + '%'">
+          <span data-priv th:text="'即时 ' + ${currencySymbol + #numbers.formatInteger(t.liquid(),1,'COMMA')}
+                + ' · ' + ${t.liquidPct()} + '%'">即时</span>
+        </div>
+        <div class="stack-semi" th:style="'width:' + ${t.semiLiquidPct()} + '%'"
+             th:title="'半流动(股票/理财/贵金属等,变现要时间)' + ${t.semiLiquidPct()} + '%'">
+          <span data-priv th:text="'半流动 ' + ${currencySymbol + #numbers.formatInteger(t.semiLiquid(),1,'COMMA')}
+                + ' · ' + ${t.semiLiquidPct()} + '%'">半流动</span>
+        </div>
+        <div class="stack-illiquid" th:style="'width:' + ${t.illiquidPct()} + '%'"
+             th:title="'不可动(房产等)· 贷款与「其他」也并入这一档' + ${t.illiquidPct()} + '%'">
+          <span data-priv th:text="'不可动 ' + ${currencySymbol + #numbers.formatInteger(t.illiquid(),1,'COMMA')}
+                + ' · ' + ${t.illiquidPct()} + '%'">不可动</span>
+        </div>
+      </div>
+      <p class="font-mono text-[10px] text-ink-subtle mt-2">
+        <span th:if="${t.coverMonths() != null}"
+              th:text="'即时可用可覆盖 ' + ${#numbers.formatDecimal(t.coverMonths(),1,1)} + ' 个月支出'"></span>
+        <span> · 占比按余额绝对值计;贷款与「其他」并入不可动</span>
+      </p>
+    </div>
+
+    <!-- 无法定格的漂移源 · 如实交代 -->
+    <p th:if="${!sealed.driftNotes().isEmpty()}" class="text-[11px] text-ink-subtle mt-4 px-2 py-1.5"
+       style="border-left:3px solid var(--rule)">
+      <span th:each="n : ${sealed.driftNotes()}" th:utext="${n}"></span>
+    </p>
+  </section>
+  </th:block>
+</th:block>
+</body>
+</html>
