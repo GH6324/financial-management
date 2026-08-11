@@ -222,6 +222,24 @@ class SealedPeriodServiceTest {
         assertThat(r.yoyDelta()).isEqualByComparingTo("0.011");
     }
 
+    // ── FR-327 · live 口径缺失时的退化 ───────────────────────────────
+
+    @Test
+    void live字段缺失时不许把净流入算成0() {
+        // 兼容构造器造出来的 KpiSnapshot 里 live* 全是 null。
+        // 若 explain 硬算 liveIncome−liveExpense,净流入会显示 ¥0,而百分比是用另一个净流入
+        // 得出的 → tooltip 自相矛盾。这条是发布预检的 mvn test 抓出来的,补测钉住:
+        // live 缺失时必须原样退回锚已关账期那套实现(数值与 v1.10 之前逐字相同)。
+        var k = new com.family.finance.factview.KpiSnapshot(
+                new BigDecimal("70000"), new BigDecimal("70000"), Z, null, null,
+                new BigDecimal("5000"), null,
+                new BigDecimal("2000"), new BigDecimal("0.0307"), null, null,
+                Z, Z, new BigDecimal("65000"), new BigDecimal("3000"));
+        assertThat(k.liveMonthlyInvestReturnPct()).isNull();
+        assertThat(k.liveIncome()).isNull();
+        assertThat(k.lastNetInflow()).isEqualByComparingTo("3000");   // 退化路径要用这个,不是 0
+    }
+
     // ── FR-322 · 对称条 ──────────────────────────────────────────────
 
     @Test

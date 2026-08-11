@@ -302,9 +302,15 @@ public class MetricExplainService {
      * 这是维护者拍板的口径(显示真实值 + 讲清口径,而不是藏起来)。</p>
      */
     private String liveMonthlyPnlCalc(String ccy, KpiSnapshot k) {
-        BigDecimal pct = k.liveMonthlyInvestReturnPct() != null
-                ? k.liveMonthlyInvestReturnPct() : k.monthlyInvestReturnPct();
-        if (pct == null || k.netWorthDelta() == null) {
+        // live 口径缺失(兼容构造器 / 老调用路径)→ **原样委托回锚已关账期的实现**。
+        //   不能拿 liveIncome−liveExpense 当净流入硬算:那两个字段为 null 时会算出 ¥0,
+        //   而百分比是用另一个净流入得出的 → tooltip 自相矛盾(发布预检的 mvn test 抓到过这一条)。
+        if (k.liveMonthlyInvestReturnPct() == null) {
+            return monthlyPnlCalc(ccy, k.returnAnchorNetWorth(), k.prevNetWorth(), k.lastNetInflow(),
+                    k.monthlyInvestReturnPct(), k.returnAnchorMonth(), k.filingInProgress());
+        }
+        BigDecimal pct = k.liveMonthlyInvestReturnPct();
+        if (k.netWorthDelta() == null) {
             return "上期净资产缺失或为 0,暂无法计算本月资产收益率";
         }
         BigDecimal open = k.netWorth().subtract(k.netWorthDelta());
