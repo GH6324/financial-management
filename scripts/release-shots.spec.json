@@ -1,29 +1,36 @@
 {
-  "_comment": "每次发版按核心能力改清单(PC 用 selector 裁剪聚焦;手机不裁剪、整屏 full=false 平铺 —— 用户定 2026-07-11)",
-  "_version": "v1.9.0 · 自动版本查询:落后几个版本 + 这中间有没有 DB 迁移(只查不改)",
-  "pc": [
-    {
-      "path": "/admin",
-      "name": "version-card",
-      "wait": 2200,
-      "waitFor": "text=这中间含",
-      "selector": "section#version"
-    },
-    {
-      "path": "/admin",
-      "name": "badge-dot",
-      "wait": 1800,
-      "waitFor": "text=版 本",
-      "selector": ".nav-lead"
-    }
-  ],
-  "mobile": [
-    {
-      "path": "/admin",
-      "name": "version-card",
-      "wait": 2400,
-      "full": false,
-      "waitFor": "text=这中间含"
-    }
-  ]
+ "_comment": "每次发版按核心能力改清单(PC 用 selector 裁剪聚焦;手机不裁剪、整屏 full=false 平铺 —— 用户定 2026-07-11)",
+ "_version": "v1.10.0 · 报表页月度封板快照:三区 + 期末资产负债表 / 资金流瀑布 / 环比同比 / 集中度 / 流动性分层 / 归因",
+ "pc": [
+  {
+   "path": "/reports?range=1Y",
+   "name": "sealed-balance",
+   "wait": 2600,
+   "waitFor": "text=期末资产负债表",
+   "selector": "#sec-sealed"
+  },
+  {
+   "path": "/reports?range=1Y",
+   "name": "structure",
+   "wait": 2400,
+   "waitFor": "text=流动性分层",
+   "selector": "#sec-structure"
+  },
+  {
+   "path": "/dashboard",
+   "name": "live-return",
+   "wait": 2200,
+   "waitFor": "text=本月资产收益",
+   "selector": "#dashboard-region"
+  }
+ ],
+ "mobile": [
+  {
+   "path": "/reports?range=1Y",
+   "name": "sealed",
+   "wait": 2600,
+   "full": false,
+   "waitFor": "text=期末资产负债表"
+  }
+ ]
 }
