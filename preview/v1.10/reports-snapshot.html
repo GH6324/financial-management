@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.10 Preview · 报表页进化为「月度封板快照」</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .rule{height:1px;background:var(--rule-soft)}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);color:var(--ink-soft)}
+  .badge.ok{border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)}
+  .badge.risk{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)}
+  .badge.brass{border-color:var(--brass-deep);color:var(--brass-text);background:var(--brass-soft)}
+  .card{border:1px solid var(--rule);background:var(--card);padding:18px}
+  .seal{display:inline-block;border:1.5px solid var(--rust);color:var(--rust);font-family:'JetBrains Mono',monospace;
+        font-size:9px;letter-spacing:.28em;padding:3px 8px;transform:rotate(-2deg)}
+
+  /* 区标题 —— 三区的视觉分层是这一版的核心 */
+  .zone{margin-top:38px}
+  .zone-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .zone-no{font-family:'JetBrains Mono',monospace;font-size:22px;color:var(--paper);background:var(--brass-deep);
+          line-height:1;padding:5px 9px;letter-spacing:0}
+  .zone-t{font-family:'Fraunces',serif;font-size:20px}
+  .zone-sub{font-size:11.5px;color:var(--ink-subtle)}
+  .zone-line{height:2px;background:var(--brass-deep);opacity:.35;margin:10px 0 18px}
+  .frozen{background:repeating-linear-gradient(45deg,transparent,transparent 6px,rgba(140,106,51,.045) 6px,rgba(140,106,51,.045) 12px)}
+
+  /* KPI 带 */
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid var(--rule)}
+  .kpi{padding:12px 14px;border-left:1px solid var(--rule-soft)}
+  .kpi:first-child{border-left:0}
+  .kpi .lb{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--ink-subtle)}
+  .kpi .vv{font-family:'Fraunces',serif;font-size:21px;margin-top:5px}
+  .kpi .sub{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-subtle);margin-top:3px}
+  @media(max-width:820px){.kpis{grid-template-columns:repeat(2,1fr)}.kpi{border-left:1px solid var(--rule-soft);border-top:1px solid var(--rule-soft)}}
+
+  /* 资产 / 负债 对称条 */
+  .sym{display:flex;align-items:stretch;height:34px;border:1px solid var(--ink);margin-top:14px}
+  .sym .a{background:var(--brass-soft);display:flex;align-items:center;justify-content:flex-end;padding-right:8px}
+  .sym .l{background:rgba(156,74,42,.16);display:flex;align-items:center;padding-left:8px;border-left:2px solid var(--ink)}
+  .sym span{font-family:'JetBrains Mono',monospace;font-size:10px}
+
+  /* 瀑布 */
+  .wf{display:flex;align-items:flex-end;gap:0;height:210px;margin-top:12px;border-bottom:1px solid var(--rule);min-width:460px}
+  .wf-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .wf .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative;height:100%}
+  .wf .bar{width:62%;position:relative}
+  /* 连接线:上一段的终点水平延伸到下一段的起点 —— 瀑布的语义靠它 */
+  /* 连接线:从本段端点水平延伸到下一段起点 —— 瀑布的「分解」语义靠它,少了就读成普通柱状图 */
+  .wf .conn{position:absolute;height:1px;background:var(--ink-subtle);opacity:.5;right:-61.3%;width:61.3%}
+  .wf .lab{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-subtle);margin-top:6px;text-align:center;line-height:1.3}
+  .wf .dl{position:absolute;left:0;right:0;top:-16px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600}
+
+  /* 三列对照表 */
+  table.cmp{width:100%;border-collapse:collapse;margin-top:12px}
+  table.cmp th{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:var(--ink-soft);
+               text-align:right;padding:8px 10px;border-bottom:1px solid var(--ink)}
+  table.cmp th:first-child{text-align:left}
+  table.cmp td{padding:9px 10px;border-bottom:1px solid var(--rule-soft);text-align:right;
+               font-family:'JetBrains Mono',monospace;font-size:12px;white-space:nowrap}
+  table.cmp td:first-child{text-align:left;font-family:'Noto Serif SC',serif;font-size:13px}
+  .pos{color:var(--forest)} .neg{color:var(--rust)} .dim{color:var(--ink-subtle)}
+
+  /* 集中度条 + 幽灵条 */
+  .conc{margin-top:10px}
+  .conc .row{margin-bottom:12px}
+  .conc .cap{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;margin-bottom:3px}
+  .track{position:relative;height:16px;background:var(--paper-soft);border:1px solid var(--rule-soft)}
+  .track .ghost{position:absolute;top:0;bottom:0;background:rgba(140,106,51,.18)}
+  .track .fill{position:absolute;top:0;bottom:0;background:var(--brass-deep);opacity:.75}
+  .track .thr{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--rust)}
+
+  /* 流动性堆叠条 */
+  .stack{display:flex;height:40px;border:1px solid var(--ink);margin-top:10px}
+  .stack div{display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:10px}
+
+  /* 双向条形(归因) */
+  .biv{margin-top:10px}
+  .biv .r{display:grid;grid-template-columns:1fr 130px 1fr;align-items:center;gap:8px;margin-bottom:7px}
+  @media(max-width:520px){.biv .r{grid-template-columns:1fr 92px 1fr;gap:5px}.biv .nm{font-size:11px}}
+  .biv .nm{font-size:12px;text-align:center}
+  .biv .lft{display:flex;justify-content:flex-end;align-items:center}
+  .biv .b{height:15px}
+  .biv .b.p{background:rgba(79,107,71,.55)} .biv .b.n{background:rgba(156,74,42,.5)}
+  .biv .amt{font-family:'JetBrains Mono',monospace;font-size:10px;padding:0 5px;align-self:center;white-space:nowrap}
+</style>
+</head>
+<body style="background:var(--paper);color:var(--ink)">
+
+<div class="wrap" style="padding-top:26px">
+  <span class="eyebrow">preview · v1.10</span>
+  <h1 style="font-size:30px;margin:6px 0 10px">报表页进化为「月度封板快照」</h1>
+  <p class="note" style="max-width:760px">
+    分工:<b>仪表盘</b>=当期未封板的实时数据(会变)· <b>报表页</b>=每月关账后的封板快照(不再二次变动)。
+    现状问题不是缺几个指标,而是缺三样:<b>期末家底</b>(报表页没有总负债/紧急储备/资产负债率)、
+    <b>可比性</b>(没有任何环比/同比)、<b>可信度声明</b>(不知道这份快照完整不完整)。
+    另外页面主框架是滚动窗口,和"定格快照"的理念在打架 —— v1.9.4 那个财富水位 bug 就是这个张力的产物。
+  </p>
+  <p class="note" style="max-width:760px;margin-top:8px">
+    所以这一版把<b>「本期封板」升为第一等公民</b>:分三区,<span class="mono">range</span> 只作用于第三区。
+    下面是三区结构与六个新组件的静态预览(数字为示意)。
+  </p>
+
+  <!-- 页头控件 · 作用域写明 -->
+  <div class="card" style="margin-top:22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <span class="seal">已 · 关 · 账</span>
+    <label class="mono" style="font-size:10px;color:var(--ink-subtle)">账期
+      <select class="mono" style="font-size:11px;border:1px solid var(--rule);background:var(--paper);padding:3px 5px;margin-left:4px">
+        <option>2026-07</option><option>2026-06</option>
+      </select>
+    </label>
+    <span class="badge brass">决定第一、二区定格在哪一期</span>
+    <span style="flex:1"></span>
+    <span class="note">范围 chips 已移到第三区标题旁 →</span>
+  </div>
+
+  <!-- ══ 一区 ══════════════════════════════════════════════════ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">一</span>
+      <div>
+        <div class="zone-t">本期封板</div>
+        <div class="zone-sub">定格于 2026-07 · 这一区每个数字只由「哪一期」决定,与看多长的窗口无关</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <!-- FR-321 -->
+    <div class="card frozen">
+      <span class="eyebrow">FR-321 · 封板抬头 · 数据完整度</span>
+      <div style="display:flex;gap:22px;flex-wrap:wrap;margin-top:10px;align-items:center">
+        <span class="mono" style="font-size:12px"><b>2026-07 月度账册</b> · 关账于 2026-08-01</span>
+        <span class="badge ok">20 / 20 个账户已填</span>
+        <span class="badge">估值来源 · 自动拉价 6 · 手填 14</span>
+        <span class="badge">汇率日期 2026-07-31</span>
+      </div>
+      <div style="display:flex;gap:22px;flex-wrap:wrap;margin-top:8px;align-items:center">
+        <span class="note">未填时这一格变红并列出账户名(可点去填报):</span>
+        <span class="badge risk">18 / 20 已填 · 缺 华泰证券-A股、住宅-海淀</span>
+      </div>
+      <p class="note" style="margin-top:10px">
+        <b>为什么要这一行</b>:不知道完整度的报表没法拿去分析。汇率日期必须是<b>该封板期</b>的,不是"今天"的。
+      </p>
+    </div>
+
+    <!-- FR-322 -->
+    <div class="card frozen" style="margin-top:14px">
+      <span class="eyebrow">FR-322 · 期末资产负债表</span>
+      <p class="note" style="margin-top:6px">
+        理财师翻开月报第一眼看的就是 balance sheet;它还是后面所有比率的分母。
+        现在报表页开头直接给 XIRR,等于"没说家底先说收益"。<b>报表页目前完全没有总负债、紧急储备、资产负债率。</b>
+      </p>
+      <div class="kpis" style="margin-top:12px">
+        <div class="kpi"><div class="lb">期末净资产</div><div class="vv">¥461.1万</div><div class="sub">资产 − 负债</div></div>
+        <div class="kpi"><div class="lb">总资产</div><div class="vv">¥572.3万</div><div class="sub">不含 LOAN</div></div>
+        <div class="kpi"><div class="lb">总负债</div><div class="vv">¥111.2万</div><div class="sub">仅 LOAN</div></div>
+        <div class="kpi"><div class="lb">资产负债率</div><div class="vv">19.4%</div><div class="sub">负债 ÷ 资产</div></div>
+        <div class="kpi"><div class="lb">流动资产</div><div class="vv">¥86.4万</div><div class="sub">LIQUID 合计</div></div>
+        <div class="kpi"><div class="lb">紧急储备</div><div class="vv">&gt; 36 月</div><div class="sub">流动 ÷ 月均支出</div></div>
+      </div>
+      <div class="sym">
+        <div class="a" style="width:80.6%"><span>资产 ¥572.3万</span></div>
+        <div class="l" style="width:19.4%"><span>负债 ¥111.2万</span></div>
+      </div>
+      <p class="note" style="margin-top:8px">
+        对称条左右同一比例尺(并列同类元素同尺寸铁律)。<b>比率类三币种必须完全相等</b> ——
+        资产负债率、紧急储备月数纳入 <span class="mono">CurrencyInvarianceTest</span> 属性级扫描。
+      </p>
+    </div>
+
+    <!-- FR-323 -->
+    <div class="card frozen" style="margin-top:14px">
+      <span class="eyebrow">FR-323 · 资金流瀑布 · 含恒等式校验</span>
+      <h3 style="font-size:17px;margin-top:6px">净资产为什么变了</h3>
+      <div class="wf-scroll"><div class="wf">
+        <div class="col"><div class="bar" style="height:34.0%;background:#7a5a39"><span class="dl">¥428.0万</span><span class="conn" style="top:0"></span></div><div class="lab">期初净资产<br>2026-06</div></div>
+        <div class="col"><div class="bar" style="height:10.4%;margin-bottom:34.0%;background:rgba(79,107,71,.6)"><span class="dl pos">+¥8.6万</span><span class="conn" style="top:0"></span></div><div class="lab">+ 收入</div></div>
+        <div class="col"><div class="bar" style="height:5.0%;margin-bottom:39.5%;background:rgba(156,74,42,.55)"><span class="dl neg">−¥4.1万</span><span class="conn" style="bottom:0"></span></div><div class="lab">− 支出</div></div>
+        <div class="col"><div class="bar" style="height:34.7%;margin-bottom:39.5%;background:rgba(79,107,71,.6)"><span class="dl pos">+¥28.6万</span><span class="conn" style="top:0"></span></div><div class="lab">± 投资损益</div></div>
+        <div class="col"><div class="bar" style="height:74.2%;background:#7a5a39"><span class="dl">¥461.1万</span></div><div class="lab">期末净资产<br>2026-07</div></div>
+      </div></div>
+      <div class="mono" style="font-size:9px;color:var(--ink-subtle);margin-top:5px;display:flex;justify-content:space-between">
+        <span>轴自 ¥400万 起 · <b>截断轴</b></span><span>轴顶 ¥470万</span>
+      </div>
+      <p class="note" style="margin-top:10px">
+        <b>隐藏价值是对账</b>:这条链是个恒等式 ——
+        <span class="mono">期末 − 期初 = (收入 − 支出) + 投资损益</span>,即
+        <span class="mono">人赚的 + 钱赚的</span>。这个项目最容易出的错就是口径串台
+        (v1.8 支出、v1.9.4 财富水位都栽在这上面),所以<b>显式校验、不假装闭合</b>:
+      </p>
+      <div style="margin-top:8px;padding:8px 10px;border:1px solid var(--rust);color:var(--rust);background:rgba(156,74,42,.06)"
+           class="mono" style="font-size:10.5px">
+        等式差额 ¥12.0万 —— 本期有 1 个账户首次出现,其开账基线 ¥12.0万 属<b>外部资本纳入</b>,不计入损益
+      </div>
+      <p class="note" style="margin-top:8px">
+        每段数字<b>浮在柱上</b>(datalabels 铁律,hover tooltip 不算)。
+      </p>
+      <p class="note" style="margin-top:6px;padding:8px 10px;border-left:3px solid var(--brass-deep);background:var(--card-soft)">
+        <b>画这张预览时发现的设计约束</b>:月度<b>流量</b>(收入 8.6万)和<b>存量</b>(净资产 461万)差两个数量级 ——
+        全量轴下中间三段柱子会细成一条线,等于看不见。所以这张图<b>必须用截断轴</b>
+        (本例自 ¥400万 起)并在轴上<b>显式标注截断</b>,不能默默从 0 起也不能默默截断。
+        实现时轴的上下界按「期初/期末/中间累计值的 min-max ± 余量」算,不写死。
+      </p>
+    </div>
+
+    <!-- FR-324 -->
+    <div class="card frozen" style="margin-top:14px">
+      <span class="eyebrow">FR-324 · 本期 vs 上期 vs 去年同期</span>
+      <p class="note" style="margin-top:6px">
+        <b>用表不用图</b> —— 封板要的是精确值,图会让人读不出具体数。
+        这是整版最关键的一节:<b>快照的全部价值在于可比</b>,而现在全站没有任何环比/同比。
+      </p>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table class="cmp" style="min-width:660px">
+        <thead><tr><th>指标</th><th>本期 2026-07</th><th>上期 2026-06</th><th>去年同期 2025-07</th><th>Δ 环比</th><th>Δ 同比</th></tr></thead>
+        <tbody>
+          <tr><td>净资产</td><td>4,611,000</td><td>4,280,000</td><td>2,435,000</td><td class="pos">+331,000 · +7.7%</td><td class="pos">+2,176,000 · +89.4%</td></tr>
+          <tr><td>净流入(人赚)</td><td>45,000</td><td>52,000</td><td>38,000</td><td class="neg">−7,000 · −13.5%</td><td class="pos">+7,000 · +18.4%</td></tr>
+          <tr><td>投资损益(钱赚)</td><td>286,000</td><td>103,000</td><td>−41,000</td><td class="pos">+183,000</td><td class="pos">+327,000</td></tr>
+          <tr><td>支出</td><td>41,000</td><td>38,500</td><td>36,200</td><td class="neg">+2,500 · +6.5%</td><td class="neg">+4,800 · +13.3%</td></tr>
+          <tr><td>储蓄率</td><td>52.3%</td><td>57.5%</td><td>51.2%</td><td class="neg">−5.2 pp</td><td class="pos">+1.1 pp</td></tr>
+          <tr><td>资产负债率</td><td>19.4%</td><td>21.0%</td><td>28.6%</td><td class="pos">−1.6 pp</td><td class="pos">−9.2 pp</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="note" style="margin-top:8px">
+        规则:① 上期/去年同期不存在 → 那格与 Δ 都显示 <span class="mono">—</span>,
+        <b>不显示 0 也不显示 100%</b>(新用户第一期必然如此,给 Δ 是误导)· ② 比率类 Δ 用 <b>pp</b> 不用 % ·
+        ③ 去年同期取<b>同月</b>(周期类型可能是周度,不能用"12 期前")· ④ 三列只取<b>已关账</b>期,
+        上期未关账则显示「上期尚未关账」。
+      </p>
+      <div style="margin-top:6px"><span class="badge">窄屏:首列吸顶 + 横向滚(照 v1.6.31)</span></div>
+    </div>
+
+    <!-- FR-326 -->
+    <div class="card frozen" style="margin-top:14px">
+      <span class="eyebrow">FR-326 · 本期归因 · 正负贡献</span>
+      <p class="note" style="margin-top:6px">复用 <span class="mono">AttributionEngine</span>(仪表盘归因复盘在用),换封板期口径。一句话解释本月涨跌。</p>
+      <div class="biv">
+        <div class="r"><div class="lft"></div><div class="nm">华泰证券-A股</div><div style="display:flex;align-items:center"><div class="b p" style="width:74%"></div><span class="amt pos">+¥18.2万</span></div></div>
+        <div class="r"><div class="lft"></div><div class="nm">蚂蚁财富-基金</div><div style="display:flex;align-items:center"><div class="b p" style="width:45%"></div><span class="amt pos">+¥11.1万</span></div></div>
+        <div class="r"><div class="lft"></div><div class="nm">富途-港美股</div><div style="display:flex;align-items:center"><div class="b p" style="width:26%"></div><span class="amt pos">+¥6.4万</span></div></div>
+        <div class="r"><div class="lft" style="align-items:center"><span class="amt neg">−¥8.6万</span><div class="b n" style="width:42%"></div></div><div class="nm">币安钱包</div><div></div></div>
+        <div class="r"><div class="lft" style="align-items:center"><span class="amt neg">−¥3.7万</span><div class="b n" style="width:18%"></div></div><div class="nm">招行信用卡</div><div></div></div>
+      </div>
+      <p class="note" style="margin-top:8px">
+        <b>两条必须钉住的</b>:① 新增账户的开账基线<b>不许出现在正贡献里</b> ——
+        否则"补录一个存量账户"会显示成本月大赚;② 归档账户的移出同理不算负贡献。
+        新增/归档单列一行说明。贡献之和 + 开账基线 + 移出 = 本期净资产变动(与 FR-323 恒等式同源,互为校验)。
+      </p>
+    </div>
+  </div>
+
+  <!-- ══ 二区 ══════════════════════════════════════════════════ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">二</span>
+      <div>
+        <div class="zone-t">结构与风险</div>
+        <div class="zone-sub">同样定格于 2026-07 · 理财师真正收费的部分</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="card frozen">
+      <span class="eyebrow">FR-325 a · 集中度</span>
+      <p class="note" style="margin-top:6px">
+        现在只有风险等级<b>饼图</b> —— 看得出结构,<b>月月对比不了</b>。集中度必须是<b>数字</b>才能盯趋势。
+        淡色是<b>上月幽灵条</b>,一眼看出在升还是在降;红线是阈值。
+      </p>
+      <div class="conc">
+        <div class="row"><div class="cap"><span>最大单一账户占比</span><span><b>34.2%</b> <span class="dim">上月 38.1%</span></span></div>
+          <div class="track"><div class="ghost" style="width:38.1%"></div><div class="fill" style="width:34.2%"></div><div class="thr" style="left:30%"></div></div></div>
+        <div class="row"><div class="cap"><span>Top3 账户占比</span><span><b>71.8%</b> <span class="dim">上月 74.0%</span></span></div>
+          <div class="track"><div class="ghost" style="width:74%"></div><div class="fill" style="width:71.8%"></div><div class="thr" style="left:60%"></div></div></div>
+        <div class="row"><div class="cap"><span>HHI 赫芬达尔指数</span><span><b>0.213</b> <span class="dim">上月 0.241</span></span></div>
+          <div class="track"><div class="ghost" style="width:24.1%"></div><div class="fill" style="width:21.3%"></div><div class="thr" style="left:25%"></div></div></div>
+        <div class="row"><div class="cap"><span>最大单一平台占比</span><span><b>41.0%</b> <span class="dim">上月 41.0%</span></span></div>
+          <div class="track"><div class="ghost" style="width:41%"></div><div class="fill" style="width:41%"></div><div class="thr" style="left:40%"></div></div></div>
+      </div>
+      <p class="note" style="margin-top:8px">
+        HHI 定义进 tooltip(Σ 各账户占比²,0~1,越大越集中)+ 参考刻度。
+        <b>没有上期时幽灵条不画</b>(而不是画成 0)。平台维度复用 lens 现成的 <span class="mono">platform</span>。
+      </p>
+    </div>
+
+    <div class="card frozen" style="margin-top:14px">
+      <span class="eyebrow">FR-325 b · 流动性分层</span>
+      <p class="note" style="margin-top:6px">
+        "极端情况下我能立刻拿出多少" —— 紧急储备月数只是一个数,<b>分层才看得出结构</b>。
+        <span class="mono">AccountLiquidity</span> 现成三档。
+      </p>
+      <div class="stack">
+        <div style="width:15.1%;background:var(--brass-soft)">即时 ¥86.4万 · 15.1%</div>
+        <div style="width:22.4%;background:rgba(140,106,51,.30);border-left:1px solid var(--ink)">半流动 ¥128.2万 · 22.4%</div>
+        <div style="width:62.5%;background:rgba(33,30,23,.14);border-left:1px solid var(--ink)">不可动 ¥357.7万 · 62.5%</div>
+      </div>
+      <p class="note" style="margin-top:8px">
+        右侧标「即时可用可覆盖 <b>36+ 个月</b>支出」。合计必须 = 100%;
+        <span class="mono">NA</span> 档并入"不可动"并在 tooltip 说明。
+      </p>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <span class="eyebrow">现有 · 原样保留在二区</span>
+      <p class="note" style="margin-top:6px">负债下降曲线 · 风险等级分布 · 资产配置对照 · 调仓建议与计划 —— 这四节本来就是定格视角,归入二区不改内容。</p>
+    </div>
+  </div>
+
+  <!-- ══ 三区 ══════════════════════════════════════════════════ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">三</span>
+      <div>
+        <div class="zone-t">趋势</div>
+        <div class="zone-sub">滚动窗口 · <b>range 只作用于这一区</b></div>
+      </div>
+      <span style="flex:1"></span>
+      <div style="display:flex;border:1px solid var(--rule)">
+        <span class="mono" style="font-size:11px;padding:5px 11px;color:var(--ink-soft)">1M</span>
+        <span class="mono" style="font-size:11px;padding:5px 11px;border-left:1px solid var(--rule);color:var(--ink-soft)">3M</span>
+        <span class="mono" style="font-size:11px;padding:5px 11px;border-left:1px solid var(--rule);color:var(--ink-soft)">6M</span>
+        <span class="mono" style="font-size:11px;padding:5px 11px;border-left:1px solid var(--rule);color:var(--ink-soft)">YTD</span>
+        <span class="mono" style="font-size:11px;padding:5px 11px;border-left:1px solid var(--rule);background:var(--ink);color:var(--paper)">1Y</span>
+        <span class="mono" style="font-size:11px;padding:5px 11px;border-left:1px solid var(--rule);color:var(--ink-soft)">ALL</span>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+    <div class="card">
+      <p class="note">
+        账户级收益 · vs 基准 / 财富水位 / 储蓄能力 / 支出构成 / 本金 vs 投资损益 —— 现有五节全部下沉到这里,内容不改。
+        chips 挪到本区标题旁,<b>让作用域一眼可见</b>。
+      </p>
+      <p class="note" style="margin-top:8px">
+        <b>这一条是本版最重要的验收</b>:切换 range,<b>一、二区所有数字逐字不变</b>
+        (护栏 <span class="mono">v110-SNAPSHOT-RANGE-INVARIANT</span> 扫)。
+        v1.9.4 的财富水位 bug 就是因为窗口一变"首期是谁"就变,指标可用性跟着变 —— 分区之后这类张力从结构上消失。
+      </p>
+    </div>
+  </div>
+
+  <!-- 不做 -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">×</span><div><div class="zone-t">本版明确不做</div>
+      <div class="zone-sub">写在这里免得反复讨论</div></div></div>
+    <div class="zone-line"></div>
+    <div class="card">
+      <p class="note">
+        <b>推到 v1.11</b>:币种敞口 / 汇率贡献(要新算 orig-base 差额归因,不是取现成字段)· 目标进度封板(牵动 goal 模块)·
+        两期任选对比 · 导出 CSV 与打印样式 · 封板月评(AI 话术)。
+      </p>
+      <p class="note" style="margin-top:8px">
+        <b>永不做</b>:夏普比 / 波动率 —— 月频 12 个点算出来没有统计意义,是<b>假精确</b>(最大回撤可以给,账户级已有)·
+        逐笔流水分析(项目非目标,已在 issue #9 对外说明)· 实时/当期未封板指标(那是仪表盘的职责,重复即混淆)。
+      </p>
+    </div>
+  </div>
+
+  <div class="rule" style="margin:34px 0 14px"></div>
+  <p class="note" style="text-align:center;padding-bottom:36px">
+    preview/v1.10/reports-snapshot.html · 配 prd/v1.10.md · 待评审 ·
+    本版<b>无 schema 变更</b>,全部指标从既有事实切片算
+  </p>
+</div>
+</body>
+</html>
