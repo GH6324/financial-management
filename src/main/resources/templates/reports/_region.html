@@ -103,6 +103,14 @@
     <div class="paper-card p-6">
       <div class="eyebrow mb-1">第 一 表 · 核 · 心</div>
       <h3 class="font-display text-xl font-medium">本金净流入 vs 投资损益</h3>
+        <!-- v1.11 · 用户报「目前看到两个月,是否不对」—— 不是 bug,是两条口径叠加的结果,
+             但页面从来没说过,所以看起来像 bug。写清楚:① 只统计**已关账**期(v1.6.30 起,
+             进行中期收支未录齐会把工资算成投资收益)② 每个点是「相对上一期的变动」,
+             所以 N 个已关账期只产生 N−1 个点。prod 3 期已关账 → 2 个点。 -->
+        <p class="font-mono text-[10px] text-ink-subtle mt-1">
+          只统计<b>已关账</b>期 · 每点是相对上一期的变动,故 N 期已关账只出 N−1 个点
+          <span th:if="${decomposition != null}" th:text="' · 本窗口 ' + ${decomposition.size()} + ' 个点'"></span>
+        </p>
       <p class="text-xs text-ink-soft mt-1">真正"摸清增值来源"· 区分钱是攒来的还是投资赚的</p>
       <div class="rule-x pt-2 mb-2"></div>
       <div class="h-[240px] sm:h-[360px]"><canvas id="decomposeChart"></canvas></div>

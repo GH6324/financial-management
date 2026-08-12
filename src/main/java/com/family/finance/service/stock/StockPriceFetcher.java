@@ -32,6 +32,7 @@ public class StockPriceFetcher {
     private static final int FAILURE_THRESHOLD = 3;
     private static final Duration BREAKER_OPEN_DURATION = Duration.ofMinutes(5);
 
+
     private final SinaStockClient sinaClient;
     private final TencentStockClient tencentClient;
     private final CoinGeckoCryptoClient coinGeckoClient;

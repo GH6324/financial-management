@@ -53,6 +53,7 @@ public interface FactViewService {
      */
     PeriodBalance balanceAt(FactSlice slice, Long periodId);
 
+
     List<DecompositionPoint> principalVsReturnDecomposition(FactSlice slice);
 
     List<TrendPoint> debtTrend(FactSlice slice);

@@ -26,6 +26,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PeriodOpener {
 
+
     private final FamilyService familyService;
     private final PeriodService periodService;
     private final AccountMapper accountMapper;

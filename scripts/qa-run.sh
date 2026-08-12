@@ -10,17 +10,40 @@ TMP="/tmp/finance-qa-resp.html"
 PASS=0; FAIL=0; SKIP=0
 FAILED=()
 
-log_ok()   { echo -e "\033[32m PASS \033[0m $1"; PASS=$((PASS+1)); }
-log_bad()  { echo -e "\033[31m FAIL \033[0m $1  ::  ${2:-}"; FAIL=$((FAIL+1)); FAILED+=("$1 :: ${2:-}"); }
+# ── 分段过滤(2026-08-12)· 用法:bash scripts/qa-run.sh --only 'v110|v19'
+#
+#   为什么加:全量跑一次 ~45 分钟。开发中改一处就要等 45 分钟才知道有没有打红别的护栏,
+#   于是实际做法变成「攒到最后跑一次」—— 反馈太晚,打红的东西堆在一起难定位。
+#   有了过滤,改 v1.10 的护栏时只跑相关段,反馈从 45 分钟降到秒级。
+#
+#   实现刻意做得**极小**:不重构 45 个 section 的结构(那是 5000 行的大手术,风险远大于收益),
+#   只把三个「贵」的动作在非目标段里变成 no-op —— HTTP 请求、断言记账、日志输出。
+#   段内的 grep 仍然跑,但那是毫秒级的本地文件操作,不值得为它增加复杂度。
+#
+#   **「0 · 认证」段永远跑** —— 后面所有段都依赖它建立的登录态与 cookie,跳过它会全线失败。
+QA_ONLY="${QA_ONLY:-}"
+if [[ "${1:-}" == "--only" && -n "${2:-}" ]]; then QA_ONLY="$2"; fi
+SEC_ACTIVE=1
+
+log_ok()   { [[ "$SEC_ACTIVE" == 0 ]] && return 0; echo -e "\033[32m PASS \033[0m $1"; PASS=$((PASS+1)); }
+log_bad()  { [[ "$SEC_ACTIVE" == 0 ]] && return 0; echo -e "\033[31m FAIL \033[0m $1  ::  ${2:-}"; FAIL=$((FAIL+1)); FAILED+=("$1 :: ${2:-}"); }
 # 否定断言前先剥掉**整行注释** —— "否定断言被自己解释历史的注释扫红"这个坑本项目踩了 7 次
 # (AGENTS.md 有专条),而"每次记得盯代码构造"显然不管用。机械剥注释,结构上不可能再撞。
 # 只去掉整行注释(^\s*#),不动行尾的 # —— 后者可能是字符串里的合法字符。
 code_only(){ sed -e 's/^[[:space:]]*#.*$//' "$1"; }
 
-log_skip() { echo -e "\033[33m SKIP \033[0m $1  ::  ${2:-}"; SKIP=$((SKIP+1)); }
-section()  { echo; echo -e "\033[1;36m─── $1 ───\033[0m"; }
+log_skip() { [[ "$SEC_ACTIVE" == 0 ]] && return 0; echo -e "\033[33m SKIP \033[0m $1  ::  ${2:-}"; SKIP=$((SKIP+1)); }
+section()  {
+  if [[ -n "$QA_ONLY" ]]; then
+    # 认证段永远跑(后面全靠它的登录态);其余按 --only 的正则筛
+    if [[ "$1" == 0*认证* ]] || printf '%s' "$1" | grep -qE "$QA_ONLY"; then SEC_ACTIVE=1; else SEC_ACTIVE=0; return 0; fi
+  fi
+  echo; echo -e "\033[1;36m─── $1 ───\033[0m"
+}
 
-CURL="/usr/bin/curl -s --max-time 15"
+# 非目标段里 curl 直接返回空 —— HTTP 往返是全脚本最贵的部分(275 处调用)
+qacurl(){ [[ "$SEC_ACTIVE" == 0 ]] && return 0; /usr/bin/curl -s --max-time 15 "$@"; }
+CURL="qacurl"
 
 # ---------- 0 · 认证 ----------
 section "0 · 认证"
@@ -5483,6 +5506,8 @@ CSSF="$RD/src/main/resources/static/css/style.css"
   && grep -q "e.key === 'Escape'" "$UPM"; } \
   && log_ok "v192-UPD-MODAL-DEGRADE(徽记 href 仍可用 · JS 在时才拦成弹窗 · Esc/遮罩可关)" \
   || log_bad "v192-UPD-MODAL-DEGRADE 退化路径断了" "徽记 href 必须留 /admin?tab=version;弹窗靠 preventDefault 接管,不许 href=# 或换 <button>"
+
+section "v1.10 · 报表页封板快照(三区 / 瀑布 / 对照 / 集中度 / 归因 / 仪表盘实时口径)"
 
 # ── v1.10 · 报表页三区(封板快照)──────────────────────────────────────
 SPS="$RD/src/main/java/com/family/finance/service/report/SealedPeriodService.java"

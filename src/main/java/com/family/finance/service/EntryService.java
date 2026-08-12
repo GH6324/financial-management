@@ -48,6 +48,7 @@ public class EntryService {
     /** 单家庭模式 · 见 prd §22.3 类 A */
     private static final long FAMILY_ID = 1L;
 
+
     private final AccountMapper accountMapper;
     private final MemberMapper memberMapper;
     private final PeriodMapper periodMapper;

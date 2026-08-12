@@ -35,7 +35,7 @@
               <span class="text-sm text-ink truncate group-hover:text-brass-deep transition" th:text="${gp.goal.name}">退休</span>
               <!-- 2026-07-19:ⓘ 换 kpi-info 组件 —— 点击弹描述(stopPropagation,不再误跳目标详情);热区随全局扩大 -->
               <th:block th:insert="~{fragments/_kpi-info :: i(${gp.goal.description != null and !gp.goal.description.isBlank() ? gp.goal.description : gp.goal.name}, null)}"/>
-              <span class="font-mono text-xs text-ink-subtle ml-auto flex-shrink-0" th:text="${gp.progressPct} + '%'">57%</span>
+              <span class="font-mono text-xs text-ink-subtle ml-auto flex-shrink-0" th:text="${#numbers.formatDecimal(gp.progressPct, 1, 1)} + '%'">57.0%</span>
             </div>
             <div class="w-full bg-card-soft h-1.5 mt-1 overflow-hidden">
               <div class="h-full bg-brass-deep"

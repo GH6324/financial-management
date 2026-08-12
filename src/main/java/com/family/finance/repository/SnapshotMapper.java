@@ -51,6 +51,36 @@ public interface SnapshotMapper {
     List<Long> firstAppearingAccountIds(@Param("familyId") long familyId,
                                         @Param("periodId") long periodId);
 
+    /**
+     * v1.11 · 一次查出**全家庭**「每个账户首次出现在哪一期」。
+     *
+     * <p>上面那条是按期查的,而调用它的地方全是 per-period 循环
+     * ({@code openingBaseline} / {@code periodFlows} / {@code netWorthTrendExOpening} /
+     * {@code accountPerformance}),一个 12 期窗口就打 12+ 次,报表页实测一次请求 881 条 SQL。
+     * 而「首次出现」是**账户的属性**、与查哪一期无关 —— 一次查完在内存里分组即可。</p>
+     *
+     * <p>返回 {@code account_id → 首次出现的 period_id}。口径与上面那条**完全等价**:
+     * 都以 {@code period_start} 升序取该账户最早有快照的那一期。</p>
+     */
+    // v1.11 · **一次扫完**:窗口函数按账户分组取 period_start 最早的那行。
+    //   第一版写成了相关子查询(对 period_snapshot 每行再查一次 MIN)—— 3600 行 × 全表扫,
+    //   O(n²),实测把报表页从 1.25s 拖到 9.3s。教训:「一条 SQL」不等于「一次扫描」,
+    //   合并查询的时候必须看执行计划,不能只数条数。
+    @Select("""
+            SELECT t.account_id AS accountId, t.period_id AS periodId
+              FROM (SELECT ps.account_id, ps.period_id,
+                           ROW_NUMBER() OVER (PARTITION BY ps.account_id ORDER BY p.period_start) AS rn
+                      FROM period_snapshot ps
+                      JOIN period p ON p.id = ps.period_id
+                     WHERE p.family_id = #{familyId}) t
+             WHERE t.rn = 1
+            """)
+    List<FirstAppearance> firstAppearanceByAccount(@Param("familyId") long familyId);
+
+    /** account → 首次出现的 period(v1.11 批量口径) */
+    record FirstAppearance(Long accountId, Long periodId) {
+    }
+
 
     @Select("""
             SELECT id, period_id, account_id, end_balance, submitted_by, submitted_at, note

@@ -28,6 +28,13 @@
         var el = document.getElementById(ids[i]);
         if (el && el.getBoundingClientRect().top - LINE <= 0) cur = ids[i];   // 顶部越线的最后一节
       }
+      // 2026-08-12 · 滚到底时强制高亮最后一项。
+      //   「顶部越线的最后一节」这个规则有个盲区:如果最后一节比视口短,
+      //   页面已经滚到底了它的顶部却还没越线 → **最后一个菜单永远高亮不了**
+      //   (用户报「尤其是最底下一个菜单」)。到底了就该是最后一项,没有别的可能。
+      var atBottom = (window.innerHeight + window.scrollY)
+                     >= (document.documentElement.scrollHeight - 4);
+      if (atBottom && ids.length) cur = ids[ids.length - 1];
       tocLinks().forEach(function (a) {
         if (a.getAttribute('href').slice(1) === cur) a.setAttribute('aria-current', 'true');
         else a.removeAttribute('aria-current');

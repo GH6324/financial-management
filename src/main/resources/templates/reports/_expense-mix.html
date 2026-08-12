@@ -20,24 +20,37 @@
     </p>
   </div>
 
-  <!-- 维度 + 窗口切换 -->
-  <!-- 维度与窗口分成两组各自成行:窄屏下混在一个 flex-wrap 里会把「近 12 期」挤成孤零零一行 -->
-  <div class="flex items-center gap-2 flex-wrap mb-2">
-    <a th:each="d : ${mixDims}"
-       th:href="@{/reports(mix=${d.code()},mixWin=${mixWinValue})}"
-       class="pill text-xs h-8 px-3 no-underline flex items-center"
-       th:classappend="${mixDim.code() == d.code()} ? ' pill-brass' : ''"
-       th:title="${d.hintText()}"
-       th:text="${d.displayName()}">按类目</a>
-    <span class="font-mono text-[10px] text-ink-subtle ml-auto hidden md:inline" th:text="${mixDim.hintText()}">说明</span>
-  </div>
-  <div class="flex items-center gap-2 flex-wrap mb-2">
-    <a th:each="w : ${ {1, 6, 12} }"
-       th:href="@{/reports(mix=${mixDim.code()},mixWin=${w})}"
-       class="pill text-xs h-8 px-3 no-underline flex items-center"
-       th:classappend="${mixWinValue == w} ? ' pill-brass' : ''"
-       th:text="${w == 1} ? '本期' : ('近 ' + ${w} + ' 期')">本期</a>
-  </div>
+    <!-- 维度 + 窗口切换 · v1.11 重做
+         ① 原来两组各占一行(为了躲窄屏挤压),但两组是**同一个筛选动作的两个轴**,分两行读起来
+            像两个不相干的控件条。改成一行:左「维度」(实心 brass 选中)· 分隔符 · 右「窗口」
+            (实心 ink 选中)—— 用**样式差异**而不是**换行**区分两组;窄屏靠 flex-wrap 自然折。
+         ② 原来是普通 <a> → 整页跳转:慢、且刷新后回到页顶(用户报「体验很差、没回到点击前的位置」)。
+            改成 HTMX + hx-select 只换 #sec-expense-mix 这一块,不重载页面 → 位置天然保留。
+            href 保留 → 无 JS 时仍是能用的链接。 -->
+    <div class="flex items-center gap-2 flex-wrap mb-3">
+      <span class="font-mono text-[9px] tracking-[0.14em] text-ink-subtle mr-1">维度</span>
+      <a th:each="d : ${mixDims}"
+         th:href="@{/reports(mix=${d.code()},mixWin=${mixWinValue})}"
+         th:hx-get="@{/reports(mix=${d.code()},mixWin=${mixWinValue})}"
+         hx-select="#sec-expense-mix" hx-target="#sec-expense-mix" hx-swap="outerHTML"
+         hx-push-url="true" hx-indicator="#mix-busy"
+         class="pill text-xs h-8 px-3 no-underline flex items-center"
+         th:classappend="${mixDim.code() == d.code()} ? ' pill-brass' : ''"
+         th:title="${d.hintText()}"
+         th:text="${d.displayName()}">按类目</a>
+      <span style="width:1px;height:20px;background:var(--rule);display:inline-block" class="mx-1"></span>
+      <span class="font-mono text-[9px] tracking-[0.14em] text-ink-subtle mr-1">窗口</span>
+      <a th:each="w : ${ {1, 6, 12} }"
+         th:href="@{/reports(mix=${mixDim.code()},mixWin=${w})}"
+         th:hx-get="@{/reports(mix=${mixDim.code()},mixWin=${w})}"
+         hx-select="#sec-expense-mix" hx-target="#sec-expense-mix" hx-swap="outerHTML"
+         hx-push-url="true" hx-indicator="#mix-busy"
+         class="pill text-xs h-8 px-3 no-underline flex items-center"
+         th:classappend="${mixWinValue == w} ? ' pill-ink' : ''"
+         th:text="${w == 1} ? '本期' : ('近 ' + ${w} + ' 期')">本期</a>
+      <span id="mix-busy" class="htmx-indicator font-mono text-[10px] text-brass-deep ml-1">载入中…</span>
+      <span class="font-mono text-[10px] text-ink-subtle ml-auto hidden md:inline" th:text="${mixDim.hintText()}">说明</span>
+    </div>
   <p class="font-mono text-[10px] text-ink-subtle mb-4 md:hidden" th:text="${mixDim.hintText()}">说明</p>
 
   <!-- 无逐笔数据 -->

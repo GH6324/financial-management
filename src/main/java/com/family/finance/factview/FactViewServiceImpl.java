@@ -78,6 +78,12 @@ public class FactViewServiceImpl implements FactViewService {
         // 收益类指标据此锚到最新 CLOSED 期。取交集并按 periodIds 顺序排,保证升序且不含窗口外的期。
         java.util.Set<Long> closed = new java.util.HashSet<>(factMapper.findClosedPeriodIds(filter));
         List<Long> closedPeriodIds = periodIds.stream().filter(closed::contains).toList();
+        // v1.11 性能 · 一次查全「每个账户首次出现在哪一期」,替掉 per-period 的 N+1(见 firstAppearTl 注释)
+        java.util.Map<Long, java.util.Set<Long>> firstAppear = new java.util.HashMap<>();
+        for (var fa : snapshotMapper.firstAppearanceByAccount(filter.familyId())) {
+            firstAppear.computeIfAbsent(fa.periodId(), k -> new java.util.HashSet<>()).add(fa.accountId());
+        }
+        firstAppearTl.set(firstAppear);
         return new FactSlice(filter, rows, periodIds, lastPeriodId, closedPeriodIds);
     }
 
@@ -598,7 +604,7 @@ public class FactViewServiceImpl implements FactViewService {
         // v0.13 · 窗口内"首次出现"的账户集合 → 其首期期末余额是"带入本金",计入 net_principal
         java.util.Set<Long> newInWindow = new java.util.HashSet<>();
         for (Long pid : slice.periodIds()) {
-            newInWindow.addAll(snapshotMapper.firstAppearingAccountIds(slice.filter().familyId(), pid));
+            newInWindow.addAll(firstAppearingIn(slice.filter().familyId(), pid));   // v1.11 · 走请求级缓存
         }
         // v1.10 · **列表只列锚期仍在册的账户**。
         //   归档过滤加了时间语义之后(archived_at > period_end),归档账户的历史事实回到了切片里 ——
@@ -864,10 +870,37 @@ public class FactViewServiceImpl implements FactViewService {
      * v0.13 · 本期「开账基线」= 本期**首次出现**账户的期末净值合计(本位币,ASSET+/LIABILITY−)。
      * 它是"你本来就有/欠、现在才开始记"的存量本金,属外部资本纳入 —— 从所有收益类指标剔除、计入账户净投入。
      */
+    /**
+     * v1.11 性能 · 「每期首次出现的账户」映射,**每次 {@link #load} 时刷新一次**。
+     *
+     * <p>问题:原来 {@code snapshotMapper.firstAppearingAccountIds} 是按期查的(还带 NOT IN 子查询),
+     * 而调用点全是 per-period 循环(openingBaseline / periodFlows / netWorthTrendExOpening /
+     * accountPerformance)—— 报表页实测**一次请求 881 条 SQL、1.25s**。
+     * 而「首次出现」是账户的属性、与查哪一期无关,一次查完在内存分组即可。</p>
+     *
+     * <p>为什么用 ThreadLocal + 每次 load 刷新,而不是按 familyId 长缓存:
+     * 长缓存必须在**所有**写 period_snapshot 的地方清掉(实测有 4 个文件、6 处 upsert),
+     * 漏一处就是**静默算错开账基线** —— 而开账基线决定人赚/钱赚的分界,
+     * 这个项目已经在它身上栽过两次。每次 load 刷新则**结构上不可能陈旧**:
+     * 一次请求多付 2~3 条查询(3 个切片各一条),换来零失效风险,这笔交易划算。</p>
+     *
+     * <p>手工构造 FactSlice 的单测不走 load(),此时 ThreadLocal 为空 → 回落到原来的按期查询,
+     * 口径完全一致。</p>
+     */
+    private final ThreadLocal<java.util.Map<Long, java.util.Set<Long>>> firstAppearTl = new ThreadLocal<>();
+
+    private java.util.Set<Long> firstAppearingIn(long familyId, Long periodId) {
+        var map = firstAppearTl.get();
+        if (map != null) {
+            return map.getOrDefault(periodId, java.util.Set.of());
+        }
+        // 回落:手工构造切片的单测走这里,与 v1.11 之前逐字同口径
+        return new java.util.HashSet<>(snapshotMapper.firstAppearingAccountIds(familyId, periodId));
+    }
+
     private BigDecimal openingBaseline(FactSlice slice, Long periodId) {
         if (periodId == null) return BigDecimal.ZERO;
-        java.util.Set<Long> ids = new java.util.HashSet<>(
-                snapshotMapper.firstAppearingAccountIds(slice.filter().familyId(), periodId));
+        java.util.Set<Long> ids = firstAppearingIn(slice.filter().familyId(), periodId);
         if (ids.isEmpty()) return BigDecimal.ZERO;
         return sumEnd(slice, periodId, row -> ids.contains(row.accountId()));
     }

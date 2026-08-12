@@ -17,6 +17,8 @@
       <th:block th:replace="~{reports/_sealed :: zones}"></th:block>
 
       <!-- 三区 · 趋势 —— range 只作用于这一区,所以 chips 放在这里的标题旁 -->
+      <!-- v1.11 · 这个 section 必须**包住整个趋势区**(标题 + 五个片段)。
+           原来它只包标题壳(约 60px 高),滚动时一划就过 → 长文目录里「三 · 趋势」几乎永远高亮不到。 -->
       <section id="sec-trend" class="mb-6" style="scroll-margin-top:80px">
         <div class="zone-head">
           <span class="zone-no">三</span>
@@ -25,16 +27,24 @@
             <div class="zone-sub">滚动窗口 · <b>时间范围只影响这一区</b>,上面两区定格在所选账期不动</div>
           </div>
           <span class="flex-1"></span>
+          <span id="trend-busy" class="htmx-indicator font-mono text-[10px] text-brass-deep mr-2">载入中…</span>
           <div class="flex border border-rule">
+            <!-- v1.11 · 原来是普通链接 → 整页跳转:慢、且刷新后滚动位置回到页顶(用户报的两个问题)。
+                 改成 HTMX:hx-get 拉整页响应,hx-select 只挑出 #sec-trend 这一块换进来。
+                 这样不用新端点(服务端渲染逻辑一行不改)、不重载页面 → 滚动位置天然保留;
+                 hx-push-url 让地址栏跟着变,链接仍可分享/前进后退。
+                 href 保留 → 没有 JS 时仍是一条能用的链接(渐进增强)。 -->
             <a th:each="r : ${ranges}"
                th:href="@{/reports(range=${r},currency=${currency},accounts=${accountsCsv},asof=${asof})}"
+               th:hx-get="@{/reports(range=${r},currency=${currency},accounts=${accountsCsv},asof=${asof})}"
+               hx-select="#sec-trend" hx-target="#sec-trend" hx-swap="outerHTML"
+               hx-push-url="true" hx-indicator="#trend-busy"
                class="font-mono text-[11px] px-4 py-2 no-underline border-l border-rule first:border-l-0"
                th:classappend="${range == r ? ' bg-ink text-paper' : ' text-ink-soft hover:bg-card-soft'}"
                th:text="${r}">1Y</a>
           </div>
         </div>
         <div class="zone-line"></div>
-      </section>
       <div id="reports-region" th:replace="~{reports/_region :: region}"></div>
       <!-- v0.5 FR-72/73/74 · 财富水位 section(净资产 vs CPI/M2)· 接在 KPI/分解之后 -->
       <th:block th:replace="~{reports/_wealth-level :: section}"></th:block>
@@ -42,6 +52,7 @@
       <th:block th:replace="~{reports/_savings :: section}"></th:block>
       <!-- v1.8 FR-272 · 支出构成(只在逐笔模式下渲染) -->
       <th:block th:replace="~{reports/_expense-mix :: section}"></th:block>
+      </section>
     </div>
     <!-- v0.5.6→.7 · 长文目录共用件(左侧常驻树状大纲 · scrollspy)-->
     <th:block th:replace="~{fragments/_toc :: rail(${tocItems})}"></th:block>

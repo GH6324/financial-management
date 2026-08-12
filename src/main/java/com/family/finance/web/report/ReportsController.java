@@ -453,7 +453,11 @@ public class ReportsController {
         try {
             // v1.8 · 折线与本段 KPI 必须同口径同期集合(见 HouseholdCashflowService.recentSeries 注释:
             // 直读 PMC 会造成「KPI 有值、折线空白」——正是 v1.6.29 那类被用户报障的同屏矛盾)。
-            var series = householdCashflowService.recentSeries(me.getFamilyId(), 12);
+            // v1.11 · 期数跟随时间范围。原来写死 12 期 —— 而这一节已经归入「三区 · 趋势」,
+            //   同区的其他图都跟 range 走,只有它不跟 → 用户切 3M 却看到 12 个月的收支柱,
+            //   两个图放在一起读会得出错误结论(维护者第 6 条)。
+            //   ALL 用 240 期(20 年)当上界:recentSeries 是「近 N 期」语义,给个足够大的数即可。
+            var series = householdCashflowService.recentSeries(me.getFamilyId(), savingsWindowPeriods(range));
             List<String> savLabels = series.stream()
                 .map(pt -> pt.periodStart() == null ? String.valueOf(pt.periodId())
                                                     : pt.periodStart().toString().substring(2, 7)).toList();
@@ -579,6 +583,23 @@ public class ReportsController {
             case "YTD" -> anchor.withDayOfYear(1);
             case "ALL" -> LocalDate.of(1970, 1, 1);
             default -> anchor.minusMonths(11);
+        };
+    }
+
+    /**
+     * v1.11 · 「月度收支 + 反推目标月供」的期数 —— 与时间范围一致。
+     *
+     * <p>这一节归在三区(趋势),而三区的口径就是 range。原来写死 12 期,导致切 3M 时
+     * 上面的趋势图是 3 期、下面的收支柱是 12 期,并排读会读出错误结论(维护者第 6 条)。</p>
+     */
+    private int savingsWindowPeriods(String range) {
+        return switch (normalizeRange(range)) {
+            case "1M" -> 1;
+            case "3M" -> 3;
+            case "6M" -> 6;
+            case "YTD" -> java.time.LocalDate.now().getMonthValue();
+            case "ALL" -> 240;
+            default -> 12;
         };
     }
 

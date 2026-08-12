@@ -379,12 +379,42 @@
       <p class="text-xs text-ink-subtle mt-1 mb-2">
         紧急储备只是一个数,分层才看得出结构 —— 极端情况下能立刻拿出多少。
       </p>
-      <div class="stack">
+      <!-- v1.11 · 窄段的标签放到条**外面**。
+           prod 实测:流动资产占比很小(几个点),段内标签被 overflow:hidden 裁掉 → 数字看不全
+           (维护者第 12 条)。规则:占比 < 18% 的段只在条内留一个色块,金额与占比排到下面的图例里;
+           ≥ 18% 的段仍然段内标注(信息离图形最近,读起来最快)。 -->
+      <div class="stack" th:with="narrowL=${t.liquidPct() < 18},narrowS=${t.semiLiquidPct() < 18},narrowI=${t.illiquidPct() < 18}">
         <div class="stack-liquid" th:style="'width:' + ${t.liquidPct()} + '%'"
              th:title="'即时可用 ' + ${t.liquidPct()} + '%'">
-          <span data-priv th:text="'即时 ' + ${currencySymbol + #numbers.formatInteger(t.liquid(),1,'COMMA')}
+          <span th:unless="${narrowL}" data-priv th:text="'即时 ' + ${currencySymbol + #numbers.formatInteger(t.liquid(),1,'COMMA')}
                 + ' · ' + ${t.liquidPct()} + '%'">即时</span>
         </div>
+        <div class="stack-semi" th:style="'width:' + ${t.semiLiquidPct()} + '%'"
+             th:title="'半流动(股票/理财/贵金属等,变现要时间)' + ${t.semiLiquidPct()} + '%'">
+          <span th:unless="${narrowS}" data-priv th:text="'半流动 ' + ${currencySymbol + #numbers.formatInteger(t.semiLiquid(),1,'COMMA')}
+                + ' · ' + ${t.semiLiquidPct()} + '%'">半流动</span>
+        </div>
+        <div class="stack-illiquid" th:style="'width:' + ${t.illiquidPct()} + '%'"
+             th:title="'不可动(房产等)· 贷款与「其他」也并入这一档' + ${t.illiquidPct()} + '%'">
+          <span th:unless="${narrowI}" data-priv th:text="'不可动 ' + ${currencySymbol + #numbers.formatInteger(t.illiquid(),1,'COMMA')}
+                + ' · ' + ${t.illiquidPct()} + '%'">不可动</span>
+        </div>
+      </div>
+      <!-- 图例:三档一律列出金额与占比 —— 窄段靠它把被裁掉的数字补回来,宽段作为精确值复核 -->
+      <div class="flex items-center gap-x-5 gap-y-1 flex-wrap mt-2 font-mono text-[10px]">
+        <span class="inline-flex items-center gap-1.5">
+          <span style="width:11px;height:11px;background:var(--brass-soft);border:1px solid var(--ink);display:inline-block"></span>
+          <span data-priv th:text="'即时 ' + ${currencySymbol + #numbers.formatInteger(t.liquid(),1,'COMMA')} + ' · ' + ${t.liquidPct()} + '%'">即时</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <span style="width:11px;height:11px;background:rgba(140,106,51,.30);border:1px solid var(--ink);display:inline-block"></span>
+          <span data-priv th:text="'半流动 ' + ${currencySymbol + #numbers.formatInteger(t.semiLiquid(),1,'COMMA')} + ' · ' + ${t.semiLiquidPct()} + '%'">半流动</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <span style="width:11px;height:11px;background:rgba(33,30,23,.14);border:1px solid var(--ink);display:inline-block"></span>
+          <span data-priv th:text="'不可动 ' + ${currencySymbol + #numbers.formatInteger(t.illiquid(),1,'COMMA')} + ' · ' + ${t.illiquidPct()} + '%'">不可动</span>
+        </span>
+      </div>
         <div class="stack-semi" th:style="'width:' + ${t.semiLiquidPct()} + '%'"
              th:title="'半流动(股票/理财/贵金属等,变现要时间)' + ${t.semiLiquidPct()} + '%'">
           <span data-priv th:text="'半流动 ' + ${currencySymbol + #numbers.formatInteger(t.semiLiquid(),1,'COMMA')}

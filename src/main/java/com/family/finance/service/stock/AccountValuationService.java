@@ -44,6 +44,7 @@ import java.util.Optional;
 @Slf4j
 public class AccountValuationService {
 
+
     private final AccountMapper accountMapper;
     private final StockHoldingMapper holdingMapper;
     private final StockPriceSnapshotMapper priceMapper;
