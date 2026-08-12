@@ -1,27 +1,20 @@
 {
  "_comment": "每次发版按核心能力改清单(PC 用 selector 裁剪聚焦;手机不裁剪、整屏 full=false 平铺 —— 用户定 2026-07-11)",
- "_version": "v1.10.0 · 报表页月度封板快照:三区 + 期末资产负债表 / 资金流瀑布 / 环比同比 / 集中度 / 流动性分层 / 归因",
+ "_version": "v1.11.0 · 13 条反馈全部落地:性能 −55%/−37% · 局部刷新不丢位置 · 封板分布 · 宏观 fallback 明示 · 信息安全脱敏",
  "pc": [
   {
    "path": "/reports?range=1Y",
-   "name": "sealed-balance",
+   "name": "structure-dist",
    "wait": 2600,
-   "waitFor": "text=期末资产负债表",
-   "selector": "#sec-sealed"
-  },
-  {
-   "path": "/reports?range=1Y",
-   "name": "structure",
-   "wait": 2400,
-   "waitFor": "text=流动性分层",
+   "waitFor": "text=按资产大类",
    "selector": "#sec-structure"
   },
   {
-   "path": "/dashboard",
-   "name": "live-return",
-   "wait": 2200,
-   "waitFor": "text=本月资产收益",
-   "selector": "#dashboard-region"
+   "path": "/reports?range=1Y",
+   "name": "trend-chips",
+   "wait": 2400,
+   "waitFor": "text=时间范围只影响这一区",
+   "selector": "#sec-trend .zone-head"
   }
  ],
  "mobile": [
