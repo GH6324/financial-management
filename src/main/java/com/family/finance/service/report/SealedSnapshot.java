@@ -23,6 +23,7 @@ public record SealedSnapshot(
         Concentration concentration,
         LiquidityTiers liquidity,
         Attribution attribution,
+        Distribution distribution,
         /** 口径版本 · 抬头显示 · 见 {@link MetricFormulaVersion} */
         int formulaVersion,
         /** 无法定格的说明(如"账户类型/类目改过会改写历史分类")· 页面如实交代,不假装不存在 */
@@ -49,7 +50,7 @@ public record SealedSnapshot(
 
     /** 还没有任何已关账期时的空壳:页面显示引导,不显示半截数字。 */
     public static SealedSnapshot unavailable(Period shellAnchor) {
-        return new SealedSnapshot(shellAnchor, false, null, null, null, null, null, null, null,
+        return new SealedSnapshot(shellAnchor, false, null, null, null, null, null, null, null, null,
                 MetricFormulaVersion.CURRENT, List.of());
     }
 
@@ -164,9 +165,24 @@ public record SealedSnapshot(
 
     // ── FR-324 · 三列对照 ──────────────────────────────────────────────
 
+    /**
+     * 比率类指标的「荒谬值」阈值(绝对值)。
+     *
+     * <p>v1.11 审计发现(F5):prod 收支数据稀疏(PMC 仅 6 行),某期收入 300、支出 7450 时
+     * 储蓄率 = (300−7450)/300 = **−2383%**。数学上没错,但这个数字对用户毫无信息量,
+     * 反而显得系统算错了。超过阈值就换成「收支数据不足」——
+     * 这不是隐藏问题,是把「分母太小导致比率失真」这件事**说出来**。</p>
+     */
+    public static final BigDecimal RATIO_ABSURD_ABS = new BigDecimal("5");   // 500%
+
     /** 一行对照。{@code prev}/{@code yoy} 为 null 表示那一期不存在 → 页面显示 `—`,不显示 0 也不显示 100%。 */
     public record ComparisonRow(String label, BigDecimal current, BigDecimal prev, BigDecimal yoy,
                                 boolean ratio, boolean lowerIsBetter) {
+
+        /** 比率类且绝对值超过阈值 → 分母太小,数字失真(见 {@link #RATIO_ABSURD_ABS}) */
+        public boolean absurd(BigDecimal v) {
+            return ratio && v != null && v.abs().compareTo(RATIO_ABSURD_ABS) > 0;
+        }
 
         /** 环比差额(比率类是 pp,金额类是绝对值);上期缺失 → null */
         public BigDecimal momDelta() {
@@ -218,6 +234,26 @@ public record SealedSnapshot(
     public record LiquidityTiers(BigDecimal liquid, BigDecimal semiLiquid, BigDecimal illiquid,
                                  BigDecimal liquidPct, BigDecimal semiLiquidPct, BigDecimal illiquidPct,
                                  BigDecimal coverMonths) {
+    }
+
+    // ── FR-328 · 封板期的分布(成员 / 资产大类)────────────────────────
+
+    /**
+     * v1.11 FR-328 · 定格于本期的**存量分布**。
+     *
+     * <p>为什么把仪表盘这两块搬进封板页(维护者第 8 条):它们衡量的是「这个月末钱**怎么分布**」——
+     * 是存量属性,天然适合定格,而且报表页此前**完全没有成员维度**(只有支出构成里的成员切换)。
+     * 二区已经有集中度**数字**但没有**结构**;数字能月月对比、结构能一眼看懂,两者互补。</p>
+     *
+     * <p>刻意用**横条 + 精确值**而不是仪表盘那样的饼图:封板页的原则是「要精确值、要可月月对比」,
+     * 饼图读不出具体数、也不好和上期并排比。</p>
+     *
+     * @param byMember 按主理人(NULL → 「共同」)· 只计 ASSET(与仪表盘同口径,LOAN 不入)
+     * @param byType   按账户类型(资产大类结构)
+     */
+    public record Distribution(List<Slice> byMember, List<Slice> byType) {
+        public record Slice(String label, BigDecimal amount, BigDecimal pct) {
+        }
     }
 
     // ── FR-326 · 本期归因 ─────────────────────────────────────────────

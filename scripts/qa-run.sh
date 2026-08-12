@@ -1245,7 +1245,7 @@ for icon in icon1 icon2 icon3 icon4; do
     [[ "$code" == "200" ]] || { all_ok=0; break 2; }
   done
 done
-[[ $all_ok -eq 1 ]] && log_ok "v02-LOGO-1 16 张预设 PNG(icon{1..4}×{96,180,192,512})全 200" \
+[[ $all_ok -eq 1 ]] && log_ok "v02-LOGO-1 16 张预设 PNG(icon{1..4}×{〈金额已脱敏〉})全 200" \
   || log_bad "v02-LOGO-1 预设 PNG" "至少一张非 200"
 
 # v02-LOGO-2 GET /manifest.webmanifest 返回 application/manifest+json + 默认 icon2
@@ -4996,7 +4996,7 @@ OPSC="$RD/deploy/_common-env.sh"; BKN="$RD/deploy/backup-now.sh"; RST="$RD/deplo
 #   但顺着查出两个真缺陷:
 #     ① **tooltip 显示的端点不是 XIRR 用的那两个数**:firstNW/lastNW 取自 netWorthTrendExOpening
 #        (剔除累计开账基线的趋势,给财富水位用),而该序列**首点按构造恒为 0**(首期全部账户都算"首次出现")
-#        → 长年显示「期初净资产 −¥0」,末点也不是真实净资产(prod 上显示 733,258,真实 9,233,404)。
+#        → 长年显示「期初净资产 −¥0」,末点也不是真实净资产(prod 上显示 733,258,真实 〈金额已脱敏〉)。
 #        **一个号称"给你看真实中间数值"的 tooltip 显示另一套数,比没有更糟** —— 用户正是据此判断指标算错了。
 #        改:端点取 netWorthTrend(与 familyXirr 同源);两序列之差 = 累计开账基线,单列进文案;
 #        并标明「不满 12 期 · 累计口径非年化」还是「年化」(原文案一律写"年化",<12 期时也在说谎)。
@@ -5040,7 +5040,7 @@ RPC="$RD/src/main/java/com/family/finance/web/report/ReportsController.java"
 #   **会改变线上数值**(是修正不是回归):prod 本月资产收益 +0.99% → 锚 2026-07;XIRR 0.79% → 只算 3 个已关账期。
 #   线上处置:零 schema 迁移、零存量数据改写、纯读路径;回滚只回 jar。
 #   ④ **checkup 的 YTD 累计损益吃掉负号**:模板写 `(signum()>=0 ? '+' : '') + '¥' + formatDecimal(abs())`
-#      —— 负数分支前缀是空串,又套了 .abs() → 亏损 −¥1,580,715 渲染成「¥1,580,715」,
+#      —— 负数分支前缀是空串,又套了 .abs() → 亏损 −¥〈金额已脱敏〉 渲染成「¥〈金额已脱敏〉」,
 #      只有颜色类 num-neg 透出亏损,数字本身读起来是盈利。同文件 170 行(本月资产收益)的写法
 #      `'+¥' : '−¥'` 才是对的。**这条是渲染验收时肉眼发现的,grep/单测都抓不到**(表达式语法完全合法、
 #      指标值也算对了,错在展示)。全站扫了 12 处同类写法,只此 1 处同时用了 abs() → 只此 1 处是 bug。
@@ -5506,6 +5506,96 @@ CSSF="$RD/src/main/resources/static/css/style.css"
   && grep -q "e.key === 'Escape'" "$UPM"; } \
   && log_ok "v192-UPD-MODAL-DEGRADE(徽记 href 仍可用 · JS 在时才拦成弹窗 · Esc/遮罩可关)" \
   || log_bad "v192-UPD-MODAL-DEGRADE 退化路径断了" "徽记 href 必须留 /admin?tab=version;弹窗靠 preventDefault 接管,不许 href=# 或换 <button>"
+
+section "v1.11 · 报表/仪表盘性能 + 交互 + 口径一致性(维护者 13 条反馈)"
+
+# v111-NO-PROD-AMOUNTS · 审计/复盘类文档不许出现 prod 真实金额(2026-08-12 · 维护者点出的信息安全问题)
+#   背景:仓库是**公开**的(GitHub)。而 `docs/*audit*.md` / `docs/*review*.md` 这类文档天生是
+#   「对着真实环境写观察」,最容易把维护者家庭的净资产/余额写进去 —— 实测 v1.6 时代的
+#   metric-audit / ued-review / prd/v1.6 / tech-design/v1.6 里都有,而且**已经推到公开仓库**。
+#   这类文档的价值在**口径 / 计算逻辑 / 相对量 / 结论**,绝对金额一点不需要。
+#   规则:审计与复盘文档里不许出现「7 位及以上带千分位」的金额;要记具体数额去本地
+#   AGENTS.local.md(git-ignored)。preview mockup / 单测 fixture 用的是合成数,不在本条管辖范围。
+bad_money=0
+for f in "$RD"/docs/*audit*.md "$RD"/docs/*review*.md; do
+  [ -f "$f" ] || continue
+  if grep -qE '[0-9],[0-9]{3},[0-9]{3}' "$f"; then
+    bad_money=1; echo "      ↑ 含真实金额: $(basename "$f")"
+  fi
+done
+[[ "$bad_money" -eq 0 ]] \
+  && log_ok "v111-NO-PROD-AMOUNTS(审计/复盘文档无 prod 真实金额 · 仓库公开)" \
+  || log_bad "v111-NO-PROD-AMOUNTS 审计/复盘文档里有真实金额" "公开仓库不许落真实余额;只记口径/相对量/结论,数额去 AGENTS.local.md"
+
+
+SPS2="$RD/src/main/java/com/family/finance/service/report/SealedPeriodService.java"
+SZT2="$RD/src/main/resources/templates/reports/_sealed.html"
+RIX2="$RD/src/main/resources/templates/reports/index.html"
+
+# v111-NPLUS1-BATCH · 「每期首次出现账户」必须批量查,且必须是一次扫描
+#   原来 per-period 查(带 NOT IN 子查询),报表页一次请求 881 条 SQL / 1.25s。
+#   第一版批量写成**相关子查询**(对 3600 行 period_snapshot 每行再查 MIN)→ O(n²),反而拖到 9.3s。
+#   正解是窗口函数一次扫完。所以这条同时守:① 有批量方法 ② 用的是窗口函数而不是相关子查询
+#   ③ 缓存是「每次 load 刷新的 ThreadLocal」而不是按 familyId 长缓存(长缓存漏清 = 静默错开账基线)。
+{ grep -q 'firstAppearanceByAccount' "$RD/src/main/java/com/family/finance/repository/SnapshotMapper.java" \
+  && grep -q 'ROW_NUMBER() OVER (PARTITION BY ps.account_id' "$RD/src/main/java/com/family/finance/repository/SnapshotMapper.java" \
+  && grep -q 'firstAppearTl.set(firstAppear)' "$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java" \
+  && grep -q 'ThreadLocal<java.util.Map<Long, java.util.Set<Long>>> firstAppearTl' "$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java" \
+  && ! grep -q 'ConcurrentHashMap<Long, java.util.Map<Long, java.util.Set<Long>>>' "$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"; } \
+  && log_ok "v111-NPLUS1-BATCH(首次出现批量查 · 窗口函数一次扫 · 每次 load 刷新不用长缓存)" \
+  || log_bad "v111-NPLUS1-BATCH N+1 回来了或缓存换成了长缓存" "必须 firstAppearanceByAccount + ROW_NUMBER + 每次 load 刷新的 ThreadLocal"
+
+# v111-PARTIAL-SWAP · 筛选器切换不许整页跳转(慢 + 丢滚动位置)
+{ grep -q 'hx-select="#sec-trend"' "$RIX2" \
+  && grep -q 'hx-push-url="true"' "$RIX2" \
+  && grep -q 'hx-select="#sec-expense-mix"' "$RD/src/main/resources/templates/reports/_expense-mix.html" \
+  && grep -q 'th:href' "$RIX2"; } \
+  && log_ok "v111-PARTIAL-SWAP(趋势 range / 支出构成维度窗口 都走 HTMX 局部替换 · href 保留作无 JS 退化)" \
+  || log_bad "v111-PARTIAL-SWAP 筛选器又变整页跳转了" "必须 hx-get + hx-select + hx-push-url;href 保留"
+
+# v111-TOC-BOTTOM · 滚到底必须高亮最后一项(最后一节比视口短时,它的顶部永远不越线)
+{ grep -q 'atBottom' "$RD/src/main/resources/static/js/toc.js" \
+  && grep -q 'ids\[ids.length - 1\]' "$RD/src/main/resources/static/js/toc.js"; } \
+  && log_ok "v111-TOC-BOTTOM(滚到底强制高亮最后一项)" \
+  || log_bad "v111-TOC-BOTTOM 最后一个目录项又高亮不了" "spy() 必须处理 atBottom"
+
+# v111-SAVINGS-FOLLOWS-RANGE · 「月度收支 + 反推目标月供」期数必须跟随 range
+#   它归在三区(趋势),同区其他图都跟 range;只有它写死 12 期 → 切 3M 时上下两图期数不同,
+#   并排读会得出错误结论。
+{ grep -q 'savingsWindowPeriods(range)' "$RD/src/main/java/com/family/finance/web/report/ReportsController.java" \
+  && ! grep -q 'recentSeries(me.getFamilyId(), 12)' "$RD/src/main/java/com/family/finance/web/report/ReportsController.java"; } \
+  && log_ok "v111-SAVINGS-FOLLOWS-RANGE(储蓄能力期数跟随时间范围)" \
+  || log_bad "v111-SAVINGS-FOLLOWS-RANGE 又写死 12 期了" "必须 savingsWindowPeriods(range)"
+
+# v111-MACRO-FALLBACK-DISCLOSED · 缺当年宏观数据时必须明示,不许静默用历史均值
+#   prod 实测:macro_benchmark 只到 2025 而账期已到 2026 → CPI/M2 线其实是三法均值外推,
+#   页面若不说,用户会当成当年真实通胀。
+{ grep -q 'fallbackYears' "$RD/src/main/java/com/family/finance/service/macro/WaterLevelService.java" \
+  && grep -q 'usedFallback()' "$RD/src/main/resources/templates/reports/_wealth-level.html" \
+  && grep -q '历史三法均值' "$RD/src/main/resources/templates/reports/_wealth-level.html"; } \
+  && log_ok "v111-MACRO-FALLBACK-DISCLOSED(缺当年 CPI/M2 时页面明示走历史均值 + 给补录入口)" \
+  || log_bad "v111-MACRO-FALLBACK-DISCLOSED 又静默 fallback 了" "WaterLevel 要透出 fallbackYears,页面要说明"
+
+# v111-RATIO-ABSURD · 比率类分母过小时不许显示荒谬数字
+#   prod 收支稀疏(PMC 6 行):某期收入 300 / 支出 7450 → 储蓄率 −2383%,数学没错但毫无信息量。
+{ grep -q 'RATIO_ABSURD_ABS' "$RD/src/main/java/com/family/finance/service/report/SealedSnapshot.java" \
+  && grep -q 'absurd(' "$SZT2" \
+  && grep -q '收支不足' "$SZT2"; } \
+  && log_ok "v111-RATIO-ABSURD(比率失真显示「收支不足」+ tooltip 给原值)" \
+  || log_bad "v111-RATIO-ABSURD 又会显示 −2383% 这类数字" "比率超阈值要换文案并在 tooltip 给原值"
+
+# v111-COVER-MONTHS-ONE-RULE · 覆盖月数与紧急储备是同一个数,必须同一条展示规则
+{ grep -q 'emergencyLabel(t.coverMonths())' "$SZT2" \
+  && grep -q 'emergencyLabel(bs.emergencyFundMonths())' "$SZT2"; } \
+  && log_ok "v111-COVER-MONTHS-ONE-RULE(覆盖月数与紧急储备共用 > 36 月封顶规则)" \
+  || log_bad "v111-COVER-MONTHS-ONE-RULE 同一个数两种写法" "两处都必须走 SealedSnapshot.emergencyLabel"
+
+# v111-DIST-SEALED · 成员/大类分布必须只计资产,且经封板入口
+{ grep -q 'buildDistribution' "$SPS2" \
+  && grep -q 'AccountClass.ASSET' "$SPS2" \
+  && grep -q '按成员' "$SZT2" && grep -q '按资产大类' "$SZT2"; } \
+  && log_ok "v111-DIST-SEALED(封板期成员/大类分布 · 只计资产 · 走单一入口)" \
+  || log_bad "v111-DIST-SEALED 分布缺件或算了负债" "只计 ASSET,否则「谁名下多少钱」会被房贷带成负数"
 
 section "v1.10 · 报表页封板快照(三区 / 瀑布 / 对照 / 集中度 / 归因 / 仪表盘实时口径)"
 

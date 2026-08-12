@@ -16,9 +16,15 @@
 
 **硬约束**:夫妻每月**异步、10 分钟内**完成全部录入。任何"更全面但要更频繁录入"的功能都要拒。颗粒度**永远停在账户级月度快照**,不做单券持仓明细。
 
-**刻意不做**(反例,别提议):个股持仓明细 / 逐笔流水账 / 定投提醒 / 预算包络 / 消费品类细化 / AA 账本 / 报销 / 券商 API 直连 / 银行账单 OCR / Docker 之外引入 K8s。
+**刻意不做**(反例,别提议):逐笔流水账 / 定投提醒 / 预算包络 / 消费品类细化 / AA 账本 / 报销 / 券商 API 直连 / 银行账单 OCR / Docker 之外引入 K8s。
 
-**恒等式(红线)**:`NetWorth(M) − NetWorth(M-1) = 外部收入(M) − 外部支出(M) + 投资损益(M)`,误差 > ¥0.01 抛 `DataInconsistencyException`。账户级 `PnL = ΔNW − 净流入 − 净划转`(外部流入被剔除 → 收入不该抬高收益率)。
+**恒等式(红线)**:`ΔNetWorth(M) = 人赚(净流入) + 钱赚(投资损益) + 开账基线(M)`
+
+- **开账基线**(v0.13 起)= 本期**首次出现**账户的期末净值合计,是「本来就有、现在才开始记」的外部资本纳入,
+  既不算人赚也不算钱赚 —— 早期版本的恒等式漏了这一项,**别再照抄两项版**。
+- 处理方式是**显式暴露差额,不抛异常**(v1.10 报表页资金流瀑布):容差 ¥1(四舍五入噪声),
+  不闭合时页面写出差额与原因(开账基线可解释 / 来源不明),因为封板报表宁可让人看到"对不上多少"
+  也不能假装闭合。历史文档里的 `DataInconsistencyException` **代码里从来不存在**,已删除该说法`。账户级 `PnL = ΔNW − 净流入 − 净划转`(外部流入被剔除 → 收入不该抬高收益率)。
 
 用户:Java 工程师,有自己的服务器 + 域名;**妻子非技术** → UI 先保证她能独立完成。中国大陆环境。**对话一律中文**。
 
@@ -57,8 +63,8 @@
 |---|---|---|---|
 | 仪表盘 | `/dashboard` | 净资产/趋势(CPI+M2 线)/配置环/KPI 横条/**人赚vs钱赚拆解**/AI 洞察 | `dashboard/index.html` + `_region.html` · `DashboardController` · `CashflowSplitView` |
 | 填报 | `/entry` | 每月录入:账户余额快照 + 收支 + 划转;**收入侧结构化**(现金/股票·联动持仓);退休目标折叠于此 | `entry/index.html` + `_row.html` + `_income-stock.html` · `EntryController`/`EntryService` |
-| 账户 | `/accounts` | 6 类账户簿 · 按成员归集 · 划转/体检/账本/导出;股票账户 → 持仓管理 | `accounts/*` · `stock/holdings.html` · `StockHoldingController` |
-| 报表 | `/reports` | 关账快照 + 指标全审计(比值→pp)+ 账期筛选 · **长文目录 TOC** | `reports/*` · `_toc` |
+| 账户 | `/accounts` | **9 类**账户簿(现金/股票/理财/加密/贵金属/房产/负债/保险/其他) · 按成员归集 · 划转/体检/账本/导出;股票账户 → 持仓管理 | `accounts/*` · `stock/holdings.html` · `StockHoldingController` |
+| 报表 | `/reports` | **月度封板快照**(v1.10 三区):一区 本期封板(资产负债表/资金流瀑布/环比同比/归因)· 二区 结构与风险(集中度/流动性分层)· 三区 趋势(**range 只作用于此**)· 账期筛选 + 长文目录 TOC | `reports/*` · `_toc` |
 | 目标 | `/goals` | FIRE 退休 / 教育 / 应急金 · 三情景预测 | `goals/*` |
 | 资产体检 | `/checkup` | 4 维诊断(配置/风险/流动性/收益)+ AI 调仓 · **长文目录 TOC** | `checkup/*` · `_toc` |
 | 管理 | `/admin` | **所有运营参数热改**(品牌/成员/周期/提醒/汇率/数据源/阈值/aksk/key)· 改即生效不重启 | `admin/*` |
@@ -124,9 +130,13 @@
 | L7 · prod backward-compat | 任何 schema/代码/部署改动 | 先想对线上现有数据影响:迁移只 `ADD COLUMN NULL`/数据折算不破坏;**回滚只回 jar 不回 DB → 迁移须向前兼容老 jar** | release preflight 迁移提示 |
 | L8 · UI 规范 | 新增 UI 文案/图标 | **禁 emoji**,用 inline SVG(Feather 24×24 `stroke=currentColor`);入口/按钮命名**避免技术词**(集成/API/接口)让非技术家庭成员看得懂 | `TODO: no-emoji grep 守护` |
 | L9 · 运营参数 | 新增阈值/aksk/节奏/手机号等运营配置 | 走**管理页**配(DB > env > 代码默认 三层 fallback)· 不写服务器配置文件;涉及外部平台接入配一键测试入口 | 人工 |
-| L10 · 敏感值不入公开库 | 写文档/脚本/配置涉及 IP / SSH / 域名后台 / 凭据 / 密钥 / 部署路径 / 邮箱等 | **不进任何 tracked 文件**(仓库是公开开源库)· 具体值放 git-ignored `AGENTS.local.md` 或 Claude memory · 正文只留占位/通用说法 · 误提交后需**重写历史 + 强推**(`git filter-repo`)清除 | `vSEC-1`(扫 tracked 文件里 URL/SSH 上下文的公网 IP) |
+| L10 · 敏感值不入公开库 | 写文档/脚本/配置涉及 IP / SSH / 域名后台 / 凭据 / 密钥 / 部署路径 / 邮箱 / **prod 真实金额(净资产 / 账户余额 / 收支)** 等 | **不进任何 tracked 文件**(仓库是公开开源库)· 具体值放 git-ignored `AGENTS.local.md` 或 Claude memory · 正文只留占位/通用说法 · 误提交后需**重写历史 + 强推**(`git filter-repo`)清除 | `vSEC-1`(扫 tracked 文件里 URL/SSH 上下文的公网 IP) |
 | L11 · 功能入口可见性 | **收纳 / 精简 / 去杂**类 UI 改动;或新增能力 | diff 里每个被移除/移动/塞进折叠容器的 `th:href` 逐个确认在别处仍**一眼可见**;新能力同时登记进 `scripts/entry-points.json`。判据见 `docs/entry-points.md`:能力入口必须 `obvious`,`⋯`/`details` 只放低频维护动作(归档/导出/恢复) | `v1623-ENTRY-VIS`(运行时·PC+移动)· `v15-ENTRY-1`(静态·券商不得落在 `row-more-pop` 里) |
 | L12 · 指标口径锚点 | 新增/修改任何指标,或改取数窗口 | 取数是 `账户 × 账期` 全交叉且**不过滤 `period.status`** → 进行中账期会成为「最后一期」。**存量类**(净资产/总资产/总负债/流动资产/环比)锚 `lastPeriodId`;**收益类**(本月资产收益/XIRR/TWR/YTD/人赚钱赚/储蓄率)必须走 `FactSlice.returnPeriodIds()`(最近 ≤12 个已关账期)。三条硬约束:① `openingBaselineLast` **必须仍锚 last**(否则「本期怎么变」卡的 ΔNW = 人赚 + 钱赚 + 开账基线 恒等式破掉);② 同名指标跨页必须取到**同一批账期**(各页窗口宽度本就不同:报表锚已关账期 / 仪表盘 −12 月 / 体检 −11 月);③ 换锚必须在**页面上显示口径期**并同步 tooltip —— 口径变了不说等于制造新困惑 | `v1630-CLOSED-ANCHOR` · `ClosedPeriodAnchorTest` |
+
+| L13 · 封板快照定格性 | 报表页一区/二区加任何指标 | 只能经 `SealedPeriodService`(签名里**没有 range**,传不进去)· 前两区在不同 range 下渲染必须**逐字相同** | `v110-SEALED-SINGLE-ENTRY` / `v110-SNAPSHOT-RANGE-INVARIANT` |
+| L14 · 归档的时间语义 | 任何按 `archived_at` 过滤事实的 SQL | 必须 `archived_at IS NULL OR archived_at > p.period_end` —— 裸 `IS NULL` 会让归档动作**抹掉该账户全部历史**,一个整理动作改写去年的报表 | `v110-ARCHIVED-TIME` |
+| L15 · 指标口径版本 | 任何影响封板指标**数值**的口径改动 | `MetricFormulaVersion.CURRENT` +1 并在变更表记一行(封板抬头会显示「口径 vN」,用户据此分辨数字是哪套口径算的) | `v110-FORMULA-VERSION` |
 
 **新链怎么加**:出现"改 A 漏了 B"事故 → 加一行(触发/必须同步/守护)+ `qa-run.sh` 加静态 grep 把它网住,下次它自己 fail。
 
@@ -179,6 +189,39 @@
 - **把判据由宽改严,要顺依赖链问一遍「谁在读它」**:v1.6.22 把 db healthcheck 改成真实查询后,`depends_on: service_healthy` 让 `docker compose up -d` 直接非零退出,`set -e` 在自愈逻辑之前就打断了脚本 —— 健康检查从「提示」变成了**控制流**。
 - **用户上手路径上的失败,优先级是:删掉失败点 > 代替用户完成修复 > 把提示写得更清楚**。第三档有天花板(v1.6.21/22 两次真实劝退都是停在第三档);超时/失败提示不要写成让用户猜的清单(「常见:A / B」),日志在手边就按特征归因、能自动修的当场修。
 
+**性能 / SQL(v1.11 踩)**
+- **「一条 SQL」不等于「一次扫描」**:把 per-period 的 N+1 合并成一条时,第一版写成相关子查询(对 3600 行的
+  `period_snapshot` 每行再查一次 MIN)→ O(n²),报表页从 1.25s **拖到 9.3s**。合并查询必须看执行计划/实测耗时,
+  不能只数「条数少了」。正解是窗口函数(`ROW_NUMBER() OVER (PARTITION BY …)`)一次扫完。
+- **缓存的生命周期要选「结构上不可能陈旧」的那个**:按 familyId 长缓存必须在**所有**写路径清掉(实测 4 文件 6 处
+  `snapshotMapper.upsert`),漏一处 = 静默算错开账基线 → 人赚/钱赚分界错。改成「每次 `load()` 刷新的 ThreadLocal」,
+  代价是一次请求多 2~3 条查询,换来零失效风险 —— 这笔交易在「静默错值」面前永远划算。
+- **量化再优化**:先用 `SHOW GLOBAL STATUS LIKE 'Questions'` 数出每次请求的 SQL 条数 + `curl -w '%{time_total}'` 取中位数,
+  改完再量同样两个数。没有前后对比数字的"优化"不算优化。
+
+**交互 / 前端(v1.11 踩)**
+- **筛选器切换别用整页跳转**:普通 `<a href>` 会重载页面 → 慢 + **滚动位置回到页顶**。用 HTMX
+  `hx-get` + `hx-select="#目标块"` + `hx-target` + `hx-push-url="true"`:不用新端点(服务端渲染一行不改)、
+  不重载页面 → 位置天然保留;`href` 保留作无 JS 退化。
+- **scrollspy 的「顶部越线的最后一节」有盲区**:最后一节比视口短时,页面已到底它的顶部还没越线 →
+  **最后一个菜单永远高亮不了**。到底(`innerHeight + scrollY >= scrollHeight - 4`)就强制高亮最后一项。
+- **区锚点要包住整个区**:只包标题壳(几十 px)的 section 在滚动中一划就过,目录里那一项几乎永远高亮不到。
+- **截断轴必须明示**:存量(净资产百万级)与流量(月度收支万级)差两个数量级时,瀑布图必须用截断轴,
+  但**默默截断**同样是错的 —— 实测期初柱 11% 高、期末柱 87% 高而金额只差 45%,会被读成"涨了 8 倍"。
+  要在轴上写出起点,并在柱底压一道 broken-axis 斜纹带。
+- **窄段的标签放到条外**:堆叠条里占比 < 18% 的段,段内标签会被 `overflow:hidden` 裁掉 → 数字看不全,
+  改成图例补齐(prod 流动资产占比小,实测踩到)。
+
+**信息安全(2026-08-12 维护者点出 · 已发生过泄露)**
+- **prod 真实金额属于敏感值**,和 IP/凭据同级。仓库是**公开**的,而 `docs/*audit*.md`、`docs/*review*.md`、
+  `prd/*`、`tech-design/*` 这类文档天生"对着真实环境写观察",最容易把维护者家庭的净资产/余额写进去。
+  **实测:v1.6 时代的 metric-audit / ued-review / prd/v1.6 / tech-design/v1.6 / qa-run.sh 里都有,而且已经推到公开仓库。**
+- 这类文档的价值在**口径 / 计算逻辑 / 相对量 / 结论**,绝对金额一点不需要 ——
+  「漏折汇误差 25.4%」比「9,233,404」有用得多,而且不泄露任何东西。
+- 要记具体数额 → 本地 `AGENTS.local.md`(git-ignored)。守护 `v111-NO-PROD-AMOUNTS`。
+- **commit message 同样是公开的**:我曾把 prod 净资产写进 commit body(未推送时发现)。写 message 前同样过一遍这条。
+- 区分清楚:preview mockup / 单测 fixture / beta 数据是**合成或测试数据**,可以留;只有 prod 真实观测值要脱敏。
+
 **运维小纪律**
 - 清空文件用 `:> foo`,别用 `rm`(触发审批)。所有编码自己做,不用 codex 插件。
 - beta 账期常被 qa-run/e2e 滚动搞乱(无 OPEN 期 / 冒出未来期)→ 修复:`SET FOREIGN_KEY_CHECKS=0` 删未来期(period_snapshot/snapshot_todo/cash_flow/transfer/period_member_cashflow/stock_valuation_event + period)+ `UPDATE period SET status='OPEN' WHERE id=<当月>`。
@@ -190,9 +233,10 @@
 ```bash
 # 编译 / 测试(离线)
 mvn -o -q compile              # 只编译
-mvn -o test                    # 全量单测(当前 311)
-bash scripts/qa-run.sh         # 黑盒静态守护(当前 431)
-bash scripts/e2e.sh            # 端到端真验收(7 主线 38 断言 · 快照还原不污染)
+mvn -o test                    # 全量单测(当前 506)
+bash scripts/qa-run.sh         # 黑盒静态守护(当前 563 · 全量 ~45 分钟)
+bash scripts/qa-run.sh --only 'v1.10|v1.8'   # 只跑匹配的 section(~2.5 分钟)· 开发中用这个,别等全量
+bash scripts/e2e.sh            # 端到端真验收(13 主线 93 断言 · 快照还原不污染)
 
 # 部署 beta(自测全绿后)· 具体路径/凭据见 AGENTS.local.md
 mvn -o -q package -DskipTests

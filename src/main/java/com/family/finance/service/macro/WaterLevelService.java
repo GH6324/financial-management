@@ -46,6 +46,7 @@ public class WaterLevelService {
         BigDecimal cpiFallback = macroService.cpiAverages().defaultValue();
         BigDecimal m2Fallback = macroService.m2Averages().defaultValue();
 
+        java.util.TreeSet<Integer> fallbackYears = new java.util.TreeSet<>();
         List<String> labels = new ArrayList<>();
         List<BigDecimal> nominal = new ArrayList<>();
         List<BigDecimal> cpiLine = new ArrayList<>();
@@ -60,6 +61,12 @@ public class WaterLevelService {
                 TrendPoint prev = trend.get(i - 1);
                 double years = Math.max(0, ChronoUnit.DAYS.between(prev.periodStart(), p.periodStart())) / 365.0;
                 int year = p.periodStart().getYear();
+                // v1.11 · prod 实测:macro_benchmark 只到 2025,而账期已到 2026 → CPI/M2 查不到当年数据、
+                //   静默走三法均值 fallback。「购买力线」于是变成**历史均值外推**而不是当年真实通胀,
+                //   页面必须说出来,否则用户会以为那条线是 2026 年的真实 CPI。
+                if (cpiByYear.get(year) == null || m2ByYear.get(year) == null) {
+                    fallbackYears.add(year);
+                }
                 double cpiRate = rate(cpiByYear, year, cpiFallback);
                 double m2Rate = rate(m2ByYear, year, m2Fallback);
                 cpiFactor *= Math.pow(1.0 + cpiRate / 100.0, years);
@@ -83,7 +90,7 @@ public class WaterLevelService {
                 anchor, last, cpiLine.getLast(), m2Line.getLast(),
                 last.compareTo(cpiLine.getLast()) >= 0,
                 last.compareTo(m2Line.getLast()) >= 0,
-                true, null);
+                true, List.copyOf(fallbackYears), null);
     }
 
     private double rate(Map<Integer, BigDecimal> map, int year, BigDecimal fallback) {
@@ -112,11 +119,18 @@ public class WaterLevelService {
             boolean aboveCpi,
             boolean aboveM2,
             boolean available,
+            /** v1.11 · 有哪些年份缺宏观数据、走了三法均值 fallback(升序);空 = 全部年份都有真实值 */
+            List<Integer> fallbackYears,
             /** 不可用的原因;available=true 时为 null。用来让页面说真话,别把两种情形混成一句。 */
             Reason reason) {
         static WaterLevel unavailable(Reason reason) {
             return new WaterLevel(List.of(), List.of(), List.of(), List.of(),
-                    null, null, null, null, null, null, null, false, false, false, reason);
+                    null, null, null, null, null, null, null, false, false, false, List.of(), reason);
+        }
+
+        /** 页面据此提示「这几年用的是历史均值,不是当年真实值」 */
+        public boolean usedFallback() {
+            return fallbackYears != null && !fallbackYears.isEmpty();
         }
     }
 

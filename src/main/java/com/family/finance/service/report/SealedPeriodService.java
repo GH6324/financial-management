@@ -11,6 +11,7 @@ import com.family.finance.factview.PeriodFlow;
 import com.family.finance.repository.FamilyMapper;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.SnapshotMapper;
+import com.family.finance.repository.MemberMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -51,6 +52,7 @@ public class SealedPeriodService {
     private final PeriodMapper periodMapper;
     private final FamilyMapper familyMapper;
     private final SnapshotMapper snapshotMapper;
+    private final MemberMapper memberMapper;
 
     /**
      * 载入一个封板期的完整快照。
@@ -113,6 +115,7 @@ public class SealedPeriodService {
                 anchor, true,
                 buildCompleteness(window, anchor),
                 balanceSheet, waterfall, comparison, concentration, liquidity, attribution,
+                buildDistribution(familyId, window, anchor.getId()),
                 MetricFormulaVersion.CURRENT,
                 driftNotes());
     }
@@ -334,6 +337,58 @@ public class SealedPeriodService {
                 .map(r -> r.endBalanceBase().abs())
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(2, java.math.RoundingMode.HALF_EVEN);
+    }
+
+    // ── FR-328 · 封板期分布(成员 / 资产大类)──────────────────────
+
+    SealedSnapshot.Distribution buildDistribution(long familyId, FactSlice slice, Long periodId) {
+        var rows = slice.rows().stream()
+                .filter(r -> periodId.equals(r.periodId()))
+                .filter(r -> r.endBalanceBase() != null)
+                // 只计资产 —— 与仪表盘同口径(LOAN 不入分布,否则「谁名下多少钱」会被房贷带成负数)
+                .filter(r -> r.accountClass() == com.family.finance.domain.account.AccountClass.ASSET)
+                .toList();
+        if (rows.isEmpty()) {
+            return null;
+        }
+        BigDecimal total = rows.stream().map(com.family.finance.factview.AccountPeriodFact::endBalanceBase)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (total.signum() == 0) {
+            return null;
+        }
+        // Collectors.toMap 的 value 为 null 会 NPE(不是返回 null 那种"温和"失败)——
+        // displayName 理论上非空,但一个展示用的名字没必要让整页 500。手工填 map,null 用兜底名。
+        java.util.Map<Long, String> memberName = new java.util.HashMap<>();
+        for (var m : memberMapper.findActiveByFamily(familyId)) {
+            if (m.getId() == null) {
+                continue;
+            }
+            memberName.put(m.getId(),
+                    m.getDisplayName() == null || m.getDisplayName().isBlank()
+                            ? "成员#" + m.getId() : m.getDisplayName());
+        }
+        java.util.LinkedHashMap<String, BigDecimal> byMember = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<String, BigDecimal> byType = new java.util.LinkedHashMap<>();
+        for (var r : rows) {
+            Long owner = r.ownerId();
+            String who = owner == null ? "共同" : memberName.getOrDefault(owner, "成员#" + owner);
+            byMember.merge(who, r.endBalanceBase(), BigDecimal::add);
+            // accountType 理论上必有,但仪表盘那份同类代码也显式跳 null —— 照着来,别让一行脏数据打掉整页
+            if (r.accountType() != null) {
+                byType.merge(r.accountType().getLabel(), r.endBalanceBase(), BigDecimal::add);
+            }
+        }
+        return new SealedSnapshot.Distribution(toSlices(byMember, total), toSlices(byType, total));
+    }
+
+    private static List<SealedSnapshot.Distribution.Slice> toSlices(
+            java.util.Map<String, BigDecimal> m, BigDecimal total) {
+        return m.entrySet().stream()
+                .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
+                .map(e -> new SealedSnapshot.Distribution.Slice(e.getKey(),
+                        e.getValue().setScale(2, java.math.RoundingMode.HALF_EVEN),
+                        pct(e.getValue().divide(total, 8, java.math.RoundingMode.HALF_EVEN))))
+                .toList();
     }
 
     // ── FR-326 · 本期归因 ──────────────────────────────────────────

@@ -223,15 +223,18 @@
           <tbody>
           <tr th:each="r : ${cmp.rows()}">
             <td th:text="${r.label()}">指标</td>
-            <td data-priv th:text="${r.current() == null ? '—' : (r.ratio()
-                  ? #numbers.formatDecimal(r.current()*100,1,2) + '%'
-                  : #numbers.formatInteger(r.current(),1,'COMMA'))}">—</td>
-            <td data-priv th:text="${r.prev() == null ? '—' : (r.ratio()
-                  ? #numbers.formatDecimal(r.prev()*100,1,2) + '%'
-                  : #numbers.formatInteger(r.prev(),1,'COMMA'))}">—</td>
-            <td data-priv th:text="${r.yoy() == null ? '—' : (r.ratio()
-                  ? #numbers.formatDecimal(r.yoy()*100,1,2) + '%'
-                  : #numbers.formatInteger(r.yoy(),1,'COMMA'))}">—</td>
+            <td data-priv th:text="${r.current() == null ? '—' : (r.absurd(r.current()) ? '收支不足'
+                  : (r.ratio() ? #numbers.formatDecimal(r.current()*100,1,2) + '%'
+                               : #numbers.formatInteger(r.current(),1,'COMMA')))}"
+                th:title="${r.absurd(r.current()) ? '该期收入过小,比率失真(原值 ' + #numbers.formatDecimal(r.current()*100,1,1) + '%)' : ''}">—</td>
+            <td data-priv th:text="${r.prev() == null ? '—' : (r.absurd(r.prev()) ? '收支不足'
+                  : (r.ratio() ? #numbers.formatDecimal(r.prev()*100,1,2) + '%'
+                               : #numbers.formatInteger(r.prev(),1,'COMMA')))}"
+                th:title="${r.absurd(r.prev()) ? '该期收入过小,比率失真(原值 ' + #numbers.formatDecimal(r.prev()*100,1,1) + '%)' : ''}">—</td>
+            <td data-priv th:text="${r.yoy() == null ? '—' : (r.absurd(r.yoy()) ? '收支不足'
+                  : (r.ratio() ? #numbers.formatDecimal(r.yoy()*100,1,2) + '%'
+                               : #numbers.formatInteger(r.yoy(),1,'COMMA')))}"
+                th:title="${r.absurd(r.yoy()) ? '该期收入过小,比率失真(原值 ' + #numbers.formatDecimal(r.yoy()*100,1,1) + '%)' : ''}">—</td>
             <td th:with="d=${r.momDelta()},p=${r.momPct()}"
                 th:classappend="${d == null ? '' : ((r.lowerIsBetter() ? d.signum() < 0 : d.signum() > 0) ? ' num-pos' : (d.signum() == 0 ? '' : ' num-neg'))}"
                 data-priv
@@ -415,22 +418,48 @@
           <span data-priv th:text="'不可动 ' + ${currencySymbol + #numbers.formatInteger(t.illiquid(),1,'COMMA')} + ' · ' + ${t.illiquidPct()} + '%'">不可动</span>
         </span>
       </div>
-        <div class="stack-semi" th:style="'width:' + ${t.semiLiquidPct()} + '%'"
-             th:title="'半流动(股票/理财/贵金属等,变现要时间)' + ${t.semiLiquidPct()} + '%'">
-          <span data-priv th:text="'半流动 ' + ${currencySymbol + #numbers.formatInteger(t.semiLiquid(),1,'COMMA')}
-                + ' · ' + ${t.semiLiquidPct()} + '%'">半流动</span>
-        </div>
-        <div class="stack-illiquid" th:style="'width:' + ${t.illiquidPct()} + '%'"
-             th:title="'不可动(房产等)· 贷款与「其他」也并入这一档' + ${t.illiquidPct()} + '%'">
-          <span data-priv th:text="'不可动 ' + ${currencySymbol + #numbers.formatInteger(t.illiquid(),1,'COMMA')}
-                + ' · ' + ${t.illiquidPct()} + '%'">不可动</span>
-        </div>
-      </div>
-      <p class="font-mono text-[10px] text-ink-subtle mt-2">
+        <!-- v1.11 · 覆盖月数与「紧急储备」是同一个数,必须用**同一条**展示规则(> 36 月封顶)。
+             实测 beta 出现「207.5 个月」而上面的紧急储备显示「> 36 月」—— 同一个数两种写法。
+             一致性问题能用「只有一处」消除的,就不要靠「两处保持相等」去守(AGENTS §8)。 -->
         <span th:if="${t.coverMonths() != null}"
-              th:text="'即时可用可覆盖 ' + ${#numbers.formatDecimal(t.coverMonths(),1,1)} + ' 个月支出'"></span>
+              th:text="'即时可用可覆盖 ' + ${T(com.family.finance.service.report.SealedSnapshot).emergencyLabel(t.coverMonths())} + '支出'"></span>
         <span> · 占比按余额绝对值计;贷款与「其他」并入不可动</span>
       </p>
+    </div>
+
+    <!-- ── FR-328 · 封板期分布(成员 / 资产大类)──
+         维护者第 8 条:仪表盘哪些指标值得进报表页。逐个论证后只有这两个 ——
+         其余(资产洞察 / 人赚vs钱赚 / 归因 / 收支趋势 / 净资产趋势 / 账户列表)在报表页都已有
+         等价或增强版;资产透视 lens 是**交互探索**工具、且依赖当前账户属性,与「定格」冲突,不搬。
+         这两个衡量的是「这个月末钱怎么分布」—— 存量属性,天然适合定格;而且报表页此前
+         **完全没有成员维度**。二区已有集中度数字但没有结构,数字能对比、结构能一眼看懂,互补。
+         用横条 + 精确值而不是饼图:封板页要精确值、要能和上期并排比,饼图两样都不给。 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4" th:if="${sealed.distribution() != null}"
+         th:with="dist=${sealed.distribution()}">
+      <div class="paper-card p-5">
+        <h3 class="font-display text-xl font-medium">按成员</h3>
+        <p class="text-xs text-ink-subtle mt-1 mb-3">这个月末谁名下多少 · 只计资产(负债不入,否则会被房贷带成负数)</p>
+        <div th:each="sl : ${dist.byMember()}" class="conc-row">
+          <div class="conc-cap">
+            <span th:text="${sl.label()}">成员</span>
+            <span><b data-priv th:text="${currencySymbol + #numbers.formatInteger(sl.amount(),1,'COMMA')}">—</b>
+              <span class="text-ink-subtle" th:text="' · ' + ${sl.pct()} + '%'"></span></span>
+          </div>
+          <div class="conc-track"><div class="conc-fill" th:style="'width:' + ${sl.pct()} + '%'"></div></div>
+        </div>
+      </div>
+      <div class="paper-card p-5">
+        <h3 class="font-display text-xl font-medium">按资产大类</h3>
+        <p class="text-xs text-ink-subtle mt-1 mb-3">结构一眼看懂 · 与上面的集中度数字互补(数字能月月比,结构能看懂)</p>
+        <div th:each="sl : ${dist.byType()}" class="conc-row">
+          <div class="conc-cap">
+            <span th:text="${sl.label()}">类型</span>
+            <span><b data-priv th:text="${currencySymbol + #numbers.formatInteger(sl.amount(),1,'COMMA')}">—</b>
+              <span class="text-ink-subtle" th:text="' · ' + ${sl.pct()} + '%'"></span></span>
+          </div>
+          <div class="conc-track"><div class="conc-fill" th:style="'width:' + ${sl.pct()} + '%'"></div></div>
+        </div>
+      </div>
     </div>
 
     <!-- 无法定格的漂移源 · 如实交代 -->

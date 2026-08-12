@@ -47,6 +47,14 @@
         </div>
       </div>
       <div style="height:320px"><canvas id="waterLevelChart"></canvas></div>
+        <!-- v1.11 · prod 实测:宏观表只到 2025 而账期已到 2026 → 这两条线用的是**历史三法均值**外推,
+             不是当年真实 CPI/M2。以前静默 fallback,用户会以为看到的是当年真实通胀。必须说出来。 -->
+        <p th:if="${waterLevel.usedFallback()}" class="font-mono text-[10px] mt-2 px-2 py-1.5"
+           style="border-left:3px solid var(--brass-deep);background:var(--card-soft);color:var(--ink-soft)">
+          <b th:text="${#strings.listJoin(waterLevel.fallbackYears(), '、')} + ' 年缺官方 CPI / M2 数据'">年份</b>
+          —— 这几年的购买力线按<b>历史三法均值</b>外推(不是当年真实值)。
+          官方数据发布后到<a th:href="@{/admin(tab='macro')}" class="text-brass-deep">管理页</a>补录即可自动变准。
+        </p>
 
       <!-- 水位状态 + 收益 KPI -->
       <div class="grid grid-cols-2 md:grid-cols-4 grid-hairline mt-4">
