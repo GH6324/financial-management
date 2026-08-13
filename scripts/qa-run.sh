@@ -5690,6 +5690,20 @@ section "v1.11 · 报表/仪表盘性能 + 交互 + 口径一致性(维护者 13
   && log_ok "v1111-RATE-GOAL-PRECISION(比率类目标值与进度百分比统一 1 位小数 · 三处渲染都改)" \
   || log_bad "v1111-RATE-GOAL-PRECISION 目标百分比又被取整" "compactVal 的 isRate 分支要 setScale(1);progressPct 三处渲染统一"
 
+# v1112-CHART-LABEL-DENSITY · 单序列图不画图例 · 多点折线不许每个点都印字
+#   负债下降曲线是全项目**唯一**忘了关图例的单序列图:Chart.js 默认在顶部画「■ 负债」方框,
+#   它落在**绘图区里**,把 datalabels(画在数据点上方的金额)整排挤没了 —— 维护者报的
+#   「图例和图表互相覆盖」。关掉图例后又露出第二层:12 个点每个都印 ¥123.6万 这种 7 字标签,
+#   同一水平线上挤在 800px 里直接叠成一串,首点还压住 Y 轴刻度、末点被卡片边缘切掉。
+#   项目里同类多点折线图(_wealth-level / _savings)的既有惯例本来就是**只标末点**。
+RGN="$RD/src/main/resources/templates/reports/_region.html"
+{ grep -q "legend: {display: false}" "$RGN" \
+  && grep -qF 'display: (c) => c.dataIndex === 0 || c.dataIndex === c.dataset.data.length - 1' "$RGN" \
+  && grep -q 'clamp: true' "$RGN" \
+  && grep -qF "align: (c) => c.dataIndex === 0 ? 315 : 225" "$RGN"; } \
+  && log_ok "v1112-CHART-LABEL-DENSITY(负债曲线:关图例 + 只标首末点 + clamp + 两端斜向内推不压轴不出框)" \
+  || log_bad "v1112-CHART-LABEL-DENSITY 图例回来了 / 标签又印满了" "见 _region.html debtChart 的 legend 与 datalabels.display"
+
 # v1111-VERSION-DESIGN-DOCS · 在研版本必须有 prd + tech-design(2026-08-13)
 #   为什么加:v1.11 那批 13 条反馈,我把维护者的「全部做完不要中途停」理解成"连设计阶段一起省",
 #   代码/护栏/qa-cases 都同步了,唯独 `prd/v1.11.md` + `tech-design/v1.11.md` **压根没写**,
@@ -5747,6 +5761,33 @@ RIX2="$RD/src/main/resources/templates/reports/index.html"
   && grep -q 'th:href' "$RIX2"; } \
   && log_ok "v111-PARTIAL-SWAP(趋势 range / 支出构成维度窗口 都走 HTMX 局部替换 · href 保留作无 JS 退化)" \
   || log_bad "v111-PARTIAL-SWAP 筛选器又变整页跳转了" "必须 hx-get + hx-select + hx-push-url;href 保留"
+
+# v1112-SWAP-TARGET-EXISTS · **hx-select 挑的那个 id,必须真的在响应里**
+#
+#   上面那条只查"属性写没写",查不出这次的 bug:controller 原来是「只要带 HX-Request 就回
+#   `_region :: region` 片段」,而 `#sec-trend`(在 index.html)和 `#sec-expense-mix`
+#   (在 _expense-mix.html)**都不在那个片段里** → HTMX 按 id 挑不到东西,换进去一个**空**内容,
+#   `hx-swap="outerHTML"` 于是把整个 section **从页面上删掉**。
+#   表现:切「按账户」对应模块直接没了。后端 200、日志干净 —— 纯前端选择器落空,最难查的那种。
+#   所以这条**发真实的 HTMX 请求**(带 HX-Target),断言响应里确实有那个 id;
+#   同时守住老路径:目标是 reports-region 时仍然只回片段(不能退化成每次都吐整页)。
+swap_has(){ # $1=HX-Target  $2=要求存在的 id  $3=query
+  $CURL -b $COOKIE -H "HX-Request: true" -H "HX-Target: $1" "$BASE/reports?$3" -o "$TMP" -w ""
+  grep -q "id=\"$2\"" "$TMP"
+}
+{ swap_has sec-trend sec-trend 'range=3M' \
+  && swap_has sec-expense-mix sec-expense-mix 'range=6M&mix=account' \
+  && swap_has sec-expense-mix sec-expense-mix 'range=6M&mix=member' \
+  && swap_has sec-expense-mix sec-expense-mix 'range=6M&mix=category'; } \
+  && log_ok "v1112-SWAP-TARGET-EXISTS(HTMX 局部替换的目标 id 在响应里真实存在 · 趋势 + 支出构成三个维度)" \
+  || log_bad "v1112-SWAP-TARGET-EXISTS hx-select 的目标不在响应里(section 会被换成空 = 整块消失)" "见 ReportsController 的 HX-Target 分流"
+
+# 老路径不能被上面的修法带坏:账户/币种筛选器 hx-target="#reports-region",必须仍然只回片段
+$CURL -b $COOKIE -H "HX-Request: true" -H "HX-Target: reports-region" "$BASE/reports?range=3M" -o "$TMP" -w ""
+{ ! grep -q '<html' "$TMP" && grep -q 'id="reports-region"' "$TMP"; } \
+  && log_ok "v1112-SWAP-REGION-FRAGMENT(reports-region 目标仍走片段 · 没退化成每次吐整页)" \
+  || log_bad "v1112-SWAP-REGION-FRAGMENT reports-region 片段路径坏了" "应无 <html 且含 id=reports-region"
+
 
 # v111-TOC-BOTTOM · 滚到底必须高亮最后一项(最后一节比视口短时,它的顶部永远不越线)
 { grep -q 'atBottom' "$RD/src/main/resources/static/js/toc.js" \

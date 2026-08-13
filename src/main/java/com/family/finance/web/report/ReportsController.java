@@ -88,6 +88,7 @@ public class ReportsController {
                           @RequestParam(required = false) String mix,
                           @RequestParam(name = "mixWin", required = false) Integer mixWin,
                           @RequestHeader(value = "HX-Request", required = false) String htmx,
+                          @RequestHeader(value = "HX-Target", required = false) String hxTarget,
                           Model model) {
         // v0.16.x 兜底:全新部署(零周期)→ 回引导页并提示先开周期,
         // 而不是 ReportsAnchorResolver 抛「尚未创建周期」IllegalStateException → 500。
@@ -102,7 +103,24 @@ public class ReportsController {
         //   「后面几个带时间范围的组件没有统一时间筛选组件」)。mixWin 仍接受(老链接不 404),
         //   但没显式传时用 range 推出来的期数。
         populateExpenseComposition(me, mix, mixWin != null ? mixWin : savingsWindowPeriods(range), model);
-        if ("true".equalsIgnoreCase(htmx)) {
+        // v1.11.2 · **必须看 HX-Target,不能只看 HX-Request**。
+        //
+        //   这里原来是「只要带 HX-Request 就回 `_region :: region` 片段」—— 那是给
+        //   `_region.html` 里的账户/币种筛选器用的,它们 hx-target="#reports-region",
+        //   片段里正好有这个 id,能换上去。
+        //
+        //   但 v1.11 把趋势 chips 和支出构成维度改成了 `hx-select="#sec-trend"` /
+        //   `hx-select="#sec-expense-mix"` —— 这两个 id **都不在** `_region :: region` 片段里
+        //   (`#sec-trend` 在 index.html 上,`#sec-expense-mix` 在 _expense-mix.html 上)。
+        //   于是 HTMX 拿到片段、按 id 挑不到东西 → 换进去一个**空**内容 →
+        //   `hx-swap="outerHTML"` 把整个 section **从页面上删掉**。
+        //   表现就是维护者报的「切成按账户,对应模块直接没了」—— 后端 200、日志干净,
+        //   纯前端选择器落空,最难查的那种。
+        //
+        //   所以:只有目标确实是 `reports-region` 时才回片段,其余一律回整页,让 hx-select 有东西可挑。
+        //   (整页响应大一些,但服务端渲染耗时相同 —— 省的本来就是滚动位置,不是后端。)
+        boolean regionSwap = hxTarget == null || hxTarget.isBlank() || "reports-region".equals(hxTarget);
+        if ("true".equalsIgnoreCase(htmx) && regionSwap) {
             return "reports/_region :: region";
         }
         return "reports/index";

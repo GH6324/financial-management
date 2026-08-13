@@ -452,9 +452,30 @@
           maintainAspectRatio: false,
           layout: {padding: {top: 28, right: 16}},
           plugins: {
+            // v1.11.2 · 关掉图例。这是全项目**唯一**忘了关图例的单序列图(其余 line/bar 都写了
+            //   legend:{display:false}),Chart.js 默认在顶部画一个「■ 负债」方框,而它落在**绘图区里** ——
+            //   把 datalabels(align:'top' 画在数据点上方的金额)整排挤没了,看起来就是「图例和图表互相覆盖」。
+            //   单序列图的图例本来就是废信息:标题已经写了「负债下降曲线」,那个方框不提供任何区分度。
+            legend: {display: false},
             title: {display: true, text: '负债下降曲线 · ' + data.currency, padding: {bottom: 8}, font: {size: chartFont(12), weight: '500'}, color: '#3a302a'},
             tooltip: {callbacks: {label: (ctx) => fmtMoney(ctx.parsed.y)}},
-            datalabels: {anchor: 'end', align: 'top', offset: 6, color: '#3a302a', font: {size: chartFont(10), weight: '500'}, formatter: fmtMoney}
+            // v1.11.2 · 只标**首点 + 末点**。原来 12 个点全标,每个约 7 个字(¥123.6万),
+            //   同一水平线上挤在 800px 里 → 直接叠成一串「¥123.6万¥123.1万¥122.6万…」,
+            //   而且首点的标签压住 Y 轴刻度 ¥140.0万。range=ALL 时点数可到 240,只会更糟。
+            //   项目里同类多点折线图(_wealth-level / _savings)的既有惯例就是**只标末点**;
+            //   负债曲线额外标首点,因为它要回答的正是「从多少降到了多少」。
+            //   中间各点的值仍可 hover 看 tooltip —— 「数字浮在图上」这条规矩守的是"别让人 hover 才
+            //   看到关键数字",不是"每个点都得印字"(印满反而一个都读不出来)。
+            //   clamp:true:首点在绘图区最左边,标签居中会有一半探到 Y 轴上,clamp 把它收回区内。
+            datalabels: {
+              display: (c) => c.dataIndex === 0 || c.dataIndex === c.dataset.data.length - 1,
+              //   两端还要各躲一次边:首点在绘图区最左,标签居中会压住 Y 轴刻度「¥140.0万」;
+              //   末点在最右,居中会被卡片边缘切掉「万」字。align 用**角度**把它们斜着推向内侧
+              //   (datalabels 的角度制:0=右、90=下,顺时针)→ 315=右上(首点)、225=左上(末点)。
+              clamp: true, anchor: 'end', offset: 8,
+              align: (c) => c.dataIndex === 0 ? 315 : 225,
+              color: '#3a302a', font: {size: chartFont(10), weight: '500'}, formatter: fmtMoney
+            }
           },
           // v1.6 UED review B5-5 · Y 轴此前自适应(实测 118 万–125 万),把 5% 的降幅画成陡坡,
           // 视觉上夸大跌幅 —— 这是可视化误导。负债这类「绝对量」曲线从零起才诚实。
