@@ -12,9 +12,10 @@ FAILED=()
 
 # ── 分段过滤(2026-08-12)· 用法:bash scripts/qa-run.sh --only 'v110|v19'
 #
-#   为什么加:全量跑一次 ~45 分钟。开发中改一处就要等 45 分钟才知道有没有打红别的护栏,
+#   为什么加:全量跑一次 ~5.3 分钟(2026-08-13 实测 320s;早期文档写的「45 分钟」已过时)。
+#   开发中改一处就要等一轮全量才知道有没有打红别的护栏,
 #   于是实际做法变成「攒到最后跑一次」—— 反馈太晚,打红的东西堆在一起难定位。
-#   有了过滤,改 v1.10 的护栏时只跑相关段,反馈从 45 分钟降到秒级。
+#   有了过滤,改某一版的护栏时只跑相关段,反馈从分钟级降到秒级。
 #
 #   实现刻意做得**极小**:不重构 45 个 section 的结构(那是 5000 行的大手术,风险远大于收益),
 #   只把三个「贵」的动作在非目标段里变成 no-op —— HTTP 请求、断言记账、日志输出。
@@ -5688,6 +5689,20 @@ section "v1.11 · 报表/仪表盘性能 + 交互 + 口径一致性(维护者 13
   && grep -q 'formatDecimal(gp.progressPct, 1, 1)' "$RD/src/main/resources/templates/goals/_goal-bar.html"; } \
   && log_ok "v1111-RATE-GOAL-PRECISION(比率类目标值与进度百分比统一 1 位小数 · 三处渲染都改)" \
   || log_bad "v1111-RATE-GOAL-PRECISION 目标百分比又被取整" "compactVal 的 isRate 分支要 setScale(1);progressPct 三处渲染统一"
+
+# v1111-VERSION-DESIGN-DOCS · 在研版本必须有 prd + tech-design(2026-08-13)
+#   为什么加:v1.11 那批 13 条反馈,我把维护者的「全部做完不要中途停」理解成"连设计阶段一起省",
+#   代码/护栏/qa-cases 都同步了,唯独 `prd/v1.11.md` + `tech-design/v1.11.md` **压根没写**,
+#   两个版本发完 prod 才在复查时发现。发布预检只校验"已存在的设计文档有没有被 README 链接",
+#   **文档不存在就什么都拦不住** —— 正好是最该拦的那种情况。
+#   这条按 app.version 的 major.minor 找文档:开发一开始就 bump 版本(memory feedback_dev_version_bump),
+#   所以只要动了码,这条立刻要求把 PRD/TDD 建起来,补丁号不要求(x.y.Z 复用 x.y 的文档)。
+APPV=$(grep -oE 'APP_VERSION:[0-9]+\.[0-9]+\.[0-9]+' "$RD/src/main/resources/application.yml" | head -1 | cut -d: -f2)
+MINOR=$(printf '%s' "$APPV" | cut -d. -f1,2)
+{ [ -n "$MINOR" ] && [ -f "$RD/prd/v$MINOR.md" ] && [ -f "$RD/tech-design/v$MINOR.md" ] \
+  && grep -q "prd/v$MINOR.md" "$RD/README.md" && grep -q "tech-design/v$MINOR.md" "$RD/README.md"; } \
+  && log_ok "v1111-VERSION-DESIGN-DOCS(在研 v$MINOR 的 prd + tech-design 都在,且 README 已链接)" \
+  || log_bad "v1111-VERSION-DESIGN-DOCS 在研版本缺设计文档" "app.version=$APPV → 需要 prd/v$MINOR.md + tech-design/v$MINOR.md + README 链接"
 
 # v111-NO-PROD-AMOUNTS · 审计/复盘类文档不许出现 prod 真实金额(2026-08-12 · 维护者点出的信息安全问题)
 #   背景:仓库是**公开**的(GitHub)。而 `docs/*audit*.md` / `docs/*review*.md` 这类文档天生是

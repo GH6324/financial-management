@@ -132,7 +132,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 506 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表) + UpdateCheckService 版本比较/迁移判定 fail-closed/结果收敛进 VARCHAR(512)))/ 93 e2e 断言(13 主线)/ 577 黑盒回归 |
+| 测试 | JUnit 5 · 506 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表) + UpdateCheckService 版本比较/迁移判定 fail-closed/结果收敛进 VARCHAR(512)))/ 93 e2e 断言(13 主线)/ 578 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
@@ -355,7 +355,8 @@ bash scripts/e2e.sh            # 端到端主线真验收(13 主线 93 断言 ·
 - **v1.7 设计文档**:[`prd/v1.7.md`](prd/v1.7.md) · [`tech-design/v1.7.md`](tech-design/v1.7.md)(交互式使用手册:功能全集 → 必修/选修分类 → 24 章)
 - **v1.8 设计文档**:[`prd/v1.8.md`](prd/v1.8.md) · [`tech-design/v1.8.md`](tech-design/v1.8.md)(支出逐笔化:口径收敛到一处 → 两个「支出」必须分开 → 总额模式逐位不变;tech-design §8 记了施工中被分水岭比对拦下的三处)
 - **v1.9 设计文档**:[`prd/v1.9.md`](prd/v1.9.md) · [`tech-design/v1.9.md`](tech-design/v1.9.md)(自动版本查询:只查不改 —— 落后几个版本 + 这中间有没有 DB 迁移;tech-design §7 记了「能不能做一键更新/自动更新」的可行性与风险分析)
-- **v1.10 设计文档**:[`prd/v1.10.md`](prd/v1.10.md) · [`tech-design/v1.10.md`](tech-design/v1.10.md)(报表页进化为月度封板快照:期末资产负债表 + 资金流瀑布(含恒等式校验)+ 环比/同比三列对照 + 集中度/流动性分层 + 本期归因;`range` 只管趋势区 · 指标不落库但修掉会改写历史的漂移源 · **待评审**)
+- **v1.10 设计文档**:[`prd/v1.10.md`](prd/v1.10.md) · [`tech-design/v1.10.md`](tech-design/v1.10.md)(报表页进化为月度封板快照:期末资产负债表 + 资金流瀑布(含恒等式校验)+ 环比/同比三列对照 + 集中度/流动性分层 + 本期归因;`range` 只管趋势区 · 指标不落库但修掉会改写历史的漂移源)
+- **v1.11 设计文档**:[`prd/v1.11.md`](prd/v1.11.md) · [`tech-design/v1.11.md`](tech-design/v1.11.md)(报表页可用性收束 13 项 + 全量指标审计;tech-design 记了三项「维护者点名要判断」的结论:同一区内窗口必须共用一个时间控件且只属于趋势区 · 哪些仪表盘指标值得进封板区的逐项取舍 · 以及「一条 SQL ≠ 一次扫描」那次把 1.25s 优化成 9.3s 的反面案例。**两份文档是事后补写的**,原因与教训写在 prd §5)
 - **怎么记账 · 场景速查**:[`docs/how-to-record.md`](docs/how-to-record.md)(工资/消费/买卖基金/借钱还贷/账户间转钱 逐场景对照 · 没有财会背景也能看懂)
 - **配置与接入**:[`docs/configuration.md`](docs/configuration.md)(AI / 短信 等外部服务配置总指南 · 全部可选)
 - **券商同步图文向导**:[`docs/broker-sync-guide.md`](docs/broker-sync-guide.md)(富途 / 老虎凭据一步步获取 · 应用内同款 `/help/broker-sync` 带示意图)
