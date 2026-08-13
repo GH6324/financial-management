@@ -69,7 +69,12 @@
         </div>
 
         <label class="flex items-center gap-3 select-none cursor-pointer pt-2">
-          <input type="checkbox" name="remember-me" class="w-4 h-4 accent-[var(--brass)]">
+          <!-- v1.11.1 · **默认勾选**。Session 在进程内存里(没上 spring-session),
+               发版重启 = 全部会话失效 → 维护者反馈「发布后都需要重新登录」。
+               remember-me 本身早就是 JDBC 持久化(persistent_logins 表,30 天),
+               只是复选框默认不勾 → 没勾就没有持久凭据。家庭内部工具、单家庭部署,
+               默认记住 30 天是合理默认;复选框保留,公用电脑可手动取消。 -->
+          <input type="checkbox" name="remember-me" checked class="w-4 h-4 accent-[var(--brass)]">
           <span class="font-mono text-[11px] tracking-[0.14em] uppercase text-ink-soft">
             三十日免输 · keep me
           </span>

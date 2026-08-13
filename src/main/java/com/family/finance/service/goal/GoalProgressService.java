@@ -212,7 +212,10 @@ public class GoalProgressService {
         public String targetDisp() { return compactVal(target); }
         private String compactVal(BigDecimal v) {
             if (v == null) return "—";
-            if (isRate()) return v.setScale(0, java.math.RoundingMode.HALF_UP).toPlainString() + "%";
+            // v1.11.1 · 比率类目标保留 **1 位小数**。原来 setScale(0) 把储蓄率 8.4% 显示成 8%、
+              //   0.4% 显示成 0% —— 维护者反馈「0%/8% 不够直观」:整数化之后月度推进(几个零点几)
+              //   全被吃掉,条带上看不出任何变化。金额类本来就是 N.N万,已有 1 位小数。
+              if (isRate()) return v.setScale(1, java.math.RoundingMode.HALF_UP).toPlainString() + "%";
             return v.divide(java.math.BigDecimal.valueOf(10000), 1, java.math.RoundingMode.HALF_UP).toPlainString() + "万";
         }
     }

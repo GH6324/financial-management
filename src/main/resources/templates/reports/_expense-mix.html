@@ -39,15 +39,10 @@
          th:title="${d.hintText()}"
          th:text="${d.displayName()}">按类目</a>
       <span style="width:1px;height:20px;background:var(--rule);display:inline-block" class="mx-1"></span>
-      <span class="font-mono text-[9px] tracking-[0.14em] text-ink-subtle mr-1">窗口</span>
-      <a th:each="w : ${ {1, 6, 12} }"
-         th:href="@{/reports(mix=${mixDim.code()},mixWin=${w})}"
-         th:hx-get="@{/reports(mix=${mixDim.code()},mixWin=${w})}"
-         hx-select="#sec-expense-mix" hx-target="#sec-expense-mix" hx-swap="outerHTML"
-         hx-push-url="true" hx-indicator="#mix-busy"
-         class="pill text-xs h-8 px-3 no-underline flex items-center"
-         th:classappend="${mixWinValue == w} ? ' pill-ink' : ''"
-         th:text="${w == 1} ? '本期' : ('近 ' + ${w} + ' 期')">本期</a>
+      <!-- v1.11.1 · 独立的「窗口」pills 去掉了 —— 它和三区标题旁的时间范围是同一件事,
+           两个时间控件放在一页上会让人不知道哪个管哪个(维护者第 5 条)。现在只显示当前生效的窗口。 -->
+      <span class="font-mono text-[10px] text-ink-subtle"
+            th:text="'窗口 ' + ${mixWindowLabel} + ' · 跟随上方「趋势」区的时间范围'">窗口</span>
       <span id="mix-busy" class="htmx-indicator font-mono text-[10px] text-brass-deep ml-1">载入中…</span>
       <span class="font-mono text-[10px] text-ink-subtle ml-auto hidden md:inline" th:text="${mixDim.hintText()}">说明</span>
     </div>

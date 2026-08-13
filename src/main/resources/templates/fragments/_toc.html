@@ -19,7 +19,11 @@
 <aside th:fragment="rail(items)" class="toc-rail" aria-label="本页目录">
   <div class="toc-head">本 页 目 录</div>
   <nav class="toc-tree" data-toc-nav>
-    <a th:each="it : ${items}" class="toc-node" th:href="${it.href}" data-toc><span class="lbl" th:text="${it.label}">章节</span></a>
+    <!-- v1.11.1 · sub:true 的条目缩进一级 —— 报表页三区之下有 9 个子节,
+         全都平铺会看不出层级;而给它们编号(四、五…)是**错的信息**(它们不是三区的同级)。
+         所以统一不编号,用缩进表达层级(维护者第 4 条)。 -->
+    <a th:each="it : ${items}" class="toc-node" th:href="${it.href}" data-toc
+       th:classappend="${it.containsKey('sub') and it.get('sub')} ? ' toc-sub' : ''"><span class="lbl" th:text="${it.label}">章节</span></a>
   </nav>
 </aside>
 
@@ -36,7 +40,11 @@
     <div class="toc-sheet-handle"></div>
     <div class="toc-sheet-row"><span class="toc-head">目录 · 本页</span><button class="toc-sheet-x" id="toc-sheet-x" type="button" aria-label="关闭">×</button></div>
     <nav class="toc-tree" data-toc-nav>
-      <a th:each="it : ${items}" class="toc-node" th:href="${it.href}" data-toc><span class="lbl" th:text="${it.label}">章节</span></a>
+      <!-- v1.11.1 · sub:true 的条目缩进一级 —— 报表页三区之下有 9 个子节,
+         全都平铺会看不出层级;而给它们编号(四、五…)是**错的信息**(它们不是三区的同级)。
+         所以统一不编号,用缩进表达层级(维护者第 4 条)。 -->
+    <a th:each="it : ${items}" class="toc-node" th:href="${it.href}" data-toc
+       th:classappend="${it.containsKey('sub') and it.get('sub')} ? ' toc-sub' : ''"><span class="lbl" th:text="${it.label}">章节</span></a>
     </nav>
   </div>
 </th:block>

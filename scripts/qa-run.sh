@@ -5509,6 +5509,58 @@ CSSF="$RD/src/main/resources/static/css/style.css"
 
 section "v1.11 · 报表/仪表盘性能 + 交互 + 口径一致性(维护者 13 条反馈)"
 
+# v1111-WF-LABELS-VISIBLE · 瀑布的标签一个都不许被遮住
+#   两处都踩过:① 截断轴的斜纹带原来横贯整宽贴在 .wf 底边,而 X 轴标签(.wf-lab)是**溢出**
+#   .wf 之外的 → 那条边正好穿过标签中间,把「期初净资产 / 2026-07」压掉一半;
+#   ② 最高柱的顶部标签定位在柱顶 -1.05rem,贴着容器上边 → 被 overflow 裁掉一半。
+#   ③ 标签比柱子宽(¥1,946,957 约 178px vs 柱宽 ~127px),溢出部分会被 DOM 顺序在后的柱子背景盖住。
+#   修法:斜纹带只画在**柱内底部**(柱底就是轴线,语义一样但不碰字)· .wf 加 padding-top 给顶部标签留位
+#   · 标签给 z-index 浮到所有柱子之上。
+{ grep -q '.wf-truncated .wf-bar::before' "$RD/src/main/resources/static/css/style.css" \
+  && ! grep -q '.wf-truncated .wf::after' "$RD/src/main/resources/static/css/style.css" \
+  && grep -A3 -F '.wf { display: flex' "$RD/src/main/resources/static/css/style.css" | grep -q 'padding-top' \
+  && grep -A4 -F '.wf-dl {' "$RD/src/main/resources/static/css/style.css" | grep -q 'z-index: 5'; } \
+  && log_ok "v1111-WF-LABELS-VISIBLE(斜纹带画柱内 · 顶部留位 · 标签浮层 —— 三处遮挡都堵住)" \
+  || log_bad "v1111-WF-LABELS-VISIBLE 瀑布标签又被遮住了" "斜纹带只能画在 .wf-bar::before;.wf 要 padding-top;.wf-dl 要 z-index"
+
+# v1111-TOC-LEVEL · 长文目录编号必须统一(要么全有要么全无)+ 二级条目缩进
+#   报表页三区之下有 9 个子节。前三个带「一/二/三」而后面没有 → 看着像漏了(维护者反馈)。
+#   给子节编号(四、五…)是**错的信息**(它们不是三区的同级),所以统一不编号 + 用缩进表达层级。
+#   另外:SpEL 对 map 上**不存在的 key** 用 `it.sub` 会**抛异常**(不是返回 null),必须 containsKey。
+{ ! grep -qE "label:'[一二三] · " "$RD/src/main/resources/templates/reports/index.html" \
+  && grep -q "sub:true" "$RD/src/main/resources/templates/reports/index.html" \
+  && grep -q "it.containsKey('sub')" "$RD/src/main/resources/templates/fragments/_toc.html" \
+  && ! grep -q 'it.sub != null' "$RD/src/main/resources/templates/fragments/_toc.html" \
+  && grep -q '.toc-node.toc-sub' "$RD/src/main/resources/static/css/style.css"; } \
+  && log_ok "v1111-TOC-LEVEL(目录统一不编号 + 子节缩进 · map key 用 containsKey 不用属性访问)" \
+  || log_bad "v1111-TOC-LEVEL 目录编号又不统一 / 或用了会抛异常的 it.sub" "统一不编号 + sub:true 缩进;SpEL 取 map 不存在的 key 会抛异常"
+
+# v1111-ONE-TIME-FILTER · 一页只能有一个时间筛选器
+#   支出构成原来有自己的「本期 / 近6期 / 近12期」,和三区标题旁的时间范围是同一件事 ——
+#   两个时间控件放一页会让人不知道哪个管哪个(维护者第 5 条)。窗口改为由 range 推出。
+{ grep -q 'savingsWindowPeriods(range)' "$RD/src/main/java/com/family/finance/web/report/ReportsController.java" \
+  && grep -q '跟随上方「趋势」区的时间范围' "$RD/src/main/resources/templates/reports/_expense-mix.html" \
+  && ! grep -q "th:each=\"w : \${ {1, 6, 12} }\"" "$RD/src/main/resources/templates/reports/_expense-mix.html"; } \
+  && log_ok "v1111-ONE-TIME-FILTER(支出构成窗口并入统一时间范围 · 页面只剩一个时间控件)" \
+  || log_bad "v1111-ONE-TIME-FILTER 又出现第二个时间筛选器" "窗口必须由 range 推出,不要独立 pills"
+
+# v1111-SESSION-REMEMBER · 发版重启不该把用户踢出去
+#   Session 在进程内存里(没上 spring-session)→ 重启 = 全部会话失效。
+#   remember-me 早就是 JDBC 持久化(persistent_logins,30 天),只是复选框默认不勾。
+{ grep -q 'name="remember-me" checked' "$RD/src/main/resources/templates/auth/login.html" \
+  && grep -q 'PersistentTokenBasedRememberMeServices' "$RD/src/main/java/com/family/finance/auth/SecurityConfig.java"; } \
+  && log_ok "v1111-SESSION-REMEMBER(remember-me 默认勾选 · JDBC 持久化 · 发版重启不用重登)" \
+  || log_bad "v1111-SESSION-REMEMBER 发版后又要重新登录" "登录页 remember-me 需 checked;token 必须 JDBC 持久化"
+
+# v1111-RATE-GOAL-PRECISION · 比率类目标值保留 1 位小数
+#   原来 compactVal 对 isRate() 用 setScale(0):储蓄率 8.4% 显示成 8%、0.4% 显示成 0%,
+#   月度推进(几个零点几)全被吃掉,条带上看不出任何变化(维护者反馈「0%/8% 不够直观」)。
+{ grep -q 'if (isRate()) return v.setScale(1' "$RD/src/main/java/com/family/finance/service/goal/GoalProgressService.java" \
+  && grep -q 'formatDecimal(gp.progressPct, 1, 1)' "$RD/src/main/resources/templates/goals/_progress-strip.html" \
+  && grep -q 'formatDecimal(gp.progressPct, 1, 1)' "$RD/src/main/resources/templates/goals/_goal-bar.html"; } \
+  && log_ok "v1111-RATE-GOAL-PRECISION(比率类目标值与进度百分比统一 1 位小数 · 三处渲染都改)" \
+  || log_bad "v1111-RATE-GOAL-PRECISION 目标百分比又被取整" "compactVal 的 isRate 分支要 setScale(1);progressPct 三处渲染统一"
+
 # v111-NO-PROD-AMOUNTS · 审计/复盘类文档不许出现 prod 真实金额(2026-08-12 · 维护者点出的信息安全问题)
 #   背景:仓库是**公开**的(GitHub)。而 `docs/*audit*.md` / `docs/*review*.md` 这类文档天生是
 #   「对着真实环境写观察」,最容易把维护者家庭的净资产/余额写进去 —— 实测 v1.6 时代的

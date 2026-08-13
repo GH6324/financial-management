@@ -1449,9 +1449,13 @@ body.upd-open #priv-float { display: none !important; }
 .sym-a span, .sym-l span { white-space: nowrap; }
 
 /* 瀑布 · 截断轴 + 连接线。月度流量与存量差两个数量级,全量轴下中间段看不见 —— 故必须截断轴。 */
-.wf-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.wf-scroll { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; padding-bottom: 1.6rem; }
 .wf { display: flex; align-items: flex-end; height: 220px; margin-top: 12px;
-      border-bottom: 1px solid var(--rule); min-width: 460px; }
+      border-bottom: 1px solid var(--rule); min-width: 460px;
+      position: relative;              /* 承载截断斜纹带(::after 贴轴线)*/
+      padding-top: 1.5rem;             /* v1.11.1 · 给最高柱子的顶部标签留位置 ——
+                                          原来标签定位在柱顶 -1.05rem,最高柱贴着容器上边 → 被裁掉一半 */
+      box-sizing: content-box; }       /* 柱高是相对 content box 的百分比,padding 不参与 → 比例不变 */
 .wf-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
 .wf-bar { width: 62%; position: relative; min-height: 2px; }
 /* 连接线:本段端点水平延伸到下一段起点 —— 没有它就读成普通柱状图,丢掉「分解」语义 */
@@ -1461,7 +1465,9 @@ body.upd-open #priv-float { display: none !important; }
 }
 .wf-col:last-child .wf-bar::after { display: none; }
 .wf-dl {
-  position: absolute; left: -20%; right: -20%; top: -1.05rem; text-align: center;
+  /* v1.11.1 · 标签比柱子宽(¥1,946,957 约 178px vs 柱宽 ~127px),溢出的部分会被 DOM 顺序在后的
+     柱子背景盖住 —— .wf-bar 没有 z-index 不构成层叠上下文,所以给标签 z-index 就能浮到所有柱子之上。 */
+  position: absolute; left: -22%; right: -22%; top: -1.05rem; text-align: center; z-index: 5;
   font-family: "JetBrains Mono", monospace; font-size: 0.62rem; font-weight: 600; white-space: nowrap;
 }
 .wf-lab { font-family: "JetBrains Mono", monospace; font-size: 0.56rem; color: var(--ink-subtle);
@@ -1522,9 +1528,21 @@ body.upd-open #priv-float { display: none !important; }
    瀑布用截断轴是必须的(月度流量与存量差两个数量级),但代价是存量柱的相对高度失真 ——
    实测 beta:期初柱 11% 高、期末柱 87% 高,而两者金额只差 45%,不加提示会被读成「涨了 8 倍」。
    所以轴被截断时在柱底压一道斜纹带(标准 broken-axis 标记),让人一眼知道柱子不是从 0 起。 */
-.wf-truncated { position: relative; }
-.wf-truncated::after {
-  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 7px;
-  background: repeating-linear-gradient(115deg, var(--paper) 0 4px, var(--rule) 4px 5px);
-  border-top: 1px solid var(--ink-subtle); pointer-events: none;
+/* v1.11.1 · 斜纹带必须贴在**轴线**(.wf 的底边)上,不能贴滚动容器的底边 ——
+   X 轴标签(.wf-lab)是溢出 .wf 之外、落在容器下方的,贴容器底边会**把标签压掉一半**
+   (维护者报「大量数字被遮蔽」)。所以改成 .wf::after,相对轴线定位。 */
+/* v1.11.1(二改)· 斜纹带只画在**每根柱子内部的底部**,不横贯整宽。
+   横贯版(贴 .wf 底边)会压住 X 轴标签 —— .wf-lab 是溢出 .wf 之外的,那条边正好穿过标签中间
+   (维护者报「大量数字被遮蔽」,第一次修只解决了顶部标签被裁,这条才是主因)。
+   柱底本来就是轴线,画在柱内语义完全一样,而且一个字都不碰。 */
+.wf-truncated .wf-bar::before {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 5px;
+  background: repeating-linear-gradient(115deg, rgba(244,239,230,.92) 0 3px, rgba(33,30,23,.28) 3px 4px);
+  pointer-events: none;
 }
+
+/* v1.11.1 · 长文目录的二级条目(报表页三区之下的 9 个子节)。
+   统一不编号 + 缩进表达层级 —— 给子节编号(四、五…)会让人以为它们和三个区是同级的。 */
+.toc-node.toc-sub { padding-left: 1.15rem; }
+.toc-node.toc-sub .lbl { font-size: 0.92em; color: var(--ink-subtle); }
+.toc-node.toc-sub[aria-current="true"] .lbl { color: var(--ink); }

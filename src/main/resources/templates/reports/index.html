@@ -8,7 +8,7 @@
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('reports', ${me}, ${nav})}"></header>
 <main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10"
-      th:with="tocItems=${ { {label:'一 · 本期封板',href:'#sec-sealed'}, {label:'二 · 结构与风险',href:'#sec-structure'}, {label:'三 · 趋势',href:'#sec-trend'}, {label:'收益概览',href:'#reports-region'}, {label:'本金 vs 投资损益',href:'#sec-decompose'}, {label:'负债 / 风险分布',href:'#sec-risk'}, {label:'资产配置对照',href:'#allocation-diff'}, {label:'调仓建议与计划',href:'#ai-rebalance'}, {label:'账户级收益 · vs 基准',href:'#sec-accounts'}, {label:'财富水位',href:'#sec-wealth'}, {label:'储蓄能力',href:'#sec-savings'}, {label:'支出构成',href:'#sec-expense-mix'} } }">
+      th:with="tocItems=${ { {label:'本期封板',href:'#sec-sealed'}, {label:'结构与风险',href:'#sec-structure'}, {label:'趋势',href:'#sec-trend'}, {label:'收益概览',href:'#reports-region',sub:true}, {label:'本金 vs 投资损益',href:'#sec-decompose',sub:true}, {label:'负债 / 风险分布',href:'#sec-risk',sub:true}, {label:'资产配置对照',href:'#allocation-diff',sub:true}, {label:'调仓建议与计划',href:'#ai-rebalance',sub:true}, {label:'账户级收益 · vs 基准',href:'#sec-accounts',sub:true}, {label:'财富水位',href:'#sec-wealth',sub:true}, {label:'储蓄能力',href:'#sec-savings',sub:true}, {label:'支出构成',href:'#sec-expense-mix',sub:true} } }">
   <div class="toc-cols">
     <div class="toc-cols-main">
       <!-- v1.10 · 页头(账期 / 币种 / 朱印)· 从 _region 搬出来,好让三区按顺序编排 -->

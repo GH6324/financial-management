@@ -98,7 +98,10 @@ public class ReportsController {
                 ? null
                 : accounts.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
         populateModel(me, range, accountsCsv, currency, asof, model);
-        populateExpenseComposition(me, mix, mixWin, model);
+        // v1.11.1 · 窗口不再独立 —— 与三区的时间范围统一(维护者第 5 条:
+        //   「后面几个带时间范围的组件没有统一时间筛选组件」)。mixWin 仍接受(老链接不 404),
+        //   但没显式传时用 range 推出来的期数。
+        populateExpenseComposition(me, mix, mixWin != null ? mixWin : savingsWindowPeriods(range), model);
         if ("true".equalsIgnoreCase(htmx)) {
             return "reports/_region :: region";
         }
@@ -130,7 +133,9 @@ public class ReportsController {
         if (mode != com.family.finance.domain.family.ExpenseEntryMode.ITEMIZED) {
             return;
         }
-        int win = (mixWin != null && (mixWin == 1 || mixWin == 6 || mixWin == 12)) ? mixWin : 1;
+        // v1.11.1 · 不再只认 1/6/12 —— 现在期数由统一的时间范围推出(1/3/6/YTD/12/240),
+        //   任意正整数都合法;非法值回落 1 期(本期)。
+        int win = (mixWin != null && mixWin > 0) ? Math.min(mixWin, 240) : 1;
         var dim = com.family.finance.service.expense.ExpenseLedgerService.Dim.fromCode(mix);
         var periods = periodMapper.findRecentAsOf(me.getFamilyId(), compositionAsOf(me.getFamilyId()), win);
         var periodIds = periods.stream().map(com.family.finance.domain.period.Period::getId).toList();
