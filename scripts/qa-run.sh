@@ -5704,6 +5704,26 @@ RGN="$RD/src/main/resources/templates/reports/_region.html"
   && log_ok "v1112-CHART-LABEL-DENSITY(负债曲线:关图例 + 只标首末点 + clamp + 两端斜向内推不压轴不出框)" \
   || log_bad "v1112-CHART-LABEL-DENSITY 图例回来了 / 标签又印满了" "见 _region.html debtChart 的 legend 与 datalabels.display"
 
+# v1113-DOCKER-UP-PLATFORM · 安装脚本的报错指引必须**按平台**给(issue #10)
+#   报告者在 Ubuntu 22.04 上跑 docker-up.sh,脚本说「只找到老版 docker-compose 5.0.2」,
+#   然后教他 `brew install docker-compose` —— **Linux 上没有 brew**,人直接卡死。
+#   两处缺陷:① 三个失败分支里只有「没装 docker」那条有 Linux 分支,「引擎没起」和
+#   「Compose V2 缺失」两条是纯 macOS 文案;② 版本号取自 `docker-compose version --short`,
+#   而 Ubuntu 那个 1.29.2 的 `--short` 吐的是**依赖库 docker-py 的 5.0.2**,把人往更糊涂的方向带
+#   (改成解析完整输出第一行 `docker-compose version 1.29.2, build unknown`)。
+#   这条守:凡是给 brew 指令的地方,必须有对应的 Linux 分支。
+DUP="$RD/deploy/docker-up.sh"
+{ grep -q '_compose_v2_howto' "$DUP" \
+  && grep -q 'docker-compose-plugin' "$DUP" \
+  && grep -q 'systemctl start docker' "$DUP" \
+  && grep -q 'usermod -aG docker' "$DUP" \
+  && grep -qF "sed -n 's/^docker-compose version" "$DUP" \
+  && [ "$(grep -c 'uname -s' "$DUP")" -ge 4 ] \
+  && grep -q 'docker-compose-plugin' "$RD/deploy/README.md" \
+  && bash -n "$DUP"; } \
+  && log_ok "v1113-DOCKER-UP-PLATFORM(引擎/Compose 失败分支按平台给指引 · Linux 有 systemctl+插件安装 · 版本号不再取 docker-py)" \
+  || log_bad "v1113-DOCKER-UP-PLATFORM 安装报错又只给 macOS 指引了" "见 deploy/docker-up.sh 的 _compose_v2_howto 与引擎分支"
+
 # v1111-VERSION-DESIGN-DOCS · 在研版本必须有 prd + tech-design(2026-08-13)
 #   为什么加:v1.11 那批 13 条反馈,我把维护者的「全部做完不要中途停」理解成"连设计阶段一起省",
 #   代码/护栏/qa-cases 都同步了,唯独 `prd/v1.11.md` + `tech-design/v1.11.md` **压根没写**,

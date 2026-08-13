@@ -231,7 +231,43 @@ bash deploy/docker-up.sh          # 自检环境 + 生成密钥 + 起服务 + �
 cp .env.example .env              # 手改密钥(docker-up.sh 会自动随机生成,手动则自己填)
 docker compose up -d              # 有预构建镜像就拉,没有就 docker compose build 后再 up
 ```
-报 `unknown shorthand flag: 'd' in -d` → 这台机 Compose V2 没装好,见下「国内镜像加速 / Apple Silicon」排障,或直接用上面的 `docker-up.sh`。
+报 `unknown shorthand flag: 'd' in -d` → 这台机 Compose V2 没装好,见下「Compose V2 怎么装」。
+</details>
+
+<details><summary>Compose V2 怎么装(报 <code>unknown shorthand flag: 'd'</code> / 脚本说「只找到老版 docker-compose」时看这里)</summary>
+
+本项目的 `docker-compose.yml` 是**无 `version:` 字段的 V2 写法**,V1(`docker-compose` 1.x,已停止维护)解析不了。
+判断标准只有一条:**`docker compose version`(中间是空格)能打印 `v2.x`**。
+
+**Linux** —— apt 里那个 `docker-compose`(1.29.x)是 V1,**装了也没用**,要装的是 compose **插件**:
+
+```bash
+sudo apt-get install -y docker-compose-plugin      # Debian/Ubuntu(需已配 Docker 官方源)
+sudo dnf install -y docker-compose-plugin          # Fedora/RHEL
+sudo apt-get install -y docker-compose-v2          # Debian 12+ / Ubuntu 24.04+ 自带 V2 包
+
+# 不想动仓库,直接下二进制(任何发行版都行):
+mkdir -p ~/.docker/cli-plugins
+curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)" \
+  -o ~/.docker/cli-plugins/docker-compose
+chmod +x ~/.docker/cli-plugins/docker-compose
+```
+
+**macOS** —— Docker Desktop / OrbStack 自带 V2;用 Homebrew 装的纯 docker CLI 要自己软链:
+
+```bash
+brew install docker-compose
+mkdir -p ~/.docker/cli-plugins
+ln -sfn "$(brew --prefix)/opt/docker-compose/bin/docker-compose" ~/.docker/cli-plugins/docker-compose
+```
+
+**引擎连不上(Linux)** —— 分两种,别混:
+
+```bash
+sudo systemctl start docker        # 服务没起
+sudo usermod -aG docker $USER      # 起了但当前用户没权限(改完 newgrp docker 或重登)
+```
+
 </details>
 
 浏览器开 `http://<宿主>:20000`(默认只发布到 `127.0.0.1`,公网访问请前置反代)。

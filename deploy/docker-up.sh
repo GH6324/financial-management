@@ -282,7 +282,30 @@ command -v docker >/dev/null 2>&1 || die "没装 docker。任选其一装好后�
 
 # ── 2. 引擎(daemon)起没起 ─────────────────────────────────────────
 # Mac 上 docker 引擎跑在一个小 Linux 虚拟机里,要单独装/起;`brew install docker` 只装了命令行,没引擎。
+# Linux 上引擎就在本机,失败通常是两回事之一:**服务没起** 或 **当前用户不在 docker 组**(权限)。
+# issue #10:本段原来整段是 macOS 文案,Linux 用户拿到的是「brew install colima」——毫无用处。
 if ! docker info >/dev/null 2>&1; then
+  if [[ "$(uname -s)" != "Darwin" ]]; then
+    # 区分权限问题:sudo 能连上 = 引擎在跑,只是当前用户没权限走 /var/run/docker.sock
+    if sudo -n docker info >/dev/null 2>&1 || sudo docker info >/dev/null 2>&1; then
+      die "Docker 引擎在跑,但**当前用户没权限**连它(/var/run/docker.sock 属于 docker 组)。
+
+    sudo usermod -aG docker \$USER
+    newgrp docker            # 或者退出重登一次,让组生效
+    bash deploy/docker-up.sh
+
+  (临时办法:直接 sudo bash deploy/docker-up.sh)"
+    fi
+    die "Docker 引擎没在运行。Linux 上引擎就是本机的 systemd 服务:
+
+    sudo systemctl start docker
+    sudo systemctl enable docker      # 开机自启(可选)
+    bash deploy/docker-up.sh
+
+  没装引擎的话:curl -fsSL https://get.docker.com | sh
+  (国内网络拉不动 get.docker.com 就用发行版自带的:sudo apt-get install -y docker.io
+   装完 sudo usermod -aG docker \$USER 再重登)"
+  fi
   if command -v colima >/dev/null 2>&1; then
     die "Docker 引擎没在运行。你已装 colima,启动它再重跑就行:
 
@@ -306,25 +329,61 @@ if ! docker info >/dev/null 2>&1; then
   fi
 fi
 
+# Compose V2 怎么装 —— **按平台给**(issue #10:Linux 用户原来拿到的是 brew 指令)
+_compose_v2_howto(){
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    cat <<'EOF'
+  装 Compose V2 插件(macOS):
+    brew install docker-compose
+    mkdir -p ~/.docker/cli-plugins
+    ln -sfn "$(brew --prefix)/opt/docker-compose/bin/docker-compose" ~/.docker/cli-plugins/docker-compose
+  (Docker Desktop / OrbStack 自带 V2,装了就不用上面这步)
+  之后 `docker compose version` 应显示 v2.x,再重跑本脚本。
+EOF
+  else
+    cat <<'EOF'
+  装 Compose V2 插件(Linux)· 三条路任选:
+
+  1) Docker 官方仓库(推荐,后续能跟着升级):
+       sudo apt-get install -y docker-compose-plugin        # Debian/Ubuntu
+       sudo dnf install -y docker-compose-plugin            # Fedora/RHEL
+     (需先配好 Docker 官方源;没配过就用下面第 2 或 3 条)
+
+  2) 发行版自带的 V2 包(Debian 12+ / Ubuntu 24.04+ 才有):
+       sudo apt-get install -y docker-compose-v2
+
+  3) 直接下插件二进制(任何发行版都行,不依赖仓库):
+       mkdir -p ~/.docker/cli-plugins
+       curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)" \
+         -o ~/.docker/cli-plugins/docker-compose
+       chmod +x ~/.docker/cli-plugins/docker-compose
+
+  注意:apt 里那个 `docker-compose`(1.29.x)是 **V1**,早已停止维护,
+  解析不了本项目的 compose 文件 —— 装了它也没用,要的是上面的 **compose 插件**。
+  之后 `docker compose version` 应显示 v2.x,再重跑本脚本。
+EOF
+  fi
+}
+
 # ── 3. 选 compose 命令(强制 V2;本项目 compose 文件是无 version: 的 V2 写法,V1 解析不了)──
 DC=""
 if docker compose version >/dev/null 2>&1; then
   DC="docker compose"
 elif command -v docker-compose >/dev/null 2>&1; then
-  ver="$(docker-compose version --short 2>/dev/null || true)"
+  # 版本号别信 `version --short`:issue #10 的报告者在 Ubuntu 22.04 上装的是 apt 的
+  # docker-compose 1.29.2,而 `--short` 吐出来的是 **5.0.2** —— 那是它依赖的 docker-py 的版本,
+  # 于是脚本把「老版 1.29.2」印成了「老版 5.0.2」,把人往更糊涂的方向带。
+  # 权威来源是完整输出的第一行:`docker-compose version 1.29.2, build unknown`。
+  ver="$(docker-compose version 2>/dev/null | sed -n 's/^docker-compose version \([0-9][^,]*\).*/\1/p' | head -1)"
+  [[ -n "$ver" ]] || ver="$(docker-compose version --short 2>/dev/null || true)"
   case "$ver" in
     2.*|v2.*) DC="docker-compose" ;;
     *) die "只找到老版 docker-compose ${ver:-(V1)} —— 已停止维护,解析不了本项目的 compose 文件。
-  装 Compose V2 插件(macOS):
-    brew install docker-compose
-    mkdir -p ~/.docker/cli-plugins
-    ln -sfn \"\$(brew --prefix)/opt/docker-compose/bin/docker-compose\" ~/.docker/cli-plugins/docker-compose
-  之后 \`docker compose version\` 应显示 v2.x,再重跑本脚本。" ;;
+$(_compose_v2_howto)" ;;
   esac
 fi
 [[ -n "$DC" ]] || die "没有可用的 Compose V2 命令。
-  · Docker Desktop / OrbStack 自带,确认装好且在运行(\`docker compose version\` 应有输出)
-  · Homebrew 装的纯 docker CLI:\`brew install docker-compose\` 再软链到 ~/.docker/cli-plugins/(见 deploy/README.md)"
+$(_compose_v2_howto)"
 
 say "✓ 环境就绪 · 使用 \`$DC\`"
 

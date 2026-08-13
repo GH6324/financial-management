@@ -132,7 +132,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 506 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表) + UpdateCheckService 版本比较/迁移判定 fail-closed/结果收敛进 VARCHAR(512)))/ 93 e2e 断言(13 主线)/ 581 黑盒回归 |
+| 测试 | JUnit 5 · 506 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表) + UpdateCheckService 版本比较/迁移判定 fail-closed/结果收敛进 VARCHAR(512)))/ 93 e2e 断言(13 主线)/ 582 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
@@ -146,7 +146,7 @@ cd financial-management
 bash deploy/docker-up.sh       # 一条命令:自检环境 + 生成密钥 + 起服务 + 验健康
 ```
 
-`docker-up.sh` 会自检 docker / 引擎 / Compose V2 是否就绪(macOS 上 Docker Desktop、OrbStack、colima 各种装法都适配),卡住时直接给你可复制的修复命令;镜像拉不到就本地构建。
+`docker-up.sh` 会自检 docker / 引擎 / Compose V2 是否就绪(macOS 的 Docker Desktop、OrbStack、colima 各种装法,以及 Linux 原生 engine 都适配),卡住时**按你的系统**给可复制的修复命令(Linux 给 `systemctl` / `docker-compose-plugin`,macOS 给 brew / colima);镜像拉不到就本地构建。装 Compose V2 的完整方法见 [`deploy/README.md` § Compose V2 怎么装](deploy/README.md)。
 
 > **中国大陆:不用额外配任何东西**(v1.6.21 起)。数据库镜像默认取 **GHCR 上我们镜像的同一份 `mysql:8.0`** —— 和 app 镜像同一个源,大陆直连,不碰被限速的 Docker Hub。万一 GHCR 也不通,`docker-up.sh` 会自动退回 Docker Hub;两条都不通时它会**问你一句、然后自己把国内镜像源配好并重启 Docker**(colima / Docker Desktop / Linux 原生都覆盖),不再要你手改引擎配置文件。手动配法(OrbStack、或你想自己来)见 [`deploy/README.md` § 国内镜像加速](deploy/README.md#国内镜像加速--apple-silicon)。
 

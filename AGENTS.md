@@ -186,6 +186,7 @@
 - **单序列图不画图例**:标题已经说明是什么,Chart.js 默认图例会落在**绘图区内**把数据标签挤没(负债曲线是全项目唯一漏写 `legend:{display:false}` 的,被维护者报成"图例和图表互相覆盖")。
 - **Thymeleaf `th:if` 与 `th:replace`/`th:insert` 不能放同一元素**(v1.6.25 实测):片段包含优先级(1)高于条件求值(3)→ **replace 先执行**,片段会带着 null 参数被渲染并抛异常,而且**响应已经流式输出了一半**,用户拿到半截页面、日志里是片段的二次异常**盖住真因**。条件必须外提到 `<th:block th:if=...>` 包一层。守护 `v1625-UPDATE-PATH` 钉住全仓 0 处。
 - **错误页必须零依赖**:`/error` 依赖的正是刚刚出错的那套机制(nav 需要 `state`,而错误转发的 model 里没有)→ 错误页的 head/顶栏一律自包含,不复用需要 model 的片段。
+- **安装/部署脚本的报错指引必须按平台给**(2026-08-13 · issue #10):报告者在 Ubuntu 上被 `docker-up.sh` 教去 `brew install docker-compose` —— Linux 没有 brew,直接卡死。**凡是出现 `brew` 的分支,必须有对应的 Linux 分支**;Linux 的「引擎连不上」还要再分两种(`sudo docker info` 能通 = 权限,要 `usermod -aG docker`;不通 = 服务没起,要 `systemctl start docker`)。另:**别信 `docker-compose version --short`** —— Ubuntu 的 1.29.2 会吐出依赖库 docker-py 的版本(5.0.2),要解析完整输出第一行。这类分支**必须用桩程序把每条失败路径跑一遍**,只读代码看不出文案错给了哪个平台。
 - **面向用户的「版本」必须不登录可见**(v1.6.25):`/health` 返回 `version`。此前版本徽记只在登录后的 nav 里,`/health` 只有 `status`,导致用户和部署脚本都无法自查"我到底跑的哪一版" —— 用户 `git pull` + 重跑脚本后拿到旧版而无从判断。**部署/更新脚本必须打印版本结论**(vA→vB / 无变化 / 落后+原因),不能只说"起好了"。
 - **Thymeleaf**:`#xxx.yyy()` utility 必须在 `${}` 内;conditional render 必须 force-trigger 验证;诊断 prod 栈先找最早 ERROR。
 - **RestTemplate 调签名 URL**:自己签名+pctEncode 过的 URL 传 `URI.create(s)`,别传 String(会被二次编码 → `SignatureDoesNotMatch`)。
@@ -249,7 +250,7 @@
 # 编译 / 测试(离线)
 mvn -o -q compile              # 只编译
 mvn -o test                    # 全量单测(当前 506)
-bash scripts/qa-run.sh         # 黑盒静态守护(当前 581 · 全量实测 ~5.3 分钟 · 快照还原不污染 beta)
+bash scripts/qa-run.sh         # 黑盒静态守护(当前 582 · 全量实测 ~5.3 分钟 · 快照还原不污染 beta)
 bash scripts/qa-run.sh --no-restore          # 例外:就是要看跑完之后的库状态(排查用 · 会污染基线)
 bash scripts/qa-run.sh --only 'v1.10|v1.8'   # 只跑匹配的 section(~2.5 分钟)· 开发中用这个,别等全量
 bash scripts/e2e.sh            # 端到端真验收(13 主线 93 断言 · 快照还原不污染)
