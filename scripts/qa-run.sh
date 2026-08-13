@@ -25,12 +25,58 @@ QA_ONLY="${QA_ONLY:-}"
 if [[ "${1:-}" == "--only" && -n "${2:-}" ]]; then QA_ONLY="$2"; fi
 SEC_ACTIVE=1
 
+# ── 基线隔离(策略 A · 2026-08-13)· 与 scripts/e2e.sh 同一套做法 ──
+#
+#   **为什么补这个**:qa-run 会往 beta 真库里写(建账户/记账/关账/灌 FIRE 长序列),
+#   但跑完不还原。后果实测两条:
+#     ① 2026-08-12 的一次全量跑把用户**留作验收的当期(2026-08)关账了** —— 于是
+#        beta 从此 0 个 OPEN 周期,第二天再跑,所有依赖"当期可录入"的用例
+#        (FR5/FR7/v02-*/v03-* 共 30+ 条)集体级联变红,看起来像刚上线的代码打穿了一堆东西,
+#        实际全是**上一次跑自己留下的状态**。排查这批假红比跑测试本身还贵。
+#     ② 周期表被逐次往后灌,已排到 2040-08(168 个未来 CLOSED 期、3048 条快照),
+#        而 findLatest 按 period_start 倒序取 → 应用侧"最新期"落到十几年后。
+#
+#   所以:开跑前 mysqldump 一份基线,trap EXIT 无论成败都还原 + 重启。跑完 beta 回到原样,
+#   可重复、不污染、不会再把用户的当期关掉。
+#   `--no-restore` 留给"就是要看跑完之后的状态"那种排查场景。
+QA_RESTORE=1
+for a in "$@"; do [[ "$a" == "--no-restore" ]] && QA_RESTORE=0; done
+QA_DUMP="/tmp/finance-qa-baseline.sql"
+if [[ "$QA_RESTORE" == 1 ]]; then
+  echo "▸ 快照 beta 基线 → $QA_DUMP"
+  # --single-transaction:InnoDB MVCC 一致性快照,不加表锁 → 不打断 beta 连接池(否则其后登录会失败)
+  mysqldump --single-transaction --skip-lock-tables -ufinance -pfinance finance > "$QA_DUMP" 2>/dev/null \
+    || { echo "✗ 快照失败,中止(不动 beta)"; exit 1; }
+  echo "✓ 基线已存($(wc -l < "$QA_DUMP") 行 SQL)"
+  qa_restore(){
+    echo; echo "▸ 还原 beta 基线(策略 A)..."
+    # 不要写成 `mysql ... | grep -v ...` —— 那样退出码变成 grep 的,正常还原时(只有一条
+    # password warning、被过滤后无输出)grep 返回 1,会把成功报成失败。先跑、再判。
+    local err; err="$(mysql -ufinance -pfinance finance < "$QA_DUMP" 2>&1 | grep -v "Using a password" || true)"
+    if [[ -z "$err" ]]; then
+      sudo -n /bin/systemctl restart finance 2>/dev/null && sleep 8
+      echo "✓ 已还原 + 重启"
+    else
+      echo "✗ 还原失败!$err"; echo "  请手动:mysql finance < $QA_DUMP"
+    fi
+  }
+  trap qa_restore EXIT
+else
+  echo "▸ --no-restore:跑完保留 beta 状态(排查用 · 注意会污染基线)"
+fi
+
 log_ok()   { [[ "$SEC_ACTIVE" == 0 ]] && return 0; echo -e "\033[32m PASS \033[0m $1"; PASS=$((PASS+1)); }
 log_bad()  { [[ "$SEC_ACTIVE" == 0 ]] && return 0; echo -e "\033[31m FAIL \033[0m $1  ::  ${2:-}"; FAIL=$((FAIL+1)); FAILED+=("$1 :: ${2:-}"); }
 # 否定断言前先剥掉**整行注释** —— "否定断言被自己解释历史的注释扫红"这个坑本项目踩了 7 次
 # (AGENTS.md 有专条),而"每次记得盯代码构造"显然不管用。机械剥注释,结构上不可能再撞。
 # 只去掉整行注释(^\s*#),不动行尾的 # —— 后者可能是字符串里的合法字符。
 code_only(){ sed -e 's/^[[:space:]]*#.*$//' "$1"; }
+
+# code_only 只剥 **shell 的 `#` 注释**。Java/JS 源码的注释是 `//`,而且最常见的是**行尾**注释
+# (`case CN -> AShareTicker.withExchange(t);   // 原 startsWith("6") 漏 513180`)—— 对 Java 文件写否定
+# 断言必须用这个版本,否则照样被自己解释历史的注释扫红(2026-08-13 · v13.1-ISSUE3-CN 就是这么红的)。
+# 行尾只剥「空白 + //」开头的部分:URL 里的 `//` 前面是 `:`,不会被误伤。
+java_code_only(){ sed -E -e 's@^[[:space:]]*//.*$@@' -e 's@[[:space:]]//.*$@@' -e 's@^[[:space:]]*\*.*$@@' "$1"; }
 
 log_skip() { [[ "$SEC_ACTIVE" == 0 ]] && return 0; echo -e "\033[33m SKIP \033[0m $1  ::  ${2:-}"; SKIP=$((SKIP+1)); }
 section()  {
@@ -323,6 +369,35 @@ hdrs=$($CURL -b $COOKIE -D - -X POST -H "X-XSRF-TOKEN: $CSRF" -H "HX-Request: tr
 echo "$hdrs" | grep -qi "HX-Trigger:.*showToast" \
   && log_ok "FR11-4 CLOSED 期点+收入 → HX-Trigger=showToast(toast 拒写)" \
   || log_bad "FR11-4 CLOSED 拒写无 toast 头" "missing"
+
+# ── 把 OPEN 周期还回去(2026-08-13)──
+#
+#   本段刻意做了两件"关"的事:`open-next`(它会把当期**结转关账**再开下一期)+ `force-close`
+#   (关掉刚开的那期)→ 跑完这一段,库里**一个 OPEN 周期都不剩**。
+#   而下游 v02-UX / v02-SOFT-DEL / v03-IND / v03-STOCK / v04-VAL / v09-FORM 十几条断言的是
+#   `/entry` 页上的**录入框**,没有 OPEN 周期时 entry 只显示「本期已关账」→ 这十几条**集体假红**。
+#   实测:补上这个助手后 FAIL 从 28 掉到个位数,而那些"红"从头到尾都不是代码的问题。
+#
+#   走 `/admin/periods/{id}/reopen` **真实入口**(不直接 UPDATE 库):既符合"验收走用户路径",
+#   也顺带覆盖了重开链路。只重开 period_start <= 今天 的最新一期 —— 库里若有未来期(beta 曾被
+#   灌到 2040-08),重开未来期等于把"当期"推到十几年后,entry 照样是空的。
+ensure_open_period(){
+  local n; n=$(mysql -ufinance -pfinance finance -sN -e \
+    "SELECT COUNT(*) FROM period WHERE family_id=1 AND status='OPEN'" 2>/dev/null)
+  [[ "${n:-0}" -gt 0 ]] && return 0
+  local pid; pid=$(mysql -ufinance -pfinance finance -sN -e \
+    "SELECT id FROM period WHERE family_id=1 AND status='CLOSED' AND period_start<=CURDATE() \
+     ORDER BY period_start DESC LIMIT 1" 2>/dev/null)
+  [[ -z "$pid" ]] && { log_bad "QA-ENV 没有可重开的账期" "period 表里没有 period_start<=今天 的 CLOSED 期"; return 1; }
+  $CURL -b $COOKIE -X POST -H "X-XSRF-TOKEN: $CSRF" \
+    --data-urlencode "_csrf=$CSRF" --data-urlencode "reason=qa-run 关账段跑完后恢复当期,供下游 entry 用例" \
+    "$BASE/admin/periods/$pid/reopen" -o /dev/null
+  local st; st=$(mysql -ufinance -pfinance finance -sN -e "SELECT status FROM period WHERE id=$pid" 2>/dev/null)
+  [[ "$st" == "OPEN" ]] \
+    && log_ok "QA-ENV 关账段后恢复 OPEN 周期 period=$pid(下游 entry 用例的前提)" \
+    || log_bad "QA-ENV 恢复 OPEN 周期失败" "period=$pid status=$st"
+}
+ensure_open_period
 
 # ---------- FR-12 周期重开 ----------
 section "FR-12 · 周期重开"
@@ -781,12 +856,16 @@ grep -q 'CASH + 货币基金' "$TMP" \
   || mysql -ufinance -pfinance finance -e "UPDATE account SET product_category_code='$LIQ_ORIG_PC' WHERE id=$LIQ_ACC" 2>/dev/null
 
 # v02-LIQ-3 · product_category 全 16 行 liquidity_class 列已 populate
+# 2026-08-13:原来断言「恰好 16 个类目有 liquidity_class」—— 后续版本加了产品类目(现 18 个),
+#   护栏就红了,而这并不是缺陷。写死计数分母是本项目反复踩的坑(AGENTS「加枚举值要扫计数分母」)。
+#   改为守真正的意图:**一个类目都不许漏 liquidity_class**(缺失数 = 0),加多少类目都不会假红。
+LIQ_MISSING=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM product_category WHERE liquidity_class IS NULL OR liquidity_class = ''" 2>/dev/null)
 LIQ_COL_COUNT=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM product_category WHERE liquidity_class IS NOT NULL AND liquidity_class != ''" 2>/dev/null)
 LIQ_LIQUID=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM product_category WHERE liquidity_class='LIQUID'" 2>/dev/null)
 LIQ_ILLIQ=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM product_category WHERE liquidity_class='ILLIQUID'" 2>/dev/null)
-{ [[ "$LIQ_COL_COUNT" -eq 16 ]] && [[ "$LIQ_LIQUID" -ge 2 ]] && [[ "$LIQ_ILLIQ" -ge 2 ]]; } \
-  && log_ok "v02-LIQ-3 16 类目均有 liquidity_class · LIQUID=$LIQ_LIQUID ILLIQUID=$LIQ_ILLIQ" \
-  || log_bad "v02-LIQ-3 V20 灌数据" "total=$LIQ_COL_COUNT liquid=$LIQ_LIQUID illiquid=$LIQ_ILLIQ"
+{ [[ "${LIQ_MISSING:-1}" -eq 0 ]] && [[ "$LIQ_COL_COUNT" -ge 16 ]] && [[ "$LIQ_LIQUID" -ge 2 ]] && [[ "$LIQ_ILLIQ" -ge 2 ]]; } \
+  && log_ok "v02-LIQ-3 全部 $LIQ_COL_COUNT 个类目都有 liquidity_class(0 漏)· LIQUID=$LIQ_LIQUID ILLIQUID=$LIQ_ILLIQ" \
+  || log_bad "v02-LIQ-3 有类目缺 liquidity_class" "missing=$LIQ_MISSING total=$LIQ_COL_COUNT liquid=$LIQ_LIQUID illiquid=$LIQ_ILLIQ"
 
 # CAT-1 /admin/product-categories 200 + 16 个类目
 code=$($CURL -b $COOKIE -o "$TMP" -w "%{http_code}" "$BASE/admin/product-categories")
@@ -1429,9 +1508,15 @@ ME_ID=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM member WHERE fa
 
 # v03-IND-1 · /entry 页面含 FR-51 2 框 form
 $CURL -b $COOKIE "$BASE/entry" -o "$TMP" -w ""
-{ grep -q '的本月总收入' "$TMP" && grep -q '的本月总支出' "$TMP" && grep -q 'cashflow-summary' "$TMP"; } \
-  && log_ok "v03-IND-1 /entry 含 FR-51 家庭口径 2 框 form" \
-  || log_bad "v03-IND-1 entry 缺 2 框" "see $TMP"
+# 2026-08-13:「家庭口径 2 框」是 FR-51 的旧形态。v1.8(FR-270/271)起**收入侧只有逐笔录入**
+#   (页脚给 Σ 合计),支出侧才是逐笔/总额二选一(默认总额)→ 「的本月总收入」这个框已被主动删掉。
+#   守的意图不变:填报页必须同时透出**家庭口径的收入合计**和**总额提交入口**。
+#   注意支出侧是**家庭级开关二选一**:ITEMIZED 只有逐笔录入(没有总额框和 cashflow-summary),
+#   TOTAL 才有总额框。断言写成"两者取其一",否则家庭把开关一切护栏就红(beta 现在是 ITEMIZED)。
+{ grep -q '家庭本月收入' "$TMP" \
+  && { { grep -q '的本月总支出' "$TMP" && grep -q 'cashflow-summary' "$TMP"; } || grep -q '家庭本月支出' "$TMP"; }; } \
+  && log_ok "v03-IND-1 /entry 透出家庭口径收入合计 + 支出入口(逐笔 Σ 或总额框二选一)" \
+  || log_bad "v03-IND-1 entry 家庭口径入口缺" "see $TMP"
 
 # v03-IND-2 · POST /entry/cashflow-summary 写入 DB
 code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
@@ -1519,8 +1604,10 @@ $CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
 rm -f $COOKIE; TOKEN=$($CURL -c $COOKIE "$BASE/login" | grep -oE 'name="_csrf" value="[^"]*"' | head -1 | sed 's/.*value="\([^"]*\)".*/\1/')
 $CURL -b $COOKIE -c $COOKIE -X POST --data-urlencode "_csrf=$TOKEN" --data-urlencode "username=diwa" --data-urlencode "password=demo1234" "$BASE/login" -o /dev/null -w "" || true
 $CURL -b $COOKIE "$BASE/entry" -o "$TMP" -w ""
-{ grep -q "家庭本月总收入" "$TMP" && grep -q "家庭本月已填" "$TMP"; } \
-  && log_ok "v03-IND-12 /entry 含家庭聚合显示(SUM 区块)" \
+# 2026-08-13:同 v03-IND-1 —— 「家庭本月总收入」已随 v1.8 收入侧改逐笔而去;
+#   进度行的措辞也分模式(逐笔=「家庭本月已录 N 笔」· 总额=「家庭本月已填收支 N/M 人」),两者取其一。
+{ grep -q "家庭本月收入" "$TMP" && { grep -q "家庭本月已录" "$TMP" || grep -q "家庭本月已填" "$TMP"; }; } \
+  && log_ok "v03-IND-12 /entry 含家庭聚合(收入合计 + 已录/已填进度)" \
   || log_bad "v03-IND-12 entry 缺家庭聚合" "see $TMP"
 
 # 复跑后置:清掉测试 cashflow 数据
@@ -1546,10 +1633,16 @@ code=$($CURL -b $COOKIE "$BASE/accounts/$STOCK_ACC/holdings" -o "$TMP" -w "%{htt
   || log_bad "v03-STOCK-1 持仓页" "code=$code"
 
 # v03-STOCK-2 · 非 STOCK 账户拒绝访问持仓页
-NON_STOCK=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM account WHERE family_id=1 AND type!='STOCK' AND archived_at IS NULL LIMIT 1" 2>/dev/null)
+# 2026-08-13:原来随便取一个 `type != 'STOCK'` 的账户就断言拒绝 —— 但 v1.4 起
+#   supportsHoldings 已**主动放开** WEALTH/CASH(基金/理财/支付宝,为截图导入多持仓),
+#   v0.14/v1.x 又加了 METAL/CRYPTO。于是取到 CASH 账户当然 200,护栏在守一条项目已推翻的规则。
+#   改为对着**真正不支持持仓的类型**(LOAN/PROPERTY/INSURANCE/OTHER)断言拒绝 —— 这才是红线。
+NON_STOCK=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM account WHERE family_id=1 \
+  AND type IN ('LOAN','PROPERTY','INSURANCE','OTHER') AND archived_at IS NULL LIMIT 1" 2>/dev/null)
+NON_STOCK_T=$(mysql -ufinance -pfinance finance -sN -e "SELECT type FROM account WHERE id=$NON_STOCK" 2>/dev/null)
 code=$($CURL -b $COOKIE "$BASE/accounts/$NON_STOCK/holdings" -o /dev/null -w "%{http_code}")
-[[ "$code" == "500" || "$code" == "400" ]] && log_ok "v03-STOCK-2 非 STOCK 账户拒绝持仓页" \
-  || log_bad "v03-STOCK-2 非 STOCK 未拒" "code=$code"
+[[ "$code" == "500" || "$code" == "400" ]] && log_ok "v03-STOCK-2 不支持持仓的类型($NON_STOCK_T)访问持仓页被拒(supportsHoldings 红线)" \
+  || log_bad "v03-STOCK-2 $NON_STOCK_T 未拒" "code=$code"
 
 # v03-STOCK-3 · 创建 MANUAL 持仓(股数×单股估值)· issue#3 精度:单股 15.678 原样落库(非旧 DECIMAL(15,2) 截成 15.68)
 code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
@@ -1710,17 +1803,26 @@ NEW_VAL=$(mysql -ufinance -pfinance finance -sN -e "SELECT ROUND(manual_value,2)
 # v03-STOCK-15 · 持仓 + CASH 共存 · account_balance = holdings + cash
 $CURL -b $COOKIE -c $COOKIE "$BASE/accounts/$STOCK_ACC/holdings" -o /dev/null
 XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
-# 加一个 HKD MANUAL 持仓 50000
+# 2026-08-13 修两处**护栏自身**的过时(功能一直好的):
+#   ① 载荷过时:v13.1 精度改造把手填持仓从单一 `manualValue` 改成 `shares × unitValue`(20,6 位),
+#      这里还在发 `manualValue=50000` → POST 直接 400,持仓**根本没建出来**,于是账户估值里只剩
+#      USD 现金那部分(实测 62775.46 ≈ 8000×7.847),看着像"共存估值算错了",其实是测试没建成数据。
+#   ② 断言写死区间 80000~160000 —— 那是当年 fixture 攒出来的数,自动估值持仓一涨跌就不成立。
+#      改成测**增量**:加一笔 50000,估值就该多 50000,且原有 CASH 持仓不被顶掉(两形态共存)。
+#      与账户里原本多少钱、汇率多少、涨跌多少全都无关。
+pre_bal=$(mysql -ufinance -pfinance finance -sN -e "SELECT end_balance FROM period_snapshot WHERE period_id=$PID_OPEN AND account_id=$STOCK_ACC" 2>/dev/null)
+# 加一个 HKD MANUAL 持仓 = 1 份 × 50000(v13.1 起 shares/unitValue 均必填)
 $CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
-  --data-urlencode "displayName=v03 私募 X" --data-urlencode "manualValue=50000" \
+  --data-urlencode "displayName=v03 私募 X" --data-urlencode "shares=1" --data-urlencode "unitValue=50000" \
   "$BASE/accounts/$STOCK_ACC/holdings/new-manual" -o /dev/null -w "" || true
 sleep 3
 new_bal=$(mysql -ufinance -pfinance finance -sN -e "SELECT end_balance FROM period_snapshot WHERE period_id=$PID_OPEN AND account_id=$STOCK_ACC" 2>/dev/null)
-new_int=$(echo "$new_bal" | cut -d. -f1)
-# 预期 = USD 8000 × 7.83 (≈62640) + HKD 50000 = ≈112k;容差 80k-160k
-{ [[ -n "$new_bal" ]] && [[ "$new_int" -gt 80000 ]] && [[ "$new_int" -lt 160000 ]]; } \
-  && log_ok "v03-STOCK-15 持仓 MANUAL+CASH 共存 · HKD 账户 bal=$new_bal" \
-  || log_bad "v03-STOCK-15 持仓+CASH 共存估值" "bal=$new_bal"
+BAL_DELTA=$(awk -v a="$new_bal" -v b="$pre_bal" 'BEGIN{d=a-b; if(d<0)d=-d; printf "%d", d}')
+# CASH 行是靠 **valuation_mode='CASH'** 标识的(market 为 NULL),不是 market='CASH'
+CASH_HOLD=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM stock_holding WHERE account_id=$STOCK_ACC AND valuation_mode='CASH' AND archived_at IS NULL" 2>/dev/null)
+{ [[ -n "$new_bal" ]] && [[ -n "$pre_bal" ]] && [[ "$BAL_DELTA" -ge 49900 ]] && [[ "$BAL_DELTA" -le 50100 ]] && [[ "${CASH_HOLD:-0}" -ge 1 ]]; } \
+  && log_ok "v03-STOCK-15 手填持仓 50000 计入估值(Δ=$BAL_DELTA)· 同账户 CASH 持仓 $CASH_HOLD 笔仍在(两形态共存)" \
+  || log_bad "v03-STOCK-15 持仓+CASH 共存估值" "pre=$pre_bal new=$new_bal Δ=$BAL_DELTA cashHold=$CASH_HOLD"
 
 # 恢复账户币种 + 清测试持仓
 mysql -ufinance -pfinance finance -e "UPDATE account SET currency='$ORIG_CURR' WHERE id=$STOCK_ACC; DELETE FROM stock_holding WHERE account_id=$STOCK_ACC;" 2>/dev/null
@@ -2219,12 +2321,17 @@ $CURL -b $COOKIE "$BASE/checkup/diagnose" -o "$TMP" -w "" --max-time 60
 $CURL -b $COOKIE "$BASE/checkup/diagnose?refresh=true" -o "$TMP" -w "" --max-time 60
 # 总评 banner + 4 个 dimension 名 + verdict pill + 优先行动
 total_markers=0
-for kw in "总评" "资产配置" "风险敞口" "流动性" "收益质量" "优 · 先 · 行 · 动" "📊" "⚡" "💧" "📈"; do
+# 2026-08-13:原来的 10 个 marker 里有 4 个是 emoji(📊⚡💧📈),阈值 ≥8。
+#   而项目后来定了铁律「UI 不许 emoji,一律 inline SVG」→ emoji 被正确地删掉,这条护栏就永远只能拿到
+#   6/10 而变红 —— 它在**惩罚项目按规矩做的事**。改成:6 个文字 marker 必须全在,并顺手正向守住
+#   「诊断面板里没有 emoji」,让这条从"拖后腿"变成"帮着守规矩"。
+for kw in "总评" "资产配置" "风险敞口" "流动性" "收益质量" "优 · 先 · 行 · 动"; do
   if grep -q "$kw" "$TMP"; then total_markers=$((total_markers+1)); fi
 done
-{ [[ "$total_markers" -ge 8 ]]; } \
-  && log_ok "v04-AI-DIAGNOSE-2 结构化诊断渲染 · 总评+4 维度+优先行动 (markers=$total_markers)" \
-  || log_bad "v04-AI-DIAGNOSE-2 结构化渲染缺" "markers=$total_markers/10"
+DIAG_EMOJI=$(grep -oE '📊|⚡|💧|📈|🔄|✅|⚠️' "$TMP" | wc -l | tr -d ' ')
+{ [[ "$total_markers" -ge 6 ]] && [[ "$DIAG_EMOJI" -eq 0 ]]; } \
+  && log_ok "v04-AI-DIAGNOSE-2 结构化诊断渲染 · 总评+4 维度+优先行动 6/6 · 且无 emoji(图标走 inline SVG)" \
+  || log_bad "v04-AI-DIAGNOSE-2 结构化渲染缺 / 出现 emoji" "markers=$total_markers/6 emoji=$DIAG_EMOJI"
 
 # v04-AI-DIAGNOSE-3 · 老 cache(纯文本)兼容 · structured 解析失败时 fallback 显示 text
 # 直接造一个非 JSON cache 强制走 fallback 路径(注:cache 是内存 · 难直接造 · 这里查模板分支存在)
@@ -2841,7 +2948,9 @@ WIZ="$RD/src/main/resources/templates/accounts/_template-wizard.html"
 { grep -q '.pill-slate' "$CSS17" \
   && grep -qF "'INSURANCE' ? ' pill-slate'" "$RD/src/main/resources/templates/accounts/detail.html" \
   && grep -qF "'INSURANCE' ? ' pill-slate'" "$RD/src/main/resources/templates/accounts/index.html" \
-  && grep -qF "'INSURANCE' ? ' pill-slate'" "$RD/src/main/resources/templates/entry/_row.html" \
+  `# entry 行不再用 pill:v1.9.3 为修「类型列竖排导致行高难看」改成紧凑彩色文字(type.label +` \
+  `# th:classappend 控色)。守的意图不变 —— 填报行必须透出中文类型,不裸露 enum code。` \
+  && grep -qF 'row.account.type.label' "$RD/src/main/resources/templates/entry/_row.html" \
   && grep -q 'insuranceHint' "$WIZ" && grep -q '消费型是纯支出' "$WIZ" \
   && grep -q 'type == AccountType.STOCK || type == AccountType.CRYPTO || type == AccountType.METAL' \
         "$RD/src/main/java/com/family/finance/service/stock/StockHoldingService.java"; } \
@@ -3152,9 +3261,18 @@ RG_DASH=src/main/resources/templates/dashboard/_region.html
 
 # v09-FORM-1 · entry 收入/支出 金额前置必填(空字段不发请求;三表单各自独立,互不阻塞)
 ROW=src/main/resources/templates/entry/_row.html
-{ grep -qE 'required[^>]*placeholder="\+收入"' "$ROW" && grep -qE 'required[^>]*placeholder="-支出"' "$ROW"; } \
-  && log_ok "v09-FORM-1 entry 收入+支出金额 required(空字段前置拦截)" \
-  || log_bad "v09-FORM-1 entry 收入/支出金额缺 required" "see entry/_row.html cash-flow forms"
+# 2026-08-13:原来钉 `placeholder="+收入"` / `"-支出"` 这两个**文案**,v1.8 改逐笔录入后
+#   placeholder 变成 "0.00"/"金额"/"划转金额",护栏就红了 —— 而 required 一个没少。
+#   改成结构性断言:**填报页所有 `name="amount"` 的框都必须带 required**(数量相等),
+#   以后再改文案/加一处录入口都不会假红,反而漏加 required 会被抓住。
+AMT_ALL=0; AMT_REQ=0
+for f in "$ROW" "$RD/src/main/resources/templates/entry/index.html"; do
+  AMT_ALL=$(( AMT_ALL + $(grep -c 'name="amount"' "$f") ))
+  AMT_REQ=$(( AMT_REQ + $(grep -c 'name="amount"[^>]*required' "$f") ))
+done
+{ [[ "$AMT_ALL" -ge 3 ]] && [[ "$AMT_REQ" -eq "$AMT_ALL" ]]; } \
+  && log_ok "v09-FORM-1 填报页 $AMT_ALL 个金额框全部 required(空字段前置拦截 · 收入/支出/划转)" \
+  || log_bad "v09-FORM-1 有金额框没带 required" "amount=$AMT_ALL required=$AMT_REQ"
 
 # v09-FORM-2 · 通用条件必填助手就位(data-require-when:某控件命中才 required)
 LAY=src/main/resources/templates/fragments/layout.html
@@ -3487,7 +3605,9 @@ ITJ="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
   && [ -f "$RD/db/migration/V47__industry_revision.sql" ] \
   && grep -q "FINANCE_ESTATE" "$RD/db/migration/V47__industry_revision.sql" \
   && grep -q "OVERSEAS" "$RD/db/migration/V47__industry_revision.sql" \
-  && grep -q "股票股权" "$RD/src/main/resources/static/js/lens.js" \
+  `# lens.js 不再硬编码中文维值 —— 标签统一由服务端注入的 DIMS 派生(DIM_LABEL[d.key]=d.label),` \
+  `# 这是比 grep 字面量更强的保证:枚举改名前端自动跟着变,不存在"漏改一处"。` \
+  && grep -qF 'DIM_LABEL[d.key] = d.label' "$RD/src/main/resources/static/js/lens.js" \
   && grep -q "股票股权" "$RD/src/main/java/com/family/finance/service/checkup/rule/LensConcentrationRules.java" \
   && grep -q 'MONEY_CASH' "$RD/src/main/java/com/family/finance/service/lens/LensAiTagService.java"; } \
   && log_ok "v11-DIM-REV2 维值修订三(资产类型平民化 · 行业18含货币现金/银行券商保险/地产建筑 · 老值V47迁移 · 筛选与AI prompt联动)" \
@@ -3570,7 +3690,8 @@ LSJ="$RD/src/main/resources/static/js/lens-select.js"
   && [ "$(grep -c 'class="tab-cash' "$RD/src/main/resources/templates/entry/index.html")" -ge 2 ] \
   && grep -q 'gap-1.5 whitespace-nowrap' "$RD/src/main/resources/templates/entry/index.html" \
   && grep -qE 'if \(!mobile.*\) q\.focus\(\)' "$RD/src/main/resources/static/js/lens-select.js" \
-  && grep -q 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3' "$RD/src/main/resources/templates/goals/_progress-strip.html" \
+  `# 2026-08-13 删「目标手机端单列」这条:v11-R6 之后刻意改成两列密度(grid-cols-2 md:grid-cols-3` \
+  `# + px-3 py-3 sm:px-6 sm:py-4),两条护栏编码了互相矛盾的意图,旧的这条作废。现由 v11-R6 守。` \
   && grep -q 'flex flex-col sm:flex-row sm:items-center' "$RD/src/main/resources/templates/dashboard/_insight-strip.html" \
   && grep -q 'sm:flex-col sm:items-end' "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q 'mobLegend' "$RD/src/main/resources/templates/dashboard/_region.html"; } \
@@ -3592,15 +3713,19 @@ LSJ="$RD/src/main/resources/static/js/lens-select.js"
   || log_bad "v11-R6 六项修复缺件" "see _progress-strip/_region/EntryController/accounts/GoalProgressService"
 
 # v11-R7 · 2026-07-19 五项:目标ⓘ点击弹描述不跳详情 · 小图标热区扩38px · 自绘图例可点toggle曲线 · lens截图v3 · CI直连central
-{ grep -q '_kpi-info :: i(${gp.goal.description' "$RD/src/main/resources/templates/goals/_progress-strip.html" \
+# 2026-08-13 修护栏自身两处失效(功能一直好的,是断言坏了):
+#   ① `${` 模式必须 `grep -qF` —— BRE 把 `{}` 当区间量词,静默不匹配(AGENTS 早有这条,这条没遵守);
+#   ② 原来还断言 README 里有 `pc_lens.jpg?v=3` —— 那是 v0.11 时代「近期更新」段的一张截图热链,
+#      而 README 按维护规则只保留最近 1–2 个版本,那行早就正常滚掉了。护栏钉在会被正常维护搬走的
+#      字面量上 = 迟早假红。这条删掉,不换成别的字面量。
+{ grep -qF '_kpi-info :: i(${gp.goal.description' "$RD/src/main/resources/templates/goals/_progress-strip.html" \
   && grep -q '.kpi-info-btn::after, .tap::after' "$RD/src/main/resources/static/css/style.css" \
   && grep -q 'inset: -12px' "$RD/src/main/resources/static/css/style.css" \
   && grep -q 'setDatasetVisibility' "$RD/src/main/resources/templates/dashboard/_region.html" \
   && grep -q 'tap text-\[11px\] text-ink-subtle hover:text-rust' "$RD/src/main/java/com/family/finance/web/entry/EntryController.java" \
   && grep -q 'CN_MIRROR' "$RD/Dockerfile" \
   && grep -q 'CN_MIRROR=0' "$RD/.github/workflows/docker-publish.yml" \
-  && [ -f "$RD/deploy/maven-settings-central.xml" ] \
-  && grep -q 'pc_lens.jpg?v=3' "$RD/README.md"; } \
+  && [ -f "$RD/deploy/maven-settings-central.xml" ]; } \
   && log_ok "v11-R7 五项(目标ⓘ弹描述stopPropagation · 热区::after-12px · 图例toggle回归 · lens截图成员结构v3 · CI去aliyun单点)" \
   || log_bad "v11-R7 五项缺件" "see _progress-strip/style.css/_region/EntryController/Dockerfile/workflow"
 
@@ -3760,11 +3885,14 @@ AUTOF="$RD/src/main/resources/templates/stock/holding-new-auto.html"
 ASH="$RD/src/main/java/com/family/finance/service/stock/AShareTicker.java"
 SINA="$RD/src/main/java/com/family/finance/service/stock/SinaStockClient.java"
 TENC="$RD/src/main/java/com/family/finance/service/stock/TencentStockClient.java"
+# 2026-08-13:两条否定断言必须先 code_only 剥注释 —— Sina/Tencent 里那行修复注释本身就写着
+#   「原 startsWith("6") 漏上交所 ETF 如 513180」,裸 grep 会被自己的历史说明扫红(本项目第 6 次)。
+#   注意用 java_code_only(剥 `//`),不是 code_only(那个只剥 shell 的 `#`)。
 { [ -f "$ASH" ] && grep -q "c == '5' || c == '6' || c == '9'" "$ASH" \
   && grep -q 'AShareTicker.withExchange' "$SINA" \
   && grep -q 'AShareTicker.withExchange' "$TENC" \
-  && ! grep -q 'startsWith("6")' "$SINA" \
-  && ! grep -q 'startsWith("6")' "$TENC"; } \
+  && ! java_code_only "$SINA" | grep -q 'startsWith("6")' \
+  && ! java_code_only "$TENC" | grep -q 'startsWith("6")'; } \
   && log_ok "v13.1-ISSUE3-CN A 股前缀集中 AShareTicker(5/6/9→sh)· Sina/Tencent 复用 · 无 startsWith(\"6\") 残留(513180 不再误判 sz)" \
   || log_bad "v13.1-ISSUE3-CN A 股前缀仍分散/仍用 startsWith(\"6\")" "see AShareTicker/SinaStockClient/TencentStockClient"
 

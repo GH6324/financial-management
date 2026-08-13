@@ -1,29 +1,49 @@
 {
  "_comment": "每次发版按核心能力改清单(PC 用 selector 裁剪聚焦;手机不裁剪、整屏 full=false 平铺 —— 用户定 2026-07-11)",
- "_version": "v1.11.0 · 13 条反馈全部落地:性能 −55%/−37% · 局部刷新不丢位置 · 封板分布 · 宏观 fallback 明示 · 信息安全脱敏",
+ "_version": "v1.11.1 · 5 条反馈:发版不再踢登录 · 瀑布标签不再被遮 · 目标百分比 1 位小数 · 目录编号统一 · 一页只剩一个时间筛选器",
  "pc": [
   {
    "path": "/reports?range=1Y",
-   "name": "structure-dist",
+   "name": "waterfall-labels",
    "wait": 2600,
-   "waitFor": "text=按资产大类",
-   "selector": "#sec-structure"
+   "waitFor": "text=净资产为什么变了",
+   "selector": ".wf-scroll"
   },
   {
    "path": "/reports?range=1Y",
-   "name": "trend-chips",
+   "name": "toc-unnumbered",
    "wait": 2400,
-   "waitFor": "text=时间范围只影响这一区",
-   "selector": "#sec-trend .zone-head"
+   "waitFor": "text=期末资产负债表",
+   "selector": ".toc-rail"
+  },
+  {
+   "path": "/reports?range=6M",
+   "name": "one-time-filter",
+   "wait": 2600,
+   "waitFor": "text=钱花在哪了",
+   "selector": "#sec-expense-mix"
+  },
+  {
+   "path": "/dashboard",
+   "name": "goal-precision",
+   "wait": 2800,
+   "waitFor": "text=目标"
   }
  ],
  "mobile": [
   {
    "path": "/reports?range=1Y",
-   "name": "sealed",
+   "name": "waterfall",
    "wait": 2600,
    "full": false,
-   "waitFor": "text=期末资产负债表"
+   "waitFor": "text=净资产为什么变了"
+  },
+  {
+   "path": "/reports?range=6M",
+   "name": "expense-mix",
+   "wait": 2600,
+   "full": false,
+   "waitFor": "text=钱花在哪了"
   }
  ]
 }
