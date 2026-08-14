@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.13 Preview · LLM 接入平台化(平台 → 系列 → 型号)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .rule{height:1px;background:var(--rule-soft)}
+  .card{border:1px solid var(--rule);background:var(--card);padding:18px}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);color:var(--ink-soft)}
+  .badge.ok{border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)}
+  .badge.risk{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)}
+  .badge.brass{border-color:var(--brass-deep);color:var(--brass-text,#8C6A33);background:var(--brass-soft)}
+  .badge.new{border-color:var(--plum);color:var(--plum);background:rgba(92,58,75,.08)}
+
+  .zone{margin-top:40px}
+  .zone-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .zone-no{font-family:'JetBrains Mono',monospace;font-size:22px;color:var(--paper);background:var(--brass-deep);
+          line-height:1;padding:5px 9px}
+  .zone-t{font-family:'Fraunces',serif;font-size:20px}
+  .zone-sub{font-size:11.5px;color:var(--ink-subtle)}
+  .zone-line{height:2px;background:var(--brass-deep);opacity:.35;margin:10px 0 18px}
+
+  /* 表单件(照搬 admin 页的观感) */
+  .field-label{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;
+               text-transform:uppercase;color:var(--ink-soft);margin-bottom:5px}
+  .field-input{width:100%;border:1px solid var(--rule);background:var(--card-soft);padding:7px 9px;
+               font-size:13px;color:var(--ink);font-family:'Source Serif 4','Noto Serif SC',serif}
+  .field-input:focus{outline:none;border-color:var(--brass-deep)}
+  .hint{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-subtle);margin-top:4px;letter-spacing:.04em}
+  .btn-ink{background:var(--ink);color:var(--paper);font-size:12px;padding:7px 16px;border:0;font-family:'JetBrains Mono',monospace;letter-spacing:.1em}
+  .btn-ghost{background:transparent;color:var(--ink-soft);font-size:12px;padding:6px 12px;border:1px solid var(--rule);font-family:'JetBrains Mono',monospace}
+
+  /* 三级链 */
+  .chain{display:grid;grid-template-columns:1fr 14px 1fr 14px 1fr;align-items:end;gap:0 10px}
+  .chain .arw{font-family:'JetBrains Mono',monospace;color:var(--brass-deep);text-align:center;padding-bottom:9px;font-size:13px}
+  @media(max-width:760px){.chain{grid-template-columns:1fr;gap:12px}.chain .arw{display:none}}
+
+  /* 平台卡 */
+  .plat{border:1px solid var(--rule);background:var(--card);padding:13px 14px}
+  .plat.sel{border-color:var(--brass-deep);border-width:2px;background:var(--brass-soft)}
+  .plat .nm{font-family:'Fraunces',serif;font-size:15px}
+  .plat .ep{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-subtle);margin-top:3px;word-break:break-all}
+
+  /* 迁移对照 */
+  .mig{width:100%;border-collapse:collapse;font-size:12px}
+  .mig th{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+          color:var(--ink-subtle);text-align:left;padding:7px 10px;border-bottom:1px solid var(--rule)}
+  .mig td{padding:8px 10px;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+  .mig td.old{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft);width:38%}
+  .mig td.arw{text-align:center;color:var(--brass-deep);font-family:'JetBrains Mono',monospace;width:24px}
+
+  .bad{border-left:3px solid var(--rust);background:rgba(156,74,42,.05);padding:12px 14px}
+  .good{border-left:3px solid var(--forest);background:rgba(79,107,71,.06);padding:12px 14px}
+</style>
+</head>
+<body style="background:var(--paper);color:var(--ink);font-family:'Source Serif 4','Noto Serif SC',Georgia,serif">
+
+<div class="wrap" style="padding-top:38px;padding-bottom:64px">
+
+  <!-- 抬头 -->
+  <div class="eyebrow">Preview · v1.13 · issue #14</div>
+  <h1 style="font-size:30px;margin:8px 0 4px">LLM 接入平台化</h1>
+  <div class="note" style="max-width:660px">
+    把「供应商 → 型号」两级拆成 <b>平台 → 模型系列 → 具体型号</b> 三级,并接入火山方舟。
+    这是静态预览:<b>不是</b>最终实现,用来对齐做成什么样。
+  </div>
+
+  <!-- 0 · 为什么必须拆 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">0</div>
+      <div>
+        <div class="zone-t">为什么不是「顺手加一家」</div>
+        <div class="zone-sub">现在这一个字段,同时背了三件事</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="bad">
+        <div class="badge risk">现状</div>
+        <div class="mono" style="font-size:12px;margin-top:9px">llm_primary_vendor = "qwen"</div>
+        <div class="note" style="margin-top:8px">
+          ① 去 <span class="mono">dashscope.aliyuncs.com</span> 调<br>
+          ② 用 <span class="mono">llm_qwen_api_key</span><br>
+          ③ 只允许 <span class="mono">qwen*</span> 开头的型号
+        </div>
+        <div class="note" style="margin-top:9px;color:var(--rust)">
+          前两件事现在恰好一一对应,所以这个耦合一直看不见。
+        </div>
+      </div>
+      <div class="good">
+        <div class="badge new">火山方舟捅破了它</div>
+        <div class="note" style="margin-top:9px">
+          方舟是<b>一个平台</b>,上面同时挂着<b>豆包系列</b>和<b>DeepSeek 系列</b>。
+        </div>
+        <div style="margin-top:10px;padding:9px 11px;border:1px dashed var(--rule);background:var(--card)">
+          <div style="font-size:13px">「我想用<b>火山方舟上的 DeepSeek</b>。」</div>
+          <div class="hint" style="margin-top:6px">现在这句话 —— 配置里写不出来。</div>
+        </div>
+        <div class="note" style="margin-top:9px">
+          选 <span class="mono">deepseek</span> 就会去 <span class="mono">api.deepseek.com</span>,
+          拿的是 DeepSeek 官方的 key,不是方舟的。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1 · 平台 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">1</div>
+      <div>
+        <div class="zone-t">第一级 · 平台</div>
+        <div class="zone-sub">决定 端点 + 凭据 + 计费口径 · 一个平台一把 key</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="grid md:grid-cols-3 gap-3">
+      <div class="plat">
+        <div class="flex items-center justify-between">
+          <div class="nm">阿里云百炼</div><span class="badge ok">key 已配</span>
+        </div>
+        <div class="ep">dashscope.aliyuncs.com/compatible-mode/v1</div>
+        <div class="hint" style="margin-top:8px">系列:通义千问 · 通义千问 VL</div>
+        <div class="hint">免费额度按型号各给一份 → 保留轮询</div>
+      </div>
+      <div class="plat">
+        <div class="flex items-center justify-between">
+          <div class="nm">DeepSeek 官方</div><span class="badge ok">key 已配</span>
+        </div>
+        <div class="ep">api.deepseek.com</div>
+        <div class="hint" style="margin-top:8px">系列:DeepSeek</div>
+        <div class="hint">按量计费 · 无免费额度轮询</div>
+      </div>
+      <div class="plat sel">
+        <div class="flex items-center justify-between">
+          <div class="nm">火山方舟</div><span class="badge risk">key 未配</span>
+        </div>
+        <div class="ep">ark.cn-beijing.volces.com/api/v3</div>
+        <div class="hint" style="margin-top:8px">系列:豆包 · DeepSeek · 其它第三方</div>
+        <div class="hint" style="color:var(--rust)">需实名认证后申请 key</div>
+      </div>
+    </div>
+    <div class="note" style="margin-top:12px">
+      三家都是 <b>OpenAI 兼容 chat-completions + Bearer key</b> —— 这正是「平台能做成一个可配项」的前提。
+      差异只在 base URL、凭据、以及各家错误码的语义。
+    </div>
+  </div>
+
+  <!-- 2 · 三级选择器 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">2</div>
+      <div>
+        <div class="zone-t">配置页长这样</div>
+        <div class="zone-sub">管理 → 数据源接入 → 调用设置</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="card">
+      <div class="eyebrow" style="margin-bottom:12px">文 · 本 · 模 · 型 &nbsp;<span style="color:var(--ink-subtle)">(AI 体检 / 月报洞察 / 目标建议)</span></div>
+
+      <div class="chain">
+        <div>
+          <label class="field-label">平台</label>
+          <select class="field-input">
+            <option>阿里云百炼 · DashScope</option>
+            <option>DeepSeek 官方</option>
+            <option selected>火山方舟 · Ark</option>
+          </select>
+          <div class="hint">决定端点和用哪把 key</div>
+        </div>
+        <div class="arw">→</div>
+        <div>
+          <label class="field-label">模型系列</label>
+          <select class="field-input">
+            <option>豆包 Doubao</option>
+            <option selected>DeepSeek</option>
+            <option>其它第三方</option>
+          </select>
+          <div class="hint">同平台上的模型家族</div>
+        </div>
+        <div class="arw">→</div>
+        <div>
+          <label class="field-label">具体型号 · 可手填</label>
+          <input class="field-input" value="ep-20250512195705-c8kq4" list="mdl">
+          <datalist id="mdl"></datalist>
+          <div class="hint">下拉推荐 · 也可粘接入点 ID</div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;padding:10px 12px;border:1px dashed var(--rule);background:var(--card-soft)">
+        <div class="note">
+          <b>型号一栏为什么必须能手填</b> —— 方舟的 <span class="mono">model</span> 既可以是模型 ID
+          (形如 <span class="mono">doubao-seed-1-6-251015</span>,<b>带日期版本号</b>),
+          也可以是你自己在控制台建的接入点 ID(<span class="mono">ep-</span> 开头,只能从对方控制台复制)。
+          <b>任何写死的下拉清单都会过期。</b>
+        </div>
+      </div>
+
+      <div class="rule" style="margin:20px 0"></div>
+
+      <div class="eyebrow" style="margin-bottom:12px">视 · 觉 · 模 · 型 &nbsp;<span style="color:var(--ink-subtle)">(持仓截图导入 · OCR)</span></div>
+
+      <div class="flex items-center gap-3" style="margin-bottom:12px">
+        <label style="font-size:13px;display:flex;align-items:center;gap:7px">
+          <input type="checkbox" checked> 启用截图导入
+        </label>
+        <span class="hint">关掉 = 原来的 <span class="mono">off</span> · 独立开关,不挤进型号清单当假型号</span>
+      </div>
+
+      <div class="chain">
+        <div>
+          <label class="field-label">平台</label>
+          <select class="field-input">
+            <option selected>阿里云百炼 · DashScope</option>
+            <option>火山方舟 · Ark</option>
+          </select>
+          <div class="hint">可与文本选不同平台</div>
+        </div>
+        <div class="arw">→</div>
+        <div>
+          <label class="field-label">模型系列</label>
+          <select class="field-input"><option selected>通义千问 VL</option></select>
+          <div class="hint">只列多模态系列</div>
+        </div>
+        <div class="arw">→</div>
+        <div>
+          <label class="field-label">具体型号 · 可手填</label>
+          <input class="field-input" value="qwen-vl-max">
+          <div class="hint">升级前是什么,升级后还是什么</div>
+        </div>
+      </div>
+
+      <div class="note" style="margin-top:12px">
+        常见诉求是「<b>文本用便宜的,OCR 用准的</b>」,所以这两套各选各的。
+      </div>
+
+      <div class="rule" style="margin:20px 0"></div>
+
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div class="flex items-center gap-3">
+          <button class="btn-ghost">测试连接</button>
+          <span class="hint">测已保存的 key · 发最小探测、不烧额度</span>
+        </div>
+        <button class="btn-ink">保存 LLM 配置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 · 迁移 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">3</div>
+      <div>
+        <div class="zone-t">旧配置怎么搬过来</div>
+        <div class="zone-sub">issue #14 第 3 问 · 硬要求:一把 key 都不用重填</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <table class="mig">
+      <thead><tr><th>升级前</th><th></th><th>升级后你会看到</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="old">llm_primary_vendor = qwen<br>llm_model = auto</td>
+          <td class="arw">→</td>
+          <td>阿里云百炼 · 通义千问 · <b>自动</b>(仍是多型号轮询)</td>
+        </tr>
+        <tr>
+          <td class="old">llm_primary_vendor = deepseek<br>llm_model = deepseek-reasoner</td>
+          <td class="arw">→</td>
+          <td>DeepSeek 官方 · DeepSeek · <b>deepseek-reasoner</b></td>
+        </tr>
+        <tr>
+          <td class="old">llm_qwen_api_key<br>llm_deepseek_api_key</td>
+          <td class="arw">→</td>
+          <td>分别挂到对应平台名下 · <b>不用重填</b></td>
+        </tr>
+        <tr>
+          <td class="old">llm_qwen_models(轮询池)</td>
+          <td class="arw">→</td>
+          <td>保留,归为<b>百炼平台的属性</b>(不推广到别家)</td>
+        </tr>
+        <tr>
+          <td class="old">llm_vision_model = qwen-vl-max</td>
+          <td class="arw">→</td>
+          <td>视觉:阿里云百炼 · 通义千问 VL · <b>qwen-vl-max</b></td>
+        </tr>
+        <tr>
+          <td class="old">llm_vision_model = off</td>
+          <td class="arw">→</td>
+          <td>截图导入开关 = <b>关</b></td>
+        </tr>
+        <tr>
+          <td class="old">llm_temperature / max_tokens / timeout</td>
+          <td class="arw">→</td>
+          <td>不变,仍是全局调用参数</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="good" style="margin-top:14px">
+      <div class="badge ok">线上红线</div>
+      <div class="note" style="margin-top:8px">
+        prod 已经在跑,所以迁移只能是「<b>补写新键</b>」:旧键不删、不改写语义,迁移可重入(跑两次结果一样),
+        并且 <b>降级回上一版 jar 仍然能正常工作</b>。这三条会做成机器可验的用例,不靠肉眼。
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 · 顺手收掉的一处旧账 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">4</div>
+      <div>
+        <div class="zone-t">顺手收掉的旧账:模型清单散在四处</div>
+        <div class="zone-sub">加一个平台要同时改四处,漏一处就出诡异行为</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="grid md:grid-cols-2 gap-3">
+      <div class="card">
+        <div class="badge risk">现在</div>
+        <div class="note mono" style="margin-top:9px;font-size:11px;line-height:2">
+          QwenLlmClient.DEFAULT_MODELS<br>
+          IntegrationsController.normalizeLlmModel<br>
+          integrations.html · JS LLM_MODELS<br>
+          同页视觉下拉的三个 &lt;option&gt;
+        </div>
+        <div class="note" style="margin-top:9px;color:var(--rust)">
+          这四处<b>已经事实上不一致</b>:前端清单里有 <span class="mono">auto</span>,DEFAULT_MODELS 里没有;
+          视觉那三项谁都不知道该归谁管。
+        </div>
+      </div>
+      <div class="card">
+        <div class="badge ok">这一版之后</div>
+        <div class="note" style="margin-top:9px">
+          收敛成<b>一份目录</b>:平台 → 系列 → 推荐型号。<br>
+          前端级联、服务端校验、客户端默认值都从它读。<br>
+          <b>加平台 = 改一处。</b>
+        </div>
+        <div class="note" style="margin-top:9px">
+          再加一条 qa-run 护栏:<b>前端能选到的型号 ⊆ 服务端白名单</b>,四处清单再分叉就红。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 · 待作者拍板 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">5</div>
+      <div>
+        <div class="zone-t">这几件我没替你定</div>
+        <div class="zone-sub">都是产品决定,不是技术难点</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="grid md:grid-cols-2 gap-3">
+      <div class="card">
+        <div style="font-size:14px">① failover 的单位是什么?</div>
+        <div class="note" style="margin-top:7px">
+          现在是「哪家挂了切另一家」。三级之后我建议改成<b>主/备各是一个完整三元组</b> ——
+          因为「主选火山方舟」在方舟挂着好几个系列时说不清。代价:配置页多一组字段。
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:14px">② 同一系列出现在多个平台,都允许吗?</div>
+        <div class="note" style="margin-top:7px">
+          DeepSeek 官方 vs 方舟上的 DeepSeek。我认为<b>要允许</b>,这正是拆三级换来的东西。
+          代价:UI 上会有两个看着一样的「DeepSeek」,靠平台名区分。
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:14px">③ 百炼那套「轮询摊免费额度」留不留?</div>
+        <div class="note" style="margin-top:7px">
+          我倾向留(实实在在省钱),代价是百炼比另外两家多一块专属配置,<b>三个平台不齐整</b>。
+          也可以借这版砍掉、统一成「选定一个型号」。
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:14px">④ 型号手填,放开给所有平台?</div>
+        <div class="note" style="margin-top:7px">
+          我倾向放开(上面已按放开画)。反面是填错一个字符串,失败信息来自对方接口、不那么好懂。
+        </div>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:14px">
+      另外一件值得先知道的事:<b>方舟申请 key 要实名认证</b>。对「自部署给家里人用」的读者,这是一道真实的坎,
+      会写进 <span class="mono">docs/llm-api-keys-setup.md</span>。
+    </div>
+  </div>
+
+  <div class="rule" style="margin:44px 0 14px"></div>
+  <div class="note">
+    PRD:<span class="mono">prd/v1.13.md</span> · 分支 <span class="mono">issue/14-llm-platform-tier</span> ·
+    来源 <span class="mono">issue #14</span> · 状态:<b>待评审</b>,评审通过后才写 tech-design 和代码。
+  </div>
+
+</div>
+</body>
+</html>
