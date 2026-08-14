@@ -1,13 +1,75 @@
 # Changelog
 
-按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/v0.X.md`](prd/),技术设计见 [`tech-design/v0.X.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
+按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录。每个版本详细需求见对应 [`prd/vX.Y.md`](prd/),技术设计见 [`tech-design/vX.Y.md`](tech-design/),QA case 见 [`docs/qa-cases.md`](docs/qa-cases.md)。
 
-> **本文件的现状(2026-08-13 诚实交代)**:详细条目在 **v0.14.1 之后断档了** ——
-> v0.15.0 起共 71 个 tag 没有在这里留条目,发布记录事实上迁移到了
-> [GitHub Releases](https://github.com/LuoDi-Nate/financial-management/releases)(每版都有完整说明,
-> 大版本还带截图),README「近期更新」段保留最近 1–2 版摘要。
-> 下面先补回**最近三个版本**;更早那 68 个版本要不要回填,等维护者定
-> —— 回填靠的是 commit + Release 说明重写,信息量不会超过 Releases 本身。
+## 发布记录在哪(2026-08-14 逐个核对过)
+
+分在两处,**互补、不重复**:
+
+| 区间 | 完整记录 |
+|---|---|
+| **v0.1 – v0.14.1**(2026-05-10 – 07-09) | **本文件**。GitHub Releases 没有这一段 |
+| **v0.15.0 – 至今**(74 个版本) | **[GitHub Releases](https://github.com/LuoDi-Nate/financial-management/releases)**。74 个 tag ↔ 74 个 Release,**1:1 无缺**;每版有完整说明,大版本带 PC + 移动截图 |
+
+本文件对 v0.15.0 之后**只保留最近 5 个版本**的详细条目,方便在仓库里直接看到近况;
+不做 Releases 的全量镜像 —— 镜像出来的信息量不会超过原件,却会随 Release 页被编辑而漂移。
+README「近期更新」段再往下收一层,只留最近 1–2 版摘要。
+
+早期那段有 10 个补丁 tag 当时没留条目(`v0.2.1` / `v0.3.1`–`v0.3.3` / `v0.4` / `v0.4.1` /
+`v0.4.2` / `v0.4.13` / `v0.4.15` / `v0.4.16`),内容在 `git log` 里。
+
+## [v1.11.3] · 2026-08-14
+
+### Fixed — [issue #10](https://github.com/LuoDi-Nate/financial-management/issues/10)(外部用户报告)
+
+- **Linux 上跑 `deploy/docker-up.sh` 被教去 `brew install`**:脚本里 `uname -s` 分支当时**只做在
+  CN 镜像源那一段**,而「Docker 引擎没起」和「缺 Compose V2」这两个失败分支的提示文案全是 macOS 的
+  —— Linux 用户照着做必然卡死。两个分支都补上按平台分流:Linux 侧再区分**权限不足**
+  (`docker ps` 报 permission denied → `usermod -aG docker`)和**服务没起**(→ `systemctl start docker`),
+  这两种在 macOS 上是同一句「打开 Docker Desktop」,在 Linux 上是完全不同的两件事。
+- **版本探测误报,把 V1 认成 V2**:原来用 `docker-compose version --short`,而 Ubuntu 打包的
+  `docker-compose` 1.29.2 是 **Python 实现**,`--short` 返回的是 **docker-py 的版本 `5.0.2`** ——
+  脚本据此判定「已经是 V2」直接放行,后面必然失败且提示驴唇不对马嘴。改为解析
+  `docker-compose version` 首行的真实版本号,`--short` 只作兜底。
+
+### Added
+
+- `deploy/README.md` 加「Compose V2 怎么装」折叠段(Linux 三条路线 + macOS + 引擎两种情况),
+  并点明 **apt 里的 `docker-compose` 1.29.x 是 V1,装了也没用**,唯一该看的判据是
+  `docker compose version` 打出 `v2.x`。
+
+### Changed — 护栏
+
+- `v1113-DOCKER-UP-PLATFORM`:所有面向用户的安装指引必须按 `uname -s` 分平台,
+  不许出现无条件的 `brew`。验证手段是**在临时 PATH 里放桩** `docker` / `docker-compose` /
+  `sudo` / `uname`,把四条失败路径各跑一遍看真实输出,不靠读代码判断。
+
+**无 DB 迁移。** 黑盒 582/0 · e2e 93/0(13 主线)· 单测 506。
+
+## [v1.11.2] · 2026-08-13
+
+### Fixed — 2 条使用反馈
+
+- **「负债下降曲线」图例压住图表**:两层问题。① 它是全项目**唯一没关图例**的单序列图,
+  Chart.js 默认把图例画在绘图区里,直接盖住金额标签 —— 单序列的图例只是重复标题,本来就不该画。
+  ② 关掉图例后露出真问题:12 个点**每个都印一个 7 字金额**,同一水平线上叠成一串,
+  首点压 Y 轴刻度、末点被卡片边缘切掉。改为只标**首尾两点** + `clamp` 防出框 + 斜向 `align`
+  (首点右上、末点左上)让开轴与边缘;`range=ALL`(可达 240 点)也不会退化。
+- **支出构成切「按账户」整块消失**:后端返 200、日志干净 —— 是 `hx-select` 挑的 id
+  **不在 HTMX 响应里**,于是换进空内容,`hx-swap="outerHTML"` 把整个 section 从 DOM 里删掉。
+  根因:控制器只看 `HX-Request` 就返回三区片段,而这个请求要换的是片段**之外**的 section。
+  改为同时看 **`HX-Target`** 判断是不是整区替换,不是就返回整页让 `hx-select` 去挑。
+  趋势 chips 当时也坏着,只是维护者先点到了支出构成。
+
+### Changed — 护栏
+
+- `v1112-SWAP-TARGET-EXISTS` / `v1112-SWAP-REGION-FRAGMENT`:**发真实 HTMX 请求**
+  (带 `HX-Request` + `HX-Target`)断言响应里确实含目标 id,而不是 grep 模板里有没有写属性 ——
+  这个 bug 的所有属性都写对了,坏的是响应内容。通则已进 `AGENTS.md`:
+  **交互类护栏必须断言效果,不能只 grep 属性。**
+- `v1112-CHART-LABEL-DENSITY`:多点折线不许每点都印金额标签;单序列图不许开图例。
+
+**无 DB 迁移。** 黑盒 581/0 · e2e 93/0(13 主线)· 单测 506。
 
 ## [v1.11.1] · 2026-08-13
 
@@ -93,6 +155,14 @@
 - 仪表盘「本月资产收益」改成**实时本月**并讲清偏差方向(原来用上个月数据,与"仪表盘=实时"的分工矛盾)。
 
 **无 DB 迁移。** 设计文档:[`prd/v1.10.md`](prd/v1.10.md) · [`tech-design/v1.10.md`](tech-design/v1.10.md)
+
+---
+
+> **↓ 以下是早期段(v0.1 – v0.14.1)· 本文件是这一段的唯一记录**
+>
+> 中间的 **v0.15.0 – v1.9.4 共 69 个版本**不在这里 ——
+> 它们的完整说明在 [GitHub Releases](https://github.com/LuoDi-Nate/financial-management/releases)。
+> 这不是断档,是分工:见文件开头的覆盖范围表。
 
 ## [v0.14.1] · 2026-07-09
 
