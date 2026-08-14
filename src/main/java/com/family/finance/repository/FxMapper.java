@@ -43,6 +43,34 @@ public interface FxMapper {
                              @Param("quoteCurrency") String quoteCurrency,
                              @Param("periodId") long periodId);
 
+    /**
+     * v1.12 FR-352 · 一条查出「这批账期里,哪些 (期, quote) 已经有 base→quote 的行了」。
+     *
+     * <p>用途只有一个:{@code FxService.ensure*} 是「补齐缺失汇率」的幂等操作,
+     * 但它逐 (期 × 币种) 调 {@link #findOne} 探一次 —— 体检页实测 <b>190 次</b>。
+     * 绝大多数情况汇率早就齐了,190 次全是「查到了、什么都不用做」。
+     * 先用这一条把已有的捞出来,ensure 只对差集干活。</p>
+     *
+     * <p>过滤条件与 {@link #findOne} 逐字相同(family + base + period IN),
+     * 只是不带 quote 条件、不取 rate —— 只回答「有没有」。</p>
+     */
+    @Select("""
+            <script>
+            SELECT DISTINCT period_id AS periodId, quote_currency AS quoteCurrency
+              FROM fx_rate
+             WHERE family_id = #{familyId}
+               AND base_currency = #{baseCurrency}
+               AND period_id IN
+                   <foreach collection="periodIds" item="pid" open="(" separator="," close=")">#{pid}</foreach>
+            </script>
+            """)
+    List<PeriodQuote> findExistingPeriodQuotes(@Param("familyId") long familyId,
+                                               @Param("baseCurrency") String baseCurrency,
+                                               @Param("periodIds") java.util.Collection<Long> periodIds);
+
+    /** {@link #findExistingPeriodQuotes} 的行:一期一币种,表示 fx_rate 里已有这一行。 */
+    record PeriodQuote(Long periodId, String quoteCurrency) {}
+
     /** 找该家庭 base→quote 的最新一期汇率(用于 anchor 期没拿到 rate 时兜底) */
     @Select("""
             SELECT id, family_id, base_currency, quote_currency, period_id, rate, source, fetched_at

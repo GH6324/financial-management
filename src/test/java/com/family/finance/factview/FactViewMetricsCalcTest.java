@@ -40,9 +40,10 @@ class FactViewMetricsCalcTest {
 
     private FactViewServiceImpl svc() {
         AccountMapper am = mock(AccountMapper.class);
-        when(am.findById(anyLong())).thenReturn(Optional.empty());   // 无 expected → 预实 null,不影响本测
+        when(am.findAllByFamily(anyLong())).thenReturn(java.util.List.of());   // v1.12 · 预实改家庭级批量取账户(原逐个 findById)· 空 → 无 expected → 预实 null,不影响本测
         return new FactViewServiceImpl(mock(FactMapper.class), mock(FamilyMapper.class),
                 mock(PeriodMemberCashflowMapper.class), am, mock(ProductCategoryService.class), mock(com.family.finance.repository.SnapshotMapper.class),
+                mock(com.family.finance.repository.PeriodAccountAttrMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(
                         mock(com.family.finance.repository.CashFlowMapper.class), mock(PeriodMemberCashflowMapper.class),
                         mock(com.family.finance.repository.FamilyMapper.class),

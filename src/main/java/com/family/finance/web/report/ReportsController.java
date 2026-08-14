@@ -76,6 +76,7 @@ public class ReportsController {
     private final com.family.finance.service.macro.MacroBenchmarkService macroBenchmarkService;
     private final com.family.finance.service.explain.MetricExplainService metricExplain; // v0.5.3 口径真实数值
     private final com.family.finance.service.MetricPrefsService metricPrefsService; // v0.11.4 账户表复用管理页指标配置
+    private final com.family.finance.repository.PeriodAccountAttrMapper periodAccountAttrMapper; // v1.12 FR-350 锚期定格属性
     private final com.fasterxml.jackson.databind.ObjectMapper jacksonMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     @GetMapping("/reports")
@@ -287,15 +288,34 @@ public class ReportsController {
         List<WaterfallSegment> waterfall = factViewService.incomeExpenseWaterfall(slice);
         List<DecompositionPoint> decomposition = factViewService.principalVsReturnDecomposition(slice);
         List<TrendPoint> debtTrend = factViewService.debtTrend(slice);
-        List<AccountPerformance> accountRows = factViewService.accountPerformance(slice);
+        // v1.12 FR-350 · 报表页 = 封板视图,「预实」列的预期年化 % 取锚期定格值(仪表盘仍走实时重载)。
+        // 见 FactViewService.accountPerformance(slice, sealedAttrs) 的注释:两个页面在这一列上刻意不同。
+        List<AccountPerformance> accountRows = factViewService.accountPerformance(slice, true);
         DecompositionPoint lastDecomposition = decomposition.isEmpty() ? null : decomposition.getLast();
         List<Account> allAccounts = accountMapper.findActiveByFamily(me.getFamilyId());
         List<FxRate> fxRates = fxMapper.findLatestByFamily(me.getFamilyId(), 36);
 
         // v0.4 FR-61b · 账户级 vs 基准对照
-        java.util.Map<Long, String> pcCodeByAccountId = new java.util.HashMap<>();
-        for (Account a : allAccounts) {
-            if (a.getProductCategoryCode() != null) pcCodeByAccountId.put(a.getId(), a.getProductCategoryCode());
+        // ────────────────────────────────────────────────────────────────────────────
+        // v1.12 FR-350 · 这三张表(类目 code / 基准 % / 类目中文名)原来一律读**当前**的
+        // account 行和 product_category 行 —— 于是给某账户换个类目、或改一下类目的 benchmarkPct,
+        // 「实际 vs 基准」这一列在所有历史 range 下当场跟着变:同一个 range=1Y 昨天今天两个数,
+        // 事后没人复现得出来当初为什么显示跑输。
+        //
+        // 改成读**锚期**(= slice.returnAnchorPeriodId() = 窗口内最新已关账期)的定格属性。
+        // 为什么是这个锚而不是 lastPeriodId:账户 xirr / 家庭 xirr 本身就锚在它上面(v1.6.30),
+        // 基准必须与实际同一时点,否则「实际 − 基准」两边不是同一天的口径。
+        //
+        // 定格行缺失 → 逐字段回落当前值,与旧行为完全一致。合法缺失有三种:
+        //   ① 锚期还没关账(外壳态 / 全新家庭)· ② 账户建在该期之后 · ③ v1.12 之前且回填没覆盖到。
+        // 所以这里不能写成「查不到就报错」——护栏 v112-ATTR-BENCH-ANCHOR 只钉住「读的是锚期」。
+        // ────────────────────────────────────────────────────────────────────────────
+        Long benchAnchorPeriodId = slice.returnAnchorPeriodId();
+        java.util.Map<Long, com.family.finance.domain.period.PeriodAccountAttr> frozenAttr = new java.util.HashMap<>();
+        if (benchAnchorPeriodId != null) {
+            for (var attr : periodAccountAttrMapper.findByPeriod(benchAnchorPeriodId)) {
+                frozenAttr.put(attr.accountId(), attr);
+            }
         }
         java.util.Map<String, BigDecimal> benchmarkPctByPcCode = new java.util.HashMap<>();
         java.util.Map<String, String> pcNameByCode = new java.util.HashMap<>();
@@ -303,15 +323,31 @@ public class ReportsController {
             if (pc.getBenchmarkPct() != null) benchmarkPctByPcCode.put(pc.getCode(), pc.getBenchmarkPct());
             pcNameByCode.put(pc.getCode(), pc.getDisplayName());
         }
+        java.util.Map<Long, String> pcCodeByAccountId = new java.util.HashMap<>();
+        java.util.Map<Long, BigDecimal> benchPctByAccountId = new java.util.HashMap<>();
         // v0.14.1 · 类目列显示中文名(不再裸露 GOLD/US_STOCK/PRECIOUS_METAL 等 code);无映射时兜底 code
         java.util.Map<Long, String> pcNameByAccountId = new java.util.HashMap<>();
-        pcCodeByAccountId.forEach((aid, code) -> pcNameByAccountId.put(aid, pcNameByCode.getOrDefault(code, code)));
+        for (Account a : allAccounts) {
+            var frozen = frozenAttr.get(a.getId());
+            String code = frozen != null && frozen.productCategoryCode() != null
+                    ? frozen.productCategoryCode() : a.getProductCategoryCode();
+            if (code == null) continue;
+            pcCodeByAccountId.put(a.getId(), code);
+            // 基准 % 与中文名同样优先取定格值:类目被改 benchmarkPct / 被删改名后,
+            // 历史窗口显示的仍是当初那一版(只存 code 挡不住类目自身被改)。
+            BigDecimal bench = frozen != null && frozen.benchmarkPct() != null
+                    ? frozen.benchmarkPct() : benchmarkPctByPcCode.get(code);
+            if (bench != null) benchPctByAccountId.put(a.getId(), bench);
+            String name = frozen != null && frozen.productCategoryName() != null
+                    ? frozen.productCategoryName() : pcNameByCode.getOrDefault(code, code);
+            pcNameByAccountId.put(a.getId(), name);
+        }
         // v0.11.4 · 账户表改为「复用管理页指标配置」渲染:直接迭代全字段 accountRows(AccountPerformance),
         //   基准对照数据按 accountId 建索引 map 供模板 zip;不再压成精简的 AccountBenchmarkRow 列表。
         java.util.Map<Long, AccountBenchmarkRow> benchmarkByAccount = new java.util.HashMap<>();
         for (AccountPerformance ap : accountRows) {
             String pcCode = pcCodeByAccountId.get(ap.accountId());
-            BigDecimal pcBench = pcCode == null ? null : benchmarkPctByPcCode.get(pcCode);
+            BigDecimal pcBench = benchPctByAccountId.get(ap.accountId());   // v1.12 · 锚期定格值(缺则已回落当前值)
             BigDecimal benchmark = BenchmarkAggregator.benchmarkForAccount(
                 ap.xirr(), pcBench, ap.accountType().name());
             // v0.11.4:实际 = 卡片显示的那个 xirr(<12 期累计 / ≥12 期年化)− 同基基准 → pp;
@@ -330,8 +366,10 @@ public class ReportsController {
             .filter(r -> java.util.Objects.equals(r.periodId(), slice.lastPeriodId()))
             .filter(r -> r.endBalanceBase() != null && r.endBalanceBase().signum() > 0)
             .map(r -> {
-                String pcCode = pcCodeByAccountId.get(r.accountId());
-                BigDecimal pcBench = pcCode == null ? null : benchmarkPctByPcCode.get(pcCode);
+                // v1.12 · 基准值取锚期定格(与账户行同源);**加权的是哪些行**仍按 lastPeriodId 过滤 ——
+                // 「家庭加权按 lastPeriodId、账户 xirr 按 returnAnchorPeriodId」是 v1.12 之前就有的
+                // 口径不一致,已记在 docs/metric-audit-v1.11.md,本版刻意不动(动了分水岭比对就无法归因)。
+                BigDecimal pcBench = benchPctByAccountId.get(r.accountId());
                 BigDecimal benchmark = BenchmarkAggregator.benchmarkForAccount(
                     null, pcBench, r.accountType().name());
                 return new BenchmarkAggregator.BenchmarkInput(r.endBalanceBase(), benchmark);

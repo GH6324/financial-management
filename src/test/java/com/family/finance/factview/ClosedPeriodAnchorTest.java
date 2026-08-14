@@ -41,7 +41,7 @@ class ClosedPeriodAnchorTest {
 
     private FactViewServiceImpl svc() {
         AccountMapper am = mock(AccountMapper.class);
-        when(am.findById(anyLong())).thenReturn(Optional.empty());
+        when(am.findAllByFamily(anyLong())).thenReturn(java.util.List.of());   // v1.12 · 预实改家庭级批量取账户(原逐个 findById)· 空 → expected null
         PeriodMemberCashflowMapper pmc = mock(PeriodMemberCashflowMapper.class);
         when(pmc.findFamilyAggregateForPeriod(anyLong())).thenReturn(Optional.empty());
         SnapshotMapper sm = mock(SnapshotMapper.class);
@@ -49,6 +49,7 @@ class ClosedPeriodAnchorTest {
         when(sm.firstAppearingAccountIds(anyLong(), anyLong())).thenReturn(List.of());
         return new FactViewServiceImpl(mock(FactMapper.class), mock(FamilyMapper.class),
                 pmc, am, mock(ProductCategoryService.class), sm,
+                mock(com.family.finance.repository.PeriodAccountAttrMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(
                         mock(com.family.finance.repository.CashFlowMapper.class), pmc,
                         mock(com.family.finance.repository.FamilyMapper.class),

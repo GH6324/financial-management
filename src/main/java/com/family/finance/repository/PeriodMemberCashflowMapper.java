@@ -95,6 +95,37 @@ public interface PeriodMemberCashflowMapper {
             """)
     Optional<SinglePeriodAggregate> findFamilyAggregateForPeriod(@Param("periodId") long periodId);
 
+    /**
+     * v1.12 FR-352 · {@link #findFamilyAggregateForPeriod} 的批量版。
+     * 过滤条件与点查<b>逐字相同</b>,只是把 {@code period_id = ?} 换成 {@code IN (...)} 并按期分组。
+     *
+     * <p><b>有一处语义差,调用方必须自己补上</b>:点查版没有 {@code GROUP BY},
+     * 即使一行都不匹配也会返回一行(各 SUM 为 NULL、{@code filledMembers = 0});
+     * 批量版按期分组,<b>没有匹配行的期直接不出现在结果里</b>。
+     * 对下游是同一件事(「该期没有手填收支」),但代码上「缺 key」与「有 key 值为 NULL」是两回事 ——
+     * 所以调用方(ExpenseLedgerService / FactViewServiceImpl)必须把这两种情况当同一种处理。
+     *
+     * <p>别拿 {@link #findFamilyAggregateRecent} 代替它:那条带
+     * {@code HAVING filledMembers > 0} 和 {@code LIMIT},是<b>另一个口径</b>
+     * (见 ExpenseLedgerService 类注释「连带影响二」,当年换错过一次,4 条单测立刻挂)。
+     */
+    @Select("""
+            <script>
+            SELECT pmc.period_id           AS periodId,
+                   pmc.period_id           AS dummy,
+                   SUM(IFNULL(pmc.total_income_input, 0))  AS totalIncome,
+                   SUM(IFNULL(pmc.total_expense_input, 0)) AS totalExpense,
+                   COUNT(*)                AS filledMembers
+              FROM period_member_cashflow pmc
+             WHERE pmc.period_id IN
+                   <foreach collection="periodIds" item="pid" open="(" separator="," close=")">#{pid}</foreach>
+               AND (pmc.total_income_input IS NOT NULL OR pmc.total_expense_input IS NOT NULL)
+             GROUP BY pmc.period_id
+            </script>
+            """)
+    List<SinglePeriodAggregate> findFamilyAggregateForPeriods(
+            @Param("periodIds") java.util.Collection<Long> periodIds);
+
     record SinglePeriodAggregate(
         Long periodId,
         Long dummy,

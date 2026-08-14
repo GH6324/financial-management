@@ -48,10 +48,12 @@ import java.util.Map;
  * <p>连带影响一:TOTAL 模式下**取期集合也必须与旧行为一致**(只看 PMC 有记录的期),
  * 不能并上「只有逐笔的期」—— 否则月均支出的分母变了,即使每期取值都对,均值也会不同。</p>
  *
- * <p>连带影响二:**PMC 的取数来源也不能随手换**。单期查询走 {@code findFamilyAggregateForPeriod}
+ * <p>连带影响二:**PMC 的取数来源也不能随手换**。按期取走 {@code findFamilyAggregateForPeriod(s)}
  * (原 netInflowExpense 用的),近 N 期走 {@code findFamilyAggregateRecent}(原 averageExpense 用的)。
  * 两者并不等价 —— 后者带 {@code HAVING filledMembers > 0} 和 {@code LIMIT}。
- * 开发中一度把单期也改走 Recent,4 条既有单测立刻挂掉。</p>
+ * 开发中一度把单期也改走 Recent,4 条既有单测立刻挂掉。
+ * v1.12 FR-352 把按期取数从逐期点查换成 {@code findFamilyAggregateForPeriods} 的一条 IN 批量 ——
+ * 那条 SQL 的过滤条件与点查逐字相同,换的是**条数不是口径**。</p>
  *
  * <h3>⚠ 与收入侧优先级相反</h3>
  * 收入侧是「PMC 手填 &gt; 0 则用之,否则用 cash_flow 汇总」,
@@ -121,13 +123,17 @@ public class ExpenseLedgerService {
         for (CashFlowMapper.RealExpenseSum r : cashFlowMapper.sumRealExpenseByPeriod(familyId, periodIds)) {
             if (r.periodId() != null) itemized.put(r.periodId(), r);
         }
+        // v1.12 FR-352 · PMC 从「逐期点查」改成一条 IN 批量。取数口径不变 ——
+        // findFamilyAggregateForPeriods 与 findFamilyAggregateForPeriod 的过滤条件逐字相同
+        // (仍然**不是** findFamilyAggregateRecent:那条带 HAVING filledMembers > 0,是另一个口径)。
+        // 唯一的差别:没有手填行的期在批量结果里**不出现**,而点查会返回一行 NULL 合计。
+        // 下面 totals.get(pid) 对这两种情况都得到 null,decide() 里等价于「没有总额」。
+        Map<Long, BigDecimal> totals = new HashMap<>();
+        for (var a : pmcMapper.findFamilyAggregateForPeriods(periodIds)) {
+            if (a.periodId() != null) totals.put(a.periodId(), a.totalExpense());
+        }
         for (Long pid : periodIds) {
-            // 单期 PMC 走 findFamilyAggregateForPeriod —— 与 v1.8 之前 netInflowExpense 的取数来源
-            // **完全相同**。别改用 findFamilyAggregateRecent:那条带 HAVING filledMembers > 0,
-            // 而且按期点查还得 LIMIT 全表扫,既换了口径又拖慢热路径。
-            BigDecimal total = pmcMapper.findFamilyAggregateForPeriod(pid)
-                    .map(a -> a.totalExpense()).orElse(null);
-            out.put(pid, decide(pid, itemized.get(pid), total, itemizedFirst));
+            out.put(pid, decide(pid, itemized.get(pid), totals.get(pid), itemizedFirst));
         }
         return out;
     }

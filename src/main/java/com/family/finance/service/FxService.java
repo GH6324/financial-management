@@ -131,9 +131,14 @@ public class FxService {
                 .map(String::toUpperCase)
                 .collect(java.util.stream.Collectors.toSet());
         if (nonBase.isEmpty()) return;
+        // v1.12 FR-352 · 先一条查出「已经有行的 (期,币种)」,只对差集调 getOrFetchRate。
+        // 行为等价:getOrFetchRate 第一步就是 findOne,命中即原样返回;而这里两个调用方
+        // 都只用返回值判空打日志 —— 已有行 ⇒ 必然非空 ⇒ 不会打日志、不会写库。省的是探测查询本身。
+        java.util.Set<String> have = existingPairs(familyId, baseCurrency, periodIds);
         for (Long periodId : periodIds) {
             if (periodId == null) continue;
             for (String quote : nonBase) {
+                if (have.contains(pairKey(periodId, quote))) continue;
                 Optional<FxRate> rate = getOrFetchRate(familyId, baseCurrency, quote, periodId);
                 if (rate.isEmpty()) {
                     log.warn("[Fx] ensureForAccountCurrencies: 拉不到 {} → {} period#{} · "
@@ -141,6 +146,22 @@ public class FxService {
                 }
             }
         }
+    }
+
+    /** v1.12 FR-352 · fx_rate 里已存在的 (期, quote) 集合,key 见 {@link #pairKey}。 */
+    private java.util.Set<String> existingPairs(long familyId, String baseCurrency,
+                                                java.util.Collection<Long> periodIds) {
+        java.util.List<Long> ids = periodIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (ids.isEmpty() || baseCurrency == null) return java.util.Set.of();
+        return fxMapper.findExistingPeriodQuotes(familyId, baseCurrency, ids).stream()
+                .filter(pq -> pq.periodId() != null && pq.quoteCurrency() != null)
+                .map(pq -> pairKey(pq.periodId(), pq.quoteCurrency()))
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    /** 币种统一大写:DB 里存的大小写不保证与调用方传的一致,比对必须归一。 */
+    private static String pairKey(long periodId, String quote) {
+        return periodId + "|" + quote.toUpperCase();
     }
 
     /**
@@ -151,8 +172,11 @@ public class FxService {
     public void ensureRate(long familyId, String baseCurrency, String quoteCurrency, java.util.Collection<Long> periodIds) {
         if (quoteCurrency == null || baseCurrency == null
                 || quoteCurrency.equalsIgnoreCase(baseCurrency) || periodIds == null) return;
+        // v1.12 FR-352 · 同 ensureForAccountCurrencies:已有行的期直接跳过(返回值本就被丢弃)
+        java.util.Set<String> have = existingPairs(familyId, baseCurrency, periodIds);
         for (Long periodId : periodIds) {
-            if (periodId != null) getOrFetchRate(familyId, baseCurrency, quoteCurrency, periodId);
+            if (periodId == null || have.contains(pairKey(periodId, quoteCurrency))) continue;
+            getOrFetchRate(familyId, baseCurrency, quoteCurrency, periodId);
         }
     }
 

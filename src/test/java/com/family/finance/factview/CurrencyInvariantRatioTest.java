@@ -57,6 +57,7 @@ class CurrencyInvariantRatioTest {
         return new FactViewServiceImpl(factMapper, familyMapper, pmc,
                 org.mockito.Mockito.mock(com.family.finance.repository.AccountMapper.class),
                 org.mockito.Mockito.mock(com.family.finance.service.ProductCategoryService.class), mock(com.family.finance.repository.SnapshotMapper.class),
+                mock(com.family.finance.repository.PeriodAccountAttrMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(
                         mock(com.family.finance.repository.CashFlowMapper.class), pmc,
                         mock(com.family.finance.repository.FamilyMapper.class),

@@ -37,6 +37,8 @@ public class PeriodService {
     private final PeriodMemberCompletionMapper completionMapper;
     private final com.family.finance.repository.PeriodReopenLogMapper periodReopenLogMapper;
     private final com.family.finance.repository.SnapshotMapper snapshotMapperRef;
+    // v1.12 FR-350 · 关账时把账户的分类属性一并定格 / 重开时删掉定格行
+    private final com.family.finance.repository.PeriodAccountAttrMapper periodAccountAttrMapper;
     private final AuditLogService auditLogService;
     private final MetricsRecomputeJob metricsRecomputeJob;
 
@@ -192,6 +194,9 @@ public class PeriodService {
                 .orElseThrow(() -> new IllegalArgumentException("周期不存在: " + periodId));
         periodMapper.reopen(period.getFamilyId(), periodId);
         completionMapper.deleteByPeriod(periodId);
+        // v1.12 FR-350 · 删掉该期的分类属性定格行 → 这期又跟着当前设置走(和「未关账 = 实时」一致),
+        // 而「重开后再关账 = 重新定格」变成**结构上必然**的,不需要额外标志位或版本号。
+        periodAccountAttrMapper.deleteByPeriod(periodId);
         String safeReason = reason == null || reason.isBlank() ? "(未填写)" : reason;
         // PRD FR-12 验收:写入 period_reopen_log 专表
         periodReopenLogMapper.insert(periodId, actorMemberId, safeReason);
@@ -203,6 +208,14 @@ public class PeriodService {
         Period period = periodMapper.findById(periodId)
                 .orElseThrow(() -> new IllegalArgumentException("周期不存在: " + periodId));
         periodMapper.close(period.getFamilyId(), periodId);
+        // v1.12 FR-350 · 关账 = 封板,分类属性也要一起定格。
+        //
+        // 位置刻意选在这里:periodMapper.close() 之后、runMetricsAfterCommit() 之前,**同一事务内**。
+        //   · 不放 afterCommit / 不包 try-catch:定格失败就不该关账成功。一个「关了账但没定格」的期,
+        //     后续读会回落当前属性 —— 表面正常,实际漏保护,且不报警。
+        //   · 与下面三段非阻塞钩子(FIRE 重算 / 再平衡归档 / AI 月报)的区别:那三段是**衍生产物**,
+        //     失败可重跑;定格是**这一刻才存在的事实**,过了就没了,不能降级。
+        periodAccountAttrMapper.freezeByPeriod(periodId);
         auditLogService.record(period.getFamilyId(), actorMemberId, AuditLogType.PERIOD_CLOSE,
                 "period", periodId, summary);
         runMetricsAfterCommit(periodId);

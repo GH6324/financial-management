@@ -40,7 +40,19 @@
     SELECT
         a.id AS account_id,
         a.display_name AS account_name,
-        a.type AS account_type,
+        <!-- v1.12 FR-350 · 分类属性按期定格(修 v1.11 审计的 F4)。
+             金额侧的事实早就按期落库了,分类侧原来不是:这里直接投影 a.type / pc.liquidity_class,
+             也就是拿**当前**的账户行和类目行去归类**每一期** → 今天在管理页改一个账户的类目,
+             去年 12 月的集中度 / 流动性分层 / 大类分布当场跟着变,把 v1.10 的封板承诺直接证伪。
+             改成:有定格行(= 该期已关账且 v1.12 之后关的 / 或 V54 回填过)就用定格值,没有则回落当前值。
+             回落是**正确行为**而非兜底将就,三种情形:
+               ① 未关账的当期 —— 本来就该跟当前走(仪表盘 = 实时)
+               ② 今天新建的账户 —— 本查询是 `FROM account a JOIN period p` 的交叉,新账户会出现在
+                  去年已关账期的行里(余额兜到 NULL)。它没有定格行,回落当前属性,正确:没有历史要保护。
+                  ⚠ 正因为 ②,护栏**不能**写成「已关账期每个账户都必须有定格行」—— 新建账户会让它假红。
+               ③ 回填之前 —— V54 与建表在同一个 migration 里,存量已关账期都有行。
+             守护 v112-ATTR-NO-BYPASS 禁止再裸投影 a.type / pc.liquidity_class。 -->
+        COALESCE(paa.account_type, a.type) AS account_type,
         a.currency AS account_currency,
         a.primary_owner_member_id AS owner_id,
         a.display_order AS display_order,
@@ -89,7 +101,8 @@
                / ( CASE WHEN a.currency        = #{baseCurrency} THEN 1.000000 ELSE fx_ba.rate END )
           ELSE 1.000000
         END AS fx_to_base,
-        pc.liquidity_class AS product_liquidity_class
+        <!-- v1.12 FR-350 · 同上,定格优先 · 回落当前 -->
+        COALESCE(paa.liquidity_class, pc.liquidity_class) AS product_liquidity_class
     FROM account a
     LEFT JOIN product_category pc
       ON pc.code = a.product_category_code
@@ -99,6 +112,11 @@
     LEFT JOIN period_snapshot ps
       ON ps.account_id = a.id
      AND ps.period_id = p.id
+    <!-- v1.12 FR-350 · 分类属性定格行。主键 (period_id, account_id) 直接命中,与上面
+         period_snapshot 的 join 同形,不引入新的扫描量级。 -->
+    LEFT JOIN period_account_attr paa
+      ON paa.period_id = p.id
+     AND paa.account_id = a.id
     LEFT JOIN (
         SELECT period_id,
                account_id,

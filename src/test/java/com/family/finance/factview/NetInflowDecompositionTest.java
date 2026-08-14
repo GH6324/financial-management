@@ -31,9 +31,12 @@ class NetInflowDecompositionTest {
     private static final BigDecimal Z = BigDecimal.ZERO;
 
     private FactViewServiceImpl svc(PeriodMemberCashflowMapper pmc) {
+        // v1.12 FR-352 · 批量 stub 由点查 stub 派生(见 CashflowBreakdownTest#wireBatchFromPointStubs)
+        CashflowBreakdownTest.wireBatchFromPointStubs(pmc);
         return new FactViewServiceImpl(mock(FactMapper.class), mock(FamilyMapper.class), pmc,
                 mock(com.family.finance.repository.AccountMapper.class),
                 mock(com.family.finance.service.ProductCategoryService.class), mock(com.family.finance.repository.SnapshotMapper.class),
+                mock(com.family.finance.repository.PeriodAccountAttrMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(
                         mock(com.family.finance.repository.CashFlowMapper.class), pmc,
                         mock(com.family.finance.repository.FamilyMapper.class),

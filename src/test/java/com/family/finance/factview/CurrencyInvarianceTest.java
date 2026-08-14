@@ -53,8 +53,9 @@ class CurrencyInvarianceTest {
         PeriodMemberCashflowMapper pmc = mock(PeriodMemberCashflowMapper.class);
         when(pmc.findFamilyAggregateForPeriod(anyLong())).thenReturn(Optional.empty()); // 走 cash_flow 净流入回退
         AccountMapper am = mock(AccountMapper.class);
-        when(am.findById(anyLong())).thenReturn(Optional.empty());
+        when(am.findAllByFamily(anyLong())).thenReturn(java.util.List.of());   // v1.12 · 预实改家庭级批量取账户(原逐个 findById)· 空 → expected null
         return new FactViewServiceImpl(fm, famMapper, pmc, am, mock(ProductCategoryService.class), mock(com.family.finance.repository.SnapshotMapper.class),
+                mock(com.family.finance.repository.PeriodAccountAttrMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(
                         mock(com.family.finance.repository.CashFlowMapper.class), pmc,
                         mock(com.family.finance.repository.FamilyMapper.class),

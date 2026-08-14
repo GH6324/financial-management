@@ -44,12 +44,13 @@ class NetWorthTrendExOpeningTest {
     /** 每期首次出现的账户 id;key = periodId。 */
     private FactViewServiceImpl svc(java.util.Map<Long, List<Long>> firstAppearing) {
         AccountMapper am = mock(AccountMapper.class);
-        when(am.findById(anyLong())).thenReturn(Optional.empty());
+        when(am.findAllByFamily(anyLong())).thenReturn(java.util.List.of());   // v1.12 · 预实改家庭级批量取账户(原逐个 findById)· 空 → expected null
         SnapshotMapper sm = mock(SnapshotMapper.class);
         when(sm.firstAppearingAccountIds(anyLong(), anyLong()))
                 .thenAnswer(inv -> firstAppearing.getOrDefault(inv.getArgument(1, Long.class), List.of()));
         return new FactViewServiceImpl(mock(FactMapper.class), mock(FamilyMapper.class),
                 mock(PeriodMemberCashflowMapper.class), am, mock(ProductCategoryService.class), sm,
+                mock(com.family.finance.repository.PeriodAccountAttrMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(
                         mock(com.family.finance.repository.CashFlowMapper.class),
                         mock(PeriodMemberCashflowMapper.class),

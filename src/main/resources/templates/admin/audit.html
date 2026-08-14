@@ -22,6 +22,8 @@
       </form>
     </div>
 
+    <div th:if="${flash}" class="border border-forest bg-forest/[0.05] px-4 py-2 text-sm mb-6" th:text="${flash}">成功</div>
+
     <!-- 时间轴 -->
     <div class="paper-card p-2 overflow-x-auto">
       <div class="px-6 py-4 grid grid-cols-12 gap-4 border-b border-rule">
@@ -46,6 +48,36 @@
       </div>
     </div>
     <p class="mt-6 text-xs text-ink-subtle leading-relaxed">审计日志只增不删,长期保留。下载完整 CSV 留作搬迁备份。</p>
+
+    <!-- v1.12 FR-351 · 查询开销诊断(排查页面变慢时用 · 平时关) -->
+    <form th:action="@{/admin/audit/sql-profiler}" method="post" class="bracket-card max-w-3xl mt-10">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input type="hidden" name="enabled" th:value="${sqlProfiler} ? 'false' : 'true'"/>
+      <div class="flex items-start justify-between gap-6 flex-wrap">
+        <div class="flex items-start gap-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round" class="text-ink-soft mt-1 shrink-0" aria-hidden="true">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+          <div>
+            <div class="eyebrow-ink">查询开销诊断</div>
+            <p class="text-sm text-ink-soft mt-2 leading-relaxed">
+              开启后,你之后访问的每个页面都会在<b>应用日志</b>里留下一份「哪个查询被调了多少次、共花多少毫秒」的清单,
+              按次数从多到少排;响应头 <span class="font-mono text-[11px]">X-Sql-Count</span> 是该页控制器阶段的查询条数。
+              这是给「某页面变慢了,想知道慢在哪」用的。
+            </p>
+            <p class="font-mono text-[10px] text-ink-subtle mt-2 tracking-wider">
+              查完请关掉 · 常开会让日志变长(不影响计算结果,也不改任何页面数字)
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 shrink-0">
+          <span class="pill" th:classappend="${sqlProfiler} ? 'pill-rust' : ''"
+                th:text="${sqlProfiler} ? '正在诊断' : '已关闭'">已关闭</span>
+          <button type="submit" class="btn-ink" th:text="${sqlProfiler} ? '关闭诊断' : '开启诊断'">开启诊断</button>
+        </div>
+      </div>
+    </form>
   </section>
 </main>
 <footer th:replace="~{fragments/layout :: footer}"></footer>

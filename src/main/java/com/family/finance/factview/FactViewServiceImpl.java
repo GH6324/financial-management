@@ -4,6 +4,7 @@ import com.family.finance.calc.MaxDrawdownCalculator;
 import com.family.finance.calc.NavSeriesBuilder;
 import com.family.finance.calc.TwrCalculator;
 import com.family.finance.calc.XirrCalculator;
+import com.family.finance.domain.account.Account;
 import com.family.finance.domain.account.AccountClass;
 import com.family.finance.domain.account.AccountLiquidity;
 import com.family.finance.domain.account.AccountType;
@@ -11,6 +12,7 @@ import com.family.finance.domain.family.Family;
 import com.family.finance.domain.period.PeriodType;
 import com.family.finance.repository.FactMapper;
 import com.family.finance.repository.FamilyMapper;
+import com.family.finance.repository.PeriodMemberCashflowMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -42,6 +44,8 @@ public class FactViewServiceImpl implements FactViewService {
     private final com.family.finance.service.ProductCategoryService productCategoryService;
     /** v0.13 · 开账基线检测(账户首次出现) */
     private final com.family.finance.repository.SnapshotMapper snapshotMapper;
+    /** v1.12 FR-350 · 锚期定格属性(报表页的「预实」列按定格值算,仪表盘仍按当前值) */
+    private final com.family.finance.repository.PeriodAccountAttrMapper periodAccountAttrMapper;
     /**
      * v1.8 · 家庭支出的唯一口径入口(逐笔 > 总额,不相加;排除现金调整)。
      * 只依赖 mapper,注入到这里不会成环。见 ExpenseLedgerService 类注释。
@@ -50,7 +54,7 @@ public class FactViewServiceImpl implements FactViewService {
 
     @Override
     public FactSlice loadDefault(Long familyId) {
-        Family family = familyMapper.findById(familyId)
+        Family family = familyOf(familyId)
                 .orElseThrow(() -> new IllegalArgumentException("家庭不存在: " + familyId));
         LocalDate end = LocalDate.now().withDayOfMonth(1);
         LocalDate start = end.minusMonths(11);
@@ -59,9 +63,13 @@ public class FactViewServiceImpl implements FactViewService {
 
     @Override
     public FactSlice load(FactFilter filter) {
+        // v1.12 FR-352 · 同一 GET 请求内同一筛选只查一次(见 FactLoadCache 类注释)
+        FactLoadCache cache = beginLoad();
+        FactSlice memo = cache.slices.get(filter);
+        if (memo != null) return memo;
         // v0.8 BUG-FIX(v08-CCY-INV-2):传家庭本位币给 SQL,fx_to_base 走「经本位币三角换算」
         // (acct→view = rate(base→view)/rate(base→acct)),支持「视图币种 ≠ 本位币 且账户为第三币种」。
-        String baseCurrency = familyMapper.findById(filter.familyId())
+        String baseCurrency = familyOf(filter.familyId())
                 .map(com.family.finance.domain.family.Family::getBaseCurrency)
                 .orElse(filter.viewCurrency());
         List<AccountPeriodFact> rows = factMapper.queryBase(filter, baseCurrency).stream()
@@ -78,13 +86,18 @@ public class FactViewServiceImpl implements FactViewService {
         // 收益类指标据此锚到最新 CLOSED 期。取交集并按 periodIds 顺序排,保证升序且不含窗口外的期。
         java.util.Set<Long> closed = new java.util.HashSet<>(factMapper.findClosedPeriodIds(filter));
         List<Long> closedPeriodIds = periodIds.stream().filter(closed::contains).toList();
-        // v1.11 性能 · 一次查全「每个账户首次出现在哪一期」,替掉 per-period 的 N+1(见 firstAppearTl 注释)
-        java.util.Map<Long, java.util.Set<Long>> firstAppear = new java.util.HashMap<>();
-        for (var fa : snapshotMapper.firstAppearanceByAccount(filter.familyId())) {
-            firstAppear.computeIfAbsent(fa.periodId(), k -> new java.util.HashSet<>()).add(fa.accountId());
-        }
-        firstAppearTl.set(firstAppear);
-        return new FactSlice(filter, rows, periodIds, lastPeriodId, closedPeriodIds);
+        // v1.11 性能 · 一次查全「每个账户首次出现在哪一期」,替掉 per-period 的 N+1(见 firstAppearingIn 注释)
+        // v1.12 FR-352 · 结果与查哪一期、哪个筛选都无关 → 同一请求内按家庭只查一次(原来一次请求查 10 次)
+        cache.firstAppear.computeIfAbsent(filter.familyId(), fid -> {
+            java.util.Map<Long, java.util.Set<Long>> byPeriod = new java.util.HashMap<>();
+            for (var fa : snapshotMapper.firstAppearanceByAccount(fid)) {
+                byPeriod.computeIfAbsent(fa.periodId(), k -> new java.util.HashSet<>()).add(fa.accountId());
+            }
+            return byPeriod;
+        });
+        FactSlice slice = new FactSlice(filter, rows, periodIds, lastPeriodId, closedPeriodIds);
+        if (cache.memoSlices()) cache.slices.put(filter, slice);
+        return slice;
     }
 
     @Override
@@ -252,7 +265,8 @@ public class FactViewServiceImpl implements FactViewService {
      * PMC 按本位币存 → ×baseToViewFactor 换到 view;cash_flow 的 incomeBase 已是 view 口径。
      */
     private BigDecimal netInflowIncome(FactSlice slice, Long periodId) {
-        var pmc = periodMemberCashflowMapper.findFamilyAggregateForPeriod(periodId).orElse(null);
+        // v1.12 FR-352 · 改走 pmcAggregate:缓存里没有就一次批量取回整个切片的账期(取数口径不变)
+        var pmc = pmcAggregate(slice, periodId);
         if (pmc != null && pmc.totalIncome() != null && pmc.totalIncome().signum() > 0) {
             return pmc.totalIncome().multiply(baseToViewFactor(slice)).setScale(2, RoundingMode.HALF_EVEN);
         }
@@ -271,7 +285,8 @@ public class FactViewServiceImpl implements FactViewService {
      * 都取不到时回落 {@code periodExpense}(cash_flow 汇总 · 含调整),保持原有兜底行为。</p>
      */
     private BigDecimal netInflowExpense(FactSlice slice, Long periodId) {
-        var pe = expenseLedger.byPeriod(slice.filter().familyId(), periodId);
+        // v1.12 FR-352 · 改走 ledgerExpense:同上,byPeriod → 一次 byPeriods(同一口径服务、同一方法族)
+        var pe = ledgerExpense(slice, periodId);
         if (pe.filled()) {
             return pe.amountBase().multiply(baseToViewFactor(slice)).setScale(2, RoundingMode.HALF_EVEN);
         }
@@ -291,7 +306,8 @@ public class FactViewServiceImpl implements FactViewService {
      */
     private BigDecimal baseToViewFactor(FactSlice slice) {
         String view = slice.filter().viewCurrency();
-        String base = familyMapper.findById(slice.filter().familyId())
+        // v1.12 FR-352 · 家庭行走缓存(这个方法每期每指标都被调,原来一次报表页查了 194 遍)
+        String base = familyOf(slice.filter().familyId())
                 .map(f -> f.getBaseCurrency()).orElse(view);
         if (view == null || base == null || view.equalsIgnoreCase(base)) return BigDecimal.ONE;
         // BUG-FIX v0.8(v05-CCY-INV-1):原 findFirst 取任意期的 base 币行 fxToBase,窗口早期常缺当期汇率 →
@@ -597,10 +613,15 @@ public class FactViewServiceImpl implements FactViewService {
 
     @Override
     public List<AccountPerformance> accountPerformance(FactSlice slice) {
+        return accountPerformance(slice, false);
+    }
+
+    @Override
+    public List<AccountPerformance> accountPerformance(FactSlice slice, boolean sealedAttrs) {
         Map<Long, BigDecimal> xirr = accountXirr(slice);
         Long lastPid = slice.lastPeriodId();
         BigDecimal familyNetWorth = lastPid == null ? null : netWorth(slice, lastPid);
-        Map<Long, BigDecimal> expected = expectedReturnByAccount(slice);
+        Map<Long, BigDecimal> expected = expectedReturnByAccount(slice, sealedAttrs);
         // v0.13 · 窗口内"首次出现"的账户集合 → 其首期期末余额是"带入本金",计入 net_principal
         java.util.Set<Long> newInWindow = new java.util.HashSet<>();
         for (Long pid : slice.periodIds()) {
@@ -665,17 +686,51 @@ public class FactViewServiceImpl implements FactViewService {
         return new MomYoy(nwNow, momAmount, momPct, yoyAmount, yoyPct);
     }
 
-    /** 每账户的预期年化 %:账户 expected_return_pct 覆盖优先,否则回落品类 benchmark_pct;都没有=null。 */
-    private Map<Long, BigDecimal> expectedReturnByAccount(FactSlice slice) {
+    /**
+     * 每账户的预期年化 %:账户 expected_return_pct 覆盖优先,否则回落品类 benchmark_pct;都没有=null。
+     *
+     * <p><b>v1.12 FR-350</b> · {@code sealedAttrs=true}(报表页)时这两个输入都取<b>锚期定格值</b>。
+     * 这是本版第三条漂移入口 —— 设计时只找到 {@code FactMapper.queryBase}(封板二区)和
+     * {@code ReportsController} 的基准 map(三区 vs-基准列)两条,是正向漂移测试把它逼出来的:
+     * 「预实」列压根不吃那张基准 map,它吃 {@code AccountPerformance.planActualDiffPct},
+     * 而后者由本方法算出来。只修前两条 → 基准列不动、紧挨着的预实列照旧漂。
+     *
+     * <p>定格行存在就<b>整行采信</b>(哪怕两个字段都是 null → 预实显示「—」),不再回落当前值:
+     * 「关账那一刻这个账户没设预期」本身就是要保护的历史。只有<b>没有定格行</b>才回落当前值,
+     * 三种情形与 {@code FactMapper.queryBase} 的注释一致(未关账当期 / 今天新建的账户 / 回填之前)。
+     */
+    private Map<Long, BigDecimal> expectedReturnByAccount(FactSlice slice, boolean sealedAttrs) {
+        Map<Long, com.family.finance.domain.period.PeriodAccountAttr> frozen = new java.util.HashMap<>();
+        if (sealedAttrs) {
+            Long anchor = slice.returnAnchorPeriodId();
+            if (anchor != null) {
+                for (var attr : periodAccountAttrMapper.findByPeriod(anchor)) frozen.put(attr.accountId(), attr);
+            }
+        }
+        // v1.12 FR-352 · 原来每个账户一次 findById + 一次 findByCode(24 账户 = 48 条 SQL,
+        // 而且报表页每次请求都跑一遍),改成家庭级一次 + 类目全量一次。
+        // 行集完全一致,所以零差异比对仍应通过:切片里的账户都属于本家庭;findAllByFamily 与
+        // findById 一样**不过滤归档**(归档账户的历史事实按 v1.10 仍在切片里);
+        // ProductCategoryMapper.findAll 与 findByCode 是同一张表同样的列、无额外 WHERE。
+        Map<Long, Account> accountById = new java.util.HashMap<>();
+        for (Account a : accountMapper.findAllByFamily(slice.filter().familyId())) accountById.put(a.getId(), a);
+        Map<String, BigDecimal> benchByCode = new java.util.HashMap<>();
+        for (var pc : productCategoryService.listAll()) benchByCode.put(pc.getCode(), pc.getBenchmarkPct());
+
         Map<Long, BigDecimal> result = new LinkedHashMap<>();
         for (Long accountId : slice.byAccount().keySet()) {
-            BigDecimal expected = accountMapper.findById(accountId).map(acc -> {
-                if (acc.getExpectedReturnPct() != null) return acc.getExpectedReturnPct();
-                if (acc.getProductCategoryCode() == null) return null;
-                return productCategoryService.findByCode(acc.getProductCategoryCode())
-                        .map(com.family.finance.domain.category.ProductCategory::getBenchmarkPct)
-                        .orElse(null);
-            }).orElse(null);
+            var attr = frozen.get(accountId);
+            if (attr != null) {
+                result.put(accountId, attr.expectedReturnPct() != null
+                        ? attr.expectedReturnPct() : attr.benchmarkPct());
+                continue;
+            }
+            Account acc = accountById.get(accountId);
+            BigDecimal expected = null;
+            if (acc != null) {
+                if (acc.getExpectedReturnPct() != null) expected = acc.getExpectedReturnPct();
+                else if (acc.getProductCategoryCode() != null) expected = benchByCode.get(acc.getProductCategoryCode());
+            }
             result.put(accountId, expected);
         }
         return result;
@@ -871,31 +926,158 @@ public class FactViewServiceImpl implements FactViewService {
      * 它是"你本来就有/欠、现在才开始记"的存量本金,属外部资本纳入 —— 从所有收益类指标剔除、计入账户净投入。
      */
     /**
-     * v1.11 性能 · 「每期首次出现的账户」映射,**每次 {@link #load} 时刷新一次**。
+     * v1.11 性能 · 「每期首次出现的账户」映射,原来**每次 {@link #load} 刷新一次**;
+     * v1.12 FR-352 起收进 {@link FactLoadCache},同一请求内按家庭只查一次。
      *
      * <p>问题:原来 {@code snapshotMapper.firstAppearingAccountIds} 是按期查的(还带 NOT IN 子查询),
      * 而调用点全是 per-period 循环(openingBaseline / periodFlows / netWorthTrendExOpening /
      * accountPerformance)—— 报表页实测**一次请求 881 条 SQL、1.25s**。
      * 而「首次出现」是账户的属性、与查哪一期无关,一次查完在内存分组即可。</p>
      *
-     * <p>为什么用 ThreadLocal + 每次 load 刷新,而不是按 familyId 长缓存:
+     * <p>为什么是请求级 / load 级缓存,而不是按 familyId 长缓存:
      * 长缓存必须在**所有**写 period_snapshot 的地方清掉(实测有 4 个文件、6 处 upsert),
      * 漏一处就是**静默算错开账基线** —— 而开账基线决定人赚/钱赚的分界,
-     * 这个项目已经在它身上栽过两次。每次 load 刷新则**结构上不可能陈旧**:
-     * 一次请求多付 2~3 条查询(3 个切片各一条),换来零失效风险,这笔交易划算。</p>
+     * 这个项目已经在它身上栽过两次。绑在请求/load 上则**结构上不可能陈旧**。</p>
      *
-     * <p>手工构造 FactSlice 的单测不走 load(),此时 ThreadLocal 为空 → 回落到原来的按期查询,
+     * <p>手工构造 FactSlice 的单测不走 load(),此时缓存为空 → 回落到原来的按期查询,
      * 口径完全一致。</p>
      */
-    private final ThreadLocal<java.util.Map<Long, java.util.Set<Long>>> firstAppearTl = new ThreadLocal<>();
-
     private java.util.Set<Long> firstAppearingIn(long familyId, Long periodId) {
-        var map = firstAppearTl.get();
+        FactLoadCache cache = currentCache();
+        var map = cache == null ? null : cache.firstAppear.get(familyId);
         if (map != null) {
             return map.getOrDefault(periodId, java.util.Set.of());
         }
         // 回落:手工构造切片的单测走这里,与 v1.11 之前逐字同口径
         return new java.util.HashSet<>(snapshotMapper.firstAppearingAccountIds(familyId, periodId));
+    }
+
+    // ── v1.12 FR-352 · 请求内取数缓存 ─────────────────────────────────────
+    //
+    // 策略全在这三个方法里,数据结构在 FactLoadCache。分工:这里决定「缓存活多久」,
+    // 那里只管装东西。读取点(familyOf / pmcAggregate / ledgerExpense / firstAppearingIn)
+    // 一律「缓存拿不到就走原来的查询」—— 所以缓存为空(单测、cron)时口径与 v1.12 之前逐字相同。
+
+    /**
+     * load 级缓存的落脚点。GET 请求不用它(挂在请求属性上),所以那条路径会主动清掉 ——
+     * 否则 Tomcat 线程复用时,一个「没走过 load 的请求」可能读到上一个请求留下的缓存。
+     */
+    private final ThreadLocal<FactLoadCache> cacheTl = new ThreadLocal<>();
+
+    /** 每次 {@link #load} 入口:GET → 取/建请求级缓存;其它 → 建一份只管这次 load 的。 */
+    private FactLoadCache beginLoad() {
+        var attrs = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        if (attrs instanceof org.springframework.web.context.request.ServletRequestAttributes sra
+                && "GET".equalsIgnoreCase(sra.getRequest().getMethod())) {
+            Object existing = attrs.getAttribute(FactLoadCache.ATTR,
+                    org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+            if (existing instanceof FactLoadCache hit) {
+                cacheTl.remove();
+                return hit;
+            }
+            FactLoadCache fresh = new FactLoadCache(true, attrs);
+            attrs.setAttribute(FactLoadCache.ATTR, fresh,
+                    org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+            cacheTl.remove();
+            return fresh;
+        }
+        // 非 GET / 非 Web 线程:只活到这次 load 的后续计算。写请求里「先写后读」必须读到新值,
+        // 所以每次 load 都换一份新的(等于 v1.12 之前的行为 + 一次 load 内的按期批量)。
+        FactLoadCache loadScoped = new FactLoadCache(false,
+                org.springframework.web.context.request.RequestContextHolder.getRequestAttributes());
+        cacheTl.set(loadScoped);
+        return loadScoped;
+    }
+
+    /**
+     * 读取侧入口 · 请求属性优先(GET),否则用 load 级的;两者都没有 → null = 不缓存,走原查询。
+     *
+     * <p>load 级那份要验 {@code ownedBy}:ThreadLocal 在请求结束时没人清,Tomcat 线程一复用,
+     * 上一个请求留下的缓存就可能被下一个请求读到(见 {@link FactLoadCache} 的 owner 注释)。</p>
+     */
+    private FactLoadCache currentCache() {
+        var attrs = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        if (attrs != null) {
+            Object c = attrs.getAttribute(FactLoadCache.ATTR,
+                    org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+            if (c instanceof FactLoadCache hit) return hit;
+        }
+        FactLoadCache tl = cacheTl.get();
+        return tl != null && tl.ownedBy(attrs) ? tl : null;
+    }
+
+    /** 家庭行 · {@code baseToViewFactor} 每期每指标都要读它,原来一次报表页查了 194 遍。 */
+    private java.util.Optional<Family> familyOf(long familyId) {
+        FactLoadCache cache = currentCache();
+        if (cache == null) return familyMapper.findById(familyId);
+        if (cache.families.containsKey(familyId)) {
+            return java.util.Optional.ofNullable(cache.families.get(familyId));
+        }
+        var found = familyMapper.findById(familyId);
+        cache.families.put(familyId, found.orElse(null));
+        return found;
+    }
+
+    /**
+     * 某期的 PMC 家庭聚合(手填收支)· 原来逐期点查,报表页 180 次。
+     *
+     * <p>缓存未命中时**一次把该切片的全部账期取回来** —— 调用点全是 per-period 循环,
+     * 第一期就把后面 N−1 期的查询省掉了。切片外的期(极少)仍走点查。</p>
+     */
+    private PeriodMemberCashflowMapper.SinglePeriodAggregate pmcAggregate(FactSlice slice, Long periodId) {
+        if (periodId == null) return null;
+        FactLoadCache cache = currentCache();
+        long familyId = slice.filter().familyId();
+        if (cache == null) {
+            return periodMemberCashflowMapper.findFamilyAggregateForPeriod(periodId).orElse(null);
+        }
+        var key = new FactLoadCache.PeriodKey(familyId, periodId);
+        if (!cache.pmc.containsKey(key)) {
+            List<Long> want = missing(cache.pmc, familyId, slice.periodIds(), periodId);
+            if (!want.isEmpty()) {
+                java.util.Map<Long, PeriodMemberCashflowMapper.SinglePeriodAggregate> got = new java.util.HashMap<>();
+                for (var a : periodMemberCashflowMapper.findFamilyAggregateForPeriods(want)) {
+                    if (a.periodId() != null) got.put(a.periodId(), a);
+                }
+                // 批量结果里没有的期 = 该期没有手填收支 → 存 null(点查返回的是一行 NULL 合计,等价)
+                for (Long pid : want) cache.pmc.put(new FactLoadCache.PeriodKey(familyId, pid), got.get(pid));
+            }
+        }
+        return cache.pmc.get(key);
+    }
+
+    /**
+     * 某期的家庭支出(统一口径 · 逐笔 &gt; 总额)· 原来逐期调 {@code byPeriod},
+     * 每次 3 条 SQL(家庭模式 + 逐笔汇总 + PMC),报表页累计 100 次以上。
+     */
+    private com.family.finance.service.expense.ExpenseLedgerService.PeriodExpense ledgerExpense(
+            FactSlice slice, Long periodId) {
+        FactLoadCache cache = currentCache();
+        long familyId = slice.filter().familyId();
+        if (cache == null || periodId == null) return expenseLedger.byPeriod(familyId, periodId);
+        var key = new FactLoadCache.PeriodKey(familyId, periodId);
+        if (!cache.expense.containsKey(key)) {
+            List<Long> want = missing(cache.expense, familyId, slice.periodIds(), periodId);
+            if (!want.isEmpty()) {
+                var got = expenseLedger.byPeriods(familyId, want);
+                for (Long pid : want) {
+                    cache.expense.put(new FactLoadCache.PeriodKey(familyId, pid),
+                            got.getOrDefault(pid,
+                                    com.family.finance.service.expense.ExpenseLedgerService.PeriodExpense.none(pid)));
+                }
+            }
+        }
+        return cache.expense.get(key);
+    }
+
+    /** 「切片的全部期 + 当前这一期」里还没查过的部分。 */
+    private static List<Long> missing(java.util.Map<FactLoadCache.PeriodKey, ?> filled, long familyId,
+                                      List<Long> slicePeriodIds, Long periodId) {
+        java.util.LinkedHashSet<Long> want = new java.util.LinkedHashSet<>();
+        if (periodId != null) want.add(periodId);
+        if (slicePeriodIds != null) want.addAll(slicePeriodIds);
+        want.removeIf(pid -> pid == null || filled.containsKey(new FactLoadCache.PeriodKey(familyId, pid)));
+        return new ArrayList<>(want);
     }
 
     private BigDecimal openingBaseline(FactSlice slice, Long periodId) {

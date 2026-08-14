@@ -61,6 +61,20 @@ public interface FactViewService {
     List<AccountPerformance> accountPerformance(FactSlice slice);
 
     /**
+     * v1.12 FR-350 · 同上,但 {@code sealedAttrs=true} 时「预期年化 %」取<b>锚期定格值</b>
+     * (锚期 = 窗口内最新已关账期,与账户 xirr 同源),而不是当前的 account / product_category 行。
+     *
+     * <p>为什么要这个开关,而不是一律定格:<b>报表页</b>是封板视图,承诺「已关账的月份不再变」,
+     * 所以「预实」这一列必须可复现 —— 今天改一个账户的预期年化,去年 12 月的预实不该跟着重算。
+     * <b>仪表盘</b>是实时视图,用户刚把某账户的预期年化从 6% 改成 8%,仪表盘就该立刻按 8% 算;
+     * 若也定格到最新已关账期,会变成「改了没反应,要等下次关账」—— 那是 bug 不是封板。
+     *
+     * <p>所以两个页面在这一列上<b>刻意不同</b>:reports 传 {@code true},dashboard / AI 洞察 /
+     * lens / 目标评估走无参重载(实时)。护栏 {@code v112-ATTR-BENCH-ANCHOR} 钉住这个分工。
+     */
+    List<AccountPerformance> accountPerformance(FactSlice slice, boolean sealedAttrs);
+
+    /**
      * 家庭净资产 环比(MoM)/ 同比(YoY)· v0.8。
      * filter 应覆盖 [as-of − 12 期, as-of](与 dashboard 显示窗口解耦),实时算不落库;
      * 对比账期缺失则对应字段为 null。

@@ -31,6 +31,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final AppProperties props;
     private final CacheHeaderInterceptor cacheHeaderInterceptor;
     private final MustChangePasswordInterceptor mustChangePasswordInterceptor;
+    private final com.family.finance.observability.SqlProfileWebInterceptor sqlProfileWebInterceptor;
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry r) {
@@ -65,6 +66,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(cacheHeaderInterceptor)
                 .excludePathPatterns("/vendor/**", "/css/**", "/img/**", "/uploads/**", "/favicon.ico");
         registry.addInterceptor(mustChangePasswordInterceptor)
+                .excludePathPatterns("/vendor/**", "/css/**", "/img/**", "/uploads/**", "/favicon.ico");
+        // v1.12 FR-351 · SQL 归因 · 默认关(family_runtime_config)· 放最后:它的 preHandle 要在
+        // 真正的业务处理之前 start(),但排在前面的两个 interceptor 也会发 SQL(改密码检查),
+        // 那些不是被诊断的对象,不该进清单。
+        registry.addInterceptor(sqlProfileWebInterceptor)
                 .excludePathPatterns("/vendor/**", "/css/**", "/img/**", "/uploads/**", "/favicon.ico");
     }
 }

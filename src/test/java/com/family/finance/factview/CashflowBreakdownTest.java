@@ -40,9 +40,30 @@ class CashflowBreakdownTest {
         return fm;
     }
 
+    /**
+     * v1.12 FR-352 · ExpenseLedgerService 改走批量版 {@code findFamilyAggregateForPeriods}。
+     *
+     * <p>这里让批量 stub <b>从点查 stub 派生</b>:逐期问一遍点查、丢掉「不存在 / 没人填」的期 ——
+     * 正是真实 SQL 的语义(过滤条件与点查逐字相同 + 按期分组 ⇒ 无匹配行的期不出现在结果里)。
+     * 于是各测试照旧只 stub 点查,两条路径结构上不可能对不上。</p>
+     */
+    static void wireBatchFromPointStubs(PeriodMemberCashflowMapper pmc) {
+        when(pmc.findFamilyAggregateForPeriods(org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> {
+            java.util.Collection<Long> ids = inv.getArgument(0);
+            return ids.stream()
+                    .filter(java.util.Objects::nonNull)
+                    .map(pmc::findFamilyAggregateForPeriod)
+                    .filter(Optional::isPresent).map(Optional::get)
+                    .filter(a -> a.periodId() != null && a.filledMembers() != null && a.filledMembers() > 0)
+                    .toList();
+        });
+    }
+
     private FactViewServiceImpl svc(PeriodMemberCashflowMapper pmc) {
+        wireBatchFromPointStubs(pmc);
         return new FactViewServiceImpl(mock(FactMapper.class), famMapper(), pmc,
                 mock(AccountMapper.class), mock(ProductCategoryService.class), mock(com.family.finance.repository.SnapshotMapper.class),
+                mock(com.family.finance.repository.PeriodAccountAttrMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(
                         mock(com.family.finance.repository.CashFlowMapper.class), pmc,
                         mock(com.family.finance.repository.FamilyMapper.class),

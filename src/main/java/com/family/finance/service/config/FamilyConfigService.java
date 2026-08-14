@@ -96,6 +96,12 @@ public class FamilyConfigService {
     public static final String K_UNEXPLAINED_EPSILON  = "unexplained_epsilon";
     // 会话
     public static final String K_REMEMBER_ME_SECONDS  = "remember_me_validity_seconds";
+    /**
+     * v1.12 FR-351 · SQL 归因诊断开关(默认 false)· /admin/audit 可开关。
+     * 开启后每个请求在日志里输出「mapper 方法 → 次数 / 耗时」清单,并给响应加 {@code X-Sql-Count} 头。
+     * 只用于查 N+1,查完就关 —— 常开会让每个请求多一段日志。护栏 {@code v112-SQL-PROFILER-OFF}。
+     */
+    public static final String K_SQL_PROFILER         = "sql_profiler_enabled";
 
     // ========== env / yml @Value fallback ==========
     @Value("${finance.llm.qwen.api-key:}")

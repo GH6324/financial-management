@@ -422,7 +422,32 @@ public class AdminController {
         model.addAttribute("memberNames", memberNames);
         model.addAttribute("filterType", type);
         model.addAttribute("availableTypes", AuditLogType.values());
+        // v1.12 FR-351 · 查询开销诊断开关。挂在审计页而不是新开页面 —— PRD v1.12 §2 非目标写明「不加新页面」,
+        // 且这东西的语义(留痕 / 排查)与审计同类。
+        model.addAttribute("sqlProfiler", configService.getBoolean(me.getFamilyId(),
+                com.family.finance.service.config.FamilyConfigService.K_SQL_PROFILER, false));
         return "admin/audit";
+    }
+
+    /**
+     * v1.12 FR-351 · 查询开销诊断开关。
+     *
+     * <p>开着会让每个请求多写一段清单日志,所以页面上要说清「查完就关」。这里不做自动过期 ——
+     * 自动关会让一次跨若干请求的排查半路失效,反而更难用;留痕交给 audit_log。</p>
+     */
+    @PostMapping("/audit/sql-profiler")
+    public String saveSqlProfiler(@AuthenticationPrincipal MemberPrincipal me,
+                                  @RequestParam(value = "enabled", defaultValue = "false") boolean enabled,
+                                  org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
+        long fid = me.getFamilyId();
+        configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_SQL_PROFILER,
+                String.valueOf(enabled));
+        auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE, "family_runtime_config", fid,
+                "查询开销诊断 · " + (enabled ? "开启" : "关闭"));
+        ra.addFlashAttribute("flash", enabled
+                ? "查询开销诊断已开启 · 访问任意页面后,清单写在应用日志里(响应头 X-Sql-Count 是控制器阶段的条数)· 排查完请关掉"
+                : "查询开销诊断已关闭");
+        return "redirect:/admin/audit";
     }
 
     // ---------------------------------------------------------------------
