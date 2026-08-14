@@ -1,49 +1,67 @@
 {
  "_comment": "每次发版按核心能力改清单(PC 用 selector 裁剪聚焦;手机不裁剪、整屏 full=false 平铺 —— 用户定 2026-07-11)",
- "_version": "v1.11.1 · 5 条反馈:发版不再踢登录 · 瀑布标签不再被遮 · 目标百分比 1 位小数 · 目录编号统一 · 一页只剩一个时间筛选器",
+ "_version": "v1.12.0 · 界面只有两处变化(PRD 非目标钉死):FR-350 定格说明从 1 条变 3 条 · FR-353 比率失真降级文案;另加 FR-351 管理页 SQL 归因开关",
  "pc": [
   {
    "path": "/reports?range=1Y",
-   "name": "waterfall-labels",
+   "name": "drift-note-3lines",
    "wait": 2600,
-   "waitFor": "text=净资产为什么变了",
-   "selector": ".wf-scroll"
+   "waitFor": "text=定格于",
+   "selector": "p[style*=\"border-left:3px solid var(--rule)\"]"
   },
   {
    "path": "/reports?range=1Y",
-   "name": "toc-unnumbered",
-   "wait": 2400,
-   "waitFor": "text=期末资产负债表",
-   "selector": ".toc-rail"
+   "name": "sealed-cmp-insufficient",
+   "wait": 2600,
+   "waitFor": "text=本期 vs 上期 vs 去年同期",
+   "selector": ".cmp-scroll"
   },
   {
-   "path": "/reports?range=6M",
-   "name": "one-time-filter",
+   "path": "/reports?range=1Y",
+   "name": "savings-kpi-degraded",
    "wait": 2600,
-   "waitFor": "text=钱花在哪了",
-   "selector": "#sec-expense-mix"
+   "waitFor": "text=储蓄率(最近期)",
+   "selector": "#sec-savings .grid-hairline"
   },
   {
    "path": "/dashboard",
-   "name": "goal-precision",
+   "name": "dashboard-savings-degraded",
    "wait": 2800,
-   "waitFor": "text=目标"
+   "waitFor": "text=家庭仪表盘",
+   "selector": "section.fade-in > div.flex.items-end.justify-between"
+  },
+  {
+   "path": "/admin/audit",
+   "name": "sql-profiler-switch",
+   "wait": 1800,
+   "waitFor": "text=SQL",
+   "selector": "form[action*=\"sql-profiler\"]"
   }
  ],
  "mobile": [
   {
-   "path": "/reports?range=1Y",
-   "name": "waterfall",
-   "wait": 2600,
+   "path": "/dashboard",
+   "name": "l1-degraded",
+   "wait": 2800,
    "full": false,
-   "waitFor": "text=净资产为什么变了"
+   "waitFor": "text=本 · 期 · 一 · 句 · 话",
+   "selector": "div[class*=\"md:hidden\"][class*=\"paper-card\"]"
   },
   {
-   "path": "/reports?range=6M",
-   "name": "expense-mix",
+   "path": "/reports?range=1Y",
+   "name": "drift-note-3lines",
    "wait": 2600,
    "full": false,
-   "waitFor": "text=钱花在哪了"
+   "waitFor": "text=定格于",
+   "selector": "p[style*=\"border-left:3px solid var(--rule)\"]"
+  },
+  {
+   "path": "/reports?range=1Y",
+   "name": "sealed-cmp-insufficient",
+   "wait": 2600,
+   "full": false,
+   "waitFor": "text=本期 vs 上期 vs 去年同期",
+   "selector": ".cmp-scroll"
   }
  ]
 }

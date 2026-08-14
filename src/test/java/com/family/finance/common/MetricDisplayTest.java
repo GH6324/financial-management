@@ -61,4 +61,30 @@ class MetricDisplayTest {
         assertThat(ratioRow("-23.8333").absurd(new BigDecimal("-23.8333"))).isTrue();
         assertThat(ratioRow("0.48").absurd(new BigDecimal("0.48"))).isFalse();
     }
+
+    /**
+     * 值列降级了,由它派生的 Δ 列不能还在。
+     *
+     * <p>2026-08-14 beta 双端复验实拍到的:本期 = 「收支不足」,同比 = 「−2468.2 pp」 ——
+     * 那个 pp 就是拿藏起来的 −2383.3% 减 84.86% 得的,比直接摆原值更坏(看不出一端是垃圾值)。
+     * 所以差额在任一端点失真时返回 null,页面走既有的 `—` 分支。</p>
+     */
+    @Test
+    void deltasAreDroppedWhenEitherEndpointIsAbsurd() {
+        var absurdVsNormal = new SealedSnapshot.ComparisonRow(
+                "储蓄率", new BigDecimal("-23.8333"), new BigDecimal("0.48"), new BigDecimal("0.8486"), true, false);
+        assertThat(absurdVsNormal.momDelta()).as("本期失真 → 环比不给 pp").isNull();
+        assertThat(absurdVsNormal.yoyDelta()).as("本期失真 → 同比不给 pp").isNull();
+
+        var normalVsAbsurd = new SealedSnapshot.ComparisonRow(
+                "储蓄率", new BigDecimal("0.48"), new BigDecimal("-23.8333"), new BigDecimal("0.8486"), true, false);
+        assertThat(normalVsAbsurd.momDelta()).as("上期失真 → 环比同样不给").isNull();
+        assertThat(normalVsAbsurd.yoyDelta()).as("两端都正常 → 照给")
+                .isEqualByComparingTo("-0.3686");
+
+        // 金额类不受影响:净资产 100 万远大于阈值 5,但它不是比率
+        var money = new SealedSnapshot.ComparisonRow(
+                "净资产", new BigDecimal("4208403"), new BigDecimal("2757855"), null, false, false);
+        assertThat(money.momDelta()).isEqualByComparingTo("1450548");
+    }
 }

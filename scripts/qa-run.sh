@@ -5740,10 +5740,15 @@ recomp_ln=$(grep -n 'runMetricsAfterCommit(periodId)' "$PSVC" | tail -1 | cut -d
 #   v1.11 已经修过一次(封板对照表显示「收支不足」),但阈值当时是 SealedSnapshot 的私有常量,
 #   于是仪表盘和报表 KPI 位仍然摆着 −2383%。两处各写一个 500% 迟早变成「一处降级一处不降」——
 #   与 v1.11 的 hx-select 落空、v0.14 加枚举漏改模板硬编码是同一类事故:同一条规则散落多处。
-#   所以这条守四件:① 阈值只在 MetricDisplay ② 模板不许再写降级文案字面量(走 ratioNote)
-#   ③ 三个显示面(仪表盘 hero / 报表储蓄 KPI / 封板对照表)都接了 ④ 降级处必须给补录入口。
+#   所以这条守五件:① 阈值只在 MetricDisplay ② 模板不许再写降级文案字面量(走 ratioNote)
+#   ③ 三个显示面(仪表盘 hero / 报表储蓄 KPI / 封板对照表)都接了 ④ 降级处必须给补录入口
+#   ⑤ **由失真值派生的 Δ 列也必须一起降级** —— 2026-08-14 beta 双端复验实拍到:本期显示
+#      「收支不足」、同比却摆着 −2468.2 pp(= 藏起来的 −2383.3% 减 84.86%)。只降值列不降差额,
+#      等于把同一个垃圾值换了个更难看穿的马甲继续摆出来(用户看不出这个 pp 的一端是垃圾)。
 { [ -f "$MDSP" ] && grep -q 'RATIO_ABSURD_ABS = new BigDecimal("5")' "$MDSP" \
   && grep -q 'MetricDisplay.ratioAbsurd' "$RD/src/main/java/com/family/finance/service/report/SealedSnapshot.java" \
+  && grep -q 'if (absurd(current) || absurd(prev)) return null;' "$RD/src/main/java/com/family/finance/service/report/SealedSnapshot.java" \
+  && grep -q 'if (absurd(current) || absurd(yoy)) return null;' "$RD/src/main/java/com/family/finance/service/report/SealedSnapshot.java" \
   && [ "$(grep -rl 'new BigDecimal("5")' "$RD/src/main/java/com/family/finance")" = "$MDSP" ] \
   && grep -q 'ratioNote' "$RD/src/main/java/com/family/finance/common/GlobalModelAdvice.java" \
   && grep -q 'savingsRateInsufficient' "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \

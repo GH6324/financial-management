@@ -181,13 +181,25 @@ public record SealedSnapshot(
             return ratio && com.family.finance.common.MetricDisplay.ratioAbsurd(v);
         }
 
-        /** 环比差额(比率类是 pp,金额类是绝对值);上期缺失 → null */
+        /**
+         * 环比差额(比率类是 pp,金额类是绝对值);上期缺失 → null。
+         *
+         * <p>v1.12 FR-353 补:任一端点已被判失真 → 也返回 null(页面照旧渲染 `—`)。
+         * 原来只在值列降级、Δ 列照算,beta 复验时就撞见这一行:本期写着「收支不足」,
+         * 同比却明明白白摆着 <b>−2468.2 pp</b> —— 那个 pp 正是拿被藏起来的 −2383% 减出来的,
+         * 和直接摆 −2383% 是同一件事,还更难看穿(用户看不出这个 pp 的一端是垃圾值)。
+         * 降级必须在一行内一致:值藏了,由它派生的差额也不能留。</p>
+         */
         public BigDecimal momDelta() {
-            return (current == null || prev == null) ? null : current.subtract(prev);
+            if (current == null || prev == null) return null;
+            if (absurd(current) || absurd(prev)) return null;
+            return current.subtract(prev);
         }
 
         public BigDecimal yoyDelta() {
-            return (current == null || yoy == null) ? null : current.subtract(yoy);
+            if (current == null || yoy == null) return null;
+            if (absurd(current) || absurd(yoy)) return null;
+            return current.subtract(yoy);
         }
 
         /** 环比 %(仅金额类给);分母为 0 或缺期 → null(不给 ∞ 也不给 100%) */

@@ -235,8 +235,11 @@
                   : (r.ratio() ? #numbers.formatDecimal(r.yoy()*100,1,2) + '%'
                                : #numbers.formatInteger(r.yoy(),1,'COMMA')))}"
                 th:title="${r.absurd(r.yoy()) ? '该期收入过小,比率失真(原值 ' + #numbers.formatDecimal(r.yoy()*100,1,1) + '%)' : ''}">—</td>
+            <!-- v1.12 FR-353 · Δ 列的 `—` 有两种来源:缺期(那一期不存在)和端点失真(momDelta 已返回 null)。
+                 后者要说出来,否则用户以为「上期没数据」。 -->
             <td th:with="d=${r.momDelta()},p=${r.momPct()}"
                 th:classappend="${d == null ? '' : ((r.lowerIsBetter() ? d.signum() < 0 : d.signum() > 0) ? ' num-pos' : (d.signum() == 0 ? '' : ' num-neg'))}"
+                th:title="${(r.absurd(r.current()) or r.absurd(r.prev())) ? '本期或上期收支数据不足,差额无法比较' : ''}"
                 data-priv
                 th:text="${d == null ? '—' : (r.ratio()
                   ? ((d.signum() > 0 ? '+' : '') + #numbers.formatDecimal(d*100,1,1) + ' pp')
@@ -244,6 +247,7 @@
                      + (p == null ? '' : ' · ' + (p.signum() > 0 ? '+' : '') + #numbers.formatDecimal(p,1,1) + '%')))}">—</td>
             <td th:with="d=${r.yoyDelta()},p=${r.yoyPct()}"
                 th:classappend="${d == null ? '' : ((r.lowerIsBetter() ? d.signum() < 0 : d.signum() > 0) ? ' num-pos' : (d.signum() == 0 ? '' : ' num-neg'))}"
+                th:title="${(r.absurd(r.current()) or r.absurd(r.yoy())) ? '本期或去年同期收支数据不足,差额无法比较' : ''}"
                 data-priv
                 th:text="${d == null ? '—' : (r.ratio()
                   ? ((d.signum() > 0 ? '+' : '') + #numbers.formatDecimal(d*100,1,1) + ' pp')
