@@ -115,6 +115,7 @@
 | `CHANGELOG.md` | 版本记录 | 每版一段 |
 | `src/main/resources/templates/landing.html` | 落地页**工程数字带** | `data-stat` version/tests/migrations/blackbox 必须与现状一致(release preflight 硬门) |
 | `.claude/skills/release-prod/` | 发布 prod skill | 见第 10 节 |
+| `.claude/skills/auto-issue-killer/` | GitHub issue 预处理 skill | `bash .claude/skills/auto-issue-killer/issue.sh scan`;先 👀 → 打 label → 以「作者的 agent 助手」双语回复;bug 开 `issue/<n>-<slug>` 分支修到 beta 为止,需求先写 PRD+preview,**发布/合并/关 issue 一律等作者批准** |
 | `deploy/deploy.sh` `rollback.sh` | prod 部署/回滚 | 幂等 + 失败自动回滚 |
 | `AGENTS.md`(本文) | 项目操作手册 | 每次迭代必过 |
 | memory `~/.claude/projects/-home-finance-financial-management/memory/` | Claude 跨会话记忆 | 一事一文件 + `MEMORY.md` 索引;详细规则见各 `feedback_*` |
