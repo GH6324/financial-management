@@ -1,34 +1,13 @@
 {
  "_comment": "每次发版按核心能力改清单(PC 用 selector 裁剪聚焦;手机不裁剪、整屏 full=false 平铺 —— 用户定 2026-07-11)",
- "_version": "v1.12.0 · 界面只有两处变化(PRD 非目标钉死):FR-350 定格说明从 1 条变 3 条 · FR-353 比率失真降级文案;另加 FR-351 管理页 SQL 归因开关",
+ "_version": "v1.12.0 · Release 页用的一组(隐私模式默认开)。清单只留不含金额的两处:开隐私之后凡是 data-priv 的整片都会糊成一团 —— 实拍验证过,三列对照表整张糊掉,放公开页没有意义。同理 FR-353 的降级文案也没进来(它既要造数据才出现,文案本身又在 data-priv 里)。复验那组(SHOT_PRIVACY=0 + 造数据)见 docs/qa-cases.md 的 v112-RATIO-INSUFFICIENT。",
  "pc": [
   {
    "path": "/reports?range=1Y",
-   "name": "drift-note-3lines",
+   "name": "drift-note-frozen",
    "wait": 2600,
    "waitFor": "text=定格于",
    "selector": "p[style*=\"border-left:3px solid var(--rule)\"]"
-  },
-  {
-   "path": "/reports?range=1Y",
-   "name": "sealed-cmp-insufficient",
-   "wait": 2600,
-   "waitFor": "text=本期 vs 上期 vs 去年同期",
-   "selector": ".cmp-scroll"
-  },
-  {
-   "path": "/reports?range=1Y",
-   "name": "savings-kpi-degraded",
-   "wait": 2600,
-   "waitFor": "text=储蓄率(最近期)",
-   "selector": "#sec-savings .grid-hairline"
-  },
-  {
-   "path": "/dashboard",
-   "name": "dashboard-savings-degraded",
-   "wait": 2800,
-   "waitFor": "text=家庭仪表盘",
-   "selector": "section.fade-in > div.flex.items-end.justify-between"
   },
   {
    "path": "/admin/audit",
@@ -40,28 +19,20 @@
  ],
  "mobile": [
   {
-   "path": "/dashboard",
-   "name": "l1-degraded",
-   "wait": 2800,
-   "full": false,
-   "waitFor": "text=本 · 期 · 一 · 句 · 话",
-   "selector": "div[class*=\"md:hidden\"][class*=\"paper-card\"]"
-  },
-  {
    "path": "/reports?range=1Y",
-   "name": "drift-note-3lines",
+   "name": "drift-note-frozen",
    "wait": 2600,
    "full": false,
    "waitFor": "text=定格于",
    "selector": "p[style*=\"border-left:3px solid var(--rule)\"]"
   },
   {
-   "path": "/reports?range=1Y",
-   "name": "sealed-cmp-insufficient",
-   "wait": 2600,
+   "path": "/admin/audit",
+   "name": "sql-profiler-switch",
+   "wait": 1800,
    "full": false,
-   "waitFor": "text=本期 vs 上期 vs 去年同期",
-   "selector": ".cmp-scroll"
+   "waitFor": "text=SQL",
+   "selector": "form[action*=\"sql-profiler\"]"
   }
  ]
 }
