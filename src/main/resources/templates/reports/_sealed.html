@@ -223,15 +223,15 @@
           <tbody>
           <tr th:each="r : ${cmp.rows()}">
             <td th:text="${r.label()}">指标</td>
-            <td data-priv th:text="${r.current() == null ? '—' : (r.absurd(r.current()) ? '收支不足'
+            <td data-priv th:text="${r.current() == null ? '—' : (r.absurd(r.current()) ? ratioNote.insufficientShort()
                   : (r.ratio() ? #numbers.formatDecimal(r.current()*100,1,2) + '%'
                                : #numbers.formatInteger(r.current(),1,'COMMA')))}"
                 th:title="${r.absurd(r.current()) ? '该期收入过小,比率失真(原值 ' + #numbers.formatDecimal(r.current()*100,1,1) + '%)' : ''}">—</td>
-            <td data-priv th:text="${r.prev() == null ? '—' : (r.absurd(r.prev()) ? '收支不足'
+            <td data-priv th:text="${r.prev() == null ? '—' : (r.absurd(r.prev()) ? ratioNote.insufficientShort()
                   : (r.ratio() ? #numbers.formatDecimal(r.prev()*100,1,2) + '%'
                                : #numbers.formatInteger(r.prev(),1,'COMMA')))}"
                 th:title="${r.absurd(r.prev()) ? '该期收入过小,比率失真(原值 ' + #numbers.formatDecimal(r.prev()*100,1,1) + '%)' : ''}">—</td>
-            <td data-priv th:text="${r.yoy() == null ? '—' : (r.absurd(r.yoy()) ? '收支不足'
+            <td data-priv th:text="${r.yoy() == null ? '—' : (r.absurd(r.yoy()) ? ratioNote.insufficientShort()
                   : (r.ratio() ? #numbers.formatDecimal(r.yoy()*100,1,2) + '%'
                                : #numbers.formatInteger(r.yoy(),1,'COMMA')))}"
                 th:title="${r.absurd(r.yoy()) ? '该期收入过小,比率失真(原值 ' + #numbers.formatDecimal(r.yoy()*100,1,1) + '%)' : ''}">—</td>
@@ -462,10 +462,11 @@
       </div>
     </div>
 
-    <!-- 无法定格的漂移源 · 如实交代 -->
+    <!-- 「已关账的月份还会不会变」· 如实交代(v1.12 FR-350 起:定格已生效 + 三条例外) -->
+    <!-- v1.12 · 从 1 条变 3 条,必须逐条成行 —— 原来全挤在一个 <p> 里,多条会首尾相接读成一句话 -->
     <p th:if="${!sealed.driftNotes().isEmpty()}" class="text-[11px] text-ink-subtle mt-4 px-2 py-1.5"
        style="border-left:3px solid var(--rule)">
-      <span th:each="n : ${sealed.driftNotes()}" th:utext="${n}"></span>
+      <span th:each="n : ${sealed.driftNotes()}" th:utext="${n}" class="block mb-1 last:mb-0"></span>
     </p>
   </section>
   </th:block>

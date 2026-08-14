@@ -131,7 +131,7 @@ Linux 上跑 `deploy/docker-up.sh`,卡在「引擎没起」或「Compose V2 缺�
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 506 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表) + UpdateCheckService 版本比较/迁移判定 fail-closed/结果收敛进 VARCHAR(512)))/ 93 e2e 断言(13 主线)/ 582 黑盒回归 |
+| 测试 | JUnit 5 · 511 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表) + UpdateCheckService 版本比较/迁移判定 fail-closed/结果收敛进 VARCHAR(512) + MetricDisplay 比率失真降级(正常区间不许降级 · 金额类不被误伤)))/ 93 e2e 断言(13 主线)/ 590 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
@@ -339,8 +339,8 @@ mvn spring-boot:run
 测试:
 
 ```bash
-mvn test                       # JUnit 单元测试(438)
-bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(479)
+mvn test                       # JUnit 单元测试(511)
+bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(见 README 上方测试行的黑盒回归数)
 bash scripts/e2e.sh            # 端到端主线真验收(13 主线 93 断言 · 唤起 beta 调接口 + DB 真值判定 · mysqldump 快照/还原,不清库)
 ```
 

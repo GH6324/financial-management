@@ -1,6 +1,7 @@
 package com.family.finance.web.dashboard;
 
 import com.family.finance.auth.MemberPrincipal;
+import com.family.finance.common.MetricDisplay;
 import com.family.finance.domain.account.Account;
 import com.family.finance.domain.family.Family;
 import com.family.finance.domain.period.Period;
@@ -243,7 +244,13 @@ public class DashboardController {
         model.addAttribute("kpiDebtRatio", percent(kpis.debtToAssetRatio()));
         model.addAttribute("kpiDelta", moneyDelta(viewCurrency, kpis.netWorthDelta()));
         // v0.3:优先用 period.total_*_input(用户在 /entry 第一步填的家庭口径)· fallback v0.2 cash_flow
-        model.addAttribute("savingsRate", percent(householdCashflowService.currentSavingsRate(me.getFamilyId())));
+        // v1.12 FR-353:|储蓄率| > 500% = 收入分母太小(prod 见过 −2383%)· 显示层降级成一句话 + 补录入口,
+        //   计算侧一个字不动(见 MetricDisplay 的注释)。正常范围的值走原来的 percent(),渲染逐字不变。
+        BigDecimal savingsRateRaw = householdCashflowService.currentSavingsRate(me.getFamilyId());
+        boolean savingsRateInsufficient = MetricDisplay.ratioAbsurd(savingsRateRaw);
+        model.addAttribute("savingsRateInsufficient", savingsRateInsufficient);
+        model.addAttribute("savingsRate",
+                savingsRateInsufficient ? MetricDisplay.INSUFFICIENT : percent(savingsRateRaw));
         // v0.3 新增:月均支出 / 月均收入 KPI(per 用户反馈 2026-05-13 · 用最新口径)
         model.addAttribute("avgMonthlyExpense", money(viewCurrency, householdCashflowService.avgMonthlyExpense(me.getFamilyId())));
         model.addAttribute("avgMonthlyIncome", money(viewCurrency, householdCashflowService.avgMonthlyIncome(me.getFamilyId())));

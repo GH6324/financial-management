@@ -5636,6 +5636,126 @@ CSSF="$RD/src/main/resources/static/css/style.css"
   && log_ok "v192-UPD-MODAL-DEGRADE(徽记 href 仍可用 · JS 在时才拦成弹窗 · Esc/遮罩可关)" \
   || log_bad "v192-UPD-MODAL-DEGRADE 退化路径断了" "徽记 href 必须留 /admin?tab=version;弹窗靠 preventDefault 接管,不许 href=# 或换 <button>"
 
+section "v1.12 · 分类属性按期定格 + 查询开销归因 + 比率失真降级"
+
+PAAM="$RD/src/main/java/com/family/finance/repository/PeriodAccountAttrMapper.java"
+PSVC="$RD/src/main/java/com/family/finance/service/PeriodService.java"
+FMXML="$RD/src/main/resources/mapper/FactMapper.xml"
+FVSI="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
+RPTC="$RD/src/main/java/com/family/finance/web/report/ReportsController.java"
+MDSP="$RD/src/main/java/com/family/finance/common/MetricDisplay.java"
+V54="$RD/db/migration/V54__period_account_attr.sql"
+
+# v112-ATTR-FREEZE-CLOSED · 关账必须在**同一事务内**定格分类属性,失败就不许关账成功
+#   FR-350 的整条承诺(改分类不回头改写历史)只有一个前提:关账那一刻真的把属性拍下来了。
+#   一旦这行掉到 afterCommit 钩子里、或被 try-catch 咽掉,就会出现「关了账但没定格」的期 ——
+#   读侧回落当前属性,页面看起来完全正常,漏保护且不报警,等到用户改了类目才发现历史被改写了。
+#   所以这条同时守:① close() 里调 freezeByPeriod ② 它不在那三段非阻塞钩子(FIRE/再平衡/AI 月报)那一类里
+#   ③ 位置在 periodMapper.close() 之后、runMetricsAfterCommit() 之前。
+freeze_ln=$(grep -n 'periodAccountAttrMapper.freezeByPeriod(periodId)' "$PSVC" | head -1 | cut -d: -f1)
+close_ln=$(grep -n 'periodMapper.close(period.getFamilyId(), periodId)' "$PSVC" | head -1 | cut -d: -f1)
+recomp_ln=$(grep -n 'runMetricsAfterCommit(periodId)' "$PSVC" | tail -1 | cut -d: -f1)
+{ [ -n "$freeze_ln" ] && [ -n "$close_ln" ] && [ -n "$recomp_ln" ] \
+  && [ "$freeze_ln" -gt "$close_ln" ] && [ "$freeze_ln" -lt "$recomp_ln" ] \
+  && grep -q '@Transactional' "$PSVC" \
+  && grep -q 'INSERT INTO period_account_attr' "$PAAM"; } \
+  && log_ok "v112-ATTR-FREEZE-CLOSED(关账同一事务内定格分类属性 · 在 close 之后、重算钩子之前)" \
+  || log_bad "v112-ATTR-FREEZE-CLOSED 关账没有(或不在事务里)定格属性" "PeriodService.close() 必须在 periodMapper.close() 之后、runMetricsAfterCommit() 之前调 freezeByPeriod,不许挪进 afterCommit 或包 try-catch"
+
+# v112-ATTR-REOPEN-REFREEZE · 重开必须删掉定格行(→「重开后再关账 = 重新定格」结构上必然)
+#   不删的话:重开期又按当前属性填报,但读侧还挂着上次关账的定格值 → 页面显示的分类与用户
+#   正在编辑的账户设置不一致。删掉之后不需要标志位/版本号来表达「这期的定格作废了」,少一个状态少一类不一致。
+{ grep -q 'periodAccountAttrMapper.deleteByPeriod(periodId)' "$PSVC" \
+  && grep -q 'DELETE FROM period_account_attr WHERE period_id' "$PAAM" \
+  && [ -n "$(grep -n 'periodAccountAttrMapper.deleteByPeriod' "$PSVC")" ]; } \
+  && log_ok "v112-ATTR-REOPEN-REFREEZE(重开删定格行 · 再关账自动重新定格)" \
+  || log_bad "v112-ATTR-REOPEN-REFREEZE 重开没清定格" "PeriodService.reopen() 必须调 deleteByPeriod,否则重开期显示的分类与当前设置不一致"
+
+# v112-ATTR-NO-BYPASS · queryBase 不许再裸投影 a.type / pc.liquidity_class
+#   这是 FR-350 的读侧唯一出口:所有吃 FactBaseRow 的消费者(SealedPeriodService / AllocationService /
+#   各 lens / 集中度 / 分层 / 大类分布)都从这两列拿分类。谁把 COALESCE 改回裸投影,
+#   一整层历史保护就静默失效 —— 编译过、测试过、页面正常,只有"改了类目历史跟着变"能发现。
+{ grep -q 'COALESCE(paa.account_type, a.type) AS account_type' "$FMXML" \
+  && grep -q 'COALESCE(paa.liquidity_class, pc.liquidity_class) AS product_liquidity_class' "$FMXML" \
+  && grep -q 'LEFT JOIN period_account_attr paa' "$FMXML" \
+  && ! grep -qE '^\s*a\.type AS account_type,' "$FMXML" \
+  && ! grep -qE '^\s*pc\.liquidity_class AS product_liquidity_class' "$FMXML"; } \
+  && log_ok "v112-ATTR-NO-BYPASS(queryBase 分类列走定格优先 · 没有裸投影当前属性的旁路)" \
+  || log_bad "v112-ATTR-NO-BYPASS 分类列又直接读当前属性了" "FactMapper.queryBase 必须 COALESCE(paa.xxx, 当前值) + LEFT JOIN period_account_attr"
+
+# v112-ATTR-BACKFILL-SCOPE · 定格行集范围必须与 queryBase 的归档过滤**逐字一致**
+#   三处必须同一个谓词:① 关账定格 SQL ② V54 的存量回填 ③ 读侧 queryBase(v110-ARCHIVED-TIME 守着)。
+#   任一处写成裸 `archived_at IS NULL`,定格的行集就 ≠ 读取的行集 —— 差集里的账户静默回落当前属性,
+#   而这类漏洞正好只在"归档过的账户 + 历史期"这个角落出现,页面上完全看不出来。
+{ grep -q 'WHERE a.archived_at IS NULL OR a.archived_at > p.period_end' "$PAAM" \
+  && grep -q 'a.archived_at IS NULL OR a.archived_at > p.period_end' "$V54" \
+  && grep -q 'a.archived_at IS NULL OR a.archived_at &gt; p.period_end' "$FMXML"; } \
+  && log_ok "v112-ATTR-BACKFILL-SCOPE(定格 / 回填 / 读取三处归档谓词逐字一致)" \
+  || log_bad "v112-ATTR-BACKFILL-SCOPE 定格行集与读取行集不一致" "freezeByPeriod + V54 回填 + queryBase 都必须用 (archived_at IS NULL OR archived_at > p.period_end)"
+
+# v112-ATTR-BENCH-ANCHOR · 报表页「基准 / 预实」读锚期定格值,仪表盘保持实时 —— 两页刻意不同
+#   报表页承诺可复现:今天改一个账户的类目或预期年化,去年 12 月的「实际 vs 基准」不该跟着重算,
+#   所以取 slice.returnAnchorPeriodId() 的定格属性(与账户 xirr 同一时点,否则"实际 − 基准"两边不同天)。
+#   仪表盘反过来:用户刚把预期年化 6% 改成 8%,仪表盘就该立刻按 8% 算 —— 定格在那里是 bug 不是封板。
+#   构造时踩过:只改前三个属性时以为改完了,直到把 GOLD 的 benchmark_pct 调成 99 还能推动 3M/6M/YTD ×
+#   三币种的数字,才发现「预实」列走的是**第三个**漂移入口(expectedReturnByAccount → planActualDiffPct)。
+{ grep -q 'accountPerformance(slice, true)' "$RPTC" \
+  && grep -q 'slice.returnAnchorPeriodId()' "$RPTC" \
+  && grep -q 'periodAccountAttrMapper.findByPeriod(benchAnchorPeriodId)' "$RPTC" \
+  && grep -q 'expectedReturnByAccount(slice, sealedAttrs)' "$FVSI" \
+  && grep -q 'accountPerformance(FactSlice slice, boolean sealedAttrs)' "$FVSI" \
+  && ! grep -q 'accountPerformance(slice, true)' "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \
+  && grep -q 'expected_return_pct' "$PAAM"; } \
+  && log_ok "v112-ATTR-BENCH-ANCHOR(报表基准/预实读锚期定格 · 仪表盘仍实时 · 预期年化也在定格属性里)" \
+  || log_bad "v112-ATTR-BENCH-ANCHOR 基准/预实的定格分工坏了" "reports 必须 accountPerformance(slice,true) + 读 returnAnchorPeriodId 的定格属性;dashboard 必须走实时重载"
+
+# v112-ATTR-LIVE-CURRENT · 没有定格行时**必须**回落当前属性,不许报错/不许显示空
+#   回落是正确行为而非兜底将就,三种合法缺失:① 未关账的当期(本来就该跟当前走)
+#   ② 今天新建的账户会出现在去年已关账期的行里(queryBase 是 account × period 交叉)—— 它没有定格行
+#   ③ 锚期还没关账(外壳态 / 全新家庭)。
+#   正因为 ②,护栏**不能**写成「已关账期每个账户都必须有定格行」——新建一个账户就会让它假红。
+#   所以这里守的是"缺失路径是回落而不是抛错":读侧 COALESCE(上一条已守)+ 报表侧 null 判断 + 逐字段回落。
+{ grep -q 'if (benchAnchorPeriodId != null)' "$RPTC" \
+  && ! grep -qE 'benchAnchorPeriodId.*orElseThrow|定格行缺失.*throw' "$RPTC" \
+  && grep -q '回落' "$FMXML" \
+  && grep -q '未关账' "$FMXML"; } \
+  && log_ok "v112-ATTR-LIVE-CURRENT(定格行缺失时回落当前属性 · 当期/新账户/未关账锚期都不报错)" \
+  || log_bad "v112-ATTR-LIVE-CURRENT 缺定格行的路径变成报错或空值" "缺失是合法的三种情形,必须逐字段回落当前属性"
+
+# v112-SQL-PROFILER-OFF · 查询归因默认关 · 开关走管理页 + 进审计 · 关闭态只多一次 ThreadLocal 读
+#   这是诊断工具不是常驻特性:开着每个请求多写一段清单日志。默认必须关,且关闭态的代价要压到
+#   「一次 ThreadLocal 读 + 一次 null 判断」——拦截器在 active() 为假时立刻 proceed,不取 SQL 文本、不计时。
+#   开关本身要留痕(audit_log),否则事后看不出"这段日志为什么突然多了"。
+{ grep -q 'K_SQL_PROFILER, false' "$RD/src/main/java/com/family/finance/observability/SqlProfileWebInterceptor.java" \
+  && grep -q 'if (!SqlProfileContext.active()) return invocation.proceed();' "$RD/src/main/java/com/family/finance/observability/SqlCountInterceptor.java" \
+  && grep -q 'K_SQL_PROFILER' "$RD/src/main/java/com/family/finance/web/admin/AdminController.java" \
+  && grep -q '/audit/sql-profiler' "$RD/src/main/java/com/family/finance/web/admin/AdminController.java" \
+  && grep -q 'AuditLogType.FAMILY_UPDATE, "family_runtime_config"' "$RD/src/main/java/com/family/finance/web/admin/AdminController.java" \
+  && grep -q 'sqlProfiler' "$RD/src/main/resources/templates/admin/audit.html" \
+  && grep -q 'sqlProfileWebInterceptor' "$RD/src/main/java/com/family/finance/config/WebMvcConfig.java"; } \
+  && log_ok "v112-SQL-PROFILER-OFF(默认关 · 管理页开关 · 开关进审计 · 关闭态只一次 ThreadLocal 读)" \
+  || log_bad "v112-SQL-PROFILER-OFF 归因开关默认开了或绕过了管理页" "默认 false + /admin/audit 开关 + 审计留痕 + active() 为假立刻 proceed"
+
+# v112-RATIO-INSUFFICIENT · 比率失真的阈值与文案只许有**一处**出处
+#   v1.11 已经修过一次(封板对照表显示「收支不足」),但阈值当时是 SealedSnapshot 的私有常量,
+#   于是仪表盘和报表 KPI 位仍然摆着 −2383%。两处各写一个 500% 迟早变成「一处降级一处不降」——
+#   与 v1.11 的 hx-select 落空、v0.14 加枚举漏改模板硬编码是同一类事故:同一条规则散落多处。
+#   所以这条守四件:① 阈值只在 MetricDisplay ② 模板不许再写降级文案字面量(走 ratioNote)
+#   ③ 三个显示面(仪表盘 hero / 报表储蓄 KPI / 封板对照表)都接了 ④ 降级处必须给补录入口。
+{ [ -f "$MDSP" ] && grep -q 'RATIO_ABSURD_ABS = new BigDecimal("5")' "$MDSP" \
+  && grep -q 'MetricDisplay.ratioAbsurd' "$RD/src/main/java/com/family/finance/service/report/SealedSnapshot.java" \
+  && [ "$(grep -rl 'new BigDecimal("5")' "$RD/src/main/java/com/family/finance")" = "$MDSP" ] \
+  && grep -q 'ratioNote' "$RD/src/main/java/com/family/finance/common/GlobalModelAdvice.java" \
+  && grep -q 'savingsRateInsufficient' "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \
+  && grep -q 'savingsRateInsufficient' "$RPTC" \
+  && grep -q 'ratioNote.insufficient()' "$RD/src/main/resources/templates/reports/_savings.html" \
+  && grep -q 'ratioNote.backfillHref()' "$RD/src/main/resources/templates/dashboard/_region.html" \
+  && grep -q 'ratioNote.insufficientShort()' "$RD/src/main/resources/templates/reports/_sealed.html" \
+  && ! grep -q "'收支数据不足'" "$RD/src/main/resources/templates/reports/_savings.html" \
+  && ! grep -q "'收支不足'" "$RD/src/main/resources/templates/reports/_sealed.html"; } \
+  && log_ok "v112-RATIO-INSUFFICIENT(500% 阈值与降级文案单一出处 · 三个显示面都接 · 降级处给补录入口)" \
+  || log_bad "v112-RATIO-INSUFFICIENT 比率降级又散成多处/模板写死文案" "阈值只许在 MetricDisplay;模板一律 \${ratioNote.xxx()};仪表盘+报表KPI+封板表三处都要接"
+
 section "v1.11 · 报表/仪表盘性能 + 交互 + 口径一致性(维护者 13 条反馈)"
 
 # v1111-WF-LABELS-VISIBLE · 瀑布的标签一个都不许被遮住
@@ -5765,14 +5885,23 @@ RIX2="$RD/src/main/resources/templates/reports/index.html"
 #   原来 per-period 查(带 NOT IN 子查询),报表页一次请求 881 条 SQL / 1.25s。
 #   第一版批量写成**相关子查询**(对 3600 行 period_snapshot 每行再查 MIN)→ O(n²),反而拖到 9.3s。
 #   正解是窗口函数一次扫完。所以这条同时守:① 有批量方法 ② 用的是窗口函数而不是相关子查询
-#   ③ 缓存是「每次 load 刷新的 ThreadLocal」而不是按 familyId 长缓存(长缓存漏清 = 静默错开账基线)。
+#   ③ 缓存不许是「按 familyId 的长缓存」(长缓存漏清 = 静默错开账基线,而开账基线决定人赚/钱赚分界)。
+#
+#   v1.12 FR-352 更新落点:原来这份批量结果挂在自家的 `firstAppearTl` 上,现在收进统一的
+#   请求级 `FactLoadCache`(GET 挂请求属性 / 非 GET 只活一次 load,读取侧验 `ownedBy` 同一性)。
+#   守的性质**一个字没变**,只是从「每次 load 刷新的 ThreadLocal」变成「更强的请求级 + 归属校验」,
+#   所以这条改成钉新落点 —— 旧 grep 打红过一次(2026-08-14 全量跑),那是护栏过时不是缺陷。
+FVSI2="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
+FLC2="$RD/src/main/java/com/family/finance/factview/FactLoadCache.java"
 { grep -q 'firstAppearanceByAccount' "$RD/src/main/java/com/family/finance/repository/SnapshotMapper.java" \
   && grep -q 'ROW_NUMBER() OVER (PARTITION BY ps.account_id' "$RD/src/main/java/com/family/finance/repository/SnapshotMapper.java" \
-  && grep -q 'firstAppearTl.set(firstAppear)' "$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java" \
-  && grep -q 'ThreadLocal<java.util.Map<Long, java.util.Set<Long>>> firstAppearTl' "$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java" \
-  && ! grep -q 'ConcurrentHashMap<Long, java.util.Map<Long, java.util.Set<Long>>>' "$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"; } \
-  && log_ok "v111-NPLUS1-BATCH(首次出现批量查 · 窗口函数一次扫 · 每次 load 刷新不用长缓存)" \
-  || log_bad "v111-NPLUS1-BATCH N+1 回来了或缓存换成了长缓存" "必须 firstAppearanceByAccount + ROW_NUMBER + 每次 load 刷新的 ThreadLocal"
+  && grep -q 'cache.firstAppear.computeIfAbsent(filter.familyId()' "$FVSI2" \
+  && grep -q 'cache.firstAppear.get(familyId)' "$FVSI2" \
+  && grep -q 'tl.ownedBy(attrs)' "$FVSI2" \
+  && grep -q 'boolean ownedBy(Object requestAttributes)' "$FLC2" \
+  && ! grep -qE 'static.*(ConcurrentHashMap|Cache)<Long' "$FVSI2" "$FLC2"; } \
+  && log_ok "v111-NPLUS1-BATCH(首次出现批量查 · 窗口函数一次扫 · 结果只活在请求级缓存里 + ownedBy 归属校验)" \
+  || log_bad "v111-NPLUS1-BATCH N+1 回来了或缓存换成了长缓存" "必须 firstAppearanceByAccount + ROW_NUMBER + 装进 FactLoadCache.firstAppear(读取验 ownedBy),不许出现按 familyId 的 static 长缓存"
 
 # v111-PARTIAL-SWAP · 筛选器切换不许整页跳转(慢 + 丢滚动位置)
 { grep -q 'hx-select="#sec-trend"' "$RIX2" \
@@ -5832,13 +5961,16 @@ $CURL -b $COOKIE -H "HX-Request: true" -H "HX-Target: reports-region" "$BASE/rep
   && log_ok "v111-MACRO-FALLBACK-DISCLOSED(缺当年 CPI/M2 时页面明示走历史均值 + 给补录入口)" \
   || log_bad "v111-MACRO-FALLBACK-DISCLOSED 又静默 fallback 了" "WaterLevel 要透出 fallbackYears,页面要说明"
 
-# v111-RATIO-ABSURD · 比率类分母过小时不许显示荒谬数字
+# v111-RATIO-ABSURD · 比率类分母过小时不许显示荒谬数字(封板对照表侧)
 #   prod 收支稀疏(PMC 6 行):某期收入 300 / 支出 7450 → 储蓄率 −2383%,数学没错但毫无信息量。
-{ grep -q 'RATIO_ABSURD_ABS' "$RD/src/main/java/com/family/finance/service/report/SealedSnapshot.java" \
+#   v1.12 起阈值搬到 MetricDisplay(见 v112-RATIO-INSUFFICIENT),这条只继续守封板表这一面:
+#   降级判断走 absurd()、文案走 ratioNote、tooltip 仍然给出原值(解释权不能一起被降级掉)。
+{ grep -q 'MetricDisplay.ratioAbsurd' "$RD/src/main/java/com/family/finance/service/report/SealedSnapshot.java" \
   && grep -q 'absurd(' "$SZT2" \
-  && grep -q '收支不足' "$SZT2"; } \
-  && log_ok "v111-RATIO-ABSURD(比率失真显示「收支不足」+ tooltip 给原值)" \
-  || log_bad "v111-RATIO-ABSURD 又会显示 −2383% 这类数字" "比率超阈值要换文案并在 tooltip 给原值"
+  && grep -q 'ratioNote.insufficientShort()' "$SZT2" \
+  && grep -q '比率失真(原值' "$SZT2"; } \
+  && log_ok "v111-RATIO-ABSURD(封板表比率失真显示短文案 + tooltip 给原值)" \
+  || log_bad "v111-RATIO-ABSURD 又会显示 −2383% 这类数字" "比率超阈值要换文案(ratioNote)并在 tooltip 给原值"
 
 # v111-COVER-MONTHS-ONE-RULE · 覆盖月数与紧急储备是同一个数,必须同一条展示规则
 { grep -q 'emergencyLabel(t.coverMonths())' "$SZT2" \

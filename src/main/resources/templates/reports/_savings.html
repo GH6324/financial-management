@@ -50,7 +50,15 @@
       </div>
       <div class="bg-card p-5">
         <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">储蓄率(最近期) <th:block th:insert="~{fragments/_kpi-info :: i('（收入 − 支出）÷ 收入。取最近一期数据。', ${calc.savingsRate})}"/></div>
-        <div class="font-display text-2xl tnum text-brass-deep"
+        <!-- v1.12 FR-353 · |值| > 500% = 收入分母太小,数字失真 → 说出来 + 给补录入口,不摆一个 −2383%。
+             正常范围的值走下面那行原表达式,渲染逐字不变。 -->
+        <div th:if="${savingsRateInsufficient}">
+          <div class="font-display text-base leading-tight text-ink-soft" th:text="${ratioNote.insufficient()}">收支数据不足</div>
+          <a th:href="@{${ratioNote.backfillHref()}}"
+             class="font-mono text-[10px] text-brass-deep hover:underline no-underline"
+             th:text="${ratioNote.backfillLabel()} + ' →'">补录收支 →</a>
+        </div>
+        <div th:unless="${savingsRateInsufficient}" class="font-display text-2xl tnum text-brass-deep"
              th:text="${savingsRate != null ? (#numbers.formatInteger(savingsRate.multiply(new java.math.BigDecimal(100)), 0) + '%') : '—'}">48%</div>
       </div>
       <div class="bg-card p-5">

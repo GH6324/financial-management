@@ -22,7 +22,11 @@
             <span class="font-mono" th:classappend="${momYoy.yoyPct == null ? '' : (momYoy.yoyPct.signum() &lt; 0 ? 'num-neg' : 'num-pos')}"
                   th:text="${momYoy.yoyPct == null ? '数据不足' : ((momYoy.yoyPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(momYoy.yoyPct,1,2) + '%')}">数据不足</span>
             <span th:if="${famMetrics.contains('savings_rate')}"> · </span></span>
-          <span th:if="${famMetrics.contains('savings_rate')}">储蓄率 <span class="font-mono" th:text="${savingsRate}">—</span></span>
+          <!-- v1.12 FR-353 · savingsRate 已在 controller 里降级过(|值| > 500% → 「收支数据不足」),
+               这里只负责在降级时补一个入口,正常值渲染逐字不变。 -->
+          <span th:if="${famMetrics.contains('savings_rate')}">储蓄率 <span class="font-mono" th:text="${savingsRate}">—</span><th:block
+              th:if="${savingsRateInsufficient}">(<a th:href="@{${ratioNote.backfillHref()}}"
+              class="text-brass-deep hover:underline" th:text="${ratioNote.backfillLabel()}">补录收支</a>)</th:block></span>
         </p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
@@ -155,7 +159,9 @@
             th:classappend="${momYoy.momPct.signum() &lt; 0 ? 'num-neg' : 'num-pos'}"
             th:text="${(momYoy.momPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(momYoy.momPct,1,2) + '%'}">+2.1%</span>)</th:block>。
       <th:block th:if="${savingsRate != null and famMetrics.contains('savings_rate')}">本期储蓄率
-        <b class="font-mono" th:text="${savingsRate}">—</b>。</th:block>
+        <b class="font-mono" th:text="${savingsRate}">—</b><th:block
+          th:if="${savingsRateInsufficient}">,<a th:href="@{${ratioNote.backfillHref()}}"
+          class="text-brass-deep hover:underline" th:text="${ratioNote.backfillLabel()}">补录收支</a>后才准</th:block>。</th:block>
       <span th:if="${pendingCount != null and pendingCount > 0}" class="text-rust">还有
         <b th:text="${pendingCount}">2</b> 个账户没填,数字可能不完整。</span>
     </p>

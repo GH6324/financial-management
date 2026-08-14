@@ -165,23 +165,20 @@ public record SealedSnapshot(
 
     // ── FR-324 · 三列对照 ──────────────────────────────────────────────
 
-    /**
-     * 比率类指标的「荒谬值」阈值(绝对值)。
-     *
-     * <p>v1.11 审计发现(F5):prod 收支数据稀疏(PMC 仅 6 行),某期收入 300、支出 7450 时
-     * 储蓄率 = (300−7450)/300 = **−2383%**。数学上没错,但这个数字对用户毫无信息量,
-     * 反而显得系统算错了。超过阈值就换成「收支数据不足」——
-     * 这不是隐藏问题,是把「分母太小导致比率失真」这件事**说出来**。</p>
-     */
-    public static final BigDecimal RATIO_ABSURD_ABS = new BigDecimal("5");   // 500%
-
     /** 一行对照。{@code prev}/{@code yoy} 为 null 表示那一期不存在 → 页面显示 `—`,不显示 0 也不显示 100%。 */
     public record ComparisonRow(String label, BigDecimal current, BigDecimal prev, BigDecimal yoy,
                                 boolean ratio, boolean lowerIsBetter) {
 
-        /** 比率类且绝对值超过阈值 → 分母太小,数字失真(见 {@link #RATIO_ABSURD_ABS}) */
+        /**
+         * 比率类且绝对值超过阈值 → 分母太小,数字失真。
+         *
+         * <p>v1.12 FR-353:阈值原来是本类的一个私有常量,现在收到
+         * {@link com.family.finance.common.MetricDisplay#RATIO_ABSURD_ABS} —— 同一条规则
+         * 要同时作用在仪表盘实时储蓄率和这张封板对照表上,两处各写一个 500%
+         * 迟早变成「一处降级一处不降级」。</p>
+         */
         public boolean absurd(BigDecimal v) {
-            return ratio && v != null && v.abs().compareTo(RATIO_ABSURD_ABS) > 0;
+            return ratio && com.family.finance.common.MetricDisplay.ratioAbsurd(v);
         }
 
         /** 环比差额(比率类是 pp,金额类是绝对值);上期缺失 → null */

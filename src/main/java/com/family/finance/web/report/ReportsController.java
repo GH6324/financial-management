@@ -1,6 +1,7 @@
 package com.family.finance.web.report;
 
 import com.family.finance.auth.MemberPrincipal;
+import com.family.finance.common.MetricDisplay;
 import com.family.finance.domain.account.Account;
 import com.family.finance.domain.family.Family;
 import com.family.finance.domain.fx.FxRate;
@@ -534,6 +535,9 @@ public class ReportsController {
             model.addAttribute("savingsExpense", savExpense);
             model.addAttribute("savingsMonthlyMedian", savMedian);
             model.addAttribute("savingsRate", savRateDec);
+            // v1.12 FR-353 · |储蓄率| > 500% = 收入分母太小(prod 见过 −2383%)→ 显示层降级 + 补录入口。
+            //   值本身照旧进 model(tooltip 里还要说原值),只是 KPI 位不再摆那个数字。
+            model.addAttribute("savingsRateInsufficient", MetricDisplay.ratioAbsurd(savRateDec));
             model.addAttribute("avgMonthlyExpense", savAvgExp);
             model.addAttribute("avgMonthlyIncome", savAvgInc);
             model.addAttribute("savingsFilledMonths", ratio[0]);
@@ -559,6 +563,9 @@ public class ReportsController {
             model.addAttribute("savingsIncome", List.of());
             model.addAttribute("savingsExpense", List.of());
             model.addAttribute("goalsProgress", List.of());
+            // v1.12 FR-353 · 异常分支也要把这个 flag 落上:模板里它和 savingsRate 成对使用,
+            //   缺了会变成「模板取到 null 再做布尔判断」——那是另一种 500。
+            model.addAttribute("savingsRateInsufficient", false);
             savAvail = false;
         }
 

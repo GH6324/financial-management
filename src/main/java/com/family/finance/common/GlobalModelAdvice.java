@@ -39,6 +39,18 @@ public class GlobalModelAdvice {
     }
 
     /**
+     * v1.12 FR-353 · 比率失真时的降级文案 + 补录入口(常量,不查库不出网)。
+     *
+     * <p>为什么走全局注入:这条降级要作用在仪表盘、报表储蓄区、封板对照表三处,
+     * 文案写在模板里就是三份字面量。护栏 {@code v112-RATIO-INSUFFICIENT} 盯着
+     * 「模板里没有硬编码的降级文案」。</p>
+     */
+    @ModelAttribute("ratioNote")
+    public MetricDisplay.Note ratioNote() {
+        return MetricDisplay.NOTE;
+    }
+
+    /**
      * v1.9 · 版本检查结果 —— nav 徽记的圆点看它。
      *
      * <p><b>这里每个请求都会跑,所以只允许一次内存字段读</b>:不查库、不出网。
