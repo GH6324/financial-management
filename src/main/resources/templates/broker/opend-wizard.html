@@ -32,20 +32,62 @@
       <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">富 · 途 · O · p · e · n · D · 一 · 键 · 托 · 管</span>
       <span class="pill text-[10px]" th:text="'部署渠道 · ' + ${channel}">部署渠道 · LINUX</span>
     </div>
-    <h1 class="font-display text-3xl font-medium tracking-tight mb-1">把 OpenD 装进系统,点几下就好</h1>
-    <p class="text-sm text-ink-soft">下方终端常驻显示 OpenD 的<b class="text-ink">运行状态与全过程日志</b>;安装与登录在终端下方按步操作。</p>
+    <!-- 标题按渠道分:docker 渠道没有内置终端、也不是「点几下」,沿用 Linux 文案是在骗人(issue #13) -->
+    <th:block th:if="${channel == 'DOCKER'}">
+      <h1 class="font-display text-3xl font-medium tracking-tight mb-1">这台是容器部署,OpenD 得单独起一个</h1>
+      <p class="text-sm text-ink-soft">本页<b class="text-ink">不能替你一键装</b> —— 容器里跑不了 OpenD,下面是把它挂成 sidecar 的完整前提与步骤。</p>
+    </th:block>
+    <th:block th:unless="${channel == 'DOCKER'}">
+      <h1 class="font-display text-3xl font-medium tracking-tight mb-1">把 OpenD 装进系统,点几下就好</h1>
+      <p class="text-sm text-ink-soft">下方终端常驻显示 OpenD 的<b class="text-ink">运行状态与全过程日志</b>;安装与登录在终端下方按步操作。</p>
+    </th:block>
   </div>
 
   <!-- Docker 渠道:不在 app 容器内托管,引导用 sidecar -->
   <section th:if="${channel == 'DOCKER'}" class="paper-card p-5 mb-6" style="border-left:4px solid var(--brass-deep)">
     <div class="font-mono text-[10px] uppercase text-brass-deep mb-2">检测到 Docker 部署 · 用 sidecar(不在 app 容器内跑 OpenD)</div>
-    <p class="text-sm text-ink-soft mb-2">app 跑在容器里,容器内既缺 gtk3、又是一容器一进程,不适合塞 OpenD。正确做法是把 OpenD 作为<b class="text-ink">同网络的 sidecar 容器</b>:</p>
-    <pre class="p-3 bg-paper border border-rule-soft font-mono text-[11px] whitespace-pre-wrap">docker compose -f docker-compose.yml -f deploy/futu-opend.compose.yml up -d</pre>
-    <ul class="text-sm text-ink-soft mt-2 space-y-1">
-      <li>· 富途无官方 OpenD 镜像 → 自备镜像写进 <span class="font-mono text-[11px]">.env</span> 的 <span class="font-mono text-[11px]">FUTU_OPEND_IMAGE</span>(记得把 gtk3 打进去),配 <span class="font-mono text-[11px]">FUTU_ACCOUNT/FUTU_PWD_MD5</span>。</li>
-      <li>· 起来后到「管理 → ⑥ 券商同步 → 富途」填 <span class="font-mono">opend</span> / <span class="font-mono">11111</span>(compose 内服务名)。</li>
-      <li>· 详见 <span class="font-mono text-[11px]">docs/broker-sync-guide.md</span> 与 <span class="font-mono text-[11px]">deploy/futu-opend.compose.yml</span> 顶部说明。</li>
-    </ul>
+    <p class="text-sm text-ink-soft mb-3">app 跑在容器里,容器内既缺 gtk3、又是一容器一进程,不适合塞 OpenD。正确做法是把 OpenD 作为<b class="text-ink">同网络的 sidecar 容器</b>。</p>
+
+    <!-- 这条路不是一条命令的事:前提必须摆在命令前面,否则用户复制就撞 compose 变量缺失 -->
+    <div class="p-3 mb-4 bg-card-soft border border-rule-soft">
+      <div class="flex items-start gap-2">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" class="text-rust shrink-0 mt-[2px]" aria-hidden="true">
+          <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+        </svg>
+        <p class="text-sm text-ink-soft"><b class="text-ink">这条路需要你先自备镜像</b> —— 富途<b class="text-ink">没有官方 OpenD 镜像</b>,也没有现成可拉的。下面第 ① 步做不到的话,这条路走不通,建议改用<b class="text-ink">拓扑 C</b>(OpenD 跑在家里常开的机器 + SSH 反向隧道),见 <span class="font-mono text-[11px]">docs/broker-sync-guide.md</span>。</p>
+      </div>
+    </div>
+
+    <ol class="text-sm text-ink-soft space-y-3">
+      <li>
+        <b class="text-ink">① 备好镜像,并在桌面端登录过一次</b>
+        <div class="mt-1">自己写 Dockerfile 拉富途官方命令行包构建(<b class="text-ink">把 gtk3 打进去</b>);另外先在有桌面的机器用可视化版 OpenD 登录一次,过掉<b class="text-ink">首次问卷 + 协议确认</b>,否则命令行版起不来。</div>
+      </li>
+      <li>
+        <b class="text-ink">② 在 <span class="font-mono text-[11px]">.env</span> 里配三个变量</b>(缺一个就起不来)
+        <pre class="p-3 mt-1 bg-paper border border-rule-soft font-mono text-[11px] whitespace-pre-wrap">FUTU_OPEND_IMAGE=你自备的镜像:tag
+FUTU_ACCOUNT=富途账号
+FUTU_PWD_MD5=密码的MD5</pre>
+        <div class="mt-1">密码填 32 位小写 MD5:<span class="font-mono text-[11px]">printf '你的密码' | md5sum</span>。<span class="font-mono text-[11px]">.env.example</span> 里有这段模板可以照抄。</div>
+      </li>
+      <li>
+        <b class="text-ink">③ 合并覆盖文件启动</b>(默认的 <span class="font-mono text-[11px]">docker compose up</span> 不会加载它,所以不影响正常部署)
+        <pre class="p-3 mt-1 bg-paper border border-rule-soft font-mono text-[11px] whitespace-pre-wrap">docker compose -f docker-compose.yml -f deploy/futu-opend.compose.yml up -d</pre>
+      </li>
+      <li>
+        <b class="text-ink">④ 回到「管理 → 数据源接入 → ⑥ 券商同步 → 富途」</b>,地址填 <span class="font-mono">opend</span>、端口填 <span class="font-mono">11111</span>(compose 内服务名直连,不对宿主发布端口)。
+      </li>
+    </ol>
+
+    <div class="mt-4 pt-3" style="border-top:1px solid var(--rule-soft)">
+      <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">跳过第 ② 步会看到什么</div>
+      <pre class="p-3 bg-paper border border-rule-soft font-mono text-[11px] whitespace-pre-wrap text-ink-soft">WARN[0000] The "FUTU_OPEND_IMAGE" variable is not set. Defaulting to a blank string.
+error while interpolating services.opend.environment.FUTU_ACCOUNT:
+  required variable FUTU_ACCOUNT is missing a value: 请在 .env 设置富途账号</pre>
+      <p class="text-sm text-ink-soft mt-1">这是<b class="text-ink">预期行为</b>,不是故障:没配账号就不该把 sidecar 起起来。回第 ② 步补上即可。</p>
+    </div>
+
+    <p class="text-sm text-ink-soft mt-3">详见 <span class="font-mono text-[11px]">docs/broker-sync-guide.md</span> 与 <span class="font-mono text-[11px]">deploy/futu-opend.compose.yml</span> 顶部说明。</p>
   </section>
 
   <!-- ██ 终端(常驻):OpenD 运行状态 + 全过程日志 + 内嵌验证码交互(SSH 质感) -->

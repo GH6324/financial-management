@@ -18,6 +18,37 @@ README「近期更新」段再往下收一层,只留最近 1–2 版摘要。
 早期那段有 10 个补丁 tag 当时没留条目(`v0.2.1` / `v0.3.1`–`v0.3.3` / `v0.4` / `v0.4.1` /
 `v0.4.2` / `v0.4.13` / `v0.4.15` / `v0.4.16`),内容在 `git log` 里。
 
+## [v1.12.1] · 未发布
+
+### Fixed — [issue #13](https://github.com/LuoDi-Nate/financial-management/issues/13)(外部用户报告 · macOS)
+
+- **Docker 渠道的 OpenD 向导:照着一键命令跑必然失败**。向导页把
+  `docker compose -f docker-compose.yml -f deploy/futu-opend.compose.yml up -d` 摆成一个
+  `<pre>` 一键块,而它依赖的三个变量(`FUTU_OPEND_IMAGE` / `FUTU_ACCOUNT` / `FUTU_PWD_MD5`)
+  写在命令**下方**的脚注里 —— 人看到 pre 块的第一反应是复制执行,于是撞
+  `required variable FUTU_ACCOUNT is missing a value`。**compose 那个 `${VAR:?}` 硬失败是对的**
+  (没配账号就不该起 sidecar),错的是引导顺序。DOCKER 段改成有序四步:备镜像 → 配 `.env` →
+  合并启动 → 回管理页填 `opend`/`11111`;末尾原样贴出那两行报错并说明「这是预期行为不是故障」。
+- **「富途没有官方镜像」这个门槛被写成了脚注**。它决定这条路**走不走得通**,现在提到最前面用告警块
+  承载,并给出退路(改走拓扑 C:OpenD 放家里常开的机器 + 反向隧道)。
+- **`.env.example` 里根本没有这三个变量**。`.env` 是从它复制来的,用户即便读到脚注也没有模板可抄,
+  只能自己拼变量名。补上一段(默认注释掉,不影响正常部署)+ `printf '密码' | md5sum` 提示。
+- **`docs/broker-sync-guide.md` 两个相对链接从 `docs/` 出发必然 404**:
+  `](futu-opend.compose.yml)` / `](futu-opend.service.example)` → `../deploy/…`。
+- **页面标题不分渠道,DOCKER 用户看到的第一句话就是错的**(双端截图复验时发现):h1「把 OpenD
+  装进系统,点几下就好」+ 副标题「下方终端常驻显示…安装与登录在终端下方按步操作」是无条件渲染的,
+  而容器渠道既没有内置终端、也不是「点几下」。改成按渠道分,DOCKER 那份直说「这台是容器部署,
+  OpenD 得单独起一个 · 本页不能替你一键装」。
+
+### Changed — 护栏
+
+- `v1121-OPEND-DOCKER-ENV`:钉结构不钉措辞 —— `.env.example` 含三变量;向导页 DOCKER 段里
+  `FUTU_OPEND_IMAGE` 的**行号必须小于** `up -d` 那行(「前提在命令前面」本身可机器校验);
+  段内含原始报错串;模板里存在 `th:unless="${channel == 'DOCKER'}"`(证明 Linux 那句文案被 gate 住);
+  指南两个相对链接带 `../deploy/`。
+
+**无 DB 迁移**,纯模板 / 文档 / 示例配置。
+
 ## [v1.11.3] · 2026-08-14
 
 ### Fixed — [issue #10](https://github.com/LuoDi-Nate/financial-management/issues/10)(外部用户报告)
