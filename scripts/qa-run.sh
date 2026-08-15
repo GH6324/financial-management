@@ -3121,13 +3121,23 @@ ICTL="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java
   || log_bad "v07-CFG-1 配置总指南或 README 入口缺失" "see docs/configuration.md"
 
 # v07-CFG-2 LLM 页:可选 banner + 折叠帮助 + 测试按钮 + sibling 测试表单
+#   v1.13 改写:原来钉死 `llm-test-qwen` / `llm-test-deepseek` 两个 id —— 平台化之后
+#   qwen 这个名字消失了(平台叫「百炼 dashscope」· 模型系列才叫 qwen),而且平台可以再加。
+#   钉死名字的写法有两个毛病:改名当天整条红(这次就是),加平台那天却**不红**——
+#   新平台漏了测试按钮它一句话都不说。改成从模板里**反查**:每个 `id="llm-test-X"` 的
+#   隐藏表单都必须有对应的 `form="llm-test-X"` 按钮,且平台数 ≥ 3(百炼/DeepSeek/方舟),
+#   每个平台各有一段「如何获取…Key」折叠指引。这样加第四个平台时护栏跟着长。
+_cfg2_ids="$(grep -oE 'id="llm-test-[a-z0-9]+"' "$ICFG" | sed -E 's/.*llm-test-([a-z0-9]+)".*/\1/' | sort -u)"
+_cfg2_n="$(printf '%s\n' "$_cfg2_ids" | grep -c . )"
+_cfg2_help="$(grep -c '<summary>如何获取' "$ICFG")"
+_cfg2_bad=""
+for _p in $_cfg2_ids; do
+  grep -q "form=\"llm-test-$_p\"" "$ICFG" || _cfg2_bad="$_cfg2_bad $_p(有表单没按钮)"
+done
 { grep -q '都<b>可选</b>' "$ICFG" \
-  && grep -q '如何获取 Qwen Key' "$ICFG" \
-  && grep -q "form=\"llm-test-qwen\"" "$ICFG" \
-  && grep -q 'id="llm-test-qwen"' "$ICFG" \
-  && grep -q 'id="llm-test-deepseek"' "$ICFG"; } \
-  && log_ok "v07-CFG-2 LLM 页 可选说明 + 折叠指引 + 测试按钮 + sibling 表单齐" \
-  || log_bad "v07-CFG-2 LLM 配置引导 UI 缺件" "see integrations.html"
+  && [ "$_cfg2_n" -ge 3 ] && [ "$_cfg2_help" -ge "$_cfg2_n" ] && [ -z "$_cfg2_bad" ]; } \
+  && log_ok "v07-CFG-2 LLM 页 可选说明 + 每个平台各有折叠指引 + 测试按钮 + sibling 表单齐(平台 $_cfg2_n 个)" \
+  || log_bad "v07-CFG-2 LLM 配置引导 UI 缺件" "平台 $_cfg2_n 个 · 折叠指引 $_cfg2_help 段 · 缺按钮:${_cfg2_bad:-ok} · see integrations.html"
 
 # v07-CFG-3 后端测试端点 + 脱敏分类
 { grep -q '/llm/test' "$ICTL" \
@@ -5085,6 +5095,12 @@ CLEAN="$RD/docker/clean-dev-data.sh"; DEP="$RD/deploy/deploy.sh"; ENTP="$RD/dock
 #      现在:优先 GHCR(latest_image_tag),GitHub release 降为补充信息 ——
 #      release 比镜像新时提示"镜像还在 CI 里(约 12 分钟);久等不来说明构建失败了"。
 DUPX="$DUP"
+# 发布 skill 的两个文件在 `.claude/` 下,而 `.claude/` 整棵被 .gitignore 忽略 ——
+# 它只存在于**主工作区**,不会跟着 `git worktree add` 复制过去。
+# 在 issue worktree 里跑 qa-run 时,原来这三条 grep 全部 "No such file" → 整条假红。
+# 用 `git rev-parse --git-common-dir` 找回主工作区(linked worktree 下它给的是主仓 .git 的绝对路径)。
+RPD="$RD/.claude/skills/release-prod"
+[ -d "$RPD" ] || RPD="$(dirname "$(cd "$RD" && git rev-parse --git-common-dir 2>/dev/null || echo "$RD/.git")")/.claude/skills/release-prod"
 { grep -q '^latest_image_tag()' "$DUPX" && grep -q '^ver_gt()' "$DUPX" \
   && grep -qF 'ghcr.io/v2/${repo}/tags/list' "$DUPX" \
   && grep -qF '查不到最新版本' "$DUPX" \
@@ -5093,12 +5109,12 @@ DUPX="$DUP"
   && grep -qF '镜像还没推上来' "$DUPX" \
   && grep -qF '镜像是否已发布未确认' "$DUPX" \
   && grep -qF 'FINANCE_NO_UPDATE_CHECK' "$DUPX" \
-  && grep -q '^verify-image)' "$RD/.claude/skills/release-prod/release.sh" \
-  && grep -qF 'ghcr.io/v2/${REPO}/manifests/' "$RD/.claude/skills/release-prod/release.sh" \
-  && grep -qF '镜像发布验证失败' "$RD/.claude/skills/release-prod/release.sh" \
-  && grep -qF '阶段 3.5 · Docker 镜像发布验证(必做' "$RD/.claude/skills/release-prod/SKILL.md" \
-  && grep -qF 'prod 健康' "$RD/.claude/skills/release-prod/SKILL.md" \
-  && bash -n "$DUPX" && bash -n "$RD/.claude/skills/release-prod/release.sh"; } \
+  && grep -q '^verify-image)' "$RPD/release.sh" \
+  && grep -qF 'ghcr.io/v2/${REPO}/manifests/' "$RPD/release.sh" \
+  && grep -qF '镜像发布验证失败' "$RPD/release.sh" \
+  && grep -qF '阶段 3.5 · Docker 镜像发布验证(必做' "$RPD/SKILL.md" \
+  && grep -qF 'prod 健康' "$RPD/SKILL.md" \
+  && bash -n "$DUPX" && bash -n "$RPD/release.sh"; } \
   && log_ok "v1627-UPDATE-TRUTH(更新检查以 GHCR tag 列表为权威 + 查不到明确说出来 + release/GHCR 不一致时归因 CI · 发布加必做阶段 3.5 verify-image 探 manifest)" \
   || log_bad "v1627-UPDATE-TRUTH 缺件" "see deploy/docker-up.sh(latest_image_tag 问 GHCR tags/list + ver_gt + 四种文案:查不到最新版本/已是最新可用镜像/有新版镜像/镜像还没推上来/镜像是否已发布未确认)· release.sh(verify-image 子命令 + 探 manifests + die)· SKILL.md(阶段 3.5 必做 + prod 健康≠发布完成)"
 
@@ -6288,6 +6304,23 @@ done
   && [ -f "$LLMTEST/LlmSettingsMigrationTest.java" ]; } \
   && log_ok "v113-LLM-LEGACY-KEYS-KEPT 旧键 9 个都在 · 三个「选哪个模型」的旧键只被 LlmSettings 读(无人再写)" \
   || log_bad "v113-LLM-LEGACY-KEYS-KEPT 旧键被删或被写" "缺:${_llm_keys_missing:-ok} · 越界访问:${_llm_frozen_bad:-ok}"
+
+# v113-LLM-CARD-LAYOUT · 三家凭据列对齐 + 备选组在窄屏有分组线
+#   双端审视时实测出来的两处(改之前的真实数字):
+#     ① PC 三个「测试连接」按钮 y = 726 / 726 / 710 —— 百炼和 DeepSeek 的说明是两行、
+#        方舟一行,按钮跟着各自内容流走。并列同类元素必须对齐,所以三列 flex-col + 按钮 mt-auto,
+#        label 再加 md:min-h 把「已配置(隐藏)/未配置」的一行两行差吃掉。
+#     ② 手机上 384px 宽,主选/备选各三个字段一堆叠 → 组内 11px、组间 15px,差 4px,
+#        六个下拉连成一条,看不出哪三个是一组。备选组补窄屏分隔线(sm: 以上还原,PC 不变)。
+#   这两条都不是「跑得起来」的问题,单测和 e2e 都抓不到,只能钉类名。加第四个平台时
+#   照抄这三列的结构就不会再歪。
+_card_flexcol="$(grep -c 'class="flex flex-col"' "$ICFG")"
+_card_mtauto="$(grep -c 'flex items-center gap-3 mt-auto' "$ICFG")"
+_card_minh="$(grep -c 'field-label md:min-h-\[' "$ICFG")"
+_card_split="$(grep -c 'pt-4 border-t border-rule-soft sm:pt-0 sm:border-t-0' "$ICFG")"
+{ [ "$_card_flexcol" -ge 3 ] && [ "$_card_mtauto" -ge 3 ] && [ "$_card_minh" -ge 3 ] && [ "$_card_split" -ge 1 ]; } \
+  && log_ok "v113-LLM-CARD-LAYOUT 三家凭据列等高对齐(flex-col+mt-auto+min-h)· 备选组窄屏有分组线" \
+  || log_bad "v113-LLM-CARD-LAYOUT 凭据列或分组间距回退" "flex-col $_card_flexcol/3 · mt-auto $_card_mtauto/3 · min-h $_card_minh/3 · 窄屏分隔 $_card_split/1 · see integrations.html"
 
 echo
 echo "═══════════════════════════════════════"

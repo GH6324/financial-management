@@ -53,10 +53,13 @@
         </p>
       </div>
 
-      <!-- 凭据 · 一个平台一把 key -->
+      <!-- 凭据 · 一个平台一把 key
+           三列各自 flex-col + 按钮 mt-auto:三家的说明行数不一样(百炼两行、方舟一行),
+           不这么钉的话「测试连接」会跟着各自内容浮动,PC 上三个按钮差十几像素高 —— 并列同类
+           元素必须对齐(v1.13 双端审视时实测 726/726/710)。 -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div>
-          <label class="field-label">阿里云百炼 · API Key · <span class="text-ink-subtle" th:text="${qwenKeyConfigured} ? '已配置(隐藏)' : '未配置'">未配置</span></label>
+        <div class="flex flex-col">
+          <label class="field-label md:min-h-[32px]">阿里云百炼 · API Key · <span class="text-ink-subtle" th:text="${qwenKeyConfigured} ? '已配置(隐藏)' : '未配置'">未配置</span></label>
           <input class="field-input" type="password" name="qwenKey" autocomplete="new-password" placeholder="留空 = 不修改"/>
           <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">通义千问 / 千问 VL(视觉)· sk-xxxxxxxx</p>
           <details class="help-fold">
@@ -71,12 +74,12 @@
               <div class="font-mono text-[10px] text-ink-subtle mt-2">详见 <a href="https://github.com/LuoDi-Nate/financial-management/blob/master/docs/llm-api-keys-setup.md" target="_blank" rel="noreferrer">配置指南 · LLM Key 申请</a></div>
             </div>
           </details>
-          <div class="flex items-center gap-3 mt-2">
+          <div class="flex items-center gap-3 mt-auto pt-3">
             <button type="submit" form="llm-test-dashscope" class="btn-ghost text-[12px] py-1.5 px-3">测试连接</button>
           </div>
         </div>
-        <div>
-          <label class="field-label">DeepSeek 官方 · API Key · <span class="text-ink-subtle" th:text="${deepseekKeyConfigured} ? '已配置(隐藏)' : '未配置'">未配置</span></label>
+        <div class="flex flex-col">
+          <label class="field-label md:min-h-[32px]">DeepSeek 官方 · API Key · <span class="text-ink-subtle" th:text="${deepseekKeyConfigured} ? '已配置(隐藏)' : '未配置'">未配置</span></label>
           <input class="field-input" type="password" name="deepseekKey" autocomplete="new-password" placeholder="留空 = 不修改"/>
           <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">deepseek-chat / reasoner · 无视觉能力</p>
           <details class="help-fold">
@@ -90,12 +93,12 @@
               <div class="font-mono text-[10px] text-ink-subtle mt-2">详见 <a href="https://github.com/LuoDi-Nate/financial-management/blob/master/docs/llm-api-keys-setup.md" target="_blank" rel="noreferrer">配置指南 · LLM Key 申请</a></div>
             </div>
           </details>
-          <div class="flex items-center gap-3 mt-2">
+          <div class="flex items-center gap-3 mt-auto pt-3">
             <button type="submit" form="llm-test-deepseek" class="btn-ghost text-[12px] py-1.5 px-3">测试连接</button>
           </div>
         </div>
-        <div>
-          <label class="field-label">火山方舟 · API Key · <span class="text-ink-subtle" th:text="${arkKeyConfigured} ? '已配置(隐藏)' : '未配置'">未配置</span></label>
+        <div class="flex flex-col">
+          <label class="field-label md:min-h-[32px]">火山方舟 · API Key · <span class="text-ink-subtle" th:text="${arkKeyConfigured} ? '已配置(隐藏)' : '未配置'">未配置</span></label>
           <input class="field-input" type="password" name="arkKey" autocomplete="new-password" placeholder="留空 = 不修改"/>
           <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">豆包 / 方舟托管的 DeepSeek · 型号需手填</p>
           <details class="help-fold">
@@ -110,7 +113,7 @@
               <div class="font-mono text-[10px] text-ink-subtle mt-2">详见 <a href="https://github.com/LuoDi-Nate/financial-management/blob/master/docs/llm-api-keys-setup.md" target="_blank" rel="noreferrer">配置指南 · LLM Key 申请</a></div>
             </div>
           </details>
-          <div class="flex items-center gap-3 mt-2">
+          <div class="flex items-center gap-3 mt-auto pt-3">
             <button type="submit" form="llm-test-ark" class="btn-ghost text-[12px] py-1.5 px-3">测试连接</button>
           </div>
         </div>
@@ -147,7 +150,10 @@
           </div>
         </div>
 
-        <div>
+        <!-- 窄屏补一条分隔:PC 上「主选/备选」各占一行三列,行本身就是分组;手机一堆叠就变成
+             连着的六个下拉,组内 11px / 组间 15px —— 差 4px,看不出哪三个是一组(v1.13 实测)。
+             sm: 以上还原成原样,PC 观感不变。 -->
+        <div class="pt-4 border-t border-rule-soft sm:pt-0 sm:border-t-0">
           <div class="font-mono text-[10px] text-ink-subtle tracking-wider mb-1">备选 · 主选失败时自动兜底(可不设)</div>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-3">
             <div>
