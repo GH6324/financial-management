@@ -52,6 +52,12 @@ README「近期更新」段再往下收一层,只留最近 1–2 版摘要。
 - `v115-NO-MEMBER-ARCHIVE-IN-SUMS`:金额侧 SQL 里出现 `member.archived_at` 一律红。
 - `v115-RENAME-KILLS-TOKENS-FIRST`:`killRememberMe(旧名)` 的行号必须小于 `updateUsername`。
 
+### Fixed — 成员页窄屏页头(双端截图复核发现)
+
+- 390px 下页头一行塞三样(标题 + 说明 + 「添加成员」),说明文案离按钮只剩 5px、按钮自己折成
+  两行;窄屏改竖排,按钮靠左**躲开右下角两个 fixed 悬浮键**(否则点击区被抢),其浮层同步
+  改 `left-0`(原 `right-0` 在靠左之后会把 360px 表单甩出屏幕左侧)。PC 版面不动。
+
 **无 DB 迁移** —— `member.archived_at` 自 V1 就在,`audit_log.type` 是 `VARCHAR(40)` 够放新类型。
 
 ## [v1.12.1] · 未发布
