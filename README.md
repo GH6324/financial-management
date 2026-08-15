@@ -96,13 +96,13 @@
 
 > 完整发布记录与截图见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段每版只留 2–4 行,细节不搬过来)。
 
+**[v1.12.1](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.12.1) · 修 [#13](https://github.com/LuoDi-Nate/financial-management/issues/13):Docker 用户照着 OpenD 向导跑必然失败**
+向导页把 `docker compose … up -d` 摆成一个一键复制块,而它依赖的三个变量(`FUTU_OPEND_IMAGE` / `FUTU_ACCOUNT` / `FUTU_PWD_MD5`)写在命令**下方**的脚注里 —— 复制即撞 `required variable FUTU_ACCOUNT is missing a value`。compose 里那个 `${VAR:?}` 硬失败**是对的**,错的是引导顺序。现在 DOCKER 段改成有序四步(备镜像 → 配 `.env` → 合并启动 → 回管理页填连接信息),「富途没有官方镜像」这条决定路走不走得通的前提从脚注提到最前面,`.env.example` 补上那三个变量(默认注释掉),指南里两个必然 404 的相对链接一并修正。**只动模板 / 文档 / 示例配置,无 DB 迁移。**
+
 **[v1.12.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.12.0) · 已关账的月份从此真的不再变 · 报表 586→124 条 SQL**
 上一版的封板承诺带着一个括号:**在账户属性不变的前提下**。以前改一下某账户的产品类目,全部历史月份的集中度 / 流动性分层 / 紧急储备 / 大类分布 / vs 基准会当场跟着变 —— 金额没动,变的是分类归属。现在关账那一刻把类型 / 类目 / 流动性档 / 基准% / 预期年化% 一起**定格**,之后改设置历史一个数字不动;当期照旧实时,重开再关账 = 重新定格。**冻输入不冻输出** —— 口径本身修正时仍重算全部历史,否则等于把算错的口径连历史一起冻住。
 性能:管理页新增「查询开销诊断」开关(按 mapper 方法给调用次数 / 耗时清单,默认关),据此把报表 586→**124** 条 SQL(2320→**973** ms)、仪表盘 421→**90**、体检 583→**146**。顺手修:收支太少时储蓄率不再摆 −2383% 这类数,显示「收支数据不足」+ 补录入口,同行派生的环比 / 同比差额一起降级。
 **含 DB 迁移 V54(新增定格表 + 回填,不改既有表结构,幂等)**;升级前后历史数字逐字相同(以 v1.11.3 为基线,三币种 × 六范围零差异硬验收)。
-
-**[v1.11.3](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.11.3) · 修 [#10](https://github.com/LuoDi-Nate/financial-management/issues/10):Linux 装不上**
-Linux 上跑 `deploy/docker-up.sh`,卡在「引擎没起」或「Compose V2 缺失」时,给的是 **macOS 的 `brew install`** —— 脚本里的平台判断只用在了国内镜像源那段,这两个失败分支整段是 Mac 文案。顺带修了版本号取错:Ubuntu 的 `docker-compose --short` 吐的是依赖库 docker-py 的版本(把 1.29.2 印成 5.0.2)。现在按系统给指引,Linux 分「服务没起 / 当前用户没权限」两种,并点明 apt 里那个 `docker-compose` 是 V1、装了没用。**只动安装脚本与文档,无 DB 迁移。**
 
 ## 主要能力
 
