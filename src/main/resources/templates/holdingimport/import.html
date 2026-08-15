@@ -28,11 +28,14 @@
   #lb .lbbar button:hover{background:rgba(255,255,255,.26)}
   #lb .tip{position:fixed;bottom:20px;left:0;right:0;text-align:center;color:rgba(255,255,255,.72);font-family:'JetBrains Mono',monospace;font-size:12px;pointer-events:none}
   /* v1.14 · 拖拽落图态(不引新色:沿用 --brass-deep / --card-soft) */
-  #dropZone{transition:background-color .12s ease,border-color .12s ease}
+  #dropZone{position:relative;transition:background-color .12s ease,border-color .12s ease}
   #dropZone.dz-on{border-style:solid;border-color:var(--brass-deep);background:var(--card-soft)}
-  #dropZone .dz-drop{display:none}
+  /* 落图态【不许改变框的高度】:idle 内容用 visibility 留在流里,而不是 display:none。
+     否则拖到一半框从三行缩成一行,drop 目标在指针底下自己变矮 —— 指针可能就此掉到框外,
+     变成「高亮闪一下就没了」。「松手即上传」用绝对定位居中盖上去。 */
+  #dropZone .dz-drop{display:none;position:absolute;left:0;right:0;top:50%;transform:translateY(-50%)}
   #dropZone.dz-on .dz-drop{display:block}
-  #dropZone.dz-on .dz-idle{display:none}
+  #dropZone.dz-on .dz-idle{visibility:hidden}
   #dropZone.dz-on *{pointer-events:none}
 </style>
 

@@ -6249,6 +6249,28 @@ IMPORT_HTML="$RD/src/main/resources/templates/holdingimport/import.html"
   && log_ok "v114-NONIMAGE-BEFORE-COMPRESS(非图片在 compress 之前挡掉 · 被忽略的文件名列出来)" \
   || log_bad "v114-NONIMAGE-BEFORE-COMPRESS 文件夹会静默消失" "handleFiles 必须先 filter(isImg) 再 uploadOne,并把被忽略的文件名写进 #dropRej"
 
+# v114-DROP-STATE-NO-REFLOW · 落图态不许改变拖拽区高度
+#   第一版把 idle 内容 display:none,框从三行缩成一行 —— 拖到一半 drop 目标在指针
+#   底下自己变矮,指针掉出框 → dragleave → 高亮闪一下就没了。idle 内容必须留在流里
+#   (visibility),「松手即上传」绝对定位盖上去。
+{ grep -qF '#dropZone.dz-on .dz-idle{visibility:hidden}' "$IMPORT_HTML" \
+  && grep -qF '#dropZone .dz-drop{display:none;position:absolute' "$IMPORT_HTML" \
+  && grep -qF '#dropZone{position:relative' "$IMPORT_HTML" \
+  && ! grep -qF '.dz-on .dz-idle{display:none}' "$IMPORT_HTML"; } \
+  && log_ok "v114-DROP-STATE-NO-REFLOW(落图态用 visibility 保持高度 · 提示语绝对定位盖上去)" \
+  || log_bad "v114-DROP-STATE-NO-REFLOW 拖到一半框会变矮" "idle 内容不许 display:none(会缩高度导致指针掉出拖拽区),用 visibility:hidden + .dz-drop 绝对定位"
+
+# v114-HINT-PC-ONLY · 拖拽/粘贴提示不许进静态标记(issue #11 说了「可以只在 pc 端」)
+#   手机上没有拖文件这回事,那句提示写死在 HTML 里就是噪音;判据用指针能力
+#   (hover:hover)+(pointer:fine) 而不是视口宽度 —— 窄窗口的桌面浏览器照样能拖。
+#   钉法:这句话必须由 tip.textContent 注入,且**不许出现在任何标记行上**
+#   (判据不能写成「全文只准出现一次」—— 那会连代码注释里提一句都算违规)。
+{ grep -qF '(hover: hover) and (pointer: fine)' "$IMPORT_HTML" \
+  && grep -F 'Ctrl+V' "$IMPORT_HTML" | grep -q 'tip.textContent' \
+  && ! grep -F 'Ctrl+V' "$IMPORT_HTML" | grep -qE '<[a-zA-Z]|class=|th:text'; } \
+  && log_ok "v114-HINT-PC-ONLY(拖拽/粘贴提示按指针能力 JS 注入 · 静态标记里没有这句)" \
+  || log_bad "v114-HINT-PC-ONLY 提示可能落到手机上" "提示必须在 matchMedia('(hover: hover) and (pointer: fine)') 命中后由 tip.textContent 注入,模板里 Ctrl+V 只许出现这一次"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
