@@ -71,18 +71,34 @@
 
 ### 拓扑 A · 与 app 同机(systemd 部署推荐)
 app 用 systemd 跑在某台 Linux 服务器上 → 把命令行版 OpenD 也常驻在同机,配 `127.0.0.1:11111`。
-- 用模板 [`deploy/futu-opend.service.example`](futu-opend.service.example) → `cp` 成 `/etc/systemd/system/futu-opend.service`,账号密码放 `chmod 600` 的 `/etc/futu-opend.env`。
+- 用模板 [`deploy/futu-opend.service.example`](../deploy/futu-opend.service.example) → `cp` 成 `/etc/systemd/system/futu-opend.service`,账号密码放 `chmod 600` 的 `/etc/futu-opend.env`。
 - `systemctl enable --now futu-opend`,`ss -ltn | grep 11111` 确认监听。
 - 管理页 ⑥ 富途填 `127.0.0.1` / `11111`。
 - 安全:`api_ip=127.0.0.1` 只本机可连,别设 `0.0.0.0` 开公网。
 
 ### 拓扑 B · docker compose sidecar
-app 走 docker compose 时,用可选覆盖文件把 OpenD 挂成同网络的 sidecar:
+app 走 docker compose 时,用可选覆盖文件把 OpenD 挂成同网络的 sidecar。
+
+> **先看这条**:富途**没有官方 OpenD 镜像**,也没有现成可拉的 —— 这条路要你**自备镜像**。
+> 做不到就走**拓扑 C**(OpenD 放家里常开的机器 + 反向隧道),别在这里耗。
+
+**① 备镜像**:自己写 Dockerfile 拉富途官方命令行包构建,**把 gtk3 打进去**;并先在有桌面的机器用可视化版 OpenD 登录一次,过掉首次问卷 + 协议确认(否则命令行版起不来)。
+
+**② 配 `.env`**(三个变量缺一个都起不来,模板见 [`.env.example`](../.env.example)):
+```
+FUTU_OPEND_IMAGE=你自备的镜像:tag
+FUTU_ACCOUNT=富途账号
+FUTU_PWD_MD5=密码的MD5        # printf '你的密码' | md5sum
+```
+
+**③ 合并覆盖文件启动**(默认的 `docker compose up` 不加载它,不影响正常部署):
 ```
 docker compose -f docker-compose.yml -f deploy/futu-opend.compose.yml up -d
 ```
-- 富途**没有官方 OpenD 镜像**,需自备镜像并写进 `.env` 的 `FUTU_OPEND_IMAGE`,配 `FUTU_ACCOUNT` / `FUTU_PWD_MD5`(见 [`deploy/futu-opend.compose.yml`](futu-opend.compose.yml) 顶部说明)。
-- 管理页 ⑥ 富途填服务名 `opend` / `11111`(compose 内网直连,不对外发布端口)。
+
+**④ 管理页** ⑥ 富途填服务名 `opend` / `11111`(compose 内网直连,不对外发布端口)。
+
+跳过第 ② 步会看到 `required variable FUTU_ACCOUNT is missing a value` —— 这是**预期行为**(没配账号就不该起 sidecar),不是故障;补上变量重跑即可。更多说明见 [`deploy/futu-opend.compose.yml`](../deploy/futu-opend.compose.yml) 顶部。
 
 ### 拓扑 C · OpenD 在家用机 / NAS + 反向隧道
 不想在云服务器上放券商登录态,就把 OpenD 跑在家里常开的机器,用 SSH 反向隧道把它的 11111 转到 prod 本地:

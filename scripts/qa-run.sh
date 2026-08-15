@@ -4104,6 +4104,22 @@ HCTL="$RD/src/main/java/com/family/finance/web/help/HelpController.java"
   && log_ok "v15-OPEND 富途 OpenD 部署方案(同机 systemd / docker sidecar / 家用机隧道)+ 文档 + 应用内说明" \
   || log_bad "v15-OPEND OpenD 部署方案缺件" "see deploy/futu-opend.* / docs/broker-sync-guide.md / help/broker-sync.html"
 
+# v1121-OPEND-DOCKER-ENV · issue #13:docker 渠道的前提必须在命令【前面】,且 .env.example 里有可抄的模板
+# 现象:向导页把合并命令摆成一键 pre 块,三个必需变量写在命令下方的脚注里,.env.example 里又完全没有
+#      → 用户复制即撞 `required variable FUTU_ACCOUNT is missing a value`,以为是 bug。
+# 守的是「前提前置 + 模板可抄 + 报错能对号」,不是某句话的措辞。
+OWTPL_D="$RD/src/main/resources/templates/broker/opend-wizard.html"
+{ grep -q 'FUTU_OPEND_IMAGE' "$RD/.env.example" && grep -q 'FUTU_ACCOUNT' "$RD/.env.example" && grep -q 'FUTU_PWD_MD5' "$RD/.env.example" \
+  && awk '/channel == .DOCKER./,/<\/section>/' "$OWTPL_D" | grep -q 'FUTU_PWD_MD5' \
+  && [ "$(awk '/channel == .DOCKER./,/<\/section>/' "$OWTPL_D" | grep -n 'FUTU_OPEND_IMAGE' | head -1 | cut -d: -f1)" -lt \
+       "$(awk '/channel == .DOCKER./,/<\/section>/' "$OWTPL_D" | grep -n 'futu-opend.compose.yml up -d' | head -1 | cut -d: -f1)" ] \
+  && awk '/channel == .DOCKER./,/<\/section>/' "$OWTPL_D" | grep -q 'required variable FUTU_ACCOUNT' \
+  && grep -q 'th:unless="\${channel == .DOCKER.}"' "$OWTPL_D" \
+  && grep -q '(\.\./deploy/futu-opend\.compose\.yml)' "$RD/docs/broker-sync-guide.md" \
+  && grep -q '(\.\./deploy/futu-opend\.service\.example)' "$RD/docs/broker-sync-guide.md"; } \
+  && log_ok "v1121-OPEND-DOCKER-ENV docker sidecar 前提前置于命令 + .env.example 有三变量模板 + 向导页贴出原始报错对号 + 标题按渠道分(docker 不说「点几下/下方终端」)+ 指南相对链接可达" \
+  || log_bad "v1121-OPEND-DOCKER-ENV docker 渠道引导缺前提/模板(issue #13 回归)" "see .env.example / broker/opend-wizard.html DOCKER 段 / docs/broker-sync-guide.md 拓扑B"
+
 # v15-OPEND-WIZ · 应用内 OpenD 傻瓜向导(自管子进程:下载/版本/依赖/配置启动/短信中继)
 OWMGR="$RD/src/main/java/com/family/finance/service/broker/opend/FutuOpendManager.java"
 OWCTL="$RD/src/main/java/com/family/finance/web/broker/FutuOpendController.java"
