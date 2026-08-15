@@ -6198,6 +6198,57 @@ WLT="$RD/src/main/resources/templates/reports/_wealth-level.html"
   && log_ok "v19-UPD-OFF-NO-CALL(Job 与 checkNow 都在最前面判 enabled)" \
   || log_bad "v19-UPD-OFF-NO-CALL 判定位置不对" "UpdateCheckJob.run 与 UpdateCheckService.checkNow 的第一件事都必须是判 enabled"
 
+# ── v1.14 · 截图导入拖拽 + 粘贴(issue #11)────────────────────────────
+IMPORT_HTML="$RD/src/main/resources/templates/holdingimport/import.html"
+
+# v114-DROPZONE-HAS-DROP-HANDLER · 长得像拖拽区就必须真的能拖
+#   上传区的 id 一直叫 dropZone、一直是 2px 虚线框(网页上「往这儿拖」的通用符号),
+#   但从 v1.4 到 v1.13 都没有 drop 监听 —— PC 上真拖上去,浏览器导航到那个图片文件,
+#   已经选好的图和这次导入全丢。这不是少个便利功能,是会让人丢东西的错误暗示。
+#   drop 与 dragover 必须成对:不 preventDefault dragover,浏览器压根不派发 drop。
+{ grep -q 'id="dropZone"' "$IMPORT_HTML" \
+  && grep -q "dz.addEventListener('drop'" "$IMPORT_HTML" \
+  && grep -q "dz.addEventListener('dragover'" "$IMPORT_HTML" \
+  && grep -q "window.addEventListener('drop'" "$IMPORT_HTML" \
+  && grep -q "window.addEventListener('dragover'" "$IMPORT_HTML"; } \
+  && log_ok "v114-DROPZONE-HAS-DROP-HANDLER(dropZone 接 drop+dragover · window 兜底拦默认导航)" \
+  || log_bad "v114-DROPZONE-HAS-DROP-HANDLER 虚线框又变回骗人的" "import.html 有 id=dropZone 就必须有 dz 的 drop/dragover 监听,且 window 上要拦默认行为(FR-371)"
+
+# v114-UPLOAD-SINGLE-PATH · 三个入口一条上传路径
+#   点选 / 拖拽 / 粘贴必须都走 handleFiles;压缩、计价、并发计数、scanBtn 启用条件一行都不复制。
+#   两条路径长出行为差异是这类改动最典型的翻车方式,而且它**不报错** ——
+#   只是拖上去的图不计价、或者按钮不变可用,人得盯着才看得出来。
+#   用 new FormData() 只准出现一次来钉:复制一份上传逻辑必然复制它。
+{ grep -q 'function handleFiles(' "$IMPORT_HTML" \
+  && grep -q 'handleFiles(fi.files)' "$IMPORT_HTML" \
+  && grep -q 'handleFiles(e.dataTransfer.files)' "$IMPORT_HTML" \
+  && grep -q 'handleFiles(imgs)' "$IMPORT_HTML" \
+  && [ "$(grep -c 'new FormData()' "$IMPORT_HTML")" -eq 1 ]; } \
+  && log_ok "v114-UPLOAD-SINGLE-PATH(change/drop/paste 三入口共用 handleFiles · FormData 只出现一次)" \
+  || log_bad "v114-UPLOAD-SINGLE-PATH 上传逻辑被复制了" "三个入口都必须调 handleFiles,import.html 里 new FormData() 只准出现一次"
+
+# v114-PASTE-YIELDS-INPUT · 粘贴不许抢页内输入框
+#   paste 挂在 document 上(不然要先点一下拖拽区,粘贴比拖拽短一步的价值就没了),
+#   代价是会盖住整页。比对确认那张表全是 .j-mv 数值输入框,用户在那儿 Ctrl+V 粘数字
+#   不能被截图上传吃掉。判据用 activeElement 而不是 e.target:没有聚焦元素时 target 是 body。
+{ grep -q "document.addEventListener('paste'" "$IMPORT_HTML" \
+  && grep -q 'document.activeElement' "$IMPORT_HTML" \
+  && grep -q "ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.isContentEditable" "$IMPORT_HTML"; } \
+  && log_ok "v114-PASTE-YIELDS-INPUT(光标在输入框/文本域/contenteditable 里时不拦粘贴)" \
+  || log_bad "v114-PASTE-YIELDS-INPUT 粘贴会抢输入框" "paste 处理器必须先判 document.activeElement 是不是 INPUT/TEXTAREA/contenteditable 并让位"
+
+# v114-NONIMAGE-BEFORE-COMPRESS · 非图片在压缩之前挡掉
+#   accept="image/*" 只约束文件选择器,不约束 drop / paste。拖进来的文件夹在
+#   DataTransfer.files 里是 type==='' 的条目,交给 compress() 会走 img.onerror → res(null)
+#   → uploading--,静默减计数,用户看到的是「什么都没发生」——比拖 PDF 更隐蔽。
+#   所以 uploadOne 只能拿到过滤后的图片,拒绝提示走 #dropRej。
+{ grep -q 'function isImg(f)' "$IMPORT_HTML" \
+  && grep -q 'all.filter(isImg).forEach(uploadOne)' "$IMPORT_HTML" \
+  && grep -q 'id="dropRej"' "$IMPORT_HTML" \
+  && [ "$(grep -c 'forEach(uploadOne)' "$IMPORT_HTML")" -eq 1 ]; } \
+  && log_ok "v114-NONIMAGE-BEFORE-COMPRESS(非图片在 compress 之前挡掉 · 被忽略的文件名列出来)" \
+  || log_bad "v114-NONIMAGE-BEFORE-COMPRESS 文件夹会静默消失" "handleFiles 必须先 filter(isImg) 再 uploadOne,并把被忽略的文件名写进 #dropRej"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
