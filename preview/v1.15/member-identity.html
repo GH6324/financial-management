@@ -278,8 +278,9 @@
             今天的一次归档会改掉去年的历史数字。
           </div>
           <div class="note" style="margin-top:8px;color:var(--brass-deep)">
-            <b>这一条是待作者拍板项</b>(见 §4)。如果真实场景是「孩子成年独立、要把他那部分从家庭口径摘出去」,
-            那要的是「移出家庭」而不是「归档」,是另一件更大的事。
+            <b>作者已拍板:照算</b>(2026-08-15,见第 5 屏)。查实下来这条<b>零改动即成立</b> ——
+            汇总过滤的一直是账户归档,不是成员归档。若真实场景是「孩子成年独立、要把他那部分从家庭口径摘出去」,
+            那要的是「移出家庭」而不是「归档」,已列入非目标、单独立项。
           </div>
         </div>
         <div class="bad" style="margin-top:12px">
@@ -380,7 +381,7 @@
     <div class="zone-head">
       <div class="zone-no">4</div>
       <div>
-        <div class="zone-t">归档之后:5 处调用点,行为并不一样</div>
+        <div class="zone-t">归档之后:9 处调用点,行为并不一样</div>
         <div class="zone-sub">这是本版真正的工作量 —— 不是那条 UPDATE</div>
       </div>
     </div>
@@ -390,52 +391,67 @@
       <tr><th style="width:34%">调用点</th><th style="width:22%">用途</th><th>归档后应该</th></tr>
       <tr><td class="k">AdminController:213</td><td>成员管理页列表</td>
           <td><b style="color:var(--rust)">必须看得见已归档的</b> —— 否则归完人就消失了,连撤销按钮都点不到</td></tr>
-      <tr><td class="k">AdminController:419<br>DashboardController:364</td><td>成员 id → 名字映射</td>
-          <td><b style="color:var(--rust)">必须含已归档的</b> —— 否则历史报表里他的名字变成空白</td></tr>
+      <tr><td class="k">AdminController:419<br>DashboardController:364<br>LensTagController:201</td><td>成员 id → 名字映射</td>
+          <td><b style="color:var(--rust)">必须含已归档的</b> —— 否则历史报表 / 透视页里他的名字变成空白</td></tr>
       <tr><td class="k">AccountController:181 / 213</td><td>账户归属下拉</td>
           <td><span class="badge ok">保持仅活跃</span> 面向未来的选择,不该再选到已退出的人</td></tr>
       <tr><td class="k">NotificationSettingsController:91 / 104</td><td>提醒对象 / 发送名单</td>
           <td><span class="badge ok">保持仅活跃</span> 不能再给已归档的人发填报提醒</td></tr>
+      <tr><td class="k">EntryController:142<br>DashboardController:194</td><td>「N/M 人已填报」的<b>分母</b></td>
+          <td><span class="badge ok">保持仅活跃</span> 已归档的人不该再被期待填报,分母该缩</td></tr>
     </table>
 
     <div class="note" style="margin-top:11px">
-      这类回归的特征是 <b>不报错、只是名字变空</b>,人眼复看很容易放过去 ——
-      所以要加一条 qa-run 护栏,钉住「名字映射的两处不得使用仅活跃查询」。
+      <b>这张表第一版只列了 5 处,漏了后三行</b> —— 漏的正好是「藏在别的页面里的同类映射」和「写死的计数分母」这两类。
+      所以护栏 <b>钉模式不钉行号</b>:凡是把成员查到的结果做成 id→名字 映射的地方,都不许用仅活跃查询。
+      这类回归的特征是 <b>不报错、只是名字变空</b>,人眼复看很容易放过去。
+    </div>
+
+    <div class="note" style="margin-top:9px">
+      <b>一个已知偏差,本版不修</b>:分母取的是「今天」的活跃人数,所以看<b>已关账的历史账期</b>时,
+      「N/M 人」的 M 会随今天的一次归档而变小。账户侧早就单独处理过同样的问题
+      (<code>FactMapper.xml</code> 的 <code>a.archived_at &gt; p.period_end</code>),
+      成员侧一并做成「按期回溯应填人数」是另一件事,登记在非目标里。
     </div>
   </div>
 
-  <!-- 5 · 待拍板 -->
+  <!-- 5 · 已拍板 -->
   <div class="zone">
     <div class="zone-head">
       <div class="zone-no">5</div>
       <div>
-        <div class="zone-t">留给作者拍板的三件事</div>
-        <div class="zone-sub">这三件都是产品判断,不是技术选择</div>
+        <div class="zone-t">三件产品判断 · 作者已拍板</div>
+        <div class="zone-sub">2026-08-15 · 三条全部确认,已回填进各 FR</div>
       </div>
     </div>
     <div class="zone-line"></div>
 
     <table class="t">
-      <tr><th style="width:40%">问题</th><th style="width:18%">我的倾向</th><th>理由 / 代价</th></tr>
+      <tr><th style="width:40%">问题</th><th style="width:18%">决定</th><th>连带影响</th></tr>
       <tr>
         <td><b>归档后,他名下的钱还算不算进家庭净资产?</b></td>
         <td><span class="badge ok">照算</span></td>
-        <td>不照算的话净资产曲线会凭空掉一截,且与 v1.12.0「已关账月份不再变」冲突。已在 issue 里问了报告者的具体场景。</td>
+        <td><b>实现代价是 0</b> —— 所有金额汇总过滤的是<b>账户</b>归档(<code>a.archived_at</code>),
+            <code>member</code> 只作 <code>LEFT JOIN</code> 取名字,没有一处按成员归档过滤。
+            要守的是「别在实现归档时顺手给汇总补上 member 过滤」,进护栏。</td>
       </tr>
       <tr>
         <td><b>允许归档自己吗?</b></td>
-        <td><span class="badge risk">禁止</span></td>
-        <td>没有权限分级,归档自己就救不回来。代价:「只剩一个人想停用系统」做不到 —— 可接受。</td>
+        <td><span class="badge risk">不能</span></td>
+        <td>按钮对自己<b>直接不渲染</b>,不要渲染出来再报错。代价:「只剩一个人想停用系统」做不到 ——
+            那个场景该停服务,不是归档。</td>
       </tr>
       <tr>
         <td><b>没有权限分级(任何成员都能改别人登录名 / 归档别人),这一版就这么放着吗?</b></td>
-        <td><span class="badge wait">就这么放着</span></td>
-        <td>不要发明半套权限模型,半套比没有更难理解。要做就单独一版做完整。</td>
+        <td><span class="badge wait">不加,维持现状</span></td>
+        <td>不发明半套权限模型,半套比没有更难理解。这是<b>明知并接受</b>的边界,写进非目标,
+            不当特性讲,也不隐瞒。</td>
       </tr>
     </table>
 
     <div class="note" style="margin-top:12px">
-      预览到此。PRD 见 <code>prd/v1.15.md</code>,分支 <code>issue/12-member-identity</code>,<b>评审通过后才进技术设计和编码</b>。
+      预览到此。PRD 见 <code>prd/v1.15.md</code>,分支 <code>issue/12-member-identity</code>。
+      三个开放问题已拍板,<b>PRD 整体仍等评审 —— 通过后才进技术设计和编码</b>。
     </div>
   </div>
 
