@@ -34,7 +34,10 @@ public class AccountController {
 
     private final AccountService accountService;
     private final AccountTemplateService accountTemplateService;
+    /** 仅活跃:新建账户向导的主理人下拉 —— 新账户不该挂到已归档的人身上 */
     private final MemberMapper memberMapper;
+    /** v1.15 FR-382 · 编辑表单候选(活跃 ∪ 当前主理人) */
+    private final com.family.finance.service.member.MemberDirectory memberDirectory;
     private final NavService navService;
     private final ProductCategoryService productCategoryService;
     private final LedgerExporter ledgerExporter;
@@ -210,7 +213,10 @@ public class AccountController {
         model.addAttribute("nav", navService.load(me));
         model.addAttribute("account", account);
         model.addAttribute("rows", accountService.listRows(me.getFamilyId(), false));
-        model.addAttribute("members", memberMapper.findActiveByFamily(me.getFamilyId()));
+        // v1.15 FR-382 · 编辑表单的候选 = 活跃 ∪ 当前主理人。
+        // 纯活跃列表会让「主理人已归档」的账户在下拉里选不中自己 → 保存别的字段时被静默改派成「共同」。
+        model.addAttribute("members",
+                memberDirectory.selectableWith(me.getFamilyId(), account.getPrimaryOwnerMemberId()));
         model.addAttribute("types", AccountType.values());
         model.addAttribute("currencies", new String[]{"CNY", "USD", "HKD"});
         model.addAttribute("applicableCategories",

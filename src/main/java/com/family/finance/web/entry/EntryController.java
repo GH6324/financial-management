@@ -45,7 +45,10 @@ public class EntryController {
     private final PeriodService periodService;
     private final AccountMapper accountMapper;
     private final NavService navService;
+    /** 仅活跃:填报进度的分母 */
     private final MemberMapper memberMapper;
+    /** v1.15 FR-382 · 含已归档:账户列表上的主理人名与配色 */
+    private final com.family.finance.service.member.MemberDirectory memberDirectory;
     private final PeriodMemberCashflowMapper memberCashflowMapper;
     private final FamilyMapper familyMapper;
     /** v0.12 · 收入侧:类目下拉 + 本期收入列表 */
@@ -674,10 +677,13 @@ public class EntryController {
 
     /**
      * v1.4.2 · 划转目标账户下拉:补主理人名 + 头像色。两账户可能重名(不同主理人)→ 光看名字会选错。
-     * memberColorById 与填报页 owner 分组同法(active 成员按序 0..4),头像色跨 entry/换行块稳定一致。
+     * memberColorById 与填报页 owner 分组同法(按 id 序 0..4),头像色跨 entry/换行块稳定一致。
+     *
+     * <p>v1.15 FR-382 · 走名录(含已归档):这是「区分两个重名账户」用的,主理人一归档就没名字可区分了,
+     * 恰恰是最需要它的时候。名录按 id 排序,所以归档某人也不会让其他人的头像色整体错位。
      */
     private void addAccountOwnerMeta(long familyId, Model model) {
-        var members = memberMapper.findActiveByFamily(familyId);
+        var members = memberDirectory.listAll(familyId);
         java.util.Map<Long, String> nameById = new java.util.LinkedHashMap<>();
         java.util.Map<Long, Integer> colorById = new java.util.LinkedHashMap<>();
         int i = 0;

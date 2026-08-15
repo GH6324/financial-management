@@ -37,7 +37,7 @@ class SealedPeriodServiceTest {
     private SealedPeriodService svc() {
         return new SealedPeriodService(mock(FactViewService.class), mock(PeriodMapper.class),
                 mock(FamilyMapper.class), mock(com.family.finance.repository.SnapshotMapper.class),
-                mock(com.family.finance.repository.MemberMapper.class));
+                mock(com.family.finance.service.member.MemberDirectory.class));
     }
 
     private AccountPeriodFact row(long accId, String name, long periodId, int month,

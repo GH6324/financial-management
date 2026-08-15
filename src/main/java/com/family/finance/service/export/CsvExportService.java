@@ -12,7 +12,7 @@ import com.family.finance.repository.AccountMapper;
 import com.family.finance.repository.CashFlowMapper;
 import com.family.finance.repository.FamilyMapper;
 import com.family.finance.repository.FxMapper;
-import com.family.finance.repository.MemberMapper;
+import com.family.finance.service.member.MemberDirectory;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.SnapshotMapper;
 import com.family.finance.repository.TransferMapper;
@@ -41,7 +41,8 @@ public class CsvExportService {
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final FamilyMapper familyMapper;
-    private final MemberMapper memberMapper;
+    /** v1.15 FR-382 · 名字映射走名录(含已归档)—— 归档一个人,不该让历史数据里的他变成无名氏 */
+    private final MemberDirectory memberDirectory;
     private final AccountMapper accountMapper;
     private final PeriodMapper periodMapper;
     private final SnapshotMapper snapshotMapper;
@@ -63,7 +64,7 @@ public class CsvExportService {
                         ts(family.getCreatedAt()), ts(family.getUpdatedAt()));
             });
 
-            List<Member> members = memberMapper.findActiveByFamily(familyId);
+            List<Member> members = memberDirectory.listAll(familyId);
             writeEntry(zip, "members.csv", writer -> {
                 line(writer, "id", "family_id", "username", "display_name", "role_label",
                         "must_change_pw", "archived_at", "last_login_at", "created_at");

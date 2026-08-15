@@ -8,7 +8,7 @@ import com.family.finance.domain.member.Member;
 import com.family.finance.domain.period.Period;
 import com.family.finance.domain.snapshot.PeriodSnapshot;
 import com.family.finance.repository.AccountMapper;
-import com.family.finance.repository.MemberMapper;
+import com.family.finance.service.member.MemberDirectory;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.SnapshotMapper;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +32,8 @@ public class AccountService {
 
     private final AccountMapper accountMapper;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher; // v1.1.1 lens 缓存失效事件
-    private final MemberMapper memberMapper;
+    /** v1.15 FR-382 · 名字映射走名录(含已归档)—— 归档一个人,不该让历史数据里的他变成无名氏 */
+    private final MemberDirectory memberDirectory;
     private final PeriodMapper periodMapper;
     private final SnapshotMapper snapshotMapper;
     private final AuditLogService auditLogService;
@@ -46,7 +47,7 @@ public class AccountService {
         List<Account> accounts = includeArchived
                 ? accountMapper.findAllByFamily(familyId)
                 : accountMapper.findActiveByFamily(familyId);
-        Map<Long, Member> members = memberMapper.findActiveByFamily(familyId).stream()
+        Map<Long, Member> members = memberDirectory.listAll(familyId).stream()
                 .collect(Collectors.toMap(Member::getId, Function.identity()));
         Map<Long, Account> accountsById = accounts.stream()
                 .collect(Collectors.toMap(Account::getId, Function.identity()));

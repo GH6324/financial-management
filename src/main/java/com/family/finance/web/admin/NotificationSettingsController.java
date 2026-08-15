@@ -47,7 +47,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class NotificationSettingsController {
 
     private final FamilyMapper familyMapper;
+    /** 仅活跃:提醒对象下拉 = 面向未来的选择,归档的人不该再被选中发提醒 */
     private final MemberMapper memberMapper;
+    /** v1.15 FR-382 · 含已归档:发送日志里的历史人名 */
+    private final com.family.finance.service.member.MemberDirectory memberDirectory;
     private final FamilyNotifyConfigMapper notifyConfigMapper;
     private final PeriodMapper periodMapper;
     private final ReportReminderLogMapper reminderLogMapper;
@@ -99,16 +102,13 @@ public class NotificationSettingsController {
         java.util.List<ReportReminderLog> logs =
                 reminderLogMapper.findByFamily(me.getFamilyId(), LOG_PAGE_SIZE, offset);
 
-        // member_id → displayName(含已归档成员 fallback "已离开")
+        // member_id → displayName · v1.15 FR-382 走名录(含已归档),一次查全
+        // 归档的人标注出来 —— 这页是"提醒发过谁",看到「(已归档)」才明白为什么后来不再发了。
+        // (原来的写法是仅活跃 + 逐行 findById 补查,既是 N+1,也依赖"补查"这个容易被后人删掉的兜底。)
         java.util.Map<Long, String> memberName = new java.util.HashMap<>();
-        memberMapper.findActiveByFamily(me.getFamilyId())
-                .forEach(m -> memberName.put(m.getId(), m.getDisplayName()));
-        // 涉及历史成员补查
-        for (ReportReminderLog l : logs) {
-            if (!memberName.containsKey(l.getMemberId())) {
-                memberMapper.findById(l.getMemberId())
-                        .ifPresent(m -> memberName.put(m.getId(), m.getDisplayName() + "(已归档)"));
-            }
+        for (var m : memberDirectory.listAll(me.getFamilyId())) {
+            memberName.put(m.getId(),
+                    m.isArchived() ? m.getDisplayName() + "(已归档)" : m.getDisplayName());
         }
         // period_id → "yyyy-MM-dd"(截止日)
         java.util.Map<Long, String> periodLabel = new java.util.HashMap<>();

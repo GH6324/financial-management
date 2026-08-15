@@ -109,10 +109,37 @@ public class SecurityConfig {
         return new SimpleUrlAuthenticationFailureHandler("/login?error");
     }
 
+    /**
+     * v1.15 FR-381 · 会话登记簿 —— 归档 / 改登录名要「当场生效」,就得能找到那个人**已经开着的**会话。
+     *
+     * <p>没有这张登记簿的话,归档只在下次登录时才拦得住:被归档的人手上那个标签页还能继续用,
+     * 直到 session 自然过期(可能是几小时后)。而这个功能的用户预期恰恰是「点完立刻掉线」。
+     *
+     * <p>{@link org.springframework.security.web.session.HttpSessionEventPublisher} 是配套的:
+     * 没有它,session 销毁事件不会回到 registry,登记簿会一直堆着早就死掉的会话。
+     */
+    @Bean
+    public org.springframework.security.core.session.SessionRegistry sessionRegistry() {
+        return new org.springframework.security.core.session.SessionRegistryImpl();
+    }
+
+    @Bean
+    public org.springframework.security.web.session.HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new org.springframework.security.web.session.HttpSessionEventPublisher();
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            RememberMeServices rememberMeServices) throws Exception {
         http
+            // v1.15 FR-381 · 把会话登进登记簿。不设 maximumSessions —— 一家人常常
+            // 手机 + 电脑同时开着,限并发数会误伤;这里要的只是「找得到、踢得掉」。
+            // expiredUrl 决定被踢的人下一次点击落在哪:回登录页并说清原因,别甩 403。
+            .sessionManagement(s -> s
+                .maximumSessions(-1)
+                .sessionRegistry(sessionRegistry())
+                .expiredUrl("/login?expired")
+            )
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/", "/login", "/login/error", "/static/**", "/css/**", "/vendor/**", "/img/**", "/uploads/**", "/js/**", "/manifest.webmanifest", "/favicon.ico", "/error", "/help/how-to-use", "/health", "/actuator/health").permitAll()
                 .anyRequest().authenticated()

@@ -12,7 +12,7 @@ import com.family.finance.domain.stock.StockHolding;
 import com.family.finance.factview.AccountPerformance;
 import com.family.finance.factview.FactViewService;
 import com.family.finance.repository.AccountMapper;
-import com.family.finance.repository.MemberMapper;
+import com.family.finance.service.member.MemberDirectory;
 import com.family.finance.service.ProductCategoryService;
 import com.family.finance.service.stock.AccountValuationService;
 import com.family.finance.service.stock.StockHoldingService;
@@ -40,7 +40,8 @@ import java.util.stream.Collectors;
 public class LensQueryService {
 
     private final AccountMapper accountMapper;
-    private final MemberMapper memberMapper;
+    /** v1.15 FR-382 · 名字映射走名录(含已归档)—— 归档一个人,不该让历史数据里的他变成无名氏 */
+    private final MemberDirectory memberDirectory;
     private final ProductCategoryService productCategoryService;
     private final FactViewService factViewService;
     private final AccountValuationService valuationService;
@@ -120,7 +121,7 @@ public class LensQueryService {
     }
 
     private List<Position> assemble(long familyId) {
-        Map<Long, String> memberName = memberMapper.findActiveByFamily(familyId).stream()
+        Map<Long, String> memberName = memberDirectory.listAll(familyId).stream()
                 .collect(Collectors.toMap(Member::getId, Member::getDisplayName));
         Map<Long, AccountPerformance> perf = factViewService
                 .accountPerformance(factViewService.loadDefault(familyId)).stream()

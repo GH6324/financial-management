@@ -61,7 +61,10 @@ public class GoalController {
     private final GoalLlmService llmService;
     private final GoalReportService goalReportService;
     private final GoalAiReportMapper aiReportMapper;
+    /** 仅活跃:新建教育目标的孩子下拉 + 进度页按 id 单查 */
     private final MemberMapper memberMapper;
+    /** v1.15 FR-382 · 编辑表单候选(活跃 ∪ 当前的孩子) */
+    private final com.family.finance.service.member.MemberDirectory memberDirectory;
     private final AccountMapper accountMapper;   // v0.16 · 自定义目标账户多选
     private final NavService navService;
 
@@ -269,7 +272,10 @@ public class GoalController {
         model.addAttribute("goalType", goal.getGoalType());
         model.addAttribute("currentYear", java.time.Year.now().getValue());
         if (goal.getGoalType() == GoalType.EDUCATION) {
-            model.addAttribute("childCandidates", memberMapper.findActiveByFamily(me.getFamilyId()));
+            // v1.15 FR-382 · 候选 = 活跃 ∪ 当前这个孩子。孩子被归档后如果从下拉里消失,
+            // 家长改个目标金额就会把这个教育目标静默改派给另一个孩子。
+            model.addAttribute("childCandidates",
+                    memberDirectory.selectableWith(me.getFamilyId(), params.getChildMemberId()));
         }
         return "goals/edit";
     }

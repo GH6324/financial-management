@@ -47,9 +47,10 @@
         <label class="field-label">主理人</label>
         <select name="primaryOwnerMemberId" class="field-input bg-transparent">
           <option value="">共同(无单一主理)</option>
+          <!-- v1.15 · 候选含「当前主理人」即使他已归档,不然一保存就被静默改派成共同 -->
           <option th:each="m : ${members}" th:value="${m.id}"
                   th:selected="${m.id == account.primaryOwnerMemberId}"
-                  th:text="${m.displayName}">Alice</option>
+                  th:text="${m.archived} ? |${m.displayName}(已归档)| : ${m.displayName}">Alice</option>
         </select>
       </div>
 

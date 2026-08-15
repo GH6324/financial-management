@@ -91,9 +91,10 @@
         <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">孩子</label>
         <select name="childMemberId" required data-searchable
                 class="w-full font-base bg-paper-soft border border-rule px-3 py-3">
+          <!-- v1.15 · 候选含「当前这个孩子」即使他已归档,不然一保存目标就换了人 -->
           <option th:each="m : ${childCandidates}"
                   th:value="${m.id}"
-                  th:text="${m.displayName}"
+                  th:text="${m.archived} ? |${m.displayName}(已归档)| : ${m.displayName}"
                   th:selected="${m.id == params.childMemberId}">成员C</option>
         </select>
       </div>

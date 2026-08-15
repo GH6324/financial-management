@@ -48,7 +48,10 @@ public class DashboardController {
     private final FamilyService familyService;
     private final PeriodMapper periodMapper;
     private final AccountMapper accountMapper;
+    /** 仅活跃:填报完成率的分母 —— 归档的人不该再被算作"欠填报的" */
     private final MemberMapper memberMapper;
+    /** v1.15 FR-382 · 含已归档:成员维度资产配置里的人名 */
+    private final com.family.finance.service.member.MemberDirectory memberDirectory;
     private final EntryService entryService;
     private final com.family.finance.repository.SnapshotTodoMapper snapshotTodoMapper;   // v1.2 F 未填计数轻查询
     private final NavService navService;
@@ -350,7 +353,8 @@ public class DashboardController {
         model.addAttribute("allocationValues", allocation.stream().map(AllocationSlice::value).toList());
 
         // v0.2.1(2026-05-11)· 按成员维度的资产分布饼图(LOAN 不计,跟资产配置一致)
-        var memberAlloc = computeMemberAllocation(me.getFamilyId(), allAccounts, accountRows);
+        var memberAlloc = computeMemberAllocation(
+                memberDirectory.nameMap(me.getFamilyId()), allAccounts, accountRows);
         model.addAttribute("memberAllocationLabels", memberAlloc.keySet().stream().toList());
         model.addAttribute("memberAllocationValues", memberAlloc.values().stream().toList());
     }
@@ -358,13 +362,18 @@ public class DashboardController {
     /**
      * 按 account.primary_owner_member_id 聚合资产(LOAN 排除)。
      * NULL → "共同";有值 → member.display_name(查不到的 fallback "成员#{id}")。
+     *
+     * <p>v1.15 FR-382 · {@code nameById} 由调用方从 {@link com.family.finance.service.member.MemberDirectory}
+     * 取(<b>含已归档</b>):账户不会因为主理人被归档就换主人,用仅活跃列表的话这块饼会从「张三」
+     * 变成「成员#7」—— 钱没动,名字却丢了。
+     *
+     * <p>做成 static + 显式传映射,不是为了好看:这样
+     * {@code MemberArchiveMoneyInvarianceTest} 才能不装配 20 个依赖就把
+     * 「归档不动钱、也不丢名字」这条不变量钉住。
      */
-    private java.util.LinkedHashMap<String, java.math.BigDecimal> computeMemberAllocation(
-            long familyId, List<Account> allAccounts, List<AccountPerformance> accountRows) {
-        java.util.Map<Long, String> nameById = memberMapper.findActiveByFamily(familyId).stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        com.family.finance.domain.member.Member::getId,
-                        com.family.finance.domain.member.Member::getDisplayName));
+    static java.util.LinkedHashMap<String, java.math.BigDecimal> computeMemberAllocation(
+            java.util.Map<Long, String> nameById, List<Account> allAccounts,
+            List<AccountPerformance> accountRows) {
         java.util.Map<Long, Account> accById = allAccounts.stream()
                 .collect(java.util.stream.Collectors.toMap(Account::getId, java.util.function.Function.identity()));
         java.util.LinkedHashMap<String, java.math.BigDecimal> byOwner = new java.util.LinkedHashMap<>();

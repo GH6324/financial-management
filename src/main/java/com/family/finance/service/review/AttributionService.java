@@ -8,7 +8,7 @@ import com.family.finance.domain.member.Member;
 import com.family.finance.factview.AccountPeriodFact;
 import com.family.finance.factview.FactSlice;
 import com.family.finance.repository.AccountMapper;
-import com.family.finance.repository.MemberMapper;
+import com.family.finance.service.member.MemberDirectory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -35,7 +35,8 @@ public class AttributionService {
     }};
 
     private final AccountMapper accountMapper;
-    private final MemberMapper memberMapper;
+    /** v1.15 FR-382 · 名字映射走名录(含已归档)—— 归档一个人,不该让历史数据里的他变成无名氏 */
+    private final MemberDirectory memberDirectory;
 
     /** anchor 期归因(rows = slice 中 anchor 期各账户事实;delta/human/opening 由调用方按现有 KPI 口径给) */
     public AttributionEngine.Result attribute(long familyId, List<AccountPeriodFact> anchorRows,
@@ -80,7 +81,7 @@ public class AttributionService {
 
     /** 账户级维度标签(与 lens 同源口径) */
     private Map<Long, Map<String, String>> accountLabels(long familyId) {
-        Map<Long, String> memberName = memberMapper.findActiveByFamily(familyId).stream()
+        Map<Long, String> memberName = memberDirectory.listAll(familyId).stream()
                 .collect(Collectors.toMap(Member::getId, Member::getDisplayName));
         Map<Long, Map<String, String>> out = new HashMap<>();
         for (Account a : accountMapper.findActiveByFamily(familyId)) {

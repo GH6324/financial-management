@@ -12,8 +12,12 @@
     <div class="mb-8 flex items-end justify-between">
       <div>
         <div class="eyebrow mb-2">成 · 员 · 管 · 理</div>
-        <h1 class="font-display text-4xl font-medium" th:text="|${#lists.size(members)} 位成员|">2 位成员</h1>
-        <p class="text-ink-soft text-sm mt-2">改名、调整角色标签、重置密码、添加新成员。</p>
+        <h1 class="font-display text-4xl font-medium">
+          <span th:text="|${activeCount} 位成员|">2 位成员</span>
+          <span class="text-ink-subtle text-2xl" th:if="${#lists.size(members) > activeCount}"
+                th:text="|· 另有 ${#lists.size(members) - activeCount} 位已归档|">· 另有 1 位已归档</span>
+        </h1>
+        <p class="text-ink-soft text-sm mt-2">改名、改登录名、调整角色标签、重置密码、归档或删除成员。</p>
       </div>
       <details class="relative">
         <summary class="btn-paper cursor-pointer list-none inline-flex">+ 添加成员</summary>
@@ -56,25 +60,31 @@
     </div>
 
     <!-- 成员卡片 -->
-    <div th:each="m : ${members}" class="paper-card p-6 mb-5">
-      <form th:action="@{/admin/members/{id}(id=${m.id})}" method="post">
-        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-        <div class="grid grid-cols-12 gap-6 items-start">
-          <div class="col-span-12 md:col-span-3 flex flex-col items-center">
-            <div class="w-24 h-24 rounded-full bg-ink text-paper flex items-center justify-center font-display text-4xl"
-                 th:text="${#strings.substring(m.displayName,0,1)}">伟</div>
-            <span class="pill mt-3" th:if="${m.id == me.memberId}" th:classappend="'pill-brass'">主用 · 当前登录</span>
-            <span class="pill mt-3" th:unless="${m.id == me.memberId}">成员</span>
-          </div>
-          <div class="col-span-12 md:col-span-9 grid grid-cols-2 gap-5">
+    <div th:each="m : ${members}" class="paper-card p-6 mb-5"
+         th:classappend="${m.archived} ? 'opacity-75 border-dashed' : ''">
+      <div class="grid grid-cols-12 gap-6 items-start">
+
+        <!-- 头像 + 身份徽记 -->
+        <div class="col-span-12 md:col-span-3 flex flex-col items-center">
+          <div class="w-24 h-24 rounded-full flex items-center justify-center font-display text-4xl"
+               th:classappend="${m.archived} ? 'bg-paper-deep text-ink-subtle border border-rule' : 'bg-ink text-paper'"
+               th:text="${#strings.substring(m.displayName,0,1)}">伟</div>
+          <span class="pill mt-3 pill-brass" th:if="${m.id == me.memberId}">主用 · 当前登录</span>
+          <span class="pill mt-3" th:if="${m.archived}">已归档</span>
+          <span class="pill mt-3" th:if="${m.id != me.memberId and !m.archived}">成员</span>
+          <p class="font-mono text-[10px] text-ink-subtle mt-3 tracking-wider text-center"
+             th:if="${m.archived}"
+             th:text="|归档于 ${#temporals.format(m.archivedAt,'yyyy-MM-dd')}|">归档于 2026-08-15</p>
+        </div>
+
+        <div class="col-span-12 md:col-span-9 space-y-5">
+
+          <!-- 资料 -->
+          <form th:action="@{/admin/members/{id}(id=${m.id})}" method="post" class="grid grid-cols-2 gap-5">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
             <div>
               <label class="field-label">显示名 · DISPLAY NAME</label>
               <input class="field-input" name="displayName" th:value="${m.displayName}" required maxlength="40">
-            </div>
-            <div>
-              <label class="field-label">登录名 · USERNAME</label>
-              <input class="field-input" th:value="${m.username}" disabled style="opacity:0.6">
-              <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">不可改</p>
             </div>
             <div>
               <label class="field-label">角色标签 · ROLE LABEL(可空)</label>
@@ -84,20 +94,122 @@
               <label class="field-label">必须改密码</label>
               <p class="font-mono tnum text-base mt-2" th:text="${m.mustChangePw} ? '是 · 下次登录强制改' : '否'">否</p>
             </div>
-            <div class="col-span-2 rule-x pt-4 flex flex-wrap items-center gap-3">
-              <button class="btn-paper">保存</button>
+            <div class="flex items-end">
+              <button class="btn-paper">保存资料</button>
             </div>
-          </div>
-        </div>
-      </form>
+          </form>
 
-      <!-- 重置密码独立 form -->
-      <form th:action="@{/admin/members/{id}/reset-password(id=${m.id})}" method="post" class="mt-3">
-        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-        <button class="btn-paper" onclick="return confirm('确认重置 ' + this.dataset.name + ' 的密码?');" th:attr="data-name=${m.displayName}">↻ 重置密码</button>
-        <span class="font-mono text-[10px] text-ink-subtle ml-3 tracking-wider"
-              th:text="|UID ${m.id} · 加入 ${#temporals.format(m.createdAt,'yyyy-MM-dd')}|">UID 1 · 加入 2026-04-15</span>
-      </form>
+          <!-- v1.15 FR-380 · 登录名(独立 form:改它会把 ta 踢下线,不该跟改昵称混在一个按钮里) -->
+          <form th:action="@{/admin/members/{id}/username(id=${m.id})}" method="post"
+                class="rule-x pt-4 grid grid-cols-2 gap-5"
+                onsubmit="return confirm('改登录名会让 ' + this.dataset.name + ' 当前的登录状态立刻失效(含“记住我”),需要用新登录名重新登录。确认?');"
+                th:attr="data-name=${m.displayName}">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <div>
+              <label class="field-label">登录名 · USERNAME</label>
+              <input class="field-input" name="username" th:value="${m.username}"
+                     required pattern="[a-zA-Z0-9_]+" minlength="3" maxlength="40">
+              <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">字母 / 数字 / 下划线 · 3–40 位</p>
+            </div>
+            <div class="flex items-end pb-5">
+              <button class="btn-paper inline-flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                <span>改登录名</span>
+              </button>
+            </div>
+          </form>
+
+          <!-- 操作区 -->
+          <div class="rule-x pt-4 flex flex-wrap items-center gap-3">
+            <form th:action="@{/admin/members/{id}/reset-password(id=${m.id})}" method="post" class="inline">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+              <button class="btn-paper inline-flex items-center gap-1.5"
+                      onclick="return confirm('确认重置 ' + this.dataset.name + ' 的密码?');"
+                      th:attr="data-name=${m.displayName}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.4 2.6"/><path d="M21 3v5h-5"/>
+                </svg>
+                <span>重置密码</span>
+              </button>
+            </form>
+
+            <!-- v1.15 FR-381 · 归档 · 自己不能归档自己;只剩一个活跃成员时也不给 -->
+            <form th:if="${!m.archived and m.id != me.memberId and activeCount > 1}"
+                  th:action="@{/admin/members/{id}/archive(id=${m.id})}" method="post" class="inline">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+              <button class="btn-paper inline-flex items-center gap-1.5"
+                      onclick="return confirm('归档 ' + this.dataset.name + ' 之后 ta 立刻无法登录。名下账户、历史流水一条都不会动,随时可以撤销。确认?');"
+                      th:attr="data-name=${m.displayName}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><line x1="10" y1="12" x2="14" y2="12"/>
+                </svg>
+                <span>归档</span>
+              </button>
+            </form>
+
+            <form th:if="${m.archived}"
+                  th:action="@{/admin/members/{id}/restore(id=${m.id})}" method="post" class="inline">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+              <button class="btn-paper inline-flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M3 12a9 9 0 1 0 9-9c-2.5 0-4.8 1-6.4 2.6"/><path d="M3 3v5h5"/>
+                </svg>
+                <span>撤销归档</span>
+              </button>
+            </form>
+
+            <span class="font-mono text-[10px] text-ink-subtle ml-auto tracking-wider"
+                  th:text="|UID ${m.id} · 加入 ${#temporals.format(m.createdAt,'yyyy-MM-dd')}|">UID 1 · 加入 2026-04-15</span>
+          </div>
+
+          <!-- v1.15 FR-383 · 删除:只对已归档成员开放,且必须零引用 -->
+          <div th:if="${m.archived and m.id != me.memberId}" th:with="scan=${refs.get(m.id)}" class="rule-x pt-4">
+
+            <!-- 有引用 → 不给删,把挂着的东西摊开说清楚 -->
+            <div th:if="${scan != null and !scan.deletable()}">
+              <p class="text-sm text-ink-soft">
+                ta 名下还挂着 <span class="font-mono tnum" th:text="${scan.total()}">12</span> 条记录,
+                <b>不能删除</b> —— 删人不该顺手把这些年的账一起删了。保持归档就够了:名单里不再出现,数字一分不少。
+              </p>
+              <ul class="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+                <li th:each="r : ${scan.refs()}" class="font-mono text-[11px] text-ink-subtle tracking-wider">
+                  <span th:text="${r.label()}">名下账户</span>
+                  <span class="tnum text-ink" th:text="${r.count()}">3</span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- 零引用 → 可以彻底删掉,手打登录名二次确认 -->
+            <details th:if="${scan != null and scan.deletable()}">
+              <summary class="cursor-pointer list-none font-mono text-[11px] text-ink-subtle tracking-wider inline-flex items-center gap-1.5 hover:text-ink">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                  <path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+                </svg>
+                <span>彻底删除这个成员</span>
+              </summary>
+              <form th:action="@{/admin/members/{id}/delete(id=${m.id})}" method="post"
+                    class="mt-3 bg-paper-deep border border-rule p-4 space-y-3 max-w-md">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <p class="text-sm text-ink-soft">
+                  ta 名下<b>没有任何记录</b>,可以从数据库里彻底删掉。这一步<b>不可撤销</b>。
+                </p>
+                <div>
+                  <label class="field-label">请手打登录名确认</label>
+                  <input class="field-input font-mono" name="confirmUsername" required autocomplete="off"
+                         th:placeholder="${m.username}">
+                </div>
+                <button class="btn-ink">确认删除</button>
+              </form>
+            </details>
+          </div>
+
+        </div>
+      </div>
     </div>
 
   </section>

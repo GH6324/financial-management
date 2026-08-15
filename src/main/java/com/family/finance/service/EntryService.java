@@ -19,7 +19,7 @@ import com.family.finance.domain.stock.ValuationMode;
 import com.family.finance.domain.transfer.Transfer;
 import com.family.finance.repository.AccountMapper;
 import com.family.finance.repository.CashFlowMapper;
-import com.family.finance.repository.MemberMapper;
+import com.family.finance.service.member.MemberDirectory;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.SnapshotMapper;
 import com.family.finance.repository.SnapshotTodoMapper;
@@ -50,7 +50,8 @@ public class EntryService {
 
 
     private final AccountMapper accountMapper;
-    private final MemberMapper memberMapper;
+    /** v1.15 FR-382 · 名字映射走名录(含已归档)—— 归档一个人,不该让历史数据里的他变成无名氏 */
+    private final MemberDirectory memberDirectory;
     private final PeriodMapper periodMapper;
     private final SnapshotMapper snapshotMapper;
     private final SnapshotTodoMapper snapshotTodoMapper;
@@ -107,7 +108,7 @@ public class EntryService {
                 .toList();
         Map<Long, Account> allById = accountMapper.findAllByFamily(familyId).stream()
                 .collect(Collectors.toMap(Account::getId, Function.identity()));
-        Map<Long, Member> members = memberMapper.findActiveByFamily(familyId).stream()
+        Map<Long, Member> members = memberDirectory.listAll(familyId).stream()
                 .collect(Collectors.toMap(Member::getId, Function.identity()));
         Map<Long, PeriodSnapshot> current = snapshotMapper.findByPeriod(period.getId()).stream()
                 .collect(Collectors.toMap(PeriodSnapshot::getAccountId, Function.identity()));
@@ -125,7 +126,7 @@ public class EntryService {
                 .filter(p -> p.getFamilyId() == familyId)
                 .orElseThrow(() -> new IllegalArgumentException("周期不存在: " + periodId));
         Account account = requireAccount(familyId, accountId);
-        Map<Long, Member> members = memberMapper.findActiveByFamily(familyId).stream()
+        Map<Long, Member> members = memberDirectory.listAll(familyId).stream()
                 .collect(Collectors.toMap(Member::getId, Function.identity()));
         Map<Long, Account> allById = accountMapper.findAllByFamily(familyId).stream()
                 .collect(Collectors.toMap(Account::getId, Function.identity()));

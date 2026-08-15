@@ -4,7 +4,7 @@ import com.family.finance.calc.lens.LensQuery;
 import com.family.finance.calc.lens.LensRegistry;
 import com.family.finance.calc.lens.PivotEngine;
 import com.family.finance.calc.lens.Position;
-import com.family.finance.repository.MemberMapper;
+import com.family.finance.service.member.MemberDirectory;
 import com.family.finance.service.checkup.llm.LlmClient;
 import com.family.finance.service.config.FamilyConfigService;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +34,12 @@ public class LensInsightService {
 
     private final List<LlmClient> clients;
     private final LensQueryService lensQueryService;
-    private final MemberMapper memberMapper;
+    /**
+     * v1.15 FR-382 · 脱敏映射必须**含已归档成员**。
+     * 只拿活跃列表的话,已归档成员的真名不在映射表里 → 替换不掉 → 真名原样进 LLM prompt。
+     * 这不是"名字显示不全"那种体感问题,是隐私红线({@code PrivacyIsolationTest} 守着)。
+     */
+    private final MemberDirectory memberDirectory;
     private final FamilyConfigService configService;
 
     public boolean available() {
@@ -173,7 +178,7 @@ public class LensInsightService {
     private String anonymize(long familyId, String text) {
         Map<String, String> repl = new LinkedHashMap<>();
         char c = 'A';
-        for (var m : memberMapper.findActiveByFamily(familyId)) {
+        for (var m : memberDirectory.listAll(familyId)) {
             if (m.getDisplayName() != null && !m.getDisplayName().isBlank()) repl.put(m.getDisplayName(), "成员" + c++);
         }
         for (var e : repl.entrySet()) text = text.replace(e.getKey(), e.getValue());

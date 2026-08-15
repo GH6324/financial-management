@@ -11,7 +11,7 @@ import com.family.finance.factview.PeriodFlow;
 import com.family.finance.repository.FamilyMapper;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.SnapshotMapper;
-import com.family.finance.repository.MemberMapper;
+import com.family.finance.service.member.MemberDirectory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -52,7 +52,8 @@ public class SealedPeriodService {
     private final PeriodMapper periodMapper;
     private final FamilyMapper familyMapper;
     private final SnapshotMapper snapshotMapper;
-    private final MemberMapper memberMapper;
+    /** v1.15 FR-382 · 名字映射走名录(含已归档)—— 归档一个人,不该让历史数据里的他变成无名氏 */
+    private final MemberDirectory memberDirectory;
 
     /**
      * 载入一个封板期的完整快照。
@@ -359,7 +360,7 @@ public class SealedPeriodService {
         // Collectors.toMap 的 value 为 null 会 NPE(不是返回 null 那种"温和"失败)——
         // displayName 理论上非空,但一个展示用的名字没必要让整页 500。手工填 map,null 用兜底名。
         java.util.Map<Long, String> memberName = new java.util.HashMap<>();
-        for (var m : memberMapper.findActiveByFamily(familyId)) {
+        for (var m : memberDirectory.listAll(familyId)) {
             if (m.getId() == null) {
                 continue;
             }

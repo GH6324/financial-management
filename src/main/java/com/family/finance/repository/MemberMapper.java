@@ -49,6 +49,44 @@ public interface MemberMapper {
             """)
     int countActiveByFamily(@Param("familyId") long familyId);
 
+    /**
+     * v1.15 FR-382 · 全体成员(含已归档)· 按 id 序。
+     * <p>历史数据里的名字必须查得到 —— 归档一个人不该让他三年前记的账变成「成员#7」。
+     * 唯一合法调用方是 {@code MemberDirectory};别处要名字映射一律走它,
+     * 护栏 {@code v115-MEMBER-NAME-MAP-INCLUDES-ARCHIVED} 钉这条。
+     */
+    @Select("""
+            SELECT id, family_id, username, password_hash, display_name, role_label,
+                   phone, must_change_pw, archived_at, last_login_at, created_at, updated_at
+              FROM member
+             WHERE family_id = #{familyId}
+             ORDER BY id
+            """)
+    List<Member> findAllByFamily(@Param("familyId") long familyId);
+
+    /**
+     * v1.15 FR-380 · 登录名占用检查 —— 查的是**全表**,不限家庭、不排除已归档。
+     * username 是登录凭据的主键面,归档的人也还占着他的名字。
+     */
+    @Select("SELECT COUNT(*) FROM member WHERE username = #{username}")
+    int existsUsername(@Param("username") String username);
+
+    /** v1.15 FR-380 · 改登录名。调用前必须先清 persistent_logins(那张表按 username 记账)。 */
+    @Update("UPDATE member SET username = #{username} WHERE id = #{id}")
+    int updateUsername(@Param("id") long id, @Param("username") String username);
+
+    /** v1.15 FR-381 · 归档(幂等:已归档的不重置时间戳)。 */
+    @Update("UPDATE member SET archived_at = NOW(3) WHERE id = #{id} AND archived_at IS NULL")
+    int archive(@Param("id") long id);
+
+    /** v1.15 FR-381 · 撤销归档。 */
+    @Update("UPDATE member SET archived_at = NULL WHERE id = #{id}")
+    int restore(@Param("id") long id);
+
+    /** v1.15 FR-383 · 物理删除 —— 只在 {@code MemberReferenceScanner} 扫出零引用时才允许调用。 */
+    @org.apache.ibatis.annotations.Delete("DELETE FROM member WHERE id = #{id}")
+    int deleteById(@Param("id") long id);
+
     @Update("""
             UPDATE member
                SET password_hash = #{hash},
