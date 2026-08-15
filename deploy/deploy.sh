@@ -166,6 +166,7 @@ FAMILY_ID=1
 SERVER_ADDRESS=127.0.0.1
 # FINANCE_LLM_QWEN_API_KEY=
 # FINANCE_LLM_DEEPSEEK_API_KEY=
+# FINANCE_LLM_ARK_API_KEY=
 EOF
   chmod 640 /etc/finance.env; chown root:finance /etc/finance.env
   ok "写入(640, root:finance)"
@@ -245,7 +246,8 @@ else
 INSERT INTO family_runtime_config (family_id, key_name, value_text) VALUES
   (1, 'stock_fetch_enabled', '${FINANCE_STOCK_FETCH_ENABLED:-true}'),
   (1, 'llm_qwen_api_key',    '${FINANCE_LLM_QWEN_API_KEY:-}'),
-  (1, 'llm_deepseek_api_key','${FINANCE_LLM_DEEPSEEK_API_KEY:-}')
+  (1, 'llm_deepseek_api_key','${FINANCE_LLM_DEEPSEEK_API_KEY:-}'),
+  (1, 'llm_ark_api_key',     '${FINANCE_LLM_ARK_API_KEY:-}')
 ON DUPLICATE KEY UPDATE value_text = VALUES(value_text);
 SQLEOF
 )"

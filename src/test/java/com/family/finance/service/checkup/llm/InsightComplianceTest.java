@@ -7,47 +7,11 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * v0.6 · Qwen 多模型额度故障分类 + 资产洞察合规校验守护。
+ * v0.6 · 资产洞察合规校验守护(原 {@code QwenInsightComplianceTest} 后半段 ·
+ * v1.13 拆出来:合规校验与「哪家平台」无关,不该挂在某个厂商的名字下)。
  */
-class QwenInsightComplianceTest {
+class InsightComplianceTest {
 
-    // ---------------- Qwen 故障分类 ----------------
-    @Test
-    void classify_free_quota_exhausted_switches_model() {
-        // 429 Throttling.AllocationQuota / insufficient_quota / Free allocated quota exceeded
-        assertThat(QwenLlmClient.classify(429,
-                "{\"error\":{\"code\":\"Throttling.AllocationQuota\",\"message\":\"Free allocated quota exceeded.\"}}"))
-                .isEqualTo(QwenLlmClient.Fault.QUOTA_EXHAUSTED);
-        assertThat(QwenLlmClient.classify(429,
-                "{\"error\":{\"code\":\"insufficient_quota\"}}"))
-                .isEqualTo(QwenLlmClient.Fault.QUOTA_EXHAUSTED);
-        // 403 AllocationQuota.FreeTierOnly
-        assertThat(QwenLlmClient.classify(403,
-                "{\"error\":{\"code\":\"AllocationQuota.FreeTierOnly\",\"message\":\"The free tier of the model has been exhausted\"}}"))
-                .isEqualTo(QwenLlmClient.Fault.QUOTA_EXHAUSTED);
-    }
-
-    @Test
-    void classify_account_arrearage_is_fatal() {
-        // 400 Arrearage 欠费 / 账单过期 → 账户级 · 立刻 failover(不切模型)
-        assertThat(QwenLlmClient.classify(400,
-                "{\"error\":{\"code\":\"Arrearage\",\"message\":\"Access denied, please make sure your account is in good standing.\"}}"))
-                .isEqualTo(QwenLlmClient.Fault.ARREARAGE);
-        assertThat(QwenLlmClient.classify(429,
-                "{\"error\":{\"code\":\"PrepaidBillOverdue\",\"message\":\"The prepaid bill is overdue.\"}}"))
-                .isEqualTo(QwenLlmClient.Fault.ARREARAGE);
-    }
-
-    @Test
-    void classify_other_errors_are_transient() {
-        assertThat(QwenLlmClient.classify(500, "internal error")).isEqualTo(QwenLlmClient.Fault.TRANSIENT);
-        assertThat(QwenLlmClient.classify(429,
-                "{\"error\":{\"code\":\"Throttling.RateQuota\",\"message\":\"Requests rate limit exceeded\"}}"))
-                .isEqualTo(QwenLlmClient.Fault.TRANSIENT);
-        assertThat(QwenLlmClient.classify(401, "")).isEqualTo(QwenLlmClient.Fault.TRANSIENT);
-    }
-
-    // ---------------- 资产洞察合规校验 ----------------
     private static final String CLEAN = "本次资产洞察显示:房产在总资产中的占比偏高,集中度处于参考风险线附近,"
             + "需关注单一不动产敞口对家庭流动性的挤压。负债率处于健康区间,加权负债利率与资产名义年化收益"
             + "之间的关系可作为是否加速偿还的纪律性参考,而非择机判断。现金桶当前占比较高,在低利率与资产荒的"

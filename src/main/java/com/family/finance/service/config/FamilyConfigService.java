@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <h3>私密红线</h3>
  * LLM API key 等敏感字段:get* 方法日常返回原值 ·
- * 调用方(QwenLlmClient / DeepSeekLlmClient / 短信渠道)只在出网 HTTP 调用时用 ·
+ * 调用方(LLM 客户端 —— v1.13 起统一由 AbstractOpenAiCompatibleClient.apiKey() 按平台取 —— / 短信渠道)只在出网 HTTP 调用时用 ·
  * **绝不打 log / 进 LLM prompt / 进 audit_log 明文**。
  */
 @Service
@@ -63,6 +63,32 @@ public class FamilyConfigService {
     public static final String K_LLM_MODEL          = "llm_model";
     /** v1.4 · 视觉识别模型(持仓截图导入)· qwen-vl-max(默认) / qwen-vl-plus / off(关闭) */
     public static final String K_LLM_VISION_MODEL   = "llm_vision_model";
+
+    // ---------- v1.13 FR-360/363 · 三级模型(平台 / 系列 / 型号)----------
+    // 上面三个「选哪个模型」的旧键 —— K_LLM_PRIMARY_VENDOR / K_LLM_MODEL / K_LLM_VISION_MODEL ——
+    // 从 v1.13 起【只读不写】:老家庭升级后由 LlmSettings 读时派生成下面这套三元组,新配置一律写新键。
+    // 留着它们是为了「升级后第一次打开管理页之前」的调用照旧能工作(FR-363),以及万一回滚到 v1.12
+    // 时老版本还认得自己的配置。护栏 v113-LLM-LEGACY-KEYS-KEPT 盯着:不许删,也不许有人再往里写。
+    // 其余几个旧键仍然是活的:两把 key、温度 / max_tokens / timeout 照旧读写,
+    // K_LLM_QWEN_MODELS 仍由 DashScopeLlmClient 读(百炼专属的多型号轮询)。
+    /** 主选平台 code(LlmCatalog:dashscope / deepseek / ark) */
+    public static final String K_LLM_PLATFORM        = "llm_platform";
+    /** 主选模型系列 code(如 qwen / deepseek / doubao) */
+    public static final String K_LLM_FAMILY          = "llm_family";
+    /** 主选型号;空 = 自动(百炼轮询 / 各家默认) */
+    public static final String K_LLM_MODEL_ID        = "llm_model_id";
+    /** 备选平台 / 系列 / 型号 —— 备选是完整三元组,不是「另一家的默认」(PRD 拍板 1) */
+    public static final String K_LLM_BACKUP_PLATFORM = "llm_backup_platform";
+    public static final String K_LLM_BACKUP_FAMILY   = "llm_backup_family";
+    public static final String K_LLM_BACKUP_MODEL_ID = "llm_backup_model_id";
+    /** 火山方舟 API Key(v1.13 新平台) */
+    public static final String K_LLM_ARK_KEY         = "llm_ark_api_key";
+    /** 视觉三元组(FR-362:与文本同一套解析,但各选各的) */
+    public static final String K_LLM_VISION_PLATFORM = "llm_vision_platform";
+    public static final String K_LLM_VISION_FAMILY   = "llm_vision_family";
+    public static final String K_LLM_VISION_MODEL_ID = "llm_vision_model_id";
+    /** 视觉总开关。旧版把「关闭」编码成 llm_vision_model=off,新版拆成独立开关,免得关一次就把型号选择丢了 */
+    public static final String K_LLM_VISION_ENABLED  = "llm_vision_enabled";
     // Integrations · 券商只读同步(v0.15)· 私密凭据(不回显/不入 audit 明文)
     public static final String K_BROKER_TIGER_ID       = "broker_tiger_id";
     public static final String K_BROKER_TIGER_KEY      = "broker_tiger_private_key";
@@ -108,6 +134,9 @@ public class FamilyConfigService {
     private String envQwenKey;
     @Value("${finance.llm.deepseek.api-key:}")
     private String envDeepseekKey;
+    /** v1.13 · 火山方舟。官方 SDK 惯用环境变量名是 ARK_API_KEY,这里沿用同一条 env 通道对齐另外两家 */
+    @Value("${finance.llm.ark.api-key:${ARK_API_KEY:}}")
+    private String envArkKey;
     @Value("${finance.stock.fetch-enabled:false}")
     private boolean envStockEnabled;
     @Value("${app.remember-me-validity-seconds:2592000}")
@@ -157,6 +186,7 @@ public class FamilyConfigService {
         return switch (key) {
             case K_LLM_QWEN_KEY     -> isBlank(envQwenKey)     ? codeDefault : envQwenKey;
             case K_LLM_DEEPSEEK_KEY -> isBlank(envDeepseekKey) ? codeDefault : envDeepseekKey;
+            case K_LLM_ARK_KEY      -> isBlank(envArkKey)      ? codeDefault : envArkKey;
             default -> codeDefault;
         };
     }

@@ -8,7 +8,7 @@ import com.family.finance.factview.FactViewService;
 import com.family.finance.factview.KpiSnapshot;
 import com.family.finance.repository.MemberMapper;
 import com.family.finance.service.FamilyService;
-import com.family.finance.service.checkup.llm.LlmClient;
+import com.family.finance.service.checkup.llm.LlmRouter;
 import com.family.finance.service.checkup.llm.OutputValidator;
 import com.family.finance.service.checkup.llm.PromptBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 /**
  * 目标场景 LLM · v0.3 FR-53a/b/c。
  *
- * <p>复用 v0.2 LlmClient 接口 + PromptBuilder 真名脱敏。
+ * <p>复用 v0.2 LLM 接入 + PromptBuilder 真名脱敏;v1.13 起主备编排统一走 {@link LlmRouter}。
  * 3 个场景:</p>
  * <ul>
  *   <li>FR-53a recommendParams · 目标创建向导 · 用户 click [🤖 AI 推荐] 时实时调用</li>
@@ -43,7 +43,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class GoalLlmService {
 
-    private final List<LlmClient> clients;
+    private final LlmRouter llmRouter;
     private final FamilyService familyService;
     private final MemberMapper memberMapper;
     private final FactViewService factViewService;
@@ -67,7 +67,7 @@ public class GoalLlmService {
                 3. 不要使用真名 · 不要使用具体产品名 · 不要担保性词汇(保证 / 稳赚 / 一定)
                 """;
             String user = buildRecommendPrompt(type, kpis, members, mapping);
-            String raw = invokeWithFailover(system, user);
+            String raw = invokeWithFailover(familyId, system, user);
             if (raw == null) return AiResult.unavailable("LLM 全部失败");
 
             GoalParams params = parseRecommendation(type, raw);
@@ -97,7 +97,7 @@ public class GoalLlmService {
                 3. 聚焦本月进度变化 + 节奏点评 + 1 个可执行建议
                 """;
             String user = buildMonthlyReportPrompt(goal, progress);
-            String raw = invokeWithFailover(system, user);
+            String raw = invokeWithFailover(familyId, system, user);
             if (raw == null) return AiResult.unavailable("LLM 全部失败");
 
             // 先在 raw(仍是代号)上过校验:不会因真名误判泄露
@@ -131,7 +131,7 @@ public class GoalLlmService {
                 3. 给出具体调整方案 1-2 条(增加月供 / 调整账户配置 / 重设目标参数)
                 """;
             String user = buildAlertPrompt(goal, progress, alertReason);
-            String raw = invokeWithFailover(system, user);
+            String raw = invokeWithFailover(familyId, system, user);
             if (raw == null) return AiResult.unavailable("LLM 全部失败");
 
             OutputValidator.Result valid = OutputValidator.check(raw, mapping.realToCodename().keySet());
@@ -149,20 +149,14 @@ public class GoalLlmService {
 
     // ---------- 内部 ----------
 
-    private String invokeWithFailover(String systemPrompt, String userPrompt) {
-        for (LlmClient client : clients) {
-            if (!client.available()) {
-                log.debug("client {} unavailable · skip", client.vendor());
-                continue;
-            }
-            try {
-                String r = client.chat(systemPrompt, userPrompt);
-                if (r != null && !r.isBlank()) return r;
-            } catch (Exception e) {
-                log.warn("client {} failed: {}", client.vendor(), e.toString());
-            }
-        }
-        return null;
+    /**
+     * v1.13 修:这里原本是<b>裸遍历</b> {@code List<LlmClient>} —— 没排序,永远按 Spring 的 {@code @Order}
+     * 先打百炼,管理页把主选改成 DeepSeek 对目标 AI(向导推荐 / 月报 / 偏离预警)<b>完全无效</b>。
+     * 现在顺序只能来自配置,由 {@link LlmRouter} 统一编排。
+     */
+    private String invokeWithFailover(long familyId, String systemPrompt, String userPrompt) {
+        return llmRouter.invoke(familyId, systemPrompt, userPrompt)
+                .map(LlmRouter.Outcome::text).orElse(null);
     }
 
     private String buildRecommendPrompt(GoalType type, KpiSnapshot kpis,

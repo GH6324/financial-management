@@ -5,7 +5,7 @@ import com.family.finance.calc.lens.LensRegistry;
 import com.family.finance.calc.lens.PivotEngine;
 import com.family.finance.calc.lens.Position;
 import com.family.finance.repository.MemberMapper;
-import com.family.finance.service.checkup.llm.LlmClient;
+import com.family.finance.service.checkup.llm.LlmRouter;
 import com.family.finance.service.config.FamilyConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,13 +32,13 @@ import java.util.Map;
 @Slf4j
 public class LensInsightService {
 
-    private final List<LlmClient> clients;
+    private final LlmRouter llmRouter;
     private final LensQueryService lensQueryService;
     private final MemberMapper memberMapper;
     private final FamilyConfigService configService;
 
-    public boolean available() {
-        return clients.stream().anyMatch(LlmClient::available);
+    public boolean available(long familyId) {
+        return llmRouter.available(familyId);
     }
 
     /** 解读结果:文本 + 出洞察的模型(前端展示) */
@@ -52,9 +52,9 @@ public class LensInsightService {
         LensQuery iq = new LensQuery(q.rowsSafe(), java.util.List.of(),
                 java.util.List.of("value", "latestPnl", "cumPnl", "cumReturn"), q.filtersSafe());
         PivotEngine.Result r = PivotEngine.pivot(ps, iq);
-        String facts = buildFactsAndSignals(familyId, q, r);
-        if (facts == null) return new Insight("当前范围没有头寸,无可解读。", "-");
-        facts = anonymize(familyId, facts);
+        String raw0 = buildFactsAndSignals(familyId, q, r);
+        if (raw0 == null) return new Insight("当前范围没有头寸,无可解读。", "-");
+        final String facts = anonymize(familyId, raw0);
 
         String system = """
                 你是家庭资产报表的洞察助手。下面是一份**已经计算好**的透视事实,末尾的「信号」
@@ -67,17 +67,8 @@ public class LensInsightService {
                 5. 「信号」为空时,如实说结构与收益均无显著异常,再给一句最值得留意的观察,不要硬编;
                 6. 不推荐任何具体产品、不预测涨跌、不用黑话。
                 只输出要点行,不要标题、开场白、markdown。""";
-        String primary = configService.getString(familyId, FamilyConfigService.K_LLM_PRIMARY_VENDOR, "qwen");
-        for (LlmClient client : com.family.finance.service.checkup.llm.LlmDiagnoseService.orderByPrimaryVendor(clients, primary)) {
-            if (!client.available()) continue;
-            try {
-                String out = client.chat(system, facts);
-                if (out != null && !out.isBlank()) return new Insight(out.trim(), client.vendor());
-            } catch (Exception e) {
-                log.warn("透视 AI 洞察 vendor={} 失败: {}", client.vendor(), e.toString());
-            }
-        }
-        return null;
+        // v1.13 · 主备顺序由 LlmRouter 按配置统一编排(不再各自遍历 List<LlmClient>)
+        return llmRouter.invoke(familyId, system, facts, (inv, raw, ms) -> new Insight(raw.trim(), inv.badge()));
     }
 
     /** 分布事实 + 工程判定的异常信号(全部数字算好);返回 null = 无头寸 */

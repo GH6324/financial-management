@@ -2,7 +2,7 @@ package com.family.finance.service.lens;
 
 import com.family.finance.domain.lens.AssetClass;
 import com.family.finance.domain.lens.IndustryTag;
-import com.family.finance.service.checkup.llm.LlmClient;
+import com.family.finance.service.checkup.llm.LlmRouter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -21,19 +21,18 @@ import java.util.stream.Collectors;
  * LLM 接入,推荐 平台 / 行业 / 大类。<b>白名单校验</b>:industry / assetClass 必须是枚举
  * name(),枚举外值直接丢弃(OutputValidator 同风格);platform 自由文本截断 40。
  * 结果仅作<b>待确认预填</b>,用户显式保存才落库(承贷款预填「显式接受」教训)。
- * 全部 client 不可用 → {@link #available()} false,入口降级隐藏,手动打标不受影响。</p>
+ * 没有可用候选 → {@link #available(long)} false,入口降级隐藏,手动打标不受影响。</p>
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class LensAiTagService {
 
-    private final List<LlmClient> clients;
+    private final LlmRouter llmRouter;
     private final ObjectMapper objectMapper;
-    private final com.family.finance.service.config.FamilyConfigService configService;   // 管理页主选 vendor(ds/qwen)
 
-    public boolean available() {
-        return clients.stream().anyMatch(LlmClient::available);
+    public boolean available(long familyId) {
+        return llmRouter.available(familyId);
     }
 
     /** 单条建议(枚举 name 或 null) */
@@ -83,19 +82,18 @@ public class LensAiTagService {
         } catch (Exception e) {
             return Map.of();
         }
-        String primary = configService.getString(familyId,
-                com.family.finance.service.config.FamilyConfigService.K_LLM_PRIMARY_VENDOR, "qwen");
-        for (LlmClient client : com.family.finance.service.checkup.llm.LlmDiagnoseService.orderByPrimaryVendor(clients, primary)) {
-            if (!client.available()) continue;
-            try {
-                String raw = client.chat(system, user);
-                Map<String, Tags> out = parseAndWhitelist(raw, names);
-                if (!out.isEmpty()) return out;
-            } catch (Exception e) {
-                log.warn("AI 打标 vendor={} 失败: {}", client.vendor(), e.toString());
+        // v1.13 · 走 LlmRouter:主备顺序统一由配置决定。这里必须用 Handler 形态而不是简单 invoke ——
+        //   「解析出来一条白名单内的标签都没有」和「调用失败」对用户是同一件事(打标页空手而归),
+        //   所以解析空要当成「这个候选没给出可用答案」继续试下一个,而不是就此收工。
+        Map<String, Tags> routed = llmRouter.invoke(familyId, system, user, (inv, raw, ms) -> {
+            Map<String, Tags> out = parseAndWhitelist(raw, names);
+            if (out.isEmpty()) {
+                log.warn("AI 打标 {} 输出解析后无可用标签 · 试下一个候选", inv.badge());
+                return null;
             }
-        }
-        return Map.of();
+            return out;
+        });
+        return routed == null ? Map.of() : routed;
     }
 
     /** 提取首个 {...} → 解析 → 白名单过滤(枚举外丢弃 · platform 截 40) */

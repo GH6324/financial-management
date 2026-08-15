@@ -36,7 +36,7 @@ public class LensMetaService {
 
     public void addMeta(long familyId, Model model) {
         model.addAttribute("lensPalette", palette(familyId));
-        model.addAttribute("lensAiAvailable", lensInsightService.available());
+        model.addAttribute("lensAiAvailable", lensInsightService.available(familyId));
         try {
             model.addAttribute("dimsJson", objectMapper.writeValueAsString(
                     LensRegistry.DIMENSIONS.values().stream()

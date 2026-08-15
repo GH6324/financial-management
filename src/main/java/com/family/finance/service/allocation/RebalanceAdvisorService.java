@@ -11,7 +11,7 @@ import com.family.finance.repository.AccountMapper;
 import com.family.finance.repository.MemberMapper;
 import com.family.finance.repository.RebalanceAdviceCacheMapper;
 import com.family.finance.service.FamilyService;
-import com.family.finance.service.checkup.llm.LlmClient;
+import com.family.finance.service.checkup.llm.LlmRouter;
 import com.family.finance.service.checkup.llm.OutputValidator;
 import com.family.finance.service.checkup.llm.PromptBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -32,7 +32,7 @@ import java.util.Optional;
 /**
  * v0.4 FR-62b · AI 调仓建议服务。
  *
- * <p>复用 v0.2/0.3 LlmClient + PromptBuilder + OutputValidator。</p>
+ * <p>复用 v0.2/0.3 LLM 接入 + PromptBuilder + OutputValidator;v1.13 起主备编排统一走 {@link LlmRouter}。</p>
  *
  * <p>节流:30 天 TTL · 同 family + anchor 30 天内返缓存。</p>
  *
@@ -56,7 +56,7 @@ public class RebalanceAdvisorService {
     /** 单条 action 金额不允许超过该账户余额的此比例(防 LLM 给极端值) */
     private static final BigDecimal MAX_AMOUNT_RATIO = new BigDecimal("0.50");
 
-    private final List<LlmClient> clients;
+    private final LlmRouter llmRouter;
     private final FamilyService familyService;
     private final MemberMapper memberMapper;
     private final AccountMapper accountMapper;
@@ -111,7 +111,7 @@ public class RebalanceAdvisorService {
                 6. 不要使用真名(成员代号已脱敏)· 不要使用具体产品代码 / 担保性词(保证 / 稳赚)
                 """;
             String user = buildPrompt(f, diff, accounts, members, mapping);
-            String raw = invokeWithFailover(system, user);
+            String raw = invokeWithFailover(familyId, system, user);
             if (raw == null) return AdviceResult.unavailable("LLM 全部失败");
 
             // 3. 校验 + 解析
@@ -197,17 +197,14 @@ public class RebalanceAdvisorService {
 
     // ---------- 内部 ----------
 
-    private String invokeWithFailover(String systemPrompt, String userPrompt) {
-        for (LlmClient client : clients) {
-            if (!client.available()) continue;
-            try {
-                String r = client.chat(systemPrompt, userPrompt);
-                if (r != null && !r.isBlank()) return r;
-            } catch (Exception e) {
-                log.warn("client {} failed: {}", client.vendor(), e.toString());
-            }
-        }
-        return null;
+    /**
+     * v1.13 修:这里原本是<b>裸遍历</b> {@code List<LlmClient>} —— 没排序,永远按 Spring 的 {@code @Order}
+     * 先打百炼,管理页把主选改成 DeepSeek 对调仓建议<b>完全无效</b>(六处调用里有两处漏了排序,这是其中一处)。
+     * 现在顺序只能来自配置,由 {@link LlmRouter} 统一编排。
+     */
+    private String invokeWithFailover(long familyId, String systemPrompt, String userPrompt) {
+        return llmRouter.invoke(familyId, systemPrompt, userPrompt)
+                .map(LlmRouter.Outcome::text).orElse(null);
     }
 
     private String buildPrompt(Family f, AllocationService.DiffResult diff,

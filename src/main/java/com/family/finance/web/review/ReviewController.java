@@ -44,7 +44,7 @@ public class ReviewController {
     @PostMapping("/review/insight")
     @ResponseBody
     public Map<String, Object> insight(@AuthenticationPrincipal MemberPrincipal me, @RequestBody Req req) {
-        if (!reviewInsightService.available()) {
+        if (!reviewInsightService.available(me.getFamilyId())) {
             return Map.of("ok", false, "text", "AI 暂不可用 · 管理页配置 LLM 后开启");
         }
         Family family = familyService.require(me.getFamilyId());
