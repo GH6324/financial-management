@@ -63,9 +63,17 @@ public class LocalProcessChannel implements OpendChannel {
     private volatile OpendTelnet.Session ctl;
     private final Deque<String> logRing = new ArrayDeque<>();  // 最近 N 行
 
-    public LocalProcessChannel(AppProperties props) {
+    private final OpendCatalog catalog;
+    /** 用户显式同意装"我们还没核对过"的版本(页面勾选;默认不允许) */
+    private volatile boolean allowUnverified = false;
+
+    public LocalProcessChannel(AppProperties props, OpendCatalog catalog) {
         this.home = Path.of(props.brokerOpendHome()).toAbsolutePath().normalize();
+        this.catalog = catalog;
     }
+
+    /** 页面勾了「用官方当前最新版(我们还没核对过这一版)」时打开。 */
+    public void allowUnverified(boolean allow) { this.allowUnverified = allow; }
 
     // ========================= 纯逻辑(包可见 · 单测) =========================
 
@@ -178,6 +186,7 @@ public class LocalProcessChannel implements OpendChannel {
             phase = Phase.ERROR; message = "下载失败 · HTTP " + resp.statusCode() + "(版本号或系统可能不对,可粘官网下载 URL 重试)";
             throw new IOException(message);
         }
+        verifyOrFail(pkg, fileNameOf(url));
         return extractAndFinish(pkg);
     }
 
@@ -207,7 +216,7 @@ public class LocalProcessChannel implements OpendChannel {
 
     /** 上传已下好的 tar.gz(<b>不依赖服务器能否连 CDN</b> · 墙内也能用):流式落盘(带上限)+ 解压就绪。 */
     @Override
-    public synchronized String installFromStream(java.io.InputStream in, long maxBytes) throws IOException, InterruptedException {
+    public synchronized String installFromStream(java.io.InputStream in, long maxBytes, String uploadName) throws IOException, InterruptedException {
         phase = Phase.DOWNLOADING; message = "接收上传的安装包…"; log("install from upload");
         Files.createDirectories(home);
         Path pkg = home.resolve("FutuOpenD.tar.gz");
@@ -223,6 +232,7 @@ public class LocalProcessChannel implements OpendChannel {
             }
         }
         log("uploaded pkg bytes=" + total);
+        verifyOrFail(pkg, uploadName);
         message = "解压中…";
         return extractAndFinish(pkg);
     }
@@ -240,8 +250,38 @@ public class LocalProcessChannel implements OpendChannel {
         Files.createDirectories(home);
         Path pkg = home.resolve("FutuOpenD.tar.gz");
         Files.copy(src, pkg, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        verifyOrFail(pkg, src.getFileName().toString());
         message = "解压中…";
         return extractAndFinish(pkg);
+    }
+
+    /**
+     * 哈希校验 —— 解包<b>之前</b>做。
+     *
+     * <p>三种结局:对上了就继续;<b>对不上直接中止并删掉文件</b>(不给"绕过"的口子);
+     * 清单里没有这一版时,只有用户显式同意过才继续,并把实算的哈希写进日志与状态。</p>
+     *
+     * @param originalName 下载/上传时的原始文件名(落盘后统一叫 FutuOpenD.tar.gz,认不出版本)
+     */
+    private void verifyOrFail(Path pkg, String originalName) throws IOException {
+        message = "校验安装包…";
+        OpendCatalog.Verdict v = catalog.verify(pkg, originalName);
+        log("verify · verified=" + v.verified() + " ok=" + v.ok() + " sha256=" + v.sha256() + " md5=" + v.md5());
+        if (v.verified() && !v.ok()) {
+            Files.deleteIfExists(pkg);
+            phase = Phase.ERROR;
+            message = "安装中止:" + v.detail();
+            throw new IOException(message);
+        }
+        if (!v.verified() && !allowUnverified) {
+            Files.deleteIfExists(pkg);
+            phase = Phase.ERROR;
+            message = "安装中止:这个版本不在我们核对过的清单里(富途官方不公布校验和,所以我们只为核对过的版本背书)。"
+                    + "实算 sha256=" + v.sha256() + " · md5=" + v.md5()
+                    + " —— 确认要装就在页面上勾选「用官方当前最新版」后重试。";
+            throw new IOException(message);
+        }
+        message = v.verified() ? "校验通过 · " + v.detail() : "未核对版本(你已确认)· sha256=" + v.sha256();
     }
 
     /** tar 解压 + 定位可执行 + 版本 + 置 INSTALLED(download 与 upload 共用)。 */
@@ -257,6 +297,15 @@ public class LocalProcessChannel implements OpendChannel {
         phase = Phase.INSTALLED; message = "已安装 · 版本 " + (version == null ? "未知" : version);
         log("installed · version=" + version + " bin=" + bin);
         return version;
+    }
+
+    /** 从下载地址里取文件名(用于在清单里对号)。 */
+    static String fileNameOf(String url) {
+        if (url == null) return "";
+        String p = url;
+        int q = p.indexOf('?');
+        if (q >= 0) p = p.substring(0, q);
+        return p.substring(p.lastIndexOf('/') + 1);
     }
 
     /** 找解压出来的 FutuOpenD 可执行(命令行版在子文件夹里)。 */

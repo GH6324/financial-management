@@ -41,6 +41,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 public class FutuOpendController {
 
     private final FutuOpendManager opend;
+    private final com.family.finance.service.broker.opend.OpendCatalog catalog;
     private final FamilyConfigService configService;
     private final AuditLogService auditLog;
     private final NavService navService;
@@ -118,14 +119,35 @@ public class FutuOpendController {
     @ResponseBody
     public String download(@RequestParam(required = false) String version,
                            @RequestParam(required = false) String osTag,
-                           @RequestParam(required = false) String url) {
+                           @RequestParam(required = false) String url,
+                           @RequestParam(required = false, defaultValue = "false") boolean allowUnverified) {
         String tag = (osTag == null || osTag.isBlank()) ? opend.detectedOsTag() : osTag;
-        // 后台线程跑下载/解压,页面轮询 /status
+        // v1.17:默认只装我们核对过哈希的版本;要装未核对的必须页面上显式勾选
+        opend.allowUnverified(allowUnverified);
+        // 后台线程跑下载/校验/解压,页面轮询 /status
         new Thread(() -> {
             try { opend.download(version, tag, url); }
             catch (Exception e) { log.warn("opend download failed: {}", e.toString()); }
         }, "opend-download").start();
         return "started";
+    }
+
+    /**
+     * 已核对版本清单(向导页「你正在引入什么」那块公示用)。
+     *
+     * <p>如实带上 {@code officialPublishesHashes=false} —— 富途官网不公布任何 md5/sha256,
+     * 这些哈希是我们自己算的、钉在仓库里的。页面不许写成"已比对官方 md5"。</p>
+     */
+    @GetMapping("/catalog")
+    @ResponseBody
+    public Object catalog() {
+        String os = opend.detectedOsTag();
+        return java.util.Map.of(
+                "os", os,
+                "officialPublishesHashes", false,
+                "verifiedBy", "本项目维护者下载后计算,钉在 " + com.family.finance.service.broker.opend.OpendCatalog.CATALOG_PATH,
+                "latestVerified", catalog.latestVerified(os).orElse(null),
+                "releases", catalog.catalog().releases());
     }
 
     @PostMapping("/config-start")
@@ -171,7 +193,7 @@ public class FutuOpendController {
     @ResponseBody
     public String upload(HttpServletRequest request) {
         try (var in = request.getInputStream()) {
-            opend.installFromStream(in, 500L * 1024 * 1024);
+            opend.installFromStream(in, 500L * 1024 * 1024, request.getParameter("name"));
             return "ok";
         } catch (Exception e) {
             log.warn("opend upload failed: {}", e.toString());

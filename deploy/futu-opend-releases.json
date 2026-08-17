@@ -1,0 +1,39 @@
+{
+  "_readme": [
+    "富途 OpenD 安装包 · 已核对版本清单(v1.17 起)。",
+    "",
+    "重要:富途官方【不公布】任何 md5 / sha256 —— 通读 openapi.futunn.com 的下载页确认过。",
+    "所以下面这些哈希是【我们自己下载后算的】,钉在这个仓库里(有 git 历史、可 review)。",
+    "安装时会现算一遍并比对,不一致就拒绝安装。",
+    "",
+    "你可以自己交叉验证(三方对上才有意义):",
+    "  1) 自己下载后算:  sha256sum Futu_OpenD_<版本>_<系统>.tar.gz",
+    "  2) 看 CDN 给的值:  curl -sI '<下载地址>' | grep -i etag",
+    "     腾讯云 COS 单段上传的 etag 等于文件 MD5 —— 实测两次独立下载都与下面的 md5 逐字符相同。",
+    "     但它和安装包走同一条 TLS、同一个 CDN,只证明「传输没坏」,不是独立信任锚。",
+    "  3) 对比本文件里的值(git log 能看到它是什么时候、随哪个版本进来的)。",
+    "",
+    "清单里没有的版本仍然可以装,但会被标为「未核对」:页面会显示实算的哈希、并要求你显式确认。",
+    "跟版动作 = 往 releases 里加一行 + 发一次 launcher 镜像,不需要改代码。"
+  ],
+  "verifiedAt": "2026-08-17",
+  "verifiedBy": "维护者本机(beta)· 从 https://www.futunn.com/download/fetch-lasted-link?name=opend-ubuntu|opend-centos 跟 302 下载后计算",
+  "releases": [
+    {
+      "version": "10.10.7008",
+      "os": "Ubuntu18.04",
+      "file": "Futu_OpenD_10.10.7008_Ubuntu18.04.tar.gz",
+      "bytes": 466920616,
+      "sha256": "dbb8e5e73faacaad093d7bac6c3bb60efd6f29a28aa7541c494c015aaec13d8d",
+      "md5": "4297cdec5653565556802fcd1b148f05"
+    },
+    {
+      "version": "10.10.7008",
+      "os": "Centos7",
+      "file": "Futu_OpenD_10.10.7008_Centos7.tar.gz",
+      "bytes": 466921015,
+      "sha256": "279c1412bc93e4b8420d5212c4b8422209914df83c1dd7efab729ff4ed1d3974",
+      "md5": "9c91a97ba9fe58e3dbd6bbcd7c40f778"
+    }
+  ]
+}

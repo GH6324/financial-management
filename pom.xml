@@ -133,6 +133,20 @@
 
     <build>
         <finalName>app</finalName>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!-- v1.17 · 富途 OpenD 已核对版本清单:唯一来源是 deploy/futu-opend-releases.json
+                 (launcher 镜像也 COPY 同一份)。这里把它打进 jar 供容器部署读,
+                 刻意【不】在 src/main/resources 下放副本 —— 两份就要人工同步,迟早漂移。 -->
+            <resource>
+                <directory>deploy</directory>
+                <includes>
+                    <include>futu-opend-releases.json</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

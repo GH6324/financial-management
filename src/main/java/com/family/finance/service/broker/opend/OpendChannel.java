@@ -68,7 +68,7 @@ public interface OpendChannel {
     String download(String version, String osTag, String override) throws IOException, InterruptedException;
 
     /** 上传已下好的 tar.gz(墙内退路)。 */
-    String installFromStream(InputStream in, long maxBytes) throws IOException, InterruptedException;
+    String installFromStream(InputStream in, long maxBytes, String uploadName) throws IOException, InterruptedException;
 
     /** 从服务器上已存在的 tar.gz 路径导入。 */
     String installFromServerPath(String path) throws IOException, InterruptedException;

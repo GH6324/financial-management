@@ -79,10 +79,13 @@ public class FutuOpendManager {
         return active().download(version, osTag, override);
     }
 
-    public String installFromStream(java.io.InputStream in, long maxBytes) throws IOException, InterruptedException {
+    public String installFromStream(java.io.InputStream in, long maxBytes, String uploadName) throws IOException, InterruptedException {
         requireNotDocker();
-        return active().installFromStream(in, maxBytes);
+        return active().installFromStream(in, maxBytes, uploadName);
     }
+
+    /** 页面勾了「用官方当前最新版(我们还没核对过这一版)」→ 放行未核对版本。 */
+    public void allowUnverified(boolean allow) { local.allowUnverified(allow); }
 
     public String installFromServerPath(String path) throws IOException, InterruptedException {
         requireNotDocker();

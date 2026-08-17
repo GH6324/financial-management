@@ -4196,6 +4196,34 @@ OWCFG="$RD/src/main/java/com/family/finance/service/broker/opend/OpendConfigXml.
   && log_ok "v117-NO-TELNET-EXPOSE 控制口按死 127.0.0.1(官方默认 0.0.0.0 被覆盖)· 注释里的同名标签不误改" \
   || log_bad "v117-NO-TELNET-EXPOSE 无鉴权控制口可能对网络开放" "see OpendConfigXml.java"
 
+# v117-HASH-PINNED · 安装包哈希钉在仓库里,校验不过必须拒装(v1.17)
+# 富途官方【不公布】任何 md5/sha256,所以我们自己下载核对、把哈希钉进 deploy/futu-opend-releases.json
+# (有 git 历史、可 review)。安装时现算比对,不一致就删文件 + 中止。
+# 三条最容易被"顺手简化"掉的:① 校验在解包【之前】;② 对不上就 delete + throw,不留绕过口;
+# ③ 清单读不到 ≠ 未核对版本(后者用户勾一下就过,前者必须先修清单)。
+OWCAT="$RD/src/main/java/com/family/finance/service/broker/opend/OpendCatalog.java"
+OWJSON="$RD/deploy/futu-opend-releases.json"
+{ [ -f "$OWCAT" ] && [ -f "$OWJSON" ] \
+  && grep -q 'verifyOrFail(pkg' "$OWLOC" \
+  && [ "$(grep -c 'verifyOrFail(pkg' "$OWLOC")" -ge 3 ] \
+  && awk '/private String extractAndFinish/{exit} /verifyOrFail\(pkg/{n++} END{exit !(n>=3)}' "$OWLOC" \
+  && grep -q 'Files.deleteIfExists(pkg)' "$OWLOC" \
+  && grep -q '无法校验' "$OWCAT" \
+  && grep -q 'officialPublishesHashes' "$OWCTL" \
+  && python3 -c "import json,sys; d=json.load(open('$OWJSON')); rs=d['releases']; sys.exit(0 if rs and all(len(r['sha256'])==64 and len(r['md5'])==32 and r['bytes']>0 for r in rs) else 1)"; } \
+  && log_ok "v117-HASH-PINNED 清单每条带 sha256+md5+bytes · 三条安装路径都在解包前校验 · 不一致即删包中止 · 清单读不到与未核对分开报" \
+  || log_bad "v117-HASH-PINNED 安装包校验链路缺失或可绕过" "see OpendCatalog.java / LocalProcessChannel.verifyOrFail / deploy/futu-opend-releases.json"
+
+# v117-HASH-HONEST · 不许把"我们算的哈希"说成"官方的"(v1.17)
+# 富途官网一个校验和都不公布 —— 唯一能从官方侧拿到的是 CDN 的 etag(实测 == 文件 MD5),
+# 但它与安装包同一条 TLS、同一个 CDN,只证明传输没坏。文档/页面/接口都必须如实说明这个边界。
+{ grep -q '不公布' "$OWJSON" \
+  && grep -qi 'etag' "$OWJSON" \
+  && grep -q '"officialPublishesHashes", false' "$OWCTL" \
+  && ! grep -q '官方 md5\|官方公布的 sha' "$OWJSON"; } \
+  && log_ok "v117-HASH-HONEST 清单与接口如实写明「官方不公布校验和 · 这些哈希是我们算的」+ 给出 etag 交叉验证法与其边界" \
+  || log_bad "v117-HASH-HONEST 哈希来源表述不诚实(不许写成已比对官方 md5)" "see deploy/futu-opend-releases.json / FutuOpendController#catalog"
+
 # v12-2-FONTSCALE · 全局字号调节(issue #7)· 标准档零回归(calc×var,scale=1 等价)+ 5 层覆盖 + 控件 + FOUC + 图表跟随
 FSCSS="$RD/src/main/resources/static/css/style.css"
 FSLAY="$RD/src/main/resources/templates/fragments/layout.html"
