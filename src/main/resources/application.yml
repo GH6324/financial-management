@@ -70,6 +70,8 @@ app:
   remember-me-key: ${REMEMBER_ME_KEY:dev-only-key-change-in-prod}
   remember-me-validity-seconds: 2592000  # 30 天
   broker-opend-home: ${FUTU_OPEND_HOME:/tmp/finance-futu-opend}  # v0.15 富途 OpenD 家目录(应用自管子进程)
+  futu-ctl-dir: ${FUTU_CTL_DIR:/ctl}          # v1.17 与可选网关容器共享的控制目录(存在即视为已启用网关)
+  futu-gateway-host: ${FUTU_GATEWAY_HOST:opend}  # v1.17 网关容器在 compose 内网的服务名
 
 ---
 spring:

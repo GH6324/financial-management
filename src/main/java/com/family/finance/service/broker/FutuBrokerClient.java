@@ -49,6 +49,8 @@ public class FutuBrokerClient implements BrokerClient {
     private static final int AWAIT_SECONDS = 15;
 
     private final FamilyConfigService config;
+    /** v1.17 · 取网关容器共享卷里的 API 私钥(只有容器通道才有) */
+    private final com.family.finance.service.broker.opend.FutuOpendManager opendManager;
     private static volatile boolean sdkInited = false;
 
     @Override public BrokerVendor vendor() { return BrokerVendor.FUTU; }
@@ -75,8 +77,29 @@ public class FutuBrokerClient implements BrokerClient {
     private FutuSession openSession(long familyId, BrokerLink link) {
         initSdkOnce();
         FutuSession s = new FutuSession();
-        s.connect(hostFor(familyId, link), portFor(familyId, link));
+        s.connect(hostFor(familyId, link), portFor(familyId, link), apiRsaKey());
         return s;
+    }
+
+    /**
+     * API 通道加密用的私钥(v1.17)。
+     *
+     * <p>只在走<b>网关容器</b>那条路时才有:密钥由网关容器首启生成在共享卷里,两边用同一把。
+     * 为什么要加密 —— 只锁住那个无鉴权的 telnet 控制口是<b>假安全</b>:11111 本身不加密的话,
+     * 同一个 compose 网络里的其它容器照样能读走全部持仓。</p>
+     *
+     * <p>拿不到密钥(原生托管 / OpenD 在别处 / 网关没启用)就走明文 —— 那些拓扑下
+     * OpenD 只绑 127.0.0.1 或本来就在别人的机器上,强行要求加密只会把现有能用的连接打断。</p>
+     */
+    private String apiRsaKey() {
+        try {
+            java.nio.file.Path key = opendManager.apiRsaKeyFile();
+            if (key == null) return null;
+            return java.nio.file.Files.readString(key, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.warn("[futu] 读 API 私钥失败,本次走明文连接: {}", e.toString());
+            return null;
+        }
     }
 
     // ---------- BrokerClient ----------
@@ -214,12 +237,15 @@ public class FutuBrokerClient implements BrokerClient {
         private volatile CompletableFuture<TrdGetPositionList.Response> fPos;
         private volatile CompletableFuture<TrdGetFunds.Response> fFunds;
 
-        void connect(String host, int port) {
+        void connect(String host, int port, String rsaPrivateKey) {
             trd.setClientInfo("family-finance", 1);
             trd.setConnSpi(this);
             trd.setTrdSpi(this);
-            if (!trd.initConnect(host, port, false)) {
-                throw new IllegalStateException("无法发起到 OpenD 的连接 " + host + ":" + port);
+            boolean encrypt = rsaPrivateKey != null && !rsaPrivateKey.isBlank();
+            if (encrypt) trd.setRSAPrivateKey(rsaPrivateKey);   // 与 OpenD 的 rsa_private_key 同一把
+            if (!trd.initConnect(host, port, encrypt)) {
+                throw new IllegalStateException("无法发起到 OpenD 的连接 " + host + ":" + port
+                        + (encrypt ? "(加密通道)" : ""));
             }
             await(connected, "连接 OpenD");
         }

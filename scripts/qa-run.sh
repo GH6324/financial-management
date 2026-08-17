@@ -4270,6 +4270,32 @@ BASH_SMS_POS=$(grep -n '^\s*\*验证码\*' "$FUTUCL" | head -1 | cut -d: -f1)
   && log_ok "v117-CTL-KEYWORDS Java 与 bash 两份状态机认同一批提示词,且「失败」判定都排在「验证码」之前" \
   || log_bad "v117-CTL-KEYWORDS 控制口状态机两处不一致(改一边漏一边)" "see OpendTelnet.java stepFromPrompt / docker/futu-opend/control-loop.sh step_of"
 
+# v117-CHANNEL-PROBE · 通道按【能力探测】选,不按"你是哪种部署"选(v1.17)
+# v1.16 之前:7 处 Env.DOCKER 硬拦 + 模板 10 处 channel != 'DOCKER'。/.dockerenv 只能回答
+# "我在容器里",回答不了"网关在哪" —— 而后者才是真正要分支的东西。
+OWCGC="$RD/src/main/java/com/family/finance/service/broker/opend/ContainerGatewayChannel.java"
+{ [ -f "$OWCGC" ] \
+  && grep -q 'container.enabled()' "$OWMGR" \
+  && grep -q 'Files.isDirectory(ctlDir)' "$OWCGC" \
+  && ! grep -q 'Docker 环境请用 sidecar' "$OWMGR" \
+  && ! grep -q 'requireNotDocker' "$OWMGR" \
+  && grep -q 'needsEnable' "$OWCGC" \
+  && grep -q 'profile futu' "$OWCGC"; } \
+  && log_ok "v117-CHANNEL-PROBE 通道按控制卷是否存在探测 · Docker 硬拦已拆 · 未启用时给启用命令而不是报错" \
+  || log_bad "v117-CHANNEL-PROBE 仍按部署方式硬分支(或 Docker 硬拦没拆干净)" "see FutuOpendManager.active() / ContainerGatewayChannel"
+
+# v117-API-ENCRYPTED · 只锁控制口不锁 11111 是【假安全】(v1.17)
+# telnet 锁进容器之后,如果 API 口仍是明文,同一个 compose 网络里的其它容器照样能读走全部持仓。
+# 富途 SDK 现成支持:setRSAPrivateKey + initConnect(host, port, true),密钥由网关容器生成在共享卷里。
+FBC="$RD/src/main/java/com/family/finance/service/broker/FutuBrokerClient.java"
+{ grep -q 'setRSAPrivateKey' "$FBC" \
+  && grep -q 'initConnect(host, port, encrypt)' "$FBC" \
+  && ! grep -q 'initConnect(host, port, false)' "$FBC" \
+  && grep -q 'apiRsaKeyFile' "$OWMGR" \
+  && grep -q 'rsa_private_key' "$FUTUEP"; } \
+  && log_ok "v117-API-ENCRYPTED 网关通道给 11111 开 RSA(密钥走共享卷)· 其它拓扑保持明文不打断现有连接" \
+  || log_bad "v117-API-ENCRYPTED API 口仍是明文(锁了控制口等于没锁)" "see FutuBrokerClient.connect / docker/futu-opend/entrypoint.sh"
+
 # v12-2-FONTSCALE · 全局字号调节(issue #7)· 标准档零回归(calc×var,scale=1 等价)+ 5 层覆盖 + 控件 + FOUC + 图表跟随
 FSCSS="$RD/src/main/resources/static/css/style.css"
 FSLAY="$RD/src/main/resources/templates/fragments/layout.html"
