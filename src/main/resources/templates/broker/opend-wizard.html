@@ -209,21 +209,20 @@ error while interpolating services.opend.environment.FUTU_ACCOUNT:
           <label class="field-label">系统(已自动探测)</label>
           <select id="osTag" class="field-input bg-transparent">
             <option value="Centos7" th:selected="${osTag == 'Centos7'}">Centos7(RHEL/Rocky/Alma)</option>
-            <option value="Ubuntu16.04" th:selected="${osTag == 'Ubuntu16.04'}">Ubuntu / Debian</option>
+            <option value="Ubuntu18.04" th:selected="${osTag == 'Ubuntu18.04'}">Ubuntu / Debian</option>
           </select>
         </div>
         <div>
-          <label class="field-label">版本号</label>
-          <input id="version" class="field-input" th:value="${versionExample}" placeholder="如 9.3.5308">
+          <label class="field-label">版本号(留空 = 自动取最新)</label>
+          <input id="version" class="field-input" placeholder="留空即向富途官方要最新版">
         </div>
         <div>
           <label class="field-label">或粘完整下载 URL(可选)</label>
-          <input id="url" class="field-input" placeholder="softwarefile.futunn.com/...">
+          <input id="url" class="field-input" placeholder="softwaredownload.futunn.com/...">
         </div>
       </div>
-      <p class="font-mono text-[10px] text-ink-subtle mb-3">版本号去
-        <a href="https://openapi.futunn.com/futu-api-doc/opend/opend-cmd.html" target="_blank" rel="noopener" class="underline hover:text-ink">官方下载页</a>
-        抄最新的;只允许从 softwarefile.futunn.com 下载。服务器连不上富途 CDN 时改用「上传 / 路径导入」。</p>
+      <p class="font-mono text-[10px] text-ink-subtle mb-3">版本号<b class="text-ink">不用填</b> —— 留空我们直接问富途官方要当前最新版。
+        只接受富途官方域名的下载地址。服务器连不上富途 CDN 时改用「上传 / 路径导入」。</p>
       <button id="dlBtn" type="button" class="btn-ink">开始下载并解压</button>
     </div>
 
@@ -239,14 +238,14 @@ error while interpolating services.opend.environment.FUTU_ACCOUNT:
         </div>
       </div>
       <p id="upMsg" class="font-mono text-[10px] text-ink-subtle"></p>
-      <p class="font-mono text-[10px] text-ink-subtle mt-1">在任意能上网的机器下好 <span class="font-mono">FutuOpenD_&lt;版本&gt;_&lt;系统&gt;.tar.gz</span> 再上传,本机<b class="text-ink">无需连 CDN</b>。经反代报 413 → 放开 nginx <span class="font-mono">client_max_body_size</span>,或改用「服务器路径导入」。</p>
+      <p class="font-mono text-[10px] text-ink-subtle mt-1">在任意能上网的机器下好 <span class="font-mono">Futu_OpenD_&lt;版本&gt;_&lt;系统&gt;.tar.gz</span> 再上传,本机<b class="text-ink">无需连 CDN</b>。经反代报 413 → 放开 nginx <span class="font-mono">client_max_body_size</span>,或改用「服务器路径导入」。</p>
     </div>
 
     <!-- 形式 C · 服务器路径导入 -->
     <div id="pane_path" class="hidden">
       <form th:action="@{/admin/broker/opend/import-path}" method="post" class="flex flex-wrap gap-2 items-center mb-2">
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-        <input name="path" class="field-input" style="max-width:440px" placeholder="/root/FutuOpenD_9.3.5308_Centos7.tar.gz">
+        <input name="path" class="field-input" style="max-width:440px" placeholder="/root/Futu_OpenD_10.10.7008_Ubuntu18.04.tar.gz">
         <button type="submit" class="btn-ink text-sm">从该路径导入</button>
       </form>
       <p class="font-mono text-[10px] text-ink-subtle">先 <span class="font-mono">scp</span> 到服务器任意目录,填绝对路径 —— 免上传、免连 CDN、免改 nginx。</p>

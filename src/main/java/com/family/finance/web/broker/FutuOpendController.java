@@ -71,8 +71,8 @@ public class FutuOpendController {
         model.addAttribute("running", st.phase() == OpendChannel.Phase.RUNNING);
         model.addAttribute("channel", opend.env().name());
         model.addAttribute("osTag", opend.detectedOsTag());
-        // 版本号会随官网更新 → 给个占位示例,让用户去官网确认最新号
-        model.addAttribute("versionExample", "9.3.5308");
+        // v1.17:版本号不再让用户填 —— 留空即问官方 fetch-lasted-link 要最新版
+        model.addAttribute("caps", opend.caps());
         return "broker/opend-wizard";
     }
 
@@ -116,7 +116,7 @@ public class FutuOpendController {
 
     @PostMapping("/download")
     @ResponseBody
-    public String download(@RequestParam String version,
+    public String download(@RequestParam(required = false) String version,
                            @RequestParam(required = false) String osTag,
                            @RequestParam(required = false) String url) {
         String tag = (osTag == null || osTag.isBlank()) ? opend.detectedOsTag() : osTag;

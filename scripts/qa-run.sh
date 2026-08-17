@@ -4139,29 +4139,62 @@ OWTPL_D="$RD/src/main/resources/templates/broker/opend-wizard.html"
   && log_ok "v1121-OPEND-DOCKER-ENV docker sidecar 前提前置于命令 + .env.example 有三变量模板 + 向导页贴出原始报错对号 + 标题按渠道分(docker 不说「点几下/下方终端」)+ 指南相对链接可达" \
   || log_bad "v1121-OPEND-DOCKER-ENV docker 渠道引导缺前提/模板(issue #13 回归)" "see .env.example / broker/opend-wizard.html DOCKER 段 / docs/broker-sync-guide.md 拓扑B"
 
-# v15-OPEND-WIZ · 应用内 OpenD 傻瓜向导(自管子进程:下载/版本/依赖/配置启动/短信中继)
+# v15-OPEND-WIZ · 应用内 OpenD 傻瓜向导(下载/版本/依赖/配置启动/短信中继)
+# v1.17:实现拆成了通道(FutuOpendManager 只剩 facade),所以能力项分别在各自文件里查 ——
+#        守的是「这些能力还在、入口还在」,不是「它们都挤在一个类里」。
 OWMGR="$RD/src/main/java/com/family/finance/service/broker/opend/FutuOpendManager.java"
+OWLOC="$RD/src/main/java/com/family/finance/service/broker/opend/LocalProcessChannel.java"
+OWREL="$RD/src/main/java/com/family/finance/service/broker/opend/OpendRelease.java"
+OWTEL="$RD/src/main/java/com/family/finance/service/broker/opend/OpendTelnet.java"
 OWCTL="$RD/src/main/java/com/family/finance/web/broker/FutuOpendController.java"
 OWTPL="$RD/src/main/resources/templates/broker/opend-wizard.html"
-{ [ -f "$OWMGR" ] && [ -f "$OWCTL" ] && [ -f "$OWTPL" ] \
-  && grep -q '/admin/broker/opend' "$OWCTL" && grep -q 'api_ip=127.0.0.1' "$OWMGR" \
-  && grep -q 'input_phone_verify_code' "$OWMGR" \
-  && grep -q 'detectEnv' "$OWMGR" && grep -q '/.dockerenv' "$OWMGR" && grep -q 'packageTag' "$OWMGR" \
+{ [ -f "$OWMGR" ] && [ -f "$OWLOC" ] && [ -f "$OWREL" ] && [ -f "$OWTEL" ] && [ -f "$OWCTL" ] && [ -f "$OWTPL" ] \
+  && grep -q '/admin/broker/opend' "$OWCTL" && grep -q 'api_ip=127.0.0.1' "$OWLOC" \
+  && grep -q 'input_phone_verify_code' "$OWTEL" \
+  && grep -q 'detectEnv' "$OWMGR" && grep -q '/.dockerenv' "$OWMGR" && grep -q 'packageTag' "$OWREL" \
   && grep -q "channel == 'DOCKER'" "$OWTPL" \
-  && grep -q 'installFromStream' "$OWMGR" && grep -q '"/upload"' "$OWCTL" && grep -q '上传并解压' "$OWTPL" \
-  && grep -q 'installFromServerPath' "$OWMGR" && grep -q 'import-path' "$OWCTL" && grep -q '从该路径导入' "$OWTPL" \
+  && grep -q 'installFromStream' "$OWLOC" && grep -q '"/upload"' "$OWCTL" && grep -q '上传并解压' "$OWTPL" \
+  && grep -q 'installFromServerPath' "$OWLOC" && grep -q 'import-path' "$OWCTL" && grep -q '从该路径导入' "$OWTPL" \
   && grep -q "var BASE = '/admin/broker/opend/'" "$OWTPL" \
   && ! grep -qE "fetch\('(status|deps|upload|download)|post\('(download|sms)" "$OWTPL" \
   && grep -q 'id="step1Done"' "$OWTPL" && grep -q 'id="step1Full"' "$OWTPL" \
   && grep -q 'id="step2Locked"' "$OWTPL" && grep -q 'id="loginDone"' "$OWTPL" && grep -q 'id="loginForm"' "$OWTPL" \
   && grep -q 'addAttribute("installed"' "$OWCTL" && grep -q 'addAttribute("running"' "$OWCTL" \
-  && grep -q 'public SelfCheck selfCheck' "$OWMGR" && grep -q 'probeWritable' "$OWMGR" \
+  && grep -q 'public SelfCheck selfCheck' "$OWLOC" && grep -q 'probeWritable' "$OWLOC" \
   && grep -q '"/selfcheck"' "$OWCTL" && grep -q '"/test"' "$OWCTL" \
   && grep -q 'id="selfBtn"' "$OWTPL" && grep -q 'id="testBtn"' "$OWTPL" \
   && grep -q 'name="vendor" value="FUTU"' "$RD/src/main/resources/templates/admin/integrations.html" \
   && grep -q '/admin/broker/opend' "$RD/src/main/resources/templates/admin/integrations.html"; } \
   && log_ok "v15-OPEND-WIZ 应用内一键 OpenD 向导(下载/版本/依赖/配置启动/短信中继·只绑127.0.0.1)+ step-by-step 门控(装好收起第1步/亮第2步·运行中收起表单)+ 渠道自适应 + 管理页入口" \
   || log_bad "v15-OPEND-WIZ OpenD 向导缺件或渠道未自适应" "see service/broker/opend / web/broker/FutuOpendController / broker/opend-wizard.html"
+
+# v117-DL-HOST · 官方发布物定位没有过期(v1.17)
+# 背景:v0.15 把下载地址/文件名/系统标识写死,富途换域名+改命名之后,「下载并安装」在**原生部署上也点不动了**;
+#      更糟的是白名单只放老域名 —— 用户手填现行官方 URL 会被我们自己拒掉,连手动救的路都堵着。
+# 守的是「现行域名在、老命名不在、白名单容得下官方现行地址」,不是某一版版本号。
+OWCFG="$RD/src/main/java/com/family/finance/service/broker/opend/OpendConfigXml.java"
+{ grep -q 'softwaredownload.futunn.com' "$OWREL" \
+  && grep -q 'fetch-lasted-link' "$OWREL" \
+  && grep -q 'Futu_OpenD_' "$OWREL" \
+  && grep -q 'return "Ubuntu18.04"' "$OWREL" && ! grep -q 'return "Ubuntu16.04"' "$OWREL" \
+  && ! grep -q 'SOFTWARE_HOST' "$OWLOC" \
+  && ! grep -q 'Ubuntu16.04' "$OWTPL" \
+  && grep -q 'isInteractiveLogin' "$OWREL" \
+  && grep -q 'cfg_file=' "$OWLOC" \
+  && ! grep -qE '"[^"]*libgtk-3-0[^"]*"' "$OWLOC"; } \
+  && log_ok "v117-DL-HOST 下载走官方现行域名 + fetch-lasted-link 取最新 + Futu_OpenD_/Ubuntu18.04 现行命名 · 老域名常量与 gtk3 硬编码提示已清 · 10.x 走 -cfg_file" \
+  || log_bad "v117-DL-HOST OpenD 下载定位过期(原生路径也会点不动)" "see OpendRelease.java / LocalProcessChannel.java / broker/opend-wizard.html"
+
+# v117-NO-TELNET-EXPOSE · OpenD 那个**没有鉴权**的 telnet 控制口不许对网络开放(v1.17)
+# 实测(2026-08-17):官方模板里 telnet_ip 默认就是 0.0.0.0 —— 连上就能重登/发验证码/退进程。
+# 所以我们生成配置时把它按死成回环地址,而且不给调用方留参数(不是配置项,是红线)。
+{ [ -f "$OWCFG" ] \
+  && grep -q 'TELNET_IP = "127.0.0.1"' "$OWCFG" \
+  && grep -q 'setTag(s, "telnet_ip", TELNET_IP)' "$OWCFG" \
+  && ! grep -q 'String telnetIp' "$OWCFG" \
+  && grep -q 'isInsideComment' "$OWCFG"; } \
+  && log_ok "v117-NO-TELNET-EXPOSE 控制口按死 127.0.0.1(官方默认 0.0.0.0 被覆盖)· 注释里的同名标签不误改" \
+  || log_bad "v117-NO-TELNET-EXPOSE 无鉴权控制口可能对网络开放" "see OpendConfigXml.java"
 
 # v12-2-FONTSCALE · 全局字号调节(issue #7)· 标准档零回归(calc×var,scale=1 等价)+ 5 层覆盖 + 控件 + FOUC + 图表跟随
 FSCSS="$RD/src/main/resources/static/css/style.css"
