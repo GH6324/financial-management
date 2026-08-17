@@ -87,6 +87,27 @@ public interface SnapshotTodoMapper {
                  @Param("accountId") long accountId,
                  @Param("memberId") long memberId);
 
+    /**
+     * v1.16 · 开账把上期末余额延续成本期快照时,同一行 todo 一并标 DONE(FR-390 · issue #15)。
+     *
+     * <p>不复用 {@link #markDone} —— 那个方法的语义是「<b>某个人</b>填完了」,签名里的 memberId 不该为 null;
+     * 这里 {@code done_by_member_id} 故意留 NULL,表示<b>系统代填、还没有人确认过</b>,
+     * 贷款趋势提示条靠这个区分继续出现(FR-392)。</p>
+     *
+     * <p>{@code AND status = 'PENDING'} 是保护:已经记名到人的行不会被反向抹成 NULL。</p>
+     */
+    @Update("""
+            UPDATE snapshot_todo
+               SET status = 'DONE',
+                   done_at = NOW(3),
+                   done_by_member_id = NULL
+             WHERE period_id = #{periodId}
+               AND account_id = #{accountId}
+               AND status = 'PENDING'
+            """)
+    int markCarriedForward(@Param("periodId") long periodId,
+                           @Param("accountId") long accountId);
+
     @Update("""
             UPDATE snapshot_todo
                SET prefilled_balance = #{prefilledBalance},

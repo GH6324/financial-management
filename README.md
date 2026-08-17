@@ -132,7 +132,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 512 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表) + UpdateCheckService 版本比较/迁移判定 fail-closed/结果收敛进 VARCHAR(512) + MetricDisplay 比率失真降级(正常区间不许降级 · 金额类不被误伤 · 失真值派生的 Δ 列一起降级)))/ 93 e2e 断言(13 主线)/ 590 黑盒回归 |
+| 测试 | JUnit 5 · 519 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸(含「系统代填的已填不算人确认过」)+ PeriodOpenerTodoAlignment 开账代填即已填 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表) + UpdateCheckService 版本比较/迁移判定 fail-closed/结果收敛进 VARCHAR(512) + MetricDisplay 比率失真降级(正常区间不许降级 · 金额类不被误伤 · 失真值派生的 Δ 列一起降级)))/ 93 e2e 断言(13 主线)/ 592 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
@@ -340,7 +340,7 @@ mvn spring-boot:run
 测试:
 
 ```bash
-mvn test                       # JUnit 单元测试(512)
+mvn test                       # JUnit 单元测试(519)
 bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(见 README 上方测试行的黑盒回归数)
 bash scripts/e2e.sh            # 端到端主线真验收(13 主线 93 断言 · 唤起 beta 调接口 + DB 真值判定 · mysqldump 快照/还原,不清库)
 ```
@@ -358,6 +358,7 @@ bash scripts/e2e.sh            # 端到端主线真验收(13 主线 93 断言 ·
 - **v1.10 设计文档**:[`prd/v1.10.md`](prd/v1.10.md) · [`tech-design/v1.10.md`](tech-design/v1.10.md)(报表页进化为月度封板快照:期末资产负债表 + 资金流瀑布(含恒等式校验)+ 环比/同比三列对照 + 集中度/流动性分层 + 本期归因;`range` 只管趋势区 · 指标不落库但修掉会改写历史的漂移源)
 - **v1.11 设计文档**:[`prd/v1.11.md`](prd/v1.11.md) · [`tech-design/v1.11.md`](tech-design/v1.11.md)(报表页可用性收束 13 项 + 全量指标审计;tech-design 记了三项「维护者点名要判断」的结论:同一区内窗口必须共用一个时间控件且只属于趋势区 · 哪些仪表盘指标值得进封板区的逐项取舍 · 以及「一条 SQL ≠ 一次扫描」那次把 1.25s 优化成 9.3s 的反面案例。**两份文档是事后补写的**,原因与教训写在 prd §5)
 - **v1.12 设计文档(在研)**:[`prd/v1.12.md`](prd/v1.12.md) · [`tech-design/v1.12.md`](tech-design/v1.12.md)(把「封板」做实:关账时把账户的分类属性一并定格,改设置不再改写历史月份的集中度/流动性分层/大类分布/vs 基准 —— 只冻结**分类输入**、不冻结**指标输出**,保住「口径改了自动对全部历史生效」;顺带补 SQL 归因手段并消掉报表页剩余 N+1)
+- **v1.16 设计文档(在研)**:[`prd/v1.16.md`](prd/v1.16.md) · [`tech-design/v1.16.md`](tech-design/v1.16.md)(「本期填报完成」只留一个定义 · GitHub issue #15:开账把上期末余额延续成本期快照的同时,把同一行待填也标成已填 —— 填报页的 ✓、tab 徽标、自动关账从此读同一列,不再出现「页面显示全填好了、徽标还挂着 ·1」;tech-design §1.1 记了「为什么不在计数 SQL 上打补丁」的取舍)
 - **怎么记账 · 场景速查**:[`docs/how-to-record.md`](docs/how-to-record.md)(工资/消费/买卖基金/借钱还贷/账户间转钱 逐场景对照 · 没有财会背景也能看懂)
 - **配置与接入**:[`docs/configuration.md`](docs/configuration.md)(AI / 短信 等外部服务配置总指南 · 全部可选)
 - **券商同步图文向导**:[`docs/broker-sync-guide.md`](docs/broker-sync-guide.md)(富途 / 老虎凭据一步步获取 · 应用内同款 `/help/broker-sync` 带示意图)
