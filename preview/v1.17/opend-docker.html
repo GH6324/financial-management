@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>v1.17 Preview · Docker 下的富途 OpenD 一键接入</title>
+<title>v1.17 Preview · Docker 下的富途 OpenD 一键接入(可选 sidecar)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
@@ -78,18 +78,29 @@
   .split > .col{display:flex;flex-direction:column}
   .split > .col > .card{flex:1}
   @media(max-width:780px){.split{grid-template-columns:1fr}}
+
+  /* 供应链公示 */
+  .chain{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .chain > .lnk{display:flex;flex-direction:column}
+  .chain > .lnk > .card{flex:1;padding:14px}
+  .chain-no{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--brass-deep);margin-bottom:5px}
+  @media(max-width:780px){.chain{grid-template-columns:1fr}}
+  .hash{font-family:'JetBrains Mono',monospace;font-size:10px;word-break:break-all;line-height:1.7;
+        background:var(--card-soft);border:1px solid var(--rule-soft);padding:6px 8px;display:block;
+        white-space:pre-wrap}
 </style>
 </head>
 <body style="background:var(--paper);color:var(--ink);font-family:'Source Serif 4','Noto Serif SC',Georgia,serif">
 <div class="wrap" style="padding-top:38px;padding-bottom:64px">
 
-  <div class="eyebrow">Preview · v1.17 · PRD 待评审</div>
-  <h1 style="font-size:29px;margin:8px 0 4px">Docker 下的富途 OpenD:和原生同一条路</h1>
-  <div class="note" style="max-width:700px">
-    静态预览。要对齐的是三件事:<b>①</b> 向导页的 Docker 分支去掉之后长什么样(答案:和原生长得一样)、
-    <b>②</b> 「自备镜像 + 另一台有桌面的机器 + <code>.env</code> 写密码」这三样从界面上消失后,用户手上还剩几个动作、
-    <b>③</b> 已经在跑 sidecar 的人从哪儿进来。
-    <span style="color:var(--rust)">方案 A/B/C 尚未拍板,本页画的是方案 A(容器内自管)。</span>
+  <div class="eyebrow">Preview · v1.17 · 方案已定 B · PRD 第二稿待评审</div>
+  <h1 style="font-size:29px;margin:8px 0 4px">Docker 下的富途 OpenD:可选装,但装起来和原生一样简单</h1>
+  <div class="note" style="max-width:720px">
+    静态预览。<b>方案 B</b>:富途网关跑在一个<b>我们维护的、可选的</b>容器里(不打包富途任何文件,启动时去官方拉 + 校验哈希)。
+    要对齐四件事:<b>①</b> 不用富途的人怎么做到零成本(profile 不启用 = 什么都不多拉)、
+    <b>②</b> 要用的人手上到底剩几个动作、
+    <b>③</b> <span style="color:var(--rust)">「我们托管了一个镜像」这件事怎么向用户交代清楚</span>(第 1 区,本页的重点)、
+    <b>④</b> 已经在跑 sidecar 的人从哪儿进来。
   </div>
 
   <!-- 0 -->
@@ -125,20 +136,22 @@
         <div style="margin-bottom:7px"><span class="badge ok">v1.17 · 同一页</span></div>
         <div class="card" style="border-color:var(--forest)">
           <div style="font-family:'Fraunces',serif;font-size:16px;margin-bottom:4px">把 OpenD 装好,点几下就行</div>
-          <div class="note" style="margin-bottom:12px">富途要求本地常驻一个网关程序才能读到你的持仓。下载、启动、登录都在这一页完成。</div>
+          <div class="note" style="margin-bottom:12px">富途要求本地常驻一个网关程序才能读到你的持仓。启用、下载、登录都在这一页完成。</div>
           <table class="t">
-            <tr><td class="k">①</td><td>点「下载并安装」<span class="note">(版本由我们向富途官方问最新)</span></td></tr>
-            <tr><td class="k">②</td><td>填富途账号 + 密码<span class="note">(存在本机数据库,不进任何配置文件)</span></td></tr>
-            <tr><td class="k">③</td><td>页面上收一次短信验证码</td></tr>
+            <tr><td class="k">①</td><td>启用富途网关<span class="note">(看清楚要引入什么 → 复制一条命令 → 回来)</span></td></tr>
+            <tr><td class="k">②</td><td>点「下载并安装」<span class="note">(版本由我们向富途官方问,并校验哈希)</span></td></tr>
+            <tr><td class="k">③</td><td>填富途账号 + 密码<span class="note">(存在本机数据库,不进任何配置文件)</span></td></tr>
+            <tr><td class="k">④</td><td>页面上收一次短信验证码</td></tr>
           </table>
           <div class="good" style="margin-top:12px">
             <div class="note" style="color:var(--forest)">
-              零命令 · 零 <code>.env</code> · 零第二台机器。<b>和 systemd 直装看到的是同一页</b> —— 界面上不再有「你是哪种部署」这个分岔。
+              零 <code>.env</code> 凭据 · 零第二台机器 · 唯一一条命令由页面给出可直接复制。
+              <b>不用富途的人:什么都不会多拉、多装、多跑。</b>
             </div>
           </div>
           <div class="note" style="margin-top:10px">
-            依据:命令行版 OpenD 在我们镜像的基底上 <span class="mono">ldd</span> 零缺失(实测),
-            所谓「容器里跑不了、必须自备装 gtk3 的镜像」是把<b>桌面版</b>的依赖当成了命令行版的。
+            依据:命令行版 OpenD 在瘦基底上 <span class="mono">ldd</span> 零缺失(实测),
+            所谓「必须自备装 gtk3 的镜像」是把<b>桌面版</b>的依赖当成了命令行版的。
           </div>
         </div>
       </div>
@@ -149,8 +162,134 @@
   <div class="zone">
     <div class="zone-head">
       <div class="zone-no">1</div>
+      <div><div class="zone-t">启用富途网关 · 「你正在引入什么」</div>
+      <div class="zone-sub">本页最重要的一屏:我们托管了一个镜像,就得把它交代干净</div></div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="chrome">
+      <div class="chrome-bar">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <div class="addr">https://你的域名/settings/broker/futu</div>
+      </div>
+      <div class="chrome-body">
+
+        <div class="eyebrow">数据源接入 · 富途 · 第 1 步</div>
+        <h2 style="font-size:20px;margin:5px 0 3px">富途网关默认没有安装</h2>
+        <div class="note" style="max-width:640px;margin-bottom:14px">
+          它是一个<b>可选组件</b>:只有用富途的人才需要。你的这套部署现在没有它 —— 没有多占磁盘、没有多跑进程。
+          要用富途,请先看清下面三段,再决定要不要启用。
+        </div>
+
+        <div class="chain">
+          <div class="lnk">
+            <div class="card">
+              <div class="chain-no">01 / 我们的镜像</div>
+              <div class="step-t" style="font-size:13.5px">谁构建的,装了什么</div>
+              <div class="note" style="margin:6px 0 8px">
+                由本项目在 GitHub Actions 里构建、发到 GHCR。Dockerfile 就在仓库里,你可以逐行读。
+              </div>
+              <span class="hash">ghcr.io/…/futu-opend-launcher<br>@sha256:3f9c…a71d</span>
+              <div class="note" style="margin-top:7px">
+                <a href="#" style="border-bottom:1px solid var(--rule)">看 Dockerfile</a> ·
+                <a href="#" style="border-bottom:1px solid var(--rule)">看这次的构建日志</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="lnk">
+            <div class="card">
+              <div class="chain-no">02 / 镜像里没有富途文件</div>
+              <div class="step-t" style="font-size:13.5px">我们不转发别人的软件</div>
+              <div class="note" style="margin:6px 0 8px">
+                镜像里只有一个下载器和启动脚本。OpenD 是<b>容器第一次启动时从富途官网下载的</b>,
+                我们既不打包也不转存。构建流水线里有一道检查,一旦镜像里出现富途文件就直接构建失败。
+              </div>
+              <span class="badge ok">构建期已校验 · 层内无富途制品</span>
+            </div>
+          </div>
+
+          <div class="lnk">
+            <div class="card">
+              <div class="chain-no">03 / 官方安装包的哈希</div>
+              <div class="step-t" style="font-size:13.5px">下载完先验,再启动</div>
+              <div class="note" style="margin:6px 0 8px">
+                <b style="color:var(--rust)">富途官方不公布任何校验和</b>。下面这两个值是<b>我们下载后自己算的</b>,
+                钉在公开仓库里(有 git 历史可查)。装的时候现算一次,<b>不一致就拒绝启动</b>。
+              </div>
+              <span class="hash">
+OpenD 10.10.7008 · 445,000,000 字节
+sha256 1b0e…9f42
+md5    4297cdec5653565556802fcd1b148f05</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="warn" style="margin-top:14px">
+          <div class="note">
+            <b>请你自己也验一遍 —— 这是一个能操作你券商账户的组件,值得多花两分钟。</b>
+            三条命令,任何一条对不上就<b>不要继续</b>,来仓库开个 issue:
+          </div>
+          <div class="term" style="margin-top:10px">
+<span class="d"># 1) 我们的镜像:按 digest 拉(不认 tag),并验签与构建来源</span>
+docker pull ghcr.io/…/futu-opend-launcher@sha256:3f9c…a71d
+gh attestation verify --repo … oci://ghcr.io/…@sha256:3f9c…a71d
+
+<span class="d"># 2) 镜像里确实没有富途文件</span>
+docker run --rm --entrypoint ls ghcr.io/…@sha256:3f9c…a71d /opt
+
+<span class="d"># 3) 官方包的 MD5:CDN 响应头里的 etag 就是文件 MD5(实测)</span>
+curl -sI "https://softwaredownload.futunn.com/Futu_OpenD_10.10.7008_Ubuntu18.04.tar.gz" | grep -i etag
+<span class="g">etag: "4297cdec5653565556802fcd1b148f05"</span>   <span class="d"># ← 和上面第 03 段对上</span>
+          </div>
+          <div class="note" style="margin-top:9px">
+            要说清这条的极限:<span class="mono">etag</span> 和安装包走的是<b>同一条连接、同一个 CDN</b>,
+            它证明的是"传输没坏",不是独立第三方担保。真正有意义的是<b>三方对上</b>:你自己算的、我们仓库里钉的、CDN 给的。
+          </div>
+        </div>
+
+        <div class="split" style="margin-top:16px">
+          <div class="col">
+            <div class="card">
+              <div class="step-t" style="font-size:14px">看完了,启用它</div>
+              <div class="note" style="margin:6px 0 9px">
+                复制这条命令在服务器上跑一次(镜像很小,里面只有一个下载器和启动脚本):
+              </div>
+              <div class="term">docker compose --profile futu up -d</div>
+              <div style="margin-top:9px">
+                <button class="btn-paper">复制命令</button>
+                <button class="btn-paper" style="margin-left:6px">我已执行,重新检测</button>
+              </div>
+              <div class="note" style="margin-top:9px">
+                用 <code>docker-up.sh</code> 起的:改成 <code>./docker-up.sh --with-futu</code> 即可,profile 不用自己记。
+              </div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card">
+              <div class="step-t" style="font-size:14px">不想启用?两条别的路</div>
+              <table class="t" style="margin-top:6px">
+                <tr><td style="width:96px"><b>换成自己的镜像</b></td>
+                    <td class="note">不信我们构建的,<code>.env</code> 里设 <span class="mono">FUTU_OPEND_IMAGE</span> 指向你自己的,其余流程不变</td></tr>
+                <tr><td><b>OpenD 在别处</b></td>
+                    <td class="note">家里 NAS / 另一台机器上已经跑着 OpenD,直接填地址(见第 5 区)</td></tr>
+                <tr><td><b>干脆不用</b></td>
+                    <td class="note">富途持仓手工录入,和其它账户一样;这一整块不会再出现在你的部署里</td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">2</div>
       <div><div class="zone-t">向导页 · 安装中</div>
-      <div class="zone-sub">Docker 与 systemd 共用;右上角那枚部署方式徽记是唯一的差别</div></div>
+      <div class="zone-sub">网关已启用之后的第 2 步;这一屏 Docker 与 systemd 完全共用</div></div>
     </div>
     <div class="zone-line"></div>
 
@@ -168,8 +307,8 @@
             <div class="note" style="max-width:520px">富途要求本地常驻一个网关程序(OpenD)才能读到你的持仓。这一页负责下载它、启动它、帮你登录。</div>
           </div>
           <div style="text-align:right;white-space:nowrap">
-            <span class="pill pill-brass">部署方式 容器</span><br>
-            <span class="note mono" style="font-size:9.5px">OpenD 10.10.7008</span>
+            <span class="pill pill-brass">网关 已启用</span><br>
+            <span class="note mono" style="font-size:9.5px">launcher @3f9c…a71d</span>
           </div>
         </div>
 
@@ -190,20 +329,21 @@
           <div style="flex:1">
             <div class="step-t">下载并安装 OpenD</div>
             <div class="note" style="margin-bottom:10px">
-              向富途官方取<b>当前最新版</b>,只解出服务端需要的部分(约 125MB,不含桌面程序)。装完的文件保存在数据卷里,容器重启不用重下。
+              向富途官方取版本、下载、<b>核对哈希</b>,只解出服务端需要的部分(约 125MB,不含桌面程序)。装完保存在数据卷里,容器重启不用重下。
             </div>
             <div class="term" style="margin-bottom:10px">
-<span class="d">[1/4]</span> 询问官方最新版本 …… <span class="g">10.10.7008</span>
-<span class="d">[2/4]</span> 下载 Futu_OpenD_10.10.7008_Ubuntu18.04.tar.gz
+<span class="d">[1/5]</span> 确定版本 …… <span class="g">10.10.7008</span> <span class="d">(哈希已在仓库中钉住)</span>
+<span class="d">[2/5]</span> 下载 Futu_OpenD_10.10.7008_Ubuntu18.04.tar.gz
         <span class="b">██████████████████████░░░░░░░░</span> 71%  318MB/445MB  6.2MB/s
-<span class="d">[3/4]</span> 解包(跳过桌面程序,仅保留服务端)…
-<span class="d">[4/4]</span> 自检:可执行文件依赖 …… <span class="g">全部满足,无需额外安装</span>
+<span class="d">[3/5]</span> 校验 sha256 …… <span class="g">与仓库钉住的值一致</span>
+<span class="d">[4/5]</span> 解包(跳过桌面程序,仅保留服务端)…
+<span class="d">[5/5]</span> 自检:可执行文件依赖 …… <span class="g">全部满足,无需额外安装</span>
             </div>
             <button class="btn-paper" disabled>安装中…</button>
             <button class="btn-paper" style="margin-left:6px">取消</button>
             <div class="note" style="margin-top:9px">
               下载很慢或连不上?<a href="#" style="border-bottom:1px solid var(--rule)">改为上传安装包</a>
-              —— 自己从富途官网下好 <code>.tar.gz</code> 传上来,或填服务器上已有的路径。
+              —— 自己从富途官网下好 <code>.tar.gz</code> 传上来(<b>同样走哈希校验</b>),或填服务器上已有的路径。
             </div>
           </div>
         </div>
@@ -218,56 +358,20 @@
 
       </div>
     </div>
-  </div>
 
-  <!-- 2 -->
-  <div class="zone">
-    <div class="zone-head">
-      <div class="zone-no">2</div>
-      <div><div class="zone-t">第 3 步展开 · 登录与验证码</div>
-      <div class="zone-sub">与原生完全同一个组件;界面上没有 MD5、没有 telnet、没有 <span class="mono">docker exec</span></div></div>
-    </div>
-    <div class="zone-line"></div>
-
-    <div class="split">
-      <div class="card">
-        <div class="step-t" style="margin-bottom:12px">登录你的富途账号</div>
-        <div style="margin-bottom:10px">
-          <div class="flabel">富途账号</div>
-          <input class="finput" value="1********8" readonly>
-          <div class="note" style="margin-top:3px">手机号 / 牛牛号 / 邮箱都可以</div>
-        </div>
-        <div style="margin-bottom:10px">
-          <div class="flabel">交易密码</div>
-          <input class="finput" type="password" value="············" readonly>
-          <div class="note" style="margin-top:3px">存进本机数据库(加密)· 不进 <code>.env</code> · 不进日志</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;margin-top:14px">
-          <button class="btn-ink">登录</button>
-          <span class="note">富途会发一条短信验证码到你的手机</span>
-        </div>
+    <div class="warn" style="margin-top:14px">
+      <div class="note">
+        <b>校验失败长什么样</b>(必须画出来,否则用户只会看到"装不上"):
       </div>
+      <div class="term" style="margin-top:9px">
+<span class="d">[3/5]</span> 校验 sha256 …… <span class="r">不一致,已停止并删除下载的文件</span>
 
-      <div class="card">
-        <div class="step-t" style="margin-bottom:12px">短信验证码</div>
-        <div class="note" style="margin-bottom:10px">
-          验证码已发送到 <span class="mono">1********8</span>。富途限制 <b>1 分钟只能要一次</b>,请不要连点。
-        </div>
-        <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px">
-          <div style="flex:1">
-            <div class="flabel">6 位验证码</div>
-            <input class="finput mono" value="4 2 8 1 3 9" readonly>
-          </div>
-          <button class="btn-paper" disabled>重新发送 (43s)</button>
-        </div>
-        <button class="btn-ink">提交验证码</button>
-
-        <div class="warn" style="margin-top:14px">
-          <div class="note">
-            <b>为什么会要验证码</b>:富途对新设备做一次绑定。绑定过之后,容器重启一般不用再收码;
-            如果富途要求重新验证,这一页会再出现一次输入框 —— 不需要你去命令行。
-          </div>
-        </div>
+<span class="r">安装中止:这个安装包和我们核对过的版本不一样。</span>
+  期望  1b0e…9f42   <span class="d">(仓库钉住 · 10.10.7008)</span>
+  实得  7a41…0cc8
+<span class="d">可能是富途换了包、也可能下载被中间人改过。请不要绕过这个检查。</span>
+<span class="d">→ 交叉验证:curl -sI &lt;下载地址&gt; | grep -i etag</span>
+<span class="d">→ 确认富途确实发了新版:可以「用官方当前最新版」,页面会显示实算哈希由你判断</span>
       </div>
     </div>
   </div>
@@ -276,8 +380,64 @@
   <div class="zone">
     <div class="zone-head">
       <div class="zone-no">3</div>
+      <div><div class="zone-t">第 3 步展开 · 登录与验证码</div>
+      <div class="zone-sub">与原生完全同一个组件;界面上没有 MD5、没有 telnet、没有 <span class="mono">docker exec</span></div></div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="split">
+      <div class="col">
+        <div class="card">
+          <div class="step-t" style="margin-bottom:12px">登录你的富途账号</div>
+          <div style="margin-bottom:10px">
+            <div class="flabel">富途账号</div>
+            <input class="finput" value="1********8" readonly>
+            <div class="note" style="margin-top:3px">手机号 / 牛牛号 / 邮箱都可以</div>
+          </div>
+          <div style="margin-bottom:10px">
+            <div class="flabel">交易密码</div>
+            <input class="finput" type="password" value="············" readonly>
+            <div class="note" style="margin-top:3px">存进本机数据库 · 不进 <code>.env</code> · 不进日志</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:14px">
+            <button class="btn-ink">登录</button>
+            <span class="note">富途会发一条短信验证码到你的手机</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="card">
+          <div class="step-t" style="margin-bottom:12px">短信验证码</div>
+          <div class="note" style="margin-bottom:10px">
+            验证码已发送到 <span class="mono">1********8</span>。富途限制 <b>1 分钟只能要一次</b>,请不要连点。
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px">
+            <div style="flex:1">
+              <div class="flabel">6 位验证码</div>
+              <input class="finput mono" value="4 2 8 1 3 9" readonly>
+            </div>
+            <button class="btn-paper" disabled>重新发送 (43s)</button>
+          </div>
+          <button class="btn-ink">提交验证码</button>
+
+          <div class="warn" style="margin-top:14px">
+            <div class="note">
+              <b>为什么会要验证码</b>:富途对新设备做一次绑定。绑定过之后,容器重启一般不用再收码;
+              如果富途要求重新验证,这一页会再出现一次输入框 —— 不需要你去命令行。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">4</div>
       <div><div class="zone-t">就绪态</div>
-      <div class="zone-sub">日常状态;进程崩了/掉线了在这里看得见</div></div>
+      <div class="zone-sub">日常状态;网关容器崩了 / 掉线了在这里看得见</div></div>
     </div>
     <div class="zone-line"></div>
 
@@ -306,18 +466,25 @@
 
       <table class="t" style="margin-top:16px">
         <tr><th style="width:150px">项</th><th>值</th><th>说明</th></tr>
-        <tr><td>连接方式</td><td class="k">127.0.0.1:11111</td><td class="note">与应用同一个容器内,<b>不对外暴露端口</b></td></tr>
+        <tr><td>网关容器</td><td class="k">futu-opend<br>@sha256:3f9c…a71d</td>
+            <td class="note">我们构建的 launcher 镜像 · <a href="#" style="border-bottom:1px solid var(--rule)">构建日志</a> · <a href="#" style="border-bottom:1px solid var(--rule)">怎么自己验</a></td></tr>
+        <tr><td>安装包来源</td><td class="k">富途官网 · sha256 已核对</td>
+            <td class="note">运行时下载,镜像里不含富途文件</td></tr>
+        <tr><td>连接方式</td><td class="k">futu-opend:11111</td>
+            <td class="note">仅 compose 内网 · <b>不对宿主映射端口</b>(<span class="mono">docker ps</span> 里 PORTS 为空)</td></tr>
+        <tr><td>控制通道</td><td class="k">容器内 22222</td>
+            <td class="note"><b style="color:var(--rust)">这个口没有密码</b> —— 所以绝不映射到宿主。别自己加 <span class="mono">ports:</span></td></tr>
         <tr><td>安装位置</td><td class="k">数据卷 futu-opend</td><td class="note">容器重建也不用重下</td></tr>
         <tr><td>登录状态</td><td>已登录 · 设备已绑定</td><td class="note">重启后自动恢复;富途要求重验时页面会提示</td></tr>
-        <tr><td>占用</td><td class="k">≈ 200MB 内存 / 125MB 磁盘</td><td class="note">不启用富途则完全不装、零占用</td></tr>
+        <tr><td>占用</td><td class="k">≈ 250MB 内存 / 125MB 磁盘</td><td class="note">不启用富途则完全不装、零占用</td></tr>
       </table>
     </div>
   </div>
 
-  <!-- 4 -->
+  <!-- 5 -->
   <div class="zone">
     <div class="zone-head">
-      <div class="zone-no">4</div>
+      <div class="zone-no">5</div>
       <div><div class="zone-t">逃生阀:OpenD 不在这台机器上</div>
       <div class="zone-sub">给已经在跑 sidecar 的人、和家里 NAS 已经有 OpenD 的人</div></div>
     </div>
@@ -346,16 +513,16 @@
       <div class="good" style="margin-top:14px">
         <div class="note">
           <b>升级不打断现有用户</b>:今天按 sidecar 跑着的人,升级后配置照旧生效,不需要任何动作;
-          <code>deploy/futu-opend.compose.yml</code> 不删。只是<b>新用户不会再被引导走这条路</b>。
+          <code>deploy/futu-opend.compose.yml</code> 不删。只是<b>新用户不会再被引导去自己打包镜像</b>。
         </div>
       </div>
     </div>
   </div>
 
-  <!-- 5 -->
+  <!-- 6 -->
   <div class="zone">
     <div class="zone-head">
-      <div class="zone-no">5</div>
+      <div class="zone-no">6</div>
       <div><div class="zone-t">这一版顺手修掉的「现状即坏」</div>
       <div class="zone-sub">下面四条今天在 <b>原生</b> 路径上也是坏的 —— 不修,原生的一键也按不动</div></div>
     </div>
@@ -371,7 +538,7 @@
       <tr>
         <td>文件名 / 系统标识过期</td>
         <td class="note">拼 <span class="mono">FutuOpenD_&lt;版本&gt;_Ubuntu16.04.tar.gz</span>,官方现在只发 Ubuntu18.04 / Centos7</td>
-        <td class="note">按官方现行命名;并向官方端点问最新版,<b>用户不再手填版本号</b>(现在的输入框默认写着 9.3.5308)</td>
+        <td class="note">按官方现行命名;并向官方端点问版本,<b>用户不再手填版本号</b>(现在的输入框默认写着 9.3.5308)</td>
       </tr>
       <tr>
         <td>依赖提示是错的</td>
@@ -386,26 +553,55 @@
     </table>
   </div>
 
-  <!-- 6 -->
+  <!-- 7 -->
   <div class="zone">
     <div class="zone-head">
-      <div class="zone-no">6</div>
-      <div><div class="zone-t">等你拍的</div>
-      <div class="zone-sub">PRD 第 3 节有完整对比表</div></div>
+      <div class="zone-no">7</div>
+      <div><div class="zone-t">对照:老虎为什么没有这个问题</div>
+      <div class="zone-sub">你问的那条 —— 「部署方式不同导致体验不一致」是不是也发生在老虎身上</div></div>
     </div>
     <div class="zone-line"></div>
 
     <table class="t">
-      <tr><th style="width:64px">项</th><th>问题</th><th>我的建议</th></tr>
+      <tr><th style="width:150px">项</th><th>富途(今天)</th><th>老虎</th></tr>
+      <tr><td>怎么连券商</td><td class="note">本地常驻一个网关进程 OpenD,应用连它的 11111</td>
+          <td class="note">官方 SDK 直连 HTTPS(<span class="mono">TigerHttpClient</span>),<b>没有任何本地进程</b></td></tr>
+      <tr><td>要装东西吗</td><td class="note">要:445MB 安装包 + 家目录 + 端口</td><td class="note">不要</td></tr>
+      <tr><td>凭据在哪</td><td class="note">Docker 下今天在 <code>.env</code> 明文(这一版改到管理页)</td>
+          <td class="note">管理页填、存库(<span class="mono">tiger_id</span> / RSA 私钥 / 账户号)</td></tr>
+      <tr><td>按部署方式分叉</td><td class="note"><b style="color:var(--rust)">有</b>:<span class="mono">FutuOpendManager</span> 7 处 + 向导页 10 处 <span class="mono">channel != 'DOCKER'</span></td>
+          <td class="note"><b style="color:var(--forest)">零处</b>。<span class="mono">broker/link.html</span> 里一处都没有</td></tr>
+      <tr><td>结论</td><td class="note">Docker 与原生今天是两套体验 —— 这一版要收敛掉</td>
+          <td class="note"><b>Docker 与原生完全一致</b>,结构上也不会出现这个问题</td></tr>
+    </table>
+    <div class="note" style="margin-top:10px">
+      换句话说:这个毛病的根源是「富途要一个本地网关」,不是「我们的 Docker 支持不好」。
+      全仓库按部署方式分叉的地方<b>只有 OpenD 这一处</b>,收拾完就没有第二处了。
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">8</div>
+      <div><div class="zone-t">还等你拍的</div>
+      <div class="zone-sub">方案 B 已定;下面三条会直接改变界面或文案</div></div>
+    </div>
+    <div class="zone-line"></div>
+
+    <table class="t">
+      <tr><th style="width:74px">项</th><th>问题</th><th>我的建议</th></tr>
       <tr>
-        <td><span class="badge wait">A/B/C</span></td>
-        <td>Docker 下 OpenD 谁来跑:<b>A</b> 应用容器自己跑(本页画的)· <b>B</b> 我们自己发一个 launcher 镜像到 GHCR · <b>C</b> 默认指向社区镜像</td>
-        <td class="note"><b>A</b>。它就是把原生那条路直接给 Docker 用,零新构件、零端口暴露;B 要长期维护一个镜像并在内网开一个<b>无鉴权</b>控制口,C 等于把券商账户交给陌生镜像</td>
+        <td><span class="badge wait">最新版</span></td>
+        <td>「自动装最新版」和「哈希已被我们核对过」是冲突的:富途发了新版、我们还没核对时怎么办</td>
+        <td class="note">默认只装<b>已核对版本</b>;想尝鲜要用户显式勾一下,页面把实算的 sha256/md5 摆出来由他判断。
+            代价:富途发新版后到我们跟上之间,默认路径装的是<b>旧版</b>(能用,但不是最新)</td>
       </tr>
       <tr>
-        <td><span class="badge wait">凭据</span></td>
-        <td><code>.env</code> 里的 <span class="mono">FUTU_ACCOUNT / FUTU_PWD_MD5</span> 怎么处置</td>
-        <td class="note">降级为可选、文档删掉 <span class="mono">md5sum</span> 教程;已经写了的人升级后不报错。理由是项目既有原则:运营参数走管理页</td>
+        <td><span class="badge wait">控制口</span></td>
+        <td>OpenD 的 telnet 控制口<b>没有鉴权</b>。不映射到宿主之后,同一个 compose 网络里的其它容器仍然能连</td>
+        <td class="note">这一版先做到「绝不 publish」+ 文档明确警告(风险面 = 你自己 compose 里的其它服务)。
+            要不要再加一层(绑容器内 127.0.0.1 + 带密钥的极小代理)放到 TDD 里评估 —— 会让 launcher 变复杂</td>
       </tr>
       <tr>
         <td><span class="badge wait">问卷</span></td>
