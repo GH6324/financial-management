@@ -778,8 +778,7 @@ public class EntryService {
             List<PeriodSnapshot> last2 = snapshotMapper.findLatestBefore(account.getId(), period.getPeriodStart(), 2);
             BigDecimal prevPrev = last2.size() >= 2 ? last2.get(1).getEndBalance() : null;
             BigDecimal predicted = PeriodOpener.predictLoanBalance(previousBalance, prevPrev);
-            boolean todoDone = todo != null && todo.getStatus() == TodoStatus.DONE;
-            if (loanPromptVisible(predicted, previousBalance, currentBalance, todoDone)) {
+            if (loanPromptVisible(predicted, previousBalance, currentBalance, confirmedByHuman(todo))) {
                 loanSuggestion = predicted;
                 loanSuggestionLabel = MoneyFormat.format(account.getCurrency(), predicted);
                 loanSuggestionDeltaLabel = MoneyFormat.formatDelta(account.getCurrency(), predicted.subtract(previousBalance));
@@ -822,13 +821,32 @@ public class EntryService {
 
     /**
      * v0.17.x · 贷款趋势预测提示条是否显示 · 兼容闸(可测纯逻辑)。
-     * 显示 iff:有实际建议(predicted≠prev)且用户未确认(todo 非 DONE)且当前 committed==上月值(新默认态)。
+     * 显示 iff:有实际建议(predicted≠prev)且**没有人确认过**且当前 committed==上月值(新默认态)。
      * committed==prev 天然屏蔽老账期(旧代码已把 committed 写成预测值≠prev),不打扰、不回改。
+     *
+     * <p>v1.16 FR-392:第四个参数从「todo 是不是 DONE」改成「是不是<b>人</b>确认的」。
+     * 开账代填从此也会把 todo 标 DONE(issue #15 的口径统一),再只看状态这条提示条就永远不出现了。</p>
      */
-    static boolean loanPromptVisible(BigDecimal predicted, BigDecimal prev, BigDecimal committed, boolean todoDone) {
+    /**
+     * v1.16 FR-392 · 这一行是不是<b>人</b>确认过的(issue #15)。
+     *
+     * <p>v1.16 起开账代填也会把 todo 标成 DONE(见 {@link PeriodOpener#createPeriodAndTodos}),
+     * 「有数字」和「已填」统一成一件事;但贷款趋势提示条要的是另一件事 ——
+     * <b>有没有人真的看过并做了选择</b>。系统代填的 DONE 其 {@code done_by_member_id} 为 NULL,
+     * 人工提交的才记名到人,靠这个把两者分开。若这里退回只看状态,
+     * 所有贷款账户在开账瞬间就"已完成",v0.17.x「贷款不静默外推」的那条规矩会被口径统一顺手删掉。</p>
+     */
+    static boolean confirmedByHuman(SnapshotTodo todo) {
+        return todo != null
+                && todo.getStatus() == TodoStatus.DONE
+                && todo.getDoneByMemberId() != null;
+    }
+
+    static boolean loanPromptVisible(BigDecimal predicted, BigDecimal prev, BigDecimal committed,
+                                     boolean confirmedByHuman) {
         return predicted != null && prev != null
                 && predicted.compareTo(prev) != 0
-                && !todoDone
+                && !confirmedByHuman
                 && committed != null && committed.compareTo(prev) == 0;
     }
 

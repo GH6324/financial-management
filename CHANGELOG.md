@@ -18,6 +18,36 @@ README「近期更新」段再往下收一层,只留最近 1–2 版摘要。
 早期那段有 10 个补丁 tag 当时没留条目(`v0.2.1` / `v0.3.1`–`v0.3.3` / `v0.4` / `v0.4.1` /
 `v0.4.2` / `v0.4.13` / `v0.4.15` / `v0.4.16`),内容在 `git log` 里。
 
+## [v1.16.0] · 未发布
+
+### Fixed — 「本期填报完成」只留一个定义 · [issue #15](https://github.com/LuoDi-Nate/financial-management/issues/15)
+
+- **账户已填完、也没有收支,填报 tab 右边却还挂着 `1`**(FR-390)。「填报完成」在系统里同时有
+  三个互不联动的定义:填报页看「这一行有没有本期数字」判 ✓,tab 徽标和首页横幅数
+  `snapshot_todo.status='PENDING'`。开账时 `PeriodOpener` 把上期末余额延续成本期快照(备注
+  「开账自动延续上期末余额」),**同一段代码写进去的 todo 却仍留在 `PENDING`** —— 矛盾就是在
+  这一刻产生的。统一到「**这一行有本期数字,就是已填**」,并且修在**写入侧**:写完快照就把同
+  一行 todo 标成已填。判定看「写完之后有没有快照」而不是「有没有算出延续值」,幂等重跑和
+  「快照由别的路径先落库」两种情形才都对;没有可延续历史的账户(首期 / 新建账户第一期)保持
+  `PENDING` —— 那种确实该催。
+- **系统代填不冒名**(FR-391)。`markCarriedForward` 只动 `status='PENDING'` 的行,
+  `done_by_member_id` 留 `NULL`,不伪造成某个人确认过。
+
+### Changed — 贷款趋势提示条改看「有没有**人**确认过」
+
+- 提示条原来的闸门是 todo 状态。「开账即已填」之后它会被这一版**静默弄丢**(不报错、不留痕,
+  就是再也不出现),所以闸门改成 `done_by_member_id != null`(FR-392):系统代填的「已填」不
+  算人做过决定,提示条照常出现;点了「接受」或「保持上月」之后才不再打扰,并记名。
+
+### Changed — 护栏
+
+- `v116-TODO-DONE-SINGLE-SOURCE`:拦住「把计数 SQL 改成去 join 快照表」这类把口径搬回**读取
+  侧**的改法;单测 `PeriodOpenerTodoAlignmentTest`(4 条)+ `EntryLoanPromptTest` 补 3 条钉住
+  上面那个会被静默弄丢的提示条。
+
+**DB 迁移 `V55__align_carryforward_todo_done.sql`** —— 补齐已经存在的 OPEN 账期的 todo 状态列,
+**只动状态,不碰任何金额**。
+
 ## [v1.15.0] · 未发布
 
 ### Added — 成员身份三件事 · [issue #12](https://github.com/LuoDi-Nate/financial-management/issues/12)

@@ -119,8 +119,9 @@ public class PeriodOpener {
 
             // 同时写入 period_snapshot,使每个账户开账即"已平衡 ✓"(用户后续只需调整变化的账户)
             // upsert + 仅当目标 snapshot 不存在时写入(idempotent)
-            if (prefillBalance != null
-                    && snapshotMapper.findByPeriodAndAccount(period.getId(), account.getId()).isEmpty()) {
+            boolean snapshotExists = snapshotMapper
+                    .findByPeriodAndAccount(period.getId(), account.getId()).isPresent();
+            if (prefillBalance != null && !snapshotExists) {
                 snapshotMapper.upsert(PeriodSnapshot.builder()
                         .periodId(period.getId())
                         .accountId(account.getId())
@@ -128,6 +129,17 @@ public class PeriodOpener {
                         .submittedBy(systemMemberId)
                         .note("开账自动延续上期末余额 " + prefillBalance)
                         .build());
+                snapshotExists = true;
+            }
+
+            // v1.16 FR-390(issue #15)· 这一行已经有本期数字了,todo 就该是"已填"。
+            //   在此之前:填报页看「有没有数字」判 ✓、tab 徽标和自动关账看 status='PENDING' 数「未填」,
+            //   同一个方法写出来的两份状态互相打架 —— 页面显示全填好了,徽标还挂着 ·1(issue #15)。
+            //   判定用"写完之后有没有快照"而不是"有没有延续值":正常路径两者等价,
+            //   但幂等重跑 / 快照由别的路径先落库时,前者才是对的。
+            //   无历史(首期 / 新建账户的第一期)→ 没有快照 → 保持 PENDING,那时候确实该催。
+            if (snapshotExists) {
+                snapshotTodoMapper.markCarriedForward(period.getId(), account.getId());
             }
         }
     }

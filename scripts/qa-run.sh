@@ -6470,6 +6470,31 @@ V115_ACTUAL="$(grep -rl 'memberMapper\.findActiveByFamily\|memberMapper\.countAc
   && log_ok "v115-RENAME-KILLS-TOKENS-FIRST(先按旧登录名清票根 · 再改名 · 登录页解释 ?expired)" \
   || log_bad "v115-RENAME-KILLS-TOKENS-FIRST 改名顺序反了或没清「记住我」" \
      "AdminService.renameUsername 必须 killRememberMe(旧名) 在 updateUsername 之前;顺序由 UsernameRenameTest 的 InOrder 断言守着"
+# v116-TODO-DONE-SINGLE-SOURCE · 「本期填报完成」只许有一个定义(issue #15)
+#   开账写 period_snapshot 让填报页判 ✓,同一个方法插的 todo 却是 PENDING → 徽标和页面互相打架。
+#   v1.16 把口径收回**写入侧**:开账写快照的同时把 todo 标 DONE,三个消费者读同一列。
+#   ② 是这条护栏里最重要的一句:它挡的不是今天的 bug,是明天有人为了「省一条迁移」
+#      把 NOT EXISTS(period_snapshot) 加回计数 SQL —— 那会让口径重新分裂成两份,而且和今天一样不报错。
+#   ③ 贷款趋势提示条从此不能再看状态列(开账就 DONE 了,看状态 = 提示条整个消失)。
+#      改看 done_by_member_id:NULL = 系统代填、还没有人做过决定。
+QA116_PO="$RD/src/main/java/com/family/finance/service/PeriodOpener.java"
+QA116_TM="$RD/src/main/java/com/family/finance/repository/SnapshotTodoMapper.java"
+QA116_ES="$RD/src/main/java/com/family/finance/service/EntryService.java"
+QA116_MIG="$RD/db/migration/V55__align_carryforward_todo_done.sql"
+{ grep -q 'snapshotTodoMapper.markCarriedForward(period.getId(), account.getId())' "$QA116_PO" \
+  && grep -q 'int markCarriedForward(' "$QA116_TM" \
+  && grep -q "done_by_member_id = NULL" "$QA116_TM" \
+  && grep -q "AND status = 'PENDING'" "$QA116_TM" \
+  && ! grep -q 'period_snapshot' "$QA116_TM" \
+  && grep -q 'boolean confirmedByHuman(SnapshotTodo todo)' "$QA116_ES" \
+  && grep -q 'todo.getDoneByMemberId() != null' "$QA116_ES" \
+  && grep -q 'boolean confirmedByHuman)' "$QA116_ES" \
+  && grep -q "p.status = 'OPEN'" "$QA116_MIG" \
+  && ! grep -qiE '\bend_balance\b|\bamount\b' "$QA116_MIG" \
+  && [ -f "$RD/src/test/java/com/family/finance/service/PeriodOpenerTodoAlignmentTest.java" ] \
+  && grep -q 'systemCarriedDone_isNotHumanConfirmation' "$RD/src/test/java/com/family/finance/service/EntryLoanPromptTest.java"; } \
+  && log_ok "v116-TODO-DONE-SINGLE-SOURCE(开账代填即标 DONE · 计数 SQL 不碰 period_snapshot · 提示条改看 done_by_member_id)" \
+  || log_bad "v116-TODO-DONE-SINGLE-SOURCE 「已填」的定义又分裂了" "PeriodOpener 必须调 markCarriedForward;SnapshotTodoMapper 里不许出现 period_snapshot(口径别搬回读取侧);loanPromptVisible 必须走 confirmedByHuman/getDoneByMemberId;V55 只动 OPEN 账期的状态列"
 
 echo
 echo "═══════════════════════════════════════"
