@@ -33,7 +33,22 @@ class ContainerGatewayChannelTest {
                         + Instant.now() + "\n", StandardCharsets.UTF_8);
     }
 
-    /** 控制目录不存在 = 用户没启用这个可选组件:页面要给启用命令,而不是报错。 */
+    /**
+     * 空的共享卷 = 用户还没启用这个可选组件:页面要给启用命令,而不是报错。
+     *
+     * <p>这条很关键:app 容器<b>无条件</b>挂共享卷(compose 不支持条件挂载),所以目录永远存在。
+     * 判据必须是"网关写过 status",否则"未启用"这个状态永远探不出来、页面会一直显示成"网关掉线"。</p>
+     */
+    @Test
+    void mounted_but_empty_volume_still_counts_as_not_enabled(@TempDir Path ctl) {
+        ContainerGatewayChannel c = channel(ctl);
+        assertThat(c.ctlMounted()).isTrue();     // 卷挂了
+        assertThat(c.enabled()).isFalse();       // 但网关没起过
+        assertThat(c.caps().needsEnable()).isTrue();
+        assertThat(c.status().message()).contains("可选组件");
+    }
+
+    /** 卷压根没挂(原生部署把 futuCtlDir 指到不存在的路径)也是"未启用"。 */
     @Test
     void not_enabled_yields_enable_command_not_an_error(@TempDir Path base) {
         ContainerGatewayChannel c = channel(base.resolve("absent"));

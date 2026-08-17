@@ -189,7 +189,7 @@
               <div class="note" style="margin:6px 0 8px">
                 由本项目在 GitHub Actions 里构建、发到 GHCR。Dockerfile 就在仓库里,你可以逐行读。
               </div>
-              <span class="hash">ghcr.io/…/futu-opend-launcher<br>@sha256:3f9c…a71d</span>
+              <span class="hash">ghcr.io/…/financial-management-futu-opend<br>@sha256:3f9c…a71d</span>
               <div class="note" style="margin-top:7px">
                 <a href="#" style="border-bottom:1px solid var(--rule)">看 Dockerfile</a> ·
                 <a href="#" style="border-bottom:1px solid var(--rule)">看这次的构建日志</a>
@@ -233,7 +233,7 @@ md5    4297cdec5653565556802fcd1b148f05</span>
           </div>
           <div class="term" style="margin-top:10px">
 <span class="d"># 1) 我们的镜像:按 digest 拉(不认 tag),并验签与构建来源</span>
-docker pull ghcr.io/…/futu-opend-launcher@sha256:3f9c…a71d
+docker pull ghcr.io/…/financial-management-futu-opend@sha256:3f9c…a71d
 gh attestation verify --repo … oci://ghcr.io/…@sha256:3f9c…a71d
 
 <span class="d"># 2) 镜像里确实没有富途文件</span>

@@ -9,6 +9,23 @@ cd "$(dirname "$0")/.."   # 仓库根
 say(){ printf '%s\n' "$*"; }
 die(){ printf '\n✗ %s\n' "$*" >&2; exit 1; }
 
+# ── v1.17 · 参数(此前这个脚本一个参数都不认) ────────────────────────────
+# --with-futu  连富途网关一起起(可选组件 · 默认不装不跑)
+#              选择会记进 .env 的 FUTU_ENABLED=1,之后再跑本脚本会自动带上 profile,
+#              免得用户自己敲 `docker compose up -d` 时漏掉 --profile futu。
+WITH_FUTU=0
+for arg in "$@"; do
+  case "$arg" in
+    --with-futu) WITH_FUTU=1 ;;
+    -h|--help)
+      say "用法: bash deploy/docker-up.sh [--with-futu]"
+      say "  --with-futu  同时启用富途 OpenD 网关(可选组件;默认不装、不跑、不占磁盘)"
+      say "               它会拉一个我们构建的小镜像;OpenD 本体由该容器从富途官网下载并校验 sha256。"
+      exit 0 ;;
+    *) die "不认识的参数:$arg(用 --help 看用法)" ;;
+  esac
+done
+
 # 国内镜像源(免登录公共加速,实测 2026-06 可用)。注:GHCR(我们自己的 app 镜像)大陆能直连,
 # 只有 Docker Hub 的 mysql 基础镜像需要走镜像源 —— 所以这里只为兜 Docker Hub 被墙。
 DAEMON_JSON="${FINANCE_DAEMON_JSON:-/etc/docker/daemon.json}"   # 可用环境变量覆盖(便于测试 / Docker Desktop)
@@ -400,6 +417,23 @@ VER_BEFORE="$(running_version "$PORT_PRE" || true)"
 [[ -n "$VER_BEFORE" ]] && say "· 当前在跑 v${VER_BEFORE}(准备检查更新)"
 
 # ── 5. 镜像:先定数据库镜像(双源)→ 再拉 app 预构建 → 拉不到才本地构建 ──
+# ── v1.17 · 富途网关 profile(可选组件)────────────────────────────────────
+# compose 的 profile 机制:没选中的服务连解析都不参与 —— 不启用就真的零拉取、零磁盘、零进程。
+# 用户上次选过(.env 里 FUTU_ENABLED=1)就一直带着,免得他自己敲 compose 命令时漏掉 profile
+# 而把网关容器落下(compose 不会主动停掉它,但 --remove-orphans 会当孤儿删掉)。
+PROFILES=""
+if [[ "$WITH_FUTU" == "1" ]] || grep -qE '^FUTU_ENABLED=1' .env 2>/dev/null; then
+  PROFILES="--profile futu"
+  if [[ "$WITH_FUTU" == "1" ]]; then
+    say "· 富途网关:本次启用(可选组件 · 会拉一个我们构建的小镜像)"
+    say "  镜像里没有富途任何文件;OpenD 由该容器从富途官网下载并校验 sha256(哈希钉在 deploy/futu-opend-releases.json)"
+  else
+    say "· 富途网关:沿用上次的选择(.env 里 FUTU_ENABLED=1)"
+  fi
+  grep -q '^FUTU_ENABLED=' .env 2>/dev/null || printf 'FUTU_ENABLED=1\n' >> .env
+fi
+DC="$DC $PROFILES"
+
 # 用户显式指定优先(环境变量 或 .env 里的 MYSQL_IMAGE);否则 GHCR 副本 → Docker Hub 顺序探。
 if [[ -z "${MYSQL_IMAGE:-}" ]]; then
   MYSQL_IMAGE="$(grep -E '^MYSQL_IMAGE=' .env 2>/dev/null | cut -d= -f2- || true)"

@@ -50,8 +50,17 @@ public class ContainerGatewayChannel implements OpendChannel {
 
     @Override public Kind kind() { return Kind.CONTAINER; }
 
-    /** 控制目录在不在 —— 这就是"用户有没有启用网关"的判据(比问 /.dockerenv 准)。 */
-    public boolean enabled() { return Files.isDirectory(ctlDir); }
+    /**
+     * 网关有没有被启用过 —— 判据是<b>网关容器写过 status 文件</b>,不是"控制目录在不在"。
+     *
+     * <p>为什么不能看目录:app 容器必须<b>无条件</b>挂这个共享卷(否则启用网关后 app 没法下指令,
+     * 而 compose 不支持条件挂载),所以目录对容器部署永远存在 —— 拿它当判据会让"未启用"永远探不出来。
+     * status 文件只有网关容器的 entrypoint / control-loop 会写,它在 = 网关真的起过。</p>
+     */
+    public boolean enabled() { return Files.isRegularFile(ctlDir.resolve("status")); }
+
+    /** 控制目录本身在不在(compose 有没有把共享卷挂进来)。 */
+    public boolean ctlMounted() { return Files.isDirectory(ctlDir); }
 
     /** 网关是不是活着(status 文件新鲜)。 */
     public boolean alive() {
@@ -140,11 +149,15 @@ public class ContainerGatewayChannel implements OpendChannel {
     @Override
     public SelfCheck selfCheck() {
         List<CheckItem> items = new ArrayList<>();
-        boolean dir = enabled();
-        items.add(new CheckItem("富途网关已启用", dir, true,
-                dir ? ctlDir.toString() + " 已挂载" : "还没启用这个可选组件",
-                dir ? null : "在服务器上执行:docker compose --profile futu up -d(或 ./docker-up.sh --with-futu)"));
-        if (dir) {
+        boolean mounted = ctlMounted();
+        boolean started = enabled();
+        items.add(new CheckItem("控制卷已挂载", mounted, false,
+                mounted ? ctlDir + " 在" : ctlDir + " 不在(app 容器没挂共享卷?)",
+                mounted ? null : "检查 docker-compose.yml 里 app 服务是否挂了 futu-ctl:/ctl"));
+        items.add(new CheckItem("富途网关已启用", started, true,
+                started ? "网关容器写过状态文件" : "还没启用这个可选组件(默认不装、不跑)",
+                started ? null : "在服务器上执行:" + ENABLE_COMMAND + "(或 ./docker-up.sh --with-futu)"));
+        if (started) {
             boolean w = Files.isWritable(ctlDir);
             items.add(new CheckItem("控制目录可写", w, true, ctlDir.toString(),
                     w ? null : "两个容器要共享这个卷;检查 compose 里 app 与 opend 是否都挂了它"));

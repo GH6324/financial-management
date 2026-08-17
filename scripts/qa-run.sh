@@ -4296,6 +4296,51 @@ FBC="$RD/src/main/java/com/family/finance/service/broker/FutuBrokerClient.java"
   && log_ok "v117-API-ENCRYPTED 网关通道给 11111 开 RSA(密钥走共享卷)· 其它拓扑保持明文不打断现有连接" \
   || log_bad "v117-API-ENCRYPTED API 口仍是明文(锁了控制口等于没锁)" "see FutuBrokerClient.connect / docker/futu-opend/entrypoint.sh"
 
+# v117-PROFILE-OPTIN · 不用富途的人必须零成本(v1.17)
+# 维护者定方案 B 的理由就是"富途不是所有人都需要,应该可选、不该打包进来" ——
+# 所以默认 `docker compose up -d` 展开的服务里【不许】出现网关,而启用只需一条命令。
+# 判据用 `docker compose config --services` 实际展开(而不是 grep yaml):profile 语义得让 compose 自己说。
+DCF="$RD/docker-compose.yml"
+DUP="$RD/deploy/docker-up.sh"
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+  _dcsvc_default="$(cd "$RD" && MYSQL_ROOT_PASSWORD=x DB_PASS=y REMEMBER_ME_KEY=z docker compose config --services 2>/dev/null | tr '\n' ' ')"
+  _dcsvc_futu="$(cd "$RD" && MYSQL_ROOT_PASSWORD=x DB_PASS=y REMEMBER_ME_KEY=z docker compose --profile futu config --services 2>/dev/null | tr '\n' ' ')"
+else
+  _dcsvc_default="(no-docker)"; _dcsvc_futu="(no-docker)"
+fi
+if [ "$_dcsvc_default" = "(no-docker)" ]; then
+  log_skip "v117-PROFILE-OPTIN 本机没有 docker compose,跳过 profile 实际展开校验"
+else
+  # 端口判定交给 compose 自己解析(第三次栽在"注释里提到了端口号"上:
+  # 文案里写「22222 = 控制口,没有鉴权」是**应该**的,grep 全文会把这句判成配置)
+  _dcports="$(cd "$RD" && MYSQL_ROOT_PASSWORD=x DB_PASS=y REMEMBER_ME_KEY=z docker compose --profile futu config --format json 2>/dev/null \
+      | python3 -c 'import json,sys
+try:
+    d=json.load(sys.stdin); print(len(d["services"]["opend"].get("ports") or []))
+except Exception: print("ERR")' 2>/dev/null)"
+  { grep -q 'profiles: \["futu"\]' "$DCF" \
+    && [ "$_dcports" = "0" ] \
+    && grep -q 'stop_grace_period' "$DCF" \
+    && grep -q 'futu-ctl:/ctl' "$DCF" \
+    && grep -q -- '--with-futu' "$DUP" \
+    && grep -q 'FUTU_ENABLED' "$DUP" \
+    && [ "${_dcsvc_default#*opend}" = "$_dcsvc_default" ] \
+    && [ "${_dcsvc_futu#*opend}" != "$_dcsvc_futu" ]; } \
+    && log_ok "v117-PROFILE-OPTIN 默认展开无网关服务(实测 compose config)· --profile futu 才有 · 网关零端口映射(compose 解析实测)· docker-up.sh 认 --with-futu 并记住选择" \
+    || log_bad "v117-PROFILE-OPTIN 富途网关不是真正可选(或端口被映射出去)" "see docker-compose.yml opend 服务 / deploy/docker-up.sh"
+fi
+
+# v117-ENV-NOT-REQUIRED · .env 不再承载富途凭据(v1.17)
+# PRD §0 的第 3 条不合理:账号 + 密码 MD5 落在 .env 明文,与"运营参数一律走管理页"的既定原则冲突,
+# 而且 .env.example 还教用户 `printf '你的密码' | md5sum`。
+{ ! grep -qE '^\s*FUTU_ACCOUNT=' "$RD/.env.example" \
+  && ! grep -q 'md5sum' "$RD/.env.example" \
+  && ! grep -qE 'FUTU_ACCOUNT:\s*\$\{FUTU_ACCOUNT:\?' "$DCF" \
+  && grep -q '不在这里配' "$RD/.env.example" \
+  && grep -q 'docker-up.sh --with-futu' "$RD/.env.example"; } \
+  && log_ok "v117-ENV-NOT-REQUIRED .env.example 里富途段只剩可选开关(凭据走管理页)· md5sum 教程已删" \
+  || log_bad "v117-ENV-NOT-REQUIRED .env 仍要求富途凭据(或还在教 md5sum)" "see .env.example 富途段"
+
 # v12-2-FONTSCALE · 全局字号调节(issue #7)· 标准档零回归(calc×var,scale=1 等价)+ 5 层覆盖 + 控件 + FOUC + 图表跟随
 FSCSS="$RD/src/main/resources/static/css/style.css"
 FSLAY="$RD/src/main/resources/templates/fragments/layout.html"

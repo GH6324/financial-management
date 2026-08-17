@@ -51,6 +51,9 @@ services:
     volumes:
       - uploads:/data/uploads
       - backups:/data/backups
+      # v1.17 · 与可选富途网关共享的控制目录。app 这侧【无条件】挂(compose 不支持条件挂载),
+      # 不启用网关时它就是个空卷(几 KB);"有没有启用"看网关容器有没有写过 /ctl/status。
+      - futu-ctl:/ctl
     # 默认只发布到宿主 loopback —— 不裸奔公网,前置反代指到 127.0.0.1:SERVER_PORT
     ports:
       - "127.0.0.1:${SERVER_PORT:-20000}:20000"
@@ -78,7 +81,42 @@ services:
     volumes:
       - backups:/data/backups
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # v1.17 · 富途 OpenD 网关(**可选组件** · profile: futu)
+  #
+  # 默认 `docker compose up -d` 【不拉、不起、不占磁盘】—— 只有显式启用才有它:
+  #     docker compose --profile futu up -d        (或 bash deploy/docker-up.sh --with-futu)
+  #
+  # 这个镜像里【没有富途的任何文件】:它只有下载器 + 两个 shell 脚本 + 我们核对过的哈希清单;
+  # OpenD 是容器首启时从富途官网下载的,下完先比对 sha256(不一致就拒绝启动)。
+  # 镜像 digest 与自查命令见 Release 页;层扫描护栏见 scripts/scan-image-no-futu.sh。
+  #
+  # 两个端口都【不对宿主发布】:
+  #   11111 = 富途 API,仅 compose 内网(且走 RSA 加密,同栈其它容器读不到你的持仓)
+  #   22222 = OpenD 控制口,**没有鉴权** → 只绑容器内 127.0.0.1,连同栈都连不到。
+  #           ⚠ 千万不要给这个服务加 ports: —— 那等于把券商网关的遥控器放到网上。
+  opend:
+    profiles: ["futu"]
+    image: ${FUTU_OPEND_IMAGE:-ghcr.io/luodi-nate/financial-management-futu-opend:latest}
+    restart: unless-stopped
+    # OpenD 实测【不响应 SIGTERM】(给 60 秒也照样被 SIGKILL),所以别白等太久;
+    # 硬杀已验证可恢复(安装物与状态目录完好,重启照常工作)。
+    stop_grace_period: 15s
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      # 1 = 只装我们核对过哈希的版本(默认);0/1 之外的值按 0 处理
+      FUTU_ALLOW_UNVERIFIED: ${FUTU_ALLOW_UNVERIFIED:-0}
+      # API 通道 RSA 加密(默认开;密钥由本容器生成在共享卷里,app 用同一把)
+      FUTU_API_RSA: ${FUTU_API_RSA:-1}
+    volumes:
+      - futu-opend-home:/home/futu     # OpenD 安装物 + 状态(它忽略 $HOME,只认 passwd 里的家目录)
+      - futu-ctl:/ctl                  # 与 app 的控制通道(文件权限就是鉴权)
+    expose:
+      - "11111"
+
 volumes:
   db-data:
   uploads:
   backups:
+  futu-ctl:
+  futu-opend-home:
