@@ -27,6 +27,16 @@
   #lb .lbbar button{width:38px;height:38px;border-radius:8px;background:rgba(255,255,255,.14);color:#fff;border:0;font-size:18px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center}
   #lb .lbbar button:hover{background:rgba(255,255,255,.26)}
   #lb .tip{position:fixed;bottom:20px;left:0;right:0;text-align:center;color:rgba(255,255,255,.72);font-family:'JetBrains Mono',monospace;font-size:12px;pointer-events:none}
+  /* v1.14 · 拖拽落图态(不引新色:沿用 --brass-deep / --card-soft) */
+  #dropZone{position:relative;transition:background-color .12s ease,border-color .12s ease}
+  #dropZone.dz-on{border-style:solid;border-color:var(--brass-deep);background:var(--card-soft)}
+  /* 落图态【不许改变框的高度】:idle 内容用 visibility 留在流里,而不是 display:none。
+     否则拖到一半框从三行缩成一行,drop 目标在指针底下自己变矮 —— 指针可能就此掉到框外,
+     变成「高亮闪一下就没了」。「松手即上传」用绝对定位居中盖上去。 */
+  #dropZone .dz-drop{display:none;position:absolute;left:0;right:0;top:50%;transform:translateY(-50%)}
+  #dropZone.dz-on .dz-drop{display:block}
+  #dropZone.dz-on .dz-idle{visibility:hidden}
+  #dropZone.dz-on *{pointer-events:none}
 </style>
 
 <main class="max-w-[880px] mx-auto px-4 lg:px-8 py-8 relative z-10">
@@ -61,9 +71,15 @@
       </ol>
       <input id="fileInput" type="file" accept="image/*" multiple class="hidden">
       <div id="dropZone" class="border-2 border-dashed border-rule rounded-lg p-6 text-center cursor-pointer hover:bg-card-soft" onclick="document.getElementById('fileInput').click()">
-        <div class="font-display text-lg text-ink-soft">＋ 选择 / 拍摄持仓截图</div>
-        <div class="font-mono text-[11px] text-ink-subtle mt-1">可多选 · 长列表分段截图 · 选好即自动上传(前端已压缩省流量)</div>
+        <div class="dz-idle">
+          <div class="font-display text-lg text-ink-soft">＋ 选择 / 拍摄持仓截图</div>
+          <div class="font-mono text-[11px] text-ink-subtle mt-1">可多选 · 长列表分段截图 · 选好即自动上传(前端已压缩省流量)</div>
+          <!-- v1.14 · 拖拽/粘贴提示只在能拖文件的设备上注入(见 tech-design/v1.14.md §1.5) -->
+          <div id="dzTip" class="font-mono text-[11px] text-ink-subtle mt-1 hidden"></div>
+        </div>
+        <div class="dz-drop font-display text-lg text-brass-deep">松手即上传</div>
       </div>
+      <div id="dropRej" class="hidden font-mono text-[12px] text-rust mt-2"></div>
       <div id="thumbs" class="flex flex-wrap gap-3 mt-4"></div>
       <!-- v1.4.2 · 已上传(持久)截图:点开放大缩小 + ✕ 删错图 -->
       <div th:if="${imageRels != null and !imageRels.isEmpty()}" class="mt-4">
@@ -196,6 +212,14 @@
   function post(url,body,form){var o={method:'POST',headers:{'X-XSRF-TOKEN':CSRF}};if(form){o.body=body;}else if(body){o.headers['Content-Type']='application/x-www-form-urlencoded';o.body=body;}return fetch(url,o);}
   var RATE={'qwen-vl-max':0.01,'qwen-vl-plus':0.005};
 
+  // v1.14 / FR-371 · 全局兜底:把图拖到页面任何位置松手,浏览器默认会导航到那个文件,
+  // 当前这次导入直接没了。这条与「能不能拖上传」无关,REVIEW 阶段的页面同样要保住。
+  // 只拦 drop 不够 —— 不 preventDefault dragover,浏览器压根不派发 drop。
+  var dzReset=function(){};
+  window.addEventListener('dragover',function(e){e.preventDefault();});
+  window.addEventListener('drop',function(e){e.preventDefault();dzReset();});
+  window.addEventListener('dragend',function(){dzReset();});
+
   // ===== 上传 + 识别 =====
   var sec=document.getElementById('importSection');
   if(sec){
@@ -207,20 +231,62 @@
     function upd(){imgN.textContent=uploaded;costV.textContent='≈ ¥'+(uploaded*(RATE[model]||0.01)).toFixed(2);scanBtn.disabled=uploaded===0||uploading>0;}
     function compress(file){return new Promise(function(res){var img=new Image();img.onload=function(){var mx=2000,r=Math.min(mx/img.width,mx/img.height,1);var c=document.createElement('canvas');c.width=Math.round(img.width*r);c.height=Math.round(img.height*r);c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(function(b){res(b);},'image/jpeg',0.82);};img.onerror=function(){res(null);};img.src=URL.createObjectURL(file);});}
     function addThumb(blob){var d=document.createElement('div');d.className='thumb';var im=document.createElement('img');im.src=URL.createObjectURL(blob);d.appendChild(im);thumbs.appendChild(d);return d;}
-    fi.addEventListener('change',function(){
-      var files=Array.prototype.slice.call(fi.files); fi.value='';
-      files.forEach(function(f){
-        uploading++; upd();
-        compress(f).then(function(blob){
-          if(!blob){uploading--;upd();return;}
-          var d=addThumb(blob); d.classList.add('scan');
-          var fd=new FormData(); fd.append('files',blob,'shot.jpg');
-          post('/entry/import/'+iid+'/upload',fd,true).then(function(r){return r.json();}).then(function(){
-            d.classList.remove('scan'); uploaded++; uploading--; upd();
-          }).catch(function(){d.classList.remove('scan');d.style.opacity=.4;uploading--;upd();});
-        });
+    // v1.14 / FR-370 · 单张上传:压缩 → 缩略图 → POST → 计数。三个入口共用,不复制。
+    function uploadOne(f){
+      uploading++; upd();
+      compress(f).then(function(blob){
+        if(!blob){uploading--;upd();return;}
+        var d=addThumb(blob); d.classList.add('scan');
+        var fd=new FormData(); fd.append('files',blob,'shot.jpg');
+        post('/entry/import/'+iid+'/upload',fd,true).then(function(r){return r.json();}).then(function(){
+          d.classList.remove('scan'); uploaded++; uploading--; upd();
+        }).catch(function(){d.classList.remove('scan');d.style.opacity=.4;uploading--;upd();});
       });
+    }
+    var rej=document.getElementById('dropRej');
+    function isImg(f){return !!(f&&f.type&&f.type.indexOf('image/')===0);}
+    // v1.14 / FR-373 · 非图片必须在 compress() 之前挡掉:拖进来的文件夹 type 是 '',
+    // 交给 compress() 会走 img.onerror → res(null) → 静默减计数,用户看到的是「什么都没发生」。
+    function handleFiles(list){
+      var all=Array.prototype.slice.call(list||[]);
+      if(!all.length)return;
+      var bad=all.filter(function(f){return !isImg(f);});
+      if(rej){
+        if(bad.length){
+          rej.textContent='只收图片(JPG / PNG 等),已忽略 '+bad.length+' 个:'+bad.map(function(f){return f.name||'未命名';}).join('、');
+          rej.classList.remove('hidden');
+        }else{rej.textContent='';rej.classList.add('hidden');}
+      }
+      all.filter(isImg).forEach(uploadOne);
+    }
+    // 入口 1 · 点击选择(fi.value='' 是输入框自己的语义:让同一个文件能被再次选中,不进 handleFiles)
+    fi.addEventListener('change',function(){ handleFiles(fi.files); fi.value=''; });
+    // 入口 2 · 拖拽(FR-370 / FR-372)
+    var dz=document.getElementById('dropZone'), depth=0;
+    function dzOff(){depth=0;dz.classList.remove('dz-on');}
+    function hasFiles(e){var t=e.dataTransfer&&e.dataTransfer.types;return !!t&&Array.prototype.indexOf.call(t,'Files')>=0;}
+    dzReset=dzOff;
+    dz.addEventListener('dragenter',function(e){if(!hasFiles(e))return;e.preventDefault();depth++;dz.classList.add('dz-on');});
+    dz.addEventListener('dragover',function(e){if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy';});
+    dz.addEventListener('dragleave',function(){depth--;if(depth<=0)dzOff();});
+    dz.addEventListener('drop',function(e){e.preventDefault();e.stopPropagation();dzOff();if(e.dataTransfer)handleFiles(e.dataTransfer.files);});
+    // 入口 3 · Ctrl+V 粘贴(FR-375)· 光标在输入框里时让位,不抢页内正常粘贴
+    document.addEventListener('paste',function(e){
+      var ae=document.activeElement;
+      if(ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.isContentEditable))return;
+      var cd=e.clipboardData; if(!cd)return;
+      var imgs=[];
+      Array.prototype.forEach.call(cd.items||[],function(it){
+        if(it.kind==='file'&&it.type&&it.type.indexOf('image/')===0){var f=it.getAsFile();if(f)imgs.push(f);}
+      });
+      if(!imgs.length)return;              // 剪贴板里只有文字 → 正常粘贴,不拦
+      e.preventDefault(); handleFiles(imgs);
     });
+    // 提示文案按「这台设备能不能拖文件」注入,不按视口宽度(移动端 DOM 里连这句都不存在)
+    if(window.matchMedia&&window.matchMedia('(hover: hover) and (pointer: fine)').matches){
+      var tip=document.getElementById('dzTip');
+      if(tip){tip.textContent='也可以把截图直接拖进来,或按 Ctrl+V 粘贴';tip.classList.remove('hidden');}
+    }
     function startPoll(){
       document.getElementById('scanHint').classList.remove('hidden');
       document.getElementById('stepScan').classList.add('text-ink');

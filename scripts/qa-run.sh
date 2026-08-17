@@ -6321,6 +6321,78 @@ _card_split="$(grep -c 'pt-4 border-t border-rule-soft sm:pt-0 sm:border-t-0' "$
 { [ "$_card_flexcol" -ge 3 ] && [ "$_card_mtauto" -ge 3 ] && [ "$_card_minh" -ge 3 ] && [ "$_card_split" -ge 1 ]; } \
   && log_ok "v113-LLM-CARD-LAYOUT 三家凭据列等高对齐(flex-col+mt-auto+min-h)· 备选组窄屏有分组线" \
   || log_bad "v113-LLM-CARD-LAYOUT 凭据列或分组间距回退" "flex-col $_card_flexcol/3 · mt-auto $_card_mtauto/3 · min-h $_card_minh/3 · 窄屏分隔 $_card_split/1 · see integrations.html"
+# ── v1.14 · 截图导入拖拽 + 粘贴(issue #11)────────────────────────────
+IMPORT_HTML="$RD/src/main/resources/templates/holdingimport/import.html"
+
+# v114-DROPZONE-HAS-DROP-HANDLER · 长得像拖拽区就必须真的能拖
+#   上传区的 id 一直叫 dropZone、一直是 2px 虚线框(网页上「往这儿拖」的通用符号),
+#   但从 v1.4 到 v1.13 都没有 drop 监听 —— PC 上真拖上去,浏览器导航到那个图片文件,
+#   已经选好的图和这次导入全丢。这不是少个便利功能,是会让人丢东西的错误暗示。
+#   drop 与 dragover 必须成对:不 preventDefault dragover,浏览器压根不派发 drop。
+{ grep -q 'id="dropZone"' "$IMPORT_HTML" \
+  && grep -q "dz.addEventListener('drop'" "$IMPORT_HTML" \
+  && grep -q "dz.addEventListener('dragover'" "$IMPORT_HTML" \
+  && grep -q "window.addEventListener('drop'" "$IMPORT_HTML" \
+  && grep -q "window.addEventListener('dragover'" "$IMPORT_HTML"; } \
+  && log_ok "v114-DROPZONE-HAS-DROP-HANDLER(dropZone 接 drop+dragover · window 兜底拦默认导航)" \
+  || log_bad "v114-DROPZONE-HAS-DROP-HANDLER 虚线框又变回骗人的" "import.html 有 id=dropZone 就必须有 dz 的 drop/dragover 监听,且 window 上要拦默认行为(FR-371)"
+
+# v114-UPLOAD-SINGLE-PATH · 三个入口一条上传路径
+#   点选 / 拖拽 / 粘贴必须都走 handleFiles;压缩、计价、并发计数、scanBtn 启用条件一行都不复制。
+#   两条路径长出行为差异是这类改动最典型的翻车方式,而且它**不报错** ——
+#   只是拖上去的图不计价、或者按钮不变可用,人得盯着才看得出来。
+#   用 new FormData() 只准出现一次来钉:复制一份上传逻辑必然复制它。
+{ grep -q 'function handleFiles(' "$IMPORT_HTML" \
+  && grep -q 'handleFiles(fi.files)' "$IMPORT_HTML" \
+  && grep -q 'handleFiles(e.dataTransfer.files)' "$IMPORT_HTML" \
+  && grep -q 'handleFiles(imgs)' "$IMPORT_HTML" \
+  && [ "$(grep -c 'new FormData()' "$IMPORT_HTML")" -eq 1 ]; } \
+  && log_ok "v114-UPLOAD-SINGLE-PATH(change/drop/paste 三入口共用 handleFiles · FormData 只出现一次)" \
+  || log_bad "v114-UPLOAD-SINGLE-PATH 上传逻辑被复制了" "三个入口都必须调 handleFiles,import.html 里 new FormData() 只准出现一次"
+
+# v114-PASTE-YIELDS-INPUT · 粘贴不许抢页内输入框
+#   paste 挂在 document 上(不然要先点一下拖拽区,粘贴比拖拽短一步的价值就没了),
+#   代价是会盖住整页。比对确认那张表全是 .j-mv 数值输入框,用户在那儿 Ctrl+V 粘数字
+#   不能被截图上传吃掉。判据用 activeElement 而不是 e.target:没有聚焦元素时 target 是 body。
+{ grep -q "document.addEventListener('paste'" "$IMPORT_HTML" \
+  && grep -q 'document.activeElement' "$IMPORT_HTML" \
+  && grep -q "ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.isContentEditable" "$IMPORT_HTML"; } \
+  && log_ok "v114-PASTE-YIELDS-INPUT(光标在输入框/文本域/contenteditable 里时不拦粘贴)" \
+  || log_bad "v114-PASTE-YIELDS-INPUT 粘贴会抢输入框" "paste 处理器必须先判 document.activeElement 是不是 INPUT/TEXTAREA/contenteditable 并让位"
+
+# v114-NONIMAGE-BEFORE-COMPRESS · 非图片在压缩之前挡掉
+#   accept="image/*" 只约束文件选择器,不约束 drop / paste。拖进来的文件夹在
+#   DataTransfer.files 里是 type==='' 的条目,交给 compress() 会走 img.onerror → res(null)
+#   → uploading--,静默减计数,用户看到的是「什么都没发生」——比拖 PDF 更隐蔽。
+#   所以 uploadOne 只能拿到过滤后的图片,拒绝提示走 #dropRej。
+{ grep -q 'function isImg(f)' "$IMPORT_HTML" \
+  && grep -q 'all.filter(isImg).forEach(uploadOne)' "$IMPORT_HTML" \
+  && grep -q 'id="dropRej"' "$IMPORT_HTML" \
+  && [ "$(grep -c 'forEach(uploadOne)' "$IMPORT_HTML")" -eq 1 ]; } \
+  && log_ok "v114-NONIMAGE-BEFORE-COMPRESS(非图片在 compress 之前挡掉 · 被忽略的文件名列出来)" \
+  || log_bad "v114-NONIMAGE-BEFORE-COMPRESS 文件夹会静默消失" "handleFiles 必须先 filter(isImg) 再 uploadOne,并把被忽略的文件名写进 #dropRej"
+
+# v114-DROP-STATE-NO-REFLOW · 落图态不许改变拖拽区高度
+#   第一版把 idle 内容 display:none,框从三行缩成一行 —— 拖到一半 drop 目标在指针
+#   底下自己变矮,指针掉出框 → dragleave → 高亮闪一下就没了。idle 内容必须留在流里
+#   (visibility),「松手即上传」绝对定位盖上去。
+{ grep -qF '#dropZone.dz-on .dz-idle{visibility:hidden}' "$IMPORT_HTML" \
+  && grep -qF '#dropZone .dz-drop{display:none;position:absolute' "$IMPORT_HTML" \
+  && grep -qF '#dropZone{position:relative' "$IMPORT_HTML" \
+  && ! grep -qF '.dz-on .dz-idle{display:none}' "$IMPORT_HTML"; } \
+  && log_ok "v114-DROP-STATE-NO-REFLOW(落图态用 visibility 保持高度 · 提示语绝对定位盖上去)" \
+  || log_bad "v114-DROP-STATE-NO-REFLOW 拖到一半框会变矮" "idle 内容不许 display:none(会缩高度导致指针掉出拖拽区),用 visibility:hidden + .dz-drop 绝对定位"
+
+# v114-HINT-PC-ONLY · 拖拽/粘贴提示不许进静态标记(issue #11 说了「可以只在 pc 端」)
+#   手机上没有拖文件这回事,那句提示写死在 HTML 里就是噪音;判据用指针能力
+#   (hover:hover)+(pointer:fine) 而不是视口宽度 —— 窄窗口的桌面浏览器照样能拖。
+#   钉法:这句话必须由 tip.textContent 注入,且**不许出现在任何标记行上**
+#   (判据不能写成「全文只准出现一次」—— 那会连代码注释里提一句都算违规)。
+{ grep -qF '(hover: hover) and (pointer: fine)' "$IMPORT_HTML" \
+  && grep -F 'Ctrl+V' "$IMPORT_HTML" | grep -q 'tip.textContent' \
+  && ! grep -F 'Ctrl+V' "$IMPORT_HTML" | grep -qE '<[a-zA-Z]|class=|th:text'; } \
+  && log_ok "v114-HINT-PC-ONLY(拖拽/粘贴提示按指针能力 JS 注入 · 静态标记里没有这句)" \
+  || log_bad "v114-HINT-PC-ONLY 提示可能落到手机上" "提示必须在 matchMedia('(hover: hover) and (pointer: fine)') 命中后由 tip.textContent 注入,模板里 Ctrl+V 只许出现这一次"
 
 echo
 echo "═══════════════════════════════════════"

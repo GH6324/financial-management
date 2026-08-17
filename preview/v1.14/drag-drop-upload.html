@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.14 Preview · 截图导入支持拖拽(PC)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 20px}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .rule{height:1px;background:var(--rule-soft)}
+  .card{border:1px solid var(--rule);background:var(--card);padding:18px}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);color:var(--ink-soft)}
+  .badge.ok{border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)}
+  .badge.risk{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)}
+
+  .zone{margin-top:40px}
+  .zone-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .zone-no{font-family:'JetBrains Mono',monospace;font-size:22px;color:var(--paper);background:var(--brass-deep);line-height:1;padding:5px 9px}
+  .zone-t{font-family:'Fraunces',serif;font-size:20px}
+  .zone-sub{font-size:11.5px;color:var(--ink-subtle)}
+  .zone-line{height:2px;background:var(--brass-deep);opacity:.35;margin:10px 0 18px}
+
+  /* 三态上传区 */
+  .dz{border:2px dashed var(--rule);border-radius:8px;padding:26px 18px;text-align:center;background:transparent;transition:.14s}
+  .dz .t1{font-family:'Fraunces',serif;font-size:17px;color:var(--ink-soft)}
+  .dz .t2{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-subtle);margin-top:5px}
+  .dz.over{border-color:var(--brass-deep);background:var(--card-soft)}
+  .dz.over .t1{color:var(--brass-deep)}
+  .dz.bad{border-color:var(--rust);background:rgba(156,74,42,.05)}
+  .dz.bad .t1{color:var(--rust)}
+
+  .state-t{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-subtle);margin-bottom:8px}
+
+  .step{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-subtle);margin-bottom:14px}
+  .step b{color:var(--ink)}
+  .step .sep{color:var(--rule)}
+
+  .thumb{width:74px;height:74px;border:1px solid var(--rule);background:var(--card-soft);
+         display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;
+         font-size:9px;color:var(--ink-subtle)}
+
+  .bad{border-left:3px solid var(--rust);background:rgba(156,74,42,.05);padding:12px 14px}
+  .good{border-left:3px solid var(--forest);background:rgba(79,107,71,.06);padding:12px 14px}
+  .btn-ink{background:var(--ink);color:var(--paper);font-size:12px;padding:7px 16px;border:0;font-family:'JetBrains Mono',monospace;letter-spacing:.1em}
+  .btn-ink[disabled]{background:var(--rule);color:var(--paper)}
+  code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--card-soft);padding:1px 4px;border:1px solid var(--rule-soft)}
+</style>
+</head>
+<body style="background:var(--paper);color:var(--ink);font-family:'Source Serif 4','Noto Serif SC',Georgia,serif">
+<div class="wrap" style="padding-top:38px;padding-bottom:64px">
+
+  <div class="eyebrow">Preview · v1.14 · issue #11</div>
+  <h1 style="font-size:29px;margin:8px 0 4px">截图导入支持拖拽(PC)</h1>
+  <div class="note" style="max-width:640px">
+    静态预览,用来对齐拖拽的三个状态和那条兜底。<b>版本号是占位</b> —— 与 v1.13 是并行提案,谁先获批谁是下一版。
+  </div>
+
+  <!-- 0 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">0</div>
+      <div>
+        <div class="zone-t">先说一件查出来的事</div>
+        <div class="zone-sub">那个区域已经长得像拖拽区了,但它不接拖拽</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="bad">
+        <div class="badge risk">现状</div>
+        <div class="note mono" style="margin-top:9px;font-size:10.5px;line-height:1.9;word-break:break-all">
+          templates/holdingimport/import.html:63<br>
+          &lt;div <b style="color:var(--rust)">id="dropZone"</b> class="border-2 <b style="color:var(--rust)">border-dashed</b> …"&gt;
+        </div>
+        <div class="note" style="margin-top:10px">
+          元素就叫 <b>dropZone</b>,视觉是 <b>2px 虚线框</b> —— 网页上几乎是「往这儿拖」的通用符号。<br>
+          但全仓库<b>搜不到任何</b> <code>dragover</code> / <code>drop</code> 监听。
+        </div>
+      </div>
+      <div class="bad">
+        <div class="badge risk">于是真拖上去会怎样</div>
+        <div class="note" style="margin-top:9px">
+          浏览器走默认行为:<b>直接导航到那个图片文件,整个页面没了</b>。
+        </div>
+        <div class="note" style="margin-top:8px">
+          已经选好的图、正在进行的这次导入 —— 全丢。
+        </div>
+        <div class="note" style="margin-top:10px;color:var(--rust)">
+          所以这不只是「少了个便利功能」,是一个<b>会让人丢东西的错误暗示</b>。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1 · 三态 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">1</div>
+      <div>
+        <div class="zone-t">上传区的三个状态</div>
+        <div class="zone-sub">配色全部取自现有变量,不引新色</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="card">
+      <div class="step"><span><b>1</b> 选图</span><span class="sep">→</span><span><b>2</b> 开始识别</span><span class="sep">→</span><span><b>3</b> 比对确认</span></div>
+
+      <div class="state-t">A · 静置</div>
+      <div class="dz">
+        <div class="t1">＋ 选择 / 拍摄持仓截图</div>
+        <div class="t2">可多选 · 长列表分段截图 · 也可直接把图拖进来</div>
+      </div>
+      <div class="note" style="margin-top:7px">副文案加半句「也可直接把图拖进来」——<b>只在 PC 宽度下出现</b>,手机上不加(那里没有拖文件这回事)。</div>
+
+      <div style="height:22px"></div>
+
+      <div class="state-t">B · 图片悬停其上</div>
+      <div class="dz over">
+        <div class="t1">松手即上传</div>
+        <div class="t2">3 张图片 · 上传后自动压缩</div>
+      </div>
+      <div class="note" style="margin-top:7px">
+        <code>dragenter</code> / <code>dragleave</code> <b>计数配对</b>触发,不能只听 <code>dragover</code> ——
+        否则鼠标划过子元素时高亮会一闪一闪。
+      </div>
+
+      <div style="height:22px"></div>
+
+      <div class="state-t">C · 拖进来的不是图片</div>
+      <div class="dz bad">
+        <div class="t1">只收图片</div>
+        <div class="t2">已忽略:2025年12月对账单.pdf</div>
+      </div>
+      <div class="note" style="margin-top:7px">
+        不静默丢弃 —— 「截图导入」的用户完全可能拖一个对账单 PDF 进来,静默失败会让人以为系统坏了。
+      </div>
+
+      <div class="rule" style="margin:20px 0"></div>
+
+      <div class="state-t">松手之后 · 与点选走完全相同的后续</div>
+      <div class="flex flex-wrap gap-3">
+        <div class="thumb">shot 1</div><div class="thumb">shot 2</div><div class="thumb">shot 3</div>
+      </div>
+      <div class="flex items-center justify-between flex-wrap gap-3" style="margin-top:16px">
+        <div class="mono" style="font-size:12px;color:var(--ink-soft)">本次 <b>3</b> 张 · 预估 <b style="color:var(--brass-deep)">≈ ¥0.03</b> <span style="color:var(--ink-subtle)">· 免费额度内≈0</span></div>
+        <button class="btn-ink">开始识别</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 · 兜底 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">2</div>
+      <div>
+        <div class="zone-t">真正的坑:拖歪了</div>
+        <div class="zone-sub">这条独立于拖拽功能存在 —— 就算用户不知道能拖,手滑一次也会丢页面</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="grid md:grid-cols-2 gap-3">
+      <div class="bad">
+        <div class="badge risk">现在</div>
+        <div class="note" style="margin-top:9px">
+          图片落在页面<b>任何位置</b>(页脚、侧边、缩略图之间)→ 浏览器导航过去 → <b>这次导入没了</b>。
+        </div>
+      </div>
+      <div class="good">
+        <div class="badge ok">之后</div>
+        <div class="note" style="margin-top:9px">
+          在 <code>window</code> 上拦掉 <code>dragover</code> / <code>drop</code> 默认行为:<br>
+          落在<b>区域内</b> → 上传;落在<b>别处</b> → 静默忽略,<b>页面纹丝不动</b>。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 · 不动的部分 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">3</div>
+      <div>
+        <div class="zone-t">这一版不动什么</div>
+        <div class="zone-sub">范围越小越好批</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="card">
+      <div class="note" style="line-height:2.1">
+        · <b>后端一行不改</b>。拖拽和点选送到 <code>/entry/import/{id}/upload</code> 的是<b>同一个 FormData</b>,<code>max-file-size</code> 也不动。<br>
+        · <b>上传之后的环节一律不动</b>:识别、比对、确认入账,全按现在的走。<br>
+        · <b>压缩 / 计价 / 张数 / 按钮启用条件一行都不复制</b> —— 先把现在写在 <code>change</code> 回调里的逻辑抽成 <code>handleFiles()</code>,两个入口共用。两条路径出现行为差异,是这类改动最典型的翻车方式。<br>
+        · <b>移动端逐字不变</b>。issue 里明说「可以只在 PC 端」。<br>
+        · <b>不做</b>整页任意位置接收 —— 会和「已上传截图画廊」的点击放大打架。
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="state-t">新增一条护栏</div>
+      <div class="note">
+        <code>import.html</code> 里只要出现 <code>id="dropZone"</code>,就必须同时出现 <code>drop</code> 事件监听。<br>
+        钉住的是「<b>长得像拖拽区就必须真的能拖</b>」这条,防止以后重构又把监听弄丢、退回今天这个状态。
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 · 待拍板 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">4</div>
+      <div>
+        <div class="zone-t">一件没替你定的事</div>
+        <div class="zone-sub">要不要顺带支持 Ctrl+V 粘贴</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="card">
+      <div class="note">
+        PC 上截图的实际动作链是「截图工具 → <b>图在剪贴板里</b>」,粘贴比拖拽还短一步(拖拽还得先把图存成文件)。
+        技术上和拖拽共用同一个 <code>handleFiles()</code>,增量很小。<br><br>
+        但 issue 里没提这个,<b>我不替你扩范围</b>。要就加一条 FR,不要就按四条做。
+      </div>
+    </div>
+  </div>
+
+  <div class="rule" style="margin:44px 0 14px"></div>
+  <div class="note">
+    PRD:<span class="mono">prd/v1.14.md</span> · 分支 <span class="mono">issue/11-drag-drop-upload</span> ·
+    来源 <span class="mono">issue #11</span> · 状态:<b>待评审</b>,评审通过后才动码。
+  </div>
+
+</div>
+</body>
+</html>
