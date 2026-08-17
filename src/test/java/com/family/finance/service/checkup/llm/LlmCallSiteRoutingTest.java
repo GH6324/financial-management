@@ -1,7 +1,7 @@
 package com.family.finance.service.checkup.llm;
 
 import com.family.finance.calc.review.AttributionEngine;
-import com.family.finance.repository.MemberMapper;
+import com.family.finance.service.member.MemberDirectory;
 import com.family.finance.repository.ReviewAiCacheMapper;
 import com.family.finance.service.config.FamilyConfigService;
 import com.family.finance.service.lens.LensAiTagService;
@@ -154,8 +154,9 @@ class LlmCallSiteRoutingTest {
         List<String> log = new ArrayList<>();
         LlmRouter router = routerWithLog(log, "· 本期结构无显著异常");
 
-        MemberMapper members = mock(MemberMapper.class);
-        when(members.findActiveByFamily(1L)).thenReturn(List.of());
+        // v1.15:展示/脱敏口径改走 MemberDirectory(含归档),不再是「仅活跃」的 memberMapper
+        MemberDirectory members = mock(MemberDirectory.class);
+        when(members.listAll(1L)).thenReturn(List.of());
         ReviewAiCacheMapper cache = mock(ReviewAiCacheMapper.class);
 
         var attr = new AttributionEngine.Result(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,

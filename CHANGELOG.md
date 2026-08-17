@@ -18,7 +18,7 @@ README「近期更新」段再往下收一层,只留最近 1–2 版摘要。
 早期那段有 10 个补丁 tag 当时没留条目(`v0.2.1` / `v0.3.1`–`v0.3.3` / `v0.4` / `v0.4.1` /
 `v0.4.2` / `v0.4.13` / `v0.4.15` / `v0.4.16`),内容在 `git log` 里。
 
-## [v1.16.0] · 未发布
+## [v1.16.0] · 2026-08-17
 
 ### Fixed — 「本期填报完成」只留一个定义 · [issue #15](https://github.com/LuoDi-Nate/financial-management/issues/15)
 
@@ -48,7 +48,7 @@ README「近期更新」段再往下收一层,只留最近 1–2 版摘要。
 **DB 迁移 `V55__align_carryforward_todo_done.sql`** —— 补齐已经存在的 OPEN 账期的 todo 状态列,
 **只动状态,不碰任何金额**。
 
-## [v1.15.0] · 未发布
+## [v1.15.0] · 2026-08-17(随 v1.16.0 同批发布 · 无独立 tag)
 
 ### Added — 成员身份三件事 · [issue #12](https://github.com/LuoDi-Nate/financial-management/issues/12)
 
@@ -89,7 +89,7 @@ README「近期更新」段再往下收一层,只留最近 1–2 版摘要。
   改 `left-0`(原 `right-0` 在靠左之后会把 360px 表单甩出屏幕左侧)。PC 版面不动。
 
 **无 DB 迁移** —— `member.archived_at` 自 V1 就在,`audit_log.type` 是 `VARCHAR(40)` 够放新类型。
-## [v1.14.0] · 未发布
+## [v1.14.0] · 2026-08-17(随 v1.16.0 同批发布 · 无独立 tag)
 
 ### Added — 截图导入支持拖拽 + Ctrl+V 粘贴(PC)· [issue #11](https://github.com/LuoDi-Nate/financial-management/issues/11)
 
@@ -130,7 +130,7 @@ README「近期更新」段再往下收一层,只留最近 1–2 版摘要。
 
 **无 DB 迁移 · 后端一行未改** —— 拖拽 / 粘贴 / 点选送过去的是同一个 FormData;上传之后的识别、
 比对、确认入账全没动。
-## [v1.13.0] · 未发布
+## [v1.13.0] · 2026-08-17(随 v1.16.0 同批发布 · 无独立 tag)
 
 ### Fixed — 管理页的「主选供应商」六个 AI 调用点里只有一个听话
 
@@ -185,7 +185,7 @@ README「近期更新」段再往下收一层,只留最近 1–2 版摘要。
 **无 DB 迁移 · 旧键原封不动** —— prompt 一个字没改(`PromptUnchangedTest` 钉住),换的只是「谁来
 接这次调用」;退回 v1.12 的代码仍能读懂库里的配置。
 
-## [v1.12.1] · 未发布
+## [v1.12.1] · 2026-08-15
 
 ### Fixed — [issue #13](https://github.com/LuoDi-Nate/financial-management/issues/13)(外部用户报告 · macOS)
 
