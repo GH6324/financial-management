@@ -65,7 +65,13 @@
 
 **先理解一件事**:富途没有「拿 key 直连的云端 API」——`futu-api` SDK 只能连 **FutuOpenD 网关**,网关再连富途。所以富途要生效,必须有一个 OpenD **一直开着、且本系统能通过 TCP(host:port)连到它**。老虎则是直连云端 API、不需要任何网关——如果你嫌 OpenD 麻烦,**老虎是零运维的那条路**。
 
-> ⚠️ **共同前提**:无论哪种拓扑,都要先在一台**有桌面的机器**上用**可视化版 OpenD 登录一次**,完成富途要求的**首次问卷 + 协议确认**;之后 headless(命令行 / 容器)才能正常登录。
+> ⚠️ **富途账号的一次性手续**:开通 OpenAPI 权限、做完风险问卷与协议确认 —— 这只能你本人在富途做。
+>
+> 这里以前写着"必须先在一台**有桌面的机器**上用可视化版 OpenD 登录一次,否则 headless 起不来"。
+> **我们没能验证这句话**(需要真实富途账号走一遍),而且它与向导页里"问卷在牛牛 App / 网页做"的说法互相矛盾。
+> 所以现在只讲能确认的部分:**手续要在富途侧完成**;至于牛牛 App 够不够、还是非得桌面版 OpenD 登录一次,
+> 以你实际遇到的提示为准。命令行版在容器里能正常起、能走到"请输入账号"这一步是**实测过**的
+> (v1.17 · 2026-08-17),所以"headless 起不来"至少不是普遍成立的。
 
 按你的部署形态三选一:
 
@@ -77,28 +83,51 @@ app 用 systemd 跑在某台 Linux 服务器上 → 把命令行版 OpenD 也常
 - 安全:`api_ip=127.0.0.1` 只本机可连,别设 `0.0.0.0` 开公网。
 
 ### 拓扑 B · docker compose sidecar
-app 走 docker compose 时,用可选覆盖文件把 OpenD 挂成同网络的 sidecar。
+app 走 docker compose 时,用我们提供的**可选**网关容器跑 OpenD(v1.17 起)。
 
-> **先看这条**:富途**没有官方 OpenD 镜像**,也没有现成可拉的 —— 这条路要你**自备镜像**。
-> 做不到就走**拓扑 C**(OpenD 放家里常开的机器 + 反向隧道),别在这里耗。
+**默认不装**:`docker compose up -d` 不拉、不起、不占磁盘。要用富途才启用:
 
-**① 备镜像**:自己写 Dockerfile 拉富途官方命令行包构建,**把 gtk3 打进去**;并先在有桌面的机器用可视化版 OpenD 登录一次,过掉首次问卷 + 协议确认(否则命令行版起不来)。
-
-**② 配 `.env`**(三个变量缺一个都起不来,模板见 [`.env.example`](../.env.example)):
-```
-FUTU_OPEND_IMAGE=你自备的镜像:tag
-FUTU_ACCOUNT=富途账号
-FUTU_PWD_MD5=密码的MD5        # printf '你的密码' | md5sum
+```bash
+bash deploy/docker-up.sh --with-futu     # 推荐:会把选择记进 .env,以后不用再记 profile
+docker compose --profile futu up -d      # 等价的原生命令
 ```
 
-**③ 合并覆盖文件启动**(默认的 `docker compose up` 不加载它,不影响正常部署):
+**这个镜像里没有富途的任何文件** —— 只有一个下载器、两个 shell 脚本、和我们核对过的哈希清单
+([`deploy/futu-opend-releases.json`](../deploy/futu-opend-releases.json))。OpenD 本体是容器**首次启动时从富途官网下载**的,
+下完先比对 sha256,不一致就拒绝启动。
+
+**关于哈希,有一件事必须说清**:**富途官方不公布任何 md5 / sha256**。清单里那些值是**我们自己下载后算的**,
+钉在这个仓库里(git 历史可查)。你可以三方交叉核对:
+
+```bash
+sha256sum Futu_OpenD_10.10.7008_Ubuntu18.04.tar.gz            # ① 你自己算
+curl -sI "https://softwaredownload.futunn.com/Futu_OpenD_10.10.7008_Ubuntu18.04.tar.gz" | grep -i etag   # ② CDN 给的
+                                                               # ③ 仓库里钉的(上面那个 json)
 ```
-docker compose -f docker-compose.yml -f deploy/futu-opend.compose.yml up -d
+腾讯云 COS 的 `etag` 实测等于文件 MD5,但它和安装包走**同一条 TLS、同一个 CDN**,只证明"传输没坏",
+不是独立第三方担保 —— 三个值都对上才有意义。
+
+镜像本身也可以验:
+
+```bash
+docker pull ghcr.io/luodi-nate/financial-management-futu-opend@sha256:<见 Release 页>
+gh attestation verify --repo LuoDi-Nate/financial-management \
+  oci://ghcr.io/luodi-nate/financial-management-futu-opend@sha256:<同上>
+docker run --rm --entrypoint ls ghcr.io/luodi-nate/financial-management-futu-opend /opt/futu
 ```
 
-**④ 管理页** ⑥ 富途填服务名 `opend` / `11111`(compose 内网直连,不对外发布端口)。
+**账号密码在页面上填**(管理 → 数据源接入 → 富途),存本机数据库 —— v1.17 起 `.env` 里不再需要
+`FUTU_ACCOUNT` / `FUTU_PWD_MD5`(老配置留着也不报错,只是不再被读)。登录与短信验证码都在向导页完成。
 
-跳过第 ② 步会看到 `required variable FUTU_ACCOUNT is missing a value` —— 这是**预期行为**(没配账号就不该起 sidecar),不是故障;补上变量重跑即可。更多说明见 [`deploy/futu-opend.compose.yml`](../deploy/futu-opend.compose.yml) 顶部。
+**端口**:两个都不对宿主发布。`11111` 是富途 API(仅 compose 内网,且走 RSA 加密,同栈其它容器读不到你的持仓);
+`22222` 是 OpenD 的控制口,**它没有任何鉴权**,所以只绑容器内 `127.0.0.1`。
+⚠️ **千万不要给这个服务加 `ports:`** —— 那等于把券商网关的遥控器放到网上。
+
+**停止**:`docker compose stop opend`。OpenD 实测**不响应 SIGTERM**(给 60 秒也照样被强杀),
+所以 `stop_grace_period` 设成 15 秒,别白等;强杀已验证可恢复(安装物与登录状态都完好,重启照常工作)。
+
+**逃生阀**:不信我们构建的镜像,`.env` 里设 `FUTU_OPEND_IMAGE=你自己的镜像`,其余流程不变;
+老路径([`deploy/futu-opend.compose.yml`](../deploy/futu-opend.compose.yml) + 自备镜像 + `.env` 凭据)也仍然保留,原有配置照旧生效。
 
 ### 拓扑 C · OpenD 在家用机 / NAS + 反向隧道
 不想在云服务器上放券商登录态,就把 OpenD 跑在家里常开的机器,用 SSH 反向隧道把它的 11111 转到 prod 本地:
