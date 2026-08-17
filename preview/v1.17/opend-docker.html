@@ -202,7 +202,8 @@
               <div class="chain-no">02 / 镜像里没有富途文件</div>
               <div class="step-t" style="font-size:13.5px">我们不转发别人的软件</div>
               <div class="note" style="margin:6px 0 8px">
-                镜像里只有一个下载器和启动脚本。OpenD 是<b>容器第一次启动时从富途官网下载的</b>,
+                镜像里只有三个 shell 脚本(下载校验 / 启动 / 控制循环),你可以逐行读完。
+                OpenD 是<b>容器第一次启动时从富途官网下载的</b>,
                 我们既不打包也不转存。构建流水线里有一道检查,一旦镜像里出现富途文件就直接构建失败。
               </div>
               <span class="badge ok">构建期已校验 · 层内无富途制品</span>
@@ -253,7 +254,7 @@ curl -sI "https://softwaredownload.futunn.com/Futu_OpenD_10.10.7008_Ubuntu18.04.
             <div class="card">
               <div class="step-t" style="font-size:14px">看完了,启用它</div>
               <div class="note" style="margin:6px 0 9px">
-                复制这条命令在服务器上跑一次(镜像很小,里面只有一个下载器和启动脚本):
+                复制这条命令在服务器上跑一次(镜像很小,里面只有三个 shell 脚本):
               </div>
               <div class="term">docker compose --profile futu up -d</div>
               <div style="margin-top:9px">
@@ -470,10 +471,10 @@ curl -sI "https://softwaredownload.futunn.com/Futu_OpenD_10.10.7008_Ubuntu18.04.
             <td class="note">我们构建的 launcher 镜像 · <a href="#" style="border-bottom:1px solid var(--rule)">构建日志</a> · <a href="#" style="border-bottom:1px solid var(--rule)">怎么自己验</a></td></tr>
         <tr><td>安装包来源</td><td class="k">富途官网 · sha256 已核对</td>
             <td class="note">运行时下载,镜像里不含富途文件</td></tr>
-        <tr><td>连接方式</td><td class="k">futu-opend:11111</td>
-            <td class="note">仅 compose 内网 · <b>不对宿主映射端口</b>(<span class="mono">docker ps</span> 里 PORTS 为空)</td></tr>
-        <tr><td>控制通道</td><td class="k">容器内 22222</td>
-            <td class="note"><b style="color:var(--rust)">这个口没有密码</b> —— 所以绝不映射到宿主。别自己加 <span class="mono">ports:</span></td></tr>
+        <tr><td>连接方式</td><td class="k">futu-opend:11111 · RSA</td>
+            <td class="note">仅 compose 内网 · <b>不对宿主映射端口</b>(<span class="mono">docker ps</span> 里 PORTS 为空)· 通道加密,同栈其它容器读不到你的持仓</td></tr>
+        <tr><td>控制通道</td><td class="k">仅容器内 127.0.0.1:22222</td>
+            <td class="note"><b style="color:var(--rust)">这个口没有密码</b>,所以它<b>根本不出容器</b> —— 连同一个 compose 里的其它服务也连不到。app 通过一个只有两个容器挂载的小卷下指令</td></tr>
         <tr><td>安装位置</td><td class="k">数据卷 futu-opend</td><td class="note">容器重建也不用重下</td></tr>
         <tr><td>登录状态</td><td>已登录 · 设备已绑定</td><td class="note">重启后自动恢复;富途要求重验时页面会提示</td></tr>
         <tr><td>占用</td><td class="k">≈ 250MB 内存 / 125MB 磁盘</td><td class="note">不启用富途则完全不装、零占用</td></tr>
@@ -598,10 +599,13 @@ curl -sI "https://softwaredownload.futunn.com/Futu_OpenD_10.10.7008_Ubuntu18.04.
             代价:富途发新版后到我们跟上之间,默认路径装的是<b>旧版</b>(能用,但不是最新)</td>
       </tr>
       <tr>
-        <td><span class="badge wait">控制口</span></td>
-        <td>OpenD 的 telnet 控制口<b>没有鉴权</b>。不映射到宿主之后,同一个 compose 网络里的其它容器仍然能连</td>
-        <td class="note">这一版先做到「绝不 publish」+ 文档明确警告(风险面 = 你自己 compose 里的其它服务)。
-            要不要再加一层(绑容器内 127.0.0.1 + 带密钥的极小代理)放到 TDD 里评估 —— 会让 launcher 变复杂</td>
+        <td><span class="badge wait">凭据加密</span></td>
+        <td>富途密码这一版<b>存库但不加密</b>(和老虎的 RSA 私钥今天一样是明文存库)</td>
+        <td class="note">建议这一版<b>不做</b>:只给富途加密会造成「看起来加密了」的错觉,账户风险面没变。
+            凭据加密单独一版、两家一起做、连 <span class="mono">audit_log</span> 一起过。这一版只保证:不落
+            <code>.env</code> · 不进日志 · 不进 AI prompt。
+            <br><span style="color:var(--forest)">(原来这一格问的「无鉴权控制口怎么办」已在 TDD 里定了:telnet 只绑容器内
+            127.0.0.1、根本不出容器,11111 上 RSA)</span></td>
       </tr>
       <tr>
         <td><span class="badge wait">问卷</span></td>
