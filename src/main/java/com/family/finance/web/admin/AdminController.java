@@ -57,6 +57,9 @@ public class AdminController {
     private final AuditMapper auditMapper;
     private final FxService fxService;
     private final AdminService adminService;
+    /** v1.15 FR-382 · 名字映射的唯一出口(含已归档);仅活跃列表只留给"面向未来的选择/分母" */
+    private final com.family.finance.service.member.MemberDirectory memberDirectory;
+    private final com.family.finance.service.member.MemberReferenceScanner referenceScanner;
     private final com.family.finance.service.PeriodOpener periodOpener;
     private final AuditLogService auditLogService;
     private final ProductCategoryService productCategoryService;
@@ -210,8 +213,80 @@ public class AdminController {
     @GetMapping("/members")
     public String members(@AuthenticationPrincipal MemberPrincipal me, Model model) {
         model.addAttribute("me", me);
-        model.addAttribute("members", memberMapper.findActiveByFamily(me.getFamilyId()));
+        // v1.15 FR-381 · 名单含已归档 —— 归档的人得看得见,否则"撤销归档"没有入口
+        List<Member> all = memberDirectory.listAll(me.getFamilyId());
+        model.addAttribute("members", all);
+        model.addAttribute("activeCount", all.stream().filter(m -> !m.isArchived()).count());
+        // v1.15 FR-383 · 引用扫描只对已归档成员做:删除入口本来就只对归档后的人开放,
+        // 而且这样每次开页最多扫几个人 —— 不会因为一张管理页把 13 张表 × 全体成员都 COUNT 一遍。
+        java.util.Map<Long, com.family.finance.service.member.MemberReferenceScanner.Scan> refs =
+                new java.util.LinkedHashMap<>();
+        for (Member m : all) {
+            if (m.isArchived()) {
+                refs.put(m.getId(), referenceScanner.scan(me.getFamilyId(), m.getId()));
+            }
+        }
+        model.addAttribute("refs", refs);
         return "admin/members";
+    }
+
+    /** v1.15 FR-380 · 修改登录名。改的是自己 → 本次会话会被就地作废,落到 /login?expired。 */
+    @PostMapping("/members/{memberId}/username")
+    public String renameUsername(@AuthenticationPrincipal MemberPrincipal me,
+                                 @PathVariable long memberId,
+                                 @RequestParam String username,
+                                 RedirectAttributes ra) {
+        try {
+            adminService.renameUsername(me.getFamilyId(), memberId, username, me.getMemberId());
+            ra.addFlashAttribute("flash", "登录名已改为:" + username.trim()
+                    + "(该成员当前的登录状态已失效,需要用新登录名重新登录)");
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("flash", "改登录名失败:" + ex.getMessage());
+        }
+        return "redirect:/admin/members";
+    }
+
+    /** v1.15 FR-381 · 归档成员 · 当场生效。 */
+    @PostMapping("/members/{memberId}/archive")
+    public String archiveMember(@AuthenticationPrincipal MemberPrincipal me,
+                                @PathVariable long memberId,
+                                RedirectAttributes ra) {
+        try {
+            adminService.archiveMember(me.getFamilyId(), memberId, me.getMemberId());
+            ra.addFlashAttribute("flash", "已归档 —— ta 的登录已当场失效,名下账户与历史记录一条没动。");
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("flash", "归档失败:" + ex.getMessage());
+        }
+        return "redirect:/admin/members";
+    }
+
+    /** v1.15 FR-381 · 撤销归档。 */
+    @PostMapping("/members/{memberId}/restore")
+    public String restoreMember(@AuthenticationPrincipal MemberPrincipal me,
+                                @PathVariable long memberId,
+                                RedirectAttributes ra) {
+        try {
+            adminService.restoreMember(me.getFamilyId(), memberId, me.getMemberId());
+            ra.addFlashAttribute("flash", "已撤销归档,ta 可以重新登录了。");
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("flash", "撤销归档失败:" + ex.getMessage());
+        }
+        return "redirect:/admin/members";
+    }
+
+    /** v1.15 FR-383 · 删除成员 —— 仅零引用可达,且要求手打登录名二次确认。 */
+    @PostMapping("/members/{memberId}/delete")
+    public String deleteMember(@AuthenticationPrincipal MemberPrincipal me,
+                               @PathVariable long memberId,
+                               @RequestParam(required = false) String confirmUsername,
+                               RedirectAttributes ra) {
+        try {
+            adminService.deleteMember(me.getFamilyId(), memberId, confirmUsername, me.getMemberId());
+            ra.addFlashAttribute("flash", "已删除该成员。");
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("flash", "删除失败:" + ex.getMessage());
+        }
+        return "redirect:/admin/members";
     }
 
     @PostMapping("/members/{memberId}")
@@ -416,8 +491,8 @@ public class AdminController {
                         Model model) {
         List<AuditLog> rows = auditMapper.findByFamily(me.getFamilyId(), blankToNull(type), 100);
         // v0.2 · "由谁" 列展示成员真名而非 #id
-        java.util.Map<Long, String> memberNames = memberMapper.findActiveByFamily(me.getFamilyId()).stream()
-                .collect(java.util.stream.Collectors.toMap(Member::getId, Member::getDisplayName));
+        // v1.15 FR-382 · 含已归档 —— 审计日志是历史,归档一个人不该让他做过的操作变成无名氏
+        java.util.Map<Long, String> memberNames = memberDirectory.nameMap(me.getFamilyId());
         model.addAttribute("rows", rows);
         model.addAttribute("memberNames", memberNames);
         model.addAttribute("filterType", type);

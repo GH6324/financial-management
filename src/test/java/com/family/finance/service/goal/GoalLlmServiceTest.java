@@ -4,7 +4,7 @@ import com.family.finance.domain.goal.Goal;
 import com.family.finance.domain.goal.GoalType;
 import com.family.finance.domain.member.Member;
 import com.family.finance.factview.FactViewService;
-import com.family.finance.repository.MemberMapper;
+import com.family.finance.service.member.MemberDirectory;
 import com.family.finance.service.FamilyService;
 import com.family.finance.service.checkup.llm.LlmCatalog;
 import com.family.finance.service.checkup.llm.LlmInvocation;
@@ -58,11 +58,11 @@ class GoalLlmServiceTest {
                 + "建议成员A与成员B在本月内共同核查近三个月的消费结构与支出明细,适度提高每月的储蓄比例,"
                 + "并一起复盘当前的资产配置是否与长期目标的时间表相匹配,必要时对部分仓位做再平衡,"
                 + "以巩固后续的收益质量与整体抗风险能力。");
-        MemberMapper memberMapper = mock(MemberMapper.class);
-        when(memberMapper.findActiveByFamily(1L)).thenReturn(List.of(member(1L, "张三"), member(2L, "李四")));
+        MemberDirectory memberDirectory = mock(MemberDirectory.class);
+        when(memberDirectory.listAll(1L)).thenReturn(List.of(member(1L, "张三"), member(2L, "李四")));
 
         GoalLlmService svc = new GoalLlmService(
-                stub, mock(FamilyService.class), memberMapper,
+                stub, mock(FamilyService.class), memberDirectory,
                 mock(FactViewService.class), new ObjectMapper());
 
         Goal goal = Goal.builder().id(1L).familyId(1L).goalType(GoalType.RETIREMENT).name("退休").build();
@@ -89,11 +89,11 @@ class GoalLlmServiceTest {
                 + "定期复盘资产配置是否与长期目标的时间表相匹配,必要时对部分仓位做再平衡,"
                 + "以巩固后续的收益质量与整体抗风险能力,稳步缩小与目标之间的差距。";
         LlmRouter stub = stubRouter(reply);
-        MemberMapper memberMapper = mock(MemberMapper.class);
-        when(memberMapper.findActiveByFamily(1L)).thenReturn(List.of());
+        MemberDirectory memberDirectory = mock(MemberDirectory.class);
+        when(memberDirectory.listAll(1L)).thenReturn(List.of());
 
         GoalLlmService svc = new GoalLlmService(
-                stub, mock(FamilyService.class), memberMapper,
+                stub, mock(FamilyService.class), memberDirectory,
                 mock(FactViewService.class), new ObjectMapper());
 
         Goal goal = Goal.builder().id(1L).familyId(1L).goalType(GoalType.RETIREMENT).name("退休").build();

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.15 Preview · 成员身份:登录名可改 · 归档 · 有条件删除</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 20px}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .card{border:1px solid var(--rule);background:var(--card);padding:18px}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);color:var(--ink-soft)}
+  .badge.ok{border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)}
+  .badge.risk{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)}
+  .badge.wait{border-color:var(--brass-deep);color:var(--brass-deep);background:rgba(160,124,58,.08)}
+
+  .zone{margin-top:40px}
+  .zone-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .zone-no{font-family:'JetBrains Mono',monospace;font-size:22px;color:var(--paper);background:var(--brass-deep);line-height:1;padding:5px 9px}
+  .zone-t{font-family:'Fraunces',serif;font-size:20px}
+  .zone-sub{font-size:11.5px;color:var(--ink-subtle)}
+  .zone-line{height:2px;background:var(--brass-deep);opacity:.35;margin:10px 0 18px}
+
+  .bad{border-left:3px solid var(--rust);background:rgba(156,74,42,.05);padding:12px 14px}
+  .good{border-left:3px solid var(--forest);background:rgba(79,107,71,.06);padding:12px 14px}
+  .warn{border-left:3px solid var(--brass-deep);background:rgba(160,124,58,.06);padding:12px 14px}
+
+  .btn-ink{background:var(--ink);color:var(--paper);font-size:11px;padding:6px 14px;border:0;font-family:'JetBrains Mono',monospace;letter-spacing:.1em}
+  .btn-paper{background:transparent;color:var(--ink);font-size:11px;padding:6px 14px;border:1px solid var(--rule);font-family:'JetBrains Mono',monospace;letter-spacing:.1em}
+  .btn-paper[disabled]{color:var(--ink-subtle);border-color:var(--rule-soft);background:var(--card-soft)}
+  .btn-rust{background:transparent;color:var(--rust);font-size:11px;padding:6px 14px;border:1px solid var(--rust);font-family:'JetBrains Mono',monospace;letter-spacing:.1em}
+
+  code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--card-soft);padding:1px 4px;border:1px solid var(--rule-soft)}
+
+  .flabel{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-subtle);margin-bottom:4px}
+  .finput{border:1px solid var(--rule);background:var(--paper);padding:6px 9px;font-size:13px;width:100%;
+          font-family:'Source Serif 4',Georgia,serif}
+  .finput.off{opacity:.55;background:var(--card-soft)}
+  .avatar{width:56px;height:56px;border-radius:50%;background:var(--ink);color:var(--paper);
+          display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-size:24px}
+  .pill{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 8px;border:1px solid var(--rule);color:var(--ink-soft)}
+  .pill-brass{border-color:var(--brass-deep);color:var(--brass-deep)}
+
+  .mcard{border:1px solid var(--rule);background:var(--card);padding:16px;margin-bottom:14px}
+  .mcard.archived{background:var(--card-soft);opacity:.72}
+  .mcard.archived .avatar{background:var(--rule)}
+
+  table.t{width:100%;border-collapse:collapse;font-size:11.5px}
+  table.t th{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+             color:var(--ink-subtle);text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule)}
+  table.t td{padding:7px 8px;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.65}
+  table.t td.k{font-family:'JetBrains Mono',monospace;font-size:10.5px;word-break:break-all}
+
+  .modal{border:1px solid var(--ink);background:var(--card);padding:20px;box-shadow:6px 6px 0 rgba(0,0,0,.06)}
+  .refbox{border:1px solid var(--rule);background:var(--card-soft);padding:11px 13px}
+  .refrow{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10.5px;
+          padding:3px 0;color:var(--ink-soft)}
+  .refrow b{color:var(--ink)}
+</style>
+</head>
+<body style="background:var(--paper);color:var(--ink);font-family:'Source Serif 4','Noto Serif SC',Georgia,serif">
+<div class="wrap" style="padding-top:38px;padding-bottom:64px">
+
+  <div class="eyebrow">Preview · v1.15 · issue #12</div>
+  <h1 style="font-size:29px;margin:8px 0 4px">成员身份:登录名可改 · 归档 · 有条件删除</h1>
+  <div class="note" style="max-width:680px">
+    静态预览,用来对齐成员卡片的两个状态、归档的连带后果、以及删除到底什么时候给按钮。
+    <b>版本号是占位</b> —— 与 v1.13 / v1.14 是并行提案,谁先获批谁是下一版。
+  </div>
+
+  <!-- 0 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">0</div>
+      <div>
+        <div class="zone-t">先说两件查出来的事</div>
+        <div class="zone-sub">这两件决定了这一版的工作量落在哪儿</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="warn">
+        <div class="badge wait">发现 1</div>
+        <div class="note" style="margin-top:9px;font-size:12.5px;color:var(--ink)">
+          <b>归档是一盏通了电、但没装开关的灯。</b>
+        </div>
+        <div class="note" style="margin-top:8px">
+          <code>member.archived_at</code> 从第一版就在;<code>Member.isArchived()</code> 有;
+          <code>MemberPrincipalService</code> 已经在过滤已归档成员 —— issue 里问的「禁止登录怎么一个形式」,
+          <b>代码里早就是这个形式了</b>。
+        </div>
+        <div class="note" style="margin-top:8px;color:var(--brass-deep)">
+          缺的只是:<b>没有任何一条语句会把 archived_at 写进去</b>,页面上也没有入口。
+        </div>
+      </div>
+
+      <div class="bad">
+        <div class="badge risk">发现 2</div>
+        <div class="note" style="margin-top:9px;font-size:12.5px;color:var(--ink)">
+          <b>登录拦截只在「登录那一刻」生效。</b>
+        </div>
+        <div class="note" style="margin-top:8px">
+          <code>UserDetailsService</code> 只在认证时被调用,项目没有配 <code>SessionRegistry</code>。
+        </div>
+        <div class="note" style="margin-top:8px;color:var(--rust)">
+          于是:<b>把一个已经登录的人归档,他浏览器里那个会话会继续好用,直到自己过期。</b>
+          「孩子成年了要停掉他的访问」这类场景里,那个人现在就在用 —— 所以「当场失效」是硬要求,不留给下一版。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1 · 成员卡片 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">1</div>
+      <div>
+        <div class="zone-t">成员卡片:改造后</div>
+        <div class="zone-sub">登录名解除锁定 · 已归档的留在同一个列表里(不做两个列表)</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <!-- 活跃成员 -->
+    <div class="mcard">
+      <div style="display:flex;gap:16px;align-items:flex-start">
+        <div style="text-align:center">
+          <div class="avatar">伟</div>
+          <div class="pill pill-brass" style="margin-top:8px;display:inline-block">当前登录</div>
+        </div>
+        <div style="flex:1">
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <div class="flabel">显示名 · Display Name</div>
+              <input class="finput" value="张伟">
+            </div>
+            <div>
+              <div class="flabel">登录名 · Username</div>
+              <input class="finput" value="zhangwei">
+              <div class="note mono" style="font-size:9.5px;margin-top:4px;color:var(--brass-deep)">
+                改动后:该账号的「记住我」全部作废,需重新登录一次
+              </div>
+            </div>
+            <div>
+              <div class="flabel">角色标签 · Role Label</div>
+              <input class="finput" value="父亲">
+            </div>
+            <div>
+              <div class="flabel">状态</div>
+              <div class="note mono" style="font-size:11px;margin-top:6px;color:var(--forest)">活跃 · 参与填报</div>
+            </div>
+          </div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--rule-soft);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn-ink">保存</button>
+            <button class="btn-paper">重置密码</button>
+            <button class="btn-paper" disabled>归档</button>
+            <button class="btn-paper" disabled>删除</button>
+            <span class="note mono" style="font-size:9.5px">两个都灰:不能对自己做 · 也不是最后一个活跃成员才谈得上</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 另一活跃成员 -->
+    <div class="mcard">
+      <div style="display:flex;gap:16px;align-items:flex-start">
+        <div style="text-align:center">
+          <div class="avatar">梅</div>
+          <div class="pill" style="margin-top:8px;display:inline-block">成员</div>
+        </div>
+        <div style="flex:1">
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <div class="flabel">显示名 · Display Name</div>
+              <input class="finput" value="王梅">
+            </div>
+            <div>
+              <div class="flabel">登录名 · Username</div>
+              <input class="finput" value="wangmei">
+            </div>
+          </div>
+          <div class="refbox" style="margin-top:12px">
+            <div class="refrow"><span>名下账户</span><b>4</b></div>
+            <div class="refrow"><span>填报过的期数</span><b>17</b></div>
+            <div class="refrow"><span>现金流记录</span><b>96</b></div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn-ink">保存</button>
+            <button class="btn-paper">重置密码</button>
+            <button class="btn-paper">归档</button>
+            <button class="btn-paper" disabled>删除</button>
+            <span class="note mono" style="font-size:9.5px;color:var(--rust)">删除不可用:已产生 117 条记录</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 已归档 -->
+    <div class="mcard archived">
+      <div style="display:flex;gap:16px;align-items:flex-start">
+        <div style="text-align:center">
+          <div class="avatar">强</div>
+          <div class="pill" style="margin-top:8px;display:inline-block">已归档</div>
+        </div>
+        <div style="flex:1">
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <div class="flabel">显示名 · Display Name</div>
+              <input class="finput off" value="张强" disabled>
+            </div>
+            <div>
+              <div class="flabel">登录名 · Username</div>
+              <input class="finput off" value="zhangqiang" disabled>
+            </div>
+          </div>
+          <div class="note" style="margin-top:10px">
+            已归档 · 2026-08-15 归档 —— 无法登录,不出现在账户归属和提醒名单里;
+            <b style="color:var(--ink)">历史报表里他的名字照常显示</b>。
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+            <button class="btn-paper">撤销归档</button>
+            <span class="note mono" style="font-size:9.5px">留在同一个列表里,灰化处理 —— 分成两个列表会让「撤销」变得难找</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:6px">
+      灰化用的是现有 <code>--card-soft</code> + 降不透明度,<b>不引新色</b>;
+      「已归档」用 pill 而不是图标,避免和「加载中 / 已禁用」混淆(UED 复看时重点看这条)。
+    </div>
+  </div>
+
+  <!-- 2 · 归档确认 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">2</div>
+      <div>
+        <div class="zone-t">归档确认:把后果说全</div>
+        <div class="zone-sub">尤其是「当场生效」这一条,用户需要预期到对方会被踢出去</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="modal">
+        <div class="eyebrow">归 · 档 · 确 · 认</div>
+        <h3 style="font-size:17px;margin:8px 0 10px">归档 张强?</h3>
+        <div class="note" style="line-height:1.9">
+          归档之后:<br>
+          · 他<b style="color:var(--ink)">立刻</b>无法继续使用 —— 正在用的页面下一次点击就会回到登录页<br>
+          · 他在其它设备上的「记住我」一并失效<br>
+          · 他不再出现在账户归属、填报提醒名单里<br>
+          · <b style="color:var(--ink)">他名下账户的钱仍然计入家庭总资产</b><br>
+          · <b style="color:var(--ink)">历史数据一个字不动</b>,报表里他的名字照常显示
+        </div>
+        <div class="note" style="margin-top:10px;color:var(--forest)">随时可以撤销。</div>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn-paper">取消</button>
+          <button class="btn-ink">确认归档</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="good">
+          <div class="badge ok">为什么钱照算</div>
+          <div class="note" style="margin-top:8px">
+            归档的语义是「这个人不再参与填报」,不是「这笔钱没了」。
+            若归档就把钱摘出去,<b>净资产曲线会凭空掉一截</b>,而且和 v1.12.0「已关账的月份不再变」正面冲突 ——
+            今天的一次归档会改掉去年的历史数字。
+          </div>
+          <div class="note" style="margin-top:8px;color:var(--brass-deep)">
+            <b>作者已拍板:照算</b>(2026-08-15,见第 5 屏)。查实下来这条<b>零改动即成立</b> ——
+            汇总过滤的一直是账户归档,不是成员归档。若真实场景是「孩子成年独立、要把他那部分从家庭口径摘出去」,
+            那要的是「移出家庭」而不是「归档」,已列入非目标、单独立项。
+          </div>
+        </div>
+        <div class="bad" style="margin-top:12px">
+          <div class="badge risk">两条拦住不放</div>
+          <div class="note" style="margin-top:8px">
+            · <b>不许归档自己</b> —— 当场把自己锁出去,而且项目没有权限分级,救不回来<br>
+            · <b>最后一个活跃成员不许归档</b> —— 归掉就谁也登不进来了
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 · 删除 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">3</div>
+      <div>
+        <div class="zone-t">删除:零引用才给删</div>
+        <div class="zone-sub">而且「有没有被引用」不能问数据库要答案</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="card">
+        <div class="badge ok">可以删</div>
+        <div class="note" style="margin-top:9px">建错的账号 —— 名字打错了、多建了一个,建完就没用过。</div>
+        <div class="refbox" style="margin-top:10px">
+          <div class="refrow"><span>名下账户</span><b>0</b></div>
+          <div class="refrow"><span>填报 / 现金流 / 转账</span><b>0</b></div>
+          <div class="refrow"><span>操作记录</span><b>0</b></div>
+        </div>
+        <div style="margin-top:12px">
+          <div class="flabel">输入登录名以确认删除</div>
+          <input class="finput" placeholder="zhangsan2">
+        </div>
+        <div style="margin-top:10px"><button class="btn-rust">永久删除</button></div>
+        <div class="note" style="margin-top:8px">这类账号躺在列表里是噪音,不是历史。</div>
+      </div>
+
+      <div class="card">
+        <div class="badge risk">不给删</div>
+        <div class="note" style="margin-top:9px">只要登录后做过任何事,就会留下记录 —— 删掉等于在历史上挖洞。</div>
+        <div class="refbox" style="margin-top:10px">
+          <div class="refrow"><span>名下账户</span><b>4</b></div>
+          <div class="refrow"><span>填报过的期数</span><b>17</b></div>
+          <div class="refrow"><span>现金流记录</span><b>96</b></div>
+        </div>
+        <div style="margin-top:12px"><button class="btn-paper" disabled>永久删除</button></div>
+        <div class="note" style="margin-top:8px;color:var(--rust)">
+          文案要直说:<b>「他已经产生了 117 条记录,不能删除 —— 可以改为归档」</b>,
+          并把归档按钮放在旁边。不解释清楚,用户会以为按钮坏了。
+        </div>
+      </div>
+    </div>
+
+    <div class="bad" style="margin-top:14px">
+      <div class="badge risk">这一条最容易做错</div>
+      <div class="note" style="margin-top:9px">
+        <b>不能靠数据库外键判断「有没有被引用」。</b> 查下来有 <b>3 张表的 member_id 没有建外键</b>,
+        还有 1 处引用藏在 JSON 里 —— 数据库拦不住,删了会静默产生孤儿行:
+      </div>
+      <table class="t" style="margin-top:10px">
+        <tr><th style="width:38%">位置</th><th style="width:20%">外键</th><th>删掉会怎样</th></tr>
+        <tr><td class="k">period_member_cashflow.member_id<br><span style="color:var(--ink-subtle)">V19 · 每期成员收支</span></td>
+            <td><span class="badge risk">无</span></td><td>孤儿行 · 每期收支归属丢失</td></tr>
+        <tr><td class="k">stock_valuation_event.triggered_by_member_id<br><span style="color:var(--ink-subtle)">V24 · 估值事件</span></td>
+            <td><span class="badge risk">无</span></td><td>孤儿行 · 触发者查不到</td></tr>
+        <tr><td class="k">提醒发送记录 member_id<br><span style="color:var(--ink-subtle)">V25</span></td>
+            <td><span class="badge risk">无</span></td><td>孤儿行 · 去重键失真</td></tr>
+        <tr><td class="k">family_goal.params_json → child_member_id<br><span style="color:var(--ink-subtle)">V14 · 教育目标</span></td>
+            <td><span class="badge risk">JSON 内</span></td><td><b style="color:var(--rust)">教育目标指向一个不存在的孩子</b></td></tr>
+        <tr><td class="k">account / period_snapshot / cash_flow / transfer /<br>snapshot_todo ×2 / period_member_completion /<br>audit_log / period_reopen_log</td>
+            <td><span class="badge ok">有 · 9 处</span></td><td>数据库会拒绝,但报错难懂</td></tr>
+      </table>
+      <div class="note" style="margin-top:10px">
+        所以要写一个<b>显式的引用扫描</b>,逐项数出来显示在页面上,让人看着数字做决定 —— 而不是点了删除才被告知不行。
+        并落一条护栏:这 4 处必须出现在扫描实现里,防止以后加表漏扫。
+      </div>
+    </div>
+
+    <div class="warn" style="margin-top:12px">
+      <div class="badge wait">一条要诚实说明的推论</div>
+      <div class="note" style="margin-top:8px">
+        <code>audit_log.actor_member_id</code> 也算引用,所以<b>只要这个人登录后做过任何操作,就永远删不掉了</b>。
+        这不是缺陷,恰恰是想要的结果 —— 能删的正好就是「建完还没用过」那一类,也就是 issue 里说的「建错了」。
+      </div>
+      <div class="note" style="margin-top:8px">
+        反过来:audit_log 里<b>以他为对象</b>的记录(比如「管理员创建了成员 X」)<b>不算引用</b> ——
+        那是「发生过什么」的流水,不是「他拥有什么」,删除后保留是正确的。
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 · 归档之后 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">4</div>
+      <div>
+        <div class="zone-t">归档之后:9 处调用点,行为并不一样</div>
+        <div class="zone-sub">这是本版真正的工作量 —— 不是那条 UPDATE</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <table class="t">
+      <tr><th style="width:34%">调用点</th><th style="width:22%">用途</th><th>归档后应该</th></tr>
+      <tr><td class="k">AdminController:213</td><td>成员管理页列表</td>
+          <td><b style="color:var(--rust)">必须看得见已归档的</b> —— 否则归完人就消失了,连撤销按钮都点不到</td></tr>
+      <tr><td class="k">AdminController:419<br>DashboardController:364<br>LensTagController:201</td><td>成员 id → 名字映射</td>
+          <td><b style="color:var(--rust)">必须含已归档的</b> —— 否则历史报表 / 透视页里他的名字变成空白</td></tr>
+      <tr><td class="k">AccountController:181 / 213</td><td>账户归属下拉</td>
+          <td><span class="badge ok">保持仅活跃</span> 面向未来的选择,不该再选到已退出的人</td></tr>
+      <tr><td class="k">NotificationSettingsController:91 / 104</td><td>提醒对象 / 发送名单</td>
+          <td><span class="badge ok">保持仅活跃</span> 不能再给已归档的人发填报提醒</td></tr>
+      <tr><td class="k">EntryController:142<br>DashboardController:194</td><td>「N/M 人已填报」的<b>分母</b></td>
+          <td><span class="badge ok">保持仅活跃</span> 已归档的人不该再被期待填报,分母该缩</td></tr>
+    </table>
+
+    <div class="note" style="margin-top:11px">
+      <b>这张表第一版只列了 5 处,漏了后三行</b> —— 漏的正好是「藏在别的页面里的同类映射」和「写死的计数分母」这两类。
+      所以护栏 <b>钉模式不钉行号</b>:凡是把成员查到的结果做成 id→名字 映射的地方,都不许用仅活跃查询。
+      这类回归的特征是 <b>不报错、只是名字变空</b>,人眼复看很容易放过去。
+    </div>
+
+    <div class="note" style="margin-top:9px">
+      <b>一个已知偏差,本版不修</b>:分母取的是「今天」的活跃人数,所以看<b>已关账的历史账期</b>时,
+      「N/M 人」的 M 会随今天的一次归档而变小。账户侧早就单独处理过同样的问题
+      (<code>FactMapper.xml</code> 的 <code>a.archived_at &gt; p.period_end</code>),
+      成员侧一并做成「按期回溯应填人数」是另一件事,登记在非目标里。
+    </div>
+  </div>
+
+  <!-- 5 · 已拍板 -->
+  <div class="zone">
+    <div class="zone-head">
+      <div class="zone-no">5</div>
+      <div>
+        <div class="zone-t">三件产品判断 · 作者已拍板</div>
+        <div class="zone-sub">2026-08-15 · 三条全部确认,已回填进各 FR</div>
+      </div>
+    </div>
+    <div class="zone-line"></div>
+
+    <table class="t">
+      <tr><th style="width:40%">问题</th><th style="width:18%">决定</th><th>连带影响</th></tr>
+      <tr>
+        <td><b>归档后,他名下的钱还算不算进家庭净资产?</b></td>
+        <td><span class="badge ok">照算</span></td>
+        <td><b>实现代价是 0</b> —— 所有金额汇总过滤的是<b>账户</b>归档(<code>a.archived_at</code>),
+            <code>member</code> 只作 <code>LEFT JOIN</code> 取名字,没有一处按成员归档过滤。
+            要守的是「别在实现归档时顺手给汇总补上 member 过滤」,进护栏。</td>
+      </tr>
+      <tr>
+        <td><b>允许归档自己吗?</b></td>
+        <td><span class="badge risk">不能</span></td>
+        <td>按钮对自己<b>直接不渲染</b>,不要渲染出来再报错。代价:「只剩一个人想停用系统」做不到 ——
+            那个场景该停服务,不是归档。</td>
+      </tr>
+      <tr>
+        <td><b>没有权限分级(任何成员都能改别人登录名 / 归档别人),这一版就这么放着吗?</b></td>
+        <td><span class="badge wait">不加,维持现状</span></td>
+        <td>不发明半套权限模型,半套比没有更难理解。这是<b>明知并接受</b>的边界,写进非目标,
+            不当特性讲,也不隐瞒。</td>
+      </tr>
+    </table>
+
+    <div class="note" style="margin-top:12px">
+      预览到此。PRD 见 <code>prd/v1.15.md</code>,分支 <code>issue/12-member-identity</code>。
+      三个开放问题已拍板,<b>PRD 整体仍等评审 —— 通过后才进技术设计和编码</b>。
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

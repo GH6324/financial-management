@@ -11,7 +11,7 @@ import com.family.finance.domain.snapshot.PeriodSnapshot;
 import com.family.finance.domain.transfer.Transfer;
 import com.family.finance.repository.AccountMapper;
 import com.family.finance.repository.CashFlowMapper;
-import com.family.finance.repository.MemberMapper;
+import com.family.finance.service.member.MemberDirectory;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.SnapshotMapper;
 import com.family.finance.repository.TransferMapper;
@@ -42,7 +42,8 @@ import java.util.TreeMap;
 public class AccountDetailService {
 
     private final AccountMapper accountMapper;
-    private final MemberMapper memberMapper;
+    /** v1.15 FR-382 · 名字映射走名录(含已归档)—— 归档一个人,不该让历史数据里的他变成无名氏 */
+    private final MemberDirectory memberDirectory;
     private final PeriodMapper periodMapper;
     private final SnapshotMapper snapshotMapper;
     private final CashFlowMapper cashFlowMapper;
@@ -66,7 +67,7 @@ public class AccountDetailService {
 
         Member owner = account.getPrimaryOwnerMemberId() == null
                 ? null
-                : memberMapper.findActiveByFamily(familyId).stream()
+                : memberDirectory.listAll(familyId).stream()
                         .filter(m -> m.getId().equals(account.getPrimaryOwnerMemberId()))
                         .findFirst().orElse(null);
 

@@ -32,5 +32,13 @@ public enum AuditLogType {
     LLM_REJECTED,
     /** v0.15 · 券商关联(替换接管)前的持仓快照留痕,供不可回退操作找回 */
     BROKER_LINK,
+    /** v1.15 FR-380 · 登录名变更 · summary 必须写清「旧名 → 新名」,否则事后没人对得上账 */
+    MEMBER_RENAME,
+    /** v1.15 FR-381 · 成员归档 */
+    MEMBER_ARCHIVE,
+    /** v1.15 FR-381 · 撤销归档 */
+    MEMBER_RESTORE,
+    /** v1.15 FR-383 · 成员物理删除(仅零引用时可达)· 这条记完,被删的人就再也查不到了 */
+    MEMBER_DELETE,
     SYSTEM
 }

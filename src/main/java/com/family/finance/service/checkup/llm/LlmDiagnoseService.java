@@ -5,7 +5,7 @@ import com.family.finance.domain.audit.AuditLogType;
 import com.family.finance.domain.category.ProductCategory;
 import com.family.finance.domain.member.Member;
 import com.family.finance.repository.AccountMapper;
-import com.family.finance.repository.MemberMapper;
+import com.family.finance.service.member.MemberDirectory;
 import com.family.finance.service.AuditLogService;
 import com.family.finance.service.FamilyService;
 import com.family.finance.service.ProductCategoryService;
@@ -49,7 +49,12 @@ public class LlmDiagnoseService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.family.finance.service.review.RebalancePlanService rebalancePlanService;   // v1.2 执行率信号
     private final AuditLogService auditLogService;
-    private final MemberMapper memberMapper;
+    /**
+     * v1.15 FR-382 · 脱敏映射必须**含已归档成员**。
+     * 只拿活跃列表的话,已归档成员的真名不在映射表里 → 替换不掉 → 真名原样进 LLM prompt。
+     * 这不是"名字显示不全"那种体感问题,是隐私红线({@code PrivacyIsolationTest} 守着)。
+     */
+    private final MemberDirectory memberDirectory;
     private final AccountMapper accountMapper;
     private final ProductCategoryService categoryService;
     private final FamilyService familyService;
@@ -80,7 +85,7 @@ public class LlmDiagnoseService {
                                           boolean forceRefresh) {
         try {
             String familyName = familyService.require(familyId).getName();
-            List<Member> members = memberMapper.findActiveByFamily(familyId);
+            List<Member> members = memberDirectory.listAll(familyId);
             PromptBuilder.NameMapping mapping = PromptBuilder.buildNameMapping(members);
 
             // 组装 account summaries(已应用真名映射)
@@ -151,7 +156,7 @@ public class LlmDiagnoseService {
                                            boolean forceRefresh) {
         try {
             String familyName = familyService.require(familyId).getName();
-            List<Member> members = memberMapper.findActiveByFamily(familyId);
+            List<Member> members = memberDirectory.listAll(familyId);
             PromptBuilder.NameMapping mapping = PromptBuilder.buildNameMapping(members);
 
             // 此账户主理人代号
@@ -403,7 +408,7 @@ public class LlmDiagnoseService {
     private List<PromptBuilder.AccountSummary> buildAccountSummaries(Long familyId,
                                                                      PromptBuilder.NameMapping mapping) {
         List<Account> accounts = accountMapper.findActiveByFamily(familyId);
-        List<Member> members = memberMapper.findActiveByFamily(familyId);
+        List<Member> members = memberDirectory.listAll(familyId);
         List<PromptBuilder.AccountSummary> out = new ArrayList<>();
         for (Account a : accounts) {
             ProductCategory cat = a.getProductCategoryCode() == null ? null

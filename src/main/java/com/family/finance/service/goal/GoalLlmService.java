@@ -6,7 +6,7 @@ import com.family.finance.domain.goal.GoalType;
 import com.family.finance.domain.member.Member;
 import com.family.finance.factview.FactViewService;
 import com.family.finance.factview.KpiSnapshot;
-import com.family.finance.repository.MemberMapper;
+import com.family.finance.service.member.MemberDirectory;
 import com.family.finance.service.FamilyService;
 import com.family.finance.service.checkup.llm.LlmRouter;
 import com.family.finance.service.checkup.llm.OutputValidator;
@@ -45,7 +45,12 @@ public class GoalLlmService {
 
     private final LlmRouter llmRouter;
     private final FamilyService familyService;
-    private final MemberMapper memberMapper;
+    /**
+     * v1.15 FR-382 · 脱敏映射必须**含已归档成员**。
+     * 只拿活跃列表的话,已归档成员的真名不在映射表里 → 替换不掉 → 真名原样进 LLM prompt。
+     * 这不是"名字显示不全"那种体感问题,是隐私红线({@code PrivacyIsolationTest} 守着)。
+     */
+    private final MemberDirectory memberDirectory;
     private final FactViewService factViewService;
     private final ObjectMapper objectMapper;
 
@@ -57,7 +62,7 @@ public class GoalLlmService {
     public AiResult<GoalParams> recommendParams(long familyId, GoalType type) {
         try {
             KpiSnapshot kpis = factViewService.kpis(factViewService.loadDefault(familyId));
-            List<Member> members = memberMapper.findActiveByFamily(familyId);
+            List<Member> members = memberDirectory.listAll(familyId);
             PromptBuilder.NameMapping mapping = PromptBuilder.buildNameMapping(members);
 
             String system = """
@@ -87,7 +92,7 @@ public class GoalLlmService {
     public AiResult<String> generateMonthlyReport(long familyId, Goal goal,
                                                   GoalProgressService.GoalProgress progress) {
         try {
-            List<Member> members = memberMapper.findActiveByFamily(familyId);
+            List<Member> members = memberDirectory.listAll(familyId);
             PromptBuilder.NameMapping mapping = PromptBuilder.buildNameMapping(members);
 
             String system = """
@@ -121,7 +126,7 @@ public class GoalLlmService {
                                                 GoalProgressService.GoalProgress progress,
                                                 String alertReason) {
         try {
-            List<Member> members = memberMapper.findActiveByFamily(familyId);
+            List<Member> members = memberDirectory.listAll(familyId);
             PromptBuilder.NameMapping mapping = PromptBuilder.buildNameMapping(members);
 
             String system = """

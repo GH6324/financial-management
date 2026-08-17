@@ -1,7 +1,7 @@
 package com.family.finance.service.review;
 
 import com.family.finance.calc.review.AttributionEngine;
-import com.family.finance.repository.MemberMapper;
+import com.family.finance.service.member.MemberDirectory;
 import com.family.finance.repository.ReviewAiCacheMapper;
 import com.family.finance.service.checkup.llm.LlmRouter;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +29,12 @@ import java.util.Map;
 public class ReviewInsightService {
 
     private final LlmRouter llmRouter;
-    private final MemberMapper memberMapper;
+    /**
+     * v1.15 FR-382 · 脱敏映射必须**含已归档成员**。
+     * 只拿活跃列表的话,已归档成员的真名不在映射表里 → 替换不掉 → 真名原样进 LLM prompt。
+     * 这不是"名字显示不全"那种体感问题,是隐私红线({@code PrivacyIsolationTest} 守着)。
+     */
+    private final MemberDirectory memberDirectory;
     private final ReviewAiCacheMapper cacheMapper;
 
     public boolean available(long familyId) {
@@ -110,7 +115,7 @@ public class ReviewInsightService {
 
     private String anonymize(long familyId, String text) {
         char c = 'A';
-        for (var m : memberMapper.findActiveByFamily(familyId)) {
+        for (var m : memberDirectory.listAll(familyId)) {
             if (m.getDisplayName() != null && !m.getDisplayName().isBlank()) {
                 text = text.replace(m.getDisplayName(), "成员" + c++);
             }

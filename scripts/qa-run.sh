@@ -6393,6 +6393,83 @@ IMPORT_HTML="$RD/src/main/resources/templates/holdingimport/import.html"
   && ! grep -F 'Ctrl+V' "$IMPORT_HTML" | grep -qE '<[a-zA-Z]|class=|th:text'; } \
   && log_ok "v114-HINT-PC-ONLY(拖拽/粘贴提示按指针能力 JS 注入 · 静态标记里没有这句)" \
   || log_bad "v114-HINT-PC-ONLY 提示可能落到手机上" "提示必须在 matchMedia('(hover: hover) and (pointer: fine)') 命中后由 tip.textContent 注入,模板里 Ctrl+V 只许出现这一次"
+# ── v1.15 · 会员身份(改登录名 / 归档 / 有条件删除)──────────────────
+# v115-MEMBER-NAME-MAP-INCLUDES-ARCHIVED · 展示口径必须走名录,不许旁路
+#   归档之后,「仅活跃」和「含归档」第一次有了区别,而全仓 15 处成员查询原来都是「仅活跃」。
+#   分三桶:
+#     · 展示 / 脱敏 / 历史归属  → MemberDirectory(含归档)—— 漏了就是「成员#7」占着 40% 资产,
+#       更糟的是 6 处脱敏点拿不到假名,**归档成员的真名会原样进 LLM prompt**。
+#     · 面向未来的选择 / 分母 / 系统操作人 → memberMapper 仅活跃(这是对的,归档的人不该再被指派)
+#     · 编辑表单候选 → selectableWith = 活跃 ∪ 当前值(漏了当前值 → 一保存静默改派给别人)
+#   所以这条护栏是**白名单禁止旁路**,不是「检测坏写法」:第二桶的合法用法逐个点名钉死在下面
+#   这几个文件里;任何新文件出现 memberMapper.findActive/countActive 都当没想清楚桶,直接红。
+#   注意必须用**限定名** memberMapper.xxx —— AccountMapper / GoalMapper 也有同名方法,
+#   裸方法名会匹配到 32 个不相干文件。
+V115_ALLOW="service/AdminService.java
+service/PeriodOpener.java
+service/PeriodService.java
+service/member/MemberDirectory.java
+service/notify/ReportReminderScheduler.java
+service/stock/AccountValuationService.java
+web/account/AccountController.java
+web/admin/NotificationSettingsController.java
+web/dashboard/DashboardController.java
+web/entry/EntryController.java
+web/goal/GoalController.java"
+V115_ACTUAL="$(grep -rl 'memberMapper\.findActiveByFamily\|memberMapper\.countActiveByFamily' \
+  "$RD/src/main/java" | sed "s|^$RD/src/main/java/com/family/finance/||" | sort)"
+{ [ "$V115_ACTUAL" = "$(printf '%s\n' "$V115_ALLOW" | sort)" ] \
+  && grep -q 'findAllByFamily' "$RD/src/main/java/com/family/finance/service/member/MemberDirectory.java" \
+  && grep -q 'memberDirectory.nameMap' "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \
+  && grep -q 'memberDirectory.nameMap' "$RD/src/main/java/com/family/finance/web/lens/LensTagController.java" \
+  && grep -q 'memberDirectory.listAll' "$RD/src/main/java/com/family/finance/web/entry/EntryController.java" \
+  && grep -q 'memberDirectory.selectableWith' "$RD/src/main/java/com/family/finance/web/account/AccountController.java" \
+  && grep -q 'memberDirectory.selectableWith' "$RD/src/main/java/com/family/finance/web/goal/GoalController.java"; } \
+  && log_ok "v115-MEMBER-NAME-MAP-INCLUDES-ARCHIVED(仅活跃查询钉死在 11 个文件 · 展示/脱敏/编辑候选走名录)" \
+  || log_bad "v115-MEMBER-NAME-MAP-INCLUDES-ARCHIVED 有人旁路了成员名录" \
+     "展示/脱敏/历史归属用 memberDirectory.nameMap|listAll,编辑表单用 selectableWith;确实只要活跃成员的,把文件加进本护栏 V115_ALLOW 白名单并说明理由。当前多出/少掉的文件见 grep -rl 'memberMapper\.findActiveByFamily\|memberMapper\.countActiveByFamily' src/main/java"
+
+# v115-DELETE-SCAN-COVERS-FK-LESS · 删除前的引用扫描必须盖住那 4 处没有外键的
+#   删成员是唯一一个真会掉数据的动作。有外键的 9 处,漏扫最多是数据库层拦下来(用户看到 500);
+#   **没有外键的这 4 处漏扫,数据库不会拦** —— 删掉之后历史数据里留一个指向不存在成员的悬空 id,
+#   教育目标的「孩子」尤其阴:它藏在 params_json 里,任何 schema 元数据(information_schema、
+#   自动外键发现)都看不见它。这就是清单手写而不是自动发现的原因,也是这条护栏逐个点名的原因。
+{ grep -q 'FROM period_member_cashflow WHERE member_id' "$RD/src/main/java/com/family/finance/repository/MemberReferenceMapper.java" \
+  && grep -q 'FROM stock_valuation_event WHERE triggered_by_member_id' "$RD/src/main/java/com/family/finance/repository/MemberReferenceMapper.java" \
+  && grep -q 'FROM report_reminder_log WHERE member_id' "$RD/src/main/java/com/family/finance/repository/MemberReferenceMapper.java" \
+  && grep -q "JSON_EXTRACT(params_json, '\$.child_member_id')" "$RD/src/main/java/com/family/finance/repository/MemberReferenceMapper.java" \
+  && [ "$(grep -cE '^\s+int count[A-Za-z]+\(' "$RD/src/main/java/com/family/finance/repository/MemberReferenceMapper.java")" -eq 13 ] \
+  && grep -q 'scan_queriesEveryCountMethodOnTheMapper' "$RD/src/test/java/com/family/finance/service/member/MemberReferenceScannerTest.java" \
+  && grep -q 'referenceScanner.scan(familyId, targetMemberId)' "$RD/src/main/java/com/family/finance/service/AdminService.java"; } \
+  && log_ok "v115-DELETE-SCAN-COVERS-FK-LESS(13 处引用 · 含 period_member_cashflow/stock_valuation_event/report_reminder_log/family_goal.child_member_id 这 4 处无外键的)" \
+  || log_bad "v115-DELETE-SCAN-COVERS-FK-LESS 引用扫描漏了没有外键的那几处" \
+     "MemberReferenceMapper 必须显式数满 13 处;新增引用成员的表就加一行 count 方法(单测 scan_queriesEveryCountMethodOnTheMapper 会核对每个方法都被 scan 调到)"
+
+# v115-NO-MEMBER-ARCHIVE-IN-SUMS · 归档一个人,不动一分钱
+#   归档的语义是「ta 不再打理家里的账」,不是「ta 的钱不算数了」。所有金额口径按的是
+#   account.archived_at(账户是否还在),跟 member.archived_at 无关 —— 一旦有人在事实层
+#   顺手加上「成员未归档」的条件,归档动作就会把这个人名下的历史资产整块从家庭总账里抹掉。
+#   两头守:SQL 里不许出现成员归档过滤;Java 侧不许在金额聚合前按 isArchived 筛人。
+{ ! grep -qiE '(m|mem|member)\.archived_at' "$RD"/src/main/resources/mapper/*.xml \
+  && ! grep -rqE 'member\.archived_at IS NULL' "$RD/src/main/java" \
+  && ! grep -rqE '\.filter\([a-z]+ -> ![a-z]+\.isArchived\(\)\)' "$RD/src/main/java/com/family/finance/web/dashboard" \
+  && grep -q 'archivedOwnerKeepsBothTheirMoneyAndTheirName' "$RD/src/test/java/com/family/finance/web/dashboard/MemberArchiveMoneyInvarianceTest.java" \
+  && grep -q 'anActiveOnlyNameMap_wouldHaveBrokenIt' "$RD/src/test/java/com/family/finance/web/dashboard/MemberArchiveMoneyInvarianceTest.java"; } \
+  && log_ok "v115-NO-MEMBER-ARCHIVE-IN-SUMS(金额口径只认 account.archived_at · 成员归档不影响任何求和)" \
+  || log_bad "v115-NO-MEMBER-ARCHIVE-IN-SUMS 有人把成员归档带进了金额口径" \
+     "事实层 SQL 与成员维度聚合都不许按 member.archived_at 过滤;归档只影响「谁还来填报」,不影响「家里有多少钱」"
+
+# v115-RENAME-KILLS-TOKENS-FIRST · 清票根必须在改名之前
+#   persistent_logins 那张表按 username 记账。先 UPDATE 再清,清的是**新名字** ——
+#   旧名字那行谁也删不掉,而那张票根照样能把人自动登回来,「记住我」的 cookie 有效期以周计。
+{ grep -q 'killRememberMe' "$RD/src/main/java/com/family/finance/service/AdminService.java" \
+  && [ "$(grep -n 'killRememberMe(old)' "$RD/src/main/java/com/family/finance/service/AdminService.java" | head -1 | cut -d: -f1)" \
+       -lt "$(grep -n 'updateUsername(targetMemberId' "$RD/src/main/java/com/family/finance/service/AdminService.java" | head -1 | cut -d: -f1)" ] \
+  && grep -q 'rememberMeTokensAreClearedBeforeTheUsernameChanges' "$RD/src/test/java/com/family/finance/service/UsernameRenameTest.java" \
+  && grep -q 'expired' "$RD/src/main/java/com/family/finance/auth/AuthController.java"; } \
+  && log_ok "v115-RENAME-KILLS-TOKENS-FIRST(先按旧登录名清票根 · 再改名 · 登录页解释 ?expired)" \
+  || log_bad "v115-RENAME-KILLS-TOKENS-FIRST 改名顺序反了或没清「记住我」" \
+     "AdminService.renameUsername 必须 killRememberMe(旧名) 在 updateUsername 之前;顺序由 UsernameRenameTest 的 InOrder 断言守着"
 
 echo
 echo "═══════════════════════════════════════"
