@@ -62,7 +62,7 @@ public class LensController {
     @PostMapping("/lens/insight")
     @ResponseBody
     public java.util.Map<String, Object> insight(@AuthenticationPrincipal MemberPrincipal me, @RequestBody LensQuery q) {
-        if (!lensInsightService.available()) {
+        if (!lensInsightService.available(me.getFamilyId())) {
             return java.util.Map.of("ok", false, "text", "AI 暂不可用 · 管理页配置 LLM 后开启");
         }
         if (q.rowsSafe().size() > 3 || q.colsSafe().size() > 2) {

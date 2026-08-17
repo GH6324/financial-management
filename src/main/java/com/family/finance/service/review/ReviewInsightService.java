@@ -3,9 +3,7 @@ package com.family.finance.service.review;
 import com.family.finance.calc.review.AttributionEngine;
 import com.family.finance.repository.MemberMapper;
 import com.family.finance.repository.ReviewAiCacheMapper;
-import com.family.finance.service.checkup.llm.LlmClient;
-import com.family.finance.service.checkup.llm.LlmDiagnoseService;
-import com.family.finance.service.config.FamilyConfigService;
+import com.family.finance.service.checkup.llm.LlmRouter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,13 +28,12 @@ import java.util.Map;
 @Slf4j
 public class ReviewInsightService {
 
-    private final List<LlmClient> clients;
+    private final LlmRouter llmRouter;
     private final MemberMapper memberMapper;
-    private final FamilyConfigService configService;
     private final ReviewAiCacheMapper cacheMapper;
 
-    public boolean available() {
-        return clients.stream().anyMatch(LlmClient::available);
+    public boolean available(long familyId) {
+        return llmRouter.available(familyId);
     }
 
     public record Review(String text, String vendor, boolean cached) {}
@@ -57,20 +54,11 @@ public class ReviewInsightService {
                 4. 信号为空时如实说本期结构无显著异常,给一句观察即可;
                 5. 不推荐任何具体产品、不预测涨跌、不用黑话。
                 只输出要点行,不要标题、开场白、markdown。""";
-        String primary = configService.getString(familyId, FamilyConfigService.K_LLM_PRIMARY_VENDOR, "qwen");
-        for (LlmClient client : LlmDiagnoseService.orderByPrimaryVendor(clients, primary)) {
-            if (!client.available()) continue;
-            try {
-                String out = client.chat(system, facts);
-                if (out != null && !out.isBlank()) {
-                    cacheMapper.upsert(familyId, periodId, dim, out.trim(), client.vendor());
-                    return new Review(out.trim(), client.vendor(), false);
-                }
-            } catch (Exception e) {
-                log.warn("月度复盘 vendor={} 失败: {}", client.vendor(), e.toString());
-            }
-        }
-        return null;
+        return llmRouter.invoke(familyId, system, facts, (inv, raw, ms) -> {
+            String out = raw.trim();
+            cacheMapper.upsert(familyId, periodId, dim, out, inv.badge());
+            return new Review(out, inv.badge(), false);
+        });
     }
 
     /** 归因事实 + 工程信号(全部数字算好) */

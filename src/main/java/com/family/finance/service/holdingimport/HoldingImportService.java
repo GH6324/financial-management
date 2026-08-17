@@ -55,7 +55,7 @@ public class HoldingImportService {
     private final StockHoldingMapper holdingMapper;
     private final AccountMapper accountMapper;
     private final PeriodMapper periodMapper;
-    private final QwenVisionClient vision;
+    private final VisionLlmClient vision;
     private final LensAiTagService tagService;
     private final AccountValuationService valuationService;
     private final AppProperties props;
@@ -164,14 +164,14 @@ public class HoldingImportService {
         try {
             List<Path> images = listImages(imp);
             // 1. 逐图视觉转写 + 记来源图
-            record Parsed(QwenVisionClient.ParsedRow row, String shot) {}
+            record Parsed(VisionLlmClient.ParsedRow row, String shot) {}
             List<Parsed> parsedAll = new ArrayList<>();
             for (Path p : images) {
                 try {
                     byte[] b = Files.readAllBytes(p);
                     String mime = mimeOf(p.getFileName().toString());
                     String rel = relOf(imp, p);
-                    for (QwenVisionClient.ParsedRow r : vision.extract(b, mime)) parsedAll.add(new Parsed(r, rel));
+                    for (VisionLlmClient.ParsedRow r : vision.extract(b, mime)) parsedAll.add(new Parsed(r, rel));
                 } catch (Exception e) {
                     log.warn("import {} 图 {} 识别失败: {}", importId, p.getFileName(), e.toString());
                 }
@@ -189,7 +189,7 @@ public class HoldingImportService {
             // 3. 白名单打标(复用 LensAiTag · 文本)
             List<String> names = rows.stream().map(x -> x.row().name()).collect(Collectors.toList());
             Map<String, LensAiTagService.Tags> tags;
-            try { tags = tagService.available() ? tagService.suggest(FAMILY_ID, names) : Map.of(); }
+            try { tags = tagService.available(FAMILY_ID) ? tagService.suggest(FAMILY_ID, names) : Map.of(); }
             catch (Exception e) { tags = Map.of(); }
             // 4. 三态匹配(只比对本账户 SCREENSHOT 活持仓)
             List<StockHolding> existing = holdingMapper.findActiveByAccount(imp.getAccountId()).stream()
@@ -202,7 +202,7 @@ public class HoldingImportService {
             itemMapper.deleteByImport(importId);  // 重扫覆盖旧结果
             int sort = 0;
             for (Parsed p : rows) {
-                QwenVisionClient.ParsedRow r = p.row();
+                VisionLlmClient.ParsedRow r = p.row();
                 LensAiTagService.Tags t = tags.get(r.name());
                 StockHolding hit = existingByKey.get(normalize(r.name()));
                 String state; Long hid = null; BigDecimal oldVal = null;
@@ -343,7 +343,7 @@ public class HoldingImportService {
         return sb.toString();
     }
 
-    private static String dedupKey(QwenVisionClient.ParsedRow r) {
+    private static String dedupKey(VisionLlmClient.ParsedRow r) {
         if (r.code() != null && !r.code().isBlank() && !"null".equalsIgnoreCase(r.code().trim())) {
             return "code:" + r.code().trim();
         }

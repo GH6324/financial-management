@@ -95,7 +95,7 @@ class PrivacyIsolationTest {
      * 绝不可引用任何配置 service / LLM API key 访问器 ·
      * 避免误把 secret 拼进 prompt 文本。
      *
-     * <p>LlmClient(QwenLlmClient / DeepSeekLlmClient)允许引用 K_LLM_*_KEY
+     * <p>LlmClient(v1.13 起 key 的读取收敛在 {@code AbstractOpenAiCompatibleClient})允许引用 K_LLM_*_KEY
      * (它们是通过 HTTP header 把 key 提交给上游 LLM API · 不进 prompt body)·
      * 故此校验只针对 PromptBuilder 文件本身。
      */

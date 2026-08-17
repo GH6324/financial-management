@@ -1,5 +1,8 @@
 package com.family.finance.service.holdingimport;
 
+import com.family.finance.service.checkup.llm.LlmCatalog;
+import com.family.finance.service.checkup.llm.LlmInvocation;
+import com.family.finance.service.checkup.llm.LlmSettings;
 import com.family.finance.service.config.FamilyConfigService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -18,20 +21,25 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * v1.4 · 持仓截图视觉转写客户端(qwen-vl-max)。
+ * v1.4 · 持仓截图视觉转写客户端 · v1.13 改造为<b>按平台解析</b>(原 {@code QwenVisionClient})。
  *
- * <p>复用 Qwen / DashScope OpenAI 兼容端点 + 现有 Qwen key(不碰明文);模型由
- * {@link FamilyConfigService#K_LLM_VISION_MODEL} 配(默认 qwen-vl-max)。
- * <b>只转写屏幕可见的名称+市值+代码,绝不计算/推导</b>(承 feedback_llm_no_math)。
+ * <p>v1.12 之前这里把端点、凭据、型号三样全写死在百炼上({@code API} 常量 + 直接读 qwen key
+ * + {@code DEFAULT_MODEL="qwen-vl-max"}),等于<b>截图导入被钉死在一家平台</b>。现在三样都来自
+ * {@link LlmSettings#vision()} 这一个三元组:平台决定端点与用哪把 key,系列决定默认型号,
+ * 型号可手填(方舟这类必须手填)。开关是<b>独立的</b> {@code llm_vision_enabled},
+ * 不再把 "off" 塞进型号字段当假型号(FR-362)。</p>
+ *
+ * <p><b>视觉不做 failover</b>(tech-design v1.13 §1.6):视觉调用发生在用户等待中的交互路径上
+ * (传图 → 等结果),再来一轮备选会把最坏等待翻倍。所以这里只有一个三元组,失败就如实报错。</p>
+ *
+ * <p><b>只转写屏幕可见的名称+市值+代码,绝不计算/推导</b>(承 feedback_llm_no_math)。
  * 打标(资产类型/行业/平台)交给 {@code LensAiTagService},此处不判。</p>
  */
 @Component
 @Slf4j
-public class QwenVisionClient {
+public class VisionLlmClient {
 
-    private static final String API = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
     private static final long FAMILY_ID = 1L;   // 单家庭设计
-    public static final String DEFAULT_MODEL = "qwen-vl-max";
 
     private static final String SYS =
         "你是持仓截图转写器。只转写图中肉眼可见的持仓,绝不计算、推导、反推或编造任何数值。"
@@ -45,38 +53,70 @@ public class QwenVisionClient {
     private final FamilyConfigService config;
     private final RestTemplate rt;
 
-    public QwenVisionClient(FamilyConfigService config, RestTemplateBuilder builder) {
+    public VisionLlmClient(FamilyConfigService config, RestTemplateBuilder builder) {
         this.config = config;
         this.rt = builder.setConnectTimeout(Duration.ofSeconds(10)).setReadTimeout(Duration.ofSeconds(90)).build();
     }
 
-    private String apiKey() { return config.getString(FAMILY_ID, FamilyConfigService.K_LLM_QWEN_KEY, ""); }
-
-    public String model() {
-        String m = config.getString(FAMILY_ID, FamilyConfigService.K_LLM_VISION_MODEL, DEFAULT_MODEL);
-        return (m == null || m.isBlank() || "off".equalsIgnoreCase(m)) ? DEFAULT_MODEL : m.trim();
+    /** 当前生效的视觉三元组(读时派生 · 旧配置自动映射成 百炼/通义千问 VL) */
+    public LlmInvocation invocation() {
+        return LlmSettings.load(config, FAMILY_ID).vision();
     }
 
-    /** 视觉可用 = Qwen key 已配 且 视觉模型未关闭 */
+    private String apiKey(LlmInvocation inv) {
+        return inv.platformDef()
+                .map(p -> config.getString(FAMILY_ID, p.keyName(), ""))
+                .orElse("");
+    }
+
+    /**
+     * 本次实际发给对方的型号。
+     *
+     * <p>仍然只返回型号本身(不带平台前缀)—— {@code holding_import.vision_model} 是 VARCHAR(32),
+     * 而方舟的接入点 ID 就能吃掉二十几个字符,加前缀会顶到列宽上;历史行里存的也是裸型号,
+     * 混两种格式在详情页上更难读。平台信息在导入页由 {@link #platformLabel()} 单独展示。</p>
+     */
+    public String model() {
+        String m = invocation().resolvedModel();
+        return m == null ? "" : m;
+    }
+
+    /** 平台中文名(导入页展示用 · 让用户知道这次截图发去了哪家) */
+    public String platformLabel() {
+        return LlmCatalog.labelOf(invocation().platform());
+    }
+
+    /** 视觉可用 = 开关打开 且 该平台 key 已配 且 型号能定下来(方舟没填型号 → 不可用) */
     public boolean available() {
-        String key = apiKey();
-        if (key == null || key.isBlank()) return false;
-        String m = config.getString(FAMILY_ID, FamilyConfigService.K_LLM_VISION_MODEL, DEFAULT_MODEL);
-        return m == null || !"off".equalsIgnoreCase(m.trim());
+        LlmSettings s = LlmSettings.load(config, FAMILY_ID);
+        if (!s.visionEnabled()) return false;
+        LlmInvocation inv = s.vision();
+        if (!inv.resolvable()) return false;
+        return !apiKey(inv).isBlank();
     }
 
     /** 一张图 → 若干持仓转写行。失败抛 RuntimeException(不泄 key)。 */
     public List<ParsedRow> extract(byte[] imageBytes, String mime) {
-        String key = apiKey();
-        if (key == null || key.isBlank()) throw new IllegalStateException("Qwen key 未配置");
+        LlmSettings s = LlmSettings.load(config, FAMILY_ID);
+        if (!s.visionEnabled()) throw new IllegalStateException("截图识别已在管理页关闭");
+        LlmInvocation inv = s.vision();
+        LlmCatalog.Platform p = inv.platformDef()
+                .orElseThrow(() -> new IllegalStateException("视觉平台配置无效,请到管理页重新选择"));
+        String model = inv.resolvedModel();
+        if (model == null) {
+            throw new IllegalStateException(p.label() + " 的视觉型号需要手工填写(控制台复制接入点/模型 ID)");
+        }
+        String key = apiKey(inv);
+        if (key == null || key.isBlank()) throw new IllegalStateException(p.label() + " API key 未配置");
+
         String dataUrl = "data:" + (mime == null ? "image/jpeg" : mime) + ";base64,"
                 + java.util.Base64.getEncoder().encodeToString(imageBytes);
-        String content = callVision(key, model(), dataUrl);
+        String content = callVision(p, key, model, dataUrl);
         return parse(content);
     }
 
     @SuppressWarnings("unchecked")
-    private String callVision(String key, String model, String dataUrl) {
+    private String callVision(LlmCatalog.Platform p, String key, String model, String dataUrl) {
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_JSON);
         h.setBearerAuth(key);
@@ -90,7 +130,7 @@ public class QwenVisionClient {
                 "temperature", 0.1,
                 "max_tokens", 1800
         );
-        Map<String, Object> resp = rt.postForObject(API, new HttpEntity<>(body, h), Map.class);
+        Map<String, Object> resp = rt.postForObject(p.chatEndpoint(), new HttpEntity<>(body, h), Map.class);
         if (resp == null) throw new RuntimeException("视觉服务返回空");
         List<Map<String, Object>> choices = (List<Map<String, Object>>) resp.get("choices");
         if (choices == null || choices.isEmpty()) throw new RuntimeException("视觉服务无结果");

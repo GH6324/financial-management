@@ -1,21 +1,32 @@
 package com.family.finance.service.checkup.llm;
 
 /**
- * LLM 客户端接口 · v0.2 FR-40c · 2026-05-10 修订(决策 20)
+ * LLM 平台客户端 · 一个平台一个实现(v1.13 起)。
  *
- * <p>实现为 OpenAI 兼容 chat-completion 调用。注入 prompt → 返回单段文本。
- * 失败应抛 RuntimeException(由路由层转 fallback)。
+ * <p>v1.12 及之前这里是 {@code vendor()} + {@code chat(system, user)},型号由客户端自己去
+ * 读配置猜(用 {@code startsWith} 判断「这个型号是不是我家的」)。火山方舟推翻了这个前提:
+ * 同一个平台上有豆包也有 DeepSeek,型号还可能是控制台生成的 {@code ep-} 接入点 ID,
+ * 前缀判断必错。现在<b>调用坐标由路由给全</b>({@link LlmInvocation}),客户端只负责
+ * 「拿这个坐标去出网」,不再自己读型号配置。</p>
  *
- * <p>2026-05-10 修订:method 从 {@code polish(system, user)} 改为 {@code chat(system, user)},
- * 因为新方向是综合诊断而非润色,语义更通用。
+ * <p>实现类不要自己被注入到业务代码里 —— 唯一合法的注入点是 {@link LlmRouter}
+ * (护栏 {@code v113-LLM-ROUTER-SINGLE-PATH})。绕开路由就意味着绕开主备编排和审计。</p>
  */
 public interface LlmClient {
-    /** 厂商标识(qwen / deepseek)· 用于 audit + circuit breaker */
-    String vendor();
 
-    /** 提交 chat 请求(system + user 双消息),返回单段文本 */
-    String chat(String systemPrompt, String userPrompt);
+    /** 平台 code · 与 {@link LlmCatalog} 一致 */
+    String platform();
 
-    /** 客户端是否当前可用(api key 已配置 + 未触发 breaker)*/
+    /** 凭据已配 且 未处于熔断冷却 */
     boolean available();
+
+    /**
+     * 发起一次对话调用。
+     *
+     * @param invocation 调用坐标(平台/系列/型号)· {@code model} 为 null 表示「自动」:
+     *                   支持轮询的平台走轮询,其余用系列默认型号
+     * @return 模型返回的 content(非空)
+     * @throws RuntimeException 调用失败 · 由 {@link LlmRouter} 决定是否切备选
+     */
+    String chat(LlmInvocation invocation, String systemPrompt, String userPrompt);
 }

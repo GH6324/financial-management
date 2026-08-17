@@ -44,10 +44,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class LlmDiagnoseService {
 
-    private final List<LlmClient> clients;
+    /** v1.13 · 不再自己注入 {@code List<LlmClient>} 自己排序 —— 主备编排收口到路由 */
+    private final LlmRouter llmRouter;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.family.finance.service.review.RebalancePlanService rebalancePlanService;   // v1.2 执行率信号
-    private final com.family.finance.service.config.FamilyConfigService configService;
     private final AuditLogService auditLogService;
     private final MemberMapper memberMapper;
     private final AccountMapper accountMapper;
@@ -62,19 +62,6 @@ public class LlmDiagnoseService {
     /** 内存 cache:key = SHA-256(prompt context),TTL 1h */
     private final ConcurrentHashMap<String, CacheEntry> cache = new ConcurrentHashMap<>();
     private static final long TTL_MS = 60L * 60 * 1000;
-
-    /**
-     * v0.14 · 把「主选供应商」排到最前(稳定排序 · 其余保持原顺序)· 主选故障后按序切备。
-     * 抽成静态方法便于单测(LlmVendorOrderingTest)。
-     */
-    public static java.util.List<LlmClient> orderByPrimaryVendor(java.util.List<LlmClient> clients, String primaryVendor) {
-        String v = primaryVendor == null ? "qwen" : primaryVendor;
-        return clients.stream()
-                .sorted((a, b) -> Boolean.compare(
-                        b.vendor().equalsIgnoreCase(v),
-                        a.vendor().equalsIgnoreCase(v)))
-                .toList();
-    }
 
     /**
      * 全家维度综合诊断(默认走 cache · 1h TTL · 兼容老 caller)。
@@ -260,57 +247,55 @@ public class LlmDiagnoseService {
             cache.remove(cacheKey);
         }
 
-        // 2. 遍历 clients(主选供应商优先 · 故障自动切备 · v0.14 可配 K_LLM_PRIMARY_VENDOR)
-        String primaryVendor = configService.getString(familyId,
-                com.family.finance.service.config.FamilyConfigService.K_LLM_PRIMARY_VENDOR, "qwen");
-        for (LlmClient client : orderByPrimaryVendor(clients, primaryVendor)) {
-            if (!client.available()) continue;
-            long t0 = System.currentTimeMillis();
-            String raw = null;
-            String error = null;
-            try {
-                raw = client.chat(systemPrompt, userPrompt);
-            } catch (Exception e) {
-                error = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-                long elapsed = System.currentTimeMillis() - t0;
-                log.warn("LLM[{}] 调用失败: {} (elapsed={}ms)", client.vendor(), error, elapsed);
-                LlmAuditLogger.log(client.vendor(), scope, familyId, entityId,
-                        systemPrompt, userPrompt, null, elapsed, false, null, error);
-                continue;
-            }
-            long elapsed = System.currentTimeMillis() - t0;
+        // 2. 走路由:主选 → 备选,顺序由 /admin/integrations 的三级配置决定(v1.13)。
+        //    这里是全项目最挑剔的一个调用方 —— 每次尝试无论成败都要进审计,输出还要过合规校验、
+        //    没过就换下一家。所以用 Handler 形态:路由管「调谁、调不通换谁」,这里管「收不收」。
+        DiagnoseResult routed = llmRouter.invoke(familyId, systemPrompt, userPrompt,
+                new LlmRouter.Handler<DiagnoseResult>() {
+                    @Override
+                    public DiagnoseResult onOutput(LlmInvocation inv, String raw, long elapsed) {
+                        String badge = inv.badge();
+                        // 校验(JSON 模式 · 把 JSON 里的所有 string 拼起来过 validator)
+                        //   v0.4.9:LLM 输出 JSON · 把 user-facing 字段(narrative/finding/evidence/actions)
+                        //   join 后过 OutputValidator,行为等价于老的纯文本校验
+                        String textForValidate = joinUserFacingStrings(raw);
+                        // v0.6 · 资产洞察走更严的合规校验(额外禁预测涨跌/择时);其余路径行为不变
+                        OutputValidator.Result vr = "ASSET_INSIGHT".equals(scope)
+                                ? OutputValidator.checkInsight(textForValidate, realNames)
+                                : OutputValidator.check(textForValidate, realNames);
+                        // 全交互日志(prompt + response + elapsed,无论接受与否都记)
+                        LlmAuditLogger.log(badge, scope, familyId, entityId,
+                                systemPrompt, userPrompt, raw, elapsed,
+                                vr.accepted(), vr.accepted() ? null : vr.reason(), null);
 
-            // 校验(JSON 模式 · 把 JSON 里的所有 string 拼起来过 validator)
-            //   v0.4.9:LLM 现在输出 JSON · 把 user-facing 字段(narrative/finding/evidence/actions)
-            //   join 后过 OutputValidator,行为等价于老的纯文本校验
-            String textForValidate = joinUserFacingStrings(raw);
-            // v0.6 · 资产洞察走更严的合规校验(额外禁预测涨跌/择时);其余路径行为不变
-            OutputValidator.Result vr = "ASSET_INSIGHT".equals(scope)
-                    ? OutputValidator.checkInsight(textForValidate, realNames)
-                    : OutputValidator.check(textForValidate, realNames);
-            // 全交互日志(prompt + response + elapsed,无论接受与否都记)
-            LlmAuditLogger.log(client.vendor(), scope, familyId, entityId,
-                    systemPrompt, userPrompt, raw, elapsed,
-                    vr.accepted(), vr.accepted() ? null : vr.reason(), null);
+                        if (!vr.accepted()) {
+                            log.warn("LLM[{}] 综合诊断输出未通过校验: {}", badge, vr.reason());
+                            auditLogService.record(familyId, actorMemberId, AuditLogType.LLM_REJECTED,
+                                    "checkup_diagnose", entityId,
+                                    "vendor=" + badge + " reason=" + vr.reason());
+                            return null;      // 不接受 → 路由自动试下一个候选
+                        }
+                        try {
+                            // 反映射代号 → 真名(给前端用户展示)
+                            String mapped = PromptBuilder.reverseMapping(raw, codenameToReal);
+                            cache.put(cacheKey, new CacheEntry(mapped, badge, System.currentTimeMillis()));
+                            DiagnoseStructured structured = tryParseStructured(mapped);
+                            return DiagnoseResult.ok(mapped, badge, false, structured);
+                        } catch (Exception e) {
+                            log.warn("LLM[{}] 反映射/解析失败: {}", badge, e.getMessage());
+                            return null;
+                        }
+                    }
 
-            if (!vr.accepted()) {
-                log.warn("LLM[{}] 综合诊断输出未通过校验: {}", client.vendor(), vr.reason());
-                auditLogService.record(familyId, actorMemberId, AuditLogType.LLM_REJECTED,
-                        "checkup_diagnose", entityId,
-                        "vendor=" + client.vendor() + " reason=" + vr.reason());
-                continue;
-            }
-            try {
-
-                // 反映射代号 → 真名(给前端用户展示)
-                String mapped = PromptBuilder.reverseMapping(raw, codenameToReal);
-                cache.put(cacheKey, new CacheEntry(mapped, client.vendor(), System.currentTimeMillis()));
-                DiagnoseStructured structured = tryParseStructured(mapped);
-                return DiagnoseResult.ok(mapped, client.vendor(), false, structured);
-            } catch (Exception e) {
-                log.warn("LLM[{}] 调用失败: {}", client.vendor(), e.getMessage());
-            }
-        }
+                    @Override
+                    public void onFailure(LlmInvocation inv, Exception e, long elapsed) {
+                        String error = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+                        log.warn("LLM[{}] 调用失败: {} (elapsed={}ms)", inv.badge(), error, elapsed);
+                        LlmAuditLogger.log(inv.badge(), scope, familyId, entityId,
+                                systemPrompt, userPrompt, null, elapsed, false, null, error);
+                    }
+                });
+        if (routed != null) return routed;
 
         // 3. 全部失败
         try {

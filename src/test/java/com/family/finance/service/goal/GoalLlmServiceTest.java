@@ -6,14 +6,19 @@ import com.family.finance.domain.member.Member;
 import com.family.finance.factview.FactViewService;
 import com.family.finance.repository.MemberMapper;
 import com.family.finance.service.FamilyService;
-import com.family.finance.service.checkup.llm.LlmClient;
+import com.family.finance.service.checkup.llm.LlmCatalog;
+import com.family.finance.service.checkup.llm.LlmInvocation;
+import com.family.finance.service.checkup.llm.LlmRouter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -26,13 +31,15 @@ import static org.mockito.Mockito.when;
  */
 class GoalLlmServiceTest {
 
-    /** 固定返回带代号文案的假 LLM 客户端 */
-    private static LlmClient stubClient(String reply) {
-        return new LlmClient() {
-            public String vendor() { return "stub"; }
-            public String chat(String systemPrompt, String userPrompt) { return reply; }
-            public boolean available() { return true; }
-        };
+    /**
+     * 固定返回带代号文案的假路由(v1.13:业务侧不再自己遍历 client,只认 {@link LlmRouter})。
+     */
+    private static LlmRouter stubRouter(String reply) {
+        LlmRouter router = mock(LlmRouter.class);
+        LlmInvocation used = new LlmInvocation(LlmCatalog.P_DASHSCOPE, "qwen", "qwen-plus");
+        when(router.invoke(anyLong(), anyString(), anyString()))
+                .thenReturn(Optional.of(new LlmRouter.Outcome(reply, used)));
+        return router;
     }
 
     private static Member member(long id, String name) {
@@ -45,7 +52,7 @@ class GoalLlmServiceTest {
     @Test
     void monthlyReport_reverseMaps_codenames_to_real_names() {
         // ≥150 字(月报口径)· 含 成员A/成员B 代号 + 金融术语 · 无担保词/产品名
-        LlmClient stub = stubClient(
+        LlmRouter stub = stubRouter(
                 "本月家庭资产保持稳健,投资收益较上期小幅回暖,整体风险敞口处于合理区间,流动性也较为充足。"
                 + "目标进度按计划稳步推进,储蓄节奏总体稳定,与长期目标之间的差距正在缓慢缩小。"
                 + "建议成员A与成员B在本月内共同核查近三个月的消费结构与支出明细,适度提高每月的储蓄比例,"
@@ -55,7 +62,7 @@ class GoalLlmServiceTest {
         when(memberMapper.findActiveByFamily(1L)).thenReturn(List.of(member(1L, "张三"), member(2L, "李四")));
 
         GoalLlmService svc = new GoalLlmService(
-                List.of(stub), mock(FamilyService.class), memberMapper,
+                stub, mock(FamilyService.class), memberMapper,
                 mock(FactViewService.class), new ObjectMapper());
 
         Goal goal = Goal.builder().id(1L).familyId(1L).goalType(GoalType.RETIREMENT).name("退休").build();
@@ -81,12 +88,12 @@ class GoalLlmServiceTest {
                 + "目标进度按计划稳步推进,储蓄节奏总体稳定。建议继续保持当前的储蓄与投资节奏,"
                 + "定期复盘资产配置是否与长期目标的时间表相匹配,必要时对部分仓位做再平衡,"
                 + "以巩固后续的收益质量与整体抗风险能力,稳步缩小与目标之间的差距。";
-        LlmClient stub = stubClient(reply);
+        LlmRouter stub = stubRouter(reply);
         MemberMapper memberMapper = mock(MemberMapper.class);
         when(memberMapper.findActiveByFamily(1L)).thenReturn(List.of());
 
         GoalLlmService svc = new GoalLlmService(
-                List.of(stub), mock(FamilyService.class), memberMapper,
+                stub, mock(FamilyService.class), memberMapper,
                 mock(FactViewService.class), new ObjectMapper());
 
         Goal goal = Goal.builder().id(1L).familyId(1L).goalType(GoalType.RETIREMENT).name("退休").build();

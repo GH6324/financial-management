@@ -189,7 +189,7 @@ public class LensTagController {
         model.addAttribute("allocsByHolding", allocsByHolding);
         model.addAttribute("suggestions", suggestions);
         model.addAttribute("aiRan", aiRan);
-        model.addAttribute("aiAvailable", aiTagService.available());
+        model.addAttribute("aiAvailable", aiTagService.available(me.getFamilyId()));
         Map<Long, String> defaults = new LinkedHashMap<>();
         for (TreeNode n : tree) {
             AssetClass d = AssetClass.defaultFor(n.account().getType(), n.account().getProductCategoryCode());

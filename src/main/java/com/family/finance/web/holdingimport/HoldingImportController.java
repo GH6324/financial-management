@@ -6,7 +6,7 @@ import com.family.finance.domain.holdingimport.HoldingImport;
 import com.family.finance.domain.holdingimport.HoldingImportItem;
 import com.family.finance.repository.AccountMapper;
 import com.family.finance.service.holdingimport.HoldingImportService;
-import com.family.finance.service.holdingimport.QwenVisionClient;
+import com.family.finance.service.holdingimport.VisionLlmClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -36,7 +36,7 @@ public class HoldingImportController {
 
     private final HoldingImportService importService;
     private final AccountMapper accountMapper;
-    private final QwenVisionClient vision;
+    private final VisionLlmClient vision;
 
     private Account requireAccount(long familyId, long accountId) {
         Account a = accountMapper.findById(accountId).orElseThrow(() -> new IllegalArgumentException("账户不存在"));
@@ -84,6 +84,7 @@ public class HoldingImportController {
         model.addAttribute("imp", imp);
         model.addAttribute("imageRels", importService.imageRels(imp.getId()));   // v1.4.2 · 查看/删除已上传图
         model.addAttribute("visionModel", vision.model());
+        model.addAttribute("visionPlatform", vision.platformLabel());   // v1.13 · 让用户知道截图发去了哪家平台
         if (HoldingImport.REVIEW.equals(imp.getStatus())) {
             model.addAttribute("items", importService.items(imp.getId()));
             model.addAttribute("industryTags", com.family.finance.domain.lens.IndustryTag.values());

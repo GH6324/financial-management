@@ -77,7 +77,10 @@ code_only(){ sed -e 's/^[[:space:]]*#.*$//' "$1"; }
 # (`case CN -> AShareTicker.withExchange(t);   // 原 startsWith("6") 漏 513180`)—— 对 Java 文件写否定
 # 断言必须用这个版本,否则照样被自己解释历史的注释扫红(2026-08-13 · v13.1-ISSUE3-CN 就是这么红的)。
 # 行尾只剥「空白 + //」开头的部分:URL 里的 `//` 前面是 `:`,不会被误伤。
-java_code_only(){ sed -E -e 's@^[[:space:]]*//.*$@@' -e 's@[[:space:]]//.*$@@' -e 's@^[[:space:]]*\*.*$@@' "$1"; }
+# 单行 javadoc(`/** … */` 写在一行里)也要剥:多行 javadoc 的续行以 `*` 开头会被上一条规则吃掉,
+# 单行的却整条留下来 —— v1.13 的 `v113-LLM-ROUTER-SINGLE-PATH` 就是被一句
+# `/** 不再自己注入 {@code List<LlmClient>} … */` 扫红的(第 8 次踩同一个坑)。
+java_code_only(){ sed -E -e 's@^[[:space:]]*//.*$@@' -e 's@[[:space:]]//.*$@@' -e 's@^[[:space:]]*\*.*$@@' -e 's@/\*.*\*/@@g' "$1"; }
 
 log_skip() { [[ "$SEC_ACTIVE" == 0 ]] && return 0; echo -e "\033[33m SKIP \033[0m $1  ::  ${2:-}"; SKIP=$((SKIP+1)); }
 section()  {
@@ -2341,11 +2344,14 @@ grep -q "structured() == null" src/main/resources/templates/checkup/_ai-diagnose
   || log_bad "v04-AI-DIAGNOSE-3 fallback 分支缺" "missing structured null check"
 
 # v04-AI-DIAGNOSE-4 · v0.4.18 后 max_tokens 改读 ConfigService 动态(默认 2000)
-{ grep -q 'currentMaxTokens' src/main/java/com/family/finance/service/checkup/llm/QwenLlmClient.java \
-  && grep -q 'currentMaxTokens' src/main/java/com/family/finance/service/checkup/llm/DeepSeekLlmClient.java \
+#   v1.13:两份客户端各自的实现合并进 AbstractOpenAiCompatibleClient,子类不该再各写一份
+ABSC=src/main/java/com/family/finance/service/checkup/llm/AbstractOpenAiCompatibleClient.java
+{ grep -q 'currentMaxTokens' "$ABSC" \
+  && ! grep -q 'currentMaxTokens()' src/main/java/com/family/finance/service/checkup/llm/DashScopeLlmClient.java \
+  && ! grep -q 'currentMaxTokens()' src/main/java/com/family/finance/service/checkup/llm/DeepSeekLlmClient.java \
   && grep -q 'K_LLM_MAX_TOKENS' src/main/java/com/family/finance/service/config/FamilyConfigService.java; } \
-  && log_ok "v04-AI-DIAGNOSE-4 LlmClient max_tokens 改读 ConfigService 动态(默认 2000 · 可热改)" \
-  || log_bad "v04-AI-DIAGNOSE-4 max_tokens 未切动态" "see Qwen/DeepSeek + ConfigService"
+  && log_ok "v04-AI-DIAGNOSE-4 max_tokens 读 ConfigService 动态(默认 2000 · 可热改)· 收在公共基类里一份" \
+  || log_bad "v04-AI-DIAGNOSE-4 max_tokens 未切动态 / 子类又抄了一份" "see AbstractOpenAiCompatibleClient + ConfigService"
 
 # v04-AI-DIAGNOSE-5 · 截断检测 · DiagnoseResult.truncated + 模板友好错误
 { grep -q 'truncated\(\) \|looksTruncatedJson\|truncated()' src/main/java/com/family/finance/service/checkup/llm/LlmDiagnoseService.java \
@@ -2354,10 +2360,10 @@ grep -q "structured() == null" src/main/resources/templates/checkup/_ai-diagnose
   || log_bad "v04-AI-DIAGNOSE-5 截断检测缺" "no truncated/AI 输出被截断"
 
 # v04-AI-DIAGNOSE-6 · 客户端 finish_reason=length 截断日志告警
-{ grep -q 'max_tokens 截断' src/main/java/com/family/finance/service/checkup/llm/QwenLlmClient.java \
-  && grep -q 'max_tokens 截断' src/main/java/com/family/finance/service/checkup/llm/DeepSeekLlmClient.java; } \
-  && log_ok "v04-AI-DIAGNOSE-6 客户端检测 finish_reason=length 截断 · log.warn 提示" \
-  || log_bad "v04-AI-DIAGNOSE-6 截断日志缺" "no finish_reason check"
+#   v1.13 前这段只有 Qwen 那份有、DeepSeek 那份漏了(复制粘贴漂移的典型)· 现在在基类里,三家都有
+{ grep -q 'max_tokens 截断' "$ABSC" && grep -q 'finish_reason' "$ABSC"; } \
+  && log_ok "v04-AI-DIAGNOSE-6 检测 finish_reason=length 截断 · log.warn 提示(基类一份 · 全平台生效)" \
+  || log_bad "v04-AI-DIAGNOSE-6 截断日志缺" "no finish_reason check in AbstractOpenAiCompatibleClient"
 
 # v04-AI-DIAGNOSE-7 · v0.4.11 · pct1(ratio) bug 修(占比 0.4% → 44.2%)
 #   AllocationSlice.ratio() / RiskBucket.ratio() 是小数(0.442)· 必须 ×100 显示
@@ -2594,18 +2600,16 @@ DSC=src/main/java/com/family/finance/service/scheduling/DynamicScheduleConfig.ja
   || log_bad "v04-CFG-4 仍有遗留 @Scheduled 注解" "see 3 scheduler"
 
 # v04-CFG-5 · LLM client 改读 FamilyConfigService(不再 @Value 注入 API key)
-QC=src/main/java/com/family/finance/service/checkup/llm/QwenLlmClient.java
-DC=src/main/java/com/family/finance/service/checkup/llm/DeepSeekLlmClient.java
-{ ! grep -q '@Value.*qwen.api-key' "$QC" \
-  && ! grep -q '@Value.*deepseek.api-key' "$DC" \
-  && grep -q 'configService.getString' "$QC" \
-  && grep -q 'configService.getString' "$DC"; } \
-  && log_ok "v04-CFG-5 LLM client API key 改读 ConfigService(不再 @Value 直注入)" \
-  || log_bad "v04-CFG-5 LLM client 未切换 ConfigService" "see Qwen/DeepSeek"
+#   v1.13:key 名由目录给(platformDef().keyName()),取 key 的动作收在基类里 —— 加平台不会漏这一步
+{ ! grep -q '@Value' "$ABSC" \
+  && grep -q 'configService.getString(FAMILY_ID, platformDef().keyName()' "$ABSC" \
+  && ! grep -rq '@Value' src/main/java/com/family/finance/service/checkup/llm/; } \
+  && log_ok "v04-CFG-5 LLM key 改读 ConfigService(不再 @Value 直注入)· key 名来自目录 keyName()" \
+  || log_bad "v04-CFG-5 LLM client 未切换 ConfigService" "see AbstractOpenAiCompatibleClient.apiKey()"
 
 # v04-CFG-6 · /admin/integrations 页 200 + 含 LLM/股票/FX 三段
 $CURL -b $COOKIE "$BASE/admin/integrations" -o "$TMP" -w ""
-{ grep -q '通义 Qwen-Plus' "$TMP" \
+{ grep -q '阿里云百炼' "$TMP" \
   && grep -q '股票自动拉取' "$TMP" \
   && grep -q 'FX 汇率自动拉取' "$TMP"; } \
   && log_ok "v04-CFG-6 /admin/integrations 集成中心 · 3 段在岗" \
@@ -2725,14 +2729,16 @@ else
   log_bad "v06-PRIV InsightPromptBuilder 缺失" "no $IPB"
 fi
 
-# v06-MODELS · QwenLlmClient 多模型额度兜底骨架(模型列表 + 故障分类 + 额度/欠费分支)
-QWC=src/main/java/com/family/finance/service/checkup/llm/QwenLlmClient.java
+# v06-MODELS · 百炼多型号额度兜底骨架(型号池 + 故障分类 + 额度/欠费分支)
+#   v1.13 改名 QwenLlmClient → DashScopeLlmClient(平台 ≠ 模型系列)· 多型号轮询仍是百炼专属能力
+QWC=src/main/java/com/family/finance/service/checkup/llm/DashScopeLlmClient.java
 { grep -q 'K_LLM_QWEN_MODELS' "$QWC" \
-  && grep -q 'QUOTA_EXHAUSTED' "$QWC" \
-  && grep -q 'ARREARAGE' "$QWC" \
-  && grep -q 'modelExhaustedUntil' "$QWC"; } \
-  && log_ok "v06-MODELS QwenLlmClient 多模型兜底(模型列表+额度用尽切换+欠费 failover)" \
-  || log_bad "v06-MODELS Qwen 多模型兜底骨架缺" "see QwenLlmClient"
+  && grep -q 'MODEL_QUOTA' "$QWC" \
+  && grep -q 'arrearage' "$QWC" \
+  && grep -q 'modelExhaustedUntil' "$QWC" \
+  && grep -q 'modelRotation' src/main/java/com/family/finance/service/checkup/llm/LlmCatalog.java; } \
+  && log_ok "v06-MODELS 百炼多型号兜底(型号池+额度用尽切换+欠费 failover)· 目录标注 modelRotation" \
+  || log_bad "v06-MODELS 百炼多型号兜底骨架缺" "see DashScopeLlmClient"
 
 # v06-MIGRATION · V29 负债字段 backward-compat(纯 ADD COLUMN DEFAULT NULL)
 V29=db/migration/V29__loan_detail_fields.sql
@@ -3115,13 +3121,23 @@ ICTL="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java
   || log_bad "v07-CFG-1 配置总指南或 README 入口缺失" "see docs/configuration.md"
 
 # v07-CFG-2 LLM 页:可选 banner + 折叠帮助 + 测试按钮 + sibling 测试表单
+#   v1.13 改写:原来钉死 `llm-test-qwen` / `llm-test-deepseek` 两个 id —— 平台化之后
+#   qwen 这个名字消失了(平台叫「百炼 dashscope」· 模型系列才叫 qwen),而且平台可以再加。
+#   钉死名字的写法有两个毛病:改名当天整条红(这次就是),加平台那天却**不红**——
+#   新平台漏了测试按钮它一句话都不说。改成从模板里**反查**:每个 `id="llm-test-X"` 的
+#   隐藏表单都必须有对应的 `form="llm-test-X"` 按钮,且平台数 ≥ 3(百炼/DeepSeek/方舟),
+#   每个平台各有一段「如何获取…Key」折叠指引。这样加第四个平台时护栏跟着长。
+_cfg2_ids="$(grep -oE 'id="llm-test-[a-z0-9]+"' "$ICFG" | sed -E 's/.*llm-test-([a-z0-9]+)".*/\1/' | sort -u)"
+_cfg2_n="$(printf '%s\n' "$_cfg2_ids" | grep -c . )"
+_cfg2_help="$(grep -c '<summary>如何获取' "$ICFG")"
+_cfg2_bad=""
+for _p in $_cfg2_ids; do
+  grep -q "form=\"llm-test-$_p\"" "$ICFG" || _cfg2_bad="$_cfg2_bad $_p(有表单没按钮)"
+done
 { grep -q '都<b>可选</b>' "$ICFG" \
-  && grep -q '如何获取 Qwen Key' "$ICFG" \
-  && grep -q "form=\"llm-test-qwen\"" "$ICFG" \
-  && grep -q 'id="llm-test-qwen"' "$ICFG" \
-  && grep -q 'id="llm-test-deepseek"' "$ICFG"; } \
-  && log_ok "v07-CFG-2 LLM 页 可选说明 + 折叠指引 + 测试按钮 + sibling 表单齐" \
-  || log_bad "v07-CFG-2 LLM 配置引导 UI 缺件" "see integrations.html"
+  && [ "$_cfg2_n" -ge 3 ] && [ "$_cfg2_help" -ge "$_cfg2_n" ] && [ -z "$_cfg2_bad" ]; } \
+  && log_ok "v07-CFG-2 LLM 页 可选说明 + 每个平台各有折叠指引 + 测试按钮 + sibling 表单齐(平台 $_cfg2_n 个)" \
+  || log_bad "v07-CFG-2 LLM 配置引导 UI 缺件" "平台 $_cfg2_n 个 · 折叠指引 $_cfg2_help 段 · 缺按钮:${_cfg2_bad:-ok} · see integrations.html"
 
 # v07-CFG-3 后端测试端点 + 脱敏分类
 { grep -q '/llm/test' "$ICTL" \
@@ -3655,10 +3671,10 @@ LSJ="$RD/src/main/resources/static/js/lens-select.js"
   && grep -q "measures: \['value', 'share'\]" "$LJS" \
   && grep -q "'assetcls'" "$LJS" \
   && grep -q '改资料 →' "$RD/src/main/resources/templates/lens/tags.html" \
-  && grep -q 'orderByPrimaryVendor' "$RD/src/main/java/com/family/finance/service/lens/LensInsightService.java" \
-  && grep -q 'orderByPrimaryVendor' "$RD/src/main/java/com/family/finance/service/lens/LensAiTagService.java" \
+  && grep -q 'llmRouter.invoke(' "$RD/src/main/java/com/family/finance/service/lens/LensInsightService.java" \
+  && grep -q 'llmRouter.invoke(' "$RD/src/main/java/com/family/finance/service/lens/LensAiTagService.java" \
   && grep -q 'min-width:92px' "$LJS"; } \
-  && log_ok "v11-ROUND3 三/四/五轮(打标列对齐+每行改资料/持仓入口 · 指标pills多选默认金额+占比 · 看板按关心度排序默认资产类型 · pivot宽度自适配 · AI follow管理页主选vendor · 洞察信号驱动+缓存)" \
+  && log_ok "v11-ROUND3 三/四/五轮(打标列对齐+每行改资料/持仓入口 · 指标pills多选默认金额+占比 · 看板按关心度排序默认资产类型 · pivot宽度自适配 · AI 走 LlmRouter(主备编排由管理页配置决定)· 洞察信号驱动+缓存)" \
   || log_bad "v11-ROUND3 第三轮修复缺件" "see lens.js/tags.html/_region.html/LensController/LensInsightService"
 
 # v11-CASHROW · 券商现金部分语义(2026-07-17 修遗漏):透视头寸 cashRow 定死 现金活钱/货币基金/存款/低风险/灵活取用;
@@ -3749,9 +3765,9 @@ LSJ="$RD/src/main/resources/static/js/lens-select.js"
 { grep -q '严禁做任何计算' "$RD/src/main/java/com/family/finance/service/review/ReviewInsightService.java" \
   && grep -q 'anonymize' "$RD/src/main/java/com/family/finance/service/review/ReviewInsightService.java" \
   && grep -q 'review_ai_cache' "$RD/db/migration/V48__review_and_rebalance_plan.sql" \
-  && grep -q 'orderByPrimaryVendor' "$RD/src/main/java/com/family/finance/service/review/ReviewInsightService.java" \
+  && grep -q 'llmRouter.invoke(' "$RD/src/main/java/com/family/finance/service/review/ReviewInsightService.java" \
   && grep -q '/review/insight' "$RD/src/main/java/com/family/finance/web/review/ReviewController.java"; } \
-  && log_ok "v12-REVIEW-AI 月度复盘(信号驱动+V48缓存+脱敏+禁算+follow主选vendor)" \
+  && log_ok "v12-REVIEW-AI 月度复盘(信号驱动+V48缓存+脱敏+禁算+走 LlmRouter 主备编排)" \
   || log_bad "v12-REVIEW-AI 复盘缺件" "see ReviewInsightService/ReviewController/V48"
 
 # v12-PLAN · 再平衡闭环(采纳/80%核销/关账归档/铁律)
@@ -3933,19 +3949,22 @@ ECF="$RD/src/main/java/com/family/finance/web/entry/EntryController.java"
   && log_ok "v14-REFRESH-COUNT 刷新估值 toast 分母 = markets.size() 动态(不再写死 3)" \
   || log_bad "v14-REFRESH-COUNT 刷新估值 toast 仍写死市场数(会误报 X/3)" "see EntryController.refreshStocks"
 
-# v14-LLM-VENDOR · LLM 主选供应商可配 + 温度 + 模型级联(FR-B)
+# v14-LLM-VENDOR · LLM 主选可配 + 温度 + 型号选择(FR-B)
+#   v1.13 把「供应商 + 型号」两级换成「平台 → 系列 → 型号」三级:主选键从 llm_primary_vendor
+#   变成 llm_platform/llm_family/llm_model_id,排序从 LlmDiagnoseService.orderByPrimaryVendor
+#   搬到 LlmRouter。这里守的仍是同一件用户可见的事 —— 主选可配、温度可配、型号能选。
 FCS="$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java"
-LDS="$RD/src/main/java/com/family/finance/service/checkup/llm/LlmDiagnoseService.java"
-QLC="$RD/src/main/java/com/family/finance/service/checkup/llm/QwenLlmClient.java"
 ICF="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"
 INTG="$RD/src/main/resources/templates/admin/integrations.html"
-{ grep -q 'K_LLM_PRIMARY_VENDOR' "$FCS" && grep -q 'K_LLM_TEMPERATURE' "$FCS" && grep -q 'K_LLM_MODEL' "$FCS" \
-  && grep -q 'orderByPrimaryVendor' "$LDS" \
-  && grep -q 'currentTemperature' "$QLC" && grep -q 'pinnedModel' "$QLC" \
-  && grep -q 'normalizeLlmModel' "$ICF" \
-  && grep -q 'name="primaryVendor"' "$INTG" && grep -q 'id="llmModelSel"' "$INTG" && grep -q 'syncLlmModels' "$INTG"; } \
-  && log_ok "v14-LLM-VENDOR 主选供应商(默认Qwen·可切DS)+ 温度可配 + 模型级联下拉(内置清单·越权回落auto)" \
-  || log_bad "v14-LLM-VENDOR LLM 自选链路缺" "see FamilyConfigService/LlmDiagnoseService/QwenLlmClient/IntegrationsController/integrations.html"
+ABS="$RD/src/main/java/com/family/finance/service/checkup/llm/AbstractOpenAiCompatibleClient.java"
+{ grep -q 'K_LLM_PLATFORM' "$FCS" && grep -q 'K_LLM_TEMPERATURE' "$FCS" && grep -q 'K_LLM_MODEL_ID' "$FCS" \
+  && grep -q 'LlmSettings.load' "$RD/src/main/java/com/family/finance/service/checkup/llm/LlmRouter.java" \
+  && grep -q 'currentTemperature' "$ABS" \
+  && grep -q 'parseTriple' "$ICF" \
+  && grep -q 'name="platform"' "$INTG" && grep -q 'name="modelId"' "$INTG" \
+  && grep -q 'data-catalog' "$INTG"; } \
+  && log_ok "v14-LLM-VENDOR 主选可配(平台/系列/型号三级)+ 温度可配 + 级联下拉数据源来自目录" \
+  || log_bad "v14-LLM-VENDOR LLM 自选链路缺" "see FamilyConfigService/LlmRouter/AbstractOpenAiCompatibleClient/IntegrationsController/integrations.html"
 
 # v14.1-UAT · 面向用户不泄露英文枚举/代码([[feedback_user_friendly_naming]])· UAT 巡检修
 REG_REPORT="$RD/src/main/resources/templates/reports/_region.html"
@@ -4188,7 +4207,7 @@ NVNAV="$RD/src/main/resources/templates/fragments/nav.html"
 
 # v14-HOLDING-IMPORT · 持仓截图智能解析(视觉识别→三态比对→确认落库)· 关键护栏静态断言
 HISVC="$RD/src/main/java/com/family/finance/service/holdingimport/HoldingImportService.java"
-HIVIS="$RD/src/main/java/com/family/finance/service/holdingimport/QwenVisionClient.java"
+HIVIS="$RD/src/main/java/com/family/finance/service/holdingimport/VisionLlmClient.java"   # v1.13 前叫 QwenVisionClient
 HICTL="$RD/src/main/java/com/family/finance/web/holdingimport/HoldingImportController.java"
 HIVAL="$RD/src/main/java/com/family/finance/service/stock/AccountValuationService.java"
 HIHOLD="$RD/src/main/java/com/family/finance/service/stock/StockHoldingService.java"
@@ -4197,7 +4216,7 @@ HIROW="$RD/src/main/resources/templates/entry/_row.html"
   && grep -q 'holding_import' "$RD/db/migration/V50__holding_import.sql" \
   && grep -q 'ref_import_id' "$RD/db/migration/V50__holding_import.sql" \
   && grep -q 'VARCHAR(16)' "$RD/db/migration/V49__holding_screenshot_tags.sql" \
-  && grep -q 'K_LLM_VISION_MODEL' "$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java" \
+  && grep -q 'K_LLM_VISION_PLATFORM' "$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java" \
   && grep -q '只转写\|不做任何计算\|绝不计算' "$HIVIS" \
   && grep -q 'SYNC_SOURCE = "SCREENSHOT"' "$HISVC" \
   && grep -q 'UPDATE\|NEW\|SOLD' "$HISVC" \
@@ -4208,7 +4227,7 @@ HIROW="$RD/src/main/resources/templates/entry/_row.html"
   && grep -q 'entry/import' "$HIROW" \
   && grep -q '/entry/import/item' "$HICTL"; } \
   && log_ok "v14-HOLDING-IMPORT 持仓截图导入(V49/V50 迁移 + 视觉禁算 + SCREENSHOT 隔离 + 三态 + IMPORT 估值交接 + WEALTH/CASH 放开+无持仓不接管红线 + 填报入口)" \
-  || log_bad "v14-HOLDING-IMPORT 持仓截图导入缺件" "see HoldingImportService/QwenVisionClient/AccountValuationService/StockHoldingService/entry/_row.html + V49/V50"
+  || log_bad "v14-HOLDING-IMPORT 持仓截图导入缺件" "see HoldingImportService/VisionLlmClient/AccountValuationService/StockHoldingService/entry/_row.html + V49/V50"
 
 # v142-ENTRY-IMPORT-FIX · v1.4.2 五点(流水删除 bug + 转账双账户确认 + 导入回来源页 + 划转主理人头像 + 手机AI徽记 + 图片查看删除)
 HICTL2="$RD/src/main/java/com/family/finance/web/entry/EntryController.java"
@@ -5076,6 +5095,12 @@ CLEAN="$RD/docker/clean-dev-data.sh"; DEP="$RD/deploy/deploy.sh"; ENTP="$RD/dock
 #      现在:优先 GHCR(latest_image_tag),GitHub release 降为补充信息 ——
 #      release 比镜像新时提示"镜像还在 CI 里(约 12 分钟);久等不来说明构建失败了"。
 DUPX="$DUP"
+# 发布 skill 的两个文件在 `.claude/` 下,而 `.claude/` 整棵被 .gitignore 忽略 ——
+# 它只存在于**主工作区**,不会跟着 `git worktree add` 复制过去。
+# 在 issue worktree 里跑 qa-run 时,原来这三条 grep 全部 "No such file" → 整条假红。
+# 用 `git rev-parse --git-common-dir` 找回主工作区(linked worktree 下它给的是主仓 .git 的绝对路径)。
+RPD="$RD/.claude/skills/release-prod"
+[ -d "$RPD" ] || RPD="$(dirname "$(cd "$RD" && git rev-parse --git-common-dir 2>/dev/null || echo "$RD/.git")")/.claude/skills/release-prod"
 { grep -q '^latest_image_tag()' "$DUPX" && grep -q '^ver_gt()' "$DUPX" \
   && grep -qF 'ghcr.io/v2/${repo}/tags/list' "$DUPX" \
   && grep -qF '查不到最新版本' "$DUPX" \
@@ -5084,12 +5109,12 @@ DUPX="$DUP"
   && grep -qF '镜像还没推上来' "$DUPX" \
   && grep -qF '镜像是否已发布未确认' "$DUPX" \
   && grep -qF 'FINANCE_NO_UPDATE_CHECK' "$DUPX" \
-  && grep -q '^verify-image)' "$RD/.claude/skills/release-prod/release.sh" \
-  && grep -qF 'ghcr.io/v2/${REPO}/manifests/' "$RD/.claude/skills/release-prod/release.sh" \
-  && grep -qF '镜像发布验证失败' "$RD/.claude/skills/release-prod/release.sh" \
-  && grep -qF '阶段 3.5 · Docker 镜像发布验证(必做' "$RD/.claude/skills/release-prod/SKILL.md" \
-  && grep -qF 'prod 健康' "$RD/.claude/skills/release-prod/SKILL.md" \
-  && bash -n "$DUPX" && bash -n "$RD/.claude/skills/release-prod/release.sh"; } \
+  && grep -q '^verify-image)' "$RPD/release.sh" \
+  && grep -qF 'ghcr.io/v2/${REPO}/manifests/' "$RPD/release.sh" \
+  && grep -qF '镜像发布验证失败' "$RPD/release.sh" \
+  && grep -qF '阶段 3.5 · Docker 镜像发布验证(必做' "$RPD/SKILL.md" \
+  && grep -qF 'prod 健康' "$RPD/SKILL.md" \
+  && bash -n "$DUPX" && bash -n "$RPD/release.sh"; } \
   && log_ok "v1627-UPDATE-TRUTH(更新检查以 GHCR tag 列表为权威 + 查不到明确说出来 + release/GHCR 不一致时归因 CI · 发布加必做阶段 3.5 verify-image 探 manifest)" \
   || log_bad "v1627-UPDATE-TRUTH 缺件" "see deploy/docker-up.sh(latest_image_tag 问 GHCR tags/list + ver_gt + 四种文案:查不到最新版本/已是最新可用镜像/有新版镜像/镜像还没推上来/镜像是否已发布未确认)· release.sh(verify-image 子命令 + 探 manifests + die)· SKILL.md(阶段 3.5 必做 + prod 健康≠发布完成)"
 
@@ -6197,6 +6222,105 @@ WLT="$RD/src/main/resources/templates/reports/_wealth-level.html"
   && grep -q 'if (!enabled(familyId))' "$UCS"; } \
   && log_ok "v19-UPD-OFF-NO-CALL(Job 与 checkNow 都在最前面判 enabled)" \
   || log_bad "v19-UPD-OFF-NO-CALL 判定位置不对" "UpdateCheckJob.run 与 UpdateCheckService.checkNow 的第一件事都必须是判 enabled"
+
+# ---------- v1.13 · LLM 平台化 ----------
+section "v1.13 · LLM 平台化(平台/系列/型号三级 · 主备编排收口 · 目录唯一一份)"
+
+LLMPKG="$RD/src/main/java/com/family/finance/service/checkup/llm"
+LLMTEST="$RD/src/test/java/com/family/finance/service/checkup/llm"
+INTGC="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"
+INTGH="$RD/src/main/resources/templates/admin/integrations.html"
+# 型号名长这样 —— 目录之外任何地方出现都是「第二份清单」
+MODELPAT='qwen-plus|qwen-flash|qwen-max|qwen-vl-|deepseek-chat|deepseek-reasoner'
+
+# v113-LLM-ROUTER-SINGLE-PATH · 六个业务调用点只许拿 LlmRouter,一个都不许自己碰 LlmClient
+#   v1.12 的 bug 就长在这:六处各自注入 List<LlmClient> 裸遍历,管理页选的「主选」只对其中一处生效,
+#   另外五处永远按 Spring 的 bean 顺序走 —— 不报错、不告警,只是那个配置项形同虚设。
+#   所以这里逐个点名,而不是只断言 LlmRouter 自己存在(存在但没人用,正是当初的状态)。
+#   否定断言必须走 java_code_only:这几个类的 javadoc 里正写着「不再注入 List<LlmClient>」。
+LLM_SITES="src/main/java/com/family/finance/service/checkup/llm/LlmDiagnoseService.java
+src/main/java/com/family/finance/service/lens/LensInsightService.java
+src/main/java/com/family/finance/service/lens/LensAiTagService.java
+src/main/java/com/family/finance/service/allocation/RebalanceAdvisorService.java
+src/main/java/com/family/finance/service/goal/GoalLlmService.java
+src/main/java/com/family/finance/service/review/ReviewInsightService.java"
+_llm_site_bad=""
+while read -r _s; do
+  [ -z "$_s" ] && continue
+  [ -f "$RD/$_s" ] || { _llm_site_bad="$_llm_site_bad ${_s##*/}(文件没了)"; continue; }
+  grep -q 'llmRouter.invoke(' "$RD/$_s" || _llm_site_bad="$_llm_site_bad ${_s##*/}(没走router)"
+  java_code_only "$RD/$_s" | grep -q 'LlmClient' && _llm_site_bad="$_llm_site_bad ${_s##*/}(仍直接碰client)"
+done <<< "$LLM_SITES"
+# List<LlmClient> 的注入只许出现在 LlmRouter 一处;单个平台的 client(管理页「测试连接」按钮要指名道姓)
+# 只许从 llmRouter.clientFor(...) 拿 —— 那是路由给出的,不是绕过路由。
+_llm_inject_bad=""
+for _f in $(grep -rl 'List<LlmClient>' "$RD/src/main/java" 2>/dev/null); do
+  case "$_f" in */LlmRouter.java) continue;; esac
+  java_code_only "$_f" | grep -q 'List<LlmClient>' && _llm_inject_bad="$_llm_inject_bad ${_f##*/}"
+done
+{ [ -z "$_llm_site_bad" ] && [ -z "$_llm_inject_bad" ] \
+  && grep -q 'llmRouter.clientFor(' "$INTGC" \
+  && grep -q 'everyCallSite_holdsTheRouter_andNoClientAtAll' "$LLMTEST/LlmCallSiteRoutingTest.java"; } \
+  && log_ok "v113-LLM-ROUTER-SINGLE-PATH 六个调用点全部只持 LlmRouter(主备编排唯一一条路径)" \
+  || log_bad "v113-LLM-ROUTER-SINGLE-PATH 有调用点绕过路由" "调用点:${_llm_site_bad:-ok} · 裸注入:${_llm_inject_bad:-ok} · 见 LlmRouter/LlmCallSiteRoutingTest"
+
+# v113-LLM-CATALOG-SINGLE-SOURCE · 「有哪些平台/系列/型号」全项目只有 LlmCatalog 一份
+#   抄第二份的后果不是报错,是**静默不同步**:目录里加了型号页面选不到、页面写死的型号目录里已下架。
+#   管理页的级联下拉数据来自 data-catalog(服务端把目录序列化过去),不是模板里手写的 <option>。
+_llm_dup=""
+for _f in "$LLMPKG"/*.java; do
+  case "$_f" in */LlmCatalog.java) continue;; esac
+  java_code_only "$_f" | grep -qE "$MODELPAT" && _llm_dup="$_llm_dup ${_f##*/}"
+done
+{ [ -z "$_llm_dup" ] \
+  && grep -q 'PLATFORMS' "$LLMPKG/LlmCatalog.java" \
+  && ! grep -qE "$MODELPAT" "$INTGC" \
+  && grep -q 'llmCatalogJson' "$INTGC" \
+  && grep -q 'data-catalog' "$INTGH" \
+  && ! grep -qE "value=\"($MODELPAT)" "$INTGH" \
+  && grep -q 'QWEN.models()' "$LLMPKG/DashScopeLlmClient.java" \
+  && [ -f "$LLMTEST/LlmCatalogConsistencyTest.java" ]; } \
+  && log_ok "v113-LLM-CATALOG-SINGLE-SOURCE 型号清单只有 LlmCatalog 一份(页面下拉/轮询池都从它来)" \
+  || log_bad "v113-LLM-CATALOG-SINGLE-SOURCE 型号清单被抄了第二份" "llm 包内重复:${_llm_dup:-ok} · 另见 IntegrationsController/integrations.html/DashScopeLlmClient"
+
+# v113-LLM-LEGACY-KEYS-KEPT · 旧键留着但冻结:只读不写
+#   v1.13 没写迁移 SQL —— 老配置由 LlmSettings 读时派生成新三元组(tech-design §1.5)。
+#   这条护栏守两头:①旧键常量不许删(删了 = 升级后第一次打开管理页之前的调用全部失配);
+#   ②不许有人再往旧键里写(写了 = 新旧两套配置各说各话,而且回滚时更糊涂)。
+_llm_frozen_bad=""
+for _k in K_LLM_PRIMARY_VENDOR K_LLM_MODEL K_LLM_VISION_MODEL; do
+  for _f in $(grep -rlw "$_k" "$RD/src/main/java" 2>/dev/null); do
+    case "$_f" in */FamilyConfigService.java|*/LlmSettings.java) continue;; esac
+    _llm_frozen_bad="$_llm_frozen_bad $_k@${_f##*/}"
+  done
+done
+_llm_keys_missing=""
+for _k in K_LLM_QWEN_KEY K_LLM_DEEPSEEK_KEY K_LLM_MAX_TOKENS K_LLM_TIMEOUT_SECS K_LLM_QWEN_MODELS \
+          K_LLM_PRIMARY_VENDOR K_LLM_TEMPERATURE K_LLM_MODEL K_LLM_VISION_MODEL; do
+  grep -qw "$_k" "$FCS" || _llm_keys_missing="$_llm_keys_missing $_k"
+done
+{ [ -z "$_llm_keys_missing" ] && [ -z "$_llm_frozen_bad" ] \
+  && grep -q 'K_LLM_PRIMARY_VENDOR' "$LLMPKG/LlmSettings.java" \
+  && [ -f "$LLMTEST/LlmSettingsMigrationTest.java" ]; } \
+  && log_ok "v113-LLM-LEGACY-KEYS-KEPT 旧键 9 个都在 · 三个「选哪个模型」的旧键只被 LlmSettings 读(无人再写)" \
+  || log_bad "v113-LLM-LEGACY-KEYS-KEPT 旧键被删或被写" "缺:${_llm_keys_missing:-ok} · 越界访问:${_llm_frozen_bad:-ok}"
+
+# v113-LLM-CARD-LAYOUT · 三家凭据列对齐 + 备选组在窄屏有分组线
+#   双端审视时实测出来的两处(改之前的真实数字):
+#     ① PC 三个「测试连接」按钮 y = 726 / 726 / 710 —— 百炼和 DeepSeek 的说明是两行、
+#        方舟一行,按钮跟着各自内容流走。并列同类元素必须对齐,所以三列 flex-col + 按钮 mt-auto,
+#        label 再加 md:min-h 把「已配置(隐藏)/未配置」的一行两行差吃掉。
+#     ② 手机上 384px 宽,主选/备选各三个字段一堆叠 → 组内 11px、组间 15px,差 4px,
+#        六个下拉连成一条,看不出哪三个是一组。备选组补窄屏分隔线(sm: 以上还原,PC 不变)。
+#   这两条都不是「跑得起来」的问题,单测和 e2e 都抓不到,只能钉类名。加第四个平台时
+#   照抄这三列的结构就不会再歪。
+_card_flexcol="$(grep -c 'class="flex flex-col"' "$ICFG")"
+_card_mtauto="$(grep -c 'flex items-center gap-3 mt-auto' "$ICFG")"
+_card_minh="$(grep -c 'field-label md:min-h-\[' "$ICFG")"
+_card_split="$(grep -c 'pt-4 border-t border-rule-soft sm:pt-0 sm:border-t-0' "$ICFG")"
+{ [ "$_card_flexcol" -ge 3 ] && [ "$_card_mtauto" -ge 3 ] && [ "$_card_minh" -ge 3 ] && [ "$_card_split" -ge 1 ]; } \
+  && log_ok "v113-LLM-CARD-LAYOUT 三家凭据列等高对齐(flex-col+mt-auto+min-h)· 备选组窄屏有分组线" \
+  || log_bad "v113-LLM-CARD-LAYOUT 凭据列或分组间距回退" "flex-col $_card_flexcol/3 · mt-auto $_card_mtauto/3 · min-h $_card_minh/3 · 窄屏分隔 $_card_split/1 · see integrations.html"
 
 echo
 echo "═══════════════════════════════════════"

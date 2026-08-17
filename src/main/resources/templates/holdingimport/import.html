@@ -42,13 +42,13 @@
   </section>
   <section th:if="${visionUnavailable}" class="paper-card p-6">
     <h1 class="font-display text-2xl mb-2">截图导入持仓</h1>
-    <p class="text-ink-soft text-sm">视觉识别未启用。请到 <a th:href="@{/admin/integrations}" class="text-brass-deep">管理 · 集成中心</a> 配置通义千问 key 并选视觉模型。</p>
+    <p class="text-ink-soft text-sm">视觉识别未启用。请到 <a th:href="@{/admin/integrations}" class="text-brass-deep">管理 · 集成中心</a> 打开截图识别,并为所选平台配好密钥与视觉型号。</p>
   </section>
 
   <div th:if="${imp != null}">
     <div class="flex items-baseline justify-between flex-wrap gap-2 mb-4">
       <h1 class="font-display text-2xl">截图导入持仓 · <span th:text="${account.displayName}">账户</span></h1>
-      <span class="font-mono text-[11px] text-ink-subtle">视觉模型 · <span th:text="${visionModel}">qwen-vl-max</span></span>
+      <span class="font-mono text-[11px] text-ink-subtle">视觉模型 · <span th:text="${visionPlatform}">阿里云百炼</span> · <span th:text="${visionModel}">qwen-vl-max</span></span>
     </div>
 
     <!-- ===== 上传 + 识别(一步流)===== -->
