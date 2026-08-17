@@ -5,6 +5,7 @@ import com.family.finance.domain.audit.AuditLogType;
 import com.family.finance.service.AuditLogService;
 import com.family.finance.service.NavService;
 import com.family.finance.service.broker.opend.FutuOpendManager;
+import com.family.finance.service.broker.opend.OpendChannel;
 import com.family.finance.service.config.FamilyConfigService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -63,11 +64,11 @@ public class FutuOpendController {
                     model.addAttribute("ctxAccountName", a.getDisplayName());
                 });
         }
-        FutuOpendManager.Status st = opend.status();
+        OpendChannel.Status st = opend.status();
         model.addAttribute("status", st);
         // step-by-step 首屏判定(JS 轮询后同步更新):装好第 1 步才展示第 2 步;运行中收起表单
         model.addAttribute("installed", st.version() != null);
-        model.addAttribute("running", st.phase() == FutuOpendManager.Phase.RUNNING);
+        model.addAttribute("running", st.phase() == OpendChannel.Phase.RUNNING);
         model.addAttribute("channel", opend.env().name());
         model.addAttribute("osTag", opend.detectedOsTag());
         // 版本号会随官网更新 → 给个占位示例,让用户去官网确认最新号
@@ -77,16 +78,16 @@ public class FutuOpendController {
 
     @GetMapping("/status")
     @ResponseBody
-    public FutuOpendManager.Status status() { return opend.status(); }
+    public OpendChannel.Status status() { return opend.status(); }
 
     @GetMapping("/deps")
     @ResponseBody
-    public FutuOpendManager.Deps deps() { return opend.checkDeps(); }
+    public OpendChannel.Deps deps() { return opend.checkDeps(); }
 
     /** 环境自检(可执行位/属主/家目录可写/OpenD 数据目录可写/依赖 · 结合 docker/linux/mac)。 */
     @GetMapping("/selfcheck")
     @ResponseBody
-    public FutuOpendManager.SelfCheck selfCheck() { return opend.selfCheck(); }
+    public OpendChannel.SelfCheck selfCheck() { return opend.selfCheck(); }
 
     /**
      * OpenD 台测试连接:用全局默认凭据(link=null → 本机托管的 OpenD)只拉一次账户/资产验证只读链路。
