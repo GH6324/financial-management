@@ -486,15 +486,19 @@ public class LocalProcessChannel implements OpendChannel {
             log(clean(out));
             OpendTelnet.Step step = OpendTelnet.stepFromPrompt(out);
 
-            if (step == OpendTelnet.Step.WANT_ACCOUNT) {
+            // 【实测教训】不能靠"首次读到什么"决定要不要发账号:OpenD 把事件广播给所有控制口客户端,
+            // 新连上时可能先收到上一次操作的残留(例如上回失败的「账号错误」)→ 会被判成 FAILED 就不喂了。
+            // 除了"已经登录"以外,一律先把账号喂进去,再看它要什么。
+            if (step != OpendTelnet.Step.LOGGED_IN) {
                 s.sendLine(account); log("已发送账号");
                 out = s.readFor(3500); log(clean(out));
                 step = OpendTelnet.stepFromPrompt(out);
-            }
-            if (step == OpendTelnet.Step.WANT_PASSWORD) {
-                s.sendLine(pwdPlain); log("已发送密码(不记录内容)");
-                out = s.readFor(6000); log(clean(out));
-                step = OpendTelnet.stepFromPrompt(out);
+
+                if (step != OpendTelnet.Step.LOGGED_IN && step != OpendTelnet.Step.WANT_SMS) {
+                    s.sendLine(pwdPlain); log("已发送密码(不记录内容)");
+                    out = s.readFor(6000); log(clean(out));
+                    step = OpendTelnet.stepFromPrompt(out);
+                }
             }
             applyStep(step);
             this.ctl = s;

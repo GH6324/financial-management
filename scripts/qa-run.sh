@@ -4186,14 +4186,16 @@ OWCFG="$RD/src/main/java/com/family/finance/service/broker/opend/OpendConfigXml.
   || log_bad "v117-DL-HOST OpenD 下载定位过期(原生路径也会点不动)" "see OpendRelease.java / LocalProcessChannel.java / broker/opend-wizard.html"
 
 # v117-NO-TELNET-EXPOSE · OpenD 那个**没有鉴权**的 telnet 控制口不许对网络开放(v1.17)
-# 实测(2026-08-17):官方模板里 telnet_ip 默认就是 0.0.0.0 —— 连上就能重登/发验证码/退进程。
-# 所以我们生成配置时把它按死成回环地址,而且不给调用方留参数(不是配置项,是红线)。
+# 实测(2026-08-17 容器实跑):官方模板把 telnet_ip/telnet_port **整行注释掉**(默认不启用控制口),
+# 所以要用它就得"取消注释再设值"—— 只替换标签内容会把值改进注释里,OpenD 压根不启用控制口
+# (日志连「Telnet监听地址」都不打印,表现为登录连不上)。取消注释时地址按死回环,不给调用方留参数。
 { [ -f "$OWCFG" ] \
   && grep -q 'TELNET_IP = "127.0.0.1"' "$OWCFG" \
-  && grep -q 'setTag(s, "telnet_ip", TELNET_IP)' "$OWCFG" \
+  && grep -q 'setOrEnableTag(s, "telnet_ip", TELNET_IP)' "$OWCFG" \
   && ! grep -q 'String telnetIp' "$OWCFG" \
-  && grep -q 'isInsideComment' "$OWCFG"; } \
-  && log_ok "v117-NO-TELNET-EXPOSE 控制口按死 127.0.0.1(官方默认 0.0.0.0 被覆盖)· 注释里的同名标签不误改" \
+  && grep -q 'isInsideComment' "$OWCFG" \
+  && grep -q 'setOrEnableTag' "$OWCFG"; } \
+  && log_ok "v117-NO-TELNET-EXPOSE 控制口取消注释后按死 127.0.0.1(官方默认整行注释=不启用)· 注释里的同名标签不误改" \
   || log_bad "v117-NO-TELNET-EXPOSE 无鉴权控制口可能对网络开放" "see OpendConfigXml.java"
 
 # v117-HASH-PINNED · 安装包哈希钉在仓库里,校验不过必须拒装(v1.17)
@@ -4223,6 +4225,50 @@ OWJSON="$RD/deploy/futu-opend-releases.json"
   && ! grep -q '官方 md5\|官方公布的 sha' "$OWJSON"; } \
   && log_ok "v117-HASH-HONEST 清单与接口如实写明「官方不公布校验和 · 这些哈希是我们算的」+ 给出 etag 交叉验证法与其边界" \
   || log_bad "v117-HASH-HONEST 哈希来源表述不诚实(不许写成已比对官方 md5)" "see deploy/futu-opend-releases.json / FutuOpendController#catalog"
+
+# v117-LAUNCHER · 可选网关镜像的构建与发布链完整(v1.17)
+# 我们在替用户托管一个能操作券商账户的组件,所以三件事必须都在:
+#  ① 镜像里没有富途文件 —— 由 CI 扫【export 出来的全部层】证明(grep Dockerfile 只能证明"我没写")
+#  ② 按 digest 可拉 + provenance 可验签
+#  ③ 那个无鉴权的控制口不许 EXPOSE(更不许 publish)
+FUTUDF="$RD/docker/futu-opend/Dockerfile"
+FUTUEP="$RD/docker/futu-opend/entrypoint.sh"
+FUTUCL="$RD/docker/futu-opend/control-loop.sh"
+FUTUSCAN="$RD/scripts/scan-image-no-futu.sh"
+WF="$RD/.github/workflows/docker-publish.yml"
+{ [ -f "$FUTUDF" ] && [ -f "$FUTUEP" ] && [ -f "$FUTUCL" ] && [ -f "$FUTUSCAN" ] \
+  && grep -q 'useradd' "$FUTUDF" \
+  && grep -q 'EXPOSE 11111' "$FUTUDF" && ! grep -q 'EXPOSE.*22222' "$FUTUDF" \
+  && ! grep -qE '^\s*(COPY|ADD).*(Futu_?OpenD|\.tar\.gz)' "$FUTUDF" \
+  && grep -q 'scan-image-no-futu.sh' "$WF" \
+  && grep -q 'attest-build-provenance' "$WF" \
+  && grep -q 'provenance: true' "$WF" \
+  && grep -q 'sha256sum' "$FUTUEP" \
+  && grep -q 'getent passwd' "$FUTUEP" \
+  && grep -q 'telnet_ip>127.0.0.1' "$FUTUEP" \
+  && bash -n "$FUTUEP" && bash -n "$FUTUCL" && bash -n "$FUTUSCAN"; } \
+  && log_ok "v117-LAUNCHER 镜像不打包富途制品(CI 扫全部层)+ 自建用户(否则 OpenD 段错误)+ 只 EXPOSE 11111 + 下载校验 sha256 + provenance 可验签" \
+  || log_bad "v117-LAUNCHER 网关镜像构建/发布链缺件" "see docker/futu-opend/ · scripts/scan-image-no-futu.sh · .github/workflows/docker-publish.yml"
+
+# v117-CTL-KEYWORDS · 控制口登录状态机的关键词【两处必须一致】(v1.17)
+# app 连不到容器内的控制口,所以网关容器里那份状态机是 bash 写的 —— 同一套判定天生有两份实现。
+# 这条护栏钉住:双方认同一批关键词,而且"失败"关键词在两边都排在"验证码"之前
+# (「验证码错误」也含「验证码」,顺序错了会把失败当成"再要一次码")。
+OWTEL2="$RD/src/main/java/com/family/finance/service/broker/opend/OpendTelnet.java"
+CTLKW_OK=1
+for kw in 请输入账号 请输入密码 验证码错误 登录成功 登录失败; do
+  grep -q "$kw" "$OWTEL2" || CTLKW_OK=0
+  grep -q "$kw" "$FUTUCL" || CTLKW_OK=0
+done
+JAVA_FAIL_POS=$(grep -n '验证码错误' "$OWTEL2" | head -1 | cut -d: -f1)
+JAVA_SMS_POS=$(grep -n 'contains("验证码")' "$OWTEL2" | head -1 | cut -d: -f1)
+BASH_FAIL_POS=$(grep -n '验证码错误' "$FUTUCL" | head -1 | cut -d: -f1)
+BASH_SMS_POS=$(grep -n '^\s*\*验证码\*' "$FUTUCL" | head -1 | cut -d: -f1)
+{ [ "$CTLKW_OK" = "1" ] \
+  && [ -n "$JAVA_FAIL_POS" ] && [ -n "$JAVA_SMS_POS" ] && [ "$JAVA_FAIL_POS" -lt "$JAVA_SMS_POS" ] \
+  && [ -n "$BASH_FAIL_POS" ] && [ -n "$BASH_SMS_POS" ] && [ "$BASH_FAIL_POS" -lt "$BASH_SMS_POS" ]; } \
+  && log_ok "v117-CTL-KEYWORDS Java 与 bash 两份状态机认同一批提示词,且「失败」判定都排在「验证码」之前" \
+  || log_bad "v117-CTL-KEYWORDS 控制口状态机两处不一致(改一边漏一边)" "see OpendTelnet.java stepFromPrompt / docker/futu-opend/control-loop.sh step_of"
 
 # v12-2-FONTSCALE · 全局字号调节(issue #7)· 标准档零回归(calc×var,scale=1 等价)+ 5 层覆盖 + 控件 + FOUC + 图表跟随
 FSCSS="$RD/src/main/resources/static/css/style.css"

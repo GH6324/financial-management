@@ -12,9 +12,14 @@ import java.util.regex.Pattern;
  * <p><b>基于官方模板改,而不是自己写一份</b>:官方包里自带 {@code FutuOpenD.xml},字段会随版本演进;
  * 我们只把关心的几个值换掉,其余原样保留。生成的副本写到我们自己的目录,不动包内文件(幂等、可重复安装)。</p>
  *
- * <p><b>安全要点(2026-08-17 实测)</b>:官方模板里 {@code telnet_ip} 的默认值是 {@code 0.0.0.0} ——
- * 也就是那个<b>没有鉴权</b>的控制口默认对所有网络接口开放,连上就能重登、发验证码、退进程。
- * 所以这里把它<b>硬编码</b>成 {@code 127.0.0.1},不给调用方留参数。这不是配置项,是红线。</p>
+ * <p><b>控制口(2026-08-17 在容器里实跑才看清)</b>:官方模板把 {@code telnet_ip} / {@code telnet_port}
+ * <b>整行注释掉了</b>(示例值 {@code 127.0.0.1} / {@code 22222}),也就是控制口<b>默认不启用</b>。
+ * 我们要用它喂账号密码,所以必须<b>取消注释</b>并写值 —— 而它<b>没有任何鉴权</b>(连上就能重登、发验证码、
+ * 退进程),所以地址被<b>硬编码</b>成 {@code 127.0.0.1},不给调用方留参数。这不是配置项,是红线。</p>
+ *
+ * <p>踩过的坑:第一版只有 {@link #setTag}(会刻意跳过注释里的同名标签),于是"改了值"其实改在注释里,
+ * OpenD 根本没启用控制口 —— 日志里连 {@code Telnet监听地址} 那行都不会出现,表现为交互登录连不上。
+ * 单测里的模板必须照抄官方那种<b>注释形态</b>,否则测试全绿而现实不通。</p>
  */
 public final class OpendConfigXml {
 
@@ -38,14 +43,37 @@ public final class OpendConfigXml {
         String s = officialXml;
         s = setTag(s, "ip", apiIp);
         s = setTag(s, "api_port", String.valueOf(apiPort));
-        s = setTag(s, "telnet_ip", TELNET_IP);
-        s = setTag(s, "telnet_port", String.valueOf(telnetPort));
+        // 控制口:官方默认整行注释掉 → 必须"取消注释并设值",光 setTag 会改到注释里去
+        s = setOrEnableTag(s, "telnet_ip", TELNET_IP);
+        s = setOrEnableTag(s, "telnet_port", String.valueOf(telnetPort));
         s = setTag(s, "lang", "chs");
         s = setTag(s, "log_level", "info");
         if (rsaKeyPath != null && !rsaKeyPath.isBlank()) {
-            s = enableRsa(s, rsaKeyPath);
+            s = setOrEnableTag(s, "rsa_private_key", rsaKeyPath);
         }
         return s;
+    }
+
+    /**
+     * 设值;字段<b>被注释掉</b>时先取消注释。
+     *
+     * <p>官方模板里 telnet 与 rsa 这类"进阶参数"都是注释状态的示例行,不取消注释等于没配。</p>
+     */
+    static String setOrEnableTag(String xml, String tag, String value) {
+        // 已是活跃标签 → 直接改值(重复渲染也走这里,保持幂等)
+        Matcher live = Pattern.compile("<" + tag + ">([^<]*)</" + tag + ">").matcher(xml);
+        while (live.find()) {
+            if (!isInsideComment(xml, live.start())) return setTag(xml, tag, value);
+        }
+        // 注释形态:<!-- <tag>示例</tag> -->
+        Matcher m = Pattern.compile("<!--\\s*<" + tag + ">[^<]*</" + tag + ">\\s*-->").matcher(xml);
+        if (m.find()) {
+            return xml.substring(0, m.start()) + "<" + tag + ">" + value + "</" + tag + ">" + xml.substring(m.end());
+        }
+        // 模板里连注释都没有 → 插在 </futu_opend> 前
+        int end = xml.lastIndexOf("</futu_opend>");
+        if (end < 0) return xml;
+        return xml.substring(0, end) + "\t\t<" + tag + ">" + value + "</" + tag + ">\n" + xml.substring(end);
     }
 
     /**
@@ -71,17 +99,4 @@ public final class OpendConfigXml {
         return close < 0 || close > pos;
     }
 
-    /** 打开 RSA:官方模板里这一行是注释掉的,换成活跃标签。 */
-    static String enableRsa(String xml, String keyPath) {
-        Matcher m = Pattern.compile("<!--\\s*<rsa_private_key>[^<]*</rsa_private_key>\\s*-->").matcher(xml);
-        if (m.find()) {
-            return xml.substring(0, m.start()) + "<rsa_private_key>" + keyPath + "</rsa_private_key>" + xml.substring(m.end());
-        }
-        // 已经是活跃标签(重复生成)→ 直接改值
-        if (Pattern.compile("<rsa_private_key>").matcher(xml).find()) return setTag(xml, "rsa_private_key", keyPath);
-        // 模板里连注释都没有 → 插在 </futu_opend> 前
-        int end = xml.lastIndexOf("</futu_opend>");
-        if (end < 0) return xml;
-        return xml.substring(0, end) + "\t\t<rsa_private_key>" + keyPath + "</rsa_private_key>\n" + xml.substring(end);
-    }
 }

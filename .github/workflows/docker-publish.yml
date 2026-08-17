@@ -9,6 +9,8 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write        # v1.17 · 发布 provenance attestation(用户可用 gh attestation verify 核对来源)
+  attestations: write
 
 jobs:
   build-push:
@@ -46,6 +48,88 @@ jobs:
             CN_MIRROR=0
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # v1.17 · 富途 OpenD 网关 launcher(**可选组件**:默认 compose 不拉它,用户显式 --profile futu 才启用)
+  #
+  # 这个镜像里【没有富途的任何文件】—— 它只有一个下载器 + 两个 shell 脚本 + 我们核对过的哈希清单;
+  # OpenD 是容器首启时从富途官网下载的。因为我们在替用户托管一个能操作券商账户的组件,所以这里做三件事:
+  #   1) 构建后扫镜像层,一旦出现富途制品就让构建失败(不是 grep Dockerfile,是看 export 出来的全部层)
+  #   2) 发布 provenance attestation,用户可以 `gh attestation verify` 核对"这个镜像真是这份源码构建的"
+  #   3) 把 digest 打进 job summary,方便贴到 Release 页与向导页(用户按 digest 拉,不认 tag)
+  build-push-futu-launcher:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/luodi-nate/financial-management-futu-opend
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest
+
+      # 先只构建到本地 daemon(单架构),扫过了再推 —— 别把没扫过的东西先推上去
+      - uses: docker/build-push-action@v6
+        id: local
+        with:
+          context: .
+          file: docker/futu-opend/Dockerfile
+          load: true
+          push: false
+          tags: futu-opend-launcher:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 镜像层里不许有富途制品
+        run: bash scripts/scan-image-no-futu.sh futu-opend-launcher:scan
+
+      - uses: docker/build-push-action@v6
+        id: push
+        with:
+          context: .
+          file: docker/futu-opend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: true
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ghcr.io/luodi-nate/financial-management-futu-opend
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: 把 digest 与校验命令写进 summary
+        run: |
+          D='${{ steps.push.outputs.digest }}'
+          {
+            echo "## 富途网关 launcher 已发布"
+            echo ""
+            echo '```'
+            echo "ghcr.io/luodi-nate/financial-management-futu-opend@$D"
+            echo '```'
+            echo ""
+            echo "用户自查(三条):"
+            echo '```bash'
+            echo "docker pull ghcr.io/luodi-nate/financial-management-futu-opend@$D"
+            echo "gh attestation verify --repo ${{ github.repository }} oci://ghcr.io/luodi-nate/financial-management-futu-opend@$D"
+            echo "docker run --rm --entrypoint ls ghcr.io/luodi-nate/financial-management-futu-opend@$D /opt/futu"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # 把 mysql:8.0 原样镜像一份到 GHCR。原因:大陆直连 GHCR、Docker Hub 被限速,
   # 而 compose 里 db 用的 mysql:8.0 曾把大陆新手卡死在第一步(v1.6.21)。
