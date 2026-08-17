@@ -1,38 +1,37 @@
 {
  "_comment": "每次发版按核心能力改清单(PC 用 selector 裁剪聚焦;手机不裁剪、整屏 full=false 平铺 —— 用户定 2026-07-11)",
- "_version": "v1.12.0 · Release 页用的一组(隐私模式默认开)。清单只留不含金额的两处:开隐私之后凡是 data-priv 的整片都会糊成一团 —— 实拍验证过,三列对照表整张糊掉,放公开页没有意义。同理 FR-353 的降级文案也没进来(它既要造数据才出现,文案本身又在 data-priv 里)。复验那组(SHOT_PRIVACY=0 + 造数据)见 docs/qa-cases.md 的 v112-RATIO-INSUFFICIENT。",
+ "_version": "v1.16.0 · 四版同批发布(v1.13 LLM 路由收口无 UI / v1.14 拖拽粘贴上传 / v1.15 成员身份 / v1.16 开账即已填)。清单只留两处有可见 UI 且不含金额的:拖拽上传区、成员卡片。v1.16 的「开账即已填」是口径修正(徽标数字),需要 OPEN 账期与特定数据态才看得出来,不为截图去改 beta 数据 —— 说明写进 release notes。",
  "pc": [
   {
-   "path": "/reports?range=1Y",
-   "name": "drift-note-frozen",
-   "wait": 2600,
-   "waitFor": "text=定格于",
-   "selector": "p[style*=\"border-left:3px solid var(--rule)\"]"
+   "path": "/entry/import/3",
+   "name": "drag-drop-upload",
+   "wait": 1600,
+   "waitFor": "#dropZone",
+   "selector": "#importSection"
   },
   {
-   "path": "/admin/audit",
-   "name": "sql-profiler-switch",
-   "wait": 1800,
-   "waitFor": "text=SQL",
-   "selector": "form[action*=\"sql-profiler\"]"
+   "path": "/admin/members",
+   "name": "member-identity",
+   "wait": 1500,
+   "waitFor": "text=登录名",
+   "selector": ".paper-card:has(form[action*=\"/members/2/username\"])"
   }
  ],
  "mobile": [
   {
-   "path": "/reports?range=1Y",
-   "name": "drift-note-frozen",
-   "wait": 2600,
+   "path": "/entry/import/3",
+   "name": "drag-drop-upload",
+   "wait": 1600,
    "full": false,
-   "waitFor": "text=定格于",
-   "selector": "p[style*=\"border-left:3px solid var(--rule)\"]"
+   "waitFor": "#dropZone"
   },
   {
-   "path": "/admin/audit",
-   "name": "sql-profiler-switch",
-   "wait": 1800,
+   "path": "/admin/members",
+   "name": "member-identity",
+   "wait": 1500,
    "full": false,
-   "waitFor": "text=SQL",
-   "selector": "form[action*=\"sql-profiler\"]"
+   "waitFor": "text=登录名",
+   "selector": ".paper-card:has(form[action*=\"/members/2/username\"])"
   }
  ]
 }

@@ -96,13 +96,13 @@
 
 > 完整发布记录与截图见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段每版只留 2–4 行,细节不搬过来)。
 
+**[v1.16.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.16.0) · 四版同批发布(v1.13–v1.16)· 三条社区 issue 一起落地**
+**截图导入支持拖拽 + Ctrl+V 粘贴**([#11](https://github.com/LuoDi-Nate/financial-management/issues/11)):上传区一直长得像拖拽框却从不接拖拽,PC 上真拖上去浏览器会导航走、这次导入全丢。**成员身份三件事**([#12](https://github.com/LuoDi-Nate/financial-management/issues/12)):登录名可改(改完旧名当场失效)· 成员可归档(**只停掉「谁还来打理」,名下的钱一分不动**)· 零引用才给删;顺带修掉「已归档成员真名会进 LLM prompt」的隐私缺陷。
+**AI 配置升级为 平台 → 系列 → 型号 三级并接入火山方舟**([#14](https://github.com/LuoDi-Nate/financial-management/issues/14)),文本与多模态各配一套;修掉「管理页改主选供应商只有六分之一调用点生效」的静默 bug。**填报完成度只留一个定义**([#15](https://github.com/LuoDi-Nate/financial-management/issues/15)):开账延续上期末余额时同步把待填标成已填,不再「页面全填好了、tab 徽标还挂着 ·1」。
+**含 DB 迁移 V55(只动待办状态,不碰任何金额)**;AI 旧配置读时派生、无需手改,可回滚。
+
 **[v1.12.1](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.12.1) · 修 [#13](https://github.com/LuoDi-Nate/financial-management/issues/13):Docker 用户照着 OpenD 向导跑必然失败**
 向导页把 `docker compose … up -d` 摆成一个一键复制块,而它依赖的三个变量(`FUTU_OPEND_IMAGE` / `FUTU_ACCOUNT` / `FUTU_PWD_MD5`)写在命令**下方**的脚注里 —— 复制即撞 `required variable FUTU_ACCOUNT is missing a value`。compose 里那个 `${VAR:?}` 硬失败**是对的**,错的是引导顺序。现在 DOCKER 段改成有序四步(备镜像 → 配 `.env` → 合并启动 → 回管理页填连接信息),「富途没有官方镜像」这条决定路走不走得通的前提从脚注提到最前面,`.env.example` 补上那三个变量(默认注释掉),指南里两个必然 404 的相对链接一并修正。**只动模板 / 文档 / 示例配置,无 DB 迁移。**
-
-**[v1.12.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.12.0) · 已关账的月份从此真的不再变 · 报表 586→124 条 SQL**
-上一版的封板承诺带着一个括号:**在账户属性不变的前提下**。以前改一下某账户的产品类目,全部历史月份的集中度 / 流动性分层 / 紧急储备 / 大类分布 / vs 基准会当场跟着变 —— 金额没动,变的是分类归属。现在关账那一刻把类型 / 类目 / 流动性档 / 基准% / 预期年化% 一起**定格**,之后改设置历史一个数字不动;当期照旧实时,重开再关账 = 重新定格。**冻输入不冻输出** —— 口径本身修正时仍重算全部历史,否则等于把算错的口径连历史一起冻住。
-性能:管理页新增「查询开销诊断」开关(按 mapper 方法给调用次数 / 耗时清单,默认关),据此把报表 586→**124** 条 SQL(2320→**973** ms)、仪表盘 421→**90**、体检 583→**146**。顺手修:收支太少时储蓄率不再摆 −2383% 这类数,显示「收支数据不足」+ 补录入口,同行派生的环比 / 同比差额一起降级。
-**含 DB 迁移 V54(新增定格表 + 回填,不改既有表结构,幂等)**;升级前后历史数字逐字相同(以 v1.11.3 为基线,三币种 × 六范围零差异硬验收)。
 
 ## 主要能力
 
@@ -361,7 +361,7 @@ bash scripts/e2e.sh            # 端到端主线真验收(13 主线 93 断言 ·
 - **v1.13 设计文档**:[`prd/v1.13.md`](prd/v1.13.md) · [`tech-design/v1.13.md`](tech-design/v1.13.md)(LLM 配置从「两家二选一」升级为**平台 → 模型系列 → 具体型号**三级,新接火山方舟,文本与视觉各配一套;主备编排收口到一个路由 —— 施工前查证发现六处调用点里只有一处真的听「主选」那个配置,tech-design §0.1 记了这个 bug 的形态与为什么不能逐点修;旧配置**读时派生**不写迁移 SQL,回滚仍可用)
 - **v1.14 设计文档**:[`prd/v1.14.md`](prd/v1.14.md) · [`tech-design/v1.14.md`](tech-design/v1.14.md)(截图导入支持拖拽 + Ctrl+V 粘贴,来自 GitHub issue #11:上传区的 id 一直叫 `dropZone`、外框一直是虚线,却从来不接拖拽 —— PC 上真拖上去浏览器会导航走、这次导入全丢,所以这版兑现的是一个会让人丢东西的错误暗示)
 - **v1.15 设计文档**:[`prd/v1.15.md`](prd/v1.15.md) · [`tech-design/v1.15.md`](tech-design/v1.15.md)(成员身份:登录名可改 · 归档 · 零引用才给删。归档**只停掉「谁还来打理」,不动一分钱**,他名下账户与历史流水照旧计入总账;删除前逐表数引用,那 4 处没有外键的靠显式清单兜住 —— 自动发现外键会给出一个自信的错答案。tech-design §9 记了六处施工偏差,其中一处是隐私:6 个脱敏点原来拿「仅活跃」列表建假名表,归档成员的真名会原样进 LLM prompt)
-- **v1.16 设计文档(在研)**:[`prd/v1.16.md`](prd/v1.16.md) · [`tech-design/v1.16.md`](tech-design/v1.16.md)(「本期填报完成」只留一个定义 · GitHub issue #15:开账把上期末余额延续成本期快照的同时,把同一行待填也标成已填 —— 填报页的 ✓、tab 徽标、自动关账从此读同一列,不再出现「页面显示全填好了、徽标还挂着 ·1」;tech-design §1.1 记了「为什么不在计数 SQL 上打补丁」的取舍)
+- **v1.16 设计文档**:[`prd/v1.16.md`](prd/v1.16.md) · [`tech-design/v1.16.md`](tech-design/v1.16.md)(「本期填报完成」只留一个定义 · GitHub issue #15:开账把上期末余额延续成本期快照的同时,把同一行待填也标成已填 —— 填报页的 ✓、tab 徽标、自动关账从此读同一列,不再出现「页面显示全填好了、徽标还挂着 ·1」;tech-design §1.1 记了「为什么不在计数 SQL 上打补丁」的取舍)
 - **怎么记账 · 场景速查**:[`docs/how-to-record.md`](docs/how-to-record.md)(工资/消费/买卖基金/借钱还贷/账户间转钱 逐场景对照 · 没有财会背景也能看懂)
 - **配置与接入**:[`docs/configuration.md`](docs/configuration.md)(AI / 短信 等外部服务配置总指南 · 全部可选)
 - **券商同步图文向导**:[`docs/broker-sync-guide.md`](docs/broker-sync-guide.md)(富途 / 老虎凭据一步步获取 · 应用内同款 `/help/broker-sync` 带示意图)
