@@ -18,6 +18,61 @@ README「近期更新」段再往下收一层,只留最近 1–2 版摘要。
 早期那段有 10 个补丁 tag 当时没留条目(`v0.2.1` / `v0.3.1`–`v0.3.3` / `v0.4` / `v0.4.1` /
 `v0.4.2` / `v0.4.13` / `v0.4.15` / `v0.4.16`),内容在 `git log` 里。
 
+## [v1.13.0] · 未发布
+
+### Fixed — 管理页的「主选供应商」六个 AI 调用点里只有一个听话
+
+- 施工前查证时撞见的**真 bug**,不是这次新功能带出来的:v1.12 里六处业务代码各自注入
+  `List<LlmClient>` 裸遍历,只有 AI 体检那一处按配置排了序,月度复盘 / 打标 / 再平衡 / 目标建议 /
+  透视洞察全都按 Spring 的 bean 顺序走。**不报错、不告警** —— 用户在管理页改完主选、页面提示保存
+  成功,实际只有六分之一生效。
+- **逐点补是错的修法**:那只会把「六份各自排序的代码」变成「六份各自排序但暂时一致的代码」,
+  第七个调用点照样再犯。改成收口 `LlmRouter`(全项目唯一允许注入 `List<LlmClient>` 的类),
+  六处业务只持路由;要单独指定一家的地方(管理页「测试连接」按钮,语义就是测这一家)走
+  `llmRouter.clientFor(...)` —— 那是路由给出来的,不是绕过路由。
+
+### Added — LLM 配置改成 平台 → 模型系列 → 具体型号 三级 · [issue #14](https://github.com/LuoDi-Nate/financial-management/issues/14)
+
+- **三级级联配置**(FR-360)。原来只有「Qwen / DeepSeek 二选一 + 一个型号框」,平台和型号搅在一起,
+  加第三家就得再动一遍模板。现在主选 / 备选各是一个完整三元组(平台 + 系列 + 型号),failover
+  以三元组为单位整体切换。
+- **接入火山方舟**(FR-361)。文本调用与其余平台共用 `AbstractOpenAiCompatibleClient`,key 走
+  `llm_ark_api_key`(`deploy.sh` step 9.5 一并 seed,升级不用手动补行)。
+- **视觉模型走同一套三级**(FR-362)。`QwenVisionClient` 改名 `VisionLlmClient`,持仓截图导入不再
+  绑死百炼;开关拆出独立键 `llm_vision_enabled`,关掉视觉时型号仍保留,重新打开不用再选一次。
+- **型号放开手填**(作者 2026-08-15 拍板四条之一)。方舟的 `ep-xxxx` 接入点各账号不同、豆包型号名
+  带日期版本号,预置任何一个都是挖坑。服务端因此**不能再用白名单等值校验**,改成格式校验
+  (≤64 字符 · 只允许字母数字和 `._:-`),推荐清单只喂页面下拉;顺手删掉旧实现里「不认识的型号
+  悄悄换成 auto」那段静默回落 —— 用户以为选中了其实没有,比直接报错更坏。
+- 百炼那套「多型号轮询摊免费额度」保留为**平台专属能力**(目录里 `modelRotation` 标记),不强行
+  抹平成所有平台都有。
+
+### Changed — 目录唯一一份 + 旧配置读时派生 · 护栏 4 条
+
+- **`LlmCatalog` 是「有哪些平台/系列/型号」的唯一出处**(FR-364)。改之前散在四处
+  (`QwenLlmClient.DEFAULT_MODELS` / 控制器白名单 / 模板 JS 级联清单 / 视觉下拉写死的三个
+  `<option>`),而且**当时就已经不一致**。这类不一致不报错,只表现成「某个选项好像没用」。现在页面
+  级联的数据由服务端把目录序列化进 `data-catalog`,轮询池也从它取。
+- **旧配置零迁移、可回滚**(FR-363)。`family_config` 是 KV,老配置能无损推出新配置,于是选「读时
+  派生」(`LlmSettings.load`:新键有就用新键,没有就从 v0.14 那套旧键推等价三元组)而不是写迁移
+  SQL —— 迁移 SQL 的代价是「升级瞬间必须一次性把所有家庭改对,改错没退路」,读时派生的代价只是
+  这段代码要多活一个版本,而且它顺带给了回滚能力:旧键原封不动,退回 v1.12 读到的还是它认识的
+  那份。取舍写在 `tech-design/v1.13.md` §1.5。
+- `v113-LLM-ROUTER-SINGLE-PATH`:六个调用点**逐个点名**,各自必须出现 `llmRouter.invoke(`,且代码行
+  里一个 `LlmClient` 都不许有;`List<LlmClient>` 只许出现在 `LlmRouter.java`。只断言「LlmRouter 存在」
+  没有意义 —— 出 bug 那一刻它已经存在了,问题是没人用它。
+- `v113-LLM-CATALOG-SINGLE-SOURCE` / `v113-LLM-LEGACY-KEYS-KEPT` / `v113-LLM-CARD-LAYOUT`:分别钉住
+  型号清单只有一份、9 个旧 `K_LLM_*` 键一个都不许删(三个「选哪个模型」的旧键只许 `LlmSettings` 读)、
+  三家凭据列等高对齐 + 备选组窄屏有分组线(双端截图复审实测出来的两处,单测和 e2e 都抓不到)。
+- 单测:`LlmCallSiteRoutingTest`(没人绕过路由)+ `LlmRouterPrimaryOrderTest`(排序对六个点全生效)
+  + `LlmCatalogConsistencyTest`(扫包双向比对,不写死类名)+ `LlmSettingsMigrationTest`(喂 v1.12
+  真实形态配置,派生结果逐项等价、读两次一致)+ `LlmModelFormatTest` + `PromptUnchangedTest`;
+  原 `QwenInsightComplianceTest` 拆成 `LlmFaultClassifyTest`(故障分类)+ `InsightComplianceTest`
+  (合规红线 · 与平台无关),`LlmVendorOrderingTest` 由 `LlmRouterPrimaryOrderTest` 取代。
+
+**无 DB 迁移 · 旧键原封不动** —— prompt 一个字没改(`PromptUnchangedTest` 钉住),换的只是「谁来
+接这次调用」;退回 v1.12 的代码仍能读懂库里的配置。
+
 ## [v1.12.1] · 未发布
 
 ### Fixed — [issue #13](https://github.com/LuoDi-Nate/financial-management/issues/13)(外部用户报告 · macOS)
