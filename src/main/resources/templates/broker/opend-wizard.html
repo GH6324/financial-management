@@ -30,68 +30,132 @@
   <div class="mb-5">
     <div class="flex items-center gap-2 mb-2">
       <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">富 · 途 · O · p · e · n · D · 一 · 键 · 托 · 管</span>
-      <span class="pill text-[10px]" th:text="'部署渠道 · ' + ${channel}">部署渠道 · LINUX</span>
+      <span class="pill text-[10px] whitespace-nowrap"
+            th:text="${caps.needsEnable()} ? '未启用' : (${channelKind == 'CONTAINER'} ? '网关容器' : '本机托管')">本机托管</span>
     </div>
-    <!-- 标题按渠道分:docker 渠道没有内置终端、也不是「点几下」,沿用 Linux 文案是在骗人(issue #13) -->
-    <th:block th:if="${channel == 'DOCKER'}">
-      <h1 class="font-display text-3xl font-medium tracking-tight mb-1">这台是容器部署,OpenD 得单独起一个</h1>
-      <p class="text-sm text-ink-soft">本页<b class="text-ink">不能替你一键装</b> —— 容器里跑不了 OpenD,下面是把它挂成 sidecar 的完整前提与步骤。</p>
+    <!-- 标题按【能力】分:网关还没启用时说的是"先启用",不是"点几下就好"(那会骗人) -->
+    <th:block th:if="${caps.needsEnable()}">
+      <h1 class="font-display text-3xl font-medium tracking-tight mb-1">富途网关默认没有安装</h1>
+      <p class="text-sm text-ink-soft">它是一个<b class="text-ink">可选组件</b> —— 只有用富途的人才需要。你这套部署现在没有它,不多占磁盘、不多跑进程。</p>
     </th:block>
-    <th:block th:unless="${channel == 'DOCKER'}">
-      <h1 class="font-display text-3xl font-medium tracking-tight mb-1">把 OpenD 装进系统,点几下就好</h1>
+    <th:block th:unless="${caps.needsEnable()}">
+      <h1 class="font-display text-3xl font-medium tracking-tight mb-1">把 OpenD 装好,点几下就行</h1>
       <p class="text-sm text-ink-soft">下方终端常驻显示 OpenD 的<b class="text-ink">运行状态与全过程日志</b>;安装与登录在终端下方按步操作。</p>
     </th:block>
   </div>
 
-  <!-- Docker 渠道:不在 app 容器内托管,引导用 sidecar -->
-  <section th:if="${channel == 'DOCKER'}" class="paper-card p-5 mb-6" style="border-left:4px solid var(--brass-deep)">
-    <div class="font-mono text-[10px] uppercase text-brass-deep mb-2">检测到 Docker 部署 · 用 sidecar(不在 app 容器内跑 OpenD)</div>
-    <p class="text-sm text-ink-soft mb-3">app 跑在容器里,容器内既缺 gtk3、又是一容器一进程,不适合塞 OpenD。正确做法是把 OpenD 作为<b class="text-ink">同网络的 sidecar 容器</b>。</p>
+  <!-- 网关未启用:公示「你正在引入什么」+ 给一条命令。
+       v1.16 及以前这里是一段"自己打包镜像 + 借一台有桌面的机器 + 往 .env 写密码 MD5"的教程 ——
+       那是把我们做不到的事外包给用户(issue #13)。现在我们发一个可选镜像,代价是必须把
+       "它是谁构建的、里面有什么、官方包哈希对不对"讲清楚,并强提示用户自己也验一遍。 -->
+  <section th:if="${caps.needsEnable()}" class="paper-card p-5 mb-6" style="border-left:4px solid var(--brass-deep)">
+    <div class="font-mono text-[10px] uppercase text-brass-deep mb-2">你正在引入什么 · 请先看清再启用</div>
+    <p class="text-sm text-ink-soft mb-4">
+      富途要求本地常驻一个网关程序(OpenD)才能读到你的持仓。我们提供一个<b class="text-ink">可选的</b>网关容器来跑它 ——
+      这是个<b class="text-ink">能操作你券商账户</b>的组件,值得多花两分钟核对来源。
+    </p>
 
-    <!-- 这条路不是一条命令的事:前提必须摆在命令前面,否则用户复制就撞 compose 变量缺失 -->
-    <div class="p-3 mb-4 bg-card-soft border border-rule-soft">
-      <div class="flex items-start gap-2">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" class="text-rust shrink-0 mt-[2px]" aria-hidden="true">
-          <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
-        </svg>
-        <p class="text-sm text-ink-soft"><b class="text-ink">这条路需要你先自备镜像</b> —— 富途<b class="text-ink">没有官方 OpenD 镜像</b>,也没有现成可拉的。下面第 ① 步做不到的话,这条路走不通,建议改用<b class="text-ink">拓扑 C</b>(OpenD 跑在家里常开的机器 + SSH 反向隧道),见 <span class="font-mono text-[11px]">docs/broker-sync-guide.md</span>。</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+      <!-- ① 我们的镜像 -->
+      <div class="p-3 bg-card-soft border border-rule-soft">
+        <div class="font-mono text-[9px] tracking-[0.14em] text-brass-deep mb-1">01 / 我们的镜像</div>
+        <div class="text-sm font-medium mb-1">谁构建的,装了什么</div>
+        <p class="text-[11px] text-ink-subtle leading-relaxed">
+          由本项目在 GitHub Actions 里构建、发到 GHCR。Dockerfile 就在仓库里(<span class="font-mono">docker/futu-opend/</span>),可以逐行读。
+        </p>
+        <div class="font-mono text-[10px] mt-2" style="overflow-wrap:break-word" th:text="${gatewayImage}">ghcr.io/…</div>
+      </div>
+      <!-- ② 镜像里没有富途文件 -->
+      <div class="p-3 bg-card-soft border border-rule-soft">
+        <div class="font-mono text-[9px] tracking-[0.14em] text-brass-deep mb-1">02 / 镜像里没有富途文件</div>
+        <div class="text-sm font-medium mb-1">我们不转发别人的软件</div>
+        <p class="text-[11px] text-ink-subtle leading-relaxed">
+          镜像里只有三个 shell 脚本 + 我们核对过的哈希清单。OpenD 是<b class="text-ink">容器首次启动时从富途官网下载的</b>,
+          我们既不打包也不转存;构建流水线里有一道检查扫镜像的全部层,出现富途制品即构建失败。
+        </p>
+      </div>
+      <!-- ③ 官方安装包的哈希 -->
+      <div class="p-3 bg-card-soft border border-rule-soft">
+        <div class="font-mono text-[9px] tracking-[0.14em] text-brass-deep mb-1">03 / 官方安装包的哈希</div>
+        <div class="text-sm font-medium mb-1">下载完先验,再启动</div>
+        <p class="text-[11px] text-ink-subtle leading-relaxed">
+          <b class="text-rust">富途官方不公布任何校验和</b>。下面这两个值是<b class="text-ink">我们下载后自己算的</b>,
+          钉在公开仓库里(<span class="font-mono" th:text="${catalogPath}">deploy/…</span>,git 历史可查)。
+          装的时候现算一次,<b class="text-ink">不一致就拒绝安装</b>。
+        </p>
+        <pre th:if="${verified != null}" class="mt-2 p-2 bg-paper border border-rule-soft font-mono text-[9.5px] whitespace-pre-wrap break-all"
+             th:text="|OpenD ${verified.version()} · ${verified.bytes()} 字节
+sha256 ${verified.sha256()}
+md5    ${verified.md5()}|">…</pre>
+        <p th:if="${verified == null}" class="text-[11px] text-rust mt-2">清单里还没有这个系统的已核对版本 —— 启用后会明确告知,不会悄悄装。</p>
       </div>
     </div>
 
-    <ol class="text-sm text-ink-soft space-y-3">
-      <li>
-        <b class="text-ink">① 备好镜像,并在桌面端登录过一次</b>
-        <div class="mt-1">自己写 Dockerfile 拉富途官方命令行包构建(<b class="text-ink">把 gtk3 打进去</b>);另外先在有桌面的机器用可视化版 OpenD 登录一次,过掉<b class="text-ink">首次问卷 + 协议确认</b>,否则命令行版起不来。</div>
-      </li>
-      <li>
-        <b class="text-ink">② 在 <span class="font-mono text-[11px]">.env</span> 里配三个变量</b>(缺一个就起不来)
-        <pre class="p-3 mt-1 bg-paper border border-rule-soft font-mono text-[11px] whitespace-pre-wrap">FUTU_OPEND_IMAGE=你自备的镜像:tag
-FUTU_ACCOUNT=富途账号
-FUTU_PWD_MD5=密码的MD5</pre>
-        <div class="mt-1">密码填 32 位小写 MD5:<span class="font-mono text-[11px]">printf '你的密码' | md5sum</span>。<span class="font-mono text-[11px]">.env.example</span> 里有这段模板可以照抄。</div>
-      </li>
-      <li>
-        <b class="text-ink">③ 合并覆盖文件启动</b>(默认的 <span class="font-mono text-[11px]">docker compose up</span> 不会加载它,所以不影响正常部署)
-        <pre class="p-3 mt-1 bg-paper border border-rule-soft font-mono text-[11px] whitespace-pre-wrap">docker compose -f docker-compose.yml -f deploy/futu-opend.compose.yml up -d</pre>
-      </li>
-      <li>
-        <b class="text-ink">④ 回到「管理 → 数据源接入 → ⑥ 券商同步 → 富途」</b>,地址填 <span class="font-mono">opend</span>、端口填 <span class="font-mono">11111</span>(compose 内服务名直连,不对宿主发布端口)。
-      </li>
-    </ol>
+    <!-- 强提示:请你自己也验一遍 -->
+    <div class="p-3 mb-4 bg-card-soft border border-rule-soft" style="border-left:3px solid var(--brass-deep)">
+      <div class="flex items-start gap-2 mb-2">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" class="text-brass-deep shrink-0 mt-[2px]" aria-hidden="true">
+          <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+        </svg>
+        <p class="text-sm text-ink-soft"><b class="text-ink">请你自己也验一遍</b> —— 任何一条对不上就<b class="text-ink">不要继续</b>,来仓库开个 issue。</p>
+      </div>
+      <!-- 【踩过的坑】不要把这段命令写进 th:text="|...|"(literal substitution):
+           `|` 本身就是它的定界符,而这里的命令含 shell 管道 `| grep -i etag` —— 于是 literal 提前结束,
+           模板【解析期】就抛 "Could not parse as expression"。而响应是 chunked,错误页被追加在
+           已输出内容之后,现象是"页面渲染到一半突然变成错误页",很容易误判成布局问题。
+           (三元表达式写在 ${} 内部是合法的,admin/backup.html 就有;问题不在三元,在那个 `|`。)
+           改法:普通静态文本 + 少量 <span th:text>,要复用的值先在 th:with 里算好。 -->
+      <div th:with="pkg=${verified != null} ? ${verified.file()} : 'Futu_OpenD_&lt;版本&gt;_&lt;系统&gt;.tar.gz'">
+        <pre class="p-3 bg-paper border border-rule-soft font-mono text-[10.5px] whitespace-pre-wrap break-all"># 1) 我们的镜像:按 digest 拉(不认 tag),并验构建来源
+docker pull <span th:text="${gatewayImage}">ghcr.io/…</span>@sha256:&lt;见 Release 页&gt;
+gh attestation verify --repo LuoDi-Nate/financial-management oci://<span th:text="${gatewayImage}">ghcr.io/…</span>@sha256:&lt;同上&gt;
 
-    <div class="mt-4 pt-3" style="border-top:1px solid var(--rule-soft)">
-      <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">跳过第 ② 步会看到什么</div>
-      <pre class="p-3 bg-paper border border-rule-soft font-mono text-[11px] whitespace-pre-wrap text-ink-soft">WARN[0000] The "FUTU_OPEND_IMAGE" variable is not set. Defaulting to a blank string.
-error while interpolating services.opend.environment.FUTU_ACCOUNT:
-  required variable FUTU_ACCOUNT is missing a value: 请在 .env 设置富途账号</pre>
-      <p class="text-sm text-ink-soft mt-1">这是<b class="text-ink">预期行为</b>,不是故障:没配账号就不该把 sidecar 起起来。回第 ② 步补上即可。</p>
+# 2) 镜像里确实没有富途文件
+docker run --rm --entrypoint ls <span th:text="${gatewayImage}">ghcr.io/…</span> /opt/futu
+
+# 3) 官方包的 MD5:CDN 响应头里的 etag 实测等于文件 MD5
+curl -sI "https://softwaredownload.futunn.com/<span th:text="${pkg}">Futu_OpenD_…</span>" | grep -i etag</pre>
+      </div>
+      <p class="text-[11px] text-ink-subtle mt-2 leading-relaxed">
+        要说清第 3 条的极限:<span class="font-mono">etag</span> 和安装包走的是<b class="text-ink">同一条连接、同一个 CDN</b>,
+        它证明的是"传输没坏",不是独立第三方担保。真正有意义的是<b class="text-ink">三方对上</b>:你自己算的、我们仓库里钉的、CDN 给的。
+      </p>
     </div>
 
-    <p class="text-sm text-ink-soft mt-3">详见 <span class="font-mono text-[11px]">docs/broker-sync-guide.md</span> 与 <span class="font-mono text-[11px]">deploy/futu-opend.compose.yml</span> 顶部说明。</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div class="p-3 border border-rule">
+        <div class="text-sm font-medium mb-1">看完了,启用它</div>
+        <p class="text-[11px] text-ink-subtle mb-2">复制这条命令在服务器上跑一次(镜像很小,里面只有三个 shell 脚本):</p>
+        <pre id="enableCmd" class="p-3 bg-paper border border-rule-soft font-mono text-[11px] whitespace-pre-wrap"
+             th:text="${caps.enableCommand()}">docker compose --profile futu up -d</pre>
+        <div class="mt-2 flex flex-wrap gap-2 items-center">
+          <button id="copyEnableBtn" type="button" class="btn-paper text-xs">复制命令</button>
+          <button id="recheckBtn" type="button" class="btn-ink text-xs">我已执行,重新检测</button>
+          <span id="recheckMsg" class="font-mono text-[10px] text-ink-subtle"></span>
+        </div>
+        <p class="text-[11px] text-ink-subtle mt-2">
+          用 <span class="font-mono">docker-up.sh</span> 起的:改成 <span class="font-mono">bash deploy/docker-up.sh --with-futu</span> 即可,profile 不用自己记。
+        </p>
+      </div>
+      <div class="p-3 border border-rule">
+        <div class="text-sm font-medium mb-1">不想启用?三条别的路</div>
+        <table class="w-full text-[11px] text-ink-subtle" style="border-collapse:collapse">
+          <tr><td class="py-1 pr-2 align-top whitespace-nowrap"><b class="text-ink">换成自己的镜像</b></td>
+              <td class="py-1">不信我们构建的,<span class="font-mono">.env</span> 里设 <span class="font-mono">FUTU_OPEND_IMAGE</span> 指向你自己的</td></tr>
+          <tr><td class="py-1 pr-2 align-top whitespace-nowrap"><b class="text-ink">OpenD 在别处</b></td>
+              <td class="py-1">家里 NAS / 另一台机器上已经跑着 OpenD,直接在券商配置里填它的地址</td></tr>
+          <tr><td class="py-1 pr-2 align-top whitespace-nowrap"><b class="text-ink">干脆不用</b></td>
+              <td class="py-1">富途持仓手工录入,和其它账户一样;这一整块不会出现在你的部署里</td></tr>
+        </table>
+        <p class="text-[11px] text-ink-subtle mt-2">
+          老路径(自备镜像 + <span class="font-mono">deploy/futu-opend.compose.yml</span>)仍然保留,原有配置照旧生效。
+        </p>
+      </div>
+    </div>
   </section>
 
   <!-- ██ 终端(常驻):OpenD 运行状态 + 全过程日志 + 内嵌验证码交互(SSH 质感) -->
-  <section th:if="${channel != 'DOCKER'}" class="mb-6 rounded-sm overflow-hidden" style="border:1px solid #2a2f36;box-shadow:0 10px 30px -14px rgba(0,0,0,.5)">
+  <section th:if="${caps.showTerminal()}" class="mb-6 rounded-sm overflow-hidden" style="border:1px solid #2a2f36;box-shadow:0 10px 30px -14px rgba(0,0,0,.5)">
     <!-- 终端标题栏 -->
     <div class="flex items-center gap-2 px-3 py-2" style="background:#161b22;border-bottom:1px solid #2a2f36">
       <span style="width:10px;height:10px;border-radius:50%;background:#e5534b;display:inline-block"></span>
@@ -100,11 +164,13 @@ error while interpolating services.opend.environment.FUTU_ACCOUNT:
       <span class="font-mono text-[11px] ml-2" style="color:#8b949e">futu-opend — 托管终端</span>
       <span id="phasePill" class="font-mono text-[10px] ml-auto px-2 py-0.5 rounded-sm" style="background:#21262d;color:#8b949e">—</span>
       <span id="termMeta" class="font-mono text-[10px]" style="color:#8b949e"></span>
-      <form th:action="@{/admin/broker/opend/stop}" method="post" class="inline ml-2">
+      <form th:if="${caps.canStop()}" th:action="@{/admin/broker/opend/stop}" method="post" class="inline ml-2">
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
         <button type="submit" class="font-mono text-[10px] px-2 py-0.5 rounded-sm" style="background:#21262d;color:#e5534b;border:1px solid #30363d"
                 title="停止 OpenD 进程">stop</button>
       </form>
+      <span th:unless="${caps.canStop()}" class="font-mono text-[10px] ml-2" style="color:#8b949e"
+            title="容器的生命周期归 docker compose 管,页面不越权代劳">docker compose stop opend</span>
     </div>
     <!-- 终端主体 -->
     <div style="background:#0d1117" class="px-3 py-3">
@@ -137,7 +203,7 @@ error while interpolating services.opend.environment.FUTU_ACCOUNT:
   </section>
 
   <!-- 已就绪总览:OpenD 已配置成功 + 运行中 → 收起全部向导步骤,只留「重新配置」入口 -->
-  <section id="readyBox" th:if="${channel != 'DOCKER'}" th:classappend="${running} ? '' : 'hidden'" class="paper-card p-5 mb-6" style="border-left:4px solid var(--forest)">
+  <section id="readyBox" th:unless="${caps.needsEnable()}" th:classappend="${running} ? '' : 'hidden'" class="paper-card p-5 mb-6" style="border-left:4px solid var(--forest)">
     <div class="flex items-start gap-3">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--forest)" class="shrink-0 mt-0.5" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>
       <div class="flex-1">
@@ -152,20 +218,20 @@ error while interpolating services.opend.environment.FUTU_ACCOUNT:
   </section>
 
   <!-- 重新配置中横幅:OpenD 仍在跑,不改动可直接收起回就绪态 -->
-  <div id="reconfigBanner" th:if="${channel != 'DOCKER'}" class="hidden paper-card p-3 mb-4 bg-card-soft flex items-center gap-2 text-sm" style="border-left:4px solid var(--brass-deep)">
+  <div id="reconfigBanner" th:unless="${caps.needsEnable()}" class="hidden paper-card p-3 mb-4 bg-card-soft flex items-center gap-2 text-sm" style="border-left:4px solid var(--brass-deep)">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)" class="shrink-0" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
     <span>重新配置中 —— 你的 OpenD 仍在运行,不改动任何东西可直接收起。</span>
     <button id="reconfigCancel" type="button" class="btn-paper text-xs ml-auto">收起,不改了</button>
   </div>
 
   <!-- 第 0 步 · 唯一手动(运行中即隐藏) -->
-  <section id="step0" th:if="${channel != 'DOCKER'}" th:classappend="${running} ? 'hidden' : ''" class="paper-card p-4 mb-4 bg-card-soft" style="border-left:4px solid var(--rust)">
+  <section id="step0" th:unless="${caps.needsEnable()}" th:classappend="${running} ? 'hidden' : ''" class="paper-card p-4 mb-4 bg-card-soft" style="border-left:4px solid var(--rust)">
     <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">第 0 步 · 唯一需要你手动做的一次</div>
     <p class="text-sm text-ink-soft">先用<b class="text-ink">富途牛牛 App / 网页</b>登录一次,完成富途的<b class="text-ink">问卷 + 协议确认</b>(账号级一次性动作,任何程序都替不了)。做过一次后,下面全自动。</p>
   </section>
 
   <!-- 第 1 步 · 安装 OpenD(装好后收起为成功态;运行中整段收起,靠「重新配置」展开) -->
-  <section id="sec1" th:if="${channel != 'DOCKER'}" th:classappend="${running} ? 'hidden' : ''" class="paper-card p-5 mb-4">
+  <section id="sec1" th:if="${caps.canInstall()}" th:classappend="${running} ? 'hidden' : ''" class="paper-card p-5 mb-4">
     <div class="flex items-center justify-between mb-3">
       <div class="font-mono text-[10px] uppercase text-brass-deep">第 1 步 · 把 OpenD 装到这台机器</div>
       <span id="instState" class="font-mono text-[10px] text-ink-subtle"></span>
@@ -254,8 +320,17 @@ error while interpolating services.opend.environment.FUTU_ACCOUNT:
     </div><!-- /step1Full -->
   </section>
 
+  <!-- 网关通道:安装(下载 + 校验哈希 + 解包)由网关容器自己做 —— 这里只交代一句,别让用户找不到"第 1 步" -->
+  <section th:if="${!caps.canInstall() and !caps.needsEnable()}" class="paper-card p-4 mb-4 bg-card-soft" style="border-left:4px solid var(--forest)">
+    <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">安装这一步不用你做</div>
+    <p class="text-sm text-ink-soft">
+      网关容器首次启动时已经从富途官网下好 OpenD 并<b class="text-ink">核对过 sha256</b>(不一致它会拒绝启动)。
+      要换版本或重装:<span class="font-mono text-[11px]">docker compose --profile futu up -d --force-recreate opend</span>。
+    </p>
+  </section>
+
   <!-- 第 2 步 · 未装时锁定占位(装好前不展示登录 · 步骤才有意义) -->
-  <section id="step2Locked" th:if="${channel != 'DOCKER'}" th:classappend="${installed} ? 'hidden' : ''" class="paper-card p-4 mb-4" style="opacity:.6">
+  <section id="step2Locked" th:if="${caps.canInstall()}" th:classappend="${installed} ? 'hidden' : ''" class="paper-card p-4 mb-4" style="opacity:.6">
     <div class="font-mono text-[10px] uppercase text-ink-subtle flex items-center gap-2">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       第 2 步 · 填富途账号登录 —— 完成第 1 步后在此解锁
@@ -263,7 +338,7 @@ error while interpolating services.opend.environment.FUTU_ACCOUNT:
   </section>
 
   <!-- 第 2 步 · 登录(验证码在上方终端里交互 · 装好才展示;运行中整段收起,靠「重新配置」展开) -->
-  <section th:if="${channel != 'DOCKER'}" class="paper-card p-5 mb-4" id="loginSec" th:classappend="${installed and !running} ? '' : 'hidden'">
+  <section th:if="${caps.canLogin()}" class="paper-card p-5 mb-4" id="loginSec" th:classappend="${installed and !running} ? '' : 'hidden'">
     <div class="font-mono text-[10px] uppercase text-brass-deep mb-3">第 2 步 · 填富途账号,启动并登录(短信验证码会出现在上方终端里)</div>
 
     <!-- 2·成功态:已登录运行中 → 收起 -->
@@ -367,9 +442,36 @@ error while interpolating services.opend.environment.FUTU_ACCOUNT:
     show('step0', !running);
   }
   function poll(){
-    if(!$('phasePill')) return; // Docker 渠道无托管步骤,不轮询
+    if(!$('phasePill')) return; // 没有终端(网关未启用)时不轮询
     fetch(BASE+'status', {headers:{'Accept':'application/json'}}).then(function(r){return r.json();}).then(render).catch(function(){});
   }
+  // v1.17 · 网关未启用:复制启用命令 + 执行完就地重检(不用手动刷新页面)
+  var copyEnableBtn=$('copyEnableBtn');
+  if(copyEnableBtn) copyEnableBtn.addEventListener('click', function(){
+    var cmd=$('enableCmd'); if(!cmd) return;
+    var text=(cmd.textContent||'').trim();
+    function done(ok){ copyEnableBtn.textContent = ok ? '已复制' : '复制失败,请手动选中'; setTimeout(function(){ copyEnableBtn.textContent='复制命令'; }, 1800); }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ done(true); }, function(){ done(false); });
+    } else {
+      // http 下 clipboard API 不可用(自托管常见:没挂 TLS)→ 退回选中,用户自己 Ctrl+C
+      var r=document.createRange(); r.selectNodeContents(cmd);
+      var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r); done(false);
+    }
+  });
+  var recheckBtn=$('recheckBtn');
+  if(recheckBtn) recheckBtn.addEventListener('click', function(){
+    set('recheckMsg','textContent','检测中…');
+    fetch(BASE+'status', {headers:{'Accept':'application/json'}}).then(function(r){return r.json();}).then(function(st){
+      // 网关起来之后 phase 不再是"未安装",此时刷新页面让整页按新能力重渲染
+      if(st && st.phase && st.phase !== 'NOT_INSTALLED'){
+        set('recheckMsg','textContent','网关已就绪,正在刷新…');
+        location.reload();
+      } else {
+        set('recheckMsg','textContent','还没检测到网关(容器可能还在下载 OpenD,首次要几分钟)');
+      }
+    }).catch(function(){ set('recheckMsg','textContent','检测失败,稍后再试'); });
+  });
   var reinstBtn=$('reinstBtn');
   if(reinstBtn) reinstBtn.addEventListener('click', function(){
     reinstall = true; show('step1Full', true); show('step1Done', false);

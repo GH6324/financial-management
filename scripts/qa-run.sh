@@ -4123,21 +4123,25 @@ HCTL="$RD/src/main/java/com/family/finance/web/help/HelpController.java"
   && log_ok "v15-OPEND 富途 OpenD 部署方案(同机 systemd / docker sidecar / 家用机隧道)+ 文档 + 应用内说明" \
   || log_bad "v15-OPEND OpenD 部署方案缺件" "see deploy/futu-opend.* / docs/broker-sync-guide.md / help/broker-sync.html"
 
-# v1121-OPEND-DOCKER-ENV · issue #13:docker 渠道的前提必须在命令【前面】,且 .env.example 里有可抄的模板
-# 现象:向导页把合并命令摆成一键 pre 块,三个必需变量写在命令下方的脚注里,.env.example 里又完全没有
-#      → 用户复制即撞 `required variable FUTU_ACCOUNT is missing a value`,以为是 bug。
-# 守的是「前提前置 + 模板可抄 + 报错能对号」,不是某句话的措辞。
+# v1121-OPEND-DOCKER-ENV · issue #13 的教训(v1.17 升级判据)
+# 原始现象:向导页把 compose 合并命令摆成一键 pre 块,而三个【必需的 .env 变量】写在命令下方脚注里,
+#          .env.example 里又完全没有 → 用户复制即撞 `required variable FUTU_ACCOUNT is missing a value`。
+# v1.17 把那条路整个换掉了:不再要求用户自备镜像、也不再需要任何 .env 凭据,所以"前提前置"这个
+# 判据的对象已经不存在。教训升级为:**要用户执行的命令,前面必须先讲清他在引入什么**
+#          —— 现在页面上"启用命令"必须出现在「你正在引入什么」公示块之后,而不是之前。
 OWTPL_D="$RD/src/main/resources/templates/broker/opend-wizard.html"
-{ grep -q 'FUTU_OPEND_IMAGE' "$RD/.env.example" && grep -q 'FUTU_ACCOUNT' "$RD/.env.example" && grep -q 'FUTU_PWD_MD5' "$RD/.env.example" \
-  && awk '/channel == .DOCKER./,/<\/section>/' "$OWTPL_D" | grep -q 'FUTU_PWD_MD5' \
-  && [ "$(awk '/channel == .DOCKER./,/<\/section>/' "$OWTPL_D" | grep -n 'FUTU_OPEND_IMAGE' | head -1 | cut -d: -f1)" -lt \
-       "$(awk '/channel == .DOCKER./,/<\/section>/' "$OWTPL_D" | grep -n 'futu-opend.compose.yml up -d' | head -1 | cut -d: -f1)" ] \
-  && awk '/channel == .DOCKER./,/<\/section>/' "$OWTPL_D" | grep -q 'required variable FUTU_ACCOUNT' \
-  && grep -q 'th:unless="\${channel == .DOCKER.}"' "$OWTPL_D" \
+_pos_disclose="$(grep -n '你正在引入什么' "$OWTPL_D" | head -1 | cut -d: -f1)"
+_pos_cmd="$(grep -n 'caps.enableCommand()' "$OWTPL_D" | head -1 | cut -d: -f1)"
+_pos_hash="$(grep -n '富途官方不公布任何校验和' "$OWTPL_D" | head -1 | cut -d: -f1)"
+{ [ -n "$_pos_disclose" ] && [ -n "$_pos_cmd" ] && [ -n "$_pos_hash" ] \
+  && [ "$_pos_disclose" -lt "$_pos_cmd" ] \
+  && [ "$_pos_hash" -lt "$_pos_cmd" ] \
+  && grep -q '请你自己也验一遍' "$OWTPL_D" \
+  && ! grep -q 'required variable FUTU_ACCOUNT' "$OWTPL_D" \
   && grep -q '(\.\./deploy/futu-opend\.compose\.yml)' "$RD/docs/broker-sync-guide.md" \
   && grep -q '(\.\./deploy/futu-opend\.service\.example)' "$RD/docs/broker-sync-guide.md"; } \
-  && log_ok "v1121-OPEND-DOCKER-ENV docker sidecar 前提前置于命令 + .env.example 有三变量模板 + 向导页贴出原始报错对号 + 标题按渠道分(docker 不说「点几下/下方终端」)+ 指南相对链接可达" \
-  || log_bad "v1121-OPEND-DOCKER-ENV docker 渠道引导缺前提/模板(issue #13 回归)" "see .env.example / broker/opend-wizard.html DOCKER 段 / docs/broker-sync-guide.md 拓扑B"
+  && log_ok "v1121-OPEND-DOCKER-ENV 要用户跑的命令排在「你正在引入什么」+ 哈希公示之后(issue #13 教训升级版)· 指南相对链接可达" \
+  || log_bad "v1121-OPEND-DOCKER-ENV 启用命令跑在公示前面(或公示缺失)" "see broker/opend-wizard.html 未启用段顺序 / docs/broker-sync-guide.md"
 
 # v15-OPEND-WIZ · 应用内 OpenD 傻瓜向导(下载/版本/依赖/配置启动/短信中继)
 # v1.17:实现拆成了通道(FutuOpendManager 只剩 facade),所以能力项分别在各自文件里查 ——
@@ -4152,7 +4156,6 @@ OWTPL="$RD/src/main/resources/templates/broker/opend-wizard.html"
   && grep -q '/admin/broker/opend' "$OWCTL" && grep -q 'api_ip=127.0.0.1' "$OWLOC" \
   && grep -q 'input_phone_verify_code' "$OWTEL" \
   && grep -q 'detectEnv' "$OWMGR" && grep -q '/.dockerenv' "$OWMGR" && grep -q 'packageTag' "$OWREL" \
-  && grep -q "channel == 'DOCKER'" "$OWTPL" \
   && grep -q 'installFromStream' "$OWLOC" && grep -q '"/upload"' "$OWCTL" && grep -q '上传并解压' "$OWTPL" \
   && grep -q 'installFromServerPath' "$OWLOC" && grep -q 'import-path' "$OWCTL" && grep -q '从该路径导入' "$OWTPL" \
   && grep -q "var BASE = '/admin/broker/opend/'" "$OWTPL" \
@@ -4340,6 +4343,51 @@ fi
   && grep -q 'docker-up.sh --with-futu' "$RD/.env.example"; } \
   && log_ok "v117-ENV-NOT-REQUIRED .env.example 里富途段只剩可选开关(凭据走管理页)· md5sum 教程已删" \
   || log_bad "v117-ENV-NOT-REQUIRED .env 仍要求富途凭据(或还在教 md5sum)" "see .env.example 富途段"
+
+# v117-WIZARD-CAPS · 向导页按能力位渲染,且不再教用户自己打包镜像(v1.17)
+# v1.16 的 Docker 分支是一段"自备镜像 + 借一台有桌面的机器 + 往 .env 写密码 MD5"的教程(issue #13),
+# 那是把我们做不到的事外包给用户。现在:未启用 → 公示「你正在引入什么」+ 一条启用命令;
+# 已启用 → 与原生同一套步骤(安装那步由网关容器自己做,页面明说一句)。
+{ ! grep -q "channel == 'DOCKER'" "$OWTPL" && ! grep -q "channel != 'DOCKER'" "$OWTPL" \
+  && [ "$(grep -c 'caps\.' "$OWTPL")" -ge 8 ] \
+  && ! grep -q '不能替你一键装' "$OWTPL" \
+  && ! grep -q '自备一个能跑命令行版' "$OWTPL" \
+  && ! grep -q 'printf .你的密码' "$OWTPL" \
+  && grep -q '你正在引入什么' "$OWTPL" \
+  && grep -q '富途官方不公布任何校验和' "$OWTPL" \
+  && grep -q 'gh attestation verify' "$OWTPL" \
+  && grep -q 'caps.enableCommand()' "$OWTPL" \
+  && grep -q 'addAttribute("caps"' "$OWCTL" \
+  && grep -q '"/catalog"' "$OWCTL"; } \
+  && log_ok "v117-WIZARD-CAPS 向导页零 channel 硬分支(≥8 处能力位)· 未启用给公示块+启用命令 · 自备镜像/md5sum 教程已删 · /catalog 公示接口在" \
+  || log_bad "v117-WIZARD-CAPS 向导页仍按部署方式分支或还在教自己打包镜像" "see broker/opend-wizard.html / FutuOpendController"
+
+# v117-TPL-LITERAL-PIPE · Thymeleaf 字面替换里不许再出现 `|`(v1.17 · 真踩过)
+# th:text="|...|" 的定界符就是 `|`,内部再出现一个(例如 shell 管道 `| grep -i etag`)会让 literal 提前结束,
+# 模板【解析期】抛 Could not parse as expression;而响应是 chunked,错误页被追加在已输出内容之后 ——
+# 现象是"页面渲染到一半突然变成错误页",很容易误判成布局问题。
+# 注意判据不是"不许写三元":三元写在 ${} 内部完全合法(admin/backup.html 就有),第一版判成三元是误诊。
+_tplpipe="$(python3 - "$RD/src/main/resources/templates" <<'PYEOF'
+import os,re,sys
+root=sys.argv[1]; bad=[]
+pat=re.compile(r'th:(?:text|utext)="\|(.*?)\|"', re.S)
+for dp,_,fs in os.walk(root):
+    for f in fs:
+        if not f.endswith('.html'): continue
+        p=os.path.join(dp,f)
+        try: t=open(p,encoding='utf-8').read()
+        except Exception: continue
+        for m in pat.finditer(t):
+            if '|' in m.group(1):
+                bad.append(os.path.relpath(p,root))
+print(' '.join(sorted(set(bad))))
+PYEOF
+)"
+if [ -n "$_tplpipe" ]; then
+  log_bad "v117-TPL-LITERAL-PIPE 有模板在 |...| 里塞了 `|`(解析期就会炸)" "$_tplpipe"
+else
+  log_ok "v117-TPL-LITERAL-PIPE 没有模板在 |...| 字面替换里再出现定界符 |"
+fi
 
 # v12-2-FONTSCALE · 全局字号调节(issue #7)· 标准档零回归(calc×var,scale=1 等价)+ 5 层覆盖 + 控件 + FOUC + 图表跟随
 FSCSS="$RD/src/main/resources/static/css/style.css"

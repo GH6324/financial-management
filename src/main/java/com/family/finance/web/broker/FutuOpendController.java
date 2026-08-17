@@ -70,10 +70,16 @@ public class FutuOpendController {
         // step-by-step 首屏判定(JS 轮询后同步更新):装好第 1 步才展示第 2 步;运行中收起表单
         model.addAttribute("installed", st.version() != null);
         model.addAttribute("running", st.phase() == OpendChannel.Phase.RUNNING);
-        model.addAttribute("channel", opend.env().name());
+        // v1.17:页面按【能力】渲染,不按"你是哪种部署"渲染 —— 加第四种拓扑时不用再加 channel 值
+        OpendChannel.Caps caps = opend.caps();
+        model.addAttribute("caps", caps);
+        model.addAttribute("channelKind", opend.active().kind().name());
         model.addAttribute("osTag", opend.detectedOsTag());
-        // v1.17:版本号不再让用户填 —— 留空即问官方 fetch-lasted-link 要最新版
-        model.addAttribute("caps", opend.caps());
+        // 「你正在引入什么」公示块:官方不公布校验和,所以这些哈希是我们自己算的
+        String os = opend.detectedOsTag();
+        model.addAttribute("verified", catalog.latestVerified(os.isBlank() ? "Ubuntu18.04" : os).orElse(null));
+        model.addAttribute("catalogPath", com.family.finance.service.broker.opend.OpendCatalog.CATALOG_PATH);
+        model.addAttribute("gatewayImage", "ghcr.io/luodi-nate/financial-management-futu-opend");
         return "broker/opend-wizard";
     }
 

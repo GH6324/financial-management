@@ -46,11 +46,13 @@ public class FutuOpendManager {
     /**
      * 当前生效的通道 —— 按<b>能力探测</b>选,不按"你是哪种部署"选。
      *
-     * <p>判据顺序:</p>
+     * <p>判据顺序(前两条都不看"你是不是在容器里"):</p>
      * <ol>
-     *   <li>控制卷在(用户启用过网关容器)→ 容器通道</li>
-     *   <li>否则在容器里跑 → 也走容器通道,但它的 {@code caps.needsEnable=true},
-     *       向导页会显示那条启用命令(而不是像 v1.16 那样甩一段"自己打包镜像"的教程)</li>
+     *   <li>网关<b>写过 status</b> → 容器通道(它真起过)</li>
+     *   <li>共享卷<b>挂上了</b>但网关还没起 → 也是容器通道,{@code caps.needsEnable=true},
+     *       页面显示那条启用命令(而不是像 v1.16 那样甩一段"自己打包镜像"的教程)。
+     *       这一档不能漏:app 容器无条件挂那个卷,所以"卷在、网关没起"正是刚部署完的常态</li>
+     *   <li>在容器里但卷没挂(用户自己改过 compose)→ 仍走容器通道,让它去解释怎么挂</li>
      *   <li>其余(systemd 原生 / macOS)→ 本机托管通道</li>
      * </ol>
      *
@@ -58,9 +60,10 @@ public class FutuOpendManager {
      * 回答不了"网关在哪"——而后者才是真正要分支的东西。</p>
      */
     public OpendChannel active() {
-        if (container.enabled()) return container;
-        if (env() == Env.DOCKER) return container;
-        return local;
+        if (container.enabled()) return container;      // 网关起过(写过 status)
+        if (container.ctlMounted()) return container;   // 共享卷挂了但网关还没起 → 给"启用命令"那一屏
+        if (env() == Env.DOCKER) return container;      // 在容器里但卷没挂(用户改了 compose)→ 也走容器那套说明
+        return local;                                    // systemd 原生 / macOS
     }
 
     public OpendChannel.Caps caps() { return active().caps(); }
