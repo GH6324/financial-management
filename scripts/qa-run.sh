@@ -3601,15 +3601,15 @@ LJS="$RD/src/main/resources/static/js/lens.js"
   && grep -q 'uniq.sort()' "$LJS" \
   && [ "$(grep -c "^\s*\['#" "$LJS")" -ge 10 ] \
   && grep -q 'K_LENS_PALETTE' "$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java" \
-  && grep -q 'calc-tweaks/lens-palette' "$RD/src/main/java/com/family/finance/web/admin/AdminController.java" \
-  && grep -q 'lensPalette' "$RD/src/main/resources/templates/admin/calc-tweaks.html" \
+  && grep -q '"/appearance"' "$RD/src/main/java/com/family/finance/web/admin/AdminController.java" \
+  && grep -q 'lensPalette' "$RD/src/main/resources/templates/admin/appearance.html" \
   && grep -q 'sunCenter' "$RD/src/main/resources/templates/lens/_section.html" \
   && grep -q 'fmtShort' "$LJS" \
   && grep -q 'renderLeaders' "$LJS" \
   && grep -q 'sunSmallNotes' "$RD/src/main/resources/templates/lens/_section.html" \
   && grep -q 'privacyOn()' "$LJS"; } \
-  && log_ok "v11-SUN-RINGCOLOR 旭日五套环级配色 + 信息交互(管理页可配默认D · 防撞 · 扇区label隐私感知 · 中心盘hover · 小扇区引导线PC/补注移动)" \
-  || log_bad "v11-SUN-RINGCOLOR 旭日配色/信息交互缺件" "see lens.js PALETTE_PLANS/fmtShort/sunCenter · AdminController lens-palette"
+  && log_ok "v11-SUN-RINGCOLOR 旭日五套环级配色 + 信息交互(「显示与外观」页可选 · 默认D · 防撞 · 扇区label隐私感知 · 中心盘hover · 小扇区引导线PC/补注移动)" \
+  || log_bad "v11-SUN-RINGCOLOR 旭日配色/信息交互缺件" "see lens.js PALETTE_PLANS/fmtShort/sunCenter · AdminController /appearance"
 
 # v11-DIM-REV2 · 维值修订三(2026-07-16 TUI 拍板):资产类型平民化命名 + 行业 17→18(+货币现金/拆金融地产/删海外市场)+ V47 迁移
 ACJ="$RD/src/main/java/com/family/finance/domain/lens/AssetClass.java"
@@ -4465,6 +4465,34 @@ FCS="$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.jav
   && log_ok "v1172-PLATFORM-CASCADE 主选/备选/视觉三处下拉都与凭据级联 · 未配置平台不可选并标注去哪配" \
   || log_bad "v1172-PLATFORM-CASCADE 模型下拉没和凭据配置级联" "see admin/integrations.html 三处 select / IntegrationsController#platformReady"
 
+# v1172-APPEARANCE-PAGE · 旭日配色搬出「计算与提示常数」页,并改成个人偏好(v1.17.2 · 维护者拍板 B + 个人级)
+# 原来它挂在 /admin/calc-tweaks,编号「②.5」硬插在录入阈值与会话有效期之间 ——
+# 那页装的是【影响数字与行为】的参数,配色是纯视觉;那个半截编号本身就说明它没有自己的位置。
+# 而且改配色的时机是「正看着旭日图觉得颜色分不清」,没人会想到去计算常数页翻。
+APPTPL="$RD/src/main/resources/templates/admin/appearance.html"
+CALCTPL="$RD/src/main/resources/templates/admin/calc-tweaks.html"
+{ [ -f "$APPTPL" ] \
+  && grep -q 'lensPalette' "$APPTPL" \
+  && ! grep -q 'lensPalette' "$CALCTPL" \
+  && ! grep -q '②.5' "$CALCTPL" \
+  && grep -q '/admin/appearance' "$RD/src/main/resources/templates/admin/index.html" \
+  && grep -q '"/appearance"' "$RD/src/main/java/com/family/finance/web/admin/AdminController.java" \
+  && ! grep -q 'calc-tweaks/lens-palette' "$RD/src/main/java/com/family/finance/web/admin/AdminController.java"; } \
+  && log_ok "v1172-APPEARANCE-PAGE 配色独立成「显示与外观」页 + 管理页有入口 · calc-tweaks 与旧保存端点已清干净" \
+  || log_bad "v1172-APPEARANCE-PAGE 配色仍在计算常数页(或新页/入口缺失)" "see admin/appearance.html · admin/calc-tweaks.html · AdminController"
+
+# v1172-PALETTE-PERSONAL · 配色是个人偏好:存本机、不落库、家庭旧值只作回落(v1.17.2)
+# 三条语义都得成立(已实测):全新设备回落家庭默认 D / 设过就优先个人值 / 另一台设备不受影响。
+# 注意 th:attr —— 第一版把 th:checked 换成 data-default-checked 时丢了 th: 前缀,
+# Thymeleaf 根本不处理它,属性里原样输出了表达式字符串,于是五个 radio 一个都不选中。
+{ grep -q "KEY = 'lensPalette'" "$APPTPL" && grep -q 'localStorage.setItem(KEY' "$APPTPL" \
+  && grep -q 'th:attr="data-default-checked=' "$APPTPL" \
+  && grep -q "localStorage.getItem('lensPalette')" "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q 'PERSONAL_PALETTE' "$RD/src/main/resources/static/js/lens.js" \
+  && grep -q 'K_LENS_PALETTE' "$RD/src/main/java/com/family/finance/service/lens/LensMetaService.java"; } \
+  && log_ok "v1172-PALETTE-PERSONAL 配色存 localStorage(个人 · 不落库)· lens 优先读个人值、回落家庭旧值(老用户不受影响)" \
+  || log_bad "v1172-PALETTE-PERSONAL 个人偏好链路断了(存/读/回落任一处)" "see admin/appearance.html · static/js/lens.js"
+
 # v12-2-FONTSCALE · 全局字号调节(issue #7)· 标准档零回归(calc×var,scale=1 等价)+ 5 层覆盖 + 控件 + FOUC + 图表跟随
 FSCSS="$RD/src/main/resources/static/css/style.css"
 FSLAY="$RD/src/main/resources/templates/fragments/layout.html"
@@ -4908,13 +4936,13 @@ RG="$RD/src/main/resources/templates/dashboard/_region.html"
   && grep -qF "function aggSmall(items, grand, ring)" "$RD/src/main/resources/static/js/lens.js" \
   && ! grep -q "var RISK_SCALE" "$RD/src/main/resources/static/js/lens.js" \
   && ! grep -qE "color: *'#(c8c0ae|c9c2b2|dcd6c8)'" "$RD/src/main/resources/static/js/lens.js" \
-  && grep -qi "#3cc780" "$RD/src/main/resources/templates/admin/calc-tweaks.html" && grep -qi "#f5222d" "$RD/src/main/resources/templates/admin/calc-tweaks.html" \
-  && grep -qi "#2b8f5c" "$RD/src/main/resources/templates/admin/calc-tweaks.html" && grep -qi "#a61b1b" "$RD/src/main/resources/templates/admin/calc-tweaks.html" \
-  && grep -qi "#3cc780" "$RD/src/main/resources/templates/admin/calc-tweaks.html" && grep -qi "#ff4d4f" "$RD/src/main/resources/templates/admin/calc-tweaks.html" \
-  && grep -qi "#a3b79a" "$RD/src/main/resources/templates/admin/calc-tweaks.html" && grep -qi "#8a4034" "$RD/src/main/resources/templates/admin/calc-tweaks.html" \
-  && grep -qi "#5b8c74" "$RD/src/main/resources/templates/admin/calc-tweaks.html" && grep -qi "#8e2231" "$RD/src/main/resources/templates/admin/calc-tweaks.html"; } \
+  && grep -qi "#3cc780" "$RD/src/main/resources/templates/admin/appearance.html" && grep -qi "#f5222d" "$RD/src/main/resources/templates/admin/appearance.html" \
+  && grep -qi "#2b8f5c" "$RD/src/main/resources/templates/admin/appearance.html" && grep -qi "#a61b1b" "$RD/src/main/resources/templates/admin/appearance.html" \
+  && grep -qi "#3cc780" "$RD/src/main/resources/templates/admin/appearance.html" && grep -qi "#ff4d4f" "$RD/src/main/resources/templates/admin/appearance.html" \
+  && grep -qi "#a3b79a" "$RD/src/main/resources/templates/admin/appearance.html" && grep -qi "#8a4034" "$RD/src/main/resources/templates/admin/appearance.html" \
+  && grep -qi "#5b8c74" "$RD/src/main/resources/templates/admin/appearance.html" && grep -qi "#8e2231" "$RD/src/main/resources/templates/admin/appearance.html"; } \
   && log_ok "v1613-LENS-PALETTE(有序色阶+中性色按方案给 · 聚合块与未分类分色 · 无全局 RISK_SCALE / 无三个硬编码灰 · 五套锚点与 admin 色卡同步)" \
-  || log_bad "v1613-LENS-PALETTE 缺件" "see lens.js:PLAN_ORDINAL/PLAN_NEUTRAL/rampOf/aggTint + riskColorMap(values,ring) + aggSmall(...,ring),且不得残留 RISK_SCALE 与 #c8c0ae/#c9c2b2/#dcd6c8;五套锚点首尾色必须同时出现在 admin/calc-tweaks.html 色卡"
+  || log_bad "v1613-LENS-PALETTE 缺件" "see lens.js:PLAN_ORDINAL/PLAN_NEUTRAL/rampOf/aggTint + riskColorMap(values,ring) + aggSmall(...,ring),且不得残留 RISK_SCALE 与 #c8c0ae/#c9c2b2/#dcd6c8;五套锚点首尾色必须同时出现在 admin/appearance.html 色卡(v1.17.2 从 calc-tweaks 搬来)"
 
 # v1613-LS-TOC · 横屏模式必须能用「本页目录」,且按横屏空间重排交互
 #   v1.6.10 我把目录钮一起藏了,理由「横屏整页就一屏多点,目录无意义」——判断错了:

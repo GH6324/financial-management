@@ -105,7 +105,13 @@
     D: ['#8A857B', '#D3CFC5'],
     E: ['#6E6A62', '#CFC9BE']
   };
-  var PLAN_KEY = PALETTE_PLANS[window.LENS_META.palette] ? window.LENS_META.palette : 'D';
+  /* v1.17.2 · 配色改成【个人偏好】(管理 → 显示与外观):优先读本机 localStorage,
+     没设过再用服务端下发的家庭旧值 —— 老用户之前设的方案继续生效,直到他自己改。
+     和字号 fontScale 同一套路:纯视觉、不落库、无迁移。 */
+  var PERSONAL_PALETTE = null;
+  try { PERSONAL_PALETTE = localStorage.getItem('lensPalette'); } catch (e) { /* 隐私模式:忽略 */ }
+  var WANTED = (PERSONAL_PALETTE && PALETTE_PLANS[PERSONAL_PALETTE]) ? PERSONAL_PALETTE : window.LENS_META.palette;
+  var PLAN_KEY = PALETTE_PLANS[WANTED] ? WANTED : 'D';
   var RING_PALETTES = PALETTE_PLANS[PLAN_KEY];
   function rampOf(a) {
     var out = [];

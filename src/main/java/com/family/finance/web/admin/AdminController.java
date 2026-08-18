@@ -526,6 +526,22 @@ public class AdminController {
     }
 
     // ---------------------------------------------------------------------
+    // 11.5 /admin/appearance · v1.17.2 · 显示与外观(个人偏好 · 不落库)
+    //
+    // 旭日配色原来挂在 calc-tweaks(「计算与提示常数」)里,编号「②.5」硬插在两条阈值之间 ——
+    // 那页装的是影响数字的参数,配色是纯视觉,放错了地方,用户也找不到。
+    // 现在独立成页,并按维护者拍板改成【个人偏好】:存 localStorage,不落库、无迁移;
+    // 服务端仍把家庭旧值传下去当回落默认,老用户之前设的方案继续生效直到他自己改。
+    // ---------------------------------------------------------------------
+    @GetMapping("/appearance")
+    public String appearance(@org.springframework.security.core.annotation.AuthenticationPrincipal
+                             com.family.finance.auth.MemberPrincipal me, Model model) {
+        model.addAttribute("me", me);
+        model.addAttribute("lensPalette", lensMetaService.palette(me.getFamilyId()));   // 家庭旧值 = 回落默认
+        return "admin/appearance";
+    }
+
+    // ---------------------------------------------------------------------
     // 12. /admin/calc-tweaks · v0.4.18 · 数值阈值可编辑(详 prd §22)
     // ---------------------------------------------------------------------
     @GetMapping("/calc-tweaks")
@@ -547,25 +563,7 @@ public class AdminController {
         model.addAttribute("lensPlatformConc", cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_LENS_PLATFORM_CONC, 0.40));
         // ③ 会话
         model.addAttribute("rememberMeSeconds",     cs.getLong(fid, com.family.finance.service.config.FamilyConfigService.K_REMEMBER_ME_SECONDS, 2592000L));
-        // v1.1.x · 旭日环级配色方案(A-E · 默认 D 莫兰迪)
-        model.addAttribute("lensPalette", lensMetaService.palette(fid));
         return "admin/calc-tweaks";
-    }
-
-    /** v1.1.x · 旭日环级配色方案保存(A-E 白名单 · 改即生效,前端下次渲染读新值) */
-    @PostMapping("/calc-tweaks/lens-palette")
-    public String saveLensPalette(@org.springframework.security.core.annotation.AuthenticationPrincipal
-                                  com.family.finance.auth.MemberPrincipal me,
-                                  @org.springframework.web.bind.annotation.RequestParam("lensPalette") String lensPalette,
-                                  org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
-        long fid = me.getFamilyId();
-        String p = com.family.finance.service.lens.LensMetaService.PALETTE_PLANS.contains(lensPalette)
-                ? lensPalette : com.family.finance.service.lens.LensMetaService.PALETTE_DEFAULT;
-        configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_LENS_PALETTE, p);
-        auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE, "family_runtime_config", fid,
-                "旭日配色方案 · palette=" + p);
-        ra.addFlashAttribute("flash", "旭日配色已切换为方案 " + p + " · 刷新透视区生效");
-        return "redirect:/admin/calc-tweaks";
     }
 
     /** v0.4.18 · ① 录入提示阈值保存 */
