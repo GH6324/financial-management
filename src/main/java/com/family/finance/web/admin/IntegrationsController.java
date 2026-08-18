@@ -107,6 +107,17 @@ public class IntegrationsController {
         model.addAttribute("qwenKeyConfigured",     configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_LLM_QWEN_KEY));
         model.addAttribute("deepseekKeyConfigured", configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_LLM_DEEPSEEK_KEY));
         model.addAttribute("arkKeyConfigured",      configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_LLM_ARK_KEY));
+        // v1.17.2 · 可辨认掩码(留头尾):用户手上常有多把 key,只说"已配置"他没法确认当前是哪一把
+        model.addAttribute("qwenKeyMasked",     configService.maskedSecret(fid, FamilyConfigService.K_LLM_QWEN_KEY));
+        model.addAttribute("deepseekKeyMasked", configService.maskedSecret(fid, FamilyConfigService.K_LLM_DEEPSEEK_KEY));
+        model.addAttribute("arkKeyMasked",      configService.maskedSecret(fid, FamilyConfigService.K_LLM_ARK_KEY));
+        // v1.17.2 · 「用哪个模型」与上面的凭据表单级联:没配 key 的平台在下拉里不可选。
+        // 判据用【平台 code → 有没有 key】的映射,而不是在模板里逐个 if —— 以后加第四家平台时
+        // 只要这里多一行,三处下拉自动跟上(v0.14 加 METAL 那次就是漏了模板里的硬编码分支)。
+        model.addAttribute("platformReady", java.util.Map.of(
+                "dashscope", configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_LLM_QWEN_KEY),
+                "deepseek",  configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_LLM_DEEPSEEK_KEY),
+                "ark",       configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_LLM_ARK_KEY)));
         // 主选三元组
         model.addAttribute("llmPlatform",       s.primary().platform());
         model.addAttribute("llmFamily",         s.primary().family());

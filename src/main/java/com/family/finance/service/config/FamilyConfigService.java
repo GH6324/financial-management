@@ -240,6 +240,29 @@ public class FamilyConfigService {
         return v != null && !v.isBlank();
     }
 
+    /**
+     * 密钥的可辨认掩码(v1.17.2):留头 6 尾 4,中间打码 —— 例如 {@code sk-abc••••••wxyz}。
+     *
+     * <p><b>为什么要露几个字符</b>:用户手上常有多把 key(不同账号 / 不同额度),页面只说"已配置"
+     * 他没法确认当前跑的是哪一把,于是每次都只能整条重贴。露头尾就能一眼认出来。</p>
+     *
+     * <p><b>为什么只露这几个</b>:头部是平台前缀(<code>sk-</code> 之类)+ 几位,尾部 4 位 ——
+     * 足够辨认、不足以拼出密钥。短到无法安全打码的(≤12 位)一律全打码,不给"看着像露了一半"的错觉。
+     * 这个值只回页面,<b>不进日志、不进 audit_log</b>。</p>
+     */
+    public String maskedSecret(long familyId, String key) {
+        String v = getString(familyId, key, "");
+        return maskSecret(v);
+    }
+
+    /** 掩码纯函数(单测)。 */
+    public static String maskSecret(String v) {
+        if (v == null || v.isBlank()) return "";
+        String t = v.trim();
+        if (t.length() <= 12) return "•".repeat(Math.max(6, t.length()));   // 太短:全打码
+        return t.substring(0, 6) + "••••••" + t.substring(t.length() - 4);
+    }
+
     /** 触发 cache 全部 invalidate(deploy.sh seed 后 / 测试用) */
     public void invalidateAll() {
         int n = cache.size();

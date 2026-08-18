@@ -58,9 +58,17 @@
            不这么钉的话「测试连接」会跟着各自内容浮动,PC 上三个按钮差十几像素高 —— 并列同类
            元素必须对齐(v1.13 双端审视时实测 726/726/710)。 -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div class="flex flex-col">
-          <label class="field-label md:min-h-[32px]">阿里云百炼 · API Key · <span class="text-ink-subtle" th:text="${qwenKeyConfigured} ? '已配置(隐藏)' : '未配置'">未配置</span></label>
-          <input class="field-input" type="password" name="qwenKey" autocomplete="new-password" placeholder="留空 = 不修改"/>
+        <div class="cred-card" th:classappend="${qwenKeyConfigured} ? 'is-on' : ''">
+          <div class="cred-head">
+            <span class="cred-name">阿里云百炼</span>
+            <span th:if="${qwenKeyConfigured}" class="state-tag on">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>已配置</span>
+            <span th:unless="${qwenKeyConfigured}" class="state-tag off">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>未配置</span>
+          </div>
+          <div th:if="${qwenKeyConfigured}" class="cred-mask" th:text="${qwenKeyMasked}">sk-abc••••••wxyz</div>
+          <input class="field-input" type="password" name="qwenKey" autocomplete="new-password"
+                 th:placeholder="${qwenKeyConfigured} ? '留空 = 不改;要换就粘新的' : '粘贴 API Key'"/>
           <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">通义千问 / 千问 VL(视觉)· sk-xxxxxxxx</p>
           <details class="help-fold">
             <summary>如何获取百炼 Key?</summary>
@@ -78,9 +86,17 @@
             <button type="submit" form="llm-test-dashscope" class="btn-ghost text-[12px] py-1.5 px-3">测试连接</button>
           </div>
         </div>
-        <div class="flex flex-col">
-          <label class="field-label md:min-h-[32px]">DeepSeek 官方 · API Key · <span class="text-ink-subtle" th:text="${deepseekKeyConfigured} ? '已配置(隐藏)' : '未配置'">未配置</span></label>
-          <input class="field-input" type="password" name="deepseekKey" autocomplete="new-password" placeholder="留空 = 不修改"/>
+        <div class="cred-card" th:classappend="${deepseekKeyConfigured} ? 'is-on' : ''">
+          <div class="cred-head">
+            <span class="cred-name">DeepSeek 官方</span>
+            <span th:if="${deepseekKeyConfigured}" class="state-tag on">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>已配置</span>
+            <span th:unless="${deepseekKeyConfigured}" class="state-tag off">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>未配置</span>
+          </div>
+          <div th:if="${deepseekKeyConfigured}" class="cred-mask" th:text="${deepseekKeyMasked}">sk-abc••••••wxyz</div>
+          <input class="field-input" type="password" name="deepseekKey" autocomplete="new-password"
+                 th:placeholder="${deepseekKeyConfigured} ? '留空 = 不改;要换就粘新的' : '粘贴 API Key'"/>
           <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">deepseek-chat / reasoner · 无视觉能力</p>
           <details class="help-fold">
             <summary>如何获取 DeepSeek Key?</summary>
@@ -97,9 +113,17 @@
             <button type="submit" form="llm-test-deepseek" class="btn-ghost text-[12px] py-1.5 px-3">测试连接</button>
           </div>
         </div>
-        <div class="flex flex-col">
-          <label class="field-label md:min-h-[32px]">火山方舟 · API Key · <span class="text-ink-subtle" th:text="${arkKeyConfigured} ? '已配置(隐藏)' : '未配置'">未配置</span></label>
-          <input class="field-input" type="password" name="arkKey" autocomplete="new-password" placeholder="留空 = 不修改"/>
+        <div class="cred-card" th:classappend="${arkKeyConfigured} ? 'is-on' : ''">
+          <div class="cred-head">
+            <span class="cred-name">火山方舟</span>
+            <span th:if="${arkKeyConfigured}" class="state-tag on">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>已配置</span>
+            <span th:unless="${arkKeyConfigured}" class="state-tag off">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>未配置</span>
+          </div>
+          <div th:if="${arkKeyConfigured}" class="cred-mask" th:text="${arkKeyMasked}">sk-abc••••••wxyz</div>
+          <input class="field-input" type="password" name="arkKey" autocomplete="new-password"
+                 th:placeholder="${arkKeyConfigured} ? '留空 = 不改;要换就粘新的' : '粘贴 API Key'"/>
           <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">豆包 / 方舟托管的 DeepSeek · 型号需手填</p>
           <details class="help-fold">
             <summary>如何获取火山方舟 Key?</summary>
@@ -130,7 +154,9 @@
             <div>
               <label class="field-label" for="primaryPlatform">平台</label>
               <select class="field-input" id="primaryPlatform" name="platform">
-                <option th:each="p : ${llmPlatformsText}" th:value="${p.code()}" th:text="${p.label()}"
+                <option th:each="p : ${llmPlatformsText}" th:value="${p.code()}"
+                        th:text="${platformReady[p.code()]} ? ${p.label()} : ${p.label()} + ' · 目前不可用,去上方表单配置'"
+                        th:disabled="${!platformReady[p.code()]}"
                         th:selected="${p.code() == llmPlatform}">阿里云百炼</option>
               </select>
             </div>
@@ -160,7 +186,9 @@
               <label class="field-label" for="backupPlatform">平台</label>
               <select class="field-input" id="backupPlatform" name="backupPlatform">
                 <option value="" th:selected="${#strings.isEmpty(llmBackupPlatform)}">不设备选</option>
-                <option th:each="p : ${llmPlatformsText}" th:value="${p.code()}" th:text="${p.label()}"
+                <option th:each="p : ${llmPlatformsText}" th:value="${p.code()}"
+                        th:text="${platformReady[p.code()]} ? ${p.label()} : ${p.label()} + ' · 目前不可用,去上方表单配置'"
+                        th:disabled="${!platformReady[p.code()]}"
                         th:selected="${p.code() == llmBackupPlatform}">DeepSeek 官方</option>
               </select>
             </div>
@@ -199,7 +227,9 @@
           <div>
             <label class="field-label" for="visionPlatform">平台</label>
             <select class="field-input" id="visionPlatform" name="visionPlatform">
-              <option th:each="p : ${llmPlatformsVision}" th:value="${p.code()}" th:text="${p.label()}"
+              <option th:each="p : ${llmPlatformsVision}" th:value="${p.code()}"
+                      th:text="${platformReady[p.code()]} ? ${p.label()} : ${p.label()} + ' · 目前不可用,去上方表单配置'"
+                      th:disabled="${!platformReady[p.code()]}"
                       th:selected="${p.code() == llmVisionPlatform}">阿里云百炼</option>
             </select>
           </div>

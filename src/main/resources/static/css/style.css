@@ -1574,3 +1574,35 @@ body.upd-open #priv-float { display: none !important; }
 .term-block .t-copy:hover{ background:var(--brass-deep); color:var(--paper); border-color:var(--brass-deep); }
 .term-block .t-copy.ok{ background:var(--forest); color:#fff; border-color:var(--forest); }
 @media(max-width:640px){ .term-block pre{ font-size:11.5px; } .term-block .t-copy{ font-size:10px; } }
+
+/* ===========================================================
+   凭据配置卡 + 状态标签(v1.17.2)
+   -----------------------------------------------------------
+   三家 AI 平台原来是三列裸 div,只靠间距分隔 —— 用户看不出"这是三个独立的东西";
+   而「已配置 / 未配置」是一行灰色小字,混在 label 里,扫一眼根本分不清哪家配好了。
+   =========================================================== */
+.cred-card{ background:var(--card-soft); border:1px solid var(--rule-soft); border-radius:6px;
+            padding:.9rem 1rem; display:flex; flex-direction:column; }
+.cred-card.is-on{ border-color:rgba(79,107,71,.42); background:rgba(79,107,71,.045); }
+.cred-card .cred-head{ display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-bottom:.55rem; }
+.cred-card .cred-name{ font-weight:600; font-size:13.5px; color:var(--ink); }
+
+/* 状态标签:配没配是这一页最该一眼看清的事,所以给底色 */
+.state-tag{ display:inline-flex; align-items:center; gap:.28rem; font-family:'JetBrains Mono',monospace;
+            font-size:10px; letter-spacing:.06em; padding:.14rem .5rem; border-radius:3px; white-space:nowrap; }
+.state-tag.on{  color:#fff; background:var(--forest); }
+.state-tag.off{ color:#fff; background:var(--rust); }
+.state-tag svg{ width:11px; height:11px; }
+
+/* 已配置时:掩码值(留头尾几位,方便有多把 key 的人确认当前是哪一把) */
+.cred-mask{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-soft);
+            background:var(--paper); border:1px solid var(--rule-soft); border-radius:4px;
+            padding:.3rem .5rem; margin-bottom:.4rem; word-break:break-all; }
+
+/* 卡片里的输入框:placeholder 用等宽小字,和上面那行掩码同一视觉层级 ——
+   默认 field-input 的 placeholder 是正文 serif 大字号,和掩码并排时抢走全部注意力 */
+.cred-card .field-input{ font-family:'JetBrains Mono',monospace; font-size:12px; }
+.cred-card .field-input::placeholder{ font-family:'JetBrains Mono',monospace; font-size:11px; opacity:.75; }
+
+/* 下拉里不可选的平台(还没配 key)*/
+select option:disabled{ color:var(--ink-subtle); font-style:italic; }

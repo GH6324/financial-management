@@ -4429,6 +4429,42 @@ GWI="$RD/src/main/java/com/family/finance/service/broker/opend/GatewayImageInfo.
   && log_ok "v1171-DIGEST-NO-PLACEHOLDER 命令里填真 digest(运行时查 GHCR)· 查不到才退回 tag 并明说" \
   || log_bad "v1171-DIGEST-NO-PLACEHOLDER 自查命令仍留占位符或没有降级提示" "see GatewayImageInfo.java / broker/opend-wizard.html"
 
+# v1172-CRED-CARDS · 数据源接入页:三家平台要有可见边界 + 配没配一眼看清(v1.17.2 · 维护者提)
+# 原来三家是三列裸 div、只靠间距分隔,「已配置/未配置」是混在 label 里的一行灰字 ——
+# 用户既看不出这是三个独立的东西,也扫不出哪家配好了。
+INTTPL="$RD/src/main/resources/templates/admin/integrations.html"
+INTCSS="$RD/src/main/resources/static/css/style.css"
+{ [ "$(grep -c 'class="cred-card"' "$INTTPL")" -ge 3 ] \
+  && grep -q '\.cred-card' "$INTCSS" \
+  && grep -q '\.state-tag\.on' "$INTCSS" && grep -q '\.state-tag\.off' "$INTCSS" \
+  && grep -q 'state-tag on' "$INTTPL" && grep -q 'state-tag off' "$INTTPL" \
+  && ! grep -q "已配置(隐藏)' : '未配置'" "$INTTPL"; } \
+  && log_ok "v1172-CRED-CARDS 三家平台各自成卡(有底色边界)· 已配置/未配置是带底色的标签(绿/红),不再是 label 里的灰字" \
+  || log_bad "v1172-CRED-CARDS 凭据块没有可见边界或状态还是灰字" "see admin/integrations.html · style.css .cred-card/.state-tag"
+
+# v1172-KEY-MASK · 已配置的密钥要露头尾几位(够辨认),但绝不能露够拼出来(v1.17.2)
+# 用户手上常有多把 key,只说"已配置"没法确认当前跑的是哪一把 —— 于是每次都只能整条重贴。
+# 边界钉在 maskSecret:固定露 10 位(头 6 尾 4),不随密钥长度增长;≤12 位的一律全打码。
+FCS="$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java"
+{ grep -q 'maskSecret' "$FCS" \
+  && grep -q 'maskedSecret' "$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java" \
+  && grep -q 'cred-mask' "$INTTPL" \
+  && grep -qE 'substring\(0, 6\)' "$FCS" \
+  && grep -qE 'length\(\) - 4' "$FCS" \
+  && [ -f "$RD/src/test/java/com/family/finance/service/config/SecretMaskTest.java" ]; } \
+  && log_ok "v1172-KEY-MASK 已配置密钥显示头6尾4掩码(可辨认 · 不可复原)· 掩码规则有单测钉住" \
+  || log_bad "v1172-KEY-MASK 密钥掩码缺失或露出过多" "see FamilyConfigService.maskSecret / SecretMaskTest"
+
+# v1172-PLATFORM-CASCADE · 没配 key 的平台在「用哪个模型」里不可选(v1.17.2)
+# 否则用户能选中一个根本调不通的平台,然后在别处收到一条看不懂的失败 —— 错误要挡在选择的那一刻。
+# 判据要求三处下拉(主选/备选/视觉)都级联,且判定来自一个 map 而不是模板里逐个 if
+# (加第四家平台时只改一处,v0.14 加 METAL 那次就是漏了模板里的硬编码分支)。
+{ [ "$(grep -c '目前不可用,去上方表单配置' "$INTTPL")" -ge 3 ] \
+  && [ "$(grep -c 'th:disabled="\${!platformReady' "$INTTPL")" -ge 3 ] \
+  && grep -q 'addAttribute("platformReady"' "$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"; } \
+  && log_ok "v1172-PLATFORM-CASCADE 主选/备选/视觉三处下拉都与凭据级联 · 未配置平台不可选并标注去哪配" \
+  || log_bad "v1172-PLATFORM-CASCADE 模型下拉没和凭据配置级联" "see admin/integrations.html 三处 select / IntegrationsController#platformReady"
+
 # v12-2-FONTSCALE · 全局字号调节(issue #7)· 标准档零回归(calc×var,scale=1 等价)+ 5 层覆盖 + 控件 + FOUC + 图表跟随
 FSCSS="$RD/src/main/resources/static/css/style.css"
 FSLAY="$RD/src/main/resources/templates/fragments/layout.html"
@@ -6580,13 +6616,16 @@ done
 #        六个下拉连成一条,看不出哪三个是一组。备选组补窄屏分隔线(sm: 以上还原,PC 不变)。
 #   这两条都不是「跑得起来」的问题,单测和 e2e 都抓不到,只能钉类名。加第四个平台时
 #   照抄这三列的结构就不会再歪。
-_card_flexcol="$(grep -c 'class="flex flex-col"' "$ICFG")"
+# v1.17.2:三列改成了 .cred-card(带底色的卡),等高与按钮对齐所依赖的机制从行内类挪进了 CSS ——
+#          判据跟着改指向,守的仍是同一件事「三个『测试连接』必须在同一水平线」。
+#          改完实测:三卡 230/230/230、按钮 top 全 763(1440 宽)。
+_card_col="$(grep -c 'class="cred-card"' "$ICFG")"
 _card_mtauto="$(grep -c 'flex items-center gap-3 mt-auto' "$ICFG")"
-_card_minh="$(grep -c 'field-label md:min-h-\[' "$ICFG")"
+_card_flexcss="$(grep -c 'flex-direction:column' "$RD/src/main/resources/static/css/style.css")"
 _card_split="$(grep -c 'pt-4 border-t border-rule-soft sm:pt-0 sm:border-t-0' "$ICFG")"
-{ [ "$_card_flexcol" -ge 3 ] && [ "$_card_mtauto" -ge 3 ] && [ "$_card_minh" -ge 3 ] && [ "$_card_split" -ge 1 ]; } \
-  && log_ok "v113-LLM-CARD-LAYOUT 三家凭据列等高对齐(flex-col+mt-auto+min-h)· 备选组窄屏有分组线" \
-  || log_bad "v113-LLM-CARD-LAYOUT 凭据列或分组间距回退" "flex-col $_card_flexcol/3 · mt-auto $_card_mtauto/3 · min-h $_card_minh/3 · 窄屏分隔 $_card_split/1 · see integrations.html"
+{ [ "$_card_col" -ge 3 ] && [ "$_card_mtauto" -ge 3 ] && [ "$_card_flexcss" -ge 1 ] && [ "$_card_split" -ge 1 ]; } \
+  && log_ok "v113-LLM-CARD-LAYOUT 三家凭据卡等高对齐(cred-card 列布局 + mt-auto)· 备选组窄屏有分组线" \
+  || log_bad "v113-LLM-CARD-LAYOUT 凭据卡或分组间距回退" "cred-card $_card_col/3 · mt-auto $_card_mtauto/3 · 列布局CSS $_card_flexcss/1 · 窄屏分隔 $_card_split/1 · see integrations.html"
 # ── v1.14 · 截图导入拖拽 + 粘贴(issue #11)────────────────────────────
 IMPORT_HTML="$RD/src/main/resources/templates/holdingimport/import.html"
 
