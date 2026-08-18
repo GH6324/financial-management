@@ -1,37 +1,23 @@
 {
  "_comment": "每次发版按核心能力改清单(PC 用 selector 裁剪聚焦;手机不裁剪、整屏 full=false 平铺 —— 用户定 2026-07-11)",
- "_version": "v1.16.0 · 四版同批发布(v1.13 LLM 路由收口无 UI / v1.14 拖拽粘贴上传 / v1.15 成员身份 / v1.16 开账即已填)。清单只留两处有可见 UI 且不含金额的:拖拽上传区、成员卡片。v1.16 的「开账即已填」是口径修正(徽标数字),需要 OPEN 账期与特定数据态才看得出来,不为截图去改 beta 数据 —— 说明写进 release notes。",
+ "_version": "v1.17.0 · Docker 下富途 OpenD 一键接入(可选网关容器)。核心 UI 是券商向导页的两种形态:① 未启用时的「你正在引入什么」公示块(要在带共享卷的实例上才看得到,beta 是 systemd 原生,所以这张走 SHOT_BASE=20099 的临时实例);② 已可安装时的第 1 步(版本号不再要用户填)。两张都不含金额。",
  "pc": [
   {
-   "path": "/entry/import/3",
-   "name": "drag-drop-upload",
-   "wait": 1600,
-   "waitFor": "#dropZone",
-   "selector": "#importSection"
-  },
-  {
-   "path": "/admin/members",
-   "name": "member-identity",
+   "path": "/admin/broker/opend",
+   "name": "futu-install-step",
    "wait": 1500,
-   "waitFor": "text=登录名",
-   "selector": ".paper-card:has(form[action*=\"/members/2/username\"])"
+   "waitFor": "text=第 1 步",
+   "selector": "#sec1"
   }
  ],
  "mobile": [
   {
-   "path": "/entry/import/3",
-   "name": "drag-drop-upload",
-   "wait": 1600,
-   "full": false,
-   "waitFor": "#dropZone"
-  },
-  {
-   "path": "/admin/members",
-   "name": "member-identity",
+   "path": "/admin/broker/opend",
+   "name": "futu-install-step",
    "wait": 1500,
    "full": false,
-   "waitFor": "text=登录名",
-   "selector": ".paper-card:has(form[action*=\"/members/2/username\"])"
+   "waitFor": "text=第 1 步",
+   "selector": "#sec1"
   }
  ]
 }

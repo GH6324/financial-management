@@ -96,13 +96,12 @@
 
 > 完整发布记录与截图见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段每版只留 2–4 行,细节不搬过来)。
 
-**[v1.16.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.16.0) · 四版同批发布(v1.13–v1.16)· 三条社区 issue 一起落地**
-**截图导入支持拖拽 + Ctrl+V 粘贴**([#11](https://github.com/LuoDi-Nate/financial-management/issues/11)):上传区一直长得像拖拽框却从不接拖拽,PC 上真拖上去浏览器会导航走、这次导入全丢。**成员身份三件事**([#12](https://github.com/LuoDi-Nate/financial-management/issues/12)):登录名可改(改完旧名当场失效)· 成员可归档(**只停掉「谁还来打理」,名下的钱一分不动**)· 零引用才给删;顺带修掉「已归档成员真名会进 LLM prompt」的隐私缺陷。
-**AI 配置升级为 平台 → 系列 → 型号 三级并接入火山方舟**([#14](https://github.com/LuoDi-Nate/financial-management/issues/14)),文本与多模态各配一套;修掉「管理页改主选供应商只有六分之一调用点生效」的静默 bug。**填报完成度只留一个定义**([#15](https://github.com/LuoDi-Nate/financial-management/issues/15)):开账延续上期末余额时同步把待填标成已填,不再「页面全填好了、tab 徽标还挂着 ·1」。
-**含 DB 迁移 V55(只动待办状态,不碰任何金额)**;AI 旧配置读时派生、无需手改,可回滚。
+**[v1.17.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.17.0) · Docker 下的富途 OpenD 一键接入(可选网关容器)**
+Docker 用户过去看到的是「本页**不能替你一键装**」+ 一段自己打包镜像的教程([#13](https://github.com/LuoDi-Nate/financial-management/issues/13));现在换成一个**可选**网关容器 —— 默认 `up -d` 不拉不起,要用富途才 `docker-up.sh --with-futu`。镜像里**没有富途任何文件**(OpenD 由容器从官网下载并核对 sha256,CI 扫全部层钉住),启用前页面先公示「你正在引入什么」并给出自查命令;账号密码改在页面填、不再进 `.env`。
+顺带修好原生路径 —— 富途换了分发域名与命名,「下载并安装」**在 systemd 上其实也早就点不动了**,而且白名单还会拒掉用户手填的官方地址;版本号从此不用填。**无 DB 迁移,可回滚。**
 
-**[v1.12.1](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.12.1) · 修 [#13](https://github.com/LuoDi-Nate/financial-management/issues/13):Docker 用户照着 OpenD 向导跑必然失败**
-向导页把 `docker compose … up -d` 摆成一个一键复制块,而它依赖的三个变量(`FUTU_OPEND_IMAGE` / `FUTU_ACCOUNT` / `FUTU_PWD_MD5`)写在命令**下方**的脚注里 —— 复制即撞 `required variable FUTU_ACCOUNT is missing a value`。compose 里那个 `${VAR:?}` 硬失败**是对的**,错的是引导顺序。现在 DOCKER 段改成有序四步(备镜像 → 配 `.env` → 合并启动 → 回管理页填连接信息),「富途没有官方镜像」这条决定路走不走得通的前提从脚注提到最前面,`.env.example` 补上那三个变量(默认注释掉),指南里两个必然 404 的相对链接一并修正。**只动模板 / 文档 / 示例配置,无 DB 迁移。**
+**[v1.16.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.16.0) · 四版同批发布(v1.13–v1.16)· 三条社区 issue 一起落地**
+截图导入支持拖拽 + Ctrl+V 粘贴([#11](https://github.com/LuoDi-Nate/financial-management/issues/11))· 成员身份三件事(改登录名 / 归档 / 零引用才给删,[#12](https://github.com/LuoDi-Nate/financial-management/issues/12))· AI 配置升级为三级并接入火山方舟([#14](https://github.com/LuoDi-Nate/financial-management/issues/14))· 填报完成度只留一个定义([#15](https://github.com/LuoDi-Nate/financial-management/issues/15))。含 DB 迁移 V55(只动待办状态,不碰金额)。
 
 ## 主要能力
 
