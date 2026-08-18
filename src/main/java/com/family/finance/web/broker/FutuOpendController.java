@@ -42,6 +42,7 @@ public class FutuOpendController {
 
     private final FutuOpendManager opend;
     private final com.family.finance.service.broker.opend.OpendCatalog catalog;
+    private final com.family.finance.service.broker.opend.GatewayImageInfo gatewayImage;
     private final FamilyConfigService configService;
     private final AuditLogService auditLog;
     private final NavService navService;
@@ -79,7 +80,13 @@ public class FutuOpendController {
         String os = opend.detectedOsTag();
         model.addAttribute("verified", catalog.latestVerified(os.isBlank() ? "Ubuntu18.04" : os).orElse(null));
         model.addAttribute("catalogPath", com.family.finance.service.broker.opend.OpendCatalog.CATALOG_PATH);
-        model.addAttribute("gatewayImage", "ghcr.io/luodi-nate/financial-management-futu-opend");
+        // v1.17.1 · 命令里直接填真 digest,让用户贴走就能跑(查不到就退回 tag 并说明)
+        model.addAttribute("gatewayImage", com.family.finance.service.broker.opend.GatewayImageInfo.IMAGE);
+        model.addAttribute("gatewayRef", gatewayImage.reference());
+        model.addAttribute("gatewayHasDigest", gatewayImage.hasDigest());
+        var vr = catalog.latestVerified(os.isBlank() ? "Ubuntu18.04" : os).orElse(null);
+        model.addAttribute("verifyCommands", gatewayImage.verifyCommands(
+                vr != null ? vr.file() : "Futu_OpenD_<版本>_<系统>.tar.gz"));
         return "broker/opend-wizard";
     }
 

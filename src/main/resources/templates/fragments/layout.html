@@ -454,6 +454,34 @@
 -->
 <body>
 <footer th:fragment="footer" class="border-t border-rule mt-12 py-6 px-8 text-center relative">
+  <!-- v1.17.1 · 终端命令块的一键复制(fragments/term :: cmd 用它)。
+       放 footer 里 = 每个用 layout 的页面都有,不必各页各写一份。
+       复制取每行的 textContent:行首那个 "$ " 提示符是 CSS ::before 画的、不属于 DOM 文本,
+       所以不会被一起复制走(否则用户粘到终端就是一条带 $ 的跑不了的命令)。 -->
+  <script th:inline="none">
+    window.termCopy = function(btn){
+      var box = btn.closest('.term-block'); if(!box) return;
+      var text = Array.prototype.map.call(box.querySelectorAll('.t-line'), function(el){
+        return el.textContent;
+      }).join('\n');
+      function done(ok){
+        btn.textContent = ok ? '已复制' : '请手动选中';
+        btn.classList.toggle('ok', ok);
+        setTimeout(function(){ btn.textContent = '复制'; btn.classList.remove('ok'); }, 1800);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function(){ done(true); }, function(){ selectFallback(box); done(false); });
+      } else {
+        // 自托管常见:没挂 TLS,http 下 clipboard API 直接不可用 → 退回选中,用户自己 Ctrl+C
+        selectFallback(box); done(false);
+      }
+      function selectFallback(b){
+        var code = b.querySelector('.t-code'); if(!code) return;
+        var r = document.createRange(); r.selectNodeContents(code);
+        var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      }
+    };
+  </script>
   <div class="font-mono text-[10px] tracking-[0.18em] text-ink-subtle">
     家庭账房 · 仅限家庭内部使用
   </div>

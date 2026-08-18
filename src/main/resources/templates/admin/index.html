@@ -99,14 +99,14 @@
       <div>
         <div class="eyebrow-ink mb-1.5">怎 么 升 级</div>
         <!-- 注释不放进 <pre>:窄屏 overflow-x 会把「# Docker」横向截掉,手机上只剩一个 # -->
-        <div class="space-y-1.5">
+        <div class="space-y-2">
           <div>
-            <div class="font-mono text-[10px] text-ink-subtle mb-0.5">Docker</div>
-            <pre class="font-mono text-[11px] bg-paper border border-rule-soft px-3 py-2 overflow-x-auto">git pull &amp;&amp; bash deploy/docker-up.sh</pre>
+            <div class="font-mono text-[10px] text-ink-subtle mb-1">Docker</div>
+            <div th:replace="~{fragments/term :: cmd(${ {'git pull &amp;&amp; bash deploy/docker-up.sh'} })}"></div>
           </div>
           <div>
-            <div class="font-mono text-[10px] text-ink-subtle mb-0.5">直装</div>
-            <pre class="font-mono text-[11px] bg-paper border border-rule-soft px-3 py-2 overflow-x-auto">git pull &amp;&amp; bash deploy/deploy.sh</pre>
+            <div class="font-mono text-[10px] text-ink-subtle mb-1">直装</div>
+            <div th:replace="~{fragments/term :: cmd(${ {'git pull &amp;&amp; bash deploy/deploy.sh'} })}"></div>
           </div>
         </div>
         <p class="font-mono text-[10px] text-ink-subtle mt-1">

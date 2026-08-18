@@ -99,23 +99,20 @@ md5    ${verified.md5()}|">…</pre>
         </svg>
         <p class="text-sm text-ink-soft"><b class="text-ink">请你自己也验一遍</b> —— 任何一条对不上就<b class="text-ink">不要继续</b>,来仓库开个 issue。</p>
       </div>
-      <!-- 【踩过的坑】不要把这段命令写进 th:text="|...|"(literal substitution):
-           `|` 本身就是它的定界符,而这里的命令含 shell 管道 `| grep -i etag` —— 于是 literal 提前结束,
-           模板【解析期】就抛 "Could not parse as expression"。而响应是 chunked,错误页被追加在
-           已输出内容之后,现象是"页面渲染到一半突然变成错误页",很容易误判成布局问题。
-           (三元表达式写在 ${} 内部是合法的,admin/backup.html 就有;问题不在三元,在那个 `|`。)
-           改法:普通静态文本 + 少量 <span th:text>,要复用的值先在 th:with 里算好。 -->
-      <div th:with="pkg=${verified != null} ? ${verified.file()} : 'Futu_OpenD_&lt;版本&gt;_&lt;系统&gt;.tar.gz'">
-        <pre class="p-3 bg-paper border border-rule-soft font-mono text-[10.5px] whitespace-pre-wrap break-all"># 1) 我们的镜像:按 digest 拉(不认 tag),并验构建来源
-docker pull <span th:text="${gatewayImage}">ghcr.io/…</span>@sha256:&lt;见 Release 页&gt;
-gh attestation verify --repo LuoDi-Nate/financial-management oci://<span th:text="${gatewayImage}">ghcr.io/…</span>@sha256:&lt;同上&gt;
-
-# 2) 镜像里确实没有富途文件
-docker run --rm --entrypoint ls <span th:text="${gatewayImage}">ghcr.io/…</span> /opt/futu
-
-# 3) 官方包的 MD5:CDN 响应头里的 etag 实测等于文件 MD5
-curl -sI "https://softwaredownload.futunn.com/<span th:text="${pkg}">Futu_OpenD_…</span>" | grep -i etag</pre>
-      </div>
+      <!-- 【踩过的坑】这段别再写进 th:text="|...|"(literal substitution):`|` 就是它的定界符,
+           而命令里有 shell 管道 `| grep -i etag` —— literal 提前结束,模板【解析期】就抛
+           Could not parse as expression;又因为响应是 chunked,错误页被追加在已输出内容之后,
+           现象是"页面渲染到一半突然变成错误页",很容易误判成布局问题。
+           v1.17.1:digest 由后端查 GHCR 填进来(查不到才退回 tag),用户贴走就能跑,不用再去翻 Release 页。 -->
+      <!-- 命令在 Java 侧拼好(GatewayImageInfo#verifyCommands):
+           模板里拼字符串会踩 Thymeleaf 的 fragment 选择器解析 —— ~{tpl :: cmd(...)} 的参数含 / 或 |
+           (URL 和 shell 管道里全是)就会被当成选择器语法,报 Invalid syntax in selector,
+           而且因为响应是 chunked,错误页被追加在已输出内容后面,看起来像"页面渲染到一半坏了"。 -->
+      <div th:replace="~{fragments/term :: cmd(${verifyCommands})}"></div>
+      <p th:unless="${gatewayHasDigest}" class="text-[11px] text-rust mt-2">
+        这次没查到镜像 digest(网络不通?)—— 上面第 1 条退回了按 tag 拉。
+        digest 在 <a href="https://github.com/LuoDi-Nate/financial-management/releases" target="_blank" rel="noopener" class="underline">Release 页</a>,按 digest 拉更严格。
+      </p>
       <p class="text-[11px] text-ink-subtle mt-2 leading-relaxed">
         要说清第 3 条的极限:<span class="font-mono">etag</span> 和安装包走的是<b class="text-ink">同一条连接、同一个 CDN</b>,
         它证明的是"传输没坏",不是独立第三方担保。真正有意义的是<b class="text-ink">三方对上</b>:你自己算的、我们仓库里钉的、CDN 给的。
@@ -126,10 +123,8 @@ curl -sI "https://softwaredownload.futunn.com/<span th:text="${pkg}">Futu_OpenD_
       <div class="p-3 border border-rule">
         <div class="text-sm font-medium mb-1">看完了,启用它</div>
         <p class="text-[11px] text-ink-subtle mb-2">复制这条命令在服务器上跑一次(镜像很小,里面只有三个 shell 脚本):</p>
-        <pre id="enableCmd" class="p-3 bg-paper border border-rule-soft font-mono text-[11px] whitespace-pre-wrap"
-             th:text="${caps.enableCommand()}">docker compose --profile futu up -d</pre>
+        <div id="enableCmd" th:replace="~{fragments/term :: cmd(${ {caps.enableCommand()} })}"></div>
         <div class="mt-2 flex flex-wrap gap-2 items-center">
-          <button id="copyEnableBtn" type="button" class="btn-paper text-xs">复制命令</button>
           <button id="recheckBtn" type="button" class="btn-ink text-xs">我已执行,重新检测</button>
           <span id="recheckMsg" class="font-mono text-[10px] text-ink-subtle"></span>
         </div>
@@ -445,20 +440,8 @@ curl -sI "https://softwaredownload.futunn.com/<span th:text="${pkg}">Futu_OpenD_
     if(!$('phasePill')) return; // 没有终端(网关未启用)时不轮询
     fetch(BASE+'status', {headers:{'Accept':'application/json'}}).then(function(r){return r.json();}).then(render).catch(function(){});
   }
-  // v1.17 · 网关未启用:复制启用命令 + 执行完就地重检(不用手动刷新页面)
-  var copyEnableBtn=$('copyEnableBtn');
-  if(copyEnableBtn) copyEnableBtn.addEventListener('click', function(){
-    var cmd=$('enableCmd'); if(!cmd) return;
-    var text=(cmd.textContent||'').trim();
-    function done(ok){ copyEnableBtn.textContent = ok ? '已复制' : '复制失败,请手动选中'; setTimeout(function(){ copyEnableBtn.textContent='复制命令'; }, 1800); }
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(text).then(function(){ done(true); }, function(){ done(false); });
-    } else {
-      // http 下 clipboard API 不可用(自托管常见:没挂 TLS)→ 退回选中,用户自己 Ctrl+C
-      var r=document.createRange(); r.selectNodeContents(cmd);
-      var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r); done(false);
-    }
-  });
+  // v1.17.1 · 复制由 fragments/term 的全局 termCopy 统一处理(含 http 下 clipboard 不可用时的降级),
+  // 这里只留"执行完就地重检",不用手动刷新页面
   var recheckBtn=$('recheckBtn');
   if(recheckBtn) recheckBtn.addEventListener('click', function(){
     set('recheckMsg','textContent','检测中…');

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!--
+  终端命令块 fragment(v1.17.1)
+
+  用法(参数是【行的列表】,不是一整个字符串):
+    <div th:replace="~{fragments/term :: cmd(${ {'git pull &amp;&amp; bash deploy/docker-up.sh'} })}"></div>
+    多行就多给几个元素;以 # 开头的行渲染成注释色、且不加 $ 提示符。
+
+  为什么收 List 而不是收字符串自己 split:
+    Thymeleaf 的 SpEL 字符串字面量里没有 '\n' 转义,想拿换行只能 T(java.lang.System).lineSeparator(),
+    而 Spring Security 的表达式沙箱【禁止】访问 java.lang.System(Access is forbidden for type)——
+    那是对的限制,不该绕。收 List 就完全不需要 split。
+
+  为什么要有它:凡是「要用户复制去服务器上跑」的命令,过去每处各写各的样式 ——
+  更新提示是浅色 <pre>、落地页是黑底带复制、向导页又是第三套,而且只有落地页那处能一键复制。
+
+  复制文本从 .t-line 的 textContent 取:CSS ::before 加的 "$ " 提示符【不属于 DOM 文本】,
+  所以不会被一起复制走(用户粘到终端不会得到一条带 $ 的跑不了的命令)。
+-->
+<body>
+
+<div th:fragment="cmd(lines)" class="term-block">
+  <button type="button" class="t-copy" onclick="termCopy(this)">复制</button>
+  <code class="t-code"><span th:each="line : ${lines}" th:class="${#strings.startsWith(#strings.trim(line), '#')} ? 't-line t-cmt' : 't-line'" th:text="${line}">command</span></code>
+</div>
+
+</body>
+</html>

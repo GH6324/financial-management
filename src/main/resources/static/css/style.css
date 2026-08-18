@@ -1546,3 +1546,31 @@ body.upd-open #priv-float { display: none !important; }
 .toc-node.toc-sub { padding-left: 1.15rem; }
 .toc-node.toc-sub .lbl { font-size: 0.92em; color: var(--ink-subtle); }
 .toc-node.toc-sub[aria-current="true"] .lbl { color: var(--ink); }
+
+/* ===========================================================
+   终端命令块(v1.17.1)· 需要用户【照着敲】的命令一律用它
+   -----------------------------------------------------------
+   以前每处各写各的:更新提示是浅色 <pre>、落地页是黑底 .cmd-block、
+   向导页又是另一套内联样式 —— 同一件事(这是要你复制去跑的命令)长三个样,
+   而且只有落地页那处能一键复制。统一成一个类 + 一个 fragment。
+   =========================================================== */
+.term-block{ position:relative; background:#1c1a17; border:1px solid #2a2622; border-radius:6px;
+             padding:.85rem 1rem; overflow-x:auto; box-shadow:0 6px 18px -12px rgba(0,0,0,.55); }
+/* 不用 <pre>:Thymeleaf 在 <pre> 里会把模板自身的缩进一起渲染出来。
+   每行做成独立 block + pre-wrap,既没有多余缩进,长命令(digest)也能折行而不是横向滚动。 */
+.term-block .t-code{ font-family:'JetBrains Mono',ui-monospace,monospace; font-size:12.5px;
+                     line-height:1.85; color:#d8d2c6; display:block; }
+.term-block .t-cmt{ color:#7d766a; }                 /* # 注释 */
+/* 悬挂缩进:长命令(digest 那种)折行后,续行要缩进,否则看起来像另起一条命令 */
+.term-block .t-line{ display:block; white-space:pre-wrap; word-break:break-all;
+                     padding-left:1.5em; text-indent:-1.5em; }
+/* 复制按钮浮在右上角,只让【第一行】给它让位 —— 整块留白会白白吃掉移动端本就不多的宽度 */
+.term-block .t-line:first-child{ padding-right:3.8rem; }
+.term-block .t-line::before{ content:'$ '; color:#8fae86; }   /* 提示符:一眼看出这是要敲的命令 */
+.term-block .t-line.t-cmt::before{ content:'  '; }             /* 注释行不加 $,否则复制出来会以为要连 $ 一起敲 */
+.term-block .t-copy{ position:absolute; top:.5rem; right:.5rem; font-family:'JetBrains Mono',monospace;
+                     font-size:11px; color:#d8d2c6; background:#2a2622; border:1px solid #3a352f;
+                     border-radius:4px; padding:.22rem .6rem; cursor:pointer; transition:background .15s,color .15s; }
+.term-block .t-copy:hover{ background:var(--brass-deep); color:var(--paper); border-color:var(--brass-deep); }
+.term-block .t-copy.ok{ background:var(--forest); color:#fff; border-color:var(--forest); }
+@media(max-width:640px){ .term-block pre{ font-size:11.5px; } .term-block .t-copy{ font-size:10px; } }

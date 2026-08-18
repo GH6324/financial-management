@@ -4355,7 +4355,7 @@ fi
   && ! grep -q 'printf .你的密码' "$OWTPL" \
   && grep -q '你正在引入什么' "$OWTPL" \
   && grep -q '富途官方不公布任何校验和' "$OWTPL" \
-  && grep -q 'gh attestation verify' "$OWTPL" \
+  && grep -q 'gh attestation verify' "$RD/src/main/java/com/family/finance/service/broker/opend/GatewayImageInfo.java" \
   && grep -q 'caps.enableCommand()' "$OWTPL" \
   && grep -q 'addAttribute("caps"' "$OWCTL" \
   && grep -q '"/catalog"' "$OWCTL"; } \
@@ -4388,6 +4388,46 @@ if [ -n "$_tplpipe" ]; then
 else
   log_ok "v117-TPL-LITERAL-PIPE 没有模板在 |...| 字面替换里再出现定界符 |"
 fi
+
+# v1171-TERM-BLOCK · 要用户照着敲的命令,一律用同一个终端块 + 一键复制(v1.17.1)
+# 背景:同一件事(这是要你复制去服务器上跑的命令)过去长三个样 —— 更新提示是浅色 <pre>、
+# 落地页是黑底 .cmd-block、向导页第三套,而且只有落地页那处能一键复制,其余要用户自己划词选中。
+# 判据钉「共用 fragment + 复制函数只有一份 + 关键页面确实在用」,不钉具体配色。
+TERMFRG="$RD/src/main/resources/templates/fragments/term.html"
+{ [ -f "$TERMFRG" ] \
+  && grep -q 'th:fragment="cmd(lines)"' "$TERMFRG" \
+  && grep -q 'termCopy' "$TERMFRG" \
+  && grep -q '\.term-block' "$RD/src/main/resources/static/css/style.css" \
+  && grep -q 'window.termCopy' "$RD/src/main/resources/templates/fragments/layout.html" \
+  && grep -q 'fragments/term :: cmd' "$RD/src/main/resources/templates/admin/index.html" \
+  && grep -q 'fragments/term :: cmd' "$OWTPL" \
+  && ! grep -q 'git pull &amp;&amp; bash deploy/docker-up.sh</pre>' "$RD/src/main/resources/templates/admin/index.html"; } \
+  && log_ok "v1171-TERM-BLOCK 升级命令与向导页命令共用 fragments/term(黑底 + \$ 提示符 + 一键复制)· 复制逻辑只有一份" \
+  || log_bad "v1171-TERM-BLOCK 命令块没统一(或复制按钮缺失)" "see fragments/term.html · admin/index.html · broker/opend-wizard.html"
+
+# v1171-COPY-WITHOUT-PROMPT · 复制出来的命令不许带 $ 提示符(v1.17.1)
+# 行首那个 "$ " 是 CSS ::before 画的,所以【不属于 DOM 文本】—— 复制时按 textContent 取就自动不含它。
+# 反过来说:一旦有人改成把 "$ " 写进 HTML(或复制时读 innerText/outerHTML),用户粘到终端就是一条跑不了的命令。
+{ grep -q "content:'\$ '" "$RD/src/main/resources/static/css/style.css" \
+  && grep -q "querySelectorAll('.t-line')" "$RD/src/main/resources/templates/fragments/layout.html" \
+  && grep -q 'el.textContent' "$RD/src/main/resources/templates/fragments/layout.html" \
+  && ! grep -qE '<span class="t-line">\$' "$TERMFRG"; } \
+  && log_ok "v1171-COPY-WITHOUT-PROMPT 提示符由 CSS ::before 画 · 复制走 textContent(粘出去不带 \$)" \
+  || log_bad "v1171-COPY-WITHOUT-PROMPT 复制可能把 \$ 提示符一起带走" "see style.css .t-line::before / layout.html termCopy"
+
+# v1171-DIGEST-NO-PLACEHOLDER · 自查命令里不许再留「<见 Release 页>」这种要用户自己替换的占位(v1.17.1)
+# digest 每次发版都变,所以运行时查 GHCR 拿权威值;查不到就【诚实降级】成按 tag 拉,
+# 绝不拼一个假 sha256 —— 那比没有更糟(用户照着验会得到"验证失败",然后开始怀疑镜像被人动过)。
+GWI="$RD/src/main/java/com/family/finance/service/broker/opend/GatewayImageInfo.java"
+{ [ -f "$GWI" ] \
+  && grep -q 'docker-content-digest' "$GWI" \
+  && grep -q 'verifyCommands' "$GWI" \
+  && grep -q 'gatewayRef\|verifyCommands' "$OWTPL" \
+  && ! grep -q '见 Release 页</' "$OWTPL" \
+  && ! grep -qE 'sha256:&lt;|@sha256:<' "$OWTPL" \
+  && grep -q '没查到镜像 digest' "$OWTPL"; } \
+  && log_ok "v1171-DIGEST-NO-PLACEHOLDER 命令里填真 digest(运行时查 GHCR)· 查不到才退回 tag 并明说" \
+  || log_bad "v1171-DIGEST-NO-PLACEHOLDER 自查命令仍留占位符或没有降级提示" "see GatewayImageInfo.java / broker/opend-wizard.html"
 
 # v12-2-FONTSCALE · 全局字号调节(issue #7)· 标准档零回归(calc×var,scale=1 等价)+ 5 层覆盖 + 控件 + FOUC + 图表跟随
 FSCSS="$RD/src/main/resources/static/css/style.css"
