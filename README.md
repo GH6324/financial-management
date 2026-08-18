@@ -96,6 +96,9 @@
 
 > 完整发布记录与截图见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段每版只留 2–4 行,细节不搬过来)。
 
+**[v1.17.1](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.17.1) · 要你照着敲的命令,现在长得像终端 —— 而且能一键复制**
+升级命令 / 富途启用命令 / 自查命令统一成同一个终端块(黑底 + `$` 提示符 + 一键复制;复制出来不带 `$`)。以前这件事在三处长三个样,还只有落地页那处能复制。富途自查命令里的镜像 `sha256` **直接填好**(运行时向 GHCR 查,不写死 —— digest 每次发版都变,写死漏一次就是个错的校验值),查不到会明说并退回按 tag 拉。**无 DB 迁移。**
+
 **[v1.17.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.17.0) · Docker 下的富途 OpenD 一键接入(可选网关容器)**
 Docker 用户过去看到的是「本页**不能替你一键装**」+ 一段自己打包镜像的教程([#13](https://github.com/LuoDi-Nate/financial-management/issues/13));现在换成一个**可选**网关容器 —— 默认 `up -d` 不拉不起,要用富途才 `docker-up.sh --with-futu`。镜像里**没有富途任何文件**(OpenD 由容器从官网下载并核对 sha256,CI 扫全部层钉住),启用前页面先公示「你正在引入什么」并给出自查命令;账号密码改在页面填、不再进 `.env`。
 顺带修好原生路径 —— 富途换了分发域名与命名,「下载并安装」**在 systemd 上其实也早就点不动了**,而且白名单还会拒掉用户手填的官方地址;版本号从此不用填。**无 DB 迁移,可回滚。**
