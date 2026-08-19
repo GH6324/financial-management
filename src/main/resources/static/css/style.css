@@ -790,6 +790,48 @@ details:not([open]) > summary .lg-when-open  { display: none; }
 .pill-mute { background: transparent; border-color: var(--rule-soft); color: var(--ink-subtle); }
 button.pill-mute:hover, summary.pill-mute:hover { border-color: var(--rule); color: var(--ink-soft); }
 
+/* ---------------------------------------------------------------
+   v1.18 · 流水来源微标签(.src-tag)
+   为什么不复用 .pill:.pill 是 4px/10px + 10.5px + 大字距 + uppercase,
+   给"一个区块一枚"设计的;流水时间线是**每行一枚**,用 .pill 会把行高撑开、
+   把本来紧凑的账本读感搞散。另外内容是中文,uppercase 与 0.1em 字距都没意义。
+   --------------------------------------------------------------- */
+.src-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border: 1px solid var(--rule-soft);
+  background: var(--paper-soft);
+  font-family: "JetBrains Mono", monospace;
+  font-size: calc(9.5px * var(--fs-scale,1));
+  letter-spacing: 0.02em;
+  color: var(--ink-subtle);
+  border-radius: 1px;
+  white-space: nowrap;
+  line-height: 1.5;
+  /* 定宽:时间线里它是一整列,三种标签(手动填报 50.8 / 来源未记录 60.5 / 自动 · 股价 68.5)
+     各按内容宽会让这一列两边都参差。取最宽那个当下限、内容居中,列的左右边缘就都齐了。 */
+  min-width: 70px;
+  justify-content: center;
+}
+/* 窄屏放弃定宽 —— 那里本来也排不成列,定宽只会把删除按钮挤到下一行。
+   窄屏这一行的参数是在真机上扫出来的(390px · 账户详情 8 月组 78 行):
+     类别最小宽 140 + 标签任意宽 → 删除按钮掉行 6 行(这就是我第一版的回归)
+     类别最小宽 120 + 标签不定宽 → 掉行 0 · 类别折行 0   ← 采用
+     类别最小宽 110 或更小       → 类别被挤上第一行,「估值变动 · 自动(定时)」从中间折断
+   所以模板那侧配套写成 min-w-[120px] sm:min-w-[140px]。 */
+@media (max-width: 640px) {
+  .src-tag { min-width: 0; padding: 1px 4px; }
+}
+/* 分组配色:自动拉数据=黄铜 · 券商=石板蓝 · 截图导入=森绿 · 手动/系统=中性 */
+.src-auto   { background: var(--brass-soft);  border-color: var(--brass);  color: var(--brass-deep); }
+.src-broker { background: var(--slate-soft);  border-color: var(--slate);  color: var(--slate); }
+.src-import { background: var(--forest-soft); border-color: var(--forest); color: var(--forest); }
+.src-manual { background: var(--card-soft);   border-color: var(--rule-soft); color: var(--ink-soft); }
+.src-system { background: var(--paper-deep);  border-color: var(--rule);   color: var(--ink-soft); }
+/* 历史数据(v1.18 之前)占多数,必须**最不抢视线**:虚线 + 透明底 + 最淡的字 */
+.src-unknown { background: transparent; border-style: dashed; border-color: var(--rule-soft); color: var(--ink-faint); }
+
 /* PC 上目录 sheet 与遮罩彻底不参与渲染(此前仅靠 transform 移出视口,仍在合成层里) */
 @media (min-width: 1024px) and (min-height: 480px) {
   .toc-sheet, .toc-sheet-mask { display: none !important; }

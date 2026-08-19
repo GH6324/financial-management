@@ -65,8 +65,10 @@ public class BrokerSyncService {
         }
         linkMapper.markSynced(accountId, summary);
         try {
+            // v1.18 · 明确告诉估值服务"这次是券商同步引起的",流水里才分得出富途/老虎
             valuationService.refreshAllForFamily(familyId,
-                    AccountValuationService.TriggerKind.HOLDING_CHANGE, memberId);
+                    AccountValuationService.TriggerKind.HOLDING_CHANGE, memberId,
+                    com.family.finance.domain.ledger.LedgerSource.ofBroker(link.getVendor().name()));
         } catch (Exception e) {
             log.warn("post-broker-sync valuation refresh failed: {}", e.toString());
         }

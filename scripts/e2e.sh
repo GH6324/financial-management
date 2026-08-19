@@ -3,7 +3,7 @@
 # e2e.sh · 端到端主线验收(补充 qa-run 的广度冒烟,做纵深真验收)
 #   形态:唤起 beta 应用(被测基线)→ 按序调用真实接口 → 用「接口响应 + DB 真实数据」判定功能对错。
 #   隔离(策略 A):开跑前 mysqldump 快照基线,trap EXIT 无论成败都还原 + 重启 → 可重复、不污染 beta。
-#   6 条主线:1 记账闭环 · 2 账期滚动 · 3 报表成图 · 4 多币种镜头 · 5 收益指标 · 6 LOAN 还款归零。
+#   6 条主线:1 记账闭环 · 2 账期滚动 · 3 报表成图 · 4 多币种镜头 · 5 收益指标 · 6 LOAN 还款归零(后续版本陆续加到 14)。
 #   只读主线在前(干净基线),改数据主线殿后。
 # ============================================================================
 set -u   # 不用 pipefail:curl|grep -q / |head 会提前关管道让 curl 收 SIGPIPE,pipefail 会把这类正常管道误判为失败
@@ -149,6 +149,34 @@ eq "记账-A 精确算术 期末=起点+收入−支出−转出(10000+3000−50
 eq "记账-B 转账双边 期末=起点+转入(5000+2000)" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$OPEN_PID AND account_id=$ACC_B")" "7000"
 eq "记账-新增收支流水落库(+2 条)" "$(( $(db "SELECT COUNT(*) FROM cash_flow WHERE period_id=$OPEN_PID AND account_id=$ACC_A") - cfB ))" "2"
 eq "记账-新增转账落库(+1 条)" "$(( $(db "SELECT COUNT(*) FROM transfer WHERE period_id=$OPEN_PID AND from_account_id=$ACC_A") - trB ))" "1"
+
+# ============================================================================
+section "主线 14 · 流水来源标签(改数据 · 手填三种流水 → DB 带 MANUAL · 历史仍 UNKNOWN · 页面真渲染)"
+# v1.18 · 直接复用主线 1 刚写进去的三条(余额 / 收支 / 划转),它们都是走真实端点写的,
+# 所以这里断的是「用户的一次手填,四张表上各自留下了什么来源」。
+# 为什么要 e2e 而不是只靠单测:来源要经过 builder → MyBatis INSERT → 列 → SELECT 别名 → 模板,
+# 中间任何一环写错(列名拼错 / 少个 AS / 模板取错属性)单测都发现不了,页面上却是空白或报错。
+eq "来源-手填余额落 MANUAL" \
+   "$(db "SELECT source_tag FROM period_snapshot WHERE period_id=$OPEN_PID AND account_id=$ACC_A")" "MANUAL"
+eq "来源-手填收支落 MANUAL(刚写的 2 条)" \
+   "$(db "SELECT COUNT(*) FROM cash_flow WHERE period_id=$OPEN_PID AND account_id=$ACC_A AND source_tag='MANUAL'")" "2"
+eq "来源-手填划转落 MANUAL(刚写的 1 条)" \
+   "$(db "SELECT COUNT(*) FROM transfer WHERE period_id=$OPEN_PID AND from_account_id=$ACC_A AND to_account_id=$ACC_B AND source_tag='MANUAL'")" "1"
+# 维护者定:历史不回填。这条守的是「V56 没有偷偷把老数据说成手填」——
+# 断言仍有 UNKNOWN 存量,而不是断言"全都是 UNKNOWN"(主线 1 刚写的那几条本来就该是 MANUAL)。
+# 不用脚本里那个 ge():它的参数位是 ($2,$3) 而不是 ($1,$2),全脚本没人调过,照直觉调会静默判错。
+UNK_CF="$(db "SELECT COUNT(*) FROM cash_flow WHERE source_tag='UNKNOWN'")"
+[ "${UNK_CF:-0}" -ge 1 ] \
+  && ok "来源-历史行仍为 UNKNOWN(没被回填成手填 · 存量 $UNK_CF 条)" \
+  || bad "来源-历史行仍为 UNKNOWN(没被回填成手填)" "cash_flow 里一条 UNKNOWN 都不剩了,查 V56 是否回填过"
+# 页面真的渲染出来(不是只写进库):账户详情页的时间线上要出现来源标签
+DETAIL_HTML="$(GET "/accounts/$ACC_A")"
+printf '%s' "$DETAIL_HTML" | grep -q 'src-tag' && ok "来源-详情页时间线渲染出来源标签" \
+  || bad "来源-详情页时间线渲染出来源标签" "accounts/detail.html 没输出 .src-tag"
+printf '%s' "$DETAIL_HTML" | grep -q '手动填报' && ok "来源-页面显示中文来源名(不是 MANUAL 这种码)" \
+  || bad "来源-页面显示中文来源名(不是 MANUAL 这种码)" "应显示 LedgerSource.label 而不是枚举名"
+printf '%s' "$DETAIL_HTML" | grep -q 'src-manual' && ok "来源-标签带分组配色 class" \
+  || bad "来源-标签带分组配色 class" "th:classappend 的 ' src-' + group 没生效"
 
 # ============================================================================
 section "主线 2+6 · 账期滚动 + LOAN 还款归零(改数据 · 开下一期→上期关+LOAN夹零)"

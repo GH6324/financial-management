@@ -25,4 +25,6 @@ public class Transfer {
     private Long submittedBy;
     private LocalDateTime submittedAt;
     private boolean draft;
+    /** v1.18 · 这一笔是谁写进来的({@link com.family.finance.domain.ledger.LedgerSource});历史数据为 UNKNOWN = 当时没记 */
+    private String sourceTag;
 }

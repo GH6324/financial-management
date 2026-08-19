@@ -6859,6 +6859,89 @@ QA116_MIG="$RD/db/migration/V55__align_carryforward_todo_done.sql"
   && log_ok "v116-TODO-DONE-SINGLE-SOURCE(开账代填即标 DONE · 计数 SQL 不碰 period_snapshot · 提示条改看 done_by_member_id)" \
   || log_bad "v116-TODO-DONE-SINGLE-SOURCE 「已填」的定义又分裂了" "PeriodOpener 必须调 markCarriedForward;SnapshotTodoMapper 里不许出现 period_snapshot(口径别搬回读取侧);loanPromptVisible 必须走 confirmedByHuman/getDoneByMemberId;V55 只动 OPEN 账期的状态列"
 
+# ============================================================
+# v1.18 · 流水来源标签 + 券商同步失败提醒
+# ============================================================
+
+# v118-SOURCE-TAG-ALL-TABLES · 时间线是 4 张表 union 的,4 张都得带来源(v1.18 FR-412)
+# 第一版只改了前 3 张,把「= 校准」那一行直接写死 UNKNOWN,理由是"判据拿不到" ——
+# 那是把活干一半:period_snapshot 有 5 个写入口且是 upsert(谁最后写谁说话),
+# 它恰恰是最需要这一列的一张,不然连【将来的】数据也永远是 UNKNOWN。
+QA118_MIG="$RD/db/migration/V56__ledger_source_tag.sql"
+QA118_ADS="$RD/src/main/java/com/family/finance/service/AccountDetailService.java"
+QA118_ENTRIES="$(grep -c 'new AccountDetail.Entry(' "$QA118_ADS" 2>/dev/null || echo 0)"
+QA118_SRCS="$(grep -c 'LedgerSource.parse(' "$QA118_ADS" 2>/dev/null || echo 0)"
+{ [ -f "$QA118_MIG" ] \
+  && [ "$(grep -c 'ADD COLUMN source_tag' "$QA118_MIG")" -eq 4 ] \
+  && grep -q 'ALTER TABLE stock_valuation_event' "$QA118_MIG" \
+  && grep -q 'ALTER TABLE cash_flow' "$QA118_MIG" \
+  && grep -q 'ALTER TABLE transfer' "$QA118_MIG" \
+  && grep -q 'ALTER TABLE period_snapshot' "$QA118_MIG" \
+  && [ "$QA118_ENTRIES" -eq 4 ] && [ "$QA118_SRCS" -eq 4 ] \
+  && grep -q 'src-tag' "$RD/src/main/resources/templates/accounts/detail.html" \
+  && grep -q 'e.source.group' "$RD/src/main/resources/templates/accounts/detail.html"; } \
+  && log_ok "v118-SOURCE-TAG-ALL-TABLES(4 张流水表都有 source_tag · 时间线 $QA118_ENTRIES 个构造点都带来源 · 模板按分组上色)" \
+  || log_bad "v118-SOURCE-TAG-ALL-TABLES 有流水表或时间线构造点漏了来源" "V56 要 4 条 ADD COLUMN;AccountDetailService 的 Entry 构造点数($QA118_ENTRIES)必须等于 LedgerSource.parse 数($QA118_SRCS)"
+
+# v118-UNKNOWN-NOT-MANUAL · 历史数据一律 UNKNOWN,不许回填成 MANUAL(v1.18 FR-413 · 维护者定)
+# 回填 MANUAL 等于【假装我们知道】:历史行里确实有一部分是自动同步来的,
+# 但 cash_flow / transfer / period_snapshot 上没有任何依据可推断,
+# 写 MANUAL 会让统计得出"过去全是手填"的错误结论。
+# 判据落在【SQL 语句形态】而不是全文 grep "MANUAL":迁移注释里必须能解释"为什么不回填成 MANUAL",
+# 全文 grep 会把这句解释本身判成违规(v1.17 已经在 Ubuntu16.04 / libgtk-3-0 / 22222 上栽过三次)。
+QA118_LS="$RD/src/main/java/com/family/finance/domain/ledger/LedgerSource.java"
+{ ! grep -q "SET source_tag = 'MANUAL'" "$QA118_MIG" \
+  && [ "$(grep -c "DEFAULT 'UNKNOWN'" "$QA118_MIG")" -eq 4 ] \
+  && grep -q 'UNKNOWN("来源未记录"' "$QA118_LS" \
+  && grep -q 'catch (IllegalArgumentException e) {' "$QA118_LS" \
+  && grep -q 'return UNKNOWN;' "$QA118_LS" \
+  && [ -f "$RD/src/test/java/com/family/finance/domain/ledger/LedgerSourceTest.java" ] \
+  && grep -q 'unknown_means_not_recorded_not_manual' "$RD/src/test/java/com/family/finance/domain/ledger/LedgerSourceTest.java" \
+  && grep -q 'labels_avoid_technical_jargon' "$RD/src/test/java/com/family/finance/domain/ledger/LedgerSourceTest.java" \
+  && grep -q 'src-unknown' "$RD/src/main/resources/static/css/style.css"; } \
+  && log_ok "v118-UNKNOWN-NOT-MANUAL(历史回填 UNKNOWN 不假装手动 · parse 永不抛 · 标签无技术词 · UNKNOWN 样式最不抢视线)" \
+  || log_bad "v118-UNKNOWN-NOT-MANUAL 历史被回填成 MANUAL 或 UNKNOWN 语义被弄丢" "V56 不许有 SET source_tag = 'MANUAL';LedgerSource.parse 必须兜底 UNKNOWN;LedgerSourceTest 两条边界测试必须在"
+
+# v118-SOURCE-WRITE-PATHS · 每个流水写入口都要说清自己是谁(v1.18 FR-412)
+# 4 条 INSERT 一律 COALESCE(#{sourceTag}, 'UNKNOWN') —— 列是 NOT NULL DEFAULT,
+# 但 MyBatis 显式传 NULL 会绕过 DEFAULT 直接撞 NOT NULL;有了 COALESCE,
+# 将来漏掉的写入口会安全落到 UNKNOWN 而不是插入失败。
+{ [ "$(grep -rc "COALESCE(#{sourceTag}, 'UNKNOWN')" "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" "$RD/src/main/java/com/family/finance/repository/TransferMapper.java" "$RD/src/main/java/com/family/finance/repository/SnapshotMapper.java" | grep -c ':1$')" -eq 3 ] \
+  && grep -q 'source_tag AS sourceTag' "$RD/src/main/java/com/family/finance/repository/StockValuationEventMapper.java" \
+  && grep -q 'LedgerSource.CARRIED_FORWARD.name()' "$RD/src/main/java/com/family/finance/service/PeriodOpener.java" \
+  && grep -q 'LedgerSource.SYSTEM_ADJUST.name()' "$RD/src/main/java/com/family/finance/service/stock/StockHoldingService.java" \
+  && [ "$(grep -c 'LedgerSource.MANUAL.name()' "$RD/src/main/java/com/family/finance/service/EntryService.java")" -ge 4 ] \
+  && grep -q 'LedgerSource.ofBroker(link.getVendor().name())' "$RD/src/main/java/com/family/finance/service/broker/BrokerSyncService.java" \
+  && grep -q 'writeBackBalance(long familyId, long periodId, Account acc, BigDecimal balance,' "$RD/src/main/java/com/family/finance/service/stock/AccountValuationService.java" \
+  && [ -f "$RD/src/test/java/com/family/finance/service/stock/ValuationSourceInferTest.java" ]; } \
+  && log_ok "v118-SOURCE-WRITE-PATHS(3 张表 INSERT 都 COALESCE 兜底 · 开账/系统联动/手填/券商 各自声明来源 · 估值回写与事件同一个判定)" \
+  || log_bad "v118-SOURCE-WRITE-PATHS 有写入口没声明来源" "see PeriodOpener(CARRIED_FORWARD) / StockHoldingService(SYSTEM_ADJUST) / EntryService(MANUAL×4) / BrokerSyncService(ofBroker) / AccountValuationService#writeBackBalance"
+
+# v118-BROKER-FAIL-VISIBLE · 券商同步失败必须写进状态并标在账户列表上(v1.18 FR-410/411)
+# v1.17.3 事故里最坏的一半不是"缺提醒",是【一条两天前的成功消息在冒充当前状态】——
+# 失败路径当时只有 log.warn,broker_link 压根没被写过。
+# 所以 markFailed 绝不许碰 last_synced_at(那一列的语义是"上次成功同步")。
+# 判据只看那条 @Update 的 SQL 本身:方法上方的 javadoc 必须能解释"为什么不动 last_synced_at",
+# 用整文件 grep 会把这句解释判成违规。
+# 模板侧要求【两处】—— 账户列表有 PC 表格 + 窄屏卡片两套视图(`md:hidden`),
+# 第一版只改了表格那侧,手机上那枚标记的盒子是 0×0(截图复看才发现)。
+# 判据也刻意不用 grep '/broker':每一行本来就有「券商」入口链接,那守不住任何东西。
+QA118_BLM="$RD/src/main/java/com/family/finance/repository/BrokerLinkMapper.java"
+# 只取 markFailed 正上方那一行 @Update —— 直接 grep 'UPDATE broker_link SET' 会把 markSynced
+# 那条也捞进来(它本来就【该】写 last_synced_at),于是护栏永远红。
+QA118_MARKSQL="$(grep -B1 'int markFailed(' "$QA118_BLM" 2>/dev/null | grep '@Update' || true)"
+{ [ -n "$QA118_MARKSQL" ] \
+  && ! printf '%s' "$QA118_MARKSQL" | grep -q 'last_synced_at' \
+  && grep -q 'int markFailed(' "$QA118_BLM" \
+  && grep -q '同步失败 · ' "$RD/src/main/java/com/family/finance/service/broker/BrokerSyncService.java" \
+  && grep -q 'markFailed(accountId, failureNote(e))' "$RD/src/main/java/com/family/finance/service/broker/BrokerSyncService.java" \
+  && grep -q 'brokerFailures' "$RD/src/main/java/com/family/finance/web/account/AccountController.java" \
+  && grep -q 'startsWith("同步失败")' "$RD/src/main/java/com/family/finance/web/account/AccountController.java" \
+  && [ "$(grep -c 'brokerFailures.containsKey(row.account.id)' "$RD/src/main/resources/templates/accounts/index.html")" -eq 2 ] \
+  && [ "$(grep -c '<span>同步失败</span>' "$RD/src/main/resources/templates/accounts/index.html")" -eq 2 ]; } \
+  && log_ok "v118-BROKER-FAIL-VISIBLE(失败写 last_status 且不动 last_synced_at · 账户列表标红可点进券商页)" \
+  || log_bad "v118-BROKER-FAIL-VISIBLE 同步失败又变回只写日志(或标记不在账户列表上)" "markFailed 的 SQL 不许含 last_synced_at;AccountController 要建 brokerFailures;accounts/index.html 要渲染并链到 /accounts/{id}/broker"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

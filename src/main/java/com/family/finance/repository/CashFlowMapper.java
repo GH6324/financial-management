@@ -28,7 +28,8 @@ public interface CashFlowMapper {
 
     @Select("""
             SELECT cf.id, cf.period_id, cf.account_id, cf.kind, cf.category_code, cf.amount,
-                   cf.occurred_at, cf.note, cf.submitted_by, cf.submitted_at
+                   cf.occurred_at, cf.note, cf.submitted_by, cf.submitted_at,
+                   cf.source_tag AS sourceTag
               FROM cash_flow cf
               JOIN period p ON p.id = cf.period_id
              WHERE p.family_id = #{familyId}
@@ -40,10 +41,10 @@ public interface CashFlowMapper {
     @Insert("""
             INSERT INTO cash_flow (
                 period_id, account_id, kind, category_code, amount, occurred_at, note, submitted_by, is_adjustment,
-                ref_holding_id, ref_shares
+                ref_holding_id, ref_shares, source_tag
             ) VALUES (
                 #{periodId}, #{accountId}, #{kind}, #{categoryCode}, #{amount}, #{occurredAt}, #{note}, #{submittedBy}, #{adjustment},
-                #{refHoldingId}, #{refShares}
+                #{refHoldingId}, #{refShares}, COALESCE(#{sourceTag}, 'UNKNOWN')
             )
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")

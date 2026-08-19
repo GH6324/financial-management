@@ -197,10 +197,19 @@ public class AccountController {
         model.addAttribute("ownerColorMap", ownerColorMap);
         // v0.15.x · 券商托管徽章:账户id → 厂商中文名
         var brokerLinks = new java.util.LinkedHashMap<Long, String>();
+        // v1.18 · 同步失败的账户:账户id → 失败说明。
+        // 为什么标在列表上:失败以前只在「账户 → 券商」二级页里看得见,而那页没人天天点 ——
+        // 生产上富途断了两天没人发现(见 v1.17.3)。列表是每次看账户的必经处,标在这里才拦得住。
+        var brokerFailures = new java.util.LinkedHashMap<Long, String>();
         for (var bl : brokerLinkMapper.findByFamily(me.getFamilyId())) {
             brokerLinks.put(bl.getAccountId(), bl.getVendor().getLabel());
+            if (bl.isEnabled() && bl.getLastStatus() != null
+                    && bl.getLastStatus().startsWith("同步失败")) {
+                brokerFailures.put(bl.getAccountId(), bl.getLastStatus());
+            }
         }
         model.addAttribute("brokerLinks", brokerLinks);
+        model.addAttribute("brokerFailures", brokerFailures);
         model.addAttribute("form", new AccountForm());
         model.addAttribute("allCategories", productCategoryService.listAll());
         model.addAttribute("insuranceSubTypes", InsuranceSubType.values()); // v0.17 保险子类型下拉

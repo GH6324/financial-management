@@ -7,6 +7,7 @@ import com.family.finance.domain.stock.Market;
 import com.family.finance.domain.stock.StockHolding;
 import com.family.finance.domain.stock.StockPriceSnapshot;
 import com.family.finance.domain.stock.ValuationMode;
+import com.family.finance.domain.ledger.LedgerSource;
 import com.family.finance.domain.stock.StockValuationEvent;
 import com.family.finance.repository.AccountMapper;
 import com.family.finance.repository.PeriodMapper;
@@ -113,6 +114,15 @@ public class AccountValuationService {
      * @param triggeredByMemberId 用户 ID(MANUAL 时记 · 其它 null)
      */
     public int refreshAllForFamily(long familyId, TriggerKind trigger, Long triggeredByMemberId) {
+        return refreshAllForFamily(familyId, trigger, triggeredByMemberId, null);
+    }
+
+    /**
+     * v1.18 · 多一个 {@code explicitSource}:调用方明确知道"这次变动是谁引起的"就传进来
+     * (例如券商同步传 SYNC_BROKER_FUTU)。传 null 则由 {@link #inferSource} 按触发方式 + 持仓市场推断。
+     */
+    public int refreshAllForFamily(long familyId, TriggerKind trigger, Long triggeredByMemberId,
+                                   LedgerSource explicitSource) {
         Period currentOpen = periodMapper.findCurrentOpen(familyId).orElse(null);
         if (currentOpen == null) {
             log.info("family={} no OPEN period · skip valuation refresh", familyId);
@@ -132,10 +142,11 @@ public class AccountValuationService {
             BigDecimal prevBalance = snapshotMapper.findByPeriodAndAccount(currentOpen.getId(), acc.getId())
                 .map(s -> s.getEndBalance())
                 .orElse(null);
-            writeBackBalance(familyId, currentOpen.getId(), acc, r.totalBaseValue());
+            LedgerSource src = inferSource(explicitSource, trigger, null, holdings);
+            writeBackBalance(familyId, currentOpen.getId(), acc, r.totalBaseValue(), src);
             // 若变化超阈值,写事件
             recordValuationEventIfChanged(familyId, acc.getId(), currentOpen.getId(),
-                prevBalance, r.totalBaseValue(), trigger, triggeredByMemberId);
+                prevBalance, r.totalBaseValue(), trigger, triggeredByMemberId, null, src);
             refreshed++;
         }
         log.info("family={} valuation refresh · trigger={} refreshed={}", familyId, trigger, refreshed);
@@ -152,6 +163,12 @@ public class AccountValuationService {
      */
     public void refreshOneAccount(long familyId, long accountId, TriggerKind trigger,
                                   Long triggeredByMemberId, Long refImportId) {
+        refreshOneAccount(familyId, accountId, trigger, triggeredByMemberId, refImportId, null);
+    }
+
+    /** v1.18 · 带显式来源的版本(见 {@link #refreshAllForFamily(long, TriggerKind, Long, LedgerSource)})。 */
+    public void refreshOneAccount(long familyId, long accountId, TriggerKind trigger,
+                                  Long triggeredByMemberId, Long refImportId, LedgerSource explicitSource) {
         Period currentOpen = periodMapper.findCurrentOpen(familyId).orElse(null);
         if (currentOpen == null) return;
         Account acc = accountMapper.findById(accountId).orElse(null);
@@ -161,9 +178,10 @@ public class AccountValuationService {
         ValuationResult r = valuateInternal(acc);
         BigDecimal prevBalance = snapshotMapper.findByPeriodAndAccount(currentOpen.getId(), accountId)
             .map(s -> s.getEndBalance()).orElse(null);
-        writeBackBalance(familyId, currentOpen.getId(), acc, r.totalBaseValue());
+        LedgerSource src = inferSource(explicitSource, trigger, refImportId, holdings);
+        writeBackBalance(familyId, currentOpen.getId(), acc, r.totalBaseValue(), src);
         recordValuationEventIfChanged(familyId, accountId, currentOpen.getId(),
-            prevBalance, r.totalBaseValue(), trigger, triggeredByMemberId, refImportId);
+            prevBalance, r.totalBaseValue(), trigger, triggeredByMemberId, refImportId, src);
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId));
     }
 
@@ -171,12 +189,51 @@ public class AccountValuationService {
                                                BigDecimal prevBalance, BigDecimal newBalance,
                                                TriggerKind trigger, Long triggeredByMemberId) {
         recordValuationEventIfChanged(familyId, accountId, periodId, prevBalance, newBalance,
-                trigger, triggeredByMemberId, null);
+                trigger, triggeredByMemberId, null, LedgerSource.UNKNOWN);
     }
 
     private void recordValuationEventIfChanged(long familyId, long accountId, long periodId,
                                                BigDecimal prevBalance, BigDecimal newBalance,
                                                TriggerKind trigger, Long triggeredByMemberId, Long refImportId) {
+        recordValuationEventIfChanged(familyId, accountId, periodId, prevBalance, newBalance,
+                trigger, triggeredByMemberId, refImportId, LedgerSource.UNKNOWN);
+    }
+
+    /**
+     * 推断这次估值的<b>来源</b>(v1.18)—— 用户在流水里看到一笔估值变动,要能分出是拉股价、拉金价还是券商同步。
+     *
+     * <p>优先级:显式传入的 &gt; 截图导入 &gt; 手动 &gt; 按持仓市场推断。</p>
+     *
+     * <p>混合持仓(同一账户里既有股票又有黄金)按<b>持仓数量占多</b>的那类算 —— 一次估值只能挂一个来源,
+     * 与其编一个"混合"标签,不如取主要那类;真要逐笔精确,得把事件拆到持仓级别,那是另一件事。</p>
+     */
+    static LedgerSource inferSource(
+            LedgerSource explicit,
+            TriggerKind trigger, Long refImportId, java.util.List<StockHolding> holdings) {
+        if (explicit != null) return explicit;
+        if (refImportId != null || trigger == TriggerKind.IMPORT) {
+            return LedgerSource.IMPORT_SCREENSHOT;
+        }
+        if (trigger == TriggerKind.MANUAL) return LedgerSource.MANUAL;
+        if (holdings == null || holdings.isEmpty()) return LedgerSource.SYNC_STOCK_API;
+        int metal = 0, crypto = 0, stock = 0;
+        for (StockHolding h : holdings) {
+            if (h.getMarket() == null) { stock++; continue; }
+            switch (h.getMarket()) {
+                case METAL -> metal++;
+                case CRYPTO -> crypto++;
+                default -> stock++;
+            }
+        }
+        if (metal >= crypto && metal >= stock) return LedgerSource.SYNC_METAL_API;
+        if (crypto >= stock) return LedgerSource.SYNC_CRYPTO_API;
+        return LedgerSource.SYNC_STOCK_API;
+    }
+
+    private void recordValuationEventIfChanged(long familyId, long accountId, long periodId,
+                                               BigDecimal prevBalance, BigDecimal newBalance,
+                                               TriggerKind trigger, Long triggeredByMemberId, Long refImportId,
+                                               LedgerSource source) {
         if (newBalance == null) return;
         BigDecimal delta = newBalance.subtract(prevBalance == null ? BigDecimal.ZERO : prevBalance);
         if (delta.abs().compareTo(EVENT_THRESHOLD) <= 0) {
@@ -195,6 +252,7 @@ public class AccountValuationService {
                 .triggeredByMemberId(triggeredByMemberId)
                 .note(null)
                 .refImportId(refImportId)
+                .sourceTag((source == null ? LedgerSource.UNKNOWN : source).name())
                 .build());
         } catch (Exception e) {
             log.warn("write stock_valuation_event failed · account={} delta={}: {}",
@@ -284,7 +342,8 @@ public class AccountValuationService {
      * <p>schema 把 submitted_by NOT NULL · 系统自动写入用 account.primary_owner_member_id 兜底;
      * 若该字段也为 null,用 family 第一个 member。区分系统/用户写入靠 note 标识"系统估值"。</p>
      */
-    private void writeBackBalance(long familyId, long periodId, Account acc, BigDecimal balance) {
+    private void writeBackBalance(long familyId, long periodId, Account acc, BigDecimal balance,
+                                  LedgerSource source) {
         Long submittedBy = acc.getPrimaryOwnerMemberId();
         if (submittedBy == null) {
             // 兜底:family 第一个 member
@@ -301,6 +360,8 @@ public class AccountValuationService {
             .endBalance(balance)
             .submittedBy(submittedBy)
             .note(SYSTEM_VALUATION_NOTE)
+            // v1.18 · 和同一次刷新写的 stock_valuation_event 用同一个来源判定,别两处各算一次
+            .sourceTag((source == null ? LedgerSource.UNKNOWN : source).name())
             .build();
         snapshotMapper.upsert(snap);
     }

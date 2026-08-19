@@ -20,4 +20,6 @@ public class PeriodSnapshot {
     private Long submittedBy;
     private LocalDateTime submittedAt;
     private String note;
+    /** v1.18 · 这一行月末余额是谁写的({@link com.family.finance.domain.ledger.LedgerSource});历史数据为 UNKNOWN */
+    private String sourceTag;
 }

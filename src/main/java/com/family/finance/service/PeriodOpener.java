@@ -128,6 +128,8 @@ public class PeriodOpener {
                         .endBalance(prefillBalance)
                         .submittedBy(systemMemberId)
                         .note("开账自动延续上期末余额 " + prefillBalance)
+                        // v1.18 · 系统代填,没有人确认过这个数
+                        .sourceTag(com.family.finance.domain.ledger.LedgerSource.CARRIED_FORWARD.name())
                         .build());
                 snapshotExists = true;
             }

@@ -129,6 +129,17 @@
           <span class="pill text-[9px]" th:if="${brokerLinks != null and brokerLinks.containsKey(row.account.id)}"
                 style="background:rgba(180,138,58,.12);color:var(--brass-deep);border-color:var(--brass-deep)"
                 th:text="'券商托管 · ' + ${brokerLinks.get(row.account.id)}">券商托管 · 富途</span>
+          <!-- v1.18 · 同步失败当场标出来。放列表是因为二级页没人天天点:
+               生产上富途断了两天都没人发现(v1.17.3)。点这个标记直接进该账户的券商页看原因。 -->
+          <a th:if="${brokerFailures != null and brokerFailures.containsKey(row.account.id)}"
+             th:href="@{/accounts/{id}/broker(id=${row.account.id})}"
+             class="pill text-[9px] no-underline inline-flex items-center gap-1"
+             style="background:rgba(156,74,42,.12);color:var(--rust);border-color:var(--rust)"
+             th:title="${brokerFailures.get(row.account.id)} + ' —— 点击查看'">
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.4"
+                 stroke-linecap="round" aria-hidden="true"><path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+            <span>同步失败</span>
+          </a>
         </td>
         <td class="font-mono text-xs" th:text="${row.account.currency}">CNY</td>
         <!-- v1.6 UED(review B3-4)· 列宽不足时中文被挤成竖排("王二狗"渲染成三行)→ nowrap -->
@@ -247,8 +258,21 @@
             </span>
           </div>
         </div>
-        <span class="pill text-[9px]" th:classappend="${row.account.type.name() == 'LOAN' ? ' pill-rust' : (row.account.type.name() == 'WEALTH' ? ' pill-forest' : (row.account.type.name() == 'STOCK' ? ' pill-brass' : (row.account.type.name() == 'INSURANCE' ? ' pill-slate' : '')))}"
-              th:text="${brokerLinks != null and brokerLinks.containsKey(row.account.id) ? row.account.type.label + ' · 券商托管' : row.account.type.label}">现金</span>
+        <div class="flex flex-col items-end gap-1 flex-shrink-0">
+          <span class="pill text-[9px]" th:classappend="${row.account.type.name() == 'LOAN' ? ' pill-rust' : (row.account.type.name() == 'WEALTH' ? ' pill-forest' : (row.account.type.name() == 'STOCK' ? ' pill-brass' : (row.account.type.name() == 'INSURANCE' ? ' pill-slate' : '')))}"
+                th:text="${brokerLinks != null and brokerLinks.containsKey(row.account.id) ? row.account.type.label + ' · 券商托管' : row.account.type.label}">现金</span>
+          <!-- v1.18 · 与 PC 表格同一枚标记。窄屏是另一套卡片视图,只改表格那侧会让手机用户
+               完全看不到同步失败(第一版就漏了,截图复看时它的盒子是 0×0)。 -->
+          <a th:if="${brokerFailures != null and brokerFailures.containsKey(row.account.id)}"
+             th:href="@{/accounts/{id}/broker(id=${row.account.id})}"
+             class="pill text-[9px] no-underline inline-flex items-center gap-1"
+             style="background:rgba(156,74,42,.12);color:var(--rust);border-color:var(--rust)"
+             th:title="${brokerFailures.get(row.account.id)} + ' —— 点击查看'">
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.4"
+                 stroke-linecap="round" aria-hidden="true"><path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+            <span>同步失败</span>
+          </a>
+        </div>
       </div>
       <div class="flex items-baseline justify-between mt-3 pt-3 border-t border-rule-soft">
         <span class="text-xs text-ink-soft" th:text="${row.account.type.name() == 'LOAN' ? '本期欠款' : '本期末'}">本期末</span>

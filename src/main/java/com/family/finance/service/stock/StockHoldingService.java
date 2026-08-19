@@ -334,6 +334,8 @@ public class StockHoldingService {
                 .note("股票账户现金行调整(剔出投资损益)")
                 .submittedBy(memberId)
                 .adjustment(true)
+                // v1.18 · 这笔不是人填的:人改的是现金行,这条流水是系统为剔出损益派生的
+                .sourceTag(com.family.finance.domain.ledger.LedgerSource.SYSTEM_ADJUST.name())
                 .build();
         cashFlowMapper.insert(cf);
     }

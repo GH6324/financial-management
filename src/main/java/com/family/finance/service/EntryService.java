@@ -155,6 +155,7 @@ public class EntryService {
                 .endBalance(normalizedBalance)
                 .submittedBy(memberId)
                 .note(blankToNull(note))
+                .sourceTag(com.family.finance.domain.ledger.LedgerSource.MANUAL.name())   // v1.18 · 用户在填报页敲的数
                 .build());
 
         for (CashFlowLine line : cashFlowLines == null ? List.<CashFlowLine>of() : cashFlowLines) {
@@ -207,6 +208,8 @@ public class EntryService {
                 .endBalance(predicted)
                 .submittedBy(memberId)
                 .note("按上两月趋势预测本期还款")
+                // v1.18 · 数字是系统按趋势算的,人只点了"接受"
+                .sourceTag(com.family.finance.domain.ledger.LedgerSource.SYSTEM_ADJUST.name())
                 .build());
 
         // 复刻旧逻辑:草稿还款转账(默认还款来源 → 贷款,金额 = predicted − prev,>0 才起草)
@@ -220,6 +223,8 @@ public class EntryService {
                     .occurredAt(period.getPeriodEnd())
                     .note("按上两月趋势预填还款")
                     .submittedBy(memberId)
+                    // v1.18 · 金额是系统按趋势算出来的,人只是点了"接受" → 算系统联动,不算手动填报
+                    .sourceTag(com.family.finance.domain.ledger.LedgerSource.SYSTEM_ADJUST.name())
                     .draft(true)
                     .build());
         }
@@ -443,6 +448,7 @@ public class EntryService {
                 .adjustment(false)
                 .refHoldingId(holdingId)
                 .refShares(shares)
+                .sourceTag(com.family.finance.domain.ledger.LedgerSource.MANUAL.name())   // v1.18 · 人在填报页填的股数
                 .build());
         snapshotTodoMapper.markDone(period.getId(), account.getId(), memberId);
         auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "cash_flow", account.getId(),
@@ -591,6 +597,8 @@ public class EntryService {
                 .endBalance(newBalance)
                 .submittedBy(memberId)
                 .note(reason + " · 余额 " + base + " → " + newBalance)
+                // v1.18 · 由人的一笔填报(收入/支出/调整)派生出来的余额 → 仍算手动
+                .sourceTag(com.family.finance.domain.ledger.LedgerSource.MANUAL.name())
                 .build());
         auditLogService.record(period.getFamilyId(), memberId, AuditLogType.SNAPSHOT_WRITE,
                 "period_snapshot", account.getId(),
@@ -870,6 +878,7 @@ public class EntryService {
                 .occurredAt(period.getPeriodEnd())
                 .note(blankToNull(line.note()))
                 .submittedBy(memberId)
+                .sourceTag(com.family.finance.domain.ledger.LedgerSource.MANUAL.name())   // v1.18
                 .build());
     }
 
@@ -902,6 +911,7 @@ public class EntryService {
                 .note(blankToNull(note))
                 .submittedBy(memberId)
                 .draft(false)
+                .sourceTag(com.family.finance.domain.ledger.LedgerSource.MANUAL.name())   // v1.18
                 .build();
         transferMapper.insert(transfer);
         return transfer;

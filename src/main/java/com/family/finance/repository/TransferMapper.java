@@ -37,7 +37,8 @@ public interface TransferMapper {
 
     @Select("""
             SELECT t.id, t.period_id, t.from_account_id, t.to_account_id, t.amount, t.to_amount,
-                   t.occurred_at, t.note, t.submitted_by, t.submitted_at, t.is_draft AS draft
+                   t.occurred_at, t.note, t.submitted_by, t.submitted_at, t.is_draft AS draft,
+                   t.source_tag AS sourceTag
               FROM transfer t
               JOIN period p ON p.id = t.period_id
              WHERE p.family_id = #{familyId}
@@ -78,10 +79,10 @@ public interface TransferMapper {
     @Insert("""
             INSERT INTO transfer (
                 period_id, from_account_id, to_account_id, amount, to_amount,
-                occurred_at, note, submitted_by, is_draft
+                occurred_at, note, submitted_by, is_draft, source_tag
             ) VALUES (
                 #{periodId}, #{fromAccountId}, #{toAccountId}, #{amount}, #{toAmount},
-                #{occurredAt}, #{note}, #{submittedBy}, #{draft}
+                #{occurredAt}, #{note}, #{submittedBy}, #{draft}, COALESCE(#{sourceTag}, 'UNKNOWN')
             )
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")

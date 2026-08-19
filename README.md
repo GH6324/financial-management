@@ -132,7 +132,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 648 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸(含「系统代填的已填不算人确认过」) + PeriodOpenerTodoAlignment 开账代填即已填 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表) + UpdateCheckService 版本比较/迁移判定 fail-closed/结果收敛进 VARCHAR(512) + MetricDisplay 比率失真降级(正常区间不许降级 · 金额类不被误伤 · 失真值派生的 Δ 列一起降级) + LlmCatalogConsistency 平台/型号目录唯一一份(扫包双向比对,不写死类名) + LlmCallSiteRouting 六个 AI 调用点全部只持路由 + MemberDirectory 成员三桶口径(展示含归档 / 选择仅活跃 / 编辑候选=活跃∪当前) + MemberReferenceScanner 删成员前 13 处引用全覆盖(4 处无外键靠反射测试当外键) + MemberArchiveMoneyInvariance 归档只停「谁来打理」不动钱 + UsernameRename 先清票根再改名 + OpendRelease 官方发布物定位(现行域名/命名/取最新端点/10.x 交互登录分流) + OpendConfigXml 控制口按死回环(官方模板里它是注释掉的) + OpendCatalog 安装包哈希校验(对不上拒装 · 清单读不到≠未核对) + OpendTelnet 登录状态机(失败判定先于验证码) + ContainerGatewayChannel 共享卷通道(未启用给命令不报错 · 心跳过期判掉线 · 密码不落日志)))/ 93 e2e 断言(13 主线)/ 629 黑盒回归 |
+| 测试 | JUnit 5 · 651 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸(含「系统代填的已填不算人确认过」) + PeriodOpenerTodoAlignment 开账代填即已填 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表) + UpdateCheckService 版本比较/迁移判定 fail-closed/结果收敛进 VARCHAR(512) + MetricDisplay 比率失真降级(正常区间不许降级 · 金额类不被误伤 · 失真值派生的 Δ 列一起降级) + LlmCatalogConsistency 平台/型号目录唯一一份(扫包双向比对,不写死类名) + LlmCallSiteRouting 六个 AI 调用点全部只持路由 + MemberDirectory 成员三桶口径(展示含归档 / 选择仅活跃 / 编辑候选=活跃∪当前) + MemberReferenceScanner 删成员前 13 处引用全覆盖(4 处无外键靠反射测试当外键) + MemberArchiveMoneyInvariance 归档只停「谁来打理」不动钱 + UsernameRename 先清票根再改名 + OpendRelease 官方发布物定位(现行域名/命名/取最新端点/10.x 交互登录分流) + OpendConfigXml 控制口按死回环(官方模板里它是注释掉的) + OpendCatalog 安装包哈希校验(对不上拒装 · 清单读不到≠未核对) + OpendTelnet 登录状态机(失败判定先于验证码) + ContainerGatewayChannel 共享卷通道(未启用给命令不报错 · 心跳过期判掉线 · 密码不落日志) + LedgerSource 流水来源(UNKNOWN≠MANUAL · 解析永不抛 · 标签无技术词) + ValuationSourceInfer 估值来源推断(显式优先 · 按持仓市场分流)))/ 100 e2e 断言(14 主线)/ 633 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
@@ -340,7 +340,7 @@ mvn spring-boot:run
 测试:
 
 ```bash
-mvn test                       # JUnit 单元测试(648)
+mvn test                       # JUnit 单元测试(651)
 bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(见 README 上方测试行的黑盒回归数)
 bash scripts/e2e.sh            # 端到端主线真验收(13 主线 93 断言 · 唤起 beta 调接口 + DB 真值判定 · mysqldump 快照/还原,不清库)
 ```
@@ -362,7 +362,8 @@ bash scripts/e2e.sh            # 端到端主线真验收(13 主线 93 断言 ·
 - **v1.14 设计文档**:[`prd/v1.14.md`](prd/v1.14.md) · [`tech-design/v1.14.md`](tech-design/v1.14.md)(截图导入支持拖拽 + Ctrl+V 粘贴,来自 GitHub issue #11:上传区的 id 一直叫 `dropZone`、外框一直是虚线,却从来不接拖拽 —— PC 上真拖上去浏览器会导航走、这次导入全丢,所以这版兑现的是一个会让人丢东西的错误暗示)
 - **v1.15 设计文档**:[`prd/v1.15.md`](prd/v1.15.md) · [`tech-design/v1.15.md`](tech-design/v1.15.md)(成员身份:登录名可改 · 归档 · 零引用才给删。归档**只停掉「谁还来打理」,不动一分钱**,他名下账户与历史流水照旧计入总账;删除前逐表数引用,那 4 处没有外键的靠显式清单兜住 —— 自动发现外键会给出一个自信的错答案。tech-design §9 记了六处施工偏差,其中一处是隐私:6 个脱敏点原来拿「仅活跃」列表建假名表,归档成员的真名会原样进 LLM prompt)
 - **v1.16 设计文档**:[`prd/v1.16.md`](prd/v1.16.md) · [`tech-design/v1.16.md`](tech-design/v1.16.md)(「本期填报完成」只留一个定义 · GitHub issue #15:开账把上期末余额延续成本期快照的同时,把同一行待填也标成已填 —— 填报页的 ✓、tab 徽标、自动关账从此读同一列,不再出现「页面显示全填好了、徽标还挂着 ·1」;tech-design §1.1 记了「为什么不在计数 SQL 上打补丁」的取舍)
-- **v1.17 设计文档(在研 · TDD 待评审)**:[`prd/v1.17.md`](prd/v1.17.md) · [`tech-design/v1.17.md`](tech-design/v1.17.md)(Docker 部署下的富途 OpenD 一键接入:今天 Docker 用户被要求自备镜像 + 借一台有桌面的机器 + 把券商密码写进 `.env`,而原生用户只是在向导页点几下。方案定为「我们发一个**可选**的网关镜像」—— 默认 `up -d` 不拉不起,富途二进制不打包、运行时从官方下载并校验哈希,镜像 digest 与打包过程公示可验证。实测证据也表明「容器里跑不了 OpenD」这个前提是错的 —— gtk3/fuse 是桌面版的依赖,命令行版零缺失;顺带修掉过期的下载域名 / 文件名 / 启动参数,那几处今天在原生路径上也是坏的)
+- **v1.17 设计文档**:[`prd/v1.17.md`](prd/v1.17.md) · [`tech-design/v1.17.md`](tech-design/v1.17.md)(Docker 部署下的富途 OpenD 一键接入:今天 Docker 用户被要求自备镜像 + 借一台有桌面的机器 + 把券商密码写进 `.env`,而原生用户只是在向导页点几下。方案定为「我们发一个**可选**的网关镜像」—— 默认 `up -d` 不拉不起,富途二进制不打包、运行时从官方下载并校验哈希,镜像 digest 与打包过程公示可验证。实测证据也表明「容器里跑不了 OpenD」这个前提是错的 —— gtk3/fuse 是桌面版的依赖,命令行版零缺失;顺带修掉过期的下载域名 / 文件名 / 启动参数,那几处今天在原生路径上也是坏的)
+- **v1.18 设计文档(在研)**:[`prd/v1.18.md`](prd/v1.18.md) · [`tech-design/v1.18.md`](tech-design/v1.18.md)(流水时间线的每一行都标出「这笔是谁写进来的」:手动填报 / 自动 · 股价 / 自动 · 金价 / 自动 · 富途 / 截图导入 / 开账延续 / 系统联动,共 10 个来源。以前 `kind` 只说是收入还是估值,`trigger_kind` 只说什么动作触发 —— 同一个定时任务可能是股价接口也可能是金价接口,用户分不出来。历史数据一律 `UNKNOWN`(「来源未记录」)**不回填成手动** —— 那等于假装我们知道。同一版还把券商同步失败从「只写日志」改成写进状态并标在账户列表上:v1.17.3 那次生产事故里富途断了两天,而页面一直显示两天前的**成功**消息)
 - **怎么记账 · 场景速查**:[`docs/how-to-record.md`](docs/how-to-record.md)(工资/消费/买卖基金/借钱还贷/账户间转钱 逐场景对照 · 没有财会背景也能看懂)
 - **配置与接入**:[`docs/configuration.md`](docs/configuration.md)(AI / 短信 等外部服务配置总指南 · 全部可选)
 - **券商同步图文向导**:[`docs/broker-sync-guide.md`](docs/broker-sync-guide.md)(富途 / 老虎凭据一步步获取 · 应用内同款 `/help/broker-sync` 带示意图)

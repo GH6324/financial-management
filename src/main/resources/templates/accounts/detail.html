@@ -244,7 +244,13 @@
                 th:text="${e.kind.name() == 'INCOME' ? '+ 收入' : (e.kind.name() == 'EXPENSE' ? '- 支出' : (e.kind.name() == 'TRANSFER_IN' ? '↳ 划入' : (e.kind.name() == 'TRANSFER_OUT' ? '↱ 划出' : (e.kind.name() == 'VALUATION' ? '△ 估值' : '= 校准'))))}">
             类型</span>
           <span class="tnum w-28" data-priv th:text="${e.amountSignedLabel}">+¥0</span>
-          <span class="text-ink-soft flex-1 min-w-[140px]" th:text="${e.label}">类别 / 对手账户</span>
+          <span class="text-ink-soft flex-1 min-w-[120px] sm:min-w-[140px]" th:text="${e.label}">类别 / 对手账户</span>
+          <!-- v1.18 · 这一笔是谁写进来的(手填 / 定时拉价 / 券商同步 / 截图导入…)。
+               以前时间线只说"是估值变动",说不清数据从哪来;富途断了两天都看不出。 -->
+          <span th:if="${e.source != null}"
+                class="src-tag" th:classappend="' src-' + ${e.source.group}"
+                th:text="${e.source.label}"
+                th:title="${e.source.group == 'unknown' ? '这一笔早于 v1.18,当时还没有记录来源' : '来源:' + e.source.label}">来源</span>
           <span class="text-ink-subtle text-[10px]"
                 th:if="${e.occurredAt != null}"
                 th:text="${#temporals.format(e.occurredAt, 'M月d日 HH:mm')}">5月15日 14:30</span>

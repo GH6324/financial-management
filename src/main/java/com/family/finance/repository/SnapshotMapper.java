@@ -99,7 +99,8 @@ public interface SnapshotMapper {
     List<PeriodSnapshot> findByPeriod(@Param("periodId") long periodId);
 
     @Select("""
-            SELECT ps.id, ps.period_id, ps.account_id, ps.end_balance, ps.submitted_by, ps.submitted_at, ps.note
+            SELECT ps.id, ps.period_id, ps.account_id, ps.end_balance, ps.submitted_by, ps.submitted_at, ps.note,
+                   ps.source_tag AS sourceTag
               FROM period_snapshot ps
               JOIN period p ON p.id = ps.period_id
              WHERE p.family_id = #{familyId}
@@ -121,13 +122,14 @@ public interface SnapshotMapper {
                                           @Param("limit") int limit);
 
     @Insert("""
-            INSERT INTO period_snapshot (period_id, account_id, end_balance, submitted_by, note)
-            VALUES (#{periodId}, #{accountId}, #{endBalance}, #{submittedBy}, #{note})
+            INSERT INTO period_snapshot (period_id, account_id, end_balance, submitted_by, note, source_tag)
+            VALUES (#{periodId}, #{accountId}, #{endBalance}, #{submittedBy}, #{note}, COALESCE(#{sourceTag}, 'UNKNOWN'))
             ON DUPLICATE KEY UPDATE
                 end_balance = VALUES(end_balance),
                 submitted_by = VALUES(submitted_by),
                 submitted_at = NOW(3),
-                note = VALUES(note)
+                note = VALUES(note),
+                source_tag = VALUES(source_tag)
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int upsert(PeriodSnapshot snapshot);

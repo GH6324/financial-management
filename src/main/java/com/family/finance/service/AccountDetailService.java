@@ -158,7 +158,11 @@ public class AccountDetailService {
                     "月末校准",
                     s.getNote(),
                     null,
-                    false
+                    false,
+                    // v1.18 · 月末校准这一行来自 period_snapshot,同一行可能被 5 个入口 upsert 过
+                    //(开账延续 / 用户填报 / 接受贷款趋势 / 余额派生 / 系统估值回写),谁最后写谁说话。
+                    // v1.18 之前没记来源 → parse 出 UNKNOWN("来源未记录"),不猜成手动。
+                    com.family.finance.domain.ledger.LedgerSource.parse(s.getSourceTag())
             ));
         }
         // CASH_FLOW entries
@@ -175,7 +179,8 @@ public class AccountDetailService {
                     cf.getCategoryCode(),
                     cf.getNote(),
                     cf.getId(),
-                    p.getStatus() == PeriodStatus.OPEN
+                    p.getStatus() == PeriodStatus.OPEN,
+                    com.family.finance.domain.ledger.LedgerSource.parse(cf.getSourceTag())
             ));
         }
         // v0.4.1 FR-52f · 持仓账户估值事件 entries
@@ -205,7 +210,8 @@ public class AccountDetailService {
                         "估值变动 · " + trgLabel,
                         note,
                         ev.getId(),
-                        false  // 估值事件不可删
+                        false,  // 估值事件不可删
+                        com.family.finance.domain.ledger.LedgerSource.parse(ev.getSourceTag())
                     ));
                 }
             } catch (Exception ignored) {
@@ -227,7 +233,8 @@ public class AccountDetailService {
                     (in ? "↳ 来自 " : "↱ 划出到 ") + counterName,
                     t.getNote(),
                     t.getId(),
-                    p.getStatus() == PeriodStatus.OPEN
+                    p.getStatus() == PeriodStatus.OPEN,
+                    com.family.finance.domain.ledger.LedgerSource.parse(t.getSourceTag())
             ));
         }
 

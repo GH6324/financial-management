@@ -61,7 +61,14 @@ public record AccountDetail(
             /** cash_flow.id 或 transfer.id;SNAPSHOT 为 null */
             Long sourceId,
             /** 是否可被删除(OPEN 周期 + 非 SNAPSHOT) */
-            boolean deletable
+            boolean deletable,
+            /**
+             * v1.18 · 这一笔是<b>谁写进来的</b>(手动填报 / 自动拉价 / 券商同步 / 截图导入…)。
+             *
+             * <p>和 {@link Kind} 是两个维度:Kind 说性质,source 说来路。
+             * v1.18 之前的历史数据是 {@code UNKNOWN}(当时没记,不等于手动)。</p>
+             */
+            com.family.finance.domain.ledger.LedgerSource source
     ) {}
 
     public enum Kind {

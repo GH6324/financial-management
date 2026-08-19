@@ -28,4 +28,6 @@ public class CashFlow {
     // v0.12 · 股票「+股数」收入的冲回信息 · 删除时按 refShares 冲回持仓股数;其它流水为 null
     private Long refHoldingId;
     private BigDecimal refShares;
+    /** v1.18 · 这一笔是谁写进来的({@link com.family.finance.domain.ledger.LedgerSource});历史数据为 UNKNOWN = 当时没记 */
+    private String sourceTag;
 }
