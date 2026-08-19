@@ -9,6 +9,7 @@
  * - 登录 beta(127.0.0.1:20000 · diwa/demo1234)后按 spec 截图
  * - PC 1440x900 + 移动 390x844 双视口;JPEG quality=82(压缩且保清晰)
  * - spec 默认 scripts/release-shots.spec.json —— 每次发版按本次核心能力改清单
+ * - spec 条目可选 eval:"<js>" —— 截图前在页面里跑一段(展开折叠块 / 截短长列表)
  * - chromium 路径按本机 playwright 缓存(见 memory reference_headless_screenshot)
  */
 const path = require('path');
@@ -51,6 +52,10 @@ const { chromium } = require(PW);
       try {
         await p.goto(BASE + s.path, { waitUntil: 'networkidle' });
         if (s.waitFor) { await p.waitForSelector(s.waitFor, { timeout: 15000 }); }  // 等内容真渲染出来(治 loading 页截早)
+        // v1.18 · 截图前在页面里跑一段(展开指定的折叠块 / 截掉过长列表 / 关掉动画)。
+        // 加它是因为流水时间线默认只展开【最新】那一组,而 beta 的测试数据里最新是 2041 年那批;
+        // 想拍本次能力就得先把目标那一组打开。用页面自己的 DOM 操作,不改被拍的页面。
+        if (s.eval) { await p.evaluate(s.eval); await p.waitForTimeout(300); }
         await p.waitForTimeout(s.wait || 1200);   // 图表/字体/轮询首帧
         const f = path.join(outDir, `${prefix}_${s.name}.jpg`);
         if (s.selector) {
