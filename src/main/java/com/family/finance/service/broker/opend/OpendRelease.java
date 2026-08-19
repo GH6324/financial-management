@@ -102,18 +102,43 @@ public final class OpendRelease {
         return m.find() ? m.group(1) : null;
     }
 
+    /** 交互式登录的起始版本 —— 只有【实测确认过】的版本线才走新方式(见下方说明)。 */
+    static final String INTERACTIVE_SINCE = "10.10";
+
     /**
-     * 版本号是否 ≥ 10.0 —— 决定启动方式。
+     * 这个版本是否走<b>交互式登录</b>(只传 {@code -cfg_file},凭据经控制口喂)。
      *
-     * <p>10.x 起<b>不再接受命令行传密码</b>({@code -login_pwd_md5} 不在受支持参数里,
-     * {@code -telnet_port} 也只能在 XML 配),改成进程起来后交互式登录。9.x 老包仍吃老参数,
-     * 所以这里按版本分流,而不是一刀切。</p>
+     * <p>10.10.7008 实测:{@code -login_pwd_md5} 与 {@code -telnet_port} 都不在受支持参数里,
+     * 登录改成进程起来后交互式;而 9.x 老包仍吃老参数。</p>
+     *
+     * <p><b>边界为什么是 10.10 而不是 10.0(v1.17.3 修正)</b>:v1.17 首版按「主版本 ≥ 10」分流,
+     * 结果把 <b>10.8.6818</b> 也判成了交互式 —— 生产上那台装的正是 10.8,新代码不再传 MD5、
+     * 改传 {@code -cfg_file},进程起来<b>立刻退出</b>(OpenD 的 Monitor.log 里连着三次 {@code WEXITSTATUS:14}),
+     * 富途同步从此断掉。而 10.8 在 v1.16 及以前一直用老参数正常跑了一个多月。
+     * 教训:我只实测过 10.10,却把结论推广到了整条 10.x 线 —— 没实测过的版本一律按<b>老路径</b>处理,
+     * 老路径失败最多是"登录不上",新路径用错却是"起都起不来"。</p>
      */
     public static boolean isInteractiveLogin(String version) {
         if (version == null || version.isBlank()) return true;   // 认不出 → 按新版走(官方只发新版)
-        try {
-            int major = Integer.parseInt(version.trim().split("\\.")[0]);
-            return major >= 10;
-        } catch (Exception e) { return true; }
+        String v = version.trim();
+        // 形状先校验:compareVersions 内部把解析失败当 0,不校验的话「十点十」会被算成 0.0.0 → 判成老版本。
+        // 认不出的东西要走新版路径(官方只发新版),不能因为解析失败就默默降级。
+        if (!v.matches("\\d+(\\.\\d+)*")) return true;
+        return compareVersions(v, INTERACTIVE_SINCE) >= 0;
+    }
+
+    /** 版本号按数字段比较(10.10 > 10.8 —— 字符串比较会判反)。 */
+    static int compareVersions(String a, String b) {
+        String[] x = a.split("\\."), y = b.split("\\.");
+        for (int i = 0; i < Math.max(x.length, y.length); i++) {
+            int xi = i < x.length ? num(x[i]) : 0;
+            int yi = i < y.length ? num(y[i]) : 0;
+            if (xi != yi) return Integer.compare(xi, yi);
+        }
+        return 0;
+    }
+
+    private static int num(String s) {
+        try { return Integer.parseInt(s.trim()); } catch (Exception e) { return 0; }
     }
 }

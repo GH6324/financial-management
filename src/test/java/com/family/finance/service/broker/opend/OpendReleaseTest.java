@@ -79,16 +79,41 @@ class OpendReleaseTest {
         assertThat(OpendRelease.parseVersion("garbage")).isNull();
     }
 
-    /** 10.x 交互式登录 / 9.x 命令行参数 —— 分流判据。 */
+    /**
+     * 交互式登录的分流判据 —— 边界是 <b>10.10</b>,不是 10.0。
+     *
+     * <p>v1.17 首版写成「主版本 ≥ 10」,把生产上装的 <b>10.8.6818</b> 也判成了交互式:
+     * 不再传 MD5、改传 {@code -cfg_file},进程起来立刻退出(Monitor.log 连着三次 {@code WEXITSTATUS:14}),
+     * 富途同步断了两天。10.8 在此之前用老参数正常跑了一个多月。</p>
+     *
+     * <p>规则定死:<b>没实测过的版本一律走老路径</b> —— 老路径失败最多是"登录不上",
+     * 新路径用错却是"起都起不来"。</p>
+     */
     @Test
-    void interactive_login_only_for_10_and_above() {
+    void interactive_login_only_from_10_10_the_version_we_actually_tested() {
+        // 实测过的:10.10.7008 走交互式
         assertThat(OpendRelease.isInteractiveLogin("10.10.7008")).isTrue();
+        assertThat(OpendRelease.isInteractiveLogin("10.11.0")).isTrue();
         assertThat(OpendRelease.isInteractiveLogin("11.0.1")).isTrue();
+
+        // 生产回归钉死:10.8 必须走老参数(它在 v1.16 及以前一直正常)
+        assertThat(OpendRelease.isInteractiveLogin("10.8.6818")).isFalse();
+        assertThat(OpendRelease.isInteractiveLogin("10.9.9999")).isFalse();   // 没实测过 → 老路径
         assertThat(OpendRelease.isInteractiveLogin("9.3.5308")).isFalse();
         assertThat(OpendRelease.isInteractiveLogin("2.19.1252")).isFalse();
+
         // 认不出版本 → 按新版走(官方只发新版了)
         assertThat(OpendRelease.isInteractiveLogin(null)).isTrue();
         assertThat(OpendRelease.isInteractiveLogin("")).isTrue();
         assertThat(OpendRelease.isInteractiveLogin("十点十")).isTrue();
+    }
+
+    /** 版本比较必须按数字段:字符串比较会把 10.8 判成大于 10.10。 */
+    @Test
+    void version_compare_is_numeric_10_10_is_newer_than_10_8() {
+        assertThat(OpendRelease.compareVersions("10.10.7008", "10.8.6818")).isPositive();
+        assertThat(OpendRelease.compareVersions("10.8.6818", "10.10")).isNegative();
+        assertThat(OpendRelease.compareVersions("10.10", "10.10")).isZero();
+        assertThat(OpendRelease.compareVersions("10.10.1", "10.10")).isPositive();
     }
 }

@@ -61,6 +61,19 @@ public interface BrokerLinkMapper {
     @Update("UPDATE broker_link SET last_synced_at = NOW(3), last_status = #{status} WHERE account_id = #{accountId}")
     int markSynced(@Param("accountId") long accountId, @Param("status") String status);
 
+    /**
+     * 记一次<b>失败</b>的尝试(v1.17.3)。
+     *
+     * <p>刻意<b>不动 {@code last_synced_at}</b> —— 那一列的语义是"最后一次<b>成功</b>同步是什么时候",
+     * 失败把它刷新会让"上次同步 5 分钟前"和"数据其实是三天前的"同时成立,比不显示更误导。</p>
+     *
+     * <p>为什么必须记:在此之前失败路径只 {@code log.warn},数据库里一个字都不改 ——
+     * 于是页面上一直挂着<b>上一次成功</b>的消息。生产上富途实际已经断了两天,
+     * 页面显示的仍是「同步 · 新增 0 · 更新 7 · 归档 0」,用户不去手点一次永远不会发现。</p>
+     */
+    @Update("UPDATE broker_link SET last_status = #{status} WHERE account_id = #{accountId}")
+    int markFailed(@Param("accountId") long accountId, @Param("status") String status);
+
     @Delete("DELETE FROM broker_link WHERE account_id = #{accountId}")
     int deleteByAccount(@Param("accountId") long accountId);
 }

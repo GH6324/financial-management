@@ -99,8 +99,28 @@
         <div class="font-mono text-xs text-ink-subtle" th:unless="${link.lastSyncedAt != null}">尚未同步</div>
       </div>
     </div>
-    <div th:if="${link.lastStatus != null}" class="font-mono text-xs text-ink-soft mb-4 p-3 bg-paper border border-rule-soft"
+    <!-- v1.17.3 · 失败必须一眼看得出来。
+         在此之前失败根本不落库(只写日志),这里会一直显示【上一次成功】的消息 ——
+         生产上富途实际断了两天,这一格还写着「新增 0 · 更新 7」,不手点一次永远发现不了。 -->
+    <div th:if="${link.lastStatus != null and !#strings.startsWith(link.lastStatus, '同步失败')}"
+         class="font-mono text-xs text-ink-soft mb-4 p-3 bg-paper border border-rule-soft"
          th:text="${link.lastStatus}">同步 · 新增 2 · 更新 3 · 归档 0</div>
+    <div th:if="${link.lastStatus != null and #strings.startsWith(link.lastStatus, '同步失败')}"
+         class="mb-4 p-3 bg-card-soft" style="border-left:4px solid var(--rust)">
+      <div class="flex items-start gap-2">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"
+             class="text-rust shrink-0 mt-[2px]" aria-hidden="true">
+          <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+        </svg>
+        <div>
+          <div class="text-sm text-rust font-medium" th:text="${link.lastStatus}">同步失败 · 连不上 OpenD 网关</div>
+          <div class="font-mono text-[10px] text-ink-subtle mt-1">
+            上面「上次同步」显示的是<b class="text-ink">最后一次成功</b>的时间 —— 那之后的数据没有更新进来。
+            先点「测试连接」看是哪一步断的;富途还要确认 OpenD 网关在跑且已登录。
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="flex flex-wrap gap-3">
       <form th:action="@{|/accounts/${account.id}/broker/sync|}" method="post">
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">

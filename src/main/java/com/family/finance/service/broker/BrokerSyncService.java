@@ -52,8 +52,17 @@ public class BrokerSyncService {
         BrokerLink link = linkMapper.findByAccount(accountId)
                 .orElseThrow(() -> new IllegalStateException("该账户未关联券商"));
         if (!link.isEnabled()) throw new IllegalStateException("该账户券商同步已停用");
-        BrokerDtos.Snapshot snap = clientFor(link.getVendor()).fetch(familyId, link);
-        String summary = reconcile(accountId, link.getVendor(), snap);
+        BrokerDtos.Snapshot snap;
+        String summary;
+        try {
+            snap = clientFor(link.getVendor()).fetch(familyId, link);
+            summary = reconcile(accountId, link.getVendor(), snap);
+        } catch (RuntimeException e) {
+            // v1.17.3 · 失败也要落库:在此之前失败只写日志,页面上会一直挂着【上一次成功】的消息 ——
+            // 生产上富途断了两天,页面还显示「新增 0 · 更新 7」。不动 last_synced_at(那是"最后成功"的语义)。
+            linkMapper.markFailed(accountId, failureNote(e));
+            throw e;
+        }
         linkMapper.markSynced(accountId, summary);
         try {
             valuationService.refreshAllForFamily(familyId,
@@ -69,9 +78,37 @@ public class BrokerSyncService {
         int ok = 0;
         for (BrokerLink link : linkMapper.findAllEnabled()) {
             try { sync(familyId, link.getAccountId(), memberId); ok++; }
-            catch (Exception e) { log.warn("broker-sync fail · account={}: {}", link.getAccountId(), e.toString()); }
+            catch (Exception e) {
+                // sync() 里已经把失败落库了,这里只记日志(别重复写,免得覆盖更具体的那条)
+                log.warn("broker-sync fail · account={}: {}", link.getAccountId(), e.toString());
+            }
         }
         return ok;
+    }
+
+    /**
+     * 失败摘要 —— 这条会直接显示在券商卡片上,所以要说人话、要短、且不能带凭据类细节。
+     *
+     * <p>带上时间是有意的:用户看到「同步失败(08-19 16:45)」才知道这是<b>最近一次尝试</b>失败了,
+     * 而不是历史上某次。</p>
+     */
+    static String failureNote(Exception e) {
+        String raw = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+        String hint;
+        String low = raw.toLowerCase(java.util.Locale.ROOT);
+        if (low.contains("connection refused") || low.contains("无法发起") || low.contains("connect")) {
+            hint = "连不上 OpenD 网关(它没在跑?)";
+        } else if (low.contains("未配置")) {
+            hint = "券商连接未配置完整";
+        } else if (low.contains("timeout") || low.contains("超时")) {
+            hint = "网关无响应(超时)";
+        } else if (low.contains("登录") || low.contains("login")) {
+            hint = "网关未登录 / 登录已失效";
+        } else {
+            hint = raw.length() > 60 ? raw.substring(0, 60) + "…" : raw;
+        }
+        return "同步失败 · " + hint + "("
+                + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm")) + ")";
     }
 
     /**

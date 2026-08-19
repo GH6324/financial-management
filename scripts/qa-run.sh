@@ -4493,6 +4493,36 @@ CALCTPL="$RD/src/main/resources/templates/admin/calc-tweaks.html"
   && log_ok "v1172-PALETTE-PERSONAL 配色存 localStorage(个人 · 不落库)· lens 优先读个人值、回落家庭旧值(老用户不受影响)" \
   || log_bad "v1172-PALETTE-PERSONAL 个人偏好链路断了(存/读/回落任一处)" "see admin/appearance.html · static/js/lens.js"
 
+# v1173-SYNC-FAILURE-VISIBLE · 券商同步失败必须落库、必须看得见(v1.17.3 · 生产事故)
+# 事故:富途同步断了两天,页面上一直显示【上一次成功】的消息「同步 · 新增 0 · 更新 7 · 归档 0」——
+# 因为失败路径只 log.warn,broker_link 一个字都不改。用户不手点一次永远发现不了。
+# 三条:① 失败要 markFailed 落库;② 不许动 last_synced_at(那是"最后成功"的语义,
+# 被失败刷新会让「上次同步 5 分钟前」和「数据其实三天前的」同时成立);③ 页面按前缀切红色告警。
+BSS="$RD/src/main/java/com/family/finance/service/broker/BrokerSyncService.java"
+BLM="$RD/src/main/java/com/family/finance/repository/BrokerLinkMapper.java"
+BLT="$RD/src/main/resources/templates/broker/link.html"
+{ grep -q 'markFailed' "$BLM" \
+  && grep -qE 'markFailed\(accountId, failureNote\(e\)\)' "$BSS" \
+  && ! grep -A 2 'int markFailed' "$BLM" | grep -q 'last_synced_at' \
+  && grep -q 'failureNote' "$BSS" \
+  && grep -q "startsWith(link.lastStatus, '同步失败')" "$BLT" \
+  && grep -q 'var(--rust)' "$BLT" \
+  && [ -f "$RD/src/test/java/com/family/finance/service/broker/BrokerFailureNoteTest.java" ]; } \
+  && log_ok "v1173-SYNC-FAILURE-VISIBLE 同步失败落库(不动 last_synced_at)+ 页面切红色告警 + 文案是人话(有单测)" \
+  || log_bad "v1173-SYNC-FAILURE-VISIBLE 同步失败仍可能静默(页面会挂着上次成功的消息)" "see BrokerSyncService.failureNote / BrokerLinkMapper.markFailed / broker/link.html"
+
+# v1173-OPEND-VERSION-BOUNDARY · 只有实测过的版本线才走交互式登录(v1.17.3 · 生产回归)
+# v1.17 首版按「主版本 ≥ 10」分流,把生产上装的 10.8.6818 也判成交互式:不再传 MD5、改传 -cfg_file,
+# 进程起来立刻退出(Monitor.log 连三次 WEXITSTATUS:14),富途同步断两天。10.8 在 v1.16 前正常跑了一个多月。
+# 规则:没实测过的版本一律走老路径 —— 老路径失败最多"登录不上",新路径用错是"起都起不来"。
+{ grep -q 'INTERACTIVE_SINCE = "10.10"' "$OWREL" \
+  && ! grep -qE 'return major >= 10;' "$OWREL" \
+  && grep -q 'compareVersions' "$OWREL" \
+  && grep -q 'matches("\\\\d+' "$OWREL" \
+  && grep -q '10.8.6818' "$RD/src/test/java/com/family/finance/service/broker/opend/OpendReleaseTest.java"; } \
+  && log_ok "v1173-OPEND-VERSION-BOUNDARY 交互式登录边界钉在实测过的 10.10 · 10.8/10.9 走老参数 · 版本按数字段比较 · 认不出的形状先校验" \
+  || log_bad "v1173-OPEND-VERSION-BOUNDARY 版本分流可能又把没实测过的版本判成交互式" "see OpendRelease.isInteractiveLogin / OpendReleaseTest"
+
 # v12-2-FONTSCALE · 全局字号调节(issue #7)· 标准档零回归(calc×var,scale=1 等价)+ 5 层覆盖 + 控件 + FOUC + 图表跟随
 FSCSS="$RD/src/main/resources/static/css/style.css"
 FSLAY="$RD/src/main/resources/templates/fragments/layout.html"
