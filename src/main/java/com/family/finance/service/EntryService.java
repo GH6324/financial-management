@@ -518,11 +518,13 @@ public class EntryService {
         Period period = requireOpenPeriod(familyId, t.getPeriodId());
         Account from = requireAccount(familyId, t.getFromAccountId());
         Account to = requireAccount(familyId, t.getToAccountId());
-        // 反向:from +amount,to -amount
-        applyDeltaToBalance(period, from, memberId, t.getAmount(),
+        // 反向:from +amount,to -amount(v1.18.1 · 与 addTransfer 同一条路由,否则撤销会把现金行留在原地)
+        // 跨币种:收款方当初进账的是 to_amount,冲回也必须按同一个数,否则现金行会残留差额。
+        BigDecimal backToAmount = t.getToAmount() == null ? t.getAmount() : t.getToAmount();
+        creditAccountBalance(familyId, period, from, memberId, t.getAmount(),
                 "✕ 撤销划出到 " + to.getDisplayName() + " " + money(t.getAmount()));
-        applyDeltaToBalance(period, to, memberId, t.getAmount().negate(),
-                "✕ 撤销来自 " + from.getDisplayName() + " " + money(t.getAmount()));
+        creditAccountBalance(familyId, period, to, memberId, backToAmount.negate(),
+                "✕ 撤销来自 " + from.getDisplayName() + " " + money(backToAmount));
         transferMapper.softDelete(transferId);
         auditLogService.record(familyId, memberId, AuditLogType.TRANSFER_CREATE, "transfer", transferId,
                 "软删转账 " + from.getDisplayName() + " → " + to.getDisplayName() + " " + money(t.getAmount()));
@@ -546,9 +548,12 @@ public class EntryService {
         boolean crossCcy = !fromAccount.getCurrency().equals(toAccount.getCurrency());
         BigDecimal effToAmount = (toAmount != null) ? toAmount : amount;
         // 划转 A→B:A 余额 -amount,B 余额 +effToAmount
-        applyDeltaToBalance(period, fromAccount, memberId, amount.negate(),
+        // v1.18.1 · 必须走 creditAccountBalance 而不是直接 applyDeltaToBalance ——
+        //   任一端若是「持仓估值接管」的账户,钱不落到现金行就会被下一次估值抹掉。
+        //   生产上那 7.5w 正是经划转进来的(划转此前压根没走这条路由)。
+        creditAccountBalance(familyId, period, fromAccount, memberId, amount.negate(),
                 "↱ 划出到 " + toAccount.getDisplayName() + " " + money(amount));
-        applyDeltaToBalance(period, toAccount, memberId, effToAmount,
+        creditAccountBalance(familyId, period, toAccount, memberId, effToAmount,
                 "↳ 收到来自 " + fromAccount.getDisplayName() + " " + money(effToAmount));
         Transfer created = insertTransfer(period, familyId, fromAccountId, toAccountId, amount,
                 crossCcy ? effToAmount : null, note, memberId, confirmDuplicate);
@@ -606,15 +611,23 @@ public class EntryService {
     }
 
     /**
-     * v0.12 · 把余额变动 delta 记到账户,按账户类型路由:
-     *   - STOCK:落到账户「CASH 现金行」(adjustAccountCash,估值刷新只重算持仓市值、不动现金行 → 扛得住)
-     *            + 同时 applyDeltaToBalance 立即反映到当期 snapshot(下次估值是「绝对重算含现金行」→ 不双计也不丢)。
+     * v0.12 · 把余额变动 delta 记到账户,按「余额归谁管」路由:
+     *   - <b>由持仓估值接管的账户</b>:落到账户「CASH 现金行」(adjustAccountCash)
+     *            + 同时 applyDeltaToBalance 立即反映到当期 snapshot
+     *            (下次估值是「绝对重算 = 持仓 + 现金行」→ 不双计也不丢)。
      *   - 其它账户:仅 applyDeltaToBalance(snapshot 就是余额真值)。
-     * 供收入侧 recordIncome + 账户级 addCashFlow/softDeleteCashFlow 统一复用。
+     *
+     * <p><b>v1.18.1 BUG-FIX · 这里原来判的是 {@code type == STOCK}</b>,而估值接管判的是
+     * 「支持持仓的类型 + 真的有持仓」—— 两者不一致,于是 WEALTH/CRYPTO/METAL 且有持仓的账户
+     * (例如挂着基金持仓的余额宝)收到钱之后只加到快照上、<b>没进现金行</b>,
+     * 下一次自动估值按「持仓合计」把快照覆盖回去,<b>那笔钱就从余额里消失了</b>。
+     * 生产实测:两笔转入合计 7.5w 被 8-20 06:15 的估值抹掉,家庭净资产少算同额,
+     * 而且每跑一次估值就再抹一次。判据现已收口到 {@code StockHoldingService.valuationManaged},
+     * 与估值接管同源。</p>
      */
     private void creditAccountBalance(long familyId, Period period, Account account, long memberId,
                                       BigDecimal delta, String reason) {
-        if (account.getType() == AccountType.STOCK) {
+        if (stockHoldingService.valuationManaged(account)) {
             stockHoldingService.adjustAccountCash(familyId, account.getId(), account.getCurrency(), delta);
         }
         applyDeltaToBalance(period, account, memberId, delta, reason);

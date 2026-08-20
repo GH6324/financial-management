@@ -131,12 +131,11 @@ public class AccountValuationService {
         List<Account> accounts = accountMapper.findActiveByFamily(familyId);
         int refreshed = 0;
         for (Account acc : accounts) {
-            if (!StockHoldingService.supportsHoldings(acc.getType())) continue;
             List<StockHolding> holdings = holdingMapper.findActiveByAccount(acc.getId());
-            if (holdings.isEmpty()) {
-                // backward compat 红线:无 holding 的老账户不接管 · 用户继续手填
-                continue;
-            }
+            // backward compat 红线:无 holding 的老账户不接管 · 用户继续手填。
+            // v1.18.1 · 判据收口到 StockHoldingService.valuationManaged —— 录入侧要用同一条
+            // (「余额变动该不该落到现金行」必须和「估值会不会覆盖这张快照」是同一个判断)。
+            if (!StockHoldingService.valuationManaged(acc.getType(), holdings)) continue;
             ValuationResult r = valuateInternal(acc);
             // v0.4.1:先取 prev_balance 再写回
             BigDecimal prevBalance = snapshotMapper.findByPeriodAndAccount(currentOpen.getId(), acc.getId())
@@ -172,9 +171,10 @@ public class AccountValuationService {
         Period currentOpen = periodMapper.findCurrentOpen(familyId).orElse(null);
         if (currentOpen == null) return;
         Account acc = accountMapper.findById(accountId).orElse(null);
-        if (acc == null || !StockHoldingService.supportsHoldings(acc.getType())) return;
+        if (acc == null) return;
         List<StockHolding> holdings = holdingMapper.findActiveByAccount(accountId);
-        if (holdings.isEmpty()) return;   // 红线:无持仓不接管
+        // 红线:无持仓不接管 · v1.18.1 判据与录入侧同源(见 StockHoldingService.valuationManaged)
+        if (!StockHoldingService.valuationManaged(acc.getType(), holdings)) return;
         ValuationResult r = valuateInternal(acc);
         BigDecimal prevBalance = snapshotMapper.findByPeriodAndAccount(currentOpen.getId(), accountId)
             .map(s -> s.getEndBalance()).orElse(null);

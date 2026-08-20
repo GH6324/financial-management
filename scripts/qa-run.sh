@@ -7011,6 +7011,38 @@ QA1181_REV="$RD/src/main/java/com/family/finance/web/review/ReviewController.jav
   && log_ok "v1181-ATTR-ANCHOR-VISIBLE(填报中时页面明示归因锚在哪一期)" \
   || log_bad "v1181-ATTR-ANCHOR-VISIBLE 归因锚期没写在页面上" "see dashboard/_attribution.html 的「归因锚定」提示 + DashboardController 的 attrAnchorMonth/attrFilingInProgress"
 
+# v1181-MANAGED-ROUTING-SINGLE · 「余额归谁管」只许一份判据(v1.18.1 · 真丢钱)
+# 生产上两笔划转共 7.5w 进了一个挂着基金持仓的理财账户(WEALTH):划转把快照加上去了,
+# 但钱没进该账户的现金行;当天 06:15 自动估值按「持仓合计」重算并覆盖快照 —— 那 7.5w
+# 从余额里消失,家庭净资产少算同额,而且每跑一次估值就再抹一次。
+# 根因是两处判据不一致:
+#   录入侧(v0.12)判「要不要落到现金行」用 type == STOCK
+#   估值侧判「要不要接管这个账户的余额」用「支持持仓的类型 且 真的有持仓」
+# WEALTH/CRYPTO/METAL 且有持仓的账户正好落在缝里。判据收口到 valuationManaged,两侧共用。
+QA1181_SHS="$RD/src/main/java/com/family/finance/service/stock/StockHoldingService.java"
+QA1181_AVS="$RD/src/main/java/com/family/finance/service/stock/AccountValuationService.java"
+QA1181_ES="$RD/src/main/java/com/family/finance/service/EntryService.java"
+{ grep -q 'public static boolean valuationManaged(AccountType type' "$QA1181_SHS" \
+  && [ "$(grep -c 'StockHoldingService.valuationManaged(acc.getType(), holdings)' "$QA1181_AVS")" -eq 2 ] \
+  && grep -q 'stockHoldingService.valuationManaged(account)' "$QA1181_ES" \
+  && ! grep -q 'if (account.getType() == AccountType.STOCK) {' "$QA1181_ES" \
+  && [ -f "$RD/src/test/java/com/family/finance/service/stock/ValuationManagedRoutingTest.java" ]; } \
+  && log_ok "v1181-MANAGED-ROUTING-SINGLE(托管判据一份定义 · 估值与录入两侧共用)" \
+  || log_bad "v1181-MANAGED-ROUTING-SINGLE 托管判据又分裂了(钱会被估值抹掉)" "录入侧不许再用 type == STOCK;估值两处 + 录入一处都走 StockHoldingService.valuationManaged"
+
+# v1181-TRANSFER-CREDITS-CASH · 划转两端必须走「按托管路由」的入账(v1.18.1)
+# 划转此前直接调 applyDeltaToBalance,压根没走 creditAccountBalance —— 所以哪怕是 STOCK 账户,
+# 转进去的钱也一样会被估值抹掉。生产上那 7.5w 正是经划转进来的。
+# 撤销侧还有一个跨币种残留:收款方当初进账的是 to_amount,冲回却按 amount,
+# 现金行会留下差额 —— 一并钉住。
+{ [ "$(sed -n '/public EntryRow addTransfer(/,/^    }/p' "$QA1181_ES" | grep -c 'creditAccountBalance(')" -eq 2 ] \
+  && [ "$(sed -n '/public EntryRow addTransfer(/,/^    }/p' "$QA1181_ES" | grep -c 'applyDeltaToBalance(')" -eq 0 ] \
+  && [ "$(sed -n '/public EntryRow softDeleteTransfer(/,/^    }/p' "$QA1181_ES" | grep -c 'creditAccountBalance(')" -eq 2 ] \
+  && [ "$(sed -n '/public EntryRow softDeleteTransfer(/,/^    }/p' "$QA1181_ES" | grep -c 'applyDeltaToBalance(')" -eq 0 ] \
+  && grep -q 'backToAmount' "$QA1181_ES"; } \
+  && log_ok "v1181-TRANSFER-CREDITS-CASH(划转两端 + 撤销都走托管路由 · 跨币种按 to_amount 冲回)" \
+  || log_bad "v1181-TRANSFER-CREDITS-CASH 划转又绕开了托管路由(转进持仓账户的钱会被估值抹掉)" "addTransfer / softDeleteTransfer 里不许直接调 applyDeltaToBalance"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

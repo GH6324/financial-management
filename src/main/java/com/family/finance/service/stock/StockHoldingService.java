@@ -463,6 +463,30 @@ public class StockHoldingService {
         return acc;
     }
 
+    /**
+     * v1.18.1 · 这个账户的余额是不是<b>由持仓估值接管</b>的。
+     *
+     * <p>判据必须与 {@code AccountValuationService} 的接管判据<b>逐字一致</b>:
+     * 支持持仓的类型 <b>且</b> 真的有未归档持仓。两个条件缺一不可 ——
+     * 只看类型会把「没有任何持仓的现金/理财账户」也算进来(那些账户的快照就是余额真值,
+     * 给它凭空造一行现金是错的);只看持仓则会漏掉类型红线。</p>
+     *
+     * <p><b>为什么要有这个方法</b>:v0.12 判「余额变动要不要落到现金行」用的是
+     * {@code type == STOCK},而估值接管用的是上面那条 —— 两者不一致,于是
+     * <b>WEALTH/CRYPTO/METAL 且有持仓的账户</b>(如带基金持仓的余额宝)收到划转后,
+     * 钱只加到快照上、没进现金行,下一次自动估值按「持仓合计」把快照覆盖掉,
+     * <b>那笔钱就从余额里消失了</b>(生产实测:一笔转入 7.5w 被抹掉,家庭净资产少算)。
+     * 一份判据两处用,才不会再漂。</p>
+     */
+    public static boolean valuationManaged(AccountType type, java.util.List<StockHolding> activeHoldings) {
+        return supportsHoldings(type) && activeHoldings != null && !activeHoldings.isEmpty();
+    }
+
+    /** 同上 · 自己查持仓的便捷重载(调用方手上没有持仓列表时用)。 */
+    public boolean valuationManaged(com.family.finance.domain.account.Account acc) {
+        return acc != null && valuationManaged(acc.getType(), holdingMapper.findActiveByAccount(acc.getId()));
+    }
+
     public static boolean supportsHoldings(AccountType type) {
         // v1.4 · 放开 WEALTH/CASH(基金/理财/支付宝)· 支持截图导入多真实持仓。
         // 红线不变:没有持仓的账户,AccountValuationService.holdings.isEmpty()→skip,系统绝不碰其手填余额。

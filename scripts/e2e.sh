@@ -3,7 +3,7 @@
 # e2e.sh · 端到端主线验收(补充 qa-run 的广度冒烟,做纵深真验收)
 #   形态:唤起 beta 应用(被测基线)→ 按序调用真实接口 → 用「接口响应 + DB 真实数据」判定功能对错。
 #   隔离(策略 A):开跑前 mysqldump 快照基线,trap EXIT 无论成败都还原 + 重启 → 可重复、不污染 beta。
-#   6 条主线:1 记账闭环 · 2 账期滚动 · 3 报表成图 · 4 多币种镜头 · 5 收益指标 · 6 LOAN 还款归零(后续版本陆续加到 16)。
+#   6 条主线:1 记账闭环 · 2 账期滚动 · 3 报表成图 · 4 多币种镜头 · 5 收益指标 · 6 LOAN 还款归零(后续版本陆续加到 17)。
 #   只读主线在前(干净基线),改数据主线殿后。
 # ============================================================================
 set -u   # 不用 pipefail:curl|grep -q / |head 会提前关管道让 curl 收 SIGPIPE,pipefail 会把这类正常管道误判为失败
@@ -225,7 +225,16 @@ if [ -n "$STK" ] && [ -n "$IP" ]; then
   code="$(POSTcode /entry/income --data-urlencode "periodId=$IP" --data-urlencode "accountId=$STK" --data-urlencode "categoryCode=dividend" --data-urlencode "amount=4200" --data-urlencode "note=e2e股息")"
   eq "收入-录股息 HTTP 2xx/3xx" "$([ "$code" -ge 200 ] && [ "$code" -lt 400 ] && echo ok || echo "$code")" "ok"
   eq "收入-股票 snapshot +4200(立即入账)" "$(( $(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$IP AND account_id=$STK") - snap0 ))" "4200"
-  eq "收入-股票 CASH 现金行 +4200(扛得住估值刷新)" "$(( $(db "SELECT ROUND(IFNULL(SUM(manual_value),0)) FROM stock_holding WHERE account_id=$STK AND valuation_mode='CASH' AND archived_at IS NULL") - cash0 ))" "4200"
+  # v1.18.1 更正:这条原来断言「现金行 +4200(扛得住估值刷新)」,前提是错的 ——
+  #   e2e 用的这个 STOCK 账户【一条持仓都没有】,估值压根不接管它(红线:holdings.isEmpty → skip),
+  #   根本没有"估值刷新"要扛。而老代码按 type == STOCK 给它凭空建一行现金,反而【把它变成了
+  #   托管账户】:下一次估值算 持仓(0) + 现金(4200) = 4200,直接覆盖掉原余额。
+  #   beta 实测:该账户原余额 112,775.46 → 插一行 4200 现金 → 跑一次估值 → 余额变成 4200.00。
+  #   所以正确的期望是【不建现金行】,并且余额扛得住估值刷新。
+  eq "收入-未托管股票账户不建现金行(建了反而会被估值压成只剩这笔)" "$(( $(db "SELECT ROUND(IFNULL(SUM(manual_value),0)) FROM stock_holding WHERE account_id=$STK AND valuation_mode='CASH' AND archived_at IS NULL") - cash0 ))" "0"
+  snapAfterIncome="$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$IP AND account_id=$STK")"
+  POSTcode "/accounts/$STK/holdings/refresh" >/dev/null
+  eq "收入-未托管股票账户余额扛得住估值刷新(不被压成 4200)" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$IP AND account_id=$STK")" "$snapAfterIncome"
   eq "收入-流水 is_adjustment=0(真实外部流入 · 被 PnL 剔除)" "$(db "SELECT is_adjustment FROM cash_flow WHERE period_id=$IP AND account_id=$STK AND category_code='dividend' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1")" "0"
   rej="$(POSTcode /entry/income --data-urlencode "periodId=$IP" --data-urlencode "accountId=$STK" --data-urlencode "categoryCode=salary" --data-urlencode "amount=100")"
   eq "收入-类目↔账户校验拒错配(工资→股票账户)" "$([ "$rej" -ge 400 ] && echo rejected || echo "$rej")" "rejected"
@@ -345,11 +354,19 @@ if [ -n "$IPI" ] && [ -n "$MEM4" ]; then
   POSTcode /accounts --data-urlencode "type=STOCK" --data-urlencode "displayName=e2e收入股票" --data-urlencode "currency=CNY" --data-urlencode "primaryOwnerMemberId=$MEM4" >/dev/null
   SA="$(db "SELECT id FROM account WHERE family_id=$FAM AND display_name='e2e收入股票' AND archived_at IS NULL ORDER BY id DESC LIMIT 1")"
   POSTcode /entry/income --data-urlencode "periodId=$IPI" --data-urlencode "accountId=$SA" --data-urlencode "categoryCode=dividend" --data-urlencode "amount=4200" >/dev/null
-  eq "收入链路-股票账户现金股息 +4200(落 CASH 现金行)" "$(db "SELECT ROUND(IFNULL(SUM(manual_value),0)) FROM stock_holding WHERE account_id=$SA AND valuation_mode='CASH' AND archived_at IS NULL")" "4200"
+  # v1.18.1 更正:新建的 STOCK 账户没有任何持仓 → 估值不接管 → 不该建现金行(理由同主线 7 那条)。
+  # 钱落在 snapshot 上,而且要扛得住一次估值刷新。
+  eq "收入链路-新建股票账户(无持仓)不建现金行" "$(db "SELECT ROUND(IFNULL(SUM(manual_value),0)) FROM stock_holding WHERE account_id=$SA AND valuation_mode='CASH' AND archived_at IS NULL")" "0"
+  eq "收入链路-股票账户现金股息 +4200 落在余额上" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$IPI AND account_id=$SA")" "4200"
+  # 「估值刷新后还在不在」的复验放到本段最后 —— /holdings/refresh 走的是 refreshAllForFamily,
+  # 会把【全家庭】账户重估一遍;夹在净资产基线与复核之间会把下面那条断言带偏(实测 +54.9 万)。
   # 4) 回 dashboard 核对:净资产较基线 +23,568(19368+4200 · 本位币 delta 免 FX/PMC 口径歧义)
   dash="$(GET /dashboard)"
   nwA="$(dash_nw "$dash")"; nwA="${nwA:-0}"
   eq "收入链路-dashboard 净资产较基线 +23,568(建账户→录4类现金+股息→总额对得上)" "$(( nwA - nwB ))" "23568"
+  # 放在净资产核对之后:确认这个"没有持仓的 STOCK 账户"不会被估值接管、余额不被压成别的数
+  POSTcode "/accounts/$SA/holdings/refresh" >/dev/null
+  eq "收入链路-估值刷新后余额还是 4200(无持仓 → 不接管)" "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$IPI AND account_id=$SA")" "4200"
   eq "收入链路-dashboard 账户列表出现新账户余额 ¥19,368" "$(printf '%s' "$dash" | grep -q '19,368' && echo ok || echo miss)" "ok"
 else
   bad "收入链路-无 OPEN 期/成员,跳过" "IPI=$IPI MEM4=$MEM4"
@@ -495,6 +512,41 @@ if [ -n "$OPEN_PID2" ]; then
   fi
 else
   ok "归因-无 OPEN 期,跳过假亏损回归"
+fi
+
+# ============================================================================
+section "主线 17 · 转进持仓托管账户的钱不许被估值抹掉(v1.18.1 · 真丢钱)"
+# 生产上两笔划转共 7.5w 进了一个挂着基金持仓的理财账户(WEALTH):划转把快照加上去了,
+# 但钱没进现金行;当天自动估值按「持仓合计」重算并覆盖快照 —— 那笔钱从余额里消失,
+# 家庭净资产少算同额,每跑一次估值再抹一次。
+# 这条断言的核心是【估值跑完之后余额还在】—— 单测只能钉判据,抹没抹得看真跑一遍。
+MG_ACC="$(db "SELECT a.id FROM account a JOIN stock_holding h ON h.account_id=a.id AND h.archived_at IS NULL
+             WHERE a.family_id=$FAM AND a.archived_at IS NULL AND a.type IN ('WEALTH','CRYPTO','METAL')
+             GROUP BY a.id ORDER BY a.id LIMIT 1")"
+MG_SRC="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='CASH' AND archived_at IS NULL ORDER BY id LIMIT 1")"
+# 重新取 OPEN 期:主线 2+6 会滚动账期,主线 1 里那个 $OPEN_PID 到这里可能已经关账了
+OPEN_PID="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='OPEN' ORDER BY period_start DESC LIMIT 1")"
+if [ -n "$MG_ACC" ] && [ -n "$MG_SRC" ] && [ -n "$OPEN_PID" ]; then
+  echo "  托管账户=$MG_ACC · 转出方=$MG_SRC · 期=$OPEN_PID"
+  mgsnap(){ db "SELECT COALESCE(ROUND(end_balance,2),0) FROM period_snapshot WHERE period_id=$OPEN_PID AND account_id=$MG_ACC"; }
+  mgcash(){ db "SELECT COALESCE(ROUND(SUM(manual_value),2),0) FROM stock_holding WHERE account_id=$MG_ACC AND archived_at IS NULL AND valuation_mode='CASH'"; }
+  B_SNAP="$(mgsnap)"; B_CASH="$(mgcash)"
+  POSTcode "/entry/$MG_SRC/transfer" --data-urlencode "periodId=$OPEN_PID" --data-urlencode "toAccountId=$MG_ACC" --data-urlencode "amount=75000" >/dev/null
+  A_SNAP="$(mgsnap)"; A_CASH="$(mgcash)"
+  eq "托管账户-转入后快照 +75000" "$(awk -v a="$A_SNAP" -v b="$B_SNAP" 'BEGIN{printf "%.2f", a-b}')" "75000.00"
+  eq "托管账户-转入后现金行 +75000(这一步以前压根没做)" "$(awk -v a="$A_CASH" -v b="$B_CASH" 'BEGIN{printf "%.2f", a-b}')" "75000.00"
+  # 关键一步:跑一次估值,以前就是它把钱抹掉的
+  POSTcode "/accounts/$MG_ACC/holdings/refresh" >/dev/null
+  eq "托管账户-估值跑完余额还在(不被持仓合计覆盖掉)" "$(mgsnap)" "$A_SNAP"
+  # 撤销要干净回到原点,现金行不许留残值
+  MG_TID="$(db "SELECT id FROM transfer WHERE period_id=$OPEN_PID AND to_account_id=$MG_ACC AND deleted_at IS NULL ORDER BY id DESC LIMIT 1")"
+  POSTcode "/entry/transfer/$MG_TID/delete" >/dev/null
+  eq "托管账户-撤销后快照回到原值" "$(mgsnap)" "$B_SNAP"
+  eq "托管账户-撤销后现金行回到原值(无残留)" "$(mgcash)" "$B_CASH"
+  POSTcode "/accounts/$MG_ACC/holdings/refresh" >/dev/null
+  eq "托管账户-撤销后再估值仍是原值" "$(mgsnap)" "$B_SNAP"
+else
+  ok "托管账户-beta 上没有「有持仓的 WEALTH/CRYPTO/METAL」账户,跳过"
 fi
 
 # ============================================================================
