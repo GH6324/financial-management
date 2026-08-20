@@ -18,6 +18,15 @@
         未归因 <span data-priv th:text="${'¥' + #numbers.formatInteger(attr.unattributed(), 0, 'COMMA')}">¥0</span></span>
     </div>
 
+    <!-- v1.18.1 · 归因锚在【已关账期】,而顶部 as-of 可能选的是进行中的月份 ——
+         不把锚期写出来,用户会以为排行榜说的是本月(这正是「转入被当成亏损」那次误判的土壤)。 -->
+    <div th:if="${attrFilingInProgress}" class="border-l-2 border-brass bg-brass/[0.05] px-3 py-2 mb-2">
+      <p class="font-mono text-[10px] text-ink-soft tracking-wider">
+        归因锚定 <b th:text="${#temporals.format(attrAnchorMonth, 'yyyy-MM')}">2026-07</b>(最近已关账的一期)。
+        当前月还在填报中:余额可能已填、收支/转账还没录齐,拿它算「谁赚谁亏」会把没录完的部分误算成损益。
+      </p>
+    </div>
+
     <div id="attrWaterfall" style="width:100%;height:280px"></div>
     <p class="font-mono text-[10px] text-ink-subtle mt-1">基准(期初)→ 人赚 → 钱赚(按当前维度 · TopN)→ 开账基线 → 本期净变化 · 恒等闭合,算不平显「未归因」</p>
 

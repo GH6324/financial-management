@@ -3,7 +3,7 @@
 # e2e.sh · 端到端主线验收(补充 qa-run 的广度冒烟,做纵深真验收)
 #   形态:唤起 beta 应用(被测基线)→ 按序调用真实接口 → 用「接口响应 + DB 真实数据」判定功能对错。
 #   隔离(策略 A):开跑前 mysqldump 快照基线,trap EXIT 无论成败都还原 + 重启 → 可重复、不污染 beta。
-#   6 条主线:1 记账闭环 · 2 账期滚动 · 3 报表成图 · 4 多币种镜头 · 5 收益指标 · 6 LOAN 还款归零(后续版本陆续加到 14)。
+#   6 条主线:1 记账闭环 · 2 账期滚动 · 3 报表成图 · 4 多币种镜头 · 5 收益指标 · 6 LOAN 还款归零(后续版本陆续加到 16)。
 #   只读主线在前(干净基线),改数据主线殿后。
 # ============================================================================
 set -u   # 不用 pipefail:curl|grep -q / |head 会提前关管道让 curl 收 SIGPIPE,pipefail 会把这类正常管道误判为失败
@@ -426,6 +426,75 @@ if [ -n "$XP" ] && [ -n "$XA" ]; then
   eq "支出-切回原模式" "$(db "SELECT expense_entry_mode FROM family WHERE id=$FAM")" "${mode0:-TOTAL}"
 else
   bad "支出链路-无 OPEN 期/现金账户,跳过" "XP=$XP XA=$XA"
+fi
+
+# ============================================================================
+section "主线 15 · 数据源接入页密钥独立保存(v1.18.1 · 每家一把 key 各自存,不再被模型校验挡住)"
+# 维护者报「主流程都走不下去」:密钥和「用哪个模型」原来在同一个 form / 同一个端点,
+# 而端点是「校验先全跑完再落库」→ 全新装机时死锁(模型下拉与凭据级联,一家都没配则
+# 平台全禁用 → platform 为空 → 抛「请选择平台」→ 整单退回,key 一个字都没存)。
+KEYROW="SELECT COUNT(*) FROM family_runtime_config WHERE family_id=$FAM AND key_name='llm_deepseek_api_key'"
+KEY_BEFORE="$(db "$KEYROW")"
+kc="$(POSTcode /admin/integrations/llm/key --data-urlencode "platform=deepseek" --data-urlencode "apiKey=sk-e2eProbe000000000000000feed")"
+eq "接入页-单独保存一把 key HTTP 3xx" "${kc:0:1}" "3"
+eq "接入页-key 已落库(不需要先选平台/型号)" "$(db "$KEYROW")" "1"
+GET /admin/integrations | grep -q '的密钥已保存' && ok "接入页-回执说清是哪一家保存了" \
+  || bad "接入页-回执说清是哪一家保存了" "flash 里没有「的密钥已保存」"
+DETAIL="$(GET /admin/integrations)"
+printf '%s' "$DETAIL" | grep -q 'sk-e2e' && ok "接入页-已配置显示可辨认掩码(露头)" \
+  || bad "接入页-已配置显示可辨认掩码(露头)" "页面没有掩码头部"
+if printf '%s' "$DETAIL" | grep -q 'sk-e2eProbe000000000000000feed'; then
+  bad "接入页-密钥不许整条回显" "页面上出现了完整密钥"
+else
+  ok "接入页-密钥不整条回显(只露头尾)"
+fi
+GET /admin/integrations >/dev/null
+bc2="$(POSTcode /admin/integrations/llm/key --data-urlencode "platform=deepseek" --data-urlencode "apiKey=")"
+eq "接入页-空提交 HTTP 3xx" "${bc2:0:1}" "3"
+GET /admin/integrations | grep -q '没填内容 · 密钥未改动' && ok "接入页-空提交明确报错(不假装保存成功)" \
+  || bad "接入页-空提交明确报错(不假装保存成功)" "应回「没填内容 · 密钥未改动」"
+GET /admin/integrations >/dev/null
+eq "接入页-老合并端点 /llm 已删除" "$(POSTcode /admin/integrations/llm --data-urlencode "maxTokens=2000" --data-urlencode "timeoutSeconds=25")" "404"
+GET /admin/integrations >/dev/null
+mc="$(POSTcode /admin/integrations/llm/models --data-urlencode "platform=deepseek" --data-urlencode "family=deepseek-v3" \
+      --data-urlencode "modelId=" --data-urlencode "backupPlatform=" --data-urlencode "visionEnabled=false" \
+      --data-urlencode "visionPlatform=dashscope" --data-urlencode "visionFamily=qwen-vl" --data-urlencode "visionModelId=" \
+      --data-urlencode "temperature=0.5" --data-urlencode "maxTokens=2000" --data-urlencode "timeoutSeconds=25")"
+eq "接入页-模型配置单独保存 HTTP 3xx" "${mc:0:1}" "3"
+eq "接入页-存模型没把密钥冲掉" "$(db "$KEYROW")" "1"
+# 收尾:删掉探测用的 key(beta 的 LLM 走 env 兜底,库里那行会盖住它)
+db "DELETE FROM family_runtime_config WHERE family_id=$FAM AND key_name='llm_deepseek_api_key'" >/dev/null
+eq "接入页-探测密钥已清理" "$(db "$KEYROW")" "${KEY_BEFORE:-0}"
+
+# ============================================================================
+section "主线 16 · 归因复盘锚已关账期(v1.18.1 · 转入不再被读成亏损)"
+# 生产误判:排行榜把一个只收到一笔转入的账户列成「亏得最多」,金额恰好等于那笔转入。
+# 机制是锚期错了 —— 进行中的那期「转账已登记、余额还没填」→ pnl = Δ余额(0) − 净转入 = 负数。
+ATTR="$(GET "/dashboard/attribution?dim=acct")"
+printf '%s' "$ATTR" | grep -q 'attrWaterfall' && ok "归因-片段正常渲染" \
+  || bad "归因-片段正常渲染" "没拿到归因 section"
+LAST_STATUS="$(db "SELECT status FROM period WHERE family_id=$FAM ORDER BY period_start DESC LIMIT 1")"
+echo "  最后一期状态=$LAST_STATUS"
+if [ "$LAST_STATUS" = "OPEN" ]; then
+  printf '%s' "$ATTR" | grep -q '归因锚定' && ok "归因-填报中时页面明示锚期" \
+    || bad "归因-填报中时页面明示锚期" "应出现「归因锚定 YYYY-MM」"
+else
+  ok "归因-最后一期已关账,无需锚期提示(跳过)"
+fi
+# 核心回归:往 OPEN 期的某账户转一笔钱,它不该在归因排行榜里变成同额亏损
+OPEN_PID2="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='OPEN' ORDER BY period_start DESC LIMIT 1")"
+if [ -n "$OPEN_PID2" ]; then
+  SRC="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='CASH' AND archived_at IS NULL ORDER BY id LIMIT 1")"
+  DST="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='CASH' AND archived_at IS NULL AND id<>$SRC ORDER BY id LIMIT 1")"
+  POSTcode "/entry/$SRC/transfer" --data-urlencode "periodId=$OPEN_PID2" --data-urlencode "toAccountId=$DST" --data-urlencode "amount=41234" >/dev/null
+  ATTR2="$(GET "/dashboard/attribution?dim=acct")"
+  if printf '%s' "$ATTR2" | grep -q -- '-41234'; then
+    bad "归因-OPEN 期转入不产生假亏损" "排行榜里出现了 −41234(锚又跑回进行中的期了)"
+  else
+    ok "归因-OPEN 期转入不产生假亏损(锚在已关账期)"
+  fi
+else
+  ok "归因-无 OPEN 期,跳过假亏损回归"
 fi
 
 # ============================================================================

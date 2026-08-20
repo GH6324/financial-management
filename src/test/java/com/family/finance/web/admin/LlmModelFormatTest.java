@@ -55,7 +55,11 @@ class LlmModelFormatTest {
     /** 只填主选(视觉关掉、备选留空)· 返回 flash 容器供断言 */
     private RedirectAttributes saveWithPrimaryModel(String platform, String family, String modelId) {
         RedirectAttributes ra = new RedirectAttributesModelMap();
-        controller().saveLlm(me(), null, null, null,
+        // v1.18.1 · 入口从 saveLlm 改名 saveLlmModels,并且不再接收三把 key
+        //(密钥拆到 saveLlmKey:原来两件事共用一个「校验先全跑完再落库」的端点,
+        // 导致全新装机时「要存 key 得先选平台、要能选平台得先存 key」的死锁)。
+        // 本测守的东西不变:型号格式非法要当面拒绝、且不回显用户填的原串。
+        controller().saveLlmModels(me(),
                 platform, family, modelId,
                 null, null, null,
                 false, "dashscope", "qwen-vl", "",
@@ -152,14 +156,14 @@ class LlmModelFormatTest {
     void visionOff_allowsHalfConfiguredVision_butStillRejectsBadFormat() {
         // 关掉截图识别时不强求填型号(配置留着下次开)· 但填了就得合法
         RedirectAttributes ok = new RedirectAttributesModelMap();
-        controller().saveLlm(me(), null, null, null,
+        controller().saveLlmModels(me(),
                 "dashscope", "qwen", "", null, null, null,
                 false, "ark", "doubao-vision", "", 0.5, 2000, 25, ok);
         assertThat(flashError(ok)).as("视觉关着还要求填型号 · 用户被卡在一个他不用的字段上").isNull();
         verify(config).set(1L, FamilyConfigService.K_LLM_VISION_ENABLED, "false");
 
         RedirectAttributes bad = new RedirectAttributesModelMap();
-        controller().saveLlm(me(), null, null, null,
+        controller().saveLlmModels(me(),
                 "dashscope", "qwen", "", null, null, null,
                 false, "ark", "doubao-vision", "ep 有空格", 0.5, 2000, 25, bad);
         assertThat(flashError(bad)).contains("型号格式不合法");
@@ -183,7 +187,7 @@ class LlmModelFormatTest {
     @Test
     void visionFamilyMustBeAVisionFamily() {
         RedirectAttributes ra = new RedirectAttributesModelMap();
-        controller().saveLlm(me(), null, null, null,
+        controller().saveLlmModels(me(),
                 "dashscope", "qwen", "", null, null, null,
                 true, "dashscope", "qwen", "", 0.5, 2000, 25, ra);   // 文本系列塞进视觉位
         assertThat(flashError(ra)).contains("视觉模型系列");
@@ -193,7 +197,7 @@ class LlmModelFormatTest {
     @Test
     void backupIdenticalToPrimary_isRejected() {
         RedirectAttributes ra = new RedirectAttributesModelMap();
-        controller().saveLlm(me(), null, null, null,
+        controller().saveLlmModels(me(),
                 "dashscope", "qwen", "qwen-plus",
                 "dashscope", "qwen", "qwen-plus",
                 false, "dashscope", "qwen-vl", "", 0.5, 2000, 25, ra);
@@ -202,22 +206,55 @@ class LlmModelFormatTest {
         verify(config, never()).set(anyLong(), anyString(), anyString());
     }
 
-    // ---------------- key 的私密红线 ----------------
+    // ---------------- key 的私密红线(v1.18.1 起走独立端点 saveLlmKey)----------------
 
+    /**
+     * 存一把 key <b>只动这一把</b>,而且明文绝不进 flash / audit(§22.6 私密红线)。
+     *
+     * <p>v1.18.1 之前这些是 {@code saveLlm} 的一部分,和模型校验共用一个
+     * 「校验先全跑完再落库」的端点 —— 于是全新装机时死锁:模型下拉与凭据级联,
+     * 一家都没配则平台全禁用 → platform 为空 → 抛「请选择平台」→ 整单退回,
+     * <b>key 一个字都没存进去</b>。所以密钥保存必须是自己的端点、不碰任何模型配置。</p>
+     */
     @Test
-    void blankKeys_keepExistingValues_andKeysNeverEnterFlashOrAudit() {
+    void saveKey_writesOnlyThatPlatform_andNeverLeaksPlaintext() {
         RedirectAttributes ra = new RedirectAttributesModelMap();
-        controller().saveLlm(me(), "  ", null, "ark-secret-key",
-                "ark", "doubao", "ep-1", null, null, null,
-                false, "dashscope", "qwen-vl", "", 0.5, 2000, 25, ra);
+        controller().saveLlmKey(me(), "ark", "ark-secret-key", ra);
 
+        verify(config, times(1)).set(1L, FamilyConfigService.K_LLM_ARK_KEY, "ark-secret-key");
         verify(config, never()).set(anyLong(), eq(FamilyConfigService.K_LLM_QWEN_KEY), anyString());
         verify(config, never()).set(anyLong(), eq(FamilyConfigService.K_LLM_DEEPSEEK_KEY), anyString());
-        verify(config, times(1)).set(1L, FamilyConfigService.K_LLM_ARK_KEY, "ark-secret-key");
+        // 关键:这条路径不许顺手写任何模型三元组(那正是死锁的来源)
+        verify(config, never()).set(anyLong(), eq(FamilyConfigService.K_LLM_PLATFORM), anyString());
+        verify(config, never()).set(anyLong(), eq(FamilyConfigService.K_LLM_MODEL_ID), anyString());
 
         assertThat(ra.getFlashAttributes().toString()).doesNotContain("ark-secret-key");
         verify(audit).record(anyLong(), anyLong(), org.mockito.ArgumentMatchers.any(),
                 anyString(), anyLong(),
                 org.mockito.ArgumentMatchers.argThat(d -> !d.contains("ark-secret-key")));
+    }
+
+    /**
+     * 空提交<b>不许当成保存成功</b>。这一格的语义是「留空 = 不改」,但用户点了这张卡的
+     * 保存按钮却什么都没填,回一句「已保存」等于骗他 —— 他会以为换上了新 key、
+     * 实际还在用旧的,之后调用失败根本查不到原因。
+     */
+    @Test
+    void blankKey_isRejected_notSilentlyTreatedAsSaved() {
+        for (String blank : new String[]{null, "", "   "}) {
+            RedirectAttributes ra = new RedirectAttributesModelMap();
+            controller().saveLlmKey(me(), "ark", blank, ra);
+            assertThat(flashError(ra)).as("blank=[" + blank + "]").contains("密钥未改动");
+            assertThat(ra.getFlashAttributes().get("flash")).as("blank=[" + blank + "] 不许有成功提示").isNull();
+        }
+        verify(config, never()).set(anyLong(), eq(FamilyConfigService.K_LLM_ARK_KEY), anyString());
+    }
+
+    @Test
+    void unknownPlatformOnKeySave_isRejected() {
+        RedirectAttributes ra = new RedirectAttributesModelMap();
+        controller().saveLlmKey(me(), "openai", "sk-whatever", ra);
+        assertThat(flashError(ra)).contains("未知平台");
+        verify(config, never()).set(anyLong(), anyString(), anyString());
     }
 }

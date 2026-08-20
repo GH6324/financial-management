@@ -185,18 +185,54 @@ public class IntegrationsController {
     }
 
     /**
-     * ① LLM · 三把 key(留空保原值)+ 主备/视觉三元组 + 温度 / max_tokens / timeout。
+     * ①-a LLM 凭据 · <b>一个平台一把 key,单独保存</b>(v1.18.1 BUG-FIX)。
+     *
+     * <p><b>为什么要拆</b>:原来密钥和「用哪个模型」在同一个表单、同一个端点,而端点是
+     * 「校验先全跑完再落库」—— 于是全新装机(一家都没配)时出现死锁:
+     * 模型下拉与凭据级联(没配 key 的平台 {@code disabled}),一家都没配 → 平台选项全禁用 →
+     * 提交上来 {@code platform} 是空 → {@code parseTriple} 抛「请选择平台」→ <b>整单退回,
+     * key 一个字都没写进去</b>。用户于是卡在「要存 key 得先选平台、要能选平台得先存 key」。
+     * 主流程直接走不下去。</p>
+     *
+     * <p>拆开之后:密钥保存<b>只认平台 + key</b>,不碰任何模型配置;模型选取见
+     * {@link #saveLlmModels}。两件事本来就是不同时机做的 —— 先拿到 key,再挑型号。</p>
+     */
+    @PostMapping("/llm/key")
+    public String saveLlmKey(@AuthenticationPrincipal MemberPrincipal me,
+                             @RequestParam("platform") String platform,
+                             @RequestParam(value = "apiKey", required = false) String apiKey,
+                             RedirectAttributes ra) {
+        long fid = me.getFamilyId();
+        LlmCatalog.Platform p = LlmCatalog.platform(platform).orElse(null);
+        if (p == null) {
+            ra.addFlashAttribute("flashError", "未知平台:" + platform);
+            return "redirect:/admin/integrations";
+        }
+        // 空提交不当成功:这一格的语义是「留空 = 不改」,但用户点了这张卡的保存按钮却什么都没填,
+        // 回一句「已保存」等于骗他(他会以为换上了新 key)。
+        if (isBlank(apiKey)) {
+            ra.addFlashAttribute("flashError", p.label() + ":没填内容 · 密钥未改动(要换 key 就把新的粘进来再保存)");
+            return "redirect:/admin/integrations";
+        }
+        configService.set(fid, p.keyName(), apiKey.trim());
+        // 审计只记「已配/未配」,绝不记 key 明文(§22.6 私密红线)
+        auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE,
+                "family_runtime_config", fid, "LLM 密钥更新 · 平台=" + p.label() + " · key=已配置");
+        ra.addFlashAttribute("flash", p.label() + " 的密钥已保存 · 现在可以在下面「用哪个模型」里选它了");
+        return "redirect:/admin/integrations";
+    }
+
+    /**
+     * ①-b LLM 模型选取 · 主备/视觉三元组 + 温度 / max_tokens / timeout(v1.18.1 起不再接收 key)。
      *
      * <p><b>校验先全跑完再落库</b>:任何一处不合法就整单退回(flashError + 原样重填),
      * 不写一个字。v0.14 那套「越权型号静默回落 auto」在三级模型下是有害的 ——
      * 方舟的 {@code ep-xxxx} 必然不在任何内置清单里,静默回落的表现是
-     * 「页面显示着我填的型号、实际调的是别的」,用户查不出来。宁可当面拒绝。</p>
+     * 「页面显示着我填的型号、实际调的是别的」,用户查不出来。宁可当面拒绝。
+     * 这条纪律对<b>模型</b>是对的;把它连带套在密钥上才是上面那个死锁的成因。</p>
      */
-    @PostMapping("/llm")
-    public String saveLlm(@AuthenticationPrincipal MemberPrincipal me,
-                          @RequestParam(value = "qwenKey", required = false) String qwenKey,
-                          @RequestParam(value = "deepseekKey", required = false) String deepseekKey,
-                          @RequestParam(value = "arkKey", required = false) String arkKey,
+    @PostMapping("/llm/models")
+    public String saveLlmModels(@AuthenticationPrincipal MemberPrincipal me,
                           @RequestParam(value = "platform", required = false) String platform,
                           @RequestParam(value = "family", required = false) String family,
                           @RequestParam(value = "modelId", required = false) String modelId,
@@ -231,12 +267,7 @@ public class IntegrationsController {
             return "redirect:/admin/integrations";
         }
 
-        // ── 校验全过 → 落库 ──
-        // key:留空保原值(§22.6 私密红线 · 永不回显、永不进 audit/flash)
-        if (!isBlank(qwenKey))     configService.set(fid, FamilyConfigService.K_LLM_QWEN_KEY, qwenKey.trim());
-        if (!isBlank(deepseekKey)) configService.set(fid, FamilyConfigService.K_LLM_DEEPSEEK_KEY, deepseekKey.trim());
-        if (!isBlank(arkKey))      configService.set(fid, FamilyConfigService.K_LLM_ARK_KEY, arkKey.trim());
-
+        // ── 校验全过 → 落库(v1.18.1:密钥不在这条路径上,见 saveLlmKey)──
         writeTriple(fid, FamilyConfigService.K_LLM_PLATFORM, FamilyConfigService.K_LLM_FAMILY,
                 FamilyConfigService.K_LLM_MODEL_ID, primary);
         writeTriple(fid, FamilyConfigService.K_LLM_BACKUP_PLATFORM, FamilyConfigService.K_LLM_BACKUP_FAMILY,
@@ -255,14 +286,11 @@ public class IntegrationsController {
         // 审计 · 只记「已配/未配」+ 调用坐标,不记 key 明文(§22.6 私密红线)
         auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE,
                 "family_runtime_config", fid,
-                "LLM 配置 · key[百炼]=" + configured(fid, FamilyConfigService.K_LLM_QWEN_KEY)
-                + " · key[DeepSeek]=" + configured(fid, FamilyConfigService.K_LLM_DEEPSEEK_KEY)
-                + " · key[方舟]=" + configured(fid, FamilyConfigService.K_LLM_ARK_KEY)
-                + " · 主选=" + primary.label()
+                "LLM 模型配置 · 主选=" + primary.label()
                 + " · 备选=" + (backup == null ? "无" : backup.label())
                 + " · 截图识别=" + (visionEnabled ? vision.label() : "关闭")
                 + " · temperature=" + temp + " · maxTokens=" + mt + " · timeout=" + ts + "s");
-        ra.addFlashAttribute("flash", "LLM 配置已保存 · 主选 " + primary.display()
+        ra.addFlashAttribute("flash", "模型配置已保存 · 主选 " + primary.display()
                 + (backup == null ? " · 无备选" : " · 备选 " + backup.display()) + " · 下次调用生效");
         return "redirect:/admin/integrations";
     }
@@ -299,10 +327,6 @@ public class IntegrationsController {
         configService.set(fid, platformKey, inv == null ? "" : inv.platform());
         configService.set(fid, familyKey,   inv == null ? "" : inv.family());
         configService.set(fid, modelKey,    inv == null || inv.model() == null ? "" : inv.model());
-    }
-
-    private String configured(long fid, String key) {
-        return configService.isPrivateKeyConfigured(fid, key) ? "已配" : "未配";
     }
 
     private static boolean isBlank(String s) { return s == null || s.isBlank(); }

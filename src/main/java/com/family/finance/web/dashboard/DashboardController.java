@@ -109,12 +109,18 @@ public class DashboardController {
                 anchor.getPeriodStart().minusMonths(12), anchor.getPeriodStart(), false, accountIds, viewCurrency);
         FactSlice slice = factViewService.load(filter);
         KpiSnapshot kpis = factViewService.kpis(slice);
-        com.family.finance.factview.CashflowBreakdown cf = factViewService.cashflowBreakdown(slice, slice.lastPeriodId());
+        // v1.18.1 BUG-FIX · 归因是【收益类】,必须锚「最新已关账期」而不是最后一期。
+        //   原来锚 lastPeriodId,而进行中的期典型是「余额还没填、转账已登记」——
+        //   于是某账户 pnl = Δ余额(0) − 转入 = 负的转入额,排行榜把只收到一笔转入的账户
+        //   列成「亏得最多」(prod 2026-08 实测:萝卜-余额宝 被显示成亏了那笔转入的全额)。
+        //   四项(ΔNW / 人赚 / 钱赚 / 开账基线)必须【一起】挪,否则差额全被「未归因」吸收。
+        Long attrPeriodId = slice.returnAnchorPeriodId() == null ? slice.lastPeriodId() : slice.returnAnchorPeriodId();
+        com.family.finance.factview.CashflowBreakdown cf = factViewService.cashflowBreakdown(slice, attrPeriodId);
         java.math.BigDecimal human = (cf == null ? java.math.BigDecimal.ZERO
                 : nz(cf.income()).subtract(nz(cf.expense())));
         var result = attributionService.attribute(me.getFamilyId(),
-                slice.byPeriod().getOrDefault(slice.lastPeriodId(), List.of()),
-                kpis.netWorthDelta(), human, kpis.openingBaselineLast());
+                slice.byPeriod().getOrDefault(attrPeriodId, List.of()),
+                kpis.returnAnchorDelta(), human, kpis.returnAnchorOpeningBaseline());
         var grouped = com.family.finance.calc.review.AttributionEngine.groupBy(result, "acct".equals(dim) ? null : dim);
         var trend = attributionService.trend(me.getFamilyId(), slice, dim, 12);
         model.addAttribute("attr", result);
@@ -124,6 +130,10 @@ public class DashboardController {
         model.addAttribute("attrDims", com.family.finance.service.review.AttributionService.DIMS);
         model.addAttribute("attrDim", dim);
         model.addAttribute("attrAsof", anchor.getPeriodStart().toString());
+        // v1.18.1 · 页面要说清归因看的是哪一期 —— 用户选的 as-of 可能是进行中的 8 月,
+        //   而归因实际锚在 7 月;不写出来他会以为看的是 8 月(这正是这次误判的土壤)。
+        model.addAttribute("attrAnchorMonth", slice.periodStartOf(attrPeriodId));
+        model.addAttribute("attrFilingInProgress", slice.filingInProgress());
         model.addAttribute("attrCurrency", viewCurrency);
         model.addAttribute("attrAccountsCsv", accountsCsv == null ? "" : accountsCsv);
         model.addAttribute("anchorPeriod", anchor);

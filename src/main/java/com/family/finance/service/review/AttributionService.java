@@ -55,12 +55,15 @@ public class AttributionService {
         return AttributionEngine.attribute(inputs, delta, humanEarned, opening);
     }
 
-    /** 近 N 期「钱赚」按维度分组(时间升序;组值 = Σ periodPnlBase;LOAN 剔除) */
+    /** 近 N 期「钱赚」按维度分组(时间升序 · 只含已关账期;组值 = Σ periodPnlBase;LOAN 剔除) */
     public List<AttributionEngine.TrendRow> trend(long familyId, FactSlice slice, String dimKey, int lastN) {
         Map<Long, Map<String, String>> labels = accountLabels(familyId);
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yy-MM");
         Map<Long, List<AccountPeriodFact>> byPeriod = slice.byPeriod();
-        List<Long> pids = slice.periodIds();
+        // v1.18.1 BUG-FIX · 趋势也只取【已关账期】。进行中的期「余额未填 + 转账已登记」会让
+        //   最后一根柱子出现假的巨额亏损(与排行榜同一个病根),而趋势图的用途正是看走势,
+        //   一根假柱子会把整张图的纵轴带偏。returnPeriodIds() 已按 ≤12 期收口。
+        List<Long> pids = slice.returnPeriodIds();
         List<AttributionEngine.TrendRow> out = new ArrayList<>();
         for (Long pid : pids.subList(Math.max(0, pids.size() - lastN), pids.size())) {
             Map<String, BigDecimal> group = new LinkedHashMap<>();

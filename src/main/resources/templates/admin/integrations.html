@@ -22,9 +22,15 @@
     <div th:if="${flashError}" class="border border-rust bg-rust/[0.05] px-4 py-2 text-sm" th:text="${flashError}">失败</div>
 
     <!-- ① LLM · v1.13 三级(平台 / 系列 / 型号)· 主备 + 截图识别 -->
-    <form th:action="@{/admin/integrations/llm}" method="post" class="bracket-card max-w-3xl space-y-5"
+    <!-- v1.18.1 BUG-FIX · 这里原来是【一个大 form】:三把 key + 模型选取一起提交到 /admin/integrations/llm。
+         而那个端点「校验先全跑完再落库」,于是全新装机(一家都没配)时死锁 ——
+         模型下拉与凭据级联(没配 key 的平台 disabled)→ 一家都没配则平台选项全禁用 →
+         提交上来 platform 为空 → 抛「请选择平台」→ 整单退回,key 一个字都没存进去。
+         用户卡在「要存 key 得先选平台、要能选平台得先存 key」,主流程走不下去。
+         现在:每张凭据卡是自己的 form(POST /llm/key,只认 platform + apiKey),
+         模型选取是另一个 form(POST /llm/models,压根不接收 key)。 -->
+    <section class="bracket-card max-w-3xl space-y-5"
           th:with="keyCount=${(qwenKeyConfigured?1:0)+(deepseekKeyConfigured?1:0)+(arkKeyConfigured?1:0)}">
-      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
       <div class="flex items-baseline justify-between">
         <div class="eyebrow-ink">① AI 大模型 · 资产体检 / 月报 / 调仓建议 / 截图识别</div>
         <span class="pill text-[10px]"
@@ -58,7 +64,10 @@
            不这么钉的话「测试连接」会跟着各自内容浮动,PC 上三个按钮差十几像素高 —— 并列同类
            元素必须对齐(v1.13 双端审视时实测 726/726/710)。 -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div class="cred-card" th:classappend="${qwenKeyConfigured} ? 'is-on' : ''">
+        <form th:action="@{/admin/integrations/llm/key}" method="post"
+              class="cred-card" th:classappend="${qwenKeyConfigured} ? 'is-on' : ''">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="platform" value="dashscope"/>
           <div class="cred-head">
             <span class="cred-name">阿里云百炼</span>
             <span th:if="${qwenKeyConfigured}" class="state-tag on">
@@ -67,7 +76,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>未配置</span>
           </div>
           <div th:if="${qwenKeyConfigured}" class="cred-mask" th:text="${qwenKeyMasked}">sk-abc••••••wxyz</div>
-          <input class="field-input" type="password" name="qwenKey" autocomplete="new-password"
+          <input class="field-input" type="password" name="apiKey" autocomplete="new-password"
                  th:placeholder="${qwenKeyConfigured} ? '留空 = 不改;要换就粘新的' : '粘贴 API Key'"/>
           <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">通义千问 / 千问 VL(视觉)· sk-xxxxxxxx</p>
           <details class="help-fold">
@@ -82,11 +91,15 @@
               <div class="font-mono text-[10px] text-ink-subtle mt-2">详见 <a href="https://github.com/LuoDi-Nate/financial-management/blob/master/docs/llm-api-keys-setup.md" target="_blank" rel="noreferrer">配置指南 · LLM Key 申请</a></div>
             </div>
           </details>
-          <div class="flex items-center gap-3 mt-auto pt-3">
+          <div class="flex items-center gap-2 mt-auto pt-3">
+            <button type="submit" class="btn-ink text-[12px] py-1.5 px-3">保存密钥</button>
             <button type="submit" form="llm-test-dashscope" class="btn-ghost text-[12px] py-1.5 px-3">测试连接</button>
           </div>
-        </div>
-        <div class="cred-card" th:classappend="${deepseekKeyConfigured} ? 'is-on' : ''">
+        </form>
+        <form th:action="@{/admin/integrations/llm/key}" method="post"
+              class="cred-card" th:classappend="${deepseekKeyConfigured} ? 'is-on' : ''">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="platform" value="deepseek"/>
           <div class="cred-head">
             <span class="cred-name">DeepSeek 官方</span>
             <span th:if="${deepseekKeyConfigured}" class="state-tag on">
@@ -95,7 +108,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>未配置</span>
           </div>
           <div th:if="${deepseekKeyConfigured}" class="cred-mask" th:text="${deepseekKeyMasked}">sk-abc••••••wxyz</div>
-          <input class="field-input" type="password" name="deepseekKey" autocomplete="new-password"
+          <input class="field-input" type="password" name="apiKey" autocomplete="new-password"
                  th:placeholder="${deepseekKeyConfigured} ? '留空 = 不改;要换就粘新的' : '粘贴 API Key'"/>
           <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">deepseek-chat / reasoner · 无视觉能力</p>
           <details class="help-fold">
@@ -109,11 +122,15 @@
               <div class="font-mono text-[10px] text-ink-subtle mt-2">详见 <a href="https://github.com/LuoDi-Nate/financial-management/blob/master/docs/llm-api-keys-setup.md" target="_blank" rel="noreferrer">配置指南 · LLM Key 申请</a></div>
             </div>
           </details>
-          <div class="flex items-center gap-3 mt-auto pt-3">
+          <div class="flex items-center gap-2 mt-auto pt-3">
+            <button type="submit" class="btn-ink text-[12px] py-1.5 px-3">保存密钥</button>
             <button type="submit" form="llm-test-deepseek" class="btn-ghost text-[12px] py-1.5 px-3">测试连接</button>
           </div>
-        </div>
-        <div class="cred-card" th:classappend="${arkKeyConfigured} ? 'is-on' : ''">
+        </form>
+        <form th:action="@{/admin/integrations/llm/key}" method="post"
+              class="cred-card" th:classappend="${arkKeyConfigured} ? 'is-on' : ''">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="platform" value="ark"/>
           <div class="cred-head">
             <span class="cred-name">火山方舟</span>
             <span th:if="${arkKeyConfigured}" class="state-tag on">
@@ -122,7 +139,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>未配置</span>
           </div>
           <div th:if="${arkKeyConfigured}" class="cred-mask" th:text="${arkKeyMasked}">sk-abc••••••wxyz</div>
-          <input class="field-input" type="password" name="arkKey" autocomplete="new-password"
+          <input class="field-input" type="password" name="apiKey" autocomplete="new-password"
                  th:placeholder="${arkKeyConfigured} ? '留空 = 不改;要换就粘新的' : '粘贴 API Key'"/>
           <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">豆包 / 方舟托管的 DeepSeek · 型号需手填</p>
           <details class="help-fold">
@@ -137,12 +154,26 @@
               <div class="font-mono text-[10px] text-ink-subtle mt-2">详见 <a href="https://github.com/LuoDi-Nate/financial-management/blob/master/docs/llm-api-keys-setup.md" target="_blank" rel="noreferrer">配置指南 · LLM Key 申请</a></div>
             </div>
           </details>
-          <div class="flex items-center gap-3 mt-auto pt-3">
+          <div class="flex items-center gap-2 mt-auto pt-3">
+            <button type="submit" class="btn-ink text-[12px] py-1.5 px-3">保存密钥</button>
             <button type="submit" form="llm-test-ark" class="btn-ghost text-[12px] py-1.5 px-3">测试连接</button>
           </div>
-        </div>
+        </form>
       </div>
       <p class="font-mono text-[10px] text-ink-subtle tracking-wider">测试连接 = 用<b>已保存</b>的密钥 + 下面选中的型号发一次最小探测,不烧额度</p>
+
+      <!-- 用哪个模型 · 独立表单(v1.18.1):与上面的密钥各自保存,互不阻塞 -->
+      <form th:action="@{/admin/integrations/llm/models}" method="post" class="space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+      <!-- 一家都没配密钥时,这个表单没有任何可选平台 —— 说清楚该先做什么,
+           而不是让用户提交上来再收一句「请选择平台」(那就是原来那个死锁的体感)。 -->
+      <div th:if="${keyCount == 0}" class="border-l-2 border-rust bg-rust/[0.04] px-4 py-3">
+        <p class="text-[13px] text-ink leading-relaxed">
+          还没有任何平台配好密钥,所以下面暂时没有可选的模型。
+          <b>先在上面任选一家、粘上 API Key 点「保存密钥」</b>,这一段就会解锁。
+        </p>
+      </div>
 
       <!-- 用哪个模型 · 主选 / 备选 各一组「平台 → 系列 → 型号」 -->
       <div class="border-t border-rule-soft pt-5" id="llm-catalog" th:attr="data-catalog=${llmCatalogJson}">
@@ -276,9 +307,10 @@
       </div>
 
       <div class="flex justify-end">
-        <button type="submit" class="btn-ink">保存 LLM 配置</button>
+        <button type="submit" class="btn-ink" th:disabled="${keyCount == 0}">保存模型配置</button>
       </div>
-    </form>
+      </form>
+    </section>
 
     <!-- 测试连接 sibling forms(只提交 platform + CSRF · 测已保存的 key · 结果回显到顶部 flash)-->
     <form id="llm-test-dashscope" th:action="@{/admin/integrations/llm/test}" method="post" class="hidden">

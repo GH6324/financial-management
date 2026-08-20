@@ -6678,7 +6678,11 @@ done
 #          判据跟着改指向,守的仍是同一件事「三个『测试连接』必须在同一水平线」。
 #          改完实测:三卡 230/230/230、按钮 top 全 763(1440 宽)。
 _card_col="$(grep -c 'class="cred-card"' "$ICFG")"
-_card_mtauto="$(grep -c 'flex items-center gap-3 mt-auto' "$ICFG")"
+# v1.18.1 · 判据从 'flex items-center gap-3 mt-auto' 重指到 'mt-auto pt-3':
+#   密钥拆成独立表单后每张卡底部多了一个「保存密钥」按钮,gap 从 3 收到 2 —— 而被守的不变量
+#   是「按钮容器 mt-auto 贴底、三张卡对齐」,gap 值只是附带。改判据前先实测过没退化:
+#   三张卡高 230/230/230、卡顶同 560、保存按钮同在 745、测试按钮同在 744(1440×900 · beta)。
+_card_mtauto="$(grep -c 'mt-auto pt-3' "$ICFG")"
 _card_flexcss="$(grep -c 'flex-direction:column' "$RD/src/main/resources/static/css/style.css")"
 _card_split="$(grep -c 'pt-4 border-t border-rule-soft sm:pt-0 sm:border-t-0' "$ICFG")"
 { [ "$_card_col" -ge 3 ] && [ "$_card_mtauto" -ge 3 ] && [ "$_card_flexcss" -ge 1 ] && [ "$_card_split" -ge 1 ]; } \
@@ -6941,6 +6945,71 @@ QA118_MARKSQL="$(grep -B1 'int markFailed(' "$QA118_BLM" 2>/dev/null | grep '@Up
   && [ "$(grep -c '<span>同步失败</span>' "$RD/src/main/resources/templates/accounts/index.html")" -eq 2 ]; } \
   && log_ok "v118-BROKER-FAIL-VISIBLE(失败写 last_status 且不动 last_synced_at · 账户列表标红可点进券商页)" \
   || log_bad "v118-BROKER-FAIL-VISIBLE 同步失败又变回只写日志(或标记不在账户列表上)" "markFailed 的 SQL 不许含 last_synced_at;AccountController 要建 brokerFailures;accounts/index.html 要渲染并链到 /accounts/{id}/broker"
+
+# ============================================================
+# v1.18.1 · 两个主流程 bug
+# ============================================================
+
+# v1181-KEY-SAVE-SPLIT · 密钥与模型选取必须各自独立保存(v1.18.1 · 维护者报「主流程都走不下去」)
+# 原来两件事在一个 form / 一个端点里,而那个端点「校验先全跑完再落库」→ 全新装机死锁:
+#   模型下拉与凭据级联(没配 key 的平台 disabled)→ 一家都没配则平台选项全禁用
+#   → 提交上来 platform 为空 → 抛「请选择平台」→ 整单退回,key 一个字都没存进去。
+# 判据钉三件:① 三张凭据卡各自 POST /llm/key(带 platform + apiKey)
+#            ② 模型表单 POST /llm/models  ③ 老端点 @PostMapping("/llm") 必须已删
+#              (留着一个没有 UI 指向的写接口,下次就会有人以为它还在用 —— v1.17.2 的教训)
+QA1181_TPL="$RD/src/main/resources/templates/admin/integrations.html"
+QA1181_CTL="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"
+{ [ "$(grep -c 'action="@{/admin/integrations/llm/key}"' "$QA1181_TPL")" -eq 3 ] \
+  && [ "$(grep -c 'name="apiKey"' "$QA1181_TPL")" -eq 3 ] \
+  && [ "$(grep -c '>保存密钥<' "$QA1181_TPL")" -eq 3 ] \
+  && grep -q 'action="@{/admin/integrations/llm/models}"' "$QA1181_TPL" \
+  && grep -q 'String saveLlmKey(' "$QA1181_CTL" \
+  && grep -q 'String saveLlmModels(' "$QA1181_CTL" \
+  && ! grep -q '@PostMapping("/llm")' "$QA1181_CTL" \
+  && ! grep -q 'qwenKey", required = false' "$QA1181_CTL"; } \
+  && log_ok "v1181-KEY-SAVE-SPLIT(三家密钥各自独立保存 · 模型选取单独端点 · 老合并端点已删)" \
+  || log_bad "v1181-KEY-SAVE-SPLIT 密钥又和模型选取绑回一个表单了" "三张卡各要一个 POST /admin/integrations/llm/key(platform+apiKey);模型走 /llm/models;不许再有 @PostMapping(\"/llm\")"
+
+# v1181-KEY-SAVE-NOT-SILENT · 密钥保存不许静默成功(v1.18.1)
+# 这一格的语义是「留空 = 不改」,但用户点了这张卡的保存按钮却什么都没填时,
+# 回一句「已保存」等于骗他 —— 他会以为换上了新 key,实际还在用旧的。
+# 同时:密钥端点绝不许碰模型三元组(否则死锁会以另一种形式回来)。
+{ grep -q '没填内容 · 密钥未改动' "$QA1181_CTL" \
+  && grep -q 'key=已配置' "$QA1181_CTL" \
+  && [ "$(sed -n '/String saveLlmKey(/,/^    }/p' "$QA1181_CTL" | grep -c 'parseTriple\|writeTriple')" -eq 0 ]; } \
+  && log_ok "v1181-KEY-SAVE-NOT-SILENT(空提交明确报错不假装成功 · 审计只记已配/未配 · 密钥端点不碰模型三元组)" \
+  || log_bad "v1181-KEY-SAVE-NOT-SILENT 空提交被当成保存成功,或密钥端点又去校验模型了" "see IntegrationsController#saveLlmKey"
+
+# v1181-ATTR-CLOSED-ANCHOR · 归因复盘必须锚「最新已关账期」(v1.18.1 · 生产误判)
+# 生产上排行榜把一个只【收到一笔转入】的理财账户列成「亏得最多」,金额恰好等于那笔转入的全额。
+# 机制不是「转账被算成收入」(收入只读 cash_flow,pnl 里转账是被减掉的),而是锚期错了:
+#   进行中的那一期「转账已登记、月末余额还没填」→ pnl = Δ余额(0) − 净转入(+X) = −X。
+# v1.6.30 已为「本月资产收益」立过同一条规矩(收益类锚已关账期),归因当时漏了。
+# 另一个陷阱:瀑布靠 ΔNW = 人赚 + 钱赚 + 开账基线 + 未归因 闭合,四项必须【同期】——
+# 只挪「钱赚」会让差额全被「未归因」吸收,页面看着平了、错误藏进了兜底项。
+QA1181_DASH="$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java"
+QA1181_REV="$RD/src/main/java/com/family/finance/web/review/ReviewController.java"
+{ grep -q 'kpis.returnAnchorDelta(), human, kpis.returnAnchorOpeningBaseline()' "$QA1181_DASH" \
+  && grep -q 'kpis.returnAnchorDelta(), human, kpis.returnAnchorOpeningBaseline()' "$QA1181_REV" \
+  && ! grep -q 'getOrDefault(slice.lastPeriodId(), List.of())' "$QA1181_DASH" \
+  && ! grep -q 'getOrDefault(slice.lastPeriodId(), List.of())' "$QA1181_REV" \
+  && grep -q 'returnAnchorPeriodId()' "$QA1181_DASH" \
+  && grep -q 'returnAnchorPeriodId()' "$QA1181_REV" \
+  && grep -q 'slice.returnPeriodIds()' "$RD/src/main/java/com/family/finance/service/review/AttributionService.java" \
+  && grep -q 'returnAnchorDelta' "$RD/src/main/java/com/family/finance/factview/KpiSnapshot.java" \
+  && [ -f "$RD/src/test/java/com/family/finance/factview/AttributionAnchorTest.java" ]; } \
+  && log_ok "v1181-ATTR-CLOSED-ANCHOR(归因四项同锚已关账期 · 趋势也只取已关账期 · 单测钉住假亏损)" \
+  || log_bad "v1181-ATTR-CLOSED-ANCHOR 归因又锚回最后一期(进行中的期会把转入读成亏损)" "dashboard/review 两处都要用 returnAnchorDelta + returnAnchorOpeningBaseline;trend 走 returnPeriodIds"
+
+# v1181-ATTR-ANCHOR-VISIBLE · 归因锚的是哪一期,页面必须写出来(v1.18.1)
+# 顶部 as-of 可能选着进行中的 8 月,而归因实际锚 7 月 —— 不写出来用户会以为排行榜说的是本月,
+# 这正是那次误判的土壤(他看到的是「本月萝卜-余额宝亏 7.5 万」)。
+{ grep -q 'attrFilingInProgress' "$QA1181_DASH" \
+  && grep -q 'attrAnchorMonth' "$QA1181_DASH" \
+  && grep -q '归因锚定' "$RD/src/main/resources/templates/dashboard/_attribution.html" \
+  && grep -q 'attrFilingInProgress' "$RD/src/main/resources/templates/dashboard/_attribution.html"; } \
+  && log_ok "v1181-ATTR-ANCHOR-VISIBLE(填报中时页面明示归因锚在哪一期)" \
+  || log_bad "v1181-ATTR-ANCHOR-VISIBLE 归因锚期没写在页面上" "see dashboard/_attribution.html 的「归因锚定」提示 + DashboardController 的 attrAnchorMonth/attrFilingInProgress"
 
 echo
 echo "═══════════════════════════════════════"
