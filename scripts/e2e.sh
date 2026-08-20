@@ -3,7 +3,7 @@
 # e2e.sh · 端到端主线验收(补充 qa-run 的广度冒烟,做纵深真验收)
 #   形态:唤起 beta 应用(被测基线)→ 按序调用真实接口 → 用「接口响应 + DB 真实数据」判定功能对错。
 #   隔离(策略 A):开跑前 mysqldump 快照基线,trap EXIT 无论成败都还原 + 重启 → 可重复、不污染 beta。
-#   6 条主线:1 记账闭环 · 2 账期滚动 · 3 报表成图 · 4 多币种镜头 · 5 收益指标 · 6 LOAN 还款归零(后续版本陆续加到 17)。
+#   6 条主线:1 记账闭环 · 2 账期滚动 · 3 报表成图 · 4 多币种镜头 · 5 收益指标 · 6 LOAN 还款归零(后续版本陆续加到 18)。
 #   只读主线在前(干净基线),改数据主线殿后。
 # ============================================================================
 set -u   # 不用 pipefail:curl|grep -q / |head 会提前关管道让 curl 收 SIGPIPE,pipefail 会把这类正常管道误判为失败
@@ -547,6 +547,40 @@ if [ -n "$MG_ACC" ] && [ -n "$MG_SRC" ] && [ -n "$OPEN_PID" ]; then
   eq "托管账户-撤销后再估值仍是原值" "$(mgsnap)" "$B_SNAP"
 else
   ok "托管账户-beta 上没有「有持仓的 WEALTH/CRYPTO/METAL」账户,跳过"
+fi
+
+# ============================================================================
+section "主线 18 · 账目对账扫描(v1.18.2 · 干净时不误报 · 真丢钱时抓得到)"
+# 复盘 v1.18.1 那个会丢钱的 bug 得出的结论:我们有探测器但没接线,而且归因的「未归因」
+# 是残差定义、永远闭合 —— 一个不会失败的恒等式不是校验,是装饰。
+# 所以这条 e2e 必须【双向】验:干净时 0 条(不误报),人为复现丢钱时抓得到(不装饰)。
+RC_ACC="$(db "SELECT a.id FROM account a JOIN stock_holding h ON h.account_id=a.id AND h.archived_at IS NULL
+             WHERE a.family_id=$FAM AND a.archived_at IS NULL AND a.type IN ('WEALTH','CRYPTO','METAL')
+             GROUP BY a.id ORDER BY a.id LIMIT 1")"
+RC_SRC="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='CASH' AND archived_at IS NULL ORDER BY id LIMIT 1")"
+RC_PID="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='OPEN' ORDER BY period_start DESC LIMIT 1")"
+rc_hits(){ GET /admin/reconcile | grep -oE '发现 <b>[0-9]+</b> 处对不上' | grep -oE '[0-9]+' | head -1; }
+if [ -n "$RC_ACC" ] && [ -n "$RC_SRC" ] && [ -n "$RC_PID" ]; then
+  GET /admin/reconcile | grep -q '账 · 目 · 对 · 账' && ok "对账-页面正常渲染" \
+    || bad "对账-页面正常渲染" "/admin/reconcile 没出来"
+  RC_BEFORE="$(rc_hits)"; RC_BEFORE="${RC_BEFORE:-0}"
+  echo "  基线命中 $RC_BEFORE 条 · 托管账户=$RC_ACC"
+  # ① 正常划转(修复后:钱进现金行)→ 不该新增命中
+  POSTcode "/entry/$RC_SRC/transfer" --data-urlencode "periodId=$RC_PID" --data-urlencode "toAccountId=$RC_ACC" --data-urlencode "amount=75000" >/dev/null
+  POSTcode "/accounts/$RC_ACC/holdings/refresh" >/dev/null
+  RC_OK="$(rc_hits)"; RC_OK="${RC_OK:-0}"
+  eq "对账-钱正确入账时不误报" "$RC_OK" "$RC_BEFORE"
+  # ② 人为复现 v1.18.1 之前的形态:把现金行那 75000 抹掉,再跑估值 → 估值会精确抹平这笔钱
+  db "UPDATE stock_holding SET manual_value = manual_value - 75000 WHERE account_id=$RC_ACC AND archived_at IS NULL AND valuation_mode='CASH'" >/dev/null
+  POSTcode "/accounts/$RC_ACC/holdings/refresh" >/dev/null
+  RC_BAD="$(rc_hits)"; RC_BAD="${RC_BAD:-0}"
+  [ "${RC_BAD:-0}" -gt "${RC_BEFORE:-0}" ] \
+    && ok "对账-真丢钱时抓得到(命中 $RC_BEFORE → $RC_BAD)" \
+    || bad "对账-真丢钱时抓得到" "复现了丢钱却没被扫出来 —— 这个检查成了永远绿的装饰品"
+  GET /admin/reconcile | grep -q '需要补回' && ok "对账-给出要补回的金额" \
+    || bad "对账-给出要补回的金额" "页面没有「需要补回」列"
+else
+  ok "对账-beta 上没有「有持仓的 WEALTH/CRYPTO/METAL」账户,跳过"
 fi
 
 # ============================================================================

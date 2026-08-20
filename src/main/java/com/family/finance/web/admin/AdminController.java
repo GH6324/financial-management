@@ -73,6 +73,8 @@ public class AdminController {
     private final com.family.finance.service.MetricPrefsService metricPrefsService;
     // v1.9 · 版本落后检查(只查不改)
     private final com.family.finance.service.update.UpdateCheckService updateCheckService;
+    /** v1.18.2 · 账目对账(只读扫描) */
+    private final com.family.finance.service.reconcile.ReconciliationScanService reconciliationScanService;
 
     /** v1.9 · 当前发布版本(与 nav 徽记、/health 同源)· @Value 字段注入,不能当 handler 参数 */
     @org.springframework.beans.factory.annotation.Value("${app.version:dev}")
@@ -485,6 +487,27 @@ public class AdminController {
     // ---------------------------------------------------------------------
     // 11. /admin/audit · 审计日志
     // ---------------------------------------------------------------------
+    /**
+     * v1.18.2 · 账目对账(**只读** · 不改任何数据)。
+     *
+     * <p>复盘 v1.18.1 那个会丢钱的 bug 时得出的结论:我们其实<b>有</b>探测器
+     * ({@code ReconciliationCalculator.unexplained}),但它只在填报页对 CASH/LOAN 显示;
+     * 而归因瀑布的「未归因」是残差定义、按构造恒等闭合 —— 错误会被它吸收成某个账户的「亏损」,
+     * 永远不会报警。这页补的是那条<b>真会失败</b>的校验。</p>
+     *
+     * <p>放管理页而不是体检页:体检是给<b>资产配置</b>看病的(AI 解读),这条是<b>工程事实</b>
+     * (账平不平),两者混在一起会让用户分不清「建议」和「错误」。</p>
+     */
+    @GetMapping("/reconcile")
+    public String reconcile(@AuthenticationPrincipal MemberPrincipal me,
+                            @RequestParam(value = "months", required = false) Integer months,
+                            Model model) {
+        int lookback = months == null ? 36 : Math.max(1, Math.min(months, 120));
+        model.addAttribute("report", reconciliationScanService.scan(me.getFamilyId(), lookback));
+        model.addAttribute("lookback", lookback);
+        return "admin/reconcile";
+    }
+
     @GetMapping("/audit")
     public String audit(@AuthenticationPrincipal MemberPrincipal me,
                         @RequestParam(required = false) String type,

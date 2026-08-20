@@ -7043,6 +7043,43 @@ QA1181_ES="$RD/src/main/java/com/family/finance/service/EntryService.java"
   && log_ok "v1181-TRANSFER-CREDITS-CASH(划转两端 + 撤销都走托管路由 · 跨币种按 to_amount 冲回)" \
   || log_bad "v1181-TRANSFER-CREDITS-CASH 划转又绕开了托管路由(转进持仓账户的钱会被估值抹掉)" "addTransfer / softDeleteTransfer 里不许直接调 applyDeltaToBalance"
 
+# ============================================================
+# v1.18.2 · 账目对账(复盘 A/C 项)
+# ============================================================
+
+# v1182-RECONCILE-WIRED · 探测器要接上线,不能只装旋钮(v1.18.2 · 复盘 A)
+# 复盘结论:ReconciliationCalculator.unexplained 算的正是「余额里对不上账的部分」,
+# 但它只在填报页对 CASH/LOAN 显示;而管理页那个 unexplained_epsilon 阈值
+# 【存了但没有任何代码读它】—— 旋钮装好了、线没接。这条钉住线接上了。
+QA1182_SVC="$RD/src/main/java/com/family/finance/service/reconcile/ReconciliationScanService.java"
+{ [ -f "$QA1182_SVC" ] \
+  && grep -q 'K_UNEXPLAINED_EPSILON' "$QA1182_SVC" \
+  && grep -q '@GetMapping("/reconcile")' "$RD/src/main/java/com/family/finance/web/admin/AdminController.java" \
+  && grep -q "sidebar('reconcile')" "$RD/src/main/resources/templates/admin/reconcile.html" \
+  && grep -q '/admin/reconcile' "$RD/src/main/resources/templates/admin/_sidebar.html" \
+  && [ -f "$RD/src/test/java/com/family/finance/service/reconcile/ReconciliationScanServiceTest.java" ]; } \
+  && log_ok "v1182-RECONCILE-WIRED(对账扫描在线 · 阈值 unexplained_epsilon 真被读 · 管理页有入口)" \
+  || log_bad "v1182-RECONCILE-WIRED 对账扫描缺失或阈值又变回没人读" "see ReconciliationScanService / AdminController#reconcile / admin/_sidebar.html"
+
+# v1182-RECONCILE-NOT-DECORATIVE · 判据不许退化成「永远不会失败」的装饰(v1.18.2 · 复盘 C)
+# 这个扫描器的前两版判据都被真数据推翻过:
+#   ① periodPnl − Σ事件Δ —— 抓不到:估值抹钱时会忠实写一条 delta = −(被抹的钱) 的事件,两边相消
+#      (与归因瀑布「未归因」同病:把结果记下来再拿结果去对,永远对得上)
+#   ② 「期末 − 期初 ≈ 0」 —— 也抓不到:持仓本身当期还在涨跌,余额并非一分没差
+# 现在判的是【时间线形状】:某次估值的 Δ 恰好等于它之前那段窗口里进出的钱的相反数。
+# 判据钉住:必须按事件时间配对(而不是按期合计),且单测里【不该抓的】那几条都在。
+QA1182_UT="$RD/src/test/java/com/family/finance/service/reconcile/ReconciliationScanServiceTest.java"
+{ grep -q 'findEventsForReconcile' "$QA1182_SVC" \
+  && grep -q 'findFlowsForReconcile' "$QA1182_SVC" \
+  && grep -q 'windowStart' "$QA1182_SVC" \
+  && ! grep -q 'sumDeltaByAccountPeriod' "$QA1182_SVC" \
+  && [ "$(grep -c 'void 不抓_' "$QA1182_UT")" -ge 4 ] \
+  && [ "$(grep -c 'void 抓到_' "$QA1182_UT")" -ge 3 ] \
+  && grep -q '不抓_没有持仓的账户压根不在扫描范围' "$QA1182_UT" \
+  && grep -q '抓到_一期里分两次被抹' "$QA1182_UT"; } \
+  && log_ok "v1182-RECONCILE-NOT-DECORATIVE(按事件时间窗口配对 · 单测该抓/不该抓成对写)" \
+  || log_bad "v1182-RECONCILE-NOT-DECORATIVE 判据退回按期合计,或单测只剩「该抓」那一半" "按期合计的判据抓不到这个 bug(估值会把抹掉的动作如实记成事件,两边相消)"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
