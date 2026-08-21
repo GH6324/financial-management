@@ -121,16 +121,35 @@ class LlmRouterPrimaryOrderTest {
 
     @Test
     void arkWithoutModel_isDroppedBeforeNetwork() {
-        // 方舟系列没有可预置型号 → 没填就不自洽 → 不该占用户的等待时间去 404 一次
+        // 没有可预置型号的系列 + 用户没填 → 不自洽 → 不该占用户的等待时间去 404 一次。
+        // v1.18.4 · 判据从 ark/doubao 重指到 ark/deepseek:方舟现在支持直接填 Model ID,
+        //   豆包两个系列已经预置了推荐型号(见 LlmCatalog.ARK 的说明),不再"注定失败";
+        //   「方舟托管的 DeepSeek」仍不预置(调研没拿到可靠的现行 ID),这条规矩落在它身上。
         LlmRouter router = new LlmRouter(
                 List.of(ok(LlmCatalog.P_ARK), ok(LlmCatalog.P_DASHSCOPE)),
                 config(new HashMap<>(Map.of(
                         FamilyConfigService.K_LLM_PLATFORM, "ark",
-                        FamilyConfigService.K_LLM_FAMILY, "doubao",
+                        FamilyConfigService.K_LLM_FAMILY, "deepseek",
                         FamilyConfigService.K_LLM_BACKUP_PLATFORM, "dashscope",
                         FamilyConfigService.K_LLM_BACKUP_FAMILY, "qwen"))));
 
         assertThat(labels(router.plan(1L))).containsExactly("dashscope/qwen:auto");
+    }
+
+    /** v1.18.4 · 反过来:方舟豆包<b>不填型号也能用</b>了 —— 走预置的默认型号,不再被剔掉。 */
+    @Test
+    void arkDoubaoWithoutModel_nowUsesPresetDefault() {
+        LlmRouter router = new LlmRouter(
+                List.of(ok(LlmCatalog.P_ARK)),
+                config(new HashMap<>(Map.of(
+                        FamilyConfigService.K_LLM_PLATFORM, "ark",
+                        FamilyConfigService.K_LLM_FAMILY, "doubao"))));
+
+        // label 里 model 为 null 显示 :auto(这是既有约定);真正要钉的是【解析出来的型号】
+        assertThat(labels(router.plan(1L))).containsExactly("ark/doubao:auto");
+        assertThat(router.plan(1L).get(0).resolvedModel())
+                .as("以前这里是 null → 候选被剔掉;现在走预置默认,且不带日期不会失效")
+                .isEqualTo("doubao-seed-evolving");
     }
 
     @Test

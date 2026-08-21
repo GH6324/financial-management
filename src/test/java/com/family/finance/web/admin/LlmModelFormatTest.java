@@ -14,6 +14,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributesModelMap;
 
 import java.util.List;
 
+import com.family.finance.service.checkup.llm.LlmCatalog;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -22,6 +24,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * v1.13 FR-360 · 型号手填的<b>校验边界</b>:合法的原样收下,不合法的<b>当面报错</b>。
@@ -39,7 +42,14 @@ class LlmModelFormatTest {
     private final FamilyConfigService config = mock(FamilyConfigService.class);
     private final AuditLogService audit = mock(AuditLogService.class);
 
+    /** v1.18.4 · 默认「三家都配好了密钥」—— 校验里新增了 requireKeyConfigured,
+     *  不打这个桩的话每条用例都会先撞到「还没有配密钥」,测不到它想测的东西。 */
+    private void allKeysConfigured() {
+        when(config.isPrivateKeyConfigured(anyLong(), anyString())).thenReturn(true);
+    }
+
     private IntegrationsController controller() {
+        allKeysConfigured();
         return new IntegrationsController(config, mock(DynamicScheduleConfig.class), audit,
                 mock(MacroBenchmarkService.class), mock(LlmRouter.class), new ObjectMapper(), List.of());
     }
@@ -145,16 +155,19 @@ class LlmModelFormatTest {
 
     @Test
     void arkFamilyWithoutRecommendedModels_requiresExplicitModel() {
-        // 方舟三个系列都没有可预置的型号 · 留空不能变成「自动」,那样会调一个不存在的型号
-        String msg = flashError(saveWithPrimaryModel("ark", "doubao", ""));
+        // 没有推荐型号的系列,留空不能变成「自动」—— 那样会调一个不存在的型号。
+        // v1.18.4 · 「方舟三个系列都没有可预置型号」这个前提已被调研推翻(方舟现在支持直接填
+        //   Model ID,豆包两个系列已预置)。剩下「方舟托管的 DeepSeek」仍不预置 ——
+        //   调研没拿到可靠的现行 ID,与其编一个不如照实要求手填。被守的不变量没变,判据重指到它。
+        String msg = flashError(saveWithPrimaryModel("ark", "deepseek", ""));
 
         assertThat(msg).contains("必须手工填写型号");
         verify(config, never()).set(anyLong(), anyString(), anyString());
     }
 
     @Test
-    void visionOff_allowsHalfConfiguredVision_butStillRejectsBadFormat() {
-        // 关掉截图识别时不强求填型号(配置留着下次开)· 但填了就得合法
+    void visionOff_neverBlocksSave_butDoesNotSilentlySwallowTypos() {
+        // 关掉截图识别 → 视觉那一组【一个字都不校验】
         RedirectAttributes ok = new RedirectAttributesModelMap();
         controller().saveLlmModels(me(),
                 "dashscope", "qwen", "", null, null, null,
@@ -162,18 +175,25 @@ class LlmModelFormatTest {
         assertThat(flashError(ok)).as("视觉关着还要求填型号 · 用户被卡在一个他不用的字段上").isNull();
         verify(config).set(1L, FamilyConfigService.K_LLM_VISION_ENABLED, "false");
 
+        // v1.18.4 · 填了非法型号但功能已关闭:【不许拦住保存】(那正是维护者撞上的毛病),
+        //   但也不许默默吞掉 —— 保存成功,回执里说清这一组没校验也没保存。
         RedirectAttributes bad = new RedirectAttributesModelMap();
         controller().saveLlmModels(me(),
                 "dashscope", "qwen", "", null, null, null,
                 false, "ark", "doubao-vision", "ep 有空格", 0.5, 2000, 25, bad);
-        assertThat(flashError(bad)).contains("型号格式不合法");
+        assertThat(flashError(bad)).as("关掉的能力不许拦住整单").isNull();
+        assertThat(bad.getFlashAttributes().get("flash").toString())
+                .as("也不许默默吞掉").contains("没有校验也没有保存");
     }
 
     // ---------------- 平台/系列本身的错配 ----------------
 
     @Test
     void unknownPlatform_isRejected() {
-        assertThat(flashError(saveWithPrimaryModel("openai", "gpt", "gpt-4o"))).contains("请选择平台");
+        // v1.18.4 · 文案分了两种:平台【留空】→ 指路去配密钥;平台【填了但不认识】→ 直说未知平台。
+        //   老文案对两种情况都回「请选择平台」,而空平台的成因几乎总是「下拉里全是禁用项」,
+        //   那句话等于让用户对着一个选不动的下拉猜。
+        assertThat(flashError(saveWithPrimaryModel("openai", "gpt", "gpt-4o"))).contains("未知平台");
         verify(config, never()).set(anyLong(), anyString(), anyString());
     }
 
@@ -256,5 +276,123 @@ class LlmModelFormatTest {
         controller().saveLlmKey(me(), "openai", "sk-whatever", ra);
         assertThat(flashError(ra)).contains("未知平台");
         verify(config, never()).set(anyLong(), anyString(), anyString());
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // v1.18.4 · 把「用户到底有几种用法」逐个走一遍
+    //
+    //   维护者报的是一条:配好主选、【取消勾选】截图导入,保存却报
+    //   「截图识别:请选择平台」。根因不是这一条,是整块校验按【字段填没填】分支,
+    //   而不是按【用户想干什么】分支 —— 于是"关掉的能力"照样被要求填。
+    //   下面按用法矩阵一条条钉,漏掉哪种用法,哪种就会再坏一次。
+    // ════════════════════════════════════════════════════════════════
+
+    /** 只填主选、把截图识别关掉、视觉三元组整个留空 —— <b>必须能存</b>。 */
+    @Test
+    void 用法_关掉截图识别时视觉留空也能存() {
+        RedirectAttributes ra = new RedirectAttributesModelMap();
+        controller().saveLlmModels(me(),
+                "dashscope", "qwen", "", null, null, null,
+                false, null, null, null,          // 视觉:平台/系列/型号全空
+                0.5, 2000, 25, ra);
+        assertThat(flashError(ra)).as("关掉的能力不该拦住整单").isNull();
+        verify(config).set(1L, FamilyConfigService.K_LLM_VISION_ENABLED, "false");
+    }
+
+    /**
+     * 只配了 DeepSeek(<b>没有视觉能力</b>)+ 关掉截图识别 —— 必须能存。
+     * 这正是维护者撞上的那条:视觉下拉里一个可选项都没有,关掉它还是存不下去。
+     */
+    @Test
+    void 用法_只配无视觉能力的平台_关掉截图识别能存() {
+        when(config.isPrivateKeyConfigured(anyLong(), anyString())).thenReturn(false);
+        when(config.isPrivateKeyConfigured(anyLong(), eq(FamilyConfigService.K_LLM_DEEPSEEK_KEY))).thenReturn(true);
+        RedirectAttributes ra = new RedirectAttributesModelMap();
+        new IntegrationsController(config, mock(DynamicScheduleConfig.class), audit,
+                mock(MacroBenchmarkService.class), mock(LlmRouter.class), new ObjectMapper(), List.of())
+                .saveLlmModels(me(), "deepseek", "deepseek", "", null, null, null,
+                        false, null, null, null, 0.5, 2000, 25, ra);
+        assertThat(flashError(ra)).isNull();
+    }
+
+    /** 同上但<b>勾了</b>截图识别 —— 要明确告诉他去配哪家,而不是回一句他看不懂的「请选择平台」。 */
+    @Test
+    void 用法_只配无视觉能力的平台_勾了截图识别要指路() {
+        when(config.isPrivateKeyConfigured(anyLong(), anyString())).thenReturn(false);
+        when(config.isPrivateKeyConfigured(anyLong(), eq(FamilyConfigService.K_LLM_DEEPSEEK_KEY))).thenReturn(true);
+        RedirectAttributes ra = new RedirectAttributesModelMap();
+        new IntegrationsController(config, mock(DynamicScheduleConfig.class), audit,
+                mock(MacroBenchmarkService.class), mock(LlmRouter.class), new ObjectMapper(), List.of())
+                .saveLlmModels(me(), "deepseek", "deepseek", "", null, null, null,
+                        true, "dashscope", "qwen-vl", "", 0.5, 2000, 25, ra);
+        assertThat(flashError(ra)).contains("阿里云百炼").contains("火山方舟");
+        assertThat(flashError(ra)).as("要给出「不用就取消勾选」这条出路").contains("取消勾选");
+    }
+
+    /** 一家密钥都没配就来存模型 —— 错误要指向「先去上面存密钥」,不能只说「请选择平台」。 */
+    @Test
+    void 用法_一家都没配密钥时错误要指路() {
+        when(config.isPrivateKeyConfigured(anyLong(), anyString())).thenReturn(false);
+        RedirectAttributes ra = new RedirectAttributesModelMap();
+        new IntegrationsController(config, mock(DynamicScheduleConfig.class), audit,
+                mock(MacroBenchmarkService.class), mock(LlmRouter.class), new ObjectMapper(), List.of())
+                .saveLlmModels(me(), null, null, null, null, null, null,
+                        false, null, null, null, 0.5, 2000, 25, ra);
+        assertThat(flashError(ra)).contains("保存 API Key");
+    }
+
+    /** 选了一个<b>没配密钥</b>的平台(前端 disabled 被绕过)—— 当面拒绝,别存一份必然调不通的配置。 */
+    @Test
+    void 用法_选了没配密钥的平台要当面拒绝() {
+        when(config.isPrivateKeyConfigured(anyLong(), anyString())).thenReturn(false);
+        when(config.isPrivateKeyConfigured(anyLong(), eq(FamilyConfigService.K_LLM_QWEN_KEY))).thenReturn(true);
+        RedirectAttributes ra = new RedirectAttributesModelMap();
+        new IntegrationsController(config, mock(DynamicScheduleConfig.class), audit,
+                mock(MacroBenchmarkService.class), mock(LlmRouter.class), new ObjectMapper(), List.of())
+                .saveLlmModels(me(), "deepseek", "deepseek", "", null, null, null,
+                        false, null, null, null, 0.5, 2000, 25, ra);
+        assertThat(flashError(ra)).contains("还没有配密钥");
+        verify(config, never()).set(anyLong(), eq(FamilyConfigService.K_LLM_PLATFORM), anyString());
+    }
+
+    /** 关掉截图识别时,<b>不许清空</b>之前配好的视觉三元组(关它往往只是暂时不用)。 */
+    @Test
+    void 用法_关掉截图识别不清空旧的视觉配置() {
+        RedirectAttributes ra = new RedirectAttributesModelMap();
+        controller().saveLlmModels(me(), "dashscope", "qwen", "", null, null, null,
+                false, null, null, null, 0.5, 2000, 25, ra);
+        verify(config, never()).set(anyLong(), eq(FamilyConfigService.K_LLM_VISION_PLATFORM), anyString());
+        verify(config, never()).set(anyLong(), eq(FamilyConfigService.K_LLM_VISION_MODEL_ID), anyString());
+    }
+
+    /** 关掉截图识别、但视觉三元组仍然填着 —— 顺手存下来(下次开启还在),同样不报错。 */
+    @Test
+    void 用法_关掉截图识别但填着视觉配置_顺手存下来() {
+        RedirectAttributes ra = new RedirectAttributesModelMap();
+        controller().saveLlmModels(me(), "dashscope", "qwen", "", null, null, null,
+                false, "dashscope", "qwen-vl", "qwen-vl-max", 0.5, 2000, 25, ra);
+        assertThat(flashError(ra)).isNull();
+        verify(config).set(1L, FamilyConfigService.K_LLM_VISION_MODEL_ID, "qwen-vl-max");
+    }
+
+    /** 火山方舟现在<b>有</b>预置型号了(v1.18.4 调研:方舟支持直接填 Model ID,不必建接入点)。 */
+    @Test
+    void 方舟不再要求手填型号_预置了推荐型号() {
+        var doubao = LlmCatalog.ARK.family("doubao").orElseThrow();
+        assertThat(doubao.requiresExplicitModel()).as("以前这里是 true,页面只会说「没有可预置的型号」").isFalse();
+        assertThat(doubao.models()).isNotEmpty();
+        assertThat(doubao.defaultModel()).as("默认型号不带日期,不会随版本更迭失效")
+                .isEqualTo("doubao-seed-evolving").doesNotContain("-25").doesNotContain("-26");
+
+        var vision = LlmCatalog.ARK.family("doubao-vision").orElseThrow();
+        assertThat(vision.requiresExplicitModel()).isFalse();
+        assertThat(vision.models()).isNotEmpty();
+
+        // 预置的每个型号都得过格式校验(否则页面选一下就报「型号格式不合法」)
+        for (var f : LlmCatalog.ARK.families()) {
+            for (var m : f.models()) {
+                assertThat(LlmCatalog.validModel(m.id())).as(m.id()).isTrue();
+            }
+        }
     }
 }

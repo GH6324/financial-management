@@ -114,6 +114,11 @@ public class IntegrationsController {
         // v1.17.2 · 「用哪个模型」与上面的凭据表单级联:没配 key 的平台在下拉里不可选。
         // 判据用【平台 code → 有没有 key】的映射,而不是在模板里逐个 if —— 以后加第四家平台时
         // 只要这里多一行,三处下拉自动跟上(v0.14 加 METAL 那次就是漏了模板里的硬编码分支)。
+        // v1.18.4 · 截图识别能不能开,取决于「有没有一家【既配了密钥、又有视觉能力】的平台」。
+        //   DeepSeek 没有视觉能力 —— 只配了它的用户,视觉下拉里一个可选项都没有。
+        //   此前那个 checkbox 照样可勾,勾了必然存不下去(而且报的是「请选择平台」,
+        //   指向一个他根本选不了的下拉)。现在直接禁用并说清去配哪家。
+        model.addAttribute("visionCapableReady", !visionCapablePlatforms(fid).isEmpty());
         model.addAttribute("platformReady", java.util.Map.of(
                 "dashscope", configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_LLM_QWEN_KEY),
                 "deepseek",  configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_LLM_DEEPSEEK_KEY),
@@ -249,15 +254,46 @@ public class IntegrationsController {
                           RedirectAttributes ra) {
         long fid = me.getFamilyId();
 
-        // ── 先校验三组三元组(一处不合法就整单退回) ──
+        // ── v1.18.4 · 按「用户想干什么」分支,不按「字段填没填」分支 ──────────────────
+        //   老逻辑三组一律走同一个 parseTriple,而 parseTriple 一律要求平台可解析 ——
+        //   于是【关掉截图识别、视觉平台留空】也会抛「截图识别:请选择平台」。
+        //   用户配了一家没有视觉能力的平台(如 DeepSeek)时更是死路:视觉下拉里一个可选项都没有,
+        //   关掉这个能力还是存不下去。主流程直接走不通(维护者 2026-08-21 实测)。
         LlmInvocation primary, backup, vision;
+        String visionSkippedNote = "";
         try {
+            // ① 主选:必填,而且平台必须【已配密钥】—— 只靠前端 disabled 挡不住,
+            //    存进一个没密钥的平台等于存了一份必然调不通的配置。
             primary = parseTriple("主选", platform, family, modelId, LlmCatalog.Modality.TEXT, true);
-            backup  = isBlank(backupPlatform) ? null
+            requireKeyConfigured(fid, primary, "主选");
+
+            // ② 备选:留空 = 不设(合法),填了就按主选同样的标准校验
+            backup = isBlank(backupPlatform) ? null
                     : parseTriple("备选", backupPlatform, backupFamily, backupModelId, LlmCatalog.Modality.TEXT, true);
-            // 视觉:关掉时不强求填型号(用户可能只是暂时不用截图导入,配置留着下次开)
-            vision  = parseTriple("截图识别", visionPlatform, visionFamily, visionModelId,
-                    LlmCatalog.Modality.VISION, visionEnabled);
+            if (backup != null) requireKeyConfigured(fid, backup, "备选");
+
+            // ③ 截图识别:
+            //    · 关掉 → 【一个字都不校验】。能解析就顺手存着(下次开启还在),
+            //      解析不出来就保留库里原值,绝不因此拦住整单。
+            //    · 开启 → 正常校验;并且要有一家【既配了密钥、又有视觉能力】的平台,
+            //      否则明确告诉他去配哪家,而不是让他对着空下拉发呆。
+            if (!visionEnabled) {
+                vision = tryParseTriple(visionPlatform, visionFamily, visionModelId, LlmCatalog.Modality.VISION);
+                // 关掉了就不拦人,但也不能【默默吞掉】他填错的东西 ——
+                // 非阻塞提示:保存照常成功,只在回执里说一句这一组没校验。
+                if (vision == null && !(isBlank(visionPlatform) && isBlank(visionModelId))) {
+                    visionSkippedNote = " · 截图识别已关闭,视觉那一组没有校验也没有保存(开启时会要求填对)";
+                }
+            } else {
+                if (visionCapablePlatforms(fid).isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "截图识别需要有视觉能力的平台,而你已配密钥的平台都没有视觉能力 · "
+                            + "请先在上面为「阿里云百炼」或「火山方舟」保存密钥,或取消勾选「启用持仓截图导入」");
+                }
+                vision = parseTriple("截图识别", visionPlatform, visionFamily, visionModelId,
+                        LlmCatalog.Modality.VISION, true);
+                requireKeyConfigured(fid, vision, "截图识别");
+            }
         } catch (IllegalArgumentException e) {
             ra.addFlashAttribute("flashError", e.getMessage());
             return "redirect:/admin/integrations";
@@ -272,8 +308,12 @@ public class IntegrationsController {
                 FamilyConfigService.K_LLM_MODEL_ID, primary);
         writeTriple(fid, FamilyConfigService.K_LLM_BACKUP_PLATFORM, FamilyConfigService.K_LLM_BACKUP_FAMILY,
                 FamilyConfigService.K_LLM_BACKUP_MODEL_ID, backup);   // null = 清空备选
-        writeTriple(fid, FamilyConfigService.K_LLM_VISION_PLATFORM, FamilyConfigService.K_LLM_VISION_FAMILY,
-                FamilyConfigService.K_LLM_VISION_MODEL_ID, vision);
+        // v1.18.4 · vision 为 null = 关掉截图识别且解析不出三元组 → 【保留库里原值】,不清空。
+        //   清空会让「关一次再开」丢掉之前选好的型号,而用户关它往往只是暂时不用。
+        if (vision != null) {
+            writeTriple(fid, FamilyConfigService.K_LLM_VISION_PLATFORM, FamilyConfigService.K_LLM_VISION_FAMILY,
+                    FamilyConfigService.K_LLM_VISION_MODEL_ID, vision);
+        }
         configService.set(fid, FamilyConfigService.K_LLM_VISION_ENABLED, String.valueOf(visionEnabled));
 
         double temp = temperature == null ? 0.5 : Math.max(0.0, Math.min(1.0, temperature));
@@ -291,7 +331,8 @@ public class IntegrationsController {
                 + " · 截图识别=" + (visionEnabled ? vision.label() : "关闭")
                 + " · temperature=" + temp + " · maxTokens=" + mt + " · timeout=" + ts + "s");
         ra.addFlashAttribute("flash", "模型配置已保存 · 主选 " + primary.display()
-                + (backup == null ? " · 无备选" : " · 备选 " + backup.display()) + " · 下次调用生效");
+                + (backup == null ? " · 无备选" : " · 备选 " + backup.display()) + " · 下次调用生效"
+                + visionSkippedNote);
         return "redirect:/admin/integrations";
     }
 
@@ -303,7 +344,11 @@ public class IntegrationsController {
     private static LlmInvocation parseTriple(String what, String platform, String family, String modelId,
                                              LlmCatalog.Modality modality, boolean requireModel) {
         LlmCatalog.Platform p = LlmCatalog.platform(platform)
-                .orElseThrow(() -> new IllegalArgumentException(what + ":请选择平台"));
+                .orElseThrow(() -> new IllegalArgumentException(isBlank(platform)
+                        // v1.18.4 · 空平台的成因几乎总是「一家密钥都没配 → 下拉里全是禁用项」,
+                        //   干巴巴回一句「请选择平台」等于让用户对着一个选不动的下拉猜。
+                        ? what + ":还没选平台 · 如果下拉里一个都选不了,说明还没有平台配好密钥 —— 先到上面任选一家保存 API Key"
+                        : what + ":未知平台「" + platform + "」"));
         LlmCatalog.Family f = p.family(family)
                 .filter(x -> x.modality() == modality)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -320,6 +365,42 @@ public class IntegrationsController {
                     + "」必须手工填写型号(到控制台复制接入点 ID 或模型 ID),这一家没有可预置的推荐型号");
         }
         return new LlmInvocation(p.code(), f.code(), m);
+    }
+
+    /**
+     * v1.18.4 · 宽松解析:解析得出就返回,解析不出就返回 null(<b>不抛</b>)。
+     * 专给「用户已经关掉这个能力」的场景用 —— 那时他填没填、填得对不对都不该拦住整单。
+     */
+    private static LlmInvocation tryParseTriple(String platform, String family, String modelId,
+                                                LlmCatalog.Modality modality) {
+        try {
+            return parseTriple("", platform, family, modelId, modality, false);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /**
+     * v1.18.4 · 选中的平台必须<b>已经配好密钥</b>。
+     *
+     * <p>前端已经把没配密钥的平台设成 disabled(v1.17.2 的级联),但那只是提示 ——
+     * 表单可以被绕过,而存进去一份「指向没有密钥的平台」的配置,结果是<b>下次调用才失败</b>,
+     * 且失败信息落在别的页面上,用户根本关联不回这里。当面拒绝比事后报错好。</p>
+     */
+    private void requireKeyConfigured(long fid, LlmInvocation inv, String what) {
+        LlmCatalog.Platform p = LlmCatalog.platform(inv.platform()).orElse(null);
+        if (p == null) return;
+        if (!configService.isPrivateKeyConfigured(fid, p.keyName())) {
+            throw new IllegalArgumentException(what + ":" + p.label() + " 还没有配密钥 · 请先在上面那张卡里粘上 API Key 点「保存密钥」");
+        }
+    }
+
+    /** v1.18.4 · 「已配密钥 且 有视觉能力」的平台 —— 截图识别能不能开,取决于它非空。 */
+    private java.util.List<LlmCatalog.Platform> visionCapablePlatforms(long fid) {
+        return LlmCatalog.PLATFORMS.stream()
+                .filter(p -> !p.families(LlmCatalog.Modality.VISION).isEmpty())
+                .filter(p -> configService.isPrivateKeyConfigured(fid, p.keyName()))
+                .toList();
     }
 
     /** 写一组三元组;{@code inv} 为 null = 清空(备选可以不设) */

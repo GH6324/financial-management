@@ -7077,6 +7077,50 @@ QA1182_UT="$RD/src/test/java/com/family/finance/service/reconcile/Reconciliation
   && log_ok "v1182-RECONCILE-NOT-DECORATIVE(按事件时间窗口配对 · 单测该抓/不该抓成对写)" \
   || log_bad "v1182-RECONCILE-NOT-DECORATIVE 判据退回按期合计,或单测只剩「该抓」那一半" "按期合计的判据抓不到这个 bug(估值会把抹掉的动作如实记成事件,两边相消)"
 
+# ============================================================
+# v1.18.4 · 数据源接入页:方舟型号 + 表单按「用户想干什么」分支
+# ============================================================
+
+# v1184-ARK-PRESET-MODELS · 方舟要给得出型号,不能只甩一句「自己去控制台复制」(v1.18.4)
+# v1.13 当时判断「方舟的 model 只能从控制台复制接入点 ID,预置任何一个都会过期」,
+# 于是三个系列全留空 —— 页面对用户只剩一句「这一家没有可预置的型号」,连去哪个页面复制都不说。
+# 2026-08-21 重新调研:那个前提已经不成立,方舟现在支持【直接填 Model ID】,不必建接入点。
+# 做法:默认型号取【不带日期】的 doubao-seed-evolving(平台自动跟进,不会失效),
+#       带日期的几个作为可选项,并给控制台/模型广场的直达链接;输入框照旧可手填。
+QA1184_CAT="$RD/src/main/java/com/family/finance/service/checkup/llm/LlmCatalog.java"
+QA1184_TPL="$RD/src/main/resources/templates/admin/integrations.html"
+{ grep -q 'doubao-seed-evolving' "$QA1184_CAT" \
+  && grep -q 'new Family("doubao-vision", "豆包 · 视觉", Modality.VISION,' "$QA1184_CAT" \
+  && ! grep -q 'new Family("doubao", "豆包 Doubao", Modality.TEXT, List.of(), null)' "$QA1184_CAT" \
+  && grep -q 'openManagement' "$QA1184_TPL" \
+  && grep -q 'region:ark+cn-beijing/model' "$QA1184_TPL" \
+  && ! grep -q '没有可以预置的固定型号名' "$QA1184_TPL" \
+  && ! grep -q '型号需手填' "$QA1184_TPL" \
+  && grep -q '方舟不再要求手填型号_预置了推荐型号' "$RD/src/test/java/com/family/finance/web/admin/LlmModelFormatTest.java"; } \
+  && log_ok "v1184-ARK-PRESET-MODELS(方舟预置推荐型号 · 默认不带日期 · 控制台/模型广场直达链接)" \
+  || log_bad "v1184-ARK-PRESET-MODELS 方舟又变回「自己去控制台复制」" "LlmCatalog.ARK 要有预置型号且默认不带日期;模板要给 openManagement + 模型广场链接"
+
+# v1184-FORM-BY-INTENT · 表单按「用户想干什么」分支,不按「字段填没填」分支(v1.18.4)
+# 维护者报:配好主选、【取消勾选】截图导入,保存却报「截图识别:请选择平台」。
+# 根因不是那一条 —— 是三组三元组一律走同一个 parseTriple,而它一律要求平台可解析,
+# 于是"用户已经关掉的能力"照样被要求填。只配了没有视觉能力的平台(DeepSeek)时更是死路:
+# 视觉下拉里一个可选项都没有,关掉这个能力还是存不下去 —— 主流程直接走不通。
+# 用法矩阵逐条钉在 LlmModelFormatTest 的「用法_*」里,漏掉哪种用法哪种就会再坏一次。
+QA1184_CTL="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"
+QA1184_UT="$RD/src/test/java/com/family/finance/web/admin/LlmModelFormatTest.java"
+{ grep -q 'tryParseTriple' "$QA1184_CTL" \
+  && grep -q 'requireKeyConfigured' "$QA1184_CTL" \
+  && grep -q 'visionCapablePlatforms' "$QA1184_CTL" \
+  && grep -q 'visionCapableReady' "$QA1184_CTL" \
+  && grep -q 'visionCapableReady' "$QA1184_TPL" \
+  && grep -q 'th:disabled="\${!visionCapableReady}"' "$QA1184_TPL" \
+  && [ "$(grep -c 'void 用法_' "$QA1184_UT")" -ge 6 ] \
+  && grep -q '用法_只配无视觉能力的平台_关掉截图识别能存' "$QA1184_UT" \
+  && grep -q '用法_关掉截图识别不清空旧的视觉配置' "$QA1184_UT" \
+  && grep -q '用法_选了没配密钥的平台要当面拒绝' "$QA1184_UT"; } \
+  && log_ok "v1184-FORM-BY-INTENT(关掉的能力不校验 · 没视觉能力时开关禁用并指路 · 平台须已配密钥 · 用法矩阵 6+ 条)" \
+  || log_bad "v1184-FORM-BY-INTENT 表单又按字段分支了(关掉的能力会拦住保存)" "see IntegrationsController#saveLlmModels 的 tryParseTriple / requireKeyConfigured / visionCapablePlatforms"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

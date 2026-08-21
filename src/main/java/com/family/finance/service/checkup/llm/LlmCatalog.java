@@ -113,9 +113,23 @@ public final class LlmCatalog {
      * 火山方舟(Ark)· v1.13 新接。方舟上同时挂着豆包与第三方(DeepSeek 等)系列 ——
      * 「平台 ≠ 模型系列」这件事就是被它捅破的(PRD §0)。
      *
-     * <p>三个系列都<b>不预置推荐型号</b>({@code models} 为空、{@code defaultModel} 为 null):
-     * 方舟的 model 只能从控制台复制(接入点 ID `ep-xxxx`,或带日期的模型 ID),
-     * 预置任何一个都会过期。管理页对这类平台直接给输入框 + 说明,而不是给一个假下拉。</p>
+     * <p><b>v1.18.4 · 预置推荐型号(此前是空的)</b>。v1.13 当时的判断是「方舟的 model 只能从
+     * 控制台复制接入点 ID,预置任何一个都会过期」,于是三个系列都留空 —— 结果管理页给用户的
+     * 唯一提示是<b>「这一家没有可预置的型号,到控制台复制接入点 ID 填进来」</b>,连去哪个页面
+     * 复制都不说。维护者的评价是「这也太差劲了」,对。</p>
+     *
+     * <p>重新调研(2026-08-21)后那个前提<b>已经不成立</b>:方舟现在支持<b>直接用 Model ID 调用</b>,
+     * 不必再建推理接入点({@code model="doubao-seed-2-0-pro-260215"} 直接发即可)。
+     * 所以这里预置一组推荐型号。</p>
+     *
+     * <p><b>但日期后缀确实会过期</b> —— 这个顾虑是真的,只是不该用「什么都不给」来解决。做法:</p>
+     * <ul>
+     *   <li>默认型号选<b>不带日期</b>的 {@code doubao-seed-evolving}(平台侧自动迭代,不会失效)</li>
+     *   <li>带日期的几个作为可选项列出,并在管理页写明「会随版本更迭,失效就去控制台复制最新的」</li>
+     *   <li>输入框<b>照旧可手填</b>:接入点 ID({@code ep-xxxx})与任何新型号都还能填</li>
+     * </ul>
+     * <p>「方舟托管的 DeepSeek」这一系列<b>仍不预置</b> —— 调研没拿到可靠的现行 ID,
+     * 与其编一个,不如照实要求手填(这一条保留 {@code requiresExplicitModel})。</p>
      */
     public static final Platform ARK = new Platform(
             P_ARK, "火山方舟",
@@ -123,9 +137,18 @@ public final class LlmCatalog {
             "llm_ark_api_key", false,
             "console.volcengine.com/ark → API Key(需先完成实名认证)",
             List.of(
-                    new Family("doubao", "豆包 Doubao", Modality.TEXT, List.of(), null),
+                    new Family("doubao", "豆包 Doubao", Modality.TEXT,
+                            List.of(new Model("doubao-seed-evolving", "doubao-seed-evolving · 不带日期,平台自动跟进(推荐)"),
+                                    new Model("doubao-seed-2-0-pro-260215", "doubao-seed-2-0-pro · 更强"),
+                                    new Model("doubao-seed-2-0-lite-260215", "doubao-seed-2-0-lite · 均衡"),
+                                    new Model("doubao-seed-2-0-mini-260215", "doubao-seed-2-0-mini · 快且省")),
+                            "doubao-seed-evolving"),
                     new Family("deepseek", "DeepSeek(方舟托管)", Modality.TEXT, List.of(), null),
-                    new Family("doubao-vision", "豆包 · 视觉", Modality.VISION, List.of(), null)
+                    new Family("doubao-vision", "豆包 · 视觉", Modality.VISION,
+                            List.of(new Model("doubao-seed-2-0-pro-260215", "doubao-seed-2-0-pro · 图片理解更准"),
+                                    new Model("doubao-seed-2-0-lite-260215", "doubao-seed-2-0-lite · 均衡(推荐)"),
+                                    new Model("doubao-seed-2-0-mini-260215", "doubao-seed-2-0-mini · 快且省")),
+                            "doubao-seed-2-0-lite-260215")
             ));
 
     public static final List<Platform> PLATFORMS = List.of(DASHSCOPE, DEEPSEEK, ARK);

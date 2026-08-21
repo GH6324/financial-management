@@ -141,7 +141,7 @@
           <div th:if="${arkKeyConfigured}" class="cred-mask" th:text="${arkKeyMasked}">sk-abc••••••wxyz</div>
           <input class="field-input" type="password" name="apiKey" autocomplete="new-password"
                  th:placeholder="${arkKeyConfigured} ? '留空 = 不改;要换就粘新的' : '粘贴 API Key'"/>
-          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">豆包 / 方舟托管的 DeepSeek · 型号需手填</p>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">豆包 / 方舟托管的 DeepSeek · 已预置推荐型号</p>
           <details class="help-fold">
             <summary>如何获取火山方舟 Key?</summary>
             <div class="help-body">
@@ -149,7 +149,11 @@
                 <li>打开 <a href="https://console.volcengine.com/ark" target="_blank" rel="noreferrer">火山方舟控制台</a> 注册 / 登录</li>
                 <li><b>先完成实名认证</b> —— 没实名的账号建不了 API Key,这一步绕不过去</li>
                 <li>左侧 <b>API Key 管理</b> → 创建,复制后粘到上方保存</li>
-                <li>在「开通管理 / 在线推理」里开通要用的模型,把<b>接入点 ID</b>(<code>ep-</code> 开头)或模型 ID 复制到下面的「型号」框 —— 方舟没有可以预置的固定型号名</li>
+                <li>在 <a href="https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement" target="_blank" rel="noreferrer"><b>开通管理</b></a> 里开通要用的模型(不开通会报「模型未开通」)</li>
+                <li><b>型号下拉里已经预置了几个可用的豆包模型</b>,直接选即可 —— 方舟现在支持直接填 Model ID,<b>不必再建接入点</b>。
+                    默认那个 <code>doubao-seed-evolving</code> 不带日期、平台自动跟进版本。
+                    想换别的去 <a href="https://console.volcengine.com/ark/region:ark+cn-beijing/model" target="_blank" rel="noreferrer">模型广场</a> 复制 Model ID;
+                    老的接入点 ID(<code>ep-</code> 开头)也照样能填。</li>
               </ol>
               <div class="font-mono text-[10px] text-ink-subtle mt-2">详见 <a href="https://github.com/LuoDi-Nate/financial-management/blob/master/docs/llm-api-keys-setup.md" target="_blank" rel="noreferrer">配置指南 · LLM Key 申请</a></div>
             </div>
@@ -249,10 +253,23 @@
       <div class="border-t border-rule-soft pt-5">
         <div class="flex items-baseline justify-between mb-3">
           <div class="eyebrow-ink text-[11px]">截 · 图 · 识 · 别</div>
-          <label class="flex items-center gap-2 text-[12px] cursor-pointer">
-            <input type="checkbox" name="visionEnabled" value="true" id="visionEnabled" th:checked="${llmVisionEnabled}"/>
+          <!-- v1.18.4 · 没有「已配密钥 + 有视觉能力」的平台时,这个开关直接禁用。
+               此前它照样可勾,勾了必然存不下去,而且报的是「请选择平台」——
+               指向一个他根本选不了的下拉。能力不具备就说清楚去配哪家,别让人对着空下拉猜。 -->
+          <label class="flex items-center gap-2 text-[12px]"
+                 th:classappend="${visionCapableReady} ? ' cursor-pointer' : ' opacity-50 cursor-not-allowed'">
+            <input type="checkbox" name="visionEnabled" value="true" id="visionEnabled"
+                   th:checked="${llmVisionEnabled and visionCapableReady}"
+                   th:disabled="${!visionCapableReady}"/>
             <span>启用持仓截图导入</span>
           </label>
+        </div>
+        <div th:unless="${visionCapableReady}" class="border-l-2 border-brass bg-brass/[0.05] px-4 py-3 mb-3">
+          <p class="text-[13px] text-ink leading-relaxed">
+            你已配密钥的平台<b>都没有视觉能力</b>,所以截图导入暂时开不了。
+            要用它,请在上面为<b>阿里云百炼</b>或<b>火山方舟</b>保存一把 API Key —— DeepSeek 只有文本能力。
+            <span class="text-ink-soft">不用截图导入的话,这一段可以完全不管,不影响保存。</span>
+          </p>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-3">
           <div>
