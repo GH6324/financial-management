@@ -57,6 +57,8 @@ public class AccountValuationService {
     private final FamilyService familyService;
     /** v0.4.1 FR-52f · 估值事件审计 + ledger 显示 */
     private final StockValuationEventMapper valuationEventMapper;
+    /** v1.18.3 · 估值写回被拦下时要留痕 —— 只写日志等于页面上看不出来(v1.17.3 的教训) */
+    private final com.family.finance.service.AuditLogService auditLogService;
 
     /** |Δ| > 此阈值才写 event(避免微小价格波动产生噪音流水) */
     private static final BigDecimal EVENT_THRESHOLD = new BigDecimal("0.01");
@@ -70,7 +72,8 @@ public class AccountValuationService {
                                    FxService fxService,
                                    org.springframework.context.ApplicationEventPublisher eventPublisher,
                                    FamilyService familyService,
-                                   StockValuationEventMapper valuationEventMapper) {
+                                   StockValuationEventMapper valuationEventMapper,
+                                   com.family.finance.service.AuditLogService auditLogService) {
         this.accountMapper = accountMapper;
         this.holdingMapper = holdingMapper;
         this.priceMapper = priceMapper;
@@ -81,6 +84,7 @@ public class AccountValuationService {
         this.eventPublisher = eventPublisher;
         this.familyService = familyService;
         this.valuationEventMapper = valuationEventMapper;
+        this.auditLogService = auditLogService;
     }
 
     /**
@@ -142,7 +146,9 @@ public class AccountValuationService {
                 .map(s -> s.getEndBalance())
                 .orElse(null);
             LedgerSource src = inferSource(explicitSource, trigger, null, holdings);
-            writeBackBalance(familyId, currentOpen.getId(), acc, r.totalBaseValue(), src);
+            // v1.18.3 · 没写回就【不写事件】—— 否则等于记一个没发生的变化,而且会把
+            //   「上次估值时间」推到现在,让下一次刷新的窗口变空、第二次就拦不住。
+            if (!writeBackBalance(familyId, currentOpen.getId(), acc, r.totalBaseValue(), src)) continue;
             // 若变化超阈值,写事件
             recordValuationEventIfChanged(familyId, acc.getId(), currentOpen.getId(),
                 prevBalance, r.totalBaseValue(), trigger, triggeredByMemberId, null, src);
@@ -179,7 +185,8 @@ public class AccountValuationService {
         BigDecimal prevBalance = snapshotMapper.findByPeriodAndAccount(currentOpen.getId(), accountId)
             .map(s -> s.getEndBalance()).orElse(null);
         LedgerSource src = inferSource(explicitSource, trigger, refImportId, holdings);
-        writeBackBalance(familyId, currentOpen.getId(), acc, r.totalBaseValue(), src);
+        // v1.18.3 · 同上:没写回就不写事件(见 writeBackBalance 的返回值说明)
+        if (!writeBackBalance(familyId, currentOpen.getId(), acc, r.totalBaseValue(), src)) return;
         recordValuationEventIfChanged(familyId, accountId, currentOpen.getId(),
             prevBalance, r.totalBaseValue(), trigger, triggeredByMemberId, refImportId, src);
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId));
@@ -342,8 +349,16 @@ public class AccountValuationService {
      * <p>schema 把 submitted_by NOT NULL · 系统自动写入用 account.primary_owner_member_id 兜底;
      * 若该字段也为 null,用 family 第一个 member。区分系统/用户写入靠 note 标识"系统估值"。</p>
      */
-    private void writeBackBalance(long familyId, long periodId, Account acc, BigDecimal balance,
-                                  LedgerSource source) {
+    /**
+     * @return true = 真的写回了;false = 没写(拦下 或 定不出 submittedBy)。
+     *
+     * <p><b>返回值必须被调用方尊重</b>:拦下了却照样写 {@code stock_valuation_event},
+     * 等于记了一个<b>没发生过的变化</b> —— 而且那条事件会把「上次估值时间」推到现在,
+     * 于是下一次刷新的窗口变空、<b>第二次就拦不住了</b>,钱照样没。
+     * 这个洞是 e2e 主线 19 抓出来的(余额掉了两倍的钱),不是推理出来的。</p>
+     */
+    private boolean writeBackBalance(long familyId, long periodId, Account acc, BigDecimal balance,
+                                     LedgerSource source) {
         Long submittedBy = acc.getPrimaryOwnerMemberId();
         if (submittedBy == null) {
             // 兜底:family 第一个 member
@@ -352,8 +367,43 @@ public class AccountValuationService {
         }
         if (submittedBy == null) {
             log.warn("can't resolve submittedBy for account={} · skip valuation writeback", acc.getId());
-            return;
+            return false;
         }
+
+        // ── v1.18.3 · fail-closed:不许把刚进账户的钱盖掉(复盘方案 B)────────────────
+        //   这是全系统唯一一条【自动的、破坏性的、对余额的写】——
+        //   period_snapshot 是覆盖写,被盖掉的旧值没有任何地方留底,所以一旦盖错就不可恢复。
+        //   v1.18.1 修掉了已知的那条路径(钱现在会落进现金行),这里是兜底:
+        //   万一还有我没找到的路径,宁可【这次不写】,也不要把钱抹掉。
+        //   判据与事后对账扫描共用一份(ErasureDetector),不许两处各写一套。
+        BigDecimal current = snapshotMapper.findByPeriodAndAccount(periodId, acc.getId())
+                .map(PeriodSnapshot::getEndBalance).orElse(null);
+        if (current != null && balance != null) {
+            try {
+                java.time.LocalDateTime since = valuationEventMapper.lastEventAt(acc.getId(), periodId);
+                java.util.List<BigDecimal> windowFlows =
+                        valuationEventMapper.findFlowsAfter(acc.getId(), periodId, since);
+                BigDecimal windowFlow = com.family.finance.calc.reconcile.ErasureDetector.erasedAmount(
+                        balance.subtract(current), windowFlows,
+                        com.family.finance.calc.reconcile.ErasureDetector.MIN_EPSILON);
+                if (windowFlow != null) {
+                    // 留痕要显式:v1.17.3 的教训是「失败只写日志 = 页面上看不出来」。
+                    // 这条会出现在管理页审计日志里,账目对账页也读它。
+                    auditLogService.record(familyId, submittedBy,
+                            com.family.finance.domain.audit.AuditLogType.SYSTEM,
+                            "period_snapshot", acc.getId(),
+                            BLOCKED_WRITEBACK_NOTE + " · 账户=" + acc.getDisplayName()
+                                    + " · 这次写回会把本期刚进出的 " + windowFlow + " 抹平,已拒绝覆盖");
+                    log.warn("valuation writeback BLOCKED · account={} would erase flow={} (delta={}) · 余额保持不变",
+                            acc.getId(), windowFlow, balance.subtract(current));
+                    return false;
+                }
+            } catch (Exception e) {
+                // 兜底检查本身不许把估值搞挂 —— 查不动就放行,但要留一行日志
+                log.warn("erasure pre-check failed · account={} · 放行本次写回: {}", acc.getId(), e.toString());
+            }
+        }
+
         PeriodSnapshot snap = PeriodSnapshot.builder()
             .periodId(periodId)
             .accountId(acc.getId())
@@ -364,7 +414,11 @@ public class AccountValuationService {
             .sourceTag((source == null ? LedgerSource.UNKNOWN : source).name())
             .build();
         snapshotMapper.upsert(snap);
+        return true;
     }
+
+    /** v1.18.3 · 估值写回被拦下时的审计标识 —— 账目对账页按它读「被拦下的写回」 */
+    public static final String BLOCKED_WRITEBACK_NOTE = "估值写回被拦下(会抹掉刚进账户的钱)";
 
     /** 系统估值同步写入 period_snapshot 时使用的 note 标识(中文 · 用户面友好) */
     public static final String SYSTEM_VALUATION_NOTE = "系统估值同步";

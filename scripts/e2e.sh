@@ -3,7 +3,7 @@
 # e2e.sh · 端到端主线验收(补充 qa-run 的广度冒烟,做纵深真验收)
 #   形态:唤起 beta 应用(被测基线)→ 按序调用真实接口 → 用「接口响应 + DB 真实数据」判定功能对错。
 #   隔离(策略 A):开跑前 mysqldump 快照基线,trap EXIT 无论成败都还原 + 重启 → 可重复、不污染 beta。
-#   6 条主线:1 记账闭环 · 2 账期滚动 · 3 报表成图 · 4 多币种镜头 · 5 收益指标 · 6 LOAN 还款归零(后续版本陆续加到 18)。
+#   6 条主线:1 记账闭环 · 2 账期滚动 · 3 报表成图 · 4 多币种镜头 · 5 收益指标 · 6 LOAN 还款归零(后续版本陆续加到 19)。
 #   只读主线在前(干净基线),改数据主线殿后。
 # ============================================================================
 set -u   # 不用 pipefail:curl|grep -q / |head 会提前关管道让 curl 收 SIGPIPE,pipefail 会把这类正常管道误判为失败
@@ -484,19 +484,25 @@ db "DELETE FROM family_runtime_config WHERE family_id=$FAM AND key_name='llm_dee
 eq "接入页-探测密钥已清理" "$(db "$KEYROW")" "${KEY_BEFORE:-0}"
 
 # ============================================================================
-section "主线 16 · 归因复盘锚已关账期(v1.18.1 · 转入不再被读成亏损)"
-# 生产误判:排行榜把一个只收到一笔转入的账户列成「亏得最多」,金额恰好等于那笔转入。
-# 机制是锚期错了 —— 进行中的那期「转账已登记、余额还没填」→ pnl = Δ余额(0) − 净转入 = 负数。
+section "主线 16 · 归因锚当月实时 · 转入不产生假亏损(v1.18.3)"
+# v1.18.1 曾把归因锚到「最新已关账期」来绕开假亏损,v1.18.3 锚回当月(仪表盘的分工就是实时)。
+# 能锚回来的前提是【钱的修复已经生效】:流水会立刻同步进余额,所以当期转入的 pnl 是 0。
+# 这条断言因此从「验锚点」升级成「验钱」—— 它一旦红,说明 v1.18.1 那个丢钱 bug 回来了。
 ATTR="$(GET "/dashboard/attribution?dim=acct")"
 printf '%s' "$ATTR" | grep -q 'attrWaterfall' && ok "归因-片段正常渲染" \
   || bad "归因-片段正常渲染" "没拿到归因 section"
 LAST_STATUS="$(db "SELECT status FROM period WHERE family_id=$FAM ORDER BY period_start DESC LIMIT 1")"
 echo "  最后一期状态=$LAST_STATUS"
 if [ "$LAST_STATUS" = "OPEN" ]; then
-  printf '%s' "$ATTR" | grep -q '归因锚定' && ok "归因-填报中时页面明示锚期" \
-    || bad "归因-填报中时页面明示锚期" "应出现「归因锚定 YYYY-MM」"
+  printf '%s' "$ATTR" | grep -q '还在填报中' && ok "归因-填报中时页面明示【实时口径】" \
+    || bad "归因-填报中时页面明示【实时口径】" "应出现「YYYY-MM 还在填报中 · 实时口径」"
+  printf '%s' "$ATTR" | grep -q '本月已录' && ok "归因-给出已录收支(让人判断钱赚有多虚高)" \
+    || bad "归因-给出已录收支" "应出现「本月已录 收入 … 支出 …」"
+  printf '%s' "$ATTR" | grep -q '归因锚定' \
+    && bad "归因-不该再说「锚定上个月」" "v1.18.3 已锚回当月,这句文案是旧的" \
+    || ok "归因-旧的「锚定上个月」文案已移除"
 else
-  ok "归因-最后一期已关账,无需锚期提示(跳过)"
+  ok "归因-最后一期已关账,无需实时口径提示(跳过)"
 fi
 # 核心回归:往 OPEN 期的某账户转一笔钱,它不该在归因排行榜里变成同额亏损
 OPEN_PID2="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='OPEN' ORDER BY period_start DESC LIMIT 1")"
@@ -506,9 +512,9 @@ if [ -n "$OPEN_PID2" ]; then
   POSTcode "/entry/$SRC/transfer" --data-urlencode "periodId=$OPEN_PID2" --data-urlencode "toAccountId=$DST" --data-urlencode "amount=41234" >/dev/null
   ATTR2="$(GET "/dashboard/attribution?dim=acct")"
   if printf '%s' "$ATTR2" | grep -q -- '-41234'; then
-    bad "归因-OPEN 期转入不产生假亏损" "排行榜里出现了 −41234(锚又跑回进行中的期了)"
+    bad "归因-当月转入不产生假亏损" "排行榜里出现了 −41234 —— 说明转入没同步进余额(丢钱 bug 回来了)"
   else
-    ok "归因-OPEN 期转入不产生假亏损(锚在已关账期)"
+    ok "归因-当月转入不产生假亏损(钱已同步进余额)"
   fi
 else
   ok "归因-无 OPEN 期,跳过假亏损回归"
@@ -566,21 +572,70 @@ if [ -n "$RC_ACC" ] && [ -n "$RC_SRC" ] && [ -n "$RC_PID" ]; then
   RC_BEFORE="$(rc_hits)"; RC_BEFORE="${RC_BEFORE:-0}"
   echo "  基线命中 $RC_BEFORE 条 · 托管账户=$RC_ACC"
   # ① 正常划转(修复后:钱进现金行)→ 不该新增命中
-  POSTcode "/entry/$RC_SRC/transfer" --data-urlencode "periodId=$RC_PID" --data-urlencode "toAccountId=$RC_ACC" --data-urlencode "amount=75000" >/dev/null
+  POSTcode "/entry/$RC_SRC/transfer" --data-urlencode "periodId=$RC_PID" --data-urlencode "toAccountId=$RC_ACC" --data-urlencode "amount=53210" >/dev/null
   POSTcode "/accounts/$RC_ACC/holdings/refresh" >/dev/null
   RC_OK="$(rc_hits)"; RC_OK="${RC_OK:-0}"
   eq "对账-钱正确入账时不误报" "$RC_OK" "$RC_BEFORE"
-  # ② 人为复现 v1.18.1 之前的形态:把现金行那 75000 抹掉,再跑估值 → 估值会精确抹平这笔钱
-  db "UPDATE stock_holding SET manual_value = manual_value - 75000 WHERE account_id=$RC_ACC AND archived_at IS NULL AND valuation_mode='CASH'" >/dev/null
-  POSTcode "/accounts/$RC_ACC/holdings/refresh" >/dev/null
+  # ② 造一条【历史】丢钱:v1.18.3 的 fail-closed 已经让 app 不会再丢新的钱(主线 19 验那个),
+  #    而这个扫描器扫的是历史 —— 所以直接在库里摆出那个形状:
+  #    一笔进账 + 紧随其后一条 Δ = −该笔金额 的估值事件(= 当年被抹掉时留下的痕迹)。
+  #    用 app 去"丢一次钱"已经不可行了,那正是方案 B 生效的证据。
+  RC_FAKE_T="$(db "SELECT UNIX_TIMESTAMP()")"
+  db "INSERT INTO transfer (period_id, from_account_id, to_account_id, amount, occurred_at, submitted_by, is_draft, submitted_at)
+      SELECT $RC_PID, $RC_SRC, $RC_ACC, 61234, CURDATE(), 1, 0, NOW(3)" >/dev/null
+  db "INSERT INTO stock_valuation_event (family_id, account_id, period_id, prev_balance, new_balance, delta, trigger_kind, triggered_at)
+      VALUES ($FAM, $RC_ACC, $RC_PID, 0, 0, -61234, 'CRON', NOW(3) + INTERVAL 1 SECOND)" >/dev/null
   RC_BAD="$(rc_hits)"; RC_BAD="${RC_BAD:-0}"
   [ "${RC_BAD:-0}" -gt "${RC_BEFORE:-0}" ] \
-    && ok "对账-真丢钱时抓得到(命中 $RC_BEFORE → $RC_BAD)" \
-    || bad "对账-真丢钱时抓得到" "复现了丢钱却没被扫出来 —— 这个检查成了永远绿的装饰品"
+    && ok "对账-历史丢钱扫得出来(命中 $RC_BEFORE → $RC_BAD)" \
+    || bad "对账-历史丢钱扫得出来" "摆好了形状却没扫出来 —— 这个检查成了永远绿的装饰品"
   GET /admin/reconcile | grep -q '需要补回' && ok "对账-给出要补回的金额" \
     || bad "对账-给出要补回的金额" "页面没有「需要补回」列"
+  # 收尾:清掉造出来的历史形状,别污染后面的主线
+  db "DELETE FROM stock_valuation_event WHERE account_id=$RC_ACC AND period_id=$RC_PID AND delta=-61234" >/dev/null
+  db "DELETE FROM transfer WHERE period_id=$RC_PID AND to_account_id=$RC_ACC AND amount=61234" >/dev/null
 else
   ok "对账-beta 上没有「有持仓的 WEALTH/CRYPTO/METAL」账户,跳过"
+fi
+
+# ============================================================================
+section "主线 19 · 估值写回 fail-closed(v1.18.3 · 复盘方案 B · 不许把刚进的钱盖掉)"
+# 事后对账是补救,事前不发生才是根治。period_snapshot 是【覆盖写】,被盖掉的旧值没有任何
+# 地方留底 —— 所以这是全系统唯一一条不可恢复的自动写。宁可这次不写,也不要把钱抹掉。
+# 判据与对账扫描共用一份(ErasureDetector),双向都验:该拦的拦住 + 正常估值不误拦。
+FC_ACC="$(db "SELECT a.id FROM account a JOIN stock_holding h ON h.account_id=a.id AND h.archived_at IS NULL
+             WHERE a.family_id=$FAM AND a.archived_at IS NULL AND a.type IN ('WEALTH','CRYPTO','METAL')
+             GROUP BY a.id ORDER BY a.id LIMIT 1")"
+FC_SRC="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='CASH' AND archived_at IS NULL ORDER BY id LIMIT 1")"
+FC_PID="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='OPEN' ORDER BY period_start DESC LIMIT 1")"
+if [ -n "$FC_ACC" ] && [ -n "$FC_SRC" ] && [ -n "$FC_PID" ]; then
+  fcsnap(){ db "SELECT ROUND(end_balance,2) FROM period_snapshot WHERE period_id=$FC_PID AND account_id=$FC_ACC"; }
+  fcblk(){ db "SELECT COUNT(*) FROM audit_log WHERE family_id=$FAM AND summary LIKE '估值写回被拦下%'"; }
+  BLK0="$(fcblk)"; BLK0="${BLK0:-0}"
+  # 金额刻意与主线 17/18 不同:同期同双方同金额 24 小时内会被【重复划转防护】挡掉,
+  # 那条防护是对的,是用例撞上了它 —— 撞上之后划转没生效,后面的断言全在验一个假场景。
+  BEFORE_T="$(fcsnap)"
+  POSTcode "/entry/$FC_SRC/transfer" --data-urlencode "periodId=$FC_PID" --data-urlencode "toAccountId=$FC_ACC" --data-urlencode "amount=48765" >/dev/null
+  AFTER_T="$(fcsnap)"
+  eq "写回拦截-前置:划转真的生效了(没被重复防护挡掉)" \
+     "$(awk -v a="$AFTER_T" -v b="$BEFORE_T" 'BEGIN{printf "%.2f", a-b}')" "48765.00"
+  # ① 人为抹掉现金行 = 复现 v1.18.1 之前那条路径 → 估值必须【拒绝覆盖】
+  db "UPDATE stock_holding SET manual_value = manual_value - 48765 WHERE account_id=$FC_ACC AND archived_at IS NULL AND valuation_mode='CASH'" >/dev/null
+  POSTcode "/accounts/$FC_ACC/holdings/refresh" >/dev/null
+  eq "写回拦截-余额没被抹掉(拒绝覆盖)" "$(fcsnap)" "$AFTER_T"
+  BLK1="$(fcblk)"; BLK1="${BLK1:-0}"
+  [ "$BLK1" -gt "$BLK0" ] && ok "写回拦截-留了痕(审计可查 · 不是只写日志)" \
+    || bad "写回拦截-留了痕" "拦下来却没写审计 —— 那就是 v1.17.3 犯过的「失败只写日志」"
+  GET /admin/reconcile | grep -q '估值写回被拦下' && ok "写回拦截-对账页看得见" \
+    || bad "写回拦截-对账页看得见" "拦截留痕没出现在 /admin/reconcile"
+  # ② 反方向:补回现金行后正常估值不许被误拦
+  db "UPDATE stock_holding SET manual_value = manual_value + 48765 WHERE account_id=$FC_ACC AND archived_at IS NULL AND valuation_mode='CASH'" >/dev/null
+  BLK2="$(fcblk)"; BLK2="${BLK2:-0}"
+  POSTcode "/accounts/$FC_ACC/holdings/refresh" >/dev/null
+  BLK3="$(fcblk)"; BLK3="${BLK3:-0}"
+  eq "写回拦截-正常估值不误拦" "$BLK3" "$BLK2"
+else
+  ok "写回拦截-beta 上没有「有持仓的 WEALTH/CRYPTO/METAL」账户,跳过"
 fi
 
 # ============================================================================

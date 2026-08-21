@@ -63,15 +63,16 @@ public class ReviewController {
         FactSlice slice = factViewService.load(new FactFilter(me.getFamilyId(), family.getPeriodType(),
                 start, anchor.getPeriodStart(), false, accountIds, ccy));
         KpiSnapshot kpis = factViewService.kpis(slice);
-        // v1.18.1 BUG-FIX · 与 dashboard 归因同一口径:锚「最新已关账期」,四项一起挪。
-        //   AI 复盘吃的就是这份归因结果,锚错了它会照着一个假的「亏得最多」写解读。
-        Long attrPeriodId = slice.returnAnchorPeriodId() == null ? slice.lastPeriodId() : slice.returnAnchorPeriodId();
+        // v1.18.3 · 与 dashboard 归因【同一口径】:锚用户正在看的这一期(默认当月实时)。
+        //   AI 复盘吃的就是页面上那份归因结果,两者锚不同期的话,AI 会照着另一个月的数写解读 ——
+        //   那种错比数字本身错更难发现(读起来完全通顺)。
+        Long attrPeriodId = slice.lastPeriodId();
         var cf = factViewService.cashflowBreakdown(slice, attrPeriodId);
         BigDecimal human = cf == null ? BigDecimal.ZERO
                 : nz(cf.income()).subtract(nz(cf.expense()));
         AttributionEngine.Result attr = attributionService.attribute(me.getFamilyId(),
                 slice.byPeriod().getOrDefault(attrPeriodId, List.of()),
-                kpis.returnAnchorDelta(), human, kpis.returnAnchorOpeningBaseline());
+                kpis.netWorthDelta(), human, kpis.openingBaselineLast());
         LinkedHashMap<String, BigDecimal> grouped =
                 AttributionEngine.groupBy(attr, "acct".equals(dim) ? null : dim);
         ReviewInsightService.Review r = reviewInsightService.review(me.getFamilyId(), anchor.getId(),

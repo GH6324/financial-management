@@ -26,35 +26,27 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * v1.18.1 · 归因复盘(谁赚得多 / 谁亏得多)必须锚「最新已关账期」。
+ * v1.18.3 · 归因复盘的两条不变量:<b>四项必须同期</b>,以及<b>当期转入不许变成假亏损</b>。
  *
- * <p><b>起因是一次真实误判</b>:生产上排行榜把一个只<b>收到一笔转入</b>的理财账户列成
- * 「亏得最多」,金额恰好等于那笔转入的全额。用户去翻流水才发现「这个账户根本没亏损」。</p>
+ * <h3>这条测试的来历(两次反转,都记下来)</h3>
+ * <p><b>v1.18.1</b>:生产上排行榜把一个只<b>收到一笔转入</b>的理财账户列成「亏得最多」,
+ * 金额恰好等于那笔转入。当时的修法是把归因锚到「最新已关账期」—— 绕开进行中的月份。</p>
  *
- * <p>机制不是「转账被算成了收入」—— 转账在 {@link PnlCalculator#periodPnl} 里是被<b>减掉</b>的,
- * 收入侧读的是 {@code cash_flow.INCOME},压根不含 transfer。真正的原因是<b>锚期错了</b>:
- * 归因原来锚 {@code lastPeriodId},而进行中的那一期典型状态是
- * <b>「转账已登记、月末余额还没填」</b>(余额是开账时延续来的旧值),于是</p>
+ * <p><b>v1.18.3</b>:那是<b>权宜之计</b>,而且带来了新问题 —— 仪表盘上面的卡是本月、
+ * 下面的归因瀑布是上月,同一屏两个月份,维护者拿本月印象去对上月的数,当场看成 bug。
+ * 仪表盘的分工本来就是「当月实时」(v1.10 FR-327 已定)。</p>
  *
- * <pre>  pnl = Δ余额(0) − 收支(0) − 净转入(+X) = −X</pre>
+ * <p>能锚回当月,是因为<b>真正的病根已经修掉了</b>:假亏损不是「进行中的期」造成的,
+ * 是 v1.18.1 后半段修的<b>丢钱 bug</b> —— 钱没落进现金行,被估值按「持仓合计」重算时抹掉,
+ * 于是余额没涨、转入却记着,pnl = Δ余额(0) − 转入 = −转入。
+ * 现在流水会立刻同步进余额,同一笔转入的 pnl 就是 0。<b>本测把这条前提钉死</b>:
+ * 它一旦不成立,锚回当月就不再安全。</p>
  *
- * <p>—— 一笔转入被原封不动地读成了同额亏损。v1.6.30 已经为「本月资产收益」立过同一条规矩
- * (收益类锚已关账期),归因这条当时漏了。</p>
- *
- * <p>还有一个陷阱:归因瀑布靠恒等式 ΔNW = 人赚 + 钱赚 + 开账基线 + 未归因 闭合,
- * 四项必须<b>同一期</b>。只把「钱赚」挪到已关账期、ΔNW 还留在最后一期,差额会全被
- * 「未归因」吸收 —— 数字看着平了,其实是把错误藏进了兜底项。所以本测同时钉住
- * {@code returnAnchorDelta} / {@code returnAnchorOpeningBaseline} 这两个同期字段存在且自洽。</p>
- *
- * <p>金额一律用合成的整数,不搬生产真实数值(护栏 v111-NO-PROD-AMOUNTS)。</p>
+ * <p>金额用合成值,不搬生产真实数值(护栏 v111-NO-PROD-AMOUNTS)。</p>
  */
 class AttributionAnchorTest {
 
     private static final BigDecimal Z = BigDecimal.ZERO;
-
-    /** 期末余额:两期都是 200000(= 进行中那期还没填,是开账延续来的旧值) */
-    private static final String STALE_BALANCE = "200000";
-    /** 进行中那期收到的转入 */
     private static final String TRANSFER_IN = "30000";
 
     private FactViewServiceImpl svc() {
@@ -91,21 +83,53 @@ class AttributionAnchorTest {
                 pnl, pnl, BigDecimal.ONE);
     }
 
+    // ────────────────────────────────────────────────────────────────
+    // ① 锚回当月的前提:流水同步进余额,转入就不再是假亏损
+    // ────────────────────────────────────────────────────────────────
+
     /**
-     * 三期,同一个账户 —— 三期是必需的:归因锚期自己也要有「上一期」才算得出 ΔNW,
-     * 只造两期会让锚期落在窗口第一期上、{@code returnAnchorDelta} 恒为 null
-     * (第一版就是这么写的,测试当场红,而那是测试数据的问题不是实现的问题)。
-     * <ul>
-     *   <li>5 月(已关账):建仓 190000</li>
-     *   <li>6 月(已关账):190000 → 200000,收到转入 9000 → 真实损益 +1000</li>
-     *   <li>7 月(进行中):余额<b>没动</b>(还是 200000 · 开账延续值),收到转入 30000</li>
-     * </ul>
+     * <b>v1.18.1 之前的形态</b>(留作反面教材):钱进来了、余额没动 → 整笔转入被读成亏损。
+     * 这不是「进行中的期」的锅,是钱被估值抹掉了。
      */
+    @Test
+    void 余额没跟上时_转入会被读成同额亏损_这是丢钱bug的表征() {
+        AccountPeriodFact broken = fact(3L, 7, "200000", "200000", "0", "0", TRANSFER_IN, "0");
+        assertThat(broken.periodPnlBase()).isEqualByComparingTo("-" + TRANSFER_IN);
+    }
+
+    /**
+     * <b>v1.18.1 之后的形态</b>:划转会立刻把钱加进余额(以及托管账户的现金行),
+     * 于是同一笔转入的 pnl 就是 0 —— <b>这条成立,锚回当月才安全</b>。
+     */
+    @Test
+    void 余额同步更新后_同一笔转入的损益是零() {
+        AccountPeriodFact fixed = fact(3L, 7, "200000", "230000", "0", "0", TRANSFER_IN, "0");
+        assertThat(fixed.periodPnlBase()).isEqualByComparingTo("0");
+
+        AttributionEngine.Result r = AttributionEngine.attribute(inputs(List.of(fixed)), Z, Z, Z);
+        assertThat(r.slices()).as("零贡献不该进排行榜,更不该出现在「亏得最多」里").isEmpty();
+    }
+
+    /** 转账不进收入侧 —— 当初的猜测是「转账被计入收入」,这条钉住实际口径。 */
+    @Test
+    void 转账不进收入侧_收入只读cash_flow() {
+        AccountPeriodFact f = fact(3L, 7, "200000", "230000", "0", "0", TRANSFER_IN, "0");
+        assertThat(f.incomeOrig()).isEqualByComparingTo(Z);
+        assertThat(f.incomeBase()).isEqualByComparingTo(Z);
+        // pnl 公式里转账是被【减掉】的 —— 所以余额没跟上时它变成负数,而不是变成"收入"
+        assertThat(PnlCalculator.periodPnl(new BigDecimal("200000"), new BigDecimal("200000"),
+                Z, Z, new BigDecimal(TRANSFER_IN), Z)).isEqualByComparingTo("-" + TRANSFER_IN);
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    // ② 不因锚点变化而改变的那条:四项必须同期
+    // ────────────────────────────────────────────────────────────────
+
     private List<AccountPeriodFact> rows() {
         return List.of(
                 fact(1L, 5, null, "190000", "0", "0", "0", "0"),
-                fact(2L, 6, "190000", STALE_BALANCE, "0", "0", "9000", "0"),
-                fact(3L, 7, STALE_BALANCE, STALE_BALANCE, "0", "0", TRANSFER_IN, "0"));
+                fact(2L, 6, "190000", "200000", "0", "0", "9000", "0"),
+                fact(3L, 7, "200000", "230000", "0", "0", TRANSFER_IN, "0"));
     }
 
     private FactSlice slice(List<Long> closed) {
@@ -114,101 +138,40 @@ class AttributionAnchorTest {
         return new FactSlice(f, rows(), List.of(1L, 2L, 3L), 3L, closed);
     }
 
-    /** 末期进行中(生产上出问题的形态) */
-    private FactSlice lastOpen() { return slice(List.of(1L, 2L)); }
-
-    /** 对照:末期也已关账 */
-    private FactSlice allClosed() { return slice(List.of(1L, 2L, 3L)); }
-
-    // ────────────────────────────────────────────────────────────────
-    // ① 先钉住"病根"本身:进行中那期的 pnl 就是负的转入额
-    //    这条不是在测 bug,是把「为什么不能拿进行中的期算归因」写成可执行的证据。
-    //    以后有人想把锚改回 lastPeriodId,先得解释这个数。
-    // ────────────────────────────────────────────────────────────────
+    /** 仪表盘归因锚【用户正在看的这一期】= lastPeriodId(默认当月,可能进行中)。 */
     @Test
-    void 进行中那期的损益等于负的转入额_这就是假亏损的来源() {
-        AccountPeriodFact open = rows().get(2);
-        assertThat(open.periodPnlBase()).isEqualByComparingTo("-" + TRANSFER_IN);
-        // 余额一分没动、收支一笔没录 —— 唯一的输入就是那笔转入
-        assertThat(open.endBalanceOrig()).isEqualByComparingTo(open.previousEndBalanceOrig());
-        assertThat(open.incomeOrig()).isEqualByComparingTo(Z);
-        assertThat(open.transferInOrig()).isEqualByComparingTo(TRANSFER_IN);
-    }
-
-    /** 转账不在收入侧 —— 用户当时的猜测是「转账被计入收入」,这条钉住实际口径。 */
-    @Test
-    void 转账不进收入侧_收入只读cash_flow() {
-        AccountPeriodFact open = rows().get(2);
-        assertThat(open.incomeOrig()).isEqualByComparingTo(Z);
-        assertThat(open.incomeBase()).isEqualByComparingTo(Z);
-        // 而 pnl 公式里转账是被减掉的(所以它才会变成负数,而不是变成"收入")
-        assertThat(PnlCalculator.periodPnl(new BigDecimal(STALE_BALANCE), new BigDecimal(STALE_BALANCE),
-                Z, Z, new BigDecimal(TRANSFER_IN), Z)).isEqualByComparingTo("-" + TRANSFER_IN);
-    }
-
-    // ────────────────────────────────────────────────────────────────
-    // ② 锚点:归因必须落在已关账期
-    // ────────────────────────────────────────────────────────────────
-    @Test
-    void 归因锚点是最新已关账期_不是最后一期() {
-        FactSlice s = lastOpen();
-        assertThat(s.lastPeriodId()).isEqualTo(3L);              // 存量类看这一期(余额要最新)
-        assertThat(s.returnAnchorPeriodId()).isEqualTo(2L);      // 收益类(含归因)看这一期
-        assertThat(s.filingInProgress()).isTrue();               // 页面据此提示口径
-
-        assertThat(allClosed().returnAnchorPeriodId()).isEqualTo(3L);
-        assertThat(allClosed().filingInProgress()).isFalse();
-    }
-
-    @Test
-    void 锚已关账期后假亏损消失_剩下真实损益() {
-        FactSlice s = lastOpen();
-        List<AccountPeriodFact> anchorRows = s.byPeriod().get(s.returnAnchorPeriodId());
-        AttributionEngine.Result r = AttributionEngine.attribute(inputs(anchorRows), Z, Z, Z);
-        assertThat(r.slices()).hasSize(1);
-        // 6 月真实损益 = (200000 − 190000) − 9000 = +1000
-        assertThat(r.slices().get(0).pnlBase()).isEqualByComparingTo("1000");
-        assertThat(r.moneyEarnedTotal()).isEqualByComparingTo("1000");
-
-        // 对照:锚最后一期(改动前的行为)会得到 −30000 的假亏损
-        List<AccountPeriodFact> openRows = s.byPeriod().get(s.lastPeriodId());
-        AttributionEngine.Result bug = AttributionEngine.attribute(inputs(openRows), Z, Z, Z);
-        assertThat(bug.slices().get(0).pnlBase()).isEqualByComparingTo("-" + TRANSFER_IN);
-    }
-
-    // ────────────────────────────────────────────────────────────────
-    // ③ 恒等式四项必须同期 —— 只挪一项会把差额藏进「未归因」
-    // ────────────────────────────────────────────────────────────────
-    @Test
-    void kpi暴露归因同期的ΔNW与开账基线() {
-        KpiSnapshot k = svc().kpis(lastOpen());
-        // 存量口径仍锚最后一期:余额没动,所以 ΔNW = 0
-        assertThat(k.netWorthDelta()).isEqualByComparingTo("0");
-        // 归因口径锚 6 月:ΔNW = 200000 − 190000 = 10000
-        assertThat(k.returnAnchorDelta()).isEqualByComparingTo("10000");
-        // 本测把「首次出现账户」置空 → 开账基线恒 0,但字段必须存在(不能是 null 让调用方 NPE)
-        assertThat(k.returnAnchorOpeningBaseline()).isNotNull().isEqualByComparingTo("0");
+    void 仪表盘归因锚当月_而收益类KPI仍锚已关账期() {
+        FactSlice s = slice(List.of(1L, 2L));          // 7 月进行中
+        assertThat(s.lastPeriodId()).as("归因/存量看这一期").isEqualTo(3L);
+        assertThat(s.returnAnchorPeriodId()).as("本月资产收益等收益类 KPI 仍锚已关账期").isEqualTo(2L);
+        assertThat(s.filingInProgress()).as("页面据此提示「实时口径 + 收支可能没录齐」").isTrue();
     }
 
     /**
-     * 混锚就是这次差点犯的错:钱赚用 6 月、ΔNW 用 7 月 → 差额被「未归因」吞掉,
-     * 页面看着还是闭合的,而错误已经藏进兜底项里。
+     * <b>混锚会把差额藏进「未归因」</b> —— 瀑布靠 ΔNW = 人赚 + 钱赚 + 开账基线 + 未归因 闭合,
+     * 而「未归因」是<b>残差定义</b>,按构造恒等成立。四项不同期时,差额会被它悄悄吸收:
+     * 页面看着平了,错误其实藏进了兜底项。这条与锚在哪一期无关,永远成立。
      */
     @Test
     void 混锚会把差额藏进未归因() {
-        FactSlice s = lastOpen();
+        FactSlice s = slice(List.of(1L, 2L));
         KpiSnapshot k = svc().kpis(s);
-        List<AccountPeriodFact> anchorRows = s.byPeriod().get(s.returnAnchorPeriodId());
+        List<AccountPeriodFact> liveRows = s.byPeriod().get(s.lastPeriodId());
 
-        AttributionEngine.Result mixed = AttributionEngine.attribute(
-                inputs(anchorRows), k.netWorthDelta(), Z, Z);          // ΔNW 用了最后一期
-        assertThat(mixed.unattributed()).isEqualByComparingTo("-1000");   // 差额被吸收
-
+        // 同期:ΔNW 与 slices 都取当月
         AttributionEngine.Result aligned = AttributionEngine.attribute(
-                inputs(anchorRows), k.returnAnchorDelta(), Z, k.returnAnchorOpeningBaseline());
-        assertThat(aligned.unattributed()).isEqualByComparingTo("9000");  // = 那期的人赚/净转入,由调用方补上
-        // 关键:同期时「未归因」是可解释的余项,不是被吞掉的口径差
-        assertThat(aligned.moneyEarnedTotal()).isEqualByComparingTo("1000");
+                inputs(liveRows), k.netWorthDelta(), Z, k.openingBaselineLast());
+        assertThat(aligned.moneyEarnedTotal()).as("7 月余额同步更新 → 钱赚为 0").isEqualByComparingTo("0");
+        assertThat(aligned.unattributed())
+                .as("未归因 = ΔNW − 人赚(这里传 0)− 开账 − 钱赚,是可解释的余项")
+                .isEqualByComparingTo(k.netWorthDelta());
+
+        // 混锚:slices 取当月、ΔNW 却取上一期 → 差额被「未归因」吃掉,页面照样"闭合"
+        BigDecimal wrongDelta = new BigDecimal("10000");   // 6 月的 ΔNW
+        AttributionEngine.Result mixed = AttributionEngine.attribute(inputs(liveRows), wrongDelta, Z, Z);
+        assertThat(mixed.unattributed()).isEqualByComparingTo(wrongDelta);
+        assertThat(mixed.unattributed()).as("差额被吸收,数字看着平了 —— 这正是危险之处")
+                .isNotEqualByComparingTo(aligned.unattributed());
     }
 
     private List<AttributionEngine.AcctInput> inputs(List<AccountPeriodFact> rows) {

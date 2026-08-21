@@ -7,6 +7,7 @@ import com.family.finance.domain.period.PeriodType;
 import com.family.finance.domain.stock.StockHolding;
 import com.family.finance.domain.stock.ValuationMode;
 import com.family.finance.repository.AccountMapper;
+import com.family.finance.repository.AuditMapper;
 import com.family.finance.repository.FamilyMapper;
 import com.family.finance.repository.StockHoldingMapper;
 import com.family.finance.repository.StockValuationEventMapper;
@@ -55,6 +56,7 @@ class ReconciliationScanServiceTest {
     private final StockHoldingMapper holdingMapper = mock(StockHoldingMapper.class);
     private final StockValuationEventMapper eventMapper = mock(StockValuationEventMapper.class);
     private final FamilyConfigService configService = mock(FamilyConfigService.class);
+    private final AuditMapper auditMapper = mock(AuditMapper.class);
 
     private ReconciliationScanService svc(List<ReconEvent> events, List<ReconFlow> flows, AccountType type,
                                           List<StockHolding> holdings) {
@@ -75,7 +77,10 @@ class ReconciliationScanServiceTest {
         when(eventMapper.findEventsForReconcile(anyLong())).thenReturn(events);
         when(eventMapper.findFlowsForReconcile(anyLong())).thenReturn(flows);
         when(configService.getDouble(anyLong(), anyString(), anyDouble())).thenReturn(0.01);
-        return new ReconciliationScanService(accountMapper, familyMapper, holdingMapper, eventMapper, configService);
+        when(auditMapper.findByFamily(anyLong(), anyString(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(List.of());
+        return new ReconciliationScanService(accountMapper, familyMapper, holdingMapper, eventMapper,
+                configService, auditMapper);
     }
 
     private static List<StockHolding> holdings() {

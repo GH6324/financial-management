@@ -55,15 +55,16 @@ public class AttributionService {
         return AttributionEngine.attribute(inputs, delta, humanEarned, opening);
     }
 
-    /** 近 N 期「钱赚」按维度分组(时间升序 · 只含已关账期;组值 = Σ periodPnlBase;LOAN 剔除) */
+    /** 近 N 期「钱赚」按维度分组(时间升序 · 含进行中的当月;组值 = Σ periodPnlBase;LOAN 剔除) */
     public List<AttributionEngine.TrendRow> trend(long familyId, FactSlice slice, String dimKey, int lastN) {
         Map<Long, Map<String, String>> labels = accountLabels(familyId);
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yy-MM");
         Map<Long, List<AccountPeriodFact>> byPeriod = slice.byPeriod();
-        // v1.18.1 BUG-FIX · 趋势也只取【已关账期】。进行中的期「余额未填 + 转账已登记」会让
-        //   最后一根柱子出现假的巨额亏损(与排行榜同一个病根),而趋势图的用途正是看走势,
-        //   一根假柱子会把整张图的纵轴带偏。returnPeriodIds() 已按 ≤12 期收口。
-        List<Long> pids = slice.returnPeriodIds();
+        // v1.18.3 · 趋势含当月(与排行榜同锚)。v1.18.1 曾只取已关账期,因为进行中的期
+        //   会出现「转账已登记、余额没涨」的假亏损把纵轴带偏 —— 但那个病根已经在
+        //   v1.18.1 后半段修掉(钱现在会落进现金行,不再被估值抹掉)。
+        //   趋势图和上面的排行榜必须同锚,否则最后一根柱子和排行榜说的不是一件事。
+        List<Long> pids = slice.periodIds();
         List<AttributionEngine.TrendRow> out = new ArrayList<>();
         for (Long pid : pids.subList(Math.max(0, pids.size() - lastN), pids.size())) {
             Map<String, BigDecimal> group = new LinkedHashMap<>();

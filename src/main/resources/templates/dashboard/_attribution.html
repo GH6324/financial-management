@@ -18,12 +18,17 @@
         未归因 <span data-priv th:text="${'¥' + #numbers.formatInteger(attr.unattributed(), 0, 'COMMA')}">¥0</span></span>
     </div>
 
-    <!-- v1.18.1 · 归因锚在【已关账期】,而顶部 as-of 可能选的是进行中的月份 ——
-         不把锚期写出来,用户会以为排行榜说的是本月(这正是「转入被当成亏损」那次误判的土壤)。 -->
+    <!-- v1.18.3 · 归因锚【当月实时】(上月关账时点 → 现在),与上面的「人赚 vs 钱赚」卡同一期。
+         v1.18.1 曾把它挪到上个已关账月,结果同一屏出现两个月份,用户拿本月印象去对上月的数 ——
+         维护者实际撞上了。锚回当月之后风险换了一种:收支还没录齐时,未录的收入会被算进「钱赚」。
+         照 v1.10 定的做法:显示真实值 + 把可信度说清楚,而不是藏起来。 -->
     <div th:if="${attrFilingInProgress}" class="border-l-2 border-brass bg-brass/[0.05] px-3 py-2 mb-2">
-      <p class="font-mono text-[10px] text-ink-soft tracking-wider">
-        归因锚定 <b th:text="${#temporals.format(attrAnchorMonth, 'yyyy-MM')}">2026-07</b>(最近已关账的一期)。
-        当前月还在填报中:余额可能已填、收支/转账还没录齐,拿它算「谁赚谁亏」会把没录完的部分误算成损益。
+      <p class="font-mono text-[10px] text-ink-soft tracking-wider leading-relaxed">
+        <b th:text="${#temporals.format(attrAnchorMonth, 'yyyy-MM')}">2026-08</b> 还在填报中 ——
+        这里是<b>实时</b>口径:上月关账时点 → 现在。
+        本月已录 收入 <span data-priv th:text="${'¥' + #numbers.formatInteger(attrLiveIncome == null ? 0 : attrLiveIncome, 1, 'COMMA')}">¥0</span>
+        · 支出 <span data-priv th:text="${'¥' + #numbers.formatInteger(attrLiveExpense == null ? 0 : attrLiveExpense, 1, 'COMMA')}">¥0</span>。
+        <b>收支录得越少,「钱赚」越偏高</b>(没录的收入会被算成投资赚的)。已关账的口径见报表页。
       </p>
     </div>
 

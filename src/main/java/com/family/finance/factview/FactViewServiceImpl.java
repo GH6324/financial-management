@@ -193,11 +193,7 @@ public class FactViewServiceImpl implements FactViewService {
             //   与 monthlyPnl* 同锚;净资产环比 delta/deltaPct 仍用存量口径的 previousNetWorth。
             liquidAssets, avgExpense, returnPrevNetWorth, lastNetInflow, openingBaselineLast,
             returnAnchorNetWorth, slice.periodStartOf(returnAnchor), slice.filingInProgress(), returnIds.size(),
-            livePnlAmount, livePnlPct, liveCf.income(), liveCf.expense(),
-            // v1.18.1 · 归因锚点期的 ΔNW 与开账基线(归因四项必须同期,见 KpiSnapshot 注释)
-            returnPrevNetWorth == null ? null
-                : returnAnchorNetWorth.subtract(returnPrevNetWorth).setScale(2, RoundingMode.HALF_EVEN),
-            returnAnchorOb);
+            livePnlAmount, livePnlPct, liveCf.income(), liveCf.expense());
     }
 
     /**

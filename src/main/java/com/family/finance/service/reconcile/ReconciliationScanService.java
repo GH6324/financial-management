@@ -81,14 +81,20 @@ public class ReconciliationScanService {
                           BigDecimal valuationDelta,   // 同上(页面上并列展示,保留两列位置)
                           BigDecimal missing) {}       // 被抹掉、需要补回的金额
 
+    /** v1.18.3 · 一条「估值写回被拦下」的留痕(方案 B 生效时写的审计) */
+    public record Blocked(java.time.LocalDateTime at, String detail) {}
+
     public record Report(List<Finding> findings, BigDecimal epsilon,
-                         int scannedAccounts, int scannedPeriods, boolean anyManagedAccount) {}
+                         int scannedAccounts, int scannedPeriods, boolean anyManagedAccount,
+                         List<Blocked> blocked) {}
 
     private final AccountMapper accountMapper;
     private final FamilyMapper familyMapper;
     private final StockHoldingMapper holdingMapper;
     private final StockValuationEventMapper valuationEventMapper;
     private final FamilyConfigService configService;
+    /** v1.18.3 · 读「估值写回被拦下」的留痕(只读) */
+    private final com.family.finance.repository.AuditMapper auditMapper;
 
     /** 全量扫描(默认回看 36 个月 —— 够覆盖这个 bug 的存续期,又不至于把首期建仓也拖进来)。 */
     public Report scan(long familyId) {
@@ -97,7 +103,7 @@ public class ReconciliationScanService {
 
     public Report scan(long familyId, int lookbackMonths) {
         Family family = familyMapper.findById(familyId).orElse(null);
-        if (family == null) return new Report(List.of(), eps(familyId), 0, 0, false);
+        if (family == null) return new Report(List.of(), eps(familyId), 0, 0, false, List.of());
 
         // ① 谁是「估值托管」账户 —— 判据与录入/估值同源(StockHoldingService.valuationManaged)
         Map<Long, Account> managed = new HashMap<>();
@@ -106,7 +112,7 @@ public class ReconciliationScanService {
                 managed.put(a.getId(), a);
             }
         }
-        if (managed.isEmpty()) return new Report(List.of(), eps(familyId), 0, 0, false);
+        if (managed.isEmpty()) return new Report(List.of(), eps(familyId), 0, 0, false, List.of());
 
         // ② 估值事件 + 进出账户的钱,都按时间取回来(只读)
         Map<String, List<StockValuationEventMapper.ReconEvent>> eventsByKey = new HashMap<>();
@@ -142,17 +148,20 @@ public class ReconciliationScanService {
             java.time.LocalDateTime windowStart = null;   // null = 从本期最早算起
             for (var ev : events) {
                 if (ev.at() == null || ev.delta() == null) continue;
-                BigDecimal windowFlow = BigDecimal.ZERO;
+                List<BigDecimal> windowFlows = new ArrayList<>();
                 for (var fl : flows) {
                     if (fl.at() == null || fl.at().isAfter(ev.at())) continue;
                     if (windowStart != null && !fl.at().isAfter(windowStart)) continue;
-                    windowFlow = windowFlow.add(nz(fl.signedAmount()));
+                    windowFlows.add(nz(fl.signedAmount()));
                 }
                 windowStart = ev.at();
-                if (windowFlow.signum() == 0) continue;
-                // 命中:这次估值的 Δ 恰好把窗口内进出的钱抵消掉了
-                if (nz(ev.delta()).add(windowFlow).abs().compareTo(epsilon) <= 0) {
-                    erased = erased.add(windowFlow);
+                // 命中:这次估值的 Δ 恰好把窗口里【最近若干笔】进出的钱抵消掉了。
+                // v1.18.3 · 判据收口到 ErasureDetector —— 写回拦截(方案 B)用的是同一份,
+                // 不许两处各写一套(「同一件事两份判据」正是这个 bug 反复出现的形状)。
+                BigDecimal hit = com.family.finance.calc.reconcile.ErasureDetector.erasedAmount(
+                        nz(ev.delta()), windowFlows, epsilon);
+                if (hit != null) {
+                    erased = erased.add(hit);
                     erasedByValuation = erasedByValuation.add(nz(ev.delta()));
                 }
             }
@@ -169,7 +178,16 @@ public class ReconciliationScanService {
         }
         // 金额大的排前面(要人去补的钱,先看大的)
         out.sort((a, b) -> b.missing().abs().compareTo(a.missing().abs()));
-        return new Report(out, epsilon, managed.size(), periods.size(), true);
+        // v1.18.3 · 事前拦截的留痕也摆在这一页 —— 只写日志等于页面上看不出来(v1.17.3 的教训)
+        List<Blocked> blocked = auditMapper
+                .findByFamily(familyId, com.family.finance.domain.audit.AuditLogType.SYSTEM.name(), 200)
+                .stream()
+                .filter(r -> r.getSummary() != null
+                        && r.getSummary().startsWith(
+                            com.family.finance.service.stock.AccountValuationService.BLOCKED_WRITEBACK_NOTE))
+                .map(r -> new Blocked(r.getCreatedAt(), r.getSummary()))
+                .toList();
+        return new Report(out, epsilon, managed.size(), periods.size(), true, blocked);
     }
 
     /**

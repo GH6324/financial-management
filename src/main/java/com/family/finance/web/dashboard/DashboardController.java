@@ -109,18 +109,31 @@ public class DashboardController {
                 anchor.getPeriodStart().minusMonths(12), anchor.getPeriodStart(), false, accountIds, viewCurrency);
         FactSlice slice = factViewService.load(filter);
         KpiSnapshot kpis = factViewService.kpis(slice);
-        // v1.18.1 BUG-FIX · 归因是【收益类】,必须锚「最新已关账期」而不是最后一期。
-        //   原来锚 lastPeriodId,而进行中的期典型是「余额还没填、转账已登记」——
-        //   于是某账户 pnl = Δ余额(0) − 转入 = 负的转入额,排行榜把只收到一笔转入的账户
-        //   列成「亏得最多」(prod 2026-08 实测:萝卜-余额宝 被显示成亏了那笔转入的全额)。
-        //   四项(ΔNW / 人赚 / 钱赚 / 开账基线)必须【一起】挪,否则差额全被「未归因」吸收。
-        Long attrPeriodId = slice.returnAnchorPeriodId() == null ? slice.lastPeriodId() : slice.returnAnchorPeriodId();
+        // v1.18.3 · 归因锚回【用户正在看的这一期】(默认当前月),即「上月关账时点 → 当月实时」。
+        //
+        //   v1.18.1 曾把它挪到「最新已关账期」,那是因为进行中的期会出现
+        //   「转账已登记、余额没涨」→ pnl = Δ余额(0) − 转入 = 负的转入额,
+        //   排行榜把只收到一笔转入的账户列成「亏得最多」。
+        //   但那是【权宜之计】—— 真正的病根是 v1.18.1 后半段修的丢钱 bug:
+        //   钱没落进现金行,被估值按「持仓合计」重算时抹掉了。修完之后流水会立刻
+        //   同步进余额,假亏损的根已经没了(e2e 主线 16 就是钉这条)。
+        //
+        //   仪表盘的分工本来就是「当月实时」(v1.10 FR-327 已定),报表页才是已关账封板。
+        //   把归因留在上个月,会让同一屏出现两个月份 —— 上面的卡是本月、下面的瀑布是上月,
+        //   用户拿本月的印象去对上月的数,必然看成 bug(维护者 2026-08-21 实际撞上)。
+        //
+        //   代价照实说:进行中的期收支常常还没录齐,未录的收入会被算进「钱赚」→ 偏高。
+        //   所以页面必须给出「本月已录收入/支出」让人判断可信度(v1.10 定的做法:
+        //   显示真实值 + 说明口径,而不是藏起来)。
+        Long attrPeriodId = slice.lastPeriodId();
         com.family.finance.factview.CashflowBreakdown cf = factViewService.cashflowBreakdown(slice, attrPeriodId);
         java.math.BigDecimal human = (cf == null ? java.math.BigDecimal.ZERO
                 : nz(cf.income()).subtract(nz(cf.expense())));
+        // 四项(ΔNW / 人赚 / 钱赚 / 开账基线)必须【同一期】,否则差额全被「未归因」吸收 ——
+        // 数字看着平了,错误其实藏进了兜底项。这条不因锚点变化而改变。
         var result = attributionService.attribute(me.getFamilyId(),
                 slice.byPeriod().getOrDefault(attrPeriodId, List.of()),
-                kpis.returnAnchorDelta(), human, kpis.returnAnchorOpeningBaseline());
+                kpis.netWorthDelta(), human, kpis.openingBaselineLast());
         var grouped = com.family.finance.calc.review.AttributionEngine.groupBy(result, "acct".equals(dim) ? null : dim);
         var trend = attributionService.trend(me.getFamilyId(), slice, dim, 12);
         model.addAttribute("attr", result);
@@ -130,10 +143,13 @@ public class DashboardController {
         model.addAttribute("attrDims", com.family.finance.service.review.AttributionService.DIMS);
         model.addAttribute("attrDim", dim);
         model.addAttribute("attrAsof", anchor.getPeriodStart().toString());
-        // v1.18.1 · 页面要说清归因看的是哪一期 —— 用户选的 as-of 可能是进行中的 8 月,
-        //   而归因实际锚在 7 月;不写出来他会以为看的是 8 月(这正是这次误判的土壤)。
+        // v1.18.3 · 页面要说清「看的是哪一期 + 这个数有多可信」。
+        //   锚回当月之后,风险从「月份看错」变成「收支没录齐导致钱赚偏高」,
+        //   所以除了月份,还要把【本月已录收入/支出】给出来 —— 录得越少,钱赚越虚高。
         model.addAttribute("attrAnchorMonth", slice.periodStartOf(attrPeriodId));
         model.addAttribute("attrFilingInProgress", slice.filingInProgress());
+        model.addAttribute("attrLiveIncome", kpis.liveIncome());
+        model.addAttribute("attrLiveExpense", kpis.liveExpense());
         model.addAttribute("attrCurrency", viewCurrency);
         model.addAttribute("attrAccountsCsv", accountsCsv == null ? "" : accountsCsv);
         model.addAttribute("anchorPeriod", anchor);

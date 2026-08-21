@@ -95,6 +95,28 @@
         </div>
       </div>
     </div>
+    <!-- v1.18.3 · 事前拦截(复盘方案 B)的留痕。事后发现是补救,事前不发生才是根治;
+         但拦下来之后只写日志 = 页面上看不出来,那就是 v1.17.3 犯过的错,所以摆在这里。 -->
+    <div class="mt-8">
+      <div class="eyebrow mb-2">被 · 拦 · 下 · 的 · 写 · 回</div>
+      <p class="font-mono text-[10px] text-ink-subtle tracking-wider mb-3 leading-relaxed">
+        自动估值在覆盖余额之前会先判一次:如果这次写回<b>恰好会抹平刚进出账户的钱</b>,就<b>拒绝覆盖</b>并记在这里。
+        判据与上面的扫描<b>是同一份</b>。正常情况下这里应当是空的 —— 出现条目说明还有一条我们没找到的路径,
+        钱<b>没有</b>被抹掉(拦住了),但要来查。
+      </p>
+      <div th:if="${#lists.isEmpty(report.blocked())}" class="paper-card p-5 text-center">
+        <p class="font-mono text-[11px] text-ink-subtle tracking-wider">没有被拦下的写回。</p>
+      </div>
+      <div th:unless="${#lists.isEmpty(report.blocked())}" class="paper-card p-2">
+        <div class="divide-y divide-rule-soft">
+          <div th:each="b : ${report.blocked()}" class="px-5 py-3 flex items-baseline gap-4 text-sm">
+            <span class="font-mono text-xs tnum text-ink-subtle flex-none"
+                  th:text="${#temporals.format(b.at(),'yyyy-MM-dd HH:mm')}">2026-08-21 06:05</span>
+            <span class="text-ink-soft" th:text="${b.detail()}">详情</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 </main>
 </body>

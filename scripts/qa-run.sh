@@ -6980,68 +6980,65 @@ QA1181_CTL="$RD/src/main/java/com/family/finance/web/admin/IntegrationsControlle
   && log_ok "v1181-KEY-SAVE-NOT-SILENT(空提交明确报错不假装成功 · 审计只记已配/未配 · 密钥端点不碰模型三元组)" \
   || log_bad "v1181-KEY-SAVE-NOT-SILENT 空提交被当成保存成功,或密钥端点又去校验模型了" "see IntegrationsController#saveLlmKey"
 
-# v1181-ATTR-CLOSED-ANCHOR · 归因复盘必须锚「最新已关账期」(v1.18.1 · 生产误判)
-# 生产上排行榜把一个只【收到一笔转入】的理财账户列成「亏得最多」,金额恰好等于那笔转入的全额。
-# 机制不是「转账被算成收入」(收入只读 cash_flow,pnl 里转账是被减掉的),而是锚期错了:
-#   进行中的那一期「转账已登记、月末余额还没填」→ pnl = Δ余额(0) − 净转入(+X) = −X。
-# v1.6.30 已为「本月资产收益」立过同一条规矩(收益类锚已关账期),归因当时漏了。
-# 另一个陷阱:瀑布靠 ΔNW = 人赚 + 钱赚 + 开账基线 + 未归因 闭合,四项必须【同期】——
-# 只挪「钱赚」会让差额全被「未归因」吸收,页面看着平了、错误藏进了兜底项。
-QA1181_DASH="$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java"
-QA1181_REV="$RD/src/main/java/com/family/finance/web/review/ReviewController.java"
-{ grep -q 'kpis.returnAnchorDelta(), human, kpis.returnAnchorOpeningBaseline()' "$QA1181_DASH" \
-  && grep -q 'kpis.returnAnchorDelta(), human, kpis.returnAnchorOpeningBaseline()' "$QA1181_REV" \
-  && ! grep -q 'getOrDefault(slice.lastPeriodId(), List.of())' "$QA1181_DASH" \
-  && ! grep -q 'getOrDefault(slice.lastPeriodId(), List.of())' "$QA1181_REV" \
-  && grep -q 'returnAnchorPeriodId()' "$QA1181_DASH" \
-  && grep -q 'returnAnchorPeriodId()' "$QA1181_REV" \
-  && grep -q 'slice.returnPeriodIds()' "$RD/src/main/java/com/family/finance/service/review/AttributionService.java" \
-  && grep -q 'returnAnchorDelta' "$RD/src/main/java/com/family/finance/factview/KpiSnapshot.java" \
-  && [ -f "$RD/src/test/java/com/family/finance/factview/AttributionAnchorTest.java" ]; } \
-  && log_ok "v1181-ATTR-CLOSED-ANCHOR(归因四项同锚已关账期 · 趋势也只取已关账期 · 单测钉住假亏损)" \
-  || log_bad "v1181-ATTR-CLOSED-ANCHOR 归因又锚回最后一期(进行中的期会把转入读成亏损)" "dashboard/review 两处都要用 returnAnchorDelta + returnAnchorOpeningBaseline;trend 走 returnPeriodIds"
+# v1183-ATTR-SAME-PERIOD · 归因四项必须同期 · 仪表盘锚【当月实时】(v1.18.3)
+# 历史:v1.18.1 曾把归因锚到「最新已关账期」,绕开进行中的月份 —— 因为那时会出现
+#   「转账已登记、余额没涨」→ pnl = Δ余额(0) − 转入 = 假亏损。
+#   但那是权宜之计:真正的病根是 v1.18.1 后半段修的丢钱 bug(钱没落进现金行、被估值抹掉)。
+#   修完之后流水会立刻同步进余额,假亏损的根没了(e2e 主线 16 钉这条)。
+#   而锚在上个月带来了新问题:仪表盘上面的卡是本月、下面的瀑布是上月,同一屏两个月份,
+#   维护者拿本月印象去对上月的数,当场看成 bug(2026-08-21)。仪表盘的分工本来就是当月实时。
+# 不变的那条:ΔNW / 人赚 / 钱赚 / 开账基线【必须同一期】——「未归因」是残差定义、
+#   按构造恒等闭合,四项不同期时差额会被它悄悄吸收,页面看着平了、错误藏进兜底项。
+QA1183_DASH="$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java"
+QA1183_REV="$RD/src/main/java/com/family/finance/web/review/ReviewController.java"
+{ grep -q 'Long attrPeriodId = slice.lastPeriodId();' "$QA1183_DASH" \
+  && grep -q 'Long attrPeriodId = slice.lastPeriodId();' "$QA1183_REV" \
+  && grep -q 'kpis.netWorthDelta(), human, kpis.openingBaselineLast()' "$QA1183_DASH" \
+  && grep -q 'kpis.netWorthDelta(), human, kpis.openingBaselineLast()' "$QA1183_REV" \
+  && grep -q 'slice.periodIds()' "$RD/src/main/java/com/family/finance/service/review/AttributionService.java" \
+  && grep -q '混锚会把差额藏进未归因' "$RD/src/test/java/com/family/finance/factview/AttributionAnchorTest.java" \
+  && grep -q '余额同步更新后_同一笔转入的损益是零' "$RD/src/test/java/com/family/finance/factview/AttributionAnchorTest.java"; } \
+  && log_ok "v1183-ATTR-SAME-PERIOD(仪表盘归因锚当月实时 · 四项同期 · 趋势同锚 · 单测钉住前提)" \
+  || log_bad "v1183-ATTR-SAME-PERIOD 归因锚点/同期性走样" "dashboard 与 review 都要锚 slice.lastPeriodId() 并用 netWorthDelta + openingBaselineLast;趋势用 slice.periodIds()"
 
-# v1181-ATTR-ANCHOR-VISIBLE · 归因锚的是哪一期,页面必须写出来(v1.18.1)
-# 顶部 as-of 可能选着进行中的 8 月,而归因实际锚 7 月 —— 不写出来用户会以为排行榜说的是本月,
-# 这正是那次误判的土壤(他看到的是「本月萝卜-余额宝亏 7.5 万」)。
-{ grep -q 'attrFilingInProgress' "$QA1181_DASH" \
-  && grep -q 'attrAnchorMonth' "$QA1181_DASH" \
-  && grep -q '归因锚定' "$RD/src/main/resources/templates/dashboard/_attribution.html" \
-  && grep -q 'attrFilingInProgress' "$RD/src/main/resources/templates/dashboard/_attribution.html"; } \
-  && log_ok "v1181-ATTR-ANCHOR-VISIBLE(填报中时页面明示归因锚在哪一期)" \
-  || log_bad "v1181-ATTR-ANCHOR-VISIBLE 归因锚期没写在页面上" "see dashboard/_attribution.html 的「归因锚定」提示 + DashboardController 的 attrAnchorMonth/attrFilingInProgress"
+# v1183-ATTR-LIVE-CAVEAT · 当月实时的代价必须写在页面上(v1.18.3)
+# 锚回当月之后风险换了一种:收支还没录齐时,未录的收入会被算进「钱赚」→ 偏高。
+# 照 v1.10 FR-327 定的做法:显示真实值 + 把可信度说清楚,而不是藏起来。
+# 所以页面要同时给出「还在填报中 / 实时口径 / 本月已录收入·支出」。
+{ grep -q 'attrFilingInProgress' "$QA1183_DASH" \
+  && grep -q 'attrLiveIncome' "$QA1183_DASH" \
+  && grep -q 'attrLiveExpense' "$QA1183_DASH" \
+  && grep -q '还在填报中' "$RD/src/main/resources/templates/dashboard/_attribution.html" \
+  && grep -q '本月已录' "$RD/src/main/resources/templates/dashboard/_attribution.html" \
+  && ! grep -q '归因锚定' "$RD/src/main/resources/templates/dashboard/_attribution.html"; } \
+  && log_ok "v1183-ATTR-LIVE-CAVEAT(填报中时写明实时口径 + 已录收支 · 旧的「锚定上月」文案已清)" \
+  || log_bad "v1183-ATTR-LIVE-CAVEAT 实时口径说明缺失" "模板要有「还在填报中 / 实时口径 / 本月已录」;controller 要传 attrLiveIncome/attrLiveExpense"
 
-# v1181-MANAGED-ROUTING-SINGLE · 「余额归谁管」只许一份判据(v1.18.1 · 真丢钱)
-# 生产上两笔划转共 7.5w 进了一个挂着基金持仓的理财账户(WEALTH):划转把快照加上去了,
-# 但钱没进该账户的现金行;当天 06:15 自动估值按「持仓合计」重算并覆盖快照 —— 那 7.5w
-# 从余额里消失,家庭净资产少算同额,而且每跑一次估值就再抹一次。
-# 根因是两处判据不一致:
-#   录入侧(v0.12)判「要不要落到现金行」用 type == STOCK
-#   估值侧判「要不要接管这个账户的余额」用「支持持仓的类型 且 真的有持仓」
-# WEALTH/CRYPTO/METAL 且有持仓的账户正好落在缝里。判据收口到 valuationManaged,两侧共用。
-QA1181_SHS="$RD/src/main/java/com/family/finance/service/stock/StockHoldingService.java"
-QA1181_AVS="$RD/src/main/java/com/family/finance/service/stock/AccountValuationService.java"
-QA1181_ES="$RD/src/main/java/com/family/finance/service/EntryService.java"
-{ grep -q 'public static boolean valuationManaged(AccountType type' "$QA1181_SHS" \
-  && [ "$(grep -c 'StockHoldingService.valuationManaged(acc.getType(), holdings)' "$QA1181_AVS")" -eq 2 ] \
-  && grep -q 'stockHoldingService.valuationManaged(account)' "$QA1181_ES" \
-  && ! grep -q 'if (account.getType() == AccountType.STOCK) {' "$QA1181_ES" \
-  && [ -f "$RD/src/test/java/com/family/finance/service/stock/ValuationManagedRoutingTest.java" ]; } \
-  && log_ok "v1181-MANAGED-ROUTING-SINGLE(托管判据一份定义 · 估值与录入两侧共用)" \
-  || log_bad "v1181-MANAGED-ROUTING-SINGLE 托管判据又分裂了(钱会被估值抹掉)" "录入侧不许再用 type == STOCK;估值两处 + 录入一处都走 StockHoldingService.valuationManaged"
-
-# v1181-TRANSFER-CREDITS-CASH · 划转两端必须走「按托管路由」的入账(v1.18.1)
-# 划转此前直接调 applyDeltaToBalance,压根没走 creditAccountBalance —— 所以哪怕是 STOCK 账户,
-# 转进去的钱也一样会被估值抹掉。生产上那 7.5w 正是经划转进来的。
-# 撤销侧还有一个跨币种残留:收款方当初进账的是 to_amount,冲回却按 amount,
-# 现金行会留下差额 —— 一并钉住。
-{ [ "$(sed -n '/public EntryRow addTransfer(/,/^    }/p' "$QA1181_ES" | grep -c 'creditAccountBalance(')" -eq 2 ] \
-  && [ "$(sed -n '/public EntryRow addTransfer(/,/^    }/p' "$QA1181_ES" | grep -c 'applyDeltaToBalance(')" -eq 0 ] \
-  && [ "$(sed -n '/public EntryRow softDeleteTransfer(/,/^    }/p' "$QA1181_ES" | grep -c 'creditAccountBalance(')" -eq 2 ] \
-  && [ "$(sed -n '/public EntryRow softDeleteTransfer(/,/^    }/p' "$QA1181_ES" | grep -c 'applyDeltaToBalance(')" -eq 0 ] \
-  && grep -q 'backToAmount' "$QA1181_ES"; } \
-  && log_ok "v1181-TRANSFER-CREDITS-CASH(划转两端 + 撤销都走托管路由 · 跨币种按 to_amount 冲回)" \
-  || log_bad "v1181-TRANSFER-CREDITS-CASH 划转又绕开了托管路由(转进持仓账户的钱会被估值抹掉)" "addTransfer / softDeleteTransfer 里不许直接调 applyDeltaToBalance"
+# v1183-WRITEBACK-FAIL-CLOSED · 估值写回不许把刚进账户的钱盖掉(v1.18.3 · 复盘方案 B)
+# period_snapshot 是【覆盖写】,被盖掉的旧值没有任何地方留底 —— 全系统唯一一条不可恢复的自动写。
+# 事后对账是补救,事前拦截才是根治。判据与对账扫描【共用一份】ErasureDetector,
+# 不许两处各写一套(「同一件事两份判据」正是这个 bug 反复出现的形状,已归档 5 次)。
+# 拦下来必须留痕并出现在页面上 —— 只写日志就是 v1.17.3 犯过的错。
+# 两条是 e2e 抓出来的、必须钉死:
+#   ① 拦下就【不许写估值事件】—— 否则记了个没发生的变化,还会把「上次估值时间」推到现在,
+#      让下一次的窗口变空、第二次就拦不住(所以 writeBackBalance 必须返回布尔,调用方尊重它)
+#   ② 判据按【后缀和】逐个试,不能拿窗口总和一次比 —— 窗口里常混着已经正确入账的钱,
+#      拿总和比会被顶歪(实测:53,210 已入账 + 48,765 被吞 → 总和法漏判)
+QA1183_AVS="$RD/src/main/java/com/family/finance/service/stock/AccountValuationService.java"
+{ [ -f "$RD/src/main/java/com/family/finance/calc/reconcile/ErasureDetector.java" ] \
+  && grep -q 'ErasureDetector.erasedAmount' "$QA1183_AVS" \
+  && grep -q 'ErasureDetector.erasedAmount' "$RD/src/main/java/com/family/finance/service/reconcile/ReconciliationScanService.java" \
+  && grep -q 'findFlowsAfter' "$QA1183_AVS" \
+  && grep -q '拦住_窗口里混着已入账的钱时仍按后缀和命中' "$RD/src/test/java/com/family/finance/calc/reconcile/ErasureDetectorTest.java" \
+  && grep -q 'boolean writeBackBalance' "$QA1183_AVS" \
+  && grep -q 'BLOCKED_WRITEBACK_NOTE' "$QA1183_AVS" \
+  && grep -q 'auditLogService.record' "$QA1183_AVS" \
+  && grep -q 'blocked()' "$RD/src/main/resources/templates/admin/reconcile.html" \
+  && [ -f "$RD/src/test/java/com/family/finance/calc/reconcile/ErasureDetectorTest.java" ] \
+  && [ "$(grep -c 'void 不拦_' "$RD/src/test/java/com/family/finance/calc/reconcile/ErasureDetectorTest.java")" -ge 3 ] \
+  && [ "$(grep -c 'void 拦住_' "$RD/src/test/java/com/family/finance/calc/reconcile/ErasureDetectorTest.java")" -ge 3 ]; } \
+  && log_ok "v1183-WRITEBACK-FAIL-CLOSED(写回前拦一道 · 与对账共用一份判据 · 留痕上页面 · 单测该拦/不该拦成对)" \
+  || log_bad "v1183-WRITEBACK-FAIL-CLOSED 估值写回又变回无条件覆盖" "writeBackBalance 要先过 ErasureDetector.erasesFlows;拦下要写审计并在 /admin/reconcile 显示"
 
 # ============================================================
 # v1.18.2 · 账目对账(复盘 A/C 项)

@@ -76,21 +76,7 @@ public record KpiSnapshot(
         /** 当前期已录收入 · 用来判断这个实时值有多可信(录得越少,收益越虚高) */
         BigDecimal liveIncome,
         /** 当前期已录支出 */
-        BigDecimal liveExpense,
-
-        // ── v1.18.1 · 归因复盘专用:收益锚点期的 ΔNW 与开账基线 ───────────────────────
-        //   归因瀑布靠恒等式 ΔNW = 人赚 + 钱赚 + 开账基线 + 未归因 闭合,四项必须**同一期**。
-        //   原实现四项都取 lastPeriodId(可能是进行中的 OPEN 期)—— 那一期典型是「余额还没填、
-        //   转账已登记」,于是某账户的 pnl = Δ余额(0) − 转入 = 负的转入额,排行榜把它列成
-        //   「亏得最多」。prod 2026-08 实测:萝卜-余额宝 只收到一笔转入,却被显示成亏了那笔的全额。
-        //   所以归因整体改锚 returnAnchorPeriodId(最新已关账期)——【四项一起挪】,不能只挪一项,
-        //   否则差额会全被「未归因」吸收(v1.6.30 的注释已经写明这个陷阱)。
-        //   仍用加字段而不是改既有字段:openingBaselineLast / netWorthDelta 是存量卡在用的,
-        //   动它们会连带改「本期怎么变」那张卡。
-        /** v1.18.1 · 收益锚点期的净资产 Δ(vs 该期的上一期)· 无上一期则 null */
-        BigDecimal returnAnchorDelta,
-        /** v1.18.1 · 收益锚点期的开账基线(新纳入账户存量本金)· 可空 */
-        BigDecimal returnAnchorOpeningBaseline
+        BigDecimal liveExpense
 ) {
     /** v0.4.2 加字段时的 backward-compat 构造器 · 老调用方继续传 7 参数 */
     public KpiSnapshot(BigDecimal netWorth, BigDecimal totalAssets, BigDecimal totalLiabilities,
@@ -141,32 +127,7 @@ public record KpiSnapshot(
              netWorthDelta, netWorthDeltaPct, monthlyPnlAmount, monthlyInvestReturnPct,
              annualizedInvestReturnPct, ytdInvestPnl, liquidAssets, avgExpense,
              prevNetWorth, lastNetInflow, openingBaselineLast, netWorth, null, false, null,
-             null, null, null, null,    // v1.10 · live 口径:老调用方不关心,补 null
-             netWorthDelta, openingBaselineLast);   // v1.18.1 · 老调用方:归因锚点 = 最后一期(即改动前的行为)
+             null, null, null, null);   // v1.10 · live 口径:老调用方不关心,补 null
     }
 
-    /**
-     * v1.18.1 加 2 个归因锚点字段时的 backward-compat 构造器 · 老调用方继续传 24 参数。
-     * 默认「归因锚点 = 最后一期」= v1.18.1 之前的行为。
-     */
-    public KpiSnapshot(BigDecimal netWorth, BigDecimal totalAssets, BigDecimal totalLiabilities,
-                       BigDecimal emergencyFundMonths, BigDecimal debtToAssetRatio,
-                       BigDecimal netWorthDelta, BigDecimal netWorthDeltaPct,
-                       BigDecimal monthlyPnlAmount, BigDecimal monthlyInvestReturnPct,
-                       BigDecimal annualizedInvestReturnPct, BigDecimal ytdInvestPnl,
-                       BigDecimal liquidAssets, BigDecimal avgExpense,
-                       BigDecimal prevNetWorth, BigDecimal lastNetInflow,
-                       BigDecimal openingBaselineLast,
-                       BigDecimal returnAnchorNetWorth, java.time.LocalDate returnAnchorMonth,
-                       boolean filingInProgress, Integer returnPeriodCount,
-                       BigDecimal liveMonthlyPnlAmount, BigDecimal liveMonthlyInvestReturnPct,
-                       BigDecimal liveIncome, BigDecimal liveExpense) {
-        this(netWorth, totalAssets, totalLiabilities, emergencyFundMonths, debtToAssetRatio,
-             netWorthDelta, netWorthDeltaPct, monthlyPnlAmount, monthlyInvestReturnPct,
-             annualizedInvestReturnPct, ytdInvestPnl, liquidAssets, avgExpense,
-             prevNetWorth, lastNetInflow, openingBaselineLast,
-             returnAnchorNetWorth, returnAnchorMonth, filingInProgress, returnPeriodCount,
-             liveMonthlyPnlAmount, liveMonthlyInvestReturnPct, liveIncome, liveExpense,
-             netWorthDelta, openingBaselineLast);
-    }
 }
