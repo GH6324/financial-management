@@ -42,10 +42,13 @@ public record AccountDiagnose(
         boolean riskOverridden,
         List<TrendPoint> sparkline
 ) {
+    /**
+     * v1.18.5 · 收口到 {@link AccountType#isInvestment()}。
+     * 原来这里写死 STOCK/WEALTH/CRYPTO —— <b>漏了 v0.14 加的 METAL</b>,
+     * 于是贵金属账户被「持有期 / 收益 / 回撤」三条投资类体检规则静默跳过。
+     */
     public boolean isInvestment() {
-        return account.getType() == AccountType.STOCK
-                || account.getType() == AccountType.WEALTH
-                || account.getType() == AccountType.CRYPTO;
+        return account.getType().isInvestment();
     }
 
     public boolean isCash() {
@@ -53,7 +56,7 @@ public record AccountDiagnose(
     }
 
     public boolean isLoan() {
-        return account.getType() == AccountType.LOAN;
+        return account.getType().isLiability();
     }
 
     public boolean isProperty() {

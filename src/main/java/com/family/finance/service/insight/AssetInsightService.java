@@ -190,7 +190,7 @@ public class AssetInsightService {
     private BigDecimal weightedLoanRate(List<AccountPerformance> perf, List<Account> accounts) {
         Map<Long, BigDecimal> rateByAccount = new java.util.HashMap<>();
         for (Account a : accounts) {
-            if (a.getType() == AccountType.LOAN && a.getAnnualRatePct() != null) {
+            if (a.getType().isLiability() && a.getAnnualRatePct() != null) {
                 rateByAccount.put(a.getId(), a.getAnnualRatePct());
             }
         }

@@ -55,7 +55,7 @@ public final class FactProjector {
     }
 
     public static AccountClass classOf(AccountType type) {
-        return type == AccountType.LOAN ? AccountClass.LIABILITY : AccountClass.ASSET;
+        return type.isLiability() ? AccountClass.LIABILITY : AccountClass.ASSET;
     }
 
     /**

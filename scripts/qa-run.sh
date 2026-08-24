@@ -7121,6 +7121,61 @@ QA1184_UT="$RD/src/test/java/com/family/finance/web/admin/LlmModelFormatTest.jav
   && log_ok "v1184-FORM-BY-INTENT(关掉的能力不校验 · 没视觉能力时开关禁用并指路 · 平台须已配密钥 · 用法矩阵 6+ 条)" \
   || log_bad "v1184-FORM-BY-INTENT 表单又按字段分支了(关掉的能力会拦住保存)" "see IntegrationsController#saveLlmModels 的 tryParseTriple / requireKeyConfigured / visionCapablePlatforms"
 
+# v1185-MANUAL-BALANCE-CALIBRATES-CASH · 手填余额落托管账户时要记进现金行(v1.18.5)
+# 这是同一个洞的【第三个变种】,而且是生产上真咬到人的那个:
+#   v1.18.1 修了「划转/收支进托管账户」、v1.18.3 加的写回拦截只认「流水」,
+#   而手填余额既不是流水、也不动持仓 —— 正好从两道防线中间漏过去。
+#   实测:8-21 14:42 手填 451,497.63 → 16:10 CRON 估值写回 375,248.71(delta −76,248.92),
+#   维护者按提示补的钱又被抹掉了。
+# 修法与前两次同源:用户说「这个账户现在有 X」→ 把 X 与(持仓+现金)的差额记成现金行,
+#   下次估值重算 = 持仓 + 现金 = X,他敲的数就站得住;差额在持仓页看得见、可改。
+QA1185_ES="$RD/src/main/java/com/family/finance/service/EntryService.java"
+{ [ "$(sed -n '/public EntryRow submitBalance(/,/^    }/p' "$QA1185_ES" | grep -c 'stockHoldingService.valuationManaged(account)')" -eq 1 ] \
+  && [ "$(sed -n '/public EntryRow submitBalance(/,/^    }/p' "$QA1185_ES" | grep -c 'adjustAccountCash')" -eq 1 ] \
+  && grep -q 'valuationService.valuate(familyId, accountId).totalBaseValue()' "$QA1185_ES" \
+  && grep -q '手填余额校准' "$QA1185_ES" \
+  && grep -q '托管判据的三个消费方共用同一份定义' "$RD/src/test/java/com/family/finance/service/stock/ValuationManagedRoutingTest.java"; } \
+  && log_ok "v1185-MANUAL-BALANCE-CALIBRATES-CASH(手填余额的差额落现金行 · 不再被下次估值抹掉 · 留痕)" \
+  || log_bad "v1185-MANUAL-BALANCE-CALIBRATES-CASH 手填余额又会被估值抹掉" "submitBalance 里要判 valuationManaged 并把差额 adjustAccountCash"
+
+# v1185-TYPE-SEMANTICS-NAMED · 钱路径里不许再有裸的「== 某个具体类型」(v1.18.5 · 复盘 D 项)
+# 复盘结论:这个 bug 家族的形状是「加一个新类型/放开一个能力,远处那条【当时正确】的判断
+# 就悄悄错了,而编译器一句话都不说」。已经栽过两次:
+#   v1.4 放开 supportsHoldings → 录入侧仍写 type == STOCK → 生产丢 7.5w
+#   v0.14 加 METAL → 体检的「投资类」仍写 STOCK/WEALTH/CRYPTO → 贵金属被三条规则静默跳过
+# 做法:把「是不是负债 / 是不是投资 / 余额该不该被流水解释」做成 AccountType 上的具名谓词,
+#   并用一条结构性单测遍历所有枚举值,逼着新类型必须被分类过。
+# 判据刻意【不】要求一个不剩:AccountDiagnose 里 isCash/isProperty 确实就是在问某个具体类型
+#   (CASH 专属、PROPERTY 专属规则),没有"类"的语义,机械包装反而是噪音。
+QA1185_AT="$RD/src/main/java/com/family/finance/domain/account/AccountType.java"
+QA1185_BARE="$(grep -rnE 'getType\(\) == AccountType\.[A-Z]+|type == AccountType\.[A-Z]+' \
+  "$RD/src/main/java/com/family/finance/service" "$RD/src/main/java/com/family/finance/factview" 2>/dev/null \
+  | grep -v 'AccountDiagnose.java' | grep -v 'StockHoldingService.java' | grep -v 'AccountService.java' | wc -l | tr -d ' ')"
+{ grep -q 'public boolean isLiability()' "$QA1185_AT" \
+  && grep -q 'public boolean isInvestment()' "$QA1185_AT" \
+  && grep -q 'public boolean expectsFlowsToExplainBalance()' "$QA1185_AT" \
+  && grep -q 'this == METAL' "$QA1185_AT" \
+  && [ "${QA1185_BARE:-99}" -eq 0 ] \
+  && [ -f "$RD/src/test/java/com/family/finance/domain/account/AccountTypeSemanticsTest.java" ] \
+  && grep -q '每个类型都必须被显式分类过' "$RD/src/test/java/com/family/finance/domain/account/AccountTypeSemanticsTest.java" \
+  && grep -q '贵金属算投资_这是v0_14漏掉的那一格' "$RD/src/test/java/com/family/finance/domain/account/AccountTypeSemanticsTest.java" \
+  && grep -q 'return account.getType().isInvestment();' "$RD/src/main/java/com/family/finance/service/checkup/AccountDiagnose.java" \
+  && ! grep -q 'AccountType.CRYPTO;' "$RD/src/main/java/com/family/finance/service/checkup/AccountDiagnose.java"; } \
+  && log_ok "v1185-TYPE-SEMANTICS-NAMED(负债/投资/该被流水解释 三条具名谓词 · 钱路径无裸类型判断 · 结构性单测逼新类型表态)" \
+  || log_bad "v1185-TYPE-SEMANTICS-NAMED 钱路径里又出现裸的类型判断(裸判断 $QA1185_BARE 处)" "改用 AccountType 的 isLiability/isInvestment/expectsFlowsToExplainBalance"
+
+# v1185-MODEL-STALE-HINT · 型号失效要在报错里说清怎么办(v1.18.5 · 维护者定「不主动检测,报错时提示即可」)
+# v1.18.4 给方舟预置了推荐型号,默认那个不带日期所以不会失效;但用户若选了带日期的几个,
+# 总有一天会 404 —— 那时报错必须说清「是型号过期了 / 去哪换 / 换成什么」,而不是让他自己猜。
+QA1185_INT="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"
+{ grep -q 'static boolean looksDateStamped' "$QA1185_INT" \
+  && grep -q 'static String staleModelHint' "$QA1185_INT" \
+  && grep -q 'doubao-seed-evolving' "$QA1185_INT" \
+  && grep -q 'classifyLlmError(e.getMessage(), inv.resolvedModel())' "$QA1185_INT" \
+  && ! grep -q '方舟需到控制台复制接入点 ID / 模型 ID' "$QA1185_INT"; } \
+  && log_ok "v1185-MODEL-STALE-HINT(型号不存在时点名型号 + 带日期的指向 evolving/模型广场)" \
+  || log_bad "v1185-MODEL-STALE-HINT 型号失效时没给出下一步" "classifyLlmError 要收 model 参数并走 staleModelHint"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

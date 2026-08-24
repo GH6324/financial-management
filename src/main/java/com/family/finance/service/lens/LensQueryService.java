@@ -129,7 +129,7 @@ public class LensQueryService {
 
         List<Position> out = new ArrayList<>();
         for (Account acc : accountMapper.findActiveByFamily(familyId)) {
-            if (acc.getType() == AccountType.LOAN) continue;      // 负债不进资产透视
+            if (acc.getType().isLiability()) continue;            // 负债不进资产透视
             AccountPerformance p = perf.get(acc.getId());
             if (p == null || p.currentValue() == null) continue;  // 未填报 · 无现值
             // 账户级期初市值 = 期末 − 较上期变化(momAmount)· 本期收益率分母;momAmount 缺则不可算

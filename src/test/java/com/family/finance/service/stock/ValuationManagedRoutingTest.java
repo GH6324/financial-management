@@ -99,4 +99,30 @@ class ValuationManagedRoutingTest {
                     .isEqualTo(StockHoldingService.supportsHoldings(t));
         }
     }
+
+    /**
+     * v1.18.5 · 「余额归谁管」这条判据现在有<b>三个</b>消费方,而它们是<b>三个变种的同一个洞</b>被逐个堵上的:
+     * <ol>
+     *   <li>v1.18.1 · 录入侧({@code creditAccountBalance})—— 划转 / 收支进托管账户,钱要落现金行</li>
+     *   <li>v1.18.3 · 估值写回前拦一道 —— 若这次覆盖会抹平刚进出的<b>流水</b>,拒绝覆盖</li>
+     *   <li>v1.18.5 · 手填余额({@code submitBalance})—— 差额要落现金行</li>
+     * </ol>
+     *
+     * <p>第三个变种是<b>生产上真咬到人的</b>:维护者按提示去补钱,用的是「填报页手填余额」——
+     * 而手填既不是流水(第 2 道防线不认)、也不动持仓,<b>正好从两道防线中间漏过去</b>。
+     * 实测 8-21 14:42 手填 451,497.63 → 16:10 CRON 估值写回 375,248.71(delta −76,248.92),
+     * 他刚补的钱又没了。</p>
+     *
+     * <p>这条测试只钉一件事:<b>判据仍然只有一份</b>。三个消费方各自复制一套是这个 bug
+     * 反复出现的形状(已归档 5 次),而现在消费方越多,分裂的代价越大。</p>
+     */
+    @Test
+    void 托管判据的三个消费方共用同一份定义() {
+        // 判据本身是纯函数、无状态 —— 谁调都得到同一个答案。这里用「有持仓的 WEALTH」这个
+        // 生产上真出事的形态,断言三处会看到一致的结论。
+        boolean managed = StockHoldingService.valuationManaged(AccountType.WEALTH, oneHolding());
+        assertThat(managed).isTrue();
+        // 反面:同一个账户类型、没有持仓 → 三处也必须一致地认为「不接管」
+        assertThat(StockHoldingService.valuationManaged(AccountType.WEALTH, List.of())).isFalse();
+    }
 }

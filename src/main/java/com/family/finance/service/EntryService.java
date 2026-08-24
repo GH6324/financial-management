@@ -65,6 +65,8 @@ public class EntryService {
     /** v0.12 · 收入侧:类目↔账户类型校验 + 股票收入落 CASH 现金行 */
     private final com.family.finance.repository.CashFlowCategoryMapper cashFlowCategoryMapper;
     private final com.family.finance.service.stock.StockHoldingService stockHoldingService;
+    /** v1.18.5 · 手填余额落托管账户时要知道「持仓+现金」当前算出来是多少(只读估值) */
+    private final com.family.finance.service.stock.AccountValuationService valuationService;
 
     public Optional<Period> findSelectedPeriod(long familyId, String periodParam) {
         if (periodParam == null || periodParam.isBlank()) {
@@ -149,6 +151,31 @@ public class EntryService {
         BigDecimal normalizedBalance = normalizeBalance(account, newBalance);
         boolean overwriting = snapshotMapper.findByPeriodAndAccount(periodId, accountId).isPresent();
 
+        // ── v1.18.5 · 手填余额落到「持仓托管」账户时,差额要记进现金行 ──────────────
+        //   不这么做的话,用户敲的数会被下一次自动估值按「持仓合计」重算抹掉 ——
+        //   生产实测:8-21 14:42 手填 451,497.63,8-21 16:10 CRON 估值写回 375,248.71,
+        //   delta −76,248.92,那笔钱又没了。而这是【第三个变种】:
+        //     v1.18.1 修的是"划转/收入进托管账户"、v1.18.3 加的写回拦截只认"流水",
+        //     手填余额既不是流水、也不动持仓 —— 正好从两道防线中间漏过去。
+        //   修法与前两次同源:用户说「这个账户现在有 X」,就把 X 与(持仓 + 现金)的差额
+        //   记成现金行。下一次估值重算 = 持仓 + 现金 = X,他敲的数就站得住了。
+        //   语义上这正是「校准」该有的样子:说不清的那部分是现金,而且在持仓页看得见、可改。
+        if (stockHoldingService.valuationManaged(account)) {
+            try {
+                BigDecimal recomputed = valuationService.valuate(familyId, accountId).totalBaseValue();
+                BigDecimal diff = normalizedBalance.subtract(recomputed).setScale(2, RoundingMode.HALF_EVEN);
+                if (diff.signum() != 0) {
+                    stockHoldingService.adjustAccountCash(familyId, accountId, account.getCurrency(), diff);
+                    auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "stock_holding", accountId,
+                            "手填余额校准 · 与持仓合计的差额 " + money(diff) + " 已记入现金行(否则会被下次估值抹掉)");
+                }
+            } catch (Exception e) {
+                // 校准失败不该把「填余额」这个主流程搞挂;但要留一行,不能静默
+                log.warn("手填余额校准现金行失败 · account={} · 余额已按填写值保存,但可能被下次估值覆盖: {}",
+                        accountId, e.toString());
+            }
+        }
+
         snapshotMapper.upsert(PeriodSnapshot.builder()
                 .periodId(periodId)
                 .accountId(accountId)
@@ -173,7 +200,8 @@ public class EntryService {
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
 
         EntryRow row = rowFor(familyId, memberId, periodId, accountId);
-        if ((account.getType() == AccountType.CASH || account.getType() == AccountType.LOAN)
+        // v1.18.5 · 收口到具名谓词:这里问的是「余额变化该不该被流水解释」,不是「是不是这两个类型」
+        if (account.getType().expectsFlowsToExplainBalance()
                 && row.unexplained() != null
                 && row.unexplained().compareTo(new BigDecimal("0.00")) != 0) {
             auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "period_snapshot", accountId,
@@ -272,7 +300,7 @@ public class EntryService {
                                  long accountId, String categoryCode, BigDecimal amount, String note) {
         Period period = requireOpenPeriod(familyId, periodId);
         Account account = requireAccount(familyId, accountId);
-        if (account.getType() == AccountType.LOAN) {
+        if (account.getType().isLiability()) {
             throw new IllegalArgumentException("负债账户不能录入收入");
         }
         var cat = requireIncomeCategoryForAccount(categoryCode, account);
@@ -305,7 +333,7 @@ public class EntryService {
                                   long accountId, String categoryCode, BigDecimal amount, String note) {
         Period period = requireOpenPeriod(familyId, periodId);
         Account account = requireAccount(familyId, accountId);
-        if (account.getType() == AccountType.LOAN) {
+        if (account.getType().isLiability()) {
             throw new IllegalArgumentException("负债账户不能录入支出 · 还贷请记在钱实际流出的现金账户上,类目选「还贷」");
         }
         // 已归档账户必须拦住:全站统计(事实表 / 支出构成 / 月均支出)都按 archived_at IS NULL 排除归档账户,
@@ -683,7 +711,7 @@ public class EntryService {
         String currentLabel = currentBalance == null && todo != null && todo.getPrefilledBalance() != null
                 ? "预填 " + MoneyFormat.format(account.getCurrency(), todo.getPrefilledBalance())
                 : MoneyFormat.format(account.getCurrency(), currentBalance);
-        String warning = (account.getType() == AccountType.CASH || account.getType() == AccountType.LOAN)
+        String warning = account.getType().expectsFlowsToExplainBalance()
                 && unexplained.signum() != 0
                 ? "余额出现未解释变化,建议补一笔收入 / 支出 / 转账对上账"
                 : null;
@@ -795,7 +823,7 @@ public class EntryService {
         boolean showLoanPrompt = false;
         String loanSuggestionLabel = null;
         String loanSuggestionDeltaLabel = null;
-        if (account.getType() == AccountType.LOAN && previousBalance != null) {
+        if (account.getType().isLiability() && previousBalance != null) {
             List<PeriodSnapshot> last2 = snapshotMapper.findLatestBefore(account.getId(), period.getPeriodStart(), 2);
             BigDecimal prevPrev = last2.size() >= 2 ? last2.get(1).getEndBalance() : null;
             BigDecimal predicted = PeriodOpener.predictLoanBalance(previousBalance, prevPrev);
@@ -989,7 +1017,7 @@ public class EntryService {
             throw new IllegalArgumentException("余额必填");
         }
         BigDecimal scaled = value.setScale(2, RoundingMode.HALF_EVEN);
-        if (account.getType() == AccountType.LOAN && scaled.signum() > 0) {
+        if (account.getType().isLiability() && scaled.signum() > 0) {
             return scaled.negate();
         }
         return scaled;

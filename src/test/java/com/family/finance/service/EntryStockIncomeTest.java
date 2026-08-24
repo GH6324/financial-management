@@ -53,7 +53,9 @@ class EntryStockIncomeTest {
                 mock(org.springframework.context.ApplicationEventPublisher.class),
                 cashFlowMapper, mock(TransferMapper.class), mock(AuditLogService.class),
                 mock(FamilyConfigService.class), mock(StockValuationEventMapper.class),
-                categoryMapper, stockHoldingService);
+                categoryMapper, stockHoldingService,
+                // v1.18.5 · 手填余额落托管账户时要拿「持仓+现金」当前值算差额
+                mock(com.family.finance.service.stock.AccountValuationService.class));
 
         Period p = Period.builder().id(100L).familyId(1L).status(PeriodStatus.OPEN)
                 .periodStart(LocalDate.of(2026, 7, 1)).periodEnd(LocalDate.of(2026, 7, 31)).build();

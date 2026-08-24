@@ -403,6 +403,24 @@ public class IntegrationsController {
                 .toList();
     }
 
+    /** 型号看起来是不是「带日期的快照版本」(如 doubao-seed-2-0-pro-<b>260215</b>)。 */
+    static boolean looksDateStamped(String model) {
+        return model != null && model.matches(".*-\\d{6}$");
+    }
+
+    /**
+     * 型号不存在时的下一步指引。带日期的型号大概率是<b>被新版本取代了</b>,
+     * 这时最省事的解法是换成不带日期的别名;其它情况就是填错了。
+     */
+    static String staleModelHint(String model) {
+        if (looksDateStamped(model)) {
+            return " · 这个型号带日期,多半已被新版本取代 —— 换成不带日期的 doubao-seed-evolving(平台自动跟进),"
+                 + "或到火山方舟「模型广场」复制当前的 Model ID";
+        }
+        return " · 到平台控制台复制当前可用的 Model ID(方舟也可填 ep- 开头的接入点 ID);"
+             + "另外确认该型号已在「开通管理」里开通";
+    }
+
     /** 写一组三元组;{@code inv} 为 null = 清空(备选可以不设) */
     private void writeTriple(long fid, String platformKey, String familyKey, String modelKey, LlmInvocation inv) {
         configService.set(fid, platformKey, inv == null ? "" : inv.platform());
@@ -597,7 +615,7 @@ public class IntegrationsController {
             reason = ok ? "可用" : "返回为空";
         } catch (Exception e) {
             ok = false;
-            reason = classifyLlmError(e.getMessage());
+            reason = classifyLlmError(e.getMessage(), inv.resolvedModel());
         }
 
         // 审计 · 不记 key 明文(§22.6 / 决策 82)· 只记调用坐标 + 结果归类
@@ -639,13 +657,21 @@ public class IntegrationsController {
      * 归类成「Key 无效」,而这恰恰是方舟最容易踩、也最需要说清楚的一条(key 是好的,
      * 是型号填错了)。所以型号/接入点这一档必须排在凭据档前面。</p>
      */
-    static String classifyLlmError(String rawMsg) {
+    /**
+     * v1.18.5 · 多收一个 {@code model} 参数,专为「预置型号过期」这件事:
+     * 方舟的型号大多带日期后缀({@code -260215}),会随版本更迭被取代。
+     * 我们预置了推荐型号(v1.18.4),默认那个不带日期所以不会失效,
+     * 但用户若选了带日期的那几个,总有一天会 404 —— 那时候
+     * <b>报错里必须说清「是型号过期了、去哪换、换成什么」</b>,而不是让他自己猜。
+     * 维护者定的口径:<b>不主动检测,报错时提示即可</b>。
+     */
+    static String classifyLlmError(String rawMsg, String model) {
         String m = rawMsg == null ? "" : rawMsg.toLowerCase(java.util.Locale.ROOT);
         if (m.contains("未配置") || m.contains("not configured")) return "Key 未配置";
         // ── 方舟专属:型号/接入点 与 实名认证(必须排在凭据档之前,见上方 javadoc) ──
         if (m.contains("endpoint") || m.contains("model not found") || m.contains("modelnotfound")
                 || m.contains("接入点") || m.contains("does not exist"))
-            return "型号或接入点不存在(方舟需到控制台复制接入点 ID / 模型 ID)";
+            return "型号不存在:「" + (model == null ? "(自动)" : model) + "」" + staleModelHint(model);
         if (m.contains("modelnotopen") || m.contains("not activated") || m.contains("未开通") || m.contains("未订阅"))
             return "该型号未在控制台开通(先去平台开通再试)";
         if (m.contains("realname") || m.contains("real name") || m.contains("实名"))
