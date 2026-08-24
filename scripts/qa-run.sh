@@ -7077,6 +7077,40 @@ QA1182_UT="$RD/src/test/java/com/family/finance/service/reconcile/Reconciliation
   && log_ok "v1182-RECONCILE-NOT-DECORATIVE(按事件时间窗口配对 · 单测该抓/不该抓成对写)" \
   || log_bad "v1182-RECONCILE-NOT-DECORATIVE 判据退回按期合计,或单测只剩「该抓」那一半" "按期合计的判据抓不到这个 bug(估值会把抹掉的动作如实记成事件,两边相消)"
 
+# v1186-RECONCILE-NO-BLIND-FIX · 对账页不许把「疑似」说成「照此补回」(v1.18.6)
+#
+# 起因是一次真实误报,而且方向是【让维护者去删掉真实存在的钱】—— 比漏报危险得多:
+# 生产上有一格命中了时间线判据,但那是用户转账后立刻重导了一次持仓截图(导入如实还原了
+# 转账前的持仓、于是与转账相消),而 8 天后的又一次导入已经把余额纠正了。
+# 判据只看【某一个瞬间】,对「后来被纠正」一无所知,照样报出「需要补回 12.5w」。
+#
+# 修法不是改判据(判据本身没错),是补上【第二视角:整期是否自洽】并给结论分级:
+#   隐含损益 = 期末 − 期初 − 净流水      残留 = 隐含损益 + 被抹掉的钱
+#   残留 ≈ 0 → 期末余额至今仍差着这笔钱(stillMissing)· 残留 ≫ 0 → 只提示核对
+# 它顺带替代了「已处理」标记:钱补回来之后同一条痕迹会自动降级,不需要人手打标记
+#(人手标记会和数据分家,而「同一件事两份判据」正是这一整个 bug 家族的形状)。
+QA1186_TPL="$RD/src/main/resources/templates/admin/reconcile.html"
+QA1186_UT_F="$QA1182_UT"
+{ grep -q 'findBalancesForReconcile' "$QA1182_SVC" \
+  && grep -q 'stillMissing' "$QA1182_SVC" \
+  && grep -q 'residual' "$QA1182_SVC" \
+  && grep -q 'findBalancesForReconcile' "$RD/src/main/java/com/family/finance/repository/StockValuationEventMapper.java" \
+  `# 口径必须与事实表同源:期末缺失时沿用 <= 当期的最近一期(漏填不等于归零),期初取严格更早的一期。` \
+  `# 两处口径分家正是这个 bug 家族的形状,所以连 SQL 的形状一起钉住。` \
+  && grep -q 'pc.period_start <= p.period_start' "$RD/src/main/java/com/family/finance/repository/StockValuationEventMapper.java" \
+  && grep -q 'pv.period_start < p.period_start' "$RD/src/main/java/com/family/finance/repository/StockValuationEventMapper.java" \
+  && grep -q 'p_prev.period_start &lt; p.period_start' "$RD/src/main/resources/mapper/FactMapper.xml" \
+  && grep -q 'f.stillMissing()' "$QA1186_TPL" \
+  && grep -q '期末仍对不上' "$QA1186_TPL" \
+  && grep -q '需人工核对' "$QA1186_TPL" \
+  && grep -q '疑似' "$QA1186_TPL" \
+  && ! grep -q '需要补回' "$QA1186_TPL" \
+  && grep -q '第二视角_后来已被纠正_只标需人工核对_不许当成要补的钱' "$QA1186_UT_F" \
+  && grep -q '第二视角_补回之后同一条痕迹自动降级' "$QA1186_UT_F" \
+  && grep -q '第二视角_期初缺失时不许编数' "$QA1186_UT_F"; } \
+  && log_ok "v1186-RECONCILE-NO-BLIND-FIX(疑似分级:期末仍对不上 / 需人工核对 · 补回后自动降级 · 页面不再写「需要补回」)" \
+  || log_bad "v1186-RECONCILE-NO-BLIND-FIX 对账页又变回「照此补回」,或第二视角被拆掉" "判据只看瞬间,看不出「后来已被纠正」;照着补 = 凭空删钱(生产上真发生过)"
+
 # ============================================================
 # v1.18.4 · 数据源接入页:方舟型号 + 表单按「用户想干什么」分支
 # ============================================================

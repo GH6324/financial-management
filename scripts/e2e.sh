@@ -565,7 +565,7 @@ RC_ACC="$(db "SELECT a.id FROM account a JOIN stock_holding h ON h.account_id=a.
              GROUP BY a.id ORDER BY a.id LIMIT 1")"
 RC_SRC="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='CASH' AND archived_at IS NULL ORDER BY id LIMIT 1")"
 RC_PID="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='OPEN' ORDER BY period_start DESC LIMIT 1")"
-rc_hits(){ GET /admin/reconcile | grep -oE '发现 <b>[0-9]+</b> 处对不上' | grep -oE '[0-9]+' | head -1; }
+rc_hits(){ GET /admin/reconcile | grep -oE '发现 <b>[0-9]+</b> 处<b>疑似</b>' | grep -oE '[0-9]+' | head -1; }
 if [ -n "$RC_ACC" ] && [ -n "$RC_SRC" ] && [ -n "$RC_PID" ]; then
   GET /admin/reconcile | grep -q '账 · 目 · 对 · 账' && ok "对账-页面正常渲染" \
     || bad "对账-页面正常渲染" "/admin/reconcile 没出来"
@@ -580,7 +580,20 @@ if [ -n "$RC_ACC" ] && [ -n "$RC_SRC" ] && [ -n "$RC_PID" ]; then
   #    而这个扫描器扫的是历史 —— 所以直接在库里摆出那个形状:
   #    一笔进账 + 紧随其后一条 Δ = −该笔金额 的估值事件(= 当年被抹掉时留下的痕迹)。
   #    用 app 去"丢一次钱"已经不可行了,那正是方案 B 生效的证据。
-  RC_FAKE_T="$(db "SELECT UNIX_TIMESTAMP()")"
+  #    v1.18.6:先把这一期的「隐含损益」归零(end = prev + 净流水),否则 beta 上账户本身的
+  #    涨跌会把第二视角的残留顶得到处跑,验出来的是噪音不是判据。原值最后还回去。
+  RC_SNAP0="$(db "SELECT ROUND(end_balance,2) FROM period_snapshot WHERE period_id=$RC_PID AND account_id=$RC_ACC")"
+  RC_PREV="$(db "SELECT ps.end_balance FROM period_snapshot ps JOIN period p ON p.id=ps.period_id
+                  JOIN period pc ON pc.id=$RC_PID
+                 WHERE ps.account_id=$RC_ACC AND p.period_start < pc.period_start
+                 ORDER BY p.period_start DESC LIMIT 1")"
+  RC_NET="$(db "SELECT ROUND(COALESCE(SUM(s),0),2) FROM (
+                  SELECT CASE WHEN kind='INCOME' THEN amount ELSE -amount END AS s FROM cash_flow
+                   WHERE period_id=$RC_PID AND account_id=$RC_ACC AND deleted_at IS NULL
+                  UNION ALL SELECT COALESCE(to_amount,amount) FROM transfer
+                   WHERE period_id=$RC_PID AND to_account_id=$RC_ACC AND is_draft=0 AND deleted_at IS NULL
+                  UNION ALL SELECT -amount FROM transfer
+                   WHERE period_id=$RC_PID AND from_account_id=$RC_ACC AND is_draft=0 AND deleted_at IS NULL) x")"
   db "INSERT INTO transfer (period_id, from_account_id, to_account_id, amount, occurred_at, submitted_by, is_draft, submitted_at)
       SELECT $RC_PID, $RC_SRC, $RC_ACC, 61234, CURDATE(), 1, 0, NOW(3)" >/dev/null
   db "INSERT INTO stock_valuation_event (family_id, account_id, period_id, prev_balance, new_balance, delta, trigger_kind, triggered_at)
@@ -589,11 +602,39 @@ if [ -n "$RC_ACC" ] && [ -n "$RC_SRC" ] && [ -n "$RC_PID" ]; then
   [ "${RC_BAD:-0}" -gt "${RC_BEFORE:-0}" ] \
     && ok "对账-历史丢钱扫得出来(命中 $RC_BEFORE → $RC_BAD)" \
     || bad "对账-历史丢钱扫得出来" "摆好了形状却没扫出来 —— 这个检查成了永远绿的装饰品"
-  GET /admin/reconcile | grep -q '需要补回' && ok "对账-给出要补回的金额" \
-    || bad "对账-给出要补回的金额" "页面没有「需要补回」列"
+  GET /admin/reconcile | grep -q '疑似' && ok "对账-措辞是「疑似」不是断言" \
+    || bad "对账-措辞是「疑似」不是断言" "页面没有「疑似」—— 判据只看瞬间,写成断言会让人照着删钱"
+  GET /admin/reconcile | grep -q '需要补回' \
+    && bad "对账-不许再出现「需要补回」" "那是断言式措辞,v1.18.6 已降级" \
+    || ok "对账-不许再出现「需要补回」"
+
+  # ─── v1.18.6 · 第二视角:整期是否自洽 ───────────────────────────────
+  # 这一版修的是【误报】,方向是「让人删掉真实存在的钱」—— 生产上我照着扫描器的输出
+  # 断言维护者要扣 12.5w,而那格早在 8 天后的一次重新导入里就被纠正了。
+  # 所以两个分支都要验,而且必须【互斥】:同一条痕迹,钱没回来 → 期末仍对不上;
+  # 钱补回来 → 自动降级成需人工核对(这就是「已处理」标记的替代方案)。
+  if [ -n "$RC_SNAP0" ] && [ -n "$RC_PREV" ] && [ -n "$RC_NET" ]; then
+    # ③ 钱一直没回来:end = prev + 净流水(含刚插的 61234)→ 隐含损益正好背着这个缺口 → 残留 0
+    RC_STILL="$(awk -v p="$RC_PREV" -v n="$RC_NET" 'BEGIN{printf "%.2f", p+n}')"
+    db "UPDATE period_snapshot SET end_balance=$RC_STILL WHERE period_id=$RC_PID AND account_id=$RC_ACC" >/dev/null
+    GET /admin/reconcile | grep -q 'data-verdict="still-missing"' && ok "对账-钱没回来时标「期末仍对不上」" \
+      || bad "对账-钱没回来时标「期末仍对不上」" "残留应当 ≈0,却没判成确定 —— 真该动手的那条被降级了"
+    # ④ 钱补回来了:期末再加上被抹掉的 61234 → 残留远离 0 → 同一条痕迹自动降级
+    RC_FIXED="$(awk -v s="$RC_STILL" 'BEGIN{printf "%.2f", s+61234}')"
+    db "UPDATE period_snapshot SET end_balance=$RC_FIXED WHERE period_id=$RC_PID AND account_id=$RC_ACC" >/dev/null
+    GET /admin/reconcile | grep -q 'data-verdict="needs-review"' && ok "对账-补回后同一条痕迹自动降级为「需人工核对」" \
+      || bad "对账-补回后同一条痕迹自动降级" "钱已经补回来了还在催人补第二次 —— 照着补就是凭空造钱"
+    GET /admin/reconcile | grep -q 'data-verdict="still-missing"' \
+      && bad "对账-补回后不许还标「期末仍对不上」" "两个标签同时出现 = 分级没生效" \
+      || ok "对账-补回后不许还标「期末仍对不上」"
+    db "UPDATE period_snapshot SET end_balance=$RC_SNAP0 WHERE period_id=$RC_PID AND account_id=$RC_ACC" >/dev/null
+  else
+    ok "对账-第二视角:该账户没有上一期快照(建仓首期),跳过"
+  fi
   # 收尾:清掉造出来的历史形状,别污染后面的主线
   db "DELETE FROM stock_valuation_event WHERE account_id=$RC_ACC AND period_id=$RC_PID AND delta=-61234" >/dev/null
   db "DELETE FROM transfer WHERE period_id=$RC_PID AND to_account_id=$RC_ACC AND amount=61234" >/dev/null
+  db "UPDATE period_snapshot SET end_balance=$RC_SNAP0 WHERE period_id=$RC_PID AND account_id=$RC_ACC" >/dev/null
 else
   ok "对账-beta 上没有「有持仓的 WEALTH/CRYPTO/METAL」账户,跳过"
 fi

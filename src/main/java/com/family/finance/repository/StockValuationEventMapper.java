@@ -112,6 +112,52 @@ public interface StockValuationEventMapper {
             """)
     List<ReconFlow> findFlowsForReconcile(@Param("familyId") long familyId);
 
+    /** v1.18.6 · 对账用:某账户某期的期初 / 期末余额(账户币种)。 */
+    record ReconBalance(long accountId, long periodId,
+                        java.math.BigDecimal endBalance, java.math.BigDecimal prevEndBalance) {}
+
+    /**
+     * v1.18.6 · 每个「有估值事件的 (账户, 期)」的期初 / 期末余额 · <b>只读</b>。
+     *
+     * <h3>为什么加这个 —— 一次真实的误报,而且是往<b>删钱</b>的方向误报</h3>
+     * <p>时间线判据只看<b>某一个瞬间</b>:「这次估值的 Δ 恰好抵消了刚进出的钱」。
+     * 生产上有一格确实命中了,但那是用户<b>转账后立刻又导了一次持仓截图</b> ——
+     * 导入把持仓如实还原成转账前的状态,于是与转账相消;而 <b>8 天后他又导了一次,
+     * 把余额纠正了</b>。判据对此一无所知,照样把它报成「需要补回 12.5w」。</p>
+     *
+     * <p>若真按报告去补,就是<b>凭空删掉 12.5 万</b> —— 比漏报危险得多。
+     * 根子在于判据只有「瞬间」这一个视角,缺少<b>整期是否自洽</b>这第二个视角:</p>
+     * <pre>  隐含损益 = 期末 − 期初 − 净流水
+     *  残留     = 隐含损益 + 被抹掉的钱
+     *
+     *  残留 ≈ 0  → 期末余额里<b>至今仍差着</b>这笔钱(真的要补)
+     *  残留 ≫ 0  → 期末余额后来被改动过,<b>可能已经纠正</b>(要人去核)</pre>
+     * <p>实测两格正好分开:一格残留 = 0(钱确实没回来),另一格残留 = 10 万量级
+     * (那次重新导入把账做平了)。</p>
+     *
+     * <p>口径<b>刻意抄事实表</b>({@code FactMapper.xml} 的 previous_end_balance / end_balance):
+     * 期末为空时沿用 ≤ 当期的最近一期(用户漏填不该被读成"余额归零"),期初取严格更早的一期。
+     * 两处口径分家正是这个 bug 反复出现的形状,所以有单测钉住它们一致。</p>
+     */
+    @Select("""
+            SELECT a.id AS accountId, p.id AS periodId,
+                   COALESCE(ps.end_balance, (
+                     SELECT c.end_balance FROM period_snapshot c JOIN period pc ON pc.id = c.period_id
+                      WHERE c.account_id = a.id AND pc.period_start <= p.period_start
+                        AND c.end_balance IS NOT NULL
+                      ORDER BY pc.period_start DESC LIMIT 1)) AS endBalance,
+                   (SELECT v.end_balance FROM period_snapshot v JOIN period pv ON pv.id = v.period_id
+                     WHERE v.account_id = a.id AND pv.period_start < p.period_start
+                     ORDER BY pv.period_start DESC LIMIT 1) AS prevEndBalance
+              FROM account a
+              JOIN period p ON p.family_id = a.family_id
+              LEFT JOIN period_snapshot ps ON ps.period_id = p.id AND ps.account_id = a.id
+             WHERE a.family_id = #{familyId}
+               AND EXISTS (SELECT 1 FROM stock_valuation_event e
+                            WHERE e.account_id = a.id AND e.period_id = p.id)
+            """)
+    List<ReconBalance> findBalancesForReconcile(@Param("familyId") long familyId);
+
     /** v1.18.3 · 某账户在某期最后一次估值的时间(null = 本期还没估过)。 */
     @Select("""
             SELECT MAX(e.triggered_at) FROM stock_valuation_event e

@@ -21,7 +21,8 @@
       <p class="text-[13px] text-ink leading-relaxed">
         <b>它在找什么</b>:v1.18.1 之前,往「挂着持仓的账户」(基金 / 股票 / 加密 / 贵金属)划转或记收入时,
         钱只加到了当期余额上、没记进该账户的现金 —— 下一次自动估值按「持仓合计」重算就把它覆盖掉,
-        <b>那笔钱从余额里消失,而且不会自动回来</b>。这页把这种账列出来,好让你手工补上。
+        <b>那笔钱从余额里消失,而且不会自动回来</b>。这页把这种痕迹列出来<b>供你核对</b> ——
+        它只提示,不替你判断该补多少(下面那段说明了为什么)。
       </p>
       <p class="font-mono text-[10px] text-ink-subtle tracking-wider mt-2 leading-relaxed">
         范围:只看<b>当前由估值托管</b>的账户(那是全系统唯一会覆盖写余额的地方)· 只在<b>估值真跑过</b>的时间窗口上判(没跑过就没有覆盖写)·
@@ -58,38 +59,75 @@
     </div>
 
     <div th:unless="${#lists.isEmpty(report.findings())}">
+      <!-- v1.18.6 · 措辞从断言式的「照此补回」降级成「疑似 · 请核对」。
+           起因是一次真实误报,而且方向是【让人去删掉真实存在的钱】—— 比漏报危险得多。
+           这一页的定位是把可疑的地方指出来给人看,不是替人做决定。 -->
       <div class="border-l-2 border-rust bg-rust/[0.04] px-4 py-3 mb-4">
         <p class="text-[13px] text-ink leading-relaxed">
-          发现 <b th:text="${#lists.size(report.findings())}">0</b> 处对不上。
-          命中的形状是:<b>某次自动估值的 Δ,恰好等于它之前刚进账户那笔钱的相反数</b>(精确到分)——
-          说明那笔钱被估值按「持仓合计」重算时覆盖掉了。「需要补回」这一列就是要补的金额。
-          补法:进该账户的<b>持仓页</b>,加一行等额的<b>现金</b>(币种与账户一致)。
-          <span class="text-ink-soft">升级到 v1.18.1 之后新发生的划转 / 收入不会再有这个问题。</span>
+          发现 <b th:text="${#lists.size(report.findings())}">0</b> 处<b>疑似</b>。命中的形状是:<b>某次自动估值的
+          Δ,恰好等于它之前刚进账户那笔钱的相反数</b>(精确到分)—— 那笔钱很可能被「持仓合计」重算覆盖掉了。
+        </p>
+        <p class="text-[13px] text-ink leading-relaxed mt-2">
+          <b class="text-rust">别照着「疑似被抹」这一列直接补。</b>这个判据只看<b>某一个瞬间</b>,
+          看不出「后来是不是已经被纠正了」—— 比如你转账后又重新导入了一次持仓截图,导入把账做平了,
+          可这条历史痕迹仍然会留在下面。<b>照着一条已经纠正过的记录去补,等于凭空多出一笔钱</b>(反过来也一样)。
+        </p>
+        <p class="text-[13px] text-ink leading-relaxed mt-2">
+          所以每条都给了<b>第二个视角:整期是否自洽</b> —— <span class="font-mono text-[11px]">隐含损益 = 期末 − 期初 − 净流水</span>。
+          钱要是一直没回来,这个缺口会原样留在隐含损益里(下面标成<b class="text-rust">期末仍对不上</b>);
+          要是隐含损益看着像正常涨跌,说明期末余额后来被改动过,<b>大概率已经纠正,先去核对再说</b>。
+        </p>
+        <p class="text-[13px] text-ink-soft leading-relaxed mt-2">
+          真要补的话:进该账户的<b>持仓页</b>加一行等额<b>现金</b>(币种与账户一致),或者在填报页直接手填正确余额
+          —— v1.18.5 起手填的差额会自动落进现金行,不会再被下一次估值抹掉。
+          升级到 v1.18.1 之后新发生的划转 / 收入不会再有这个问题。
         </p>
       </div>
 
       <div class="paper-card p-2 overflow-x-auto">
         <div class="px-5 py-3 grid grid-cols-12 gap-3 border-b border-rule font-mono text-[10px] tracking-wider text-ink-subtle uppercase">
           <div class="col-span-3">账户</div>
-          <div class="col-span-2">账期</div>
+          <div class="col-span-1">账期</div>
           <div class="col-span-2 text-right">本期净流水</div>
-          <div class="col-span-2 text-right">抹掉那几次的 Δ</div>
-          <div class="col-span-3 text-right">需要补回</div>
+          <div class="col-span-2 text-right">本期余额变化</div>
+          <div class="col-span-2 text-right">隐含损益</div>
+          <div class="col-span-2 text-right">疑似被抹</div>
         </div>
         <div class="divide-y divide-rule-soft">
           <div th:each="f : ${report.findings()}" class="px-5 py-3 grid grid-cols-12 gap-3 items-baseline text-sm hover:bg-card-soft">
             <div class="col-span-3">
               <a th:href="@{|/accounts/${f.accountId()}/holdings|}" class="no-underline hover:text-brass-deep"
-                 th:text="${f.accountName()}" title="去持仓页补一行现金">账户</a>
+                 th:text="${f.accountName()}" title="去持仓页核对">账户</a>
               <div class="font-mono text-[10px] text-ink-subtle" th:text="${f.accountType() + ' · ' + f.currency()}">理财 · CNY</div>
             </div>
-            <div class="col-span-2 font-mono text-xs tnum"
+            <div class="col-span-1 font-mono text-xs tnum"
                  th:text="${f.periodStart() != null ? #temporals.format(f.periodStart(),'yyyy-MM') : '—'}">2026-08</div>
             <div class="col-span-2 text-right font-mono text-xs tnum" data-priv th:text="${f.netFlow()}">0</div>
-            <div class="col-span-2 text-right font-mono text-xs tnum text-ink-subtle" data-priv th:text="${f.balanceChange()}">0</div>
-            <div class="col-span-3 text-right font-mono text-sm tnum num-neg" data-priv th:text="${f.missing()}">0</div>
-            <div class="col-span-12 font-mono text-[10px] text-rust tracking-wider pl-1">
-              有一次(或几次)估值的 Δ <b>恰好等于刚进账户那笔钱的相反数</b> —— 钱被估值抹平了
+            <div class="col-span-2 text-right font-mono text-xs tnum text-ink-subtle" data-priv
+                 th:text="${f.balanceChange() != null ? f.balanceChange() : '—'}">0</div>
+            <div class="col-span-2 text-right font-mono text-xs tnum" data-priv
+                 th:classappend="${f.impliedPnl() != null and f.impliedPnl().signum() < 0} ? 'num-neg' : 'text-ink-subtle'"
+                 th:text="${f.impliedPnl() != null ? f.impliedPnl() : '—'}">0</div>
+            <div class="col-span-2 text-right font-mono text-sm tnum"
+                 th:classappend="${f.stillMissing()} ? 'num-neg' : 'text-ink-soft'"
+                 data-priv th:text="${f.missing()}">0</div>
+
+            <!-- 判定:两条文案都要说清「凭什么」,不能只丢一个红字标签 -->
+            <div class="col-span-12 pl-1 mt-1">
+              <!-- data-verdict 是给 e2e 用的锚点:两个标签的文案也出现在上面那段说明里,
+                   只按文案 grep 分不清「说明里提到」和「这一行真的判成了它」(e2e 实测踩到)。 -->
+              <span th:if="${f.stillMissing()}" data-verdict="still-missing"
+                    class="inline-block font-mono text-[10px] tracking-wider px-2 py-[2px] bg-rust/10 text-rust border border-rust/30">期末仍对不上</span>
+              <span th:unless="${f.stillMissing()}" data-verdict="needs-review"
+                    class="inline-block font-mono text-[10px] tracking-wider px-2 py-[2px] bg-brass/10 text-brass-deep border border-brass/30">需人工核对</span>
+              <span th:if="${f.stillMissing()}" class="font-mono text-[10px] text-rust tracking-wider ml-2">
+                这一期的隐含损益正好还背着这个缺口 —— 钱到期末<b>还没回来</b>
+              </span>
+              <span th:unless="${f.stillMissing()}" class="font-mono text-[10px] text-ink-subtle tracking-wider ml-2">
+                期末余额后来被改动过(残留
+                <b data-priv th:text="${f.residual() != null ? f.residual() : '—'}">0</b>)——
+                <b>可能已经纠正过了,请先去持仓页核对真实持仓,再决定要不要动</b>
+              </span>
             </div>
           </div>
         </div>

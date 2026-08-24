@@ -57,6 +57,26 @@ import java.util.Set;
  * 被吞的流水时,两者叠加后就不再精确相消。要根治得在估值写回时就 fail-closed
  * (复盘里的方案 B),那是另一件事。</p>
  *
+ * <h3>v1.18.6 · 第三次被真数据打脸,这次是<b>误报</b>(方向更危险)</h3>
+ * <p>前两版的毛病是抓不到,这一版的毛病是<b>抓到了不该动的</b>。生产上有一格命中了判据,
+ * 但真相是:用户转账后<b>立刻又导了一次持仓截图</b> —— 导入如实还原了转账前的持仓,于是与转账相消;
+ * 而 <b>8 天后他又导了一次,把余额纠正了</b>。判据只看那一个瞬间,对「后来被纠正」一无所知,
+ * 照样报出「需要补回 12.5w」。<b>照着补 = 凭空删掉 12.5 万</b> —— 比漏报危险得多。</p>
+ *
+ * <p>所以现在每条都带<b>第二视角:整期是否自洽</b>。</p>
+ * <pre>  隐含损益 = 期末 − 期初 − 净流水        (与事实表 periodPnl 同口径)
+ *  残留     = 隐含损益 + 被抹掉的钱
+ *
+ *  残留 ≈ 0 → 期末余额<b>至今仍差着</b>这笔钱     → stillMissing,真要动手
+ *  残留 ≫ 0 → 期末余额后来被改动过                → 需人工核对,别照着删钱</pre>
+ * <p>它顺带解决了另一件事:钱一旦被补回,该条自动从「期末仍对不上」降级为「需人工核对」——
+ * 不需要再单做一个「已处理」标记,因为<b>数据自己会说</b>(人手打的标记会和数据分家,
+ * 而「同一件事两份判据」正是这一整个 bug 家族的形状)。</p>
+ *
+ * <p><b>两个视角都可能出错,所以页面不许写成「照此补回」。</b>整期视角也有它的盲区:
+ * 账户当期真实涨跌恰好等于缺口时,残留也会 ≈ 0(概率极低但不为零)。
+ * 这一页的定位是<b>把可疑的地方指出来给人看</b>,不是替人做决定。</p>
+ *
  * <h3>为什么只扫这些期(误报会让告警被关掉,等于没做)</h3>
  * <ul>
  *   <li><b>只看当前由估值托管的账户</b>:那是全系统唯一会对余额做<b>破坏性覆盖写</b>的地方。
@@ -73,15 +93,27 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ReconciliationScanService {
 
-    /** 一条异常:这一期记了流水,而余额的变化恰好等于「这笔钱从没发生过」 */
+    /**
+     * 一条<b>疑似</b>:某次估值的 Δ 恰好抵消了刚进出的钱。
+     *
+     * <p><b>「疑似」两个字是 v1.18.6 加的,起因是一次真实误报</b>:判据只看那一个瞬间,
+     * 而生产上有一格是用户转账后立刻重导持仓截图(导入如实还原了转账前的持仓、于是相消),
+     * <b>8 天后的又一次导入已经把账做平了</b>。判据看不见「后来被纠正」,照样报「要补 12.5w」。
+     * 照着补 = 凭空删钱。所以现在每条都带<b>第二视角</b>({@link #stillMissing}),
+     * 并且页面不许再写成「照此补回」。</p>
+     */
     public record Finding(long accountId, String accountName, String accountType, String currency,
                           long periodId, LocalDate periodStart,
                           BigDecimal netFlow,          // 该期净流水(收入−支出+转入−转出)
-                          BigDecimal balanceChange,    // 命中的那几次估值一共写了多少(= 抹掉的动作)
-                          BigDecimal valuationDelta,   // 同上(页面上并列展示,保留两列位置)
-                          BigDecimal missing) {}       // 被抹掉、需要补回的金额
+                          BigDecimal balanceChange,    // 该期余额变化(期末 − 期初)
+                          BigDecimal valuationDelta,   // 命中的那几次估值一共写了多少
+                          BigDecimal missing,          // 被抹掉的金额(瞬间视角)
+                          BigDecimal impliedPnl,       // 隐含损益 = 余额变化 − 净流水(整期视角)
+                          BigDecimal residual,         // 残留 = 隐含损益 + 被抹掉的钱
+                          boolean stillMissing) {}     // 残留 ≈ 0 → 期末余额里至今仍差着这笔钱
 
     /** v1.18.3 · 一条「估值写回被拦下」的留痕(方案 B 生效时写的审计) */
+
     public record Blocked(java.time.LocalDateTime at, String detail) {}
 
     public record Report(List<Finding> findings, BigDecimal epsilon,
@@ -124,6 +156,11 @@ public class ReconciliationScanService {
         for (var f : valuationEventMapper.findFlowsForReconcile(familyId)) {
             if (!managed.containsKey(f.accountId())) continue;
             flowsByKey.computeIfAbsent(f.accountId() + ":" + f.periodId(), k -> new ArrayList<>()).add(f);
+        }
+        // v1.18.6 · 第二视角:整期是否自洽。判据只看瞬间,会把「后来已被纠正」的历史照样报出来。
+        Map<String, StockValuationEventMapper.ReconBalance> balanceByKey = new HashMap<>();
+        for (var b : valuationEventMapper.findBalancesForReconcile(familyId)) {
+            balanceByKey.put(b.accountId() + ":" + b.periodId(), b);
         }
 
         BigDecimal epsilon = eps(familyId);
@@ -169,15 +206,33 @@ public class ReconciliationScanService {
 
             BigDecimal netFlow = BigDecimal.ZERO;
             for (var fl : flows) netFlow = netFlow.add(nz(fl.signedAmount()));
+
+            // ③ v1.18.6 · 第二视角:这笔钱到期末<b>是不是还缺着</b>?
+            //    隐含损益 = 期末 − 期初 − 净流水;残留 = 隐含损益 + 被抹掉的钱。
+            //    钱一直没回来 → 隐含损益正好背着这个缺口 → 残留 ≈ 0。
+            //    后来被重新导入 / 手填纠正过 → 期末余额已改动 → 残留远离 0,得让人去核。
+            var bal = balanceByKey.get(entry.getKey());
+            BigDecimal balanceChange = null, impliedPnl = null, residual = null;
+            boolean stillMissing = false;
+            if (bal != null && bal.endBalance() != null && bal.prevEndBalance() != null) {
+                balanceChange = nz(bal.endBalance()).subtract(nz(bal.prevEndBalance()));
+                impliedPnl = balanceChange.subtract(netFlow);
+                residual = impliedPnl.add(erased);
+                stillMissing = residual.abs().compareTo(epsilon) <= 0;
+            }
+
             out.add(new Finding(acc.getId(), acc.getDisplayName(), acc.getType().getLabel(), acc.getCurrency(),
                     head.periodId(), head.periodStart(),
-                    netFlow.setScale(2, RoundingMode.HALF_EVEN),
-                    erasedByValuation.setScale(2, RoundingMode.HALF_EVEN),
-                    erasedByValuation.setScale(2, RoundingMode.HALF_EVEN),
-                    erased.setScale(2, RoundingMode.HALF_EVEN)));
+                    scale(netFlow), scale(balanceChange),
+                    scale(erasedByValuation), scale(erased),
+                    scale(impliedPnl), scale(residual), stillMissing));
         }
-        // 金额大的排前面(要人去补的钱,先看大的)
-        out.sort((a, b) -> b.missing().abs().compareTo(a.missing().abs()));
+        // v1.18.6 · 排序改成「先确定性、再金额」——「期末仍对不上」的是真要动手的,
+        // 「需人工核对」的可能只是历史痕迹,混在一起会让人照着历史痕迹去删钱(生产上真发生过)。
+        out.sort((a, b) -> {
+            if (a.stillMissing() != b.stillMissing()) return a.stillMissing() ? -1 : 1;
+            return b.missing().abs().compareTo(a.missing().abs());
+        });
         // v1.18.3 · 事前拦截的留痕也摆在这一页 —— 只写日志等于页面上看不出来(v1.17.3 的教训)
         List<Blocked> blocked = auditMapper
                 .findByFamily(familyId, com.family.finance.domain.audit.AuditLogType.SYSTEM.name(), 200)
@@ -200,4 +255,9 @@ public class ReconciliationScanService {
     }
 
     private static BigDecimal nz(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }
+
+    /** null 保留成 null —— 期初缺失(建仓期)时不该假装算得出「隐含损益」。 */
+    private static BigDecimal scale(BigDecimal v) {
+        return v == null ? null : v.setScale(2, RoundingMode.HALF_EVEN);
+    }
 }
