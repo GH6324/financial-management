@@ -6271,16 +6271,43 @@ MINOR=$(printf '%s' "$APPV" | cut -d. -f1,2)
 #   这类文档的价值在**口径 / 计算逻辑 / 相对量 / 结论**,绝对金额一点不需要。
 #   规则:审计与复盘文档里不许出现「7 位及以上带千分位」的金额;要记具体数额去本地
 #   AGENTS.local.md(git-ignored)。preview mockup / 单测 fixture 用的是合成数,不在本条管辖范围。
+#
+#   v1.18.6 · 范围扩了两次,因为这条护栏【两个维度都太窄,漏了真实泄露】:
+#     ① 只扫 docs/*audit*.md / *review*.md —— 而 README.md / prd/ / tech-design/ /
+#        docs/qa-cases.md 同样是「对着真实环境写观察」的地方,而且 README 是落地页、
+#        曝光最大。实测 v1.18.5 把 prod 三个真实余额写进了 README 与 qa-cases,
+#        这条护栏一声不吭(它压根没看那些文件)。
+#     ② 只匹配 7 位以上带两个千分位的金额(`1,234,567`)—— 而家庭账户余额多是
+#        6 位(`451,497.63`),一个千分位就够,老 pattern 匹配不到。
+#   现在:文件范围含 README / prd / tech-design / docs/qa-cases.md,pattern 放宽到
+#   「3 位起 + 千分位 + 两位小数」(`123,456.78` / `1,234,567.89` 都中)。
+#   放宽后必然会碰到【合成数】—— 单测 fixture、e2e 造的金额、preview mockup 里的数
+#   都是编的,不该报。所以判据是「带小数的千分位金额」+ 白名单豁免:e2e/单测用的
+#   合成额写在 QA111_SYNTH 里,加新合成额要显式登记(逼人过一遍脑子:这数是编的吗)。
+#
+#   【这条护栏还盖不住什么 —— 明写出来,别把它当全覆盖】
+#   同一批金额还有两种写法它不认,而仓库里【确实还有存量】(2026-08-24 清点,约 60 处,
+#   散在 prd/v0.1~v1.10、tech-design/v0.3~v1.12、docs/qa-cases.md、docs/metric-audit-*):
+#     · 万 / w 简写:`119 万` `7.5w` `182.5万`
+#     · 裸数字无千分位:`¥5399878` `¥1779269`
+#   没有一起收进来,是因为这两种写法【真实金额与举例数混在一起】——「资产 200 万 / 房贷 195 万」
+#   是单测造的家庭,「净资产 100 万远大于阈值 5」是讲判据,而「同一时刻 checkup ¥5399878」
+#   是 prod 实测。机器分不出来,硬扫会得到一条天天红的护栏,然后被人关掉(这一版刚为
+#   「误报会让告警被关掉」付过代价)。要收得先由维护者逐条裁定哪些是真的。
+QA111_SYNTH='53,210|48,765|61,234|40,000|35,000|1,234,567\.89|123,456\.78'
 bad_money=0
-for f in "$RD"/docs/*audit*.md "$RD"/docs/*review*.md; do
+for f in "$RD"/docs/*audit*.md "$RD"/docs/*review*.md "$RD"/README.md "$RD"/docs/qa-cases.md \
+         "$RD"/prd/*.md "$RD"/tech-design/*.md; do
   [ -f "$f" ] || continue
-  if grep -qE '[0-9],[0-9]{3},[0-9]{3}' "$f"; then
-    bad_money=1; echo "      ↑ 含真实金额: $(basename "$f")"
+  hits="$(grep -oE '[0-9]{1,3}(,[0-9]{3})+\.[0-9]{2}' "$f" | grep -vE "^($QA111_SYNTH)$" | sort -u)"
+  if [ -n "$hits" ]; then
+    bad_money=1
+    echo "      ↑ 含疑似真实金额: ${f#$RD/} → $(echo "$hits" | tr '\n' ' ')"
   fi
 done
 [[ "$bad_money" -eq 0 ]] \
-  && log_ok "v111-NO-PROD-AMOUNTS(审计/复盘文档无 prod 真实金额 · 仓库公开)" \
-  || log_bad "v111-NO-PROD-AMOUNTS 审计/复盘文档里有真实金额" "公开仓库不许落真实余额;只记口径/相对量/结论,数额去 AGENTS.local.md"
+  && log_ok "v111-NO-PROD-AMOUNTS(README/prd/tech-design/qa-cases/审计文档 无 prod 真实金额 · 仓库公开)" \
+  || log_bad "v111-NO-PROD-AMOUNTS 公开文档里有疑似真实金额" "只记口径/相对量/结论,绝对数额去 AGENTS.local.md;确属合成数请登记进 QA111_SYNTH"
 
 
 SPS2="$RD/src/main/java/com/family/finance/service/report/SealedPeriodService.java"
