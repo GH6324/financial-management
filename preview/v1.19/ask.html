@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.19 Preview · 问一问(资产对话)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 20px}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .card{border:1px solid var(--rule);background:var(--card);padding:18px}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);color:var(--ink-soft);white-space:nowrap}
+  .badge.ok{border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)}
+  .badge.risk{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)}
+  .badge.wait{border-color:var(--brass-deep);color:var(--brass-deep);background:rgba(160,124,58,.08)}
+
+  .zone{margin-top:44px}
+  .zone-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap}
+  .zone-no{font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--paper);background:var(--brass-deep);line-height:1;padding:5px 9px}
+  .zone-t{font-family:'Fraunces',serif;font-size:20px}
+  .zone-sub{font-size:11.5px;color:var(--ink-subtle)}
+  .zone-line{height:2px;background:var(--brass-deep);opacity:.35;margin:10px 0 18px}
+
+  /* ── 对话骨架 ── */
+  .shell{border:1px solid var(--rule);background:var(--card);display:flex;flex-direction:column}
+  .shell-top{border-bottom:1px solid var(--rule-soft);padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .ctx{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);border:1px dashed var(--rule);padding:3px 8px;background:var(--card-soft)}
+  .stream{padding:18px 16px;display:flex;flex-direction:column;gap:18px}
+  .shell-bot{border-top:1px solid var(--rule-soft);padding:12px 16px;display:flex;gap:10px;align-items:center}
+  .composer{flex:1;border:1px solid var(--rule);background:var(--paper-soft);padding:9px 12px;font-size:13px;color:var(--ink-subtle)}
+  .send{border:1px solid var(--brass-deep);background:var(--brass-deep);color:var(--card);font-size:12px;padding:9px 16px;white-space:nowrap}
+
+  .row{display:flex;gap:10px}
+  .row.me{justify-content:flex-end}
+  .who{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--ink-subtle);text-transform:uppercase;margin-bottom:5px}
+  .bub{max-width:78%;font-size:13.5px;line-height:1.85}
+  .bub.me{background:var(--brass-soft);border:1px solid var(--brass);padding:9px 13px}
+  .bub.ai{background:transparent}
+
+  /* ── 可点引用块:本版最重的部件 ── */
+  .cite{display:block;border-left:3px solid var(--brass-deep);background:var(--card-soft);padding:8px 12px;margin:8px 0;text-decoration:none}
+  .cite-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .cite-k{font-size:12px;color:var(--ink-soft)}
+  .cite-v{font-family:'JetBrains Mono',monospace;font-size:15px;font-feature-settings:"tnum" 1}
+  .cite-meta{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap}
+  .cite-per{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-subtle)}
+  .cite-go{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--brass-deep)}
+  .pos{color:var(--forest)} .neg{color:var(--rust)}
+
+  .caveat{border-left:3px solid var(--rust);background:rgba(156,74,42,.05);padding:8px 12px;font-size:11.5px;color:var(--ink-soft);line-height:1.75;margin-top:8px}
+
+  /* ── 预置问题 chip ── */
+  .chips{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  @media(max-width:640px){ .chips{grid-template-columns:1fr} .bub{max-width:100%} }
+  .chip{border:1px solid var(--rule);background:var(--card-soft);padding:10px 12px;font-size:12.5px;line-height:1.6;text-align:left}
+  .chip-g{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:var(--brass-deep);text-transform:uppercase;margin:14px 0 7px}
+  .chip-g:first-child{margin-top:0}
+
+  /* ── 工具进度 ── */
+  .tool{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-subtle);display:flex;align-items:center;gap:7px;padding:2px 0}
+  .dot{width:5px;height:5px;background:var(--forest);flex:none}
+  .dot.run{background:var(--brass-deep)}
+
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){ .cmp{grid-template-columns:1fr} }
+  .bad{border:1px solid var(--rust-soft);background:rgba(156,74,42,.04);padding:14px}
+  .good{border:1px solid var(--forest-soft);background:rgba(79,107,71,.05);padding:14px}
+  .tag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:2px 7px;display:inline-block;margin-bottom:9px}
+  .tag.no{background:var(--rust);color:var(--card)}
+  .tag.yes{background:var(--forest);color:var(--card)}
+
+  table.spec{width:100%;border-collapse:collapse;font-size:12px}
+  table.spec th,table.spec td{border:1px solid var(--rule-soft);padding:7px 9px;text-align:left;vertical-align:top}
+  table.spec th{background:var(--paper-soft);font-weight:600;font-size:11px}
+  code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--paper-soft);padding:1px 5px}
+</style>
+</head>
+<body>
+<div class="wrap" style="padding-top:38px;padding-bottom:80px">
+
+  <div class="eyebrow">v 1 . 1 9 &nbsp;·&nbsp; p r e v i e w</div>
+  <h1 style="font-size:34px;margin:8px 0 6px">问一问 —— 把资产讲给你听</h1>
+  <p class="note" style="max-width:760px">
+    六个 AI 入口至今都是「<b>我们替你问</b>」:我们挑好事实、填进固定 prompt、渲染成固定卡片。
+    这一版换成「<b>你自己问</b>」—— 我们只维护 agent 的系统提示词与工具清单,由它自己决定调什么。
+    <br>下面每一屏都标了它在守 PRD 的哪条 FR;<b>标红的部分是我认为最容易做错、也最想听你意见的地方</b>。
+  </p>
+
+  <!-- ════════ 1 · 空态 ════════ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">1</span><span class="zone-t">空态 —— 预置问题就是入口</span>
+      <span class="badge">FR-424 / FR-426</span></div>
+    <div class="zone-sub">她不知道「能问什么」。所以空态里<b>不写</b>「有什么可以帮您」,直接给可点的问题。</div>
+    <div class="zone-line"></div>
+
+    <div class="shell">
+      <div class="shell-top">
+        <span class="eyebrow" style="letter-spacing:.18em">问 · 一 · 问</span>
+        <span class="ctx">上下文:2026-08 账期(进行中)· CNY · 全部账户</span>
+        <span style="flex:1"></span>
+        <span class="badge">历史 3 条</span>
+      </div>
+      <div class="stream">
+        <p class="note" style="margin:0 0 2px">
+          我能看到你在这个账房里记录的全部资产:账户余额、持仓与穿透后的成分、收支与划转、体检结论、目标进度。
+          <b>我不会自己算数</b> —— 所有数字都来自你页面上已经算好的口径,我只负责把它们串起来讲给你听。
+        </p>
+
+        <div>
+          <div class="chip-g">钱 在 哪 儿 · 谁 在 管</div>
+          <div class="chips">
+            <button class="chip">我的钱都放在哪些平台?各占多少?</button>
+            <button class="chip">哪些是我自己盯,哪些交给产品了?</button>
+            <button class="chip">房产占比是不是太高了?</button>
+            <button class="chip">我有多少外币敞口?</button>
+          </div>
+
+          <div class="chip-g">哪 些 在 真 赚 钱</div>
+          <div class="chips">
+            <button class="chip">剔掉工资以后,哪个账户真在赚钱?</button>
+            <button class="chip">谁拖后腿?为什么?</button>
+          </div>
+
+          <div class="chip-g">撑 不 撑 得 住</div>
+          <div class="chips">
+            <button class="chip">我的应急金够几个月?</button>
+            <button class="chip">这个月涨的是工资还是投资?</button>
+          </div>
+        </div>
+      </div>
+      <div class="shell-bot">
+        <div class="composer">也可以直接问……</div>
+        <div class="send">发送</div>
+      </div>
+    </div>
+
+    <p class="note" style="margin-top:10px">
+      分组顺序<b>严格按你定的优先级</b>:资产分布与托管形式 → 投资建议 → 收支。
+      移动端一行一个、<b>不横滑</b>(横滑会让下面几组永远看不见)。
+    </p>
+  </div>
+
+  <!-- ════════ 2 · 一轮问答 ════════ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">2</span><span class="zone-t">一轮问答 —— 数字必须挂着账期,并且点得回去</span>
+      <span class="badge risk">FR-427 · 本版最重</span></div>
+    <div class="zone-sub">这是整个 v1.18 系列一直在修的那类病最容易复发的地方。</div>
+    <div class="zone-line"></div>
+
+    <div class="shell">
+      <div class="shell-top">
+        <span class="eyebrow" style="letter-spacing:.18em">问 · 一 · 问</span>
+        <span class="ctx">上下文:2026-08 账期(进行中)· CNY · 全部账户</span>
+      </div>
+      <div class="stream">
+        <div class="row me"><div class="bub me">这个月涨的是工资还是投资?</div></div>
+
+        <div class="row">
+          <div class="bub ai" style="width:100%">
+            <div class="who">账 房 助 手</div>
+            <div class="tool"><span class="dot"></span>读取 本期资金拆解 · 2026-08</div>
+            <div class="tool"><span class="dot"></span>读取 归因复盘 · 2026-08</div>
+
+            <p style="margin:10px 0 2px">这个月净资产涨了,但<b>两边都有份</b>,而且投资那份占了大头:</p>
+
+            <a class="cite" href="#">
+              <div class="cite-top"><span class="cite-k">净资产变化 ΔNW</span><span class="cite-v pos">+¥222,522</span></div>
+              <div class="cite-meta"><span class="cite-per">2026-08 · 进行中</span><span class="cite-go">→ 仪表盘 · 本期怎么变的</span></div>
+            </a>
+            <a class="cite" href="#">
+              <div class="cite-top"><span class="cite-k">人赚(你存下的)</span><span class="cite-v pos">+¥18,000</span></div>
+              <div class="cite-meta"><span class="cite-per">2026-08 · 进行中</span><span class="cite-go">→ 仪表盘 · 本期怎么变的</span></div>
+            </a>
+            <a class="cite" href="#">
+              <div class="cite-top"><span class="cite-k">钱赚(投资损益)</span><span class="cite-v pos">+¥204,522</span></div>
+              <div class="cite-meta"><span class="cite-per">2026-08 · 进行中</span><span class="cite-go">→ 仪表盘 · 归因复盘</span></div>
+            </a>
+
+            <div class="caveat">
+              <b>这个数还会变。</b>2026-08 还没关账,你本月只录了收入、还没录支出 ——
+              没录的支出会让「人赚」偏高、「钱赚」偏低。关账后这两个数会定格,并进报表页的封板快照。
+            </div>
+
+            <p style="margin:10px 0 0">要我拆一下这 <span class="mono">+¥204,522</span> 是哪几个账户贡献的吗?</p>
+          </div>
+        </div>
+      </div>
+      <div class="shell-bot"><div class="composer">继续问……</div><div class="send">发送</div></div>
+    </div>
+
+    <div class="cmp" style="margin-top:14px">
+      <div class="bad">
+        <span class="tag no">不这样做</span>
+        <p style="font-size:12.5px;line-height:1.85;margin:0">
+          「你这个月净资产涨了 22.25 万,其中工资 1.8 万,投资赚了 20.45 万,收益率 5.29%,表现不错。」
+        </p>
+        <p class="note" style="margin-top:9px">
+          纯文字里的裸数字 —— 看不出是哪一期、点不回去、也<b>看不出 5.29% 是不是它自己算的</b>。
+          v1.6.29 那次「同屏两个 KPI 打架」就是从这种句子开始的。
+        </p>
+      </div>
+      <div class="good">
+        <span class="tag yes">这样做</span>
+        <p style="font-size:12.5px;line-height:1.85;margin:0">
+          每个数字是<b>可点引用块</b>:金额 + 账期 + 是否进行中 + 跳回哪一页。
+          口径提示<b>自动带出</b>,措辞与那一页<b>逐字一致</b>。
+        </p>
+        <p class="note" style="margin-top:9px">
+          数字对不上时,你一眼就能定位是<b>哪个口径</b>出的问题 —— 而不是对着一段话猜。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 3 · 主动追问 ════════ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">3</span><span class="zone-t">结论会翻转的问题,先追问再回答</span>
+      <span class="badge">FR-425</span></div>
+    <div class="zone-sub">你说的「要求 agent 给一些追问」—— 写进系统提示词,是硬要求不是风格。</div>
+    <div class="zone-line"></div>
+
+    <div class="shell">
+      <div class="stream">
+        <div class="row me"><div class="bub me">我该不该提前还房贷?</div></div>
+        <div class="row">
+          <div class="bub ai" style="width:100%">
+            <div class="who">账 房 助 手</div>
+            <div class="tool"><span class="dot"></span>读取 负债概况 · 加权利率</div>
+            <div class="tool"><span class="dot"></span>读取 资产年化 · 流动性分层</div>
+
+            <p style="margin:10px 0 2px">先给你两个已知的数:</p>
+            <a class="cite" href="#">
+              <div class="cite-top"><span class="cite-k">加权负债利率</span><span class="cite-v">3.85%</span></div>
+              <div class="cite-meta"><span class="cite-per">当前</span><span class="cite-go">→ 资产体检 · 负债健康</span></div>
+            </a>
+            <a class="cite" href="#">
+              <div class="cite-top"><span class="cite-k">资产年化(剔除外部流入)</span><span class="cite-v pos">+4.62%</span></div>
+              <div class="cite-meta"><span class="cite-per">最近 12 个已关账期</span><span class="cite-go">→ 报表 · 收益质量</span></div>
+            </a>
+
+            <p style="margin:10px 0 0">
+              光看这两个数是「不该还」。但结论会被一件事翻转,而我看不到 ——
+              <b>你打算拿来还贷的那笔钱,未来一两年有别的用处吗?</b>(换房、教育、家里的大额支出)
+              有的话,流动性比这 0.77 个百分点的利差重要得多。
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="shell-bot"><div class="composer">回答一下……</div><div class="send">发送</div></div>
+    </div>
+
+    <p class="note" style="margin-top:10px">
+      判据写进 template:<b>凡是结论会因为一个未知条件翻转的问题,必须先问</b>。
+      不是每句都反问 —— 那样会变成挤牙膏,和 10 分钟硬约束冲突。
+    </p>
+  </div>
+
+  <!-- ════════ 4 · 托管形式 ════════ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">4</span><span class="zone-t">「托管形式」长什么样</span>
+      <span class="badge wait">待你确认 · PRD 3.1</span></div>
+    <div class="zone-sub">你说核心是「资产分布 + <b>托管形式</b>」。这是我的理解 —— 如果不对,现在纠正最便宜。</div>
+    <div class="zone-line"></div>
+
+    <div class="shell">
+      <div class="stream">
+        <div class="row me"><div class="bub me">哪些是我自己盯,哪些交给产品了?</div></div>
+        <div class="row">
+          <div class="bub ai" style="width:100%">
+            <div class="who">账 房 助 手</div>
+            <div class="tool"><span class="dot"></span>读取 资产分布 · 按托管形式</div>
+            <div class="tool"><span class="dot"></span>读取 基金穿透 · 成分与行业</div>
+
+            <p style="margin:10px 0 8px">按「谁在替你做决定」分,你的钱是这样的:</p>
+
+            <table class="spec">
+              <tr><th>托管形式</th><th style="text-align:right">占比</th><th>说明</th></tr>
+              <tr><td><b>自己盯</b> · 直接持股</td><td style="text-align:right" class="mono">18.4%</td><td>华泰 A 股 + 富途港美股,买卖你自己定</td></tr>
+              <tr><td><b>交给产品</b> · 基金 / 理财</td><td style="text-align:right" class="mono">26.1%</td><td>穿透后其实是 61% 股 / 27% 债 / 12% 现金</td></tr>
+              <tr><td><b>不动</b> · 房产</td><td style="text-align:right" class="mono">23.6%</td><td>存量登记,估值靠手填</td></tr>
+              <tr><td><b>随时可取</b> · 现金 / 货基</td><td style="text-align:right" class="mono">31.9%</td><td>其中货基算流动资产</td></tr>
+            </table>
+
+            <p style="margin:10px 0 0;font-size:12.5px">
+              还可以换个切法看:<b>在哪个平台</b>(支付宝 / 券商 / 银行)、<b>谁是主理人</b>、
+              <b>估值怎么来的</b>(自动拉价 / 券商同步 / 你手填)。要看哪个?
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;border-left:3px solid var(--brass-deep)">
+      <div class="eyebrow" style="margin-bottom:8px">我 把 「托 管 形 式」 理 解 成 这 四 样</div>
+      <table class="spec">
+        <tr><th>维度</th><th>数据来源</th></tr>
+        <tr><td>钱在哪个平台 / 机构</td><td>账户的平台维度(支付宝 / 券商 / 银行 / 交易所)</td></tr>
+        <tr><td>谁是主理人</td><td><code>account.primary_owner_member_id</code></td></tr>
+        <tr><td>自己盯 vs 交给产品</td><td>账户类型 + <b>基金穿透</b>(v1.5 起,理财拆成股/债/现金 + 申万行业)</td></tr>
+        <tr><td>估值怎么来的</td><td><code>valuation_mode</code> + v1.18 的<b>流水来源标签</b></td></tr>
+      </table>
+      <p class="note" style="margin-top:9px">理解错了的话,这四行改一改,TDD 再往下走。</p>
+    </div>
+  </div>
+
+  <!-- ════════ 5 · 工具边界 ════════ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">5</span><span class="zone-t">agent 能拿到什么 —— 边界画在工具上,不画在 prompt 上</span>
+      <span class="badge risk">FR-428</span></div>
+    <div class="zone-sub">这是我唯一坚持的技术约束,理由是两次真实事故。</div>
+    <div class="zone-line"></div>
+
+    <div class="cmp">
+      <div class="good">
+        <span class="tag yes">提供</span>
+        <table class="spec">
+          <tr><td><code>资产分布(维度, 账期)</code></td></tr>
+          <tr><td><code>账户表现(账期)</code></td></tr>
+          <tr><td><code>本期资金拆解(账期)</code> · 人赚/钱赚/开账基线</td></tr>
+          <tr><td><code>归因复盘(账期)</code></td></tr>
+          <tr><td><code>体检结论</code> · 规则 + 4 维诊断</td></tr>
+          <tr><td><code>目标进度</code> · <code>财富水位</code></td></tr>
+          <tr><td><code>账户流水(账户, 账期)</code> · 带来源标签</td></tr>
+        </table>
+        <p class="note" style="margin-top:9px">
+          每个返回值都带 <b>账期 / 口径名 / 是否进行中</b> —— 引用块上显示的就是它。
+        </p>
+      </div>
+      <div class="bad">
+        <span class="tag no">不提供</span>
+        <table class="spec">
+          <tr><td><code>runSql(...)</code></td></tr>
+          <tr><td><code>getRawRows(表名)</code></td></tr>
+          <tr><td>任何写操作(建账户 / 录流水 / 改余额)</td></tr>
+        </table>
+        <p class="note" style="margin-top:9px">
+          <b>禁数学</b>:LLM 一拿到原始数就会自己算占比和增长率,那条铁律当场作废。<br>
+          <b>口径唯一</b>:v1.18 整个 bug 家族就是「同一件事两份判据」。agent 自己从原始数据推
+          = 凭空造出<b>第三份口径</b>,它说的数会和页面对不上,而用户没法判断谁对。<br>
+          <b>只读</b>是<b>工具层物理不提供</b>,不是靠 prompt 约束。
+        </p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;border-left:3px solid var(--rust)">
+      <div class="eyebrow" style="margin-bottom:8px;color:var(--rust)">还 没 确 定 的 一 件 事 · P R D 3 . 2</div>
+      <p style="font-size:12.5px;line-height:1.85;margin:0">
+        阿里云官方文档里,Managed Agents 的 <code>tools</code> 我<b>只确认到 <code>builtin_toolkit</code></b>
+        (沙箱内 bash / read / write 那一组)。「自定义工具由应用侧执行」这个说法我只在
+        <b>Anthropic 的 Managed Agents 资料</b>里看到,<b>没有从阿里云官方页确认百炼是否支持</b>。
+      </p>
+      <table class="spec" style="margin-top:10px">
+        <tr><th>路</th><th>要求</th><th>代价</th></tr>
+        <tr><td><b>A</b> 应用侧执行工具</td><td>百炼支持 <code>tool_use</code> 回调</td><td>最好的形态:不开公网口,NAT 后的自建用户也能用 · <b>待确认</b></td></tr>
+        <tr><td><b>B</b> MCP 服务</td><td>我们暴露公网 MCP endpoint</td><td>确认可行,但自建用户要有公网域名;百炼无固定出口 IP → <b>做不了 IP 白名单</b></td></tr>
+        <tr><td><b>C</b> 文件挂沙箱</td><td>把指标快照挂进去</td><td>不开公网口,且沙箱里是 <b>pandas 在算不是模型在算</b>;但快照是<b>时点</b>的,对话中途不更新</td></tr>
+      </table>
+      <p class="note" style="margin-top:9px">
+        <b>无论走哪条,上面那张工具表只写一份</b>,换的只是传输方式。
+        你在百炼控制台建 Agent 那一页瞄一眼 <code>tools</code> 能不能选「自定义工具」,比我翻文档快。
+      </p>
+    </div>
+  </div>
+
+  <!-- ════════ 6 · 历史 / 降级 ════════ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">6</span><span class="zone-t">历史存本地 · 没配通义不是空白页</span>
+      <span class="badge">FR-431 / FR-434</span></div>
+    <div class="zone-line"></div>
+
+    <div class="cmp">
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:10px">历 史 · 只 读 本 地</div>
+        <div style="border:1px solid var(--rule-soft);padding:10px 12px;margin-bottom:7px">
+          <div style="font-size:13px">这个月涨的是工资还是投资?</div>
+          <div class="cite-per" style="margin-top:4px">08-25 15:40 · 6 轮 · 引用 2026-08</div>
+        </div>
+        <div style="border:1px solid var(--rule-soft);padding:10px 12px;margin-bottom:7px">
+          <div style="font-size:13px">哪些是我自己盯,哪些交给产品了?</div>
+          <div class="cite-per" style="margin-top:4px">08-24 21:02 · 3 轮 · 引用 2026-07</div>
+        </div>
+        <div style="border:1px solid var(--rule-soft);padding:10px 12px">
+          <div style="font-size:13px">我的应急金够几个月?</div>
+          <div class="cite-per" style="margin-top:4px">08-21 09:15 · 2 轮 · 引用 2026-07</div>
+        </div>
+        <p class="note" style="margin-top:10px">
+          全量对话存<b>你自己的库</b>,页面只从这里读。百炼那边的 session 只用来维持上下文 ——
+          它过期、换账号、甚至你注销阿里云,<b>历史都还在</b>。
+          对话正文<b>不进 <code>audit_log</code></b>(那张表会被导出),也不进日志。
+        </p>
+      </div>
+
+      <div class="card" style="border-left:3px solid var(--brass-deep)">
+        <div class="eyebrow" style="margin-bottom:10px">没 配 通 义 时</div>
+        <div style="background:var(--card-soft);border:1px dashed var(--rule);padding:16px;text-align:center">
+          <div style="font-size:14px;margin-bottom:8px">这个功能需要<b>通义千问</b></div>
+          <p class="note" style="margin:0 0 12px">
+            它跑在阿里云的托管智能体上,所以只有通义能用。<br>
+            你当前配的是<b>火山方舟</b> —— 加一把通义的 key 就能用,<br>
+            原有的 AI 体检 / 调仓建议 / 月报<b>不受影响</b>。
+          </p>
+          <div class="send" style="display:inline-block">去「数据源接入」加一把通义 key →</div>
+        </div>
+        <p class="note" style="margin-top:10px">
+          不给空白页、不给「暂不可用」四个字。说清<b>为什么</b> + 给<b>下一步</b>,
+          并且明确讲「原有能力不受影响」,免得他以为要换掉现在用的。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 7 · 不做 ════════ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">7</span><span class="zone-t">刻意不做</span></div>
+    <div class="zone-line"></div>
+    <table class="spec">
+      <tr><th style="width:34%">不做</th><th>为什么</th></tr>
+      <tr><td>常驻助手气泡 / 每日播报 / 主动推送</td><td>硬约束是<b>每月 10 分钟</b>。这个功能是<b>问一次就走</b>,不是养一个天天要理的东西</td></tr>
+      <tr><td>让用户自定义 prompt / 建自己的 agent</td><td>template 是我们的产品责任。用户改了出错我们无从复现,而且<b>禁数学那条会被绕过</b></td></tr>
+      <tr><td>消费品类分析(「外卖花了多少」)</td><td>颗粒度停在账户级月度快照,消费品类细化在<b>刻意不做</b>清单里</td></tr>
+      <tr><td>预测涨跌 / 荐具体产品</td><td>现有六处 AI 的边界,不因为换成对话就放开</td></tr>
+      <tr><td>多 agent / 工作流编排</td><td>一个 agent 够用。多 agent 是把复杂度前移到我们身上,用户感知不到</td></tr>
+      <tr><td>PC / 移动分开设计</td><td>就是一个 SSE 对话流,一套响应式(你的原话:「不都很低成本嘛」)。上线双端各截图核对排版</td></tr>
+    </table>
+  </div>
+
+  <!-- ════════ 8 · 要你定的 ════════ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">8</span><span class="zone-t">要你定的三件</span></div>
+    <div class="zone-line"></div>
+    <table class="spec">
+      <tr><th style="width:8%">#</th><th style="width:38%">问题</th><th>我的倾向</th></tr>
+      <tr>
+        <td class="mono">1</td>
+        <td><b>「托管形式」是不是第 4 屏那四样?</b></td>
+        <td>平台 / 主理人 / 自己盯还是交给产品(靠基金穿透)/ 估值来源。错了现在改最便宜</td>
+      </tr>
+      <tr>
+        <td class="mono">2</td>
+        <td><b>百炼的 <code>tools</code> 支不支持「自定义工具由应用侧执行」?</b></td>
+        <td>你控制台瞄一眼即可。支持 → 走 A(最好);不支持 → 我倾向 <b>C 文件挂沙箱</b>,因为自建用户不一定有公网域名</td>
+      </tr>
+      <tr>
+        <td class="mono">3</td>
+        <td><b>预置问题这 8 条,够不够 / 对不对?</b></td>
+        <td>她只点不打字,这 8 条就是她能用到的全部。你比我清楚她会想问什么</td>
+      </tr>
+    </table>
+    <p class="note" style="margin-top:12px">
+      这三条定了我就写 <code>tech-design/v1.19.md</code>(架构选型 + 2-3 备选 + 取舍),再等你第二次评审。
+    </p>
+  </div>
+
+</div>
+</body>
+</html>
