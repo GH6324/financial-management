@@ -680,6 +680,59 @@ else
 fi
 
 # ============================================================================
+section "主线 20 · 仪表盘「实时」定位:每个数说清自己是哪一期(v1.18.7)"
+# 页面自称「实时汇总」。2026-08-25 逐项 review 查出三类「口径混在一屏、页面上看不出来」的数,
+# 这条主线把三项都走用户真实路径验一遍 —— 只跑单测会漏掉「算对了但没渲染出来」。
+DS_PID="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='OPEN' ORDER BY period_start DESC LIMIT 1")"
+DS_CLOSED="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='CLOSED' ORDER BY period_start DESC LIMIT 1")"
+DS_ACC="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='CASH' AND archived_at IS NULL ORDER BY id LIMIT 1")"
+DS_CAT="$(db "SELECT category_code FROM cash_flow WHERE kind='EXPENSE' AND deleted_at IS NULL LIMIT 1")"
+
+# ① 储蓄率必须点名账期 —— 此前写死「本期储蓄率」,而它常常取的是上一期
+DASH="$(GET /dashboard)"
+case "$DASH" in *'账期)'*|*'账期储蓄率'*) ok "仪表盘-储蓄率点名了账期" ;;
+  *) bad "仪表盘-储蓄率点名了账期" "副标题/一句话里没有「(YYYY-MM 账期)」—— 又变回把上月读成本月" ;; esac
+
+# ② 净资产趋势要标出进行中的那一期(收支趋势早就这么做了,净资产趋势一直没有)
+case "$DASH" in *'\u00B7 \u8FDB\u884C\u4E2D'*|*'· 进行中'*) ok "仪表盘-净资产趋势标出进行中那一期" ;;
+  *) bad "仪表盘-净资产趋势标出进行中那一期" "最右点还会变,却和已定格的点长得一样" ;; esac
+
+# ③ 月均支出不许把半个月当整月 —— 受控实验:同一笔支出,记进行中期 vs 记已关账期
+if [ -n "$DS_PID" ] && [ -n "$DS_CLOSED" ] && [ -n "$DS_ACC" ] && [ -n "$DS_CAT" ]; then
+  # 值和标签之间隔着标签,直接 grep 抓不到(第一版就是这么写的 → 两边都空 → 假阳性,
+  # 靠下面那条对照组才暴露出来)。去标签后再抓。
+  emg(){ GET /reports | tr '\n' ' ' | sed 's/<[^>]*>/ /g' | grep -oE '紧急储备 +[0-9]+\.[0-9]+ 月' | tr -s ' ' | head -1; }
+  DS_BASE="$(emg)"
+  db "INSERT INTO cash_flow (period_id, account_id, kind, category_code, amount, occurred_at, submitted_by, submitted_at)
+      VALUES ($DS_PID, $DS_ACC, 'EXPENSE', '$DS_CAT', 60000, CURDATE(), 1, NOW(3))" >/dev/null
+  eq "仪表盘-进行中期的支出不进月均(紧急储备不动)" "$(emg)" "$DS_BASE"
+  db "DELETE FROM cash_flow WHERE period_id=$DS_PID AND kind='EXPENSE' AND amount=60000" >/dev/null
+  # 对照组:同一笔记进【已关账】期就必须生效 —— 否则上面那条是「这个数根本不会动」的假阳性
+  db "INSERT INTO cash_flow (period_id, account_id, kind, category_code, amount, occurred_at, submitted_by, submitted_at)
+      VALUES ($DS_CLOSED, $DS_ACC, 'EXPENSE', '$DS_CAT', 60000, CURDATE(), 1, NOW(3))" >/dev/null
+  DS_AFTER="$(emg)"
+  [ -n "$DS_BASE" ] && [ "$DS_AFTER" != "$DS_BASE" ] \
+    && ok "仪表盘-对照组:记进已关账期就生效($DS_BASE → $DS_AFTER)" \
+    || bad "仪表盘-对照组:记进已关账期就生效" "两边都不动 = 上一条是假阳性,这个数压根没在算"
+  db "DELETE FROM cash_flow WHERE period_id=$DS_CLOSED AND kind='EXPENSE' AND amount=60000" >/dev/null
+else
+  ok "仪表盘-月均支出实验:beta 缺进行中/已关账期或支出类目,跳过"
+fi
+
+# ④ 洞察条必须跟随视图(此前它自己 loadDefault,切币种/筛账户/选 as-of 都纹丝不动)
+# 用「净资产名义增长」而不是「房产 %」—— 后者在只剩一个非房产账户时整块不渲染,
+# 于是「空 vs 非空」也算不同,那是靠巧合通过,不是真的验到了跟随。
+ins(){ GET "$1" | grep -oE '净资产名义增长 [+-][0-9.]+%' | head -1; }
+# 用 as-of 当杠杆而不是账户筛选:筛到某个账户时洞察条可能整块降级成 unavailable(没有可比的数),
+# 那时「不同」是因为渲染没了、不是因为跟随生效。as-of 一定改变取数窗口,而且每个家庭都有。
+DS_ASOF="$(db "SELECT period_start FROM period WHERE id=$DS_CLOSED")"
+INS_NOW="$(ins /dashboard)"
+INS_OLD="$(ins "/dashboard?asof=$DS_ASOF")"
+[ -n "$INS_NOW" ] && [ -n "$INS_OLD" ] && [ "$INS_NOW" != "$INS_OLD" ] \
+  && ok "仪表盘-洞察条跟随观察账期(当期 $INS_NOW vs $DS_ASOF $INS_OLD)" \
+  || bad "仪表盘-洞察条跟随观察账期" "换了 as-of 洞察条不变 = 它还在自己 loadDefault(按今天),和上面 KPI 两个口径"
+
+# ============================================================================
 section "主线 13 · 报表页封板快照(v1.10 · 三区 + 定格不变性 + 恒等式对账 + 仪表盘实时口径)"
 
 # 前两区必须只由 asof 决定 —— 这是这一版的核心承诺,用真实渲染比对而不是看代码

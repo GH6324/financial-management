@@ -166,6 +166,44 @@ public class ExpenseLedgerService {
      *       月均支出偏小、已填月数偏少</li>
      * </ul>
      */
+    /**
+     * v1.18.7 · 近 N 期,但<b>剔除进行中的那一期</b> —— 只给「月均 / 均值类」指标用。
+     *
+     * <h3>为什么要分出这个方法</h3>
+     * <p>月中打开页面时,进行中账期的支出<b>只录了一部分</b>,却按<b>一整月</b>参与 12 期均值 →
+     * 月均支出偏低。而月均支出是分母,后果是连锁的:</p>
+     * <ul>
+     *   <li><b>紧急储备</b> = 流动资产 ÷ 月均支出 → <b>虚高</b></li>
+     *   <li><b>「应急金充足 + 超额闲置」banner</b> 的「实际需求」= 月均支出 × N 月 → 算小 →
+     *       超额算大 → 更容易弹出,并给出「建议转货币基金」这种<b>行动建议</b></li>
+     * </ul>
+     * <p>这是「实时分子 ÷ 均值分母」的混搭,方向明确偏乐观,而页面上看不出来。
+     * 本质与 v1.10 FR-327 处理「本月资产收益」时是同一个病:<b>半填的期不能当整期用</b>。
+     * 那边的解法是显示实时值 + 讲清口径(因为用户就是要看本月);这边不同 ——
+     * 「月均」本来就不该包含半个月,所以直接剔除。</p>
+     *
+     * <p><b>刻意只换两个调用点</b>({@code FactViewServiceImpl.averageExpense} 与
+     * {@code HouseholdCashflowService.avgMonthlyExpense}),其余三处保持用 {@link #recent}:</p>
+     * <ul>
+     *   <li>{@code recentSeries} —— 收支趋势图<b>要</b>那个进行中的点(它自己标了浅色 + 「进行中」)</li>
+     *   <li>{@code filledMonthRatio} —— 「已填 N/12 月」问的是填报完整度,本月填了就该算填了</li>
+     *   <li>{@code GoalService} 的支出窗口 —— 另一个题目,不顺带改</li>
+     * </ul>
+     *
+     * <p>剔除后一期都不剩时<b>返回空</b>(不退回含进行中的版本):那说明这个家庭还没有任何
+     * 完整月份的支出记录,「月均支出」这个概念此时就是没有的 —— 给个由半个月推出来的数,
+     * 比显示「—」更糟,因为页面上看不出它是编的。</p>
+     */
+    public List<PeriodExpense> recentClosed(long familyId, int limit) {
+        Long inProgress = periodMapper.findCurrentOpen(familyId).map(p -> p.getId()).orElse(null);
+        if (inProgress == null) return recent(familyId, limit);
+        // 多取一期再过滤 —— 否则剔掉进行中那期后只剩 limit−1 期,窗口无声地缩了一格
+        return recent(familyId, limit + 1).stream()
+                .filter(pe -> !java.util.Objects.equals(pe.periodId(), inProgress))
+                .limit(limit)
+                .toList();
+    }
+
     public List<PeriodExpense> recent(long familyId, int limit) {
         boolean itemizedFirst = modeOf(familyId) == ExpenseEntryMode.ITEMIZED;
 

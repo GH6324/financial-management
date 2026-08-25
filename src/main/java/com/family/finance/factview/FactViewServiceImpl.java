@@ -377,8 +377,13 @@ public class FactViewServiceImpl implements FactViewService {
 
     @Override
     public List<TrendPoint> netWorthTrend(FactSlice slice) {
+        // v1.18.7 · 标出「还在进行中」的那一期 —— 收支趋势早就这么做了,净资产趋势一直没有,
+        //   于是最右那个还会变的点和已定格的点长得一样。
+        java.util.Set<Long> closed = slice.closedPeriodIds() == null
+                ? java.util.Set.of() : new java.util.HashSet<>(slice.closedPeriodIds());
         return slice.periodIds().stream()
-                .map(periodId -> new TrendPoint(periodId, periodStart(slice, periodId), label(slice, periodId), netWorth(slice, periodId)))
+                .map(periodId -> new TrendPoint(periodId, periodStart(slice, periodId), label(slice, periodId),
+                        netWorth(slice, periodId), !closed.isEmpty() && !closed.contains(periodId)))
                 .toList();
     }
 
@@ -1135,7 +1140,9 @@ public class FactViewServiceImpl implements FactViewService {
         // 1) v1.8 · 走统一口径(逐笔 > 总额,不相加,排除现金调整)。
         //    维持现行语义:除以**实际取到的期数**而不是固定除 maxPeriods —— 数据不足时不低估月均支出。
         long familyId = slice.filter().familyId();
-        var recent = expenseLedger.recent(familyId, maxPeriods);
+        // v1.18.7 · 剔除进行中账期:半个月的支出按整月进均值 → 月均偏低 → 紧急储备虚高。
+        //   紧急储备的分子(流动资产)是实时的,分母若混进半个月就是「实时 ÷ 均值」的错配。
+        var recent = expenseLedger.recentClosed(familyId, maxPeriods);
         if (!recent.isEmpty()) {
             BigDecimal sum = BigDecimal.ZERO;
             for (var pe : recent) sum = sum.add(pe.amountBase());

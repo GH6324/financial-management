@@ -7068,6 +7068,57 @@ QA1183_AVS="$RD/src/main/java/com/family/finance/service/stock/AccountValuationS
   || log_bad "v1183-WRITEBACK-FAIL-CLOSED 估值写回又变回无条件覆盖" "writeBackBalance 要先过 ErasureDetector.erasesFlows;拦下要写审计并在 /admin/reconcile 显示"
 
 # ============================================================
+# v1.18.7 · 仪表盘「实时」定位:每个数说清自己是哪一期
+# ============================================================
+
+# v1187-DASH-PERIOD-HONEST · 仪表盘上的数不许含糊自己是哪一期(2026-08-25 · 逐项 review)
+#
+# 页面自称「实时汇总」,而 review 逐项查下来有三类数其实不是本期、页面上却看不出来:
+#   ① 储蓄率写着「本期储蓄率」,实际取「最近一个有 PMC 记录的期」或(兜底)「最新已关账期」。
+#      beta 实测:本期有 51 笔收入、0 笔支出 → 本期储蓄率必然 100%,页面显示 98.4%。
+#      而它和【实时】的净资产/环比挤在同一句话里 —— 与 v1.18.3 那次「上面本月、下面上月」同形状。
+#      维护者定:不改口径(强行锚本期会让月初剧烈跳动),把账期标出来。
+#   ② 紧急储备 = 流动资产(实时) ÷ 月均支出(近 12 期均值),而均值把【进行中的半个月】
+#      当整月算 → 分母偏低 → 紧急储备虚高;同一个 avgExpense 还是「应急金超额闲置」banner
+#      里「实际需求」的因子,偏低 → 超额算大 → 更容易弹出并建议你把钱挪走。
+#   ③ 洞察条自己 loadDefault(本位币/全账户/按今天)→ 切币种、筛账户、选历史 as-of 时它一动不动。
+#
+# 这条钉三件事都落地了,且【recent 的另外三个调用方没被误伤】(收支趋势要那个进行中的点、
+# 「已填 N/12 月」问的是填报完整度、GoalService 是另一个题目)。
+QA1187_ELS="$RD/src/main/java/com/family/finance/service/expense/ExpenseLedgerService.java"
+QA1187_HCS="$RD/src/main/java/com/family/finance/service/HouseholdCashflowService.java"
+QA1187_DC="$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java"
+QA1187_RG="$RD/src/main/resources/templates/dashboard/_region.html"
+{ grep -q 'public List<PeriodExpense> recentClosed(' "$QA1187_ELS" \
+  && grep -q 'expenseLedger.recentClosed(familyId, LOOKBACK_PERIODS)' "$QA1187_HCS" \
+  && grep -q 'expenseLedger.recentClosed(familyId, maxPeriods)' "$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java" \
+  `# 反向:收支趋势 / 已填月数 仍走 recent —— 它们【需要】那个进行中的点` \
+  && grep -q 'expenseLedger.recent(familyId, limit)' "$QA1187_HCS" \
+  && grep -q 'expenseLedger.recent(familyId, LOOKBACK_PERIODS).size()' "$QA1187_HCS" \
+  `# 储蓄率带出账期` \
+  && grep -q 'record SavingsRateView' "$QA1187_HCS" \
+  && grep -q 'savingsRateView' "$QA1187_DC" \
+  && grep -q 'savingsRatePeriod' "$QA1187_DC" \
+  && grep -q 'savingsRatePeriod' "$QA1187_RG" \
+  && ! grep -q '>本期储蓄率$' "$QA1187_RG" \
+  `# 洞察条吃这一页的切片;目标条公开声明自己不跟随` \
+  && grep -q 'assetInsightService.compute(me.getFamilyId(), slice)' "$QA1187_DC" \
+  && grep -q 'goalsViewIndependent' "$QA1187_DC" \
+  && grep -q 'goalsViewIndependent' "$RD/src/main/resources/templates/goals/_progress-strip.html" \
+  `# 净资产趋势标出进行中的点` \
+  && grep -q 'boolean live' "$RD/src/main/java/com/family/finance/factview/TrendPoint.java" \
+  && grep -q "t.live() ? t.label()" "$QA1187_DC" \
+  `# 单测成对写` \
+  && [ -f "$RD/src/test/java/com/family/finance/service/expense/RecentClosedTest.java" ] \
+  && [ -f "$RD/src/test/java/com/family/finance/service/SavingsRatePeriodTest.java" ] \
+  && [ -f "$RD/src/test/java/com/family/finance/factview/DashboardLiveScopeTest.java" ] \
+  && grep -q '没有进行中账期时逐位不变' "$RD/src/test/java/com/family/finance/service/expense/RecentClosedTest.java" \
+  && grep -q 'recent不受影响_三个调用方仍拿得到进行中期' "$RD/src/test/java/com/family/finance/service/expense/RecentClosedTest.java" \
+  && grep -q '数值口径与老入口逐位一致' "$RD/src/test/java/com/family/finance/service/SavingsRatePeriodTest.java"; } \
+  && log_ok "v1187-DASH-PERIOD-HONEST(储蓄率点名账期 · 月均剔除进行中期 · 洞察条跟随视图 · 目标条声明不跟随 · 趋势标进行中)" \
+  || log_bad "v1187-DASH-PERIOD-HONEST 仪表盘又有数说不清自己是哪一期" "页面自称实时,混进非本期的数却不标注 = 让人把上月读成本月(v1.18.3 已栽过一次)"
+
+# ============================================================
 # v1.18.2 · 账目对账(复盘 A/C 项)
 # ============================================================
 

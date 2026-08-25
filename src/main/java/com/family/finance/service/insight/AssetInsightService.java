@@ -56,10 +56,43 @@ public class AssetInsightService {
     private final FamilyConfigService configService;
     private final WaterLevelService waterLevelService;
 
-    /** 计算全家资产洞察硬数据(只读 · 永不抛 · 失败返回 unavailable)。 */
+    /**
+     * 计算全家资产洞察硬数据(只读 · 永不抛 · 失败返回 unavailable)。
+     *
+     * <p>不带切片的入口:自己按<b>本位币 / 全账户 / 今天往前 12 期</b>取数。
+     * 给 {@code /checkup} 的 AI 诊断用 —— 那一页本来就没有币种/账户/as-of 切换。</p>
+     */
     public AssetInsight compute(long familyId) {
+        return compute(familyId, null);
+    }
+
+    /**
+     * v1.18.7 · 允许调用方<b>把自己那张切片交进来</b>。
+     *
+     * <h3>为什么加这个重载</h3>
+     * <p>仪表盘上的「AI · 资产洞察」条此前无条件走 {@code loadDefault(familyId)} ——
+     * 本位币 + 全账户 + <b>按今天</b>往前 12 期,<b>完全无视</b>用户在这一页上选的
+     * 视图币种 / 账户筛选 / 观察账期:</p>
+     * <ul>
+     *   <li>切到 USD → 上面 KPI 换了币种,洞察条还是本位币口径的结论</li>
+     *   <li>筛掉一半账户 → KPI 只算选中的,洞察条仍按全账户算集中度</li>
+     *   <li>选历史 as-of → KPI 回到那个月,洞察条仍是「今天」</li>
+     * </ul>
+     * <p>同一屏两个口径,而页面上看不出来。这与 v1.18.3 那次「上面的卡是本月、
+     * 下面的瀑布是上月」是同一类问题 —— 只是这次差的不是期,是<b>整个取数范围</b>。</p>
+     *
+     * <p>能安全跟随视图,是因为这条 strip 只输出<b>百分比与档位</b>
+     * (集中度 % / 负债健康档 / 净资产名义增长 % / 行为提醒条数),<b>不显示绝对金额</b> ——
+     * 所以换币种不会出现「USD 数字配 ¥ 符号」那类错配。真要加金额进来,得先把币种符号一起带上。</p>
+     *
+     * <p>「只看外币敞口」那一处判据仍用<b>家庭本位币</b>比对账户币种 —— 那是资产本身的属性,
+     * 不该随「我现在想用哪种货币看」而变。</p>
+     *
+     * @param slice 调用方的切片;传 null = 自己 loadDefault(老行为)
+     */
+    public AssetInsight compute(long familyId, FactSlice given) {
         try {
-            FactSlice slice = factViewService.loadDefault(familyId);
+            FactSlice slice = given != null ? given : factViewService.loadDefault(familyId);
             KpiSnapshot kpi = factViewService.kpis(slice);
             if (kpi == null || kpi.totalAssets() == null || kpi.totalAssets().signum() <= 0) {
                 return AssetInsight.unavailable("尚无资产快照,暂无法生成洞察");

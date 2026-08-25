@@ -256,11 +256,25 @@ public class DashboardController {
                 : snapshotTodoMapper.countPendingByPeriod(currentOpen.getId()));
 
         // v0.3 FR-50d · 目标进度条带数据(失败容忍 · 不阻塞 dashboard 渲染)
+        //
+        // v1.18.7 · 这一条**刻意不跟随页面视图**,与洞察条相反 —— 原因是正确性,不是省事:
+        //   目标的目标值(FIRE 所需本金 / 教育金 / 应急储备)是**以家庭本位币存的绝对金额**,
+        //   进度 = 家庭净资产 ÷ 目标值。把仪表盘的切片传进来会同时踩两个坑:
+        //     · 切到 USD → 分子变成 USD 金额,分母还是本位币目标 → 进度凭空翻几倍
+        //     · 筛掉一半账户 → 分子腰斩,而目标本来就是全家庭的 → 进度腰斩
+        //   而且目标是**朝前看**的(还差几年到 FIRE),按历史 as-of 去算也没有意义。
+        //   所以这里保持「全家庭 · 本位币 · 此刻」,并由页面把这个口径**明说出来**
+        //   —— 与其让它悄悄不一致,不如让它公开地不一致。
         try {
             model.addAttribute("goalsProgress", goalProgressService.computeAll(me.getFamilyId()));
         } catch (Exception e) {
             model.addAttribute("goalsProgress", List.of());
         }
+        // 只有在「用户确实改了视图」时才提示,否则是噪音
+        model.addAttribute("goalsViewIndependent",
+                !viewCurrency.equalsIgnoreCase(family.getBaseCurrency())
+                        || accountIds != null
+                        || (currentOpen != null && !currentOpen.getId().equals(anchor.getId())));
 
         model.addAttribute("kpis", kpis);
         // v0.5.3 · 计算指标真实数值(ⓘ tooltip)· viewCurrency 口径
@@ -275,11 +289,20 @@ public class DashboardController {
         // v0.3:优先用 period.total_*_input(用户在 /entry 第一步填的家庭口径)· fallback v0.2 cash_flow
         // v1.12 FR-353:|储蓄率| > 500% = 收入分母太小(prod 见过 −2383%)· 显示层降级成一句话 + 补录入口,
         //   计算侧一个字不动(见 MetricDisplay 的注释)。正常范围的值走原来的 percent(),渲染逐字不变。
-        BigDecimal savingsRateRaw = householdCashflowService.currentSavingsRate(me.getFamilyId());
+        // v1.18.7 · 储蓄率必须连【哪一期】一起显示。它此前叫「本期储蓄率」,而实际取的是
+        //   「最近一个有 PMC 记录的期」或(兜底时)「最新已关账期」—— 两者都可能不是本期,
+        //   却和实时的净资产/环比挤在同一句话里。维护者定:不改口径,把账期标出来。
+        var savings = householdCashflowService.savingsRateView(me.getFamilyId());
+        BigDecimal savingsRateRaw = savings.rate();
         boolean savingsRateInsufficient = MetricDisplay.ratioAbsurd(savingsRateRaw);
         model.addAttribute("savingsRateInsufficient", savingsRateInsufficient);
         model.addAttribute("savingsRate",
                 savingsRateInsufficient ? MetricDisplay.INSUFFICIENT : percent(savingsRateRaw));
+        model.addAttribute("savingsRatePeriod", savings.periodStart());
+        // 是不是「本期」——是就说本期,不是就点名是哪个账期,不含糊
+        model.addAttribute("savingsRateIsCurrent",
+                currentOpen != null && savings.periodId() != null
+                        && currentOpen.getId().equals(savings.periodId()));
         // v0.3 新增:月均支出 / 月均收入 KPI(per 用户反馈 2026-05-13 · 用最新口径)
         model.addAttribute("avgMonthlyExpense", money(viewCurrency, householdCashflowService.avgMonthlyExpense(me.getFamilyId())));
         model.addAttribute("avgMonthlyIncome", money(viewCurrency, householdCashflowService.avgMonthlyIncome(me.getFamilyId())));
@@ -304,7 +327,9 @@ public class DashboardController {
         model.addAttribute("allocation", allocation);
         model.addAttribute("waterfall", waterfall);
         // v0.6 · 资产洞察速览(仅硬数据 · 不调 LLM · 保持 dashboard 轻快)· compute 永不抛
-        model.addAttribute("insight", assetInsightService.compute(me.getFamilyId()));
+        // v1.18.7 · 洞察条改吃【这一页的切片】—— 此前它自己 loadDefault(本位币/全账户/按今天),
+        //   于是切币种、筛账户、选历史 as-of 时,上面 KPI 变了、洞察条一动不动。
+        model.addAttribute("insight", assetInsightService.compute(me.getFamilyId(), slice));
         model.addAttribute("accountRows", accountRows);
         model.addAttribute("fxFallback", fxFallback);
         model.addAttribute("requestedCurrency", requestedCurrency);
@@ -347,9 +372,6 @@ public class DashboardController {
             noFlowYet ? "尚未录入任何收支"
                 : ("已录收入 " + money(viewCurrency, nzz(kpis.liveIncome())).replaceFirst("^[+−]", "")
                    + " · 支出 " + money(viewCurrency, nzz(kpis.liveExpense())).replaceFirst("^[+−]", "")));
-        model.addAttribute("annualizedInvestReturnLabel",
-            kpis.annualizedInvestReturnPct() == null ? "—"
-                : String.format("%+.2f%%", kpis.annualizedInvestReturnPct().doubleValue() * 100));
 
         // v0.4 FR-62c · 应急金不闲置评估(用 LIQUID 类账户合计 vs 应急需求 × 1.5x)
         Long lastPid = slice.lastPeriodId();
@@ -370,7 +392,9 @@ public class DashboardController {
         model.addAttribute("liquidSurplus", liquidSurplus);
         model.addAttribute("liquidSurplusMoney", money(viewCurrency, liquidSurplus.surplus()));
 
-        model.addAttribute("trendLabels", trend.stream().map(TrendPoint::label).toList());
+        // v1.18.7 · 进行中的那一期在图上点名 —— 与收支趋势的「· 进行中」同一套做法
+        model.addAttribute("trendLabels",
+                trend.stream().map(t -> t.live() ? t.label() + " · 进行中" : t.label()).toList());
         model.addAttribute("trendValues", trend.stream().map(TrendPoint::value).toList());
         model.addAttribute("incomeValues", waterfall.stream().map(WaterfallSegment::income).toList());
         model.addAttribute("expenseValues", waterfall.stream().map(WaterfallSegment::expense).toList());

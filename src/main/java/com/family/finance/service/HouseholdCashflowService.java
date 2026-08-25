@@ -35,8 +35,14 @@ public class HouseholdCashflowService {
     private final com.family.finance.service.expense.ExpenseLedgerService expenseLedger;
 
     /** v1.8 · 走统一口径(逐笔 > 总额);都没有时才回落 cash_flow 汇总。 */
+    /**
+     * v1.18.7 · 走 {@code recentClosed} —— <b>剔除进行中账期</b>。
+     * 月中时本月支出只录了一部分,按整月进均值会把月均拉低;而这个数是
+     * 「应急金超额闲置」banner 里「实际需求」的因子,偏低会让 banner 更容易弹出
+     * 并建议你把钱挪走。理由详见 {@code ExpenseLedgerService.recentClosed}。
+     */
     public BigDecimal avgMonthlyExpense(long familyId) {
-        var recent = expenseLedger.recent(familyId, LOOKBACK_PERIODS);
+        var recent = expenseLedger.recentClosed(familyId, LOOKBACK_PERIODS);
         if (!recent.isEmpty()) {
             BigDecimal sum = BigDecimal.ZERO;
             for (var pe : recent) sum = sum.add(pe.amountBase());
@@ -56,7 +62,40 @@ public class HouseholdCashflowService {
         return sum.divide(BigDecimal.valueOf(recent.size()), 2, RoundingMode.HALF_EVEN);
     }
 
-    public BigDecimal currentSavingsRate(long familyId) {
+    /**
+     * v1.18.7 · 储蓄率<b>连它算的是哪一期一起给出</b>。
+     *
+     * @param rate 储蓄率(可空 = 算不出来)
+     * @param periodId 这个数实际来自哪一期(可空)
+     * @param periodStart 该期的起始日 · 给「2026-07 账期」这类文案用(可空)
+     */
+    public record SavingsRateView(BigDecimal rate, Long periodId, java.time.LocalDate periodStart) {
+        public static final SavingsRateView NONE = new SavingsRateView(null, null, null);
+    }
+
+    /**
+     * v1.18.7 · <b>把「这个储蓄率是哪一期的」交出来</b> —— 此前它叫「本期储蓄率」,而两条路径都
+     * <b>可能不是本期</b>,页面上一个字的标注都没有。
+     *
+     * <ol>
+     *   <li>PMC 分支取的是<b>最近一个「有 PMC 记录」的期</b>。月初还没人填收支时,
+     *       它就是<b>上个月</b>,却被写成「本期储蓄率」。</li>
+     *   <li>兜底分支走 {@code factViewService.savingsRate(loadDefault(...))},而那个方法锚的是
+     *       {@code returnAnchorPeriodId()} = <b>最新已关账期</b> —— 一定不是进行中的本期。</li>
+     * </ol>
+     *
+     * <p>beta 实测(v1.18.6):本期 2026-08 有 51 笔收入、<b>0 笔支出</b> ——
+     * 本期储蓄率必然是 100%,而页面显示 98.4%。它显示的根本不是本期。</p>
+     *
+     * <p>更要命的是它和<b>实时</b>的净资产挤在同一句话里:
+     * 「净资产 X,较上期 +Y(环比 +Z)。<b>本期储蓄率 98.4%</b>。」——
+     * 一句话两个期。这与 v1.18.3 那次「上面的卡是本月、下面的瀑布是上月」是同一个形状。</p>
+     *
+     * <p>维护者拍板(2026-08-25):<b>不改口径,老老实实把账期标出来</b>。
+     * 改口径(强行锚本期)会让月初数字剧烈跳动,而且本期收支没录齐时储蓄率天然虚高;
+     * 标注账期既诚实、又不制造新的失真。</p>
+     */
+    public SavingsRateView savingsRateView(long familyId) {
         List<FamilyPeriodAggregate> recent = cashflowMapper.findFamilyAggregateRecent(familyId, 1);
         if (!recent.isEmpty()) {
             FamilyPeriodAggregate a = recent.get(0);
@@ -64,10 +103,19 @@ public class HouseholdCashflowService {
             if (income.signum() > 0) {
                 // v1.8 · 支出改走统一口径(逐笔 > 总额);收入侧口径不动
                 BigDecimal expense = expenseLedger.byPeriod(familyId, a.periodId()).amountBase();
-                return income.subtract(expense).divide(income, 6, RoundingMode.HALF_EVEN);
+                return new SavingsRateView(
+                        income.subtract(expense).divide(income, 6, RoundingMode.HALF_EVEN),
+                        a.periodId(), a.periodStart());
             }
         }
-        return factViewService.savingsRate(factViewService.loadDefault(familyId));
+        var slice = factViewService.loadDefault(familyId);
+        Long anchor = slice.returnAnchorPeriodId();
+        return new SavingsRateView(factViewService.savingsRate(slice), anchor, slice.periodStartOf(anchor));
+    }
+
+    /** 只要数值的老入口(报表页封板快照用)· 口径与 {@link #savingsRateView} 完全同一份。 */
+    public BigDecimal currentSavingsRate(long familyId) {
+        return savingsRateView(familyId).rate();
     }
 
     public BigDecimal medianMonthlySavings(long familyId) {

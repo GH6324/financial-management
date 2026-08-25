@@ -24,7 +24,12 @@
             <span th:if="${famMetrics.contains('savings_rate')}"> · </span></span>
           <!-- v1.12 FR-353 · savingsRate 已在 controller 里降级过(|值| > 500% → 「收支数据不足」),
                这里只负责在降级时补一个入口,正常值渲染逐字不变。 -->
-          <span th:if="${famMetrics.contains('savings_rate')}">储蓄率 <span class="font-mono" th:text="${savingsRate}">—</span><th:block
+          <!-- v1.18.7 · 储蓄率必须点名账期。它取的是「最近一个有收支记录的期」或(兜底时)
+               「最新已关账期」,两者都可能不是本期 —— 而这一行里的净资产/环比是【实时】的。
+               不标账期就等于让人把上个月的储蓄率读成本月的。 -->
+          <span th:if="${famMetrics.contains('savings_rate')}">储蓄率 <span class="font-mono" th:text="${savingsRate}">—</span><span
+              th:if="${savingsRatePeriod != null}" class="text-ink-subtle"
+              th:text="'(' + ${#temporals.format(savingsRatePeriod,'yyyy-MM')} + ' 账期' + (${savingsRateIsCurrent} ? ' · 进行中' : '') + ')'">(2026-07 账期)</span><th:block
               th:if="${savingsRateInsufficient}">(<a th:href="@{${ratioNote.backfillHref()}}"
               class="text-brass-deep hover:underline" th:text="${ratioNote.backfillLabel()}">补录收支</a>)</th:block></span>
         </p>
@@ -158,7 +163,10 @@
         th:if="${momYoy != null and momYoy.momPct != null}">(环比 <span class="font-mono"
             th:classappend="${momYoy.momPct.signum() &lt; 0 ? 'num-neg' : 'num-pos'}"
             th:text="${(momYoy.momPct.signum() &gt; 0 ? '+' : '') + #numbers.formatDecimal(momYoy.momPct,1,2) + '%'}">+2.1%</span>)</th:block>。
-      <th:block th:if="${savingsRate != null and famMetrics.contains('savings_rate')}">本期储蓄率
+      <!-- v1.18.7 · 原文案写死「本期储蓄率」,而这个数常常来自上一期 ——
+           和同一句话里【实时】的净资产/环比混在一起,读起来全是本月的。改成点名账期。 -->
+      <th:block th:if="${savingsRate != null and famMetrics.contains('savings_rate')}"><span
+          th:text="${savingsRatePeriod == null} ? '储蓄率' : (${savingsRateIsCurrent} ? '本期储蓄率' : (${#temporals.format(savingsRatePeriod,'yyyy-MM')} + ' 账期储蓄率'))">储蓄率</span>
         <b class="font-mono" th:text="${savingsRate}">—</b><th:block
           th:if="${savingsRateInsufficient}">,<a th:href="@{${ratioNote.backfillHref()}}"
           class="text-brass-deep hover:underline" th:text="${ratioNote.backfillLabel()}">补录收支</a>后才准</th:block>。</th:block>
@@ -478,7 +486,7 @@
         <thead><tr>
           <th data-sort="text" class="acct-sticky">账户</th>
           <th class="num" data-sort="num">当前价值</th>
-          <th class="num" data-sort="num" data-mcol="xirr" th:if="${acctMetrics.contains('xirr')}" title="满 12 期为年化 XIRR(资金加权);不足 12 期显累计收益率,不做单期年化外推">收益率</th>
+          <th class="num" data-sort="num" data-mcol="xirr" th:if="${acctMetrics.contains('xirr')}" title="满 12 期为年化 XIRR(资金加权);不足 12 期显累计收益率,不做单期年化外推。v1.18.7 补注:本页是实时口径,这一列【含进行中账期】——／reports 与 /checkup 的家庭级收益率只算到最新已关账期,两者不同期是有意的。">收益率 <span class="text-ink-subtle">·实时</span></th>
           <th class="num" data-sort="num" data-mcol="return_base" th:if="${acctMetrics.contains('return_base')}" title="本位币口径(含汇率)· 满 12 期年化,不足 12 期为累计(标「累」)">本位币年化</th>
           <th class="num" data-sort="num" data-mcol="cum_pnl" th:if="${acctMetrics.contains('cum_pnl')}">累计损益</th>
           <th class="num" data-sort="num" data-mcol="net_principal" th:if="${acctMetrics.contains('net_principal')}" title="累计净投入 = Σ(收入−支出+转入−转出)">累计净投入</th>
