@@ -655,18 +655,27 @@
 
       <div class="card" style="border-left:3px solid var(--brass-deep)">
         <div class="eyebrow" style="margin-bottom:10px">没 配 通 义 时</div>
-        <div style="background:var(--card-soft);border:1px dashed var(--rule);padding:16px;text-align:center">
-          <div style="font-size:14px;margin-bottom:8px">这个功能需要<b>通义千问</b></div>
-          <p class="note" style="margin:0 0 12px">
-            第一版只保证通义可用。<br>
+        <div style="background:var(--card-soft);border:1px dashed var(--rule);padding:14px 16px;margin-bottom:10px">
+          <div style="font-size:13.5px;margin-bottom:7px">① 这个功能需要<b>通义千问</b></div>
+          <p class="note" style="margin:0 0 10px">
             你当前配的是<b>火山方舟</b> —— 加一把通义的 key 就能用,<br>
             原有的 AI 体检 / 调仓建议 / 月报<b>不受影响</b>。
           </p>
-          <div class="send" style="display:inline-block">去「数据源接入」加一把通义 key →</div>
+          <div class="send" style="display:inline-block;font-size:11px">去「数据源接入」加一把通义 key →</div>
+        </div>
+        <div style="background:var(--card-soft);border:1px dashed var(--rust);padding:14px 16px">
+          <div style="font-size:13.5px;margin-bottom:7px">② 还需要你的账房<b>能从公网访问</b>(带 HTTPS)</div>
+          <p class="note" style="margin:0 0 10px">
+            阿里云的智能体要<b>回头来读</b>你的数据,所以它得找得到你。<br>
+            你现在跑在内网 / 没配域名 —— 这个功能暂时用不了,<b>其它功能都不受影响</b>。
+          </p>
+          <div class="send" style="display:inline-block;font-size:11px;background:transparent;color:var(--brass-deep)">看部署文档里的域名 + HTTPS 一节 →</div>
         </div>
         <p class="note" style="margin-top:10px">
-          不给空白页、不给「暂不可用」四个字。说清<b>为什么</b> + 给<b>下一步</b>,
-          并且明确讲「原有能力不受影响」,免得他以为要换掉现在用的。
+          不给空白页、不给「暂不可用」四个字。<b>逐条说清是哪一项不满足</b> + 给<b>下一步</b>,
+          并且明确讲「原有能力不受影响」。<br><br>
+          第 ② 条是选了 Managed Agents 的<b>代价</b>:百炼要回调我们,所以内网 / 无域名的自建用户
+          <b>用不了「问一问」</b>。这是明确取舍(换来只维护一条路),不是漏掉的需求。
         </p>
       </div>
     </div>
