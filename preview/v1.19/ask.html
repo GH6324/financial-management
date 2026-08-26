@@ -549,6 +549,82 @@
       </p>
     </div>
 
+  <!-- ════════ 5b · 自由度 ════════ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">5b</span><span class="zone-t">自由度从哪来 —— 把透视引擎整个交给它</span>
+      <span class="badge ok">TDD §3</span></div>
+    <div class="zone-sub">「更高自由度」的答案不是让它碰原始数据,是<b>复用我们已经有的语义层</b>。</div>
+    <div class="zone-line"></div>
+
+    <p class="note" style="max-width:820px;margin-bottom:14px">
+      资产透视页背后是 <code>LensQuery(rows, cols, measures, filters)</code> + <code>PivotEngine</code> ——
+      这本来就是一个<b>语义层</b>。把它当成 agent 的主查询接口,一步到位:
+      <b>11 个维度 × 6 个度量 × 任意筛选 × 行列交叉</b>,而算的是<b>透视页同一份代码</b>。
+      <br>关键性质:<b>聚合权在我们手里</b> —— agent 说「按平台分组」,是 PivotEngine 去分组;
+      它拿到的已经是分好组、算好占比、带小计的结果,<b>一次加法都不用做</b>。
+      「禁数学」于是不再是限制,而是<b>不必要</b>。
+    </p>
+
+    <table class="spec">
+      <tr><th style="width:38%">用户随口问的</th><th>落成一次 <code>pivot</code> 调用</th></tr>
+      <tr><td>我的钱都放在哪些平台?</td><td><code>rows=[platform] measures=[value,share]</code></td></tr>
+      <tr><td>老婆名下的钱,按风险分一下</td><td><code>rows=[risk] filters={owner:[成员B]}</code></td></tr>
+      <tr><td>穿透之后我到底有多少股票?</td><td><code>rows=[assetClass] measures=[value,share]</code></td></tr>
+      <tr><td>各平台里各类风险各占多少?</td><td><code>rows=[platform] cols=[risk]</code>(行列交叉)</td></tr>
+      <tr><td>哪些是我自己盯,哪些交给产品了?</td><td><code>rows=[custody]</code>(本版新增的派生维度)</td></tr>
+      <tr><td>我外币敞口在哪几个账户?</td><td><code>rows=[currency,platform] filters={currency:[USD,HKD]}</code></td></tr>
+    </table>
+    <p class="note" style="margin-top:9px">
+      这六条是随手举的 —— 组合空间远不止。而<b>罐头接口</b>(<code>getAllocation()</code> 这种)
+      只能答我们提前想到的那几条,用户一问「按平台看、只看老婆名下的」就抓瞎。
+    </p>
+
+    <div class="cmp" style="margin-top:14px">
+      <div class="good">
+        <span class="tag yes">还给了三件事,专为自由度</span>
+        <ul style="font-size:12.5px;line-height:1.95;margin:0;padding-left:18px">
+          <li><b>自省接口</b> <code>describeCapabilities</code> —— 维度、取值、账期、账户全告诉它,
+              <b>不让它猜参数</b>(猜参数是 agent 最大的浪费)</li>
+          <li><b>参数填错不报错,把校验信息回给它让它改</b> —— 允许它试错</li>
+          <li><b>够不着时 <code>reportUnmetNeed</code></b> —— 如实告诉用户拿不到,
+              同时记一笔;<b>agent 的「够不着」变成下一版加工具的输入</b></li>
+        </ul>
+      </div>
+      <div class="bad">
+        <span class="tag no">仍然不给的</span>
+        <p style="font-size:12.5px;line-height:1.85;margin:0">
+          任意 SQL / 原始表行 / 任何写操作。
+        </p>
+        <p class="note" style="margin-top:9px">
+          不是保守 —— 是 agent 自己 group-by、自己算占比就等于<b>凭空造出第三份口径</b>,
+          它说的数会和页面对不上,而用户没法判断谁对。
+          v1.18 整个 bug 家族就是「同一件事两份判据」,<b>已归档 6 次</b>。
+        </p>
+        <p class="note" style="margin-top:8px">
+          边界总会有 —— 重要的是它<b>可见、可反馈、会移动</b>,
+          而不是让 agent 在边界上编一个答案。
+        </p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;border-left:3px solid var(--forest)">
+      <div class="eyebrow" style="margin-bottom:8px;color:var(--forest)">另 一 条 · 模 型 不 写 数 字</div>
+      <p style="font-size:12.5px;line-height:1.85;margin:0 0 8px">
+        我认为这是本版最重要的设计:模型正文里<b>写引用标记不写数字</b> ——
+      </p>
+      <div style="background:var(--paper-soft);padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.8">
+        你 8 月净资产涨了 <b>{{cite:c1}}</b>,其中投资那份 <b>{{cite:c3}}</b> 占了大头。
+      </div>
+      <p class="note" style="margin-top:9px">
+        渲染时我们把标记换成引用块,<b>数值直接取自工具结果</b>。于是模型
+        <b>没有机会打错数字</b> —— 它手里根本没有数字字符串,只有 id;账期、口径、跳转目标
+        也全由工具结果决定。这把「数字保真」从<b>约定</b>变成了<b>结构</b>。
+        <br>兜底:它仍可能手打一个数字复述 —— 那就扫正文,<b>不在引用表里的标灰</b>
+        并注「这个数我没核对过」。不删句子,但明确降级。
+      </p>
+    </div>
+  </div>
+
   <!-- ════════ 6 · 历史 / 降级 ════════ -->
   <div class="zone">
     <div class="zone-head"><span class="zone-no">6</span><span class="zone-t">历史存本地 · 没配通义不是空白页</span>
