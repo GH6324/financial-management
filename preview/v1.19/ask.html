@@ -76,6 +76,24 @@
   .tag.no{background:var(--rust);color:var(--card)}
   .tag.yes{background:var(--forest);color:var(--card)}
 
+
+  /* ── 双形态外壳 ── */
+  .shells{display:grid;grid-template-columns:1.5fr 1fr;gap:16px}
+  @media(max-width:860px){ .shells{grid-template-columns:1fr} }
+  .frame{border:1px solid var(--rule);background:var(--paper-soft);padding:9px}
+  .frame-bar{display:flex;align-items:center;gap:5px;margin-bottom:7px}
+  .frame-dot{width:7px;height:7px;border-radius:50%;background:var(--rule)}
+  .frame-lab{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-subtle);margin-left:6px}
+  .split{display:flex;gap:0;border:1px solid var(--rule-soft);background:var(--card);min-height:190px}
+  .split-l{flex:1;padding:11px;border-right:1px solid var(--rule-soft);position:relative}
+  .split-r{width:44%;padding:11px;background:var(--card-soft);position:relative}
+  .fab{position:absolute;right:9px;bottom:9px;background:var(--brass-deep);color:var(--card);
+       font-size:10px;padding:6px 10px;font-family:'JetBrains Mono',monospace}
+  .ph{height:8px;background:var(--rule-soft);margin-bottom:6px}
+  .ph.s{width:55%} .ph.m{width:78%}
+  .phone{max-width:210px;margin:0 auto;border:2px solid var(--ink);border-radius:16px;padding:8px 7px;background:var(--card)}
+  .nav-pill{font-family:'JetBrains Mono',monospace;font-size:8.5px;border:1px solid var(--brass-deep);
+            color:var(--brass-deep);padding:2px 6px;display:inline-block}
   table.spec{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
   table.spec th,table.spec td{border:1px solid var(--rule-soft);padding:7px 9px;text-align:left;vertical-align:top;
     word-break:break-word;overflow-wrap:anywhere}
@@ -151,6 +169,77 @@
     </p>
   </div>
 
+  <!-- ════════ 1b · 入口双形态 ════════ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">1b</span><span class="zone-t">入口:PC 侧边抽屉 / 移动全屏页</span>
+      <span class="badge risk">FR-423 · 我上一版写错了</span></div>
+    <div class="zone-sub">原先写的是「一套响应式,不区分」。查完之后<b>那是错的</b> —— 流是同一个,<b>外壳必须分</b>。</div>
+    <div class="zone-line"></div>
+
+    <div class="shells">
+      <div>
+        <div class="frame">
+          <div class="frame-bar"><span class="frame-dot"></span><span class="frame-dot"></span><span class="frame-dot"></span>
+            <span class="frame-lab">PC · 右下角常驻入口 → 可拉宽侧边抽屉</span></div>
+          <div class="split">
+            <div class="split-l">
+              <div class="eyebrow" style="margin-bottom:7px">仪 表 盘(照常可用)</div>
+              <div class="ph m"></div><div class="ph"></div><div class="ph s"></div>
+              <div style="height:9px"></div><div class="ph m"></div><div class="ph s"></div>
+              <div class="fab">问一问</div>
+            </div>
+            <div class="split-r">
+              <div class="eyebrow" style="margin-bottom:7px">问 · 一 · 问</div>
+              <div style="font-size:10.5px;line-height:1.7;color:var(--ink-soft)">
+                钱赚 <b class="mono" style="color:var(--forest)">+¥204,522</b><br>
+                <span class="cite-per">2026-08 · 进行中 → 归因复盘</span>
+              </div>
+              <div style="height:8px"></div>
+              <div class="ph s"></div><div class="ph"></div>
+            </div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:9px">
+          <b>为什么 PC 要侧栏而不是独立页</b>:这一版最重的承诺是「数字点得回原页」。
+          侧栏能<b>左边看着数、右边问着话</b>;独立页每点一次引用块都要跳走再跳回。
+          抽屉<b>可拉宽</b>(答案里有表格和图时小窗读不了),而且<b>跟着换页走,对话不断</b>。
+        </p>
+      </div>
+
+      <div>
+        <div class="frame">
+          <div class="frame-bar"><span class="frame-dot"></span><span class="frame-lab">移动 · 导航顶级入口 → 全屏页</span></div>
+          <div class="phone">
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+              <span class="nav-pill" style="border-color:var(--rule);color:var(--ink-subtle)">仪表盘</span>
+              <span class="nav-pill">问一问</span>
+              <span class="nav-pill" style="border-color:var(--rule);color:var(--ink-subtle)">账户</span>
+            </div>
+            <div style="border:1px solid var(--rule-soft);padding:8px;background:var(--card-soft)">
+              <div style="font-size:9.5px;color:var(--brass-deep);margin-bottom:5px">← 回到仪表盘</div>
+              <div style="font-size:10.5px;line-height:1.7">这个月涨的是工资还是投资?</div>
+              <div style="height:6px"></div>
+              <div class="ph m"></div><div class="ph"></div><div class="ph s"></div>
+            </div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:9px">
+          窄屏<b>放不下侧栏</b>,只能全屏。代价是离开了原页面 —— 所以顶部常驻
+          <b>「← 回到刚才那页」</b>,不让人迷路。
+        </p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;border-left:3px solid var(--brass-deep)">
+      <div class="eyebrow" style="margin-bottom:8px">一 条 容 易 混 的 区 分</div>
+      <p style="font-size:12.5px;line-height:1.85;margin:0">
+        我 PRD 里写过「<b>不做常驻助手气泡</b>」—— 那句要澄清:
+        <b>常驻的入口要做</b>(用户的心智模型就是「一般在角落里」,不做等于把功能藏起来);
+        不做的是<b>它主动跳出来跟你说话</b>。入口常驻 ≠ 主动打扰。
+      </p>
+    </div>
+  </div>
+
   <!-- ════════ 2 · 一轮问答 ════════ -->
   <div class="zone">
     <div class="zone-head"><span class="zone-no">2</span><span class="zone-t">一轮问答 —— 数字必须挂着账期,并且点得回去</span>
@@ -192,11 +281,21 @@
               没录的支出会让「人赚」偏高、「钱赚」偏低。关账后这两个数会定格,并进报表页的封板快照。
             </div>
 
-            <p style="margin:10px 0 0">要我拆一下这 <span class="mono">+¥204,522</span> 是哪几个账户贡献的吗?</p>
+            <p style="margin:10px 0 6px">要我拆一下这 <span class="mono">+¥204,522</span> 是哪几个账户贡献的吗?</p>
+
+            <!-- FR-424b:回答之后给 2-3 条上下文追问,不是一屏 -->
+            <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:4px">
+              <button class="chip" style="padding:6px 10px;font-size:11.5px">拆到账户</button>
+              <button class="chip" style="padding:6px 10px;font-size:11.5px">和上个月比</button>
+              <button class="chip" style="padding:6px 10px;font-size:11.5px">这算好还是差?</button>
+            </div>
           </div>
         </div>
       </div>
-      <div class="shell-bot"><div class="composer">继续问……</div><div class="send">发送</div></div>
+      <div class="shell-bot">
+        <div class="composer">也可以直接问……(手机上按键盘的麦克风说就行)</div>
+        <div class="send">发送</div>
+      </div>
     </div>
 
     <div class="cmp" style="margin-top:14px">
@@ -264,6 +363,63 @@
       判据写进 template:<b>凡是结论会因为一个未知条件翻转的问题,必须先问</b>。
       不是每句都反问 —— 那样会变成挤牙膏,和 10 分钟硬约束冲突。
     </p>
+  </div>
+
+  <!-- ════════ 3b · 追问 · 多对话 · 语音 ════════ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">3b</span><span class="zone-t">追问 · 另起一段 · 语音</span>
+      <span class="badge">FR-424b / FR-431b / FR-431c / FR-431d</span></div>
+    <div class="zone-sub">这四条都是查了业界做法之后定的,依据写在每一格里。</div>
+    <div class="zone-line"></div>
+
+    <table class="spec">
+      <tr><th style="width:20%">这一条</th><th style="width:40%">怎么做</th><th>依据</th></tr>
+      <tr>
+        <td><b>回答后的追问</b><br><span class="cite-per">FR-424b</span></td>
+        <td><b>2–3 条</b>可点按钮,跟着刚才那段答案走(见上一屏底部)。
+            <b>被忽略过两次的不再推。</b></td>
+        <td>建议问题有<b>两个</b>时点:首次打开 <b>+ 回答之后仍有可深入内容时</b>。我原先只做了前者。
+            一次抛十条等于没抛(「循序渐进,不是一次问十个问题」);
+            重复推已被拒绝的建议会显得<b>纠缠而且不长眼</b></td>
+      </tr>
+      <tr>
+        <td><b>另起一段</b><br><span class="cite-per">FR-431b</span></td>
+        <td>输入框旁常驻<b>「新对话」</b>;旧的<b>进历史不删</b>。顶部显示当前对话标题,点它切换。<br>
+            <b>换页 / 换账期 / 换币种都不新建</b>,只插一条「上下文已切到 …」的分隔</td>
+        <td>「放弃当前重来」= <b>另起</b>而不是<b>清空</b> —— 清空是不可逆的,而用户往往只是想换个话题。
+            每页自动新建会把历史碎成一堆一轮残片,也违背「跨页面保持可用」</td>
+      </tr>
+      <tr>
+        <td><b>语音输入</b><br><span class="cite-per">FR-431c</span></td>
+        <td><b>第一版不自建</b>,但在 placeholder 里<b>明说</b>「手机上按键盘的麦克风说就行」</td>
+        <td><b>iOS Safari 的 Web Speech 名义支持、实际不可靠</b>(可能静默失败,
+            <code>interimResults</code> 行为与文档不符)。而<b>系统键盘的听写本来就有</b> ——
+            零代码、零成本、<b>音频不经过我们</b>。<br>
+            但研究里明确写着「只能打字」是部分用户<b>直接放弃</b>的原因,还涉及无障碍 ——
+            所以<b>必须告诉他</b>:用户不会假设一个功能存在</td>
+      </tr>
+      <tr>
+        <td><b>流式不自动滚底</b><br><span class="cite-per">FR-431d</span></td>
+        <td>滚动停在<b>新消息顶部</b>,让人从头读</td>
+        <td>反直觉但有据:一路追着最后一个字滚,用户<b>读不了正在生成的内容</b>,只能等它停。
+            我们的答案里还有引用块 —— 滚到底会让最重要的数字一闪而过</td>
+      </tr>
+    </table>
+
+    <div class="card" style="margin-top:14px;border-left:3px solid var(--forest)">
+      <div class="eyebrow" style="margin-bottom:8px;color:var(--forest)">还 有 一 条 · 别 做 成 「两 套 A I」</div>
+      <p style="font-size:12.5px;line-height:1.85;margin:0">
+        我们已经有<b>六个 AI 入口</b>(体检诊断 / 调仓建议 / 月报叙事 / 透视洞察 / 归因复盘 / 目标解读),
+        全是<b>固定卡片</b>;「问一问」是<b>自由问答</b>。两者必须像<b>一套东西的两种入口</b>:
+      </p>
+      <ul style="font-size:12.5px;line-height:1.9;margin:8px 0 0;padding-left:18px">
+        <li>每张 AI 卡片旁给一个<b>「就这个问下去」</b>,进对话时带上那张卡的结论当上下文</li>
+        <li>对话里引用体检结论时,引用块<b>点回那张卡</b></li>
+      </ul>
+      <p class="note" style="margin-top:9px">
+        判据:<b>用户不该为了知道用哪个,先去理解我们的内部结构。</b>
+      </p>
+    </div>
   </div>
 
   <!-- ════════ 4 · 托管形式 ════════ -->
