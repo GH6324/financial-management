@@ -76,10 +76,14 @@
   .tag.no{background:var(--rust);color:var(--card)}
   .tag.yes{background:var(--forest);color:var(--card)}
 
-  table.spec{width:100%;border-collapse:collapse;font-size:12px}
-  table.spec th,table.spec td{border:1px solid var(--rule-soft);padding:7px 9px;text-align:left;vertical-align:top}
+  table.spec{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+  table.spec th,table.spec td{border:1px solid var(--rule-soft);padding:7px 9px;text-align:left;vertical-align:top;
+    word-break:break-word;overflow-wrap:anywhere}
   table.spec th{background:var(--paper-soft);font-weight:600;font-size:11px}
-  code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--paper-soft);padding:1px 5px}
+  /* code 里全是 previous_response_id 这类长串,不允许它把表撑破移动端 */
+  code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--paper-soft);padding:1px 5px;
+    word-break:break-word;overflow-wrap:anywhere}
+  @media(max-width:640px){ table.spec{font-size:11px} table.spec th,table.spec td{padding:6px 7px} }
 </style>
 </head>
 <body>
@@ -349,25 +353,45 @@
       </div>
     </div>
 
-    <div class="card" style="margin-top:14px;border-left:3px solid var(--rust)">
-      <div class="eyebrow" style="margin-bottom:8px;color:var(--rust)">还 没 确 定 的 一 件 事 · P R D 3 . 2</div>
-      <p style="font-size:12.5px;line-height:1.85;margin:0">
-        阿里云官方文档里,Managed Agents 的 <code>tools</code> 我<b>只确认到 <code>builtin_toolkit</code></b>
-        (沙箱内 bash / read / write 那一组)。「自定义工具由应用侧执行」这个说法我只在
-        <b>Anthropic 的 Managed Agents 资料</b>里看到,<b>没有从阿里云官方页确认百炼是否支持</b>。
+    <div class="card" style="margin-top:14px;border-left:3px solid var(--forest)">
+      <div class="eyebrow" style="margin-bottom:8px;color:var(--forest)">分 水 岭 已 查 清 · 选 型 改 了</div>
+      <p style="font-size:12.5px;line-height:1.85;margin:0 0 10px">
+        原来挂着的问题是「百炼 Managed Agents 支不支持应用侧执行工具」。查完三个接口,答案是
+        <b>不支持,而且我们本来就不该用它</b>。
       </p>
-      <table class="spec" style="margin-top:10px">
-        <tr><th>路</th><th>要求</th><th>代价</th></tr>
-        <tr><td><b>A</b> 应用侧执行工具</td><td>百炼支持 <code>tool_use</code> 回调</td><td>最好的形态:不开公网口,NAT 后的自建用户也能用 · <b>待确认</b></td></tr>
-        <tr><td><b>B</b> MCP 服务</td><td>我们暴露公网 MCP endpoint</td><td>确认可行,但自建用户要有公网域名;百炼无固定出口 IP → <b>做不了 IP 白名单</b></td></tr>
-        <tr><td><b>C</b> 文件挂沙箱</td><td>把指标快照挂进去</td><td>不开公网口,且沙箱里是 <b>pandas 在算不是模型在算</b>;但快照是<b>时点</b>的,对话中途不更新</td></tr>
+      <table class="spec">
+        <tr><th style="width:22%">候选</th><th style="width:30%">工具在哪执行</th><th>结论</th></tr>
+        <tr>
+          <td><b>Managed Agents</b></td>
+          <td><b>平台侧沙箱</b>。客户端只能写 <code>message</code> 事件</td>
+          <td>数据要进去只有两条:<b>开公网 MCP 口</b>,或<b>把家底写进云端沙箱文件</b>。
+              而它的强项(代码执行 / 文件处理 / 长时任务)我们<b>一个都用不上</b></td>
+        </tr>
+        <tr>
+          <td><b>Assistant API</b></td>
+          <td>客户端</td>
+          <td>官方标注<b>「下线中」</b>,全站提示迁移。不能往上建</td>
+        </tr>
+        <tr style="background:rgba(79,107,71,.06)">
+          <td><b>Responses API</b> ✓</td>
+          <td><b>客户端</b>:模型返回 tool_call → 我们执行 → 回传 <code>function_call_output</code></td>
+          <td>官方推荐方向。端点 <code>/compatible-mode/v1/responses</code> ——
+              与我们现有通义客户端<b>同一个 base、同一把 key</b></td>
+        </tr>
       </table>
-      <p class="note" style="margin-top:9px">
-        <b>无论走哪条,上面那张工具表只写一份</b>,换的只是传输方式。
-        你在百炼控制台建 Agent 那一页瞄一眼 <code>tools</code> 能不能选「自定义工具」,比我翻文档快。
+      <p class="note" style="margin-top:10px">
+        <b>选它的三条理由</b>:① 工具在我们进程里跑,<b>暴露面和现在六个 AI 调用点完全一样</b>,不新增;
+        ② <b>不开公网口</b> —— 这个产品发 Docker 给陌生人自建,很多人在 NAT 后面没有域名,
+        而百炼的 MCP <b>没有固定出口 IP</b>、做不了白名单;
+        ③ <b>没有云端资源要管</b> —— <code>instructions</code> + <code>tools</code> 随请求发,
+        原方案里「建 Agent / 全量替换 + 乐观锁 / 只能归档不能删」整块消失。
+      </p>
+      <p class="note" style="margin-top:8px">
+        <b>代价照实说</b>:多轮交给 <code>previous_response_id</code>,社区反馈它与
+        <code>function_call_output</code> 配合有时序问题 → 我们<b>本地始终存全量</b>(PRD 本来就要求),
+        云端失效时用本地历史重拼重试一次。
       </p>
     </div>
-  </div>
 
   <!-- ════════ 6 · 历史 / 降级 ════════ -->
   <div class="zone">
@@ -402,7 +426,7 @@
         <div style="background:var(--card-soft);border:1px dashed var(--rule);padding:16px;text-align:center">
           <div style="font-size:14px;margin-bottom:8px">这个功能需要<b>通义千问</b></div>
           <p class="note" style="margin:0 0 12px">
-            它跑在阿里云的托管智能体上,所以只有通义能用。<br>
+            第一版只保证通义可用。<br>
             你当前配的是<b>火山方舟</b> —— 加一把通义的 key 就能用,<br>
             原有的 AI 体检 / 调仓建议 / 月报<b>不受影响</b>。
           </p>
@@ -431,30 +455,42 @@
     </table>
   </div>
 
-  <!-- ════════ 8 · 要你定的 ════════ -->
+  <!-- ════════ 8 · 我自己定的 ════════ -->
   <div class="zone">
-    <div class="zone-head"><span class="zone-no">8</span><span class="zone-t">要你定的三件</span></div>
+    <div class="zone-head"><span class="zone-no">8</span><span class="zone-t">原先要你定的三件,我自己查完定了</span>
+      <span class="badge ok">可推翻</span></div>
+    <div class="zone-sub">「你别依赖我 自己去干,该调研调研」—— 下面每条都写了依据。</div>
     <div class="zone-line"></div>
     <table class="spec">
-      <tr><th style="width:8%">#</th><th style="width:38%">问题</th><th>我的倾向</th></tr>
+      <tr><th style="width:8%">#</th><th style="width:30%">原问题</th><th>我的决定与依据</th></tr>
       <tr>
         <td class="mono">1</td>
-        <td><b>「托管形式」是不是第 4 屏那四样?</b></td>
-        <td>平台 / 主理人 / 自己盯还是交给产品(靠基金穿透)/ 估值来源。错了现在改最便宜</td>
+        <td>「托管形式」怎么定义?</td>
+        <td>查了代码:透视现有 <b>8 个维度</b>,<b>没有</b>这一维。
+            做成<b>派生视图</b>(自己盯 / 交给产品 / 不动 / 随时可取),
+            <b>零新增录入</b> —— 新加一个透视维度要用户逐个账户打标,违背 10 分钟硬约束。
+            另外三个切法(机构 / 主理人 / 数字来源)<b>直接复用现有维度</b>。
+            <b>规则是我定的,可能和你的直觉不符 —— 这是全版唯一一处「我们替用户下定义」的地方</b></td>
       </tr>
       <tr>
         <td class="mono">2</td>
-        <td><b>百炼的 <code>tools</code> 支不支持「自定义工具由应用侧执行」?</b></td>
-        <td>你控制台瞄一眼即可。支持 → 走 A(最好);不支持 → 我倾向 <b>C 文件挂沙箱</b>,因为自建用户不一定有公网域名</td>
+        <td>百炼支不支持应用侧执行工具?</td>
+        <td><b>Managed Agents 不支持</b>(客户端只能写 <code>message</code> 事件,工具执行在平台侧)。
+            但更重要的是 <b>Assistant API 已「下线中」</b>,官方指向 <b>Responses API</b> ——
+            而它<b>支持</b>客户端执行,且与我们现有客户端同一个 base。<b>选型因此改了</b>,见第 5 屏</td>
       </tr>
       <tr>
         <td class="mono">3</td>
-        <td><b>预置问题这 8 条,够不够 / 对不对?</b></td>
-        <td>她只点不打字,这 8 条就是她能用到的全部。你比我清楚她会想问什么</td>
+        <td>预置的 8 条问题对不对?</td>
+        <td>按你定的优先级排:分布与托管 4 条 → 投资建议 2 条 → 收支 2 条。
+            每条都对得上一个<b>已有的口径</b>,不会问出我们答不了的东西。
+            她只点不打字,这 8 条就是她的全部入口 —— <b>你比我清楚她会想问什么,这条最值得你改</b></td>
       </tr>
     </table>
     <p class="note" style="margin-top:12px">
-      这三条定了我就写 <code>tech-design/v1.19.md</code>(架构选型 + 2-3 备选 + 取舍),再等你第二次评审。
+      <code>tech-design/v1.19.md</code> 已经写完(不再是占位):接口选型、分层、多轮策略、
+      工具边界、SSE 落地、存储 schema、失败面、6 条护栏、分三刀交付。
+      <b>这一屏和 TDD 一起等你评审</b> —— 通过之后才写代码。
     </p>
   </div>
 
