@@ -127,12 +127,12 @@ public class AccessTokenService {
      * 区分只保留在审计里,给用户看。</p>
      */
     public Verdict verify(String bearer, AskScope required) {
-        if (bearer == null || bearer.isBlank()) return new Verdict(AskAuditResult.INVALID, null);
+        if (bearer == null || bearer.isBlank()) return noMatch();
         String plain = bearer.startsWith("Bearer ") ? bearer.substring(7).trim() : bearer.trim();
-        if (!plain.startsWith(PREFIX)) return new Verdict(AskAuditResult.INVALID, null);
+        if (!plain.startsWith(PREFIX)) return noMatch();
 
         Optional<AskAccessToken> hit = tokenMapper.findByHash(sha256(plain));
-        if (hit.isEmpty()) return new Verdict(AskAuditResult.INVALID, null);
+        if (hit.isEmpty()) return noMatch();
         AskAccessToken t = hit.get();
 
         if (t.revoked()) return new Verdict(AskAuditResult.REVOKED, null);
@@ -150,6 +150,23 @@ public class AccessTokenService {
             closeRotation(t);
         }
         return new Verdict(r, t);
+    }
+
+    /**
+     * 谁都没匹配上 —— 这时候才分「功能没开」还是「有人拿错口令在探」。
+     *
+     * <p><b>次序很要紧</b>:先看有没有命中具体某一把,命中了就用它的判定
+     * (过期就是 EXPIRED,吊销就是 REVOKED)。反过来先判 OFF 的话,
+     * 「用户唯一那把口令过期了」会被报成「功能没开」—— 管理页于是没法提示他去续期,
+     * 而那正是最该被提示的场景。</p>
+     *
+     * <p>对外两者都是 404,一模一样,不透露差别;区分只留在审计里:
+     * 一串 INVALID 是有人在探,一串 OFF 只是功能没开着。混在一起的话,
+     * 「被扫了」会淹没在噪声里。</p>
+     */
+    private Verdict noMatch() {
+        return new Verdict(tokenMapper.countUsableAll() == 0
+                ? AskAuditResult.OFF : AskAuditResult.INVALID, null);
     }
 
     /** 本行是否顶替了别的行(即它是换绑出来的新密钥) */

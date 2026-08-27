@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  v1.19 · PC 抽屉的内容(HTMX 局部加载)
+  只是给 _stream 套一层带标题栏的容器 —— 对话本身一个字都不重复。
+-->
+<body>
+
+<div th:fragment="panel" class="flex flex-col h-full min-h-0">
+  <div class="flex items-center justify-between px-4 py-2.5 border-b border-rule shrink-0">
+    <div class="flex items-center gap-2 min-w-0">
+      <span class="text-[12px] tracking-[.18em] text-ink shrink-0">问 · 一 · 问</span>
+      <span th:if="${conv != null}" class="text-[12px] text-ink-soft truncate" th:text="${conv.title}">标题</span>
+    </div>
+    <div class="flex items-center gap-1 shrink-0">
+      <button type="button" data-ask-new aria-label="新对话" title="新对话"
+              class="w-7 h-7 rounded-md hover:bg-card-soft flex items-center justify-center text-ink-soft">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button type="button" data-ask-close aria-label="收起" title="收起"
+              class="w-7 h-7 rounded-md hover:bg-card-soft flex items-center justify-center text-ink-soft">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <th:block th:replace="~{ask/fragments/_stream :: stream(${conv}, ${messages}, ${presets}, ${blocked}, ${runtimeLabel})}"></th:block>
+</div>
+
+</body>
+</html>

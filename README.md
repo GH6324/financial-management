@@ -96,13 +96,13 @@
 
 > 完整发布记录与截图见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段每版只留 2–4 行,细节不搬过来)。
 
+**[v1.19.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.19.0) · 问一问 —— 用大白话问你自己的账**
+右下角常驻一个入口(手机在导航里),用人话问「我的钱都放在哪些平台」「有多少是自己在盯的、有多少交给产品了」。**回答里每个数字都带着账期、标着关没关账、点一下回到原页核对** —— 数字由系统算好交给 AI 引用,AI 不做任何计算,所以它没有机会把数字讲错。顺带新增「托管形式」维度(自己盯 / 交给产品 / 随时可取 / 不动),透视页与问一问都能用。
+两条路可选:**本机直连**(默认,有大模型密钥就能用,不需要公网、不开任何对外端口)或**百炼托管 Agent**(需要公网域名 + HTTPS,换来服务端记住上下文、可中断续接)。另有一套只读的 MCP / HTTP 接口,可以把账房接给你自己的 AI 客户端 —— 默认关闭,凭据只存哈希、只走请求头,未授权一律返回「不存在」。**新增 7 张表(纯新增,不改既有表)· 功能默认关闭,不开时零感知。**
+
 **[v1.18.7](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.18.7) · 仪表盘上的每个数,都说得清自己是哪一期**
 这一页的定位是「实时汇总」,但有三类数其实**不是本期**,还和实时的净资产并排放着 —— 读起来全是本月的。① **储蓄率**取的是「最近一个有收支记录的期」或「最新已关账期」,却写着「本期储蓄率」→ 现在会点名「(2026-07 账期)」,**口径一个字没改**。② **月均支出**把进行中的半个月按整月算 → 分母偏低 → **紧急储备虚高**,连带「应急金超额闲置」提示更容易弹出并建议你把钱挪走 → 现在剔除进行中账期(窗口顺延补齐,不缩水)。③ **洞察条**改为跟随你选的币种/账户/账期;**财务目标**刻意**不**跟随(目标值是本位币绝对金额、目标是全家庭的,跟随会让进度凭空翻几倍),改视图时条上直接写明「不随上方筛选变化」。
 顺带:净资产趋势最右点标「· 进行中」· 账户列表「收益率」标「·实时」并写明与报表页不同期是有意的。**无 DB 迁移**;紧急储备与月均支出的数值会变(这正是修复内容)。
-
-**[v1.18.6](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.18.6) · 「账目对账」是提示,不是判决书**
-v1.18.2 那个对账扫描器看的是**某一个瞬间**(某次自动估值的 Δ 恰好抵消刚进出的钱),**看不出「后来是不是已经被纠正了」** —— 你转账后又重新导入一次持仓截图,导入把账做平了,可这条历史痕迹仍会被报成「需要补回」。**照着一条已纠正的记录去补,等于凭空多出一笔钱。**
-现在每条疑似都带**第二视角**:`隐含损益 = 期末 − 期初 − 净流水`、`残留 = 隐含损益 + 疑似被抹的钱` —— 残留 ≈ 0 = 钱到期末**还没回来**(真要动手),残留远离 0 = 期末余额后来被改动过(**只提示核对**)。钱一补回,同一条痕迹**自动降级**,不需要手动标「已处理」。**无 DB 迁移。**
 
 ## 主要能力
 
@@ -132,7 +132,7 @@ v1.18.2 那个对账扫描器看的是**某一个瞬间**(某次自动估值的 
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 716 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸(含「系统代填的已填不算人确认过」) + PeriodOpenerTodoAlignment 开账代填即已填 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表) + UpdateCheckService 版本比较/迁移判定 fail-closed/结果收敛进 VARCHAR(512) + MetricDisplay 比率失真降级(正常区间不许降级 · 金额类不被误伤 · 失真值派生的 Δ 列一起降级) + LlmCatalogConsistency 平台/型号目录唯一一份(扫包双向比对,不写死类名) + LlmCallSiteRouting 六个 AI 调用点全部只持路由 + MemberDirectory 成员三桶口径(展示含归档 / 选择仅活跃 / 编辑候选=活跃∪当前) + MemberReferenceScanner 删成员前 13 处引用全覆盖(4 处无外键靠反射测试当外键) + MemberArchiveMoneyInvariance 归档只停「谁来打理」不动钱 + UsernameRename 先清票根再改名 + OpendRelease 官方发布物定位(现行域名/命名/取最新端点/10.x 交互登录分流) + OpendConfigXml 控制口按死回环(官方模板里它是注释掉的) + OpendCatalog 安装包哈希校验(对不上拒装 · 清单读不到≠未核对) + OpendTelnet 登录状态机(失败判定先于验证码) + ContainerGatewayChannel 共享卷通道(未启用给命令不报错 · 心跳过期判掉线 · 密码不落日志) + LedgerSource 流水来源(UNKNOWN≠MANUAL · 解析永不抛 · 标签无技术词) + ValuationSourceInfer 估值来源推断(显式优先 · 按持仓市场分流) + AttributionAnchor 归因锚已关账期(转入不被读成亏损 · 混锚会把差额藏进未归因) + ValuationManagedRouting 余额托管判据一份定义(有持仓才接管 · 无持仓不许凭空造现金行) + ReconciliationScan 账目对账判据(该抓/不该抓成对钉,防退化成永远绿的装饰) + ErasureDetector 抹钱识别(按后缀和逐个试 · 写回拦截与事后对账共用一份) + AccountTypeSemantics 账户类型语义分类(加新类型必须表态的结构性护栏 · METAL 曾漏在投资类外) + ReconcileSecondView 对账第二视角(整期是否自洽 · 已纠正的痕迹自动降级,防照着误报删钱) + RecentClosed 月均支出剔除进行中账期(半个月不当整月)+ SavingsRatePeriod 储蓄率带出账期(它常常不是本期)+ DashboardLiveScope 趋势标出进行中那一期))/ 143 e2e 断言(20 主线)/ 647 黑盒回归 |
+| 测试 | JUnit 5 · 753 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸(含「系统代填的已填不算人确认过」) + PeriodOpenerTodoAlignment 开账代填即已填 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表) + UpdateCheckService 版本比较/迁移判定 fail-closed/结果收敛进 VARCHAR(512) + MetricDisplay 比率失真降级(正常区间不许降级 · 金额类不被误伤 · 失真值派生的 Δ 列一起降级) + LlmCatalogConsistency 平台/型号目录唯一一份(扫包双向比对,不写死类名) + LlmCallSiteRouting 六个 AI 调用点全部只持路由 + MemberDirectory 成员三桶口径(展示含归档 / 选择仅活跃 / 编辑候选=活跃∪当前) + MemberReferenceScanner 删成员前 13 处引用全覆盖(4 处无外键靠反射测试当外键) + MemberArchiveMoneyInvariance 归档只停「谁来打理」不动钱 + UsernameRename 先清票根再改名 + OpendRelease 官方发布物定位(现行域名/命名/取最新端点/10.x 交互登录分流) + OpendConfigXml 控制口按死回环(官方模板里它是注释掉的) + OpendCatalog 安装包哈希校验(对不上拒装 · 清单读不到≠未核对) + OpendTelnet 登录状态机(失败判定先于验证码) + ContainerGatewayChannel 共享卷通道(未启用给命令不报错 · 心跳过期判掉线 · 密码不落日志) + LedgerSource 流水来源(UNKNOWN≠MANUAL · 解析永不抛 · 标签无技术词) + ValuationSourceInfer 估值来源推断(显式优先 · 按持仓市场分流) + AttributionAnchor 归因锚已关账期(转入不被读成亏损 · 混锚会把差额藏进未归因) + ValuationManagedRouting 余额托管判据一份定义(有持仓才接管 · 无持仓不许凭空造现金行) + ReconciliationScan 账目对账判据(该抓/不该抓成对钉,防退化成永远绿的装饰) + ErasureDetector 抹钱识别(按后缀和逐个试 · 写回拦截与事后对账共用一份) + AccountTypeSemantics 账户类型语义分类(加新类型必须表态的结构性护栏 · METAL 曾漏在投资类外) + ReconcileSecondView 对账第二视角(整期是否自洽 · 已纠正的痕迹自动降级,防照着误报删钱) + RecentClosed 月均支出剔除进行中账期(半个月不当整月)+ SavingsRatePeriod 储蓄率带出账期(它常常不是本期)+ DashboardLiveScope 趋势标出进行中那一期))/ 143 e2e 断言(20 主线)/ 665 黑盒回归 |
 
 ## 快速开始(自托管部署)
 
@@ -340,7 +340,7 @@ mvn spring-boot:run
 测试:
 
 ```bash
-mvn test                       # JUnit 单元测试(697)
+mvn test                       # JUnit 单元测试(753)
 bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(见 README 上方测试行的黑盒回归数)
 bash scripts/e2e.sh            # 端到端主线真验收(13 主线 93 断言 · 唤起 beta 调接口 + DB 真值判定 · mysqldump 快照/还原,不清库)
 ```
@@ -363,7 +363,7 @@ bash scripts/e2e.sh            # 端到端主线真验收(13 主线 93 断言 ·
 - **v1.15 设计文档**:[`prd/v1.15.md`](prd/v1.15.md) · [`tech-design/v1.15.md`](tech-design/v1.15.md)(成员身份:登录名可改 · 归档 · 零引用才给删。归档**只停掉「谁还来打理」,不动一分钱**,他名下账户与历史流水照旧计入总账;删除前逐表数引用,那 4 处没有外键的靠显式清单兜住 —— 自动发现外键会给出一个自信的错答案。tech-design §9 记了六处施工偏差,其中一处是隐私:6 个脱敏点原来拿「仅活跃」列表建假名表,归档成员的真名会原样进 LLM prompt)
 - **v1.16 设计文档**:[`prd/v1.16.md`](prd/v1.16.md) · [`tech-design/v1.16.md`](tech-design/v1.16.md)(「本期填报完成」只留一个定义 · GitHub issue #15:开账把上期末余额延续成本期快照的同时,把同一行待填也标成已填 —— 填报页的 ✓、tab 徽标、自动关账从此读同一列,不再出现「页面显示全填好了、徽标还挂着 ·1」;tech-design §1.1 记了「为什么不在计数 SQL 上打补丁」的取舍)
 - **v1.17 设计文档**:[`prd/v1.17.md`](prd/v1.17.md) · [`tech-design/v1.17.md`](tech-design/v1.17.md)(Docker 部署下的富途 OpenD 一键接入:今天 Docker 用户被要求自备镜像 + 借一台有桌面的机器 + 把券商密码写进 `.env`,而原生用户只是在向导页点几下。方案定为「我们发一个**可选**的网关镜像」—— 默认 `up -d` 不拉不起,富途二进制不打包、运行时从官方下载并校验哈希,镜像 digest 与打包过程公示可验证。实测证据也表明「容器里跑不了 OpenD」这个前提是错的 —— gtk3/fuse 是桌面版的依赖,命令行版零缺失;顺带修掉过期的下载域名 / 文件名 / 启动参数,那几处今天在原生路径上也是坏的)
-- **v1.19 设计文档(在研 · 待评审)**:[`prd/v1.19.md`](prd/v1.19.md) · [`tech-design/v1.19.md`](tech-design/v1.19.md) · [`preview/v1.19/ask.html`](preview/v1.19/ask.html)(**问一问**:把六个「我们替你问」的固定 AI 卡片,换成一个「你自己问」的对话入口。接阿里云百炼 **Responses API**(调研后从 Managed Agents 改选 —— 后者的工具执行在平台侧沙箱,我们的数据只能靠「开公网口」或「把家底写进云端沙箱」进去;而 Responses 的自定义工具是**客户端执行**,数据不出我们的进程,NAT 后面的自建用户也能用),我们只维护系统提示词与工具清单,由 agent 自己决定调哪个工具。工具**只给已经算好的口径、不给原始表**——LLM 一拿到原始数就会自己算占比,而那条「禁止四则运算」的铁律是用生产事故换来的;答案里每个数字都是**可点引用块**,挂着账期、标着是否进行中、点得回产生它的那一页。对话历史存在**你自己的服务器**上,云端 session 只用来维持上下文。tech-design 已写完,与 PRD 一同待评审)
+- **v1.19 设计文档**:[`prd/v1.19.md`](prd/v1.19.md) · [`tech-design/v1.19.md`](tech-design/v1.19.md) · [`preview/v1.19/ask.html`](preview/v1.19/ask.html)(**问一问**:把六个「我们替你问」的固定 AI 卡片,换成一个「你自己问」的对话入口。我们只维护系统提示词与工具清单,由 agent 自己决定调哪个工具。工具**只给已经算好的口径、不给原始表** —— LLM 一拿到原始数就会自己算占比,而那条「禁止四则运算」的铁律是用生产事故换来的;答案里每个数字都是**可点引用块**,挂着账期、标着是否进行中、点得回产生它的那一页,模型正文里只写引用标记、**碰不到数字本身**。对话历史存在**你自己的服务器**上。runtime 两条:主选**百炼 Managed Agents**(要公网 HTTPS,换来服务端 session 持久化与中断续接),兜底**本机直连**(模型出网、工具在本进程跑、零入网需求)—— 后者是为 NAT 后面、没有域名的自建用户准备的,对他们来说托管路线不是麻烦而是不可能。选型对比与实测改掉的四处设计见 tech-design 附录与 §四.0)
 - **v1.18 设计文档(在研)**:[`prd/v1.18.md`](prd/v1.18.md) · [`tech-design/v1.18.md`](tech-design/v1.18.md)(流水时间线的每一行都标出「这笔是谁写进来的」:手动填报 / 自动 · 股价 / 自动 · 金价 / 自动 · 富途 / 截图导入 / 开账延续 / 系统联动,共 10 个来源。以前 `kind` 只说是收入还是估值,`trigger_kind` 只说什么动作触发 —— 同一个定时任务可能是股价接口也可能是金价接口,用户分不出来。历史数据一律 `UNKNOWN`(「来源未记录」)**不回填成手动** —— 那等于假装我们知道。同一版还把券商同步失败从「只写日志」改成写进状态并标在账户列表上:v1.17.3 那次生产事故里富途断了两天,而页面一直显示两天前的**成功**消息)
 - **怎么记账 · 场景速查**:[`docs/how-to-record.md`](docs/how-to-record.md)(工资/消费/买卖基金/借钱还贷/账户间转钱 逐场景对照 · 没有财会背景也能看懂)
 - **配置与接入**:[`docs/configuration.md`](docs/configuration.md)(AI / 短信 等外部服务配置总指南 · 全部可选)

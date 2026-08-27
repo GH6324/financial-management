@@ -66,9 +66,13 @@ public class CapabilitiesTool implements AskTool {
                 .map(m -> Map.<String, Object>of("key", m.key(), "label", m.label()))
                 .toList();
 
+        // 账期表可能预建到很多年以后(beta 上排到 2041)。把【未来还没开始的期】排除掉 ——
+        // 它们余额是结转来的、收支全零,数字上看不出异常,agent 会拿它当真话讲。
+        java.time.LocalDate today = java.time.LocalDate.now();
         List<Period> periods = periodMapper.findAllByFamily(familyId);
         List<Map<String, Object>> periodList = periods.stream()
                 .filter(p -> p.getPeriodStart() != null)
+                .filter(p -> !p.getPeriodStart().isAfter(today))
                 .sorted(Comparator.comparing(Period::getPeriodStart).reversed())
                 .limit(24)
                 .map(p -> Map.<String, Object>of(
@@ -79,6 +83,7 @@ public class CapabilitiesTool implements AskTool {
 
         Period latest = periods.stream()
                 .filter(p -> p.getPeriodStart() != null)
+                .filter(p -> !p.getPeriodStart().isAfter(today))
                 .max(Comparator.comparing(Period::getPeriodStart)).orElse(null);
 
         return AskToolResult.of(name())

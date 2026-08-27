@@ -1648,3 +1648,73 @@ body.upd-open #priv-float { display: none !important; }
 
 /* 下拉里不可选的平台(还没配 key)*/
 select option:disabled{ color:var(--ink-subtle); font-style:italic; }
+
+/* ══════════════════════════════════════════════════════════════
+   v1.19 · 问一问
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 引用卡 ──
+   这一版最重要的一个视觉件。四样信息缺一不可:指标名、数值、账期与关账状态、
+   点回原页。缺任何一样,数字就退回成「一个说不清出处的裸数字」—— 而那正是
+   v1.18 一整个系列在修的病。所以样式上也要让它一眼看出「这不是正文,这是有据可查的」。 */
+.ask-cite{ display:block; margin:.5rem 0; padding:.55rem .7rem; text-decoration:none;
+           border:1px solid var(--rule); border-left:2px solid var(--brass);
+           border-radius:5px; background:var(--card-soft); transition:border-color .15s, background .15s; }
+.ask-cite:hover{ border-color:var(--brass); background:var(--card); }
+.ask-cite-top{ display:flex; align-items:baseline; justify-content:space-between; gap:.75rem; }
+.ask-cite-k{ font-size:11.5px; color:var(--ink-soft); letter-spacing:.02em; }
+.ask-cite-v{ font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink);
+             font-weight:600; white-space:nowrap; }
+.ask-cite-meta{ display:flex; align-items:baseline; justify-content:space-between;
+                gap:.75rem; margin-top:.28rem; }
+.ask-cite-per{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-subtle); white-space:nowrap; }
+.ask-cite-go{ font-size:10.5px; color:var(--ink-subtle); text-align:right; line-height:1.4; }
+
+/* 行内引用:模型没把标记单独成行时的退路,不至于句子中间插一张卡 */
+.ask-chip{ display:inline-flex; align-items:baseline; gap:.25rem; padding:.05rem .35rem;
+           margin:0 .1rem; border-bottom:1px solid var(--brass); text-decoration:none;
+           font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--ink); }
+.ask-chip i{ font-style:normal; font-size:9.5px; color:var(--ink-subtle); }
+
+/* ── 工具行 ── */
+.ask-dot{ width:5px; height:5px; border-radius:50%; background:var(--brass); flex:none; }
+.ask-dot.bad{ background:var(--rust); }
+.ask-dot.run{ animation:ask-pulse 1.1s ease-in-out infinite; }
+@keyframes ask-pulse{ 0%,100%{opacity:.28} 50%{opacity:1} }
+.ask-thinking::after{ content:'…'; animation:ask-pulse 1.1s ease-in-out infinite; }
+
+/* ── 正文 ── */
+.ask-body p{ margin:.4rem 0; }
+.ask-body p:first-child{ margin-top:0; }
+.ask-body strong{ font-weight:600; color:var(--ink); }
+
+/* ── PC 抽屉 ──
+   不打断当前页:用户正在看仪表盘时问「这个数怎么来的」,底下那页得留在原地。
+   所以是抽屉不是跳转,也不推挤主体布局(fixed 覆盖 + 阴影)。 */
+.ask-drawer{ position:fixed; top:0; right:0; bottom:0; width:min(420px,92vw); z-index:45;
+             background:var(--paper); border-left:1px solid var(--rule);
+             box-shadow:-14px 0 40px rgba(26,23,20,.10);
+             transform:translateX(100%); transition:transform .22s ease; display:flex; flex-direction:column; }
+.ask-drawer.open{ transform:translateX(0); }
+.ask-drawer > *{ min-height:0; }
+
+/* 悬浮入口:常驻但不打扰 —— 它不主动弹、不推送,只是一直在那儿 */
+.ask-fab{ position:fixed; right:20px; bottom:22px; z-index:44; display:inline-flex; align-items:center;
+          gap:.4rem; padding:.55rem .85rem; border-radius:999px; border:1px solid var(--rule);
+          background:var(--paper); color:var(--ink); box-shadow:0 3px 14px rgba(26,23,20,.12);
+          font-size:12.5px; letter-spacing:.06em; cursor:pointer; transition:border-color .15s, box-shadow .15s; }
+.ask-fab:hover{ border-color:var(--brass); box-shadow:0 5px 20px rgba(26,23,20,.16); }
+html.ask-open .ask-fab{ opacity:0; pointer-events:none; }
+
+/* 手机上不要悬浮球:屏幕小,它会压住底部的表格和按钮。移动端走导航里的整页入口 */
+@media (max-width:767px){ .ask-fab{ display:none; } }
+
+/* 隐私模式:糊掉引用卡里的数值,与全站同一套开关 */
+html.privacy .ask-cite-v, html.privacy .ask-chip{ filter:blur(5px); }
+
+/* 旁白:模型调工具前那句「我来查一下…」。它有用(让人知道在干嘛),但不是答案 ——
+   所以放在工具区、用最弱的字重,而且不落库。 */
+.ask-narr{ padding-left:11px; border-left:1px solid var(--rule-soft); line-height:1.5; }
+
+/* 问一问整页上不再显示悬浮球 —— 用户已经在这一页了,再放一个入口只是挡住输入框 */
+body.ask-page .ask-fab{ display:none; }

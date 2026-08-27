@@ -53,6 +53,9 @@ CREATE TABLE ask_citation (
     message_id   BIGINT       NOT NULL,
     cite_key     VARCHAR(16)  NOT NULL                    COMMENT '与正文 {{cite:c1}} 对应',
     metric_key   VARCHAR(64)  NOT NULL                    COMMENT '口径标识,渲染期据此取文案',
+    -- label 必须存:它常常是**数据派生**的(「支付宝 · 总资产」里的行名来自用户自己的账户名),
+    -- 从 metric_key 推不出来。不存的话,重新打开这段对话就只剩 lens.pivot.value 这种技术串。
+    label        VARCHAR(64)  NULL                        COMMENT '给用户看的名字(数据派生,推不出来)',
     period_id    BIGINT       NULL                        COMMENT '这个数字属于哪一期',
     in_progress  TINYINT(1)   NOT NULL DEFAULT 0          COMMENT '该期是否进行中',
     value_text   VARCHAR(32)  NOT NULL                    COMMENT '工具返回的原值(已格式化)',

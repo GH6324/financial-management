@@ -7,6 +7,10 @@ import com.family.finance.calc.lens.Position;
 import com.family.finance.domain.ask.AskScope;
 import com.family.finance.service.ask.AskTool;
 import com.family.finance.service.ask.AskToolResult;
+import com.family.finance.domain.period.Period;
+import com.family.finance.repository.PeriodMapper;
+import com.family.finance.service.FamilyService;
+import com.family.finance.service.explain.MetricExplainService;
 import com.family.finance.service.lens.LensQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -42,10 +46,22 @@ public class PivotTool implements AskTool {
 
     public static final int DEFAULT_LIMIT = 50;
     public static final int MAX_LIMIT = 200;
+    /**
+     * 发多少行的可引用值。
+     *
+     * <p>不是行数上限(那是 {@link #DEFAULT_LIMIT}),是「模型能精确引用的行数」。
+     * 12 行覆盖了绝大多数分组问题(平台、类型、托管形式、主理人都在这个量级),
+     * 再多是给一屏念不完的长尾发引用,纯浪费 token。</p>
+     */
+    public static final int ROW_CITES = 12;
     /** 行 + 列合计层数上限:再深读不出结构,只会把 token 花在没人看的嵌套上 */
     public static final int MAX_DEPTH = 3;
 
     private final LensQueryService lensQueryService;
+    private final FamilyService familyService;
+    private final PeriodMapper periodMapper;
+    /** 引用块里的数字要和页面上<b>逐字一致</b>,所以格式化必须用页面那一份,不能自己写 */
+    private final MetricExplainService fmt;
 
     @Override public String name() { return "pivot"; }
 
@@ -145,19 +161,54 @@ public class PivotTool implements AskTool {
                     "本次查询含持仓级维度:收益类度量按持有口径计,不可精确归因到账户。讲结论时要把这一点说出来。");
         }
 
-        // 合计做成可引用的数字 —— 模型正文只写引用标记,数值从这里取,它没有机会打错
+        // ── 可引用的数字 ──
+        // 合计 + **每一行**。只给合计是不够的:联调时模型拿到「总资产合计」这一个可引用项,
+        // 讲支付宝占多少时无处可引,于是退化成「将近一半」「各占一成左右」这种约数,
+        // 而那正是这个功能要消灭的东西。给它每行的精确值,它才有得可引。
+        String ccy = familyService.require(familyId).getBaseCurrency();
+        Long anchorId = lensQueryService.anchorPeriodId(familyId);
+        Period anchorP = anchorId == null ? null : periodMapper.findById(anchorId).orElse(null);
+        boolean anchorOpen = anchorP != null && !"CLOSED".equals(String.valueOf(anchorP.getStatus()));
         List<BigDecimal> grand = r.grand();
         for (int i = 0; i < r.measures().size() && grand != null && i < grand.size(); i++) {
             String mk = r.measures().get(i);
-            LensRegistry.Measure md = LensRegistry.MEASURES.get(mk);
             BigDecimal v = grand.get(i);
-            b.cite("g" + i, "lens.pivot." + mk,
-                    (md == null ? mk : md.label()) + " 合计",
-                    v == null ? "—" : v.toPlainString(),
-                    null, false, null, "/lens");
+            b.cite("g" + i, "lens.pivot." + mk, measureLabel(mk) + " 合计",
+                    display(mk, v, ccy), anchorId, anchorOpen, ccy, "/lens");
         }
 
-        return b.meta(null, null, false, "lens.pivot", null).build();
+        // 行级引用只在「单层行维、无列维」时给 —— 多维交叉时行名是组合键,
+        // 逐格发引用会把 token 撑爆,而模型真正会逐个念的也就是一层分组那种问题。
+        if (rows.size() == 1 && cols.isEmpty()) {
+            int n = 0;
+            for (PivotEngine.Cell c : r.cells()) {
+                if (n >= ROW_CITES) break;
+                if (!keep.contains(String.join("", c.row()))) continue;
+                String rowName = String.join(" / ", c.row());
+                for (int i = 0; i < r.measures().size() && i < c.values().size(); i++) {
+                    BigDecimal v = c.values().get(i);
+                    if (v == null) continue;
+                    String mk = r.measures().get(i);
+                    b.cite("r" + n + "_" + i, "lens.pivot." + mk,
+                            rowName + " · " + measureLabel(mk),
+                            display(mk, v, ccy), anchorId, anchorOpen, ccy, "/lens");
+                }
+                n++;
+            }
+            if (r.cells().size() > ROW_CITES) {
+                b.metaExtra("citeNote", "只有前 " + ROW_CITES + " 行给了可引用值。"
+                        + "要讲后面的行,请先用 filters 收窄再问一次,不要凭 cells 里的数自己念。");
+            }
+        }
+
+        // 账期必须给全 —— 空的 period 会让 agent 停下来专门问「这是哪一期的数」,
+        // 实测里它为此多花了一整轮,还把疑问写进了给用户的回答。
+        String label = anchorP == null || anchorP.getPeriodStart() == null ? null
+                : anchorP.getPeriodStart().toString().substring(0, 7);
+        if (anchorOpen) {
+            b.metaExtra("warning", label + " 还没关账,余额可能还没录齐。引用这一期的数时要说这句。");
+        }
+        return b.meta(anchorId, label, anchorOpen, "lens.pivot", ccy).build();
     }
 
     private void validateDims(List<String> ds, String field) {
@@ -194,5 +245,28 @@ public class PivotTool implements AskTool {
         List<String> out = new ArrayList<>(vs.size());
         for (BigDecimal v : vs) out.add(v == null ? "—" : v.toPlainString());
         return out;
+    }
+
+    /**
+     * 引用块里要显示的样子。
+     *
+     * <p>{@code data} 里给模型的仍是原始数值(它要拿去比大小、排序),
+     * 但<b>用户看到的那一份必须带货币符号和千分位</b> —— 「1816693.76」和页面上的
+     * 「¥1,234,567.89」是同一个数,可用户得自己在心里加逗号才能确认,
+     * 而这个功能的全部意义就是让他不用怀疑。格式化走 {@link MetricExplainService},
+     * 与页面同一份实现,于是「逐字一致」是真的逐字。</p>
+     */
+    private String display(String measureKey, BigDecimal v, String ccy) {
+        if (v == null) return "—";
+        return switch (measureKey) {
+            case "share", "latestReturn", "cumReturn" -> fmt.pctUnits(v, 2);
+            default -> fmt.money(ccy, v);
+        };
+    }
+
+    /** 度量的中文名;目录里没有就退回 code(总比显示空白强) */
+    private static String measureLabel(String mk) {
+        LensRegistry.Measure md = LensRegistry.MEASURES.get(mk);
+        return md == null ? mk : md.label();
     }
 }

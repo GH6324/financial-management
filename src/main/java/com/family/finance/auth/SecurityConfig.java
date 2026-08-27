@@ -142,6 +142,12 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/", "/login", "/login/error", "/static/**", "/css/**", "/vendor/**", "/img/**", "/uploads/**", "/js/**", "/manifest.webmanifest", "/favicon.ico", "/error", "/help/how-to-use", "/health", "/actuator/health").permitAll()
+                /* v1.19 · 对外只读接口与 MCP 端点:【不走表单会话,自己用 Bearer 鉴权】。
+                   这里 permitAll 不等于「不鉴权」—— AskAccessGuard 会校验凭据,
+                   未通过一律 404(不是 401:401 等于告诉扫描者「这里有东西」)。
+                   之所以要从 Spring Security 链里放出去,是因为默认链会把未认证请求
+                   302 到 /login —— 那对一个 API 客户端毫无意义,而且泄露了「这里有个应用」。 */
+                .requestMatchers("/mcp", "/api/v1/ask/**").permitAll()
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form
@@ -166,6 +172,13 @@ public class SecurityConfig {
             .csrf(c -> c
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())  // 非 XOR · 表单 _csrf 与 cookie 一致
+                /* v1.19 · 只读 API 与 MCP 端点排除 CSRF。
+                   排除的前提是它们【不接受 Cookie 认证】—— 只认 Authorization 头。
+                   CSRF 的成因是「浏览器会自动带上 Cookie」;既然这两个路径压根不看 Cookie,
+                   跨站请求即使发得出去也拿不到凭据。
+                   ⚠ 若将来有人给它们加上会话认证,这一行就必须同时撤掉,
+                     否则就是真正的 CSRF 缺口 —— 护栏 v119-ASK-NO-COOKIE-AUTH 钉住这条。 */
+                .ignoringRequestMatchers("/mcp", "/api/v1/ask/**")
             )
             // CSRF token 失效不该甩一个「印泥洒了」错误页。这个场景太日常了:
             // 登录页开着放久了 / 服务重启过 / 点了后退再提交 / 在另一个标签页登录登出过 ——

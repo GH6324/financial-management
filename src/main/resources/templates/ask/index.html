@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  v1.19 · 问一问 · 整页壳(手机主用,PC 直链也能开)
+  对话主体 th:replace 到 ask/fragments/_stream —— 与 PC 抽屉同一份。
+-->
+<head th:replace="~{fragments/layout :: head('问一问 · 家庭账房')}"></head>
+<!-- ask-page:本页就是问一问,layout 里的悬浮球在这儿是多余的(CSS 据此隐藏) -->
+<body class="ask-page min-h-screen relative flex flex-col">
+
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('ask', ${me}, ${nav})}"></header>
+
+<main class="flex-1 min-h-0 max-w-[860px] w-full mx-auto px-0 sm:px-4 lg:px-10 sm:py-6 flex flex-col relative z-10">
+  <div class="flex-1 min-h-0 flex flex-col sm:border sm:border-rule sm:rounded-xl sm:bg-paper overflow-hidden">
+
+    <div class="hidden sm:flex items-center justify-between px-4 py-3 border-b border-rule shrink-0">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <span class="text-[12.5px] tracking-[.18em] text-ink shrink-0">问 · 一 · 问</span>
+        <span th:if="${conv != null}" class="text-[12.5px] text-ink-soft truncate" th:text="${conv.title}">标题</span>
+      </div>
+      <button type="button" data-ask-new
+              class="text-[12px] px-2.5 py-1 rounded-md border border-rule hover:bg-card-soft text-ink-soft">新对话</button>
+    </div>
+
+    <th:block th:replace="~{ask/fragments/_stream :: stream(${conv}, ${messages}, ${presets}, ${blocked}, ${runtimeLabel})}"></th:block>
+  </div>
+
+</main>
+
+<!-- ask.js 由 layout::footer 统一加载(全站都要用),这里不再重复引 -->
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

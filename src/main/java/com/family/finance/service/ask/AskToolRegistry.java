@@ -46,4 +46,37 @@ public class AskToolRegistry {
             return m;
         }).toList();
     }
+
+    /**
+     * OpenAI function-calling 形态的同一份清单(本地工具循环用)。
+     *
+     * <p>只是把 MCP 的 {@code inputSchema} 换个包装 —— <b>不是第二份定义</b>。
+     * 护栏 {@code v119-ONE-TOOL-DEF} 盯着这条:两个方法必须遍历同一个 {@link #all()}。</p>
+     */
+    public List<Map<String, Object>> openAiToolList() {
+        return all().stream().map(t -> Map.<String, Object>of(
+                "type", "function",
+                "function", Map.of(
+                        "name", t.name(),
+                        "description", t.description(),
+                        "parameters", t.parameterSchema()))).toList();
+    }
+
+    /** 工具名 → 给用户看的中文短名(流式界面上显示「正在查资产分布」而不是 pivot) */
+    public String displayName(String toolName) {
+        return DISPLAY.getOrDefault(toolName, toolName);
+    }
+
+    /**
+     * 中文短名表。
+     *
+     * <p>刻意<b>不</b>放进 {@link AskTool} 接口:那里的 {@code description} 是写给模型看的,
+     * 要长、要讲清什么时候用;这里是写给用户看的,要短。两种受众塞进一个字段,
+     * 结果一定是界面上出现一段给模型看的说明书。</p>
+     */
+    private static final Map<String, String> DISPLAY = Map.of(
+            "capabilities", "看看能查什么",
+            "pivot", "资产分布",
+            "period_summary", "账期全貌",
+            "account_performance", "账户收益");
 }

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  v1.19 · 问一问 · 对话流(唯一一份)
+
+  PC 抽屉与手机整页**共用这个片段**,差别只在外面那层容器 —— 维护者的判断:
+  「就是一个 sse 的对话流,那有必要区分移动端或者 PC 端嘛?」
+  护栏 v119-ASK-TWO-SHELLS 钉住这条:两种壳必须 th:replace 到同一个 fragment。
+-->
+<body>
+
+<!-- flex-1 而不是 h-full:h-full 要求父级有确定高度,在 flex 链里解析不出来,
+     实测手机上对话区只拿到 393px、输入框浮在半空、底下留一大块死白。 -->
+<div th:fragment="stream(conv, messages, presets, blocked, runtimeLabel)"
+     class="ask-stream flex-1 flex flex-col min-h-0"
+     th:attr="data-conv=${conv != null ? conv.id : ''}">
+
+  <!-- 不可用:说清楚为什么、去哪儿开,不是一句「暂不可用」 -->
+  <div th:if="${blocked != null}" class="m-4 p-4 rounded-lg border border-rule bg-card-soft">
+    <div class="flex items-start gap-2.5">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+           stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-0.5 text-ink-soft" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <div class="text-[13px] leading-relaxed text-ink-soft">
+        <div th:text="${blocked}">还没打开</div>
+        <a th:href="@{/admin/ai-access}" class="inline-block mt-2 text-ink underline">去设置</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 消息区 ── -->
+  <div class="ask-msgs flex-1 min-h-0 overflow-y-auto px-4 py-3" data-ask-msgs>
+
+    <!-- 空态:预置问题。非技术家庭成员点一下就能开始,不用想「该问什么」 -->
+    <div th:if="${messages == null or #lists.isEmpty(messages)}" class="ask-empty py-6">
+      <div class="text-[12px] tracking-[.18em] text-ink-soft mb-1">问 · 一 · 问</div>
+      <p class="text-[13.5px] text-ink-soft leading-relaxed mb-4 max-w-[46ch]">
+        用大白话问你自己的账。数字都从你录的数据里来,每个数字都能点回原页核对。
+      </p>
+      <div class="flex flex-col gap-2 items-start">
+        <button th:each="p : ${presets}" th:text="${p}" th:attr="data-ask-preset=${p}"
+                class="text-left text-[13px] px-3 py-2 rounded-lg border border-rule bg-paper
+                       hover:border-brass hover:bg-card-soft transition-colors max-w-full">预置问题</button>
+      </div>
+
+      <!-- 历史放在空态里,不做成常驻的兄弟块:常驻会从对话区抢走高度(手机上抢掉 214px,
+           输入框因此浮在半页中间),而且开着对话时它只是干扰。 -->
+      <div th:if="${not #lists.isEmpty(recent)}" class="mt-7">
+        <div class="text-[11px] tracking-[.16em] text-ink-soft mb-2">最 近</div>
+        <div class="flex flex-wrap gap-1.5">
+          <a th:each="c : ${recent}" th:href="@{/ask(conv=${c.id})}" th:text="${c.title}"
+             class="text-[12px] px-2.5 py-1 rounded-full border border-rule text-ink-soft
+                    hover:border-brass hover:text-ink no-underline max-w-[15rem] truncate">对话</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 历史消息 -->
+    <div th:each="m : ${messages}" th:switch="${m.role}" class="ask-turn">
+
+      <div th:case="'user'" class="flex justify-end mb-3">
+        <div class="ask-bub-me max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-br-sm bg-ink text-paper
+                    text-[13.5px] leading-relaxed whitespace-pre-wrap" th:text="${m.contentText}">提问</div>
+      </div>
+
+      <!-- 旁白:换账期、上游出错。样式刻意弱,它不是答案 -->
+      <div th:case="'system_note'" class="my-3 flex justify-center">
+        <div class="text-[11.5px] text-ink-soft bg-card-soft border border-rule rounded-full px-3 py-1"
+             th:text="${m.contentText}">旁白</div>
+      </div>
+
+      <div th:case="*" class="mb-4">
+        <div class="text-[11px] tracking-[.2em] text-ink-soft mb-1.5">账 房 助 手</div>
+        <div th:if="${not #lists.isEmpty(m.toolCalls)}" class="mb-2 flex flex-col gap-1">
+          <div th:each="t : ${m.toolCalls}" class="ask-tool flex items-center gap-1.5 text-[11.5px] text-ink-soft">
+            <span class="ask-dot" th:classappend="${t.ok} ? '' : ' bad'"></span>
+            <span th:text="${t.ok} ? '读取 ' + ${t.label} : ${t.label} + ' · 没查到'">读取</span>
+          </div>
+        </div>
+        <div class="ask-body text-[13.5px] leading-[1.75]"
+             th:utext="${renderer.renderHtml(m.contentText, m.citations)}">正文</div>
+      </div>
+    </div>
+
+    <!-- 本轮流式输出挂载点 -->
+    <div data-ask-live></div>
+  </div>
+
+  <!-- ── 输入区 ── -->
+  <form class="ask-composer border-t border-rule px-3 py-2.5 flex items-end gap-2" data-ask-form
+        th:classappend="${blocked != null} ? ' opacity-50 pointer-events-none'">
+    <textarea data-ask-input rows="1" maxlength="500" placeholder="问点什么…"
+              class="flex-1 resize-none bg-transparent text-[13.5px] leading-relaxed px-2 py-1.5
+                     outline-none max-h-28 text-ink placeholder:text-ink-soft"></textarea>
+    <button type="submit" data-ask-send aria-label="发送"
+            class="shrink-0 w-9 h-9 rounded-full bg-ink text-paper flex items-center justify-center
+                   disabled:opacity-40 transition-opacity">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+  </form>
+  <div class="px-4 pb-2 text-[10.5px] text-ink-soft" th:text="'由 ' + ${runtimeLabel} + ' 提供 · 数字来自你自己的账'">来源</div>
+</div>
+
+</body>
+</html>

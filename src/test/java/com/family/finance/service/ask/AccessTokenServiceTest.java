@@ -6,6 +6,7 @@ import com.family.finance.domain.ask.AskScope;
 import com.family.finance.repository.AskAccessTokenMapper;
 import com.family.finance.repository.AskAuditMapper;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -91,6 +92,9 @@ class AccessTokenServiceTest {
             return 1;
         });
         when(tokenMapper.countUsable(anyLong())).thenAnswer(inv -> (int) rows.stream()
+                .filter(t -> t.getRevokedAt() == null && t.getExpiresAt().isAfter(LocalDateTime.now())).count());
+        // 单家庭部署,与 countUsable 同解;verify 用它判「功能压根没开」
+        when(tokenMapper.countUsableAll()).thenAnswer(inv -> (int) rows.stream()
                 .filter(t -> t.getRevokedAt() == null && t.getExpiresAt().isAfter(LocalDateTime.now())).count());
 
         svc = new AccessTokenService(tokenMapper, auditMapper);
@@ -300,5 +304,34 @@ class AccessTokenServiceTest {
         rows.get(0).setExpiresAt(LocalDateTime.now().plusDays(3));
         assertThat(rows.get(0).daysToExpiry(LocalDateTime.now()))
                 .isLessThan(AccessTokenService.WARN_DAYS);
+    }
+
+    @Test
+    @DisplayName("一把凭据都没发过 → 判 OFF,不是 INVALID")
+    void 功能没开时判OFF() {
+        // 对外都是 404,分不出差别;审计里必须分得清 ——
+        // 一串 INVALID 是有人在探,一串 OFF 只是功能没开着。混在一起,被扫了也看不出来。
+        var v = svc.verify("Bearer fmk_whatever", AskScope.AGGREGATE);
+        assertThat(v.result()).isEqualTo(AskAuditResult.OFF);
+        assertThat(v.ok()).isFalse();
+    }
+
+    @Test
+    @DisplayName("功能开着但口令是错的 → INVALID(不能被 OFF 盖掉)")
+    void 开着的时候错口令判INVALID() {
+        svc.create(FAM, "x", AskScope.AGGREGATE, 90);
+        assertThat(svc.verify("Bearer fmk_wrongwrongwrong", AskScope.AGGREGATE).result())
+                .isEqualTo(AskAuditResult.INVALID);
+    }
+
+    @Test
+    @DisplayName("唯一一把口令过期 → 仍报 EXPIRED,不能退化成 OFF")
+    void 唯一口令过期仍报EXPIRED() {
+        // 过期意味着用户**确实配过**,只是断了。报成 OFF 的话管理页没法提示他去续期,
+        // 而那恰恰是最该被提示的场景。
+        var issued = svc.create(FAM, "x", AskScope.AGGREGATE, 90);
+        rows.get(0).setExpiresAt(LocalDateTime.now().minusDays(1));
+        assertThat(svc.verify("Bearer " + issued.plaintext(), AskScope.AGGREGATE).result())
+                .isEqualTo(AskAuditResult.EXPIRED);
     }
 }

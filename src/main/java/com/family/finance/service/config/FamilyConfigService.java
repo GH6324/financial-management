@@ -129,6 +129,27 @@ public class FamilyConfigService {
      */
     public static final String K_SQL_PROFILER         = "sql_profiler_enabled";
 
+    // ========== v1.19 问一问 ==========
+    /**
+     * 用哪条 runtime 跑对话:{@code local}(本机直连,默认)或 {@code managed}(百炼托管 agent)。
+     *
+     * <p>默认 local 不是因为它更好,是因为它<b>不需要公网</b>。托管路线要百炼回调本实例的
+     * {@code /mcp},没有公网域名和 HTTPS 的部署根本连不上 —— 把它设成默认会让多数自托管用户
+     * 一进来就看到一个不可用的功能。</p>
+     */
+    public static final String K_ASK_RUNTIME          = "ask_runtime";
+    /** 问一问总开关 · 默认关(未启用时对既有用户零感知) */
+    public static final String K_ASK_ENABLED          = "ask_enabled";
+    /** 托管路线:百炼业务空间 ID */
+    public static final String K_ASK_MA_WORKSPACE     = "ask_ma_workspace_id";
+    /** 托管路线:用户在百炼控制台注册自定义 MCP 后拿到的服务 ID(注册无公开 API,只能人工) */
+    public static final String K_ASK_MA_MCP_SERVER    = "ask_ma_mcp_server_id";
+    /** 托管路线:我们创建出来的 agent id 与 version(PUT 是全量替换 + 乐观锁,version 必须存) */
+    public static final String K_ASK_MA_AGENT_ID      = "ask_ma_agent_id";
+    public static final String K_ASK_MA_AGENT_VERSION = "ask_ma_agent_version";
+    /** 托管路线:本实例的公网地址,拼进给百炼的 MCP 配置 */
+    public static final String K_ASK_PUBLIC_BASE_URL  = "ask_public_base_url";
+
     // ========== env / yml @Value fallback ==========
     @Value("${finance.llm.qwen.api-key:}")
     private String envQwenKey;

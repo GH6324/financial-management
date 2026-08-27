@@ -10,6 +10,7 @@ import com.family.finance.domain.member.Member;
 import com.family.finance.domain.stock.Market;
 import com.family.finance.domain.stock.StockHolding;
 import com.family.finance.factview.AccountPerformance;
+import com.family.finance.factview.FactSlice;
 import com.family.finance.factview.FactViewService;
 import com.family.finance.repository.AccountMapper;
 import com.family.finance.service.member.MemberDirectory;
@@ -54,7 +55,14 @@ public class LensQueryService {
      *  ③ 启动预热(ApplicationReady 异步组装)—— 重启后首个用户也不冷;
      *  ④ per-family 锁 + 双检:并发首载只组装一遍。 */
     private static final long CACHE_TTL_MS = 12 * 60 * 60 * 1000L;
-    private record CacheEntry(List<Position> positions, long at) {}
+    /**
+     * {@code anchorPeriodId} 是这批头寸<b>取自哪一期</b>。
+     *
+     * <p>v1.19 补:透视页自己不显示账期(它就在当期上下文里),但 AI 那条路径必须知道 ——
+     * 一个说不清是哪一期的数字,对 agent 来说是可疑数据。实测过后果:pivot 返回的
+     * period 为空,模型专门多花一轮去确认「这是哪一期的」,还把疑问写进了回答里。</p>
+     */
+    private record CacheEntry(List<Position> positions, long at, Long anchorPeriodId) {}
     private final java.util.concurrent.ConcurrentHashMap<Long, CacheEntry> cache = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentHashMap<Long, Object> locks = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentHashMap<Long, Boolean> refreshing = new java.util.concurrent.ConcurrentHashMap<>();
@@ -67,18 +75,33 @@ public class LensQueryService {
             });
 
     public List<Position> positions(long familyId) {
+        return entry(familyId).positions();
+    }
+
+    /** 这批头寸取自哪一期。与 {@link #positions} 同一个缓存项 —— 不会各算各的 */
+    public Long anchorPeriodId(long familyId) {
+        return entry(familyId).anchorPeriodId();
+    }
+
+    private CacheEntry entry(long familyId) {
         CacheEntry e = cache.get(familyId);
         if (e != null) {
             if (isStale(e)) triggerRefresh(familyId);   // 过期:先用旧值,后台刷(SWR)
-            return e.positions();
+            return e;
         }
         synchronized (locks.computeIfAbsent(familyId, k -> new Object())) {
             e = cache.get(familyId);
-            if (e != null) return e.positions();
-            List<Position> ps = List.copyOf(assemble(familyId));
-            cache.put(familyId, new CacheEntry(ps, System.currentTimeMillis()));
-            return ps;
+            if (e != null) return e;
+            e = build(familyId);
+            cache.put(familyId, e);
+            return e;
         }
+    }
+
+    private CacheEntry build(long familyId) {
+        FactSlice slice = factViewService.loadDefault(familyId);
+        return new CacheEntry(List.copyOf(assemble(familyId, slice)),
+                System.currentTimeMillis(), slice.lastPeriodId());
     }
 
     /** 数据变更(填报/转账/估值/账户增改档/打标)→ 不清缓存,后台重组装换新 —— 期间读旧值,不产生阻塞窗口 */
@@ -106,8 +129,7 @@ public class LensQueryService {
         if (refreshing.putIfAbsent(familyId, Boolean.TRUE) != null) return;   // 单飞
         refresher.submit(() -> {
             try {
-                List<Position> ps = List.copyOf(assemble(familyId));
-                cache.put(familyId, new CacheEntry(ps, System.currentTimeMillis()));
+                cache.put(familyId, build(familyId));
             } catch (Exception ignored) {
                 // 组装失败保留旧缓存 · 下次触发再试
             } finally {
@@ -120,11 +142,11 @@ public class LensQueryService {
         return System.currentTimeMillis() - e.at() >= CACHE_TTL_MS;
     }
 
-    private List<Position> assemble(long familyId) {
+    private List<Position> assemble(long familyId, FactSlice slice) {
         Map<Long, String> memberName = memberDirectory.listAll(familyId).stream()
                 .collect(Collectors.toMap(Member::getId, Member::getDisplayName));
         Map<Long, AccountPerformance> perf = factViewService
-                .accountPerformance(factViewService.loadDefault(familyId)).stream()
+                .accountPerformance(slice).stream()
                 .collect(Collectors.toMap(AccountPerformance::accountId, Function.identity(), (a, b) -> a));
 
         List<Position> out = new ArrayList<>();

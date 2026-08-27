@@ -784,6 +784,119 @@ if [ "${OPEN_N:-0}" -gt 0 ]; then
                   *) ok "封板-当前 OPEN 期不在仪表盘窗口内(跳过口径交代断言)" ;; esac
 fi
 
+# ════════════════════════════════════════════════════════════════════
+# 主线 21 · 问一问(v1.19)
+#   这条主线**不调大模型** —— 上游要花钱、要几十秒、而且回答内容天生不稳定,
+#   拿它当断言等于给自己造一条随机红的护栏。真正要守住的是**我们这一侧**:
+#   开关语义、鉴权、工具返回的数字与页面逐字一致、以及会话落库的形状。
+#   模型那一段靠联调实测(见 docs/qa-cases.md v1.19 段)。
+# ════════════════════════════════════════════════════════════════════
+echo; echo "── 21 · 问一问 ──"
+
+# ① 默认关:功能没开时页面要说清怎么开,而不是给个空壳
+db "DELETE FROM family_runtime_config WHERE family_id=$FAM AND key_name='ask_enabled'" >/dev/null
+ASKP="$(GET /ask)"
+case "$ASKP" in *'还没打开'*) ok "问一问-默认关且页面说明怎么开" ;;
+                *) bad "问一问-默认关状态没说明" "AskConversationService.blockedReason" ;; esac
+
+# ② /mcp 未授权一律 404(不是 401 —— 401 等于告诉扫描器这里有东西)
+MCPC="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/mcp" -H 'Content-Type: application/json' \
+        -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')"
+case "$MCPC" in 404) ok "问一问-无凭据访问 /mcp 返回 404" ;;
+                *) bad "问一问-/mcp 无凭据返回了 $MCPC" "必须 404,不能透露端点存在" ;; esac
+
+# ③ 口令放 URL query 也必须 404 —— MCP 规范禁止 query 传 token(会进 access log 和 Referer)
+MCPQ="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/mcp?token=fmk_whatever" \
+        -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')"
+case "$MCPQ" in 404) ok "问一问-口令放 URL 不被接受(仍 404)" ;;
+                *) bad "问一问-URL 里的 token 被接受了($MCPQ)" "凭据只能走 Authorization 头" ;; esac
+
+# ④ 发一把凭据 → tools/list 通,且工具清单非空
+E2E_TOK="$(POST /admin/ai-access/create --data-urlencode 'name=e2e' --data-urlencode 'scope=detail' \
+           --data-urlencode 'days=7' -o /dev/null -w '%{http_code}' >/dev/null; \
+           GET /admin/ai-access | grep -oE 'fmk_[A-Za-z0-9_-]{30,}' | head -1)"
+if [ -n "$E2E_TOK" ]; then
+  ok "问一问-管理页发出凭据(明文仅此一屏)"
+  TL="$(curl -s -X POST "$BASE/mcp" -H 'Content-Type: application/json' -H "Authorization: Bearer $E2E_TOK" \
+        -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')"
+  case "$TL" in *'"pivot"'*) ok "问一问-有凭据时 tools/list 返回工具清单" ;;
+                *) bad "问一问-tools/list 没返回工具" "$TL" ;; esac
+
+  # ⑤ **本版最重的一条**:AI 那条路径的数,必须和页面上的数是同一个。
+  #    这里用两条**互相独立**的服务互证:pivot 走 PivotEngine,period_summary 走 FactViewService。
+  #    它们在代码里没有共同的求和逻辑,所以对得上就说明 AI 没有另起一套聚合 ——
+  #    而"另起一套聚合"正是这一版最不能出的错。
+  mcp_call(){ curl -s -X POST "$BASE/mcp" -H 'Content-Type: application/json' \
+      -H "Authorization: Bearer $E2E_TOK" -d "$1"; }
+  PV_TOTAL="$(mcp_call '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"pivot","arguments":{"rows":["type"],"measures":["value"]}}}' \
+    | python3 -c "import sys,json;d=json.load(sys.stdin);print(json.loads(d['result']['content'][0]['text'])['data']['grand'][0])" 2>/dev/null)"
+  KPI_TOTAL="$(mcp_call '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"period_summary","arguments":{}}}' \
+    | python3 -c "import sys,json;d=json.load(sys.stdin);print(json.loads(d['result']['content'][0]['text'])['data']['totalAssets'])" 2>/dev/null)"
+  if [ -z "$PV_TOTAL" ]; then
+    bad "问一问-pivot 没返回合计" "grand 缺失"
+  elif [ "$PV_TOTAL" = "$KPI_TOTAL" ]; then
+    ok "问一问-两条独立路径的总资产逐字一致(pivot=$PV_TOTAL = kpi)"
+  else
+    bad "问一问-AI 看到的总资产对不上" "pivot=$PV_TOTAL kpi=$KPI_TOTAL —— AI 那条路径另起了聚合"
+  fi
+
+  # ⑥ scope:aggregate 凭据够不到含账户名的工具
+  A_TOK="$(POST /admin/ai-access/create --data-urlencode 'name=e2e-agg' --data-urlencode 'scope=aggregate' \
+           --data-urlencode 'days=7' -o /dev/null >/dev/null; \
+           GET /admin/ai-access | grep -oE 'fmk_[A-Za-z0-9_-]{30,}' | head -1)"
+  AP="$(curl -s -X POST "$BASE/mcp" -H 'Content-Type: application/json' -H "Authorization: Bearer $A_TOK" \
+        -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"account_performance","arguments":{}}}')"
+  case "$AP" in *'含账户明细'*) ok "问一问-只给汇总的凭据拿不到账户明细" ;;
+                *) bad "问一问-scope 没拦住账户明细工具" "aggregate 凭据不该读到账户名" ;; esac
+
+  # ⑦ 参数错要把「可用取值」回给模型,而不是一句失败把对话卡死
+  BADP="$(curl -s -X POST "$BASE/mcp" -H 'Content-Type: application/json' -H "Authorization: Bearer $E2E_TOK" \
+          -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"pivot","arguments":{"rows":["不存在的维度"]}}}')"
+  case "$BADP" in *'allowed'*) ok "问一问-参数错回可用取值(让模型自己改)" ;;
+                  *) bad "问一问-参数错没回可用取值" "对话会被一句「失败」卡死" ;; esac
+
+  # ⑧ 审计:通过与未通过在库里分得开
+  A_OK="$(db "SELECT COUNT(*) FROM ask_access_audit WHERE family_id=$FAM AND result LIKE 'OK%'")"
+  A_NO="$(db "SELECT COUNT(*) FROM ask_access_audit WHERE result IN ('INVALID','OFF','SCOPE')")"
+  if [ "${A_OK:-0}" -gt 0 ] && [ "${A_NO:-0}" -gt 0 ]; then
+    ok "问一问-审计区分通过($A_OK)与未通过($A_NO)"
+  else
+    bad "问一问-审计没区分通过与未通过" "OK=$A_OK 未通过=$A_NO"
+  fi
+
+  # ⑨ 库里没有明文口令 —— 只存 SHA-256
+  PLAIN_N="$(db "SELECT COUNT(*) FROM ask_access_token WHERE token_hash='$E2E_TOK'")"
+  case "${PLAIN_N:-1}" in 0) ok "问一问-库里查不到明文口令(只存哈希)" ;;
+                          *) bad "问一问-库里存了明文口令" "只能存 SHA-256" ;; esac
+else
+  bad "问一问-管理页没能发出凭据" "/admin/ai-access/create"
+fi
+
+# ⑩ 两种壳共用一个片段(整页可渲染;抽屉片段能单独取到)
+db "INSERT INTO family_runtime_config(family_id,key_name,value_text) VALUES($FAM,'ask_enabled','true')
+    ON DUPLICATE KEY UPDATE value_text='true'" >/dev/null
+PANEL="$(GET /ask/panel)"
+case "$PANEL" in *'data-ask-form'*) ok "问一问-PC 抽屉片段可单独渲染" ;;
+                 *) bad "问一问-抽屉片段渲染失败" "/ask/panel" ;; esac
+FULL="$(GET /ask)"
+case "$FULL" in *'data-ask-form'*) ok "问一问-手机整页可渲染(与抽屉同一片段)" ;;
+                *) bad "问一问-整页渲染失败" "/ask" ;; esac
+
+# ⑪ 会话建得出来、消息落得进去(不经模型,直接验存储形状)
+CONV_ID="$(POST /ask/new | grep -oE '[0-9]+' | head -1)"
+if [ -n "$CONV_ID" ]; then
+  ok "问一问-能新建会话(#$CONV_ID)"
+  CONV_ROW="$(db "SELECT COUNT(*) FROM ask_conversation WHERE id=$CONV_ID AND family_id=$FAM")"
+  case "${CONV_ROW:-0}" in 1) ok "问一问-会话落库且归属正确" ;;
+                           *) bad "问一问-会话没落库" "ask_conversation" ;; esac
+else
+  bad "问一问-新建会话失败" "/ask/new"
+fi
+
+# ⑫ 全站入口:悬浮球随 layout 出现在普通页面上(不是只在 /ask 才有)
+case "$(GET /dashboard)" in *'data-ask-open'*) ok "问一问-任意页面都有入口(layout 里的悬浮球)" ;;
+                            *) bad "问一问-普通页面没有入口" "layout::footer 的 ask-fab" ;; esac
+
 # ============================================================================
 echo
 echo "════════════════════════════════════════"

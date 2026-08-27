@@ -6295,19 +6295,34 @@ MINOR=$(printf '%s' "$APPV" | cut -d. -f1,2)
 #   是 prod 实测。机器分不出来,硬扫会得到一条天天红的护栏,然后被人关掉(这一版刚为
 #   「误报会让告警被关掉」付过代价)。要收得先由维护者逐条裁定哪些是真的。
 QA111_SYNTH='53,210|48,765|61,234|40,000|35,000|1,234,567\.89|123,456\.78'
+# 【基线 · 待裁定】把扫描面扩到源码/模板时一次性捞出来的存量(v1.19)。
+#   里面**真假混杂**:有的是单测造的家庭、股价报文片段、模板占位;但也确实有真的 ——
+#   `451,497.63` 就是本条护栏自己的注释里点名过的真实余额。机器分不出来,
+#   而一条天天红的护栏会被关掉(这个代价刚付过),所以先基线化。
+#   **这个清单只减不增**:新写的注释/单测举例一律用编的数,新增金额必然被拦下。
+#   什么时候清:等维护者逐条裁定哪些是真的(与 prd/tech-design 里那约 60 处
+#   万/w 简写、裸数字是同一批待裁定存量)。
+QA111_LEGACY='00,128\.00|00,395\.00|00,398\.50|00,400\.00|00,402\.00|00,893\.00|02,901\.07|0,891\.00|164,924\.63|17,705\.41|2,290,051\.41|2,326,051\.41|26,519\.00|274,067\.44|35,000\.00|36,000\.00|36,519\.00|375,248\.71|40,000\.00|42,318\.60|451,497\.63|5,000\.00|546,432\.63|76,248\.92|8,920\.00'
+#   v1.19 · 范围第三次扩:【源码与单测也算公开文档】。
+#     这一版写 javadoc 时,为了说明「1816693.76 和页面上的 ¥1,816,693.76 是同一个数」,
+#     直接把 beta 上的真实余额抄进了注释;单测断言里也放了一个真实净资产。
+#     护栏一声不吭 —— 它只看 .md。而 .java 一样会被推到公开仓库,曝光度不比文档低。
+#     注释里举例**永远可以用编的数**,没有任何理由用真的。
+#     模板与静态资源同理(preview mockup 除外,那本来就是合成数)。
 bad_money=0
 for f in "$RD"/docs/*audit*.md "$RD"/docs/*review*.md "$RD"/README.md "$RD"/docs/qa-cases.md \
-         "$RD"/prd/*.md "$RD"/tech-design/*.md; do
+         "$RD"/prd/*.md "$RD"/tech-design/*.md \
+         $(find "$RD/src" -name '*.java' -o -name '*.html' 2>/dev/null); do
   [ -f "$f" ] || continue
-  hits="$(grep -oE '[0-9]{1,3}(,[0-9]{3})+\.[0-9]{2}' "$f" | grep -vE "^($QA111_SYNTH)$" | sort -u)"
+  hits="$(grep -oE '[0-9]{1,3}(,[0-9]{3})+\.[0-9]{2}' "$f" | grep -vE "^($QA111_SYNTH|$QA111_LEGACY)$" | sort -u)"
   if [ -n "$hits" ]; then
     bad_money=1
     echo "      ↑ 含疑似真实金额: ${f#$RD/} → $(echo "$hits" | tr '\n' ' ')"
   fi
 done
 [[ "$bad_money" -eq 0 ]] \
-  && log_ok "v111-NO-PROD-AMOUNTS(README/prd/tech-design/qa-cases/审计文档 无 prod 真实金额 · 仓库公开)" \
-  || log_bad "v111-NO-PROD-AMOUNTS 公开文档里有疑似真实金额" "只记口径/相对量/结论,绝对数额去 AGENTS.local.md;确属合成数请登记进 QA111_SYNTH"
+  && log_ok "v111-NO-PROD-AMOUNTS(文档 + 源码 + 模板 无真实金额 · 仓库公开)" \
+  || log_bad "v111-NO-PROD-AMOUNTS 公开文件里有疑似真实金额" "注释举例用编的数;绝对数额去 AGENTS.local.md;确属合成数请登记进 QA111_SYNTH"
 
 
 SPS2="$RD/src/main/java/com/family/finance/service/report/SealedPeriodService.java"
@@ -7287,6 +7302,174 @@ QA1185_INT="$RD/src/main/java/com/family/finance/web/admin/IntegrationsControlle
   && ! grep -q '方舟需到控制台复制接入点 ID / 模型 ID' "$QA1185_INT"; } \
   && log_ok "v1185-MODEL-STALE-HINT(型号不存在时点名型号 + 带日期的指向 evolving/模型广场)" \
   || log_bad "v1185-MODEL-STALE-HINT 型号失效时没给出下一步" "classifyLlmError 要收 model 参数并走 staleModelHint"
+
+# ═══════════════════════════════════════════════════════════════════
+# v1.19 · 问一问(资产对话)· tech-design/v1.19.md §五.3
+# ═══════════════════════════════════════════════════════════════════
+
+QA119_WEB="$RD/src/main/java/com/family/finance/web/ask"
+QA119_SVC="$RD/src/main/java/com/family/finance/service/ask"
+QA119_TOOLS="$QA119_SVC/tools"
+QA119_RT="$QA119_SVC/runtime"
+
+# v119-API-READONLY · 对外那两个入口(MCP + REST)不许有写方法。
+#   只读是**物理保证**,不是约定:拿到口令的人再怎么构造请求也改不了账目。
+#   例外一个:/unmet 是 POST,但它只写「agent 说它够不着」这条反馈,不碰任何业务表 ——
+#   下面 v119-ASK-NO-BIZ-WRITE 单独钉死「碰不到业务表」这件事。
+#   AskController(产品内对话)不在此列:它要建会话、存消息,那是本功能自己的表。
+QA119_EXT="$QA119_WEB/McpEndpoint.java $QA119_WEB/AskApiController.java"
+QA119_W=$(grep -hoE '@(Post|Put|Patch|Delete)Mapping' $QA119_EXT | sort | uniq -c | tr '\n' ' ')
+QA119_BAD_W=$(grep -hoE '@(Put|Patch|Delete)Mapping' $QA119_EXT | wc -l)
+{ [[ "$QA119_BAD_W" -eq 0 ]] \
+  && [[ $(grep -c '@PostMapping' "$QA119_WEB/AskApiController.java") -le 2 ]]; } \
+  && log_ok "v119-API-READONLY(对外入口无 PUT/PATCH/DELETE · POST 仅 pivot 查询与 unmet 反馈)" \
+  || log_bad "v119-API-READONLY 对外入口出现了写方法($QA119_W)" "只读是物理保证,写操作不能出现在 /mcp 与 /api/v1/ask"
+
+# v119-ASK-NO-BIZ-WRITE · 整个 ask 包不许写业务表。
+#   会话/消息/引用/凭据/反馈是本功能自己的表,随便写;账户、流水、账期、持仓一个都不许碰。
+QA119_BIZ=$(grep -rlE '\b(AccountMapper|CashFlowMapper|PeriodBalanceMapper|HoldingMapper|PeriodMapper)\.(insert|update|delete)' \
+            "$QA119_WEB" "$QA119_SVC" 2>/dev/null | wc -l)
+[[ "$QA119_BIZ" -eq 0 ]] \
+  && log_ok "v119-ASK-NO-BIZ-WRITE(ask 包不写任何业务表 · 只写自己的 ask_* 表)" \
+  || log_bad "v119-ASK-NO-BIZ-WRITE ask 包里出现了对业务表的写" "问一问只读账目,写只能落在 ask_* 表"
+
+# v119-ASK-NO-ARITHMETIC · 工具层不许自己算 → 防第三份口径。
+#   工具只做三件事:校验参数 → 调既有 service → 包口径元数据。一旦这里出现算术,
+#   同一个指标就有了「页面一份、报表一份、AI 一份」三个答案,而它们迟早会漂移。
+# 判据要避开同名的集合方法。`\.add(` 抓不得 —— List.add 到处都是,试过两版都是误报
+# (`out.add(v.toPlainString())` 这种,只因为循环变量恰好是 BigDecimal 就被抓)。
+# 所以只认三样确定是算术的:
+#   ① subtract/multiply/divide —— 这个代码库里是 BigDecimal 独有的
+#   ② reduce(BigDecimal.ZERO —— 求和在本项目里就是这么写的
+#   ③ 除法/取余运算符作用在数值上(占比、月数这类最容易被顺手算出来的)
+QA119_MATH=$(grep -rnE '\.(subtract|multiply|divide)\(|reduce\(BigDecimal\.ZERO' "$QA119_TOOLS" 2>/dev/null \
+             | grep -vE ':\s*(//|\*)' | wc -l)
+[[ "$QA119_MATH" -eq 0 ]] \
+  && log_ok "v119-ASK-NO-ARITHMETIC(service/ask/tools 无 BigDecimal 算术 · 口径只有一份)" \
+  || log_bad "v119-ASK-NO-ARITHMETIC 工具层出现算术($QA119_MATH 处)" "算好的数从既有 service 取,工具层只负责转发"
+
+# v119-ASK-PIVOT-REUSE · pivot 必须走 PivotEngine,不许另起一套聚合
+{ grep -q 'PivotEngine.pivot(' "$QA119_TOOLS/PivotTool.java" \
+  && grep -q 'lensQueryService.positions(' "$QA119_TOOLS/PivotTool.java"; } \
+  && log_ok "v119-ASK-PIVOT-REUSE(pivot 走 PivotEngine + LensQueryService · 与透视页同一份)" \
+  || log_bad "v119-ASK-PIVOT-REUSE pivot 没走既有引擎" "AI 看到的数必须与透视页逐字一致"
+
+# v119-ONE-TOOL-DEF · MCP 与 OpenAI 两种工具清单必须由同一个 registry 的同一个 all() 生成。
+#   分成两份的后果是加了工具只在一边生效 —— 而且不报错,只是「AI 说它没有这个能力」。
+QA119_REG="$QA119_SVC/AskToolRegistry.java"
+{ grep -q 'public List<Map<String, Object>> mcpToolList()' "$QA119_REG" \
+  && grep -q 'public List<Map<String, Object>> openAiToolList()' "$QA119_REG" \
+  && [[ $(grep -cE 'return all\(\)\.stream\(\)' "$QA119_REG") -eq 2 ]]; } \
+  && log_ok "v119-ONE-TOOL-DEF(MCP 与 OpenAI 两份清单都遍历 registry.all() · 工具定义唯一真相)" \
+  || log_bad "v119-ONE-TOOL-DEF 两种工具清单没同源" "两个方法都必须从 all() 出发,不能各写一套"
+
+# v119-ASK-CITE-META · 工具返回必须带齐四样口径元数据。
+#   少一样,答案里的数字就重新变成一个说不清出处的裸数字 —— 那正是 v1.18 整个系列在修的病。
+QA119_RES="$QA119_SVC/AskToolResult.java"
+{ grep -q 'meta.put("periodId"' "$QA119_RES" && grep -q 'meta.put("metricKey"' "$QA119_RES" \
+  && grep -q 'meta.put("inProgress"' "$QA119_RES" && grep -q 'meta.put("currency"' "$QA119_RES"; } \
+  && log_ok "v119-ASK-CITE-META(periodId/metricKey/inProgress/currency 四样一次给全)" \
+  || log_bad "v119-ASK-CITE-META 口径元数据不全" "四样是引用块的原料,缺一样数字就说不清自己是哪一期"
+
+# v119-ASK-NO-BARE-NUMBER · 正文裸数字要能被认出来(单测钉住判定本身)
+{ grep -q 'public boolean hasBareNumber' "$QA119_SVC/AskCitationRenderer.java" \
+  && grep -q 'bareNumberDetected' "$RD/src/test/java/com/family/finance/service/ask/AskCitationRendererTest.java"; } \
+  && log_ok "v119-ASK-NO-BARE-NUMBER(裸金额可判定 + 单测钉住)" \
+  || log_bad "v119-ASK-NO-BARE-NUMBER 没有裸数字判定" "模型不按规矩用引用块时要能标出来"
+
+# v119-MCP-AUTH-HEADER · 凭据只走 Header。
+#   MCP 规范明令禁止把 token 放 URI query —— 它会进 nginx access log、进浏览器历史、进 Referer。
+QA119_GUARD="$QA119_SVC/AskAccessGuard.java"
+{ grep -q 'getHeader("Authorization")' "$QA119_GUARD" \
+  && ! grep -qE 'getParameter\("(token|access_token|key)"\)' "$QA119_GUARD"; } \
+  && log_ok "v119-MCP-AUTH-HEADER(凭据只从 Authorization 头取 · 不从 query/path 取)" \
+  || log_bad "v119-MCP-AUTH-HEADER 出现了从 URL 取 token 的写法" "MCP 规范禁止 query 传 token(会进日志和 Referer)"
+
+# v119-MCP-TOKEN-HASHED · 库里只存 hash
+QA119_TOK="$QA119_SVC/AccessTokenService.java"
+{ grep -q 'MessageDigest.getInstance("SHA-256")' "$QA119_TOK" \
+  && ! grep -qE 'setTokenPlain|token_plain|plaintext.*column' "$QA119_TOK" \
+  && ! grep -qi 'token_plain' "$RD/db/migration/V57__ask_conversation.sql"; } \
+  && log_ok "v119-MCP-TOKEN-HASHED(只存 SHA-256 哈希 · 表里没有明文列)" \
+  || log_bad "v119-MCP-TOKEN-HASHED 出现了存明文的迹象" "明文只在生成那一次响应里出现,之后任何地方都取不回"
+
+# v119-MCP-NO-TOKEN-IN-LOG · Authorization 不进日志
+QA119_LOGTOK=$(grep -rnE 'log\.(info|warn|error|debug)\([^)]*(Authorization|bearer|plaintext\(\))' \
+               "$QA119_WEB" "$QA119_SVC" 2>/dev/null | wc -l)
+[[ "$QA119_LOGTOK" -eq 0 ]] \
+  && log_ok "v119-MCP-NO-TOKEN-IN-LOG(凭据不进日志)" \
+  || log_bad "v119-MCP-NO-TOKEN-IN-LOG 日志里可能带上了凭据($QA119_LOGTOK 处)" "日志会被打包发给我们排查,凭据不能在里面"
+
+# v119-API-OFF-BY-DEFAULT · 没启用时返回 404,不是 401/403。
+#   401 等于告诉扫描器「这里有东西,只是你没凭据」。404 什么都不告诉。
+{ grep -q 'AskAuditResult.OFF : AskAuditResult.INVALID' "$QA119_TOK" \
+  && grep -q 'notFound()' "$QA119_WEB/AskApiController.java" \
+  && grep -q 'K_ASK_ENABLED, false' "$QA119_SVC/AskConversationService.java"; } \
+  && log_ok "v119-API-OFF-BY-DEFAULT(默认关 · 未启用与口令错都返回 404)" \
+  || log_bad "v119-API-OFF-BY-DEFAULT 默认状态或 404 语义不对" "未启用时不能透露这里有没有东西"
+
+# v119-ASK-NO-CHAT-IN-AUDIT · 对话正文不进 audit_log。
+#   审计要记「谁在什么时候调了什么工具」,不记「他问了什么、答了什么」——
+#   后者是最私密的部分,而 audit_log 的保留期和访问面都比对话表宽。
+QA119_CHAT=$(grep -rnE 'auditLogService\.record\([^)]*(contentText|question|answer)' \
+             "$QA119_WEB" "$QA119_SVC" 2>/dev/null | wc -l)
+[[ "$QA119_CHAT" -eq 0 ]] \
+  && log_ok "v119-ASK-NO-CHAT-IN-AUDIT(对话正文不进 audit_log)" \
+  || log_bad "v119-ASK-NO-CHAT-IN-AUDIT 对话正文被写进了审计" "审计记调用,不记聊天内容"
+
+# v119-ASK-VENDOR-ISOLATED · 供应商字样只出现在 runtime 包。
+#   业务层一旦认识「百炼」,换供应商就要动编排、动落库、动引用装配 —— 那是最不该被牵动的部分。
+# 判据只看**出网调用**:供应商域名 / SDK 引用。注释与用户文案里提到「百炼」是对的 ——
+# 用户确实要去那儿改配置,把词也禁掉只会逼出更含糊的文案。
+QA119_VENDOR=$(grep -rlE 'aliyuncs\.com|dashscope\.aliyuncs|com\.alibaba\.dashscope|maas\.aliyuncs' \
+               "$QA119_WEB" "$QA119_SVC" 2>/dev/null | grep -v '/runtime/' | wc -l)
+[[ "$QA119_VENDOR" -eq 0 ]] \
+  && log_ok "v119-ASK-VENDOR-ISOLATED(供应商端点只在 service/ask/runtime 下 · 业务层不出网)" \
+  || log_bad "v119-ASK-VENDOR-ISOLATED runtime 之外出现了供应商端点($QA119_VENDOR 个文件)" "业务层只认识 AgentRuntime"
+
+# v119-ASK-TWO-SHELLS · 侧栏与全屏页共用同一个 _stream 片段。
+#   维护者的判断:「就是一个 sse 的对话流,那有必要区分移动端或者 PC 端嘛?」——
+#   没必要。两份壳各写一遍对话体,改一处必漏另一处。
+QA119_T="$RD/src/main/resources/templates/ask"
+QA119_SHELLS=$(grep -lE 'ask/fragments/_stream :: stream' "$QA119_T/index.html" "$QA119_T/fragments/_panel.html" 2>/dev/null | wc -l)
+[[ "$QA119_SHELLS" -eq 2 ]] \
+  && log_ok "v119-ASK-TWO-SHELLS(整页与抽屉都 replace 到同一个 _stream 片段)" \
+  || log_bad "v119-ASK-TWO-SHELLS 两种壳没共用对话片段(命中 $QA119_SHELLS/2)" "差别只应在外面那层容器"
+
+# v119-ASK-NO-AUTOSCROLL · 流式脚本不许无条件滚到底。
+#   用户往回翻看上一条回答时被弹回底部,是流式界面最招人烦的一件事,而且长回答期间会反复发生。
+QA119_JS="$RD/src/main/resources/static/js/ask.js"
+{ grep -q 'function atBottom' "$QA119_JS" \
+  && grep -q 'keepBottom(wasAtBottom)' "$QA119_JS" \
+  && ! grep -nE 'scrollIntoView' "$QA119_JS" | grep -qvE ':\s*\*|:\s*//'; } \
+  && log_ok "v119-ASK-NO-AUTOSCROLL(只在用户本来就在底部时才跟着滚)" \
+  || log_bad "v119-ASK-NO-AUTOSCROLL 出现了无条件滚动" "无条件 scrollIntoView 会把正在往回看的用户弹回底部"
+
+# v119-ASK-NO-HTML-CONCAT · 前端不许拼 HTML 字符串。
+#   模型输出是不可信输入(提示词注入可以从账户名里进来)。全部走 createElement + textContent,
+#   转义漏一处的可能性直接归零 —— 比「记得每处都转义」可靠。
+{ ! grep -qE '\.innerHTML\s*=' "$QA119_JS" \
+  && grep -q 'createElement' "$QA119_JS" \
+  && grep -q 'replaceChildren' "$QA119_JS"; } \
+  && log_ok "v119-ASK-NO-HTML-CONCAT(流式渲染建 DOM 节点 · 不拼 HTML 字符串)" \
+  || log_bad "v119-ASK-NO-HTML-CONCAT 前端出现了 innerHTML 赋值" "模型输出不可信,用 createElement + textContent"
+
+# v119-ASK-ROLLBACK · 调工具前的旁白不能落库。
+#   不撤的话,存下来的答案会是「我来查一下平台分布。我来查一下资产情况。你的钱主要在…」——
+#   三个月后重看,前两句只会让人困惑。联调时实测到这个现象,才补的这条通道。
+{ grep -q 'void rollback(String narration)' "$QA119_RT/AskSink.java" \
+  && grep -q 'sink.rollback(c.text)' "$QA119_RT/LocalToolLoopRuntime.java" \
+  && grep -q 'text.setLength(at)' "$QA119_SVC/AskConversationService.java"; } \
+  && log_ok "v119-ASK-ROLLBACK(工具前旁白撤回 · 界面降级为灰字 · 库里不留)" \
+  || log_bad "v119-ASK-ROLLBACK 旁白撤回链路不全" "AskSink.rollback → runtime 调用 → Collector 砍缓冲,三处缺一不可"
+
+# v119-CUSTODY-EXHAUSTIVE · 加新 AccountType 必须在托管形式里表态
+{ grep -q 'CustodyForm' "$RD/src/main/java/com/family/finance/domain/lens/CustodyForm.java" \
+  && grep -q 'dim("custody"' "$RD/src/main/java/com/family/finance/calc/lens/LensRegistry.java" \
+  && [[ -f "$RD/src/test/java/com/family/finance/domain/lens/CustodyFormTest.java" ]]; } \
+  && log_ok "v119-CUSTODY-EXHAUSTIVE(托管形式维度已注册 + 结构性单测逼新类型表态)" \
+  || log_bad "v119-CUSTODY-EXHAUSTIVE 托管形式链路不全" "枚举/维度/单测三处缺一不可"
+
 
 echo
 echo "═══════════════════════════════════════"

@@ -21,13 +21,18 @@ import java.util.Optional;
 @Mapper
 public interface AskAccessTokenMapper {
 
-    String COLS = """
-            id, family_id AS familyId, access_point_id AS accessPointId, name,
-            token_hash AS tokenHash, token_prefix AS tokenPrefix, scope,
-            expires_at AS expiresAt, superseded_by AS supersededBy,
-            revoked_at AS revokedAt, last_used_at AS lastUsedAt,
-            first_used_at AS firstUsedAt, created_at AS createdAt
-            """;
+    /**
+     * 列清单。
+     *
+     * <p>刻意用普通字符串而不是文本块:文本块会<b>吃掉行尾空格</b>,
+     * 于是 {@code """...SELECT """ + COLS} 会拼成 {@code SELECTid}(真在 beta 上炸过)。
+     * 前后各留一个空格,拼在哪儿都不会粘住。</p>
+     */
+    String COLS = " id, family_id AS familyId, access_point_id AS accessPointId, name,"
+                + " token_hash AS tokenHash, token_prefix AS tokenPrefix, scope,"
+                + " expires_at AS expiresAt, superseded_by AS supersededBy,"
+                + " revoked_at AS revokedAt, last_used_at AS lastUsedAt,"
+                + " first_used_at AS firstUsedAt, created_at AS createdAt ";
 
     @Insert("""
             INSERT INTO ask_access_token
@@ -56,12 +61,9 @@ public interface AskAccessTokenMapper {
     Optional<AskAccessToken> findById(@Param("id") long id);
 
     /** 管理页列表:未吊销的,按接入点分组、新的在前 */
-    @Select("""
-            SELECT """ + COLS + """
-              FROM ask_access_token
-             WHERE family_id = #{familyId} AND revoked_at IS NULL
-             ORDER BY access_point_id DESC, created_at DESC
-            """)
+    @Select("SELECT " + COLS + " FROM ask_access_token"
+          + " WHERE family_id = #{familyId} AND revoked_at IS NULL"
+          + " ORDER BY access_point_id DESC, created_at DESC")
     List<AskAccessToken> findActiveByFamily(@Param("familyId") long familyId);
 
     /** 同一接入点下的全部(含已吊销)—— 紧急断开时要连换绑中的新密钥一起干掉 */
@@ -108,4 +110,14 @@ public interface AskAccessTokenMapper {
              WHERE id = #{id}
             """)
     int touch(@Param("id") long id);
+
+    /**
+     * 全库还有几把可用凭据。
+     *
+     * <p>{@code verify} 拿不到 familyId(凭据还没解析出来),所以这里不带家庭维度。
+     * 本项目是单家庭部署(prd §22.3 类 A),两者等价;真要多家庭了,
+     * 这个方法会是必须改的那一个 —— 留在这里比藏在 verify 里好找。</p>
+     */
+    @Select("SELECT COUNT(*) FROM ask_access_token WHERE revoked_at IS NULL AND expires_at > NOW()")
+    int countUsableAll();
 }
