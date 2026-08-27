@@ -36,6 +36,13 @@ public final class LensRegistry {
         dim("industry",   "行业",   true,  Position::industry);
         dim("owner",      "主理人", false, Position::owner);
         dim("purpose",    "用途",   false, Position::purpose);
+        /* v1.19 · 托管形式:「谁在替你做决定,数字由谁产生」。
+           派生自账户类型 + 是否现金行 + 流动性标记,【零新增录入】——
+           做成可打标维度就得让用户逐个账户打标,直接违背「每月 10 分钟」的硬约束。
+           它和其它维度问的不是同一件事:大类/风险答「钱是什么」,平台/主理人答「钱在谁那儿」,
+           而这一维答「决策权在谁手里」——自己盯的股票和交给基金经理的钱,同属股票大类,
+           决策权却完全不同。 */
+        dim("custody",    "托管形式", false, Position::custody);
         /* ── 属性类 ───────────────────────────── */
         dim("risk",       "风险",   false, Position::risk);
         dim("liquidity",  "流动性", false, Position::liquidity);

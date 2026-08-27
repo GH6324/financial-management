@@ -185,6 +185,7 @@ public class LensQueryService {
                                         acLbl, platform,
                                         indLbl,
                                         regionLabel(h.getMarket()), purpose,
+                                        custodyOf(acc, false, liquidity),
                                         p.latestPnl(), p.cumPnl(), p.netPrincipal(), cumSplit, openVal));
                             }
                             continue;   // 已按方向拆,跳过单头寸
@@ -200,6 +201,7 @@ public class LensQueryService {
                                 cashRow ? IndustryTag.MONEY_CASH.getLabel() : nullIfEmpty(IndustryTag.labelOf(h.getIndustryTag())),
                                 cashRow ? null : regionLabel(h.getMarket()),
                                 purpose,
+                                custodyOf(acc, cashRow, liquidity),
                                 p.latestPnl(), p.cumPnl(), p.netPrincipal(), holdingCumPnl, openVal));
                     }
                     split = true;
@@ -210,6 +212,7 @@ public class LensQueryService {
                         acc.getId(), null, acc.getDisplayName(), acc.getDisplayName(), p.currentValue(),
                         typeLabel, risk, liquidity, acc.getCurrency(), owner,
                         assetClass, platform, acctIndustry, null, purpose,
+                        custodyOf(acc, false, liquidity),
                         p.latestPnl(), p.cumPnl(), p.netPrincipal(), p.cumPnl(), openVal));
             }
         }
@@ -217,6 +220,19 @@ public class LensQueryService {
     }
 
     // ---------- 标签口径 ----------
+
+    /**
+     * v1.19 · 托管形式标签(派生 · 零新增录入)。
+     *
+     * <p>{@code liquidity} 是已经算好的流动性标签 —— 用它而不是再查一次
+     * {@code product_category},保证与「流动性」那一维<b>同源</b>:
+     * 货基在流动性维度里是「灵活取用」,在托管形式里就必须是「随时可取」,不能两处判据分家。</p>
+     */
+    private static String custodyOf(Account acc, boolean cashRow, String liquidity) {
+        boolean liquidTag = "灵活取用".equals(liquidity);
+        return com.family.finance.domain.lens.CustodyForm.labelOf(acc.getType(), cashRow, liquidTag);
+    }
+
 
     /** 风险等级 1-6 → 三档(与预览口径一致);未评级 → null(未分类) */
     static String riskLabel(Integer level) {

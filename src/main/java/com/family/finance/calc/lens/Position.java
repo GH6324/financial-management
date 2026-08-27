@@ -31,6 +31,8 @@ public record Position(
         String industry,
         String region,
         String purpose,
+        /** v1.19 · 托管形式(派生:谁在替你做决定)· null = 未知 */
+        String custody,
         // ---- 度量 ----
         BigDecimal acctLatestPnl,
         BigDecimal acctCumPnl,
