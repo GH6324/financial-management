@@ -681,6 +681,100 @@
     </div>
   </div>
 
+  <!-- ════════ 6b · 接入流程 ════════ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">6b</span><span class="zone-t">用户到底要点几下 —— 两条路的真实步数</span>
+      <span class="badge risk">TDD §16 · 要你重裁</span></div>
+    <div class="zone-sub">「一键」这个诉求和 Managed Agents 结构上冲突,查证结果如下。</div>
+    <div class="zone-line"></div>
+
+    <div class="cmp">
+      <div class="bad">
+        <span class="tag no">走 Managed Agents · 6 步</span>
+        <table class="spec">
+          <tr><td class="mono">①</td><td><b>我们这边</b> 管理页「AI 接入」→ 新增接入点 → 复制口令与配置</td></tr>
+          <tr style="background:rgba(156,74,42,.07)"><td class="mono">②</td><td><b>百炼控制台</b> MCP 管理 → 创建自定义 MCP → 粘 JSON<br>
+              <span style="color:var(--rust)">← 这一步<b>没有 API,必须人工</b></span></td></tr>
+          <tr style="background:rgba(156,74,42,.07)"><td class="mono">③</td><td><b>百炼控制台</b> 复制服务 ID</td></tr>
+          <tr style="background:rgba(156,74,42,.07)"><td class="mono">④</td><td><b>我们这边</b> 粘回服务 ID → 完成接入</td></tr>
+          <tr><td class="mono">⑤</td><td>我们自动 <code>POST /agents</code>(引用该服务 ID)</td></tr>
+          <tr><td class="mono">⑥</td><td>我们自动 建 session → 发 event → SSE</td></tr>
+        </table>
+        <p class="note" style="margin-top:9px">
+          用户真正动手的是 <b>②③④</b>:两次复制粘贴 + 一次进控制台。
+          <b>这已经是 MA 路线的最简了</b> —— 卡在 <code>mcp_servers</code> 只能引用「已注册服务」,
+          而注册<b>没有公开 API</b>。
+        </p>
+      </div>
+
+      <div class="good">
+        <span class="tag yes">走 Responses 内联 MCP · 1 步</span>
+        <table class="spec">
+          <tr><td class="mono">①</td><td><b>我们这边</b> 管理页点「启用」<br>
+              口令我们自己生成,<b>不显示给用户</b>(没人需要手动搬它)</td></tr>
+          <tr><td class="mono">②</td><td>用户直接开始问。我们在请求里内联:<br>
+              <code>tools:[{type:"mcp", server_url:…, headers:{Authorization:…}}]</code></td></tr>
+        </table>
+        <p class="note" style="margin-top:9px">
+          <b>agent loop 同样不用我们写</b> —— 百炼去调 MCP。<br>
+          口令仍然入库、可轮换、可吊销、有审计,只是<b>不经过人手</b> ——
+          不过剪贴板、不进截图、不落聊天记录,<b>泄露面小一截</b>。<br><br>
+          代价:没有沙箱 / skill / 中断续接,多轮靠 <code>previous_response_id</code>。
+        </p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;border-left:3px solid var(--rust)">
+      <div class="eyebrow" style="margin-bottom:8px;color:var(--rust)">要 你 重 裁 的 一 条</div>
+      <p style="font-size:12.5px;line-height:1.85;margin:0">
+        你说「直接选 B,没有 A」的时候,桌面上的 A 是「本地函数工具 + <b>我们写 loop</b>」——
+        <b>和右边这条不是一回事</b>(右边的 loop 也不用我们写)。所以请重新裁:
+      </p>
+      <table class="spec" style="margin-top:10px">
+        <tr><td style="width:32%"><b>要 MA 的全部 runtime 能力</b></td><td>接受 6 步接入</td></tr>
+        <tr><td><b>要一键</b></td><td>走 Responses 内联,代价是没有沙箱 / skill / 中断续接</td></tr>
+        <tr style="background:rgba(79,107,71,.06)"><td><b>两个都要(我的建议)</b></td>
+            <td>先做一键那条;6 步那条作为「高级接入」加个入口 ——
+                <b>两条共用同一个 <code>/mcp</code> 端点、同一套凭据、同一份工具注册表</b>,不是两套</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════ 6c · 口令 ════════ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">6c</span><span class="zone-t">口令怎么生成、怎么过期、怎么换</span>
+      <span class="badge">TDD §16.2</span></div>
+    <div class="zone-line"></div>
+
+    <div style="background:var(--card);border:1px solid var(--rule);padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:2">
+      <b>生成</b>&nbsp; SecureRandom(32B) → <span style="color:var(--brass-deep)">"fmk_" + base64url</span> → 明文<b>只出现这一次</b><br>
+      <b>存库</b>&nbsp; argon2id(token) &nbsp;+&nbsp; token_prefix(前 12 位明文,仅用于定位) &nbsp;+&nbsp; scope · expires_at<br>
+      <b>校验</b>&nbsp; 前缀命中候选行 → argon2 verify → 未吊销 / 未过期 → scope 够 → 限流 → 记审计<br>
+      <b>过期</b>&nbsp; 到期前 7 天提醒;到期后返回 <b>404</b>,审计记 <code>EXPIRED</code>(区别于 <code>INVALID</code>)<br>
+      <b>轮换</b>&nbsp; 新口令生效,旧的进入 <b>24 小时 grace</b> → 期间可用但审计标 <code>USING_ROTATED</code> + 页面红条催<br>
+      <b>吊销</b>&nbsp;「立刻失效」跳过 grace(怀疑泄露时用)
+    </div>
+
+    <div class="cmp" style="margin-top:14px">
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:8px">为 什 么 带 <code>fmk_</code> 前 缀</div>
+        <p style="font-size:12.5px;line-height:1.85;margin:0">
+          ① 万一被贴进公开仓库,GitHub 的 secret scanning 能<b>按前缀识别并告警</b><br>
+          ② 审计页显示 <code>fmk_a1b2c3d4…</code> 就能定位是哪一把出的事,
+          <b>而不必在库里存明文</b>
+        </p>
+      </div>
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:8px">为 什 么 轮 换 要 留 2 4 小 时</div>
+        <p style="font-size:12.5px;line-height:1.85;margin:0">
+          轮换那一刻,百炼那边的配置还是旧的。<b>没有 grace 就是每次轮换必然断一次服务</b> ——
+          那会让人干脆<b>不轮换</b>,反而更不安全。<br>
+          怀疑泄露时另有「立刻失效」,跳过 grace。
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- ════════ 7 · 不做 ════════ -->
   <div class="zone">
     <div class="zone-head"><span class="zone-no">7</span><span class="zone-t">刻意不做</span></div>
