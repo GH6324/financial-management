@@ -78,7 +78,7 @@ public class AskToolDispatcher {
                 // 把可用取值回给模型 —— 让它自己改,而不是把对话卡死
                 return new AskToolResult(toolName, Map.of(),
                         Map.of("allowed", pe.getAllowed()), java.util.List.of(),
-                        false, "参数不对:" + pe.getMessage());
+                        false, "参数不对:" + pe.getMessage(), null);
             }
             // 只记类名与消息,不打栈 —— 栈里可能带数据,而这是对外入口
             log.warn("ask tool {} 失败:{}", toolName, cause.toString());

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <!--
-  v1.19 · 问一问 · 对话流(唯一一份)
+  v1.19 · 超级 Agent · 对话流(唯一一份)
 
   PC 抽屉与手机整页**共用这个片段**,差别只在外面那层容器 —— 维护者的判断:
   「就是一个 sse 的对话流,那有必要区分移动端或者 PC 端嘛?」
@@ -17,7 +17,7 @@
 -->
 <body>
 
-<div th:fragment="stream(conv, messages, presets, blocked, runtimeLabel, ctxLabel, recent)"
+<div th:fragment="stream(conv, messages, presets, blocked, runtimeLabel, ctxLabel, recent, greeting)"
      class="ask-stream flex-1 flex flex-col min-h-0"
      th:attr="data-conv=${conv != null ? conv.id : ''}">
 
@@ -38,9 +38,11 @@
 
       <!-- 空态:输入优先 —— 居中一句话 + 几条可点的问题。
            非技术家庭成员点一下就能开始,不用先想「该问什么」。 -->
-      <!-- 顶栏已经有「问 · 一 · 问」了,这里不再重复一遍品牌字 -->
+      <!-- 顶栏已经有「超级 Agent」了,这里不再重复一遍品牌字 -->
       <div th:if="${messages == null or #lists.isEmpty(messages)}" class="ask-empty">
-        <p class="ask-empty-lead">用大白话问你自己的账。</p>
+        <!-- 每次进来换一句(AskGreetings · 100 条)。固定一句的话,一个月看四十遍之后
+             它就不再传递任何信息了 —— 那块位置本来可以每次给点不一样的东西。 -->
+        <p class="ask-empty-lead" th:text="${greeting}">今天的第一个问题,想问什么?</p>
         <p class="ask-empty-sub">数字都从你录的数据里来,每个数字都能点回原页核对。</p>
 
         <div class="ask-presets">
@@ -70,17 +72,24 @@
         <div th:case="'system_note'" class="ask-note"><span th:text="${m.contentText}">旁白</span></div>
 
         <div th:case="*" class="ask-turn">
-          <!-- 工具执行:默认折叠成一行。展开才逐条列 —— 对话区讲结论,过程别抢注意力 -->
+          <!-- 思考过程:历史里**默认折叠**(结论已经在下面了),展开能看到每一步查了什么。
+               流式进行中是另一套 —— 见 ask.js:那时默认展开,跑完才自动收起。 -->
           <details th:if="${not #lists.isEmpty(m.toolCalls)}" class="ask-acts">
             <summary>
               <span class="ask-caret" aria-hidden="true">▸</span>
-              <span th:text="'查了 ' + ${#lists.size(m.toolCalls)} + ' 项'">查了 N 项</span>
+              <span th:text="'思考过程 · ' + ${#lists.size(m.toolCalls)} + ' 步'">思考过程</span>
             </summary>
             <div class="ask-acts-body">
               <div th:each="t : ${m.toolCalls}" class="ask-act">
-                <span class="ask-dot" th:classappend="${t.ok} ? '' : ' bad'"></span>
-                <span th:text="${t.label}">工具</span>
-                <span class="ask-act-ms" th:text="${t.ok} ? ${t.durationMs} + ' ms' : '没查到'">-</span>
+                <div class="ask-act-head">
+                  <span class="ask-dot" th:classappend="${t.ok} ? '' : ' bad'"></span>
+                  <span class="ask-act-name" th:text="${t.label}">工具</span>
+                  <span class="ask-act-ms" th:text="${t.ok} ? ${t.durationMs} + ' ms' : '没查到'">-</span>
+                </div>
+                <div th:if="${t.argsJson != null and !#strings.isEmpty(t.argsJson)}"
+                     class="ask-act-args" th:text="${t.argsJson}">参数</div>
+                <div th:if="${t.summary != null and !#strings.isEmpty(t.summary)}"
+                     class="ask-act-sum" th:text="${t.summary}">查到了什么</div>
               </div>
             </div>
           </details>
@@ -128,12 +137,13 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>
         </button>
       </form>
+      <!-- 底栏只留两件事:这段对话基于**哪一期哪个币种**(换了账期答案就不同,用户不会记得),
+           以及**是谁在答**。runtime 是哪条("本机直连 / 百炼托管")是运维细节,
+           属于「AI 接入」页,不该占用户每一屏的注意力。 -->
       <div class="ask-foot">
         <span th:text="${ctxLabel}">2026-08 · CNY</span>
         <span class="ask-foot-sep">·</span>
-        <span th:text="${runtimeLabel}">本机直连</span>
-        <span class="ask-foot-sep">·</span>
-        <span>数字来自你自己的账</span>
+        <span>来自财务智能体 · 数字取自你自己的账</span>
       </div>
     </div>
   </div>

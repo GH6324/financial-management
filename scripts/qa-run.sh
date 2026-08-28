@@ -7325,7 +7325,7 @@ QA1185_INT="$RD/src/main/java/com/family/finance/web/admin/IntegrationsControlle
   || log_bad "v1185-MODEL-STALE-HINT 型号失效时没给出下一步" "classifyLlmError 要收 model 参数并走 staleModelHint"
 
 # ═══════════════════════════════════════════════════════════════════
-# v1.19 · 问一问(资产对话)· tech-design/v1.19.md §五.3
+# v1.19 · 超级 Agent(资产对话)· tech-design/v1.19.md §五.3
 # ═══════════════════════════════════════════════════════════════════
 
 QA119_WEB="$RD/src/main/java/com/family/finance/web/ask"
@@ -7352,7 +7352,7 @@ QA119_BIZ=$(grep -rlE '\b(AccountMapper|CashFlowMapper|PeriodBalanceMapper|Holdi
             "$QA119_WEB" "$QA119_SVC" 2>/dev/null | wc -l)
 [[ "$QA119_BIZ" -eq 0 ]] \
   && log_ok "v119-ASK-NO-BIZ-WRITE(ask 包不写任何业务表 · 只写自己的 ask_* 表)" \
-  || log_bad "v119-ASK-NO-BIZ-WRITE ask 包里出现了对业务表的写" "问一问只读账目,写只能落在 ask_* 表"
+  || log_bad "v119-ASK-NO-BIZ-WRITE ask 包里出现了对业务表的写" "超级 Agent只读账目,写只能落在 ask_* 表"
 
 # v119-ASK-NO-ARITHMETIC · 工具层不许自己算 → 防第三份口径。
 #   工具只做三件事:校验参数 → 调既有 service → 包口径元数据。一旦这里出现算术,
@@ -7543,6 +7543,104 @@ QA119_BUBBLE=$(printf '%s' "$QA119_ME" | grep -cE 'background:var\(--ink\)|borde
 { grep -q 'ask-caret-live' "$QA119_JS" && grep -q '\.ask-caret-live' "$QA119_CSS"; } \
   && log_ok "v119-ASK-STREAM-CURSOR(流式期间有光标)" \
   || log_bad "v119-ASK-STREAM-CURSOR 没有流式光标" "停顿会被读成已结束"
+
+
+# ─── v1.19 · 超级 Agent 改名 / 思考过程 / 富展示 ────────────────────────────
+
+# codeonly · 只留代码行,滤掉注释。
+#   这一轮被同一个形状绊了三次:护栏的**说明文字**里写了它自己禁止的那个词,
+#   于是判据在一个完全正确的实现上报红(sandbox 那条、srcdoc 那条),
+#   而更早一次是反过来 —— 说明文字里写了真实金额,泄露判据抓到了自己。
+#   结论:**判据扫的是代码,不是注释**;而注释里要举反例是很自然的写法,不该为此改写注释。
+codeonly() {
+  # 认三种注释:块注释 /* … */(**含不以 * 开头的续行** —— 第一版就漏在这儿)、
+  # 行注释 // 与 #、以及 HTML 注释。用 awk 跟一个状态位,比正则删块注释稳。
+  awk '
+    { line = $0 }
+    inblk { if (line ~ /\*\//) { inblk = 0 }; next }
+    line ~ /\/\*/ && line !~ /\*\// { inblk = 1; next }
+    line ~ /^[[:space:]]*(\/\/|#|<!--|\*)/ { next }
+    { sub(/\/\/.*$/, "", line); print line }
+  ' "$1"
+}
+
+
+QA119_CHARTJS="$RD/src/main/resources/static/js/ask-charts.js"
+QA119_REND="$QA119_SVC/AskCitationRenderer.java"
+
+# v119-ASK-ARTIFACT-SANDBOXED · 自由 HTML 必须关在沙箱里。
+#   让模型直接吐 HTML 是这一版新开的口子。敢开是因为它跑在 sandbox 且
+#   **不给 allow-same-origin** 的 iframe 里 —— 那是一个 opaque origin:
+#   脚本能跑,但读不到我们的 cookie / DOM / localStorage,也发不出带凭据的请求。
+#   一旦有人为了「让图能拿到页面数据」加上 allow-same-origin,这层隔离当场归零,
+#   而提示词注入可以从账户名里进来。所以这条判据同时钉正反两面。
+{ grep -q "setAttribute('sandbox', 'allow-scripts')" "$QA119_CHARTJS" \
+  && ! codeonly "$QA119_CHARTJS" | grep -q 'allow-same-origin' \
+  && ! codeonly "$QA119_REND" | grep -q 'allow-same-origin'; } \
+  && log_ok "v119-ASK-ARTIFACT-SANDBOXED(自由 HTML 关在 opaque origin 里 · 无 allow-same-origin)" \
+  || log_bad "v119-ASK-ARTIFACT-SANDBOXED 沙箱隔离被削弱" "加上 allow-same-origin 等于把 cookie 和 DOM 交给模型输出"
+
+# v119-ASK-CHART-CITED · 图上的数只能来自引用。
+#   否则「数字保真」只保住了正文那一半 —— 图里画的还是模型编的,而图比文字更容易被当真。
+#   判据钉两条:引用不到的点被丢掉、一个都引不到就整张不画。
+{ grep -q 'if (c == null) continue;' "$QA119_REND" \
+  && grep -q 'if (pts.isEmpty()) return "";' "$QA119_REND" \
+  && grep -q "if (!c) return;" "$QA119_JS"; } \
+  && log_ok "v119-ASK-CHART-CITED(图表数据点只来自引用 · 引不到就不画)" \
+  || log_bad "v119-ASK-CHART-CITED 图表可能画上模型自己编的数" "图比文字更容易被当真,不能松这一条"
+
+# v119-ASK-SCAFFOLD-SINGLE · iframe 的脚手架只能有一处。
+#   服务端渲染历史消息、客户端渲染流式输出,两条路径都要 srcdoc。各拼一份的话,
+#   注进去的样式与脚本迟早漂移,表现就是「流完刷新一下,图变了个样」。
+#   现在两边都只吐容器(data-ask-artifact),iframe 一律由 ask-charts.js 组装。
+{ grep -q 'data-ask-artifact' "$QA119_REND" \
+  && ! codeonly "$QA119_REND" | grep -q 'srcdoc' \
+  && ! codeonly "$QA119_JS" | grep -q 'srcdoc' \
+  && grep -q 'f.srcdoc = HEAD' "$QA119_CHARTJS"; } \
+  && log_ok "v119-ASK-SCAFFOLD-SINGLE(srcdoc 脚手架只在 ask-charts.js 一处)" \
+  || log_bad "v119-ASK-SCAFFOLD-SINGLE 两条渲染路径各拼了一份 srcdoc" "迟早漂移成「流完刷新样子会变」"
+
+# v119-ASK-THINK-ENGAGED · 用户在看的时候不许自动折叠思考过程。
+#   判据不能用 scroll 事件当「用户在看」—— 我们自己的 keepBottom 也会触发 scroll,
+#   那样每一轮都会被判成「在看」,自动折叠永远不生效(等于没做)。
+{ grep -q 'var engaged = false;' "$QA119_JS" \
+  && grep -q 'if (!engaged) {' "$QA119_JS" \
+  && grep -q "'wheel', 'touchmove', 'pointerdown', 'keydown'" "$QA119_JS" \
+  && ! grep -qE "addEventListener\('scroll', *markEngaged" "$QA119_JS"; } \
+  && log_ok "v119-ASK-THINK-ENGAGED(思考过程自动折叠 · 但用户在看时不收)" \
+  || log_bad "v119-ASK-THINK-ENGAGED 折叠时机的判据不对" "拿 scroll 当判据会因为我们自己的滚动而永远不折叠"
+
+# v119-ASK-THINK-DETAIL · 思考过程要给得出「查了什么、查到了什么」。
+#   只报工具名和耗时等于什么都没说 —— 用户想看的是它到底看了哪些数,
+#   那才是判断答案可不可信的依据。
+{ grep -q 'String summary' "$QA119_SVC/AskToolResult.java" \
+  && grep -q 'argsBrief' "$QA119_RT/LocalToolLoopRuntime.java" \
+  && grep -q 'ask-act-args' "$QA119_STREAM" \
+  && grep -q 'ask-act-sum' "$QA119_STREAM"; } \
+  && log_ok "v119-ASK-THINK-DETAIL(思考过程带参数与结果摘要,不只是工具名和耗时)" \
+  || log_bad "v119-ASK-THINK-DETAIL 思考过程信息量不足" "只报名字和耗时,用户判断不了答案可不可信"
+
+# v119-NAV-NO-WORD-BREAK · 导航不许把词断开。
+#   改名后「超级 Agent + AI 徽记」比原来宽约 57px,一行装不下 → flex 压缩每一项 →
+#   **每个词在自己内部折成两行**(「仪表/盘」「填/报」)。三种处理里只有一种能接受:
+#   项内不断词 + 整条换行 + header 跟着长高(不能是 h-16 固定高,否则溢出压住页面)。
+QA119_NAV="$RD/src/main/resources/templates/fragments/nav.html"
+{ grep -q 'whitespace-nowrap' "$QA119_NAV" \
+  && grep -q 'nav-tabs hidden lg:flex flex-wrap' "$QA119_NAV" \
+  && grep -q 'min-h-16' "$QA119_NAV" \
+  && ! grep -q 'justify-between h-16' "$QA119_NAV"; } \
+  && log_ok "v119-NAV-NO-WORD-BREAK(导航项内不断词 · 整条可换行 · header 高度跟着长)" \
+  || log_bad "v119-NAV-NO-WORD-BREAK 导航会把词断开或撑溢出" "「仪表/盘」这种断法比换行难看得多"
+
+# v119-ASK-GREETING-ROTATES · 空态那句话要轮换。
+#   固定一句的话,一个月看四十遍之后它就不再传递任何信息 —— 那块位置本来可以每次给点不一样的。
+QA119_GREET="$QA119_SVC/AskGreetings.java"
+QA119_GN=$(grep -cE '^\s+"' "$QA119_GREET" 2>/dev/null)
+{ [[ "${QA119_GN:-0}" -ge 80 ]] \
+  && grep -q 'AskGreetings.random()' "$QA119_WEB/AskController.java" \
+  && grep -q '${greeting}' "$QA119_STREAM"; } \
+  && log_ok "v119-ASK-GREETING-ROTATES(空态 $QA119_GN 句轮换 · 每次进来随机一句)" \
+  || log_bad "v119-ASK-GREETING-ROTATES 欢迎语没在轮换(当前 ${QA119_GN:-0} 句)" "固定一句看四十遍就等于没有"
 
 
 # v119-CUSTODY-EXHAUSTIVE · 加新 AccountType 必须在托管形式里表态

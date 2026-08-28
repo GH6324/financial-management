@@ -119,6 +119,7 @@ public class PeriodSummaryTool implements AskTool {
                     label + " 这一期还没关账。收支通常还没录齐,「钱赚」会偏高、「人赚」会偏低 —— "
                   + "引用这一期的数时必须把这句说给用户听。");
         }
+        b.summary(label + (inProgress ? " · 进行中" : " · 已关账") + " · 净资产/总资产/人赚 等 8 项");
         return b.meta(anchor.getId(), label, inProgress, "kpi.periodSummary", cur).build();
     }
 

@@ -2,8 +2,8 @@
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <body>
 <header th:fragment="nav(active, me, state)" class="sticky top-1 bg-paper/95 backdrop-blur border-b border-rule z-30">
-  <div class="nav-inner max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
-    <div class="nav-lead flex items-center gap-12">
+  <div class="nav-inner max-w-[1400px] mx-auto px-6 lg:px-10 flex items-center justify-between min-h-16 py-1">
+    <div class="nav-lead flex items-center gap-6 lg:gap-10 min-w-0 [&_.nav-brandtext]:whitespace-nowrap">
       <!-- v1.9 · 徽记从 logo 的 <a> 里搬出来了。
            原因:徽记要能点(跳管理页版本卡),而它原先嵌在 <a th:href="@{/}"> 内部 ——
            <a> 套 <a> 是非法 HTML,浏览器会自动把外层拆开、布局散架。
@@ -38,7 +38,7 @@
           </a>
         </span>
       </div>
-      <nav class="nav-tabs hidden md:flex items-center gap-7 font-mono text-[11px] tracking-[0.14em] uppercase">
+      <nav class="nav-tabs hidden lg:flex flex-wrap items-center gap-x-4 gap-y-1 lg:gap-x-6 [&>a]:whitespace-nowrap font-mono text-[11px] tracking-[0.14em] uppercase">
         <a th:href="@{/dashboard}" class="no-underline inline-flex items-center gap-1.5"
            th:classappend="${active == 'dashboard' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink border-b-2 border-transparent pb-[18px]'}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>仪表盘</a>
         <a th:href="@{/entry}" class="no-underline inline-flex items-start"
@@ -55,7 +55,7 @@
            th:classappend="${active == 'checkup' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink border-b-2 border-transparent pb-[18px]'}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true"><path d="M20.8 5.6a5.2 5.2 0 0 0-8.8-2.3 5.2 5.2 0 0 0-8.8 2.3c-1 3.7 3.6 8 8.8 12.4 5.2-4.4 9.8-8.7 8.8-12.4Z"/></svg>资产体检</a>
         <a th:href="@{/ask}" class="no-underline inline-flex items-center gap-1.5"
 
-           th:classappend="${active == 'ask' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink border-b-2 border-transparent pb-[18px]'}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>问一问</a>
+           th:classappend="${active == 'ask' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink border-b-2 border-transparent pb-[18px]'}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>超级 Agent<span class="ml-0.5 -mt-1 px-1 rounded-sm bg-brass-soft text-brass-deep text-[8px] leading-[1.4] tracking-normal normal-case" title="用大白话问自己的账 · 数字带账期、点得回原页">AI</span></a>
         <a th:href="@{/admin}" class="no-underline inline-flex items-center gap-1.5"
    th:classappend="${active == 'admin' ? ' text-ink border-b-2 border-brass pb-[18px]' : ' text-ink-soft hover:text-ink border-b-2 border-transparent pb-[18px]'}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg>管理</a>
         <!-- v1.6.32 · 使用手册常驻入口 · 放在主栏最末(用户定:手册不该插在功能项中间)-->
@@ -68,7 +68,7 @@
         </a>
       </nav>
     </div>
-    <div class="nav-actions flex items-center gap-4">
+    <div class="nav-actions flex items-center gap-3 lg:gap-4 shrink-0 [&>*]:whitespace-nowrap">
       <!-- v1.2.2 字号档位(issue #7)· PC 下拉;移动在 ☰ 菜单内。控件本身不缩放,当稳定参照 -->
       <details id="fs-menu" class="relative hidden md:block">
         <summary class="pill pill-mute list-none cursor-pointer inline-flex items-center" style="gap:4px" title="调节字号(看着舒服)" aria-label="调节字号">
@@ -88,7 +88,7 @@
       </button>
       <span class="pill pill-brass hidden md:inline-flex" th:text="${state.periodLabel}">2026 · 05 · OPEN</span>
       <span class="font-mono text-[11px] text-ink-soft hidden md:inline" th:text="${me.displayName}">Alice</span>
-      <details class="md:hidden relative">
+      <details class="lg:hidden relative">
         <summary class="cursor-pointer list-none w-9 h-9 flex items-center justify-center hover:bg-card-soft border border-rule">
           <span class="text-xl leading-none">☰</span>
         </summary>
@@ -102,7 +102,7 @@
             <a th:href="@{/reports}" class="px-6 py-4 hover:bg-card-soft no-underline flex items-center gap-3"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>报表</a>
             <a th:href="@{/goals}" class="px-6 py-4 hover:bg-card-soft no-underline flex items-center gap-3"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>目标</a>
             <a th:href="@{/checkup}" class="px-6 py-4 hover:bg-card-soft no-underline flex items-center gap-3"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true"><path d="M20.8 5.6a5.2 5.2 0 0 0-8.8-2.3 5.2 5.2 0 0 0-8.8 2.3c-1 3.7 3.6 8 8.8 12.4 5.2-4.4 9.8-8.7 8.8-12.4Z"/></svg>资产体检</a>
-            <a th:href="@{/ask}" class="px-6 py-4 hover:bg-card-soft no-underline flex items-center gap-3"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>问一问</a>
+            <a th:href="@{/ask}" class="px-6 py-4 hover:bg-card-soft no-underline flex items-center gap-3"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>超级 Agent<span class="ml-1 px-1 rounded-sm bg-brass-soft text-brass-deep text-[9px] tracking-normal normal-case align-middle" title="用大白话问自己的账 · 数字带账期、点得回原页">AI</span></a>
             <a th:href="@{/admin}" class="px-6 py-4 hover:bg-card-soft no-underline flex items-center gap-3"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8 2 2 0 1 1-2.7 2.7 1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5 2 2 0 1 1-4 0 1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3 2 2 0 1 1-2.7-2.7 1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1 2 2 0 1 1 0-4 1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8 2 2 0 1 1 2.7-2.7 1.6 1.6 0 0 0 1.8.3 1.6 1.6 0 0 0 1-1.5 2 2 0 1 1 4 0 1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3 2 2 0 1 1 2.7 2.7 1.6 1.6 0 0 0-.3 1.8 1.6 1.6 0 0 0 1.5 1 2 2 0 1 1 0 4 1.6 1.6 0 0 0-1.5 1Z"/></svg>管理</a>
             <a th:href="@{/help/how-to-use}" class="px-6 py-4 hover:bg-card-soft no-underline flex items-center gap-3"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-1.5Z"/><path d="M8 7h8M8 11h6"/></svg>使用手册</a>
             <form th:if="${_csrf != null}" th:action="@{/logout}" method="post" class="px-6 py-4 bg-card-soft">

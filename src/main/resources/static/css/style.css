@@ -1650,7 +1650,7 @@ body.upd-open #priv-float { display: none !important; }
 select option:disabled{ color:var(--ink-subtle); font-style:italic; }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   v1.19 · 问一问
+   v1.19 · 超级 Agent
    ──────────────────────────────────────────────────────────────────────────
    结构照 Claude / ChatGPT / Manus 已经收敛的那套规范,视觉仍是账房自己的:
    纸色底、铜色强调、eyebrow 字距。照搬中性灰白会让这一页像从别的产品抄来的 ——
@@ -1938,3 +1938,43 @@ html.privacy .ask-cite-v, html.privacy .ask-chip{ filter:blur(5px); }
 @media (prefers-reduced-motion:reduce){
   .ask-caret-live, .ask-dot.run, .ask-wait::before{ animation:none; }
 }
+
+/* ── 思考过程 · 流式进行中 ────────────────────────────────────────────────
+   与历史里那份**同一套 DOM**,只是多一个 .live 态。
+   进行中默认展开:用户想看的正是「它在查什么」;跑完了再自动收起 ——
+   除非他中途做了查看动作(翻页 / 点击 / 选中 / 停在这一栏上),那说明他在读,
+   收起就是把他正在看的东西抢走。 */
+.ask-acts.live{ border-left:2px solid var(--brass-soft); padding-left:.6rem; margin-left:-.1rem; }
+.ask-acts.live > summary{ color:var(--ink-soft); }
+.ask-acts.live .ask-acts-body{ border-left:0; padding-left:0; margin-left:0; }
+/* 自动收起时闪一下,让用户知道「它收起来了、还能点开」 */
+@keyframes ask-fold{ 0%{ background:var(--brass-soft) } 100%{ background:transparent } }
+.ask-acts.folded > summary{ animation:ask-fold 1.1s ease-out; border-radius:4px; }
+
+.ask-act{ padding:.18rem 0; }
+.ask-act-head{ display:flex; align-items:center; gap:.45rem; font-size:11.5px; color:var(--ink-soft); }
+.ask-act-name{ color:var(--ink-soft); }
+.ask-act-args{ margin-left:.95rem; font-family:'JetBrains Mono',monospace; font-size:10px;
+               color:var(--ink-faint); line-height:1.6; word-break:break-all; }
+.ask-act-sum{ margin-left:.95rem; font-size:11px; color:var(--ink-subtle); line-height:1.6; }
+/* 思考里的旁白(模型调工具前说的那句)—— 是句子,不是键值,所以不用等宽 */
+.ask-act-say{ margin:.25rem 0 .35rem .95rem; font-size:11.5px; color:var(--ink-subtle);
+              line-height:1.7; }
+
+/* ── 富展示:图表与自由 HTML ──────────────────────────────────────────────
+   模型能自由发挥的是**形式**,不是数据 —— 图上每个点都来自工具返回的引用值。
+   所以这两样在版面上比引用卡轻:引用卡是「凭证」,图是「看个形状」。 */
+.ask-chart{ margin:.9rem 0; padding:.7rem .8rem .5rem;
+            border:1px solid var(--rule); border-radius:6px; background:var(--card-soft); }
+.ask-chart-title{ font-size:12px; color:var(--ink-soft); margin-bottom:.5rem; letter-spacing:.02em; }
+.ask-chart-canvas{ position:relative; height:210px; }
+@media (max-width:520px){ .ask-chart-canvas{ height:190px; } }
+
+.ask-artifact{ margin:.9rem 0; padding:0; border:1px solid var(--rule); border-radius:6px;
+               background:var(--card-soft); overflow:hidden; }
+.ask-artifact iframe{ display:block; width:100%; height:180px; border:0; background:transparent;
+                      transition:height .18s ease; }
+.ask-artifact figcaption{ font-size:10.5px; color:var(--ink-subtle);
+                          padding:.3rem .7rem .45rem; border-top:1px solid var(--rule-soft); }
+/* 隐私模式:自由 HTML 里的数字我们管不着(它在 iframe 里),整块糊掉最保险 */
+html.privacy .ask-artifact iframe{ filter:blur(6px); }

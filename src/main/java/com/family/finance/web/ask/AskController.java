@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * v1.19 · 产品内「问一问」。
+ * v1.19 · 产品内「超级 Agent」。
  *
  * <h3>两种壳,一个片段</h3>
  * <p>PC 上是右侧抽屉(不打断当前页),手机上是整页。两者<b>共用同一个 {@code _stream} 片段</b>
@@ -94,6 +94,7 @@ public class AskController {
         model.addAttribute("blocked", conversations.blockedReason(fam));
         model.addAttribute("runtimeLabel", conversations.runtime().label());
         model.addAttribute("ctxLabel", conversations.contextLabel(fam));
+        model.addAttribute("greeting", com.family.finance.service.ask.AskGreetings.random());
         if (conv != null) {
             AskConversation c = conversations.find(fam, conv);
             if (c != null) {
@@ -159,7 +160,7 @@ public class AskController {
                 try {
                     conversations.ask(fam, id, q, m, new EmitterSink(emitter, abort));
                 } catch (Exception e) {
-                    log.warn("问一问 SSE 异常:{}", e.toString());
+                    log.warn("超级 Agent SSE 异常:{}", e.toString());
                     send(emitter, "failed", Map.of("message", "出了点问题,重试一下。"));
                     emitter.complete();
                 } finally {
@@ -218,15 +219,16 @@ public class AskController {
         @Override public void status(String t) { send(emitter, "status", Map.of("text", t)); }
 
         @Override
-        public void toolStart(String tool, String label) {
-            send(emitter, "tool", Map.of("tool", tool, "label", label, "phase", "start"));
+        public void toolStart(String tool, String label, String args) {
+            send(emitter, "tool", Map.of("tool", tool, "label", label, "phase", "start",
+                    "args", args == null ? "" : args));
         }
 
         @Override
         public void toolDone(String tool, String label, int ms, boolean ok,
-                             Map<String, AskToolResult.Cite> citable) {
+                             String summary, Map<String, AskToolResult.Cite> citable) {
             send(emitter, "tool", Map.of("tool", tool, "label", label, "phase", "done",
-                    "ms", ms, "ok", ok));
+                    "ms", ms, "ok", ok, "summary", summary == null ? "" : summary));
             citable.forEach((k, c) -> send(emitter, "cite", Map.of(
                     "key", k, "value", c.valueText(), "label", c.label(),
                     "href", c.targetHref() == null ? "" : c.targetHref(),

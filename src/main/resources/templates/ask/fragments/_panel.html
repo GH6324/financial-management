@@ -8,7 +8,7 @@
 
 <div th:fragment="panel" class="ask-panel">
   <div class="ask-head">
-    <span class="eyebrow ask-head-brand">问 · 一 · 问</span>
+    <span class="eyebrow ask-head-brand">超级 Agent</span>
     <span class="ask-head-ctx" th:text="${ctxLabel}">2026-08 · CNY</span>
     <span class="ask-head-gap"></span>
     <button type="button" class="ask-icon ask-priv" onclick="togglePrivacy()"
@@ -24,7 +24,7 @@
     </button>
   </div>
 
-  <th:block th:replace="~{ask/fragments/_stream :: stream(${conv}, ${messages}, ${presets}, ${blocked}, ${runtimeLabel}, ${ctxLabel}, ${recent})}"></th:block>
+  <th:block th:replace="~{ask/fragments/_stream :: stream(${conv}, ${messages}, ${presets}, ${blocked}, ${runtimeLabel}, ${ctxLabel}, ${recent}, ${greeting})}"></th:block>
 </div>
 
 </body>

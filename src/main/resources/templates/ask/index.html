@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <!--
-  v1.19 · 问一问 · 整页壳(手机主用,PC 直链也能开)
+  v1.19 · 超级 Agent · 整页壳(手机主用,PC 直链也能开)
   对话主体 th:replace 到 ask/fragments/_stream —— 与 PC 抽屉同一份。
 -->
-<head th:replace="~{fragments/layout :: head('问一问 · 家庭账房')}"></head>
-<!-- ask-page:本页就是问一问,layout 里的悬浮球在这儿是多余的(CSS 据此隐藏) -->
+<head th:replace="~{fragments/layout :: head('超级 Agent · 家庭账房')}"></head>
+<!-- ask-page:本页就是超级 Agent,layout 里的悬浮球在这儿是多余的(CSS 据此隐藏) -->
 <body class="ask-page min-h-screen relative flex flex-col">
 
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
@@ -17,7 +17,7 @@
     <!-- 顶栏:标题 + 「这段对话基于哪一期哪个币种」。
          上下文必须写出来 —— 同一个问题在不同账期下答案不同,而用户切过账期是不会记得的。 -->
     <div class="ask-head">
-      <span class="eyebrow ask-head-brand">问 · 一 · 问</span>
+      <span class="eyebrow ask-head-brand">超级 Agent</span>
       <span class="ask-head-ctx" th:text="${ctxLabel}">2026-08 · CNY</span>
       <span class="ask-head-title" th:if="${conv != null}" th:text="${conv.title}">标题</span>
       <span class="ask-head-gap"></span>
@@ -31,7 +31,7 @@
       </button>
     </div>
 
-    <th:block th:replace="~{ask/fragments/_stream :: stream(${conv}, ${messages}, ${presets}, ${blocked}, ${runtimeLabel}, ${ctxLabel}, ${recent})}"></th:block>
+    <th:block th:replace="~{ask/fragments/_stream :: stream(${conv}, ${messages}, ${presets}, ${blocked}, ${runtimeLabel}, ${ctxLabel}, ${recent}, ${greeting})}"></th:block>
   </div>
 </main>
 

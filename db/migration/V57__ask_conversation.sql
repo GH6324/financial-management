@@ -1,5 +1,5 @@
 -- =====================================================================
--- v1.19 · 问一问(资产对话)
+-- v1.19 · 超级 Agent(资产对话)
 --
 -- 七张【全新】表,不改任何既有表 —— 老代码在新库上完全正常,回滚后空表无副作用。
 --
@@ -32,7 +32,7 @@ CREATE TABLE ask_conversation (
     CONSTRAINT pk_ask_conversation PRIMARY KEY (id),
     KEY idx_ask_conv_fam_created (family_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='v1.19 问一问 · 会话';
+  COMMENT='v1.19 超级 Agent · 会话';
 
 -- ② 一条消息(正文含 {{cite:id}} 标记,不含渲染后的数字)
 CREATE TABLE ask_message (
@@ -45,7 +45,7 @@ CREATE TABLE ask_message (
     CONSTRAINT pk_ask_message PRIMARY KEY (id),
     KEY idx_ask_msg_conv_seq (conversation_id, seq)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='v1.19 问一问 · 消息';
+  COMMENT='v1.19 超级 Agent · 消息';
 
 -- ③ 引用块 —— 本设计的关键表:模型不写数字,只写标记,数值在这里
 CREATE TABLE ask_citation (
@@ -64,7 +64,7 @@ CREATE TABLE ask_citation (
     CONSTRAINT pk_ask_citation PRIMARY KEY (id),
     KEY idx_ask_cite_msg (message_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='v1.19 问一问 · 引用块(数字保真的载体)';
+  COMMENT='v1.19 超级 Agent · 引用块(数字保真的载体)';
 
 -- ④ 工具调用摘要(不存返回体)
 CREATE TABLE ask_tool_call (
@@ -74,10 +74,13 @@ CREATE TABLE ask_tool_call (
     args_json    VARCHAR(1024) NULL,
     duration_ms  INT           NOT NULL DEFAULT 0,
     ok           TINYINT(1)    NOT NULL DEFAULT 1,
+    -- 「这一步查到了什么」一句话。历史里重看时,它比「pivot · 18ms」有用得多 ——
+    -- 后者只说明它跑过,前者才说明它看到了什么。
+    summary      VARCHAR(255)  NULL                    COMMENT '一句话:这一步查到了什么',
     CONSTRAINT pk_ask_tool_call PRIMARY KEY (id),
     KEY idx_ask_tool_msg (message_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='v1.19 问一问 · 工具调用摘要';
+  COMMENT='v1.19 超级 Agent · 工具调用摘要';
 
 -- ⑤ 接入凭据
 --    access_point_id:同一接入点的多把密钥指向同一个 id(换绑期间该 id 下有两行)
@@ -103,7 +106,7 @@ CREATE TABLE ask_access_token (
     KEY idx_ask_token_point (access_point_id),
     KEY idx_ask_token_expires (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='v1.19 问一问 · 接入凭据(只存 hash)';
+  COMMENT='v1.19 超级 Agent · 接入凭据(只存 hash)';
 
 -- ⑥ 调用审计(不记返回体、不记金额)
 CREATE TABLE ask_access_audit (
@@ -120,7 +123,7 @@ CREATE TABLE ask_access_audit (
     KEY idx_ask_audit_prefix_time (token_prefix, created_at),
     KEY idx_ask_audit_fam_time (family_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='v1.19 问一问 · 接口调用审计';
+  COMMENT='v1.19 超级 Agent · 接口调用审计';
 
 -- ⑦ agent 够不着时的反馈 —— 变成下一版加接口的产品输入
 CREATE TABLE ask_unmet_need (
@@ -132,4 +135,4 @@ CREATE TABLE ask_unmet_need (
     CONSTRAINT pk_ask_unmet_need PRIMARY KEY (id),
     KEY idx_ask_unmet_fam (family_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='v1.19 问一问 · 能力缺口反馈';
+  COMMENT='v1.19 超级 Agent · 能力缺口反馈';

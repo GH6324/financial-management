@@ -121,7 +121,9 @@ public class LocalToolLoopRuntime implements AgentRuntime {
                     return;
                 }
 
-                // 这一轮的文字是调工具前的旁白,不是答案 —— 撤回它
+                // 这一轮的文字是调工具前的旁白,不是答案 —— 撤回它,移进思考过程那一栏。
+                // 时机放在**确认有工具调用的那一刻**(而不是整轮工具都跑完之后):
+                // 用户看到的是「话说完 → 立刻转成思考记录 → 开始查」,而不是干等几秒才跳一下。
                 if (!c.text.isBlank()) sink.rollback(c.text);
 
                 // 把模型这一步的 tool_calls 原样放回上下文(不放回去,下一轮它会重复调同一个工具)
@@ -135,10 +137,10 @@ public class LocalToolLoopRuntime implements AgentRuntime {
                     if (sink.cancelled()) { sink.stopped(); return; }
                     AskTool def = registry.find(tc.name).orElse(null);
                     String label = def == null ? tc.name : registry.displayName(tc.name);
-                    sink.toolStart(tc.name, label);
+                    Map<String, Object> args = parseArgs(tc.argsJson);
+                    sink.toolStart(tc.name, label, argsBrief(args));
 
                     long t0 = System.currentTimeMillis();
-                    Map<String, Object> args = parseArgs(tc.argsJson);
                     AskToolResult r = dispatcher.call(turn.familyId(), tc.name, args, turn.scope());
                     int ms = (int) (System.currentTimeMillis() - t0);
 
@@ -147,7 +149,8 @@ public class LocalToolLoopRuntime implements AgentRuntime {
                     for (AskToolResult.Cite cite : r.citations()) {
                         citable.put("c" + (++citeSeq), cite);
                     }
-                    sink.toolDone(tc.name, label, ms, r.ok(), citable);
+                    sink.toolDone(tc.name, label, ms, r.ok(),
+                            r.ok() ? r.summary() : r.error(), citable);
 
                     messages.add(Map.of(
                             "role", "tool",
@@ -169,7 +172,7 @@ public class LocalToolLoopRuntime implements AgentRuntime {
                 }
             }
         } catch (Exception e) {
-            log.warn("问一问 · 本地循环失败:{}", e.toString());
+            log.warn("超级 Agent · 本地循环失败:{}", e.toString());
             sink.failed(humanError(e));
         }
     }
@@ -303,6 +306,25 @@ public class LocalToolLoopRuntime implements AgentRuntime {
         } catch (Exception e) {
             return "{\"ok\":false,\"error\":\"结果序列化失败\"}";
         }
+    }
+
+    /**
+     * 参数摘要,给思考过程那一栏看。
+     *
+     * <p>只取键值、不做嵌套展开 —— 这一行是给人扫一眼的,不是给人调试的。
+     * 太长会把思考区撑成一片 JSON,反而看不出重点。</p>
+     */
+    private static String argsBrief(Map<String, Object> args) {
+        if (args == null || args.isEmpty()) return null;
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, Object> e : args.entrySet()) {
+            if (sb.length() > 0) sb.append(" · ");
+            String v = String.valueOf(e.getValue());
+            if (v.length() > 40) v = v.substring(0, 40) + "…";
+            sb.append(e.getKey()).append('=').append(v);
+            if (sb.length() > 120) { sb.append(" …"); break; }
+        }
+        return sb.toString();
     }
 
     private Map<String, Object> parseArgs(String argsJson) {

@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * v1.19 · 把 {@code {{cite:c1}}} 标记渲染成引用块。
@@ -39,11 +41,30 @@ public class AskCitationRenderer {
     private static final int MAX_NEXT = 3;
     /** 「- xxx」/「1. xxx」列表项 */
     private static final Pattern LIST_ITEM = Pattern.compile("^(?:[-*·]|\\d{1,2}[.)])\\s+(.*)$");
+    /**
+     * 图表标记。整行一个,内容是一小段 JSON。
+     *
+     * <p>数据点用 {@code cite} 引用工具返回的数字,<b>不许模型自己填数</b> ——
+     * 图和正文必须是同一份数,否则「数字保真」只保住了正文那一半。</p>
+     */
+    private static final Pattern CHART = Pattern.compile("^\\{\\{chart:(.+)}}$", Pattern.DOTALL);
+    private static final String CHART_OPEN = "{{chart:";
+    /** 复制/纯文本时用来剥掉整段标记(渲染走的是 CHART / 围栏那条路,不用这两个) */
+    private static final Pattern CHART_ANY =
+            Pattern.compile("\\{\\{chart:.*?}}}", Pattern.DOTALL);
+    private static final Pattern ARTIFACT_ANY =
+            Pattern.compile("```artifact.*?```", Pattern.DOTALL);
+    /** 一张图的 JSON 再长也不该超过这么多行;收不齐就当普通文本,别把正文吞掉 */
+    private static final int CHART_MAX_LINES = 40;
+    /** 自由 HTML 的围栏。用 fenced block 而不是 {{}} —— HTML 里出现 }} 太常见了 */
+    private static final String ARTIFACT_OPEN = "```artifact";
+    private static final String FENCE = "```";
     /** 正文里出现的裸金额 —— 用来判定「模型没听话,自己抄数字了」 */
     private static final Pattern BARE_MONEY =
             Pattern.compile("(?<![\\d.])\\d{1,3}(,\\d{3})+(\\.\\d+)?(?![\\d.])|(?<![\\d.])\\d{5,}(\\.\\d+)?(?![\\d.])");
 
     private final PeriodMapper periodMapper;
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     /**
      * metricKey → 这个数字叫什么、怎么来的、点回哪、那一页叫什么。
@@ -181,15 +202,100 @@ public class AskCitationRenderer {
                     vals.getOrDefault(m.group(1), "")));
         }
         m.appendTail(sb);
-        return NEXT.matcher(sb.toString()).replaceAll("").replaceAll("\n{3,}", "\n\n").trim();
+        // 图表与自由 HTML 换成一个占位词:复制出去的东西里留着 {{chart:{…}}} 或一整段 HTML,
+        // 粘到微信里对方看到的是一堆花括号,而这条回答的价值在那几个数字上。
+        String t = sb.toString();
+        t = CHART_ANY.matcher(t).replaceAll("[图]");
+        t = ARTIFACT_ANY.matcher(t).replaceAll("[图]");
+        return NEXT.matcher(t).replaceAll("").replaceAll("\\n{3,}", "\\n\\n").trim();
     }
 
+    /**
+     * 正文 → HTML。
+     *
+     * <p><b>先按块切,再逐块渲染。</b>图表 JSON 与自由 HTML 都必须在<b>转义之前</b>取出来 ——
+     * 转义会把 {@code "} 变成实体,JSON 解析当场失败;而自由 HTML 整块要原样进 iframe,
+     * 被逐行的段落/列表逻辑拆开就没法用了。第一版把这两样和普通文本混在一个循环里,
+     * 图表一个都渲染不出来。</p>
+     */
     public String renderHtml(String body, List<AskCitation> citations) {
         if (body == null) return "";
         body = NEXT.matcher(body).replaceAll("");   // 追问单独渲染成 chip,不进正文
         Map<String, AskCitation> byKey = new LinkedHashMap<>();
         for (AskCitation c : citations) byKey.put(c.getCiteKey(), decorate(c));
 
+        StringBuilder out = new StringBuilder();
+        for (Seg seg : segment(body)) {
+            switch (seg.kind()) {
+                case ARTIFACT -> out.append(artifact(seg.text(), byKey));
+                case CHART -> out.append(chart(seg.text(), byKey));
+                default -> out.append(prose(seg.text(), byKey));
+            }
+        }
+        return out.toString();
+    }
+
+    private enum Kind { TEXT, CHART, ARTIFACT }
+    private record Seg(Kind kind, String text) {}
+
+    /** 把正文切成「普通文本 / 图表 / 自由 HTML」三种块 */
+    private static List<Seg> segment(String body) {
+        List<Seg> segs = new java.util.ArrayList<>();
+        StringBuilder text = new StringBuilder();
+        String[] lines = body.split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            String t = lines[i].trim();
+
+            if (t.startsWith(ARTIFACT_OPEN)) {
+                int close = -1;
+                for (int j = i + 1; j < lines.length; j++) {
+                    if (lines[j].trim().equals(FENCE)) { close = j; break; }
+                }
+                // 围栏没闭合(多半是被叫停在半截)—— 当普通文本走,别把半截 HTML 塞进 iframe
+                if (close > 0) {
+                    flush(segs, text);
+                    segs.add(new Seg(Kind.ARTIFACT, String.join("\n",
+                            java.util.Arrays.copyOfRange(lines, i + 1, close))));
+                    i = close;
+                    continue;
+                }
+            }
+
+            // 图表标记**可能跨多行** —— 模型习惯把 JSON 排版成多行,实测就是这样。
+            // 第一版只认单行,结果它画的图一张都没渲染出来(标记原样留在正文里)。
+            if (t.startsWith(CHART_OPEN)) {
+                StringBuilder buf = new StringBuilder(lines[i]);
+                int end = i;
+                while (!buf.toString().trim().endsWith("}}") && end + 1 < lines.length
+                       && end - i < CHART_MAX_LINES) {
+                    end++;
+                    buf.append('\n').append(lines[end]);
+                }
+                Matcher ch = CHART.matcher(buf.toString().trim());
+                if (ch.matches()) {
+                    flush(segs, text);
+                    segs.add(new Seg(Kind.CHART, ch.group(1)));
+                    i = end;
+                    continue;
+                }
+                // 收不齐(还在流 / 写坏了)→ 当普通文本走
+            }
+
+            text.append(lines[i]).append('\n');
+        }
+        flush(segs, text);
+        return segs;
+    }
+
+    private static void flush(List<Seg> segs, StringBuilder text) {
+        if (!text.isEmpty()) {
+            segs.add(new Seg(Kind.TEXT, text.toString()));
+            text.setLength(0);
+        }
+    }
+
+    /** 普通文本块:段落 / 列表 / 独立成行的引用卡 */
+    private String prose(String body, Map<String, AskCitation> byKey) {
         StringBuilder out = new StringBuilder();
         boolean inList = false;
         for (String block : escape(body).split("\n{2,}")) {
@@ -222,6 +328,99 @@ public class AskCitationRenderer {
         }
         if (inList) out.append("</ul>");
         return out.toString();
+    }
+
+    // ──────────────────────── 富展示 ────────────────────────
+
+    /**
+     * 图表。
+     *
+     * <p><b>数据点只能用 {@code cite} 引用工具返回的数字</b>,不许模型自己填数 ——
+     * 否则「数字保真」只保住了正文那一半,图上画的还是它编的。引用不到的点直接丢掉,
+     * 一个都引不到就整张不画:宁可没有图,也不要一张看着像真的的假图。</p>
+     *
+     * <p>这里只输出一个带 data 的容器,真正画图在前端(ask-charts.js)——
+     * 服务端渲染历史消息和客户端流式渲染共用同一个容器契约,
+     * 于是「流完刷新一下样子会变」这类问题不会发生。</p>
+     */
+    private String chart(String json, Map<String, AskCitation> byKey) {
+        try {
+            JsonNode n = JSON.readTree(json);
+            String type = n.path("type").asText("pie");
+            String title = n.path("title").asText("");
+
+            List<Map<String, Object>> pts = new java.util.ArrayList<>();
+            for (JsonNode it : n.path("items")) {
+                String key = it.path("cite").asText(null);
+                AskCitation c = key == null ? null : byKey.get(key);
+                if (c == null) continue;                      // 引用不到 → 丢掉这个点
+                Double v = numeric(c.getValueText());
+                if (v == null) continue;
+                Map<String, Object> p = new LinkedHashMap<>();
+                p.put("label", it.path("label").asText(c.getLabel()));
+                p.put("value", v);
+                p.put("text", c.getValueText());              // 图上显示的还是格式化后那一份
+                if (it.hasNonNull("kind")) p.put("kind", it.get("kind").asText());
+                pts.add(p);
+            }
+            if (pts.isEmpty()) return "";                     // 一个点都没有 → 不画
+
+            Map<String, Object> spec = new LinkedHashMap<>();
+            spec.put("type", type);
+            spec.put("title", title);
+            spec.put("points", pts);
+            return "<div class=\"ask-chart\" data-ask-chart=\"" + escape(JSON.writeValueAsString(spec)) + "\"></div>";
+        } catch (Exception e) {
+            return "";                                        // JSON 不合法 → 静默跳过,不把报错甩给用户
+        }
+    }
+
+    /**
+     * 自由 HTML。
+     *
+     * <h3>为什么敢让模型写 HTML</h3>
+     * <p>因为它跑在 {@code sandbox} 且<b>不给 {@code allow-same-origin}</b> 的 iframe 里 ——
+     * 那是一个 opaque origin:脚本能跑,但读不到我们的 cookie、DOM、localStorage,
+     * 也发不出带凭据的请求。这与 Claude Artifacts 是同一个隔离手法。</p>
+     *
+     * <p><b>数字仍然走引用</b>:注入前把 {@code {{cite:cN}}} 换成真实数值,
+     * 所以图里的数和正文里的是同一份。模型在这里能自由发挥的是<b>形式</b>,不是数据。</p>
+     *
+     * <p>顺带注入本地 Chart.js 与一套纸感基础样式:让模型不必写 CDN 链接
+     * (自托管用户很多在墙内,外链图表库会直接白屏),也不必每次重复描述配色。</p>
+     */
+    private String artifact(String html, Map<String, AskCitation> byKey) {
+        // 只吐**容器**,iframe 由 ask-charts.js 组装 —— 它同时服务流式渲染那条路径。
+        // 两边各拼一次 srcdoc 的话,注进去的样式与脚本迟早漂移,
+        // 表现就是「流完刷新一下,图变了个样」。脚手架只能有一处。
+        return "<figure class=\"ask-artifact\" data-ask-artifact=\""
+             + escape(substituteCites(html, byKey)) + "\"></figure>";
+    }
+
+    /** 把 {{cite:cN}} 换成真实数值(自由 HTML 与复制都用它) */
+    private String substituteCites(String text, Map<String, AskCitation> byKey) {
+        Matcher m = CITE.matcher(text);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            AskCitation c = byKey.get(m.group(1));
+            m.appendReplacement(sb, Matcher.quoteReplacement(c == null ? "" : c.getValueText()));
+        }
+        m.appendTail(sb);
+        return sb.toString();
+    }
+
+    /**
+     * 从格式化后的数值里取回数字(「¥1,234,568」→ 1234568)。
+     *
+     * <p>为什么不另存一列原始数值:图表只需要相对大小,四舍五入到元完全够用;
+     * 而加一列要动表、动 mapper、动落库路径,为一个纯展示的需求不值得。
+     * 解析失败就返回 null,那个点被丢掉 —— 失败是安全的方向。</p>
+     */
+    static Double numeric(String valueText) {
+        if (valueText == null) return null;
+        String t = valueText.replaceAll("[^0-9.\\-]", "");
+        if (t.isEmpty() || t.equals("-") || t.equals(".")) return null;
+        try { return Double.parseDouble(t); } catch (NumberFormatException e) { return null; }
     }
 
     /** 行内残留的标记:退成一个紧凑 chip,不至于整句话中间插一张卡 */

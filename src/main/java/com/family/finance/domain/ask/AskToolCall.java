@@ -24,6 +24,8 @@ public class AskToolCall {
     private String argsJson;
     private Integer durationMs;
     private boolean ok;
+    /** 这一步查到了什么,一句话。历史里重看时,它比「pivot 18ms」有用得多 */
+    private String summary;
 
     /** 渲染期装配:给用户看的中文名(「资产分布」而不是 pivot) */
     private String label;

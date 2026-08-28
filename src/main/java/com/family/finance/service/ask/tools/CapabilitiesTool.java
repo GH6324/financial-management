@@ -94,6 +94,7 @@ public class CapabilitiesTool implements AskTool {
                         "holdingLevel=true 的维度会把持仓账户拆开,该维度下收益类度量按持有口径、不可精确归因",
                         "period 格式 yyyy-MM,不传则用当前上下文账期",
                         "所有金额都已按视图币种换算,你不需要自己折算"))
+                .summary(dims.size() + " 个维度 · " + periodList.size() + " 个账期可查")
                 .meta(latest == null ? null : latest.getId(),
                       latest == null ? null : latest.getPeriodStart().toString().substring(0, 7),
                       latest != null && !"CLOSED".equals(String.valueOf(latest.getStatus())),

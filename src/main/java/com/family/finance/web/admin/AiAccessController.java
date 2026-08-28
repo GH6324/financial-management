@@ -106,7 +106,7 @@ public class AiAccessController {
                 .map(com.family.finance.service.ask.AskTool::name).toList());
         model.addAttribute("baseUrl", guessBaseUrl(req));
 
-        // ── 问一问 ──
+        // ── 超级 Agent ──
         model.addAttribute("askEnabled", configService.getBoolean(fam, K_ASK_ENABLED, false));
         model.addAttribute("askRuntime", askConversations.runtime().code());
         model.addAttribute("askBlocked", askConversations.blockedReason(fam));
@@ -145,7 +145,7 @@ public class AiAccessController {
         String blocked = askConversations.blockedReason(fam);
         // 保存成功不代表能用 —— 把「还差什么」当场说清,别让用户点进去才发现
         ra.addFlashAttribute(blocked == null ? "askNote" : "askError",
-                blocked == null ? "已保存。现在任何一页右下角都能点开「问一问」了。"
+                blocked == null ? "已保存。现在任何一页右下角都能点开「超级 Agent」了。"
                                 : "已保存,但还用不了:" + blocked);
         return "redirect:/admin/ai-access";
     }

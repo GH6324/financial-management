@@ -129,7 +129,7 @@ public class FamilyConfigService {
      */
     public static final String K_SQL_PROFILER         = "sql_profiler_enabled";
 
-    // ========== v1.19 问一问 ==========
+    // ========== v1.19 超级 Agent ==========
     /**
      * 用哪条 runtime 跑对话:{@code local}(本机直连,默认)或 {@code managed}(百炼托管 agent)。
      *
@@ -138,7 +138,7 @@ public class FamilyConfigService {
      * 一进来就看到一个不可用的功能。</p>
      */
     public static final String K_ASK_RUNTIME          = "ask_runtime";
-    /** 问一问总开关 · 默认关(未启用时对既有用户零感知) */
+    /** 超级 Agent 总开关 · 默认关(未启用时对既有用户零感知) */
     public static final String K_ASK_ENABLED          = "ask_enabled";
     /** 托管路线:百炼业务空间 ID */
     public static final String K_ASK_MA_WORKSPACE     = "ask_ma_workspace_id";

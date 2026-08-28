@@ -1,5 +1,5 @@
 /*
- * v1.19 · 问一问 · 对话流客户端
+ * v1.19 · 超级 Agent · 对话流客户端
  *
  * 一份脚本同时服务 PC 抽屉与手机整页 —— 它只认 data-ask-* 钩子,不认外面那层容器长什么样。
  *
@@ -26,6 +26,8 @@
   var BOLD_G = /\*\*([^*]{1,80})\*\*/g;
   /* 「- xxx」/「1. xxx」列表项 —— 服务端 AskCitationRenderer 有等价的一份,两边必须同形态 */
   var LIST_ITEM = /^(?:[-*·]|\d{1,2}[.)])\s+(.*)$/;
+  var CHART_MULTI = /^\{\{chart:([\s\S]+)\}\}$/;
+  var ARTIFACT_OPEN = '```artifact', FENCE = '```';
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -114,38 +116,119 @@
     return out;
   }
 
+  /** 从格式化数值里取数字(与服务端 AskCitationRenderer.numeric 同解) */
+  function numeric(text) {
+    if (text == null) return null;
+    var t = String(text).replace(/[^0-9.\-]/g, '');
+    if (!t || t === '-' || t === '.') return null;
+    var v = parseFloat(t);
+    return isNaN(v) ? null : v;
+  }
+
+  /** 图表容器 —— 与服务端吐的**同一个契约**,交给 ask-charts.js 画 */
+  function chartNode(json, cites) {
+    var spec;
+    try { spec = JSON.parse(json); } catch (e) { return null; }
+    var pts = [];
+    (spec.items || []).forEach(function (it) {
+      var c = cites[it.cite];
+      if (!c) return;                                  // 引用不到就丢掉这个点
+      var v = numeric(c.value);
+      if (v == null) return;
+      var p = { label: it.label || c.label, value: v, text: c.value };
+      if (it.kind) p.kind = it.kind;
+      pts.push(p);
+    });
+    if (!pts.length) return null;                      // 一个点都没有 → 不画
+    var host = el('div', 'ask-chart');
+    host.dataset.askChart = JSON.stringify(
+      { type: spec.type || 'pie', title: spec.title || '', points: pts });
+    return host;
+  }
+
+  /** 自由 HTML —— sandbox iframe;数字先换成引用值,模型只决定形式 */
+  function artifactNode(html, cites) {
+    var resolved = html.replace(CITE_G, function (m, k) {
+      var c = cites[k];
+      return c ? c.value : '';
+    });
+    // 只建容器,iframe 交给 ask-charts.js 组装 —— 与服务端渲染共用那一份脚手架
+    var fig = el('figure', 'ask-artifact');
+    fig.dataset.askArtifact = resolved;
+    return fig;
+  }
+
   function render(raw, cites) {
     var frag = document.createDocumentFragment();
     var ul = null;
     var closeList = function () { ul = null; };
+    var lines = raw.replace(NEXT_G, '').split('\n');
 
-    raw.replace(NEXT_G, '').split(/\n{2,}/).forEach(function (block) {
-      block.split('\n').forEach(function (line) {
-        var t = line.trim();
-        if (!t) return;
+    for (var i = 0; i < lines.length; i++) {
+      var t = lines[i].trim();
 
-        var only = t.match(CITE_ONLY);
-        if (only) {
-          closeList();
-          if (cites[only[1]]) frag.appendChild(citeCard(cites[only[1]]));
-          return;
+      // 自由 HTML:**围栏闭合之前不渲染**。半截 HTML 塞进 iframe 会反复重排闪烁,
+      // 而且多半是坏的 —— 规范里对代码块也是这条(闭合前当纯文本)。
+      if (t.indexOf(ARTIFACT_OPEN) === 0) {
+        var close = -1;
+        for (var j = i + 1; j < lines.length; j++) {
+          if (lines[j].trim() === FENCE) { close = j; break; }
         }
-
-        var li = t.match(LIST_ITEM);
-        if (li) {
-          if (!ul) { ul = el('ul'); frag.appendChild(ul); }
-          var item = el('li');
-          inlineNodes(li[1], cites, item);
-          ul.appendChild(item);
-          return;
-        }
-
         closeList();
-        var p = el('p');
-        inlineNodes(t, cites, p);
-        frag.appendChild(p);
-      });
-    });
+        if (close > 0) {
+          frag.appendChild(artifactNode(lines.slice(i + 1, close).join('\n'), cites));
+          i = close;
+        } else {
+          frag.appendChild(el('div', 'ask-wait', '正在画图'));
+          i = lines.length;                            // 后面还没到,先停在这儿
+        }
+        continue;
+      }
+
+      if (!t) continue;
+
+      // 图表标记可能跨多行(模型习惯把 JSON 排版开)—— 往后收到 }} 为止
+      if (t.indexOf('{{chart:') === 0) {
+        var buf = lines[i], e = i;
+        while (buf.trim().slice(-2) !== '}}' && e + 1 < lines.length && e - i < 40) {
+          e++; buf += '\n' + lines[e];
+        }
+        var ch = buf.trim().match(CHART_MULTI);
+        if (ch) {
+          closeList();
+          var node = chartNode(ch[1], cites);
+          if (node) frag.appendChild(node);
+          i = e;
+          continue;
+        }
+        // 还没收齐(正在流)→ 占位,别把半截 JSON 当正文显示出来
+        closeList();
+        frag.appendChild(el('div', 'ask-wait', '正在画图'));
+        i = lines.length;
+        continue;
+      }
+
+      var only = t.match(CITE_ONLY);
+      if (only) {
+        closeList();
+        if (cites[only[1]]) frag.appendChild(citeCard(cites[only[1]]));
+        continue;
+      }
+
+      var li = t.match(LIST_ITEM);
+      if (li) {
+        if (!ul) { ul = el('ul'); frag.appendChild(ul); }
+        var item = el('li');
+        inlineNodes(li[1], cites, item);
+        ul.appendChild(item);
+        continue;
+      }
+
+      closeList();
+      var p = el('p');
+      inlineNodes(t, cites, p);
+      frag.appendChild(p);
+    }
     return frag;
   }
 
@@ -232,6 +315,22 @@
     function isTouch() {
       return window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     }
+
+    /* ── 用户有没有在「看」这一轮 ──
+       思考过程跑完会自动折叠;但如果用户中途在读它,折叠就是把他正在看的东西抢走。
+       判据是**主动动作**,不是 scroll 事件 —— 我们自己的 keepBottom 也会触发 scroll,
+       用它当判据的话每一轮都会被判成「用户在看」,自动折叠就永远不生效。
+       收的这几种:滚轮 / 触摸滑动 / 点击 / 键盘 / 选中文本 / 鼠标停在思考区上。 */
+    var engaged = false;
+    function markEngaged() { engaged = true; }
+
+    ['wheel', 'touchmove', 'pointerdown', 'keydown'].forEach(function (ev) {
+      root.addEventListener(ev, markEngaged, { passive: true });
+    });
+    document.addEventListener('selectionchange', function () {
+      var sel = document.getSelection();
+      if (sel && !sel.isCollapsed && sel.anchorNode && root.contains(sel.anchorNode)) markEngaged();
+    });
     function atBottom() {
       if (!msgs) return true;
       return msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < BOTTOM_SLACK;
@@ -272,6 +371,7 @@
       setBusy(true);
       if (mode === 'new' && input) { input.value = ''; autoGrow(); }
 
+      engaged = false;              // 新一轮重新判断:上一轮读过不代表这一轮也在读
       var empty = root.querySelector('.ask-empty');
       if (empty) empty.remove();
 
@@ -320,12 +420,13 @@
           cites[d.key] = d;
         });
 
-        // 那段文字是调工具前的旁白,不是答案 —— 降级成活动区里的一行
+        // 那段文字是调工具前的旁白 —— 它是**思考**,不是答案:从正文挪进思考过程。
+        // 触发时机是「确认这一轮要调工具的那一刻」,所以看起来是话说完就转成了思考记录。
         es.addEventListener('rollback', function (ev) {
           var t = JSON.parse(ev.data).t, was = atBottom();
           if (raw.endsWith(t)) raw = raw.slice(0, raw.length - t.length);
           paint();
-          acts.narrate(t.trim());
+          acts.say(t.trim());
           keepBottom(was);
         });
 
@@ -352,14 +453,17 @@
         function paint() {
           bodyBox.replaceChildren(render(raw, cites));
           if (busy) bodyBox.appendChild(el('span', 'ask-caret-live'));
+          if (window.askRenderVisuals) window.askRenderVisuals(bodyBox);
         }
 
         function finish(state, msg) {
           try { if (es) es.close(); } catch (e) { /* 已经关了 */ }
           if (wait.parentNode) wait.remove();
+          acts.settle();
           setBusy(false);
           current = null;
           bodyBox.replaceChildren(render(raw, cites));   // 去掉光标
+          if (window.askRenderVisuals) window.askRenderVisuals(bodyBox);
 
           if (state === 'failed' && msg) {
             turn.appendChild(el('div', 'ask-note').appendChild(el('span', null, msg)).parentNode);
@@ -415,50 +519,94 @@
       return b;
     }
 
-    /** 活动区:折叠的 <details>,和历史消息里那份同形态 */
+    /**
+     * 思考过程。与历史消息里那份**同一套 DOM**(护栏靠 class 名对齐),
+     * 区别只在:进行中默认展开、跑完按 engaged 决定收不收。
+     */
     function buildActs() {
-      var host = el('details', 'ask-acts');
+      var host = el('details', 'ask-acts live');
+      host.open = true;                         // 进行中默认展开 —— 用户想看的正是这个
       var sum = el('summary');
       sum.appendChild(el('span', 'ask-caret', '▸'));
-      var label = el('span', null, '正在查…');
+      var label = el('span', null, '正在想…');
       sum.appendChild(label);
       var body = el('div', 'ask-acts-body');
       host.appendChild(sum);
       host.appendChild(body);
-      host.hidden = true;
-      var n = 0;
+      host.hidden = true;                       // 还没有任何一步时不占位
+      // 手动展开/收起本身就是「在看」
+      host.addEventListener('toggle', markEngaged);
+      var steps = 0;
+
+      function show() { host.hidden = false; }
 
       return {
         host: host,
+
+        /** 模型调工具前说的那句话 —— 它是思考,不是答案 */
+        say: function (t) {
+          show();
+          body.appendChild(el('div', 'ask-act-say', t));
+          steps++;
+          label.textContent = '思考过程 · ' + steps + ' 步';
+        },
+
         upsert: function (d) {
-          host.hidden = false;
-          var row = body.querySelector('[data-k="' + d.tool.replace(/"/g, '') + '"]');
+          show();
+          var row = null;
+          for (var i = 0; i < body.children.length; i++) {
+            if (body.children[i].dataset && body.children[i].dataset.k === d.tool) {
+              row = body.children[i]; break;
+            }
+          }
           if (!row) {
             row = el('div', 'ask-act');
             row.dataset.k = d.tool;
-            row.appendChild(el('span', 'ask-dot'));
-            row.appendChild(el('span', null, d.label));
-            row.appendChild(el('span', 'ask-act-ms', ''));
+            var head = el('div', 'ask-act-head');
+            head.appendChild(el('span', 'ask-dot'));
+            head.appendChild(el('span', 'ask-act-name', d.label));
+            head.appendChild(el('span', 'ask-act-ms', ''));
+            row.appendChild(head);
             body.appendChild(row);
-            n++;
+            steps++;
           }
-          var dot = row.firstChild, ms = row.lastChild;
+          var head = row.firstChild;
+          var dot = head.firstChild, ms = head.lastChild;
+
           if (d.phase === 'start') {
             dot.classList.add('run');
-            ms.textContent = '';
+            ms.textContent = '查询中';
+            if (d.args) {
+              var a = row.querySelector('.ask-act-args');
+              if (!a) { a = el('div', 'ask-act-args'); row.appendChild(a); }
+              a.textContent = d.args;
+            }
           } else {
             dot.classList.remove('run');
             if (!d.ok) dot.classList.add('bad');
             ms.textContent = d.ok ? (d.ms + ' ms') : '没查到';
+            if (d.summary) {
+              var sm = row.querySelector('.ask-act-sum');
+              if (!sm) { sm = el('div', 'ask-act-sum'); row.appendChild(sm); }
+              sm.textContent = d.summary;
+            }
           }
-          label.textContent = '查了 ' + n + ' 项';
+          label.textContent = '思考过程 · ' + steps + ' 步';
         },
-        narrate: function (t) {
-          host.hidden = false;
-          var row = el('div', 'ask-act');
-          row.appendChild(el('span', 'ask-dot'));
-          row.appendChild(el('span', null, t));
-          body.appendChild(row);
+
+        /**
+         * 这一轮结束。**用户没参与才收起** —— 他在读的时候收起,
+         * 等于把正在看的东西从眼前拿走,比不收起烦人得多。
+         */
+        settle: function () {
+          host.classList.remove('live');
+          if (host.hidden) return;
+          label.textContent = '思考过程 · ' + steps + ' 步';
+          if (!engaged) {
+            host.open = false;
+            host.classList.add('folded');       // 闪一下,让人知道它收起来了、还能点开
+            setTimeout(function () { host.classList.remove('folded'); }, 1200);
+          }
         }
       };
     }

@@ -102,7 +102,7 @@ public class ManagedAgentRuntime implements AgentRuntime {
             }
             streamEvents(sessionId, turn.question(), sink);
         } catch (Exception e) {
-            log.warn("问一问 · 托管 agent 失败:{}", e.toString());
+            log.warn("超级 Agent · 托管 agent 失败:{}", e.toString());
             sink.failed(humanError(e));
         }
     }
@@ -163,9 +163,9 @@ public class ManagedAgentRuntime implements AgentRuntime {
                     if (tool != null) {
                         String label = registry.displayName(tool);
                         if (type.contains("done") || type.contains("completed") || type.contains("result")) {
-                            sink.toolDone(tool, label, 0, true, Map.of());
+                            sink.toolDone(tool, label, 0, true, null, Map.of());
                         } else {
-                            sink.toolStart(tool, label);
+                            sink.toolStart(tool, label, null);
                         }
                     }
                 } else if (type.contains("delta") || type.contains("output_text")) {
@@ -190,7 +190,7 @@ public class ManagedAgentRuntime implements AgentRuntime {
      */
     public String createAgent(String systemPrompt, String model) throws Exception {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("name", "家庭资产问一问");
+        body.put("name", "家庭资产超级 Agent");
         body.put("model", model == null || model.isBlank() ? "qwen-plus" : model);
         body.put("instructions", systemPrompt);
         body.put("mcp_servers", List.of(Map.of("type", "custom", "name", mcpServerId())));
@@ -213,7 +213,7 @@ public class ManagedAgentRuntime implements AgentRuntime {
      */
     public void updateAgent(String systemPrompt, String model) throws Exception {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("name", "家庭资产问一问");
+        body.put("name", "家庭资产超级 Agent");
         body.put("model", model == null || model.isBlank() ? "qwen-plus" : model);
         body.put("instructions", systemPrompt);
         body.put("mcp_servers", List.of(Map.of("type", "custom", "name", mcpServerId())));

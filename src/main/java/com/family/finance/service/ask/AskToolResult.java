@@ -21,7 +21,14 @@ public record AskToolResult(
         Map<String, Object> meta,
         List<Cite> citations,
         boolean ok,
-        String error
+        String error,
+        /**
+         * 一句话摘要:这一步<b>查到了什么</b>(「9 个平台 · 合计 …」)。
+         *
+         * <p>给思考过程那一栏用。只报工具名和耗时等于什么都没说 ——
+         * 用户想看的是「它到底看了什么数」,那才是判断答案可不可信的依据。</p>
+         */
+        String summary
 ) {
     /** 一个可引用的数字 */
     public record Cite(String key, String metricKey, String label, String valueText,
@@ -30,7 +37,7 @@ public record AskToolResult(
     public static Builder of(String tool) { return new Builder(tool); }
 
     public static AskToolResult failed(String tool, String error) {
-        return new AskToolResult(tool, Map.of(), Map.of(), List.of(), false, error);
+        return new AskToolResult(tool, Map.of(), Map.of(), List.of(), false, error, null);
     }
 
     public static final class Builder {
@@ -38,6 +45,7 @@ public record AskToolResult(
         private final Map<String, Object> data = new LinkedHashMap<>();
         private final Map<String, Object> meta = new LinkedHashMap<>();
         private final List<Cite> cites = new java.util.ArrayList<>();
+        private String summary;
 
         private Builder(String tool) { this.tool = tool; }
 
@@ -56,6 +64,9 @@ public record AskToolResult(
 
         public Builder metaExtra(String k, Object v) { meta.put(k, v); return this; }
 
+        /** 这一步查到了什么,一句话。给思考过程那一栏看的,不进模型上下文 */
+        public Builder summary(String s) { this.summary = s; return this; }
+
         public Builder cite(String key, String metricKey, String label, String valueText,
                             Long periodId, boolean inProgress, String currency, String href) {
             cites.add(new Cite(key, metricKey, label, valueText, periodId, inProgress, currency, href));
@@ -63,7 +74,7 @@ public record AskToolResult(
         }
 
         public AskToolResult build() {
-            return new AskToolResult(tool, data, meta, List.copyOf(cites), true, null);
+            return new AskToolResult(tool, data, meta, List.copyOf(cites), true, null, summary);
         }
     }
 }

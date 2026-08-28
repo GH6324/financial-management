@@ -785,42 +785,42 @@ if [ "${OPEN_N:-0}" -gt 0 ]; then
 fi
 
 # ════════════════════════════════════════════════════════════════════
-# 主线 21 · 问一问(v1.19)
+# 主线 21 · 超级 Agent(v1.19)
 #   这条主线**不调大模型** —— 上游要花钱、要几十秒、而且回答内容天生不稳定,
 #   拿它当断言等于给自己造一条随机红的护栏。真正要守住的是**我们这一侧**:
 #   开关语义、鉴权、工具返回的数字与页面逐字一致、以及会话落库的形状。
 #   模型那一段靠联调实测(见 docs/qa-cases.md v1.19 段)。
 # ════════════════════════════════════════════════════════════════════
-echo; echo "── 21 · 问一问 ──"
+echo; echo "── 21 · 超级 Agent ──"
 
 # ① 默认关:功能没开时页面要说清怎么开,而不是给个空壳
 db "DELETE FROM family_runtime_config WHERE family_id=$FAM AND key_name='ask_enabled'" >/dev/null
 ASKP="$(GET /ask)"
-case "$ASKP" in *'还没打开'*) ok "问一问-默认关且页面说明怎么开" ;;
-                *) bad "问一问-默认关状态没说明" "AskConversationService.blockedReason" ;; esac
+case "$ASKP" in *'还没打开'*) ok "超级 Agent · 默认关且页面说明怎么开" ;;
+                *) bad "超级 Agent · 默认关状态没说明" "AskConversationService.blockedReason" ;; esac
 
 # ② /mcp 未授权一律 404(不是 401 —— 401 等于告诉扫描器这里有东西)
 MCPC="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/mcp" -H 'Content-Type: application/json' \
         -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')"
-case "$MCPC" in 404) ok "问一问-无凭据访问 /mcp 返回 404" ;;
-                *) bad "问一问-/mcp 无凭据返回了 $MCPC" "必须 404,不能透露端点存在" ;; esac
+case "$MCPC" in 404) ok "超级 Agent · 无凭据访问 /mcp 返回 404" ;;
+                *) bad "超级 Agent · /mcp 无凭据返回了 $MCPC" "必须 404,不能透露端点存在" ;; esac
 
 # ③ 口令放 URL query 也必须 404 —— MCP 规范禁止 query 传 token(会进 access log 和 Referer)
 MCPQ="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/mcp?token=fmk_whatever" \
         -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')"
-case "$MCPQ" in 404) ok "问一问-口令放 URL 不被接受(仍 404)" ;;
-                *) bad "问一问-URL 里的 token 被接受了($MCPQ)" "凭据只能走 Authorization 头" ;; esac
+case "$MCPQ" in 404) ok "超级 Agent · 口令放 URL 不被接受(仍 404)" ;;
+                *) bad "超级 Agent · URL 里的 token 被接受了($MCPQ)" "凭据只能走 Authorization 头" ;; esac
 
 # ④ 发一把凭据 → tools/list 通,且工具清单非空
 E2E_TOK="$(POST /admin/ai-access/create --data-urlencode 'name=e2e' --data-urlencode 'scope=detail' \
            --data-urlencode 'days=7' -o /dev/null -w '%{http_code}' >/dev/null; \
            GET /admin/ai-access | grep -oE 'fmk_[A-Za-z0-9_-]{30,}' | head -1)"
 if [ -n "$E2E_TOK" ]; then
-  ok "问一问-管理页发出凭据(明文仅此一屏)"
+  ok "超级 Agent · 管理页发出凭据(明文仅此一屏)"
   TL="$(curl -s -X POST "$BASE/mcp" -H 'Content-Type: application/json' -H "Authorization: Bearer $E2E_TOK" \
         -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')"
-  case "$TL" in *'"pivot"'*) ok "问一问-有凭据时 tools/list 返回工具清单" ;;
-                *) bad "问一问-tools/list 没返回工具" "$TL" ;; esac
+  case "$TL" in *'"pivot"'*) ok "超级 Agent · 有凭据时 tools/list 返回工具清单" ;;
+                *) bad "超级 Agent · tools/list 没返回工具" "$TL" ;; esac
 
   # ⑤ **本版最重的一条**:AI 那条路径的数,必须和页面上的数是同一个。
   #    这里用两条**互相独立**的服务互证:pivot 走 PivotEngine,period_summary 走 FactViewService。
@@ -833,11 +833,11 @@ if [ -n "$E2E_TOK" ]; then
   KPI_TOTAL="$(mcp_call '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"period_summary","arguments":{}}}' \
     | python3 -c "import sys,json;d=json.load(sys.stdin);print(json.loads(d['result']['content'][0]['text'])['data']['totalAssets'])" 2>/dev/null)"
   if [ -z "$PV_TOTAL" ]; then
-    bad "问一问-pivot 没返回合计" "grand 缺失"
+    bad "超级 Agent · pivot 没返回合计" "grand 缺失"
   elif [ "$PV_TOTAL" = "$KPI_TOTAL" ]; then
-    ok "问一问-两条独立路径的总资产逐字一致(pivot=$PV_TOTAL = kpi)"
+    ok "超级 Agent · 两条独立路径的总资产逐字一致(pivot=$PV_TOTAL = kpi)"
   else
-    bad "问一问-AI 看到的总资产对不上" "pivot=$PV_TOTAL kpi=$KPI_TOTAL —— AI 那条路径另起了聚合"
+    bad "超级 Agent · AI 看到的总资产对不上" "pivot=$PV_TOTAL kpi=$KPI_TOTAL —— AI 那条路径另起了聚合"
   fi
 
   # ⑥ scope:aggregate 凭据够不到含账户名的工具
@@ -846,68 +846,68 @@ if [ -n "$E2E_TOK" ]; then
            GET /admin/ai-access | grep -oE 'fmk_[A-Za-z0-9_-]{30,}' | head -1)"
   AP="$(curl -s -X POST "$BASE/mcp" -H 'Content-Type: application/json' -H "Authorization: Bearer $A_TOK" \
         -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"account_performance","arguments":{}}}')"
-  case "$AP" in *'含账户明细'*) ok "问一问-只给汇总的凭据拿不到账户明细" ;;
-                *) bad "问一问-scope 没拦住账户明细工具" "aggregate 凭据不该读到账户名" ;; esac
+  case "$AP" in *'含账户明细'*) ok "超级 Agent · 只给汇总的凭据拿不到账户明细" ;;
+                *) bad "超级 Agent · scope 没拦住账户明细工具" "aggregate 凭据不该读到账户名" ;; esac
 
   # ⑦ 参数错要把「可用取值」回给模型,而不是一句失败把对话卡死
   BADP="$(curl -s -X POST "$BASE/mcp" -H 'Content-Type: application/json' -H "Authorization: Bearer $E2E_TOK" \
           -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"pivot","arguments":{"rows":["不存在的维度"]}}}')"
-  case "$BADP" in *'allowed'*) ok "问一问-参数错回可用取值(让模型自己改)" ;;
-                  *) bad "问一问-参数错没回可用取值" "对话会被一句「失败」卡死" ;; esac
+  case "$BADP" in *'allowed'*) ok "超级 Agent · 参数错回可用取值(让模型自己改)" ;;
+                  *) bad "超级 Agent · 参数错没回可用取值" "对话会被一句「失败」卡死" ;; esac
 
   # ⑧ 审计:通过与未通过在库里分得开
   A_OK="$(db "SELECT COUNT(*) FROM ask_access_audit WHERE family_id=$FAM AND result LIKE 'OK%'")"
   A_NO="$(db "SELECT COUNT(*) FROM ask_access_audit WHERE result IN ('INVALID','OFF','SCOPE')")"
   if [ "${A_OK:-0}" -gt 0 ] && [ "${A_NO:-0}" -gt 0 ]; then
-    ok "问一问-审计区分通过($A_OK)与未通过($A_NO)"
+    ok "超级 Agent · 审计区分通过($A_OK)与未通过($A_NO)"
   else
-    bad "问一问-审计没区分通过与未通过" "OK=$A_OK 未通过=$A_NO"
+    bad "超级 Agent · 审计没区分通过与未通过" "OK=$A_OK 未通过=$A_NO"
   fi
 
   # ⑨ 库里没有明文口令 —— 只存 SHA-256
   PLAIN_N="$(db "SELECT COUNT(*) FROM ask_access_token WHERE token_hash='$E2E_TOK'")"
-  case "${PLAIN_N:-1}" in 0) ok "问一问-库里查不到明文口令(只存哈希)" ;;
-                          *) bad "问一问-库里存了明文口令" "只能存 SHA-256" ;; esac
+  case "${PLAIN_N:-1}" in 0) ok "超级 Agent · 库里查不到明文口令(只存哈希)" ;;
+                          *) bad "超级 Agent · 库里存了明文口令" "只能存 SHA-256" ;; esac
 else
-  bad "问一问-管理页没能发出凭据" "/admin/ai-access/create"
+  bad "超级 Agent · 管理页没能发出凭据" "/admin/ai-access/create"
 fi
 
 # ⑩ 两种壳共用一个片段(整页可渲染;抽屉片段能单独取到)
 db "INSERT INTO family_runtime_config(family_id,key_name,value_text) VALUES($FAM,'ask_enabled','true')
     ON DUPLICATE KEY UPDATE value_text='true'" >/dev/null
 PANEL="$(GET /ask/panel)"
-case "$PANEL" in *'data-ask-form'*) ok "问一问-PC 抽屉片段可单独渲染" ;;
-                 *) bad "问一问-抽屉片段渲染失败" "/ask/panel" ;; esac
+case "$PANEL" in *'data-ask-form'*) ok "超级 Agent · PC 抽屉片段可单独渲染" ;;
+                 *) bad "超级 Agent · 抽屉片段渲染失败" "/ask/panel" ;; esac
 FULL="$(GET /ask)"
-case "$FULL" in *'data-ask-form'*) ok "问一问-手机整页可渲染(与抽屉同一片段)" ;;
-                *) bad "问一问-整页渲染失败" "/ask" ;; esac
+case "$FULL" in *'data-ask-form'*) ok "超级 Agent · 手机整页可渲染(与抽屉同一片段)" ;;
+                *) bad "超级 Agent · 整页渲染失败" "/ask" ;; esac
 
 # ⑪ 会话建得出来、消息落得进去(不经模型,直接验存储形状)
 CONV_ID="$(POST /ask/new | grep -oE '[0-9]+' | head -1)"
 if [ -n "$CONV_ID" ]; then
-  ok "问一问-能新建会话(#$CONV_ID)"
+  ok "超级 Agent · 能新建会话(#$CONV_ID)"
   CONV_ROW="$(db "SELECT COUNT(*) FROM ask_conversation WHERE id=$CONV_ID AND family_id=$FAM")"
-  case "${CONV_ROW:-0}" in 1) ok "问一问-会话落库且归属正确" ;;
-                           *) bad "问一问-会话没落库" "ask_conversation" ;; esac
+  case "${CONV_ROW:-0}" in 1) ok "超级 Agent · 会话落库且归属正确" ;;
+                           *) bad "超级 Agent · 会话没落库" "ask_conversation" ;; esac
 else
-  bad "问一问-新建会话失败" "/ask/new"
+  bad "超级 Agent · 新建会话失败" "/ask/new"
 fi
 
 # ⑫ 全站入口:悬浮球随 layout 出现在普通页面上(不是只在 /ask 才有)
-case "$(GET /dashboard)" in *'data-ask-open'*) ok "问一问-任意页面都有入口(layout 里的悬浮球)" ;;
-                            *) bad "问一问-普通页面没有入口" "layout::footer 的 ask-fab" ;; esac
+case "$(GET /dashboard)" in *'data-ask-open'*) ok "超级 Agent · 任意页面都有入口(layout 里的悬浮球)" ;;
+                            *) bad "超级 Agent · 普通页面没有入口" "layout::footer 的 ask-fab" ;; esac
 
 # ⑬ 改版后的结构件:停止键、折叠的活动区、逐条操作、追问 chip 的挂载点
 FULL2="$(GET /ask)"
-case "$FULL2" in *'data-ask-stop'*) ok "问一问-输入区有停止键" ;;
-                 *) bad "问一问-没有停止键" "长回答期间用户只能干等" ;; esac
-case "$FULL2" in *'ask-col'*) ok "问一问-正文收在阅读列宽内" ;;
-                 *) bad "问一问-正文没有列宽约束" "一行 60 个汉字读着串行" ;; esac
+case "$FULL2" in *'data-ask-stop'*) ok "超级 Agent · 输入区有停止键" ;;
+                 *) bad "超级 Agent · 没有停止键" "长回答期间用户只能干等" ;; esac
+case "$FULL2" in *'ask-col'*) ok "超级 Agent · 正文收在阅读列宽内" ;;
+                 *) bad "超级 Agent · 正文没有列宽约束" "一行 60 个汉字读着串行" ;; esac
 
 # ⑭ 停止端点:没有在跑的轮次时如实回 false(而不是假装停了)
 STOPR="$(POST /ask/$CONV_ID/stop)"
-case "$STOPR" in *'"ok":false'*) ok "问一问-没有在跑的轮次时停止如实回 false" ;;
-                 *) bad "问一问-停止端点语义不对" "$STOPR" ;; esac
+case "$STOPR" in *'"ok":false'*) ok "超级 Agent · 没有在跑的轮次时停止如实回 false" ;;
+                 *) bad "超级 Agent · 停止端点语义不对" "$STOPR" ;; esac
 
 # ⑮ 有历史的会话:折叠活动区 + 复制/重来 + 引用卡都在
 #    取一段真有回答的会话(e2e 不调模型,所以只在库里已有时才验 —— 没有就跳过并说明)
@@ -916,12 +916,64 @@ HIST="$(db "SELECT conversation_id FROM ask_message WHERE role='assistant' AND c
             ORDER BY id DESC LIMIT 1")"
 if [ -n "$HIST" ]; then
   HP="$(GET "/ask?conv=$HIST")"
-  case "$HP" in *'ask-acts'*) ok "问一问-历史里活动区默认折叠(details)" ;;
-                *) bad "问一问-活动区没折叠" "对话区讲结论,过程别抢注意力" ;; esac
-  case "$HP" in *'data-ask-copy'*) ok "问一问-回答上有复制/重来" ;;
-                *) bad "问一问-回答没有逐条操作" "复制与重来是完成态的 table stakes" ;; esac
+  case "$HP" in *'ask-acts'*) ok "超级 Agent · 历史里活动区默认折叠(details)" ;;
+                *) bad "超级 Agent · 活动区没折叠" "对话区讲结论,过程别抢注意力" ;; esac
+  case "$HP" in *'data-ask-copy'*) ok "超级 Agent · 回答上有复制/重来" ;;
+                *) bad "超级 Agent · 回答没有逐条操作" "复制与重来是完成态的 table stakes" ;; esac
 else
-  ok "问一问-库里没有带回答的会话(跳过历史渲染断言 · 本机基线无模型调用)"
+  ok "超级 Agent · 库里没有带回答的会话(跳过历史渲染断言 · 本机基线无模型调用)"
+fi
+
+# ⑯ 改名后的入口:导航里是「超级 Agent」且带 AI 徽记(PC + 移动两处)
+DASH2="$(GET /dashboard)"
+NAV_N=$(printf '%s' "$DASH2" | grep -c '超级 Agent')
+AITAG_N=$(printf '%s' "$DASH2" | grep -c 'title="用大白话问自己的账')
+if [ "${NAV_N:-0}" -ge 2 ] && [ "${AITAG_N:-0}" -ge 2 ]; then
+  ok "超级 Agent · 导航两处都改名且带 AI 徽记(PC + 移动)"
+else
+  bad "超级 Agent · 导航入口不全" "改名 $NAV_N 处 · AI 徽记 $AITAG_N 处(各应 ≥2)"
+fi
+case "$DASH2" in *'问一问'*) bad "超级 Agent · 旧名残留" "全站不该再出现「问一问」" ;;
+                 *) ok "超级 Agent · 旧名已清干净" ;; esac
+
+# ⑰ 空态欢迎语在轮换:连取两次拿到的句子不应恒等
+G1="$(GET /ask | grep -oE 'class="ask-empty-lead"[^>]*>[^<]*' | sed 's/.*>//')"
+G2=""; for _ in 1 2 3 4 5 6; do
+  G2="$(GET /ask | grep -oE 'class="ask-empty-lead"[^>]*>[^<]*' | sed 's/.*>//')"
+  [ -n "$G1" ] && [ "$G2" != "$G1" ] && break
+done
+if [ -n "$G1" ] && [ "$G2" != "$G1" ]; then
+  ok "超级 Agent · 空态欢迎语每次进来换一句"
+else
+  bad "超级 Agent · 欢迎语没在换" "六次取到的都是同一句:$G1"
+fi
+
+# ⑱ 底栏只留账期币种 + 一句和 AI 有关的;运维细节(跑在哪条 runtime)不占用户版面
+FOOT="$(GET /ask | tr '\n' ' ' | sed 's/<[^>]*>/ /g')"
+case "$FOOT" in *'来自财务智能体'*) ok "超级 Agent · 底栏署名是智能体" ;;
+                *) bad "超级 Agent · 底栏署名缺失" "应有「来自财务智能体」" ;; esac
+case "$FOOT" in *'本机直连(不需要公网)'*) bad "超级 Agent · 底栏还在暴露 runtime" "那是运维细节,属于「AI 接入」页" ;;
+                *) ok "超级 Agent · 底栏不再暴露 runtime 细节" ;; esac
+
+# ⑲ 富展示的两条通道都接上了(容器契约 + 沙箱)
+ASKJS="$(curl -s "$BASE/js/ask-charts.js")"
+case "$ASKJS" in *"sandbox', 'allow-scripts'"*) ok "超级 Agent · 自由 HTML 走 sandbox iframe" ;;
+                 *) bad "超级 Agent · 自由 HTML 没走沙箱" "模型输出不可信,必须 opaque origin" ;; esac
+case "$ASKJS" in *"'allow-scripts allow-same-origin'"*|*'"allow-scripts allow-same-origin"'*)
+                   bad "超级 Agent · 沙箱给了 same-origin" "等于把 cookie 和 DOM 交出去" ;;
+                 *) ok "超级 Agent · 沙箱未给 same-origin(判据看属性值,不扫注释)" ;; esac
+
+# ⑳ 历史里带图表的会话能渲染出图表容器(库里有就验,没有就说明跳过)
+CH="$(db "SELECT conversation_id FROM ask_message WHERE role='assistant'
+          AND content_text LIKE '%{{chart:%'
+          AND conversation_id IN (SELECT id FROM ask_conversation WHERE family_id=$FAM)
+          ORDER BY id DESC LIMIT 1")"
+if [ -n "$CH" ]; then
+  case "$(GET "/ask?conv=$CH")" in
+    *data-ask-chart*) ok "超级 Agent · 历史里的图表标记渲染成图表容器" ;;
+    *) bad "超级 Agent · 图表标记没渲染" "标记会原样漏在正文里" ;; esac
+else
+  ok "超级 Agent · 库里没有带图的会话(跳过图表渲染断言 · 本机基线无模型调用)"
 fi
 
 # ============================================================================

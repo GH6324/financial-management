@@ -87,7 +87,7 @@ public class AskConversationService {
 
     /** 不可用的人话原因;可用则 null */
     public String blockedReason(long familyId) {
-        if (!enabled(familyId)) return "「问一问」还没打开。到「AI 接入」页开一下。";
+        if (!enabled(familyId)) return "「超级 Agent」还没打开。到「AI 接入」页开一下。";
         return runtime().unavailableReason(familyId);
     }
 
@@ -254,6 +254,8 @@ public class AskConversationService {
         private final StringBuilder text = new StringBuilder();
         private final Map<String, AskToolResult.Cite> cites = new LinkedHashMap<>();
         private final List<AskToolCall> calls = new ArrayList<>();
+        /** toolStart 时拿到参数、toolDone 时才落库,中间存一下 */
+        private final Map<String, String> pendingArgs = new LinkedHashMap<>();
         private boolean closed = false;
 
         Collector(long conversationId, AskSink out) {
@@ -263,15 +265,20 @@ public class AskConversationService {
 
         @Override public void status(String t) { out.status(t); }
 
-        @Override public void toolStart(String tool, String label) { out.toolStart(tool, label); }
+        @Override
+        public void toolStart(String tool, String label, String args) {
+            pendingArgs.put(tool, args);
+            out.toolStart(tool, label, args);
+        }
 
         @Override
         public void toolDone(String tool, String label, int ms, boolean ok,
-                             Map<String, AskToolResult.Cite> citable) {
+                             String summary, Map<String, AskToolResult.Cite> citable) {
             cites.putAll(citable);
             calls.add(AskToolCall.builder()
-                    .toolName(tool).argsJson(null).durationMs(ms).ok(ok).build());
-            out.toolDone(tool, label, ms, ok, citable);
+                    .toolName(tool).argsJson(pendingArgs.get(tool))
+                    .durationMs(ms).ok(ok).summary(summary).build());
+            out.toolDone(tool, label, ms, ok, summary, citable);
         }
 
         @Override
@@ -322,6 +329,13 @@ public class AskConversationService {
             out.failed(msg);
         }
 
+        /** 正文里有没有引用这个 key —— 正文写法与图表写法都算 */
+        private boolean referenced(String body, String key) {
+            return body.contains("{{cite:" + key + "}}")
+                || body.contains("\"cite\":\"" + key + "\"")
+                || body.contains("\"cite\": \"" + key + "\"");
+        }
+
         private void persist() {
             if (closed) return;
             closed = true;
@@ -337,9 +351,14 @@ public class AskConversationService {
             messageMapper.insert(m);
 
             // 只存正文真的引用到的 —— 一轮里工具可能返回几十个可引用项,
-            // 全存进去等于把整张透视表抄进库,而没被引用的那些没有任何用处
+            // 全存进去等于把整张透视表抄进库,而没被引用的那些没有任何用处。
+            //
+            // **两种引用写法都要认**:正文里是 {{cite:c3}},而图表标记里是 "cite":"c3"。
+            // 只认前一种的后果是:模型只画图、不在正文点名数字时,引用一个都不落库 ——
+            // 流式那一刻图是对的(数据还在内存里),刷新之后整张图消失。
+            // e2e 就是这么抓到的(库里有 chart 标记、页面上却没有图表容器)。
             cites.forEach((key, c) -> {
-                if (!body.contains("{{cite:" + key + "}}")) return;
+                if (!referenced(body, key)) return;
                 citationMapper.insert(AskCitation.builder()
                         .messageId(m.getId()).citeKey(key).metricKey(c.metricKey()).label(c.label())
                         .periodId(c.periodId()).inProgress(c.inProgress())

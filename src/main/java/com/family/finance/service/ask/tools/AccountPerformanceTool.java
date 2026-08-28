@@ -128,6 +128,7 @@ public class AccountPerformanceTool implements AskTool {
         if (inProgress) {
             b.metaExtra("warning", label + " 还没关账,本期损益会随后续录入变化。");
         }
+        b.summary(out.size() + " 个账户 · " + label + (inProgress ? " · 进行中" : ""));
         return b.meta(anchor.getId(), label, inProgress, "factview.accountPerformance",
                 family.getBaseCurrency()).build();
     }

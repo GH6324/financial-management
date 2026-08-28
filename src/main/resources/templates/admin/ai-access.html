@@ -57,27 +57,27 @@
     <div th:if="${askError}" class="border-l-2 border-rust bg-rust/[0.05] px-4 py-3 mb-6 text-[13px] text-ink"
          th:text="${askError}"></div>
 
-    <!-- ══════════ 问一问 ══════════
+    <!-- ══════════ 超级 Agent ══════════
          放在最前面:多数人来这一页是为了「让家里人能用大白话问账」,
          而不是为了发一把给外部 agent 的口令。口令那套在下面,给需要接外部客户端的人。 -->
     <div class="paper-card p-6 mb-8">
       <div class="flex items-baseline gap-3 mb-3">
-        <div class="eyebrow">问 · 一 · 问</div>
+        <div class="eyebrow">超级 Agent</div>
         <span class="state-tag" th:classappend="${askEnabled} ? ' on' : ' off'"
               th:text="${askEnabled} ? '已开启' : '未开启'">未开启</span>
         <span style="flex:1"></span>
         <a th:if="${askEnabled and askBlocked == null}" th:href="@{/ask}"
-           class="font-mono text-[10px] text-ink hover:underline">去问一问 →</a>
+           class="font-mono text-[10px] text-ink hover:underline">去超级 Agent →</a>
       </div>
       <p class="text-[13px] text-ink-soft leading-relaxed mb-4">
-        开了之后,家里人可以在任何一页点右下角的「问一问」,用大白话问自己的账。
+        开了之后,家里人可以在任何一页点右下角的「超级 Agent」,用大白话问自己的账。
         回答里的每个数字都<b>带账期、能点回原页核对</b> —— 数字由系统算好交给 AI,AI 不做任何计算。
       </p>
 
       <form method="post" th:action="@{/admin/ai-access/ask-settings}" class="flex flex-col gap-4">
         <label class="flex items-start gap-2.5 cursor-pointer">
           <input type="checkbox" name="enabled" value="true" th:checked="${askEnabled}" class="mt-1">
-          <span class="text-[13px] text-ink">打开「问一问」</span>
+          <span class="text-[13px] text-ink">打开「超级 Agent」</span>
         </label>
 
         <div>

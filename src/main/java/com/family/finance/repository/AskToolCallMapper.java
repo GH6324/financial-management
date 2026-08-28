@@ -10,10 +10,10 @@ import java.util.List;
 public interface AskToolCallMapper {
 
     String COLS = " id, message_id AS messageId, tool_name AS toolName, args_json AS argsJson,"
-                + " duration_ms AS durationMs, ok ";
+                + " duration_ms AS durationMs, ok, summary ";
 
-    @Insert("INSERT INTO ask_tool_call (message_id, tool_name, args_json, duration_ms, ok)"
-          + " VALUES (#{messageId}, #{toolName}, #{argsJson}, #{durationMs}, #{ok})")
+    @Insert("INSERT INTO ask_tool_call (message_id, tool_name, args_json, duration_ms, ok, summary)"
+          + " VALUES (#{messageId}, #{toolName}, #{argsJson}, #{durationMs}, #{ok}, #{summary})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(AskToolCall t);
 

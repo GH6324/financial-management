@@ -15,8 +15,13 @@ public interface AskSink {
     /** 阶段提示:「正在查资产分布」这类,给用户看的人话 */
     void status(String text);
 
-    /** 某个工具开始跑 */
-    void toolStart(String toolName, String label);
+    /**
+     * 某个工具开始跑。
+     *
+     * @param args 调用参数摘要(「rows=[custody] · measures=[value,share]」)——
+     *             思考过程要能看出它<b>查了什么</b>,只报工具名等于什么都没说
+     */
+    void toolStart(String toolName, String label, String args);
 
     /**
      * 某个工具跑完。
@@ -25,6 +30,7 @@ public interface AskSink {
      *                正文里出现 {@code {{cite:key}}} 时,渲染取的就是这里的值。
      */
     void toolDone(String toolName, String label, int durationMs, boolean ok,
+                  String summary,
                   java.util.Map<String, com.family.finance.service.ask.AskToolResult.Cite> citable);
 
     /** 正文增量 —— 可能含 {{cite:xx}} 标记,原样传,不要在 runtime 里替换 */

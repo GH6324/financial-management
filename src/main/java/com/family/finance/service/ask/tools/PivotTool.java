@@ -208,6 +208,11 @@ public class PivotTool implements AskTool {
         if (anchorOpen) {
             b.metaExtra("warning", label + " 还没关账,余额可能还没录齐。引用这一期的数时要说这句。");
         }
+        b.summary(r.rowKeys().size() + " 组 · 按" + String.join(" / ", rows.stream()
+                        .map(d -> { LensRegistry.Dimension dd = LensRegistry.DIMENSIONS.get(d);
+                                    return dd == null ? d : dd.label(); }).toList())
+                + (grand != null && !grand.isEmpty() && grand.get(0) != null
+                   ? " · 合计 " + display(r.measures().get(0), grand.get(0), ccy) : ""));
         return b.meta(anchorId, label, anchorOpen, "lens.pivot", ccy).build();
     }
 

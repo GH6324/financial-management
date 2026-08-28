@@ -59,6 +59,7 @@ public class ReportUnmetTool implements AskTool {
         return AskToolResult.of(name())
                 .put("recorded", true)
                 .put("note", "已记下。现在请如实告诉用户这一项你看不到,并说明你能看到的是什么。")
+                .summary("记下一条够不着:" + (q.length() > 18 ? q.substring(0, 18) + "…" : q))
                 .meta(null, null, false, "ask.unmet", null)
                 .build();
     }
