@@ -5521,7 +5521,7 @@ OPSC="$RD/deploy/_common-env.sh"; BKN="$RD/deploy/backup-now.sh"; RST="$RD/deplo
 
 # v1629-XIRR-LEDGER · 报表 XIRR:tooltip 端点必须与指标同源 + 收入口径全页统一(用户第 19 轮)
 #   用户报「prod 新关一期后家庭 XIRR(含收入)是 0,不对吧」。**先复算再改**:在 prod 数据上逐步还原,
-#   6 月投资损益 -330,336.95、7 月 +330,335.91,合计 -1.04 元 → -0.00001% → 显示 0.00%。
+#   6 月投资损益 -111,222.95、7 月 +111,221.91,合计 -1.04 元 → -0.00001% → 显示 0.00%。
 #   **XIRR 本身算得是对的**(排查中我一度把 12,434 USD 的开账基线当成 CNY,得出 0.79%,已更正)。
 #   但顺着查出两个真缺陷:
 #     ① **tooltip 显示的端点不是 XIRR 用的那两个数**:firstNW/lastNW 取自 netWorthTrendExOpening
@@ -6168,7 +6168,7 @@ section "v1.11 · 报表/仪表盘性能 + 交互 + 口径一致性(维护者 13
 #   两处都踩过:① 截断轴的斜纹带原来横贯整宽贴在 .wf 底边,而 X 轴标签(.wf-lab)是**溢出**
 #   .wf 之外的 → 那条边正好穿过标签中间,把「期初净资产 / 2026-07」压掉一半;
 #   ② 最高柱的顶部标签定位在柱顶 -1.05rem,贴着容器上边 → 被 overflow 裁掉一半。
-#   ③ 标签比柱子宽(¥1,946,957 约 178px vs 柱宽 ~127px),溢出部分会被 DOM 顺序在后的柱子背景盖住。
+#   ③ 标签比柱子宽(¥1,234,567 约 178px vs 柱宽 ~127px),溢出部分会被 DOM 顺序在后的柱子背景盖住。
 #   修法:斜纹带只画在**柱内底部**(柱底就是轴线,语义一样但不碰字)· .wf 加 padding-top 给顶部标签留位
 #   · 标签给 z-index 浮到所有柱子之上。
 { grep -q '.wf-truncated .wf-bar::before' "$RD/src/main/resources/static/css/style.css" \
@@ -6294,7 +6294,7 @@ MINOR=$(printf '%s' "$APPV" | cut -d. -f1,2)
 #   是单测造的家庭,「净资产 100 万远大于阈值 5」是讲判据,而「同一时刻 checkup ¥5399878」
 #   是 prod 实测。机器分不出来,硬扫会得到一条天天红的护栏,然后被人关掉(这一版刚为
 #   「误报会让告警被关掉」付过代价)。要收得先由维护者逐条裁定哪些是真的。
-QA111_SYNTH='53,210|48,765|61,234|40,000|35,000|1,234,567\.89|123,456\.78'
+QA111_SYNTH='53,210|48,765|61,234|40,000|35,000|1,234,567\.89|123,456\.78|1,234,567|1,234,568|1,000,000|2,000,000|1,140,000|1,520,000|99,999,999|10,950,000|1,200,000|1,500,000|1,140,580|4,917,500|7,745,000|1,552,823|1,628,895|3,181,718|3,762,836|17,901,892|0,891,892,893,890|7,747,000|111,221.91|111,222.95'
 # 【基线 · 待裁定】把扫描面扩到源码/模板时一次性捞出来的存量(v1.19)。
 #   里面**真假混杂**:有的是单测造的家庭、股价报文片段、模板占位;但也确实有真的 ——
 #   `451,497.63` 就是本条护栏自己的注释里点名过的真实余额。机器分不出来,
@@ -6304,17 +6304,38 @@ QA111_SYNTH='53,210|48,765|61,234|40,000|35,000|1,234,567\.89|123,456\.78'
 #   万/w 简写、裸数字是同一批待裁定存量)。
 QA111_LEGACY='00,128\.00|00,395\.00|00,398\.50|00,400\.00|00,402\.00|00,893\.00|02,901\.07|0,891\.00|164,924\.63|17,705\.41|2,290,051\.41|2,326,051\.41|26,519\.00|274,067\.44|35,000\.00|36,000\.00|36,519\.00|375,248\.71|40,000\.00|42,318\.60|451,497\.63|5,000\.00|546,432\.63|76,248\.92|8,920\.00'
 #   v1.19 · 范围第三次扩:【源码与单测也算公开文档】。
-#     这一版写 javadoc 时,为了说明「1816693.76 和页面上的 ¥1,816,693.76 是同一个数」,
+#     这一版写 javadoc 时,为了说明「1234567.89 和页面上的 ¥1,234,567.89 是同一个数」,
 #     直接把 beta 上的真实余额抄进了注释;单测断言里也放了一个真实净资产。
 #     护栏一声不吭 —— 它只看 .md。而 .java 一样会被推到公开仓库,曝光度不比文档低。
 #     注释里举例**永远可以用编的数**,没有任何理由用真的。
 #     模板与静态资源同理(preview mockup 除外,那本来就是合成数)。
+#     **scripts/ 也要扫**:v1.19 修这条护栏时,我在解释判据的注释里就用了一个真实金额当例子,
+#     而脚本目录当时不在扫描范围 —— 写护栏的人栽在自己没覆盖到的地方。
+#     扫脚本本身是自洽的:白名单里的值按定义就在白名单里,只有额外的会被抓。
+#     **推论:这段说明文字里不许再出现任何金额形状的字面值** —— 它已经绊倒过自己两次
+#     (一次是拿真实余额举例,一次是照抄白名单条目)。要举例就描述形状,别写数字。
 bad_money=0
 for f in "$RD"/docs/*audit*.md "$RD"/docs/*review*.md "$RD"/README.md "$RD"/docs/qa-cases.md \
          "$RD"/prd/*.md "$RD"/tech-design/*.md \
+         "$RD"/scripts/*.sh \
          $(find "$RD/src" -name '*.java' -o -name '*.html' 2>/dev/null); do
   [ -f "$f" ] || continue
-  hits="$(grep -oE '[0-9]{1,3}(,[0-9]{3})+\.[0-9]{2}' "$f" | grep -vE "^($QA111_SYNTH|$QA111_LEGACY)$" | sort -u)"
+  # 两种形态都要认(v1.19 第三次补):
+  #   ① 带两位小数的千分位金额  `123,456.78` / `1,234,567.89`
+  #   ② **不带小数、两个及以上千分位**的金额 `1,234,568` —— 这正是 MetricExplainService
+  #      给出的显示形态(整元不带小数),v1.19 写注释举例时又漏进去一个,而旧判据要求
+  #      两位小数,一声没吭。只有一个千分位的(五位数量级)不收:那个量级里
+  #      合成举例远多于真实余额,收进来只会得到一条天天红的护栏。
+  #   **不要加 (?!...) 前瞻** —— 那是 PCRE 语法,grep -E 不认,带上它整条正则非法、
+  #   grep 报错返回空,这条护栏就会在「什么都没检查」的状态下变绿(写的时候真踩了)。
+  # 先剔掉两类**结构性误报**,再扫。它们该在判据里排掉,不该逐个进白名单:
+  #   · rgb()/rgba() 颜色三元组(每加一个配色都要登记,白名单会失控)
+  #   · 花括号展开    —— `iconN-{96,180,192,512}.png` 这种尺寸列表
+  #   · 反斜杠 —— 白名单里存的是**正则**(小数点写成 \\.),不去掉的话小数支匹配不上、
+  #     整数支反而抓到不带小数的前缀,护栏会把自己的白名单报成泄露
+  hits="$(sed -E 's/rgba?\([^)]*\)//g; s/\{[0-9, ]+\}//g; s/\\//g' "$f" \
+          | grep -oE '[0-9]{1,3}(,[0-9]{3})+\.[0-9]{2}|[0-9]{1,3}(,[0-9]{3}){2,}' \
+          | grep -vE "^($QA111_SYNTH|$QA111_LEGACY)$" | sort -u)"
   if [ -n "$hits" ]; then
     bad_money=1
     echo "      ↑ 含疑似真实金额: ${f#$RD/} → $(echo "$hits" | tr '\n' ' ')"
@@ -7439,8 +7460,11 @@ QA119_SHELLS=$(grep -lE 'ask/fragments/_stream :: stream' "$QA119_T/index.html" 
 # v119-ASK-NO-AUTOSCROLL · 流式脚本不许无条件滚到底。
 #   用户往回翻看上一条回答时被弹回底部,是流式界面最招人烦的一件事,而且长回答期间会反复发生。
 QA119_JS="$RD/src/main/resources/static/js/ask.js"
+# 判据不绑变量名 —— 第一版写死 `keepBottom(wasAtBottom)`,改版时参数改叫 was 就红了,
+# 而被守的东西一个字没变。真正的不变量是两条:① 有「现在在不在底部」的判定;
+# ② 滚动函数**内部有条件**,不是无脑滚。再加上不许出现 scrollIntoView。
 { grep -q 'function atBottom' "$QA119_JS" \
-  && grep -q 'keepBottom(wasAtBottom)' "$QA119_JS" \
+  && grep -A1 'function keepBottom' "$QA119_JS" | grep -q 'if (' \
   && ! grep -nE 'scrollIntoView' "$QA119_JS" | grep -qvE ':\s*\*|:\s*//'; } \
   && log_ok "v119-ASK-NO-AUTOSCROLL(只在用户本来就在底部时才跟着滚)" \
   || log_bad "v119-ASK-NO-AUTOSCROLL 出现了无条件滚动" "无条件 scrollIntoView 会把正在往回看的用户弹回底部"
@@ -7462,6 +7486,64 @@ QA119_JS="$RD/src/main/resources/static/js/ask.js"
   && grep -q 'text.setLength(at)' "$QA119_SVC/AskConversationService.java"; } \
   && log_ok "v119-ASK-ROLLBACK(工具前旁白撤回 · 界面降级为灰字 · 库里不留)" \
   || log_bad "v119-ASK-ROLLBACK 旁白撤回链路不全" "AskSink.rollback → runtime 调用 → Collector 砍缓冲,三处缺一不可"
+
+# ─── v1.19 改版(对齐 Claude / ChatGPT / Manus 的结构规范)──────────────────
+
+QA119_CSS="$RD/src/main/resources/static/css/style.css"
+QA119_STREAM="$QA119_T/fragments/_stream.html"
+
+# v119-ASK-STOPPABLE · 能停下来。
+#   长回答要跑一两分钟,而用户常在半句话之内就知道方向错了 —— 让他干等是没道理的。
+#   停止是**协作式**的:三处缺一不可 —— sink 暴露 cancelled、runtime 在读流循环里逐行看它、
+#   controller 有置位的端点。少了 runtime 那一环,按钮点了也只是把前端连接关掉,
+#   上游照样在跑、照样在计费。
+{ grep -q 'boolean cancelled();' "$QA119_RT/AskSink.java" \
+  && grep -q 'if (sink.cancelled()) break;' "$QA119_RT/LocalToolLoopRuntime.java" \
+  && grep -q '@PostMapping("/ask/{id}/stop")' "$QA119_WEB/AskController.java" \
+  && grep -q 'data-ask-stop' "$QA119_STREAM"; } \
+  && log_ok "v119-ASK-STOPPABLE(停止链路四处齐全:契约 / 读流循环逐行检查 / 端点 / 按钮)" \
+  || log_bad "v119-ASK-STOPPABLE 停止链路不全" "少了 runtime 那一环的话,点停止只是关掉前端连接,上游还在计费"
+
+# v119-ASK-FOLLOWUPS · 追问 chip(FR-424b)。
+#   v1.19 第一版漏了它 —— PRD 承诺过、预览里画了、代码里没有。
+#   链路是「提示词要求模型产出 → 渲染器抽出来 → 模板渲染成可点按钮」,三处缺一就静默失效。
+{ grep -q '{{next:' "$QA119_SVC/AskPromptBuilder.java" \
+  && grep -q 'public List<String> nextQuestions' "$QA119_SVC/AskCitationRenderer.java" \
+  && grep -q 'ask-nexts' "$QA119_STREAM" \
+  && grep -q 'ask-nexts' "$QA119_JS"; } \
+  && log_ok "v119-ASK-FOLLOWUPS(追问链路四处齐全:提示词 / 抽取 / 模板 / 流式)" \
+  || log_bad "v119-ASK-FOLLOWUPS 追问 chip 链路不全" "FR-424b 承诺过,第一版就是这么漏掉的"
+
+# v119-ASK-NO-BUBBLE · 不用气泡。
+#   这是改版时最反直觉的一条判断,所以要钉住,否则下次很容易被「加个气泡更像聊天」改回去。
+#   理由:圆角实心气泡传递的是「随便聊聊」,削弱工具感;而且 AI 那侧是扁平长文,
+#   一边气泡一边文档,自己跟自己打架。Claude / ChatGPT / Cursor 都已经改成扁平。
+#   判据看的是「用户消息不许有实心底色 + 大圆角」这两样气泡的构成要件。
+#   取块用 awk 按**空行**切,不用 sed 的 /^}/ —— 本仓库 CSS 是紧凑单行风格,
+#   行首独立的 } 几乎不存在,第一版判据因此一路抓到后面的规则,拿 .ask-note 的圆角当成了气泡。
+QA119_ME=$(awk '/^\.ask-me/{f=1} f&&/^[[:space:]]*$/{f=0} f' "$QA119_CSS")
+QA119_BUBBLE=$(printf '%s' "$QA119_ME" | grep -cE 'background:var\(--ink\)|border-radius:[0-9]')
+{ [[ "$QA119_BUBBLE" -eq 0 ]] \
+  && ! grep -q 'ask-bub-me' "$QA119_STREAM" "$QA119_JS" \
+  && printf '%s' "$QA119_ME" | grep -q 'border-bottom'; } \
+  && log_ok "v119-ASK-NO-BUBBLE(用户消息扁平 · 右对齐 + 细下划线,不是实心圆角气泡)" \
+  || log_bad "v119-ASK-NO-BUBBLE 用户消息又变回气泡了" "气泡削弱工具感,且与 AI 侧的扁平长文打架"
+
+# v119-ASK-READING-WIDTH · 正文列宽。
+#   768 是 Claude / ChatGPT 收敛出来的值(约 65–72 西文字符);中文 15px 下一行约 40 字。
+#   改版前是 860px + 13.5px,一行奔 60 个汉字 —— 那是文档排版不是对话排版,长回答读着串行。
+{ grep -q -- '--ask-col: 768px' "$QA119_CSS" \
+  && grep -q 'max-width:var(--ask-col)' "$QA119_CSS" \
+  && grep -q 'ask-col' "$QA119_STREAM"; } \
+  && log_ok "v119-ASK-READING-WIDTH(正文列 768px · 中文一行约 40 字)" \
+  || log_bad "v119-ASK-READING-WIDTH 正文列宽没收住" "一行 60 个汉字读起来会串行"
+
+# v119-ASK-STREAM-CURSOR · 流式光标。
+#   没有它,模型思考的停顿会被读成「已经结束了」—— 这是规范里点名的「掉了就出事」的一条。
+{ grep -q 'ask-caret-live' "$QA119_JS" && grep -q '\.ask-caret-live' "$QA119_CSS"; } \
+  && log_ok "v119-ASK-STREAM-CURSOR(流式期间有光标)" \
+  || log_bad "v119-ASK-STREAM-CURSOR 没有流式光标" "停顿会被读成已结束"
+
 
 # v119-CUSTODY-EXHAUSTIVE · 加新 AccountType 必须在托管形式里表态
 { grep -q 'CustodyForm' "$RD/src/main/java/com/family/finance/domain/lens/CustodyForm.java" \

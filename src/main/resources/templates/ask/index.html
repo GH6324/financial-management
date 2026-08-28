@@ -11,21 +11,28 @@
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('ask', ${me}, ${nav})}"></header>
 
-<main class="flex-1 min-h-0 max-w-[860px] w-full mx-auto px-0 sm:px-4 lg:px-10 sm:py-6 flex flex-col relative z-10">
-  <div class="flex-1 min-h-0 flex flex-col sm:border sm:border-rule sm:rounded-xl sm:bg-paper overflow-hidden">
+<main class="ask-main">
+  <div class="ask-shell">
 
-    <div class="hidden sm:flex items-center justify-between px-4 py-3 border-b border-rule shrink-0">
-      <div class="flex items-center gap-2.5 min-w-0">
-        <span class="text-[12.5px] tracking-[.18em] text-ink shrink-0">问 · 一 · 问</span>
-        <span th:if="${conv != null}" class="text-[12.5px] text-ink-soft truncate" th:text="${conv.title}">标题</span>
-      </div>
-      <button type="button" data-ask-new
-              class="text-[12px] px-2.5 py-1 rounded-md border border-rule hover:bg-card-soft text-ink-soft">新对话</button>
+    <!-- 顶栏:标题 + 「这段对话基于哪一期哪个币种」。
+         上下文必须写出来 —— 同一个问题在不同账期下答案不同,而用户切过账期是不会记得的。 -->
+    <div class="ask-head">
+      <span class="eyebrow ask-head-brand">问 · 一 · 问</span>
+      <span class="ask-head-ctx" th:text="${ctxLabel}">2026-08 · CNY</span>
+      <span class="ask-head-title" th:if="${conv != null}" th:text="${conv.title}">标题</span>
+      <span class="ask-head-gap"></span>
+      <button type="button" class="ask-icon ask-priv" onclick="togglePrivacy()"
+              aria-label="隐藏 / 显示金额" title="隐藏金额(公共场合 / 分享)">
+        <svg class="priv-eye-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="priv-eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+      </button>
+      <button type="button" data-ask-new class="ask-mini" title="新对话">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>新对话
+      </button>
     </div>
 
-    <th:block th:replace="~{ask/fragments/_stream :: stream(${conv}, ${messages}, ${presets}, ${blocked}, ${runtimeLabel})}"></th:block>
+    <th:block th:replace="~{ask/fragments/_stream :: stream(${conv}, ${messages}, ${presets}, ${blocked}, ${runtimeLabel}, ${ctxLabel}, ${recent})}"></th:block>
   </div>
-
 </main>
 
 <!-- ask.js 由 layout::footer 统一加载(全站都要用),这里不再重复引 -->

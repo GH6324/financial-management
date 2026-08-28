@@ -33,6 +33,12 @@ import java.util.regex.Pattern;
 public class AskCitationRenderer {
 
     private static final Pattern CITE = Pattern.compile("\\{\\{cite:([A-Za-z0-9_]{1,14})}}");
+    /** 追问标记 · FR-424b。与 cite 同一套形状,渲染期抽出来变成 chip */
+    private static final Pattern NEXT = Pattern.compile("\\{\\{next:([^}\\n]{1,40})}}");
+    /** 一轮最多给几条追问 —— 再多就成了一屏按钮,用户反而不知道点哪个 */
+    private static final int MAX_NEXT = 3;
+    /** 「- xxx」/「1. xxx」列表项 */
+    private static final Pattern LIST_ITEM = Pattern.compile("^(?:[-*·]|\\d{1,2}[.)])\\s+(.*)$");
     /** 正文里出现的裸金额 —— 用来判定「模型没听话,自己抄数字了」 */
     private static final Pattern BARE_MONEY =
             Pattern.compile("(?<![\\d.])\\d{1,3}(,\\d{3})+(\\.\\d+)?(?![\\d.])|(?<![\\d.])\\d{5,}(\\.\\d+)?(?![\\d.])");
@@ -137,27 +143,84 @@ public class AskCitationRenderer {
      * <p>先转义再替换标记 —— 顺序反了就等于把模型的输出当 HTML 执行。
      * 模型的输出是不可信输入,哪怕它是我们自己配的模型:提示词注入可以从用户的账户名里来。</p>
      */
+    /**
+     * 正文里的追问建议。
+     *
+     * <p>存在正文里(而不是单开一张表)是刻意的:它和 {@code {{cite:}}} 同一套形状,
+     * 落库、回放、导出都走同一条路,不需要为三个短句再加一张表和一套装配逻辑。</p>
+     */
+    public List<String> nextQuestions(String body) {
+        if (body == null) return List.of();
+        List<String> out = new java.util.ArrayList<>();
+        Matcher m = NEXT.matcher(body);
+        while (m.find() && out.size() < MAX_NEXT) {
+            String q = m.group(1).trim();
+            if (!q.isEmpty() && !out.contains(q)) out.add(q);
+        }
+        return out;
+    }
+
+    /**
+     * 供「复制」用的纯文本:引用标记换成真实数值,追问标记去掉。
+     *
+     * <p>复制出去的东西里<b>不能留 {@code {{cite:c1}}}</b> —— 粘到微信里对方看到一串花括号,
+     * 而这条回答的价值恰恰在那几个数字上。</p>
+     */
+    public String plainText(String body, List<AskCitation> citations) {
+        if (body == null) return "";
+        Map<String, String> vals = new LinkedHashMap<>();
+        for (AskCitation c : citations) {
+            AskCitation d = decorate(c);
+            vals.put(d.getCiteKey(), d.getLabel() + " " + d.getValueText()
+                    + (d.isInProgress() ? "(未关账)" : ""));
+        }
+        StringBuilder sb = new StringBuilder();
+        Matcher m = CITE.matcher(body);
+        while (m.find()) {
+            m.appendReplacement(sb, Matcher.quoteReplacement(
+                    vals.getOrDefault(m.group(1), "")));
+        }
+        m.appendTail(sb);
+        return NEXT.matcher(sb.toString()).replaceAll("").replaceAll("\n{3,}", "\n\n").trim();
+    }
+
     public String renderHtml(String body, List<AskCitation> citations) {
         if (body == null) return "";
+        body = NEXT.matcher(body).replaceAll("");   // 追问单独渲染成 chip,不进正文
         Map<String, AskCitation> byKey = new LinkedHashMap<>();
         for (AskCitation c : citations) byKey.put(c.getCiteKey(), decorate(c));
 
         StringBuilder out = new StringBuilder();
+        boolean inList = false;
         for (String block : escape(body).split("\n{2,}")) {
             if (block.isBlank()) continue;
             for (String line : block.split("\n")) {
                 if (line.isBlank()) continue;
                 String t = line.trim();
+
                 Matcher only = CITE.matcher(t);
                 // 整行只有一个标记 → 独立的引用卡(审过的预览就是这个形态)
                 if (only.matches()) {
+                    if (inList) { out.append("</ul>"); inList = false; }
                     AskCitation c = byKey.get(only.group(1));
                     if (c != null) out.append(card(c));
                     continue;
                 }
+
+                // 「- xxx」列表项。不认它的话每条会变成独立段落,间距撑得像三段话,
+                // 而且行首那个裸的短横线会原样显示出来。
+                Matcher li = LIST_ITEM.matcher(t);
+                if (li.matches()) {
+                    if (!inList) { out.append("<ul>"); inList = true; }
+                    out.append("<li>").append(inline(li.group(1), byKey)).append("</li>");
+                    continue;
+                }
+
+                if (inList) { out.append("</ul>"); inList = false; }
                 out.append("<p>").append(inline(t, byKey)).append("</p>");
             }
         }
+        if (inList) out.append("</ul>");
         return out.toString();
     }
 

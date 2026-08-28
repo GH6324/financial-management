@@ -1507,7 +1507,7 @@ body.upd-open #priv-float { display: none !important; }
 }
 .wf-col:last-child .wf-bar::after { display: none; }
 .wf-dl {
-  /* v1.11.1 · 标签比柱子宽(¥1,946,957 约 178px vs 柱宽 ~127px),溢出的部分会被 DOM 顺序在后的
+  /* v1.11.1 · 标签比柱子宽(¥1,234,567 约 178px vs 柱宽 ~127px),溢出的部分会被 DOM 顺序在后的
      柱子背景盖住 —— .wf-bar 没有 z-index 不构成层叠上下文,所以给标签 z-index 就能浮到所有柱子之上。 */
   position: absolute; left: -22%; right: -22%; top: -1.05rem; text-align: center; z-index: 5;
   font-family: "JetBrains Mono", monospace; font-size: 0.62rem; font-weight: 600; white-space: nowrap;
@@ -1649,72 +1649,292 @@ body.upd-open #priv-float { display: none !important; }
 /* 下拉里不可选的平台(还没配 key)*/
 select option:disabled{ color:var(--ink-subtle); font-style:italic; }
 
-/* ══════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════════════════════
    v1.19 · 问一问
-   ══════════════════════════════════════════════════════════════ */
+   ──────────────────────────────────────────────────────────────────────────
+   结构照 Claude / ChatGPT / Manus 已经收敛的那套规范,视觉仍是账房自己的:
+   纸色底、铜色强调、eyebrow 字距。照搬中性灰白会让这一页像从别的产品抄来的 ——
+   全站另外十几个页面都是这套语言,单独一页跳出来只会显得突兀。
+   ══════════════════════════════════════════════════════════════════════════ */
 
-/* ── 引用卡 ──
-   这一版最重要的一个视觉件。四样信息缺一不可:指标名、数值、账期与关账状态、
-   点回原页。缺任何一样,数字就退回成「一个说不清出处的裸数字」—— 而那正是
-   v1.18 一整个系列在修的病。所以样式上也要让它一眼看出「这不是正文,这是有据可查的」。 */
-.ask-cite{ display:block; margin:.5rem 0; padding:.55rem .7rem; text-decoration:none;
-           border:1px solid var(--rule); border-left:2px solid var(--brass);
-           border-radius:5px; background:var(--card-soft); transition:border-color .15s, background .15s; }
-.ask-cite:hover{ border-color:var(--brass); background:var(--card); }
-.ask-cite-top{ display:flex; align-items:baseline; justify-content:space-between; gap:.75rem; }
-.ask-cite-k{ font-size:11.5px; color:var(--ink-soft); letter-spacing:.02em; }
-.ask-cite-v{ font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink);
-             font-weight:600; white-space:nowrap; }
-.ask-cite-meta{ display:flex; align-items:baseline; justify-content:space-between;
-                gap:.75rem; margin-top:.28rem; }
-.ask-cite-per{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-subtle); white-space:nowrap; }
-.ask-cite-go{ font-size:10.5px; color:var(--ink-subtle); text-align:right; line-height:1.4; }
+/* ── 列宽 ──
+   768px 是 Claude / ChatGPT 收敛出来的值,对应约 65–72 个西文字符。
+   中文更宽,15px 下一行约 40 字 —— 长回答读起来不至于串行。
+   之前是 860px + 13.5px,一行奔 60 个汉字,那是文档排版不是对话排版。 */
+:root{ --ask-col: 768px; }
 
-/* 行内引用:模型没把标记单独成行时的退路,不至于句子中间插一张卡 */
-.ask-chip{ display:inline-flex; align-items:baseline; gap:.25rem; padding:.05rem .35rem;
-           margin:0 .1rem; border-bottom:1px solid var(--brass); text-decoration:none;
-           font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--ink); }
-.ask-chip i{ font-style:normal; font-size:9.5px; color:var(--ink-subtle); }
+.ask-main{ flex:1; min-height:0; width:100%; max-width:calc(var(--ask-col) + 5rem);
+           margin:0 auto; display:flex; flex-direction:column; position:relative; z-index:10; }
+.ask-shell{ flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+.ask-panel{ flex:1; min-height:0; display:flex; flex-direction:column; }
+.ask-col{ width:100%; max-width:var(--ask-col); margin:0 auto; }
 
-/* ── 工具行 ── */
+@media (min-width:640px){
+  .ask-main{ padding:1.5rem 1rem; }
+  .ask-shell{ border:1px solid var(--rule); border-radius:12px; background:var(--paper); }
+}
+
+/* ── 顶栏 ── */
+.ask-head{ display:flex; align-items:center; gap:.6rem; flex:none;
+           padding:.7rem 1rem; border-bottom:1px solid var(--rule); }
+.ask-head-brand{ flex:none; color:var(--ink); }
+.ask-head-ctx{ flex:none; font-family:'JetBrains Mono',monospace; font-size:10.5px;
+               color:var(--ink-subtle); border:1px solid var(--rule-soft);
+               border-radius:3px; padding:.1rem .4rem; white-space:nowrap; }
+.ask-head-title{ font-size:12.5px; color:var(--ink-soft); overflow:hidden;
+                 text-overflow:ellipsis; white-space:nowrap; }
+.ask-head-gap{ flex:1; }
+/* 窄屏顶栏放不下「+ 新对话」四个字符,flex 会把它压成竖排 —— 只留图标 */
+@media (max-width:520px){
+  .ask-head{ gap:.45rem; padding:.6rem .8rem; }
+  .ask-head .ask-mini{ font-size:0; padding:.3rem; }
+  .ask-head .ask-mini svg{ width:15px; height:15px; }
+  .ask-head-title{ display:none; }
+}
+
+/* ── 消息区 ── */
+.ask-msgs{ flex:1; min-height:0; overflow-y:auto; padding:1.1rem 1rem .6rem; }
+@media (max-width:520px){
+  .ask-msgs{ padding:.9rem .85rem 0; }
+  .ask-composer-wrap{ padding:.5rem .85rem .4rem; }
+}
+
+/* 用户消息:右对齐 + 一条细下划线,**不用气泡**。
+   圆角实心气泡传递的是「随便聊聊」,和这一页要给的「可核对的账」相冲;
+   而且 AI 那侧是扁平长文,一边气泡一边文档,自己跟自己打架。 */
+.ask-me{ display:flex; justify-content:flex-end; margin:1.4rem 0 1.1rem; }
+.ask-me > div{ max-width:82%; text-align:right; font-size:14.5px; line-height:1.7;
+               color:var(--ink); white-space:pre-wrap;
+               padding-bottom:.45rem; border-bottom:1.5px solid var(--brass); }
+.ask-me:first-child{ margin-top:.2rem; }
+
+/* 旁白:换账期 / 上游出错 / 已叫停。刻意弱 —— 它不是答案 */
+.ask-note{ display:flex; justify-content:center; margin:1rem 0; }
+.ask-note span{ font-size:11.5px; color:var(--ink-subtle); background:var(--card-soft);
+                border:1px solid var(--rule-soft); border-radius:999px; padding:.2rem .7rem; }
+
+.ask-turn{ margin-bottom:1.8rem; }
+
+/* ── 工具执行:默认折叠 ──
+   Manus 那条规矩:对话线程讲结论,自主执行过程另放。常驻平铺会和正文抢注意力,
+   而多数时候用户并不关心它查了哪几个维度 —— 只在数字看着不对时才想看。 */
+.ask-acts{ margin-bottom:.7rem; }
+.ask-acts summary{ display:inline-flex; align-items:center; gap:.35rem; cursor:pointer;
+                   list-style:none; font-size:11.5px; color:var(--ink-subtle);
+                   padding:.15rem .5rem .15rem .3rem; border-radius:4px; user-select:none; }
+.ask-acts summary::-webkit-details-marker{ display:none; }
+.ask-acts summary:hover{ color:var(--ink-soft); background:var(--card-soft); }
+.ask-caret{ display:inline-block; transition:transform .15s; font-size:9px; }
+.ask-acts[open] .ask-caret{ transform:rotate(90deg); }
+.ask-acts-body{ margin:.35rem 0 0 .55rem; padding-left:.7rem;
+                border-left:1px solid var(--rule-soft); }
+.ask-act{ display:flex; align-items:center; gap:.45rem; font-size:11.5px;
+          color:var(--ink-subtle); line-height:1.9; }
+.ask-act-ms{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-faint); }
 .ask-dot{ width:5px; height:5px; border-radius:50%; background:var(--brass); flex:none; }
 .ask-dot.bad{ background:var(--rust); }
 .ask-dot.run{ animation:ask-pulse 1.1s ease-in-out infinite; }
 @keyframes ask-pulse{ 0%,100%{opacity:.28} 50%{opacity:1} }
-.ask-thinking::after{ content:'…'; animation:ask-pulse 1.1s ease-in-out infinite; }
+
+/* 排队中:脉冲点 + 一句话。**不给假进度条** —— 没有进度可报,画一个是骗人 */
+.ask-wait{ display:inline-flex; align-items:center; gap:.45rem;
+           font-size:12.5px; color:var(--ink-soft); }
+.ask-wait::before{ content:''; width:6px; height:6px; border-radius:50%;
+                   background:var(--brass); animation:ask-pulse 1.1s ease-in-out infinite; }
 
 /* ── 正文 ── */
-.ask-body p{ margin:.4rem 0; }
+.ask-body{ font-size:15px; line-height:1.78; color:var(--ink); }
+.ask-body p{ margin:.55rem 0; }
 .ask-body p:first-child{ margin-top:0; }
-.ask-body strong{ font-weight:600; color:var(--ink); }
+.ask-body strong{ font-weight:600; }
+/* 模型很爱用 "- xxx" 列条目。不认它的话每条会变成一个独立段落 ——
+   段间距 .55rem 让三条列表撑得像三段话,而且行首那个裸的短横线很难看。 */
+.ask-body ul{ margin:.5rem 0; padding-left:1.05rem; list-style:none; }
+.ask-body li{ position:relative; margin:.22rem 0; line-height:1.75; }
+.ask-body li::before{ content:''; position:absolute; left:-.85rem; top:.72em;
+                      width:4px; height:4px; border-radius:50%; background:var(--brass); }
+
+/* 流式光标:没有它,模型思考的停顿会被读成「已经结束了」。
+   Claude 用小方块、ChatGPT 用脉冲点 —— 这里取方块,和等宽数字的调性一致。 */
+.ask-caret-live{ display:inline-block; width:.5em; height:1.05em; margin-left:1px;
+                 background:var(--ink); vertical-align:-.16em;
+                 animation:ask-blink 1s step-end infinite; }
+@keyframes ask-blink{ 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+/* ── 引用卡 ──
+   这一版最重要的视觉件。四样缺一不可:指标名、数值、账期与关账状态、点回原页。
+   缺任何一样,数字就退回成「一个说不清出处的裸数字」—— 而那正是 v1.18 一整个系列在修的病。 */
+/* 连排四张时整体重量偏大,所以内距和行距都收过一轮:
+   卡片本身要显眼(它是「这个数有出处」的凭证),但四张叠起来不该盖过正文。 */
+.ask-cite{ display:block; margin:.5rem 0; padding:.5rem .7rem; text-decoration:none;
+           border:1px solid var(--rule); border-left:2px solid var(--brass);
+           border-radius:5px; background:var(--card-soft);
+           transition:border-color .15s, background .15s; }
+.ask-cite:hover{ border-color:var(--brass); background:var(--card); }
+.ask-cite-top{ display:flex; align-items:baseline; justify-content:space-between; gap:.75rem; }
+.ask-cite-k{ font-size:12px; color:var(--ink-soft); letter-spacing:.02em; }
+.ask-cite-v{ font-family:'JetBrains Mono',monospace; font-size:15px; color:var(--ink);
+             font-weight:600; white-space:nowrap; }
+.ask-cite-meta{ display:flex; align-items:baseline; justify-content:space-between;
+                gap:.75rem; margin-top:.2rem; }
+/* 同一组里后面几张贴紧一点 —— 它们是一个整体,不是四件独立的事 */
+.ask-cite + .ask-cite{ margin-top:.3rem; }
+.ask-cite-per{ font-family:'JetBrains Mono',monospace; font-size:9.5px;
+               color:var(--ink-faint); white-space:nowrap; }
+.ask-cite-go{ font-size:10px; color:var(--ink-faint); text-align:right; }
+
+/* 行内引用:模型没把标记单独成行时的退路,不至于句子中间插一张卡 */
+.ask-chip{ display:inline-flex; align-items:baseline; gap:.25rem; padding:.05rem .3rem;
+           margin:0 .1rem; border-bottom:1px solid var(--brass); text-decoration:none;
+           font-family:'JetBrains Mono',monospace; font-size:13.5px; color:var(--ink); }
+.ask-chip i{ font-style:normal; font-size:9.5px; color:var(--ink-subtle); }
+
+/* ── 追问 chip · FR-424b ──
+   点一下就等于把那句话问出来。放在操作行**上面**:它是「接下来做什么」,
+   比「复制/重来」更该被先看到。 */
+.ask-nexts{ display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.9rem; }
+.ask-next{ font-size:12.5px; color:var(--ink); background:var(--paper);
+           border:1px solid var(--rule); border-radius:999px; padding:.28rem .7rem;
+           cursor:pointer; transition:border-color .15s, background .15s; }
+.ask-next:hover{ border-color:var(--brass); background:var(--card-soft); }
+
+/* ── 逐条操作 ──
+   桌面上 hover 才浮现(不打扰阅读),手机上常驻(没有 hover 这回事)。 */
+.ask-tools-row{ display:flex; gap:.15rem; margin-top:.55rem; margin-left:-.3rem;
+                opacity:0; transition:opacity .15s; }
+.ask-turn:hover .ask-tools-row, .ask-tools-row:focus-within{ opacity:1; }
+@media (hover:none){ .ask-tools-row{ opacity:1; } }
+
+.ask-mini{ display:inline-flex; align-items:center; gap:.28rem; font-size:11.5px;
+           color:var(--ink-subtle); background:transparent; border:0; cursor:pointer;
+           padding:.2rem .45rem; border-radius:4px; transition:color .15s, background .15s; }
+.ask-mini:hover{ color:var(--ink); background:var(--card-soft); }
+.ask-mini svg{ width:13px; height:13px; fill:none; stroke:currentColor; stroke-width:1.7;
+               stroke-linecap:round; stroke-linejoin:round; }
+.ask-mini.ok{ color:var(--forest); }
+
+.ask-icon{ width:26px; height:26px; flex:none; display:inline-flex; align-items:center;
+           justify-content:center; border:0; background:transparent; cursor:pointer;
+           color:var(--ink-subtle); border-radius:5px; }
+.ask-icon:hover{ color:var(--ink); background:var(--card-soft); }
+.ask-icon svg{ width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.7;
+               stroke-linecap:round; stroke-linejoin:round; }
+
+/* ── 空态:输入优先 ──
+   Notion AI / Linear AI 那套:一句话 + 几条可点的问题,不上来就摊开历史。
+   「空聊天窗」对非技术家庭成员是有压力的 —— 他不知道该问什么。 */
+.ask-empty{ padding:2.2rem 0 1rem; }
+.ask-empty-eyebrow{ color:var(--ink-soft); margin-bottom:.6rem; }
+.ask-empty-lead{ font-family:'Noto Serif SC',serif; font-size:22px; color:var(--ink);
+                 margin:0 0 .35rem; }
+.ask-empty-sub{ font-size:13.5px; color:var(--ink-soft); line-height:1.7;
+                margin:0 0 1.3rem; max-width:34em; }   /* 34em ≈ 30 个汉字:42ch 只放得下 21 个,末行会剩「页核对。」四个孤字 */
+/* 窄屏不限宽:42ch 在 390px 上会把「页核对。」挤成孤零零的第二行 */
+@media (max-width:520px){ .ask-empty-sub{ max-width:none; } }
+.ask-presets{ display:flex; flex-direction:column; gap:.5rem; align-items:flex-start; }
+.ask-preset{ text-align:left; font-size:13.5px; color:var(--ink); background:var(--paper);
+             border:1px solid var(--rule); border-radius:8px; padding:.5rem .8rem;
+             cursor:pointer; max-width:100%;
+             transition:border-color .15s, background .15s, transform .15s; }
+.ask-preset:hover{ border-color:var(--brass); background:var(--card-soft); transform:translateX(2px); }
+
+.ask-recent{ margin-top:2rem; padding-top:1.2rem; border-top:1px solid var(--rule-soft); }
+.ask-recent .eyebrow{ color:var(--ink-subtle); margin-bottom:.5rem; }
+.ask-recent-list{ display:flex; flex-wrap:wrap; gap:.35rem; }
+.ask-recent-list a{ font-size:12px; color:var(--ink-soft); text-decoration:none;
+                    border:1px solid var(--rule); border-radius:999px; padding:.2rem .6rem;
+                    max-width:15rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ask-recent-list a:hover{ border-color:var(--brass); color:var(--ink); }
+
+/* ── 未启用 ── */
+.ask-blocked{ display:flex; align-items:flex-start; gap:.6rem; margin:1rem;
+              padding:.9rem 1rem; border:1px solid var(--rule); border-radius:8px;
+              background:var(--card-soft); font-size:13px; line-height:1.7;
+              color:var(--ink-soft); }
+.ask-blocked svg{ flex:none; margin-top:.25rem; }
+.ask-blocked a{ display:inline-block; margin-top:.4rem; color:var(--ink); }
+
+/* ── 输入区 ──
+   **必须贴底、不能浮动** —— 盖住最后一条消息是这类界面最常见的手机端 bug。 */
+.ask-composer-wrap{ flex:none; border-top:1px solid var(--rule); padding:.6rem 1rem .5rem;
+                    background:var(--paper); }
+.ask-composer-wrap.is-off{ opacity:.5; pointer-events:none; }
+.ask-composer{ display:flex; align-items:flex-end; gap:.5rem;
+               border:1px solid var(--rule); border-radius:10px;
+               padding:.35rem .35rem .35rem .7rem; background:var(--paper);
+               transition:border-color .15s; }
+.ask-composer:focus-within{ border-color:var(--brass); }
+.ask-composer textarea{ flex:1; resize:none; background:transparent; border:0; outline:none;
+                        font-size:14.5px; line-height:1.65; color:var(--ink);
+                        padding:.4rem 0; max-height:7rem; font-family:inherit; }
+.ask-composer textarea::placeholder{ color:var(--ink-subtle); }
+.ask-composer button{ flex:none; width:32px; height:32px; border-radius:8px; border:0;
+                      display:inline-flex; align-items:center; justify-content:center;
+                      background:var(--ink); color:var(--paper); cursor:pointer;
+                      transition:opacity .15s; }
+.ask-composer button:disabled{ opacity:.35; cursor:default; }
+/* 属性选择器必须写在 display 规则之后,否则 [hidden] 的 display:none 被 inline-flex 盖掉 ——
+   实测:停止键和发送键并排出现在输入框右边,一黑一红。 */
+.ask-composer button[hidden]{ display:none; }
+.ask-composer button svg{ width:16px; height:16px; fill:none; stroke:currentColor;
+                          stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+/* 停止键用 rust:它是「中断」,不该和「发送」同色让人误点 */
+.ask-composer button[data-ask-stop]{ background:var(--rust); }
+.ask-composer button[data-ask-stop] svg{ fill:currentColor; stroke:none; }
+
+.ask-foot{ display:flex; flex-wrap:wrap; align-items:center; gap:.3rem;
+           font-size:10.5px; color:var(--ink-subtle); padding:.4rem .2rem .1rem; }
+.ask-foot-sep{ opacity:.5; }
 
 /* ── PC 抽屉 ──
-   不打断当前页:用户正在看仪表盘时问「这个数怎么来的」,底下那页得留在原地。
-   所以是抽屉不是跳转,也不推挤主体布局(fixed 覆盖 + 阴影)。 */
-.ask-drawer{ position:fixed; top:0; right:0; bottom:0; width:min(420px,92vw); z-index:45;
+   不打断当前页:用户正在看仪表盘时问「这个数怎么来的」,底下那页得留在原地。 */
+/* text-align:left 是必须的:抽屉挂在 layout::footer 里,而那个 footer 带 text-center,
+   不显式覆盖的话空态标题、说明、「最近」全部继承成居中,和左对齐的按钮列拧着。 */
+.ask-drawer{ text-align:left;
+             position:fixed; top:0; right:0; bottom:0; width:min(460px,94vw); z-index:45;
              background:var(--paper); border-left:1px solid var(--rule);
              box-shadow:-14px 0 40px rgba(26,23,20,.10);
-             transform:translateX(100%); transition:transform .22s ease; display:flex; flex-direction:column; }
+             transform:translateX(100%); transition:transform .22s ease;
+             display:flex; flex-direction:column; }
 .ask-drawer.open{ transform:translateX(0); }
 .ask-drawer > *{ min-height:0; }
+/* 抽屉里列宽由容器决定,不再受 768 限制(它本来就只有 460) */
+.ask-drawer .ask-col{ max-width:none; }
+.ask-drawer .ask-msgs{ padding-left:.9rem; padding-right:.9rem; }
+.ask-drawer .ask-body{ font-size:14px; }
 
-/* 悬浮入口:常驻但不打扰 —— 它不主动弹、不推送,只是一直在那儿 */
-.ask-fab{ position:fixed; right:20px; bottom:22px; z-index:44; display:inline-flex; align-items:center;
-          gap:.4rem; padding:.55rem .85rem; border-radius:999px; border:1px solid var(--rule);
-          background:var(--paper); color:var(--ink); box-shadow:0 3px 14px rgba(26,23,20,.12);
-          font-size:12.5px; letter-spacing:.06em; cursor:pointer; transition:border-color .15s, box-shadow .15s; }
+/* 悬浮入口:常驻但不打扰 —— 不主动弹、不推送,只是一直在那儿 */
+.ask-fab{ position:fixed; right:20px; bottom:22px; z-index:44; display:inline-flex;
+          align-items:center; gap:.4rem; padding:.55rem .85rem; border-radius:999px;
+          border:1px solid var(--rule); background:var(--paper); color:var(--ink);
+          box-shadow:0 3px 14px rgba(26,23,20,.12); font-size:12.5px; letter-spacing:.06em;
+          cursor:pointer; transition:border-color .15s, box-shadow .15s; }
 .ask-fab:hover{ border-color:var(--brass); box-shadow:0 5px 20px rgba(26,23,20,.16); }
 html.ask-open .ask-fab{ opacity:0; pointer-events:none; }
+body.ask-page .ask-fab{ display:none; }
 
+/* 全局浮钮 dock(隐私眼 / 横屏 / 目录)在这一页**藏掉**,隐私切换收进顶栏。
+   过程值得记,因为「挪个位置」这个直觉是错的 —— 挪到哪儿都挡:
+     · 原位右下 → 压住发送键,而输入框是这一页的主操作;
+     · 抬高 96px → 压住引用卡右侧的金额(实测挡掉了「¥1,234,568」的后三位);
+     · 再挪到左侧 → 压住引用卡左侧的指标名。
+   根因是这一页**内容铺满、左右都有要读的东西**(左指标名、右数值),
+   而 position:fixed 的浮层不给内容让位。所以不是找位置,是不该用浮层:
+   隐私钮进顶栏(那里本来就有空位),目录钮这一页没有,横屏钮让位。 */
+body.ask-page #float-dock{ display:none !important; }
+
+/* 顶栏里的隐私切换 —— 只在触摸设备上出现,和被藏掉的 dock 是同一个条件。
+   PC 的导航栏本来就有隐私钮,这里再放一个是重复。 */
+.ask-priv{ display:none; }
+@media (pointer:coarse){ .ask-priv{ display:inline-flex; } }
+html.privacy .ask-priv{ color:var(--ink); background:var(--card-soft); }
 /* 手机上不要悬浮球:屏幕小,它会压住底部的表格和按钮。移动端走导航里的整页入口 */
 @media (max-width:767px){ .ask-fab{ display:none; } }
 
 /* 隐私模式:糊掉引用卡里的数值,与全站同一套开关 */
 html.privacy .ask-cite-v, html.privacy .ask-chip{ filter:blur(5px); }
 
-/* 旁白:模型调工具前那句「我来查一下…」。它有用(让人知道在干嘛),但不是答案 ——
-   所以放在工具区、用最弱的字重,而且不落库。 */
-.ask-narr{ padding-left:11px; border-left:1px solid var(--rule-soft); line-height:1.5; }
-
-/* 问一问整页上不再显示悬浮球 —— 用户已经在这一页了,再放一个入口只是挡住输入框 */
-body.ask-page .ask-fab{ display:none; }
+/* 减少动效:光标与脉冲都停掉,但**不隐藏光标** —— 它承载「还在生成」这个信息 */
+@media (prefers-reduced-motion:reduce){
+  .ask-caret-live, .ask-dot.run, .ask-wait::before{ animation:none; }
+}

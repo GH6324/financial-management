@@ -114,6 +114,8 @@ public class LocalToolLoopRuntime implements AgentRuntime {
             for (int round = 1; round <= MAX_ROUNDS; round++) {
                 Completion c = streamOnce(platform, key, inv.resolvedModel(), messages, tools, sink);
 
+                if (sink.cancelled()) { sink.stopped(); return; }
+
                 if (c.toolCalls.isEmpty()) {
                     sink.done();
                     return;
@@ -130,6 +132,7 @@ public class LocalToolLoopRuntime implements AgentRuntime {
                 messages.add(assistantTurn);
 
                 for (ToolCall tc : c.toolCalls) {
+                    if (sink.cancelled()) { sink.stopped(); return; }
                     AskTool def = registry.find(tc.name).orElse(null);
                     String label = def == null ? tc.name : registry.displayName(tc.name);
                     sink.toolStart(tc.name, label);
@@ -159,6 +162,7 @@ public class LocalToolLoopRuntime implements AgentRuntime {
                           + "用现在手上的数据回答;确实没查到的部分,如实说没查到。"));
                     Completion last = streamOnce(platform, key, inv.resolvedModel(), messages,
                             List.of(), sink);
+                    if (sink.cancelled()) { sink.stopped(); return; }
                     if (last.text.isBlank()) sink.textDelta("这个问题我查了几轮还是没凑齐材料,换个问法试试?");
                     sink.done();
                     return;
@@ -219,6 +223,9 @@ public class LocalToolLoopRuntime implements AgentRuntime {
                 new InputStreamReader(resp.body(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = r.readLine()) != null) {
+                // 每一行都问一次:按下停止到真的停下,最多差一个 token 的时间。
+                // 放在外层循环检查的话,用户得等这一整轮流完 —— 那正是他想跳过的东西。
+                if (sink.cancelled()) break;
                 if (!line.startsWith("data:")) continue;
                 String payload = line.substring(5).trim();
                 if (payload.isEmpty() || "[DONE]".equals(payload)) continue;

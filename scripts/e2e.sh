@@ -229,7 +229,7 @@ if [ -n "$STK" ] && [ -n "$IP" ]; then
   #   e2e 用的这个 STOCK 账户【一条持仓都没有】,估值压根不接管它(红线:holdings.isEmpty → skip),
   #   根本没有"估值刷新"要扛。而老代码按 type == STOCK 给它凭空建一行现金,反而【把它变成了
   #   托管账户】:下一次估值算 持仓(0) + 现金(4200) = 4200,直接覆盖掉原余额。
-  #   beta 实测:该账户原余额 112,775.46 → 插一行 4200 现金 → 跑一次估值 → 余额变成 4200.00。
+  #   beta 实测:该账户原余额 123,456.78 → 插一行 4200 现金 → 跑一次估值 → 余额变成 4200.00。
   #   所以正确的期望是【不建现金行】,并且余额扛得住估值刷新。
   eq "收入-未托管股票账户不建现金行(建了反而会被估值压成只剩这笔)" "$(( $(db "SELECT ROUND(IFNULL(SUM(manual_value),0)) FROM stock_holding WHERE account_id=$STK AND valuation_mode='CASH' AND archived_at IS NULL") - cash0 ))" "0"
   snapAfterIncome="$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$IP AND account_id=$STK")"
@@ -896,6 +896,33 @@ fi
 # ⑫ 全站入口:悬浮球随 layout 出现在普通页面上(不是只在 /ask 才有)
 case "$(GET /dashboard)" in *'data-ask-open'*) ok "问一问-任意页面都有入口(layout 里的悬浮球)" ;;
                             *) bad "问一问-普通页面没有入口" "layout::footer 的 ask-fab" ;; esac
+
+# ⑬ 改版后的结构件:停止键、折叠的活动区、逐条操作、追问 chip 的挂载点
+FULL2="$(GET /ask)"
+case "$FULL2" in *'data-ask-stop'*) ok "问一问-输入区有停止键" ;;
+                 *) bad "问一问-没有停止键" "长回答期间用户只能干等" ;; esac
+case "$FULL2" in *'ask-col'*) ok "问一问-正文收在阅读列宽内" ;;
+                 *) bad "问一问-正文没有列宽约束" "一行 60 个汉字读着串行" ;; esac
+
+# ⑭ 停止端点:没有在跑的轮次时如实回 false(而不是假装停了)
+STOPR="$(POST /ask/$CONV_ID/stop)"
+case "$STOPR" in *'"ok":false'*) ok "问一问-没有在跑的轮次时停止如实回 false" ;;
+                 *) bad "问一问-停止端点语义不对" "$STOPR" ;; esac
+
+# ⑮ 有历史的会话:折叠活动区 + 复制/重来 + 引用卡都在
+#    取一段真有回答的会话(e2e 不调模型,所以只在库里已有时才验 —— 没有就跳过并说明)
+HIST="$(db "SELECT conversation_id FROM ask_message WHERE role='assistant' AND content_text<>''
+            AND conversation_id IN (SELECT id FROM ask_conversation WHERE family_id=$FAM)
+            ORDER BY id DESC LIMIT 1")"
+if [ -n "$HIST" ]; then
+  HP="$(GET "/ask?conv=$HIST")"
+  case "$HP" in *'ask-acts'*) ok "问一问-历史里活动区默认折叠(details)" ;;
+                *) bad "问一问-活动区没折叠" "对话区讲结论,过程别抢注意力" ;; esac
+  case "$HP" in *'data-ask-copy'*) ok "问一问-回答上有复制/重来" ;;
+                *) bad "问一问-回答没有逐条操作" "复制与重来是完成态的 table stakes" ;; esac
+else
+  ok "问一问-库里没有带回答的会话(跳过历史渲染断言 · 本机基线无模型调用)"
+fi
 
 # ============================================================================
 echo

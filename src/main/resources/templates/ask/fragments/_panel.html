@@ -6,27 +6,25 @@
 -->
 <body>
 
-<div th:fragment="panel" class="flex flex-col h-full min-h-0">
-  <div class="flex items-center justify-between px-4 py-2.5 border-b border-rule shrink-0">
-    <div class="flex items-center gap-2 min-w-0">
-      <span class="text-[12px] tracking-[.18em] text-ink shrink-0">问 · 一 · 问</span>
-      <span th:if="${conv != null}" class="text-[12px] text-ink-soft truncate" th:text="${conv.title}">标题</span>
-    </div>
-    <div class="flex items-center gap-1 shrink-0">
-      <button type="button" data-ask-new aria-label="新对话" title="新对话"
-              class="w-7 h-7 rounded-md hover:bg-card-soft flex items-center justify-center text-ink-soft">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-      </button>
-      <button type="button" data-ask-close aria-label="收起" title="收起"
-              class="w-7 h-7 rounded-md hover:bg-card-soft flex items-center justify-center text-ink-soft">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
+<div th:fragment="panel" class="ask-panel">
+  <div class="ask-head">
+    <span class="eyebrow ask-head-brand">问 · 一 · 问</span>
+    <span class="ask-head-ctx" th:text="${ctxLabel}">2026-08 · CNY</span>
+    <span class="ask-head-gap"></span>
+    <button type="button" class="ask-icon ask-priv" onclick="togglePrivacy()"
+          aria-label="隐藏 / 显示金额" title="隐藏金额(公共场合 / 分享)">
+      <svg class="priv-eye-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <svg class="priv-eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+    </button>
+    <button type="button" data-ask-new class="ask-icon" aria-label="新对话" title="新对话">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <button type="button" data-ask-close class="ask-icon" aria-label="收起" title="收起">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
   </div>
 
-  <th:block th:replace="~{ask/fragments/_stream :: stream(${conv}, ${messages}, ${presets}, ${blocked}, ${runtimeLabel})}"></th:block>
+  <th:block th:replace="~{ask/fragments/_stream :: stream(${conv}, ${messages}, ${presets}, ${blocked}, ${runtimeLabel}, ${ctxLabel}, ${recent})}"></th:block>
 </div>
 
 </body>

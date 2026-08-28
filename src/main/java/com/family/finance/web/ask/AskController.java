@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -89,9 +90,10 @@ public class AskController {
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
         model.addAttribute("presets", PRESETS);
-        model.addAttribute("recent", conversations.recent(fam, 12));
+        model.addAttribute("recent", conversations.recent(fam, 6));   // 6 条够「回到刚才那段」了;更早的属于历史列表,不该占空态半屏
         model.addAttribute("blocked", conversations.blockedReason(fam));
         model.addAttribute("runtimeLabel", conversations.runtime().label());
+        model.addAttribute("ctxLabel", conversations.contextLabel(fam));
         if (conv != null) {
             AskConversation c = conversations.find(fam, conv);
             if (c != null) {
@@ -130,7 +132,8 @@ public class AskController {
     @GetMapping(value = "/ask/{id}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@AuthenticationPrincipal MemberPrincipal me,
                              @PathVariable long id,
-                             @RequestParam String q) {
+                             @RequestParam(required = false, defaultValue = "") String q,
+                             @RequestParam(required = false, defaultValue = "new") String mode) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
 
         if (inFlight.get() >= MAX_CONCURRENT) {
@@ -141,31 +144,76 @@ public class AskController {
         }
 
         long fam = me.getFamilyId();
+        AskConversationService.Mode m = switch (mode) {
+            case "regen" -> AskConversationService.Mode.REGENERATE;
+            case "continue" -> AskConversationService.Mode.CONTINUE;
+            default -> AskConversationService.Mode.NEW;
+        };
+        // 新一轮开始 = 清掉上一轮可能残留的停止位,否则这一轮一上来就被判成已叫停
+        AtomicBoolean abort = new AtomicBoolean(false);
+        aborts.put(id, abort);
+
         inFlight.incrementAndGet();
         try {
             pool.execute(() -> {
                 try {
-                    conversations.ask(fam, id, q, new EmitterSink(emitter));
+                    conversations.ask(fam, id, q, m, new EmitterSink(emitter, abort));
                 } catch (Exception e) {
                     log.warn("问一问 SSE 异常:{}", e.toString());
                     send(emitter, "failed", Map.of("message", "出了点问题,重试一下。"));
                     emitter.complete();
                 } finally {
                     inFlight.decrementAndGet();
+                    aborts.remove(id, abort);
                 }
             });
         } catch (RejectedExecutionException e) {
             inFlight.decrementAndGet();
+            aborts.remove(id, abort);
             send(emitter, "failed", Map.of("message", "同时进行的对话太多了,等一会儿再问。"));
             emitter.complete();
         }
         return emitter;
     }
 
+    /**
+     * 停止位:会话 id → 这一轮要不要停。
+     *
+     * <p>单家庭部署,一段会话同时只会有一轮在跑,所以按会话 id 键就够。
+     * 值用 {@link AtomicBoolean} 而不是 Set:停止端点要能<b>认得出</b>自己停的是哪一轮,
+     * 否则「上一轮刚结束、新一轮刚开始」这个窗口里的停止请求会把新一轮误杀。</p>
+     */
+    private final java.util.concurrent.ConcurrentHashMap<Long, AtomicBoolean> aborts =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * 用户按了停止。
+     *
+     * <p>只置位、不等它真的停 —— 停止是<b>协作式</b>的:runtime 在读流的循环里逐行看这个位,
+     * 看到就 break、把已有的半截落库。强杀线程会让落库跑不完,那才是真的丢东西。</p>
+     */
+    @PostMapping("/ask/{id}/stop")
+    @ResponseBody
+    public Map<String, Object> stop(@AuthenticationPrincipal MemberPrincipal me,
+                                    @PathVariable long id) {
+        AtomicBoolean a = aborts.get(id);
+        if (a != null) a.set(true);
+        return Map.of("ok", a != null);
+    }
+
     /** 把 sink 的回调转成 SSE 事件 */
     private final class EmitterSink implements AskSink {
         private final SseEmitter emitter;
-        EmitterSink(SseEmitter emitter) { this.emitter = emitter; }
+        private final AtomicBoolean abort;
+        /** SSE 已经断了(用户关了页面)—— 再往下跑就是在为没人看的回答花钱 */
+        private volatile boolean gone = false;
+
+        EmitterSink(SseEmitter emitter, AtomicBoolean abort) {
+            this.emitter = emitter;
+            this.abort = abort;
+        }
+
+        @Override public boolean cancelled() { return abort.get() || gone; }
 
         @Override public void status(String t) { send(emitter, "status", Map.of("text", t)); }
 
@@ -186,7 +234,10 @@ public class AskController {
                     "explain", c.metricKey() == null ? "" : c.metricKey())));
         }
 
-        @Override public void textDelta(String d) { send(emitter, "delta", Map.of("t", d)); }
+        @Override
+        public void textDelta(String d) {
+            if (!send(emitter, "delta", Map.of("t", d))) gone = true;
+        }
 
         @Override
         public void rollback(String narration) {
@@ -200,21 +251,32 @@ public class AskController {
         }
 
         @Override
+        public void stopped() {
+            send(emitter, "stopped", Map.of());
+            emitter.complete();
+        }
+
+        @Override
         public void failed(String msg) {
             send(emitter, "failed", Map.of("message", msg));
             emitter.complete();
         }
     }
 
-    private void send(SseEmitter emitter, String event, Map<String, Object> data) {
+    /** @return 送出去了没有;送不出去说明对端已经走了 */
+    private boolean send(SseEmitter emitter, String event, Map<String, Object> data) {
         try {
             emitter.send(SseEmitter.event().name(event).data(
                     json.writeValueAsString(data), MediaType.APPLICATION_JSON));
+            return true;
         } catch (IOException | IllegalStateException e) {
-            // 用户关了页面 —— 正常情况,不是错误。继续跑完当前轮并落库,别把半截答案丢了
+            // 用户关了页面 —— 正常情况,不是错误。半截答案仍然会落库,
+            // 但没必要继续往上游要 token:那是在为没人看的回答花钱。
             log.debug("SSE 已断开:{}", e.toString());
+            return false;
         } catch (Exception e) {
             log.warn("SSE 发送失败:{}", e.toString());
+            return false;
         }
     }
 }

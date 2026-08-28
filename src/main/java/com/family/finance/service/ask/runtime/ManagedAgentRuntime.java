@@ -148,6 +148,7 @@ public class ManagedAgentRuntime implements AgentRuntime {
                 new InputStreamReader(resp.body(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = r.readLine()) != null) {
+                if (sink.cancelled()) { sink.stopped(); return; }
                 if (!line.startsWith("data:")) continue;
                 String payload = line.substring(5).trim();
                 if (payload.isEmpty() || "[DONE]".equals(payload)) continue;
