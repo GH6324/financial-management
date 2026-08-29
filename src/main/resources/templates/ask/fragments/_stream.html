@@ -88,8 +88,11 @@
                 </div>
                 <div th:if="${t.argsJson != null and !#strings.isEmpty(t.argsJson)}"
                      class="ask-act-args" th:text="${t.argsJson}">参数</div>
+                <!-- 摘要里可能有「合计 ¥…」—— 含货币符号的整行挂 data-priv,受全站隐私开关管。
+                     这一处曾经漏掉:隐私模式开着,思考过程里的总资产照样露在截图上。 -->
                 <div th:if="${t.summary != null and !#strings.isEmpty(t.summary)}"
-                     class="ask-act-sum" th:text="${t.summary}">查到了什么</div>
+                     class="ask-act-sum" th:attr="data-priv=${renderer.isMoney(t.summary)} ? 'true' : null"
+                     th:text="${t.summary}">查到了什么</div>
               </div>
             </div>
           </details>

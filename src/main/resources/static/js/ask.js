@@ -53,12 +53,17 @@
      服务端有一份等价实现(AskCitationRenderer),历史消息走那边。
      这里这份只服务「流式进行中」的那几秒 —— 那时候还没落库,服务端渲不了。
      两份必须同形态,否则流完刷新一下页面样子会变。 */
+  /* 只有**金额**受隐私模式管;百分比/月数/条数不敏感。与服务端 looksMoney 同解 */
+  function looksMoney(v) { return v != null && /[¥$€£]/.test(String(v)); }
+
   function citeCard(c) {
     var a = el('a', 'ask-cite');
     a.href = c.href || '#';
     var top = el('span', 'ask-cite-top');
     top.appendChild(el('span', 'ask-cite-k', c.label));
-    top.appendChild(el('span', 'ask-cite-v', c.value));
+    var v = el('span', 'ask-cite-v', c.value);
+    if (looksMoney(c.value)) v.setAttribute('data-priv', '');
+    top.appendChild(v);
     a.appendChild(top);
     var meta = (c.period || '') + (c.inProgress ? ((c.period ? ' · ' : '') + '未关账') : '');
     if (meta) {
@@ -71,6 +76,7 @@
 
   function citeChip(c) {
     var a = el('a', 'ask-chip', c.value);
+    if (looksMoney(c.value)) a.setAttribute('data-priv', '');
     a.href = c.href || '#';
     if (c.inProgress) a.appendChild(el('i', null, '未关账'));
     return a;
@@ -141,6 +147,7 @@
     });
     if (!pts.length) return null;                      // 一个点都没有 → 不画
     var host = el('div', 'ask-chart');
+    if (pts.some(function (x) { return looksMoney(x.text); })) host.setAttribute('data-priv-chart', '');
     host.dataset.askChart = JSON.stringify(
       { type: spec.type || 'pie', title: spec.title || '', points: pts });
     return host;
@@ -589,6 +596,9 @@
               var sm = row.querySelector('.ask-act-sum');
               if (!sm) { sm = el('div', 'ask-act-sum'); row.appendChild(sm); }
               sm.textContent = d.summary;
+              // 摘要里可能有「合计 ¥…」—— 含货币符号才挂,免得把「11 个维度」也糊掉
+              if (looksMoney(d.summary)) sm.setAttribute('data-priv', '');
+              else sm.removeAttribute('data-priv');
             }
           }
           label.textContent = '思考过程 · ' + steps + ' 步';

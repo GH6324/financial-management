@@ -369,7 +369,9 @@ public class AskCitationRenderer {
             spec.put("type", type);
             spec.put("title", title);
             spec.put("points", pts);
-            return "<div class=\"ask-chart\" data-ask-chart=\"" + escape(JSON.writeValueAsString(spec)) + "\"></div>";
+            boolean money = pts.stream().anyMatch(x -> looksMoney(String.valueOf(x.get("text"))));
+            return "<div class=\"ask-chart\"" + (money ? " data-priv-chart" : "")
+                 + " data-ask-chart=\"" + escape(JSON.writeValueAsString(spec)) + "\"></div>";
         } catch (Exception e) {
             return "";                                        // JSON 不合法 → 静默跳过,不把报错甩给用户
         }
@@ -430,7 +432,8 @@ public class AskCitationRenderer {
         while (m.find()) {
             AskCitation c = byKey.get(m.group(1));
             String rep = c == null ? "" :
-                    "<a class=\"ask-chip\" href=\"" + escape(href(c)) + "\" title=\""
+                    "<a class=\"ask-chip\"" + (looksMoney(c.getValueText()) ? " data-priv" : "")
+                  + " href=\"" + escape(href(c)) + "\" title=\""
                   + escape(c.getExplain()) + "\">" + escape(c.getValueText())
                   + (c.isInProgress() ? "<i>未关账</i>" : "") + "</a>";
             m.appendReplacement(sb, Matcher.quoteReplacement(rep));
@@ -454,7 +457,8 @@ public class AskCitationRenderer {
         s.append("<a class=\"ask-cite\" href=\"").append(escape(href(c)))
          .append("\" title=\"").append(escape(c.getExplain())).append("\">");
         s.append("<span class=\"ask-cite-top\"><span class=\"ask-cite-k\">")
-         .append(escape(c.getLabel())).append("</span><span class=\"ask-cite-v\">")
+         .append(escape(c.getLabel())).append("</span><span class=\"ask-cite-v\"")
+         .append(looksMoney(c.getValueText()) ? " data-priv" : "").append(">")
          .append(escape(c.getValueText())).append("</span></span>");
         s.append("<span class=\"ask-cite-meta\"><span class=\"ask-cite-per\">");
         if (per != null) s.append(escape(per));
@@ -469,6 +473,19 @@ public class AskCitationRenderer {
     private static String goOf(AskCitation c) {
         Meta m = lookup(c.getMetricKey());
         return m == null || m.go() == null ? "→ 去核对" : m.go();
+    }
+
+    /**
+     * 这个值是不是金额。
+     *
+     * <p>隐私模式要糊的是<b>金额</b>,不是所有数字。百分比、月数、条数都不敏感 ——
+     * 一刀切糊掉的后果实测很难看:饼图上的百分比清清楚楚,而正文里同一批百分比是糊的,
+     * 自己跟自己矛盾。</p>
+     */
+    public boolean isMoney(String v) { return looksMoney(v); }
+
+    static boolean looksMoney(String valueText) {
+        return valueText != null && valueText.matches(".*[¥$€£].*");
     }
 
     private static String href(AskCitation c) {

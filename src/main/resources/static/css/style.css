@@ -1931,8 +1931,11 @@ html.privacy .ask-priv{ color:var(--ink); background:var(--card-soft); }
 /* 手机上不要悬浮球:屏幕小,它会压住底部的表格和按钮。移动端走导航里的整页入口 */
 @media (max-width:767px){ .ask-fab{ display:none; } }
 
-/* 隐私模式:糊掉引用卡里的数值,与全站同一套开关 */
-html.privacy .ask-cite-v, html.privacy .ask-chip{ filter:blur(5px); }
+/* 隐私模式:只糊**金额**,不糊百分比/月数/条数。
+   一刀切的后果实测很难看:饼图上的百分比清清楚楚,正文里同一批百分比却是糊的。
+   金额型的值在渲染时挂了 data-priv,直接吃全站那条规则(顺带白得「长按临时查看」)。
+   图表 canvas 没法局部糊,所以整块判断:datalabels 里有金额的那些图整张糊。 */
+html.privacy .ask-chart[data-priv-chart] canvas{ filter:blur(6px); }
 
 /* 减少动效:光标与脉冲都停掉,但**不隐藏光标** —— 它承载「还在生成」这个信息 */
 @media (prefers-reduced-motion:reduce){

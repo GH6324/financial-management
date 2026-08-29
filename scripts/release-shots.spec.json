@@ -1,40 +1,51 @@
 {
- "_comment": "每次发版按核心能力改清单(PC 用 selector 裁剪聚焦;手机不裁剪、整屏 full=false 平铺 —— 用户定 2026-07-11)。eval 在截图前跑,用来展开目标折叠块 / 截短长列表。 waitFor 只挑该视口下一定可见的锚:「同步失败」在 DOM 里有两枚(PC 表格 + 窄屏卡片),用它当锚会在手机上等一枚隐藏元素。 详情页的锚用 details.paper-card 而不是 details:页面上第一个 <details> 是 nav 里的字号菜单(hidden md:block),手机上它不可见。 ledger-source 的 eval 会去掉备注里带金额的行:隐私模式糊的是 data-priv 的金额列,估值行备注(「从 ¥A → ¥B」)那个 span 没挂 data-priv(既有漏洞),留着会得到一张自相矛盾的图。",
- "_version": "v1.18.0 · 流水来源标签 + 券商同步失败提醒。两张核心图:① 账户详情的流水时间线,每行标出这笔是谁写进来的(自动·股价 黄铜 / 手动填报 中性 / 来源未记录 虚线最淡);② 账户列表上那个券商同步失败的账户被标红、可点进券商页。时间线默认只展开最新那一组,而 beta 测试数据里最新是 2041 年那批,所以用 eval 打开 2026·08 那一组并只留前若干行。",
- "pc": [
-  {
-   "path": "/accounts/3",
-   "name": "ledger-source",
-   "wait": 900,
-   "waitFor": "details.paper-card",
-   "eval": "const ds=[...document.querySelectorAll('details')];const i=ds.findIndex(d=>d.querySelector('summary')&&d.querySelector('summary').innerText.includes('2026 · 08'));ds.forEach(d=>d.open=false);if(i>=0){ds[i].open=true;const ul=ds[i].querySelector('ul');[...ul.children].filter(li=>li.innerText.includes('从 ¥')).forEach(li=>li.remove());const seen=new Set();[...ul.children].forEach(li=>{const k=li.innerText.replace(/[0-9:日月]/g,'').slice(0,40);if(seen.has(k))li.remove();else seen.add(k);});[...ul.children].slice(5).forEach(li=>li.remove());ds[i].id='shot-target';}",
-   "selector": "#shot-target"
-  },
-  {
-   "path": "/accounts",
-   "name": "broker-fail-mark",
-   "wait": 900,
-   "waitFor": "table",
-   "eval": "const a=[...document.querySelectorAll('a')].find(e=>e.textContent.trim()==='同步失败');const tr=a.closest('tr');tr.id='shot-target';",
-   "selector": "#shot-target"
-  }
- ],
- "mobile": [
-  {
-   "path": "/accounts/3",
-   "name": "ledger-source",
-   "wait": 900,
-   "full": false,
-   "waitFor": "details.paper-card",
-   "eval": "const ds=[...document.querySelectorAll('details')];const i=ds.findIndex(d=>d.querySelector('summary')&&d.querySelector('summary').innerText.includes('2026 · 08'));ds.forEach(d=>d.open=false);if(i>=0){ds[i].open=true;const ul=ds[i].querySelector('ul');[...ul.children].filter(li=>li.innerText.includes('从 ¥')).forEach(li=>li.remove());const seen=new Set();[...ul.children].forEach(li=>{const k=li.innerText.replace(/[0-9:日月]/g,'').slice(0,40);if(seen.has(k))li.remove();else seen.add(k);});[...ul.children].slice(5).forEach(li=>li.remove());ds[i].id='shot-target';ds[i].scrollIntoView({block:'center'});window.scrollBy(0,-60);}"
-  },
-  {
-   "path": "/accounts",
-   "name": "broker-fail-mark",
-   "wait": 900,
-   "full": false,
-   "waitFor": "text=卡片视图",
-   "eval": "const a=[...document.querySelectorAll('a')].filter(e=>e.textContent.trim()==='同步失败').filter(e=>e.getBoundingClientRect().width>0)[0];if(a)a.closest('.paper-card').scrollIntoView({block:'center'});"
-  }
- ]
+  "_comment": "v1.19.0 · 超级 Agent。PC 用 selector 裁掉导航与留白只留对话卡;手机整屏不裁。",
+  "pc": [
+    {
+      "path": "/ask?conv=26",
+      "name": "ask-conv",
+      "wait": 2000,
+      "waitFor": ".ask-chart canvas",
+      "selector": ".ask-shell"
+    },
+    {
+      "path": "/ask?conv=26",
+      "name": "ask-think",
+      "wait": 2000,
+      "waitFor": ".ask-acts",
+      "eval": "document.querySelectorAll('details.ask-acts').forEach(d=>d.open=true);const t=document.querySelector('.ask-turn'); if(t) t.id='shot-target';",
+      "selector": "#shot-target"
+    },
+    {
+      "path": "/ask",
+      "name": "ask-empty",
+      "wait": 900,
+      "waitFor": ".ask-empty",
+      "selector": ".ask-shell"
+    },
+    {
+      "path": "/admin/ai-access",
+      "name": "ask-admin",
+      "wait": 900,
+      "waitFor": ".paper-card",
+      "eval": "const c=document.querySelectorAll('.paper-card'); if(c.length) c[c.length-1].id='shot-target';const p=[...document.querySelectorAll('.paper-card')].find(x=>x.innerText.includes('跑 在 哪 里'));if(p) p.id='shot-target';",
+      "selector": "#shot-target"
+    }
+  ],
+  "mobile": [
+    {
+      "path": "/ask?conv=26",
+      "name": "ask-conv",
+      "wait": 2000,
+      "full": false,
+      "waitFor": ".ask-chart canvas"
+    },
+    {
+      "path": "/ask",
+      "name": "ask-empty",
+      "wait": 900,
+      "full": false,
+      "waitFor": ".ask-empty"
+    }
+  ]
 }

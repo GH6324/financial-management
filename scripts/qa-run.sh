@@ -7643,6 +7643,23 @@ QA119_GN=$(grep -cE '^\s+"' "$QA119_GREET" 2>/dev/null)
   || log_bad "v119-ASK-GREETING-ROTATES 欢迎语没在轮换(当前 ${QA119_GN:-0} 句)" "固定一句看四十遍就等于没有"
 
 
+# v119-ASK-PRIVACY-COVERS-MONEY · 隐私模式要盖住**新加的展示面**,而且只盖金额。
+#   v1.19 加了三处会显示金额的地方:引用卡/chip、思考过程摘要、图表 datalabels。
+#   第一版只糊了前一处的一部分,结果是:**隐私模式开着,思考过程里的总资产照样露在截图上**
+#   (做 Release 页截图时才发现 —— 那张图差点就发到公开仓库上了)。
+#   反方向也错:一刀切糊掉所有引用,连百分比一起糊 —— 而饼图上同一批百分比是清晰的,
+#   自己跟自己矛盾。所以判据两头都钉:金额判定只有一份(renderer.isMoney),
+#   三处都用它,而且**不许**再出现对 .ask-cite-v / .ask-chip 的无条件模糊。
+{ grep -q 'static boolean looksMoney' "$QA119_REND" \
+  && grep -q 'public boolean isMoney' "$QA119_REND" \
+  && grep -q 'renderer.isMoney(t.summary)' "$QA119_STREAM" \
+  && grep -q 'function looksMoney' "$QA119_JS" \
+  && grep -q 'data-priv-chart' "$QA119_CSS" \
+  && ! codeonly "$QA119_CSS" | grep -qE 'html\.privacy \.ask-(cite-v|chip)\{'; } \
+  && log_ok "v119-ASK-PRIVACY-COVERS-MONEY(引用/思考摘要/图表都受隐私开关 · 只糊金额不糊百分比)" \
+  || log_bad "v119-ASK-PRIVACY-COVERS-MONEY 隐私覆盖不全或过度" "漏了会在截图里泄露金额;过度会把百分比也糊掉"
+
+
 # v119-CUSTODY-EXHAUSTIVE · 加新 AccountType 必须在托管形式里表态
 { grep -q 'CustodyForm' "$RD/src/main/java/com/family/finance/domain/lens/CustodyForm.java" \
   && grep -q 'dim("custody"' "$RD/src/main/java/com/family/finance/calc/lens/LensRegistry.java" \
