@@ -166,6 +166,10 @@ public class HoldingImportService {
             // 1. 逐图视觉转写 + 记来源图
             record Parsed(VisionLlmClient.ParsedRow row, String shot) {}
             List<Parsed> parsedAll = new ArrayList<>();
+            // v1.19.4 · 失败的图必须计数。原来这里只 log.warn 就继续,于是「全都失败」和
+            // 「全都成功但确实没持仓」在后面的代码里长得一模一样 —— 都是空的 parsedAll。
+            int failedImages = 0;
+            Exception lastError = null;
             for (Path p : images) {
                 try {
                     byte[] b = Files.readAllBytes(p);
@@ -173,8 +177,21 @@ public class HoldingImportService {
                     String rel = relOf(imp, p);
                     for (VisionLlmClient.ParsedRow r : vision.extract(b, mime)) parsedAll.add(new Parsed(r, rel));
                 } catch (Exception e) {
+                    failedImages++;
+                    lastError = e;
                     log.warn("import {} 图 {} 识别失败: {}", importId, p.getFileName(), e.toString());
                 }
+            }
+
+            // 1b. 一张都没成 → 到此为止,不生成任何比对项。
+            //     继续往下走的话,库里每条持仓都会因为「本次没截到」被判成 SOLD,
+            //     用户面对的是一张「全部卖出」的表 —— 而真实原因(额度用完 / key 失效)
+            //     只躺在服务器日志里。线上真实发生过,详见 SCAN_ERROR 的注释。
+            if (!images.isEmpty() && failedImages == images.size()) {
+                itemMapper.deleteByImport(importId);   // 清掉上一轮的残留,别让旧结果冒充本次
+                importMapper.markScanError(importId, friendly(lastError));
+                log.error("import {} 全部 {} 张图识别失败,置 SCAN_ERROR", importId, images.size());
+                return;
             }
             // 2. 合并去重(按 code 优先,否则归一化名称;保留第一条有市值的)
             Map<String, Parsed> merged = new LinkedHashMap<>();
@@ -224,16 +241,29 @@ public class HoldingImportService {
                         .selected(true).sortNo(sort++).build());
             }
             // 5. 消失(库有本次没截到)→ SOLD · 默认 KEEP,用户定夺
-            for (StockHolding h : existing) {
-                if (matchedIds.contains(h.getId())) continue;
-                itemMapper.insert(HoldingImportItem.builder()
-                        .importId(importId).parsedName(h.getDisplayName())
-                        .marketValue(marketValueOf(h)).confidence("high")
-                        .matchState(HoldingImportItem.SOLD).matchedHid(h.getId())
-                        .oldValue(marketValueOf(h)).userDecision(HoldingImportItem.KEEP)
-                        .shotPath(null).selected(true).sortNo(sort++).build());
+            //
+            //    v1.19.4 · 但**有图没识别成功时,整体不判卖出**。
+            //    「没识别出来」和「卖掉了」是两回事,而这一步分不出来:它只知道某条持仓
+            //    没出现在本次结果里。3 张图挂了 1 张,那张里的持仓就会被扣上「卖出?」——
+            //    表格其余部分看着完全正常,这种混着假条目的表比全军覆没更容易骗到人。
+            //    宁可这一轮不提示卖出(用户下次识别成功时自然会看到),也不给假的卖出建议。
+            if (failedImages == 0) {
+                for (StockHolding h : existing) {
+                    if (matchedIds.contains(h.getId())) continue;
+                    itemMapper.insert(HoldingImportItem.builder()
+                            .importId(importId).parsedName(h.getDisplayName())
+                            .marketValue(marketValueOf(h)).confidence("high")
+                            .matchState(HoldingImportItem.SOLD).matchedHid(h.getId())
+                            .oldValue(marketValueOf(h)).userDecision(HoldingImportItem.KEEP)
+                            .shotPath(null).selected(true).sortNo(sort++).build());
+                }
+                importMapper.markReview(importId);
+            } else {
+                int total = images.size();
+                importMapper.markReviewWithWarning(importId,
+                        total + " 张图里有 " + failedImages + " 张没识别成功(" + friendly(lastError) + ")· "
+                        + "这一轮不提示「卖出」—— 没识别出来不等于卖掉了。补传或重新识别后再看。");
             }
-            importMapper.markReview(importId);
         } catch (Exception e) {
             log.error("import {} 扫描失败", importId, e);
             importMapper.markScanError(importId, friendly(e));
@@ -360,9 +390,48 @@ public class HoldingImportService {
         return (s == null || s.isBlank() || "null".equalsIgnoreCase(s.trim())) ? null : s.trim();
     }
 
-    private static String friendly(Exception e) {
-        String m = e.getMessage();
+    /**
+     * 把上游异常翻成用户能<b>照着做</b>的一句话。
+     *
+     * <p>v1.19.4 之前这里只有两条分支,兜底是「识别失败,请重试」——
+     * 而线上真实撞到的是<b>免费额度耗尽</b>(403 {@code AllocationQuota.FreeTierOnly}),
+     * 那种情况下「请重试」是<b>错的建议</b>:重试一万次也不会好,必须去平台控制台。
+     * 一句让人做无用功的提示,比没有提示更浪费时间。</p>
+     *
+     * <p>判据按 message 里的特征串走,顺序有讲究:配额那条必须排在 403 前面 ——
+     * 阿里云的配额错误本身就是 403,先匹配 403 的话会退化成一句笼统的「被拒绝」。</p>
+     */
+    static String friendly(Exception e) {
+        String m = e == null ? null : e.getMessage();
         if (m == null) return "识别失败,请重试";
+        // 配额/欠费:重试无用,只能去控制台。必须在 403/401 之前判(它自己就是 403)
+        if (m.contains("AllocationQuota") || m.contains("Free quota exhausted")
+                || m.contains("insufficient_quota") || m.contains("Arrearage")
+                || m.contains("QuotaExhausted") || m.contains("billing")) {
+            return "视觉模型的额度用完了 —— 重试没用,要去该平台控制台充值,"
+                 + "或关掉「仅使用免费额度」那个开关;也可以在「数据源接入」页换一个平台";
+        }
+        if (m.contains("429") || m.contains("Throttling") || m.contains("RateLimit")
+                || m.contains("rate_limit") || m.contains("TooManyRequests")) {
+            return "调用太频繁被限流了,等一两分钟再试";
+        }
+        if (m.contains("401") || m.contains("Unauthorized") || m.contains("InvalidApiKey")
+                || m.contains("invalid_api_key") || m.contains("AuthenticationError")) {
+            return "API key 无效或已过期 —— 去「数据源接入」页重新填一把";
+        }
+        if (m.contains("404") || m.contains("model_not_found") || m.contains("InvalidParameter")
+                || m.contains("ModelNotOpen")) {
+            return "这个视觉型号不可用(可能已下线或未开通)—— 去「数据源接入」页换一个型号";
+        }
+        if (m.contains("403") || m.contains("Forbidden") || m.contains("NoPermission")) {
+            return "平台拒绝了这次调用(权限或型号未开通)—— 去该平台控制台确认后再试";
+        }
+        if (m.contains("Timeout") || m.contains("timeout") || m.contains("timed out")) {
+            return "视觉服务超时了 —— 图片太大或网络慢,可以裁掉截图里无关的部分再传";
+        }
+        if (m.contains("ConnectException") || m.contains("UnknownHost") || m.contains("Connection refused")) {
+            return "连不上视觉服务 —— 检查这台机器的外网出口,或稍后再试";
+        }
         if (m.contains("key")) return "视觉模型未配置或不可用";
         return "识别失败,请重试";
     }

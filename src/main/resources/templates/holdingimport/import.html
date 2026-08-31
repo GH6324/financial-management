@@ -102,6 +102,47 @@
     </section>
 
     <!-- ===== 比对确认(左旧右新 · 金额对齐)===== -->
+    <!--/*
+         v1.19.4 · 一张都没识别出来
+         刻意做成独立的一段、不是 form、没有确认按钮:以前这种情况会落到下面那张比对表里,
+         而表里库存的每一条持仓都被标成已卖出,用户看不出那是假的。现在物理上不可能误确认。
+
+         这里用的是 Thymeleaf 解析期注释(不会输出到页面),不是普通 HTML 注释 ——
+         后者会被原样送到浏览器,等于把内部复盘写给所有访客看。
+         写这类注释时不要在正文里插入闭合标记本身,那会提前终止注释块、
+         把后面的文字当成页面正文渲染出来(本条就这么翻过一次,是截图看出来的)。
+    */-->
+    <section th:if="${imp.status == 'SCAN_ERROR'}" class="paper-card p-4 lg:p-5">
+      <div class="eyebrow mb-3" style="color:var(--rust)">这次一张都没识别出来</div>
+
+      <div class="mb-4 p-3 rounded border border-rust bg-card-soft">
+        <div class="font-mono text-[12px] text-rust mb-1.5" th:text="${imp.scanError}">原因</div>
+        <div class="font-mono text-[11px] text-ink-subtle leading-relaxed">
+          所以这次<b>没有生成比对表</b> —— 识别不出来不代表你的持仓有变化。
+          你现有的持仓<b>一条都没动</b>,可以放心处理完上面的问题再回来重新识别。
+        </div>
+      </div>
+
+      <div th:if="${imageRels != null and !imageRels.isEmpty()}" class="mb-4">
+        <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-2">
+          已上传 <b th:text="${#lists.size(imageRels)}">0</b> 张 · 点看大图 · ✕ 删错图
+        </div>
+        <div class="flex flex-wrap gap-3 js-gallery" th:attr="data-import=${imp.id}">
+          <div th:each="rel : ${imageRels}" class="gshot" th:attr="data-src=@{'/uploads/' + ${rel}},data-rel=${rel}">
+            <img th:src="@{'/uploads/' + ${rel}}" alt="已上传截图"/>
+            <button type="button" class="grm" title="删除这张">✕</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 flex-wrap">
+        <button type="button" id="rescanBtn" th:attr="data-import=${imp.id}" class="btn-ink text-[12px]">重新识别</button>
+        <a th:href="${from != null and !#strings.isEmpty(from)} ? ${from} : @{/entry}"
+           class="font-mono text-[11px] text-ink-subtle underline">先回填报页</a>
+        <a th:href="@{/admin/integrations}" class="font-mono text-[11px] text-ink-subtle underline">去数据源接入页</a>
+      </div>
+    </section>
+
     <form th:if="${imp.status == 'REVIEW'}" th:action="@{'/entry/import/' + ${imp.id} + '/confirm'}" method="post" class="paper-card p-4 lg:p-5" id="reviewForm">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
       <input type="hidden" name="from" th:value="${from}"/>
@@ -295,7 +336,9 @@
       document.getElementById('eta').textContent='预计约 '+est+' 秒';
       (function poll(){
         fetch('/entry/import/'+iid+'/status').then(function(r){return r.json();}).then(function(j){
-          if(j.status==='REVIEW'){location.reload();return;}
+          /* v1.19.4 · SCAN_ERROR 也是终态,必须停止轮询并刷新去看失败原因。
+             漏了它的话页面会一直转圈「识别中」,而后台早就结束了。 */
+          if(j.status==='REVIEW'||j.status==='SCAN_ERROR'){location.reload();return;}
           if(j.scanError){document.getElementById('scanErr').classList.remove('hidden');document.getElementById('scanErr').textContent='识别有问题:'+j.scanError;}
           setTimeout(poll,2500);
         }).catch(function(){setTimeout(poll,3000);});

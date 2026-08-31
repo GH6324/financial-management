@@ -7750,6 +7750,57 @@ QA1193_FILTER=$(codeonly "$QA1193_EC" | grep -c 'expenseAccounts' || true)
   || log_bad "v1193-EXPENSE-CAT-UI-SYNC 前端类目约束缺失或用了置灰" "lens-select 不读 disabled,置灰等于没做"
 
 
+# ═══ v1.19.4 · 截图识别失败不许装成功 ═══
+QA1194_SVC="$RD/src/main/java/com/family/finance/service/holdingimport/HoldingImportService.java"
+QA1194_MAP="$RD/src/main/java/com/family/finance/repository/HoldingImportMapper.java"
+QA1194_TPL="$RD/src/main/resources/templates/holdingimport/import.html"
+QA1194_DOM="$RD/src/main/java/com/family/finance/domain/holdingimport/HoldingImport.java"
+
+# v1194-SCANERR-NOT-REVIEW · markScanError 必须写 SCAN_ERROR,不能写 REVIEW。
+#   这是线上那次事故的正根:识别全失败 → 状态仍是 REVIEW → 页面给出一张
+#   「库里每条持仓都是卖出?」的比对表 + 确认按钮。差一次勾选就清空真实持仓。
+{ codeonly "$QA1194_MAP" | grep -q "status = 'SCAN_ERROR', scan_error" \
+  && ! codeonly "$QA1194_MAP" | grep -A1 'int markScanError' | grep -q "status = 'REVIEW'" \
+  && codeonly "$QA1194_DOM" | grep -q 'SCAN_ERROR = "SCAN_ERROR"'; } \
+  && log_ok "v1194-SCANERR-NOT-REVIEW(识别全失败进 SCAN_ERROR 独立状态,不是 REVIEW)" \
+  || log_bad "v1194-SCANERR-NOT-REVIEW 识别失败又被写成 REVIEW" "那会给出一张全是「卖出?」的比对表,勾一下归档就清空真实持仓"
+
+# v1194-ALLFAIL-NO-ITEMS · 全失败时一条比对项都不许生成(包括 SOLD)。
+#   有 item 就有表,有表就有误确认的可能。
+{ codeonly "$QA1194_SVC" | grep -q 'failedImages == images.size()' \
+  && codeonly "$QA1194_SVC" | grep -A4 'failedImages == images.size()' | grep -q 'markScanError' \
+  && codeonly "$QA1194_SVC" | grep -A5 'failedImages == images.size()' | grep -q 'return;'; } \
+  && log_ok "v1194-ALLFAIL-NO-ITEMS(全失败直接置错并 return · 不生成任何比对项)" \
+  || log_bad "v1194-ALLFAIL-NO-ITEMS 全失败还在往下走" "会把库里每条持仓判成 SOLD"
+
+# v1194-NO-SOLD-ON-PARTIAL · 有图没识别成功时,整体不判「卖出」。
+#   「没识别出来」≠「卖掉了」。部分失败比全失败更骗人:表格其余部分完全正常,
+#   只混着几条假的卖出建议 —— 用户没有任何线索能分辨。
+{ codeonly "$QA1194_SVC" | grep -q 'if (failedImages == 0)' \
+  && codeonly "$QA1194_SVC" | grep -q 'markReviewWithWarning'; } \
+  && log_ok "v1194-NO-SOLD-ON-PARTIAL(有图失败则不判卖出 + 页面警告)" \
+  || log_bad "v1194-NO-SOLD-ON-PARTIAL 部分失败仍在判卖出" "没识别出来不等于卖掉了,假卖出建议会骗用户归档真实持仓"
+
+# v1194-FRIENDLY-ACTIONABLE · 上游失败要给能照着做的话,不能一律「请重试」。
+#   额度耗尽时说「请重试」是错的建议 —— 重试一万次也不会好。
+{ codeonly "$QA1194_SVC" | grep -q 'AllocationQuota' \
+  && codeonly "$QA1194_SVC" | grep -q 'Free quota exhausted' \
+  && codeonly "$QA1194_SVC" | grep -qE '429|RateLimit' \
+  && codeonly "$QA1194_SVC" | grep -q 'InvalidApiKey' \
+  && grep -q 'friendly_quotaExhausted_tellsUserToTopUp_notRetry' \
+       "$RD/src/test/java/com/family/finance/service/holdingimport/HoldingImportUnitTest.java"; } \
+  && log_ok "v1194-FRIENDLY-ACTIONABLE(配额/限流/鉴权/型号分别给可操作提示 · 有单测)" \
+  || log_bad "v1194-FRIENDLY-ACTIONABLE 上游失败又退化成一句「请重试」" "额度用完时重试是无用功,必须指向控制台"
+
+# v1194-SCANERR-NO-CONFIRM · SCAN_ERROR 那一段不能是可提交的 form。
+#   页面上没有确认按钮 = 物理上不可能误确认。同时 confirm() 服务端也要挡。
+{ grep -q "imp.status == 'SCAN_ERROR'" "$QA1194_TPL" \
+  && ! sed -n "/imp.status == 'SCAN_ERROR'/,/<\/section>/p" "$QA1194_TPL" | grep -qE '<form|type=.submit' \
+  && codeonly "$QA1194_SVC" | grep -q 'REVIEW.equals(imp.getStatus())'; } \
+  && log_ok "v1194-SCANERR-NO-CONFIRM(失败态没有确认表单 · 服务端 confirm 也只认 REVIEW)" \
+  || log_bad "v1194-SCANERR-NO-CONFIRM 失败态还能提交确认" "误确认必须在物理上不可能,不能只靠用户看提示"
+
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
