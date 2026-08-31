@@ -48,6 +48,38 @@ public class EntryService {
     /** 单家庭模式 · 见 prd §22.3 类 A */
     private static final long FAMILY_ID = 1L;
 
+    /**
+     * v1.19.3 · 「偿还负债」性质的支出类目 —— <b>不允许记在负债账户自己身上</b>。
+     *
+     * <p>放开信用卡记支出之后冒出来的新风险是双计:刷卡时在信用卡账户记一笔「消费」,
+     * 月底还款时又在现金账户记一笔「还贷」,同一笔钱进了两次本月支出。这两个类目描述的都是
+     * 「把欠款还掉」,记在负债账户上还意味着「用这张卡还这张卡」,本身就无意义。</p>
+     *
+     * <p>code 来自 {@code V2__seed.sql} 的内置四类目;这里硬编码是有意的 ——
+     * 类目表是用户可见的运营数据,但这两条的<b>语义</b>是记账口径的一部分,
+     * 不该随类目表被改名/停用而悄悄失效。有护栏 {@code v1193-EXPENSE-LIABILITY-CAT} 钉住。</p>
+     */
+    private static final java.util.Set<String> REPAYMENT_CATEGORIES =
+            java.util.Set.of("loan_payment", "interest_paid");
+
+    /**
+     * v1.19.3 · 这个类目能不能记在这种账户上。
+     *
+     * <p>只有一条规则:<b>负债账户上不记「偿还负债」</b>。其余组合一律放行 —— 包括
+     * 「信用卡 + 消费」(这正是本版要解开的那个),也包括「现金 + 还贷」(那本来就是对的记法)。</p>
+     *
+     * <p>提成静态谓词是为了能被直接单测:这条规则的反面是<b>本月支出凭空翻倍</b>,
+     * 而那种错在报表上看着完全正常(数字是真的,只是被算了两次),靠肉眼复核发现不了。</p>
+     */
+    static boolean expenseCategoryAllowedOn(com.family.finance.domain.account.AccountType type, String categoryCode) {
+        if (type == null || !type.isLiability()) return true;
+        // categoryCode 为 null 时放行,交给 requireExpenseCategory 去报「类目不存在」——
+        // 那才是这种情况的准确错误。注意 Set.of(...) 的 contains(null) 会抛 NPE(不可变集合
+        // 不接受 null 查询),所以这里必须先挡一道,不能直接丢进去。
+        if (categoryCode == null) return true;
+        return !REPAYMENT_CATEGORIES.contains(categoryCode);
+    }
+
 
     private final AccountMapper accountMapper;
     /** v1.15 FR-382 · 名字映射走名录(含已归档)—— 归档一个人,不该让历史数据里的他变成无名氏 */
@@ -324,17 +356,30 @@ public class EntryService {
      * 填了月末余额(那个数本就含这笔消费),再录这笔就会扣第二次。所以填报页文案统一为
      * 「先录收支,最后核对余额」,且每笔录入后要让用户看见余额被改了。</p>
      *
-     * <p>不允许落到 LOAN 账户:在贷款账户上记一笔支出等于「又借了一笔」,不是花钱。
-     * 还贷应当记在**钱实际流出的那个现金账户**上(类目选「还贷」),贷款余额本身由
-     * 账户间划转或期末余额体现。</p>
+     * <p><b>v1.19.3 · 负债账户从「整类禁止」改为「按类目禁止」。</b>此前这里拦掉所有负债账户,
+     * 理由是「在贷款账户上记一笔支出等于又借了一笔,不是花钱」。那对房贷/车贷成立,但它默认了
+     * 「借钱」和「花钱」互斥 —— <b>信用卡打破这个前提</b>:刷卡消费同时就是花钱、也是负债增加,
+     * 是同一个动作。而 {@code AccountType} 里没有信用卡类型,信用卡只能录成 LOAN,于是被连坐,
+     * <b>用户根本没法给信用卡记消费</b>(线上反馈)。</p>
+     *
+     * <p>余额方向不用特判:负债余额存的是负数({@link #normalizeBalance}),
+     * {@link #applyDeltaToBalance} 只做 {@code base.add(delta)},所以下面那笔 {@code amt.negate()}
+     * 落到信用卡上正好是「欠款变多」。</p>
+     *
+     * <p>放开后真正的风险是<b>支出双计</b>:刷卡 3000 记一笔「消费」,月底还款 3000 再记一笔
+     * 「还贷」,本月支出就成了 6000。所以负债账户上禁掉 {@code loan_payment} / {@code interest_paid}
+     * —— 这两笔本来就该记在<b>钱实际流出的那个现金账户</b>上;负债余额的下降由账户间划转
+     * 或期末余额体现,不该再走支出。</p>
      */
     @Transactional
     public EntryRow recordExpense(long familyId, long memberId, long periodId,
                                   long accountId, String categoryCode, BigDecimal amount, String note) {
         Period period = requireOpenPeriod(familyId, periodId);
         Account account = requireAccount(familyId, accountId);
-        if (account.getType().isLiability()) {
-            throw new IllegalArgumentException("负债账户不能录入支出 · 还贷请记在钱实际流出的现金账户上,类目选「还贷」");
+        if (!expenseCategoryAllowedOn(account.getType(), categoryCode)) {
+            throw new IllegalArgumentException("负债账户「" + account.getDisplayName()
+                    + "」上不能记「还贷 / 利息支出」· 这两笔要记在钱实际流出的现金账户上,"
+                    + "否则会和这张卡上的消费重复计入本月支出");
         }
         // 已归档账户必须拦住:全站统计(事实表 / 支出构成 / 月均支出)都按 archived_at IS NULL 排除归档账户,
         // 一旦让支出落进去,这笔钱在**所有**口径里都看不见 —— 是静默丢数据,比看得见的错更糟。

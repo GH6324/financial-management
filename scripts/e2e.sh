@@ -407,20 +407,39 @@ if [ -n "$XP" ] && [ -n "$XA" ]; then
   eq "支出-流水 kind=EXPENSE 且 is_adjustment=0(口径 A · 家庭支出)" \
      "$(db "SELECT CONCAT(kind,'|',is_adjustment) FROM cash_flow WHERE period_id=$XP AND account_id=$XA AND note='e2e日常' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1")" "EXPENSE|0"
 
-  # ④ 三条服务端红线
-  r1="$(POSTcode /entry/expense --data-urlencode "periodId=$XP" --data-urlencode "accountId=$XA" \
-        --data-urlencode "categoryCode=salary" --data-urlencode "amount=100")"
-  eq "支出-拒收入类目(salary)" "$([ "$r1" -ge 400 ] && echo rejected || echo "$r1")" "rejected"
-  r2="$(POSTcode /entry/expense --data-urlencode "periodId=$XP" --data-urlencode "accountId=$XA" \
-        --data-urlencode "categoryCode=cash_adjust" --data-urlencode "amount=100")"
-  eq "支出-拒现金调整类目(那不是家庭支出)" "$([ "$r2" -ge 400 ] && echo rejected || echo "$r2")" "rejected"
+  # ④ 服务端红线
+  #    v1.19.3 起「被拒」的落地形态变了:校验失败不再冒成 500,而是带 flashError 回填报页(302)——
+  #    放开负债账户之后「信用卡 + 还贷」成了用户点得到的组合,500 白页是不可接受的落地。
+  #    所以判据不能再看 HTTP 码,要看**行为**:有没有出错误提示 + 有没有落库。
+  #    (不用 `GET | grep -q`:grep -q 命中即退出会让 curl 吃 SIGPIPE,pipefail 下整条管道非零)
+  expense_verdict(){   # $1=accountId $2=categoryCode → rejected | accepted
+    local c page
+    c="$(POSTcode /entry/expense --data-urlencode "periodId=$XP" \
+         --data-urlencode "accountId=$1" --data-urlencode "categoryCode=$2" --data-urlencode "amount=100")"
+    if [ "$c" -ge 400 ]; then echo rejected; return; fi
+    # 必须带 period —— Spring 的 FlashMap 会记住 redirect 目标的**查询参数**
+    # (targetRequestParams),后续请求参数对不上就不弹出 flash。真实浏览器跟随 302
+    # 到 /entry?period=N 时天然带着它;这里不带的话会看不到提示、把「拒绝」误判成「接受」。
+    page="$(GET "/entry?period=$XP")"
+    case "$page" in *data-entry-flash-error*) echo rejected;; *) echo accepted;; esac
+  }
+  eq "支出-拒收入类目(salary)"              "$(expense_verdict "$XA" salary)"      "rejected"
+  eq "支出-拒现金调整类目(那不是家庭支出)"  "$(expense_verdict "$XA" cash_adjust)" "rejected"
   if [ -n "$XL" ]; then
-    r3="$(POSTcode /entry/expense --data-urlencode "periodId=$XP" --data-urlencode "accountId=$XL" \
-          --data-urlencode "categoryCode=consumption" --data-urlencode "amount=100")"
-    eq "支出-拒落到贷款账户(还贷该记在现金账户)" "$([ "$r3" -ge 400 ] && echo rejected || echo "$r3")" "rejected"
+    # v1.19.3 FR-437a · 这条**反过来了**:信用卡只能录成 LOAN,排掉 LOAN 等于信用卡消费录不进去。
+    # 「在贷款账户上记支出=又借了一笔」对房贷成立,但刷卡消费同时就是花钱和欠得更多。
+    eq "支出-允许落到负债账户(信用卡消费)"  "$(expense_verdict "$XL" consumption)"  "accepted"
+    # FR-437c · 放开之后的新红线:卡上不记还贷,否则和还款那笔双计
+    eq "支出-拒负债账户上的还贷(防双计)"    "$(expense_verdict "$XL" loan_payment)"  "rejected"
+    eq "支出-拒负债账户上的利息支出(防双计)" "$(expense_verdict "$XL" interest_paid)" "rejected"
+    eq "支出-负债账户消费确实写了库" \
+       "$(db "SELECT COUNT(*) FROM cash_flow WHERE period_id=$XP AND account_id=$XL AND kind='EXPENSE' AND category_code='consumption' AND deleted_at IS NULL")" "1"
+    # FR-437b · 方向:负债余额存负数,记支出后要更负(欠得更多),不是变少
+    eq "支出-负债账户方向正确(欠得更多)" \
+       "$(db "SELECT CASE WHEN end_balance < 0 THEN 'more_debt' ELSE 'wrong' END FROM period_snapshot WHERE period_id=$XP AND account_id=$XL")" "more_debt"
   fi
   eq "支出-红线拒绝后未写库" \
-     "$(db "SELECT COUNT(*) FROM cash_flow WHERE period_id=$XP AND kind='EXPENSE' AND category_code IN ('salary','cash_adjust') AND deleted_at IS NULL")" "0"
+     "$(db "SELECT COUNT(*) FROM cash_flow WHERE period_id=$XP AND kind='EXPENSE' AND category_code IN ('salary','cash_adjust','loan_payment','interest_paid') AND account_id=$XA AND deleted_at IS NULL")" "0"
 
   # ⑤ 支出构成:段出现 + 该类目金额进得去
   R="$(GET /reports)"

@@ -191,10 +191,16 @@ public class EntryController {
         model.addAttribute("expenseModeHint", expenseMode.hintText());
         if (expenseMode == com.family.finance.domain.family.ExpenseEntryMode.ITEMIZED) {
             model.addAttribute("expenseCategories", cashFlowCategoryMapper.listExpenseOrdered());
-            // 支出可以从任何非贷款账户流出(现金为主,但理财/贵金属也可能直接付款)
-            model.addAttribute("expenseAccounts", accountMapper.findActiveByFamily(me.getFamilyId()).stream()
-                    .filter(a -> a.getType() != null && a.getType() != com.family.finance.domain.account.AccountType.LOAN)
-                    .toList());
+            // v1.19.3 · 支出可以从**任何**账户流出,负债账户也算 —— 信用卡消费同时是「花钱」和
+            // 「欠得更多」,这两件事在信用卡上是同一个动作。此前这里排掉整个 LOAN,理由是
+            // 「在贷款账户上记支出等于又借了一笔」;那对房贷/车贷成立,但它默认了「借钱」与
+            // 「花钱」互斥,而信用卡恰好打破这个前提 —— 结果就是信用卡消费**根本录不进去**。
+            //
+            // 放开是安全的:负债余额存的是负数(normalizeBalance),applyDeltaToBalance 又只做
+            // base.add(delta),所以支出那笔 amt.negate() 落到信用卡上正好是「欠款变多」,方向天然对。
+            // 真正要防的是**支出双计**(刷卡记一笔消费、还款再记一笔还贷),那个由
+            // EntryService.recordExpense 的类目校验挡,前端同步把那两个类目从下拉里摘掉。
+            model.addAttribute("expenseAccounts", accountMapper.findActiveByFamily(me.getFamilyId()));
             var expenseEntries = cashFlowMapper.findExpenseEntries(me.getFamilyId(), period.getId());
             model.addAttribute("expenseEntries", expenseEntries);
             java.util.Map<Long, BigDecimal> expenseBaseById = new java.util.LinkedHashMap<>();
@@ -333,14 +339,27 @@ public class EntryController {
     }
 
     /** v1.8 FR-270 · 录一笔支出 = 金额 + 类目 + 支出账户 → 扣该账户余额 + 留流水。 */
+    /**
+     * v1.19.3 · 校验失败要回到填报页显示原因,不能扔 500。
+     *
+     * <p>此前这里不接异常,{@code IllegalArgumentException} 一路冒成 500 错误页 —— 那时候没事,
+     * 因为负债账户根本不在支出下拉里,能撞上的组合都被前端挡死了。这一版放开了账户候选,
+     * 「信用卡 + 还贷」变成一个<b>用户点得到</b>的组合(JS 没加载完、或者拿着旧缓存的 js 时,
+     * 类目还没被摘掉),再让它 500 就是把一句本来能说清楚的提示变成一张白页。</p>
+     */
     @PostMapping("/entry/expense")
     public String recordExpense(@AuthenticationPrincipal MemberPrincipal me,
                                 @RequestParam long periodId,
                                 @RequestParam long accountId,
                                 @RequestParam(defaultValue = "consumption") String categoryCode,
                                 @RequestParam BigDecimal amount,
-                                @RequestParam(required = false) String note) {
-        entryService.recordExpense(me.getFamilyId(), me.getMemberId(), periodId, accountId, categoryCode, amount, note);
+                                @RequestParam(required = false) String note,
+                                org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
+        try {
+            entryService.recordExpense(me.getFamilyId(), me.getMemberId(), periodId, accountId, categoryCode, amount, note);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            ra.addFlashAttribute("flashError", e.getMessage());
+        }
         return "redirect:/entry?period=" + periodId;
     }
 

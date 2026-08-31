@@ -199,6 +199,11 @@
           <a th:href="@{/admin/reminders}" class="font-mono text-[10px] text-ink-subtle underline hover:text-ink">改回填一个总数</a>
         </div>
 
+        <!-- v1.19.3 · 服务端拒绝的原因要说给用户听(如「信用卡上不能记还贷」),不是 500 白页。
+             用 rust 而不是全站 flash 的 forest:那是成功色,这里是被拦下来了。 -->
+        <div th:if="${flashError}" data-entry-flash-error
+             class="border border-rust bg-rust/[0.06] px-4 py-2 text-sm mb-3" th:text="${flashError}">出错了</div>
+
         <form th:action="@{/entry/expense}" method="post" class="flex flex-wrap items-end gap-2 mb-1">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
           <input type="hidden" name="periodId" th:value="${period.id}">
@@ -209,16 +214,21 @@
           </div>
           <div>
             <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">类目</label>
-            <select data-lsel name="categoryCode" class="h-9 font-mono text-xs bg-paper border border-rule px-3">
+            <!-- data-repayment 标出「偿还负债」性质的两个类目 · 选中负债账户时由 expense-liability.js
+                 把它们从下拉里摘掉(lens-select 的 render() 不看 disabled,所以是摘不是置灰) -->
+            <select data-lsel data-expense-cat name="categoryCode" class="h-9 font-mono text-xs bg-paper border border-rule px-3">
               <option th:each="c : ${expenseCategories}" th:value="${c.code}" th:text="${c.displayName}"
+                      th:attr="data-repayment=${c.code == 'loan_payment' or c.code == 'interest_paid'} ? 'true' : null"
                       th:selected="${c.code == 'consumption'}">日常开支</option>
             </select>
           </div>
           <div>
             <label class="font-mono text-[10px] uppercase text-ink-subtle mb-1 block">支出账户</label>
-            <select data-lsel name="accountId" class="h-9 font-mono text-xs bg-paper border border-rule px-3">
+            <!-- v1.19.3 · 负债账户(信用卡)也在候选里了 —— 刷卡消费同时是花钱和欠得更多 -->
+            <select data-lsel data-expense-acct name="accountId" class="h-9 font-mono text-xs bg-paper border border-rule px-3">
               <option th:each="a : ${expenseAccounts}"
-                      th:value="${a.id}" th:text="${a.displayName} + ' · ' + ${a.type.label}">账户</option>
+                      th:value="${a.id}" th:text="${a.displayName} + ' · ' + ${a.type.label}"
+                      th:attr="data-liability=${a.type.liability} ? 'true' : null">账户</option>
             </select>
           </div>
           <div class="flex-1 min-w-[120px]">
@@ -228,6 +238,19 @@
           <button type="submit" class="btn-ink text-sm h-9 px-4">+ 加一笔</button>
         </form>
         <p class="font-mono text-[10px] text-ink-subtle">类目停在「性质」这一层:日常开支 / 还贷 / 利息支出 / 转账给亲属(内置四项)。</p>
+        <!-- 选中信用卡等负债账户时才出现。不是装饰:摘掉两个类目而不说原因,用户只会以为下拉坏了。
+             必须有边框+底色:它上下都是同字号的灰色说明文字,纯文字版在手机上三段糊成一堵墙
+             (双端截图自审抓到),分不清哪句是针对当前选择的。 -->
+        <div data-expense-liability-hint hidden
+             class="mt-2 mb-1 border-l-2 border-rust bg-rust/[0.05] px-3 py-2 max-w-[52rem]">
+          <p class="font-mono text-[10px] text-ink leading-relaxed">
+            <b>刷卡消费记在这里是对的</b> —— 会让这张卡「欠得更多」。
+          </p>
+          <p class="font-mono text-[10px] text-ink-subtle leading-relaxed mt-1">
+            但「还贷 / 利息支出」已移走 —— 那两笔要记在<b class="text-ink">钱实际流出的现金账户</b>上,
+            记在卡上会和卡上的消费重复算进本月支出。
+          </p>
+        </div>
 
         <!-- 本期已录支出 -->
         <div th:if="${expenseEntries != null and !expenseEntries.isEmpty()}" class="border border-rule-soft bg-card mt-3">
@@ -308,6 +331,9 @@
 
   <!-- v1.8 · 收支两区的下拉换成自研件(data-lsel)· 见 /js/lens-select.js -->
   <script th:src="@{/js/lens-select.js(v=${buildVersion})}"></script>
+  <!-- v1.19.3 · 支出账户选中信用卡等负债账户时,摘掉「还贷/利息支出」类目(防支出双计)。
+       必须排在 lens-select 之后:两者都改同一个 select,后者靠 MutationObserver 跟随重建。 -->
+  <script th:src="@{/js/expense-liability.js(v=${buildVersion})}"></script>
   <style>
     /* 自研下拉的按钮要和旁边的 input(h-9 font-mono text-xs bg-paper)长得一样高、一样字号,
        否则同一行控件参差不齐(并列同类元素必须同尺寸)。lens-select 自带的是通用纸面样式,

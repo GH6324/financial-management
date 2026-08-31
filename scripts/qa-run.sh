@@ -7703,6 +7703,53 @@ QA1192_AA="$RD/src/main/resources/templates/admin/ai-access.html"
   || log_bad "v119-CUSTODY-EXHAUSTIVE 托管形式链路不全" "枚举/维度/单测三处缺一不可"
 
 
+# ═══ v1.19.3 · 信用卡支出 ═══
+QA1193_EC="$RD/src/main/java/com/family/finance/web/entry/EntryController.java"
+QA1193_ES="$RD/src/main/java/com/family/finance/service/EntryService.java"
+QA1193_TPL="$RD/src/main/resources/templates/entry/index.html"
+QA1193_JS="$RD/src/main/resources/static/js/expense-liability.js"
+
+# v1193-EXPENSE-ACCT-OPEN · 支出账户候选不许再按类型排除负债账户。
+#   这正是线上那个「信用卡选不中」的成因:AccountType 里没有信用卡,信用卡只能录成 LOAN,
+#   而这里排掉了整个 LOAN。哪天有人"顺手"把 filter 加回来,这条要立刻红。
+QA1193_FILTER=$(codeonly "$QA1193_EC" | grep -c 'expenseAccounts' || true)
+{ [[ "$QA1193_FILTER" -ge 1 ]] \
+  && ! codeonly "$QA1193_EC" | grep -A3 'expenseAccounts' | grep -q 'AccountType.LOAN'; } \
+  && log_ok "v1193-EXPENSE-ACCT-OPEN(支出账户候选不排除负债账户 · 信用卡可选)" \
+  || log_bad "v1193-EXPENSE-ACCT-OPEN 支出账户又把负债类排掉了" "信用卡只能录成 LOAN,排掉 LOAN 等于信用卡消费录不进去"
+
+# v1193-EXPENSE-LIABILITY-CAT · 放开之后必须挡住支出双计。
+#   刷卡记「消费」+ 还款记「还贷」= 同一笔钱进两次本月支出。这种错报表上看着完全正常
+#   (每个数字都是真的,只是被算了两次),肉眼复核发现不了 —— 只能靠服务端硬拦 + 单测钉住。
+{ codeonly "$QA1193_ES" | grep -q 'REPAYMENT_CATEGORIES' \
+  && codeonly "$QA1193_ES" | grep -q 'loan_payment' \
+  && codeonly "$QA1193_ES" | grep -q 'interest_paid' \
+  && codeonly "$QA1193_ES" | grep -q 'expenseCategoryAllowedOn' \
+  && [[ -f "$RD/src/test/java/com/family/finance/service/EntryExpenseLiabilityTest.java" ]]; } \
+  && log_ok "v1193-EXPENSE-LIABILITY-CAT(负债账户禁「还贷/利息支出」· 服务端硬拦 + 单测)" \
+  || log_bad "v1193-EXPENSE-LIABILITY-CAT 支出双计防护缺失" "刷卡记消费+还款记还贷会让本月支出翻倍,且报表上看不出来"
+
+# v1193-EXPENSE-DIR-PINNED · 负债余额存负数这条约定被单测钉住。
+#   这次放开之所以不用给负债账户加方向分支,全靠它。约定要是翻了(改成欠款存正数),
+#   刷一笔卡会变成负债减少、净资产虚增,而且没有任何地方会报错。
+{ grep -q 'expenseOnCreditCard_increasesDebt' "$RD/src/test/java/com/family/finance/service/EntryExpenseLiabilityTest.java" \
+  && codeonly "$QA1193_ES" | grep -q 'isLiability() && scaled.signum() > 0'; } \
+  && log_ok "v1193-EXPENSE-DIR-PINNED(负债余额存负数 + 支出方向有单测钉住)" \
+  || log_bad "v1193-EXPENSE-DIR-PINNED 负债余额方向约定失守" "方向翻了会让刷卡变成净资产虚增,且不报错"
+
+# v1193-EXPENSE-CAT-UI-SYNC · 前端要和服务端同口径,而且必须是「摘掉」不是「置灰」。
+#   两个 select 都挂 data-lsel,lens-select.js 的 render() 不读 option.disabled ——
+#   置灰在自定义下拉上根本看不出来,用户照样点得到,然后撞服务端报错。
+{ grep -q 'data-repayment' "$QA1193_TPL" \
+  && grep -q 'data-liability' "$QA1193_TPL" \
+  && grep -q 'expense-liability.js' "$QA1193_TPL" \
+  && grep -q 'data-expense-liability-hint' "$QA1193_TPL" \
+  && grep -q 'removeChild' "$QA1193_JS" \
+  && grep -q 'insertBefore' "$QA1193_JS"; } \
+  && log_ok "v1193-EXPENSE-CAT-UI-SYNC(前端摘类目+提示,与服务端同口径)" \
+  || log_bad "v1193-EXPENSE-CAT-UI-SYNC 前端类目约束缺失或用了置灰" "lens-select 不读 disabled,置灰等于没做"
+
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
