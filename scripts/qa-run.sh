@@ -7801,6 +7801,47 @@ QA1194_DOM="$RD/src/main/java/com/family/finance/domain/holdingimport/HoldingImp
   || log_bad "v1194-SCANERR-NO-CONFIRM 失败态还能提交确认" "误确认必须在物理上不可能,不能只靠用户看提示"
 
 
+# ═══ v1.19.5 · 上传态缩略图要能删能放大 ═══
+QA1195_TPL="$RD/src/main/resources/templates/holdingimport/import.html"
+QA1195_CTL="$RD/src/main/java/com/family/finance/web/holdingimport/HoldingImportController.java"
+
+# v1195-ONE-GALLERY · 上传态只能有一个缩略图容器。
+#   分成两个(JS 画的 #thumbs + 服务端画的 js-gallery)是这次缺陷的根:
+#   刚上传的那批落在没有删除/放大能力的那一半,用户「传完立刻想点开看」正好撞上。
+{ grep -q 'id="thumbs" class="[^"]*js-gallery' "$QA1195_TPL" \
+  && [ "$(grep -c 'class="flex flex-wrap gap-3 js-gallery"' "$QA1195_TPL")" -le 3 ]; } \
+  && log_ok "v1195-ONE-GALLERY(上传态缩略图与画廊同一个容器 · 同结构同行为)" \
+  || log_bad "v1195-ONE-GALLERY 上传态又出现了第二个缩略图容器" "刚上传的图会落在没有 ✕/放大的那一半"
+
+# v1195-THUMB-IS-GSHOT · JS 新建的缩略图必须是 .gshot 且带 ✕ 与 data-src。
+{ codeonly "$QA1195_TPL" | grep -q "d.className='gshot pending'" \
+  && codeonly "$QA1195_TPL" | grep -q "rm.className='grm'" \
+  && codeonly "$QA1195_TPL" | grep -q "d.setAttribute('data-src'"; } \
+  && log_ok "v1195-THUMB-IS-GSHOT(JS 缩略图 = .gshot + ✕ + data-src)" \
+  || log_bad "v1195-THUMB-IS-GSHOT JS 缩略图退回成哑元素" "没有 ✕ 就删不掉,没有 data-src 就点不开"
+
+# v1195-GALLERY-DELEGATED · 画廊行为必须是事件委托。
+#   逐个 addEventListener 只对**绑定那一刻已存在**的元素生效,动态 append 进来的一个都不管。
+{ codeonly "$QA1195_TPL" | grep -q "g.addEventListener('click'" \
+  && codeonly "$QA1195_TPL" | grep -q "closest('.gshot')" \
+  && ! codeonly "$QA1195_TPL" | grep -q "g.querySelectorAll('.gshot').forEach"; } \
+  && log_ok "v1195-GALLERY-DELEGATED(画廊点击走事件委托 · 动态新增的也有行为)" \
+  || log_bad "v1195-GALLERY-DELEGATED 画廊又改回逐个绑定" "动态 append 的缩略图会点不动"
+
+# v1195-UPLOAD-RETURNS-REL · 上传接口必须把 rel 还给前端(删除要用它)。
+{ codeonly "$QA1195_CTL" | grep -q 'rels.add(importService.saveImage' \
+  && codeonly "$QA1195_CTL" | grep -q '"rels", rels'; } \
+  && log_ok "v1195-UPLOAD-RETURNS-REL(上传返回相对路径 · 前端据此接上删除与大图)" \
+  || log_bad "v1195-UPLOAD-RETURNS-REL 上传又丢弃了 saveImage 的返回值" "拿不到 rel 就删不掉刚传的图"
+
+# v1195-UPLOADED-FROM-DOM · 「本次 N 张」要从服务端已渲染的图起算,不能写死 0。
+#   写死 0 的后果:传完图刷新一下,图还在但「开始识别」是灰的。
+{ codeonly "$QA1195_TPL" | grep -q "var uploaded=thumbs.querySelectorAll('.gshot\[data-rel\]').length" \
+  && ! codeonly "$QA1195_TPL" | grep -q 'var uploaded=0'; } \
+  && log_ok "v1195-UPLOADED-FROM-DOM(计数从已有图起算 · 刷新后仍可识别)" \
+  || log_bad "v1195-UPLOADED-FROM-DOM 计数又写死成 0" "刷新后「开始识别」会变灰,用户得再传一张才能点"
+
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

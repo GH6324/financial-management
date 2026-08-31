@@ -102,16 +102,22 @@ public class HoldingImportController {
                                       @RequestParam("files") MultipartFile[] files) {
         HoldingImport imp = requireImport(me.getFamilyId(), importId);
         int saved = 0;
+        // v1.19.5 · 把存下来的相对路径**还给前端**。此前这里丢弃了 saveImage 的返回值,
+        // 于是刚上传的缩略图拿不到服务器路径 —— 既没法生成删除请求(要 rel),
+        // 也没法指向真正的大图。结果是那批图只能干看着:点不开、删不掉,
+        // 得刷新一次页面等服务端把画廊渲染出来才有这两个能力。
+        java.util.List<String> rels = new java.util.ArrayList<>();
         for (MultipartFile f : files) {
             if (f.isEmpty()) continue;
             try {
-                importService.saveImage(imp, f.getBytes(), f.getContentType());
+                rels.add(importService.saveImage(imp, f.getBytes(), f.getContentType()));
                 saved++;
             } catch (Exception e) {
                 log.warn("import {} 存图失败: {}", importId, e.toString());
             }
         }
-        return Map.of("importId", importId, "imgCount", imp.getImgCount() == null ? 0 : imp.getImgCount(), "saved", saved);
+        return Map.of("importId", importId, "imgCount", imp.getImgCount() == null ? 0 : imp.getImgCount(),
+                "saved", saved, "rels", rels);
     }
 
     @PostMapping("/entry/import/{importId}/scan")

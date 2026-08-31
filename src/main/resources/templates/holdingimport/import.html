@@ -8,9 +8,12 @@
   .thumb{position:relative;width:78px;height:136px;border:1px solid var(--rule);border-radius:8px;overflow:hidden;background:var(--card-soft);flex:none}
   .thumb img{width:100%;height:100%;object-fit:cover}
   .thumb .rm{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:12px;line-height:18px;text-align:center;cursor:pointer}
-  .thumb.scan::after{content:'';position:absolute;left:0;right:0;top:-24px;height:24px;background:linear-gradient(180deg,rgba(176,134,66,0),rgba(176,134,66,.7),rgba(176,134,66,0));animation:scanln 1.3s linear infinite}
-  .thumb.scan{box-shadow:0 0 0 2px var(--brass) inset}
-  @keyframes scanln{0%{top:-24px}100%{top:136px}}
+  /* v1.19.5 · 上传态的缩略图统一成 .gshot,扫描动画要跟着认它,否则识别时没有扫描条 */
+  .thumb.scan::after,.gshot.scan::after{content:'';position:absolute;left:0;right:0;top:-24px;height:24px;background:linear-gradient(180deg,rgba(176,134,66,0),rgba(176,134,66,.7),rgba(176,134,66,0));animation:scanln 1.3s linear infinite}
+  .thumb.scan,.gshot.scan{box-shadow:0 0 0 2px var(--brass) inset}
+  @keyframes scanln{0%{top:-24px}100%{top:148px}}
+  /* 上传还没回来时不给删(没有 rel 就发不出删除请求),但**可以点开看** —— 那正是用户要的 */
+  .gshot.pending .grm{display:none}
   .cmp-amt{font-variant-numeric:tabular-nums;font-family:'JetBrains Mono',monospace}
   .revrow{border-top:1px solid var(--rule)}
   .revrow:hover{background:var(--card-soft)}
@@ -80,13 +83,19 @@
         <div class="dz-drop font-display text-lg text-brass-deep">松手即上传</div>
       </div>
       <div id="dropRej" class="hidden font-mono text-[12px] text-rust mt-2"></div>
-      <div id="thumbs" class="flex flex-wrap gap-3 mt-4"></div>
-      <!-- v1.4.2 · 已上传(持久)截图:点开放大缩小 + ✕ 删错图 -->
-      <div th:if="${imageRels != null and !imageRels.isEmpty()}" class="mt-4">
-        <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-2">
-          已上传 <b th:text="${#lists.size(imageRels)}">0</b> 张 · 点看大图 · ✕ 删错图
+      <!--/*
+           v1.19.5 · 上传态**只有一个画廊**(原来是两个:JS 画的 #thumbs 和服务端画的 js-gallery)。
+           分成两个的后果是刚上传的那批图点不开也删不掉 —— 那批走 #thumbs,而删除和放大的行为
+           只挂在 js-gallery 上。用户「传完立刻想点开看看对不对」正好落在没能力的那一半。
+           现在服务端预填已有的,JS 往同一个容器 append 新的,两者结构相同、行为相同。
+      */-->
+      <div class="mt-4">
+        <div id="shotHint"
+             th:classappend="${imageRels == null or imageRels.isEmpty()} ? ' hidden'"
+             class="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle mb-2">
+          已上传 <b id="shotN" th:text="${imageRels == null ? 0 : #lists.size(imageRels)}">0</b> 张 · 点看大图 · ✕ 删错图
         </div>
-        <div class="flex flex-wrap gap-3 js-gallery" th:attr="data-import=${imp.id}">
+        <div id="thumbs" class="flex flex-wrap gap-3 js-gallery" th:attr="data-import=${imp.id}">
           <div th:each="rel : ${imageRels}" class="gshot" th:attr="data-src=@{'/uploads/' + ${rel}},data-rel=${rel}">
             <img th:src="@{'/uploads/' + ${rel}}" alt="已上传截图"/>
             <button type="button" class="grm" title="删除这张">✕</button>
@@ -268,10 +277,39 @@
     var status=sec.getAttribute('data-status');
     var fi=document.getElementById('fileInput'), thumbs=document.getElementById('thumbs');
     var scanBtn=document.getElementById('scanBtn'), imgN=document.getElementById('imgN'), costV=document.getElementById('costV');
-    var uploaded=0, uploading=0;
+    /* v1.19.5 · 从**服务端已经渲染出来的图**起算,不是从 0。
+       原来写死 0 的后果:传完图刷新一下(或退出再进),图明明还在、
+       「开始识别」却是灰的 —— 用户只能再传一张才能点。 */
+    var uploaded=thumbs.querySelectorAll('.gshot[data-rel]').length, uploading=0;
     function upd(){imgN.textContent=uploaded;costV.textContent='≈ ¥'+(uploaded*(RATE[model]||0.01)).toFixed(2);scanBtn.disabled=uploaded===0||uploading>0;}
+    /* 给画廊的删除回调用:删一张,本次计数和按钮状态跟着退回去 */
+    window.setUploaded=function(n){uploaded=n;upd();};
     function compress(file){return new Promise(function(res){var img=new Image();img.onload=function(){var mx=2000,r=Math.min(mx/img.width,mx/img.height,1);var c=document.createElement('canvas');c.width=Math.round(img.width*r);c.height=Math.round(img.height*r);c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(function(b){res(b);},'image/jpeg',0.82);};img.onerror=function(){res(null);};img.src=URL.createObjectURL(file);});}
-    function addThumb(blob){var d=document.createElement('div');d.className='thumb';var im=document.createElement('img');im.src=URL.createObjectURL(blob);d.appendChild(im);thumbs.appendChild(d);return d;}
+    /* v1.19.5 · 缩略图按 .gshot 渲染(与服务端那批同构)。
+       data-src 先用本地 blob URL —— 上传还没回来就能点开看,这正是「传完立刻想确认对不对」;
+       上传成功后再换成服务器路径并补上 ✕(删除要 rel,拿到才给)。 */
+    function addThumb(blob){
+      var d=document.createElement('div');
+      d.className='gshot pending';
+      var u=URL.createObjectURL(blob);
+      d.setAttribute('data-src',u);
+      var im=document.createElement('img'); im.src=u; d.appendChild(im);
+      var rm=document.createElement('button');
+      rm.type='button'; rm.className='grm'; rm.title='删除这张'; rm.textContent='✕';
+      d.appendChild(rm);
+      thumbs.appendChild(d);
+      return d;
+    }
+    /* 上传回来后把这张图接上服务器身份:能删了,大图也换成服务端那份 */
+    function bindUploaded(d,rel){
+      if(!rel){return;}
+      d.classList.remove('pending');
+      d.setAttribute('data-rel',rel);
+      d.setAttribute('data-src','/uploads/'+rel);
+      var hint=document.getElementById('shotHint'), n=document.getElementById('shotN');
+      if(hint) hint.classList.remove('hidden');
+      if(n) n.textContent=String(thumbs.querySelectorAll('.gshot[data-rel]').length);
+    }
     // v1.14 / FR-370 · 单张上传:压缩 → 缩略图 → POST → 计数。三个入口共用,不复制。
     function uploadOne(f){
       uploading++; upd();
@@ -279,8 +317,10 @@
         if(!blob){uploading--;upd();return;}
         var d=addThumb(blob); d.classList.add('scan');
         var fd=new FormData(); fd.append('files',blob,'shot.jpg');
-        post('/entry/import/'+iid+'/upload',fd,true).then(function(r){return r.json();}).then(function(){
-          d.classList.remove('scan'); uploaded++; uploading--; upd();
+        post('/entry/import/'+iid+'/upload',fd,true).then(function(r){return r.json();}).then(function(j){
+          d.classList.remove('scan');
+          bindUploaded(d, j && j.rels && j.rels[0]);   // 拿到 rel 才算真正落到服务器上
+          uploaded++; uploading--; upd();
         }).catch(function(){d.classList.remove('scan');d.style.opacity=.4;uploading--;upd();});
       });
     }
@@ -352,7 +392,7 @@
       });
     });
     // 断点续看:进来就是 SCANNING → 直接进扫描态轮询(无原图缩略,占位)
-    if(status==='SCANNING'){scanBtn.style.display='none';var ph=document.createElement('div');ph.className='thumb scan';thumbs.appendChild(ph);startPoll();}
+    if(status==='SCANNING'){scanBtn.style.display='none';var ph=document.createElement('div');ph.className='gshot scan';thumbs.appendChild(ph);startPoll();}  /* v1.19.5 · 与同排缩略图同尺寸(原来是 .thumb,78×136 混在 84×148 里一眼看得出参差) */
     upd();
   }
 
@@ -402,20 +442,41 @@
       if(mode==='pan'&&scale<=1){var dy=(e.changedTouches[0].clientY-sy);if(dy>90){close();}else{apply();lbImg.style.opacity='';}}
       if(e.touches.length===0)mode='';
     });
-    // 画廊:点图放大 · ✕ 删除
+    /* 画廊:点图放大 · ✕ 删除
+       v1.19.5 · 改成**事件委托**。原来是页面加载时逐个 .gshot 绑 listener ——
+       对上传态动态 append 进来的那批**一个都不生效**(它们在绑定之后才存在)。
+       这正是「刚传完的图点不开、删不掉」的另一半原因;委托挂在容器上就一劳永逸,
+       不用记着每次 append 后补绑。 */
     document.querySelectorAll('.js-gallery').forEach(function(g){
       var imp=g.getAttribute('data-import');
-      g.querySelectorAll('.gshot').forEach(function(sh){
-        sh.addEventListener('click',function(e){ if(e.target.classList.contains('grm')) return; open(sh.getAttribute('data-src')); });
-        var rm=sh.querySelector('.grm');
-        if(rm) rm.addEventListener('click',function(e){
+      g.addEventListener('click',function(e){
+        var sh=e.target.closest ? e.target.closest('.gshot') : null;
+        if(!sh||!g.contains(sh))return;
+        if(e.target.classList.contains('grm')){
           e.stopPropagation();
-          if(!confirm('删除这张截图?')) return;
-          post('/entry/import/'+imp+'/image/delete','rel='+encodeURIComponent(sh.getAttribute('data-rel')))
-            .then(function(r){return r.json();}).then(function(){sh.remove();}).catch(function(){alert('删除失败,请重试');});
-        });
+          var rel=sh.getAttribute('data-rel');
+          if(!rel)return;                       /* 还没传完,没有 rel 就发不出删除请求 */
+          if(!confirm('删除这张截图?'))return;
+          post('/entry/import/'+imp+'/image/delete','rel='+encodeURIComponent(rel))
+            .then(function(r){return r.json();})
+            .then(function(){ sh.remove(); afterGalleryChange(g); })
+            .catch(function(){alert('删除失败,请重试');});
+          return;
+        }
+        var src=sh.getAttribute('data-src');
+        if(src) open(src);                      /* pending 的用本地 blob URL,一样能看 */
       });
     });
+
+    /* 删图之后:计数、提示条、以及「本次 N 张 / 开始识别」都要跟着退回去,
+       否则删到一张不剩,按钮还亮着、代价还写着旧数字。 */
+    function afterGalleryChange(g){
+      var n=g.querySelectorAll('.gshot[data-rel]').length;
+      var hint=document.getElementById('shotHint'), sn=document.getElementById('shotN');
+      if(sn) sn.textContent=String(n);
+      if(hint) hint.classList.toggle('hidden', n===0);
+      if(g.id==='thumbs' && typeof setUploaded==='function') setUploaded(n);
+    }
     // 识别失败 → 删错图后重新识别
     var rb=document.getElementById('rescanBtn');
     if(rb) rb.addEventListener('click',function(){
