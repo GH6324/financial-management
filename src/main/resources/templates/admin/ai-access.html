@@ -43,8 +43,11 @@
 
       <div th:unless="${freshIsRotation}" class="mt-4">
         <div class="eyebrow mb-2">粘 进 百 炼 的 配 置</div>
+        <!-- JSON 由 Java 生成(ManagedAgentRuntime.mcpConfigJson)。
+             以前在这里手拼字符串,而 Thymeleaf 字面量里的 \n **不是换行** ——
+             渲染出来是带字面 \n 的一行,用户照抄进百炼就是一段无效 JSON。 -->
         <pre class="font-mono text-[11.5px] bg-paper-soft border border-rule px-3 py-2 overflow-x-auto"
-             th:text="'{\n  &quot;type&quot;: &quot;streamableHttp&quot;,\n  &quot;url&quot;: &quot;' + ${baseUrl} + '/mcp&quot;,\n  &quot;headers&quot;: { &quot;Authorization&quot;: &quot;Bearer ' + ${freshToken} + '&quot; }\n}'">{}</pre>
+             th:text="${freshMcpConfig}">{}</pre>
         <p class="text-[12px] text-ink-subtle mt-2">
           百炼控制台 → MCP 管理 → 创建自定义 MCP → 安装方式选 <b>http</b> → 粘上面这段 → 保存,
           然后把服务卡片上的<b>服务 ID</b> 填进你的智能体。
@@ -102,27 +105,132 @@
           </p>
         </div>
 
-        <!-- 托管路线才要填的:没选它的时候仍然显示,但说清是干嘛的 —— 藏起来会让人以为漏了步骤 -->
-        <details th:open="${askRuntime == 'managed'}" class="border-t border-rule pt-3">
-          <summary class="cursor-pointer text-[12px] text-ink-soft select-none">百炼托管 Agent 的设置</summary>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+        <!-- 托管路线才要填的。没选它的时候仍然显示,但说清是干嘛的 —— 藏起来会让人以为漏了步骤。
+             这一段以前只有三个输入框、没有任何说明,而其中两项要去阿里云控制台里翻才拿得到。
+             「业务空间 ID」这种词对着一个空输入框是问不出来的,所以把整条路线写成分步向导,
+             人工的那几步各配一段实操说明。 -->
+        <details th:open="${askRuntime == 'managed'}" class="ask-setup">
+          <summary>百炼托管 Agent 的设置 · 一共 5 步(3 步要你去百炼控制台)</summary>
+
+          <ol class="ask-steps">
+            <!-- ① -->
+            <li>
+              <span class="ask-step-who ours">我们</span>
+              <div>
+                <b>先发一把只读口令</b>
+                <p>在下面「接入点」那一节点「新增接入点」。口令<b>只显示这一次</b>,顺手复制走 ——
+                   第 3 步要把它粘进百炼。</p>
+              </div>
+            </li>
+
+            <!-- ② 业务空间 ID -->
+            <li>
+              <span class="ask-step-who">你</span>
+              <div>
+                <b>去百炼拿「业务空间 ID」</b>
+                <p>它是你在百炼里那个空间的编号,形如 <code>llm-7c72iiw36kd8xxxx</code>。
+                   我们用它拼接口地址(<code>https://<b>业务空间ID</b>.cn-beijing.maas.aliyuncs.com/…</code>),
+                   所以少了它连不上。</p>
+                <details class="ask-how">
+                  <summary>怎么拿</summary>
+                  <ol>
+                    <li>打开 <a href="https://bailian.console.aliyun.com/" target="_blank" rel="noopener">百炼控制台</a>,
+                        左上角<b>先把地域切到「华北2(北京)」</b> —— 我们用的是北京地域的接口,
+                        在别的地域拿到的 ID 对不上。</li>
+                    <li>点<b>页面右上角</b>那个图标,弹出的对话框里就能看到并复制<b>业务空间 ID</b>。</li>
+                    <li>要看主账号下所有空间的 ID:同样点右上角图标 → 进「<b>业务空间管理</b>」→
+                        在 <b>Workspace ID</b> 那一列复制。</li>
+                  </ol>
+                  <p class="ask-how-note">
+                    <b>拿不到?多半是权限。</b>这一页要求<b>主账号</b>,或者已授予
+                    <code>AliyunBailianFullAccess</code> / <code>AliyunBailianControlFullAccess</code>
+                    的 RAM 子账号;没有权限会直接提示权限不足。<br>
+                    这个 ID <b>只能在控制台拿</b>,阿里云没有提供 API 或命令行查询。
+                    <a href="https://help.aliyun.com/zh/model-studio/obtain-the-app-id-and-workspace-id"
+                       target="_blank" rel="noopener">官方说明 →</a>
+                  </p>
+                </details>
+              </div>
+            </li>
+
+            <!-- ③ 注册 MCP -->
+            <li>
+              <span class="ask-step-who">你</span>
+              <div>
+                <b>去百炼把这个账房注册成一个 MCP 服务</b>
+                <p>百炼的智能体只能引用<b>已经注册过</b>的 MCP 服务,而注册这件事阿里云没开放接口 ——
+                   只能手工点一遍。这也是这条路线比「本机直连」麻烦的唯一原因。</p>
+                <details class="ask-how">
+                  <summary>怎么做</summary>
+                  <ol>
+                    <li>百炼控制台左侧进「<b>MCP 管理</b>」,点「<b>创建 MCP 服务</b>」。</li>
+                    <li>安装方式选 <b>http</b>(说明写着「连接到一个已有的、运行在别处的远程 MCP 服务器」)
+                        —— 这个账房就跑在你自己的服务器上,不需要百炼替你部署。</li>
+                    <li>把第 1 步生成口令时页面给你的那段 JSON 粘进去。它长这样:
+                      <pre th:text="${mcpConfigSample}">{}</pre>
+                    </li>
+                    <li>保存并部署,然后回到「MCP 管理 → 自定义服务」,在这个服务上找到它的
+                        <b>服务 ID</b>,填进下面那一格。</li>
+                    <li class="ask-how-alt">百炼那边的表单如果只要 <code>type</code> / <code>url</code> /
+                        <code>headers</code> 这一段,把外面 <code>mcpServers</code> 那两层去掉再粘。</li>
+                  </ol>
+                  <p class="ask-how-note">
+                    <b>口令放在 headers 里。</b>百炼的配置模板没有专门写这一项,但它的错误排查文档里说得很清楚:
+                    401 的处理办法是「在 MCP 服务中正确添加鉴权信息,例如 Headers 中的 Authorization 信息」。
+                    <b>不要把口令拼在 URL 上</b> —— MCP 规范禁止这么做,我们这边也会直接拒掉。<br>
+                    <b>部署之后改配置要先停止部署。</b>百炼只允许改服务名称和描述,其余都得停了再改再重新部署 ——
+                    所以我们换口令时<b>新旧两把会并存</b>,新的第一次被用到,旧的才自动失效,中间不断服务。
+                    <a href="https://help.aliyun.com/zh/model-studio/custom-mcp"
+                       target="_blank" rel="noopener">官方说明 →</a>
+                  </p>
+                </details>
+              </div>
+            </li>
+
+            <!-- ④⑤ -->
+            <li>
+              <span class="ask-step-who">你</span>
+              <div>
+                <b>把两个 ID 填回来并保存</b>
+                <p>就是下面这三格。公网地址必须是 <code>https</code> —— 百炼不接受 http 回调。</p>
+              </div>
+            </li>
+            <li>
+              <span class="ask-step-who ours">我们</span>
+              <div>
+                <b>点「在百炼上创建 Agent」</b>
+                <p>系统提示词、工具清单、MCP 引用都由我们自动写进去。之后每次提问就直接走百炼了。</p>
+              </div>
+            </li>
+          </ol>
+
+          <div class="ask-caveat">
+            <b>说在前面:这条路线我们还没在真实环境里跑通过。</b>
+            它要求你的账房有公网域名 + HTTPS,而开发机上没有 —— 代码是按已查证的接口形态写的,
+            但「百炼真的回调进来并取到数」这件事,等一个有证书的环境才能验。
+            没有公网的话直接用<b>本机直连</b>,那条是验过的。
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
             <label class="block">
               <span class="block text-[11.5px] text-ink-soft mb-1">本站公网地址(https)</span>
               <input type="text" name="publicBaseUrl" th:value="${askPublicBaseUrl}"
                      placeholder="https://your-domain.com" class="field-input w-full">
+              <!-- 本机地址填进去百炼是连不上的,而这个错要等到「创建 Agent」失败才暴露 -->
+              <span th:if="${#strings.contains(baseUrl, 'localhost') or #strings.contains(baseUrl, '127.0.0.1')}"
+                    class="block text-[11px] text-rust mt-1">
+                你现在是从本机访问的。这一格要填<b>外面能访问到</b>的域名,填 localhost 百炼连不进来。
+              </span>
             </label>
             <label class="block">
-              <span class="block text-[11.5px] text-ink-soft mb-1">百炼业务空间 ID</span>
+              <span class="block text-[11.5px] text-ink-soft mb-1">百炼业务空间 ID<span class="text-ink-subtle"> · 第 2 步</span></span>
               <input type="text" name="workspaceId" th:value="${askWorkspaceId}"
-                     placeholder="llm-xxxxxxxx" class="field-input w-full">
+                     placeholder="llm-xxxxxxxxxxxx" class="field-input w-full">
             </label>
             <label class="block sm:col-span-2">
-              <span class="block text-[11.5px] text-ink-soft mb-1">
-                百炼 MCP 服务 ID
-                <span class="text-ink-subtle">· 在百炼控制台注册自定义 MCP 后拿到(这一步百炼没开放接口,只能手工)</span>
-              </span>
+              <span class="block text-[11.5px] text-ink-soft mb-1">百炼 MCP 服务 ID<span class="text-ink-subtle"> · 第 3 步注册完拿到</span></span>
               <input type="text" name="mcpServerId" th:value="${askMcpServerId}"
-                     placeholder="服务卡片上的 ID" class="field-input w-full">
+                     placeholder="MCP 管理 → 自定义服务 里那个服务的 ID" class="field-input w-full">
             </label>
           </div>
         </details>

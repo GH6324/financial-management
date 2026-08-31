@@ -225,11 +225,16 @@ public class ManagedAgentRuntime implements AgentRuntime {
 
     /** 给用户去百炼控制台粘贴的 MCP 配置 —— 明文口令只在生成那一屏出现一次 */
     public String mcpConfigJson(String baseUrl, String plaintextToken) {
-        Map<String, Object> cfg = Map.of("mcpServers", Map.of(
-                "family-finance", new LinkedHashMap<>(Map.of(
-                        "type", "streamableHttp",
-                        "url", baseUrl + "/mcp",
-                        "headers", Map.of("Authorization", "Bearer " + plaintextToken)))));
+        // 逐个 put,不用 Map.of —— Map.of 不保证顺序,生成出来 headers 会跑到 type 前面。
+        // 这段是给人复制粘贴的,字段顺序乱掉虽然不影响解析,但读起来像是随手拼的。
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("type", "streamableHttp");
+        entry.put("url", baseUrl + "/mcp");
+        entry.put("headers", Map.of("Authorization", "Bearer " + plaintextToken));
+        Map<String, Object> servers = new LinkedHashMap<>();
+        servers.put("family-finance", entry);
+        Map<String, Object> cfg = new LinkedHashMap<>();
+        cfg.put("mcpServers", servers);
         try {
             return json.writerWithDefaultPrettyPrinter().writeValueAsString(cfg);
         } catch (Exception e) {

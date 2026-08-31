@@ -7660,6 +7660,41 @@ QA119_GN=$(grep -cE '^\s+"' "$QA119_GREET" 2>/dev/null)
   || log_bad "v119-ASK-PRIVACY-COVERS-MONEY 隐私覆盖不全或过度" "漏了会在截图里泄露金额;过度会把百分比也糊掉"
 
 
+# v1192-MCP-CONFIG-FROM-JAVA · 给用户复制的 JSON 必须由 Java 生成,不许在模板里手拼。
+#   Thymeleaf 字符串字面量里的 \n **不是换行** —— 手拼那版渲染出来是带字面 \n 的一行,
+#   用户照抄进百炼就是一段无效 JSON,而这条错要等到百炼那边连不上才暴露。
+#   v1.19.0 就带着这个 bug 发出去了,写接入教程时才发现(教的正是这一步)。
+#   两处(生成口令那张卡 + 教程示例)必须同源,否则迟早只改一处。
+QA1192_AA="$RD/src/main/resources/templates/admin/ai-access.html"
+{ grep -q 'th:text="${freshMcpConfig}"' "$QA1192_AA" \
+  && grep -q 'th:text="${mcpConfigSample}"' "$QA1192_AA" \
+  && ! grep -q 'streamableHttp&quot;,\\n' "$QA1192_AA" \
+  && grep -q 'mcpConfigJson' "$RD/src/main/java/com/family/finance/web/admin/AiAccessController.java"; } \
+  && log_ok "v1192-MCP-CONFIG-FROM-JAVA(粘给百炼的 JSON 由 Java 生成 · 两处同源)" \
+  || log_bad "v1192-MCP-CONFIG-FROM-JAVA JSON 又在模板里手拼了" "Thymeleaf 字面量的 \\n 不是换行,用户复制走的会是无效 JSON"
+
+# v1192-BAILIAN-SETUP-GUIDE · 托管路线的两处**人工**步骤必须有实操说明。
+#   「业务空间 ID」「MCP 服务 ID」这两项都要去阿里云控制台里翻才拿得到,
+#   而这一页原来只有两个空输入框 —— 对着空框是问不出这两个词的。
+#   判据钉住:分步向导在、两段 how-to 在、官方文档链接在、权限要求写了。
+{ grep -q 'ask-steps' "$QA1192_AA" \
+  && [[ $(grep -c 'class="ask-how"' "$QA1192_AA") -ge 2 ]] \
+  && grep -q 'AliyunBailianFullAccess' "$QA1192_AA" \
+  && grep -q 'obtain-the-app-id-and-workspace-id' "$QA1192_AA" \
+  && grep -q 'model-studio/custom-mcp' "$QA1192_AA"; } \
+  && log_ok "v1192-BAILIAN-SETUP-GUIDE(业务空间 ID / MCP 服务 ID 两处人工步骤都有实操说明 + 官方链接)" \
+  || log_bad "v1192-BAILIAN-SETUP-GUIDE 接入教程不全" "这两项要去阿里云控制台翻,对着空输入框用户问不出来"
+
+# v1192-MANAGED-UNVERIFIED-STATED · 没验过的事不许说成验过的。
+#   托管路线的云端往返至今没在真实环境跑通(开发机没有公网证书)。
+#   页面上必须写明这一点,而且要写在**输入框上面** —— 写在下面等于让人填完了才知道。
+{ grep -q '还没在真实环境里跑通过' "$QA1192_AA" \
+  && grep -q 'ask-caveat' "$QA1192_AA" \
+  && grep -q '尚未在真实环境验证' "$RD/tech-design/v1.19.md"; } \
+  && log_ok "v1192-MANAGED-UNVERIFIED-STATED(托管路线未验证这件事,页面与 TDD 都写明)" \
+  || log_bad "v1192-MANAGED-UNVERIFIED-STATED 把没验过的路线说成可用" "用户会照着配半天才发现连不上"
+
+
 # v119-CUSTODY-EXHAUSTIVE · 加新 AccountType 必须在托管形式里表态
 { grep -q 'CustodyForm' "$RD/src/main/java/com/family/finance/domain/lens/CustodyForm.java" \
   && grep -q 'dim("custody"' "$RD/src/main/java/com/family/finance/calc/lens/LensRegistry.java" \

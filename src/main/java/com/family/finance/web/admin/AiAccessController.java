@@ -114,6 +114,11 @@ public class AiAccessController {
         model.addAttribute("askWorkspaceId", configService.getString(fam, K_ASK_MA_WORKSPACE, ""));
         model.addAttribute("askMcpServerId", configService.getString(fam, K_ASK_MA_MCP_SERVER, ""));
         model.addAttribute("askAgentId", configService.getString(fam, K_ASK_MA_AGENT_ID, ""));
+        // 教程里那段示例配置 —— **由 Java 生成**,不在模板里手拼。
+        // 手拼那版有个不显眼的 bug:Thymeleaf 字符串字面量里的 \n 不是换行,
+        // 渲染出来是带字面 \n 的一行,用户照抄进百炼就是一段无效 JSON。
+        model.addAttribute("mcpConfigSample",
+                managedAgentRuntime.mcpConfigJson(guessBaseUrl(req), "你的口令"));
         // 每条 runtime 连同「现在能不能用、不能用是因为什么」一起给页面 ——
         // 只给一个禁用的单选框而不说原因,用户会以为是坏了
         model.addAttribute("runtimes", askConversations.allRuntimes().stream()
@@ -185,6 +190,7 @@ public class AiAccessController {
                          @RequestParam(required = false) String name,
                          @RequestParam(required = false) String scope,
                          @RequestParam(required = false) Integer days,
+                         HttpServletRequest req,
                          RedirectAttributes ra) {
         var issued = tokenService.create(me.getFamilyId(), name, AskScope.parse(scope),
                 days == null ? AccessTokenService.DEFAULT_DAYS : days);
@@ -196,6 +202,9 @@ public class AiAccessController {
         ra.addFlashAttribute("freshToken", issued.plaintext());
         ra.addFlashAttribute("freshName", issued.token().getName());
         ra.addFlashAttribute("freshIsRotation", false);
+        // 明文只经这一次 flash;配置 JSON 同源生成,保证用户复制走的是**能用的**那一份
+        ra.addFlashAttribute("freshMcpConfig",
+                managedAgentRuntime.mcpConfigJson(guessBaseUrl(req), issued.plaintext()));
         return "redirect:/admin/ai-access";
     }
 

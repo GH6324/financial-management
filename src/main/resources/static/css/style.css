@@ -1981,3 +1981,65 @@ html.privacy .ask-chart[data-priv-chart] canvas{ filter:blur(6px); }
                           padding:.3rem .7rem .45rem; border-top:1px solid var(--rule-soft); }
 /* 隐私模式:自由 HTML 里的数字我们管不着(它在 iframe 里),整块糊掉最保险 */
 html.privacy .ask-artifact iframe{ filter:blur(6px); }
+
+/* ── 「AI 接入」· 百炼托管路线的分步向导 ──────────────────────────────────
+   这一段以前只有三个空输入框,而其中两项要去阿里云控制台里翻才拿得到 ——
+   「业务空间 ID」这种词对着一个空输入框是问不出来的。
+   所以做成分步:谁做哪一步一眼看清,人工那几步各配一段可展开的实操说明
+   (默认收起 —— 配过一次的人不需要再看第二遍)。 */
+.ask-setup{ border-top:1px solid var(--rule); padding-top:.7rem; }
+.ask-setup > summary{ cursor:pointer; font-size:12px; color:var(--ink-soft);
+                      list-style:none; user-select:none; padding:.2rem 0; }
+.ask-setup > summary::-webkit-details-marker{ display:none; }
+.ask-setup > summary::before{ content:'▸'; display:inline-block; font-size:9px;
+                              margin-right:.35rem; transition:transform .15s; }
+.ask-setup[open] > summary::before{ transform:rotate(90deg); }
+.ask-setup > summary:hover{ color:var(--ink); }
+
+.ask-steps{ list-style:none; margin:.9rem 0 0; padding:0; counter-reset:askstep; }
+.ask-steps > li{ display:flex; gap:.6rem; padding:.55rem 0;
+                 border-top:1px solid var(--rule-soft); counter-increment:askstep; }
+.ask-steps > li::before{ content:counter(askstep, decimal); flex:none;
+                         width:1.35rem; height:1.35rem; line-height:1.3rem; text-align:center;
+                         margin-top:.1rem; border:1px solid var(--rule);
+                         border-radius:50%; font-family:'JetBrains Mono',monospace;
+                         font-size:10px; color:var(--ink-soft); background:var(--paper); }
+.ask-steps > li:first-child{ border-top:0; }
+.ask-steps > li > div{ flex:1; min-width:0; }
+.ask-steps b{ font-size:13px; color:var(--ink); }
+.ask-steps p{ font-size:12px; color:var(--ink-soft); line-height:1.75; margin:.25rem 0 0; }
+.ask-steps code{ font-family:'JetBrains Mono',monospace; font-size:11px;
+                 background:var(--paper-soft); border:1px solid var(--rule-soft);
+                 border-radius:3px; padding:0 .25rem; }
+
+/* 「谁做这一步」—— 分步向导里最该一眼看清的一列:
+   用户最怕的不是步骤多,是分不清哪几步要他自己动手 */
+.ask-step-who{ flex:none; width:2.4rem; text-align:center; height:1.35rem; line-height:1.35rem;
+               font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.04em;
+               border-radius:3px; color:#fff; background:var(--brass-deep); margin-top:.1rem; }
+.ask-step-who.ours{ background:var(--ink-subtle); }
+
+/* 实操说明:默认收起 */
+.ask-how{ margin-top:.5rem; }
+.ask-how > summary{ display:inline-block; cursor:pointer; list-style:none; user-select:none;
+                    font-size:11.5px; color:var(--brass-deep);
+                    border-bottom:1px dashed var(--brass); padding-bottom:1px; }
+.ask-how > summary::-webkit-details-marker{ display:none; }
+.ask-how > summary:hover{ color:var(--ink); border-color:var(--ink-soft); }
+.ask-how ol{ margin:.5rem 0 0; padding-left:1.15rem; }
+.ask-how li{ font-size:12px; color:var(--ink-soft); line-height:1.8; margin:.2rem 0; }
+.ask-how pre{ font-family:'JetBrains Mono',monospace; font-size:11px; line-height:1.6;
+              background:var(--paper-soft); border:1px solid var(--rule-soft); border-radius:4px;
+              padding:.5rem .6rem; margin:.4rem 0; overflow-x:auto; color:var(--ink-soft); }
+.ask-how-note{ margin-top:.5rem !important; padding:.5rem .65rem; border-radius:4px;
+               background:var(--card-soft); border-left:2px solid var(--brass);
+               font-size:11.5px !important; line-height:1.8 !important; }
+.ask-how-note a, .ask-steps a{ color:var(--ink); }
+
+/* 诚实交代:这条路线我们没在真实环境验过。放在输入框**上面** ——
+   放下面等于让人填完了才知道 */
+.ask-caveat{ margin-top:.9rem; padding:.6rem .75rem; border-left:2px solid var(--rust);
+             background:var(--rust-soft, rgba(164,85,47,.05));
+             font-size:12px; line-height:1.8; color:var(--ink-soft); }
+/* 「万一表单长得不一样」那类补充:比正文更弱,别和主步骤抢 */
+.ask-how li.ask-how-alt{ color:var(--ink-subtle); font-size:11.5px; }
