@@ -292,6 +292,20 @@
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">AI 大模型凭据 · 股票每日拉价节奏 · 汇率每月拉取 · 实时生效不重启</p>
       </div>
     </a>
+    <!--/*
+         v1.19.7 · 「AI 接入」补上落地页卡片。
+         这一页 v1.19 就做好了,侧边栏(_sidebar.html)里也一直有,**唯独落地页漏了** ——
+         而落地页才是用户进管理页看到的第一屏。同一个位置在 2026-06-23 漏过一次
+         (见 feedback_verify_user_path),这次又漏。放在「数据源接入」旁边:
+         那个是「配 AI 的凭据」,这个是「把账本开放给 AI」,方向相反但用户会在同一处找。
+    */-->
+    <a th:href="@{/admin/ai-access}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
+      <div>
+        <div class="eyebrow-ink mb-2">运营 · AI</div>
+        <h3 class="font-display text-xl">AI 接入 <span class="font-mono text-[10px] text-ink-subtle align-middle">· 只读</span></h3>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">让 AI 读你的账本 —— 超级 Agent 开关 · 发只读口令给自己的 AI 客户端 · 百炼托管接入向导</p>
+      </div>
+    </a>
   </section>
   <!-- v1.6 UED review A10/B8-2 · 15 个入口此前 3×5 平铺、无分组无层次,用户只能逐个扫 -->
   <div class="mt-8 mb-2 flex items-baseline gap-3">
@@ -312,6 +326,16 @@
         <div class="eyebrow-ink mb-2">系统 · 审计</div>
         <h3 class="font-display text-xl">审计日志</h3>
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">谁、何时、改了什么</p>
+      </div>
+    </a>
+    <!--/* v1.19.7 · 「账目对账」同样只挂在侧边栏、落地页一直没有。
+           补 ai-access 时顺手比对了侧边栏与落地页,才发现漏的不止一个 —— 所以这一版
+           把「两处必须一致」做成结构性护栏(v1197-ADMIN-LANDING-COMPLETE),不再靠人记。 */-->
+    <a th:href="@{/admin/reconcile}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
+      <div>
+        <div class="eyebrow-ink mb-2">系统 · 对账</div>
+        <h3 class="font-display text-xl">账目对账 <span class="font-mono text-[10px] text-ink-subtle align-middle">· 只读</span></h3>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">这一期的余额变动能不能被流水解释 · 只报不改</p>
       </div>
     </a>
   </section>

@@ -161,27 +161,82 @@
                 <p>百炼的智能体只能引用<b>已经注册过</b>的 MCP 服务,而注册这件事阿里云没开放接口 ——
                    只能手工点一遍。这也是这条路线比「本机直连」麻烦的唯一原因。</p>
                 <details class="ask-how">
-                  <summary>怎么做</summary>
+                  <summary>怎么做 · 第一步就有个岔路,别走错</summary>
+
+                  <p class="ask-how-lead">
+                    点「创建 MCP 服务」之后,百炼会先让你在<b>几种接入方式里挑一个</b>
+                    (插件 / 使用脚本部署 / 从 AI 网关导入 / 从阿里云 OpenAPI 导入)。
+                    <b>选「使用脚本部署」</b> —— 只有这一条路能填我们的地址。
+                  </p>
+
+                  <table class="ask-how-tbl">
+                    <tr><td><b>使用脚本部署</b> ← 选它</td>
+                        <td>唯一支持「连接一个<b>已经跑在别处</b>的远程 MCP 服务」的入口。
+                            这个账房就在你自己的服务器上,不需要百炼替你部署任何东西。</td></tr>
+                    <tr><td>插件</td>
+                        <td>是把一个普通接口<b>包装</b>成工具用的,所以它会要求你<b>逐个填工具名和描述</b>,
+                            不填就存不了。我们这边本身就是 MCP 协议,工具由协议自动发现 ——
+                            走这条路等于把已经有的东西再手抄一遍,而且抄错了模型就调不对。</td></tr>
+                    <tr><td>从 AI 网关导入</td>
+                        <td>给「已有 RESTful API,想升级成 MCP」用的,要先在 AI 网关里托管一层。多一跳,没必要。</td></tr>
+                    <tr><td>从阿里云 OpenAPI 导入</td>
+                        <td>用来让模型操作 OSS / ECS 这些云资源,和你的账本无关。</td></tr>
+                  </table>
+
                   <ol>
-                    <li>百炼控制台左侧进「<b>MCP 管理</b>」,点「<b>创建 MCP 服务</b>」。</li>
-                    <li>安装方式选 <b>http</b>(说明写着「连接到一个已有的、运行在别处的远程 MCP 服务器」)
-                        —— 这个账房就跑在你自己的服务器上,不需要百炼替你部署。</li>
-                    <li>把第 1 步生成口令时页面给你的那段 JSON 粘进去。它长这样:
+                    <li>百炼控制台左侧进「<b>MCP 管理</b>」→「<b>创建 MCP 服务</b>」→ 选「<b>使用脚本部署</b>」。</li>
+                    <li><b>安装方式选 http</b>。npx / uvx 那两个是把服务托管到函数计算,
+                        只有 http 是「连接到一个已有的、运行在别处的远程 MCP 服务器」。<br>
+                        选了 http 之后,<b>「部署方式」「部署地域」两个字段会用不上</b> —— 它们只对 npx / uvx 生效。</li>
+                    <li>服务名称随便起(官方原话:名称和描述「不影响大模型的判断和调用」)。
+                        <b>不需要填任何工具</b> —— 这条路不问你要工具清单。</li>
+                    <li>「MCP 服务配置」里粘这段(第 1 步生成口令时页面给过你):
                       <pre th:text="${mcpConfigSample}">{}</pre>
                     </li>
-                    <li>保存并部署,然后回到「MCP 管理 → 自定义服务」,在这个服务上找到它的
-                        <b>服务 ID</b>,填进下面那一格。</li>
-                    <li class="ask-how-alt">百炼那边的表单如果只要 <code>type</code> / <code>url</code> /
-                        <code>headers</code> 这一段,把外面 <code>mcpServers</code> 那两层去掉再粘。</li>
+                    <li>提交部署,等状态变成部署成功;回到「MCP 管理 → 自定义服务」,
+                        在这个服务上找到它的 <b>服务 ID</b>,填进下面那一格。</li>
+                    <li class="ask-how-alt">如果表单只给 <code>type</code> / <code>url</code> /
+                        <code>headers</code> 这几格,把外面 <code>mcpServers</code> 和服务名那两层去掉再填。</li>
                   </ol>
+
                   <p class="ask-how-note">
-                    <b>口令放在 headers 里。</b>百炼的配置模板没有专门写这一项,但它的错误排查文档里说得很清楚:
-                    401 的处理办法是「在 MCP 服务中正确添加鉴权信息,例如 Headers 中的 Authorization 信息」。
-                    <b>不要把口令拼在 URL 上</b> —— MCP 规范禁止这么做,我们这边也会直接拒掉。<br>
-                    <b>部署之后改配置要先停止部署。</b>百炼只允许改服务名称和描述,其余都得停了再改再重新部署 ——
-                    所以我们换口令时<b>新旧两把会并存</b>,新的第一次被用到,旧的才自动失效,中间不断服务。
-                    <a href="https://help.aliyun.com/zh/model-studio/custom-mcp"
-                       target="_blank" rel="noopener">官方说明 →</a>
+                    <b>① <code>type</code> 必须和地址末尾对上。</b>百炼把这两件事绑死了:
+                    <code>streamableHttp</code> 配 <code>/mcp</code>、<code>sse</code> 配 <code>/sse</code>。
+                    对不上会报 404 / 405,看着像地址写错,其实是类型选错。
+                    我们给的这段是 <code>streamableHttp</code> + <code>/mcp</code>,<b>照抄就对</b>。
+                  </p>
+
+                  <p class="ask-how-note">
+                    <b>② 口令写在 headers 里,而且要带 <code>Bearer </code> 前缀。</b>
+                    也就是 <code>"Authorization": "Bearer 你的口令"</code> ——
+                    <code>Bearer</code> 后面有一个空格,整串是一个值。
+                    我们这边两种写法都收(不带前缀也认),但<b>带上是 HTTP 的标准写法</b>,
+                    照抄上面那段就不会错。<b>绝对不要把口令拼在 URL 上</b> ——
+                    MCP 规范禁止,我们这边也会直接拒掉。<br>
+                    百炼的配置模板里没有专门列 <code>headers</code> 这一项,
+                    但它的错误排查文档写明:401 的处理办法是「在 MCP 服务中正确添加鉴权信息,
+                    <b>例如 Headers 中的 Authorization 信息</b>」。
+                  </p>
+
+                  <p class="ask-how-note">
+                    <b>③ 部署之后想改配置,要先「停止部署」。</b>
+                    百炼只允许直接改服务名称和描述,安装方式、配置 JSON 都得停了才能改再重新部署。
+                    所以我们换口令时<b>新旧两把会并存</b> —— 新的第一次被用到,旧的才自动失效,中间不断服务。
+                  </p>
+
+                  <p class="ask-how-note">
+                    <b>④ 连不上时,先用 curl 直连自测一次</b>(这是官方排错文档建议的第一步,
+                    能立刻分清是「百炼没配对」还是「你的服务本身不通」):
+                    <pre th:text="${mcpCurlSample}">curl ...</pre>
+                    能返回工具清单,就说明地址和口令都是对的,问题在百炼那侧的配置。
+                  </p>
+
+                  <p class="ask-how-note ask-how-src">
+                    出处:<a href="https://help.aliyun.com/zh/model-studio/custom-mcp"
+                       target="_blank" rel="noopener">自定义 MCP 服务</a> ·
+                    <a href="https://help.aliyun.com/zh/model-studio/mcp-faq"
+                       target="_blank" rel="noopener">MCP 部署使用与排障 FAQ</a>
+                    (11200049 = 401 鉴权、11200054/58/59 = 传输类型与路径不匹配)
                   </p>
                 </details>
               </div>

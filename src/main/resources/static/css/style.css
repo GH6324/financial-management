@@ -2077,3 +2077,24 @@ html.privacy .ask-artifact iframe{ filter:blur(6px); }
              font-size:12px; line-height:1.8; color:var(--ink-soft); }
 /* 「万一表单长得不一样」那类补充:比正文更弱,别和主步骤抢 */
 .ask-how li.ask-how-alt{ color:var(--ink-subtle); font-size:11.5px; }
+
+/* v1.19.7 · 接入方式的岔路口:百炼在这一步给四个选项,选错了后面全对不上
+   (用户实测选了「插件」,被要求逐个填工具描述才发现走错了)。
+   做成表格是因为**要对比**——只说「选 X」不够,得让人看见另外三个为什么不是。 */
+.ask-how-lead{ margin:.1rem 0 .55rem !important; font-size:12px !important;
+               line-height:1.8 !important; color:var(--ink-soft); }
+.ask-how-tbl{ width:100%; border-collapse:collapse; margin:.1rem 0 .7rem;
+              font-size:11.5px; line-height:1.75; }
+.ask-how-tbl td{ border-top:1px solid var(--rule-soft); padding:.4rem .5rem .4rem 0;
+                 color:var(--ink-subtle); vertical-align:top; }
+.ask-how-tbl td:first-child{ width:11.5rem; color:var(--ink-soft); padding-right:.9rem; white-space:nowrap; }
+.ask-how-tbl tr:first-child td{ border-top:0; color:var(--ink-soft); }
+.ask-how-tbl tr:first-child td:first-child{ color:var(--brass-deep); }
+@media (max-width:640px){
+  /* 窄屏两列会挤成一条线,改成上下堆叠 */
+  .ask-how-tbl td{ display:block; padding:.15rem 0; border-top:0; }
+  .ask-how-tbl td:first-child{ width:auto; padding-top:.5rem; border-top:1px solid var(--rule-soft); }
+  .ask-how-tbl tr:first-child td:first-child{ border-top:0; }
+}
+/* 出处行:比 note 再弱一档,它是给想自己核对的人看的 */
+.ask-how-src{ border-left-color:var(--rule) !important; color:var(--ink-subtle); }

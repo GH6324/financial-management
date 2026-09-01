@@ -7880,6 +7880,70 @@ QA1196_JS="$RD/src/main/resources/static/js/landscape.js"
   || log_bad "v1196-ASK-FLOAT-SAME-SIZE 浮钮尺寸不齐" "同一列里一个 38 一个别的,一眼看得出参差"
 
 
+# ═══ v1.19.7 · 管理页落地页不许漏入口 ═══
+# v1197-ADMIN-LANDING-COMPLETE · 侧边栏有的,/admin 落地页必须也有。
+#
+#   这个洞犯过**三次**:2026-06-23 的 /admin/metrics(见 feedback_verify_user_path)、
+#   以及这次一口气发现的 /admin/ai-access 与 /admin/reconcile ——
+#   后两个都是「页面做好了、侧边栏挂了、落地页忘了」,而落地页才是用户点「管理」看到的第一屏。
+#
+#   为什么之前的 v08-NAV-1 拦不住:它硬编码只查 /admin/metrics 一个路径。
+#   加新页面时它不会红 —— **一条只认单个字面量的护栏,守不住一整类问题**。
+#   改成结构性比对:两个文件各自抽出 @{/admin/xxx},侧边栏必须是落地页的子集。
+#   将来加任何管理页,只要挂了侧边栏没挂落地页,这条就红。
+QA1197_SB="$RD/src/main/resources/templates/admin/_sidebar.html"
+QA1197_IX="$RD/src/main/resources/templates/admin/index.html"
+QA1197_MISSING="$(comm -23 \
+  <(grep -ohE '@\{/admin/[a-z-]+\}' "$QA1197_SB" | grep -oE '/admin/[a-z-]+' | sort -u) \
+  <(grep -ohE '@\{/admin/[a-z-]+\}' "$QA1197_IX" | grep -oE '/admin/[a-z-]+' | sort -u) | tr '\n' ' ')"
+[ -z "$(printf '%s' "$QA1197_MISSING" | tr -d ' ')" ] \
+  && log_ok "v1197-ADMIN-LANDING-COMPLETE(侧边栏入口在 /admin 落地页全都有)" \
+  || log_bad "v1197-ADMIN-LANDING-COMPLETE 落地页漏了入口:$QA1197_MISSING" "用户点「管理」看到的是落地页,只挂侧边栏等于够不着"
+
+
+# ═══ v1.19.7 · 百炼接入教程要对得上控制台实际长相 ═══
+QA1197_AA="$RD/src/main/resources/templates/admin/ai-access.html"
+
+# v1197-BAILIAN-PICK-SCRIPT · 必须写明「创建 MCP 服务」后先选**使用脚本部署**。
+#   用户实测:点创建之后百炼先弹一个四选一(插件/使用脚本部署/AI 网关/阿里云 OpenAPI),
+#   而原来的教程从「点创建」直接跳到「安装方式选 http」,漏了这一步。
+#   用户选了「插件」→ 那条路是把普通接口包装成工具,要求**逐个填工具名和描述**,存都存不了。
+#   只写「选脚本部署」不够,还要说清另外三个为什么不是 —— 否则下次照样会选错。
+{ grep -q '使用脚本部署' "$QA1197_AA" \
+  && grep -q '插件' "$QA1197_AA" \
+  && grep -q 'AI 网关' "$QA1197_AA" \
+  && grep -q 'OpenAPI' "$QA1197_AA" \
+  && grep -q 'ask-how-tbl' "$QA1197_AA"; } \
+  && log_ok "v1197-BAILIAN-PICK-SCRIPT(四种接入方式列全并说明为什么选脚本部署)" \
+  || log_bad "v1197-BAILIAN-PICK-SCRIPT 接入方式的岔路没说清" "用户会选到「插件」,那条路要逐个手填工具描述"
+
+# v1197-BAILIAN-BEARER-EXPLICIT · Authorization 的值要写死一种,不能让用户猜。
+#   用户原话:「value 里面 要 Bearer 这个嘛,还是只要后面的 token 本身,都明确好」。
+#   服务端两种都收(AccessTokenService.verify 会剥前缀),但教程必须给一个确定写法。
+{ grep -q 'Bearer 你的口令' "$QA1197_AA" \
+  && grep -q '后面有一个空格' "$QA1197_AA" \
+  && grep -q 'AccessTokenService' "$RD/src/main/java/com/family/finance/service/ask/AccessTokenService.java"; } \
+  && log_ok "v1197-BAILIAN-BEARER-EXPLICIT(Authorization 写法写死:Bearer + 空格 + 口令)" \
+  || log_bad "v1197-BAILIAN-BEARER-EXPLICIT Bearer 前缀没说明确" "用户得靠猜,猜错就是 401 而且看不出原因"
+
+# v1197-BAILIAN-TYPE-PATH · type 与地址末尾必须成对说明。
+#   百炼把两者绑死:streamableHttp↔/mcp、sse↔/sse。不匹配报 404/405,
+#   看着像地址写错,实际是类型选错 —— 不说清用户会去改地址,越改越错。
+{ grep -q 'streamableHttp' "$QA1197_AA" \
+  && grep -q '/sse' "$QA1197_AA" \
+  && grep -q '404' "$QA1197_AA"; } \
+  && log_ok "v1197-BAILIAN-TYPE-PATH(说明 type 与端点路径必须配对)" \
+  || log_bad "v1197-BAILIAN-TYPE-PATH 没说 type 和路径要配对" "错配报 404/405,用户会误以为地址写错"
+
+# v1197-BAILIAN-CURL-SELFTEST · 给一条能自测的 curl(官方排障建议的第一步)。
+#   它能立刻把「百炼没配对」和「你的服务根本不通」分开 —— 少了这条,用户只能在控制台里瞎试。
+{ grep -q 'mcpCurlSample' "$QA1197_AA" \
+  && codeonly "$RD/src/main/java/com/family/finance/web/admin/AiAccessController.java" | grep -q 'mcpCurlSample' \
+  && codeonly "$RD/src/main/java/com/family/finance/web/admin/AiAccessController.java" | grep -q 'tools/list'; } \
+  && log_ok "v1197-BAILIAN-CURL-SELFTEST(给了直连自测的 curl · 由 Java 生成不在模板拼)" \
+  || log_bad "v1197-BAILIAN-CURL-SELFTEST 缺自测命令" "连不上时用户分不清是哪一端的问题"
+
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

@@ -119,6 +119,14 @@ public class AiAccessController {
         // 渲染出来是带字面 \n 的一行,用户照抄进百炼就是一段无效 JSON。
         model.addAttribute("mcpConfigSample",
                 managedAgentRuntime.mcpConfigJson(guessBaseUrl(req), "你的口令"));
+        // v1.19.7 · 自测用的 curl —— 百炼排障文档建议的第一步就是「用 curl 直连下游服务」,
+        // 它能立刻分清「百炼那边没配对」和「你的服务根本不通」。同样由 Java 拼,
+        // 理由和上面那段一样:模板里的 \n 不是换行。
+        model.addAttribute("mcpCurlSample", String.join("\n",
+                "curl -sS " + guessBaseUrl(req) + "/mcp \\",
+                "  -H 'Content-Type: application/json' \\",
+                "  -H 'Authorization: Bearer 你的口令' \\",
+                "  -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}'"));
         // 每条 runtime 连同「现在能不能用、不能用是因为什么」一起给页面 ——
         // 只给一个禁用的单选框而不说原因,用户会以为是坏了
         model.addAttribute("runtimes", askConversations.allRuntimes().stream()
