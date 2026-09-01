@@ -471,6 +471,25 @@
     <aside class="ask-drawer" data-ask-drawer aria-label="超级 Agent">
       <div class="flex-1 min-h-0 flex flex-col" data-ask-drawer-body></div>
     </aside>
+    <!--/*
+         v1.19.6 · 手机上的「超级 Agent」浮钮 —— 与横屏 / 目录 / 隐私眼进同一个 #float-dock。
+
+         此前手机上要点汉堡 → 展开 → 再点「超级 Agent」,**两步**;而横屏和隐私眼是一步。
+         AI 问答是这个产品的三根支柱之一,不该比一个显示开关还难够到(用户原话:入口太深)。
+
+         上面那个 .ask-fab 是**带文字的胶囊**,当初刻意在手机上隐藏(屏幕小,会压住表格)——
+         那条判断没错,所以这里不是把它放出来,而是在 dock 里放一个**图标钮**:
+         dock 本来就是为「不挡内容的常驻系统控件」设计的一列小圆钮。
+
+         点它走整页 /ask 而不是抽屉:抽屉是 PC 的形态(同屏对照数据),窄屏放不下(FR-423)。
+    */-->
+    <a id="ask-float" th:href="@{/ask}" aria-label="超级 Agent · 用大白话问自己的账"
+       title="超级 Agent · 用大白话问自己的账">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+      </svg>
+    </a>
     <!-- 超级 Agent 的图表:Chart.js + datalabels(与全站其他图表同一份依赖,不另引)-->
     <script th:src="@{/vendor/chart.umd.min.js(v=${buildVersion})}" defer></script>
     <script th:src="@{/vendor/chartjs-plugin-datalabels.min.js(v=${buildVersion})}" defer></script>

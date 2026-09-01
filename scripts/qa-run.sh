@@ -1517,8 +1517,13 @@ $CURL -b $COOKIE "$BASE/entry" -o "$TMP" -w ""
 #   守的意图不变:填报页必须同时透出**家庭口径的收入合计**和**总额提交入口**。
 #   注意支出侧是**家庭级开关二选一**:ITEMIZED 只有逐笔录入(没有总额框和 cashflow-summary),
 #   TOTAL 才有总额框。断言写成"两者取其一",否则家庭把开关一切护栏就红(beta 现在是 ITEMIZED)。
+# v1.19.6 · 判据改成认「支出区**恒在**的东西」,不再认合计行。
+#   原来认「家庭本月支出」那条合计行,而它只在**本期已录过支出**时才渲染 ——
+#   于是这条护栏红不红取决于跑之前 beta 里有没有支出流水(qa-run / e2e 都会还原数据)。
+#   实测同一份代码连跑两次,一次红一次绿。**依赖数据状态的判据不是护栏,是掷骰子。**
+#   现在两种模式各认一个恒在的锚:TOTAL → cashflow-summary 表单;ITEMIZED → 「逐笔录入」说明。
 { grep -q '家庭本月收入' "$TMP" \
-  && { { grep -q '的本月总支出' "$TMP" && grep -q 'cashflow-summary' "$TMP"; } || grep -q '家庭本月支出' "$TMP"; }; } \
+  && { grep -q 'cashflow-summary' "$TMP" || grep -q '逐笔录入' "$TMP"; }; } \
   && log_ok "v03-IND-1 /entry 透出家庭口径收入合计 + 支出入口(逐笔 Σ 或总额框二选一)" \
   || log_bad "v03-IND-1 entry 家庭口径入口缺" "see $TMP"
 
@@ -5092,7 +5097,7 @@ TAG2="$RD/src/main/resources/templates/lens/tags.html"
   && grep -q "z-index:9999" "$CSS" \
   && grep -q "float-dock" "$CSS" \
   && grep -q "function dockFloats" "$JSL" \
-  && grep -qF "['#ori-float', '.toc-fab', '#priv-float']" "$JSL" \
+  && grep -qE "\['#ori-float',.*'#priv-float'\]" "$JSL" \
   && grep -nq "dim(\"assetClass\"" "$LR" \
   && [ "$(grep -n 'dim("assetClass"' "$LR" | cut -d: -f1)" -lt "$(grep -n 'dim("risk"' "$LR" | cut -d: -f1)" ] \
   && [ "$(grep -n 'dim("type"' "$LR" | cut -d: -f1)" -gt "$(grep -n 'dim("region"' "$LR" | cut -d: -f1)" ] \
@@ -5102,7 +5107,7 @@ TAG2="$RD/src/main/resources/templates/lens/tags.html"
   && grep -q "alloc-bar" "$TAG2" && grep -q "alloc-pills hscroll-x" "$TAG2" \
   && grep -qF ".tags-table .alloc-row td{ display:block; }" "$TAG2"; } \
   && log_ok "v1617-FIVE(遮罩改 DOMContentLoaded + 浮钮 z-index 9999 不被加载绑住 · 维度顺序结构类在前(第二层默认见 v1619)· 图标补旋转弧 · 浮钮 flex dock 无空洞 · 持仓方向横条整宽+标签横滑)" \
-  || log_bad "v1617-FIVE 缺件" "see layout.html(遮罩 950ms/2500ms 兜底 + priv-float z-index 9999 + 图标旋转弧)· style.css(#ori-float z-index 9999 / float-dock / alloc-head / alloc-seg)· landscape.js(dockFloats 三钮顺序)· LensRegistry(assetClass 在 risk 之前、type 在 region 之后)· lens.js(member 看板存在;第二层现由 v1619-THREE 守护为 platform)· tags.html(alloc-bar / alloc-pills hscroll-x / alloc-row td display:block)"
+  || log_bad "v1617-FIVE 缺件" "see layout.html(遮罩 950ms/2500ms 兜底 + priv-float z-index 9999 + 图标旋转弧)· style.css(#ori-float z-index 9999 / float-dock / alloc-head / alloc-seg)· landscape.js(dockFloats:方向最上、隐私最下)· LensRegistry(assetClass 在 risk 之前、type 在 region 之后)· lens.js(member 看板存在;第二层现由 v1619-THREE 守护为 platform)· tags.html(alloc-bar / alloc-pills hscroll-x / alloc-row td display:block)"
 
 # v1618-SIX · 用户第 8 轮反馈六项
 #   ① 环上不只要占比,具体金额也要:三行(名称/金额/占比)对径向要求 ≈ 3×11px = 33px < 环带 42px;
@@ -5894,14 +5899,18 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && log_ok "v181-CSRF-STALE(CsrfException → /login?stale + 提示文案 · 其余 AccessDenied 仍走 403)" \
   || log_bad "v181-CSRF-STALE 缺件" "SecurityConfig 需 staleFormAccessDeniedHandler(只拦 CsrfException,其余交回 AccessDeniedHandlerImpl)+ AuthController 接 stale + login.html 提示分支"
 
-# v181-FLOAT-DOCK · 三个浮钮的顺序在横竖屏来回切之后不能变
+# v181-FLOAT-DOCK · 浮钮的顺序在横竖屏来回切之后不能变
 #   dockFloats 原来带「已在 dock 里就跳过」的守卫。横屏时 tocIntoNav 把目录钮搬进导航栏,
 #   切回竖屏时它不在 dock 里 → 被 append 到末尾、另两个原位不动 → 顺序变成 方向/隐私/目录。
-#   正解:每次按序 append 全部三个(appendChild 对已在容器内的节点=移到末尾),幂等。
-{ grep -q "'#ori-float', '.toc-fab', '#priv-float'" "$RD/src/main/resources/static/js/landscape.js" \
+#   正解:每次按序 append **全部**(appendChild 对已在容器内的节点=移到末尾),幂等。
+#
+#   v1.19.6 · 判据从「三钮字面量」改成「方向在最上、隐私在最下,中间可扩展」——
+#   加第四个钮(超级 Agent)时这条当场红了,而被守的不变量一个字没变。
+#   绑字面量的判据会把「正常演进」误报成「回归」(承 v119-CHAT-GUARD-NOT-LITERAL)。
+{ grep -qE "\['#ori-float',.*'#priv-float'\]" "$RD/src/main/resources/static/js/landscape.js" \
   && ! grep -q "el.parentElement !== dock" "$RD/src/main/resources/static/js/landscape.js" \
   && grep -qE 'if \(el\) dock\.appendChild\(el\)' "$RD/src/main/resources/static/js/landscape.js"; } \
-  && log_ok "v181-FLOAT-DOCK(浮钮按序全 append · 横竖屏来回切顺序不变)" \
+  && log_ok "v181-FLOAT-DOCK(浮钮按序全 append · 方向最上/隐私最下 · 横竖屏切换顺序不变)" \
   || log_bad "v181-FLOAT-DOCK 守卫回退了" "landscape.js 的 dockFloats 不得再用 el.parentElement !== dock 跳过已入 dock 的节点 —— 那会让横屏搬走过的目录钮回来时落到末尾"
 
 # v181-README-BRIEF · README 近期更新段要短(用户 2026-08-04:篇幅太大)
@@ -7840,6 +7849,35 @@ QA1195_CTL="$RD/src/main/java/com/family/finance/web/holdingimport/HoldingImport
   && ! codeonly "$QA1195_TPL" | grep -q 'var uploaded=0'; } \
   && log_ok "v1195-UPLOADED-FROM-DOM(计数从已有图起算 · 刷新后仍可识别)" \
   || log_bad "v1195-UPLOADED-FROM-DOM 计数又写死成 0" "刷新后「开始识别」会变灰,用户得再传一张才能点"
+
+
+# ═══ v1.19.6 · 手机上的超级 Agent 浮钮 ═══
+QA1196_LAY="$RD/src/main/resources/templates/fragments/layout.html"
+QA1196_CSS="$RD/src/main/resources/static/css/style.css"
+QA1196_JS="$RD/src/main/resources/static/js/landscape.js"
+
+# v1196-ASK-IN-DOCK · AI 入口必须在浮钮 dock 里,且排在隐私眼之前。
+#   手机上原来要「汉堡 → 展开 → 点」两步,而横屏/隐私是一步 —— AI 是三支柱之一,
+#   不该比一个显示开关还难够到(用户原话:入口太深)。
+{ grep -q 'id="ask-float"' "$QA1196_LAY" \
+  && codeonly "$QA1196_JS" | grep -q "'#ori-float', '.toc-fab', '#ask-float', '#priv-float'"; } \
+  && log_ok "v1196-ASK-IN-DOCK(AI 浮钮在 dock 里 · 顺序 方向→目录→AI→隐私)" \
+  || log_bad "v1196-ASK-IN-DOCK 手机 AI 入口又退回菜单深处" "横屏/隐私一步可达,AI 不该两步"
+
+# v1196-ASK-FLOAT-SPECIFICITY · 隐藏规则必须带 #float-dock 前缀,否则静默失效。
+#   进 dock 后有一条 `#float-dock > #ask-float{display:inline-flex!important}`(两个 id);
+#   只写 `#ask-float` 或 `body.ask-page #ask-float` 压不过它 —— 实测 PC 上和 /ask 页面上
+#   按钮照样冒出来,而 CSS 不会报任何错。
+{ grep -q 'body.ask-page #float-dock > #ask-float' "$QA1196_CSS" \
+  && grep -q '#float-dock > #ask-float { display: none !important; }' "$QA1196_CSS"; } \
+  && log_ok "v1196-ASK-FLOAT-SPECIFICITY(隐藏规则带 dock 前缀 · 压得过 !important)" \
+  || log_bad "v1196-ASK-FLOAT-SPECIFICITY 隐藏规则优先级不够" "会在 /ask 页面和 PC 上重复冒出来,且 CSS 不报错"
+
+# v1196-ASK-FLOAT-SAME-SIZE · 与同排图标钮同尺寸(并列同类元素不能一大一小)。
+{ grep -A6 '^#ask-float {' "$QA1196_CSS" | grep -q 'width: 38px; height: 38px' \
+  && grep -A6 '^#ori-float {' "$QA1196_CSS" | grep -q 'width: 38px; height: 38px'; } \
+  && log_ok "v1196-ASK-FLOAT-SAME-SIZE(AI 钮与方向钮同为 38×38)" \
+  || log_bad "v1196-ASK-FLOAT-SAME-SIZE 浮钮尺寸不齐" "同一列里一个 38 一个别的,一眼看得出参差"
 
 
 echo
