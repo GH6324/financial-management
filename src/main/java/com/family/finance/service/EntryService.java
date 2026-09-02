@@ -198,7 +198,7 @@ public class EntryService {
                 BigDecimal diff = normalizedBalance.subtract(recomputed).setScale(2, RoundingMode.HALF_EVEN);
                 if (diff.signum() != 0) {
                     stockHoldingService.adjustAccountCash(familyId, accountId, account.getCurrency(), diff);
-                    auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "stock_holding", accountId,
+                    auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                             "手填余额校准 · 与持仓合计的差额 " + money(diff) + " 已记入现金行(否则会被下次估值抹掉)");
                 }
             } catch (Exception e) {
@@ -227,7 +227,7 @@ public class EntryService {
         adjustLoanDraft(period, account, normalizedBalance, memberId);
         snapshotTodoMapper.markDone(periodId, accountId, memberId);
 
-        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "period_snapshot", accountId,
+        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                 overwriting ? "覆盖余额快照" : "提交余额快照");
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
 
@@ -236,7 +236,7 @@ public class EntryService {
         if (account.getType().expectsFlowsToExplainBalance()
                 && row.unexplained() != null
                 && row.unexplained().compareTo(new BigDecimal("0.00")) != 0) {
-            auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "period_snapshot", accountId,
+            auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                     "余额轧差未解释: " + row.unexplainedLabel());
         }
         return row;
@@ -290,7 +290,7 @@ public class EntryService {
         }
 
         snapshotTodoMapper.markDone(periodId, accountId, memberId);
-        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "period_snapshot", accountId,
+        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                 "接受贷款趋势预测 " + MoneyFormat.format(loan.getCurrency(), predicted));
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
 
@@ -315,7 +315,7 @@ public class EntryService {
         // v0.2 bug 修(2026-05-10): cash_flow 路径必须把 todo 标 DONE,
         // 否则 forceClose 会因 PENDING 把"上期末"覆盖回 snapshot,丢失真实数据
         snapshotTodoMapper.markDone(periodId, accountId, memberId);
-        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "cash_flow", accountId,
+        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                 "新增现金流 " + kind + " " + money(amount));
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
 
@@ -341,7 +341,7 @@ public class EntryService {
                 "+收入 " + cat.getDisplayName() + " " + money(amt));
         insertCashFlow(period, account, memberId, new CashFlowLine(CashFlowKind.INCOME, categoryCode, amt, note));
         snapshotTodoMapper.markDone(periodId, accountId, memberId);
-        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "cash_flow", accountId,
+        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                 "收入录入 " + cat.getDisplayName() + " " + money(amt) + " → " + account.getDisplayName());
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
         return rowFor(familyId, memberId, periodId, accountId);
@@ -395,7 +395,7 @@ public class EntryService {
         insertCashFlow(period, account, memberId,
                 new CashFlowLine(CashFlowKind.EXPENSE, categoryCode, amt, note));
         snapshotTodoMapper.markDone(periodId, accountId, memberId);
-        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "cash_flow", accountId,
+        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                 "支出录入 " + cat.getDisplayName() + " " + money(amt) + " ← " + account.getDisplayName());
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // 透视缓存后台换新
         return rowFor(familyId, memberId, periodId, accountId);
@@ -524,7 +524,7 @@ public class EntryService {
                 .sourceTag(com.family.finance.domain.ledger.LedgerSource.MANUAL.name())   // v1.18 · 人在填报页填的股数
                 .build());
         snapshotTodoMapper.markDone(period.getId(), account.getId(), memberId);
-        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "cash_flow", account.getId(),
+        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", account.getId(),
                 "股票收入 " + catLabel + " +" + shares.stripTrailingZeros().toPlainString() + " 股 "
                         + money(value) + " → " + account.getDisplayName());
         return rowFor(familyId, memberId, period.getId(), account.getId());
@@ -639,7 +639,7 @@ public class EntryService {
         // 否则 forceClose 会因 PENDING 把"上期末"覆盖回 snapshot,丢失真实数据
         snapshotTodoMapper.markDone(periodId, fromAccountId, memberId);
         snapshotTodoMapper.markDone(periodId, toAccountId, memberId);
-        auditLogService.record(familyId, memberId, AuditLogType.TRANSFER_CREATE, "transfer", fromAccountId,
+        auditLogService.record(familyId, memberId, AuditLogType.TRANSFER_CREATE, "account", fromAccountId,
                 "新增转账 " + fromAccountId + " → " + toAccountId + " " + money(amount));
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
         return rowFor(familyId, memberId, periodId, fromAccountId);
@@ -679,7 +679,7 @@ public class EntryService {
                 .sourceTag(com.family.finance.domain.ledger.LedgerSource.MANUAL.name())
                 .build());
         auditLogService.record(period.getFamilyId(), memberId, AuditLogType.SNAPSHOT_WRITE,
-                "period_snapshot", account.getId(),
+                "account", account.getId(),
                 reason + ":余额 " + base + " → " + newBalance);
     }
 

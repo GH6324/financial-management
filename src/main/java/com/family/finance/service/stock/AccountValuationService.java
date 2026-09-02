@@ -391,7 +391,7 @@ public class AccountValuationService {
                     // 这条会出现在管理页审计日志里,账目对账页也读它。
                     auditLogService.record(familyId, submittedBy,
                             com.family.finance.domain.audit.AuditLogType.SYSTEM,
-                            "period_snapshot", acc.getId(),
+                            "account", acc.getId(),
                             BLOCKED_WRITEBACK_NOTE + " · 账户=" + acc.getDisplayName()
                                     + " · 这次写回会把本期刚进出的 " + windowFlow + " 抹平,已拒绝覆盖");
                     log.warn("valuation writeback BLOCKED · account={} would erase flow={} (delta={}) · 余额保持不变",

@@ -7944,6 +7944,31 @@ QA1197_AA="$RD/src/main/resources/templates/admin/ai-access.html"
   || log_bad "v1197-BAILIAN-CURL-SELFTEST 缺自测命令" "连不上时用户分不清是哪一端的问题"
 
 
+# ═══ v1.19.8 · 审计日志的 target_type 必须和 target_id 指同一张表 ═══
+# v1198-AUDIT-TARGET-CONSISTENT · 不许出现「type 说 A 表、id 给的是账户 id」。
+#
+#   这不是洁癖:审计日志是**出事之后唯一能追溯的东西**,而 target_type/target_id
+#   是它唯一能被程序化检索的字段(页面上既不展示也不筛选它)。类型和 id 对不上,
+#   追溯时就会张冠李戴。
+#
+#   2026-09-02 亲历:排查「股票收入没加股数」时,按 target_id=15 查 stock_holding,
+#   查到一条「手填余额校准」——于是我以为字节期权持仓做过余额校准、而且现金行没建出来,
+#   往那个方向查了好几轮。实际那条记的是 **账户 15**(代码写的是
+#   `record(..., "stock_holding", accountId, ...)`),和持仓 15 毫无关系。
+#   **被自己的审计日志骗了。**
+#
+#   全仓扫下来这类有 11 处(stock_holding×1 / period_snapshot×5 / cash_flow×4 / transfer×1),
+#   全部 id 传的都是 accountId —— 说明这是**约定不清**而不是手滑。
+#   统一成 `"account", accountId`:target 说「这条记录挂在哪一行」,
+#   summary 说「发生了什么」(「收入录入 …」「提交余额快照」这些本来就写在 summary 里,不丢信息)。
+QA1198_BAD="$(grep -rn -A2 'auditLogService.record(' "$RD/src/main/java/" 2>/dev/null \
+  | grep -oE '"(period_snapshot|cash_flow|stock_holding|transfer|member|period)", *(accountId|account\.getId\(\)|acc\.getId\(\)|fromAccountId)' \
+  | sort -u | tr '\n' ' ')"
+[ -z "$(printf '%s' "$QA1198_BAD" | tr -d ' ')" ] \
+  && log_ok "v1198-AUDIT-TARGET-CONSISTENT(审计 target_type 与 target_id 指同一张表)" \
+  || log_bad "v1198-AUDIT-TARGET-CONSISTENT type 与 id 对不上:$QA1198_BAD" "审计是出事后唯一的追溯依据,类型错了会把人引到别的实体上"
+
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
