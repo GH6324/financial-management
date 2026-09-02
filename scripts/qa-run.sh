@@ -7969,6 +7969,30 @@ QA1198_BAD="$(grep -rn -A2 'auditLogService.record(' "$RD/src/main/java/" 2>/dev
   || log_bad "v1198-AUDIT-TARGET-CONSISTENT type 与 id 对不上:$QA1198_BAD" "审计是出事后唯一的追溯依据,类型错了会把人引到别的实体上"
 
 
+# ═══ v1.19.9 · MCP 协议版本协商 ═══
+# v1199-MCP-VERSION-NEGOTIATED · initialize 必须**回显客户端要的版本**,不能硬报自己的。
+#
+#   MCP 规范(basic/lifecycle · Version Negotiation)是 MUST:
+#   「If the server supports the requested protocol version, it MUST respond with the same
+#    version. Otherwise, the server MUST respond with another protocol version it supports.」
+#
+#   原实现无条件回 2025-06-18(注释还写着「客户端声明别的版本时我们照回自己的,
+#   由它决定要不要继续」——**那个理解是错的**)。线上后果:百炼请求较早的版本,
+#   收到 2025-06-18 不认,直接 -32602 Unsupported protocol version,
+#   **握手就断,连工具列表都拿不到**,整条托管接入路线不可用。
+#
+#   判据守三件:支持列表存在且按新→旧、协商时先判 null(List.of 的 contains(null) 会抛
+#   NPE,而 initialize 不带 params 是能到达的请求)、以及有单测钉住映射本身。
+QA1199_MCP="$RD/src/main/java/com/family/finance/web/ask/McpEndpoint.java"
+{ codeonly "$QA1199_MCP" | grep -q 'SUPPORTED_PROTOCOL_VERSIONS' \
+  && codeonly "$QA1199_MCP" | grep -q '"2025-06-18", "2025-03-26", "2024-11-05"' \
+  && codeonly "$QA1199_MCP" | grep -q 'asked != null && SUPPORTED_PROTOCOL_VERSIONS.contains(asked)' \
+  && ! codeonly "$QA1199_MCP" | grep -qE '"protocolVersion", *(PROTOCOL_VERSION|LATEST_PROTOCOL_VERSION)\b' \
+  && [ -f "$RD/src/test/java/com/family/finance/web/ask/McpProtocolVersionTest.java" ]; } \
+  && log_ok "v1199-MCP-VERSION-NEGOTIATED(initialize 回显客户端版本 · null 安全 · 有单测)" \
+  || log_bad "v1199-MCP-VERSION-NEGOTIATED 又变回硬报自己的版本" "违反规范 MUST · 客户端版本不同就握手失败,连工具列表都拿不到"
+
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

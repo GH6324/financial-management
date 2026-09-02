@@ -42,8 +42,17 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class McpEndpoint {
 
-    /** 与百炼对齐的协议版本;客户端声明别的版本时我们照回自己的,由它决定要不要继续 */
-    private static final String PROTOCOL_VERSION = "2025-06-18";
+    /**
+     * 我们能讲的 MCP 协议版本,<b>新→旧</b>排列。
+     *
+     * <p>只实现了 {@code initialize} / {@code tools/list} / {@code tools/call},
+     * 这三件事在这几个版本里的报文形状是一样的,所以三个版本我们都能讲。</p>
+     */
+    private static final List<String> SUPPORTED_PROTOCOL_VERSIONS =
+            List.of("2025-06-18", "2025-03-26", "2024-11-05");
+
+    /** 客户端没声明版本时的回退值(取我们支持的最新) */
+    private static final String LATEST_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS.get(0);
 
     private final AskAccessGuard guard;
     private final AskToolRegistry registry;
@@ -65,7 +74,7 @@ public class McpEndpoint {
         }
 
         return switch (method) {
-            case "initialize" -> ResponseEntity.ok(rpcResult(id, initializeResult()));
+            case "initialize" -> ResponseEntity.ok(rpcResult(id, initializeResult(body)));
             case "notifications/initialized" -> ResponseEntity.noContent().build();
             case "ping" -> ResponseEntity.ok(rpcResult(id, Map.of()));
             case "tools/list" -> ResponseEntity.ok(rpcResult(id,
@@ -116,9 +125,31 @@ public class McpEndpoint {
 
     // ──────────────────────── 协议件 ────────────────────────
 
-    private Map<String, Object> initializeResult() {
+    /**
+     * v1.19.9 · 按规范做<b>版本协商</b>,而不是无条件报自己的版本。
+     *
+     * <p>MCP 规范(basic/lifecycle · Version Negotiation)原文:
+     * 「If the server supports the requested protocol version, it <b>MUST</b> respond with
+     * the same version. Otherwise, the server <b>MUST</b> respond with another protocol
+     * version it supports.」</p>
+     *
+     * <p>原来这里硬回 {@code 2025-06-18},注释还写着「客户端声明别的版本时我们照回自己的,
+     * 由它决定要不要继续」—— <b>那个理解是错的,它违反了上面那条 MUST</b>。
+     * 线上后果:百炼请求较早的版本,收到 2025-06-18 不认,直接
+     * {@code -32602 Unsupported protocol version from the server: 2025-06-18},
+     * 整个托管接入卡在握手这一步,连工具列表都拿不到。</p>
+     */
+    private Map<String, Object> initializeResult(Map<String, Object> body) {
+        String asked = body != null && body.get("params") instanceof Map<?, ?> p
+                ? String.valueOf(p.get("protocolVersion")) : null;
+        // 客户端要的我们讲得了 → 必须回同一个;要不然(或它没说)→ 回我们支持的最新。
+        // asked 必须先判 null:List.of(...) 的 contains(null) 会**抛 NPE**(不可变集合不接受
+        // null 查询),而 initialize 不带 params 是完全可能到达的请求 —— 那会让握手直接 500。
+        // 同一个坑 v1.19.3 在 Set.of 上踩过一次,这是第二次,都是单测抓到的。
+        String agreed = asked != null && SUPPORTED_PROTOCOL_VERSIONS.contains(asked)
+                ? asked : LATEST_PROTOCOL_VERSION;
         return Map.of(
-                "protocolVersion", PROTOCOL_VERSION,
+                "protocolVersion", agreed,
                 "capabilities", Map.of("tools", Map.of("listChanged", false)),
                 "serverInfo", Map.of("name", "family-finance-ask", "version", "1.19.0"),
                 "instructions",
