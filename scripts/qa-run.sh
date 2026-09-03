@@ -7694,14 +7694,24 @@ QA1192_AA="$RD/src/main/resources/templates/admin/ai-access.html"
   && log_ok "v1192-BAILIAN-SETUP-GUIDE(业务空间 ID / MCP 服务 ID 两处人工步骤都有实操说明 + 官方链接)" \
   || log_bad "v1192-BAILIAN-SETUP-GUIDE 接入教程不全" "这两项要去阿里云控制台翻,对着空输入框用户问不出来"
 
-# v1192-MANAGED-UNVERIFIED-STATED · 没验过的事不许说成验过的。
-#   托管路线的云端往返至今没在真实环境跑通(开发机没有公网证书)。
-#   页面上必须写明这一点,而且要写在**输入框上面** —— 写在下面等于让人填完了才知道。
-{ grep -q '还没在真实环境里跑通过' "$QA1192_AA" \
-  && grep -q 'ask-caveat' "$QA1192_AA" \
-  && grep -q '尚未在真实环境验证' "$RD/tech-design/v1.19.md"; } \
-  && log_ok "v1192-MANAGED-UNVERIFIED-STATED(托管路线未验证这件事,页面与 TDD 都写明)" \
-  || log_bad "v1192-MANAGED-UNVERIFIED-STATED 把没验过的路线说成可用" "用户会照着配半天才发现连不上"
+# v11910-MANAGED-IS-DEFAULT · 托管路线是**默认**,本机直连只能是用户主动选的备选。
+#
+#   这条取代了原来的 v1192-MANAGED-UNVERIFIED-STATED(它要求页面上写着
+#   「这条路线我们还没在真实环境里跑通过」)。两件事让那条作废:
+#     ① 2026-09-03 15:11 百炼**真的完整走通了**握手:initialize → notifications/initialized
+#        → tools/list 三步全 OK(prod ask_access_audit 有记录)。那句话已经是**事实错误**。
+#     ② 维护者指出:「这种话怎么能放进发布的版本里」——「没验过」不是该发给用户的免责声明,
+#        而是该去把它验通。理由本身也是假的:prod 就是公网 HTTPS,一直可以在上面验。
+#
+#   现在守的是另一件事:PRD v1.19 开头维护者拍板「走 Managed Agents,不自建编排」
+#   「直接选 B,没有 A 这个方案」。而我写了本机直连(自建 loop = 那个 A)并设成默认。
+#   这条护栏钉住「默认必须是 managed」,防止它再被悄悄改回去。
+QA11910_ASK="$RD/src/main/java/com/family/finance/service/ask/AskConversationService.java"
+{ codeonly "$QA11910_ASK" | grep -q 'K_ASK_RUNTIME, ManagedAgentRuntime.CODE' \
+  && ! codeonly "$QA11910_ASK" | grep -q 'K_ASK_RUNTIME, LocalToolLoopRuntime.CODE' \
+  && ! grep -q '还没在真实环境里跑通过' "$QA1192_AA"; } \
+  && log_ok "v11910-MANAGED-IS-DEFAULT(默认 runtime = 百炼托管 · 页面无「未验证」免责声明)" \
+  || log_bad "v11910-MANAGED-IS-DEFAULT 默认又回到自建 loop,或免责声明又出现" "维护者拍板是「没有 A 这个方案」;而且那条路线已经验通了"
 
 
 # v119-CUSTODY-EXHAUSTIVE · 加新 AccountType 必须在托管形式里表态

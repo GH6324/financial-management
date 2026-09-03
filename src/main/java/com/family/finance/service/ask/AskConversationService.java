@@ -4,7 +4,7 @@ import com.family.finance.domain.ask.*;
 import com.family.finance.repository.*;
 import com.family.finance.service.ask.runtime.AgentRuntime;
 import com.family.finance.service.ask.runtime.AskSink;
-import com.family.finance.service.ask.runtime.LocalToolLoopRuntime;
+import com.family.finance.service.ask.runtime.ManagedAgentRuntime;
 import com.family.finance.service.config.FamilyConfigService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -62,12 +62,26 @@ public class AskConversationService {
         return configService.getBoolean(CFG_FAMILY, K_ASK_ENABLED, false);
     }
 
-    /** 当前选定的 runtime;配置里那个不认识就退回本机直连(它前置条件最少) */
+    /**
+     * 当前选定的 runtime。
+     *
+     * <p><b>默认是百炼托管(v1.19.10 起)</b>。这一版之前默认是本机直连,那与维护者的拍板相反 ——
+     * PRD v1.19 开头记着原话:「走阿里云百炼 Managed Agents,<b>不自建编排</b>」「直接选 B,
+     * <b>没有 A 这个方案</b>」「agent loop 不用我们写」。而本机直连正是那个 A(我们自己写的
+     * tool loop),把它设成默认等于把被否掉的方案变成了所有人的默认路径。</p>
+     *
+     * <p>本机直连仍然保留,作为<b>明确的备选</b>(维护者 2026-09-03 决定):
+     * 内网 / NAT 环境百炼回调不进来,那种情况下它是唯一能用的。但它是<b>用户主动选的</b>,
+     * 不是我们替他选的。</p>
+     *
+     * <p>配置里写了不认识的值时,回退到<b>第一个已注册的 runtime</b>,而不是硬指本机直连 ——
+     * 硬指等于又把默认偷偷改回去。</p>
+     */
     public AgentRuntime runtime() {
-        String want = configService.getString(CFG_FAMILY, K_ASK_RUNTIME, LocalToolLoopRuntime.CODE);
+        String want = configService.getString(CFG_FAMILY, K_ASK_RUNTIME, ManagedAgentRuntime.CODE);
         return runtimes.stream().filter(r -> r.code().equals(want)).findFirst()
                 .orElseGet(() -> runtimes.stream()
-                        .filter(r -> r.code().equals(LocalToolLoopRuntime.CODE))
+                        .filter(r -> r.code().equals(ManagedAgentRuntime.CODE))
                         .findFirst().orElse(runtimes.get(0)));
     }
 
