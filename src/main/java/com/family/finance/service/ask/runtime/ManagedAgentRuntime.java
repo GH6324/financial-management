@@ -191,9 +191,16 @@ public class ManagedAgentRuntime implements AgentRuntime {
     public String createAgent(String systemPrompt, String model) throws Exception {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("name", "家庭资产超级 Agent");
-        body.put("model", model == null || model.isBlank() ? "qwen-plus" : model);
+        // v1.19.11 · model 是**对象**不是字符串。百炼原话:
+        //   Cannot construct instance of `DashModelConfigDTO` … from String value ('qwen-plus')
+        //   (through reference chain: DashCreateAgentRequest["model"])
+        // 官方示例也是 "model": {"id": "qwen3-max"}。
+        body.put("model", Map.of("id", model == null || model.isBlank() ? "qwen-plus" : model));
         body.put("instructions", systemPrompt);
-        body.put("mcp_servers", List.of(Map.of("type", "custom", "name", mcpServerId())));
+        // v1.19.11 · type 是 **customer** 不是 custom。百炼直接给了合法值:
+        //   mcpServers[0].type 取值非法: custom,合法值: [official, customer]
+        // 这里原来的注释还写着「试过,百炼会拒」——显然当时试的是错的那个词。
+        body.put("mcp_servers", List.of(Map.of("type", "customer", "name", mcpServerId())));
         JsonNode n = post(agentBase() + "/agents", body);
         String id = firstText(n, "agent_id", "agentId", "id");
         if (id == null) throw new IllegalStateException("百炼没有返回 agent_id");
@@ -214,9 +221,9 @@ public class ManagedAgentRuntime implements AgentRuntime {
     public void updateAgent(String systemPrompt, String model) throws Exception {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("name", "家庭资产超级 Agent");
-        body.put("model", model == null || model.isBlank() ? "qwen-plus" : model);
+        body.put("model", Map.of("id", model == null || model.isBlank() ? "qwen-plus" : model));
         body.put("instructions", systemPrompt);
-        body.put("mcp_servers", List.of(Map.of("type", "custom", "name", mcpServerId())));
+        body.put("mcp_servers", List.of(Map.of("type", "customer", "name", mcpServerId())));
         body.put("version", configService.getString(FAMILY_ID, K_ASK_MA_AGENT_VERSION, "1"));
         JsonNode n = put(agentBase() + "/agents/" + agentId(), body);
         String ver = firstText(n, "version", "agent_version");
@@ -304,13 +311,39 @@ public class ManagedAgentRuntime implements AgentRuntime {
         return "连不上百炼。检查一下服务器能不能出网。";
     }
 
+    /**
+     * 上游(百炼)返回的非 2xx。
+     *
+     * <p>v1.19.11 · <b>message 里必须带上百炼说了什么</b>。原来 {@code super("upstream " + status)}
+     * 把 body 存进字段却不放进 message,而调用方用的正是 {@code getMessage()} ——
+     * 于是用户只看到「upstream 400」,再配一句我们猜的「先确认业务空间 ID、MCP 服务 ID 都对」。</p>
+     *
+     * <p><b>代价是真实的</b>:2026-09-03 用户卡在创建 Agent,提示让他去查那两个 ID,
+     * 而那两个 ID 本来就是对的;百炼其实明确说了 {@code model} 字段类型不对、
+     * 以及 {@code mcpServers[0].type} 的合法值是什么。<b>最有用的一句话被我们丢掉了</b>,
+     * 排查因此绕了一大圈。与 v1.19.4「识别失败,请重试」是同一类错误。</p>
+     */
     private static final class UpstreamException extends RuntimeException {
         final int status;
         final String body;
         UpstreamException(int status, String body) {
-            super("upstream " + status);
+            super("upstream " + status + (body == null || body.isBlank() ? "" : " · " + brief(body)));
             this.status = status;
             this.body = body;
+        }
+        /** 百炼的错误体是 JSON,里面那句 message 才是人能看懂的部分;取不出来就退回原文截断 */
+        private static String brief(String body) {
+            try {
+                JsonNode n = new ObjectMapper().readTree(body);
+                JsonNode m = n.path("error").path("message");
+                if (m.isTextual() && !m.asText().isBlank()) return trim(m.asText());
+                if (n.path("message").isTextual()) return trim(n.path("message").asText());
+            } catch (Exception ignored) { }
+            return trim(body);
+        }
+        private static String trim(String s) {
+            String one = s.replaceAll("\\s+", " ").trim();
+            return one.length() > 300 ? one.substring(0, 300) + "…" : one;
         }
     }
 }

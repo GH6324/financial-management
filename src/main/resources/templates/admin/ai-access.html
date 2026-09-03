@@ -254,8 +254,17 @@
             <li>
               <span class="ask-step-who ours">我们</span>
               <div>
-                <b>点「在百炼上创建 Agent」</b>
-                <p>系统提示词、工具清单、MCP 引用都由我们自动写进去。之后每次提问就直接走百炼了。</p>
+                <b>创建 Agent</b>
+                <p>系统提示词、工具清单、MCP 引用都由我们自动写进去。之后每次提问就直接走百炼了。
+                   <b>先把上面的设置保存一次</b>(业务空间 ID、MCP 服务 ID、公网地址),再点下面这个按钮。</p>
+                <!-- form= 指向外层那个 create-agent 表单:这个 details 本身在「保存设置」的表单里,
+                     HTML 不允许 form 嵌套,所以用属性关联而不是再写一个 form -->
+                <button type="submit" form="createAgentForm" class="btn-ink text-sm mt-2"
+                        th:text="${askAgentId != null and !#strings.isEmpty(askAgentId)} ? '更新百炼上的 Agent 模板' : '在百炼上创建 Agent'">在百炼上创建 Agent</button>
+                <p th:if="${askAgentId != null and !#strings.isEmpty(askAgentId)}"
+                   class="text-[11.5px] text-ink-subtle mt-1.5">
+                  已创建:<code th:text="${askAgentId}">agent_x</code>
+                </p>
               </div>
             </li>
           </ol>
@@ -292,11 +301,15 @@
         </div>
       </form>
 
-      <form th:if="${askRuntime == 'managed'}" method="post" th:action="@{/admin/ai-access/create-agent}"
-            class="mt-3 pt-3 border-t border-rule">
-        <button type="submit" class="font-mono text-[10px] text-ink hover:underline bg-transparent border-0 cursor-pointer"
+      <!--/* v1.19.11 · 这是整条 5 步向导的**最后一步**,原来却是一个 10px 的透明文字链接,
+             而且和向导完全脱节(第 5 步只写「点『在百炼上创建 Agent』」,没有任何指向)。
+             现在:① 按钮本身改成主按钮 ② 第 5 步里用 form= 关联同一个表单再放一个,
+             走到那一步就能直接点,不用回头找。 */-->
+      <form th:if="${askRuntime == 'managed'}" id="createAgentForm" method="post"
+            th:action="@{/admin/ai-access/create-agent}" class="mt-4 pt-4 border-t border-rule">
+        <button type="submit" class="btn-ink text-sm"
                 th:text="${askAgentId != null and !#strings.isEmpty(askAgentId)} ? '更新百炼上的 Agent 模板' : '在百炼上创建 Agent'">创建</button>
-        <span class="text-[11px] text-ink-subtle ml-2">前面几项填齐了再点</span>
+        <span class="text-[11.5px] text-ink-subtle ml-3">上面几项填齐并保存之后再点</span>
       </form>
     </div>
 

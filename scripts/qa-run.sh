@@ -8003,6 +8003,44 @@ QA1199_MCP="$RD/src/main/java/com/family/finance/web/ask/McpEndpoint.java"
   || log_bad "v1199-MCP-VERSION-NEGOTIATED 又变回硬报自己的版本" "违反规范 MUST · 客户端版本不同就握手失败,连工具列表都拿不到"
 
 
+# ═══ v1.19.11 · 百炼 Agent 请求体形状 + 上游错误不许吞 ═══
+QA11911_MA="$RD/src/main/java/com/family/finance/service/ask/runtime/ManagedAgentRuntime.java"
+QA11911_AC="$RD/src/main/java/com/family/finance/web/admin/AiAccessController.java"
+QA11911_AA="$RD/src/main/resources/templates/admin/ai-access.html"
+
+# v11911-BAILIAN-AGENT-SHAPE · 创建/更新 Agent 的请求体形状,两处都是百炼**明确告诉我们**的。
+#   ① model 是对象不是字符串:Cannot construct instance of `DashModelConfigDTO`
+#      … from String value ('qwen-plus') (through reference chain: DashCreateAgentRequest["model"])
+#   ② mcp_servers[].type 合法值是 customer,不是 custom:
+#      mcpServers[0].type 取值非法: custom,合法值: [official, customer]
+#   原来代码里写着 "custom",注释还写着「试过,百炼会拒」——显然试的是错的那个词。
+{ ! codeonly "$QA11911_MA" | grep -q '"type", "custom"' \
+  && [ "$(codeonly "$QA11911_MA" | grep -c '"type", "customer"')" -ge 2 ] \
+  && [ "$(codeonly "$QA11911_MA" | grep -c 'Map.of("id", model')" -ge 2 ] \
+  && ! codeonly "$QA11911_MA" | grep -qE 'body.put\("model", *model'; } \
+  && log_ok "v11911-BAILIAN-AGENT-SHAPE(model 为对象 · mcp type=customer · 创建与更新两处一致)" \
+  || log_bad "v11911-BAILIAN-AGENT-SHAPE 请求体形状退回去了" "百炼会 400,而且创建/更新必须同步改,漏一处就是更新时把配置写坏"
+
+# v11911-UPSTREAM-ERROR-VISIBLE · 上游说了什么必须让用户看见。
+#   UpstreamException 原来把 body 存进字段却不放进 message,而调用方用的正是 getMessage() ——
+#   用户只看到「upstream 400」+ 一句我们猜的「先确认两个 ID」,而那两个 ID 本来就是对的。
+#   最有用的一句话被丢掉,排查因此绕了一大圈。与 v1.19.4「识别失败,请重试」同型。
+{ codeonly "$QA11911_MA" | grep -q 'super("upstream " + status + ' \
+  && codeonly "$QA11911_MA" | grep -q 'brief(body)' \
+  && codeonly "$QA11911_AC" | grep -q '百炼返回:' \
+  && codeonly "$QA11911_AC" | grep -q 'log.warn'; } \
+  && log_ok "v11911-UPSTREAM-ERROR-VISIBLE(百炼原话进 message + 上页面 + 落日志)" \
+  || log_bad "v11911-UPSTREAM-ERROR-VISIBLE 又把上游错误吞了" "用户只会看到 upstream 400,而真正的原因在被丢掉的 body 里"
+
+# v11911-CREATE-AGENT-IN-WIZARD · 第 5 步的动作按钮必须就在第 5 步里,而且是主按钮。
+#   原来它是 10px 的透明文字链接,还在向导外面 —— 走完 5 步之后得自己找。
+{ grep -q 'id="createAgentForm"' "$QA11911_AA" \
+  && grep -q 'form="createAgentForm"' "$QA11911_AA" \
+  && ! grep -q "text-\[10px\] text-ink hover:underline bg-transparent border-0" "$QA11911_AA"; } \
+  && log_ok "v11911-CREATE-AGENT-IN-WIZARD(创建按钮在向导第 5 步内 · 主按钮样式)" \
+  || log_bad "v11911-CREATE-AGENT-IN-WIZARD 创建按钮又和向导脱节了" "走完 5 步找不到该点哪儿"
+
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

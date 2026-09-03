@@ -15,6 +15,7 @@ import com.family.finance.service.ask.runtime.ManagedAgentRuntime;
 import com.family.finance.service.config.FamilyConfigService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -47,6 +48,7 @@ import static com.family.finance.service.config.FamilyConfigService.*;
  */
 @Controller
 @RequiredArgsConstructor
+@Slf4j
 public class AiAccessController {
 
     private static final int AUDIT_LIMIT = 50;
@@ -178,8 +180,13 @@ public class AiAccessController {
                 ra.addFlashAttribute("askNote", "已在百炼上创建 Agent(" + id + ")。");
             }
         } catch (Exception e) {
-            ra.addFlashAttribute("askError", "创建失败:" + e.getMessage()
-                    + " —— 先确认业务空间 ID、MCP 服务 ID 都对,而且百炼那边连得上你填的公网地址。");
+            // v1.19.11 · 把**百炼原话**放在最前面。原来这里只有 e.getMessage()(那时它只有
+            // 「upstream 400」)再跟一句我们猜的「先确认两个 ID」—— 而用户那次两个 ID 都是对的,
+            // 真正的原因(model 字段类型、mcp type 合法值)百炼明说了,却被我们吞掉。
+            // 猜测只能放在原话后面,而且要说清它是猜的。
+            log.warn("创建/更新 Agent 失败", e);
+            ra.addFlashAttribute("askError", "创建失败 · 百炼返回:" + e.getMessage()
+                    + " —— 若提示指向配置,再核对业务空间 ID / MCP 服务 ID / 公网地址。");
         }
         return "redirect:/admin/ai-access";
     }
