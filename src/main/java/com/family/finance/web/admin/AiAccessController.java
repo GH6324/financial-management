@@ -115,6 +115,7 @@ public class AiAccessController {
         model.addAttribute("askPublicBaseUrl", configService.getString(fam, K_ASK_PUBLIC_BASE_URL, ""));
         model.addAttribute("askWorkspaceId", configService.getString(fam, K_ASK_MA_WORKSPACE, ""));
         model.addAttribute("askMcpServerId", configService.getString(fam, K_ASK_MA_MCP_SERVER, ""));
+        model.addAttribute("askModel", configService.getString(fam, K_ASK_MA_MODEL, ASK_MA_MODEL_DEFAULT));
         model.addAttribute("askAgentId", configService.getString(fam, K_ASK_MA_AGENT_ID, ""));
         // 教程里那段示例配置 —— **由 Java 生成**,不在模板里手拼。
         // 手拼那版有个不显眼的 bug:Thymeleaf 字符串字面量里的 \n 不是换行,
@@ -149,6 +150,7 @@ public class AiAccessController {
                               @RequestParam(required = false) String publicBaseUrl,
                               @RequestParam(required = false) String workspaceId,
                               @RequestParam(required = false) String mcpServerId,
+                              @RequestParam(required = false) String maModel,
                               RedirectAttributes ra) {
         long fam = me.getFamilyId();
         configService.set(fam, K_ASK_ENABLED, String.valueOf(enabled));
@@ -156,6 +158,9 @@ public class AiAccessController {
         configService.set(fam, K_ASK_PUBLIC_BASE_URL, trimSlash(publicBaseUrl));
         configService.set(fam, K_ASK_MA_WORKSPACE, nz(workspaceId));
         configService.set(fam, K_ASK_MA_MCP_SERVER, nz(mcpServerId));
+        // 空着就落默认值,别存空串 —— 存了空串,后面读出来还得再判一次
+        configService.set(fam, K_ASK_MA_MODEL,
+                nz(maModel).isEmpty() ? ASK_MA_MODEL_DEFAULT : nz(maModel));
 
         String blocked = askConversations.blockedReason(fam);
         // 保存成功不代表能用 —— 把「还差什么」当场说清,别让用户点进去才发现
@@ -186,9 +191,41 @@ public class AiAccessController {
             // 猜测只能放在原话后面,而且要说清它是猜的。
             log.warn("创建/更新 Agent 失败", e);
             ra.addFlashAttribute("askError", "创建失败 · 百炼返回:" + e.getMessage()
-                    + " —— 若提示指向配置,再核对业务空间 ID / MCP 服务 ID / 公网地址。");
+                    + " —— " + hint(e.getMessage()));
         }
         return "redirect:/admin/ai-access";
+    }
+
+    /**
+     * v1.19.12 · 把百炼的原话翻译成「你该去动哪里」。
+     *
+     * <p>动机是一次真实的踩坑:百炼回 <code>AGENT_010 · 模型不存在: model=qwen-plus</code>,
+     * 而模型是存在的 —— 真正的原因是<b>子业务空间没有这个模型的调用权限</b>。
+     * 那时我们只会附一句「核对业务空间 ID / MCP 服务 ID / 公网地址」,
+     * 三样全是对的,于是这句提示把人往完全错误的方向指了一整轮。</p>
+     *
+     * <p>所以规矩是:<b>认得出来的就说准,认不出来的就说自己在猜</b>,不要给一个笃定的错方向。</p>
+     */
+    static String hint(String upstream) {
+        String m = upstream == null ? "" : upstream;
+        if (m.contains("AGENT_010") || m.contains("模型不存在") || m.contains("Model not found")) {
+            return "这句话通常不是「模型名写错了」,而是「这个业务空间没有该模型的调用权限」"
+                 + "(子业务空间默认一个标准模型都调不了,要主账号去开通)。"
+                 + "先照第 3 步开通,再把下面「模型」一格填成你实际开通的那个。"
+                 + "注意:同一把 Key 在普通对话接口能用,不代表这个空间能用。";
+        }
+        if (m.contains("Endpoint.AccessDenied") || m.contains("403")) {
+            return "地址被拒了,先看业务空间 ID 是不是填错(它拼在接口域名里,填错就整个端点不存在)。";
+        }
+        if (m.contains("InvalidApiKey") || m.contains("401")) {
+            return "百炼 API Key 没通过。去「AI 供应商」那页确认 Key,以及它属于这个业务空间。";
+        }
+        if (m.contains("mcp") || m.contains("Mcp") || m.contains("MCP")) {
+            return "指向 MCP:确认第 4 步的服务在「同一个业务空间」里注册、状态是部署成功,"
+                 + "并且下面填的是它的服务 ID。";
+        }
+        return "这条我们没见过,没法给准话 —— 把原文搜一下百炼文档;"
+             + "也可以按顺序核对业务空间 ID / MCP 服务 ID / 公网地址。";
     }
 
     private static String nz(String s) { return s == null ? "" : s.trim(); }

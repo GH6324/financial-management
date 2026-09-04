@@ -8032,13 +8032,69 @@ QA11911_AA="$RD/src/main/resources/templates/admin/ai-access.html"
   && log_ok "v11911-UPSTREAM-ERROR-VISIBLE(百炼原话进 message + 上页面 + 落日志)" \
   || log_bad "v11911-UPSTREAM-ERROR-VISIBLE 又把上游错误吞了" "用户只会看到 upstream 400,而真正的原因在被丢掉的 body 里"
 
-# v11911-CREATE-AGENT-IN-WIZARD · 第 5 步的动作按钮必须就在第 5 步里,而且是主按钮。
-#   原来它是 10px 的透明文字链接,还在向导外面 —— 走完 5 步之后得自己找。
+# v11911-CREATE-AGENT-IN-WIZARD · 最后一步的动作按钮必须就在那一步里,而且是主按钮。
+#   (步数会变 —— v1.19.12 从 5 步加到 6 步 —— 所以这条不绑具体序号。)
+#   原来它是 10px 的透明文字链接,还在向导外面 —— 走完向导之后得自己找。
 { grep -q 'id="createAgentForm"' "$QA11911_AA" \
   && grep -q 'form="createAgentForm"' "$QA11911_AA" \
   && ! grep -q "text-\[10px\] text-ink hover:underline bg-transparent border-0" "$QA11911_AA"; } \
-  && log_ok "v11911-CREATE-AGENT-IN-WIZARD(创建按钮在向导第 5 步内 · 主按钮样式)" \
-  || log_bad "v11911-CREATE-AGENT-IN-WIZARD 创建按钮又和向导脱节了" "走完 5 步找不到该点哪儿"
+  && log_ok "v11911-CREATE-AGENT-IN-WIZARD(创建按钮在向导最后一步内 · 主按钮样式)" \
+  || log_bad "v11911-CREATE-AGENT-IN-WIZARD 创建按钮又和向导脱节了" "走完向导找不到该点哪儿"
+
+
+
+# ═══ v1.19.12 · 百炼引导流程:模型授权这一步 + 提示不许指错方向 ═══
+QA11912_MA="$RD/src/main/java/com/family/finance/service/ask/runtime/ManagedAgentRuntime.java"
+QA11912_AC="$RD/src/main/java/com/family/finance/web/admin/AiAccessController.java"
+QA11912_AA="$RD/src/main/resources/templates/admin/ai-access.html"
+QA11912_CFG="$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java"
+
+# v11912-WIZARD-HAS-MODEL-STEP · 向导里必须有「确认这个业务空间能调模型」这一步。
+#   这一步以前**完全没有**:用户把每一步都做对,最后仍报「模型不存在」——
+#   而失败信息指向的是一个他根本没做错的东西。教程漏了一环,比写错一句更贵。
+#   同时守「步数说明」与「实际步数」一致 —— 加步骤忘了改 summary 是这一页历史上真出过的错。
+# 数 ask-step-who(每个步骤恰好一个,且只在这个向导里出现)。
+# 不要用 sed 从 <ol class="ask-steps"> 截到 </ol> —— 步骤内部还有嵌套 <ol>,会在第一个内层收尾处截断。
+QA11912_STEPS="$(grep -c 'ask-step-who' "$QA11912_AA")"
+{ grep -q '确认这个业务空间「能调模型」' "$QA11912_AA" \
+  && grep -q '模型调用权限' "$QA11912_AA" \
+  && grep -q '一共 '"$QA11912_STEPS"' 步' "$QA11912_AA" \
+  && [ "$QA11912_STEPS" -ge 6 ]; } \
+  && log_ok "v11912-WIZARD-HAS-MODEL-STEP(向导含模型授权步 · summary 步数与实际 $QA11912_STEPS 步一致)" \
+  || log_bad "v11912-WIZARD-HAS-MODEL-STEP 模型授权步没了或步数对不上" "用户按教程走完每一步仍会失败,而且失败信息指向他没做错的地方"
+
+# v11912-MODEL-CONFIGURABLE · 模型不许写死在代码里。
+#   子业务空间要主账号逐个开通模型,开通的未必是我们默认那个;写死就等于
+#   「按提示开通了,还是报模型不存在,而页面上无处可改」。
+{ codeonly "$QA11912_CFG" | grep -q 'K_ASK_MA_MODEL' \
+  && codeonly "$QA11912_CFG" | grep -q 'ASK_MA_MODEL_DEFAULT' \
+  && codeonly "$QA11912_MA" | grep -q 'configuredModel()' \
+  && [ "$(codeonly "$QA11912_MA" | grep -c '"qwen-plus"')" -eq 0 ] \
+  && codeonly "$QA11912_AC" | grep -q 'K_ASK_MA_MODEL' \
+  && grep -q 'name="maModel"' "$QA11912_AA"; } \
+  && log_ok "v11912-MODEL-CONFIGURABLE(模型走配置 · 默认值收口常量 · 管理页可改)" \
+  || log_bad "v11912-MODEL-CONFIGURABLE 模型又写死了" "子空间开通的模型与我们请求的对不上时,用户没有任何地方能改"
+
+# v11912-HINT-NOT-MISLEADING · 失败提示:认得出的说准,认不出的承认在猜。
+#   反面案例就在上一版:百炼回「模型不存在」,我们附「核对业务空间 ID / MCP 服务 ID / 公网地址」,
+#   而那三样全是对的 —— 一句笃定的错方向,比不给提示更糟。
+{ codeonly "$QA11912_AC" | grep -q 'static String hint(' \
+  && codeonly "$QA11912_AC" | grep -q 'AGENT_010' \
+  && codeonly "$QA11912_AC" | grep -q '没见过' \
+  && ! codeonly "$QA11912_AC" | grep -q '若提示指向配置' \
+  && [ -f "$RD/src/test/java/com/family/finance/web/admin/AiAccessHintTest.java" ]; } \
+  && log_ok "v11912-HINT-NOT-MISLEADING(错误提示按上游原话分流 · 未知时承认在猜 · 有单测)" \
+  || log_bad "v11912-HINT-NOT-MISLEADING 又给笃定的错方向" "上一轮就是被这句提示带偏,三个 ID 全对却反复核对"
+
+# v11912-WORKSPACE-FORMAT-HONEST · 业务空间 ID 的格式说法不许说死。
+#   原文写「形如 llm-7c72iiw36kd8xxxx」,而 ws- 开头的同样有效(实测通过端点鉴权)——
+#   用户照着格式判断「我这个不对」,会去改一个本来就对的东西。
+{ grep -q 'ws-' "$QA11912_AA" \
+  && grep -q '以控制台上显示的为准' "$QA11912_AA" \
+  && grep -q '默认业务空间' "$QA11912_AA" \
+  && grep -q '子业务空间' "$QA11912_AA"; } \
+  && log_ok "v11912-WORKSPACE-FORMAT-HONEST(两种前缀都提 · 默认空间与子空间的差别写清)" \
+  || log_bad "v11912-WORKSPACE-FORMAT-HONEST 又把业务空间 ID 说成只有一种格式" "用户会照格式去改一个本来就对的值,而真正的坑(子空间没模型权限)仍然没提"
 
 
 echo

@@ -147,6 +147,16 @@ public class FamilyConfigService {
     /** 托管路线:我们创建出来的 agent id 与 version(PUT 是全量替换 + 乐观锁,version 必须存) */
     public static final String K_ASK_MA_AGENT_ID      = "ask_ma_agent_id";
     public static final String K_ASK_MA_AGENT_VERSION = "ask_ma_agent_version";
+    /**
+     * v1.19.12 · 托管路线用哪个模型。
+     *
+     * <p>原来这个值<b>写死在代码里</b>(qwen-plus),而百炼的<b>子业务空间默认一个模型都调不了</b>,
+     * 得由主账号逐个开通。用户开通的很可能不是 qwen-plus —— 于是他明明按提示开通了模型,
+     * 创建 Agent 仍然报「模型不存在」,而页面上没有任何地方能改。所以这一项必须能配。</p>
+     */
+    public static final String K_ASK_MA_MODEL         = "ask_ma_model";
+    /** 托管路线默认模型 —— 通用够用;工具调用更强的是 qwen-max 系列,子空间按开通的填 */
+    public static final String ASK_MA_MODEL_DEFAULT   = "qwen-plus";
     /** 托管路线:本实例的公网地址,拼进给百炼的 MCP 配置 */
     public static final String K_ASK_PUBLIC_BASE_URL  = "ask_public_base_url";
 

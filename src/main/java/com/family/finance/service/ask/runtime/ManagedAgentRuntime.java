@@ -195,7 +195,7 @@ public class ManagedAgentRuntime implements AgentRuntime {
         //   Cannot construct instance of `DashModelConfigDTO` … from String value ('qwen-plus')
         //   (through reference chain: DashCreateAgentRequest["model"])
         // 官方示例也是 "model": {"id": "qwen3-max"}。
-        body.put("model", Map.of("id", model == null || model.isBlank() ? "qwen-plus" : model));
+        body.put("model", Map.of("id", model == null || model.isBlank() ? configuredModel() : model));
         body.put("instructions", systemPrompt);
         // v1.19.11 · type 是 **customer** 不是 custom。百炼直接给了合法值:
         //   mcpServers[0].type 取值非法: custom,合法值: [official, customer]
@@ -221,7 +221,7 @@ public class ManagedAgentRuntime implements AgentRuntime {
     public void updateAgent(String systemPrompt, String model) throws Exception {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("name", "家庭资产超级 Agent");
-        body.put("model", Map.of("id", model == null || model.isBlank() ? "qwen-plus" : model));
+        body.put("model", Map.of("id", model == null || model.isBlank() ? configuredModel() : model));
         body.put("instructions", systemPrompt);
         body.put("mcp_servers", List.of(Map.of("type", "customer", "name", mcpServerId())));
         body.put("version", configService.getString(FAMILY_ID, K_ASK_MA_AGENT_VERSION, "1"));
@@ -292,6 +292,12 @@ public class ManagedAgentRuntime implements AgentRuntime {
     private String workspace() { return configService.getString(FAMILY_ID, K_ASK_MA_WORKSPACE, ""); }
     private String mcpServerId() { return configService.getString(FAMILY_ID, K_ASK_MA_MCP_SERVER, ""); }
     private String agentId() { return configService.getString(FAMILY_ID, K_ASK_MA_AGENT_ID, ""); }
+
+    /** v1.19.12 · 模型从配置读,不再写死 —— 子业务空间开通的往往不是默认那个 */
+    private String configuredModel() {
+        String m = configService.getString(FAMILY_ID, K_ASK_MA_MODEL, ASK_MA_MODEL_DEFAULT);
+        return m == null || m.isBlank() ? ASK_MA_MODEL_DEFAULT : m.trim();
+    }
 
     /** 业务空间是子域,不是路径参数 */
     private String agentBase() {

@@ -111,7 +111,7 @@
              「业务空间 ID」这种词对着一个空输入框是问不出来的,所以把整条路线写成分步向导,
              人工的那几步各配一段实操说明。 -->
         <details th:open="${askRuntime == 'managed'}" class="ask-setup">
-          <summary>百炼托管 Agent 的设置 · 一共 5 步(3 步要你去百炼控制台)</summary>
+          <summary>百炼托管 Agent 的设置 · 一共 6 步(4 步要你去百炼控制台)</summary>
 
           <ol class="ask-steps">
             <!-- ① -->
@@ -120,7 +120,7 @@
               <div>
                 <b>先发一把只读口令</b>
                 <p>在下面「接入点」那一节点「新增接入点」。口令<b>只显示这一次</b>,顺手复制走 ——
-                   第 3 步要把它粘进百炼。</p>
+                   第 4 步要把它粘进百炼。</p>
               </div>
             </li>
 
@@ -129,9 +129,19 @@
               <span class="ask-step-who">你</span>
               <div>
                 <b>去百炼拿「业务空间 ID」</b>
-                <p>它是你在百炼里那个空间的编号,形如 <code>llm-7c72iiw36kd8xxxx</code>。
+                <p>它是你在百炼里那个空间的编号,形如 <code>llm-7c72…</code> 或 <code>ws-9x63…</code>
+                   —— <b>两种前缀都有,以控制台上显示的为准</b>,不要按格式去猜。
                    我们用它拼接口地址(<code>https://<b>业务空间ID</b>.cn-beijing.maas.aliyuncs.com/…</code>),
                    所以少了它连不上。</p>
+                <p class="ask-how-note" style="margin-top:.45rem">
+                  <b>先想清楚用哪个空间 —— 这一步选错,要到最后一步才会暴露。</b><br>
+                  <b>默认业务空间</b>:它的 Key <b>可以调用所有模型</b>,不用额外授权,最省事。<br>
+                  <b>子业务空间</b>:默认<b>一个标准模型都调不了</b>,必须由主账号 / 超级管理员
+                  在控制台里为它<b>逐个开通模型调用权限</b>。<br>
+                  为什么容易踩:北京地域的普通对话接口用的是不带空间的
+                  <code>dashscope.aliyuncs.com</code>,<b>绕过了空间限制</b> —— 所以同一把 Key
+                  「聊天能用」完全不代表「这里能用」。托管 Agent 的地址里嵌着业务空间,受它的授权约束。
+                </p>
                 <details class="ask-how">
                   <summary>怎么拿</summary>
                   <ol>
@@ -154,7 +164,41 @@
               </div>
             </li>
 
-            <!-- ③ 注册 MCP -->
+            <!--/* ③ · v1.19.12 新增 · 这一步以前**完全没有**,而它正是整条流程最后卡住的地方:
+                   用户把前面每一步都做对了,最后点「创建 Agent」报「模型不存在」——
+                   指向一个他根本没做错的东西。模型授权必须在这里就确认,不能留到最后。 */-->
+            <li>
+              <span class="ask-step-who">你</span>
+              <div>
+                <b>确认这个业务空间「能调模型」</b>
+                <p>用<b>默认业务空间</b>的话这一步可以跳过 —— 它本来就能调所有模型。
+                   用<b>子业务空间</b>就必须做:否则最后一步会报
+                   <code>模型不存在: model=qwen-plus</code>,<b>而那句话是误导的</b> ——
+                   模型是存在的,只是这个空间没被允许用它。</p>
+                <details class="ask-how">
+                  <summary>怎么开通 · 以及怎么先验一下</summary>
+                  <ol>
+                    <li>百炼控制台 → 进这个业务空间 → <b>权限管理 / 模型调用权限</b> →
+                        为它开通至少一个模型。建议选 <b>qwen-max 系列</b>:
+                        官方说工具调用能力更强,而这个 Agent 全靠调工具取数。</li>
+                    <li>这一步需要<b>主账号或超级管理员</b>。注意 RAM 权限
+                        (<code>AliyunBailianFullAccess</code>)和百炼内部的业务空间权限
+                        是<b>两套独立体系</b> —— 有 RAM 权限不等于能在空间里授权模型。</li>
+                    <li><b>把你开通的那个模型名,填进下面「模型」那一格</b> ——
+                        我们默认按 <code>qwen-plus</code> 请求,你开通的要是别的,两边对不上照样报「模型不存在」。</li>
+                    <li class="ask-how-alt">开通后回到这里走完剩下的步骤;如果最后仍报
+                        「模型不存在」,多半是授权没落到这个空间上,或者「模型」那一格填的不是你开通的那个。</li>
+                  </ol>
+                  <p class="ask-how-note">
+                    <b>别用「聊天能不能通」来判断这一步。</b>北京地域的对话接口地址里不带业务空间,
+                    走的是全局通道;而托管 Agent 的地址里嵌着空间。同一把 Key 在前者 200、
+                    在后者「模型不存在」是完全可能的 —— 这正是本项目实测到的情况。
+                  </p>
+                </details>
+              </div>
+            </li>
+
+            <!-- ④ 注册 MCP(原 ③) -->
             <li>
               <span class="ask-step-who">你</span>
               <div>
@@ -185,6 +229,8 @@
                   </table>
 
                   <ol>
+                    <li><b>先确认右上角的业务空间,和第 2 步填的是同一个</b> ——
+                        MCP 服务是<b>按空间注册</b>的,在 A 空间注册、拿到的 ID 填给 B 空间的 Agent 会引用不到。</li>
                     <li>百炼控制台左侧进「<b>MCP 管理</b>」→「<b>创建 MCP 服务</b>」→ 选「<b>使用脚本部署</b>」。</li>
                     <li><b>安装方式选 http</b>。npx / uvx 那两个是把服务托管到函数计算,
                         只有 http 是「连接到一个已有的、运行在别处的远程 MCP 服务器」。<br>
@@ -243,12 +289,12 @@
               </div>
             </li>
 
-            <!-- ④⑤ -->
+            <!-- ⑤⑥ -->
             <li>
               <span class="ask-step-who">你</span>
               <div>
-                <b>把两个 ID 填回来并保存</b>
-                <p>就是下面这三格。公网地址必须是 <code>https</code> —— 百炼不接受 http 回调。</p>
+                <b>把拿到的几项填回来并保存</b>
+                <p>就是下面这几格(公网地址 / 业务空间 ID / MCP 服务 ID / 模型)。公网地址必须是 <code>https</code> —— 百炼不接受 http 回调。</p>
               </div>
             </li>
             <li>
@@ -256,7 +302,11 @@
               <div>
                 <b>创建 Agent</b>
                 <p>系统提示词、工具清单、MCP 引用都由我们自动写进去。之后每次提问就直接走百炼了。
-                   <b>先把上面的设置保存一次</b>(业务空间 ID、MCP 服务 ID、公网地址),再点下面这个按钮。</p>
+                   <b>先把上面的设置保存一次</b>(公网地址、业务空间 ID、MCP 服务 ID、模型),再点下面这个按钮。</p>
+                <p class="text-[11.5px] text-ink-subtle mt-1.5">
+                  这里报「模型不存在」<b>基本都是第 3 步没做</b>(业务空间没有该模型的调用权限),
+                  而不是模型名写错了。
+                </p>
                 <!-- form= 指向外层那个 create-agent 表单:这个 details 本身在「保存设置」的表单里,
                      HTML 不允许 form 嵌套,所以用属性关联而不是再写一个 form -->
                 <button type="submit" form="createAgentForm" class="btn-ink text-sm mt-2"
@@ -285,10 +335,22 @@
               <input type="text" name="workspaceId" th:value="${askWorkspaceId}"
                      placeholder="llm-xxxxxxxxxxxx" class="field-input w-full">
             </label>
-            <label class="block sm:col-span-2">
-              <span class="block text-[11.5px] text-ink-soft mb-1">百炼 MCP 服务 ID<span class="text-ink-subtle"> · 第 3 步注册完拿到</span></span>
+            <label class="block">
+              <span class="block text-[11.5px] text-ink-soft mb-1">百炼 MCP 服务 ID<span class="text-ink-subtle"> · 第 4 步注册完拿到</span></span>
               <input type="text" name="mcpServerId" th:value="${askMcpServerId}"
                      placeholder="MCP 管理 → 自定义服务 里那个服务的 ID" class="field-input w-full">
+            </label>
+            <!--/* v1.19.12 · 这一格以前**根本不存在**,模型写死在代码里。
+                   子业务空间要主账号逐个开通模型,用户开通的未必是我们写死的那个 ——
+                   于是「按提示开通了,还是报模型不存在,而且页面上无处可改」。 */-->
+            <label class="block">
+              <span class="block text-[11.5px] text-ink-soft mb-1">模型<span class="text-ink-subtle"> · 填这个空间已开通的</span></span>
+              <input type="text" name="maModel" th:value="${askModel}"
+                     placeholder="qwen-plus" class="field-input w-full">
+              <span class="block text-[11px] text-ink-subtle mt-1">
+                默认 <code>qwen-plus</code>。子业务空间要填<b>主账号实际给它开通的那个</b>,
+                否则百炼会回「模型不存在」—— 那句话说的是权限,不是名字。
+              </span>
             </label>
           </div>
         </details>
