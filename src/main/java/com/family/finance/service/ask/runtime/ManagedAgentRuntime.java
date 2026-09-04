@@ -183,51 +183,94 @@ public class ManagedAgentRuntime implements AgentRuntime {
     // ──────────────────────── Agent 生命周期(管理页触发) ────────────────────────
 
     /**
-     * 创建 Agent。
+     * v1.19.13 · 百炼收系统提示词的字段名是 <b>{@code system}</b>,不是 {@code instructions}。
+     *
+     * <p>怎么发现的:创建明明成功了(HTTP 200 + 有 agent_id),但 {@code GET /agents/{id}} 回来的对象里
+     * <b>{@code "system": null}</b>,而 {@code instructions} 这个键<b>根本不在响应里</b>。
+     * 百炼对不认识的字段是<b>静默忽略</b>的 —— 于是线上那个 agent 挂上了 MCP、却<b>一句系统提示词都没有</b>:
+     * 它能调工具,但不知道自己是谁、不知道「不许做数学 / 不许换算币种 / 拿不准先调 capabilities」这些口径纪律。</p>
+     *
+     * <p>这类错误<b>不报错、不降级、看起来完全成功</b>,所以下面 {@link #verifyTemplate} 会回读一次确认。</p>
+     */
+    private static final String PROMPT_FIELD = "system";
+
+    private static final String AGENT_NAME = "家庭资产超级 Agent";
+
+    /**
+     * 创建与更新共用的请求体。
+     *
+     * <p>合成一份是必须的:百炼的更新是<b>全量替换</b>(缺省字段视为清空),
+     * 而这两处原来各写一份 —— v1.19.11 的两个形状 bug 就是「改了一处漏了另一处」的同型风险。</p>
      *
      * <p>{@code mcp_servers} 里<b>只能写引用</b>({@code type} + {@code name}),
-     * 不能内联 url 和 headers —— 试过,百炼会拒。这就是为什么用户必须先去控制台注册。</p>
+     * 不能内联 url 和 headers —— 这就是为什么用户必须先去控制台注册。</p>
      */
-    public String createAgent(String systemPrompt, String model) throws Exception {
+    private Map<String, Object> agentBody(String systemPrompt, String model) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("name", "家庭资产超级 Agent");
+        body.put("name", AGENT_NAME);
         // v1.19.11 · model 是**对象**不是字符串。百炼原话:
         //   Cannot construct instance of `DashModelConfigDTO` … from String value ('qwen-plus')
         //   (through reference chain: DashCreateAgentRequest["model"])
-        // 官方示例也是 "model": {"id": "qwen3-max"}。
         body.put("model", Map.of("id", model == null || model.isBlank() ? configuredModel() : model));
-        body.put("instructions", systemPrompt);
+        body.put(PROMPT_FIELD, systemPrompt);
         // v1.19.11 · type 是 **customer** 不是 custom。百炼直接给了合法值:
         //   mcpServers[0].type 取值非法: custom,合法值: [official, customer]
-        // 这里原来的注释还写着「试过,百炼会拒」——显然当时试的是错的那个词。
         body.put("mcp_servers", List.of(Map.of("type", "customer", "name", mcpServerId())));
-        JsonNode n = post(agentBase() + "/agents", body);
+        return body;
+    }
+
+    /** 创建 Agent */
+    public String createAgent(String systemPrompt, String model) throws Exception {
+        JsonNode n = post(agentBase() + "/agents", agentBody(systemPrompt, model));
         String id = firstText(n, "agent_id", "agentId", "id");
         if (id == null) throw new IllegalStateException("百炼没有返回 agent_id");
         String ver = firstText(n, "version", "agent_version");
         configService.set(FAMILY_ID, K_ASK_MA_AGENT_ID, id);
         configService.set(FAMILY_ID, K_ASK_MA_AGENT_VERSION, ver == null ? "1" : ver);
+        // id 先落库再回读:万一回读这一步失败(网络/超时),agent 已经建出来了,
+        // 下次点按钮要走「更新」而不是再建一个。
+        verifyTemplate(id);
         return id;
     }
 
     /**
      * 更新 Agent 模板。
      *
-     * <p><b>PUT 是全量替换</b>:缺省字段视为清空。所以这里每次都把 name/model/instructions/
-     * mcp_servers 全带上 —— 少带一个就是把它删了,而且删得静悄悄,下次提问才发现工具没了。</p>
+     * <p>v1.19.13 · 动词是 <b>{@code POST /agents/{id}}</b>。原来写的 {@code PUT} 百炼直接回
+     * <b>405 请求方法不支持</b>({@code PATCH} 也一样)—— 而这条 405 出现在用户已经创建成功之后,
+     * 于是页面上写着「创建失败」,他以为整条路线还没通,其实 agent 早就建好了。</p>
+     *
+     * <p><b>全量替换</b>:缺省字段视为清空,所以每次都把 name/model/{@value #PROMPT_FIELD}/
+     * mcp_servers 全带上 —— 少带一个就是把它删了,而且删得静悄悄。{@code version} 是必填(乐观锁),
+     * 缺了百炼回「version 不能为空」。</p>
      *
      * <p>已存在的会话<b>锁定创建时的 version</b>,不受本次更新影响。</p>
      */
     public void updateAgent(String systemPrompt, String model) throws Exception {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("name", "家庭资产超级 Agent");
-        body.put("model", Map.of("id", model == null || model.isBlank() ? configuredModel() : model));
-        body.put("instructions", systemPrompt);
-        body.put("mcp_servers", List.of(Map.of("type", "customer", "name", mcpServerId())));
+        Map<String, Object> body = agentBody(systemPrompt, model);
         body.put("version", configService.getString(FAMILY_ID, K_ASK_MA_AGENT_VERSION, "1"));
-        JsonNode n = put(agentBase() + "/agents/" + agentId(), body);
+        JsonNode n = post(agentBase() + "/agents/" + agentId(), body);
         String ver = firstText(n, "version", "agent_version");
         if (ver != null) configService.set(FAMILY_ID, K_ASK_MA_AGENT_VERSION, ver);
+        verifyTemplate(agentId());
+    }
+
+    /**
+     * v1.19.13 · 回读确认模板真的存住了。
+     *
+     * <p>加它的直接原因见 {@link #PROMPT_FIELD}:字段名发错时百炼<b>静默忽略</b>,
+     * 创建返回 200、有 agent_id,一切看起来都成功 —— 而 agent 是个空壳。
+     * <b>「上游收下了」不等于「上游存住了」</b>,凡是靠字段名约定的写入都得回读一次。</p>
+     */
+    private void verifyTemplate(String id) throws Exception {
+        JsonNode a = get(agentBase() + "/agents/" + id);
+        boolean hasPrompt = !a.path(PROMPT_FIELD).asText("").isBlank();
+        boolean hasMcp = a.path("mcp_servers").isArray() && !a.path("mcp_servers").isEmpty();
+        if (hasPrompt && hasMcp) return;
+        throw new IllegalStateException(
+                "百炼收下了(HTTP 200)但没存住:系统提示词" + (hasPrompt ? "在" : "是空的")
+                + " · MCP 引用" + (hasMcp ? "在" : "是空的")
+                + "。这通常意味着请求里的字段名和百炼当前的约定对不上 —— 它对不认识的字段是静默忽略的。");
     }
 
     /** 给用户去百炼控制台粘贴的 MCP 配置 —— 明文口令只在生成那一屏出现一次 */
@@ -252,7 +295,17 @@ public class ManagedAgentRuntime implements AgentRuntime {
     // ──────────────────────── 底层 ────────────────────────
 
     private JsonNode post(String url, Object body) throws Exception { return send("POST", url, body); }
-    private JsonNode put(String url, Object body) throws Exception { return send("PUT", url, body); }
+
+    /** 回读用。不带 body —— 有些网关对带 body 的 GET 会直接拒 */
+    private JsonNode get(String url) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+                .timeout(Duration.ofSeconds(30))
+                .header("Authorization", "Bearer " + apiKey())
+                .GET().build();
+        HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() >= 400) throw new UpstreamException(resp.statusCode(), resp.body());
+        return json.readTree(resp.body());
+    }
 
     private JsonNode send(String method, String url, Object body) throws Exception {
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))

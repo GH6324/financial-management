@@ -47,6 +47,17 @@ class AiAccessHintTest {
     }
 
     @Test
+    @DisplayName("405 要说清「这是我们的 bug」—— 用户改配置永远修不好它")
+    void methodNotAllowedIsOurBug() {
+        for (String raw : new String[]{"upstream 405 · 请求方法不支持", "upstream 405"}) {
+            String h = AiAccessController.hint(raw);
+            assertThat(h).as(raw).contains("本应用的 bug");
+            // 反面:不能把人引去核对配置 —— 405 跟配置一点关系都没有
+            assertThat(h).as(raw).doesNotContain("业务空间 ID");
+        }
+    }
+
+    @Test
     @DisplayName("认不出来的错要承认在猜,不给笃定的错方向")
     void unknownShapeAdmitsUncertainty() {
         String h = AiAccessController.hint("upstream 500 · something we have never seen");

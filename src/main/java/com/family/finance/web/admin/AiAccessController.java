@@ -173,9 +173,13 @@ public class AiAccessController {
     @PostMapping("/admin/ai-access/create-agent")
     public String createAgent(@AuthenticationPrincipal MemberPrincipal me, RedirectAttributes ra) {
         long fam = me.getFamilyId();
+        // v1.19.13 · update 必须在 try 外面算 —— 出错时的文案要说对是「创建」还是「更新」。
+        // 原来它在 try 里,catch 拿不到,于是**更新失败也写「创建失败」**:
+        // 用户已经创建成功了、只是更新报 405,却被告知「创建失败」,以为整条路线还没通。
+        boolean update = !configService.getString(fam, K_ASK_MA_AGENT_ID, "").isBlank();
+        String what = update ? "更新" : "创建";
         try {
             String prompt = promptBuilder.build(fam, null, null);
-            boolean update = !configService.getString(fam, K_ASK_MA_AGENT_ID, "").isBlank();
             if (update) {
                 managedAgentRuntime.updateAgent(prompt, null);
                 ra.addFlashAttribute("askNote", "已更新百炼上的 Agent 模板。已经开着的会话不受影响 ——"
@@ -189,9 +193,13 @@ public class AiAccessController {
             // 「upstream 400」)再跟一句我们猜的「先确认两个 ID」—— 而用户那次两个 ID 都是对的,
             // 真正的原因(model 字段类型、mcp type 合法值)百炼明说了,却被我们吞掉。
             // 猜测只能放在原话后面,而且要说清它是猜的。
-            log.warn("创建/更新 Agent 失败", e);
-            ra.addFlashAttribute("askError", "创建失败 · 百炼返回:" + e.getMessage()
-                    + " —— " + hint(e.getMessage()));
+            log.warn("{} Agent 失败", what, e);
+            String msg = e.getMessage();
+            // v1.19.13 · 只有**上游**的错才配一句猜测。我们自己抛的(例如回读发现模板没存住)
+            // 本来就已经把话说完了,再补一句「核对三个 ID」纯属添乱。
+            boolean upstream = msg != null && msg.startsWith("upstream ");
+            ra.addFlashAttribute("askError", what + "失败 · "
+                    + (upstream ? "百炼返回:" + msg + " —— " + hint(msg) : msg));
         }
         return "redirect:/admin/ai-access";
     }
@@ -213,6 +221,10 @@ public class AiAccessController {
                  + "(子业务空间默认一个标准模型都调不了,要主账号去开通)。"
                  + "先照第 3 步开通,再把下面「模型」一格填成你实际开通的那个。"
                  + "注意:同一把 Key 在普通对话接口能用,不代表这个空间能用。";
+        }
+        if (m.contains("405") || m.contains("请求方法不支持")) {
+            return "百炼不接受我们用的这个 HTTP 方法 —— 这是本应用的 bug,不是你的配置问题。"
+                 + "请把这条原文反馈给我们。";
         }
         if (m.contains("Endpoint.AccessDenied") || m.contains("403")) {
             return "地址被拒了,先看业务空间 ID 是不是填错(它拼在接口域名里,填错就整个端点不存在)。";

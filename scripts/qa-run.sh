@@ -2338,9 +2338,20 @@ for kw in "总评" "资产配置" "风险敞口" "流动性" "收益质量" "优
   if grep -q "$kw" "$TMP"; then total_markers=$((total_markers+1)); fi
 done
 DIAG_EMOJI=$(grep -oE '📊|⚡|💧|📈|🔄|✅|⚠️' "$TMP" | wc -l | tr -d ' ')
+# 2026-09-04:这条以前是**靠运气**的 —— 它打真 LLM,而模型偶尔会说出「零风险」「余额宝」
+#   这类被内容校验器正确拦下的词,或者 DeepSeek 那路 402 直接挂;两个候选都被拒 → 面板降级成
+#   `unavailable` 文本 → markers 只剩 1/6 → 红。**那是校验器在正常工作,不是渲染坏了**,
+#   而红灯会把「这次模型没说好」伪装成「结构化渲染回归了」。
+#   判据:面板底栏「资 · 产 · 顾 · 问 …」只在 result.available() 为真时渲染 ——
+#   它不在 = LLM 这一路整体没出结果,这时 SKIP 并说清原因;fallback 分支本身由 DIAGNOSE-3 守。
+#   注意这是**降低误报**,不是放宽判据:只要拿到了结构化答案,6 个 marker 仍然一个都不能少。
+if ! grep -q '资 · 产 · 顾 · 问' "$TMP"; then
+  log_skip "v04-AI-DIAGNOSE-2 本次 LLM 没出结果(全部候选失败或被内容校验拦下)" "面板处于 unavailable 降级态 · 结构化渲染这次无从判断 · markers=$total_markers/6"
+else
 { [[ "$total_markers" -ge 6 ]] && [[ "$DIAG_EMOJI" -eq 0 ]]; } \
   && log_ok "v04-AI-DIAGNOSE-2 结构化诊断渲染 · 总评+4 维度+优先行动 6/6 · 且无 emoji(图标走 inline SVG)" \
   || log_bad "v04-AI-DIAGNOSE-2 结构化渲染缺 / 出现 emoji" "markers=$total_markers/6 emoji=$DIAG_EMOJI"
+fi
 
 # v04-AI-DIAGNOSE-3 · 老 cache(纯文本)兼容 · structured 解析失败时 fallback 显示 text
 # 直接造一个非 JSON cache 强制走 fallback 路径(注:cache 是内存 · 难直接造 · 这里查模板分支存在)
@@ -8014,12 +8025,16 @@ QA11911_AA="$RD/src/main/resources/templates/admin/ai-access.html"
 #   ② mcp_servers[].type 合法值是 customer,不是 custom:
 #      mcpServers[0].type 取值非法: custom,合法值: [official, customer]
 #   原来代码里写着 "custom",注释还写着「试过,百炼会拒」——显然试的是错的那个词。
-{ ! codeonly "$QA11911_MA" | grep -q '"type", "custom"' \
-  && [ "$(codeonly "$QA11911_MA" | grep -c '"type", "customer"')" -ge 2 ] \
-  && [ "$(codeonly "$QA11911_MA" | grep -c 'Map.of("id", model')" -ge 2 ] \
+#   v1.19.13 起创建与更新**共用一份** agentBody(),所以这里不再数「出现两次」——
+#   数字面量个数会把「收口成一份」误判成退化(v1.19.13 当场踩到)。
+#   「两处一致」由 v11913-PROMPT-FIELD-IS-SYSTEM 守(它验 agentBody 被两个调用点复用),
+#   这条只守**形状本身**。
+{ ! codeonly "$QA11911_MA" | grep -qE '"type", *"custom"' \
+  && codeonly "$QA11911_MA" | grep -q '"type", "customer"' \
+  && codeonly "$QA11911_MA" | grep -q 'Map.of("id", model' \
   && ! codeonly "$QA11911_MA" | grep -qE 'body.put\("model", *model'; } \
-  && log_ok "v11911-BAILIAN-AGENT-SHAPE(model 为对象 · mcp type=customer · 创建与更新两处一致)" \
-  || log_bad "v11911-BAILIAN-AGENT-SHAPE 请求体形状退回去了" "百炼会 400,而且创建/更新必须同步改,漏一处就是更新时把配置写坏"
+  && log_ok "v11911-BAILIAN-AGENT-SHAPE(model 为对象 · mcp type=customer)" \
+  || log_bad "v11911-BAILIAN-AGENT-SHAPE 请求体形状退回去了" "百炼会 400 —— model 必须是对象、mcp type 必须是 customer"
 
 # v11911-UPSTREAM-ERROR-VISIBLE · 上游说了什么必须让用户看见。
 #   UpstreamException 原来把 body 存进字段却不放进 message,而调用方用的正是 getMessage() ——
@@ -8096,6 +8111,32 @@ QA11912_STEPS="$(grep -c 'ask-step-who' "$QA11912_AA")"
   && log_ok "v11912-WORKSPACE-FORMAT-HONEST(两种前缀都提 · 默认空间与子空间的差别写清)" \
   || log_bad "v11912-WORKSPACE-FORMAT-HONEST 又把业务空间 ID 说成只有一种格式" "用户会照格式去改一个本来就对的值,而真正的坑(子空间没模型权限)仍然没提"
 
+
+# ═══ v1.19.13 · 百炼 Agent 模板:字段名 + 更新动词 + 回读确认 ═══
+QA11913_MA="$RD/src/main/java/com/family/finance/service/ask/runtime/ManagedAgentRuntime.java"
+QA11913_AC="$RD/src/main/java/com/family/finance/web/admin/AiAccessController.java"
+
+# v11913-PROMPT-FIELD-IS-SYSTEM · 系统提示词的字段名是 system,不是 instructions。
+#   发错时百炼**静默忽略**:创建返回 200 + 有 agent_id,而 GET 回来 "system": null、
+#   instructions 这个键根本不在响应里 —— 线上那个 agent 挂了 MCP 却一句提示词都没有,
+#   工具能调但不知道口径纪律(不许做数学 / 不许换汇 / 拿不准先调 capabilities)。
+#   同时守「创建与更新共用一份请求体」—— v1.19.11 的两个形状 bug 就是各写一份、改一处漏一处。
+{ codeonly "$QA11913_MA" | grep -q 'PROMPT_FIELD = "system"'   && ! codeonly "$QA11913_MA" | grep -q '"instructions"'   && [ "$(codeonly "$QA11913_MA" | grep -c 'agentBody(systemPrompt, model)')" -ge 2 ]   && [ "$(codeonly "$QA11913_MA" | grep -c 'body.put(PROMPT_FIELD')" -eq 1 ]; }   && log_ok "v11913-PROMPT-FIELD-IS-SYSTEM(提示词字段=system · 创建与更新共用一份请求体)"   || log_bad "v11913-PROMPT-FIELD-IS-SYSTEM 提示词字段名又发错了" "百炼静默忽略不认识的字段:创建照样 200,但 agent 是个没有系统提示词的空壳"
+
+# v11913-UPDATE-IS-POST · 更新动词是 POST /agents/{id};PUT 与 PATCH 百炼都回 405。
+#   这条 405 是在用户**已经创建成功之后**才出现的,于是页面写着「创建失败」,
+#   他以为整条路线没通 —— 所以顺带守「出错文案要分清创建/更新」。
+{ ! codeonly "$QA11913_MA" | grep -qE 'send\("(PUT|PATCH)"'   && ! codeonly "$QA11913_MA" | grep -q 'private JsonNode put('   && codeonly "$QA11913_MA" | grep -q 'post(agentBase() + "/agents/" + agentId()'   && codeonly "$QA11913_AC" | grep -q 'String what = update ? "更新" : "创建"'; }   && log_ok "v11913-UPDATE-IS-POST(更新走 POST /agents/{id} · 出错文案分清创建与更新)"   || log_bad "v11913-UPDATE-IS-POST 更新动词或文案退回去了" "PUT/PATCH 会被百炼 405;而把更新失败写成「创建失败」会让人以为整条路线都没通"
+
+# v11913-READBACK-CONFIRMS · 写完要回读确认真的存住了。
+#   「上游收下了」不等于「上游存住了」—— 字段名对不上时它 200 + 静默丢弃,
+#   这类失败不报错、不降级、看起来完全成功,只有回读能抓到。
+{ codeonly "$QA11913_MA" | grep -q 'private void verifyTemplate('   && [ "$(codeonly "$QA11913_MA" | grep -c 'verifyTemplate(')" -ge 3 ]   && codeonly "$QA11913_MA" | grep -q 'mcp_servers'   && codeonly "$QA11913_MA" | grep -q 'private JsonNode get('; }   && log_ok "v11913-READBACK-CONFIRMS(创建与更新都回读 · 提示词与 MCP 引用都验)"   || log_bad "v11913-READBACK-CONFIRMS 回读确认没了" "静默丢字段会伪装成完全成功,不回读就发现不了"
+
+# v11913-GUESS-ONLY-FOR-UPSTREAM · 只有上游的错才配一句猜测。
+#   我们自己抛的(回读发现没存住)已经把话说完了,再补一句「核对三个 ID」纯属添乱 ——
+#   而那正是 v1.19.12 刚修掉的病。
+{ codeonly "$QA11913_AC" | grep -q 'msg.startsWith("upstream ")'   && codeonly "$QA11913_AC" | grep -q 'upstream ?' ; }   && log_ok "v11913-GUESS-ONLY-FOR-UPSTREAM(自家抛的错不再附上我们的猜测)"   || log_bad "v11913-GUESS-ONLY-FOR-UPSTREAM 又给自家错误配猜测了" "话已经说完还补一句「核对三个 ID」,是 v1.19.12 刚修掉的同一种误导"
 
 echo
 echo "═══════════════════════════════════════"
