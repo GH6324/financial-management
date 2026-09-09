@@ -21,11 +21,10 @@ import java.util.List;
 @Mapper
 public interface ExpenseSplitMapper {
 
-    String COLS = """
-            id, family_id AS familyId, period_id AS periodId, member_id AS memberId,
-            category_id AS categoryId, source, amount, batch_id AS batchId,
-            updated_at AS updatedAt
-            """;
+    /** 列清单 · 普通字符串前后留空格(文本块会拼出 SELECTid,见 ExpenseCategoryMapper.COLS 注释) */
+    String COLS = " id, family_id AS familyId, period_id AS periodId, member_id AS memberId,"
+                + " category_id AS categoryId, source, amount, batch_id AS batchId,"
+                + " updated_at AS updatedAt ";
 
     @Insert("""
             INSERT INTO expense_split

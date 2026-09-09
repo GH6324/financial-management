@@ -64,6 +64,20 @@
     </div>
   </section>
 
+  <!--/* v1.21 · 分类填报的保存/出错提示。分组页(v1.20)同一形状 —— 纯文本,不带 markdown 记号。 */-->
+
+  <div th:if="${entryNote}" class="border-l-2 border-brass-deep bg-brass-soft/40 px-4 py-3 mb-5">
+
+    <p class="text-[13px] text-ink leading-relaxed" th:text="${entryNote}">已保存。</p>
+
+  </div>
+
+  <div th:if="${entryError}" class="border-l-2 border-rust bg-rust/[0.05] px-4 py-3 mb-5">
+
+    <p class="text-[13px] text-ink leading-relaxed" th:text="${entryError}">出错了。</p>
+
+  </div>
+
   <!-- v0.12 · 第一步 · 本月收支填报:收入侧结构化(金额+类目+目标账户 → 直接入账+留流水)· 支出侧总额(维持) -->
   <section id="cashflow-entry" class="mb-6 border-2 border-ink" style="background:var(--paper-soft)" th:if="${period.status.name() != 'CLOSED'}">
     <div class="px-6 py-4 border-b border-rule-soft flex items-baseline justify-between flex-wrap gap-3">
@@ -326,6 +340,10 @@
              th:text="'↳ 上期你填的 · ¥' + ${#numbers.formatInteger(myPrevCashflow.totalExpenseInput, 0, 'COMMA')}">↳ 上期 · ¥0</p>
         </div>
       </form>
+
+      <!--/* v1.21 · 分类填报(TOTAL 模式的展开态)· 逐笔模式不挂:那边本来就有构成 */-->
+      <th:block th:if="${expenseMode != 'ITEMIZED'}"
+                th:replace="~{entry/_expense-split :: region}"></th:block>
 
       <!-- 逐笔模式下没人填 PMC 总额,「已填 N/M 人」会恒为 0/M,看着像没填 —— 换成对该模式有意义的计数 -->
       <div class="text-xs text-ink-soft pt-1 font-mono" th:if="${expenseMode == 'ITEMIZED'}">

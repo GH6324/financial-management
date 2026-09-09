@@ -8571,6 +8571,26 @@ QA1202_MA="$RD/src/main/java/com/family/finance/service/ask/runtime/ManagedAgent
   && log_ok "v1202-VERIFY-READS-TOOLS-BACK(创建/更新后回读 tools · 失败提示点名「引用在但工具没挂」)" \
   || log_bad "v1202-VERIFY-READS-TOOLS-BACK 回读不查 tools 了" "空壳 agent 会被判成创建成功"
 
+# v1210-NO-TEXTBLOCK-COLS · mapper 的列清单常量不许用文本块。
+#   文本块的首行紧跟 \"\"\",于是 "SELECT " + COLS 会拼成 SELECTid —— SQL 语法错。
+#   这个坑 AskAccessTokenMapper 的注释里早写着「真在 beta 上炸过」,
+#   而 v1.21 开发时【又踩了一次】(三个新 mapper 全中,beta 上第一次点起步包就 500)。
+#   一个只写在注释里的教训,注定会被下一个人再踩一次 —— 所以补这条。
+#   判据:凡是名为 COLS 的常量,必须是普通字符串(前后留空格),不能紧跟三引号。
+{ ! grep -rn 'String COLS = """' "$RD/src/main/java/com/family/finance/repository/" >/dev/null 2>&1; } \
+  && log_ok "v1210-NO-TEXTBLOCK-COLS(mapper 列清单常量都是留空格的普通字符串)" \
+  || log_bad "v1210-NO-TEXTBLOCK-COLS 又有 COLS 用文本块了:$(grep -rl 'String COLS = \"\"\"' "$RD/src/main/java/com/family/finance/repository/" | tr '\n' ' ')" "拼出 SELECTid,SQL 语法错 —— 而且只在真跑到那条查询时才炸"
+
+# v1210-THYMELEAF-UTILITY-IN-DOLLAR · #lists/#numbers 这类 utility 必须写在 ${} 内。
+#   写在外面 Thymeleaf 直接「Could not parse as expression」,而它是【渲染期】才炸:
+#   编译过、单测过、启动过,响应【截断在出错那一行】——
+#   用户拿到的是半截页面 + 错误页拼在一起的怪东西(v1.21 类目页在 beta 上就是这样)。
+#   规则本身 memory feedback_thymeleaf_diagnosis 里早写着,还是被踩了 ——
+#   只写在记忆里的规则会被再踩一次,所以做成机器扫描。
+{ [ "$(cd "$RD" && python3 scripts/lint/thymeleaf-utility-scope.py | head -1)" = "CLEAN" ]; } \
+  && log_ok "v1210-THYMELEAF-UTILITY-IN-DOLLAR(模板里的 #lists/#numbers 都在 \${} 内)" \
+  || log_bad "v1210-THYMELEAF-UTILITY-IN-DOLLAR 有 utility 写在 \${} 外面:$(cd "$RD" && python3 scripts/lint/thymeleaf-utility-scope.py | tail -n +2 | head -3 | tr '\n' ' ')" "渲染期才炸,响应截断在半路 —— 编译/单测/启动全都发现不了"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

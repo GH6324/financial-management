@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('支出类目 · 家庭账房')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('entry', ${me}, ${nav})}"></header>
+<main class="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10">
+
+  <!-- ═══ 页头 ═══ -->
+  <div class="mb-5 flex items-end justify-between flex-wrap gap-3">
+    <div>
+      <div class="eyebrow mb-2">支 · 出 · 类 · 目</div>
+      <h1 class="font-display text-3xl sm:text-4xl font-medium"
+          th:text="${total == 0} ? '还没有支出类目' : |${total} 个类目|">还没有支出类目</h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <a th:href="@{/entry}" class="btn-ghost text-sm no-underline">← 回填报</a>
+      <button th:if="${total > 0}" type="button" class="btn-ink text-sm" onclick="openNewCat()">+ 新建类目</button>
+    </div>
+  </div>
+
+  <div th:if="${catNote}" class="border-l-2 border-brass-deep bg-brass-soft/40 px-4 py-3 mb-5">
+    <p class="text-[13px] text-ink leading-relaxed" th:text="${catNote}">好了。</p>
+  </div>
+  <div th:if="${catError}" class="border-l-2 border-rust bg-rust/[0.05] px-4 py-3 mb-5">
+    <p class="text-[13px] text-ink leading-relaxed" th:text="${catError}">出错了。</p>
+  </div>
+
+  <!--/* ═══ 空态:两个起步包 + 说清这套东西的定位 ═══
+         起步包只在一片空白时出现 —— 它是「开头的快捷方式」,不是常驻区块(v1.20 分组页的教训)。 */-->
+  <div th:if="${total == 0}">
+    <div class="paper-card p-6 mb-5">
+      <p class="text-[13px] text-ink leading-relaxed">
+        <b>流水账留在支付宝/微信/银行 APP 里,这边只填按类目的汇总数。</b>
+        <br>月底从它们的月账单上照抄几个数,和现在抄一个总数是同一个动作、同一个时点 ——
+        <b>不用在这里记流水</b>。
+      </p>
+      <p class="text-[12.5px] text-ink-soft leading-relaxed mt-3">
+        不建类目就一个像素都不变;建了之后,报表里多一块「钱花在哪」。
+        <b>家庭的大账(储蓄率、月均支出、紧急储备)拆不拆都完全一样。</b>
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="paper-card p-5">
+        <div class="flex items-baseline justify-between mb-2">
+          <span class="font-display text-lg">简单版 · 10 个大类</span>
+          <span class="pill text-[10px]" style="border-color:var(--forest);color:var(--forest)">维护容易 · 抄数快</span>
+        </div>
+        <p class="text-[12px] text-ink-soft leading-relaxed mb-3">
+          餐饮美食 · 日用百货 · 服饰装扮 · 数码电器 · 交通出行 · 住房物业 · 医疗健康 · 教育培训 · 文化休闲 · 充值缴费
+        </p>
+        <form th:action="@{/expense/categories/seed}" method="post">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <input type="hidden" name="deep" value="false">
+          <button type="submit" class="btn-ink text-sm">用简单版起步</button>
+        </form>
+      </div>
+
+      <div class="paper-card p-5" style="border-color:var(--brass-deep)">
+        <div class="flex items-baseline justify-between mb-2">
+          <span class="font-display text-lg">复杂版 · 同 10 个大类 + 细类</span>
+          <span class="pill text-[10px]">录入多一点 · 分析更准</span>
+        </div>
+        <p class="text-[12px] text-ink-soft leading-relaxed mb-3">
+          <span th:each="row,i : ${starter}" th:if="${i.index < 4}">
+            <b th:text="${row[0]}">餐饮美食</b><span class="text-ink-subtle" th:text="' ▸ ' + ${row[1]}"> ▸ 三餐</span><br>
+          </span>
+          <span class="text-ink-subtle">…共 10 个大类、约 30 个细类</span>
+        </p>
+        <form th:action="@{/expense/categories/seed}" method="post">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <input type="hidden" name="deep" value="true">
+          <button type="submit" class="btn-ink text-sm">用复杂版起步</button>
+        </form>
+      </div>
+    </div>
+
+    <!--/* 这一段是整个兼容设计的说明 —— 用户最担心的就是「选错了以后改不了」 */-->
+    <div class="paper-card p-5 mt-4">
+      <p class="text-[13px] text-ink leading-relaxed">
+        <b>两个版本不是两套东西,是同一棵树的两个深度</b> —— 复杂版的大类与简单版<b>完全相同</b>,
+        细类只是在它下面再分一层。所以<b>随时可以换,历史一分不丢</b>:
+      </p>
+      <ul class="text-[12.5px] text-ink-soft leading-relaxed ml-4 list-disc space-y-1 mt-2">
+        <li><b>复杂 → 简单</b>:已填的细类明细原样留着,报表按大类聚合(合计无损),以后按大类填</li>
+        <li><b>简单 → 复杂</b>:已填的钱显示为「该大类 · 未细分」,以后按细类填 —— 本来就没有细度可损</li>
+      </ul>
+      <p class="text-[12px] text-ink-subtle mt-3">
+        大类名字刻意和支付宝账单的「交易分类」一样 —— 导入和抄单都不用翻译。名字随时可以改。
+      </p>
+    </div>
+    <div class="mt-4">
+      <button type="button" class="btn-ghost text-sm" onclick="openNewCat()">或者自己一个一个建</button>
+    </div>
+  </div>
+
+  <!-- ═══ 主体:类目树 ═══ -->
+  <div th:if="${total > 0}">
+    <div class="flex items-center gap-3 mb-4 flex-wrap">
+      <form th:action="@{/expense/categories/depth}" method="post" class="flex items-center gap-2">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <span class="font-mono text-[10px] text-ink-subtle">月底按哪一层填</span>
+        <button type="submit" name="depth" value="L1"
+                class="pill text-[11px]"
+                th:style="${!deep} ? 'background:var(--ink);color:var(--paper);border-color:var(--ink)' : ''">按大类</button>
+        <button type="submit" name="depth" value="L2"
+                class="pill text-[11px]"
+                th:style="${deep} ? 'background:var(--ink);color:var(--paper);border-color:var(--ink)' : ''">按细类</button>
+      </form>
+      <span class="text-[11.5px] text-ink-subtle">切换只改「以后怎么填」—— 已填的历史一行不动,报表始终按大类聚合。</span>
+      <span style="flex:1"></span>
+      <span class="font-mono text-[10px] text-ink-subtle" th:text="${total} + ' / ' + ${maxTotal}">6 / 40</span>
+    </div>
+
+    <div class="paper-card">
+      <div th:each="e : ${tree}" class="border-b border-rule-soft last:border-b-0">
+        <!--/* 大类 */-->
+        <div class="px-4 py-3 flex items-center gap-3 flex-wrap"
+             th:classappend="${e.key.archived} ? 'opacity-50' : ''">
+          <span class="font-display text-[15px]" th:text="${e.key.name}">餐饮美食</span>
+          <span th:if="${e.key.other}" class="pill text-[9px]"
+                style="border-color:var(--forest);color:var(--forest)">内置</span>
+          <span th:if="${e.key.archived}" class="pill text-[9px]">已停用</span>
+          <!--/* #lists.xxx() 这类 utility 必须整段写在 ${} 里 ——
+                 写在 ${} 外面 Thymeleaf 直接「Could not parse as expression」,
+                 而它是【渲染期】才炸,响应会截断在半路(memory feedback_thymeleaf_diagnosis)。 */-->
+          <span class="font-mono text-[10px] text-ink-subtle"
+                th:text="${e.key.other ? '兜底项 · 不可删 / 不可停用 / 不可改名'
+                         : (#lists.isEmpty(e.value) ? '大类 · 还没细分' : '大类 · ' + #lists.size(e.value) + ' 个细类')}">大类</span>
+          <span style="flex:1"></span>
+          <th:block th:unless="${e.key.other}">
+            <button type="button" class="font-mono text-[10px] text-ink-subtle hover:underline bg-transparent border-0 cursor-pointer"
+                    th:attr="data-rename=${e.key.id},data-name=${e.key.name}" onclick="openRename(this)">改名</button>
+            <button type="button" class="font-mono text-[10px] text-ink-subtle hover:underline bg-transparent border-0 cursor-pointer"
+                    th:attr="data-addsub=${e.key.id},data-name=${e.key.name}" onclick="openNewCat(this)">加细类</button>
+            <form th:action="@{/expense/categories/{id}/archive(id=${e.key.id})}" method="post" class="inline">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+              <input type="hidden" name="archived" th:value="${e.key.archived} ? 'false' : 'true'">
+              <button type="submit" class="font-mono text-[10px] text-ink-subtle hover:underline bg-transparent border-0 cursor-pointer"
+                      th:text="${e.key.archived} ? '恢复' : '停用'">停用</button>
+            </form>
+            <a th:href="@{/expense/categories/{id}/delete(id=${e.key.id})}"
+               class="font-mono text-[10px] text-rust hover:underline no-underline">删除…</a>
+          </th:block>
+        </div>
+        <!--/* 细类:左侧一条引导线,做出从属关系(v1.20 账户组行的同款处理) */-->
+        <div th:each="k : ${e.value}" class="px-4 py-2 flex items-center gap-3 flex-wrap"
+             style="border-left:2px solid var(--brass-deep);margin-left:1rem;background:rgba(167,123,53,.03)"
+             th:classappend="${k.archived} ? 'opacity-50' : ''">
+          <span class="text-[13px] text-ink-soft" th:text="'▸ ' + ${k.name}">▸ 外卖</span>
+          <span th:if="${k.archived}" class="pill text-[9px]">已停用</span>
+          <span class="font-mono text-[10px] text-ink-subtle" th:text="'细类 · 挂在' + ${e.key.name} + '下'">细类</span>
+          <span style="flex:1"></span>
+          <button type="button" class="font-mono text-[10px] text-ink-subtle hover:underline bg-transparent border-0 cursor-pointer"
+                  th:attr="data-rename=${k.id},data-name=${k.name}" onclick="openRename(this)">改名</button>
+          <form th:action="@{/expense/categories/{id}/archive(id=${k.id})}" method="post" class="inline">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <input type="hidden" name="archived" th:value="${k.archived} ? 'false' : 'true'">
+            <button type="submit" class="font-mono text-[10px] text-ink-subtle hover:underline bg-transparent border-0 cursor-pointer"
+                    th:text="${k.archived} ? '恢复' : '停用'">停用</button>
+          </form>
+          <a th:href="@{/expense/categories/{id}/delete(id=${k.id})}"
+             class="font-mono text-[10px] text-rust hover:underline no-underline">删除…</a>
+        </div>
+      </div>
+    </div>
+
+    <p class="text-[11.5px] text-ink-subtle mt-3">
+      删<b>细类</b>时它名下的钱转到<b>父级</b>(变成该大类的「未细分」,大类合计一分不变);
+      删<b>大类</b>时转到<b>「其他」</b>。两种都会先告知会动多少期数据。
+    </p>
+  </div>
+
+  <!-- ═══ 新建:弹窗 ═══ -->
+  <dialog id="newCatDlg" class="paper-card" style="max-width:460px;width:92vw;padding:0;border:1px solid var(--rule)">
+    <form th:action="@{/expense/categories/create}" method="post">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <input type="hidden" name="parentId" id="ncParent">
+      <div class="px-5 py-4 border-b border-rule-soft flex items-baseline justify-between gap-3">
+        <span class="font-display text-xl" id="ncTitle">新建大类</span>
+        <button type="button" class="font-mono text-[11px] text-ink-subtle bg-transparent border-0 cursor-pointer"
+                onclick="document.getElementById('newCatDlg').close()">关闭</button>
+      </div>
+      <div class="px-5 py-4">
+        <label class="block">
+          <span class="block text-[11.5px] text-ink-soft mb-1" id="ncHint">名字(短一点,月底那张表上更好认)</span>
+          <input id="ncName" type="text" name="name" maxlength="24" required
+                 placeholder="比如:餐饮美食" class="field-input w-full">
+        </label>
+      </div>
+      <div class="px-5 py-4 border-t border-rule-soft flex items-center gap-3">
+        <button type="submit" class="btn-ink">建这个类目</button>
+        <button type="button" class="btn-ghost text-sm"
+                onclick="document.getElementById('newCatDlg').close()">取消</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ═══ 改名:弹窗 ═══ -->
+  <dialog id="renameDlg" class="paper-card" style="max-width:460px;width:92vw;padding:0;border:1px solid var(--rule)">
+    <form method="post" id="renameForm">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <div class="px-5 py-4 border-b border-rule-soft">
+        <span class="font-display text-xl">改名</span>
+      </div>
+      <div class="px-5 py-4">
+        <label class="block">
+          <span class="block text-[11.5px] text-ink-soft mb-1">历史数据会跟着新名字显示 —— 一分钱都不会动</span>
+          <input id="rnName" type="text" name="name" maxlength="24" required class="field-input w-full">
+        </label>
+      </div>
+      <div class="px-5 py-4 border-t border-rule-soft flex items-center gap-3">
+        <button type="submit" class="btn-ink">保存</button>
+        <button type="button" class="btn-ghost text-sm"
+                onclick="document.getElementById('renameDlg').close()">取消</button>
+      </div>
+    </form>
+  </dialog>
+
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<script>
+  function openNewCat(btn) {
+    var d = document.getElementById('newCatDlg');
+    var parent = btn ? btn.getAttribute('data-addsub') : '';
+    var pname = btn ? btn.getAttribute('data-name') : '';
+    document.getElementById('ncParent').value = parent || '';
+    document.getElementById('ncTitle').textContent = parent ? ('在「' + pname + '」下加细类') : '新建大类';
+    document.getElementById('ncHint').textContent = parent
+      ? '细类名(比如:外卖 / 打车)—— 它的钱同时算进「' + pname + '」'
+      : '名字(短一点,月底那张表上更好认)';
+    document.getElementById('ncName').value = '';
+    if (d.showModal) d.showModal(); else d.setAttribute('open', '');
+    document.getElementById('ncName').focus();
+  }
+  function openRename(btn) {
+    var id = btn.getAttribute('data-rename');
+    var f = document.getElementById('renameForm');
+    f.setAttribute('action', '/expense/categories/' + id + '/rename');
+    document.getElementById('rnName').value = btn.getAttribute('data-name') || '';
+    var d = document.getElementById('renameDlg');
+    if (d.showModal) d.showModal(); else d.setAttribute('open', '');
+    document.getElementById('rnName').focus();
+  }
+</script>
+</body>
+</html>

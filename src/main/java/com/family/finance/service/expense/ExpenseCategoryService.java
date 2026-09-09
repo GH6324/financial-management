@@ -110,7 +110,7 @@ public class ExpenseCategoryService {
      * <p>数的源头就是这套名字(支付宝 CSV 的「交易分类」列、月账单统计页),
      * 同名意味着<b>导入零映射、手抄零翻译</b>。用户随时可以改名 —— 它只是起点,不是约束。</p>
      */
-    static final String[][] STARTER = {
+    public static final String[][] STARTER = {
             {"餐饮美食", "三餐,外卖,饮品零食,聚餐请客"},
             {"日用百货", "日用品,家居家装"},
             {"服饰装扮", "衣物鞋包,美容美发"},

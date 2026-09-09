@@ -15,11 +15,17 @@ import java.util.List;
 @Mapper
 public interface ExpenseCategoryMapper {
 
-    String COLS = """
-            id, family_id AS familyId, parent_id AS parentId, name,
-            system_code AS systemCode, sort_order AS sortOrder,
-            archived_at AS archivedAt, created_at AS createdAt
-            """;
+    /**
+     * 列清单。
+     *
+     * <p>刻意用普通字符串而不是文本块,前后各留一个空格 —— 文本块的首行紧跟 {@code """},
+     * 于是 {@code "SELECT " + COLS} 会拼成 {@code SELECTid}。
+     * 这个坑 {@code AskAccessTokenMapper} 的注释里早写着「真在 beta 上炸过」,
+     * 而我在 v1.21 又踩了一次 —— 所以这一版补了护栏 {@code v1210-NO-TEXTBLOCK-COLS}。</p>
+     */
+    String COLS = " id, family_id AS familyId, parent_id AS parentId, name,"
+                + " system_code AS systemCode, sort_order AS sortOrder,"
+                + " archived_at AS archivedAt, created_at AS createdAt ";
 
     @Insert("""
             INSERT INTO expense_category (family_id, parent_id, name, system_code, sort_order)
@@ -66,10 +72,7 @@ public interface ExpenseCategoryMapper {
     @Select("SELECT COUNT(*) FROM expense_category WHERE family_id = #{familyId}")
     int countByFamily(@Param("familyId") long familyId);
 
-    @Select("""
-            SELECT """ + COLS + """
-              FROM expense_category
-             WHERE family_id = #{familyId} AND system_code = #{code}
-            """)
+    @Select("SELECT " + COLS
+            + " FROM expense_category WHERE family_id = #{familyId} AND system_code = #{code}")
     ExpenseCategory findBySystemCode(@Param("familyId") long familyId, @Param("code") String code);
 }

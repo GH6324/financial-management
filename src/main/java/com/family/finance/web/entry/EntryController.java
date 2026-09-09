@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.util.MultiValueMap;
 
 import java.math.BigDecimal;
@@ -41,6 +42,9 @@ import java.util.List;
 public class EntryController {
 
     private final EntryService entryService;
+    private final com.family.finance.service.expense.ExpenseCategoryService expenseCategoryService;   // v1.21
+    private final com.family.finance.service.expense.ExpenseSplitService expenseSplitService;         // v1.21
+    private final com.family.finance.service.config.FamilyConfigService configService;                // v1.21
     private final PeriodMapper periodMapper;
     private final PeriodService periodService;
     private final AccountMapper accountMapper;
@@ -189,6 +193,32 @@ public class EntryController {
         // 默认 TOTAL(存量家庭升级后行为不变)。
         var expenseMode = expenseLedger.modeOf(me.getFamilyId());
         model.addAttribute("expenseMode", expenseMode.name());
+
+        /* v1.21 · 分类填报(TOTAL 模式的展开态)。
+         * 整块只在「这个家建过类目」时才有内容 —— 没建的家庭页面一个像素都不变。
+         * 展开与否【每人自选】(PMC 本来就按人,妻子不想拆不该被丈夫的选择绑架);
+         * 录入深度是【家庭级】(树是共享的,一家两种深度会让报表下钻语义分裂)。 */
+        long fam = me.getFamilyId();
+        boolean splitDeep = "L2".equalsIgnoreCase(
+                configService.getString(fam, com.family.finance.service.config.FamilyConfigService.K_EXPENSE_SPLIT_DEPTH, "L1"));
+        boolean splitOpen = configService.getBoolean(fam,
+                com.family.finance.service.config.FamilyConfigService.K_EXPENSE_SPLIT_OPEN + me.getMemberId(), false)
+                || expenseSplitService.hasSplits(period.getId(), me.getMemberId());
+        model.addAttribute("splitDeep", splitDeep);
+        model.addAttribute("splitOpen", splitOpen);
+        model.addAttribute("splitCategories", expenseCategoryService.fillable(fam, splitDeep));
+        var splitCells = expenseSplitService.cells(period.getId(), me.getMemberId());
+        model.addAttribute("splitCells", splitCells);
+        java.math.BigDecimal splitTotal = java.math.BigDecimal.ZERO;
+        for (var cell : splitCells.values()) splitTotal = splitTotal.add(cell.total());
+        model.addAttribute("splitTotal", splitTotal);
+        // 上月各类目金额 —— 抄账单时的锚点(FR-513)
+        java.util.Map<Long, java.math.BigDecimal> prevByCat = new java.util.LinkedHashMap<>();
+        if (previousPeriod != null) {
+            expenseSplitService.cells(previousPeriod.getId(), me.getMemberId())
+                    .forEach((cid, cell) -> prevByCat.put(cid, cell.total()));
+        }
+        model.addAttribute("splitPrev", prevByCat);
         model.addAttribute("expenseModeLabel", expenseMode.displayName());
         model.addAttribute("expenseModeHint", expenseMode.hintText());
         if (expenseMode == com.family.finance.domain.family.ExpenseEntryMode.ITEMIZED) {
@@ -286,6 +316,81 @@ public class EntryController {
                 total + " 市场估值均刷新失败 · 上游限流/网络 · 详情查 journal");
         }
         return "entry/_refresh-toast :: toast";
+    }
+
+    // ════════════════════ v1.21 · 分类填报 ════════════════════
+
+    /**
+     * 保存展开态表单。参数形如 {@code cat_{categoryId}=金额}。
+     *
+     * <p>写入的是「手工行 = 期望值 − Σ渠道行」,所以<b>重导某渠道不会冲掉这里的修正</b>
+     * (见 {@code ExpenseSplitService} 的类注释)。合计在同一事务回写月度总额。</p>
+     */
+    @PostMapping("/entry/split")
+    public String saveSplit(@AuthenticationPrincipal MemberPrincipal me,
+                            @RequestParam("periodId") long periodId,
+                            jakarta.servlet.http.HttpServletRequest req,
+                            RedirectAttributes ra) {
+        java.util.Map<Long, BigDecimal> wanted = new java.util.LinkedHashMap<>();
+        for (var e : req.getParameterMap().entrySet()) {
+            if (!e.getKey().startsWith("cat_")) continue;
+            String raw = e.getValue() == null || e.getValue().length == 0 ? "" : e.getValue()[0];
+            Long cid = parseLongOrNull(e.getKey().substring(4));
+            if (cid == null) continue;
+            // 留空 = 该类目本月无 → 记 0(而不是跳过),否则删掉的数不会被清
+            wanted.put(cid, raw == null || raw.isBlank() ? BigDecimal.ZERO : new BigDecimal(raw.trim()));
+        }
+        try {
+            expenseSplitService.saveManual(me.getFamilyId(), periodId, me.getMemberId(), wanted);
+            configService.set(me.getFamilyId(),
+                    com.family.finance.service.config.FamilyConfigService.K_EXPENSE_SPLIT_OPEN + me.getMemberId(), "true");
+            ra.addFlashAttribute("entryNote", "已保存 —— 合计已写回你的本月总支出。");
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("entryError", humanMessage(ex));
+        }
+        return "redirect:/entry";
+    }
+
+    /** 展开分类填报(每人自己选) */
+    @PostMapping("/entry/split/open")
+    public String openSplit(@AuthenticationPrincipal MemberPrincipal me,
+                            @RequestParam("periodId") long periodId, RedirectAttributes ra) {
+        configService.set(me.getFamilyId(),
+                com.family.finance.service.config.FamilyConfigService.K_EXPENSE_SPLIT_OPEN + me.getMemberId(), "true");
+        ra.addFlashAttribute("entryNote", "拆开了。从支付宝/微信的月账单照抄即可 —— 不用在这里记流水。");
+        return "redirect:/entry";
+    }
+
+    /**
+     * 并回一个总数。
+     *
+     * <p><b>刻意不清月度总额</b> —— 用户要的是「不再拆」,不是「这个月没花钱」。</p>
+     */
+    @PostMapping("/entry/split/collapse")
+    public String collapseSplit(@AuthenticationPrincipal MemberPrincipal me,
+                                @RequestParam("periodId") long periodId, RedirectAttributes ra) {
+        try {
+            expenseSplitService.collapse(me.getFamilyId(), periodId, me.getMemberId());
+            configService.set(me.getFamilyId(),
+                    com.family.finance.service.config.FamilyConfigService.K_EXPENSE_SPLIT_OPEN + me.getMemberId(), "false");
+            ra.addFlashAttribute("entryNote", "已并回一个总数 —— 本月总额留着,分类明细清掉了。");
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("entryError", humanMessage(ex));
+        }
+        return "redirect:/entry";
+    }
+
+    private static Long parseLongOrNull(String s) {
+        try { return Long.valueOf(s.trim()); } catch (RuntimeException e) { return null; }
+    }
+
+    /** 业务异常给人话,其余给一句兜底 —— 别把堆栈冒给用户(v1.20 的教训) */
+    static String humanMessage(RuntimeException ex) {
+        if (ex instanceof com.family.finance.service.expense.ExpenseSplitService.SplitException
+                || ex instanceof com.family.finance.service.expense.ExpenseCategoryService.CategoryException) {
+            return ex.getMessage();
+        }
+        return "没保存成功。刷新一下再试,如果还不行把这一步告诉我们。";
     }
 
     /**
