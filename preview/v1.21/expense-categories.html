@@ -53,17 +53,67 @@
   <div class="eyebrow">preview · v1.21 · 待评审 · issue #18(@brdol)</div>
   <h1 style="font-size:30px;margin-top:8px">自定义支出分类 + 支出报表</h1>
   <p class="note" style="max-width:720px;margin-top:8px">
-    中心决定只有一个:<b style="color:var(--ink)">逐笔归 APP,分类归我们</b>。
+    中心决定只有一个:<b style="color:var(--ink)">逐笔归 APP,分类归我们</b>。数怎么进来给三条通道(手抄 / 文件导入 / AI 截图),殊途同归到同一个确认页。
     流水账留在支付宝/微信/银行 APP 里,月底把它们账单上的分类汇总<b style="color:var(--ink)">照抄</b>进来 ——
     和现在抄一个总数是同一个动作、同一个时点,只是从 1 个数变成几个数。
     <b style="color:var(--ink)">分类是总额的「展开」,不是第三种记账方式</b>:合计自动写回月度总额,
     家庭支出的所有口径(储蓄率/月均/紧急储备/FIRE)一行不改。不用这套的人,一个像素都不变。
   </p>
 
+  <!-- ═══ 一 · 三条进数通道 ═══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">一</span><span class="zone-t">数怎么进来 · 三条通道一个出口</span>
+      <span class="zone-sub">FR-530~545 · 逐渠道调研过导出路径与格式(PRD §1.2)</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:8px">① 手抄 <span class="badge ok">零依赖</span></div>
+        <div class="note">照各 APP 账单抄 5-10 个数。任何渠道、永远可用。上月金额垫底作参照。</div>
+      </div>
+      <div class="card" style="border-color:var(--brass-deep)">
+        <div class="eyebrow" style="margin-bottom:8px">② 文件导入 <span class="badge ok">秒级</span></div>
+        <div class="note">
+          <b>支付宝</b>:账单 → 开具交易流水证明 → <b>用于个人对账</b> → 邮箱收 zip(密码在开具记录里)· 最长 1 年 · CSV <b>自带「交易分类」列</b><br>
+          <b>微信</b>:钱包 → 账单 → 下载账单 → <b>用于个人对账</b> → zip(密码走公众号推送)· 一次最多 3 个月 · <b>无分类列</b> → 商户关键字映射<br>
+          <span class="fhint">zip 直传 + 密码框,或自己解压传 csv · GBK/说明头引擎兜 · 「证明材料」PDF 会被识别并指回正确路径</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:8px">③ AI 截图导入 <span class="badge">要视觉 key</span></div>
+        <div class="note">
+          拍各渠道的<b>月度分类统计页</b>(支付宝月账单 / 微信账单统计 / <b>银行 App 收支页</b>),多张或打包 zip 一起传。
+          qwen-vl <b>只转写「类目名+金额」,不做数学</b>(v1.4 同款纪律)。<br>
+          <span class="fhint">银行第一期只走这条 —— 各行文件格式不一,没有真实样本不写解析器</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;max-width:760px">
+      <div class="eyebrow" style="margin-bottom:8px">导入确认页(三条通道共用 · 必经之路 · 确认前不落账)</div>
+      <div class="catrow"><span class="fhint" style="width:5.5em">支付宝</span><span style="width:7em">餐饮美食</span><span class="fhint">→ 餐饮美食(同名直挂)</span><span class="mono" style="margin-left:auto;font-size:12px">¥2,180 · 41 笔</span></div>
+      <div class="catrow"><span class="fhint" style="width:5.5em">支付宝</span><span style="width:7em">家居家装</span><span style="color:var(--brass-deep)">→ 日用百货(映射 · 可改并记住)</span><span class="mono" style="margin-left:auto;font-size:12px">¥640 · 3 笔</span></div>
+      <div class="catrow"><span class="fhint" style="width:5.5em">微信</span><span style="width:7em">美团/饿了么…</span><span class="fhint">→ 餐饮美食(商户关键字)</span><span class="mono" style="margin-left:auto;font-size:12px">¥1,000 · 22 笔</span></div>
+      <div class="catrow"><span class="fhint" style="width:5.5em">微信</span><span style="width:7em">未识别商户 ×6</span><span style="color:var(--rust)">→ 其他(等你手动分)</span><span class="mono" style="margin-left:auto;font-size:12px">¥312</span></div>
+      <div class="catrow"><span class="fhint" style="width:5.5em">截图·招行</span><span style="width:7em">交通出行</span><span class="fhint">→ 交通出行</span><span class="mono" style="margin-left:auto;font-size:12px">¥860 <span class="badge">AI 转写</span></span></div>
+      <div class="note" style="margin-top:8px">
+        已剔除中性交易:还信用卡 ¥3,000 · 零钱提现 ¥500(清单可见可改)·
+        <b style="color:var(--rust)">本次将替换「2026-09 · 支付宝」旧批次</b> —— 同渠道同期重导=覆盖,不叠加
+      </div>
+      <div class="fhint" style="margin-top:6px">双计提醒:银行卡流水里走支付宝/微信的部分两边都会出现 —— 银行渠道别重复导/抄</div>
+    </div>
+    <div class="qa">
+      <b>隐私红线(比以往任何输入都敏感):</b>账单文件与截图<b>解析完即弃</b>,不落长存、不进日志;
+      金额永不进 LLM;支付宝 CSV 全程不过 LLM;zip 密码用完即弃。微信商户→类目的 LLM 建议<b>默认关</b>(只送商户名列表,评审拍板点 ④)。
+    </div>
+  </div>
+
   <!-- ═══ 一 · 填报页:展开填 ═══ -->
   <div class="zone">
     <div class="zone-head">
-      <span class="zone-no">一</span><span class="zone-t">填报页 · 把一个总数拆开填</span>
+      <span class="zone-no">二</span><span class="zone-t">填报页 · 把一个总数拆开填</span>
       <span class="zone-sub">FR-510~515 · 每人自己选拆不拆 · 合计即总额</span>
     </div>
     <div class="zone-line"></div>
@@ -113,7 +163,7 @@
   <!-- ═══ 二 · 类目管理 ═══ -->
   <div class="zone">
     <div class="zone-head">
-      <span class="zone-no">二</span><span class="zone-t">类目管理 · 生老病死</span>
+      <span class="zone-no">三</span><span class="zone-t">类目管理 · 起步包与生老病死</span>
       <span class="zone-sub">FR-500~508 · 「其他」是基石不可动 · 删除转「其他」(支付宝同款语义,提交者点名)</span>
     </div>
     <div class="zone-line"></div>
@@ -122,6 +172,10 @@
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
         <div class="eyebrow">支出类目 · 6 个(上限 20)</div>
         <span style="font-size:12px;border:1px solid var(--ink);padding:4px 12px;cursor:pointer">+ 新建类目</span>
+      </div>
+      <div style="border:1px dashed var(--brass-deep);padding:10px 14px;margin-bottom:10px;font-size:12px;line-height:1.7">
+        <b>一键起步包(空类目态显示)</b>:餐饮美食 · 日用百货 · 服饰装扮 · 数码电器 · 交通出行 · 住房物业 · 医疗健康 · 教育培训 · 文化休闲 · 充值缴费<br>
+        <span class="fhint">刻意与支付宝账单「交易分类」同名 —— 导入零映射、抄单零翻译(调研见 PRD §1.1)· 只是起点,随便改</span>
       </div>
       <div class="catrow"><span style="width:6.5em">餐饮</span><span class="fhint">近 12 期有数据</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用</span></div>
       <div class="catrow"><span style="width:6.5em">购物</span><span class="fhint">近 12 期有数据</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用</span></div>
@@ -144,7 +198,7 @@
   <!-- ═══ 三 · 支出报表 ═══ -->
   <div class="zone">
     <div class="zone-head">
-      <span class="zone-no">三</span><span class="zone-t">支出报表 · 在现有「支出构成」区上长</span>
+      <span class="zone-no">四</span><span class="zone-t">支出报表 · 在现有「支出构成」区上长</span>
       <span class="zone-sub">FR-516~519 · 不加顶层页签 · 三个视角</span>
     </div>
     <div class="zone-line"></div>
@@ -210,7 +264,7 @@
   <!-- ═══ 四 · 口径安全(给评审人的底) ═══ -->
   <div class="zone">
     <div class="zone-head">
-      <span class="zone-no">四</span><span class="zone-t">为什么这次不会伤到口径</span>
+      <span class="zone-no">五</span><span class="zone-t">为什么这次不会伤到口径</span>
       <span class="zone-sub">与核心观点的冲突,化解在结构上,不是靠小心</span>
     </div>
     <div class="zone-line"></div>
@@ -224,7 +278,7 @@
   </div>
 
   <p class="note" style="margin-top:44px">
-    v1.21 preview · 评审通过后进 TDD · 「刻意不做」清单同步改写:
+    v1.21 preview(v2 · 补三块调研重设计)· 评审通过后进 TDD · 「刻意不做」清单同步改写:
     「消费品类细化」→「<b>逐笔流水录入</b>仍然刻意不做 —— 分类只到『月底按类目抄汇总数』为止」
   </p>
 </div>
