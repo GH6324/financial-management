@@ -32,6 +32,16 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
+        <!-- v1.21 · 支付宝/微信的「用于个人对账」账单是【带密码的 zip】。
+             commons-compress 不支持读加密 zip,JDK 自带的 ZipInputStream 也不支持;
+             zip4j 同时支持 ZipCrypto 与 AES,~200KB 无传递依赖。
+             用户自己解压后直传 csv 的路径【永久保留】—— 万一哪天这个依赖有问题,功能不塌。 -->
+        <dependency>
+            <groupId>net.lingala.zip4j</groupId>
+            <artifactId>zip4j</artifactId>
+            <version>2.11.5</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-thymeleaf</artifactId>
