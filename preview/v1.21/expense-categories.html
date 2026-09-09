@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.21 Preview · 自定义支出分类:逐笔归 APP,分类归我们</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 20px}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .card{border:1px solid var(--rule);background:var(--card);padding:18px}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);color:var(--ink-soft);white-space:nowrap}
+  .badge.ok{border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)}
+  .badge.risk{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)}
+  .zone{margin-top:44px}
+  .zone-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap}
+  .zone-no{font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--paper);background:var(--brass-deep);line-height:1;padding:5px 9px}
+  .zone-t{font-family:'Fraunces','Noto Serif SC',serif;font-size:20px}
+  .zone-sub{font-size:11.5px;color:var(--ink-subtle)}
+  .zone-line{height:2px;background:var(--brass-deep);opacity:.35;margin:10px 0 18px}
+  .frow{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed var(--rule-soft)}
+  .frow:last-child{border-bottom:none}
+  .fname{width:6.5em;font-size:13px}
+  .fin{flex:0 0 150px;border:1px solid var(--rule);background:var(--paper);padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:13px;text-align:right;color:var(--ink)}
+  .fin::placeholder{color:var(--ink-subtle);font-size:11px}
+  .fhint{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-subtle)}
+  .sumrow{background:rgba(160,124,58,.07);border-top:2px solid var(--brass-deep);margin-top:6px;padding-top:10px}
+  .barwrap{display:flex;height:26px;border:1px solid var(--rule);overflow:hidden}
+  .seg{display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:9px;color:#fff;white-space:nowrap;overflow:hidden}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px}
+  .legend span{font-size:11px;color:var(--ink-soft);display:flex;align-items:center;gap:5px}
+  .dot{width:9px;height:9px;display:inline-block}
+  .catrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--rule-soft)}
+  .catrow:last-child{border-bottom:none}
+  .trend{display:flex;align-items:flex-end;gap:8px;height:150px;border-bottom:1px solid var(--rule);padding:0 4px}
+  .tcol{flex:1;display:flex;flex-direction:column-reverse;gap:1px}
+  .tcol .b{width:100%}
+  .tlab{font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--ink-subtle);text-align:center;margin-top:4px}
+  .qa{border-left:3px solid var(--brass-deep);background:rgba(160,124,58,.05);padding:12px 16px;margin-top:10px;font-size:12.5px;line-height:1.8}
+</style>
+</head>
+<body style="background:var(--paper);color:var(--ink);font-family:'Source Serif 4','Noto Serif SC',serif">
+
+<div class="wrap" style="padding-top:44px;padding-bottom:80px">
+
+  <div class="eyebrow">preview · v1.21 · 待评审 · issue #18(@brdol)</div>
+  <h1 style="font-size:30px;margin-top:8px">自定义支出分类 + 支出报表</h1>
+  <p class="note" style="max-width:720px;margin-top:8px">
+    中心决定只有一个:<b style="color:var(--ink)">逐笔归 APP,分类归我们</b>。
+    流水账留在支付宝/微信/银行 APP 里,月底把它们账单上的分类汇总<b style="color:var(--ink)">照抄</b>进来 ——
+    和现在抄一个总数是同一个动作、同一个时点,只是从 1 个数变成几个数。
+    <b style="color:var(--ink)">分类是总额的「展开」,不是第三种记账方式</b>:合计自动写回月度总额,
+    家庭支出的所有口径(储蓄率/月均/紧急储备/FIRE)一行不改。不用这套的人,一个像素都不变。
+  </p>
+
+  <!-- ═══ 一 · 填报页:展开填 ═══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">一</span><span class="zone-t">填报页 · 把一个总数拆开填</span>
+      <span class="zone-sub">FR-510~515 · 每人自己选拆不拆 · 合计即总额</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="card" style="max-width:620px">
+      <div class="eyebrow" style="margin-bottom:10px">2026 · 09 · 本月支出 · 迪娃</div>
+
+      <!-- 收起态(现状) -->
+      <div style="border:1px dashed var(--rule);padding:12px;margin-bottom:16px">
+        <div class="fhint" style="margin-bottom:6px">现状(收起态 · 不拆的人永远停在这里)</div>
+        <div class="frow" style="border:none">
+          <span class="fname">本月支出</span>
+          <input class="fin" value="12,600" readonly>
+          <span class="fhint">一个总数,从账单抄</span>
+        </div>
+        <a style="font-size:12px;color:var(--brass-deep);text-decoration:underline;cursor:pointer">拆开按类目填 →</a>
+        <div class="fhint" style="margin-top:4px">「多花一两分钟,换来『钱花在哪』。从支付宝/微信的月账单照抄即可,不用在这里记流水。」</div>
+      </div>
+
+      <!-- 展开态(本版新增) -->
+      <div style="border:1px solid var(--brass-deep);padding:12px">
+        <div class="fhint" style="margin-bottom:6px;color:var(--brass-deep)">展开态(本版新增)· 上月金额垫在框里作参照</div>
+        <div class="frow"><span class="fname">餐饮</span><input class="fin" value="3,180"><span class="fhint">上月 ¥2,950</span></div>
+        <div class="frow"><span class="fname">购物</span><input class="fin" value="2,400"><span class="fhint">上月 ¥3,120</span></div>
+        <div class="frow"><span class="fname">交通</span><input class="fin" value="860"><span class="fhint">上月 ¥790</span></div>
+        <div class="frow"><span class="fname">运动</span><input class="fin" value="450"><span class="fhint">上月 ¥450</span></div>
+        <div class="frow"><span class="fname">孩子</span><input class="fin" placeholder="上月 ¥1,800"><span class="fhint">留空 = 本月无</span></div>
+        <div class="frow"><span class="fname">其他</span><input class="fin" value="5,710"><span class="fhint">懒得拆的都塞这里,拆一半不受罚</span></div>
+        <div class="frow sumrow">
+          <span class="fname" style="font-weight:600">合计</span>
+          <span class="mono" style="flex:0 0 150px;text-align:right;font-size:15px;font-weight:500">¥12,600</span>
+          <span class="fhint">自动写回月度总额 · 不可直接改</span>
+        </div>
+        <div style="display:flex;gap:14px;margin-top:10px;align-items:center">
+          <span class="fhint">拆不拆,家庭的大账都一样。</span>
+          <a style="font-size:11px;color:var(--ink-subtle);text-decoration:underline;cursor:pointer;margin-left:auto">并回一个总数</a>
+          <a style="font-size:11px;color:var(--ink-subtle);text-decoration:underline;cursor:pointer">管理支出类目</a>
+        </div>
+      </div>
+    </div>
+    <div class="qa">
+      <b>要拍板 ①:</b>展开粒度按<b>「每人」</b>(现方案)—— 你展开、妻子可以继续只填一个数。
+      备选是按「每家」统一,但那会让一个人的选择绑架全家。
+    </div>
+  </div>
+
+  <!-- ═══ 二 · 类目管理 ═══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">二</span><span class="zone-t">类目管理 · 生老病死</span>
+      <span class="zone-sub">FR-500~508 · 「其他」是基石不可动 · 删除转「其他」(支付宝同款语义,提交者点名)</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="card" style="max-width:620px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+        <div class="eyebrow">支出类目 · 6 个(上限 20)</div>
+        <span style="font-size:12px;border:1px solid var(--ink);padding:4px 12px;cursor:pointer">+ 新建类目</span>
+      </div>
+      <div class="catrow"><span style="width:6.5em">餐饮</span><span class="fhint">近 12 期有数据</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用</span></div>
+      <div class="catrow"><span style="width:6.5em">购物</span><span class="fhint">近 12 期有数据</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用</span></div>
+      <div class="catrow"><span style="width:6.5em">交通</span><span class="fhint">近 12 期有数据</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用</span></div>
+      <div class="catrow"><span style="width:6.5em">运动</span><span class="fhint">近 3 期有数据</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用</span></div>
+      <div class="catrow"><span style="width:6.5em;color:var(--ink-subtle)">宠物 <span class="badge">已停用</span></span><span class="fhint">历史月份照旧显示 · 新月份不再出现</span><span style="margin-left:auto;font-size:11px;color:var(--rust)">删除…</span></div>
+      <div class="catrow"><span style="width:6.5em">其他 <span class="badge ok">内置</span></span><span class="fhint">兜底项 · 不可删 / 不可停用 / 不可改名</span></div>
+
+      <div style="border-left:3px solid var(--rust);background:rgba(156,74,42,.05);padding:10px 14px;margin-top:14px;font-size:12px;line-height:1.7">
+        <b>删除「宠物」?</b>它名下 <b>7 期、共 7 条</b>记录会转入「其他」。<br>
+        历史合计一分不变,变的只是名字。这一步不可逆。<br>
+        <span class="mono" style="font-size:10px">[ 转入「其他」并删除 ]&nbsp;&nbsp;[ 算了 ]</span>
+      </div>
+    </div>
+    <p class="note" style="margin-top:8px;max-width:620px">
+      同一套类目<b>两种模式共用</b>:逐笔模式(ITEMIZED)的类目下拉也会出现自建项,排在内置类目之后。
+    </p>
+  </div>
+
+  <!-- ═══ 三 · 支出报表 ═══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">三</span><span class="zone-t">支出报表 · 在现有「支出构成」区上长</span>
+      <span class="zone-sub">FR-516~519 · 不加顶层页签 · 三个视角</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="card">
+      <div class="eyebrow" style="color:var(--rust);margin-bottom:10px">支 · 出 · 构 · 成(报表页现有区块 · 扩展后)</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+        <div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">本月构成 · 2026-09</div>
+          <div class="barwrap">
+            <div class="seg" style="flex:25;background:#a0653a">餐饮 25%</div>
+            <div class="seg" style="flex:19;background:#4f6b47">购物 19%</div>
+            <div class="seg" style="flex:7;background:#5b6b82">交通</div>
+            <div class="seg" style="flex:4;background:#8a7a4f"></div>
+            <div class="seg" style="flex:45;background:#9a938a">其他 45%</div>
+          </div>
+          <div class="legend">
+            <span><i class="dot" style="background:#a0653a"></i>餐饮 ¥3,180</span>
+            <span><i class="dot" style="background:#4f6b47"></i>购物 ¥2,400</span>
+            <span><i class="dot" style="background:#5b6b82"></i>交通 ¥860</span>
+            <span><i class="dot" style="background:#8a7a4f"></i>运动 ¥450</span>
+            <span><i class="dot" style="background:#9a938a"></i>其他 ¥5,710</span>
+          </div>
+          <div class="fhint" style="margin-top:8px">数字直接标在图上(项目铁律)· 金额来自分类填报</div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">年度累计 · 2026(1-9 月)</div>
+          <div class="catrow"><span style="width:5em">其他</span><div style="flex:1;height:12px;background:#9a938a;max-width:78%"></div><span class="mono" style="font-size:11px">¥48,900</span></div>
+          <div class="catrow"><span style="width:5em">餐饮</span><div style="flex:1;height:12px;background:#a0653a;max-width:44%"></div><span class="mono" style="font-size:11px">¥27,400</span></div>
+          <div class="catrow"><span style="width:5em">购物</span><div style="flex:1;height:12px;background:#4f6b47;max-width:39%"></div><span class="mono" style="font-size:11px">¥24,100</span></div>
+          <div class="catrow"><span style="width:5em">交通</span><div style="flex:1;height:12px;background:#5b6b82;max-width:12%"></div><span class="mono" style="font-size:11px">¥7,300</span></div>
+          <div class="catrow"><span style="width:5em">运动</span><div style="flex:1;height:12px;background:#8a7a4f;max-width:7%"></div><span class="mono" style="font-size:11px">¥4,050</span></div>
+        </div>
+      </div>
+
+      <div style="margin-top:22px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">近 12 期趋势(堆叠)</div>
+        <div class="trend">
+          <div class="tcol" title="没拆过 ≠ 没花钱"><div class="b" style="height:70px;background:repeating-linear-gradient(45deg,#d8d2c8,#d8d2c8 4px,#e8e2d8 4px,#e8e2d8 8px)"></div></div>
+          <div class="tcol"><div class="b" style="height:74px;background:repeating-linear-gradient(45deg,#d8d2c8,#d8d2c8 4px,#e8e2d8 4px,#e8e2d8 8px)"></div></div>
+          <div class="tcol"><div class="b" style="height:66px;background:repeating-linear-gradient(45deg,#d8d2c8,#d8d2c8 4px,#e8e2d8 4px,#e8e2d8 8px)"></div></div>
+          <div class="tcol"><div class="b" style="height:80px;background:repeating-linear-gradient(45deg,#d8d2c8,#d8d2c8 4px,#e8e2d8 4px,#e8e2d8 8px)"></div></div>
+          <div class="tcol"><div class="b" style="height:24px;background:#a0653a"></div><div class="b" style="height:18px;background:#4f6b47"></div><div class="b" style="height:6px;background:#5b6b82"></div><div class="b" style="height:30px;background:#9a938a"></div></div>
+          <div class="tcol"><div class="b" style="height:26px;background:#a0653a"></div><div class="b" style="height:22px;background:#4f6b47"></div><div class="b" style="height:7px;background:#5b6b82"></div><div class="b" style="height:26px;background:#9a938a"></div></div>
+          <div class="tcol"><div class="b" style="height:22px;background:#a0653a"></div><div class="b" style="height:16px;background:#4f6b47"></div><div class="b" style="height:6px;background:#5b6b82"></div><div class="b" style="height:34px;background:#9a938a"></div></div>
+          <div class="tcol"><div class="b" style="height:28px;background:#a0653a"></div><div class="b" style="height:20px;background:#4f6b47"></div><div class="b" style="height:8px;background:#5b6b82"></div><div class="b" style="height:28px;background:#9a938a"></div></div>
+          <div class="tcol"><div class="b" style="height:25px;background:#a0653a"></div><div class="b" style="height:19px;background:#4f6b47"></div><div class="b" style="height:7px;background:#5b6b82"></div><div class="b" style="height:31px;background:#9a938a"></div></div>
+        </div>
+        <div style="display:flex">
+          <div class="tlab" style="flex:4">2025-12 ~ 2026-04 · <b>未拆分</b>(斜纹整块 = 只有总额 · 不画成 0)</div>
+          <div class="tlab" style="flex:5">2026-05 ~ 2026-09 · 按类目堆叠</div>
+        </div>
+      </div>
+    </div>
+    <div class="qa">
+      <b>要拍板 ②:</b>支出报表<b>放报表页扩展</b>(现方案),不加顶层页签。
+      理由:没启用的人不该看到导航变化(零影响原则);且报表页已有支出构成区,另起页签 = 同一件事两个入口。
+      提交者原话要的是「新增页签,即支出报表」—— 若你倾向给独立页签,评审时说一声,联动成本会加一档(导航/移动端/目录)。
+    </div>
+  </div>
+
+  <!-- ═══ 四 · 口径安全(给评审人的底) ═══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">四</span><span class="zone-t">为什么这次不会伤到口径</span>
+      <span class="zone-sub">与核心观点的冲突,化解在结构上,不是靠小心</span>
+    </div>
+    <div class="zone-line"></div>
+    <div class="card mono" style="font-size:12px;line-height:2">
+      分类填报 = TOTAL 模式「那一个总数」的<b>展开形式</b><br>
+      Σ(各分类) ──同一事务──▶ 写回 PMC.total_expense_input<br>
+      家庭支出口径(储蓄率/月均/紧急储备/FIRE)仍只读 PMC 与逐笔 · <b style="color:var(--forest)">ExpenseLedgerService 零改动</b><br>
+      分类明细在旁表 · 只喂支出报表 · <b>永远不成为第三条口径来源</b>(护栏钉死)<br>
+      不建类目、不展开 → 所有页面与 v1.20.2 <b>逐字一致</b>(「有没有用」本身就是开关)
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:44px">
+    v1.21 preview · 评审通过后进 TDD · 「刻意不做」清单同步改写:
+    「消费品类细化」→「<b>逐笔流水录入</b>仍然刻意不做 —— 分类只到『月底按类目抄汇总数』为止」
+  </p>
+</div>
+</body>
+</html>
