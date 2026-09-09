@@ -98,6 +98,39 @@ public class ExpenseCategoryService {
         return out;
     }
 
+    /**
+     * 填报表单要显示的类目 = <b>当前深度可填的</b> ∪ <b>这一期已经有钱的</b>。
+     *
+     * <p>后半句不能省。开发时踩过:复杂深度下 {@link #fillable} 只给细类,
+     * 而导入进来的钱落在<b>大类</b>上(渠道分类名是大类粒度)——
+     * 于是那笔钱在填报页<b>看不见也改不了</b>,只能在报表里以「未细分」露个脸。
+     * 钱在账上却没有对应的输入框,是最让人不安的一种状态。</p>
+     *
+     * <p>顺序:可填的在前(按 sortOrder),额外露出来的「未细分」大类跟在后面。</p>
+     */
+    public List<ExpenseCategory> fillableWith(long familyId, boolean deepMode,
+                                              java.util.Collection<Long> existingIds) {
+        List<ExpenseCategory> out = new ArrayList<>(fillable(familyId, deepMode));
+        if (existingIds == null || existingIds.isEmpty()) return out;
+        java.util.Set<Long> have = new java.util.HashSet<>();
+        for (ExpenseCategory c : out) have.add(c.getId());
+        for (ExpenseCategory c : categoryMapper.findByFamily(familyId)) {
+            if (have.contains(c.getId())) continue;
+            if (!existingIds.contains(c.getId())) continue;
+            out.add(c);           // 停用的也要露 —— 它上面还有钱
+        }
+        return out;
+    }
+
+    /** 这个节点在当前深度下算不算「未细分」(有子类,但钱记在它自己身上) */
+    public boolean isUnsplit(long familyId, ExpenseCategory c, boolean deepMode) {
+        if (!deepMode || c == null || !c.isTopLevel()) return false;
+        for (ExpenseCategory k : categoryMapper.findByFamily(familyId)) {
+            if (c.getId().equals(k.getParentId()) && !k.isArchived()) return true;
+        }
+        return false;
+    }
+
     public ExpenseCategory other(long familyId) {
         return categoryMapper.findBySystemCode(familyId, ExpenseCategory.SYSTEM_OTHER);
     }

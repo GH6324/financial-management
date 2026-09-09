@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('从账单导入 · 家庭账房')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('entry', ${me}, ${nav})}"></header>
+<main class="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10">
+
+  <div class="mb-5 flex items-end justify-between flex-wrap gap-3">
+    <div>
+      <div class="eyebrow mb-2">从 · 账 · 单 · 导 · 入</div>
+      <h1 class="font-display text-3xl sm:text-4xl font-medium">
+        <span th:text="${#temporals.format(period.periodStart, 'yyyy 年 M 月')}">2026 年 9 月</span> 的支出
+      </h1>
+    </div>
+    <a th:href="@{/entry}" class="btn-ghost text-sm no-underline">← 回填报</a>
+  </div>
+
+  <div th:if="${impNote}" class="border-l-2 border-brass-deep bg-brass-soft/40 px-4 py-3 mb-5">
+    <p class="text-[13px] text-ink leading-relaxed" th:text="${impNote}">好了。</p>
+  </div>
+  <div th:if="${impError}" class="border-l-2 border-rust bg-rust/[0.05] px-4 py-3 mb-5">
+    <p class="text-[13px] text-ink leading-relaxed" th:text="${impError}">出错了。</p>
+  </div>
+
+  <!--/* 没有类目就别让人白折腾:导进来也没地方放 */-->
+  <div th:unless="${hasCategories}" class="paper-card p-6">
+    <p class="text-[13px] text-ink leading-relaxed mb-3">
+      先建几个支出类目 —— 导进来的钱要有地方放。一键起步包最快。
+    </p>
+    <a th:href="@{/expense/categories}" class="btn-ink text-sm no-underline">去建类目</a>
+  </div>
+
+  <th:block th:if="${hasCategories}">
+
+  <!--/* ═══ 确认页 ═══ 有草稿时它占据主位置 —— 用户现在只该做一件事:核对并确认。 */-->
+  <div th:if="${draft}" class="paper-card p-6 mb-6" style="border-color:var(--brass-deep)">
+    <div class="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+      <span class="font-display text-xl">核对一下 · <span th:text="${draft.channel().getLabel()}">支付宝</span></span>
+      <span class="font-mono text-[10px] text-ink-subtle"
+            th:text="|解析出 ${draft.rowCount()} 笔支出 · 合计 ¥${#numbers.formatInteger(draft.total(), 0, 'COMMA')}|">解析出 63 笔</span>
+    </div>
+    <p class="text-[11.5px] text-ink-subtle mb-4">
+      确认之前<b>什么都没落账</b>。渠道的自动分类不是每笔都准,微信更是靠商户名猜的 —— 所以这一步得你过一眼。
+    </p>
+
+    <form th:action="@{/expense/import/confirm}" method="post">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <input type="hidden" name="periodId" th:value="${period.id}">
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-[12.5px]">
+          <thead><tr class="text-ink-subtle font-mono text-[10px] text-left border-b border-rule">
+            <th class="py-2 pr-3">账单里的名字</th><th class="pr-3">归到</th><th class="pr-3">怎么来的</th>
+            <th class="pr-3 text-right">金额</th><th class="text-right">笔数</th>
+          </tr></thead>
+          <tbody>
+            <tr th:each="l : ${draft.lines()}" class="border-b border-rule-soft">
+              <td class="py-2 pr-3" th:text="${l.channelLabel()}">餐饮美食</td>
+              <td class="pr-3">
+                <select th:name="'map_' + ${l.channelLabel()}" class="field-input" style="max-width:170px;height:2rem">
+                  <option th:each="c : ${categories}" th:value="${c.id}" th:text="${c.name}"
+                          th:selected="${c.id == l.categoryId()}">餐饮美食</option>
+                </select>
+              </td>
+              <td class="pr-3 font-mono text-[10px]"
+                  th:classappend="${#strings.contains(l.how(), '没认出来')} ? 'text-rust' : 'text-ink-subtle'"
+                  th:text="${l.how()}">同名直挂</td>
+              <td class="pr-3 text-right font-mono tnum" data-priv
+                  th:text="'¥' + ${#numbers.formatInteger(l.amount(), 0, 'COMMA')}">¥2,180</td>
+              <td class="text-right font-mono text-[10px] text-ink-subtle" th:text="${l.count()}">41</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="font-mono text-[10px] text-ink-subtle mt-2">
+        改了归属想让它下次自动命中?勾上「记住」——
+        <label th:each="l : ${draft.lines()}" class="inline-flex items-center gap-1 mr-3"
+               th:if="${#strings.contains(l.how(), '没认出来')}">
+          <input type="checkbox" th:name="'remember_' + ${l.channelLabel()}">
+          <span th:text="${l.channelLabel()}">某商户</span>
+        </label>
+      </p>
+
+      <!--/* 中性交易:剔除了什么必须看得见。「转给亲属」在有些家庭确实是赡养支出,我们不替他判。 */-->
+      <div th:if="${!#lists.isEmpty(draft.neutrals())}" class="mt-4 pt-3 border-t border-rule-soft">
+        <div class="font-mono text-[10px] text-ink-subtle mb-1">已剔除(不算消费:资金搬家 / 买资产 / 转账)</div>
+        <div class="text-[11.5px] text-ink-soft">
+          <span th:each="n,i : ${draft.neutrals()}"
+                th:text="${(i.index > 0 ? ' · ' : '') + n.label() + ' ¥' + #numbers.formatInteger(n.amount(), 0, 'COMMA')}">还信用卡 ¥3,000</span>
+        </div>
+        <div class="font-mono text-[9px] text-ink-subtle mt-1">
+          如果这里有该算消费的(比如给父母的生活费),先确认导入,再回填报页把那个类目手工加上去。
+        </div>
+      </div>
+
+      <!--/* 解析异常:三类「说不清的行」全部披露。静默少算几行的话,用户根本查不出来。 */-->
+      <div th:if="${draft.parsed().hasAnomaly()}" class="mt-4 border-l-2 border-rust bg-rust/[0.04] px-3 py-2">
+        <div class="text-[11.5px] text-ink leading-relaxed">
+          <b>有几行我说不清,建议对着账单核一下合计:</b>
+          <span th:if="${draft.parsed().unknownDirection() > 0}"
+                th:text="'· ' + ${draft.parsed().unknownDirection()} + ' 行的收支标记我不认识'"></span>
+          <span th:if="${draft.parsed().columnMismatch() > 0}"
+                th:text="'· ' + ${draft.parsed().columnMismatch()} + ' 行的列数不对(某个字段里有逗号没被引号包住)'"></span>
+          <span th:if="${draft.parsed().badAmount() > 0}"
+                th:text="'· ' + ${draft.parsed().badAmount()} + ' 行的金额读不出来'"></span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 mt-5 flex-wrap">
+        <button type="submit" class="btn-ink">确认导入</button>
+        <button type="submit" formnovalidate th:formaction="@{/expense/import/discard}"
+                class="btn-ghost text-sm">扔掉,什么都不落</button>
+        <span class="text-[11px] text-ink-subtle">
+          确认后会<b>替换这个渠道</b>本期的旧数据 —— 你手工填的和别的渠道<b>一分不动</b>。
+        </span>
+      </div>
+    </form>
+  </div>
+
+  <!--/* ═══ 三条通道 ═══ */-->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+    <!-- 文件导入 -->
+    <div class="paper-card p-5">
+      <div class="eyebrow mb-3">通道一 · 账单文件</div>
+      <form th:action="@{/expense/import/file}" method="post" enctype="multipart/form-data">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <input type="hidden" name="periodId" th:value="${period.id}">
+        <label class="block mb-3">
+          <span class="block text-[11.5px] text-ink-soft mb-1">这份账单是哪个渠道的</span>
+          <select name="channel" class="field-input" style="max-width:200px">
+            <option value="ALIPAY">支付宝</option>
+            <option value="WECHAT">微信</option>
+          </select>
+        </label>
+        <p class="font-mono text-[9px] text-ink-subtle mb-3">
+          我们不猜渠道 —— 两家格式很像,猜错会把微信的交易类型当成消费分类,而这个错很难被发现。
+        </p>
+        <label class="block mb-3">
+          <span class="block text-[11.5px] text-ink-soft mb-1">文件(csv,或渠道发来的加密 zip)</span>
+          <input type="file" name="file" accept=".csv,.txt,.zip" required class="text-[12px]">
+        </label>
+        <label class="block mb-4">
+          <span class="block text-[11.5px] text-ink-soft mb-1">zip 解压密码(直接传 csv 就不用填)</span>
+          <input type="password" name="zipPassword" autocomplete="off" class="field-input" style="max-width:200px">
+        </label>
+        <button type="submit" class="btn-ink text-sm">解析</button>
+      </form>
+    </div>
+
+    <!-- 截图导入 -->
+    <div class="paper-card p-5">
+      <div class="eyebrow mb-3">通道二 · 月度统计页截图 <span class="badge" th:unless="${shotAvailable}">要先配视觉 key</span></div>
+      <p class="text-[12px] text-ink-soft leading-relaxed mb-3">
+        拍各渠道<b>算好的月度分类统计页</b>(不是流水明细页)。多张一起传,或者打包一个 zip。
+        <br><span class="font-mono text-[9px] text-ink-subtle">
+          AI 只转写屏幕上的「类目名 + 金额」,不做任何计算 —— 看不清的会标出来等你改。
+        </span>
+      </p>
+      <form th:if="${shotAvailable}" th:action="@{/expense/import/shots}" method="post" enctype="multipart/form-data">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <input type="hidden" name="periodId" th:value="${period.id}">
+        <input type="file" name="files" multiple accept="image/*,.zip" required class="text-[12px] mb-3 block">
+        <button type="submit" class="btn-ink text-sm">转写</button>
+      </form>
+      <div th:unless="${shotAvailable}">
+        <p class="text-[12px] text-rust mb-2" th:text="${shotReason}">还没配视觉 key。</p>
+        <a th:href="@{/admin/ai-access}" class="btn-ghost text-sm no-underline">去配</a>
+      </div>
+    </div>
+  </div>
+
+  <!--/* ═══ 渠道档案:逐步指引。这是功能不是帮助文档 —— 用户在渠道 App 里迷路,时间就白花了。 ═══ */-->
+  <div class="paper-card p-5 mt-4">
+    <div class="eyebrow mb-3">怎么把账单导出来</div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div>
+        <div class="font-display text-[15px] mb-1">支付宝</div>
+        <p class="text-[12px] text-ink-soft leading-relaxed">
+          我的 → 账单 → 右上「···」→ <b>开具交易流水证明</b> → 选「<b>用于个人对账</b>」→ 支付密码 →
+          时间范围<b>最长可选 1 年</b>,建议<b>勾上「展示交易对手信息」「展示商品说明信息」</b>(账单更全,归类更准)→
+          填邮箱 → 提交。<br>
+          <b>解压密码</b>在支付宝的「服务消息」里推送(「开具记录」里也能查)。
+        </p>
+        <div class="font-mono text-[9px] text-ink-subtle mt-1">截图通道拍这一页:我的 → 账单 → <b>月账单</b></div>
+      </div>
+      <div>
+        <div class="font-display text-[15px] mb-1">微信</div>
+        <p class="text-[12px] text-ink-soft leading-relaxed">
+          我 → 服务 → 钱包(旧版是「我 → 支付 → 钱包」)→ 右上「账单」→ 等列表加载完 →
+          「常见问题」→ <b>下载账单</b> → 选「<b>用于个人对账</b>」→ 时间范围<b>一次最多 3 个月</b>(整年要分 4 次)→
+          填邮箱 + 支付密码。<br>
+          <b>解压密码</b>在「微信支付」的通知消息里 —— <b>先记密码再去邮箱</b>。
+        </p>
+        <div class="font-mono text-[9px] text-ink-subtle mt-1">截图通道拍这一页:钱包 → 账单 → 右上<b>「统计」</b></div>
+      </div>
+      <div class="lg:col-span-2 pt-3 border-t border-rule-soft">
+        <div class="font-display text-[15px] mb-1">银行(招商 / 工商等)</div>
+        <p class="text-[12px] text-ink-soft leading-relaxed">
+          <b>先走截图通道</b>:招行 App 首页「收支明细 / 月账单 · 结余月历」自带场景分类,工行同理 ——
+          拍那一页即可。<br>
+          文件解析暂时不接:各家银行导出的格式互不相同(招行 App 给的是 PDF,要 Excel 得走网银),
+          <b>没有真实样本我们不写解析器</b> —— 写了大概率是错的。
+        </p>
+        <p class="text-[12px] text-ink leading-relaxed mt-2 border-l-2 border-rust pl-3">
+          <b>别重复导</b>:银行卡流水里<b>必然</b>包含走支付宝/微信的那些扣款。
+          已经导过这两家的话,银行侧只该补「不走它们的部分」(房贷、代扣、线下刷卡)。
+        </p>
+      </div>
+    </div>
+    <p class="font-mono text-[9px] text-ink-subtle mt-3">
+      以上路径核对于 2026-09。渠道改版导致对不上?<a th:href="@{/help/how-to-use}" class="underline">告诉我们</a>。
+    </p>
+  </div>
+
+  <!--/* ═══ 本期批次:导过什么、可撤 ═══ */-->
+  <div th:if="${!#lists.isEmpty(batches)}" class="paper-card p-5 mt-4">
+    <div class="eyebrow mb-3">本期已导入</div>
+    <div th:each="b : ${batches}" class="flex items-center gap-3 py-2 border-b border-rule-soft last:border-b-0 flex-wrap">
+      <span class="pill text-[10px]" th:text="${b.channel.label}">支付宝</span>
+      <span class="font-mono text-[11px]" th:text="${b.rowCount} + ' 笔'">63 笔</span>
+      <span class="font-mono text-[11px] tnum" data-priv
+            th:text="'¥' + ${#numbers.formatInteger(b.totalAmount, 0, 'COMMA')}">¥5,000</span>
+      <span class="font-mono text-[9px] text-ink-subtle"
+            th:text="${#temporals.format(b.importedAt, 'MM-dd HH:mm')}">09-09 18:00</span>
+      <span th:if="${b.replacedId != null}" class="font-mono text-[9px] text-brass-deep">替换过上一批</span>
+      <span style="flex:1"></span>
+      <form th:action="@{/expense/import/revoke}" method="post"
+            onsubmit="return confirm('撤掉这一批?这个渠道本期的数据会移除 —— 你手工填的和别的渠道一分不动。')">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <input type="hidden" name="periodId" th:value="${period.id}">
+        <input type="hidden" name="batchId" th:value="${b.id}">
+        <button type="submit" class="font-mono text-[10px] text-rust hover:underline bg-transparent border-0 cursor-pointer">撤销</button>
+      </form>
+    </div>
+  </div>
+
+  <!--/* ═══ 商户规则:配一次管一年 ═══ */-->
+  <div th:if="${!#lists.isEmpty(rules)}" class="paper-card p-5 mt-4">
+    <div class="eyebrow mb-2">商户关键字 → 类目</div>
+    <p class="text-[11.5px] text-ink-subtle mb-3">
+      微信账单<b>没有消费分类</b>,只能靠商户名认。这些是你确认过的规则,以后自动命中。
+    </p>
+    <div th:each="r : ${rules}" class="flex items-center gap-3 py-1.5 border-b border-rule-soft last:border-b-0">
+      <span class="font-mono text-[11px]" th:text="${r.keyword()}">美团</span>
+      <span class="text-[11px] text-ink-subtle">→</span>
+      <span class="text-[12px]" th:text="${catName.get(r.categoryId()) ?: '(类目已删)'}">餐饮美食</span>
+      <span class="font-mono text-[9px] text-ink-subtle" th:text="'命中 ' + ${r.hitCount()} + ' 次'">命中 22 次</span>
+      <span style="flex:1"></span>
+      <form th:action="@{/expense/import/rule/delete}" method="post">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <input type="hidden" name="periodId" th:value="${period.id}">
+        <input type="hidden" name="ruleId" th:value="${r.id()}">
+        <button type="submit" class="font-mono text-[10px] text-ink-subtle hover:underline bg-transparent border-0 cursor-pointer">删</button>
+      </form>
+    </div>
+  </div>
+
+  <!--/* 隐私:这是本项目迄今最敏感的输入,必须当面说清 */-->
+  <div class="border-l-2 border-rust bg-rust/[0.04] px-4 py-3 mt-6">
+    <p class="text-[12.5px] text-ink leading-relaxed">
+      <b>账单是你整月的消费流水 —— 这是这个 app 接过的最敏感的东西。</b>
+    </p>
+    <ul class="text-[12px] text-ink-soft leading-relaxed mt-2 ml-4 list-disc space-y-1">
+      <li>文件<b>不落盘</b>:解析完即弃,只留「每个类目多少钱」这几个数。</li>
+      <li><b>金额永不发给 AI</b>。支付宝账单全程不过 AI(它自带分类,确定性解析)。</li>
+      <li>截图通道会把图发给你自己配的视觉服务 —— 用的是你自己的 key,和持仓截图导入同一条路。</li>
+      <li>zip 解压密码用完即弃,不入库、不进日志。</li>
+    </ul>
+  </div>
+
+  </th:block>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

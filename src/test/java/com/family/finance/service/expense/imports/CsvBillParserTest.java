@@ -35,6 +35,9 @@ class CsvBillParserTest {
         sb.append("2026-09-04 09:00:00,转账红包,亲属,a@a.com,转账,支出,2000.00,余额,交易成功,T4,M4,\n");
         sb.append("2026-09-05 09:00:00,餐饮美食,某餐厅,b@b.com,退款,收入,15.00,余额,退款成功,T5,M5,\n");
         sb.append("2026-09-06 09:00:00,投资理财,基金,c@c.com,申购,不计收支,500.00,余额,交易成功,T6,M6,\n");
+        // 下面两行覆盖【别名】路径:渠道有这两个分类,而我们的起步包里没有同名大类
+        sb.append("2026-09-07 09:00:00,家居家装,宜家,d@d.com,置物架,支出,399.00,余额,交易成功,T7,M7,\n");
+        sb.append("2026-09-08 09:00:00,酒店旅游,某酒店,e@e.com,住宿,支出,660.00,余额,交易成功,T8,M8,\n");
         sb.append("------------------------------------\n");
         return sb.toString().getBytes(GBK);
     }
@@ -82,7 +85,7 @@ class CsvBillParserTest {
             assertThat(p.skippedLines())
                     .as("说明头 " + pre + " 行时应定位到第 " + pre + " 行(0-based)")
                     .isEqualTo(pre);
-            assertThat(p.rows()).hasSize(6);
+            assertThat(p.rows()).hasSize(8);
         }
     }
 
@@ -168,7 +171,7 @@ class CsvBillParserTest {
     @DisplayName("方向与状态解对:支出 / 收入 / 不计收支 / 退款成功")
     void directionAndStatusParsed() {
         var p = CsvBillParser.parse(alipay(24));
-        assertThat(p.rows().stream().filter(BillRow::isExpense).count()).isEqualTo(4);
+        assertThat(p.rows().stream().filter(BillRow::isExpense).count()).isEqualTo(6);
         assertThat(p.rows().stream().filter(BillRow::isRefund).count()).isEqualTo(1);
         assertThat(p.rows()).extracting(BillRow::direction).contains("不计收支");
     }
@@ -188,7 +191,7 @@ class CsvBillParserTest {
     @DisplayName("文件尾部的分隔行不该被当成交易")
     void trailingSeparatorIgnored() {
         var p = CsvBillParser.parse(alipay(24));
-        assertThat(p.rows()).hasSize(6);   // 6 条交易,尾部「-----」行不算
+        assertThat(p.rows()).hasSize(8);   // 8 条交易,尾部「-----」行不算
     }
 
     @Test
@@ -215,5 +218,67 @@ class CsvBillParserTest {
         assertThat(p.rows()).hasSize(1);
         assertThat(p.badAmount()).isEqualTo(1);
         assertThat(p.hasAnomaly()).as("确认页据此提醒用户核对总额").isTrue();
+    }
+
+    // ─────────────── 映射:渠道名要在整棵树上匹配 ───────────────
+
+    @Test
+    @DisplayName("【踩过的坑】复杂深度下,渠道给的大类名要能落在【大类】上,而不是全进「其他」")
+    void channelCategoryMatchesTopLevelEvenInDeepMode() {
+        var cats = new com.family.finance.service.expense.ExpenseFakes.FakeCategoryMapper();
+        var splits = new com.family.finance.service.expense.ExpenseFakes.FakeSplitMapper();
+        var catSvc = new com.family.finance.service.expense.ExpenseCategoryService(cats, splits);
+        catSvc.seed(1L, true);                       // 复杂版:10 大类 + 细类
+
+        var all = catSvc.all(1L);
+        long otherId = catSvc.other(1L).getId();
+        var parsed = CsvBillParser.parse(alipay(24));
+        var draft = BillCategoryResolver.aggregate(
+                com.family.finance.domain.expense.ExpenseSource.ALIPAY, parsed, all,
+                java.util.Map.of(), otherId);
+
+        var food = draft.lines().stream()
+                .filter(l -> "餐饮美食".equals(l.channelLabel())).findFirst().orElseThrow();
+        assertThat(food.categoryName())
+                .as("「餐饮美食」是大类名 —— 落在大类上就是「未细分」,不该进「其他」")
+                .isEqualTo("餐饮美食");
+        assertThat(food.how()).isEqualTo("同名直挂");
+
+        // 复杂版里「日用百货」下正好有个同名细类「家居家装」→ 细类优先(更精确)
+        var home = draft.lines().stream()
+                .filter(l -> "家居家装".equals(l.channelLabel())).findFirst().orElseThrow();
+        assertThat(home.categoryName()).isEqualTo("家居家装");
+        assertThat(home.how()).isEqualTo("同名直挂");
+
+        // 「酒店旅游」我们树里没有同名节点 → 走别名表落「文化休闲」的细类「旅游酒店」
+        var hotel = draft.lines().stream()
+                .filter(l -> "酒店旅游".equals(l.channelLabel())).findFirst().orElseThrow();
+        assertThat(hotel.how()).isEqualTo("映射");
+        assertThat(hotel.categoryName()).isEqualTo("文化休闲");
+
+        assertThat(draft.unmapped())
+                .as("起步包 + 别名表应该覆盖掉全部,不该有「没认出来」")
+                .isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("中性交易被剔除且列得出来:转账红包 / 投资理财 都不算消费")
+    void neutralTransactionsExcluded() {
+        var cats = new com.family.finance.service.expense.ExpenseFakes.FakeCategoryMapper();
+        var splits = new com.family.finance.service.expense.ExpenseFakes.FakeSplitMapper();
+        var catSvc = new com.family.finance.service.expense.ExpenseCategoryService(cats, splits);
+        catSvc.seed(1L, false);
+        var draft = BillCategoryResolver.aggregate(
+                com.family.finance.domain.expense.ExpenseSource.ALIPAY,
+                CsvBillParser.parse(alipay(24)), catSvc.all(1L),
+                java.util.Map.of(), catSvc.other(1L).getId());
+
+        assertThat(draft.neutrals()).extracting("label").contains("转账红包");
+        assertThat(draft.lines()).extracting("channelLabel")
+                .as("投资理财是「不计收支」方向,连支出都不是")
+                .doesNotContain("投资理财");
+        assertThat(draft.total())
+                .as("2000 的转账不该进支出合计")
+                .isEqualByComparingTo("2416.50");   // 1280+32.5+45+399+660
     }
 }

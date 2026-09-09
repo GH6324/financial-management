@@ -54,8 +54,11 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
         <div th:each="c : ${splitCategories}" class="py-1.5 border-b border-rule-soft/60">
           <label class="flex items-center gap-3 flex-wrap">
+            <!--/* 复杂深度下,钱记在大类上时标「未细分」—— 它不是一个真类目,
+                   是「记在大类上的钱」的叫法。不标的话用户会以为多了个同名类目。 */-->
             <span class="text-[12.5px]" style="min-width:6.5em"
-                  th:text="${c.name}">餐饮美食</span>
+                  th:text="${splitUnsplitIds != null and splitUnsplitIds.contains(c.id)
+                            ? c.name + ' · 未细分' : c.name}">餐饮美食</span>
             <input type="number" step="0.01" min="0" max="99999999"
                    th:name="'cat_' + ${c.id}"
                    th:value="${splitCells != null and splitCells.get(c.id) != null

@@ -206,8 +206,17 @@ public class EntryController {
                 || expenseSplitService.hasSplits(period.getId(), me.getMemberId());
         model.addAttribute("splitDeep", splitDeep);
         model.addAttribute("splitOpen", splitOpen);
-        model.addAttribute("splitCategories", expenseCategoryService.fillable(fam, splitDeep));
         var splitCells = expenseSplitService.cells(period.getId(), me.getMemberId());
+        /* 表单要显示的类目 = 可填的 ∪ 这一期已经有钱的。
+         * 后半句是必须的:导入的钱会落在【大类】上(渠道分类名是大类粒度),
+         * 而复杂深度下 fillable 只给细类 —— 少了这一句,那笔钱在页面上看不见也改不了。 */
+        model.addAttribute("splitCategories",
+                expenseCategoryService.fillableWith(fam, splitDeep, splitCells.keySet()));
+        java.util.Set<Long> unsplitIds = new java.util.HashSet<>();
+        for (var c : expenseCategoryService.all(fam)) {
+            if (expenseCategoryService.isUnsplit(fam, c, splitDeep)) unsplitIds.add(c.getId());
+        }
+        model.addAttribute("splitUnsplitIds", unsplitIds);
         model.addAttribute("splitCells", splitCells);
         java.math.BigDecimal splitTotal = java.math.BigDecimal.ZERO;
         for (var cell : splitCells.values()) splitTotal = splitTotal.add(cell.total());

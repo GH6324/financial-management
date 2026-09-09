@@ -36,172 +36,19 @@ class ExpenseSplitServiceTest {
 
     private static final long FAM = 1L, PERIOD = 100L, ME = 7L;
 
-    private FakeSplitMapper splits;
-    private FakePmc pmc;
+    private ExpenseFakes.FakeSplitMapper splits;
+    private ExpenseFakes.FakePmc pmc;
     private ExpenseSplitService svc;
     private long catFood, catTransit, catOther;
 
-    // ──────────────── 内存假实现 ────────────────
-
-    /** 按 uk_split(period,member,category,source) 唯一 —— 与真表约束一致,否则测不出双计 */
-    static class FakeSplitMapper implements ExpenseSplitMapper {
-        final Map<String, ExpenseSplit> rows = new LinkedHashMap<>();
-        static String k(long p, long m, long c, String s) { return p + "/" + m + "/" + c + "/" + s; }
-
-        @Override public int upsert(ExpenseSplit r) {
-            rows.put(k(r.getPeriodId(), r.getMemberId(), r.getCategoryId(), r.getSource().name()), r);
-            return 1;
-        }
-        @Override public List<ExpenseSplit> findByPeriodMember(long periodId, long memberId) {
-            return rows.values().stream()
-                    .filter(r -> r.getPeriodId() == periodId && r.getMemberId() == memberId).toList();
-        }
-        @Override public List<ExpenseSplit> findByPeriod(long familyId, long periodId) {
-            return rows.values().stream().filter(r -> r.getPeriodId() == periodId).toList();
-        }
-        @Override public List<ExpenseSplit> findByFamily(long familyId) { return new ArrayList<>(rows.values()); }
-        @Override public BigDecimal sumByPeriodMember(long periodId, long memberId) {
-            var list = findByPeriodMember(periodId, memberId);
-            if (list.isEmpty()) return null;
-            BigDecimal s = BigDecimal.ZERO;
-            for (ExpenseSplit r : list) s = s.add(r.getAmount());
-            return s;
-        }
-        @Override public int deleteBySource(long periodId, long memberId, String source) {
-            return (int) removeIf(r -> r.getPeriodId() == periodId && r.getMemberId() == memberId
-                    && r.getSource().name().equals(source));
-        }
-        @Override public int deleteByPeriodMember(long periodId, long memberId) {
-            return (int) removeIf(r -> r.getPeriodId() == periodId && r.getMemberId() == memberId);
-        }
-        @Override public int deleteOne(long periodId, long memberId, long categoryId, String source) {
-            return rows.remove(k(periodId, memberId, categoryId, source)) == null ? 0 : 1;
-        }
-        @Override public int deleteByCategory(long familyId, long categoryId) {
-            return (int) removeIf(r -> r.getCategoryId() == categoryId);
-        }
-        @Override public int countPeriodsUsing(long familyId, long categoryId) {
-            return (int) rows.values().stream().filter(r -> r.getCategoryId() == categoryId)
-                    .map(ExpenseSplit::getPeriodId).distinct().count();
-        }
-        @Override public int countRowsUsing(long familyId, long categoryId) {
-            return (int) rows.values().stream().filter(r -> r.getCategoryId() == categoryId).count();
-        }
-        @Override public BigDecimal sumByFamily(long familyId) {
-            BigDecimal s = BigDecimal.ZERO;
-            for (ExpenseSplit r : rows.values()) s = s.add(r.getAmount());
-            return s;
-        }
-        private long removeIf(java.util.function.Predicate<ExpenseSplit> p) {
-            var keys = rows.entrySet().stream().filter(e -> p.test(e.getValue()))
-                    .map(Map.Entry::getKey).toList();
-            keys.forEach(rows::remove);
-            return keys.size();
-        }
-    }
-
-    static class FakeCategoryMapper implements ExpenseCategoryMapper {
-        final Map<Long, ExpenseCategory> byId = new LinkedHashMap<>();
-        final AtomicLong seq = new AtomicLong(1);
-        @Override public int insert(ExpenseCategory c) {
-            c.setId(seq.getAndIncrement()); byId.put(c.getId(), c); return 1;
-        }
-        /** 与真 SQL 的 {@code ORDER BY sort_order, id} 保持一致 —— 假实现的排序和真表不同会掩盖排序 bug */
-        @Override public List<ExpenseCategory> findByFamily(long familyId) {
-            return byId.values().stream()
-                    .sorted(java.util.Comparator
-                            .comparingInt((ExpenseCategory c) -> c.getSortOrder() == null ? 0 : c.getSortOrder())
-                            .thenComparingLong(ExpenseCategory::getId))
-                    .toList();
-        }
-        @Override public ExpenseCategory find(long familyId, long id) { return byId.get(id); }
-        @Override public int rename(ExpenseCategory c) {
-            ExpenseCategory e = byId.get(c.getId());
-            if (e == null || e.getSystemCode() != null) return 0;
-            e.setName(c.getName()); e.setSortOrder(c.getSortOrder()); return 1;
-        }
-        @Override public int setArchived(long familyId, long id, boolean a) {
-            ExpenseCategory e = byId.get(id);
-            if (e == null || e.getSystemCode() != null) return 0;
-            e.setArchivedAt(a ? java.time.LocalDateTime.now() : null); return 1;
-        }
-        @Override public int setArchivedByParent(long familyId, long parentId, boolean a) {
-            byId.values().stream().filter(c -> parentId == (c.getParentId() == null ? -1L : c.getParentId()))
-                    .filter(c -> c.getSystemCode() == null)
-                    .forEach(c -> c.setArchivedAt(a ? java.time.LocalDateTime.now() : null));
-            return 1;
-        }
-        @Override public int delete(long familyId, long id) {
-            ExpenseCategory e = byId.get(id);
-            if (e == null || e.getSystemCode() != null) return 0;
-            byId.remove(id); return 1;
-        }
-        @Override public int deleteChildren(long familyId, long parentId) {
-            var ids = byId.values().stream()
-                    .filter(c -> parentId == (c.getParentId() == null ? -1L : c.getParentId()))
-                    .map(ExpenseCategory::getId).toList();
-            ids.forEach(byId::remove); return ids.size();
-        }
-        @Override public int countByFamily(long familyId) { return byId.size(); }
-        @Override public ExpenseCategory findBySystemCode(long familyId, String code) {
-            return byId.values().stream().filter(c -> code.equals(c.getSystemCode())).findFirst().orElse(null);
-        }
-    }
-
-    static class FakeBatchMapper implements ExpenseImportBatchMapper {
-        final Map<Long, ExpenseImportBatch> byId = new LinkedHashMap<>();
-        final AtomicLong seq = new AtomicLong(1);
-        @Override public int insert(ExpenseImportBatch b) {
-            b.setId(seq.getAndIncrement()); byId.put(b.getId(), b); return 1;
-        }
-        @Override public List<ExpenseImportBatch> findLiveByPeriod(long familyId, long periodId) {
-            return byId.values().stream()
-                    .filter(b -> b.getPeriodId() == periodId && b.getRevokedAt() == null).toList();
-        }
-        @Override public ExpenseImportBatch findLive(long familyId, long periodId, long memberId, String channel) {
-            return byId.values().stream()
-                    .filter(b -> b.getPeriodId() == periodId && b.getMemberId() == memberId
-                            && b.getChannel().name().equals(channel) && b.getRevokedAt() == null)
-                    .reduce((a, b) -> b).orElse(null);
-        }
-        @Override public ExpenseImportBatch find(long familyId, long id) { return byId.get(id); }
-        @Override public int revoke(long familyId, long id) {
-            ExpenseImportBatch b = byId.get(id);
-            if (b == null || b.getRevokedAt() != null) return 0;
-            b.setRevokedAt(java.time.LocalDateTime.now()); return 1;
-        }
-    }
-
-    /**
-     * PMC 用 mock 而不是手写假实现 —— 这个接口有十几个聚合方法,
-     * 而这里只关心两件事:写进去的支出值是多少、有没有误用那条会抹掉收入的整行 upsert。
-     */
-    static class FakePmc {
-        BigDecimal expense;
-        boolean incomeTouched = false;
-
-        PeriodMemberCashflowMapper asMapper() {
-            PeriodMemberCashflowMapper m = org.mockito.Mockito.mock(PeriodMemberCashflowMapper.class);
-            org.mockito.Mockito.doAnswer(inv -> {
-                expense = inv.getArgument(3);
-                return 1;
-            }).when(m).upsertExpenseOnly(org.mockito.ArgumentMatchers.anyLong(),
-                    org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
-                    org.mockito.ArgumentMatchers.any());
-            org.mockito.Mockito.doAnswer(inv -> {
-                incomeTouched = true;   // 走到这里就是错的:那条 upsert 是整行覆盖,会把收入抹成 null
-                return 1;
-            }).when(m).upsert(org.mockito.ArgumentMatchers.any());
-            return m;
-        }
-    }
+    // 假 mapper 在 ExpenseFakes(三个测试类共用)
 
     @BeforeEach
     void setUp() {
-        splits = new FakeSplitMapper();
-        var cats = new FakeCategoryMapper();
-        var batches = new FakeBatchMapper();
-        pmc = new FakePmc();
+        splits = new ExpenseFakes.FakeSplitMapper();
+        var cats = new ExpenseFakes.FakeCategoryMapper();
+        var batches = new ExpenseFakes.FakeBatchMapper();
+        pmc = new ExpenseFakes.FakePmc();
         var catSvc = new ExpenseCategoryService(cats, splits);
         svc = new ExpenseSplitService(splits, cats, batches, pmc.asMapper(), catSvc);
 
@@ -305,11 +152,11 @@ class ExpenseSplitServiceTest {
     @Test
     @DisplayName("记在大类上的钱在 rollup 里显示为「未细分」,不是丢掉")
     void unsplitShowsAsLeaf() {
-        var cats = new FakeCategoryMapper();
+        var cats = new ExpenseFakes.FakeCategoryMapper();
         var catSvc = new ExpenseCategoryService(cats, splits);
         long top = catSvc.create(FAM, null, "餐饮美食").getId();
         long kid = catSvc.create(FAM, top, "外卖").getId();
-        var svc2 = new ExpenseSplitService(splits, cats, new FakeBatchMapper(), pmc.asMapper(), catSvc);
+        var svc2 = new ExpenseSplitService(splits, cats, new ExpenseFakes.FakeBatchMapper(), pmc.asMapper(), catSvc);
 
         svc2.saveManual(FAM, PERIOD, ME, Map.of(top, y("500"), kid, y("300")));
         var roll = svc2.rollup(FAM, PERIOD);

@@ -21,19 +21,19 @@ class ExpenseCategoryTreeTest {
 
     private static final long FAM = 1L, PERIOD = 100L, ME = 7L;
 
-    private ExpenseSplitServiceTest.FakeSplitMapper splits;
-    private ExpenseSplitServiceTest.FakeCategoryMapper cats;
+    private ExpenseFakes.FakeSplitMapper splits;
+    private ExpenseFakes.FakeCategoryMapper cats;
     private ExpenseCategoryService svc;
     private ExpenseSplitService split;
 
     @BeforeEach
     void setUp() {
-        splits = new ExpenseSplitServiceTest.FakeSplitMapper();
-        cats = new ExpenseSplitServiceTest.FakeCategoryMapper();
+        splits = new ExpenseFakes.FakeSplitMapper();
+        cats = new ExpenseFakes.FakeCategoryMapper();
         svc = new ExpenseCategoryService(cats, splits);
         split = new ExpenseSplitService(splits, cats,
-                new ExpenseSplitServiceTest.FakeBatchMapper(),
-                new ExpenseSplitServiceTest.FakePmc().asMapper(), svc);
+                new ExpenseFakes.FakeBatchMapper(),
+                new ExpenseFakes.FakePmc().asMapper(), svc);
     }
 
     private static BigDecimal y(String s) { return new BigDecimal(s); }
@@ -43,9 +43,9 @@ class ExpenseCategoryTreeTest {
     @Test
     @DisplayName("【兼容地基】简单版与复杂版的一级完全相同 —— 映射就是父子边,不需要映射表")
     void bothDepthsShareTheSameTopLevel() {
-        var simple = new ExpenseSplitServiceTest.FakeCategoryMapper();
+        var simple = new ExpenseFakes.FakeCategoryMapper();
         new ExpenseCategoryService(simple, splits).seed(FAM, false);
-        var deep = new ExpenseSplitServiceTest.FakeCategoryMapper();
+        var deep = new ExpenseFakes.FakeCategoryMapper();
         new ExpenseCategoryService(deep, splits).seed(FAM, true);
 
         var simpleTops = simple.byId.values().stream().filter(c -> c.isTopLevel())
@@ -274,5 +274,45 @@ class ExpenseCategoryTreeTest {
         svc.delete(FAM, kid);
         assertThat(catTotal(top)).as("支付宝那 700 也要搬到父级").isEqualByComparingTo("700");
         assertThat(splits.sumByFamily(FAM)).isEqualByComparingTo("700");
+    }
+
+    // ─────────────── 「钱在账上,页面上必须有它的框」 ───────────────
+
+    @Test
+    @DisplayName("【踩过的坑】复杂深度下,钱记在大类上时填报表单也要显示它 —— 否则看不见也改不了")
+    void unsplitTopLevelStillGetsAnInputBox() {
+        long top = svc.create(FAM, null, "餐饮美食").getId();
+        svc.create(FAM, top, "外卖");                       // 有细类 → 复杂深度下 fillable 里没有 top
+        long other = svc.ensureOther(FAM).getId();
+
+        assertThat(svc.fillable(FAM, true)).extracting("name")
+                .as("复杂深度的可填清单本来只有细类")
+                .containsExactly("外卖", "其他");
+
+        // 导入把钱落在了【大类】上(渠道分类名就是大类粒度)
+        split.applyBatch(FAM, PERIOD, ME, ME, ExpenseSource.ALIPAY, Map.of(top, y("1325")), 2);
+
+        assertThat(svc.fillableWith(FAM, true, split.cells(PERIOD, ME).keySet()))
+                .extracting("name")
+                .as("有钱的大类必须露出来 —— 钱在账上却没有输入框,是最让人不安的状态")
+                .contains("餐饮美食");
+        assertThat(svc.isUnsplit(FAM, cats.byId.get(top), true))
+                .as("它要被标成「未细分」,不然用户以为多了个同名类目")
+                .isTrue();
+        assertThat(svc.isUnsplit(FAM, cats.byId.get(other), true))
+                .as("「其他」没有细类,不算未细分")
+                .isFalse();
+    }
+
+    @Test
+    @DisplayName("停用的类目上还有钱时,也要在表单里露出来(否则那笔钱永远改不了)")
+    void archivedCategoryWithMoneyStillShows() {
+        long c = svc.create(FAM, null, "宠物").getId();
+        split.saveManual(FAM, PERIOD, ME, Map.of(c, y("120")));
+        svc.setArchived(FAM, c, true);
+
+        assertThat(svc.fillable(FAM, false)).extracting("name").doesNotContain("宠物");
+        assertThat(svc.fillableWith(FAM, false, split.cells(PERIOD, ME).keySet()))
+                .extracting("name").contains("宠物");
     }
 }
