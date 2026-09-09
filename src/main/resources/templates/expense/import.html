@@ -137,10 +137,18 @@
         <p class="font-mono text-[9px] text-ink-subtle mb-3">
           我们不猜渠道 —— 两家格式很像,猜错会把微信的交易类型当成消费分类,而这个错很难被发现。
         </p>
-        <label class="block mb-3">
+        <!--/* 文件选择器套项目样式(照 holdingimport/import.html 的 dropZone 那份):
+               原生 <input type=file> 会在整页衬线 + 米色的排版里露出一个灰色系统按钮,
+               突兀得像另一个网站的控件。隐藏原生件、点外壳代触发,是全站既有的做法。 */-->
+        <div class="mb-3">
           <span class="block text-[11.5px] text-ink-soft mb-1">文件(csv,或渠道发来的加密 zip)</span>
-          <input type="file" name="file" accept=".csv,.txt,.zip" required class="text-[12px]">
-        </label>
+          <input id="csvFile" type="file" name="file" accept=".csv,.txt,.zip" required class="hidden">
+          <div class="border-2 border-dashed border-rule p-4 text-center cursor-pointer hover:bg-card-soft"
+               onclick="document.getElementById('csvFile').click()">
+            <div class="font-display text-[15px] text-ink-soft">＋ 选择账单文件</div>
+            <div id="csvName" class="font-mono text-[10px] text-ink-subtle mt-1">还没选 · csv 或加密 zip 都行</div>
+          </div>
+        </div>
         <label class="block mb-4">
           <span class="block text-[11.5px] text-ink-soft mb-1">zip 解压密码(直接传 csv 就不用填)</span>
           <input type="password" name="zipPassword" autocomplete="off" class="field-input" style="max-width:200px">
@@ -161,13 +169,39 @@
       <form th:if="${shotAvailable}" th:action="@{/expense/import/shots}" method="post" enctype="multipart/form-data">
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
         <input type="hidden" name="periodId" th:value="${period.id}">
-        <input type="file" name="files" multiple accept="image/*,.zip" required class="text-[12px] mb-3 block">
+        <input id="shotFiles" type="file" name="files" multiple accept="image/*,.zip" required class="hidden">
+        <div class="border-2 border-dashed border-rule p-4 text-center cursor-pointer hover:bg-card-soft mb-3"
+             onclick="document.getElementById('shotFiles').click()">
+          <div class="font-display text-[15px] text-ink-soft">＋ 选择 / 拍摄统计页截图</div>
+          <div id="shotName" class="font-mono text-[10px] text-ink-subtle mt-1">可多选 · 也能直接传一个 zip</div>
+        </div>
         <button type="submit" class="btn-ink text-sm">转写</button>
       </form>
       <div th:unless="${shotAvailable}">
         <p class="text-[12px] text-rust mb-2" th:text="${shotReason}">还没配视觉 key。</p>
         <a th:href="@{/admin/ai-access}" class="btn-ghost text-sm no-underline">去配</a>
       </div>
+      <!--/* 选了文件就把文件名写回外壳 —— 隐藏原生件之后,「我到底选上了没」是唯一会丢的反馈。
+
+             `th:inline="none"` 是必须的:JS 里的**嵌套数组字面量** `[['a','b'], …]` 一上来就是 `[[`,
+             而 `[[…]]` 正是 Thymeleaf 的内联表达式标记 —— 它会拿去当表达式解析,**渲染期**才炸,
+             而且是在响应头发出之后炸,于是页面被截断成**一片空白**、连错误页都没有。
+             更坑的是 `curl` 看着完全正常(200 + 73KB,标记都在):chunked 的终止符 curl 不校验,
+             只有真浏览器会报 ERR_INCOMPLETE_CHUNKED_ENCODING。这一条是双端截图抓到的,不是接口测试。 */-->
+      <script th:inline="none">
+        (function () {
+          [['csvFile', 'csvName'], ['shotFiles', 'shotName']].forEach(function (p) {
+            var inp = document.getElementById(p[0]), out = document.getElementById(p[1]);
+            if (!inp || !out) return;
+            inp.addEventListener('change', function () {
+              var n = inp.files.length;
+              out.textContent = n === 0 ? out.textContent
+                              : n === 1 ? inp.files[0].name
+                              : '已选 ' + n + ' 个文件';
+            });
+          });
+        })();
+      </script>
     </div>
   </div>
 

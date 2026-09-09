@@ -8600,6 +8600,17 @@ QA1202_MA="$RD/src/main/java/com/family/finance/service/ask/runtime/ManagedAgent
   && log_ok "v1210-THYMELEAF-UTILITY-IN-DOLLAR(模板里的 #lists/#numbers 都在 \${} 内)" \
   || log_bad "v1210-THYMELEAF-UTILITY-IN-DOLLAR 有 utility 写在 \${} 外面:$(cd "$RD" && python3 scripts/lint/thymeleaf-utility-scope.py | tail -n +2 | head -3 | tr '\n' ' ')" "渲染期才炸,响应截断在半路 —— 编译/单测/启动全都发现不了"
 
+# v1210-NO-JS-INLINE-COLLISION · <script> 里的 JS 字面量不许撞上 Thymeleaf 内联标记。
+#   `[[...]]` / `[(...)]` 是 Thymeleaf 的表达式标记,而 JS 的**嵌套数组** `[['a','b'], ...]`
+#   恰好以 `[[` 开头 → 被当表达式解析 → 【渲染期】在响应头发出之后炸 →
+#   页面被截断成**一片空白**,连错误页都没有(v1.21 账单导入页在 beta 上就是这样)。
+#   为什么必须机器扫:**curl 也过** —— 200、完整字节数、内容 grep 得到,
+#   因为 curl 不校验 chunked 终止符;只有真浏览器报 ERR_INCOMPLETE_CHUNKED_ENCODING。
+#   这一条是双端截图抓到的,不是接口测试 —— 「curl 200 就算验过」在这类问题上是假绿。
+{ [ "$(cd "$RD" && python3 scripts/lint/thymeleaf-inline-collision.py | head -1)" = "CLEAN" ]; } \
+  && log_ok "v1210-NO-JS-INLINE-COLLISION(<script> 里没有撞内联标记的 JS 字面量)" \
+  || log_bad "v1210-NO-JS-INLINE-COLLISION 有 JS 字面量撞内联标记:$(cd "$RD" && python3 scripts/lint/thymeleaf-inline-collision.py | tail -n +2 | head -3 | tr '\n' ' ')" "渲染期截断响应成空白页,curl 200 也看不出来 —— 加 th:inline=\"none\""
+
 # ═══════════════ v1.21 · 自定义支出分类 ═══════════════
 
 QA121_LEDGER="$RD/src/main/java/com/family/finance/service/expense/ExpenseLedgerService.java"

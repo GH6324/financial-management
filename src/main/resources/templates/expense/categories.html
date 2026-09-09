@@ -110,7 +110,10 @@
       </form>
       <span class="text-[11.5px] text-ink-subtle">切换只改「以后怎么填」—— 已填的历史一行不动,报表始终按大类聚合。</span>
       <span style="flex:1"></span>
-      <span class="font-mono text-[10px] text-ink-subtle" th:text="${total} + ' / ' + ${maxTotal}">6 / 40</span>
+      <!--/* 写全「已建 N 个 · 上限 M」—— 原来是裸的「6 / 40」,右上角一个没有标签的分数,
+             除了写它的人没人知道分母是什么。 */-->
+      <span class="font-mono text-[10px] text-ink-subtle"
+            th:text="'已建 ' + ${total} + ' 个 · 上限 ' + ${maxTotal}">已建 6 个 · 上限 40</span>
     </div>
 
     <div class="paper-card">
@@ -150,7 +153,9 @@
              th:classappend="${k.archived} ? 'opacity-50' : ''">
           <span class="text-[13px] text-ink-soft" th:text="'▸ ' + ${k.name}">▸ 外卖</span>
           <span th:if="${k.archived}" class="pill text-[9px]">已停用</span>
-          <span class="font-mono text-[10px] text-ink-subtle" th:text="'细类 · 挂在' + ${e.key.name} + '下'">细类</span>
+          <!--/* 只写「细类」,不写「挂在 X 下」—— 缩进 + 左侧竖线已经把归属说清了,
+                 每行再重复一遍父类名是纯噪音,手机上还把这一行挤得快溢出。 */-->
+          <span class="font-mono text-[10px] text-ink-subtle">细类</span>
           <span style="flex:1"></span>
           <button type="button" class="font-mono text-[10px] text-ink-subtle hover:underline bg-transparent border-0 cursor-pointer"
                   th:attr="data-rename=${k.id},data-name=${k.name}" onclick="openRename(this)">改名</button>

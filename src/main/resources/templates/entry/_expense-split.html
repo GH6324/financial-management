@@ -54,11 +54,11 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
         <div th:each="c : ${splitCategories}" class="py-1.5 border-b border-rule-soft/60">
           <label class="flex items-center gap-3 flex-wrap">
-            <!--/* 复杂深度下,钱记在大类上时标「未细分」—— 它不是一个真类目,
-                   是「记在大类上的钱」的叫法。不标的话用户会以为多了个同名类目。 */-->
-            <span class="text-[12.5px]" style="min-width:6.5em"
-                  th:text="${splitUnsplitIds != null and splitUnsplitIds.contains(c.id)
-                            ? c.name + ' · 未细分' : c.name}">餐饮美食</span>
+            <!--/* 标签宽度是**固定**的(flex:0 0),不是 min-width ——
+                   min-width 时标签一长就把输入框往右推,于是同一列的框左边缘参差不齐。
+                   实测:「餐饮美食 · 未细分」那几行的框比「加油停车」整体右移了约 36px,
+                   双端截图上是一条很明显的锯齿边。并列同类元素必须同尺寸同位置。 */-->
+            <span class="text-[12.5px]" style="flex:0 0 6.5em" th:text="${c.name}">餐饮美食</span>
             <input type="number" step="0.01" min="0" max="99999999"
                    th:name="'cat_' + ${c.id}"
                    th:value="${splitCells != null and splitCells.get(c.id) != null
@@ -66,6 +66,12 @@
                    th:placeholder="${splitPrev != null and splitPrev.get(c.id) != null
                               ? '上月 ¥' + #numbers.formatInteger(splitPrev.get(c.id), 0, 'COMMA') : '0'}"
                    class="w-32 h-9 font-mono text-[13px] bg-paper border border-rule px-2 tnum text-right">
+            <!--/* 「未细分」挪到框**后面**当角标(原来拼在标签文字里,把框推歪了)。
+                   它不是一个真类目,是「钱记在大类上」的叫法 —— 不标的话用户会以为
+                   细类深度下凭空多了个同名类目。 */-->
+            <span th:if="${splitUnsplitIds != null and splitUnsplitIds.contains(c.id)}"
+                  class="font-mono text-[9px] text-ink-subtle"
+                  title="这笔钱记在大类上,还没落到某个细类。改这个框就是改大类那一份。">未细分</span>
             <span th:if="${c.isOther()}" class="font-mono text-[9px] text-ink-subtle">懒得拆的塞这里</span>
           </label>
           <!--/* 来源构成角标 —— 让用户知道这个数是谁给的,以及「改这个框改的是手工那一份」。
