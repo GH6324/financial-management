@@ -163,8 +163,8 @@
   <!-- ═══ 二 · 类目管理 ═══ -->
   <div class="zone">
     <div class="zone-head">
-      <span class="zone-no">三</span><span class="zone-t">类目管理 · 起步包与生老病死</span>
-      <span class="zone-sub">FR-500~508 · 「其他」是基石不可动 · 删除转「其他」(支付宝同款语义,提交者点名)</span>
+      <span class="zone-no">三</span><span class="zone-t">类目管理 · 两个深度的同一棵树</span>
+      <span class="zone-sub">FR-500~509c · 简单版/复杂版=同一棵树的两个深度 · 删细类转父级 · 删大类转「其他」</span>
     </div>
     <div class="zone-line"></div>
 
@@ -173,21 +173,41 @@
         <div class="eyebrow">支出类目 · 6 个(上限 20)</div>
         <span style="font-size:12px;border:1px solid var(--ink);padding:4px 12px;cursor:pointer">+ 新建类目</span>
       </div>
-      <div style="border:1px dashed var(--brass-deep);padding:10px 14px;margin-bottom:10px;font-size:12px;line-height:1.7">
-        <b>一键起步包(空类目态显示)</b>:餐饮美食 · 日用百货 · 服饰装扮 · 数码电器 · 交通出行 · 住房物业 · 医疗健康 · 教育培训 · 文化休闲 · 充值缴费<br>
-        <span class="fhint">刻意与支付宝账单「交易分类」同名 —— 导入零映射、抄单零翻译(调研见 PRD §1.1)· 只是起点,随便改</span>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div style="border:1px solid var(--rule);padding:12px 14px;font-size:12px;line-height:1.7">
+          <b>简单版 · 10 个大类</b><br>
+          餐饮美食 · 日用百货 · 服饰装扮 · 数码电器 · 交通出行 · 住房物业 · 医疗健康 · 教育培训 · 文化休闲 · 充值缴费<br>
+          <span class="badge ok">维护容易 · 月底抄数快</span>
+        </div>
+        <div style="border:1px solid var(--brass-deep);padding:12px 14px;font-size:12px;line-height:1.7">
+          <b>复杂版 · 同 10 个大类 + 细类(~30 项)</b><br>
+          餐饮美食<span class="fhint"> ▸ 三餐 · 外卖 · 饮品零食 · 聚餐请客</span><br>
+          交通出行<span class="fhint"> ▸ 公共交通 · 打车 · 加油停车 · 火车机票</span><br>
+          文化休闲<span class="fhint"> ▸ 旅游酒店 · 影音演出 · 运动健身 …</span><br>
+          <span class="badge">录入多一点 · 分析更准</span>
+        </div>
       </div>
-      <div class="catrow"><span style="width:6.5em">餐饮</span><span class="fhint">近 12 期有数据</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用</span></div>
-      <div class="catrow"><span style="width:6.5em">购物</span><span class="fhint">近 12 期有数据</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用</span></div>
-      <div class="catrow"><span style="width:6.5em">交通</span><span class="fhint">近 12 期有数据</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用</span></div>
-      <div class="catrow"><span style="width:6.5em">运动</span><span class="fhint">近 3 期有数据</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用</span></div>
+      <div style="border:1px dashed var(--brass-deep);padding:10px 14px;margin-bottom:10px;font-size:12px;line-height:1.8">
+        <b>不是两棵树,是同一棵树的两个深度</b> —— 复杂版的大类与简单版完全相同,
+        「两版互相映射」不需要映射表:<b>映射就是父子边</b>,永不漂移。所以随时可换:<br>
+        <span class="fhint">复杂 → 简单:历史细类保留不动,报表按大类聚合(合计无损),以后按大类填</span><br>
+        <span class="fhint">简单 → 复杂:历史显示为「大类 · 未细分」,以后按细类填 —— 没有精度可损</span><br>
+        <span class="fhint">一级与支付宝账单同名(导入零映射、抄单零翻译)· 层级封顶二级 · 总数上限 40</span>
+      </div>
+      <div class="catrow"><span style="width:6.5em">餐饮美食</span><span class="fhint">大类 · 近 12 期有数据 · 下有 4 个细类</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用</span></div>
+      <div class="catrow" style="padding-left:1.6em"><span style="width:6.5em;color:var(--ink-soft)">▸ 外卖</span><span class="fhint">细类 · 挂在餐饮美食下</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用 · <span style="color:var(--rust)">删除…</span></span></div>
+      <div class="catrow"><span style="width:6.5em">日用百货</span><span class="fhint">大类 · 近 12 期有数据</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用</span></div>
+      <div class="catrow"><span style="width:6.5em">交通出行</span><span class="fhint">大类 · 近 12 期有数据</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用</span></div>
+      <div class="catrow"><span style="width:6.5em">文化休闲</span><span class="fhint">大类 · 近 3 期有数据</span><span style="margin-left:auto;font-size:11px;color:var(--ink-subtle)">改名 · 停用</span></div>
       <div class="catrow"><span style="width:6.5em;color:var(--ink-subtle)">宠物 <span class="badge">已停用</span></span><span class="fhint">历史月份照旧显示 · 新月份不再出现</span><span style="margin-left:auto;font-size:11px;color:var(--rust)">删除…</span></div>
       <div class="catrow"><span style="width:6.5em">其他 <span class="badge ok">内置</span></span><span class="fhint">兜底项 · 不可删 / 不可停用 / 不可改名</span></div>
 
       <div style="border-left:3px solid var(--rust);background:rgba(156,74,42,.05);padding:10px 14px;margin-top:14px;font-size:12px;line-height:1.7">
-        <b>删除「宠物」?</b>它名下 <b>7 期、共 7 条</b>记录会转入「其他」。<br>
-        历史合计一分不变,变的只是名字。这一步不可逆。<br>
-        <span class="mono" style="font-size:10px">[ 转入「其他」并删除 ]&nbsp;&nbsp;[ 算了 ]</span>
+        <b>删除语义按树走(比一律转「其他」更精确):</b><br>
+        删细类「外卖」→ 它名下 <b>5 期</b>记录转入父级<b>「餐饮美食 · 未细分」</b> —— 大类合计一分不变;<br>
+        删大类「宠物」(连带细类)→ 记录转入<b>「其他」</b>(最终兜底,支付宝记账本同款,提交者点名接受)。<br>
+        两种都会先告知动多少期数据,不可逆。
+        <span class="mono" style="font-size:10px">[ 确认 ]&nbsp;&nbsp;[ 算了 ]</span>
       </div>
     </div>
     <p class="note" style="margin-top:8px;max-width:620px">
@@ -223,7 +243,7 @@
             <span><i class="dot" style="background:#8a7a4f"></i>运动 ¥450</span>
             <span><i class="dot" style="background:#9a938a"></i>其他 ¥5,710</span>
           </div>
-          <div class="fhint" style="margin-top:8px">数字直接标在图上(项目铁律)· 金额来自分类填报</div>
+          <div class="fhint" style="margin-top:8px">数字直接标在图上(项目铁律)· 金额来自分类填报 · 报表默认按大类;复杂深度可点大类下钻到细类(「未细分」如实显示为一块)</div>
         </div>
         <div>
           <div style="font-size:13px;font-weight:600;margin-bottom:8px">年度累计 · 2026(1-9 月)</div>
