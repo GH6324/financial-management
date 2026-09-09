@@ -49,6 +49,29 @@ public interface PeriodMemberCashflowMapper {
     int upsert(PeriodMemberCashflow row);
 
     /**
+     * v1.21 · <b>只写支出、绝不碰收入</b>。
+     *
+     * <p>为什么不能复用上面的 {@link #upsert}:它的 ON DUPLICATE 分支写的是
+     * {@code total_income_input = VALUES(total_income_input)} —— 只传 expense 的话,
+     * <b>收入会被抹成 NULL</b>。而分类填报只该动支出这一列。
+     *
+     * <p>这是 TDD 的「待实测 3」实测出来的结果,不是猜的:读了 SQL 才发现那条 upsert
+     * 是「整行覆盖」语义。如果当时直接复用,用户展开一次分类填报就会把当月收入清空 ——
+     * 而页面上不会有任何报错。</p>
+     */
+    @Insert("""
+            INSERT INTO period_member_cashflow
+                (family_id, period_id, member_id, total_expense_input)
+            VALUES
+                (#{familyId}, #{periodId}, #{memberId}, #{expense})
+            ON DUPLICATE KEY UPDATE
+                total_expense_input = VALUES(total_expense_input)
+            """)
+    int upsertExpenseOnly(@Param("familyId") long familyId, @Param("periodId") long periodId,
+                          @Param("memberId") long memberId,
+                          @Param("expense") java.math.BigDecimal expense);
+
+    /**
      * 家庭级聚合 · SUM 跨成员 · 给"近 N 期收入/支出总和"用。
      * 一期一行 · 任一成员 NOT NULL 即返回该期(NULL 视为 0)。
      */
