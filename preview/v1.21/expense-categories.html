@@ -64,29 +64,36 @@
   <div class="zone">
     <div class="zone-head">
       <span class="zone-no">一</span><span class="zone-t">数怎么进来 · 三条通道一个出口</span>
-      <span class="zone-sub">FR-530~545 · 逐渠道调研过导出路径与格式(PRD §1.2)</span>
+      <span class="zone-sub">FR-530~545 · 渠道档案(交互/产物/截图页)+ 来源行合并模型(PRD §1.2 / §1.2b)</span>
     </div>
     <div class="zone-line"></div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
-      <div class="card">
-        <div class="eyebrow" style="margin-bottom:8px">① 手抄 <span class="badge ok">零依赖</span></div>
-        <div class="note">照各 APP 账单抄 5-10 个数。任何渠道、永远可用。上月金额垫底作参照。</div>
-      </div>
+    <div class="note" style="margin-bottom:10px">三条通道:<b>① 手抄</b>(照账单抄数,零依赖)· <b>② 文件导入</b>(支付宝/微信)· <b>③ AI 截图</b>(任何渠道的统计页,qwen-vl 只转写不算数)。下面是<b>渠道档案</b>(逐步路径将来原样进导入页指引,页脚标核对日期 + 失效反馈):</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div class="card" style="border-color:var(--brass-deep)">
-        <div class="eyebrow" style="margin-bottom:8px">② 文件导入 <span class="badge ok">秒级</span></div>
-        <div class="note">
-          <b>支付宝</b>:账单 → 开具交易流水证明 → <b>用于个人对账</b> → 邮箱收 zip(密码在开具记录里)· 最长 1 年 · CSV <b>自带「交易分类」列</b><br>
-          <b>微信</b>:钱包 → 账单 → 下载账单 → <b>用于个人对账</b> → zip(密码走公众号推送)· 一次最多 3 个月 · <b>无分类列</b> → 商户关键字映射<br>
-          <span class="fhint">zip 直传 + 密码框,或自己解压传 csv · GBK/说明头引擎兜 · 「证明材料」PDF 会被识别并指回正确路径</span>
+        <div class="eyebrow" style="margin-bottom:8px">渠道档案 · 支付宝 <span class="badge ok">文件 + 截图</span></div>
+        <div class="note" style="line-height:2">
+          <b>文件导出(逐步)</b>:我的 → 账单 → 右上「···」→ <b>开具交易流水证明</b> → 选「<b>用于个人对账</b>」(⚠ 别选证明材料,那是盖章 PDF)→ 支付密码 → 范围<b>最长 1 年</b> · <b>勾选「展示交易对手/商品说明」</b> → 填邮箱 → 密码走「支付宝服务消息」推送(开具记录里也能查)<br>
+          <b>产物</b>:zip(加密)→ csv · <b>GBK</b> · 前 ~24 行说明(按表头特征定位不写死)· 12 列含<b>「交易分类」「收/支」「交易状态」</b> · 金额可能带 ¥ 和千分逗号<br>
+          <b>解析口径</b>:只取「支出」· 退款按同分类净额轧抵 · 转账红包/投资理财/保险进<b>中性清单</b>(确认页可改)<br>
+          <b>截图目标页</b>:我的 → 账单 → <b>月账单</b>(分类统计,可切按年)
         </div>
       </div>
-      <div class="card">
-        <div class="eyebrow" style="margin-bottom:8px">③ AI 截图导入 <span class="badge">要视觉 key</span></div>
-        <div class="note">
-          拍各渠道的<b>月度分类统计页</b>(支付宝月账单 / 微信账单统计 / <b>银行 App 收支页</b>),多张或打包 zip 一起传。
-          qwen-vl <b>只转写「类目名+金额」,不做数学</b>(v1.4 同款纪律)。<br>
-          <span class="fhint">银行第一期只走这条 —— 各行文件格式不一,没有真实样本不写解析器</span>
+      <div class="card" style="border-color:var(--brass-deep)">
+        <div class="eyebrow" style="margin-bottom:8px">渠道档案 · 微信 <span class="badge ok">文件 + 截图</span></div>
+        <div class="note" style="line-height:2">
+          <b>文件导出(逐步)</b>:我 → 服务 → 钱包(老版:我 → 支付 → 钱包)→ 右上「账单」→ 等加载完 → 「常见问题」→ <b>下载账单</b> → 「<b>用于个人对账</b>」→ 范围<b>一次最多 3 个月</b>(整年分 4 次)→ 邮箱 + 支付密码 → <b>密码在「微信支付」通知里,先记密码再去邮箱</b><br>
+          <b>产物</b>:zip(加密)→ csv · <b>UTF-8</b>(与支付宝不同,引擎自动分流)· 前 ~16 行说明 · 11 列,<b>没有消费分类列</b>(交易类型只有商户消费/转账/红包)<br>
+          <b>解析口径</b>:只取「支出」· 零钱充值/提现/理财通/还卡进中性清单 · <b>商户关键字 → 类目</b>(规则可编辑记忆化,不命中落「其他」)<br>
+          <b>截图目标页</b>:钱包 → 账单 → 右上<b>「统计」</b>(月账单收支构成,可切年)
+        </div>
+      </div>
+      <div class="card" style="grid-column:1 / -1">
+        <div class="eyebrow" style="margin-bottom:8px">渠道档案 · 招商银行 / 工商银行 <span class="badge">第一期只走截图</span></div>
+        <div class="note" style="line-height:2">
+          <b>截图目标页</b>:招行 App 首页「<b>收支明细</b> / 月账单 · 结余月历」(自带四十余种场景分类);工行 App 收支统计页同理。<br>
+          <b>文件路径(记录在案,暂不接)</b>:招行 App「流水打印」= PDF,结构化要走网银导 Excel;工行 App「历史明细打印」/ 网银导 csv —— 各行格式不一,<b>等真实样本再写解析器</b>,不瞎写。<br>
+          <b style="color:var(--rust)">双计警示</b>:银行流水必然含走支付宝/财付通的扣款 —— 已导支付宝/微信的家庭,银行侧只补「不走这两者的部分」(房贷/代扣/线下刷卡);将来接文件时默认过滤支付宝/财付通行。
         </div>
       </div>
     </div>
@@ -100,7 +107,16 @@
       <div class="catrow"><span class="fhint" style="width:5.5em">截图·招行</span><span style="width:7em">交通出行</span><span class="fhint">→ 交通出行</span><span class="mono" style="margin-left:auto;font-size:12px">¥860 <span class="badge">AI 转写</span></span></div>
       <div class="note" style="margin-top:8px">
         已剔除中性交易:还信用卡 ¥3,000 · 零钱提现 ¥500(清单可见可改)·
-        <b style="color:var(--rust)">本次将替换「2026-09 · 支付宝」旧批次</b> —— 同渠道同期重导=覆盖,不叠加
+        <b style="color:var(--rust)">本次将替换「2026-09 · 支付宝」旧批次:餐饮美食 2,180 → 2,340(+160)</b> ——
+        只换支付宝的来源行,<b>你的手工调整与微信批次纹丝不动</b>
+      </div>
+      <div style="border:1px dashed var(--rule);padding:10px 14px;margin-top:10px;font-size:12px;line-height:1.9">
+        <b>合并模型 · 来源行(手填 / 历史导入 / 新导入怎么共处)</b><br>
+        <span class="mono" style="font-size:11px">类目金额 = 手填行 + 支付宝行 + 微信行 + 截图·招行行</span><br>
+        · 重导渠道 X → <b>只替换 X 的行</b>,手填与他渠道不动(确认页显示差额)<br>
+        · 直接改类目金额 → 差额记<b>手填行</b>(可为负 = 冲正,显示「手工调整 −x」),导入行原样保留可审计<br>
+        · 手改之后再重导 → <b>手工修正永远不被导入冲掉</b>(手填是独立来源,不是渠道的从属)<br>
+        · 批次可查可撤:整批移除后其余来源自动回落 · 纯手抄用户 = 只有手填行,一切如常
       </div>
       <div class="fhint" style="margin-top:6px">双计提醒:银行卡流水里走支付宝/微信的部分两边都会出现 —— 银行渠道别重复导/抄</div>
     </div>
@@ -136,7 +152,8 @@
       <!-- 展开态(本版新增) -->
       <div style="border:1px solid var(--brass-deep);padding:12px">
         <div class="fhint" style="margin-bottom:6px;color:var(--brass-deep)">展开态(本版新增)· 上月金额垫在框里作参照</div>
-        <div class="frow"><span class="fname">餐饮</span><input class="fin" value="3,180"><span class="fhint">上月 ¥2,950</span></div>
+        <div class="frow" style="flex-wrap:wrap"><span class="fname">餐饮美食</span><input class="fin" value="3,180"><span class="fhint">上月 ¥2,950</span>
+          <span class="fhint" style="flex-basis:100%;padding-left:6.5em;margin-top:-2px">构成:支付宝 2,180 · 微信 1,000 · 手工 0 —— 直接改这个框 = 改手工行</span></div>
         <div class="frow"><span class="fname">购物</span><input class="fin" value="2,400"><span class="fhint">上月 ¥3,120</span></div>
         <div class="frow"><span class="fname">交通</span><input class="fin" value="860"><span class="fhint">上月 ¥790</span></div>
         <div class="frow"><span class="fname">运动</span><input class="fin" value="450"><span class="fhint">上月 ¥450</span></div>
