@@ -16,7 +16,12 @@
 
 **硬约束**:夫妻每月**异步、10 分钟内**完成全部录入。任何"更全面但要更频繁录入"的功能都要拒。颗粒度**永远停在账户级月度快照**,不做单券持仓明细。
 
-**刻意不做**(反例,别提议):逐笔流水账 / 定投提醒 / 预算包络 / 消费品类细化 / AA 账本 / 报销 / 券商 API 直连 / 银行账单 OCR / Docker 之外引入 K8s。
+**刻意不做**(反例,别提议):**逐笔流水账** / 定投提醒 / 预算包络 / AA 账本 / 报销 / 券商 API 直连 / 银行账单 OCR / Docker 之外引入 K8s。
+
+> v1.21 起「消费品类细化」**不再**在这张表里(issue #18 · 2026-09-09)。改的是这条边界的**位置**,不是取消它:
+> 分类做到「**月度按类目汇总**」为止 —— 一个类目一个月一个数,是月度总额的展开(合计自动写回总额),
+> **不是第三种记账方式**。再往下的**逐笔流水**仍然刻意不做,那才是 10 分钟月度约束真正的敌人。
+> 账单导入也是同一条线:导进来的是**按类目汇总后的数**,不是一笔笔流水。
 
 **恒等式(红线)**:`ΔNetWorth(M) = 人赚(净流入) + 钱赚(投资损益) + 开账基线(M)`
 
@@ -142,6 +147,7 @@
 | L10 · 敏感值不入公开库 | 写文档/脚本/配置涉及 IP / SSH / 域名后台 / 凭据 / 密钥 / 部署路径 / 邮箱 / **prod 真实金额(净资产 / 账户余额 / 收支)** 等 | **不进任何 tracked 文件**(仓库是公开开源库)· 具体值放 git-ignored `AGENTS.local.md` 或 Claude memory · 正文只留占位/通用说法 · 误提交后需**重写历史 + 强推**(`git filter-repo`)清除 | `vSEC-1`(扫 tracked 文件里 URL/SSH 上下文的公网 IP) |
 | L11 · 功能入口可见性 | **收纳 / 精简 / 去杂**类 UI 改动;或新增能力 | diff 里每个被移除/移动/塞进折叠容器的 `th:href` 逐个确认在别处仍**一眼可见**;新能力同时登记进 `scripts/entry-points.json`。判据见 `docs/entry-points.md`:能力入口必须 `obvious`,`⋯`/`details` 只放低频维护动作(归档/导出/恢复) | `v1623-ENTRY-VIS`(运行时·PC+移动)· `v15-ENTRY-1`(静态·券商不得落在 `row-more-pop` 里) |
 | L12 · 指标口径锚点 | 新增/修改任何指标,或改取数窗口 | 取数是 `账户 × 账期` 全交叉且**不过滤 `period.status`** → 进行中账期会成为「最后一期」。**存量类**(净资产/总资产/总负债/流动资产/环比)锚 `lastPeriodId`;**收益类**(本月资产收益/XIRR/TWR/YTD/人赚钱赚/储蓄率)必须走 `FactSlice.returnPeriodIds()`(最近 ≤12 个已关账期)。三条硬约束:① `openingBaselineLast` **必须仍锚 last**(否则「本期怎么变」卡的 ΔNW = 人赚 + 钱赚 + 开账基线 恒等式破掉);② 同名指标跨页必须取到**同一批账期**(各页窗口宽度本就不同:报表锚已关账期 / 仪表盘 −12 月 / 体检 −11 月);③ 换锚必须在**页面上显示口径期**并同步 tooltip —— 口径变了不说等于制造新困惑 | `v1630-CLOSED-ANCHOR` · `ClosedPeriodAnchorTest` |
+| L13 · 支出分类两级恒等式 | 动 `expense_split` 的写路径(手工填报 / 账单导入 / 截图 / 并回 / 删类目搬家),或改类目树深度 | **两级恒等式必须同时成立**:① `类目显示额 = Σ来源行`(同一格 MANUAL/ALIPAY/WECHAT/SHOT 四条来源行相加)· ② `PMC 月度总额 = Σ类目显示额`(`ExpenseSplitService.syncPmc`)。写路径**只能走 `ExpenseSplitService`** —— 它是唯一写者,别的地方直接 insert `expense_split` 会绕过 syncPmc,让报表与家庭大账对不上,而**页面上不会有任何报错**。另外三条:改支出**只能**用 `upsertExpenseOnly`(通用 `upsert` 是整行覆盖,会静默抹掉当月收入);搬家不能裸 UPDATE `category_id`(`uk_split` 会撞);表单渲染的类目 = 可填的 ∪ **本期已有钱的**(否则导入落在大类上的钱**在账上却没有输入框**) | `v1210-SPLIT-SINGLE-WRITER` · `v1210-PMC-EXPENSE-ONLY` · `ExpenseSplitServiceTest` · `ExpenseCategoryTreeTest` |
 
 | L13 · 封板快照定格性 | 报表页一区/二区加任何指标 | 只能经 `SealedPeriodService`(签名里**没有 range**,传不进去)· 前两区在不同 range 下渲染必须**逐字相同** | `v110-SEALED-SINGLE-ENTRY` / `v110-SNAPSHOT-RANGE-INVARIANT` |
 | L14 · 归档的时间语义 | 任何按 `archived_at` 过滤事实的 SQL | 必须 `archived_at IS NULL OR archived_at > p.period_end` —— 裸 `IS NULL` 会让归档动作**抹掉该账户全部历史**,一个整理动作改写去年的报表 | `v110-ARCHIVED-TIME` |

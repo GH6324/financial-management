@@ -1,0 +1,124 @@
+<!--/*
+  v1.21 · 支出构成(分类填报口径)。
+
+  与旁边的 `_expense-mix` 是两个区,不是一个 —— 它读逐笔(cash_flow + 全局 cash_flow_category),
+  这里读分类填报(expense_split + 家庭自定义树)。两套类目体系没有公共键,
+  硬合成一张图需要先统一它们,而那是 ITEMIZED 侧的联动链(TDD §十 已定第一期不接)。
+  所以各占一区、各自标明来源 —— 比合出一张来源含糊的图诚实。
+
+  零影响:整块挂在「这个家有分类数据」之后。
+*/-->
+<section th:fragment="section" th:if="${splitMixEnabled}" id="sec-expense-split"
+         style="scroll-margin-top:80px" class="mt-12 border-t-4 border-double border-ink pt-8">
+
+  <div class="mb-6">
+    <div class="eyebrow mb-2" style="color:var(--rust)">支 · 出 · 构 · 成</div>
+    <h2 class="font-display text-3xl font-medium tracking-tight">钱花在哪了</h2>
+    <p class="font-serif text-sm text-ink-soft mt-2 max-w-2xl">
+      来自<a th:href="@{/entry}" class="text-brass-deep hover:underline">填报页的分类填报</a>
+      (手抄 / 账单文件 / 截图,三条通道都汇到这)· 家庭合计,按大类。
+    </p>
+  </div>
+
+  <!--/* ═══ 本月构成 ═══ 数字直接标在图上(项目铁律),不靠 hover */-->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div>
+      <div class="flex items-baseline justify-between mb-3">
+        <h3 class="font-display text-xl font-medium">本期构成</h3>
+        <span class="font-mono text-[10px] text-ink-subtle"
+              th:text="${#temporals.format(anchorPeriod.periodStart, 'yyyy · MM')}">2026 · 09</span>
+      </div>
+      <div th:if="${#lists.isEmpty(splitRollup)}" class="text-[12.5px] text-ink-subtle">
+        这一期还没有分类数据 —— <a th:href="@{/entry}" class="text-brass-deep hover:underline">去填报页拆开填</a>。
+      </div>
+      <div th:unless="${#lists.isEmpty(splitRollup)}">
+        <div class="flex h-7 border border-rule overflow-hidden mb-2">
+          <div th:each="r,i : ${splitRollup}"
+               th:style="'flex:' + ${r.total()} + ';background:' + ${splitPalette[i.index % 9]}"
+               class="flex items-center justify-center overflow-hidden"
+               th:title="${r.name()}">
+            <span class="font-mono text-[9px] whitespace-nowrap" style="color:#fff"
+                  th:if="${r.total() * 100 / splitTotalPeriod >= 8}"
+                  th:text="${r.name()}">餐饮美食</span>
+          </div>
+        </div>
+        <!--/* 明细行:金额 + 占比都直接写出来 */-->
+        <div th:each="r,i : ${splitRollup}" class="flex items-center gap-2 py-1.5 border-b border-rule-soft last:border-b-0">
+          <span style="width:10px;height:10px;flex:0 0 10px"
+                th:style="'width:10px;height:10px;flex:0 0 10px;background:' + ${splitPalette[i.index % 9]}"></span>
+          <span class="text-[12.5px]" th:text="${r.name()}">餐饮美食</span>
+          <span style="flex:1"></span>
+          <span class="font-mono text-[11px] tnum text-ink-subtle"
+                th:text="${#numbers.formatDecimal(r.total() * 100 / splitTotalPeriod, 1, 1)} + '%'">31.0%</span>
+          <span class="font-mono text-[12px] tnum" data-priv
+                th:text="'¥' + ${#numbers.formatInteger(r.total(), 0, 'COMMA')}">¥3,180</span>
+          <!--/* 有细类时可以点开 —— 「未细分」作为一个细类块如实显示,不藏 */-->
+          <details th:if="${#lists.size(r.leaves()) > 1}" class="w-full">
+            <summary class="font-mono text-[9px] text-brass-deep cursor-pointer list-none pl-4">点开看细类</summary>
+            <div th:each="lf : ${r.leaves()}" class="flex items-center gap-2 py-1 pl-6 text-[11.5px]">
+              <span th:text="${lf.name()}" th:classappend="${lf.unsplit()} ? 'text-ink-subtle' : ''">外卖</span>
+              <span th:if="${lf.unsplit()}" class="font-mono text-[9px] text-ink-subtle">(记在大类上,还没细分)</span>
+              <span style="flex:1"></span>
+              <span class="font-mono text-[11px] tnum" data-priv
+                    th:text="'¥' + ${#numbers.formatInteger(lf.amount(), 0, 'COMMA')}">¥300</span>
+            </div>
+          </details>
+        </div>
+        <div class="flex items-center gap-2 pt-2 mt-1 border-t-2 border-brass-deep">
+          <span class="font-mono text-[10px] uppercase text-ink-subtle">合计</span>
+          <span style="flex:1"></span>
+          <span class="font-display text-lg tnum" data-priv
+                th:text="'¥' + ${#numbers.formatInteger(splitTotalPeriod, 0, 'COMMA')}">¥12,600</span>
+        </div>
+      </div>
+    </div>
+
+    <!--/* ═══ 年度累计 ═══ */-->
+    <div>
+      <div class="flex items-baseline justify-between mb-3">
+        <h3 class="font-display text-xl font-medium">年度累计</h3>
+        <span class="font-mono text-[10px] text-ink-subtle"
+              th:text="${splitYear} + ' 年至今'">2026 年至今</span>
+      </div>
+      <div th:if="${#lists.isEmpty(splitYearRows)}" class="text-[12.5px] text-ink-subtle">今年还没有分类数据。</div>
+      <div th:each="r : ${splitYearRows}" class="flex items-center gap-3 py-1.5 border-b border-rule-soft last:border-b-0">
+        <span class="text-[12.5px]" style="min-width:5.5em" th:text="${r.name()}">餐饮美食</span>
+        <div class="h-3" style="background:var(--brass-deep);min-width:2px"
+             th:style="'height:12px;background:var(--brass-deep);width:' + ${#numbers.formatDecimal(r.total() * 100 / splitYearMax, 1, 1)} + '%'"></div>
+        <span style="flex:1"></span>
+        <span class="font-mono text-[12px] tnum" data-priv
+              th:text="'¥' + ${#numbers.formatInteger(r.total(), 0, 'COMMA')}">¥27,400</span>
+      </div>
+    </div>
+  </div>
+
+  <!--/* ═══ 近 12 期趋势 ═══
+         「没拆分过」的月份画成斜纹整块,【不画成 0】—— 没拆过 ≠ 没花钱(FR-519)。
+         画成 0 的话趋势图上会出现一段假的「支出暴跌」。 */-->
+  <div class="mt-10">
+    <h3 class="font-display text-xl font-medium mb-1">近 12 期趋势</h3>
+    <p class="text-[11.5px] text-ink-subtle mb-3">
+      斜纹块 = 那一期<b>只填了总额、没拆分</b> —— 不是没花钱。
+    </p>
+    <div class="flex items-end gap-2 border-b border-rule" style="height:170px;padding:0 4px">
+      <div th:each="t : ${splitTrend}" class="flex-1 flex flex-col-reverse gap-px" style="min-width:6px"
+           th:title="${t.label()}">
+        <th:block th:if="${t.unsplit()}">
+          <div th:style="'height:' + ${t.pixels()} + 'px;background:repeating-linear-gradient(45deg,#d8d2c8,#d8d2c8 4px,#e8e2d8 4px,#e8e2d8 8px)'"></div>
+        </th:block>
+        <th:block th:unless="${t.unsplit()}">
+          <div th:each="seg,i : ${t.segments()}"
+               th:style="'height:' + ${seg.pixels()} + 'px;background:' + ${splitPalette[i.index % 9]}"></div>
+        </th:block>
+      </div>
+    </div>
+    <div class="flex gap-2" style="padding:0 4px">
+      <div th:each="t : ${splitTrend}" class="flex-1 font-mono text-[8.5px] text-ink-subtle text-center"
+           style="min-width:6px" th:text="${t.shortLabel()}">09</div>
+    </div>
+  </div>
+
+  <p class="font-mono text-[9px] text-ink-subtle mt-4">
+    口径:这一块只看分类填报的数;家庭支出总额(储蓄率 / 月均 / 紧急储备)走的是同一个合计,拆不拆都一样。
+  </p>
+</section>

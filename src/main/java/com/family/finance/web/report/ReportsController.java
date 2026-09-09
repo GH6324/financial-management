@@ -53,6 +53,8 @@ public class ReportsController {
 
     private final FactViewService factViewService;
     private final com.family.finance.service.group.AccountRowGrouper accountRowGrouper;              // v1.20 账户组折叠
+    private final com.family.finance.service.expense.ExpenseSplitService expenseSplitService;        // v1.21
+    private final com.family.finance.service.expense.ExpenseMixQueryService expenseMixQueryService;  // v1.21
     private final com.family.finance.service.group.AccountGroupingResolver groupingResolver;        // v1.20
     private final FamilyService familyService;
     private final PeriodMapper periodMapper;
@@ -152,6 +154,7 @@ public class ReportsController {
     private void populateExpenseComposition(MemberPrincipal me, String mix, Integer mixWin, Model model) {
         var mode = expenseLedger.modeOf(me.getFamilyId());
         model.addAttribute("mixEnabled", mode == com.family.finance.domain.family.ExpenseEntryMode.ITEMIZED);
+
         if (mode != com.family.finance.domain.family.ExpenseEntryMode.ITEMIZED) {
             return;
         }
@@ -470,6 +473,34 @@ public class ReportsController {
         model.addAttribute("accountRows", foldedRows);                              // 顶层:图 + 计数
         model.addAttribute("accountRowsFlat", accountRowGrouper.flatten(foldedRows)); // 表:组行 + 隐藏成员行
         model.addAttribute("hasGroups", groupingResolver.hasAnyGroup(me.getFamilyId()));
+        /* v1.21 · 支出构成(分类填报口径)。
+         * 与上面那个 mixEnabled 区是【两个区】:它读逐笔 + 全局类目表,这里读 expense_split + 家庭树。
+         * 两套类目体系没有公共键,硬合成一张图得先统一它们(那是 ITEMIZED 侧的联动链,第一期不接)。
+         * 各占一区、各自标明来源 —— 比合出一张来源含糊的图诚实。
+         * 零影响:没有分类数据的家庭这一块一个像素都不渲染。 */
+        boolean splitMixEnabled = expenseSplitService.hasAnySplit(me.getFamilyId());
+        model.addAttribute("splitMixEnabled", splitMixEnabled);
+        if (splitMixEnabled) {
+            var roll = expenseMixQueryService.period(me.getFamilyId(), anchor.getId());
+            model.addAttribute("splitRollup", roll);
+            java.math.BigDecimal periodTotal = java.math.BigDecimal.ZERO;
+            for (var r : roll) periodTotal = periodTotal.add(r.total());
+            // 分母为 0 时给 1,免得模板里除零(占比那几个格子会渲染成 0.0%,可接受)
+            model.addAttribute("splitTotalPeriod",
+                    periodTotal.signum() == 0 ? java.math.BigDecimal.ONE : periodTotal);
+            int year = anchor.getPeriodStart().getYear();
+            var yearRows = expenseMixQueryService.year(me.getFamilyId(), year, anchor);
+            model.addAttribute("splitYear", year);
+            model.addAttribute("splitYearRows", yearRows);
+            java.math.BigDecimal yearMax = java.math.BigDecimal.ONE;
+            for (var r : yearRows) if (r.total().compareTo(yearMax) > 0) yearMax = r.total();
+            model.addAttribute("splitYearMax", yearMax);
+            model.addAttribute("splitTrend", expenseMixQueryService.trend(me.getFamilyId(), anchor, 12));
+            // 与旭日/资产配置同一套色板 —— 同一个 app 里的图不该各用一套颜色
+            model.addAttribute("splitPalette", java.util.List.of(
+                    "#a0653a", "#4f6b47", "#5b6b82", "#8a7a4f", "#7a4f6b",
+                    "#3c4a5a", "#9c8b5a", "#5f7e7b", "#9a938a"));
+        }
         model.addAttribute("acctMetrics", acctMetrics);
         model.addAttribute("benchmarkByAccount", benchmarkByAccount);
         model.addAttribute("pcCodeByAccount", pcCodeByAccountId);

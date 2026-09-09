@@ -6314,7 +6314,7 @@ MINOR=$(printf '%s' "$APPV" | cut -d. -f1,2)
 #   是单测造的家庭,「净资产 100 万远大于阈值 5」是讲判据,而「同一时刻 checkup ¥5399878」
 #   是 prod 实测。机器分不出来,硬扫会得到一条天天红的护栏,然后被人关掉(这一版刚为
 #   「误报会让告警被关掉」付过代价)。要收得先由维护者逐条裁定哪些是真的。
-QA111_SYNTH='53,210|48,765|61,234|40,000|35,000|1,234,567\.89|123,456\.78|1,234,567|1,234,568|1,000,000|2,000,000|1,140,000|1,520,000|99,999,999|10,950,000|1,200,000|1,500,000|1,140,580|4,917,500|7,745,000|1,552,823|1,628,895|3,181,718|3,762,836|17,901,892|0,891,892,893,890|7,747,000|111,221.91|111,222.95'
+QA111_SYNTH='53,210|48,765|61,234|40,000|35,000|1,234,567\.89|123,456\.78|1,234,567|1,234,568|1,000,000|2,000,000|1,140,000|1,520,000|99,999,999|10,950,000|1,200,000|1,500,000|1,140,580|4,917,500|7,745,000|1,552,823|1,628,895|3,181,718|3,762,836|17,901,892|0,891,892,893,890|7,747,000|111,221.91|111,222.95|1,280\.00'
 # 【基线 · 待裁定】把扫描面扩到源码/模板时一次性捞出来的存量(v1.19)。
 #   里面**真假混杂**:有的是单测造的家庭、股价报文片段、模板占位;但也确实有真的 ——
 #   `451,497.63` 就是本条护栏自己的注释里点名过的真实余额。机器分不出来,
@@ -8571,15 +8571,24 @@ QA1202_MA="$RD/src/main/java/com/family/finance/service/ask/runtime/ManagedAgent
   && log_ok "v1202-VERIFY-READS-TOOLS-BACK(创建/更新后回读 tools · 失败提示点名「引用在但工具没挂」)" \
   || log_bad "v1202-VERIFY-READS-TOOLS-BACK 回读不查 tools 了" "空壳 agent 会被判成创建成功"
 
-# v1210-NO-TEXTBLOCK-COLS · mapper 的列清单常量不许用文本块。
-#   文本块的首行紧跟 \"\"\",于是 "SELECT " + COLS 会拼成 SELECTid —— SQL 语法错。
-#   这个坑 AskAccessTokenMapper 的注释里早写着「真在 beta 上炸过」,
-#   而 v1.21 开发时【又踩了一次】(三个新 mapper 全中,beta 上第一次点起步包就 500)。
-#   一个只写在注释里的教训,注定会被下一个人再踩一次 —— 所以补这条。
-#   判据:凡是名为 COLS 的常量,必须是普通字符串(前后留空格),不能紧跟三引号。
-{ ! grep -rn 'String COLS = """' "$RD/src/main/java/com/family/finance/repository/" >/dev/null 2>&1; } \
-  && log_ok "v1210-NO-TEXTBLOCK-COLS(mapper 列清单常量都是留空格的普通字符串)" \
-  || log_bad "v1210-NO-TEXTBLOCK-COLS 又有 COLS 用文本块了:$(grep -rl 'String COLS = \"\"\"' "$RD/src/main/java/com/family/finance/repository/" | tr '\n' ' ')" "拼出 SELECTid,SQL 语法错 —— 而且只在真跑到那条查询时才炸"
+# v1210-NO-KEYWORD-AT-TEXTBLOCK-END · SQL 文本块不许以关键字【结尾】再拼接。
+#   真正的坑是这个形状:
+#       @Select(\"\"\"
+#               SELECT \"\"\" + COLS + ...)
+#   文本块会【剥掉每行的行尾空格】,于是 "SELECT " 变成 "SELECT",拼出 SELECTid —— SQL 语法错。
+#   注意:`"SELECT " + COLS`(普通字符串)是【安全】的,尾空格留得住;
+#   COLS 本身是不是文本块也无所谓。第一版判据写成「COLS 不许用文本块」——太宽,
+#   把两个本来正确的既有 mapper 报成了红(这一版第三次把护栏绑在错的特征上,记下来)。
+#   AskAccessTokenMapper 的注释里写着这个坑「真在 beta 上炸过」,而 v1.21 又踩了一次。
+# 用 codeonly 过一遍再扫 —— 否则会抓到【注释里描述这个坑的那句话】
+#   (AskAccessTokenMapper 的注释里就写着这个反例,第一版判据把它报成了红)。
+{ bad=$(for f in $(grep -rl 'COLS' "$RD/src/main/java/com/family/finance/repository/"); do
+          codeonly "$f" | grep -qE '(SELECT|FROM|WHERE|AND|OR|SET|VALUES|JOIN|BY)[[:space:]]*"""[[:space:]]*\+' \
+            && echo "${f#$RD/}"
+        done | head -5)
+  [ -z "$bad" ]; } \
+  && log_ok "v1210-NO-KEYWORD-AT-TEXTBLOCK-END(没有「文本块以 SQL 关键字结尾再拼接」的写法)" \
+  || log_bad "v1210-NO-KEYWORD-AT-TEXTBLOCK-END 有文本块以 SQL 关键字结尾再拼:$(echo "$bad" | head -2 | tr '\n' ' ')" "文本块剥掉行尾空格 → 拼出 SELECTid,只在真跑到那条查询时才炸"
 
 # v1210-THYMELEAF-UTILITY-IN-DOLLAR · #lists/#numbers 这类 utility 必须写在 ${} 内。
 #   写在外面 Thymeleaf 直接「Could not parse as expression」,而它是【渲染期】才炸:
@@ -8590,6 +8599,118 @@ QA1202_MA="$RD/src/main/java/com/family/finance/service/ask/runtime/ManagedAgent
 { [ "$(cd "$RD" && python3 scripts/lint/thymeleaf-utility-scope.py | head -1)" = "CLEAN" ]; } \
   && log_ok "v1210-THYMELEAF-UTILITY-IN-DOLLAR(模板里的 #lists/#numbers 都在 \${} 内)" \
   || log_bad "v1210-THYMELEAF-UTILITY-IN-DOLLAR 有 utility 写在 \${} 外面:$(cd "$RD" && python3 scripts/lint/thymeleaf-utility-scope.py | tail -n +2 | head -3 | tr '\n' ' ')" "渲染期才炸,响应截断在半路 —— 编译/单测/启动全都发现不了"
+
+# ═══════════════ v1.21 · 自定义支出分类 ═══════════════
+
+QA121_LEDGER="$RD/src/main/java/com/family/finance/service/expense/ExpenseLedgerService.java"
+QA121_SPLIT="$RD/src/main/java/com/family/finance/service/expense/ExpenseSplitService.java"
+QA121_CAT="$RD/src/main/java/com/family/finance/service/expense/ExpenseCategoryService.java"
+QA121_PARSER="$RD/src/main/java/com/family/finance/service/expense/imports/CsvBillParser.java"
+QA121_IMPSVC="$RD/src/main/java/com/family/finance/service/expense/imports/BillImportService.java"
+QA121_SHOT="$RD/src/main/java/com/family/finance/service/expense/imports/ExpenseShotClient.java"
+QA121_MIG="$RD/db/migration/V59__expense_category_split.sql"
+QA121_ENTRY_TPL="$RD/src/main/resources/templates/entry/_expense-split.html"
+QA121_MIX_TPL="$RD/src/main/resources/templates/reports/_expense-split-mix.html"
+QA121_IMP_TPL="$RD/src/main/resources/templates/expense/import.html"
+
+# v1210-LEDGER-UNTOUCHED · 家庭支出的唯一口径入口【一行不改】。
+#   这是整版设计的地基:分类只是月度总额的「展开」,Σ 回写 PMC,
+#   于是 ExpenseLedgerService 根本不需要知道分类的存在。
+#   它一旦开始读 expense_split,家庭支出就多了第三条来源 ——
+#   而这个项目为「口径多一条」付过月均支出差 89% 的代价(见该文件 v1.8 注释)。
+{ ! codeonly "$QA121_LEDGER" | grep -qE 'expense_split|ExpenseSplit|expenseSplit'; } \
+  && log_ok "v1210-LEDGER-UNTOUCHED(家庭支出口径入口没碰分类表 · 分类不是第三条来源)" \
+  || log_bad "v1210-LEDGER-UNTOUCHED ExpenseLedgerService 开始读分类了" "家庭支出多出第三条口径来源 —— v1.8 那次差 89% 就是这么来的"
+
+# v1210-SPLIT-SINGLE-WRITER · expense_split 与 PMC 支出列的写入口只有一个。
+{ [ "$(grep -rl 'splitMapper.upsert\|splitMapper.deleteBySource\|splitMapper.deleteByPeriodMember\|splitMapper.deleteByCategory' "$RD/src/main/java" | grep -v 'ExpenseSplitService.java' | grep -v 'ExpenseCategoryService.java' | wc -l)" -eq 0 ]   && [ "$(grep -rl 'upsertExpenseOnly' "$RD/src/main/java" | grep -v 'PeriodMemberCashflowMapper.java' | grep -v 'ExpenseSplitService.java' | wc -l)" -eq 0 ]; } \
+  && log_ok "v1210-SPLIT-SINGLE-WRITER(分类行与 PMC 支出列只有 ExpenseSplitService 写)" \
+  || log_bad "v1210-SPLIT-SINGLE-WRITER 分类金额多了写入口" "恒等式会漂,而且漂了没人发现"
+
+# v1210-PMC-EXPENSE-ONLY · 回写只能动支出列。
+#   那条通用 upsert 的 ON DUPLICATE 写的是 total_income_input = VALUES(...) —— 整行覆盖。
+#   只传 expense 会把当月收入【静默抹成 NULL】。TDD 待实测 3 实测出来的,不是猜的。
+{ codeonly "$QA121_SPLIT" | grep -q 'upsertExpenseOnly'   && ! codeonly "$QA121_SPLIT" | grep -qE 'pmcMapper\.upsert\('   && codeonly "$RD/src/main/java/com/family/finance/repository/PeriodMemberCashflowMapper.java" | grep -q 'upsertExpenseOnly'; } \
+  && log_ok "v1210-PMC-EXPENSE-ONLY(回写只动支出列 · 不走那条会抹掉收入的整行 upsert)" \
+  || log_bad "v1210-PMC-EXPENSE-ONLY 回写用了整行 upsert" "用户展开一次分类填报就会静默清空当月收入"
+
+# v1210-IMPORT-NEVER-EATS-MANUAL · 重导只替换该渠道的行。
+#   「我改过的数被一次重导抹了」是这个功能最伤信任的失败,而它在「只存合成额」的设计下必然发生。
+{ codeonly "$QA121_SPLIT" | grep -q 'deleteBySource(periodId, memberId, channel.name())'   && codeonly "$QA121_SPLIT" | grep -q 'ExpenseSource.MANUAL'   && grep -q 'manualSurvivesReimport' "$RD/src/test/java/com/family/finance/service/expense/ExpenseSplitServiceTest.java"; } \
+  && log_ok "v1210-IMPORT-NEVER-EATS-MANUAL(重导按渠道删 · 手填是独立来源行 · 有单测)" \
+  || log_bad "v1210-IMPORT-NEVER-EATS-MANUAL 重导会冲掉手工修正" "最伤信任的一种失败"
+
+# v1210-DELETE-FOLLOWS-TREE · 删类目是搬迁不是删除。
+#   删细类 → 父级(大类合计不变);删大类 → 「其他」(总合计不变)。
+#   而且不能裸 UPDATE category_id —— uk_split 会在目标已有同来源行时撞键,必须先合并再删源行。
+{ codeonly "$QA121_CAT" | grep -q 'moveSplits'   && codeonly "$QA121_CAT" | grep -q 'deleteByCategory'   && ! codeonly "$QA121_CAT" | grep -q 'moveCategory'   && grep -q 'deleteLeafKeepsTopTotal' "$RD/src/test/java/com/family/finance/service/expense/ExpenseCategoryTreeTest.java"   && grep -q 'deleteTopMovesToOther' "$RD/src/test/java/com/family/finance/service/expense/ExpenseCategoryTreeTest.java"; } \
+  && log_ok "v1210-DELETE-FOLLOWS-TREE(删细类转父级 · 删大类转「其他」· 先合并同键再删源行)" \
+  || log_bad "v1210-DELETE-FOLLOWS-TREE 删类目可能把钱弄丢或撞唯一键" "钱一分都不该因为删一个名字而消失"
+
+# v1210-TWO-LEVELS-MAX · 树封顶两层。
+{ codeonly "$QA121_CAT" | grep -q 'MAX_DEPTH = 2'   && codeonly "$QA121_CAT" | grep -q '两层就够了'   && grep -q 'uk_expcat_name' "$QA121_MIG"; } \
+  && log_ok "v1210-TWO-LEVELS-MAX(封顶两层 · 细类下不许再分)" \
+  || log_bad "v1210-TWO-LEVELS-MAX 树可以长到三层了" "月底填的是汇总数,分太细没人愿意填(随手记的反面教材)"
+
+# v1210-OTHER-IS-BEDROCK · 「其他」不可删 / 不可停用 / 不可改名,而且必须是【实体行】。
+#   用 category_id=NULL 表示「其他」会炸:MySQL 的 UNIQUE 对 NULL 不去重,同一格能插出多条手填行。
+{ codeonly "$QA121_CAT" | grep -q '不能删'   && codeonly "$QA121_CAT" | grep -q '不能停用'   && codeonly "$QA121_CAT" | grep -q '不能改名'   && codeonly "$QA121_CAT" | grep -q 'ensureOther'   && grep -q 'system_code' "$QA121_MIG"; } \
+  && log_ok "v1210-OTHER-IS-BEDROCK(「其他」是实体行且不可动 · 不用 NULL 表示)" \
+  || log_bad "v1210-OTHER-IS-BEDROCK 「其他」可以被动了,或改成了 NULL 表示" "NULL 不参与 UNIQUE 去重 → 同一格插出多条手填行,恒等式当场炸"
+
+# v1210-MONEY-NEEDS-A-BOX · 钱在账上,页面上必须有它的输入框。
+#   踩过:导入的钱落在【大类】上,而复杂深度的表单只渲染细类的框 → 那笔钱看不见也改不了。
+{ codeonly "$QA121_CAT" | grep -q 'fillableWith'   && codeonly "$RD/src/main/java/com/family/finance/web/entry/EntryController.java" | grep -q 'fillableWith'   && grep -q 'splitUnsplitIds' "$QA121_ENTRY_TPL"   && grep -q 'unsplitTopLevelStillGetsAnInputBox' "$RD/src/test/java/com/family/finance/service/expense/ExpenseCategoryTreeTest.java"; } \
+  && log_ok "v1210-MONEY-NEEDS-A-BOX(有钱的类目一定出现在填报表单里 · 标「未细分」· 有单测)" \
+  || log_bad "v1210-MONEY-NEEDS-A-BOX 有钱的类目可能在表单里没有框" "钱在账上却改不了,是最让人不安的状态"
+
+# v1210-MATCH-WHOLE-TREE · 渠道分类名在【整棵树】上匹配,不只在当前深度那一层。
+#   踩过:只在细类里找 → 渠道给的大类名(「餐饮美食」)全落「其他」,
+#   而个别名字因为恰好有同名细类而命中,看起来像「大部分认不出来」。
+{ codeonly "$QA121_IMPSVC" | grep -q 'categoryService.all(familyId)'   && ! codeonly "$QA121_IMPSVC" | grep -q 'categoryService.fillable('   && grep -q 'channelCategoryMatchesTopLevelEvenInDeepMode' "$RD/src/test/java/com/family/finance/service/expense/imports/CsvBillParserTest.java"; } \
+  && log_ok "v1210-MATCH-WHOLE-TREE(渠道名在整棵树上匹配 · 细类优先大类兜底 · 有单测)" \
+  || log_bad "v1210-MATCH-WHOLE-TREE 映射又只看一层了" "渠道给的是大类名,只找细类会让大部分金额落进「其他」"
+
+# v1210-PARSER-NEVER-SILENT · 解析器不许静默:找不到表头/零行要报错,说不清的行要计数披露。
+#   「静默少算几行」在用户那儿表现为「导入总额比账单少一点」,基本查不出来。
+{ codeonly "$QA121_PARSER" | grep -q '一条交易都没解出来'   && codeonly "$QA121_PARSER" | grep -q '找不到账单的表头'   && codeonly "$QA121_PARSER" | grep -q 'badAmount'   && codeonly "$QA121_PARSER" | grep -q 'colMismatch'   && codeonly "$QA121_PARSER" | grep -q 'unknownDir'   && grep -q 'hasAnomaly' "$QA121_IMP_TPL"; } \
+  && log_ok "v1210-PARSER-NEVER-SILENT(零行/无表头显式报错 · 三类怪行计数并上确认页)" \
+  || log_bad "v1210-PARSER-NEVER-SILENT 解析器又能静默吞行了" "导入总额比账单少一点,用户查不出来"
+
+# v1210-HEADER-BY-FEATURE · 表头按特征定位,不写死行号。
+#   说明头行数随导出条件浮动;写死 = 换个导出选项就全错位,而错位解出来的是看似合法的垃圾。
+{ codeonly "$QA121_PARSER" | grep -q 'MIN_HEADER_HITS'   && ! codeonly "$QA121_PARSER" | grep -qE 'skiprows|skip\(24\)|skip\(16\)'   && grep -q 'headerFoundRegardlessOfPreambleLength' "$RD/src/test/java/com/family/finance/service/expense/imports/CsvBillParserTest.java"; } \
+  && log_ok "v1210-HEADER-BY-FEATURE(表头按特征定位 · 说明头行数变了也对 · 有单测)" \
+  || log_bad "v1210-HEADER-BY-FEATURE 表头定位又写死行号了" "换个导出选项就全错位,而且不报错"
+
+# v1210-BILL-EPHEMERAL · 账单字节/密码不落盘、不进日志。
+#   这是本项目迄今最敏感的输入(整月消费流水)。
+{ ! codeonly "$QA121_IMPSVC" | grep -qE 'FileOutputStream|Files\.write|createTempFile'   && ! codeonly "$RD/src/main/java/com/family/finance/service/expense/imports/ZipOpener.java" | grep -qE 'FileOutputStream|Files\.write|createTempFile'   && ! codeonly "$QA121_IMPSVC" | grep -qE 'log\.[a-z]+\([^)]*password'   && ! codeonly "$RD/src/main/java/com/family/finance/web/expense/ExpenseImportController.java" | grep -qE 'log\.[a-z]+\([^)]*(zipPassword|getBytes)'; } \
+  && log_ok "v1210-BILL-EPHEMERAL(账单字节与解压密码不落盘、不进日志)" \
+  || log_bad "v1210-BILL-EPHEMERAL 账单内容或密码可能落盘/进日志" "整月消费流水 —— 这个项目接过的最敏感的东西"
+
+# v1210-AMOUNTS-NEVER-TO-LLM · 金额不进 LLM;支付宝 CSV 全程不过 LLM。
+#   截图通道只把【图】发给用户自己配的视觉服务,提示词里也不许要求它算数。
+{ ! codeonly "$QA121_IMPSVC" | grep -qE 'Llm|llm|vision|Vision'   && codeonly "$QA121_SHOT" | grep -q '绝不计算'   && codeonly "$QA121_SHOT" | grep -q '不要计算、不要合计'; } \
+  && log_ok "v1210-AMOUNTS-NEVER-TO-LLM(文件通道不碰 LLM · 截图提示词明令不算数)" \
+  || log_bad "v1210-AMOUNTS-NEVER-TO-LLM 金额可能进了 LLM,或截图提示词放宽了" "承 feedback_llm_no_math:LLM 严禁做数学"
+
+# v1210-UNSPLIT-NOT-ZERO · 「没拆分」的月份不许画成 0。
+#   画成 0 的话趋势图上会出现一段假的「支出暴跌」—— 没拆过 ≠ 没花钱。
+{ grep -q 'repeating-linear-gradient' "$QA121_MIX_TPL"   && grep -q '不是没花钱' "$QA121_MIX_TPL"   && codeonly "$RD/src/main/java/com/family/finance/service/expense/ExpenseMixQueryService.java" | grep -q 'monthlyTotal'   && codeonly "$RD/src/main/java/com/family/finance/service/expense/ExpenseMixQueryService.java" | grep -q 'unsplit'; } \
+  && log_ok "v1210-UNSPLIT-NOT-ZERO(未拆分的期画斜纹块 · 高度取月度总额 · 不画成 0)" \
+  || log_bad "v1210-UNSPLIT-NOT-ZERO 未拆分的月份可能被画成 0" "趋势图上出现一段假的支出暴跌"
+
+# v1210-YEAR-MATCHES-TREND · 年度累计与趋势同一个锚(都到已关账期为止)。
+#   否则同一页上「年度累计」不等于「趋势各柱之和」,而两个数都"对" —— 最难解释的一类不一致。
+{ codeonly "$RD/src/main/java/com/family/finance/service/expense/ExpenseMixQueryService.java"     | grep -q 'year(long familyId, int year, Period anchor)'   && codeonly "$RD/src/main/java/com/family/finance/service/expense/ExpenseMixQueryService.java"     | grep -q 'isAfter(anchor.getPeriodStart())'; } \
+  && log_ok "v1210-YEAR-MATCHES-TREND(年度累计与趋势同锚 · 两个数对得上)" \
+  || log_bad "v1210-YEAR-MATCHES-TREND 年度累计与趋势不同锚" "同页两个数对不上,而两个都「对」—— 用户只会以为算错了"
+
+# v1210-ZERO-CONFIG-INVISIBLE · 没建类目、没拆分的家庭,新东西一个像素都不渲染。
+{ grep -q 'th:if="${splitOpen and splitCategories != null' "$QA121_ENTRY_TPL"   && grep -q 'th:if="${splitMixEnabled}"' "$QA121_MIX_TPL"   && codeonly "$RD/src/main/java/com/family/finance/web/report/ReportsController.java" | grep -q 'hasAnySplit'; } \
+  && log_ok "v1210-ZERO-CONFIG-INVISIBLE(未启用的家庭:填报与报表都不渲染新区块)" \
+  || log_bad "v1210-ZERO-CONFIG-INVISIBLE 未启用的家庭也看到新东西了" "违反「有没有用本身就是开关」"
 
 echo
 echo "═══════════════════════════════════════"
