@@ -40,45 +40,29 @@ public class ExpenseCategoryController {
         model.addAttribute("tree", categoryService.tree(fam));
         model.addAttribute("total", categoryService.all(fam).size());
         model.addAttribute("maxTotal", ExpenseCategoryService.MAX_TOTAL);
-        model.addAttribute("deep", "L2".equalsIgnoreCase(
-                configService.getString(fam, FamilyConfigService.K_EXPENSE_SPLIT_DEPTH, "L1")));
         model.addAttribute("starter", ExpenseCategoryService.STARTER);
         return "expense/categories";
     }
 
-    /** 一键起步:{@code deep=true} 连细类一起建。两个深度的<b>一级完全相同</b>。 */
+    /**
+     * 一键起步:{@code deep=true} 连细类一起建。
+     *
+     * <p>第 2 稿里这<b>不是</b>一个「以后按哪层填」的设置 —— 它只影响这一次建了什么。
+     * 录入时点大类就能提交,想细分再多点一下细类(FR-552)。</p>
+     */
     @PostMapping("/expense/categories/seed")
     public String seed(@AuthenticationPrincipal MemberPrincipal me,
                        @RequestParam(defaultValue = "false") boolean deep,
                        RedirectAttributes ra) {
         try {
             categoryService.seed(me.getFamilyId(), deep);
-            configService.set(me.getFamilyId(), FamilyConfigService.K_EXPENSE_SPLIT_DEPTH, deep ? "L2" : "L1");
-            audit(me, "用" + (deep ? "复杂版" : "简单版") + "起步包建了支出类目");
+            audit(me, "用" + (deep ? "带细类的" : "只有大类的") + "起步包建了支出类目");
             ra.addFlashAttribute("catNote", deep
-                    ? "建好了(复杂版)。想换回按大类填,右上角切一下就行 —— 历史数据一分不丢。"
-                    : "建好了(简单版)。以后想细分,右上角切成「按细类填」即可 —— 大类不变,历史无损。");
+                    ? "建好了。记一笔时点大类就能提交,想细分再多点一下细类 —— 不强制。"
+                    : "建好了。以后想细分,随时给某个大类「加细类」即可,历史一分不丢。");
         } catch (RuntimeException e) {
             ra.addFlashAttribute("catError", human(e));
         }
-        return "redirect:/expense/categories";
-    }
-
-    /**
-     * 切换录入深度。
-     *
-     * <p><b>只改「以后按哪一层填」,历史行一行不动</b> —— 因为简单版与复杂版是同一棵树的两个深度,
-     * 报表始终按大类聚合,所以两个深度下大类合计逐分相等。</p>
-     */
-    @PostMapping("/expense/categories/depth")
-    public String depth(@AuthenticationPrincipal MemberPrincipal me,
-                        @RequestParam String depth, RedirectAttributes ra) {
-        boolean toDeep = "L2".equalsIgnoreCase(depth);
-        configService.set(me.getFamilyId(), FamilyConfigService.K_EXPENSE_SPLIT_DEPTH, toDeep ? "L2" : "L1");
-        audit(me, "支出录入深度切成" + (toDeep ? "细类" : "大类"));
-        ra.addFlashAttribute("catNote", toDeep
-                ? "以后按细类填。已经记在大类上的钱在报表里显示为「未细分」—— 一分没丢,只是还没细分过。"
-                : "以后按大类填。已经填过的细类明细【原样留着】,报表按大类聚合 —— 合计一分不变。");
         return "redirect:/expense/categories";
     }
 

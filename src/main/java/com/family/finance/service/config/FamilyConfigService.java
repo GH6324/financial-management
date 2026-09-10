@@ -139,11 +139,13 @@ public class FamilyConfigService {
      */
     public static final String K_ASK_RUNTIME          = "ask_runtime";
 
-    // ── v1.21 支出分类 ──
-    /** 录入深度:L1 = 按大类填 · L2 = 按细类填。家庭级 —— 树是共享的,一家两种深度会让报表下钻语义分裂 */
-    public static final String K_EXPENSE_SPLIT_DEPTH  = "expense_split_depth";
-    /** 某成员是否展开分类填报(键后缀成员 id)· 展开与否每人自选 */
-    public static final String K_EXPENSE_SPLIT_OPEN   = "expense_split_open_";
+    /* v1.21 支出分类:【没有配置项】。
+     *
+     * 第 1 稿有过两个键(录入深度 L1/L2、某成员是否展开分类填报),第 2 稿都去掉了 ——
+     * 「这个家有没有建过类目」本身就是开关,而「按大类还是细类」变成了记每一笔时的
+     * 自由选择(点大类就能提交,想细分再多点一下),不需要预先决定。
+     *
+     * 少一个设置项,就少一整类「切换之后历史怎么办」的问题。 */
     /** 超级 Agent 总开关 · 默认关(未启用时对既有用户零感知) */
     public static final String K_ASK_ENABLED          = "ask_enabled";
     /** 托管路线:百炼业务空间 ID */

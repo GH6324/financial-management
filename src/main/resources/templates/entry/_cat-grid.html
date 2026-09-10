@@ -12,6 +12,10 @@
     但界面上分成两步选,就是给 95% 的「日常开支」多加一次点击。
     点消费分类 → 性质自动 consumption;点那三项 → 消费分类留空。
 
+  【所有格子必须同尺寸同样式】(memory feedback_sibling_uniform_selfcheck):
+    消费分类和性质项共用 .cat-cell,只靠 .cat-cell--nature 改颜色,不改尺寸。
+    第一版性质项用了 .cat-chip(小一圈),两排并列时高矮不齐 —— 用户一眼就指出来了。
+
   零影响:整块挂在 hasExpenseCats 之后。没建类目的家庭一个像素都不渲染(FR-520)。
 */-->
 <th:block th:fragment="grid">
@@ -36,51 +40,69 @@
         <span class="font-mono text-[9px] tracking-[.16em] text-ink-subtle whitespace-nowrap">最近常用</span>
         <span class="flex-1 h-px bg-rule"></span>
       </div>
-      <div class="flex gap-2 flex-wrap mb-4">
+      <div class="cat-row mb-4">
         <button type="button" th:each="c : ${catRecent}"
-                class="cat-cell" th:attr="data-cat-id=${c.id}" th:text="${c.name}">餐饮美食</button>
+                class="cat-cell" th:attr="data-cat-id=${c.id}">
+          <span th:replace="~{fragments/_cat-icons :: icon(${catIcon.get(c.id)})}"></span>
+          <span class="cat-name" th:text="${c.name}">餐饮美食</span>
+        </button>
       </div>
     </div>
 
     <div class="flex items-center gap-2 mb-2">
       <span class="font-mono text-[9px] tracking-[.16em] text-ink-subtle whitespace-nowrap">选一个分类</span>
       <span class="flex-1 h-px bg-rule"></span>
-      <a th:href="@{/expense/categories}" class="font-mono text-[9px] text-ink-subtle hover:underline no-underline">管理分类</a>
+      <!--/* 「从账单导入」放在这儿而不是藏在别处:导入是这一版最值钱的能力,
+             而用户是在这个位置意识到「一笔一笔记太慢」的。入口登记见 scripts/entry-points.json。 */-->
+      <a th:href="@{/expense/import(periodId=${period.id})}"
+         class="font-mono text-[10px] text-brass-deep hover:underline no-underline whitespace-nowrap">从账单导入 →</a>
+      <a th:href="@{/expense/categories}"
+         class="font-mono text-[10px] text-ink-subtle hover:underline no-underline whitespace-nowrap">管理分类</a>
     </div>
 
-    <!--/* 一级宫格。有细类的大类带一个「›」提示还能再点开一层 —— 但点大类本身就能提交 */-->
-    <div class="grid gap-[7px]" style="grid-template-columns:repeat(auto-fill,minmax(104px,1fr))">
+    <!--/* 一级宫格。有细类的带一个「›」提示还能再点开一层 —— 但点大类本身就能提交 */-->
+    <div class="cat-row">
       <button type="button" th:each="e : ${catTree}"
               class="cat-cell" th:attr="data-cat-id=${e.key.id},data-has-kids=${!#lists.isEmpty(e.value)} ? 'true' : null">
-        <span th:text="${e.key.name}">餐饮美食</span><span th:if="${!#lists.isEmpty(e.value)}" class="cat-more"> ›</span>
+        <span th:replace="~{fragments/_cat-icons :: icon(${catIcon.get(e.key.id)})}"></span>
+        <span class="cat-name">
+          <span th:text="${e.key.name}">餐饮美食</span><span th:if="${!#lists.isEmpty(e.value)}" class="cat-more">›</span>
+        </span>
       </button>
     </div>
 
     <!--/* 细类条:选中一个有细类的大类之后才出现。
-           「不细分」默认选中 —— 细分永远是加分项,不是门槛(FR-552)。 */-->
-    <div data-cat-subs hidden class="flex gap-[6px] flex-wrap mt-[9px] pt-[9px] border-t border-dashed border-rule">
-      <span class="font-mono text-[10px] text-ink-subtle self-center mr-0.5" data-cat-sub-label>餐饮美食 ›</span>
+           「不细分」默认选中 —— 细分永远是加分项,不是门槛(FR-552)。
+           注意 [hidden] 要能真的藏住:style.css 里有一条 [hidden]{display:none!important},
+           否则这里的 flex 会把它盖掉(踩过)。 */-->
+    <div data-cat-subs hidden class="flex gap-[6px] flex-wrap items-center mt-[10px] pt-[10px] border-t border-dashed border-rule">
+      <span class="font-mono text-[10px] text-ink-subtle mr-0.5" data-cat-sub-label>餐饮美食 ›</span>
       <th:block th:each="e : ${catTree}">
         <th:block th:each="k : ${e.value}">
           <button type="button" class="cat-chip" hidden
                   th:attr="data-sub-of=${e.key.id},data-cat-id=${k.id}" th:text="${k.name}">外卖</button>
         </th:block>
       </th:block>
-      <span class="font-mono text-[10px] text-ink-subtle self-center">想细分再点一下,<b>不强制</b></span>
+      <span class="font-mono text-[10px] text-ink-subtle">想细分再点一下,<b>不强制</b></span>
     </div>
 
-    <!--/* 三个「不是消费」的性质项。视觉上明确隔开 —— 它们不进「钱花在哪」,
-           但仍进储蓄率与负债口径,混在消费分类里会让人以为还贷也是一种消费。
-           data-repayment 保留 v1.19.3 的行为:选中负债账户时由 expense-liability.js 摘掉。 */-->
-    <div class="flex items-center gap-2 mt-4 mb-2">
+    <!--/* 三个「不是消费」的性质项。
+           【尺寸与上面的分类格完全一致】—— 只改颜色(cat-cell--nature),不改大小。
+           视觉上明确隔开:它们不进「钱花在哪」,但仍进储蓄率与负债口径,
+           混在消费分类里会让人以为还贷也是一种消费。
+           data-repayment 保留 v1.19.3 的行为:选中负债账户时由 expense-liability.js 藏掉。 */-->
+    <div class="flex items-center gap-2 mt-5 mb-2">
       <span class="font-mono text-[9px] tracking-[.16em] text-ink-subtle whitespace-nowrap">不是消费 · 性质另算</span>
       <span class="flex-1 h-px bg-rule"></span>
+      <span class="font-mono text-[9px] text-ink-subtle whitespace-nowrap">不进「钱花在哪」,但仍进储蓄率与负债口径</span>
     </div>
-    <div class="flex gap-[6px] flex-wrap items-center">
+    <div class="cat-row">
       <button type="button" th:each="c : ${expenseCategories}" th:if="${c.code != 'consumption'}"
-              class="cat-chip" th:attr="data-code=${c.code},data-repayment=${c.code == 'loan_payment' or c.code == 'interest_paid'} ? 'true' : null"
-              th:text="${c.displayName}">还贷</button>
-      <span class="font-mono text-[10px] text-ink-subtle">这三项不进「钱花在哪」,但仍进储蓄率与负债口径。</span>
+              class="cat-cell cat-cell--nature"
+              th:attr="data-code=${c.code},data-repayment=${c.code == 'loan_payment' or c.code == 'interest_paid'} ? 'true' : null">
+        <span th:replace="~{fragments/_cat-icons :: icon(${natureIcon.get(c.code)})}"></span>
+        <span class="cat-name" th:text="${c.displayName}">还贷</span>
+      </button>
     </div>
   </div>
 </th:block>

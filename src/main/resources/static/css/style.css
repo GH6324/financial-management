@@ -2120,27 +2120,68 @@ dialog::backdrop { background: rgba(26, 23, 20, .38); }
    为什么用 CSS 类而不是 Tailwind 原子类堆在模板上:这套外观有【三个状态】
    (常态 / hover / 选中),而选中态是 JS 加 .on 切的 —— 写在模板里就得把
    同一组颜色在 JS 里再写一遍,两处必然漂移。
-   尺寸与既有 .pill / .btn-ghost 对齐:并列同类元素必须同尺寸同样式。 */
+
+   【所有格子同尺寸】是硬规则(memory feedback_sibling_uniform_selfcheck):
+   消费分类与性质项共用 .cat-cell,--nature 只改颜色不改大小。
+   第一版性质项用了小一圈的 .cat-chip,两排并列高矮不齐,用户一眼指出来。 */
+.cat-row {
+  display: grid;
+  /* 固定列宽而不是 auto-fit:auto-fit 会让「只有 3 个性质项」那一排的格子
+     被拉成大类那排的 3 倍宽 —— 同样是「并列同类元素不同尺寸」。 */
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 7px;
+}
+@media (max-width: 640px) {
+  .cat-row { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+}
+
 .cat-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  /* 定高:名字有两字的也有五字的,不定高会让同一排参差不齐 */
+  min-height: 68px;
+  padding: 10px 6px;
   border: 1px solid var(--rule);
   background: var(--paper);
-  padding: 9px 6px;
-  text-align: center;
-  cursor: pointer;
-  font-size: 12px;
   color: var(--ink);
-  line-height: 1.2;
-  transition: background .12s, border-color .12s;
+  cursor: pointer;
+  text-align: center;
+  line-height: 1.15;
+  transition: background .12s, border-color .12s, color .12s;
 }
 .cat-cell:hover { background: var(--card-soft); border-color: var(--brass-deep); }
 .cat-cell.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-.cat-cell .cat-more { color: var(--ink-subtle); font-size: 11px; }
-.cat-cell.on .cat-more { color: var(--paper); opacity: .7; }
 
+/* stroke=currentColor → 选中反色时图标自动跟着变白,不需要第二套样式 */
+.cat-cell svg { width: 19px; height: 19px; flex: 0 0 19px; opacity: .78; }
+.cat-cell.on svg { opacity: 1; }
+
+.cat-name { font-size: 12px; letter-spacing: .01em; }
+.cat-more { color: var(--ink-subtle); font-size: 11px; margin-left: 1px; }
+.cat-cell.on .cat-more { color: var(--paper); opacity: .65; }
+
+/* 性质项:同尺寸,靠底色与虚线边区分「这不是消费分类」 */
+.cat-cell--nature {
+  background: transparent;
+  border-style: dashed;
+  color: var(--ink-soft);
+}
+.cat-cell--nature:hover { background: var(--card-soft); }
+.cat-cell--nature.on {
+  background: var(--rust);
+  border-color: var(--rust);
+  border-style: solid;
+  color: var(--paper);
+}
+
+/* 细类 chip —— 它是【二级选择】,和一级格子不是并列关系,小一圈是对的 */
 .cat-chip {
   font-size: 11.5px;
   border: 1px solid var(--rule);
-  padding: 4px 11px;
+  padding: 5px 12px;
   background: var(--paper);
   color: var(--ink);
   cursor: pointer;

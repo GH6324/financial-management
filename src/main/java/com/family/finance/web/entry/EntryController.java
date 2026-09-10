@@ -200,8 +200,34 @@ public class EntryController {
         boolean hasCats = expenseCategoryService.hasAny(fam);
         model.addAttribute("hasExpenseCats", hasCats);
         if (hasCats) {
-            model.addAttribute("catTree", expenseCategoryService.pickable(fam));
+            var catTree = expenseCategoryService.pickable(fam);
+            model.addAttribute("catTree", catTree);
             model.addAttribute("catRecent", expenseCategoryService.recentUsed(fam, 5));
+            /* 图标 key 在【这里】算好,不在模板里调 T(...) 静态方法。
+             * 两个理由:① 模板不该知道类的全限定名;
+             * ② Thymeleaf 3.1 对表达式里的 T() 有限制,踩过一次 ——
+             *    渲染期直接炸,而且是在响应头发出之后,页面截断成半张(curl 退出码 18)。 */
+            java.util.Map<Long, String> catIcon = new java.util.LinkedHashMap<>();
+            for (var e : catTree.entrySet()) {
+                catIcon.put(e.getKey().getId(),
+                        com.family.finance.service.expense.ExpenseCatIcon.of(e.getKey().getName()));
+                for (var k : e.getValue()) {
+                    catIcon.put(k.getId(),
+                            com.family.finance.service.expense.ExpenseCatIcon.of(k.getName()));
+                }
+            }
+            // 「最近常用」里可能有已停用的类目,不在 pickable 里 —— 补齐,否则它们的图标是 null
+            for (var c : expenseCategoryService.recentUsed(fam, 5)) {
+                catIcon.putIfAbsent(c.getId(),
+                        com.family.finance.service.expense.ExpenseCatIcon.of(c.getName()));
+            }
+            model.addAttribute("catIcon", catIcon);
+            java.util.Map<String, String> natureIcon = new java.util.LinkedHashMap<>();
+            for (var c : cashFlowCategoryMapper.listExpenseOrdered()) {
+                natureIcon.put(c.getCode(),
+                        com.family.finance.service.expense.ExpenseCatIcon.forNature(c.getCode()));
+            }
+            model.addAttribute("natureIcon", natureIcon);
         }
         model.addAttribute("expenseModeLabel", expenseMode.displayName());
         model.addAttribute("expenseModeHint", expenseMode.hintText());

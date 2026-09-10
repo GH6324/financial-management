@@ -8808,6 +8808,52 @@ QA121_IMP_TPL="$RD/src/main/resources/templates/expense/import.html"
   && log_ok "v1210-CALIBER-STATED(报表写明构成合计本来就小于支出总额)" \
   || log_bad "v1210-CALIBER-STATED 没说清口径差异" "用户拿构成合计对账本总额,会以为我们算错了"
 
+# v1210-NO-STATIC-CALL-IN-FRAGMENT-ARG · 片段表达式的【参数里】不许调 T(...) 静态方法。
+#
+#   判据故意很窄,因为宽的版本是错的:`th:if="${T(...).x()}"` 这类普通属性用法
+#   项目里有三处、一直好好的(holdings / accounts index / accounts detail)。
+#   炸的是【片段参数】这个位置:
+#       ~{fragments/_cat-icons :: icon(${T(com.family...).of(name)})}
+#   实测(注入 → 复现 → 还原):/entry 从 435KB 掉到 93KB、curl 退出码 18,
+#   浏览器永远等不到 DOMContentLoaded —— 因为错误发生在响应头发出【之后】,页面截断成半张。
+#   顺带也是分层问题:模板不该知道某个类的全限定名。派生值在 controller 算好传进来。
+{ bad=$(grep -rnE '~\{[^}]*::[^}]*T\(com\.family' "$RD/src/main/resources/templates" 2>/dev/null | head -3)
+  [ -z "$bad" ]; } \
+  && log_ok "v1210-NO-STATIC-CALL-IN-FRAGMENT-ARG(片段参数里没有 T(...) 静态调用)" \
+  || log_bad "v1210-NO-STATIC-CALL-IN-FRAGMENT-ARG 片段参数在调静态方法:$bad" "渲染期炸在响应头之后 —— 页面截断成半张,curl 看着还是 200"
+
+# v1210-ICON-HAS-FALLBACK · 图标集必须有 default 分支。
+#   没有的话,名字猜不中的类目会渲染成一个【空方块】—— 比难看更糟,因为没人会意识到是没匹配上。
+{ grep -q "th:case=\"\*\"" "$RD/src/main/resources/templates/fragments/_cat-icons.html" \
+  && grep -q 'DEFAULT = "tag"' "$RD/src/main/java/com/family/finance/service/expense/ExpenseCatIcon.java"; } \
+  && log_ok "v1210-ICON-HAS-FALLBACK(图标集有兜底分支 · 猜不中也不会是空方块)" \
+  || log_bad "v1210-ICON-HAS-FALLBACK 图标集没有兜底" "猜不中的类目会渲染成空方块,而且没人会意识到是没匹配上"
+
+# v1210-CELLS-SAME-SIZE · 消费分类与性质项【同尺寸同 class】。
+#   memory feedback_sibling_uniform_selfcheck:并列同类元素必须同尺寸同样式。
+#   第一版性质项用了小一圈的 .cat-chip,两排并列高矮不齐 —— 用户一眼指出来。
+{ grep -q 'class="cat-cell cat-cell--nature"' "$QA121_GRID_TPL" \
+  && ! grep -qE 'class="cat-chip"[^>]*data-code' "$QA121_GRID_TPL" \
+  && grep -q 'min-height: 68px' "$RD/src/main/resources/static/css/style.css"; } \
+  && log_ok "v1210-CELLS-SAME-SIZE(分类格与性质格同尺寸 · 只靠颜色区分)" \
+  || log_bad "v1210-CELLS-SAME-SIZE 性质项和分类格不一样大了" "并列同类元素必须同尺寸同样式"
+
+# v1210-IMPORT-ENTRY-VISIBLE · 导入入口必须在【填报页】一眼可见。
+#   踩过:实现时只在报表页一句说明文字里内联了一个链接,填报页(用户真正在的地方)一个都没有 ——
+#   是维护者问「导入按钮在哪」才发现的。运行时可见性由 v1623-ENTRY-VIS 守,这里守静态登记。
+{ grep -q '/expense/import' "$QA121_GRID_TPL" \
+  && grep -q '"id": "expense-import"' "$RD/scripts/entry-points.json" \
+  && grep -q '"id": "expense-categories"' "$RD/scripts/entry-points.json"; } \
+  && log_ok "v1210-IMPORT-ENTRY-VISIBLE(导入与类目管理入口挂在填报页 + 已登记入口表)" \
+  || log_bad "v1210-IMPORT-ENTRY-VISIBLE 导入入口不在填报页,或没登记" "这一版最值钱的能力,用户找不到等于没做"
+
+# v1210-NO-DEPTH-SETTING · 第 2 稿【没有】录入深度这个设置项。
+#   点大类就能提交,想细分再多点一下 —— 深度是每一笔的自由选择,不是要预先决定的配置。
+{ ! grep -rq 'K_EXPENSE_SPLIT_DEPTH' "$RD/src/main/java" \
+  && ! grep -q 'categories/depth' "$RD/src/main/resources/templates/expense/categories.html"; } \
+  && log_ok "v1210-NO-DEPTH-SETTING(没有录入深度设置项 · 深度是每笔的自由选择)" \
+  || log_bad "v1210-NO-DEPTH-SETTING 深度设置项又回来了" "多一个设置就多一整类「切换之后历史怎么办」的问题"
+
 # v1210-ZERO-CONFIG-INVISIBLE · 没建类目的家庭,页面一个像素都不多(FR-520)。
 { grep -q 'th:if="${hasExpenseCats}"' "$QA121_GRID_TPL" \
   && grep -q 'th:unless="${hasExpenseCats}"' "$QA121_GRID_TPL" \

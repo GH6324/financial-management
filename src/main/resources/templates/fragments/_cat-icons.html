@@ -1,0 +1,123 @@
+<!--/*
+  v1.21 · 支出类目图标集(Feather 风格 · 24×24 viewBox · stroke=currentColor)。
+
+  项目铁律:UI 不许 emoji,一律 inline SVG(memory feedback_no_emoji)。
+  emoji 在不同系统上渲染差异极大,而且和整套衬线排版格格不入。
+
+  key 由 ExpenseCatIcon 按类目名猜出来(见那个类的注释)。
+  这里【必须有 default 分支】—— 猜不中时渲染出一个空方块比渲染一个标签难看得多,
+  而且没人会立刻意识到是图标没匹配上。
+
+  stroke 用 currentColor:选中态整块反色时,图标跟着文字一起变白,不需要第二套样式。
+*/-->
+<svg th:fragment="icon(key)" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" focusable="false">
+  <th:block th:switch="${key}">
+    <!-- 餐饮:一口锅 -->
+    <th:block th:case="'bowl'">
+      <path d="M3 11h18a9 9 0 0 1-9 9 9 9 0 0 1-9-9Z"/><path d="M12 3v3"/><path d="M8 4.5V6"/><path d="M16 4.5V6"/>
+    </th:block>
+    <!-- 饮品:带盖杯 -->
+    <th:block th:case="'cup'">
+      <path d="M6 8h12l-1 12H7L6 8Z"/><path d="M5 8h14"/><path d="M9 4h6"/>
+    </th:block>
+    <!-- 交通:车 -->
+    <th:block th:case="'car'">
+      <path d="M5 17h14"/><path d="M6 17V9.5L8 5h8l2 4.5V17"/>
+      <circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/><path d="M6 12h12"/>
+    </th:block>
+    <!-- 公共交通:巴士 -->
+    <th:block th:case="'bus'">
+      <rect x="4" y="4" width="16" height="13" rx="2"/><path d="M4 10h16"/>
+      <circle cx="8" cy="19" r="1"/><circle cx="16" cy="19" r="1"/>
+    </th:block>
+    <!-- 远行:纸飞机 -->
+    <th:block th:case="'plane'">
+      <path d="M21 3 3 10.5l6.5 2.5L12 21l9-18Z"/><path d="M9.5 13 21 3"/>
+    </th:block>
+    <!-- 居住:房子 -->
+    <th:block th:case="'home'">
+      <path d="M3 10 12 3l9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 21v-8h6v8"/>
+    </th:block>
+    <!-- 水电:闪电 -->
+    <th:block th:case="'zap'"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></th:block>
+    <!-- 通讯:信号 -->
+    <th:block th:case="'wifi'">
+      <path d="M2 8.5a16 16 0 0 1 20 0"/><path d="M5 12a11 11 0 0 1 14 0"/>
+      <path d="M8.5 15.5a6 6 0 0 1 7 0"/><circle cx="12" cy="19" r="1"/>
+    </th:block>
+    <!-- 医疗:心 -->
+    <th:block th:case="'heart'">
+      <path d="M19.5 13.5c1.5-1.5 2.5-3.2 2.5-5A4.5 4.5 0 0 0 12 6a4.5 4.5 0 0 0-10 2.5c0 1.8 1 3.5 2.5 5L12 21Z"/>
+    </th:block>
+    <!-- 教育:书 -->
+    <th:block th:case="'book'">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>
+    </th:block>
+    <!-- 娱乐:播放 -->
+    <th:block th:case="'play'"><circle cx="12" cy="12" r="9"/><path d="M10 8.5 16 12l-6 3.5v-7Z"/></th:block>
+    <!-- 运动:脉搏 -->
+    <th:block th:case="'activity'"><path d="M22 12h-4l-3 8-6-16-3 8H2"/></th:block>
+    <!-- 服饰:上衣 -->
+    <th:block th:case="'shirt'">
+      <path d="M15 3a3 3 0 0 1-6 0L4 5.5 6 10l2-.8V21h8V9.2l2 .8 2-4.5L15 3Z"/>
+    </th:block>
+    <!-- 美发:剪刀 -->
+    <th:block th:case="'scissors'">
+      <circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/>
+      <path d="M8.1 7.6 20 18"/><path d="M20 6 8.1 16.4"/>
+    </th:block>
+    <!-- 数码:显示器 -->
+    <th:block th:case="'monitor'">
+      <rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M9 21h6"/><path d="M12 17v4"/>
+    </th:block>
+    <!-- 家居:沙发 -->
+    <th:block th:case="'sofa'">
+      <path d="M4 11V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3"/>
+      <path d="M2 13a2 2 0 0 1 4 0v3h12v-3a2 2 0 0 1 4 0v5H2v-5Z"/>
+    </th:block>
+    <!-- 日用:购物篮 -->
+    <th:block th:case="'basket'">
+      <path d="M3 9h18l-1.5 10.5a2 2 0 0 1-2 1.5H6.5a2 2 0 0 1-2-1.5L3 9Z"/>
+      <path d="M8 9 12 3l4 6"/><path d="M9.5 13v4"/><path d="M14.5 13v4"/>
+    </th:block>
+    <!-- 人情:礼物 -->
+    <th:block th:case="'gift'">
+      <rect x="3" y="8" width="18" height="13" rx="1.5"/><path d="M12 8v13"/><path d="M3 13h18"/>
+      <path d="M12 8S9.5 3 7.5 4.5 9 8 12 8Z"/><path d="M12 8s2.5-5 4.5-3.5S15 8 12 8Z"/>
+    </th:block>
+    <!-- 母婴:小人 -->
+    <th:block th:case="'baby'">
+      <circle cx="12" cy="7" r="3.5"/><path d="M5 21c0-4 3.1-7 7-7s7 3 7 7"/><path d="M10 6.5h.01"/><path d="M14 6.5h.01"/>
+    </th:block>
+    <!-- 保险:盾 -->
+    <th:block th:case="'shield'"><path d="M12 2.5 4 6v6c0 5 3.4 8.6 8 9.5 4.6-.9 8-4.5 8-9.5V6l-8-3.5Z"/></th:block>
+    <!-- 宠物:爪 -->
+    <th:block th:case="'paw'">
+      <circle cx="7" cy="8" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="17" cy="8" r="2"/>
+      <path d="M12 11c3 0 5 2.2 5 4.5S15 21 12 21s-5-3.2-5-5.5S9 11 12 11Z"/>
+    </th:block>
+    <!-- 还贷:银行 -->
+    <th:block th:case="'bank'">
+      <path d="M3 9 12 4l9 5"/><path d="M5 9v9"/><path d="M10 9v9"/><path d="M14 9v9"/><path d="M19 9v9"/><path d="M3 20h18"/>
+    </th:block>
+    <!-- 利息:百分号 -->
+    <th:block th:case="'percent'">
+      <path d="M19 5 5 19"/><circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/>
+    </th:block>
+    <!-- 转账给亲属:两个人 -->
+    <th:block th:case="'users'">
+      <circle cx="9" cy="8" r="3"/><path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5"/>
+      <path d="M16 5.2a3 3 0 0 1 0 5.6"/><path d="M18.5 20c0-2.4-.9-4.5-2.4-6"/>
+    </th:block>
+    <!-- 其他:三个点 -->
+    <th:block th:case="'dots'">
+      <circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="12" r=".8"/><circle cx="12" cy="12" r=".8"/><circle cx="15.5" cy="12" r=".8"/>
+    </th:block>
+    <!--/* 兜底:标签。没有这一支的话,猜不中的类目会渲染成一个空方块 —— 比难看更糟。 */-->
+    <th:block th:case="*">
+      <path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9Z"/><circle cx="7.5" cy="7.5" r="1.2"/>
+    </th:block>
+  </th:block>
+</svg>

@@ -153,6 +153,30 @@
         "mobile"
       ],
       "note": "v1.6.32 · issue #9:用户自述没有财会背景、不知道理财买卖/借钱怎么记。手册页 /help/how-to-use。入口三处:导航栏常驻「手册」、填报页标题旁「怎么填?」、以及新手引导卡的主按钮(localStorage 一年后不再显示,所以**不能只靠这张卡**——卡消失后前两处必须还在,这条守护就是防这个)。"
+    },
+    {
+      "id": "expense-import",
+      "name": "从账单导入(支付宝/微信月账单 → 逐笔归类)",
+      "page": "/entry",
+      "hrefContains": "/expense/import",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "v1.21 这一版最值钱的能力,却差点没有入口 —— 实现时只在报表页一句说明文字里内联了一个链接,填报页(用户真正在的地方)一个都没有,是维护者问「导入按钮在哪」才发现的。现在挂在分类宫格的标题行上:用户正是在那个位置意识到「一笔一笔记太慢」。"
+    },
+    {
+      "id": "expense-categories",
+      "name": "支出类目管理(建/改/停用/删,一键起步包)",
+      "page": "/entry",
+      "hrefContains": "/expense/categories",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "v1.21。没建类目时是一句劝导链接,建了之后在宫格标题行的「管理分类」。两种状态下都必须一眼可见。"
     }
   ],
   "collapsible_ok": [

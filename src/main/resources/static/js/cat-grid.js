@@ -30,36 +30,35 @@
       grid.querySelectorAll(sel).forEach(function (b) { b.classList.remove('on'); });
     }
 
-    /* 大类 / 常用 —— 选中即「记在这个分类上」,细类是可选的进一步细分 */
+    /* 格子分两种,靠有没有 data-code 区分:
+         · 有 data-code  = 性质项(还贷/利息支出/转账给亲属)—— 不是消费
+         · 没有          = 消费分类(大类,或「最近常用」里的任意一个)
+       两者【同尺寸同 class】(.cat-cell),所以只能靠 data 属性分,不能靠外观分。 */
     grid.querySelectorAll('.cat-cell').forEach(function (btn) {
       btn.addEventListener('click', function () {
         clearOn('.cat-cell');
         clearOn('.cat-chip');
         btn.classList.add('on');
-        if (catInput) catInput.value = btn.dataset.catId || '';
-        if (codeInput) codeInput.value = 'consumption';
-        showSubs(btn);
+        if (btn.dataset.code) {
+          /* 性质项:清掉消费分类,收起细类条 */
+          if (catInput) catInput.value = '';
+          if (codeInput) codeInput.value = btn.dataset.code;
+          if (subs) subs.hidden = true;
+        } else {
+          if (catInput) catInput.value = btn.dataset.catId || '';
+          if (codeInput) codeInput.value = 'consumption';
+          showSubs(btn);
+        }
       });
     });
 
-    /* 细类 chip 与性质 chip 共用 .cat-chip,靠有没有 data-code 区分 */
-    grid.querySelectorAll('.cat-chip').forEach(function (chip) {
+    /* 细类 chip:性质仍是 consumption,只是分类更细一层 */
+    grid.querySelectorAll('.cat-chip[data-sub-of]').forEach(function (chip) {
       chip.addEventListener('click', function () {
-        if (chip.dataset.code) {
-          /* 性质项:不是消费 —— 清掉消费分类,并把大类选中态一起清掉 */
-          clearOn('.cat-cell');
-          clearOn('.cat-chip');
-          chip.classList.add('on');
-          if (catInput) catInput.value = '';
-          if (codeInput) codeInput.value = chip.dataset.code;
-          if (subs) subs.hidden = true;
-        } else {
-          /* 细类:性质仍是 consumption,只是分类更细一层 */
-          grid.querySelectorAll('.cat-chip[data-sub-of]').forEach(function (o) { o.classList.remove('on'); });
-          chip.classList.add('on');
-          if (catInput) catInput.value = chip.dataset.catId || '';
-          if (codeInput) codeInput.value = 'consumption';
-        }
+        clearOn('.cat-chip');
+        chip.classList.add('on');
+        if (catInput) catInput.value = chip.dataset.catId || '';
+        if (codeInput) codeInput.value = 'consumption';
       });
     });
 
@@ -73,7 +72,7 @@
         if (mine) any = true;
       });
       subs.hidden = !any;
-      if (any && subLabel) subLabel.textContent = (btn.textContent || '').replace('›', '').trim() + ' ›';
+      if (any && subLabel) subLabel.textContent = (btn.textContent || '').replace(/›/g, '').trim() + ' ›';
     }
 
   }
