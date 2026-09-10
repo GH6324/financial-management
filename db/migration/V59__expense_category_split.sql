@@ -1,25 +1,36 @@
 -- =====================================================================
--- v1.21 · 自定义支出分类 + 来源行 + 导入批次
+-- v1.21 · 自定义支出分类(第 2 稿)
 --
--- 四张【全新】表,不改任何既有表 —— 老代码在新库上完全正常,回滚后空表无副作用。
--- `cash_flow_category`(全局表 · code 主键 · 无 family_id)一行不动。
+-- 三张全新表 + 给 cash_flow 加三个可空列。
+--
+-- 中心决定(prd/v1.21.md §0.2):**分类依附在「一笔」上**,不独立成为填报动作。
+--   第 1 稿曾建过一张 expense_split(期×人×类目×来源)按月汇总表,
+--   配套的界面是填报页上一张 37 格的表单 —— 被否了,原因见 prd §14:
+--   「把总数分配到类目里」是人做不来的运算,所有记账软件的分类都是记一笔时顺手选的。
+--   那张表从未在 prod 存在过(v1.21 未发布),所以这里【直接改本迁移】而不是补一条 DROP。
 --
 -- 设计要点(详见 tech-design/v1.21.md §二):
 --
---   · 分类是【月度总额的展开】,不是第三种记账方式。
---     Σ(expense_split) 同事务写回 period_member_cashflow.total_expense_input,
---     于是 ExpenseLedgerService(家庭支出唯一口径入口)【零改动】——
---     这不是靠测试保证的,是结构上必然的。
+--   · **性质 ≠ 消费分类,所以是加列不是改列。**
+--     cash_flow.category_code(consumption / loan_payment / interest_paid / to_relatives)
+--     是【性质】,决定储蓄率与负债口径(AGENTS.md 联动链 L1);
+--     expense_category_id 是【钱花在哪】,只在 category_code='consumption' 时有意义。
+--     合并两者会静默把储蓄率算错 —— 那类错误不抛异常,只是数字慢慢不对。
 --
---   · expense_split 的键是【期 × 人 × 类目 × 来源】。
---     「来源」把手填与各渠道导入分开存,于是:
---       重导某渠道 = 按(期,人,渠道)DELETE+INSERT → 天然只动该渠道,
---       用户的手工修正永远不被导入冲掉(v1.21 FR-538)。
---     若只存合成额,重导时根本拆不出渠道份额。
+--   · **三个新列全部可空**,老 jar 见到它们照常跑(联动链 L7:回滚只回 jar 不回 DB)。
+--     既有的 49 条 EXPENSE 流水 expense_category_id 为 NULL = 「未分类」,
+--     不影响任何金额、不影响储蓄率。
+--
+--   · **去重靠 (family, channel, ext_tx_no) 而不是「来源行」。**
+--     渠道账单每笔都带交易号,同一份文件导两次不会出双份,而且精确到笔 ——
+--     比第 1 稿的「整条通道 DELETE+INSERT」既简单又准。
+--     注意这里【故意不建 UNIQUE 约束】:交易号是外部数据,遇到渠道改版/补录/
+--     同号复用时,硬约束会让整批导入 500 而不是跳过那一笔。去重在应用层做,
+--     DB 只提供索引 —— 「外部标识不做唯一约束」是本项目一贯做法。
 --
 --   · 「其他」是每家一条【真实行】(system_code='OTHER'),不是用 NULL 表示。
 --     理由是硬的:MySQL 的 UNIQUE 对 NULL 不去重(NULL ≠ NULL),
---     用 category_id=NULL 表示「其他」会让同一格插出多条手填行,两级恒等式当场炸。
+--     用 category_id=NULL 表示「其他」会让同名校验失效。
 --
 --   · 类目树用单表自引用,层级【封顶两层】(parent 的 parent 必为 NULL),
 --     由应用层校验 + 护栏 v1210-TWO-LEVELS-MAX 共同保证。
@@ -46,50 +57,33 @@ CREATE TABLE IF NOT EXISTS expense_category (
     CONSTRAINT fk_expcat_family FOREIGN KEY (family_id) REFERENCES family (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='v1.21 支出类目(一棵两层树 · 家庭级)';
 
-CREATE TABLE IF NOT EXISTS expense_split (
-    id          BIGINT        NOT NULL AUTO_INCREMENT,
-    family_id   BIGINT        NOT NULL,
-    period_id   BIGINT        NOT NULL,
-    member_id   BIGINT        NOT NULL,
-    category_id BIGINT        NOT NULL,
-    -- MANUAL / ALIPAY / WECHAT / SHOT
-    source      VARCHAR(16)   NOT NULL,
-    -- 【只有 MANUAL 允许为负】—— 那是对导入值的冲正(FR-538)。
-    -- 类目合成额(Σ来源行)不可为负,由服务层校验,不在这里约束。
-    amount      DECIMAL(15,2) NOT NULL,
-    batch_id    BIGINT            NULL,
-    updated_at  DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    -- 【本迁移最重要的一行】一格一来源最多一行 —— 两级恒等式的地基
-    UNIQUE KEY uk_split (period_id, member_id, category_id, source),
-    KEY idx_split_period (period_id, member_id),
-    KEY idx_split_batch (batch_id),
-    KEY idx_split_cat (category_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='v1.21 分类金额的来源行(期×人×类目×来源)';
-
 CREATE TABLE IF NOT EXISTS expense_import_batch (
     id            BIGINT        NOT NULL AUTO_INCREMENT,
     family_id     BIGINT        NOT NULL,
     period_id     BIGINT        NOT NULL,
-    member_id     BIGINT        NOT NULL,
-    -- ALIPAY / WECHAT / SHOT
+    -- 整批落到同一个账户(FR-568)· 第一期不做多账户拆分
+    account_id    BIGINT        NOT NULL,
+    -- ALIPAY / WECHAT
     channel       VARCHAR(16)   NOT NULL,
     row_count     INT           NOT NULL DEFAULT 0,
     total_amount  DECIMAL(15,2) NOT NULL DEFAULT 0,
-    -- 被本批次替换掉的上一批(同期同人同渠道)· 形成可追溯的替换链
-    replaced_id   BIGINT            NULL,
+    -- 剔除/跳过的笔数,留作审计:「导入总额比账单少」时能解释清楚(FR-561)
+    dropped_count INT           NOT NULL DEFAULT 0,
+    skipped_count INT           NOT NULL DEFAULT 0,
     imported_by   BIGINT            NULL,
     imported_at   DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    -- 整批撤销 = 软删该批次 + 软删它落的流水(FR-539)
     revoked_at    DATETIME(3)       NULL,
     PRIMARY KEY (id),
-    KEY idx_batch_scope (family_id, period_id, member_id, channel),
-    KEY idx_batch_replaced (replaced_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='v1.21 导入批次(本身就是审计日志:渠道/行数/金额/替换链)';
+    KEY idx_batch_scope (family_id, period_id, channel),
+    KEY idx_batch_period (period_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='v1.21 导入批次(本身就是审计日志:渠道/笔数/金额/剔除数)';
 
 CREATE TABLE IF NOT EXISTS expense_merchant_rule (
     id          BIGINT      NOT NULL AUTO_INCREMENT,
     family_id   BIGINT      NOT NULL,
-    -- 商户名/商品说明里的关键字。微信账单【没有消费分类列】,只能靠这个映射。
+    -- 商户名/商品说明里的关键字。微信账单【没有消费分类列】,只能靠这个映射;
+    -- 用户在确认页改一笔并勾「记住」就写一条 —— 越用越准(FR-567)。
     keyword     VARCHAR(40) NOT NULL,
     category_id BIGINT      NOT NULL,
     hit_count   INT         NOT NULL DEFAULT 0,
@@ -98,3 +92,20 @@ CREATE TABLE IF NOT EXISTS expense_merchant_rule (
     UNIQUE KEY uk_rule (family_id, keyword),
     KEY idx_rule_family (family_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='v1.21 商户关键字 → 类目(配一次管一年)';
+
+-- ── cash_flow 加三列 ────────────────────────────────────────────────
+-- 全部可空 + 纯新增,既有 377 行一个字节不动。
+--
+-- 【为什么不加外键到 expense_category】:删类目时我们要自己控制搬家语义
+-- (删二级 → 转父级;删一级 → 转「其他」,见 FR-505),外键的 RESTRICT/CASCADE
+-- 两种行为都不是我们要的,而且会让删除路径在 DB 层报错而不是给出人话提示。
+
+ALTER TABLE cash_flow
+    ADD COLUMN expense_category_id BIGINT NULL COMMENT 'v1.21 消费分类(只在 category_code=consumption 时有意义;NULL=未分类)',
+    ADD COLUMN import_batch_id     BIGINT NULL COMMENT 'v1.21 来自哪个导入批次;NULL=手工录入',
+    ADD COLUMN ext_tx_no           VARCHAR(64) NULL COMMENT 'v1.21 渠道交易号,用于重复导入去重(不做唯一约束,见文件头)';
+
+-- 报表按分类聚合走这条(period + 分类),导入去重走 ext_tx_no 那条
+CREATE INDEX idx_cf_expcat ON cash_flow (period_id, expense_category_id);
+CREATE INDEX idx_cf_exttx  ON cash_flow (ext_tx_no);
+CREATE INDEX idx_cf_batch  ON cash_flow (import_batch_id);

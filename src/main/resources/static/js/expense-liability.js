@@ -6,61 +6,41 @@
  * 又在现金账户记一笔「还贷」,同一笔钱进了两次本月支出。服务端 EntryService.recordExpense
  * 会硬拦(REPAYMENT_CATEGORIES),这里只是让用户在点下去之前就看不到那两个选项。
  *
- * 为什么是「摘掉 option」而不是「置灰」:这两个 select 都挂了 data-lsel,原生控件被
- * lens-select.js 隐藏、另渲染一份自定义下拉,而它的 render() **不读 option.disabled** ——
- * 置灰在自定义 UI 上根本看不出来,用户照样点得到。lens-select 对 select 挂了
- * MutationObserver({childList:true}),所以增删 option 会自动触发它重建列表,这条路是通的。
+ * ── v1.21 改写 ──
+ *
+ * 类目从 `<select data-lsel>` 换成了常驻宫格(_cat-grid.html),所以这里从
+ * 「摘 option 再插回原位」变成「藏按钮」—— 简单得多,而且不用管顺序。
+ *
+ * **改写不是可选的**:旧实现调 `cat.options`,而 `data-expense-cat` 现在是一个
+ * hidden input,`Array.prototype.slice.call(undefined)` 在 strict 模式下直接抛 TypeError。
+ * 更糟的是它**只在用户选中信用卡那一刻才抛** —— 首屏默认是现金账户,走的是恢复分支、
+ * 提前 return,所以页面打开时一切正常,护栏和冒烟测试都看不出来。
  */
 (function () {
   'use strict';
 
-  /** 摘走的 option 连同它的原始下标一起记着 —— 恢复时要插回原位,不能一律 append。 */
-  function detachRepayment(cat) {
-    if (cat._repaymentStash) return cat._repaymentStash;
-    var stash = [];
-    Array.prototype.slice.call(cat.options).forEach(function (opt, i) {
-      if (opt.getAttribute('data-repayment') === 'true') stash.push({ opt: opt, index: i });
-    });
-    stash.forEach(function (s) { if (s.opt.parentNode) s.opt.parentNode.removeChild(s.opt); });
-    cat._repaymentStash = stash;
-    return stash;
-  }
-
-  function restoreRepayment(cat) {
-    var stash = cat._repaymentStash;
-    if (!stash) return;
-    // 从小到大插回:先插的那个到位之后,后一个的原始下标才是对的
-    stash.slice().sort(function (a, b) { return a.index - b.index; })
-      .forEach(function (s) {
-        var ref = cat.options[s.index] || null;
-        cat.insertBefore(s.opt, ref);
-      });
-    cat._repaymentStash = null;
-  }
-
   function apply(form) {
     var acct = form.querySelector('[data-expense-acct]');
-    var cat = form.querySelector('[data-expense-cat]');
-    if (!acct || !cat) return;
+    var codeInput = form.querySelector('[data-expense-cat]');
+    if (!acct || !codeInput) return;
+    var grid = form.querySelector('[data-cat-grid]');
     var hint = (form.parentNode || document).querySelector('[data-expense-liability-hint]');
 
-    var picked = acct.options[acct.selectedIndex];
+    var picked = acct.selectedOptions && acct.selectedOptions.length ? acct.selectedOptions[0] : null;
     var isLiability = !!picked && picked.getAttribute('data-liability') === 'true';
 
-    if (isLiability) {
-      var stash = detachRepayment(cat);
-      // 当前选中的正好被摘走 → select.value 会变成空,提交时服务端报「类目不存在」。
-      // 落回「消费」(没有就用第一个剩下的),并派发 change 让 lens-select 同步按钮文案。
-      var wasRepayment = stash.some(function (s) { return s.opt.value === cat.value; }) || !cat.value;
-      if (wasRepayment) {
-        var fallback = cat.querySelector('option[value="consumption"]') || cat.options[0];
-        if (fallback) {
-          cat.value = fallback.value;
-          cat.dispatchEvent(new Event('change', { bubbles: true }));
+    if (grid) {
+      grid.querySelectorAll('[data-repayment="true"]').forEach(function (btn) {
+        btn.hidden = isLiability;
+        // 当前选中的正好被藏起来 → hidden 里还留着 loan_payment,提交会被服务端拒。
+        // 报错是对的,但用户看不出自己选了什么 —— 所以退回默认。
+        if (isLiability && btn.classList.contains('on')) {
+          btn.classList.remove('on');
+          codeInput.value = 'consumption';
+          var catInput = form.querySelector('[data-cat-input]');
+          if (catInput) catInput.value = '';
         }
-      }
-    } else {
-      restoreRepayment(cat);
+      });
     }
     if (hint) hint.hidden = !isLiability;
   }

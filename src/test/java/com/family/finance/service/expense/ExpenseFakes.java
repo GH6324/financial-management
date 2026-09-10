@@ -2,10 +2,8 @@ package com.family.finance.service.expense;
 
 import com.family.finance.domain.expense.ExpenseCategory;
 import com.family.finance.domain.expense.ExpenseImportBatch;
-import com.family.finance.domain.expense.ExpenseSplit;
 import com.family.finance.repository.ExpenseCategoryMapper;
 import com.family.finance.repository.ExpenseImportBatchMapper;
-import com.family.finance.repository.ExpenseSplitMapper;
 import com.family.finance.repository.PeriodMemberCashflowMapper;
 
 import java.math.BigDecimal;
@@ -30,61 +28,87 @@ public final class ExpenseFakes {
 
     private ExpenseFakes() {}
 
-    /** 按 uk_split(period,member,category,source) 唯一 —— 与真表约束一致,否则测不出双计 */
-    public static class FakeSplitMapper implements ExpenseSplitMapper {
-        final Map<String, ExpenseSplit> rows = new LinkedHashMap<>();
-        static String k(long p, long m, long c, String s) { return p + "/" + m + "/" + c + "/" + s; }
+    /**
+     * {@code cash_flow} 那一侧的假实现。
+     *
+     * <p>第 2 稿的分类挂在<b>每一笔</b>上,所以这里存的是「一笔」而不是「一格汇总」。
+     * 顺带把第 1 稿那个 {@code uk_split(期,人,类目,来源)} 唯一约束的模拟一起去掉了 ——
+     * 逐笔载体没有唯一约束,搬家一条 UPDATE 就够。</p>
+     */
+    public static class FakeFlowMapper implements com.family.finance.repository.ExpenseFlowMapper {
+        /** 一笔:期 / 分类 / 金额 */
+        public record Row(long periodId, Long categoryId, BigDecimal amount) {}
+        public final List<Row> rows = new ArrayList<>();
 
-        @Override public int upsert(ExpenseSplit r) {
-            rows.put(k(r.getPeriodId(), r.getMemberId(), r.getCategoryId(), r.getSource().name()), r);
-            return 1;
+        public void add(long periodId, Long categoryId, String amount) {
+            rows.add(new Row(periodId, categoryId, new BigDecimal(amount)));
         }
-        @Override public List<ExpenseSplit> findByPeriodMember(long periodId, long memberId) {
-            return rows.values().stream()
-                    .filter(r -> r.getPeriodId() == periodId && r.getMemberId() == memberId).toList();
+
+        @Override public List<CatSum> sumByCategory(long periodId) {
+            Map<Long, BigDecimal> amt = new LinkedHashMap<>();
+            Map<Long, Integer> cnt = new LinkedHashMap<>();
+            for (Row r : rows) {
+                if (r.periodId() != periodId) continue;
+                amt.merge(r.categoryId(), r.amount(), BigDecimal::add);
+                cnt.merge(r.categoryId(), 1, Integer::sum);
+            }
+            List<CatSum> out = new ArrayList<>();
+            amt.forEach((c, a) -> out.add(new CatSum(c, a, cnt.get(c))));
+            return out;
         }
-        @Override public List<ExpenseSplit> findByPeriod(long familyId, long periodId) {
-            return rows.values().stream().filter(r -> r.getPeriodId() == periodId).toList();
+
+        @Override public List<PeriodCatSum> sumByPeriodAndCategory(List<Long> periodIds) {
+            Map<String, BigDecimal> acc = new LinkedHashMap<>();
+            for (Row r : rows) {
+                if (!periodIds.contains(r.periodId())) continue;
+                acc.merge(r.periodId() + "/" + r.categoryId(), r.amount(), BigDecimal::add);
+            }
+            List<PeriodCatSum> out = new ArrayList<>();
+            acc.forEach((k, v) -> {
+                String[] p = k.split("/");
+                Long cid = "null".equals(p[1]) ? null : Long.parseLong(p[1]);
+                out.add(new PeriodCatSum(Long.parseLong(p[0]), cid, v));
+            });
+            return out;
         }
-        @Override public List<ExpenseSplit> findByFamily(long familyId) { return new ArrayList<>(rows.values()); }
-        @Override public BigDecimal sumByPeriodMember(long periodId, long memberId) {
-            var list = findByPeriodMember(periodId, memberId);
-            if (list.isEmpty()) return null;
-            BigDecimal s = BigDecimal.ZERO;
-            for (ExpenseSplit r : list) s = s.add(r.getAmount());
-            return s;
+
+        @Override public List<FlowRow> drillDown(long periodId, Long categoryId) { return List.of(); }
+
+        /** 搬家 —— 真实现是一条 UPDATE,这里照做:逐笔载体不会撞任何唯一键 */
+        @Override public int moveCategory(long familyId, long fromId, long toId) {
+            int n = 0;
+            for (int i = 0; i < rows.size(); i++) {
+                Row r = rows.get(i);
+                if (r.categoryId() != null && r.categoryId() == fromId) {
+                    rows.set(i, new Row(r.periodId(), toId, r.amount()));
+                    n++;
+                }
+            }
+            return n;
         }
-        @Override public int deleteBySource(long periodId, long memberId, String source) {
-            return (int) removeIf(r -> r.getPeriodId() == periodId && r.getMemberId() == memberId
-                    && r.getSource().name().equals(source));
+
+        @Override public Impact impactOf(long familyId, long categoryId) {
+            int n = 0;
+            BigDecimal amt = BigDecimal.ZERO;
+            java.util.Set<Long> ps = new java.util.HashSet<>();
+            for (Row r : rows) {
+                if (r.categoryId() == null || r.categoryId() != categoryId) continue;
+                n++; amt = amt.add(r.amount()); ps.add(r.periodId());
+            }
+            return new Impact(n, ps.size(), amt);
         }
-        @Override public int deleteByPeriodMember(long periodId, long memberId) {
-            return (int) removeIf(r -> r.getPeriodId() == periodId && r.getMemberId() == memberId);
+
+        @Override public List<String> existingTxNos(long familyId, List<String> txNos) { return List.of(); }
+
+        @Override public List<Long> recentCategoryIds(long familyId, java.time.LocalDate since, int limit) {
+            Map<Long, Integer> cnt = new LinkedHashMap<>();
+            for (Row r : rows) if (r.categoryId() != null) cnt.merge(r.categoryId(), 1, Integer::sum);
+            return cnt.entrySet().stream()
+                    .sorted((a, b) -> b.getValue() - a.getValue())
+                    .limit(limit).map(Map.Entry::getKey).toList();
         }
-        @Override public int deleteOne(long periodId, long memberId, long categoryId, String source) {
-            return rows.remove(k(periodId, memberId, categoryId, source)) == null ? 0 : 1;
-        }
-        @Override public int deleteByCategory(long familyId, long categoryId) {
-            return (int) removeIf(r -> r.getCategoryId() == categoryId);
-        }
-        @Override public int countPeriodsUsing(long familyId, long categoryId) {
-            return (int) rows.values().stream().filter(r -> r.getCategoryId() == categoryId)
-                    .map(ExpenseSplit::getPeriodId).distinct().count();
-        }
-        @Override public int countRowsUsing(long familyId, long categoryId) {
-            return (int) rows.values().stream().filter(r -> r.getCategoryId() == categoryId).count();
-        }
-        @Override public BigDecimal sumByFamily(long familyId) {
-            BigDecimal s = BigDecimal.ZERO;
-            for (ExpenseSplit r : rows.values()) s = s.add(r.getAmount());
-            return s;
-        }
-        private long removeIf(java.util.function.Predicate<ExpenseSplit> p) {
-            var keys = rows.entrySet().stream().filter(e -> p.test(e.getValue()))
-                    .map(Map.Entry::getKey).toList();
-            keys.forEach(rows::remove);
-            return keys.size();
-        }
+
+        @Override public int softDeleteBatch(long batchId) { return 0; }
     }
 
     public static class FakeCategoryMapper implements ExpenseCategoryMapper {
@@ -145,14 +169,8 @@ public final class ExpenseFakes {
             return byId.values().stream()
                     .filter(b -> b.getPeriodId() == periodId && b.getRevokedAt() == null).toList();
         }
-        @Override public ExpenseImportBatch findLive(long familyId, long periodId, long memberId, String channel) {
-            return byId.values().stream()
-                    .filter(b -> b.getPeriodId() == periodId && b.getMemberId() == memberId
-                            && b.getChannel().name().equals(channel) && b.getRevokedAt() == null)
-                    .reduce((a, b) -> b).orElse(null);
-        }
         @Override public ExpenseImportBatch find(long familyId, long id) { return byId.get(id); }
-        @Override public int revoke(long familyId, long id) {
+        @Override public int markRevoked(long familyId, long id) {
             ExpenseImportBatch b = byId.get(id);
             if (b == null || b.getRevokedAt() != null) return 0;
             b.setRevokedAt(java.time.LocalDateTime.now()); return 1;

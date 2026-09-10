@@ -42,6 +42,8 @@ public class BillImportService {
     private final ExpenseCategoryService categoryService;
     private final ExpenseMerchantRuleMapper ruleMapper;
     private final FamilyConfigService configService;
+    private final com.family.finance.repository.ExpenseFlowMapper flowMapper;
+    private final MerchantAiClassifier ai;
 
     public static class ImportException extends RuntimeException {
         public ImportException(String m) { super(m); }
@@ -95,12 +97,18 @@ public class BillImportService {
         return toDraft(familyId, channel, parsed);
     }
 
-    /** 把解析结果映射成草稿(三条通道共用这一步) */
+    /**
+     * 解析结果 → 逐笔草稿(归类 + 分桶)。
+     *
+     * <p>三层兜底在 {@link BillCategoryResolver#classify} 里做完前两层(渠道分类 / 关键字规则),
+     * 这里补上第三层 <b>AI</b> —— 只对<b>兜底那一堆</b>送,而且<b>只送商户名</b>(FR-563)。
+     * 没配 key 就整层跳过,那些笔留在「其他」等用户手改。</p>
+     */
     public BillCategoryResolver.Draft toDraft(long familyId, ExpenseSource channel,
                                               CsvBillParser.Parsed parsed) {
-        /* 匹配范围是【整棵树】而不是当前深度可填的那一层 ——
-         * 渠道给的分类名是大类粒度(「餐饮美食」),落在大类上就是「未细分」,完全合法;
-         * 只在细类里找的话,复杂深度下几乎全会落进「其他」(开发时真踩了)。 */
+        /* 匹配范围是【整棵树】而不是某一层 ——
+         * 渠道给的分类名是大类粒度(「餐饮美食」),落在大类上完全合法;
+         * 只在细类里找的话几乎全会落进「其他」(第 1 稿真踩了)。 */
         List<ExpenseCategory> allNodes = categoryService.all(familyId).stream()
                 .filter(c -> !c.isArchived())
                 .toList();
@@ -112,7 +120,55 @@ public class BillImportService {
         Map<String, Long> rules = new LinkedHashMap<>();
         for (var r : ruleMapper.findByFamily(familyId)) rules.put(r.keyword(), r.categoryId());
 
-        return BillCategoryResolver.aggregate(channel, parsed, allNodes, rules, other.getId());
+        /* 去重:整个家庭范围内已经落过的交易号(不只是当期)——
+         * 用户可能把 9 月的账单误导进 8 月那一期,只查当期会让那笔再落一次。 */
+        List<String> txNos = parsed.rows().stream()
+                .map(BillRow::txNo).filter(java.util.Objects::nonNull).distinct().toList();
+        java.util.Set<String> seen = txNos.isEmpty() ? java.util.Set.of()
+                : new java.util.HashSet<>(flowMapper.existingTxNos(familyId, txNos));
+
+        BillCategoryResolver.Draft d =
+                BillCategoryResolver.classify(channel, parsed, allNodes, rules, other.getId(), seen);
+        return applyAi(familyId, d, allNodes, other.getId());
+    }
+
+    /**
+     * 第三层:把「兜底」那一堆的商户名送给模型猜。
+     *
+     * <p>只送 {@link BillCategoryResolver.How#FALLBACK} 的行 —— 前两层命中的不该被 AI 覆盖:
+     * 渠道自己的分类和用户自己的规则都比模型的猜测可信。</p>
+     *
+     * <p>猜中的标成 {@code AI},猜不中的<b>留在 FALLBACK</b>。两者在确认页分开标 ——
+     * 「AI 猜的」值得扫一眼,「兜底」是必须处理的。混成一类就等于让用户白看一遍。</p>
+     */
+    private BillCategoryResolver.Draft applyAi(long familyId, BillCategoryResolver.Draft d,
+                                               List<ExpenseCategory> allNodes, long otherId) {
+        List<BillCategoryResolver.Line> fallback = d.lines().stream()
+                .filter(l -> l.bucket() == BillCategoryResolver.Bucket.SPEND
+                          && l.how() == BillCategoryResolver.How.FALLBACK)
+                .toList();
+        if (fallback.isEmpty() || !ai.available()) return d;
+
+        List<String> names = fallback.stream().map(BillCategoryResolver.Line::merchant).toList();
+        List<String> catNames = allNodes.stream().map(ExpenseCategory::getName).distinct().toList();
+        Map<String, String> guess = ai.classify(names, catNames);
+        if (guess.isEmpty()) return d;
+
+        Map<String, Long> idOfName = new LinkedHashMap<>();
+        for (ExpenseCategory c : allNodes) if (!c.isTopLevel()) idOfName.putIfAbsent(c.getName(), c.getId());
+        for (ExpenseCategory c : allNodes) if (c.isTopLevel()) idOfName.putIfAbsent(c.getName(), c.getId());
+
+        List<BillCategoryResolver.Line> out = new java.util.ArrayList<>();
+        for (BillCategoryResolver.Line l : d.lines()) {
+            String g = (l.bucket() == BillCategoryResolver.Bucket.SPEND
+                     && l.how() == BillCategoryResolver.How.FALLBACK)
+                    ? guess.get(l.merchant()) : null;
+            Long tid = g == null ? null : idOfName.get(g);
+            if (tid == null) { out.add(l); continue; }
+            out.add(new BillCategoryResolver.Line(l.idx(), l.occurredAt(), l.merchant(), l.amount(),
+                    tid, g, BillCategoryResolver.How.AI, l.bucket(), null, null, l.txNo()));
+        }
+        return new BillCategoryResolver.Draft(d.channel(), out, d.total(), d.parsed(), d.noTxNo());
     }
 
     /** 用户在确认页把某个商户改到别的类目 → 记住,下次自动命中 */

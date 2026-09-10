@@ -1,0 +1,86 @@
+<!--/*
+  v1.21(第 2 稿)· 支出分类宫格。
+
+  为什么是宫格不是下拉(prd/v1.21.md §1.4 调研):
+    下拉是「点开 → 滚动 → 找 → 点」四步,宫格是一步。
+    用户放弃记账 App 最集中的抱怨就是「填半天分类还不对」,
+    而逐笔录入本来就是连着记好几笔 —— 每笔都点开一次下拉,是把摩擦乘以笔数。
+  所以宫格【常驻】,不做成弹出层。
+
+  为什么消费分类和「还贷/利息支出/转账给亲属」在同一个宫格里(FR-551):
+    它们底层是两个字段(性质 category_code / 消费分类 expense_category_id),
+    但界面上分成两步选,就是给 95% 的「日常开支」多加一次点击。
+    点消费分类 → 性质自动 consumption;点那三项 → 消费分类留空。
+
+  零影响:整块挂在 hasExpenseCats 之后。没建类目的家庭一个像素都不渲染(FR-520)。
+*/-->
+<th:block th:fragment="grid">
+
+  <!--/* 没建类目:一句话 + 入口。只出现一次,不啰嗦 */-->
+  <div th:unless="${hasExpenseCats}" class="mt-3">
+    <a th:href="@{/expense/categories}" class="font-mono text-[11px] text-brass-deep hover:underline no-underline">
+      想知道钱花在哪?建几个支出类目 →
+    </a>
+    <span class="text-[11.5px] text-ink-subtle ml-2">建好之后,每笔支出可以顺手点一个分类。</span>
+  </div>
+
+  <div th:if="${hasExpenseCats}" class="mt-4" data-cat-grid>
+    <!--/* 真正提交的是这个 hidden —— 宫格只是它的输入方式。
+           默认空 = 未分类,不拦截提交(FR-554:拦截等于给每笔加一次摩擦)。 */-->
+    <input type="hidden" name="expenseCategoryId" value="" data-cat-input>
+
+    <!--/* 常用置顶(FR-553)· 按最近 90 天的笔数排,不按最后一次使用时间 ——
+           偶然记过一笔「医疗健康」不该顶到第一位 */-->
+    <div th:if="${catRecent != null and !#lists.isEmpty(catRecent)}">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="font-mono text-[9px] tracking-[.16em] text-ink-subtle whitespace-nowrap">最近常用</span>
+        <span class="flex-1 h-px bg-rule"></span>
+      </div>
+      <div class="flex gap-2 flex-wrap mb-4">
+        <button type="button" th:each="c : ${catRecent}"
+                class="cat-cell" th:attr="data-cat-id=${c.id}" th:text="${c.name}">餐饮美食</button>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 mb-2">
+      <span class="font-mono text-[9px] tracking-[.16em] text-ink-subtle whitespace-nowrap">选一个分类</span>
+      <span class="flex-1 h-px bg-rule"></span>
+      <a th:href="@{/expense/categories}" class="font-mono text-[9px] text-ink-subtle hover:underline no-underline">管理分类</a>
+    </div>
+
+    <!--/* 一级宫格。有细类的大类带一个「›」提示还能再点开一层 —— 但点大类本身就能提交 */-->
+    <div class="grid gap-[7px]" style="grid-template-columns:repeat(auto-fill,minmax(104px,1fr))">
+      <button type="button" th:each="e : ${catTree}"
+              class="cat-cell" th:attr="data-cat-id=${e.key.id},data-has-kids=${!#lists.isEmpty(e.value)} ? 'true' : null">
+        <span th:text="${e.key.name}">餐饮美食</span><span th:if="${!#lists.isEmpty(e.value)}" class="cat-more"> ›</span>
+      </button>
+    </div>
+
+    <!--/* 细类条:选中一个有细类的大类之后才出现。
+           「不细分」默认选中 —— 细分永远是加分项,不是门槛(FR-552)。 */-->
+    <div data-cat-subs hidden class="flex gap-[6px] flex-wrap mt-[9px] pt-[9px] border-t border-dashed border-rule">
+      <span class="font-mono text-[10px] text-ink-subtle self-center mr-0.5" data-cat-sub-label>餐饮美食 ›</span>
+      <th:block th:each="e : ${catTree}">
+        <th:block th:each="k : ${e.value}">
+          <button type="button" class="cat-chip" hidden
+                  th:attr="data-sub-of=${e.key.id},data-cat-id=${k.id}" th:text="${k.name}">外卖</button>
+        </th:block>
+      </th:block>
+      <span class="font-mono text-[10px] text-ink-subtle self-center">想细分再点一下,<b>不强制</b></span>
+    </div>
+
+    <!--/* 三个「不是消费」的性质项。视觉上明确隔开 —— 它们不进「钱花在哪」,
+           但仍进储蓄率与负债口径,混在消费分类里会让人以为还贷也是一种消费。
+           data-repayment 保留 v1.19.3 的行为:选中负债账户时由 expense-liability.js 摘掉。 */-->
+    <div class="flex items-center gap-2 mt-4 mb-2">
+      <span class="font-mono text-[9px] tracking-[.16em] text-ink-subtle whitespace-nowrap">不是消费 · 性质另算</span>
+      <span class="flex-1 h-px bg-rule"></span>
+    </div>
+    <div class="flex gap-[6px] flex-wrap items-center">
+      <button type="button" th:each="c : ${expenseCategories}" th:if="${c.code != 'consumption'}"
+              class="cat-chip" th:attr="data-code=${c.code},data-repayment=${c.code == 'loan_payment' or c.code == 'interest_paid'} ? 'true' : null"
+              th:text="${c.displayName}">还贷</button>
+      <span class="font-mono text-[10px] text-ink-subtle">这三项不进「钱花在哪」,但仍进储蓄率与负债口径。</span>
+    </div>
+  </div>
+</th:block>

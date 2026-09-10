@@ -166,14 +166,27 @@ public class ExpenseShotClient {
         return out;
     }
 
-    /** 把转写结果变成解析器的行,好走与文件通道完全相同的映射与聚合 */
+    /**
+     * 把转写结果变成解析器的行,好走与文件通道完全相同的归类。
+     *
+     * <p><b>v1.21 第 2 稿:这条通道第一期不挂入口。</b> 截图转写产出的是渠道
+     * <b>算好的分类汇总数</b>(「餐饮美食 ¥1,500」),而第 2 稿的载体是<b>逐笔流水</b> ——
+     * 一张截图变不成 96 笔。两者对不上,硬塞进来会得到一堆没有日期、没有商户、
+     * 没有交易号的假流水,而且无法去重(重传同一张图就出双份)。</p>
+     *
+     * <p>类保留、编译保留,等逐笔这条线跑顺了再决定它落成什么形态
+     * (可能是「一张截图 = 一笔」,也可能干脆不做)。见 PRD §3.5。</p>
+     */
     public static CsvBillParser.Parsed toParsed(List<ShotRow> rows) {
         List<BillRow> bills = new ArrayList<>();
         int bad = 0;
         for (ShotRow r : rows) {
             BigDecimal amt = CsvBillParser.money(r.amountRaw());
             if (amt == null) { bad++; continue; }
-            bills.add(new BillRow(r.category(), r.channel(), null, "支出", amt, null, r.category()));
+            /* 日期与交易号都是 null:截图上没有这两样。
+             * 这正是它接不进逐笔载体的原因 —— 没有交易号就没法去重。 */
+            bills.add(new BillRow(r.category(), r.channel(), null, "支出", amt, null, r.category(),
+                    null, null));
         }
         return new CsvBillParser.Parsed(bills, "(截图转写)", 0, 0, 0, bad);
     }

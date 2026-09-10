@@ -53,8 +53,7 @@ public class ReportsController {
 
     private final FactViewService factViewService;
     private final com.family.finance.service.group.AccountRowGrouper accountRowGrouper;              // v1.20 账户组折叠
-    private final com.family.finance.service.expense.ExpenseSplitService expenseSplitService;        // v1.21
-    private final com.family.finance.service.expense.ExpenseMixQueryService expenseMixQueryService;  // v1.21
+    private final com.family.finance.service.expense.ExpenseCatQueryService expenseCatQueryService;  // v1.21
     private final com.family.finance.service.group.AccountGroupingResolver groupingResolver;        // v1.20
     private final FamilyService familyService;
     private final PeriodMapper periodMapper;
@@ -473,31 +472,33 @@ public class ReportsController {
         model.addAttribute("accountRows", foldedRows);                              // 顶层:图 + 计数
         model.addAttribute("accountRowsFlat", accountRowGrouper.flatten(foldedRows)); // 表:组行 + 隐藏成员行
         model.addAttribute("hasGroups", groupingResolver.hasAnyGroup(me.getFamilyId()));
-        /* v1.21 · 支出构成(分类填报口径)。
-         * 与上面那个 mixEnabled 区是【两个区】:它读逐笔 + 全局类目表,这里读 expense_split + 家庭树。
-         * 两套类目体系没有公共键,硬合成一张图得先统一它们(那是 ITEMIZED 侧的联动链,第一期不接)。
-         * 各占一区、各自标明来源 —— 比合出一张来源含糊的图诚实。
-         * 零影响:没有分类数据的家庭这一块一个像素都不渲染。 */
-        boolean splitMixEnabled = expenseSplitService.hasAnySplit(me.getFamilyId());
-        model.addAttribute("splitMixEnabled", splitMixEnabled);
-        if (splitMixEnabled) {
-            var roll = expenseMixQueryService.period(me.getFamilyId(), anchor.getId());
-            model.addAttribute("splitRollup", roll);
+        /* v1.21(第 2 稿)· 支出构成(消费分类口径)。
+         * 数来自 cash_flow 按 expense_category_id 聚合 —— 只有一个来源。
+         * 第 1 稿这里读的是另一张汇总表,于是同一个月的构成有两个出处、迟早对不上;
+         * 现在不存在这个问题,所以也不需要「各占一区、各自标明来源」那套说明。
+         * 零影响:没有任何一笔带分类的家庭,这一块一个像素都不渲染。 */
+        var catTrend = expenseCatQueryService.trend(me.getFamilyId(), anchor, 12);
+        var catRoll = expenseCatQueryService.period(me.getFamilyId(), anchor.getId());
+        boolean catMixEnabled = !catRoll.isEmpty()
+                || catTrend.stream().anyMatch(t -> !t.noData());
+        model.addAttribute("catMixEnabled", catMixEnabled);
+        if (catMixEnabled) {
+            model.addAttribute("catRollup", catRoll);
             java.math.BigDecimal periodTotal = java.math.BigDecimal.ZERO;
-            for (var r : roll) periodTotal = periodTotal.add(r.total());
+            for (var r : catRoll) periodTotal = periodTotal.add(r.total());
             // 分母为 0 时给 1,免得模板里除零(占比那几个格子会渲染成 0.0%,可接受)
-            model.addAttribute("splitTotalPeriod",
+            model.addAttribute("catTotalPeriod",
                     periodTotal.signum() == 0 ? java.math.BigDecimal.ONE : periodTotal);
             int year = anchor.getPeriodStart().getYear();
-            var yearRows = expenseMixQueryService.year(me.getFamilyId(), year, anchor);
-            model.addAttribute("splitYear", year);
-            model.addAttribute("splitYearRows", yearRows);
+            var yearRows = expenseCatQueryService.year(me.getFamilyId(), year, anchor);
+            model.addAttribute("catYear", year);
+            model.addAttribute("catYearRows", yearRows);
             java.math.BigDecimal yearMax = java.math.BigDecimal.ONE;
             for (var r : yearRows) if (r.total().compareTo(yearMax) > 0) yearMax = r.total();
-            model.addAttribute("splitYearMax", yearMax);
-            model.addAttribute("splitTrend", expenseMixQueryService.trend(me.getFamilyId(), anchor, 12));
+            model.addAttribute("catYearMax", yearMax);
+            model.addAttribute("catTrend", catTrend);
             // 与旭日/资产配置同一套色板 —— 同一个 app 里的图不该各用一套颜色
-            model.addAttribute("splitPalette", java.util.List.of(
+            model.addAttribute("catPalette", java.util.List.of(
                     "#a0653a", "#4f6b47", "#5b6b82", "#8a7a4f", "#7a4f6b",
                     "#3c4a5a", "#9c8b5a", "#5f7e7b", "#9a938a"));
         }

@@ -99,6 +99,7 @@ public class EntryService {
     private final com.family.finance.service.stock.StockHoldingService stockHoldingService;
     /** v1.18.5 · 手填余额落托管账户时要知道「持仓+现金」当前算出来是多少(只读估值) */
     private final com.family.finance.service.stock.AccountValuationService valuationService;
+    private final com.family.finance.service.expense.ExpenseCategoryService expenseCategoryService;  // v1.21
 
     public Optional<Period> findSelectedPeriod(long familyId, String periodParam) {
         if (periodParam == null || periodParam.isBlank()) {
@@ -374,6 +375,13 @@ public class EntryService {
     @Transactional
     public EntryRow recordExpense(long familyId, long memberId, long periodId,
                                   long accountId, String categoryCode, BigDecimal amount, String note) {
+        return recordExpense(familyId, memberId, periodId, accountId, categoryCode, amount, note, null);
+    }
+
+    /** v1.21 FR-550 · 带消费分类的支出录入。分类为 null / 非本家庭 → 落「未分类」,不拦截提交(FR-554)。 */
+    public EntryRow recordExpense(long familyId, long memberId, long periodId,
+                                  long accountId, String categoryCode, BigDecimal amount, String note,
+                                  Long expenseCategoryId) {
         Period period = requireOpenPeriod(familyId, periodId);
         Account account = requireAccount(familyId, accountId);
         if (!expenseCategoryAllowedOn(account.getType(), categoryCode)) {
@@ -392,8 +400,9 @@ public class EntryService {
         BigDecimal amt = positiveMoney(amount);
         creditAccountBalance(familyId, period, account, memberId, amt.negate(),
                 "-支出 " + cat.getDisplayName() + " " + money(amt));
+        Long catId = expenseCategoryService.isUsable(familyId, expenseCategoryId) ? expenseCategoryId : null;
         insertCashFlow(period, account, memberId,
-                new CashFlowLine(CashFlowKind.EXPENSE, categoryCode, amt, note));
+                new CashFlowLine(CashFlowKind.EXPENSE, categoryCode, amt, note), catId);
         snapshotTodoMapper.markDone(periodId, accountId, memberId);
         auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                 "支出录入 " + cat.getDisplayName() + " " + money(amt) + " ← " + account.getDisplayName());
@@ -706,6 +715,28 @@ public class EntryService {
         applyDeltaToBalance(period, account, memberId, delta, reason);
     }
 
+    /**
+     * v1.21 · 批量导入落库之后,<b>一次性</b>把账户余额扣掉(或撤销时加回)。
+     *
+     * <p>为什么不让导入走 {@link #recordExpense} 逐笔:那条路每笔都会改一次余额、
+     * 写一条审计日志、发一次透视缓存失效事件。300 笔就是 300 条审计,
+     * 会把同一天别的记录全冲到看不见的地方 —— 而批量导入在用户眼里本来就是<b>一个</b>动作。</p>
+     *
+     * <p>只做余额与审计,<b>不写 cash_flow</b>(那些已经由
+     * {@code BillCommitService} 批量插好了)。它是那条路径的一部分,不是通用入口。</p>
+     *
+     * @param delta 正数 = 这批总支出(会从余额里扣);负数 = 撤销(加回)
+     */
+    @Transactional
+    public void applyImportedExpense(long familyId, long memberId, Period period,
+                                     Account account, BigDecimal delta, String reason) {
+        if (delta == null || delta.signum() == 0) return;
+        creditAccountBalance(familyId, period, account, memberId, delta.negate(), reason);
+        auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", account.getId(),
+                reason + " · " + money(delta.abs()) + " ← " + account.getDisplayName());
+        eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId));
+    }
+
     @Transactional
     public EntryRow quickTransfer(long familyId,
                                   long memberId,
@@ -945,6 +976,19 @@ public class EntryService {
     }
 
     private void insertCashFlow(Period period, Account account, long memberId, CashFlowLine line) {
+        insertCashFlow(period, account, memberId, line, null);
+    }
+
+    /**
+     * v1.21 · 带消费分类的重载。
+     *
+     * <p>{@code expenseCategoryId} <b>只在 {@code categoryCode='consumption'} 时才写下去</b> ——
+     * 「还贷 / 利息支出 / 转账给亲属」不是消费,给它们挂一个「餐饮美食」既没有意义,
+     * 又会让报表把还贷算进消费构成里。这个过滤放在<b>写入口</b>而不是读口径:
+     * 脏数据一旦落库,之后每一处读它的地方都要重复同一个 if,总有一处会漏。</p>
+     */
+    private void insertCashFlow(Period period, Account account, long memberId,
+                                CashFlowLine line, Long expenseCategoryId) {
         if (line == null || line.amount() == null || line.amount().signum() == 0) {
             return;
         }
@@ -965,8 +1009,12 @@ public class EntryService {
                 .note(blankToNull(line.note()))
                 .submittedBy(memberId)
                 .sourceTag(com.family.finance.domain.ledger.LedgerSource.MANUAL.name())   // v1.18
+                .expenseCategoryId(CONSUMPTION.equals(line.categoryCode()) ? expenseCategoryId : null)
                 .build());
     }
+
+    /** v1.21 · 「日常开支」这个性质码 —— 只有它下面的笔才谈得上「钱花在哪」 */
+    public static final String CONSUMPTION = "consumption";
 
     private Transfer insertTransfer(Period period,
                                     long familyId,

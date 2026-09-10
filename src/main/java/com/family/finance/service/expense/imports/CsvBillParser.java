@@ -82,6 +82,10 @@ public final class CsvBillParser {
         Integer iDir = firstOf(col, "收/支");
         Integer iAmt = firstOf(col, "金额", "金额(元)", "金额（元）");
         Integer iStat = firstOf(col, "交易状态", "当前状态");
+        Integer iTime = firstOf(col, "交易时间", "交易创建时间", "交易日期");
+        /* 交易号:支付宝叫「交易订单号」,微信叫「交易单号」。
+         * 拿不到不是致命的 —— 只是这批无法参与重复导入去重(见 BillRow.txNo 注释)。 */
+        Integer iTx = firstOf(col, "交易订单号", "交易单号", "订单号");
         if (iAmt == null || iDir == null) {
             throw new ParseException("这个账单里没有「收/支」或「金额」列,解不出支出 —— "
                     + "导出时不要过滤掉这些列。表头读到的是:" + String.join(" / ", header));
@@ -119,7 +123,9 @@ public final class CsvBillParser {
                     iGoods == null ? null : nz(get(c, iGoods)),
                     dir, amt,
                     iStat == null ? null : nz(get(c, iStat)),
-                    iCat == null ? null : nz(get(c, iCat))));
+                    iCat == null ? null : nz(get(c, iCat)),
+                    iTime == null ? null : parseDate(nz(get(c, iTime))),
+                    iTx == null ? null : blankToNull(nz(get(c, iTx)))));
         }
         if (rows.isEmpty()) {
             throw new ParseException("表头找到了,但一条交易都没解出来 —— "
@@ -138,6 +144,24 @@ public final class CsvBillParser {
     private static String get(String[] c, int i) { return i < c.length ? c[i] : ""; }
 
     private static String nz(String s) { return s == null ? "" : s.trim(); }
+
+    private static String blankToNull(String s) { return s == null || s.isEmpty() ? null : s; }
+
+    /**
+     * 交易时间 → 日期。渠道给的是 {@code 2026-09-03 12:31:05} 这种,取前 10 位即可。
+     *
+     * <p>解不出来返回 null,由调用方兜底成账期末 —— <b>不抛异常</b>:
+     * 一个日期格式没见过,不该让整份账单导不进来。</p>
+     */
+    static java.time.LocalDate parseDate(String raw) {
+        if (raw == null || raw.length() < 10) return null;
+        String d = raw.substring(0, 10).replace('/', '-');
+        try {
+            return java.time.LocalDate.parse(d);
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
     /**
      * 金额清洗:两个渠道都可能带 ¥ 与千分逗号(社区合并工具的通行处理)。

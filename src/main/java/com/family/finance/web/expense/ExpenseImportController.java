@@ -1,17 +1,15 @@
 package com.family.finance.web.expense;
 
 import com.family.finance.auth.MemberPrincipal;
-import com.family.finance.domain.audit.AuditLogType;
 import com.family.finance.domain.expense.ExpenseSource;
+import com.family.finance.repository.AccountMapper;
+import com.family.finance.repository.ExpenseImportBatchMapper;
 import com.family.finance.repository.PeriodMapper;
-import com.family.finance.service.AuditLogService;
 import com.family.finance.service.NavService;
 import com.family.finance.service.expense.ExpenseCategoryService;
-import com.family.finance.service.expense.ExpenseSplitService;
 import com.family.finance.service.expense.imports.BillCategoryResolver;
+import com.family.finance.service.expense.imports.BillCommitService;
 import com.family.finance.service.expense.imports.BillImportService;
-import com.family.finance.service.expense.imports.ExpenseShotClient;
-import com.family.finance.service.expense.imports.ZipOpener;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,12 +29,24 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * v1.21 · 账单导入。三条通道(文件 / 截图 / 手抄)在这里汇成<b>同一个确认页</b>。
+ * v1.21(第 2 稿)· 账单导入:上传 → <b>逐笔</b>归类 → 确认页核对 → 落成真流水。
  *
  * <h3>草稿存 session,不落盘</h3>
  *
- * <p>账单是整月消费流水 —— 本项目迄今最敏感的输入。所以文件字节读完即弃,
- * 只把<b>聚合后的类目金额</b>放进 session 等用户确认;确认或离开即清。</p>
+ * <p>账单是<b>整月的消费流水</b>,本项目迄今最敏感的输入。文件字节只活在方法栈里;
+ * 草稿(逐笔的日期/商户/金额/归类)放 session 等用户确认,确认或丢弃即清。
+ * <b>任何时候都不写磁盘、不进日志</b> —— 失败时只记「哪个渠道 / 哪一步 / 什么原因」。</p>
+ *
+ * <h3>确认页是必经之路</h3>
+ *
+ * <p>渠道的自动分类不是每笔都准,AI 更是在猜。直接落账等于把猜的结果写进用户的账。
+ * 所以必须有一步核对,并且每行标出<b>归类依据</b>(FR-564)—— 用户没时间看 428 笔,
+ * 但可以只看「AI 猜的」和「兜底」那十几笔,而这一页把它们排在最前面(FR-565)。</p>
+ *
+ * <h3>回传的是差异,不是整个草稿</h3>
+ *
+ * <p>确认时页面只回传「哪几行被改到了哪个分类 / 哪几行被剔除」。草稿在 session 里是权威的。
+ * 全量回传的话,一个被篡改的金额就能直接写进账。</p>
  */
 @Controller
 @RequiredArgsConstructor
@@ -47,13 +57,12 @@ public class ExpenseImportController {
     private static final String DRAFT_PERIOD = "v121ImportPeriod";
 
     private final BillImportService importService;
-    private final ExpenseShotClient shotClient;
-    private final ExpenseSplitService splitService;
+    private final BillCommitService commitService;
     private final ExpenseCategoryService categoryService;
     private final PeriodMapper periodMapper;
+    private final AccountMapper accountMapper;
+    private final ExpenseImportBatchMapper batchMapper;
     private final NavService navService;
-    private final AuditLogService auditLogService;
-    private final com.family.finance.service.config.FamilyConfigService configService;
 
     @GetMapping("/expense/import")
     public String page(@AuthenticationPrincipal MemberPrincipal me,
@@ -65,224 +74,203 @@ public class ExpenseImportController {
         model.addAttribute("nav", navService.load(me));
         model.addAttribute("period", period);
         model.addAttribute("hasCategories", categoryService.hasAny(fam));
-        model.addAttribute("shotAvailable", shotClient.available());
-        model.addAttribute("shotReason", shotClient.unavailableReason());
-        model.addAttribute("batches", splitService.batches(fam, period.getId()));
-        model.addAttribute("rules", importService.rules(fam));
-        /* 确认页的下拉给【整棵树】(大类 + 细类),不只是当前深度可填的那一层 ——
-         * 渠道分类名本来就是大类粒度,用户也得能把它改回某个大类(落在大类上 = 未细分)。 */
-        var pickable = categoryService.all(fam).stream().filter(c -> !c.isArchived()).toList();
-        model.addAttribute("categories", pickable);
-        // 商户规则那一栏要显示类目【名字】而不是 id —— 规则表里存的是 id
-        Map<Long, String> catName = new LinkedHashMap<>();
-        for (var c : categoryService.all(fam)) catName.put(c.getId(), c.getName());
-        model.addAttribute("catName", catName);
+        if (period == null) return "expense/import";
 
-        @SuppressWarnings("unchecked")
+        model.addAttribute("accounts", accountMapper.findActiveByFamily(fam));
+        model.addAttribute("batches", batchMapper.findLiveByPeriod(fam, period.getId()));
+
         var draft = (BillCategoryResolver.Draft) session.getAttribute(DRAFT_KEY);
-        if (draft != null) {
-            model.addAttribute("draft", draft);
-            model.addAttribute("draftPeriodId", session.getAttribute(DRAFT_PERIOD));
+        Object dp = session.getAttribute(DRAFT_PERIOD);
+        if (draft != null && dp instanceof Long l && l.equals(period.getId())) {
+            putDraft(model, fam, draft);
         }
         return "expense/import";
     }
 
-    /** 文件通道:csv 直传,或加密 zip + 密码 */
+    /**
+     * 确认页要的所有派生数据。
+     *
+     * <p>集中在这里算,不在模板里算 —— Thymeleaf 表达式里做分组排序会长到没人读得懂,
+     * 而且那类错误是<b>渲染期</b>才炸的(响应截断成半页),编译和单测都发现不了。</p>
+     */
+    private void putDraft(Model model, long familyId, BillCategoryResolver.Draft draft) {
+        model.addAttribute("draft", draft);
+        model.addAttribute("channelLabel", draft.channel().getLabel());
+
+        var spend = draft.bucket(BillCategoryResolver.Bucket.SPEND);
+        /* 排序:【需要核对的排最前】(FR-565)。
+         * 打开这一页时最该看到的不是「餐饮美食 96 笔」,而是「没把握的 8 笔」。
+         * 其余按分类分组,组间按金额倒序。 */
+        List<BillCategoryResolver.Line> review =
+                spend.stream().filter(BillCategoryResolver.Line::needsReview).toList();
+        List<BillCategoryResolver.Line> settled =
+                spend.stream().filter(l -> !l.needsReview()).toList();
+
+        Map<String, List<BillCategoryResolver.Line>> groups = new LinkedHashMap<>();
+        if (!review.isEmpty()) groups.put("先看这些 · 没把握", new ArrayList<>(review));
+        Map<String, List<BillCategoryResolver.Line>> byCat = new LinkedHashMap<>();
+        for (var l : settled) {
+            byCat.computeIfAbsent(l.categoryName() == null ? "其他" : l.categoryName(),
+                    k -> new ArrayList<>()).add(l);
+        }
+        byCat.entrySet().stream()
+                .sorted((a, b) -> sum(b.getValue()).compareTo(sum(a.getValue())))
+                .forEach(e -> groups.put(e.getKey(), e.getValue()));
+        model.addAttribute("groups", groups);
+        model.addAttribute("groupSums", groups.entrySet().stream().collect(
+                LinkedHashMap::new, (m, e) -> m.put(e.getKey(), sum(e.getValue())), Map::putAll));
+        model.addAttribute("reviewCount", review.size());
+
+        model.addAttribute("spendCount", spend.size());
+        model.addAttribute("spendSum", draft.sum(BillCategoryResolver.Bucket.SPEND));
+        model.addAttribute("natureCount", draft.count(BillCategoryResolver.Bucket.NATURE));
+        model.addAttribute("natureSum", draft.sum(BillCategoryResolver.Bucket.NATURE));
+        model.addAttribute("incomeCount", draft.count(BillCategoryResolver.Bucket.INCOME));
+        model.addAttribute("droppedCount", draft.count(BillCategoryResolver.Bucket.DROPPED));
+        model.addAttribute("skippedCount", draft.count(BillCategoryResolver.Bucket.SKIPPED));
+        model.addAttribute("noTxNo", draft.noTxNo());
+        model.addAttribute("parsed", draft.parsed());
+
+        // 下拉给整棵树,细类带父名(「餐饮美食 › 外卖」)—— 两个同名细类才分得清
+        List<Map<String, Object>> opts = new ArrayList<>();
+        for (var e : categoryService.pickable(familyId).entrySet()) {
+            opts.add(Map.of("id", e.getKey().getId(), "label", e.getKey().getName()));
+            for (var k : e.getValue()) {
+                opts.add(Map.of("id", k.getId(), "label", e.getKey().getName() + " › " + k.getName()));
+            }
+        }
+        model.addAttribute("catOptions", opts);
+    }
+
+    private static BigDecimal sum(List<BillCategoryResolver.Line> ls) {
+        return ls.stream().map(BillCategoryResolver.Line::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private com.family.finance.domain.period.Period resolvePeriod(long familyId, Long periodId) {
+        if (periodId != null) {
+            var p = periodMapper.findById(periodId).orElse(null);
+            if (p != null && p.getFamilyId() != null && p.getFamilyId() == familyId) return p;
+            return null;
+        }
+        return periodMapper.findCurrentOpen(familyId).orElse(null);
+    }
+
     @PostMapping("/expense/import/file")
     public String uploadFile(@AuthenticationPrincipal MemberPrincipal me,
                              @RequestParam long periodId,
                              @RequestParam String channel,
+                             @RequestParam MultipartFile file,
                              @RequestParam(required = false) String zipPassword,
-                             @RequestParam("file") MultipartFile file,
                              HttpSession session, RedirectAttributes ra) {
         try {
-            if (file == null || file.isEmpty()) throw new BillImportService.ImportException("先选一个文件。");
-            var src = ExpenseSource.parse(channel);
-            var draft = importService.parseFile(me.getFamilyId(), src,
-                    file.getBytes(), file.getOriginalFilename(), zipPassword);
+            ExpenseSource ch = ExpenseSource.valueOf(channel.toUpperCase(java.util.Locale.ROOT));
+            var draft = importService.parseFile(me.getFamilyId(), ch, file.getBytes(),
+                    file.getOriginalFilename(), zipPassword);
             session.setAttribute(DRAFT_KEY, draft);
             session.setAttribute(DRAFT_PERIOD, periodId);
-        } catch (java.io.IOException e) {
-            ra.addFlashAttribute("impError", "读这个文件时出错了,再传一次试试。");
-        } catch (RuntimeException e) {
-            ra.addFlashAttribute("impError", human(e));
+        } catch (BillImportService.ImportException e) {
+            ra.addFlashAttribute("flashError", e.getMessage());
+        } catch (IllegalArgumentException e) {
+            ra.addFlashAttribute("flashError", "先选一下这份账单是哪个渠道的。");
+        } catch (Exception e) {
+            // 只记形状,不记文件内容
+            log.warn("账单上传失败 · channel={} · {}", channel, e.toString());
+            ra.addFlashAttribute("flashError", "这个文件读不了 —— 确认一下是渠道导出的 csv 或加密 zip。");
         }
         return "redirect:/expense/import?periodId=" + periodId;
     }
 
-    /**
-     * 截图通道:多张图,或一个装着图的 zip。
-     *
-     * <p>逐张送 qwen-vl 转写(只转写不算数),失败的那张<b>单独报</b>、其余照旧 ——
-     * 一张糊了不该让整批白传。</p>
-     */
-    @PostMapping("/expense/import/shots")
-    public String uploadShots(@AuthenticationPrincipal MemberPrincipal me,
-                              @RequestParam long periodId,
-                              @RequestParam("files") MultipartFile[] files,
-                              HttpSession session, RedirectAttributes ra) {
-        if (!shotClient.available()) {
-            ra.addFlashAttribute("impError", "截图识别现在用不了:" + shotClient.unavailableReason());
-            return "redirect:/expense/import?periodId=" + periodId;
-        }
-        List<ExpenseShotClient.ShotRow> all = new ArrayList<>();
-        List<String> failed = new ArrayList<>();
-        try {
-            List<byte[]> images = new ArrayList<>();
-            List<String> mimes = new ArrayList<>();
-            for (MultipartFile f : files) {
-                if (f == null || f.isEmpty()) continue;
-                byte[] b = f.getBytes();
-                if (ZipOpener.looksLikeZip(b)) {
-                    for (var e : ZipOpener.open(b, null, ".jpg", ".jpeg", ".png", ".webp")) {
-                        images.add(e.bytes());
-                        mimes.add(e.name().toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg");
-                    }
-                } else {
-                    images.add(b);
-                    mimes.add(f.getContentType() == null ? "image/jpeg" : f.getContentType());
-                }
-            }
-            if (images.isEmpty()) throw new BillImportService.ImportException("没找到图片。");
-            if (images.size() > 20) {
-                throw new BillImportService.ImportException("一次最多 20 张 —— 月度统计页通常两三张就够了。");
-            }
-            for (int i = 0; i < images.size(); i++) {
-                try {
-                    all.addAll(shotClient.extract(images.get(i), mimes.get(i)));
-                } catch (RuntimeException ex) {
-                    failed.add("第 " + (i + 1) + " 张");
-                    log.warn("截图转写失败 · 第 {} 张 · {}", i + 1, ex.getClass().getSimpleName());
-                }
-            }
-            if (all.isEmpty()) {
-                throw new BillImportService.ImportException("这些图里没读出任何分类金额 —— "
-                        + "要拍的是【月度收支统计页】(支付宝「月账单」/ 微信账单的「统计」/ 银行 App 的收支统计),"
-                        + "不是流水明细页。");
-            }
-            var draft = importService.toDraft(me.getFamilyId(), ExpenseSource.SHOT,
-                    ExpenseShotClient.toParsed(all));
-            session.setAttribute(DRAFT_KEY, draft);
-            session.setAttribute(DRAFT_PERIOD, periodId);
-            if (!failed.isEmpty()) {
-                ra.addFlashAttribute("impNote", String.join("、", failed) + " 没认出来,其余已解析 —— "
-                        + "确认页上核对一下,少的手工补。");
-            }
-        } catch (java.io.IOException e) {
-            ra.addFlashAttribute("impError", "读图片时出错了,再传一次试试。");
-        } catch (RuntimeException e) {
-            ra.addFlashAttribute("impError", human(e));
-        }
-        return "redirect:/expense/import?periodId=" + periodId;
-    }
-
-    /**
-     * 确认落账。
-     *
-     * <p>参数 {@code map_{原名}={类目id}} 允许用户当场改映射;勾了 {@code remember_{原名}}
-     * 就把它记成商户规则,下次自动命中。</p>
-     */
     @PostMapping("/expense/import/confirm")
     public String confirm(@AuthenticationPrincipal MemberPrincipal me,
                           @RequestParam long periodId,
-                          jakarta.servlet.http.HttpServletRequest req,
+                          @RequestParam long accountId,
+                          @RequestParam(required = false) List<Integer> idx,
+                          @RequestParam(required = false) List<String> cat,
+                          @RequestParam(required = false) List<Integer> drop,
+                          @RequestParam(defaultValue = "false") boolean remember,
                           HttpSession session, RedirectAttributes ra) {
         var draft = (BillCategoryResolver.Draft) session.getAttribute(DRAFT_KEY);
         if (draft == null) {
-            ra.addFlashAttribute("impError", "这份草稿已经过期了,重新传一次文件。");
+            ra.addFlashAttribute("flashError", "草稿已经过期了 —— 重新传一次文件。");
             return "redirect:/expense/import?periodId=" + periodId;
         }
+        long fam = me.getFamilyId();
         try {
-            // 用户改过的映射:按「渠道原名 → 类目」重算聚合
-            Map<Long, BigDecimal> byCategory = new LinkedHashMap<>();
-            for (var line : draft.lines()) {
-                String override = first(req.getParameterValues("map_" + line.channelLabel()));
-                long target = line.categoryId();
-                if (override != null && !override.isBlank()) {
-                    try { target = Long.parseLong(override.trim()); } catch (NumberFormatException ignore) { }
-                }
-                byCategory.merge(target, line.amount(), BigDecimal::add);
-                if (req.getParameter("remember_" + line.channelLabel()) != null && target != line.categoryId()) {
-                    importService.rememberRule(me.getFamilyId(), line.channelLabel(), target);
+            Map<Integer, Long> changed = new LinkedHashMap<>();
+            if (idx != null && cat != null) {
+                for (int i = 0; i < Math.min(idx.size(), cat.size()); i++) {
+                    String v = cat.get(i);
+                    if (v == null || v.isBlank()) continue;
+                    try { changed.put(idx.get(i), Long.parseLong(v.trim())); }
+                    catch (NumberFormatException ignore) { /* 脏值忽略,保持原归类 */ }
                 }
             }
-            var res = splitService.applyBatch(me.getFamilyId(), periodId, me.getMemberId(),
-                    me.getMemberId(), draft.channel(), byCategory, draft.rowCount());
-            auditLogService.record(me.getFamilyId(), me.getMemberId(), AuditLogType.SYSTEM,
-                    "expense_import", res.batchId(),
-                    "导入 " + draft.channel().getLabel() + " 账单 · " + draft.rowCount() + " 笔");
+            java.util.Set<Integer> dropped =
+                    drop == null ? java.util.Set.of() : new java.util.HashSet<>(drop);
+
+            List<BillCategoryResolver.Line> finalLines = new ArrayList<>();
+            int userDropped = 0;
+            for (var l : draft.lines()) {
+                if (dropped.contains(l.idx())) { userDropped++; continue; }
+                Long newCat = changed.get(l.idx());
+                boolean changeable = l.bucket() == BillCategoryResolver.Bucket.SPEND;
+                if (newCat == null || !changeable || newCat.equals(l.categoryId())
+                        || !categoryService.isUsable(fam, newCat)) {
+                    finalLines.add(l);
+                    continue;
+                }
+                finalLines.add(new BillCategoryResolver.Line(l.idx(), l.occurredAt(), l.merchant(),
+                        l.amount(), newCat, categoryService.displayName(fam, newCat),
+                        BillCategoryResolver.How.RULE, l.bucket(), null, null, l.txNo()));
+                /* 「记住我的改动」—— 越用越准是这个功能的核心价值(FR-567)。
+                 * 关键字取商户名前 20 字:全名常带门店号(「瑞幸咖啡(国贸店)」),
+                 * 存全名的话换一家店就不命中了。 */
+                if (remember) {
+                    String kw = l.merchant();
+                    if (kw != null && kw.length() > 20) kw = kw.substring(0, 20);
+                    importService.rememberRule(fam, kw, newCat);
+                }
+            }
+
+            var r = commitService.commit(fam, me.getMemberId(), periodId, accountId,
+                    draft.channel(), finalLines,
+                    draft.count(BillCategoryResolver.Bucket.DROPPED) + userDropped,
+                    draft.count(BillCategoryResolver.Bucket.SKIPPED));
             session.removeAttribute(DRAFT_KEY);
             session.removeAttribute(DRAFT_PERIOD);
-            ra.addFlashAttribute("impNote", "已导入 " + draft.channel().getLabel() + " 的 "
-                    + draft.rowCount() + " 笔支出"
-                    + (res.replacedId() == null ? "" : "(替换了这个渠道上一批数据)")
-                    + " —— 去填报页核对一下合计。");
-        } catch (RuntimeException e) {
-            ra.addFlashAttribute("impError", human(e));
+            ra.addFlashAttribute("flashOk", "导入了 " + r.rows() + " 笔 · 合计 ¥"
+                    + r.amount().setScale(2, java.math.RoundingMode.HALF_UP)
+                    + (r.dropped() > 0 ? " · 剔除 " + r.dropped() + " 笔" : "")
+                    + (r.skipped() > 0 ? " · 跳过 " + r.skipped() + " 笔(上次已导)" : "")
+                    + " —— 记得回填报页核对一下账户余额。");
+        } catch (BillCommitService.CommitException | BillImportService.ImportException e) {
+            ra.addFlashAttribute("flashError", e.getMessage());
+        } catch (Exception e) {
+            log.warn("账单落库失败 · period={} · {}", periodId, e.toString());
+            ra.addFlashAttribute("flashError", "落库失败,什么都没写进去 —— 再试一次。");
         }
         return "redirect:/expense/import?periodId=" + periodId;
     }
 
     @PostMapping("/expense/import/discard")
-    public String discard(@RequestParam long periodId, HttpSession session, RedirectAttributes ra) {
+    public String discard(@RequestParam long periodId, HttpSession session) {
         session.removeAttribute(DRAFT_KEY);
         session.removeAttribute(DRAFT_PERIOD);
-        ra.addFlashAttribute("impNote", "扔掉了,什么都没落账。");
         return "redirect:/expense/import?periodId=" + periodId;
     }
 
-    /** 撤销某个批次:该渠道的行整批移除,其余来源自动回落 */
+    /** 整批撤销(FR-539)· 软删该批次落的流水 + 把钱加回账户余额 */
     @PostMapping("/expense/import/revoke")
     public String revoke(@AuthenticationPrincipal MemberPrincipal me,
                          @RequestParam long periodId, @RequestParam long batchId,
                          RedirectAttributes ra) {
         try {
-            splitService.revokeBatch(me.getFamilyId(), batchId);
-            ra.addFlashAttribute("impNote", "撤掉了 —— 手工填的和别的渠道一分没动。");
-        } catch (RuntimeException e) {
-            ra.addFlashAttribute("impError", human(e));
+            int n = commitService.revoke(me.getFamilyId(), me.getMemberId(), batchId);
+            ra.addFlashAttribute("flashOk", "撤销了这一批 · " + n + " 笔已从账上移除,余额已加回。");
+        } catch (BillCommitService.CommitException e) {
+            ra.addFlashAttribute("flashError", e.getMessage());
         }
         return "redirect:/expense/import?periodId=" + periodId;
-    }
-
-    @PostMapping("/expense/import/rule/delete")
-    public String deleteRule(@AuthenticationPrincipal MemberPrincipal me,
-                             @RequestParam long periodId, @RequestParam long ruleId,
-                             RedirectAttributes ra) {
-        importService.deleteRule(me.getFamilyId(), ruleId);
-        ra.addFlashAttribute("impNote", "规则删了。已经导进去的数据不受影响。");
-        return "redirect:/expense/import?periodId=" + periodId;
-    }
-
-    // ──────────────────────── 小工具 ────────────────────────
-
-    /** 录入深度 —— 家庭级(树是共享的,一家两种深度会让报表下钻语义分裂) */
-    private boolean deep(long fam) {
-        return "L2".equalsIgnoreCase(configService.getString(
-                fam, com.family.finance.service.config.FamilyConfigService.K_EXPENSE_SPLIT_DEPTH, "L1"));
-    }
-
-    private com.family.finance.domain.period.Period resolvePeriod(long fam, Long periodId) {
-        if (periodId != null) {
-            var p = periodMapper.findById(periodId).orElse(null);
-            // 必须校家庭 —— 否则改一下 URL 的 periodId 就能往别人家的账期里导数据
-            if (p != null && p.getFamilyId() != null && p.getFamilyId() == fam) return p;
-        }
-        return periodMapper.findCurrentOpen(fam)
-                .or(() -> periodMapper.findLatest(fam, 1).stream().findFirst())
-                .orElseThrow(() -> new IllegalStateException("还没有账期"));
-    }
-
-    private static String first(String[] a) { return a == null || a.length == 0 ? null : a[0]; }
-
-    private static String human(RuntimeException e) {
-        if (e instanceof BillImportService.ImportException
-                || e instanceof ZipOpener.ZipException
-                || e instanceof ExpenseSplitService.SplitException
-                || e instanceof ExpenseCategoryService.CategoryException) {
-            return e.getMessage();
-        }
-        log.warn("账单导入失败(不记内容)", e);
-        return "没成功。再试一次,如果还不行把这一步告诉我们。";
     }
 }

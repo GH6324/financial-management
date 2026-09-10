@@ -1,9 +1,8 @@
 package com.family.finance.service.expense;
 
 import com.family.finance.domain.expense.ExpenseCategory;
-import com.family.finance.domain.expense.ExpenseSplit;
 import com.family.finance.repository.ExpenseCategoryMapper;
-import com.family.finance.repository.ExpenseSplitMapper;
+import com.family.finance.repository.ExpenseFlowMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,30 +16,27 @@ import java.util.Map;
 /**
  * v1.21 · 支出类目树的 CRUD、起步包与删除语义。
  *
- * <h3>一棵树,两个深度</h3>
+ * <h3>一棵两层树,没有「深度」这个设置</h3>
  *
- * <p>「简单版」与「复杂版」<b>不是两棵树</b>,是同一棵树的两个深度:复杂版的一级与简单版
- * <b>完全相同</b>,二级只是在它下面细化。于是「两版互相映射」<b>不需要映射表</b> ——
- * 映射就是 {@code parentId} 这条父子边,天生存在、永不漂移。</p>
- *
- * <p>切换深度只改「以后按哪一层填」,<b>历史行一行不动</b>:
- * 复杂→简单时二级明细原样留着、报表按父级聚合(合计无损);
- * 简单→复杂时一级上的钱在复杂视图显示为「该大类 · 未细分」。</p>
+ * <p>第 1 稿有过一个家庭级的「按大类填 / 按细类填」开关。第 2 稿去掉了 ——
+ * 分类现在是<b>记一笔时点一下</b>:点大类就能提交,想细分再多点一下细类。
+ * 于是「深度」从一个要预先决定的设置,变成了<b>每一笔的自由选择</b>。
+ * 少一个设置项,也少一整类「切换深度之后历史怎么办」的问题。</p>
  *
  * <h3>删除语义按树走</h3>
  *
  * <pre>
- *   删【二级】 → 数据搬到父级   → 变成该大类的「未细分」· 大类合计一分不变
- *   删【一级】 → 数据搬到「其他」· 全家总合计一分不变(连带其下二级一起搬)
+ *   删【二级】 → 那些笔搬到父级   → 变成记在大类上 · 大类合计一分不变
+ *   删【一级】 → 那些笔搬到「其他」· 全家总合计一分不变(连带其下二级一起搬)
  * </pre>
  *
  * <p>比「一律转其他」精确:删掉「外卖」这个细类,钱不该跑到「其他」去,它明明还是餐饮。</p>
  *
- * <h3>一个必须绕开的坑</h3>
+ * <h3>搬家为什么变简单了</h3>
  *
- * <p>搬迁不能裸调 {@code UPDATE ... SET category_id = target} —— {@code expense_split} 上有
- * {@code UNIQUE(period, member, category, source)},目标类目已有同来源行时会撞键。
- * 所以 {@link #moveSplits} 先<b>合并同键行</b>(相加)再删源行。</p>
+ * <p>第 1 稿搬的是 {@code expense_split},那张表上有 {@code UNIQUE(期,人,类目,来源)},
+ * 裸 UPDATE 会撞键,得先合并同槽行再删源行。改成逐笔载体之后
+ * <b>一条 UPDATE 就够了</b> —— 每一笔本来就是独立一行,没有唯一约束会撞。</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -53,7 +49,7 @@ public class ExpenseCategoryService {
     public static final int MAX_TOTAL = 40;
 
     private final ExpenseCategoryMapper categoryMapper;
-    private final ExpenseSplitMapper splitMapper;
+    private final ExpenseFlowMapper flowMapper;
 
     /** 业务异常 —— 让页面能显示人话,而不是让 DB 约束冒成 500(v1.20 踩过) */
     public static class CategoryException extends RuntimeException {
@@ -81,54 +77,58 @@ public class ExpenseCategoryService {
     /** 这个家有没有用过分类 —— 页面据此决定要不要渲染任何新东西(零组态逐字一致) */
     public boolean hasAny(long familyId) { return categoryMapper.countByFamily(familyId) > 0; }
 
-    /** 当前深度下可填的类目:L1 只给一级;L2 给「有子的大类的子」+「没子的大类自己」 */
-    public List<ExpenseCategory> fillable(long familyId, boolean deepMode) {
-        var t = tree(familyId);
-        List<ExpenseCategory> out = new ArrayList<>();
-        for (var e : t.entrySet()) {
-            ExpenseCategory top = e.getKey();
-            if (top.isArchived()) continue;
-            List<ExpenseCategory> kids = e.getValue().stream().filter(k -> !k.isArchived()).toList();
-            if (!deepMode || kids.isEmpty()) {
-                out.add(top);           // 简单深度,或这个大类还没细分 → 直接填在大类上
-            } else {
-                out.addAll(kids);
-            }
+    /**
+     * 宫格里要显示的类目(FR-550):整棵树,停用的不出现。
+     *
+     * <p>返回一级→其下二级的映射,顺序即 {@code sortOrder}。一级永远可选(点它就等于
+     * 「记在大类上」),二级是可选的细分。<b>没有「当前深度」这回事</b> ——
+     * 那是第 1 稿的概念,详见类注释。</p>
+     */
+    public Map<ExpenseCategory, List<ExpenseCategory>> pickable(long familyId) {
+        Map<ExpenseCategory, List<ExpenseCategory>> out = new LinkedHashMap<>();
+        for (var e : tree(familyId).entrySet()) {
+            if (e.getKey().isArchived()) continue;
+            out.put(e.getKey(), e.getValue().stream().filter(k -> !k.isArchived()).toList());
         }
         return out;
     }
 
     /**
-     * 填报表单要显示的类目 = <b>当前深度可填的</b> ∪ <b>这一期已经有钱的</b>。
+     * 最近常用,置顶那一行(FR-553)。
      *
-     * <p>后半句不能省。开发时踩过:复杂深度下 {@link #fillable} 只给细类,
-     * 而导入进来的钱落在<b>大类</b>上(渠道分类名是大类粒度)——
-     * 于是那笔钱在填报页<b>看不见也改不了</b>,只能在报表里以「未细分」露个脸。
-     * 钱在账上却没有对应的输入框,是最让人不安的一种状态。</p>
+     * <p>按「最近 90 天用过的笔数」排,<b>不按最后一次使用时间</b> ——
+     * 偶然记过一笔「医疗健康」不该把它顶到第一位,而每天都记的「餐饮美食」该在那儿。</p>
      *
-     * <p>顺序:可填的在前(按 sortOrder),额外露出来的「未细分」大类跟在后面。</p>
+     * <p>停用的类目会被过滤掉:它还在历史流水里,但不该再出现在录入宫格上。</p>
      */
-    public List<ExpenseCategory> fillableWith(long familyId, boolean deepMode,
-                                              java.util.Collection<Long> existingIds) {
-        List<ExpenseCategory> out = new ArrayList<>(fillable(familyId, deepMode));
-        if (existingIds == null || existingIds.isEmpty()) return out;
-        java.util.Set<Long> have = new java.util.HashSet<>();
-        for (ExpenseCategory c : out) have.add(c.getId());
-        for (ExpenseCategory c : categoryMapper.findByFamily(familyId)) {
-            if (have.contains(c.getId())) continue;
-            if (!existingIds.contains(c.getId())) continue;
-            out.add(c);           // 停用的也要露 —— 它上面还有钱
+    public List<ExpenseCategory> recentUsed(long familyId, int limit) {
+        List<Long> ids = flowMapper.recentCategoryIds(
+                familyId, java.time.LocalDate.now().minusDays(90), Math.max(1, limit));
+        if (ids.isEmpty()) return List.of();
+        Map<Long, ExpenseCategory> byId = new LinkedHashMap<>();
+        for (ExpenseCategory c : categoryMapper.findByFamily(familyId)) byId.put(c.getId(), c);
+        List<ExpenseCategory> out = new ArrayList<>();
+        for (Long id : ids) {
+            ExpenseCategory c = byId.get(id);
+            if (c != null && !c.isArchived()) out.add(c);
         }
         return out;
     }
 
-    /** 这个节点在当前深度下算不算「未细分」(有子类,但钱记在它自己身上) */
-    public boolean isUnsplit(long familyId, ExpenseCategory c, boolean deepMode) {
-        if (!deepMode || c == null || !c.isTopLevel()) return false;
-        for (ExpenseCategory k : categoryMapper.findByFamily(familyId)) {
-            if (c.getId().equals(k.getParentId()) && !k.isArchived()) return true;
-        }
-        return false;
+    /** 这个 id 是不是本家庭的一个可用类目 —— 录入/导入落库前必过,防越权与脏值 */
+    public boolean isUsable(long familyId, Long categoryId) {
+        if (categoryId == null) return false;
+        ExpenseCategory c = categoryMapper.find(familyId, categoryId);
+        return c != null && !c.isArchived();
+    }
+
+    /** 展示名:细类显示成「餐饮美食 › 外卖」,大类就是它自己 */
+    public String displayName(long familyId, Long categoryId) {
+        if (categoryId == null) return "未分类";
+        ExpenseCategory c = categoryMapper.find(familyId, categoryId);
+        if (c == null) return "未分类";
+        if (c.isTopLevel()) return c.getName();
+        return parentName(familyId, c.getParentId()) + " › " + c.getName();
     }
 
     public ExpenseCategory other(long familyId) {
@@ -157,19 +157,20 @@ public class ExpenseCategoryService {
     };
 
     /**
-     * 一键起步。{@code deep=false} 只建 10 个大类;{@code deep=true} 连细类一起建(~30 项)。
+     * 一键起步。{@code withSubs=false} 只建 10 个大类;{@code true} 连细类一起建(~37 项)。
      *
-     * <p>无论哪个深度,<b>一级完全相同</b> —— 这是「随时可换、历史不丢」的前提。</p>
+     * <p>这<b>不是</b>第 1 稿那个「简单版 / 复杂版」的设置项 —— 它只影响这一次建了什么,
+     * 之后随时能加细类、也随时能不用细类。录入时点大类就能提交(FR-552)。</p>
      */
     @Transactional
-    public void seed(long familyId, boolean deep) {
+    public void seed(long familyId, boolean withSubs) {
         if (hasAny(familyId)) throw new CategoryException("已经建过类目了,起步包只在一片空白时用。");
         int order = 10;
         for (String[] row : STARTER) {
             ExpenseCategory top = ExpenseCategory.builder()
                     .familyId(familyId).parentId(null).name(row[0]).sortOrder(order).build();
             categoryMapper.insert(top);
-            if (deep) {
+            if (withSubs) {
                 int sub = 10;
                 for (String kid : row[1].split(",")) {
                     categoryMapper.insert(ExpenseCategory.builder()
@@ -242,7 +243,7 @@ public class ExpenseCategoryService {
 
     /** 删除前的影响预告(FR-505:要说清会动多少期数据) */
     public record DeleteImpact(String name, boolean topLevel, String targetName,
-                               int periods, int rows, int childCount) {}
+                               int periods, int rows, int childCount, BigDecimal amount) {}
 
     public DeleteImpact previewDelete(long familyId, long id) {
         ExpenseCategory c = mustFind(familyId, id);
@@ -260,12 +261,16 @@ public class ExpenseCategoryService {
             }
         }
         int periods = 0, rows = 0;
+        BigDecimal amount = BigDecimal.ZERO;
         for (Long cid : ids) {
-            periods = Math.max(periods, splitMapper.countPeriodsUsing(familyId, cid));
-            rows += splitMapper.countRowsUsing(familyId, cid);
+            ExpenseFlowMapper.Impact im = flowMapper.impactOf(familyId, cid);
+            if (im == null) continue;
+            periods = Math.max(periods, im.periods());
+            rows += im.rowCount();
+            amount = amount.add(nz(im.amount()));
         }
-        String target = c.isTopLevel() ? "其他" : parentName(familyId, c.getParentId()) + " · 未细分";
-        return new DeleteImpact(c.getName(), c.isTopLevel(), target, periods, rows, kids);
+        String target = c.isTopLevel() ? "其他" : parentName(familyId, c.getParentId());
+        return new DeleteImpact(c.getName(), c.isTopLevel(), target, periods, rows, kids, amount);
     }
 
     /**
@@ -280,52 +285,28 @@ public class ExpenseCategoryService {
         if (c.isTopLevel()) {
             long otherId = ensureOther(familyId).getId();
             // 先把子类的数据搬走,再搬自己的,最后删节点 —— 顺序反了会留下孤儿行
-            for (ExpenseCategory k : childrenOf(familyId, id)) moveSplits(familyId, k.getId(), otherId);
-            moveSplits(familyId, id, otherId);
+            for (ExpenseCategory k : childrenOf(familyId, id)) moveFlows(familyId, k.getId(), otherId);
+            moveFlows(familyId, id, otherId);
             categoryMapper.deleteChildren(familyId, id);
             categoryMapper.delete(familyId, id);
         } else {
-            moveSplits(familyId, id, c.getParentId());
+            moveFlows(familyId, id, c.getParentId());
             categoryMapper.delete(familyId, id);
         }
     }
 
     /**
-     * 把 {@code fromId} 的来源行搬到 {@code toId}。
+     * 把挂在 {@code fromId} 上的那些笔搬到 {@code toId}。
      *
-     * <p><b>不能裸 UPDATE</b>:{@code uk_split(period,member,category,source)} 会在目标已有同来源行时撞键。
-     * 所以先把撞键的那些<b>相加合并</b>,再把剩下的搬过去。</p>
+     * <p>一条 UPDATE 就够。第 1 稿这里要先合并同槽行再删源行,因为
+     * {@code expense_split} 上有唯一约束;逐笔载体没有这个问题 —— 每一笔本来就是独立一行。</p>
      */
-    private void moveSplits(long familyId, long fromId, long toId) {
+    private void moveFlows(long familyId, long fromId, long toId) {
         if (fromId == toId) return;
-        List<ExpenseSplit> all = splitMapper.findByFamily(familyId);
-        List<ExpenseSplit> moving = all.stream().filter(r -> fromId == r.getCategoryId()).toList();
-        if (moving.isEmpty()) return;
-
-        // 目标类目已有的行,按 (期/人/来源) 建索引 —— 撞上的要相加,不是覆盖
-        Map<String, BigDecimal> existing = new LinkedHashMap<>();
-        for (ExpenseSplit r : all) {
-            if (toId != r.getCategoryId()) continue;
-            existing.put(slot(r), nz(r.getAmount()));
-        }
-        for (ExpenseSplit r : moving) {
-            BigDecimal merged = nz(r.getAmount()).add(existing.getOrDefault(slot(r), BigDecimal.ZERO));
-            splitMapper.upsert(ExpenseSplit.builder()
-                    .familyId(familyId).periodId(r.getPeriodId()).memberId(r.getMemberId())
-                    .categoryId(toId).source(r.getSource()).amount(merged).batchId(r.getBatchId())
-                    .build());
-            existing.put(slot(r), merged);   // 同一格若有多行源(理论上不会),继续累加而不是各自覆盖
-        }
-        // 钱已经加到目标行上了,源行必须删干净 —— 留着就是双计
-        splitMapper.deleteByCategory(familyId, fromId);
+        flowMapper.moveCategory(familyId, fromId, toId);
     }
 
     // ──────────────────────── 小工具 ────────────────────────
-
-    /** 一「格」= 期 × 人 × 来源(不含类目 —— 搬迁时正是要跨类目对齐同一格) */
-    private static String slot(ExpenseSplit r) {
-        return r.getPeriodId() + "/" + r.getMemberId() + "/" + r.getSource();
-    }
 
     private static BigDecimal nz(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }
 

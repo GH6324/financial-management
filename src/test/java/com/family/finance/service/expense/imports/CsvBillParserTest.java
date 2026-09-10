@@ -223,62 +223,82 @@ class CsvBillParserTest {
     // ─────────────── 映射:渠道名要在整棵树上匹配 ───────────────
 
     @Test
-    @DisplayName("【踩过的坑】复杂深度下,渠道给的大类名要能落在【大类】上,而不是全进「其他」")
-    void channelCategoryMatchesTopLevelEvenInDeepMode() {
+    @DisplayName("【踩过的坑】渠道给的大类名要能落在【大类】上,而不是全进「其他」")
+    void channelCategoryMatchesTopLevelToo() {
         var cats = new com.family.finance.service.expense.ExpenseFakes.FakeCategoryMapper();
-        var splits = new com.family.finance.service.expense.ExpenseFakes.FakeSplitMapper();
-        var catSvc = new com.family.finance.service.expense.ExpenseCategoryService(cats, splits);
-        catSvc.seed(1L, true);                       // 复杂版:10 大类 + 细类
+        var flows = new com.family.finance.service.expense.ExpenseFakes.FakeFlowMapper();
+        var catSvc = new com.family.finance.service.expense.ExpenseCategoryService(cats, flows);
+        catSvc.seed(1L, true);                       // 10 大类 + 细类
 
         var all = catSvc.all(1L);
         long otherId = catSvc.other(1L).getId();
-        var parsed = CsvBillParser.parse(alipay(24));
-        var draft = BillCategoryResolver.aggregate(
-                com.family.finance.domain.expense.ExpenseSource.ALIPAY, parsed, all,
-                java.util.Map.of(), otherId);
+        var draft = BillCategoryResolver.classify(
+                com.family.finance.domain.expense.ExpenseSource.ALIPAY,
+                CsvBillParser.parse(alipay(24)), all,
+                java.util.Map.of(), otherId, java.util.Set.of());
 
-        var food = draft.lines().stream()
-                .filter(l -> "餐饮美食".equals(l.channelLabel())).findFirst().orElseThrow();
-        assertThat(food.categoryName())
-                .as("「餐饮美食」是大类名 —— 落在大类上就是「未细分」,不该进「其他」")
-                .isEqualTo("餐饮美食");
-        assertThat(food.how()).isEqualTo("同名直挂");
+        var spend = draft.bucket(BillCategoryResolver.Bucket.SPEND);
 
-        // 复杂版里「日用百货」下正好有个同名细类「家居家装」→ 细类优先(更精确)
-        var home = draft.lines().stream()
-                .filter(l -> "家居家装".equals(l.channelLabel())).findFirst().orElseThrow();
-        assertThat(home.categoryName()).isEqualTo("家居家装");
-        assertThat(home.how()).isEqualTo("同名直挂");
+        // 「餐饮美食」是大类名 —— 落在大类上完全正常,不该进「其他」
+        var food = spend.stream().filter(l -> "餐饮美食".equals(l.categoryName())).findFirst().orElseThrow();
+        assertThat(food.how()).isEqualTo(BillCategoryResolver.How.CHANNEL);
 
-        // 「酒店旅游」我们树里没有同名节点 → 走别名表落「文化休闲」的细类「旅游酒店」
-        var hotel = draft.lines().stream()
-                .filter(l -> "酒店旅游".equals(l.channelLabel())).findFirst().orElseThrow();
-        assertThat(hotel.how()).isEqualTo("映射");
+        // 树里「日用百货」下正好有同名细类「家居家装」→ 细类优先(更精确)
+        var home = spend.stream().filter(l -> "家居家装".equals(l.categoryName())).findFirst().orElseThrow();
+        assertThat(home.how()).isEqualTo(BillCategoryResolver.How.CHANNEL);
+
+        /* 「酒店旅游」树里没有同名节点 → 走别名表。
+         * 别名的目标是【大类】「文化休闲」而不是细类「旅游酒店」,这是刻意的:
+         * 只建了大类、没建细类的家庭同样要命中。指向细类的话,那些家庭会落进「其他」。 */
+        var hotel = spend.stream()
+                .filter(l -> l.how() == BillCategoryResolver.How.ALIAS).findFirst().orElseThrow();
         assertThat(hotel.categoryName()).isEqualTo("文化休闲");
 
-        assertThat(draft.unmapped())
-                .as("起步包 + 别名表应该覆盖掉全部,不该有「没认出来」")
+        assertThat(spend.stream().filter(l -> l.how() == BillCategoryResolver.How.FALLBACK).count())
+                .as("起步包 + 别名表应该覆盖掉全部,不该有「兜底」")
                 .isEqualTo(0);
     }
 
     @Test
-    @DisplayName("中性交易被剔除且列得出来:转账红包 / 投资理财 都不算消费")
-    void neutralTransactionsExcluded() {
+    @DisplayName("划转与退款进【已剔除】桶,不进消费 —— 静默跳过是查不出来的")
+    void neutralAndRefundGoToDroppedBucket() {
         var cats = new com.family.finance.service.expense.ExpenseFakes.FakeCategoryMapper();
-        var splits = new com.family.finance.service.expense.ExpenseFakes.FakeSplitMapper();
-        var catSvc = new com.family.finance.service.expense.ExpenseCategoryService(cats, splits);
+        var flows = new com.family.finance.service.expense.ExpenseFakes.FakeFlowMapper();
+        var catSvc = new com.family.finance.service.expense.ExpenseCategoryService(cats, flows);
         catSvc.seed(1L, false);
-        var draft = BillCategoryResolver.aggregate(
+        var draft = BillCategoryResolver.classify(
                 com.family.finance.domain.expense.ExpenseSource.ALIPAY,
                 CsvBillParser.parse(alipay(24)), catSvc.all(1L),
-                java.util.Map.of(), catSvc.other(1L).getId());
+                java.util.Map.of(), catSvc.other(1L).getId(), java.util.Set.of());
 
-        assertThat(draft.neutrals()).extracting("label").contains("转账红包");
-        assertThat(draft.lines()).extracting("channelLabel")
-                .as("投资理财是「不计收支」方向,连支出都不是")
-                .doesNotContain("投资理财");
-        assertThat(draft.total())
-                .as("2000 的转账不该进支出合计")
+        assertThat(draft.bucket(BillCategoryResolver.Bucket.DROPPED))
+                .as("转账红包是划转,不是消费")
+                .extracting(BillCategoryResolver.Line::merchant)
+                .anyMatch(m -> m.contains("转账") || m.contains("红包"));
+        assertThat(draft.sum(BillCategoryResolver.Bucket.SPEND))
+                .as("2000 的转账不该进消费合计")
                 .isEqualByComparingTo("2416.50");   // 1280+32.5+45+399+660
+    }
+
+    @Test
+    @DisplayName("已经导过的交易号落【已存在】桶 —— 同一份文件导两次不出双份")
+    void seenTxNoIsSkipped() {
+        var cats = new com.family.finance.service.expense.ExpenseFakes.FakeCategoryMapper();
+        var flows = new com.family.finance.service.expense.ExpenseFakes.FakeFlowMapper();
+        var catSvc = new com.family.finance.service.expense.ExpenseCategoryService(cats, flows);
+        catSvc.seed(1L, false);
+        var parsed = CsvBillParser.parse(alipay(24));
+
+        // 把第一笔的交易号当成「上次已导入」
+        String firstTx = parsed.rows().stream().map(BillRow::txNo)
+                .filter(java.util.Objects::nonNull).findFirst().orElse(null);
+        org.junit.jupiter.api.Assumptions.assumeTrue(firstTx != null, "夹具里得有交易号列");
+
+        var draft = BillCategoryResolver.classify(
+                com.family.finance.domain.expense.ExpenseSource.ALIPAY, parsed, catSvc.all(1L),
+                java.util.Map.of(), catSvc.other(1L).getId(), java.util.Set.of(firstTx));
+
+        assertThat(draft.count(BillCategoryResolver.Bucket.SKIPPED)).isEqualTo(1);
+        assertThat(draft.bucket(BillCategoryResolver.Bucket.SKIPPED).get(0).txNo()).isEqualTo(firstTx);
     }
 }

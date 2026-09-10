@@ -22,11 +22,14 @@ public class ExpenseImportBatch {
     private Long id;
     private Long familyId;
     private Long periodId;
-    private Long memberId;
+    /** 整批落到同一个账户(FR-568)· 第一期不做多账户拆分 */
+    private Long accountId;
     private ExpenseSource channel;
     private Integer rowCount;
     private BigDecimal totalAmount;
-    private Long replacedId;
+    /** 剔除/跳过的笔数 —— 「导入总额比账单少」时能解释清楚(FR-561) */
+    private Integer droppedCount;
+    private Integer skippedCount;
     private Long importedBy;
     private LocalDateTime importedAt;
     private LocalDateTime revokedAt;

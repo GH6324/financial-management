@@ -41,10 +41,12 @@ public interface CashFlowMapper {
     @Insert("""
             INSERT INTO cash_flow (
                 period_id, account_id, kind, category_code, amount, occurred_at, note, submitted_by, is_adjustment,
-                ref_holding_id, ref_shares, source_tag
+                ref_holding_id, ref_shares, source_tag,
+                expense_category_id, import_batch_id, ext_tx_no
             ) VALUES (
                 #{periodId}, #{accountId}, #{kind}, #{categoryCode}, #{amount}, #{occurredAt}, #{note}, #{submittedBy}, #{adjustment},
-                #{refHoldingId}, #{refShares}, COALESCE(#{sourceTag}, 'UNKNOWN')
+                #{refHoldingId}, #{refShares}, COALESCE(#{sourceTag}, 'UNKNOWN'),
+                #{expenseCategoryId}, #{importBatchId}, #{extTxNo}
             )
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")

@@ -4,6 +4,7 @@ import com.family.finance.domain.expense.ExpenseCategory;
 import com.family.finance.domain.expense.ExpenseSource;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -95,36 +96,96 @@ public final class BillCategoryResolver {
         BUILTIN_MERCHANT.put("房租", "住房物业");
     }
 
-    /** 确认页上的一行:渠道给的原名 → 落到哪个树节点,以及金额与笔数 */
-    public record Line(String channelLabel, long categoryId, String categoryName,
-                       BigDecimal amount, int count, String how) {}
+    /**
+     * 归类依据 —— 确认页要把它标出来(FR-564)。
+     *
+     * <p>为什么必须显示:用户没时间逐行核对 428 笔。标出依据之后,
+     * 「渠道分类」和「你的规则」那两类基本可以跳过,只需要盯 AI 和兜底 ——
+     * 428 笔的核对量压缩到十几笔。不标依据,这一页就只是一张长表。</p>
+     */
+    public enum How {
+        CHANNEL("渠道分类"),   // 渠道自己那一列,和你的树同名 → 零成本、最可信
+        ALIAS("渠道分类"),     // 同上,只是我们做了一层别名映射
+        RULE("你的规则"),      // 你上次改过并勾了「记住」
+        BUILTIN("商户关键字"), // 内置的常见商户表
+        AI("AI 猜的"),         // 前面都没命中,送商户名给模型
+        FALLBACK("兜底");      // 全都没命中 → 「其他」,等你手改
 
-    /** 被剔除的中性交易(确认页要列出来,用户可以改回) */
-    public record Neutral(String label, BigDecimal amount, int count) {}
+        public final String label;
+        How(String l) { this.label = l; }
+        /** 需要用户重点核对的那两类 */
+        public boolean needsReview() { return this == AI || this == FALLBACK; }
+    }
 
-    public record Draft(ExpenseSource channel, List<Line> lines, List<Neutral> neutrals,
-                        Map<Long, BigDecimal> byCategory, BigDecimal total, int rowCount,
-                        int unmapped, CsvBillParser.Parsed parsed) {}
+    /** 这一笔属于哪个桶(FR-560)。桶必须显式,且每桶的笔数金额都要显示出来。 */
+    public enum Bucket {
+        /** 消费支出 —— 要导入的主体 */
+        SPEND,
+        /** 性质另算:还贷 / 转账给亲属。进储蓄率与负债口径,不进「钱花在哪」 */
+        NATURE,
+        /** 收入 —— 默认不导(用户可勾选) */
+        INCOME,
+        /** 剔除:不计收支 / 退款 / 交易关闭。**这些钱实际没花出去** */
+        DROPPED,
+        /** 已存在:按交易号去重跳过 */
+        SKIPPED
+    }
 
     /**
-     * 聚合。
+     * 确认页上的一行 = 账单里的一笔。
      *
-     * @param fillable 当前深度下可填的类目(简单深度=一级;复杂深度=细类/未细分的大类)
+     * <p>第 1 稿这里是「渠道分类 → 家类目 · 金额 · 笔数」的<b>聚合行</b>。
+     * 改成逐笔之后行数多了,但换来两件做不到的事:单笔可改分类、报表可下钻到单笔。</p>
+     *
+     * @param categoryId 归到哪个消费分类;{@link Bucket#NATURE} 时为 null
+     * @param natureCode NATURE 桶专用的性质码(loan_payment / to_relatives);其余为 null
+     */
+    public record Line(int idx, LocalDate occurredAt, String merchant, BigDecimal amount,
+                       Long categoryId, String categoryName, How how, Bucket bucket,
+                       String natureCode, String dropReason, String txNo) {
+
+        public boolean needsReview() { return bucket == Bucket.SPEND && how != null && how.needsReview(); }
+    }
+
+    /**
+     * 解析产物。
+     *
+     * @param noTxNo 没有交易号的笔数 —— 它们<b>无法参与重复导入去重</b>,确认页要说出来
+     */
+    public record Draft(ExpenseSource channel, List<Line> lines, int total,
+                        CsvBillParser.Parsed parsed, int noTxNo) {
+
+        public List<Line> bucket(Bucket b) {
+            return lines.stream().filter(l -> l.bucket() == b).toList();
+        }
+
+        public int count(Bucket b) { return bucket(b).size(); }
+
+        public BigDecimal sum(Bucket b) {
+            return bucket(b).stream().map(Line::amount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+    }
+
+    /**
+     * 逐笔归类 + 分桶。
+     *
+     * @param allNodes 整棵树(大类 + 细类)· <b>不是「当前深度可填的那一层」</b>
      * @param rules    家庭自建的商户关键字规则(优先于内置表)
      * @param otherId  「其他」类目 id —— 映射不上的最终去处
+     * @param seenTxNo 已经导过的交易号 → 落 SKIPPED 桶
      */
-    public static Draft aggregate(ExpenseSource channel, CsvBillParser.Parsed parsed,
-                                  List<ExpenseCategory> allNodes,
-                                  Map<String, Long> rules, long otherId) {
-        /* 名字 → 节点 id,匹配范围是<b>整棵树</b>(大类 + 细类),不是「当前深度可填的那一层」。
+    public static Draft classify(ExpenseSource channel, CsvBillParser.Parsed parsed,
+                                 List<ExpenseCategory> allNodes,
+                                 Map<String, Long> rules, long otherId,
+                                 java.util.Set<String> seenTxNo) {
+        /* 名字 → 节点 id,匹配范围是【整棵树】(大类 + 细类)。
          *
-         * 这一点开发时搞错过,而且错得很隐蔽:原来只在 fillable(复杂深度下=细类)里找,
+         * 这一点第 1 稿搞错过,而且错得很隐蔽:原来只在「当前深度可填的那一层」里找,
          * 于是渠道给的「餐饮美食」(大类名)在细类表里找不到 → 全落「其他」;
-         * 偏偏「家居家装」因为复杂版里正好有个同名细类而命中了,看起来像是「大部分认不出来」。
+         * 偏偏「家居家装」因为正好有个同名细类而命中了,看起来像是「大部分认不出来」。
          *
-         * 正确的做法是让它落在【大类】上 —— 那就是 rollup 里的「未细分」,
-         * 一个一等形态:钱记在大类上,以后想细分再细分,合计一分不差。
-         * 细类优先(更精确),大类兜底。 */
+         * 细类优先(更精确),大类兜底 —— 落在大类上完全正常,不是降级。 */
         Map<String, Long> byName = new LinkedHashMap<>();
         for (ExpenseCategory c : allNodes) if (!c.isTopLevel()) byName.putIfAbsent(c.getName(), c.getId());
         for (ExpenseCategory c : allNodes) if (c.isTopLevel()) byName.putIfAbsent(c.getName(), c.getId());
@@ -132,78 +193,106 @@ public final class BillCategoryResolver {
         for (ExpenseCategory c : allNodes) nameOf.put(c.getId(), c.getName());
         nameOf.putIfAbsent(otherId, "其他");
 
-        Map<String, BigDecimal> neutralAmt = new LinkedHashMap<>();
-        Map<String, Integer> neutralCnt = new LinkedHashMap<>();
-        // key = 渠道原名 + "→" + 目标类目
-        Map<String, BigDecimal> lineAmt = new LinkedHashMap<>();
-        Map<String, Integer> lineCnt = new LinkedHashMap<>();
-        Map<String, Long> lineTarget = new LinkedHashMap<>();
-        Map<String, String> lineHow = new LinkedHashMap<>();
-        Map<Long, BigDecimal> byCategory = new LinkedHashMap<>();
-        int unmapped = 0;
-
+        List<Line> lines = new ArrayList<>();
+        int idx = 0, noTx = 0;
         for (BillRow r : parsed.rows()) {
-            if (!r.isExpense()) continue;                 // 收入 / 不计收支都不是消费
+            idx++;
+            String merchant = r.merchantText();
+            if (merchant.isBlank()) merchant = "(没有名字)";
+            LocalDate at = r.occurredAt();
+            String tx = r.txNo();
+            if (tx == null) noTx++;
 
-            String label = pickLabel(r);
+            /* ① 已经导过 —— 最先判,免得同一笔又走一遍归类然后被用户看见两次 */
+            if (tx != null && seenTxNo != null && seenTxNo.contains(tx)) {
+                lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
+                        Bucket.SKIPPED, null, "上次已导入", tx));
+                continue;
+            }
+            /* ② 退款 / 交易关闭 —— 这笔钱实际没花出去 */
+            if (r.isRefund()) {
+                lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
+                        Bucket.DROPPED, null, "退款 / 交易关闭", tx));
+                continue;
+            }
+            /* ③ 渠道自己说「不计收支」—— 这是<b>渠道的判断</b>,最可信:
+             *    余额宝转入转出、理财买入赎回,钱还在你自己名下。
+             *    当成支出就等于把同一笔钱花两遍(账户余额那边已经反映了这次移动)。 */
+            if (r.isNeutral()) {
+                lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
+                        Bucket.DROPPED, null, "不计收支(划转)", tx));
+                continue;
+            }
+            /* ④ 收入 —— 默认不导。支出侧的分类体系套不到收入上(收入类目绑账户类型)。 */
+            if (r.isIncome()) {
+                lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
+                        Bucket.INCOME, null, null, tx));
+                continue;
+            }
+            if (!r.isExpense()) {
+                lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
+                        Bucket.DROPPED, null, "收支方向认不出来", tx));
+                continue;
+            }
+            /* ⑤ 还贷 —— 【必须排在关键字划转判据之前】。
+             *
+             *    开发时踩过:NEUTRAL 关键字表里有「还款」,于是渠道标成【支出】的「花呗还款」
+             *    先被当成划转剔掉了 —— NATURE 桶永远是空的,页面上那个格子形同虚设。
+             *    渠道说是支出就是支出:钱确实从这个账户流出去了,它只是不属于「消费」。
+             *    落成 loan_payment 与手工记一笔还贷完全等价。 */
+            String nature = natureOf(r);
+            if (nature != null) {
+                lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
+                        Bucket.NATURE, nature, null, tx));
+                continue;
+            }
+            /* ⑥ 关键字兜底的划转判据(转账红包 / 提现充值 / 理财)。
+             *    放在还贷之后 —— 它是<b>猜</b>,而上面几条是渠道明说的。 */
             if (isNeutral(r)) {
-                neutralAmt.merge(label, r.amount(), BigDecimal::add);
-                neutralCnt.merge(label, 1, Integer::sum);
+                lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
+                        Bucket.DROPPED, null, "看着像划转,不是消费", tx));
                 continue;
             }
 
-            Long target = null;
-            String how;
-            if (r.channelCategory() != null && !r.channelCategory().isBlank()
-                    && byName.containsKey(r.channelCategory())) {
-                target = byName.get(r.channelCategory());
-                how = "同名直挂";
-            } else if (r.channelCategory() != null && ALIPAY_ALIAS.containsKey(r.channelCategory())
-                    && byName.containsKey(ALIPAY_ALIAS.get(r.channelCategory()))) {
-                target = byName.get(ALIPAY_ALIAS.get(r.channelCategory()));
-                how = "映射";
+            /* ⑦ 消费 —— 三层兜底归类(FR-562) */
+            Long target;
+            How how;
+            String cc = r.channelCategory();
+            if (cc != null && !cc.isBlank() && byName.containsKey(cc)) {
+                target = byName.get(cc); how = How.CHANNEL;
+            } else if (cc != null && ALIPAY_ALIAS.containsKey(cc)
+                    && byName.containsKey(ALIPAY_ALIAS.get(cc))) {
+                target = byName.get(ALIPAY_ALIAS.get(cc)); how = How.ALIAS;
             } else {
-                // 微信这条路:靠商户名/商品说明的关键字
-                String hay = (nz(r.counterparty()) + " " + nz(r.goods())).toLowerCase();
+                String hay = merchant.toLowerCase();
                 Long byRule = matchRule(hay, rules);
-                if (byRule != null) { target = byRule; how = "你的关键字规则"; }
+                if (byRule != null) { target = byRule; how = How.RULE; }
                 else {
                     String cat = matchBuiltin(hay);
                     if (cat != null && byName.containsKey(cat)) {
-                        target = byName.get(cat); how = "商户关键字";
-                    } else { target = otherId; how = "没认出来 · 落「其他」"; unmapped++; }
+                        target = byName.get(cat); how = How.BUILTIN;
+                    } else { target = otherId; how = How.FALLBACK; }
                 }
             }
-
-            String key = label + "→" + target;
-            lineAmt.merge(key, r.amount(), BigDecimal::add);
-            lineCnt.merge(key, 1, Integer::sum);
-            lineTarget.put(key, target);
-            lineHow.put(key, how);
-            byCategory.merge(target, r.amount(), BigDecimal::add);
+            lines.add(new Line(idx, at, merchant, r.amount(), target,
+                    nameOf.getOrDefault(target, "其他"), how, Bucket.SPEND, null, null, tx));
         }
+        return new Draft(channel, lines, lines.size(), parsed, noTx);
+    }
 
-        List<Line> lines = new ArrayList<>();
-        for (var e : lineAmt.entrySet()) {
-            long t = lineTarget.get(e.getKey());
-            lines.add(new Line(e.getKey().substring(0, e.getKey().lastIndexOf("→")),
-                    t, nameOf.getOrDefault(t, "其他"), e.getValue(),
-                    lineCnt.get(e.getKey()), lineHow.get(e.getKey())));
+    /**
+     * 是不是「还贷 / 转账给亲属」这类<b>不是消费的支出</b>。
+     *
+     * <p>判据保守 —— 宁可当成普通消费让用户改回来,也不要把一笔正常消费误判成还贷:
+     * 前者只是分类不准,后者会直接影响储蓄率。</p>
+     */
+    static String natureOf(BillRow r) {
+        String hay = (nz(r.channelCategory()) + " " + nz(r.counterparty()) + " " + nz(r.goods()));
+        if (hay.contains("还款") || hay.contains("房贷") || hay.contains("车贷")
+                || hay.contains("贷款") || hay.contains("花呗") || hay.contains("借呗")) {
+            return "loan_payment";
         }
-        lines.sort((a, b) -> b.amount().compareTo(a.amount()));
-
-        List<Neutral> neutrals = new ArrayList<>();
-        for (var e : neutralAmt.entrySet()) {
-            neutrals.add(new Neutral(e.getKey(), e.getValue(), neutralCnt.get(e.getKey())));
-        }
-        neutrals.sort((a, b) -> b.amount().compareTo(a.amount()));
-
-        BigDecimal total = BigDecimal.ZERO;
-        for (BigDecimal v : byCategory.values()) total = total.add(v);
-
-        int rows = 0;
-        for (Line l : lines) rows += l.count();
-        return new Draft(channel, lines, neutrals, byCategory, total, rows, unmapped, parsed);
+        return null;
     }
 
     // ──────────────────────── 判据 ────────────────────────

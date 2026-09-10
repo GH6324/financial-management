@@ -43,7 +43,6 @@ public class EntryController {
 
     private final EntryService entryService;
     private final com.family.finance.service.expense.ExpenseCategoryService expenseCategoryService;   // v1.21
-    private final com.family.finance.service.expense.ExpenseSplitService expenseSplitService;         // v1.21
     private final com.family.finance.service.config.FamilyConfigService configService;                // v1.21
     private final PeriodMapper periodMapper;
     private final PeriodService periodService;
@@ -194,40 +193,16 @@ public class EntryController {
         var expenseMode = expenseLedger.modeOf(me.getFamilyId());
         model.addAttribute("expenseMode", expenseMode.name());
 
-        /* v1.21 · 分类填报(TOTAL 模式的展开态)。
-         * 整块只在「这个家建过类目」时才有内容 —— 没建的家庭页面一个像素都不变。
-         * 展开与否【每人自选】(PMC 本来就按人,妻子不想拆不该被丈夫的选择绑架);
-         * 录入深度是【家庭级】(树是共享的,一家两种深度会让报表下钻语义分裂)。 */
+        /* v1.21(第 2 稿)· 分类宫格。
+         * 整块只在「这个家建过类目」时才有内容 —— 没建的家庭页面一个像素都不变(FR-520)。
+         * 而且只在 ITEMIZED 模式下才有用:TOTAL 模式就是一个数,没有分类(PRD §0.2)。 */
         long fam = me.getFamilyId();
-        boolean splitDeep = "L2".equalsIgnoreCase(
-                configService.getString(fam, com.family.finance.service.config.FamilyConfigService.K_EXPENSE_SPLIT_DEPTH, "L1"));
-        boolean splitOpen = configService.getBoolean(fam,
-                com.family.finance.service.config.FamilyConfigService.K_EXPENSE_SPLIT_OPEN + me.getMemberId(), false)
-                || expenseSplitService.hasSplits(period.getId(), me.getMemberId());
-        model.addAttribute("splitDeep", splitDeep);
-        model.addAttribute("splitOpen", splitOpen);
-        var splitCells = expenseSplitService.cells(period.getId(), me.getMemberId());
-        /* 表单要显示的类目 = 可填的 ∪ 这一期已经有钱的。
-         * 后半句是必须的:导入的钱会落在【大类】上(渠道分类名是大类粒度),
-         * 而复杂深度下 fillable 只给细类 —— 少了这一句,那笔钱在页面上看不见也改不了。 */
-        model.addAttribute("splitCategories",
-                expenseCategoryService.fillableWith(fam, splitDeep, splitCells.keySet()));
-        java.util.Set<Long> unsplitIds = new java.util.HashSet<>();
-        for (var c : expenseCategoryService.all(fam)) {
-            if (expenseCategoryService.isUnsplit(fam, c, splitDeep)) unsplitIds.add(c.getId());
+        boolean hasCats = expenseCategoryService.hasAny(fam);
+        model.addAttribute("hasExpenseCats", hasCats);
+        if (hasCats) {
+            model.addAttribute("catTree", expenseCategoryService.pickable(fam));
+            model.addAttribute("catRecent", expenseCategoryService.recentUsed(fam, 5));
         }
-        model.addAttribute("splitUnsplitIds", unsplitIds);
-        model.addAttribute("splitCells", splitCells);
-        java.math.BigDecimal splitTotal = java.math.BigDecimal.ZERO;
-        for (var cell : splitCells.values()) splitTotal = splitTotal.add(cell.total());
-        model.addAttribute("splitTotal", splitTotal);
-        // 上月各类目金额 —— 抄账单时的锚点(FR-513)
-        java.util.Map<Long, java.math.BigDecimal> prevByCat = new java.util.LinkedHashMap<>();
-        if (previousPeriod != null) {
-            expenseSplitService.cells(previousPeriod.getId(), me.getMemberId())
-                    .forEach((cid, cell) -> prevByCat.put(cid, cell.total()));
-        }
-        model.addAttribute("splitPrev", prevByCat);
         model.addAttribute("expenseModeLabel", expenseMode.displayName());
         model.addAttribute("expenseModeHint", expenseMode.hintText());
         if (expenseMode == com.family.finance.domain.family.ExpenseEntryMode.ITEMIZED) {
@@ -327,85 +302,10 @@ public class EntryController {
         return "entry/_refresh-toast :: toast";
     }
 
-    // ════════════════════ v1.21 · 分类填报 ════════════════════
-
-    /**
-     * 保存展开态表单。参数形如 {@code cat_{categoryId}=金额}。
-     *
-     * <p>写入的是「手工行 = 期望值 − Σ渠道行」,所以<b>重导某渠道不会冲掉这里的修正</b>
-     * (见 {@code ExpenseSplitService} 的类注释)。合计在同一事务回写月度总额。</p>
-     */
-    @PostMapping("/entry/split")
-    public String saveSplit(@AuthenticationPrincipal MemberPrincipal me,
-                            @RequestParam("periodId") long periodId,
-                            jakarta.servlet.http.HttpServletRequest req,
-                            RedirectAttributes ra) {
-        java.util.Map<Long, BigDecimal> wanted = new java.util.LinkedHashMap<>();
-        for (var e : req.getParameterMap().entrySet()) {
-            if (!e.getKey().startsWith("cat_")) continue;
-            String raw = e.getValue() == null || e.getValue().length == 0 ? "" : e.getValue()[0];
-            Long cid = parseLongOrNull(e.getKey().substring(4));
-            if (cid == null) continue;
-            // 留空 = 该类目本月无 → 记 0(而不是跳过),否则删掉的数不会被清
-            wanted.put(cid, raw == null || raw.isBlank() ? BigDecimal.ZERO : new BigDecimal(raw.trim()));
-        }
-        try {
-            expenseSplitService.saveManual(me.getFamilyId(), periodId, me.getMemberId(), wanted);
-            configService.set(me.getFamilyId(),
-                    com.family.finance.service.config.FamilyConfigService.K_EXPENSE_SPLIT_OPEN + me.getMemberId(), "true");
-            ra.addFlashAttribute("entryNote", "已保存 —— 合计已写回你的本月总支出。");
-        } catch (RuntimeException ex) {
-            ra.addFlashAttribute("entryError", humanMessage(ex));
-        }
-        return "redirect:/entry";
-    }
-
-    /** 展开分类填报(每人自己选) */
-    @PostMapping("/entry/split/open")
-    public String openSplit(@AuthenticationPrincipal MemberPrincipal me,
-                            @RequestParam("periodId") long periodId, RedirectAttributes ra) {
-        configService.set(me.getFamilyId(),
-                com.family.finance.service.config.FamilyConfigService.K_EXPENSE_SPLIT_OPEN + me.getMemberId(), "true");
-        ra.addFlashAttribute("entryNote", "拆开了。从支付宝/微信的月账单照抄即可 —— 不用在这里记流水。");
-        return "redirect:/entry";
-    }
-
-    /**
-     * 并回一个总数。
-     *
-     * <p><b>刻意不清月度总额</b> —— 用户要的是「不再拆」,不是「这个月没花钱」。</p>
-     */
-    @PostMapping("/entry/split/collapse")
-    public String collapseSplit(@AuthenticationPrincipal MemberPrincipal me,
-                                @RequestParam("periodId") long periodId, RedirectAttributes ra) {
-        try {
-            expenseSplitService.collapse(me.getFamilyId(), periodId, me.getMemberId());
-            configService.set(me.getFamilyId(),
-                    com.family.finance.service.config.FamilyConfigService.K_EXPENSE_SPLIT_OPEN + me.getMemberId(), "false");
-            ra.addFlashAttribute("entryNote", "已并回一个总数 —— 本月总额留着,分类明细清掉了。");
-        } catch (RuntimeException ex) {
-            ra.addFlashAttribute("entryError", humanMessage(ex));
-        }
-        return "redirect:/entry";
-    }
-
     private static Long parseLongOrNull(String s) {
         try { return Long.valueOf(s.trim()); } catch (RuntimeException e) { return null; }
     }
 
-    /** 业务异常给人话,其余给一句兜底 —— 别把堆栈冒给用户(v1.20 的教训) */
-    static String humanMessage(RuntimeException ex) {
-        if (ex instanceof com.family.finance.service.expense.ExpenseSplitService.SplitException
-                || ex instanceof com.family.finance.service.expense.ExpenseCategoryService.CategoryException) {
-            return ex.getMessage();
-        }
-        return "没保存成功。刷新一下再试,如果还不行把这一步告诉我们。";
-    }
-
-    /**
-     * v0.3 FR-51 · 成员级月度收支提交(2026-05-13 修订)。
-     * 每个成员只能填自己的(memberId 强制 = 当前登录用户)。
-     */
     @PostMapping("/entry/cashflow-summary")
     public String submitCashflowSummary(@AuthenticationPrincipal MemberPrincipal me,
                                         @RequestParam("periodId") long periodId,
@@ -491,9 +391,11 @@ public class EntryController {
                                 @RequestParam(defaultValue = "consumption") String categoryCode,
                                 @RequestParam BigDecimal amount,
                                 @RequestParam(required = false) String note,
+                                @RequestParam(required = false) Long expenseCategoryId,
                                 org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
         try {
-            entryService.recordExpense(me.getFamilyId(), me.getMemberId(), periodId, accountId, categoryCode, amount, note);
+            entryService.recordExpense(me.getFamilyId(), me.getMemberId(), periodId, accountId,
+                    categoryCode, amount, note, expenseCategoryId);
         } catch (IllegalArgumentException | IllegalStateException e) {
             ra.addFlashAttribute("flashError", e.getMessage());
         }
