@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.21 Preview（改版）· 分类依附在「一笔」上</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .card{border:1px solid var(--rule);background:var(--card);padding:18px}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);color:var(--ink-soft);white-space:nowrap}
+  .badge.ok{border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)}
+  .badge.risk{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)}
+  .badge.ai{border-color:var(--brass-deep);color:var(--brass-deep);background:rgba(160,124,58,.10)}
+  .zone{margin-top:46px}
+  .zone-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap}
+  .zone-no{font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--paper);background:var(--brass-deep);line-height:1;padding:5px 9px}
+  .zone-t{font-family:'Fraunces','Noto Serif SC',serif;font-size:20px}
+  .zone-sub{font-size:11.5px;color:var(--ink-subtle)}
+  .zone-line{height:2px;background:var(--brass-deep);opacity:.35;margin:10px 0 18px}
+
+  /* ── 分类宫格 ── */
+  .grid-cat{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:7px}
+  .cat{border:1px solid var(--rule);background:var(--paper);padding:9px 6px;text-align:center;cursor:pointer;
+       display:flex;flex-direction:column;align-items:center;gap:5px;transition:.12s}
+  .cat:hover{background:var(--card-soft);border-color:var(--brass-deep)}
+  .cat.on{background:var(--ink);border-color:var(--ink)}
+  .cat.on .cat-n{color:var(--paper)}
+  .cat.on svg{stroke:var(--paper)}
+  .cat-n{font-size:12px;color:var(--ink);line-height:1}
+  .cat svg{width:19px;height:19px;stroke:var(--ink-soft);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .sub{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px dashed var(--rule)}
+  .chip{font-size:11.5px;border:1px solid var(--rule);padding:4px 11px;background:var(--paper);cursor:pointer}
+  .chip:hover{border-color:var(--brass-deep)}
+  .chip.on{background:var(--brass-deep);color:var(--paper);border-color:var(--brass-deep)}
+  .divider-lbl{display:flex;align-items:center;gap:9px;margin:14px 0 8px}
+  .divider-lbl span{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;color:var(--ink-subtle);white-space:nowrap}
+  .divider-lbl i{flex:1;height:1px;background:var(--rule)}
+
+  /* ── 表单行 ── */
+  .fld label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-subtle);display:block;margin-bottom:4px}
+  .fld input,.fld select{height:36px;border:1px solid var(--rule);background:var(--paper);padding:0 11px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink)}
+  .btn-ink{background:var(--ink);color:var(--paper);border:1px solid var(--ink);padding:0 16px;height:36px;font-size:13px;cursor:pointer}
+  .btn-gh{background:transparent;color:var(--ink);border:1px solid var(--rule);padding:0 13px;height:32px;font-size:12px;cursor:pointer}
+  .btn-gh:hover{border-color:var(--brass-deep)}
+
+  /* ── 导入确认表 ── */
+  table.imp{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.imp th{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+               color:var(--ink-subtle);text-align:left;padding:7px 8px;border-bottom:1px solid var(--rule);font-weight:400}
+  table.imp td{padding:8px;border-bottom:1px solid var(--rule-soft);vertical-align:middle}
+  table.imp tr.grp td{background:rgba(160,124,58,.07);font-family:'Fraunces',serif;font-size:13.5px;border-bottom:1px solid var(--rule)}
+  table.imp td.amt{text-align:right;font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1;white-space:nowrap}
+  .bucket{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .bk{border:1px solid var(--rule);background:var(--paper);padding:9px 13px;min-width:118px}
+  .bk b{font-family:'Fraunces',serif;font-size:19px;display:block;line-height:1.2}
+  .bk .l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;color:var(--ink-subtle);text-transform:uppercase}
+  .bk.drop{border-color:var(--rule);opacity:.72}
+  .bk.on{border-color:var(--brass-deep);background:rgba(160,124,58,.06)}
+
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:860px){.cmp{grid-template-columns:1fr}}
+  .cmp .bad{border-left:3px solid var(--rust)}
+  .cmp .good{border-left:3px solid var(--forest)}
+  .kill{text-decoration:line-through;color:var(--ink-subtle)}
+</style>
+</head>
+<body style="background:var(--paper);color:var(--ink)">
+
+<div class="wrap" style="padding-top:44px;padding-bottom:80px">
+
+  <div class="eyebrow">v1.21 preview · 改版第 2 稿</div>
+  <h1 style="font-size:34px;margin:8px 0 10px;letter-spacing:-.02em">分类依附在「一笔」上</h1>
+  <p style="font-size:14.5px;line-height:1.8;max-width:64rem;color:var(--ink-soft)">
+    第 1 稿被否掉了,原因说得很准:<b>「一堆空格让我分门别类填入」</b>。
+    去看了随手记 / 鲨鱼记账 / 钱迹之后确认——所有记账软件里,分类都是<b>记一笔时顺手选的</b>,
+    从来没有「月底打开一张 37 格的表,把钱分配进去」这个动作。那张表删掉。
+  </p>
+
+  <!-- ═══════════ 0 · 三种形式 ═══════════ -->
+  <div class="zone">
+    <div class="zone-head"><div class="zone-no">0</div>
+      <div class="zone-t">三种形式,各自走各自的路</div>
+      <div class="zone-sub">前两种是已有模式,只有第三种是新页面</div></div>
+    <div class="zone-line"></div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px" class="lg:grid-cols-3">
+      <div class="card">
+        <div class="eyebrow" style="color:var(--forest)">形式一 · 已有,不动</div>
+        <h3 style="font-size:17px;margin:7px 0 6px">填一个总数</h3>
+        <p class="note">每人每月一个数,从各端账单抄过来。<b>没有分类</b>——想知道钱花在哪就切到逐笔或用导入。
+          这是明确的交换:省事 vs 看得清。</p>
+        <div style="margin-top:11px" class="badge">在填报页原地</div>
+      </div>
+      <div class="card">
+        <div class="eyebrow" style="color:var(--brass-deep)">形式二 · 已有,换选择器</div>
+        <h3 style="font-size:17px;margin:7px 0 6px">逐笔录入</h3>
+        <p class="note">今天已经能逐笔记了,但类目只有 4 个<b>性质</b>值(日常开支/还贷/利息支出/转账给亲属)。
+          这一版把它换成<b>你自己的分类宫格</b>。</p>
+        <div style="margin-top:11px" class="badge">在填报页原地</div>
+      </div>
+      <div class="card" style="border-color:var(--brass-deep);border-width:2px">
+        <div class="eyebrow" style="color:var(--rust)">形式三 · 全新</div>
+        <h3 style="font-size:17px;margin:7px 0 6px">导入明细</h3>
+        <p class="note">传支付宝/微信月账单 → <b>逐笔</b>解析 → 自动归类 → 你在一张表上逐行核对改动 → 落成真流水。
+          几百笔的活变成几分钟。</p>
+        <div style="margin-top:11px" class="badge risk">独立页面 /expense/import</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;border-left:3px solid var(--brass-deep)">
+      <p style="font-size:13px;line-height:1.85">
+        <b>一个不能合并的地方</b>:「性质」和「消费分类」是<b>两个维度</b>。
+        <span class="mono" style="font-size:12px">还贷 / 利息支出 / 转账给亲属</span> 决定的是储蓄率和负债口径,
+        而「餐饮美食」只在「日常开支」这个性质下才有意义。所以是给每一笔<b>加</b>一个分类字段,不是替换原来的——
+        合并会静默把储蓄率算错。<span class="note">(在录入界面上它们仍然是<b>一次点击</b>,见下。)</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- ═══════════ 1 · 逐笔录入 ═══════════ -->
+  <div class="zone">
+    <div class="zone-head"><div class="zone-no">1</div>
+      <div class="zone-t">逐笔录入 · 分类宫格</div>
+      <div class="zone-sub">一屏看全 · 一次点击命中 · 常用置顶</div></div>
+    <div class="zone-line"></div>
+
+    <p class="note" style="margin-bottom:12px;max-width:62rem">
+      调研结论:用户放弃记账 App 最集中的抱怨是<b>「填半天分类还不对」</b>,
+      所以主流做法是<b>图标宫格</b>而不是下拉框——下拉要「点开→滚动→找→点」四步,宫格是一步。
+      宫格<b>常驻</b>在录入行下面(逐笔录入本来就是连续记好几笔,不该每次重新点开)。
+    </p>
+
+    <div class="card">
+      <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:12px;flex-wrap:wrap">
+        <span class="badge risk">支出</span>
+        <span class="mono" style="font-size:10px;color:var(--ink-subtle)">逐笔录入 · 录入后从所选账户余额扣除,所以先录收支、最后核对余额</span>
+      </div>
+
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
+        <div class="fld"><label>金额 ¥</label><input value="32.50" style="width:112px;text-align:right"></div>
+        <div class="fld"><label>支出账户</label><select style="width:186px"><option>支付宝-余额宝 · 现金</option></select></div>
+        <div class="fld" style="flex:1;min-width:160px"><label>备注(选填)</label><input placeholder="如 瑞幸" style="width:100%"></div>
+        <button class="btn-ink">+ 加一笔</button>
+      </div>
+
+      <div class="divider-lbl"><span>最近常用</span><i></i></div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        <div class="cat on" style="flex:0 0 104px">
+          <svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+          <span class="cat-n">餐饮美食</span></div>
+        <div class="cat" style="flex:0 0 104px">
+          <svg viewBox="0 0 24 24"><path d="M5 17h14M6 17V9l2-4h8l2 4v8"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg>
+          <span class="cat-n">交通出行</span></div>
+        <div class="cat" style="flex:0 0 104px">
+          <svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          <span class="cat-n">日用百货</span></div>
+      </div>
+
+      <div class="divider-lbl"><span>全部分类</span><i></i></div>
+      <div class="grid-cat">
+        <div class="cat on">
+          <svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+          <span class="cat-n">餐饮美食</span></div>
+        <div class="cat"><svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><span class="cat-n">日用百货</span></div>
+        <div class="cat"><svg viewBox="0 0 24 24"><path d="M20.4 14.5 16 10 4 20"/><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/></svg><span class="cat-n">服饰装扮</span></div>
+        <div class="cat"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg><span class="cat-n">数码电器</span></div>
+        <div class="cat"><svg viewBox="0 0 24 24"><path d="M5 17h14M6 17V9l2-4h8l2 4v8"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg><span class="cat-n">交通出行</span></div>
+        <div class="cat"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span class="cat-n">居住物业</span></div>
+        <div class="cat"><svg viewBox="0 0 24 24"><path d="M19 14c1.5-1.5 3-3.3 3-5.5A5.5 5.5 0 0 0 12 5 5.5 5.5 0 0 0 2 8.5c0 2.2 1.5 4 3 5.5l7 7Z"/></svg><span class="cat-n">医疗健康</span></div>
+        <div class="cat"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg><span class="cat-n">教育学习</span></div>
+        <div class="cat"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg><span class="cat-n">文化休闲</span></div>
+        <div class="cat"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span class="cat-n">其他</span></div>
+      </div>
+
+      <div class="sub">
+        <span class="mono" style="font-size:10px;color:var(--ink-subtle);align-self:center;margin-right:2px">餐饮美食 ›</span>
+        <span class="chip on">不细分</span>
+        <span class="chip">三餐</span><span class="chip">外卖</span>
+        <span class="chip">饮品零食</span><span class="chip">聚餐请客</span>
+        <span class="mono" style="font-size:10px;color:var(--ink-subtle);align-self:center">← 想细分再点一下,<b>不强制</b></span>
+      </div>
+
+      <div class="divider-lbl"><span>不是消费 · 性质另算</span><i></i></div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        <span class="chip">还贷</span><span class="chip">利息支出</span><span class="chip">转账给亲属</span>
+        <span class="note" style="align-self:center">这三项<b>不进「钱花在哪」</b>,但仍进储蓄率与负债口径。选中信用卡账户时「还贷/利息支出」会自动摘掉(现有规则,不变)。</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;border-left:3px solid var(--forest)">
+      <p style="font-size:13px;line-height:1.85">
+        <b>为什么把性质和消费分类混在一个宫格里</b>:分开就是两次选择(先选性质、再选分类),
+        而 95% 的笔都是「日常开支」。混在一起 = <b>永远一次点击</b>;
+        点消费分类就自动是「日常开支」性质,点那三项就没有消费分类。底层仍是两个字段,界面上是一层。
+      </p>
+    </div>
+  </div>
+
+  <!-- ═══════════ 2 · 导入 ═══════════ -->
+  <div class="zone">
+    <div class="zone-head"><div class="zone-no">2</div>
+      <div class="zone-t">导入明细 · 确认页</div>
+      <div class="zone-sub">这一页是这版最值钱的东西</div></div>
+    <div class="zone-line"></div>
+
+    <p class="note" style="margin-bottom:12px;max-width:62rem">
+      钱迹的导入是<b>按分类名严格字符串匹配</b>,对不上就全落「其它」——官方给用户的建议居然是
+      「先在 Excel 里用 VLOOKUP 自己归类」。它的 AI 归类只用于手记新账、不用于导入。
+      <b>这就是我们能做得明显更好的地方。</b>
+    </p>
+
+    <div class="card">
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:13px">
+        <div class="eyebrow">第 2 步 · 核对</div>
+        <h3 style="font-size:19px">支付宝 · 2026 年 9 月 · 读到 428 笔</h3>
+      </div>
+
+      <div class="bucket">
+        <div class="bk on"><span class="l">要导入</span><b>301</b><span class="note">消费支出</span></div>
+        <div class="bk"><span class="l">性质另算</span><b>6</b><span class="note">还贷 / 转账</span></div>
+        <div class="bk"><span class="l">收入</span><b>12</b><span class="note">默认不导</span></div>
+        <div class="bk drop"><span class="l">已剔除</span><b>92</b><span class="note">不计收支 / 退款 / 交易关闭</span></div>
+        <div class="bk drop"><span class="l">已存在</span><b>17</b><span class="note">上次导过,按交易号跳过</span></div>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;
+                  border:1px solid var(--rule);background:var(--card-soft);padding:9px 11px">
+        <span class="mono" style="font-size:11px">已选 <b>23</b> 笔</span>
+        <button class="btn-gh">批量改到分类 ▾</button>
+        <button class="btn-gh">批量剔除</button>
+        <span style="flex:1"></span>
+        <label class="note" style="display:flex;align-items:center;gap:6px"><input type="checkbox" checked>记住我的改动,下次自动命中</label>
+      </div>
+
+      <table class="imp">
+        <thead><tr>
+          <th style="width:26px"></th><th style="width:64px">日期</th><th>商户 / 说明</th>
+          <th style="width:96px;text-align:right">金额</th><th style="width:190px">归到</th><th style="width:104px">依据</th>
+        </tr></thead>
+        <tbody>
+          <tr class="grp"><td colspan="6">餐饮美食 · 96 笔 · ¥3,182.50</td></tr>
+          <tr><td><input type="checkbox"></td><td class="mono" style="font-size:11px">09-03</td>
+              <td>瑞幸咖啡(国贸店)</td><td class="amt">32.50</td>
+              <td><select style="width:100%;height:29px;font-size:12px;border:1px solid var(--rule);background:var(--paper)"><option>餐饮美食 › 饮品零食</option></select></td>
+              <td><span class="badge">渠道分类</span></td></tr>
+          <tr><td><input type="checkbox"></td><td class="mono" style="font-size:11px">09-04</td>
+              <td>美团外卖</td><td class="amt">48.00</td>
+              <td><select style="width:100%;height:29px;font-size:12px;border:1px solid var(--rule);background:var(--paper)"><option>餐饮美食 › 外卖</option></select></td>
+              <td><span class="badge ok">你的规则</span></td></tr>
+          <tr><td><input type="checkbox" checked></td><td class="mono" style="font-size:11px">09-07</td>
+              <td>星耀餐饮管理有限公司</td><td class="amt">268.00</td>
+              <td><select style="width:100%;height:29px;font-size:12px;border:1px solid var(--rule);background:var(--paper)"><option>餐饮美食 › 聚餐请客</option></select></td>
+              <td><span class="badge ai">AI 猜的</span></td></tr>
+
+          <tr class="grp"><td colspan="6">数码电器 · 3 笔 · ¥1,412.00</td></tr>
+          <tr><td><input type="checkbox"></td><td class="mono" style="font-size:11px">09-03</td>
+              <td>京东商城</td><td class="amt">1,280.00</td>
+              <td><select style="width:100%;height:29px;font-size:12px;border:1px solid var(--rule);background:var(--paper)"><option>数码电器 › 数码</option></select></td>
+              <td><span class="badge ai">AI 猜的</span></td></tr>
+
+          <tr class="grp"><td colspan="6" style="color:var(--rust)">没认出来 · 8 笔 · ¥612.00 &nbsp;<span class="note">——先看这一堆,其余的基本不用管</span></td></tr>
+          <tr><td><input type="checkbox" checked></td><td class="mono" style="font-size:11px">09-11</td>
+              <td>个人转账-王**</td><td class="amt">200.00</td>
+              <td><select style="width:100%;height:29px;font-size:12px;border:1px solid var(--rule);background:var(--paper)"><option>其他</option></select></td>
+              <td><span class="badge risk">兜底</span></td></tr>
+          <tr><td><input type="checkbox" checked></td><td class="mono" style="font-size:11px">09-18</td>
+              <td>YH***超市(收银台 3)</td><td class="amt">86.40</td>
+              <td><select style="width:100%;height:29px;font-size:12px;border:1px solid var(--rule);background:var(--paper)"><option>其他</option></select></td>
+              <td><span class="badge risk">兜底</span></td></tr>
+        </tbody>
+      </table>
+
+      <div style="display:flex;gap:10px;align-items:center;margin-top:16px;padding-top:14px;border-top:2px solid var(--brass-deep);flex-wrap:wrap">
+        <span class="mono" style="font-size:10px;color:var(--ink-subtle);text-transform:uppercase;letter-spacing:.1em">落到账户</span>
+        <select style="height:34px;border:1px solid var(--rule);background:var(--paper);padding:0 11px;font-size:13px"><option>支付宝-余额宝 · 现金</option></select>
+        <span style="flex:1"></span>
+        <span class="note">导入 <b>301</b> 笔 · 合计 <b class="mono">¥12,845.30</b></span>
+        <button class="btn-ink">确认导入</button>
+      </div>
+    </div>
+
+    <div class="cmp" style="margin-top:14px">
+      <div class="card" style="border-left:3px solid var(--brass-deep)">
+        <h4 style="font-size:14px;margin-bottom:7px">归类的三层,依次兜底</h4>
+        <p class="note">
+          ① <b>渠道自带的交易分类</b>——支付宝那一列本来就写着「餐饮美食」,和你的树同名就直接命中,不花一分钱;<br>
+          ② <b>你自己的规则</b>——你上次把「美团外卖」改到「外卖」,这次自动命中,<b>越用越准</b>;<br>
+          ③ <b>AI</b>——只对前两层都没命中的送去猜,而且<b>只送商户名,不送金额、不送时间</b>。
+          没配 AI key 也能用,那些落到「其他」等你手动改。
+        </p>
+      </div>
+      <div class="card" style="border-left:3px solid var(--rust)">
+        <h4 style="font-size:14px;margin-bottom:7px">要小心的三件事</h4>
+        <p class="note">
+          ① <b>账单里不只有消费</b>——还款、理财买入、余额宝转入是<b>划转</b>,当成支出就把你的钱花两遍。
+          必须识别出来单独放一桶,并且<b>把剔除了多少说出来</b>;<br>
+          ② <b>重复导入</b>——按(渠道 + 交易号)去重,同一份文件导两次不会出双份;<br>
+          ③ <b>会动账户余额</b>——导入的是真流水,会参与余额轧差。所以顺序仍是「先录收支、最后核对余额」。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 3 · 报表 ═══════════ -->
+  <div class="zone">
+    <div class="zone-head"><div class="zone-no">3</div>
+      <div class="zone-t">报表 · 钱花在哪了</div>
+      <div class="zone-sub">数从逐笔聚合来,所以每个数都点得进去</div></div>
+    <div class="zone-line"></div>
+
+    <div class="card">
+      <p class="note" style="margin-bottom:12px">
+        和第 1 稿最大的不同:这里的数<b>不再是一张单独的汇总表</b>,而是 <span class="mono" style="font-size:12px">cash_flow</span> 按分类聚合出来的。
+        好处是<b>可下钻</b>——点「餐饮美食 ¥3,182」能看到构成它的 96 笔;第 1 稿里那个数是死的。
+      </p>
+      <div style="display:flex;height:28px;border:1px solid var(--rule);overflow:hidden;margin-bottom:10px">
+        <div style="flex:3182;background:#9c6644;display:flex;align-items:center;justify-content:center"><span class="mono" style="font-size:9px;color:#fff">餐饮美食</span></div>
+        <div style="flex:1412;background:#4f6b47;display:flex;align-items:center;justify-content:center"><span class="mono" style="font-size:9px;color:#fff">数码电器</span></div>
+        <div style="flex:980;background:#6b7f9e;display:flex;align-items:center;justify-content:center"><span class="mono" style="font-size:9px;color:#fff">交通</span></div>
+        <div style="flex:780;background:#a07c3a"></div><div style="flex:612;background:#7d5a72"></div>
+      </div>
+      <div style="border-bottom:1px solid var(--rule-soft);padding:7px 0;display:flex;align-items:center;gap:10px">
+        <span style="width:9px;height:9px;background:#9c6644"></span><span style="font-size:12.5px">餐饮美食</span>
+        <span class="note">96 笔</span><span style="flex:1"></span>
+        <span class="mono" style="font-size:11px;color:var(--ink-subtle)">42.0%</span>
+        <span class="mono" style="font-size:12.5px">¥3,182</span>
+        <span class="mono" style="font-size:10px;color:var(--brass-deep);cursor:pointer">看这 96 笔 →</span>
+      </div>
+      <div style="border-bottom:1px solid var(--rule-soft);padding:7px 0;display:flex;align-items:center;gap:10px">
+        <span style="width:9px;height:9px;background:#4f6b47"></span><span style="font-size:12.5px">数码电器</span>
+        <span class="note">3 笔</span><span style="flex:1"></span>
+        <span class="mono" style="font-size:11px;color:var(--ink-subtle)">18.6%</span>
+        <span class="mono" style="font-size:12.5px">¥1,412</span>
+        <span class="mono" style="font-size:10px;color:var(--brass-deep);cursor:pointer">看这 3 笔 →</span>
+      </div>
+      <p class="note" style="margin-top:12px">
+        总额模式的月份不会画成 0——会画成斜纹块并注明「那一期只填了总额」。<b>没拆过 ≠ 没花钱。</b>
+      </p>
+    </div>
+  </div>
+
+  <!-- ═══════════ 4 · 删掉了什么 ═══════════ -->
+  <div class="zone">
+    <div class="zone-head"><div class="zone-no">4</div>
+      <div class="zone-t">第 1 稿删掉了什么</div>
+      <div class="zone-sub">这些代码已经写了,但方向错了</div></div>
+    <div class="zone-line"></div>
+
+    <div class="cmp">
+      <div class="card bad">
+        <div class="eyebrow" style="color:var(--rust)">删</div>
+        <h4 style="font-size:15px;margin:6px 0 8px" class="kill">按类目填汇总数的表格</h4>
+        <p class="note">
+          37 个类目 37 个空框,月底打开面对一堆 0。<b>没有任何记账软件这么做</b>,
+          因为「把总数分配到类目里」是人做不来的运算——你只记得中午吃了什么,不记得这个月餐饮总共多少。<br><br>
+          连带删掉:<span class="mono" style="font-size:11px">expense_split</span> 汇总表、
+          「来源行」模型、「简单/复杂深度」这个设置项(改成录入时想细分就多点一下,不用预先选)。
+        </p>
+      </div>
+      <div class="card good">
+        <div class="eyebrow" style="color:var(--forest)">留</div>
+        <h4 style="font-size:15px;margin:6px 0 8px">分类树 + 账单解析 + 起步包</h4>
+        <p class="note">
+          这些是对的,原样复用:<br>
+          · <b>两级分类树</b>与管理页(调研证实两级是对的——「所有吃饭都是餐饮,早午晚饭不分」是真实抱怨)<br>
+          · <b>一键起步包</b>(10 个大类,名字和支付宝的交易分类<b>刻意同名</b>,导入才对得上)<br>
+          · <b>csv / 加密 zip 解析</b>、编码嗅探、渠道导出路径指引<br>
+          · <b>「其他」不可删</b>、删类目要先搬家<br>
+          · <b>金额永不进 LLM</b>、文件不落盘不进日志
+        </p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;border-left:3px solid var(--brass-deep)">
+      <p style="font-size:13px;line-height:1.85">
+        <b>「刻意不做逐笔流水账」这条边界怎么算?</b>
+        它在 v1.8 其实就已经松动了——<span class="mono" style="font-size:12px">ITEMIZED</span> 逐笔模式那时就有。
+        真正的硬约束是<b>「10 分钟/月」</b>,而这一版没有增加任何手工负担:
+        总额模式一个数不变;逐笔模式本来就在逐笔记,只是类目更有用了;
+        <b>导入是把几百笔的活压进几分钟</b>,方向恰恰相反。
+      </p>
+    </div>
+  </div>
+
+  <div style="margin-top:52px;padding-top:18px;border-top:1px solid var(--rule)">
+    <p class="note">v1.21 preview · 第 2 稿 · 2026-09-10 · 待评审 —— 认可之后我改 PRD/TDD,再动代码。</p>
+  </div>
+</div>
+
+<script>
+  /* 宫格只做演示交互:点一下换选中态,让人能感觉到「一次点击」有多快 */
+  document.querySelectorAll('.grid-cat .cat').forEach(function (c) {
+    c.addEventListener('click', function () {
+      document.querySelectorAll('.grid-cat .cat').forEach(function (o) { o.classList.remove('on'); });
+      c.classList.add('on');
+    });
+  });
+  document.querySelectorAll('.sub .chip, .divider-lbl ~ div .chip').forEach(function (c) {
+    c.addEventListener('click', function () {
+      var sibs = c.parentElement.querySelectorAll('.chip');
+      sibs.forEach(function (o) { o.classList.remove('on'); });
+      c.classList.add('on');
+    });
+  });
+</script>
+</body>
+</html>
