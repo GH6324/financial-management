@@ -124,6 +124,10 @@
                SUM(CASE WHEN kind = 'EXPENSE' THEN amount ELSE 0 END) AS expense_orig
           FROM cash_flow
          WHERE deleted_at IS NULL
+           <!-- v1.21 · 口径 B 是【该账户的资金进出】,affects_balance=0 的笔【余额根本没动】。
+                算进来的话 NAV 会以为「钱是被取走的、不是亏掉的」,把账户收益率算高 ——
+                而这不会报错,只是数字慢慢变好看。口径 A(家庭消费)那边照常计入。 -->
+           AND affects_balance = 1
          GROUP BY period_id, account_id
     ) cf
       ON cf.period_id = p.id

@@ -418,10 +418,11 @@ public class EntryController {
                                 @RequestParam BigDecimal amount,
                                 @RequestParam(required = false) String note,
                                 @RequestParam(required = false) Long expenseCategoryId,
+                                @RequestParam(defaultValue = "false") boolean affectsBalance,
                                 org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
         try {
             entryService.recordExpense(me.getFamilyId(), me.getMemberId(), periodId, accountId,
-                    categoryCode, amount, note, expenseCategoryId);
+                    categoryCode, amount, note, expenseCategoryId, affectsBalance);
         } catch (IllegalArgumentException | IllegalStateException e) {
             ra.addFlashAttribute("flashError", e.getMessage());
         }

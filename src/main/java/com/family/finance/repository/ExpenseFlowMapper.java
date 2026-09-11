@@ -166,6 +166,19 @@ public interface ExpenseFlowMapper {
     List<Long> recentCategoryIds(@Param("familyId") long familyId,
                                  @Param("since") LocalDate since, @Param("limit") int limit);
 
+    /**
+     * 这个批次当初扣过余额吗。
+     *
+     * <p>撤销时要用:<b>只有扣过的才加回</b>,否则「只记构成」的批次一撤销,
+     * 余额会凭空多出一笔钱。同一批次的行 {@code affects_balance} 必然一致
+     * (整批一个开关),所以取 MAX 即可。</p>
+     */
+    @Select("""
+            SELECT COALESCE(MAX(affects_balance), 0) FROM cash_flow
+             WHERE import_batch_id = #{batchId}
+            """)
+    boolean batchAffectsBalance(@Param("batchId") long batchId);
+
     /** 整批撤销:软删该批次落的所有流水(FR-539) */
     @Update("""
             UPDATE cash_flow SET deleted_at = NOW(3)

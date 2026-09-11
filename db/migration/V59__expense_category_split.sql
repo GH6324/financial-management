@@ -103,7 +103,23 @@ CREATE TABLE IF NOT EXISTS expense_merchant_rule (
 ALTER TABLE cash_flow
     ADD COLUMN expense_category_id BIGINT NULL COMMENT 'v1.21 消费分类(只在 category_code=consumption 时有意义;NULL=未分类)',
     ADD COLUMN import_batch_id     BIGINT NULL COMMENT 'v1.21 来自哪个导入批次;NULL=手工录入',
-    ADD COLUMN ext_tx_no           VARCHAR(64) NULL COMMENT 'v1.21 渠道交易号,用于重复导入去重(不做唯一约束,见文件头)';
+    ADD COLUMN ext_tx_no           VARCHAR(64) NULL COMMENT 'v1.21 渠道交易号,用于重复导入去重(不做唯一约束,见文件头)',
+    -- v1.21 · 这笔要不要参与【该账户】的余额解释。默认 1 = 老行为,既有 377 行语义不变。
+    --
+    -- 为什么需要它:recordExpense 会调 applyDeltaToBalance,而那个方法【直接改写
+    -- period_snapshot.end_balance】—— 也就是用户自己填的期末余额本身,不是什么预填值。
+    -- 于是「先核对完余额、再导入账单」的人会被扣第二遍:余额已经反映了这次消费,
+    -- 导入又扣一次。整批导入几百笔时这个错很大而且很难看出来。
+    --
+    -- 语义(两条口径分开走,别合并):
+    --   affects_balance = 1 → 扣余额 + 参与该账户轧差 + 计入账户外部流出(口径 B · NAV/XIRR)
+    --   affects_balance = 0 → 【只回答「家里花了多少、花在哪」】:
+    --                         计入家庭消费(口径 A)与支出构成,
+    --                         但不动余额、不参与轧差、不算该账户的资金流出。
+    -- 后半句必须成立:余额没动却报一笔流出,NAV 会以为「钱是被取走的不是亏掉的」,
+    -- 把账户收益率算高 —— 而这不会报错。
+    ADD COLUMN affects_balance TINYINT(1) NOT NULL DEFAULT 1
+        COMMENT 'v1.21 是否参与该账户的余额/轧差/外部流;0=只记家庭消费与构成';
 
 -- 报表按分类聚合走这条(period + 分类),导入去重走 ext_tx_no 那条
 CREATE INDEX idx_cf_expcat ON cash_flow (period_id, expense_category_id);

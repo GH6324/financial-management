@@ -142,6 +142,12 @@ public class ExpenseImportController {
         model.addAttribute("catOptions", opts);
     }
 
+    private String accountLabel(long familyId, long accountId) {
+        return accountMapper.findById(accountId)
+                .filter(a -> a.getFamilyId() != null && a.getFamilyId() == familyId)
+                .map(a -> a.getDisplayName()).orElse("该账户");
+    }
+
     private static BigDecimal sum(List<BillCategoryResolver.Line> ls) {
         return ls.stream().map(BillCategoryResolver.Line::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -189,6 +195,7 @@ public class ExpenseImportController {
                           @RequestParam(required = false) List<String> cat,
                           @RequestParam(required = false) List<Integer> drop,
                           @RequestParam(defaultValue = "false") boolean remember,
+                          @RequestParam(defaultValue = "false") boolean affectsBalance,
                           HttpSession session, RedirectAttributes ra) {
         var draft = (BillCategoryResolver.Draft) session.getAttribute(DRAFT_KEY);
         if (draft == null) {
@@ -236,14 +243,16 @@ public class ExpenseImportController {
             var r = commitService.commit(fam, me.getMemberId(), periodId, accountId,
                     draft.channel(), finalLines,
                     draft.count(BillCategoryResolver.Bucket.DROPPED) + userDropped,
-                    draft.count(BillCategoryResolver.Bucket.SKIPPED));
+                    draft.count(BillCategoryResolver.Bucket.SKIPPED), affectsBalance);
             session.removeAttribute(DRAFT_KEY);
             session.removeAttribute(DRAFT_PERIOD);
             ra.addFlashAttribute("flashOk", "导入了 " + r.rows() + " 笔 · 合计 ¥"
                     + r.amount().setScale(2, java.math.RoundingMode.HALF_UP)
                     + (r.dropped() > 0 ? " · 剔除 " + r.dropped() + " 笔" : "")
                     + (r.skipped() > 0 ? " · 跳过 " + r.skipped() + " 笔(上次已导)" : "")
-                    + " —— 记得回填报页核对一下账户余额。");
+                    + (affectsBalance
+                        ? " · 已从「" + accountLabel(fam, accountId) + "」的余额里扣掉 —— 记得回填报页核对余额。"
+                        : " · 没有动任何账户余额,只记了花在哪。"));
         } catch (BillCommitService.CommitException | BillImportService.ImportException e) {
             ra.addFlashAttribute("flashError", e.getMessage());
         } catch (Exception e) {

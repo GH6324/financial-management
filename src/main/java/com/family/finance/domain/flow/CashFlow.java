@@ -48,4 +48,19 @@ public class CashFlow {
 
     /** v1.21 · 渠道交易号,重复导入时用来跳过。故意不做 DB 唯一约束(见 V59 文件头)。 */
     private String extTxNo;
+
+    /**
+     * v1.21 · 这笔要不要参与<b>该账户</b>的余额解释。默认 true(老行为)。
+     *
+     * <p>{@code false} = 「只记家里花了多少、花在哪」:进家庭消费(口径 A)与支出构成,
+     * 但<b>不动余额、不参与轧差、不算该账户的资金流出</b>(口径 B)。</p>
+     *
+     * <p>为什么要这个开关:{@code applyDeltaToBalance} 直接改写 {@code period_snapshot.end_balance}
+     * —— 那是用户自己填的期末余额。已经核对完余额再导账单的人会被<b>扣第二遍</b>。</p>
+     *
+     * <p><b>两条口径必须一起走,不能只关一半</b>:余额没动却报一笔资金流出,
+     * NAV 会以为「钱是被取走的不是亏掉的」,把账户收益率算高 —— 而这不报错。</p>
+     */
+    @lombok.Builder.Default
+    private boolean affectsBalance = true;
 }

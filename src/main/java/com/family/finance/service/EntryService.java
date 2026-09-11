@@ -382,6 +382,23 @@ public class EntryService {
     public EntryRow recordExpense(long familyId, long memberId, long periodId,
                                   long accountId, String categoryCode, BigDecimal amount, String note,
                                   Long expenseCategoryId) {
+        return recordExpense(familyId, memberId, periodId, accountId, categoryCode, amount, note,
+                expenseCategoryId, true);
+    }
+
+    /**
+     * v1.21 FR-571 · {@code affectsBalance=false} = 「只记花了多少、花在哪」,<b>不动账户余额</b>。
+     *
+     * <p>为什么要这个开关:{@link #applyDeltaToBalance} <b>直接改写</b>
+     * {@code period_snapshot.end_balance} —— 那是用户自己填的期末余额,不是预填值。
+     * 已经核对完余额的人再记一笔(或导一批账单),余额会被<b>扣第二遍</b>。</p>
+     *
+     * <p>关掉之后这笔仍然计入<b>家庭消费</b>与<b>支出构成</b> —— 钱确实花了;
+     * 只是不参与这个账户的余额解释与资金流出(见 V59 里那段口径说明)。</p>
+     */
+    public EntryRow recordExpense(long familyId, long memberId, long periodId,
+                                  long accountId, String categoryCode, BigDecimal amount, String note,
+                                  Long expenseCategoryId, boolean affectsBalance) {
         Period period = requireOpenPeriod(familyId, periodId);
         Account account = requireAccount(familyId, accountId);
         if (!expenseCategoryAllowedOn(account.getType(), categoryCode)) {
@@ -398,11 +415,13 @@ public class EntryService {
         }
         var cat = requireExpenseCategory(categoryCode);
         BigDecimal amt = positiveMoney(amount);
-        creditAccountBalance(familyId, period, account, memberId, amt.negate(),
-                "-支出 " + cat.getDisplayName() + " " + money(amt));
+        if (affectsBalance) {
+            creditAccountBalance(familyId, period, account, memberId, amt.negate(),
+                    "-支出 " + cat.getDisplayName() + " " + money(amt));
+        }
         Long catId = expenseCategoryService.isUsable(familyId, expenseCategoryId) ? expenseCategoryId : null;
         insertCashFlow(period, account, memberId,
-                new CashFlowLine(CashFlowKind.EXPENSE, categoryCode, amt, note), catId);
+                new CashFlowLine(CashFlowKind.EXPENSE, categoryCode, amt, note), catId, affectsBalance);
         snapshotTodoMapper.markDone(periodId, accountId, memberId);
         auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                 "支出录入 " + cat.getDisplayName() + " " + money(amt) + " ← " + account.getDisplayName());
@@ -989,6 +1008,11 @@ public class EntryService {
      */
     private void insertCashFlow(Period period, Account account, long memberId,
                                 CashFlowLine line, Long expenseCategoryId) {
+        insertCashFlow(period, account, memberId, line, expenseCategoryId, true);
+    }
+
+    private void insertCashFlow(Period period, Account account, long memberId,
+                                CashFlowLine line, Long expenseCategoryId, boolean affectsBalance) {
         if (line == null || line.amount() == null || line.amount().signum() == 0) {
             return;
         }
@@ -1010,6 +1034,7 @@ public class EntryService {
                 .submittedBy(memberId)
                 .sourceTag(com.family.finance.domain.ledger.LedgerSource.MANUAL.name())   // v1.18
                 .expenseCategoryId(CONSUMPTION.equals(line.categoryCode()) ? expenseCategoryId : null)
+                .affectsBalance(affectsBalance)
                 .build());
     }
 

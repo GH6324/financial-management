@@ -71,7 +71,7 @@ public class BillCommitService {
     @Transactional
     public Result commit(long familyId, long memberId, long periodId, long accountId,
                          ExpenseSource channel, List<BillCategoryResolver.Line> lines,
-                         int dropped, int skipped) {
+                         int dropped, int skipped, boolean affectsBalance) {
         Period period = periodMapper.findById(periodId)
                 .orElseThrow(() -> new CommitException("找不到这个账期,刷新一下再试。"));
         if (period.getFamilyId() == null || period.getFamilyId() != familyId) {
@@ -144,16 +144,23 @@ public class BillCommitService {
                     .expenseCategoryId(catId)
                     .importBatchId(batch.getId())
                     .extTxNo(l.txNo())
+                    .affectsBalance(affectsBalance)
                     .build());
         }
 
         /* 余额一次扣完,不是每笔扣一次 —— 300 笔逐个扣会写 300 条余额变更,
-         * 而这在用户眼里本来就是【一个】动作。 */
-        entryService.applyImportedExpense(familyId, memberId, period, acct, total,
-                channel.getLabel() + " 导入 " + keep.size() + " 笔");
+         * 而这在用户眼里本来就是【一个】动作。
+         *
+         * affectsBalance=false 时整步跳过:用户说「这笔钱已经从余额里扣过了」。
+         * 这是导入最容易出错的地方 —— applyDeltaToBalance 改写的是用户自己填的期末余额,
+         * 已经核对过余额的人再导一批,余额会被扣第二遍,而且几百笔一起扣,错得很大。 */
+        if (affectsBalance) {
+            entryService.applyImportedExpense(familyId, memberId, period, acct, total,
+                    channel.getLabel() + " 导入 " + keep.size() + " 笔");
+        }
 
-        log.info("账单导入落库 · family={} period={} channel={} rows={} dropped={} skipped={}",
-                familyId, periodId, channel, keep.size(), dropped, skipped);
+        log.info("账单导入落库 · family={} period={} channel={} rows={} dropped={} skipped={} affectsBalance={}",
+                familyId, periodId, channel, keep.size(), dropped, skipped, affectsBalance);
         return new Result(batch.getId(), keep.size(), total, dropped, skipped);
     }
 
@@ -174,10 +181,15 @@ public class BillCommitService {
         Account acct = accountMapper.findById(b.getAccountId())
                 .orElseThrow(() -> new CommitException("找不到这个账户。"));
 
+        /* 【只有当初扣过余额的批次才加回】—— 否则「不落账户」的批次一撤销,
+         * 余额会凭空多出一笔钱。判据取该批次实际落的行:它们的 affects_balance 是一致的。 */
+        boolean hadBalance = flowMapper.batchAffectsBalance(batchId);
         int n = flowMapper.softDeleteBatch(batchId);
         batchMapper.markRevoked(familyId, batchId);
-        entryService.applyImportedExpense(familyId, memberId, period, acct,
-                b.getTotalAmount().negate(), "撤销导入批次 #" + batchId);
+        if (hadBalance) {
+            entryService.applyImportedExpense(familyId, memberId, period, acct,
+                    b.getTotalAmount().negate(), "撤销导入批次 #" + batchId);
+        }
         return n;
     }
 

@@ -21,8 +21,17 @@ public interface CashFlowMapper {
              WHERE period_id = #{periodId}
                AND account_id = #{accountId}
                AND deleted_at IS NULL
+               AND affects_balance = 1
              ORDER BY submitted_at, id
             """)
+    /**
+     * 该账户该期<b>参与余额解释</b>的流水。
+     *
+     * <p>{@code affects_balance = 1} 不是可选的:唯一的调用方是
+     * {@code EntryService.reconciliationTotals},它算的是「余额变动能不能被流水解释」。
+     * 把「只记构成、不动余额」的笔算进来,会让 unexplained 变成负数 ——
+     * 账户上凭空出现一个「解释过头」的差额,而用户什么都没做错。</p>
+     */
     List<CashFlow> findByPeriodAndAccount(@Param("periodId") long periodId,
                                           @Param("accountId") long accountId);
 
@@ -42,11 +51,11 @@ public interface CashFlowMapper {
             INSERT INTO cash_flow (
                 period_id, account_id, kind, category_code, amount, occurred_at, note, submitted_by, is_adjustment,
                 ref_holding_id, ref_shares, source_tag,
-                expense_category_id, import_batch_id, ext_tx_no
+                expense_category_id, import_batch_id, ext_tx_no, affects_balance
             ) VALUES (
                 #{periodId}, #{accountId}, #{kind}, #{categoryCode}, #{amount}, #{occurredAt}, #{note}, #{submittedBy}, #{adjustment},
                 #{refHoldingId}, #{refShares}, COALESCE(#{sourceTag}, 'UNKNOWN'),
-                #{expenseCategoryId}, #{importBatchId}, #{extTxNo}
+                #{expenseCategoryId}, #{importBatchId}, #{extTxNo}, #{affectsBalance}
             )
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")

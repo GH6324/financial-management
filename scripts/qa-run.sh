@@ -8860,6 +8860,37 @@ QA121_IMP_TPL="$RD/src/main/resources/templates/expense/import.html"
   && log_ok "v1210-NO-DEPTH-SETTING(没有录入深度设置项 · 深度是每笔的自由选择)" \
   || log_bad "v1210-NO-DEPTH-SETTING 深度设置项又回来了" "多一个设置就多一整类「切换之后历史怎么办」的问题"
 
+# v1210-BALANCE-LINK-OPTIONAL · 「落到账户」是可选的,而且两条口径要一起走。
+#
+#   起因:applyDeltaToBalance【直接改写 period_snapshot.end_balance】——
+#   那是用户自己填的期末余额,不是预填值。已经核对完余额再导账单的人会被【扣第二遍】,
+#   几百笔一起扣,错得很大而且不报错。
+#
+#   affects_balance=0 时必须【同时】满足三条,少一条就是新的静默错误:
+#     ① 不动余额        —— creditAccountBalance / applyImportedExpense 跳过
+#     ② 不参与轧差      —— findByPeriodAndAccount 过滤掉,否则 unexplained 变负数,
+#                          账户上凭空出现一个「解释过头」的差额
+#     ③ 不算账户外部流出 —— FactMapper 的 expense_orig 过滤掉,否则 NAV 以为
+#                          「钱是被取走的不是亏掉的」,把账户收益率算高
+#   而【仍然要】进家庭消费(口径 A)与支出构成 —— 钱确实花了。
+{ grep -q 'AND affects_balance = 1' "$RD/src/main/resources/mapper/FactMapper.xml" \
+  && grep -q 'AND affects_balance = 1' "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
+  && grep -q 'if (affectsBalance) {' "$QA121_ENTRYSVC" \
+  && grep -q 'if (affectsBalance) {' "$QA121_COMMIT" \
+  && ! codeonly "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
+       | grep -A14 'RealExpenseSum> sumRealExpenseByPeriod' | grep -q 'affects_balance' \
+  && grep -q 'name="affectsBalance"' "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q 'name="affectsBalance"' "$QA121_IMP_TPL"; } \
+  && log_ok "v1210-BALANCE-LINK-OPTIONAL(落到账户可选 · 关掉时余额/轧差/外部流三条一起退出 · 家庭消费照常算)" \
+  || log_bad "v1210-BALANCE-LINK-OPTIONAL 「不落账户」漏了某一条口径" "少一条就是新的静默错误:要么余额被扣两遍,要么账户收益率被算高"
+
+# v1210-REVOKE-ONLY-REFUNDS-WHAT-IT-TOOK · 撤销批次时,只有当初扣过余额的才把钱加回。
+#   否则「只记构成」的批次一撤销,余额会凭空多出一笔钱。
+{ codeonly "$QA121_COMMIT" | grep -q 'batchAffectsBalance' \
+  && codeonly "$QA121_COMMIT" | grep -q 'if (hadBalance) {'; } \
+  && log_ok "v1210-REVOKE-ONLY-REFUNDS-WHAT-IT-TOOK(撤销只加回当初扣过的)" \
+  || log_bad "v1210-REVOKE-ONLY-REFUNDS-WHAT-IT-TOOK 撤销可能凭空加回余额" "「只记构成」的批次撤销后,账上会多出一笔钱"
+
 # v1210-ZERO-CONFIG-INVISIBLE · 没建类目的家庭,页面一个像素都不多(FR-520)。
 { grep -q 'th:if="${hasExpenseCats}"' "$QA121_GRID_TPL" \
   && grep -q 'th:unless="${hasExpenseCats}"' "$QA121_GRID_TPL" \

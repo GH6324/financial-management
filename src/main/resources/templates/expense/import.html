@@ -167,12 +167,33 @@
       <!--/* 落到哪个账户 + 确认。
              【会参与余额轧差】必须说出来(FR-569)—— 用户已经核对过余额的话,
              导入之后余额那一栏会重新出现差额,那是对的,不是 bug。 */-->
-      <div class="flex items-center gap-3 mt-4 pt-4 flex-wrap" style="border-top:2px solid var(--brass-deep)">
-        <span class="font-mono text-[10px] tracking-[.1em] uppercase text-ink-subtle">落到账户</span>
-        <select name="accountId" required class="h-9 font-mono text-xs bg-paper border border-rule px-3">
-          <option th:each="a : ${accounts}" th:value="${a.id}"
-                  th:text="${a.displayName} + ' · ' + ${a.type.label}">支付宝-余额宝 · 现金</option>
-        </select>
+      <!--/* ═══ 落到账户:【可选】(FR-571)═══
+             默认【不勾】,因为「已经核对过余额再来导账单」是更常见的顺序 ——
+             applyDeltaToBalance 改写的是用户自己填的期末余额,勾错方向会把余额扣第二遍,
+             几百笔一起扣,错得很大而且不报错。
+
+             账户本身仍然必填:cash_flow 没有 family_id,家庭归属是靠账户 join 出来的,
+             account_id 为空这笔就不属于任何家庭 —— 家庭支出总额里也会消失。 */-->
+      <div class="mt-4 pt-4" style="border-top:2px solid var(--brass-deep)">
+        <div class="flex items-center gap-3 flex-wrap mb-2">
+          <span class="font-mono text-[10px] tracking-[.1em] uppercase text-ink-subtle">算在哪个账户名下</span>
+          <select name="accountId" required class="h-9 font-mono text-xs bg-paper border border-rule px-3">
+            <option th:each="a : ${accounts}" th:value="${a.id}"
+                    th:text="${a.displayName} + ' · ' + ${a.type.label}">支付宝-余额宝 · 现金</option>
+          </select>
+        </div>
+        <label class="flex items-start gap-2 text-[12.5px] leading-relaxed mb-3 max-w-3xl">
+          <input type="checkbox" name="affectsBalance" value="true" class="mt-1">
+          <span>
+            <b>同时从这个账户的余额里扣掉</b>
+            <span class="block font-mono text-[10.5px] text-ink-subtle mt-0.5">
+              勾:适合「先导账单、最后才核对余额」的顺序。<br>
+              不勾(默认):这笔钱余额里<b>已经扣过了</b>,这次只记「花了多少、花在哪」——
+              家庭支出总额与支出构成照常统计,但不动余额、不影响这个账户的收益率。
+            </span>
+          </span>
+        </label>
+        <div class="flex items-center gap-3 flex-wrap">
         <span style="flex:1"></span>
         <span class="text-[12px] text-ink-subtle">
           导入 <b th:text="${spendCount + natureCount}">307</b> 笔 · 合计
@@ -182,10 +203,10 @@
         <button type="submit" class="btn-ink">确认导入</button>
         <button type="submit" formnovalidate th:formaction="@{/expense/import/discard}"
                 class="btn-ghost text-sm">扔掉,什么都不落</button>
+        </div>
       </div>
       <p class="text-[11px] text-ink-subtle mt-2">
-        导进来的是<b>真流水</b>,会参与账户余额轧差 —— 顺序仍是「先录收支、最后核对余额」。
-        导错了可以在下面「本期已导入」里<b>整批撤销</b>。
+        导错了可以在下面「本期已导入」里<b>整批撤销</b> —— 当初扣过余额的才会把钱加回去。
       </p>
     </form>
   </div>
