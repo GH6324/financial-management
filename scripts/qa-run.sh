@@ -8879,7 +8879,18 @@ QA121_IMP_TPL="$RD/src/main/resources/templates/expense/import.html"
   && grep -q 'if (affectsBalance) {' "$QA121_COMMIT" \
   && ! codeonly "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
        | grep -A14 'RealExpenseSum> sumRealExpenseByPeriod' | grep -q 'affects_balance' \
-  && grep -q 'name="affectsBalance"' "$RD/src/main/resources/templates/entry/index.html" \
+  && [ "$(python3 - <<'PY'
+import re
+s=open("src/main/resources/templates/entry/index.html",encoding="utf-8").read()
+def seg(act):
+    i=s.find('th:action="@{'+act+'}"');  j=s.find("</form>", i)
+    return s[i:j] if i>0 else ""
+# 必须【只】在支出表单里 —— 放错到收入表单的后果是:支出表单没这个字段,
+# @RequestParam(defaultValue="false") 让【每一笔手工支出都不再扣余额】,静默改行为。
+print("%d%d" % (seg("/entry/expense").count("affectsBalance"),
+                seg("/entry/income").count("affectsBalance")))
+PY
+)" = "10" ] \
   && grep -q 'name="affectsBalance"' "$QA121_IMP_TPL"; } \
   && log_ok "v1210-BALANCE-LINK-OPTIONAL(落到账户可选 · 关掉时余额/轧差/外部流三条一起退出 · 家庭消费照常算)" \
   || log_bad "v1210-BALANCE-LINK-OPTIONAL 「不落账户」漏了某一条口径" "少一条就是新的静默错误:要么余额被扣两遍,要么账户收益率被算高"

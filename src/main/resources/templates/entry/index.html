@@ -133,16 +133,6 @@
               <input name="note" maxlength="80" placeholder="如 6 月工资" class="w-full h-9 font-mono text-xs bg-paper border border-rule px-3">
             </div>
             <button type="submit" class="btn-ink text-sm h-9 px-4">+ 加一笔</button>
-          <!--/* v1.21 FR-571 · 「从余额里扣」可选。
-                 【这里默认勾上】而导入页默认不勾 —— 两边的典型顺序是反的:
-                 手工记一笔的人走的是既有纪律「先录收支、最后核对余额」(改默认会让老用户余额突然对不上);
-                 而导账单的人通常是月底、余额已经核对完了,再扣一次就是扣第二遍。
-                 默认值跟着【那条路上更常见的顺序】走,不追求两边一致。 */-->
-          <label class="flex items-center gap-1.5 text-[11.5px] text-ink-soft whitespace-nowrap cursor-pointer"
-                 title="不勾 = 这笔钱余额里已经扣过了,这次只记「花了多少、花在哪」">
-            <input type="checkbox" name="affectsBalance" value="true" checked>
-            从余额里扣
-          </label>
           </form>
           <p class="font-mono text-[10px] text-ink-subtle">工资 / 奖金 / 利息 → 现金账户,直接入账 + 留流水。</p>
         </div>
@@ -273,6 +263,16 @@
             <input name="note" maxlength="80" placeholder="如 房贷 8 月" class="w-full h-9 font-mono text-xs bg-paper border border-rule px-3">
           </div>
           <button type="submit" class="btn-ink text-sm h-9 px-4">+ 加一笔</button>
+          <!--/* v1.21 FR-571 · 「从余额里扣」可选。
+                 【这里默认勾上】而导入页默认不勾 —— 两边的典型顺序是反的:
+                 手工记一笔的人走的是既有纪律「先录收支、最后核对余额」(改默认会让老用户余额突然对不上);
+                 而导账单的人通常是月底、余额已经核对完了,再扣一次就是扣第二遍。
+                 默认值跟着【那条路上更常见的顺序】走,不追求两边一致。 */-->
+          <label class="flex items-center gap-1.5 text-[11.5px] text-ink-soft whitespace-nowrap cursor-pointer"
+                 title="不勾 = 这笔钱余额里已经扣过了,这次只记「花了多少、花在哪」">
+            <input type="checkbox" name="affectsBalance" value="true" checked>
+            从余额里扣
+          </label>
           <!-- 宫格在表单【内部】—— 它写的两个 hidden 要跟着这次提交走。
                用 th:insert 而不是 th:replace:replace 会把这个 div 连同 w-full 一起换掉,
                于是宫格变成 flex 行里的一个普通项、挤到「+ 加一笔」右边,左边空一大片
