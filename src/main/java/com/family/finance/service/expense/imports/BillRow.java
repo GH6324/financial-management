@@ -9,6 +9,10 @@ import java.time.LocalDate;
  * <p>{@code channelCategory} 是<b>渠道自己的分类名</b>(支付宝有,微信没有 → 为 null);
  * {@code counterparty} + {@code goods} 用来做商户关键字映射与 AI 归类。</p>
  *
+ * <p>{@code payMethod} 是<b>资金来源</b>(支付宝「收/付款方式」、微信「支付方式」):
+ * 余额宝 / 花呗 / 招商银行储蓄卡(1234) …… <b>一份账单里这一列是变化的</b>,
+ * 所以「整批落到同一个账户」是错的 —— 每一笔各自推荐账户,用户可改(FR-575)。</p>
+ *
  * <p>{@code txNo} 是渠道交易号 —— 重复导入时靠它跳过(FR-560 ⑤)。
  * 有些行没有交易号(渠道格式变动、或者那一列被裁掉),此时为 null:
  * <b>不能因此拒绝导入</b>,只是这一笔无法参与去重,重导会出双份。
@@ -16,7 +20,7 @@ import java.time.LocalDate;
  */
 public record BillRow(String channelCategory, String counterparty, String goods,
                       String direction, BigDecimal amount, String status, String rawType,
-                      LocalDate occurredAt, String txNo) {
+                      LocalDate occurredAt, String txNo, String payMethod) {
 
     /** 只有「支出」进消费统计。收入、不计收支都不是家庭消费。 */
     public boolean isExpense() { return "支出".equals(direction); }

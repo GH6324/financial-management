@@ -179,6 +179,23 @@ public interface ExpenseFlowMapper {
             """)
     boolean batchAffectsBalance(@Param("batchId") long batchId);
 
+    /**
+     * 这个批次每个账户各落了多少钱 —— 撤销时要<b>按账户分别加回</b>。
+     *
+     * <p>一批可能跨几个账户(一份账单里「收/付款方式」是变化的),
+     * 全加回批次的「主账户」会把别的账户的钱塞给它。
+     * <b>必须在软删之前调</b>,软删之后就查不到了。</p>
+     */
+    record AcctSum(Long accountId, BigDecimal amount) {}
+
+    @Select("""
+            SELECT account_id AS accountId, SUM(amount) AS amount
+              FROM cash_flow
+             WHERE import_batch_id = #{batchId} AND deleted_at IS NULL
+             GROUP BY account_id
+            """)
+    List<AcctSum> batchAmountByAccount(@Param("batchId") long batchId);
+
     /** 整批撤销:软删该批次落的所有流水(FR-539) */
     @Update("""
             UPDATE cash_flow SET deleted_at = NOW(3)

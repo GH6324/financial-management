@@ -8897,10 +8897,40 @@ PY
 
 # v1210-REVOKE-ONLY-REFUNDS-WHAT-IT-TOOK · 撤销批次时,只有当初扣过余额的才把钱加回。
 #   否则「只记构成」的批次一撤销,余额会凭空多出一笔钱。
+#   判据看的是「撤销时的加回列表由 hadBalance 决定」—— 不绑具体写法(if / 三元都行),
+#   但必须能看出「没扣过就不会进加回循环」。
 { codeonly "$QA121_COMMIT" | grep -q 'batchAffectsBalance' \
-  && codeonly "$QA121_COMMIT" | grep -q 'if (hadBalance) {'; } \
+  && codeonly "$QA121_COMMIT" | grep -qE 'hadBalance \?|if \(hadBalance\)'; } \
   && log_ok "v1210-REVOKE-ONLY-REFUNDS-WHAT-IT-TOOK(撤销只加回当初扣过的)" \
   || log_bad "v1210-REVOKE-ONLY-REFUNDS-WHAT-IT-TOOK 撤销可能凭空加回余额" "「只记构成」的批次撤销后,账上会多出一笔钱"
+
+# v1210-ACCOUNT-IS-PER-ROW · 账户是【每一笔一个】,不是整批一个(FR-575)。
+#   一份支付宝月账单里 190 笔可能分别走余额宝 / 花呗 / 招商银行储蓄卡 ——
+#   「收/付款方式」那一列本来就是变化的。整批落到同一个账户,等于把几个账户的钱
+#   算到一个头上:余额轧差全错、账户级收益率全错,而且【不报错】。
+#   撤销时也必须按账户分别加回,否则别的账户的钱会被塞给批次的「主账户」。
+{ grep -q 'String payMethod' "$RD/src/main/java/com/family/finance/service/expense/imports/BillRow.java" \
+  && codeonly "$QA121_RESOLVER" | grep -q 'BillAccountResolver.resolve' \
+  && codeonly "$QA121_COMMIT" | grep -q 'Long rowAcct = l.accountId()' \
+  && codeonly "$QA121_COMMIT" | grep -q 'byAccount.merge' \
+  && codeonly "$QA121_COMMIT" | grep -q 'batchAmountByAccount' \
+  && grep -q 'name="acct"' "$QA121_IMP_TPL"; } \
+  && log_ok "v1210-ACCOUNT-IS-PER-ROW(账户逐笔推荐可改 · 扣余额与撤销都按账户分开)" \
+  || log_bad "v1210-ACCOUNT-IS-PER-ROW 账户又变成整批一个了" "一份账单跨几个账户是常态 —— 算到一个头上会让余额和收益率一起错,而且不报错"
+
+# v1210-BULK-OPS · 确认页必须能批量操作,而且没选行时前端就拦。
+#   几百笔逐个勾选是不可能的。第一版把复选框当成「剔除」,于是批量操作无处落脚 ——
+#   维护者原话:「几百笔 你让用户自己一个个去勾选啊」。
+#   现在复选框 = 选中(纯前端),批量改分类 / 改账户 / 剔除都作用在选中行上;
+#   全选有两级:表头全选 + 每个分类组一个「全选该组」。
+{ grep -q 'data-sel-all' "$QA121_IMP_TPL" \
+  && grep -q 'data-sel-grp' "$QA121_IMP_TPL" \
+  && grep -q 'data-bulk-cat' "$QA121_IMP_TPL" \
+  && grep -q 'data-bulk-acct' "$QA121_IMP_TPL" \
+  && grep -q 'needSelection' "$RD/src/main/resources/static/js/bill-confirm.js" \
+  && grep -q "所有笔都被剔除了" "$RD/src/main/resources/static/js/bill-confirm.js"; } \
+  && log_ok "v1210-BULK-OPS(全选/组全选/批量改分类账户/剔除 · 空选与空提交前端就拦)" \
+  || log_bad "v1210-BULK-OPS 确认页缺批量操作或前端拦截" "几百笔逐个勾选等于没做;空提交让用户跑一圈回来看红字也是"
 
 # v1210-ZERO-CONFIG-INVISIBLE · 没建类目的家庭,页面一个像素都不多(FR-520)。
 { grep -q 'th:if="${hasExpenseCats}"' "$QA121_GRID_TPL" \

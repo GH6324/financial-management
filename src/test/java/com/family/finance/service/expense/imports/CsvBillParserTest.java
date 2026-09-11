@@ -235,7 +235,8 @@ class CsvBillParserTest {
         var draft = BillCategoryResolver.classify(
                 com.family.finance.domain.expense.ExpenseSource.ALIPAY,
                 CsvBillParser.parse(alipay(24)), all,
-                java.util.Map.of(), otherId, java.util.Set.of());
+                java.util.Map.of(), otherId, java.util.Set.of(),
+                java.util.List.of(), java.util.Map.of(), null);
 
         var spend = draft.bucket(BillCategoryResolver.Bucket.SPEND);
 
@@ -269,7 +270,8 @@ class CsvBillParserTest {
         var draft = BillCategoryResolver.classify(
                 com.family.finance.domain.expense.ExpenseSource.ALIPAY,
                 CsvBillParser.parse(alipay(24)), catSvc.all(1L),
-                java.util.Map.of(), catSvc.other(1L).getId(), java.util.Set.of());
+                java.util.Map.of(), catSvc.other(1L).getId(), java.util.Set.of(),
+                java.util.List.of(), java.util.Map.of(), null);
 
         assertThat(draft.bucket(BillCategoryResolver.Bucket.DROPPED))
                 .as("转账红包是划转,不是消费")
@@ -296,7 +298,8 @@ class CsvBillParserTest {
 
         var draft = BillCategoryResolver.classify(
                 com.family.finance.domain.expense.ExpenseSource.ALIPAY, parsed, catSvc.all(1L),
-                java.util.Map.of(), catSvc.other(1L).getId(), java.util.Set.of(firstTx));
+                java.util.Map.of(), catSvc.other(1L).getId(), java.util.Set.of(firstTx),
+                java.util.List.of(), java.util.Map.of(), null);
 
         assertThat(draft.count(BillCategoryResolver.Bucket.SKIPPED)).isEqualTo(1);
         assertThat(draft.bucket(BillCategoryResolver.Bucket.SKIPPED).get(0).txNo()).isEqualTo(firstTx);

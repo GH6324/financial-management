@@ -43,6 +43,8 @@ public class BillImportService {
     private final ExpenseMerchantRuleMapper ruleMapper;
     private final FamilyConfigService configService;
     private final com.family.finance.repository.ExpenseFlowMapper flowMapper;
+    private final com.family.finance.repository.AccountMapper accountMapper;
+    private final com.family.finance.repository.ExpenseAccountRuleMapper acctRuleMapper;
     private final MerchantAiClassifier ai;
 
     public static class ImportException extends RuntimeException {
@@ -58,7 +60,8 @@ public class BillImportService {
      * @param password zip 解压密码;用完即弃
      */
     public BillCategoryResolver.Draft parseFile(long familyId, ExpenseSource channel,
-                                                byte[] bytes, String filename, String password) {
+                                                byte[] bytes, String filename, String password,
+                                                Long defaultAccountId) {
         requireChannel(channel);
         if (bytes == null || bytes.length == 0) throw new ImportException("文件是空的。");
         if (bytes.length > MAX_FILE_BYTES) {
@@ -94,7 +97,7 @@ public class BillImportService {
             log.warn("账单解析失败 · channel={} · {}", channel, e.getMessage());
             throw new ImportException(e.getMessage(), e);
         }
-        return toDraft(familyId, channel, parsed);
+        return toDraft(familyId, channel, parsed, defaultAccountId);
     }
 
     /**
@@ -105,7 +108,7 @@ public class BillImportService {
      * 没配 key 就整层跳过,那些笔留在「其他」等用户手改。</p>
      */
     public BillCategoryResolver.Draft toDraft(long familyId, ExpenseSource channel,
-                                              CsvBillParser.Parsed parsed) {
+                                              CsvBillParser.Parsed parsed, Long defaultAccountId) {
         /* 匹配范围是【整棵树】而不是某一层 ——
          * 渠道给的分类名是大类粒度(「餐饮美食」),落在大类上完全合法;
          * 只在细类里找的话几乎全会落进「其他」(第 1 稿真踩了)。 */
@@ -127,8 +130,15 @@ public class BillImportService {
         java.util.Set<String> seen = txNos.isEmpty() ? java.util.Set.of()
                 : new java.util.HashSet<>(flowMapper.existingTxNos(familyId, txNos));
 
-        BillCategoryResolver.Draft d =
-                BillCategoryResolver.classify(channel, parsed, allNodes, rules, other.getId(), seen);
+        /* 账户也要逐笔推荐(FR-575)—— 一份账单里「收/付款方式」是变化的,
+         * 整批落到一个账户会让几个账户的余额和收益率一起错,而且不报错。 */
+        var accounts = accountMapper.findActiveByFamily(familyId);
+        Map<String, Long> acctRules = new LinkedHashMap<>();
+        for (var r : acctRuleMapper.findByFamily(familyId)) acctRules.put(r.keyword(), r.accountId());
+
+        BillCategoryResolver.Draft d = BillCategoryResolver.classify(
+                channel, parsed, allNodes, rules, other.getId(), seen,
+                accounts, acctRules, defaultAccountId);
         return applyAi(familyId, d, allNodes, other.getId());
     }
 
@@ -166,9 +176,17 @@ public class BillImportService {
             Long tid = g == null ? null : idOfName.get(g);
             if (tid == null) { out.add(l); continue; }
             out.add(new BillCategoryResolver.Line(l.idx(), l.occurredAt(), l.merchant(), l.amount(),
-                    tid, g, BillCategoryResolver.How.AI, l.bucket(), null, null, l.txNo()));
+                    tid, g, BillCategoryResolver.How.AI, l.bucket(), null, null, l.txNo(),
+                    l.payMethod(), l.accountId(), l.accountHow()));
         }
         return new BillCategoryResolver.Draft(d.channel(), out, d.total(), d.parsed(), d.noTxNo());
+    }
+
+    /** 用户在确认页把某个资金来源改到别的账户 → 记住,下次自动命中(FR-577) */
+    public void rememberAccountRule(long familyId, String keyword, long accountId) {
+        String k = keyword == null ? "" : keyword.trim();
+        if (k.isEmpty() || k.length() > 40) return;
+        acctRuleMapper.upsert(familyId, k, accountId);
     }
 
     /** 用户在确认页把某个商户改到别的类目 → 记住,下次自动命中 */

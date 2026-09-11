@@ -102,14 +102,42 @@
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
       <input type="hidden" name="periodId" th:value="${period.id}">
 
-      <div class="flex items-center gap-3 flex-wrap mb-3 px-3 py-2 border border-rule bg-card-soft">
-        <label class="flex items-center gap-2 text-[12px]">
-          <input type="checkbox" name="remember" value="true" checked>
-          记住我的改动,下次自动命中
+      <!--/* ═══ 批量工具条 ═══(FR-576)
+             几百笔逐个勾选是不可能的,所以:表头全选 + 每个分类组一个「全选该组」+ 批量改。
+             preview 里画的就是这个,第一版实现简化成了逐行 —— 那等于没做。 */-->
+      <div class="flex items-center gap-3 flex-wrap mb-3 px-3 py-2 border border-rule bg-card-soft"
+           data-bill-bar>
+        <label class="flex items-center gap-2 text-[12px] whitespace-nowrap">
+          <input type="checkbox" data-sel-all> 全选
         </label>
+        <span class="font-mono text-[11px] whitespace-nowrap">已选 <b data-sel-count>0</b> 笔</span>
+        <span class="h-4 w-px bg-rule"></span>
+        <select data-bulk-cat class="h-8 text-[12px] bg-paper border border-rule px-2" style="max-width:190px">
+          <option value="">批量改到分类…</option>
+          <option th:each="o : ${catOptions}" th:value="${o.id}" th:text="${o.label}">餐饮美食</option>
+        </select>
+        <select data-bulk-acct class="h-8 text-[12px] bg-paper border border-rule px-2" style="max-width:190px">
+          <option value="">批量改到账户…</option>
+          <option th:each="a : ${accounts}" th:value="${a.id}" th:text="${a.displayName}">支付宝-余额宝</option>
+        </select>
+        <button type="button" data-bulk-drop
+                class="btn-ghost text-[12px] h-8 px-3">剔除所选</button>
+        <button type="button" data-bulk-keep
+                class="btn-ghost text-[12px] h-8 px-3">撤销剔除</button>
         <span style="flex:1"></span>
-        <span class="font-mono text-[10px] text-ink-subtle" th:if="${reviewCount > 0}"
+        <label class="flex items-center gap-2 text-[12px] whitespace-nowrap">
+          <input type="checkbox" name="remember" value="true" checked> 记住我的改动
+        </label>
+      </div>
+      <div class="flex items-center gap-3 flex-wrap mb-3 font-mono text-[10px] text-ink-subtle">
+        <span th:if="${reviewCount > 0}" class="text-rust"
               th:text="${reviewCount} + ' 笔没把握 —— 排在最前面了'">8 笔没把握</span>
+        <!--/* 跨账户是最容易被忽略的一件事:一份账单里余额宝/花呗/银行卡都有,
+               不说出来用户根本不会想到去核对账户列。 */-->
+        <span th:if="${acctSpan > 1}"
+              th:text="'这批跨了 ' + ${acctSpan} + ' 个账户 —— 账户列是逐笔推荐的,记得扫一眼'">跨了 3 个账户</span>
+        <span th:if="${acctReviewCount > 0}" class="text-rust"
+              th:text="${acctReviewCount} + ' 笔没推荐出账户,落在了兜底账户上'">5 笔没推荐出账户</span>
       </div>
 
       <!--/* 逐笔表。行数多,所以给一个滚动容器 —— 但【不分页】:
@@ -118,28 +146,36 @@
         <table class="w-full" style="border-collapse:collapse">
           <thead class="sticky top-0" style="background:var(--card)">
             <tr>
-              <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule" style="width:30px">剔</th>
+              <th class="px-2 py-2 border-b border-rule" style="width:30px"><input type="checkbox" data-sel-all-2></th>
               <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule" style="width:62px">日期</th>
               <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule">商户 / 说明</th>
               <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-right px-2 py-2 border-b border-rule" style="width:92px">金额</th>
-              <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule" style="width:186px">归到</th>
+              <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule" style="width:170px">归到分类</th>
+              <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule" style="width:170px">从哪个账户出</th>
               <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule" style="width:96px">依据</th>
             </tr>
           </thead>
           <tbody>
             <th:block th:each="g : ${groups}">
-              <tr>
+              <tr th:attr="data-grp=${g.key}">
+                <td class="px-2 py-2 border-b border-rule" style="background:rgba(160,124,58,.07)">
+                  <input type="checkbox" data-sel-grp th:attr="data-grp-of=${g.key}" title="全选该组">
+                </td>
                 <td colspan="6" class="px-2 py-2 border-b border-rule font-display text-[13.5px]"
                     style="background:rgba(160,124,58,.07)"
                     th:classappend="${g.key.startsWith('先看')} ? 'text-rust' : ''">
                   <span th:text="${g.key}">餐饮美食</span> ·
                   <span th:text="${#lists.size(g.value)} + ' 笔'">96 笔</span> ·
                   <span data-priv th:text="'¥' + ${#numbers.formatDecimal(groupSums.get(g.key), 1, 'COMMA', 2, 'POINT')}">¥3,182.50</span>
+                  <span class="font-mono text-[9px] text-ink-subtle ml-1">← 左边勾一下 = 全选这一组</span>
                 </td>
               </tr>
-              <tr th:each="l : ${g.value}" class="border-b border-rule-soft">
+              <tr th:each="l : ${g.value}" class="border-b border-rule-soft" data-row
+                  th:attr="data-in-grp=${g.key}">
                 <td class="px-2 py-1.5">
-                  <input type="checkbox" name="drop" th:value="${l.idx()}" title="剔除这一笔">
+                  <input type="checkbox" data-sel th:attr="data-in-grp=${g.key}" title="选中(用于批量操作)">
+                  <!--/* 剔除状态用 hidden 表达,由 JS 增删 —— 复选框留给「选中」。
+                         第一版把复选框当成「剔除」,于是几百笔要逐个勾,而批量操作无处落脚。 */-->
                 </td>
                 <td class="px-2 py-1.5 font-mono text-[11px] text-ink-subtle"
                     th:text="${l.occurredAt() != null} ? ${#temporals.format(l.occurredAt(), 'MM-dd')} : '—'">09-03</td>
@@ -148,15 +184,27 @@
                     th:text="${#numbers.formatDecimal(l.amount(), 1, 'COMMA', 2, 'POINT')}">32.50</td>
                 <td class="px-2 py-1.5">
                   <input type="hidden" name="idx" th:value="${l.idx()}">
-                  <select name="cat" class="w-full h-7 text-[12px] bg-paper border border-rule px-1">
+                  <select name="cat" data-cat class="w-full h-7 text-[12px] bg-paper border border-rule px-1">
                     <option th:each="o : ${catOptions}" th:value="${o.id}" th:text="${o.label}"
                             th:selected="${o.id == l.categoryId()}">餐饮美食</option>
                   </select>
                 </td>
                 <td class="px-2 py-1.5">
+                  <!--/* 账户逐笔一列(FR-575)· 一份账单里「收/付款方式」是变化的,
+                         整批一个账户会让几个账户的余额和收益率一起错,而且不报错。 */-->
+                  <select name="acct" data-acct class="w-full h-7 text-[12px] bg-paper border border-rule px-1">
+                    <option th:each="a : ${accounts}" th:value="${a.id}" th:text="${a.displayName}"
+                            th:selected="${a.id == l.accountId()}">支付宝-余额宝</option>
+                  </select>
+                  <span th:if="${l.payMethod() != null}" class="font-mono text-[9px] text-ink-subtle"
+                        th:text="'账单写的:' + ${l.payMethod()}">账单写的:余额宝</span>
+                </td>
+                <td class="px-2 py-1.5 whitespace-nowrap">
                   <span class="badge text-[9px]"
-                        th:classappend="${l.needsReview()} ? 'border-rust text-rust' : ''"
+                        th:classappend="${l.how() != null and l.how().needsReview()} ? 'border-rust text-rust' : ''"
                         th:text="${l.how() != null} ? ${l.how().label} : '—'">渠道分类</span>
+                  <span th:if="${l.accountHow() != null and l.accountHow().needsReview()}"
+                        class="badge text-[9px] border-rust text-rust">账户兜底</span>
                 </td>
               </tr>
             </th:block>
@@ -255,6 +303,16 @@
             })();
           </script>
         </div>
+        <label class="block mb-3">
+          <span class="block text-[11.5px] text-ink-soft mb-1">推荐不出来时落到哪个账户</span>
+          <select name="defaultAccountId" class="field-input" style="max-width:240px">
+            <option th:each="a : ${accounts}" th:value="${a.id}"
+                    th:text="${a.displayName} + ' · ' + ${a.type.label}">支付宝-余额宝 · 现金</option>
+          </select>
+          <span class="block font-mono text-[9px] text-ink-subtle mt-1">
+            账单里每一笔的「收/付款方式」都会各自推荐账户 —— 这里只是兜底,确认页上逐行还能改。
+          </span>
+        </label>
         <label class="block mb-4">
           <span class="block text-[11.5px] text-ink-soft mb-1">zip 解压密码(直接传 csv 就不用填)</span>
           <input type="password" name="zipPassword" autocomplete="off" class="field-input" style="max-width:200px">
@@ -385,6 +443,9 @@
 
   </th:block>
 </main>
+
+<script th:src="@{/js/bill-confirm.js(v=${buildVersion})}"></script>   <!--/* v1.21 · 确认页批量操作 */-->
+
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 </body>
 </html>

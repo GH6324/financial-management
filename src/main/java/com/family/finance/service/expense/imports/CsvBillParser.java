@@ -86,6 +86,10 @@ public final class CsvBillParser {
         /* 交易号:支付宝叫「交易订单号」,微信叫「交易单号」。
          * 拿不到不是致命的 —— 只是这批无法参与重复导入去重(见 BillRow.txNo 注释)。 */
         Integer iTx = firstOf(col, "交易订单号", "交易单号", "订单号");
+        /* 资金来源。支付宝叫「收/付款方式」(余额宝 / 花呗 / 招商银行储蓄卡(1234)),
+         * 微信叫「支付方式」(零钱 / 零钱通 / 工商银行(5678))。
+         * 【一份账单里这一列是变化的】—— 整批落到同一个账户是错的,所以必须解出来。 */
+        Integer iPay = firstOf(col, "收/付款方式", "支付方式", "付款方式");
         if (iAmt == null || iDir == null) {
             throw new ParseException("这个账单里没有「收/支」或「金额」列,解不出支出 —— "
                     + "导出时不要过滤掉这些列。表头读到的是:" + String.join(" / ", header));
@@ -125,7 +129,8 @@ public final class CsvBillParser {
                     iStat == null ? null : nz(get(c, iStat)),
                     iCat == null ? null : nz(get(c, iCat)),
                     iTime == null ? null : parseDate(nz(get(c, iTime))),
-                    iTx == null ? null : blankToNull(nz(get(c, iTx)))));
+                    iTx == null ? null : blankToNull(nz(get(c, iTx))),
+                    iPay == null ? null : blankToNull(nz(get(c, iPay)))));
         }
         if (rows.isEmpty()) {
             throw new ParseException("表头找到了,但一条交易都没解出来 —— "

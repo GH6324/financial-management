@@ -186,7 +186,7 @@ public class ExpenseShotClient {
             /* 日期与交易号都是 null:截图上没有这两样。
              * 这正是它接不进逐笔载体的原因 —— 没有交易号就没法去重。 */
             bills.add(new BillRow(r.category(), r.channel(), null, "支出", amt, null, r.category(),
-                    null, null));
+                    null, null, null));
         }
         return new CsvBillParser.Parsed(bills, "(截图转写)", 0, 0, 0, bad);
     }

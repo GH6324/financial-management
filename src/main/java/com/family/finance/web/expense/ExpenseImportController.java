@@ -7,6 +7,7 @@ import com.family.finance.repository.ExpenseImportBatchMapper;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.service.NavService;
 import com.family.finance.service.expense.ExpenseCategoryService;
+import com.family.finance.service.expense.imports.BillAccountResolver;
 import com.family.finance.service.expense.imports.BillCategoryResolver;
 import com.family.finance.service.expense.imports.BillCommitService;
 import com.family.finance.service.expense.imports.BillImportService;
@@ -140,6 +141,23 @@ public class ExpenseImportController {
             }
         }
         model.addAttribute("catOptions", opts);
+
+        /* 账户下拉 + 「这批用到了几个账户」—— 后者是给用户的信号:
+         * 一份账单跨了 3 个账户时,他得知道这件事,否则不会想到去核对账户列。 */
+        java.util.Set<Long> distinct = new java.util.LinkedHashSet<>();
+        for (var l : draft.lines()) if (l.accountId() != null) distinct.add(l.accountId());
+        model.addAttribute("acctSpan", distinct.size());
+        model.addAttribute("acctReviewCount",
+                draft.bucket(BillCategoryResolver.Bucket.SPEND).stream()
+                        .filter(l -> l.accountHow() != null && l.accountHow().needsReview()).count());
+    }
+
+    private boolean ownedAccount(long familyId, Long accountId) {
+        if (accountId == null) return false;
+        return accountMapper.findById(accountId)
+                .filter(a -> a.getFamilyId() != null && a.getFamilyId() == familyId
+                          && a.getArchivedAt() == null)
+                .isPresent();
     }
 
     private String accountLabel(long familyId, long accountId) {
@@ -168,11 +186,12 @@ public class ExpenseImportController {
                              @RequestParam String channel,
                              @RequestParam MultipartFile file,
                              @RequestParam(required = false) String zipPassword,
+                             @RequestParam(required = false) Long defaultAccountId,
                              HttpSession session, RedirectAttributes ra) {
         try {
             ExpenseSource ch = ExpenseSource.valueOf(channel.toUpperCase(java.util.Locale.ROOT));
             var draft = importService.parseFile(me.getFamilyId(), ch, file.getBytes(),
-                    file.getOriginalFilename(), zipPassword);
+                    file.getOriginalFilename(), zipPassword, defaultAccountId);
             session.setAttribute(DRAFT_KEY, draft);
             session.setAttribute(DRAFT_PERIOD, periodId);
         } catch (BillImportService.ImportException e) {
@@ -193,6 +212,7 @@ public class ExpenseImportController {
                           @RequestParam long accountId,
                           @RequestParam(required = false) List<Integer> idx,
                           @RequestParam(required = false) List<String> cat,
+                          @RequestParam(required = false) List<String> acct,
                           @RequestParam(required = false) List<Integer> drop,
                           @RequestParam(defaultValue = "false") boolean remember,
                           @RequestParam(defaultValue = "false") boolean affectsBalance,
@@ -213,6 +233,17 @@ public class ExpenseImportController {
                     catch (NumberFormatException ignore) { /* 脏值忽略,保持原归类 */ }
                 }
             }
+            /* 账户也按 idx 对齐回传(与 cat 同一套机制)。
+             * 一份账单里资金来源是变化的 —— 整批一个账户会让几个账户的余额一起错。 */
+            Map<Integer, Long> acctOf = new LinkedHashMap<>();
+            if (idx != null && acct != null) {
+                for (int i = 0; i < Math.min(idx.size(), acct.size()); i++) {
+                    String v = acct.get(i);
+                    if (v == null || v.isBlank()) continue;
+                    try { acctOf.put(idx.get(i), Long.parseLong(v.trim())); }
+                    catch (NumberFormatException ignore) { /* 脏值忽略 */ }
+                }
+            }
             java.util.Set<Integer> dropped =
                     drop == null ? java.util.Set.of() : new java.util.HashSet<>(drop);
 
@@ -220,16 +251,34 @@ public class ExpenseImportController {
             int userDropped = 0;
             for (var l : draft.lines()) {
                 if (dropped.contains(l.idx())) { userDropped++; continue; }
+
+                // ── 账户:用户改过就用他的(校验归属),否则保留推荐值 ──
+                Long newAcct = acctOf.get(l.idx());
+                Long finalAcct = l.accountId();
+                var accountHow = l.accountHow();
+                if (newAcct != null && ownedAccount(fam, newAcct) && !newAcct.equals(l.accountId())) {
+                    finalAcct = newAcct;
+                    accountHow = BillAccountResolver.How.RULE;
+                    if (remember && l.payMethod() != null && !l.payMethod().isBlank()) {
+                        importService.rememberAccountRule(fam, l.payMethod(), newAcct);
+                    }
+                }
+
                 Long newCat = changed.get(l.idx());
                 boolean changeable = l.bucket() == BillCategoryResolver.Bucket.SPEND;
-                if (newCat == null || !changeable || newCat.equals(l.categoryId())
-                        || !categoryService.isUsable(fam, newCat)) {
-                    finalLines.add(l);
+                boolean catChanged = newCat != null && changeable && !newCat.equals(l.categoryId())
+                        && categoryService.isUsable(fam, newCat);
+                if (!catChanged && finalAcct == l.accountId()) { finalLines.add(l); continue; }
+                if (!catChanged) {
+                    finalLines.add(new BillCategoryResolver.Line(l.idx(), l.occurredAt(), l.merchant(),
+                            l.amount(), l.categoryId(), l.categoryName(), l.how(), l.bucket(),
+                            l.natureCode(), l.dropReason(), l.txNo(), l.payMethod(), finalAcct, accountHow));
                     continue;
                 }
                 finalLines.add(new BillCategoryResolver.Line(l.idx(), l.occurredAt(), l.merchant(),
                         l.amount(), newCat, categoryService.displayName(fam, newCat),
-                        BillCategoryResolver.How.RULE, l.bucket(), null, null, l.txNo()));
+                        BillCategoryResolver.How.RULE, l.bucket(), null, null, l.txNo(),
+                        l.payMethod(), finalAcct, accountHow));
                 /* 「记住我的改动」—— 越用越准是这个功能的核心价值(FR-567)。
                  * 关键字取商户名前 20 字:全名常带门店号(「瑞幸咖啡(国贸店)」),
                  * 存全名的话换一家店就不命中了。 */

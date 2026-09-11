@@ -19,7 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * v1.21 · 把用户核对过的草稿落成真流水。
@@ -69,7 +71,7 @@ public class BillCommitService {
      * @param lines 用户核对之后的行(分类可能已被改过)· 只有 SPEND 与 NATURE 桶会落库
      */
     @Transactional
-    public Result commit(long familyId, long memberId, long periodId, long accountId,
+    public Result commit(long familyId, long memberId, long periodId, long fallbackAccountId,
                          ExpenseSource channel, List<BillCategoryResolver.Line> lines,
                          int dropped, int skipped, boolean affectsBalance) {
         Period period = periodMapper.findById(periodId)
@@ -81,27 +83,39 @@ public class BillCommitService {
             throw new CommitException("这个账期已经关账了 —— 导入会改动已经定稿的数。"
                     + "要补录的话先把账期打开。");
         }
-        Account acct = accountMapper.findById(accountId)
-                .orElseThrow(() -> new CommitException("找不到这个账户,刷新一下再试。"));
-        if (acct.getFamilyId() == null || acct.getFamilyId() != familyId) {
-            throw new CommitException("这个账户不属于你家。");
+        /* 【每一笔各自的账户】—— 一份账单里「收/付款方式」是变化的(FR-575)。
+         * 这里把用到的账户一次查出来校验,而不是逐笔查:190 笔可能只涉及 3 个账户。 */
+        Map<Long, Account> used = new LinkedHashMap<>();
+        for (BillCategoryResolver.Line l : lines) {
+            Long id = l.accountId() != null ? l.accountId() : fallbackAccountId;
+            if (id == null || used.containsKey(id)) continue;
+            Account a = accountMapper.findById(id)
+                    .orElseThrow(() -> new CommitException("有一笔落到了找不到的账户,刷新一下再试。"));
+            if (a.getFamilyId() == null || a.getFamilyId() != familyId) {
+                throw new CommitException("有一笔落到了不属于你家的账户。");
+            }
+            if (a.getArchivedAt() != null) {
+                /* 归档账户不参与任何统计 —— 落进去的钱在【所有】口径里都看不见,
+                 * 是静默丢数据,比看得见的错更糟(与 EntryService.recordExpense 同一条判据)。 */
+                throw new CommitException("账户「" + a.getDisplayName() + "」已归档,"
+                        + "导进去的钱在所有报表里都会看不见。把那几笔改到在用的账户。");
+            }
+            used.put(id, a);
         }
-        if (acct.getArchivedAt() != null) {
-            /* 归档账户不参与任何统计 —— 落进去的钱在【所有】口径里都看不见,
-             * 是静默丢数据,比看得见的错更糟(与 EntryService.recordExpense 同一条判据)。 */
-            throw new CommitException("账户「" + acct.getDisplayName() + "」已归档,"
-                    + "导进去的钱在所有报表里都会看不见。换一个在用的账户。");
-        }
+        if (used.isEmpty()) throw new CommitException("没有指定任何账户 —— 先在确认页选一个。");
+        Account acct = used.values().iterator().next();
 
         /* v1.19.3 的规则在导入这条路上同样成立:负债账户(信用卡)上记「还贷 / 利息支出」
          * 会和这张卡上的消费重复计入本月支出。手工录入那边由 expense-liability.js + 服务端一起挡,
          * 导入这边只有服务端能挡 —— 用户选账户时看不到自己这一批里有几笔还贷。 */
-        boolean hasNature = lines.stream()
-                .anyMatch(l -> l.bucket() == BillCategoryResolver.Bucket.NATURE);
-        if (hasNature && acct.getType() != null && acct.getType().isLiability()) {
-            throw new CommitException("这批里有「还贷」,但你选的「" + acct.getDisplayName()
-                    + "」是负债账户 —— 还贷要记在钱实际流出的现金账户上,"
-                    + "记在卡上会和这张卡的消费重复计入本月支出。换一个现金账户。");
+        for (BillCategoryResolver.Line l : lines) {
+            if (l.bucket() != BillCategoryResolver.Bucket.NATURE) continue;
+            Account a = used.get(l.accountId() != null ? l.accountId() : fallbackAccountId);
+            if (a != null && a.getType() != null && a.getType().isLiability()) {
+                throw new CommitException("有一笔「还贷」落在负债账户「" + a.getDisplayName()
+                        + "」上 —— 还贷要记在钱实际流出的现金账户上,"
+                        + "记在卡上会和这张卡的消费重复计入本月支出。把那笔改到现金账户。");
+            }
         }
 
         List<BillCategoryResolver.Line> keep = lines.stream()
@@ -117,8 +131,16 @@ public class BillCommitService {
         BigDecimal total = keep.stream().map(BillCategoryResolver.Line::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        /* 批次只记一个「主账户」(笔数最多的那个)—— 它现在是展示用的标签,不是落库依据。
+         * 真正的归属在每一行上。 */
+        Long mainAccountId = keep.stream()
+                .map(l -> l.accountId() != null ? l.accountId() : fallbackAccountId)
+                .collect(java.util.stream.Collectors.groupingBy(x -> x, java.util.stream.Collectors.counting()))
+                .entrySet().stream().max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey).orElse(fallbackAccountId);
+
         ExpenseImportBatch batch = ExpenseImportBatch.builder()
-                .familyId(familyId).periodId(periodId).accountId(accountId)
+                .familyId(familyId).periodId(periodId).accountId(mainAccountId)
                 .channel(channel).rowCount(keep.size()).totalAmount(total)
                 .droppedCount(dropped).skippedCount(skipped).importedBy(memberId)
                 .build();
@@ -131,9 +153,10 @@ public class BillCommitService {
              * 脏数据一旦落库,之后每处读它的地方都要重复同一个 if,总有一处会漏。 */
             Long catId = (!nature && categoryService.isUsable(familyId, l.categoryId()))
                     ? l.categoryId() : null;
+            Long rowAcct = l.accountId() != null ? l.accountId() : fallbackAccountId;
             cashFlowMapper.insert(CashFlow.builder()
                     .periodId(periodId)
-                    .accountId(accountId)
+                    .accountId(rowAcct)
                     .kind(CashFlowKind.EXPENSE)
                     .categoryCode(code)
                     .amount(l.amount())
@@ -155,8 +178,17 @@ public class BillCommitService {
          * 这是导入最容易出错的地方 —— applyDeltaToBalance 改写的是用户自己填的期末余额,
          * 已经核对过余额的人再导一批,余额会被扣第二遍,而且几百笔一起扣,错得很大。 */
         if (affectsBalance) {
-            entryService.applyImportedExpense(familyId, memberId, period, acct, total,
-                    channel.getLabel() + " 导入 " + keep.size() + " 笔");
+            /* 【按账户分别扣】—— 一批里可能有 3 个账户,一股脑扣到一个头上就是把
+             * 别的账户的钱算到它身上。仍然是「每个账户一次」,不是每笔一次。 */
+            Map<Long, BigDecimal> byAccount = new LinkedHashMap<>();
+            for (BillCategoryResolver.Line l : keep) {
+                Long id = l.accountId() != null ? l.accountId() : fallbackAccountId;
+                byAccount.merge(id, l.amount(), BigDecimal::add);
+            }
+            for (var e : byAccount.entrySet()) {
+                entryService.applyImportedExpense(familyId, memberId, period, used.get(e.getKey()),
+                        e.getValue(), channel.getLabel() + " 导入");
+            }
         }
 
         log.info("账单导入落库 · family={} period={} channel={} rows={} dropped={} skipped={} affectsBalance={}",
@@ -178,17 +210,19 @@ public class BillCommitService {
         if (b.getRevokedAt() != null) throw new CommitException("这批已经撤销过了。");
         Period period = periodMapper.findById(b.getPeriodId())
                 .orElseThrow(() -> new CommitException("找不到这个账期。"));
-        Account acct = accountMapper.findById(b.getAccountId())
-                .orElseThrow(() -> new CommitException("找不到这个账户。"));
-
         /* 【只有当初扣过余额的批次才加回】—— 否则「不落账户」的批次一撤销,
          * 余额会凭空多出一笔钱。判据取该批次实际落的行:它们的 affects_balance 是一致的。 */
         boolean hadBalance = flowMapper.batchAffectsBalance(batchId);
+        /* 【按账户分别加回】—— 一批可能跨几个账户,全加回批次的「主账户」会把
+         * 别的账户的钱塞给它。必须在软删【之前】统计,软删之后就查不到了。 */
+        var perAccount = hadBalance ? flowMapper.batchAmountByAccount(batchId) : List.<com.family.finance.repository.ExpenseFlowMapper.AcctSum>of();
         int n = flowMapper.softDeleteBatch(batchId);
         batchMapper.markRevoked(familyId, batchId);
-        if (hadBalance) {
+        for (var a : perAccount) {
+            Account acct = accountMapper.findById(a.accountId()).orElse(null);
+            if (acct == null) continue;
             entryService.applyImportedExpense(familyId, memberId, period, acct,
-                    b.getTotalAmount().negate(), "撤销导入批次 #" + batchId);
+                    a.amount().negate(), "撤销导入批次 #" + batchId);
         }
         return n;
     }

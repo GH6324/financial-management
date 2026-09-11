@@ -108,6 +108,10 @@ public final class ExpenseFakes {
                     .limit(limit).map(Map.Entry::getKey).toList();
         }
 
+        @Override public boolean batchAffectsBalance(long batchId) { return false; }
+
+        @Override public List<AcctSum> batchAmountByAccount(long batchId) { return List.of(); }
+
         @Override public int softDeleteBatch(long batchId) { return 0; }
     }
 

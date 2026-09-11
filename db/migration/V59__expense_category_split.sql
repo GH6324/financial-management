@@ -93,6 +93,20 @@ CREATE TABLE IF NOT EXISTS expense_merchant_rule (
     KEY idx_rule_family (family_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='v1.21 商户关键字 → 类目(配一次管一年)';
 
+CREATE TABLE IF NOT EXISTS expense_account_rule (
+    id          BIGINT      NOT NULL AUTO_INCREMENT,
+    family_id   BIGINT      NOT NULL,
+    -- 账单里【资金来源】那一列的关键字:余额宝 / 花呗 / 招商银行储蓄卡(1234) ……
+    -- 和商户规则分开存:一个回答「这笔是什么消费」,一个回答「这笔从哪个账户出的」,
+    -- 键空间也不一样。塞一张表要加 kind 列,不如两张小表好读。
+    keyword     VARCHAR(40) NOT NULL,
+    account_id  BIGINT      NOT NULL,
+    created_at  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_acct_rule (family_id, keyword),
+    KEY idx_acct_rule_family (family_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='v1.21 资金来源关键字 → 账户(一份账单里可能有好几个账户)';
+
 -- ── cash_flow 加三列 ────────────────────────────────────────────────
 -- 全部可空 + 纯新增,既有 377 行一个字节不动。
 --

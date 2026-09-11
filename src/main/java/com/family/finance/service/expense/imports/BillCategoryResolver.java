@@ -142,9 +142,20 @@ public final class BillCategoryResolver {
      */
     public record Line(int idx, LocalDate occurredAt, String merchant, BigDecimal amount,
                        Long categoryId, String categoryName, How how, Bucket bucket,
-                       String natureCode, String dropReason, String txNo) {
+                       String natureCode, String dropReason, String txNo,
+                       String payMethod, Long accountId, BillAccountResolver.How accountHow) {
 
-        public boolean needsReview() { return bucket == Bucket.SPEND && how != null && how.needsReview(); }
+        /**
+         * 这一行值得用户重点核对吗。
+         *
+         * <p><b>分类没把握</b>或<b>账户没把握</b>都算 —— 账户猜错比分类猜错严重:
+         * 分类错了只是构成图不准,账户错了会让那个账户的余额和收益率一起错。</p>
+         */
+        public boolean needsReview() {
+            if (bucket != Bucket.SPEND) return false;
+            return (how != null && how.needsReview())
+                || (accountHow != null && accountHow.needsReview());
+        }
     }
 
     /**
@@ -178,7 +189,9 @@ public final class BillCategoryResolver {
     public static Draft classify(ExpenseSource channel, CsvBillParser.Parsed parsed,
                                  List<ExpenseCategory> allNodes,
                                  Map<String, Long> rules, long otherId,
-                                 java.util.Set<String> seenTxNo) {
+                                 java.util.Set<String> seenTxNo,
+                                 List<com.family.finance.domain.account.Account> accounts,
+                                 Map<String, Long> acctRules, Long defaultAccountId) {
         /* 名字 → 节点 id,匹配范围是【整棵树】(大类 + 细类)。
          *
          * 这一点第 1 稿搞错过,而且错得很隐蔽:原来只在「当前深度可填的那一层」里找,
@@ -202,17 +215,22 @@ public final class BillCategoryResolver {
             LocalDate at = r.occurredAt();
             String tx = r.txNo();
             if (tx == null) noTx++;
+            /* 【每一笔各自推荐账户】—— 一份账单里「收/付款方式」本来就是变化的。
+             * 放在分桶之前算:剔除/跳过的行也带着账户信息,用户在确认页上能看出
+             * 「这批里有几笔是花呗的」,而不是等确认完才发现。 */
+            BillAccountResolver.Hit acct =
+                    BillAccountResolver.resolve(r.payMethod(), accounts, acctRules, defaultAccountId);
 
             /* ① 已经导过 —— 最先判,免得同一笔又走一遍归类然后被用户看见两次 */
             if (tx != null && seenTxNo != null && seenTxNo.contains(tx)) {
                 lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
-                        Bucket.SKIPPED, null, "上次已导入", tx));
+                        Bucket.SKIPPED, null, "上次已导入", tx, r.payMethod(), acct.accountId(), acct.how()));
                 continue;
             }
             /* ② 退款 / 交易关闭 —— 这笔钱实际没花出去 */
             if (r.isRefund()) {
                 lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
-                        Bucket.DROPPED, null, "退款 / 交易关闭", tx));
+                        Bucket.DROPPED, null, "退款 / 交易关闭", tx, r.payMethod(), acct.accountId(), acct.how()));
                 continue;
             }
             /* ③ 渠道自己说「不计收支」—— 这是<b>渠道的判断</b>,最可信:
@@ -220,18 +238,18 @@ public final class BillCategoryResolver {
              *    当成支出就等于把同一笔钱花两遍(账户余额那边已经反映了这次移动)。 */
             if (r.isNeutral()) {
                 lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
-                        Bucket.DROPPED, null, "不计收支(划转)", tx));
+                        Bucket.DROPPED, null, "不计收支(划转)", tx, r.payMethod(), acct.accountId(), acct.how()));
                 continue;
             }
             /* ④ 收入 —— 默认不导。支出侧的分类体系套不到收入上(收入类目绑账户类型)。 */
             if (r.isIncome()) {
                 lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
-                        Bucket.INCOME, null, null, tx));
+                        Bucket.INCOME, null, null, tx, r.payMethod(), acct.accountId(), acct.how()));
                 continue;
             }
             if (!r.isExpense()) {
                 lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
-                        Bucket.DROPPED, null, "收支方向认不出来", tx));
+                        Bucket.DROPPED, null, "收支方向认不出来", tx, r.payMethod(), acct.accountId(), acct.how()));
                 continue;
             }
             /* ⑤ 还贷 —— 【必须排在关键字划转判据之前】。
@@ -243,14 +261,14 @@ public final class BillCategoryResolver {
             String nature = natureOf(r);
             if (nature != null) {
                 lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
-                        Bucket.NATURE, nature, null, tx));
+                        Bucket.NATURE, nature, null, tx, r.payMethod(), acct.accountId(), acct.how()));
                 continue;
             }
             /* ⑥ 关键字兜底的划转判据(转账红包 / 提现充值 / 理财)。
              *    放在还贷之后 —— 它是<b>猜</b>,而上面几条是渠道明说的。 */
             if (isNeutral(r)) {
                 lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
-                        Bucket.DROPPED, null, "看着像划转,不是消费", tx));
+                        Bucket.DROPPED, null, "看着像划转,不是消费", tx, r.payMethod(), acct.accountId(), acct.how()));
                 continue;
             }
 
@@ -275,7 +293,7 @@ public final class BillCategoryResolver {
                 }
             }
             lines.add(new Line(idx, at, merchant, r.amount(), target,
-                    nameOf.getOrDefault(target, "其他"), how, Bucket.SPEND, null, null, tx));
+                    nameOf.getOrDefault(target, "其他"), how, Bucket.SPEND, null, null, tx, r.payMethod(), acct.accountId(), acct.how()));
         }
         return new Draft(channel, lines, lines.size(), parsed, noTx);
     }
