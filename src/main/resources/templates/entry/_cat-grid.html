@@ -52,8 +52,8 @@
     <div class="flex items-center gap-2 mb-2">
       <span class="font-mono text-[9px] tracking-[.16em] text-ink-subtle whitespace-nowrap">选一个分类</span>
       <span class="flex-1 h-px bg-rule"></span>
-      <!--/* 「从账单导入」放在这儿而不是藏在别处:导入是这一版最值钱的能力,
-             而用户是在这个位置意识到「一笔一笔记太慢」的。入口登记见 scripts/entry-points.json。 */-->
+      <!--/* 就近的第二个入口。主入口在【支出区标题行】那个按钮上 ——
+             这里只是「正在一个个点分类」时顺手能看到的那一个,不承担被发现的职责。 */-->
       <a th:href="@{/expense/import(periodId=${period.id})}"
          class="font-mono text-[10px] text-brass-deep hover:underline no-underline whitespace-nowrap">从账单导入 →</a>
       <a th:href="@{/expense/categories}"

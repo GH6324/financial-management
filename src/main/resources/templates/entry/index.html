@@ -207,11 +207,24 @@
 
       <!-- 支出侧 · 逐笔(与收入区同构:金额 + 类目 + 支出账户) -->
       <div th:if="${expenseMode == 'ITEMIZED'}" class="border-t border-rule-soft pt-5">
-        <div class="flex items-baseline gap-2 mb-3 flex-wrap">
+        <div class="flex items-center gap-2 mb-3 flex-wrap">
           <span class="pill" style="background:rgba(159,74,58,.10);color:var(--rust);border-color:var(--rust)">支出</span>
           <span class="font-mono text-[10px] text-ink-subtle">逐笔录入 · 录入后会从所选账户余额中扣除,所以先录收支、最后核对余额</span>
           <a th:href="@{/admin/reminders}" class="font-mono text-[10px] text-ink-subtle underline hover:text-ink">改回填一个总数</a>
+          <span style="flex:1"></span>
+          <!--/* v1.21 · 「从账单导入」放在【支出区标题行】,做成真正的按钮。
+                 第一版把它做成了 10px 灰字、挂在宫格里那条分隔线的右端 ——
+                 技术上「有入口」(entry-points-check 也过了:它只验可见性,不验分量),
+                 但维护者连着两轮没找到。**入口存在 ≠ 入口找得到**:
+                 这一版最值钱的能力,不能给它脚注的视觉权重。
+                 位置也重要:标题行在支出区最顶上,不用往下滚。 */-->
+          <a th:if="${hasExpenseCats}" th:href="@{/expense/import(periodId=${period.id})}"
+             class="btn-ghost text-xs no-underline whitespace-nowrap"
+             style="border-color:var(--brass-deep);color:var(--brass-deep)">从账单导入</a>
         </div>
+        <p th:if="${hasExpenseCats}" class="text-[11.5px] text-ink-subtle -mt-2 mb-3">
+          一笔一笔记太慢?<b>传一份支付宝/微信的月账单</b>,几百笔自动归类,你只核对没把握的那十几笔。
+        </p>
 
         <!-- v1.19.3 · 服务端拒绝的原因要说给用户听(如「信用卡上不能记还贷」),不是 500 白页。
              用 rust 而不是全站 flash 的 forest:那是成功色,这里是被拦下来了。 -->

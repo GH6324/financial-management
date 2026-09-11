@@ -8841,7 +8841,13 @@ QA121_IMP_TPL="$RD/src/main/resources/templates/expense/import.html"
 # v1210-IMPORT-ENTRY-VISIBLE · 导入入口必须在【填报页】一眼可见。
 #   踩过:实现时只在报表页一句说明文字里内联了一个链接,填报页(用户真正在的地方)一个都没有 ——
 #   是维护者问「导入按钮在哪」才发现的。运行时可见性由 v1623-ENTRY-VIS 守,这里守静态登记。
+#   第二次又被问「导出支出流水的入口呢」—— 那时链接【确实存在】(entry-points-check 也过了:
+#   它只验「可见」,不验「分量」),但我把它做成了 10px 灰字挂在分隔线右端,连着两轮没被发现。
+#   **入口存在 ≠ 入口找得到。** 所以这条护栏现在同时要求:主入口是支出区标题行上的
+#   btn-ghost 按钮(不是脚注链接),而且带一句说明它能省什么事。
 { grep -q '/expense/import' "$QA121_GRID_TPL" \
+  && grep -q 'btn-ghost' "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q '一笔一笔记太慢' "$RD/src/main/resources/templates/entry/index.html" \
   && grep -q '"id": "expense-import"' "$RD/scripts/entry-points.json" \
   && grep -q '"id": "expense-categories"' "$RD/scripts/entry-points.json"; } \
   && log_ok "v1210-IMPORT-ENTRY-VISIBLE(导入与类目管理入口挂在填报页 + 已登记入口表)" \
