@@ -123,6 +123,15 @@ public class BillCommitService {
                           || l.bucket() == BillCategoryResolver.Bucket.NATURE)
                 .toList();
         if (keep.isEmpty()) throw new CommitException("没有要导入的笔 —— 都被剔除或跳过了。");
+        /* cash_flow 上有 CHECK(amount > 0)。分桶那里已经挡过一次,这里是第二道 ——
+         * 让它以人话报出来,而不是等 insert 时冒成一句「落库失败,什么都没写进去」。
+         * 真实账单上撞到过:一行冲正记录金额是负数,整批事务回滚,用户看不出为什么。 */
+        for (BillCategoryResolver.Line l : keep) {
+            if (l.amount() == null || l.amount().signum() <= 0) {
+                throw new CommitException("有一笔金额是 0 或负数(" + l.merchant()
+                        + ")—— 那多半是冲正行,把它剔除掉再导。");
+            }
+        }
         if (keep.size() > MAX_ROWS) {
             throw new CommitException("一次最多导 " + MAX_ROWS + " 笔(这批有 " + keep.size() + " 笔)。"
                     + "按月分开导 —— 整年一次导进来,落错账期就没法收拾了。");

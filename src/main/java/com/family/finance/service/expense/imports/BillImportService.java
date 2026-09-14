@@ -182,6 +182,33 @@ public class BillImportService {
         return new BillCategoryResolver.Draft(d.channel(), out, d.total(), d.parsed(), d.noTxNo());
     }
 
+    /**
+     * 从商户名里提取<b>可复用</b>的关键字(FR-567)。
+     *
+     * <p>原来直接取前 20 字 —— 那是拍脑袋:「瑞幸咖啡(国贸店)」前 20 字仍带着门店名,
+     * 换一家店就不命中,规则越攒越多却一条都不复用。</p>
+     *
+     * <p>现在按「品牌通常在最前面」的规律剥掉可变部分:
+     * 括号内容(门店名 / 编号)、末尾的数字与编号、常见的企业后缀。
+     * 剥完太短(≤1 字)就退回原名 —— <b>宁可窄一点也不要错</b>:
+     * 一个字的关键字会把半个账单都匹配进去。</p>
+     */
+    public static String merchantKeyword(String raw) {
+        if (raw == null) return null;
+        String t = raw.trim();
+        if (t.isEmpty()) return null;
+        // 括号里的几乎都是门店/网点/编号,全角半角都剥
+        t = t.replaceAll("[((\\[【][^))\\]】]*[))\\]】]", "");
+        // 常见企业后缀:留品牌,去法人形式
+        t = t.replaceAll("(有限公司|股份有限公司|有限责任公司|科技有限公司|管理有限公司|分公司|公司)$", "");
+        // 末尾的编号 / 门店序号
+        t = t.replaceAll("[\\s\\-_#·]*\\d+\\s*(号店|分店|店)?$", "");
+        t = t.replaceAll("(旗舰店|专卖店|便利店|超市|门店|分店|店)$", "");
+        t = t.trim();
+        if (t.length() <= 1) t = raw.trim();          // 剥过头 → 退回原名
+        return t.length() > 40 ? t.substring(0, 40) : t;
+    }
+
     /** 用户在确认页把某个资金来源改到别的账户 → 记住,下次自动命中(FR-577) */
     public void rememberAccountRule(long familyId, String keyword, long accountId) {
         String k = keyword == null ? "" : keyword.trim();

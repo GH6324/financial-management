@@ -112,11 +112,11 @@
         </label>
         <span class="font-mono text-[11px] whitespace-nowrap">已选 <b data-sel-count>0</b> 笔</span>
         <span class="h-4 w-px bg-rule"></span>
-        <select data-bulk-cat class="h-8 text-[12px] bg-paper border border-rule px-2" style="max-width:190px">
+        <select data-lsel data-bulk-cat class="h-8 text-[12px] bg-paper border border-rule px-2" style="max-width:190px">
           <option value="">批量改到分类…</option>
           <option th:each="o : ${catOptions}" th:value="${o.id}" th:text="${o.label}">餐饮美食</option>
         </select>
-        <select data-bulk-acct class="h-8 text-[12px] bg-paper border border-rule px-2" style="max-width:190px">
+        <select data-lsel data-bulk-acct class="h-8 text-[12px] bg-paper border border-rule px-2" style="max-width:190px">
           <option value="">批量改到账户…</option>
           <option th:each="a : ${accounts}" th:value="${a.id}" th:text="${a.displayName}">支付宝-余额宝</option>
         </select>
@@ -127,7 +127,14 @@
         <span style="flex:1"></span>
         <label class="flex items-center gap-2 text-[12px] whitespace-nowrap">
           <input type="checkbox" name="remember" value="true" checked> 记住我的改动
-        </label>
+        </label><th:block th:insert="~{fragments/_kpi-info :: i(
+            '你在这一页手动改过的行,会被记成两种规则,下次导入自动命中:
+① 改了分类 → 记「商户关键字 → 分类」。关键字从商户名里提取:去掉括号里的门店名、末尾的编号,
+   所以「瑞幸咖啡(国贸店)」记成「瑞幸咖啡」,换一家店也认得出。
+② 改了账户 → 记「资金来源 → 账户」,用账单里那一列的原文(如「招商银行储蓄卡(1234)」)。
+只记【你改过的】,自动归对的不记 —— 那些下次本来就会对。
+记下的规则在本页最下面能看到,也能删。',
+            null)}"/>
       </div>
       <div class="flex items-center gap-3 flex-wrap mb-3 font-mono text-[10px] text-ink-subtle">
         <span th:if="${reviewCount > 0}" class="text-rust"
@@ -184,7 +191,7 @@
                     th:text="${#numbers.formatDecimal(l.amount(), 1, 'COMMA', 2, 'POINT')}">32.50</td>
                 <td class="px-2 py-1.5">
                   <input type="hidden" name="idx" th:value="${l.idx()}">
-                  <select name="cat" data-cat class="w-full h-7 text-[12px] bg-paper border border-rule px-1">
+                  <select data-lsel name="cat" data-cat class="w-full h-7 text-[12px] bg-paper border border-rule px-1">
                     <option th:each="o : ${catOptions}" th:value="${o.id}" th:text="${o.label}"
                             th:selected="${o.id == l.categoryId()}">餐饮美食</option>
                   </select>
@@ -192,7 +199,7 @@
                 <td class="px-2 py-1.5">
                   <!--/* 账户逐笔一列(FR-575)· 一份账单里「收/付款方式」是变化的,
                          整批一个账户会让几个账户的余额和收益率一起错,而且不报错。 */-->
-                  <select name="acct" data-acct class="w-full h-7 text-[12px] bg-paper border border-rule px-1">
+                  <select data-lsel name="acct" data-acct class="w-full h-7 text-[12px] bg-paper border border-rule px-1">
                     <option th:each="a : ${accounts}" th:value="${a.id}" th:text="${a.displayName}"
                             th:selected="${a.id == l.accountId()}">支付宝-余额宝</option>
                   </select>
@@ -225,7 +232,7 @@
       <div class="mt-4 pt-4" style="border-top:2px solid var(--brass-deep)">
         <div class="flex items-center gap-3 flex-wrap mb-2">
           <span class="font-mono text-[10px] tracking-[.1em] uppercase text-ink-subtle">算在哪个账户名下</span>
-          <select name="accountId" required class="h-9 font-mono text-xs bg-paper border border-rule px-3">
+          <select data-lsel name="accountId" required class="h-9 font-mono text-xs bg-paper border border-rule px-3">
             <option th:each="a : ${accounts}" th:value="${a.id}"
                     th:text="${a.displayName} + ' · ' + ${a.type.label}">支付宝-余额宝 · 现金</option>
           </select>
@@ -233,11 +240,14 @@
         <label class="flex items-start gap-2 text-[12.5px] leading-relaxed mb-3 max-w-3xl">
           <input type="checkbox" name="affectsBalance" value="true" class="mt-1">
           <span>
-            <b>同时从这个账户的余额里扣掉</b>
+            <b>同时从账户余额里扣掉</b><th:block th:insert="~{fragments/_kpi-info :: i(
+              '勾上 = 这批钱从各自的账户余额里减掉 —— 适合「先导账单、最后才核对余额」的顺序。
+不勾(默认)= 这批钱余额里已经扣过了,这次只记「花了多少、花在哪」。
+默认不勾是因为:月底打开账单页时,余额多半已经核对完了,再扣一次就是扣第二遍。
+两种都会进家庭支出总额与支出构成;区别只在动不动账户余额、算不算这些账户的资金流出。',
+              null)}"/>
             <span class="block font-mono text-[10.5px] text-ink-subtle mt-0.5">
-              勾:适合「先导账单、最后才核对余额」的顺序。<br>
-              不勾(默认):这笔钱余额里<b>已经扣过了</b>,这次只记「花了多少、花在哪」——
-              家庭支出总额与支出构成照常统计,但不动余额、不影响这个账户的收益率。
+              不勾(默认):余额里<b>已经扣过了</b>,这次只记花在哪。
             </span>
           </span>
         </label>
@@ -250,7 +260,7 @@
         </span>
         <button type="submit" class="btn-ink">确认导入</button>
         <button type="submit" formnovalidate th:formaction="@{/expense/import/discard}"
-                class="btn-ghost text-sm">扔掉,什么都不落</button>
+                class="btn-ghost text-sm">取消本次导入</button>
         </div>
       </div>
       <p class="text-[11px] text-ink-subtle mt-2">
@@ -271,7 +281,7 @@
         <input type="hidden" name="periodId" th:value="${period.id}">
         <label class="block mb-3">
           <span class="block text-[11.5px] text-ink-soft mb-1">这份账单是哪个渠道的</span>
-          <select name="channel" class="field-input" style="max-width:200px">
+          <select data-lsel name="channel" class="field-input" style="max-width:200px">
             <option value="ALIPAY">支付宝</option>
             <option value="WECHAT">微信</option>
           </select>
@@ -305,7 +315,7 @@
         </div>
         <label class="block mb-3">
           <span class="block text-[11.5px] text-ink-soft mb-1">推荐不出来时落到哪个账户</span>
-          <select name="defaultAccountId" class="field-input" style="max-width:240px">
+          <select data-lsel name="defaultAccountId" class="field-input" style="max-width:240px">
             <option th:each="a : ${accounts}" th:value="${a.id}"
                     th:text="${a.displayName} + ' · ' + ${a.type.label}">支付宝-余额宝 · 现金</option>
           </select>
@@ -407,6 +417,28 @@
     </div>
   </div>
 
+  <!--/* ═══ 资金来源规则 ═══ 和商户规则同一个机制,回答的是另一个问题:
+         「这笔从哪个账户出的」。账单的资金来源列写法固定,配一次就长期有效。 */-->
+  <div th:if="${!#lists.isEmpty(acctRules)}" class="paper-card p-5 mt-4">
+    <div class="eyebrow mb-2">资金来源 → 账户</div>
+    <p class="text-[11.5px] text-ink-subtle mb-3">
+      一份账单里「收/付款方式」是变化的(余额宝 / 花呗 / 各家银行卡)。
+      这些是你在确认页改过并勾了「记住」的,以后自动命中。
+    </p>
+    <div th:each="r : ${acctRules}" class="flex items-center gap-3 py-1.5 border-b border-rule-soft last:border-b-0">
+      <span class="font-mono text-[11px]" th:text="${r.keyword()}">招商银行储蓄卡(1234)</span>
+      <span class="text-[11px] text-ink-subtle">→</span>
+      <span class="text-[12px]" th:text="${acctName.get(r.accountId()) ?: '(账户已删或已归档)'}">招行信用卡</span>
+      <span style="flex:1"></span>
+      <form th:action="@{/expense/import/acct-rule/delete}" method="post">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <input type="hidden" name="periodId" th:value="${period.id}">
+        <input type="hidden" name="ruleId" th:value="${r.id()}">
+        <button type="submit" class="font-mono text-[10px] text-rust hover:underline bg-transparent border-0 cursor-pointer">删除</button>
+      </form>
+    </div>
+  </div>
+
   <!--/* ═══ 商户规则:配一次管一年 ═══ */-->
   <div th:if="${!#lists.isEmpty(rules)}" class="paper-card p-5 mt-4">
     <div class="eyebrow mb-2">商户关键字 → 类目</div>
@@ -444,6 +476,7 @@
   </th:block>
 </main>
 
+<script th:src="@{/js/lens-select.js(v=${buildVersion})}"></script>   <!--/* 自研下拉:搜索 + 拼音 + 键盘 · 项目统一件,不用系统原生 */-->
 <script th:src="@{/js/bill-confirm.js(v=${buildVersion})}"></script>   <!--/* v1.21 · 确认页批量操作 */-->
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>

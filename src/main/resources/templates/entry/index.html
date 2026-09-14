@@ -268,11 +268,17 @@
                  手工记一笔的人走的是既有纪律「先录收支、最后核对余额」(改默认会让老用户余额突然对不上);
                  而导账单的人通常是月底、余额已经核对完了,再扣一次就是扣第二遍。
                  默认值跟着【那条路上更常见的顺序】走,不追求两边一致。 */-->
-          <label class="flex items-center gap-1.5 text-[11.5px] text-ink-soft whitespace-nowrap cursor-pointer"
-                 title="不勾 = 这笔钱余额里已经扣过了,这次只记「花了多少、花在哪」">
+          <label class="flex items-center gap-1.5 text-[11.5px] text-ink-soft whitespace-nowrap cursor-pointer">
             <input type="checkbox" name="affectsBalance" value="true" checked>
             从余额里扣
           </label>
+          <!--/* title 属性不够:手机上根本没有 hover,PC 上也要停两秒才出来,
+                 而这个开关关错方向的后果是余额被扣两遍。用站内统一的 i 说明件。 */-->
+          <th:block th:insert="~{fragments/_kpi-info :: i(
+              '勾上(默认)= 记完这笔,这个账户的期末余额自动减掉它 —— 适合「先录收支、最后核对余额」的顺序。
+不勾 = 这笔钱余额里已经扣过了(比如你已经按月末实际余额校准过),这次只记「花了多少、花在哪」。
+两种都会进家庭支出总额与支出构成 —— 钱确实花了;区别只在动不动这个账户的余额。',
+              null)}"/>
           <!-- 宫格在表单【内部】—— 它写的两个 hidden 要跟着这次提交走。
                用 th:insert 而不是 th:replace:replace 会把这个 div 连同 w-full 一起换掉,
                于是宫格变成 flex 行里的一个普通项、挤到「+ 加一笔」右边,左边空一大片

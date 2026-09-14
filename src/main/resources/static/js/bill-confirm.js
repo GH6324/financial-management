@@ -16,6 +16,20 @@
 (function () {
   'use strict';
 
+  /**
+   * 赋值后必须派发 change。
+   *
+   * <p>这些 select 挂了 data-lsel:原生控件被 lens-select 隐藏、另渲染一份自定义下拉,
+   * 它的按钮文案靠 `sel.addEventListener('change', syncBtn)` 同步。
+   * 只改 .value 不派发,值是对的但<b>用户看到的还是旧文案</b> —— 批量改完一片没反应,
+   * 会以为功能坏了。</p>
+   */
+  function setValue(sel, v) {
+    if (!sel || sel.disabled) return;
+    sel.value = v;
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
   function init(root) {
     var bar = (root || document).querySelector('[data-bill-bar]');
     if (!bar || bar.dataset.bound) return;
@@ -98,23 +112,17 @@
     var bulkCat = bar.querySelector('[data-bulk-cat]');
     if (bulkCat) bulkCat.addEventListener('change', function () {
       if (!bulkCat.value) return;
-      if (!needSelection()) { bulkCat.value = ''; return; }
-      picked().forEach(function (c) {
-        var sel = rowOf(c).querySelector('select[data-cat]');
-        if (sel && !sel.disabled) sel.value = bulkCat.value;
-      });
-      bulkCat.value = '';
+      if (!needSelection()) { setValue(bulkCat, ''); return; }
+      picked().forEach(function (c) { setValue(rowOf(c).querySelector('select[data-cat]'), bulkCat.value); });
+      setValue(bulkCat, '');
     });
 
     var bulkAcct = bar.querySelector('[data-bulk-acct]');
     if (bulkAcct) bulkAcct.addEventListener('change', function () {
       if (!bulkAcct.value) return;
-      if (!needSelection()) { bulkAcct.value = ''; return; }
-      picked().forEach(function (c) {
-        var sel = rowOf(c).querySelector('select[data-acct]');
-        if (sel && !sel.disabled) sel.value = bulkAcct.value;
-      });
-      bulkAcct.value = '';
+      if (!needSelection()) { setValue(bulkAcct, ''); return; }
+      picked().forEach(function (c) { setValue(rowOf(c).querySelector('select[data-acct]'), bulkAcct.value); });
+      setValue(bulkAcct, '');
     });
 
     var drop = bar.querySelector('[data-bulk-drop]');
@@ -137,7 +145,7 @@
       var left = rows().filter(function (tr) { return !isDropped(tr); });
       if (left.length === 0) {
         e.preventDefault();
-        alert('所有笔都被剔除了,没有可导入的内容。\n选中几笔点「撤销剔除」,或者直接「扔掉,什么都不落」。');
+        alert('所有笔都被剔除了,没有可导入的内容。\n选中几笔点「撤销剔除」,或者直接「取消本次导入」。');
         return;
       }
       var acct = form.querySelector('select[name="accountId"]');

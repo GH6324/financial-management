@@ -8932,6 +8932,35 @@ PY
   && log_ok "v1210-BULK-OPS(全选/组全选/批量改分类账户/剔除 · 空选与空提交前端就拦)" \
   || log_bad "v1210-BULK-OPS 确认页缺批量操作或前端拦截" "几百笔逐个勾选等于没做;空提交让用户跑一圈回来看红字也是"
 
+# v1210-AMOUNT-GUARD · 金额 ≤ 0 的行必须在【分桶】就挡掉,不能等 DB 约束。
+#   cash_flow 上有 CHECK(amount > 0)。真实账单里存在冲正行(负数)和占位行(0),
+#   撞上之后整批事务回滚,而用户看到的只是一句「落库失败」—— 真实账单上炸过。
+#   现在:分桶时进「已剔除」并写明原因,落库前再拦一道并给人话。
+{ codeonly "$QA121_RESOLVER" | grep -q 'r.amount().signum() <= 0' \
+  && codeonly "$QA121_COMMIT" | grep -q 'l.amount().signum() <= 0' \
+  && grep -q 'ck_cash_flow_amount' "$RD/src/main/java/com/family/finance/web/expense/ExpenseImportController.java"; } \
+  && log_ok "v1210-AMOUNT-GUARD(金额≤0 分桶就挡 + 落库前人话校验 + 兜底提示说原因)" \
+  || log_bad "v1210-AMOUNT-GUARD 金额≤0 可能撞到 DB 约束" "整批回滚,用户只看到一句「落库失败」,再试一百次也还是失败"
+
+# v1210-NO-NATIVE-SELECT · 导入页不许出现系统原生下拉。
+#   全站统一用自研件(data-lsel:搜索 + 拼音首字母 + 键盘 + 短列表自动省搜索框)。
+#   原生 select 在这套衬线排版里既难看又没法搜 —— 账户/分类可能有几十项。
+{ [ "$(grep -c '<select ' "$QA121_IMP_TPL")" = "$(grep -c '<select data-lsel' "$QA121_IMP_TPL")" ] \
+  && grep -q 'lens-select.js' "$QA121_IMP_TPL" \
+  && grep -q "dispatchEvent(new Event('change'" "$RD/src/main/resources/static/js/bill-confirm.js"; } \
+  && log_ok "v1210-NO-NATIVE-SELECT(导入页下拉全是自研件 · 批量赋值后派发 change 同步文案)" \
+  || log_bad "v1210-NO-NATIVE-SELECT 有原生 select,或批量赋值没派发 change" "不派发的话值对了但按钮文案还是旧的 —— 用户以为功能坏了"
+
+# v1210-REMEMBER-KEYWORD-REUSABLE · 「记住我的改动」提取的关键字要可复用。
+#   原来取商户名前 20 字 —— 「瑞幸咖啡(国贸店)」换一家店就不命中,
+#   规则越攒越多却一条都不复用。现在剥掉门店名/编号/企业后缀,并有单测钉住。
+{ codeonly "$RD/src/main/java/com/family/finance/service/expense/imports/BillImportService.java" \
+    | grep -q 'merchantKeyword' \
+  && [ -f "$RD/src/test/java/com/family/finance/service/expense/imports/MerchantKeywordTest.java" ] \
+  && grep -q 'acctRules' "$QA121_IMP_TPL"; } \
+  && log_ok "v1210-REMEMBER-KEYWORD-REUSABLE(关键字剥掉可变部分 + 两类规则都能看能删)" \
+  || log_bad "v1210-REMEMBER-KEYWORD-REUSABLE 关键字不可复用,或规则看不到删不掉" "只写不给看的记忆,用户发现归错类时无从下手"
+
 # v1210-ZERO-CONFIG-INVISIBLE · 没建类目的家庭,页面一个像素都不多(FR-520)。
 { grep -q 'th:if="${hasExpenseCats}"' "$QA121_GRID_TPL" \
   && grep -q 'th:unless="${hasExpenseCats}"' "$QA121_GRID_TPL" \

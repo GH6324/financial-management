@@ -36,4 +36,8 @@ public interface ExpenseAccountRuleMapper {
             """)
     int upsert(@Param("familyId") long familyId,
                @Param("keyword") String keyword, @Param("accountId") long accountId);
+
+    @org.apache.ibatis.annotations.Delete(
+            "DELETE FROM expense_account_rule WHERE id = #{id} AND family_id = #{familyId}")
+    int delete(@Param("familyId") long familyId, @Param("id") long id);
 }

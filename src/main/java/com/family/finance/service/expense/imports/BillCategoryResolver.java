@@ -227,13 +227,25 @@ public final class BillCategoryResolver {
                         Bucket.SKIPPED, null, "上次已导入", tx, r.payMethod(), acct.accountId(), acct.how()));
                 continue;
             }
-            /* ② 退款 / 交易关闭 —— 这笔钱实际没花出去 */
+            /* ② 金额 ≤ 0 —— 冲正行、被重开的退款、或者渠道自己写的占位行。
+             *
+             *    【必须在这里挡】:cash_flow 上有 CHECK(amount > 0),落到 insert 才炸的话
+             *    整批事务回滚,而用户看到的只是一句「落库失败」—— 真实账单上撞到过。
+             *    分桶挡掉之后它会出现在「已剔除」里并写明原因,用户能看懂发生了什么。 */
+            if (r.amount() == null || r.amount().signum() <= 0) {
+                lines.add(new Line(idx, at, merchant,
+                        r.amount() == null ? java.math.BigDecimal.ZERO : r.amount(),
+                        null, null, null, Bucket.DROPPED, null, "金额是 0 或负数(冲正行)", tx,
+                        r.payMethod(), acct.accountId(), acct.how()));
+                continue;
+            }
+            /* ③ 退款 / 交易关闭 —— 这笔钱实际没花出去 */
             if (r.isRefund()) {
                 lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
                         Bucket.DROPPED, null, "退款 / 交易关闭", tx, r.payMethod(), acct.accountId(), acct.how()));
                 continue;
             }
-            /* ③ 渠道自己说「不计收支」—— 这是<b>渠道的判断</b>,最可信:
+            /* ④ 渠道自己说「不计收支」—— 这是<b>渠道的判断</b>,最可信:
              *    余额宝转入转出、理财买入赎回,钱还在你自己名下。
              *    当成支出就等于把同一笔钱花两遍(账户余额那边已经反映了这次移动)。 */
             if (r.isNeutral()) {
@@ -241,7 +253,7 @@ public final class BillCategoryResolver {
                         Bucket.DROPPED, null, "不计收支(划转)", tx, r.payMethod(), acct.accountId(), acct.how()));
                 continue;
             }
-            /* ④ 收入 —— 默认不导。支出侧的分类体系套不到收入上(收入类目绑账户类型)。 */
+            /* ⑤ 收入 —— 默认不导。支出侧的分类体系套不到收入上(收入类目绑账户类型)。 */
             if (r.isIncome()) {
                 lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
                         Bucket.INCOME, null, null, tx, r.payMethod(), acct.accountId(), acct.how()));
@@ -264,7 +276,7 @@ public final class BillCategoryResolver {
                         Bucket.NATURE, nature, null, tx, r.payMethod(), acct.accountId(), acct.how()));
                 continue;
             }
-            /* ⑥ 关键字兜底的划转判据(转账红包 / 提现充值 / 理财)。
+            /* ⑦ 关键字兜底的划转判据(转账红包 / 提现充值 / 理财)。
              *    放在还贷之后 —— 它是<b>猜</b>,而上面几条是渠道明说的。 */
             if (isNeutral(r)) {
                 lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
@@ -272,7 +284,7 @@ public final class BillCategoryResolver {
                 continue;
             }
 
-            /* ⑦ 消费 —— 三层兜底归类(FR-562) */
+            /* ⑧ 消费 —— 三层兜底归类(FR-562) */
             Long target;
             How how;
             String cc = r.channelCategory();

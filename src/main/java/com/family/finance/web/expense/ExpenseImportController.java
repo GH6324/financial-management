@@ -64,6 +64,7 @@ public class ExpenseImportController {
     private final AccountMapper accountMapper;
     private final ExpenseImportBatchMapper batchMapper;
     private final NavService navService;
+    private final com.family.finance.repository.ExpenseAccountRuleMapper acctRuleMapper;
 
     @GetMapping("/expense/import")
     public String page(@AuthenticationPrincipal MemberPrincipal me,
@@ -79,6 +80,19 @@ public class ExpenseImportController {
 
         model.addAttribute("accounts", accountMapper.findActiveByFamily(fam));
         model.addAttribute("batches", batchMapper.findLiveByPeriod(fam, period.getId()));
+        /* 「记住我的改动」攒下来的两类规则 —— 用户要能看见自己记了什么,也要能删。
+         * 只写不给看的记忆,用户第一次发现它归错类时会无从下手。 */
+        model.addAttribute("rules", importService.rules(fam));
+        model.addAttribute("acctRules", acctRuleMapper.findByFamily(fam));
+        java.util.Map<Long, String> catName = new LinkedHashMap<>();
+        for (var e : categoryService.pickable(fam).entrySet()) {
+            catName.put(e.getKey().getId(), e.getKey().getName());
+            for (var k : e.getValue()) catName.put(k.getId(), e.getKey().getName() + " › " + k.getName());
+        }
+        model.addAttribute("catName", catName);
+        java.util.Map<Long, String> acctName = new LinkedHashMap<>();
+        for (var a : accountMapper.findActiveByFamily(fam)) acctName.put(a.getId(), a.getDisplayName());
+        model.addAttribute("acctName", acctName);
 
         var draft = (BillCategoryResolver.Draft) session.getAttribute(DRAFT_KEY);
         Object dp = session.getAttribute(DRAFT_PERIOD);
@@ -150,6 +164,23 @@ public class ExpenseImportController {
         model.addAttribute("acctReviewCount",
                 draft.bucket(BillCategoryResolver.Bucket.SPEND).stream()
                         .filter(l -> l.accountHow() != null && l.accountHow().needsReview()).count());
+    }
+
+    /**
+     * 把异常翻译成一句人话。
+     *
+     * <p>只翻译<b>已知能撞上的</b>几种;其余返回异常类型名 —— 那至少比「再试一次」有信息量,
+     * 而且用户能把它贴给我们。<b>不给用户看堆栈</b>(那是 v0.14 的教训)。</p>
+     */
+    private static String humanCause(Exception e) {
+        String m = String.valueOf(e.getMessage());
+        if (m.contains("ck_cash_flow_amount")) {
+            return "有一笔的金额是 0 或负数(账单里的冲正行),数据库不接受";
+        }
+        if (m.contains("Data too long")) return "某一栏的文字太长了(多半是商户名)";
+        if (m.contains("foreign key") || m.contains("FOREIGN KEY")) return "引用了一个已经不存在的账户或类目,刷新一下再试";
+        if (m.contains("Duplicate entry")) return "有重复数据撞上了唯一约束";
+        return e.getClass().getSimpleName();
     }
 
     private boolean ownedAccount(long familyId, Long accountId) {
@@ -280,12 +311,11 @@ public class ExpenseImportController {
                         BillCategoryResolver.How.RULE, l.bucket(), null, null, l.txNo(),
                         l.payMethod(), finalAcct, accountHow));
                 /* 「记住我的改动」—— 越用越准是这个功能的核心价值(FR-567)。
-                 * 关键字取商户名前 20 字:全名常带门店号(「瑞幸咖啡(国贸店)」),
-                 * 存全名的话换一家店就不命中了。 */
+                 * 关键字由 merchantKeyword 提取(剥掉门店名/编号/企业后缀),
+                 * 不是简单截前 20 字 —— 那样「瑞幸咖啡(国贸店)」换家店就不命中。 */
                 if (remember) {
-                    String kw = l.merchant();
-                    if (kw != null && kw.length() > 20) kw = kw.substring(0, 20);
-                    importService.rememberRule(fam, kw, newCat);
+                    importService.rememberRule(fam,
+                            BillImportService.merchantKeyword(l.merchant()), newCat);
                 }
             }
 
@@ -305,8 +335,14 @@ public class ExpenseImportController {
         } catch (BillCommitService.CommitException | BillImportService.ImportException e) {
             ra.addFlashAttribute("flashError", e.getMessage());
         } catch (Exception e) {
-            log.warn("账单落库失败 · period={} · {}", periodId, e.toString());
-            ra.addFlashAttribute("flashError", "落库失败,什么都没写进去 —— 再试一次。");
+            /* 【把原因带出来】—— 原来这里只说「落库失败,再试一次」,
+             * 用户再试一百次也还是失败(真实账单里一行冲正记录撞了 CHECK(amount>0)),
+             * 而我这边也只能靠翻服务器日志才知道是什么。
+             * 堆栈仍然不给用户看,但要给一句【能指导下一步】的话。 */
+            log.warn("账单落库失败 · period={} · {}", periodId, e.toString(), e);
+            ra.addFlashAttribute("flashError",
+                    "落库失败,什么都没写进去。原因:" + humanCause(e)
+                    + " —— 如果看不懂,把这句话发给我们。");
         }
         return "redirect:/expense/import?periodId=" + periodId;
     }
@@ -315,6 +351,13 @@ public class ExpenseImportController {
     public String discard(@RequestParam long periodId, HttpSession session) {
         session.removeAttribute(DRAFT_KEY);
         session.removeAttribute(DRAFT_PERIOD);
+        return "redirect:/expense/import?periodId=" + periodId;
+    }
+
+    @PostMapping("/expense/import/acct-rule/delete")
+    public String deleteAcctRule(@AuthenticationPrincipal MemberPrincipal me,
+                                 @RequestParam long periodId, @RequestParam long ruleId) {
+        acctRuleMapper.delete(me.getFamilyId(), ruleId);
         return "redirect:/expense/import?periodId=" + periodId;
     }
 
