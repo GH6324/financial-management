@@ -42,7 +42,13 @@ const { chromium } = require(PW);
     await p.goto(BASE + '/login', { waitUntil: 'networkidle' });
     await p.fill('input[name="username"]', USER);
     await p.fill('input[name="password"]', PASS);
-    await Promise.all([p.waitForNavigation({ waitUntil: 'networkidle' }), p.click('button[type="submit"]')]);
+    /* 【不要用 waitForNavigation】—— 登录是 302 重定向链(login → dashboard),
+       Promise.all 里注册的那个监听会错过它,然后一直等下一次导航直到超时
+       (v1.21 发版时 networkidle 和 domcontentloaded 都卡了 30s)。
+       这里只需要会话 cookie,点完等一会儿再确认落地页即可。 */
+    await p.click('button[type="submit"]');
+    await p.waitForTimeout(3500);
+    if (/\/login/.test(p.url())) throw new Error('登录没成功,仍在 /login — 检查 SHOT_USER/SHOT_PASS');
     await p.close();
   }
 
@@ -50,11 +56,20 @@ const { chromium } = require(PW);
     const p = await ctx.newPage();
     for (const s of list) {
       try {
-        await p.goto(BASE + s.path, { waitUntil: 'networkidle' });
+        /* 超时放到 60s:/reports 是全站最重的一页(十几张图 + 事实表),
+           30s 默认值在 beta 这台 3.5G 的机器上会偶发超时。 */
+        await p.goto(BASE + s.path, { waitUntil: 'domcontentloaded', timeout: 60000 });
         if (s.waitFor) { await p.waitForSelector(s.waitFor, { timeout: 15000 }); }  // 等内容真渲染出来(治 loading 页截早)
         // v1.18 · 截图前在页面里跑一段(展开指定的折叠块 / 截掉过长列表 / 关掉动画)。
         // 加它是因为流水时间线默认只展开【最新】那一组,而 beta 的测试数据里最新是 2041 年那批;
         // 想拍本次能力就得先把目标那一组打开。用页面自己的 DOM 操作,不改被拍的页面。
+        /* v1.21 · 有些页面的核心画面需要【先上传一个文件】才存在(账单导入的确认页)。
+           草稿存 session,所以必须在同一个 page 里传 —— 外面用 curl 传的这边看不到。 */
+        if (s.upload) {
+          await p.setInputFiles(s.upload.input, s.upload.file);
+          await p.click(s.upload.submit);
+          await p.waitForTimeout(s.upload.wait || 4500);
+        }
         if (s.eval) { await p.evaluate(s.eval); await p.waitForTimeout(300); }
         await p.waitForTimeout(s.wait || 1200);   // 图表/字体/轮询首帧
         const f = path.join(outDir, `${prefix}_${s.name}.jpg`);

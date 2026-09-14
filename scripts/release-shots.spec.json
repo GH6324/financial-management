@@ -1,70 +1,78 @@
 {
-  "_comment": "v1.20.0 · 账户组。PC 用 selector 裁掉导航与留白只留本次改动的那块;手机整屏不裁。核心叙事:①分组页(建组入口)②新建弹窗(推荐+类型+主理人)③账户列表折叠成一行 ④按账户分布图长尾变短。",
+  "_comment": "v1.21.0 · 自定义支出分类。核心叙事:①记一笔时点分类宫格(图标+常用置顶,一次点击)②账单导入确认页(逐笔归类+账户逐笔推荐+批量操作)③报表「钱花在哪了」可下钻 ④类目管理。PC 用 selector 裁掉导航与留白;手机整屏不裁。",
   "pc": [
     {
-      "path": "/accounts/groups",
-      "name": "groups-list",
-      "wait": 900,
-      "waitFor": ".group-card",
-      "eval": "document.querySelectorAll('.group-card').forEach(d=>d.open=true);",
+      "path": "/entry",
+      "name": "cat-grid",
+      "wait": 2000,
+      "waitFor": "[data-cat-grid]",
+      "eval": "const g=document.querySelector('[data-cat-grid]'); const c=g.querySelector('.cat-cell[data-has-kids]'); if(c) c.click();",
+      "selector": "[data-cat-grid]"
+    },
+    {
+      "path": "/expense/import",
+      "name": "import-confirm",
+      "wait": 1500,
+      "waitFor": "form[action$='/expense/import/file']",
+      "upload": {
+        "input": "#csvFile",
+        "submit": "form[action$='/expense/import/file'] button[type=submit]",
+        "file": "/home/finance/shots/sample_alipay_bill.csv",
+        "wait": 5000
+      },
+      "selector": "[data-bill-bar]"
+    },
+    {
+      "path": "/expense/import",
+      "name": "import-table",
+      "wait": 1500,
+      "waitFor": "form[action$='/expense/import/file']",
+      "upload": {
+        "input": "#csvFile",
+        "submit": "form[action$='/expense/import/file'] button[type=submit]",
+        "file": "/home/finance/shots/sample_alipay_bill.csv",
+        "wait": 5000
+      },
+      "selector": "[data-bill-table]"
+    },
+    {
+      "path": "/reports",
+      "name": "expense-mix",
+      "wait": 2500,
+      "waitFor": "#sec-expense-split",
+      "selector": "#sec-expense-split"
+    },
+    {
+      "path": "/expense/categories",
+      "name": "categories",
+      "wait": 1500,
+      "waitFor": ".paper-card",
       "selector": "main"
-    },
-    {
-      "path": "/accounts/groups",
-      "name": "groups-new",
-      "wait": 1200,
-      "waitFor": "main",
-      "eval": "const d=document.getElementById('newGroupDlg'); d.showModal(); const c=[...d.querySelectorAll('.pill')].find(x=>x.dataset.pickIds||x.dataset.ids); if(c) c.click();",
-      "selector": "#newGroupDlg"
-    },
-    {
-      "path": "/dashboard",
-      "name": "acct-list-folded",
-      "wait": 2200,
-      "waitFor": "#dash-list table tbody tr",
-      "selector": "#dash-list",
-      "eval": "document.querySelectorAll('header,[class*=fixed],.toc-rail,[id*=agent],[class*=agent-fab]').forEach(function(e){var p=getComputedStyle(e).position;if(p==='fixed'||p==='sticky'||e.tagName==='HEADER')e.style.display='none';});"
-    },
-    {
-      "path": "/dashboard",
-      "name": "acct-list-open",
-      "wait": 2200,
-      "waitFor": "#dash-list .acct-toggle",
-      "eval": "document.querySelectorAll('header,[class*=fixed],.toc-rail,[id*=agent],[class*=agent-fab]').forEach(function(e){var p=getComputedStyle(e).position;if(p==='fixed'||p==='sticky'||e.tagName==='HEADER')e.style.display='none';});const b=document.querySelector('#dash-list .acct-toggle'); if(b) b.click();",
-      "selector": "#dash-list"
-    },
-    {
-      "path": "/dashboard",
-      "name": "dist-chart",
-      "wait": 2600,
-      "waitFor": "#accountDivergeChart",
-      "selector": "#dash-dist",
-      "eval": "document.querySelectorAll('header,[class*=fixed],.toc-rail,[id*=agent],[class*=agent-fab]').forEach(function(e){var p=getComputedStyle(e).position;if(p==='fixed'||p==='sticky'||e.tagName==='HEADER')e.style.display='none';});"
     }
   ],
   "mobile": [
     {
-      "path": "/dashboard",
-      "name": "acct-list",
-      "wait": 2400,
-      "full": false,
-      "waitFor": "#dash-list details",
-      "eval": "const s=document.getElementById('dash-list'); if(s) s.scrollIntoView();"
-    },
-    {
-      "path": "/accounts/groups",
-      "name": "groups-list",
-      "wait": 1000,
-      "full": false,
-      "waitFor": ".group-card"
+      "path": "/entry",
+      "name": "cat-grid",
+      "wait": 2200,
+      "waitFor": "[data-cat-grid]",
+      "eval": "const g=document.querySelector('[data-cat-grid]'); g.scrollIntoView();",
+      "full": false
     },
     {
       "path": "/reports",
-      "name": "acct-return",
-      "wait": 2600,
-      "full": false,
-      "waitFor": "#sec-accounts",
-      "eval": "const s=document.getElementById('sec-accounts'); if(s) s.scrollIntoView();"
+      "name": "expense-mix",
+      "wait": 2500,
+      "waitFor": "#sec-expense-split",
+      "eval": "document.getElementById('sec-expense-split').scrollIntoView();",
+      "full": false
+    },
+    {
+      "path": "/expense/categories",
+      "name": "categories",
+      "wait": 1500,
+      "waitFor": ".paper-card",
+      "full": false
     }
   ]
 }
