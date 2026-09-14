@@ -8961,6 +8961,27 @@ PY
   && log_ok "v1210-REMEMBER-KEYWORD-REUSABLE(关键字剥掉可变部分 + 两类规则都能看能删)" \
   || log_bad "v1210-REMEMBER-KEYWORD-REUSABLE 关键字不可复用,或规则看不到删不掉" "只写不给看的记忆,用户发现归错类时无从下手"
 
+# v1210-SHARED-RECORD-BOTH-QUERIES · IncomeEntryRow 被收入与支出【两条查询】共用,
+#   加字段必须两条一起加。只改一条的话另一条返回的列数不够,
+#   MyBatis 构造 record 时 IndexOutOfBounds —— 【运行期】才炸(编译过、单测过,填报页直接变错误页)。
+#   判据:两条查询里新加的列各出现一次。
+{ [ "$(codeonly "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
+        | grep -c 'AS occurredAt')" -eq 2 ] \
+  && [ "$(codeonly "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
+        | grep -c 'AS expenseCategoryName')" -eq 2 ]; } \
+  && log_ok "v1210-SHARED-RECORD-BOTH-QUERIES(共用 record 的新列在两条查询里都给了)" \
+  || log_bad "v1210-SHARED-RECORD-BOTH-QUERIES 共用 record 只改了一条查询" "另一条列数不够 → MyBatis 运行期 IndexOutOfBounds,页面直接变错误页"
+
+# v1210-FLOW-LIST-PAGED · 流水列表要能搜能翻页(导入能一次落进几百笔)。
+#   合计行永远显示【全部】的合计,不随筛选变 —— 筛选是展示层的事,不碰口径。
+{ grep -q 'data-flow-list' "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q 'data-flow-row' "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q 'MIN_ROWS' "$RD/src/main/resources/static/js/flow-table.js" \
+  && grep -q '筛出' "$RD/src/main/resources/static/js/flow-table.js" \
+  && ! grep -q 'innerHTML' "$RD/src/main/resources/static/js/flow-table.js"; } \
+  && log_ok "v1210-FLOW-LIST-PAGED(流水列表可搜可翻页 · 行数少时工具条不出现 · 不拼 HTML)" \
+  || log_bad "v1210-FLOW-LIST-PAGED 流水列表缺搜索/分页" "一个月几百笔时填报页会变成望不到头的长龙"
+
 # v1210-ZERO-CONFIG-INVISIBLE · 没建类目的家庭,页面一个像素都不多(FR-520)。
 { grep -q 'th:if="${hasExpenseCats}"' "$QA121_GRID_TPL" \
   && grep -q 'th:unless="${hasExpenseCats}"' "$QA121_GRID_TPL" \

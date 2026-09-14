@@ -157,7 +157,14 @@ public interface CashFlowMapper {
                    COALESCE(cat.display_name, cf.category_code) AS categoryName,
                    cf.amount AS amount, cf.note AS note,
                    COALESCE(m.display_name, '共同') AS ownerName,
-                   cf.submitted_at AS submittedAt
+                   cf.submitted_at AS submittedAt,
+                   cf.occurred_at AS occurredAt,
+                   /* v1.21 · 收入不接自定义消费分类(PRD FR-556),但这一列【必须给】——
+                    * IncomeEntryRow 这个 record 被收入与支出【两条查询共用】,
+                    * 只给支出加一列的话,收入这条返回 11 列而 record 要 12 个,
+                    * MyBatis 构造时 IndexOutOfBounds,而且是【运行期】才炸:
+                    * 编译过、单测过,填报页直接变成错误页。真踩了。 */
+                   NULL AS expenseCategoryName
               FROM cash_flow cf
               JOIN account a ON a.id = cf.account_id
               LEFT JOIN member m ON m.id = a.primary_owner_member_id
@@ -185,11 +192,24 @@ public interface CashFlowMapper {
                    COALESCE(cat.display_name, cf.category_code) AS categoryName,
                    cf.amount AS amount, cf.note AS note,
                    COALESCE(m.display_name, '共同') AS ownerName,
-                   cf.submitted_at AS submittedAt
+                   cf.submitted_at AS submittedAt,
+                   /* v1.21 · 交易日期。列表原来只显示【填报时间】—— 手工记一笔时两者差不多,
+                    * 但导入进来的几百笔全是同一个入库时刻,按日期搜就全中了。
+                    * 账单里有真实交易日,拿来用。 */
+                   cf.occurred_at AS occurredAt,
+                   /* v1.21 · 消费分类。列表原来只显示【性质】(日常开支),
+                    * 而 v1.21 之后一行最有意义的标签是「餐饮美食 › 外卖」——
+                    * 不带出来的话,用户在填报页看到的是一片一模一样的「日常开支」。
+                    * 细类带上父名,两个同名细类才分得清。 */
+                   CASE WHEN ec.id IS NULL THEN NULL
+                        WHEN ecp.name IS NULL THEN ec.name
+                        ELSE CONCAT(ecp.name, ' › ', ec.name) END AS expenseCategoryName
               FROM cash_flow cf
               JOIN account a ON a.id = cf.account_id
               LEFT JOIN member m ON m.id = a.primary_owner_member_id
               LEFT JOIN cash_flow_category cat ON cat.code = cf.category_code
+              LEFT JOIN expense_category ec  ON ec.id = cf.expense_category_id
+              LEFT JOIN expense_category ecp ON ecp.id = ec.parent_id
              WHERE cf.period_id = #{periodId}
                AND a.family_id = #{familyId}
                AND cf.kind = 'EXPENSE'
@@ -318,8 +338,11 @@ public interface CashFlowMapper {
                                                 @Param("groupKey") String groupKey);
 
     /** v0.12 · 收入侧列表行(展示用投影)· v1.8 起支出侧复用同一投影。 */
+    /** {@code expenseCategoryName} 只有支出侧会有值(收入不接自定义分类,见 PRD FR-556) */
     record IncomeEntryRow(Long id, Long accountId, String accountName, String accountType,
                           String currency, String categoryCode, String categoryName,
                           java.math.BigDecimal amount, String note,
-                          String ownerName, java.time.LocalDateTime submittedAt) {}
+                          String ownerName, java.time.LocalDateTime submittedAt,
+                          java.time.LocalDate occurredAt,
+                          String expenseCategoryName) {}
 }

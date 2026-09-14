@@ -1,0 +1,26 @@
+<!--/*
+  v1.21 · 流水列表的搜索 + 分页工具条(收入 / 支出共用)。
+
+  为什么现在需要它:v1.21 的账单导入能一次落进几百笔,而这个列表原来是【全量平铺】的。
+  一个月 300 笔的话,填报页会变成一条望不到头的长龙 —— 想找某一笔只能 Ctrl+F。
+
+  为什么做在【前端】:数据本来就已经全量渲染在页面上了,再去服务端分页等于
+  多一轮往返、多一套参数、多一处「分页参数与筛选参数怎么组合」的状态。
+  前端过滤是纯展示层的事,不碰任何取数口径。
+
+  【少量记录时整条工具条不出现】—— 一个月记三五笔的家庭不需要搜索框,
+  那是噪音。阈值见 flow-table.js 的 MIN_ROWS。
+*/-->
+<div th:fragment="bar(listId, total)" class="flow-bar" th:attr="data-flow-bar=${listId}" hidden>
+  <input type="search" class="flow-q" th:attr="data-flow-q=${listId}"
+         placeholder="搜商户 / 备注 / 类目 / 账户 / 金额 / 日期(09-08)">
+  <span class="flow-count" th:attr="data-flow-count=${listId}">
+    共 <b th:text="${total}">0</b> 笔
+  </span>
+  <span style="flex:1"></span>
+  <div class="flow-pager" th:attr="data-flow-pager=${listId}">
+    <button type="button" class="flow-pg" data-flow-prev>←</button>
+    <span class="flow-pgnum" data-flow-pgnum>1 / 1</span>
+    <button type="button" class="flow-pg" data-flow-next>→</button>
+  </div>
+</div>

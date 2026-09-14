@@ -164,9 +164,16 @@
         </div>
 
         <!-- 本期已录收入 -->
-        <div th:if="${incomeEntries != null and !incomeEntries.isEmpty()}" class="border border-rule-soft bg-card">
+        <div th:if="${incomeEntries != null and !incomeEntries.isEmpty()}"
+             th:replace="~{entry/_flow-toolbar :: bar('income', ${incomeEntries.size()})}"></div>
+        <div th:if="${incomeEntries != null and !incomeEntries.isEmpty()}" class="border border-rule-soft bg-card"
+             data-flow-list="income">
           <!-- 与支出列表同一套窄屏两行栅格(并列同类元素不能一个整齐一个散) -->
-          <div th:each="e : ${incomeEntries}"
+          <div th:each="e : ${incomeEntries}" data-flow-row
+               th:attr="data-s=${(e.categoryName ?: '') + ' ' + (e.accountName ?: '') + ' ' + (e.note ?: '')
+                               + ' ' + (e.ownerName ?: '') + ' ' + e.amount
+                               + ' ' + (e.occurredAt != null ? #temporals.format(e.occurredAt, 'yyyy-MM-dd') : '')
+                               + ' ' + (e.submittedAt != null ? #temporals.format(e.submittedAt, 'yyyy-MM-dd') : '')}"
                class="px-4 py-2.5 border-b border-rule-soft text-sm
                       grid grid-cols-[auto_auto_1fr_auto] items-center gap-x-2 gap-y-1
                       sm:flex sm:items-center sm:gap-3 sm:flex-wrap">
@@ -220,7 +227,7 @@
                  位置也重要:标题行在支出区最顶上,不用往下滚。 */-->
           <a th:if="${hasExpenseCats}" th:href="@{/expense/import(periodId=${period.id})}"
              class="btn-ghost text-xs no-underline whitespace-nowrap"
-             style="border-color:var(--brass-deep);color:var(--brass-deep)">从账单导入</a>
+             style="border-color:var(--brass-deep);color:var(--brass-deep)">批量导入</a>
         </div>
         <p th:if="${hasExpenseCats}" class="text-[11.5px] text-ink-subtle -mt-2 mb-3">
           一笔一笔记太慢?<b>传一份支付宝/微信的月账单</b>,几百笔自动归类,你只核对没把握的那十几笔。
@@ -300,10 +307,19 @@
         </div>
 
         <!-- 本期已录支出 -->
-        <div th:if="${expenseEntries != null and !expenseEntries.isEmpty()}" class="border border-rule-soft bg-card mt-3">
+        <!--/* v1.21 · 导入能一次落进几百笔,列表需要搜索 + 分页(纯前端,不碰取数口径) */-->
+        <div th:if="${expenseEntries != null and !expenseEntries.isEmpty()}"
+             th:replace="~{entry/_flow-toolbar :: bar('expense', ${expenseEntries.size()})}"></div>
+        <div th:if="${expenseEntries != null and !expenseEntries.isEmpty()}" class="border border-rule-soft bg-card mt-3"
+             data-flow-list="expense">
           <!-- 窄屏两行栅格(第 1 行:头像+类目+账户+金额;第 2 行:备注/日期/状态/删)· PC 用 sm:contents 让包裹层消失,
                恢复成原来的单行 flex。此前纯 flex-wrap 在 390px 下每条记录折行位置都不同,「删」还会单独掉一行。 -->
-          <div th:each="e : ${expenseEntries}"
+          <div th:each="e : ${expenseEntries}" data-flow-row
+               th:attr="data-s=${(e.categoryName ?: '') + ' ' + (e.expenseCategoryName ?: '')
+                               + ' ' + (e.accountName ?: '') + ' ' + (e.note ?: '')
+                               + ' ' + (e.ownerName ?: '') + ' ' + e.amount
+                               + ' ' + (e.occurredAt != null ? #temporals.format(e.occurredAt, 'yyyy-MM-dd') : '')
+                               + ' ' + (e.submittedAt != null ? #temporals.format(e.submittedAt, 'yyyy-MM-dd') : '')}"
                class="px-4 py-2.5 border-b border-rule-soft text-sm
                       grid grid-cols-[auto_auto_1fr_auto] items-center gap-x-2 gap-y-1
                       sm:flex sm:items-center sm:gap-3 sm:flex-wrap">
@@ -311,6 +327,11 @@
                   class="w-5 h-5 rounded-full text-paper flex items-center justify-center text-[10px] font-display flex-shrink-0"
                   th:text="${#strings.substring(e.ownerName, 0, 1)}" th:title="${e.ownerName}">迪</span>
             <span class="pill whitespace-nowrap" th:text="${e.categoryName}">日常开支</span>
+            <!--/* v1.21 · 消费分类。只显示「性质」的话,导入进来的几百笔在列表上
+                   全是一模一样的「日常开支」,分不出哪笔是什么。 */-->
+            <span th:if="${e.expenseCategoryName != null}"
+                  class="font-mono text-[10px] text-brass-deep whitespace-nowrap"
+                  th:text="${e.expenseCategoryName}">餐饮美食 › 外卖</span>
             <span class="font-display truncate min-w-0" th:text="${e.accountName}">账户</span>
             <span class="font-mono tnum num-neg justify-self-end sm:ml-auto" data-priv
                   th:text="'−' + ${T(com.family.finance.service.MoneyFormat).format2(e.currency, e.amount)}">−¥0</span>
@@ -320,8 +341,12 @@
                   th:if="${e.currency != baseCurrency and expenseBaseById != null and expenseBaseById.get(e.id) != null}"
                   th:text="'≈ ' + ${T(com.family.finance.service.MoneyFormat).format2(baseCurrency, expenseBaseById.get(e.id))}">≈ ¥0</span>
             <span class="font-mono text-[10px] text-ink-subtle" th:if="${e.note != null}" th:text="${e.note}">备注</span>
-            <span class="font-mono text-[10px] text-ink-subtle" th:if="${e.submittedAt != null}"
-                  th:text="${#temporals.format(e.submittedAt, 'MM-dd')}" th:title="${'填报于 ' + #temporals.format(e.submittedAt, 'yyyy-MM-dd HH:mm')}">08-01</span>
+            <!--/* 显示【交易日期】而不是填报时间 —— 导入进来的几百笔填报时间全一样。
+                   两个都放进 title,想知道什么时候录的还能看到。 */-->
+            <span class="font-mono text-[10px] text-ink-subtle" th:if="${e.occurredAt != null}"
+                  th:text="${#temporals.format(e.occurredAt, 'MM-dd')}"
+                  th:title="${'交易 ' + #temporals.format(e.occurredAt, 'yyyy-MM-dd')
+                             + (e.submittedAt != null ? ' · 填报于 ' + #temporals.format(e.submittedAt, 'yyyy-MM-dd HH:mm') : '')}">09-08</span>
             <span class="pill text-[9px]" style="background:rgba(159,74,58,.10);color:var(--rust);border-color:var(--rust)">已出账 + 流水</span>
             <form th:action="@{/entry/expense/{id}/delete(id=${e.id})}" method="post" class="inline ml-auto sm:ml-0">
               <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
@@ -382,6 +407,7 @@
        必须排在 lens-select 之后:两者都改同一个 select,后者靠 MutationObserver 跟随重建。 -->
   <script th:src="@{/js/expense-liability.js(v=${buildVersion})}"></script>
   <script th:src="@{/js/cat-grid.js(v=${buildVersion})}"></script>   <!--/* v1.21 · 支出分类宫格 */-->
+  <script th:src="@{/js/flow-table.js(v=${buildVersion})}"></script>  <!--/* v1.21 · 流水搜索 + 分页(导入能落进几百笔) */-->
   <style>
     /* 自研下拉的按钮要和旁边的 input(h-9 font-mono text-xs bg-paper)长得一样高、一样字号,
        否则同一行控件参差不齐(并列同类元素必须同尺寸)。lens-select 自带的是通用纸面样式,
