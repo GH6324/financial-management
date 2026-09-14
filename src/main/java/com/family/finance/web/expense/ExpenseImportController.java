@@ -65,6 +65,7 @@ public class ExpenseImportController {
     private final ExpenseImportBatchMapper batchMapper;
     private final NavService navService;
     private final com.family.finance.repository.ExpenseAccountRuleMapper acctRuleMapper;
+    private final com.family.finance.repository.CashFlowCategoryMapper cashFlowCategoryMapper;
 
     @GetMapping("/expense/import")
     public String page(@AuthenticationPrincipal MemberPrincipal me,
@@ -161,6 +162,24 @@ public class ExpenseImportController {
         java.util.Set<Long> distinct = new java.util.LinkedHashSet<>();
         for (var l : draft.lines()) if (l.accountId() != null) distinct.add(l.accountId());
         model.addAttribute("acctSpan", distinct.size());
+        model.addAttribute("aiAvailable", importService.aiAvailable());
+        /* v1.21 FR-580 · 另外两个桶也要能看见。
+         * 原来只给一个数字「已剔除 92」—— 用户没法核对我们剔得对不对,
+         * 而「剔错了」的后果是支出少算,他不会立刻发现。
+         *
+         * 可动性分三档(见模板里的说明):
+         *   要导入 → 可改分类/账户、可剔除
+         *   已剔除 → 【可恢复】,但金额≤0 的不行(DB 有 CHECK(amount>0),恢复了必炸)
+         *   已存在 → 只读。给「强制再导」等于给一个「制造双份」的按钮 */
+        model.addAttribute("droppedLines", draft.bucket(BillCategoryResolver.Bucket.DROPPED));
+        model.addAttribute("skippedLines", draft.bucket(BillCategoryResolver.Bucket.SKIPPED));
+        model.addAttribute("natureLines", draft.bucket(BillCategoryResolver.Bucket.NATURE));
+        /* NATURE 桶只带 natureCode(loan_payment / …),面向用户要显示中文名。
+         * 名字的唯一真相在 cash_flow_category,别在模板里硬编码一份 —— 改了名会对不上。 */
+        java.util.Map<String, String> natureNames = new java.util.LinkedHashMap<>();
+        for (var c : cashFlowCategoryMapper.listExpenseOrdered()) natureNames.put(c.getCode(), c.getDisplayName());
+        model.addAttribute("natureNames", natureNames);
+        model.addAttribute("incomeLines", draft.bucket(BillCategoryResolver.Bucket.INCOME));
         model.addAttribute("acctReviewCount",
                 draft.bucket(BillCategoryResolver.Bucket.SPEND).stream()
                         .filter(l -> l.accountHow() != null && l.accountHow().needsReview()).count());
@@ -237,6 +256,34 @@ public class ExpenseImportController {
         return "redirect:/expense/import?periodId=" + periodId;
     }
 
+    /**
+     * v1.21 FR-579 · 「让 AI 猜这几笔」—— 确认页上的<b>显式动作</b>,不是上传时的隐藏步骤。
+     *
+     * <p>返回 JSON,由前端应用到还没被用户改过的那几行。<b>不碰 session 里的草稿</b> ——
+     * 确认页本来就逐行提交分类值,所以没必要把建议写回服务端,
+     * 也就没有「AI 回来时用户已经改过这一行」的竞态。</p>
+     */
+    @PostMapping("/expense/import/ai-guess")
+    @org.springframework.web.bind.annotation.ResponseBody
+    public Map<String, Object> aiGuess(@AuthenticationPrincipal MemberPrincipal me, HttpSession session) {
+        var draft = (BillCategoryResolver.Draft) session.getAttribute(DRAFT_KEY);
+        if (draft == null) return Map.of("ok", false, "reason", "草稿过期了,重新传一次文件。");
+        if (!importService.aiAvailable()) {
+            return Map.of("ok", false, "reason", "还没配 AI(或者 key 没余额)—— 去管理页配好再试。没有它也能用,认不出来的落「其他」等你改。");
+        }
+        try {
+            var guess = importService.guessForFallback(me.getFamilyId(), draft);
+            Map<String, Object> byName = new LinkedHashMap<>();
+            guess.forEach((k, v) -> byName.put(k, Map.of(
+                    "id", v, "label", categoryService.displayName(me.getFamilyId(), v))));
+            return Map.of("ok", true, "guess", byName);
+        } catch (Exception e) {
+            // 只记形状,不记商户名(账单内容不进日志)
+            log.warn("AI 归类失败 · {}", e.toString());
+            return Map.of("ok", false, "reason", "AI 没答上来(" + e.getClass().getSimpleName() + ")—— 剩下的手动改一下就好。");
+        }
+    }
+
     @PostMapping("/expense/import/confirm")
     public String confirm(@AuthenticationPrincipal MemberPrincipal me,
                           @RequestParam long periodId,
@@ -245,6 +292,7 @@ public class ExpenseImportController {
                           @RequestParam(required = false) List<String> cat,
                           @RequestParam(required = false) List<String> acct,
                           @RequestParam(required = false) List<Integer> drop,
+                          @RequestParam(required = false) List<Integer> restore,
                           @RequestParam(defaultValue = "false") boolean remember,
                           @RequestParam(defaultValue = "false") boolean affectsBalance,
                           HttpSession session, RedirectAttributes ra) {
@@ -277,11 +325,29 @@ public class ExpenseImportController {
             }
             java.util.Set<Integer> dropped =
                     drop == null ? java.util.Set.of() : new java.util.HashSet<>(drop);
+            /* 用户从「已剔除」里捞回来的行(FR-580)。金额≤0 的捞不回来 —— 前端不给按钮,
+             * 这里再挡一次:DB 上有 CHECK(amount>0),放过去整批事务会回滚。 */
+            java.util.Set<Integer> restored =
+                    restore == null ? java.util.Set.of() : new java.util.HashSet<>(restore);
 
             List<BillCategoryResolver.Line> finalLines = new ArrayList<>();
             int userDropped = 0;
             for (var l : draft.lines()) {
                 if (dropped.contains(l.idx())) { userDropped++; continue; }
+                if (l.bucket() == BillCategoryResolver.Bucket.DROPPED) {
+                    if (!restored.contains(l.idx())
+                            || l.amount() == null || l.amount().signum() <= 0) continue;
+                    // 捞回来的行按「消费」处理,分类走用户在那一行选的(没选就落「其他」)
+                    Long rc = changed.get(l.idx());
+                    Long cid = (rc != null && categoryService.isUsable(fam, rc)) ? rc : null;
+                    Long rAcct = acctOf.get(l.idx());
+                    Long aid = (rAcct != null && ownedAccount(fam, rAcct)) ? rAcct : l.accountId();
+                    finalLines.add(new BillCategoryResolver.Line(l.idx(), l.occurredAt(), l.merchant(),
+                            l.amount(), cid, categoryService.displayName(fam, cid),
+                            BillCategoryResolver.How.RULE, BillCategoryResolver.Bucket.SPEND,
+                            null, null, l.txNo(), l.payMethod(), aid, l.accountHow()));
+                    continue;
+                }
 
                 // ── 账户:用户改过就用他的(校验归属),否则保留推荐值 ──
                 Long newAcct = acctOf.get(l.idx());

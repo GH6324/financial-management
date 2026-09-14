@@ -136,14 +136,57 @@ public class BillImportService {
         Map<String, Long> acctRules = new LinkedHashMap<>();
         for (var r : acctRuleMapper.findByFamily(familyId)) acctRules.put(r.keyword(), r.accountId());
 
-        BillCategoryResolver.Draft d = BillCategoryResolver.classify(
+        /* 【上传阶段不调 AI】(FR-579)。前两层归类是纯本地的、毫秒级,确认页应该立刻出来。
+         *
+         * 原来在这里同步调 AI,于是页面停在「读到 428 笔」不动几十秒 —— 用户以为卡死了。
+         * 而这个等待是可以【完全避免】的,不是「需要一个 loading 动画」的问题:
+         *   · AI 只处理前两层都没命中的那一小撮,是锦上添花不是必需;
+         *   · 它是要花钱的外部调用,可能欠费、可能超时;
+         *   · 它给的只是【建议】,用户本来就能改。
+         * 所以改成确认页上的一个明确按钮,点了才调,只有那个按钮转圈。 */
+        return BillCategoryResolver.classify(
                 channel, parsed, allNodes, rules, other.getId(), seen,
                 accounts, acctRules, defaultAccountId);
-        return applyAi(familyId, d, allNodes, other.getId());
     }
 
     /**
-     * 第三层:把「兜底」那一堆的商户名送给模型猜。
+     * 第三层:把「兜底」那一堆的商户名送给模型猜 —— <b>只返回建议,不改草稿</b>。
+     *
+     * <p>确认页本来就是逐行提交分类值的,所以建议在<b>客户端</b>应用就够了:
+     * 不碰 session 里的草稿 → 没有「AI 回来时用户已经改过这一行」的竞态,
+     * 也不需要后台线程和轮询。用户改过的行由前端跳过。</p>
+     *
+     * @return 商户名 → 分类 id;猜不出来的不出现在结果里
+     */
+    public Map<String, Long> guessForFallback(long familyId, BillCategoryResolver.Draft d) {
+        List<ExpenseCategory> allNodes = categoryService.all(familyId).stream()
+                .filter(c -> !c.isArchived()).toList();
+        List<BillCategoryResolver.Line> fallback = d.lines().stream()
+                .filter(l -> l.bucket() == BillCategoryResolver.Bucket.SPEND
+                          && l.how() == BillCategoryResolver.How.FALLBACK)
+                .toList();
+        if (fallback.isEmpty() || allNodes.isEmpty() || !ai.available()) return Map.of();
+
+        List<String> names = fallback.stream().map(BillCategoryResolver.Line::merchant).distinct().toList();
+        List<String> catNames = allNodes.stream().map(ExpenseCategory::getName).distinct().toList();
+        Map<String, String> guess = ai.classify(names, catNames);
+
+        Map<String, Long> idOfName = new LinkedHashMap<>();
+        for (ExpenseCategory c : allNodes) if (!c.isTopLevel()) idOfName.putIfAbsent(c.getName(), c.getId());
+        for (ExpenseCategory c : allNodes) if (c.isTopLevel()) idOfName.putIfAbsent(c.getName(), c.getId());
+
+        Map<String, Long> out = new LinkedHashMap<>();
+        guess.forEach((merchant, cat) -> {
+            Long id = idOfName.get(cat);
+            if (id != null) out.put(merchant, id);
+        });
+        return out;
+    }
+
+    public boolean aiAvailable() { return ai.available(); }
+
+    /**
+     * 【已停用】原来在上传阶段同步调 AI 的路径。
      *
      * <p>只送 {@link BillCategoryResolver.How#FALLBACK} 的行 —— 前两层命中的不该被 AI 覆盖:
      * 渠道自己的分类和用户自己的规则都比模型的猜测可信。</p>

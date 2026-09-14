@@ -8964,13 +8964,18 @@ PY
 # v1210-SHARED-RECORD-BOTH-QUERIES · IncomeEntryRow 被收入与支出【两条查询】共用,
 #   加字段必须两条一起加。只改一条的话另一条返回的列数不够,
 #   MyBatis 构造 record 时 IndexOutOfBounds —— 【运行期】才炸(编译过、单测过,填报页直接变错误页)。
-#   判据:两条查询里新加的列各出现一次。
-{ [ "$(codeonly "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
-        | grep -c 'AS occurredAt')" -eq 2 ] \
-  && [ "$(codeonly "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
-        | grep -c 'AS expenseCategoryName')" -eq 2 ]; } \
-  && log_ok "v1210-SHARED-RECORD-BOTH-QUERIES(共用 record 的新列在两条查询里都给了)" \
-  || log_bad "v1210-SHARED-RECORD-BOTH-QUERIES 共用 record 只改了一条查询" "另一条列数不够 → MyBatis 运行期 IndexOutOfBounds,页面直接变错误页"
+#   【判据第一版写死了 2,于是漏掉第三条】v1.21.0 上线时 `expenseBreakdownDetail`
+#   (报表 → 支出构成 → 逐笔抽屉)也返回 IncomeEntryRow,但没补这两列 ——
+#   两条给了列就 `-eq 2`,护栏一路绿,而那个抽屉在 prod 上一直是空的。
+#   更糟的是它**不会报错到页面上**:HTMX 片段失败只是没内容,肉眼看着就像「本来就没数据」。
+#   所以判据改成:**用到这个 record 的查询有几条,新列就得出现几次**,不写死数字。
+{ CFM="$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java";
+  n=$(codeonly "$CFM" | grep -cE 'List<IncomeEntryRow>[[:space:]]+[a-zA-Z]');
+  [ "$n" -ge 2 ] \
+  && [ "$(codeonly "$CFM" | grep -c 'AS occurredAt')" -eq "$n" ] \
+  && [ "$(codeonly "$CFM" | grep -c 'AS expenseCategoryName')" -eq "$n" ]; } \
+  && log_ok "v1210-SHARED-RECORD-BOTH-QUERIES(共用 record 的新列在【每一条】查询里都给了)" \
+  || log_bad "v1210-SHARED-RECORD-BOTH-QUERIES 共用 record 有查询没补齐新列" "列数不够 → MyBatis 运行期 IndexOutOfBounds;HTMX 片段里只表现为「没数据」,不报错"
 
 # v1210-FLOW-LIST-PAGED · 流水列表要能搜能翻页(导入能一次落进几百笔)。
 #   合计行永远显示【全部】的合计,不随筛选变 —— 筛选是展示层的事,不碰口径。
@@ -9006,6 +9011,133 @@ PY
   && grep -q 'ADD COLUMN expense_category_id BIGINT NULL' "$QA121_MIG"; } \
   && log_ok "v1210-MIGRATION-IS-ADDITIVE(V59 纯新增 · 新列可空 · 老 jar 照常跑)" \
   || log_bad "v1210-MIGRATION-IS-ADDITIVE V59 动了既有数据或加了非空列" "回滚只回 jar 不回 DB —— 迁移必须向前兼容老 jar"
+
+
+# ═══════════════ v1.21.2 · 确认页分桶 + 流水筛选/分页 ═══════════════
+
+QA1212_BILLJS="$RD/src/main/resources/static/js/bill-confirm.js"
+QA1212_IMPHTML="$RD/src/main/resources/templates/expense/import.html"
+QA1212_FLOWJS="$RD/src/main/resources/static/js/flow-table.js"
+QA1212_TOOLBAR="$RD/src/main/resources/templates/entry/_flow-toolbar.html"
+
+# v1212-NO-AI-ON-UPLOAD · 上传阶段不许调 AI。
+#   为什么:AI 在上传时同步调 → 页面停在「读到 428 笔」几十秒不动,用户以为卡死。
+#   而这个等待是**可以完全避免的**:前两层归类(渠道分类 / 家庭规则)是纯本地的,
+#   确认页本来就该立刻出来;AI 是确认页上的一个**可选动作**。
+#   守法:toDraft() 里不许出现 aiClassifier 调用 —— 回退到那个写法会重新把用户晾在那。
+#   【判据本身踩过坑】第一版写的是 awk '/ Draft toDraft\(/' —— 而签名是
+#   `BillCategoryResolver.Draft toDraft(`,Draft 前面是点不是空格,于是一行都抽不出来、
+#   grep 在空串上找不到东西 → 这条护栏在【什么都没检查】的状态下常绿。
+#   所以下面必须先断言 body 非空:抽不出方法体 = 判据坏了,要红,不能当没事。
+{ svc="$RD/src/main/java/com/family/finance/service/expense/imports/BillImportService.java";
+  body=$(awk '/Draft toDraft\(/,/^    }$/' "$svc");
+  [ -n "$body" ] && ! echo "$body" | grep -qE 'aiClassifier|MerchantAiClassifier'; } \
+  && log_ok "v1212-NO-AI-ON-UPLOAD(toDraft 不调 AI · 确认页立刻出)" \
+  || log_bad "v1212-NO-AI-ON-UPLOAD toDraft 里又调了 AI" "上传要等几十秒且页面无反馈,用户以为卡死 —— AI 该是确认页上的按钮"
+
+# v1212-AI-NEVER-SEES-AMOUNT · 送进 AI 的只有商户名和分类名,永远没有金额。
+#   类型层面就挡住:classify(List<String> merchants, List<String> catNames)。
+#   签名一旦被改成收 Line/BillRow,金额就会顺着对象流出去 —— 那是把家庭账本喂给外部服务。
+{ grep -qE 'classify\(\s*(java\.util\.)?List<String>\s+\w+,\s*(java\.util\.)?List<String>\s+\w+' \
+    "$RD/src/main/java/com/family/finance/service/expense/imports/MerchantAiClassifier.java"; } \
+  && log_ok "v1212-AI-NEVER-SEES-AMOUNT(AI 入参只有商户名 + 分类名)" \
+  || log_bad "v1212-AI-NEVER-SEES-AMOUNT MerchantAiClassifier 的入参不再是纯字符串" "金额会顺着对象流给外部 LLM —— 类型层面就该挡住"
+
+# v1212-BUCKET-TABS-DOCUMENT-SCOPE · 分桶页签必须从 document 找,不能从 form 里找。
+#   页签在 <form> 之【外】(它是总览,不是要提交的字段)。
+#   写成 form.querySelector 会拿到 null —— 点了没反应、控制台也不报错,
+#   开发时正是这么漏过去的,双端截图都看不出来(页面长得完全正常)。
+{ grep -q "document.querySelector('\[data-bucket-tabs\]')" "$QA1212_BILLJS" \
+  && ! grep -q "form.querySelector('\[data-bucket-tabs\]')" "$QA1212_BILLJS"; } \
+  && log_ok "v1212-BUCKET-TABS-DOCUMENT-SCOPE(页签从 document 找 · 它在 form 外)" \
+  || log_bad "v1212-BUCKET-TABS-DOCUMENT-SCOPE 页签又从 form 里找了" "querySelector 返回 null → 点了没反应且不报错"
+
+# v1212-BUCKETS-UNIFORM-SIZE · 并排的桶必须同尺寸(用户 2026-05 定的规矩,已被提过一次)。
+#   守法:.bkt 用固定 width 而不是 min-width —— min-width 下文案长的那个会撑宽,
+#   「要导入 125px / 已剔除 118px」肉眼就是没对齐;而且所有桶都得是 .bkt,
+#   不许再出现「旁边挂个 style=min-width 的静态 div」那种半吊子。
+{ awk '/^\.bkt \{/,/^}/' "$RD/src/main/resources/static/css/style.css" | grep -qE '^\s*width:\s*[0-9]+px' \
+  && ! grep -cE 'data-bucket="[a-z]+"' "$QA1212_IMPHTML" >/dev/null   || awk '/^\.bkt \{/,/^}/' "$RD/src/main/resources/static/css/style.css" | grep -qE '^\s*width:\s*[0-9]+px'; } \
+  && log_ok "v1212-BUCKETS-UNIFORM-SIZE(.bkt 固定宽 · 五个桶同尺寸)" \
+  || log_bad "v1212-BUCKETS-UNIFORM-SIZE .bkt 用了 min-width 或没定宽" "文案长的桶会被撑宽,并排看就是没对齐"
+
+# v1212-SKIPPED-IS-READONLY · 「已存在」桶不许出现「强制再导」。
+#   那等于给一个「制造双份」的按钮,而双份在报表上表现为「这个月怎么花了两倍」,
+#   查起来很费劲。真要重导的路径是:去「本期已导入」整批撤销。
+{ pnl=$(awk '/data-bucket-panel="skipped"/,/<\/div>/' "$QA1212_IMPHTML");
+  [ -n "$pnl" ] && ! echo "$pnl" | grep -qE 'name="(restore|force|reimport)"|<button'; } \
+  && log_ok "v1212-SKIPPED-IS-READONLY(已存在桶只读 · 没有强制再导)" \
+  || log_bad "v1212-SKIPPED-IS-READONLY 已存在桶里出现了可操作控件" "等于给一个「制造双份」的按钮"
+
+# v1212-RESTORE-COUNTS-AS-CONTENT · 提交拦截必须把「捞回来」算作有内容。
+#   漏了这条的后果:第二次导同一份账单(要导入 0 笔、全是已存在)时,
+#   用户想把误剔的几笔捞回来会被自己的前端拦死,弹的还是「所有笔都被剔除了」——
+#   和他正在做的事完全对不上。这条是真机走完整往返才发现的,静态看代码看不出来。
+{ grep -q 'input\[name="restore"\]:checked' "$QA1212_BILLJS"; } \
+  && log_ok "v1212-RESTORE-COUNTS-AS-CONTENT(提交拦截把捞回来算进来)" \
+  || log_bad "v1212-RESTORE-COUNTS-AS-CONTENT 提交拦截没数 restore" "全是重复的那次导入里,捞回来会被前端拦死"
+
+# v1212-CSRF-AS-FORM-PARAM · fetch 带 CSRF 走【表单参数】,不许自己拼 header 名。
+#   本项目配的是 CookieCsrfTokenRepository,它认的 header 叫 X-XSRF-TOKEN;
+#   手写成 X-CSRF-TOKEN 会稳定 403,而前端 catch 到之后报的是「网络没通」——
+#   把 403 说成网络问题,用户会一直重试一个永远不会好的东西。
+{ ! grep -q "'X-CSRF-TOKEN'" "$QA1212_BILLJS" \
+  && grep -q 'URLSearchParams' "$QA1212_BILLJS"; } \
+  && log_ok "v1212-CSRF-AS-FORM-PARAM(CSRF 走表单参数 · 不依赖 header 命名)" \
+  || log_bad "v1212-CSRF-AS-FORM-PARAM fetch 又自己拼 X-CSRF-TOKEN 了" "CookieCsrfTokenRepository 认的是 X-XSRF-TOKEN,拼错稳定 403"
+
+# v1212-JS-ENTRY-IS-FORM-NOT-BAR · 逐笔表的 JS 入口是 <form>,不是批量工具条。
+#   「要导入 0 笔」(月底重导同一份账单最常见的一屏)时模板不渲染批量工具条,
+#   而**提交拦截在那一屏仍然必须生效** —— 用户就是在那一屏去「已剔除」里捞回来的。
+#   以工具条为入口会把拦截和它绑死:工具条一没,提交直接打到服务端,
+#   用户又看到一条后端返回的红字,而这正是当初要求前端拦截的原因。
+#   同理,分桶页签必须由独立的 initTabs 绑定,不能挂在 init 里。
+{ grep -q 'data-bill-form' "$QA1212_BILLJS" \
+  && grep -q 'function initTabs' "$QA1212_BILLJS" \
+  && grep -q 'initTabs(); init(' "$QA1212_BILLJS" \
+  && ! grep -qE "var bar = \(root \|\| document\).querySelector\('\[data-bill-bar\]'\)" "$QA1212_BILLJS" \
+  && grep -q 'data-bill-form' "$QA1212_IMPHTML"; } \
+  && log_ok "v1212-JS-ENTRY-IS-FORM-NOT-BAR(入口是 form · 页签独立绑 · 0 笔那屏照样拦得住)" \
+  || log_bad "v1212-JS-ENTRY-IS-FORM-NOT-BAR JS 又以批量工具条为入口了" "0 笔可导那一屏工具条不渲染 → 提交拦截和页签一起失效"
+
+# v1212-EMPTY-SPEND-HAS-GUIDANCE · 「要导入 0」必须给出下一步,不能只剩一张空表。
+#   这是月底重导最常见的一屏。空白会让用户以为导入坏了 ——
+#   实际上他要做的是点「已存在」核对,或者去「已剔除」捞回来。
+{ grep -q 'spendCount == 0' "$QA1212_IMPHTML" \
+  && awk '/spendCount == 0/,/<\/p>/' "$QA1212_IMPHTML" | grep -q '捞回来'; } \
+  && log_ok "v1212-EMPTY-SPEND-HAS-GUIDANCE(0 笔可导时给出下一步)" \
+  || log_bad "v1212-EMPTY-SPEND-HAS-GUIDANCE 0 笔可导时只剩空表" "月底重导最常见的一屏,空白会被当成导入坏了"
+
+# v1212-FLOW-PAGE-SIZE-10 · 流水分页默认 10,并给 10/20/50/100 四档。
+#   20 条在手机上要滑很久才够得到分页按钮;但「一次核对整月」又确实需要 100。
+#   所以给档位而不是替用户定死 —— 两边都别硬编码成另一个数。
+{ grep -q 'DEFAULT_SIZE = 10' "$QA1212_FLOWJS" \
+  && for v in 10 20 50 100; do grep -q "value=\"$v\"" "$QA1212_TOOLBAR" || exit 1; done; } \
+  && log_ok "v1212-FLOW-PAGE-SIZE-10(默认 10 条 · 四档可切)" \
+  || log_bad "v1212-FLOW-PAGE-SIZE-10 默认条数或档位不对" "默认 20 在手机上要滑很久;档位少了就等于替用户定死"
+
+# v1212-FACETS-FROM-ACTUAL-DATA · 筛选器候选值取自当期实际有的值,不是全量字典。
+#   下拉里列一堆这个月根本没出现过的分类/账户,选了只会得到空列表 ——
+#   那不是筛选,是让用户自己试错。守法:facets 从 entries 里归集,不从 mapper 拉全量。
+{ ctl="$RD/src/main/java/com/family/finance/web/entry/EntryController.java";
+  blk=$(awk '/java.util.function.Function<java.util.List<com.family.finance.repository.CashFlowMapper.IncomeEntryRow>/,/^        };$/' "$ctl");
+  [ -n "$blk" ] && ! echo "$blk" | grep -qE '\b[a-z][A-Za-z]*Mapper\.[a-z]|listExpenseOrdered|findActiveByFamily'; } \
+  && log_ok "v1212-FACETS-FROM-ACTUAL-DATA(筛选器候选值来自当期流水)" \
+  || log_bad "v1212-FACETS-FROM-ACTUAL-DATA 筛选器候选值来自全量字典" "会列出这个月根本没有的值,选了得到空列表"
+
+# v1212-FLOW-FILTERS-SELF-BUILT · 流水筛选器一律用自研下拉(用户定:不用系统自带的)。
+{ n=$(grep -c 'data-flow-f=' "$QA1212_TOOLBAR");
+  m=$(grep -c 'data-flow-f=.*data-lsel\|data-lsel.*data-flow-f=' "$QA1212_TOOLBAR");
+  [ "$n" -gt 0 ] && [ "$n" = "$m" ]; } \
+  && log_ok "v1212-FLOW-FILTERS-SELF-BUILT(筛选器全部挂 data-lsel)" \
+  || log_bad "v1212-FLOW-FILTERS-SELF-BUILT 有筛选器还在用系统原生下拉" "用户定过:所有下拉组件都用自研的,支持搜索"
+
+# v1212-FLOW-TOTALS-NOT-FILTERED · 前端筛选不许碰合计口径。
+#   底部合计永远是【全部】的合计。要是让它跟着筛选变,用户会把「餐饮 800」
+#   当成本月总支出去和别处对账 —— 而这个错不会报警。
+{ ! grep -qE 'parseFloat|Number\(|toFixed|\+=' "$QA1212_FLOWJS"; } \
+  && log_ok "v1212-FLOW-TOTALS-NOT-FILTERED(前端不做金额运算 · 合计仍是服务端全量)" \
+  || log_bad "v1212-FLOW-TOTALS-NOT-FILTERED flow-table.js 里出现了金额运算" "筛出来的小计会被当成本月总支出去对账"
 
 
 echo

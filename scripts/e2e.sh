@@ -400,10 +400,27 @@ if [ -n "$XP" ] && [ -n "$XA" ]; then
 
   # ③ 录一笔 → 从所选账户余额扣除(FR-274 的核心行为)
   xb0="$(db "SELECT ROUND(IFNULL(end_balance,0)) FROM period_snapshot WHERE period_id=$XP AND account_id=$XA")"
+  # v1.21 起「从余额里扣」是**显式参数**:页面上那个复选框默认勾着,所以表单一定带 affectsBalance=true。
+  # 这个夹具原来不带它 —— 服务端 defaultValue=false,于是余额一分不动,四条断言一起红。
+  # **不要把服务端默认改成 true 来「修」它**:未勾选的 checkbox 本来就不提交任何值,
+  # 默认 true 会让「不扣余额」这个选项彻底失效,而那正是 v1.21 要的能力。
   c="$(POSTcode /entry/expense --data-urlencode "periodId=$XP" --data-urlencode "accountId=$XA" \
-        --data-urlencode "categoryCode=consumption" --data-urlencode "amount=3200" --data-urlencode "note=e2e日常")"
+        --data-urlencode "categoryCode=consumption" --data-urlencode "amount=3200" \
+        --data-urlencode "affectsBalance=true" --data-urlencode "note=e2e日常")"
   eq "支出-录入 HTTP 2xx/3xx" "$([ "$c" -ge 200 ] && [ "$c" -lt 400 ] && echo ok || echo "$c")" "ok"
   eq "支出-账户余额 −3200(录入即出账)" "$(( xb0 - $(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$XP AND account_id=$XA") ))" "3200"
+  # v1.21 FR-571 · 「落到账户」是【可选】的。不勾时 checkbox 不提交任何值 → 服务端 false →
+  #   只记「花在哪」,不动余额。这条要单独钉:它和上面那条是一对,少了任何一条都测不出
+  #   「默认值被谁改了」——把服务端默认改成 true 的话,上面那条照样绿,只有这条会红。
+  xb1="$(db "SELECT ROUND(IFNULL(end_balance,0)) FROM period_snapshot WHERE period_id=$XP AND account_id=$XA")"
+  POSTcode /entry/expense --data-urlencode "periodId=$XP" --data-urlencode "accountId=$XA" \
+        --data-urlencode "categoryCode=consumption" --data-urlencode "amount=77" \
+        --data-urlencode "note=e2e不扣余额" >/dev/null
+  eq "支出-不勾「从余额里扣」时余额不动(可选,FR-571)" \
+     "$(( xb1 - $(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$XP AND account_id=$XA") ))" "0"
+  eq "支出-不扣余额的那笔仍然记进了流水(只是不碰账户)" \
+     "$(db "SELECT COUNT(*) FROM cash_flow WHERE period_id=$XP AND account_id=$XA AND note='e2e不扣余额' AND deleted_at IS NULL")" "1"
+
   eq "支出-流水 kind=EXPENSE 且 is_adjustment=0(口径 A · 家庭支出)" \
      "$(db "SELECT CONCAT(kind,'|',is_adjustment) FROM cash_flow WHERE period_id=$XP AND account_id=$XA AND note='e2e日常' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1")" "EXPENSE|0"
 
@@ -430,7 +447,8 @@ if [ -n "$XP" ] && [ -n "$XA" ]; then
       case "$drain" in *data-entry-flash-error*|*data-balance-guard*) i=$((i+1));; *) break;; esac
     done
     c="$(POSTcode /entry/expense --data-urlencode "periodId=$XP" \
-         --data-urlencode "accountId=$1" --data-urlencode "categoryCode=$2" --data-urlencode "amount=100")"
+         --data-urlencode "accountId=$1" --data-urlencode "categoryCode=$2" --data-urlencode "amount=100" \
+         --data-urlencode "affectsBalance=true")"
     if [ "$c" -ge 400 ]; then echo rejected; return; fi
     # 必须带 period —— Spring 的 FlashMap 会记住 redirect 目标的**查询参数**
     # (targetRequestParams),后续请求参数对不上就不弹出 flash。真实浏览器跟随 302

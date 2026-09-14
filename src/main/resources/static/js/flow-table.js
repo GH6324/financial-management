@@ -1,5 +1,5 @@
 /*
- * v1.21 · 填报页流水列表的搜索 + 分页(纯前端)。
+ * v1.21 · 填报页流水列表的搜索 + 筛选 + 分页(纯前端)。
  *
  * 为什么需要:账单导入能一次落进几百笔,而这个列表原来是全量平铺的 ——
  * 一个月 300 笔时填报页会变成一条望不到头的长龙,想找某一笔只能 Ctrl+F。
@@ -15,6 +15,10 @@
  * 可搜的文本由服务端写进每行的 data-s —— 不靠读 DOM 文字:
  * 那样会把「已出账 + 流水」这类装饰文案也搜进去,而且金额被隐私模式糊过之后就搜不到了。
  *
+ * 筛选器(v1.21.2)与搜索是【AND】关系,各自独立:
+ * 搜索要求用户先想起自己要搜什么,筛选器把当期实际有的值摆出来直接点。
+ * 每行的取值由服务端写进 data-f-<键>,和 data-s 同理 —— 不从 DOM 文字里反推。
+ *
  * DOM 一律走 createElement / textContent,不拼 HTML(与 lens-select 同一条纪律)。
  */
 (function () {
@@ -22,7 +26,9 @@
 
   /** 少于这么多行整条工具条都不出现 —— 一个月记三五笔的家庭不需要搜索框,那是噪音 */
   var MIN_ROWS = 12;
-  var PAGE_SIZE = 20;
+  /* 默认 10 条。此前是 20 —— 手机上要滑很久才够得到分页按钮。
+     想一次看更多的走工具条上的档位切换,不替用户定死。 */
+  var DEFAULT_SIZE = 10;
 
   function init(root) {
     (root || document).querySelectorAll('[data-flow-list]').forEach(function (list) {
@@ -40,17 +46,27 @@
       var pgnum = bar.querySelector('[data-flow-pgnum]');
       var prev = bar.querySelector('[data-flow-prev]');
       var next = bar.querySelector('[data-flow-next]');
+      var sizeSel = bar.querySelector('[data-flow-size]');
+      var filters = Array.prototype.slice.call(bar.querySelectorAll('[data-flow-f]'));
+      var clearBtn = bar.querySelector('[data-flow-clear]');
       var page = 0;
+      var size = DEFAULT_SIZE;
       var matched = rows;
 
       function haystack(r) { return (r.getAttribute('data-s') || '').toLowerCase(); }
 
       function filter() {
         var terms = (q.value || '').toLowerCase().trim().split(/\s+/).filter(Boolean);
-        matched = terms.length === 0 ? rows : rows.filter(function (r) {
+        /* 只取有值的筛选器 —— 空值 = 不约束这个维度,不是「筛出空字符串」 */
+        var active = filters.filter(function (f) { return f.value; });
+        matched = rows.filter(function (r) {
           var h = haystack(r);
-          return terms.every(function (t) { return h.indexOf(t) >= 0; });
+          if (!terms.every(function (t) { return h.indexOf(t) >= 0; })) return false;
+          return active.every(function (f) {
+            return r.getAttribute('data-f-' + f.getAttribute('data-flow-f')) === f.value;
+          });
         });
+        if (clearBtn) clearBtn.hidden = active.length === 0 && terms.length === 0;
         page = 0;
         render();
       }
@@ -67,10 +83,10 @@
       }
 
       function render() {
-        var pages = Math.max(1, Math.ceil(matched.length / PAGE_SIZE));
+        var pages = Math.max(1, Math.ceil(matched.length / size));
         if (page >= pages) page = pages - 1;
-        var from = page * PAGE_SIZE;
-        var show = matched.slice(from, from + PAGE_SIZE);
+        var from = page * size;
+        var show = matched.slice(from, from + size);
         var set = new Set(show);
         rows.forEach(function (r) { r.hidden = !set.has(r); });
 
@@ -90,6 +106,31 @@
         clearTimeout(t);
         t = setTimeout(filter, 120);   // 几百行时每敲一个字就全量过一遍会卡
       });
+      filters.forEach(function (f) { f.addEventListener('change', filter); });
+
+      if (clearBtn) clearBtn.addEventListener('click', function () {
+        q.value = '';
+        filters.forEach(function (f) {
+          if (!f.value) return;
+          f.value = '';
+          /* 派发 change 让自研下拉(lens-select)同步按钮文案 —— 只改 .value
+             的话值清了但用户看到的还是「餐饮美食」。 */
+          f.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        filter();
+      });
+
+      if (sizeSel) sizeSel.addEventListener('change', function () {
+        var n = parseInt(sizeSel.value, 10);
+        if (!n || n < 1) return;
+        /* 切档位时保住【当前这一屏的第一条】,别把用户甩回第一页:
+           正在核对第 7 页、想一次多看点,结果跳回开头是最烦的。 */
+        var anchor = page * size;
+        size = n;
+        page = Math.floor(anchor / size);
+        render();
+      });
+
       if (prev) prev.addEventListener('click', function () { if (page > 0) { page--; render(); } });
       if (next) next.addEventListener('click', function () { page++; render(); });
 

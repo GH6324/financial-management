@@ -229,6 +229,26 @@ public class EntryController {
             }
             model.addAttribute("natureIcon", natureIcon);
         }
+        /* v1.21 · 流水筛选器的候选值 —— 从【当期实际有的】里取,不是全量字典:
+         * 下拉里列一堆这个月根本没出现过的类目/账户,选了只会得到空列表。 */
+        java.util.function.Function<java.util.List<com.family.finance.repository.CashFlowMapper.IncomeEntryRow>,
+                java.util.Map<String, java.util.List<String>>> facets = list -> {
+            java.util.Set<String> nature = new java.util.TreeSet<>();
+            java.util.Set<String> cat = new java.util.TreeSet<>();
+            java.util.Set<String> acct = new java.util.TreeSet<>();
+            java.util.Set<String> owner = new java.util.TreeSet<>();
+            if (list != null) for (var e : list) {
+                if (e.categoryName() != null) nature.add(e.categoryName());
+                if (e.expenseCategoryName() != null) cat.add(e.expenseCategoryName());
+                if (e.accountName() != null) acct.add(e.accountName());
+                if (e.ownerName() != null) owner.add(e.ownerName());
+            }
+            return java.util.Map.of("nature", new java.util.ArrayList<>(nature),
+                                    "cat", new java.util.ArrayList<>(cat),
+                                    "acct", new java.util.ArrayList<>(acct),
+                                    "owner", new java.util.ArrayList<>(owner));
+        };
+        model.addAttribute("incomeFacets", facets.apply(incomeEntries));
         model.addAttribute("expenseModeLabel", expenseMode.displayName());
         model.addAttribute("expenseModeHint", expenseMode.hintText());
         if (expenseMode == com.family.finance.domain.family.ExpenseEntryMode.ITEMIZED) {
@@ -245,6 +265,7 @@ public class EntryController {
             model.addAttribute("expenseAccounts", accountMapper.findActiveByFamily(me.getFamilyId()));
             var expenseEntries = cashFlowMapper.findExpenseEntries(me.getFamilyId(), period.getId());
             model.addAttribute("expenseEntries", expenseEntries);
+            model.addAttribute("expenseFacets", facets.apply(expenseEntries));
             java.util.Map<Long, BigDecimal> expenseBaseById = new java.util.LinkedHashMap<>();
             BigDecimal expenseBaseTotal = BigDecimal.ZERO;
             for (var e : expenseEntries) {

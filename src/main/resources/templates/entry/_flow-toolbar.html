@@ -1,26 +1,71 @@
 <!--/*
-  v1.21 · 流水列表的搜索 + 分页工具条(收入 / 支出共用)。
+  v1.21 · 流水列表的搜索 + 筛选 + 分页(收入 / 支出共用)。
 
   为什么现在需要它:v1.21 的账单导入能一次落进几百笔,而这个列表原来是【全量平铺】的。
   一个月 300 笔的话,填报页会变成一条望不到头的长龙 —— 想找某一笔只能 Ctrl+F。
 
   为什么做在【前端】:数据本来就已经全量渲染在页面上了,再去服务端分页等于
   多一轮往返、多一套参数、多一处「分页参数与筛选参数怎么组合」的状态。
-  前端过滤是纯展示层的事,不碰任何取数口径。
+  前端过滤是纯展示层的事,不碰任何取数口径 —— 底部合计行永远是【全部】的合计,不随筛选变。
+
+  为什么除了搜索还要【筛选器】(v1.21.2):搜索框要求用户先知道自己要搜什么。
+  「这个月在餐饮上花了几笔」用搜索是能搜,但得先想起分类叫「餐饮美食」;
+  筛选器把当期实际有的值直接摆出来,是【浏览】而不是【回忆】。
+
+  筛选项的候选值来自 EntryController 的 expenseFacets/incomeFacets ——
+  取自【当期实际出现过的值】,不是全量字典:列一堆这个月根本没有的分类,选了只会得到空列表。
 
   【少量记录时整条工具条不出现】—— 一个月记三五笔的家庭不需要搜索框,
   那是噪音。阈值见 flow-table.js 的 MIN_ROWS。
 */-->
-<div th:fragment="bar(listId, total)" class="flow-bar" th:attr="data-flow-bar=${listId}" hidden>
-  <input type="search" class="flow-q" th:attr="data-flow-q=${listId}"
-         placeholder="搜商户 / 备注 / 类目 / 账户 / 金额 / 日期(09-08)">
-  <span class="flow-count" th:attr="data-flow-count=${listId}">
-    共 <b th:text="${total}">0</b> 笔
-  </span>
-  <span style="flex:1"></span>
-  <div class="flow-pager" th:attr="data-flow-pager=${listId}">
-    <button type="button" class="flow-pg" data-flow-prev>←</button>
-    <span class="flow-pgnum" data-flow-pgnum>1 / 1</span>
-    <button type="button" class="flow-pg" data-flow-next>→</button>
+<div th:fragment="bar(listId, total, facets)" class="flow-bar" th:attr="data-flow-bar=${listId}" hidden>
+  <div class="flow-bar-line">
+    <input type="search" class="flow-q" th:attr="data-flow-q=${listId}"
+           placeholder="搜商户 / 备注 / 类目 / 账户 / 金额 / 日期(09-08)">
+    <span class="flow-count" th:attr="data-flow-count=${listId}">
+      共 <b th:text="${total}">0</b> 笔
+    </span>
+    <span style="flex:1"></span>
+    <div class="flow-pager" th:attr="data-flow-pager=${listId}">
+      <!--/* 每页条数:默认 10。20 条在手机上要滑很久才够到分页按钮,
+             但一次看 100 条对「核对整月」又确实更快 —— 所以给档位,不替用户定死。 */-->
+      <!--/* 也走自研下拉 —— 用户定过「所有下拉组件都用自研的」。
+             原生 select 在移动端会渲染成系统灰底样式,和旁边的筛选器摆一起一眼就不是一家的。 */-->
+      <select class="flow-size" data-flow-size data-lsel aria-label="每页条数">
+        <option value="10" selected>每页 10</option>
+        <option value="20">每页 20</option>
+        <option value="50">每页 50</option>
+        <option value="100">每页 100</option>
+      </select>
+      <button type="button" class="flow-pg" data-flow-prev>←</button>
+      <span class="flow-pgnum" data-flow-pgnum>1 / 1</span>
+      <button type="button" class="flow-pg" data-flow-next>→</button>
+    </div>
+  </div>
+
+  <!--/* 第二行 = 筛选器。某个维度在当期只有 0 或 1 个取值时整个筛选器不渲染:
+         一个只能选「全部 / 招商银行」的下拉没有信息量,只是占地方。 */-->
+  <div class="flow-bar-line flow-filters" th:if="${facets != null}">
+    <select class="flow-f" data-flow-f="nature" data-lsel
+            th:if="${facets.get('nature') != null and facets.get('nature').size() > 1}">
+      <option value="">全部类目</option>
+      <option th:each="v : ${facets.get('nature')}" th:value="${v}" th:text="${v}">日常开支</option>
+    </select>
+    <select class="flow-f" data-flow-f="cat" data-lsel data-lsel-search
+            th:if="${facets.get('cat') != null and facets.get('cat').size() > 1}">
+      <option value="">全部分类</option>
+      <option th:each="v : ${facets.get('cat')}" th:value="${v}" th:text="${v}">餐饮美食</option>
+    </select>
+    <select class="flow-f" data-flow-f="acct" data-lsel
+            th:if="${facets.get('acct') != null and facets.get('acct').size() > 1}">
+      <option value="">全部账户</option>
+      <option th:each="v : ${facets.get('acct')}" th:value="${v}" th:text="${v}">招商银行</option>
+    </select>
+    <select class="flow-f" data-flow-f="owner" data-lsel
+            th:if="${facets.get('owner') != null and facets.get('owner').size() > 1}">
+      <option value="">全部成员</option>
+      <option th:each="v : ${facets.get('owner')}" th:value="${v}" th:text="${v}">迪</option>
+    </select>
+    <button type="button" class="flow-clear" data-flow-clear hidden>清空筛选</button>
   </div>
 </div>

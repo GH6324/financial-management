@@ -311,11 +311,21 @@ public interface CashFlowMapper {
                    COALESCE(cat.display_name, cf.category_code) AS categoryName,
                    cf.amount AS amount, cf.note AS note,
                    COALESCE(m.display_name, '共同') AS ownerName,
-                   cf.submitted_at AS submittedAt
+                   cf.submitted_at AS submittedAt,
+                   -- v1.21 · IncomeEntryRow 是【三条】查询共用的投影,加列时三条都要跟上。
+                   -- 这条当时漏了 → MyBatis 构造 record 时 Index 11 out of bounds → 抽屉永远是空的,
+                   -- 而且【不报错到页面上】(HTMX 片段失败只是没内容),所以肉眼看不出来。
+                   cf.occurred_at AS occurredAt,
+                   -- 细类带上父名,与填报页列表同一口径(两个同名细类才分得清)
+                   CASE WHEN ec.id IS NULL THEN NULL
+                        WHEN ecp.name IS NULL THEN ec.name
+                        ELSE CONCAT(ecp.name, ' › ', ec.name) END AS expenseCategoryName
               FROM cash_flow cf
               JOIN account a ON a.id = cf.account_id
               LEFT JOIN member m ON m.id = a.primary_owner_member_id
               LEFT JOIN cash_flow_category cat ON cat.code = cf.category_code
+              LEFT JOIN expense_category ec  ON ec.id = cf.expense_category_id
+              LEFT JOIN expense_category ecp ON ecp.id = ec.parent_id
              WHERE a.family_id = #{familyId}
                AND a.archived_at IS NULL
                AND cf.kind = 'EXPENSE'

@@ -165,7 +165,7 @@
 
         <!-- 本期已录收入 -->
         <div th:if="${incomeEntries != null and !incomeEntries.isEmpty()}"
-             th:replace="~{entry/_flow-toolbar :: bar('income', ${incomeEntries.size()})}"></div>
+             th:replace="~{entry/_flow-toolbar :: bar('income', ${incomeEntries.size()}, ${incomeFacets})}"></div>
         <div th:if="${incomeEntries != null and !incomeEntries.isEmpty()}" class="border border-rule-soft bg-card"
              data-flow-list="income">
           <!-- 与支出列表同一套窄屏两行栅格(并列同类元素不能一个整齐一个散) -->
@@ -173,7 +173,8 @@
                th:attr="data-s=${(e.categoryName ?: '') + ' ' + (e.accountName ?: '') + ' ' + (e.note ?: '')
                                + ' ' + (e.ownerName ?: '') + ' ' + e.amount
                                + ' ' + (e.occurredAt != null ? #temporals.format(e.occurredAt, 'yyyy-MM-dd') : '')
-                               + ' ' + (e.submittedAt != null ? #temporals.format(e.submittedAt, 'yyyy-MM-dd') : '')}"
+                               + ' ' + (e.submittedAt != null ? #temporals.format(e.submittedAt, 'yyyy-MM-dd') : '')},
+                       data-f-nature=${e.categoryName}, data-f-acct=${e.accountName}, data-f-owner=${e.ownerName}"
                class="px-4 py-2.5 border-b border-rule-soft text-sm
                       grid grid-cols-[auto_auto_1fr_auto] items-center gap-x-2 gap-y-1
                       sm:flex sm:items-center sm:gap-3 sm:flex-wrap">
@@ -309,7 +310,7 @@
         <!-- 本期已录支出 -->
         <!--/* v1.21 · 导入能一次落进几百笔,列表需要搜索 + 分页(纯前端,不碰取数口径) */-->
         <div th:if="${expenseEntries != null and !expenseEntries.isEmpty()}"
-             th:replace="~{entry/_flow-toolbar :: bar('expense', ${expenseEntries.size()})}"></div>
+             th:replace="~{entry/_flow-toolbar :: bar('expense', ${expenseEntries.size()}, ${expenseFacets})}"></div>
         <div th:if="${expenseEntries != null and !expenseEntries.isEmpty()}" class="border border-rule-soft bg-card mt-3"
              data-flow-list="expense">
           <!-- 窄屏两行栅格(第 1 行:头像+类目+账户+金额;第 2 行:备注/日期/状态/删)· PC 用 sm:contents 让包裹层消失,
@@ -319,7 +320,9 @@
                                + ' ' + (e.accountName ?: '') + ' ' + (e.note ?: '')
                                + ' ' + (e.ownerName ?: '') + ' ' + e.amount
                                + ' ' + (e.occurredAt != null ? #temporals.format(e.occurredAt, 'yyyy-MM-dd') : '')
-                               + ' ' + (e.submittedAt != null ? #temporals.format(e.submittedAt, 'yyyy-MM-dd') : '')}"
+                               + ' ' + (e.submittedAt != null ? #temporals.format(e.submittedAt, 'yyyy-MM-dd') : '')},
+                       data-f-nature=${e.categoryName}, data-f-cat=${e.expenseCategoryName},
+                       data-f-acct=${e.accountName}, data-f-owner=${e.ownerName}"
                class="px-4 py-2.5 border-b border-rule-soft text-sm
                       grid grid-cols-[auto_auto_1fr_auto] items-center gap-x-2 gap-y-1
                       sm:flex sm:items-center sm:gap-3 sm:flex-wrap">

@@ -2201,10 +2201,12 @@ dialog::backdrop { background: rgba(26, 23, 20, .38); }
 /* ═══ v1.21 · 流水列表的搜索 + 分页工具条 ═══
    行数少于阈值时整条不出现(JS 控制 hidden),所以这里不用考虑「空态好不好看」。 */
 .flow-bar {
+  /* v1.21.2 · 从单行改成两行容器(第 1 行搜索+分页,第 2 行筛选器),
+     所以这里是 column;行内的横向排布交给 .flow-bar-line。 */
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
   margin-top: 12px;
   padding: 7px 10px;
   border: 1px solid var(--rule);
@@ -2235,3 +2237,51 @@ dialog::backdrop { background: rgba(26, 23, 20, .38); }
 }
 .flow-pg:hover:not(:disabled) { border-color: var(--brass-deep); }
 .flow-pg:disabled { opacity: .35; cursor: default; }
+
+/* ═══ v1.21 · 导入确认页的分桶页签 ═══
+   三个桶尺寸一致(并列同类元素),只用底色和边框区分选中。 */
+.bkt {
+  /* 固定宽度而不是 min-width:五个桶并排,min-width 会让文案长的那个撑宽一点点
+     ——「要导入 125px / 已剔除 118px」,看着就是没对齐。并列同类元素必须同尺寸。 */
+  width: 128px;
+  padding: 9px 13px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.bkt:hover { border-color: var(--brass-deep); }
+.bkt.on { border-color: var(--brass-deep); background: rgba(160,124,58,.08); }
+.bkt:not(.on) { opacity: .72; }
+
+/* ═══ v1.21.2 · 流水工具条:两行(搜索/分页 + 筛选器) ═══ */
+.flow-bar-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%; }
+.flow-filters { margin-top: 7px; padding-top: 7px; border-top: 1px dashed var(--rule-soft); }
+/* 并列的筛选器必须同宽 —— min-width 下「全部类目」会比「全部分类」宽一点点,
+   四个摆一排就是参差不齐。每页条数那个窄一些(它不是同一类元素)。 */
+.flow-filters .lsel { width: 132px; }
+.flow-pager .lsel { width: 94px; }
+.flow-f, .flow-size {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 3px 6px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--ink-soft);
+}
+.flow-clear {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  padding: 3px 8px; border: 1px solid var(--rule); background: transparent;
+  color: var(--ink-subtle); cursor: pointer;
+}
+.flow-clear:hover { border-color: var(--rust); color: var(--rust); }
+
+
+/* 窄屏:搜索框独占一行 —— 和「共 N 笔」挤在一行时它只剩 200px 出头,
+   放不下「搜商户 / 备注 / 类目 …」那句提示,用户不知道能搜什么。 */
+@media (max-width: 640px) {
+  .flow-bar-line .flow-q { flex: 1 1 100%; min-width: 0; }
+  .flow-filters .lsel, .flow-pager .lsel { width: 46%; }
+  .flow-pager { width: 100%; }
+}
