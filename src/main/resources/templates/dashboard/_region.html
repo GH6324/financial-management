@@ -615,7 +615,7 @@
                  th:text="${account.accountName}">账户</a>
             </div>
             <div class="font-mono text-[11px] text-ink-subtle mt-0.5">
-              <span data-priv th:text="${account.currentValue == null ? '—' : ('¥' + #numbers.formatInteger(account.currentValue, 1, 'COMMA'))}">¥0</span>
+              <span data-priv th:text="${account.currentValue == null ? '—' : T(com.family.finance.service.MoneyFormat).intSigned('¥', account.currentValue)}">¥0</span>
               · <span th:text="${account.xirr == null ? '收益率—' : ('收益率 ' + #numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">收益率—</span>
             </div>
           </div>
@@ -764,8 +764,13 @@
         if (window.isPrivacy && window.isPrivacy()) return '';
         if (v == null) return '—';
         const n = Number(v);
-        if (Math.abs(n) >= 10000) return ccySym + (n / 10000).toFixed(1) + '万';
-        return ccySym + Math.round(n).toLocaleString();
+        /* v1.22.1 · 负号放在货币符号【前面】,和服务端 MoneyFormat 一致。
+           原来是 ccySym + n.toLocaleString() —— 负数会拼成「¥-1,160」,
+           而同一页别处是「−¥1,160」。 */
+        const sign = n < 0 ? '−' : '';
+        const a = Math.abs(n);
+        if (a >= 10000) return sign + ccySym + (a / 10000).toFixed(1) + '万';
+        return sign + ccySym + Math.round(a).toLocaleString();
       };
       const fmtPct = (v) => v == null ? '—' : Number(v).toFixed(1) + '%';
 

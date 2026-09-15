@@ -9374,6 +9374,20 @@ print(re.sub(r'<!--.*?-->','',t,flags=re.S))" "$QA1221_ROW");
   && log_ok "v1221-ACCOUNT-NAME-NOT-CLAMPED(账户名不被 max-width 锁死)" \
   || log_bad "v1221-ACCOUNT-NAME-NOT-CLAMPED 账户名又被硬编码宽度截断" "核心元素被阉割成一个省略号,用户没法分辨是哪个账户"
 
+# v1221-SIGN-BEFORE-SYMBOL · 负号统一放在货币符号【之前】。
+#   项目里两套写法并存过:MoneyFormat 走 sign+symbol+abs(「−¥148,156」),
+#   而模板/JS 里散落的 symbol+format(amount) 在负数时拼成「¥-148,156」。
+#   两种写法在同一个页面上并排出现,用户会以为是两种不同的东西。
+#   守法:模板里不许再出现 symbol 直接拼 formatInteger 的写法,JS 的 fmtMoney 要先取符号。
+#   【判据要收窄】只禁「currencySymbol 出现在表达式开头」那种 ——
+#   `(wf.investPnl().signum() >= 0 ? '+' : '−') + currencySymbol + ...` 是【对的】写法:
+#   它自己处理了符号再拼货币符号。第一版判据把这种也禁了,红在一个正确的实现上。
+{ ! grep -rnE '[\$\(]\{?currencySymbol \+ #numbers\.formatInteger' "$RD/src/main/resources/templates/" >/dev/null 2>&1 \
+  && ! grep -rn "ccySym + Math.round(n)" "$RD/src/main/resources/templates/" >/dev/null 2>&1 \
+  && grep -q 'public static String intSigned' "$QA1221_MF"; } \
+  && log_ok "v1221-SIGN-BEFORE-SYMBOL(负号在货币符号前 · 全站一套写法)" \
+  || log_bad "v1221-SIGN-BEFORE-SYMBOL 又出现了 symbol 直接拼金额的写法" "负数会显示成「¥-148,156」,和同页别处的「−¥148,156」不是一套"
+
 # v1221-MOBILE-TAG-SCALE · 手机端必须收口 tag 尺寸。
 #   全站的 pill / badge 原本只按 PC 调过,搬到 390px 上一行就塞不下,
 #   于是核心信息(账户名 / 金额)被挤掉,而次要的状态标签因为带边框反倒最抢眼。

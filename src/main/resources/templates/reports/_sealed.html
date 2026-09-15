@@ -78,19 +78,19 @@
         <div class="kpi-card">
           <span class="kpi-eyebrow">期末净资产</span>
           <div class="font-display text-2xl mt-1" data-priv
-               th:text="${bs.netWorth() == null ? '—' : (currencySymbol + #numbers.formatInteger(bs.netWorth(),1,'COMMA'))}">—</div>
+               th:text="${bs.netWorth() == null ? '—' : (T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, bs.netWorth()))}">—</div>
           <div class="font-mono text-[10px] text-ink-soft mt-1">资产 − 负债</div>
         </div>
         <div class="kpi-card">
           <span class="kpi-eyebrow">总资产</span>
           <div class="font-display text-2xl mt-1" data-priv
-               th:text="${bs.totalAssets() == null ? '—' : (currencySymbol + #numbers.formatInteger(bs.totalAssets(),1,'COMMA'))}">—</div>
+               th:text="${bs.totalAssets() == null ? '—' : (T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, bs.totalAssets()))}">—</div>
           <div class="font-mono text-[10px] text-ink-soft mt-1">不含 LOAN</div>
         </div>
         <div class="kpi-card">
           <span class="kpi-eyebrow">总负债</span>
           <div class="font-display text-2xl mt-1" data-priv
-               th:text="${bs.totalLiabilities() == null ? '—' : (currencySymbol + #numbers.formatInteger(bs.totalLiabilities(),1,'COMMA'))}">—</div>
+               th:text="${bs.totalLiabilities() == null ? '—' : (T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, bs.totalLiabilities()))}">—</div>
           <div class="font-mono text-[10px] text-ink-soft mt-1">仅 LOAN</div>
         </div>
         <div class="kpi-card">
@@ -102,7 +102,7 @@
         <div class="kpi-card">
           <span class="kpi-eyebrow">流动资产</span>
           <div class="font-display text-2xl mt-1" data-priv
-               th:text="${bs.liquidAssets() == null ? '—' : (currencySymbol + #numbers.formatInteger(bs.liquidAssets(),1,'COMMA'))}">—</div>
+               th:text="${bs.liquidAssets() == null ? '—' : (T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, bs.liquidAssets()))}">—</div>
           <div class="font-mono text-[10px] text-ink-soft mt-1">可随时动用</div>
         </div>
         <div class="kpi-card">
@@ -141,7 +141,7 @@
           <div class="wf-col">
             <div class="wf-bar" style="background:#7a5a39"
                  th:style="'background:#7a5a39;height:' + ${(cum[0] - lo) * 100 / axis} + '%'">
-              <span class="wf-dl" data-priv th:text="${currencySymbol + #numbers.formatInteger(wf.openNetWorth(),1,'COMMA')}">—</span>
+              <span class="wf-dl" data-priv th:text="${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, wf.openNetWorth())}">—</span>
             </div>
             <div class="wf-lab">期初净资产<br><span th:text="${sealed.comparison() != null and sealed.comparison().prevPeriod() != null
                  ? #temporals.format(sealed.comparison().prevPeriod().periodStart,'yyyy-MM') : ''}">—</span></div>
@@ -150,7 +150,7 @@
           <div class="wf-col">
             <div class="wf-bar" th:style="'background:rgba(79,107,71,.6);height:' + ${wf.income() * 100 / axis}
                  + '%;margin-bottom:' + ${(cum[0] - lo) * 100 / axis} + '%'">
-              <span class="wf-dl num-pos" data-priv th:text="'+' + ${currencySymbol + #numbers.formatInteger(wf.income(),1,'COMMA')}">—</span>
+              <span class="wf-dl num-pos" data-priv th:text="'+' + ${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, wf.income())}">—</span>
             </div>
             <div class="wf-lab">+ 收入</div>
           </div>
@@ -158,7 +158,7 @@
           <div class="wf-col">
             <div class="wf-bar" th:style="'background:rgba(156,74,42,.55);height:' + ${wf.expense() * 100 / axis}
                  + '%;margin-bottom:' + ${(cum[2] - lo) * 100 / axis} + '%'">
-              <span class="wf-dl num-neg" data-priv th:text="${wf.expense() != null and wf.expense() < 0 ? '+' : '−'} + ${currencySymbol + #numbers.formatInteger(wf.expense() != null and wf.expense() < 0 ? -wf.expense() : wf.expense(),1,'COMMA')}">—</span>
+              <span class="wf-dl num-neg" data-priv th:text="${wf.expense() != null and wf.expense() < 0 ? '+' : '−'} + ${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, wf.expense() != null and wf.expense() < 0 ? -wf.expense() : wf.expense())}">—</span>
             </div>
             <div class="wf-lab">− 支出</div>
           </div>
@@ -176,7 +176,7 @@
           <!-- 期末 -->
           <div class="wf-col">
             <div class="wf-bar" th:style="'background:#7a5a39;height:' + ${(cum[3] - lo) * 100 / axis} + '%'">
-              <span class="wf-dl" data-priv th:text="${currencySymbol + #numbers.formatInteger(wf.closeNetWorth(),1,'COMMA')}">—</span>
+              <span class="wf-dl" data-priv th:text="${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, wf.closeNetWorth())}">—</span>
             </div>
             <div class="wf-lab">期末净资产<br><span th:text="${#temporals.format(sealed.period().periodStart,'yyyy-MM')}">—</span></div>
           </div>
@@ -185,9 +185,9 @@
       <!-- 截断轴必须明示 —— 不能默默从 0 起也不能默默截断 -->
       <div class="font-mono text-[9px] text-ink-subtle mt-1 flex justify-between">
         <span th:if="${wf.axisTruncated()}" data-priv
-              th:text="'轴自 ' + ${currencySymbol + #numbers.formatInteger(wf.axisLo(),1,'COMMA')} + ' 起 · 截断轴'">截断轴</span>
+              th:text="'轴自 ' + ${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, wf.axisLo())} + ' 起 · 截断轴'">截断轴</span>
         <span th:unless="${wf.axisTruncated()}">轴自 0 起</span>
-        <span data-priv th:text="'轴顶 ' + ${currencySymbol + #numbers.formatInteger(wf.axisHi(),1,'COMMA')}">轴顶</span>
+        <span data-priv th:text="'轴顶 ' + ${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, wf.axisHi())}">轴顶</span>
       </div>
       <!-- 恒等式校验 · 不闭合就如实说,不假装闭合 -->
       <p th:if="${wf.identityHolds()}" class="font-mono text-[10.5px] mt-3 px-2 py-1.5"
@@ -196,12 +196,12 @@
       </p>
       <p th:if="${!wf.identityHolds() and wf.diffExplainedByOpening()}" class="text-[11px] mt-3 px-2 py-1.5"
          style="border-left:3px solid var(--brass-deep);background:var(--card-soft)">
-        <b>等式差额 <span data-priv th:text="${currencySymbol + #numbers.formatInteger(wf.identityDiff(),1,'COMMA')}">—</span></b>
+        <b>等式差额 <span data-priv th:text="${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, wf.identityDiff())}">—</span></b>
         —— 本期有账户首次出现,其开账基线属<b>外部资本纳入</b>,既不算人赚也不算钱赚,所以不进这条链。
       </p>
       <p th:if="${!wf.identityHolds() and !wf.diffExplainedByOpening()}" class="text-[11px] mt-3 px-2 py-1.5"
          style="border-left:3px solid var(--rust);color:var(--rust);background:rgba(156,74,42,.06)">
-        <b>等式差额 <span data-priv th:text="${currencySymbol + #numbers.formatInteger(wf.identityDiff(),1,'COMMA')}">—</span></b>
+        <b>等式差额 <span data-priv th:text="${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, wf.identityDiff())}">—</span></b>
         —— 无法由开账基线解释。这可能是数据问题,烦请反馈。
       </p>
     </div>
@@ -278,7 +278,7 @@
       <div class="biv">
         <div class="biv-row" th:each="c : ${at.negatives()}">
           <div class="biv-left">
-            <span class="biv-amt num-neg" data-priv th:text="${currencySymbol + #numbers.formatInteger(c.amount(),1,'COMMA')}">—</span>
+            <span class="biv-amt num-neg" data-priv th:text="${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, c.amount())}">—</span>
             <div class="biv-bar biv-neg" th:style="'width:' + ${c.sharePct() == null ? 10 : (c.sharePct().abs() > 100 ? 100 : c.sharePct().abs())} + '%'"></div>
           </div>
           <div class="biv-name" th:text="${c.accountName()}">账户</div>
@@ -289,7 +289,7 @@
           <div class="biv-name" th:text="${c.accountName()}">账户</div>
           <div class="biv-right">
             <div class="biv-bar biv-pos" th:style="'width:' + ${c.sharePct() == null ? 10 : (c.sharePct().abs() > 100 ? 100 : c.sharePct().abs())} + '%'"></div>
-            <span class="biv-amt num-pos" data-priv th:text="'+' + ${currencySymbol + #numbers.formatInteger(c.amount(),1,'COMMA')}">—</span>
+            <span class="biv-amt num-pos" data-priv th:text="'+' + ${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, c.amount())}">—</span>
           </div>
         </div>
       </div>
@@ -297,13 +297,13 @@
          style="border-left:3px solid var(--brass-deep);background:var(--card-soft)">
         本期<b>新增</b>账户(资本纳入,不是赚来的,所以不进上面的排名):
         <span th:each="c,i : ${at.opened()}" data-priv
-              th:text="${(i.index > 0 ? ' · ' : '') + c.accountName() + ' ' + currencySymbol + #numbers.formatInteger(c.amount(),1,'COMMA')}"></span>
+              th:text="${(i.index > 0 ? ' · ' : '') + c.accountName() + ' ' + T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, c.amount())}"></span>
       </p>
       <p th:if="${!at.archived().isEmpty()}" class="text-[11px] mt-2 px-2 py-1.5"
          style="border-left:3px solid var(--rule);background:var(--card-soft)">
         本期<b>移出</b>账户(归档,不是亏掉的):
         <span th:each="c,i : ${at.archived()}" data-priv
-              th:text="${(i.index > 0 ? ' · ' : '') + c.accountName() + ' ' + currencySymbol + #numbers.formatInteger(c.amount(),1,'COMMA')}"></span>
+              th:text="${(i.index > 0 ? ' · ' : '') + c.accountName() + ' ' + T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, c.amount())}"></span>
       </p>
     </div>
   </section>
@@ -403,17 +403,17 @@
       <div class="stack" th:with="narrowL=${t.liquidPct() < 18},narrowS=${t.semiLiquidPct() < 18},narrowI=${t.illiquidPct() < 18}">
         <div class="stack-liquid" th:style="'width:' + ${t.liquidPct()} + '%'"
              th:title="'即时可用 ' + ${t.liquidPct()} + '%'">
-          <span th:unless="${narrowL}" data-priv th:text="'即时 ' + ${currencySymbol + #numbers.formatInteger(t.liquid(),1,'COMMA')}
+          <span th:unless="${narrowL}" data-priv th:text="'即时 ' + ${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, t.liquid())}
                 + ' · ' + ${t.liquidPct()} + '%'">即时</span>
         </div>
         <div class="stack-semi" th:style="'width:' + ${t.semiLiquidPct()} + '%'"
              th:title="'半流动(股票/理财/贵金属等,变现要时间)' + ${t.semiLiquidPct()} + '%'">
-          <span th:unless="${narrowS}" data-priv th:text="'半流动 ' + ${currencySymbol + #numbers.formatInteger(t.semiLiquid(),1,'COMMA')}
+          <span th:unless="${narrowS}" data-priv th:text="'半流动 ' + ${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, t.semiLiquid())}
                 + ' · ' + ${t.semiLiquidPct()} + '%'">半流动</span>
         </div>
         <div class="stack-illiquid" th:style="'width:' + ${t.illiquidPct()} + '%'"
              th:title="'不可动(房产等)· 贷款与「其他」也并入这一档' + ${t.illiquidPct()} + '%'">
-          <span th:unless="${narrowI}" data-priv th:text="'不可动 ' + ${currencySymbol + #numbers.formatInteger(t.illiquid(),1,'COMMA')}
+          <span th:unless="${narrowI}" data-priv th:text="'不可动 ' + ${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, t.illiquid())}
                 + ' · ' + ${t.illiquidPct()} + '%'">不可动</span>
         </div>
       </div>
@@ -421,15 +421,15 @@
       <div class="flex items-center gap-x-5 gap-y-1 flex-wrap mt-2 font-mono text-[10px]">
         <span class="inline-flex items-center gap-1.5">
           <span style="width:11px;height:11px;background:var(--brass-soft);border:1px solid var(--ink);display:inline-block"></span>
-          <span data-priv th:text="'即时 ' + ${currencySymbol + #numbers.formatInteger(t.liquid(),1,'COMMA')} + ' · ' + ${t.liquidPct()} + '%'">即时</span>
+          <span data-priv th:text="'即时 ' + ${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, t.liquid())} + ' · ' + ${t.liquidPct()} + '%'">即时</span>
         </span>
         <span class="inline-flex items-center gap-1.5">
           <span style="width:11px;height:11px;background:rgba(140,106,51,.30);border:1px solid var(--ink);display:inline-block"></span>
-          <span data-priv th:text="'半流动 ' + ${currencySymbol + #numbers.formatInteger(t.semiLiquid(),1,'COMMA')} + ' · ' + ${t.semiLiquidPct()} + '%'">半流动</span>
+          <span data-priv th:text="'半流动 ' + ${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, t.semiLiquid())} + ' · ' + ${t.semiLiquidPct()} + '%'">半流动</span>
         </span>
         <span class="inline-flex items-center gap-1.5">
           <span style="width:11px;height:11px;background:rgba(33,30,23,.14);border:1px solid var(--ink);display:inline-block"></span>
-          <span data-priv th:text="'不可动 ' + ${currencySymbol + #numbers.formatInteger(t.illiquid(),1,'COMMA')} + ' · ' + ${t.illiquidPct()} + '%'">不可动</span>
+          <span data-priv th:text="'不可动 ' + ${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, t.illiquid())} + ' · ' + ${t.illiquidPct()} + '%'">不可动</span>
         </span>
       </div>
         <!-- v1.11 · 覆盖月数与「紧急储备」是同一个数,必须用**同一条**展示规则(> 36 月封顶)。
@@ -456,7 +456,7 @@
         <div th:each="sl : ${dist.byMember()}" class="conc-row">
           <div class="conc-cap">
             <span th:text="${sl.label()}">成员</span>
-            <span><b data-priv th:text="${currencySymbol + #numbers.formatInteger(sl.amount(),1,'COMMA')}">—</b>
+            <span><b data-priv th:text="${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, sl.amount())}">—</b>
               <span class="text-ink-subtle" th:text="' · ' + ${sl.pct()} + '%'"></span></span>
           </div>
           <div class="conc-track"><div class="conc-fill" th:style="'width:' + ${sl.pct()} + '%'"></div></div>
@@ -468,7 +468,7 @@
         <div th:each="sl : ${dist.byType()}" class="conc-row">
           <div class="conc-cap">
             <span th:text="${sl.label()}">类型</span>
-            <span><b data-priv th:text="${currencySymbol + #numbers.formatInteger(sl.amount(),1,'COMMA')}">—</b>
+            <span><b data-priv th:text="${T(com.family.finance.service.MoneyFormat).intSigned(currencySymbol, sl.amount())}">—</b>
               <span class="text-ink-subtle" th:text="' · ' + ${sl.pct()} + '%'"></span></span>
           </div>
           <div class="conc-track"><div class="conc-fill" th:style="'width:' + ${sl.pct()} + '%'"></div></div>

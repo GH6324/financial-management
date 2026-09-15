@@ -219,7 +219,7 @@
           </div>
           <div class="flex items-baseline justify-between gap-2 mt-1">
             <div class="font-mono text-[11px] text-ink-subtle min-w-0 truncate">
-              <span data-priv th:text="${account.currentValue == null ? '—' : ((currency == 'USD' ? '$' : (currency == 'HKD' ? 'HK$' : '¥')) + #numbers.formatInteger(account.currentValue, 1, 'COMMA'))}">¥0</span>
+              <span data-priv th:text="${account.currentValue == null ? '—' : T(com.family.finance.service.MoneyFormat).intSigned(currency == 'USD' ? '$' : (currency == 'HKD' ? 'HK$' : '¥'), account.currentValue)}">¥0</span>
               <span data-mcol="xirr" th:if="${acctMetrics.contains('xirr')}">
                 · 收益率 <span th:text="${account.xirr == null ? '—' : (#numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">—</span><sup
                     th:if="${account.xirr != null and account.monthsHeld != null and account.monthsHeld &lt; 12}"
@@ -313,7 +313,7 @@
           <td><span class="pill text-[9px] whitespace-nowrap" th:if="${pc != null}" th:text="${pc}">—</span>
               <span th:if="${pc == null}" class="text-ink-subtle text-[10px]">未设</span></td>
           <td class="num" data-priv
-              th:text="${account.currentValue == null ? '—' : ((currency == 'USD' ? '$' : (currency == 'HKD' ? 'HK$' : '¥')) + #numbers.formatInteger(account.currentValue, 1, 'COMMA'))}">—</td>
+              th:text="${account.currentValue == null ? '—' : T(com.family.finance.service.MoneyFormat).intSigned(currency == 'USD' ? '$' : (currency == 'HKD' ? 'HK$' : '¥'), account.currentValue)}">—</td>
           <td class="num" data-mcol="xirr" th:if="${acctMetrics.contains('xirr')}">
               <span th:text="${account.xirr == null ? '—' : (#numbers.formatDecimal(account.xirr * 100, 1, 2) + '%')}">—</span><sup
                     th:if="${account.xirr != null and account.monthsHeld != null and account.monthsHeld &lt; 12}"
@@ -437,8 +437,13 @@
       const fmtMoney = (v) => { if (window.isPrivacy && window.isPrivacy()) return '';
         if (v == null) return '—';
         const n = Number(v);
-        if (Math.abs(n) >= 10000) return ccySym + (n / 10000).toFixed(1) + '万';
-        return ccySym + Math.round(n).toLocaleString();
+        /* v1.22.1 · 负号放在货币符号【前面】,和服务端 MoneyFormat 一致。
+           原来是 ccySym + n.toLocaleString() —— 负数会拼成「¥-1,160」,
+           而同一页别处是「−¥1,160」。 */
+        const sign = n < 0 ? '−' : '';
+        const a = Math.abs(n);
+        if (a >= 10000) return sign + ccySym + (a / 10000).toFixed(1) + '万';
+        return sign + ccySym + Math.round(a).toLocaleString();
       };
       const fmtMoneyShort = (v) => { if (window.isPrivacy && window.isPrivacy()) return '';
         if (v == null || v === 0) return '';

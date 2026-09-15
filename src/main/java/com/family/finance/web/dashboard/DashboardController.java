@@ -586,7 +586,12 @@ public class DashboardController {
             case "HKD" -> "HK$";
             default -> "¥";
         };
-        return symbol + MONEY.format(amount.setScale(0, RoundingMode.HALF_UP));
+        /* v1.22.1 · 负号放在货币符号【前面】,和 MoneyFormat 全站一致。
+         * 原来是 symbol + format(amount) —— 负数会拼成「¥-148,156」,
+         * 而同一个页面别处是「−¥224,177」(MoneyFormat 的写法)。
+         * 两种写法并排出现时,用户会以为是两种不同的东西。纯格式,数值不变。 */
+        String sign = amount.signum() < 0 ? "−" : "";
+        return sign + symbol + MONEY.format(amount.abs().setScale(0, RoundingMode.HALF_UP));
     }
 
     private String moneyDelta(String currency, BigDecimal amount) {

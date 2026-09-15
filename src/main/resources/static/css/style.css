@@ -2436,6 +2436,58 @@ dialog::backdrop { background: rgba(26, 23, 20, .38); }
   .m-scroll-x::-webkit-scrollbar { height: 3px; }
   .m-scroll-x::-webkit-scrollbar-thumb { background: var(--rule); }
 
+  /* ── ③b 宽图表/宽表:补「可以横滑」的提示 ──
+     瀑布图(.wf-scroll)和对比表(.cmp-scroll)本来就能横滑,
+     但 390px 下右边被切得干干净净、没有任何视觉线索 ——
+     用户看到第 4 根柱子只剩半截,只会以为图坏了,不会想到去滑。
+     ::before 贴在容器上沿,不占文档流、不改图表本身的几何。 */
+  .wf-scroll, .cmp-scroll, .m-scroll-x, html:not(.ls-wide) .summary-band { position: relative; }
+  .wf-scroll::before, .cmp-scroll::before {
+    content: "← 可以横滑 →";
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: .08em;
+    color: var(--ink-subtle);
+    text-align: right;
+    padding-bottom: 2px;
+    position: sticky;      /* 跟着横向滚动走,始终贴在可视区右侧 */
+    left: 0;
+  }
+
+  /* ── ⑤ 大标题与 eyebrow:手机端降一档 ──
+     h1 在 PC 上是 text-5xl(48px),窄屏虽然已降到 text-3xl(30px),
+     但配上「所 有 设 置 ·」这种手动加空格的排版仍会占满整行还溢出。
+     用 clamp 随视口自适应:短标题不受影响,长标题自动缩到放得下。 */
+  h1.font-display { font-size: clamp(21px, 6.6vw, 30px) !important; line-height: 1.25; }
+
+  /* eyebrow 的 0.16em 字距是为 PC 的分节横线设计的;390px 下它和后面那句说明
+     挤在一行时,两段都读不顺。字距收一半,容器允许换行。 */
+  .eyebrow { letter-spacing: 0.08em; }
+
+  /* 资产/负债对称条:标签移到条【外面】。
+     负债块的宽度是按比例算的(这家约 14%,390px 下只有 ~55px),
+     而「负债 ¥1,186,700」要 85px —— 塞在色块里必然被切成「…86,700」。
+     条本身保持比例(那是它的全部意义),标签挪到下方左右两端。 */
+  /* KPI 横条(现金/股票/理财…)本来就能横滑,但右边被切得没有线索。
+     它是 flex 容器,::before 会变成一个 flex item —— 所以提示挂在【外层】,
+     用兄弟选择器放在条的上方,不参与条内的 flex 排布。 */
+  html:not(.ls-wide) .summary-band::after {
+    content: "→";
+    position: sticky; right: 0; align-self: center;
+    flex: 0 0 auto; padding: 0 4px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-subtle); background: var(--paper);
+  }
+
+  .sym-bar { position: relative; padding-bottom: 15px; overflow: visible; }
+  .sym-a > span, .sym-l > span {
+    position: absolute; bottom: -1px; white-space: nowrap;
+    font-size: 9px !important; color: var(--ink-soft);
+  }
+  .sym-a > span { left: 0; }
+  .sym-l > span { right: 0; }
+
   /* ── ④ sticky 导航:不透明 + 贴顶 ──
      原来是 top:4px + bg-paper/95 + backdrop-blur —— 那 4px 缝里会漏出下方内容,
      半透明又让滚过去的文字透上来,看着像脏了一层。手机屏幕小,这层噪音很显眼。 */

@@ -65,6 +65,24 @@ public final class MoneyFormat {
         return sign + symbol(currency) + TWO_DP.format(amount.abs());
     }
 
+    /**
+     * 整数金额 + <b>符号在货币符号之前</b>(v1.22.1)。
+     *
+     * <p>模板里散落着 {@code currencySymbol + #numbers.formatInteger(x,1,'COMMA')} 的写法,
+     * 负数时会拼成 <b>{@code ¥-148,156}</b> —— 而同一个页面别处走 {@link #format} 的地方
+     * 是 <b>{@code −¥148,156}</b>。两种写法并排出现,用户会以为是两种不同的东西。</p>
+     *
+     * <p>这里只统一<b>负号的位置</b>,不加正号 —— 要正号的调用方自己在前面拼
+     * (那是「这是一笔流入」的语义,不是格式)。</p>
+     *
+     * @param symbol 调用方已经算好的货币符号(模板里是 currencySymbol)
+     */
+    public static String intSigned(String symbol, BigDecimal amount) {
+        if (amount == null) return "—";
+        String sign = amount.signum() < 0 ? "−" : "";
+        return sign + symbol + WHOLE.format(amount.abs());
+    }
+
     public static String formatDelta(String currency, BigDecimal amount) {
         if (amount == null) {
             return "—";
