@@ -44,6 +44,27 @@ public final class MoneyFormat {
         return format(currency, amount);
     }
 
+    /**
+     * 支出金额的显示形态(v1.22)。
+     *
+     * <p>支出在语义上「钱出去了」,所以正数要显示成 <b>−¥499.00</b> ——
+     * 模板里原来是硬拼一个 {@code '−' + format2(...)}。</p>
+     *
+     * <p>v1.22 之后支出可以是负数(退款冲正原样记),硬拼就会拼出
+     * <b>{@code −−¥499.00}</b> 这种双负号。而且「负的支出」在语义上是
+     * <b>钱回来了</b>,显示成 {@code +¥499.00} 比 {@code −¥-499.00} 或
+     * {@code ¥-499.00} 都好读 —— 用户一眼能看出这是一笔退款。</p>
+     *
+     * <p>纯展示层:不改变任何金额本身,合计仍按代数和。</p>
+     */
+    public static String formatExpense(String currency, BigDecimal amount) {
+        if (amount == null) return "— 待填";
+        if (amount.signum() == 0) return symbol(currency) + TWO_DP.format(BigDecimal.ZERO);
+        // 正数 = 花出去 → 显示负号;负数 = 退回来 → 显示加号
+        String sign = amount.signum() > 0 ? "−" : "+";
+        return sign + symbol(currency) + TWO_DP.format(amount.abs());
+    }
+
     public static String formatDelta(String currency, BigDecimal amount) {
         if (amount == null) {
             return "—";

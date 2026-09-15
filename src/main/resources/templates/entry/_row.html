@@ -22,7 +22,11 @@
 <div th:fragment="row(row, oob)" th:id="'entry-row-' + ${row.account.id}"
      th:attr="hx-swap-oob=${oob != null and oob == true ? 'outerHTML' : null}, data-debug-ledger=${row.ledger == null ? 'NULL' : #lists.size(row.ledger)}"
      class="paper-card mb-3 px-3 sm:px-6 py-3 sm:py-4">
-  <div class="flex items-center gap-2 sm:gap-3">
+  <!--/* v1.22.1 · 这一层是「左:账户信息+入口 / 右:余额」的两栏。
+         390px 下右栏吃掉近 4 成宽,左栏只剩 ~180px —— 「上期末 «金额» · 已填」
+         这一行被迫折成两行,三个入口按钮也排不下。手机上改成【上下两段】(见 .acct-row 的 CSS):
+         账户信息全宽一段,余额全宽一段右对齐。纯排布,数字与口径一分未动。 */-->
+  <div class="flex items-center gap-2 sm:gap-3 acct-row">
     <!-- avatar 首字圆(颜色按 ownerColorMap 分配) -->
     <span th:classappend="${ownerColorMap != null and ownerColorMap.get(row.ownerName) != null ? 'avatar-' + ownerColorMap.get(row.ownerName) % 5 : 'avatar-4'}"
           class="w-6 h-6 sm:w-7 sm:h-7 rounded-full text-paper flex items-center justify-center text-[10px] sm:text-xs font-display flex-shrink-0"
@@ -32,8 +36,13 @@
       <th:block th:unless="${row.done}">·</th:block>
     </span>
     <div class="flex-1 min-w-0">
-      <div class="flex items-baseline gap-1.5 sm:gap-3">
-        <span class="font-display text-sm sm:text-base truncate max-w-[120px] sm:max-w-none" th:text="${row.account.displayName}">招行储蓄卡-工资</span>
+      <!--/* v1.22.1 · 这一行原来是 nowrap + 账户名 max-w-[120px]。
+             同行的「本月已校准」badge / 类型 / 币种全是 flex-shrink-0,
+             于是账户名成了唯一能被压的那个 —— 实测在 390px 下被压到【2px】,
+             「招行理财-稳健」只剩一个省略号。账户名是这一行的主语,不能阉割。
+             改成:账户名不收缩、按内容占位;放不下的 tag 换到下一行(换它们无害)。 */-->
+      <div class="flex items-baseline gap-1.5 sm:gap-3 acct-head">
+        <span class="font-display text-sm sm:text-base truncate sm:max-w-none acct-name" th:text="${row.account.displayName}">招行储蓄卡-工资</span>
         <!--/* v1.20 FR-452 · 本月余额校准过没有,写在名字旁边,不用点进去。
                灰色那支同时是 FR-453 的锚点:它解释了为什么这个账户上的改动
                暂时不进「本期净资产变化」。 */-->
@@ -59,7 +68,7 @@
       <!-- v1.6.24 · 加第三个「券商」入口(用户要求)。原本两个按钮 nowrap 同一行,加第三个在 390 宽会溢出
            → 容器改 flex-wrap,窄屏自然折行而不是撑破卡片。 -->
       <div th:if="${T(com.family.finance.service.stock.StockHoldingService).supportsHoldings(row.account.type)}"
-           class="flex flex-wrap items-center gap-1.5 mt-1.5">
+           class="flex flex-wrap items-center gap-1.5 mt-1.5 acct-ops">
         <a th:href="@{|/accounts/${row.account.id}/holdings|}"
            class="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-rule bg-card text-ink-soft hover:border-brass-deep hover:text-brass-deep transition no-underline text-[11px] font-mono whitespace-nowrap flex-none">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
@@ -82,7 +91,7 @@
         </a>
       </div>
     </div>
-    <div class="text-right min-w-[90px] sm:min-w-[140px]">
+    <div class="text-right min-w-[90px] sm:min-w-[140px] acct-bal">
       <div class="font-mono tnum text-sm sm:text-lg" th:classappend="${row.account.type.name() == 'LOAN' ? ' num-neg' : ''}" data-priv th:text="${row.currentBalanceLabel}">¥73,200</div>
       <div class="font-mono text-[10px] text-ink-subtle tnum mt-0.5">
         上期末 <span data-priv th:text="${row.previousBalanceLabel}">¥45,000</span>
@@ -95,7 +104,7 @@
             th:hx-target="'#entry-block-' + ${row.account.id}"
             hx-swap="outerHTML"
             title="重新加载本账户最新数据 + 流水"
-            class="ml-2 w-7 h-7 flex items-center justify-center text-ink-subtle hover:text-brass-deep hover:bg-card-soft border border-rule font-mono text-xs"
+            class="ml-2 w-7 h-7 flex items-center justify-center text-ink-subtle hover:text-brass-deep hover:bg-card-soft border border-rule font-mono text-xs acct-refresh"
             aria-label="刷新">⟳</button>
   </div>
 

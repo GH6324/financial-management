@@ -182,16 +182,16 @@
                   class="w-5 h-5 rounded-full text-paper flex items-center justify-center text-[10px] font-display flex-shrink-0"
                   th:text="${#strings.substring(e.ownerName, 0, 1)}" th:title="${e.ownerName}">迪</span>
             <span class="pill whitespace-nowrap" th:classappend="${e.accountType == 'STOCK'} ? ' pill-brass' : ''" th:text="${e.categoryName}">类目</span>
-            <span class="font-display truncate min-w-0" th:text="${e.accountName}">账户</span>
+            <span class="font-display truncate min-w-0 flow-acct" th:text="${e.accountName}">账户</span>
             <span class="pill text-[9px]" th:text="${e.accountType == 'STOCK' ? '股票' : '现金'}">现金</span>
             <span class="font-mono tnum num-pos justify-self-end sm:ml-auto" data-priv
                   th:text="'+' + ${T(com.family.finance.service.MoneyFormat).format2(e.currency, e.amount)}">+¥0</span>
             <!-- 第二行:窄屏跨 4 列;PC 上 sm:contents 让它消失,子元素回到单行 flex -->
-            <div class="col-span-4 flex items-center gap-2 flex-wrap sm:contents">
+            <div class="flow-meta col-span-4 flex items-center gap-2 flex-wrap sm:contents">
             <span class="font-mono text-[10px] text-ink-subtle" data-priv
                   th:if="${e.currency != baseCurrency and incomeBaseById != null and incomeBaseById.get(e.id) != null}"
                   th:text="'≈ ' + ${T(com.family.finance.service.MoneyFormat).format2(baseCurrency, incomeBaseById.get(e.id))}">≈ ¥0</span>
-            <span class="font-mono text-[10px] text-ink-subtle" th:if="${e.note != null}" th:text="${e.note}">备注</span>
+            <span class="font-mono text-[10px] text-ink-subtle flow-note" th:if="${e.note != null}" th:text="${e.note}" th:title="${e.note}">备注</span>
             <span class="font-mono text-[10px] text-ink-subtle" th:if="${e.submittedAt != null}"
                   th:text="${#temporals.format(e.submittedAt, 'MM-dd')}" th:title="${'填报于 ' + #temporals.format(e.submittedAt, 'yyyy-MM-dd HH:mm')}">07-17</span>
             <span class="pill pill-forest text-[9px]">已入账 + 流水</span>
@@ -333,24 +333,28 @@
             <!--/* v1.21 · 消费分类。只显示「性质」的话,导入进来的几百笔在列表上
                    全是一模一样的「日常开支」,分不出哪笔是什么。 */-->
             <span th:if="${e.expenseCategoryName != null}"
-                  class="font-mono text-[10px] text-brass-deep whitespace-nowrap"
+                  class="font-mono text-[10px] text-brass-deep whitespace-nowrap flow-cat"
                   th:text="${e.expenseCategoryName}">餐饮美食 › 外卖</span>
-            <span class="font-display truncate min-w-0" th:text="${e.accountName}">账户</span>
-            <span class="font-mono tnum num-neg justify-self-end sm:ml-auto" data-priv
-                  th:text="'−' + ${T(com.family.finance.service.MoneyFormat).format2(e.currency, e.amount)}">−¥0</span>
+            <span class="font-display truncate min-w-0 flow-acct" th:text="${e.accountName}">账户</span>
+            <!--/* v1.22.1 · 颜色跟着【钱的方向】走,不写死。
+                   支出为负 = 退款冲正 = 钱回来了,显示成 +¥499.00 还配红色会自相矛盾。
+                   这只是展示语义,金额本身与合计口径一分没变。 */-->
+            <span class="font-mono tnum flow-amt justify-self-end sm:ml-auto" data-priv
+                  th:classappend="${e.amount != null and e.amount.signum() < 0} ? 'num-pos' : 'num-neg'"
+                  th:text="${T(com.family.finance.service.MoneyFormat).formatExpense(e.currency, e.amount)}">−¥0</span>
             <!-- 第二行:窄屏跨 4 列;PC 上 sm:contents 让它消失,子元素回到单行 flex -->
-            <div class="col-span-4 flex items-center gap-2 flex-wrap sm:contents">
+            <div class="flow-meta col-span-4 flex items-center gap-2 flex-wrap sm:contents">
             <span class="font-mono text-[10px] text-ink-subtle" data-priv
                   th:if="${e.currency != baseCurrency and expenseBaseById != null and expenseBaseById.get(e.id) != null}"
                   th:text="'≈ ' + ${T(com.family.finance.service.MoneyFormat).format2(baseCurrency, expenseBaseById.get(e.id))}">≈ ¥0</span>
-            <span class="font-mono text-[10px] text-ink-subtle" th:if="${e.note != null}" th:text="${e.note}">备注</span>
+            <span class="font-mono text-[10px] text-ink-subtle flow-note" th:if="${e.note != null}" th:text="${e.note}" th:title="${e.note}">备注</span>
             <!--/* 显示【交易日期】而不是填报时间 —— 导入进来的几百笔填报时间全一样。
                    两个都放进 title,想知道什么时候录的还能看到。 */-->
             <span class="font-mono text-[10px] text-ink-subtle" th:if="${e.occurredAt != null}"
                   th:text="${#temporals.format(e.occurredAt, 'MM-dd')}"
                   th:title="${'交易 ' + #temporals.format(e.occurredAt, 'yyyy-MM-dd')
                              + (e.submittedAt != null ? ' · 填报于 ' + #temporals.format(e.submittedAt, 'yyyy-MM-dd HH:mm') : '')}">09-08</span>
-            <span class="pill text-[9px]" style="background:rgba(159,74,58,.10);color:var(--rust);border-color:var(--rust)">已出账 + 流水</span>
+            <span class="pill text-[9px] flow-eff" style="background:rgba(159,74,58,.10);color:var(--rust);border-color:var(--rust)">已出账 + 流水</span>
             <form th:action="@{/entry/expense/{id}/delete(id=${e.id})}" method="post" class="inline ml-auto sm:ml-0">
               <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
               <input type="hidden" name="periodId" th:value="${period.id}">

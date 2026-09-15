@@ -9327,6 +9327,63 @@ print('\n'.join(re.findall(r'已剔除|捞回来|不能捞',t)))" "$QA122_IMPHTM
   || log_bad "v1220-NO-FORCE-REIMPORT 已存在桶出现了强制再导" "那是制造双份的按钮;真要重导的路径是整批撤销"
 
 
+# ═══════════════ v1.22.1 · 手机端排版(UED 巡检落下来的护栏)═══════════════
+
+QA1221_CSS="$RD/src/main/resources/static/css/style.css"
+QA1221_ROW="$RD/src/main/resources/templates/entry/_row.html"
+QA1221_ENTRY="$RD/src/main/resources/templates/entry/index.html"
+QA1221_MF="$RD/src/main/java/com/family/finance/service/MoneyFormat.java"
+
+# v1221-NO-HARDCODED-MINUS · 支出金额不许在模板里硬拼 '−'。
+#   v1.22 之后支出可以是负数(退款冲正原样记),硬拼会拼出【−−¥499.00】双负号。
+#   而且「负的支出」= 钱回来了,显示成 +¥499.00 才读得懂。
+#   统一走 MoneyFormat.formatExpense —— 它按符号决定前缀,纯展示层不碰金额。
+{ ! grep -rn "'−' +" "$RD/src/main/resources/templates/" >/dev/null 2>&1 \
+  && grep -q 'public static String formatExpense' "$QA1221_MF"; } \
+  && log_ok "v1221-NO-HARDCODED-MINUS(支出金额走 formatExpense · 不硬拼负号)" \
+  || log_bad "v1221-NO-HARDCODED-MINUS 模板里又硬拼了 '−'" "负金额会显示成 −−¥499.00,而那本该是一笔看得懂的退款 +¥499.00"
+
+# v1221-EXPENSE-SIGN-COLOR · 支出金额的颜色跟着钱的方向走,不写死 num-neg。
+#   显示成 +¥499.00(退款)却配红色,是自相矛盾的。
+{ grep -q "e.amount.signum() < 0} ? 'num-pos' : 'num-neg'" "$QA1221_ENTRY"; } \
+  && log_ok "v1221-EXPENSE-SIGN-COLOR(退款显示为正向色 · 支出为负向色)" \
+  || log_bad "v1221-EXPENSE-SIGN-COLOR 支出金额颜色又写死了" "+¥499.00 配红色自相矛盾"
+
+# v1221-MOBILE-RULES-EXCLUDE-HIDDEN · 手机端的 display:!important 必须排除 [hidden]。
+#   踩过:给 [data-flow-row] 写 display:flex!important,而全局有 [hidden]{display:none!important},
+#   同特异性下后写的赢 —— 前端分页藏起来的几百行被重新放出来,列表变成十几屏,
+#   而且那些行的布局是塌的(账户名宽度只剩 2px)。
+{ ! grep -nE '^\s*\[data-flow-row\]\s*\{' "$QA1221_CSS" \
+  && grep -q '\[data-flow-row\]:not(\[hidden\])' "$QA1221_CSS"; } \
+  && log_ok "v1221-MOBILE-RULES-EXCLUDE-HIDDEN(手机端 display 规则排除了 [hidden])" \
+  || log_bad "v1221-MOBILE-RULES-EXCLUDE-HIDDEN 手机端规则会盖掉 [hidden]" "被分页藏起来的行会被重新放出来,列表炸成十几屏"
+
+# v1221-ACCOUNT-NAME-NOT-CLAMPED · 账户名不许被硬编码的 max-width 锁死。
+#   踩过:entry/_row.html 给账户名写死 max-w-[120px],而同行的校准 badge / 类型 / 币种
+#   全是 flex-shrink-0 —— 账户名成了唯一能被压的那个,实测在 390px 下被压到【2px】,
+#   「招行理财-稳健」只剩一个省略号。账户名是这一行的主语,不能阉割。
+#   【又是注释绊倒判据】—— 这条的注释里就写着「而账户名 max-w-[120px]」。
+#   同一个坑在 v1.22 已经踩过三次(见 tech-design/v1.22.md §五),这是第四次:
+#   凡是扫「不许出现 X」,先剥注释,否则你越把规则解释清楚,护栏越红。
+{ code=$(python3 -c "
+import re,sys
+t=open(sys.argv[1],encoding='utf-8').read()
+print(re.sub(r'<!--.*?-->','',t,flags=re.S))" "$QA1221_ROW");
+  ! echo "$code" | grep -q 'max-w-\[120px\]' \
+  && grep -q '\.acct-head > \.acct-name' "$QA1221_CSS"; } \
+  && log_ok "v1221-ACCOUNT-NAME-NOT-CLAMPED(账户名不被 max-width 锁死)" \
+  || log_bad "v1221-ACCOUNT-NAME-NOT-CLAMPED 账户名又被硬编码宽度截断" "核心元素被阉割成一个省略号,用户没法分辨是哪个账户"
+
+# v1221-MOBILE-TAG-SCALE · 手机端必须收口 tag 尺寸。
+#   全站的 pill / badge 原本只按 PC 调过,搬到 390px 上一行就塞不下,
+#   于是核心信息(账户名 / 金额)被挤掉,而次要的状态标签因为带边框反倒最抢眼。
+#   判据钉的是「有没有这个收口段」,不钉具体数值 —— 数值会随排版调。
+{ blk=$(awk '/@media \(max-width: 640px\) \{/,/^\}$/' "$QA1221_CSS" | tail -n +1);
+  echo "$blk" | grep -q '\.pill' && echo "$blk" | grep -q '\.badge'; } \
+  && log_ok "v1221-MOBILE-TAG-SCALE(手机端收口了 pill/badge 尺寸)" \
+  || log_bad "v1221-MOBILE-TAG-SCALE 手机端没有 tag 尺寸收口" "PC 尺寸的 tag 在 390px 下会把核心信息挤掉"
+
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

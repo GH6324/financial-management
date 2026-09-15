@@ -158,7 +158,7 @@
           <div class="wf-col">
             <div class="wf-bar" th:style="'background:rgba(156,74,42,.55);height:' + ${wf.expense() * 100 / axis}
                  + '%;margin-bottom:' + ${(cum[2] - lo) * 100 / axis} + '%'">
-              <span class="wf-dl num-neg" data-priv th:text="'−' + ${currencySymbol + #numbers.formatInteger(wf.expense(),1,'COMMA')}">—</span>
+              <span class="wf-dl num-neg" data-priv th:text="${wf.expense() != null and wf.expense() < 0 ? '+' : '−'} + ${currencySymbol + #numbers.formatInteger(wf.expense() != null and wf.expense() < 0 ? -wf.expense() : wf.expense(),1,'COMMA')}">—</span>
             </div>
             <div class="wf-lab">− 支出</div>
           </div>

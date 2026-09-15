@@ -180,7 +180,7 @@
       <span class="font-mono text-[10px] text-ink-subtle" th:text="${r.ownerName()}">共同</span>
       <span class="font-mono text-[10px] text-ink-subtle" th:if="${r.note() != null}" th:text="${r.note()}">备注</span>
       <span class="font-mono tnum num-neg ml-auto" data-priv
-            th:text="'−' + ${T(com.family.finance.service.MoneyFormat).format2(r.currency(), r.amount())}">−¥0</span>
+            th:text="${T(com.family.finance.service.MoneyFormat).formatExpense(r.currency(), r.amount())}">−¥0</span>
       <span class="font-mono text-[10px] text-ink-subtle" th:if="${r.submittedAt() != null}"
             th:text="${#temporals.format(r.submittedAt(), 'MM-dd')}">08-01</span>
     </div>

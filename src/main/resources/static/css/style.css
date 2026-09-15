@@ -2308,3 +2308,140 @@ dialog::backdrop { background: rgba(26, 23, 20, .38); }
   .imp-scroll { position: relative; -webkit-overflow-scrolling: touch; }
   .imp-hint { display: block; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   v1.22.1 · 手机端(≤640px)排版收口
+   ═══════════════════════════════════════════════════════════════════
+
+   全站的 tag / pill / 按钮尺寸原本只按 PC 调过,搬到 390px 上之后:
+   一行塞不下 → 换行 → 核心信息(账户名)被 truncate 掉,而次要的状态标签
+   反倒因为带边框而视觉权重最高。这一段只改【尺寸与排布】,不动任何取数与计算。
+
+   三条原则:
+   ① 标签类元素大幅缩小 —— 中文 pill 不需要 0.1em 字距和 uppercase
+   ② 核心元素(账户名 / 金额)优先占位,永远不阉割
+   ③ 复杂行谨慎换行 —— 该换的(次要信息)强制换,不该换的(金额)锁在同一行
+   ═══════════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+
+  /* ── ① 标签类:字距归零 + 收紧 padding ──
+     中文本来就有字身间距,再加 0.1em letter-spacing 只是白白变宽。
+     uppercase 对中文无效,但会让夹在里面的英文/数字变高。 */
+  .pill {
+    font-size: calc(8.5px * var(--fs-scale, 1));
+    padding: 2px 5px;
+    gap: 3px;
+    letter-spacing: 0.01em;
+  }
+  .badge { font-size: calc(8.5px * var(--fs-scale, 1)); padding: 1px 5px; letter-spacing: 0.02em; }
+  .btn-ghost { font-size: calc(10.5px * var(--fs-scale, 1)); padding: 6px 10px; letter-spacing: 0.06em; }
+
+  /* ── ② 填报页流水行:手机端走 flex,不走 grid ──
+     原来是 grid-cols-[auto_auto_1fr_auto](4 列),而有消费分类时这一行有
+     【5 个】元素(头像 / 性质 / 分类 / 账户名 / 金额)—— 第 5 个自动落到下一行,
+     于是金额孤零零掉在左下角,和账户名断开。这不是宽度问题,是列数不够。
+     改成 flex 之后元素按需排,账户名 flex:1 优先吃掉剩余宽度。 */
+  /* 【必须排除 [hidden]】—— 全局有一条 [hidden]{display:none!important},
+     而这里也是 !important、又写在文件更后面,同特异性下后者赢:
+     不加 :not([hidden]) 的话,前端分页藏起来的那几百行会被这条规则重新放出来,
+     列表一下子变成十几屏,而且被隐藏行的布局是塌的(账户名宽度只剩 2px)。 */
+  [data-flow-row]:not([hidden]) {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+  }
+  /* 账户名是这一行的主语,不能被 tag 挤没 */
+  [data-flow-row]:not([hidden]) > .flow-acct { flex: 1 1 auto; min-width: 4.5em; font-size: 13px; }
+  /* 金额锁在第一行末尾 —— 它和账户名是一对,断开之后这一行就读不成句子了。
+     账户名允许被压到 4.5em(配合 truncate)而不是让金额换行:
+     一个读得出开头的账户名 + 完整金额,比「完整账户名 + 金额掉到下一行」好读。
+     实测 390px 下缩小 tag 之后不会真触发压缩 —— 这只是兜底。 */
+  /* 【谁让路】这一行放不下时,该被压缩的是分类不是账户名。
+     账户名是这一行的主语 —— 「支付宝-余…」看不出是余额宝还是余额,
+     而分类被截成「日用百货 ›…」仍然读得懂。
+     真实数据里把这条逼出来的是两种行:千分位长金额(−¥1,500.00)
+     和两级分类(日用百货 › 家居家装)。 */
+  [data-flow-row]:not([hidden]) > .flow-amt { margin-left: auto; flex: 0 0 auto; font-size: 12.5px; }
+  [data-flow-row]:not([hidden]) > .flow-acct { flex: 0 0 auto; }
+  /* 消费分类是 Tailwind 的 text-[10px] 硬编码,优先级压过 .pill 那套 ——
+     不单独点名的话它在 390px 下仍是 PC 尺寸,一行就差这十几个 px,
+     账户名于是被 truncate 掉最后两个字。 */
+  [data-flow-row]:not([hidden]) > .flow-cat {
+    font-size: 9px !important; letter-spacing: 0;
+    flex: 0 1 auto; min-width: 2.2em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* 备注来自账单原文,能有六七十个字(「闪擎适用苹果11/13/12防窥膜…」)。
+     让它占满三行会把整个列表的节奏打散 —— 这正是「复杂列表谨慎换行」说的那种换行。
+     截成一行,完整内容进 title(长按/悬停可见)。 */
+  [data-flow-row]:not([hidden]) > .flow-meta > .flow-note {
+    flex: 1 1 0; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* 状态标签和「删」靠右对齐成一条轴 —— 原来它们跟着备注长度飘,
+     十行就有十个不同的 x,眼睛没有着落点 */
+  [data-flow-row]:not([hidden]) > .flow-meta > .flow-eff { margin-left: auto; }
+  [data-flow-row]:not([hidden]) > .flow-meta > form { margin-left: 8px; }
+  /* 次要信息(备注 / 日期 / 状态 / 删)强制独占第二行 —— 这里换行是对的 */
+  [data-flow-row]:not([hidden]) > .flow-meta { flex: 0 0 100%; gap: 6px; margin-top: 2px; }
+  /* 「已出账 + 流水」是写死的说明文案,每行重复一遍;去掉边框只留色,退到背景里 */
+  .flow-eff {
+    font-size: calc(8px * var(--fs-scale, 1)) !important;
+    padding: 1px 4px;
+    border-color: transparent !important;
+    letter-spacing: 0;
+  }
+
+  /* ── ②b 填报页的账户行:账户名优先占位 ──
+     它和流水行是同一个病,但更严重:那边是被 tag 挤窄,这边是被硬编码 max-w 锁死。 */
+  .acct-head { flex-wrap: wrap; row-gap: 3px; }
+  .acct-head > .acct-name { flex: 0 0 auto; max-width: 100% !important; }
+  /* 校准状态是次要信息,缩小之后大多数情况下还能和账户名同行 */
+  .acct-head > [data-calibrated], .acct-head > [data-not-calibrated] {
+    font-size: calc(8px * var(--fs-scale, 1));
+    padding: 0 4px;
+    letter-spacing: 0;
+  }
+
+  /* 账户卡:两栏 → 上下两段。
+     头像和勾留在第一段的左侧(它们是行首标识),余额单独一段靠右 ——
+     这样左边的「上期末 … · 已填」和入口按钮都有整行宽度可用。 */
+  .acct-row { flex-wrap: wrap; row-gap: 6px; }
+  .acct-row > .flex-1 { flex: 1 1 100%; min-width: 0; }
+  .acct-row > .acct-refresh { flex: 0 0 auto; align-self: center; }
+  /* 给刷新按钮(28px + 8px 外边距)留出位置,否则它会被挤到下一行的最左边,
+     和右对齐的余额彻底断开 —— 一个孤零零的圆圈,看不出是干嘛的。 */
+  .acct-row > .acct-bal {
+    flex: 1 1 calc(100% - 40px);
+    display: flex; align-items: baseline; justify-content: flex-end;
+    gap: 8px; flex-wrap: wrap;
+    padding-top: 4px; border-top: 1px dashed var(--rule-soft);
+  }
+
+  /* 账户行的三个入口(持仓变动 / AI 截图导入 / 券商)在 390px 下会一个占一行,
+     三行按钮把账户名和余额挤得看不出主次。缩到能一行放下 —— 它们是入口不是主角。 */
+  .acct-ops > a {
+    font-size: 10px !important;
+    padding: 2px 6px !important;
+    gap: 3px !important;
+  }
+  .acct-ops > a > svg { width: 10px; height: 10px; }
+
+  /* ── ③ 宽内容统一横向滚动,而不是被硬切 ──
+     KPI 条 / 瀑布图 / 对比表在 390px 下本来就放不下。
+     现在是直接溢出被裁掉(文档宽 394 > 390),右边的列用户永远看不到,
+     而且没有任何「这里还有内容」的提示。 */
+  .m-scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .m-scroll-x::-webkit-scrollbar { height: 3px; }
+  .m-scroll-x::-webkit-scrollbar-thumb { background: var(--rule); }
+
+  /* ── ④ sticky 导航:不透明 + 贴顶 ──
+     原来是 top:4px + bg-paper/95 + backdrop-blur —— 那 4px 缝里会漏出下方内容,
+     半透明又让滚过去的文字透上来,看着像脏了一层。手机屏幕小,这层噪音很显眼。 */
+  header.sticky {
+    top: 0 !important;
+    background: var(--paper) !important;
+    backdrop-filter: none !important;
+  }
+}
