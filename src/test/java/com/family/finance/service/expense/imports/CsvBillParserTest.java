@@ -273,7 +273,7 @@ class CsvBillParserTest {
                 java.util.Map.of(), catSvc.other(1L).getId(), java.util.Set.of(),
                 java.util.List.of(), java.util.Map.of(), null);
 
-        assertThat(draft.bucket(BillCategoryResolver.Bucket.DROPPED))
+        assertThat(draft.bucket(BillCategoryResolver.Bucket.SUGGEST_SKIP))
                 .as("转账红包是划转,不是消费")
                 .extracting(BillCategoryResolver.Line::merchant)
                 .anyMatch(m -> m.contains("转账") || m.contains("红包"));

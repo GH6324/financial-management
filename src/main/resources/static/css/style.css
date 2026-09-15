@@ -2285,3 +2285,26 @@ dialog::backdrop { background: rgba(26, 23, 20, .38); }
   .flow-filters .lsel, .flow-pager .lsel { width: 46%; }
   .flow-pager { width: 100%; }
 }
+
+/* ═══ v1.22 · 导入确认页的逐笔表在窄屏下的行为 ═══
+   这张表有 7 列(勾 / 日期 / 商户 / 金额 / 分类 / 账户 / 依据),390px 下按比例压缩的话
+   每一列都只剩几十 px —— 商户名会被压成【一个字一行】的竖排,整张表没法读。
+   (v1.21 就是这个结构,只是当时拍到的那一屏恰好没有表格内容,没暴露出来。)
+
+   做法是【横向滚动 + 每列保底宽度】而不是重排成卡片:
+   这一页的动作是「逐行核对并改分类/账户」,列与列的对齐关系本身就是信息;
+   拆成卡片之后「同一列的值上下对比」这件事就没了,而那正是核对时最常做的。 */
+.imp-scroll { overflow: auto; }
+.imp-scroll > table { min-width: 760px; }
+
+/* 【基础规则必须写在 media query 之前】—— 同特异性下后定义的赢,
+   把 display:none 放在后面会把 media query 里的 display:block 盖掉,
+   于是提示永远不出现(而 CSS 不会报错,只能靠真机截图发现)。 */
+.imp-hint { display: none; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+            color: var(--ink-subtle); padding: 5px 10px 0; }
+
+@media (max-width: 640px) {
+  /* 提示一下可以横滑 —— 否则用户看到右边被切掉会以为坏了 */
+  .imp-scroll { position: relative; -webkit-overflow-scrolling: touch; }
+  .imp-hint { display: block; }
+}

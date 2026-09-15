@@ -10,6 +10,7 @@ import com.family.finance.service.expense.ExpenseCategoryService;
 import com.family.finance.service.expense.imports.BillAccountResolver;
 import com.family.finance.service.expense.imports.BillCategoryResolver;
 import com.family.finance.service.expense.imports.BillCommitService;
+import com.family.finance.service.expense.imports.ExistingFlowUpdateService;
 import com.family.finance.service.expense.imports.BillImportService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -66,6 +67,8 @@ public class ExpenseImportController {
     private final NavService navService;
     private final com.family.finance.repository.ExpenseAccountRuleMapper acctRuleMapper;
     private final com.family.finance.repository.CashFlowCategoryMapper cashFlowCategoryMapper;
+    private final com.family.finance.repository.ExpenseFlowMapper expenseFlowMapper;
+    private final ExistingFlowUpdateService existingUpdateService;
 
     @GetMapping("/expense/import")
     public String page(@AuthenticationPrincipal MemberPrincipal me,
@@ -123,6 +126,17 @@ public class ExpenseImportController {
                 spend.stream().filter(l -> !l.needsReview()).toList();
 
         Map<String, List<BillCategoryResolver.Line>> groups = new LinkedHashMap<>();
+        /* v1.22 FR-593 · 「不建议录入」的行【并进同一张表、排最前】。
+         *
+         * 原来它们在另一个桶里,心智也不同(那边叫「捞回来」,这边叫「剔除」)——
+         * 两种相反的动作、两套全选,用户要核对两遍。
+         * 现在只有一个动作:勾 = 录入。系统的判断只体现为【默认值 + 逐行理由】。
+         *
+         * 排最前是因为它们才是要人看的;默认勾上的那 180 行不看也行。 */
+        var suggestSkip = draft.bucket(BillCategoryResolver.Bucket.SUGGEST_SKIP);
+        if (!suggestSkip.isEmpty()) {
+            groups.put("不建议录入 · 默认没勾,理由在每行右边", new ArrayList<>(suggestSkip));
+        }
         if (!review.isEmpty()) groups.put("先看这些 · 没把握", new ArrayList<>(review));
         Map<String, List<BillCategoryResolver.Line>> byCat = new LinkedHashMap<>();
         for (var l : settled) {
@@ -138,11 +152,15 @@ public class ExpenseImportController {
         model.addAttribute("reviewCount", review.size());
 
         model.addAttribute("spendCount", spend.size());
+        /* 表里到底有几行可勾 —— 空态与「批量条渲不渲染」都看它,不看 spendCount:
+         * 「要导入 0 但有 20 行不建议录入」时,表格是有内容的。 */
+        model.addAttribute("selectableCount", spend.size() + suggestSkip.size());
+        model.addAttribute("defaultIncludedCount", spend.size());
         model.addAttribute("spendSum", draft.sum(BillCategoryResolver.Bucket.SPEND));
         model.addAttribute("natureCount", draft.count(BillCategoryResolver.Bucket.NATURE));
         model.addAttribute("natureSum", draft.sum(BillCategoryResolver.Bucket.NATURE));
         model.addAttribute("incomeCount", draft.count(BillCategoryResolver.Bucket.INCOME));
-        model.addAttribute("droppedCount", draft.count(BillCategoryResolver.Bucket.DROPPED));
+        model.addAttribute("suggestSkipCount", draft.count(BillCategoryResolver.Bucket.SUGGEST_SKIP));
         model.addAttribute("skippedCount", draft.count(BillCategoryResolver.Bucket.SKIPPED));
         model.addAttribute("noTxNo", draft.noTxNo());
         model.addAttribute("parsed", draft.parsed());
@@ -167,12 +185,33 @@ public class ExpenseImportController {
          * 原来只给一个数字「已剔除 92」—— 用户没法核对我们剔得对不对,
          * 而「剔错了」的后果是支出少算,他不会立刻发现。
          *
-         * 可动性分三档(见模板里的说明):
-         *   要导入 → 可改分类/账户、可剔除
-         *   已剔除 → 【可恢复】,但金额≤0 的不行(DB 有 CHECK(amount>0),恢复了必炸)
-         *   已存在 → 只读。给「强制再导」等于给一个「制造双份」的按钮 */
-        model.addAttribute("droppedLines", draft.bucket(BillCategoryResolver.Bucket.DROPPED));
-        model.addAttribute("skippedLines", draft.bucket(BillCategoryResolver.Bucket.SKIPPED));
+         * v1.22 · 可动性:
+         *   要导入     → 默认勾上 · 可改分类/账户 · 可取消勾选
+         *   不建议录入 → 默认不勾 · 逐行给理由 · 【可以勾】(含 0 元与负数,V60 之后 DB 不再挡)
+         *   已存在     → 【可改分类与账户】,改的是已经入账的那一笔,不是新增(FR-598)
+         *   性质另算 / 收入 → 只读 */
+        model.addAttribute("suggestSkipLines", draft.bucket(BillCategoryResolver.Bucket.SUGGEST_SKIP));
+        var skipped = draft.bucket(BillCategoryResolver.Bucket.SKIPPED);
+        model.addAttribute("skippedLines", skipped);
+        /* FR-600 · 「已存在」的笔可能落在别的账期、甚至已关账的期(去重范围是整个家庭)。
+         * 已关账的期只能改分类 —— 改账户要动用户已经核对过并封存的期末余额。
+         * 这里把 txNo → 是否已关账 查出来给模板,前端据此 disable 账户下拉;
+         * 服务端另有一道硬拦(ExistingFlowUpdateService),前端只防手滑。 */
+        java.util.Map<String, Boolean> existingClosed = new java.util.LinkedHashMap<>();
+        java.util.Map<String, Long> existingCat = new java.util.LinkedHashMap<>();
+        java.util.Map<String, Long> existingAcct = new java.util.LinkedHashMap<>();
+        var skTx = skipped.stream().map(BillCategoryResolver.Line::txNo)
+                .filter(t -> t != null && !t.isBlank()).distinct().toList();
+        if (!skTx.isEmpty()) {
+            for (var r : expenseFlowMapper.findExistingByTxNos(familyId, skTx)) {
+                existingClosed.putIfAbsent(r.txNo(), r.closed());
+                if (r.expenseCategoryId() != null) existingCat.putIfAbsent(r.txNo(), r.expenseCategoryId());
+                existingAcct.putIfAbsent(r.txNo(), r.accountId());
+            }
+        }
+        model.addAttribute("existingClosed", existingClosed);
+        model.addAttribute("existingCat", existingCat);
+        model.addAttribute("existingAcct", existingAcct);
         model.addAttribute("natureLines", draft.bucket(BillCategoryResolver.Bucket.NATURE));
         /* NATURE 桶只带 natureCode(loan_payment / …),面向用户要显示中文名。
          * 名字的唯一真相在 cash_flow_category,别在模板里硬编码一份 —— 改了名会对不上。 */
@@ -291,17 +330,43 @@ public class ExpenseImportController {
                           @RequestParam(required = false) List<Integer> idx,
                           @RequestParam(required = false) List<String> cat,
                           @RequestParam(required = false) List<String> acct,
-                          @RequestParam(required = false) List<Integer> drop,
-                          @RequestParam(required = false) List<Integer> restore,
+                          @RequestParam(required = false) List<Integer> include,
+                          @RequestParam(required = false) List<String> exTx,
+                          @RequestParam(required = false) List<String> exCat,
+                          @RequestParam(required = false) List<String> exAcct,
                           @RequestParam(defaultValue = "false") boolean remember,
                           @RequestParam(defaultValue = "false") boolean affectsBalance,
                           HttpSession session, RedirectAttributes ra) {
-        var draft = (BillCategoryResolver.Draft) session.getAttribute(DRAFT_KEY);
-        if (draft == null) {
-            ra.addFlashAttribute("flashError", "草稿已经过期了 —— 重新传一次文件。");
+        long fam = me.getFamilyId();
+
+        /* v1.22 FR-598 · 「已存在」那一桶的修正【先做,且不依赖草稿】。
+         *
+         * 它改的是<b>上次已经入账</b>的行,和这次要落的新行没有任何关系。
+         * 放在草稿检查之后的话,session 一过期,用户在那一桶里改了半天的东西
+         * 会连同一句「草稿已经过期」一起消失 —— 而那部分工作本来是能保住的。
+         *
+         * 顺带这也让它可以被单独调用(e2e 直接打这个端点验余额挪动,不用先传文件)。 */
+        ExistingFlowUpdateService.Result exResult;
+        try {
+            exResult = existingUpdateService.apply(fam, me.getMemberId(),
+                    buildExistingEdits(fam, exTx, exCat, exAcct));
+        } catch (ExistingFlowUpdateService.UpdateException e) {
+            ra.addFlashAttribute("flashError", e.getMessage());
             return "redirect:/expense/import?periodId=" + periodId;
         }
-        long fam = me.getFamilyId();
+
+        var draft = (BillCategoryResolver.Draft) session.getAttribute(DRAFT_KEY);
+        if (draft == null) {
+            /* 草稿没了,但修正是实打实做完的 —— 别把它说成失败 */
+            if (exResult.total() > 0 || exResult.refusedClosed() > 0) {
+                ra.addFlashAttribute("flashOk",
+                        "已经" + existingSummary(exResult).replaceFirst("^ · 另外", "").trim()
+                        + "。本次没有新导入的笔(草稿已过期,要导新的请重新传一次文件)。");
+            } else {
+                ra.addFlashAttribute("flashError", "草稿已经过期了 —— 重新传一次文件。");
+            }
+            return "redirect:/expense/import?periodId=" + periodId;
+        }
         try {
             Map<Integer, Long> changed = new LinkedHashMap<>();
             if (idx != null && cat != null) {
@@ -323,28 +388,39 @@ public class ExpenseImportController {
                     catch (NumberFormatException ignore) { /* 脏值忽略 */ }
                 }
             }
-            java.util.Set<Integer> dropped =
-                    drop == null ? java.util.Set.of() : new java.util.HashSet<>(drop);
-            /* 用户从「已剔除」里捞回来的行(FR-580)。金额≤0 的捞不回来 —— 前端不给按钮,
-             * 这里再挡一次:DB 上有 CHECK(amount>0),放过去整批事务会回滚。 */
-            java.util.Set<Integer> restored =
-                    restore == null ? java.util.Set.of() : new java.util.HashSet<>(restore);
+            /* v1.22 FR-590 · 提交模型从「drop + restore」翻成【一个 include 列表】。
+             *
+             * 旧模型有两个方向相反的参数,因为它的心智是「系统已经删了一批,用户捞回几个」;
+             * 而那个心智本身就是错的 —— 判据是启发式的、会错,不该由系统执行删除。
+             * 现在只有一个事实:**这一行用户勾没勾**。没勾的不落库,也没有任何东西被删。
+             *
+             * 【include 为 null 时不能当成「全选」】—— HTML 里一个复选框都没勾时
+             * 浏览器什么都不提交,和「字段不存在」无法区分。当成全选会把用户
+             * 刚刚全部取消的选择原样录进去,那是最糟的一种静默。所以 null == 空集,
+             * 前端另有一道拦截保证不会提交空集(见 bill-confirm.js)。 */
+            java.util.Set<Integer> included =
+                    include == null ? java.util.Set.of() : new java.util.HashSet<>(include);
 
             List<BillCategoryResolver.Line> finalLines = new ArrayList<>();
-            int userDropped = 0;
+            int notIncluded = 0;
             for (var l : draft.lines()) {
-                if (dropped.contains(l.idx())) { userDropped++; continue; }
-                if (l.bucket() == BillCategoryResolver.Bucket.DROPPED) {
-                    if (!restored.contains(l.idx())
-                            || l.amount() == null || l.amount().signum() <= 0) continue;
-                    // 捞回来的行按「消费」处理,分类走用户在那一行选的(没选就落「其他」)
+                // 只有 SPEND / SUGGEST_SKIP 参与勾选;NATURE 照常导入,INCOME 与 SKIPPED 不导入
+                if (l.selectable() && !included.contains(l.idx())) { notIncluded++; continue; }
+                if (l.bucket() == BillCategoryResolver.Bucket.SUGGEST_SKIP) {
+                    /* 用户勾上了一个「不建议录入」的行 —— 按消费录。
+                     * 它本来就带着分类和账户推荐(v1.22 起归类不再跳过这个桶),
+                     * 所以这里和 SPEND 走同一套「用户改过就用他的」逻辑,不需要特殊照顾。
+                     * 【不再有金额 ≤ 0 的拦截】:V60 已经放开,0 和负数都是合法值。 */
                     Long rc = changed.get(l.idx());
-                    Long cid = (rc != null && categoryService.isUsable(fam, rc)) ? rc : null;
+                    Long cid = (rc != null && categoryService.isUsable(fam, rc)) ? rc : l.categoryId();
                     Long rAcct = acctOf.get(l.idx());
                     Long aid = (rAcct != null && ownedAccount(fam, rAcct)) ? rAcct : l.accountId();
+                    if (remember && rc != null && cid != null && !cid.equals(l.categoryId())) {
+                        importService.rememberRule(fam, BillImportService.merchantKeyword(l.merchant()), cid);
+                    }
                     finalLines.add(new BillCategoryResolver.Line(l.idx(), l.occurredAt(), l.merchant(),
                             l.amount(), cid, categoryService.displayName(fam, cid),
-                            BillCategoryResolver.How.RULE, BillCategoryResolver.Bucket.SPEND,
+                            l.how(), BillCategoryResolver.Bucket.SPEND,
                             null, null, l.txNo(), l.payMethod(), aid, l.accountHow()));
                     continue;
                 }
@@ -369,7 +445,7 @@ public class ExpenseImportController {
                 if (!catChanged) {
                     finalLines.add(new BillCategoryResolver.Line(l.idx(), l.occurredAt(), l.merchant(),
                             l.amount(), l.categoryId(), l.categoryName(), l.how(), l.bucket(),
-                            l.natureCode(), l.dropReason(), l.txNo(), l.payMethod(), finalAcct, accountHow));
+                            l.natureCode(), l.suggestReason(), l.txNo(), l.payMethod(), finalAcct, accountHow));
                     continue;
                 }
                 finalLines.add(new BillCategoryResolver.Line(l.idx(), l.occurredAt(), l.merchant(),
@@ -386,18 +462,27 @@ public class ExpenseImportController {
             }
 
             var r = commitService.commit(fam, me.getMemberId(), periodId, accountId,
-                    draft.channel(), finalLines,
-                    draft.count(BillCategoryResolver.Bucket.DROPPED) + userDropped,
+                    draft.channel(), finalLines, notIncluded,
                     draft.count(BillCategoryResolver.Bucket.SKIPPED), affectsBalance);
             session.removeAttribute(DRAFT_KEY);
             session.removeAttribute(DRAFT_PERIOD);
-            ra.addFlashAttribute("flashOk", "导入了 " + r.rows() + " 笔 · 合计 ¥"
+            /* v1.22 · 合计按【代数和】。录了退款冲正(负数)之后它会比账单总额小,
+             * 甚至可能是负的 —— 不说一句的话用户会以为少导了几笔。 */
+            boolean hasNegative = finalLines.stream()
+                    .anyMatch(l -> l.amount() != null && l.amount().signum() < 0);
+            ra.addFlashAttribute("flashOk", "录入了 " + r.rows() + " 笔 · 合计 ¥"
                     + r.amount().setScale(2, java.math.RoundingMode.HALF_UP)
-                    + (r.dropped() > 0 ? " · 剔除 " + r.dropped() + " 笔" : "")
+                    + (hasNegative
+                        ? "(含退款冲正,所以合计比账单总额小 —— 那是对的,退款本来就该抵扣当月支出)" : "")
+                    /* v1.22 FR-597 · 「未录入」而不是「剔除」—— 没有任何东西被删除,
+                     * 只是这次没勾。重新导同一份文件还能再选(去重保证不会重复记)。 */
+                    + (r.notIncluded() > 0
+                        ? " · 未录入 " + r.notIncluded() + " 笔(没有被删除,重新导同一份文件还能再选)" : "")
                     + (r.skipped() > 0 ? " · 跳过 " + r.skipped() + " 笔(上次已导)" : "")
                     + (affectsBalance
                         ? " · 已从「" + accountLabel(fam, accountId) + "」的余额里扣掉 —— 记得回填报页核对余额。"
-                        : " · 没有动任何账户余额,只记了花在哪。"));
+                        : " · 没有动任何账户余额,只记了花在哪。")
+                    + existingSummary(exResult));
         } catch (BillCommitService.CommitException | BillImportService.ImportException e) {
             ra.addFlashAttribute("flashError", e.getMessage());
         } catch (Exception e) {
@@ -411,6 +496,45 @@ public class ExpenseImportController {
                     + " —— 如果看不懂,把这句话发给我们。");
         }
         return "redirect:/expense/import?periodId=" + periodId;
+    }
+
+    /** 把三组平行数组拧成 Edit 列表。脏值直接丢,不让一个坏值废掉整次提交 */
+    private List<ExistingFlowUpdateService.Edit> buildExistingEdits(
+            long fam, List<String> exTx, List<String> exCat, List<String> exAcct) {
+        List<ExistingFlowUpdateService.Edit> out = new ArrayList<>();
+        if (exTx == null) return out;
+        for (int i = 0; i < exTx.size(); i++) {
+            String tx = exTx.get(i);
+            if (tx == null || tx.isBlank()) continue;
+            Long cid = parseIdOrNull(exCat, i);
+            Long aid = parseIdOrNull(exAcct, i);
+            if (cid == null && aid == null) continue;      // 这一行什么都没改
+            out.add(new ExistingFlowUpdateService.Edit(tx.trim(), cid, aid));
+        }
+        return out;
+    }
+
+    private static Long parseIdOrNull(List<String> xs, int i) {
+        if (xs == null || i >= xs.size()) return null;
+        String v = xs.get(i);
+        if (v == null || v.isBlank()) return null;
+        try { return Long.parseLong(v.trim()); } catch (NumberFormatException e) { return null; }
+    }
+
+    /** 如实说改了什么 —— 包括被拒的那几笔和为什么 */
+    private static String existingSummary(ExistingFlowUpdateService.Result r) {
+        if (r == null || (r.total() == 0 && r.refusedClosed() == 0)) return "";
+        StringBuilder sb = new StringBuilder(" · 另外修正了上次已导入的 ");
+        if (r.categoryChanged() > 0) sb.append(r.categoryChanged()).append(" 笔分类");
+        if (r.accountChanged() > 0) {
+            if (r.categoryChanged() > 0) sb.append("、");
+            sb.append(r.accountChanged()).append(" 笔账户(余额已同步挪过去)");
+        }
+        if (r.refusedClosed() > 0) {
+            sb.append(" · 有 ").append(r.refusedClosed())
+              .append(" 笔在已关账的账期,账户没改(分类改了)—— 改账户要动已封存的余额");
+        }
+        return sb.toString();
     }
 
     @PostMapping("/expense/import/discard")

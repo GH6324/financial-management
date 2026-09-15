@@ -202,4 +202,72 @@ public interface ExpenseFlowMapper {
              WHERE import_batch_id = #{batchId} AND deleted_at IS NULL
             """)
     int softDeleteBatch(@Param("batchId") long batchId);
+
+    // ══════════════ v1.22 · 「已存在」的笔可以就地修正(FR-598 ~ FR-600)══════════════
+
+    /**
+     * 按交易号查出<b>已经入账</b>的那一笔,连同它所属账期的状态。
+     *
+     * <p>为什么要带 {@code periodStatus}:去重范围是<b>整个家庭</b>而不是当期,
+     * 所以「已存在」的笔可能落在别的账期、甚至<b>已关账</b>的期。
+     * 改那种笔的账户会去动一个用户已经核对过并封存的 {@code period_snapshot} ——
+     * 必须在服务端拦(FR-600),前端 disabled 只防手滑,防不住构造请求。</p>
+     *
+     * <p>{@code affectsBalance} 决定改账户时要不要挪余额:当初没落到账户的笔,
+     * 改账户只是改归属,一分钱都不该动。</p>
+     */
+    @Select("""
+            <script>
+            SELECT cf.id                  AS id,
+                   cf.period_id           AS periodId,
+                   p.status               AS periodStatus,
+                   cf.account_id          AS accountId,
+                   cf.amount              AS amount,
+                   cf.affects_balance     AS affectsBalance,
+                   cf.expense_category_id AS expenseCategoryId,
+                   cf.ext_tx_no           AS txNo,
+                   cf.note                AS note
+              FROM cash_flow cf
+              JOIN period p ON p.id = cf.period_id
+             WHERE p.family_id = #{familyId}
+               AND cf.deleted_at IS NULL
+               AND cf.kind = 'EXPENSE'
+               AND cf.ext_tx_no IN
+                   <foreach item="t" collection="txNos" open="(" separator="," close=")">#{t}</foreach>
+            </script>
+            """)
+    List<ExistingRow> findExistingByTxNos(@Param("familyId") long familyId,
+                                          @Param("txNos") List<String> txNos);
+
+    /** 已入账的一笔(修正入口用)。{@code periodStatus} 是 OPEN / CLOSED 的字面值 */
+    record ExistingRow(long id, long periodId, String periodStatus, long accountId,
+                       java.math.BigDecimal amount, boolean affectsBalance,
+                       Long expenseCategoryId, String txNo, String note) {
+        /** 已关账的期只能改分类,不能改账户 —— 改账户要动已封存的期末余额 */
+        public boolean closed() { return "CLOSED".equalsIgnoreCase(periodStatus); }
+    }
+
+    /**
+     * 就地改这一笔的消费分类。
+     *
+     * <p>分类<b>不动钱</b>,所以已关账的期也能改 —— 它只影响「钱花在哪」的构成图。</p>
+     */
+    @Update("""
+            UPDATE cash_flow SET expense_category_id = #{categoryId}
+             WHERE id = #{id} AND deleted_at IS NULL
+            """)
+    int updateCategory(@Param("id") long id, @Param("categoryId") Long categoryId);
+
+    /**
+     * 就地改这一笔的账户。
+     *
+     * <p><b>只改流水的归属列</b> —— 余额的挪动由调用方在同一个事务里做,
+     * 因为那要走 {@code EntryService} 的既有路径(审计日志 + 镜头失效都挂在那)。
+     * 这里多做一步就会出现两套改余额的代码。</p>
+     */
+    @Update("""
+            UPDATE cash_flow SET account_id = #{accountId}
+             WHERE id = #{id} AND deleted_at IS NULL
+            """)
+    int updateAccount(@Param("id") long id, @Param("accountId") long accountId);
 }

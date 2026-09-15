@@ -53,13 +53,18 @@
     <!--/* ═══ 分桶(FR-560)· 每桶的笔数都要显示出来。
            ④⑤ 必须显式说出来(FR-561):静默少导几笔 = 用户看到「总额比账单少一点」但查不出原因。 */-->
     <!--/* ═══ 分桶 = 可点的页签(FR-580)═══
-           原来只给一个数字「已剔除 92」—— 用户没法核对我们剔得对不对,
-           而「剔错了」的后果是支出少算,他不会立刻发现。现在三个桶都能点开看。 */-->
+           v1.22 · 「已剔除」这个说法没了 —— 它描述的是【系统已经执行完的动作】,
+           而判据是启发式的、会错;错了的后果是支出少算,用户不会立刻发现。
+           现在系统只给【默认值 + 逐行理由】,勾不勾由用户定。 */-->
     <div class="flex gap-2.5 flex-wrap mb-4" data-bucket-tabs>
-      <button type="button" class="bkt on" data-bucket="spend">
-        <div class="font-mono text-[9px] tracking-[.1em] uppercase text-ink-subtle">要导入</div>
-        <div class="font-display text-xl leading-tight" th:text="${spendCount}">301</div>
-        <div class="text-[11px] text-ink-subtle">消费支出 · 可改可剔</div>
+      <!--/* 默认激活哪个桶:有可录的笔就是主表;一笔都没有(月底重导同一份账单最常见)
+             就直接落到「已存在」—— 那是那一屏唯一有内容、也是用户唯一能做事的地方。
+             让他自己去点等于多一步,而那一步他还得先想到。 */-->
+      <button type="button" class="bkt" th:classappend="${selectableCount > 0} ? 'on' : ''"
+              data-bucket="spend">
+        <div class="font-mono text-[9px] tracking-[.1em] uppercase text-ink-subtle">逐笔核对</div>
+        <div class="font-display text-xl leading-tight" th:text="${selectableCount}">200</div>
+        <div class="text-[11px] text-ink-subtle" th:text="'默认录 ' + ${defaultIncludedCount}">默认录 180</div>
       </button>
       <button type="button" class="bkt" data-bucket="nature" th:if="${natureCount > 0}">
         <div class="font-mono text-[9px] tracking-[.1em] uppercase text-ink-subtle">性质另算</div>
@@ -71,15 +76,18 @@
         <div class="font-display text-xl leading-tight" th:text="${incomeCount}">12</div>
         <div class="text-[11px] text-ink-subtle">点开看 · 只读</div>
       </button>
-      <button type="button" class="bkt" data-bucket="dropped" th:if="${droppedCount > 0}">
-        <div class="font-mono text-[9px] tracking-[.1em] uppercase text-ink-subtle">已剔除</div>
-        <div class="font-display text-xl leading-tight" th:text="${droppedCount}">92</div>
-        <div class="text-[11px] text-ink-subtle">点开看 · 可捞回来</div>
+      <!--/* v1.22 · 不再有「已剔除」这个桶 —— 它的行已经并进主表并排在最前。
+             这个页签是【快捷筛选】:点了只看那些行,方便一次性全选或逐行采纳。 */-->
+      <button type="button" class="bkt" data-bucket="suggest" th:if="${suggestSkipCount > 0}">
+        <div class="font-mono text-[9px] tracking-[.1em] uppercase text-ink-subtle">不建议录入</div>
+        <div class="font-display text-xl leading-tight" th:text="${suggestSkipCount}">20</div>
+        <div class="text-[11px] text-ink-subtle">点开只看这些</div>
       </button>
-      <button type="button" class="bkt" data-bucket="skipped" th:if="${skippedCount > 0}">
+      <button type="button" class="bkt" data-bucket="skipped" th:if="${skippedCount > 0}"
+              th:classappend="${selectableCount == 0} ? 'on' : ''">
         <div class="font-mono text-[9px] tracking-[.1em] uppercase text-ink-subtle">已存在</div>
         <div class="font-display text-xl leading-tight" th:text="${skippedCount}">17</div>
-        <div class="text-[11px] text-ink-subtle">点开看 · 只读</div>
+        <div class="text-[11px] text-ink-subtle">点开改 · 可编辑</div>
       </button>
     </div>
 
@@ -112,7 +120,7 @@
              preview 里画的就是这个,第一版实现简化成了逐行 —— 那等于没做。 */-->
       <!--/* 「要导入 0 笔」时整条批量工具条不渲染 —— 全选 / 批量改分类 / 剔除所选
              对着一张空表是纯噪音。页签的绑定不依赖它(见 bill-confirm.js 的 initTabs)。 */-->
-      <div th:if="${spendCount > 0}" class="flex items-center gap-3 flex-wrap mb-3 px-3 py-2 border border-rule bg-card-soft"
+      <div th:if="${selectableCount > 0}" class="flex items-center gap-3 flex-wrap mb-3 px-3 py-2 border border-rule bg-card-soft"
            data-bill-bar>
         <label class="flex items-center gap-2 text-[12px] whitespace-nowrap">
           <input type="checkbox" data-sel-all> 全选
@@ -127,10 +135,10 @@
           <option value="">批量改到账户…</option>
           <option th:each="a : ${accounts}" th:value="${a.id}" th:text="${a.displayName}">支付宝-余额宝</option>
         </select>
-        <button type="button" data-bulk-drop
-                class="btn-ghost text-[12px] h-8 px-3">剔除所选</button>
-        <button type="button" data-bulk-keep
-                class="btn-ghost text-[12px] h-8 px-3">撤销剔除</button>
+        <button type="button" data-bulk-invert
+                class="btn-ghost text-[12px] h-8 px-3" title="把当前看得见的行反过来勾">反选</button>
+        <button type="button" data-bulk-none
+                class="btn-ghost text-[12px] h-8 px-3" title="取消当前看得见的行">全不选</button>
         <span style="flex:1"></span>
         <label class="flex items-center gap-2 text-[12px] whitespace-nowrap">
           <input type="checkbox" name="remember" value="true" checked> 记住我的改动
@@ -169,13 +177,14 @@
       <!--/* 「要导入 0」在月底重导同一份账单时是【最常见】的一屏。
              此前这里只剩一张空表 —— 用户看到一片空白,得自己想到去点上面的「已存在」。
              空态要把下一步说出来,而不是让他猜。 */-->
-      <p th:if="${spendCount == 0}" data-bucket-panel="spend"
+      <p th:if="${selectableCount == 0}" data-bucket-panel="spend" hidden
          class="border border-dashed border-rule px-4 py-5 text-center text-[12.5px] text-ink-subtle leading-relaxed">
-        这一批<b>没有要导入的笔</b> —— <span th:if="${skippedCount > 0}">都在上面「已存在」里了(上次导过)。</span>
-        <span th:if="${skippedCount == 0}">全被剔除了。</span><br>
-        判断错了的话,点上面<b>「已剔除」</b>那一桶,勾「捞回来」再提交。
+        这一批<b>没有可录入的笔</b>。<span th:if="${skippedCount > 0}">都在上面「已存在」里了(上次导过)——
+        点开那一桶可以<b>修正上次归错的分类或账户</b>。</span>
+        <span th:if="${skippedCount == 0}">解析出来的行全是收入或性质另算的笔。</span>
       </p>
-      <div th:if="${spendCount > 0}" data-bill-table data-bucket-panel="spend" style="max-height:560px;overflow-y:auto;border:1px solid var(--rule)">
+      <p class="imp-hint" th:if="${selectableCount > 0}">表格可以左右滑 —— 分类和账户在右边</p>
+      <div th:if="${selectableCount > 0}" data-bill-table data-bucket-panel="spend" class="imp-scroll" style="max-height:560px;border:1px solid var(--rule)">
         <table class="w-full" style="border-collapse:collapse">
           <thead class="sticky top-0" style="background:var(--card)">
             <tr>
@@ -204,11 +213,17 @@
                 </td>
               </tr>
               <tr th:each="l : ${g.value}" class="border-b border-rule-soft" data-row
-                  th:attr="data-in-grp=${g.key},data-merchant=${l.merchant()}">
+                  th:classappend="${l.suggestReason() != null} ? 'row-suggest' : ''"
+                  th:attr="data-in-grp=${g.key},data-merchant=${l.merchant()},
+                           data-suggest=${l.suggestReason() != null},data-amt=${l.amount()}">
                 <td class="px-2 py-1.5">
-                  <input type="checkbox" data-sel th:attr="data-in-grp=${g.key}" title="选中(用于批量操作)">
-                  <!--/* 剔除状态用 hidden 表达,由 JS 增删 —— 复选框留给「选中」。
-                         第一版把复选框当成「剔除」,于是几百笔要逐个勾,而批量操作无处落脚。 */-->
+                  <!--/* v1.22 · 这个勾【就是】「录不录」,直接提交(name=include)。
+                         v1.21 里它是「选中(批量操作用)」,而录不录另外用 drop/restore 两个
+                         方向相反的参数表达 —— 那套心智来自「系统已经删了一批」,而那是错的。
+                         现在一个勾同时表达两件事:要录入 + 批量操作作用于我。 */-->
+                  <input type="checkbox" data-sel name="include" th:value="${l.idx()}"
+                         th:checked="${l.defaultIncluded()}"
+                         th:attr="data-in-grp=${g.key}" title="勾上 = 录入这一笔">
                 </td>
                 <td class="px-2 py-1.5 font-mono text-[11px] text-ink-subtle"
                     th:text="${l.occurredAt() != null} ? ${#temporals.format(l.occurredAt(), 'MM-dd')} : '—'">09-03</td>
@@ -233,7 +248,17 @@
                         th:text="'账单写的:' + ${l.payMethod()}">账单写的:余额宝</span>
                 </td>
                 <td class="px-2 py-1.5 whitespace-nowrap">
-                  <span class="badge text-[9px]" data-how-badge
+                  <!--/* v1.22 FR-591 · 不建议录入的行,这一列给的是【为什么不建议】——
+                         逐行给,不是一个桶级标题。用户要能一眼判断「这条我认不认」。 */-->
+                  <th:block th:if="${l.suggestReason() != null}">
+                    <span class="font-mono text-[9.5px] text-rust whitespace-nowrap"
+                          th:text="${l.suggestReason()}">退款</span>
+                    <span th:if="${l.suggestReason() == '0 元'}" class="kpi-i" tabindex="0"
+                          title="0 元通常是全额优惠或积分抵扣。录进来只多一笔记录,不影响金额。">i</span>
+                    <span th:if="${l.suggestReason() == '负数(退款冲正)'}" class="kpi-i" tabindex="0"
+                          title="这是一笔退款冲正。勾上会原样记成负数,当月支出会相应减少 —— 如果对应的原单也在这批里,两笔一起录才对得上。">i</span>
+                  </th:block>
+                  <span th:if="${l.suggestReason() == null}" class="badge text-[9px]" data-how-badge
                         th:classappend="${l.how() != null and l.how().needsReview()} ? 'border-rust text-rust' : ''"
                         th:text="${l.how() != null} ? ${l.how().label} : '—'">渠道分类</span>
                   <span th:if="${l.accountHow() != null and l.accountHow().needsReview()}"
@@ -248,65 +273,86 @@
       <!--/* 落到哪个账户 + 确认。
              【会参与余额轧差】必须说出来(FR-569)—— 用户已经核对过余额的话,
              导入之后余额那一栏会重新出现差额,那是对的,不是 bug。 */-->
-      <!--/* ═══ 已剔除 ═══ 可以捞回来 —— 我们的判断不一定对。
-             金额≤0 的捞不回来:DB 上有 CHECK(amount>0),放过去整批事务会回滚。 */-->
-      <div data-bucket-panel="dropped" hidden
-           style="max-height:560px;overflow-y:auto;border:1px solid var(--rule)">
+      <!--/* ═══ 已存在 ═══ v1.22 FR-598:从只读改成【可改分类与账户】。
+             v1.21 把这一桶做成只读,理由是「不要制造双份」—— 那个理由只挡住了「再导一次」,
+             却顺手把另一件完全合理的事也挡掉了:**上次可能就归错了分类、落错了账户**。
+             这里做的不是新增,是 UPDATE 已有行,所以不存在双份风险。
+             仍然【不提供「强制再导」】—— 那才是制造双份的那个按钮。 */-->
+      <div data-bucket-panel="skipped" th:attr="hidden=${selectableCount > 0} ? 'hidden' : null"
+           class="imp-scroll" style="max-height:560px;border:1px solid var(--rule)">
         <p class="px-3 py-2 text-[11.5px] text-ink-subtle border-b border-rule" style="background:rgba(160,124,58,.06)">
-          这些是我们判断<b>不该算作消费</b>的:不计收支(划转)/ 退款 / 交易关闭 / 冲正行。
-          觉得判断错了就<b>勾「捞回来」</b>,它会按消费导入 —— 记得顺手给它选个分类。
+          这些笔上次导过,<b>这次不会重复记</b>。但可以在这里<b>修正上次归错的分类或落错的账户</b>
+          —— 改的是<b>已经入账的那一笔</b>,不是新增。<br>
+          改账户会<b>同时把余额挪过去</b>(旧账户加回、新账户扣掉)—— 只对当初勾了「落到账户」的笔生效。
+          真要重导,先去下面「本期已导入」把那一批<b>整批撤销</b>。
         </p>
+        <div class="flex items-center gap-3 flex-wrap px-3 py-2 border-b border-rule bg-card-soft"
+             data-ex-bar>
+          <label class="flex items-center gap-2 text-[12px] whitespace-nowrap">
+            <input type="checkbox" data-ex-all> 全选
+          </label>
+          <span class="font-mono text-[11px] whitespace-nowrap">已选 <b data-ex-count>0</b> 笔</span>
+          <span class="h-4 w-px bg-rule"></span>
+          <select data-lsel data-ex-bulk-cat class="h-8 text-[12px] bg-paper border border-rule px-2" style="max-width:190px">
+            <option value="">批量改到分类…</option>
+            <option th:each="o : ${catOptions}" th:value="${o.id}" th:text="${o.label}">餐饮美食</option>
+          </select>
+          <select data-lsel data-ex-bulk-acct class="h-8 text-[12px] bg-paper border border-rule px-2" style="max-width:190px">
+            <option value="">批量改到账户…</option>
+            <option th:each="a : ${accounts}" th:value="${a.id}" th:text="${a.displayName}">支付宝-余额宝</option>
+          </select>
+          <span class="font-mono text-[10px] text-ink-subtle">批量改账户会跳过已关账的那些笔</span>
+        </div>
         <table class="imp w-full" style="border-collapse:collapse">
-          <tbody>
-            <tr th:each="l : ${droppedLines}" class="border-b border-rule-soft">
-              <td class="px-2 py-1.5" style="width:78px">
-                <label th:if="${l.amount() != null and l.amount().signum() > 0}"
-                       class="flex items-center gap-1 text-[11px] whitespace-nowrap cursor-pointer">
-                  <input type="checkbox" name="restore" th:value="${l.idx()}"> 捞回来
-                </label>
-                <span th:unless="${l.amount() != null and l.amount().signum() > 0}"
-                      class="font-mono text-[9px] text-ink-subtle">不能捞</span>
-              </td>
-              <td class="px-2 py-1.5 font-mono text-[11px] text-ink-subtle" style="width:62px"
-                  th:text="${l.occurredAt() != null} ? ${#temporals.format(l.occurredAt(), 'MM-dd')} : '—'">09-09</td>
-              <td class="px-2 py-1.5 text-[12.5px]" th:text="${l.merchant()}">个人转账-王**</td>
-              <td class="px-2 py-1.5 text-right font-mono text-[12.5px] tnum" data-priv style="width:92px"
-                  th:text="${#numbers.formatDecimal(l.amount(), 1, 'COMMA', 2, 'POINT')}">888.00</td>
-              <td class="px-2 py-1.5" style="width:170px">
-                <select data-lsel name="cat" data-cat class="w-full h-7 text-[12px] bg-paper border border-rule px-1"
-                        th:disabled="${l.amount() == null or l.amount().signum() <= 0}">
-                  <option th:each="o : ${catOptions}" th:value="${o.id}" th:text="${o.label}">餐饮美食</option>
-                </select>
-                <input type="hidden" name="idx" th:value="${l.idx()}">
-              </td>
-              <td class="px-2 py-1.5 whitespace-nowrap">
-                <span class="badge text-[9px] border-rust text-rust" th:text="${l.dropReason()}">不计收支(划转)</span>
-              </td>
+          <thead class="sticky top-0" style="background:var(--card)">
+            <tr>
+              <th class="px-2 py-2 border-b border-rule" style="width:30px"></th>
+              <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule" style="width:62px">日期</th>
+              <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule">商户 / 说明</th>
+              <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-right px-2 py-2 border-b border-rule" style="width:92px">金额</th>
+              <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule" style="width:170px">归到分类</th>
+              <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule" style="width:170px">从哪个账户出</th>
+              <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule" style="width:118px">状态</th>
             </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!--/* ═══ 已存在 ═══ 只读。
-             这里【故意不给「强制再导」】—— 那等于给一个「制造双份」的按钮,
-             而双份在报表上表现为「这个月怎么花了两倍」,查起来很费劲。
-             真要重导,先去「本期已导入」把那一批整批撤销。 */-->
-      <div data-bucket-panel="skipped" hidden
-           style="max-height:560px;overflow-y:auto;border:1px solid var(--rule)">
-        <p class="px-3 py-2 text-[11.5px] text-ink-subtle border-b border-rule" style="background:rgba(160,124,58,.06)">
-          这些笔的<b>交易号</b>在你的账里已经有了(上次导过)。只读 ——
-          真要重导,先去下面「本期已导入」把那一批<b>整批撤销</b>,别在这里制造双份。
-        </p>
-        <table class="imp w-full" style="border-collapse:collapse">
+          </thead>
           <tbody>
-            <tr th:each="l : ${skippedLines}" class="border-b border-rule-soft" style="opacity:.72">
-              <td class="px-2 py-1.5 font-mono text-[11px] text-ink-subtle" style="width:62px"
+            <tr th:each="l : ${skippedLines}" class="border-b border-rule-soft" data-ex-row
+                th:attr="data-closed=${existingClosed.get(l.txNo()) == true}">
+              <td class="px-2 py-1.5">
+                <input type="checkbox" data-ex-sel title="选中(用于批量改)">
+                <input type="hidden" name="exTx" th:value="${l.txNo()}">
+              </td>
+              <td class="px-2 py-1.5 font-mono text-[11px] text-ink-subtle"
                   th:text="${l.occurredAt() != null} ? ${#temporals.format(l.occurredAt(), 'MM-dd')} : '—'">09-03</td>
               <td class="px-2 py-1.5 text-[12.5px]" th:text="${l.merchant()}">瑞幸咖啡</td>
-              <td class="px-2 py-1.5 text-right font-mono text-[12.5px] tnum" data-priv style="width:92px"
+              <td class="px-2 py-1.5 text-right font-mono text-[12.5px] tnum" data-priv
                   th:text="${#numbers.formatDecimal(l.amount(), 1, 'COMMA', 2, 'POINT')}">32.50</td>
-              <td class="px-2 py-1.5 font-mono text-[10px] text-ink-subtle"
-                  th:text="'交易号 ' + ${l.txNo()}">交易号 2026090301</td>
+              <td class="px-2 py-1.5">
+                <!--/* 分类【不动钱】,所以已关账的期也能改 */-->
+                <select data-lsel name="exCat" data-ex-cat class="w-full h-7 text-[12px] bg-paper border border-rule px-1">
+                  <option value="">不改</option>
+                  <option th:each="o : ${catOptions}" th:value="${o.id}" th:text="${o.label}"
+                          th:selected="${o.id == existingCat.get(l.txNo())}">餐饮美食</option>
+                </select>
+              </td>
+              <td class="px-2 py-1.5">
+                <!--/* FR-600 · 已关账的期不许改账户 —— 改账户要动用户已核对并封存的期末余额。
+                       这里 disabled 只防手滑;服务端另有一道硬拦。 */-->
+                <select data-lsel name="exAcct" data-ex-acct class="w-full h-7 text-[12px] bg-paper border border-rule px-1"
+                        th:disabled="${existingClosed.get(l.txNo()) == true}">
+                  <option value="">不改</option>
+                  <option th:each="a : ${accounts}" th:value="${a.id}" th:text="${a.displayName}"
+                          th:selected="${a.id == existingAcct.get(l.txNo())}">支付宝-余额宝</option>
+                </select>
+              </td>
+              <td class="px-2 py-1.5 whitespace-nowrap">
+                <span th:if="${existingClosed.get(l.txNo()) != true}" class="badge text-[9px]">可改</span>
+                <th:block th:if="${existingClosed.get(l.txNo()) == true}">
+                  <span class="badge text-[9px] border-rust text-rust">已关账</span>
+                  <span class="kpi-i" tabindex="0"
+                        title="这笔所在的账期已关账 —— 分类可以改,账户不行(改账户要动那一期已封存的余额)。">i</span>
+                </th:block>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -317,7 +363,7 @@
              它们进负债口径和储蓄率,不进消费构成图。把它们摊开是因为:
              「还款被当成消费」和「消费被当成还款」都会让储蓄率错,而错得不报警。 */-->
       <div data-bucket-panel="nature" hidden
-           style="max-height:560px;overflow-y:auto;border:1px solid var(--rule)">
+           class="imp-scroll" style="max-height:560px;border:1px solid var(--rule)">
         <p class="px-3 py-2 text-[11.5px] text-ink-subtle border-b border-rule" style="background:rgba(160,124,58,.06)">
           这些<b>会导入</b>,但按「性质」记(还贷 / 利息 / 给亲属),<b>不算家庭消费</b> ——
           它们影响的是负债和储蓄率,不进消费构成图。判断错了就回「要导入」那一桶手动加一笔。
@@ -342,7 +388,7 @@
              这一页是【支出】导入,收入不从这里进 —— 但要让用户看见我们认出了哪些,
              否则「账单有 12 笔收入,导完一笔都没有」会被当成丢数据。 */-->
       <div data-bucket-panel="income" hidden
-           style="max-height:560px;overflow-y:auto;border:1px solid var(--rule)">
+           class="imp-scroll" style="max-height:560px;border:1px solid var(--rule)">
         <p class="px-3 py-2 text-[11.5px] text-ink-subtle border-b border-rule" style="background:rgba(160,124,58,.06)">
           这些是<b>收入</b>,这一页只管支出,所以<b>不导入</b>。要记收入去填报页的收入区 ——
           那边要填的是「哪个账户、什么类目」,和账单的颗粒度不是一回事。
@@ -391,9 +437,13 @@
         </label>
         <div class="flex items-center gap-3 flex-wrap">
         <span style="flex:1"></span>
+        <!--/* v1.22 FR-597 · 两个数都要说:录入几笔 + 未录入几笔。
+               「未录入」是结果状态,不是操作 —— 什么都没被删除。
+               这两个数随勾选实时变(见 bill-confirm.js),因为勾选现在就是「录不录」。 */-->
         <span class="text-[12px] text-ink-subtle">
-          导入 <b th:text="${spendCount + natureCount}">307</b> 笔 · 合计
-          <b class="font-mono tnum" data-priv
+          录入 <b data-sum-in th:attr="data-nature=${natureCount}" th:text="${defaultIncludedCount + natureCount}">180</b> 笔 ·
+          未录入 <b data-sum-out th:text="${selectableCount - defaultIncludedCount}">20</b> 笔 · 合计
+          <b class="font-mono tnum" data-priv data-sum-amt
              th:text="'¥' + ${#numbers.formatDecimal(spendSum.add(natureSum), 1, 'COMMA', 2, 'POINT')}">¥12,845.30</b>
         </span>
         <button type="submit" class="btn-ink">确认导入</button>

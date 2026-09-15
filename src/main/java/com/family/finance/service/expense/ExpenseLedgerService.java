@@ -291,13 +291,29 @@ public class ExpenseLedgerService {
         BigDecimal total = BigDecimal.ZERO;
         for (var g : groups) if (g.amountBase() != null) total = total.add(g.amountBase());
 
+        /* v1.22 · 支出可以是负数了(退款冲正原样记),于是一组的合计可能 ≤ 0。
+         *
+         * 【饼图画不了负扇形】。三条路只有一条是诚实的:
+         *   ✗ 取绝对值凑扇形 —— 把一笔 −499 的退款画成一笔 499 的消费,用户完全看不出来
+         *   ✗ 把负组藏掉并从总额里扣走 —— 「各组加起来 ≠ 总额」,对账时对不上
+         *   ✓ 负组【不进扇形,但进总额】,在图例下方单列一行说明
+         *
+         * 所以 Slice 多一个 inChart:占比只对 > 0 的组算,负组的 pct 固定为 0
+         * 并且不参与扇形。分母用【正组之和】而不是总额 —— 否则正组占比会 > 100%
+         * (总额被负组拉小了),那个数字会让人以为算错了。 */
+        BigDecimal positiveTotal = BigDecimal.ZERO;
+        for (var g : groups) {
+            BigDecimal a = g.amountBase() == null ? BigDecimal.ZERO : g.amountBase();
+            if (a.signum() > 0) positiveTotal = positiveTotal.add(a);
+        }
         List<Slice> slices = new ArrayList<>();
         for (var g : groups) {
             BigDecimal amt = g.amountBase() == null ? BigDecimal.ZERO : g.amountBase();
-            BigDecimal pct = total.signum() == 0 ? BigDecimal.ZERO
-                    : amt.multiply(new BigDecimal("100")).divide(total, 1, RoundingMode.HALF_EVEN);
+            boolean inChart = amt.signum() > 0;
+            BigDecimal pct = (!inChart || positiveTotal.signum() == 0) ? BigDecimal.ZERO
+                    : amt.multiply(new BigDecimal("100")).divide(positiveTotal, 1, RoundingMode.HALF_EVEN);
             slices.add(new Slice(g.groupKey(), g.groupLabel(),
-                    amt.setScale(2, RoundingMode.HALF_EVEN), pct, g.itemCount()));
+                    amt.setScale(2, RoundingMode.HALF_EVEN), pct, g.itemCount(), inChart));
         }
 
         // 哪些账期只有总额、没有逐笔 —— 页面要如实标出来,否则用户会以为构成覆盖了全部支出
@@ -310,12 +326,42 @@ public class ExpenseLedgerService {
         return new Composition(dim, slices, total.setScale(2, RoundingMode.HALF_EVEN), totalOnly);
     }
 
-    /** 一格构成。pct 是 0–100 的百分数(图上直接标数字,不靠 hover)。 */
+    /**
+     * 一格构成。pct 是 0–100 的百分数(图上直接标数字,不靠 hover)。
+     *
+     * @param inChart 进不进饼图。v1.22 起合计 ≤ 0 的组(退款多于消费)<b>不进扇形</b> ——
+     *                扇形没有负面积,而取绝对值会把一笔退款画成一笔消费。
+     *                它仍然<b>进总额</b>,并在图例下方单列一行说明。
+     */
     public record Slice(String groupKey, String label, BigDecimal amountBase,
-                        BigDecimal pct, int itemCount) {}
+                        BigDecimal pct, int itemCount, boolean inChart) {}
 
     public record Composition(Dim dim, List<Slice> slices, BigDecimal totalBase, List<Long> totalOnlyPeriodIds) {
-        public boolean hasData() { return !slices.isEmpty() && totalBase.signum() > 0; }
+        /**
+         * 有没有数据 —— 看<b>有没有行</b>,不看金额符号。
+         *
+         * <p>v1.22 之前这里是 {@code totalBase.signum() > 0}。放开负数之后那是个陷阱:
+         * 某个月退款多于消费 → 总额 ≤ 0 → <b>整个「支出构成」段被判成「没数据」直接隐藏</b>,
+         * 不报错、不解释,用户看到的是一片空白。而那个月明明有几十笔支出。</p>
+         *
+         * <p>0 和负数都是<b>合法且有含义</b>的值,不是「没有」。</p>
+         */
+        public boolean hasData() { return !slices.isEmpty(); }
+
+        /** 有没有「退款多于消费」的组 —— 页面要在图例下面单列出来 */
+        public List<Slice> negativeSlices() {
+            return slices.stream().filter(sl -> !sl.inChart()).toList();
+        }
+
+        /**
+         * 进饼图的那些组。
+         *
+         * <p>模板里<b>不要</b>直接用 {@link #slices()} 喂 Chart.js —— 扇形没有负面积,
+         * 负值传进去 Chart.js 会画出一个看起来正常、但比例完全错的图。</p>
+         */
+        public List<Slice> chartSlices() {
+            return slices.stream().filter(Slice::inChart).toList();
+        }
         public boolean hasTotalOnlyPeriods() { return !totalOnlyPeriodIds.isEmpty(); }
     }
 
@@ -336,6 +382,19 @@ public class ExpenseLedgerService {
 
     private PeriodExpense decide(Long periodId, CashFlowMapper.RealExpenseSum itemized,
                                  BigDecimal total, boolean itemizedFirst) {
+        /* v1.22 · 【这一处故意保留 signum() > 0】,和 hasData() 那里的结论相反。
+         *
+         * 一度想改成看 itemCount —— 理由是「0 和负数都是合法值,不该当成没有」。
+         * 但这里判的不是「有没有数据」,而是<b>逐笔和手填总额谁说了算</b>,
+         * 而单测 `金额为0的逐笔不得压掉用户手填的总额` 钉的正是这个:
+         * 一行 0 元把用户手填的总额顶掉,<b>支出会凭空变 0</b> —— 那是灾难级的错。
+         *
+         * 为什么 v1.22 放开负数之后它仍然安全:冲突只发生在「既有逐笔又有手填总额」时,
+         * 而 ITEMIZED 模式下总额框是隐藏的,用户几乎不会两边都有。真两边都有时,
+         * 保守地用总额比让支出凭空归零好得多。
+         *
+         * 与 hasData() 的区别:那里的问题是「整段构成图消失」(展示层,可恢复),
+         * 这里的问题是「支出金额本身错了」(口径层,会串到储蓄率和净流入)。 */
         boolean hasItem = itemized != null && itemized.amount() != null && itemized.amount().signum() > 0;
         boolean hasTotal = total != null && total.signum() > 0;
         PeriodExpense item = hasItem

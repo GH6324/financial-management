@@ -103,8 +103,12 @@
               <span class="font-mono text-[10px] text-ink-subtle" th:text="${sl.itemCount()} + ' 笔'">3 笔</span>
               <span class="font-mono tnum ml-auto" data-priv
                     th:text="${T(com.family.finance.service.MoneyFormat).format2(baseCurrency, sl.amountBase())}">¥0</span>
-              <span class="font-mono text-xs tnum w-14 text-right text-brass-deep"
+              <span th:if="${sl.inChart()}" class="font-mono text-xs tnum w-14 text-right text-brass-deep"
                     th:text="${sl.pct()} + '%'">0%</span>
+              <!--/* v1.22 · 合计 ≤ 0 的组(退款多于消费)没有可解释的占比。
+                     显示「0%」会被读成「几乎没花」,而实际是「净退回来了」。 */-->
+              <span th:unless="${sl.inChart()}" class="font-mono text-xs w-14 text-right text-forest"
+                    title="这一组退款多于消费,合计是负的 —— 不计入构成占比,但计入上面的合计">净退款</span>
             </button>
               <div th:id="'mix-detail-' + ${sl.groupKey()}" class="mt-1"></div>
           </div>
@@ -112,6 +116,10 @@
         <p class="font-mono text-[10px] text-ink-subtle mt-4 pt-3 border-t border-rule-soft leading-relaxed">
           合计 = 本期家庭支出,<b>与储蓄率 / 人赚用的是同一个数</b>(逐笔模式下以逐笔为准,不与手填总额相加)。
           点任意一行展开那一格的逐笔明细。
+          <span th:if="${!mixComposition.negativeSlices().isEmpty()}" class="text-forest">
+            有 <b th:text="${mixComposition.negativeSlices().size()}">1</b> 组退款多于消费(合计为负)——
+            <b>不进上面的饼图</b>(扇形没有负面积),但<b>计入合计</b>,所以各组金额加起来仍然等于合计。
+          </span>
         </p>
       </div>
     </div>
@@ -119,9 +127,12 @@
     <script th:inline="javascript">
       /*<![CDATA[*/
       (function () {
-        var labels = /*[[${mixComposition.slices().![label]}]]*/ [];
-        var values = /*[[${mixComposition.slices().![amountBase]}]]*/ [];
-        var pcts   = /*[[${mixComposition.slices().![pct]}]]*/ [];
+        /* v1.22 · 只喂【进饼图】的组。扇形没有负面积 —— 把负值交给 Chart.js
+           它会画出一个看起来正常、但比例完全错的图,而且没人会发现。
+           负组在下面的明细表里照常出现,并单列一行说明。 */
+        var labels = /*[[${mixComposition.chartSlices().![label]}]]*/ [];
+        var values = /*[[${mixComposition.chartSlices().![amountBase]}]]*/ [];
+        var pcts   = /*[[${mixComposition.chartSlices().![pct]}]]*/ [];
         var el = document.getElementById('expenseMixChart');
         if (!el || !labels.length) return;
         // 与全站一致:金额/百分比直接绘在扇片上,不依赖 hover tooltip

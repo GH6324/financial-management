@@ -125,8 +125,19 @@ public final class BillCategoryResolver {
         NATURE,
         /** 收入 —— 默认不导(用户可勾选) */
         INCOME,
-        /** 剔除:不计收支 / 退款 / 交易关闭。**这些钱实际没花出去** */
-        DROPPED,
+        /**
+         * <b>不建议录入</b>:不计收支 / 退款 / 交易关闭 / 0 元 / 负数。
+         *
+         * <p>v1.22 之前这个桶叫 DROPPED,页面上写「已剔除」—— 那描述的是
+         * <b>系统已经执行完的动作</b>。而判据是启发式的、<b>会错</b>,
+         * 错了的后果是支出少算、用户不会立刻发现:一个不可靠的判断
+         * 配了一个最不可逆的动词。</p>
+         *
+         * <p>现在它只是<b>默认不勾</b> + 逐行给理由,勾不勾由用户定。
+         * 这个桶里的行<b>照常带着分类和账户推荐</b> —— 用户勾上就能直接录,
+         * 不用再自己补一遍。</p>
+         */
+        SUGGEST_SKIP,
         /** 已存在:按交易号去重跳过 */
         SKIPPED
     }
@@ -139,10 +150,11 @@ public final class BillCategoryResolver {
      *
      * @param categoryId 归到哪个消费分类;{@link Bucket#NATURE} 时为 null
      * @param natureCode NATURE 桶专用的性质码(loan_payment / to_relatives);其余为 null
+     * @param suggestReason SUGGEST_SKIP 桶里<b>这一行</b>为什么不建议录(逐行给,不是桶级标题);其余为 null
      */
     public record Line(int idx, LocalDate occurredAt, String merchant, BigDecimal amount,
                        Long categoryId, String categoryName, How how, Bucket bucket,
-                       String natureCode, String dropReason, String txNo,
+                       String natureCode, String suggestReason, String txNo,
                        String payMethod, Long accountId, BillAccountResolver.How accountHow) {
 
         /**
@@ -151,6 +163,20 @@ public final class BillCategoryResolver {
          * <p><b>分类没把握</b>或<b>账户没把握</b>都算 —— 账户猜错比分类猜错严重:
          * 分类错了只是构成图不准,账户错了会让那个账户的余额和收益率一起错。</p>
          */
+        /**
+         * 这一行<b>默认勾不勾</b>。
+         *
+         * <p>v1.22 的核心:系统只给默认值,不替用户执行。
+         * 消费支出默认勾上;不建议录入的默认不勾,但<b>可以勾</b> ——
+         * 包括 0 元和负数(V60 之后 DB 不再挡)。</p>
+         */
+        public boolean defaultIncluded() { return bucket == Bucket.SPEND; }
+
+        /** 这一行用户<b>能不能</b>勾。v1.22 起:SPEND 与 SUGGEST_SKIP 都能,没有「不能捞」这回事了 */
+        public boolean selectable() {
+            return bucket == Bucket.SPEND || bucket == Bucket.SUGGEST_SKIP;
+        }
+
         public boolean needsReview() {
             if (bucket != Bucket.SPEND) return false;
             return (how != null && how.needsReview())
@@ -227,43 +253,21 @@ public final class BillCategoryResolver {
                         Bucket.SKIPPED, null, "上次已导入", tx, r.payMethod(), acct.accountId(), acct.how()));
                 continue;
             }
-            /* ② 金额 ≤ 0 —— 冲正行、被重开的退款、或者渠道自己写的占位行。
-             *
-             *    【必须在这里挡】:cash_flow 上有 CHECK(amount > 0),落到 insert 才炸的话
-             *    整批事务回滚,而用户看到的只是一句「落库失败」—— 真实账单上撞到过。
-             *    分桶挡掉之后它会出现在「已剔除」里并写明原因,用户能看懂发生了什么。 */
-            if (r.amount() == null || r.amount().signum() <= 0) {
-                lines.add(new Line(idx, at, merchant,
-                        r.amount() == null ? java.math.BigDecimal.ZERO : r.amount(),
-                        null, null, null, Bucket.DROPPED, null, "金额是 0 或负数(冲正行)", tx,
-                        r.payMethod(), acct.accountId(), acct.how()));
-                continue;
-            }
-            /* ③ 退款 / 交易关闭 —— 这笔钱实际没花出去 */
-            if (r.isRefund()) {
-                lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
-                        Bucket.DROPPED, null, "退款 / 交易关闭", tx, r.payMethod(), acct.accountId(), acct.how()));
-                continue;
-            }
+            /* ② 退款 / 交易关闭 —— 这笔钱实际没花出去。
+             *    【只是建议】:渠道的「交易关闭」有时是分期首扣、有时真的没花,我们分不清。 */
+            String suggestSkip = null;
+            if (r.isRefund()) suggestSkip = "退款 / 交易关闭";
             /* ④ 渠道自己说「不计收支」—— 这是<b>渠道的判断</b>,最可信:
              *    余额宝转入转出、理财买入赎回,钱还在你自己名下。
              *    当成支出就等于把同一笔钱花两遍(账户余额那边已经反映了这次移动)。 */
-            if (r.isNeutral()) {
-                lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
-                        Bucket.DROPPED, null, "不计收支(划转)", tx, r.payMethod(), acct.accountId(), acct.how()));
-                continue;
-            }
+            if (suggestSkip == null && r.isNeutral()) suggestSkip = "不计收支(划转)";
             /* ⑤ 收入 —— 默认不导。支出侧的分类体系套不到收入上(收入类目绑账户类型)。 */
             if (r.isIncome()) {
                 lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
                         Bucket.INCOME, null, null, tx, r.payMethod(), acct.accountId(), acct.how()));
                 continue;
             }
-            if (!r.isExpense()) {
-                lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
-                        Bucket.DROPPED, null, "收支方向认不出来", tx, r.payMethod(), acct.accountId(), acct.how()));
-                continue;
-            }
+            if (suggestSkip == null && !r.isExpense()) suggestSkip = "收支方向认不出来";
             /* ⑤ 还贷 —— 【必须排在关键字划转判据之前】。
              *
              *    开发时踩过:NEUTRAL 关键字表里有「还款」,于是渠道标成【支出】的「花呗还款」
@@ -271,18 +275,14 @@ public final class BillCategoryResolver {
              *    渠道说是支出就是支出:钱确实从这个账户流出去了,它只是不属于「消费」。
              *    落成 loan_payment 与手工记一笔还贷完全等价。 */
             String nature = natureOf(r);
-            if (nature != null) {
+            if (nature != null && suggestSkip == null) {
                 lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
                         Bucket.NATURE, nature, null, tx, r.payMethod(), acct.accountId(), acct.how()));
                 continue;
             }
             /* ⑦ 关键字兜底的划转判据(转账红包 / 提现充值 / 理财)。
              *    放在还贷之后 —— 它是<b>猜</b>,而上面几条是渠道明说的。 */
-            if (isNeutral(r)) {
-                lines.add(new Line(idx, at, merchant, r.amount(), null, null, null,
-                        Bucket.DROPPED, null, "看着像划转,不是消费", tx, r.payMethod(), acct.accountId(), acct.how()));
-                continue;
-            }
+            if (suggestSkip == null && isNeutral(r)) suggestSkip = "看着像划转,不是消费";
 
             /* ⑧ 消费 —— 三层兜底归类(FR-562) */
             Long target;
@@ -304,8 +304,26 @@ public final class BillCategoryResolver {
                     } else { target = otherId; how = How.FALLBACK; }
                 }
             }
-            lines.add(new Line(idx, at, merchant, r.amount(), target,
-                    nameOf.getOrDefault(target, "其他"), how, Bucket.SPEND, null, null, tx, r.payMethod(), acct.accountId(), acct.how()));
+            /* ⑨ 金额 ≤ 0 —— 0 元(全额优惠/积分抵扣)与负数(退款冲正)。
+             *
+             *    v1.22 起【不再挡】:V60 去掉了 CHECK(amount > 0),两者都能录。
+             *    但默认不勾,并且把 0 和负数分开说 —— 它们是两件不同的事:
+             *      · 0 元  → 录进来只多一笔记录,不影响金额
+             *      · 负数  → 录进来当月支出会相应【减少】(那是一笔退款冲正)
+             *    「金额是 0 或负数(冲正行)」这种合并说法对用户没用,他分不清自己遇到的是哪种。 */
+            java.math.BigDecimal amt = r.amount() == null ? java.math.BigDecimal.ZERO : r.amount();
+            if (suggestSkip == null) {
+                if (amt.signum() == 0) suggestSkip = "0 元";
+                else if (amt.signum() < 0) suggestSkip = "负数(退款冲正)";
+            }
+
+            /* 【分类照常算,不管最后落哪个桶】—— 这是 v1.22 的一个关键改动:
+             * 原来 SUGGEST_SKIP 的行分类一律是 null,用户勾上之后还得自己挑一遍,
+             * 「采纳建议之外的个别几行」这件事就变得很贵。现在勾上即可直接录。 */
+            lines.add(new Line(idx, at, merchant, amt, target,
+                    nameOf.getOrDefault(target, "其他"), how,
+                    suggestSkip == null ? Bucket.SPEND : Bucket.SUGGEST_SKIP,
+                    null, suggestSkip, tx, r.payMethod(), acct.accountId(), acct.how()));
         }
         return new Draft(channel, lines, lines.size(), parsed, noTx);
     }

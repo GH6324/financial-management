@@ -195,7 +195,10 @@ public class ExpenseCatQueryService {
             if (m != null) for (BigDecimal v : m.values()) t = t.add(v);
             if (t.signum() == 0) t = monthlyTotal(p.getId());
             totals.put(p.getId(), t);
-            if (t.compareTo(max) > 0) max = t;
+            /* v1.22 · 柱高的分母取【绝对值最大】的那一期。
+             * 支出可以为负之后,用原值取 max 会在「整段时间都是净退款」时得到一个 ≤0 的分母,
+             * 后面 divide 出来的柱高全是 0 或负 —— 图看起来是空的,而数据其实在。 */
+            if (t.abs().compareTo(max) > 0) max = t.abs();
         }
         if (max.signum() == 0) max = BigDecimal.ONE;
 
@@ -235,9 +238,15 @@ public class ExpenseCatQueryService {
         return t;
     }
 
-    /** 柱高。最小 2px —— 一笔很小的支出也该看得见,否则那一期看起来像空的。 */
+    /**
+     * 柱高。最小 2px —— 一笔很小的支出也该看得见,否则那一期看起来像空的。
+     *
+     * <p>v1.22 · 负值(净退款的月份)按<b>绝对值</b>给高度 —— 柱子画得出来,
+     * 但金额标签那里会显示负号,所以不会被误读成消费。高度为 0 的只剩「真的是 0」。</p>
+     */
     private static int px(BigDecimal v, BigDecimal max) {
-        if (v == null || v.signum() <= 0) return 0;
+        if (v == null || v.signum() == 0) return 0;
+        v = v.abs();
         int p = v.multiply(BigDecimal.valueOf(150)).divide(max, 0, RoundingMode.HALF_UP).intValue();
         return Math.max(2, p);
     }
@@ -256,8 +265,12 @@ public class ExpenseCatQueryService {
         return false;
     }
 
+    /**
+     * 占比。v1.22 · 分母 ≤ 0 时返回 0 而不是一个负百分比 ——
+     * 「餐饮占 −35%」没有可解释的含义,显示 0 再配合旁边的金额(带负号)更诚实。
+     */
     public static BigDecimal pct(BigDecimal part, BigDecimal whole) {
-        if (whole == null || whole.signum() == 0) return BigDecimal.ZERO;
+        if (whole == null || whole.signum() <= 0) return BigDecimal.ZERO;
         return nz(part).multiply(BigDecimal.valueOf(100))
                 .divide(whole, 1, RoundingMode.HALF_UP);
     }

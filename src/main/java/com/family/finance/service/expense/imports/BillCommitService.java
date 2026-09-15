@@ -65,7 +65,7 @@ public class BillCommitService {
     }
 
     /** 落库结果 —— 说给用户听的那几个数 */
-    public record Result(long batchId, int rows, BigDecimal amount, int dropped, int skipped) {}
+    public record Result(long batchId, int rows, BigDecimal amount, int notIncluded, int skipped) {}
 
     /**
      * @param lines 用户核对之后的行(分类可能已被改过)· 只有 SPEND 与 NATURE 桶会落库
@@ -73,7 +73,7 @@ public class BillCommitService {
     @Transactional
     public Result commit(long familyId, long memberId, long periodId, long fallbackAccountId,
                          ExpenseSource channel, List<BillCategoryResolver.Line> lines,
-                         int dropped, int skipped, boolean affectsBalance) {
+                         int notIncluded, int skipped, boolean affectsBalance) {
         Period period = periodMapper.findById(periodId)
                 .orElseThrow(() -> new CommitException("找不到这个账期,刷新一下再试。"));
         if (period.getFamilyId() == null || period.getFamilyId() != familyId) {
@@ -122,14 +122,16 @@ public class BillCommitService {
                 .filter(l -> l.bucket() == BillCategoryResolver.Bucket.SPEND
                           || l.bucket() == BillCategoryResolver.Bucket.NATURE)
                 .toList();
-        if (keep.isEmpty()) throw new CommitException("没有要导入的笔 —— 都被剔除或跳过了。");
-        /* cash_flow 上有 CHECK(amount > 0)。分桶那里已经挡过一次,这里是第二道 ——
-         * 让它以人话报出来,而不是等 insert 时冒成一句「落库失败,什么都没写进去」。
-         * 真实账单上撞到过:一行冲正记录金额是负数,整批事务回滚,用户看不出为什么。 */
+        if (keep.isEmpty()) throw new CommitException("一笔都没勾 —— 在表格里勾上要录的那些再提交。");
+        /* v1.22 · 【这里原来有一道「金额 ≤ 0 就拒收」】,因为 cash_flow 上有 CHECK(amount > 0)。
+         * V60 把那条约束去掉了:0 元(全额优惠/积分抵扣)和负数(退款冲正)都是真实存在的行,
+         * 挡掉它们等于替用户决定哪些交易「不算数」。
+         *
+         * 仍然要防的是 null —— 那不是「0 元」,那是解析没读出金额,落库会 NPE。 */
         for (BillCategoryResolver.Line l : keep) {
-            if (l.amount() == null || l.amount().signum() <= 0) {
-                throw new CommitException("有一笔金额是 0 或负数(" + l.merchant()
-                        + ")—— 那多半是冲正行,把它剔除掉再导。");
+            if (l.amount() == null) {
+                throw new CommitException("有一笔的金额没读出来(" + l.merchant()
+                        + ")—— 取消勾选它再提交,或者把文件发给我们看看。");
             }
         }
         if (keep.size() > MAX_ROWS) {
@@ -151,7 +153,7 @@ public class BillCommitService {
         ExpenseImportBatch batch = ExpenseImportBatch.builder()
                 .familyId(familyId).periodId(periodId).accountId(mainAccountId)
                 .channel(channel).rowCount(keep.size()).totalAmount(total)
-                .droppedCount(dropped).skippedCount(skipped).importedBy(memberId)
+                .droppedCount(notIncluded).skippedCount(skipped).importedBy(memberId)
                 .build();
         batchMapper.insert(batch);
 
@@ -200,9 +202,9 @@ public class BillCommitService {
             }
         }
 
-        log.info("账单导入落库 · family={} period={} channel={} rows={} dropped={} skipped={} affectsBalance={}",
-                familyId, periodId, channel, keep.size(), dropped, skipped, affectsBalance);
-        return new Result(batch.getId(), keep.size(), total, dropped, skipped);
+        log.info("账单导入落库 · family={} period={} channel={} rows={} notIncluded={} skipped={} affectsBalance={}",
+                familyId, periodId, channel, keep.size(), notIncluded, skipped, affectsBalance);
+        return new Result(batch.getId(), keep.size(), total, notIncluded, skipped);
     }
 
     /**

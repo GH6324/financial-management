@@ -414,7 +414,7 @@ public class EntryService {
                     + "」已归档,不能再记支出 · 归档账户不参与任何统计,记进去的钱会在报表里消失");
         }
         var cat = requireExpenseCategory(categoryCode);
-        BigDecimal amt = positiveMoney(amount);
+        BigDecimal amt = expenseMoney(amount);
         if (affectsBalance) {
             creditAccountBalance(familyId, period, account, memberId, amt.negate(),
                     "-支出 " + cat.getDisplayName() + " " + money(amt));
@@ -1013,7 +1013,15 @@ public class EntryService {
 
     private void insertCashFlow(Period period, Account account, long memberId,
                                 CashFlowLine line, Long expenseCategoryId, boolean affectsBalance) {
-        if (line == null || line.amount() == null || line.amount().signum() == 0) {
+        /* v1.22 · 【只有收入侧的 0 才跳过】。
+         * 原来这里对所有 kind 都「金额为 0 就直接 return」—— 于是一笔 0 元的支出
+         * (全额优惠券 / 积分抵扣)被<b>静默丢弃</b>:用户在确认页上勾了它,
+         * 提交之后它凭空消失,没有任何提示。0 元支出是真实存在的记录,
+         * 它不影响金额但影响笔数,该不该记是用户的决定,不是我们的。 */
+        if (line == null || line.amount() == null) {
+            return;
+        }
+        if (line.amount().signum() == 0 && line.kind() != CashFlowKind.EXPENSE) {
             return;
         }
         if (line.kind() == null) {
@@ -1022,7 +1030,10 @@ public class EntryService {
         if (line.categoryCode() == null || line.categoryCode().isBlank()) {
             throw new IllegalArgumentException("现金流类别必填");
         }
-        BigDecimal amount = positiveMoney(line.amount());
+        /* 支出可以是 0 或负数(见 expenseMoney 的注释);收入仍然必须为正 */
+        BigDecimal amount = line.kind() == CashFlowKind.EXPENSE
+                ? expenseMoney(line.amount())
+                : positiveMoney(line.amount());
         cashFlowMapper.insert(CashFlow.builder()
                 .periodId(period.getId())
                 .accountId(account.getId())
@@ -1139,6 +1150,26 @@ public class EntryService {
             return scaled.negate();
         }
         return scaled;
+    }
+
+    /**
+     * 支出金额 —— <b>允许 0 和负数,且不取绝对值</b>(v1.22 FR-595 / FR-596)。
+     *
+     * <p>不能用 {@link #positiveMoney}:那个方法会 {@code value.abs()},
+     * 于是一笔 −499 的退款冲正被<b>静默记成 +499 的消费</b> ——
+     * 不报错、不提示,当月支出凭空多出一千块。这正是 PRD §9 失败模式①说的那种错。</p>
+     *
+     * <p>真实账单里 0 元(全额优惠 / 积分抵扣)和负数(退款冲正)都存在。
+     * 挡掉它们等于替用户决定哪些交易「不算数」;取绝对值比挡掉更糟,因为它<b>无声</b>。</p>
+     *
+     * <p>收入与划转仍然走 {@link #positiveMoney} —— 那两条路径没有「负的」这个概念,
+     * 而且 {@code transfer} 表上的 CHECK 还在。</p>
+     */
+    private BigDecimal expenseMoney(BigDecimal value) {
+        if (value == null) {
+            throw new IllegalArgumentException("金额必填");
+        }
+        return value.setScale(2, RoundingMode.HALF_EVEN);
     }
 
     private BigDecimal positiveMoney(BigDecimal value) {

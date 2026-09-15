@@ -8705,8 +8705,11 @@ QA121_IMP_TPL="$RD/src/main/resources/templates/expense/import.html"
 # v1210-NATURE-BEFORE-NEUTRAL · 还贷的判据必须排在「关键字划转」之前。
 #   踩过:NEUTRAL 表里有「还款」,于是渠道标成【支出】的花呗还款先被当划转剔掉,
 #   NATURE 桶永远是空的、页面上那个格子形同虚设。
-{ [ "$(codeonly "$QA121_RESOLVER" | grep -n 'String nature = natureOf(r)' | cut -d: -f1)" -lt \
-     "$(codeonly "$QA121_RESOLVER" | grep -n 'if (isNeutral(r))' | cut -d: -f1)" ]; } \
+#   v1.22 · 归类步骤提前之后判据形态变了(划转不再立刻 continue,而是先记下 suggestSkip),
+#   但【顺序要求本身没变】:还贷必须先于关键字划转被判到。判据跟着写法更新,意图不动。
+{ na=$(codeonly "$QA121_RESOLVER" | grep -n 'String nature = natureOf(r)' | cut -d: -f1 | head -1);
+  ne=$(codeonly "$QA121_RESOLVER" | grep -n 'isNeutral(r)) suggestSkip =' | cut -d: -f1 | head -1);
+  [ -n "$na" ] && [ -n "$ne" ] && [ "$na" -lt "$ne" ]; } \
   && log_ok "v1210-NATURE-BEFORE-NEUTRAL(还贷判据排在关键字划转之前 · NATURE 桶真的到得了)" \
   || log_bad "v1210-NATURE-BEFORE-NEUTRAL 还贷会被当成划转剔掉" "NATURE 桶永远空 —— 页面上那个格子是死的"
 
@@ -8928,7 +8931,7 @@ PY
   && grep -q 'data-bulk-cat' "$QA121_IMP_TPL" \
   && grep -q 'data-bulk-acct' "$QA121_IMP_TPL" \
   && grep -q 'needSelection' "$RD/src/main/resources/static/js/bill-confirm.js" \
-  && grep -q "所有笔都被剔除了" "$RD/src/main/resources/static/js/bill-confirm.js"; } \
+  && grep -q "一笔都没勾" "$RD/src/main/resources/static/js/bill-confirm.js"; } \
   && log_ok "v1210-BULK-OPS(全选/组全选/批量改分类账户/剔除 · 空选与空提交前端就拦)" \
   || log_bad "v1210-BULK-OPS 确认页缺批量操作或前端拦截" "几百笔逐个勾选等于没做;空提交让用户跑一圈回来看红字也是"
 
@@ -8936,11 +8939,17 @@ PY
 #   cash_flow 上有 CHECK(amount > 0)。真实账单里存在冲正行(负数)和占位行(0),
 #   撞上之后整批事务回滚,而用户看到的只是一句「落库失败」—— 真实账单上炸过。
 #   现在:分桶时进「已剔除」并写明原因,落库前再拦一道并给人话。
-{ codeonly "$QA121_RESOLVER" | grep -q 'r.amount().signum() <= 0' \
-  && codeonly "$QA121_COMMIT" | grep -q 'l.amount().signum() <= 0' \
-  && grep -q 'ck_cash_flow_amount' "$RD/src/main/java/com/family/finance/web/expense/ExpenseImportController.java"; } \
-  && log_ok "v1210-AMOUNT-GUARD(金额≤0 分桶就挡 + 落库前人话校验 + 兜底提示说原因)" \
-  || log_bad "v1210-AMOUNT-GUARD 金额≤0 可能撞到 DB 约束" "整批回滚,用户只看到一句「落库失败」,再试一百次也还是失败"
+#   【v1.22 改写了这一条的前提】。原判据要求「金额 ≤ 0 在分桶时就挡掉」——
+#   那是 v1.21 的正确行为(当时 DB 上有 CHECK(amount > 0),放过去整批事务会回滚)。
+#   v1.22 的 V60 去掉了那条约束,0 元和负数都成了合法值,「挡掉」反而是错的。
+#   但这条护栏的**另一半意图仍然成立**:兜底提示必须把原因说出来,
+#   不能让用户看着一句「落库失败,再试一次」去重试一个确定性失败。所以判据改成守那一半。
+{ ! grep -q 'ck_cash_flow_amount' "$RD/db/migration/V1__init.sql.disabled" 2>/dev/null;
+  grep -q 'humanCause' "$RD/src/main/java/com/family/finance/web/expense/ExpenseImportController.java" \
+  && grep -q 'ck_cash_flow_amount' "$RD/src/main/java/com/family/finance/web/expense/ExpenseImportController.java" \
+  && codeonly "$QA121_COMMIT" | grep -q 'l.amount() == null'; } \
+  && log_ok "v1210-AMOUNT-GUARD(约束已放开 · 但 null 仍拦 · 兜底提示仍说原因)" \
+  || log_bad "v1210-AMOUNT-GUARD 兜底提示不再说原因,或 null 金额没拦" "「落库失败,再试一次」对确定性失败就是在骗用户"
 
 # v1210-NO-NATIVE-SELECT · 导入页不许出现系统原生下拉。
 #   全站统一用自研件(data-lsel:搜索 + 拼音首字母 + 键盘 + 短列表自动省搜索框)。
@@ -9073,9 +9082,14 @@ QA1212_TOOLBAR="$RD/src/main/resources/templates/entry/_flow-toolbar.html"
 #   漏了这条的后果:第二次导同一份账单(要导入 0 笔、全是已存在)时,
 #   用户想把误剔的几笔捞回来会被自己的前端拦死,弹的还是「所有笔都被剔除了」——
 #   和他正在做的事完全对不上。这条是真机走完整往返才发现的,静态看代码看不出来。
-{ grep -q 'input\[name="restore"\]:checked' "$QA1212_BILLJS"; } \
-  && log_ok "v1212-RESTORE-COUNTS-AS-CONTENT(提交拦截把捞回来算进来)" \
-  || log_bad "v1212-RESTORE-COUNTS-AS-CONTENT 提交拦截没数 restore" "全是重复的那次导入里,捞回来会被前端拦死"
+#   【v1.22 换了载体,意图不变】。原来数的是 restore(从「已剔除」捞回来的行),
+#   那个概念没了;现在同一个风险出现在「已存在」的修正上:
+#   用户这次可能只是来改上次归错的分类,一笔新的都不录 —— 拦死他就等于白改。
+#   判据永远是同一句话:**所有会产生提交内容的控件都要数进去,不能只数主列表**。
+{ grep -qF 'data-ex-cat],[data-ex-acct]' "$QA1212_BILLJS" \
+  && grep -q 'checked === 0 && exEdited === 0' "$QA1212_BILLJS"; } \
+  && log_ok "v1212-RESTORE-COUNTS-AS-CONTENT(提交拦截把「已存在的修正」也算作内容)" \
+  || log_bad "v1212-RESTORE-COUNTS-AS-CONTENT 提交拦截只数了主列表" "只来改上次归类的用户会被自己的前端拦死"
 
 # v1212-CSRF-AS-FORM-PARAM · fetch 带 CSRF 走【表单参数】,不许自己拼 header 名。
 #   本项目配的是 CookieCsrfTokenRepository,它认的 header 叫 X-XSRF-TOKEN;
@@ -9103,8 +9117,8 @@ QA1212_TOOLBAR="$RD/src/main/resources/templates/entry/_flow-toolbar.html"
 # v1212-EMPTY-SPEND-HAS-GUIDANCE · 「要导入 0」必须给出下一步,不能只剩一张空表。
 #   这是月底重导最常见的一屏。空白会让用户以为导入坏了 ——
 #   实际上他要做的是点「已存在」核对,或者去「已剔除」捞回来。
-{ grep -q 'spendCount == 0' "$QA1212_IMPHTML" \
-  && awk '/spendCount == 0/,/<\/p>/' "$QA1212_IMPHTML" | grep -q '捞回来'; } \
+{ grep -q 'selectableCount == 0' "$QA1212_IMPHTML" \
+  && awk '/selectableCount == 0/,/<\/p>/' "$QA1212_IMPHTML" | grep -q '已存在'; } \
   && log_ok "v1212-EMPTY-SPEND-HAS-GUIDANCE(0 笔可导时给出下一步)" \
   || log_bad "v1212-EMPTY-SPEND-HAS-GUIDANCE 0 笔可导时只剩空表" "月底重导最常见的一屏,空白会被当成导入坏了"
 
@@ -9138,6 +9152,179 @@ QA1212_TOOLBAR="$RD/src/main/resources/templates/entry/_flow-toolbar.html"
 { ! grep -qE 'parseFloat|Number\(|toFixed|\+=' "$QA1212_FLOWJS"; } \
   && log_ok "v1212-FLOW-TOTALS-NOT-FILTERED(前端不做金额运算 · 合计仍是服务端全量)" \
   || log_bad "v1212-FLOW-TOTALS-NOT-FILTERED flow-table.js 里出现了金额运算" "筛出来的小计会被当成本月总支出去对账"
+
+
+# ═══════════════ v1.22 · 决策权交还用户(PRD prd/v1.22.md §10)═══════════════
+
+QA122_RESOLVER="$RD/src/main/java/com/family/finance/service/expense/imports/BillCategoryResolver.java"
+QA122_IMPHTML="$RD/src/main/resources/templates/expense/import.html"
+QA122_BILLJS="$RD/src/main/resources/static/js/bill-confirm.js"
+QA122_CTL="$RD/src/main/java/com/family/finance/web/expense/ExpenseImportController.java"
+QA122_LEDGER="$RD/src/main/java/com/family/finance/service/expense/ExpenseLedgerService.java"
+QA122_ENTRY="$RD/src/main/java/com/family/finance/service/EntryService.java"
+QA122_MIG="$RD/db/migration/V60__cash_flow_allow_zero_and_negative.sql"
+QA122_UPD="$RD/src/main/java/com/family/finance/service/expense/imports/ExistingFlowUpdateService.java"
+
+# v1220-NO-DELETE-WORDING · 页面上不许再出现「已剔除 / 捞回来 / 不能捞」。
+#   维护者的原话:「"已删除" 指的是 你直接做主删掉的? 这个是不不合适」。
+#   问题不在文案而在【谁拍板】,但文案是它最外层的表现 —— 退回旧措辞就说明模型也退回去了。
+#   只扫【面向用户的文本】:注释里解释「为什么不再这么叫」是必要的历史。
+#   【剥注释要按块剥】:Thymeleaf 的注释是 <!--/* ... */--> 【跨行】的,
+#   单行 sed 's/<!--.*//' 只能吃掉起始那一行,注释正文照样被当成页面文本扫进来 ——
+#   第一版判据就是这么把自己写红的(注释里解释「为什么不再叫已剔除」被当成了违规)。
+{ vis=$(python3 -c "
+import re,sys
+t=open(sys.argv[1],encoding='utf-8').read()
+t=re.sub(r'<!--.*?-->','',t,flags=re.S)      # 跨行注释整块剥掉
+print('\n'.join(re.findall(r'已剔除|捞回来|不能捞',t)))" "$QA122_IMPHTML" | head -3);
+  [ -z "$vis" ]; } \
+  && log_ok "v1220-NO-DELETE-WORDING(页面上没有「已剔除/捞回来/不能捞」)" \
+  || log_bad "v1220-NO-DELETE-WORDING 页面又出现了删除式措辞:$vis" "那描述的是系统已经执行完的动作,而判据是启发式的、会错"
+
+# v1220-INCLUDE-NOT-DROP · 提交参数统一成一个 include 列表。
+#   旧模型有 drop + restore 两个【方向相反】的参数,因为它的心智是
+#   「系统已经删了一批,用户捞回几个」。现在只有一个事实:这一行用户勾没勾。
+#   两个方向的参数一旦回来,「全选」就会立刻在两个桶之间行为不一致。
+{ ! grep -qE 'name="(drop|restore)"' "$QA122_IMPHTML" \
+  && ! grep -qE 'List<Integer> (drop|restore)' "$QA122_CTL" \
+  && grep -q 'name="include"' "$QA122_IMPHTML" \
+  && grep -q 'List<Integer> include' "$QA122_CTL"; } \
+  && log_ok "v1220-INCLUDE-NOT-DROP(提交参数是一个 include 列表)" \
+  || log_bad "v1220-INCLUDE-NOT-DROP drop/restore 又回来了" "两个方向相反的参数 = 「系统已经删了一批」那套错心智"
+
+# v1220-DEFAULT-SELECTION · 消费行默认勾上、不建议录入的默认不勾。
+#   这是「系统只给默认值」的全部实现 —— 判据绑在 Line.defaultIncluded 上,
+#   而不是绑模板里某个 th:checked 的写法(那会随排版变)。
+{ grep -q 'public boolean defaultIncluded() { return bucket == Bucket.SPEND; }' "$QA122_RESOLVER" \
+  && grep -q 'th:checked="${l.defaultIncluded()}"' "$QA122_IMPHTML"; } \
+  && log_ok "v1220-DEFAULT-SELECTION(消费默认勾 · 不建议的默认不勾)" \
+  || log_bad "v1220-DEFAULT-SELECTION 默认勾选规则被改了" "默认值是系统唯一该表达的东西,改了就等于替用户做决定"
+
+# v1220-PER-ROW-REASON · 不建议录入的行必须【逐行】给理由,不是一个桶级标题。
+#   维护者原话:「你逐行给出原因即可」。
+#   而且 0 元和负数要【分开说】—— 合并成「金额是 0 或负数」对用户没用,他分不清自己遇到的是哪种:
+#   0 元录进来不影响金额,负数录进来当月支出会减少,这是两件完全不同的事。
+#   【先剥注释再判】:这一条的注释里就写着「『金额是 0 或负数』这种合并说法对用户没用」——
+#   不剥的话判据会被自己的解释绊倒。同一个坑在 v1220-NO-DELETE-WORDING 和
+#   v1220-ACCOUNT-MOVE-BOTH-SIDES 上各踩了一次:**凡是判据要扫「不许出现某句话」,
+#   就必须先 codeonly**,否则解释这条规则的文字本身会让它变红。
+{ code=$(codeonly "$QA122_RESOLVER");
+  echo "$code" | grep -q 'suggestReason' \
+  && echo "$code" | grep -q '"0 元"' \
+  && echo "$code" | grep -q '"负数(退款冲正)"' \
+  && ! echo "$code" | grep -q '金额是 0 或负数' \
+  && grep -qF 'l.suggestReason()' "$QA122_IMPHTML"; } \
+  && log_ok "v1220-PER-ROW-REASON(逐行理由 · 0 元与负数分开说)" \
+  || log_bad "v1220-PER-ROW-REASON 理由没逐行给,或 0 元与负数又被合并成一句" "用户分不清自己遇到的是哪种,而两者的后果完全不同"
+
+# v1220-SUGGEST-ROWS-KEEP-CATEGORY · 不建议录入的行也要带分类推荐。
+#   v1.21 里这个桶的分类一律是 null,用户勾上之后还得自己挑一遍 ——
+#   「采纳建议之外的个别几行」这件事就变得很贵,而那正是维护者要的操作。
+#   守法:classify 的归类步骤必须排在分桶【之前】(一处出口,所有桶共用)。
+{ body=$(awk '/public static Draft classify\(/,/^    }$/' "$QA122_RESOLVER");
+  [ -n "$body" ] \
+  && echo "$body" | grep -q 'suggestSkip == null ? Bucket.SPEND : Bucket.SUGGEST_SKIP' \
+  && [ "$(echo "$body" | grep -c 'Bucket.SUGGEST_SKIP, null,')" -eq 0 ]; } \
+  && log_ok "v1220-SUGGEST-ROWS-KEEP-CATEGORY(不建议的行也带分类推荐 · 勾上即可直接录)" \
+  || log_bad "v1220-SUGGEST-ROWS-KEEP-CATEGORY 不建议的行又变回没有分类" "用户勾上之后还得自己挑一遍,「个别校准」这件事就变得很贵"
+
+# v1220-MIGRATION-ONLY-RELAXES · V60 只放宽约束,不动数据。
+#   prod 跑着真实家庭数据:放宽是安全的(既有行全部 > 0,天然满足),
+#   但只要混进一条 UPDATE/DELETE,「零影响」这个结论就不成立了。
+{ [ -f "$QA122_MIG" ] \
+  && grep -q 'DROP CHECK ck_cash_flow_amount' "$QA122_MIG" \
+  && ! grep -qE '^\s*(UPDATE|DELETE|INSERT|DROP TABLE)' "$QA122_MIG"; } \
+  && log_ok "v1220-MIGRATION-ONLY-RELAXES(V60 只 DROP 约束 · 不动任何行)" \
+  || log_bad "v1220-MIGRATION-ONLY-RELAXES V60 动了数据或没放开约束" "放宽才是零影响的;动数据就不是了"
+
+# v1220-NO-ABS-ON-EXPENSE · 支出金额【不许取绝对值】。
+#   踩过:EntryService.positiveMoney 里有 value.abs(),于是一笔 −499 的退款冲正
+#   被【静默记成 +499 的消费】—— 不报错、不提示,当月支出凭空多出一千块。
+#   取绝对值比直接拒收更糟,因为它无声。支出走 expenseMoney,收入/划转才走 positiveMoney。
+{ body=$(awk '/private BigDecimal expenseMoney\(/,/^    }$/' "$QA122_ENTRY");
+  [ -n "$body" ] && ! echo "$body" | grep -q '\.abs()' \
+  && grep -q 'line.kind() == CashFlowKind.EXPENSE' "$QA122_ENTRY" \
+  && grep -q 'BigDecimal amt = expenseMoney(amount);' "$QA122_ENTRY"; } \
+  && log_ok "v1220-NO-ABS-ON-EXPENSE(支出金额不取绝对值 · 退款不会被记成消费)" \
+  || log_bad "v1220-NO-ABS-ON-EXPENSE 支出金额又走了 abs() 或 positiveMoney" "一笔 −499 的退款会被静默记成 +499 的消费"
+
+# v1220-ZERO-EXPENSE-NOT-DROPPED · 0 元支出不许被静默丢弃。
+#   insertCashFlow 原来对所有 kind 都「金额为 0 就 return」——
+#   用户在确认页上勾了那笔 0 元(全额优惠券),提交之后它凭空消失,没有任何提示。
+{ grep -q 'line.amount().signum() == 0 && line.kind() != CashFlowKind.EXPENSE' "$QA122_ENTRY"; } \
+  && log_ok "v1220-ZERO-EXPENSE-NOT-DROPPED(0 元支出会落库 · 只有收入侧的 0 才跳过)" \
+  || log_bad "v1220-ZERO-EXPENSE-NOT-DROPPED 0 元支出又被静默丢弃" "用户勾了它,提交之后凭空消失,没有任何提示"
+
+# v1220-NO-POSITIVE-ASSUMPTION · 不许把「≤ 0」当成「没有数据」。
+#   这一类的最危险形态:Composition.hasData 判 totalBase.signum() > 0 ——
+#   某月退款多于消费 → 总额 ≤ 0 → 整个「支出构成」段被判成没数据【整段隐藏】,
+#   不报错、不解释,而那个月明明有几十笔支出。
+#   有没有数据看【有没有行】,不看金额符号。
+#   【只守 hasData 这一处】。同文件的 decide() 里 hasItem 仍然判 signum() > 0,
+#   那是【故意的】:它判的不是「有没有数据」,而是「逐笔和手填总额谁说了算」——
+#   一行 0 元把用户手填的总额顶掉会让支出凭空变 0(单测
+#   `金额为0的逐笔不得压掉用户手填的总额` 钉着这个)。护栏要求那一处有注释说明为什么保留。
+{ grep -q 'public boolean hasData() { return !slices.isEmpty(); }' "$QA122_LEDGER" \
+  && grep -q '这一处故意保留 signum() > 0' "$QA122_LEDGER"; } \
+  && log_ok "v1220-NO-POSITIVE-ASSUMPTION(有没有数据看行数,不看金额符号)" \
+  || log_bad "v1220-NO-POSITIVE-ASSUMPTION 又把「≤0」当成「没有数据」" "退款多于消费的月份整段构成图会消失,而且不报错"
+
+# v1220-NEGATIVE-GROUP-NOT-IN-PIE · 负组不进饼图,但进总额。
+#   扇形没有负面积。取绝对值凑扇形会把一笔退款画成一笔消费(骗人);
+#   把负组从总额里也扣走则会让「各组加起来 ≠ 总额」。
+#   守法:模板必须喂 chartSlices() 而不是 slices(),且 Slice 上有 inChart。
+{ grep -q 'chartSlices()' "$QA122_LEDGER" \
+  && grep -q 'mixComposition.chartSlices()' "$RD/src/main/resources/templates/reports/_expense-mix.html" \
+  && ! grep -qE 'mixComposition\.slices\(\)\.!\[' "$RD/src/main/resources/templates/reports/_expense-mix.html"; } \
+  && log_ok "v1220-NEGATIVE-GROUP-NOT-IN-PIE(饼图只拿正组 · 负组仍进总额)" \
+  || log_bad "v1220-NEGATIVE-GROUP-NOT-IN-PIE 饼图又拿到了全量 slices" "负值传给 Chart.js 会画出一个看起来正常、但比例完全错的图"
+
+# v1220-SELECT-ALL-SCOPED · 「全选」只作用于当前看得见的行。
+#   用户筛到「不建议录入 20 行」点全选,如果实现成「选中全表 200 行」,
+#   他会在毫不知情的情况下把另外 180 行的默认状态一起改掉 ——
+#   而那 180 行本来就是勾上的,全选之后【看起来没变化】,直到提交才发现录错了。
+{ grep -q 'function visibleSels()' "$QA122_BILLJS" \
+  && grep -q 'visibleSels().forEach(function (c) { c.checked = a.checked; });' "$QA122_BILLJS"; } \
+  && log_ok "v1220-SELECT-ALL-SCOPED(全选只作用于可见行)" \
+  || log_bad "v1220-SELECT-ALL-SCOPED 全选又作用到全表了" "筛选态下会把看不见的行一起改掉,而且看起来没变化"
+
+# v1220-CLOSED-PERIOD-SERVER-GUARD · 已关账的期不许改账户,且必须在【服务端】拦。
+#   去重范围是整个家庭,所以「已存在」的笔可能落在已关账的期。
+#   改它的账户会去动用户已经核对并封存的 period_snapshot。
+#   前端 disabled 只防手滑 —— 构造一个请求就能绕过去。
+{ grep -q 'if (row.closed())' "$QA122_UPD" \
+  && grep -q 'public boolean closed()' "$RD/src/main/java/com/family/finance/repository/ExpenseFlowMapper.java"; } \
+  && log_ok "v1220-CLOSED-PERIOD-SERVER-GUARD(已关账改账户在服务端拦)" \
+  || log_bad "v1220-CLOSED-PERIOD-SERVER-GUARD 已关账的拦截只剩前端 disabled" "构造一个请求就能改掉已封存的期末余额"
+
+# v1220-ACCOUNT-MOVE-BOTH-SIDES · 改账户必须两边都动,且方向相反。
+#   只动一边 = 凭空造钱或凭空吞钱;方向写反 = 余额错两倍。两种都不报错。
+#   判据要先剥注释 —— 这段代码的注释里就解释了 applyImportedExpense 的方向,
+#   不剥的话计数会多出一条,而那条是【说明】不是【调用】。
+{ body=$(codeonly "$QA122_UPD" | awk '/if \(row.affectsBalance\(\)/,/^            }$/');
+  [ -n "$body" ] \
+  && echo "$body" | grep -q 'row.amount().negate()' \
+  && [ "$(echo "$body" | grep -c 'applyImportedExpense')" -eq 2 ]; } \
+  && log_ok "v1220-ACCOUNT-MOVE-BOTH-SIDES(旧账户加回 + 新账户扣掉 · 两边都动)" \
+  || log_bad "v1220-ACCOUNT-MOVE-BOTH-SIDES 改账户没有两边都动余额" "只动一边等于凭空造钱或吞钱,而且不报错"
+
+# v1220-EXISTING-FIX-SURVIVES-EXPIRY · 「已存在」的修正不依赖草稿。
+#   它改的是上次已入账的行,和这次要落的新行没有关系。放在草稿检查之后的话,
+#   session 一过期,用户在那一桶里改了半天的东西会连同一句「草稿已经过期」一起消失。
+{ ctl=$(awk '/public String confirm\(/,/^    }$/' "$QA122_CTL");
+  [ -n "$ctl" ] \
+  && [ "$(echo "$ctl" | grep -n 'existingUpdateService.apply' | cut -d: -f1 | head -1)" \
+     -lt "$(echo "$ctl" | grep -n 'session.getAttribute(DRAFT_KEY)' | cut -d: -f1 | head -1)" ]; } \
+  && log_ok "v1220-EXISTING-FIX-SURVIVES-EXPIRY(已存在的修正排在草稿检查之前)" \
+  || log_bad "v1220-EXISTING-FIX-SURVIVES-EXPIRY 修正又被草稿过期吃掉了" "用户改了半天的东西会连同一句「草稿已过期」一起消失"
+
+# v1220-NO-FORCE-REIMPORT · 仍然不提供「强制再导」。
+#   那等于给一个制造双份的按钮,而双份在报表上表现为「这个月怎么花了两倍」,查起来很费劲。
+#   v1.22 开放「已存在」编辑是 UPDATE 已有行,和再导一次是两回事。
+{ pnl=$(awk '/data-bucket-panel="skipped"/,/^      <\/div>$/' "$QA122_IMPHTML");
+  [ -n "$pnl" ] && ! echo "$pnl" | grep -qE '强制|再导一次|name="force"|name="reimport"'; } \
+  && log_ok "v1220-NO-FORCE-REIMPORT(已存在桶没有「强制再导」)" \
+  || log_bad "v1220-NO-FORCE-REIMPORT 已存在桶出现了强制再导" "那是制造双份的按钮;真要重导的路径是整批撤销"
 
 
 echo

@@ -75,6 +75,15 @@ public final class ExpenseFakes {
         @Override public List<FlowRow> drillDown(long periodId, Long categoryId) { return List.of(); }
 
         /** 搬家 —— 真实现是一条 UPDATE,这里照做:逐笔载体不会撞任何唯一键 */
+        /* v1.22 · 「已存在」的笔可以就地改分类/账户(FR-598)。
+           这个 fake 只需要满足接口 —— 真正的行为由 ExistingFlowUpdateService 的
+           e2e 主线验(那里能查 DB 的余额,单测的假 mapper 验不出余额挪动)。 */
+        @Override public java.util.List<ExistingRow> findExistingByTxNos(long familyId, java.util.List<String> txNos) {
+            return java.util.List.of();
+        }
+        @Override public int updateCategory(long id, Long categoryId) { return 0; }
+        @Override public int updateAccount(long id, long accountId) { return 0; }
+
         @Override public int moveCategory(long familyId, long fromId, long toId) {
             int n = 0;
             for (int i = 0; i < rows.size(); i++) {

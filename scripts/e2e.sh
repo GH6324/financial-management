@@ -20,6 +20,10 @@ ok(){  echo -e " \033[32mPASS\033[0m $1"; PASS=$((PASS+1)); }
 bad(){ echo -e " \033[31mFAIL\033[0m $1 :: ${2:-}"; FAIL=$((FAIL+1)); FAILED+=("$1 :: ${2:-}"); }
 eq(){  [ "$2" = "$3" ] && ok "$1 ($2)" || bad "$1" "expect=$3 got=$2"; }
 ge(){  [ "$(printf '%s\n' "$2" "$3" | sort -g | tail -1)" = "$2" ] && [ "$2" != "$3" ] || [ "$2" = "$3" ] ; }  # $2>=$3
+# 环境不满足(比如这个家只有一个现金账户)≠ 失败 —— 但也【不能当成通过】:
+# 静默跳过会让「这条其实从没跑过」看起来像绿的。单独计数并打出来。
+SKIP=0
+skip(){ echo -e " \033[33mSKIP\033[0m $1 :: ${2:-}"; SKIP=$((SKIP+1)); }
 section(){ echo; echo -e "\033[1;36m════ $1 ════\033[0m"; }
 
 restore(){
@@ -502,6 +506,30 @@ if [ -n "$XP" ] && [ -n "$XA" ]; then
 
   # ⑦ 切回总额:已录数据保留、不删(FR-271)
   POSTcode /admin/reminders/expense-mode --data-urlencode "expenseMode=${mode0:-TOTAL}" >/dev/null
+  # ⑦ v1.22 · 支出可以是 0 和负数(退款冲正原样记)
+  #    这两条钉的是【口径】而不是【能不能插进去】:
+  #    负支出必须让当月支出合计相应【减少】—— 它在口径上是对的(退款确实抵扣消费),
+  #    但只要有一处把「≤0」当成「没有数据」,这个数就会静默不动。
+  xb2="$(db "SELECT ROUND(IFNULL(end_balance,0)) FROM period_snapshot WHERE period_id=$XP AND account_id=$XA")"
+  xsum0="$(db "SELECT ROUND(IFNULL(SUM(amount),0)) FROM cash_flow WHERE period_id=$XP AND kind='EXPENSE' AND is_adjustment=0 AND deleted_at IS NULL")"
+  POSTcode /entry/expense --data-urlencode "periodId=$XP" --data-urlencode "accountId=$XA" \
+        --data-urlencode "categoryCode=consumption" --data-urlencode "amount=0" \
+        --data-urlencode "note=e2e零元单" >/dev/null
+  eq "支出-0 元能落库(全额优惠 / 积分抵扣 · v1.22)" \
+     "$(db "SELECT COUNT(*) FROM cash_flow WHERE period_id=$XP AND note='e2e零元单' AND deleted_at IS NULL")" "1"
+
+  POSTcode /entry/expense --data-urlencode "periodId=$XP" --data-urlencode "accountId=$XA" \
+        --data-urlencode "categoryCode=consumption" --data-urlencode "amount=-500" \
+        --data-urlencode "affectsBalance=true" --data-urlencode "note=e2e退款冲正" >/dev/null
+  eq "支出-负数能落库且原样记负(v1.22 · DB 约束已放开)" \
+     "$(db "SELECT ROUND(amount) FROM cash_flow WHERE period_id=$XP AND note='e2e退款冲正' AND deleted_at IS NULL")" "-500"
+  eq "支出-负数让当月支出合计【减少】(退款抵扣消费,不是被当成没有数据)" \
+     "$(( xsum0 - $(db "SELECT ROUND(IFNULL(SUM(amount),0)) FROM cash_flow WHERE period_id=$XP AND kind='EXPENSE' AND is_adjustment=0 AND deleted_at IS NULL") ))" "500"
+  # 负支出落到账户 = 钱【加回】余额,不是再扣一次。写反的话余额会错两倍且不报错。
+  eq "支出-负数落到账户时余额【加回】而不是再扣" \
+     "$(( $(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$XP AND account_id=$XA") - xb2 ))" "500"
+
+
   eq "支出-切回原模式" "$(db "SELECT expense_entry_mode FROM family WHERE id=$FAM")" "${mode0:-TOTAL}"
 else
   bad "支出链路-无 OPEN 期/现金账户,跳过" "XP=$XP XA=$XA"
@@ -1045,9 +1073,71 @@ else
 fi
 
 # ============================================================================
+
+section "主线 22 · v1.22 「已存在」的笔就地改账户(余额同步挪 · 已关账硬拦)"
+{
+  # 「已存在」的笔就地改账户 → 余额必须【同步挪过去】
+  #    这是本版最容易错的一处:旧账户该 +amt、新账户该 -amt,写反了余额会错两倍【且不报错】。
+  #    这里不走页面,直接调 confirm 的 exTx/exAcct 通道 —— 页面上的下拉只是它的前端。
+  XA2="$(db "SELECT id FROM account WHERE family_id=$FAM AND type='CASH' AND archived_at IS NULL AND id<>$XA ORDER BY id LIMIT 1")"
+  if [ -n "$XA2" ]; then
+    # 先造一笔【带交易号、落到账户】的支出,模拟「上次导入进来的」
+    db "INSERT INTO cash_flow(period_id,account_id,kind,category_code,amount,occurred_at,note,submitted_by,ext_tx_no,affects_balance)
+        SELECT $XP,$XA,'EXPENSE','consumption',700,CURDATE(),'e2e已存在改账户',
+               (SELECT id FROM member WHERE family_id=$FAM LIMIT 1),'E2E-TX-0001',1" >/dev/null
+    # 它是直接 INSERT 的,余额还没动 —— 手工把余额按「当初扣过」的样子对齐
+    db "UPDATE period_snapshot SET end_balance = end_balance - 700 WHERE period_id=$XP AND account_id=$XA" >/dev/null
+    b_from0="$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$XP AND account_id=$XA")"
+    b_to0="$(db "SELECT ROUND(IFNULL(end_balance,0)) FROM period_snapshot WHERE period_id=$XP AND account_id=$XA2")"
+
+    # 走 confirm 的「已存在修正」通道(草稿为空也能改 —— 它和本次要落的新行无关)
+    POSTcode /expense/import/confirm --data-urlencode "periodId=$XP" --data-urlencode "accountId=$XA" \
+        --data-urlencode "exTx=E2E-TX-0001" --data-urlencode "exCat=" \
+        --data-urlencode "exAcct=$XA2" >/dev/null
+
+    eq "已存在-改账户后流水挂到新账户(v1.22 FR-598)" \
+       "$(db "SELECT account_id FROM cash_flow WHERE ext_tx_no='E2E-TX-0001' AND deleted_at IS NULL")" "$XA2"
+    eq "已存在-改账户:旧账户余额【加回】700(FR-599)" \
+       "$(( $(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$XP AND account_id=$XA") - b_from0 ))" "700"
+    eq "已存在-改账户:新账户余额【扣掉】700(方向不能写反)" \
+       "$(( b_to0 - $(db "SELECT ROUND(IFNULL(end_balance,0)) FROM period_snapshot WHERE period_id=$XP AND account_id=$XA2") ))" "700"
+
+    # FR-600 · 已关账的期只能改分类。前端 disabled 只防手滑,这里验【服务端硬拦】
+    CP="$(db "SELECT id FROM period WHERE family_id=$FAM AND status='CLOSED' ORDER BY period_start DESC LIMIT 1")"
+    if [ -n "$CP" ]; then
+      CACC="$(db "SELECT account_id FROM period_snapshot WHERE period_id=$CP LIMIT 1")"
+      db "INSERT INTO cash_flow(period_id,account_id,kind,category_code,amount,occurred_at,note,submitted_by,ext_tx_no,affects_balance)
+          SELECT $CP,$CACC,'EXPENSE','consumption',300,CURDATE(),'e2e已关账',
+                 (SELECT id FROM member WHERE family_id=$FAM LIMIT 1),'E2E-TX-0002',1" >/dev/null
+      cb0="$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$CP AND account_id=$CACC")"
+      POSTcode /expense/import/confirm --data-urlencode "periodId=$XP" --data-urlencode "accountId=$XA" \
+          --data-urlencode "exTx=E2E-TX-0002" --data-urlencode "exCat=" \
+          --data-urlencode "exAcct=$XA2" >/dev/null
+      eq "已存在-已关账的期【拒绝】改账户(服务端硬拦 · FR-600)" \
+         "$(db "SELECT account_id FROM cash_flow WHERE ext_tx_no='E2E-TX-0002' AND deleted_at IS NULL")" "$CACC"
+      eq "已存在-已关账的期余额【一分没动】" \
+         "$(db "SELECT ROUND(end_balance) FROM period_snapshot WHERE period_id=$CP AND account_id=$CACC")" "$cb0"
+    else
+      skip "已存在-已关账拦截" "这个家没有已关账的期"
+    fi
+
+    # 清理夹具(礼节性 —— 本块已经排在所有主线之后)。
+    #
+    # 【为什么非得排最后】:改账户走 creditAccountBalance,而它会**顺延影响后续账期的期初**。
+    # 起初这个块在主线 12 里,清理时只把当期余额加回 700 —— 补不干净,
+    # 于是「超级 Agent 看到的总资产」红了 0.04,看起来像产品 bug,其实是夹具的脏数据。
+    # 会改余额链的夹具就该排在最后,别指望能精确还原。
+    db "UPDATE cash_flow SET deleted_at=NOW(3) WHERE ext_tx_no IN ('E2E-TX-0001','E2E-TX-0002')" >/dev/null
+    db "UPDATE period_snapshot SET end_balance = end_balance + 700 WHERE period_id=$XP AND account_id=$XA2" >/dev/null
+  else
+    skip "已存在-改账户挪余额" "只有一个现金账户,没法验跨账户"
+  fi
+
+}
+
 echo
 echo "════════════════════════════════════════"
-echo -e " e2e 总结: \033[32mPASS=$PASS\033[0m  \033[31mFAIL=$FAIL\033[0m"
+echo -e " e2e 总结: \033[32mPASS=$PASS\033[0m  \033[31mFAIL=$FAIL\033[0m  \033[33mSKIP=$SKIP\033[0m"
 echo "════════════════════════════════════════"
 if [ "$FAIL" -gt 0 ]; then
   echo "失败主线:"; for f in "${FAILED[@]}"; do echo "  · $f"; done
