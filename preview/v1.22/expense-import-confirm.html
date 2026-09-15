@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.22 Preview · 导入确认页:我给建议,你拍板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .card{border:1px solid var(--rule);background:var(--card);padding:18px}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);color:var(--ink-soft);white-space:nowrap}
+  .badge.risk{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)}
+  .badge.ok{border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)}
+  .zone{margin-top:46px}
+  .zone-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap}
+  .zone-no{font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--paper);background:var(--brass-deep);line-height:1;padding:5px 9px}
+  .zone-t{font-family:'Fraunces','Noto Serif SC',serif;font-size:20px}
+  .zone-sub{font-size:11.5px;color:var(--ink-subtle)}
+  .zone-line{height:2px;background:var(--brass-deep);opacity:.35;margin:10px 0 18px}
+
+  /* ── 分桶页签(尺寸必须一致)── */
+  .bkt{width:128px;padding:9px 13px;border:1px solid var(--rule);background:var(--paper);
+       text-align:left;cursor:pointer;transition:border-color .12s,background .12s}
+  .bkt:hover{border-color:var(--brass-deep)}
+  .bkt.on{border-color:var(--brass-deep);background:rgba(160,124,58,.08)}
+  .bkt:not(.on){opacity:.72}
+  .bkt-k{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-subtle)}
+  .bkt-n{font-family:'Fraunces',serif;font-size:20px;line-height:1.15}
+  .bkt-s{font-size:11px;color:var(--ink-subtle)}
+
+  /* ── 逐笔表 ── */
+  table.imp{width:100%;border-collapse:collapse}
+  .imp th{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;
+          color:var(--ink-subtle);text-align:left;padding:7px 8px;border-bottom:1px solid var(--rule);white-space:nowrap}
+  .imp td{padding:6px 8px;border-bottom:1px solid var(--rule-soft);font-size:12.5px;vertical-align:middle}
+  .imp tr.sug td{background:rgba(156,74,42,.045)}
+  .imp tr.off td{opacity:.62}
+  .sel{width:15px;height:15px;accent-color:var(--brass-deep)}
+  .amt{text-align:right;font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1;white-space:nowrap}
+  .amt.neg{color:var(--forest)}
+  .mini{height:26px;font-size:11.5px;background:var(--paper);border:1px solid var(--rule);padding:2px 5px;max-width:160px;width:100%}
+  .bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 12px;border:1px solid var(--rule);background:var(--card-soft)}
+  .rsn{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--rust);white-space:nowrap}
+  .i{display:inline-flex;width:13px;height:13px;border:1px solid var(--ink-subtle);border-radius:50%;
+     align-items:center;justify-content:center;font-size:9px;color:var(--ink-subtle);cursor:help;margin-left:3px}
+
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .ba > div{border:1px solid var(--rule);padding:13px}
+  .ba .h{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:7px}
+  .before .h{color:var(--rust)} .after .h{color:var(--forest)}
+  @media(max-width:760px){.ba{grid-template-columns:1fr}}
+</style>
+</head>
+<body class="bg-paper text-ink" style="font-family:'Source Serif 4','Noto Serif SC',Georgia,serif">
+
+<div class="wrap" style="padding-top:38px;padding-bottom:70px">
+
+  <div class="eyebrow">preview · v1.22</div>
+  <h1 style="font-size:31px;margin:6px 0 10px">导入确认页:从「我替你删了」改成「我给建议,你拍板」</h1>
+  <p class="note" style="max-width:780px">
+    v1.21 的确认页把行分成五个桶,其中一个叫<b>「已剔除」</b> —— 那是一个<b>系统已经执行完的动作</b>。
+    可剔除的判据是启发式的,它会错;而「剔错了」的后果是<b>支出少算</b>,用户不会立刻发现。
+    一个不可靠的判断,却用了一个最不可逆的动词。<br>
+    这一版把那个动作收回来:系统只<b>给默认值 + 逐行给理由</b>,勾不勾由用户定。
+  </p>
+
+  <!-- ═══ 1 · 改动对照 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">1</span><span class="zone-t">语义翻转</span>
+      <span class="zone-sub">不是换文案 —— 动作的主语换了人</span></div>
+    <div class="zone-line"></div>
+
+    <div class="ba">
+      <div class="before">
+        <div class="h">v1.21 · 系统执行</div>
+        <p class="note" style="margin-bottom:9px">页签:<b>已剔除 92</b> · 点开看 · 可捞回来</p>
+        <table class="imp"><tbody>
+          <tr><td style="width:74px"><label class="mono" style="font-size:10.5px"><input type="checkbox" class="sel"> 捞回来</label></td>
+              <td>天猫超市 退货退款</td><td class="amt">66.00</td>
+              <td><span class="badge risk">退款 / 交易关闭</span></td></tr>
+          <tr><td><span class="mono" style="font-size:9px;color:var(--ink-subtle)">不能捞</span></td>
+              <td>个人转账 冲正</td><td class="amt">−12.00</td>
+              <td><span class="badge risk">金额是 0 或负数</span></td></tr>
+        </tbody></table>
+        <p class="note" style="margin-top:9px">
+          ✗ 「已剔除」= 我删了 · ✗ 「捞回来」暗示东西已经掉进垃圾桶<br>
+          ✗ <b>「不能捞」</b> —— 用户被单方面否决,还不给申诉理由(其实是 DB 的 <span class="mono">CHECK(amount &gt; 0)</span>)<br>
+          ✗ 两个桶两种动作(剔 / 捞),心智不统一,全选也只能做半边
+        </p>
+      </div>
+
+      <div class="after">
+        <div class="h">v1.22 · 系统建议</div>
+        <p class="note" style="margin-bottom:9px">页签:<b>不建议录入 20</b> · 点开只看这些</p>
+        <table class="imp"><tbody>
+          <tr class="sug"><td style="width:30px"><input type="checkbox" class="sel"></td>
+              <td>天猫超市 退货退款</td><td class="amt">66.00</td>
+              <td><span class="rsn">退款</span></td></tr>
+          <tr class="sug"><td><input type="checkbox" class="sel"></td>
+              <td>个人转账 冲正</td><td class="amt neg">−12.00</td>
+              <td><span class="rsn">负数(退款冲正)</span><span class="i" title="勾上会原样记成负数,当月支出会相应减少">i</span></td></tr>
+        </tbody></table>
+        <p class="note" style="margin-top:9px">
+          ✓ 同一个动作:<b>勾 = 录入</b>。系统只是把默认值设成不勾<br>
+          ✓ 理由<b>逐行</b>给,不是一个桶级标题<br>
+          ✓ <b>没有任何一行是不可勾的</b> —— 0 元和负数都放开(V60 去掉 DB 约束)
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 2 · 主表 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">2</span><span class="zone-t">一张表,不建议的排最前</span>
+      <span class="zone-sub">要人看的放前面 · 默认值已经填好,采纳就直接提交</span></div>
+    <div class="zone-line"></div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <button class="bkt on"><div class="bkt-k">逐笔核对</div><div class="bkt-n">200</div><div class="bkt-s">默认录 180</div></button>
+      <button class="bkt"><div class="bkt-k">不建议录入</div><div class="bkt-n">20</div><div class="bkt-s">点开只看这些</div></button>
+      <button class="bkt"><div class="bkt-k">性质另算</div><div class="bkt-n">6</div><div class="bkt-s">点开看 · 只读</div></button>
+      <button class="bkt"><div class="bkt-k">收入</div><div class="bkt-n">12</div><div class="bkt-s">点开看 · 只读</div></button>
+      <button class="bkt"><div class="bkt-k">已存在</div><div class="bkt-n">17</div><div class="bkt-s">点开改 · 可编辑</div></button>
+    </div>
+
+    <div class="bar" style="margin-bottom:10px">
+      <label class="mono" style="font-size:11.5px"><input type="checkbox" class="sel" checked> 全选</label>
+      <span class="mono" style="font-size:11px">已选 <b>180</b> 笔</span>
+      <span style="width:1px;height:15px;background:var(--rule)"></span>
+      <select class="mini"><option>批量改到分类…</option></select>
+      <select class="mini"><option>批量改到账户…</option></select>
+      <span style="flex:1"></span>
+      <label class="mono" style="font-size:11.5px"><input type="checkbox" class="sel" checked> 记住我的改动</label>
+    </div>
+    <p class="note" style="margin:-4px 0 10px">
+      「全选」作用于<b>当前筛选出来的行</b> —— 筛到「不建议录入」时它就是全选这 20 行,
+      不会偷偷把另外 180 行的默认状态也改掉。
+    </p>
+
+    <div class="card" style="padding:0">
+      <table class="imp">
+        <thead><tr>
+          <th style="width:30px"><input type="checkbox" class="sel"></th>
+          <th style="width:54px">日期</th><th>商户 / 说明</th>
+          <th style="width:88px;text-align:right">金额</th>
+          <th style="width:172px">归到分类</th><th style="width:158px">从哪个账户出</th>
+          <th style="width:118px">依据 / 为什么不建议</th>
+        </tr></thead>
+        <tbody>
+          <tr class="sug"><td><input type="checkbox" class="sel"></td><td class="mono" style="font-size:11px">09-07</td>
+            <td>天猫超市 退货退款</td><td class="amt">66.00</td>
+            <td><select class="mini"><option>—</option></select></td>
+            <td><select class="mini"><option>支付宝-余额宝</option></select></td>
+            <td><span class="rsn">退款</span></td></tr>
+          <tr class="sug"><td><input type="checkbox" class="sel"></td><td class="mono" style="font-size:11px">09-08</td>
+            <td>个人转账-王**</td><td class="amt">888.00</td>
+            <td><select class="mini"><option>—</option></select></td>
+            <td><select class="mini"><option>支付宝-余额宝</option></select></td>
+            <td><span class="rsn">不计收支(划转)</span></td></tr>
+          <tr class="sug"><td><input type="checkbox" class="sel"></td><td class="mono" style="font-size:11px">09-09</td>
+            <td>拼多多 满减券抵扣</td><td class="amt">0.00</td>
+            <td><select class="mini"><option>日用百货</option></select></td>
+            <td><select class="mini"><option>支付宝-余额宝</option></select></td>
+            <td><span class="rsn">0 元</span><span class="i" title="0 元通常是全额优惠或积分抵扣。录进来只多一笔记录,不影响金额。">i</span></td></tr>
+          <tr class="sug"><td><input type="checkbox" class="sel"></td><td class="mono" style="font-size:11px">09-10</td>
+            <td>京东 退款冲正</td><td class="amt neg">−499.00</td>
+            <td><select class="mini"><option>数码电器</option></select></td>
+            <td><select class="mini"><option>花呗</option></select></td>
+            <td><span class="rsn">负数(退款冲正)</span><span class="i" title="勾上会原样记成负数,当月支出相应减少 —— 如果对应的原单也在这批里,两笔一起录才对得上。">i</span></td></tr>
+
+          <tr><td colspan="7" style="padding:5px 8px;background:var(--card-soft)">
+            <span class="mono" style="font-size:9.5px;letter-spacing:.1em;color:var(--ink-subtle)">以下 180 笔默认录入</span></td></tr>
+
+          <tr><td><input type="checkbox" class="sel" checked></td><td class="mono" style="font-size:11px">09-02</td>
+            <td>星巴克 拿铁</td><td class="amt">32.00</td>
+            <td><select class="mini"><option>餐饮美食 › 咖啡</option></select></td>
+            <td><select class="mini"><option>招商银行储蓄卡</option></select></td>
+            <td><span class="badge">渠道分类</span></td></tr>
+          <tr><td><input type="checkbox" class="sel" checked></td><td class="mono" style="font-size:11px">09-03</td>
+            <td>肯德基 午餐</td><td class="amt">45.50</td>
+            <td><select class="mini"><option>餐饮美食 › 快餐</option></select></td>
+            <td><select class="mini"><option>支付宝-余额宝</option></select></td>
+            <td><span class="badge">你的规则</span></td></tr>
+          <tr><td><input type="checkbox" class="sel" checked></td><td class="mono" style="font-size:11px">09-04</td>
+            <td>盒马 蔬菜</td><td class="amt">88.30</td>
+            <td><select class="mini"><option>日用百货 › 生鲜</option></select></td>
+            <td><select class="mini"><option>花呗</option></select></td>
+            <td><span class="badge">名字匹配</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px">
+      <span style="flex:1"></span>
+      <span class="mono" style="font-size:11.5px">录入 <b>180</b> 笔 · 未录入 <b>20</b> 笔</span>
+      <button style="background:var(--ink);color:var(--paper);padding:8px 22px;border:none;font-family:'Fraunces',serif;font-size:14px">确认导入</button>
+      <a href="#" style="font-size:12.5px;color:var(--ink-subtle)">取消本次导入</a>
+    </div>
+    <p class="note" style="margin-top:8px">
+      提交后的结果:<b>「录入了 180 笔 · 未录入 20 笔(没有被删除,只是这次没记进账,重新导同一份文件还能再选)」</b><br>
+      —— 「未录入」是<b>结果状态</b>,不是操作。确认页上它们只是「没勾」。
+    </p>
+  </div>
+
+  <!-- ═══ 3 · 已存在 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">3</span><span class="zone-t">「已存在」从只读改成可编辑</span>
+      <span class="zone-sub">上次导过 ≠ 上次就归对了</span></div>
+    <div class="zone-line"></div>
+
+    <div class="card" style="padding:0;margin-bottom:12px">
+      <p class="note" style="padding:9px 12px;border-bottom:1px solid var(--rule);background:rgba(160,124,58,.06);margin:0">
+        这些笔上次导过,<b>这次不会重复记</b>。但可以在这里<b>修正上次归错的分类或落错的账户</b>
+        —— 改的是<b>已经入账的那一笔</b>,不是新增。<br>
+        改账户会<b>同时把余额挪过去</b>(旧账户加回、新账户扣掉)—— 只对当初勾了「落到账户」的笔生效。
+      </p>
+      <div class="bar" style="border:none;border-bottom:1px solid var(--rule)">
+        <label class="mono" style="font-size:11.5px"><input type="checkbox" class="sel"> 全选</label>
+        <span class="mono" style="font-size:11px">已选 <b>0</b> 笔</span>
+        <span style="width:1px;height:15px;background:var(--rule)"></span>
+        <select class="mini"><option>批量改到分类…</option></select>
+        <select class="mini"><option>批量改到账户…</option></select>
+      </div>
+      <table class="imp">
+        <thead><tr>
+          <th style="width:30px"><input type="checkbox" class="sel"></th>
+          <th style="width:54px">日期</th><th>商户 / 说明</th>
+          <th style="width:88px;text-align:right">金额</th>
+          <th style="width:172px">归到分类</th><th style="width:158px">从哪个账户出</th>
+          <th style="width:128px">状态</th>
+        </tr></thead>
+        <tbody>
+          <tr><td><input type="checkbox" class="sel"></td><td class="mono" style="font-size:11px">09-03</td>
+            <td>瑞幸咖啡 美式</td><td class="amt">19.90</td>
+            <td><select class="mini"><option>餐饮美食 › 咖啡</option></select></td>
+            <td><select class="mini"><option>支付宝-余额宝</option></select></td>
+            <td><span class="badge ok">本期 · 可改</span></td></tr>
+          <tr><td><input type="checkbox" class="sel"></td><td class="mono" style="font-size:11px">09-05</td>
+            <td>滴滴出行 打车</td><td class="amt">23.00</td>
+            <td><select class="mini"><option>交通出行</option></select></td>
+            <td><select class="mini"><option>招商银行储蓄卡</option></select></td>
+            <td><span class="badge ok">本期 · 可改</span></td></tr>
+          <tr class="off"><td><input type="checkbox" class="sel"></td><td class="mono" style="font-size:11px">08-28</td>
+            <td>山姆会员店 日用</td><td class="amt">312.00</td>
+            <td><select class="mini"><option>日用百货</option></select></td>
+            <td><select class="mini" disabled><option>招商银行储蓄卡</option></select></td>
+            <td><span class="badge risk">2026-08 已关账</span>
+                <span class="i" title="那一期已关账 —— 分类可以改,账户不行(改账户要动已关账的余额)。">i</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="note">
+      <b>为什么「已关账的期只能改分类」</b>:去重范围是<b>整个家庭</b>而不是当期
+      —— 用户 9 月导入时,账单里可能有 8 月的笔已经在库里。改它的账户会去动一个
+      <b>已经关账的 <span class="mono">period_snapshot</span></b>,那是用户核对过并封存的数字。
+      分类不动钱,所以照常可改。<br>
+      这条在<b>服务端硬拦</b>,不只是前端灰掉 —— 前端 disabled 只防手滑,防不住构造请求。
+    </p>
+    <p class="note" style="margin-top:8px">
+      <b>仍然不提供「强制再导」。</b> 那等于给一个制造双份的按钮,而双份在报表上表现为
+      「这个月怎么花了两倍」,查起来很费劲。真要重导的路径是去「本期已导入」整批撤销。
+    </p>
+  </div>
+
+  <!-- ═══ 4 · 负数的代价 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">4</span><span class="zone-t">放开负数之后,报表要跟着表态</span>
+      <span class="zone-sub">这是本版唯一需要新规则的地方</span></div>
+    <div class="zone-line"></div>
+
+    <p class="note" style="max-width:820px;margin-bottom:12px">
+      负金额支出在<b>口径上是对的</b>:退款确实抵扣当月支出、确实把钱加回账户、确实让储蓄率变高。
+      这些都不需要新规则,代数和天然正确。<br>
+      <b>唯一画不出来的是饼图</b> —— 扇形没有负面积。
+    </p>
+
+    <div class="ba">
+      <div class="before">
+        <div class="h">不许这么做</div>
+        <p class="note">把负组<b>取绝对值</b>凑一个扇形。<br>
+          那会把一笔 −¥499 的退款画成一笔 ¥499 的消费 —— <b>骗人</b>,而且用户完全看不出来。</p>
+      </div>
+      <div class="after">
+        <div class="h">这一版的规则</div>
+        <p class="note">
+          分组合计 <b>&gt; 0</b> → 照常进饼图<br>
+          分组合计 <b>≤ 0</b> → <b>不进饼图</b>,在图例下方单列一行:<br>
+          <span class="mono" style="font-size:11px;color:var(--forest)">数码电器 −¥410.70(本组退款多于消费,不计入构成占比)</span><br>
+          <b>总额仍按代数和</b>,不因为剔出了负组就变大 —— 否则「各组加起来 ≠ 总额」。
+        </p>
+      </div>
+    </div>
+
+    <p class="note" style="margin-top:12px">
+      另一处要说话的地方:确认页底部的「导入 N 笔 · 合计」<b>按代数和</b>,
+      可能明显小于账单总额 —— 不说明的话用户会以为少导了。
+    </p>
+  </div>
+
+  <!-- ═══ 5 · 验收 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">5</span><span class="zone-t">你要看的几件事</span></div>
+    <div class="zone-line"></div>
+    <ol class="note" style="max-width:860px;padding-left:20px;list-style:decimal">
+      <li><b>语义对不对</b> —— 「不建议录入 / 未录入 / 勾=录入」这套说法是不是你要的</li>
+      <li><b>不建议的行排最前</b> 是否合适(另一种排法是排最后,让默认流程不被打断)</li>
+      <li><b>0 元和负数默认不勾</b> —— 放开 ≠ 默认录。默认勾上会改变现有用户的导入结果</li>
+      <li><b>负组不进饼图</b> 这条规则能不能接受(替代方案只有「取绝对值骗人」或「整个饼图换成柱状图」)</li>
+      <li><b>已关账的期只能改分类</b> —— 这是我加的限制,你的原话没提</li>
+      <li><b>改「已存在」没有独立撤销入口</b> —— 改错了就再改回来,和填报页手动改一笔一样</li>
+    </ol>
+  </div>
+
+  <p class="note" style="margin-top:44px;padding-top:14px;border-top:1px solid var(--rule)">
+    本页所有金额均为编造示例 · PRD:<span class="mono">prd/v1.22.md</span>
+  </p>
+</div>
+</body>
+</html>
