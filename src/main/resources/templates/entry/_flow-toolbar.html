@@ -32,6 +32,10 @@
       <!--/* 也走自研下拉 —— 用户定过「所有下拉组件都用自研的」。
              原生 select 在移动端会渲染成系统灰底样式,和旁边的筛选器摆一起一眼就不是一家的。 */-->
       <select class="flow-size" data-flow-size data-lsel aria-label="每页条数">
+        <!--/* 5 这一档是给手机的:390px 下 10 条一屏放不下,翻一页要先滚一段。
+               默认值由 flow-table.js 按视口挑(手机 5 / PC 10),不写死在这里 ——
+               同一个页面在两种屏上该有两个不同的合理默认。 */-->
+        <option value="5">每页 5</option>
         <option value="10" selected>每页 10</option>
         <option value="20">每页 20</option>
         <option value="50">每页 50</option>

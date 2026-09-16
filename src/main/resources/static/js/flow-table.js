@@ -26,9 +26,13 @@
 
   /** 少于这么多行整条工具条都不出现 —— 一个月记三五笔的家庭不需要搜索框,那是噪音 */
   var MIN_ROWS = 12;
-  /* 默认 10 条。此前是 20 —— 手机上要滑很久才够得到分页按钮。
-     想一次看更多的走工具条上的档位切换,不替用户定死。 */
-  var DEFAULT_SIZE = 10;
+  /* 默认每页条数【按视口分】:手机 5 / 桌面 10。
+     10 条在 390px 下一屏放不下,翻一页得先往回滚一段 —— 而翻页是这个列表上
+     最高频的动作。同一个页面在两种屏上本来就该有两个不同的合理默认。
+     想看更多的走工具条上的档位切换,不替用户定死。 */
+  function defaultSize() {
+    return (window.matchMedia && window.matchMedia('(max-width: 640px)').matches) ? 5 : 10;
+  }
 
   function init(root) {
     (root || document).querySelectorAll('[data-flow-list]').forEach(function (list) {
@@ -50,7 +54,9 @@
       var filters = Array.prototype.slice.call(bar.querySelectorAll('[data-flow-f]'));
       var clearBtn = bar.querySelector('[data-flow-clear]');
       var page = 0;
-      var size = DEFAULT_SIZE;
+      var size = defaultSize();
+      // 底部翻页的三个节点(只在窄屏创建),render 里要用,先声明
+      var botPrev = null, botNext = null, botNum = null;
       var matched = rows;
 
       function haystack(r) { return (r.getAttribute('data-s') || '').toLowerCase(); }
@@ -96,9 +102,17 @@
           if (matched.length === rows.length) setCount('共 {} 笔', rows.length);
           else setCount('筛出 {} / 共 ' + rows.length + ' 笔', matched.length);
         }
-        if (pgnum) pgnum.textContent = (page + 1) + ' / ' + pages;
+        var label = (page + 1) + ' / ' + pages;
+        if (pgnum) pgnum.textContent = label;
         if (prev) prev.disabled = page === 0;
         if (next) next.disabled = page >= pages - 1;
+        // 底部镜像:同一套状态,不另存
+        if (botNum) botNum.textContent = label;
+        if (botPrev) botPrev.disabled = page === 0;
+        if (botNext) botNext.disabled = page >= pages - 1;
+        // 只有一页时底部那组没有意义,藏掉
+        var bt = botNum && botNum.parentNode;
+        if (bt) bt.hidden = pages <= 1;
       }
 
       var t = null;
@@ -120,6 +134,13 @@
         filter();
       });
 
+      /* 下拉的显示值要跟上实际默认值 —— 否则手机端写着「每页 10」而实际渲染 5 条,
+         用户会以为分页坏了。派发 change 让自研下拉同步按钮文案。 */
+      if (sizeSel && String(size) !== sizeSel.value) {
+        sizeSel.value = String(size);
+        sizeSel.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+
       if (sizeSel) sizeSel.addEventListener('change', function () {
         var n = parseInt(sizeSel.value, 10);
         if (!n || n < 1) return;
@@ -133,6 +154,39 @@
 
       if (prev) prev.addEventListener('click', function () { if (page > 0) { page--; render(); } });
       if (next) next.addEventListener('click', function () { page++; render(); });
+
+      /* ── 列表【底部】再放一组翻页(只在窄屏)──────────────────────────
+       *
+       * 顶部那组在 PC 上没问题,但手机上翻页是这个列表最高频的动作:
+       * 看完当页最后一行,手指在屏幕下方,而按钮在上面 —— 每翻一页都要往回滚。
+       *
+       * 【为什么不做吸顶】工具条在手机上是两行(搜索+分页 / 筛选),
+       * 吸顶会吃掉近三分之一可视高度;而它的价值是「随时能改筛选」,
+       * 可用户筛完就开始看了 —— 为一个低频动作长期占着高度不划算。
+       *
+       * 【为什么不做无限滚动】这个列表是【前端分页】,数据早已全量在 DOM 里 ——
+       * 无限滚动省不掉任何加载,只会让 DOM 越滚越长,并且丢掉「第几页 / 共几页」。
+       * 而这一页的用途是核对账目,位置感恰恰是要紧的。
+       *
+       * 底部这一组是顶部那组的镜像:同一套 page 状态,不另存。 */
+      if (window.matchMedia && window.matchMedia('(max-width: 640px)').matches) {
+        var bot = document.createElement('div');
+        bot.className = 'flow-pager flow-pager-bottom';
+        botPrev = document.createElement('button');
+        botPrev.type = 'button'; botPrev.className = 'flow-pg'; botPrev.textContent = '←';
+        botNum = document.createElement('span');
+        botNum.className = 'flow-pgnum';
+        botNext = document.createElement('button');
+        botNext.type = 'button'; botNext.className = 'flow-pg'; botNext.textContent = '→';
+        bot.appendChild(botPrev); bot.appendChild(botNum); bot.appendChild(botNext);
+        list.parentNode.insertBefore(bot, list.nextSibling);
+        botPrev.addEventListener('click', function () {
+          if (page > 0) { page--; render(); list.scrollIntoView({ block: 'start' }); }
+        });
+        botNext.addEventListener('click', function () {
+          page++; render(); list.scrollIntoView({ block: 'start' });
+        });
+      }
 
       render();
     });

@@ -2437,6 +2437,9 @@ dialog::backdrop { background: rgba(26, 23, 20, .38); }
 
   /* 账户行的三个入口(持仓变动 / AI 截图导入 / 券商)在 390px 下会一个占一行,
      三行按钮把账户名和余额挤得看不出主次。缩到能一行放下 —— 它们是入口不是主角。 */
+  /* 三个入口靠右 —— 和上面那行的账户名左对齐形成一条「主语在左、动作在右」的关系,
+     也让拇指从右下角够过去更近。 */
+  .acct-ops { justify-content: flex-end; }
   .acct-ops > a {
     font-size: 10px !important;
     padding: 2px 6px !important;
@@ -2512,4 +2515,10 @@ dialog::backdrop { background: rgba(26, 23, 20, .38); }
     background: var(--paper) !important;
     backdrop-filter: none !important;
   }
+}
+
+/* v1.22.2 · 列表底部的翻页镜像(只在窄屏由 flow-table.js 插入) */
+.flow-pager-bottom {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 9px 0 2px;
 }

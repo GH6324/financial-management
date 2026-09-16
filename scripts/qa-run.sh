@@ -9125,9 +9125,11 @@ QA1212_TOOLBAR="$RD/src/main/resources/templates/entry/_flow-toolbar.html"
 # v1212-FLOW-PAGE-SIZE-10 · 流水分页默认 10,并给 10/20/50/100 四档。
 #   20 条在手机上要滑很久才够得到分页按钮;但「一次核对整月」又确实需要 100。
 #   所以给档位而不是替用户定死 —— 两边都别硬编码成另一个数。
-{ grep -q 'DEFAULT_SIZE = 10' "$QA1212_FLOWJS" \
-  && for v in 10 20 50 100; do grep -q "value=\"$v\"" "$QA1212_TOOLBAR" || exit 1; done; } \
-  && log_ok "v1212-FLOW-PAGE-SIZE-10(默认 10 条 · 四档可切)" \
+#   【v1.22.2 起默认值按视口挑】(手机 5 / 桌面 10),不再是一个常量 ——
+#   判据跟着改成「有 defaultSize() 且桌面分支是 10」,档位仍然要齐。
+{ grep -qE 'matches\) \? 5 : 10' "$QA1212_FLOWJS" \
+  && for v in 5 10 20 50 100; do grep -q "value=\"$v\"" "$QA1212_TOOLBAR" || exit 1; done; } \
+  && log_ok "v1212-FLOW-PAGE-SIZE-10(桌面默认 10 · 手机 5 · 五档可切)" \
   || log_bad "v1212-FLOW-PAGE-SIZE-10 默认条数或档位不对" "默认 20 在手机上要滑很久;档位少了就等于替用户定死"
 
 # v1212-FACETS-FROM-ACTUAL-DATA · 筛选器候选值取自当期实际有的值,不是全量字典。
@@ -9442,6 +9444,42 @@ QA1222_ROW="$RD/src/main/resources/templates/entry/_row.html"
   && awk "/tick-done' : 'tick-pending'/,/>/" "$QA1222_ROW" | grep -q 'th:title'; } \
   && log_ok "v1222-TICK-SELF-EXPLAINS(已填/待填的勾带 title)" \
   || log_bad "v1222-TICK-SELF-EXPLAINS 那个勾又变回没有任何说明" "长得像复选框但点不动,用户只能猜它是干嘛的"
+
+# v1222-MOBILE-PAGE-SIZE-5 · 手机端每页 5 条,且下拉显示值要跟上。
+#   10 条在 390px 下一屏放不下,翻一页得先往回滚一段 —— 而翻页是这个列表上最高频的动作。
+#   默认值按视口挑,不写死在模板里(同一个页面在两种屏上该有两个不同的合理默认)。
+#   【下拉显示值必须同步】:否则手机端写着「每页 10」而实际渲染 5 条,用户会以为分页坏了。
+{ F="$RD/src/main/resources/static/js/flow-table.js";
+  grep -q 'function defaultSize()' "$F" \
+  && grep -q "matchMedia('(max-width: 640px)')" "$F" \
+  && grep -qE 'matches\) \? 5 :' "$F" \
+  && grep -q 'sizeSel.dispatchEvent(new Event' "$F" \
+  && grep -q 'value="5"' "$RD/src/main/resources/templates/entry/_flow-toolbar.html"; } \
+  && log_ok "v1222-MOBILE-PAGE-SIZE-5(手机端默认 5 条 · 下拉显示值同步)" \
+  || log_bad "v1222-MOBILE-PAGE-SIZE-5 手机端每页条数不对或下拉没同步" "10 条在 390px 下一屏放不下;下拉写着 10 实际 5 条会被当成坏了"
+
+# v1222-BOTTOM-PAGER · 窄屏在列表【底部】再放一组翻页。
+#   顶部那组在手机上要往回滚才够得到,而翻页是这个列表最高频的动作。
+#   【不做吸顶】:工具条在手机上是两行,吸顶吃掉近三分之一可视高度,
+#   而它的价值是「随时能改筛选」——可用户筛完就开始看了,为低频动作长期占高度不划算。
+#   【不做无限滚动】:这个列表是前端分页,数据早已全量在 DOM 里 ——
+#   无限滚动省不掉任何加载,只会让 DOM 越滚越长并丢掉「第几页 / 共几页」,
+#   而这一页的用途是核对账目,位置感恰恰要紧。
+#   【判据只扫代码标识符,不扫自然语言】——
+#   第一版禁了「无限滚动」这四个字,而上面那段注释里正好在解释「为什么不做无限滚动」,
+#   于是判据被自己的解释绊倒。这是同一个坑的第六次(前五次见 tech-design/v1.22.md §五
+#   与 docs/qa-cases.md)。代码标识符不会出现在解释性文字里,中文词一定会。
+{ F="$RD/src/main/resources/static/js/flow-table.js";
+  grep -q 'flow-pager-bottom' "$F" \
+  && grep -q 'botNum.textContent = label' "$F" \
+  && ! grep -qE 'IntersectionObserver|scrollend|infiniteScroll' "$F"; } \
+  && log_ok "v1222-BOTTOM-PAGER(窄屏底部有翻页镜像 · 与顶部同一套状态)" \
+  || log_bad "v1222-BOTTOM-PAGER 底部翻页没了,或改成了无限滚动" "翻页要往回滚;无限滚动在前端分页上省不掉加载,只会丢掉位置感"
+
+# v1222-ACCT-OPS-RIGHT · 账户卡的三个入口靠右。
+{ awk '/@media \(max-width: 640px\)/,0' "$QA1222_CSS" | grep -qE '\.acct-ops \{[^}]*justify-content: flex-end'; } \
+  && log_ok "v1222-ACCT-OPS-RIGHT(账户卡的三个入口靠右)" \
+  || log_bad "v1222-ACCT-OPS-RIGHT 账户卡的入口又靠左了" "和余额、刷新的右边缘对不齐"
 
 # v1222-ACCT-HEAD-NOWRAP · 账户名那一行不换行。
 #   名字 / 校准状态 / 类型 / 币种是一句话,断开就读不成句;
