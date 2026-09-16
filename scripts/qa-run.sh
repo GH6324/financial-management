@@ -9398,6 +9398,59 @@ print(re.sub(r'<!--.*?-->','',t,flags=re.S))" "$QA1221_ROW");
   || log_bad "v1221-MOBILE-TAG-SCALE 手机端没有 tag 尺寸收口" "PC 尺寸的 tag 在 390px 下会把核心信息挤掉"
 
 
+# ═══════════════ v1.22.2 · 填报页账户卡(手机端)═══════════════
+
+QA1222_CSS="$RD/src/main/resources/static/css/style.css"
+QA1222_ROW="$RD/src/main/resources/templates/entry/_row.html"
+
+# v1222-ROW-SPLIT-BY-ORDER · 账户卡的两行用 order + 零高伪元素断,不靠像素算术。
+#   踩过两次,两次都是在跟像素较劲:
+#     · basis:calc(100% - 40px) —— 加上容器 8px 的 gap 刚好超 4px,刷新按钮掉到第三行
+#     · basis:60%              —— 又变成整行都塞得下,账户名(basis 0、grow 1)只分到 15px
+#   这两次在截图上都不明显,得量 clientWidth 才看得出来。
+#   用 flexbox 的标准断行(order 分组 + 一个 flex-basis:100% 的零高伪元素)就没有临界点。
+#   【判据本身踩过 grep 不跨行】:`.acct-row > .acct-bal {` 和 `order: 2` 不在同一行,
+#   用 grep -E '...\{[^}]*order: 2' 永远匹配不上。抽出整个规则块再判。
+{ blk=$(awk '/@media \(max-width: 640px\)/,0' "$QA1222_CSS");
+  balblk=$(echo "$blk" | awk '/\.acct-row > \.acct-bal \{/,/\}/');
+  echo "$blk" | grep -q '\.acct-row::before' \
+  && echo "$balblk" | grep -q 'order: 2' \
+  && ! echo "$balblk" | grep -q 'calc(100%'; } \
+  && log_ok "v1222-ROW-SPLIT-BY-ORDER(账户卡按 order 分组断行 · 不靠像素算术)" \
+  || log_bad "v1222-ROW-SPLIT-BY-ORDER 账户卡又靠 flex-basis 的临界点断行" "差几个 px 就会整行挤在一起把账户名压成 15px,而截图上看不出来"
+
+# v1222-PREV-BALANCE-ONCE · 「上期末」在一张卡片里只渲染一次。
+#   它原本出现两次(左栏「上期末 … · 已填」+ 右侧余额区),同一个值、同一张卡 ——
+#   用户会怀疑这是两个不同的数。手机端收起左边那份(右边和本期末、变化量在一起,上下文更完整)。
+#   【不许写死出现次数】。第一版判据是 `grep -c previousBalanceLabel == 2` ——
+#   实际有 3 处,第三处在折叠的「改本期余额」表单里当参考值,那是另一个上下文、完全合理。
+#   同一个坑 v1.21.2 刚踩过(`-eq 2` 把第三条查询漏掉了):
+#   **护栏里出现字面数字,就是把「当下的事实」冻成了「永远的约束」。**
+#   判据改成钉【实际的修复点】:卡片头部那份有 acct-prev 标记、手机端收起,
+#   而右侧余额区仍保着一份(删掉左边之后信息不能丢)。
+#   范围用固定行窗而不是 awk /<\/div>/ —— 后者会在内层 div 就截断。
+{ grep -q 'acct-prev' "$QA1222_ROW" \
+  && awk '/@media \(max-width: 640px\)/,0' "$QA1222_CSS" | grep -q '\.acct-prev { display: none; }' \
+  && grep -A6 'acct-bal' "$QA1222_ROW" | grep -q 'previousBalanceLabel'; } \
+  && log_ok "v1222-PREV-BALANCE-ONCE(手机端「上期末」只显示一次)" \
+  || log_bad "v1222-PREV-BALANCE-ONCE 「上期末」在一张卡里重复显示" "同一个值出现两次,用户会以为是两个不同的数"
+
+# v1222-TICK-SELF-EXPLAINS · 「已填/待填」那个勾必须自解释。
+#   用户第一眼的原话是「这个 icon 是干嘛的?」—— 它长得像一个被选中的复选框,
+#   但既点不动、也没有 title。图标不带说明就是让用户猜。
+{ grep -q "tick-done' : 'tick-pending'" "$QA1222_ROW" \
+  && awk "/tick-done' : 'tick-pending'/,/>/" "$QA1222_ROW" | grep -q 'th:title'; } \
+  && log_ok "v1222-TICK-SELF-EXPLAINS(已填/待填的勾带 title)" \
+  || log_bad "v1222-TICK-SELF-EXPLAINS 那个勾又变回没有任何说明" "长得像复选框但点不动,用户只能猜它是干嘛的"
+
+# v1222-ACCT-HEAD-NOWRAP · 账户名那一行不换行。
+#   名字 / 校准状态 / 类型 / 币种是一句话,断开就读不成句;
+#   而且换行之后头像和勾会独占一行,卡片顶部空一大块。
+{ awk '/@media \(max-width: 640px\)/,0' "$QA1222_CSS" | grep -qE '\.acct-head \{[^}]*flex-wrap: nowrap'; } \
+  && log_ok "v1222-ACCT-HEAD-NOWRAP(账户名那一行不换行)" \
+  || log_bad "v1222-ACCT-HEAD-NOWRAP 账户名那一行又允许换行了" "头像和勾会独占一行,名字掉到第二行"
+
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

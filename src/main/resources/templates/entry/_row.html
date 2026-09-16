@@ -31,7 +31,13 @@
     <span th:classappend="${ownerColorMap != null and ownerColorMap.get(row.ownerName) != null ? 'avatar-' + ownerColorMap.get(row.ownerName) % 5 : 'avatar-4'}"
           class="w-6 h-6 sm:w-7 sm:h-7 rounded-full text-paper flex items-center justify-center text-[10px] sm:text-xs font-display flex-shrink-0"
           th:text="${row.ownerName != null ? #strings.substring(row.ownerName, 0, 1) : '共'}">迪</span>
-    <span th:class="${row.done ? 'tick-done' : 'tick-pending'}">
+    <!--/* v1.22.2 · 这个勾原本没有任何说明,用户看到只会问「这是干嘛的」——
+           它长得像一个被选中的复选框,但既点不动也没有 title。
+           补上 title 和 aria-label;同时手机端下面那行重复的「已填/待填」隐藏掉
+           (信息由这个勾承担,不用说两遍)。 */-->
+    <span th:class="${row.done ? 'tick-done' : 'tick-pending'}"
+          th:title="${row.done ? '本期这个账户已填过余额' : '本期这个账户还没填余额'}"
+          th:attr="aria-label=${row.done ? '已填' : '待填'}">
       <svg th:if="${row.done}" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
       <th:block th:unless="${row.done}">·</th:block>
     </span>
@@ -59,7 +65,11 @@
               th:text="${row.account.type.label}">现金</span>
         <span class="flex-shrink-0 font-mono text-[10px] sm:text-[11px] text-ink-subtle" th:if="${row.account.currency != 'CNY'}" th:text="'· ' + ${row.account.currency}">USD</span>
       </div>
-      <div class="font-mono text-xs text-ink-subtle mt-1">
+      <!--/* v1.22.2 · 「上期末」在右边的余额区已经有一份(和本期末、变化量在一起,
+             上下文更完整)—— 同一个值在一张卡片里出现两次,用户会怀疑是两个不同的数。
+             手机端把这一整行收起来:上期末看右边,已填/待填看左边那个勾。
+             PC 宽度够,保留原样。 */-->
+      <div class="font-mono text-xs text-ink-subtle mt-1 acct-prev">
         <span th:text="'上期末 ' + ${row.previousBalanceLabel}">上期末 ¥45,000</span>
         <span class="mx-1">·</span>
         <span th:text="${row.done ? '已填' : '待填'}">已填</span>

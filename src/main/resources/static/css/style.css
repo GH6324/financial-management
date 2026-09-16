@@ -2395,8 +2395,6 @@ dialog::backdrop { background: rgba(26, 23, 20, .38); }
 
   /* ── ②b 填报页的账户行:账户名优先占位 ──
      它和流水行是同一个病,但更严重:那边是被 tag 挤窄,这边是被硬编码 max-w 锁死。 */
-  .acct-head { flex-wrap: wrap; row-gap: 3px; }
-  .acct-head > .acct-name { flex: 0 0 auto; max-width: 100% !important; }
   /* 校准状态是次要信息,缩小之后大多数情况下还能和账户名同行 */
   .acct-head > [data-calibrated], .acct-head > [data-not-calibrated] {
     font-size: calc(8px * var(--fs-scale, 1));
@@ -2407,13 +2405,31 @@ dialog::backdrop { background: rgba(26, 23, 20, .38); }
   /* 账户卡:两栏 → 上下两段。
      头像和勾留在第一段的左侧(它们是行首标识),余额单独一段靠右 ——
      这样左边的「上期末 … · 已填」和入口按钮都有整行宽度可用。 */
+  /* 【明确断成两行】,不靠 flex-basis 的像素算术去「刚好放不下」。
+     试过 basis:calc(100%-40px) —— 加上容器 8px 的 gap 刚好超 4px,刷新按钮掉到第三行;
+     改成 60% —— 又变成整行都塞得下,于是账户名(basis 0、grow 1)只分到【15px】,
+     被压成一个省略号。两次都是在跟像素较劲。
+     用 flexbox 的标准断行:一个零高、basis 100% 的伪元素 + order 分组。
+     第一行 = 头像 / 勾 / 账户名区;第二行 = 余额 / 刷新。 */
   .acct-row { flex-wrap: wrap; row-gap: 6px; }
-  .acct-row > .flex-1 { flex: 1 1 100%; min-width: 0; }
-  .acct-row > .acct-refresh { flex: 0 0 auto; align-self: center; }
-  /* 给刷新按钮(28px + 8px 外边距)留出位置,否则它会被挤到下一行的最左边,
-     和右对齐的余额彻底断开 —— 一个孤零零的圆圈,看不出是干嘛的。 */
+  .acct-row::before { content: ""; flex: 0 0 100%; height: 0; order: 1; margin: 0; }
+  /* 【不是 100%】—— 上一版给它 100% 把头像和那个勾挤成了独占一行,
+     账户名跟着掉到第二行。头像 / 勾 / 账户名本来就该是同一行的开头。 */
+  .acct-row > .flex-1 { flex: 1 1 0; min-width: 0; order: 0; }
+  .acct-row > .acct-refresh { flex: 0 0 auto; align-self: center; order: 3; }
+  /* 「上期末 … · 已填」整行收起:上期末右边余额区有一份,已填/待填由那个勾表达 */
+  .acct-prev { display: none; }
+  /* 账户名那一行【不换行】—— 名字、校准状态、类型、币种是一句话,断开就读不成句 */
+  .acct-head { flex-wrap: nowrap; row-gap: 0; overflow: hidden; }
+  .acct-head > .acct-name { flex: 0 1 auto; min-width: 0; }
+  .acct-head > [data-calibrated], .acct-head > [data-not-calibrated] { flex: 0 0 auto; }
+  /* 给刷新按钮留位置,否则它会被挤到下一行最左边 —— 一个孤零零的圆圈,看不出是干嘛的。
+     【不要用 calc(100% - 40px)】:.acct-row 自身有 8px 的 gap,
+     100%-40px + gap8 + 按钮36 = 100%+4px,刚好超一点点就整个换行,
+     而这 4px 在截图上看不出来,只会觉得「怎么又掉下去了」。
+     用一个宽松的 basis + grow:1 让它自己撑开,不做像素算术。 */
   .acct-row > .acct-bal {
-    flex: 1 1 calc(100% - 40px);
+    flex: 1 1 auto; order: 2;
     display: flex; align-items: baseline; justify-content: flex-end;
     gap: 8px; flex-wrap: wrap;
     padding-top: 4px; border-top: 1px dashed var(--rule-soft);
