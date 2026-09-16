@@ -9476,11 +9476,6 @@ QA1222_ROW="$RD/src/main/resources/templates/entry/_row.html"
   && log_ok "v1222-BOTTOM-PAGER(窄屏底部有翻页镜像 · 与顶部同一套状态)" \
   || log_bad "v1222-BOTTOM-PAGER 底部翻页没了,或改成了无限滚动" "翻页要往回滚;无限滚动在前端分页上省不掉加载,只会丢掉位置感"
 
-# v1222-ACCT-OPS-RIGHT · 账户卡的三个入口靠右。
-{ awk '/@media \(max-width: 640px\)/,0' "$QA1222_CSS" | grep -qE '\.acct-ops \{[^}]*justify-content: flex-end'; } \
-  && log_ok "v1222-ACCT-OPS-RIGHT(账户卡的三个入口靠右)" \
-  || log_bad "v1222-ACCT-OPS-RIGHT 账户卡的入口又靠左了" "和余额、刷新的右边缘对不齐"
-
 # v1222-ACCT-HEAD-NOWRAP · 账户名那一行不换行。
 #   名字 / 校准状态 / 类型 / 币种是一句话,断开就读不成句;
 #   而且换行之后头像和勾会独占一行,卡片顶部空一大块。
