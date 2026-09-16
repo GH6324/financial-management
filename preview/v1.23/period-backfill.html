@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.23 Preview · 补录上一期支出</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .card{border:1px solid var(--rule);background:var(--card);padding:18px}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);color:var(--ink-soft);white-space:nowrap}
+  .badge.risk{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)}
+  .badge.ok{border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)}
+  .zone{margin-top:46px}
+  .zone-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap}
+  .zone-no{font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--paper);background:var(--brass-deep);line-height:1;padding:5px 9px}
+  .zone-t{font-family:'Fraunces','Noto Serif SC',serif;font-size:20px}
+  .zone-sub{font-size:11.5px;color:var(--ink-subtle)}
+  .zone-line{height:2px;background:var(--brass-deep);opacity:.35;margin:10px 0 18px}
+
+  /* 时间轴 */
+  .tl{position:relative;padding-left:22px;margin-top:14px}
+  .tl::before{content:"";position:absolute;left:6px;top:4px;bottom:4px;width:1px;background:var(--rule)}
+  .tl-i{position:relative;padding:7px 0}
+  .tl-i::before{content:"";position:absolute;left:-19px;top:13px;width:7px;height:7px;border-radius:50%;background:var(--rule)}
+  .tl-i.hot::before{background:var(--rust)}
+  .tl-i.good::before{background:var(--forest)}
+  .tl-d{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-subtle);letter-spacing:.06em}
+  .tl-t{font-size:12.5px;margin-top:2px}
+
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .ba > div{border:1px solid var(--rule);padding:13px}
+  .ba .h{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:7px}
+  .before .h{color:var(--rust)} .after .h{color:var(--forest)}
+  @media(max-width:760px){.ba{grid-template-columns:1fr}}
+
+  .hint{border-left:3px solid var(--brass-deep);background:rgba(160,124,58,.07);padding:11px 14px}
+  .willchange{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--rule)}
+  .willchange > div{padding:11px 13px}
+  .willchange > div:first-child{border-right:1px solid var(--rule);background:rgba(156,74,42,.045)}
+  .willchange > div:last-child{background:rgba(79,107,71,.05)}
+  .wc-h{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
+  @media(max-width:600px){.willchange{grid-template-columns:1fr}.willchange > div:first-child{border-right:none;border-bottom:1px solid var(--rule)}}
+</style>
+</head>
+<body class="bg-paper text-ink" style="font-family:'Source Serif 4','Noto Serif SC',Georgia,serif">
+<div class="wrap" style="padding-top:38px;padding-bottom:70px">
+
+  <div class="eyebrow">preview · v1.23 · issue #20</div>
+  <h1 style="font-size:30px;margin:6px 0 10px">补录上一期支出</h1>
+  <p class="note" style="max-width:800px">
+    自然月账单只有在自然月<b>结束之后</b>才拿得到,而系统在 <span class="mono">09/01 00:30</span> 就把 8 月关了。
+    于是「拿到完整账单再填」这条最自然的路径,反而需要先去管理页重开账期。<br>
+    这一版让那条路变成<b>一步</b>,同时<b>一分钱都不碰已经封板的余额和收益</b>。
+  </p>
+
+  <!-- ═══ 1 · 冲突在哪 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">1</span><span class="zone-t">冲突在哪</span>
+      <span class="zone-sub">不是用户理解错,是两个机制打架</span></div>
+    <div class="zone-line"></div>
+
+    <div class="ba">
+      <div class="before">
+        <div class="h">现在</div>
+        <div class="tl">
+          <div class="tl-i"><div class="tl-d">08 / 01</div><div class="tl-t">系统建 8 月账期</div></div>
+          <div class="tl-i"><div class="tl-d">08 / 28</div><div class="tl-t">按提示填「月末倒数 2 天」的支出</div></div>
+          <div class="tl-i hot"><div class="tl-d">08 / 29 – 08 / 31</div><div class="tl-t">还在花钱 —— 这几天<b>没被记进去</b></div></div>
+          <div class="tl-i hot"><div class="tl-d">09 / 01 00:30</div><div class="tl-t"><b>8 月被 force-close</b>(PeriodOpener 的定时任务)</div></div>
+          <div class="tl-i hot"><div class="tl-d">09 / 01 白天</div><div class="tl-t">支付宝账单出来了 —— 但 8 月已经<b>写不进去</b></div></div>
+        </div>
+        <p class="note" style="margin-top:10px">
+          剩下两条路:<b>自己补算</b>最后三天,或者<b>去管理页重开 → 改 → 再关账</b>(三步,还要填原因)。
+        </p>
+      </div>
+
+      <div class="after">
+        <div class="h">v1.23</div>
+        <div class="tl">
+          <div class="tl-i"><div class="tl-d">08 / 01</div><div class="tl-t">系统建 8 月账期</div></div>
+          <div class="tl-i"><div class="tl-d">08 / 28</div><div class="tl-t">想填就填,<b>不填也行</b></div></div>
+          <div class="tl-i"><div class="tl-d">09 / 01 00:30</div><div class="tl-t">8 月照常关账 —— <b>机制不变</b></div></div>
+          <div class="tl-i good"><div class="tl-d">09 / 01 白天</div><div class="tl-t">填报页顶部:<b>「8 月的账单现在应该拿得到了 → 补录」</b></div></div>
+          <div class="tl-i good"><div class="tl-d">一步</div><div class="tl-t">传 csv 或填个总数,<b>不重开账期</b></div></div>
+        </div>
+        <p class="note" style="margin-top:10px">
+          <b>v1.21 的批量导入本来就是为这个时点设计的</b> —— 月中导只有半个月数据。
+          这一版让那个功能真的用得上。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 2 · 填报页的提示 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">2</span><span class="zone-t">填报页顶部的提示</span>
+      <span class="zone-sub">只在补录窗口内出现 · 补完就消失</span></div>
+    <div class="zone-line"></div>
+
+    <div class="card" style="padding:0">
+      <div class="hint">
+        <div style="font-size:13.5px;margin-bottom:4px"><b>8 月的账单现在应该拿得到了。</b></div>
+        <p class="note" style="margin:0">
+          微信 / 支付宝 / 信用卡的完整上月账单要等月底过完才出 —— 现在补录进去,不用自己算最后几天。
+        </p>
+        <div style="margin-top:9px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <a href="#" style="background:var(--ink);color:var(--paper);padding:6px 14px;text-decoration:none;font-size:12.5px">→ 补录 8 月支出</a>
+          <a href="#" style="font-size:11.5px;color:var(--ink-subtle)">这个月不用了</a>
+        </div>
+      </div>
+      <p class="note" style="padding:10px 14px;margin:0">
+        <b>为什么不是弹窗</b>:它一个月只相关几天,而用户这几天本来就会来填报页。
+        弹窗会打断另外那二十几天的正常使用,而这条提示放在页面顶部,不看也不挡路。
+      </p>
+    </div>
+  </div>
+
+  <!-- ═══ 3 · 补录页 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">3</span><span class="zone-t">补录页 · 会变什么必须说在前面</span>
+      <span class="zone-sub">这是本版最要紧的一屏</span></div>
+    <div class="zone-line"></div>
+
+    <div class="card">
+      <div class="eyebrow">补 · 录</div>
+      <h3 style="font-size:21px;margin:5px 0 4px">补录 2026 年 8 月的支出
+        <span class="badge risk" style="vertical-align:middle;margin-left:6px">那一期已关账</span></h3>
+      <p class="note" style="margin-bottom:13px">
+        这一期已经关账了,所以补录<b>只记「钱花在哪」,不动任何账户余额</b>。
+      </p>
+
+      <div class="willchange">
+        <div>
+          <div class="wc-h" style="color:var(--rust)">会变</div>
+          <p class="note" style="margin:0">
+            8 月的<b>家庭支出</b>合计<br>
+            8 月的<b>储蓄率</b><br>
+            8 月的<b>支出构成 / 分类报表</b><br>
+            8 月的<b>净流入(人赚)</b>
+          </p>
+        </div>
+        <div>
+          <div class="wc-h" style="color:var(--forest)">不会变</div>
+          <p class="note" style="margin:0">
+            8 月的<b>净资产</b><br>
+            各账户的<b>期末余额</b><br>
+            <b>收益率 / XIRR</b><br>
+            <span style="color:var(--forest)">—— 那些你已经核对并封板了</span>
+          </p>
+        </div>
+      </div>
+
+      <p class="note" style="margin-top:12px">
+        <b>为什么能做到「不动余额」</b>:v1.21 给每一笔支出加了「是否落到账户」这个开关。
+        补录时它<b>强制为否</b> —— 钱在 8 月底就已经从你的余额里出去了,
+        你当时填的期末余额本来就是对的,补录只是把「这些钱花在哪」补上。
+      </p>
+
+      <div style="margin-top:14px;border-top:1px solid var(--rule-soft);padding-top:13px">
+        <div class="eyebrow" style="margin-bottom:7px">三条路都能用</div>
+        <div style="display:flex;gap:9px;flex-wrap:wrap">
+          <div style="border:1px solid var(--rule);padding:9px 12px;flex:1;min-width:150px">
+            <div style="font-size:13px">填一个总数</div>
+            <p class="note" style="margin:3px 0 0">最快 · 从 App 抄一个数</p>
+          </div>
+          <div style="border:1px solid var(--brass-deep);background:rgba(160,124,58,.07);padding:9px 12px;flex:1;min-width:150px">
+            <div style="font-size:13px">批量导入账单 <span class="badge ok">推荐</span></div>
+            <p class="note" style="margin:3px 0 0">传 csv · 几百笔自动归类 —— <b>这就是它本来的使用时点</b></p>
+          </div>
+          <div style="border:1px solid var(--rule);padding:9px 12px;flex:1;min-width:150px">
+            <div style="font-size:13px">逐笔录入</div>
+            <p class="note" style="margin:3px 0 0">补几笔漏掉的</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 4 · 窗口边界 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">4</span><span class="zone-t">窗口只有一期宽</span>
+      <span class="zone-sub">不设天数 · 用账期本身做边界</span></div>
+    <div class="zone-line"></div>
+
+    <div class="ba">
+      <div class="after">
+        <div class="h">能补</div>
+        <p class="note">当前是 <b>9 月</b> → 能补 <b>8 月</b>。<br>
+          再开一期(10 月)之后,<b>8 月自动失去补录资格</b>,能补的变成 9 月。</p>
+      </div>
+      <div class="before">
+        <div class="h">不能补</div>
+        <p class="note">想补 <b>7 月</b>?超出窗口,页面会说:<br>
+          <span style="color:var(--ink-soft)">「7 月已经过了补录窗口(现在能补的是 8 月)。确实要改的话,去管理页重开 7 月账期 —— <b>那会解除封板,收益类数字可能跟着变</b>。」</span></p>
+      </div>
+    </div>
+
+    <p class="note" style="margin-top:12px;max-width:820px">
+      <b>为什么不设天数(比如 7 天)</b>:天数是个需要记住的规则,而且月末最后一天补录和次月第 8 天补录
+      在用户心里是同一件事。用<b>账期序</b>做边界不用记 —— 「上个月的还能补,再往前的不行」,一句话讲得完。<br>
+      <b>为什么不做成无限期</b>:那会让历史报表永远可变。「上个月看到的数,这个月再看变了」比「要多点两下」严重得多。
+    </p>
+  </div>
+
+  <!-- ═══ 5 · 要你裁的 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">5</span><span class="zone-t">要你裁的几件事</span></div>
+    <div class="zone-line"></div>
+    <ol class="note" style="max-width:860px;padding-left:20px;list-style:decimal">
+      <li><b>「只动支出、不动余额」这个取舍</b> —— 这是整版的地基。它意味着补录后
+        8 月的「支出」和「净资产」来自两个不同时点的事实,而我认为那正是现实
+        (钱确实在 8 月底就出去了,只是你当时不知道花在哪)。</li>
+      <li><b>窗口 = 一期</b>,不是 N 天。提交者原话说的是「短暂的窗口」,我理解成一期。</li>
+      <li><b>提示放在填报页顶部</b>,不是弹窗,且提供「这个月不用了」。</li>
+      <li><b>管理页重开账期那条路保留</b> —— 补更早的期、或者真要改余额仍然走它,
+        代价(解除封板)是显式的。</li>
+      <li><b>文档要一起改</b>:`prd/v0.4.md` 的「月末倒数 2 天」和 `docs/how-to-use.md` 的
+        「月初任意一天」现在是矛盾的,这一版之后应该统一成「<b>月初拿到账单后补录</b>」。</li>
+    </ol>
+  </div>
+
+  <p class="note" style="margin-top:44px;padding-top:14px;border-top:1px solid var(--rule)">
+    本页所有金额与日期均为示意 · PRD:<span class="mono">prd/v1.23.md</span> ·
+    来源:<a href="https://github.com/LuoDi-Nate/financial-management/issues/20" style="color:var(--brass-deep)">issue #20</a>
+  </p>
+</div>
+</body>
+</html>
