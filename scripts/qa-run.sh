@@ -9151,7 +9151,11 @@ QA1212_TOOLBAR="$RD/src/main/resources/templates/entry/_flow-toolbar.html"
 # v1212-FLOW-TOTALS-NOT-FILTERED · 前端筛选不许碰合计口径。
 #   底部合计永远是【全部】的合计。要是让它跟着筛选变,用户会把「餐饮 800」
 #   当成本月总支出去和别处对账 —— 而这个错不会报警。
-{ ! grep -qE 'parseFloat|Number\(|toFixed|\+=' "$QA1212_FLOWJS"; } \
+#   【判据收窄】原来把裸的 `+=` 也当成金额运算 —— 而 v1.22.4 的翻页锚定里
+#   有一句 `page += delta`(页码,不是钱),判据就红在了一个完全正确的实现上。
+#   现在只抓【金额相关】的复合赋值,以及把字符串当金额解析的那几个函数。
+{ ! grep -qE 'parseFloat|Number\(|toFixed' "$QA1212_FLOWJS" \
+  && ! grep -qiE '(amt|sum|total|money|balance)\w*\s*\+=' "$QA1212_FLOWJS"; } \
   && log_ok "v1212-FLOW-TOTALS-NOT-FILTERED(前端不做金额运算 · 合计仍是服务端全量)" \
   || log_bad "v1212-FLOW-TOTALS-NOT-FILTERED flow-table.js 里出现了金额运算" "筛出来的小计会被当成本月总支出去对账"
 
@@ -9520,6 +9524,31 @@ QA1224_ENTRY="$RD/src/main/resources/templates/entry/index.html"
   [ -n "$jsmin" ] && [ "$(grep -c "size() >= $jsmin" "$QA1224_ENTRY")" -ge 2 ]; } \
   && log_ok "v1224-PREPAGE-THRESHOLD(模板阈值与 MIN_ROWS 一致)" \
   || log_bad "v1224-PREPAGE-THRESHOLD 模板阈值和 flow-table.js 的 MIN_ROWS 对不上" "CSS 藏了但 JS 不接管 → 那些行永远看不见"
+
+# v1224-PAGER-NO-JUMP · 底部翻页不许把页面滚走。
+#   第一版点一下就跳 172px(list.scrollIntoView({block:'start'})),
+#   而用户的视线本来就停在他刚点的那个按钮上 —— 维护者原话:
+#   「点击下一页,为什么刷新后整体页面位置还有移动?要保持页面不动,只是翻页」。
+#   光删掉 scrollIntoView 不够:每页行高不一样(备注有长有短、末页行数不足),
+#   列表高度一变按钮自己就会在视口里挪。所以【锚定按钮】——
+#   记下翻页前的视口位置,翻页后用 scrollBy 补回差值。
+#   【JS 也要先剥注释】——【第七次】踩这个坑:这条判据的注释里就写着
+#   「不用 scrollIntoView」和「第一版这里是 list.scrollIntoView(...)」,不剥就必红。
+#   上一条(v1224-BOTTOM-PAGER)的结论是「扫标识符而不是自然语言」,
+#   这次说明那还不够:**根本问题是扫描范围含注释**,标识符一样会被写进解释里。
+#   qa-run 的 codeonly 只剥 Java 的 //,对 JS 的 /* */ 块注释无效,所以这里单独剥。
+{ F="$RD/src/main/resources/static/js/flow-table.js";
+  code=$(python3 -c "
+import re,sys
+t=open(sys.argv[1],encoding='utf-8').read()
+t=re.sub(r'/\*.*?\*/','',t,flags=re.S)
+t=re.sub(r'//.*','',t)
+print(t)" "$F");
+  ! echo "$code" | grep -q 'scrollIntoView' \
+  && echo "$code" | grep -q 'function pageBy(delta)' \
+  && echo "$code" | grep -q 'window.scrollBy(0, after - before)'; } \
+  && log_ok "v1224-PAGER-NO-JUMP(翻页锚定按钮位置 · 不用 scrollIntoView)" \
+  || log_bad "v1224-PAGER-NO-JUMP 翻页又会把页面滚走" "点一下跳一百多 px,而用户的视线就在他刚点的按钮上"
 
 # v1224-TOC-FIRST-IN-DOM · 目录要排在主内容【之前】。
 #   HTML 是流式到达的:排在主内容之后的元素要等主内容全部传完才出现 ——

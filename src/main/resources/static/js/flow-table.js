@@ -184,12 +184,26 @@
         botNext.type = 'button'; botNext.className = 'flow-pg'; botNext.textContent = '→';
         bot.appendChild(botPrev); bot.appendChild(botNum); bot.appendChild(botNext);
         list.parentNode.insertBefore(bot, list.nextSibling);
-        botPrev.addEventListener('click', function () {
-          if (page > 0) { page--; render(); list.scrollIntoView({ block: 'start' }); }
-        });
-        botNext.addEventListener('click', function () {
-          page++; render(); list.scrollIntoView({ block: 'start' });
-        });
+        /* 【翻页时页面不许动】—— 用户的原话:「点击下一页,为什么刷新后整体页面位置还有移动?
+         * 要保持页面不动,只是翻页」。
+         *
+         * 第一版这里是 list.scrollIntoView({block:'start'}),想的是「翻完页回到列表顶端」,
+         * 实测一点就跳 172px —— 而用户的视线本来就停在他刚点的那个按钮上。
+         *
+         * 光删掉 scrollIntoView 还不够:每页行高不一样(备注有长有短、最后一页行数也可能不足),
+         * 列表高度一变,按钮自己就会在视口里上下挪。
+         * 所以【锚定按钮】:记下它翻页前的视口位置,翻页后用 scrollBy 补回差值。
+         * 这样无论内容怎么换,用户手指下面的那个按钮都钉在原地。 */
+        function pageBy(delta) {
+          if (delta < 0 && page === 0) return;
+          var before = botNum.getBoundingClientRect().top;
+          page += delta;
+          render();
+          var after = botNum.getBoundingClientRect().top;   // 读它会强制同步布局,拿到的是新高度
+          if (after !== before) window.scrollBy(0, after - before);
+        }
+        botPrev.addEventListener('click', function () { pageBy(-1); });
+        botNext.addEventListener('click', function () { pageBy(1); });
       }
 
       render();
