@@ -424,8 +424,10 @@ h1, h2, h3, h4 {
 @media (min-width: 1024px) and (min-height: 480px) {
   .toc-cols { display: flex; gap: 2rem; align-items: flex-start; }
   .toc-cols-main { flex: 1 1 0%; min-width: 0; }
-  /* order:-1 把目录栏放到左列(内容在右)· DOM 仍内容优先(阅读/可访问顺序不变)*/
-  .toc-rail { display: block; order: -1; position: sticky; top: 88px; align-self: flex-start; width: 224px; flex-shrink: 0; }
+  /* v1.22.4 · DOM 顺序已改成「目录在前」,所以不再需要 order:-1 把它挪过来。
+     改 DOM 顺序而不是继续用 order,是因为 HTML 流式到达:
+     排在主内容之后的元素要等主内容全部传完才出现(实测晚 0.5~1 秒)。 */
+  .toc-rail { display: block; position: sticky; top: 88px; align-self: flex-start; width: 224px; flex-shrink: 0; }
 }
 .toc-head { font-family:"JetBrains Mono",monospace; font-size: calc(10px * var(--fs-scale,1)); letter-spacing:.18em; text-transform:uppercase; color:var(--ink-subtle); padding:0 0 8px 14px; }
 .toc-tree { position: relative; }
@@ -2518,4 +2520,26 @@ dialog::backdrop { background: rgba(26, 23, 20, .38); }
 .flow-pager-bottom {
   display: flex; align-items: center; justify-content: center; gap: 10px;
   padding: 9px 0 2px;
+}
+
+/* ═══ v1.22.4 · 流水列表的首屏预分页 ═══
+   服务端把整月流水全量渲染进 DOM(前端分页的前提),而 flow-table.js 要等
+   DOMContentLoaded 才接管 —— 实测 201 行的填报页【裸奔了 2.9 秒】:
+   先铺开一条望不到头的长龙,过几秒突然缩成 10 行。
+
+   CSS 在 head 里、阻塞渲染,所以它比任何 JS 都早。这里先按默认每页条数藏掉多余的行,
+   JS 接管时把 .flow-prepaged 摘掉,之后一切照旧由 hidden 属性控制,两者不会打架。
+
+   行数少于 MIN_ROWS(12)时模板不加这个 class —— 那种情况本来就不分页。 */
+.flow-prepaged > [data-flow-row]:nth-of-type(n+11) { display: none !important; }
+@media (max-width: 640px) {
+  /* 手机端默认每页 5(见 flow-table.js 的 defaultSize)。
+     【必须 !important】—— 手机端另有一条 v1.22.1 加的
+     `[data-flow-row]:not([hidden]) { display: flex !important; }`(把流水行改成 flex 排布),
+     而 JS 没跑时这些行还没有 hidden 属性,:not([hidden]) 全部命中 →
+     那条 !important 会把这里的 display:none 整个盖掉。
+     PC 端没有那条规则,所以这个问题【只在手机端出现】——
+     前几次测试因为浏览器缓存让 flow-table.js 已经跑过,一直没暴露,
+     直到用 javaScriptEnabled:false 的上下文才看见:手机 30 行全可见,PC 正好 10 行。 */
+  .flow-prepaged > [data-flow-row]:nth-of-type(n+6) { display: none !important; }
 }

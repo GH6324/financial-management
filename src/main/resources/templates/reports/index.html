@@ -10,6 +10,12 @@
 <main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10"
       th:with="tocItems=${ { {label:'本期封板',href:'#sec-sealed'}, {label:'结构与风险',href:'#sec-structure'}, {label:'趋势',href:'#sec-trend'}, {label:'收益概览',href:'#reports-region',sub:true}, {label:'本金 vs 投资损益',href:'#sec-decompose',sub:true}, {label:'负债 / 风险分布',href:'#sec-risk',sub:true}, {label:'资产配置对照',href:'#allocation-diff',sub:true}, {label:'调仓建议与计划',href:'#ai-rebalance',sub:true}, {label:'账户级收益 · vs 基准',href:'#sec-accounts',sub:true}, {label:'财富水位',href:'#sec-wealth',sub:true}, {label:'储蓄能力',href:'#sec-savings',sub:true}, {label:'支出构成',href:'#sec-expense-mix',sub:true}, {label:'支出构成 · 分类',href:'#sec-expense-split',sub:true} } }">
   <div class="toc-cols">
+    <!--/* v1.22.4 · 目录放在 DOM 【最前】。
+           原来它排在主内容之后、靠 order:-1 视觉上放到左列,注释写的是「内容优先」;
+           但 HTML 是流式到达的,报表页主内容几十个 section —— 实测目录比主内容晚 0.5~1 秒才出现。
+           而目录是【导航】:先到达对屏幕阅读器也更好(能直接跳到想去的节,
+           而不是先听完几十个 section),视觉上它本来就在阅读顺序的起点。 */-->
+    <th:block th:replace="~{fragments/_toc :: rail(${tocItems})}"></th:block>
     <div class="toc-cols-main">
       <!-- v1.10 · 页头(账期 / 币种 / 朱印)· 从 _region 搬出来,好让三区按顺序编排 -->
       <th:block th:replace="~{reports/_pagehead :: pagehead}"></th:block>
@@ -57,7 +63,6 @@
       </section>
     </div>
     <!-- v0.5.6→.7 · 长文目录共用件(左侧常驻树状大纲 · scrollspy)-->
-    <th:block th:replace="~{fragments/_toc :: rail(${tocItems})}"></th:block>
   </div>
   <th:block th:replace="~{fragments/_toc :: mobile(${tocItems})}"></th:block>
 </main>

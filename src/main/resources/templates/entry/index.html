@@ -166,7 +166,12 @@
         <!-- 本期已录收入 -->
         <div th:if="${incomeEntries != null and !incomeEntries.isEmpty()}"
              th:replace="~{entry/_flow-toolbar :: bar('income', ${incomeEntries.size()}, ${incomeFacets})}"></div>
+        <!--/* v1.22.4 · flow-prepaged:在 JS 接管【之前】就由 CSS 把超出首页的行藏起来。
+               此前列表是服务端全量渲染的,而 flow-table.js 要等 DOMContentLoaded 才跑 ——
+               实测 201 行的一屏【裸奔了 2.9 秒】才变成分页。
+               阈值 12 要和 flow-table.js 的 MIN_ROWS 一致(护栏 v1224-PREPAGE-THRESHOLD 钉着)。 */-->
         <div th:if="${incomeEntries != null and !incomeEntries.isEmpty()}" class="border border-rule-soft bg-card"
+             th:classappend="${incomeEntries.size() >= 12} ? ' flow-prepaged' : ''"
              data-flow-list="income">
           <!-- 与支出列表同一套窄屏两行栅格(并列同类元素不能一个整齐一个散) -->
           <div th:each="e : ${incomeEntries}" data-flow-row
@@ -312,6 +317,7 @@
         <div th:if="${expenseEntries != null and !expenseEntries.isEmpty()}"
              th:replace="~{entry/_flow-toolbar :: bar('expense', ${expenseEntries.size()}, ${expenseFacets})}"></div>
         <div th:if="${expenseEntries != null and !expenseEntries.isEmpty()}" class="border border-rule-soft bg-card mt-3"
+             th:classappend="${expenseEntries.size() >= 12} ? ' flow-prepaged' : ''"
              data-flow-list="expense">
           <!-- 窄屏两行栅格(第 1 行:头像+类目+账户+金额;第 2 行:备注/日期/状态/删)· PC 用 sm:contents 让包裹层消失,
                恢复成原来的单行 flex。此前纯 flex-wrap 在 390px 下每条记录折行位置都不同,「删」还会单独掉一行。 -->

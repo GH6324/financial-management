@@ -11,6 +11,12 @@
 <main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10"
       th:with="tocItems=${ { {label:'概览',href:'#checkup-overview'}, {label:'资产配置',href:'#allocation'}, {label:'风险敞口',href:'#risk'}, {label:'流动性',href:'#liquidity'}, {label:'收益质量',href:'#return'}, {label:'智能建议',href:'#checkup-advice'}, {label:'AI 综合诊断',href:'#checkup-ai'}, {label:'AI 资产洞察',href:'#checkup-insight'}, {label:'单账户体检',href:'#checkup-accounts'} } }">
  <div class="toc-cols">
+  <!--/* v1.22.4 · 目录放在 DOM 【最前】。
+         原来它排在主内容之后、靠 order:-1 视觉上放到左列,注释写的是「内容优先」;
+         但 HTML 是流式到达的,报表页主内容几十个 section —— 实测目录比主内容晚 0.5~1 秒才出现。
+         而目录是【导航】:先到达对屏幕阅读器也更好(能直接跳到想去的节,
+         而不是先听完几十个 section),视觉上它本来就在阅读顺序的起点。 */-->
+  <th:block th:replace="~{fragments/_toc :: rail(${tocItems})}"></th:block>
   <div class="toc-cols-main">
 
   <section class="mb-8">
@@ -343,7 +349,6 @@
   </script>
   </div>
   <!-- v0.5.7 · 长文目录共用件 -->
-  <th:block th:replace="~{fragments/_toc :: rail(${tocItems})}"></th:block>
  </div>
  <th:block th:replace="~{fragments/_toc :: mobile(${tocItems})}"></th:block>
 </main>

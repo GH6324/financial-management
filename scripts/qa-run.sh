@@ -9484,6 +9484,60 @@ QA1222_ROW="$RD/src/main/resources/templates/entry/_row.html"
   || log_bad "v1222-ACCT-HEAD-NOWRAP 账户名那一行又允许换行了" "头像和勾会独占一行,名字掉到第二行"
 
 
+# ═══════════════ v1.22.4 · 首屏渲染时序 ═══════════════
+
+QA1224_CSS="$RD/src/main/resources/static/css/style.css"
+QA1224_FLOWJS="$RD/src/main/resources/static/js/flow-table.js"
+QA1224_ENTRY="$RD/src/main/resources/templates/entry/index.html"
+
+# v1224-PREPAGE-BEFORE-JS · 流水列表要在 JS 接管【之前】就是分页态。
+#   服务端把整月流水全量渲染进 DOM(前端分页的前提),而 flow-table.js 等 DOMContentLoaded 才跑 ——
+#   实测 201 行的填报页【裸奔 2.9 秒】:先铺开一条望不到头的长龙,过几秒突然缩成 10 行。
+#   CSS 在 head 里、阻塞渲染,比任何 JS 都早,所以预分页只能交给它。
+#   JS 接管时必须把这个 class 摘掉,否则 CSS 的 display:none 会盖住后面用 hidden 做的翻页。
+{ grep -q 'flow-prepaged' "$QA1224_ENTRY" \
+  && grep -q '\.flow-prepaged > \[data-flow-row\]:nth-of-type(n+11)' "$QA1224_CSS" \
+  && grep -q "list.classList.remove('flow-prepaged')" "$QA1224_FLOWJS"; } \
+  && log_ok "v1224-PREPAGE-BEFORE-JS(CSS 先分页 · JS 接管时摘掉)" \
+  || log_bad "v1224-PREPAGE-BEFORE-JS 首屏又会铺开全量流水" "整月几百行会先铺开几秒再缩回去;JS 不摘 class 的话翻页会失效"
+
+# v1224-PREPAGE-BEATS-IMPORTANT · 预分页必须压得过手机端那条 display:flex !important。
+#   v1.22.1 给手机端加过 `[data-flow-row]:not([hidden]) { display: flex !important; }`
+#   (把流水行从 grid 改成 flex)。而【JS 没跑时这些行还没有 hidden 属性】,
+#   :not([hidden]) 全部命中 → 那条 !important 会把预分页的 display:none 整个盖掉。
+#   PC 端没有那条规则,所以这个问题【只在手机端出现】:PC 正好 10 行、手机 30 行全露。
+#   前几次测试因为浏览器缓存让 flow-table.js 已经跑过,一直没暴露 ——
+#   要用 javaScriptEnabled:false 的上下文才看得见。
+{ blk=$(awk '/\.flow-prepaged/,0' "$QA1224_CSS" | head -20);
+  [ "$(echo "$blk" | grep -c 'display: none !important')" -ge 2 ]; } \
+  && log_ok "v1224-PREPAGE-BEATS-IMPORTANT(预分页带 !important · 压得过手机端的 flex 规则)" \
+  || log_bad "v1224-PREPAGE-BEATS-IMPORTANT 预分页会被手机端的 display:flex !important 盖掉" "手机端首屏仍会铺开整月流水,而 PC 端是好的 —— 只测 PC 发现不了"
+
+# v1224-PREPAGE-THRESHOLD · 模板里的预分页阈值要和 flow-table.js 的 MIN_ROWS 一致。
+#   模板用 size() >= 12 决定加不加 flow-prepaged,JS 用 MIN_ROWS 决定接不接管。
+#   两边不一致时会出现「CSS 藏了但 JS 不接管」——那些行就永远看不见了。
+{ jsmin=$(grep -oE 'MIN_ROWS = [0-9]+' "$QA1224_FLOWJS" | grep -oE '[0-9]+');
+  [ -n "$jsmin" ] && [ "$(grep -c "size() >= $jsmin" "$QA1224_ENTRY")" -ge 2 ]; } \
+  && log_ok "v1224-PREPAGE-THRESHOLD(模板阈值与 MIN_ROWS 一致)" \
+  || log_bad "v1224-PREPAGE-THRESHOLD 模板阈值和 flow-table.js 的 MIN_ROWS 对不上" "CSS 藏了但 JS 不接管 → 那些行永远看不见"
+
+# v1224-TOC-FIRST-IN-DOM · 目录要排在主内容【之前】。
+#   HTML 是流式到达的:排在主内容之后的元素要等主内容全部传完才出现 ——
+#   报表页几十个 section,实测目录晚 0.5~1 秒。
+#   原来靠 order:-1 把它视觉上挪到左列,而 order 改不了到达顺序。
+#   顺带:目录是【导航】,DOM 靠前对屏幕阅读器也更好(能直接跳到想去的节)。
+{ ok=1;
+  for f in dashboard/index.html checkup/family.html reports/index.html; do
+    t="$RD/src/main/resources/templates/$f";
+    r=$(grep -n '_toc :: rail' "$t" | head -1 | cut -d: -f1);
+    m=$(grep -n 'toc-cols-main' "$t" | head -1 | cut -d: -f1);
+    [ -n "$r" ] && [ -n "$m" ] && [ "$r" -lt "$m" ] || ok=0;
+  done;
+  [ "$ok" = "1" ] && ! grep -qE '\.toc-rail \{[^}]*order: -1' "$QA1224_CSS"; } \
+  && log_ok "v1224-TOC-FIRST-IN-DOM(目录在 DOM 里排主内容之前)" \
+  || log_bad "v1224-TOC-FIRST-IN-DOM 目录又排到主内容后面了" "流式到达时它要等主内容传完才出现,order 改不了到达顺序"
+
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

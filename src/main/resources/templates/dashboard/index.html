@@ -14,6 +14,12 @@
   <th:block th:insert="~{fragments/_manual-hint :: card}"></th:block>
 
   <div class="toc-cols">
+    <!--/* v1.22.4 · 目录放在 DOM 【最前】。
+           原来它排在主内容之后、靠 order:-1 视觉上放到左列,注释写的是「内容优先」;
+           但 HTML 是流式到达的,报表页主内容几十个 section —— 实测目录比主内容晚 0.5~1 秒才出现。
+           而目录是【导航】:先到达对屏幕阅读器也更好(能直接跳到想去的节,
+           而不是先听完几十个 section),视觉上它本来就在阅读顺序的起点。 */-->
+    <th:block th:replace="~{fragments/_toc :: rail(${tocItems})}"></th:block>
     <div class="toc-cols-main">
       <!-- v0.11.6 · 目标进度 + AI洞察 已下移到 region 内「KPI 总览之后」(先看家底再看目标/洞察)· 见 _region.html -->
       <div id="dashboard-region" th:replace="~{dashboard/_region :: region}"></div>
@@ -21,7 +27,6 @@
       <th:block th:replace="~{lens/_section :: section}"></th:block>
     </div>
     <!-- v0.5.7 · 长文目录共用件 -->
-    <th:block th:replace="~{fragments/_toc :: rail(${tocItems})}"></th:block>
   </div>
   <th:block th:replace="~{fragments/_toc :: mobile(${tocItems})}"></th:block>
 </main>

@@ -44,6 +44,10 @@
       var rows = Array.prototype.slice.call(list.querySelectorAll('[data-flow-row]'));
       if (!bar || rows.length < MIN_ROWS) return;   // 行数少 → 保持原样,工具条不露面
       bar.hidden = false;
+      /* 摘掉 CSS 的首屏预分页 —— 从这里开始由 hidden 属性精确控制。
+         (预分页见 style.css 的 .flow-prepaged:它在 JS 之前就把多余的行藏了,
+          否则整月流水会先铺开好几秒再缩回去。) */
+      list.classList.remove('flow-prepaged');
 
       var q = bar.querySelector('[data-flow-q]');
       var countEl = bar.querySelector('[data-flow-count]');
