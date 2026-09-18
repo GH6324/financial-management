@@ -50,6 +50,38 @@
 - 单家庭模式 `family_id=1`。
 - **具体值(IP / SSH / 凭据 / 部署路径 / sudoers)见本地 `AGENTS.local.md`(git-ignored,不入公开库)**。
 
+### 两个 remote 的性质完全不同(2026-09-18 维护者定 · 致命级)
+
+| remote | 性质 | 谁能推 | 节奏 |
+|---|---|---|---|
+| `origin` = **gitlab** | **私有** | **任何人 / 任何时候** | **有改动就立刻 commit + push** —— 不攒着,不等验收 |
+| `github` | **公开** | **只有 `release-prod` skill** | 只在发版时,随 tag 一起 |
+
+**为什么这么分**:gitlab 是工作底稿,推得越勤越安全(机器挂了不丢);
+github 是**对外面世界的发布**,推上去就等于公开 —— 缓存、索引、fork 都可能留痕,删掉也收不回。
+在途的设计文档、未评审的 PRD、issue 分支、半成品,**一律不许出现在 github 上**。
+
+**具体纪律**:
+
+- 写完任何东西(代码 / 文档 / PRD / preview)→ **立刻 `git commit && git push origin <branch>`**。
+  commit 可自主(见 [[feedback_tag_must_verify]]),推 gitlab 同样自主,**不需要等验收**。
+- **`git push github ...` 只出现在 `release-prod` skill 的 `tag-push` 阶段。** 其他任何地方出现
+  = 流程错误,要回退(删分支;已推的 commit 视情况裁决 —— 公开历史重写代价高,见
+  `feedback_prod_data_never_persisted`)。
+- issue 分支、`beta/stack`、实验分支:**只推 gitlab**。
+- 维护者说「可以推送 / 推一下」时,**默认指 gitlab**;要推 github 必须是发版语境且走 skill。
+
+**这条规则有机器强制,不靠自觉**:`.githooks/pre-push` 会拒绝一切推向 github 的操作,
+除非 `FINANCE_RELEASE_PUSH=1`(只有 `release-prod` 的 `tag-push` 阶段设它)。
+启用方式(**新 clone / 新机器要配一次,必须用绝对路径**,否则 worktree 里找不到 hook):
+
+```bash
+git config core.hooksPath /path/to/repo/.githooks
+```
+
+`git worktree` 共享主仓库 config,所以配一次全部 worktree 生效 —— 但**相对路径不行**:
+worktree 的工作目录里没有 `.githooks/`(那是 master 上的文件),hook 会被静默跳过。
+
 ---
 
 ## 3. 技术栈 & 关键领域概念

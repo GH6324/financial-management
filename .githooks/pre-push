@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# ============================================================
+# pre-push · 公开仓库(github)只许 release-prod skill 推
+# ============================================================
+#
+# 背景(2026-09-18 维护者定,见 AGENTS.md §2):
+#   两个 remote 性质完全不同 ——
+#     · origin = gitlab = **私有**工作底稿。有改动就该立刻推,推得越勤越安全。
+#     · github = **公开**。推上去就等于对外发布,缓存 / 索引 / fork 都会留痕,
+#       删掉也收不回。在途的设计文档、未评审的 PRD、issue 分支、半成品,
+#       一律不许出现在那里。
+#
+# 为什么要做成 hook 而不是只写进文档:
+#   2026-09-18 踩过一次 —— 维护者说「可以推送」(他指 gitlab),
+#   结果 issue/20 分支和 master 一起被推上了 github;而那份还没评审的 PRD 里
+#   复述了 prod 真实金额。分支能 --delete 撤回,**公开历史撤不回**。
+#   光靠「记得别推」是不够的,这类错误一次就够贵(AGENTS.md §8 的一贯纪律:
+#   能机器校验的就别只写文档)。
+#
+# 放行方式:release-prod skill 的 tag-push 阶段会设 FINANCE_RELEASE_PUSH=1。
+#   人工确实要推时:FINANCE_RELEASE_PUSH=1 git push github ...
+#   —— 这一步的摩擦是**故意**的,它逼你先回答「这里面有没有 prod 真实数据」。
+# ============================================================
+
+remote_name="$1"
+remote_url="$2"
+
+case "$remote_url" in
+  *github.com*)
+    if [ "${FINANCE_RELEASE_PUSH:-}" != "1" ]; then
+      exec >&2
+      echo ""
+      echo "  ✗ 拒绝推送到公开仓库 github($remote_name)"
+      echo ""
+      echo "  github 是公开的,只能由 release-prod skill 在发版时推(随 tag)。"
+      echo "  平时的 commit 推私有的 gitlab 就好,而且应该立刻推:"
+      echo ""
+      echo "      git push origin $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '<branch>')"
+      echo ""
+      echo "  确实要发版 → 走 skill:"
+      echo "      bash .claude/skills/release-prod/release.sh tag-push vX.Y.Z"
+      echo ""
+      echo "  确实要手推(先自问:这里面有没有 prod 真实金额 / 未评审的设计文档?):"
+      echo "      FINANCE_RELEASE_PUSH=1 git push $remote_name ..."
+      echo ""
+      echo "  规则出处:AGENTS.md §2「两个 remote 的性质完全不同」"
+      echo ""
+      exit 1
+    fi
+    ;;
+esac
+
+exit 0
