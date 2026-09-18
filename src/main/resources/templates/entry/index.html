@@ -79,8 +79,11 @@
     </div>
   </section>
   <style>
-    .entry-perpill-on  { border-color: var(--brass-deep); border-width: 2px;
-                         background: rgba(160,124,58,.07); padding: 11px 15px; }
+    /* 两个 pill 必须**逐像素同尺寸**(feedback_sibling_uniform_selfcheck)。
+       所以边框宽度对两者都是 2px,选中态只换颜色 —— 不靠「加粗边框 + 减 padding」
+       去凑,那样凑出来实测还差 2px:border 与 padding 的取整不在一个方向上。 */
+    .entry-perpill     { border-width: 2px; box-sizing: border-box; }
+    .entry-perpill-on  { border-color: var(--brass-deep); background: rgba(160,124,58,.07); }
     .entry-perpill-off { opacity: .66; }
     .entry-perpill-off:hover { opacity: 1; border-color: var(--brass-deep); }
   </style>

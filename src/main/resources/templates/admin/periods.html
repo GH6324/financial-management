@@ -58,9 +58,15 @@
       </form>
     </div>
     <style>
+      /* 四个档位必须**逐像素同尺寸同样式**(feedback_sibling_uniform_selfcheck)。
+         边框对四者都是 2px,选中态只换颜色 —— 不靠「加粗边框 + 减 padding」去凑,
+         那样凑出来两边取整方向不一致,实测还会差几个像素。 */
+      .rhythm-opt { border-width: 2px; box-sizing: border-box; }
       .rhythm-opt:hover { border-color: var(--brass-deep); }
-      .rhythm-opt.rhythm-on { border-color: var(--brass-deep); border-width: 2px;
-                              background: rgba(160,124,58,.07); padding: 11px 15px; }
+      .rhythm-opt.rhythm-on { border-color: var(--brass-deep); background: rgba(160,124,58,.07); }
+      /* 「代价」那条虚线要落在同一水平线上。不给高度的话它被上面 flex-1 的说明文字推着走 ——
+         实测四张卡的虚线在 455/440/455/441,差 15px,一眼看得出不齐。 */
+      .rhythm-opt > div:last-child { min-height: 44px; }
     </style>
 
     <!-- 立即开下一周期(测试 / 数据初始化用) -->

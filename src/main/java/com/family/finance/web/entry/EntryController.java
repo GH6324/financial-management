@@ -119,10 +119,13 @@ public class EntryController {
             long left = periodService.graceDaysLeft(fam, backfill, today);
             // 关账发生在截止日的**次日** 00:35(shouldAutoClose 用 today.isAfter(deadline))
             java.time.LocalDate closeOn = periodService.graceDeadline(fam, backfill).plusDays(1);
-            model.addAttribute("closeDueLabel", fam.autoCloseOrDefault()
-                    ? closeOn.getMonthValue() + "/" + closeOn.getDayOfMonth() + " 关账"
-                      + (left >= 0 ? " · 还剩 " + left + " 天" : "")
-                    : "手动关账");
+            // 过了截止日还没关(定时任务尚未跑到 / 手动模式)→ 不要显示一个**已经过去**的日期,
+            //   那读起来像「9 月 18 号了还写着 9/3 关账」,用户会以为系统错了。
+            model.addAttribute("closeDueLabel",
+                    !fam.autoCloseOrDefault() ? "手动关账"
+                    : left < 0                ? "待关账"
+                    : closeOn.getMonthValue() + "/" + closeOn.getDayOfMonth() + " 关账"
+                      + " · 还剩 " + left + " 天");
         }
         model.addAttribute("accounts", accountMapper.findActiveByFamily(me.getFamilyId()));
         addAccountOwnerMeta(me.getFamilyId(), model);   // v1.4.2 · 划转下拉主理人头像/名

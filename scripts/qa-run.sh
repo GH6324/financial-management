@@ -629,9 +629,14 @@ $CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
 
 # v0.5.5 · 报表「已关账快照」透出 + dashboard 仍实时(两 tab 分工)
 $CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
-{ grep -q '已关账账期的稳定快照' "$TMP" || grep -q '尚无已关账账期' "$TMP"; } \
-  && log_ok "v05-SNAP-1 /reports 透出「已关账快照」语义(印章/说明行 或 空态)" \
-  || log_bad "v05-SNAP-1 /reports 未透出快照语义" "no 已关账快照 / 尚无已关账"
+# v1.23 · 加了第三种合法状态:**锚期已填完但还在关账宽限窗口里**。
+#   那时既不能倒退回上上期(报表会「少一个月」),也不能假装已定稿 ——
+#   页面如实说「X 月仍在填报中,数字可能还会变」。它同样是在透出快照语义,
+#   所以进判据;漏了它,双活跃窗口下这条护栏必红,而页面其实是对的。
+{ grep -q '已关账账期的稳定快照' "$TMP" || grep -q '尚无已关账账期' "$TMP" \
+  || grep -q '仍在填报中' "$TMP"; } \
+  && log_ok "v05-SNAP-1 /reports 透出快照语义(已定稿 / 宽限中 / 空态 三选一)" \
+  || log_bad "v05-SNAP-1 /reports 未透出快照语义" "no 已关账快照 / 仍在填报中 / 尚无已关账"
 $CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
 grep -q '已关账账期的稳定快照' "$TMP" \
   && log_bad "v05-SNAP-2 dashboard 误带报表快照文案(应保持实时)" "found on dashboard" \
