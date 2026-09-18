@@ -36,6 +36,8 @@ public class FactViewServiceImpl implements FactViewService {
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     private final FactMapper factMapper;
+    /** v1.23 · 「已定稿期」判据住在 PeriodMapper —— 它要数活跃成员,而事实层不许碰 member.archived_at */
+    private final com.family.finance.repository.PeriodMapper periodMapper;
     private final FamilyMapper familyMapper;
     /** v0.4.3 B2 修复 · 月均支出/收入统一源 · PMC(成员级)优先 · cash_flow fallback */
     private final com.family.finance.repository.PeriodMemberCashflowMapper periodMemberCashflowMapper;
@@ -84,7 +86,8 @@ public class FactViewServiceImpl implements FactViewService {
         Long lastPeriodId = periodIds.isEmpty() ? null : periodIds.getLast();
         // v1.6.30 · 另查窗口内已关账期:queryBase 不过滤 status(存量指标要看进行中的期),
         // 收益类指标据此锚到最新 CLOSED 期。取交集并按 periodIds 顺序排,保证升序且不含窗口外的期。
-        java.util.Set<Long> settled = new java.util.HashSet<>(factMapper.findSettledPeriodIds(filter));
+        java.util.Set<Long> settled = new java.util.HashSet<>(periodMapper.findSettledPeriodIds(
+                filter.familyId(), filter.periodType(), filter.rangeStart(), filter.rangeEnd(), LocalDate.now()));
         List<Long> closedPeriodIds = periodIds.stream().filter(settled::contains).toList();
         // v1.11 性能 · 一次查全「每个账户首次出现在哪一期」,替掉 per-period 的 N+1(见 firstAppearingIn 注释)
         // v1.12 FR-352 · 结果与查哪一期、哪个筛选都无关 → 同一请求内按家庭只查一次(原来一次请求查 10 次)

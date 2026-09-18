@@ -56,7 +56,7 @@ class AttributionAnchorTest {
         when(pmc.findFamilyAggregateForPeriod(anyLong())).thenReturn(Optional.empty());
         SnapshotMapper sm = mock(SnapshotMapper.class);
         when(sm.firstAppearingAccountIds(anyLong(), anyLong())).thenReturn(List.of());
-        return new FactViewServiceImpl(mock(FactMapper.class), mock(FamilyMapper.class),
+        return new FactViewServiceImpl(mock(FactMapper.class), mock(com.family.finance.repository.PeriodMapper.class), mock(FamilyMapper.class),
                 pmc, am, mock(ProductCategoryService.class), sm,
                 mock(com.family.finance.repository.PeriodAccountAttrMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(

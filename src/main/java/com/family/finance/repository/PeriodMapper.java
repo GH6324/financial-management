@@ -189,7 +189,7 @@ public interface PeriodMapper {
      *
      * <p>「填报完成」判据与 {@code PeriodService.markCompletedByMember} 触发自动关账的条件
      * <b>同源</b>:无 PENDING todo + 全体活跃成员已提交。
-     * {@code FactMapper.findSettledPeriodIds} 用的是同一段逻辑 ——
+     * {@link #findSettledPeriodIds} 用的是同一段逻辑(取最新一个 vs 取窗口内全部)——
      * 两处必须一致,护栏 {@code v1230-SETTLED-JUDGE-ALIGNED} 守这件事。</p>
      */
     @Select("""
@@ -211,6 +211,42 @@ public interface PeriodMapper {
             """)
     Optional<Period> findLatestSettledAsOf(@Param("familyId") long familyId,
                                            @Param("asOf") LocalDate asOf);
+
+    /**
+     * v1.23 §4.4 · 窗口内**已定稿**期 id(升序)· 收益类指标的期序列。
+     *
+     * <p>判据与 {@link #findLatestSettledAsOf} <b>逐字相同</b> —— 两者是同一个概念的
+     * 「取最新一个」与「取窗口内全部」。判得不一样的话,报表会锚这一期、
+     * 而它的收益数字来自另一批期:每个数自己都对,合起来自相矛盾。
+     * 护栏 {@code v1230-SETTLED-JUDGE-ALIGNED} 守这件事。</p>
+     *
+     * <p><b>为什么放在 PeriodMapper 而不是 FactMapper</b>:判据要数「活跃成员」,
+     * 也就是要碰 {@code member.archived_at}。而事实层(FactMapper)有一条硬纪律 ——
+     * 金额口径不许按成员归档过滤(护栏 {@code v115-NO-MEMBER-ARCHIVE-IN-SUMS}:
+     * 归档只影响「谁还来填报」,不影响「家里有多少钱」)。这里问的正是「谁还来填报」,
+     * 属于账期生命周期而不是金额口径,所以它该住在 PeriodMapper。</p>
+     */
+    @Select("""
+            SELECT p.id
+              FROM period p
+             WHERE p.family_id = #{familyId}
+               AND p.period_type = #{periodType}
+               AND p.period_start BETWEEN #{from} AND #{to}
+               AND (p.status = 'CLOSED'
+                    OR (p.period_end < #{today}
+                        AND NOT EXISTS (SELECT 1 FROM snapshot_todo t
+                                         WHERE t.period_id = p.id AND t.status = 'PENDING')
+                        AND (SELECT COUNT(*) FROM period_member_completion c
+                              WHERE c.period_id = p.id)
+                            >= (SELECT COUNT(*) FROM member m
+                                 WHERE m.family_id = p.family_id AND m.archived_at IS NULL)))
+             ORDER BY p.period_start
+            """)
+    List<Long> findSettledPeriodIds(@Param("familyId") long familyId,
+                                    @Param("periodType") PeriodType periodType,
+                                    @Param("from") LocalDate from,
+                                    @Param("to") LocalDate to,
+                                    @Param("today") LocalDate today);
 
     /** v0.5 修 · 周期管理分页(倒序 · 新→旧)· offset/limit。 */
     @Select("""

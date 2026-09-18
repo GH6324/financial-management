@@ -69,6 +69,16 @@
 
 ---
 
+### 关账宽限与双活跃账期(v1.23 · issue #20)
+
+| 名词 | 定义 |
+|---|---|
+| **关账宽限** | 账期自然结束后仍保持 OPEN 的天数。`family.close_delay_days`,管理页配 T+0(默认)/ T+2 / T+5 / 手动。默认 T+0 = v1.22 及以前行为 |
+| **双活跃窗口** | 宽限期内上期与新期**同时 OPEN** 的那段时间。**不是异常状态,是一等公民** |
+| **补录期 / 进行期** | 双活跃窗口里的两期:**补录期** = 已自然结束、宽限内仍可写;**进行期** = 正在过的那期 |
+| **已定稿(settled)** | CLOSED **或**「已自然结束且填报完成」。收益类指标锚它,而不是只锚 CLOSED |
+| **余额轴 / 收支轴** | 余额与估值**只能有一个「现在」**(锚进行期);收支**可以有两个活跃期**。这条抽象是 v1.23 所有取期决策的唯一依据,也是 `FactSlice` 里存量类 / 收益类二分的推广 |
+
 ## 4. 页面地图(顶栏 7 tab + 公开页)
 
 | tab / 页 | 路由 | 干什么 | 关键文件 |
@@ -159,6 +169,7 @@
 | L13 · 封板快照定格性 | 报表页一区/二区加任何指标 | 只能经 `SealedPeriodService`(签名里**没有 range**,传不进去)· 前两区在不同 range 下渲染必须**逐字相同** | `v110-SEALED-SINGLE-ENTRY` / `v110-SNAPSHOT-RANGE-INVARIANT` |
 | L14 · 归档的时间语义 | 任何按 `archived_at` 过滤事实的 SQL | 必须 `archived_at IS NULL OR archived_at > p.period_end` —— 裸 `IS NULL` 会让归档动作**抹掉该账户全部历史**,一个整理动作改写去年的报表 | `v110-ARCHIVED-TIME` |
 | L15 · 指标口径版本 | 任何影响封板指标**数值**的口径改动 | `MetricFormulaVersion.CURRENT` +1 并在变更表记一行(封板抬头会显示「口径 vN」,用户据此分辨数字是哪套口径算的) | `v110-FORMULA-VERSION` |
+| L16 · 关账宽限 / 双活跃账期 | 加任何**写数据**的入口(端点 / `@Scheduled` / 导入),或动**取期**逻辑 | **每个写操作必须有明确归属判据**,三选一:**显式选期**(页面要有月份指引)/ **事件时点**(股价刷新、券商同步)/ **永远最新**(余额、估值 —— 只有一个「现在」)。不许出现第四种「看 `findCurrentOpen()` 返回什么就是什么」—— 双 OPEN 下它**静默返回最新那期**,不报错、不进日志,漏的那处只会给一个看起来合理但是错的数。取期按语义选 `findBalancePeriod`(余额轴)/ `findRecordableOpen`(收支轴)。收益类指标锚**已定稿**期(CLOSED 或「已自然结束**且填报完成**」),判据是「填完了没有」不是「关了没有」。宽限上限 5 天由 schema CHECK 锁死 —— 本版所有判据按「最多两期」写,第三期一出现全部失效。全量矩阵(27 写操作 × 42 组件指标)见 `prd/v1.23.md` §4 | `v1230-DUAL-OPEN-SWEEP` · `v1230-BALANCE-AXIS-LATEST-ONLY` · `v1230-SETTLED-NOT-JUST-CLOSED` · `v1230-SETTLED-JUDGE-ALIGNED` · `v1230-GRACE-CLOSE-DECOUPLED` · `v1230-GRACE-MAX-5` · `v1230-CARRIED-FORWARD-GUARD` · `PeriodGraceTest` |
 
 **新链怎么加**:出现"改 A 漏了 B"事故 → 加一行(触发/必须同步/守护)+ `qa-run.sh` 加静态 grep 把它网住,下次它自己 fail。
 

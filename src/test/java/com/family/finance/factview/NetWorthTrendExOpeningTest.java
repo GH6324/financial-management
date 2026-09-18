@@ -48,7 +48,7 @@ class NetWorthTrendExOpeningTest {
         SnapshotMapper sm = mock(SnapshotMapper.class);
         when(sm.firstAppearingAccountIds(anyLong(), anyLong()))
                 .thenAnswer(inv -> firstAppearing.getOrDefault(inv.getArgument(1, Long.class), List.of()));
-        return new FactViewServiceImpl(mock(FactMapper.class), mock(FamilyMapper.class),
+        return new FactViewServiceImpl(mock(FactMapper.class), mock(com.family.finance.repository.PeriodMapper.class), mock(FamilyMapper.class),
                 mock(PeriodMemberCashflowMapper.class), am, mock(ProductCategoryService.class), sm,
                 mock(com.family.finance.repository.PeriodAccountAttrMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(

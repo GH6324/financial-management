@@ -61,7 +61,7 @@ class CashflowBreakdownTest {
 
     private FactViewServiceImpl svc(PeriodMemberCashflowMapper pmc) {
         wireBatchFromPointStubs(pmc);
-        return new FactViewServiceImpl(mock(FactMapper.class), famMapper(), pmc,
+        return new FactViewServiceImpl(mock(FactMapper.class), mock(com.family.finance.repository.PeriodMapper.class), famMapper(), pmc,
                 mock(AccountMapper.class), mock(ProductCategoryService.class), mock(com.family.finance.repository.SnapshotMapper.class),
                 mock(com.family.finance.repository.PeriodAccountAttrMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(

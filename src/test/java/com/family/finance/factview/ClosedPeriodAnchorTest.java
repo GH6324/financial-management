@@ -47,7 +47,7 @@ class ClosedPeriodAnchorTest {
         SnapshotMapper sm = mock(SnapshotMapper.class);
         // 无「首次出现」账户 → 开账基线恒 0,把本测聚焦在锚点上
         when(sm.firstAppearingAccountIds(anyLong(), anyLong())).thenReturn(List.of());
-        return new FactViewServiceImpl(mock(FactMapper.class), mock(FamilyMapper.class),
+        return new FactViewServiceImpl(mock(FactMapper.class), mock(com.family.finance.repository.PeriodMapper.class), mock(FamilyMapper.class),
                 pmc, am, mock(ProductCategoryService.class), sm,
                 mock(com.family.finance.repository.PeriodAccountAttrMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(

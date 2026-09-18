@@ -25,42 +25,6 @@
     </constructor>
   </resultMap>
 
-  <!-- v1.6.30 · 窗口内已关账期(升序)· 供收益类指标锚到最新 CLOSED 期,不受进行中 OPEN 期影响 -->
-  <!--
-    v1.23 §4.4 · 「已定稿」期 = CLOSED **或** 已自然结束且填报完成。
-
-    v1.6.30 原判据只认 CLOSED。双活跃窗口(上期与新期同时 OPEN)下补录期还没关,
-    于是收益类指标 —— 本月资产收益 / XIRR / TWR / 基准对比 / 人赚钱赚 / 账户表现 ——
-    会**集体锚回上上期**,不只报表页,dashboard 一起退。
-
-    判据必须是「填完了没有」而不是「关了没有」:用户压根没填时补录期就是真的半填,
-    锚它会把「还没录的收支」整个算成投资收益(v1.6.30 那次 prod 事故的成因)。
-    所以第二种情形的三个条件一个都不能少。
-
-    「填报完成」与 PeriodService.markCompletedByMember 触发自动关账的条件同源:
-    无 PENDING todo + 全体活跃成员已提交。PeriodMapper.findLatestSettledAsOf 用同一段逻辑,
-    两处必须一致 —— 护栏 v1230-SETTLED-JUDGE-ALIGNED 守这件事。
-
-    CURDATE() 而不是传参:本查询没有「as-of 回溯」语义(FactFilter 的 rangeEnd 是窗口上界,
-    不是「假装今天是那天」),传参反而会让调用方以为可以回溯。
-  -->
-  <select id="findSettledPeriodIds" resultType="java.lang.Long">
-    SELECT p.id
-      FROM period p
-     WHERE p.family_id = #{f.familyId}
-       AND p.period_type = #{f.periodType}
-       AND p.period_start BETWEEN #{f.rangeStart} AND #{f.rangeEnd}
-       AND (p.status = 'CLOSED'
-            OR (p.period_end &lt; CURDATE()
-                AND NOT EXISTS (SELECT 1 FROM snapshot_todo t
-                                 WHERE t.period_id = p.id AND t.status = 'PENDING')
-                AND (SELECT COUNT(*) FROM period_member_completion c
-                      WHERE c.period_id = p.id)
-                    &gt;= (SELECT COUNT(*) FROM member m
-                          WHERE m.family_id = p.family_id AND m.archived_at IS NULL)))
-     ORDER BY p.period_start
-  </select>
-
   <select id="queryBase" resultMap="FactBaseRowMap">
     SELECT
         a.id AS account_id,
