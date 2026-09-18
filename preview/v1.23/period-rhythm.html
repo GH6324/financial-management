@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.23 Preview · 关账节奏交给家庭自己定</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .card{border:1px solid var(--rule);background:var(--card);padding:18px}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);color:var(--ink-soft);white-space:nowrap}
+  .badge.risk{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)}
+  .badge.ok{border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)}
+  .badge.now{border-color:var(--brass-deep);color:var(--brass-deep);background:rgba(160,124,58,.10)}
+  .zone{margin-top:46px}
+  .zone-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap}
+  .zone-no{font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--paper);background:var(--brass-deep);line-height:1;padding:5px 9px}
+  .zone-t{font-family:'Fraunces','Noto Serif SC',serif;font-size:20px}
+  .zone-sub{font-size:11.5px;color:var(--ink-subtle)}
+  .zone-line{height:2px;background:var(--brass-deep);opacity:.35;margin:10px 0 18px}
+
+  /* ── 配置项卡片:四个选项必须同尺寸同样式 ── */
+  .opt{border:1px solid var(--rule);background:var(--paper);padding:14px 15px;cursor:pointer;
+       display:flex;flex-direction:column;min-height:186px;transition:border-color .12s,background .12s}
+  .opt:hover{border-color:var(--brass-deep)}
+  .opt.on{border-color:var(--brass-deep);border-width:2px;background:rgba(160,124,58,.07);padding:13px 14px}
+  .opt-k{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-subtle)}
+  .opt-t{font-family:'Fraunces',serif;font-size:17px;line-height:1.2;margin:5px 0 7px}
+  .opt-d{font-size:11.5px;color:var(--ink-soft);line-height:1.7;flex:1}
+  .opt-cost{font-size:10.5px;color:var(--rust);line-height:1.6;margin-top:8px;padding-top:8px;border-top:1px dashed var(--rule)}
+
+  /* ── 双期切换(两个 pill 必须同尺寸)── */
+  .perpill{flex:1 1 0;padding:11px 14px;border:1px solid var(--rule);background:var(--paper);
+           text-align:left;cursor:pointer;min-width:0}
+  .perpill.on{border-color:var(--brass-deep);border-width:2px;background:rgba(160,124,58,.07);padding:10px 13px}
+  .perpill:not(.on){opacity:.66}
+  .perpill-t{font-family:'Fraunces',serif;font-size:16px;line-height:1.2}
+  .perpill-s{font-size:10.5px;color:var(--ink-subtle);margin-top:3px}
+
+  /* ── 两条轴 ── */
+  .axis{border:1px solid var(--rule);padding:15px 16px;background:var(--paper)}
+  .axis-t{font-family:'Fraunces',serif;font-size:16px;margin-bottom:3px}
+  .axis-q{font-size:11px;color:var(--ink-subtle);font-style:italic;margin-bottom:10px}
+  .axis-row{display:flex;gap:8px;align-items:flex-start;font-size:11.5px;line-height:1.7;padding:5px 0}
+  .ico{flex:0 0 16px;margin-top:2px}
+
+  /* ── 时间轴:4 等分格,轴线穿过圆点中心;首尾标签留在格内不溢出 ── */
+  .tl{position:relative;display:grid;grid-template-columns:repeat(4,1fr);margin-top:4px}
+  .tl-rail{position:absolute;left:12.5%;right:12.5%;top:64px;height:2px;background:var(--rule)}
+  .tl-rail-on{position:absolute;left:12.5%;width:50%;top:64px;height:2px;background:var(--brass-deep)}
+  .tl-col{text-align:center;position:relative;z-index:1}
+  .tl-lb{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-soft);
+         line-height:1.55;height:56px;display:flex;flex-direction:column;justify-content:flex-end}
+  .tl-dot{width:11px;height:11px;border:2px solid var(--brass-deep);background:var(--paper);
+          border-radius:50%;margin:4px auto 0}
+  .tl-dot.hot{background:var(--brass-deep)}
+  .tl-dot.end{border-color:var(--rust);background:var(--rust)}
+
+  table.cmp{width:100%;border-collapse:collapse;font-size:11.5px}
+  table.cmp th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;
+               text-transform:uppercase;color:var(--ink-subtle);padding:7px 9px;border-bottom:1px solid var(--rule);font-weight:400}
+  table.cmp td{padding:8px 9px;border-bottom:1px solid var(--rule);vertical-align:top;line-height:1.65}
+  table.cmp tr:last-child td{border-bottom:none}
+</style>
+</head>
+<body style="background:var(--paper);color:var(--ink)">
+
+<div class="wrap" style="padding-top:38px;padding-bottom:64px">
+
+  <!-- ══ 抬头 ══ -->
+  <div class="eyebrow">Preview · v1.23.0 · issue #20</div>
+  <h1 style="font-size:34px;line-height:1.24;margin:9px 0 10px;max-width:800px">
+    关账节奏交给家庭自己定,<br>并让系统真正扛得住两个活跃账期
+  </h1>
+  <p class="note" style="max-width:720px;font-size:13px">
+    微信、支付宝、信用卡最方便拿到的是「<b>整月支出</b>」—— 那个数要等月底过完才有。
+    而系统在次月 1 号凌晨 <span class="mono">00:30</span> 就把上月关了。
+    这一版把「什么时候关账」从写死的常量变成家庭自己的选择,
+    并补齐 <b class="mono">30</b> 处「当前账期」在双活跃状态下的语义。
+  </p>
+
+  <!-- ══ 1 · 配置项 ══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">1</span>
+      <span class="zone-t">账期什么时候关</span>
+      <span class="zone-sub">管理页 · 系统设置 → 账期节奏 · FR-610 / FR-611</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <p class="note" style="margin-bottom:14px">
+      四个选项<b>尺寸样式完全一致</b>,每个都同时说明「你得到什么」和「代价是什么」——
+      只说功能不说代价的配置项,用户选完才发现报表晚出两天,那是我们的错不是他的。
+    </p>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:11px">
+      <div class="opt on">
+        <div class="opt-k">默认 · 当前行为</div>
+        <div class="opt-t">立即关账</div>
+        <div class="opt-d">新月份一开始,上月立刻锁上。月底最后几天的消费要自己补算进去。</div>
+        <div class="opt-cost">代价:拿到完整账单时已经改不了了。</div>
+      </div>
+      <div class="opt">
+        <div class="opt-k">推荐</div>
+        <div class="opt-t">月底过完<br>再给 2 天</div>
+        <div class="opt-d">微信 / 支付宝 / 信用卡的完整上月账单要等月底过完才出 —— 这 2 天就是拿来填它的。</div>
+        <div class="opt-cost">代价:上月的报表、AI 月报、指标也会晚 2 天出。</div>
+      </div>
+      <div class="opt">
+        <div class="opt-k">宽松</div>
+        <div class="opt-t">月底过完<br>再给 5 天</div>
+        <div class="opt-d">信用卡账单日晚于月末的家庭适用。一个周末加两天,足够慢慢对。</div>
+        <div class="opt-cost">代价:同上,晚 5 天。</div>
+      </div>
+      <div class="opt">
+        <div class="opt-k">自己掌握</div>
+        <div class="opt-t">我自己关</div>
+        <div class="opt-d">你决定什么时候关。<b>兜底</b>:到下下个月开始时,系统还是会关掉它。</div>
+        <div class="opt-cost">一直不关的话,报表和月报就永远出不来 —— 所以留一期缓冲,不留两期。</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;background:rgba(160,124,58,.05)">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)">
+          <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
+        </svg>
+        <div class="note" style="flex:1">
+          <b>为什么「我自己关」也有兜底</b> —— 永不关账 = 分类属性永不定格、AI 月报永不生成、
+          报表永远没有可锚的快照。「随你便」在这里不是自由,是把系统拖进一个没有出口的状态。
+          所以这一项的语义是「<b>你决定何时关,但最多拖一期</b>」。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 2 · 时间轴 ══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">2</span>
+      <span class="zone-t">选了 T+2 之后,9 月 1 日到底发生什么</span>
+      <span class="zone-sub">FR-614 / FR-615 / FR-616</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="card">
+      <div class="tl">
+        <div class="tl-rail"></div>
+        <div class="tl-rail-on"></div>
+        <div class="tl-col">
+          <div class="tl-lb"><span>8/31 23:59</span><span>8 月自然结束</span></div>
+          <div class="tl-dot"></div>
+        </div>
+        <div class="tl-col">
+          <div class="tl-lb"><span>9/1 00:30</span><span>9 月开账</span>
+            <b style="color:var(--brass-deep)">8 月仍开着</b></div>
+          <div class="tl-dot hot"></div>
+        </div>
+        <div class="tl-col">
+          <div class="tl-lb"><span>9/3 00:30</span><b style="color:var(--rust)">8 月自动关账</b></div>
+          <div class="tl-dot end"></div>
+        </div>
+        <div class="tl-col">
+          <div class="tl-lb"><span>9/3 起</span><span>指标 / 月报出</span></div>
+          <div class="tl-dot"></div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:center;margin-top:16px">
+        <span class="badge now" style="font-size:10px;padding:4px 12px">双活跃窗口 · 9/1 00:30 → 9/3 00:30 · 共 2 天</span>
+      </div>
+      <p class="note" style="margin-top:12px;text-align:center">
+        这两天里 <b>8 月和 9 月同时是 OPEN 的</b>。页面上任何地方都不许含糊其辞 ——
+        用户必须一眼看出自己正在往哪一期填。
+      </p>
+    </div>
+
+    <div class="card" style="margin-top:11px;display:flex;gap:10px;align-items:flex-start">
+      <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-subtle)">
+        <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+      </svg>
+      <div class="note" style="flex:1">
+        <b>关账时点必须可预期</b>(FR-616)。填报页和账期管理页都显示
+        「<span class="mono">8 月将在 9/3 00:30 自动关账</span>」——
+        不能让用户猜。宽限期内<b>随时可以手动提前关</b>:填完了就不必等满(FR-617)。
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 3 · 两条轴 ══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">3</span>
+      <span class="zone-t">核心抽象:两条轴,只有一条能有两个「当前」</span>
+      <span class="zone-sub">本版所有设计决策的唯一依据 · PRD §3.0</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="axis">
+        <div class="axis-t">余额 / 估值轴</div>
+        <div class="axis-q">「钱现在在哪?」</div>
+        <div style="margin-bottom:9px"><span class="badge risk">只能有一个「现在」</span></div>
+        <div class="axis-row">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--rust)">
+            <circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/>
+          </svg>
+          <div>股价估值、持仓变动、券商同步、截图导入的余额 ——
+            <b>永远落最新那期</b>,绝不回写 8 月。世界上只有一个此刻的市值。</div>
+        </div>
+        <div class="axis-row">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--forest)">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+          <div>调研里 <b class="mono">9</b> 处调用点属于这一类 —— 它们<b>一行都不用改</b>,
+            现在的「取最新 OPEN」本来就是对的。</div>
+        </div>
+      </div>
+
+      <div class="axis">
+        <div class="axis-t">收支轴</div>
+        <div class="axis-q">「这段时间钱花在哪、赚了多少?」</div>
+        <div style="margin-bottom:9px"><span class="badge ok">可以有两个活跃期</span></div>
+        <div class="axis-row">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--forest)">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+          <div>支出、收入、批量导入 —— <b>宽限期内可以写进上一期</b>。
+            8 月的账单 9 月才拿得到,这是现实,不是例外。</div>
+        </div>
+        <div class="axis-row">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)">
+            <path d="M12 2v20M2 12h20"/>
+          </svg>
+          <div>调研里 <b class="mono">7</b> 处在双活跃下<b>会算错</b>(月均支出、提醒、报表锚定…),
+            <b class="mono">6</b> 处要重定默认值 —— 这才是本版真正的工程量。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;background:rgba(160,124,58,.05)">
+      <div class="note">
+        <b>这条抽象的价值</b>:它把「30 处调用点各自拍脑袋」变成「<b>一条判据扫一遍</b>」。
+        v1.21 引入 <span class="mono">affects_balance</span> 时其实已经把这两件事分开了,
+        只是当时没有给它起名字。
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 4 · 填报页 ══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">4</span>
+      <span class="zone-t">填报页 · 两期同时摆出来</span>
+      <span class="zone-sub">FR-625 · 宽限期内默认落在上一期</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="card">
+      <div style="display:flex;gap:9px;margin-bottom:13px">
+        <div class="perpill on">
+          <div class="perpill-t">8 月 · 还能改</div>
+          <div class="perpill-s">9/3 00:30 关账 · 还剩 2 天</div>
+        </div>
+        <div class="perpill">
+          <div class="perpill-t">9 月 · 进行中</div>
+          <div class="perpill-s">2026/09/01 – 09/30</div>
+        </div>
+      </div>
+
+      <div style="border:1px solid var(--rule);padding:12px 14px;background:rgba(160,124,58,.06)">
+        <div style="display:flex;gap:9px;align-items:flex-start">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)">
+            <path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/>
+          </svg>
+          <div class="note" style="flex:1">
+            <b>你正在填 2026 年 8 月。</b>
+            微信 / 支付宝 / 信用卡的完整 8 月账单现在应该拿得到了 ——
+            直接导进来,不用自己算最后几天。
+          </div>
+        </div>
+      </div>
+
+      <p class="note" style="margin-top:12px">
+        <b>为什么默认落上一期</b>:宽限窗口只有 2 天,而用户在这 2 天里打开填报页,
+        八成就是为了填上个月 —— 默认值该服从这个概率,而不是服从「最新的那个」这条机械规则。
+        当前期<b>加粗描边 + 底色</b>,另一期<b>降透明度</b>,一眼可辨(FR-625)。
+      </p>
+    </div>
+  </div>
+
+  <!-- ══ 5 · 批量导入 ══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">5</span>
+      <span class="zone-t">批量导入 · 必须说清这批账单记到哪个月</span>
+      <span class="zone-sub">FR-626 · issue #20 的正中心</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+        <div>
+          <div class="eyebrow">已解析</div>
+          <div style="font-family:'Fraunces',serif;font-size:21px;line-height:1.2">支付宝账单 · 213 行</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px">
+          <span class="note">记到</span>
+          <div style="border:2px solid var(--brass-deep);background:rgba(160,124,58,.07);padding:7px 14px;
+                      font-family:'Fraunces',serif;font-size:16px">2026 年 8 月</div>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-subtle)">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </div>
+      </div>
+      <div style="border-top:1px dashed var(--rule);margin-top:13px;padding-top:11px">
+        <div class="note">
+          <b>这批账单会记到 2026 年 8 月</b>(还有 2 天关账)。
+          导入前先确认这一点 —— 这是本次导入唯一不可批量撤销的选择,
+          其余每一行的分类 / 归属 / 账户都还可以逐行改。
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:11px;display:flex;gap:10px;align-items:flex-start">
+      <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--rust)">
+        <path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h16.9a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/>
+        <path d="M12 9v4M12 17h.01"/>
+      </svg>
+      <div class="note" style="flex:1">
+        <b>这是 issue #20 的正中心。</b>现在 <span class="mono">ExpenseImportController</span>
+        取的是「最新 OPEN 期」—— 9 月 1 日导入 8 月账单,<b>整批 213 行全部落进 9 月</b>,
+        而且不会有任何提示。双活跃之后它必须选期,不能再沿用「最新」。
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 6 · 报表 / dashboard ══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">6</span>
+      <span class="zone-t">报表与 dashboard · 不许倒退,也不许假装已定稿</span>
+      <span class="zone-sub">FR-627 / FR-630 · 失败模式 ②</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+          <span class="badge risk">如果不改</span>
+        </div>
+        <div style="font-family:'Fraunces',serif;font-size:17px;margin-bottom:7px">报表锚到 7 月</div>
+        <div class="note">
+          <span class="mono">resolveAnchor</span> 锚的是「最近<b>已关账</b>期」。
+          8 月还开着 → 锚 7 月。用户的直观感受是
+          「<b>升级之后报表少了一个月</b>」—— 改善补录体验的代价变成报表倒退两天,
+          那还不如不改。
+        </div>
+      </div>
+      <div class="card" style="border-color:var(--brass-deep)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+          <span class="badge ok">本版</span>
+        </div>
+        <div style="font-family:'Fraunces',serif;font-size:17px;margin-bottom:7px">锚 8 月 + 明确标注</div>
+        <div style="border:1px solid var(--rule);padding:9px 11px;background:rgba(160,124,58,.06);margin-bottom:8px">
+          <div class="note" style="color:var(--ink-soft)">
+            <b>8 月仍在填报中(9/3 关账),这里的数字可能还会变。</b>
+          </div>
+        </div>
+        <div class="note">
+          既不倒退,也不假装是定稿。报表页的语义一直是「已关账快照」——
+          现在它多了一个诚实的中间态。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 7 · 余额传导 ══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">7</span>
+      <span class="zone-t">补填 8 月支出,9 月的预填值怎么办</span>
+      <span class="zone-sub">FR-623 / FR-624 · 本版第二个核心设计</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <p class="note" style="margin-bottom:13px;max-width:860px">
+      9 月开账时,每个账户的余额是按「8 月末」预填的。如果用户随后在宽限期内往 8 月补了一笔
+      <b>影响余额</b>的支出,8 月末就变了 —— 9 月那个预填值<b>过期了</b>。
+      旧方案靠「强制不落余额」绕开;但那会让规则自相矛盾:
+      <b>8/30 写的支出能影响余额,9/1 写的同一笔就不能?</b>
+    </p>
+
+    <table class="cmp">
+      <thead>
+        <tr><th style="width:30%">9 月那张快照的状态</th><th style="width:22%">传导?</th><th>为什么</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="mono" style="font-size:10.5px">CARRIED_FORWARD</span><br>
+              <span class="note">系统开账时代填的,没人确认过</span></td>
+          <td><span class="badge ok">跟着变</span></td>
+          <td>它本来就是个<b>派生值</b> —— 源头变了就该跟着变。
+              这不是覆盖用户的数据,是把一个自动算出来的数重算一遍。</td>
+        </tr>
+        <tr>
+          <td>用户手填过 / 估值刷新过<br>
+              <span class="note">有人确认过这个数</span></td>
+          <td><span class="badge risk">一分不动</span></td>
+          <td>用户已经对 9 月的余额表过态了。补 8 月的账<b>不该反过来推翻它</b> ——
+              那是本版最不能犯的错。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="card" style="margin-top:12px">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)">
+          <path d="M12 2v6m0 0l3-3m-3 3L9 5"/><path d="M12 22v-6m0 0l3 3m-3-3l-3 3"/>
+          <path d="M2 12h20"/>
+        </svg>
+        <div style="flex:1">
+          <div class="note" style="margin-bottom:7px">
+            <b>传导必须可见</b>(FR-624)。9 月填报页对应账户行会显示:
+          </div>
+          <div style="border:1px solid var(--rule);padding:8px 11px;background:rgba(160,124,58,.06)">
+            <span class="note" style="color:var(--brass-deep)"><b>因 8 月补填已更新延续值</b></span>
+          </div>
+          <div class="note" style="margin-top:7px">
+            数字自己变了而不说一声,用户下次看到对不上,会以为是算错了 ——
+            这个项目已经在别处栽过一次(AI 月报数字变了、解读没变)。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 8 · 护栏 ══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">8</span>
+      <span class="zone-t">最大的风险不是新功能,是那 30 处</span>
+      <span class="zone-sub">失败模式 ① · 护栏 v1230-DUAL-OPEN-SWEEP</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="card">
+      <p class="note" style="margin-bottom:12px">
+        <span class="mono">findCurrentOpen</span> 在双 OPEN 下<b>静默返回最新期</b> ——
+        不抛异常、不进日志。漏审计的那一处不会崩,只会给出一个
+        <b>看起来合理但是错的数</b>。这是唯一一类「写完看起来全对、上线才发现」的风险。
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+        <div style="border:1px solid var(--rule);padding:11px 12px;background:var(--paper)">
+          <div class="opt-k">A 类 · 9 处</div>
+          <div style="font-family:'Fraunces',serif;font-size:15px;margin:4px 0 5px">取最新是对的</div>
+          <div class="note">估值 / 持仓 / 汇率 —— <b>一行不改</b></div>
+        </div>
+        <div style="border:1px solid var(--rust);padding:11px 12px;background:rgba(156,74,42,.06)">
+          <div class="opt-k" style="color:var(--rust)">B 类 · 7 处</div>
+          <div style="font-family:'Fraunces',serif;font-size:15px;margin:4px 0 5px">会算错</div>
+          <div class="note">月均支出 / 提醒 / 报表锚定 —— <b>必须改</b></div>
+        </div>
+        <div style="border:1px solid var(--brass-deep);padding:11px 12px;background:rgba(160,124,58,.06)">
+          <div class="opt-k" style="color:var(--brass-deep)">C 类 · 6 处</div>
+          <div style="font-family:'Fraunces',serif;font-size:15px;margin:4px 0 5px">重定默认值</div>
+          <div class="note">填报 / dashboard —— 有选择器,改默认</div>
+        </div>
+        <div style="border:1px solid var(--rule);padding:11px 12px;background:var(--paper)">
+          <div class="opt-k">D 类 · 4 处</div>
+          <div style="font-family:'Fraunces',serif;font-size:15px;margin:4px 0 5px">管理 / 通知</div>
+          <div class="note">影响小,顺手改</div>
+        </div>
+      </div>
+      <div style="border-top:1px dashed var(--rule);margin-top:13px;padding-top:11px">
+        <div class="note">
+          <b>护栏怎么守</b>:把 30 处全部登记进白名单并标注类别。
+          <b>以后任何人新增一处 <span class="mono">findCurrentOpen</span> 调用,不显式归类就红。</b>
+          编译器抓不到这一类 —— 只能靠扫,和 v0.14 加 <span class="mono">METAL</span> 枚举那次一样。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 尾 ══ -->
+  <div style="margin-top:52px;border-top:2px solid var(--brass-deep);opacity:.9;padding-top:16px">
+    <div class="eyebrow" style="margin-bottom:7px">待评审 · 需要你裁的</div>
+    <table class="cmp" style="max-width:860px">
+      <tbody>
+        <tr>
+          <td style="width:32%"><b>「我自己关」的兜底</b></td>
+          <td>我按自己的推荐落成「<b>下下期开始时强制关</b>」(留一期缓冲)。
+              你可以改成不兜底 —— 但那意味着报表可以永远出不来。</td>
+        </tr>
+        <tr>
+          <td><b>填报页默认落哪期</b></td>
+          <td>我选了<b>上一期</b>(宽限期内用户八成为填上月而来)。
+              也可以保守落新期,靠提示引导。</td>
+        </tr>
+        <tr>
+          <td><b>宽限档位</b></td>
+          <td>现在是 T+0 / T+2 / T+5 / 手动。要不要开放任意天数输入?
+              我倾向<b>不开放</b> —— 四档覆盖真实场景,自由输入只会带来 T+29 这种把两期搅在一起的配置。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>
