@@ -225,7 +225,7 @@ class CurrencyInvarianceTest {
     @Test
     void cashflowSeries_marksLivePeriod_andMatchesBreakdown() {
         FactSlice s = sliceFor(BigDecimal.ONE, "CNY");
-        List<CashflowPoint> series = svc().cashflowSeries(s, 6, 102L);   // 102 = 进行中
+        List<CashflowPoint> series = svc().cashflowSeries(s, 6, java.util.Set.of(102L));   // 102 = 进行中
         assertThat(series).hasSize(2);
         assertThat(series.get(0).live()).isFalse();
         assertThat(series.get(1).live()).isTrue();

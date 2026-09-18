@@ -56,8 +56,20 @@ public class PeriodService {
     @Autowired(required = false)
     private com.family.finance.service.review.RebalancePlanService rebalancePlanService;
 
+    /** @deprecated v1.23 · 见 {@link PeriodMapper#findCurrentOpen};按语义改用下面两个。 */
+    @Deprecated
     public Optional<Period> findCurrentOpen(long familyId) {
         return periodMapper.findCurrentOpen(familyId);
+    }
+
+    /** v1.23 · 余额 / 估值轴的当前期 = 最新 OPEN(只有一个「现在」)。 */
+    public Optional<Period> findBalancePeriod(long familyId) {
+        return periodMapper.findBalancePeriod(familyId);
+    }
+
+    /** v1.23 · 收支轴的可写期 = 全部 OPEN,升序([补录期, 进行期])。 */
+    public List<Period> findRecordableOpen(long familyId) {
+        return periodMapper.findRecordableOpen(familyId);
     }
 
     public Period requireCurrentOpen(long familyId) {
@@ -279,6 +291,76 @@ public class PeriodService {
         } else {
             metricsRecomputeJob.run(periodId);
         }
+    }
+
+    // ── v1.23 · 关账宽限判据(FR-614 / FR-612 / FR-616)────────────────────────
+    //
+    // 这一组方法是「什么时候该关账」的唯一出处。三个调用方共用:
+    //   · PeriodOpener.closeIfGraceExpired() —— 定时自动关
+    //   · 管理页「将在 X 自动关账」预告(FR-616)
+    //   · 填报页「还剩 N 天」提示
+    // 内联判据会变成三份,而三份里只要有一份算得不一样,用户看到的预告就和实际关账时点不符。
+
+    /**
+     * FR-614 · 这一期的**关账截止日** = 自然结束日 + 宽限天数。
+     *
+     * <p>T+0(默认)时 = {@code period_end} 本身,于是「今天 &gt; 截止日」在新期第一天就成立 ——
+     * 与 v1.22 及以前「开新期时关上期」完全等价。这是零差异基线成立的原因。</p>
+     */
+    public LocalDate graceDeadline(Family family, Period period) {
+        return period.getPeriodEnd().plusDays(family.closeDelayDaysOrZero());
+    }
+
+    /**
+     * FR-614 · 自动模式下这一期是否该关了。
+     *
+     * <p>用 {@code today.isAfter(deadline)} 而不是 {@code >=}:截止日那天**整天都还能填**。
+     * 「T+2」在用户心里是「9/1、9/2 都能填」,那就必须 9/3 才关。</p>
+     */
+    public boolean shouldAutoClose(Family family, Period period, LocalDate today) {
+        return family.autoCloseOrDefault() && today.isAfter(graceDeadline(family, period));
+    }
+
+    /**
+     * FR-612 · 手动模式的兜底:这一期是否已经**拖过头**、必须强制关。
+     *
+     * <p>判据 = 它已经不在「最近两期」里,也就是下下期已经开出来了。
+     * 永不关账会让分类属性永不定格、AI 月报永不生成、报表永远没有可锚的快照 ——
+     * 「随你便」在这里不是自由,是把系统拖进没有出口的状态。所以留一期缓冲,不留两期。</p>
+     *
+     * <p><b>判据用账期序而不是日期算术</b>:跨年、以及 MONTHLY↔WEEKLY 类型切换时,
+     * 「往前数两期是哪天」的日期算术很容易算错(prd/v1.23.md 失败模式 ③);
+     * 而「它在不在最近两期的 id 列表里」永远不会。</p>
+     */
+    public boolean mustForceCloseOverdue(long familyId, Period period) {
+        List<Long> recentTwo = periodMapper.findLatest(familyId, 2).stream()
+                .map(Period::getId)
+                .toList();
+        return !recentTwo.contains(period.getId());
+    }
+
+    /**
+     * v1.23 · 这一期在宽限期内还剩几天可写(供 UI 显示)。
+     * 截止日当天返回 0(还能填完今天);已过期返回负数。
+     */
+    public long graceDaysLeft(Family family, Period period, LocalDate today) {
+        return java.time.temporal.ChronoUnit.DAYS.between(today, graceDeadline(family, period));
+    }
+
+    /**
+     * v1.23 · 双活跃窗口:上期与新期同时 OPEN 的那段时间里,**已自然结束的那一期**。
+     * 不在双活跃窗口时返回空。
+     *
+     * <p>「已自然结束」= {@code period_end < today}。一期 OPEN 且没结束 = 正常的进行期,
+     * 不算补录期 —— 这个区分很重要:填报页默认落补录期(FR-625)只在真的有补录期时才生效,
+     * 否则默认值会变成「落到上个月」,那是 bug 不是特性。</p>
+     */
+    public Optional<Period> findBackfillPeriod(long familyId, LocalDate today) {
+        List<Period> open = periodMapper.findRecordableOpen(familyId);
+        if (open.size() < 2) return Optional.empty();
+        return open.stream()
+                .filter(p -> p.getPeriodEnd().isBefore(today))
+                .findFirst();
     }
 
     public boolean isPeriodStartDate(PeriodType type, LocalDate date) {

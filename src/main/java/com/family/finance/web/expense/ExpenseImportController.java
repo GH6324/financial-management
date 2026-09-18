@@ -79,6 +79,14 @@ public class ExpenseImportController {
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
         model.addAttribute("period", period);
+        // v1.23 FR-626 · 双活跃窗口:让用户能改「这批账单记到哪个月」,并显式看见当前选的是哪个
+        java.time.LocalDate todayForImport = java.time.LocalDate.now();
+        var openForImport = periodMapper.findRecordableOpen(me.getFamilyId());
+        model.addAttribute("openPeriods", openForImport);
+        model.addAttribute("dualActive", openForImport.size() >= 2);
+        model.addAttribute("backfillPeriodId", openForImport.stream()
+                .filter(p -> p.getPeriodEnd() != null && p.getPeriodEnd().isBefore(todayForImport))
+                .findFirst().map(com.family.finance.domain.period.Period::getId).orElse(null));
         model.addAttribute("hasCategories", categoryService.hasAny(fam));
         if (period == null) return "expense/import";
 
@@ -260,13 +268,28 @@ public class ExpenseImportController {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    /**
+     * v1.23 FR-626 · 没显式传 periodId 时,默认落**补录期**而不是最新 OPEN 期。
+     *
+     * <p><b>这是 issue #20 的正中心。</b>批量导入月账单天然的使用时点就是次月月初
+     * (月中导只有半个月的数据)。原来这里取 {@code findCurrentOpen} —— 9/1 导入 8 月账单,
+     * <b>整批几百行全部落进 9 月期</b>,而且页面上不会有任何提示。</p>
+     *
+     * <p>服务层早就支持选期({@code BillCommitService.commit} 收 periodId 且校验 OPEN),
+     * 缺的只是这里选对默认值 + 页面把选中的月份显式写出来。</p>
+     */
     private com.family.finance.domain.period.Period resolvePeriod(long familyId, Long periodId) {
         if (periodId != null) {
             var p = periodMapper.findById(periodId).orElse(null);
             if (p != null && p.getFamilyId() != null && p.getFamilyId() == familyId) return p;
             return null;
         }
-        return periodMapper.findCurrentOpen(familyId).orElse(null);
+        java.time.LocalDate today = java.time.LocalDate.now();
+        var open = periodMapper.findRecordableOpen(familyId);
+        return open.stream()
+                .filter(p -> p.getPeriodEnd() != null && p.getPeriodEnd().isBefore(today))
+                .findFirst()
+                .orElseGet(() -> open.isEmpty() ? null : open.getLast());
     }
 
     @PostMapping("/expense/import/file")

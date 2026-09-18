@@ -75,7 +75,8 @@ public class RebalancePlanController {
             ra.addFlashAttribute("flash", "建议内容解析失败: " + e.getMessage());
             return "redirect:/reports#ai-rebalance";
         }
-        long periodId = periodService.findCurrentOpen(me.getFamilyId())
+        // v1.23 · 再平衡是基于**当前配置**(存量)的行动计划 → 挂进行期
+        long periodId = periodService.findBalancePeriod(me.getFamilyId())
                 .map(p -> p.getId()).orElse(0L);
         planService.addItems(me.getFamilyId(), periodId, reqs);
         ra.addFlashAttribute("flash", "已采纳 " + reqs.size() + " 条为本期计划"
@@ -90,7 +91,7 @@ public class RebalancePlanController {
                           @RequestParam BigDecimal amount,
                           @RequestParam(required = false) String note,
                           RedirectAttributes ra) {
-        long periodId = periodService.findCurrentOpen(me.getFamilyId()).map(p -> p.getId()).orElse(0L);
+        long periodId = periodService.findBalancePeriod(me.getFamilyId()).map(p -> p.getId()).orElse(0L);
         planService.addItems(me.getFamilyId(), periodId,
                 List.of(new RebalancePlanService.ItemReq(fromAccountId, toAccountId, amount, note)));
         ra.addFlashAttribute("flash", "已加入本期计划");

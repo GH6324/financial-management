@@ -51,7 +51,7 @@ public class AccountService {
                 .collect(Collectors.toMap(Member::getId, Function.identity()));
         Map<Long, Account> accountsById = accounts.stream()
                 .collect(Collectors.toMap(Account::getId, Function.identity()));
-        Optional<Period> period = periodMapper.findCurrentOpen(familyId)
+        Optional<Period> period = periodMapper.findBalancePeriod(familyId)
                 .or(() -> periodMapper.findLatest(familyId, 1).stream().findFirst());
         Map<Long, PeriodSnapshot> snapshots = period
                 .map(p -> snapshotMapper.findByPeriod(p.getId()).stream()

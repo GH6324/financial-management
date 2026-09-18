@@ -46,7 +46,9 @@ public class FamilyDiagnoseService {
      * 使用户能看出体检与仪表盘是否同期 —— 此前 checkup 完全不显示账期,数值不一致时无从分辨。
      */
     public Period resolveAnchor(long familyId) {
-        Period open = periodMapper.findCurrentOpen(familyId).orElse(null);
+        // v1.23 · 体检看的是**存量**(净资产 / 配置 / 风险分布),锚「当前余额所在期」= 最新 OPEN。
+        //   双活跃窗口下这里取进行期是对的:补录期的余额是上月末的事实,不是「现在」。
+        Period open = periodMapper.findBalancePeriod(familyId).orElse(null);
         if (open != null) return open;
         List<Period> all = periodMapper.findAllByFamily(familyId);
         java.time.LocalDate today = java.time.LocalDate.now();

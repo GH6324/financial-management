@@ -106,7 +106,7 @@ public class DashboardController {
                               Model model) throws Exception {
         Family family = familyService.require(me.getFamilyId());
         List<Period> allPeriods = periodMapper.findAllByFamily(me.getFamilyId());
-        Period anchor = resolveAsOf(asof, allPeriods, periodMapper.findCurrentOpen(me.getFamilyId()).orElse(null));
+        Period anchor = resolveAsOf(asof, allPeriods, periodMapper.findBalancePeriod(me.getFamilyId()).orElse(null));
         List<Long> accountIds = parseAccountIds(accountsCsv);
         String viewCurrency = parseCurrency(currency, family.getBaseCurrency());
         if (!attributionService.DIMS.containsKey(dim)) dim = "acct";
@@ -176,7 +176,7 @@ public class DashboardController {
         Family family = familyService.require(me.getFamilyId());
         // v0.8 FR-144:观察账期 as-of(默认最新,可选历史月)→ 作 rangeEnd,点状 KPI 随之
         List<Period> allPeriods = periodMapper.findAllByFamily(me.getFamilyId());
-        Period anchor = resolveAsOf(asof, allPeriods, periodMapper.findCurrentOpen(me.getFamilyId()).orElse(null));
+        Period anchor = resolveAsOf(asof, allPeriods, periodMapper.findBalancePeriod(me.getFamilyId()).orElse(null));
         List<Long> accountIds = parseAccountIds(accountsCsv);
         String viewCurrency = parseCurrency(currency, family.getBaseCurrency());
         // v1.2 F · momYoy 复用条件:显示窗口已覆盖 asof−12 月(默认 1Y/ALL 命中)→ 免第二次 load;
@@ -237,8 +237,11 @@ public class DashboardController {
         int cfTotal = memberMapper.countActiveByFamily(me.getFamilyId());
         CashflowSplitView cashflowSplit = CashflowSplitView.of(kpis.netWorthDelta(), cfBreak, cfFilled, cfTotal,
                 kpis.openingBaselineLast());   // v0.13 · 开账基线单列第三项
+        // v1.23 · 双活跃窗口下补录期与进行期**都还在填**,两个点都要标 live
+        java.util.Set<Long> livePeriodIds = periodMapper.findRecordableOpen(me.getFamilyId()).stream()
+                .map(Period::getId).collect(java.util.stream.Collectors.toSet());
         List<com.family.finance.factview.CashflowPoint> cashflowSeries =
-                factViewService.cashflowSeries(slice, 6, currentOpen == null ? null : currentOpen.getId());
+                factViewService.cashflowSeries(slice, 6, livePeriodIds);
         // v0.8 FR-145:MoM/YoY 用 [as-of−12, as-of] 最小窗口算,与显示窗口解耦,缺对比期显数据不足
         com.family.finance.factview.MomYoy momYoy = momReuse
                 ? factViewService.momYoy(slice)   // v1.2 F · 复用主 slice(窗口已覆盖 12 月)

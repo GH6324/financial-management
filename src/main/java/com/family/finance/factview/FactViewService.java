@@ -30,7 +30,7 @@ public interface FactViewService {
      * v0.10 · 近 n 期收支序列(view 币种 · 含进行中 OPEN 期)· 给仪表盘实时收支趋势用。
      * livePeriodId 命中的点标 live=true(进行中);传 null 则无 live 标记。
      */
-    List<CashflowPoint> cashflowSeries(FactSlice slice, int n, Long livePeriodId);
+    List<CashflowPoint> cashflowSeries(FactSlice slice, int n, java.util.Set<Long> livePeriodIds);
 
     BigDecimal savingsRate(FactSlice slice);
 

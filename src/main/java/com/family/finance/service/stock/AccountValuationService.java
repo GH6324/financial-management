@@ -127,7 +127,7 @@ public class AccountValuationService {
      */
     public int refreshAllForFamily(long familyId, TriggerKind trigger, Long triggeredByMemberId,
                                    LedgerSource explicitSource) {
-        Period currentOpen = periodMapper.findCurrentOpen(familyId).orElse(null);
+        Period currentOpen = periodMapper.findBalancePeriod(familyId).orElse(null);
         if (currentOpen == null) {
             log.info("family={} no OPEN period · skip valuation refresh", familyId);
             return 0;
@@ -174,7 +174,7 @@ public class AccountValuationService {
     /** v1.18 · 带显式来源的版本(见 {@link #refreshAllForFamily(long, TriggerKind, Long, LedgerSource)})。 */
     public void refreshOneAccount(long familyId, long accountId, TriggerKind trigger,
                                   Long triggeredByMemberId, Long refImportId, LedgerSource explicitSource) {
-        Period currentOpen = periodMapper.findCurrentOpen(familyId).orElse(null);
+        Period currentOpen = periodMapper.findBalancePeriod(familyId).orElse(null);
         if (currentOpen == null) return;
         Account acc = accountMapper.findById(accountId).orElse(null);
         if (acc == null) return;
@@ -502,7 +502,7 @@ public class AccountValuationService {
         if (fromCurrency == null || toCurrency == null || fromCurrency.equalsIgnoreCase(toCurrency)) {
             return BigDecimal.ONE;
         }
-        Period current = periodMapper.findCurrentOpen(familyId).orElse(null);
+        Period current = periodMapper.findBalancePeriod(familyId).orElse(null);
         if (current == null) return BigDecimal.ONE;
 
         // 1 + 2: 直接 + 反向

@@ -263,7 +263,7 @@ public class NotificationSettingsController {
         Family family = familyMapper.findById(me.getFamilyId())
                 .orElseThrow(() -> new IllegalArgumentException("家庭不存在"));
         // §20.5.1 · 测试短信用真实账期 + days=-1 标识 · 没 OPEN 周期就先 refuse
-        Period currentPeriod = periodMapper.findCurrentOpen(me.getFamilyId()).orElse(null);
+        Period currentPeriod = periodMapper.findBalancePeriod(me.getFamilyId()).orElse(null);
         if (currentPeriod == null) {
             ra.addFlashAttribute("flashError",
                     "当前家庭无 OPEN 周期 · 请先去『管理 → 周期』开启本期,再测试短信");

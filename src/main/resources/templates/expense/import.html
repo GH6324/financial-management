@@ -12,6 +12,20 @@
       <h1 class="font-display text-3xl sm:text-4xl font-medium">
         <span th:text="${#temporals.format(period.periodStart, 'yyyy 年 M 月')}">2026 年 9 月</span> 的支出
       </h1>
+      <!-- v1.23 FR-626 · 双活跃窗口里必须说清这批账单记到哪个月(issue #20 的正中心)。
+           原来默认落最新 OPEN 期 —— 9/1 导入 8 月账单会整批落进 9 月,而且一声不吭。 -->
+      <div th:if="${dualActive}" class="mt-2 flex items-center gap-2 flex-wrap">
+        <span class="font-mono text-[10px] tracking-wider uppercase text-ink-subtle">记到</span>
+        <a th:each="op : ${openPeriods}" th:href="@{/expense/import(periodId=${op.id})}"
+           class="no-underline font-display text-sm px-3 py-1.5 border"
+           th:styleappend="${op.id == period.id}
+                ? 'border-color:var(--brass-deep);border-width:2px;background:rgba(160,124,58,.07)'
+                : 'border-color:var(--rule);opacity:.6'"
+           th:text="${#temporals.format(op.periodStart,'yyyy 年 M 月')}">2026 年 8 月</a>
+        <span class="text-[11px] text-ink-subtle" th:if="${backfillPeriodId != null and period.id == backfillPeriodId}">
+          ← 上月账单现在应该拿得到了
+        </span>
+      </div>
     </div>
     <a th:href="@{/entry}" class="btn-ghost text-sm no-underline">← 回填报</a>
   </div>

@@ -144,7 +144,11 @@ public class ReportsController {
      */
     private java.time.LocalDate compositionAsOf(long familyId) {
         java.time.LocalDate today = java.time.LocalDate.now();
-        return periodMapper.findCurrentOpen(familyId)
+        // v1.23 · 取**最晚**可写期(latest 就是这个意思)。双活跃下有两期 OPEN,
+        //   补录期的 start 更早,拿它当上界会把进行期整个排除在窗口外。
+        var open = periodMapper.findRecordableOpen(familyId);
+        return (open.isEmpty() ? java.util.Optional.<com.family.finance.domain.period.Period>empty()
+                               : java.util.Optional.of(open.getLast()))
                 .map(com.family.finance.domain.period.Period::getPeriodStart)
                 .filter(start -> start.isAfter(today))
                 .orElse(today);
@@ -231,7 +235,11 @@ public class ReportsController {
         //   resolveAnchor 走 DB 日期挑锚,若 JVM 与 DB 日期有偏差,用 now 作上界会把默认锚挤出下拉;用锚作界则默认锚必在列。
         List<Period> closedPeriods = defaultChoice.closedSnapshot()
                 ? periodMapper.findAllByFamily(me.getFamilyId()).stream()
-                    .filter(p -> p.getStatus() == com.family.finance.domain.period.PeriodStatus.CLOSED
+                    // v1.23 · 默认锚可能是「已填完但还在宽限窗口里」的补录期(status 仍 OPEN)。
+                    //   只列 CLOSED 会让它不出现在下拉里 → 选择器没有选中项,显示成随便哪一期。
+                    //   所以显式把默认锚本身放行,与上面「默认锚必在列」那条注释是同一个目的。
+                    .filter(p -> (p.getStatus() == com.family.finance.domain.period.PeriodStatus.CLOSED
+                                  || java.util.Objects.equals(p.getId(), defaultChoice.anchor().getId()))
                             && p.getPeriodStart() != null
                             && !p.getPeriodStart().isAfter(defaultChoice.anchor().getPeriodStart()))
                     .sorted(java.util.Comparator.comparing(Period::getPeriodStart).reversed())
@@ -435,6 +443,19 @@ public class ReportsController {
         boolean reportsHasMetrics = closedSnapshot && slice.returnPeriodIds().size() >= 2;
         model.addAttribute("closedSnapshot", closedSnapshot);
         model.addAttribute("reportsHasMetrics", reportsHasMetrics);
+        // v1.23 FR-627 · 锚期可能是「已填完但还在宽限窗口里」的补录期 —— 数字是它的,但它还能改。
+        //   既不倒退回上上期,也不假装已定稿:页面上如实说一句。
+        boolean anchorStillOpen = anchor != null && anchor.getStatus() == PeriodStatus.OPEN;
+        model.addAttribute("anchorStillOpen", anchorStillOpen);
+        if (anchorStillOpen) {
+            com.family.finance.domain.family.Family fam = familyService.require(me.getFamilyId());
+            if (fam.autoCloseOrDefault()) {
+                java.time.LocalDate closeOn = anchor.getPeriodEnd()
+                        .plusDays(fam.closeDelayDaysOrZero() + 1L);
+                model.addAttribute("anchorCloseDue",
+                        closeOn.getMonthValue() + "/" + closeOn.getDayOfMonth());
+            }
+        }
         // v0.10.5 · 资产年化 仅满 12 期才是真年化(12月滚动几何);不足为累计 → 动态标签「资产累计」
         model.addAttribute("familyReturnAnnualized", familyMonths >= 12);
         if (reportsHasMetrics) {
@@ -677,9 +698,16 @@ public class ReportsController {
      * 并用 {@code findLatestClosedAsOf(≤今天)} 干净挡掉未来期,不必再靠 OPEN 兜底。</p>
      */
     private ReportsAnchorResolver.AnchorChoice resolveAnchor(long familyId) {
+        // v1.23 FR-627 · 锚「最近**已定稿**期」而不是「最近已关账期」。
+        //
+        //   已定稿 = CLOSED,**或**已自然结束且填报完成(见 PeriodMapper.findLatestSettledAsOf)。
+        //   不改的话:双活跃窗口里补录期还没关 → 锚回上上期 →
+        //   用户升级之后打开报表,直观感受是「少了一个月」。
+        //   而且 dashboard 的收益类指标(本月资产收益 / 人赚钱赚 / 账户表现)会一起退,
+        //   因为它们共用 FactSlice 的同一套判据(FactMapper.findSettledPeriodIds)。
         return ReportsAnchorResolver.resolve(
-                periodMapper.findLatestClosedAsOf(familyId, LocalDate.now()),
-                periodMapper.findCurrentOpen(familyId),
+                periodMapper.findLatestSettledAsOf(familyId, LocalDate.now()),
+                periodMapper.findBalancePeriod(familyId),
                 periodMapper.findLatest(familyId, 1));
     }
 
