@@ -44,7 +44,7 @@ public final class ExpenseFakes {
             rows.add(new Row(periodId, categoryId, new BigDecimal(amount)));
         }
 
-        @Override public List<CatSum> sumByCategory(long periodId) {
+        @Override public List<CatSum> sumByCategory(long familyId, long periodId) {
             Map<Long, BigDecimal> amt = new LinkedHashMap<>();
             Map<Long, Integer> cnt = new LinkedHashMap<>();
             for (Row r : rows) {
@@ -57,7 +57,7 @@ public final class ExpenseFakes {
             return out;
         }
 
-        @Override public List<PeriodCatSum> sumByPeriodAndCategory(List<Long> periodIds) {
+        @Override public List<PeriodCatSum> sumByPeriodAndCategory(long familyId, List<Long> periodIds) {
             Map<String, BigDecimal> acc = new LinkedHashMap<>();
             for (Row r : rows) {
                 if (!periodIds.contains(r.periodId())) continue;
@@ -72,7 +72,7 @@ public final class ExpenseFakes {
             return out;
         }
 
-        @Override public List<FlowRow> drillDown(long periodId, Long categoryId) { return List.of(); }
+        @Override public List<FlowRow> drillDown(long familyId, long periodId, Long categoryId) { return List.of(); }
 
         /** 搬家 —— 真实现是一条 UPDATE,这里照做:逐笔载体不会撞任何唯一键 */
         /* v1.22 · 「已存在」的笔可以就地改分类/账户(FR-598)。
@@ -81,8 +81,8 @@ public final class ExpenseFakes {
         @Override public java.util.List<ExistingRow> findExistingByTxNos(long familyId, java.util.List<String> txNos) {
             return java.util.List.of();
         }
-        @Override public int updateCategory(long id, Long categoryId) { return 0; }
-        @Override public int updateAccount(long id, long accountId) { return 0; }
+        @Override public int updateCategory(long familyId, long id, Long categoryId) { return 0; }
+        @Override public int updateAccount(long familyId, long id, long accountId) { return 0; }
 
         @Override public int moveCategory(long familyId, long fromId, long toId) {
             int n = 0;
@@ -117,11 +117,11 @@ public final class ExpenseFakes {
                     .limit(limit).map(Map.Entry::getKey).toList();
         }
 
-        @Override public boolean batchAffectsBalance(long batchId) { return false; }
+        @Override public boolean batchAffectsBalance(long familyId, long batchId) { return false; }
 
-        @Override public List<AcctSum> batchAmountByAccount(long batchId) { return List.of(); }
+        @Override public List<AcctSum> batchAmountByAccount(long familyId, long batchId) { return List.of(); }
 
-        @Override public int softDeleteBatch(long batchId) { return 0; }
+        @Override public int softDeleteBatch(long familyId, long batchId) { return 0; }
     }
 
     public static class FakeCategoryMapper implements ExpenseCategoryMapper {

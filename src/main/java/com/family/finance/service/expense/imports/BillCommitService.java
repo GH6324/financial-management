@@ -165,7 +165,7 @@ public class BillCommitService {
             Long catId = (!nature && categoryService.isUsable(familyId, l.categoryId()))
                     ? l.categoryId() : null;
             Long rowAcct = l.accountId() != null ? l.accountId() : fallbackAccountId;
-            cashFlowMapper.insert(CashFlow.builder()
+            cashFlowMapper.insertOwned(familyId, CashFlow.builder()
                     .periodId(periodId)
                     .accountId(rowAcct)
                     .kind(CashFlowKind.EXPENSE)
@@ -223,11 +223,11 @@ public class BillCommitService {
                 .orElseThrow(() -> new CommitException("找不到这个账期。"));
         /* 【只有当初扣过余额的批次才加回】—— 否则「不落账户」的批次一撤销,
          * 余额会凭空多出一笔钱。判据取该批次实际落的行:它们的 affects_balance 是一致的。 */
-        boolean hadBalance = flowMapper.batchAffectsBalance(batchId);
+        boolean hadBalance = flowMapper.batchAffectsBalance(familyId, batchId);
         /* 【按账户分别加回】—— 一批可能跨几个账户,全加回批次的「主账户」会把
          * 别的账户的钱塞给它。必须在软删【之前】统计,软删之后就查不到了。 */
-        var perAccount = hadBalance ? flowMapper.batchAmountByAccount(batchId) : List.<com.family.finance.repository.ExpenseFlowMapper.AcctSum>of();
-        int n = flowMapper.softDeleteBatch(batchId);
+        var perAccount = hadBalance ? flowMapper.batchAmountByAccount(familyId, batchId) : List.<com.family.finance.repository.ExpenseFlowMapper.AcctSum>of();
+        int n = flowMapper.softDeleteBatch(familyId, batchId);
         batchMapper.markRevoked(familyId, batchId);
         for (var a : perAccount) {
             Account acct = accountMapper.findById(a.accountId()).orElse(null);

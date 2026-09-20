@@ -15,14 +15,16 @@ import java.util.List;
 public interface CashFlowMapper {
 
     @Select("""
-            SELECT id, period_id, account_id, kind, category_code, amount,
-                   occurred_at, note, submitted_by, submitted_at
-              FROM cash_flow
-             WHERE period_id = #{periodId}
-               AND account_id = #{accountId}
-               AND deleted_at IS NULL
-               AND affects_balance = 1
-             ORDER BY submitted_at, id
+            SELECT cf.id, cf.period_id, cf.account_id, cf.kind, cf.category_code, cf.amount,
+                   cf.occurred_at, cf.note, cf.submitted_by, cf.submitted_at
+              FROM cash_flow cf
+              JOIN account a ON a.id = cf.account_id
+             WHERE a.family_id = #{familyId}
+               AND cf.period_id = #{periodId}
+               AND cf.account_id = #{accountId}
+               AND cf.deleted_at IS NULL
+               AND cf.affects_balance = 1
+             ORDER BY cf.submitted_at, cf.id
             """)
     /**
      * 该账户该期<b>参与余额解释</b>的流水。
@@ -32,7 +34,8 @@ public interface CashFlowMapper {
      * 把「只记构成、不动余额」的笔算进来,会让 unexplained 变成负数 ——
      * 账户上凭空出现一个「解释过头」的差额,而用户什么都没做错。</p>
      */
-    List<CashFlow> findByPeriodAndAccount(@Param("periodId") long periodId,
+    List<CashFlow> findByPeriodAndAccount(@Param("familyId") long familyId,
+                                          @Param("periodId") long periodId,
                                           @Param("accountId") long accountId);
 
     @Select("""
@@ -47,38 +50,72 @@ public interface CashFlowMapper {
             """)
     List<CashFlow> findAllByFamily(@Param("familyId") long familyId);
 
+    /**
+     * 落一笔流水。
+     *
+     * <p><b>为什么不是普通的 VALUES 插入</b>(v1.24 · 家庭隔离普查):{@code cash_flow} 上没有
+     * {@code family_id} 列,归属完全由 {@code period_id} / {@code account_id} 推出来 ——
+     * 这意味着一个写错的 id 组合可以<b>把一笔钱写进别人家的账</b>,而且不报任何错。
+     * 改成 {@code INSERT ... SELECT} 之后,账期和账户必须<b>同时</b>属于 {@code familyId}
+     * 才会真的插入;不符就是影响行数 0。</p>
+     *
+     * <p><b>调用方必须校验返回值</b> —— 返回 0 不是「没什么要插的」,是「这组 id 不属于这个家」。
+     * 静默当成功会让用户以为记上了账。护栏 {@code v1240-CF-INSERT-GUARDED} 扫这条。</p>
+     */
     @Insert("""
             INSERT INTO cash_flow (
                 period_id, account_id, kind, category_code, amount, occurred_at, note, submitted_by, is_adjustment,
                 ref_holding_id, ref_shares, source_tag,
                 expense_category_id, import_batch_id, ext_tx_no, affects_balance
-            ) VALUES (
-                #{periodId}, #{accountId}, #{kind}, #{categoryCode}, #{amount}, #{occurredAt}, #{note}, #{submittedBy}, #{adjustment},
-                #{refHoldingId}, #{refShares}, COALESCE(#{sourceTag}, 'UNKNOWN'),
-                #{expenseCategoryId}, #{importBatchId}, #{extTxNo}, #{affectsBalance}
             )
+            SELECT #{cf.periodId}, #{cf.accountId}, #{cf.kind}, #{cf.categoryCode}, #{cf.amount},
+                   #{cf.occurredAt}, #{cf.note}, #{cf.submittedBy}, #{cf.adjustment},
+                   #{cf.refHoldingId}, #{cf.refShares}, COALESCE(#{cf.sourceTag}, 'UNKNOWN'),
+                   #{cf.expenseCategoryId}, #{cf.importBatchId}, #{cf.extTxNo}, #{cf.affectsBalance}
+              FROM period p
+              JOIN account a ON a.id = #{cf.accountId}
+             WHERE p.id = #{cf.periodId}
+               AND p.family_id = #{familyId}
+               AND a.family_id = #{familyId}
             """)
-    @Options(useGeneratedKeys = true, keyProperty = "id")
-    int insert(CashFlow cashFlow);
+    @Options(useGeneratedKeys = true, keyProperty = "cf.id")
+    int insert(@Param("familyId") long familyId, @Param("cf") CashFlow cashFlow);
+
+    /**
+     * 带归属断言的插入 —— <b>业务代码一律用这个,不要直接调 {@link #insert}</b>。
+     *
+     * <p>把「返回 0 要当错处理」这件事收口到一处。散在各个调用点写 if 的问题不是啰嗦,
+     * 是<b>总有一处会忘</b>,而忘掉的那一处表现为「用户点了保存、页面说成功、库里没有这笔」。</p>
+     */
+    default void insertOwned(long familyId, CashFlow cashFlow) {
+        if (insert(familyId, cashFlow) != 1) {
+            throw new IllegalStateException("流水归属校验不通过:账期 " + cashFlow.getPeriodId()
+                    + " / 账户 " + cashFlow.getAccountId() + " 不属于家庭 " + familyId);
+        }
+    }
 
     /** v0.2 FR-32 · 按 id 取一行(含已删的);用于软删校验家庭归属与周期 · v0.12 带 ref_holding_id/ref_shares 供冲回 */
     @Select("""
-            SELECT id, period_id, account_id, kind, category_code, amount,
-                   occurred_at, note, submitted_by, submitted_at,
-                   ref_holding_id AS refHoldingId, ref_shares AS refShares
-              FROM cash_flow
-             WHERE id = #{id}
+            SELECT cf.id, cf.period_id, cf.account_id, cf.kind, cf.category_code, cf.amount,
+                   cf.occurred_at, cf.note, cf.submitted_by, cf.submitted_at,
+                   cf.ref_holding_id AS refHoldingId, cf.ref_shares AS refShares
+              FROM cash_flow cf
+              JOIN period p ON p.id = cf.period_id
+             WHERE p.family_id = #{familyId}
+               AND cf.id = #{id}
             """)
-    Optional<CashFlow> findById(@Param("id") long id);
+    Optional<CashFlow> findById(@Param("familyId") long familyId, @Param("id") long id);
 
     /** v0.2 FR-32 · 软删:UPDATE deleted_at = NOW(3) */
     @Update("""
-            UPDATE cash_flow
-               SET deleted_at = NOW(3)
-             WHERE id = #{id}
-               AND deleted_at IS NULL
+            UPDATE cash_flow cf
+              JOIN period p ON p.id = cf.period_id
+               SET cf.deleted_at = NOW(3)
+             WHERE p.family_id = #{familyId}
+               AND cf.id = #{id}
+               AND cf.deleted_at IS NULL
             """)
-    int softDelete(@Param("id") long id);
+    int softDelete(@Param("familyId") long familyId, @Param("id") long id);
 
     /**
      * v1.8 · **口径 A · 家庭支出**:按账期汇总真实家庭支出。

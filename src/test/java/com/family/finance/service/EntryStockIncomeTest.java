@@ -83,7 +83,7 @@ class EntryStockIncomeTest {
 
         verify(stockHoldingService).addShares(1L, 50L, new BigDecimal("250.0000"));
         ArgumentCaptor<CashFlow> cap = ArgumentCaptor.forClass(CashFlow.class);
-        verify(cashFlowMapper).insert(cap.capture());
+        verify(cashFlowMapper).insertOwned(eq(1L), cap.capture());
         CashFlow cf = cap.getValue();
         assertThat(cf.getKind()).isEqualTo(CashFlowKind.INCOME);
         assertThat(cf.isAdjustment()).isFalse();                       // 真实外部收入(不剔出家庭收入,进净流入被 PnL 剔)
@@ -124,7 +124,7 @@ class EntryStockIncomeTest {
             svc.recordStockIncomeExistingHolding(1L, 7L, 100L, 10L, 51L,
                     new BigDecimal("10"), "stock_salary", null);
         } catch (IllegalArgumentException expected) { /* 无价拒绝 */ }
-        verify(cashFlowMapper, never()).insert(any());
+        verify(cashFlowMapper, never()).insertOwned(anyLong(), any());
         verify(stockHoldingService, never()).addShares(anyLong(), anyLong(), any());
     }
 
@@ -133,12 +133,12 @@ class EntryStockIncomeTest {
         CashFlow cf = CashFlow.builder().id(900L).periodId(100L).accountId(10L)
                 .kind(CashFlowKind.INCOME).categoryCode("stock_salary").amount(new BigDecimal("60000"))
                 .refHoldingId(50L).refShares(new BigDecimal("250")).build();
-        when(cashFlowMapper.findById(900L)).thenReturn(Optional.of(cf));
+        when(cashFlowMapper.findById(1L, 900L)).thenReturn(Optional.of(cf));
 
         svc.softDeleteCashFlow(1L, 7L, 900L);
 
         verify(stockHoldingService).addShares(1L, 50L, new BigDecimal("-250"));
-        verify(cashFlowMapper).softDelete(900L);
+        verify(cashFlowMapper).softDelete(1L, 900L);
         // 未走现金行冲回(那是 +现金 收入的路径)
         verify(stockHoldingService, never()).adjustAccountCash(anyLong(), anyLong(), any(), any());
     }

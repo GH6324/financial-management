@@ -68,7 +68,7 @@ public class ExpenseCatQueryService {
      * <p>金额降序 —— 用户想知道的是「钱主要花在哪」,不是「类目按什么顺序建的」。</p>
      */
     public List<CatRow> period(long familyId, long periodId) {
-        List<ExpenseFlowMapper.CatSum> sums = flowMapper.sumByCategory(periodId);
+        List<ExpenseFlowMapper.CatSum> sums = flowMapper.sumByCategory(familyId, periodId);
         if (sums.isEmpty()) return List.of();
 
         Map<Long, ExpenseCategory> byId = new LinkedHashMap<>();
@@ -136,7 +136,7 @@ public class ExpenseCatQueryService {
         Map<Long, ExpenseCategory> byId = new LinkedHashMap<>();
         for (ExpenseCategory c : categoryMapper.findByFamily(familyId)) byId.put(c.getId(), c);
         Map<Long, BigDecimal> topTotal = new LinkedHashMap<>();
-        for (var s : flowMapper.sumByPeriodAndCategory(ids)) {
+        for (var s : flowMapper.sumByPeriodAndCategory(familyId, ids)) {
             ExpenseCategory c = s.categoryId() == null ? null : byId.get(s.categoryId());
             Long topId = (c == null) ? null : (c.isTopLevel() ? c.getId() : c.getParentId());
             topTotal.merge(topId, nz(s.amount()), BigDecimal::add);
@@ -179,7 +179,7 @@ public class ExpenseCatQueryService {
         for (ExpenseCategory c : categoryMapper.findByFamily(familyId)) byId.put(c.getId(), c);
 
         Map<Long, Map<Long, BigDecimal>> byPeriod = new LinkedHashMap<>();
-        for (var s : flowMapper.sumByPeriodAndCategory(ids)) {
+        for (var s : flowMapper.sumByPeriodAndCategory(familyId, ids)) {
             ExpenseCategory c = s.categoryId() == null ? null : byId.get(s.categoryId());
             Long topId = (c == null) ? null : (c.isTopLevel() ? c.getId() : c.getParentId());
             byPeriod.computeIfAbsent(s.periodId(), k -> new LinkedHashMap<>())
@@ -252,14 +252,14 @@ public class ExpenseCatQueryService {
     }
 
     /** 下钻:某一期某个分类的那些笔(FR-570) */
-    public List<ExpenseFlowMapper.FlowRow> drillDown(long periodId, Long categoryId) {
-        return flowMapper.drillDown(periodId, categoryId);
+    public List<ExpenseFlowMapper.FlowRow> drillDown(long familyId, long periodId, Long categoryId) {
+        return flowMapper.drillDown(familyId, periodId, categoryId);
     }
 
     /** 这个家有没有任何一笔带分类的支出 —— 报表据此决定要不要渲染整块 */
     public boolean hasAny(long familyId, List<Long> periodIds) {
         if (periodIds == null || periodIds.isEmpty()) return false;
-        for (var s : flowMapper.sumByPeriodAndCategory(periodIds)) {
+        for (var s : flowMapper.sumByPeriodAndCategory(familyId, periodIds)) {
             if (s.categoryId() != null) return true;
         }
         return false;

@@ -442,7 +442,7 @@ public class EntryController {
                                @RequestParam long periodId,
                                org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
         // 账户要在删之前取 —— 删完就查不到这笔了
-        Long guardAccountId = cashFlowMapper.findById(cashFlowId)
+        Long guardAccountId = cashFlowMapper.findById(me.getFamilyId(), cashFlowId)
                 .map(com.family.finance.domain.flow.CashFlow::getAccountId).orElse(null);
         var before = balanceGuard.snapshot(guardAccountId, periodId);
         entryService.softDeleteCashFlow(me.getFamilyId(), me.getMemberId(), cashFlowId);

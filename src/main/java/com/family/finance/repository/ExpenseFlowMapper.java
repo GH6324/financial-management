@@ -44,13 +44,15 @@ public interface ExpenseFlowMapper {
                    SUM(cf.amount)         AS amount,
                    COUNT(*)               AS row_count
               FROM cash_flow cf
-             WHERE cf.period_id = #{periodId}
+              JOIN period p ON p.id = cf.period_id
+             WHERE p.family_id = #{familyId}
+               AND cf.period_id = #{periodId}
                AND cf.kind = 'EXPENSE'
                AND cf.category_code = 'consumption'
                AND cf.deleted_at IS NULL
              GROUP BY cf.expense_category_id
             """)
-    List<CatSum> sumByCategory(@Param("periodId") long periodId);
+    List<CatSum> sumByCategory(@Param("familyId") long familyId, @Param("periodId") long periodId);
 
     /** 多期一次问完 —— 12 期趋势不能在循环里查 12 次(联动链 N+1) */
     record PeriodCatSum(Long periodId, Long categoryId, BigDecimal amount) {}
@@ -61,7 +63,9 @@ public interface ExpenseFlowMapper {
                    cf.expense_category_id  AS categoryId,
                    SUM(cf.amount)          AS amount
               FROM cash_flow cf
-             WHERE cf.kind = 'EXPENSE'
+              JOIN period pd ON pd.id = cf.period_id
+             WHERE pd.family_id = #{familyId}
+               AND cf.kind = 'EXPENSE'
                AND cf.category_code = 'consumption'
                AND cf.deleted_at IS NULL
                AND cf.period_id IN
@@ -69,7 +73,8 @@ public interface ExpenseFlowMapper {
              GROUP BY cf.period_id, cf.expense_category_id
             </script>
             """)
-    List<PeriodCatSum> sumByPeriodAndCategory(@Param("periodIds") List<Long> periodIds);
+    List<PeriodCatSum> sumByPeriodAndCategory(@Param("familyId") long familyId,
+                                              @Param("periodIds") List<Long> periodIds);
 
     /** 下钻:某一期某个分类的那些笔(FR-570)。分类为 null 时看未分类的那一堆。 */
     record FlowRow(Long id, LocalDate occurredAt, String note, BigDecimal amount,
@@ -81,7 +86,8 @@ public interface ExpenseFlowMapper {
                    a.display_name AS accountName, cf.expense_category_id AS categoryId
               FROM cash_flow cf
               JOIN account a ON a.id = cf.account_id
-             WHERE cf.period_id = #{periodId}
+             WHERE a.family_id = #{familyId}
+               AND cf.period_id = #{periodId}
                AND cf.kind = 'EXPENSE'
                AND cf.category_code = 'consumption'
                AND cf.deleted_at IS NULL
@@ -93,7 +99,8 @@ public interface ExpenseFlowMapper {
              LIMIT 500
             </script>
             """)
-    List<FlowRow> drillDown(@Param("periodId") long periodId, @Param("categoryId") Long categoryId);
+    List<FlowRow> drillDown(@Param("familyId") long familyId,
+                            @Param("periodId") long periodId, @Param("categoryId") Long categoryId);
 
     /**
      * 删类目时搬家。
@@ -174,10 +181,13 @@ public interface ExpenseFlowMapper {
      * (整批一个开关),所以取 MAX 即可。</p>
      */
     @Select("""
-            SELECT COALESCE(MAX(affects_balance), 0) FROM cash_flow
-             WHERE import_batch_id = #{batchId}
+            SELECT COALESCE(MAX(cf.affects_balance), 0)
+              FROM cash_flow cf
+              JOIN expense_import_batch b ON b.id = cf.import_batch_id
+             WHERE b.family_id = #{familyId}
+               AND cf.import_batch_id = #{batchId}
             """)
-    boolean batchAffectsBalance(@Param("batchId") long batchId);
+    boolean batchAffectsBalance(@Param("familyId") long familyId, @Param("batchId") long batchId);
 
     /**
      * 这个批次每个账户各落了多少钱 —— 撤销时要<b>按账户分别加回</b>。
@@ -189,19 +199,26 @@ public interface ExpenseFlowMapper {
     record AcctSum(Long accountId, BigDecimal amount) {}
 
     @Select("""
-            SELECT account_id AS accountId, SUM(amount) AS amount
-              FROM cash_flow
-             WHERE import_batch_id = #{batchId} AND deleted_at IS NULL
-             GROUP BY account_id
+            SELECT cf.account_id AS accountId, SUM(cf.amount) AS amount
+              FROM cash_flow cf
+              JOIN expense_import_batch b ON b.id = cf.import_batch_id
+             WHERE b.family_id = #{familyId}
+               AND cf.import_batch_id = #{batchId}
+               AND cf.deleted_at IS NULL
+             GROUP BY cf.account_id
             """)
-    List<AcctSum> batchAmountByAccount(@Param("batchId") long batchId);
+    List<AcctSum> batchAmountByAccount(@Param("familyId") long familyId, @Param("batchId") long batchId);
 
     /** 整批撤销:软删该批次落的所有流水(FR-539) */
     @Update("""
-            UPDATE cash_flow SET deleted_at = NOW(3)
-             WHERE import_batch_id = #{batchId} AND deleted_at IS NULL
+            UPDATE cash_flow cf
+              JOIN expense_import_batch b ON b.id = cf.import_batch_id
+               SET cf.deleted_at = NOW(3)
+             WHERE b.family_id = #{familyId}
+               AND cf.import_batch_id = #{batchId}
+               AND cf.deleted_at IS NULL
             """)
-    int softDeleteBatch(@Param("batchId") long batchId);
+    int softDeleteBatch(@Param("familyId") long familyId, @Param("batchId") long batchId);
 
     // ══════════════ v1.22 · 「已存在」的笔可以就地修正(FR-598 ~ FR-600)══════════════
 
@@ -253,10 +270,15 @@ public interface ExpenseFlowMapper {
      * <p>分类<b>不动钱</b>,所以已关账的期也能改 —— 它只影响「钱花在哪」的构成图。</p>
      */
     @Update("""
-            UPDATE cash_flow SET expense_category_id = #{categoryId}
-             WHERE id = #{id} AND deleted_at IS NULL
+            UPDATE cash_flow cf
+              JOIN period p ON p.id = cf.period_id
+               SET cf.expense_category_id = #{categoryId}
+             WHERE p.family_id = #{familyId}
+               AND cf.id = #{id}
+               AND cf.deleted_at IS NULL
             """)
-    int updateCategory(@Param("id") long id, @Param("categoryId") Long categoryId);
+    int updateCategory(@Param("familyId") long familyId,
+                       @Param("id") long id, @Param("categoryId") Long categoryId);
 
     /**
      * 就地改这一笔的账户。
@@ -266,8 +288,13 @@ public interface ExpenseFlowMapper {
      * 这里多做一步就会出现两套改余额的代码。</p>
      */
     @Update("""
-            UPDATE cash_flow SET account_id = #{accountId}
-             WHERE id = #{id} AND deleted_at IS NULL
+            UPDATE cash_flow cf
+              JOIN period p ON p.id = cf.period_id
+               SET cf.account_id = #{accountId}
+             WHERE p.family_id = #{familyId}
+               AND cf.id = #{id}
+               AND cf.deleted_at IS NULL
             """)
-    int updateAccount(@Param("id") long id, @Param("accountId") long accountId);
+    int updateAccount(@Param("familyId") long familyId,
+                      @Param("id") long id, @Param("accountId") long accountId);
 }

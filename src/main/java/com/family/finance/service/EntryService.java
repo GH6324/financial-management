@@ -551,7 +551,7 @@ public class EntryService {
                                             long holdingId, BigDecimal shares, String note) {
         applyDeltaToBalance(period, account, memberId, value,
                 "+收入 " + catLabel + " " + money(value));
-        cashFlowMapper.insert(CashFlow.builder()
+        cashFlowMapper.insertOwned(familyId, CashFlow.builder()
                 .periodId(period.getId())
                 .accountId(account.getId())
                 .kind(CashFlowKind.INCOME)
@@ -598,7 +598,7 @@ public class EntryService {
     /** v0.2 FR-32 · 软删现金流(同时反向冲销余额) */
     @Transactional
     public EntryRow softDeleteCashFlow(long familyId, long memberId, long cashFlowId) {
-        CashFlow cf = cashFlowMapper.findById(cashFlowId)
+        CashFlow cf = cashFlowMapper.findById(familyId, cashFlowId)
                 .orElseThrow(() -> new IllegalArgumentException("现金流不存在: " + cashFlowId));
         Period period = requireOpenPeriod(familyId, cf.getPeriodId());
         Account account = requireAccount(familyId, cf.getAccountId());
@@ -619,7 +619,7 @@ public class EntryService {
             creditAccountBalance(familyId, period, account, memberId, delta,
                     "✕ 撤销 " + cf.getKind() + " " + money(cf.getAmount()));
         }
-        cashFlowMapper.softDelete(cashFlowId);
+        cashFlowMapper.softDelete(familyId, cashFlowId);
         auditLogService.record(familyId, memberId, AuditLogType.CASH_FLOW_WRITE, "cash_flow", cashFlowId,
                 "软删现金流 " + cf.getKind() + " " + money(cf.getAmount()));
         return rowFor(familyId, memberId, period.getId(), cf.getAccountId());
@@ -850,7 +850,7 @@ public class EntryService {
                 .stream()
                 .findFirst()
                 .orElse(null);
-        ReconciliationTotals totals = reconciliationTotals(period.getId(), account.getId());
+        ReconciliationTotals totals = reconciliationTotals(account.getFamilyId(), period.getId(), account.getId());
         BigDecimal currentBalance = current == null ? null : current.getEndBalance();
         BigDecimal previousBalance = previous == null ? null : previous.getEndBalance();
         BigDecimal effectiveBalance = currentBalance != null
@@ -913,7 +913,7 @@ public class EntryService {
                         period.getStatus() == PeriodStatus.OPEN, null));
             }
         }
-        for (CashFlow cf : cashFlowMapper.findByPeriodAndAccount(period.getId(), account.getId())) {
+        for (CashFlow cf : cashFlowMapper.findByPeriodAndAccount(account.getFamilyId(), period.getId(), account.getId())) {
             EntryRow.LedgerKind k = cf.getKind() == CashFlowKind.INCOME
                     ? EntryRow.LedgerKind.INCOME : EntryRow.LedgerKind.EXPENSE;
             String sign = cf.getKind() == CashFlowKind.INCOME ? "+" : "−";
@@ -1101,7 +1101,7 @@ public class EntryService {
         BigDecimal amount = line.kind() == CashFlowKind.EXPENSE
                 ? expenseMoney(line.amount())
                 : positiveMoney(line.amount());
-        cashFlowMapper.insert(CashFlow.builder()
+        cashFlowMapper.insertOwned(period.getFamilyId(), CashFlow.builder()
                 .periodId(period.getId())
                 .accountId(account.getId())
                 .kind(line.kind())
@@ -1164,10 +1164,10 @@ public class EntryService {
         // intentionally no-op
     }
 
-    private ReconciliationTotals reconciliationTotals(long periodId, long accountId) {
+    private ReconciliationTotals reconciliationTotals(long familyId, long periodId, long accountId) {
         BigDecimal income = BigDecimal.ZERO;
         BigDecimal expense = BigDecimal.ZERO;
-        for (CashFlow cashFlow : cashFlowMapper.findByPeriodAndAccount(periodId, accountId)) {
+        for (CashFlow cashFlow : cashFlowMapper.findByPeriodAndAccount(familyId, periodId, accountId)) {
             if (cashFlow.getKind() == CashFlowKind.INCOME) {
                 income = income.add(cashFlow.getAmount());
             } else {

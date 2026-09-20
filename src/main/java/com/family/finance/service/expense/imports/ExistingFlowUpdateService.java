@@ -104,7 +104,7 @@ public class ExistingFlowUpdateService {
                 if (!categoryService.isUsable(familyId, e.categoryId())) {
                     throw new UpdateException("选了一个不能用的分类 —— 刷新一下页面再试。");
                 }
-                flowMapper.updateCategory(row.id(), e.categoryId());
+                flowMapper.updateCategory(familyId, row.id(), e.categoryId());
                 catChanged++;
             }
 
@@ -130,7 +130,7 @@ public class ExistingFlowUpdateService {
                     id -> periodMapper.findById(id).orElse(null));
             if (period == null) continue;
 
-            flowMapper.updateAccount(row.id(), e.accountId());
+            flowMapper.updateAccount(familyId, row.id(), e.accountId());
 
             /* 【只有当初落到账户的笔才挪钱】。
              * 没落到账户的笔(affects_balance = 0)只回答「花在哪」,它从来没碰过余额,
