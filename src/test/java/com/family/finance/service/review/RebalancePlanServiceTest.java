@@ -34,46 +34,46 @@ class RebalancePlanServiceTest {
     void matchAtOrAbove80Pct_marksEarliestPendingOnly() {
         RebalancePlanMapper mapper = mock(RebalancePlanMapper.class);
         when(mapper.findActive(1L)).thenReturn(new RebalancePlanMapper.Plan(1L, 1L, 9L, "ACTIVE"));
-        when(mapper.findItems(1L)).thenReturn(List.of(
+        when(mapper.findItems(anyLong(), eq(1L))).thenReturn(List.of(
                 item(11L, 100L, 200L, "50000", "PENDING"),
                 item(12L, 100L, 200L, "50000", "PENDING")));
         svc(mapper).onTransfer(new RebalancePlanService.TransferCreatedEvent(1L, 77L, 100L, 200L, new BigDecimal("40000")));
-        verify(mapper).markExecuted(11L, 77L);          // 40000 ≥ 50000×0.8 → 核销最早一条
-        verify(mapper, never()).markExecuted(eq(12L), anyLong());
+        verify(mapper).markExecuted(anyLong(), eq(11L), eq(77L));          // 40000 ≥ 50000×0.8 → 核销最早一条
+        verify(mapper, never()).markExecuted(anyLong(), eq(12L), anyLong());
     }
 
     @Test
     void below80Pct_orWrongAccounts_noMatch() {
         RebalancePlanMapper mapper = mock(RebalancePlanMapper.class);
         when(mapper.findActive(1L)).thenReturn(new RebalancePlanMapper.Plan(1L, 1L, 9L, "ACTIVE"));
-        when(mapper.findItems(1L)).thenReturn(List.of(item(11L, 100L, 200L, "50000", "PENDING")));
+        when(mapper.findItems(anyLong(), eq(1L))).thenReturn(List.of(item(11L, 100L, 200L, "50000", "PENDING")));
         // 金额不足 80%
         svc(mapper).onTransfer(new RebalancePlanService.TransferCreatedEvent(1L, 77L, 100L, 200L, new BigDecimal("39999")));
-        verify(mapper, never()).markExecuted(anyLong(), anyLong());
+        verify(mapper, never()).markExecuted(anyLong(), anyLong(), anyLong());
         // from/to 不匹配
         svc(mapper).onTransfer(new RebalancePlanService.TransferCreatedEvent(1L, 78L, 100L, 999L, new BigDecimal("50000")));
-        verify(mapper, never()).markExecuted(anyLong(), anyLong());
+        verify(mapper, never()).markExecuted(anyLong(), anyLong(), anyLong());
     }
 
     @Test
     void executedItemsAreSkipped_andNoPlanIsNoop() {
         RebalancePlanMapper mapper = mock(RebalancePlanMapper.class);
         when(mapper.findActive(1L)).thenReturn(new RebalancePlanMapper.Plan(1L, 1L, 9L, "ACTIVE"));
-        when(mapper.findItems(1L)).thenReturn(List.of(item(11L, 100L, 200L, "50000", "EXECUTED")));
+        when(mapper.findItems(anyLong(), eq(1L))).thenReturn(List.of(item(11L, 100L, 200L, "50000", "EXECUTED")));
         svc(mapper).onTransfer(new RebalancePlanService.TransferCreatedEvent(1L, 77L, 100L, 200L, new BigDecimal("50000")));
-        verify(mapper, never()).markExecuted(anyLong(), anyLong());
+        verify(mapper, never()).markExecuted(anyLong(), anyLong(), anyLong());
 
         RebalancePlanMapper empty = mock(RebalancePlanMapper.class);
         when(empty.findActive(2L)).thenReturn(null);
         svc(empty).onTransfer(new RebalancePlanService.TransferCreatedEvent(2L, 1L, 1L, 2L, BigDecimal.TEN));
-        verify(empty, never()).findItems(anyLong());
+        verify(empty, never()).findItems(anyLong(), anyLong());
     }
 
     @Test
     void planProgressView_countsDoneAndAmounts() {
         RebalancePlanMapper mapper = mock(RebalancePlanMapper.class);
         when(mapper.findActive(1L)).thenReturn(new RebalancePlanMapper.Plan(1L, 1L, 9L, "ACTIVE"));
-        when(mapper.findItems(1L)).thenReturn(List.of(
+        when(mapper.findItems(anyLong(), eq(1L))).thenReturn(List.of(
                 item(11L, 100L, 200L, "50000", "EXECUTED"),
                 item(12L, 100L, 300L, "30000", "PENDING"),
                 item(13L, 100L, 400L, "20000", "MANUAL_DONE")));

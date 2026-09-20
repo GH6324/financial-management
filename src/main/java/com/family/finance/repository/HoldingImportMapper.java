@@ -22,8 +22,9 @@ public interface HoldingImportMapper {
             created_at AS createdAt, updated_at AS updatedAt, confirmed_at AS confirmedAt
             """;
 
-    @Select("SELECT " + COLS + " FROM holding_import WHERE id = #{id}")
-    Optional<HoldingImport> findById(@Param("id") long id);
+    @Select("SELECT " + COLS + " FROM holding_import"
+          + " WHERE family_id = #{familyId} AND id = #{id}")
+    Optional<HoldingImport> findById(@Param("familyId") long familyId, @Param("id") long id);
 
     /**
      * 该账户是否有未完成的导入 → 断点续看 · 取最新一条。
@@ -33,9 +34,11 @@ public interface HoldingImportMapper {
      * 上一次的失败原因和已传的图全被甩在后面看不到了。</p>
      */
     @Select("SELECT " + COLS + " FROM holding_import"
-            + " WHERE account_id = #{accountId} AND status IN ('UPLOADING','SCANNING','REVIEW','SCAN_ERROR')"
+            + " WHERE family_id = #{familyId} AND account_id = #{accountId}"
+            + " AND status IN ('UPLOADING','SCANNING','REVIEW','SCAN_ERROR')"
             + " ORDER BY id DESC LIMIT 1")
-    Optional<HoldingImport> findOpenByAccount(@Param("accountId") long accountId);
+    Optional<HoldingImport> findOpenByAccount(@Param("familyId") long familyId,
+                                             @Param("accountId") long accountId);
 
     @Insert("""
             INSERT INTO holding_import (family_id, account_id, period_id, status, vision_model, cost_est, img_count)
@@ -44,17 +47,17 @@ public interface HoldingImportMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(HoldingImport imp);
 
-    @Update("UPDATE holding_import SET status = #{status} WHERE id = #{id}")
-    int updateStatus(@Param("id") long id, @Param("status") String status);
+    @Update("UPDATE holding_import SET status = #{status} WHERE family_id = #{familyId} AND id = #{id}")
+    int updateStatus(@Param("familyId") long familyId, @Param("id") long id, @Param("status") String status);
 
-    @Update("UPDATE holding_import SET img_count = #{imgCount} WHERE id = #{id}")
-    int updateImgCount(@Param("id") long id, @Param("imgCount") int imgCount);
+    @Update("UPDATE holding_import SET img_count = #{imgCount} WHERE family_id = #{familyId} AND id = #{id}")
+    int updateImgCount(@Param("familyId") long familyId, @Param("id") long id, @Param("imgCount") int imgCount);
 
-    @Update("UPDATE holding_import SET status = 'REVIEW' WHERE id = #{id}")
-    int markReview(@Param("id") long id);
+    @Update("UPDATE holding_import SET status = 'REVIEW' WHERE family_id = #{familyId} AND id = #{id}")
+    int markReview(@Param("familyId") long familyId, @Param("id") long id);
 
-    @Update("UPDATE holding_import SET status = 'SCANNING', scan_error = NULL WHERE id = #{id}")
-    int markScanning(@Param("id") long id);
+    @Update("UPDATE holding_import SET status = 'SCANNING', scan_error = NULL WHERE family_id = #{familyId} AND id = #{id}")
+    int markScanning(@Param("familyId") long familyId, @Param("id") long id);
 
     /**
      * v1.19.4 · 一张都没识别出来 → 进 {@code SCAN_ERROR},<b>不是 REVIEW</b>。
@@ -62,8 +65,8 @@ public interface HoldingImportMapper {
      * <p>原来这里写的是 {@code status='REVIEW'} —— 识别全军覆没,页面却给出一张
      * 「每条持仓都是卖出?」的比对表和一个确认按钮。差一次勾选就会清空真实持仓。</p>
      */
-    @Update("UPDATE holding_import SET status = 'SCAN_ERROR', scan_error = #{err} WHERE id = #{id}")
-    int markScanError(@Param("id") long id, @Param("err") String err);
+    @Update("UPDATE holding_import SET status = 'SCAN_ERROR', scan_error = #{err} WHERE family_id = #{familyId} AND id = #{id}")
+    int markScanError(@Param("familyId") long familyId, @Param("id") long id, @Param("err") String err);
 
     /**
      * v1.19.4 · 识别成功了一部分:照常进 REVIEW,但把「有几张没成」记下来给页面提示。
@@ -72,9 +75,9 @@ public interface HoldingImportMapper {
      * 没识别出来的那张图里的持仓,在比对时会被当成「本次没截到」。所以除了这条提示,
      * service 那边还会在有图失败时**整体不判卖出**。</p>
      */
-    @Update("UPDATE holding_import SET status = 'REVIEW', scan_error = #{warn} WHERE id = #{id}")
-    int markReviewWithWarning(@Param("id") long id, @Param("warn") String warn);
+    @Update("UPDATE holding_import SET status = 'REVIEW', scan_error = #{warn} WHERE family_id = #{familyId} AND id = #{id}")
+    int markReviewWithWarning(@Param("familyId") long familyId, @Param("id") long id, @Param("warn") String warn);
 
-    @Update("UPDATE holding_import SET status = 'CONFIRMED', confirmed_at = NOW(3) WHERE id = #{id}")
-    int markConfirmed(@Param("id") long id);
+    @Update("UPDATE holding_import SET status = 'CONFIRMED', confirmed_at = NOW(3) WHERE family_id = #{familyId} AND id = #{id}")
+    int markConfirmed(@Param("familyId") long familyId, @Param("id") long id);
 }

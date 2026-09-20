@@ -35,8 +35,9 @@ public interface ExpenseMerchantRuleMapper {
             """)
     List<Rule> findByFamily(@Param("familyId") long familyId);
 
-    @Update("UPDATE expense_merchant_rule SET hit_count = hit_count + #{n} WHERE id = #{id}")
-    int addHits(@Param("id") long id, @Param("n") int n);
+    @Update("UPDATE expense_merchant_rule SET hit_count = hit_count + #{n}"
+          + " WHERE family_id = #{familyId} AND id = #{id}")
+    int addHits(@Param("familyId") long familyId, @Param("id") long id, @Param("n") int n);
 
     @Delete("DELETE FROM expense_merchant_rule WHERE id = #{id} AND family_id = #{familyId}")
     int delete(@Param("familyId") long familyId, @Param("id") long id);

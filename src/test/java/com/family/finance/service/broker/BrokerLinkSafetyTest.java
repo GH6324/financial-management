@@ -48,7 +48,7 @@ class BrokerLinkSafetyTest {
         when(acc.getFamilyId()).thenReturn(1L);
         when(acc.getType()).thenReturn(AccountType.STOCK);
         when(am.findById(anyLong(), eq(100L))).thenReturn(Optional.of(acc));
-        when(lm.findByAccount(100L)).thenReturn(Optional.empty()); // 尚未关联
+        when(lm.findByAccount(anyLong(), eq(100L))).thenReturn(Optional.empty()); // 尚未关联
         StockHolding existing = StockHolding.builder().id(7L).accountId(100L)
                 .valuationMode(ValuationMode.MANUAL).ticker("PRIV").market(Market.US)
                 .manualValue(BigDecimal.valueOf(5000)).currency("USD").build();
@@ -66,7 +66,7 @@ class BrokerLinkSafetyTest {
         io.verify(audit).write(eq(1L), eq(2L), eq(AuditLogType.BROKER_LINK), eq("account"), eq(100L),
                 summaryCap.capture(), payloadCap.capture());
         io.verify(hm).archive(1L, 7L);
-        io.verify(lm).insert(any(BrokerLink.class));
+        io.verify(lm).insertOwned(anyLong(), any(BrokerLink.class));
 
         // summary 短且含「快照」;归档前持仓明细(可供找回)落在 payload
         assertThat(summaryCap.getValue()).contains("快照").hasSizeLessThanOrEqualTo(255);
@@ -107,7 +107,7 @@ class BrokerLinkSafetyTest {
         BrokerLinkService svc = new BrokerLinkService(lm, hm, am, audit, mock(BrokerSyncService.class));
         svc.unlink(1L, 100L, 2L);
 
-        verify(lm).deleteByAccount(100L);
+        verify(lm).deleteByAccount(1L, 100L);
         verify(hm).clearSyncSource(1L, 100L);
         verify(audit).record(eq(1L), eq(2L), eq(AuditLogType.BROKER_LINK), eq("account"), eq(100L), any());
     }

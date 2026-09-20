@@ -380,9 +380,9 @@ public class AccountValuationService {
                 .map(PeriodSnapshot::getEndBalance).orElse(null);
         if (current != null && balance != null) {
             try {
-                java.time.LocalDateTime since = valuationEventMapper.lastEventAt(acc.getId(), periodId);
+                java.time.LocalDateTime since = valuationEventMapper.lastEventAt(acc.getFamilyId(), acc.getId(), periodId);
                 java.util.List<BigDecimal> windowFlows =
-                        valuationEventMapper.findFlowsAfter(acc.getId(), periodId, since);
+                        valuationEventMapper.findFlowsAfter(acc.getFamilyId(), acc.getId(), periodId, since);
                 BigDecimal windowFlow = com.family.finance.calc.reconcile.ErasureDetector.erasedAmount(
                         balance.subtract(current), windowFlows,
                         com.family.finance.calc.reconcile.ErasureDetector.MIN_EPSILON);

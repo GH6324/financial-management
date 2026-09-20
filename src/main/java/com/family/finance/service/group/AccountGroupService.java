@@ -121,7 +121,7 @@ public class AccountGroupService {
                 .familyId(familyId).name(safe).note(note).createdBy(memberId).build();
         groupMapper.insert(g);
         if (accountIds != null) {
-            for (Long id : accountIds) groupMapper.addMember(g.getId(), id);
+            for (Long id : accountIds) groupMapper.addMember(familyId, g.getId(), id);
         }
         backfillFreeze(familyId);
         return g;
@@ -202,8 +202,8 @@ public class AccountGroupService {
             g.setName(name.trim());
             groupMapper.rename(g);
         }
-        groupMapper.clearMembers(groupId);
-        if (accountIds != null) for (Long id : accountIds) groupMapper.addMember(groupId, id);
+        groupMapper.clearMembers(familyId, groupId);
+        if (accountIds != null) for (Long id : accountIds) groupMapper.addMember(familyId, groupId, id);
         backfillFreeze(familyId);   // 只对【还没定格】的期生效,已定格的一行不动
     }
 

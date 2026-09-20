@@ -48,7 +48,6 @@ import java.util.stream.Stream;
 public class HoldingImportService {
 
     public static final String SYNC_SOURCE = "SCREENSHOT";
-    private static final long FAMILY_ID = 1L;
 
     private final HoldingImportMapper importMapper;
     private final HoldingImportItemMapper itemMapper;
@@ -66,7 +65,7 @@ public class HoldingImportService {
     /** 进某账户导入页:有未完成(SCANNING/REVIEW)的则续看,否则新建 UPLOADING。 */
     @Transactional
     public HoldingImport startOrResume(long familyId, long accountId) {
-        Optional<HoldingImport> open = importMapper.findOpenByAccount(accountId);
+        Optional<HoldingImport> open = importMapper.findOpenByAccount(familyId, accountId);
         if (open.isPresent()) return open.get();
         Account acc = accountMapper.findById(familyId, accountId).orElseThrow(() -> new IllegalArgumentException("账户不存在"));
         Period period = periodMapper.findBalancePeriod(acc.getFamilyId())
@@ -79,9 +78,9 @@ public class HoldingImportService {
         return imp;
     }
 
-    public Optional<HoldingImport> get(long importId) { return importMapper.findById(importId); }
+    public Optional<HoldingImport> get(long familyId, long importId) { return importMapper.findById(familyId, importId); }
 
-    public List<HoldingImportItem> items(long importId) { return itemMapper.findByImport(importId); }
+    public List<HoldingImportItem> items(long familyId, long importId) { return itemMapper.findByImport(familyId, importId); }
 
     // ---------- 上传(压缩图已由前端做,服务端存 + 校验) ----------
 
@@ -102,7 +101,7 @@ public class HoldingImportService {
         if (!target.startsWith(root)) throw new IllegalStateException("非法路径");
         Files.write(target, bytes);
         int count = listImages(imp).size();   // imgCount = 实际文件数(含刚写的),与删除后计数自洽
-        importMapper.updateImgCount(imp.getId(), count);
+        importMapper.updateImgCount(imp.getFamilyId(), imp.getId(), count);
         imp.setImgCount(count);
         return rel;
     }
@@ -124,8 +123,8 @@ public class HoldingImportService {
     }
 
     /** v1.4.2 · 列出某导入已存截图的相对路径(上传态/失败态查看+删除用)。 */
-    public List<String> imageRels(long importId) {
-        HoldingImport imp = importMapper.findById(importId).orElse(null);
+    public List<String> imageRels(long familyId, long importId) {
+        HoldingImport imp = importMapper.findById(familyId, importId).orElse(null);
         if (imp == null) return List.of();
         try {
             return listImages(imp).stream().map(p -> relOf(imp, p)).collect(Collectors.toList());
@@ -138,7 +137,7 @@ public class HoldingImportService {
     /** v1.4.2 · 删一张已上传截图(校验属于本导入)· 递减 imgCount 为实际剩余数。 */
     @Transactional
     public void deleteImage(long familyId, long importId, String rel) {
-        HoldingImport imp = importMapper.findById(importId).orElseThrow(() -> new IllegalArgumentException("导入不存在"));
+        HoldingImport imp = importMapper.findById(familyId, importId).orElseThrow(() -> new IllegalArgumentException("导入不存在"));
         if (imp.getFamilyId() != familyId) throw new IllegalArgumentException("无权访问");
         if (rel == null || rel.isBlank()) throw new IllegalArgumentException("缺少图片");
         Path root = Paths.get(props.uploadRoot()).toAbsolutePath().normalize();
@@ -150,17 +149,17 @@ public class HoldingImportService {
         } catch (IOException e) {
             throw new IllegalStateException("删除失败: " + e.getMessage());
         }
-        importMapper.updateImgCount(importId, imageRels(importId).size());
+        importMapper.updateImgCount(familyId, importId, imageRels(familyId, importId).size());
     }
 
     // ---------- 异步识别 + 三态匹配 ----------
 
     /** 后台识别(controller 跨 bean 调 = 代理生效 = 真异步)。失败 markScanError,不抛给前端。 */
     @Async
-    public void scanAsync(long importId) {
-        HoldingImport imp = importMapper.findById(importId).orElse(null);
+    public void scanAsync(long familyId, long importId) {
+        HoldingImport imp = importMapper.findById(familyId, importId).orElse(null);
         if (imp == null) return;
-        importMapper.markScanning(importId);
+        importMapper.markScanning(familyId, importId);
         try {
             List<Path> images = listImages(imp);
             // 1. 逐图视觉转写 + 记来源图
@@ -188,8 +187,8 @@ public class HoldingImportService {
             //     用户面对的是一张「全部卖出」的表 —— 而真实原因(额度用完 / key 失效)
             //     只躺在服务器日志里。线上真实发生过,详见 SCAN_ERROR 的注释。
             if (!images.isEmpty() && failedImages == images.size()) {
-                itemMapper.deleteByImport(importId);   // 清掉上一轮的残留,别让旧结果冒充本次
-                importMapper.markScanError(importId, friendly(lastError));
+                itemMapper.deleteByImport(familyId, importId);   // 清掉上一轮的残留,别让旧结果冒充本次
+                importMapper.markScanError(familyId, importId, friendly(lastError));
                 log.error("import {} 全部 {} 张图识别失败,置 SCAN_ERROR", importId, images.size());
                 return;
             }
@@ -206,7 +205,7 @@ public class HoldingImportService {
             // 3. 白名单打标(复用 LensAiTag · 文本)
             List<String> names = rows.stream().map(x -> x.row().name()).collect(Collectors.toList());
             Map<String, LensAiTagService.Tags> tags;
-            try { tags = tagService.available(FAMILY_ID) ? tagService.suggest(FAMILY_ID, names) : Map.of(); }
+            try { tags = tagService.available(imp.getFamilyId()) ? tagService.suggest(imp.getFamilyId(), names) : Map.of(); }
             catch (Exception e) { tags = Map.of(); }
             // 4. 三态匹配(只比对本账户 SCREENSHOT 活持仓)
             List<StockHolding> existing = holdingMapper.findActiveByAccount(imp.getFamilyId(), imp.getAccountId()).stream()
@@ -216,7 +215,7 @@ public class HoldingImportService {
             for (StockHolding h : existing) existingByKey.put(normalize(h.getDisplayName()), h);
             java.util.Set<Long> matchedIds = new java.util.HashSet<>();
 
-            itemMapper.deleteByImport(importId);  // 重扫覆盖旧结果
+            itemMapper.deleteByImport(familyId, importId);  // 重扫覆盖旧结果
             int sort = 0;
             for (Parsed p : rows) {
                 VisionLlmClient.ParsedRow r = p.row();
@@ -230,7 +229,7 @@ public class HoldingImportService {
                 } else {
                     state = HoldingImportItem.NEW;
                 }
-                itemMapper.insert(HoldingImportItem.builder()
+                itemMapper.insertOwned(familyId, HoldingImportItem.builder()
                         .importId(importId).parsedName(r.name()).parsedCode(emptyToNull(r.code()))
                         .marketValue(r.marketValue()).confidence(r.confidence())
                         .matchState(state).matchedHid(hid).oldValue(oldVal)
@@ -250,23 +249,23 @@ public class HoldingImportService {
             if (failedImages == 0) {
                 for (StockHolding h : existing) {
                     if (matchedIds.contains(h.getId())) continue;
-                    itemMapper.insert(HoldingImportItem.builder()
+                    itemMapper.insertOwned(familyId, HoldingImportItem.builder()
                             .importId(importId).parsedName(h.getDisplayName())
                             .marketValue(marketValueOf(h)).confidence("high")
                             .matchState(HoldingImportItem.SOLD).matchedHid(h.getId())
                             .oldValue(marketValueOf(h)).userDecision(HoldingImportItem.KEEP)
                             .shotPath(null).selected(true).sortNo(sort++).build());
                 }
-                importMapper.markReview(importId);
+                importMapper.markReview(familyId, importId);
             } else {
                 int total = images.size();
-                importMapper.markReviewWithWarning(importId,
+                importMapper.markReviewWithWarning(familyId, importId,
                         total + " 张图里有 " + failedImages + " 张没识别成功(" + friendly(lastError) + ")· "
                         + "这一轮不提示「卖出」—— 没识别出来不等于卖掉了。补传或重新识别后再看。");
             }
         } catch (Exception e) {
             log.error("import {} 扫描失败", importId, e);
-            importMapper.markScanError(importId, friendly(e));
+            importMapper.markScanError(familyId, importId, friendly(e));
         }
     }
 
@@ -274,10 +273,10 @@ public class HoldingImportService {
 
     /** 用户确认:按 item 增/改/归档 → 估值交接(IMPORT 事件挂 refImportId)→ CONFIRMED。 */
     @Transactional
-    public void confirm(long importId, Long memberId) {
-        HoldingImport imp = importMapper.findById(importId).orElseThrow(() -> new IllegalArgumentException("导入不存在"));
+    public void confirm(long familyId, long importId, Long memberId) {
+        HoldingImport imp = importMapper.findById(familyId, importId).orElseThrow(() -> new IllegalArgumentException("导入不存在"));
         if (!HoldingImport.REVIEW.equals(imp.getStatus())) throw new IllegalStateException("当前状态不可确认");
-        for (HoldingImportItem it : itemMapper.findByImport(importId)) {
+        for (HoldingImportItem it : itemMapper.findByImport(familyId, importId)) {
             if (it.getSelected() != null && !it.getSelected()) continue;
             switch (it.getMatchState()) {
                 case HoldingImportItem.NEW -> {
@@ -312,19 +311,19 @@ public class HoldingImportService {
         // 估值交接:写回当期快照 + 记 IMPORT 估值事件(挂 refImportId,ledger 可展开明细)
         valuationService.refreshOneAccount(imp.getFamilyId(), imp.getAccountId(),
                 AccountValuationService.TriggerKind.IMPORT, memberId, importId);
-        importMapper.markConfirmed(importId);
+        importMapper.markConfirmed(familyId, importId);
         // v1.5 · 导入的基金后台自动穿透(真实行业/资产分布)· 首次略慢,结果全体共享缓存
         try { penetrationService.penetrateFamilyAsync(imp.getFamilyId()); } catch (Exception ignored) {}
     }
 
     @Transactional
-    public void abandon(long importId) { importMapper.updateStatus(importId, HoldingImport.ABANDONED); }
+    public void abandon(long familyId, long importId) { importMapper.updateStatus(familyId, importId, HoldingImport.ABANDONED); }
 
     /** 用户在比对表编辑一项 · 只覆盖传入的非空字段(selected 显式传即覆盖) */
     @Transactional
     public void editItem(long familyId, long itemId, HoldingImportItem edit) {
-        HoldingImportItem it = itemMapper.findById(itemId).orElseThrow(() -> new IllegalArgumentException("项不存在"));
-        HoldingImport imp = importMapper.findById(it.getImportId()).orElseThrow(() -> new IllegalArgumentException("导入不存在"));
+        HoldingImportItem it = itemMapper.findById(familyId, itemId).orElseThrow(() -> new IllegalArgumentException("项不存在"));
+        HoldingImport imp = importMapper.findById(familyId, it.getImportId()).orElseThrow(() -> new IllegalArgumentException("导入不存在"));
         if (imp.getFamilyId() != familyId) throw new IllegalArgumentException("无权访问");
         if (edit.getParsedName() != null) it.setParsedName(edit.getParsedName());
         if (edit.getMarketValue() != null) it.setMarketValue(edit.getMarketValue());
@@ -335,7 +334,7 @@ public class HoldingImportService {
         if (edit.getPlatformTag() != null) it.setPlatformTag(edit.getPlatformTag());
         if (edit.getUserDecision() != null) it.setUserDecision(edit.getUserDecision());
         if (edit.getSelected() != null) it.setSelected(edit.getSelected());
-        itemMapper.update(it);
+        itemMapper.update(familyId, it);
     }
 
     // ---------- 内部 ----------

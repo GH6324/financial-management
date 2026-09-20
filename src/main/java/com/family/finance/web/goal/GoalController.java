@@ -229,9 +229,9 @@ public class GoalController {
                 .ifPresent(m -> model.addAttribute("childMember", m));
         }
         // v0.3 FR-53b/c · AI 月报 + 偏离预警(null safe)
-        aiReportMapper.findLatestByGoalAndType(id, "MONTHLY")
+        aiReportMapper.findLatestByGoalAndType(me.getFamilyId(), id, "MONTHLY")
             .ifPresent(r -> model.addAttribute("aiMonthlyReport", r));
-        aiReportMapper.findLatestByGoalAndType(id, "ALERT")
+        aiReportMapper.findLatestByGoalAndType(me.getFamilyId(), id, "ALERT")
             .filter(r -> r.getDismissedAt() == null)
             .ifPresent(r -> model.addAttribute("aiAlert", r));
         return "goals/detail";
@@ -244,8 +244,8 @@ public class GoalController {
     public String dismissAlert(@AuthenticationPrincipal MemberPrincipal me,
                                @PathVariable long id) {
         goalService.require(me.getFamilyId(), id);
-        aiReportMapper.findLatestByGoalAndType(id, "ALERT")
-            .ifPresent(r -> aiReportMapper.dismiss(r.getId()));
+        aiReportMapper.findLatestByGoalAndType(me.getFamilyId(), id, "ALERT")
+            .ifPresent(r -> aiReportMapper.dismiss(me.getFamilyId(), r.getId()));
         return "redirect:/goals/" + id;
     }
 
@@ -261,7 +261,7 @@ public class GoalController {
             model.addAttribute("goal", goal);
             model.addAttribute("accounts", accountMapper.findActiveByFamily(me.getFamilyId()));
             model.addAttribute("metrics", GoalMetric.values());
-            model.addAttribute("boundIds", goalService.boundAccountIds(id));
+            model.addAttribute("boundIds", goalService.boundAccountIds(me.getFamilyId(), id));
             model.addAttribute("editing", true);
             return "goals/new-custom";
         }

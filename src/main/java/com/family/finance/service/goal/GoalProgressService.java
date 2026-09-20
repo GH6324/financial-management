@@ -71,7 +71,7 @@ public class GoalProgressService {
 
     /** v0.16 · 自定义追踪目标:指标聚合当前值 + 达标率/倒计时/pace(无三情景)。 */
     private GoalProgress computeCustom(long familyId, Goal goal) {
-        Set<Long> accountIds = new HashSet<>(goalAccountMapper.findAccountIds(goal.getId()));
+        Set<Long> accountIds = new HashSet<>(goalAccountMapper.findAccountIds(familyId, goal.getId()));
         GoalMetric metric = goal.metricOrDefault();
         GoalComparator cmp = goal.comparatorOrDefault();
         BigDecimal pv = metricEvaluator.current(familyId, metric, accountIds);

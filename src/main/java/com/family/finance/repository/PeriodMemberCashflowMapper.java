@@ -22,20 +22,24 @@ public interface PeriodMemberCashflowMapper {
             SELECT id, family_id, period_id, member_id, total_income_input, total_expense_input,
                    created_at, updated_at
               FROM period_member_cashflow
-             WHERE period_id = #{periodId}
+             WHERE family_id = #{familyId}
+               AND period_id = #{periodId}
                AND member_id = #{memberId}
             """)
-    Optional<PeriodMemberCashflow> findByPeriodAndMember(@Param("periodId") long periodId,
+    Optional<PeriodMemberCashflow> findByPeriodAndMember(@Param("familyId") long familyId,
+                                                         @Param("periodId") long periodId,
                                                          @Param("memberId") long memberId);
 
     @Select("""
             SELECT id, family_id, period_id, member_id, total_income_input, total_expense_input,
                    created_at, updated_at
               FROM period_member_cashflow
-             WHERE period_id = #{periodId}
+             WHERE family_id = #{familyId}
+               AND period_id = #{periodId}
              ORDER BY member_id
             """)
-    List<PeriodMemberCashflow> findByPeriod(@Param("periodId") long periodId);
+    List<PeriodMemberCashflow> findByPeriod(@Param("familyId") long familyId,
+                                            @Param("periodId") long periodId);
 
     @Insert("""
             INSERT INTO period_member_cashflow

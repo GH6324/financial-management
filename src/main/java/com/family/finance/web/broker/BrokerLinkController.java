@@ -51,7 +51,7 @@ public class BrokerLinkController {
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
         model.addAttribute("account", account);
-        model.addAttribute("link", linkMapper.findByAccount(accountId).orElse(null));
+        model.addAttribute("link", linkMapper.findByAccount(me.getFamilyId(), accountId).orElse(null));
         model.addAttribute("vendors", BrokerVendor.values());
         return "broker/link";
     }
@@ -93,7 +93,7 @@ public class BrokerLinkController {
     public String testLink(@AuthenticationPrincipal MemberPrincipal me,
                            @PathVariable long accountId, RedirectAttributes ra) {
         try {
-            var link = linkMapper.findByAccount(accountId)
+            var link = linkMapper.findByAccount(me.getFamilyId(), accountId)
                     .orElseThrow(() -> new IllegalStateException("该账户未关联券商"));
             var report = syncService.clientFor(link.getVendor()).testConnection(me.getFamilyId(), link);
             ra.addFlashAttribute("brokerTestReport", report);

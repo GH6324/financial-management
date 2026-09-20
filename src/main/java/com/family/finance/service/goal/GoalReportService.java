@@ -45,7 +45,7 @@ public class GoalReportService {
                             .content(r.value())
                             .validatorStatus("PASS")
                             .build();
-                        reportMapper.upsert(report);
+                        reportMapper.upsertOwned(familyId, report);
                         log.info("goal={} monthly report generated · period={}", g.getId(), periodId);
                     } else {
                         log.info("goal={} monthly report unavailable · {}", g.getId(), r.error());
@@ -80,7 +80,7 @@ public class GoalReportService {
                     .content(r.value())
                     .validatorStatus("PASS")
                     .build();
-                reportMapper.upsert(report);
+                reportMapper.upsertOwned(familyId, report);
                 log.info("goal={} monthly report generated on-demand", goalId);
                 return true;
             } else {
@@ -108,7 +108,7 @@ public class GoalReportService {
             List<Goal> goals = goalService.findActiveByFamily(familyId);
             for (Goal g : goals) {
                 try {
-                    if (reportMapper.countRecentAlerts(g.getId()) > 0) {
+                    if (reportMapper.countRecentAlerts(familyId, g.getId()) > 0) {
                         log.debug("goal={} alert throttled (90 days)", g.getId());
                         continue;
                     }
@@ -124,7 +124,7 @@ public class GoalReportService {
                             .content(r.value())
                             .validatorStatus("PASS")
                             .build();
-                        reportMapper.upsert(report);
+                        reportMapper.upsertOwned(familyId, report);
                         log.info("goal={} alert generated · reason={}", g.getId(), reason);
                     }
                 } catch (Exception inner) {

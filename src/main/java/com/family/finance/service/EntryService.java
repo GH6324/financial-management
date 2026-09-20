@@ -947,7 +947,7 @@ public class EntryService {
         if (com.family.finance.service.stock.StockHoldingService.supportsHoldings(account.getType())) {
             try {
                 for (StockValuationEvent ev : stockValuationEventMapper.findByAccountAndPeriod(
-                        account.getId(), period.getId())) {
+                        account.getFamilyId(), account.getId(), period.getId())) {
                     String sign = ev.getDelta().signum() >= 0 ? "+" : "−";
                     String label = "估值变动 · " + triggerCn(ev.getTriggerKind());
                     String note = ev.getNote() != null ? ev.getNote()

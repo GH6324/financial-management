@@ -88,7 +88,7 @@ public class AccountController {
         Account account = accountService.require(me.getFamilyId(), accountId);
         addEditModel(me, model, account);
         model.addAttribute("insurancePolicy",
-                insurancePolicyMapper.findByAccount(accountId).orElse(null));
+                insurancePolicyMapper.findByAccount(me.getFamilyId(), accountId).orElse(null));
         return "accounts/edit";
     }
 
@@ -108,7 +108,7 @@ public class AccountController {
         if (created.getType() == AccountType.INSURANCE) {
             InsurancePolicy policy = form.toPolicy(created.getId());
             if (policy.hasAnyField()) {
-                insurancePolicyMapper.upsert(policy);
+                insurancePolicyMapper.upsertOwned(me.getFamilyId(), policy);
             }
         }
         return "redirect:/accounts";
@@ -122,9 +122,9 @@ public class AccountController {
         // v0.17 · 保单旁表:保险账户 upsert;若改成非保险则清理旁表(校验归属由 update 完成)
         Account acc = accountService.require(me.getFamilyId(), accountId);
         if (acc.getType() == AccountType.INSURANCE) {
-            insurancePolicyMapper.upsert(form.toPolicy(accountId));
+            insurancePolicyMapper.upsertOwned(me.getFamilyId(), form.toPolicy(accountId));
         } else {
-            insurancePolicyMapper.deleteByAccount(accountId);
+            insurancePolicyMapper.deleteByAccount(me.getFamilyId(), accountId);
         }
         return "redirect:/accounts";
     }
@@ -161,7 +161,7 @@ public class AccountController {
         model.addAttribute("keyword", keyword == null ? "" : keyword);
         // v0.17 · 保险账户带保单登记(非保险为 null,详情页不渲染保单段)
         model.addAttribute("insurancePolicy",
-                insurancePolicyMapper.findByAccount(accountId).orElse(null));
+                insurancePolicyMapper.findByAccount(me.getFamilyId(), accountId).orElse(null));
         // v1.20 · 这个账户属于哪个分组(null = 未分组)· 顺带给出去管理的入口
         model.addAttribute("accountGroupName",
                 accountGroupService.occupiedBy(me.getFamilyId(), null).get(accountId));

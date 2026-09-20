@@ -187,7 +187,7 @@ public class AccountDetailService {
         if (com.family.finance.service.stock.StockHoldingService.supportsHoldings(account.getType())) {
             try {
                 for (com.family.finance.domain.stock.StockValuationEvent ev :
-                        stockValuationEventMapper.findRecentByAccount(accountId, 500)) {
+                        stockValuationEventMapper.findRecentByAccount(familyId, accountId, 500)) {
                     Period p = periodById.get(ev.getPeriodId());
                     if (p == null) continue;
                     String sign = ev.getDelta().signum() >= 0 ? "+" : "−";

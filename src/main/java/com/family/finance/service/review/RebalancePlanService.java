@@ -38,7 +38,7 @@ public class RebalancePlanService {
     public PlanView activePlan(long familyId) {
         RebalancePlanMapper.Plan plan = mapper.findActive(familyId);
         if (plan == null) return null;
-        List<RebalancePlanMapper.Item> items = mapper.findItems(plan.id());
+        List<RebalancePlanMapper.Item> items = mapper.findItems(familyId, plan.id());
         int done = 0;
         BigDecimal doneAmt = BigDecimal.ZERO, totalAmt = BigDecimal.ZERO;
         for (var it : items) {
@@ -63,18 +63,18 @@ public class RebalancePlanService {
         }
         for (ItemReq r : reqs) {
             if (r.fromAccountId() == r.toAccountId() || r.amount() == null || r.amount().signum() <= 0) continue;
-            mapper.insertItem(planId, r.fromAccountId(), r.toAccountId(), r.amount(), trim(r.note()));
+            mapper.insertItemOwned(familyId, planId, r.fromAccountId(), r.toAccountId(), r.amount(), trim(r.note()));
         }
     }
 
     public record ItemReq(long fromAccountId, long toAccountId, BigDecimal amount, String note) {}
 
-    public void manualDone(long familyId, long itemId) { requireOwn(familyId, itemId); mapper.markManualDone(itemId); }
+    public void manualDone(long familyId, long itemId) { requireOwn(familyId, itemId); mapper.markManualDone(familyId, itemId); }
     public void updateAmount(long familyId, long itemId, BigDecimal amount) {
         if (amount == null || amount.signum() <= 0) return;
-        requireOwn(familyId, itemId); mapper.updateAmount(itemId, amount);
+        requireOwn(familyId, itemId); mapper.updateAmount(familyId, itemId, amount);
     }
-    public void deleteItem(long familyId, long itemId) { requireOwn(familyId, itemId); mapper.deleteItem(itemId); }
+    public void deleteItem(long familyId, long itemId) { requireOwn(familyId, itemId); mapper.deleteItem(familyId, itemId); }
 
     /** 关账 → 活动计划归档(可回看) */
     public void archiveOnClose(long familyId) {
@@ -89,12 +89,12 @@ public class RebalancePlanService {
             RebalancePlanMapper.Plan plan = mapper.findActive(ev.familyId());
             if (plan == null) return;
             double th = configService.getDouble(ev.familyId(), FamilyConfigService.K_REBALANCE_MATCH_PCT, 0.8);
-            for (var it : mapper.findItems(plan.id())) {
+            for (var it : mapper.findItems(ev.familyId(), plan.id())) {
                 if (!"PENDING".equals(it.status())) continue;
                 if (it.fromAccountId() != ev.fromAccountId() || it.toAccountId() != ev.toAccountId()) continue;
                 BigDecimal min = it.amountBase().multiply(BigDecimal.valueOf(th));
                 if (ev.amount() != null && ev.amount().compareTo(min) >= 0) {
-                    mapper.markExecuted(it.id(), ev.transferId());
+                    mapper.markExecuted(ev.familyId(), it.id(), ev.transferId());
                     log.info("再平衡条目核销 · item={} transfer={} {}→{} ¥{}",
                             it.id(), ev.transferId(), it.fromName(), it.toName(), ev.amount());
                     return;   // 一笔划转只核销最早一条
@@ -113,7 +113,7 @@ public class RebalancePlanService {
 
     private void requireOwn(long familyId, long itemId) {
         RebalancePlanMapper.Plan plan = mapper.findActive(familyId);
-        if (plan == null || mapper.findItems(plan.id()).stream().noneMatch(i -> i.id() == itemId)) {
+        if (plan == null || mapper.findItems(familyId, plan.id()).stream().noneMatch(i -> i.id() == itemId)) {
             throw new IllegalArgumentException("条目不存在或不属于当前家庭活动计划");
         }
     }

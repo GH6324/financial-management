@@ -49,16 +49,23 @@ public interface AccountGroupMapper {
      * 这正是「一个账户最多属于一个组」在写入侧的自然表达。
      */
     @Insert("""
-            INSERT INTO account_group_member (group_id, account_id) VALUES (#{groupId}, #{accountId})
+            INSERT INTO account_group_member (group_id, account_id)
+            SELECT #{groupId}, #{accountId}
+              FROM account_group g
+              JOIN account a ON a.id = #{accountId}
+             WHERE g.id = #{groupId} AND g.family_id = #{familyId} AND a.family_id = #{familyId}
             ON DUPLICATE KEY UPDATE group_id = VALUES(group_id), added_at = CURRENT_TIMESTAMP(3)
             """)
-    int addMember(@Param("groupId") long groupId, @Param("accountId") long accountId);
+    int addMember(@Param("familyId") long familyId,
+                  @Param("groupId") long groupId, @Param("accountId") long accountId);
 
-    @Delete("DELETE FROM account_group_member WHERE account_id = #{accountId}")
-    int removeMember(@Param("accountId") long accountId);
+    @Delete("DELETE m FROM account_group_member m JOIN account a ON a.id = m.account_id"
+          + " WHERE a.family_id = #{familyId} AND m.account_id = #{accountId}")
+    int removeMember(@Param("familyId") long familyId, @Param("accountId") long accountId);
 
-    @Delete("DELETE FROM account_group_member WHERE group_id = #{groupId}")
-    int clearMembers(@Param("groupId") long groupId);
+    @Delete("DELETE m FROM account_group_member m JOIN account_group g ON g.id = m.group_id"
+          + " WHERE g.family_id = #{familyId} AND m.group_id = #{groupId}")
+    int clearMembers(@Param("familyId") long familyId, @Param("groupId") long groupId);
 
     record Member(Long groupId, Long accountId) {}
 
@@ -71,6 +78,8 @@ public interface AccountGroupMapper {
             """)
     List<Member> findMembersByFamily(@Param("familyId") long familyId);
 
-    @Select("SELECT account_id FROM account_group_member WHERE group_id = #{groupId}")
-    List<Long> findAccountIdsByGroup(@Param("groupId") long groupId);
+    @Select("SELECT m.account_id FROM account_group_member m"
+          + " JOIN account_group g ON g.id = m.group_id"
+          + " WHERE g.family_id = #{familyId} AND m.group_id = #{groupId}")
+    List<Long> findAccountIdsByGroup(@Param("familyId") long familyId, @Param("groupId") long groupId);
 }

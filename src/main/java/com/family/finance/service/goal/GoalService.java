@@ -237,7 +237,7 @@ public class GoalService {
             .paramsJson("{}")
             .build();
         goalMapper.insert(goal);
-        rebindAccounts(goal.getId(), accountIds);
+        rebindAccounts(familyId, goal.getId(), accountIds);
         return goal;
     }
 
@@ -254,19 +254,19 @@ public class GoalService {
         goal.setTargetDate(timeMode == TimeMode.DEADLINE ? targetDate : null);
         if (goal.getParamsJson() == null || goal.getParamsJson().isBlank()) goal.setParamsJson("{}");
         goalMapper.update(goal);
-        rebindAccounts(goalId, accountIds);
+        rebindAccounts(familyId, goalId, accountIds);
     }
 
     /** 清并重绑账户(0..N;去重、跳过 null)。 */
-    private void rebindAccounts(long goalId, List<Long> accountIds) {
-        goalAccountMapper.clear(goalId);
+    private void rebindAccounts(long familyId, long goalId, List<Long> accountIds) {
+        goalAccountMapper.clear(familyId, goalId);
         if (accountIds == null) return;
-        for (Long a : accountIds) if (a != null) goalAccountMapper.bind(goalId, a);
+        for (Long a : accountIds) if (a != null) goalAccountMapper.bind(familyId, goalId, a);
     }
 
     /** 目标已绑定账户 id(供编辑回显)。 */
-    public List<Long> boundAccountIds(long goalId) {
-        return goalAccountMapper.findAccountIds(goalId);
+    public List<Long> boundAccountIds(long familyId, long goalId) {
+        return goalAccountMapper.findAccountIds(familyId, goalId);
     }
 
     // ---------- 参数校验 ----------

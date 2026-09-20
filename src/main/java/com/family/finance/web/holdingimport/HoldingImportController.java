@@ -45,7 +45,7 @@ public class HoldingImportController {
     }
 
     private HoldingImport requireImport(long familyId, long importId) {
-        HoldingImport imp = importService.get(importId).orElseThrow(() -> new IllegalArgumentException("导入不存在"));
+        HoldingImport imp = importService.get(familyId, importId).orElseThrow(() -> new IllegalArgumentException("导入不存在"));
         if (imp.getFamilyId() != familyId) throw new IllegalArgumentException("无权访问");
         return imp;
     }
@@ -82,11 +82,11 @@ public class HoldingImportController {
         }
         model.addAttribute("account", account);
         model.addAttribute("imp", imp);
-        model.addAttribute("imageRels", importService.imageRels(imp.getId()));   // v1.4.2 · 查看/删除已上传图
+        model.addAttribute("imageRels", importService.imageRels(me.getFamilyId(), imp.getId()));   // v1.4.2 · 查看/删除已上传图
         model.addAttribute("visionModel", vision.model());
         model.addAttribute("visionPlatform", vision.platformLabel());   // v1.13 · 让用户知道截图发去了哪家平台
         if (HoldingImport.REVIEW.equals(imp.getStatus())) {
-            model.addAttribute("items", importService.items(imp.getId()));
+            model.addAttribute("items", importService.items(me.getFamilyId(), imp.getId()));
             model.addAttribute("industryTags", com.family.finance.domain.lens.IndustryTag.values());
             model.addAttribute("assetClasses", com.family.finance.domain.lens.AssetClass.values());
         }
@@ -125,7 +125,7 @@ public class HoldingImportController {
     public Map<String, Object> scan(@AuthenticationPrincipal MemberPrincipal me, @PathVariable long importId) {
         HoldingImport imp = requireImport(me.getFamilyId(), importId);
         if (imp.getImgCount() == null || imp.getImgCount() == 0) return Map.of("error", "请先上传截图");
-        importService.scanAsync(importId);   // 跨 bean → 真异步
+        importService.scanAsync(me.getFamilyId(), importId);   // 跨 bean → 真异步
         return Map.of("status", HoldingImport.SCANNING);
     }
 
@@ -148,7 +148,7 @@ public class HoldingImportController {
         r.put("status", imp.getStatus());
         r.put("scanError", imp.getScanError());
         if (HoldingImport.REVIEW.equals(imp.getStatus())) {
-            r.put("itemCount", importService.items(importId).size());
+            r.put("itemCount", importService.items(me.getFamilyId(), importId).size());
         }
         return r;
     }
@@ -178,7 +178,7 @@ public class HoldingImportController {
     public String confirm(@AuthenticationPrincipal MemberPrincipal me, @PathVariable long importId,
                           @RequestParam(required = false) String from) {
         requireImport(me.getFamilyId(), importId);
-        importService.confirm(importId, me.getMemberId());
+        importService.confirm(me.getFamilyId(), importId, me.getMemberId());
         return "redirect:" + safeLocalPath(from, "/entry");   // v1.4.2 · 回进入页(默认填报页)
     }
 
@@ -186,7 +186,7 @@ public class HoldingImportController {
     public String abandon(@AuthenticationPrincipal MemberPrincipal me, @PathVariable long importId,
                           @RequestParam(required = false) String from) {
         requireImport(me.getFamilyId(), importId);
-        importService.abandon(importId);
+        importService.abandon(me.getFamilyId(), importId);
         return "redirect:" + safeLocalPath(from, "/entry");   // v1.4.2 · 回进入页(默认填报页)
     }
 
@@ -196,7 +196,7 @@ public class HoldingImportController {
         HoldingImport imp = requireImport(me.getFamilyId(), importId);
         model.addAttribute("imp", imp);
         model.addAttribute("account", requireAccount(me.getFamilyId(), imp.getAccountId()));
-        java.util.List<HoldingImportItem> items = importService.items(importId);
+        java.util.List<HoldingImportItem> items = importService.items(me.getFamilyId(), importId);
         model.addAttribute("items", items);
         model.addAttribute("shots", items.stream().map(HoldingImportItem::getShotPath)
                 .filter(java.util.Objects::nonNull).distinct().toList());

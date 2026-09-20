@@ -193,7 +193,7 @@ public class ExpenseCatQueryService {
             Map<Long, BigDecimal> m = byPeriod.get(p.getId());
             BigDecimal t = BigDecimal.ZERO;
             if (m != null) for (BigDecimal v : m.values()) t = t.add(v);
-            if (t.signum() == 0) t = monthlyTotal(p.getId());
+            if (t.signum() == 0) t = monthlyTotal(familyId, p.getId());
             totals.put(p.getId(), t);
             /* v1.22 · 柱高的分母取【绝对值最大】的那一期。
              * 支出可以为负之后,用原值取 max 会在「整段时间都是净退款」时得到一个 ≤0 的分母,
@@ -230,9 +230,9 @@ public class ExpenseCatQueryService {
     }
 
     /** 该期的家庭月度总额 —— 只用来给「没有分类数据」的柱子定高度,不参与任何口径 */
-    private BigDecimal monthlyTotal(long periodId) {
+    private BigDecimal monthlyTotal(long familyId, long periodId) {
         BigDecimal t = BigDecimal.ZERO;
-        for (var row : pmcMapper.findByPeriod(periodId)) {
+        for (var row : pmcMapper.findByPeriod(familyId, periodId)) {
             if (row.getTotalExpenseInput() != null) t = t.add(row.getTotalExpenseInput());
         }
         return t;

@@ -49,7 +49,7 @@ public class BrokerSyncService {
     /** 同步单个已关联账户;返回状态摘要。 */
     @Transactional
     public String sync(long familyId, long accountId, Long memberId) {
-        BrokerLink link = linkMapper.findByAccount(accountId)
+        BrokerLink link = linkMapper.findByAccount(familyId, accountId)
                 .orElseThrow(() -> new IllegalStateException("该账户未关联券商"));
         if (!link.isEnabled()) throw new IllegalStateException("该账户券商同步已停用");
         BrokerDtos.Snapshot snap;
@@ -60,10 +60,10 @@ public class BrokerSyncService {
         } catch (RuntimeException e) {
             // v1.17.3 · 失败也要落库:在此之前失败只写日志,页面上会一直挂着【上一次成功】的消息 ——
             // 生产上富途断了两天,页面还显示「新增 0 · 更新 7」。不动 last_synced_at(那是"最后成功"的语义)。
-            linkMapper.markFailed(accountId, failureNote(e));
+            linkMapper.markFailed(familyId, accountId, failureNote(e));
             throw e;
         }
-        linkMapper.markSynced(accountId, summary);
+        linkMapper.markSynced(familyId, accountId, summary);
         try {
             // v1.18 · 明确告诉估值服务"这次是券商同步引起的",流水里才分得出富途/老虎
             valuationService.refreshAllForFamily(familyId,
@@ -78,7 +78,7 @@ public class BrokerSyncService {
     /** cron 用:同步所有 enabled 的关联账户。 */
     public int syncAllEnabled(long familyId, Long memberId) {
         int ok = 0;
-        for (BrokerLink link : linkMapper.findAllEnabled()) {
+        for (BrokerLink link : linkMapper.findEnabledByFamily(familyId)) {
             try { sync(familyId, link.getAccountId(), memberId); ok++; }
             catch (Exception e) {
                 // sync() 里已经把失败落库了,这里只记日志(别重复写,免得覆盖更具体的那条)

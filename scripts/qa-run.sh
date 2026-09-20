@@ -4523,7 +4523,7 @@ BSS="$RD/src/main/java/com/family/finance/service/broker/BrokerSyncService.java"
 BLM="$RD/src/main/java/com/family/finance/repository/BrokerLinkMapper.java"
 BLT="$RD/src/main/resources/templates/broker/link.html"
 { grep -q 'markFailed' "$BLM" \
-  && grep -qE 'markFailed\(accountId, failureNote\(e\)\)' "$BSS" \
+  && grep -qE 'markFailed\(familyId, accountId, failureNote\(e\)\)' "$BSS" \
   && ! grep -A 2 'int markFailed' "$BLM" | grep -q 'last_synced_at' \
   && grep -q 'failureNote' "$BSS" \
   && grep -q "startsWith(link.lastStatus, '同步失败')" "$BLT" \
@@ -6087,7 +6087,7 @@ V54="$RD/db/migration/V54__period_account_attr.sql"
 #   ③ 位置在 periodMapper.close() 之后、runMetricsAfterCommit() 之前。
 freeze_ln=$(grep -n 'periodAccountAttrMapper.freezeByPeriod(periodId)' "$PSVC" | head -1 | cut -d: -f1)
 close_ln=$(grep -n 'periodMapper.close(period.getFamilyId(), periodId)' "$PSVC" | head -1 | cut -d: -f1)
-recomp_ln=$(grep -n 'runMetricsAfterCommit(periodId)' "$PSVC" | tail -1 | cut -d: -f1)
+recomp_ln=$(grep -n 'runMetricsAfterCommit(familyId, periodId)' "$PSVC" | tail -1 | cut -d: -f1)
 { [ -n "$freeze_ln" ] && [ -n "$close_ln" ] && [ -n "$recomp_ln" ] \
   && [ "$freeze_ln" -gt "$close_ln" ] && [ "$freeze_ln" -lt "$recomp_ln" ] \
   && grep -q '@Transactional' "$PSVC" \
@@ -6098,8 +6098,8 @@ recomp_ln=$(grep -n 'runMetricsAfterCommit(periodId)' "$PSVC" | tail -1 | cut -d
 # v112-ATTR-REOPEN-REFREEZE · 重开必须删掉定格行(→「重开后再关账 = 重新定格」结构上必然)
 #   不删的话:重开期又按当前属性填报,但读侧还挂着上次关账的定格值 → 页面显示的分类与用户
 #   正在编辑的账户设置不一致。删掉之后不需要标志位/版本号来表达「这期的定格作废了」,少一个状态少一类不一致。
-{ grep -q 'periodAccountAttrMapper.deleteByPeriod(periodId)' "$PSVC" \
-  && grep -q 'DELETE FROM period_account_attr WHERE period_id' "$PAAM" \
+{ grep -q 'periodAccountAttrMapper.deleteByPeriod(period.getFamilyId(), periodId)' "$PSVC" \
+  && grep -q 'DELETE pa FROM period_account_attr pa' "$PAAM" \
   && [ -n "$(grep -n 'periodAccountAttrMapper.deleteByPeriod' "$PSVC")" ]; } \
   && log_ok "v112-ATTR-REOPEN-REFREEZE(重开删定格行 · 再关账自动重新定格)" \
   || log_bad "v112-ATTR-REOPEN-REFREEZE 重开没清定格" "PeriodService.reopen() 必须调 deleteByPeriod,否则重开期显示的分类与当前设置不一致"
@@ -6134,7 +6134,7 @@ recomp_ln=$(grep -n 'runMetricsAfterCommit(periodId)' "$PSVC" | tail -1 | cut -d
 #   三币种的数字,才发现「预实」列走的是**第三个**漂移入口(expectedReturnByAccount → planActualDiffPct)。
 { grep -q 'accountPerformance(slice, true)' "$RPTC" \
   && grep -q 'slice.returnAnchorPeriodId()' "$RPTC" \
-  && grep -q 'periodAccountAttrMapper.findByPeriod(benchAnchorPeriodId)' "$RPTC" \
+  && grep -q 'periodAccountAttrMapper.findByPeriod(me.getFamilyId(), benchAnchorPeriodId)' "$RPTC" \
   && grep -q 'expectedReturnByAccount(slice, sealedAttrs)' "$FVSI" \
   && grep -q 'accountPerformance(FactSlice slice, boolean sealedAttrs)' "$FVSI" \
   && ! grep -q 'accountPerformance(slice, true)' "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \
@@ -6896,9 +6896,9 @@ V115_ACTUAL="$(grep -rl 'memberMapper\.findActiveByFamily\|memberMapper\.countAc
 #   **没有外键的这 4 处漏扫,数据库不会拦** —— 删掉之后历史数据里留一个指向不存在成员的悬空 id,
 #   教育目标的「孩子」尤其阴:它藏在 params_json 里,任何 schema 元数据(information_schema、
 #   自动外键发现)都看不见它。这就是清单手写而不是自动发现的原因,也是这条护栏逐个点名的原因。
-{ grep -q 'FROM period_member_cashflow WHERE member_id' "$RD/src/main/java/com/family/finance/repository/MemberReferenceMapper.java" \
-  && grep -q 'FROM stock_valuation_event WHERE triggered_by_member_id' "$RD/src/main/java/com/family/finance/repository/MemberReferenceMapper.java" \
-  && grep -q 'FROM report_reminder_log WHERE member_id' "$RD/src/main/java/com/family/finance/repository/MemberReferenceMapper.java" \
+{ grep -q 'FROM period_member_cashflow"' "$RD/src/main/java/com/family/finance/repository/MemberReferenceMapper.java" \
+  && grep -q 'triggered_by_member_id = #{memberId}' "$RD/src/main/java/com/family/finance/repository/MemberReferenceMapper.java" \
+  && grep -q 'FROM report_reminder_log"' "$RD/src/main/java/com/family/finance/repository/MemberReferenceMapper.java" \
   && grep -q "JSON_EXTRACT(params_json, '\$.child_member_id')" "$RD/src/main/java/com/family/finance/repository/MemberReferenceMapper.java" \
   && [ "$(grep -cE '^\s+int count[A-Za-z]+\(' "$RD/src/main/java/com/family/finance/repository/MemberReferenceMapper.java")" -eq 13 ] \
   && grep -q 'scan_queriesEveryCountMethodOnTheMapper' "$RD/src/test/java/com/family/finance/service/member/MemberReferenceScannerTest.java" \
@@ -6926,7 +6926,7 @@ V115_ACTUAL="$(grep -rl 'memberMapper\.findActiveByFamily\|memberMapper\.countAc
 #   旧名字那行谁也删不掉,而那张票根照样能把人自动登回来,「记住我」的 cookie 有效期以周计。
 { grep -q 'killRememberMe' "$RD/src/main/java/com/family/finance/service/AdminService.java" \
   && [ "$(grep -n 'killRememberMe(old)' "$RD/src/main/java/com/family/finance/service/AdminService.java" | head -1 | cut -d: -f1)" \
-       -lt "$(grep -n 'updateUsername(targetMemberId' "$RD/src/main/java/com/family/finance/service/AdminService.java" | head -1 | cut -d: -f1)" ] \
+       -lt "$(grep -n 'updateUsername(familyId, targetMemberId' "$RD/src/main/java/com/family/finance/service/AdminService.java" | head -1 | cut -d: -f1)" ] \
   && grep -q 'rememberMeTokensAreClearedBeforeTheUsernameChanges' "$RD/src/test/java/com/family/finance/service/UsernameRenameTest.java" \
   && grep -q 'expired' "$RD/src/main/java/com/family/finance/auth/AuthController.java"; } \
   && log_ok "v115-RENAME-KILLS-TOKENS-FIRST(先按旧登录名清票根 · 再改名 · 登录页解释 ?expired)" \
@@ -6943,7 +6943,7 @@ QA116_PO="$RD/src/main/java/com/family/finance/service/PeriodOpener.java"
 QA116_TM="$RD/src/main/java/com/family/finance/repository/SnapshotTodoMapper.java"
 QA116_ES="$RD/src/main/java/com/family/finance/service/EntryService.java"
 QA116_MIG="$RD/db/migration/V55__align_carryforward_todo_done.sql"
-{ grep -q 'snapshotTodoMapper.markCarriedForward(period.getId(), account.getId())' "$QA116_PO" \
+{ grep -q 'snapshotTodoMapper.markCarriedForward(family.getId(), period.getId(), account.getId())' "$QA116_PO" \
   && grep -q 'int markCarriedForward(' "$QA116_TM" \
   && grep -q "done_by_member_id = NULL" "$QA116_TM" \
   && grep -q "AND status = 'PENDING'" "$QA116_TM" \
@@ -7005,7 +7005,7 @@ QA118_LS="$RD/src/main/java/com/family/finance/domain/ledger/LedgerSource.java"
 # 4 条 INSERT 一律 COALESCE(#{sourceTag}, 'UNKNOWN') —— 列是 NOT NULL DEFAULT,
 # 但 MyBatis 显式传 NULL 会绕过 DEFAULT 直接撞 NOT NULL;有了 COALESCE,
 # 将来漏掉的写入口会安全落到 UNKNOWN 而不是插入失败。
-{ [ "$(grep -rc "COALESCE(#{sourceTag}, 'UNKNOWN')" "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" "$RD/src/main/java/com/family/finance/repository/TransferMapper.java" "$RD/src/main/java/com/family/finance/repository/SnapshotMapper.java" | grep -c ':1$')" -eq 3 ] \
+{ [ "$(grep -rcE "COALESCE\(#\{(cf|t|s)\.sourceTag\}, 'UNKNOWN'\)" "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" "$RD/src/main/java/com/family/finance/repository/TransferMapper.java" "$RD/src/main/java/com/family/finance/repository/SnapshotMapper.java" | grep -c ':1$')" -eq 3 ] \
   && grep -q 'source_tag AS sourceTag' "$RD/src/main/java/com/family/finance/repository/StockValuationEventMapper.java" \
   && grep -q 'LedgerSource.CARRIED_FORWARD.name()' "$RD/src/main/java/com/family/finance/service/PeriodOpener.java" \
   && grep -q 'LedgerSource.SYSTEM_ADJUST.name()' "$RD/src/main/java/com/family/finance/service/stock/StockHoldingService.java" \
@@ -7028,12 +7028,14 @@ QA118_LS="$RD/src/main/java/com/family/finance/domain/ledger/LedgerSource.java"
 QA118_BLM="$RD/src/main/java/com/family/finance/repository/BrokerLinkMapper.java"
 # 只取 markFailed 正上方那一行 @Update —— 直接 grep 'UPDATE broker_link SET' 会把 markSynced
 # 那条也捞进来(它本来就【该】写 last_synced_at),于是护栏永远红。
-QA118_MARKSQL="$(grep -B1 'int markFailed(' "$QA118_BLM" 2>/dev/null | grep '@Update' || true)"
+# 【-B6 不是 -B1】:markFailed 的 @Update 加 family_id 之后变成多行字符串拼接,
+#   -B1 只够着最后一行 WHERE,判据会恒假 —— 那是「护栏红了但原因不是它要防的事」。
+QA118_MARKSQL="$(grep -B6 'int markFailed(' "$QA118_BLM" 2>/dev/null | sed -n '/@Update/,$p' || true)"
 { [ -n "$QA118_MARKSQL" ] \
   && ! printf '%s' "$QA118_MARKSQL" | grep -q 'last_synced_at' \
   && grep -q 'int markFailed(' "$QA118_BLM" \
   && grep -q '同步失败 · ' "$RD/src/main/java/com/family/finance/service/broker/BrokerSyncService.java" \
-  && grep -q 'markFailed(accountId, failureNote(e))' "$RD/src/main/java/com/family/finance/service/broker/BrokerSyncService.java" \
+  && grep -q 'markFailed(familyId, accountId, failureNote(e))' "$RD/src/main/java/com/family/finance/service/broker/BrokerSyncService.java" \
   && grep -q 'brokerFailures' "$RD/src/main/java/com/family/finance/web/account/AccountController.java" \
   && grep -q 'startsWith("同步失败")' "$RD/src/main/java/com/family/finance/web/account/AccountController.java" \
   && [ "$(grep -c 'brokerFailures.containsKey(row.account.id)' "$RD/src/main/resources/templates/accounts/index.html")" -eq 2 ] \
@@ -8801,7 +8803,7 @@ QA121_IMP_TPL="$RD/src/main/resources/templates/expense/import.html"
 
 # v1210-NODATA-NOT-ZERO · 没有分类数据的月份画斜纹,不画 0(FR-519)。
 #   画成 0 会在趋势图上造出一段假的「支出暴跌」,而那个月用户明明花了钱。
-{ codeonly "$QA121_QUERY" | grep -q 'monthlyTotal(p.getId())' \
+{ codeonly "$QA121_QUERY" | grep -q 'monthlyTotal(familyId, p.getId())' \
   && grep -q 'repeating-linear-gradient' "$QA121_MIX_TPL" \
   && grep -q '不是没花钱' "$QA121_MIX_TPL"; } \
   && log_ok "v1210-NODATA-NOT-ZERO(没分类数据的月份画斜纹 + 说明,不画 0)" \
@@ -8886,7 +8888,7 @@ QA121_IMP_TPL="$RD/src/main/resources/templates/expense/import.html"
 #                          「钱是被取走的不是亏掉的」,把账户收益率算高
 #   而【仍然要】进家庭消费(口径 A)与支出构成 —— 钱确实花了。
 { grep -q 'AND affects_balance = 1' "$RD/src/main/resources/mapper/FactMapper.xml" \
-  && grep -q 'AND affects_balance = 1' "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
+  && grep -qE 'AND (cf\.)?affects_balance = 1' "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
   && grep -q 'if (affectsBalance) {' "$QA121_ENTRYSVC" \
   && grep -q 'if (affectsBalance) {' "$QA121_COMMIT" \
   && ! codeonly "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
@@ -9699,21 +9701,24 @@ QAE2E_DIR="$RD/scripts/e2e"
 # v1230-E2E-TWO-LAYER-ASSERT · 断言必须两层:看得见 + 真值。
 #   只看页面会漏「显示对了但没存进去」(页面回显的常是你刚提交的表单值);
 #   只查库会漏「存对了但用户看不到」—— 后者这个项目出现过不止一次。
-{ for f in "$QAE2E_DIR"/flows/*.cjs; do
+# 【必须是 ( ) 不是 { }】—— { } 是命令组不是子 shell,里面的 exit 会把【整个 qa-run】
+#   退掉:2026-09-20 实测,这条一红,它后面的所有护栏和最后那行总结【一次都没跑过】,
+#   而终端上看不出异常(只是没有总结)。判据里带 exit 的分组,一律用子 shell。
+( for f in "$QAE2E_DIR"/flows/*.cjs; do
     [ -e "$f" ] || continue
     grep -q "ui\.seesText\|ui\.visible\|ui\.count\|ui\.sameSize" "$f" || exit 1
     grep -q "db\.one\|db\.num\|db\.col" "$f" || exit 1
-  done; } \
+  done ) \
   && log_ok "v1230-E2E-TWO-LAYER-ASSERT(每个 flow 都有页面断言 + 真值断言)" \
   || log_bad "v1230-E2E-TWO-LAYER-ASSERT 有 flow 只验了一层" "看得见层漏了会漏「用户看不到」;真值层漏了会漏「显示对了没存进去」"
 
 # v1230-E2E-CLEANUP-DECLARES-END-STATE · 还原要声明终态,不能依赖「跑之前是什么样」。
 #   踩过:还原写成 `if (跑之前是 CLOSED) 关回去`,连跑两次时第二次读到的已经是 OPEN,
 #   整段还原被跳过,beta 被留在中间状态里 —— 下一个人跑别的回归会莫名其妙。
-{ for f in "$QAE2E_DIR"/flows/*.cjs; do
+( for f in "$QAE2E_DIR"/flows/*.cjs; do
     [ -e "$f" ] || continue
     grep -q "async cleanup" "$f" || exit 1
-  done; } \
+  done ) \
   && log_ok "v1230-E2E-CLEANUP-DECLARES-END-STATE(每个改数据的 flow 都有 cleanup)" \
   || log_bad "v1230-E2E-CLEANUP-DECLARES-END-STATE 有 flow 没写 cleanup" "不还原会污染下一次运行,红灯会指向错误的地方"
 
@@ -9725,6 +9730,47 @@ QAE2E_DIR="$RD/scripts/e2e"
   && grep -q "这个脚本不是 e2e" "$RD/scripts/regression-data.sh"; } \
   && log_ok "v1230-E2E-OLD-SCRIPT-RENAMED(旧 e2e.sh 已正名为 regression-data.sh 并写明职责)" \
   || log_bad "v1230-E2E-OLD-SCRIPT-RENAMED 旧脚本还叫 e2e.sh" "名字会让人以为用户路径验过了,而它只验了接口和库"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# v1.24 · family_id 家庭隔离普查
+# ─────────────────────────────────────────────────────────────────────────────
+
+# v1240-FAMILY-ISOLATION · 每一条碰家庭作用域表的 SQL 都必须在【过滤位置】带 family_id。
+#   2026-09-20 普查:339 条语句里 156 条没有,而且没有一条的方法签名带 familyId ——
+#   归属全靠 period_id / account_id 间接推出来。那是推论不是约束:前提一变
+#   (共享账期、合并家庭、修数脚本写错归属),漏隔离的查询会【静默返回别人家的钱】,
+#   不报错、不越权告警,只是数字变大。
+#   引擎在 scripts/family-isolation-audit.py,例外清单也钉在那里(6 条,各有理由)。
+python3 "$RD/scripts/family-isolation-audit.py" "$RD/src/main/java/com/family/finance/repository" >/dev/null 2>&1 \
+  && log_ok "v1240-FAMILY-ISOLATION(所有家庭作用域 SQL 都带 family_id 过滤 · 6 条登记例外)" \
+  || log_bad "v1240-FAMILY-ISOLATION 有 SQL 漏了 family_id(跑 scripts/family-isolation-audit.py 看清单)" \
+             "漏隔离不报错、不告警,只是数字变大 —— 多租户系统里最贵的一类 bug"
+
+# v1240-INSERT-GUARDED · 没有 family_id 列的表,INSERT 挂不上 WHERE,
+#   改成了 INSERT ... SELECT ... WHERE parent.family_id = #{familyId} + insertOwned() 断言。
+#   业务代码必须调带断言的那个:直接调裸 insert 等于把「归属不符」当成「插了 0 行」,
+#   表现是「页面说保存成功、库里没这笔」。
+#   判据按【声明类型】认,不按字段名认 —— 字段名会撞:StockPriceFetcher 里的
+#   `snapshotMapper` 是 StockPriceSnapshotMapper(全局行情快照,没有家庭维度),
+#   跟 SnapshotMapper(period_snapshot)同名不同类,按名字判会误报。
+python3 "$RD/scripts/family-isolation-audit.py" "$RD/src/main/java/com/family/finance/repository" --insert-guard >/dev/null 2>&1 \
+  && log_ok "v1240-INSERT-GUARDED(业务代码走 insertOwned,不直接调裸 insert)" \
+  || log_bad "v1240-INSERT-GUARDED 有地方直接调了裸 insert" "返回 0 会被当成成功 —— 用户以为记上了账,库里没有"
+
+# v1240-HARDCODED-FAMILY-FROZEN · 写死的家庭 id 只减不增。
+#   本项目是单家庭部署(PRD §22.3 类 A),定时任务 / AI runtime / 规则引擎里
+#   `private static final long FAMILY_ID = 1L;` 是【既有的、有意的】设计:
+#   那些地方没有请求上下文,真要支持多家庭得先决定「cron 遇到 N 个家庭该怎么跑」,
+#   那是产品决策不是重构。v1.24 普查只拆掉了 HoldingImportService 那一处 ——
+#   它在【有 familyId 可用】的请求路径上,属于纯粹的漏传。
+#   这条护栏不要求归零,只钉住数量:再多一处就说明又有人在有上下文的地方图省事。
+#   数量下降时也会红(说明清单该更新了),避免它悄悄变成一条永远绿的死护栏。
+HARDCODED_FAM=$(grep -rn "FAMILY_ID *= *[0-9]" "$RD/src/main/java" --include="*.java" | wc -l | tr -d " ")
+[ "$HARDCODED_FAM" = "14" ] \
+  && log_ok "v1240-HARDCODED-FAMILY-FROZEN(写死家庭 id 仍是 14 处 · 全在无请求上下文的地方)" \
+  || log_bad "v1240-HARDCODED-FAMILY-FROZEN 数量从 14 变成 $HARDCODED_FAM" \
+             "多了 = 有人在能拿到 familyId 的地方图省事;少了 = 清单该更新"
 
 
 

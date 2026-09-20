@@ -149,21 +149,21 @@ public class EntryController {
 
         // v0.3 FR-51 · 成员级月度收支(2026-05-13 修订)
         // 当前用户自己的本期填报
-        var myCashflow = memberCashflowMapper.findByPeriodAndMember(period.getId(), me.getMemberId()).orElse(null);
+        var myCashflow = memberCashflowMapper.findByPeriodAndMember(me.getFamilyId(), period.getId(), me.getMemberId()).orElse(null);
         model.addAttribute("myCashflow", myCashflow);
         // 上期参考(同成员自己的)
         Period previousPeriod = periodMapper.findLatest(me.getFamilyId(), 12).stream()
                 .filter(p -> !p.getId().equals(period.getId()))
                 .findFirst().orElse(null);
         if (previousPeriod != null) {
-            memberCashflowMapper.findByPeriodAndMember(previousPeriod.getId(), me.getMemberId())
+            memberCashflowMapper.findByPeriodAndMember(me.getFamilyId(), previousPeriod.getId(), me.getMemberId())
                 .ifPresent(prev -> model.addAttribute("myPrevCashflow", prev));
         }
         // 家庭本期汇总(SUM 跨成员)
         memberCashflowMapper.findFamilyAggregateForPeriod(me.getFamilyId(), period.getId())
             .ifPresent(agg -> model.addAttribute("familyCurrentAgg", agg));
         // 本期已填的成员名单(给"家庭已填:N 人")
-        var filledRows = memberCashflowMapper.findByPeriod(period.getId());
+        var filledRows = memberCashflowMapper.findByPeriod(me.getFamilyId(), period.getId());
         var filledMembers = new java.util.HashMap<Long, String>();
         for (var fr : filledRows) {
             if (fr.getTotalIncomeInput() != null || fr.getTotalExpenseInput() != null) {

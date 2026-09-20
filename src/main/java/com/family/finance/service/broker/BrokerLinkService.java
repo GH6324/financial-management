@@ -60,7 +60,7 @@ public class BrokerLinkService {
         if (!StockHoldingService.supportsHoldings(acc.getType())) {
             throw new IllegalArgumentException("仅持仓类账户可关联券商");
         }
-        if (linkMapper.findByAccount(accountId).isPresent()) {
+        if (linkMapper.findByAccount(familyId, accountId).isPresent()) {
             throw new IllegalArgumentException("该账户已关联券商,请先解绑");
         }
 
@@ -72,7 +72,7 @@ public class BrokerLinkService {
                 Map.of("preLinkHoldings", snapshotRows(existing)));
         for (StockHolding h : existing) holdingMapper.archive(familyId, h.getId());
 
-        linkMapper.insert(BrokerLink.builder()
+        linkMapper.insertOwned(familyId, BrokerLink.builder()
                 .accountId(accountId).vendor(vendor).brokerAccountId(brokerAccountId)
                 .opendHost(opendHost).opendPort(opendPort).enabled(true).build());
         // 首次同步<b>不放在本事务里</b>:sync() 自带事务,若在此嵌套调用且其内部抛错,
@@ -90,7 +90,7 @@ public class BrokerLinkService {
             return "已关联 " + vendorLabel + " · " + syncService.sync(familyId, accountId, memberId);
         } catch (Exception e) {
             log.warn("initial broker sync pending · account={}: {}", accountId, e.toString());
-            try { linkMapper.markSynced(accountId, "待同步:" + e.getMessage()); } catch (Exception ignored) {}
+            try { linkMapper.markSynced(familyId, accountId, "待同步:" + e.getMessage()); } catch (Exception ignored) {}
             return "已关联 " + vendorLabel + " · 首次同步待完成 · 请到「管理 → 数据源接入 → 券商同步」配好凭据后回本页点「立即同步」";
         }
     }
@@ -100,7 +100,7 @@ public class BrokerLinkService {
     public void unlink(long familyId, long accountId, Long memberId) {
         Account acc = accountMapper.findById(familyId, accountId).orElseThrow(() -> new IllegalArgumentException("账户不存在"));
         if (!acc.getFamilyId().equals(familyId)) throw new IllegalArgumentException("无权访问账户");
-        linkMapper.deleteByAccount(accountId);
+        linkMapper.deleteByAccount(familyId, accountId);
         holdingMapper.clearSyncSource(familyId, accountId);
         auditLog.record(familyId, memberId, AuditLogType.BROKER_LINK, "account", accountId, "解绑券商");
     }

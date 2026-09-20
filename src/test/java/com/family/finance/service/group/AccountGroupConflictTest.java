@@ -82,7 +82,7 @@ class AccountGroupConflictTest {
 
         // 关键:一行都不能写。第一版会把账户从组A搬进新组,而且不吭声
         verify(groups, never()).insert(org.mockito.ArgumentMatchers.any());
-        verify(groups, never()).addMember(anyLong(), anyLong());
+        verify(groups, never()).addMember(anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -116,6 +116,6 @@ class AccountGroupConflictTest {
         when(groups.findById(1L, 9L)).thenReturn(AccountGroup.builder().id(9L).familyId(1L).name("组A").build());
 
         svc.updateMembers(1L, 9L, "组A", List.of());   // 不抛
-        verify(groups).clearMembers(9L);
+        verify(groups).clearMembers(1L, 9L);
     }
 }

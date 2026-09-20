@@ -39,27 +39,55 @@ public interface RebalancePlanMapper {
               FROM rebalance_plan_item i
               JOIN account fa ON fa.id = i.from_account_id
               JOIN account ta ON ta.id = i.to_account_id
-             WHERE i.plan_id = #{planId}
+              JOIN rebalance_plan pl ON pl.id = i.plan_id
+             WHERE pl.family_id = #{familyId}
+               AND i.plan_id = #{planId}
              ORDER BY i.id
             """)
-    List<Item> findItems(@Param("planId") long planId);
+    List<Item> findItems(@Param("familyId") long familyId, @Param("planId") long planId);
 
-    @Insert("INSERT INTO rebalance_plan_item (plan_id, from_account_id, to_account_id, amount_base, note) VALUES (#{planId}, #{fromId}, #{toId}, #{amount}, #{note})")
-    int insertItem(@Param("planId") long planId, @Param("fromId") long fromId,
+    @Insert("INSERT INTO rebalance_plan_item (plan_id, from_account_id, to_account_id, amount_base, note)"
+          + " SELECT #{planId}, #{fromId}, #{toId}, #{amount}, #{note}"
+          + "   FROM rebalance_plan pl"
+          + "   JOIN account fa ON fa.id = #{fromId}"
+          + "   JOIN account ta ON ta.id = #{toId}"
+          + "  WHERE pl.id = #{planId} AND pl.family_id = #{familyId}"
+          + "    AND fa.family_id = #{familyId} AND ta.family_id = #{familyId}")
+    int insertItem(@Param("familyId") long familyId,
+                   @Param("planId") long planId, @Param("fromId") long fromId,
                    @Param("toId") long toId, @Param("amount") BigDecimal amount, @Param("note") String note);
 
-    @Update("UPDATE rebalance_plan_item SET status='EXECUTED', executed_transfer_id=#{transferId}, executed_at=NOW() WHERE id=#{itemId} AND status='PENDING'")
-    int markExecuted(@Param("itemId") long itemId, @Param("transferId") long transferId);
+    /** 带归属断言的插入 —— 业务代码一律用这个 */
+    default void insertItemOwned(long familyId, long planId, long fromId, long toId,
+                                 BigDecimal amount, String note) {
+        if (insertItem(familyId, planId, fromId, toId, amount, note) != 1) {
+            throw new IllegalStateException("再平衡条目归属校验不通过:计划 " + planId
+                    + " / 转出 " + fromId + " / 转入 " + toId + " 不全属于家庭 " + familyId);
+        }
+    }
 
-    @Update("UPDATE rebalance_plan_item SET status='MANUAL_DONE', executed_at=NOW() WHERE id=#{itemId} AND status='PENDING'")
-    int markManualDone(@Param("itemId") long itemId);
+    @Update("UPDATE rebalance_plan_item i JOIN rebalance_plan pl ON pl.id = i.plan_id"
+          + " SET i.status='EXECUTED', i.executed_transfer_id=#{transferId}, i.executed_at=NOW()"
+          + " WHERE pl.family_id=#{familyId} AND i.id=#{itemId} AND i.status='PENDING'")
+    int markExecuted(@Param("familyId") long familyId,
+                     @Param("itemId") long itemId, @Param("transferId") long transferId);
 
-    @Update("UPDATE rebalance_plan_item SET amount_base=#{amount} WHERE id=#{itemId} AND status='PENDING'")
-    int updateAmount(@Param("itemId") long itemId, @Param("amount") BigDecimal amount);
+    @Update("UPDATE rebalance_plan_item i JOIN rebalance_plan pl ON pl.id = i.plan_id"
+          + " SET i.status='MANUAL_DONE', i.executed_at=NOW()"
+          + " WHERE pl.family_id=#{familyId} AND i.id=#{itemId} AND i.status='PENDING'")
+    int markManualDone(@Param("familyId") long familyId, @Param("itemId") long itemId);
 
-    @Update("DELETE FROM rebalance_plan_item WHERE id=#{itemId}")
-    int deleteItem(@Param("itemId") long itemId);
+    @Update("UPDATE rebalance_plan_item i JOIN rebalance_plan pl ON pl.id = i.plan_id"
+          + " SET i.amount_base=#{amount}"
+          + " WHERE pl.family_id=#{familyId} AND i.id=#{itemId} AND i.status='PENDING'")
+    int updateAmount(@Param("familyId") long familyId,
+                     @Param("itemId") long itemId, @Param("amount") BigDecimal amount);
 
-    @Select("SELECT COUNT(*) FROM rebalance_plan_item WHERE plan_id=#{planId}")
-    int countItems(@Param("planId") long planId);
+    @Update("DELETE i FROM rebalance_plan_item i JOIN rebalance_plan pl ON pl.id = i.plan_id"
+          + " WHERE pl.family_id=#{familyId} AND i.id=#{itemId}")
+    int deleteItem(@Param("familyId") long familyId, @Param("itemId") long itemId);
+
+    @Select("SELECT COUNT(*) FROM rebalance_plan_item i JOIN rebalance_plan pl ON pl.id = i.plan_id"
+          + " WHERE pl.family_id=#{familyId} AND i.plan_id=#{planId}")
+    int countItems(@Param("familyId") long familyId, @Param("planId") long planId);
 }

@@ -31,10 +31,12 @@ public interface StockValuationEventMapper {
             SELECT id, family_id, account_id, period_id, prev_balance, new_balance, delta,
                    trigger_kind, triggered_by_member_id, note, ref_import_id AS refImportId, source_tag AS sourceTag, triggered_at
               FROM stock_valuation_event
-             WHERE account_id = #{accountId} AND period_id = #{periodId}
+             WHERE family_id = #{familyId}
+               AND account_id = #{accountId} AND period_id = #{periodId}
              ORDER BY triggered_at
             """)
-    List<StockValuationEvent> findByAccountAndPeriod(@Param("accountId") long accountId,
+    List<StockValuationEvent> findByAccountAndPeriod(@Param("familyId") long familyId,
+                                                    @Param("accountId") long accountId,
                                                     @Param("periodId") long periodId);
 
     /** 按账户查所有期事件 · 给 accounts/{id} 详情页用 · 倒序 */
@@ -42,11 +44,13 @@ public interface StockValuationEventMapper {
             SELECT id, family_id, account_id, period_id, prev_balance, new_balance, delta,
                    trigger_kind, triggered_by_member_id, note, ref_import_id AS refImportId, source_tag AS sourceTag, triggered_at
               FROM stock_valuation_event
-             WHERE account_id = #{accountId}
+             WHERE family_id = #{familyId}
+               AND account_id = #{accountId}
              ORDER BY triggered_at DESC
              LIMIT #{limit}
             """)
-    List<StockValuationEvent> findRecentByAccount(@Param("accountId") long accountId,
+    List<StockValuationEvent> findRecentByAccount(@Param("familyId") long familyId,
+                                                  @Param("accountId") long accountId,
                                                   @Param("limit") int limit);
 
     /** v1.18.2 · 对账用:一条估值事件的最小投影(账户币种 · 与 period_snapshot / 流水同币种)。 */
@@ -161,9 +165,12 @@ public interface StockValuationEventMapper {
     /** v1.18.3 · 某账户在某期最后一次估值的时间(null = 本期还没估过)。 */
     @Select("""
             SELECT MAX(e.triggered_at) FROM stock_valuation_event e
-             WHERE e.account_id = #{accountId} AND e.period_id = #{periodId}
+             WHERE e.family_id = #{familyId}
+               AND e.account_id = #{accountId} AND e.period_id = #{periodId}
             """)
-    java.time.LocalDateTime lastEventAt(@Param("accountId") long accountId, @Param("periodId") long periodId);
+    java.time.LocalDateTime lastEventAt(@Param("familyId") long familyId,
+                                        @Param("accountId") long accountId,
+                                        @Param("periodId") long periodId);
 
     /**
      * v1.18.3 · 「上一次估值之后,进出这个账户的钱」(有符号 · 账户币种)。
@@ -180,20 +187,27 @@ public interface StockValuationEventMapper {
             SELECT x.s FROM (
               SELECT CASE WHEN cf.kind = 'INCOME' THEN cf.amount ELSE -cf.amount END AS s, cf.submitted_at AS t
                 FROM cash_flow cf
-               WHERE cf.period_id = #{periodId} AND cf.account_id = #{accountId} AND cf.deleted_at IS NULL
+                JOIN period pc ON pc.id = cf.period_id
+               WHERE pc.family_id = #{familyId}
+                 AND cf.period_id = #{periodId} AND cf.account_id = #{accountId} AND cf.deleted_at IS NULL
               UNION ALL
               SELECT COALESCE(t2.to_amount, t2.amount), t2.submitted_at FROM transfer t2
-               WHERE t2.period_id = #{periodId} AND t2.to_account_id = #{accountId}
+                JOIN period p2 ON p2.id = t2.period_id
+               WHERE p2.family_id = #{familyId}
+                 AND t2.period_id = #{periodId} AND t2.to_account_id = #{accountId}
                  AND t2.is_draft = 0 AND t2.deleted_at IS NULL
               UNION ALL
               SELECT -t3.amount, t3.submitted_at FROM transfer t3
-               WHERE t3.period_id = #{periodId} AND t3.from_account_id = #{accountId}
+                JOIN period p3 ON p3.id = t3.period_id
+               WHERE p3.family_id = #{familyId}
+                 AND t3.period_id = #{periodId} AND t3.from_account_id = #{accountId}
                  AND t3.is_draft = 0 AND t3.deleted_at IS NULL
             ) x
              WHERE #{since} IS NULL OR x.t > #{since}
              ORDER BY x.t
             """)
-    List<java.math.BigDecimal> findFlowsAfter(@Param("accountId") long accountId,
+    List<java.math.BigDecimal> findFlowsAfter(@Param("familyId") long familyId,
+                                              @Param("accountId") long accountId,
                                               @Param("periodId") long periodId,
                                               @Param("since") java.time.LocalDateTime since);
 }
