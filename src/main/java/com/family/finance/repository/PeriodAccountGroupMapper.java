@@ -40,8 +40,9 @@ public interface PeriodAccountGroupMapper {
     int freezeByPeriod(@Param("familyId") long familyId, @Param("periodId") long periodId);
 
     /** 重开该期 → 删掉定格行(与 period_account_attr 同一处调用) */
-    @Delete("DELETE FROM period_account_group WHERE period_id = #{periodId}")
-    int deleteByPeriod(@Param("periodId") long periodId);
+    @Delete("DELETE pg FROM period_account_group pg JOIN period p ON p.id = pg.period_id"
+          + " WHERE p.family_id = #{familyId} AND pg.period_id = #{periodId}")
+    int deleteByPeriod(@Param("familyId") long familyId, @Param("periodId") long periodId);
 
     /**
      * v1.20 · 删组时连它的历史定格一起删。
@@ -55,19 +56,23 @@ public interface PeriodAccountGroupMapper {
      * 不删定格行的话,历史里会永远留着一个已经不存在的组名,而用户<b>没有任何办法退回去</b>
      * ——那不是「可逆」,是陷阱。删组是这一版唯一的退路,它必须真的退干净。</p>
      */
-    @Delete("DELETE FROM period_account_group WHERE group_id = #{groupId}")
-    int deleteByGroup(@Param("groupId") long groupId);
+    @Delete("DELETE pg FROM period_account_group pg JOIN account_group g ON g.id = pg.group_id"
+          + " WHERE g.family_id = #{familyId} AND pg.group_id = #{groupId}")
+    int deleteByGroup(@Param("familyId") long familyId, @Param("groupId") long groupId);
 
     record Row(Long accountId, Long groupId, String groupName) {}
 
     @Select("""
-            SELECT account_id AS accountId, group_id AS groupId, group_name AS groupName
-              FROM period_account_group WHERE period_id = #{periodId}
+            SELECT pg.account_id AS accountId, pg.group_id AS groupId, pg.group_name AS groupName
+              FROM period_account_group pg
+              JOIN period p ON p.id = pg.period_id
+             WHERE p.family_id = #{familyId} AND pg.period_id = #{periodId}
             """)
-    List<Row> findByPeriod(@Param("periodId") long periodId);
+    List<Row> findByPeriod(@Param("familyId") long familyId, @Param("periodId") long periodId);
 
-    @Select("SELECT COUNT(*) FROM period_account_group WHERE period_id = #{periodId}")
-    int countByPeriod(@Param("periodId") long periodId);
+    @Select("SELECT COUNT(*) FROM period_account_group pg JOIN period p ON p.id = pg.period_id"
+          + " WHERE p.family_id = #{familyId} AND pg.period_id = #{periodId}")
+    int countByPeriod(@Param("familyId") long familyId, @Param("periodId") long periodId);
 
     /**
      * v1.20 · 已关账、但<b>还没有任何定格行</b>的期。

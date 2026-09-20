@@ -51,7 +51,7 @@ class CurrencyInvarianceTest {
         when(fam.getBaseCurrency()).thenReturn("CNY");
         when(famMapper.findById(anyLong())).thenReturn(Optional.of(fam));
         PeriodMemberCashflowMapper pmc = mock(PeriodMemberCashflowMapper.class);
-        when(pmc.findFamilyAggregateForPeriod(anyLong())).thenReturn(Optional.empty()); // 走 cash_flow 净流入回退
+        when(pmc.findFamilyAggregateForPeriod(anyLong(), anyLong())).thenReturn(Optional.empty()); // 走 cash_flow 净流入回退
         AccountMapper am = mock(AccountMapper.class);
         when(am.findAllByFamily(anyLong())).thenReturn(java.util.List.of());   // v1.12 · 预实改家庭级批量取账户(原逐个 findById)· 空 → expected null
         return new FactViewServiceImpl(fm, mock(com.family.finance.repository.PeriodMapper.class), famMapper, pmc, am, mock(ProductCategoryService.class), mock(com.family.finance.repository.SnapshotMapper.class),

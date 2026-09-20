@@ -168,7 +168,7 @@ public class PeriodOpener {
                 .orElse(null);
 
         for (Account account : accounts) {
-            if (snapshotTodoMapper.findByPeriodAndAccount(period.getId(), account.getId()).isPresent()) {
+            if (snapshotTodoMapper.findByPeriodAndAccount(family.getId(), period.getId(), account.getId()).isPresent()) {
                 continue;
             }
             SnapshotTodo todo = SnapshotTodo.builder()
@@ -181,14 +181,14 @@ public class PeriodOpener {
             // 计算"延续值":LOAN 走 prefill(prev + Δ_prev),其它账户 = 上期末
             BigDecimal prefillBalance = computePrefillBalance(period, account, todo, systemMemberId);
             todo.setPrefilledBalance(prefillBalance);
-            snapshotTodoMapper.insert(todo);
+            snapshotTodoMapper.insertOwned(family.getId(), todo);
 
             // 同时写入 period_snapshot,使每个账户开账即"已平衡 ✓"(用户后续只需调整变化的账户)
             // upsert + 仅当目标 snapshot 不存在时写入(idempotent)
             boolean snapshotExists = snapshotMapper
-                    .findByPeriodAndAccount(period.getId(), account.getId()).isPresent();
+                    .findByPeriodAndAccount(family.getId(), period.getId(), account.getId()).isPresent();
             if (prefillBalance != null && !snapshotExists) {
-                snapshotMapper.upsert(PeriodSnapshot.builder()
+                snapshotMapper.upsertOwned(family.getId(), PeriodSnapshot.builder()
                         .periodId(period.getId())
                         .accountId(account.getId())
                         .endBalance(prefillBalance)
@@ -207,7 +207,7 @@ public class PeriodOpener {
             //   但幂等重跑 / 快照由别的路径先落库时,前者才是对的。
             //   无历史(首期 / 新建账户的第一期)→ 没有快照 → 保持 PENDING,那时候确实该催。
             if (snapshotExists) {
-                snapshotTodoMapper.markCarriedForward(period.getId(), account.getId());
+                snapshotTodoMapper.markCarriedForward(family.getId(), period.getId(), account.getId());
             }
         }
     }
@@ -221,7 +221,7 @@ public class PeriodOpener {
      * 兼容:{@code createPeriodAndTodos} 幂等(已有 todo 则跳过),只影响将来新开账期,老账期不回改。</p>
      */
     private BigDecimal computePrefillBalance(Period period, Account account, SnapshotTodo todo, Long systemMemberId) {
-        return snapshotMapper.findLatestBefore(account.getId(), period.getPeriodStart(), 1)
+        return snapshotMapper.findLatestBefore(period.getFamilyId(), account.getId(), period.getPeriodStart(), 1)
                 .stream().findFirst()
                 .map(PeriodSnapshot::getEndBalance)
                 .orElse(null);

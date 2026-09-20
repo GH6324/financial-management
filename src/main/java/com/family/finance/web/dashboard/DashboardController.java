@@ -233,7 +233,7 @@ public class DashboardController {
         // v0.10 FR-165/166/167 · 本期「人赚 vs 钱赚」拆解 + 实时收支趋势(view 币种 · 含进行中本月)
         com.family.finance.factview.CashflowBreakdown cfBreak =
                 factViewService.cashflowBreakdown(slice, slice.lastPeriodId());
-        int cfFilled = householdCashflowService.filledMembersForPeriod(slice.lastPeriodId());
+        int cfFilled = householdCashflowService.filledMembersForPeriod(me.getFamilyId(), slice.lastPeriodId());
         int cfTotal = memberMapper.countActiveByFamily(me.getFamilyId());
         CashflowSplitView cashflowSplit = CashflowSplitView.of(kpis.netWorthDelta(), cfBreak, cfFilled, cfTotal,
                 kpis.openingBaselineLast());   // v0.13 · 开账基线单列第三项
@@ -270,7 +270,7 @@ public class DashboardController {
         model.addAttribute("rebalancePlanView", rebalancePlanService.activePlan(me.getFamilyId()));   // v1.2 洞察条 pill
         // v1.2 F · 模板只消费"未填个数" → 由全行装配(listRows 含流水,~百ms)换成 todo 计数轻查询
         model.addAttribute("pendingCount", currentOpen == null ? 0
-                : snapshotTodoMapper.countPendingByPeriod(currentOpen.getId()));
+                : snapshotTodoMapper.countPendingByPeriod(me.getFamilyId(), currentOpen.getId()));
 
         // v0.3 FR-50d · 目标进度条带数据(失败容忍 · 不阻塞 dashboard 渲染)
         //

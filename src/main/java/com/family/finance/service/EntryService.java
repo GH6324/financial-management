@@ -156,9 +156,9 @@ public class EntryService {
                 .collect(Collectors.toMap(Account::getId, Function.identity()));
         Map<Long, Member> members = memberDirectory.listAll(familyId).stream()
                 .collect(Collectors.toMap(Member::getId, Function.identity()));
-        Map<Long, PeriodSnapshot> current = snapshotMapper.findByPeriod(period.getId()).stream()
+        Map<Long, PeriodSnapshot> current = snapshotMapper.findByPeriod(familyId, period.getId()).stream()
                 .collect(Collectors.toMap(PeriodSnapshot::getAccountId, Function.identity()));
-        Map<Long, SnapshotTodo> todos = snapshotTodoMapper.findByPeriod(period.getId()).stream()
+        Map<Long, SnapshotTodo> todos = snapshotTodoMapper.findByPeriod(familyId, period.getId()).stream()
                 .collect(Collectors.toMap(SnapshotTodo::getAccountId, Function.identity()));
 
         return accounts.stream()
@@ -176,8 +176,8 @@ public class EntryService {
                 .collect(Collectors.toMap(Member::getId, Function.identity()));
         Map<Long, Account> allById = accountMapper.findAllByFamily(familyId).stream()
                 .collect(Collectors.toMap(Account::getId, Function.identity()));
-        PeriodSnapshot current = snapshotMapper.findByPeriodAndAccount(periodId, accountId).orElse(null);
-        SnapshotTodo todo = snapshotTodoMapper.findByPeriodAndAccount(periodId, accountId).orElse(null);
+        PeriodSnapshot current = snapshotMapper.findByPeriodAndAccount(familyId, periodId, accountId).orElse(null);
+        SnapshotTodo todo = snapshotTodoMapper.findByPeriodAndAccount(familyId, periodId, accountId).orElse(null);
         return toRow(account, members, allById, current, todo, period);
     }
 
@@ -193,7 +193,7 @@ public class EntryService {
         Period period = requireOpenPeriod(familyId, periodId);
         Account account = requireAccount(familyId, accountId);
         BigDecimal normalizedBalance = normalizeBalance(account, newBalance);
-        boolean overwriting = snapshotMapper.findByPeriodAndAccount(periodId, accountId).isPresent();
+        boolean overwriting = snapshotMapper.findByPeriodAndAccount(familyId, periodId, accountId).isPresent();
 
         // ── v1.18.5 · 手填余额落到「持仓托管」账户时,差额要记进现金行 ──────────────
         //   不这么做的话,用户敲的数会被下一次自动估值按「持仓合计」重算抹掉 ——
@@ -220,7 +220,7 @@ public class EntryService {
             }
         }
 
-        snapshotMapper.upsert(PeriodSnapshot.builder()
+        snapshotMapper.upsertOwned(familyId, PeriodSnapshot.builder()
                 .periodId(periodId)
                 .accountId(accountId)
                 .endBalance(normalizedBalance)
@@ -240,7 +240,7 @@ public class EntryService {
         }
 
         adjustLoanDraft(period, account, normalizedBalance, memberId);
-        snapshotTodoMapper.markDone(periodId, accountId, memberId);
+        snapshotTodoMapper.markDone(familyId, periodId, accountId, memberId);
 
         auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                 overwriting ? "覆盖余额快照" : "提交余额快照");
@@ -269,7 +269,7 @@ public class EntryService {
         if (loan.getType() != AccountType.LOAN) {
             throw new IllegalArgumentException("仅贷款账户支持趋势预填");
         }
-        List<PeriodSnapshot> last2 = snapshotMapper.findLatestBefore(accountId, period.getPeriodStart(), 2);
+        List<PeriodSnapshot> last2 = snapshotMapper.findLatestBefore(familyId, accountId, period.getPeriodStart(), 2);
         if (last2.isEmpty()) {
             throw new IllegalStateException("无历史余额,无法预测");
         }
@@ -277,7 +277,7 @@ public class EntryService {
         BigDecimal prevPrev = last2.size() >= 2 ? last2.get(1).getEndBalance() : null;
         BigDecimal predicted = PeriodOpener.predictLoanBalance(prev, prevPrev);
 
-        snapshotMapper.upsert(PeriodSnapshot.builder()
+        snapshotMapper.upsertOwned(familyId, PeriodSnapshot.builder()
                 .periodId(periodId)
                 .accountId(accountId)
                 .endBalance(predicted)
@@ -290,7 +290,7 @@ public class EntryService {
         // 复刻旧逻辑:草稿还款转账(默认还款来源 → 贷款,金额 = predicted − prev,>0 才起草)
         BigDecimal repay = predicted.subtract(prev);
         if (loan.getDefaultPaymentSourceAccountId() != null && repay.signum() > 0) {
-            transferMapper.insert(com.family.finance.domain.transfer.Transfer.builder()
+            transferMapper.insertOwned(familyId, com.family.finance.domain.transfer.Transfer.builder()
                     .periodId(periodId)
                     .fromAccountId(loan.getDefaultPaymentSourceAccountId())
                     .toAccountId(accountId)
@@ -304,7 +304,7 @@ public class EntryService {
                     .build());
         }
 
-        snapshotTodoMapper.markDone(periodId, accountId, memberId);
+        snapshotTodoMapper.markDone(familyId, periodId, accountId, memberId);
         auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                 "接受贷款趋势预测 " + MoneyFormat.format(loan.getCurrency(), predicted));
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
@@ -329,7 +329,7 @@ public class EntryService {
         insertCashFlow(period, account, memberId, new CashFlowLine(kind, categoryCode, amount, note));
         // v0.2 bug 修(2026-05-10): cash_flow 路径必须把 todo 标 DONE,
         // 否则 forceClose 会因 PENDING 把"上期末"覆盖回 snapshot,丢失真实数据
-        snapshotTodoMapper.markDone(periodId, accountId, memberId);
+        snapshotTodoMapper.markDone(familyId, periodId, accountId, memberId);
         auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                 "新增现金流 " + kind + " " + money(amount));
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
@@ -355,7 +355,7 @@ public class EntryService {
         creditAccountBalance(familyId, period, account, memberId, amt,
                 "+收入 " + cat.getDisplayName() + " " + money(amt));
         insertCashFlow(period, account, memberId, new CashFlowLine(CashFlowKind.INCOME, categoryCode, amt, note));
-        snapshotTodoMapper.markDone(periodId, accountId, memberId);
+        snapshotTodoMapper.markDone(familyId, periodId, accountId, memberId);
         auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                 "收入录入 " + cat.getDisplayName() + " " + money(amt) + " → " + account.getDisplayName());
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
@@ -436,7 +436,7 @@ public class EntryService {
         Long catId = expenseCategoryService.isUsable(familyId, expenseCategoryId) ? expenseCategoryId : null;
         insertCashFlow(period, account, memberId,
                 new CashFlowLine(CashFlowKind.EXPENSE, categoryCode, amt, note), catId, affectsBalance);
-        snapshotTodoMapper.markDone(periodId, accountId, memberId);
+        snapshotTodoMapper.markDone(familyId, periodId, accountId, memberId);
         auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                 "支出录入 " + cat.getDisplayName() + " " + money(amt) + " ← " + account.getDisplayName());
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // 透视缓存后台换新
@@ -565,7 +565,7 @@ public class EntryService {
                 .refShares(shares)
                 .sourceTag(com.family.finance.domain.ledger.LedgerSource.MANUAL.name())   // v1.18 · 人在填报页填的股数
                 .build());
-        snapshotTodoMapper.markDone(period.getId(), account.getId(), memberId);
+        snapshotTodoMapper.markDone(familyId, period.getId(), account.getId(), memberId);
         auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", account.getId(),
                 "股票收入 " + catLabel + " +" + shares.stripTrailingZeros().toPlainString() + " 股 "
                         + money(value) + " → " + account.getDisplayName());
@@ -628,7 +628,7 @@ public class EntryService {
     /** v0.2 FR-32 · 软删转账(同时反向冲销 from + to 两端余额) */
     @Transactional
     public EntryRow softDeleteTransfer(long familyId, long memberId, long transferId) {
-        Transfer t = transferMapper.findById(transferId)
+        Transfer t = transferMapper.findById(familyId, transferId)
                 .orElseThrow(() -> new IllegalArgumentException("转账不存在: " + transferId));
         Period period = requireOpenPeriod(familyId, t.getPeriodId());
         Account from = requireAccount(familyId, t.getFromAccountId());
@@ -640,7 +640,7 @@ public class EntryService {
                 "✕ 撤销划出到 " + to.getDisplayName() + " " + money(t.getAmount()));
         creditAccountBalance(familyId, period, to, memberId, backToAmount.negate(),
                 "✕ 撤销来自 " + from.getDisplayName() + " " + money(backToAmount));
-        transferMapper.softDelete(transferId);
+        transferMapper.softDelete(familyId, transferId);
         auditLogService.record(familyId, memberId, AuditLogType.TRANSFER_CREATE, "transfer", transferId,
                 "软删转账 " + from.getDisplayName() + " → " + to.getDisplayName() + " " + money(t.getAmount()));
         return rowFor(familyId, memberId, period.getId(), t.getFromAccountId());
@@ -679,8 +679,8 @@ public class EntryService {
         }
         // v0.2 bug 修(2026-05-10): 转账路径双端都要把 todo 标 DONE,
         // 否则 forceClose 会因 PENDING 把"上期末"覆盖回 snapshot,丢失真实数据
-        snapshotTodoMapper.markDone(periodId, fromAccountId, memberId);
-        snapshotTodoMapper.markDone(periodId, toAccountId, memberId);
+        snapshotTodoMapper.markDone(familyId, periodId, fromAccountId, memberId);
+        snapshotTodoMapper.markDone(familyId, periodId, toAccountId, memberId);
         auditLogService.record(familyId, memberId, AuditLogType.TRANSFER_CREATE, "account", fromAccountId,
                 "新增转账 " + fromAccountId + " → " + toAccountId + " " + money(amount));
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
@@ -701,17 +701,17 @@ public class EntryService {
      */
     private void applyDeltaToBalance(Period period, Account account, long memberId,
                                       BigDecimal delta, String reason) {
-        Optional<PeriodSnapshot> currentOpt = snapshotMapper.findByPeriodAndAccount(period.getId(), account.getId());
+        Optional<PeriodSnapshot> currentOpt = snapshotMapper.findByPeriodAndAccount(period.getFamilyId(), period.getId(), account.getId());
         BigDecimal base;
         if (currentOpt.isPresent()) {
             base = currentOpt.get().getEndBalance();
         } else {
-            PeriodSnapshot prevSnap = snapshotMapper.findLatestBefore(account.getId(), period.getPeriodStart(), 1)
+            PeriodSnapshot prevSnap = snapshotMapper.findLatestBefore(period.getFamilyId(), account.getId(), period.getPeriodStart(), 1)
                     .stream().findFirst().orElse(null);
             base = prevSnap == null ? BigDecimal.ZERO : prevSnap.getEndBalance();
         }
         BigDecimal newBalance = base.add(delta).setScale(2, RoundingMode.HALF_EVEN);
-        snapshotMapper.upsert(PeriodSnapshot.builder()
+        snapshotMapper.upsertOwned(period.getFamilyId(), PeriodSnapshot.builder()
                 .periodId(period.getId())
                 .accountId(account.getId())
                 .endBalance(newBalance)
@@ -754,7 +754,7 @@ public class EntryService {
                 .findFirst()
                 .orElse(null);
         if (next == null) return;   // 没有更晚的 OPEN 期 = 不在双活跃窗口里
-        PeriodSnapshot nextSnap = snapshotMapper.findByPeriodAndAccount(next.getId(), accountId).orElse(null);
+        PeriodSnapshot nextSnap = snapshotMapper.findByPeriodAndAccount(source.getFamilyId(), next.getId(), accountId).orElse(null);
         if (nextSnap == null) return;   // 进行期还没这张快照 → 它开账时自然会读到新值
         if (!com.family.finance.domain.ledger.LedgerSource.CARRIED_FORWARD.name()
                 .equals(nextSnap.getSourceTag())) {
@@ -764,7 +764,7 @@ public class EntryService {
                 && nextSnap.getEndBalance().compareTo(newEndBalance) == 0) {
             return;   // 值没变,不写库也不记审计(否则每笔补录都刷一条无变化的日志)
         }
-        snapshotMapper.upsert(PeriodSnapshot.builder()
+        snapshotMapper.upsertOwned(source.getFamilyId(), PeriodSnapshot.builder()
                 .periodId(next.getId())
                 .accountId(accountId)
                 .endBalance(newEndBalance)
@@ -846,7 +846,7 @@ public class EntryService {
                            PeriodSnapshot current,
                            SnapshotTodo todo,
                            Period period) {
-        PeriodSnapshot previous = snapshotMapper.findLatestBefore(account.getId(), period.getPeriodStart(), 1)
+        PeriodSnapshot previous = snapshotMapper.findLatestBefore(account.getFamilyId(), account.getId(), period.getPeriodStart(), 1)
                 .stream()
                 .findFirst()
                 .orElse(null);
@@ -882,7 +882,7 @@ public class EntryService {
         List<EntryRow.TransferRef> outgoing = new ArrayList<>();
         // 同时为本期 ledger(本期所有流水合并视图,PRD §7.9 / FR-7~9)收集划转条目
         List<EntryRow.LedgerEntry> ledger = new ArrayList<>();
-        for (Transfer t : transferMapper.findCommittedByPeriodAndAccount(period.getId(), account.getId())) {
+        for (Transfer t : transferMapper.findCommittedByPeriodAndAccount(account.getFamilyId(), period.getId(), account.getId())) {
             if (t.getToAccountId().equals(account.getId())) {
                 Account from = allAccountsById.get(t.getFromAccountId());
                 String name = from == null ? "其他账户" : from.getDisplayName();
@@ -986,7 +986,7 @@ public class EntryService {
         String loanSuggestionLabel = null;
         String loanSuggestionDeltaLabel = null;
         if (account.getType().isLiability() && previousBalance != null) {
-            List<PeriodSnapshot> last2 = snapshotMapper.findLatestBefore(account.getId(), period.getPeriodStart(), 2);
+            List<PeriodSnapshot> last2 = snapshotMapper.findLatestBefore(account.getFamilyId(), account.getId(), period.getPeriodStart(), 2);
             BigDecimal prevPrev = last2.size() >= 2 ? last2.get(1).getEndBalance() : null;
             BigDecimal predicted = PeriodOpener.predictLoanBalance(previousBalance, prevPrev);
             if (loanPromptVisible(predicted, previousBalance, currentBalance, confirmedByHuman(todo))) {
@@ -1134,7 +1134,7 @@ public class EntryService {
         requireAccount(familyId, fromAccountId);
         requireAccount(familyId, toAccountId);
         BigDecimal normalized = positiveMoney(amount);
-        int duplicate = transferMapper.countRecentDuplicate(period.getId(), fromAccountId, toAccountId, normalized);
+        int duplicate = transferMapper.countRecentDuplicate(period.getFamilyId(), period.getId(), fromAccountId, toAccountId, normalized);
         if (duplicate > 0 && !confirmDuplicate) {
             throw new IllegalArgumentException("看起来像 24 小时内重复转账,请确认后再提交");
         }
@@ -1150,7 +1150,7 @@ public class EntryService {
                 .draft(false)
                 .sourceTag(com.family.finance.domain.ledger.LedgerSource.MANUAL.name())   // v1.18
                 .build();
-        transferMapper.insert(transfer);
+        transferMapper.insertOwned(period.getFamilyId(), transfer);
         return transfer;
     }
 
@@ -1176,7 +1176,7 @@ public class EntryService {
         }
         BigDecimal transferIn = BigDecimal.ZERO;
         BigDecimal transferOut = BigDecimal.ZERO;
-        for (Transfer transfer : transferMapper.findCommittedByPeriodAndAccount(periodId, accountId)) {
+        for (Transfer transfer : transferMapper.findCommittedByPeriodAndAccount(familyId, periodId, accountId)) {
             if (transfer.getToAccountId().equals(accountId)) {
                 transferIn = transferIn.add(transfer.getAmount());
             }

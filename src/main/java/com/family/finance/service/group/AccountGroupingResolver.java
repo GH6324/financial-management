@@ -109,7 +109,7 @@ public class AccountGroupingResolver {
      */
     private List<PeriodAccountGroupMapper.Row> groupingOf(long familyId, Long periodId) {
         if (periodId != null) {
-            List<PeriodAccountGroupMapper.Row> frozen = frozenMapper.findByPeriod(periodId);
+            List<PeriodAccountGroupMapper.Row> frozen = frozenMapper.findByPeriod(familyId, periodId);
             if (!frozen.isEmpty()) return frozen;
         }
         Map<Long, String> groupName = new HashMap<>();

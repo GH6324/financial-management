@@ -142,7 +142,7 @@ public class AccountValuationService {
             if (!StockHoldingService.valuationManaged(acc.getType(), holdings)) continue;
             ValuationResult r = valuateInternal(acc);
             // v0.4.1:先取 prev_balance 再写回
-            BigDecimal prevBalance = snapshotMapper.findByPeriodAndAccount(currentOpen.getId(), acc.getId())
+            BigDecimal prevBalance = snapshotMapper.findByPeriodAndAccount(familyId, currentOpen.getId(), acc.getId())
                 .map(s -> s.getEndBalance())
                 .orElse(null);
             LedgerSource src = inferSource(explicitSource, trigger, null, holdings);
@@ -182,7 +182,7 @@ public class AccountValuationService {
         // 红线:无持仓不接管 · v1.18.1 判据与录入侧同源(见 StockHoldingService.valuationManaged)
         if (!StockHoldingService.valuationManaged(acc.getType(), holdings)) return;
         ValuationResult r = valuateInternal(acc);
-        BigDecimal prevBalance = snapshotMapper.findByPeriodAndAccount(currentOpen.getId(), accountId)
+        BigDecimal prevBalance = snapshotMapper.findByPeriodAndAccount(familyId, currentOpen.getId(), accountId)
             .map(s -> s.getEndBalance()).orElse(null);
         LedgerSource src = inferSource(explicitSource, trigger, refImportId, holdings);
         // v1.18.3 · 同上:没写回就不写事件(见 writeBackBalance 的返回值说明)
@@ -376,7 +376,7 @@ public class AccountValuationService {
         //   v1.18.1 修掉了已知的那条路径(钱现在会落进现金行),这里是兜底:
         //   万一还有我没找到的路径,宁可【这次不写】,也不要把钱抹掉。
         //   判据与事后对账扫描共用一份(ErasureDetector),不许两处各写一套。
-        BigDecimal current = snapshotMapper.findByPeriodAndAccount(periodId, acc.getId())
+        BigDecimal current = snapshotMapper.findByPeriodAndAccount(acc.getFamilyId(), periodId, acc.getId())
                 .map(PeriodSnapshot::getEndBalance).orElse(null);
         if (current != null && balance != null) {
             try {
@@ -413,7 +413,7 @@ public class AccountValuationService {
             // v1.18 · 和同一次刷新写的 stock_valuation_event 用同一个来源判定,别两处各算一次
             .sourceTag((source == null ? LedgerSource.UNKNOWN : source).name())
             .build();
-        snapshotMapper.upsert(snap);
+        snapshotMapper.upsertOwned(acc.getFamilyId(), snap);
         return true;
     }
 

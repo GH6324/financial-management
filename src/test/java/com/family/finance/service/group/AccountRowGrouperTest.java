@@ -39,7 +39,7 @@ class AccountRowGrouperTest {
         when(am.findAllByFamily(anyLong())).thenReturn(accounts);
         when(gm.findByFamily(anyLong())).thenReturn(groups);
         when(gm.findMembersByFamily(anyLong())).thenReturn(members);
-        when(pm.findByPeriod(anyLong())).thenReturn(List.of());
+        when(pm.findByPeriod(anyLong(), anyLong())).thenReturn(List.of());
         return new AccountRowGrouper(new AccountGroupingResolver(am, gm, pm));
     }
 

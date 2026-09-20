@@ -17,6 +17,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -71,9 +72,9 @@ class NetInflowDecompositionTest {
                 fact(1, 12, LocalDate.of(2025, 3, 1), "1100000", "0", "0"));
         var pmc = mock(PeriodMemberCashflowMapper.class);
         // p1 净流入 2w · p2 净流入 2w · 人赚合计 4w
-        when(pmc.findFamilyAggregateForPeriod(11L)).thenReturn(Optional.of(
+        when(pmc.findFamilyAggregateForPeriod(anyLong(), eq(11L))).thenReturn(Optional.of(
                 new SinglePeriodAggregate(11L, 11L, new BigDecimal("30000"), new BigDecimal("10000"), 2)));
-        when(pmc.findFamilyAggregateForPeriod(12L)).thenReturn(Optional.of(
+        when(pmc.findFamilyAggregateForPeriod(anyLong(), eq(12L))).thenReturn(Optional.of(
                 new SinglePeriodAggregate(12L, 12L, new BigDecimal("35000"), new BigDecimal("15000"), 2)));
 
         var decomp = svc(pmc).principalVsReturnDecomposition(slice(rows, List.of(10L, 11L, 12L)));
@@ -94,7 +95,7 @@ class NetInflowDecompositionTest {
                 fact(1, 10, LocalDate.of(2025, 1, 1), "500000", "0", "0"),
                 fact(1, 11, LocalDate.of(2025, 2, 1), "560000", "0", "0"));
         var pmc = mock(PeriodMemberCashflowMapper.class);
-        when(pmc.findFamilyAggregateForPeriod(11L)).thenReturn(Optional.of(
+        when(pmc.findFamilyAggregateForPeriod(anyLong(), eq(11L))).thenReturn(Optional.of(
                 new SinglePeriodAggregate(11L, 11L, new BigDecimal("50000"), new BigDecimal("8000"), 2)));
 
         var decomp = svc(pmc).principalVsReturnDecomposition(slice(rows, List.of(10L, 11L)));
@@ -111,7 +112,7 @@ class NetInflowDecompositionTest {
                 fact(1, 11, LocalDate.of(2025, 2, 1), "560000", "25000", "5000"));
         var pmc = mock(PeriodMemberCashflowMapper.class);
         // PMC 空:filledMembers=0(或 Optional.empty)
-        when(pmc.findFamilyAggregateForPeriod(anyLong())).thenReturn(Optional.of(
+        when(pmc.findFamilyAggregateForPeriod(anyLong(), anyLong())).thenReturn(Optional.of(
                 new SinglePeriodAggregate(null, null, null, null, 0)));
 
         var decomp = svc(pmc).principalVsReturnDecomposition(slice(rows, List.of(10L, 11L)));

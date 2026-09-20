@@ -137,20 +137,20 @@ public class PeriodService {
             throw new IllegalStateException("周期已是 CLOSED,无需强制关闭");
         }
         int filledFromPrev = 0;
-        for (com.family.finance.domain.snapshot.SnapshotTodo todo : snapshotTodoMapper.findByPeriod(periodId)) {
+        for (com.family.finance.domain.snapshot.SnapshotTodo todo : snapshotTodoMapper.findByPeriod(period.getFamilyId(), periodId)) {
             if (todo.getStatus() != com.family.finance.domain.snapshot.TodoStatus.PENDING) continue;
             // v0.2 bug 修(2026-05-10): 防御深度 — 若 snapshot 已存在(可能由 cash_flow/transfer 路径
             // 写入而 todo 因历史 bug 未标 DONE),不允许"延续上期末"覆盖真实余额,
             // 仅把 todo 标 DONE 即可。
             boolean snapshotExists = snapshotMapperRef
-                    .findByPeriodAndAccount(periodId, todo.getAccountId()).isPresent();
+                    .findByPeriodAndAccount(period.getFamilyId(), periodId, todo.getAccountId()).isPresent();
             if (!snapshotExists) {
                 java.math.BigDecimal prevBalance = snapshotMapperRef
-                        .findLatestBefore(todo.getAccountId(), period.getPeriodStart(), 1)
+                        .findLatestBefore(period.getFamilyId(), todo.getAccountId(), period.getPeriodStart(), 1)
                         .stream().findFirst()
                         .map(com.family.finance.domain.snapshot.PeriodSnapshot::getEndBalance)
                         .orElse(java.math.BigDecimal.ZERO);
-                snapshotMapperRef.upsert(com.family.finance.domain.snapshot.PeriodSnapshot.builder()
+                snapshotMapperRef.upsertOwned(period.getFamilyId(), com.family.finance.domain.snapshot.PeriodSnapshot.builder()
                         .periodId(periodId)
                         .accountId(todo.getAccountId())
                         .endBalance(prevBalance)
@@ -159,11 +159,11 @@ public class PeriodService {
                         .build());
                 filledFromPrev++;
             }
-            snapshotTodoMapper.markDone(periodId, todo.getAccountId(), actorMemberId);
+            snapshotTodoMapper.markDone(period.getFamilyId(), periodId, todo.getAccountId(), actorMemberId);
         }
         // 全员代签 period_member_completion
         for (com.family.finance.domain.member.Member m : memberMapper.findActiveByFamily(period.getFamilyId())) {
-            completionMapper.insertIgnore(PeriodMemberCompletion.builder()
+            completionMapper.insertIgnore(period.getFamilyId(), PeriodMemberCompletion.builder()
                     .periodId(periodId)
                     .memberId(m.getId())
                     .build());
@@ -181,15 +181,15 @@ public class PeriodService {
         memberMapper.findById(memberId)
                 .filter(member -> member.getFamilyId().equals(period.getFamilyId()))
                 .orElseThrow(() -> new IllegalArgumentException("成员不属于该家庭"));
-        completionMapper.insertIgnore(PeriodMemberCompletion.builder()
+        completionMapper.insertIgnore(period.getFamilyId(), PeriodMemberCompletion.builder()
                 .periodId(periodId)
                 .memberId(memberId)
                 .build());
         auditLogService.record(period.getFamilyId(), memberId, AuditLogType.SYSTEM,
                 "period", periodId, "成员提交本期完成");
         int activeMembers = memberMapper.countActiveByFamily(period.getFamilyId());
-        int completedMembers = completionMapper.countByPeriod(periodId);
-        int pendingTodos = snapshotTodoMapper.countPendingByPeriod(periodId);
+        int completedMembers = completionMapper.countByPeriod(period.getFamilyId(), periodId);
+        int pendingTodos = snapshotTodoMapper.countPendingByPeriod(period.getFamilyId(), periodId);
         if (activeMembers > 0 && completedMembers >= activeMembers && pendingTodos == 0) {
             close(periodId, null, "全员完成并自动关闭周期");
         }
@@ -209,10 +209,10 @@ public class PeriodService {
         Period period = periodMapper.findById(periodId)
                 .orElseThrow(() -> new IllegalArgumentException("周期不存在: " + periodId));
         periodMapper.reopen(period.getFamilyId(), periodId);
-        completionMapper.deleteByPeriod(periodId);
+        completionMapper.deleteByPeriod(period.getFamilyId(), periodId);
         // v1.12 FR-350 · 删掉该期的分类属性定格行 → 这期又跟着当前设置走(和「未关账 = 实时」一致),
         // 而「重开后再关账 = 重新定格」变成**结构上必然**的,不需要额外标志位或版本号。
-        periodAccountAttrMapper.deleteByPeriod(periodId);
+        periodAccountAttrMapper.deleteByPeriod(period.getFamilyId(), periodId);
         // v1.19.16 · AI 月度复盘缓存也要一起清。
         //   它按 (family, period, dim) 存,而这里以前只清了填报完成态和定格行 ——
         //   于是「重开 → 改数据 → 重新关账」之后,复盘还是重开前那份结论。
@@ -223,10 +223,10 @@ public class PeriodService {
         // v1.20 · 分组定格同样作废。reopen() 至此已是「该期所有派生物的失效点」——
         //   分类属性定格(v1.12)· AI 复盘缓存(v1.19.16)· 分组定格(本版)。
         //   新增任何「关账时定格 / 关账后缓存」的东西,都要回到这里加一行。
-        periodAccountGroupMapper.deleteByPeriod(periodId);
+        periodAccountGroupMapper.deleteByPeriod(period.getFamilyId(), periodId);
         String safeReason = reason == null || reason.isBlank() ? "(未填写)" : reason;
         // PRD FR-12 验收:写入 period_reopen_log 专表
-        periodReopenLogMapper.insert(periodId, actorMemberId, safeReason);
+        periodReopenLogMapper.insertOwned(period.getFamilyId(), periodId, actorMemberId, safeReason);
         auditLogService.record(period.getFamilyId(), actorMemberId, AuditLogType.PERIOD_REOPEN,
                 "period", periodId, "重新打开周期: " + safeReason);
     }

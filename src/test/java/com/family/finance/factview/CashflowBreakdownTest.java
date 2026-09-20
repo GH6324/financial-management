@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -48,11 +49,11 @@ class CashflowBreakdownTest {
      * 于是各测试照旧只 stub 点查,两条路径结构上不可能对不上。</p>
      */
     static void wireBatchFromPointStubs(PeriodMemberCashflowMapper pmc) {
-        when(pmc.findFamilyAggregateForPeriods(org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> {
-            java.util.Collection<Long> ids = inv.getArgument(0);
+        when(pmc.findFamilyAggregateForPeriods(anyLong(), org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> {
+            java.util.Collection<Long> ids = inv.getArgument(1);
             return ids.stream()
                     .filter(java.util.Objects::nonNull)
-                    .map(pmc::findFamilyAggregateForPeriod)
+                    .map(pid -> pmc.findFamilyAggregateForPeriod(1L, pid))
                     .filter(Optional::isPresent).map(Optional::get)
                     .filter(a -> a.periodId() != null && a.filledMembers() != null && a.filledMembers() > 0)
                     .toList();
@@ -90,7 +91,7 @@ class CashflowBreakdownTest {
     void pmcFirst_winsOverCashFlow_andSplitsGross() {
         PeriodMemberCashflowMapper pmc = mock(PeriodMemberCashflowMapper.class);
         // PMC 有人填(收入 9000 / 支出 4000 · 2 人)→ 应盖过 cash_flow 的 8000/3000
-        when(pmc.findFamilyAggregateForPeriod(102L))
+        when(pmc.findFamilyAggregateForPeriod(anyLong(), eq(102L)))
                 .thenReturn(Optional.of(new SinglePeriodAggregate(102L, 102L, bd("9000"), bd("4000"), 2)));
 
         CashflowBreakdown b = svc(pmc).cashflowBreakdown(cnySlice(), 102L);
@@ -103,7 +104,7 @@ class CashflowBreakdownTest {
     @Test
     void fallsBackToCashFlow_whenPmcEmpty() {
         PeriodMemberCashflowMapper pmc = mock(PeriodMemberCashflowMapper.class);
-        when(pmc.findFamilyAggregateForPeriod(anyLong())).thenReturn(Optional.empty());
+        when(pmc.findFamilyAggregateForPeriod(anyLong(), anyLong())).thenReturn(Optional.empty());
 
         CashflowBreakdown b = svc(pmc).cashflowBreakdown(cnySlice(), 102L);
         assertThat(b.income()).as("回退 cash_flow").isEqualByComparingTo(bd("8000"));
@@ -116,7 +117,7 @@ class CashflowBreakdownTest {
         // v0.12 FR-142:新账期收入侧改走 cash_flow 录入,2框只填支出 → PMC.totalIncome=null。
         // 收入应取 cash_flow(8000,不被 PMC 空收入低估为 0),支出取 PMC(4500)。
         PeriodMemberCashflowMapper pmc = mock(PeriodMemberCashflowMapper.class);
-        when(pmc.findFamilyAggregateForPeriod(102L))
+        when(pmc.findFamilyAggregateForPeriod(anyLong(), eq(102L)))
                 .thenReturn(Optional.of(new SinglePeriodAggregate(102L, 102L, null, bd("4500"), 1)));
         CashflowBreakdown b = svc(pmc).cashflowBreakdown(cnySlice(), 102L);
         assertThat(b.income()).as("PMC 收入缺 → 收入取 cash_flow").isEqualByComparingTo(bd("8000"));
@@ -128,7 +129,7 @@ class CashflowBreakdownTest {
     void income_notDoubleCounted_whenBothPmcAndCashFlowPresent() {
         // 防双计:PMC 收入 9000 存在时,即便 cash_flow 也有 8000,收入只取一处(PMC 9000),绝不叠加成 17000。
         PeriodMemberCashflowMapper pmc = mock(PeriodMemberCashflowMapper.class);
-        when(pmc.findFamilyAggregateForPeriod(102L))
+        when(pmc.findFamilyAggregateForPeriod(anyLong(), eq(102L)))
                 .thenReturn(Optional.of(new SinglePeriodAggregate(102L, 102L, bd("9000"), bd("4000"), 2)));
         CashflowBreakdown b = svc(pmc).cashflowBreakdown(cnySlice(), 102L);
         assertThat(b.income()).as("单一来源,不叠加").isEqualByComparingTo(bd("9000"));

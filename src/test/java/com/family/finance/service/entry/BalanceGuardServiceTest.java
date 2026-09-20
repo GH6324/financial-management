@@ -50,13 +50,13 @@ class BalanceGuardServiceTest {
     @Test
     @DisplayName("已校准 + 余额真的变了 → 说清校准时间与前后值")
     void warnsWhenCalibratedBalanceChanged() {
-        when(snapshots.findByPeriodAndAccount(9L, 1L))
+        when(snapshots.findByPeriodAndAccount(1L, 9L, 1L))
                 .thenReturn(Optional.of(snap("1000", LocalDateTime.of(2026, 9, 2, 10, 0))));
-        var before = guard.snapshot(1L, 9L);
-        when(snapshots.findByPeriodAndAccount(9L, 1L))
+        var before = guard.snapshot(1L, 1L, 9L);
+        when(snapshots.findByPeriodAndAccount(1L, 9L, 1L))
                 .thenReturn(Optional.of(snap("1777", LocalDateTime.of(2026, 9, 2, 10, 0))));
 
-        String note = guard.afterNote(before, 9L);
+        String note = guard.afterNote(1L, before, 9L);
 
         assertThat(note).contains("支付宝-余额宝").contains("09-02").contains("校准过");
         assertThat(note).contains("1,000").contains("1,777");
@@ -65,20 +65,20 @@ class BalanceGuardServiceTest {
     @Test
     @DisplayName("已校准但余额没变 → 不吭声。改分类、改备注这类不该弹提示")
     void silentWhenBalanceUnchanged() {
-        when(snapshots.findByPeriodAndAccount(9L, 1L))
+        when(snapshots.findByPeriodAndAccount(1L, 9L, 1L))
                 .thenReturn(Optional.of(snap("1000", LocalDateTime.of(2026, 9, 2, 10, 0))));
-        var before = guard.snapshot(1L, 9L);
+        var before = guard.snapshot(1L, 1L, 9L);
 
-        assertThat(guard.afterNote(before, 9L)).isNull();
+        assertThat(guard.afterNote(1L, before, 9L)).isNull();
     }
 
     @Test
     @DisplayName("本月没填余额 → 换成「这笔改动不进本期净资产变化」—— 这是提交者困惑的另一半")
     void explainsWhenAccountNotFilledThisPeriod() {
-        when(snapshots.findByPeriodAndAccount(9L, 1L)).thenReturn(Optional.empty());
-        var before = guard.snapshot(1L, 9L);
+        when(snapshots.findByPeriodAndAccount(1L, 9L, 1L)).thenReturn(Optional.empty());
+        var before = guard.snapshot(1L, 1L, 9L);
 
-        String note = guard.afterNote(before, 9L);
+        String note = guard.afterNote(1L, before, 9L);
 
         assertThat(note).contains("还没填余额").contains("本期净资产变化");
     }
@@ -86,19 +86,19 @@ class BalanceGuardServiceTest {
     @Test
     @DisplayName("拿不到账户时宁可不提示 —— 提示错的账户比不提示更糟")
     void silentWhenAccountUnknown() {
-        assertThat(guard.snapshot(null, 9L)).isNull();
-        assertThat(guard.afterNote(null, 9L)).isNull();
+        assertThat(guard.snapshot(1L, null, 9L)).isNull();
+        assertThat(guard.afterNote(1L, null, 9L)).isNull();
     }
 
     @Test
     @DisplayName("文案是纯文本 flash,不许带 markdown 记号")
     void noMarkdownInUserFacingText() {
-        when(snapshots.findByPeriodAndAccount(9L, 1L))
+        when(snapshots.findByPeriodAndAccount(1L, 9L, 1L))
                 .thenReturn(Optional.of(snap("1000", LocalDateTime.of(2026, 9, 2, 10, 0))));
-        var before = guard.snapshot(1L, 9L);
-        when(snapshots.findByPeriodAndAccount(9L, 1L))
+        var before = guard.snapshot(1L, 1L, 9L);
+        when(snapshots.findByPeriodAndAccount(1L, 9L, 1L))
                 .thenReturn(Optional.of(snap("2000", LocalDateTime.of(2026, 9, 2, 10, 0))));
 
-        assertThat(guard.afterNote(before, 9L)).doesNotContain("**").doesNotContain("<b>");
+        assertThat(guard.afterNote(1L, before, 9L)).doesNotContain("**").doesNotContain("<b>");
     }
 }

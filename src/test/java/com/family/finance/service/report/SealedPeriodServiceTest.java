@@ -47,7 +47,7 @@ class SealedPeriodServiceTest {
         when(am.findAllByFamily(anyLong())).thenReturn(List.of());
         when(gm.findByFamily(anyLong())).thenReturn(List.of());
         when(gm.findMembersByFamily(anyLong())).thenReturn(List.of());
-        when(pm.findByPeriod(anyLong())).thenReturn(List.of());
+        when(pm.findByPeriod(anyLong(), anyLong())).thenReturn(List.of());
         return new SealedPeriodService(mock(FactViewService.class), mock(PeriodMapper.class),
                 mock(FamilyMapper.class), mock(com.family.finance.repository.SnapshotMapper.class),
                 mock(com.family.finance.service.member.MemberDirectory.class),

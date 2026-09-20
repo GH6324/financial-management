@@ -80,12 +80,12 @@ class PeriodOpenerTodoAlignmentTest {
         when(accountMapper.findActiveByFamily(FAMILY_ID)).thenReturn(List.of(account()));
         when(memberMapper.findActiveByFamily(FAMILY_ID))
                 .thenReturn(List.of(Member.builder().id(3L).familyId(FAMILY_ID).displayName("我").build()));
-        when(snapshotTodoMapper.findByPeriodAndAccount(PERIOD_ID, ACCOUNT_ID)).thenReturn(Optional.empty());
-        when(snapshotMapper.findByPeriodAndAccount(PERIOD_ID, ACCOUNT_ID)).thenReturn(Optional.empty());
+        when(snapshotTodoMapper.findByPeriodAndAccount(FAMILY_ID, PERIOD_ID, ACCOUNT_ID)).thenReturn(Optional.empty());
+        when(snapshotMapper.findByPeriodAndAccount(FAMILY_ID, PERIOD_ID, ACCOUNT_ID)).thenReturn(Optional.empty());
     }
 
     private void withHistory(String endBalance) {
-        when(snapshotMapper.findLatestBefore(eq(ACCOUNT_ID), eq(START), anyInt()))
+        when(snapshotMapper.findLatestBefore(eq(FAMILY_ID), eq(ACCOUNT_ID), eq(START), anyInt()))
                 .thenReturn(List.of(PeriodSnapshot.builder().accountId(ACCOUNT_ID)
                         .endBalance(new BigDecimal(endBalance)).build()));
     }
@@ -98,45 +98,45 @@ class PeriodOpenerTodoAlignmentTest {
         opener.createPeriodAndTodos(family(), START);
 
         // 写了本期快照 → 同一行 todo 必须一起标 DONE,否则徽标和页面又对不上
-        verify(snapshotMapper).upsert(any(PeriodSnapshot.class));
-        verify(snapshotTodoMapper).markCarriedForward(PERIOD_ID, ACCOUNT_ID);
+        verify(snapshotMapper).upsertOwned(anyLong(), any(PeriodSnapshot.class));
+        verify(snapshotTodoMapper).markCarriedForward(FAMILY_ID, PERIOD_ID, ACCOUNT_ID);
         // 记名走的是「系统代填」那条,不许借 markDone 塞一个人进去(FR-392 靠 NULL 区分)
-        verify(snapshotTodoMapper, never()).markDone(anyLong(), anyLong(), anyLong());
+        verify(snapshotTodoMapper, never()).markDone(anyLong(), anyLong(), anyLong(), anyLong());
     }
 
     @Test
     void noHistory_staysPending() {
         wireCommon();
-        when(snapshotMapper.findLatestBefore(eq(ACCOUNT_ID), eq(START), anyInt())).thenReturn(List.of());
+        when(snapshotMapper.findLatestBefore(eq(FAMILY_ID), eq(ACCOUNT_ID), eq(START), anyInt())).thenReturn(List.of());
 
         opener.createPeriodAndTodos(family(), START);
 
         // 首期 / 新建账户的第一期:没数字可延续 → 不写快照 → 保持 PENDING,该催还是要催
-        verify(snapshotMapper, never()).upsert(any(PeriodSnapshot.class));
-        verify(snapshotTodoMapper, never()).markCarriedForward(anyLong(), anyLong());
+        verify(snapshotMapper, never()).upsertOwned(anyLong(), any(PeriodSnapshot.class));
+        verify(snapshotTodoMapper, never()).markCarriedForward(anyLong(), anyLong(), anyLong());
     }
 
     @Test
     void existingTodo_notTouched() {
         wireCommon();
         withHistory("999");
-        when(snapshotTodoMapper.findByPeriodAndAccount(PERIOD_ID, ACCOUNT_ID))
+        when(snapshotTodoMapper.findByPeriodAndAccount(FAMILY_ID, PERIOD_ID, ACCOUNT_ID))
                 .thenReturn(Optional.of(SnapshotTodo.builder().id(55L).periodId(PERIOD_ID)
                         .accountId(ACCOUNT_ID).status(TodoStatus.PENDING).build()));
 
         opener.createPeriodAndTodos(family(), START);
 
         // 幂等重跑不许碰已存在的 todo —— 人工把它改回 PENDING 是有意的,开账逻辑不该覆盖
-        verify(snapshotTodoMapper, never()).insert(any(SnapshotTodo.class));
-        verify(snapshotTodoMapper, never()).markCarriedForward(anyLong(), anyLong());
-        verify(snapshotMapper, never()).upsert(any(PeriodSnapshot.class));
+        verify(snapshotTodoMapper, never()).insertOwned(anyLong(), any(SnapshotTodo.class));
+        verify(snapshotTodoMapper, never()).markCarriedForward(anyLong(), anyLong(), anyLong());
+        verify(snapshotMapper, never()).upsertOwned(anyLong(), any(PeriodSnapshot.class));
     }
 
     @Test
     void snapshotWrittenByAnotherPath_stillAligns() {
         wireCommon();
         // 快照已由别的路径落库(比如用户在开账前就填了),延续值算得出但不会重复写
-        when(snapshotMapper.findByPeriodAndAccount(PERIOD_ID, ACCOUNT_ID))
+        when(snapshotMapper.findByPeriodAndAccount(FAMILY_ID, PERIOD_ID, ACCOUNT_ID))
                 .thenReturn(Optional.of(PeriodSnapshot.builder().periodId(PERIOD_ID)
                         .accountId(ACCOUNT_ID).endBalance(new BigDecimal("500")).build()));
         withHistory("400");
@@ -144,7 +144,7 @@ class PeriodOpenerTodoAlignmentTest {
         opener.createPeriodAndTodos(family(), START);
 
         // 判定看的是「写完之后有没有快照」而不是「有没有延续值」:这里没写,但确实有数字 → 照样对齐
-        verify(snapshotMapper, never()).upsert(any(PeriodSnapshot.class));
-        verify(snapshotTodoMapper, times(1)).markCarriedForward(PERIOD_ID, ACCOUNT_ID);
+        verify(snapshotMapper, never()).upsertOwned(anyLong(), any(PeriodSnapshot.class));
+        verify(snapshotTodoMapper, times(1)).markCarriedForward(FAMILY_ID, PERIOD_ID, ACCOUNT_ID);
     }
 }

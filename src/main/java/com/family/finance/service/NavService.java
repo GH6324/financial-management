@@ -18,7 +18,7 @@ public class NavService {
     public NavState load(MemberPrincipal me) {
         Family family = familyService.require(me.getFamilyId());
         Period period = periodService.findBalancePeriod(me.getFamilyId()).orElse(null);
-        int pending = period == null ? 0 : snapshotTodoMapper.countPendingByPeriod(period.getId());
+        int pending = period == null ? 0 : snapshotTodoMapper.countPendingByPeriod(me.getFamilyId(), period.getId());
         String label = period == null
                 ? "未开期"
                 : "%d · %02d · %s".formatted(

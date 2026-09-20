@@ -113,10 +113,12 @@ public interface PeriodMemberCashflowMapper {
                    SUM(IFNULL(pmc.total_expense_input, 0)) AS totalExpense,
                    COUNT(*)                AS filledMembers
               FROM period_member_cashflow pmc
-             WHERE pmc.period_id = #{periodId}
+             WHERE pmc.family_id = #{familyId}
+               AND pmc.period_id = #{periodId}
                AND (pmc.total_income_input IS NOT NULL OR pmc.total_expense_input IS NOT NULL)
             """)
-    Optional<SinglePeriodAggregate> findFamilyAggregateForPeriod(@Param("periodId") long periodId);
+    Optional<SinglePeriodAggregate> findFamilyAggregateForPeriod(@Param("familyId") long familyId,
+                                                                 @Param("periodId") long periodId);
 
     /**
      * v1.12 FR-352 · {@link #findFamilyAggregateForPeriod} 的批量版。
@@ -140,13 +142,15 @@ public interface PeriodMemberCashflowMapper {
                    SUM(IFNULL(pmc.total_expense_input, 0)) AS totalExpense,
                    COUNT(*)                AS filledMembers
               FROM period_member_cashflow pmc
-             WHERE pmc.period_id IN
+             WHERE pmc.family_id = #{familyId}
+               AND pmc.period_id IN
                    <foreach collection="periodIds" item="pid" open="(" separator="," close=")">#{pid}</foreach>
                AND (pmc.total_income_input IS NOT NULL OR pmc.total_expense_input IS NOT NULL)
              GROUP BY pmc.period_id
             </script>
             """)
     List<SinglePeriodAggregate> findFamilyAggregateForPeriods(
+            @Param("familyId") long familyId,
             @Param("periodIds") java.util.Collection<Long> periodIds);
 
     record SinglePeriodAggregate(

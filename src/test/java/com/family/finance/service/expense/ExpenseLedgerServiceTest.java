@@ -51,15 +51,15 @@ class ExpenseLedgerServiceTest {
         when(cf.sumRealExpenseByPeriod(anyLong(), any())).thenReturn(itemized);
         when(pmc.findFamilyAggregateRecent(anyLong(), anyInt())).thenReturn(totals);
         // 单期查询走 findFamilyAggregateForPeriod(与 v1.8 之前 netInflowExpense 同源)→ 由 totals 派生
-        when(pmc.findFamilyAggregateForPeriod(anyLong())).thenAnswer(inv -> {
-            long pid = inv.getArgument(0);
+        when(pmc.findFamilyAggregateForPeriod(anyLong(), anyLong())).thenAnswer(inv -> {
+            long pid = inv.getArgument(1);
             return totals.stream().filter(t -> t.periodId() == pid).findFirst()
                     .map(t -> new PeriodMemberCashflowMapper.SinglePeriodAggregate(
                             t.periodId(), t.periodId(), BigDecimal.ZERO, t.totalExpense(), t.filledMembers()));
         });
         // v1.12 FR-352 · byPeriods 改走批量版 → 同一份 totals 派生,只是「没有的期不出现」(真实 SQL 也如此)
-        when(pmc.findFamilyAggregateForPeriods(any())).thenAnswer(inv -> {
-            java.util.Collection<Long> ids = inv.getArgument(0);
+        when(pmc.findFamilyAggregateForPeriods(anyLong(), any())).thenAnswer(inv -> {
+            java.util.Collection<Long> ids = inv.getArgument(1);
             return totals.stream().filter(t -> ids.contains(t.periodId()))
                     .map(t -> new PeriodMemberCashflowMapper.SinglePeriodAggregate(
                             t.periodId(), t.periodId(), BigDecimal.ZERO, t.totalExpense(), t.filledMembers()))

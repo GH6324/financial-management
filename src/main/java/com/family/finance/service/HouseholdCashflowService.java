@@ -221,9 +221,9 @@ public class HouseholdCashflowService {
     }
 
     /** v0.10 · 指定期已填收支的成员数(PMC 成员级 · 给「人赚 vs 钱赚」卡完整度用)。periodId 空 → 0。 */
-    public int filledMembersForPeriod(Long periodId) {
+    public int filledMembersForPeriod(long familyId, Long periodId) {
         if (periodId == null) return 0;
-        return cashflowMapper.findFamilyAggregateForPeriod(periodId)
+        return cashflowMapper.findFamilyAggregateForPeriod(familyId, periodId)
                 .map(a -> a.filledMembers() == null ? 0 : a.filledMembers())
                 .orElse(0);
     }

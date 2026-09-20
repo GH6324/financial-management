@@ -94,20 +94,26 @@ public interface SnapshotMapper {
      * <p>判据靠某个字段时,先确认那个字段真的被查出来了。</p>
      */
     @Select("""
-            SELECT id, period_id, account_id, end_balance, submitted_by, submitted_at, note, source_tag
-              FROM period_snapshot
-             WHERE period_id = #{periodId}
-               AND account_id = #{accountId}
+            SELECT ps.id, ps.period_id, ps.account_id, ps.end_balance, ps.submitted_by, ps.submitted_at,
+                   ps.note, ps.source_tag
+              FROM period_snapshot ps
+              JOIN period p ON p.id = ps.period_id
+             WHERE p.family_id = #{familyId}
+               AND ps.period_id = #{periodId}
+               AND ps.account_id = #{accountId}
             """)
-    Optional<PeriodSnapshot> findByPeriodAndAccount(@Param("periodId") long periodId,
+    Optional<PeriodSnapshot> findByPeriodAndAccount(@Param("familyId") long familyId,
+                                                    @Param("periodId") long periodId,
                                                     @Param("accountId") long accountId);
 
     @Select("""
-            SELECT id, period_id, account_id, end_balance, submitted_by, submitted_at, note
-              FROM period_snapshot
-             WHERE period_id = #{periodId}
+            SELECT ps.id, ps.period_id, ps.account_id, ps.end_balance, ps.submitted_by, ps.submitted_at, ps.note
+              FROM period_snapshot ps
+              JOIN period p ON p.id = ps.period_id
+             WHERE p.family_id = #{familyId}
+               AND ps.period_id = #{periodId}
             """)
-    List<PeriodSnapshot> findByPeriod(@Param("periodId") long periodId);
+    List<PeriodSnapshot> findByPeriod(@Param("familyId") long familyId, @Param("periodId") long periodId);
 
     @Select("""
             SELECT ps.id, ps.period_id, ps.account_id, ps.end_balance, ps.submitted_by, ps.submitted_at, ps.note,
@@ -123,18 +129,37 @@ public interface SnapshotMapper {
             SELECT ps.id, ps.period_id, ps.account_id, ps.end_balance, ps.submitted_by, ps.submitted_at, ps.note
               FROM period_snapshot ps
               JOIN period p ON p.id = ps.period_id
-             WHERE ps.account_id = #{accountId}
+             WHERE p.family_id = #{familyId}
+               AND ps.account_id = #{accountId}
                AND p.period_start < #{before}
              ORDER BY p.period_start DESC
              LIMIT #{limit}
             """)
-    List<PeriodSnapshot> findLatestBefore(@Param("accountId") long accountId,
+    List<PeriodSnapshot> findLatestBefore(@Param("familyId") long familyId,
+                                          @Param("accountId") long accountId,
                                           @Param("before") LocalDate before,
                                           @Param("limit") int limit);
 
+    /**
+     * 写这一期这个账户的期末余额。
+     *
+     * <p>v1.24 · 家庭隔离:账期与账户必须<b>同时</b>属于这个家才真的写入。
+     * 这是全站「钱的真值」落地的那一条语句 —— 归属写错不是少一行,是把一个数字
+     * 落进别人家的资产负债表里。</p>
+     *
+     * <p>{@code ON DUPLICATE KEY UPDATE} 让影响行数有三种取值:
+     * 0=没写(归属不符或无变化)、1=新插、2=更新。所以 {@link #upsertOwned} 判的是
+     * {@code < 1} 而不是 {@code != 1}。</p>
+     */
     @Insert("""
             INSERT INTO period_snapshot (period_id, account_id, end_balance, submitted_by, note, source_tag)
-            VALUES (#{periodId}, #{accountId}, #{endBalance}, #{submittedBy}, #{note}, COALESCE(#{sourceTag}, 'UNKNOWN'))
+            SELECT #{s.periodId}, #{s.accountId}, #{s.endBalance}, #{s.submittedBy}, #{s.note},
+                   COALESCE(#{s.sourceTag}, 'UNKNOWN')
+              FROM period p
+              JOIN account a ON a.id = #{s.accountId}
+             WHERE p.id = #{s.periodId}
+               AND p.family_id = #{familyId}
+               AND a.family_id = #{familyId}
             ON DUPLICATE KEY UPDATE
                 end_balance = VALUES(end_balance),
                 submitted_by = VALUES(submitted_by),
@@ -142,6 +167,14 @@ public interface SnapshotMapper {
                 note = VALUES(note),
                 source_tag = VALUES(source_tag)
             """)
-    @Options(useGeneratedKeys = true, keyProperty = "id")
-    int upsert(PeriodSnapshot snapshot);
+    @Options(useGeneratedKeys = true, keyProperty = "s.id")
+    int upsert(@Param("familyId") long familyId, @Param("s") PeriodSnapshot snapshot);
+
+    /** 带归属断言的写入 —— 业务代码一律用这个 */
+    default void upsertOwned(long familyId, PeriodSnapshot snapshot) {
+        if (upsert(familyId, snapshot) < 1) {
+            throw new IllegalStateException("快照归属校验不通过:账期 " + snapshot.getPeriodId()
+                    + " / 账户 " + snapshot.getAccountId() + " 不属于家庭 " + familyId);
+        }
+    }
 }

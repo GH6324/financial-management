@@ -49,7 +49,7 @@ class CurrencyInvariantRatioTest {
         when(pmc.findFamilyAggregateRecent(eq(1L), anyInt())).thenReturn(List.of(
                 new FamilyPeriodAggregate(11L, LocalDate.of(2026, 5, 1), new BigDecimal("50000"), new BigDecimal("20000"), 2)));
         // 当期净流入 PMC:收入 50000 − 支出 20000 = 30000(本位币)
-        when(pmc.findFamilyAggregateForPeriod(anyLong())).thenReturn(Optional.of(
+        when(pmc.findFamilyAggregateForPeriod(anyLong(), anyLong())).thenReturn(Optional.of(
                 new SinglePeriodAggregate(11L, 11L, new BigDecimal("50000"), new BigDecimal("20000"), 2)));
     }
 

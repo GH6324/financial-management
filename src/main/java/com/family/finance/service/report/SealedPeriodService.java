@@ -144,7 +144,7 @@ public class SealedPeriodService {
                 .collect(java.util.stream.Collectors.toMap(
                         com.family.finance.factview.AccountPeriodFact::accountId,
                         com.family.finance.factview.AccountPeriodFact::accountName, (a, b) -> a));
-        java.util.Set<Long> filledIds = snapshotMapper.findByPeriod(anchor.getId()).stream()
+        java.util.Set<Long> filledIds = snapshotMapper.findByPeriod(anchor.getFamilyId(), anchor.getId()).stream()
                 .map(com.family.finance.domain.snapshot.PeriodSnapshot::getAccountId)
                 .collect(java.util.stream.Collectors.toSet());
         List<String> missing = nameById.entrySet().stream()

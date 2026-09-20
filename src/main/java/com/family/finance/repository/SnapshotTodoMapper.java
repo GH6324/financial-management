@@ -11,79 +11,97 @@ import org.apache.ibatis.annotations.Update;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * v1.24 · 家庭隔离:{@code snapshot_todo} 没有 {@code family_id} 列,
+ * 归属沿 {@code snapshot_todo → period.family_id} 取,每条语句自己 JOIN。
+ */
 @Mapper
 public interface SnapshotTodoMapper {
 
-    @Select("""
-            SELECT id, period_id, account_id, assigned_member_id, status, done_at,
-                   done_by_member_id, prefilled_balance, prefilled_transfer_id
-              FROM snapshot_todo
-             WHERE id = #{id}
-            """)
-    Optional<SnapshotTodo> findById(@Param("id") long id);
+    String COLS = " td.id, td.period_id, td.account_id, td.assigned_member_id, td.status, td.done_at,"
+            + " td.done_by_member_id, td.prefilled_balance, td.prefilled_transfer_id ";
 
-    @Select("""
-            SELECT id, period_id, account_id, assigned_member_id, status, done_at,
-                   done_by_member_id, prefilled_balance, prefilled_transfer_id
-              FROM snapshot_todo
-             WHERE period_id = #{periodId}
-             ORDER BY id
-            """)
-    List<SnapshotTodo> findByPeriod(@Param("periodId") long periodId);
+    @Select("SELECT" + COLS + "FROM snapshot_todo td"
+          + " JOIN period p ON p.id = td.period_id"
+          + " WHERE p.family_id = #{familyId} AND td.id = #{id}")
+    Optional<SnapshotTodo> findById(@Param("familyId") long familyId, @Param("id") long id);
 
-    @Select("""
-            SELECT id, period_id, account_id, assigned_member_id, status, done_at,
-                   done_by_member_id, prefilled_balance, prefilled_transfer_id
-              FROM snapshot_todo
-             WHERE period_id = #{periodId}
-               AND account_id = #{accountId}
-            """)
-    Optional<SnapshotTodo> findByPeriodAndAccount(@Param("periodId") long periodId,
+    @Select("SELECT" + COLS + "FROM snapshot_todo td"
+          + " JOIN period p ON p.id = td.period_id"
+          + " WHERE p.family_id = #{familyId} AND td.period_id = #{periodId}"
+          + " ORDER BY td.id")
+    List<SnapshotTodo> findByPeriod(@Param("familyId") long familyId, @Param("periodId") long periodId);
+
+    @Select("SELECT" + COLS + "FROM snapshot_todo td"
+          + " JOIN period p ON p.id = td.period_id"
+          + " WHERE p.family_id = #{familyId}"
+          + " AND td.period_id = #{periodId} AND td.account_id = #{accountId}")
+    Optional<SnapshotTodo> findByPeriodAndAccount(@Param("familyId") long familyId,
+                                                  @Param("periodId") long periodId,
                                                   @Param("accountId") long accountId);
 
-    @Select("""
-            SELECT id, period_id, account_id, assigned_member_id, status, done_at,
-                   done_by_member_id, prefilled_balance, prefilled_transfer_id
-              FROM snapshot_todo
-             WHERE period_id = #{periodId}
-               AND status = 'PENDING'
-               AND (assigned_member_id = #{memberId} OR assigned_member_id IS NULL)
-             ORDER BY id
-            """)
-    List<SnapshotTodo> findPendingForMember(@Param("periodId") long periodId,
+    @Select("SELECT" + COLS + "FROM snapshot_todo td"
+          + " JOIN period p ON p.id = td.period_id"
+          + " WHERE p.family_id = #{familyId}"
+          + " AND td.period_id = #{periodId}"
+          + " AND td.status = 'PENDING'"
+          + " AND (td.assigned_member_id = #{memberId} OR td.assigned_member_id IS NULL)"
+          + " ORDER BY td.id")
+    List<SnapshotTodo> findPendingForMember(@Param("familyId") long familyId,
+                                            @Param("periodId") long periodId,
                                             @Param("memberId") long memberId);
 
-    @Select("""
-            SELECT COUNT(*)
-              FROM snapshot_todo
-             WHERE period_id = #{periodId}
-               AND status = 'PENDING'
-            """)
-    int countPendingByPeriod(@Param("periodId") long periodId);
+    @Select("SELECT COUNT(*) FROM snapshot_todo td"
+          + " JOIN period p ON p.id = td.period_id"
+          + " WHERE p.family_id = #{familyId}"
+          + " AND td.period_id = #{periodId} AND td.status = 'PENDING'")
+    int countPendingByPeriod(@Param("familyId") long familyId, @Param("periodId") long periodId);
 
+    /**
+     * 建一条待办。账期与账户必须同属这个家才真的插入。
+     *
+     * <p>{@code ON DUPLICATE KEY UPDATE} 保留 —— 开账是幂等的,重复开账只更新认领人。
+     * 注意这让「影响行数」有三种取值:0=没插(归属不符或无变化)、1=新插、2=更新。
+     * 所以 {@link #insertOwned} 判的是 {@code < 1} 而不是 {@code != 1}。</p>
+     */
     @Insert("""
             INSERT INTO snapshot_todo (
                 period_id, account_id, assigned_member_id, status,
                 prefilled_balance, prefilled_transfer_id
-            ) VALUES (
-                #{periodId}, #{accountId}, #{assignedMemberId}, #{status},
-                #{prefilledBalance}, #{prefilledTransferId}
             )
+            SELECT #{td.periodId}, #{td.accountId}, #{td.assignedMemberId}, #{td.status},
+                   #{td.prefilledBalance}, #{td.prefilledTransferId}
+              FROM period p
+              JOIN account a ON a.id = #{td.accountId}
+             WHERE p.id = #{td.periodId}
+               AND p.family_id = #{familyId}
+               AND a.family_id = #{familyId}
             ON DUPLICATE KEY UPDATE
                 assigned_member_id = VALUES(assigned_member_id)
             """)
-    @Options(useGeneratedKeys = true, keyProperty = "id")
-    int insert(SnapshotTodo todo);
+    @Options(useGeneratedKeys = true, keyProperty = "td.id")
+    int insert(@Param("familyId") long familyId, @Param("td") SnapshotTodo todo);
+
+    /** 带归属断言的插入 —— 业务代码一律用这个 */
+    default void insertOwned(long familyId, SnapshotTodo todo) {
+        if (insert(familyId, todo) < 1) {
+            throw new IllegalStateException("待办归属校验不通过:账期 " + todo.getPeriodId()
+                    + " / 账户 " + todo.getAccountId() + " 不属于家庭 " + familyId);
+        }
+    }
 
     @Update("""
-            UPDATE snapshot_todo
-               SET status = 'DONE',
-                   done_at = NOW(3),
-                   done_by_member_id = #{memberId}
-             WHERE period_id = #{periodId}
-               AND account_id = #{accountId}
+            UPDATE snapshot_todo td
+              JOIN period p ON p.id = td.period_id
+               SET td.status = 'DONE',
+                   td.done_at = NOW(3),
+                   td.done_by_member_id = #{memberId}
+             WHERE p.family_id = #{familyId}
+               AND td.period_id = #{periodId}
+               AND td.account_id = #{accountId}
             """)
-    int markDone(@Param("periodId") long periodId,
+    int markDone(@Param("familyId") long familyId,
+                 @Param("periodId") long periodId,
                  @Param("accountId") long accountId,
                  @Param("memberId") long memberId);
 
@@ -97,22 +115,27 @@ public interface SnapshotTodoMapper {
      * <p>{@code AND status = 'PENDING'} 是保护:已经记名到人的行不会被反向抹成 NULL。</p>
      */
     @Update("""
-            UPDATE snapshot_todo
-               SET status = 'DONE',
-                   done_at = NOW(3),
-                   done_by_member_id = NULL
-             WHERE period_id = #{periodId}
-               AND account_id = #{accountId}
-               AND status = 'PENDING'
+            UPDATE snapshot_todo td
+              JOIN period p ON p.id = td.period_id
+               SET td.status = 'DONE',
+                   td.done_at = NOW(3),
+                   td.done_by_member_id = NULL
+             WHERE p.family_id = #{familyId}
+               AND td.period_id = #{periodId}
+               AND td.account_id = #{accountId}
+               AND td.status = 'PENDING'
             """)
-    int markCarriedForward(@Param("periodId") long periodId,
+    int markCarriedForward(@Param("familyId") long familyId,
+                           @Param("periodId") long periodId,
                            @Param("accountId") long accountId);
 
     @Update("""
-            UPDATE snapshot_todo
-               SET prefilled_balance = #{prefilledBalance},
-                   prefilled_transfer_id = #{prefilledTransferId}
-             WHERE id = #{id}
+            UPDATE snapshot_todo td
+              JOIN period p ON p.id = td.period_id
+               SET td.prefilled_balance = #{td.prefilledBalance},
+                   td.prefilled_transfer_id = #{td.prefilledTransferId}
+             WHERE p.family_id = #{familyId}
+               AND td.id = #{td.id}
             """)
-    int updatePrefill(SnapshotTodo todo);
+    int updatePrefill(@Param("familyId") long familyId, @Param("td") SnapshotTodo todo);
 }

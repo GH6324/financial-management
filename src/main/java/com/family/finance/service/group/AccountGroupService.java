@@ -213,7 +213,7 @@ public class AccountGroupService {
         // 先删历史定格,再删组本身 —— 顺序重要:组没了之后就查不到它的定格了。
         // 删组是这一版唯一的退路(PRD §11),它必须真的退干净:
         // 不删定格的话,历史里会永远留着一个已经不存在的组名,而用户没有办法退回去。
-        frozenMapper.deleteByGroup(groupId);
+        frozenMapper.deleteByGroup(familyId, groupId);
         groupMapper.delete(familyId, groupId);
     }
 

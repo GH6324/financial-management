@@ -129,7 +129,7 @@ public class ExpenseLedgerService {
         // 唯一的差别:没有手填行的期在批量结果里**不出现**,而点查会返回一行 NULL 合计。
         // 下面 totals.get(pid) 对这两种情况都得到 null,decide() 里等价于「没有总额」。
         Map<Long, BigDecimal> totals = new HashMap<>();
-        for (var a : pmcMapper.findFamilyAggregateForPeriods(periodIds)) {
+        for (var a : pmcMapper.findFamilyAggregateForPeriods(familyId, periodIds)) {
             if (a.periodId() != null) totals.put(a.periodId(), a.totalExpense());
         }
         for (Long pid : periodIds) {

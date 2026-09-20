@@ -326,7 +326,7 @@ public class ReportsController {
         Long benchAnchorPeriodId = slice.returnAnchorPeriodId();
         java.util.Map<Long, com.family.finance.domain.period.PeriodAccountAttr> frozenAttr = new java.util.HashMap<>();
         if (benchAnchorPeriodId != null) {
-            for (var attr : periodAccountAttrMapper.findByPeriod(benchAnchorPeriodId)) {
+            for (var attr : periodAccountAttrMapper.findByPeriod(me.getFamilyId(), benchAnchorPeriodId)) {
                 frozenAttr.put(attr.accountId(), attr);
             }
         }

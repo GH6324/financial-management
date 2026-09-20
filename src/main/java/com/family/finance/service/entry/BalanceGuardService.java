@@ -61,9 +61,9 @@ public class BalanceGuardService {
      * 改动前先记一笔。{@code accountId} 为 null(拿不到账户)时返回 null,调用方直接跳过提示 ——
      * <b>宁可不提示,也不要提示错的账户</b>。
      */
-    public Before snapshot(Long accountId, long periodId) {
+    public Before snapshot(long familyId, Long accountId, long periodId) {
         if (accountId == null) return null;
-        PeriodSnapshot s = snapshotMapper.findByPeriodAndAccount(periodId, accountId).orElse(null);
+        PeriodSnapshot s = snapshotMapper.findByPeriodAndAccount(familyId, periodId, accountId).orElse(null);
         return new Before(accountId, s == null ? null : s.getEndBalance(),
                 s == null || s.getSubmittedAt() == null ? null : s.getSubmittedAt().format(MD));
     }
@@ -78,12 +78,12 @@ public class BalanceGuardService {
      *   <li>其余情况 → 不吭声</li>
      * </ul>
      */
-    public String afterNote(Before before, long periodId) {
+    public String afterNote(long familyId, Before before, long periodId) {
         if (before == null || before.accountId() == null) return null;
         String name = accountMapper.findById(before.accountId())
                 .map(a -> a.getDisplayName()).orElse("这个账户");
 
-        PeriodSnapshot now = snapshotMapper.findByPeriodAndAccount(periodId, before.accountId()).orElse(null);
+        PeriodSnapshot now = snapshotMapper.findByPeriodAndAccount(familyId, periodId, before.accountId()).orElse(null);
         BigDecimal after = now == null ? null : now.getEndBalance();
 
         // FR-453 · 本月还没填余额 —— 改了也看不到效果,这条比「余额被改了」更让人困惑

@@ -160,7 +160,7 @@ public class EntryController {
                 .ifPresent(prev -> model.addAttribute("myPrevCashflow", prev));
         }
         // 家庭本期汇总(SUM 跨成员)
-        memberCashflowMapper.findFamilyAggregateForPeriod(period.getId())
+        memberCashflowMapper.findFamilyAggregateForPeriod(me.getFamilyId(), period.getId())
             .ifPresent(agg -> model.addAttribute("familyCurrentAgg", agg));
         // 本期已填的成员名单(给"家庭已填:N 人")
         var filledRows = memberCashflowMapper.findByPeriod(period.getId());
@@ -417,9 +417,9 @@ public class EntryController {
                                @RequestParam BigDecimal amount,
                                @RequestParam(required = false) String note,
                                org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
-        var before = balanceGuard.snapshot(accountId, periodId);
+        var before = balanceGuard.snapshot(me.getFamilyId(), accountId, periodId);
         entryService.recordIncome(me.getFamilyId(), me.getMemberId(), periodId, accountId, categoryCode, amount, note);
-        guardNote(ra, before, periodId);
+        guardNote(me.getFamilyId(), ra, before, periodId);
         return "redirect:/entry?period=" + periodId;
     }
 
@@ -429,9 +429,9 @@ public class EntryController {
      * <p>放在改动<b>之后</b>是刻意的:提示是信息不是拦截 —— 零额外点击,
      * 而且数字是实际值不是预测值。见 tech-design v1.20 §二 选型四。</p>
      */
-    private void guardNote(org.springframework.web.servlet.mvc.support.RedirectAttributes ra,
+    private void guardNote(long familyId, org.springframework.web.servlet.mvc.support.RedirectAttributes ra,
                            com.family.finance.service.entry.BalanceGuardService.Before before, long periodId) {
-        String note = balanceGuard.afterNote(before, periodId);
+        String note = balanceGuard.afterNote(familyId, before, periodId);
         if (note != null) ra.addFlashAttribute("balanceGuard", note);
     }
 
@@ -444,9 +444,9 @@ public class EntryController {
         // 账户要在删之前取 —— 删完就查不到这笔了
         Long guardAccountId = cashFlowMapper.findById(me.getFamilyId(), cashFlowId)
                 .map(com.family.finance.domain.flow.CashFlow::getAccountId).orElse(null);
-        var before = balanceGuard.snapshot(guardAccountId, periodId);
+        var before = balanceGuard.snapshot(me.getFamilyId(), guardAccountId, periodId);
         entryService.softDeleteCashFlow(me.getFamilyId(), me.getMemberId(), cashFlowId);
-        guardNote(ra, before, periodId);
+        guardNote(me.getFamilyId(), ra, before, periodId);
         return "redirect:/entry?period=" + periodId;
     }
 

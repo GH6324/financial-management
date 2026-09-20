@@ -43,7 +43,7 @@ class ClosedPeriodAnchorTest {
         AccountMapper am = mock(AccountMapper.class);
         when(am.findAllByFamily(anyLong())).thenReturn(java.util.List.of());   // v1.12 · 预实改家庭级批量取账户(原逐个 findById)· 空 → expected null
         PeriodMemberCashflowMapper pmc = mock(PeriodMemberCashflowMapper.class);
-        when(pmc.findFamilyAggregateForPeriod(anyLong())).thenReturn(Optional.empty());
+        when(pmc.findFamilyAggregateForPeriod(anyLong(), anyLong())).thenReturn(Optional.empty());
         SnapshotMapper sm = mock(SnapshotMapper.class);
         // 无「首次出现」账户 → 开账基线恒 0,把本测聚焦在锚点上
         when(sm.firstAppearingAccountIds(anyLong(), anyLong())).thenReturn(List.of());

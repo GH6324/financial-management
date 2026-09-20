@@ -12,6 +12,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -48,7 +49,7 @@ class AccountGroupingResolverTest {
     @Test
     @DisplayName("零组态:每个账户的维值就是自己的账户名 —— 这让「不建组则逐字一致」成为结构上必然")
     void zeroGroupsMeansAccountNames() {
-        when(frozen.findByPeriod(anyLong())).thenReturn(List.of());
+        when(frozen.findByPeriod(anyLong(), anyLong())).thenReturn(List.of());
         when(groups.findByFamily(1L)).thenReturn(List.of());
         when(groups.findMembersByFamily(1L)).thenReturn(List.of());
 
@@ -62,7 +63,7 @@ class AccountGroupingResolverTest {
     @Test
     @DisplayName("已分组的账户折叠成组名;未分组的仍是账户名,与组并列 —— 不会被吞掉")
     void groupedFoldsAndUngroupedStaysBeside() {
-        when(frozen.findByPeriod(100L)).thenReturn(List.of(
+        when(frozen.findByPeriod(anyLong(), eq(100L))).thenReturn(List.of(
                 new PeriodAccountGroupMapper.Row(1L, 9L, "随时可取"),
                 new PeriodAccountGroupMapper.Row(2L, 9L, "随时可取")));
 
@@ -76,7 +77,7 @@ class AccountGroupingResolverTest {
     @Test
     @DisplayName("下钻:被点开的组回落成账户名,其它组不受影响")
     void expandFallsBackToAccountNames() {
-        when(frozen.findByPeriod(100L)).thenReturn(List.of(
+        when(frozen.findByPeriod(anyLong(), eq(100L))).thenReturn(List.of(
                 new PeriodAccountGroupMapper.Row(1L, 9L, "随时可取"),
                 new PeriodAccountGroupMapper.Row(2L, 9L, "随时可取"),
                 new PeriodAccountGroupMapper.Row(3L, 8L, "投资组合")));
@@ -91,7 +92,7 @@ class AccountGroupingResolverTest {
     @Test
     @DisplayName("有定格行就必须读定格,不许读当前成员关系 —— 否则改一次组,12 期趋势图全变")
     void frozenWinsOverCurrent() {
-        when(frozen.findByPeriod(100L)).thenReturn(List.of(
+        when(frozen.findByPeriod(anyLong(), eq(100L))).thenReturn(List.of(
                 new PeriodAccountGroupMapper.Row(1L, 9L, "当时叫这个")));
         // 当前关系完全不同 —— 一旦被读到就会污染历史
         when(groups.findByFamily(1L)).thenReturn(List.of());
@@ -106,7 +107,7 @@ class AccountGroupingResolverTest {
     @Test
     @DisplayName("没有定格行(进行中的期)才回落到当前成员关系")
     void fallsBackToCurrentWhenNoFreeze() {
-        when(frozen.findByPeriod(200L)).thenReturn(List.of());
+        when(frozen.findByPeriod(anyLong(), eq(200L))).thenReturn(List.of());
         when(groups.findByFamily(1L)).thenReturn(List.of(
                 com.family.finance.domain.group.AccountGroup.builder().id(7L).name("日常周转").build()));
         when(groups.findMembersByFamily(1L)).thenReturn(List.of(new AccountGroupMapper.Member(7L, 3L)));
@@ -119,7 +120,7 @@ class AccountGroupingResolverTest {
     @Test
     @DisplayName("定格里出现已删除的账户时不能抛 —— 历史快照本来就会引用现在不存在的东西")
     void unknownAccountInFreezeIsIgnored() {
-        when(frozen.findByPeriod(100L)).thenReturn(List.of(
+        when(frozen.findByPeriod(anyLong(), eq(100L))).thenReturn(List.of(
                 new PeriodAccountGroupMapper.Row(999L, 9L, "早就删掉的账户")));
 
         var v = resolver.valuesFor(1L, 100L, null);

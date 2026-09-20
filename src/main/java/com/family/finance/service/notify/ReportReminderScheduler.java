@@ -110,7 +110,7 @@ public class ReportReminderScheduler {
             if (!inReminderWindow(daysLeft, leadDays)) continue;
 
             Set<Long> completed =
-                    new HashSet<>(completionMapper.findCompletedMemberIds(period.getId()));
+                    new HashSet<>(completionMapper.findCompletedMemberIds(family.getId(), period.getId()));
             List<Member> active = memberMapper.findActiveByFamily(family.getId());
             // 工程算好所有变量给渠道,不让模板做任何计算([[feedback-llm-no-math]] 推广)
             ReminderMessage msg = ReminderMessage.build(

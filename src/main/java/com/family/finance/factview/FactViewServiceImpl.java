@@ -718,7 +718,7 @@ public class FactViewServiceImpl implements FactViewService {
         if (sealedAttrs) {
             Long anchor = slice.returnAnchorPeriodId();
             if (anchor != null) {
-                for (var attr : periodAccountAttrMapper.findByPeriod(anchor)) frozen.put(attr.accountId(), attr);
+                for (var attr : periodAccountAttrMapper.findByPeriod(slice.filter().familyId(), anchor)) frozen.put(attr.accountId(), attr);
             }
         }
         // v1.12 FR-352 · 原来每个账户一次 findById + 一次 findByCode(24 账户 = 48 条 SQL,
@@ -1025,14 +1025,14 @@ public class FactViewServiceImpl implements FactViewService {
         FactLoadCache cache = currentCache();
         long familyId = slice.filter().familyId();
         if (cache == null) {
-            return periodMemberCashflowMapper.findFamilyAggregateForPeriod(periodId).orElse(null);
+            return periodMemberCashflowMapper.findFamilyAggregateForPeriod(familyId, periodId).orElse(null);
         }
         var key = new FactLoadCache.PeriodKey(familyId, periodId);
         if (!cache.pmc.containsKey(key)) {
             List<Long> want = missing(cache.pmc, familyId, slice.periodIds(), periodId);
             if (!want.isEmpty()) {
                 java.util.Map<Long, PeriodMemberCashflowMapper.SinglePeriodAggregate> got = new java.util.HashMap<>();
-                for (var a : periodMemberCashflowMapper.findFamilyAggregateForPeriods(want)) {
+                for (var a : periodMemberCashflowMapper.findFamilyAggregateForPeriods(familyId, want)) {
                     if (a.periodId() != null) got.put(a.periodId(), a);
                 }
                 // 批量结果里没有的期 = 该期没有手填收支 → 存 null(点查返回的是一行 NULL 合计,等价)

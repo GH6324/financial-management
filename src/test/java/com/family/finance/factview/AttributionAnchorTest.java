@@ -53,7 +53,7 @@ class AttributionAnchorTest {
         AccountMapper am = mock(AccountMapper.class);
         when(am.findAllByFamily(anyLong())).thenReturn(List.of());
         PeriodMemberCashflowMapper pmc = mock(PeriodMemberCashflowMapper.class);
-        when(pmc.findFamilyAggregateForPeriod(anyLong())).thenReturn(Optional.empty());
+        when(pmc.findFamilyAggregateForPeriod(anyLong(), anyLong())).thenReturn(Optional.empty());
         SnapshotMapper sm = mock(SnapshotMapper.class);
         when(sm.firstAppearingAccountIds(anyLong(), anyLong())).thenReturn(List.of());
         return new FactViewServiceImpl(mock(FactMapper.class), mock(com.family.finance.repository.PeriodMapper.class), mock(FamilyMapper.class),

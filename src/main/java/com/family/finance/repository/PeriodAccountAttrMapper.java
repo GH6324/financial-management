@@ -63,8 +63,9 @@ public interface PeriodAccountAttrMapper {
      * <p>这样「重开后再关账 = 重新定格」是<b>结构上必然</b>的,不需要额外的标志位、
      * 版本号或「是否已定格」判断。少一个状态就少一类不一致。</p>
      */
-    @Delete("DELETE FROM period_account_attr WHERE period_id = #{periodId}")
-    int deleteByPeriod(@Param("periodId") long periodId);
+    @Delete("DELETE pa FROM period_account_attr pa JOIN period p ON p.id = pa.period_id"
+          + " WHERE p.family_id = #{familyId} AND pa.period_id = #{periodId}")
+    int deleteByPeriod(@Param("familyId") long familyId, @Param("periodId") long periodId);
 
     /**
      * 取某一期的全部定格属性 —— 供三区(随 range 的趋势区)按「锚期」读取基准 % 与预期 %。
@@ -78,14 +79,18 @@ public interface PeriodAccountAttrMapper {
      * 两列相邻且同型,顺序错了不会报错,只会静默错位。改这里必须同步改 record。</p>
      */
     @Select("""
-            SELECT period_id, account_id, account_type, product_category_code, product_category_name,
-                   liquidity_class, benchmark_pct, expected_return_pct, source
-              FROM period_account_attr
-             WHERE period_id = #{periodId}
+            SELECT pa.period_id, pa.account_id, pa.account_type, pa.product_category_code,
+                   pa.product_category_name, pa.liquidity_class, pa.benchmark_pct,
+                   pa.expected_return_pct, pa.source
+              FROM period_account_attr pa
+              JOIN period p ON p.id = pa.period_id
+             WHERE p.family_id = #{familyId}
+               AND pa.period_id = #{periodId}
             """)
-    List<PeriodAccountAttr> findByPeriod(@Param("periodId") long periodId);
+    List<PeriodAccountAttr> findByPeriod(@Param("familyId") long familyId, @Param("periodId") long periodId);
 
     /** 计数 · 给护栏与运维自检用(某期定格了多少个账户)。 */
-    @Select("SELECT COUNT(*) FROM period_account_attr WHERE period_id = #{periodId}")
-    int countByPeriod(@Param("periodId") long periodId);
+    @Select("SELECT COUNT(*) FROM period_account_attr pa JOIN period p ON p.id = pa.period_id"
+          + " WHERE p.family_id = #{familyId} AND pa.period_id = #{periodId}")
+    int countByPeriod(@Param("familyId") long familyId, @Param("periodId") long periodId);
 }
