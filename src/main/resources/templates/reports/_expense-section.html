@@ -95,10 +95,16 @@
         <div class="w-14 shrink-0 text-right font-mono text-[10px] text-ink-subtle"
              th:text="${b.pctText()}">+18%</div>
       </div>
-      <!--/* FR-623 · 一次性单独成段,紧挨着标注 —— 这是把「一次性」和「常态月均」串起来的那一笔 */-->
+      <!--/* FR-623 · 一次性单独成段,紧挨着标注 —— 这是把「一次性」和「常态月均」串起来的那一笔。
+             【只在真有一次性段时才说】—— 瀑布里没有斜纹段却写着「斜纹段 = 一次性」,
+             是一句用不上的话;这种噪音多几条,用户就开始整段跳过不读了。 */-->
+      <p class="font-mono text-[9px] text-ink-subtle mt-2"
+         th:if="${expWaterfall.bars().?[oneOff].size() > 0}">
+        斜纹段 = 一次性 · 不进常态月均。
+      </p>
       <p class="font-mono text-[9px] text-ink-subtle mt-2"
          th:if="${#lists.size(expWaterfall.bars()) > 0}">
-        斜纹段 = 一次性 · 不进常态月均。金额差是主信息,变化率是次信息。
+        金额差是主信息,变化率是次信息 —— 「旅游多了一笔」比「餐饮涨了 100%」更值得看。
       </p>
     </div>
   </div>
@@ -115,17 +121,22 @@
 
     <!--/* 三段堆叠条 · 各段标注金额与占比(项目铁律:数字浮在图上,不靠 hover) */-->
     <div class="flex w-full h-9 rounded-sm overflow-hidden mb-2">
+      <!--/* 【窄段不标数字】—— 1.9% 的段只有十几像素宽,把「1.9%」塞进去会溢出到相邻段上,
+             看起来像那个数字属于隔壁。阈值 8% 与饼图那边同一条规矩。
+             读不到数字的段仍然有 title(悬停可看)+ 下面图例里的完整金额。 */-->
       <div th:each="p : ${expSplit.parts()}"
-           class="flex items-center justify-center font-mono text-[10px] tnum"
+           class="flex items-center justify-center font-mono text-[10px] tnum overflow-hidden"
            th:style="'width:' + ${p.pct()} + '%;background:' + ${p.color()} + ';color:' + ${p.ink()}
                      + (${p.hatched()} ? ';background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.45) 0 1.5px,transparent 1.5px 3px)' : '')"
-           th:title="${p.nature().label} + ' · ' + ${p.nature().hint}"
-           th:text="${p.pct()} + '%'">38%</div>
+           th:title="${p.nature().label} + ' · ' + ${p.nature().hint} + ' · ' + ${p.pct()} + '%'">
+        <span th:if="${p.pct() >= 8}" th:text="${p.pct()} + '%'">38%</span>
+      </div>
     </div>
     <div class="flex flex-wrap gap-x-5 gap-y-1 mb-4">
       <span th:each="p : ${expSplit.parts()}" class="flex items-center gap-1.5 font-mono text-[10.5px]">
         <i class="inline-block w-2.5 h-2.5 rounded-[1px]" th:style="'background:' + ${p.color()}"></i>
         <span th:text="${p.nature().label}">刚性</span>
+        <span class="tnum text-ink-subtle" th:text="${p.pct()} + '%'">38%</span>
         <span class="tnum text-ink-soft" data-priv
               th:text="${#numbers.formatDecimal(p.amountBase(), 1, 'COMMA', 0, 'POINT')}">4,700</span>
       </span>

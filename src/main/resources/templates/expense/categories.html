@@ -6,6 +6,16 @@
 <header th:replace="~{fragments/nav :: nav('entry', ${me}, ${nav})}"></header>
 <main class="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10">
 
+  <!--/* v1.24 · 回执条。
+         【这里原来什么都没有】—— 控制器一直在 addFlashAttribute("flashError", …)
+         (比如「这个类目不在了 —— 刷新一下页面」),但页面上没有渲染它的地方,
+         于是那些提示一个都没显示过:用户点了没反应,也不知道为什么。
+         v1.24 加类目性质编辑时才发现 —— 顺手把成功与失败两种都接上。 */-->
+  <div th:if="${flash}" class="border border-forest bg-forest/[0.05] px-4 py-2 text-sm mb-4"
+       th:text="${flash}">好了</div>
+  <div th:if="${flashError}" class="border border-rust bg-rust/[0.06] px-4 py-2 text-sm mb-4"
+       th:text="${flashError}">出错了</div>
+
   <!-- ═══ 页头 ═══ -->
   <div class="mb-5 flex items-end justify-between flex-wrap gap-3">
     <div>
