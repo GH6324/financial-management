@@ -38,8 +38,11 @@ class ReviewCacheStalenessTest {
 
     private ReviewInsightService svc(ReviewAiCacheMapper cache, LlmRouter router) {
         // memberDirectory 只在真去调模型的路径上用到(脱敏),这几条用例都到不了那里
+        // v1.24 · 支出结构事实(FR-653)同样只在真调模型那条路径上用到;
+        //   mock 默认返回 Optional.empty(),这几条用例的行为一个字不变。
         return new ReviewInsightService(router,
-                mock(com.family.finance.service.member.MemberDirectory.class), cache);
+                mock(com.family.finance.service.member.MemberDirectory.class), cache,
+                mock(com.family.finance.service.expense.NormalExpenseService.class));
     }
 
     @Test

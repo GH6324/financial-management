@@ -161,7 +161,11 @@ class LlmCallSiteRoutingTest {
 
         var attr = new AttributionEngine.Result(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, List.of());
-        var review = new ReviewInsightService(router, members, cache)
+        /* v1.24 FR-653 · 多了 NormalExpenseService(月报里的支出结构事实)。
+           这条用例验的是「调用点只持路由」,支出结构拿不到就整段不出现,
+           所以给一个 mock(默认返回 Optional.empty())即可。 */
+        var review = new ReviewInsightService(router, members, cache,
+                        mock(com.family.finance.service.expense.NormalExpenseService.class))
                 // v1.19.16 · 多了一个 periodClosed 参数(未关账的期不碰缓存)。
                 // 这里传「已关账 + force」——force 本来就是这条用例的意思:一定要真打一次模型。
                 .review(1L, 7L, "2026-08", "account", attr, new LinkedHashMap<>(), true, true);
