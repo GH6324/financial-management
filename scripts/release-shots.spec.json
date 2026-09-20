@@ -1,77 +1,41 @@
 {
-  "_comment": "v1.21.0 · 自定义支出分类。核心叙事:①记一笔时点分类宫格(图标+常用置顶,一次点击)②账单导入确认页(逐笔归类+账户逐笔推荐+批量操作)③报表「钱花在哪了」可下钻 ④类目管理。PC 用 selector 裁掉导航与留白;手机整屏不裁。",
+  "_comment": "v1.23.0 · 关账节奏可配置 + 双活跃账期(issue #20)。核心叙事:①管理页四档关账节奏(每档都写代价)②填报页两期并排、默认落补录期 ③批量导入默认记到上月 ④报表锚上月不倒退、如实标注仍在填报中。PC 用 selector 裁掉导航与留白;手机整屏不裁。",
   "pc": [
     {
+      "path": "/admin/periods",
+      "name": "close-rhythm",
+      "wait": 1500,
+      "waitFor": "form[action$='/admin/family/close-rhythm']",
+      "selector": "form[action$='/admin/family/close-rhythm']"
+    },
+    {
       "path": "/entry",
-      "name": "cat-grid",
-      "wait": 2000,
-      "waitFor": "[data-cat-grid]",
-      "eval": "const g=document.querySelector('[data-cat-grid]'); const c=g.querySelector('.cat-cell[data-has-kids]'); if(c) c.click();",
-      "selector": "[data-cat-grid]"
+      "name": "dual-period",
+      "wait": 1800,
+      "waitFor": ".entry-perpill",
+      "selector": "section:has(.entry-perpill)"
     },
     {
       "path": "/expense/import",
-      "name": "import-confirm",
+      "name": "import-period",
       "wait": 1500,
-      "waitFor": "form[action$='/expense/import/file']",
-      "upload": {
-        "input": "#csvFile",
-        "submit": "form[action$='/expense/import/file'] button[type=submit]",
-        "file": "/home/finance/shots/sample_alipay_bill.csv",
-        "wait": 5000
-      },
-      "selector": "[data-bill-bar]"
-    },
-    {
-      "path": "/expense/import",
-      "name": "import-table",
-      "wait": 1500,
-      "waitFor": "form[action$='/expense/import/file']",
-      "upload": {
-        "input": "#csvFile",
-        "submit": "form[action$='/expense/import/file'] button[type=submit]",
-        "file": "/home/finance/shots/sample_alipay_bill.csv",
-        "wait": 5000
-      },
-      "selector": "[data-bill-table]"
-    },
-    {
-      "path": "/reports",
-      "name": "expense-mix",
-      "wait": 2500,
-      "waitFor": "#sec-expense-split",
-      "selector": "#sec-expense-split"
-    },
-    {
-      "path": "/expense/categories",
-      "name": "categories",
-      "wait": 1500,
-      "waitFor": ".paper-card",
-      "selector": "main"
+      "waitFor": "a[href*='periodId=']",
+      "selector": "div.mb-5"
     }
   ],
   "mobile": [
     {
       "path": "/entry",
-      "name": "cat-grid",
-      "wait": 2200,
-      "waitFor": "[data-cat-grid]",
-      "eval": "const g=document.querySelector('[data-cat-grid]'); g.scrollIntoView();",
+      "name": "dual-period",
+      "wait": 1800,
+      "waitFor": ".entry-perpill",
       "full": false
     },
     {
-      "path": "/reports",
-      "name": "expense-mix",
-      "wait": 2500,
-      "waitFor": "#sec-expense-split",
-      "eval": "document.getElementById('sec-expense-split').scrollIntoView();",
-      "full": false
-    },
-    {
-      "path": "/expense/categories",
-      "name": "categories",
+      "path": "/admin/periods",
+      "name": "close-rhythm",
       "wait": 1500,
-      "waitFor": ".paper-card",
+      "waitFor": "form[action$='/admin/family/close-rhythm']",
       "full": false
     }
   ]
