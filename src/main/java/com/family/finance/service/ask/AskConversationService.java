@@ -124,19 +124,18 @@ public class AskConversationService {
 
     /** 按 id 取,并校验归属 —— 不能靠「在最近列表里找得到」代替归属校验 */
     public AskConversation find(long familyId, long conversationId) {
-        AskConversation c = conversationMapper.findById(conversationId);
-        return c != null && c.getFamilyId() == familyId ? c : null;
+        return conversationMapper.findById(familyId, conversationId);
     }
 
     /** 取一段会话并装配好引用块与工具摘要(一次查完,不按消息 N+1) */
-    public List<AskMessage> history(long conversationId) {
-        List<AskMessage> msgs = messageMapper.byConversation(conversationId);
+    public List<AskMessage> history(long familyId, long conversationId) {
+        List<AskMessage> msgs = messageMapper.byConversation(familyId, conversationId);
         Map<Long, List<AskCitation>> cites = new LinkedHashMap<>();
-        for (AskCitation c : citationMapper.byConversation(conversationId)) {
+        for (AskCitation c : citationMapper.byConversation(familyId, conversationId)) {
             cites.computeIfAbsent(c.getMessageId(), k -> new ArrayList<>()).add(renderer.decorate(c));
         }
         Map<Long, List<AskToolCall>> calls = new LinkedHashMap<>();
-        for (AskToolCall t : toolCallMapper.byConversation(conversationId)) {
+        for (AskToolCall t : toolCallMapper.byConversation(familyId, conversationId)) {
             t.setLabel(renderer.toolLabel(t.getToolName()));
             calls.computeIfAbsent(t.getMessageId(), k -> new ArrayList<>()).add(t);
         }
@@ -152,12 +151,12 @@ public class AskConversationService {
     }
 
     /** 上下文变了(换账期 / 换币种)→ 插一条旁白,<b>不新建会话</b> */
-    public void noteContextChange(long conversationId, String text) {
-        messageMapper.insert(AskMessage.builder()
+    public void noteContextChange(long familyId, long conversationId, String text) {
+        messageMapper.insertOwned(familyId, AskMessage.builder()
                 .conversationId(conversationId)
                 .role(AskMessage.ROLE_NOTE)
                 .contentText(text)
-                .seq(messageMapper.nextSeq(conversationId))
+                .seq(messageMapper.nextSeq(familyId, conversationId))
                 .build());
     }
 
@@ -194,7 +193,7 @@ public class AskConversationService {
     }
 
     public void ask(long familyId, long conversationId, String question, Mode mode, AskSink out) {
-        AskConversation conv = conversationMapper.findById(conversationId);
+        AskConversation conv = conversationMapper.findById(familyId, conversationId);
         if (conv == null || conv.getFamilyId() != familyId) {
             out.failed("这段对话不在了。开一段新的吧。");
             return;
@@ -203,7 +202,7 @@ public class AskConversationService {
         String blocked = blockedReason(familyId);
         if (blocked != null) { out.failed(blocked); return; }
 
-        List<AskMessage> prior = messageMapper.byConversation(conversationId);
+        List<AskMessage> prior = messageMapper.byConversation(familyId, conversationId);
         String q;
         Long skipId = null;
 
@@ -215,12 +214,12 @@ public class AskConversationService {
             // 用户这条先落库 —— 上游炸了也不能把用户打的字弄丢
             AskMessage userMsg = AskMessage.builder()
                     .conversationId(conversationId).role(AskMessage.ROLE_USER)
-                    .contentText(q).seq(messageMapper.nextSeq(conversationId)).build();
-            messageMapper.insert(userMsg);
+                    .contentText(q).seq(messageMapper.nextSeq(familyId, conversationId)).build();
+            messageMapper.insertOwned(familyId, userMsg);
             skipId = userMsg.getId();
             if ("新对话".equals(conv.getTitle())) {
                 String title = q.length() > TITLE_MAX ? q.substring(0, TITLE_MAX) : q;
-                conversationMapper.updateTitle(conversationId, title);
+                conversationMapper.updateTitle(familyId, conversationId, title);
             }
         } else if (mode == Mode.REGENERATE) {
             // 复用最后一条提问,**不追新的用户消息** —— 追了历史里就是同一个问题问了两遍
@@ -236,7 +235,7 @@ public class AskConversationService {
 
         final Long skip = skipId;
         List<AgentRuntime.Msg> history = messageMapper
-                .recentForContext(conversationId, HISTORY_TURNS * 2).stream()
+                .recentForContext(familyId, conversationId, HISTORY_TURNS * 2).stream()
                 .filter(m -> skip == null || !m.getId().equals(skip))
                 .sorted(Comparator.comparing(AskMessage::getSeq))
                 .map(m -> new AgentRuntime.Msg(m.getRole(), m.getContentText()))
@@ -245,11 +244,11 @@ public class AskConversationService {
         String periodLabel = conv.getCtxPeriodId() == null ? null : renderer.periodLabel(conv.getCtxPeriodId());
         String systemPrompt = promptBuilder.build(familyId, periodLabel, conv.getCtxCurrency());
 
-        Collector collector = new Collector(conversationId, out);
+        Collector collector = new Collector(familyId, conversationId, out);
         AgentRuntime.AskTurn turn = new AgentRuntime.AskTurn(
                 familyId, conversationId, conv.getProviderRef(), systemPrompt, history, q,
                 AskScope.DETAIL,           // 产品内对话:数据本来就是用户自己的,不设限
-                ref -> conversationMapper.updateProviderRef(conversationId, ref));
+                ref -> conversationMapper.updateProviderRef(familyId, conversationId, ref));
 
         runtime().run(turn, collector);
     }
@@ -263,6 +262,7 @@ public class AskConversationService {
      * 而用户刷新页面后看到的是落库那份,对不上的时候会以为答案变了。</p>
      */
     private final class Collector implements AskSink {
+        private final long familyId;
         private final long conversationId;
         private final AskSink out;
         private final StringBuilder text = new StringBuilder();
@@ -272,7 +272,8 @@ public class AskConversationService {
         private final Map<String, String> pendingArgs = new LinkedHashMap<>();
         private boolean closed = false;
 
-        Collector(long conversationId, AskSink out) {
+        Collector(long familyId, long conversationId, AskSink out) {
+            this.familyId = familyId;
             this.conversationId = conversationId;
             this.out = out;
         }
@@ -330,9 +331,9 @@ public class AskConversationService {
         }
 
         private void note(String text) {
-            messageMapper.insert(AskMessage.builder()
+            messageMapper.insertOwned(familyId, AskMessage.builder()
                     .conversationId(conversationId).role(AskMessage.ROLE_NOTE)
-                    .contentText(text).seq(messageMapper.nextSeq(conversationId)).build());
+                    .contentText(text).seq(messageMapper.nextSeq(familyId, conversationId)).build());
         }
 
         @Override
@@ -361,8 +362,8 @@ public class AskConversationService {
 
             AskMessage m = AskMessage.builder()
                     .conversationId(conversationId).role(AskMessage.ROLE_ASSISTANT)
-                    .contentText(body).seq(messageMapper.nextSeq(conversationId)).build();
-            messageMapper.insert(m);
+                    .contentText(body).seq(messageMapper.nextSeq(familyId, conversationId)).build();
+            messageMapper.insertOwned(familyId, m);
 
             // 只存正文真的引用到的 —— 一轮里工具可能返回几十个可引用项,
             // 全存进去等于把整张透视表抄进库,而没被引用的那些没有任何用处。
@@ -373,7 +374,7 @@ public class AskConversationService {
             // e2e 就是这么抓到的(库里有 chart 标记、页面上却没有图表容器)。
             cites.forEach((key, c) -> {
                 if (!referenced(body, key)) return;
-                citationMapper.insert(AskCitation.builder()
+                citationMapper.insertOwned(familyId, AskCitation.builder()
                         .messageId(m.getId()).citeKey(key).metricKey(c.metricKey()).label(c.label())
                         .periodId(c.periodId()).inProgress(c.inProgress())
                         .valueText(c.valueText()).currency(c.currency())
@@ -381,7 +382,7 @@ public class AskConversationService {
             });
             for (AskToolCall t : calls) {
                 t.setMessageId(m.getId());
-                toolCallMapper.insert(t);
+                toolCallMapper.insertOwned(familyId, t);
             }
         }
     }

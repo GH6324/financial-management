@@ -123,7 +123,8 @@ public interface AskAuditMapper {
     /** 换绑进度:该接入点最近是否还在用旧密钥 */
     @Select("""
             SELECT COUNT(*) FROM ask_access_audit
-             WHERE token_prefix = #{prefix} AND result = 'OK_NEW'
+             WHERE family_id = #{familyId}
+               AND token_prefix = #{prefix} AND result = 'OK_NEW'
             """)
-    int countNewKeyUsed(@Param("prefix") String prefix);
+    int countNewKeyUsed(@Param("familyId") long familyId, @Param("prefix") String prefix);
 }

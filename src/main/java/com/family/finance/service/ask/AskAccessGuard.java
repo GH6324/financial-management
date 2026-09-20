@@ -92,7 +92,7 @@ public class AskAccessGuard {
         }
 
         boolean firstUse = t.getFirstUsedAt() == null;
-        touchThrottled(t.getId());
+        touchThrottled(t.getFamilyId(), t.getId());
         record(t.getFamilyId(), t.getTokenPrefix(), toolName, v.result(), src, ua, null);
 
         // ③ 首次被使用即通知 —— 第一次异常使用就能被发现
@@ -112,13 +112,13 @@ public class AskAccessGuard {
 
     // ──────────────────────── 内部 ────────────────────────
 
-    private void touchThrottled(long tokenId) {
+    private void touchThrottled(long familyId, long tokenId) {
         Instant now = Instant.now();
         Instant prev = lastTouch.get(tokenId);
         if (prev == null || Duration.between(prev, now).compareTo(TOUCH_THROTTLE) >= 0) {
             lastTouch.put(tokenId, now);
             try {
-                tokenMapper.touch(tokenId);
+                tokenMapper.touch(familyId, tokenId);
             } catch (Exception e) {
                 log.debug("touch 失败(不影响调用):{}", e.toString());
             }

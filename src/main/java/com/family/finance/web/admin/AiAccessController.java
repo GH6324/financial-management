@@ -331,7 +331,7 @@ public class AiAccessController {
                         @RequestParam long tokenId,
                         @RequestParam(required = false) Integer days,
                         RedirectAttributes ra) {
-        tokenService.renew(tokenId, days == null ? AccessTokenService.DEFAULT_DAYS : days);
+        tokenService.renew(me.getFamilyId(), tokenId, days == null ? AccessTokenService.DEFAULT_DAYS : days);
         ra.addFlashAttribute("askNote", "已续期。口令没有变 —— 百炼那边不用动。");
         return "redirect:/admin/ai-access";
     }
@@ -340,7 +340,7 @@ public class AiAccessController {
     public String kill(@AuthenticationPrincipal MemberPrincipal me,
                        @RequestParam long pointId,
                        RedirectAttributes ra) {
-        int n = tokenService.killAccessPoint(pointId);
+        int n = tokenService.killAccessPoint(me.getFamilyId(), pointId);
         auditLogService.record(me.getFamilyId(), me.getMemberId(),
                 com.family.finance.domain.audit.AuditLogType.SYSTEM, "ask_access", pointId,
                 "紧急断开 AI 接入点 · " + n + " 把口令立刻失效");

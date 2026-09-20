@@ -83,7 +83,7 @@ public class AccessTokenService {
      * <p>旧行标记 {@code superseded_by = 新行 id};新密钥首次被用时自动吊销旧行(见 {@link #verify}）。</p>
      */
     public Issued rotate(long familyId, long accessPointId) {
-        List<AskAccessToken> live = tokenMapper.findByAccessPoint(accessPointId).stream()
+        List<AskAccessToken> live = tokenMapper.findByAccessPoint(familyId, accessPointId).stream()
                 .filter(t -> t.getRevokedAt() == null)
                 .toList();
         if (live.isEmpty()) throw new IllegalStateException("这个接入点已经没有可用凭据了,请重新创建");
@@ -94,7 +94,7 @@ public class AccessTokenService {
         AskAccessToken old = live.get(0);
         Issued fresh = issue(familyId, accessPointId, old.getName(), old.scopeEnum(),
                 (int) Math.max(1, old.daysToExpiry(LocalDateTime.now())));
-        tokenMapper.markSuperseded(old.getId(), fresh.token().getId());
+        tokenMapper.markSuperseded(familyId, old.getId(), fresh.token().getId());
         log.info("ask access rotate · point={} old={} new={}",
                 accessPointId, old.getTokenPrefix(), fresh.token().getTokenPrefix());
         return fresh;
@@ -171,16 +171,16 @@ public class AccessTokenService {
 
     /** 本行是否顶替了别的行(即它是换绑出来的新密钥) */
     private boolean supersedes(AskAccessToken t) {
-        return tokenMapper.findByAccessPoint(t.getAccessPointId()).stream()
+        return tokenMapper.findByAccessPoint(t.getFamilyId(), t.getAccessPointId()).stream()
                 .anyMatch(o -> t.getId().equals(o.getSupersededBy()) && o.getRevokedAt() == null);
     }
 
     /** 用「新密钥被使用」这个事实收尾换绑,而不是定时器 */
     private void closeRotation(AskAccessToken fresh) {
-        tokenMapper.findByAccessPoint(fresh.getAccessPointId()).stream()
+        tokenMapper.findByAccessPoint(fresh.getFamilyId(), fresh.getAccessPointId()).stream()
                 .filter(o -> fresh.getId().equals(o.getSupersededBy()) && o.getRevokedAt() == null)
                 .forEach(o -> {
-                    tokenMapper.revoke(o.getId());
+                    tokenMapper.revoke(fresh.getFamilyId(), o.getId());
                     log.info("ask access rotate 完成 · point={} 旧口令 {} 已失效",
                             fresh.getAccessPointId(), o.getTokenPrefix());
                 });
@@ -194,13 +194,13 @@ public class AccessTokenService {
      * <p>这是整套设计里最省事的一条:多数人点「重新生成」其实只是因为看到「即将过期」。
      * 把续期和换密钥拆开之后,那类需求<b>根本不用碰百炼</b>。</p>
      */
-    public void renew(long tokenId, int days) {
-        tokenMapper.renew(tokenId, LocalDateTime.now().plusDays(days > 0 ? days : DEFAULT_DAYS));
+    public void renew(long familyId, long tokenId, int days) {
+        tokenMapper.renew(familyId, tokenId, LocalDateTime.now().plusDays(days > 0 ? days : DEFAULT_DAYS));
     }
 
     /** 紧急断开:该接入点<b>全部</b>密钥(含换绑中的新密钥)一起失效 */
-    public int killAccessPoint(long accessPointId) {
-        int n = tokenMapper.revokeAccessPoint(accessPointId);
+    public int killAccessPoint(long familyId, long accessPointId) {
+        int n = tokenMapper.revokeAccessPoint(familyId, accessPointId);
         log.warn("ask access 紧急断开 · point={} 失效 {} 把", accessPointId, n);
         return n;
     }

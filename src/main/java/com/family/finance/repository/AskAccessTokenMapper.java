@@ -49,16 +49,22 @@ public interface AskAccessTokenMapper {
      * <p>不按前缀捞候选再逐个验 —— 那是慢哈希(bcrypt/argon2)才需要的绕法。
      * 这里凭据是 256 bit 随机串,用 SHA-256 即可,于是能直接对 hash 建唯一索引。
      * 见 {@code AccessTokenService} 的类注释。</p>
+     *
+     * <p><b>family_id 隔离的合法例外</b>(v1.24 普查登记)—— 这是<b>凭据解析入口</b>,
+     * {@code familyId} 是它的<b>产物</b>而不是输入:调用它的时候还不知道是哪个家。
+     * 加一个 familyId 参数只能从别处猜一个传进来,那比不加更危险。
+     * 归属在<b>返回之后</b>立刻确立(调用方拿 {@code getFamilyId()} 当后续一切查询的作用域)。
+     * 例外清单由护栏 {@code v1240-FAMILY-ISOLATION} 钉死,新增例外必须同时改护栏。</p>
      */
     @Select("SELECT " + COLS + " FROM ask_access_token WHERE token_hash = #{hash}")
     Optional<AskAccessToken> findByHash(@Param("hash") String hash);
 
     /** 审计展示用:按前缀找(不用于校验) */
-    @Select("SELECT " + COLS + " FROM ask_access_token WHERE token_prefix = #{prefix}")
-    Optional<AskAccessToken> findByPrefix(@Param("prefix") String prefix);
+    @Select("SELECT " + COLS + " FROM ask_access_token WHERE family_id = #{familyId} AND token_prefix = #{prefix}")
+    Optional<AskAccessToken> findByPrefix(@Param("familyId") long familyId, @Param("prefix") String prefix);
 
-    @Select("SELECT " + COLS + " FROM ask_access_token WHERE id = #{id}")
-    Optional<AskAccessToken> findById(@Param("id") long id);
+    @Select("SELECT " + COLS + " FROM ask_access_token WHERE family_id = #{familyId} AND id = #{id}")
+    Optional<AskAccessToken> findById(@Param("familyId") long familyId, @Param("id") long id);
 
     /** 管理页列表:未吊销的,按接入点分组、新的在前 */
     @Select("SELECT " + COLS + " FROM ask_access_token"
@@ -67,8 +73,8 @@ public interface AskAccessTokenMapper {
     List<AskAccessToken> findActiveByFamily(@Param("familyId") long familyId);
 
     /** 同一接入点下的全部(含已吊销)—— 紧急断开时要连换绑中的新密钥一起干掉 */
-    @Select("SELECT " + COLS + " FROM ask_access_token WHERE access_point_id = #{pointId}")
-    List<AskAccessToken> findByAccessPoint(@Param("pointId") long pointId);
+    @Select("SELECT " + COLS + " FROM ask_access_token WHERE family_id = #{familyId} AND access_point_id = #{pointId}")
+    List<AskAccessToken> findByAccessPoint(@Param("familyId") long familyId, @Param("pointId") long pointId);
 
     /** 家庭里是否还有任何可用凭据 —— 决定 /mcp 是 404 还是继续走鉴权 */
     @Select("""
@@ -81,22 +87,27 @@ public interface AskAccessTokenMapper {
     long maxAccessPointId(@Param("familyId") long familyId);
 
     /** 续期:**只改 expires_at,不动 token_hash** —— 改了就意味着用户又得去百炼一趟 */
-    @Update("UPDATE ask_access_token SET expires_at = #{expiresAt} WHERE id = #{id}")
-    int renew(@Param("id") long id, @Param("expiresAt") java.time.LocalDateTime expiresAt);
+    @Update("UPDATE ask_access_token SET expires_at = #{expiresAt}"
+          + " WHERE family_id = #{familyId} AND id = #{id}")
+    int renew(@Param("familyId") long familyId,
+              @Param("id") long id, @Param("expiresAt") java.time.LocalDateTime expiresAt);
 
     /** 换绑:旧行指向新行 */
-    @Update("UPDATE ask_access_token SET superseded_by = #{newId} WHERE id = #{oldId}")
-    int markSuperseded(@Param("oldId") long oldId, @Param("newId") long newId);
+    @Update("UPDATE ask_access_token SET superseded_by = #{newId}"
+          + " WHERE family_id = #{familyId} AND id = #{oldId}")
+    int markSuperseded(@Param("familyId") long familyId,
+                       @Param("oldId") long oldId, @Param("newId") long newId);
 
-    @Update("UPDATE ask_access_token SET revoked_at = NOW(3) WHERE id = #{id} AND revoked_at IS NULL")
-    int revoke(@Param("id") long id);
+    @Update("UPDATE ask_access_token SET revoked_at = NOW(3)"
+          + " WHERE family_id = #{familyId} AND id = #{id} AND revoked_at IS NULL")
+    int revoke(@Param("familyId") long familyId, @Param("id") long id);
 
     /** 紧急断开:该接入点全部密钥(含换绑中的新密钥)一起失效 */
     @Update("""
             UPDATE ask_access_token SET revoked_at = NOW(3)
-             WHERE access_point_id = #{pointId} AND revoked_at IS NULL
+             WHERE family_id = #{familyId} AND access_point_id = #{pointId} AND revoked_at IS NULL
             """)
-    int revokeAccessPoint(@Param("pointId") long pointId);
+    int revokeAccessPoint(@Param("familyId") long familyId, @Param("pointId") long pointId);
 
     /** 关掉整个功能 */
     @Update("UPDATE ask_access_token SET revoked_at = NOW(3) WHERE family_id = #{familyId} AND revoked_at IS NULL")
@@ -107,9 +118,9 @@ public interface AskAccessTokenMapper {
             UPDATE ask_access_token
                SET last_used_at  = NOW(3),
                    first_used_at = COALESCE(first_used_at, NOW(3))
-             WHERE id = #{id}
+             WHERE family_id = #{familyId} AND id = #{id}
             """)
-    int touch(@Param("id") long id);
+    int touch(@Param("familyId") long familyId, @Param("id") long id);
 
     /**
      * 全库还有几把可用凭据。

@@ -99,7 +99,7 @@ public class AskController {
             AskConversation c = conversations.find(fam, conv);
             if (c != null) {
                 model.addAttribute("conv", c);
-                model.addAttribute("messages", conversations.history(conv));
+                model.addAttribute("messages", conversations.history(me.getFamilyId(), conv));
                 model.addAttribute("renderer", renderer);
             }
         }

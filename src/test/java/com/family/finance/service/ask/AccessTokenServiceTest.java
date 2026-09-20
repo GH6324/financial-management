@@ -64,31 +64,31 @@ class AccessTokenServiceTest {
         });
         when(tokenMapper.findByHash(anyString())).thenAnswer(inv -> rows.stream()
                 .filter(t -> t.getTokenHash().equals(inv.getArgument(0))).findFirst());
-        when(tokenMapper.findByAccessPoint(anyLong())).thenAnswer(inv -> rows.stream()
-                .filter(t -> t.getAccessPointId().equals(inv.getArgument(0))).toList());
+        when(tokenMapper.findByAccessPoint(anyLong(), anyLong())).thenAnswer(inv -> rows.stream()
+                .filter(t -> t.getAccessPointId().equals(inv.getArgument(1))).toList());
         when(tokenMapper.maxAccessPointId(anyLong())).thenAnswer(inv -> rows.stream()
                 .mapToLong(AskAccessToken::getAccessPointId).max().orElse(0L));
-        when(tokenMapper.revoke(anyLong())).thenAnswer(inv -> {
-            long id = inv.getArgument(0);
+        when(tokenMapper.revoke(anyLong(), anyLong())).thenAnswer(inv -> {
+            long id = inv.getArgument(1);
             rows.stream().filter(t -> t.getId() == id && t.getRevokedAt() == null)
                     .forEach(t -> t.setRevokedAt(LocalDateTime.now()));
             return 1;
         });
-        when(tokenMapper.revokeAccessPoint(anyLong())).thenAnswer(inv -> {
-            long pid = inv.getArgument(0);
+        when(tokenMapper.revokeAccessPoint(anyLong(), anyLong())).thenAnswer(inv -> {
+            long pid = inv.getArgument(1);
             long n = rows.stream().filter(t -> t.getAccessPointId() == pid && t.getRevokedAt() == null).count();
             rows.stream().filter(t -> t.getAccessPointId() == pid)
                     .forEach(t -> { if (t.getRevokedAt() == null) t.setRevokedAt(LocalDateTime.now()); });
             return (int) n;
         });
-        when(tokenMapper.markSuperseded(anyLong(), anyLong())).thenAnswer(inv -> {
-            long oldId = inv.getArgument(0), newId = inv.getArgument(1);
+        when(tokenMapper.markSuperseded(anyLong(), anyLong(), anyLong())).thenAnswer(inv -> {
+            long oldId = inv.getArgument(1), newId = inv.getArgument(2);
             rows.stream().filter(t -> t.getId() == oldId).forEach(t -> t.setSupersededBy(newId));
             return 1;
         });
-        when(tokenMapper.renew(anyLong(), org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> {
-            long id = inv.getArgument(0);
-            rows.stream().filter(t -> t.getId() == id).forEach(t -> t.setExpiresAt(inv.getArgument(1)));
+        when(tokenMapper.renew(anyLong(), anyLong(), org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> {
+            long id = inv.getArgument(1);
+            rows.stream().filter(t -> t.getId() == id).forEach(t -> t.setExpiresAt(inv.getArgument(2)));
             return 1;
         });
         when(tokenMapper.countUsable(anyLong())).thenAnswer(inv -> (int) rows.stream()
@@ -265,7 +265,7 @@ class AccessTokenServiceTest {
         String hashBefore = rows.get(0).getTokenHash();
         LocalDateTime expBefore = rows.get(0).getExpiresAt();
 
-        svc.renew(issued.token().getId(), 90);
+        svc.renew(FAM, issued.token().getId(), 90);
 
         assertThat(rows.get(0).getTokenHash()).as("续期绝不能换密钥").isEqualTo(hashBefore);
         assertThat(rows.get(0).getExpiresAt()).isAfter(expBefore);
@@ -279,7 +279,7 @@ class AccessTokenServiceTest {
         var old = svc.create(FAM, "百炼", AskScope.AGGREGATE, 90);
         var fresh = svc.rotate(FAM, old.token().getAccessPointId());
 
-        svc.killAccessPoint(old.token().getAccessPointId());
+        svc.killAccessPoint(FAM, old.token().getAccessPointId());
 
         assertThat(svc.verify("Bearer " + old.plaintext(), AskScope.AGGREGATE).ok()).isFalse();
         assertThat(svc.verify("Bearer " + fresh.plaintext(), AskScope.AGGREGATE).ok())
@@ -292,7 +292,7 @@ class AccessTokenServiceTest {
         assertThat(svc.enabled(FAM)).isFalse();
         var issued = svc.create(FAM, "x", AskScope.AGGREGATE, 90);
         assertThat(svc.enabled(FAM)).isTrue();
-        svc.killAccessPoint(issued.token().getAccessPointId());
+        svc.killAccessPoint(FAM, issued.token().getAccessPointId());
         assertThat(svc.enabled(FAM)).isFalse();
     }
 

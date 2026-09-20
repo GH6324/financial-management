@@ -24,8 +24,8 @@ public interface AskConversationMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(AskConversation c);
 
-    @Select("SELECT" + COLS + "FROM ask_conversation WHERE id = #{id}")
-    AskConversation findById(@Param("id") long id);
+    @Select("SELECT" + COLS + "FROM ask_conversation WHERE id = #{id} AND family_id = #{familyId}")
+    AskConversation findById(@Param("familyId") long familyId, @Param("id") long id);
 
     /** 最近的若干段(不含已归档);首页侧栏与历史列表共用 */
     @Select("SELECT" + COLS + "FROM ask_conversation"
@@ -33,11 +33,15 @@ public interface AskConversationMapper {
           + " ORDER BY created_at DESC LIMIT #{limit}")
     List<AskConversation> recent(@Param("familyId") long familyId, @Param("limit") int limit);
 
-    @Update("UPDATE ask_conversation SET provider_ref = #{providerRef} WHERE id = #{id}")
-    void updateProviderRef(@Param("id") long id, @Param("providerRef") String providerRef);
+    @Update("UPDATE ask_conversation SET provider_ref = #{providerRef}"
+          + " WHERE id = #{id} AND family_id = #{familyId}")
+    void updateProviderRef(@Param("familyId") long familyId,
+                           @Param("id") long id, @Param("providerRef") String providerRef);
 
-    @Update("UPDATE ask_conversation SET title = #{title} WHERE id = #{id}")
-    void updateTitle(@Param("id") long id, @Param("title") String title);
+    @Update("UPDATE ask_conversation SET title = #{title}"
+          + " WHERE id = #{id} AND family_id = #{familyId}")
+    void updateTitle(@Param("familyId") long familyId,
+                     @Param("id") long id, @Param("title") String title);
 
     @Update("UPDATE ask_conversation SET archived_at = NOW(3) WHERE id = #{id} AND family_id = #{familyId}")
     int archive(@Param("id") long id, @Param("familyId") long familyId);
