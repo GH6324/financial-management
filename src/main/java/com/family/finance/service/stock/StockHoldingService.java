@@ -317,7 +317,7 @@ public class StockHoldingService {
     /** 把手动改现金行的 Δ 记成调整流水(剔出投资损益);best-effort:无 OPEN 期 / 账户无主理人则跳过。 */
     private void recordCashAdjustment(long familyId, long accountId, java.math.BigDecimal delta) {
         if (delta == null || delta.signum() == 0) return;
-        var periodOpt = periodMapper.findCurrentOpen(familyId);
+        var periodOpt = periodMapper.findBalancePeriod(familyId);
         if (periodOpt.isEmpty()) return;
         var acct = accountMapper.findById(accountId).orElse(null);
         Long memberId = acct == null ? null : acct.getPrimaryOwnerMemberId();
@@ -425,7 +425,7 @@ public class StockHoldingService {
     private BigDecimal fxConvert(long familyId, BigDecimal amount, String from, String to) {
         if (amount == null) return BigDecimal.ZERO;
         if (from == null || to == null || from.equalsIgnoreCase(to)) return amount;
-        var period = periodMapper.findCurrentOpen(familyId).orElse(null);
+        var period = periodMapper.findBalancePeriod(familyId).orElse(null);
         if (period == null) return amount;
         var rate = fxService.getOrFetchRate(familyId, from, to, period.getId());
         if (rate.isPresent() && rate.get().getRate() != null && rate.get().getRate().signum() > 0) {

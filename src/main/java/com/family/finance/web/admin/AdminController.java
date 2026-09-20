@@ -86,7 +86,7 @@ public class AdminController {
     @GetMapping
     public String hub(@AuthenticationPrincipal MemberPrincipal me, Model model) {
         Family family = familyService.require(me.getFamilyId());
-        Period current = periodService.findCurrentOpen(me.getFamilyId()).orElse(null);
+        Period current = periodService.findBalancePeriod(me.getFamilyId()).orElse(null);
         BackupLog lastBackup = backupLogMapper.latest(me.getFamilyId()).orElse(null);
         List<FxRate> fx = fxService.recent(me.getFamilyId(), 5);
         model.addAttribute("family", family);
@@ -194,7 +194,7 @@ public class AdminController {
         Family f = familyService.require(me.getFamilyId());
         PeriodType newType = PeriodType.valueOf(periodType);
         // PRD FR-4:切换周期类型前,必须确认无 OPEN 周期
-        if (f.getPeriodType() != newType && periodService.findCurrentOpen(me.getFamilyId()).isPresent()) {
+        if (f.getPeriodType() != newType && periodService.findBalancePeriod(me.getFamilyId()).isPresent()) {
             ra.addFlashAttribute("flash", "切换周期类型失败:存在 OPEN 周期,请先关闭");
             return "redirect:/admin/family";
         }
@@ -391,12 +391,63 @@ public class AdminController {
         int safePage = Math.max(0, Math.min(page, totalPages - 1));
         List<Period> periods = periodService.findPaged(me.getFamilyId(), pageSize, safePage * pageSize);
         model.addAttribute("periods", periods);
-        model.addAttribute("currentPeriod", periodService.findCurrentOpen(me.getFamilyId()).orElse(null));
+        model.addAttribute("currentPeriod", periodService.findBalancePeriod(me.getFamilyId()).orElse(null));
         // v0.5 修 · 分页(beta 测试数据曾到 2032 · 88 期翻不到当前)
         model.addAttribute("page", safePage);
         model.addAttribute("totalPages", totalPages);
         model.addAttribute("totalPeriods", total);
+
+        // v1.23 FR-610 / FR-616 · 关账节奏配置 + 「什么时候关」预告
+        com.family.finance.domain.family.Family fam = familyService.require(me.getFamilyId());
+        java.time.LocalDate today = java.time.LocalDate.now();
+        model.addAttribute("closeDelayDays", fam.closeDelayDaysOrZero());
+        model.addAttribute("autoCloseEnabled", fam.autoCloseOrDefault());
+        // 每个仍 OPEN 的期算出它的关账截止日 —— 不能让用户猜(FR-616)
+        java.util.Map<Long, java.time.LocalDate> closeDueById = new java.util.LinkedHashMap<>();
+        java.util.Map<Long, Long> graceLeftById = new java.util.LinkedHashMap<>();
+        for (Period open : periodService.findRecordableOpen(me.getFamilyId())) {
+            closeDueById.put(open.getId(), periodService.graceDeadline(fam, open));
+            graceLeftById.put(open.getId(), periodService.graceDaysLeft(fam, open, today));
+        }
+        model.addAttribute("closeDueById", closeDueById);
+        model.addAttribute("graceLeftById", graceLeftById);
         return "admin/periods";
+    }
+
+    /**
+     * v1.23 FR-610 · 关账节奏:立即 / T+2 / T+5 / 我自己关。
+     *
+     * <p>四个档位在页面上是一个单选组,所以这里只收一个字符串,由服务端翻译成
+     * (宽限天数, 自动开关)两个值 —— 前端传两个参数会产生「选了手动但宽限还是 2」
+     * 这种读不出意图的中间态。</p>
+     */
+    @PostMapping("/family/close-rhythm")
+    public String updateCloseRhythm(@AuthenticationPrincipal MemberPrincipal me,
+                                    @RequestParam String rhythm,
+                                    RedirectAttributes ra) {
+        int delay;
+        boolean auto;
+        switch (rhythm) {
+            case "T0"     -> { delay = 0; auto = true;  }
+            case "T2"     -> { delay = 2; auto = true;  }
+            case "T5"     -> { delay = 5; auto = true;  }
+            case "MANUAL" -> { delay = 0; auto = false; }
+            default -> {
+                ra.addFlashAttribute("flash", "未知的关账节奏:" + rhythm);
+                return "redirect:/admin/periods";
+            }
+        }
+        familyMapper.updateCloseRhythm(me.getFamilyId(), delay, auto);
+        auditLogService.record(me.getFamilyId(), me.getMemberId(),
+                com.family.finance.domain.audit.AuditLogType.SYSTEM, "family", me.getFamilyId(),
+                "关账节奏改为 " + rhythm + "(宽限 " + delay + " 天 · 自动关账 " + auto + ")");
+        ra.addFlashAttribute("flash", switch (rhythm) {
+            case "T0"     -> "已改为「立即关账」:新月份一开始,上月立刻锁上。";
+            case "T2"     -> "已改为「月底过完再给 2 天」:上月的报表、AI 月报、指标也会晚 2 天出。";
+            case "T5"     -> "已改为「月底过完再给 5 天」:上月的报表、AI 月报、指标也会晚 5 天出。";
+            default       -> "已改为「我自己关」:到下下个月开始时,系统仍会兜底关掉它。";
+        });
+        return "redirect:/admin/periods";
     }
 
     @PostMapping("/periods/open-next")

@@ -43,6 +43,51 @@
     </div>
   </section>
 
+  <!-- v1.23 FR-625 · 双活跃窗口:两期同时摆出来,一眼看出自己在填哪一期。
+       只在真的有两期 OPEN 时出现;T+0 的家庭这一整块不渲染,页面与 v1.22 完全一致。
+       两个 pill 尺寸样式必须一致(feedback_sibling_uniform_selfcheck),靠 flex-1 保证。 -->
+  <section th:if="${dualActive}" class="mb-6">
+    <div class="flex gap-2">
+      <a th:each="op : ${openPeriods}" th:href="@{/entry(period=${op.id}, mine=${mineOnly})}"
+         class="entry-perpill no-underline flex-1 border border-rule bg-paper px-4 py-3 min-w-0"
+         th:classappend="${op.id == period.id} ? 'entry-perpill-on' : 'entry-perpill-off'">
+        <div class="font-display text-base leading-tight">
+          <span th:text="${#temporals.format(op.periodStart,'M 月')}">8 月</span>
+          <span th:if="${op.id == backfillPeriodId}" class="text-brass-deep"> · 还能改</span>
+          <span th:unless="${op.id == backfillPeriodId}" class="text-ink-soft"> · 进行中</span>
+        </div>
+        <div class="text-[10.5px] text-ink-subtle mt-1 font-mono"
+             th:if="${op.id == backfillPeriodId}"
+             th:text="${closeDueLabel}">9/3 关账 · 还剩 2 天</div>
+        <div class="text-[10.5px] text-ink-subtle mt-1 font-mono"
+             th:unless="${op.id == backfillPeriodId}"
+             th:text="${#temporals.format(op.periodStart,'yyyy/MM/dd')} + ' – ' + ${#temporals.format(op.periodEnd,'MM/dd')}">2026/09/01 – 09/30</div>
+      </a>
+    </div>
+    <div th:if="${period.id == backfillPeriodId}"
+         class="mt-3 border border-rule px-4 py-3" style="background:rgba(160,124,58,.06)">
+      <div class="flex items-start gap-2">
+        <svg class="flex-shrink-0 mt-0.5 text-brass-deep" width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/>
+        </svg>
+        <p class="text-[11.5px] text-ink-soft leading-relaxed flex-1">
+          <b class="text-ink">你正在填 <span th:text="${#temporals.format(period.periodStart,'yyyy 年 M 月')}">2026 年 8 月</span>。</b>
+          微信 / 支付宝 / 信用卡的完整上月账单现在应该拿得到了 —— 直接导进来,不用自己算最后几天。
+        </p>
+      </div>
+    </div>
+  </section>
+  <style>
+    /* 两个 pill 必须**逐像素同尺寸**(feedback_sibling_uniform_selfcheck)。
+       所以边框宽度对两者都是 2px,选中态只换颜色 —— 不靠「加粗边框 + 减 padding」
+       去凑,那样凑出来实测还差 2px:border 与 padding 的取整不在一个方向上。 */
+    .entry-perpill     { border-width: 2px; box-sizing: border-box; }
+    .entry-perpill-on  { border-color: var(--brass-deep); background: rgba(160,124,58,.07); }
+    .entry-perpill-off { opacity: .66; }
+    .entry-perpill-off:hover { opacity: 1; border-color: var(--brass-deep); }
+  </style>
+
   <!-- v1.6 UED review B2-1 · 已关账横幅:先告诉用户「为什么不能填」,再给去处。
        此前 CLOSED 时页面照样铺满可编辑表单,用户填了才发现改不动。 -->
   <section th:if="${period.status.name() == 'CLOSED'}" class="mb-6 bracket-card" style="border-color:var(--rule)">

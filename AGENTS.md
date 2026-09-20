@@ -101,6 +101,16 @@ worktree 的工作目录里没有 `.githooks/`(那是 master 上的文件),hook 
 
 ---
 
+### 关账宽限与双活跃账期(v1.23 · issue #20)
+
+| 名词 | 定义 |
+|---|---|
+| **关账宽限** | 账期自然结束后仍保持 OPEN 的天数。`family.close_delay_days`,管理页配 T+0(默认)/ T+2 / T+5 / 手动。默认 T+0 = v1.22 及以前行为 |
+| **双活跃窗口** | 宽限期内上期与新期**同时 OPEN** 的那段时间。**不是异常状态,是一等公民** |
+| **补录期 / 进行期** | 双活跃窗口里的两期:**补录期** = 已自然结束、宽限内仍可写;**进行期** = 正在过的那期 |
+| **已定稿(settled)** | CLOSED **或**「已自然结束且填报完成」。收益类指标锚它,而不是只锚 CLOSED |
+| **余额轴 / 收支轴** | 余额与估值**只能有一个「现在」**(锚进行期);收支**可以有两个活跃期**。这条抽象是 v1.23 所有取期决策的唯一依据,也是 `FactSlice` 里存量类 / 收益类二分的推广 |
+
 ## 4. 页面地图(顶栏 7 tab + 公开页)
 
 | tab / 页 | 路由 | 干什么 | 关键文件 |
@@ -126,8 +136,8 @@ worktree 的工作目录里没有 `.githooks/`(那是 master 上的文件),hook 
    → ★ 用户评审(停,等明确通过)
 2. TDD        tech-design/vX.Y.md(每个关键决策:2-3 备选 + 取舍 + 选定理由 + 为什么不选)· **照 tech-design/_TEMPLATE.md 的骨架写**
    → ★ 用户评审(停,等明确通过)
-3. 代码 + QA  实现 + 单测 + docs/qa-cases.md 用例 + scripts/qa-run.sh 守护 + scripts/e2e.sh 主线
-4. 自测       mvn -o test(全绿) · bash scripts/qa-run.sh(静态守护) · bash scripts/e2e.sh(端到端真验收) · 无头截图视觉验收
+3. 代码 + QA  实现 + 单测 + docs/qa-cases.md 用例 + scripts/qa-run.sh 守护 + scripts/e2e/flows/ 真 e2e flow
+4. 自测       mvn -o test(全绿) · bash scripts/qa-run.sh(静态守护) · node scripts/e2e/run.cjs(**真 e2e · 浏览器点**) · bash scripts/regression-data.sh(口径回归)
 5. 部署 beta  sudo cp jar + restart → 走用户真实点击路径复验(顶栏进入 · 手机视图 · 落地卡片)
    → ★ 用户在 beta review
 6. 发布 prod  用户回精确串 release vX.Y.Z → release-prod skill(见第 10 节)
@@ -156,7 +166,8 @@ worktree 的工作目录里没有 `.githooks/`(那是 master 上的文件),hook 
 | `preview/vX.Y/<f>.html` | PRD 阶段交互预览 | 复用 `preview/assets/style.css` + 4 字体 + `kpi/pill/paper-card/eyebrow/btn-ink` 类;**别用废弃 `preview/pages/`** |
 | `db/migration/V<n>__*.sql` | schema 迁移 | 只增不改已发布的;全 backward-compat(见 L7)。跑:`DB_USER=… DB_PASS=… DB_NAME=… bash db/apply.sh`(prod 读 `/etc/finance.env`;本地值见 `AGENTS.local.md`) |
 | `scripts/qa-run.sh` | 黑盒静态守护(广度) | `bash scripts/qa-run.sh` · 加守护参考 `v12-*` 写法 |
-| `scripts/e2e.sh` | 端到端真验收(深度 · mysqldump 快照/还原) | `bash scripts/e2e.sh` · 断言用**增量**不用绝对值 · 不用 pipefail |
+| `scripts/e2e/` | **真 e2e**:Playwright 驱动浏览器,动作一律从页面元素发起 | `node scripts/e2e/run.cjs` · 新增能力必须配一个 flow · 失败自动截图到 `scripts/e2e/shots/` |
+| `scripts/regression-data.sh` | 数据层 / 口径回归(原 `e2e.sh`,2026-09-20 正名) | `bash scripts/regression-data.sh` · 断言用**增量**不用绝对值 · 不用 pipefail |
 | `docs/qa-cases.md` | QA 用例登记 | 每功能加一段 |
 | `CHANGELOG.md` | 版本记录 | 每版一段 |
 | `src/main/resources/templates/landing.html` | 落地页**工程数字带** | `data-stat` version/tests/migrations/blackbox 必须与现状一致(release preflight 硬门) |
@@ -191,6 +202,7 @@ worktree 的工作目录里没有 `.githooks/`(那是 master 上的文件),hook 
 | L13 · 封板快照定格性 | 报表页一区/二区加任何指标 | 只能经 `SealedPeriodService`(签名里**没有 range**,传不进去)· 前两区在不同 range 下渲染必须**逐字相同** | `v110-SEALED-SINGLE-ENTRY` / `v110-SNAPSHOT-RANGE-INVARIANT` |
 | L14 · 归档的时间语义 | 任何按 `archived_at` 过滤事实的 SQL | 必须 `archived_at IS NULL OR archived_at > p.period_end` —— 裸 `IS NULL` 会让归档动作**抹掉该账户全部历史**,一个整理动作改写去年的报表 | `v110-ARCHIVED-TIME` |
 | L15 · 指标口径版本 | 任何影响封板指标**数值**的口径改动 | `MetricFormulaVersion.CURRENT` +1 并在变更表记一行(封板抬头会显示「口径 vN」,用户据此分辨数字是哪套口径算的) | `v110-FORMULA-VERSION` |
+| L16 · 关账宽限 / 双活跃账期 | 加任何**写数据**的入口(端点 / `@Scheduled` / 导入),或动**取期**逻辑 | **每个写操作必须有明确归属判据**,三选一:**显式选期**(页面要有月份指引)/ **事件时点**(股价刷新、券商同步)/ **永远最新**(余额、估值 —— 只有一个「现在」)。不许出现第四种「看 `findCurrentOpen()` 返回什么就是什么」—— 双 OPEN 下它**静默返回最新那期**,不报错、不进日志,漏的那处只会给一个看起来合理但是错的数。取期按语义选 `findBalancePeriod`(余额轴)/ `findRecordableOpen`(收支轴)。收益类指标锚**已定稿**期(CLOSED 或「已自然结束**且填报完成**」),判据是「填完了没有」不是「关了没有」。宽限上限 5 天由 schema CHECK 锁死 —— 本版所有判据按「最多两期」写,第三期一出现全部失效。全量矩阵(27 写操作 × 42 组件指标)见 `prd/v1.23.md` §4 | `v1230-DUAL-OPEN-SWEEP` · `v1230-BALANCE-AXIS-LATEST-ONLY` · `v1230-SETTLED-NOT-JUST-CLOSED` · `v1230-SETTLED-JUDGE-ALIGNED` · `v1230-GRACE-CLOSE-DECOUPLED` · `v1230-GRACE-MAX-5` · `v1230-CARRIED-FORWARD-GUARD` · `PeriodGraceTest` |
 
 **新链怎么加**:出现"改 A 漏了 B"事故 → 加一行(触发/必须同步/守护)+ `qa-run.sh` 加静态 grep 把它网住,下次它自己 fail。
 
@@ -199,7 +211,10 @@ worktree 的工作目录里没有 `.githooks/`(那是 master 上的文件),hook 
 ## 8. 全局护栏 / 纪律(踩过的坑 · 收敛清单)
 
 **流程 / 交付**
-- **验收走用户真实点击路径**(顶栏 tab → 落地卡片 → 手机视图),别只测端点/单测/grep;护栏守用户实际入口非旁路。优先 `e2e.sh`(唤起 beta + 调接口 + DB 真值),UT/qa-run 静态守护只作补充。
+- **验收走用户真实点击路径**(顶栏 tab → 落地卡片 → 手机视图),别只测端点/单测/grep;护栏守用户实际入口非旁路。
+  **优先 `node scripts/e2e/run.cjs`** —— 它真的开浏览器去点,抓得到 curl 结构性抓不到的东西
+  (表单字段名、按钮可达性、JS 绑定作用域、渲染中途截断、并列元素尺寸)。
+  `regression-data.sh` 验计算口径,`qa-run.sh` 守静态约定,三者职责不同、都要跑。
 - **commit 自主;tag/push/发 prod 须用户验收**,每个新版本重新确认(授权不顺延),用精确串 `release vX.Y.Z`。
 - 选型对比表**只放用户能感知的维度**,别把"我写代码省不省事"伪装成用户价值。
 - 每次代码改动**主动同步文档**(prd/tech-design/CHANGELOG/qa-cases),不等提醒。
@@ -301,7 +316,8 @@ mvn -o test                    # 全量单测(当前 506)
 bash scripts/qa-run.sh         # 黑盒静态守护(当前 582 · 全量实测 ~5.3 分钟 · 快照还原不污染 beta)
 bash scripts/qa-run.sh --no-restore          # 例外:就是要看跑完之后的库状态(排查用 · 会污染基线)
 bash scripts/qa-run.sh --only 'v1.10|v1.8'   # 只跑匹配的 section(~2.5 分钟)· 开发中用这个,别等全量
-bash scripts/e2e.sh            # 端到端真验收(13 主线 93 断言 · 快照还原不污染)
+node scripts/e2e/run.cjs       # 真 e2e(浏览器点页面 · 失败自动截图)
+bash scripts/regression-data.sh # 数据层/口径回归(原 e2e.sh · curl + DB 真值)
 
 # 部署 beta(自测全绿后)· 具体路径/凭据见 AGENTS.local.md
 mvn -o -q package -DskipTests

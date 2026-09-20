@@ -69,7 +69,7 @@ public class HoldingImportService {
         Optional<HoldingImport> open = importMapper.findOpenByAccount(accountId);
         if (open.isPresent()) return open.get();
         Account acc = accountMapper.findById(accountId).orElseThrow(() -> new IllegalArgumentException("账户不存在"));
-        Period period = periodMapper.findCurrentOpen(acc.getFamilyId())
+        Period period = periodMapper.findBalancePeriod(acc.getFamilyId())
                 .orElseThrow(() -> new IllegalStateException("没有开账期,无法导入"));
         HoldingImport imp = HoldingImport.builder()
                 .familyId(acc.getFamilyId()).accountId(accountId).periodId(period.getId())

@@ -17,6 +17,7 @@ public interface FamilyMapper {
             SELECT id, name, brand_text, logo_path, logo_preset, base_currency, period_type,
                    cpi_assumption, allocation_anchor, allocation_anchor_custom, risk_appetite,
                    reporting_template, expense_entry_mode, report_remind_lead_days, metric_prefs,
+                   close_delay_days, auto_close_enabled,
                    created_at, updated_at
               FROM family
              ORDER BY id
@@ -27,6 +28,7 @@ public interface FamilyMapper {
             SELECT id, name, brand_text, logo_path, logo_preset, base_currency, period_type,
                    cpi_assumption, allocation_anchor, allocation_anchor_custom, risk_appetite,
                    reporting_template, expense_entry_mode, report_remind_lead_days, metric_prefs,
+                   close_delay_days, auto_close_enabled,
                    created_at, updated_at
               FROM family
              WHERE id = #{id}
@@ -88,4 +90,15 @@ public interface FamilyMapper {
     /** FR-63c · 距填报截止前几天开始强提醒 */
     @Update("UPDATE family SET report_remind_lead_days = #{leadDays} WHERE id = #{familyId}")
     int updateRemindLeadDays(@Param("familyId") long familyId, @Param("leadDays") int leadDays);
+
+    /**
+     * v1.23 FR-610 · 关账节奏(宽限天数 + 自动关账开关)。
+     *
+     * <p>两个值一起写:它们在管理页是同一个配置项的两个面(「立即 / T+2 / T+5 / 我自己关」),
+     * 分开写会出现「选了手动但宽限还是 2」这种读不出意图的中间态。</p>
+     */
+    @Update("UPDATE family SET close_delay_days = #{delayDays}, auto_close_enabled = #{autoClose} WHERE id = #{familyId}")
+    int updateCloseRhythm(@Param("familyId") long familyId,
+                          @Param("delayDays") int delayDays,
+                          @Param("autoClose") boolean autoClose);
 }

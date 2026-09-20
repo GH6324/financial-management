@@ -21,8 +21,13 @@
       </div>
       <p class="text-ink-soft text-sm mt-3 max-w-xl">收益率、现金流、负债与本金收益分解全部来自同一份 Fact View。</p>
       <!-- v0.5.5 FR-97 · 已关账快照透出(替换原"进行中·实时更新"提示) -->
-      <p th:if="${closedSnapshot}" class="font-mono text-[11px] text-brass-deep mt-2">
+      <p th:if="${closedSnapshot and !anchorStillOpen}" class="font-mono text-[11px] text-brass-deep mt-2">
         <span class="text-ink">本页为已关账账期的稳定快照</span> · 数据截至 <span style="color:var(--rust)" th:text="${#temporals.format(anchorPeriod.periodStart,'yyyy 年 M 月')}">2026 年 5 月</span> · 进行中的本月请看 <a th:href="@{/dashboard}" class="text-brass-deep hover:text-ink no-underline" style="border-bottom:1px solid var(--rule)">仪表盘 →</a>
+      </p>
+      <!-- v1.23 FR-627 · 锚期已填完但还在宽限窗口里:既不能倒退回上上期,也不能假装是定稿。
+           诚实的中间态 —— 数字是这一期的,但它还能改。 -->
+      <p th:if="${closedSnapshot and anchorStillOpen}" class="font-mono text-[11px] text-brass-deep mt-2">
+        <span class="text-ink" th:text="|${#temporals.format(anchorPeriod.periodStart,'M 月')}仍在填报中|">8 月仍在填报中</span><span th:if="${anchorCloseDue}" th:text="|(${anchorCloseDue} 关账)|">(9/3 关账)</span> · 这里的数字可能还会变 · 进行中的本月请看 <a th:href="@{/dashboard}" class="text-brass-deep hover:text-ink no-underline" style="border-bottom:1px solid var(--rule)">仪表盘 →</a>
       </p>
       <p th:unless="${closedSnapshot}" class="font-mono text-[11px] text-ink-subtle mt-2">
         尚无已关账账期 · 完成本月填报并关账后,这里出现收益快照。

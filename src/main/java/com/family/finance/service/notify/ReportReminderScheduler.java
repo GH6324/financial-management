@@ -39,6 +39,8 @@ public class ReportReminderScheduler {
 
     private final FamilyService familyService;
     private final PeriodMapper periodMapper;
+    /** v1.23 · 截止日要按关账宽限算,不是裸 period_end —— 判据单一出处在 PeriodService */
+    private final com.family.finance.service.PeriodService periodService;
     private final MemberMapper memberMapper;
     private final PeriodMemberCompletionMapper completionMapper;
     private final ReportReminderLogMapper reminderLogMapper;
@@ -46,6 +48,7 @@ public class ReportReminderScheduler {
 
     public ReportReminderScheduler(FamilyService familyService,
                                    PeriodMapper periodMapper,
+                                   com.family.finance.service.PeriodService periodService,
                                    MemberMapper memberMapper,
                                    PeriodMemberCompletionMapper completionMapper,
                                    ReportReminderLogMapper reminderLogMapper,
@@ -53,6 +56,7 @@ public class ReportReminderScheduler {
                                    InAppBannerChannel inAppChannel) {
         this.familyService = familyService;
         this.periodMapper = periodMapper;
+        this.periodService = periodService;
         this.memberMapper = memberMapper;
         this.completionMapper = completionMapper;
         this.reminderLogMapper = reminderLogMapper;
@@ -92,10 +96,15 @@ public class ReportReminderScheduler {
     private int dispatch(LocalDate today) {
         int armed = 0;
         for (Family family : familyService.findAll()) {
-            Period period = periodMapper.findCurrentOpen(family.getId()).orElse(null);
-            if (period == null) continue;
-
-            long daysLeft = ChronoUnit.DAYS.between(today, period.getPeriodEnd());
+          // v1.23 FR-629 · 遍历**全部** OPEN 期,两期各自独立判窗口。
+          //
+          //   原来只取 findCurrentOpen(最新那期)。双活跃窗口下补录期的宽限只剩 1 天、
+          //   最需要提醒的时候,**一条提醒都发不出去** —— 因为最新那期(进行期)离期末还早,
+          //   窗口判定不通过,整个家庭就被 continue 掉了。
+          for (Period period : periodMapper.findRecordableOpen(family.getId())) {
+            // 截止日 = 自然期末,或宽限期内的关账截止日(用户心里的 deadline 是「什么时候改不了了」)
+            java.time.LocalDate deadline = periodService.graceDeadline(family, period);
+            long daysLeft = ChronoUnit.DAYS.between(today, deadline);
             int leadDays = family.getReportRemindLeadDays() == null
                     ? 2 : family.getReportRemindLeadDays();
             if (!inReminderWindow(daysLeft, leadDays)) continue;
@@ -135,6 +144,7 @@ public class ReportReminderScheduler {
                     if (ok) armed++;
                 }
             }
+          }
         }
         return armed;
     }

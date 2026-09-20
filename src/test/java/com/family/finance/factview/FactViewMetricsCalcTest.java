@@ -41,7 +41,7 @@ class FactViewMetricsCalcTest {
     private FactViewServiceImpl svc() {
         AccountMapper am = mock(AccountMapper.class);
         when(am.findAllByFamily(anyLong())).thenReturn(java.util.List.of());   // v1.12 · 预实改家庭级批量取账户(原逐个 findById)· 空 → 无 expected → 预实 null,不影响本测
-        return new FactViewServiceImpl(mock(FactMapper.class), mock(FamilyMapper.class),
+        return new FactViewServiceImpl(mock(FactMapper.class), mock(com.family.finance.repository.PeriodMapper.class), mock(FamilyMapper.class),
                 mock(PeriodMemberCashflowMapper.class), am, mock(ProductCategoryService.class), mock(com.family.finance.repository.SnapshotMapper.class),
                 mock(com.family.finance.repository.PeriodAccountAttrMapper.class),
                 new com.family.finance.service.expense.ExpenseLedgerService(

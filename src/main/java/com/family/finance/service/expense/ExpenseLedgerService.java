@@ -195,11 +195,19 @@ public class ExpenseLedgerService {
      * 比显示「—」更糟,因为页面上看不出它是编的。</p>
      */
     public List<PeriodExpense> recentClosed(long familyId, int limit) {
-        Long inProgress = periodMapper.findCurrentOpen(familyId).map(p -> p.getId()).orElse(null);
-        if (inProgress == null) return recent(familyId, limit);
-        // 多取一期再过滤 —— 否则剔掉进行中那期后只剩 limit−1 期,窗口无声地缩了一格
-        return recent(familyId, limit + 1).stream()
-                .filter(pe -> !java.util.Objects.equals(pe.periodId(), inProgress))
+        // v1.23 FR-628 · 剔除**全部** OPEN 期,不是一个。
+        //
+        //   原来取 findCurrentOpen(单个 id)。双活跃窗口下有两期 OPEN,而它只返回最新那个 ——
+        //   于是**半填的补录期被当成已关账算进月均支出**,月均支出突然变低,
+        //   而 FIRE 目标、紧急储备(流动资产 ÷ 月均支出)全都跟着它走。
+        //   这一类错的共性是「把非最新的 OPEN 期当成已关账」,不报错,只给一个偏低的数。
+        java.util.Set<Long> openIds = periodMapper.findRecordableOpen(familyId).stream()
+                .map(com.family.finance.domain.period.Period::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        if (openIds.isEmpty()) return recent(familyId, limit);
+        // 多取几期再过滤 —— 否则剔掉 OPEN 那些之后只剩 limit−N 期,窗口无声地缩了几格
+        return recent(familyId, limit + openIds.size()).stream()
+                .filter(pe -> !openIds.contains(pe.periodId()))
                 .limit(limit)
                 .toList();
     }
@@ -372,7 +380,13 @@ public class ExpenseLedgerService {
      */
     private java.time.LocalDate latestRecordableStart(long familyId) {
         java.time.LocalDate today = java.time.LocalDate.now();
-        return periodMapper.findCurrentOpen(familyId)
+        // v1.23 · 取**最晚**的可写期(名字里的 latest 就是这个意思)。
+        //   双活跃窗口下有两期 OPEN,这里要的是靠后那个 —— 补录期的 start 更早,
+        //   拿它当上界会把进行期整个排除在窗口外。
+        java.util.List<com.family.finance.domain.period.Period> open =
+                periodMapper.findRecordableOpen(familyId);
+        return (open.isEmpty() ? java.util.Optional.<com.family.finance.domain.period.Period>empty()
+                               : java.util.Optional.of(open.getLast()))
                 .map(p -> p.getPeriodStart())
                 .filter(start -> start.isAfter(today))
                 .orElse(today);

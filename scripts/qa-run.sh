@@ -629,9 +629,14 @@ $CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
 
 # v0.5.5 · 报表「已关账快照」透出 + dashboard 仍实时(两 tab 分工)
 $CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
-{ grep -q '已关账账期的稳定快照' "$TMP" || grep -q '尚无已关账账期' "$TMP"; } \
-  && log_ok "v05-SNAP-1 /reports 透出「已关账快照」语义(印章/说明行 或 空态)" \
-  || log_bad "v05-SNAP-1 /reports 未透出快照语义" "no 已关账快照 / 尚无已关账"
+# v1.23 · 加了第三种合法状态:**锚期已填完但还在关账宽限窗口里**。
+#   那时既不能倒退回上上期(报表会「少一个月」),也不能假装已定稿 ——
+#   页面如实说「X 月仍在填报中,数字可能还会变」。它同样是在透出快照语义,
+#   所以进判据;漏了它,双活跃窗口下这条护栏必红,而页面其实是对的。
+{ grep -q '已关账账期的稳定快照' "$TMP" || grep -q '尚无已关账账期' "$TMP" \
+  || grep -q '仍在填报中' "$TMP"; } \
+  && log_ok "v05-SNAP-1 /reports 透出快照语义(已定稿 / 宽限中 / 空态 三选一)" \
+  || log_bad "v05-SNAP-1 /reports 未透出快照语义" "no 已关账快照 / 仍在填报中 / 尚无已关账"
 $CURL -b $COOKIE "$BASE/dashboard" -o "$TMP" -w ""
 grep -q '已关账账期的稳定快照' "$TMP" \
   && log_bad "v05-SNAP-2 dashboard 误带报表快照文案(应保持实时)" "found on dashboard" \
@@ -4706,7 +4711,7 @@ V15IND="$RD/src/main/java/com/family/finance/domain/lens/IndustryTag.java"
 
 # v16-UED-TRUST · 跨页口径统一 + 异常值兜底 + 已关账只读(review A2/A7/B2-1)
 { grep -q "resolveAnchor" "$RD/src/main/java/com/family/finance/service/checkup/FamilyDiagnoseService.java" \
-  && grep -q "findCurrentOpen" "$RD/src/main/java/com/family/finance/service/checkup/FamilyDiagnoseService.java" \
+  && grep -q "findBalancePeriod" "$RD/src/main/java/com/family/finance/service/checkup/FamilyDiagnoseService.java" \
   && grep -q "EMERGENCY_OUTLIER_MONTHS" "$RD/src/main/java/com/family/finance/service/checkup/FamilyDiagnose.java" \
   && grep -q "emergencyOutlier" "$RD/src/main/java/com/family/finance/service/checkup/FamilyDiagnose.java" \
   && grep -q "emergencyLabel" "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \
@@ -5605,11 +5610,15 @@ CKF="$RD/src/main/resources/templates/checkup/family.html"
 # 标题不再切成「资产收益 2026-07」,所以原来那条 grep returnAnchorMonth "$DRG" 去掉了。
 # 但本条护栏守的 P0 一点没松 —— 锚已关账期那套口径**仍然存在且仍被用**(报表页封板走它),
 # 下面三条钉住这一点:字段还在 / 关账口径的 explain 还在 / checkup 仍显示锚月。
+# v1.23 · 判据从 FactMapper 搬到 PeriodMapper(它要数活跃成员,而事实层不许碰 member.archived_at,
+#   见 v115-NO-MEMBER-ARCHIVE-IN-SUMS),并改名 findClosedPeriodIds → findSettledPeriodIds
+#   (「已定稿」= CLOSED 或「已自然结束且填完」,closed 只覆盖前一种)。
+QA123_PM_1630="$RD/src/main/java/com/family/finance/repository/PeriodMapper.java"
 { code_only "$FSL" | grep -qF 'returnPeriodIds()' \
   && code_only "$FSL" | grep -qF 'filingInProgress()' \
-  && code_only "$FMP" | grep -qF 'findClosedPeriodIds' \
-  && grep -qF "status = 'CLOSED'" "$FMX" \
-  && code_only "$FVI" | grep -qF 'factMapper.findClosedPeriodIds(filter)' \
+  && code_only "$QA123_PM_1630" | grep -qF 'findSettledPeriodIds' \
+  && grep -qF "status = 'CLOSED'" "$QA123_PM_1630" \
+  && code_only "$FVI" | grep -qF 'periodMapper.findSettledPeriodIds(' \
   && [ "$(code_only "$FVI" | grep -c 'slice.returnPeriodIds()')" -ge 4 ] \
   && code_only "$FVI" | grep -qF 'ytdSlice.returnPeriodIds()' \
   && code_only "$FVI" | grep -qF 'netInflowIncome(slice, anchor)' \
@@ -9565,6 +9574,158 @@ print(t)" "$F");
   [ "$ok" = "1" ] && ! grep -qE '\.toc-rail \{[^}]*order: -1' "$QA1224_CSS"; } \
   && log_ok "v1224-TOC-FIRST-IN-DOM(目录在 DOM 里排主内容之前)" \
   || log_bad "v1224-TOC-FIRST-IN-DOM 目录又排到主内容后面了" "流式到达时它要等主内容传完才出现,order 改不了到达顺序"
+
+
+# ══════════════════════════════════════════════════════════════════════
+# v1.23 · 关账宽限 + 双活跃账期(issue #20)
+# ══════════════════════════════════════════════════════════════════════
+
+QA123_PM="$RD/src/main/java/com/family/finance/repository/PeriodMapper.java"
+QA123_PS="$RD/src/main/java/com/family/finance/service/PeriodService.java"
+QA123_PO="$RD/src/main/java/com/family/finance/service/PeriodOpener.java"
+QA123_FM_XML="$RD/src/main/resources/mapper/FactMapper.xml"
+
+# v1230-DUAL-OPEN-SWEEP · findCurrentOpen 的调用点不许再涨。
+#   这条护栏守的是**本版最大的风险**:双 OPEN 下 findCurrentOpen 静默返回最新那期 ——
+#   不抛异常、不进日志。漏审计的调用点不会崩,只会给出一个看起来合理但是错的数。
+#   编译器抓不到这一类(与 v0.14 加 METAL 枚举那次同型),只能靠扫。
+#   判据钉「调用点数量 ≤ 基线」而不是「一个都不许有」:D 类(管理/通知)语义上确实是
+#   「随便哪个 OPEN 都行」,强行改名反而丢失「这里没想清楚」的信息。
+#   新增调用点 → 数字上涨 → 红。那时请按语义选 findBalancePeriod / findRecordableOpen。
+#   注意只数**真调用**,注释里提到方法名不算(否则写注释解释这条护栏本身就会把它弄红,
+#   那是这个仓库反复踩过 7 次的 comment-trips-predicate)。
+QA123_FCO=$(grep -rn "findCurrentOpen(" "$RD/src/main/java/" 2>/dev/null \
+            | grep -v "^\s*\*" | grep -vE ":\s*(//|\*|/\*)" | grep -v "PeriodMapper.java" \
+            | grep -vE "^\S+:[0-9]+:\s*//" | wc -l)
+{ [[ "$QA123_FCO" -le 4 ]]; } \
+  && log_ok "v1230-DUAL-OPEN-SWEEP(findCurrentOpen 调用点 $QA123_FCO ≤ 4 · 未新增)" \
+  || log_bad "v1230-DUAL-OPEN-SWEEP findCurrentOpen 调用点涨到 $QA123_FCO" "双 OPEN 下它静默返回最新期;按语义改用 findBalancePeriod(余额轴)或 findRecordableOpen(收支轴)"
+
+# v1230-BALANCE-AXIS-LATEST-ONLY · 余额 / 估值写入永远落最新 OPEN 期。
+#   世界上只能有一个「现在的市值」。估值回写补录期 = 把上月末的事实改成今天的行情。
+{ grep -q "findBalancePeriod" "$RD/src/main/java/com/family/finance/service/stock/AccountValuationService.java" \
+  && grep -q "findBalancePeriod" "$RD/src/main/java/com/family/finance/service/stock/StockHoldingService.java" \
+  && grep -q "findBalancePeriod" "$RD/src/main/java/com/family/finance/service/holdingimport/HoldingImportService.java" \
+  && ! grep -n "findCurrentOpen(" "$RD/src/main/java/com/family/finance/service/stock/AccountValuationService.java" >/dev/null 2>&1; } \
+  && log_ok "v1230-BALANCE-AXIS-LATEST-ONLY(估值/持仓/截图导入只写最新 OPEN 期)" \
+  || log_bad "v1230-BALANCE-AXIS-LATEST-ONLY 余额轴用了非 findBalancePeriod 的取期" "估值回写补录期 = 把上月末的余额改成今天的行情"
+
+# v1230-GRACE-CLOSE-DECOUPLED · 关账必须有**独立**的定时任务。
+#   v1.22 及以前关账挂在「开新期」这个事件上(closePriorOpenPeriods 在 createPeriod 之前)。
+#   有了宽限之后「该关的日子」和「该开的日子」不再是同一天 —— 继续挂在一起就会漏关:
+#   宽限到期那天没有新期滚动来触发,账期永远悬在 OPEN,报表永远没有可锚的快照。
+{ grep -q "closeIfGraceExpired" "$QA123_PO" \
+  && awk '/closeIfGraceExpired/{found=1} /@Scheduled/{sched=NR} END{}' "$QA123_PO" >/dev/null \
+  && grep -B3 "public void closeIfGraceExpired" "$QA123_PO" | grep -q "@Scheduled"; } \
+  && log_ok "v1230-GRACE-CLOSE-DECOUPLED(关账有独立 @Scheduled · 不再只挂开账事件)" \
+  || log_bad "v1230-GRACE-CLOSE-DECOUPLED 关账没有独立定时任务" "宽限到期那天没有新期滚动,账期会永远悬在 OPEN"
+
+# v1230-SETTLED-NOT-JUST-CLOSED · 收益类判据必须含「填报完成」,不能只认 CLOSED。
+#   只认 CLOSED → 双活跃下补录期没关 → 收益类指标(本月资产收益 / XIRR / TWR / 人赚钱赚 /
+#   账户表现)集体锚回上上期,报表看起来「少了一个月」。
+#   但判据也**不能只看「在不在宽限里」** —— 必须是「填完了没有」。用户压根没填时
+#   补录期就是真的半填,锚它会重演 v1.6.30 那次「未录收支全算成投资收益」。
+{ grep -q "findSettledPeriodIds" "$QA123_PM" \
+  && grep -q "snapshot_todo" "$QA123_PM" \
+  && grep -q "period_member_completion" "$QA123_PM" \
+  && ! grep -q "m.archived_at\|member m" "$QA123_FM_XML"; } \
+  && log_ok "v1230-SETTLED-NOT-JUST-CLOSED(收益类判据 = CLOSED 或 已结束且填完 · 且不在事实层)" \
+  || log_bad "v1230-SETTLED-NOT-JUST-CLOSED 收益类判据没含填报完成条件,或跑进了事实层 SQL" "只认 CLOSED 会让双活跃下收益类集体锚回上上期;而判据要数活跃成员,不能放进 FactMapper(见 v115-NO-MEMBER-ARCHIVE-IN-SUMS)"
+
+# v1230-SETTLED-JUDGE-ALIGNED · 「已定稿」判据两处必须一致。
+#   PeriodMapper.findLatestSettledAsOf(给报表锚点)与 FactMapper.findSettledPeriodIds
+#   (给收益类切片)是同一个概念的两份 SQL。两处判不一样 → 报表锚了这一期、
+#   而它的收益数字来自另一批期,页面上每个数自己都对,合起来自相矛盾。
+#   两份 SQL 都在 PeriodMapper 里(取最新一个 / 取窗口内全部),判据必须逐条相同。
+{ qa123_a=$(grep -c "NOT EXISTS (SELECT 1 FROM snapshot_todo t" "$QA123_PM");
+  qa123_b=$(grep -c "FROM period_member_completion c" "$QA123_PM");
+  qa123_c=$(grep -c "m.family_id = p.family_id AND m.archived_at IS NULL" "$QA123_PM");
+  [[ "$qa123_a" -eq 2 && "$qa123_b" -eq 2 && "$qa123_c" -eq 2 ]] \
+  && grep -q "findLatestSettledAsOf" "$QA123_PM" && grep -q "findSettledPeriodIds" "$QA123_PM"; } \
+  && log_ok "v1230-SETTLED-JUDGE-ALIGNED(两份已定稿 SQL 判据逐条同源)" \
+  || log_bad "v1230-SETTLED-JUDGE-ALIGNED 两处「已定稿」判据不一致" "报表锚这一期、收益数字来自另一批期,每个数都对但合起来矛盾"
+
+# v1230-GRACE-MAX-5 · 宽限上限锁死在 schema,不可能出现三期 OPEN。
+#   本版所有判据都是按「最多两期」写的(补录期 + 进行期)。第三期一出现,
+#   收益类锚点、月均支出窗口、余额传导全部进入未定义状态。
+#   应用层校验能绕过(直接改库),CHECK 不能。
+{ grep -q "BETWEEN 0 AND 5" "$RD/db/migration/V61__period_close_grace.sql"; } \
+  && log_ok "v1230-GRACE-MAX-5(宽限 ≤5 天由 schema CHECK 锁死)" \
+  || log_bad "v1230-GRACE-MAX-5 迁移里没有宽限上限 CHECK" "宽限超过一个账期长度会出现三期 OPEN,本版判据全部失效"
+
+# v1230-CARRIED-FORWARD-GUARD · 余额传导只许改「没人确认过」的那张快照。
+#   传导本身是对的(余额延续是派生值,源头变了就该跟着变),但**不能覆盖用户手填的数**:
+#   他已经对进行期的余额表过态了,补上期的账不该反过来推翻它。守门判据用现成的
+#   CARRIED_FORWARD 标记(PeriodOpener 是它唯一的写入者)。
+{ grep -q "propagateCarriedForward" "$RD/src/main/java/com/family/finance/service/EntryService.java" \
+  && grep -A25 "private void propagateCarriedForward" "$RD/src/main/java/com/family/finance/service/EntryService.java" \
+     | grep -q "CARRIED_FORWARD.name()"; } \
+  && log_ok "v1230-CARRIED-FORWARD-GUARD(余额传导只改 CARRIED_FORWARD 的快照)" \
+  || log_bad "v1230-CARRIED-FORWARD-GUARD 传导没有守门判据" "会覆盖用户手填过的进行期余额 —— 本版最不能犯的错"
+
+# v1230-RHYTHM-DOCS-ALIGNED · 三份文档的填报节奏口径必须一致。
+#   提交者指出的原始矛盾:prd/v0.4.md 写「月末倒数 2 天填」、docs/how-to-use.md 写
+#   「月初任意一天填」,而系统行为站在前者那边。本版让机制支持后者,文档要跟上。
+{ grep -q "关账宽限\|宽限" "$RD/docs/how-to-use.md" \
+  && grep -q "关账宽限\|宽限" "$RD/prd/v0.4.md"; } \
+  && log_ok "v1230-RHYTHM-DOCS-ALIGNED(节奏口径三处一致)" \
+  || log_bad "v1230-RHYTHM-DOCS-ALIGNED 文档没跟上新的填报节奏" "prd/v0.4 与 docs/how-to-use 对「什么时候填」的说法仍自相矛盾"
+
+# ══════════════════════════════════════════════════════════════════════
+# 真 e2e 框架(2026-09-20 · 维护者要求把 e2e 改造成「真的开浏览器点」)
+# ══════════════════════════════════════════════════════════════════════
+
+QAE2E_DIR="$RD/scripts/e2e"
+
+# v1230-E2E-IS-BROWSER-DRIVEN · e2e 的动作必须从页面元素发起,不许在 flow 里打端点。
+#   旧 scripts/e2e.sh 用 curl 直接 POST,验的是「接口通了、库里对了」——
+#   它结构性地验不到用户与系统之间的那一段:表单字段名、按钮可达性、JS 绑定作用域、
+#   渲染中途截断、并列元素尺寸。这个项目的事故大量出在那一段。
+#   判据:flows/ 里不许出现 curl / fetch / axios;必须出现 ui. 开头的页面动作。
+#   ⚠ 判据必须**先剥注释**。这是本仓库第 8 次踩「护栏被解释它自己的注释绊倒」:
+#     flow 头上写着「它能抓到 curl 版抓不到的东西」,裸 grep 直接判红,
+#     而代码里一行 curl 都没有。凡是判据形如「不许出现 X」,先 codeonly。
+{ qae2e_code(){ sed -E 's,^[[:space:]]*(//|\*|/\*).*,,' "$1"; }
+  qae2e_bad=0
+  for f in "$QAE2E_DIR"/flows/*.cjs; do
+    [ -e "$f" ] || continue
+    qae2e_code "$f" | grep -qE "curl |require\('http|fetch\(|axios" && qae2e_bad=1
+  done
+  [ -d "$QAE2E_DIR/flows" ] && [ "$qae2e_bad" -eq 0 ] \
+  && [ "$(grep -rl "ui\." "$QAE2E_DIR/flows/" 2>/dev/null | wc -l)" -ge 1 ]; } \
+  && log_ok "v1230-E2E-IS-BROWSER-DRIVEN(e2e flow 只从页面点,不打端点)" \
+  || log_bad "v1230-E2E-IS-BROWSER-DRIVEN e2e flow 里出现了直接调端点" "那样验的是接口不是用户路径;要写页面动作(ui.click/fill/choose)"
+
+# v1230-E2E-TWO-LAYER-ASSERT · 断言必须两层:看得见 + 真值。
+#   只看页面会漏「显示对了但没存进去」(页面回显的常是你刚提交的表单值);
+#   只查库会漏「存对了但用户看不到」—— 后者这个项目出现过不止一次。
+{ for f in "$QAE2E_DIR"/flows/*.cjs; do
+    [ -e "$f" ] || continue
+    grep -q "ui\.seesText\|ui\.visible\|ui\.count\|ui\.sameSize" "$f" || exit 1
+    grep -q "db\.one\|db\.num\|db\.col" "$f" || exit 1
+  done; } \
+  && log_ok "v1230-E2E-TWO-LAYER-ASSERT(每个 flow 都有页面断言 + 真值断言)" \
+  || log_bad "v1230-E2E-TWO-LAYER-ASSERT 有 flow 只验了一层" "看得见层漏了会漏「用户看不到」;真值层漏了会漏「显示对了没存进去」"
+
+# v1230-E2E-CLEANUP-DECLARES-END-STATE · 还原要声明终态,不能依赖「跑之前是什么样」。
+#   踩过:还原写成 `if (跑之前是 CLOSED) 关回去`,连跑两次时第二次读到的已经是 OPEN,
+#   整段还原被跳过,beta 被留在中间状态里 —— 下一个人跑别的回归会莫名其妙。
+{ for f in "$QAE2E_DIR"/flows/*.cjs; do
+    [ -e "$f" ] || continue
+    grep -q "async cleanup" "$f" || exit 1
+  done; } \
+  && log_ok "v1230-E2E-CLEANUP-DECLARES-END-STATE(每个改数据的 flow 都有 cleanup)" \
+  || log_bad "v1230-E2E-CLEANUP-DECLARES-END-STATE 有 flow 没写 cleanup" "不还原会污染下一次运行,红灯会指向错误的地方"
+
+# v1230-E2E-OLD-SCRIPT-RENAMED · 旧 e2e.sh 必须已正名,且说清自己不是 e2e。
+#   留着它是对的(那 119 处 SQL 断言验的是计算口径,没有 UI 路径),
+#   但它不能再叫 e2e —— 名字会让人以为用户路径已经验过了。
+{ [ ! -f "$RD/scripts/e2e.sh" ] \
+  && [ -f "$RD/scripts/regression-data.sh" ] \
+  && grep -q "这个脚本不是 e2e" "$RD/scripts/regression-data.sh"; } \
+  && log_ok "v1230-E2E-OLD-SCRIPT-RENAMED(旧 e2e.sh 已正名为 regression-data.sh 并写明职责)" \
+  || log_bad "v1230-E2E-OLD-SCRIPT-RENAMED 旧脚本还叫 e2e.sh" "名字会让人以为用户路径验过了,而它只验了接口和库"
+
 
 
 echo

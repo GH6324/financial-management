@@ -101,7 +101,8 @@ public class GoalProgressService {
     }
 
     private BigDecimal computeCashPv(long familyId) {
-        Period current = periodMapper.findCurrentOpen(familyId).orElse(null);
+        // v1.23 · 现金现值 = **当前**余额,属余额轴 → 锚最新 OPEN(双活跃下即进行期)
+        Period current = periodMapper.findBalancePeriod(familyId).orElse(null);
         if (current == null) {
             List<Period> latest = periodMapper.findLatest(familyId, 1);
             if (latest.isEmpty()) return BigDecimal.ZERO;

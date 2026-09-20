@@ -102,6 +102,31 @@ public class EntryController {
         // 上界取「今天」与「进行中账期起始」的较晚者(家庭可以提前开下一期并在其中填报)。
         model.addAttribute("periods", periodMapper.findRecentAsOf(me.getFamilyId(),
                 entryPeriodListUpperBound(me.getFamilyId()), 12));
+
+        // v1.23 FR-625 / FR-616 · 双活跃窗口:两期都摆出来 + 补录期显示关账时点。
+        //   dualActive=false 时模板整块不渲染 —— T+0 的家庭看到的页面与 v1.22 逐像素一致。
+        java.time.LocalDate today = java.time.LocalDate.now();
+        java.util.List<com.family.finance.domain.period.Period> openPeriods =
+                periodMapper.findRecordableOpen(me.getFamilyId());
+        model.addAttribute("openPeriods", openPeriods);
+        model.addAttribute("dualActive", openPeriods.size() >= 2);
+        com.family.finance.domain.period.Period backfill = openPeriods.stream()
+                .filter(p -> p.getPeriodEnd() != null && p.getPeriodEnd().isBefore(today))
+                .findFirst().orElse(null);
+        model.addAttribute("backfillPeriodId", backfill == null ? null : backfill.getId());
+        if (backfill != null) {
+            com.family.finance.domain.family.Family fam = familyMapper.findById(me.getFamilyId()).orElseThrow();
+            long left = periodService.graceDaysLeft(fam, backfill, today);
+            // 关账发生在截止日的**次日** 00:35(shouldAutoClose 用 today.isAfter(deadline))
+            java.time.LocalDate closeOn = periodService.graceDeadline(fam, backfill).plusDays(1);
+            // 过了截止日还没关(定时任务尚未跑到 / 手动模式)→ 不要显示一个**已经过去**的日期,
+            //   那读起来像「9 月 18 号了还写着 9/3 关账」,用户会以为系统错了。
+            model.addAttribute("closeDueLabel",
+                    !fam.autoCloseOrDefault() ? "手动关账"
+                    : left < 0                ? "待关账"
+                    : closeOn.getMonthValue() + "/" + closeOn.getDayOfMonth() + " 关账"
+                      + " · 还剩 " + left + " 天");
+        }
         model.addAttribute("accounts", accountMapper.findActiveByFamily(me.getFamilyId()));
         addAccountOwnerMeta(me.getFamilyId(), model);   // v1.4.2 · 划转下拉主理人头像/名
         model.addAttribute("rows", rows);
@@ -283,7 +308,10 @@ public class EntryController {
     /** 账期下拉的时间上界 = 今天与进行中账期起始的较晚者(见 periods 那行的说明)。 */
     private java.time.LocalDate entryPeriodListUpperBound(long familyId) {
         java.time.LocalDate today = java.time.LocalDate.now();
-        return periodMapper.findCurrentOpen(familyId)
+        // v1.23 · 同 ReportsController.compositionAsOf:要的是**最晚**可写期
+        var open = periodMapper.findRecordableOpen(familyId);
+        return (open.isEmpty() ? java.util.Optional.<com.family.finance.domain.period.Period>empty()
+                               : java.util.Optional.of(open.getLast()))
                 .map(p -> p.getPeriodStart())
                 .filter(start -> start.isAfter(today))
                 .orElse(today);

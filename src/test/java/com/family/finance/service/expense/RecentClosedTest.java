@@ -61,9 +61,10 @@ class RecentClosedTest {
             Period p = new Period();
             p.setId(inProgressId);
             p.setPeriodStart(LocalDate.of(2026, 1, 1).plusMonths(inProgressId - 1));
-            when(periodMapper.findCurrentOpen(anyLong())).thenReturn(Optional.of(p));
+            // v1.23 · recentClosed 改用 findRecordableOpen(剔除**全部** OPEN 期,不是一个)
+            when(periodMapper.findRecordableOpen(anyLong())).thenReturn(List.of(p));
         } else {
-            when(periodMapper.findCurrentOpen(anyLong())).thenReturn(Optional.empty());
+            when(periodMapper.findRecordableOpen(anyLong())).thenReturn(List.of());
         }
         return new ExpenseLedgerService(cashFlowMapper, pmcMapper, familyMapper, periodMapper);
     }
@@ -73,6 +74,47 @@ class RecentClosedTest {
     }
 
     // ──────────────────────── 该剔的 ────────────────────────
+
+    /**
+     * v1.23 · **双活跃窗口:两期 OPEN 都要剔**。
+     *
+     * <p>这是 issue #20 引入宽限后最容易静默出错的一处。原实现取 {@code findCurrentOpen}
+     * 只拿到最新那期 —— 于是<b>半填的补录期被当成已关账算进月均支出</b>,
+     * 月均突然变低,而紧急储备(流动资产 ÷ 月均支出)和 FIRE 目标全都跟着它走。
+     * 不报错,只给一个偏低的数。</p>
+     */
+    @Test
+    void 双活跃窗口_两期OPEN都要剔() {
+        var svc = svcDualOpen(8, 7L, 8L);
+        var closed = ids(svc.recentClosed(FAM, 6));
+        assertThat(closed).as("补录期(7)必须剔").doesNotContain(7L);
+        assertThat(closed).as("进行期(8)必须剔").doesNotContain(8L);
+        assertThat(closed).as("窗口仍是满的,不许因为多剔一期就缩水").hasSize(6);
+        assertThat(closed).as("剔的是 OPEN 的那两期,不是随便两期").containsExactly(6L, 5L, 4L, 3L, 2L, 1L);
+    }
+
+    /** 造 n 期,其中 openA / openB 两期同时 OPEN(双活跃窗口)。 */
+    private ExpenseLedgerService svcDualOpen(int n, long openA, long openB) {
+        Family f = new Family();
+        f.setId(FAM);
+        when(familyMapper.findById(anyLong())).thenReturn(Optional.of(f));
+        List<FamilyPeriodAggregate> rows = new java.util.ArrayList<>();
+        for (long id = n; id >= 1; id--) {
+            rows.add(new FamilyPeriodAggregate(id, LocalDate.of(2026, 1, 1).plusMonths(id - 1),
+                    new BigDecimal("10000"), new BigDecimal("1000"), 1));
+        }
+        when(pmcMapper.findFamilyAggregateRecent(anyLong(), anyInt())).thenReturn(rows);
+        List<Period> open = new java.util.ArrayList<>();
+        for (long id : new long[]{openA, openB}) {
+            Period p = new Period();
+            p.setId(id);
+            p.setPeriodStart(LocalDate.of(2026, 1, 1).plusMonths(id - 1));
+            open.add(p);
+        }
+        when(periodMapper.findRecordableOpen(anyLong())).thenReturn(open);
+        return new ExpenseLedgerService(cashFlowMapper, pmcMapper, familyMapper, periodMapper);
+    }
+
 
     /** 进行中的那一期(最新一期)必须从均值样本里消失 —— 它只录了半个月。 */
     @Test

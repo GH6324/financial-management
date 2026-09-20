@@ -82,8 +82,19 @@ public interface SnapshotMapper {
     }
 
 
+    /**
+     * v1.23 · 必须带 {@code source_tag}。
+     *
+     * <p>踩过:FR-623 的余额传导用 {@code source_tag = CARRIED_FORWARD} 当守门判据
+     * (只覆盖系统代填、没人确认过的那张快照)。这条 SQL 原来不查这一列 →
+     * {@code getSourceTag()} 恒为 null → 判据恒不成立 → <b>传导永远不发生</b>,
+     * 而且**不报错**:页面正常、日志干净,只是进行期的延续值一直是旧的。
+     * 更坏的是反向断言(「用户手填过的不许被覆盖」)会**假绿** —— 什么都没传导,当然没被覆盖。</p>
+     *
+     * <p>判据靠某个字段时,先确认那个字段真的被查出来了。</p>
+     */
     @Select("""
-            SELECT id, period_id, account_id, end_balance, submitted_by, submitted_at, note
+            SELECT id, period_id, account_id, end_balance, submitted_by, submitted_at, note, source_tag
               FROM period_snapshot
              WHERE period_id = #{periodId}
                AND account_id = #{accountId}

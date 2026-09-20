@@ -36,6 +36,8 @@ public class FactViewServiceImpl implements FactViewService {
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     private final FactMapper factMapper;
+    /** v1.23 · 「已定稿期」判据住在 PeriodMapper —— 它要数活跃成员,而事实层不许碰 member.archived_at */
+    private final com.family.finance.repository.PeriodMapper periodMapper;
     private final FamilyMapper familyMapper;
     /** v0.4.3 B2 修复 · 月均支出/收入统一源 · PMC(成员级)优先 · cash_flow fallback */
     private final com.family.finance.repository.PeriodMemberCashflowMapper periodMemberCashflowMapper;
@@ -84,8 +86,9 @@ public class FactViewServiceImpl implements FactViewService {
         Long lastPeriodId = periodIds.isEmpty() ? null : periodIds.getLast();
         // v1.6.30 · 另查窗口内已关账期:queryBase 不过滤 status(存量指标要看进行中的期),
         // 收益类指标据此锚到最新 CLOSED 期。取交集并按 periodIds 顺序排,保证升序且不含窗口外的期。
-        java.util.Set<Long> closed = new java.util.HashSet<>(factMapper.findClosedPeriodIds(filter));
-        List<Long> closedPeriodIds = periodIds.stream().filter(closed::contains).toList();
+        java.util.Set<Long> settled = new java.util.HashSet<>(periodMapper.findSettledPeriodIds(
+                filter.familyId(), filter.periodType(), filter.rangeStart(), filter.rangeEnd(), LocalDate.now()));
+        List<Long> closedPeriodIds = periodIds.stream().filter(settled::contains).toList();
         // v1.11 性能 · 一次查全「每个账户首次出现在哪一期」,替掉 per-period 的 N+1(见 firstAppearingIn 注释)
         // v1.12 FR-352 · 结果与查哪一期、哪个筛选都无关 → 同一请求内按家庭只查一次(原来一次请求查 10 次)
         cache.firstAppear.computeIfAbsent(filter.familyId(), fid -> {
@@ -135,7 +138,10 @@ public class FactViewServiceImpl implements FactViewService {
         // v0.4.2 · "资产年化"二分(剔除外部现金流的纯投资视角)
         // v1.6.30 · 收益类锚点改成「最新已关账期」。原先锚 lastPeriodId,而进行中的期
         //   余额已填、收支未录 → (期末 − 期初 − 净流入) 里净流入=0,未录的收支被整个算成投资收益。
-        //   prod 2026-08 实测:21 条余额全填 / 0 条收支 → 9.1 万变化 100% 记为投资收益。
+        //   prod 2026-08 实测:余额全填 / 0 条收支 → 整段变化 «A» 100% 记为投资收益。
+        // v1.23 §4.4 · 判据从「已关账」扩到「**已定稿**」= CLOSED 或「已自然结束且填报完成」。
+        //   双活跃窗口下补录期没关,只认 CLOSED 会让这批指标集体锚回上上期(报表看起来少一个月)。
+        //   注意判据是「填完了没有」不是「关了没有」—— 没填完的期仍然不采纳,否则就是重演上面那次。
         //   存量类(netWorth/totalAssets/totalLiabilities/liquidAssets/环比)仍锚最后一期:
         //   填报过程中就该看到最新余额,且缺快照会结转上期,不会凭空缺口。
         List<Long> returnIds = slice.returnPeriodIds();
@@ -218,10 +224,13 @@ public class FactViewServiceImpl implements FactViewService {
 
     /**
      * v0.10 · 近 n 期收支序列(view 币种 · 含进行中 OPEN 期)。
-     * livePeriodId 命中的点标 live(进行中);各点收支口径 == cashflowBreakdown(与卡片人赚同源)。
+     * livePeriodIds 命中的点标 live(还在填);各点收支口径 == cashflowBreakdown(与卡片人赚同源)。
+     *
+     * <p>v1.23 · 从单个 id 改成集合:双活跃窗口下**两期都还在填**(补录期 + 进行期),
+     * 只标一个会让用户以为补录期已经定稿了。</p>
      */
     @Override
-    public List<CashflowPoint> cashflowSeries(FactSlice slice, int n, Long livePeriodId) {
+    public List<CashflowPoint> cashflowSeries(FactSlice slice, int n, java.util.Set<Long> livePeriodIds) {
         List<Long> ids = slice.periodIds();
         if (ids.isEmpty()) {
             return List.of();
@@ -231,7 +240,7 @@ public class FactViewServiceImpl implements FactViewService {
         for (Long pid : ids.subList(from, ids.size())) {
             CashflowBreakdown b = cashflowBreakdown(slice, pid);
             out.add(new CashflowPoint(pid, label(slice, pid), b.income(), b.expense(), b.netInflow(),
-                    Objects.equals(pid, livePeriodId)));
+                    livePeriodIds != null && livePeriodIds.contains(pid)));
         }
         return out;
     }

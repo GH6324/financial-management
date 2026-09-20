@@ -94,7 +94,7 @@ class ManualHoldingValuationTest {
                         .currency("USD")
                         .source("binance")
                         .build()));
-        when(periodMapper.findCurrentOpen(1L)).thenReturn(Optional.of(Period.builder().id(99L).build()));
+        when(periodMapper.findBalancePeriod(1L)).thenReturn(Optional.of(Period.builder().id(99L).build()));
         when(fxService.getOrFetchRate(1L, "USD", "CNY", 99L)).thenReturn(Optional.of(
                 FxRate.builder().rate(new BigDecimal("7.20")).build()));
 

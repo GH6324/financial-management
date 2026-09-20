@@ -95,7 +95,7 @@ public class FxService {
 
     /** 当前 OPEN 周期(若有)+ 上一个 CLOSED 周期都拉一下,作为初始/补全场景 */
     public void fetchForLatestPeriods(long familyId) {
-        Period current = periodService.findCurrentOpen(familyId).orElse(null);
+        Period current = periodService.findBalancePeriod(familyId).orElse(null);
         if (current != null) fetchAndStore(familyId, current.getId());
     }
 

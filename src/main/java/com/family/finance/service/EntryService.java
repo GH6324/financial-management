@@ -103,7 +103,18 @@ public class EntryService {
 
     public Optional<Period> findSelectedPeriod(long familyId, String periodParam) {
         if (periodParam == null || periodParam.isBlank()) {
-            return periodMapper.findCurrentOpen(familyId)
+            // v1.23 FR-625 · 双活跃窗口里默认落**补录期**(已自然结束、宽限内仍可写的那期)。
+            //
+            //   理由是概率:宽限窗口只有 2–5 天,用户在这几天里打开填报页,八成就是为了
+            //   填上个月的账单 —— 默认值该服从这个概率,而不是服从「取最新的那个」这条机械规则。
+            //   不在窗口里时(T+0 家庭、或宽限已过)没有「已结束的 OPEN 期」,
+            //   下面第一条自然落空,行为与 v1.22 完全一致。
+            java.time.LocalDate today = java.time.LocalDate.now();
+            List<Period> open = periodMapper.findRecordableOpen(familyId);
+            return open.stream()
+                    .filter(p -> p.getPeriodEnd() != null && p.getPeriodEnd().isBefore(today))
+                    .findFirst()
+                    .or(() -> open.isEmpty() ? Optional.empty() : Optional.of(open.getLast()))
                     .or(() -> periodMapper.findLatest(familyId, 1).stream().findFirst());
         }
         if (periodParam.matches("\\d+")) {
@@ -217,6 +228,9 @@ public class EntryService {
                 .note(blankToNull(note))
                 .sourceTag(com.family.finance.domain.ledger.LedgerSource.MANUAL.name())   // v1.18 · 用户在填报页敲的数
                 .build());
+        // v1.23 FR-623 · 手填的也要传导 —— 用户在宽限期内直接改补录期的期末余额,
+        //   进行期那张「开账延续」的快照同样过期了。判据与守门见 propagateCarriedForward。
+        propagateCarriedForward(period, accountId, normalizedBalance, memberId);
 
         for (CashFlowLine line : cashFlowLines == null ? List.<CashFlowLine>of() : cashFlowLines) {
             insertCashFlow(period, account, memberId, line);
@@ -709,6 +723,59 @@ public class EntryService {
         auditLogService.record(period.getFamilyId(), memberId, AuditLogType.SNAPSHOT_WRITE,
                 "account", account.getId(),
                 reason + ":余额 " + base + " → " + newBalance);
+        propagateCarriedForward(period, account.getId(), newBalance, memberId);
+    }
+
+    /**
+     * v1.23 FR-623 / FR-624 · 补录期余额变了 → 把变化**传导**到进行期的预填延续值。
+     *
+     * <h3>为什么需要它</h3>
+     * <p>进行期开账时,每个账户的余额是按「上期末」预填的。如果用户随后在宽限期内
+     * 往补录期补了一笔<b>影响余额</b>的支出,上期末就变了 —— 进行期那个预填值
+     * <b>过期了</b>,而 dashboard 的净资产恰恰锚进行期。不传导的话,用户补完 8 月的账,
+     * 9 月的净资产还是按旧的延续值算,而且要等到关账才对。</p>
+     *
+     * <h3>为什么不是「补录强制不落余额」</h3>
+     * <p>那会让规则自相矛盾:8/30 写的支出能影响余额,9/1 写的同一笔就不能?
+     * 期还开着,规则不该变。该变的是认识:<b>余额延续是派生值,源头变了就跟着变</b>。</p>
+     *
+     * <h3>守门:只改没人确认过的那张</h3>
+     * <p>判据是 {@code source_tag = CARRIED_FORWARD} —— 那是开账时系统代填的标记
+     * ({@code PeriodOpener} 是它唯一的写入者)。用户手填过、或估值刷新写过的快照,
+     * 一律<b>一分不动</b>:他已经对进行期的余额表过态了,补上期的账不该反过来推翻它。
+     * 这是本版最不能犯的错(prd/v1.23.md 失败模式 ④)。</p>
+     *
+     * <p>非双活跃窗口时 {@code next == null},整个方法是 no-op —— T+0 的家庭零影响。</p>
+     */
+    private void propagateCarriedForward(Period source, long accountId,
+                                         BigDecimal newEndBalance, long memberId) {
+        Period next = periodMapper.findRecordableOpen(source.getFamilyId()).stream()
+                .filter(p -> p.getPeriodStart().isAfter(source.getPeriodStart()))
+                .findFirst()
+                .orElse(null);
+        if (next == null) return;   // 没有更晚的 OPEN 期 = 不在双活跃窗口里
+        PeriodSnapshot nextSnap = snapshotMapper.findByPeriodAndAccount(next.getId(), accountId).orElse(null);
+        if (nextSnap == null) return;   // 进行期还没这张快照 → 它开账时自然会读到新值
+        if (!com.family.finance.domain.ledger.LedgerSource.CARRIED_FORWARD.name()
+                .equals(nextSnap.getSourceTag())) {
+            return;   // 有人确认过这个数 → 不覆盖
+        }
+        if (nextSnap.getEndBalance() != null
+                && nextSnap.getEndBalance().compareTo(newEndBalance) == 0) {
+            return;   // 值没变,不写库也不记审计(否则每笔补录都刷一条无变化的日志)
+        }
+        snapshotMapper.upsert(PeriodSnapshot.builder()
+                .periodId(next.getId())
+                .accountId(accountId)
+                .endBalance(newEndBalance)
+                .submittedBy(memberId)
+                .note("因上期补录已更新延续值 " + nextSnap.getEndBalance() + " → " + newEndBalance)
+                // 仍然是「系统代填、没人确认过」→ 标记不变,下次补录还能继续传导
+                .sourceTag(com.family.finance.domain.ledger.LedgerSource.CARRIED_FORWARD.name())
+                .build());
+        auditLogService.record(source.getFamilyId(), memberId, AuditLogType.SNAPSHOT_WRITE,
+                "account", accountId,
+                "上期补录传导:进行期延续值 " + nextSnap.getEndBalance() + " → " + newEndBalance);
     }
 
     /**
@@ -767,7 +834,7 @@ public class EntryService {
                                   String note,
                                   boolean confirmDuplicate) {
         Period period = periodId == null
-                ? periodMapper.findCurrentOpen(familyId).orElseThrow(() -> new IllegalStateException("当前没有 OPEN 周期"))
+                ? periodMapper.findBalancePeriod(familyId).orElseThrow(() -> new IllegalStateException("当前没有 OPEN 周期"))
                 : requireOpenPeriod(familyId, periodId);
         eventPublisher.publishEvent(new com.family.finance.service.lens.LensStaleEvent(familyId)); // v1.1.1 透视缓存后台换新
         return addTransfer(familyId, memberId, period.getId(), fromAccountId, toAccountId, amount, toAmount, note, confirmDuplicate);

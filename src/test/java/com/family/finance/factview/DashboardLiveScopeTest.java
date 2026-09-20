@@ -53,6 +53,7 @@ class DashboardLiveScopeTest {
     private FactViewServiceImpl svc() {
         return new FactViewServiceImpl(
                 org.mockito.Mockito.mock(com.family.finance.repository.FactMapper.class),
+                org.mockito.Mockito.mock(com.family.finance.repository.PeriodMapper.class),
                 org.mockito.Mockito.mock(com.family.finance.repository.FamilyMapper.class),
                 org.mockito.Mockito.mock(com.family.finance.repository.PeriodMemberCashflowMapper.class),
                 org.mockito.Mockito.mock(com.family.finance.repository.AccountMapper.class),
