@@ -45,31 +45,63 @@
   .up{color:var(--rust)} .down{color:var(--forest)}
   @media(max-width:760px){.kpirow{grid-template-columns:1fr 1fr}.kpirow > div{border-bottom:1px solid var(--rule-soft)}}
 
+  /* ══════════════════════════════════════════════════════════════════
+     语义色板(v1.24 第 2 稿 · FR-666)
+
+     第 1 稿把所有色块都写成 20–55% alpha 的半透明色叠在米色纸底上,
+     结果三件事同时发生:饱和度被纸底稀释 → 灰;明度全被拉到 85–92 → 没层次;
+     刚性(淡灰蓝)和弹性(淡灰绿)在纸上**几乎不可区分**。维护者的原话是「极其丑陋」。
+
+     第 2 稿的三条规矩:
+       ① **实色,不用 alpha** —— 要低饱和就直接选低饱和的实色,别让纸底替你调色
+       ② **靠明度拉开,不靠饱和度** —— 晚清账册风不允许高饱和,那就用 L* 阶梯
+       ③ **一个语义一个色,全页复用** —— 三分条 / 12 期柱 / 瀑布的一次性段用同一个值
+     ══════════════════════════════════════════════════════════════════ */
+  :root{
+    /* 刚性 / 弹性 是**同一根轴**(可压缩性)的两端 → 用同一色相的明度梯,不用两个色相。
+       第 2 稿一开始给弹性配了绿 #6E8B6A,和分类色板里的水青 #6F8C8A 在低饱和下几乎同色 ——
+       同一页上「弹性」和「交通出行」撞成一个颜色,是纯粹的误导。换成浅 slate 后,
+       既解决撞色,又把「这两个是一根轴」直接画进了颜色里。 */
+    --n-rigid:  #3C4A5A;   /* 刚性  L*29 · slate      · 压不动的那端,最深 */
+    --n-flex:   #7B8FA0;   /* 弹性  L*58 · slate 提亮  · 同色相另一端 */
+    --n-once:   #C2A56B;   /* 一次性 L*69 · brass 提亮 · **离轴**,所以换色相 + 加纹理 */
+    --n-up:     #9C4A2A;   /* 比上期多花 · rust 实色 */
+    --n-down:   #4F6B47;   /* 比上期少花 · forest 实色 */
+    --n-base:   #D8CFBC;   /* 基准 / 合计柱 · 中性实色,不再是「空心框」 */
+    /* 一次性的纹理:细(3px)而不是粗(5px)斜纹 —— 粗斜纹在小面积上像施工警示带 */
+    --n-once-tx: repeating-linear-gradient(45deg,#C2A56B 0 3px,#D4BC8C 3px 6px);
+  }
+
   /* ── 归因瀑布 ── */
-  .wf{display:flex;align-items:flex-end;gap:2px;height:210px;padding:0 2px}
+  /* margin-bottom 给标签行留溢出空间 —— 各列 spacer 高度不同,内容会超出 210px,
+     不留这段就直接压在图例上(第 2 稿截图里「+18.5%」被图例盖住了半行)。 */
+  .wf{display:flex;align-items:flex-end;gap:2px;height:210px;padding:0 2px;margin-bottom:30px}
   .wf-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0}
-  .wf-lab{font-size:10.5px;color:var(--ink-soft);margin-top:7px;text-align:center;line-height:1.3;
+  /* flex:0 0 auto 是必须的:不写的话 flex 默认可收缩,列内容一超过 210px 就先压标签,
+     配上 overflow:hidden 的结果是**第二行被横切一半**(第 2 稿截图里「+18.5%」就这么没的)。 */
+  .wf-lab{flex:0 0 auto;font-size:10.5px;color:var(--ink-soft);margin-top:7px;text-align:center;line-height:1.3;
           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
   .wf-amt{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-feature-settings:"tnum" 1;margin-bottom:4px;white-space:nowrap}
   .wf-pct{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-subtle)}
-  .wf-bar{width:100%;max-width:62px;border:1px solid var(--rule)}
-  .wf-bar.base{background:var(--paper-deep);border-color:var(--rule)}
-  .wf-bar.up{background:rgba(156,74,42,.55);border-color:var(--rust)}
-  .wf-bar.down{background:rgba(79,107,71,.5);border-color:var(--forest)}
-  .wf-bar.oneoff{border-color:var(--brass-deep);
-      background:repeating-linear-gradient(45deg,rgba(176,134,66,.42) 0 5px,rgba(176,134,66,.14) 5px 10px)}
+  /* min-height:9px —— 第 1 稿没有下限,于是 ¥310 的增减条按比例算出来只有 2px,
+     在图上退化成**一根横线**,看不出是「条」。小额差本来就该看得出方向。 */
+  .wf-bar{width:100%;max-width:62px;min-height:9px;border:1px solid rgba(26,23,20,.22)}
+  .wf-bar.base{background:var(--n-base)}
+  .wf-bar.up{background:var(--n-up)}
+  .wf-bar.down{background:var(--n-down)}
+  .wf-bar.oneoff{background:var(--n-once-tx);border-color:rgba(26,23,20,.30)}
   .wf-spacer{width:100%;flex:0 0 auto}
 
   /* ── 三分堆叠条 ── */
-  .split{display:flex;height:42px;border:1px solid var(--rule)}
+  .split{display:flex;height:42px;border:1px solid rgba(26,23,20,.22)}
   .split > div{display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;
-               font-size:10.5px;color:var(--ink);border-right:1px solid var(--rule);overflow:hidden;white-space:nowrap}
-  .split > div:last-child{border-right:none}
-  .sp-rigid{background:rgba(60,74,90,.24)}
-  .sp-flex{background:rgba(79,107,71,.26)}
-  .sp-once{background:repeating-linear-gradient(45deg,rgba(176,134,66,.40) 0 5px,rgba(176,134,66,.13) 5px 10px)}
+               font-size:10.5px;overflow:hidden;white-space:nowrap}
+  .split > div + div{border-left:1px solid rgba(255,255,255,.55)}
+  .sp-rigid{background:var(--n-rigid);color:#fff}        /* L*29 → 白字 */
+  .sp-flex {background:var(--n-flex);color:var(--ink)}   /* L*58 → 墨字(白字在这个明度上只有 3:1) */
+  .sp-once {background:var(--n-once-tx);color:var(--ink)}/* L*69 → 墨字 */
   .lgd{display:flex;gap:16px;flex-wrap:wrap;margin-top:9px;font-size:11px;color:var(--ink-soft)}
-  .lgd i{display:inline-block;width:11px;height:11px;border:1px solid var(--rule);margin-right:5px;vertical-align:-1px}
+  .lgd i{display:inline-block;width:11px;height:11px;border:1px solid rgba(26,23,20,.22);margin-right:5px;vertical-align:-1px}
 
   /* ── 双读数 ── */
   .dual{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--rule)}
@@ -141,38 +173,146 @@
 
   <!-- ═══ 1 · 落点 ═══ -->
   <div class="zone">
-    <div class="zone-head"><span class="zone-no">1</span><span class="zone-t">落在哪里</span>
-      <span class="zone-sub">不新建 tab · 把报表页的支出区从「三块陈列」扩成「五问一节」</span></div>
+    <div class="zone-head"><span class="zone-no">1</span><span class="zone-t">落在哪里 · 先说重叠</span>
+      <span class="zone-sub">不新建 tab · 而且新增之前,先把<b>已经撞在一起</b>的两节合掉</span></div>
     <div class="zone-line"></div>
+
+    <div class="sec" style="margin-bottom:16px">
+      <div class="sec-h">盘点 · 现有和支出相关的读取侧组件,一共两处,都在报表页</div>
+      <table class="tb">
+        <thead><tr><th style="width:24%">组件</th><th style="width:20%">来源</th><th>它在讲什么</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>_expense-mix.html</code><br><span class="note">193 行</span></td>
+            <td>v1.8 · FR-272</td>
+            <td>眉批「支 · 出 · 构 · 成」,标题<b>「钱花在哪了」</b>。按 <code>cash_flow.category_code</code>
+                的<b>性质</b>四分(日常开支 / 还贷 / 利息 / 转出),甜甜圈图 + 账户/成员维度 + 下钻抽屉。
+                页脚写明<b>合计 = 本期家庭支出,与储蓄率同一个数</b>。</td>
+          </tr>
+          <tr>
+            <td><code>_expense-cat-mix.html</code><br><span class="note">131 行</span></td>
+            <td>v1.21</td>
+            <td>眉批「支 · 出 · 构 · 成」,标题<b>「钱花在哪了」</b>。按 <code>expense_category_id</code>
+                的<b>消费分类</b>拆(餐饮/交通/…),堆叠条 + 类目列表 + 年度累计 + 近 12 期趋势。
+                页脚写明<b>这里的合计本来就比储蓄率那边小</b>。</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="note" style="margin-top:11px">
+        <b>结论:是重叠,而且比想的更糙。</b>两节眉批一样、标题一字不差、在 <code>reports/index.html</code> 里
+        <b>第 60 行和第 62 行紧挨着渲染</b>,长文目录里也是两条「支出构成」「支出构成 · 分类」。
+        用户连着看到两个「钱花在哪了」,合计还不一样大 —— 得读两段页脚小字才知道为什么。
+        这不是新功能带来的重叠,<b>是已经在线上的重叠</b>。
+      </p>
+    </div>
 
     <div class="ba">
       <div class="before">
-        <div class="h">现在 · 报表页 › 支出构成</div>
+        <div class="h">现在 · 报表页(两节并排,各讲各的)</div>
         <div class="toc">
-          <div>· 本期构成 <span class="note">堆叠条 + 类目列表 + 下钻</span></div>
-          <div>· 年度累计 <span class="note">横条</span></div>
-          <div>· 近 12 期趋势 <span class="note">柱</span></div>
+          <div>· 支出构成 <span class="note">性质四分 · 甜甜圈 · 「钱花在哪了」</span></div>
+          <div>· 支出构成 · 分类 <span class="note">消费分类 · 堆叠条 · 「钱花在哪了」</span></div>
+          <div style="padding-left:14px">· 年度累计 <span class="note">横条</span></div>
+          <div style="padding-left:14px">· 近 12 期趋势 <span class="note">柱</span></div>
         </div>
         <p class="note" style="margin-top:10px">
           看完知道「餐饮 ¥3,182 占 31%」。下一个问题 ——<b>所以呢?</b>—— 页面不回答。
+          而且两个合计为什么不一样,也只能靠页脚小字解释。
         </p>
       </div>
       <div class="after">
-        <div class="h">v1.24 · 同一个区,顺序改成「先结论后明细」</div>
+        <div class="h">v1.24 · 一节,三个组件的预算这么花</div>
         <div class="toc">
           <div class="new">· ① 花了多少 · 比上期 <span class="note">环比 + 总额同比</span></div>
-          <div class="new">· ② 为什么变了 <span class="note">归因瀑布 → 类目</span></div>
-          <div class="new">· ③ 砍得掉吗 <span class="note">刚性/弹性/一次性 + 常态月均</span></div>
-          <div class="new">· ④ 每月都在扣 <span class="note">周期性支出</span></div>
-          <div>· ⑤ 花在哪 <span class="note">(现有,位置下移)</span></div>
-          <div>· ⑥ 年度累计 <span class="note">(现有)</span></div>
-          <div>· ⑦ 近 12 期趋势 <span class="note">(现有)</span></div>
+          <div class="new">· ② 为什么变了 <span class="note"><b>组件 1</b> 归因瀑布</span></div>
+          <div class="new">· ③ 砍得掉吗 <span class="note"><b>组件 2</b> 三分 + 常态月均</span></div>
+          <div class="new">· ④ 钱花在哪 <span class="note"><b>组件 3</b> = 把上面两节<b>合并</b>成双层,不是新做</span></div>
+          <div>· ⑤ 年度累计 <span class="note">(现有,原样)</span></div>
+          <div>· ⑥ 近 12 期趋势 <span class="note">(现有,原样)</span></div>
         </div>
         <p class="note" style="margin-top:10px">
-          既有三块<b>内容一个字不改</b>,只是排到结论后面。新块全部是<b>子节</b>,
-          要同步长文目录锚点(联动链 L4)。
+          ① 是数字条不算组件。<b>三个组件的额度:两个新做(归因瀑布、三分)+ 一个花在合并上。</b>
+          原计划的「周期性支出」<b>已移出本版</b> —— 判据最弱(商家名现在塞在备注里,
+          <code>BillCommitService.java:175</code>),而且对分母没有贡献。
         </p>
       </div>
+    </div>
+  </div>
+
+  <!-- ═══ 1b · 合并怎么合 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">1b</span><span class="zone-t">合并 · 承认父子关系,不是并列</span>
+      <span class="zone-sub">FR-662 · 两个合计不一样大不是 bug,是<b>层级</b>;说清楚就不用页脚小字了</span></div>
+    <div class="zone-line"></div>
+
+    <div class="sec">
+      <div class="sec-h">钱花在哪了 <span class="note">2026-08</span></div>
+
+      <p class="note" style="margin-bottom:9px">第 1 层 · 按<b>性质</b> —— 合计 = 家庭支出总额,和储蓄率用的是同一个数</p>
+      <div class="split" style="height:38px">
+        <!-- 第 1 层走**分类色板**的顺序(#3C4A5A/#B08642/…),不是三分的语义色 ——
+             它是「性质四分」这个枚举,不是可压缩性那根轴。 -->
+        <div style="flex:0 0 61%;background:#3C4A5A;color:#fff;
+                    display:flex;align-items:center;justify-content:center">日常开支 ¥16,850 · 61%</div>
+        <div style="flex:0 0 24%;background:#8C6A33;color:#fff">还贷 ¥6,600 · 24%</div>
+        <div style="flex:0 0 9%;background:#9C4A2A;color:#fff">利息 ¥2,480</div>
+        <div style="flex:0 0 6%;background:#A09486;color:#fff">转出 ¥1,700</div>
+      </div>
+      <div class="note" style="margin-top:7px;font-size:11px">合计 ¥27,630</div>
+
+      <div style="margin:16px 0 9px;display:flex;align-items:center;gap:9px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-subtle);flex:0 0 auto">
+          <path d="M12 5v14M6 13l6 6 6-6"/></svg>
+        <p class="note" style="margin:0">
+          第 2 层 · 把上面那块 <b>「日常开支 ¥16,850」</b> 摊开 —— 摊的就是它,所以合计当然更小(FR-663 拿护栏钉住相等)
+        </p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:186px 1fr;gap:20px;align-items:center">
+        <!-- 饼:top-N 之后只剩 6 片(FR-665) -->
+        <svg viewBox="0 0 100 100" style="width:100%;max-width:186px">
+          <!-- 起点 12 点方向,顺时针;每片一个 path,半径 46,中心 50,50 -->
+          <path d="M50 50 L50 4 A46 46 0 0 1 89.8 73 Z" fill="#3C4A5A"/>
+          <path d="M50 50 L89.8 73 A46 46 0 0 1 43.2 95.5 Z" fill="#B08642"/>
+          <path d="M50 50 L43.2 95.5 A46 46 0 0 1 8.4 66.4 Z" fill="#5C3A4B"/>
+          <path d="M50 50 L8.4 66.4 A46 46 0 0 1 8.9 31.6 Z" fill="#6F8C8A"/>
+          <path d="M50 50 L8.9 31.6 A46 46 0 0 1 27.7 10.9 Z" fill="#9C4A2A"/>
+          <path d="M50 50 L27.7 10.9 A46 46 0 0 1 50 4 Z" fill="#A09486"/>
+          <circle cx="50" cy="50" r="24" fill="#FFFCF5"/>
+          <text x="50" y="47" text-anchor="middle" style="font:600 7.5px 'JetBrains Mono',monospace;fill:#1A1714">16,850</text>
+          <text x="50" y="56" text-anchor="middle" style="font:400 5.5px 'Noto Sans SC',sans-serif;fill:#A09486">日常开支</text>
+        </svg>
+        <div>
+          <table class="tb" style="font-size:11.5px">
+            <tbody>
+              <tr><td style="width:15px"><i style="display:inline-block;width:10px;height:10px;background:#3C4A5A"></i></td>
+                  <td>住房物业</td><td class="num">¥5,400</td><td class="num note">32.0%</td><td class="num note">32.0%</td></tr>
+              <tr><td><i style="display:inline-block;width:10px;height:10px;background:#B08642"></i></td>
+                  <td>餐饮美食</td><td class="num">¥3,182</td><td class="num note">18.9%</td><td class="num note">50.9%</td></tr>
+              <tr><td><i style="display:inline-block;width:10px;height:10px;background:#5C3A4B"></i></td>
+                  <td>数码电器</td><td class="num">¥2,899</td><td class="num note">17.2%</td><td class="num note">68.1%</td></tr>
+              <tr><td><i style="display:inline-block;width:10px;height:10px;background:#6F8C8A"></i></td>
+                  <td>交通出行</td><td class="num">¥1,640</td><td class="num note">9.7%</td>
+                  <td class="num" style="color:var(--forest);font-weight:600">77.8%</td></tr>
+              <tr><td><i style="display:inline-block;width:10px;height:10px;background:#9C4A2A"></i></td>
+                  <td>日用百货</td><td class="num">¥1,205</td><td class="num note">7.2%</td>
+                  <td class="num" style="color:var(--forest);font-weight:600">85.0% ←</td></tr>
+              <tr><td><i style="display:inline-block;width:10px;height:10px;background:#A09486"></i></td>
+                  <td>其他 5 项 <span class="note">点开展开</span></td><td class="num">¥2,524</td>
+                  <td class="num note">15.0%</td><td class="num note">100%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p class="note" style="margin-top:12px">
+        <b>饼片怎么定的(FR-665):</b>按金额降序累加,<b>加到累计 ≥80% 就停</b>,余下的全部并成一片
+        「其他 N 项」(中性灰,可点开)。上例加到第 5 项 85.0% 越线 → 前 5 项独立成片。
+        N 卡在 <b>[3, 6]</b>:少于 3 片看不出结构,多于 6 片又回到细碎。
+        <b>「未分类」永远单独一片</b>不并进「其他」—— 它是在提示你去补录,不是一个消费去向。
+        分类本来就 ≤6 个时不合并(没有碎片,合了反而丢信息)。
+      </p>
     </div>
   </div>
 
@@ -259,7 +399,7 @@
             <div class="wf-amt up">+3,900</div>
             <div class="wf-bar oneoff" style="height:37px"></div>
             <div class="wf-spacer" style="height:118px"></div>
-            <div class="wf-lab">旅游<br><span class="wf-pct" style="color:var(--brass-deep)">一次性</span></div>
+            <div class="wf-lab">文化休闲<br><span class="wf-pct" style="color:var(--brass-deep)">一次性</span></div>
           </div>
           <!-- 餐饮 -->
           <div class="wf-col">
@@ -273,7 +413,7 @@
             <div class="wf-amt up">+310</div>
             <div class="wf-bar up" style="height:3px"></div>
             <div class="wf-spacer" style="height:161px"></div>
-            <div class="wf-lab">购物消费<br><span class="wf-pct">+11.2%</span></div>
+            <div class="wf-lab">日用百货<br><span class="wf-pct">+11.2%</span></div>
           </div>
           <!-- 交通 -->
           <div class="wf-col">
@@ -298,9 +438,9 @@
         </div>
 
         <div class="lgd">
-          <span><i style="background:rgba(156,74,42,.55);border-color:var(--rust)"></i>比上期多花</span>
-          <span><i style="background:rgba(79,107,71,.5);border-color:var(--forest)"></i>比上期少花</span>
-          <span><i style="border-color:var(--brass-deep);background:repeating-linear-gradient(45deg,rgba(176,134,66,.42) 0 4px,rgba(176,134,66,.14) 4px 8px)"></i>一次性 · 不进常态月均</span>
+          <span><i style="background:var(--n-up)"></i>比上期多花</span>
+          <span><i style="background:var(--n-down)"></i>比上期少花</span>
+          <span><i style="background:var(--n-once-tx)"></i>一次性 · 不进常态月均</span>
         </div>
 
         <div style="margin-top:14px;padding:10px 13px;border:1px solid var(--rule-soft);background:var(--card-soft)">
@@ -315,11 +455,11 @@
           <table class="t" style="margin-top:9px">
             <thead><tr><th>类目</th><th>性质</th><th class="amt">上期</th><th class="amt">本期</th><th class="amt">差额</th><th class="amt">变化率</th></tr></thead>
             <tbody>
-              <tr><td>旅游</td><td><span class="badge new">一次性</span></td><td class="amt">¥0</td><td class="amt">¥3,900</td><td class="amt up">+3,900</td><td class="amt">新增</td></tr>
+              <tr><td>文化休闲</td><td><span class="badge new">一次性</span></td><td class="amt">¥0</td><td class="amt">¥3,900</td><td class="amt up">+3,900</td><td class="amt">新增</td></tr>
               <tr><td>餐饮美食</td><td><span class="badge">弹性</span></td><td class="amt">¥3,180</td><td class="amt">¥3,800</td><td class="amt up">+620</td><td class="amt up">+19.5%</td></tr>
-              <tr><td>购物消费</td><td><span class="badge">弹性</span></td><td class="amt">¥2,770</td><td class="amt">¥3,080</td><td class="amt up">+310</td><td class="amt up">+11.2%</td></tr>
+              <tr><td>日用百货</td><td><span class="badge">弹性</span></td><td class="amt">¥2,770</td><td class="amt">¥3,080</td><td class="amt up">+310</td><td class="amt up">+11.2%</td></tr>
               <tr><td>交通出行</td><td><span class="badge">弹性</span></td><td class="amt">¥1,940</td><td class="amt">¥1,680</td><td class="amt down">−260</td><td class="amt down">−13.4%</td></tr>
-              <tr><td>居住 · 房贷</td><td><span class="badge">刚性</span></td><td class="amt">¥3,200</td><td class="amt">¥3,200</td><td class="amt">—</td><td class="amt">0.0%</td></tr>
+              <tr><td>住房物业</td><td><span class="badge">刚性</span></td><td class="amt">¥3,200</td><td class="amt">¥3,200</td><td class="amt">—</td><td class="amt">0.0%</td></tr>
               <tr style="opacity:.6"><td colspan="6" style="text-align:center;font-size:11px;color:var(--ink-subtle)">…其余 6 项…</td></tr>
             </tbody>
           </table>
@@ -368,9 +508,87 @@
           <div class="sp-once"  style="width:23%">一次性 ¥3,900 · 23%</div>
         </div>
         <div class="lgd">
-          <span><i class="sp-rigid"></i><b>刚性</b> 房贷 / 水电 / 通讯 / 保险 / 教育 —— 短期改不动</span>
-          <span><i class="sp-flex"></i><b>弹性</b> 餐饮 / 交通 / 购物 / 娱乐 —— 想调就能调</span>
-          <span><i class="sp-once"></i><b>一次性</b> 旅游 / 装修 / 大额医疗 —— 不代表日常水平</span>
+          <span><i class="sp-rigid"></i><b>刚性</b> 住房物业 / 充值缴费 / 教育培训 / 医疗健康</span>
+          <span><i class="sp-flex"></i><b>弹性</b> 餐饮美食 / 日用百货 / 交通出行 / 服饰装扮 / 文化休闲</span>
+          <span><i class="sp-once"></i><b>一次性</b> 数码电器,以及用户手动标的单笔</span>
+        </div>
+
+        <div style="height:1px;background:var(--rule-soft);margin:20px 0"></div>
+
+        <!-- ── 判据树(FR-612)── -->
+        <div class="eyebrow" style="margin-bottom:10px">这三类到底怎么分的</div>
+        <p class="note" style="margin:0 0 12px">
+          <b>先说实话:这个区分没有客观判据。</b>别家也没有 —— Monarch 让用户自己拖,
+          Copilot 用的是另一套标签体系。我们能做的不是「定义得更准」,而是
+          <b>把判断问题问对,然后让用户改得动</b>。
+        </p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start">
+          <div>
+            <div style="border:1px solid var(--rule);background:var(--paper);padding:14px 15px">
+              <div style="font-size:12px;color:var(--ink-soft);margin-bottom:11px">
+                <b>问题 1</b> · 这笔开销,每个月(或每年固定几次)还会再来吗?
+              </div>
+              <div style="display:flex;gap:10px;align-items:stretch;margin-bottom:13px">
+                <div style="flex:0 0 120px;background:var(--n-once-tx);color:var(--ink);
+                            display:flex;align-items:center;justify-content:center;
+                            font-size:11.5px;font-weight:600;padding:9px 0;border:1px solid rgba(26,23,20,.22)">不会 → 一次性</div>
+                <div class="note" style="margin:0;align-self:center">装修、换电脑、一次大额医疗。<br>它不代表你家的日常水平。</div>
+              </div>
+              <div style="border-top:1px dashed var(--rule-soft);padding-top:12px">
+                <div style="font-size:12px;color:var(--ink-soft);margin-bottom:11px">
+                  <b>会 → 问题 2</b> · 少了它,家里的日子过不过得下去?
+                </div>
+                <div style="display:flex;gap:10px;align-items:stretch;margin-bottom:8px">
+                  <div style="flex:0 0 120px;background:var(--n-rigid);color:#fff;
+                              display:flex;align-items:center;justify-content:center;
+                              font-size:11.5px;font-weight:600;padding:9px 0">过不下去 → 刚性</div>
+                  <div class="note" style="margin:0;align-self:center">房贷、水电、孩子学费、常年吃的药。</div>
+                </div>
+                <div style="display:flex;gap:10px;align-items:stretch">
+                  <div style="flex:0 0 120px;background:var(--n-flex);color:var(--ink);
+                              display:flex;align-items:center;justify-content:center;
+                              font-size:11.5px;font-weight:600;padding:9px 0">难受但能过 → 弹性</div>
+                  <div class="note" style="margin:0;align-self:center">下馆子、打车、买衣服、看电影。</div>
+                </div>
+              </div>
+            </div>
+            <p class="note" style="margin-top:10px">
+              界面上出现的<b>就是这两个问句</b>,不是「刚性/弹性/一次性」这三个词(FR-612)。
+              家里非技术的那位要能自己改得动 —— 她不需要先学会这套词。
+            </p>
+          </div>
+
+          <div>
+            <table class="tb">
+              <thead><tr><th style="width:26%">这一问管什么</th><th>它在系统里的用处</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>问题 1 · 会不会再来</b><br><span class="note">复发性</span></td>
+                  <td><b>修分母。</b>一次性的从「常态月均」里剔掉 ——
+                      紧急储备月数、应急金目标、FIRE 全都吃这个分母。这是这一版真正承重的地方。</td>
+                </tr>
+                <tr>
+                  <td><b>问题 2 · 砍不砍得掉</b><br><span class="note">可压缩性</span></td>
+                  <td><b>看空间。</b>要省钱,能动的只有弹性那一段。刚性占比一抬,
+                      说明生活成本上了台阶,那是另一类决定(搬家 / 换方案),不是「这个月少点外卖」。</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="note" style="margin-top:11px">
+              <b>「一次性」的判据是「不可预期 + 不重复」,不是「金额大」。</b>
+              每月 ¥5,400 的房贷比一次 ¥2,899 的电脑大得多,但它是刚性。
+              反过来一笔 ¥300 的意外罚单,金额很小,照样是一次性。
+              <span style="color:var(--rust)">按金额设阈值是错的</span> —— 大额刚性会被误剔,
+              分母就虚低,紧急储备月数虚高。
+            </p>
+            <p class="note" style="margin-top:9px;border-left:2px solid var(--brass);padding-left:10px">
+              <b>老实交代一个边界:</b>年缴 / 季缴(保险、学费)会砸在单个月上。
+              它复发、也砍不掉,所以是刚性 —— 但摊在那一个月里,会让那个月看着突然贵了。
+              三分桶解决不了这个,Monarch 是专门加了第四类「非月度周期性」才处理的。
+              <b>要不要加第四类,是等你裁的事之一。</b>
+            </p>
+          </div>
         </div>
 
         <div style="height:1px;background:var(--rule-soft);margin:20px 0"></div>
@@ -424,9 +642,9 @@
           <table class="t" style="margin-top:9px">
             <thead><tr><th>日期</th><th>类目</th><th>说明</th><th>判定来源</th><th class="amt">金额</th></tr></thead>
             <tbody>
-              <tr><td class="mono">2026-08-12</td><td>旅游</td><td>暑期出行</td><td><span class="badge new">类目性质</span></td><td class="amt">¥3,900</td></tr>
-              <tr><td class="mono">2026-06-03</td><td>购物消费</td><td>笔记本电脑</td><td><span class="badge">逐笔勾选</span></td><td class="amt">¥8,600</td></tr>
-              <tr><td class="mono">2026-02-18</td><td>装修</td><td>阳台改造</td><td><span class="badge new">类目性质</span></td><td class="amt">¥14,200</td></tr>
+              <tr><td class="mono">2026-08-12</td><td>文化休闲</td><td>暑期出行</td><td><span class="badge">逐笔勾选</span></td><td class="amt">¥3,900</td></tr>
+              <tr><td class="mono">2026-06-03</td><td>数码电器</td><td>笔记本电脑</td><td><span class="badge new">类目性质</span></td><td class="amt">¥8,600</td></tr>
+              <tr><td class="mono">2026-02-18</td><td>住房物业</td><td>阳台改造</td><td><span class="badge">逐笔勾选</span></td><td class="amt">¥14,200</td></tr>
               <tr style="opacity:.6"><td colspan="5" style="text-align:center;font-size:11px;color:var(--ink-subtle)">…其余 3 笔…</td></tr>
             </tbody>
           </table>
@@ -458,77 +676,41 @@
     </div>
   </div>
 
-  <!-- ═══ 5 · ④ 周期性 ═══ -->
+  <!-- ═══ 5 · ④ 周期性 · 已移出本版 ═══ -->
   <div class="zone">
-    <div class="zone-head"><span class="zone-no">5</span><span class="zone-t">④ 有没有在悄悄漏</span>
-      <span class="zone-sub">FR-640~645 · 中文三家一个都没做;Copilot / Monarch 都做了且放在显眼处</span></div>
+    <div class="zone-head"><span class="zone-no">5</span><span class="zone-t">④ 有没有在悄悄漏 · <span style="color:var(--ink-subtle)">已移出本版</span></span>
+      <span class="zone-sub">三个组件的额度要花在合并上,这个是三选一里被砍的那个</span></div>
     <div class="zone-line"></div>
 
-    <div class="sec">
-      <div class="sec-h">
-        <div class="sec-t">
-          <svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 3v6h-6"/></svg>
-          每月都在扣
-        </div>
-        <div class="sec-n">合计 ¥446 / 月 · 占月均支出 3.3%</div>
-      </div>
-      <div class="sec-b">
-        <table class="t">
-          <thead><tr><th>推定项目</th><th>类目</th><th class="amt">月均</th><th>已连续</th><th>最近一期</th><th></th></tr></thead>
-          <tbody>
-            <tr>
-              <td>保险 · 某寿险</td><td>保险</td><td class="amt">¥186</td>
-              <td class="mono">12 期</td><td class="mono">¥186 <span class="badge ok">持平</span></td>
-              <td><button class="ghost">不是订阅</button></td>
-            </tr>
-            <tr>
-              <td>视频会员</td><td>休闲娱乐</td><td class="amt">¥25</td>
-              <td class="mono">9 期</td><td class="mono">¥25 <span class="badge risk">9 月起从 ¥15 涨到 ¥25</span></td>
-              <td><button class="ghost">不是订阅</button></td>
-            </tr>
-            <tr>
-              <td>云盘</td><td>其他</td><td class="amt">¥15</td>
-              <td class="mono">7 期</td><td class="mono">¥15 <span class="badge ok">持平</span></td>
-              <td><button class="ghost">不是订阅</button></td>
-            </tr>
-            <tr>
-              <td>宽带 · 月付</td><td>通讯</td><td class="amt">¥120</td>
-              <td class="mono">12 期</td><td class="mono">¥120 <span class="badge ok">持平</span></td>
-              <td><button class="ghost">不是订阅</button></td>
-            </tr>
-            <tr>
-              <td>音乐会员</td><td>休闲娱乐</td><td class="amt">¥100</td>
-              <td class="mono">4 期</td><td class="mono">¥100 <span class="badge ok">持平</span></td>
-              <td><button class="ghost">不是订阅</button></td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="note" style="margin-top:11px">
-          只负责<b>让它被看见</b>。不引导「去取消」,不接第三方退订 —— 那是另一门生意,也是另一种责任。
-        </p>
-      </div>
-    </div>
-
-    <div class="ba" style="margin-top:14px">
-      <div class="before">
-        <div class="h">判据为什么这么保守</div>
-        <p class="note" style="margin:0">
-          我们<b>没有商户字段</b>。导入时商户名被 <code class="mono">trimNote()</code> 塞进了
-          <code class="mono">cash_flow.note</code>(<code class="mono">BillCommitService.java:175</code>),
-          而 <code class="mono">note</code> 同时装着手填备注。<br>
-          所以判据只能是:<b>同类目 + 金额落在同一个 ±5% 区间 + 连续 ≥3 期</b>。
-          <code class="mono">note</code> 只做展示标签,<b>不参与判定</b>。
-        </p>
-      </div>
-      <div class="after">
-        <div class="h">为什么不交给 AI 去认</div>
-        <p class="note" style="margin:0">
-          <b>全在服务端工程代码里做,不调 LLM。</b>
-          判据是确定性的:可复现、可解释、出了问题能指到代码行。
-          LLM 做这件事既不可复现也解释不了,而用户看到一条误判时第一个问题就是「凭什么」。<br>
-          AI 在这一版只干一件事:<b>把工程算好的数字写成一句人话</b>(FR-653)。
-        </p>
-      </div>
+    <div class="sec" style="opacity:.72">
+      <div class="sec-h">为什么砍它,而不是砍归因瀑布或三分</div>
+      <table class="tb">
+        <thead><tr><th style="width:22%">理由</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>判据最弱</b></td>
+            <td>我们<b>没有商户字段</b>。导入时商户名被 <code>trimNote()</code> 塞进了
+                <code>cash_flow.note</code>(<code>BillCommitService.java:175</code>),而 <code>note</code>
+                同时装着手填备注。判据只能退到「同类目 + 金额 ±5% + 连续 ≥3 期」——
+                三个组件里,只有这个是<b>推定</b>出来的,另外两个是算出来的。</td>
+          </tr>
+          <tr>
+            <td><b>不承重</b></td>
+            <td>归因瀑布回答「为什么变了」,三分修的是<b>常态月均这个分母</b> —— 分母一改,
+                紧急储备月数 / 应急金目标 / FIRE 都跟着更准。周期性支出<b>对分母没有任何贡献</b>,
+                它只是一份清单。</td>
+          </tr>
+          <tr>
+            <td><b>它等得起</b></td>
+            <td>会员涨价这种事，晚一个版本发现，代价是几十块。合并两个撞名的节、
+                把配色修对，是<b>每个打开报表页的人天天都在承受</b>的。</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="note" style="margin-top:11px">
+        设计结论<b>原样留在 PRD §4「推迟到后续版本」</b>,前置条件写清楚了:先给 <code>cash_flow</code> 加独立商家列
+        (导入时不再把商户名并进 <code>note</code>)。有了那一列,判据就能从「推定」升成「认得出」,再做才值。
+      </p>
     </div>
   </div>
 
@@ -589,22 +771,27 @@
 
     <div class="ba">
       <div>
-        <div class="h" style="color:var(--ink-soft)">类目管理页 · 一屏改完 10 个大类(一次性,之后基本不动)</div>
+        <div class="h" style="color:var(--ink-soft)">类目管理页 · 一屏改完(就是 <code>ExpenseCategoryService.STARTER</code> 那 10 个)</div>
         <table class="t" style="margin-top:4px">
-          <thead><tr><th>一级类目</th><th>支出性质</th></tr></thead>
+          <thead><tr><th>一级类目</th><th>默认性质</th></tr></thead>
           <tbody>
-            <tr><td>居住 · 房贷房租</td><td><span class="badge">刚性</span> <span class="note">预设</span></td></tr>
-            <tr><td>生活缴费</td><td><span class="badge">刚性</span> <span class="note">预设</span></td></tr>
-            <tr><td>保险</td><td><span class="badge">刚性</span> <span class="note">预设</span></td></tr>
-            <tr><td>餐饮美食</td><td><span class="badge ok">弹性</span> <span class="note">预设</span></td></tr>
-            <tr><td>购物消费</td><td><span class="badge ok">弹性</span> <span class="note">预设</span></td></tr>
-            <tr><td>旅游</td><td><span class="badge new">一次性</span> <span class="note">预设</span></td></tr>
-            <tr><td>装修</td><td><span class="badge new">一次性</span> <span class="note">预设</span></td></tr>
+            <tr><td>住房物业 <span class="note">房租房贷,水电燃气,物业</span></td><td><span class="badge">刚性</span></td></tr>
+            <tr><td>充值缴费 <span class="note">话费网费,会员订阅</span></td><td><span class="badge">刚性</span></td></tr>
+            <tr><td>教育培训 <span class="note">学费,书籍课程</span></td><td><span class="badge">刚性</span></td></tr>
+            <tr><td>医疗健康 <span class="note">看病买药,保健</span></td><td><span class="badge">刚性</span></td></tr>
+            <tr><td>餐饮美食</td><td><span class="badge ok">弹性</span></td></tr>
+            <tr><td>日用百货</td><td><span class="badge ok">弹性</span></td></tr>
+            <tr><td>交通出行</td><td><span class="badge ok">弹性</span></td></tr>
+            <tr><td>服饰装扮</td><td><span class="badge ok">弹性</span></td></tr>
+            <tr><td>文化休闲 <span class="note">旅游酒店,影音演出,运动健身</span></td><td><span class="badge ok">弹性</span></td></tr>
+            <tr><td>数码电器 <span class="note">数码,家电</span></td><td><span class="badge new">一次性</span></td></tr>
           </tbody>
         </table>
         <p class="note" style="margin-top:9px">
           起步包<b>预设好性质,用户什么都不做也有一份合理的默认</b>(FR-611)。
-          自建类目留 NULL → <b>读作弹性</b>,而弹性 = 不改变任何既有数字(FR-616)。
+          自建类目留 NULL → <b>读作弹性</b>,而弹性 = 不改变任何既有数字(FR-616)。<br>
+          <span class="note">注:这 10 个名字是<b>照支付宝账单的类目原样取的</b>,导入时零映射 ——
+          所以这里不能自己另起一套好听的名字。</span>
         </p>
       </div>
       <div>
@@ -612,9 +799,9 @@
         <div style="border:1px solid var(--rule);padding:12px;background:var(--card)">
           <table class="t">
             <tbody>
-              <tr><td style="width:88px"><span class="note">类目</span></td><td>购物消费</td></tr>
+              <tr><td style="width:88px"><span class="note">类目</span></td><td>文化休闲</td></tr>
               <tr><td><span class="note">金额</span></td><td class="mono">¥8,600</td></tr>
-              <tr><td><span class="note">备注</span></td><td>笔记本电脑</td></tr>
+              <tr><td><span class="note">备注</span></td><td>五一全家出游</td></tr>
               <tr>
                 <td></td>
                 <td>
@@ -638,10 +825,87 @@
     </div>
   </div>
 
+  <!-- ═══ 7b · 关得掉 + 没录明细怎么办 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">7b</span><span class="zone-t">关得掉吗 · 没录明细的人看到什么</span>
+      <span class="zone-sub">FR-673 / FR-674 · 这一整块建立在「有逐笔 + 有分类」上,而<b>很多人两样都没有</b></span></div>
+    <div class="zone-line"></div>
+
+    <div class="sec" style="margin-bottom:16px">
+      <div class="sec-h">三种数据状态,各自看到什么(FR-673)</div>
+      <table class="tb">
+        <thead><tr><th style="width:23%">用户处在哪一档</th><th style="width:32%">这一节显示什么</th><th>为什么这么定</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>TOTAL 模式</b><br><span class="note">只填月度总额,没有逐笔</span></td>
+            <td><b>整节不渲染</b>,连标题都不出现。<br>报表页其余部分完全照旧。</td>
+            <td>没有逐笔就没有类目,归因瀑布、三分、分类饼<b>一个都算不出来</b>。
+                摆一个空壳 + 「暂无数据」不是中立的,那是在暗示用户「你少做了一件事」——
+                可 10 分钟/月的硬约束下,只填总额<b>本来就是我们支持的用法</b>。</td>
+          </tr>
+          <tr>
+            <td><b>有逐笔,没分类</b><br><span class="note">v1.21 之前的老数据,<code>expense_category_id</code> 全 NULL</span></td>
+            <td>① 数字条<b>照常出</b>(总额环比同比不需要分类)。<br>
+                ④ 构成块<b>也照常出,但只有第 1 层</b> —— 性质四分读的是
+                <code>cash_flow.category_code</code>,<b>跟消费分类没关系</b>。<br>
+                ②③ 收起,给一行:「把这些笔归一下类,就能看出钱是为什么多的」+ 归类入口。</td>
+            <td>能算的照算,算不了的说清楚缺什么。<b>「缺分类」和「没开这个功能」是两件事</b>,
+                不能都显示成一片空白。<br>
+                注意<b>别把第 1 层一起收掉</b> —— 它现在(v1.8 起)就在线上,收掉等于让老用户丢功能。</td>
+          </tr>
+          <tr>
+            <td><b>有逐笔,有分类</b></td>
+            <td>完整四块。</td>
+            <td>——</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ba">
+      <div>
+        <div class="h" style="color:var(--ink-soft)">管理页 · 显式开关(FR-674)</div>
+        <div style="border:1px solid var(--rule);padding:14px;background:var(--card)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px">
+            <div>
+              <div style="font-size:13px;font-weight:600">支出分析</div>
+              <div class="note" style="margin-top:4px;max-width:330px">
+                在报表页显示「为什么变了 / 砍得掉吗 / 钱花在哪」三块。
+                关掉后,决策页上那两处「按常态月均」的第二读数也一并消失。
+              </div>
+            </div>
+            <div style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding-top:2px">
+              <span class="note" style="margin:0">已开启</span>
+              <div style="width:38px;height:21px;border-radius:11px;background:var(--forest);position:relative">
+                <div style="position:absolute;top:2.5px;right:2.5px;width:16px;height:16px;border-radius:50%;background:#fff"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:9px">
+          <b>默认开</b>(和现有支出构成一样是默认可见的)。走管理页,不写服务器配置文件。
+        </p>
+      </div>
+      <div>
+        <div class="h" style="color:var(--ink-soft)">关掉的时候必须<b>连带</b>关</div>
+        <p class="note" style="margin:0">
+          最容易出的错是<b>只关报表页那一节</b>,结果 dashboard 和体检页上还挂着
+          「按常态月均 = 11.6 个月」—— 用户已经关掉了支出分析,却还在被一个<b>他看不到出处的数</b>影响判断。
+          那是一个半开的状态,比不做还糟。<br><br>
+          所以开关的语义是:<b>关 = 这一版引入的所有新读数全部消失,页面回到 v1.23 的样子。</b>
+          底层的性质字段和 <code class="mono">is_one_off</code> 标记<b>照常写入、不删</b> ——
+          重新打开时历史数据是完整的,不用重录。<br><br>
+          护栏 <code class="mono">v1240-TOGGLE-CASCADES</code> 钉住这一条:关掉后扫三个页面,
+          任何一处还渲染出「常态月均」就红。
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══ 8 · 移动端 ═══ -->
   <div class="zone">
     <div class="zone-head"><span class="zone-no">8</span><span class="zone-t">移动端</span>
-      <span class="zone-sub">FR-663 · 瀑布与三分条纵向堆叠,不横向压缩</span></div>
+      <span class="zone-sub">FR-669 · 瀑布与三分条纵向堆叠,不横向压缩</span></div>
     <div class="zone-line"></div>
 
     <div class="phone">
@@ -658,7 +922,7 @@
         <div style="display:flex;flex-direction:column;gap:7px">
           <div>
             <div style="display:flex;justify-content:space-between;font-size:11.5px">
-              <span>旅游 <span class="badge new" style="font-size:8px">一次性</span></span><span class="mono up">+3,900</span></div>
+              <span>文化休闲 <span class="badge new" style="font-size:8px">一次性</span></span><span class="mono up">+3,900</span></div>
             <div class="wf-bar oneoff" style="height:9px;max-width:none;width:92%;margin-top:3px"></div>
           </div>
           <div>
@@ -666,7 +930,7 @@
             <div class="wf-bar up" style="height:9px;max-width:none;width:15%;margin-top:3px"></div>
           </div>
           <div>
-            <div style="display:flex;justify-content:space-between;font-size:11.5px"><span>购物消费</span><span class="mono up">+310</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:11.5px"><span>日用百货</span><span class="mono up">+310</span></div>
             <div class="wf-bar up" style="height:9px;max-width:none;width:8%;margin-top:3px"></div>
           </div>
           <div>
@@ -738,16 +1002,26 @@
 
   <!-- ═══ 11 · 等裁决 ═══ -->
   <div class="zone">
-    <div class="zone-head"><span class="zone-no">11</span><span class="zone-t">等你裁的四件事</span>
+    <div class="zone-head"><span class="zone-no">11</span><span class="zone-t">等你裁的五件事</span>
       <span class="zone-sub">PRD §13 的同一份清单</span></div>
     <div class="zone-line"></div>
 
     <div class="card">
       <ol class="note" style="margin:0;padding-left:18px;line-height:2.1;color:var(--ink-soft)">
-        <li><b>双读数 vs 直接换口径。</b>我选了双读数。如果你认为常态月均本来就是更对的那个口径、该直接换 —— 那就是一次真正的口径变更,要走「默认关 + 零差异基线 + 页面写明口径期」的完整流程。</li>
-        <li><b>逐笔「一次性」勾要不要做。</b>它是本版唯一增加录入动作的东西(一年 3–5 次)。没有它,「购物类目里买了台电脑」只能靠改整个类目的性质来处理 —— 那是错的。</li>
-        <li><b>周期性判据的松紧。</b>现在是「同类目 + 金额 ±5% + 连续 ≥3 期」。提到 4 期准确率更高,但新订阅要 4 个月才被发现。</li>
-        <li><b>章节顺序。</b>我排成「先结论后明细」(新块在前)。保守做法是加在现有三块后面 —— 老用户阅读习惯完全不变,但「所以呢」又排到了「摆出来给你看」的后面。</li>
+        <li><b>三个组件的额度怎么花。</b>我花成「归因瀑布 + 三分 + 合并既有两节」,把周期性支出整个移出本版。
+            另一种花法是「归因瀑布 + 三分 + 周期性」,把合并留到以后 ——
+            但那样线上那两个都叫「钱花在哪了」的节会<b>继续并排挂着</b>,而且这一版还要在它们旁边再加三块,更挤。</li>
+        <li><b>合并用哪种方式。</b>我选了<b>父子双层</b>(消费分类是性质里「日常开支」那一片的展开),两层同屏、第 2 层默认展开。
+            另一种是<b>并列双维度</b>(像账户/成员那样做成一个切换器,同一份数据换个切法)——
+            并列的好处是结构更简单,坏处是<b>回避了「两个合计为什么不一样大」这个真问题</b>,用户还得自己想。</li>
+        <li><b>年缴 / 季缴要不要加第四类。</b>保险、学费这种会砸在单个月上:复发、砍不掉,所以按判据是刚性,
+            但摊在那一个月会让那个月看着突然贵了。<b>甲</b> 不管,三类到底(简单,但那个月的常态月均确实偏高);
+            <b>乙</b> 加第四类「非月度周期性」(Monarch 的做法,准,但判断负担从 2 问变 3 问);
+            <b>丙</b> 不加类,但在年缴月给一行提示(折中)。我倾向<b>甲</b> —— 这一版已经够满了,而且这个误差是<b>偏保守</b>的方向。</li>
+        <li><b>双读数 vs 直接换口径。</b>我选了双读数。如果你认为常态月均本来就是更对的那个口径、该直接换 ——
+            那就是一次真正的口径变更,要走「默认关 + 零差异基线 + 页面写明口径期」的完整流程。</li>
+        <li><b>逐笔「一次性」勾要不要做。</b>它是本版唯一增加录入动作的东西(一年 3–5 次)。
+            没有它,「文化休闲里那笔 ¥8,600 的全家出游」只能靠改整个类目的性质来处理 —— 那是错的。</li>
       </ol>
     </div>
   </div>
