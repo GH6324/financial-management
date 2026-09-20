@@ -45,16 +45,16 @@ public class StockHoldingService {
 
     public List<StockHolding> findActiveByAccount(long familyId, long accountId) {
         requireHoldingAccount(familyId, accountId);
-        return holdingMapper.findActiveByAccount(accountId);
+        return holdingMapper.findActiveByAccount(familyId, accountId);
     }
 
     public List<StockHolding> findAllByAccount(long familyId, long accountId) {
         requireHoldingAccount(familyId, accountId);
-        return holdingMapper.findAllByAccount(accountId);
+        return holdingMapper.findAllByAccount(familyId, accountId);
     }
 
     public StockHolding require(long familyId, long holdingId) {
-        StockHolding h = holdingMapper.findById(holdingId)
+        StockHolding h = holdingMapper.findById(familyId, holdingId)
             .orElseThrow(() -> new IllegalArgumentException("持仓不存在: " + holdingId));
         // 校验账户属于家庭
         Account acc = accountMapper.findById(h.getAccountId())
@@ -69,7 +69,7 @@ public class StockHoldingService {
     @Transactional
     public void updateIndustry(long familyId, long holdingId, String industryTag) {
         require(familyId, holdingId);
-        holdingMapper.updateIndustry(holdingId, industryTag);
+        holdingMapper.updateIndustry(familyId, holdingId, industryTag);
     }
 
     @Transactional
@@ -108,7 +108,7 @@ public class StockHoldingService {
             .currency(holdingCcy)
             .cashLinked(deductCash)
             .build();
-        holdingMapper.insert(h);
+        holdingMapper.insertOwned(familyId, h);
         if (deductCash) {
             // 买入成本(持仓币种)→ FX 到账户币种 → 扣账户币种现金行(可为负)
             BigDecimal costInHoldingCcy = costBasis.multiply(shares);
@@ -144,7 +144,7 @@ public class StockHoldingService {
             .manualValueAt(LocalDateTime.now())
             .cashLinked(false)
             .build();
-        holdingMapper.insert(h);
+        holdingMapper.insertOwned(familyId, h);
         return h;
     }
 
@@ -185,7 +185,7 @@ public class StockHoldingService {
             .unit(u)
             .cashLinked(false)
             .build();
-        holdingMapper.insert(h);
+        holdingMapper.insertOwned(familyId, h);
         return h;
     }
 
@@ -208,7 +208,7 @@ public class StockHoldingService {
             h.setManualValue(unitValue);
         }
         h.setManualValueAt(LocalDateTime.now());
-        holdingMapper.update(h);
+        holdingMapper.update(familyId, h);
         return h;
     }
 
@@ -227,7 +227,7 @@ public class StockHoldingService {
         BigDecimal next = cur.add(deltaShares);
         if (next.signum() < 0) next = BigDecimal.ZERO;   // 冲回不至于负股
         h.setShares(next);
-        holdingMapper.update(h);
+        holdingMapper.update(familyId, h);
         return h;
     }
 
@@ -288,7 +288,7 @@ public class StockHoldingService {
             .manualValueAt(LocalDateTime.now())
             .cashLinked(false)
             .build();
-        holdingMapper.insert(h);
+        holdingMapper.insertOwned(familyId, h);
         return h;
     }
 
@@ -308,7 +308,7 @@ public class StockHoldingService {
         java.math.BigDecimal old = h.getManualValue() == null ? java.math.BigDecimal.ZERO : h.getManualValue();
         h.setManualValue(newAmount);
         h.setManualValueAt(LocalDateTime.now());
-        holdingMapper.update(h);
+        holdingMapper.update(familyId, h);
         // v0.8 Problem B:手动调现金 = 本金进出,不是投资损益。记一笔 is_adjustment 流水把这笔 Δ 从 PnL/收益率剔除。
         recordCashAdjustment(familyId, h.getAccountId(), newAmount.subtract(old));
         return h;
@@ -360,7 +360,7 @@ public class StockHoldingService {
             h.setManualValue(baseline);
         }
         h.setManualValueAt(LocalDateTime.now());
-        holdingMapper.update(h);
+        holdingMapper.update(familyId, h);
         return h;
     }
 
@@ -375,7 +375,7 @@ public class StockHoldingService {
                 adjustAccountCash(familyId, h.getAccountId(), h.getCurrency(), proceeds);
             }
         }
-        holdingMapper.archive(holdingId);
+        holdingMapper.archive(familyId, holdingId);
     }
 
     /** 卖出收回金额(持仓币种)= 股数 × 当前市价;无价时退回成本价。 */
@@ -398,7 +398,7 @@ public class StockHoldingService {
             ? account.getCurrency().toUpperCase(Locale.ROOT) : fromCcy;
         BigDecimal deltaInAcctCcy = fxConvert(familyId, deltaInFromCcy, fromCcy, acctCcy);
 
-        StockHolding cashRow = holdingMapper.findActiveByAccount(accountId).stream()
+        StockHolding cashRow = holdingMapper.findActiveByAccount(familyId, accountId).stream()
             .filter(x -> x.getValuationMode() == ValuationMode.CASH
                 && acctCcy.equalsIgnoreCase(x.getCurrency()))
             .findFirst().orElse(null);
@@ -406,7 +406,7 @@ public class StockHoldingService {
             BigDecimal base = cashRow.getManualValue() == null ? BigDecimal.ZERO : cashRow.getManualValue();
             cashRow.setManualValue(base.add(deltaInAcctCcy).setScale(2, java.math.RoundingMode.HALF_EVEN));
             cashRow.setManualValueAt(LocalDateTime.now());
-            holdingMapper.update(cashRow);
+            holdingMapper.update(familyId, cashRow);
         } else {
             StockHolding row = StockHolding.builder()
                 .accountId(accountId)
@@ -417,7 +417,7 @@ public class StockHoldingService {
                 .manualValueAt(LocalDateTime.now())
                 .cashLinked(false)
                 .build();
-            holdingMapper.insert(row);
+            holdingMapper.insertOwned(familyId, row);
         }
     }
 
@@ -440,13 +440,13 @@ public class StockHoldingService {
 
     @Transactional
     public void restore(long familyId, long holdingId) {
-        StockHolding h = holdingMapper.findById(holdingId).orElseThrow(
+        StockHolding h = holdingMapper.findById(familyId, holdingId).orElseThrow(
             () -> new IllegalArgumentException("持仓不存在: " + holdingId));
         Account acc = accountMapper.findById(h.getAccountId()).orElseThrow();
         if (!acc.getFamilyId().equals(familyId)) {
             throw new IllegalArgumentException("无权访问持仓");
         }
-        holdingMapper.restore(holdingId);
+        holdingMapper.restore(familyId, holdingId);
     }
 
     // ---------- 校验 ----------
@@ -484,7 +484,7 @@ public class StockHoldingService {
 
     /** 同上 · 自己查持仓的便捷重载(调用方手上没有持仓列表时用)。 */
     public boolean valuationManaged(com.family.finance.domain.account.Account acc) {
-        return acc != null && valuationManaged(acc.getType(), holdingMapper.findActiveByAccount(acc.getId()));
+        return acc != null && valuationManaged(acc.getType(), holdingMapper.findActiveByAccount(acc.getFamilyId(), acc.getId()));
     }
 
     public static boolean supportsHoldings(AccountType type) {

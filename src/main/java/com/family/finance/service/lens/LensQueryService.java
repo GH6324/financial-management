@@ -222,7 +222,7 @@ public class LensQueryService {
                            语义系统定死:现金活钱 · 货币基金/存款 · 低风险 · 灵活取用(打标页只读展示,不可改) */
                         // v1.5 · 穿透:非现金持仓若有持仓方向 → 按权重拆成多头寸(旭日/透视自然出真实分布)
                         java.util.List<com.family.finance.domain.penetration.HoldingAllocation> allocs =
-                                cashRow ? null : allocMapper.findByHolding(h.getId());
+                                cashRow ? null : allocMapper.findByHolding(familyId, h.getId());
                         if (allocs != null && !allocs.isEmpty()) {
                             /* v1.20 · 【余数归位】把逐份四舍五入的零头补回去。
                              *

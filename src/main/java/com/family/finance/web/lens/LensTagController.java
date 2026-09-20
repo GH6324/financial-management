@@ -133,7 +133,7 @@ public class LensTagController {
         boolean own = tree(me.getFamilyId()).stream().flatMap(n -> n.holdings().stream())
                 .anyMatch(h -> h.getId() == holdingId);
         if (own) {
-            penetrationService.penetrateHolding(holdingId);
+            penetrationService.penetrateHolding(me.getFamilyId(), holdingId);
             lensQueryService.evict(me.getFamilyId());
         }
         return "redirect:/lens/tags?penetrated=1";
@@ -174,7 +174,7 @@ public class LensTagController {
         Map<Long, List<AllocView>> allocsByHolding = new LinkedHashMap<>();
         for (TreeNode n : tree) {
             for (StockHolding h : n.holdings()) {
-                var list = allocMapper.findByHolding(h.getId());
+                var list = allocMapper.findByHolding(me.getFamilyId(), h.getId());
                 if (list == null || list.isEmpty()) continue;
                 List<AllocView> views = new java.util.ArrayList<>();
                 for (var a : list) {

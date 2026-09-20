@@ -209,7 +209,7 @@ public class HoldingImportService {
             try { tags = tagService.available(FAMILY_ID) ? tagService.suggest(FAMILY_ID, names) : Map.of(); }
             catch (Exception e) { tags = Map.of(); }
             // 4. 三态匹配(只比对本账户 SCREENSHOT 活持仓)
-            List<StockHolding> existing = holdingMapper.findActiveByAccount(imp.getAccountId()).stream()
+            List<StockHolding> existing = holdingMapper.findActiveByAccount(imp.getFamilyId(), imp.getAccountId()).stream()
                     .filter(h -> SYNC_SOURCE.equals(h.getSyncSource()))
                     .collect(Collectors.toList());
             Map<String, StockHolding> existingByKey = new LinkedHashMap<>();
@@ -282,7 +282,7 @@ public class HoldingImportService {
             switch (it.getMatchState()) {
                 case HoldingImportItem.NEW -> {
                     if (it.getMarketValue() == null) break;
-                    holdingMapper.insert(StockHolding.builder()
+                    holdingMapper.insertOwned(imp.getFamilyId(), StockHolding.builder()
                             .accountId(imp.getAccountId()).displayName(it.getParsedName())
                             .valuationMode(ValuationMode.MANUAL).shares(BigDecimal.ONE)
                             .manualValue(it.getMarketValue()).manualValueAt(LocalDateTime.now())
@@ -292,18 +292,18 @@ public class HoldingImportService {
                 }
                 case HoldingImportItem.UPDATE -> {
                     if (it.getMatchedHid() == null || it.getMarketValue() == null) break;
-                    holdingMapper.findById(it.getMatchedHid()).ifPresent(h -> {
+                    holdingMapper.findById(imp.getFamilyId(), it.getMatchedHid()).ifPresent(h -> {
                         h.setManualValue(it.getMarketValue());
                         h.setShares(BigDecimal.ONE);
                         h.setManualValueAt(LocalDateTime.now());
                         if (it.getIndustryTag() != null) h.setIndustryTag(it.getIndustryTag());
                         if (it.getAssetClassTag() != null) h.setAssetClassTag(it.getAssetClassTag());
-                        holdingMapper.update(h);
+                        holdingMapper.update(imp.getFamilyId(), h);
                     });
                 }
                 case HoldingImportItem.SOLD -> {
                     if (HoldingImportItem.ARCHIVE.equals(it.getUserDecision()) && it.getMatchedHid() != null) {
-                        holdingMapper.archive(it.getMatchedHid());
+                        holdingMapper.archive(imp.getFamilyId(), it.getMatchedHid());
                     }
                 }
                 default -> { }

@@ -19,6 +19,9 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -50,7 +53,7 @@ class StockManualSharesTest {
     void createManual_storesSharesAndUnitValue() {
         svc.createManual(1L, 10L, "字节跳动 RSU", new BigDecimal("2000"), new BigDecimal("240"));
         ArgumentCaptor<StockHolding> cap = ArgumentCaptor.forClass(StockHolding.class);
-        verify(holdingMapper).insert(cap.capture());
+        verify(holdingMapper).insertOwned(eq(1L), cap.capture());
         StockHolding h = cap.getValue();
         assertThat(h.getValuationMode()).isEqualTo(ValuationMode.MANUAL);
         assertThat(h.getShares()).isEqualByComparingTo("2000");
@@ -65,7 +68,7 @@ class StockManualSharesTest {
     void createManual_preservesHighPrecisionUnitValue() {
         svc.createManual(1L, 10L, "字节跳动 RSU", new BigDecimal("2000"), new BigDecimal("15.678"));
         ArgumentCaptor<StockHolding> cap = ArgumentCaptor.forClass(StockHolding.class);
-        verify(holdingMapper).insert(cap.capture());
+        verify(holdingMapper).insertOwned(eq(1L), cap.capture());
         assertThat(cap.getValue().getManualValue())
                 .isEqualByComparingTo("15.678")
                 .extracting(BigDecimal::scale).isEqualTo(3);   // 未被压到 2 位
@@ -76,10 +79,10 @@ class StockManualSharesTest {
         StockHolding h = StockHolding.builder().id(50L).accountId(10L)
                 .valuationMode(ValuationMode.MANUAL).shares(new BigDecimal("2000"))
                 .manualValue(new BigDecimal("240")).build();
-        when(holdingMapper.findById(50L)).thenReturn(Optional.of(h));
+        when(holdingMapper.findById(1L, 50L)).thenReturn(Optional.of(h));
         svc.updateManual(1L, 50L, null, new BigDecimal("2.3456"));
         ArgumentCaptor<StockHolding> cap = ArgumentCaptor.forClass(StockHolding.class);
-        verify(holdingMapper).update(cap.capture());
+        verify(holdingMapper).update(eq(1L), cap.capture());
         assertThat(cap.getValue().getManualValue())
                 .isEqualByComparingTo("2.3456")
                 .extracting(BigDecimal::scale).isEqualTo(4);
@@ -96,10 +99,10 @@ class StockManualSharesTest {
         StockHolding h = StockHolding.builder().id(50L).accountId(10L)
                 .valuationMode(ValuationMode.MANUAL).shares(new BigDecimal("2000"))
                 .manualValue(new BigDecimal("240")).build();
-        when(holdingMapper.findById(50L)).thenReturn(Optional.of(h));
+        when(holdingMapper.findById(1L, 50L)).thenReturn(Optional.of(h));
         svc.addShares(1L, 50L, new BigDecimal("250"));
         ArgumentCaptor<StockHolding> cap = ArgumentCaptor.forClass(StockHolding.class);
-        verify(holdingMapper).update(cap.capture());
+        verify(holdingMapper).update(eq(1L), cap.capture());
         assertThat(cap.getValue().getShares()).isEqualByComparingTo("2250");
     }
 
@@ -108,10 +111,10 @@ class StockManualSharesTest {
         StockHolding h = StockHolding.builder().id(50L).accountId(10L)
                 .valuationMode(ValuationMode.MANUAL).shares(new BigDecimal("100"))
                 .manualValue(new BigDecimal("10")).build();
-        when(holdingMapper.findById(50L)).thenReturn(Optional.of(h));
+        when(holdingMapper.findById(1L, 50L)).thenReturn(Optional.of(h));
         svc.addShares(1L, 50L, new BigDecimal("-250"));   // 冲回超量 → 夹到 0
         ArgumentCaptor<StockHolding> cap = ArgumentCaptor.forClass(StockHolding.class);
-        verify(holdingMapper).update(cap.capture());
+        verify(holdingMapper).update(eq(1L), cap.capture());
         assertThat(cap.getValue().getShares()).isEqualByComparingTo("0");
     }
 
@@ -147,10 +150,10 @@ class StockManualSharesTest {
         StockHolding h = StockHolding.builder().id(53L).accountId(10L)
                 .valuationMode(ValuationMode.AUTO).ticker("BABA").market(Market.US)
                 .currency("USD").shares(new BigDecimal("100")).build();
-        when(holdingMapper.findById(53L)).thenReturn(Optional.of(h));
+        when(holdingMapper.findById(1L, 53L)).thenReturn(Optional.of(h));
         svc.convertToManual(1L, 53L, new BigDecimal("8000"));   // 整笔 8000 / 100 股 = 单股 80
         ArgumentCaptor<StockHolding> cap = ArgumentCaptor.forClass(StockHolding.class);
-        verify(holdingMapper).update(cap.capture());
+        verify(holdingMapper).update(eq(1L), cap.capture());
         StockHolding out = cap.getValue();
         assertThat(out.getValuationMode()).isEqualTo(ValuationMode.MANUAL);
         assertThat(out.getShares()).isEqualByComparingTo("100");

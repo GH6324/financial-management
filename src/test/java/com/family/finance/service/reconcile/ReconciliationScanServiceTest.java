@@ -90,7 +90,7 @@ class ReconciliationScanServiceTest {
         a.setType(type);
         a.setCurrency("CNY");
         when(accountMapper.findActiveByFamily(anyLong())).thenReturn(List.of(a));
-        when(holdingMapper.findActiveByAccount(anyLong())).thenReturn(holdings);
+        when(holdingMapper.findActiveByAccount(anyLong(), anyLong())).thenReturn(holdings);
         when(eventMapper.findEventsForReconcile(anyLong())).thenReturn(events);
         when(eventMapper.findFlowsForReconcile(anyLong())).thenReturn(flows);
         when(configService.getDouble(anyLong(), anyString(), anyDouble())).thenReturn(0.01);
@@ -304,7 +304,7 @@ class ReconciliationScanServiceTest {
         f.setId(FAM); f.setPeriodType(PeriodType.MONTHLY); f.setBaseCurrency("CNY");
         when(familyMapper.findById(anyLong())).thenReturn(java.util.Optional.of(f));
         when(accountMapper.findActiveByFamily(anyLong())).thenReturn(List.of(a1, a2));
-        when(holdingMapper.findActiveByAccount(anyLong())).thenReturn(holdings());
+        when(holdingMapper.findActiveByAccount(anyLong(), anyLong())).thenReturn(holdings());
         when(configService.getDouble(anyLong(), anyString(), anyDouble())).thenReturn(0.01);
         when(auditMapper.findByFamily(anyLong(), anyString(), org.mockito.ArgumentMatchers.anyInt()))
                 .thenReturn(List.of());

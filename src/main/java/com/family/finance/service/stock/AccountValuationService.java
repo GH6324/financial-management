@@ -135,7 +135,7 @@ public class AccountValuationService {
         List<Account> accounts = accountMapper.findActiveByFamily(familyId);
         int refreshed = 0;
         for (Account acc : accounts) {
-            List<StockHolding> holdings = holdingMapper.findActiveByAccount(acc.getId());
+            List<StockHolding> holdings = holdingMapper.findActiveByAccount(acc.getFamilyId(), acc.getId());
             // backward compat 红线:无 holding 的老账户不接管 · 用户继续手填。
             // v1.18.1 · 判据收口到 StockHoldingService.valuationManaged —— 录入侧要用同一条
             // (「余额变动该不该落到现金行」必须和「估值会不会覆盖这张快照」是同一个判断)。
@@ -178,7 +178,7 @@ public class AccountValuationService {
         if (currentOpen == null) return;
         Account acc = accountMapper.findById(accountId).orElse(null);
         if (acc == null) return;
-        List<StockHolding> holdings = holdingMapper.findActiveByAccount(accountId);
+        List<StockHolding> holdings = holdingMapper.findActiveByAccount(familyId, accountId);
         // 红线:无持仓不接管 · v1.18.1 判据与录入侧同源(见 StockHoldingService.valuationManaged)
         if (!StockHoldingService.valuationManaged(acc.getType(), holdings)) return;
         ValuationResult r = valuateInternal(acc);
@@ -283,7 +283,7 @@ public class AccountValuationService {
     // ---------- 内部 ----------
 
     private ValuationResult valuateInternal(Account acc) {
-        List<StockHolding> holdings = holdingMapper.findActiveByAccount(acc.getId());
+        List<StockHolding> holdings = holdingMapper.findActiveByAccount(acc.getFamilyId(), acc.getId());
         if (holdings.isEmpty()) {
             return new ValuationResult(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0, 0);
         }
@@ -455,7 +455,7 @@ public class AccountValuationService {
      * AUTO   = 最新价×股数(METAL 每克归一)经 FX → 账户币种,缺价按 0 计(与 valuateInternal 的账户合计口径一致),成本可空。
      */
     public List<HoldingLine> perHoldingLines(Account acc) {
-        List<StockHolding> holdings = holdingMapper.findActiveByAccount(acc.getId());
+        List<StockHolding> holdings = holdingMapper.findActiveByAccount(acc.getFamilyId(), acc.getId());
         List<HoldingLine> out = new java.util.ArrayList<>();
         for (StockHolding h : holdings) {
             BigDecimal value = BigDecimal.ZERO;

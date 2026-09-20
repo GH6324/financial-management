@@ -14,6 +14,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.when;
  */
 class BrokerReconcileTest {
 
+    private static final long FAM = 1L;
     private static final long ACC = 10L;
 
     private StockHolding h(long id, ValuationMode mode, String ticker, Market market,
@@ -54,7 +56,7 @@ class BrokerReconcileTest {
         StockHolding manual      = h(3, ValuationMode.MANUAL, null, null, "CNY", null);        // 用户手填 → 不可碰
         StockHolding synced_cash = h(4, ValuationMode.CASH,  null, null, "USD", "FUTU");        // 现金更新
 
-        when(hm.findActiveByAccount(ACC)).thenReturn(List.of(synced_aapl, synced_old, manual, synced_cash));
+        when(hm.findActiveByAccount(FAM, ACC)).thenReturn(List.of(synced_aapl, synced_old, manual, synced_cash));
 
         BrokerDtos.Snapshot snap = new BrokerDtos.Snapshot(
                 List.of(new BrokerDtos.Position("US", "AAPL", "苹果", BigDecimal.valueOf(20), BigDecimal.valueOf(95), "USD", true),
@@ -63,15 +65,15 @@ class BrokerReconcileTest {
                         new BrokerDtos.Cash("HKD", BigDecimal.valueOf(8600))),
                 2 /* skippedNonEquity */);
 
-        String summary = svc(hm).reconcile(ACC, BrokerVendor.FUTU, snap);
+        String summary = svc(hm).reconcile(FAM, ACC, BrokerVendor.FUTU, snap);
 
         // 新增:NVDA + HKD 现金 = 2;更新:AAPL + USD 现金 = 2;归档:OLD = 1
-        verify(hm, times(2)).insert(any());
-        verify(hm).update(synced_aapl);
-        verify(hm).update(synced_cash);
-        verify(hm).archive(2L);
+        verify(hm, times(2)).insertOwned(anyLong(), any());
+        verify(hm).update(FAM, synced_aapl);
+        verify(hm).update(FAM, synced_cash);
+        verify(hm).archive(FAM, 2L);
         // 关键护栏:用户手填持仓(id=3)绝不被归档/更新
-        verify(hm, never()).archive(3L);
+        verify(hm, never()).archive(FAM, 3L);
         assertThat(summary).contains("新增 2").contains("更新 2").contains("归档 1").contains("跳过期权/期货 2");
         // AAPL 更新为券商新股数/成本
         assertThat(synced_aapl.getShares()).isEqualByComparingTo("20");
@@ -85,12 +87,12 @@ class BrokerReconcileTest {
         StockHoldingMapper hm = mock(StockHoldingMapper.class);
         // 该账户只有一条 TIGER 同步行,现在跑 FUTU 对账 → 不应碰它
         StockHolding tigerRow = h(9, ValuationMode.AUTO, "AAPL", Market.US, "USD", "TIGER");
-        when(hm.findActiveByAccount(ACC)).thenReturn(List.of(tigerRow));
+        when(hm.findActiveByAccount(FAM, ACC)).thenReturn(List.of(tigerRow));
 
         BrokerDtos.Snapshot empty = new BrokerDtos.Snapshot(List.of(), List.of(), 0);
-        svc(hm).reconcile(ACC, BrokerVendor.FUTU, empty);
+        svc(hm).reconcile(FAM, ACC, BrokerVendor.FUTU, empty);
 
-        verify(hm, never()).archive(9L);
-        verify(hm, never()).update(any());
+        verify(hm, never()).archive(FAM, 9L);
+        verify(hm, never()).update(anyLong(), any());
     }
 }

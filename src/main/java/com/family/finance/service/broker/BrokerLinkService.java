@@ -65,12 +65,12 @@ public class BrokerLinkService {
         }
 
         // FR-B3 · 关联前快照(审计 JSON)+ 软归档
-        List<StockHolding> existing = holdingMapper.findActiveByAccount(accountId);
+        List<StockHolding> existing = holdingMapper.findActiveByAccount(familyId, accountId);
         // summary 保持一句话(≤255);完整持仓快照放 payload_json(JSON 列),不再塞进 summary 撑爆
         auditLog.write(familyId, memberId, AuditLogType.BROKER_LINK, "account", accountId,
                 "关联 " + vendor.getLabel() + " 前快照 · " + existing.size() + " 笔持仓",
                 Map.of("preLinkHoldings", snapshotRows(existing)));
-        for (StockHolding h : existing) holdingMapper.archive(h.getId());
+        for (StockHolding h : existing) holdingMapper.archive(familyId, h.getId());
 
         linkMapper.insert(BrokerLink.builder()
                 .accountId(accountId).vendor(vendor).brokerAccountId(brokerAccountId)
@@ -101,7 +101,7 @@ public class BrokerLinkService {
         Account acc = accountMapper.findById(accountId).orElseThrow(() -> new IllegalArgumentException("账户不存在"));
         if (!acc.getFamilyId().equals(familyId)) throw new IllegalArgumentException("无权访问账户");
         linkMapper.deleteByAccount(accountId);
-        holdingMapper.clearSyncSource(accountId);
+        holdingMapper.clearSyncSource(familyId, accountId);
         auditLog.record(familyId, memberId, AuditLogType.BROKER_LINK, "account", accountId, "解绑券商");
     }
 

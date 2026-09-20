@@ -110,17 +110,17 @@ public class FundPenetrationService {
 
     /** 拉取某持仓:解析代码 → 穿透基金 → 物化 PENETRATED 方向(保留 MANUAL)· 返回穿透后状态 */
     @Transactional
-    public String penetrateHolding(long holdingId) {
-        StockHolding h = holdingMapper.findById(holdingId).orElse(null);
+    public String penetrateHolding(long familyId, long holdingId) {
+        StockHolding h = holdingMapper.findById(familyId, holdingId).orElse(null);
         if (h == null) return "NOT_FOUND";
         String code = client.resolveCode(h.getFundCode(), h.getDisplayName());
         if (code == null) {
-            holdingMapper.updatePenetrate(holdingId, null, "UNPENETRATED");
+            holdingMapper.updatePenetrate(familyId, holdingId, null, "UNPENETRATED");
             return "UNPENETRATED";
         }
         FundPenetrationCache fp = penetrateFund(code);
         if (!FundPenetrationCache.OK.equals(fp.getStatus()) || fp.getAllocJson() == null) {
-            holdingMapper.updatePenetrate(holdingId, code, "UNPENETRATED");
+            holdingMapper.updatePenetrate(familyId, holdingId, code, "UNPENETRATED");
             return "UNPENETRATED";
         }
         List<AllocPart> parts;
@@ -128,18 +128,18 @@ public class FundPenetrationService {
         catch (Exception e) { return "FAILED"; }
 
         // 保留 MANUAL,重建 PENETRATED · 预留 MANUAL 已占权重
-        int manualBp = allocMapper.manualWeightBp(holdingId);
-        allocMapper.deleteNonManual(holdingId);
+        int manualBp = allocMapper.manualWeightBp(familyId, holdingId);
+        allocMapper.deleteNonManual(familyId, holdingId);
         int budget = Math.max(0, 10000 - manualBp);
         List<AllocPart> scaled = scaleTo(parts, budget);
         for (AllocPart p : scaled) {
             if (p.weightBp() <= 0) continue;
-            allocMapper.insert(HoldingAllocation.builder()
+            allocMapper.insertOwned(familyId, HoldingAllocation.builder()
                     .holdingId(holdingId).weightBp(p.weightBp())
                     .assetClass(p.assetClass()).industry(p.industry()).kind(p.kind())
                     .source(HoldingAllocation.SRC_PENETRATED).reportPeriod(fp.getReportPeriod()).build());
         }
-        holdingMapper.updatePenetrate(holdingId, code, "RESOLVED");
+        holdingMapper.updatePenetrate(familyId, holdingId, code, "RESOLVED");
         return "RESOLVED";
     }
 
@@ -149,7 +149,7 @@ public class FundPenetrationService {
         List<Long> ids = holdingMapper.findActiveFundHoldingIdsByFamily(familyId);
         int ok = 0;
         for (Long id : ids) {
-            try { if ("RESOLVED".equals(penetrateHolding(id))) ok++; }
+            try { if ("RESOLVED".equals(penetrateHolding(familyId, id))) ok++; }
             catch (Exception e) { log.warn("穿透持仓 {} 失败 · {}", id, e.toString()); }
         }
         log.info("穿透批量 · family={} · {}/{} 支成功穿透", familyId, ok, ids.size());
@@ -159,13 +159,13 @@ public class FundPenetrationService {
     /** 单支穿透 + 组装结果(供流式逐支反馈) */
     public record PenetrateResult(long holdingId, String name, String code, String state, List<String> dirs) {}
 
-    public PenetrateResult penetrateHoldingResult(long holdingId) {
-        String name = holdingMapper.findById(holdingId).map(StockHolding::getDisplayName).orElse("?");
-        String state = penetrateHolding(holdingId);
-        String code = holdingMapper.findById(holdingId).map(StockHolding::getFundCode).orElse(null);
+    public PenetrateResult penetrateHoldingResult(long familyId, long holdingId) {
+        String name = holdingMapper.findById(familyId, holdingId).map(StockHolding::getDisplayName).orElse("?");
+        String state = penetrateHolding(familyId, holdingId);
+        String code = holdingMapper.findById(familyId, holdingId).map(StockHolding::getFundCode).orElse(null);
         List<String> dirs = new ArrayList<>();
         if ("RESOLVED".equals(state)) {
-            for (var a : allocMapper.findByHolding(holdingId)) {
+            for (var a : allocMapper.findByHolding(familyId, holdingId)) {
                 String lbl = "OTHER".equals(a.getKind()) ? "其他持仓"
                         : com.family.finance.domain.lens.IndustryTag.labelOf(a.getIndustry());
                 if (lbl == null || lbl.isBlank()) lbl = "其他";
@@ -185,7 +185,7 @@ public class FundPenetrationService {
             for (Long id : ids) {
                 i++;
                 PenetrateResult r;
-                try { r = penetrateHoldingResult(id); }
+                try { r = penetrateHoldingResult(familyId, id); }
                 catch (Exception e) { r = new PenetrateResult(id, "?", null, "FAILED", List.of()); }
                 if ("RESOLVED".equals(r.state())) resolved++;
                 String data;

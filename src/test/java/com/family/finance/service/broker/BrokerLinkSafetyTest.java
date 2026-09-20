@@ -52,7 +52,7 @@ class BrokerLinkSafetyTest {
         StockHolding existing = StockHolding.builder().id(7L).accountId(100L)
                 .valuationMode(ValuationMode.MANUAL).ticker("PRIV").market(Market.US)
                 .manualValue(BigDecimal.valueOf(5000)).currency("USD").build();
-        when(hm.findActiveByAccount(100L)).thenReturn(List.of(existing));
+        when(hm.findActiveByAccount(1L, 100L)).thenReturn(List.of(existing));
         when(sync.sync(anyLong(), anyLong(), any())).thenReturn("同步 · 新增 1 · 更新 0 · 归档 0");
 
         BrokerLinkService svc = new BrokerLinkService(lm, hm, am, audit, sync);
@@ -65,7 +65,7 @@ class BrokerLinkSafetyTest {
         // summary 一句话(≤255);完整快照进 payload_json(修 Data too long for 'summary')
         io.verify(audit).write(eq(1L), eq(2L), eq(AuditLogType.BROKER_LINK), eq("account"), eq(100L),
                 summaryCap.capture(), payloadCap.capture());
-        io.verify(hm).archive(7L);
+        io.verify(hm).archive(1L, 7L);
         io.verify(lm).insert(any(BrokerLink.class));
 
         // summary 短且含「快照」;归档前持仓明细(可供找回)落在 payload
@@ -108,7 +108,7 @@ class BrokerLinkSafetyTest {
         svc.unlink(1L, 100L, 2L);
 
         verify(lm).deleteByAccount(100L);
-        verify(hm).clearSyncSource(100L);
+        verify(hm).clearSyncSource(1L, 100L);
         verify(audit).record(eq(1L), eq(2L), eq(AuditLogType.BROKER_LINK), eq("account"), eq(100L), any());
     }
 }

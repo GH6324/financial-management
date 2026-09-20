@@ -56,7 +56,7 @@ public class BrokerSyncService {
         String summary;
         try {
             snap = clientFor(link.getVendor()).fetch(familyId, link);
-            summary = reconcile(accountId, link.getVendor(), snap);
+            summary = reconcile(familyId, accountId, link.getVendor(), snap);
         } catch (RuntimeException e) {
             // v1.17.3 · 失败也要落库:在此之前失败只写日志,页面上会一直挂着【上一次成功】的消息 ——
             // 生产上富途断了两天,页面还显示「新增 0 · 更新 7」。不动 last_synced_at(那是"最后成功"的语义)。
@@ -116,9 +116,9 @@ public class BrokerSyncService {
     /**
      * 对账:只动 sync_source=vendor 的行。返回摘要。包可见供单测。
      */
-    String reconcile(long accountId, BrokerVendor vendor, BrokerDtos.Snapshot snap) {
+    String reconcile(long familyId, long accountId, BrokerVendor vendor, BrokerDtos.Snapshot snap) {
         String src = vendor.name();
-        List<StockHolding> existing = holdingMapper.findActiveByAccount(accountId).stream()
+        List<StockHolding> existing = holdingMapper.findActiveByAccount(familyId, accountId).stream()
                 .filter(h -> src.equals(h.getSyncSource())).toList();
 
         Set<Long> keepIds = new HashSet<>();
@@ -140,7 +140,7 @@ public class BrokerSyncService {
                         && (match.getDisplayName() == null || match.getDisplayName().equalsIgnoreCase(p.ticker()))) {
                     match.setDisplayName(p.name());
                 }
-                holdingMapper.update(match);
+                holdingMapper.update(familyId, match);
                 keepIds.add(match.getId());
                 updated++;
             } else {
@@ -151,7 +151,7 @@ public class BrokerSyncService {
                         .ticker(p.ticker()).market(Market.valueOf(p.market()))
                         .shares(p.shares()).costBasis(p.costPrice()).currency(p.currency())
                         .syncSource(src).cashLinked(false).build();
-                holdingMapper.insert(h);
+                holdingMapper.insertOwned(familyId, h);
                 keepIds.add(h.getId());
                 created++;
             }
@@ -164,7 +164,7 @@ public class BrokerSyncService {
                     .findFirst().orElse(null);
             if (match != null) {
                 match.setManualValue(csh.amount());
-                holdingMapper.update(match);
+                holdingMapper.update(familyId, match);
                 keepIds.add(match.getId());
                 updated++;
             } else {
@@ -173,7 +173,7 @@ public class BrokerSyncService {
                         .valuationMode(ValuationMode.CASH)
                         .currency(csh.currency()).manualValue(csh.amount())
                         .syncSource(src).cashLinked(false).build();
-                holdingMapper.insert(h);
+                holdingMapper.insertOwned(familyId, h);
                 keepIds.add(h.getId());
                 created++;
             }
@@ -181,7 +181,7 @@ public class BrokerSyncService {
         // 券商已无 → 软归档
         int archived = 0;
         for (StockHolding h : existing) {
-            if (!keepIds.contains(h.getId())) { holdingMapper.archive(h.getId()); archived++; }
+            if (!keepIds.contains(h.getId())) { holdingMapper.archive(familyId, h.getId()); archived++; }
         }
         String summary = "同步 · 新增 " + created + " · 更新 " + updated + " · 归档 " + archived
                 + (snap.skippedNonEquity() > 0 ? " · 跳过期权/期货 " + snap.skippedNonEquity() : "");

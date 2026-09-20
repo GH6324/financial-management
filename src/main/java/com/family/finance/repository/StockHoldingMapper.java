@@ -1,6 +1,7 @@
 package com.family.finance.repository;
 
 import com.family.finance.domain.stock.StockHolding;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
@@ -13,45 +14,48 @@ import java.util.Optional;
 
 /**
  * stock_holding 表 Mapper · v0.3 FR-52。
+ *
+ * <p>v1.24 · 家庭隔离:本表没有 {@code family_id} 列,归属沿
+ * {@code stock_holding → account.family_id} 取。每条语句自己 JOIN 一次 ——
+ * 「调用方传进来的 accountId 一定是自家的」是推论不是约束,调用方会变,SQL 不会跟着变。</p>
  */
 @Mapper
 public interface StockHoldingMapper {
 
-    @Select("""
-            SELECT id, account_id, display_name, valuation_mode, ticker, market, shares,
-                   cost_basis, currency, unit, sync_source AS syncSource, industry_tag AS industryTag,
-                   asset_class_tag AS assetClassTag, risk_tag AS riskTag, liquidity_tag AS liquidityTag, manual_value, manual_value_at, cash_linked AS cashLinked, fund_code AS fundCode, penetrate_state AS penetrateState,
-                   archived_at, created_at, updated_at
-              FROM stock_holding
-             WHERE id = #{id}
-            """)
-    Optional<StockHolding> findById(@Param("id") long id);
+    /** 前后各留空格:注解 SQL 靠拼接,少一个空格就粘成 {@code SELECTh.id} */
+    String COLS = " h.id, h.account_id, h.display_name, h.valuation_mode, h.ticker, h.market, h.shares,"
+            + " h.cost_basis, h.currency, h.unit, h.sync_source AS syncSource, h.industry_tag AS industryTag,"
+            + " h.asset_class_tag AS assetClassTag, h.risk_tag AS riskTag, h.liquidity_tag AS liquidityTag,"
+            + " h.manual_value, h.manual_value_at, h.cash_linked AS cashLinked, h.fund_code AS fundCode,"
+            + " h.penetrate_state AS penetrateState, h.archived_at, h.created_at, h.updated_at ";
 
-    @Select("""
-            SELECT id, account_id, display_name, valuation_mode, ticker, market, shares,
-                   cost_basis, currency, unit, sync_source AS syncSource, industry_tag AS industryTag,
-                   asset_class_tag AS assetClassTag, risk_tag AS riskTag, liquidity_tag AS liquidityTag, manual_value, manual_value_at, cash_linked AS cashLinked, fund_code AS fundCode, penetrate_state AS penetrateState,
-                   archived_at, created_at, updated_at
-              FROM stock_holding
-             WHERE account_id = #{accountId}
-               AND archived_at IS NULL
-             ORDER BY id
-            """)
-    List<StockHolding> findActiveByAccount(@Param("accountId") long accountId);
+    @Select("SELECT" + COLS + "FROM stock_holding h"
+          + " JOIN account a ON a.id = h.account_id"
+          + " WHERE a.family_id = #{familyId} AND h.id = #{id}")
+    Optional<StockHolding> findById(@Param("familyId") long familyId, @Param("id") long id);
 
-    @Select("""
-            SELECT id, account_id, display_name, valuation_mode, ticker, market, shares,
-                   cost_basis, currency, unit, sync_source AS syncSource, industry_tag AS industryTag,
-                   asset_class_tag AS assetClassTag, risk_tag AS riskTag, liquidity_tag AS liquidityTag, manual_value, manual_value_at, cash_linked AS cashLinked, fund_code AS fundCode, penetrate_state AS penetrateState,
-                   archived_at, created_at, updated_at
-              FROM stock_holding
-             WHERE account_id = #{accountId}
-             ORDER BY archived_at IS NULL DESC, id
-            """)
-    List<StockHolding> findAllByAccount(@Param("accountId") long accountId);
+    @Select("SELECT" + COLS + "FROM stock_holding h"
+          + " JOIN account a ON a.id = h.account_id"
+          + " WHERE a.family_id = #{familyId} AND h.account_id = #{accountId}"
+          + " AND h.archived_at IS NULL ORDER BY h.id")
+    List<StockHolding> findActiveByAccount(@Param("familyId") long familyId,
+                                           @Param("accountId") long accountId);
+
+    @Select("SELECT" + COLS + "FROM stock_holding h"
+          + " JOIN account a ON a.id = h.account_id"
+          + " WHERE a.family_id = #{familyId} AND h.account_id = #{accountId}"
+          + " ORDER BY h.archived_at IS NULL DESC, h.id")
+    List<StockHolding> findAllByAccount(@Param("familyId") long familyId,
+                                        @Param("accountId") long accountId);
 
     /**
      * 跨所有家庭找全部 AUTO 持仓的不重复 (market, ticker) · 拉价 cron 用。
+     *
+     * <p><b>family_id 隔离的合法例外</b>(v1.24 普查登记):这条<b>故意</b>跨家庭 ——
+     * 它回答的是「今天要去拉哪些股票的价」,返回值只有 {@code (ticker, market)} 这对
+     * <b>公开行情键</b>,不含金额、不含持仓量、不含任何能指回某个家庭的东西。
+     * 按家庭拆开跑只会把同一只票拉很多遍。
+     * 例外清单由护栏 {@code v1240-FAMILY-ISOLATION} 钉死,新增例外必须同时改护栏。</p>
      */
     @Select("""
             SELECT DISTINCT ticker, market
@@ -63,57 +67,83 @@ public interface StockHoldingMapper {
             """)
     List<TickerMarket> findDistinctAutoTickersByMarket(@Param("market") String market);
 
+    /** 账户必须属于这个家才真的插入;不符 = 影响行数 0,由 {@link #insertOwned} 抛出来 */
     @Insert("""
             INSERT INTO stock_holding (account_id, display_name, valuation_mode, ticker, market, shares,
                                        cost_basis, currency, unit, sync_source, industry_tag,
                                        asset_class_tag, risk_tag, liquidity_tag, manual_value, manual_value_at, cash_linked)
-            VALUES (#{accountId}, #{displayName}, #{valuationMode}, #{ticker}, #{market}, #{shares},
-                    #{costBasis}, #{currency}, #{unit}, #{syncSource}, #{industryTag},
-                    #{assetClassTag}, #{riskTag}, #{liquidityTag}, #{manualValue}, #{manualValueAt}, #{cashLinked})
+            SELECT #{h.accountId}, #{h.displayName}, #{h.valuationMode}, #{h.ticker}, #{h.market}, #{h.shares},
+                   #{h.costBasis}, #{h.currency}, #{h.unit}, #{h.syncSource}, #{h.industryTag},
+                   #{h.assetClassTag}, #{h.riskTag}, #{h.liquidityTag}, #{h.manualValue}, #{h.manualValueAt}, #{h.cashLinked}
+              FROM account a
+             WHERE a.id = #{h.accountId} AND a.family_id = #{familyId}
             """)
-    @Options(useGeneratedKeys = true, keyProperty = "id")
-    int insert(StockHolding holding);
+    @Options(useGeneratedKeys = true, keyProperty = "h.id")
+    int insert(@Param("familyId") long familyId, @Param("h") StockHolding holding);
+
+    /** 带归属断言的插入 —— 业务代码一律用这个 */
+    default void insertOwned(long familyId, StockHolding holding) {
+        if (insert(familyId, holding) != 1) {
+            throw new IllegalStateException("持仓归属校验不通过:账户 " + holding.getAccountId()
+                    + " 不属于家庭 " + familyId);
+        }
+    }
 
     @Update("""
-            UPDATE stock_holding
-               SET display_name = #{displayName},
-                   valuation_mode = #{valuationMode},
-                   ticker = #{ticker},
-                   market = #{market},
-                   shares = #{shares},
-                   cost_basis = #{costBasis},
-                   currency = #{currency},
-                   unit = #{unit},
-                   sync_source = #{syncSource},
-                   industry_tag = #{industryTag},
-                   asset_class_tag = #{assetClassTag},
-                   risk_tag = #{riskTag},
-                   liquidity_tag = #{liquidityTag},
-                   manual_value = #{manualValue},
-                   manual_value_at = #{manualValueAt},
-                   cash_linked = #{cashLinked}
-             WHERE id = #{id}
-               AND archived_at IS NULL
+            UPDATE stock_holding h
+              JOIN account a ON a.id = h.account_id
+               SET h.display_name = #{h.displayName},
+                   h.valuation_mode = #{h.valuationMode},
+                   h.ticker = #{h.ticker},
+                   h.market = #{h.market},
+                   h.shares = #{h.shares},
+                   h.cost_basis = #{h.costBasis},
+                   h.currency = #{h.currency},
+                   h.unit = #{h.unit},
+                   h.sync_source = #{h.syncSource},
+                   h.industry_tag = #{h.industryTag},
+                   h.asset_class_tag = #{h.assetClassTag},
+                   h.risk_tag = #{h.riskTag},
+                   h.liquidity_tag = #{h.liquidityTag},
+                   h.manual_value = #{h.manualValue},
+                   h.manual_value_at = #{h.manualValueAt},
+                   h.cash_linked = #{h.cashLinked}
+             WHERE a.family_id = #{familyId}
+               AND h.id = #{h.id}
+               AND h.archived_at IS NULL
             """)
-    int update(StockHolding holding);
+    int update(@Param("familyId") long familyId, @Param("h") StockHolding holding);
 
-    @Update("UPDATE stock_holding SET archived_at = NOW(3) WHERE id = #{id} AND archived_at IS NULL")
-    int archive(@Param("id") long id);
+    @Update("UPDATE stock_holding h JOIN account a ON a.id = h.account_id"
+          + " SET h.archived_at = NOW(3)"
+          + " WHERE a.family_id = #{familyId} AND h.id = #{id} AND h.archived_at IS NULL")
+    int archive(@Param("familyId") long familyId, @Param("id") long id);
 
     /** v0.15 · 解绑券商:把该账户所有 sync_source 持仓清为普通持仓(保留可手动维护) */
-    @Update("UPDATE stock_holding SET sync_source = NULL WHERE account_id = #{accountId} AND sync_source IS NOT NULL")
-    int clearSyncSource(@Param("accountId") long accountId);
+    @Update("UPDATE stock_holding h JOIN account a ON a.id = h.account_id"
+          + " SET h.sync_source = NULL"
+          + " WHERE a.family_id = #{familyId} AND h.account_id = #{accountId}"
+          + " AND h.sync_source IS NOT NULL")
+    int clearSyncSource(@Param("familyId") long familyId, @Param("accountId") long accountId);
 
-    @Update("UPDATE stock_holding SET archived_at = NULL WHERE id = #{id} AND archived_at IS NOT NULL")
-    int restore(@Param("id") long id);
+    @Update("UPDATE stock_holding h JOIN account a ON a.id = h.account_id"
+          + " SET h.archived_at = NULL"
+          + " WHERE a.family_id = #{familyId} AND h.id = #{id} AND h.archived_at IS NOT NULL")
+    int restore(@Param("familyId") long familyId, @Param("id") long id);
 
     /** v1.1 · 单改行业标(持仓页行内下拉 · 资产透视维度) */
-    @Update("UPDATE stock_holding SET industry_tag = #{industryTag} WHERE id = #{id}")
-    int updateIndustry(@Param("id") long id, @Param("industryTag") String industryTag);
+    @Update("UPDATE stock_holding h JOIN account a ON a.id = h.account_id"
+          + " SET h.industry_tag = #{industryTag}"
+          + " WHERE a.family_id = #{familyId} AND h.id = #{id}")
+    int updateIndustry(@Param("familyId") long familyId,
+                       @Param("id") long id, @Param("industryTag") String industryTag);
 
     /** v1.5 · 穿透后回写代码 + 状态 */
-    @Update("UPDATE stock_holding SET fund_code = #{fundCode}, penetrate_state = #{state} WHERE id = #{id}")
-    int updatePenetrate(@Param("id") long id, @Param("fundCode") String fundCode, @Param("state") String state);
+    @Update("UPDATE stock_holding h JOIN account a ON a.id = h.account_id"
+          + " SET h.fund_code = #{fundCode}, h.penetrate_state = #{state}"
+          + " WHERE a.family_id = #{familyId} AND h.id = #{id}")
+    int updatePenetrate(@Param("familyId") long familyId, @Param("id") long id,
+                        @Param("fundCode") String fundCode, @Param("state") String state);
 
     /** v1.5 · 某家庭全部活持仓(穿透批量拉取用)· 关联账户过滤 family */
     @Select("""

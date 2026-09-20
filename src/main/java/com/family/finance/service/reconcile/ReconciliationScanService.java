@@ -140,7 +140,7 @@ public class ReconciliationScanService {
         // ① 谁是「估值托管」账户 —— 判据与录入/估值同源(StockHoldingService.valuationManaged)
         Map<Long, Account> managed = new HashMap<>();
         for (Account a : accountMapper.findActiveByFamily(familyId)) {
-            if (StockHoldingService.valuationManaged(a.getType(), holdingMapper.findActiveByAccount(a.getId()))) {
+            if (StockHoldingService.valuationManaged(a.getType(), holdingMapper.findActiveByAccount(a.getFamilyId(), a.getId()))) {
                 managed.put(a.getId(), a);
             }
         }

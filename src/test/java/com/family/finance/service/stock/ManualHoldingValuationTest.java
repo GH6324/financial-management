@@ -61,7 +61,7 @@ class ManualHoldingValuationTest {
     void manualValuation_isSharesTimesUnit() {
         StockHolding h = StockHolding.builder().accountId(10L).valuationMode(ValuationMode.MANUAL)
                 .shares(new BigDecimal("2000")).manualValue(new BigDecimal("240")).build();
-        when(holdingMapper.findActiveByAccount(10L)).thenReturn(List.of(h));
+        when(holdingMapper.findActiveByAccount(1L, 10L)).thenReturn(List.of(h));
         var r = svc.valuate(1L, 10L);
         assertThat(r.manualBaseValue()).isEqualByComparingTo("480000");   // 2000 × 240
         assertThat(r.totalBaseValue()).isEqualByComparingTo("480000");
@@ -72,7 +72,7 @@ class ManualHoldingValuationTest {
         // 迁移前老数据:shares=NULL,manual_value=整笔市值 → 兜底 1 股 → 总值不变
         StockHolding h = StockHolding.builder().accountId(10L).valuationMode(ValuationMode.MANUAL)
                 .shares(null).manualValue(new BigDecimal("480000")).build();
-        when(holdingMapper.findActiveByAccount(10L)).thenReturn(List.of(h));
+        when(holdingMapper.findActiveByAccount(1L, 10L)).thenReturn(List.of(h));
         var r = svc.valuate(1L, 10L);
         assertThat(r.totalBaseValue()).isEqualByComparingTo("480000");
     }
@@ -84,7 +84,7 @@ class ManualHoldingValuationTest {
         StockHolding h = StockHolding.builder().accountId(10L).valuationMode(ValuationMode.AUTO)
                 .ticker("BTC").market(Market.CRYPTO).currency("USD")
                 .shares(new BigDecimal("0.5")).build();
-        when(holdingMapper.findActiveByAccount(10L)).thenReturn(List.of(h));
+        when(holdingMapper.findActiveByAccount(1L, 10L)).thenReturn(List.of(h));
         when(priceMapper.findLatest("BTC", "CRYPTO")).thenReturn(Optional.of(
                 StockPriceSnapshot.builder()
                         .ticker("BTC")
