@@ -139,6 +139,26 @@
           建议转货币基金(2%+ 年化)避免活期闲置。
         </p>
       </div>
+      <!--/* v1.24 FR-651 · 并列给出「按常态月均」的第二个读数,并说清差额由几笔一次性支出造成。
+             【上面的主判定不变】—— 建议引擎读的还是按月均支出算的那个。
+             换判定分母会让所有现存用户的「应急金够不够」结论一夜之间改变,而他们什么都没做。
+             支出分析关掉 / 没有逐笔数据 → 这一块整个不出现。 */-->
+      <div th:if="${normalExpense != null and normalExpense.differs()}"
+           class="border-t border-rule-soft mt-4 pt-3">
+        <span class="font-mono text-[10px] text-ink-subtle">按 · 常 · 态 · 月 · 均</span>
+        <p class="text-xs text-ink-soft mt-1">
+          剔掉
+          <a th:href="@{/reports/expense/one-off}" class="text-brass-deep hover:underline"
+             th:text="${normalExpense.oneOffCount()} + ' 笔一次性支出'">3 笔一次性支出</a>
+          之后,月均是
+          <b class="tnum" data-priv
+             th:text="'¥' + ${#numbers.formatInteger(normalExpense.normalBase(), 0, 'COMMA')}">¥9,100</b>
+          —— 按它算,流动资产够
+          <b class="tnum"
+             th:text="${normalCoverMonths != null} ? ${#numbers.formatDecimal(normalCoverMonths, 1, 'COMMA', 1, 'POINT')} + ' 个月' : '—'">11.6 个月</b>。
+          <span class="text-ink-subtle">两个数都给,你自己判断哪个更贴近你家的情况。</span>
+        </p>
+      </div>
       <div class="border-t border-rule-soft mt-4 pt-3 text-xs text-ink-soft">
         建议:紧急储备应 ≥ 3 个月家庭支出(现金 + 货币基金等流动资产计入)。
       </div>

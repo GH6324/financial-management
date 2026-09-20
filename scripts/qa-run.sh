@@ -5842,18 +5842,18 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
 # v18-MIX-COMPOSITION · 支出构成段 + 长文目录同步 + 数字直接标在图上
 #   memory feedback_toc_sync:加 section 必须同步该页长文目录,否则锚点漏节。
 #   memory feedback_chart_datalabels:金额/百分比必须绘在图上,hover tooltip 不算。
-{ [[ -f "$RD/src/main/resources/templates/reports/_expense-mix.html" ]] \
-  && grep -q 'id="sec-expense-mix"' "$RD/src/main/resources/templates/reports/_expense-mix.html" \
-  && grep -q "ChartDataLabels" "$RD/src/main/resources/templates/reports/_expense-mix.html" \
-  && grep -q "datalabels" "$RD/src/main/resources/templates/reports/_expense-mix.html" \
-  && grep -q "reports/_expense-mix :: section" "$RD/src/main/resources/templates/reports/index.html" \
+{ [[ -f "$RD/src/main/resources/templates/reports/_expense-section.html" ]] \
+  && grep -q 'id="sec-expense-mix"' "$RD/src/main/resources/templates/reports/_expense-section.html" \
+  && grep -q "ChartDataLabels" "$RD/src/main/resources/templates/reports/_expense-section.html" \
+  && grep -q "datalabels" "$RD/src/main/resources/templates/reports/_expense-section.html" \
+  && grep -q "reports/_expense-section :: section" "$RD/src/main/resources/templates/reports/index.html" \
   && grep -q "sec-expense-mix" "$RD/src/main/resources/templates/reports/index.html" \
   && grep -q "expenseBreakdown" "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
   && grep -q "expenseBreakdownDetail" "$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java" \
   && grep -q "reports/expense-mix/detail" "$RD/src/main/java/com/family/finance/web/report/ReportsController.java" \
   && grep -q "mixEnabled" "$RD/src/main/java/com/family/finance/web/report/ReportsController.java"; } \
   && log_ok "v18-MIX-COMPOSITION(支出构成段 + 目录锚点同步 + datalabels + 明细抽屉)" \
-  || log_bad "v18-MIX-COMPOSITION 缺件" "_expense-mix.html 存在且挂进 reports/index + tocItems 含 #sec-expense-mix + datalabels + detail 端点"
+  || log_bad "v18-MIX-COMPOSITION 缺件" "_expense-section.html 存在且挂进 reports/index + tocItems 含 #sec-expense-mix + datalabels + detail 端点"
 
 # v18-EXPENSE-DOC-4X · 「支出优先级与收入相反」必须同时出现在四处
 #   这条反直觉的不一致少写一处,下一个人就会靠猜 —— 所以把「四处」本身做成护栏。
@@ -6226,8 +6226,8 @@ section "v1.11 · 报表/仪表盘性能 + 交互 + 口径一致性(维护者 13
 #   支出构成原来有自己的「本期 / 近6期 / 近12期」,和三区标题旁的时间范围是同一件事 ——
 #   两个时间控件放一页会让人不知道哪个管哪个(维护者第 5 条)。窗口改为由 range 推出。
 { grep -q 'savingsWindowPeriods(range)' "$RD/src/main/java/com/family/finance/web/report/ReportsController.java" \
-  && grep -q '跟随上方「趋势」区的时间范围' "$RD/src/main/resources/templates/reports/_expense-mix.html" \
-  && ! grep -q "th:each=\"w : \${ {1, 6, 12} }\"" "$RD/src/main/resources/templates/reports/_expense-mix.html"; } \
+  && grep -q '跟随上方「趋势」区的时间范围' "$RD/src/main/resources/templates/reports/_expense-section.html" \
+  && ! grep -q "th:each=\"w : \${ {1, 6, 12} }\"" "$RD/src/main/resources/templates/reports/_expense-section.html"; } \
   && log_ok "v1111-ONE-TIME-FILTER(支出构成窗口并入统一时间范围 · 页面只剩一个时间控件)" \
   || log_bad "v1111-ONE-TIME-FILTER 又出现第二个时间筛选器" "窗口必须由 range 推出,不要独立 pills"
 
@@ -6407,7 +6407,7 @@ FLC2="$RD/src/main/java/com/family/finance/factview/FactLoadCache.java"
 # v111-PARTIAL-SWAP · 筛选器切换不许整页跳转(慢 + 丢滚动位置)
 { grep -q 'hx-select="#sec-trend"' "$RIX2" \
   && grep -q 'hx-push-url="true"' "$RIX2" \
-  && grep -q 'hx-select="#sec-expense-mix"' "$RD/src/main/resources/templates/reports/_expense-mix.html" \
+  && grep -q 'hx-select="#sec-expense-mix"' "$RD/src/main/resources/templates/reports/_expense-section.html" \
   && grep -q 'th:href' "$RIX2"; } \
   && log_ok "v111-PARTIAL-SWAP(趋势 range / 支出构成维度窗口 都走 HTMX 局部替换 · href 保留作无 JS 退化)" \
   || log_bad "v111-PARTIAL-SWAP 筛选器又变整页跳转了" "必须 hx-get + hx-select + hx-push-url;href 保留"
@@ -8648,7 +8648,7 @@ QA121_AI="$RD/src/main/java/com/family/finance/service/expense/imports/MerchantA
 QA121_ENTRYSVC="$RD/src/main/java/com/family/finance/service/EntryService.java"
 QA121_MIG="$RD/db/migration/V59__expense_category_split.sql"
 QA121_GRID_TPL="$RD/src/main/resources/templates/entry/_cat-grid.html"
-QA121_MIX_TPL="$RD/src/main/resources/templates/reports/_expense-cat-mix.html"
+QA121_MIX_TPL="$RD/src/main/resources/templates/reports/_expense-section.html"
 QA121_IMP_TPL="$RD/src/main/resources/templates/expense/import.html"
 
 # v1210-LEDGER-UNTOUCHED · 家庭支出的唯一口径入口【一行不改】。
@@ -9010,7 +9010,7 @@ PY
 # v1210-ZERO-CONFIG-INVISIBLE · 没建类目的家庭,页面一个像素都不多(FR-520)。
 { grep -q 'th:if="${hasExpenseCats}"' "$QA121_GRID_TPL" \
   && grep -q 'th:unless="${hasExpenseCats}"' "$QA121_GRID_TPL" \
-  && grep -q 'th:if="${catMixEnabled}"' "$QA121_MIX_TPL"; } \
+  && grep -q 'th:if="${mixEnabled or catMixEnabled}"' "$QA121_MIX_TPL"; } \
   && log_ok "v1210-ZERO-CONFIG-INVISIBLE(没建类目/没有分类数据的家庭看不到任何新东西)" \
   || log_bad "v1210-ZERO-CONFIG-INVISIBLE 未启用的家庭也看到新东西了" "违反「有没有用本身就是开关」"
 
@@ -9291,8 +9291,8 @@ print('\n'.join(re.findall(r'已剔除|捞回来|不能捞',t)))" "$QA122_IMPHTM
 #   把负组从总额里也扣走则会让「各组加起来 ≠ 总额」。
 #   守法:模板必须喂 chartSlices() 而不是 slices(),且 Slice 上有 inChart。
 { grep -q 'chartSlices()' "$QA122_LEDGER" \
-  && grep -q 'mixComposition.chartSlices()' "$RD/src/main/resources/templates/reports/_expense-mix.html" \
-  && ! grep -qE 'mixComposition\.slices\(\)\.!\[' "$RD/src/main/resources/templates/reports/_expense-mix.html"; } \
+  && grep -q 'mixComposition.chartSlices()' "$RD/src/main/resources/templates/reports/_expense-section.html" \
+  && ! grep -qE 'mixComposition\.slices\(\)\.!\[' "$RD/src/main/resources/templates/reports/_expense-section.html"; } \
   && log_ok "v1220-NEGATIVE-GROUP-NOT-IN-PIE(饼图只拿正组 · 负组仍进总额)" \
   || log_bad "v1220-NEGATIVE-GROUP-NOT-IN-PIE 饼图又拿到了全量 slices" "负值传给 Chart.js 会画出一个看起来正常、但比例完全错的图"
 
@@ -9771,6 +9771,149 @@ HARDCODED_FAM=$(grep -rn "FAMILY_ID *= *[0-9]" "$RD/src/main/java" --include="*.
   && log_ok "v1240-HARDCODED-FAMILY-FROZEN(写死家庭 id 仍是 14 处 · 全在无请求上下文的地方)" \
   || log_bad "v1240-HARDCODED-FAMILY-FROZEN 数量从 14 变成 $HARDCODED_FAM" \
              "多了 = 有人在能拿到 familyId 的地方图省事;少了 = 清单该更新"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# v1.24 · 支出分析
+# ─────────────────────────────────────────────────────────────────────────────
+
+QA124_CFM="$RD/src/main/java/com/family/finance/repository/CashFlowMapper.java"
+QA124_EFM="$RD/src/main/java/com/family/finance/repository/ExpenseFlowMapper.java"
+QA124_NAT="$RD/src/main/java/com/family/finance/service/expense/ExpenseNatureService.java"
+QA124_NRM="$RD/src/main/java/com/family/finance/service/expense/NormalExpenseService.java"
+QA124_VIEW="$RD/src/main/java/com/family/finance/service/expense/ExpenseSectionViewService.java"
+QA124_SEC="$RD/src/main/resources/templates/reports/_expense-section.html"
+QA124_IDX="$RD/src/main/resources/templates/reports/index.html"
+
+# v1240-SAME-FILTER-BLOCK · 口径 A 的过滤与换汇块是【编译期常量】,三条查询拼同一个串。
+#   v1.21 的教训:第二层与第一层口径分叉四处,两条 SQL 各自都跑得出数、都不报错,
+#   只是合不上,藏了整整一个版本。grep 能查「两处写法一样」,查不了「将来有人只改一处」。
+{ grep -q 'String EXPENSE_A_FROM'   "$QA124_CFM" \
+  && grep -q 'String EXPENSE_A_WHERE'  "$QA124_CFM" \
+  && grep -q 'String EXPENSE_A_AMOUNT' "$QA124_CFM" \
+  && [ "$(grep -c 'EXPENSE_A_AMOUNT' "$QA124_CFM")" -ge 4 ] \
+  && [ "$(grep -c 'EXPENSE_A_WHERE'  "$QA124_CFM")" -ge 4 ]; } \
+  && log_ok "v1240-SAME-FILTER-BLOCK(口径 A 过滤/换汇是共享常量 · 三条查询都拼它)" \
+  || log_bad "v1240-SAME-FILTER-BLOCK 有查询绕过了共享常量另写一份口径" \
+             "两条 SQL 各自都跑得出数、都不报错,只是合不上 —— v1.21 就这么藏了一个版本"
+
+# v1240-NO-SECOND-LAYER-SQL · 分叉的第二层聚合必须【已删除】,不是「改好了」。
+#   「补三个 WHERE 不补换汇」是最诱人的改法,也是最坏的:其余三项对上之后,
+#   多币种家庭仍然错,而且错得更像「就差那一点」。
+{ ! codeonly "$QA124_EFM" | grep -qE 'sumByCategory|sumByPeriodAndCategory'; } \
+  && log_ok "v1240-NO-SECOND-LAYER-SQL(分叉的第二层聚合已整条删除 · 只剩一个取数口)" \
+  || log_bad "v1240-NO-SECOND-LAYER-SQL 分叉的第二层聚合又回来了" "它与第一层口径对不上,而两边都不报错"
+
+# v1240-ONEOFF-SINGLE-JUDGE · FR-615「一次性」的判定只存在于一处。
+#   判据一句话,所以最容易在每条 SQL 里写个 CASE WHEN —— 读它的地方有五处,
+#   散成五份之后漏掉的那一处不报错,只是那个块的数字不一样。
+QA124_JUDGE=$(grep -rn "ONE_OFF" "$RD/src/main/java" --include="*.java" \
+              | grep -vE "ExpenseNature\.java|ExpenseNatureService\.java|ExpensePalette\.java|/test/" \
+              | grep -vE "ExpenseNature\.ONE_OFF\)|== ExpenseNature\.ONE_OFF|!= ExpenseNature\.ONE_OFF|ONE_OFF ->|\"ONE_OFF\"|ONE_OFF_KEY" | wc -l | tr -d " ")
+# ONE_OFF_KEY 是归因瀑布里那个【分组键】的名字,不是判据 ——
+# 它的值来自上面一行 natureOf(...) == ONE_OFF,判据仍然只有一处。
+{ grep -q 'public ExpenseNature natureOf(' "$QA124_NAT" \
+  && ! grep -rqE "one_off *= *1|one_off *> *0" "$RD/src/main/java/com/family/finance/repository" \
+  && [ "$QA124_JUDGE" = "0" ]; } \
+  && log_ok "v1240-ONEOFF-SINGLE-JUDGE(一次性判据只在 ExpenseNatureService.natureOf 一处 · SQL 里不判)" \
+  || log_bad "v1240-ONEOFF-SINGLE-JUDGE 判据散出去了(见 grep ONE_OFF)" "散成 N 份之后漏掉的那一处不报错,只是数字不一样"
+
+# v1240-NO-THIRD-SUM · 组装层不许注入任何 Mapper。
+#   它能自己查 cash_flow 的那一刻,就出现了第三条求和路径 ——
+#   而这一版做的所有事情都是为了让求和口径只有一套。
+{ ! grep -qE 'private final [A-Za-z.]*Mapper' "$QA124_VIEW"; } \
+  && log_ok "v1240-NO-THIRD-SUM(组装层不注入 Mapper · 不会长出第三条求和路径)" \
+  || log_bad "v1240-NO-THIRD-SUM 组装层拿到了 Mapper" "它一旦能自己查库,求和口径就从一套变成两套"
+
+# v1240-ONEOFF-NOT-BALANCE · one_off 是纯分析期标记,不许进任何余额链路。
+#   affects_balance 有过「一个标记要同时退出三条链」的教训,这个标记刻意只有一条链。
+{ ! grep -rn "one_off\|oneOff" "$RD/src/main/java" --include="*.java" \
+      | grep -vE "/test/|ExpenseNature|NormalExpense|ExpenseAttribution|ExpenseSectionView|CashFlow\.java|CashFlowMapper|ExpenseFlowMapper|EntryService|BillCommitService|ExpenseImportController|EntryController|ReviewInsightService" \
+      | grep -qiE "balance|snapshot|nav|networth|xirr" ; } \
+  && log_ok "v1240-ONEOFF-NOT-BALANCE(one_off 不出现在余额/快照/净值路径上)" \
+  || log_bad "v1240-ONEOFF-NOT-BALANCE 一次性标记渗进了余额链路" "它只该影响常态月均;碰了余额就是静默改钱"
+
+# v1240-EXPENSE-SECTION-MERGED · FR-661 两个 section 真的合并了,不是并排放。
+#   保留两个 <section id> 的话,「只有一个标题、一条 TOC 条目」只能靠模板里删标题实现,
+#   护栏 grep 不到真正的合并,下一个人很容易把标题加回去。
+{ [ ! -f "$RD/src/main/resources/templates/reports/_expense-mix.html" ] \
+  && [ ! -f "$RD/src/main/resources/templates/reports/_expense-cat-mix.html" ] \
+  && [ -f "$QA124_SEC" ] \
+  && ! grep -rq 'sec-expense-split' "$RD/src/main/resources/templates" \
+  && [ "$(grep -c '<h2[^>]*>钱花在哪了</h2>' "$QA124_SEC")" -eq 1 ] \
+  && [ "$(grep -c 'sec-expense-mix' "$QA124_IDX")" -eq 1 ]; } \
+  && log_ok "v1240-EXPENSE-SECTION-MERGED(两块真合并 · 一个标题 · 一条 TOC 条目)" \
+  || log_bad "v1240-EXPENSE-SECTION-MERGED 支出章节又变回两块(或标题/TOC 没并)" \
+             "同一页上两个同名章节、两套对不上的数 —— 用户第一反应是程序算错了"
+
+# v1240-TOC-SYNCED · FR-668 · 联动链 L4:改 section 必须同步长文目录。
+{ ! grep -q "支出构成 · 分类" "$QA124_IDX" \
+  && grep -q "{label:'支出分析',href:'#sec-expense-mix'" "$QA124_IDX"; } \
+  && log_ok "v1240-TOC-SYNCED(tocItems 两条并一条 · 锚点指向合并后的 section)" \
+  || log_bad "v1240-TOC-SYNCED 目录没跟着合并" "锚点失效 / 目录里挂着一个不存在的章节"
+
+# v1240-PALETTE-SINGLE-SOURCE · FR-666 色板全页唯一来源,且模板不取模。
+#   模板里 catPalette[i % 9] 这种写法,在色板长度变化时是【渲染期数组越界】——
+#   500 白屏,不是一个看得见的错。2026-09-20 实测:色板 9→6 色之后类目 ≥7 个就炸。
+{ ! { for f in "$RD"/src/main/resources/templates/reports/*.html; do codeonly "$f"; done \
+       | grep -qE 'catPalette\[[^]]*%' ; } \
+  && ! grep -q '"#a0653a"' "$RD/src/main/java/com/family/finance/web/report/ReportsController.java" \
+  && grep -q 'ExpensePalette.CATEGORY' "$RD/src/main/java/com/family/finance/web/report/ReportsController.java"; } \
+  && log_ok "v1240-PALETTE-SINGLE-SOURCE(色板只在 ExpensePalette · 模板不取模索引)" \
+  || log_bad "v1240-PALETTE-SINGLE-SOURCE 色板又散回去了,或模板在取模索引" \
+             "取模会让第 7 片和第 1 片同色;色板长度一变就是渲染期越界 500 白屏"
+
+# v1240-TOGGLE-CASCADES · FR-674 开关的级联收在服务层,不在模板里各判一遍。
+#   「我关了支出分析,怎么别处还在冒常态月均」是最让人困惑的一种半开。
+{ grep -q 'K_EXPENSE_ANALYSIS' "$QA124_NRM" \
+  && grep -q 'if (!enabled(familyId)) return Optional.empty()' "$QA124_NRM" \
+  && grep -q 'expenseAnalysisOn' "$RD/src/main/resources/templates/admin/calc-tweaks.html" \
+  && grep -q 'normalExpenseService.normal' "$RD/src/main/java/com/family/finance/web/dashboard/DashboardController.java" \
+  && grep -q 'normalExpenseService.normal' "$RD/src/main/java/com/family/finance/web/checkup/CheckupController.java" \
+  && grep -q 'normalExpenseService.normal' "$RD/src/main/java/com/family/finance/web/goal/GoalController.java"; } \
+  && log_ok "v1240-TOGGLE-CASCADES(开关在服务层返回 empty · 三处回流读数自动消失)" \
+  || log_bad "v1240-TOGGLE-CASCADES 开关没级联到回流读数" "关了支出分析,别处还在冒常态月均"
+
+# v1240-ONEOFF-BOTH-WRITE-PATHS · FR-613 逐笔录入与账单导入【两条路都要有】。
+#   只做一条的后果不是少个功能:大额一次性支出(装修、旅行)多半是刷卡来的,
+#   导入那条路没有的话,用户在几十笔里根本挑不出来。
+{ grep -q 'name="oneOff"' "$RD/src/main/resources/templates/entry/index.html" \
+  && grep -q 'name="oneOff"' "$RD/src/main/resources/templates/expense/import.html" \
+  && grep -q 'boolean oneOff' "$RD/src/main/java/com/family/finance/service/EntryService.java" \
+  && grep -q 'oneOffIdx' "$RD/src/main/java/com/family/finance/service/expense/imports/BillCommitService.java" \
+  && grep -q 'one_off' "$QA124_CFM"; } \
+  && log_ok "v1240-ONEOFF-BOTH-WRITE-PATHS(逐笔与导入两条写入路都能标一次性 · insert 列清单带 one_off)" \
+  || log_bad "v1240-ONEOFF-BOTH-WRITE-PATHS 少了一条写入路,或 insert 漏了 one_off 列" \
+             "显式列 INSERT 漏一列不报错 —— 勾了存进去还是 0(预检 SF2)"
+
+# v1240-PREV-PERIOD-BY-DATE · FR-620/625「上期」按日期取,与关账状态无关。
+#   v1.23 双活跃账期之后,「上一个 OPEN 的前面那个」这种写法会拿到错的那一期;
+#   按 id 取同样不行 —— 补录一期历史账期会得到一个更大的 id。
+{ grep -q 'previousOf' "$RD/src/main/java/com/family/finance/repository/PeriodMapper.java" \
+  && grep -A12 'Optional<Period> previousOf' "$RD/src/main/java/com/family/finance/repository/PeriodMapper.java" \
+     | grep -q 'period_start' \
+  && ! grep -B14 'Optional<Period> previousOf' "$RD/src/main/java/com/family/finance/repository/PeriodMapper.java" \
+     | grep -q "status = 'OPEN'"; } \
+  && log_ok "v1240-PREV-PERIOD-BY-DATE(上期按 period_start 取 · 不看关账状态、不按 id)" \
+  || log_bad "v1240-PREV-PERIOD-BY-DATE 上期判据又看状态或 id 了" "双活跃账期下会拿到错的那一期,而且不报错"
+
+# v1240-NO-JUDGEMENT · FR-634/§1.6 · 这一块不给好坏评价、不设阈值红绿灯。
+#   「花钱没有对错」是这个产品的立场:刚性占比高不等于日子过得差,
+#   给它一个红灯就是在替用户的人生下判断。
+{ ! grep -qiE '刚性.*(太高|过高|偏高|不健康|危险)|弹性.*(该砍|应该减|建议削减)' "$QA124_SEC" \
+  && grep -q '不给好坏评价\|这是口径说明,不是好坏评价' "$QA124_SEC" "$QA124_NRM" \
+       "$RD/src/main/java/com/family/finance/service/review/ReviewInsightService.java"; } \
+  && log_ok "v1240-NO-JUDGEMENT(三分块不给好坏评价 · 不设阈值红绿灯)" \
+  || log_bad "v1240-NO-JUDGEMENT 支出分析里出现了好坏评价" "花钱没有对错 —— 给它一个红灯就是替用户的人生下判断"
+
+# v1240-UNCLASSIFIED-VISIBLE · L13 硬约束③:不许把未分类偷偷丢掉。
+#   它要算进弹性(不是丢掉)、要单独成片(不并进「其他」)、还要显式说出有多少笔。
+{ grep -q 'categoryId == null) return ExpenseNature.FLEX' "$QA124_NAT" \
+  && grep -q 'unclassifiedCount' "$QA124_NRM" \
+  && grep -q 'unclassified' "$QA124_VIEW" \
+  && grep -q '没归类' "$QA124_SEC"; } \
+  && log_ok "v1240-UNCLASSIFIED-VISIBLE(未分类算弹性 · 单独成片 · 笔数显式说出来)" \
+  || log_bad "v1240-UNCLASSIFIED-VISIBLE 未分类被丢掉或藏起来了" "三分合计会小于支出总额,而且不报错"
 
 
 

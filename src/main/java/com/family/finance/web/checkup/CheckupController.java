@@ -42,6 +42,7 @@ public class CheckupController {
 
     private final NavService navService;
     private final AccountMapper accountMapper;
+    private final com.family.finance.service.expense.NormalExpenseService normalExpenseService; // v1.24 FR-651
     private final ProductCategoryService categoryService;
     private final AccountDiagnoseService accountDiagnoseService;
     private final FamilyDiagnoseService familyDiagnoseService;
@@ -94,6 +95,23 @@ public class CheckupController {
                 com.family.finance.service.config.FamilyConfigService.K_LIQUID_BUFFER, 1.5));
             var liquidSurplus = com.family.finance.calc.LiquiditySurplus.evaluate(
                 diagnose.liquidAssets(), avgMonthlyExpense, emergencyMonths, liquidMultiplier);
+
+            /* v1.24 FR-651 · 流动性维度并列给出「按常态月均」的第二个读数,
+             * 并说清差额由几笔一次性支出造成。
+             * 【主判定不变】—— liquidSurplus 仍按月均支出算,建议引擎读的还是它。
+             * 换判定分母会让所有现存用户的「应急金够不够」结论一夜之间改变。
+             * 开关关着 / 没有逐笔数据 → empty → 这一块整个不出现(级联在服务层,不在这里判)。 */
+            normalExpenseService.normal(me.getFamilyId()).ifPresent(n -> {
+                model.addAttribute("normalExpense", n);
+                /* 覆盖月数 = 流动资产 ÷ 常态月均。
+                 * 【不要用 LiquiditySurplus.Result.months】—— 那个字段是配置里的
+                 * 「应急金该备几个月」阈值,不是「现在够几个月」。两者都是「月数」、
+                 * 都是个合理的小整数,拿错了页面上看不出来。 */
+                model.addAttribute("normalCoverMonths",
+                    n.normalBase().signum() <= 0 ? null
+                        : diagnose.liquidAssets().divide(n.normalBase(), 1,
+                            java.math.RoundingMode.HALF_UP));
+            });
 
             model.addAttribute("scope", "FAMILY");
             model.addAttribute("diagnose", diagnose);

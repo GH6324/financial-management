@@ -26,6 +26,41 @@
   </div>
 
   <!-- v0.16 · 自定义追踪目标卡(达标率 + 倒计时 + pace 落后判定)-->
+  <!--/* v1.24 FR-652 · 应急金目标额按【两种月均】各算一次,并排。
+         不替用户选:一次性支出该不该进应急金的分母是价值判断不是技术问题,
+         两个数都摆出来,他自己决定按哪个准备。 */-->
+  <section th:if="${normalExpense != null and normalExpense.differs()}"
+           class="paper-card p-5 sm:p-6 mb-6">
+    <div class="flex items-baseline gap-2 mb-3">
+      <h2 class="font-display text-lg font-medium">按哪个月均备?</h2>
+      <span class="font-mono text-[10px] text-ink-subtle"
+            th:text="'备 ' + ${emergencyMonthsCfg} + ' 个月'">备 6 个月</span>
+    </div>
+    <div class="flex flex-wrap gap-x-10 gap-y-3">
+      <div>
+        <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">按全部支出</div>
+        <div class="font-display text-2xl tnum" data-priv
+             th:text="'¥' + ${#numbers.formatInteger(targetByAverage, 0, 'COMMA')}">¥61,800</div>
+        <div class="font-mono text-[10px] text-ink-subtle mt-0.5"
+             th:text="'月均 ¥' + ${#numbers.formatInteger(normalExpense.averageBase(), 0, 'COMMA')}">月均 ¥10,300</div>
+      </div>
+      <div>
+        <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">按常态月均</div>
+        <div class="font-display text-2xl tnum" data-priv
+             th:text="'¥' + ${#numbers.formatInteger(targetByNormal, 0, 'COMMA')}">¥54,600</div>
+        <div class="font-mono text-[10px] text-ink-subtle mt-0.5"
+             th:text="'常态 ¥' + ${#numbers.formatInteger(normalExpense.normalBase(), 0, 'COMMA')}">常态 ¥9,100</div>
+      </div>
+    </div>
+    <p class="font-serif text-[12.5px] text-ink-soft mt-3">
+      差额来自
+      <a th:href="@{/reports/expense/one-off}" class="text-brass-deep hover:underline"
+         th:text="${normalExpense.oneOffCount()} + ' 笔一次性支出'">3 笔一次性支出</a> ——
+      装修、换手机、一趟旅行这类。<b>该不该为它们多备一笔,是你的判断</b>:
+      觉得「那种事还会再来」就按左边,觉得「那是可选的」就按右边。我们两个都算给你。
+    </p>
+  </section>
+
   <section th:if="${progress.isCustom()}" class="paper-card p-5 sm:p-8 mb-6"
            th:with="st=${progress.paceStatus},
                     col=${st == 'BEHIND'} ? 'var(--rust)' : (${st == 'AHEAD' or st == 'ACHIEVED'} ? 'var(--forest)' : 'var(--brass-deep)')">

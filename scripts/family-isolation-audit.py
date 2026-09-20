@@ -98,11 +98,30 @@ def isolated(sql):
     return bool(re.search(r'family_id\s*(=|IN\b|<)', sql, re.I) or re.search(r'familyId', sql))
 
 
+# 把同文件里的 `String XXX = """…""";` 常量解析出来,拼进 SQL 再判 ——
+# v1.24 起口径 A 的 WHERE 块是编译期常量(EXPENSE_A_WHERE),
+# 注解体里只有 `+ EXPENSE_A_WHERE`,不展开的话会把 expenseBreakdown 误报成漏隔离。
+CONST = re.compile(r'String\s+([A-Z_][A-Z0-9_]*)\s*=\s*"""(.*?)"""\s*;', re.S)
+
+
+def constants(src):
+    return {m.group(1): m.group(2) for m in CONST.finditer(src)}
+
+
+def expand(body, consts):
+    for name, val in consts.items():
+        if name in body:
+            body = body.replace(name, val)
+    return body
+
+
 def main(root):
     violations, seen_exc = [], set()
     for p in sorted(pathlib.Path(root).glob('*.java')):
         src = p.read_text(encoding='utf-8')
+        consts = constants(src)
         for kind, line, body, method in statements(src):
+            body = expand(body, consts)
             if not (tables(body) & SCOPED) or isolated(body):
                 continue
             key = (p.name, method)

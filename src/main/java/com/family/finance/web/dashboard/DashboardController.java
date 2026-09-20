@@ -62,6 +62,7 @@ public class DashboardController {
     private final HouseholdCashflowService householdCashflowService;
     private final com.family.finance.service.config.FamilyConfigService configService;
     private final com.family.finance.service.explain.MetricExplainService metricExplain; // v0.5.3 口径真实数值
+    private final com.family.finance.service.expense.NormalExpenseService normalExpenseService; // v1.24 FR-650 并列读数
     private final com.family.finance.service.review.AttributionService attributionService; // v1.2 归因复盘
     private final com.family.finance.service.group.AccountGroupingResolver groupingResolver; // v1.20 账户维值
     private final com.family.finance.service.review.RebalancePlanService rebalancePlanService; // v1.2 计划进度 pill
@@ -301,6 +302,20 @@ public class DashboardController {
         model.addAttribute("kpiLiabilities", money(viewCurrency, kpis.totalLiabilities()));
         // v1.6 UED review A7 · 与 checkup 同口径的异常值兜底 + 小数位收敛(此前裸 toPlainString 会甩一长串小数)
         model.addAttribute("kpiEmergency", emergencyLabel(kpis.emergencyFundMonths()));
+        /* v1.24 FR-650 · 紧急储备 tooltip 里并列一行「按常态月均」。
+         * 【豆腐块上的主数字不变】—— 换主数字会让所有现存用户的月数一夜之间变大,
+         * 而他们什么都没做。FR-654 也明说 dashboard 不加任何新组件,这里只改 tooltip 文字。
+         * 开关关着 / 没有逐笔数据 → normal() 返回 empty → 这一行整个不出现。 */
+        var normalOpt = normalExpenseService.normal(me.getFamilyId());
+        if (normalOpt.isPresent()) {
+            @SuppressWarnings("unchecked")
+            var calcMap = (java.util.Map<String, String>) model.getAttribute("calc");
+            if (calcMap != null) {
+                calcMap.put("emergency", metricExplain.emergencyWithNormal(viewCurrency,
+                        kpis.liquidAssets(), kpis.avgExpense(), kpis.emergencyFundMonths(),
+                        normalOpt.get().normalBase()));
+            }
+        }
         model.addAttribute("kpiDebtRatio", percent(kpis.debtToAssetRatio()));
         model.addAttribute("kpiDelta", moneyDelta(viewCurrency, kpis.netWorthDelta()));
         // v0.3:优先用 period.total_*_input(用户在 /entry 第一步填的家庭口径)· fallback v0.2 cash_flow

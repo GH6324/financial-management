@@ -36,6 +36,7 @@ public class ReviewInsightService {
      */
     private final MemberDirectory memberDirectory;
     private final ReviewAiCacheMapper cacheMapper;
+    private final com.family.finance.service.expense.NormalExpenseService normalExpenseService; // v1.24 FR-653
 
     public boolean available(long familyId) {
         return llmRouter.available(familyId);
@@ -64,7 +65,8 @@ public class ReviewInsightService {
             ReviewAiCacheMapper.Row hit = cacheMapper.find(familyId, periodId, dim);
             if (hit != null) return new Review(hit.text(), hit.vendor(), true);
         }
-        String facts = anonymize(familyId, buildFactsAndSignals(periodLabel, attr, grouped));
+        String facts = anonymize(familyId,
+                buildFactsAndSignals(periodLabel, attr, grouped) + expenseStructure(familyId));
         String system = """
                 你是家庭月度资产复盘助手。下面是**已经算好**的本期归因事实与系统判定的异常信号。
                 规则(必须遵守):
@@ -80,6 +82,46 @@ public class ReviewInsightService {
             if (periodClosed) cacheMapper.upsert(familyId, periodId, dim, out, inv.badge());
             return new Review(out, inv.badge(), false);
         });
+    }
+
+    /**
+     * v1.24 FR-653 · 支出结构事实 —— 三分占比 / 刚性占比 / 常态月均。
+     *
+     * <h3>所有数字工程算好再填进 prompt</h3>
+     *
+     * <p>这不是风格偏好,是这个项目的硬纪律:<b>LLM 严禁做数学运算</b>。
+     * 给它「刚性 4,700、总额 12,400」让它自己算占比,它会给出一个看起来合理的错数,
+     * 而且每次还不一样。所以这里给的是已经算好的百分比,它只负责把这些数字
+     * 写成一句人话。</p>
+     *
+     * <h3>拿不到就整段不出现</h3>
+     *
+     * <p>开关关着 / 没有逐笔数据 → 返回空串,月报的其余部分<b>一个字都不受影响</b>
+     * (FR-653 明确要求)。不是给一段「支出结构:暂无数据」—— 那会让模型
+     * 花一条要点去说「你还没记支出」,挤掉真正有用的那条。</p>
+     */
+    private String expenseStructure(long familyId) {
+        var splitOpt = normalExpenseService.normal(familyId)
+                .flatMap(n -> normalExpenseService.split(familyId, n.periodIds())
+                        .map(sp -> new Object[]{n, sp}));
+        if (splitOpt.isEmpty()) return "";
+        var n = (com.family.finance.service.expense.NormalExpenseService.Normal) splitOpt.get()[0];
+        var sp = (com.family.finance.service.expense.NormalExpenseService.Split) splitOpt.get()[1];
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("近 12 期支出结构(占比已算好 · 只引用不计算):\n");
+        for (var part : sp.parts()) {
+            sb.append("  ").append(part.nature().getLabel()).append(": ")
+              .append(part.pct()).append("%\n");
+        }
+        sb.append("  刚性占比: ").append(sp.rigidPct()).append("%")
+          .append("(占比越高,现金流的可压缩空间越小 —— 这是口径说明,不是好坏评价)\n");
+        if (n.differs()) {
+            sb.append("  常态月均(剔掉 ").append(n.oneOffCount()).append(" 笔一次性支出后): ")
+              .append(money(n.normalBase())).append(" · 月均支出: ").append(money(n.averageBase()))
+              .append('\n');
+        }
+        return sb.toString();
     }
 
     /** 归因事实 + 工程信号(全部数字算好) */

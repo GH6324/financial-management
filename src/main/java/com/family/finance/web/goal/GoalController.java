@@ -57,6 +57,8 @@ import java.util.Locale;
 public class GoalController {
 
     private final GoalService goalService;
+    private final com.family.finance.service.expense.NormalExpenseService normalExpenseService; // v1.24 FR-652
+    private final com.family.finance.service.config.FamilyConfigService configService;   // v1.24 FR-652 应急月数
     private final GoalProgressService progressService;
     private final GoalLlmService llmService;
     private final GoalReportService goalReportService;
@@ -227,6 +229,25 @@ public class GoalController {
         if (goal.getGoalType() == GoalType.EDUCATION && progress.params().getChildMemberId() != null) {
             memberMapper.findById(me.getFamilyId(), progress.params().getChildMemberId())
                 .ifPresent(m -> model.addAttribute("childMember", m));
+        }
+        /* v1.24 FR-652 · 应急金目标额按【两种月均】各算一次,并排显示。
+         * 【不替用户选】—— 两个数都给,他自己决定按哪个准备。
+         * 一次性支出(装修、旅行)进不进应急金的分母,是个价值判断不是技术问题:
+         * 有人觉得"那种事还会再来,得备着",有人觉得"那是可选的,不该抬高门槛"。
+         * 我们没有立场替他定,所以两个都摆出来。
+         * 支出分析关掉 / 没有逐笔数据 → empty → 这一块整个不出现。 */
+        if (goal.getGoalType() == GoalType.EMERGENCY) {
+            normalExpenseService.normal(me.getFamilyId()).ifPresent(n -> {
+                int months = configService.getInt(me.getFamilyId(),
+                    com.family.finance.service.config.FamilyConfigService.K_EMERGENCY_MONTHS,
+                    com.family.finance.calc.LiquiditySurplus.DEFAULT_EMERGENCY_MONTHS);
+                model.addAttribute("normalExpense", n);
+                model.addAttribute("emergencyMonthsCfg", months);
+                model.addAttribute("targetByAverage",
+                    n.averageBase().multiply(BigDecimal.valueOf(months)));
+                model.addAttribute("targetByNormal",
+                    n.normalBase().multiply(BigDecimal.valueOf(months)));
+            });
         }
         // v0.3 FR-53b/c · AI 月报 + 偏离预警(null safe)
         aiReportMapper.findLatestByGoalAndType(me.getFamilyId(), id, "MONTHLY")

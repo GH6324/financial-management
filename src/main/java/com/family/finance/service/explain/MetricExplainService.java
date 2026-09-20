@@ -281,11 +281,40 @@ public class MetricExplainService {
     }
 
     private String emergencyCalc(String ccy, BigDecimal liquid, BigDecimal avgExpense, BigDecimal months) {
+        return emergencyCalc(ccy, liquid, avgExpense, months, null);
+    }
+
+    /**
+     * v1.24 FR-650 · 紧急储备 tooltip 里<b>并列</b>给出「按常态月均」的读数。
+     *
+     * <p><b>豆腐块上的主数字不变</b> —— 仍然是按月均支出算的那个。
+     * 换主数字会让所有现存用户的紧急储备月数一夜之间变大,而他们什么都没做。
+     * 并列增加、由用户自己判断哪个更贴近他家的情况,比我们替他决定诚实。</p>
+     *
+     * <p>{@code normalExpense} 为 null = 支出分析关着 / 这个家没有逐笔数据
+     * → 这一行整个不出现。级联靠 {@code NormalExpenseService} 返回 Optional.empty(),
+     * 不是在这里判开关(否则三处回流读数各判一遍,总有一处会忘)。</p>
+     */
+    private String emergencyCalc(String ccy, BigDecimal liquid, BigDecimal avgExpense,
+                                 BigDecimal months, BigDecimal normalExpense) {
         if (avgExpense == null || avgExpense.signum() <= 0) {
             return "月均支出为 0,暂无法计算紧急储备(先在填报页填月支出)";
         }
-        return "流动资产 " + money(ccy, liquid) + " ÷ 月均支出 " + money(ccy, avgExpense)
+        String base = "流动资产 " + money(ccy, liquid) + " ÷ 月均支出 " + money(ccy, avgExpense)
                 + " = " + months(months) + " 个月";
+        if (normalExpense == null || normalExpense.signum() <= 0
+                || normalExpense.compareTo(avgExpense) == 0) {
+            return base;
+        }
+        BigDecimal byNormal = liquid.divide(normalExpense, 1, java.math.RoundingMode.HALF_UP);
+        return base + "\n按常态月均(剔掉一次性支出)" + money(ccy, normalExpense)
+                + " = " + months(byNormal) + " 个月 —— 两个都给,你自己判断哪个更贴近你家的情况。";
+    }
+
+    /** v1.24 FR-650 · 给调用方用的带常态月均版本 */
+    public String emergencyWithNormal(String ccy, BigDecimal liquid, BigDecimal avgExpense,
+                                      BigDecimal months, BigDecimal normalExpense) {
+        return emergencyCalc(ccy, liquid, avgExpense, months, normalExpense);
     }
 
     /**
