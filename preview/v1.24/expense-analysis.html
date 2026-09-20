@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.24 Preview · 支出分析:从「摆出来给你看」到「所以呢」</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .card{border:1px solid var(--rule);background:var(--card);padding:18px}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border:1px solid var(--rule);color:var(--ink-soft);white-space:nowrap}
+  .badge.risk{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)}
+  .badge.ok{border-color:var(--forest);color:var(--forest);background:rgba(79,107,71,.10)}
+  .badge.new{border-color:var(--brass-deep);color:var(--brass-deep);background:rgba(176,134,66,.10)}
+  .zone{margin-top:46px}
+  .zone-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap}
+  .zone-no{font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--paper);background:var(--brass-deep);line-height:1;padding:5px 9px}
+  .zone-t{font-family:'Fraunces','Noto Serif SC',serif;font-size:20px}
+  .zone-sub{font-size:11.5px;color:var(--ink-subtle)}
+  .zone-line{height:2px;background:var(--brass-deep);opacity:.35;margin:10px 0 18px}
+
+  /* ── 报表页章节外壳(模拟真实页面) ── */
+  .sec{border:1px solid var(--rule);background:var(--card);padding:0;margin-bottom:16px}
+  .sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;
+         padding:13px 18px;border-bottom:1px solid var(--rule-soft);background:var(--card-soft)}
+  .sec-t{font-family:'Fraunces','Noto Serif SC',serif;font-size:15.5px;display:flex;align-items:center;gap:8px}
+  .sec-b{padding:18px}
+  .sec-n{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-subtle);letter-spacing:.1em}
+
+  /* ── 数字条 ── */
+  .kpirow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--rule-soft)}
+  .kpirow > div{padding:12px 14px;border-right:1px solid var(--rule-soft)}
+  .kpirow > div:last-child{border-right:none}
+  .kpi-k{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-subtle);margin-bottom:5px}
+  .kpi-v{font-family:'Fraunces',serif;font-size:23px;line-height:1.1;font-feature-settings:"tnum" 1}
+  .kpi-s{font-size:11px;color:var(--ink-subtle);margin-top:4px}
+  .up{color:var(--rust)} .down{color:var(--forest)}
+  @media(max-width:760px){.kpirow{grid-template-columns:1fr 1fr}.kpirow > div{border-bottom:1px solid var(--rule-soft)}}
+
+  /* ── 归因瀑布 ── */
+  .wf{display:flex;align-items:flex-end;gap:2px;height:210px;padding:0 2px}
+  .wf-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0}
+  .wf-lab{font-size:10.5px;color:var(--ink-soft);margin-top:7px;text-align:center;line-height:1.3;
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .wf-amt{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-feature-settings:"tnum" 1;margin-bottom:4px;white-space:nowrap}
+  .wf-pct{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-subtle)}
+  .wf-bar{width:100%;max-width:62px;border:1px solid var(--rule)}
+  .wf-bar.base{background:var(--paper-deep);border-color:var(--rule)}
+  .wf-bar.up{background:rgba(156,74,42,.55);border-color:var(--rust)}
+  .wf-bar.down{background:rgba(79,107,71,.5);border-color:var(--forest)}
+  .wf-bar.oneoff{border-color:var(--brass-deep);
+      background:repeating-linear-gradient(45deg,rgba(176,134,66,.42) 0 5px,rgba(176,134,66,.14) 5px 10px)}
+  .wf-spacer{width:100%;flex:0 0 auto}
+
+  /* ── 三分堆叠条 ── */
+  .split{display:flex;height:42px;border:1px solid var(--rule)}
+  .split > div{display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;
+               font-size:10.5px;color:var(--ink);border-right:1px solid var(--rule);overflow:hidden;white-space:nowrap}
+  .split > div:last-child{border-right:none}
+  .sp-rigid{background:rgba(60,74,90,.24)}
+  .sp-flex{background:rgba(79,107,71,.26)}
+  .sp-once{background:repeating-linear-gradient(45deg,rgba(176,134,66,.40) 0 5px,rgba(176,134,66,.13) 5px 10px)}
+  .lgd{display:flex;gap:16px;flex-wrap:wrap;margin-top:9px;font-size:11px;color:var(--ink-soft)}
+  .lgd i{display:inline-block;width:11px;height:11px;border:1px solid var(--rule);margin-right:5px;vertical-align:-1px}
+
+  /* ── 双读数 ── */
+  .dual{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--rule)}
+  .dual > div{padding:14px 16px}
+  .dual > div:first-child{border-right:1px solid var(--rule)}
+  .dual-k{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-subtle)}
+  .dual-v{font-family:'Fraunces',serif;font-size:27px;line-height:1.1;margin:5px 0 3px;font-feature-settings:"tnum" 1}
+  @media(max-width:760px){.dual{grid-template-columns:1fr}.dual > div:first-child{border-right:none;border-bottom:1px solid var(--rule)}}
+
+  /* ── 表 ── */
+  table.t{width:100%;border-collapse:collapse}
+  .t th{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;
+        color:var(--ink-subtle);text-align:left;padding:7px 8px;border-bottom:1px solid var(--rule);white-space:nowrap}
+  .t td{padding:7px 8px;border-bottom:1px solid var(--rule-soft);font-size:12.5px;vertical-align:middle}
+  .amt{text-align:right;font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1;white-space:nowrap}
+  .ghost{background:none;border:1px solid var(--rule);font-size:10.5px;padding:3px 9px;cursor:pointer;color:var(--ink-soft)}
+  .ghost:hover{border-color:var(--brass-deep);color:var(--brass-deep)}
+
+  /* ── 12 期分层柱 ── */
+  .stk{display:flex;align-items:flex-end;gap:5px;height:130px}
+  .stk-c{flex:1;display:flex;flex-direction:column;justify-content:flex-end;min-width:0}
+  .stk-c > div{width:100%;border:1px solid var(--rule);border-bottom:none}
+  .stk-c > div:last-of-type{border-bottom:1px solid var(--rule)}
+  .stk-x{font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--ink-subtle);text-align:center;margin-top:5px}
+
+  /* ── 对照 ── */
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .ba > div{border:1px solid var(--rule);padding:13px}
+  .ba .h{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:7px}
+  .before .h{color:var(--rust)} .after .h{color:var(--forest)}
+  @media(max-width:760px){.ba{grid-template-columns:1fr}}
+
+  /* ── 移动端画框 ── */
+  .phone{width:330px;border:1px solid var(--rule);background:var(--card);padding:0;margin:0 auto}
+  .phone .sec-b{padding:13px}
+
+  .toc{border-left:2px solid var(--brass-deep);padding-left:13px;font-size:12px;line-height:2}
+  .toc .sub{padding-left:15px;color:var(--ink-soft);font-size:11.5px}
+  .toc .new{color:var(--brass-deep)}
+  svg.ic{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px}
+</style>
+</head>
+<body class="bg-paper text-ink" style="font-family:'Source Serif 4','Noto Serif SC',Georgia,serif">
+
+<div class="wrap" style="padding-top:38px;padding-bottom:70px">
+
+  <div class="eyebrow">preview · v1.24</div>
+  <h1 style="font-size:31px;margin:6px 0 10px">支出分析:从「摆出来给你看」到「所以呢」</h1>
+  <p class="note" style="max-width:820px">
+    v1.21/v1.22 把<b>进数</b>做完了 —— 账单能导、逐笔能改、分类能自定义。现在 <code class="mono">cash_flow</code>
+    里躺着一批带分类的逐笔支出,而<b>读</b>这条线只有三块:本期构成、年度累计、12 期趋势。
+    三块都在「摆出来给你看」,没有一句<b>「所以呢」</b>。<br>
+    更要紧的是:<b>月均支出在这个 app 里不是展示字段,是承重结构</b> ——
+    紧急储备月数、应急金目标、体检流动性、FIRE 年限全都吃它,而它今天是一个被装修、买车、
+    旅游污染的扁平 12 期平均。<b>这一版的第一价值不是「你花太多了」,是让那几个指标变诚实。</b>
+  </p>
+
+  <div class="card" style="margin-top:20px;border-left:3px solid var(--brass-deep)">
+    <div class="eyebrow" style="margin-bottom:7px">竞品调研的结论先说</div>
+    <p class="note" style="margin:0;color:var(--ink-soft)">
+      鲨鱼记账 / 钱迹 / 随手记 三家的支出分析<b>重心全在预算 + 超支预警</b> —— 而 AGENTS.md 把「预算包络」
+      写进了刻意不做。照抄等于跑偏。<b>海外的 Copilot Money($95/年)主动放弃了预算</b>,
+      定位是 "tracker, not a concierge";<b>Monarch 的 Flex 预算把支出分成「固定 / 非月度周期 / 弹性」</b> ——
+      和我们独立想出来的<b>刚性 / 弹性 / 一次性</b>是同一个抽象。
+      差别在用途:他们拿它<b>定预算</b>,我们拿它<b>修分母</b>。
+      只有我们同时握着净资产、流动资产和 FIRE 目标 —— 这件事他们结构上做不了。
+    </p>
+  </div>
+
+  <!-- ═══ 1 · 落点 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">1</span><span class="zone-t">落在哪里</span>
+      <span class="zone-sub">不新建 tab · 把报表页的支出区从「三块陈列」扩成「五问一节」</span></div>
+    <div class="zone-line"></div>
+
+    <div class="ba">
+      <div class="before">
+        <div class="h">现在 · 报表页 › 支出构成</div>
+        <div class="toc">
+          <div>· 本期构成 <span class="note">堆叠条 + 类目列表 + 下钻</span></div>
+          <div>· 年度累计 <span class="note">横条</span></div>
+          <div>· 近 12 期趋势 <span class="note">柱</span></div>
+        </div>
+        <p class="note" style="margin-top:10px">
+          看完知道「餐饮 ¥3,182 占 31%」。下一个问题 ——<b>所以呢?</b>—— 页面不回答。
+        </p>
+      </div>
+      <div class="after">
+        <div class="h">v1.24 · 同一个区,顺序改成「先结论后明细」</div>
+        <div class="toc">
+          <div class="new">· ① 花了多少 · 比上期 <span class="note">环比 + 总额同比</span></div>
+          <div class="new">· ② 为什么变了 <span class="note">归因瀑布 → 类目</span></div>
+          <div class="new">· ③ 砍得掉吗 <span class="note">刚性/弹性/一次性 + 常态月均</span></div>
+          <div class="new">· ④ 每月都在扣 <span class="note">周期性支出</span></div>
+          <div>· ⑤ 花在哪 <span class="note">(现有,位置下移)</span></div>
+          <div>· ⑥ 年度累计 <span class="note">(现有)</span></div>
+          <div>· ⑦ 近 12 期趋势 <span class="note">(现有)</span></div>
+        </div>
+        <p class="note" style="margin-top:10px">
+          既有三块<b>内容一个字不改</b>,只是排到结论后面。新块全部是<b>子节</b>,
+          要同步长文目录锚点(联动链 L4)。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 2 · ① 数字条 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">2</span><span class="zone-t">① 花了多少 · 和以前比</span>
+      <span class="zone-sub">FR-624 · 总额环比 + 总额同比;分类同比数据不够,老实说没有</span></div>
+    <div class="zone-line"></div>
+
+    <div class="sec">
+      <div class="sec-h">
+        <div class="sec-t">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+          本期支出 · 2026-08
+        </div>
+        <div class="sec-n">锚点 = 所选账期</div>
+      </div>
+      <div class="sec-b">
+        <div class="kpirow">
+          <div>
+            <div class="kpi-k">本期支出</div>
+            <div class="kpi-v">¥16,840</div>
+            <div class="kpi-s">共 128 笔 · 11 个类目</div>
+          </div>
+          <div>
+            <div class="kpi-k">比上期</div>
+            <div class="kpi-v up">+¥4,260</div>
+            <div class="kpi-s up">+33.9% · 上期 ¥12,580</div>
+          </div>
+          <div>
+            <div class="kpi-k">比去年同月</div>
+            <div class="kpi-v up">+¥1,120</div>
+            <div class="kpi-s">+7.1% · 2025-08 ¥15,720</div>
+          </div>
+          <div>
+            <div class="kpi-k">剔除一次性后</div>
+            <div class="kpi-v">¥12,940</div>
+            <div class="kpi-s down">比上期 +¥360 · +2.9%</div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:11px">
+          第四格是这一条的重点:总额涨了 <b>33.9%</b> 看着吓人,<b>剔掉一次性只涨了 2.9%</b> ——
+          日常开销其实没变。这个对比一出来,「这个月为什么多花了」基本就回答完了。
+        </p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="eyebrow" style="margin-bottom:7px">两条边界</div>
+      <p class="note" style="margin:0">
+        <b>· 同比数据不够时不显示 0,也不留白</b> —— 显示「攒够 13 期才有」。承 v1.21 FR-519 的纪律:
+        <b>没数据 ≠ 没花钱</b>,一个 0 会被当成真的没花。<br>
+        <b>· 分类同比这一版不做</b> —— 需要 13 期的<b>分类</b>数据,而 v1.21 才发布不到一个月。
+        做了也是一年的空白。总额同比可以做,因为它从 v0.1 就有。
+      </p>
+    </div>
+  </div>
+
+  <!-- ═══ 3 · ② 归因瀑布 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">3</span><span class="zone-t">② 为什么变了</span>
+      <span class="zone-sub">FR-620~625 · 把 +¥4,260 拆到类目;和资产变化归因用同一种视觉语言</span></div>
+    <div class="zone-line"></div>
+
+    <div class="sec">
+      <div class="sec-h">
+        <div class="sec-t">
+          <svg class="ic" viewBox="0 0 24 24"><rect x="3" y="12" width="4" height="8"/><rect x="10" y="6" width="4" height="14"/><rect x="17" y="9" width="4" height="11"/></svg>
+          这 +¥4,260 是哪儿来的
+        </div>
+        <div class="sec-n">2026-07 → 2026-08</div>
+      </div>
+      <div class="sec-b">
+
+        <div class="wf">
+          <!-- 上期基准 -->
+          <div class="wf-col">
+            <div class="wf-amt">¥12,580</div>
+            <div class="wf-bar base" style="height:118px"></div>
+            <div class="wf-lab">上期合计<br><span class="wf-pct">2026-07</span></div>
+          </div>
+          <!-- 旅游 · 一次性 -->
+          <div class="wf-col">
+            <div class="wf-amt up">+3,900</div>
+            <div class="wf-bar oneoff" style="height:37px"></div>
+            <div class="wf-spacer" style="height:118px"></div>
+            <div class="wf-lab">旅游<br><span class="wf-pct" style="color:var(--brass-deep)">一次性</span></div>
+          </div>
+          <!-- 餐饮 -->
+          <div class="wf-col">
+            <div class="wf-amt up">+620</div>
+            <div class="wf-bar up" style="height:6px"></div>
+            <div class="wf-spacer" style="height:155px"></div>
+            <div class="wf-lab">餐饮美食<br><span class="wf-pct">+19.5%</span></div>
+          </div>
+          <!-- 购物 -->
+          <div class="wf-col">
+            <div class="wf-amt up">+310</div>
+            <div class="wf-bar up" style="height:3px"></div>
+            <div class="wf-spacer" style="height:161px"></div>
+            <div class="wf-lab">购物消费<br><span class="wf-pct">+11.2%</span></div>
+          </div>
+          <!-- 交通 -->
+          <div class="wf-col">
+            <div class="wf-amt down">−260</div>
+            <div class="wf-bar down" style="height:3px"></div>
+            <div class="wf-spacer" style="height:161px"></div>
+            <div class="wf-lab">交通出行<br><span class="wf-pct">−13.4%</span></div>
+          </div>
+          <!-- 其他合计 -->
+          <div class="wf-col">
+            <div class="wf-amt down">−310</div>
+            <div class="wf-bar down" style="height:3px"></div>
+            <div class="wf-spacer" style="height:158px"></div>
+            <div class="wf-lab">其他 7 项<br><span class="wf-pct">合计</span></div>
+          </div>
+          <!-- 本期 -->
+          <div class="wf-col">
+            <div class="wf-amt">¥16,840</div>
+            <div class="wf-bar base" style="height:158px"></div>
+            <div class="wf-lab">本期合计<br><span class="wf-pct">2026-08</span></div>
+          </div>
+        </div>
+
+        <div class="lgd">
+          <span><i style="background:rgba(156,74,42,.55);border-color:var(--rust)"></i>比上期多花</span>
+          <span><i style="background:rgba(79,107,71,.5);border-color:var(--forest)"></i>比上期少花</span>
+          <span><i style="border-color:var(--brass-deep);background:repeating-linear-gradient(45deg,rgba(176,134,66,.42) 0 4px,rgba(176,134,66,.14) 4px 8px)"></i>一次性 · 不进常态月均</span>
+        </div>
+
+        <div style="margin-top:14px;padding:10px 13px;border:1px solid var(--rule-soft);background:var(--card-soft)">
+          <p class="note" style="margin:0;color:var(--ink-soft)">
+            <b>这个月多花的 ¥4,260 里,¥3,900 是那一趟旅游。</b>
+            剩下 ¥360 分散在餐饮和购物上,交通反而省了。
+          </p>
+        </div>
+
+        <details style="margin-top:12px">
+          <summary style="cursor:pointer;font-size:12px;color:var(--brass-deep)">看全部 11 个类目的增减 →</summary>
+          <table class="t" style="margin-top:9px">
+            <thead><tr><th>类目</th><th>性质</th><th class="amt">上期</th><th class="amt">本期</th><th class="amt">差额</th><th class="amt">变化率</th></tr></thead>
+            <tbody>
+              <tr><td>旅游</td><td><span class="badge new">一次性</span></td><td class="amt">¥0</td><td class="amt">¥3,900</td><td class="amt up">+3,900</td><td class="amt">新增</td></tr>
+              <tr><td>餐饮美食</td><td><span class="badge">弹性</span></td><td class="amt">¥3,180</td><td class="amt">¥3,800</td><td class="amt up">+620</td><td class="amt up">+19.5%</td></tr>
+              <tr><td>购物消费</td><td><span class="badge">弹性</span></td><td class="amt">¥2,770</td><td class="amt">¥3,080</td><td class="amt up">+310</td><td class="amt up">+11.2%</td></tr>
+              <tr><td>交通出行</td><td><span class="badge">弹性</span></td><td class="amt">¥1,940</td><td class="amt">¥1,680</td><td class="amt down">−260</td><td class="amt down">−13.4%</td></tr>
+              <tr><td>居住 · 房贷</td><td><span class="badge">刚性</span></td><td class="amt">¥3,200</td><td class="amt">¥3,200</td><td class="amt">—</td><td class="amt">0.0%</td></tr>
+              <tr style="opacity:.6"><td colspan="6" style="text-align:center;font-size:11px;color:var(--ink-subtle)">…其余 6 项…</td></tr>
+            </tbody>
+          </table>
+        </details>
+      </div>
+    </div>
+
+    <div class="ba" style="margin-top:14px">
+      <div class="before">
+        <div class="h">上期是 TOTAL 模式怎么办</div>
+        <p class="note" style="margin:0">
+          上期只填了一个总额、没有分类 → <b>不画瀑布</b>,改一行说明「上期只填了总额,拆不开」。
+          <b>绝不拿 0 当上期各类目的值</b> —— 那会让 11 个类目全部显示成「新增」,一张
+          看起来很专业、但通篇是错的图。(FR-625)
+        </p>
+      </div>
+      <div class="after">
+        <div class="h">为什么金额差是大字、变化率是小字</div>
+        <p class="note" style="margin:0">
+          「餐饮从 ¥100 涨到 ¥200」的 <b>+100%</b> 远不如「旅游多了 <b>¥3,900</b>」重要。
+          百分比在小基数上会尖叫,而用户要做的决定跟绝对额有关。<b>大字给能改变决定的那个数。</b>(FR-622)
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 4 · ③ 三分 + 常态月均 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">4</span><span class="zone-t">③ 哪些砍得掉</span>
+      <span class="zone-sub">FR-630~636 · 这一块是整版的主线 —— 它直接决定了那个承重的分母</span></div>
+    <div class="zone-line"></div>
+
+    <div class="sec">
+      <div class="sec-h">
+        <div class="sec-t">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+          这些钱砍得掉吗
+        </div>
+        <div class="sec-n">近 12 个已定稿账期</div>
+      </div>
+      <div class="sec-b">
+
+        <div class="split">
+          <div class="sp-rigid" style="width:41%">刚性 ¥6,900 · 41%</div>
+          <div class="sp-flex"  style="width:36%">弹性 ¥6,040 · 36%</div>
+          <div class="sp-once"  style="width:23%">一次性 ¥3,900 · 23%</div>
+        </div>
+        <div class="lgd">
+          <span><i class="sp-rigid"></i><b>刚性</b> 房贷 / 水电 / 通讯 / 保险 / 教育 —— 短期改不动</span>
+          <span><i class="sp-flex"></i><b>弹性</b> 餐饮 / 交通 / 购物 / 娱乐 —— 想调就能调</span>
+          <span><i class="sp-once"></i><b>一次性</b> 旅游 / 装修 / 大额医疗 —— 不代表日常水平</span>
+        </div>
+
+        <div style="height:1px;background:var(--rule-soft);margin:20px 0"></div>
+
+        <!-- 12 期分层 -->
+        <div class="eyebrow" style="margin-bottom:9px">近 12 期 · 刚性线应该是平的,它一抬就是生活成本上了台阶</div>
+        <div class="stk">
+          <div class="stk-c"><div class="sp-once" style="height:0"></div><div class="sp-flex" style="height:38px"></div><div class="sp-rigid" style="height:44px"></div></div>
+          <div class="stk-c"><div class="sp-once" style="height:0"></div><div class="sp-flex" style="height:35px"></div><div class="sp-rigid" style="height:44px"></div></div>
+          <div class="stk-c"><div class="sp-once" style="height:21px"></div><div class="sp-flex" style="height:40px"></div><div class="sp-rigid" style="height:44px"></div></div>
+          <div class="stk-c"><div class="sp-once" style="height:0"></div><div class="sp-flex" style="height:36px"></div><div class="sp-rigid" style="height:44px"></div></div>
+          <div class="stk-c"><div class="sp-once" style="height:0"></div><div class="sp-flex" style="height:41px"></div><div class="sp-rigid" style="height:44px"></div></div>
+          <div class="stk-c"><div class="sp-once" style="height:58px"></div><div class="sp-flex" style="height:37px"></div><div class="sp-rigid" style="height:44px"></div></div>
+          <div class="stk-c"><div class="sp-once" style="height:0"></div><div class="sp-flex" style="height:34px"></div><div class="sp-rigid" style="height:44px"></div></div>
+          <div class="stk-c"><div class="sp-once" style="height:0"></div><div class="sp-flex" style="height:39px"></div><div class="sp-rigid" style="height:44px"></div></div>
+          <div class="stk-c"><div class="sp-once" style="height:0"></div><div class="sp-flex" style="height:36px"></div><div class="sp-rigid" style="height:46px"></div></div>
+          <div class="stk-c"><div class="sp-once" style="height:12px"></div><div class="sp-flex" style="height:38px"></div><div class="sp-rigid" style="height:46px"></div></div>
+          <div class="stk-c"><div class="sp-once" style="height:0"></div><div class="sp-flex" style="height:37px"></div><div class="sp-rigid" style="height:46px"></div></div>
+          <div class="stk-c"><div class="sp-once" style="height:26px"></div><div class="sp-flex" style="height:40px"></div><div class="sp-rigid" style="height:46px"></div></div>
+        </div>
+        <div style="display:flex;gap:5px">
+          <div class="stk-x" style="flex:1">09</div><div class="stk-x" style="flex:1">10</div><div class="stk-x" style="flex:1">11</div>
+          <div class="stk-x" style="flex:1">12</div><div class="stk-x" style="flex:1">01</div><div class="stk-x" style="flex:1">02</div>
+          <div class="stk-x" style="flex:1">03</div><div class="stk-x" style="flex:1">04</div><div class="stk-x" style="flex:1">05</div>
+          <div class="stk-x" style="flex:1">06</div><div class="stk-x" style="flex:1">07</div><div class="stk-x" style="flex:1">08</div>
+        </div>
+
+        <div style="height:1px;background:var(--rule-soft);margin:20px 0"></div>
+
+        <!-- 双读数 -->
+        <div class="eyebrow" style="margin-bottom:9px">两个月均,都给你</div>
+        <div class="dual">
+          <div>
+            <div class="dual-k">月均支出 · 按全部支出</div>
+            <div class="dual-v">¥13,420</div>
+            <div class="note" style="margin:0">近 12 个已定稿账期的平均。<b>这就是今天页面上那个数,一个字没动。</b></div>
+          </div>
+          <div style="background:var(--card-soft)">
+            <div class="dual-k" style="color:var(--brass-deep)">常态月均 · 剔除一次性</div>
+            <div class="dual-v">¥11,930</div>
+            <div class="note" style="margin:0">
+              <button class="ghost" style="margin-top:3px">剔除了 6 笔,看是哪几笔
+                <svg class="ic" viewBox="0 0 24 24" style="width:11px;height:11px"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <details style="margin-top:11px">
+          <summary style="cursor:pointer;font-size:12px;color:var(--brass-deep)">展开:被剔除的 6 笔 →</summary>
+          <table class="t" style="margin-top:9px">
+            <thead><tr><th>日期</th><th>类目</th><th>说明</th><th>判定来源</th><th class="amt">金额</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">2026-08-12</td><td>旅游</td><td>暑期出行</td><td><span class="badge new">类目性质</span></td><td class="amt">¥3,900</td></tr>
+              <tr><td class="mono">2026-06-03</td><td>购物消费</td><td>笔记本电脑</td><td><span class="badge">逐笔勾选</span></td><td class="amt">¥8,600</td></tr>
+              <tr><td class="mono">2026-02-18</td><td>装修</td><td>阳台改造</td><td><span class="badge new">类目性质</span></td><td class="amt">¥14,200</td></tr>
+              <tr style="opacity:.6"><td colspan="5" style="text-align:center;font-size:11px;color:var(--ink-subtle)">…其余 3 笔…</td></tr>
+            </tbody>
+          </table>
+        </details>
+
+        <div style="margin-top:13px;padding:10px 13px;border:1px solid var(--rule-soft);background:var(--card-soft)">
+          <p class="note" style="margin:0;color:var(--ink-soft)">
+            刚性占比 <b>41%</b> ——<b>刚性占比越高,家庭现金流的可压缩空间越小。</b>
+            <span style="color:var(--ink-subtle)">(只陈述口径,不给好坏评价,不设红绿灯阈值。)</span><br>
+            本期有 <b>4 笔 ¥180</b> 还没归类,暂按弹性计。<button class="ghost" style="margin-left:5px">去归类</button>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;border-left:3px solid var(--rust)">
+      <div class="eyebrow" style="margin-bottom:7px;color:var(--rust)">最危险的一件事 · 为什么是双读数不是换口径</div>
+      <p class="note" style="margin:0">
+        「用常态月均替换月均支出」只要改一行代码,而且测试会全绿(测试数据里没有一次性笔)。
+        但它会让<b>每一个现存用户的紧急储备月数、应急金目标、体检流动性评分在升级那一刻全部改变</b>,
+        而他们什么都没做。<br>
+        所以:<b>既有数字逐字不变,常态月均作为并列的第二个读数出现。</b>
+        用户自己判断哪个更贴近自家情况 —— 这比我们替他决定更诚实,而且
+        <b>两个数摆在一起本身就是信息</b>:差多少 = 一次性支出对判断的干扰有多大。<br>
+        配套:零差异基线(基线取自已发布 tag <code class="mono">v1.23.0</code>,不是当前 master)+
+        护栏 <code class="mono">v1240-EXISTING-KPI-UNCHANGED</code>(静态扫 <code class="mono">averageExpense</code>
+        没有读新列)。
+      </p>
+    </div>
+  </div>
+
+  <!-- ═══ 5 · ④ 周期性 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">5</span><span class="zone-t">④ 有没有在悄悄漏</span>
+      <span class="zone-sub">FR-640~645 · 中文三家一个都没做;Copilot / Monarch 都做了且放在显眼处</span></div>
+    <div class="zone-line"></div>
+
+    <div class="sec">
+      <div class="sec-h">
+        <div class="sec-t">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 3v6h-6"/></svg>
+          每月都在扣
+        </div>
+        <div class="sec-n">合计 ¥446 / 月 · 占月均支出 3.3%</div>
+      </div>
+      <div class="sec-b">
+        <table class="t">
+          <thead><tr><th>推定项目</th><th>类目</th><th class="amt">月均</th><th>已连续</th><th>最近一期</th><th></th></tr></thead>
+          <tbody>
+            <tr>
+              <td>保险 · 某寿险</td><td>保险</td><td class="amt">¥186</td>
+              <td class="mono">12 期</td><td class="mono">¥186 <span class="badge ok">持平</span></td>
+              <td><button class="ghost">不是订阅</button></td>
+            </tr>
+            <tr>
+              <td>视频会员</td><td>休闲娱乐</td><td class="amt">¥25</td>
+              <td class="mono">9 期</td><td class="mono">¥25 <span class="badge risk">9 月起从 ¥15 涨到 ¥25</span></td>
+              <td><button class="ghost">不是订阅</button></td>
+            </tr>
+            <tr>
+              <td>云盘</td><td>其他</td><td class="amt">¥15</td>
+              <td class="mono">7 期</td><td class="mono">¥15 <span class="badge ok">持平</span></td>
+              <td><button class="ghost">不是订阅</button></td>
+            </tr>
+            <tr>
+              <td>宽带 · 月付</td><td>通讯</td><td class="amt">¥120</td>
+              <td class="mono">12 期</td><td class="mono">¥120 <span class="badge ok">持平</span></td>
+              <td><button class="ghost">不是订阅</button></td>
+            </tr>
+            <tr>
+              <td>音乐会员</td><td>休闲娱乐</td><td class="amt">¥100</td>
+              <td class="mono">4 期</td><td class="mono">¥100 <span class="badge ok">持平</span></td>
+              <td><button class="ghost">不是订阅</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:11px">
+          只负责<b>让它被看见</b>。不引导「去取消」,不接第三方退订 —— 那是另一门生意,也是另一种责任。
+        </p>
+      </div>
+    </div>
+
+    <div class="ba" style="margin-top:14px">
+      <div class="before">
+        <div class="h">判据为什么这么保守</div>
+        <p class="note" style="margin:0">
+          我们<b>没有商户字段</b>。导入时商户名被 <code class="mono">trimNote()</code> 塞进了
+          <code class="mono">cash_flow.note</code>(<code class="mono">BillCommitService.java:175</code>),
+          而 <code class="mono">note</code> 同时装着手填备注。<br>
+          所以判据只能是:<b>同类目 + 金额落在同一个 ±5% 区间 + 连续 ≥3 期</b>。
+          <code class="mono">note</code> 只做展示标签,<b>不参与判定</b>。
+        </p>
+      </div>
+      <div class="after">
+        <div class="h">为什么不交给 AI 去认</div>
+        <p class="note" style="margin:0">
+          <b>全在服务端工程代码里做,不调 LLM。</b>
+          判据是确定性的:可复现、可解释、出了问题能指到代码行。
+          LLM 做这件事既不可复现也解释不了,而用户看到一条误判时第一个问题就是「凭什么」。<br>
+          AI 在这一版只干一件事:<b>把工程算好的数字写成一句人话</b>(FR-653)。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 6 · 回流 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">6</span><span class="zone-t">结论回流到决策页</span>
+      <span class="zone-sub">FR-650~654 · 主数字一律不动,并列加第二个读数</span></div>
+    <div class="zone-line"></div>
+
+    <div class="ba">
+      <div>
+        <div class="h" style="color:var(--ink-soft)">dashboard · 紧急储备豆腐块</div>
+        <div style="border:1px solid var(--rule);padding:13px;background:var(--card)">
+          <div class="kpi-k">紧急储备</div>
+          <div class="kpi-v">8.2 <span style="font-size:13px;color:var(--ink-subtle)">个月</span></div>
+          <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--rule-soft)">
+            <div class="note" style="margin:0">
+              <svg class="ic" viewBox="0 0 24 24" style="color:var(--brass-deep)"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+              按常态月均 = <b style="color:var(--brass-deep)">11.6 个月</b><br>
+              <span style="color:var(--ink-subtle)">差额来自近 12 期的 6 笔一次性支出</span>
+            </div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:9px">
+          <b>主数字 8.2 一个字不动</b>,第二个读数在 tooltip / 详情里。
+          dashboard <b>不新增任何组件</b>(FR-654)—— 它已经很满,而支出分析是「每月看一次」的东西。
+        </p>
+      </div>
+      <div>
+        <div class="h" style="color:var(--ink-soft)">目标页 · 应急金</div>
+        <div style="border:1px solid var(--rule);padding:13px;background:var(--card)">
+          <div class="dual" style="border:none">
+            <div style="padding:0 12px 0 0">
+              <div class="dual-k">按全部支出需要</div>
+              <div class="dual-v" style="font-size:21px">¥80,520</div>
+              <div class="note" style="margin:0">6 个月 × ¥13,420</div>
+            </div>
+            <div style="padding:0 0 0 12px;border-left:1px solid var(--rule-soft)">
+              <div class="dual-k" style="color:var(--brass-deep)">按常态月均需要</div>
+              <div class="dual-v" style="font-size:21px">¥71,580</div>
+              <div class="note" style="margin:0">6 个月 × ¥11,930</div>
+            </div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:9px">
+          两个目标额并排,<b>用户自己决定按哪个准备</b>。我们不替他选 ——
+          「一次性支出会不会再来一次」这件事,只有他知道。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 7 · 录入侧 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">7</span><span class="zone-t">录入侧只多一个勾</span>
+      <span class="zone-sub">FR-610~616 · 新增录入负担 ≈ 0</span></div>
+    <div class="zone-line"></div>
+
+    <div class="ba">
+      <div>
+        <div class="h" style="color:var(--ink-soft)">类目管理页 · 一屏改完 10 个大类(一次性,之后基本不动)</div>
+        <table class="t" style="margin-top:4px">
+          <thead><tr><th>一级类目</th><th>支出性质</th></tr></thead>
+          <tbody>
+            <tr><td>居住 · 房贷房租</td><td><span class="badge">刚性</span> <span class="note">预设</span></td></tr>
+            <tr><td>生活缴费</td><td><span class="badge">刚性</span> <span class="note">预设</span></td></tr>
+            <tr><td>保险</td><td><span class="badge">刚性</span> <span class="note">预设</span></td></tr>
+            <tr><td>餐饮美食</td><td><span class="badge ok">弹性</span> <span class="note">预设</span></td></tr>
+            <tr><td>购物消费</td><td><span class="badge ok">弹性</span> <span class="note">预设</span></td></tr>
+            <tr><td>旅游</td><td><span class="badge new">一次性</span> <span class="note">预设</span></td></tr>
+            <tr><td>装修</td><td><span class="badge new">一次性</span> <span class="note">预设</span></td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:9px">
+          起步包<b>预设好性质,用户什么都不做也有一份合理的默认</b>(FR-611)。
+          自建类目留 NULL → <b>读作弹性</b>,而弹性 = 不改变任何既有数字(FR-616)。
+        </p>
+      </div>
+      <div>
+        <div class="h" style="color:var(--ink-soft)">填报页 / 导入确认页 · 逐笔覆盖</div>
+        <div style="border:1px solid var(--rule);padding:12px;background:var(--card)">
+          <table class="t">
+            <tbody>
+              <tr><td style="width:88px"><span class="note">类目</span></td><td>购物消费</td></tr>
+              <tr><td><span class="note">金额</span></td><td class="mono">¥8,600</td></tr>
+              <tr><td><span class="note">备注</span></td><td>笔记本电脑</td></tr>
+              <tr>
+                <td></td>
+                <td>
+                  <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer">
+                    <input type="checkbox" checked style="width:14px;height:14px;accent-color:var(--brass-deep)">
+                    这笔是一次性的,别算进月均
+                  </label>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note" style="margin-top:9px">
+          <b>默认不勾</b>,一年可能用 3–5 次 —— 只在「弹性类目里的一笔大额」上用。<br>
+          <b>只能勾成一次性,不能反向把一次性改回弹性</b>(FR-614):三个值都可逐笔覆盖
+          = 三倍判断负担,而实际需求只有「这笔特殊」这一个方向。<br>
+          <b>两条写入口都要守</b> —— <code class="mono">EntryService</code> 和
+          <code class="mono">BillCommitService</code>,少一条就是静默算错(联动链 L13)。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 8 · 移动端 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">8</span><span class="zone-t">移动端</span>
+      <span class="zone-sub">FR-663 · 瀑布与三分条纵向堆叠,不横向压缩</span></div>
+    <div class="zone-line"></div>
+
+    <div class="phone">
+      <div class="sec-h"><div class="sec-t" style="font-size:14px">本期支出 · 2026-08</div></div>
+      <div class="sec-b">
+        <div style="font-family:'Fraunces',serif;font-size:26px;font-feature-settings:'tnum' 1">¥16,840</div>
+        <div class="note up" style="margin-top:2px">比上期 +¥4,260 · +33.9%</div>
+        <div class="note" style="margin-top:2px">剔除一次性后 ¥12,940 · <span class="down">+2.9%</span></div>
+
+        <div style="height:1px;background:var(--rule-soft);margin:14px 0"></div>
+
+        <div class="eyebrow" style="margin-bottom:8px">这 +¥4,260 是哪儿来的</div>
+        <!-- 纵向瀑布:每行一个类目,横条右伸 -->
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11.5px">
+              <span>旅游 <span class="badge new" style="font-size:8px">一次性</span></span><span class="mono up">+3,900</span></div>
+            <div class="wf-bar oneoff" style="height:9px;max-width:none;width:92%;margin-top:3px"></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11.5px"><span>餐饮美食</span><span class="mono up">+620</span></div>
+            <div class="wf-bar up" style="height:9px;max-width:none;width:15%;margin-top:3px"></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11.5px"><span>购物消费</span><span class="mono up">+310</span></div>
+            <div class="wf-bar up" style="height:9px;max-width:none;width:8%;margin-top:3px"></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11.5px"><span>交通出行</span><span class="mono down">−260</span></div>
+            <div class="wf-bar down" style="height:9px;max-width:none;width:7%;margin-top:3px"></div>
+          </div>
+        </div>
+
+        <div style="height:1px;background:var(--rule-soft);margin:14px 0"></div>
+
+        <div class="eyebrow" style="margin-bottom:8px">砍得掉吗</div>
+        <div class="split" style="height:32px">
+          <div class="sp-rigid" style="width:41%;font-size:9.5px">刚性 41%</div>
+          <div class="sp-flex" style="width:36%;font-size:9.5px">弹性 36%</div>
+          <div class="sp-once" style="width:23%;font-size:9.5px">一次性 23%</div>
+        </div>
+
+        <div style="margin-top:13px;border:1px solid var(--rule);padding:11px">
+          <div class="dual-k">月均支出</div>
+          <div style="font-family:'Fraunces',serif;font-size:20px;font-feature-settings:'tnum' 1">¥13,420</div>
+          <div class="dual-k" style="color:var(--brass-deep);margin-top:9px">常态月均 · 剔除一次性</div>
+          <div style="font-family:'Fraunces',serif;font-size:20px;font-feature-settings:'tnum' 1">¥11,930</div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="text-align:center;margin-top:11px">
+      手机上瀑布改成<b>逐行横条</b>(左类目右金额),三分条保留横向但压到 32px。
+      并列元素尺寸必须一致 —— 两个月均读数同字号、同内边距、同边框。
+    </p>
+  </div>
+
+  <!-- ═══ 9 · 边界 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">9</span><span class="zone-t">这一版明确不做</span>
+      <span class="zone-sub">每一条都有理由,不是没想到</span></div>
+    <div class="zone-line"></div>
+
+    <table class="t">
+      <thead><tr><th style="width:190px">不做</th><th>为什么</th></tr></thead>
+      <tbody>
+        <tr><td><b>预算 / 超支预警</b></td><td>AGENTS.md 明文「刻意不做预算包络」。预算是月度自律工具(每天看),我们是资产决策工具(每月看一次),10 分钟/月只装得下后者。Copilot Money 主动放弃了预算 —— 这是一个独立佐证。</td></tr>
+        <tr><td><b>任何价值判断的文案</b></td><td>不说「冲动消费」「你这个月花超了」「建议减少」。少数派那句<b>「花钱永远没有对错」</b>是这一版的红线。系统的职责是<b>指出变化</b>,不是评判选择。配 qa-run 护栏 <code class="mono">v1240-NO-JUDGEMENT</code> 扫判断词。</td></tr>
+        <tr><td><b>商家 / 交易对象维度</b></td><td>没有商户字段,商户名和手填备注混在同一个 <code class="mono">note</code> 里。在脏的自由文本上做聚合,产出的排行榜<b>看起来很专业但是错的</b>。要做得先加 <code class="mono">counterparty</code> 列。</td></tr>
+        <tr><td><b>分类同比</b></td><td>需要 13 期的分类数据,v1.21 发布不到一个月。总额同比可以做。</td></tr>
+        <tr><td><b>记账激励</b>(打卡 / 徽章)</td><td>那是留存设计。我们的用户每月来一次,不需要被激励留存。</td></tr>
+        <tr><td><b>自定义统计周期</b></td><td>账期是一等公民,v1.23 刚把它的边界做成可配置。再叠一层独立统计周期 = 两套时间口径。<b>分析周期 = 账期</b>,不给第二个。</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══ 10 · 存量安全 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">10</span><span class="zone-t">对线上现有数据是什么影响</span>
+      <span class="zone-sub">prod 已上线,这一节先于代码想清楚</span></div>
+    <div class="zone-line"></div>
+
+    <table class="t">
+      <thead><tr><th style="width:150px">面</th><th>影响</th></tr></thead>
+      <tbody>
+        <tr><td><b>schema</b></td><td><b>只加不改</b>:<code class="mono">expense_category</code> 加 1 列(<code class="mono">expense_nature</code> 可空)、<code class="mono">cash_flow</code> 加 1 列(<code class="mono">one_off</code> DEFAULT 0)。既有行一个字节不动,两列都向前兼容老 jar。</td></tr>
+        <tr><td><b>既有指标</b></td><td>紧急储备 / 储蓄率 / 月均支出 / FIRE / 人赚钱赚 / XIRR <b>逐字不变</b>。零差异基线取自已发布 tag <code class="mono">v1.23.0</code>。</td></tr>
+        <tr><td><b>TOTAL 模式家庭</b></td><td>支出章节与上一版<b>逐字一致</b>,新块一个都不出现 —— 他们没有分类数据,算不出来。</td></tr>
+        <tr><td><b>老数据家庭</b></td><td>v1.21 之前没有逐笔数据的 → 新块不渲染,给一行「再记两个月就能看了」。<b>不报错、不显示 0。</b></td></tr>
+        <tr><td><b>余额链</b></td><td><code class="mono">one_off</code> 是<b>纯分析期标记</b>,不参与任何余额语义 —— 不碰扣余额 / 轧差 / NAV。这一点要写进列注释,因为 <code class="mono">affects_balance</code> 已经有过一次「一个标记要同时退出三条链」的教训。</td></tr>
+        <tr><td><b>回滚</b></td><td><b>回 jar 即可。</b>数据不需要回滚 —— 没有任何金额依赖这两列。</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══ 11 · 等裁决 ═══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">11</span><span class="zone-t">等你裁的四件事</span>
+      <span class="zone-sub">PRD §13 的同一份清单</span></div>
+    <div class="zone-line"></div>
+
+    <div class="card">
+      <ol class="note" style="margin:0;padding-left:18px;line-height:2.1;color:var(--ink-soft)">
+        <li><b>双读数 vs 直接换口径。</b>我选了双读数。如果你认为常态月均本来就是更对的那个口径、该直接换 —— 那就是一次真正的口径变更,要走「默认关 + 零差异基线 + 页面写明口径期」的完整流程。</li>
+        <li><b>逐笔「一次性」勾要不要做。</b>它是本版唯一增加录入动作的东西(一年 3–5 次)。没有它,「购物类目里买了台电脑」只能靠改整个类目的性质来处理 —— 那是错的。</li>
+        <li><b>周期性判据的松紧。</b>现在是「同类目 + 金额 ±5% + 连续 ≥3 期」。提到 4 期准确率更高,但新订阅要 4 个月才被发现。</li>
+        <li><b>章节顺序。</b>我排成「先结论后明细」(新块在前)。保守做法是加在现有三块后面 —— 老用户阅读习惯完全不变,但「所以呢」又排到了「摆出来给你看」的后面。</li>
+      </ol>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:44px;text-align:center;color:var(--ink-subtle)">
+    本页全部金额为编造的示例值 · 不含任何 prod 真实数据 ·
+    PRD:<code class="mono">prd/v1.24.md</code>
+  </p>
+
+</div>
+</body>
+</html>
