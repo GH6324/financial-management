@@ -9502,6 +9502,62 @@ QA123_FCO=$(grep -rn "findCurrentOpen(" "$RD/src/main/java/" 2>/dev/null \
   && log_ok "v1230-RHYTHM-DOCS-ALIGNED(节奏口径三处一致)" \
   || log_bad "v1230-RHYTHM-DOCS-ALIGNED 文档没跟上新的填报节奏" "prd/v0.4 与 docs/how-to-use 对「什么时候填」的说法仍自相矛盾"
 
+# ══════════════════════════════════════════════════════════════════════
+# 真 e2e 框架(2026-09-20 · 维护者要求把 e2e 改造成「真的开浏览器点」)
+# ══════════════════════════════════════════════════════════════════════
+
+QAE2E_DIR="$RD/scripts/e2e"
+
+# v1230-E2E-IS-BROWSER-DRIVEN · e2e 的动作必须从页面元素发起,不许在 flow 里打端点。
+#   旧 scripts/e2e.sh 用 curl 直接 POST,验的是「接口通了、库里对了」——
+#   它结构性地验不到用户与系统之间的那一段:表单字段名、按钮可达性、JS 绑定作用域、
+#   渲染中途截断、并列元素尺寸。这个项目的事故大量出在那一段。
+#   判据:flows/ 里不许出现 curl / fetch / axios;必须出现 ui. 开头的页面动作。
+#   ⚠ 判据必须**先剥注释**。这是本仓库第 8 次踩「护栏被解释它自己的注释绊倒」:
+#     flow 头上写着「它能抓到 curl 版抓不到的东西」,裸 grep 直接判红,
+#     而代码里一行 curl 都没有。凡是判据形如「不许出现 X」,先 codeonly。
+{ qae2e_code(){ sed -E 's,^[[:space:]]*(//|\*|/\*).*,,' "$1"; }
+  qae2e_bad=0
+  for f in "$QAE2E_DIR"/flows/*.cjs; do
+    [ -e "$f" ] || continue
+    qae2e_code "$f" | grep -qE "curl |require\('http|fetch\(|axios" && qae2e_bad=1
+  done
+  [ -d "$QAE2E_DIR/flows" ] && [ "$qae2e_bad" -eq 0 ] \
+  && [ "$(grep -rl "ui\." "$QAE2E_DIR/flows/" 2>/dev/null | wc -l)" -ge 1 ]; } \
+  && log_ok "v1230-E2E-IS-BROWSER-DRIVEN(e2e flow 只从页面点,不打端点)" \
+  || log_bad "v1230-E2E-IS-BROWSER-DRIVEN e2e flow 里出现了直接调端点" "那样验的是接口不是用户路径;要写页面动作(ui.click/fill/choose)"
+
+# v1230-E2E-TWO-LAYER-ASSERT · 断言必须两层:看得见 + 真值。
+#   只看页面会漏「显示对了但没存进去」(页面回显的常是你刚提交的表单值);
+#   只查库会漏「存对了但用户看不到」—— 后者这个项目出现过不止一次。
+{ for f in "$QAE2E_DIR"/flows/*.cjs; do
+    [ -e "$f" ] || continue
+    grep -q "ui\.seesText\|ui\.visible\|ui\.count\|ui\.sameSize" "$f" || exit 1
+    grep -q "db\.one\|db\.num\|db\.col" "$f" || exit 1
+  done; } \
+  && log_ok "v1230-E2E-TWO-LAYER-ASSERT(每个 flow 都有页面断言 + 真值断言)" \
+  || log_bad "v1230-E2E-TWO-LAYER-ASSERT 有 flow 只验了一层" "看得见层漏了会漏「用户看不到」;真值层漏了会漏「显示对了没存进去」"
+
+# v1230-E2E-CLEANUP-DECLARES-END-STATE · 还原要声明终态,不能依赖「跑之前是什么样」。
+#   踩过:还原写成 `if (跑之前是 CLOSED) 关回去`,连跑两次时第二次读到的已经是 OPEN,
+#   整段还原被跳过,beta 被留在中间状态里 —— 下一个人跑别的回归会莫名其妙。
+{ for f in "$QAE2E_DIR"/flows/*.cjs; do
+    [ -e "$f" ] || continue
+    grep -q "async cleanup" "$f" || exit 1
+  done; } \
+  && log_ok "v1230-E2E-CLEANUP-DECLARES-END-STATE(每个改数据的 flow 都有 cleanup)" \
+  || log_bad "v1230-E2E-CLEANUP-DECLARES-END-STATE 有 flow 没写 cleanup" "不还原会污染下一次运行,红灯会指向错误的地方"
+
+# v1230-E2E-OLD-SCRIPT-RENAMED · 旧 e2e.sh 必须已正名,且说清自己不是 e2e。
+#   留着它是对的(那 119 处 SQL 断言验的是计算口径,没有 UI 路径),
+#   但它不能再叫 e2e —— 名字会让人以为用户路径已经验过了。
+{ [ ! -f "$RD/scripts/e2e.sh" ] \
+  && [ -f "$RD/scripts/regression-data.sh" ] \
+  && grep -q "这个脚本不是 e2e" "$RD/scripts/regression-data.sh"; } \
+  && log_ok "v1230-E2E-OLD-SCRIPT-RENAMED(旧 e2e.sh 已正名为 regression-data.sh 并写明职责)" \
+  || log_bad "v1230-E2E-OLD-SCRIPT-RENAMED 旧脚本还叫 e2e.sh" "名字会让人以为用户路径验过了,而它只验了接口和库"
+
+
 
 echo
 echo "═══════════════════════════════════════"
