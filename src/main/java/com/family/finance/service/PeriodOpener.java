@@ -95,7 +95,7 @@ public class PeriodOpener {
                     continue;
                 }
                 try {
-                    int filled = periodService.forceClose(open.getId(), systemMemberId);
+                    int filled = periodService.forceClose(family.getId(), open.getId(), systemMemberId);
                     log.info("[grace-close] family={} period={} deadline={} closed=true reason={} 代填={}",
                             family.getId(), open.getId(), periodService.graceDeadline(family, open),
                             overdue ? "手动模式拖过一期·强制关" : "宽限到期", filled);
@@ -118,7 +118,7 @@ public class PeriodOpener {
         if (systemMemberId == null) return;
         for (Period prior : periodMapper.findOpenBefore(family.getId(), newStart)) {
             try {
-                periodService.forceClose(prior.getId(), systemMemberId);
+                periodService.forceClose(family.getId(), prior.getId(), systemMemberId);
             } catch (IllegalStateException alreadyClosed) {
                 // 并发/重复触发下已非 OPEN,跳过
             }

@@ -302,7 +302,7 @@ public class AdminController {
         // BUG-FIX(2026-05-11):若改的是自己,刷新 SecurityContext 的 MemberPrincipal,
         // 让顶栏 me.displayName 立刻看到新名(否则要等会话过期重登才生效)
         if (memberId == me.getMemberId()) {
-            Member fresh = memberMapper.findById(memberId).orElseThrow();
+            Member fresh = memberMapper.findById(me.getFamilyId(), memberId).orElseThrow();
             MemberPrincipal refreshed = new MemberPrincipal(fresh);
             Authentication old = SecurityContextHolder.getContext().getAuthentication();
             SecurityContextHolder.getContext().setAuthentication(
@@ -317,7 +317,7 @@ public class AdminController {
                                 @PathVariable long memberId,
                                 RedirectAttributes ra) {
         String temp = adminService.resetPassword(me.getFamilyId(), memberId, me.getMemberId());
-        Member m = memberMapper.findById(memberId).orElseThrow();
+        Member m = memberMapper.findById(me.getFamilyId(), memberId).orElseThrow();
         ra.addFlashAttribute("tempPassword", temp);
         ra.addFlashAttribute("tempPasswordFor", m.getDisplayName());
         ra.addFlashAttribute("tempPasswordMemberId", memberId);
@@ -468,7 +468,7 @@ public class AdminController {
                               @PathVariable long periodId,
                               RedirectAttributes ra) {
         try {
-            int filled = periodService.forceClose(periodId, me.getMemberId());
+            int filled = periodService.forceClose(me.getFamilyId(), periodId, me.getMemberId());
             ra.addFlashAttribute("flash", "已强制关账,代填 " + filled + " 个账户的余额(延续上期末);触发指标重算");
         } catch (Exception ex) {
             ra.addFlashAttribute("flash", "强制关账失败:" + ex.getMessage());
@@ -485,7 +485,7 @@ public class AdminController {
             ra.addFlashAttribute("flash", "重开失败:必须填理由");
             return "redirect:/admin/periods";
         }
-        periodService.reopen(periodId, reason);
+        periodService.reopen(me.getFamilyId(), periodId, reason);
         ra.addFlashAttribute("flash", "周期已重新打开");
         return "redirect:/admin/periods";
     }

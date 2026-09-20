@@ -38,7 +38,7 @@ class UsernameRenameTest {
             new AdminService(memberMapper, encoder, audit, sessionKiller, scanner);
 
     private void existing(String username) {
-        when(memberMapper.findById(7L)).thenReturn(Optional.of(Member.builder()
+        when(memberMapper.findById(anyLong(), eq(7L))).thenReturn(Optional.of(Member.builder()
                 .id(7L).familyId(1L).username(username).displayName("李四").build()));
     }
 
@@ -50,7 +50,7 @@ class UsernameRenameTest {
 
         InOrder order = inOrder(sessionKiller, memberMapper);
         order.verify(sessionKiller).killRememberMe("lisi");     // 先按旧名清票根
-        order.verify(memberMapper).updateUsername(7L, "li_si"); // 再改名
+        order.verify(memberMapper).updateUsername(1L, 7L, "li_si"); // 再改名
         // 事务外直调 → afterCommit 就地执行 → 在线会话当场作废
         verify(sessionKiller).killAllSessions(7L);
         verify(audit).record(eq(1L), eq(1L), eq(AuditLogType.MEMBER_RENAME),
@@ -63,7 +63,7 @@ class UsernameRenameTest {
 
         svc.renameUsername(1L, 7L, "  lisi  ", 1L);   // 只是多敲了空格
 
-        verify(memberMapper, never()).updateUsername(anyLong(), anyString());
+        verify(memberMapper, never()).updateUsername(anyLong(), anyLong(), anyString());
         verify(sessionKiller, never()).killRememberMe(anyString());
         verify(sessionKiller, never()).killAllSessions(anyLong());
         verifyNoInteractions(audit);   // 不留「lisi → lisi」这种假留痕
@@ -79,7 +79,7 @@ class UsernameRenameTest {
         assertThatThrownBy(() -> svc.renameUsername(1L, 7L, "ab", 1L))
                 .isInstanceOf(IllegalArgumentException.class);
 
-        verify(memberMapper, never()).updateUsername(anyLong(), anyString());
+        verify(memberMapper, never()).updateUsername(anyLong(), anyLong(), anyString());
         verify(sessionKiller, never()).killRememberMe(anyString());
     }
 
@@ -92,7 +92,7 @@ class UsernameRenameTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("已被占用");
 
-        verify(memberMapper, never()).updateUsername(anyLong(), anyString());
+        verify(memberMapper, never()).updateUsername(anyLong(), anyLong(), anyString());
     }
 
     @Test
@@ -100,7 +100,7 @@ class UsernameRenameTest {
         existing("lisi");
         when(memberMapper.existsUsername("diwa")).thenReturn(0);   // 应用层检查这一刻还没人占
         doThrow(new DuplicateKeyException("Duplicate entry 'diwa' for key 'uk_member_username'"))
-                .when(memberMapper).updateUsername(7L, "diwa");
+                .when(memberMapper).updateUsername(1L, 7L, "diwa");
 
         // 两个人同时改成同一个名字 —— 应用层检查和 UPDATE 之间有窗口,兜底靠数据库唯一索引
         assertThatThrownBy(() -> svc.renameUsername(1L, 7L, "diwa", 1L))
@@ -110,14 +110,14 @@ class UsernameRenameTest {
 
     @Test
     void memberFromAnotherFamily_isNotReachable() {
-        when(memberMapper.findById(7L)).thenReturn(Optional.of(Member.builder()
+        when(memberMapper.findById(anyLong(), eq(7L))).thenReturn(Optional.of(Member.builder()
                 .id(7L).familyId(999L).username("lisi").displayName("李四").build()));
 
         assertThatThrownBy(() -> svc.renameUsername(1L, 7L, "li_si", 1L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("成员不存在");
 
-        verify(memberMapper, never()).updateUsername(anyLong(), anyString());
+        verify(memberMapper, never()).updateUsername(anyLong(), anyLong(), anyString());
         verify(sessionKiller, never()).killRememberMe(anyString());
     }
 }

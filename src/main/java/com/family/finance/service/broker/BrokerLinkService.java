@@ -54,7 +54,7 @@ public class BrokerLinkService {
     @Transactional
     public void link(long familyId, long accountId, BrokerVendor vendor, String brokerAccountId,
                      String opendHost, Integer opendPort, Long memberId) {
-        Account acc = accountMapper.findById(accountId)
+        Account acc = accountMapper.findById(familyId, accountId)
                 .orElseThrow(() -> new IllegalArgumentException("账户不存在"));
         if (!acc.getFamilyId().equals(familyId)) throw new IllegalArgumentException("无权访问账户");
         if (!StockHoldingService.supportsHoldings(acc.getType())) {
@@ -98,7 +98,7 @@ public class BrokerLinkService {
     /** 解绑:删绑定 + 同步来的持仓清 sync_source 变普通持仓(被归档旧持仓仍可 restore)。 */
     @Transactional
     public void unlink(long familyId, long accountId, Long memberId) {
-        Account acc = accountMapper.findById(accountId).orElseThrow(() -> new IllegalArgumentException("账户不存在"));
+        Account acc = accountMapper.findById(familyId, accountId).orElseThrow(() -> new IllegalArgumentException("账户不存在"));
         if (!acc.getFamilyId().equals(familyId)) throw new IllegalArgumentException("无权访问账户");
         linkMapper.deleteByAccount(accountId);
         holdingMapper.clearSyncSource(familyId, accountId);

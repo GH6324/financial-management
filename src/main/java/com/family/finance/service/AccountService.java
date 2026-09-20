@@ -125,7 +125,7 @@ public class AccountService {
     }
 
     public Account require(long familyId, long accountId) {
-        Account account = accountMapper.findById(accountId)
+        Account account = accountMapper.findById(familyId, accountId)
                 .orElseThrow(() -> new IllegalArgumentException("账户不存在: " + accountId));
         if (account.getFamilyId() != familyId) {
             throw new IllegalArgumentException("账户不属于当前家庭");

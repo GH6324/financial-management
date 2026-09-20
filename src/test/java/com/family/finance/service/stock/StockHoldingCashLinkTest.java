@@ -44,9 +44,9 @@ class StockHoldingCashLinkTest {
         svc = new StockHoldingService(holdingMapper, accountMapper, fxService, periodMapper, fetcher,
                 mock(com.family.finance.repository.CashFlowMapper.class));
         // USD 股票账户 family=1
-        when(accountMapper.findById(10L)).thenReturn(Optional.of(
+        when(accountMapper.findById(anyLong(), eq(10L))).thenReturn(Optional.of(
                 Account.builder().id(10L).familyId(1L).type(AccountType.STOCK).currency("USD").build()));
-        when(accountMapper.findById(20L)).thenReturn(Optional.of(
+        when(accountMapper.findById(anyLong(), eq(20L))).thenReturn(Optional.of(
                 Account.builder().id(20L).familyId(1L).type(AccountType.CRYPTO).currency("USD").build()));
     }
 

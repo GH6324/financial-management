@@ -40,7 +40,7 @@ public class DevSeedRunner implements CommandLineRunner {
         if (m.getPasswordHash() != null && m.getPasswordHash().startsWith(PLACEHOLDER_PREFIX)) {
             String hash = passwordEncoder.encode(DEV_PASSWORD);
             // dev profile 直接放行 — 不要求 dev 用户首次登录强制改密(否则 QA / 手测都被拦)
-            memberMapper.updatePasswordHash(m.getId(), hash, false);
+            memberMapper.updatePasswordHash(m.getFamilyId(), m.getId(), hash, false);
             log.warn("[DevSeed] reset password for username='{}' (member id={}) to '{}'",
                     m.getUsername(), m.getId(), DEV_PASSWORD);
         }

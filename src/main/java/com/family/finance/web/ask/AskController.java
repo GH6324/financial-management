@@ -101,6 +101,8 @@ public class AskController {
                 model.addAttribute("conv", c);
                 model.addAttribute("messages", conversations.history(me.getFamilyId(), conv));
                 model.addAttribute("renderer", renderer);
+                // v1.24 · 家庭隔离:引用卡要查账期标签,SQL 现在按 family_id 过滤 —— 模板得把它带进去
+                model.addAttribute("askFamilyId", me.getFamilyId());
             }
         }
     }

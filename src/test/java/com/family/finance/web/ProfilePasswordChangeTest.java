@@ -51,7 +51,7 @@ class ProfilePasswordChangeTest {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(me, "x", List.of()));
 
-        when(memberMapper.findById(2L)).thenReturn(Optional.of(
+        when(memberMapper.findById(anyLong(), eq(2L))).thenReturn(Optional.of(
                 Member.builder().id(2L).familyId(1L).passwordHash("OLDHASH").mustChangePw(true).build()));
         when(encoder.matches("demo1234", "OLDHASH")).thenReturn(true);   // 原密码对
         when(encoder.matches("newpass88", "OLDHASH")).thenReturn(false); // 新≠旧
@@ -66,7 +66,7 @@ class ProfilePasswordChangeTest {
         String view = controller.submit(me, "demo1234", "newpass88", "newpass88", model, req, resp);
 
         assertThat(view).isEqualTo("redirect:/login?passwordChanged");
-        verify(memberMapper).updatePasswordHash(2L, "NEWHASH", false);   // 标记置 0
+        verify(memberMapper).updatePasswordHash(1L, 2L, "NEWHASH", false);   // 标记置 0
         verify(session).invalidate();                                    // ★ 真作废 session(修复核心)
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
@@ -74,7 +74,7 @@ class ProfilePasswordChangeTest {
     @Test
     void wrongOldPassword_returnsForm_noChange_noLogout() {
         MemberPrincipal me = me();
-        when(memberMapper.findById(2L)).thenReturn(Optional.of(
+        when(memberMapper.findById(anyLong(), eq(2L))).thenReturn(Optional.of(
                 Member.builder().id(2L).passwordHash("OLDHASH").build()));
         when(encoder.matches("wrong", "OLDHASH")).thenReturn(false);
 
@@ -86,7 +86,7 @@ class ProfilePasswordChangeTest {
 
         assertThat(view).isEqualTo("profile/password");
         assertThat(model.getAttribute("error")).isEqualTo("原密码不正确");
-        verify(memberMapper, never()).updatePasswordHash(anyLong(), anyString(), eq(false));
+        verify(memberMapper, never()).updatePasswordHash(anyLong(), anyLong(), anyString(), eq(false));
         verify(req, never()).getSession(false);   // 没改成功就不该动 session
     }
 }

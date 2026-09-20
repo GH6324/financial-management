@@ -57,7 +57,7 @@ public class StockHoldingService {
         StockHolding h = holdingMapper.findById(familyId, holdingId)
             .orElseThrow(() -> new IllegalArgumentException("持仓不存在: " + holdingId));
         // 校验账户属于家庭
-        Account acc = accountMapper.findById(h.getAccountId())
+        Account acc = accountMapper.findById(familyId, h.getAccountId())
             .orElseThrow(() -> new IllegalArgumentException("账户不存在: " + h.getAccountId()));
         if (!acc.getFamilyId().equals(familyId)) {
             throw new IllegalArgumentException("无权访问持仓");
@@ -239,7 +239,7 @@ public class StockHoldingService {
      */
     public BigDecimal currentUnitValueInAccountCcy(long familyId, StockHolding h) {
         if (h == null) return null;
-        Account acc = accountMapper.findById(h.getAccountId()).orElse(null);
+        Account acc = accountMapper.findById(familyId, h.getAccountId()).orElse(null);
         String acctCcy = acc != null && acc.getCurrency() != null ? acc.getCurrency() : null;
         return switch (h.getValuationMode()) {
             case MANUAL -> h.getManualValue();
@@ -319,7 +319,7 @@ public class StockHoldingService {
         if (delta == null || delta.signum() == 0) return;
         var periodOpt = periodMapper.findBalancePeriod(familyId);
         if (periodOpt.isEmpty()) return;
-        var acct = accountMapper.findById(accountId).orElse(null);
+        var acct = accountMapper.findById(familyId, accountId).orElse(null);
         Long memberId = acct == null ? null : acct.getPrimaryOwnerMemberId();
         if (memberId == null) return;   // submitted_by 必填,无主理人则不记(不影响余额本身)
         var period = periodOpt.get();
@@ -393,7 +393,7 @@ public class StockHoldingService {
      */
     @Transactional
     public void adjustAccountCash(long familyId, long accountId, String fromCcy, BigDecimal deltaInFromCcy) {
-        var account = accountMapper.findById(accountId).orElse(null);
+        var account = accountMapper.findById(familyId, accountId).orElse(null);
         String acctCcy = account != null && account.getCurrency() != null
             ? account.getCurrency().toUpperCase(Locale.ROOT) : fromCcy;
         BigDecimal deltaInAcctCcy = fxConvert(familyId, deltaInFromCcy, fromCcy, acctCcy);
@@ -442,7 +442,7 @@ public class StockHoldingService {
     public void restore(long familyId, long holdingId) {
         StockHolding h = holdingMapper.findById(familyId, holdingId).orElseThrow(
             () -> new IllegalArgumentException("持仓不存在: " + holdingId));
-        Account acc = accountMapper.findById(h.getAccountId()).orElseThrow();
+        Account acc = accountMapper.findById(familyId, h.getAccountId()).orElseThrow();
         if (!acc.getFamilyId().equals(familyId)) {
             throw new IllegalArgumentException("无权访问持仓");
         }
@@ -452,7 +452,7 @@ public class StockHoldingService {
     // ---------- 校验 ----------
 
     private Account requireHoldingAccount(long familyId, long accountId) {
-        Account acc = accountMapper.findById(accountId)
+        Account acc = accountMapper.findById(familyId, accountId)
             .orElseThrow(() -> new IllegalArgumentException("账户不存在: " + accountId));
         if (!acc.getFamilyId().equals(familyId)) {
             throw new IllegalArgumentException("无权访问账户");

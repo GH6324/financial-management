@@ -114,12 +114,12 @@ public class PeriodService {
 
     @Transactional
     public void close(MemberPrincipal me, long periodId) {
-        close(periodId, me.getMemberId(), "关闭周期");
+        close(me.getFamilyId(), periodId, me.getMemberId(), "关闭周期");
     }
 
     @Transactional
-    public void close(long periodId) {
-        close(periodId, null, "全员完成自动关闭周期");
+    public void close(long familyId, long periodId) {
+        close(familyId, periodId, null, "全员完成自动关闭周期");
     }
 
     /**
@@ -130,8 +130,8 @@ public class PeriodService {
      *   - 调用 close 标 status=CLOSED + 异步 metrics 重算
      */
     @Transactional
-    public int forceClose(long periodId, long actorMemberId) {
-        Period period = periodMapper.findById(periodId)
+    public int forceClose(long familyId, long periodId, long actorMemberId) {
+        Period period = periodMapper.findById(familyId, periodId)
                 .orElseThrow(() -> new IllegalArgumentException("周期不存在: " + periodId));
         if (period.getStatus() != PeriodStatus.OPEN) {
             throw new IllegalStateException("周期已是 CLOSED,无需强制关闭");
@@ -170,15 +170,15 @@ public class PeriodService {
         }
         auditLogService.record(period.getFamilyId(), actorMemberId, AuditLogType.PERIOD_CLOSE,
                 "period", periodId, "管理员强制关闭周期(代填 " + filledFromPrev + " 个账户的余额=上期末)");
-        close(periodId, actorMemberId, "管理员强制关闭周期 · 代填 " + filledFromPrev + " 行");
+        close(familyId, periodId, actorMemberId, "管理员强制关闭周期 · 代填 " + filledFromPrev + " 行");
         return filledFromPrev;
     }
 
     @Transactional
-    public void markCompletedByMember(long periodId, long memberId) {
-        Period period = periodMapper.findById(periodId)
+    public void markCompletedByMember(long familyId, long periodId, long memberId) {
+        Period period = periodMapper.findById(familyId, periodId)
                 .orElseThrow(() -> new IllegalArgumentException("周期不存在: " + periodId));
-        memberMapper.findById(memberId)
+        memberMapper.findById(familyId, memberId)
                 .filter(member -> member.getFamilyId().equals(period.getFamilyId()))
                 .orElseThrow(() -> new IllegalArgumentException("成员不属于该家庭"));
         completionMapper.insertIgnore(period.getFamilyId(), PeriodMemberCompletion.builder()
@@ -191,22 +191,22 @@ public class PeriodService {
         int completedMembers = completionMapper.countByPeriod(period.getFamilyId(), periodId);
         int pendingTodos = snapshotTodoMapper.countPendingByPeriod(period.getFamilyId(), periodId);
         if (activeMembers > 0 && completedMembers >= activeMembers && pendingTodos == 0) {
-            close(periodId, null, "全员完成并自动关闭周期");
+            close(familyId, periodId, null, "全员完成并自动关闭周期");
         }
     }
 
     @Transactional
     public void reopen(MemberPrincipal me, long periodId) {
-        reopen(periodId, me.getMemberId(), "手动重新打开周期");
+        reopen(me.getFamilyId(), periodId, me.getMemberId(), "手动重新打开周期");
     }
 
     @Transactional
-    public void reopen(long periodId, String reason) {
-        reopen(periodId, null, reason);
+    public void reopen(long familyId, long periodId, String reason) {
+        reopen(familyId, periodId, null, reason);
     }
 
-    private void reopen(long periodId, Long actorMemberId, String reason) {
-        Period period = periodMapper.findById(periodId)
+    private void reopen(long familyId, long periodId, Long actorMemberId, String reason) {
+        Period period = periodMapper.findById(familyId, periodId)
                 .orElseThrow(() -> new IllegalArgumentException("周期不存在: " + periodId));
         periodMapper.reopen(period.getFamilyId(), periodId);
         completionMapper.deleteByPeriod(period.getFamilyId(), periodId);
@@ -231,8 +231,8 @@ public class PeriodService {
                 "period", periodId, "重新打开周期: " + safeReason);
     }
 
-    private void close(long periodId, Long actorMemberId, String summary) {
-        Period period = periodMapper.findById(periodId)
+    private void close(long familyId, long periodId, Long actorMemberId, String summary) {
+        Period period = periodMapper.findById(familyId, periodId)
                 .orElseThrow(() -> new IllegalArgumentException("周期不存在: " + periodId));
         periodMapper.close(period.getFamilyId(), periodId);
         // v1.12 FR-350 · 关账 = 封板,分类属性也要一起定格。
@@ -248,7 +248,7 @@ public class PeriodService {
         periodAccountGroupMapper.freezeByPeriod(period.getFamilyId(), periodId);
         auditLogService.record(period.getFamilyId(), actorMemberId, AuditLogType.PERIOD_CLOSE,
                 "period", periodId, summary);
-        runMetricsAfterCommit(periodId);
+        runMetricsAfterCommit(familyId, periodId);
 
         // v0.5 FR-82 · 周期关闭 = 月结落定 → 重算 AUTO 模式 FIRE 目标月支出(失败不阻塞)
         try {
@@ -280,16 +280,16 @@ public class PeriodService {
         }
     }
 
-    private void runMetricsAfterCommit(long periodId) {
+    private void runMetricsAfterCommit(long familyId, long periodId) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    metricsRecomputeJob.run(periodId);
+                    metricsRecomputeJob.run(familyId, periodId);
                 }
             });
         } else {
-            metricsRecomputeJob.run(periodId);
+            metricsRecomputeJob.run(familyId, periodId);
         }
     }
 

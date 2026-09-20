@@ -47,7 +47,7 @@ public class ProdSeedRunner implements CommandLineRunner {
 
         String hash = passwordEncoder.encode(seedPassword);
         for (Member m : placeholders) {
-            memberMapper.updatePasswordHash(m.getId(), hash, true); // must_change_pw=1
+            memberMapper.updatePasswordHash(m.getFamilyId(), m.getId(), hash, true); // must_change_pw=1
         }
 
         String names = placeholders.stream()

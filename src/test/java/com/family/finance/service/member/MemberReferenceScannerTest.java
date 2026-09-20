@@ -60,7 +60,7 @@ class MemberReferenceScannerTest {
 
     @Test
     void anySingleReference_blocksDeletion_andIsNamedForTheUser() {
-        when(mapper.countCashFlow(7L)).thenReturn(12);
+        when(mapper.countCashFlow(1L, 7L)).thenReturn(12);
 
         MemberReferenceScanner.Scan scan = scanner.scan(1L, 7L);
 
@@ -77,9 +77,9 @@ class MemberReferenceScannerTest {
     @Test
     void fkLessReferences_alsoBlockDeletion() {
         // 这四处**没有外键**:数据库不会替我们拦,漏扫 = 悬空 id
-        when(mapper.countPeriodMemberCashflow(7L)).thenReturn(1);   // V19 period_member_cashflow
-        when(mapper.countStockValuationEvent(7L)).thenReturn(2);    // V24 stock_valuation_event
-        when(mapper.countReportReminderLog(7L)).thenReturn(3);      // V25 report_reminder_log
+        when(mapper.countPeriodMemberCashflow(1L, 7L)).thenReturn(1);   // V19 period_member_cashflow
+        when(mapper.countStockValuationEvent(1L, 7L)).thenReturn(2);    // V24 stock_valuation_event
+        when(mapper.countReportReminderLog(1L, 7L)).thenReturn(3);      // V25 report_reminder_log
         when(mapper.countGoalChildRef(1L, 7L)).thenReturn(4);       // V14 family_goal.params_json
 
         MemberReferenceScanner.Scan scan = scanner.scan(1L, 7L);

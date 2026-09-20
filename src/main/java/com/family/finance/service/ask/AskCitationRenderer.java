@@ -148,9 +148,9 @@ public class AskCitationRenderer {
         };
     }
 
-    public String periodLabel(Long periodId) {
+    public String periodLabel(long familyId, Long periodId) {
         if (periodId == null) return null;
-        return periodMapper.findById(periodId)
+        return periodMapper.findById(familyId, periodId)
                 .map(Period::getPeriodStart)
                 .map(d -> d.toString().substring(0, 7))
                 .orElse(null);
@@ -218,7 +218,7 @@ public class AskCitationRenderer {
      * 被逐行的段落/列表逻辑拆开就没法用了。第一版把这两样和普通文本混在一个循环里,
      * 图表一个都渲染不出来。</p>
      */
-    public String renderHtml(String body, List<AskCitation> citations) {
+    public String renderHtml(long familyId, String body, List<AskCitation> citations) {
         if (body == null) return "";
         body = NEXT.matcher(body).replaceAll("");   // 追问单独渲染成 chip,不进正文
         Map<String, AskCitation> byKey = new LinkedHashMap<>();
@@ -229,7 +229,7 @@ public class AskCitationRenderer {
             switch (seg.kind()) {
                 case ARTIFACT -> out.append(artifact(seg.text(), byKey));
                 case CHART -> out.append(chart(seg.text(), byKey));
-                default -> out.append(prose(seg.text(), byKey));
+                default -> out.append(prose(familyId, seg.text(), byKey));
             }
         }
         return out.toString();
@@ -295,7 +295,7 @@ public class AskCitationRenderer {
     }
 
     /** 普通文本块:段落 / 列表 / 独立成行的引用卡 */
-    private String prose(String body, Map<String, AskCitation> byKey) {
+    private String prose(long familyId, String body, Map<String, AskCitation> byKey) {
         StringBuilder out = new StringBuilder();
         boolean inList = false;
         for (String block : escape(body).split("\n{2,}")) {
@@ -309,7 +309,7 @@ public class AskCitationRenderer {
                 if (only.matches()) {
                     if (inList) { out.append("</ul>"); inList = false; }
                     AskCitation c = byKey.get(only.group(1));
-                    if (c != null) out.append(card(c));
+                    if (c != null) out.append(card(familyId, c));
                     continue;
                 }
 
@@ -450,8 +450,8 @@ public class AskCitationRenderer {
      * 缺关账状态,进行中的期会被当成定论;缺链接,用户没法自己核 —— 而「能自己核」
      * 是这个功能敢让 AI 碰资产数据的前提。</p>
      */
-    private String card(AskCitation c) {
-        String per = periodLabel(c.getPeriodId());
+    private String card(long familyId, AskCitation c) {
+        String per = periodLabel(familyId, c.getPeriodId());
         StringBuilder s = new StringBuilder();
         // 完整口径进 title —— 用户想知道「这怎么算的」时才看,不占卡片版面
         s.append("<a class=\"ask-cite\" href=\"").append(escape(href(c)))

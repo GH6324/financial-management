@@ -97,7 +97,7 @@
             </div>
           </details>
 
-          <div class="ask-body" th:utext="${renderer.renderHtml(m.contentText, m.citations)}">正文</div>
+          <div class="ask-body" th:utext="${renderer.renderHtml(askFamilyId, m.contentText, m.citations)}">正文</div>
 
           <!-- 追问 chip · FR-424b:回答之后给 2–3 条,点一下就等于把那句话问出来。
                th:with 必须放在**外层** —— Thymeleaf 的属性优先级里 th:if(300)先于 th:with(500),

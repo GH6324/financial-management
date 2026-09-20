@@ -93,7 +93,7 @@ public class AccountValuationService {
      * @return 估值结果 + 是否含陈旧价格
      */
     public ValuationResult valuate(long familyId, long accountId) {
-        Account acc = accountMapper.findById(accountId)
+        Account acc = accountMapper.findById(familyId, accountId)
             .orElseThrow(() -> new IllegalArgumentException("账户不存在: " + accountId));
         if (!acc.getFamilyId().equals(familyId)) {
             throw new IllegalArgumentException("无权访问账户");
@@ -176,7 +176,7 @@ public class AccountValuationService {
                                   Long triggeredByMemberId, Long refImportId, LedgerSource explicitSource) {
         Period currentOpen = periodMapper.findBalancePeriod(familyId).orElse(null);
         if (currentOpen == null) return;
-        Account acc = accountMapper.findById(accountId).orElse(null);
+        Account acc = accountMapper.findById(familyId, accountId).orElse(null);
         if (acc == null) return;
         List<StockHolding> holdings = holdingMapper.findActiveByAccount(familyId, accountId);
         // 红线:无持仓不接管 · v1.18.1 判据与录入侧同源(见 StockHoldingService.valuationManaged)

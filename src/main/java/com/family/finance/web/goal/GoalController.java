@@ -225,7 +225,7 @@ public class GoalController {
         model.addAttribute("progress", progress);
         // 孩子 displayName(EDUCATION 用)
         if (goal.getGoalType() == GoalType.EDUCATION && progress.params().getChildMemberId() != null) {
-            memberMapper.findById(progress.params().getChildMemberId())
+            memberMapper.findById(me.getFamilyId(), progress.params().getChildMemberId())
                 .ifPresent(m -> model.addAttribute("childMember", m));
         }
         // v0.3 FR-53b/c · AI 月报 + 偏离预警(null safe)

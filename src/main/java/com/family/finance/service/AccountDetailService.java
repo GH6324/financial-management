@@ -61,7 +61,7 @@ public class AccountDetailService {
      */
     public AccountDetail detail(long familyId, long accountId,
                                 String filterType, Integer rangeMonths, String keyword) {
-        Account account = accountMapper.findById(accountId)
+        Account account = accountMapper.findById(familyId, accountId)
                 .filter(a -> a.getFamilyId() == familyId)
                 .orElseThrow(() -> new IllegalArgumentException("账户不存在或不属于本家庭: " + accountId));
 

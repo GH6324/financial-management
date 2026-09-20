@@ -74,7 +74,7 @@ public class BillCommitService {
     public Result commit(long familyId, long memberId, long periodId, long fallbackAccountId,
                          ExpenseSource channel, List<BillCategoryResolver.Line> lines,
                          int notIncluded, int skipped, boolean affectsBalance) {
-        Period period = periodMapper.findById(periodId)
+        Period period = periodMapper.findById(familyId, periodId)
                 .orElseThrow(() -> new CommitException("找不到这个账期,刷新一下再试。"));
         if (period.getFamilyId() == null || period.getFamilyId() != familyId) {
             throw new CommitException("这个账期不属于你家。");
@@ -89,7 +89,7 @@ public class BillCommitService {
         for (BillCategoryResolver.Line l : lines) {
             Long id = l.accountId() != null ? l.accountId() : fallbackAccountId;
             if (id == null || used.containsKey(id)) continue;
-            Account a = accountMapper.findById(id)
+            Account a = accountMapper.findById(familyId, id)
                     .orElseThrow(() -> new CommitException("有一笔落到了找不到的账户,刷新一下再试。"));
             if (a.getFamilyId() == null || a.getFamilyId() != familyId) {
                 throw new CommitException("有一笔落到了不属于你家的账户。");
@@ -219,7 +219,7 @@ public class BillCommitService {
         ExpenseImportBatch b = batchMapper.find(familyId, batchId);
         if (b == null) throw new CommitException("找不到这个批次。");
         if (b.getRevokedAt() != null) throw new CommitException("这批已经撤销过了。");
-        Period period = periodMapper.findById(b.getPeriodId())
+        Period period = periodMapper.findById(familyId, b.getPeriodId())
                 .orElseThrow(() -> new CommitException("找不到这个账期。"));
         /* 【只有当初扣过余额的批次才加回】—— 否则「不落账户」的批次一撤销,
          * 余额会凭空多出一笔钱。判据取该批次实际落的行:它们的 affects_balance 是一致的。 */
@@ -230,7 +230,7 @@ public class BillCommitService {
         int n = flowMapper.softDeleteBatch(familyId, batchId);
         batchMapper.markRevoked(familyId, batchId);
         for (var a : perAccount) {
-            Account acct = accountMapper.findById(a.accountId()).orElse(null);
+            Account acct = accountMapper.findById(familyId, a.accountId()).orElse(null);
             if (acct == null) continue;
             entryService.applyImportedExpense(familyId, memberId, period, acct,
                     a.amount().negate(), "撤销导入批次 #" + batchId);

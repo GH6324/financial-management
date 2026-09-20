@@ -15,6 +15,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -46,7 +47,7 @@ class AccountGroupConflictTest {
         Account a = new Account();
         a.setId(3L);
         a.setDisplayName("华泰证券-A股");
-        when(accounts.findById(3L)).thenReturn(Optional.of(a));
+        when(accounts.findById(anyLong(), eq(3L))).thenReturn(Optional.of(a));
     }
 
     private void existingGroup(long id, String name, Long... members) {

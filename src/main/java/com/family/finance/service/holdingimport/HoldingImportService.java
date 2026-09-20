@@ -65,10 +65,10 @@ public class HoldingImportService {
 
     /** 进某账户导入页:有未完成(SCANNING/REVIEW)的则续看,否则新建 UPLOADING。 */
     @Transactional
-    public HoldingImport startOrResume(long accountId) {
+    public HoldingImport startOrResume(long familyId, long accountId) {
         Optional<HoldingImport> open = importMapper.findOpenByAccount(accountId);
         if (open.isPresent()) return open.get();
-        Account acc = accountMapper.findById(accountId).orElseThrow(() -> new IllegalArgumentException("账户不存在"));
+        Account acc = accountMapper.findById(familyId, accountId).orElseThrow(() -> new IllegalArgumentException("账户不存在"));
         Period period = periodMapper.findBalancePeriod(acc.getFamilyId())
                 .orElseThrow(() -> new IllegalStateException("没有开账期,无法导入"));
         HoldingImport imp = HoldingImport.builder()

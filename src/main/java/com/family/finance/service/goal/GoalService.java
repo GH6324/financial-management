@@ -121,7 +121,7 @@ public class GoalService {
     }
 
     public Goal require(long familyId, long goalId) {
-        Goal goal = goalMapper.findById(goalId)
+        Goal goal = goalMapper.findById(familyId, goalId)
             .orElseThrow(() -> new IllegalArgumentException("目标不存在: " + goalId));
         if (!goal.getFamilyId().equals(familyId)) {
             throw new IllegalArgumentException("无权访问该目标: " + goalId);

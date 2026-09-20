@@ -113,7 +113,7 @@ public class NotificationSettingsController {
         // period_id → "yyyy-MM-dd"(截止日)
         java.util.Map<Long, String> periodLabel = new java.util.HashMap<>();
         logs.stream().map(ReportReminderLog::getPeriodId).distinct().forEach(pid ->
-                periodMapper.findById(pid).ifPresent(p ->
+                periodMapper.findById(me.getFamilyId(), pid).ifPresent(p ->
                         periodLabel.put(pid, p.getPeriodEnd().toString())));
 
         model.addAttribute("logs", logs);
@@ -194,10 +194,10 @@ public class NotificationSettingsController {
                                   @PathVariable("memberId") long memberId,
                                   @RequestParam(value = "phone", required = false) String phone,
                                   RedirectAttributes ra) {
-        Member m = memberMapper.findById(memberId)
+        Member m = memberMapper.findById(me.getFamilyId(), memberId)
                 .filter(x -> x.getFamilyId().equals(me.getFamilyId()))
                 .orElseThrow(() -> new IllegalArgumentException("成员不属于本家庭"));
-        memberMapper.updatePhone(m.getId(), trimToNull(phone));
+        memberMapper.updatePhone(me.getFamilyId(), m.getId(), trimToNull(phone));
         auditLogService.record(me.getFamilyId(), me.getMemberId(), AuditLogType.SYSTEM,
                 "member", m.getId(),
                 "更新手机号(" + (trimToNull(phone) == null ? "清空" : "已设置") + ")");
@@ -235,7 +235,7 @@ public class NotificationSettingsController {
         String phone = null;
         String targetLabel;
         if (targetMemberId != null && targetMemberId > 0) {
-            var m = memberMapper.findById(targetMemberId)
+            var m = memberMapper.findById(me.getFamilyId(), targetMemberId)
                     .filter(x -> x.getFamilyId().equals(me.getFamilyId()))
                     .orElse(null);
             if (m == null) {

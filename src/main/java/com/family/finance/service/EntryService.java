@@ -118,7 +118,7 @@ public class EntryService {
                     .or(() -> periodMapper.findLatest(familyId, 1).stream().findFirst());
         }
         if (periodParam.matches("\\d+")) {
-            return periodMapper.findById(Long.parseLong(periodParam));
+            return periodMapper.findById(familyId, Long.parseLong(periodParam));
         }
         if (periodParam.matches("\\d{4}-\\d{2}")) {
             int year = Integer.parseInt(periodParam.substring(0, 4));
@@ -168,7 +168,7 @@ public class EntryService {
     }
 
     public EntryRow rowFor(long familyId, long memberId, long periodId, long accountId) {
-        Period period = periodMapper.findById(periodId)
+        Period period = periodMapper.findById(familyId, periodId)
                 .filter(p -> p.getFamilyId() == familyId)
                 .orElseThrow(() -> new IllegalArgumentException("周期不存在: " + periodId));
         Account account = requireAccount(familyId, accountId);
@@ -1193,7 +1193,7 @@ public class EntryService {
     }
 
     private Period requireOpenPeriod(long familyId, long periodId) {
-        Period period = periodMapper.findById(periodId)
+        Period period = periodMapper.findById(familyId, periodId)
                 .filter(p -> p.getFamilyId() == familyId)
                 .orElseThrow(() -> new IllegalArgumentException("周期不存在: " + periodId));
         if (period.getStatus() != PeriodStatus.OPEN) {
@@ -1203,7 +1203,7 @@ public class EntryService {
     }
 
     private Account requireAccount(long familyId, long accountId) {
-        return accountMapper.findById(accountId)
+        return accountMapper.findById(familyId, accountId)
                 .filter(account -> account.getFamilyId() == familyId)
                 .orElseThrow(() -> new IllegalArgumentException("账户不存在: " + accountId));
     }

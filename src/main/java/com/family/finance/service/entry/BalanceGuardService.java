@@ -80,7 +80,7 @@ public class BalanceGuardService {
      */
     public String afterNote(long familyId, Before before, long periodId) {
         if (before == null || before.accountId() == null) return null;
-        String name = accountMapper.findById(before.accountId())
+        String name = accountMapper.findById(familyId, before.accountId())
                 .map(a -> a.getDisplayName()).orElse("这个账户");
 
         PeriodSnapshot now = snapshotMapper.findByPeriodAndAccount(familyId, periodId, before.accountId()).orElse(null);

@@ -26,9 +26,10 @@ public interface PeriodMapper {
     @Select("""
             SELECT id, family_id, period_type, period_start, period_end, status, closed_at, created_at
               FROM period
-             WHERE id = #{id}
+             WHERE family_id = #{familyId}
+               AND id = #{id}
             """)
-    Optional<Period> findById(@Param("id") long id);
+    Optional<Period> findById(@Param("familyId") long familyId, @Param("id") long id);
 
     /**
      * @deprecated v1.23 起**不要再新增调用**。双活跃窗口(上期与新期同时 OPEN)下,

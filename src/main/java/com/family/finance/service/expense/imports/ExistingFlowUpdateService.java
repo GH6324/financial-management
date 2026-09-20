@@ -120,14 +120,14 @@ public class ExistingFlowUpdateService {
             }
 
             Account to = acctCache.computeIfAbsent(e.accountId(),
-                    id -> accountMapper.findById(id).orElse(null));
+                    id -> accountMapper.findById(familyId, id).orElse(null));
             if (to == null || to.getFamilyId() == null || to.getFamilyId() != familyId) {
                 throw new UpdateException("选了一个不属于你家的账户 —— 刷新一下页面再试。");
             }
             Account from = acctCache.computeIfAbsent(row.accountId(),
-                    id -> accountMapper.findById(id).orElse(null));
+                    id -> accountMapper.findById(familyId, id).orElse(null));
             Period period = periodCache.computeIfAbsent(row.periodId(),
-                    id -> periodMapper.findById(id).orElse(null));
+                    id -> periodMapper.findById(familyId, id).orElse(null));
             if (period == null) continue;
 
             flowMapper.updateAccount(familyId, row.id(), e.accountId());

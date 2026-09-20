@@ -43,7 +43,7 @@ class MemberArchiveDeleteTest {
             new MemberReferenceScanner.Scan(List.of(), 0);
 
     private void member(boolean archived) {
-        when(memberMapper.findById(7L)).thenReturn(Optional.of(Member.builder()
+        when(memberMapper.findById(anyLong(), eq(7L))).thenReturn(Optional.of(Member.builder()
                 .id(7L).familyId(1L).username("lisi").displayName("李四")
                 .archivedAt(archived ? LocalDateTime.of(2026, 8, 15, 10, 0) : null)
                 .build()));
@@ -58,15 +58,15 @@ class MemberArchiveDeleteTest {
 
         svc.archiveMember(1L, 7L, 1L);
 
-        verify(memberMapper).archive(7L);
+        verify(memberMapper).archive(1L, 7L);
         verify(sessionKiller).killRememberMe("lisi");
         verify(sessionKiller).killAllSessions(7L);
         verify(audit).record(eq(1L), eq(1L), eq(AuditLogType.MEMBER_ARCHIVE),
                 eq("member"), eq(7L), contains("李四"));
         // 归档不动钱、不改归属:除了 archive 本身,一行数据都不该被改写
-        verify(memberMapper, never()).deleteById(anyLong());
-        verify(memberMapper, never()).updateUsername(anyLong(), anyString());
-        verify(memberMapper, never()).updateProfile(anyLong(), anyString(), anyString());
+        verify(memberMapper, never()).deleteById(anyLong(), anyLong());
+        verify(memberMapper, never()).updateUsername(anyLong(), anyLong(), anyString());
+        verify(memberMapper, never()).updateProfile(anyLong(), anyLong(), anyString(), anyString());
     }
 
     @Test
@@ -78,7 +78,7 @@ class MemberArchiveDeleteTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("自己");
 
-        verify(memberMapper, never()).archive(anyLong());
+        verify(memberMapper, never()).archive(anyLong(), anyLong());
     }
 
     @Test
@@ -90,7 +90,7 @@ class MemberArchiveDeleteTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("最后一个活跃成员");
 
-        verify(memberMapper, never()).archive(anyLong());
+        verify(memberMapper, never()).archive(anyLong(), anyLong());
     }
 
     @Test
@@ -99,7 +99,7 @@ class MemberArchiveDeleteTest {
 
         svc.archiveMember(1L, 7L, 1L);
 
-        verify(memberMapper, never()).archive(anyLong());
+        verify(memberMapper, never()).archive(anyLong(), anyLong());
         verifyNoInteractions(audit);   // 不刷第二条「已归档」留痕
     }
 
@@ -109,7 +109,7 @@ class MemberArchiveDeleteTest {
 
         svc.restoreMember(1L, 7L, 1L);
 
-        verify(memberMapper).restore(7L);
+        verify(memberMapper).restore(1L, 7L);
         verify(audit).record(eq(1L), eq(1L), eq(AuditLogType.MEMBER_RESTORE),
                 eq("member"), eq(7L), contains("李四"));
     }
@@ -130,7 +130,7 @@ class MemberArchiveDeleteTest {
                 .hasMessageContaining("记的收支流水 12")
                 .hasMessageContaining("归档");
 
-        verify(memberMapper, never()).deleteById(anyLong());
+        verify(memberMapper, never()).deleteById(anyLong(), anyLong());
     }
 
     @Test
@@ -143,7 +143,7 @@ class MemberArchiveDeleteTest {
         // 页面上的数字是上一次请求时的,中间可能又新增了引用 → 事务内必须重扫一遍
         verify(scanner).scan(1L, 7L);
         verify(sessionKiller).killRememberMe("lisi");
-        verify(memberMapper).deleteById(7L);
+        verify(memberMapper).deleteById(1L, 7L);
         verify(audit).record(eq(1L), eq(1L), eq(AuditLogType.MEMBER_DELETE),
                 eq("member"), eq(7L), contains("李四"));
     }
@@ -159,7 +159,7 @@ class MemberArchiveDeleteTest {
         assertThatThrownBy(() -> svc.deleteMember(1L, 7L, null, 1L))
                 .isInstanceOf(IllegalArgumentException.class);
 
-        verify(memberMapper, never()).deleteById(anyLong());
+        verify(memberMapper, never()).deleteById(anyLong(), anyLong());
         verify(scanner, never()).scan(anyLong(), anyLong());   // 确认词都没对上,不必去扫库
     }
 
@@ -171,7 +171,7 @@ class MemberArchiveDeleteTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("自己");
 
-        verify(memberMapper, never()).deleteById(anyLong());
+        verify(memberMapper, never()).deleteById(anyLong(), anyLong());
     }
 
     @Test
@@ -183,6 +183,6 @@ class MemberArchiveDeleteTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("最后一个活跃成员");
 
-        verify(memberMapper, never()).deleteById(anyLong());
+        verify(memberMapper, never()).deleteById(anyLong(), anyLong());
     }
 }

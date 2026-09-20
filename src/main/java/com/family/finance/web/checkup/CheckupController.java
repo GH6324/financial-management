@@ -108,7 +108,7 @@ public class CheckupController {
             return "checkup/family";
         }
 
-        Optional<Account> account = accountMapper.findById(accountId)
+        Optional<Account> account = accountMapper.findById(me.getFamilyId(), accountId)
                 .filter(a -> a.getFamilyId().equals(me.getFamilyId()));
         if (account.isEmpty()) {
             return "redirect:/checkup";

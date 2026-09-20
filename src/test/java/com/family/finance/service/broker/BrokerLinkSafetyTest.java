@@ -47,7 +47,7 @@ class BrokerLinkSafetyTest {
         Account acc = mock(Account.class);
         when(acc.getFamilyId()).thenReturn(1L);
         when(acc.getType()).thenReturn(AccountType.STOCK);
-        when(am.findById(100L)).thenReturn(Optional.of(acc));
+        when(am.findById(anyLong(), eq(100L))).thenReturn(Optional.of(acc));
         when(lm.findByAccount(100L)).thenReturn(Optional.empty()); // 尚未关联
         StockHolding existing = StockHolding.builder().id(7L).accountId(100L)
                 .valuationMode(ValuationMode.MANUAL).ticker("PRIV").market(Market.US)
@@ -81,7 +81,7 @@ class BrokerLinkSafetyTest {
         Account acc = mock(Account.class);
         when(acc.getFamilyId()).thenReturn(1L);
         when(acc.getType()).thenReturn(AccountType.LOAN); // 非持仓类
-        when(am.findById(200L)).thenReturn(Optional.of(acc));
+        when(am.findById(anyLong(), eq(200L))).thenReturn(Optional.of(acc));
 
         BrokerLinkService svc = new BrokerLinkService(mock(BrokerLinkMapper.class),
                 mock(StockHoldingMapper.class), am, mock(AuditLogService.class), mock(BrokerSyncService.class));
@@ -102,7 +102,7 @@ class BrokerLinkSafetyTest {
         AuditLogService audit = mock(AuditLogService.class);
         Account acc = mock(Account.class);
         when(acc.getFamilyId()).thenReturn(1L);
-        when(am.findById(100L)).thenReturn(Optional.of(acc));
+        when(am.findById(anyLong(), eq(100L))).thenReturn(Optional.of(acc));
 
         BrokerLinkService svc = new BrokerLinkService(lm, hm, am, audit, mock(BrokerSyncService.class));
         svc.unlink(1L, 100L, 2L);

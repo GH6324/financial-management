@@ -95,7 +95,7 @@ public class AskConversationService {
      */
     public String contextLabel(long familyId) {
         String ccy = familyService.require(familyId).getBaseCurrency();
-        String period = renderer.periodLabel(lensQueryService.anchorPeriodId(familyId));
+        String period = renderer.periodLabel(familyId, lensQueryService.anchorPeriodId(familyId));
         return period == null ? ccy : period + " · " + ccy;
     }
 
@@ -241,7 +241,7 @@ public class AskConversationService {
                 .map(m -> new AgentRuntime.Msg(m.getRole(), m.getContentText()))
                 .toList();
 
-        String periodLabel = conv.getCtxPeriodId() == null ? null : renderer.periodLabel(conv.getCtxPeriodId());
+        String periodLabel = conv.getCtxPeriodId() == null ? null : renderer.periodLabel(familyId, conv.getCtxPeriodId());
         String systemPrompt = promptBuilder.build(familyId, periodLabel, conv.getCtxCurrency());
 
         Collector collector = new Collector(familyId, conversationId, out);

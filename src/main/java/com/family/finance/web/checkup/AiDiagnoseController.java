@@ -77,7 +77,7 @@ public class AiDiagnoseController {
                     diagnose, advice, refresh);
         } else {
             // 账户维度
-            Optional<Account> account = accountMapper.findById(accountId)
+            Optional<Account> account = accountMapper.findById(me.getFamilyId(), accountId)
                     .filter(a -> a.getFamilyId().equals(me.getFamilyId()));
             if (account.isEmpty()) {
                 model.addAttribute("result", LlmDiagnoseService.DiagnoseResult.unavailable("账户不存在"));

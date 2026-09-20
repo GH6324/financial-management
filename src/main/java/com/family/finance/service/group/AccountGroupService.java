@@ -153,7 +153,7 @@ public class AccountGroupService {
         for (Long id : accountIds) {
             String by = owner.get(id);
             if (by != null) {
-                String name = accountMapper.findById(id).map(Account::getDisplayName).orElse("账户#" + id);
+                String name = accountMapper.findById(familyId, id).map(Account::getDisplayName).orElse("账户#" + id);
                 throw new GroupConflictException(
                         "「" + name + "」已经在分组「" + by + "」里了。一个账户只能属于一个分组 —— "
                         + "要把它挪过来,先去「" + by + "」里把它取消勾选。");

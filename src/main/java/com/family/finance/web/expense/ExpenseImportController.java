@@ -251,14 +251,14 @@ public class ExpenseImportController {
 
     private boolean ownedAccount(long familyId, Long accountId) {
         if (accountId == null) return false;
-        return accountMapper.findById(accountId)
+        return accountMapper.findById(familyId, accountId)
                 .filter(a -> a.getFamilyId() != null && a.getFamilyId() == familyId
                           && a.getArchivedAt() == null)
                 .isPresent();
     }
 
     private String accountLabel(long familyId, long accountId) {
-        return accountMapper.findById(accountId)
+        return accountMapper.findById(familyId, accountId)
                 .filter(a -> a.getFamilyId() != null && a.getFamilyId() == familyId)
                 .map(a -> a.getDisplayName()).orElse("该账户");
     }
@@ -280,7 +280,7 @@ public class ExpenseImportController {
      */
     private com.family.finance.domain.period.Period resolvePeriod(long familyId, Long periodId) {
         if (periodId != null) {
-            var p = periodMapper.findById(periodId).orElse(null);
+            var p = periodMapper.findById(familyId, periodId).orElse(null);
             if (p != null && p.getFamilyId() != null && p.getFamilyId() == familyId) return p;
             return null;
         }

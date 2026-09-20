@@ -39,7 +39,7 @@ public class HoldingImportController {
     private final VisionLlmClient vision;
 
     private Account requireAccount(long familyId, long accountId) {
-        Account a = accountMapper.findById(accountId).orElseThrow(() -> new IllegalArgumentException("账户不存在"));
+        Account a = accountMapper.findById(familyId, accountId).orElseThrow(() -> new IllegalArgumentException("账户不存在"));
         if (a.getFamilyId() != familyId) throw new IllegalArgumentException("无权访问");
         return a;
     }
@@ -73,7 +73,7 @@ public class HoldingImportController {
         }
         HoldingImport imp;
         try {
-            imp = importService.startOrResume(accountId);
+            imp = importService.startOrResume(me.getFamilyId(), accountId);
         } catch (IllegalStateException e) {
             // 没有开账期 → 友好提示,不 500
             model.addAttribute("account", account);

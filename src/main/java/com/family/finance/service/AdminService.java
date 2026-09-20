@@ -47,7 +47,7 @@ public class AdminService {
         }
         String plain = sb.toString();
         String hash = passwordEncoder.encode(plain);
-        memberMapper.updatePasswordHash(targetMemberId, hash, true);
+        memberMapper.updatePasswordHash(familyId, targetMemberId, hash, true);
         auditLogService.record(familyId, actorMemberId, AuditLogType.PASSWORD_RESET,
                 "member", targetMemberId,
                 "重置密码 · 临时密码已生成(only-once,管理员当面/微信告诉对方)");
@@ -56,7 +56,7 @@ public class AdminService {
 
     public void updateMemberProfile(long familyId, long targetMemberId, String displayName, String roleLabel,
                                     Long actorMemberId) {
-        memberMapper.updateProfile(targetMemberId, displayName, roleLabel);
+        memberMapper.updateProfile(familyId, targetMemberId, displayName, roleLabel);
         auditLogService.record(familyId, actorMemberId, AuditLogType.FAMILY_UPDATE,
                 "member", targetMemberId,
                 "成员资料更新:%s · %s".formatted(displayName, roleLabel == null ? "—" : roleLabel));
@@ -133,7 +133,7 @@ public class AdminService {
         }
         sessionKiller.killRememberMe(old);
         try {
-            memberMapper.updateUsername(targetMemberId, username);
+            memberMapper.updateUsername(familyId, targetMemberId, username);
         } catch (DuplicateKeyException e) {
             throw new IllegalArgumentException("登录名「" + username + "」已被占用");
         }
@@ -164,7 +164,7 @@ public class AdminService {
         if (memberMapper.countActiveByFamily(familyId) <= 1) {
             throw new IllegalArgumentException("这是最后一个活跃成员,归档之后就没人能登录了");
         }
-        memberMapper.archive(targetMemberId);
+        memberMapper.archive(familyId, targetMemberId);
         auditLogService.record(familyId, actorMemberId, AuditLogType.MEMBER_ARCHIVE,
                 "member", targetMemberId, "归档成员:" + m.getDisplayName() + "(" + m.getUsername() + ")");
         sessionKiller.killRememberMe(m.getUsername());
@@ -178,7 +178,7 @@ public class AdminService {
         if (!m.isArchived()) {
             return;
         }
-        memberMapper.restore(targetMemberId);
+        memberMapper.restore(familyId, targetMemberId);
         auditLogService.record(familyId, actorMemberId, AuditLogType.MEMBER_RESTORE,
                 "member", targetMemberId, "撤销归档:" + m.getDisplayName() + "(" + m.getUsername() + ")");
     }
@@ -209,7 +209,7 @@ public class AdminService {
                     "ta 名下还有 " + scan.total() + " 条记录(" + describe(scan) + "),不能删除 —— 请改用归档");
         }
         sessionKiller.killRememberMe(m.getUsername());
-        memberMapper.deleteById(targetMemberId);
+        memberMapper.deleteById(familyId, targetMemberId);
         auditLogService.record(familyId, actorMemberId, AuditLogType.MEMBER_DELETE,
                 "member", targetMemberId,
                 "删除成员:" + m.getDisplayName() + "(" + m.getUsername() + ")· 删除前零引用");
@@ -227,7 +227,7 @@ public class AdminService {
 
     /** 家庭内取成员 —— 顺手挡住「拿别人家的 id 来改」。 */
     private Member requireMember(long familyId, long memberId) {
-        Member m = memberMapper.findById(memberId)
+        Member m = memberMapper.findById(familyId, memberId)
                 .orElseThrow(() -> new IllegalArgumentException("成员不存在"));
         if (m.getFamilyId() == null || m.getFamilyId() != familyId) {
             throw new IllegalArgumentException("成员不存在");

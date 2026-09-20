@@ -14,6 +14,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -43,7 +44,7 @@ class BalanceGuardServiceTest {
         Account a = new Account();
         a.setId(1L);
         a.setDisplayName("支付宝-余额宝");
-        when(accounts.findById(1L)).thenReturn(Optional.of(a));
+        when(accounts.findById(anyLong(), eq(1L))).thenReturn(Optional.of(a));
         guard = new BalanceGuardService(snapshots, accounts);
     }
 

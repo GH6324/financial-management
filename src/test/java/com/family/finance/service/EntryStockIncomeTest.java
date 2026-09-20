@@ -61,8 +61,8 @@ class EntryStockIncomeTest {
 
         Period p = Period.builder().id(100L).familyId(1L).status(PeriodStatus.OPEN)
                 .periodStart(LocalDate.of(2026, 7, 1)).periodEnd(LocalDate.of(2026, 7, 31)).build();
-        when(periodMapper.findById(100L)).thenReturn(Optional.of(p));
-        when(accountMapper.findById(10L)).thenReturn(Optional.of(
+        when(periodMapper.findById(anyLong(), eq(100L))).thenReturn(Optional.of(p));
+        when(accountMapper.findById(anyLong(), eq(10L))).thenReturn(Optional.of(
                 Account.builder().id(10L).familyId(1L).type(AccountType.STOCK).currency("CNY")
                         .displayName("富途").build()));
         when(categoryMapper.findByCode("stock_salary")).thenReturn(Optional.of(

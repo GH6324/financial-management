@@ -47,7 +47,7 @@ public class ProfileController {
                          Model model,
                          HttpServletRequest request,
                          HttpServletResponse response) {
-        Member m = memberMapper.findById(me.getMemberId())
+        Member m = memberMapper.findById(me.getFamilyId(), me.getMemberId())
                 .orElseThrow(() -> new IllegalStateException("成员不存在"));
 
         if (!passwordEncoder.matches(oldPassword, m.getPasswordHash())) {
@@ -63,7 +63,7 @@ public class ProfileController {
             return back(model, me, "新密码不能与原密码相同");
         }
 
-        memberMapper.updatePasswordHash(me.getMemberId(), passwordEncoder.encode(newPassword), false);
+        memberMapper.updatePasswordHash(me.getFamilyId(), me.getMemberId(), passwordEncoder.encode(newPassword), false);
         auditLogService.record(me.getFamilyId(), me.getMemberId(), AuditLogType.PASSWORD_RESET,
                 "member", me.getMemberId(), "成员主动修改密码");
         // 强制重新登录,拿到全新会话重新读库(issue #1):

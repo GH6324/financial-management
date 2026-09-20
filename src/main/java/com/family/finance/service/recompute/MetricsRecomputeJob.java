@@ -33,8 +33,8 @@ public class MetricsRecomputeJob {
     private final MetricsRecomputeLogMapper metricsLogMapper;
 
     @Async
-    public void run(long periodId) {
-        Period period = periodMapper.findById(periodId).orElse(null);
+    public void run(long familyId, long periodId) {
+        Period period = periodMapper.findById(familyId, periodId).orElse(null);
         if (period == null) {
             return;
         }

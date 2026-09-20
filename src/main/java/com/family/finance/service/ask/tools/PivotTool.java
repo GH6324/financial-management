@@ -167,7 +167,7 @@ public class PivotTool implements AskTool {
         // 而那正是这个功能要消灭的东西。给它每行的精确值,它才有得可引。
         String ccy = familyService.require(familyId).getBaseCurrency();
         Long anchorId = lensQueryService.anchorPeriodId(familyId);
-        Period anchorP = anchorId == null ? null : periodMapper.findById(anchorId).orElse(null);
+        Period anchorP = anchorId == null ? null : periodMapper.findById(familyId, anchorId).orElse(null);
         boolean anchorOpen = anchorP != null && !"CLOSED".equals(String.valueOf(anchorP.getStatus()));
         List<BigDecimal> grand = r.grand();
         for (int i = 0; i < r.measures().size() && grand != null && i < grand.size(); i++) {

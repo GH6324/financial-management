@@ -167,7 +167,7 @@ public class EntryController {
         var filledMembers = new java.util.HashMap<Long, String>();
         for (var fr : filledRows) {
             if (fr.getTotalIncomeInput() != null || fr.getTotalExpenseInput() != null) {
-                memberMapper.findById(fr.getMemberId()).ifPresent(m -> filledMembers.put(m.getId(), m.getDisplayName()));
+                memberMapper.findById(me.getFamilyId(), fr.getMemberId()).ifPresent(m -> filledMembers.put(m.getId(), m.getDisplayName()));
             }
         }
         model.addAttribute("filledMembers", filledMembers);
@@ -387,7 +387,7 @@ public class EntryController {
                                         @RequestParam(value = "totalIncomeInput", required = false) BigDecimal totalIncomeInput,
                                         @RequestParam(value = "totalExpenseInput", required = false) BigDecimal totalExpenseInput,
                                         HttpServletResponse response) {
-        Period period = periodMapper.findById(periodId)
+        Period period = periodMapper.findById(me.getFamilyId(), periodId)
                 .orElseThrow(() -> new IllegalArgumentException("周期不存在: " + periodId));
         if (!period.getFamilyId().equals(me.getFamilyId())) {
             throw new IllegalArgumentException("无权操作此周期");
@@ -493,7 +493,7 @@ public class EntryController {
                                        @RequestParam long accountId,
                                        @RequestParam long periodId,
                                        Model model) {
-        Account account = accountMapper.findById(accountId)
+        Account account = accountMapper.findById(me.getFamilyId(), accountId)
                 .filter(a -> a.getFamilyId() == me.getFamilyId())
                 .filter(a -> a.getType() != null && "STOCK".equals(a.getType().name()))
                 .orElseThrow(() -> new IllegalArgumentException("非法股票账户"));
@@ -510,7 +510,7 @@ public class EntryController {
         model.addAttribute("account", account);
         model.addAttribute("holdings", holdings);
         model.addAttribute("unitValues", unitValues);
-        model.addAttribute("period", periodMapper.findById(periodId).orElse(null));
+        model.addAttribute("period", periodMapper.findById(me.getFamilyId(), periodId).orElse(null));
         model.addAttribute("markets", List.of(Market.US, Market.CN, Market.HK));
         return "entry/_income-stock :: holdings";
     }
@@ -678,7 +678,7 @@ public class EntryController {
     @PostMapping("/entry/{periodId}/complete")
     public String completePeriod(@AuthenticationPrincipal MemberPrincipal me,
                                  @PathVariable long periodId) {
-        periodService.markCompletedByMember(periodId, me.getMemberId());
+        periodService.markCompletedByMember(me.getFamilyId(), periodId, me.getMemberId());
         return "redirect:/entry?period=" + periodId;
     }
 
@@ -800,7 +800,7 @@ public class EntryController {
     private String blockFragment(MemberPrincipal me, EntryRow row, long periodId, Model model) {
         model.addAttribute("me", me);
         model.addAttribute("row", row);
-        model.addAttribute("period", periodMapper.findById(periodId).orElse(null));
+        model.addAttribute("period", periodMapper.findById(me.getFamilyId(), periodId).orElse(null));
         model.addAttribute("accounts", accountMapper.findActiveByFamily(me.getFamilyId()));
         addAccountOwnerMeta(me.getFamilyId(), model);   // v1.4.2 · HTMX 换行块也要带主理人元信息(否则换行后头像丢)
         java.util.Map<String, String> singleLedger = new java.util.LinkedHashMap<>();

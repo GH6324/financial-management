@@ -34,18 +34,18 @@ public class MemberReferenceScanner {
 
     public Scan scan(long familyId, long memberId) {
         List<Ref> all = List.of(
-                new Ref("名下账户", mapper.countAccountOwner(memberId)),
-                new Ref("填报的账户快照", mapper.countPeriodSnapshot(memberId)),
-                new Ref("记的收支流水", mapper.countCashFlow(memberId)),
-                new Ref("记的转账", mapper.countTransfer(memberId)),
-                new Ref("待办(指派给 ta)", mapper.countTodoAssigned(memberId)),
-                new Ref("待办(由 ta 完成)", mapper.countTodoDoneBy(memberId)),
-                new Ref("月度填报完成记录", mapper.countPeriodCompletion(memberId)),
-                new Ref("操作留痕", mapper.countAuditActor(memberId)),
-                new Ref("反结账记录", mapper.countPeriodReopen(memberId)),
-                new Ref("期间现金流", mapper.countPeriodMemberCashflow(memberId)),
-                new Ref("估值变动事件", mapper.countStockValuationEvent(memberId)),
-                new Ref("提醒发送记录", mapper.countReportReminderLog(memberId)),
+                new Ref("名下账户", mapper.countAccountOwner(familyId, memberId)),
+                new Ref("填报的账户快照", mapper.countPeriodSnapshot(familyId, memberId)),
+                new Ref("记的收支流水", mapper.countCashFlow(familyId, memberId)),
+                new Ref("记的转账", mapper.countTransfer(familyId, memberId)),
+                new Ref("待办(指派给 ta)", mapper.countTodoAssigned(familyId, memberId)),
+                new Ref("待办(由 ta 完成)", mapper.countTodoDoneBy(familyId, memberId)),
+                new Ref("月度填报完成记录", mapper.countPeriodCompletion(familyId, memberId)),
+                new Ref("操作留痕", mapper.countAuditActor(familyId, memberId)),
+                new Ref("反结账记录", mapper.countPeriodReopen(familyId, memberId)),
+                new Ref("期间现金流", mapper.countPeriodMemberCashflow(familyId, memberId)),
+                new Ref("估值变动事件", mapper.countStockValuationEvent(familyId, memberId)),
+                new Ref("提醒发送记录", mapper.countReportReminderLog(familyId, memberId)),
                 new Ref("教育目标里的孩子", mapper.countGoalChildRef(familyId, memberId)));
 
         List<Ref> hit = new ArrayList<>();

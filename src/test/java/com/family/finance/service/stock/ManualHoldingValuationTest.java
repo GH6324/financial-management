@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -53,7 +55,7 @@ class ManualHoldingValuationTest {
                 fxService, mock(org.springframework.context.ApplicationEventPublisher.class), mock(FamilyService.class),
                 mock(StockValuationEventMapper.class),
                 mock(com.family.finance.service.AuditLogService.class));
-        when(accountMapper.findById(10L)).thenReturn(Optional.of(
+        when(accountMapper.findById(anyLong(), eq(10L))).thenReturn(Optional.of(
                 Account.builder().id(10L).familyId(1L).type(AccountType.STOCK).currency("CNY").build()));
     }
 
@@ -79,7 +81,7 @@ class ManualHoldingValuationTest {
 
     @Test
     void cryptoAutoValuation_convertsUsdQuoteIntoAccountCurrency() {
-        when(accountMapper.findById(10L)).thenReturn(Optional.of(
+        when(accountMapper.findById(anyLong(), eq(10L))).thenReturn(Optional.of(
                 Account.builder().id(10L).familyId(1L).type(AccountType.CRYPTO).currency("CNY").build()));
         StockHolding h = StockHolding.builder().accountId(10L).valuationMode(ValuationMode.AUTO)
                 .ticker("BTC").market(Market.CRYPTO).currency("USD")

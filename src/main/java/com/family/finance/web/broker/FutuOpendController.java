@@ -59,7 +59,7 @@ public class FutuOpendController {
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
         if (accountId != null) {
-            accountMapper.findById(accountId)
+            accountMapper.findById(me.getFamilyId(), accountId)
                 .filter(a -> a.getFamilyId().equals(me.getFamilyId()))   // 越权直接当没传
                 .ifPresent(a -> {
                     model.addAttribute("ctxAccountId", a.getId());

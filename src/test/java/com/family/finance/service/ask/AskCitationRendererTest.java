@@ -29,8 +29,8 @@ class AskCitationRendererTest {
     private final AskCitationRenderer renderer = new AskCitationRenderer(periods);
 
     AskCitationRendererTest() {
-        when(periods.findById(anyLong())).thenAnswer(inv -> {
-            long id = inv.getArgument(0);
+        when(periods.findById(anyLong(), anyLong())).thenAnswer(inv -> {
+            long id = inv.getArgument(1);
             if (id != 7L) return Optional.empty();
             Period p = new Period();
             p.setId(7L);
@@ -49,7 +49,7 @@ class AskCitationRendererTest {
     @Test
     @DisplayName("独占一行的标记 → 引用卡,含指标名/数值/账期/关账状态")
     void standaloneMarkerBecomesCard() {
-        String html = renderer.renderHtml(
+        String html = renderer.renderHtml(1L, 
                 "你的钱主要在这里:\n{{cite:c1}}",
                 List.of(cite("c1", "kpi.netWorth", "7605199.80", 7L, true)));
 
@@ -64,7 +64,7 @@ class AskCitationRendererTest {
     @Test
     @DisplayName("句中残留的标记退成行内 chip,不在句子中间插一张卡")
     void inlineMarkerBecomesChip() {
-        String html = renderer.renderHtml(
+        String html = renderer.renderHtml(1L, 
                 "净资产是 {{cite:c1}} 左右。",
                 List.of(cite("c1", "kpi.netWorth", "7605199.80", null, false)));
 
@@ -76,7 +76,7 @@ class AskCitationRendererTest {
     @Test
     @DisplayName("找不到对应引用的标记直接消失 —— 不能把 {{cite:xx}} 原样显示给用户")
     void unknownMarkerDisappears() {
-        String html = renderer.renderHtml("这里有个数 {{cite:zz}} 。", List.of());
+        String html = renderer.renderHtml(1L, "这里有个数 {{cite:zz}} 。", List.of());
         assertThat(html).doesNotContain("cite:zz");
         assertThat(html).doesNotContain("{{");
     }
@@ -84,7 +84,7 @@ class AskCitationRendererTest {
     @Test
     @DisplayName("模型输出里的 HTML 被转义 —— 提示词注入可以从账户名进来")
     void modelOutputIsEscaped() {
-        String html = renderer.renderHtml(
+        String html = renderer.renderHtml(1L, 
                 "账户叫 <img src=x onerror=alert(1)> 这个名字。", List.of());
         assertThat(html).doesNotContain("<img");
         assertThat(html).contains("&lt;img");
@@ -94,7 +94,7 @@ class AskCitationRendererTest {
     @DisplayName("引用块里的值也转义 —— 数值来自工具,但 label 可能含账户名")
     void citationFieldsAreEscaped() {
         AskCitation c = cite("c1", "lens.pivot", "1<script>", null, false);
-        String html = renderer.renderHtml("{{cite:c1}}", List.of(c));
+        String html = renderer.renderHtml(1L, "{{cite:c1}}", List.of(c));
         assertThat(html).doesNotContain("<script>");
         assertThat(html).contains("&lt;script&gt;");
     }
@@ -102,7 +102,7 @@ class AskCitationRendererTest {
     @Test
     @DisplayName("**粗体** 认,别的 markdown 原样留着(不引解析器)")
     void minimalMarkdown() {
-        String html = renderer.renderHtml("**大头**在支付宝", List.of());
+        String html = renderer.renderHtml(1L, "**大头**在支付宝", List.of());
         assertThat(html).contains("<strong>大头</strong>");
     }
 
@@ -123,7 +123,7 @@ class AskCitationRendererTest {
     @Test
     @DisplayName("没登记过的 metricKey 也要渲染出来,不能整块消失")
     void unknownMetricKeyStillRenders() {
-        String html = renderer.renderHtml("{{cite:c1}}",
+        String html = renderer.renderHtml(1L, "{{cite:c1}}",
                 List.of(cite("c1", "some.new.metric", "42", null, false)));
         assertThat(html).contains("ask-cite");
         assertThat(html).contains("42");

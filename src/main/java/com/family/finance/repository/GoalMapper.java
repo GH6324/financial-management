@@ -25,9 +25,10 @@ public interface GoalMapper {
                    metric, comparator, time_mode,
                    params_json, created_at, updated_at, archived_at
               FROM family_goal
-             WHERE id = #{id}
+             WHERE family_id = #{familyId}
+               AND id = #{id}
             """)
-    Optional<Goal> findById(@Param("id") long id);
+    Optional<Goal> findById(@Param("familyId") long familyId, @Param("id") long id);
 
     @Select("""
             SELECT id, family_id, goal_type, name, description, target_value, target_date,

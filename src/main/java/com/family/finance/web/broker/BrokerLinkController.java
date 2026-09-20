@@ -134,7 +134,7 @@ public class BrokerLinkController {
     // ---------- helpers ----------
 
     private Account requireHoldingAccount(long familyId, long accountId) {
-        Account acc = accountMapper.findById(accountId)
+        Account acc = accountMapper.findById(familyId, accountId)
                 .orElseThrow(() -> new IllegalArgumentException("账户不存在"));
         if (!acc.getFamilyId().equals(familyId)) throw new IllegalArgumentException("无权访问账户");
         if (!StockHoldingService.supportsHoldings(acc.getType())) {

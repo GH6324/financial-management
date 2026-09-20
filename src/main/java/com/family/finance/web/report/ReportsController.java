@@ -211,7 +211,7 @@ public class ReportsController {
                                   @PathVariable long periodId,
                                   Model model) {
         Family family = familyService.require(me.getFamilyId());
-        Period period = periodMapper.findById(periodId)
+        Period period = periodMapper.findById(me.getFamilyId(), periodId)
                 .filter(p -> p.getFamilyId() == me.getFamilyId())
                 .orElseThrow(() -> new IllegalArgumentException("周期不存在: " + periodId));
         FactSlice slice = factViewService.load(new FactFilter(

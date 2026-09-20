@@ -21,9 +21,10 @@ public interface AccountMapper {
                    product_category_code, risk_level_override, loan_kind, annual_rate_pct, expected_return_pct,
                    asset_class, platform_tag, industry_tag, purpose_tag
               FROM account
-             WHERE id = #{id}
+             WHERE family_id = #{familyId}
+               AND id = #{id}
             """)
-    Optional<Account> findById(@Param("id") long id);
+    Optional<Account> findById(@Param("familyId") long familyId, @Param("id") long id);
 
     @Select("""
             SELECT id, family_id, template_id, display_name, type, currency,

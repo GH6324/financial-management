@@ -45,7 +45,7 @@ class StockManualSharesTest {
         fetcher = mock(StockPriceFetcher.class);
         svc = new StockHoldingService(holdingMapper, accountMapper, fxService, periodMapper, fetcher,
                 mock(com.family.finance.repository.CashFlowMapper.class));
-        when(accountMapper.findById(10L)).thenReturn(Optional.of(
+        when(accountMapper.findById(anyLong(), eq(10L))).thenReturn(Optional.of(
                 Account.builder().id(10L).familyId(1L).type(AccountType.STOCK).currency("CNY").build()));
     }
 
