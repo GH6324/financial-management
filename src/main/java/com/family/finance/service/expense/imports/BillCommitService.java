@@ -74,6 +74,27 @@ public class BillCommitService {
     public Result commit(long familyId, long memberId, long periodId, long fallbackAccountId,
                          ExpenseSource channel, List<BillCategoryResolver.Line> lines,
                          int notIncluded, int skipped, boolean affectsBalance) {
+        return commit(familyId, memberId, periodId, fallbackAccountId, channel, lines,
+                notIncluded, skipped, affectsBalance, java.util.Set.of());
+    }
+
+    /**
+     * v1.24 FR-613 · 带「这笔是一次性的」的导入(<b>写入路 W2</b>)。
+     *
+     * <p>{@code oneOffIdx} 是确认页上勾了「一次性」的行号集合。
+     * 为什么按行号而不是在 {@code Line} 里加字段:{@code Line} 是<b>解析结果</b>,
+     * 由渠道解析器产出;「是不是一次性」是<b>用户在确认页上的决定</b>,
+     * 两者来源不同、生命周期不同,混在一个 record 里会让解析器看起来该猜这个值。</p>
+     *
+     * <p>PRD FR-613 要求逐笔录入与账单导入<b>两条路都要有</b> ——
+     * 只做一条的后果不是「少个功能」,是用户在导入的那几十笔里没法标一次性,
+     * 而大额一次性支出(装修、旅行)恰恰多半是刷卡来的。</p>
+     */
+    @Transactional
+    public Result commit(long familyId, long memberId, long periodId, long fallbackAccountId,
+                         ExpenseSource channel, List<BillCategoryResolver.Line> lines,
+                         int notIncluded, int skipped, boolean affectsBalance,
+                         java.util.Set<Integer> oneOffIdx) {
         Period period = periodMapper.findById(familyId, periodId)
                 .orElseThrow(() -> new CommitException("找不到这个账期,刷新一下再试。"));
         if (period.getFamilyId() == null || period.getFamilyId() != familyId) {
@@ -173,6 +194,8 @@ public class BillCommitService {
                     .amount(l.amount())
                     .occurredAt(inPeriod(l.occurredAt(), period))
                     .note(trimNote(l.merchant()))
+                    /* v1.24 FR-613 · 与 EntryService 同一条规则:只有消费才谈得上一次性 */
+                    .oneOff(!nature && oneOffIdx.contains(l.idx()))
                     .submittedBy(memberId)
                     .sourceTag(channel.name())
                     .expenseCategoryId(catId)

@@ -25,6 +25,7 @@ public interface ExpenseCategoryMapper {
      */
     String COLS = " id, family_id AS familyId, parent_id AS parentId, name,"
                 + " system_code AS systemCode, sort_order AS sortOrder,"
+                + " expense_nature AS expenseNature,"
                 + " archived_at AS archivedAt, created_at AS createdAt ";
 
     @Insert("""
@@ -62,6 +63,25 @@ public interface ExpenseCategoryMapper {
             """)
     int setArchivedByParent(@Param("familyId") long familyId, @Param("parentId") long parentId,
                             @Param("archived") boolean archived);
+
+    /**
+     * v1.24 FR-612 · 改一个类目的支出性质。
+     *
+     * <p><b>「其他」也能改</b> —— 所以这里没有 {@code system_code IS NULL} 那一条。
+     * 改名/停用/删除都要护着兜底项(它不能消失),但「其他」这一类到底算刚性还是弹性
+     * 是用户家里的事实,没有理由不让他定。</p>
+     *
+     * <p>性质是<b>类目的属性</b>,所以改完<b>立即对全部历史生效</b>,
+     * 不回写任何一行 {@code cash_flow}(选型一)。</p>
+     *
+     * <p>{@code nature} 传 null = 清回「继承父级 / 按弹性」。</p>
+     */
+    @Update("""
+            UPDATE expense_category SET expense_nature = #{nature}
+             WHERE id = #{id} AND family_id = #{familyId}
+            """)
+    int setNature(@Param("familyId") long familyId, @Param("id") long id,
+                  @Param("nature") String nature);
 
     @Delete("DELETE FROM expense_category WHERE id = #{id} AND family_id = #{familyId} AND system_code IS NULL")
     int delete(@Param("familyId") long familyId, @Param("id") long id);

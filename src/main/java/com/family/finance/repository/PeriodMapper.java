@@ -104,6 +104,33 @@ public interface PeriodMapper {
             """)
     List<Period> findOpenBefore(@Param("familyId") long familyId, @Param("periodStart") java.time.LocalDate periodStart);
 
+    /**
+     * v1.24 · 某一期的<b>前一期</b>(FR-620/625 的「上期」)。
+     *
+     * <h3>判据是日期,不是状态,也不是 id</h3>
+     *
+     * <p>v1.23 引入双活跃账期之后,「上一期」<b>不再等于</b>「上一个 OPEN 的前面那个」——
+     * 补录期与新期可以同时开着,按状态找会拿到错的那一个。按 id 找同样不行:
+     * id 是插入顺序,补录一期历史账期会得到一个更大的 id。</p>
+     *
+     * <p>唯一稳的判据:<b>{@code period_start} 严格小于锚期的那些期里,
+     * {@code period_start} 最大的那一个</b>,与关账状态无关。</p>
+     *
+     * <p>找不到 = 这是这个家最早的一期 —— 调用方据此不画瀑布(而不是拿 0 当上期,
+     * 那会让每个类目都显示成「新增」,PRD F3 点名的失败模式)。</p>
+     */
+    @Select("""
+            SELECT p.id, p.family_id, p.period_type, p.period_start, p.period_end,
+                   p.status, p.closed_at, p.created_at
+              FROM period p
+              JOIN period anchor ON anchor.id = #{periodId} AND anchor.family_id = #{familyId}
+             WHERE p.family_id = #{familyId}
+               AND p.period_start < anchor.period_start
+             ORDER BY p.period_start DESC
+             LIMIT 1
+            """)
+    Optional<Period> previousOf(@Param("familyId") long familyId, @Param("periodId") long periodId);
+
     @Select("""
             SELECT id, family_id, period_type, period_start, period_end, status, closed_at, created_at
               FROM period

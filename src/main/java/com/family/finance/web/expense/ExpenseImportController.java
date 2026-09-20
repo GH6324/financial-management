@@ -354,6 +354,9 @@ public class ExpenseImportController {
                           @RequestParam(required = false) List<String> cat,
                           @RequestParam(required = false) List<String> acct,
                           @RequestParam(required = false) List<Integer> include,
+                          /* v1.24 FR-613 · 勾了「这笔是一次性的」的行号(写入路 W2)。
+                           * 与 include 同构:复选框只在勾上时提交,所以没勾的行不会出现在列表里。 */
+                          @RequestParam(required = false) List<Integer> oneOff,
                           @RequestParam(required = false) List<String> exTx,
                           @RequestParam(required = false) List<String> exCat,
                           @RequestParam(required = false) List<String> exAcct,
@@ -486,7 +489,8 @@ public class ExpenseImportController {
 
             var r = commitService.commit(fam, me.getMemberId(), periodId, accountId,
                     draft.channel(), finalLines, notIncluded,
-                    draft.count(BillCategoryResolver.Bucket.SKIPPED), affectsBalance);
+                    draft.count(BillCategoryResolver.Bucket.SKIPPED), affectsBalance,
+                    oneOff == null ? java.util.Set.of() : new java.util.HashSet<>(oneOff));
             session.removeAttribute(DRAFT_KEY);
             session.removeAttribute(DRAFT_PERIOD);
             /* v1.22 · 合计按【代数和】。录了退款冲正(负数)之后它会比账单总额小,

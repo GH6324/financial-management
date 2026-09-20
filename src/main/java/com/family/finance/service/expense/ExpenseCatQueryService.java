@@ -3,6 +3,7 @@ package com.family.finance.service.expense;
 import com.family.finance.domain.expense.ExpenseCategory;
 import com.family.finance.repository.ExpenseCategoryMapper;
 import com.family.finance.domain.period.Period;
+import com.family.finance.repository.CashFlowMapper;
 import com.family.finance.repository.ExpenseFlowMapper;
 import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.PeriodMemberCashflowMapper;
@@ -44,6 +45,7 @@ import java.util.Map;
 public class ExpenseCatQueryService {
 
     private final ExpenseFlowMapper flowMapper;
+    private final CashFlowMapper cashFlowMapper;
     private final ExpenseCategoryMapper categoryMapper;
     private final PeriodMapper periodMapper;
     private final PeriodMemberCashflowMapper pmcMapper;
@@ -62,13 +64,65 @@ public class ExpenseCatQueryService {
 
     public record Leaf(Long categoryId, String name, BigDecimal amount, int rowCount) {}
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // v1.24 · 取数口从 ExpenseFlowMapper 换到 CashFlowMapper 的【对齐查询】
+    // ══════════════════════════════════════════════════════════════════════════
+    //
+    // 原来这里用 ExpenseFlowMapper.sumByCategory,它与第一层(资金性质四分)的口径
+    // 分叉了四处:没有家庭隔离、不排归档账户、不排现金调整、而且不换汇。
+    // 于是 PRD FR-663 要求的「第二层合计 == 第一层『日常开支』片」按当时的写法
+    // 【本来就不可能成立】。两条 SQL 各自都跑得出数、都不报错,只是合不上。
+    //
+    // 现在两层走同一条查询、拼同一套过滤常量,等式是【结构上成立】的。
+    //
+    // 【这会改变 v1.21 三块的数字】,受影响的只有:有归档账户 / 有现金调整支出 /
+    // 多币种 的家庭。变化方向是「变对」。beta 实测:229 笔带分类的支出里有 14 笔
+    // 落在归档账户上,这 14 笔会从第二层掉出去;现金调整与多币种各 0 笔。
+
+    /** 一期的分类聚合(只看消费性质)· 口径与第一层逐字相同 */
+    private List<CatSum> catSums(long familyId, long periodId) {
+        Map<Long, BigDecimal> amt = new LinkedHashMap<>();
+        Map<Long, Integer> cnt = new LinkedHashMap<>();
+        for (var r : cashFlowMapper.sumExpenseByPeriodCategoryOneOff(familyId, List.of(periodId))) {
+            if (!CONSUMPTION.equals(r.categoryCode())) continue;
+            amt.merge(r.expenseCategoryId(), nz(r.amountBase()), BigDecimal::add);
+            cnt.merge(r.expenseCategoryId(), r.itemCount(), Integer::sum);
+        }
+        List<CatSum> out = new ArrayList<>();
+        amt.forEach((cid, v) -> out.add(new CatSum(cid, v, cnt.getOrDefault(cid, 0))));
+        return out;
+    }
+
+    /** 多期的 (期, 分类) 聚合 —— 12 期趋势不能在循环里查 12 次 */
+    private List<PeriodCatSum> periodCatSums(long familyId, List<Long> periodIds) {
+        Map<String, BigDecimal> acc = new LinkedHashMap<>();
+        for (var r : cashFlowMapper.sumExpenseByPeriodCategoryOneOff(familyId, periodIds)) {
+            if (!CONSUMPTION.equals(r.categoryCode())) continue;
+            acc.merge(r.periodId() + "/" + r.expenseCategoryId(), nz(r.amountBase()), BigDecimal::add);
+        }
+        List<PeriodCatSum> out = new ArrayList<>();
+        acc.forEach((k, v) -> {
+            String[] kv = k.split("/");
+            Long cid = "null".equals(kv[1]) ? null : Long.parseLong(kv[1]);
+            out.add(new PeriodCatSum(Long.parseLong(kv[0]), cid, v));
+        });
+        return out;
+    }
+
+    /** 本地聚合结果 —— 形状与原 ExpenseFlowMapper 的同名 record 一致,调用侧不用改 */
+    public record CatSum(Long categoryId, BigDecimal amount, int rowCount) {}
+    public record PeriodCatSum(Long periodId, Long categoryId, BigDecimal amount) {}
+
+    /** 资金性质里的「日常开支」—— 第二层只展开这一片(FR-662) */
+    private static final String CONSUMPTION = "consumption";
+
     /**
      * 一期的构成,<b>按大类</b>汇总(FR-519a),大类内保留细类构成供下钻。
      *
      * <p>金额降序 —— 用户想知道的是「钱主要花在哪」,不是「类目按什么顺序建的」。</p>
      */
     public List<CatRow> period(long familyId, long periodId) {
-        List<ExpenseFlowMapper.CatSum> sums = flowMapper.sumByCategory(familyId, periodId);
+        List<CatSum> sums = catSums(familyId, periodId);
         if (sums.isEmpty()) return List.of();
 
         Map<Long, ExpenseCategory> byId = new LinkedHashMap<>();
@@ -136,7 +190,7 @@ public class ExpenseCatQueryService {
         Map<Long, ExpenseCategory> byId = new LinkedHashMap<>();
         for (ExpenseCategory c : categoryMapper.findByFamily(familyId)) byId.put(c.getId(), c);
         Map<Long, BigDecimal> topTotal = new LinkedHashMap<>();
-        for (var s : flowMapper.sumByPeriodAndCategory(familyId, ids)) {
+        for (var s : periodCatSums(familyId, ids)) {
             ExpenseCategory c = s.categoryId() == null ? null : byId.get(s.categoryId());
             Long topId = (c == null) ? null : (c.isTopLevel() ? c.getId() : c.getParentId());
             topTotal.merge(topId, nz(s.amount()), BigDecimal::add);
@@ -179,7 +233,7 @@ public class ExpenseCatQueryService {
         for (ExpenseCategory c : categoryMapper.findByFamily(familyId)) byId.put(c.getId(), c);
 
         Map<Long, Map<Long, BigDecimal>> byPeriod = new LinkedHashMap<>();
-        for (var s : flowMapper.sumByPeriodAndCategory(familyId, ids)) {
+        for (var s : periodCatSums(familyId, ids)) {
             ExpenseCategory c = s.categoryId() == null ? null : byId.get(s.categoryId());
             Long topId = (c == null) ? null : (c.isTopLevel() ? c.getId() : c.getParentId());
             byPeriod.computeIfAbsent(s.periodId(), k -> new LinkedHashMap<>())
@@ -259,7 +313,7 @@ public class ExpenseCatQueryService {
     /** 这个家有没有任何一笔带分类的支出 —— 报表据此决定要不要渲染整块 */
     public boolean hasAny(long familyId, List<Long> periodIds) {
         if (periodIds == null || periodIds.isEmpty()) return false;
-        for (var s : flowMapper.sumByPeriodAndCategory(familyId, periodIds)) {
+        for (var s : periodCatSums(familyId, periodIds)) {
             if (s.categoryId() != null) return true;
         }
         return false;

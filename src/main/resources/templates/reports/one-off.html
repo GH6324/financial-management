@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('一次性支出明细')}"></head>
+<body class="bg-paper text-ink">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('reports', ${me}, ${nav})}"></header>
+
+<main class="max-w-[900px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10">
+
+  <div class="mb-6">
+    <div class="eyebrow mb-2" style="color:var(--rust)">常 · 态 · 月 · 均</div>
+    <h1 class="font-display text-3xl font-medium tracking-tight">剔除的一次性支出</h1>
+    <p class="font-serif text-sm text-ink-soft mt-2 max-w-2xl">
+      这些笔<b>不进常态月均</b> —— 它们是「这个月有、下个月没有」的钱。
+      月均支出照常算进它们,两个数都给,由你判断哪个更贴近你家的情况。
+    </p>
+  </div>
+
+  <!--/* 没有一次性支出不是错误,是好消息 —— 说清楚,别留一张空表 */-->
+  <div th:if="${normal == null or #lists.isEmpty(rows)}"
+       class="border border-rule-soft rounded-sm p-6 font-serif text-sm text-ink-soft">
+    这 12 期里没有被标成一次性的支出,所以<b>常态月均 = 月均支出</b>。<br>
+    要标一次性:填报页记一笔时勾「这笔是一次性的」,或者在
+    <a th:href="@{/expense/categories}" class="text-brass-deep hover:underline">类目管理页</a>
+    把某一类(比如数码电器)整类设成一次性。
+  </div>
+
+  <div th:if="${normal != null and !#lists.isEmpty(rows)}">
+    <div class="flex flex-wrap items-baseline gap-x-8 gap-y-2 mb-6 p-3 border border-rule-soft rounded-sm">
+      <div>
+        <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">月均支出</div>
+        <div class="font-mono text-lg tnum" data-priv
+             th:text="${#numbers.formatDecimal(normal.averageBase(), 1, 'COMMA', 0, 'POINT')}">10,300</div>
+      </div>
+      <div>
+        <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">常态月均</div>
+        <div class="font-mono text-lg tnum" data-priv
+             th:text="${#numbers.formatDecimal(normal.normalBase(), 1, 'COMMA', 0, 'POINT')}">9,100</div>
+      </div>
+      <div>
+        <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">一次性合计</div>
+        <div class="font-mono text-lg tnum" data-priv
+             th:text="${#numbers.formatDecimal(normal.oneOffTotalBase(), 1, 'COMMA', 0, 'POINT')}">14,400</div>
+      </div>
+      <div class="font-mono text-[10px] text-ink-subtle">
+        <span th:text="${#lists.size(normal.periodIds())} + ' 期'">12 期</span> ·
+        <span th:text="${normal.oneOffCount()} + ' 笔'">3 笔</span>
+      </div>
+    </div>
+
+    <table class="w-full">
+      <thead>
+        <tr class="border-b border-rule">
+          <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2" style="width:96px">日期</th>
+          <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2">类目</th>
+          <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-right px-2 py-2" style="width:120px">金额</th>
+          <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2" style="width:150px">为什么被剔</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="r : ${rows}" class="border-b border-rule-soft">
+          <td class="px-2 py-2 font-mono text-[11px] text-ink-subtle"
+              th:text="${r.occurredAt() != null} ? ${#temporals.format(r.occurredAt(), 'yyyy-MM-dd')} : '—'">2026-05-12</td>
+          <td class="px-2 py-2 text-[12.5px]" th:text="${r.categoryName() != null} ? ${r.categoryName()} : '未分类'">数码电器 › 手机</td>
+          <td class="px-2 py-2 text-right font-mono text-[12.5px] tnum" data-priv
+              th:text="${#numbers.formatDecimal(r.amount(), 1, 'COMMA', 2, 'POINT')}">6,299.00</td>
+          <!--/* 两种原因要去改的地方完全不同:类目性质去类目管理页,逐笔勾回填报页。
+                 只说「一次性」用户不知道该去哪改。 */-->
+          <td class="px-2 py-2 font-mono text-[10.5px] text-ink-subtle" th:text="${r.reason()}">类目就是一次性</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="font-mono text-[9px] text-ink-subtle mt-4 leading-relaxed">
+      要改判定:整类的去 <a th:href="@{/expense/categories}" class="text-brass-deep hover:underline">类目管理页</a>;
+      单笔的回 <a th:href="@{/entry}" class="text-brass-deep hover:underline">填报页</a> 取消那个勾。
+    </p>
+  </div>
+
+  <p class="mt-8">
+    <a th:href="@{/reports}" class="font-mono text-[11px] text-brass-deep hover:underline">← 回报表</a>
+  </p>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

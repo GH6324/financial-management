@@ -30,67 +30,49 @@ import java.util.List;
 @Mapper
 public interface ExpenseFlowMapper {
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // v1.24 · 这里原来有两条按分类聚合的查询(sumByCategory / sumByPeriodAndCategory)
+    // ══════════════════════════════════════════════════════════════════════════
+    //
+    // 它们被【删掉】了,不是改好了 —— 第二层构成现在走
+    // CashFlowMapper.sumExpenseByPeriodCategoryOneOff,与第一层拼同一套过滤常量。
+    //
+    // 为什么非删不可:那两条 SQL 与第一层(expenseBreakdown)口径分叉了【四处】——
+    // 没有家庭隔离、不排归档账户、不排现金调整、而且不换汇(SUM(cf.amount) 把 USD
+    // 直接加进 CNY)。两条 SQL 各自都跑得出数、都不报错,只是合不上;
+    // PRD FR-663 要求两层合计相等,而按当时的写法它们本来就不可能相等。
+    //
+    // 「补三个 WHERE、不补换汇」是最诱人的改法,也是最坏的一种:其余三项对上之后,
+    // 多币种家庭仍然错,而且错得更像「就差那一点」。所以整条删掉,只留一个取数口。
+
     /**
-     * 一期的分类构成。{@code categoryId} 为 null 的那一行 = 未分类(v1.21 前的历史流水)。
+     * 下钻:某一期某个分类的那些笔(FR-570)。分类为 null 时看未分类的那一堆。
      *
-     * <p><b>别名不要叫 {@code rows}</b> —— 它是 MySQL 8.0 的保留字(随窗口函数引入),
-     * {@code COUNT(*) AS rows} 会直接语法错,而且只在真跑到这条查询时才炸
-     * (启动、编译、单测全过,报表页 500)。这里叫 {@code row_count}。</p>
+     * <p>v1.24 · <b>过滤条件与第二层聚合逐条对齐</b>(归档账户 / 现金调整都排除)——
+     * 否则点进去看到的笔数与饼片上标的笔数对不上,而那是最招人怀疑「程序算错了」的一种不一致。</p>
      */
-    record CatSum(Long categoryId, BigDecimal amount, int rowCount) {}
-
-    @Select("""
-            SELECT cf.expense_category_id AS categoryId,
-                   SUM(cf.amount)         AS amount,
-                   COUNT(*)               AS row_count
-              FROM cash_flow cf
-              JOIN period p ON p.id = cf.period_id
-             WHERE p.family_id = #{familyId}
-               AND cf.period_id = #{periodId}
-               AND cf.kind = 'EXPENSE'
-               AND cf.category_code = 'consumption'
-               AND cf.deleted_at IS NULL
-             GROUP BY cf.expense_category_id
-            """)
-    List<CatSum> sumByCategory(@Param("familyId") long familyId, @Param("periodId") long periodId);
-
-    /** 多期一次问完 —— 12 期趋势不能在循环里查 12 次(联动链 N+1) */
-    record PeriodCatSum(Long periodId, Long categoryId, BigDecimal amount) {}
-
-    @Select("""
-            <script>
-            SELECT cf.period_id            AS periodId,
-                   cf.expense_category_id  AS categoryId,
-                   SUM(cf.amount)          AS amount
-              FROM cash_flow cf
-              JOIN period pd ON pd.id = cf.period_id
-             WHERE pd.family_id = #{familyId}
-               AND cf.kind = 'EXPENSE'
-               AND cf.category_code = 'consumption'
-               AND cf.deleted_at IS NULL
-               AND cf.period_id IN
-                   <foreach item="p" collection="periodIds" open="(" separator="," close=")">#{p}</foreach>
-             GROUP BY cf.period_id, cf.expense_category_id
-            </script>
-            """)
-    List<PeriodCatSum> sumByPeriodAndCategory(@Param("familyId") long familyId,
-                                              @Param("periodIds") List<Long> periodIds);
-
-    /** 下钻:某一期某个分类的那些笔(FR-570)。分类为 null 时看未分类的那一堆。 */
     record FlowRow(Long id, LocalDate occurredAt, String note, BigDecimal amount,
-                   String accountName, Long categoryId) {}
+                   String accountName, Long categoryId, String categoryName, boolean oneOff) {}
 
     @Select("""
             <script>
             SELECT cf.id, cf.occurred_at AS occurredAt, cf.note, cf.amount,
-                   a.display_name AS accountName, cf.expense_category_id AS categoryId
+                   a.display_name AS accountName, cf.expense_category_id AS categoryId,
+                   CASE WHEN ec.id IS NULL THEN NULL
+                        WHEN ecp.name IS NULL THEN ec.name
+                        ELSE CONCAT(ecp.name, ' › ', ec.name) END AS categoryName,
+                   cf.one_off AS oneOff
               FROM cash_flow cf
               JOIN account a ON a.id = cf.account_id
+              LEFT JOIN expense_category ec  ON ec.id = cf.expense_category_id
+              LEFT JOIN expense_category ecp ON ecp.id = ec.parent_id
              WHERE a.family_id = #{familyId}
+               AND a.archived_at IS NULL
                AND cf.period_id = #{periodId}
                AND cf.kind = 'EXPENSE'
                AND cf.category_code = 'consumption'
                AND cf.deleted_at IS NULL
+               AND cf.is_adjustment = 0
                <choose>
                  <when test="categoryId == null">AND cf.expense_category_id IS NULL</when>
                  <otherwise>AND cf.expense_category_id = #{categoryId}</otherwise>
@@ -101,6 +83,37 @@ public interface ExpenseFlowMapper {
             """)
     List<FlowRow> drillDown(@Param("familyId") long familyId,
                             @Param("periodId") long periodId, @Param("categoryId") Long categoryId);
+
+    /**
+     * v1.24 FR-633 · 一期里<b>全部</b>消费笔(不按分类筛)。
+     *
+     * <p>给「一次性明细」用:哪些笔算一次性由 {@code ExpenseNatureService} 在 Java 侧判
+     * (FR-615 的判据只能有一处),所以 SQL 这里不能替它筛,只负责把原始列交出去。</p>
+     *
+     * <p>过滤条件与 {@link #drillDown} 逐字相同 —— 两者是同一批行的不同切法。</p>
+     */
+    @Select("""
+            SELECT cf.id, cf.occurred_at AS occurredAt, cf.note, cf.amount,
+                   a.display_name AS accountName, cf.expense_category_id AS categoryId,
+                   CASE WHEN ec.id IS NULL THEN NULL
+                        WHEN ecp.name IS NULL THEN ec.name
+                        ELSE CONCAT(ecp.name, ' › ', ec.name) END AS categoryName,
+                   cf.one_off AS oneOff
+              FROM cash_flow cf
+              JOIN account a ON a.id = cf.account_id
+              LEFT JOIN expense_category ec  ON ec.id = cf.expense_category_id
+              LEFT JOIN expense_category ecp ON ecp.id = ec.parent_id
+             WHERE a.family_id = #{familyId}
+               AND a.archived_at IS NULL
+               AND cf.period_id = #{periodId}
+               AND cf.kind = 'EXPENSE'
+               AND cf.category_code = 'consumption'
+               AND cf.deleted_at IS NULL
+               AND cf.is_adjustment = 0
+             ORDER BY cf.occurred_at DESC, cf.id DESC
+             LIMIT 500
+            """)
+    List<FlowRow> drillDownAll(@Param("familyId") long familyId, @Param("periodId") long periodId);
 
     /**
      * 删类目时搬家。
@@ -287,6 +300,22 @@ public interface ExpenseFlowMapper {
      * 因为那要走 {@code EntryService} 的既有路径(审计日志 + 镜头失效都挂在那)。
      * 这里多做一步就会出现两套改余额的代码。</p>
      */
+    /**
+     * v1.24 FR-613 · 就地改这一笔的「一次性」勾。
+     *
+     * <p>与改分类一样<b>不动钱</b>,所以已关账的期也能改 —— 它只影响这笔进不进常态月均。</p>
+     */
+    @Update("""
+            UPDATE cash_flow cf
+              JOIN period p ON p.id = cf.period_id
+               SET cf.one_off = #{oneOff}
+             WHERE p.family_id = #{familyId}
+               AND cf.id = #{id}
+               AND cf.deleted_at IS NULL
+            """)
+    int updateOneOff(@Param("familyId") long familyId,
+                     @Param("id") long id, @Param("oneOff") boolean oneOff);
+
     @Update("""
             UPDATE cash_flow cf
               JOIN period p ON p.id = cf.period_id

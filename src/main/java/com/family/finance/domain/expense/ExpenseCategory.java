@@ -40,6 +40,16 @@ public class ExpenseCategory {
     private String name;
     private String systemCode;
     private Integer sortOrder;
+
+    /**
+     * v1.24 FR-610 · 这一类的支出性质。
+     *
+     * <p><b>可空,而且空是有意义的</b>:NULL = 继承父级;父级也空 = 按弹性读(FR-616)。
+     * 别在这里做兜底 —— 兜底只在 {@code ExpenseNatureService.natureOf} 一处,
+     * 两处兜底就会有两套规则(护栏 v1240-ONEOFF-SINGLE-JUDGE)。</p>
+     */
+    private String expenseNature;
+
     private LocalDateTime archivedAt;
     private LocalDateTime createdAt;
 

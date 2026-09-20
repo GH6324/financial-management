@@ -134,6 +134,35 @@
       </div>
     </form>
 
+    <!--/* v1.24 FR-674 · 支出分析章节开关。
+           【名字用家人看得懂的词】—— 不写「模块 / 组件 / 功能开关」。
+           关掉之后除了报表页那一章,紧急储备 / 体检流动性 / 目标页应急金
+           那几处并列读数也一并消失,不留半开状态。 */-->
+    <form th:action="@{/admin/calc-tweaks/expense-analysis}" method="post" class="mt-10">
+      <h2 class="font-display text-xl font-medium mb-1">报表里的支出分析</h2>
+      <p class="font-serif text-sm text-ink-soft mb-4 max-w-2xl">
+        打开后,报表页「钱花在哪了」那一章会多出三块:<b>这个月为什么变</b>、
+        <b>这些钱砍不砍得掉</b>、以及剔掉一次性支出之后的<b>常态月均</b>。
+      </p>
+      <div class="border border-rule p-4 rounded-sm">
+        <label class="flex items-start gap-2.5 cursor-pointer">
+          <input type="checkbox" name="expenseAnalysisOn" value="true" class="mt-1"
+                 th:checked="${expenseAnalysisOn}">
+          <span>
+            <span class="text-[13.5px]">显示支出分析</span>
+            <span class="block font-mono text-[10px] text-ink-subtle mt-1 tracking-wider leading-relaxed">
+              关掉 = 支出那一章回到原来的样子 · 紧急储备、体检流动性、目标页应急金那几处的
+              「按常态月均」并列读数也一并不显示(不会只关一半)。<br>
+              关掉<b>不影响任何金额</b>:它只决定显示不显示,一分钱的口径都不动。
+            </span>
+          </span>
+        </label>
+      </div>
+      <div class="flex justify-end mt-4">
+        <button type="submit" class="btn-ink">保存</button>
+      </div>
+    </form>
+
   </section>
 </main>
 

@@ -468,10 +468,13 @@ public class EntryController {
                                 @RequestParam(required = false) String note,
                                 @RequestParam(required = false) Long expenseCategoryId,
                                 @RequestParam(defaultValue = "false") boolean affectsBalance,
+                                /* v1.24 FR-613 · 「这笔是一次性的」。默认 false ——
+                                 * 绝大多数笔不是,每次都要判断一下就守不住 10 分钟/月 了。 */
+                                @RequestParam(defaultValue = "false") boolean oneOff,
                                 org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
         try {
             entryService.recordExpense(me.getFamilyId(), me.getMemberId(), periodId, accountId,
-                    categoryCode, amount, note, expenseCategoryId, affectsBalance);
+                    categoryCode, amount, note, expenseCategoryId, affectsBalance, oneOff);
         } catch (IllegalArgumentException | IllegalStateException e) {
             ra.addFlashAttribute("flashError", e.getMessage());
         }

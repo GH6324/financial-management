@@ -14,6 +14,68 @@ import java.util.List;
 @Mapper
 public interface CashFlowMapper {
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // v1.24 · 口径 A 的共享片段 —— 这一版最关键的一处设计
+    // ══════════════════════════════════════════════════════════════════════════
+    //
+    // 【为什么要提成常量】
+    //
+    // v1.21 的第二层(ExpenseFlowMapper.sumByCategory,按消费分类聚合)与第一层
+    // (expenseBreakdown,按资金性质聚合)口径**分叉了四处**:没有家庭隔离、
+    // 不排归档账户、不排现金调整、而且**不换汇**(SUM(cf.amount) 把 USD 直接加进 CNY)。
+    // 两条 SQL 各自都跑得出数、都不报错,只是合不上 —— PRD FR-663 要求两层合计相等,
+    // 而按当时的写法它们**本来就不可能相等**。
+    //
+    // 把过滤块和换汇块提成 `public static final String`,让每一条口径 A 的查询都去拼
+    // **同一个串**。Java 注解的值必须是编译期常量表达式,而字符串常量拼接正好是 ——
+    // 于是「两条查询口径一致」从一句文档承诺变成了**编译期事实**:
+    // 改了常量,所有拼它的查询一起变,漏改一条是做不到的。
+    //
+    // 【这不是为了少打字】grep 护栏能检查「两处写法一样」,但检查不了「将来有人只改一处」。
+    // 常量能。护栏 v1240-SAME-FILTER-BLOCK 守的是「没人绕过这个常量另写一份」。
+
+    /**
+     * 口径 A 的 FROM + JOIN。三个 JOIN 一个都不能少:
+     * {@code account} 给家庭归属与归档状态,{@code family} 给本位币,{@code period} 给汇率锚点。
+     */
+    String EXPENSE_A_FROM = """
+              FROM cash_flow cf
+              JOIN account a   ON a.id   = cf.account_id
+              JOIN family  fam ON fam.id = a.family_id
+              JOIN period  p   ON p.id   = cf.period_id
+            """;
+
+    /**
+     * 口径 A 的 WHERE。四个条件都是语义边界,不是防御性写法:
+     * 归档账户不算家庭当前支出、现金调整是本金进出不是消费、软删的钱不存在、只看支出。
+     */
+    String EXPENSE_A_WHERE = """
+             WHERE a.family_id = #{familyId}
+               AND a.archived_at IS NULL
+               AND cf.kind = 'EXPENSE'
+               AND cf.deleted_at IS NULL
+               AND cf.is_adjustment = 0
+            """;
+
+    /**
+     * 口径 A 的金额表达式 —— 按「该账期可得的最新 base→账户币 汇率」折回本位币。
+     *
+     * <p>裸 {@code SUM(cf.amount)} 会把 USD 和 CNY 直接相加,而且<b>不报错</b>,
+     * 只是合计偏大。这一条单独就足以让两层永远对不上。</p>
+     */
+    String EXPENSE_A_AMOUNT = """
+                   SUM(CASE WHEN a.currency = fam.base_currency THEN cf.amount
+                            ELSE cf.amount / COALESCE((
+                                   SELECT fr.rate FROM fx_rate fr JOIN period pp ON pp.id = fr.period_id
+                                    WHERE fr.family_id      = a.family_id
+                                      AND fr.base_currency  = fam.base_currency
+                                      AND fr.quote_currency = a.currency
+                                      AND pp.period_start  &lt;= p.period_start
+                                    ORDER BY pp.period_start DESC LIMIT 1), 1)
+                       END)
+            """;
+
+
     @Select("""
             SELECT cf.id, cf.period_id, cf.account_id, cf.kind, cf.category_code, cf.amount,
                    cf.occurred_at, cf.note, cf.submitted_by, cf.submitted_at
@@ -66,12 +128,17 @@ public interface CashFlowMapper {
             INSERT INTO cash_flow (
                 period_id, account_id, kind, category_code, amount, occurred_at, note, submitted_by, is_adjustment,
                 ref_holding_id, ref_shares, source_tag,
-                expense_category_id, import_batch_id, ext_tx_no, affects_balance
+                expense_category_id, import_batch_id, ext_tx_no, affects_balance,
+                one_off
             )
             SELECT #{cf.periodId}, #{cf.accountId}, #{cf.kind}, #{cf.categoryCode}, #{cf.amount},
                    #{cf.occurredAt}, #{cf.note}, #{cf.submittedBy}, #{cf.adjustment},
                    #{cf.refHoldingId}, #{cf.refShares}, COALESCE(#{cf.sourceTag}, 'UNKNOWN'),
-                   #{cf.expenseCategoryId}, #{cf.importBatchId}, #{cf.extTxNo}, #{cf.affectsBalance}
+                   #{cf.expenseCategoryId}, #{cf.importBatchId}, #{cf.extTxNo}, #{cf.affectsBalance},
+                   /* v1.24 FR-613 · 【显式列 INSERT 的老坑】表加了一列而这里没加,
+                    * 不会报错、不会失败,只是那个勾【永远存不进去】。
+                    * 两条写入路各有一条单测断言「读回来 == 写进去」(预检 SF2)。 */
+                   #{cf.oneOff}
               FROM period p
               JOIN account a ON a.id = #{cf.accountId}
              WHERE p.id = #{cf.periodId}
@@ -145,36 +212,19 @@ public interface CashFlowMapper {
      * </ul>
      * 方法名刻意用 RealExpense 与之拉开距离 —— 不要「顺手统一」这两者。</p>
      */
-    @Select("""
-            <script>
-            SELECT cf.period_id AS periodId,
-                   SUM(CASE WHEN a.currency = fam.base_currency THEN cf.amount
-                            ELSE cf.amount / COALESCE((
-                                   SELECT fr.rate FROM fx_rate fr JOIN period pp ON pp.id = fr.period_id
-                                    WHERE fr.family_id      = a.family_id
-                                      AND fr.base_currency  = fam.base_currency
-                                      AND fr.quote_currency = a.currency
-                                      AND pp.period_start  &lt;= p.period_start
-                                    ORDER BY pp.period_start DESC LIMIT 1), 1)
-                       END) AS amount,
-                   COUNT(*) AS itemCount,
-                   MIN(p.period_start) AS periodStart
-              FROM cash_flow cf
-              JOIN account a   ON a.id   = cf.account_id
-              JOIN family  fam ON fam.id = a.family_id
-              JOIN period  p   ON p.id   = cf.period_id
-             WHERE a.family_id = #{familyId}
-               AND a.archived_at IS NULL
-               AND cf.kind = 'EXPENSE'
-               AND cf.deleted_at IS NULL
-               AND cf.is_adjustment = 0
-               <if test="periodIds != null and !periodIds.isEmpty()">
-                 AND cf.period_id IN
-                 <foreach collection="periodIds" item="pid" open="(" separator="," close=")">#{pid}</foreach>
-               </if>
-             GROUP BY cf.period_id
-            </script>
-            """)
+    @Select("<script>\n"
+          + "            SELECT cf.period_id AS periodId,\n"
+          + EXPENSE_A_AMOUNT + " AS amount,\n"
+          + "                   COUNT(*) AS itemCount,\n"
+          + "                   MIN(p.period_start) AS periodStart\n"
+          + EXPENSE_A_FROM
+          + EXPENSE_A_WHERE
+          + "               <if test=\"periodIds != null and !periodIds.isEmpty()\">\n"
+          + "                 AND cf.period_id IN\n"
+          + "                 <foreach collection=\"periodIds\" item=\"pid\" open=\"(\" separator=\",\" close=\")\">#{pid}</foreach>\n"
+          + "               </if>\n"
+          + "             GROUP BY cf.period_id\n"
+          + "            </script>")
     List<RealExpenseSum> sumRealExpenseByPeriod(@Param("familyId") long familyId,
                                                 @Param("periodIds") java.util.Collection<Long> periodIds);
 
@@ -277,27 +327,16 @@ public interface CashFlowMapper {
                   COALESCE(cat.display_name, cf.category_code) AS groupLabel
                 </otherwise>
               </choose>,
-                   SUM(CASE WHEN a.currency = fam.base_currency THEN cf.amount
-                            ELSE cf.amount / COALESCE((
-                                   SELECT fr.rate FROM fx_rate fr JOIN period pp ON pp.id = fr.period_id
-                                    WHERE fr.family_id      = a.family_id
-                                      AND fr.base_currency  = fam.base_currency
-                                      AND fr.quote_currency = a.currency
-                                      AND pp.period_start  &lt;= p.period_start
-                                    ORDER BY pp.period_start DESC LIMIT 1), 1)
-                       END) AS amountBase,
-                   COUNT(*) AS itemCount
-              FROM cash_flow cf
-              JOIN account a   ON a.id   = cf.account_id
-              JOIN family  fam ON fam.id = a.family_id
-              JOIN period  p   ON p.id   = cf.period_id
+            """
+          + EXPENSE_A_AMOUNT + " AS amountBase,\n"
+          + "                   COUNT(*) AS itemCount\n"
+          + EXPENSE_A_FROM
+          + """
               LEFT JOIN member m ON m.id = a.primary_owner_member_id
               LEFT JOIN cash_flow_category cat ON cat.code = cf.category_code
-             WHERE a.family_id = #{familyId}
-               AND a.archived_at IS NULL
-               AND cf.kind = 'EXPENSE'
-               AND cf.deleted_at IS NULL
-               AND cf.is_adjustment = 0
+            """
+          + EXPENSE_A_WHERE
+          + """
                AND cf.period_id IN
                <foreach collection="periodIds" item="pid" open="(" separator="," close=")">#{pid}</foreach>
              GROUP BY groupKey, groupLabel
@@ -307,6 +346,58 @@ public interface CashFlowMapper {
     List<ExpenseGroup> expenseBreakdown(@Param("familyId") long familyId,
                                         @Param("periodIds") java.util.Collection<Long> periodIds,
                                         @Param("dim") String dim);
+
+    /**
+     * v1.24 · <b>支出分析的唯一取数口</b> —— 一条查询喂五块内容。
+     *
+     * <p>按 {@code 账期 × 资金性质 × 消费分类 × 是否一次性} 分组。第一层(四分)、
+     * 第二层(分类)、三分(刚性/弹性/一次性)、归因瀑布、一次性明细<b>全部</b>从这一份结果推,
+     * 各自只是不同的 group-by 折叠方式。</p>
+     *
+     * <h3>为什么不是五条查询</h3>
+     *
+     * <p>PRD FR-663 要求「第一层合计 == 第二层合计」。如果两层各查各的,这个等式就得靠
+     * <b>事后对账</b>来维持 —— 而 v1.21 的教训正是:两条 SQL 各自都跑得出数、都不报错,
+     * 只是合不上,四处口径分叉藏了整整一个版本没人发现。
+     * 从<b>同一份结果</b>折出来,等式是<b>结构上成立</b>的,不需要任何人去维护它。</p>
+     *
+     * <h3>结果集有多大</h3>
+     *
+     * <p>12 期 × 约 40 个类目 × 2(one_off)= 上限 960 行,实际远小于此(大部分组合是空的)。
+     * 一次全取回内存里折,比分五次查划算得多,也不用担心 N+1。</p>
+     *
+     * <p><b>口径与 {@link #sumRealExpenseByPeriod} 逐字相同</b> —— 三个片段都是同一个
+     * 编译期常量。这不是「写得一样」,是「改了一处全部跟着变」。</p>
+     */
+    @Select("<script>\n"
+          + "            SELECT cf.period_id AS periodId,\n"
+          + "                   cf.category_code AS categoryCode,\n"
+          + "                   cf.expense_category_id AS expenseCategoryId,\n"
+          + "                   cf.one_off AS oneOff,\n"
+          + EXPENSE_A_AMOUNT + " AS amountBase,\n"
+          + "                   COUNT(*) AS itemCount\n"
+          + EXPENSE_A_FROM
+          + EXPENSE_A_WHERE
+          + "               AND cf.period_id IN\n"
+          + "               <foreach collection=\"periodIds\" item=\"pid\" open=\"(\" separator=\",\" close=\")\">#{pid}</foreach>\n"
+          + "             GROUP BY cf.period_id, cf.category_code, cf.expense_category_id, cf.one_off\n"
+          + "            </script>")
+    List<CatOneOffSum> sumExpenseByPeriodCategoryOneOff(
+            @Param("familyId") long familyId,
+            @Param("periodIds") java.util.Collection<Long> periodIds);
+
+    /**
+     * v1.24 · 上面那条查询的一行。
+     *
+     * <p>{@code expenseCategoryId} 为 null = 未分类(v1.21 之前的历史流水,或者还没归类的)。
+     * <b>它是一等公民</b>,不能在查询里被过滤掉 —— 过滤掉之后第二层合计会莫名其妙小于第一层。</p>
+     *
+     * <p>{@code categoryCode} 是<b>资金性质</b>(consumption / loan_payment / …),
+     * 不是消费分类。两个都带出来是因为第一层按前者分、第二层按后者分,
+     * 而「两层合计相等」正是靠它们来自同一行保证的。</p>
+     */
+    record CatOneOffSum(Long periodId, String categoryCode, Long expenseCategoryId,
+                        boolean oneOff, java.math.BigDecimal amountBase, int itemCount) {}
 
     /**
      * v1.8 · 落在**已归档账户**上的逐笔支出(与构成口径互补)。

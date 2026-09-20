@@ -413,6 +413,22 @@ public class EntryService {
     public EntryRow recordExpense(long familyId, long memberId, long periodId,
                                   long accountId, String categoryCode, BigDecimal amount, String note,
                                   Long expenseCategoryId, boolean affectsBalance) {
+        return recordExpense(familyId, memberId, periodId, accountId, categoryCode, amount, note,
+                expenseCategoryId, affectsBalance, false);
+    }
+
+    /**
+     * v1.24 FR-613 · 带「这笔是一次性的」勾的录入(<b>写入路 W1</b>)。
+     *
+     * <p>{@code oneOff} 是<b>纯分析期标记</b>:它只决定这笔进不进常态月均,
+     * 余额 / 轧差 / 净资产一条都不碰。默认 false —— 绝大多数笔不是一次性的,
+     * 每次录入都要判断一下的话,10 分钟/月 的硬约束就守不住了。</p>
+     *
+     * <p>逐笔只能勾成「一次性」,不能反向把一次性类目里的笔改回弹性(FR-614)。</p>
+     */
+    public EntryRow recordExpense(long familyId, long memberId, long periodId,
+                                  long accountId, String categoryCode, BigDecimal amount, String note,
+                                  Long expenseCategoryId, boolean affectsBalance, boolean oneOff) {
         Period period = requireOpenPeriod(familyId, periodId);
         Account account = requireAccount(familyId, accountId);
         if (!expenseCategoryAllowedOn(account.getType(), categoryCode)) {
@@ -435,7 +451,7 @@ public class EntryService {
         }
         Long catId = expenseCategoryService.isUsable(familyId, expenseCategoryId) ? expenseCategoryId : null;
         insertCashFlow(period, account, memberId,
-                new CashFlowLine(CashFlowKind.EXPENSE, categoryCode, amt, note), catId, affectsBalance);
+                new CashFlowLine(CashFlowKind.EXPENSE, categoryCode, amt, note), catId, affectsBalance, oneOff);
         snapshotTodoMapper.markDone(familyId, periodId, accountId, memberId);
         auditLogService.record(familyId, memberId, AuditLogType.SYSTEM, "account", accountId,
                 "支出录入 " + cat.getDisplayName() + " " + money(amt) + " ← " + account.getDisplayName());
@@ -1080,6 +1096,12 @@ public class EntryService {
 
     private void insertCashFlow(Period period, Account account, long memberId,
                                 CashFlowLine line, Long expenseCategoryId, boolean affectsBalance) {
+        insertCashFlow(period, account, memberId, line, expenseCategoryId, affectsBalance, false);
+    }
+
+    private void insertCashFlow(Period period, Account account, long memberId,
+                                CashFlowLine line, Long expenseCategoryId, boolean affectsBalance,
+                                boolean oneOff) {
         /* v1.22 · 【只有收入侧的 0 才跳过】。
          * 原来这里对所有 kind 都「金额为 0 就直接 return」—— 于是一笔 0 元的支出
          * (全额优惠券 / 积分抵扣)被<b>静默丢弃</b>:用户在确认页上勾了它,
@@ -1113,6 +1135,10 @@ public class EntryService {
                 .sourceTag(com.family.finance.domain.ledger.LedgerSource.MANUAL.name())   // v1.18
                 .expenseCategoryId(CONSUMPTION.equals(line.categoryCode()) ? expenseCategoryId : null)
                 .affectsBalance(affectsBalance)
+                /* v1.24 FR-613 · 只有【消费】才谈得上一次性 —— 还贷 / 利息 / 给亲属
+                 * 不进「钱花在哪」,给它们打一次性标记没有任何读它的地方。
+                 * 与 expenseCategoryId 同一条规则:脏数据挡在写入口,不留给读口径去 if。 */
+                .oneOff(CONSUMPTION.equals(line.categoryCode()) && oneOff)
                 .build());
     }
 

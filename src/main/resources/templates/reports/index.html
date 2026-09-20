@@ -8,7 +8,7 @@
 <div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
 <header th:replace="~{fragments/nav :: nav('reports', ${me}, ${nav})}"></header>
 <main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10"
-      th:with="tocItems=${ { {label:'本期封板',href:'#sec-sealed'}, {label:'结构与风险',href:'#sec-structure'}, {label:'趋势',href:'#sec-trend'}, {label:'收益概览',href:'#reports-region',sub:true}, {label:'本金 vs 投资损益',href:'#sec-decompose',sub:true}, {label:'负债 / 风险分布',href:'#sec-risk',sub:true}, {label:'资产配置对照',href:'#allocation-diff',sub:true}, {label:'调仓建议与计划',href:'#ai-rebalance',sub:true}, {label:'账户级收益 · vs 基准',href:'#sec-accounts',sub:true}, {label:'财富水位',href:'#sec-wealth',sub:true}, {label:'储蓄能力',href:'#sec-savings',sub:true}, {label:'支出构成',href:'#sec-expense-mix',sub:true}, {label:'支出构成 · 分类',href:'#sec-expense-split',sub:true} } }">
+      th:with="tocItems=${ { {label:'本期封板',href:'#sec-sealed'}, {label:'结构与风险',href:'#sec-structure'}, {label:'趋势',href:'#sec-trend'}, {label:'收益概览',href:'#reports-region',sub:true}, {label:'本金 vs 投资损益',href:'#sec-decompose',sub:true}, {label:'负债 / 风险分布',href:'#sec-risk',sub:true}, {label:'资产配置对照',href:'#allocation-diff',sub:true}, {label:'调仓建议与计划',href:'#ai-rebalance',sub:true}, {label:'账户级收益 · vs 基准',href:'#sec-accounts',sub:true}, {label:'财富水位',href:'#sec-wealth',sub:true}, {label:'储蓄能力',href:'#sec-savings',sub:true}, {label:'支出分析',href:'#sec-expense-mix',sub:true} } }">
   <div class="toc-cols">
     <!--/* v1.22.4 · 目录放在 DOM 【最前】。
            原来它排在主内容之后、靠 order:-1 视觉上放到左列,注释写的是「内容优先」;
@@ -56,10 +56,11 @@
       <th:block th:replace="~{reports/_wealth-level :: section}"></th:block>
       <!-- v0.3 FR-51a/b · 储蓄能力区块(独立 · 不参与 HTMX 刷新)· v0.2 _region 完整保留 -->
       <th:block th:replace="~{reports/_savings :: section}"></th:block>
-      <!-- v1.8 FR-272 · 支出构成(只在逐笔模式下渲染) -->
-      <th:block th:replace="~{reports/_expense-mix :: section}"></th:block>
-      <!--/* v1.21 · 分类填报口径的支出构成(与上面那个是两个区,来源不同) */-->
-      <th:block th:replace="~{reports/_expense-cat-mix :: section}"></th:block>
+      <!--/* v1.24 FR-661 · 支出章节【合并后只有一块】。
+             原来这里是两条引用(_expense-mix 按资金性质 / _expense-cat-mix 按消费分类),
+             页面上就出现两个都叫「钱花在哪了」的 section、两条 TOC 条目、两套对不上的数。
+             现在它们是一块里的两层,父子关系写在标题上。 */-->
+      <th:block th:replace="~{reports/_expense-section :: section}"></th:block>
       </section>
     </div>
     <!-- v0.5.6→.7 · 长文目录共用件(左侧常驻树状大纲 · scrollspy)-->

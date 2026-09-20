@@ -66,6 +66,9 @@ public class ReportsController {
     private final HouseholdCashflowService householdCashflowService;
     /** v1.8 · 家庭支出唯一口径入口 —— 本页 KPI / 折线 / tooltip 必须同源 */
     private final com.family.finance.service.expense.ExpenseLedgerService expenseLedger;
+    private final com.family.finance.service.expense.NormalExpenseService normalExpenseService;
+    private final com.family.finance.service.expense.ExpenseAttributionService expenseAttribution;
+    private final com.family.finance.service.expense.ExpenseSectionViewService expenseSectionView;
     private final com.family.finance.repository.CashFlowMapper cashFlowMapper;
     private final com.family.finance.repository.FamilyMapper familyMapper;
     // v0.4 新依赖
@@ -82,6 +85,29 @@ public class ReportsController {
     private final com.family.finance.service.MetricPrefsService metricPrefsService; // v0.11.4 账户表复用管理页指标配置
     private final com.family.finance.repository.PeriodAccountAttrMapper periodAccountAttrMapper; // v1.12 FR-350 锚期定格属性
     private final com.fasterxml.jackson.databind.ObjectMapper jacksonMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+    /**
+     * v1.24 FR-633 · 一次性明细 —— 「剔除了 N 笔」点进来看的就是这几笔。
+     *
+     * <p>为什么要单独一页而不是 tooltip:用户要看的是<b>日期 / 类目 / 金额 / 为什么被剔</b>
+     * 四列,而且可能有十几笔。tooltip 放不下,放下了也读不了。</p>
+     *
+     * <p>「为什么被剔」必须说清是<b>类目性质</b>还是<b>这笔勾了一次性</b> ——
+     * 前者要去类目管理页改,后者要回填报页改,两个入口完全不同。
+     * 只说「一次性」用户不知道该去哪改。</p>
+     */
+    @GetMapping("/reports/expense/one-off")
+    public String oneOffDetail(@org.springframework.security.core.annotation.AuthenticationPrincipal
+                               MemberPrincipal me, Model model) {
+        long fid = me.getFamilyId();
+        model.addAttribute("nav", navService.load(me));
+        var normal = normalExpenseService.normal(fid);
+        model.addAttribute("normal", normal.orElse(null));
+        model.addAttribute("rows", normal
+                .map(n -> normalExpenseService.oneOffDetail(fid, n.periodIds()))
+                .orElse(java.util.List.of()));
+        return "reports/one-off";
+    }
 
     @GetMapping("/reports")
     public String reports(@AuthenticationPrincipal MemberPrincipal me,
@@ -156,9 +182,15 @@ public class ReportsController {
 
     private void populateExpenseComposition(MemberPrincipal me, String mix, Integer mixWin, Model model) {
         var mode = expenseLedger.modeOf(me.getFamilyId());
-        model.addAttribute("mixEnabled", mode == com.family.finance.domain.family.ExpenseEntryMode.ITEMIZED);
+        /* v1.24 FR-674 · 显式开关关掉 → 整个支出章节退回上一版形态 1 的样子。
+         * 判在【这一处】而不是模板里:回流读数(紧急储备并列读数等)走
+         * NormalExpenseService 的 Optional 级联,两边都不用各自记得判开关。 */
+        boolean analysisOn = normalExpenseService.enabled(me.getFamilyId());
+        boolean itemized = mode == com.family.finance.domain.family.ExpenseEntryMode.ITEMIZED;
+        model.addAttribute("mixEnabled", itemized);
+        model.addAttribute("expAnalysisOn", analysisOn);
 
-        if (mode != com.family.finance.domain.family.ExpenseEntryMode.ITEMIZED) {
+        if (!itemized) {
             return;
         }
         // v1.11.1 · 不再只认 1/6/12 —— 现在期数由统一的时间范围推出(1/3/6/YTD/12/240),
@@ -518,10 +550,72 @@ public class ReportsController {
             for (var r : yearRows) if (r.total().compareTo(yearMax) > 0) yearMax = r.total();
             model.addAttribute("catYearMax", yearMax);
             model.addAttribute("catTrend", catTrend);
-            // 与旭日/资产配置同一套色板 —— 同一个 app 里的图不该各用一套颜色
-            model.addAttribute("catPalette", java.util.List.of(
-                    "#a0653a", "#4f6b47", "#5b6b82", "#8a7a4f", "#7a4f6b",
-                    "#3c4a5a", "#9c8b5a", "#5f7e7b", "#9a938a"));
+            /* v1.24 FR-666 · 这里原来是 9 个中低饱和的泥色,明度全挤在 40–60,
+             * 其中 #8a7a4f / #9c8b5a / #9a938a 三个几乎不可区分。
+             * 色板移到 ExpensePalette(全页唯一来源),并按明度交替排。 */
+            model.addAttribute("catPalette",
+                    com.family.finance.service.expense.ExpensePalette.CATEGORY);
+            /* 【按下标逐个给定,不让模板取模】——
+             * 模板里原来写的是 catPalette[i.index % 9],色板长度一变那就是渲染期数组越界
+             * (500 白屏,不是看得见的错)。这里按类目上限 40 铺满,
+             * 超出色板长度的位次由 ExpensePalette 回落到「其他」灰:
+             * 第 7 个类目显眼地变灰,比伪装成一个正常颜色好 —— 那说明 top-N 漏了。 */
+            java.util.List<String> colors = new java.util.ArrayList<>();
+            for (int i = 0; i < com.family.finance.service.expense.ExpenseCategoryService.MAX_TOTAL; i++) {
+                colors.add(com.family.finance.service.expense.ExpensePalette.categoryAt(i));
+            }
+            model.addAttribute("expCatColors", colors);
+            model.addAttribute("expTrendColors", colors);
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // v1.24 · 支出分析三块(归因瀑布 / 三分 / 常态月均)
+        // ══════════════════════════════════════════════════════════════════
+        //
+        // 三块都在开关关掉时【整体消失】,不留半开状态 ——
+        // 「我关了支出分析,怎么别处还在冒常态月均」是最让人困惑的一种半开。
+        boolean analysisOn = normalExpenseService.enabled(me.getFamilyId());
+        if (analysisOn) {
+            model.addAttribute("expWaterfall", expenseAttribution.waterfall(me.getFamilyId(), anchor));
+            normalExpenseService.normal(me.getFamilyId())
+                    .ifPresent(n -> {
+                        model.addAttribute("expNormal", n);
+                        normalExpenseService.split(me.getFamilyId(), n.periodIds())
+                                .ifPresent(sp -> model.addAttribute("expSplit", sp));
+                    });
+            model.addAttribute("expSeries", normalExpenseService.series(me.getFamilyId()));
+            model.addAttribute("expOneOffColor", com.family.finance.service.expense.ExpensePalette
+                    .of(com.family.finance.domain.expense.ExpenseNature.ONE_OFF));
+            /* FR-663 · 两层差额。第一层「日常开支」那一片 vs 第二层合计。
+             *
+             * 【必须用同一期比】—— 第一层的窗口是用户可切的(本期 / 近 6 期 / 近 12 期),
+             * 而第二层永远是本期。拿窗口可变的那个去比本期,差额会随着用户切窗口跳来跳去,
+             * 而那个差额本来是要告诉用户「有几笔还贷挂了消费分类」的。
+             * 所以这里【重新按锚期取一次第一层】,不复用页面上那个可切窗口的 comp。 */
+            var anchorComp = expenseLedger.composition(me.getFamilyId(),
+                    java.util.List.of(anchor.getId()),
+                    com.family.finance.service.expense.ExpenseLedgerService.Dim.CATEGORY);
+            java.math.BigDecimal layer1Consumption = java.math.BigDecimal.ZERO;
+            for (var sl : anchorComp.slices()) {
+                if ("consumption".equals(sl.groupKey())) {
+                    layer1Consumption = layer1Consumption.add(sl.amountBase());
+                }
+            }
+            java.math.BigDecimal layer2 = java.math.BigDecimal.ZERO;
+            for (var r : catRoll) layer2 = layer2.add(r.total());
+            model.addAttribute("expLayerDiff", expenseSectionView.layerDiff(layer1Consumption, layer2));
+            /* FR-665 · 饼图只画 top-N(累计 ≥ 80% · 夹在 [3,6])· 未分类永远单独成片。
+             * 画的是【第二层】(消费分类)那张饼 —— 第一层只有四片,本来就不需要归并。 */
+            java.util.List<com.family.finance.service.expense.ExpenseLedgerService.Slice> catSlices =
+                    new java.util.ArrayList<>();
+            for (var r : catRoll) {
+                catSlices.add(new com.family.finance.service.expense.ExpenseLedgerService.Slice(
+                        String.valueOf(r.categoryId()), r.name(), r.total(),
+                        java.math.BigDecimal.ZERO, r.rowCount(), r.total().signum() > 0));
+            }
+            model.addAttribute("expPieSlices", expenseSectionView.topSlices(catSlices));
+            model.addAttribute("expShape", expenseSectionView.shapeOf(true, true,
+                    catRoll.stream().mapToInt(r -> r.rowCount()).sum()));
         }
         model.addAttribute("acctMetrics", acctMetrics);
         model.addAttribute("benchmarkByAccount", benchmarkByAccount);

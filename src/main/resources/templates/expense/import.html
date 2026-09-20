@@ -208,6 +208,9 @@
               <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-right px-2 py-2 border-b border-rule" style="width:92px">金额</th>
               <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule" style="width:170px">归到分类</th>
               <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule" style="width:170px">从哪个账户出</th>
+              <!--/* v1.24 FR-613 · 「一次性」列。放在「依据」前面 —— 它是用户要做的【决定】,
+                     而「依据」是系统给的【解释】,决定该排在解释前面。 */-->
+              <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-center px-2 py-2 border-b border-rule" style="width:56px">一次性</th>
               <th class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle text-left px-2 py-2 border-b border-rule" style="width:96px">依据</th>
             </tr>
           </thead>
@@ -260,6 +263,13 @@
                   </select>
                   <span th:if="${l.payMethod() != null}" class="font-mono text-[9px] text-ink-subtle"
                         th:text="'账单写的:' + ${l.payMethod()}">账单写的:余额宝</span>
+                </td>
+                <td class="px-2 py-1.5 text-center">
+                  <!--/* v1.24 FR-613 · 写入路 W2。默认不勾 ——
+                         大额一次性支出(装修、旅行)多半是刷卡来的,所以导入这条路
+                         必须也能标,否则用户在几十笔里根本没办法把它挑出来。 */-->
+                  <input type="checkbox" name="oneOff" th:value="${l.idx()}"
+                         title="勾上 = 这笔不进常态月均(换手机 / 装修 / 一次旅行这类)">
                 </td>
                 <td class="px-2 py-1.5 whitespace-nowrap">
                   <!--/* v1.22 FR-591 · 不建议录入的行,这一列给的是【为什么不建议】——

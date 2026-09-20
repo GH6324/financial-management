@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--/*
+  v1.24 FR-661/662 · 支出章节 —— 【合并后的唯一一块】。
+
+  这个文件是 _expense-mix.html(v1.8 · 按资金性质)与 _expense-cat-mix.html
+  (v1.21 · 按消费分类)合并来的,那两个文件已删除。
+
+  为什么必须合并:它们各自有一个 <section>、各自一个「钱花在哪了」标题、
+  各自一条 TOC 条目 —— 同一页上出现两个同名章节,而它们的数【本来就不相等】
+  (一个是家庭支出总额的四分,一个只看其中「日常开支」那一片的展开)。
+  用户看到两个同名的块、两套对不上的数,第一反应是程序算错了。
+
+  合并的方式是【认下它们的父子关系,不是并排放】:
+    第一层 · 资金性质(日常开支 / 还贷 / 利息支出 / 转账给亲属)= 家庭支出总额
+    第二层 · 消费分类(餐饮 / 交通 / …)= 第一层「日常开支」那一片的展开
+  两层同屏、第二层默认展开,并在第二层标题里写明它展开的是哪一片。
+
+  章节顺序按 FR-667「先结论后明细」重排,见下面 ① ~ ⑥ 的注释。
+*/-->
+<section th:fragment="section" th:if="${mixEnabled or catMixEnabled}" id="sec-expense-mix"
+         style="scroll-margin-top:80px" class="mt-12 border-t-4 border-double border-ink pt-8">
+
+  <div class="mb-6">
+    <div class="eyebrow mb-2" style="color:var(--rust)">支 · 出 · 分 · 析</div>
+    <h2 class="font-display text-3xl font-medium tracking-tight">钱花在哪了</h2>
+    <p class="font-serif text-sm text-ink-soft mt-2 max-w-2xl">
+      来自<a th:href="@{/entry}" class="text-brass-deep hover:underline">逐笔录入</a>与
+      <a th:href="@{/expense/import}" class="text-brass-deep hover:underline">账单导入</a> ·
+      先看<b>花了多少、为什么变</b>,再看<b>砍不砍得掉</b>,最后才是花在哪。
+    </p>
+  </div>
+
+  <!--/* ═══════════════════════════════════════════════════════════════════
+         v1.24 FR-667 · 章节顺序 = 先结论后明细
+         ① 花了多少·比上期  ② 为什么变  ③ 砍得掉吗  ④ 花在哪  ⑤ 年度  ⑥ 趋势
+
+         为什么是这个顺序:用户打开报表想知道的第一件事是「这个月是不是花多了」,
+         而不是「餐饮占几成」。构成图回答的是后者,它是【明细】不是【结论】,
+         所以它从章节开头挪到了中段。
+     ═══════════════════════════════════════════════════════════════════ */-->
+
+  <!--/* ① 花了多少 · 比上期(FR-624)· 数字条 */-->
+  <div th:if="${expWaterfall != null and expWaterfall.available()}"
+       class="flex flex-wrap items-baseline gap-x-6 gap-y-2 mb-8 pb-5 border-b border-rule-soft">
+    <div>
+      <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">本期支出</div>
+      <div class="font-mono text-2xl tnum" data-priv
+           th:text="${#numbers.formatDecimal(expWaterfall.toTotal(), 1, 'COMMA', 0, 'POINT')}">12,400</div>
+    </div>
+    <div>
+      <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">比上期</div>
+      <div class="font-mono text-lg tnum" data-priv
+           th:classappend="${expWaterfall.delta().signum() > 0} ? 'text-rust' : 'text-forest'"
+           th:text="${(expWaterfall.delta().signum() > 0 ? '+' : '')
+                     + #numbers.formatDecimal(expWaterfall.delta(), 1, 'COMMA', 0, 'POINT')}">+1,900</div>
+    </div>
+    <div class="font-mono text-[11px] text-ink-soft" th:text="${expWaterfall.momText()}">环比 +18%</div>
+    <!--/* FR-624 · 同比数据不足时显示「攒够 13 期才有」,不显示 0 也不留空白 ——
+           没数据 ≠ 没花钱。 */-->
+    <div class="font-mono text-[11px] text-ink-subtle" th:text="${expWaterfall.yoyText()}">攒够 13 期才有同比</div>
+  </div>
+
+  <!--/* ② 为什么变(FR-620~625)· 归因瀑布 */-->
+  <div class="mb-10" th:if="${expWaterfall != null}">
+    <div class="flex items-baseline justify-between mb-3">
+      <h3 class="font-display text-xl font-medium">为什么变了</h3>
+      <span class="font-mono text-[10px] text-ink-subtle"
+            th:if="${expWaterfall.available()}"
+            th:text="${expWaterfall.fromLabel()} + ' → ' + ${expWaterfall.toLabel()}">2026-08 → 2026-09</span>
+    </div>
+
+    <!--/* FR-625 · 上期是总额模式 / 没有上期 → 不画,给一行说明。
+           拿 0 当上期各类目的值会让每个类目都显示成「新增」,一整屏红条。 */-->
+    <p th:if="${!expWaterfall.available()}"
+       class="font-serif text-sm text-ink-soft" th:text="${expWaterfall.reason()}">上期只填了总额,拆不开。</p>
+
+    <div th:if="${expWaterfall.available()}" class="space-y-1.5">
+      <div th:each="b : ${expWaterfall.bars()}"
+           class="flex items-center gap-3">
+        <div class="w-28 shrink-0 font-serif text-[12.5px] truncate" th:text="${b.label()}">餐饮美食</div>
+        <div class="flex-1 min-w-0">
+          <!--/* 条宽按 |差额| ÷ 最大差额;min-height 9px ——
+                 没有下限时 ¥310 的差算出来只有 2px,在图上退化成一根横线,
+                 而小额差本来就该看得出方向。 */-->
+          <div class="rounded-sm"
+               th:style="'height:12px;min-width:9px;width:' + ${b.widthPct()} + '%;'
+                         + 'background:' + (${b.oneOff()} ? ${expOneOffColor} : (${b.up()} ? 'var(--rust)' : 'var(--forest)'))
+                         + (${b.oneOff()} ? ';background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.45) 0 1.5px,transparent 1.5px 3px)' : '')"></div>
+        </div>
+        <div class="w-24 shrink-0 text-right font-mono text-[12.5px] tnum" data-priv
+             th:classappend="${b.up()} ? 'text-rust' : 'text-forest'"
+             th:text="${(b.up() ? '+' : '') + #numbers.formatDecimal(b.delta(), 1, 'COMMA', 0, 'POINT')}">+3,900</div>
+        <div class="w-14 shrink-0 text-right font-mono text-[10px] text-ink-subtle"
+             th:text="${b.pctText()}">+18%</div>
+      </div>
+      <!--/* FR-623 · 一次性单独成段,紧挨着标注 —— 这是把「一次性」和「常态月均」串起来的那一笔 */-->
+      <p class="font-mono text-[9px] text-ink-subtle mt-2"
+         th:if="${#lists.size(expWaterfall.bars()) > 0}">
+        斜纹段 = 一次性 · 不进常态月均。金额差是主信息,变化率是次信息。
+      </p>
+    </div>
+  </div>
+
+  <!--/* ③ 砍得掉吗(FR-630~636)· 三分 + 常态月均 */-->
+  <div class="mb-10" th:if="${expSplit != null}">
+    <div class="flex items-baseline justify-between mb-3">
+      <h3 class="font-display text-xl font-medium">这些钱砍得掉吗</h3>
+      <!--/* FR-634 · 刚性占比单独成指标,【不给好坏评价、不设阈值红绿灯】 */-->
+      <span class="font-mono text-[11px] text-ink-soft">
+        刚性占比 <b class="tnum" th:text="${expSplit.rigidPct()} + '%'">38.0%</b>
+      </span>
+    </div>
+
+    <!--/* 三段堆叠条 · 各段标注金额与占比(项目铁律:数字浮在图上,不靠 hover) */-->
+    <div class="flex w-full h-9 rounded-sm overflow-hidden mb-2">
+      <div th:each="p : ${expSplit.parts()}"
+           class="flex items-center justify-center font-mono text-[10px] tnum"
+           th:style="'width:' + ${p.pct()} + '%;background:' + ${p.color()} + ';color:' + ${p.ink()}
+                     + (${p.hatched()} ? ';background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.45) 0 1.5px,transparent 1.5px 3px)' : '')"
+           th:title="${p.nature().label} + ' · ' + ${p.nature().hint}"
+           th:text="${p.pct()} + '%'">38%</div>
+    </div>
+    <div class="flex flex-wrap gap-x-5 gap-y-1 mb-4">
+      <span th:each="p : ${expSplit.parts()}" class="flex items-center gap-1.5 font-mono text-[10.5px]">
+        <i class="inline-block w-2.5 h-2.5 rounded-[1px]" th:style="'background:' + ${p.color()}"></i>
+        <span th:text="${p.nature().label}">刚性</span>
+        <span class="tnum text-ink-soft" data-priv
+              th:text="${#numbers.formatDecimal(p.amountBase(), 1, 'COMMA', 0, 'POINT')}">4,700</span>
+      </span>
+    </div>
+
+    <!--/* FR-632 · 常态月均与月均支出【并排】· 两个数都给 */-->
+    <div th:if="${expNormal != null}"
+         class="flex flex-wrap items-baseline gap-x-8 gap-y-2 p-3 border border-rule-soft rounded-sm">
+      <div>
+        <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">月均支出</div>
+        <div class="font-mono text-lg tnum" data-priv
+             th:text="${#numbers.formatDecimal(expNormal.averageBase(), 1, 'COMMA', 0, 'POINT')}">10,300</div>
+      </div>
+      <div>
+        <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">常态月均</div>
+        <div class="font-mono text-lg tnum" data-priv
+             th:text="${#numbers.formatDecimal(expNormal.normalBase(), 1, 'COMMA', 0, 'POINT')}">9,100</div>
+      </div>
+      <!--/* FR-633 · 「剔除了 N 笔」可下钻 —— 用户要看得出这几笔是哪几笔、为什么被剔 */-->
+      <a th:if="${expNormal.differs()}"
+         th:href="@{/reports/expense/one-off}"
+         class="font-mono text-[11px] text-brass-deep hover:underline"
+         th:text="'剔除了 ' + ${expNormal.oneOffCount()} + ' 笔 →'">剔除了 3 笔 →</a>
+      <span th:unless="${expNormal.differs()}" class="font-mono text-[11px] text-ink-subtle">
+        这 12 期没有一次性支出 · 两个数相同
+      </span>
+    </div>
+
+    <!--/* FR-636 · 未分类必须【显式说出来】,不许偷偷丢掉 */-->
+    <p class="font-mono text-[9px] text-ink-subtle mt-3" th:if="${expSplit.unclassifiedCount() > 0}">
+      还有 <b th:text="${expSplit.unclassifiedCount()}">12</b> 笔没归类,暂按弹性算 ·
+      <a th:href="@{/expense/categories}" class="text-brass-deep hover:underline">去归类 →</a>
+    </p>
+  </div>
+
+  <!--/* FR-673 形态 2 · 有逐笔、无分类 → 上面三块不渲染,给一行去归类的入口 */-->
+  <p th:if="${expShape != null and expShape.name() == 'ITEMIZED_NO_CATEGORY'}"
+     class="font-serif text-sm text-ink-soft mb-8">
+    这些笔还没归类,归完就能看到「为什么变」和「砍得掉吗」了 ·
+    <a th:href="@{/expense/categories}" class="text-brass-deep hover:underline">去归类 →</a>
+  </p>
+
+  <!--/* ④ 花在哪 · 第一层【资金性质】—— 合计 = 家庭支出总额,与储蓄率同口径 */-->
+  <div class="mt-4 mb-2">
+    <h3 class="font-display text-xl font-medium">花在哪 · 第一层 · 按资金性质</h3>
+    <p class="font-serif text-[12.5px] text-ink-soft mt-1">
+      这一层的合计<b>就是</b>家庭支出总额。刚性支出(还贷 + 利息)压不下去,日常开支才是可调的那部分。
+    </p>
+  </div>
+  
+
+    <!-- 维度 + 窗口切换 · v1.11 重做
+         ① 原来两组各占一行(为了躲窄屏挤压),但两组是**同一个筛选动作的两个轴**,分两行读起来
+            像两个不相干的控件条。改成一行:左「维度」(实心 brass 选中)· 分隔符 · 右「窗口」
+            (实心 ink 选中)—— 用**样式差异**而不是**换行**区分两组;窄屏靠 flex-wrap 自然折。
+         ② 原来是普通 <a> → 整页跳转:慢、且刷新后回到页顶(用户报「体验很差、没回到点击前的位置」)。
+            改成 HTMX + hx-select 只换 #sec-expense-mix 这一块,不重载页面 → 位置天然保留。
+            href 保留 → 无 JS 时仍是能用的链接。 -->
+    <div class="flex items-center gap-2 flex-wrap mb-3">
+      <span class="font-mono text-[9px] tracking-[0.14em] text-ink-subtle mr-1">维度</span>
+      <a th:each="d : ${mixDims}"
+         th:href="@{/reports(mix=${d.code()},mixWin=${mixWinValue})}"
+         th:hx-get="@{/reports(mix=${d.code()},mixWin=${mixWinValue})}"
+         hx-select="#sec-expense-mix" hx-target="#sec-expense-mix" hx-swap="outerHTML"
+         hx-push-url="true" hx-indicator="#mix-busy"
+         class="pill text-xs h-8 px-3 no-underline flex items-center"
+         th:classappend="${mixDim.code() == d.code()} ? ' pill-brass' : ''"
+         th:title="${d.hintText()}"
+         th:text="${d.displayName()}">按类目</a>
+      <span style="width:1px;height:20px;background:var(--rule);display:inline-block" class="mx-1"></span>
+      <!-- v1.11.1 · 独立的「窗口」pills 去掉了 —— 它和三区标题旁的时间范围是同一件事,
+           两个时间控件放在一页上会让人不知道哪个管哪个(维护者第 5 条)。现在只显示当前生效的窗口。 -->
+      <span class="font-mono text-[10px] text-ink-subtle"
+            th:text="'窗口 ' + ${mixWindowLabel} + ' · 跟随上方「趋势」区的时间范围'">窗口</span>
+      <span id="mix-busy" class="htmx-indicator font-mono text-[10px] text-brass-deep ml-1">载入中…</span>
+      <span class="font-mono text-[10px] text-ink-subtle ml-auto hidden md:inline" th:text="${mixDim.hintText()}">说明</span>
+    </div>
+  <p class="font-mono text-[10px] text-ink-subtle mb-4 md:hidden" th:text="${mixDim.hintText()}">说明</p>
+
+  <!-- 无逐笔数据 -->
+  <div th:unless="${mixComposition.hasData()}" class="paper-card p-6 bg-card-soft"
+       style="border-left:4px solid var(--rust)">
+    <p class="text-ink-soft mb-2">
+      <b th:text="${mixWindowLabel}">本期</b>还没有逐笔支出,所以没有构成可看。
+    </p>
+    <p class="text-xs text-ink-subtle mb-4">
+      去填报页的支出区逐笔录几笔(选账户 + 类目),这里就会出现刚性 vs 日常的占比。
+    </p>
+    <a th:href="@{/entry}" class="btn-paper no-underline">→ 去填报页录支出</a>
+  </div>
+
+  <th:block th:if="${mixComposition.hasData()}">
+    <!-- 只填了总数的月份 · 如实标注 -->
+    <p th:if="${mixComposition.hasTotalOnlyPeriods()}"
+       class="font-mono text-[11px] text-ink-subtle mb-4 border border-dashed border-rule px-4 py-2.5 bg-card-soft">
+      注:<b th:text="${#strings.listJoin(mixTotalOnlyLabels, ' / ')}">2026-06</b>
+      只填了总数、没有逐笔,<b>不在下面的构成里</b> —— 那几个月的支出仍然照总额参与储蓄率与人赚计算。
+    </p>
+
+    <!-- 归档账户上的历史逐笔 · 不进构成但如实说明 -->
+    <p th:if="${mixArchivedCount > 0}"
+       class="font-mono text-[11px] text-ink-subtle mb-4 border border-dashed border-rule px-4 py-2.5 bg-card-soft">
+      另有 <b th:text="${mixArchivedCount} + ' 笔'">0 笔</b>
+      (<span data-priv th:text="${T(com.family.finance.service.MoneyFormat).format2(baseCurrency, mixArchivedAmount)}">¥0</span>)
+      落在<b>已归档账户</b>上,<b>不计入下面的构成</b> —— 全站统计一律排除归档账户,口径一致。
+      这些是历史数据;现在已经不允许往归档账户记支出了。
+    </p>
+
+    <div class="grid md:grid-cols-2 gap-6 grid-hairline">
+      <!-- 图 · 数字直接标在扇片上(不靠 hover) -->
+      <div class="bg-card p-5">
+        <div class="font-mono text-[10px] uppercase text-ink-subtle mb-3"
+             th:text="${mixDim.displayName()} + ' · ' + ${mixWindowLabel} + '占比'">按类目 · 本期占比</div>
+        <div style="height:260px"><canvas id="expenseMixChart"></canvas></div>
+      </div>
+
+      <!-- 表 · 点开看逐笔 -->
+      <div class="bg-card p-5">
+        <div class="flex items-baseline justify-between mb-3">
+          <span class="font-mono text-[10px] uppercase text-ink-subtle">明细 · 点一行看逐笔</span>
+          <span class="font-display text-lg tnum num-neg" data-priv
+                th:text="${T(com.family.finance.service.MoneyFormat).format2(baseCurrency, mixComposition.totalBase())}">¥0</span>
+        </div>
+        <div class="divide-y divide-rule-soft">
+          <div th:each="sl : ${mixComposition.slices()}" class="py-2">
+            <button type="button"
+                    class="w-full flex items-center gap-3 text-left cursor-pointer hover:bg-card-soft px-1"
+                    th:hx-get="@{/reports/expense-mix/detail(dim=${mixDim.code()},groupKey=${sl.groupKey()},mixWin=${mixWinValue})}"
+                    th:hx-target="'#mix-detail-' + ${sl.groupKey()}"
+                    hx-swap="innerHTML">
+              <span class="pill text-[10px]" th:text="${sl.label()}">日常开支</span>
+              <span class="font-mono text-[10px] text-ink-subtle" th:text="${sl.itemCount()} + ' 笔'">3 笔</span>
+              <span class="font-mono tnum ml-auto" data-priv
+                    th:text="${T(com.family.finance.service.MoneyFormat).format2(baseCurrency, sl.amountBase())}">¥0</span>
+              <span th:if="${sl.inChart()}" class="font-mono text-xs tnum w-14 text-right text-brass-deep"
+                    th:text="${sl.pct()} + '%'">0%</span>
+              <!--/* v1.22 · 合计 ≤ 0 的组(退款多于消费)没有可解释的占比。
+                     显示「0%」会被读成「几乎没花」,而实际是「净退回来了」。 */-->
+              <span th:unless="${sl.inChart()}" class="font-mono text-xs w-14 text-right text-forest"
+                    title="这一组退款多于消费,合计是负的 —— 不计入构成占比,但计入上面的合计">净退款</span>
+            </button>
+              <div th:id="'mix-detail-' + ${sl.groupKey()}" class="mt-1"></div>
+          </div>
+        </div>
+        <p class="font-mono text-[10px] text-ink-subtle mt-4 pt-3 border-t border-rule-soft leading-relaxed">
+          合计 = 本期家庭支出,<b>与储蓄率 / 人赚用的是同一个数</b>(逐笔模式下以逐笔为准,不与手填总额相加)。
+          点任意一行展开那一格的逐笔明细。
+          <span th:if="${!mixComposition.negativeSlices().isEmpty()}" class="text-forest">
+            有 <b th:text="${mixComposition.negativeSlices().size()}">1</b> 组退款多于消费(合计为负)——
+            <b>不进上面的饼图</b>(扇形没有负面积),但<b>计入合计</b>,所以各组金额加起来仍然等于合计。
+          </span>
+        </p>
+      </div>
+    </div>
+
+    <script th:inline="javascript">
+      /*<![CDATA[*/
+      (function () {
+        /* v1.22 · 只喂【进饼图】的组。扇形没有负面积 —— 把负值交给 Chart.js
+           它会画出一个看起来正常、但比例完全错的图,而且没人会发现。
+           负组在下面的明细表里照常出现,并单列一行说明。 */
+        var labels = /*[[${mixComposition.chartSlices().![label]}]]*/ [];
+        var values = /*[[${mixComposition.chartSlices().![amountBase]}]]*/ [];
+        var pcts   = /*[[${mixComposition.chartSlices().![pct]}]]*/ [];
+        var el = document.getElementById('expenseMixChart');
+        if (!el || !labels.length) return;
+        // 与全站一致:金额/百分比直接绘在扇片上,不依赖 hover tooltip
+        new Chart(el, {
+          type: 'doughnut',
+          data: { labels: labels, datasets: [{
+            data: values,
+            backgroundColor: ['rgba(159,74,58,.82)','rgba(176,141,87,.82)','rgba(47,93,80,.72)',
+                              'rgba(90,90,110,.72)','rgba(120,80,140,.68)','rgba(70,110,140,.68)'],
+            borderColor: 'rgba(255,255,255,.9)', borderWidth: 2
+          }]},
+          options: {
+            responsive: true, maintainAspectRatio: false, cutout: '52%',
+            plugins: {
+              legend: { position: 'bottom',
+                        labels: { font: { family: 'JetBrains Mono', size: 10 }, boxWidth: 10, padding: 8 } },
+              tooltip: { callbacks: { label: function (c) {
+                return c.label + ': ¥' + Number(c.parsed).toLocaleString() + ' · ' + pcts[c.dataIndex] + '%'; } } },
+              datalabels: {
+                color: '#fff', font: { family: 'JetBrains Mono', size: 10, weight: 'bold' },
+                formatter: function (v, c) {
+                  var p = Number(pcts[c.dataIndex]);
+                  return p < 6 ? '' : p.toFixed(0) + '%';      // 太窄的扇片不标,免叠字
+                }
+              }
+            }
+          },
+          plugins: [ChartDataLabels]
+        });
+      })();
+      /*]]>*/
+    </script>
+  </th:block>
+
+  <!--/* ④ 花在哪 · 第二层【消费分类】—— 它是第一层「日常开支」那一片的展开(FR-662) */-->
+  <div class="mt-10 mb-2 pt-6 border-t border-rule-soft">
+    <h3 class="font-display text-xl font-medium"
+        th:text="'其中 · 日常开支 ' + ${#numbers.formatDecimal(expLayerDiff != null ? expLayerDiff.layer1Consumption() : 0, 1, 'COMMA', 0, 'POINT')} + ' 花在哪'">
+      其中 · 日常开支 ¥9,400 花在哪</h3>
+    <!--/* FR-663 · 两层合计必须相等。口径对齐之后差额只剩一个来源:
+           既是还贷/利息/给亲属、又挂了消费分类的那些笔。如实说,不许悄悄对不上。 */-->
+    <p th:if="${expLayerDiff != null and !expLayerDiff.matched()}"
+       class="font-mono text-[10px] text-rust mt-1" th:text="${expLayerDiff.explain()}">差额说明</p>
+  </div>
+  
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!--/* ═══ 本期构成 ═══ 数字直接标在图上(项目铁律),不靠 hover */-->
+    <div>
+      <div class="flex items-baseline justify-between mb-3">
+        <h3 class="font-display text-xl font-medium">本期构成</h3>
+        <span class="font-mono text-[10px] text-ink-subtle"
+              th:text="${#temporals.format(anchorPeriod.periodStart, 'yyyy · MM')}">2026 · 09</span>
+      </div>
+      <div th:if="${#lists.isEmpty(catRollup)}" class="text-[12.5px] text-ink-subtle">
+        这一期还没有带分类的支出 —— <a th:href="@{/entry}" class="text-brass-deep hover:underline">去填报页记几笔</a>。
+      </div>
+      <div th:unless="${#lists.isEmpty(catRollup)}">
+        <!--/* v1.24 FR-665/666 · 条带画的是【归并后】的片:
+               按金额降序累加到累计 ≥ 80% 为止、片数夹在 [3,6],其余并成「其他 N 项」,
+               而「未分类」永远单独一片、不进「其他」(不许把要用户处理的事藏起来)。
+
+               颜色来自 ExpensePalette(全页唯一来源)。
+               这里原来写的是 catPalette[i.index % 9] —— 色板从 9 色改成 6 色之后
+               那个 %9 会在类目 ≥ 7 个时【渲染期数组越界】,而且是 500 白屏、
+               不是一个看得见的错。归并后片数天然 ≤ 7,而且颜色由服务端逐片给定。 */-->
+        <div class="flex h-7 border border-rule overflow-hidden mb-2">
+          <div th:each="ps : ${expPieSlices}"
+               th:style="'flex:' + ${ps.amountBase()} + ';background:' + ${ps.color()}
+                         + (${ps.unclassified()} ? ';background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.5) 0 2px,transparent 2px 4px)' : '')"
+               class="flex items-center justify-center overflow-hidden" th:title="${ps.label()}">
+            <span class="font-mono text-[9px] whitespace-nowrap"
+                  th:style="'color:' + (${ps.unclassified() or ps.merged()} ? '#2B2A28' : '#fff')"
+                  th:if="${ps.pct() >= 8}" th:text="${ps.label()}">餐饮美食</span>
+          </div>
+        </div>
+        <div th:each="r,i : ${catRollup}" class="py-1.5 border-b border-rule-soft last:border-b-0">
+          <div class="flex items-center gap-2">
+            <span style="width:10px;height:10px;flex:0 0 10px"
+                  th:style="'width:10px;height:10px;flex:0 0 10px;background:' + ${expCatColors[i.index]}"></span>
+            <span class="text-[12.5px]" th:text="${r.name()}">餐饮美食</span>
+            <span class="font-mono text-[10px] text-ink-subtle" th:text="${r.rowCount()} + ' 笔'">96 笔</span>
+            <span style="flex:1"></span>
+            <span class="font-mono text-[11px] tnum text-ink-subtle"
+                  th:text="${#numbers.formatDecimal(r.total() * 100 / catTotalPeriod, 1, 1)} + '%'">31.0%</span>
+            <span class="font-mono text-[12px] tnum" data-priv
+                  th:text="'¥' + ${#numbers.formatInteger(r.total(), 0, 'COMMA')}">¥3,180</span>
+          </div>
+          <!--/* 下钻(FR-570)· 第 1 稿这个数是死的,现在点得进去看是哪些笔。
+                 用 <details> 而不是新页面:看一眼就回,不值得跳走。 */-->
+          <details th:if="${r.categoryId() != null}" class="mt-1">
+            <summary class="font-mono text-[9px] text-brass-deep cursor-pointer list-none pl-4"
+                     th:text="'看这 ' + ${r.rowCount()} + ' 笔 →'">看这 96 笔 →</summary>
+            <div class="pl-6 pt-1">
+              <div th:each="lf : ${r.leaves()}" class="flex items-center gap-2 py-1 text-[11.5px]">
+                <span th:text="${lf.name()}">外卖</span>
+                <span class="font-mono text-[9px] text-ink-subtle" th:text="${lf.rowCount()} + ' 笔'">12 笔</span>
+                <span style="flex:1"></span>
+                <span class="font-mono text-[11px] tnum" data-priv
+                      th:text="'¥' + ${#numbers.formatInteger(lf.amount(), 0, 'COMMA')}">¥300</span>
+              </div>
+            </div>
+          </details>
+        </div>
+        <div class="flex items-center gap-2 pt-2 mt-1 border-t-2 border-brass-deep">
+          <span class="font-mono text-[10px] uppercase text-ink-subtle">合计</span>
+          <span style="flex:1"></span>
+          <span class="font-display text-lg tnum" data-priv
+                th:text="'¥' + ${#numbers.formatInteger(catTotalPeriod, 0, 'COMMA')}">¥12,600</span>
+        </div>
+      </div>
+    </div>
+
+    <!--/* ═══ 年度累计 ═══ 锚在同一批账期上,否则「年度累计 ≠ Σ趋势」 */-->
+    <div>
+      <div class="flex items-baseline justify-between mb-3">
+        <h3 class="font-display text-xl font-medium">年度累计</h3>
+        <span class="font-mono text-[10px] text-ink-subtle" th:text="${catYear} + ' 年至今'">2026 年至今</span>
+      </div>
+      <div th:if="${#lists.isEmpty(catYearRows)}" class="text-[12.5px] text-ink-subtle">今年还没有带分类的支出。</div>
+      <div th:each="r : ${catYearRows}" class="flex items-center gap-3 py-1.5 border-b border-rule-soft last:border-b-0">
+        <span class="text-[12.5px]" style="min-width:5.5em" th:text="${r.name()}">餐饮美食</span>
+        <div class="h-3" style="background:var(--brass-deep);min-width:2px"
+             th:style="'height:12px;background:var(--brass-deep);width:' + ${#numbers.formatDecimal(r.total() * 100 / catYearMax, 1, 1)} + '%'"></div>
+        <span style="flex:1"></span>
+        <span class="font-mono text-[12px] tnum" data-priv
+              th:text="'¥' + ${#numbers.formatInteger(r.total(), 0, 'COMMA')}">¥27,400</span>
+      </div>
+    </div>
+  </div>
+
+  <!--/* ═══ 近 12 期趋势 ═══
+         没有分类数据的月份画成斜纹整块,【不画成 0】—— 没分过类 ≠ 没花钱(FR-519)。
+         画成 0 的话趋势图上会出现一段假的「支出暴跌」。 */-->
+  <div class="mt-10">
+    <h3 class="font-display text-xl font-medium mb-1">近 12 期趋势</h3>
+    <p class="text-[11.5px] text-ink-subtle mb-3">
+      斜纹块 = 那一期<b>没有带分类的支出</b> —— 不是没花钱,高度用当期支出总额撑着。
+    </p>
+    <div class="flex items-end gap-2 border-b border-rule" style="height:170px;padding:0 4px">
+      <div th:each="t : ${catTrend}" class="flex-1 flex flex-col-reverse gap-px" style="min-width:6px"
+           th:title="${t.label()}">
+        <th:block th:if="${t.noData()}">
+          <div th:style="'height:' + ${t.pixels()} + 'px;background:repeating-linear-gradient(45deg,#d8d2c8,#d8d2c8 4px,#e8e2d8 4px,#e8e2d8 8px)'"></div>
+        </th:block>
+        <th:block th:unless="${t.noData()}">
+          <div th:each="seg,i : ${t.segments()}"
+               th:style="'height:' + ${seg.pixels()} + 'px;background:' + ${expTrendColors[i.index]}"></div>
+        </th:block>
+      </div>
+    </div>
+    <div class="flex gap-2" style="padding:0 4px">
+      <div th:each="t : ${catTrend}" class="flex-1 font-mono text-[8.5px] text-ink-subtle text-center"
+           style="min-width:6px" th:text="${t.shortLabel()}">09</div>
+    </div>
+  </div>
+
+  <!--/* 口径必须说出来:构成合计【本来就】小于家庭支出总额。
+         不说的话用户会拿这两个数对账,然后以为我们算错了。 */-->
+  <p class="font-mono text-[9px] text-ink-subtle mt-4 leading-relaxed">
+    口径:这一块只看<b>消费</b>。还贷 / 利息支出 / 转账给亲属进家庭支出总额,但不进「钱花在哪」——
+    所以这里的合计<b>本来就</b>比储蓄率那边用的总额小。「未分类」是 v1.21 之前记的笔,金额一分不少,只是还没归类。
+  </p>
+</section>
+
+<!-- HTMX 明细抽屉 -->
+<div th:fragment="detail">
+  <div th:if="${#lists.isEmpty(mixDetailRows)}"
+       class="font-mono text-[10px] text-ink-subtle px-1 py-2">这一格没有可展开的逐笔明细。</div>
+  <div th:unless="${#lists.isEmpty(mixDetailRows)}" class="border border-rule-soft bg-card-soft">
+    <div th:each="r : ${mixDetailRows}"
+         class="px-3 py-1.5 flex items-center gap-2 border-b border-rule-soft text-xs flex-wrap">
+      <span class="pill text-[9px]" th:text="${r.categoryName()}">日常开支</span>
+      <span class="font-display" th:text="${r.accountName()}">账户</span>
+      <span class="font-mono text-[10px] text-ink-subtle" th:text="${r.ownerName()}">共同</span>
+      <span class="font-mono text-[10px] text-ink-subtle" th:if="${r.note() != null}" th:text="${r.note()}">备注</span>
+      <span class="font-mono tnum num-neg ml-auto" data-priv
+            th:text="${T(com.family.finance.service.MoneyFormat).formatExpense(r.currency(), r.amount())}">−¥0</span>
+      <span class="font-mono text-[10px] text-ink-subtle" th:if="${r.submittedAt() != null}"
+            th:text="${#temporals.format(r.submittedAt(), 'MM-dd')}">08-01</span>
+    </div>
+    <div class="px-3 py-1.5 font-mono text-[10px] text-ink-subtle" th:if="${#lists.size(mixDetailRows) >= 200}">
+      只显示最近 200 笔。
+    </div>
+  </div>
+</div>
+</body>
+</html>

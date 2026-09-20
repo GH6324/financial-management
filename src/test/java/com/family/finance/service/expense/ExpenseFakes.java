@@ -44,35 +44,14 @@ public final class ExpenseFakes {
             rows.add(new Row(periodId, categoryId, new BigDecimal(amount)));
         }
 
-        @Override public List<CatSum> sumByCategory(long familyId, long periodId) {
-            Map<Long, BigDecimal> amt = new LinkedHashMap<>();
-            Map<Long, Integer> cnt = new LinkedHashMap<>();
-            for (Row r : rows) {
-                if (r.periodId() != periodId) continue;
-                amt.merge(r.categoryId(), r.amount(), BigDecimal::add);
-                cnt.merge(r.categoryId(), 1, Integer::sum);
-            }
-            List<CatSum> out = new ArrayList<>();
-            amt.forEach((c, a) -> out.add(new CatSum(c, a, cnt.get(c))));
-            return out;
-        }
-
-        @Override public List<PeriodCatSum> sumByPeriodAndCategory(long familyId, List<Long> periodIds) {
-            Map<String, BigDecimal> acc = new LinkedHashMap<>();
-            for (Row r : rows) {
-                if (!periodIds.contains(r.periodId())) continue;
-                acc.merge(r.periodId() + "/" + r.categoryId(), r.amount(), BigDecimal::add);
-            }
-            List<PeriodCatSum> out = new ArrayList<>();
-            acc.forEach((k, v) -> {
-                String[] p = k.split("/");
-                Long cid = "null".equals(p[1]) ? null : Long.parseLong(p[1]);
-                out.add(new PeriodCatSum(Long.parseLong(p[0]), cid, v));
-            });
-            return out;
-        }
-
+        /* v1.24 · sumByCategory / sumByPeriodAndCategory 已从 ExpenseFlowMapper 删除
+           (口径与第一层分叉四处,整条挪到 CashFlowMapper 的对齐查询上了)。
+           这个 fake 留着 rows 与 add() 是因为 drillDown 系列还在用。 */
         @Override public List<FlowRow> drillDown(long familyId, long periodId, Long categoryId) { return List.of(); }
+
+        @Override public List<FlowRow> drillDownAll(long familyId, long periodId) { return List.of(); }
+
+        @Override public int updateOneOff(long familyId, long id, boolean oneOff) { return 0; }
 
         /** 搬家 —— 真实现是一条 UPDATE,这里照做:逐笔载体不会撞任何唯一键 */
         /* v1.22 · 「已存在」的笔可以就地改分类/账户(FR-598)。
@@ -126,6 +105,15 @@ public final class ExpenseFakes {
 
     public static class FakeCategoryMapper implements ExpenseCategoryMapper {
         final Map<Long, ExpenseCategory> byId = new LinkedHashMap<>();
+
+        /** v1.24 FR-610 · 性质写在类目上,改完立即对全历史生效(不回写任何一行流水) */
+        @Override public int setNature(long familyId, long id, String nature) {
+            ExpenseCategory c = byId.get(id);
+            if (c == null || !java.util.Objects.equals(c.getFamilyId(), familyId)) return 0;
+            c.setExpenseNature(nature);
+            return 1;
+        }
+
         final AtomicLong seq = new AtomicLong(1);
         @Override public int insert(ExpenseCategory c) {
             c.setId(seq.getAndIncrement()); byId.put(c.getId(), c); return 1;

@@ -330,6 +330,18 @@
             <input type="checkbox" name="affectsBalance" value="true" checked>
             从余额里扣
           </label>
+          <!--/* v1.24 FR-613 · 「这笔是一次性的」。
+                 【默认不勾】—— 绝大多数笔不是一次性的,默认勾上会让常态月均失去意义。
+                 它只影响「常态月均」这一个数,余额/轧差/净资产一条都不碰。 */-->
+          <label class="flex items-center gap-1.5 text-[11.5px] text-ink-soft whitespace-nowrap cursor-pointer">
+            <input type="checkbox" name="oneOff" value="true">
+            这笔是一次性的
+          </label>
+          <th:block th:insert="~{fragments/_kpi-info :: i(
+              '勾上 = 这笔不算进「常态月均」—— 适合换手机、装修、一次旅行这种「这个月有、下个月没有」的钱。
+不勾(默认)= 照常算。
+它只影响常态月均这一个数,余额、净资产、储蓄率一律不受影响。',
+              null)}"/>
           <!--/* title 属性不够:手机上根本没有 hover,PC 上也要停两秒才出来,
                  而这个开关关错方向的后果是余额被扣两遍。用站内统一的 i 说明件。 */-->
           <th:block th:insert="~{fragments/_kpi-info :: i(

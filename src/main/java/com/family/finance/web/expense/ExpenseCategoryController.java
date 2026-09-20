@@ -31,6 +31,8 @@ public class ExpenseCategoryController {
     private final FamilyConfigService configService;
     private final NavService navService;
     private final AuditLogService auditLogService;
+    private final com.family.finance.repository.ExpenseCategoryMapper categoryMapper;
+    private final com.family.finance.service.expense.ExpenseNatureService natureService;
 
     @GetMapping("/expense/categories")
     public String page(@AuthenticationPrincipal MemberPrincipal me, Model model) {
@@ -63,6 +65,48 @@ public class ExpenseCategoryController {
         } catch (RuntimeException e) {
             ra.addFlashAttribute("catError", human(e));
         }
+        return "redirect:/expense/categories";
+    }
+
+    /**
+     * v1.24 FR-612 · 改一个类目的支出性质。
+     *
+     * <h3>界面上是两个问句,不是三个词</h3>
+     *
+     * <p>「刚性 / 弹性 / 一次性」是<b>我们的术语</b>,不是家里人的语言。
+     * 页面上问的是 PRD §0.6 那棵决策树的两句原话 ——
+     * 「还会再来吗」→ 不会就是一次性;会的话再问「少了它日子过不过得下去」→
+     * 过不下去是刚性,难受但能过是弹性。</p>
+     *
+     * <p>这个项目的规矩:面向用户的文案不用技术词,非技术家人要能答得上来。</p>
+     *
+     * <h3>改完立即对全部历史生效</h3>
+     *
+     * <p>性质是<b>类目的属性</b>,不是笔的属性 —— 所以这里<b>一行 cash_flow 都不回写</b>。
+     * 把它落到笔上的话,改一次性质就要批量 UPDATE 几百行历史数据,
+     * 那不是「生效」,那是改写历史。</p>
+     */
+    @PostMapping("/expense/categories/{id}/nature")
+    public String setNature(@AuthenticationPrincipal MemberPrincipal me,
+                            @PathVariable("id") long id,
+                            @RequestParam(value = "nature", required = false) String nature,
+                            RedirectAttributes ra) {
+        long fam = me.getFamilyId();
+        var cat = categoryMapper.find(fam, id);
+        if (cat == null) {
+            ra.addFlashAttribute("flashError", "这个类目不在了 —— 刷新一下页面。");
+            return "redirect:/expense/categories";
+        }
+        // 空值 = 清回「跟父级 / 按弹性」。不是错误,是一个合法选择。
+        com.family.finance.domain.expense.ExpenseNature n =
+                (nature == null || nature.isBlank()) ? null
+                        : com.family.finance.domain.expense.ExpenseNature.parse(nature);
+        natureService.setNature(fam, id, n);
+        auditLogService.record(fam, me.getMemberId(),
+                AuditLogType.SYSTEM, "expense_category", id,
+                "类目性质 · " + cat.getName() + " → " + (n == null ? "跟父级/弹性" : n.getLabel()));
+        ra.addFlashAttribute("flash", "「" + cat.getName() + "」已设为"
+                + (n == null ? "跟父级(按弹性算)" : n.getLabel()) + " · 立即对全部历史生效");
         return "redirect:/expense/categories";
     }
 

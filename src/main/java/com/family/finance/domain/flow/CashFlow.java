@@ -63,4 +63,15 @@ public class CashFlow {
      */
     @lombok.Builder.Default
     private boolean affectsBalance = true;
+
+    /**
+     * v1.24 FR-613 · 这笔是不是「一次性」支出。
+     *
+     * <p><b>纯分析期标记</b>:它唯一的作用是让这笔钱不进「常态月均」。
+     * 余额、轧差、净资产、XIRR —— 一条都不碰。
+     * {@code affects_balance} 有过「一个标记要同时退出三条链」的教训,
+     * 这个标记刻意只有一条链。护栏 {@code v1240-ONEOFF-NOT-BALANCE} 守着它
+     * 不出现在任何余额路径上。</p>
+     */
+    private boolean oneOff;
 }

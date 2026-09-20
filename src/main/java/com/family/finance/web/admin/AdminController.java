@@ -637,6 +637,10 @@ public class AdminController {
         model.addAttribute("lensPlatformConc", cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_LENS_PLATFORM_CONC, 0.40));
         // ③ 会话
         model.addAttribute("rememberMeSeconds",     cs.getLong(fid, com.family.finance.service.config.FamilyConfigService.K_REMEMBER_ME_SECONDS, 2592000L));
+        /* v1.24 FR-674 · 支出分析章节开关。默认开。
+         * 运营参数走管理页、不写服务器配置文件 —— 这是这个项目定下的规矩。 */
+        model.addAttribute("expenseAnalysisOn", cs.getBoolean(fid,
+                com.family.finance.service.expense.NormalExpenseService.K_EXPENSE_ANALYSIS, true));
         return "admin/calc-tweaks";
     }
 
@@ -655,6 +659,32 @@ public class AdminController {
         auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE, "family_runtime_config", fid,
                 "录入阈值 · smartTransfer=" + smartTransfer + " · loanAbnormal=" + loanAbnormal + " · epsilon=" + unexplainedEps);
         ra.addFlashAttribute("flash", "录入阈值已保存");
+        return "redirect:/admin/calc-tweaks";
+    }
+
+    /**
+     * v1.24 FR-674 · 支出分析章节开关。
+     *
+     * <p>关掉之后报表页支出章节退回上一版的样子,<b>而且 §3.5 的回流读数一并消失</b>
+     * (紧急储备并列读数 / 体检流动性 / 目标页应急金)—— 不留半开状态。
+     * 「我关了支出分析,怎么别处还在冒常态月均」是最让人困惑的一种半开,
+     * 所以级联收在 {@code NormalExpenseService} 的 Optional 里,不靠各页面各自判断。</p>
+     */
+    @PostMapping("/calc-tweaks/expense-analysis")
+    public String saveExpenseAnalysis(@org.springframework.security.core.annotation.AuthenticationPrincipal
+                                      com.family.finance.auth.MemberPrincipal me,
+                                      @org.springframework.web.bind.annotation.RequestParam(
+                                          value = "expenseAnalysisOn", defaultValue = "false") boolean on,
+                                      org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
+        long fid = me.getFamilyId();
+        configService.set(fid,
+                com.family.finance.service.expense.NormalExpenseService.K_EXPENSE_ANALYSIS,
+                String.valueOf(on));
+        auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE,
+                "family_runtime_config", fid, "支出分析章节 · " + (on ? "打开" : "关闭"));
+        ra.addFlashAttribute("flash", on
+                ? "支出分析已打开 —— 报表页支出那一章会显示归因、三分与常态月均"
+                : "支出分析已关闭 —— 报表页支出那一章回到原来的样子,常态月均那几处读数也一并不显示");
         return "redirect:/admin/calc-tweaks";
     }
 
