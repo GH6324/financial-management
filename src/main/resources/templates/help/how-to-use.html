@@ -279,7 +279,7 @@
     </a>
   </div>
   <div class="flex items-baseline gap-3 mb-3 flex-wrap">
-    <h2 class="text-2xl font-medium">选修 A · 让录入更省力</h2><span class="badge-opt">5 节</span>
+    <h2 class="text-2xl font-medium">选修 A · 让录入更省力</h2><span class="badge-opt">6 节</span>
   </div>
   <div class="toc-grid mb-9">
     <a class="toc-card" href="#a1">
@@ -306,6 +306,11 @@
       <span class="no">A5</span> <span class="badge-opt">选修</span>
       <span class="tt">贵金属与加密</span>
       <span class="dd">贵金属按克 / 盎司录;加密走三家行情源。…</span>
+    </a>
+    <a class="toc-card" href="#a6">
+      <span class="no">A6</span> <span class="badge-opt">选修</span>
+      <span class="tt">支出账单批量导入</span>
+      <span class="dd">想要逐笔支出、又不想一笔笔敲:把支付宝 / 微信导出的账单传上来,一次几百笔。…</span>
     </a>
   </div>
   <div class="flex items-baseline gap-3 mb-3 flex-wrap">
@@ -349,8 +354,8 @@
     </a>
     <a class="toc-card" href="#b8">
       <span class="no">B8</span> <span class="badge-opt">选修</span>
-      <span class="tt">支出构成</span>
-      <span class="dd">刚性支出压不下去,日常开支才是可调的那部分。需要先切到逐笔录入。…</span>
+      <span class="tt">支出分析</span>
+      <span class="dd">钱花在哪、这个月为什么变了、这些钱砍不砍得掉。需要先切到逐笔录入。…</span>
     </a>
   </div>
   <div class="flex items-baseline gap-3 mb-3 flex-wrap">
@@ -457,7 +462,7 @@
     <p><b class="text-ink">支出有两种填法,自己选</b>(默认「总额」,老用户升级后一切不变):</p>
     <ul style="margin:.5rem 0 .25rem 1.1rem;line-height:1.9">
       <li><b class="text-ink">总额</b> —— 每位成员各填一个数,从微信 / 支付宝 / 信用卡账单抄总数过来。不用拆分类、不用逐笔。</li>
-      <li><b class="text-ink">逐笔</b> —— 每笔选账户 + 类目,自动从该账户余额扣除。多花点时间,换来<b class="text-ink">支出构成</b>与更准的账户级收益率。</li>
+      <li><b class="text-ink">逐笔</b> —— 每笔选账户 + 类目,自动从该账户余额扣除。多花点时间,换来整章<b class="text-ink">支出分析</b>(见选修 B8)与更准的账户级收益率。嫌敲得慢就用账单批量导入(选修 A6)。</li>
     </ul>
     <p>在<b class="text-ink">管理 → 提醒与模板 → 支出录入方式</b>里切。切换<b class="text-ink">不动任何已录数据</b>:
        切到逐笔后原来填的总额还在,切回总额后已录的逐笔也不删。</p>
@@ -466,9 +471,21 @@
            stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       去切换支出录入方式
     </a>
-    <p class="mt-3" style="line-height:1.9">类目停在「性质」这一层 —— <b class="text-ink">日常开支 / 还贷 / 利息支出 / 转账给亲属</b>,
-       不预置「餐饮」这种消费品类。所以「支出构成」回答的不是「餐饮占几成」,而是
-       <b class="text-ink">刚性支出(还贷 + 利息)占多少、日常开支占多少</b> —— 刚性压不下去,日常才是可调的那部分。</p>
+    <p class="mt-3" style="line-height:1.9">逐笔支出有<b class="text-ink">两个各自独立的分类</b>,别把它们混成一个:</p>
+    <ul style="margin:.4rem 0 .25rem 1.1rem;line-height:1.9">
+      <li><b class="text-ink">资金性质</b>(必选)—— 日常开支 / 还贷 / 利息支出 / 转账给亲属。
+          它决定这笔钱算不算「可调的那部分」:<b class="text-ink">还贷和利息压不下去,日常开支才是</b>。这四个是内置的。</li>
+      <li><b class="text-ink">消费分类</b>(可选)—— 餐饮美食 / 交通出行 / 住房物业……一棵你自己维护的树,
+          大类下可以再分细类。<b class="text-ink">点大类就能提交</b>,想细分再多点一下细类,不强制也不用预先决定。</li>
+    </ul>
+    <p class="mt-2" style="line-height:1.9">还有一个勾:<b class="text-ink">「这笔是一次性的」</b>。
+       买冰箱、换手机、一次旅行 —— 勾上它,这笔就不会污染「常态月均」那个数(见选修 B8)。
+       默认不勾,因为绝大多数笔不是一次性的。</p>
+    <a class="goto" th:href="@{/expense/categories}">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      去维护消费分类
+    </a>
     <p class="mt-2" style="line-height:1.9"><b class="text-ink"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;vertical-align:-2px;color:var(--rust)"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> 逐笔录入会扣余额</b>,所以第 ③ 步的顺序更要紧:
        如果你已经照银行 App 填了月末余额(那个数本就含这笔消费),再录这笔就会扣第二次。
        记住「<b class="text-ink">先录收支,最后核对余额</b>」就不会踩。</p>
@@ -616,12 +633,32 @@
     去周期管理关账
   </a>
   <figure class="fig reveal">
-    <img th:src="@{/img/manual/ch3-periods.jpg}" alt="周期管理:开新账期 / 关账 / 重开,每期状态一目了然。" loading="lazy">
-    <figcaption>周期管理:开新账期 / 关账 / 重开,每期状态一目了然。</figcaption>
+    <img th:src="@{/img/manual/ch3-periods.jpg}" alt="周期管理页的「账期什么时候关」:立即关账 / 月底过完再给 2 天 / 再给 5 天 / 我自己关,四档并排,每档都写着它的代价。" loading="lazy">
+    <figcaption>周期管理 →「账期什么时候关」。四档并排,<b>每一档都同时写「你得到什么」和「代价是什么」</b> —— 只说好处不说代价的配置项,用户选完才发现报表晚两天出,那是我们的错。</figcaption>
   </figure>
   <div class="lesson reveal">
     <h4 class="font-display font-medium">关账不是走形式 <span class="where2">管理 → 周期管理</span></h4>
     <p>收益类指标(本月资产收益 / 家庭 XIRR / 资产年化 / 人赚钱赚)<b class="text-ink">只统计已关账的账期</b>。填报中的月份通常「余额填了、收支没录齐」,拿它算收益会把没录的收支当成投资收益。所以<b class="text-ink">没关账 = 这个月不进收益统计</b>,页面会标明当前算的是哪一期。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">什么时候关,你自己定 <span class="where2">管理 → 周期管理 → 关账节奏</span></h4>
+    <p>系统原来在次月一开始就把上月锁上了,而微信 / 支付宝 / 信用卡最方便拿到的<b class="text-ink">整月账单,要等月底过完才出</b> ——
+       于是「月初拿完整账单再填」这条最自然的路径反而得先去重开账期。现在四档任选:</p>
+    <ul style="margin:.5rem 0 .25rem 1.1rem;line-height:1.9">
+      <li><b class="text-ink">立即关账</b>(默认,与老版本逐分一致)—— 新月份一开始,上月立刻锁上。月底最后几天的消费要自己补算进去。</li>
+      <li><b class="text-ink">月底过完再给 2 天</b>(推荐)—— 这 2 天就是拿来填完整账单的。</li>
+      <li><b class="text-ink">月底过完再给 5 天</b> —— 信用卡账单日晚于月末的家庭适用。</li>
+      <li><b class="text-ink">我自己关</b> —— 你决定什么时候。兜底:到下下个月开始时系统还是会关掉它,不会让一个月一直悬着。</li>
+    </ul>
+    <p class="mt-2" style="line-height:1.9">每一档旁边都写着它的<b class="text-ink">代价</b> —— 宽限期里上月还没关,
+       那段时间的收益类指标就仍然锚在更早的一期。这是选择,不是 bug。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">宽限期里,两个月同时可填 <span class="where2">填报页</span></h4>
+    <p>选了 T+2 / T+5 / 我自己关之后,宽限期内<b class="text-ink">上月与本月同时是「可填」状态</b>,填报页把两期<b class="text-ink">并排</b>摆出来,
+       默认落在要补录的<b class="text-ink">上月</b>那一侧 —— 因为你这几天来,十有八九是来补上月的。</p>
+    <p class="mt-2" style="line-height:1.9">与之配套的两件事:<b class="text-ink">批量导入默认记到上月</b>;
+       报表<b class="text-ink">锚住上月而不会倒退</b>到上上月,并如实标注它「仍在填报中」。</p>
   </div>
   <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
@@ -861,6 +898,47 @@
   <div class="lesson reveal">
     <h4 class="font-display font-medium">行情源 <span class="where2">持仓管理 → 添加持仓</span></h4>
     <p>金银铂钯走新浪 SGE 上海价或国际现货价;加密以 Binance 为主源,CoinGecko / Coinbase 备源。</p>
+  </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<section class="chapter ch" id="a6" style="padding:40px 20px 8px">
+  <span class="ch-water">A6</span>
+  <div class="ch-hd"><span class="ch-no">A6</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">支出账单批量导入</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">
+    想要逐笔支出、又不想一笔笔敲:把支付宝 / 微信导出的账单传上来,一次几百笔。
+  </p>
+  <a class="goto" th:href="@{/expense/import}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去批量导入
+  </a>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">渠道要你自己选 <span class="where2">上传区</span></h4>
+    <p>支付宝和微信<b class="text-ink">二选一,我们不猜</b>。两家的导出格式长得很像,猜错会把
+       微信的「交易类型」当成消费分类填进去 —— 那个错混在几百笔里,事后极难发现。
+       文件收 <b class="text-ink">csv,或渠道发来的加密 zip</b>(带上解压密码就行)。</p>
+    <p class="mt-2" style="line-height:1.9">银行 App 大多没有 csv 导出,这条路还没接上。
+       眼下的办法:银行卡里走支付宝 / 微信的那部分,导这两家就够了。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">归类分三层,AI 只是最后一层 <span class="where2">确认页</span></h4>
+    <p>前两层是<b class="text-ink">纯本地</b>的(你之前定过的规则 + 内置词表),不联网、不花钱、立刻出结果。
+       剩下还没归上的,才有一个「<b class="text-ink">让 AI 猜这 N 笔</b>」的按钮,点不点随你。
+       点了也只转圈那一个按钮,整页照常能用,而且<b class="text-ink">你手动改过的行永远不会被覆盖</b>。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">改过一次,下次自动命中 <span class="where2">本页最下方「规则」</span></h4>
+    <p>你在确认页手动改过的行会被<b class="text-ink">记成规则</b>,下次导入同类交易自动归好。
+       规则在这一页最下面看得到,也删得掉 —— 它不是黑盒。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">导错了可以整批撤销 <span class="where2">本期已导入</span></h4>
+    <p>每一批导入都是一个整体,<b class="text-ink">可以整批撤回</b>;当初扣过余额的,撤销时会把钱加回去。
+       所以不用怕导错 —— 真要重导,先把那一批撤掉,别叠着导第二遍。</p>
   </div>
   <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
 </section>
@@ -1142,20 +1220,21 @@
   <section class="chapter ch" id="b8" style="padding:40px 20px 8px">
     <span class="ch-water">B8</span>
     <div class="ch-hd"><span class="ch-no">B8</span><span class="badge-opt">选修</span></div>
-    <h2 class="text-3xl font-medium mb-3">支出构成</h2>
+    <h2 class="text-3xl font-medium mb-3">支出分析</h2>
     <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">
-      钱花在哪了。<b class="text-ink">刚性支出(还贷 + 利息)压不下去,日常开支才是可调的那部分</b> ——
-      这个划分比「餐饮占几成」对家庭账更有用。
+      报表里的「钱花在哪了」回答三个问题:<b class="text-ink">钱花在哪、这个月为什么变了、这些钱砍不砍得掉</b>。
+      这一章<b class="text-ink">不给好坏评价</b> —— 花钱没有对错,只有可压缩空间大小。
     </p>
     <a class="goto" th:href="@{/reports}">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
            stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-      去报表 → 支出构成
+      去报表 → 钱花在哪了
     </a>
     <div class="lesson reveal">
       <h4 class="font-display font-medium">先切到逐笔录入 <span class="where2">管理 → 提醒与模板</span></h4>
-      <p>这一段只在<b class="text-ink">逐笔</b>模式下出现 —— 总额模式只有一个总数,没有构成可言,
-         硬塞一个空图比不显示更糟。切换<b class="text-ink">不动任何已录数据</b>,想回去随时回去。</p>
+      <p>这一整章只在<b class="text-ink">逐笔</b>模式下出现 —— 总额模式只有一个总数,没有构成可言,
+         硬塞一个空图比不显示更糟。切换<b class="text-ink">不动任何已录数据</b>,想回去随时回去。
+         嫌一笔笔敲太慢,看<b class="text-ink">选修 A6</b> 的账单批量导入。</p>
       <a class="goto" th:href="@{/admin/reminders}">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
              stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
@@ -1163,24 +1242,62 @@
       </a>
     </div>
     <div class="lesson reveal">
-      <h4 class="font-display font-medium">三个维度,各回答一个问题 <span class="where2">报表 → 支出构成</span></h4>
-      <p>
-        <b class="text-ink">按类目</b> —— 刚性 vs 日常的比例;
-        <b class="text-ink">按账户</b> —— 钱主要从哪张卡出去;
-        <b class="text-ink">按成员</b> —— 家庭内部对账。
-        每个维度都能切「本期 / 近 6 期 / 近 12 期」,<b class="text-ink">点任意一格能展开那一格的逐笔明细</b>。
-      </p>
+      <h4 class="font-display font-medium">两层,不是两块 <span class="where2">报表 → 钱花在哪了</span></h4>
+      <p><b class="text-ink">第一层按资金性质</b> —— 日常开支 / 还贷 / 利息 / 给亲属。这一层的合计<b class="text-ink">就是家庭支出总额</b>。<br>
+         <b class="text-ink">第二层展开其中的「日常开支」</b>,按你自己维护的消费分类看:餐饮多少、交通多少。</p>
+      <p class="mt-2" style="line-height:1.9">两层各自都能切<b class="text-ink">按类目 / 按账户 / 按成员</b>三个维度,
+         窗口跟随上方趋势区(本期 / 近 6 期 / 近 12 期),<b class="text-ink">点任意一格能展开那一格的逐笔明细</b>。</p>
+    </div>
+    <div class="lesson reveal">
+      <h4 class="font-display font-medium">这些钱砍得掉吗 <span class="where2">三分条</span></h4>
+      <p>日常开支再按<b class="text-ink">「少了它日子过不过得下去」</b>拆成三段:</p>
+      <ul style="margin:.5rem 0 .25rem 1.1rem;line-height:1.9">
+        <li><b class="text-ink">刚性</b> —— 过不下去的:房贷物业、水电、学费、看病。</li>
+        <li><b class="text-ink">弹性</b> —— 难受但能过的。</li>
+        <li><b class="text-ink">一次性</b> —— 这个月有、下个月没有的。</li>
+      </ul>
+      <p class="mt-2" style="line-height:1.9">性质是<b class="text-ink">消费分类的属性</b>,在类目页一屏改完,
+         改完<b class="text-ink">立即对全部历史生效</b>,不回写任何一行流水。
+         单独某一笔要破例(刚性类目里买了台一次性的东西),在录入时勾<b class="text-ink">「这笔是一次性的」</b>,逐笔的勾优先。</p>
+      <a class="goto" th:href="@{/expense/categories}">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        去设置类目性质
+      </a>
+    </div>
+    <div class="lesson reveal">
+      <h4 class="font-display font-medium">常态月均:剔掉一次性之后的那个数 <span class="where2">三分块下方</span></h4>
+      <p><b class="text-ink">月均支出</b>把买冰箱那个月也算了进去,所以它总是偏高。
+         <b class="text-ink">常态月均</b>剔掉一次性的部分,更接近「日子的基本开销」——
+         算应急储备够撑几个月时,后面这个数才是你想要的。旁边写着这次剔除了几笔,点得开看是哪几笔。</p>
+    </div>
+    <div class="lesson reveal">
+      <h4 class="font-display font-medium">这个月为什么变了 <span class="where2">归因瀑布</span></h4>
+      <p>把两期支出的差额<b class="text-ink">摊到类目上</b>,一眼看出是谁在推动。
+         读它的时候记住:<b class="text-ink">金额差是主信息,变化率是次信息</b> ——
+         「旅游多了一笔」比「餐饮涨了 100%」更值得看。</p>
+    </div>
+    <div class="lesson reveal">
+      <h4 class="font-display font-medium">不想等关账,仪表盘上有一份即时的 <span class="where2">仪表盘</span></h4>
+      <p>报表这一章锚的是<b class="text-ink">最近已关账</b>的那一期;仪表盘上那块「本月支出 · 砍得掉吗」是
+         <b class="text-ink">本月至今</b>,不用等关账。两处的窗口和基数都写在标题旁边 ——
+         它们差着一个数量级,<b class="text-ink">别拿这边的百分比去乘那边的金额</b>。</p>
+    </div>
+    <div class="lesson reveal">
+      <h4 class="font-display font-medium">看不懂的数字,点它旁边的 ⓘ <span class="where2">每个算出来的指标</span></h4>
+      <p>刚性占比、常态月均、本期支出、比上期……每一个都带 ⓘ,写清<b class="text-ink">它是怎么算的、基数是什么、窗口是哪一段</b>。
+         百分比一律把基数写在脸上,不用点开也能看见。</p>
     </div>
     <div class="lesson reveal">
       <h4 class="font-display font-medium">只填了总数的月份会如实标出来 <span class="where2">段首提示</span></h4>
       <p>那些月份<b class="text-ink">不在构成里</b>(没有逐笔就拆不出构成),但它们的支出仍然照总额参与
-         储蓄率与人赚的计算 —— 不隐藏、不假装没有。</p>
+         储蓄率与人赚的计算 —— 不隐藏、不假装没有。落在<b class="text-ink">已归档账户</b>上的历史支出同理:
+         不计入构成,但会明确告诉你有多少笔。</p>
     </div>
     <div class="lesson reveal">
-      <h4 class="font-display font-medium">类目就这四个(内置) <span class="where2">管理 → 现金流类别(只读)</span></h4>
-      <p>默认只给四个:<b class="text-ink">日常开支 / 还贷 / 利息支出 / 转账给亲属</b>。
-         不预置「餐饮」这类消费品类 —— 那件事微信 / 支付宝 / 银行 App 已经做得很好。
-         这四个目前是内置的,管理页的「现金流类别」只能看不能改 —— 需要更细的分类可以来提 issue。</p>
+      <h4 class="font-display font-medium">整章可以关掉 <span class="where2">管理 → 计算口径</span></h4>
+      <p>不想要这套分析,一个开关关掉整章。关掉之后<b class="text-ink">别处引用「常态月均」的地方也一起消失</b>,
+         不会留下半开状态。</p>
     </div>
     <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
   </section>

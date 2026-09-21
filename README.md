@@ -114,7 +114,7 @@
 - **持仓自动估值** — 录 ticker + 数量 · 每日自动拉价(股票:新浪主 + 腾讯备 · 美 / A / 港三市场;加密:Binance 主 + CoinGecko / Coinbase 备;贵金属:新浪 SGE 上海 / 国际现货,金银铂钯按克 / 盎司)· 可与账户现金联动(买入扣现金、卖出加回)
 - **AI 资产体检 + 调仓建议** — 4 维诊断(配置 / 风险 / 流动性 / 收益)+ 具体调仓步骤(「从 X 调 ¥N 到 Y」)· **所有数字工程算好,LLM 只解读,不荐产品、不预测涨跌**
 - **财务目标** — FIRE 退休(通胀现值 + 4% 提取率,目标支出可自适应近月真实支出)/ 子女教育 / 应急储备 · 三情景预测(乐观 / 中性 / 悲观)
-- **支出分类(可选)** — 想知道「钱花在哪」再开:自建两级类目树,**记一笔时点一下宫格**(常用置顶 · 一次点击命中 · 想细分再多点一下)· 支付宝/微信月账单 csv **逐笔导入**,自动归类三层兜底(渠道分类 → 你改过的规则 → AI,**只送商户名不送金额**)· 确认页每行标出归类依据,没把握的排最前 · 按交易号去重,**同一份文件导两次不出双份** · 报表里点得进去:「餐饮美食 ¥3,182」能看到构成它的那些笔 · 不开就一个像素都不多
+- **支出分析(可选)** — 想知道「钱花在哪」再开,不开就一个像素都不多。开了之后回答三个问题:**钱花在哪**(资金性质 / 消费分类两层 · 自建类目树 · 记一笔点一下宫格)、**这个月为什么变了**(归因瀑布把差额摊到类目上)、**这些钱砍不砍得掉**(刚性 / 弹性 / 一次性三分 + 剔掉一次性的**常态月均**)· 不给好坏评价,占比高只说明可压缩空间小 · 支付宝 / 微信月账单 csv **逐笔导入**,归类三层兜底(渠道分类 → 你改过的规则 → AI,**只送商户名不送金额**),按交易号去重、整批可撤销
 - **决策辅助** — 账户级基准对照 / 提前还贷决策器(NPV 18 年视角)/ 应急金不闲置提示
 - **截止前强提醒** — 3 种填报模板 · 截止前 N 天短信(阿里云,可选)+ 站内 banner 兜底
 - **全在管理页热改** — LLM key / 股票开关 + cron / 汇率 cron / checkup 阈值 / 会话期 等运营参数实时生效不重启(DB > env > 代码默认 三层 fallback)
@@ -131,7 +131,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · 901 单元(含 AttributionEngine 归因两步法闭合 + RebalancePlan 核销规则 + PivotEngine 透视引擎(归因降级+币种不变性) + LensAiTag 白名单 +  PrivacyIsolationTest 静态扫源码私密红线 + CurrencyInvarianceTest 币种不变性(含保险) + AShareTicker 交易所前缀 + MetalUnit 贵金属单位/归一 + BrokerReadOnlyGuard 券商只读铁律静态扫 + FutuOpend 向导只读护栏(下载白名单/只绑127.0.0.1/密码只MD5)+ AllocationDiff 保险独立桶 + InsurancePolicy 保单登记 + EntryLoanPrompt 贷款趋势预测兼容闸(含「系统代填的已填不算人确认过」) + PeriodOpenerTodoAlignment 开账代填即已填 + GoalMetricEvaluator 指标聚合 + GoalPaceCalculator 进度落后判定 + 单一镜头端到端币种守护 + ClosedPeriodAnchorTest 收益类指标锚已关账期 + ExpenseLedgerService 家庭支出唯一口径(逐笔/总额优先级受模式约束 · 未来账期不计入 · 归档与换汇对齐事实表) + UpdateCheckService 版本比较/迁移判定 fail-closed/结果收敛进 VARCHAR(512) + MetricDisplay 比率失真降级(正常区间不许降级 · 金额类不被误伤 · 失真值派生的 Δ 列一起降级) + LlmCatalogConsistency 平台/型号目录唯一一份(扫包双向比对,不写死类名) + LlmCallSiteRouting 六个 AI 调用点全部只持路由 + MemberDirectory 成员三桶口径(展示含归档 / 选择仅活跃 / 编辑候选=活跃∪当前) + MemberReferenceScanner 删成员前 13 处引用全覆盖(4 处无外键靠反射测试当外键) + MemberArchiveMoneyInvariance 归档只停「谁来打理」不动钱 + UsernameRename 先清票根再改名 + OpendRelease 官方发布物定位(现行域名/命名/取最新端点/10.x 交互登录分流) + OpendConfigXml 控制口按死回环(官方模板里它是注释掉的) + OpendCatalog 安装包哈希校验(对不上拒装 · 清单读不到≠未核对) + OpendTelnet 登录状态机(失败判定先于验证码) + ContainerGatewayChannel 共享卷通道(未启用给命令不报错 · 心跳过期判掉线 · 密码不落日志) + LedgerSource 流水来源(UNKNOWN≠MANUAL · 解析永不抛 · 标签无技术词) + ValuationSourceInfer 估值来源推断(显式优先 · 按持仓市场分流) + AttributionAnchor 归因锚已关账期(转入不被读成亏损 · 混锚会把差额藏进未归因) + ValuationManagedRouting 余额托管判据一份定义(有持仓才接管 · 无持仓不许凭空造现金行) + ReconciliationScan 账目对账判据(该抓/不该抓成对钉,防退化成永远绿的装饰) + ErasureDetector 抹钱识别(按后缀和逐个试 · 写回拦截与事后对账共用一份) + AccountTypeSemantics 账户类型语义分类(加新类型必须表态的结构性护栏 · METAL 曾漏在投资类外) + ReconcileSecondView 对账第二视角(整期是否自洽 · 已纠正的痕迹自动降级,防照着误报删钱) + RecentClosed 月均支出剔除进行中账期(半个月不当整月 · **双活跃窗口下两期 OPEN 都要剔**)+ PeriodGrace 关账宽限判据(T+0 必须与旧行为逐日等价 · 截止日当天还能填 · 手动模式兜底走账期序不走日期算术)+ SavingsRatePeriod 储蓄率带出账期(它常常不是本期)+ DashboardLiveScope 趋势标出进行中那一期 + EntryExpenseLiability 信用卡可记支出且方向正确(负债余额存负数,与现金账户共用一个符号)+ 负债账户禁还贷/利息防支出双计 + HoldingImport friendly 上游失败分类(额度耗尽不许退化成「请重试」· 配额判据须排在 403 之前)+ AccountGroupingResolver 账户维值(零组态=账户名 · 有定格读定格 · 下钻只展开被点开的组)+ BalanceGuard 改动提示(该提示的提示 · 不该提示的不提示)+ SplitResidual 穿透拆分余数归位(两条聚合路径的总资产必须逐分相等)+ ReviewCacheStaleness 复盘缓存失效(已关账才缓存 · 进行中的期不读也不写)+ ManagedAgentEventParsing 百炼事件流解析(终止信号在 content[].data.session_status · 事件自身的 status 不是会话状态 · 正文只收 text 块)+ AiAccessHint 创建 Agent 失败提示按上游原话分流(模型不存在→指空间授权 · 认不出的承认在猜 · 不许再指向三个本来就对的配置项)+ AccountRowGrouper 账户行按组折叠(零组态逐行原样 · 金额可加 · **收益率/回撤/预实一律 null,宁可显示「—」也不给一个看起来合理却没有数学意义的数**)))/ 119 e2e 断言(3 条浏览器主线 · scripts/e2e/run.cjs)/ 866 黑盒回归 |
+| 测试 | JUnit 5 · **901 单元** / 119 e2e 断言(3 条浏览器主线,真浏览器 + 真 DB)/ **867 黑盒回归**护栏 —— 每条护栏守的是哪个坑,见 [QA case 库](docs/qa-cases.md) |
 
 ## 快速开始(自托管部署)
 
@@ -347,35 +347,84 @@ bash scripts/regression-data.sh # 数据层/口径回归(原 e2e.sh · curl 端�
 
 ## 文档
 
-- **产品需求**:[`prd/v0.1.md`](prd/v0.1.md) · [`prd/v0.2.md`](prd/v0.2.md) · [`prd/v0.3.md`](prd/v0.3.md) · [`prd/v0.4.md`](prd/v0.4.md) · [`prd/v0.5.md`](prd/v0.5.md) · [`prd/v0.6.md`](prd/v0.6.md) · [`prd/v0.7.md`](prd/v0.7.md) · [`prd/v0.8.md`](prd/v0.8.md) · [`prd/v0.9.md`](prd/v0.9.md) · [`prd/v0.10.md`](prd/v0.10.md) · [`prd/v0.11.md`](prd/v0.11.md) · [`prd/v0.12.md`](prd/v0.12.md) · [`prd/v0.13.md`](prd/v0.13.md) · [`prd/v0.14.md`](prd/v0.14.md) · [`prd/v0.15.md`](prd/v0.15.md) · [`prd/v0.16.md`](prd/v0.16.md) · [`prd/v0.17.md`](prd/v0.17.md) · [`prd/v1.1.md`](prd/v1.1.md) · [`prd/v1.2.md`](prd/v1.2.md) · [`prd/v1.2.2.md`](prd/v1.2.2.md) · [`prd/v1.3.md`](prd/v1.3.md) · [`prd/v1.4.md`](prd/v1.4.md) · [`prd/v1.5.md`](prd/v1.5.md) · [`prd/v1.6.md`](prd/v1.6.md)
-- **技术设计**:[`tech-design/v0.1.md`](tech-design/v0.1.md) · [`tech-design/v0.2.md`](tech-design/v0.2.md) · [`tech-design/v0.2-checkup.md`](tech-design/v0.2-checkup.md) · [`tech-design/v0.3.md`](tech-design/v0.3.md) · [`tech-design/v0.4.md`](tech-design/v0.4.md) · [`tech-design/v0.5.md`](tech-design/v0.5.md) · [`tech-design/v0.6.md`](tech-design/v0.6.md) · [`tech-design/v0.7.md`](tech-design/v0.7.md) · [`tech-design/v0.8.md`](tech-design/v0.8.md) · [`tech-design/v0.9.md`](tech-design/v0.9.md) · [`tech-design/v0.10.md`](tech-design/v0.10.md) · [`tech-design/v0.11.md`](tech-design/v0.11.md) · [`tech-design/v0.12.md`](tech-design/v0.12.md) · [`tech-design/v0.13.md`](tech-design/v0.13.md) · [`tech-design/v0.14.md`](tech-design/v0.14.md) · [`tech-design/v0.15.md`](tech-design/v0.15.md) · [`tech-design/v0.16.md`](tech-design/v0.16.md) · [`tech-design/v0.17.md`](tech-design/v0.17.md) · [`tech-design/v1.1.md`](tech-design/v1.1.md) · [`tech-design/v1.2.md`](tech-design/v1.2.md) · [`tech-design/v1.2.2.md`](tech-design/v1.2.2.md) · [`tech-design/v1.3.md`](tech-design/v1.3.md) · [`tech-design/v1.4.md`](tech-design/v1.4.md) · [`tech-design/v1.5.md`](tech-design/v1.5.md) · [`tech-design/v1.6.md`](tech-design/v1.6.md)
-- **预览原型**:[`preview/index.html`](preview/index.html)(Tailwind CDN 静态预览)· [`preview/v0.4/`](preview/v0.4/index.html) · [`preview/v0.5/`](preview/v0.5/index.html) · [`preview/v0.6/`](preview/v0.6/index.html)(财富水位 / 股票现金联动 / FIRE 自适应 / PWA 引导)· [`preview/v0.14/`](preview/v0.14/precious-metals.html)(贵金属账户 + 自动金价 / LLM 供应商自选 / 配置开放梳理)
-- **视觉设计规范**:[`docs/visual-spec.md`](docs/visual-spec.md)(UED 规范:色彩轴 / 对比度底线 / 组件规格 / iOS 约束 / 大组件移动化) · [`docs/ued-review-2026-07.md`](docs/ued-review-2026-07.md)(全站双端截图审计 61 条) · [`docs/design-system.md`](docs/design-system.md)(现状梳理)
-- **使用手册(新手先看)**:[`docs/how-to-use.md`](docs/how-to-use.md)(带截图 · **月度主流程**:填报顺序 → 关账 → 看结果 → 季度体检;**分析路径**:「高风险资产在谁手上、具体哪几笔」这类问题从旭日一路钻到单笔持仓)
-- **v1.7 设计文档**:[`prd/v1.7.md`](prd/v1.7.md) · [`tech-design/v1.7.md`](tech-design/v1.7.md)(交互式使用手册:功能全集 → 必修/选修分类 → 24 章)
-- **v1.8 设计文档**:[`prd/v1.8.md`](prd/v1.8.md) · [`tech-design/v1.8.md`](tech-design/v1.8.md)(支出逐笔化:口径收敛到一处 → 两个「支出」必须分开 → 总额模式逐位不变;tech-design §8 记了施工中被分水岭比对拦下的三处)
-- **v1.9 设计文档**:[`prd/v1.9.md`](prd/v1.9.md) · [`tech-design/v1.9.md`](tech-design/v1.9.md)(自动版本查询:只查不改 —— 落后几个版本 + 这中间有没有 DB 迁移;tech-design §7 记了「能不能做一键更新/自动更新」的可行性与风险分析)
-- **v1.10 设计文档**:[`prd/v1.10.md`](prd/v1.10.md) · [`tech-design/v1.10.md`](tech-design/v1.10.md)(报表页进化为月度封板快照:期末资产负债表 + 资金流瀑布(含恒等式校验)+ 环比/同比三列对照 + 集中度/流动性分层 + 本期归因;`range` 只管趋势区 · 指标不落库但修掉会改写历史的漂移源)
-- **v1.11 设计文档**:[`prd/v1.11.md`](prd/v1.11.md) · [`tech-design/v1.11.md`](tech-design/v1.11.md)(报表页可用性收束 13 项 + 全量指标审计;tech-design 记了三项「维护者点名要判断」的结论:同一区内窗口必须共用一个时间控件且只属于趋势区 · 哪些仪表盘指标值得进封板区的逐项取舍 · 以及「一条 SQL ≠ 一次扫描」那次把 1.25s 优化成 9.3s 的反面案例。**两份文档是事后补写的**,原因与教训写在 prd §5)
-- **v1.12 设计文档**:[`prd/v1.12.md`](prd/v1.12.md) · [`tech-design/v1.12.md`](tech-design/v1.12.md)(把「封板」做实:关账时把账户的分类属性一并定格,改设置不再改写历史月份的集中度/流动性分层/大类分布/vs 基准 —— 只冻结**分类输入**、不冻结**指标输出**,保住「口径改了自动对全部历史生效」;顺带补 SQL 归因手段并消掉报表页剩余 N+1)
-- **v1.13 设计文档**:[`prd/v1.13.md`](prd/v1.13.md) · [`tech-design/v1.13.md`](tech-design/v1.13.md)(LLM 配置从「两家二选一」升级为**平台 → 模型系列 → 具体型号**三级,新接火山方舟,文本与视觉各配一套;主备编排收口到一个路由 —— 施工前查证发现六处调用点里只有一处真的听「主选」那个配置,tech-design §0.1 记了这个 bug 的形态与为什么不能逐点修;旧配置**读时派生**不写迁移 SQL,回滚仍可用)
-- **v1.14 设计文档**:[`prd/v1.14.md`](prd/v1.14.md) · [`tech-design/v1.14.md`](tech-design/v1.14.md)(截图导入支持拖拽 + Ctrl+V 粘贴,来自 GitHub issue #11:上传区的 id 一直叫 `dropZone`、外框一直是虚线,却从来不接拖拽 —— PC 上真拖上去浏览器会导航走、这次导入全丢,所以这版兑现的是一个会让人丢东西的错误暗示)
-- **v1.15 设计文档**:[`prd/v1.15.md`](prd/v1.15.md) · [`tech-design/v1.15.md`](tech-design/v1.15.md)(成员身份:登录名可改 · 归档 · 零引用才给删。归档**只停掉「谁还来打理」,不动一分钱**,他名下账户与历史流水照旧计入总账;删除前逐表数引用,那 4 处没有外键的靠显式清单兜住 —— 自动发现外键会给出一个自信的错答案。tech-design §9 记了六处施工偏差,其中一处是隐私:6 个脱敏点原来拿「仅活跃」列表建假名表,归档成员的真名会原样进 LLM prompt)
-- **v1.16 设计文档**:[`prd/v1.16.md`](prd/v1.16.md) · [`tech-design/v1.16.md`](tech-design/v1.16.md)(「本期填报完成」只留一个定义 · GitHub issue #15:开账把上期末余额延续成本期快照的同时,把同一行待填也标成已填 —— 填报页的 ✓、tab 徽标、自动关账从此读同一列,不再出现「页面显示全填好了、徽标还挂着 ·1」;tech-design §1.1 记了「为什么不在计数 SQL 上打补丁」的取舍)
-- **v1.17 设计文档**:[`prd/v1.17.md`](prd/v1.17.md) · [`tech-design/v1.17.md`](tech-design/v1.17.md)(Docker 部署下的富途 OpenD 一键接入:今天 Docker 用户被要求自备镜像 + 借一台有桌面的机器 + 把券商密码写进 `.env`,而原生用户只是在向导页点几下。方案定为「我们发一个**可选**的网关镜像」—— 默认 `up -d` 不拉不起,富途二进制不打包、运行时从官方下载并校验哈希,镜像 digest 与打包过程公示可验证。实测证据也表明「容器里跑不了 OpenD」这个前提是错的 —— gtk3/fuse 是桌面版的依赖,命令行版零缺失;顺带修掉过期的下载域名 / 文件名 / 启动参数,那几处今天在原生路径上也是坏的)
-- **v1.24 设计文档**:[`prd/v1.24.md`](prd/v1.24.md) · [`tech-design/v1.24.md`](tech-design/v1.24.md) · [`preview/v1.24/expense-analysis.html`](preview/v1.24/expense-analysis.html)(**在研** —— 支出分析:归因瀑布 / 三分 / 常态月均,并把两个同名的支出区块合并成一块两层结构)
-- **v1.23 设计文档**:[`prd/v1.23.md`](prd/v1.23.md) · [`tech-design/v1.23.md`](tech-design/v1.23.md) · [`preview/v1.23/period-rhythm.html`](preview/v1.23/period-rhythm.html)(**待验收** —— 关账时机交给家庭自己定。系统原来在次月 1 日凌晨 `00:30` 就把上月关了,而微信 / 支付宝 / 信用卡最方便拿到的是「**整月支出**」,那个数要等月底过完才有;于是「月初拿完整账单再填」这条最自然的路径,反而需要先去管理页重开账期。这一版把宽限做成配置(T+0 / T+2 / T+5 / 我自己关,默认 T+0 与旧行为逐分一致),并让系统**真正扛得住两个账期同时活跃** —— 那不是异常状态,是一等公民:全仓 30 处「当前账期」逐个定了归属判据,27 个写操作各归三类之一(**显式选期** / **事件时点** / **永远最新**),42 个组件指标做了影响矩阵。核心抽象是两条轴:余额 / 估值只能有一个「现在」,收支可以有两个活跃期 —— 这不是新发明,是给 `FactSlice` 里既有的存量 / 收益二分起了名字。顺带修了三个静默算错:月均支出把半填期算了进去、补录期宽限剩一天却一条提醒都不发、报表在宽限里倒退回上上期。)
-- **v1.22 设计文档**:[`prd/v1.22.md`](prd/v1.22.md) · [`tech-design/v1.22.md`](tech-design/v1.22.md) · [`preview/v1.22/expense-import-confirm.html`](preview/v1.22/expense-import-confirm.html)(**待评审** —— 导入确认页的决策权交还用户。v1.21 把系统剔掉的行叫「**已剔除**」,那是一个*已经执行完的动作*,而剔除的判据是启发式的、会错 —— 一个不可靠的判断配了一个最不可逆的动词,而「剔错了」的后果是**支出少算**、用户不会立刻发现。更糟的是金额 ≤ 0 的行写着「**不能捞**」:用户被单方面否决还不给理由(其实是 DB 的 `CHECK(amount > 0)`)。这一版把动作收回来:每行一个「录入」勾,系统只给**默认值 + 逐行理由**;没勾的叫「**未录入**」——它是结果状态,不是操作,什么都没被删。0 元和负数一并放开(迁移 V60 只 DROP 约束不改数据,默认仍不勾,所以什么都不做的人结果与 v1.21.2 逐字一致)。「已存在」从只读改成**可改分类与账户**——上次导过 ≠ 上次就归对了;改账户会**同步把余额挪过去**,而**已关账的期只能改分类**(去重范围是整个家庭,那些笔可能落在别的期)。唯一需要新规则的是饼图:负组**不进扇形但进总额**,不许取绝对值凑扇形——那会把一笔退款画成一笔消费。)
-- **v1.21 设计文档**:[`prd/v1.21.md`](prd/v1.21.md) · [`tech-design/v1.21.md`](tech-design/v1.21.md) · [`preview/v1.21/expense-itemized.html`](preview/v1.21/expense-itemized.html)(源自 [issue #18](https://github.com/LuoDi-Nate/financial-management/issues/18) —— **自定义支出分类**。这一版有<b>两稿</b>,第 1 稿被否了,PRD §14 记着为什么:我把「分类」设计成了一个**独立的填报动作**(月底打开一张 37 格的表把总数分配进去),而那是人做不来的运算 —— 你记得中午吃了什么,不记得这个月餐饮总共多少。所有记账软件里分类都**依附在一笔上**、是记账时顺手选的。根因是调研做窄了:150 行调研全是文件格式与导出路径,**一句没讲交互**。第 2 稿三条路各走各的:填总数(不动)/ 逐笔录入(类目换成宫格)/ **导入逐笔明细**(新页面)。两个设计点值得单说:① **性质与消费分类是两个维度** —— 还贷决定储蓄率,「餐饮美食」只回答钱花在哪,底层两个字段、界面上一次点击;② **导入是这版最值钱的东西** —— 钱迹的导入按分类名严格字符串匹配、对不上全落「其它」,官方建议用户先去 Excel 里 VLOOKUP 自己归类,我们做三层兜底 + 逐行可改 + 记住规则。剔除了多少笔、跳过了多少笔都显式说出来:静默少导几笔,用户只会看到「总额比账单少一点」而查不出原因。)
-- **v1.20 设计文档**:[`prd/v1.20.md`](prd/v1.20.md) · [`tech-design/v1.20.md`](tech-design/v1.20.md) · [`preview/v1.20/index.html`](preview/v1.20/index.html)(源自 [issue #17](https://github.com/LuoDi-Nate/financial-management/issues/17) —— 一位连续用满两个月的用户。三条诉求底下是同一件事:**系统自己知道、但没告诉用户的东西**。① **改一笔收入会静默改掉已校准的余额** —— 用真浏览器复现过,那笔余额不是「失效」而是**被直接改掉**,页面零提示;复现还坐实了一个他没提的条件:**当月未填余额的账户,其变动不进「本期净资产变化」**,所以「改了数据但数字不动」确实会发生。这一版在改动那一刻就说清它动了什么,但**只提示不拦截**。② **账户组** —— 他要的「把活期账户合起来看」被抽象成一个通用概念:一个组含 1..N 个账户,「活期」只是一个推荐分组。**记账完全不变**(仍按账户填余额、导截图),账户维度**按组折叠渲染**、可下钻;**没建组时所有页面与上一版逐字一致**,所以不需要开关。抽象值钱在一处硬的地方:`transfer` 有 from/to 两端,而今天划转的抵消只有「单账户全算外部流」和「全家全抵消」两档,中间没有 ——**组内流转不计入该组现金流**补上了中间那一档,让「这个组的收益率」第一次有了严格定义。评审时否掉了「真合并成一个可记账账户」(会打断截图导入 —— 截图天然按 APP = 按账户,且不可逆)与「按比例分摊」(那是编数据)。③ **归因空态要能自己看懂**:说清它在回答什么、为什么现在是空的、下一步做什么。自定义支出分类另拆 [#18](https://github.com/LuoDi-Nate/financial-management/issues/18))
-- **v1.19 设计文档**:[`prd/v1.19.md`](prd/v1.19.md) · [`tech-design/v1.19.md`](tech-design/v1.19.md) · [`preview/v1.19/ask.html`](preview/v1.19/ask.html)(**超级 Agent**:把六个「我们替你问」的固定 AI 卡片,换成一个「你自己问」的对话入口。我们只维护系统提示词与工具清单,由 agent 自己决定调哪个工具。工具**只给已经算好的口径、不给原始表** —— LLM 一拿到原始数就会自己算占比,而那条「禁止四则运算」的铁律是用生产事故换来的;答案里每个数字都是**可点引用块**,挂着账期、标着是否进行中、点得回产生它的那一页,模型正文里只写引用标记、**碰不到数字本身**。对话历史存在**你自己的服务器**上。runtime 两条:主选**百炼 Managed Agents**(要公网 HTTPS,换来服务端 session 持久化与中断续接),兜底**本机直连**(模型出网、工具在本进程跑、零入网需求)—— 后者是为 NAT 后面、没有域名的自建用户准备的,对他们来说托管路线不是麻烦而是不可能。选型对比与实测改掉的四处设计见 tech-design 附录与 §四.0)
-- **v1.18 设计文档(在研)**:[`prd/v1.18.md`](prd/v1.18.md) · [`tech-design/v1.18.md`](tech-design/v1.18.md)(流水时间线的每一行都标出「这笔是谁写进来的」:手动填报 / 自动 · 股价 / 自动 · 金价 / 自动 · 富途 / 截图导入 / 开账延续 / 系统联动,共 10 个来源。以前 `kind` 只说是收入还是估值,`trigger_kind` 只说什么动作触发 —— 同一个定时任务可能是股价接口也可能是金价接口,用户分不出来。历史数据一律 `UNKNOWN`(「来源未记录」)**不回填成手动** —— 那等于假装我们知道。同一版还把券商同步失败从「只写日志」改成写进状态并标在账户列表上:v1.17.3 那次生产事故里富途断了两天,而页面一直显示两天前的**成功**消息)
-- **怎么记账 · 场景速查**:[`docs/how-to-record.md`](docs/how-to-record.md)(工资/消费/买卖基金/借钱还贷/账户间转钱 逐场景对照 · 没有财会背景也能看懂)
-- **配置与接入**:[`docs/configuration.md`](docs/configuration.md)(AI / 短信 等外部服务配置总指南 · 全部可选)
-- **券商同步图文向导**:[`docs/broker-sync-guide.md`](docs/broker-sync-guide.md)(富途 / 老虎凭据一步步获取 · 应用内同款 `/help/broker-sync` 带示意图)
-- **常见问题**:[`docs/faq.md`](docs/faq.md)(最低配置 / 远程访问 / 备份恢复 / 忘记密码 / 多家庭 …)
-- **QA case 库**:[`docs/qa-cases.md`](docs/qa-cases.md)
-- **部署运行**:[`deploy/README.md`](deploy/README.md)
+**新手先看**
+
+| 文档 | 讲什么 |
+|---|---|
+| [使用手册](docs/how-to-use.md) | 月度主流程(填报 → 关账 → 看结果 → 季度体检)+ 六条分析路径。**站内同款带演示**:`/help/how-to-use` |
+| [怎么记 · 场景速查](docs/how-to-record.md) | 工资 / 消费 / 买卖基金 / 借钱还贷 / 账户间转钱,逐场景对照,没有财会背景也能看懂 |
+| [常见问题](docs/faq.md) | 最低配置 / 远程访问 / 备份恢复 / 忘记密码 / 多家庭 |
+
+**部署与接入**
+
+| 文档 | 讲什么 |
+|---|---|
+| [部署运行](deploy/README.md) | Compose V2 怎么装 / 国内镜像加速 / 反代 / 备份 |
+| [配置与接入](docs/configuration.md) | AI、短信等外部服务,**全部可选** |
+| [券商同步向导](docs/broker-sync-guide.md) | 富途 / 老虎凭据一步步获取 · 应用内同款 `/help/broker-sync` |
+
+**做给维护者自己的**
+
+| 文档 | 讲什么 |
+|---|---|
+| [QA case 库](docs/qa-cases.md) | 每个踩过的坑连同它的判据 —— 护栏名字能在这里查到出处 |
+| [视觉设计规范](docs/visual-spec.md) | 色彩轴 / 对比度底线 / 组件规格 / iOS 约束 |
+| [UED 审计](docs/ued-review-2026-07.md) | 全站双端截图审计 61 条 |
+
+**每版的设计文档**
+
+每个版本都有一份 **PRD**(用户视角的 FR)和一份**技术设计**(架构选型 + 2–3 个备选 + 取舍 + 没选的那些为什么不选),功能级的版本另有**静态预览原型**。
+每版做了什么、为什么那么做,都写在各自的文档里;这里只放入口,不复述。
+
+<details>
+<summary><b>展开全部 42 个版本</b>(v0.1 → v1.24)</summary>
+
+| 版本 | 文档 |
+|---|---|
+| `v1.24` | [PRD](prd/v1.24.md) · [技术设计](tech-design/v1.24.md) · [预览](preview/v1.24/) |
+| `v1.23` | [PRD](prd/v1.23.md) · [技术设计](tech-design/v1.23.md) · [预览](preview/v1.23/) |
+| `v1.22` | [PRD](prd/v1.22.md) · [技术设计](tech-design/v1.22.md) · [预览](preview/v1.22/) |
+| `v1.21` | [PRD](prd/v1.21.md) · [技术设计](tech-design/v1.21.md) · [预览](preview/v1.21/) |
+| `v1.20` | [PRD](prd/v1.20.md) · [技术设计](tech-design/v1.20.md) · [预览](preview/v1.20/) |
+| `v1.19` | [PRD](prd/v1.19.md) · [技术设计](tech-design/v1.19.md) · [预览](preview/v1.19/) |
+| `v1.18` | [PRD](prd/v1.18.md) · [技术设计](tech-design/v1.18.md) |
+| `v1.17` | [PRD](prd/v1.17.md) · [技术设计](tech-design/v1.17.md) · [预览](preview/v1.17/) |
+| `v1.16` | [PRD](prd/v1.16.md) · [技术设计](tech-design/v1.16.md) |
+| `v1.15` | [PRD](prd/v1.15.md) · [技术设计](tech-design/v1.15.md) · [预览](preview/v1.15/) |
+| `v1.14` | [PRD](prd/v1.14.md) · [技术设计](tech-design/v1.14.md) · [预览](preview/v1.14/) |
+| `v1.13` | [PRD](prd/v1.13.md) · [技术设计](tech-design/v1.13.md) · [预览](preview/v1.13/) |
+| `v1.12` | [PRD](prd/v1.12.md) · [技术设计](tech-design/v1.12.md) |
+| `v1.11` | [PRD](prd/v1.11.md) · [技术设计](tech-design/v1.11.md) |
+| `v1.10` | [PRD](prd/v1.10.md) · [技术设计](tech-design/v1.10.md) · [预览](preview/v1.10/) |
+| `v1.9` | [PRD](prd/v1.9.md) · [技术设计](tech-design/v1.9.md) · [预览](preview/v1.9/) |
+| `v1.8` | [PRD](prd/v1.8.md) · [技术设计](tech-design/v1.8.md) · [预览](preview/v1.8/) |
+| `v1.7` | [PRD](prd/v1.7.md) · [技术设计](tech-design/v1.7.md) |
+| `v1.6` | [PRD](prd/v1.6.md) · [技术设计](tech-design/v1.6.md) · [预览](preview/v1.6/) |
+| `v1.5` | [PRD](prd/v1.5.md) · [技术设计](tech-design/v1.5.md) · [预览](preview/v1.5/) |
+| `v1.4` | [PRD](prd/v1.4.md) · [技术设计](tech-design/v1.4.md) · [预览](preview/v1.4/) |
+| `v1.3` | [PRD](prd/v1.3.md) · [技术设计](tech-design/v1.3.md) · [预览](preview/v1.3/) |
+| `v1.2.2` | [PRD](prd/v1.2.2.md) · [技术设计](tech-design/v1.2.2.md) |
+| `v1.2` | [PRD](prd/v1.2.md) · [技术设计](tech-design/v1.2.md) · [预览](preview/v1.2/) |
+| `v1.1` | [PRD](prd/v1.1.md) · [技术设计](tech-design/v1.1.md) · [预览](preview/v1.1/) |
+| `v0.17` | [PRD](prd/v0.17.md) · [技术设计](tech-design/v0.17.md) · [预览](preview/v0.17/) |
+| `v0.16` | [PRD](prd/v0.16.md) · [技术设计](tech-design/v0.16.md) · [预览](preview/v0.16/) |
+| `v0.15` | [PRD](prd/v0.15.md) · [技术设计](tech-design/v0.15.md) · [预览](preview/v0.15/) |
+| `v0.14` | [PRD](prd/v0.14.md) · [技术设计](tech-design/v0.14.md) · [预览](preview/v0.14/) |
+| `v0.13` | [PRD](prd/v0.13.md) · [技术设计](tech-design/v0.13.md) · [预览](preview/v0.13/) |
+| `v0.12` | [PRD](prd/v0.12.md) · [技术设计](tech-design/v0.12.md) · [预览](preview/v0.12/) |
+| `v0.11` | [PRD](prd/v0.11.md) · [技术设计](tech-design/v0.11.md) · [预览](preview/v0.11/) |
+| `v0.10` | [PRD](prd/v0.10.md) · [技术设计](tech-design/v0.10.md) · [预览](preview/v0.10/) |
+| `v0.9` | [PRD](prd/v0.9.md) · [技术设计](tech-design/v0.9.md) · [预览](preview/v0.9/) |
+| `v0.8` | [PRD](prd/v0.8.md) · [技术设计](tech-design/v0.8.md) · [预览](preview/v0.8/) |
+| `v0.7` | [PRD](prd/v0.7.md) · [技术设计](tech-design/v0.7.md) · [预览](preview/v0.7/) |
+| `v0.6` | [PRD](prd/v0.6.md) · [技术设计](tech-design/v0.6.md) · [预览](preview/v0.6/) |
+| `v0.5` | [PRD](prd/v0.5.md) · [技术设计](tech-design/v0.5.md) · [预览](preview/v0.5/) |
+| `v0.4` | [PRD](prd/v0.4.md) · [技术设计](tech-design/v0.4.md) · [预览](preview/v0.4/) |
+| `v0.3` | [PRD](prd/v0.3.md) · [技术设计](tech-design/v0.3.md) · [预览](preview/v0.3/) |
+| `v0.2` | [PRD](prd/v0.2.md) · [技术设计](tech-design/v0.2.md) · [技术设计 · 体检](tech-design/v0.2-checkup.md) · [预览](preview/v0.2/) |
+| `v0.1` | [PRD](prd/v0.1.md) · [技术设计](tech-design/v0.1.md) · [预览](preview/v0.1/) |
+
+</details>
 
 ## 目录结构
 
@@ -411,12 +460,13 @@ financial-management/
 │   └── README.md                         # 部署手册
 ├── prd/                                  # 产品需求文档
 ├── tech-design/                          # 技术设计文档
-├── preview/                              # 静态 HTML 预览(v0.1 ~ v0.6 各版本卷)
+├── preview/                              # 静态 HTML 预览(各版本卷 · v0.1 ~ v1.24)
 ├── docs/qa-cases.md                      # QA case 库
 ├── icons/                                # 用户可替换的图标源 PNG
 └── scripts/
-    ├── qa-run.sh                         # 黑盒回归
-    └── qa-e2e.sh                         # 端到端真值校验
+    ├── qa-run.sh                         # 黑盒回归护栏(867 条)
+    ├── e2e/run.cjs                       # 端到端(真浏览器点 + 回库查真值)
+    └── release-shots.cjs                 # 发版截图(隐私模式默认开)
 ```
 
 ## 配置项

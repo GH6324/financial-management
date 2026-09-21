@@ -5764,6 +5764,30 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && log_ok "v1632-MANUAL(站内 /help/how-to-use + 新手卡 localStorage 一年 + 导航栏与填报页常驻入口 · 卡消失后入口仍在)" \
   || log_bad "v1632-MANUAL 缺件" "see HelpController(/help/how-to-use)· templates/help/how-to-use.html(须套 layout · 不得残留 PREVIEW 条)· fragments/_manual-hint.html(manualHintDismissedAt + 默认 display:none 防闪)· nav.html 至少 2 处入口(PC+移动)· entry/index.html 与 dashboard/index.html 挂卡 · entry-points.json 登记 id=manual · docs/how-to-use.md + how-to-record.md"
 
+# v1241-MANUAL-NO-RETIRED-DENIAL · 手册不许再声称一个【已经做了】的功能不存在。
+#
+#   手册比代码更容易烂,而烂法有两档:①「没写」——用户找不到,难受但无害;
+#   ②「主动否认」——手册白纸黑字告诉用户「这个不支持 / 我们不打算做」,而它就在菜单里。
+#   第二档会让人直接放弃去找,比不写更糟。
+#
+#   2026-09-21 实测:站内手册最后一次实质更新停在 v1.8,中间发了十六个版本。
+#   三份手册当时都还写着「不预置『餐饮』这类消费品类」「类目就这四个(内置)」,
+#   而 how-to-record.md 更直接:「我想看支出分类占比?**目前不支持**,在排期中」——
+#   那时消费分类树已经上线好几版,beta 上都建了 37 个类目了。
+#
+#   所以这条护栏钉的不是「有没有写新功能」(那没法机器判),而是
+#   **那几句已经被事实推翻的话不许再出现**。退役一句钉一句,零维护成本。
+MAN_HTML="$RD/src/main/resources/templates/help/how-to-use.html"
+MAN_DENIAL=""
+for pat in '不预置「餐饮」' '不预置「餐饮' '类目就这四个' '目前不支持,支出只到' '不打算告诉你.*餐饮占了几成'; do
+  for f in "$MAN_HTML" "$RD/docs/how-to-use.md" "$RD/docs/how-to-record.md"; do
+    grep -qE "$pat" "$f" 2>/dev/null && MAN_DENIAL="$MAN_DENIAL $(basename "$f"):「$pat」"
+  done
+done
+[ -z "$MAN_DENIAL" ] \
+  && log_ok "v1241-MANUAL-NO-RETIRED-DENIAL(手册没有再否认已发布的消费分类 / 支出分析)" \
+  || log_bad "v1241-MANUAL-NO-RETIRED-DENIAL 手册在否认一个已经做了的功能" "命中:$MAN_DENIAL —— 消费分类树与支出分析早已上线,手册不能再说「不预置」「就这四个」「目前不支持」"
+
 # v164-CHART-PARITY · dashboard 两图形态永远一致(用户反馈④)+ v1.6.11 窄屏改回环图
 #   诉求没变:「资产配置」与「按成员分布」不能一个环一个条。判断收成共用的 useBar(),
 #   而 useBar 在窄屏恒为 false → **窄屏两图必定同为环图**(用户反馈④与本次反馈的交集)。
@@ -5865,14 +5889,25 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && log_ok "v18-EXPENSE-DOC-4X(类注释 + 方法注释 + 页面 tooltip + how-to-record 四处都写明「与收入侧相反」)" \
   || log_bad "v18-EXPENSE-DOC-4X 缺一处" "ExpenseLedgerService 类注释 / FactViewServiceImpl.netInflowExpense / MetricExplainService tooltip / docs/how-to-record.md"
 
-# v18-MANUAL-B8 · 手册新增「支出构成」章 + 目录卡 + 组内节数
-{ grep -q 'id="b8"' "$RD/src/main/resources/templates/help/how-to-use.html" \
-  && grep -q 'href="#b8"' "$RD/src/main/resources/templates/help/how-to-use.html" \
-  && grep -q "选修 B · 看懂自己的钱</h2><span class=\"badge-opt\">8 节" "$RD/src/main/resources/templates/help/how-to-use.html" \
-  && grep -q "支出录入方式" "$RD/src/main/resources/templates/help/how-to-use.html" \
-  && [[ "$(grep -c 'class="toc-card"' "$RD/src/main/resources/templates/help/how-to-use.html")" == "25" ]]; } \
-  && log_ok "v18-MANUAL-B8(手册 B8 支出构成 + 目录卡 25 张 + 选修 B 计 8 节)" \
-  || log_bad "v18-MANUAL-B8 缺件" "how-to-use.html 需有 #b8 章 + 目录卡 + 「8 节」计数一致(目录卡应 25 张)"
+# v18-MANUAL-B8 · 手册的目录与章节必须一一对应(原来把卡数写死成 25)
+#
+#   2026-09-21 改判据:原来是 `目录卡 == 25`。它确实抓得到「加了章忘了加目录卡」,
+#   但也会在**正常加一章**时变红,而一条「做对事也会红」的护栏,下一个人多半是
+#   顺手把数字改大 —— 改完它就再也抓不到真正的漏配了。
+#   现在改成**两边互算**:目录卡数 == 带 id 的章节数,且每张卡的 #锚点都有对应 section。
+#   加章、删章都不用动这里,漏配一边立刻红。
+MAN_H="$RD/src/main/resources/templates/help/how-to-use.html"
+MAN_CARDS="$(grep -c 'class="toc-card"' "$MAN_H")"
+MAN_SECS="$(grep -cE '<section class="chapter ch" id="' "$MAN_H")"
+MAN_ORPHAN=""
+for a in $(grep -oE 'class="toc-card" href="#[a-z0-9]+"' "$MAN_H" | grep -oE '#[a-z0-9]+' | tr -d '#'); do
+  grep -q "<section class=\"chapter ch\" id=\"$a\"" "$MAN_H" || MAN_ORPHAN="$MAN_ORPHAN #$a"
+done
+{ grep -q 'id="b8"' "$MAN_H" && grep -q 'href="#b8"' "$MAN_H" \
+  && grep -q "支出录入方式" "$MAN_H" \
+  && [ "$MAN_CARDS" = "$MAN_SECS" ] && [ -z "$MAN_ORPHAN" ]; } \
+  && log_ok "v18-MANUAL-B8(手册目录与章节一一对应 · $MAN_CARDS 卡 / $MAN_SECS 章)" \
+  || log_bad "v18-MANUAL-B8 手册目录与章节对不上" "目录卡 $MAN_CARDS 张 / 章节 $MAN_SECS 个${MAN_ORPHAN:+ · 指向不存在的章:$MAN_ORPHAN} —— 加/删章时目录与正文要一起改"
 
 # v18-CF-SELECT · 收支两区的下拉是自研件,不是系统原生 select
 #   复用打标页/透视那套 lens-select(data-lsel):原生 <select> 留在 DOM 里(表单语义 + 无 JS 降级),
