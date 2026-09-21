@@ -149,7 +149,18 @@
   <!--/* ③ 砍得掉吗(FR-630~636)· 三分 + 常态月均 */-->
   <div class="mb-10" th:if="${expSplit != null}">
     <div class="flex items-baseline justify-between mb-3">
-      <h3 class="font-display text-xl font-medium">这些钱砍得掉吗</h3>
+      <div class="flex items-baseline gap-2 flex-wrap">
+        <h3 class="font-display text-xl font-medium">这些钱砍得掉吗</h3>
+        <!--/* 【窗口和基数必须写在脸上,不能只写在 ⓘ 里】——
+               这一块拆的是【近 12 期】的日常开支,而它正上方那条数字写的是【本期】日常开支,
+               两个数差着一个数量级。不标的话用户会拿下面的百分比去乘上面那个数。
+               同一个错我在 dashboard 上也犯过一次(三色条的基数没写),维护者两次都指出来了。 */-->
+        <span class="font-mono text-[10.5px] text-ink-subtle"
+              th:if="${expNormal != null}"
+              th:text="'近 ' + ${#lists.size(expNormal.periodIds())} + ' 期 · 日常开支'">近 12 期 · 日常开支</span>
+        <b class="font-mono text-[12px] tnum" data-priv
+           th:text="'¥' + ${#numbers.formatInteger(expSplit.totalBase(), 0, 'COMMA')}">¥105,550</b>
+      </div>
       <!--/* FR-634 · 刚性占比单独成指标,【不给好坏评价、不设阈值红绿灯】 */-->
       <span class="font-mono text-[11px] text-ink-soft">
         刚性占比 <b class="tnum" th:text="${expSplit.rigidPct()} + '%'">38.0%</b>
