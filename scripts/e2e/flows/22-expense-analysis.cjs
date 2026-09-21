@@ -119,6 +119,22 @@ module.exports = {
     await ui.assert(checked === false, '默认不勾(勾上才是例外)',
                     `实得 checked=${checked}`);
 
+    // ── 4.5 · dashboard 上的即时块要【找得到】────────────────────────────
+    report.section('4.5 · dashboard 本月支出分析(维护者追加)');
+
+    await ui.goto('/dashboard');
+    await ui.rendered('仪表盘');
+    /* 【必须是个有标题的整宽块】——
+       第一版做成「人赚」卡内的一条 5px 色带、半栏宽、没有标题,
+       维护者连问三次「放哪了」。做了但找不到 = 没做。
+       用 h3 断言而不是纯文本:有没有标题决定了它在页面结构里找不找得到。 */
+    await ui.count('h3:text-is("本月支出 · 砍得掉吗")', 1, 'dashboard 上是个有标题的独立块');
+    await ui.seesText('本月至今 · 日常开支', '窗口与基数写在脸上,不只藏在 ⓘ 里');
+    await ui.seesText('看近 12 期的完整分析', '给了去报表看完整分析的出口');
+    /* 口径必须与报表那一章【明确区分】:那里锚最近已定稿期,这里是本月至今。
+       不标的话同一个「刚性占比」两页给不同的数,用户无从判断哪个对。 */
+    await ui.seesText('这一块不给好坏评价', '不给好坏评价 —— 花钱没有对错');
+
     // ── 5 · 开关关掉之后【别处也一起消失】(FR-674)──────────────────────
     report.section('5 · 总开关级联(FR-674)');
 
@@ -151,6 +167,7 @@ module.exports = {
     await ui.goto('/dashboard');
     await ui.rendered('仪表盘(开关关闭后)');
     await ui.notSeesText('按常态月均', '紧急储备 tooltip 里的并列读数也一起没了');
+    await ui.count('h3:text-is("本月支出 · 砍得掉吗")', 0, 'dashboard 上那块也一起没了');
 
     const cfgOff = db.one(
       `SELECT value_text FROM family_runtime_config

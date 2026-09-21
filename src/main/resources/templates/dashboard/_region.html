@@ -365,59 +365,6 @@
             <div class="font-mono text-[10px] uppercase text-ink-soft tracking-wider">人赚 · 你主动存下的</div>
             <div class="font-display text-2xl mt-1 tnum" th:classappend="${cashflowSplit.renPos()} ? ' num-pos' : ' num-neg'" data-priv th:text="${cfRenLabel}">+¥12,000</div>
             <p class="font-mono text-[11px] text-ink-subtle mt-2">本期收入 <b class="num-pos" data-priv th:text="${cfIncomeLabel}">¥38,000</b> − 支出 <b class="num-neg" data-priv th:text="${cfExpenseLabel}">¥26,000</b></p>
-            <!--/* v1.24 · 本月至今的支出三分。
-                   【不是新组件,是「人赚」这张卡里的一行】—— dashboard 已经很满,
-                   而这件事回答的正是用户看「人赚」时的下一个问题:
-                   「这个月支出里,有多少是躲不掉的?」
-
-                   【口径期必须写出来】:报表页那一章锚的是最近【已定稿】期(回头看),
-                   这里是【本月至今】、含还在填的那一期(往前看)。
-                   同一个「刚性占比」在两页给不同的数是正常的,不标期就变成了 bug。 */-->
-            <div th:if="${liveSplit != null}" class="mt-3 pt-3 border-t border-rule-soft">
-              <div class="flex items-baseline gap-2 mb-1.5">
-                <span class="font-mono text-[10px] uppercase text-ink-soft tracking-wider">本月至今 · 砍得掉吗</span>
-                <!--/* 【必须把基数写出来】—— 上面那行「支出 ¥X」是口径 A(含还贷 / 利息 / 转账给亲属),
-                       而这条三色条拆的是【日常开支】(只算消费),基数比它小。
-                       两个数上下挨着、中间不说明的话,用户拿百分比去乘上面那个支出必然对不上,
-                       然后以为我们算错了 —— 报表页那一版刚踩过同一个坑(指标名没写清口径)。 */-->
-                <span class="font-mono text-[10px] text-ink-subtle">其中日常开支</span>
-                <b class="font-mono text-[11px] tnum" data-priv
-                   th:text="'¥' + ${#numbers.formatInteger(liveSplit.totalBase(), 0, 'COMMA')}">¥4,200</b>
-                <th:block th:insert="~{fragments/_kpi-info :: i(
-                  '本月【到现在为止】已记的日常开支,按刚性 / 弹性 / 一次性拆开。
-【基数不是上面那个「支出」】:上面那行是家庭支出总额(含还贷 / 利息 / 转账给亲属),
-这里只算日常开支,所以它【本来就】比上面小。下面的百分比都是按日常开支算的。
-【和报表页那一章不是同一批账期】:那里是近 12 个已定稿期(常态是什么样),
-这里是本月至今、含还在填的这一期(这个月走到哪了)。所以两处的占比不一样是正常的。
-只算消费,还贷 / 利息 / 转账给亲属不在里面。
-某一档退款多于消费时,它在条上画不出来(条没有负宽度),但钱仍然算进合计 ——
-图例里会标「退款多于消费」。',
-                  null)}"/>
-              </div>
-              <div class="flex w-full h-5 rounded-sm overflow-hidden">
-                <div th:each="p : ${liveSplit.parts()}"
-                     class="flex items-center justify-center font-mono text-[9px] tnum overflow-hidden"
-                     th:if="${p.inBar()}"
-                     th:style="'width:' + ${p.barPct()} + '%;background:' + ${p.color()} + ';color:' + ${p.ink()}
-                               + (${p.hatched()} ? ';background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.45) 0 1.5px,transparent 1.5px 3px)' : '')"
-                     th:title="${p.nature().label} + ' · ' + ${p.nature().hint} + ' · ' + ${p.pct()} + '%'">
-                  <span th:if="${p.barPct() >= 12}" th:text="${p.barPct()} + '%'">38%</span>
-                </div>
-              </div>
-              <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
-                <span th:each="p : ${liveSplit.parts()}" class="flex items-center gap-1 font-mono text-[10px]">
-                  <i class="inline-block w-2 h-2 rounded-[1px]" th:style="'background:' + ${p.color()}"></i>
-                  <span th:text="${p.nature().label}">刚性</span>
-                  <span class="tnum text-ink-subtle" th:text="${p.pct()} + '%'">38%</span>
-                  <!--/* 负档在条上画不出来(条没有负宽度),图例里却有个负数 ——
-                         不标一句的话用户会以为图画错了。不取绝对值:
-                         那会把一笔退款画成一笔消费,而且不报错。 */-->
-                  <span th:unless="${p.inBar()}" class="text-[9px] text-ink-subtle">· 退款多于消费</span>
-                </span>
-                <span style="flex:1"></span>
-                <a th:href="@{/reports(range=1M)}" class="font-mono text-[10px] text-brass-deep hover:underline">看完整分析 →</a>
-              </div>
-            </div>
             <p class="font-mono text-[10px] text-ink-subtle mt-1" th:text="${cashflowSplit.renPos()} ? '你能控制的那部分:挣得多、花得少,这个数就大。' : '这月花得比挣得多,人赚为负。'">你能控制的那部分</p>
           </div>
           <div class="p-4" style="background:var(--card-soft);border-left:3px solid var(--brass-deep)">
@@ -428,6 +375,70 @@
           </div>
         </div>
         <p class="font-mono text-[10px] text-ink-subtle mt-3">ΔNW = 人赚 + 钱赚 · 与上面「本月资产收益」同源(那个 KPI 剔除的"收入"就是这里的人赚)。</p>
+
+        <!--/* ═══ v1.24 · 本月支出 · 砍得掉吗 ═══
+               【为什么是整宽独立块而不是塞在「人赚」那半栏里】
+               第一版我把它做成「人赚」卡内的一条 5px 色带,结果:全页 5601px 里它在 y=1424、
+               宽度只有半栏、没有标题 —— 维护者连问三次「放哪了」。
+               那是把 PRD FR-654(dashboard 不加新组件)守过头了:他已经明确推翻那条,
+               而我的「克制」把功能做成了看不见。做了但找不到 = 没做。
+
+               口径:报表那一章锚【最近已定稿期】(回头看常态),这里是【本月至今】
+               含还在填的那一期(往前看这个月走到哪)。两处的占比不一样是正常的,
+               所以窗口与基数都写在脸上。 */-->
+        <div th:if="${liveSplit != null}" class="border-t border-rule mt-5 pt-4">
+          <div class="flex items-baseline justify-between flex-wrap gap-x-3 gap-y-1 mb-2.5">
+            <div class="flex items-baseline gap-2 flex-wrap">
+              <h3 class="font-display text-lg font-medium">本月支出 · 砍得掉吗</h3>
+              <span class="font-mono text-[10px] text-ink-subtle">本月至今 · 日常开支</span>
+              <b class="font-mono text-[13px] tnum" data-priv
+                 th:text="'¥' + ${#numbers.formatInteger(liveSplit.totalBase(), 0, 'COMMA')}">¥4,200</b>
+              <th:block th:insert="~{fragments/_kpi-info :: i(
+                '本月【到现在为止】已记的日常开支,按刚性 / 弹性 / 一次性拆开。
+【基数不是上面那个「支出」】:上面那行是家庭支出总额(含还贷 / 利息 / 转账给亲属),
+这里只算日常开支,所以它【本来就】比上面小。下面的百分比都是按日常开支算的。
+【也不是报表那一章的数】:那里锚最近已定稿期、看近 12 期的常态;这里是本月至今、
+含还在填的这一期。两处占比不一样是正常的。
+某一档退款多于消费时,它在条上画不出来(条没有负宽度),但钱仍然算进合计 ——
+图例里会标「退款多于消费」。',
+                null)}"/>
+            </div>
+            <a th:href="@{/reports(range=1M)}"
+               class="font-mono text-[10.5px] text-brass-deep hover:underline">看近 12 期的完整分析 →</a>
+          </div>
+
+          <div class="flex w-full h-8 rounded-sm overflow-hidden">
+            <div th:each="p : ${liveSplit.parts()}"
+                 class="flex items-center justify-center font-mono text-[10px] tnum overflow-hidden"
+                 th:if="${p.inBar()}"
+                 th:style="'width:' + ${p.barPct()} + '%;background:' + ${p.color()} + ';color:' + ${p.ink()}
+                           + (${p.hatched()} ? ';background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.45) 0 1.5px,transparent 1.5px 3px)' : '')"
+                 th:title="${p.nature().label} + ' · ' + ${p.nature().hint} + ' · ' + ${p.pct()} + '%'">
+              <span th:if="${p.barPct() >= 10}" th:text="${p.barPct()} + '%'">38%</span>
+            </div>
+          </div>
+
+          <!--/* 图例带【金额】不只带百分比 —— 只给百分比的话用户还得自己去乘基数,
+                 而那正是他会算错的时候。 */-->
+          <div class="flex flex-wrap gap-x-5 gap-y-1 mt-2">
+            <span th:each="p : ${liveSplit.parts()}" class="flex items-center gap-1.5 font-mono text-[11px]">
+              <i class="inline-block w-2.5 h-2.5 rounded-[1px]" th:style="'background:' + ${p.color()}"></i>
+              <span th:text="${p.nature().label}">刚性</span>
+              <span class="tnum text-ink-subtle" th:text="${p.pct()} + '%'">38%</span>
+              <span class="tnum" data-priv
+                    th:text="'¥' + ${#numbers.formatInteger(p.amountBase(), 0, 'COMMA')}">¥1,600</span>
+              <!--/* 负档在条上画不出来(条没有负宽度),图例里却有个负数 ——
+                     不标一句的话用户会以为图画错了。不取绝对值:
+                     那会把一笔退款画成一笔消费,而且不报错。 */-->
+              <span th:unless="${p.inBar()}" class="text-[9.5px] text-ink-subtle">· 退款多于消费</span>
+            </span>
+          </div>
+
+          <p class="font-mono text-[10px] text-ink-subtle mt-2">
+            刚性 = 少了它日子过不下去的(房贷物业 / 水电 / 学费 / 看病)·
+            一次性 = 这个月有、下个月没有的。<b>这一块不给好坏评价</b> —— 占比高只说明可压缩空间小。
+          </p>
+        </div>
       </div>
 
       <!-- v1.2 · 归因复盘(卡内展开 · HTMX 滚近才加载,不拖首屏)-->
