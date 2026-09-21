@@ -109,6 +109,42 @@ class ExpenseSectionViewTest {
         assertThat(d.explain()).contains("第二层多出").contains("还贷");
     }
 
+    // ───────────── 负档:退款多于消费的那一档(beta 实测撞到) ─────────────
+
+    /**
+     * 某一档退款多于消费时,三分条<b>不能</b>用算术占比当宽度。
+     *
+     * <p>beta 实测:一次性那一档因为退款冲正成了 −3.6%,弹性算出 103.2%
+     * —— 三个数学上都对、加起来正好 100%,但拿去当条宽就是
+     * <b>负段画不出来 + 正段溢出容器</b>。v1.22 在饼图上解决过同一个问题。</p>
+     *
+     * <p><b>不许取绝对值</b>:那会把一笔退款画成一笔消费,而且不报错 ——
+     * 这个项目有过明确的教训(改写比拒绝危险,因为它无声)。</p>
+     */
+    @Test
+    @DisplayName("负档:pct 保留真值(三档和 = 100%),barPct 按正值归一且负档不进条")
+    void negativePartKeepsTruePctButDrawsNoBar() {
+        var svc2 = new NormalExpenseService(null, null, null, null, null);
+        // 直接验 record 的契约(split() 的取数要查库,这里只钉「两个百分比各管什么」)
+        var rigid = new NormalExpenseService.SplitPart(
+                com.family.finance.domain.expense.ExpenseNature.RIGID,
+                new BigDecimal("40"), new BigDecimal("0.4"), new BigDecimal("0.4"), true,
+                1, "#000", "#fff", false);
+        var oneOff = new NormalExpenseService.SplitPart(
+                com.family.finance.domain.expense.ExpenseNature.ONE_OFF,
+                new BigDecimal("-360"), new BigDecimal("-3.6"), BigDecimal.ZERO, false,
+                1, "#000", "#000", true);
+        assertThat(oneOff.inBar()).as("负档不进条 —— 条没有负宽度").isFalse();
+        assertThat(oneOff.barPct()).as("负档宽度 0,不是绝对值").isEqualByComparingTo("0");
+        assertThat(oneOff.pct()).as("图例里仍是真实的负占比,不许美化").isEqualByComparingTo("-3.6");
+        assertThat(rigid.inBar()).isTrue();
+
+        var split = new NormalExpenseService.Split(
+                java.util.List.of(rigid, oneOff), new BigDecimal("10000"), 0, new BigDecimal("0.4"));
+        assertThat(split.refundedParts()).as("页面靠它决定要不要出「退款多于消费」那句说明")
+                .containsExactly(oneOff);
+    }
+
     // ───────────────────────── FR-673 · 三种形态 ─────────────────────────
 
     @Test

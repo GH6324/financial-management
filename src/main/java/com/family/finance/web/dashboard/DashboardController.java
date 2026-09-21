@@ -238,6 +238,23 @@ public class DashboardController {
         int cfTotal = memberMapper.countActiveByFamily(me.getFamilyId());
         CashflowSplitView cashflowSplit = CashflowSplitView.of(kpis.netWorthDelta(), cfBreak, cfFilled, cfTotal,
                 kpis.openingBaselineLast());   // v0.13 · 开账基线单列第三项
+
+        /* v1.24 · 【本月至今】的支出三分 —— 挂在「人赚」卡里,不新建组件。
+         *
+         * 为什么 dashboard 也要有:报表页那一章锚的是【最近已定稿期】,
+         * 而进行中的这个月在那里根本看不到 —— 用户想知道「这个月到现在花得怎么样」
+         * 的时候,报表给不了答案。
+         *
+         * 【两页口径不同,必须在页面上标出来】(联动链 L12):
+         *   报表  = 近 12 个已定稿期(回头看:常态是什么样)
+         *   这里  = 本月至今,含还在填的那一期(往前看:这个月走到哪了)
+         * 不标的话,同一个「刚性占比」在两页给出不同的数,用户无从判断哪个对。
+         *
+         * 开关关着 / 没有逐笔数据 → split() 返回 empty → 这一行整个不出现。 */
+        if (slice.lastPeriodId() != null) {
+            normalExpenseService.split(me.getFamilyId(), java.util.List.of(slice.lastPeriodId()))
+                    .ifPresent(sp -> model.addAttribute("liveSplit", sp));
+        }
         // v1.23 · 双活跃窗口下补录期与进行期**都还在填**,两个点都要标 live
         java.util.Set<Long> livePeriodIds = periodMapper.findRecordableOpen(me.getFamilyId()).stream()
                 .map(Period::getId).collect(java.util.stream.Collectors.toSet());

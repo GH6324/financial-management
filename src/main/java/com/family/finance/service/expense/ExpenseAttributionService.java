@@ -60,13 +60,21 @@ public class ExpenseAttributionService {
      */
     public record Bar(String label, BigDecimal from, BigDecimal to, BigDecimal delta,
                       String pctText, boolean oneOff, boolean merged, int mergedCount,
-                      BigDecimal widthPct) {
+                      BigDecimal widthPct, List<Bar> members) {
 
         public boolean up() { return delta.signum() > 0; }
 
         Bar withWidth(BigDecimal w) {
-            return new Bar(label, from, to, delta, pctText, oneOff, merged, mergedCount, w);
+            return new Bar(label, from, to, delta, pctText, oneOff, merged, mergedCount, w, members);
         }
+
+        /**
+         * 「其他 N 项合计」标签里的 N,必须等于真的被合并进来的成员数。
+         *
+         * <p>看着多余,但它防的是一类很具体的错:top-N 下标算错时标签写「其他 3 项」
+         * 而 members 里躺着 5 个 —— 用户点开看到 5 行,而那个「3」是页面上唯一能核对的地方。</p>
+         */
+        public boolean countMatchesMembers() { return !merged || mergedCount == members.size(); }
     }
 
     /**
@@ -150,7 +158,7 @@ public class ExpenseAttributionService {
             BigDecimal d = t.subtract(f);
             if (d.abs().compareTo(NOISE) < 0) continue;
             all.add(new Bar(labelOf(k, names), f, t, d, pctText(f, t),
-                    ONE_OFF_KEY.equals(k), false, 0, BigDecimal.ZERO));
+                    ONE_OFF_KEY.equals(k), false, 0, BigDecimal.ZERO, List.of()));
         }
         all.sort((a, b) -> b.delta().abs().compareTo(a.delta().abs()));
         if (all.size() <= TOP_N) return withWidths(all);
@@ -159,8 +167,10 @@ public class ExpenseAttributionService {
         List<Bar> tail = all.subList(TOP_N, all.size());
         BigDecimal f = BigDecimal.ZERO, t = BigDecimal.ZERO;
         for (Bar b : tail) { f = f.add(b.from()); t = t.add(b.to()); }
+        /* 【把成员带上】—— 只给一个合计数,用户没法知道是哪几项在动,
+         * 而「其他」里藏着的往往正是他想找的那一笔。成员已经按 |差额| 排好序了。 */
         head.add(new Bar("其他 " + tail.size() + " 项合计", f, t, t.subtract(f),
-                pctText(f, t), false, true, tail.size(), BigDecimal.ZERO));
+                pctText(f, t), false, true, tail.size(), BigDecimal.ZERO, List.copyOf(tail)));
         return withWidths(head);
     }
 

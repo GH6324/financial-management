@@ -576,13 +576,17 @@ public class ReportsController {
         // 「我关了支出分析,怎么别处还在冒常态月均」是最让人困惑的一种半开。
         boolean analysisOn = normalExpenseService.enabled(me.getFamilyId());
         if (analysisOn) {
-            model.addAttribute("expWaterfall", expenseAttribution.waterfall(me.getFamilyId(), anchor));
-            normalExpenseService.normal(me.getFamilyId())
-                    .ifPresent(n -> {
-                        model.addAttribute("expNormal", n);
-                        normalExpenseService.split(me.getFamilyId(), n.periodIds())
-                                .ifPresent(sp -> model.addAttribute("expSplit", sp));
-                    });
+            /* 【一次算完、一处引用】—— waterfall() 与 normal() 各自都要查库,
+             * 而下面的 ⓘ 计算串也要用同一份结果。分开调两遍不只是多一次往返,
+             * 更糟的是两次之间数据可能不同(并发写),于是 ⓘ 里的数和卡片上的数对不上。 */
+            var wf = expenseAttribution.waterfall(me.getFamilyId(), anchor);
+            model.addAttribute("expWaterfall", wf);
+            var normalOpt = normalExpenseService.normal(me.getFamilyId());
+            normalOpt.ifPresent(n -> {
+                model.addAttribute("expNormal", n);
+                normalExpenseService.split(me.getFamilyId(), n.periodIds())
+                        .ifPresent(sp -> model.addAttribute("expSplit", sp));
+            });
             model.addAttribute("expSeries", normalExpenseService.series(me.getFamilyId()));
             model.addAttribute("expOneOffColor", com.family.finance.service.expense.ExpensePalette
                     .of(com.family.finance.domain.expense.ExpenseNature.ONE_OFF));
@@ -616,6 +620,40 @@ public class ReportsController {
             model.addAttribute("expPieSlices", expenseSectionView.topSlices(catSlices));
             model.addAttribute("expShape", expenseSectionView.shapeOf(true, true,
                     catRoll.stream().mapToInt(r -> r.rowCount()).sum()));
+
+            /* v0.5.3 的规矩:每个 ⓘ 除了口径文字,还要给【服务端按当前币种算好的真实数值串】。
+             * 只给公式不给数,用户还是得自己去别处凑数字对账 —— 那正是他会算错的时候。 */
+            if (wf.available()) {
+                model.addAttribute("expCaliberCalc",
+                        "锚期 " + wf.toLabel() + " 日常开支 " + money(requestedCurrency, wf.toTotal())
+                        + " · 与下面第二层的合计是同一个数");
+                model.addAttribute("expDeltaCalc",
+                        wf.fromLabel() + " " + money(requestedCurrency, wf.fromTotal())
+                        + " → " + wf.toLabel() + " " + money(requestedCurrency, wf.toTotal())
+                        + " = " + money(requestedCurrency, wf.delta()));
+            }
+            normalOpt.ifPresent(n -> {
+                int k = n.periodIds().size();
+                model.addAttribute("expAvgCalc",
+                        k + " 个已定稿账期的支出总额 ÷ " + k + " = "
+                        + money(requestedCurrency, n.averageBase()));
+                model.addAttribute("expNormalCalc",
+                        "同样 " + k + " 期 · 剔掉 " + n.oneOffCount() + " 笔一次性("
+                        + money(requestedCurrency, n.oneOffTotalBase()) + ")后 ÷ " + k + " = "
+                        + money(requestedCurrency, n.normalBase())
+                        + " · 与月均支出的差 " + money(requestedCurrency, n.expectedGap()));
+                normalExpenseService.split(me.getFamilyId(), n.periodIds()).ifPresent(sp -> {
+                    java.math.BigDecimal rigid = java.math.BigDecimal.ZERO;
+                    for (var part : sp.parts()) {
+                        if (part.nature() == com.family.finance.domain.expense.ExpenseNature.RIGID) {
+                            rigid = rigid.add(part.amountBase());
+                        }
+                    }
+                    model.addAttribute("expRigidCalc",
+                            "刚性 " + money(requestedCurrency, rigid) + " ÷ 日常开支合计 "
+                            + money(requestedCurrency, sp.totalBase()) + " = " + sp.rigidPct() + "%");
+                });
+            });
         }
         model.addAttribute("acctMetrics", acctMetrics);
         model.addAttribute("benchmarkByAccount", benchmarkByAccount);

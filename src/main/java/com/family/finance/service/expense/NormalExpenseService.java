@@ -134,8 +134,26 @@ public class NormalExpenseService {
     // FR-630/631/634 · 三分(刚性 / 弹性 / 一次性)
     // ══════════════════════════════════════════════════════════════════════════
 
-    /** 三分里的一段 */
+    /**
+     * 三分里的一段。
+     *
+     * @param pct    这一段占<b>算术合计</b>的比例 —— 可能是负的(那一档退款多于消费),
+     *               三段的 pct 加起来恒等于 100%。图例显示它,因为它是<b>事实</b>。
+     * @param barPct 画条用的宽度,按<b>正值合计</b>归一 —— 负段宽度 0。
+     * @param inBar  这一段进不进条。合计 ≤ 0 的段不进(条没有负宽度),但它仍然<b>进总额</b>。
+     *
+     * <h3>为什么要两个百分比</h3>
+     *
+     * <p>beta 实测:某个月一次性那一档因为退款冲正成了 −3.6%,于是弹性那一档算出 103.2%
+     * —— 三个数学上都对、加起来正好 100%,但拿去当条宽就是<b>负段画不出来 + 正段溢出容器</b>。
+     * v1.22 在饼图上解决过完全同一个问题(负值组不进扇形、但仍进总额),
+     * 这里是同一条规矩的第二处落点。</p>
+     *
+     * <p><b>不能取绝对值</b>:那会把一笔退款画成一笔消费,而且无声 ——
+     * 这个项目有过明确的教训(取绝对值比直接拒收更糟,因为它不报错)。</p>
+     */
     public record SplitPart(ExpenseNature nature, BigDecimal amountBase, BigDecimal pct,
+                            BigDecimal barPct, boolean inBar,
                             int itemCount, String color, String ink, boolean hatched) {}
 
     /**
@@ -156,6 +174,16 @@ public class NormalExpenseService {
          */
         public boolean renderable(int totalRows) {
             return totalRows > 0 && unclassifiedCount * 10 < totalRows * 9;
+        }
+
+        /**
+         * 有没有哪一档是净退款(合计 ≤ 0)。
+         *
+         * <p>有的话条上画不出它,页面必须<b>说出来</b> —— 否则用户看到图例里
+         * 「一次性 −3.6%」而条上找不到对应的段,只会以为图画错了。</p>
+         */
+        public List<SplitPart> refundedParts() {
+            return parts.stream().filter(p -> !p.inBar()).toList();
         }
     }
 
@@ -181,13 +209,21 @@ public class NormalExpenseService {
         }
         if (total.signum() == 0) return Optional.empty();
 
+        // 条宽按【正值合计】归一 —— 负的那一档没有宽度可画,
+        // 但它照样进 total、照样在图例里显示真实的负占比。
+        BigDecimal positiveTotal = BigDecimal.ZERO;
+        for (BigDecimal v : amt.values()) if (v.signum() > 0) positiveTotal = positiveTotal.add(v);
+
         List<SplitPart> parts = new ArrayList<>();
         // 固定顺序:刚性 → 弹性 → 一次性。不按金额排 —— 这是一根【轴】,
         // 顺序本身就是信息(压不动 → 压得动 → 离轴),按金额排会让它每个月换位置。
         for (ExpenseNature n : List.of(ExpenseNature.RIGID, ExpenseNature.FLEX, ExpenseNature.ONE_OFF)) {
             BigDecimal v = amt.getOrDefault(n, BigDecimal.ZERO);
             if (v.signum() == 0 && cnt.getOrDefault(n, 0) == 0) continue;
-            parts.add(new SplitPart(n, v, pct(v, total), cnt.getOrDefault(n, 0),
+            boolean inBar = v.signum() > 0;
+            parts.add(new SplitPart(n, v, pct(v, total),
+                    inBar ? pct(v, positiveTotal) : BigDecimal.ZERO, inBar,
+                    cnt.getOrDefault(n, 0),
                     ExpensePalette.of(n), ExpensePalette.inkOn(n), ExpensePalette.hatched(n)));
         }
         return Optional.of(new Split(parts, total, unclassified,

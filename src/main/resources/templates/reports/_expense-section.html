@@ -41,16 +41,35 @@
          所以它从章节开头挪到了中段。
      ═══════════════════════════════════════════════════════════════════ */-->
 
-  <!--/* ① 花了多少 · 比上期(FR-624)· 数字条 */-->
+  <!--/* ① 花了多少 · 比上期(FR-624)· 数字条
+         【名字必须写「日常开支」不能写「支出」】——
+         这个数只累加 category_code='consumption' 的行,还贷 / 利息 / 转账给亲属都不在里面。
+         而同一块下面的「月均支出」是口径 A(全部 EXPENSE)。
+         两个不同口径的数并排、名字都叫「支出」,用户拿它们对账必然对不上,
+         然后以为我们算错了 —— 这正是合并前那两个 section 让人困惑的同一类问题。 */-->
   <div th:if="${expWaterfall != null and expWaterfall.available()}"
        class="flex flex-wrap items-baseline gap-x-6 gap-y-2 mb-8 pb-5 border-b border-rule-soft">
     <div>
-      <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">本期支出</div>
+      <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">
+        本期日常开支
+        <th:block th:insert="~{fragments/_kpi-info :: i(
+          '锚期这一期的【日常开支】合计 —— 只算消费,还贷 / 利息支出 / 转账给亲属都不在里面。
+所以它【本来就】比下面那个「月均支出」的口径小:后者是家庭支出总额,与储蓄率同源。
+这个数等于下面第二层「其中 · 日常开支 … 花在哪」里的合计,两者是同一个数。',
+          ${expCaliberCalc})}"/>
+      </div>
       <div class="font-mono text-2xl tnum" data-priv
            th:text="${#numbers.formatDecimal(expWaterfall.toTotal(), 1, 'COMMA', 0, 'POINT')}">12,400</div>
     </div>
     <div>
-      <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">比上期</div>
+      <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">
+        比上期
+        <th:block th:insert="~{fragments/_kpi-info :: i(
+          '本期日常开支 − 上期日常开支。正数(红)= 这个月多花了,负数(绿)= 少花了。
+「上期」= 起始日严格早于本期的那些账期里最晚的一个,与它关没关账无关 ——
+补录一期历史账期不会把它挤掉。上期只填了总额没有分类时,这一段整个不画(拆不开)。',
+          ${expDeltaCalc})}"/>
+      </div>
       <div class="font-mono text-lg tnum" data-priv
            th:classappend="${expWaterfall.delta().signum() > 0} ? 'text-rust' : 'text-forest'"
            th:text="${(expWaterfall.delta().signum() > 0 ? '+' : '')
@@ -95,6 +114,24 @@
         <div class="w-14 shrink-0 text-right font-mono text-[10px] text-ink-subtle"
              th:text="${b.pctText()}">+18%</div>
       </div>
+      <!--/* 「其他 N 项合计」那一条要能点开 —— 服务端本来就把被合并的成员带着了,
+             不渲染的话用户只看得到一个合计数,没法知道是哪几项在动。 */-->
+      <details th:each="b : ${expWaterfall.bars()}" th:if="${b.merged()}" class="ml-28 -mt-1">
+        <summary class="font-mono text-[9px] text-brass-deep cursor-pointer list-none"
+                 th:text="'拆开这 ' + ${b.mergedCount()} + ' 项 →'">拆开这 4 项 →</summary>
+        <div class="pt-1">
+          <div th:each="m : ${b.members()}" class="flex items-center gap-2 py-0.5 text-[11.5px]">
+            <span th:text="${m.label()}">文化休闲</span>
+            <span style="flex:1"></span>
+            <span class="font-mono text-[11px] tnum" data-priv
+                  th:classappend="${m.delta().signum() > 0} ? 'text-rust' : 'text-forest'"
+                  th:text="${(m.delta().signum() > 0 ? '+' : '')
+                            + #numbers.formatDecimal(m.delta(), 1, 'COMMA', 0, 'POINT')}">+120</span>
+            <span class="w-14 text-right font-mono text-[10px] text-ink-subtle"
+                  th:text="${m.pctText()}">+8%</span>
+          </div>
+        </div>
+      </details>
       <!--/* FR-623 · 一次性单独成段,紧挨着标注 —— 这是把「一次性」和「常态月均」串起来的那一笔。
              【只在真有一次性段时才说】—— 瀑布里没有斜纹段却写着「斜纹段 = 一次性」,
              是一句用不上的话;这种噪音多几条,用户就开始整段跳过不读了。 */-->
@@ -116,6 +153,11 @@
       <!--/* FR-634 · 刚性占比单独成指标,【不给好坏评价、不设阈值红绿灯】 */-->
       <span class="font-mono text-[11px] text-ink-soft">
         刚性占比 <b class="tnum" th:text="${expSplit.rigidPct()} + '%'">38.0%</b>
+        <th:block th:insert="~{fragments/_kpi-info :: i(
+          '近 12 期的刚性日常开支 ÷ 日常开支合计。刚性 = 少了它日子过不下去的那些(房贷物业、水电、学费、看病)。
+【这个数没有好坏】—— 占比高只说明现金流的可压缩空间小,不说明日子过得差。
+所以这里不设阈值、不给红绿灯:花钱没有对错。',
+          ${expRigidCalc})}"/>
       </span>
     </div>
 
@@ -126,10 +168,11 @@
              读不到数字的段仍然有 title(悬停可看)+ 下面图例里的完整金额。 */-->
       <div th:each="p : ${expSplit.parts()}"
            class="flex items-center justify-center font-mono text-[10px] tnum overflow-hidden"
-           th:style="'width:' + ${p.pct()} + '%;background:' + ${p.color()} + ';color:' + ${p.ink()}
+           th:if="${p.inBar()}"
+                     th:style="'width:' + ${p.barPct()} + '%;background:' + ${p.color()} + ';color:' + ${p.ink()}
                      + (${p.hatched()} ? ';background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.45) 0 1.5px,transparent 1.5px 3px)' : '')"
            th:title="${p.nature().label} + ' · ' + ${p.nature().hint} + ' · ' + ${p.pct()} + '%'">
-        <span th:if="${p.pct() >= 8}" th:text="${p.pct()} + '%'">38%</span>
+        <span th:if="${p.barPct() >= 8}" th:text="${p.barPct()} + '%'">38%</span>
       </div>
     </div>
     <div class="flex flex-wrap gap-x-5 gap-y-1 mb-4">
@@ -137,6 +180,7 @@
         <i class="inline-block w-2.5 h-2.5 rounded-[1px]" th:style="'background:' + ${p.color()}"></i>
         <span th:text="${p.nature().label}">刚性</span>
         <span class="tnum text-ink-subtle" th:text="${p.pct()} + '%'">38%</span>
+        <span th:unless="${p.inBar()}" class="text-[9px] text-ink-subtle">· 退款多于消费</span>
         <span class="tnum text-ink-soft" data-priv
               th:text="${#numbers.formatDecimal(p.amountBase(), 1, 'COMMA', 0, 'POINT')}">4,700</span>
       </span>
@@ -146,12 +190,28 @@
     <div th:if="${expNormal != null}"
          class="flex flex-wrap items-baseline gap-x-8 gap-y-2 p-3 border border-rule-soft rounded-sm">
       <div>
-        <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">月均支出</div>
+        <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">
+          月均支出
+          <th:block th:insert="~{fragments/_kpi-info :: i(
+            '近 12 个【已定稿】账期的家庭支出总额 ÷ 期数。含还贷 / 利息 / 转账给亲属 ——
+与储蓄率、紧急储备、FIRE 目标用的是【同一个数】,这一版一个字节都没动它。
+进行中的账期不算进来:半个月的数据当整月会让这个数凭空变低,
+而紧急储备月数 = 流动资产 ÷ 它,跟着一起虚高。',
+            ${expAvgCalc})}"/>
+        </div>
         <div class="font-mono text-lg tnum" data-priv
              th:text="${#numbers.formatDecimal(expNormal.averageBase(), 1, 'COMMA', 0, 'POINT')}">10,300</div>
       </div>
       <div>
-        <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">常态月均</div>
+        <div class="font-mono text-[9px] tracking-[.12em] uppercase text-ink-subtle">
+          常态月均
+          <th:block th:insert="~{fragments/_kpi-info :: i(
+            '(同一批 12 期的支出总额 − 这 12 期里的一次性支出)÷ 期数。
+【分母和「月均支出」是同一批账期】,所以两个数相减恰好等于「一次性合计 ÷ 期数」——
+对不上就是算错了,不是四舍五入。
+一次性 = 类目性质是一次性,或者这一笔被勾了「这笔是一次性的」。',
+            ${expNormalCalc})}"/>
+        </div>
         <div class="font-mono text-lg tnum" data-priv
              th:text="${#numbers.formatDecimal(expNormal.normalBase(), 1, 'COMMA', 0, 'POINT')}">9,100</div>
       </div>
@@ -164,6 +224,17 @@
         这 12 期没有一次性支出 · 两个数相同
       </span>
     </div>
+
+    <!--/* 有哪一档是净退款(合计 ≤ 0)时必须说出来 ——
+           条上画不出负段,而图例里写着「一次性 −3.6%」,
+           不解释的话用户会以为图画错了。
+           【不取绝对值】:那会把一笔退款画成一笔消费,而且不报错。 */-->
+    <p class="font-mono text-[9px] text-ink-subtle mt-2"
+       th:if="${!#lists.isEmpty(expSplit.refundedParts())}">
+      <span th:each="p : ${expSplit.refundedParts()}"
+            th:text="'「' + ${p.nature().label} + '」这一档退款多于消费(' + ${p.pct()} + '%),条上画不出来 —— 钱仍然算进合计。'">
+      </span>
+    </p>
 
     <!--/* FR-636 · 未分类必须【显式说出来】,不许偷偷丢掉 */-->
     <p class="font-mono text-[9px] text-ink-subtle mt-3" th:if="${expSplit.unclassifiedCount() > 0}">
@@ -393,7 +464,9 @@
                  用 <details> 而不是新页面:看一眼就回,不值得跳走。 */-->
           <details th:if="${r.categoryId() != null}" class="mt-1">
             <summary class="font-mono text-[9px] text-brass-deep cursor-pointer list-none pl-4"
-                     th:text="'看这 ' + ${r.rowCount()} + ' 笔 →'">看这 96 笔 →</summary>
+                     th:text="${#lists.size(r.leaves()) > 1}
+                              ? ('拆开这 ' + ${#lists.size(r.leaves())} + ' 个细类 →')
+                              : ('这 ' + ${r.rowCount()} + ' 笔都记在大类上 →')">拆开这 3 个细类 →</summary>
             <div class="pl-6 pt-1">
               <div th:each="lf : ${r.leaves()}" class="flex items-center gap-2 py-1 text-[11.5px]">
                 <span th:text="${lf.name()}">外卖</span>
@@ -421,13 +494,35 @@
         <span class="font-mono text-[10px] text-ink-subtle" th:text="${catYear} + ' 年至今'">2026 年至今</span>
       </div>
       <div th:if="${#lists.isEmpty(catYearRows)}" class="text-[12.5px] text-ink-subtle">今年还没有带分类的支出。</div>
-      <div th:each="r : ${catYearRows}" class="flex items-center gap-3 py-1.5 border-b border-rule-soft last:border-b-0">
-        <span class="text-[12.5px]" style="min-width:5.5em" th:text="${r.name()}">餐饮美食</span>
-        <div class="h-3" style="background:var(--brass-deep);min-width:2px"
-             th:style="'height:12px;background:var(--brass-deep);width:' + ${#numbers.formatDecimal(r.total() * 100 / catYearMax, 1, 1)} + '%'"></div>
-        <span style="flex:1"></span>
-        <span class="font-mono text-[12px] tnum" data-priv
-              th:text="'¥' + ${#numbers.formatInteger(r.total(), 0, 'COMMA')}">¥27,400</span>
+      <!--/* v1.24 · 年度累计【也能下钻到细类】。
+             它原来是一排点不开的条 —— 而本期构成那块能下钻,同一页上两种行为没有道理:
+             类目本来就是一棵树,用户在哪一块看到大类,就该能在哪一块展开看细类。
+             大类下只有它自己(没建细类)时不出展开器 —— 展开只看到一行跟外面一样的,
+             那是骗人点一下。 */-->
+      <div th:each="r,i : ${catYearRows}" class="py-1.5 border-b border-rule-soft last:border-b-0">
+        <div class="flex items-center gap-3">
+          <span class="text-[12.5px]" style="min-width:5.5em" th:text="${r.name()}">餐饮美食</span>
+          <div class="h-3" style="min-width:2px"
+               th:style="'height:12px;background:' + ${expCatColors[i.index]} + ';width:'
+                         + ${#numbers.formatDecimal(r.total() * 100 / catYearMax, 1, 1)} + '%'"></div>
+          <span style="flex:1"></span>
+          <span class="font-mono text-[12px] tnum" data-priv
+                th:text="'¥' + ${#numbers.formatInteger(r.total(), 0, 'COMMA')}">¥27,400</span>
+        </div>
+        <details th:if="${#lists.size(r.leaves()) > 1}" class="mt-1">
+          <summary class="font-mono text-[9px] text-brass-deep cursor-pointer list-none pl-4"
+                   th:text="'拆开这 ' + ${#lists.size(r.leaves())} + ' 个细类 →'">拆开这 3 个细类 →</summary>
+          <div class="pl-6 pt-1">
+            <div th:each="lf : ${r.leaves()}" class="flex items-center gap-2 py-1 text-[11.5px]">
+              <span th:text="${lf.name()}">外卖</span>
+              <span style="flex:1"></span>
+              <span class="font-mono text-[10px] tnum text-ink-subtle"
+                    th:text="${#numbers.formatDecimal(lf.amount() * 100 / r.total(), 1, 1)} + '%'">31.0%</span>
+              <span class="font-mono text-[11px] tnum" data-priv
+                    th:text="'¥' + ${#numbers.formatInteger(lf.amount(), 0, 'COMMA')}">¥8,200</span>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
   </div>

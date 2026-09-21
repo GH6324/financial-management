@@ -189,17 +189,38 @@ public class ExpenseCatQueryService {
 
         Map<Long, ExpenseCategory> byId = new LinkedHashMap<>();
         for (ExpenseCategory c : categoryMapper.findByFamily(familyId)) byId.put(c.getId(), c);
+
+        /* v1.24 · 年度累计这里原来【只算大类合计,leaves 是空的、rowCount 恒为 0】,
+         * 于是页面上它是一排点不开的条 —— 而「支出类目是一棵树」这件事,
+         * 在本期构成那块能下钻、在年度累计这块不能,同一页上两种行为没有道理。
+         * 现在与 period() 用同一套折叠方式:大类合计 + 该大类下的细类构成。 */
         Map<Long, BigDecimal> topTotal = new LinkedHashMap<>();
+        Map<Long, BigDecimal> leafTotal = new LinkedHashMap<>();
+        Map<Long, Long> leafParent = new LinkedHashMap<>();
         for (var s : periodCatSums(familyId, ids)) {
             ExpenseCategory c = s.categoryId() == null ? null : byId.get(s.categoryId());
             Long topId = (c == null) ? null : (c.isTopLevel() ? c.getId() : c.getParentId());
             topTotal.merge(topId, nz(s.amount()), BigDecimal::add);
+            // 细类用 -1 代表「未分类」那一堆 —— null 不能当 Map 的键分组用
+            Long leafKey = s.categoryId() == null ? -1L : s.categoryId();
+            leafTotal.merge(leafKey, nz(s.amount()), BigDecimal::add);
+            leafParent.put(leafKey, topId);
         }
+
+        Map<Long, List<Leaf>> leavesByTop = new LinkedHashMap<>();
+        leafTotal.forEach((leafKey, amt) -> {
+            ExpenseCategory lc = leafKey < 0 ? null : byId.get(leafKey);
+            leavesByTop.computeIfAbsent(leafParent.get(leafKey), k -> new ArrayList<>())
+                    .add(new Leaf(leafKey < 0 ? null : leafKey, leafName(lc, byId), amt, 0));
+        });
+
         List<CatRow> out = new ArrayList<>();
         for (var e : topTotal.entrySet()) {
             ExpenseCategory top = e.getKey() == null ? null : byId.get(e.getKey());
+            List<Leaf> leaves = leavesByTop.getOrDefault(e.getKey(), List.of()).stream()
+                    .sorted((x, y) -> nz(y.amount()).compareTo(nz(x.amount()))).toList();
             out.add(new CatRow(e.getKey(), top == null ? UNCLASSIFIED : top.getName(),
-                    e.getValue(), 0, List.of()));
+                    e.getValue(), 0, leaves));
         }
         out.sort((a, b) -> nz(b.total()).compareTo(nz(a.total())));
         return out;

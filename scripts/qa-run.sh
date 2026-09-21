@@ -9906,6 +9906,26 @@ QA124_JUDGE=$(grep -rn "ONE_OFF" "$RD/src/main/java" --include="*.java" \
   && log_ok "v1240-NO-JUDGEMENT(三分块不给好坏评价 · 不设阈值红绿灯)" \
   || log_bad "v1240-NO-JUDGEMENT 支出分析里出现了好坏评价" "花钱没有对错 —— 给它一个红灯就是替用户的人生下判断"
 
+# v1240-NEGATIVE-PART-NOT-IN-BAR · 退款多于消费的那一档不进条,但仍进合计。
+#   beta 实测撞到:一次性那一档冲正成 −3.6% → 弹性算出 103.2% →
+#   条宽溢出容器、负段画不出来。三个数学上都对、加起来正好 100%,
+#   只是不能拿算术占比当宽度。这和 v1.22 饼图那条(v1220-NEGATIVE-GROUP-NOT-IN-PIE)
+#   是同一条规矩的第二处落点。
+#   【不许对分档金额取绝对值】—— 那会把一笔退款画成一笔消费,而且不报错。
+#   判据要精确到「对分档金额取 abs」:pct() 里 divide(whole.abs(), …) 是【分母】取绝对值,
+#   防的是总额为负时把每一档的符号整体翻过来 —— 那是对的,不能一起禁掉。
+#   第一版判据写成「不许出现任何 .abs()」,立刻把这个合法用法判红了(护栏太钝也是缺陷)。
+{ grep -q 'boolean inBar' "$QA124_NRM" \
+  && grep -q 'BigDecimal barPct' "$QA124_NRM" \
+  && grep -q 'refundedParts' "$QA124_NRM" \
+  && grep -q 'inBar ? pct(v, positiveTotal) : BigDecimal.ZERO' "$QA124_NRM" \
+  && ! codeonly "$QA124_NRM" | grep -qE 'v\.abs\(\)|amountBase\(\)\.abs\(\)' \
+  && ! { for f in "$QA124_SEC" "$RD/src/main/resources/templates/dashboard/_region.html"; do codeonly "$f"; done \
+         | grep -q "p.pct() + '%;background"; } ; } \
+  && log_ok "v1240-NEGATIVE-PART-NOT-IN-BAR(负档不进条 · 条宽按正值归一 · 图例仍显真值)" \
+  || log_bad "v1240-NEGATIVE-PART-NOT-IN-BAR 三分条又拿算术占比当宽度了" \
+             "负段画不出来、正段溢出容器;取绝对值更糟 —— 会把退款画成消费,而且不报错"
+
 # v1240-UNCLASSIFIED-VISIBLE · L13 硬约束③:不许把未分类偷偷丢掉。
 #   它要算进弹性(不是丢掉)、要单独成片(不并进「其他」)、还要显式说出有多少笔。
 { grep -q 'categoryId == null) return ExpenseNature.FLEX' "$QA124_NAT" \
