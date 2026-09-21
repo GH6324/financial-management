@@ -1,41 +1,60 @@
 {
-  "_comment": "v1.23.0 · 关账节奏可配置 + 双活跃账期(issue #20)。核心叙事:①管理页四档关账节奏(每档都写代价)②填报页两期并排、默认落补录期 ③批量导入默认记到上月 ④报表锚上月不倒退、如实标注仍在填报中。PC 用 selector 裁掉导航与留白;手机整屏不裁。",
+  "_comment": "v1.24.0 · 支出分析(三分 / 归因 / 常态月均 / 下钻)。核心叙事:①这些钱砍得掉吗——把日常开支拆成刚性·弹性·一次性 ②这个月为什么变了——归因瀑布把差额摊到类目上 ③dashboard 上有一份即时口径,不用等关账 ④性质写成两个问句,家里人看得懂。PC 用 selector 裁掉导航与留白;手机整屏不裁,用 eval 滚到位。",
+  "_no_shot_year_drilldown": "年度累计的类目下钻【故意不拍】:展开器的条件是「大类下 > 1 个细类」,而报表锚的是最近已定稿期(当前 2026-08),那个窗口里每个大类恰好只有一个细类 —— 展开器按设计就不该出现。多细类的数据都落在还没关账的 09 期。拍出来会是一张看不见功能的图,比不拍更误导。判据落在单测 ExpenseYearRollupTest,不靠截图。",
+  "_mobile_scroll_note": "手机版 scrollIntoView 之后必须再 scrollBy 一个负偏移 —— 顶栏是吸顶的,block:'start' 会把标题正好塞到顶栏底下,拍出来只有条没有题。",
   "pc": [
     {
-      "path": "/admin/periods",
-      "name": "close-rhythm",
-      "wait": 1500,
-      "waitFor": "form[action$='/admin/family/close-rhythm']",
-      "selector": "form[action$='/admin/family/close-rhythm']"
+      "path": "/reports",
+      "name": "expense-split",
+      "wait": 2000,
+      "waitFor": "#sec-expense-mix",
+      "selector": "#sec-expense-mix div.mb-10:has(h3:text-is(\"这些钱砍得掉吗\"))"
     },
     {
-      "path": "/entry",
-      "name": "dual-period",
-      "wait": 1800,
-      "waitFor": ".entry-perpill",
-      "selector": "section:has(.entry-perpill)"
+      "path": "/reports",
+      "name": "expense-waterfall",
+      "wait": 2000,
+      "waitFor": "#sec-expense-mix",
+      "selector": "#sec-expense-mix div.mb-10:has(h3:text-is(\"为什么变了\"))"
     },
     {
-      "path": "/expense/import",
-      "name": "import-period",
+      "path": "/dashboard",
+      "name": "dashboard-live-split",
+      "wait": 2000,
+      "waitFor": "h3:text-is(\"本月支出 · 砍得掉吗\")",
+      "selector": "div.border-t.border-rule.mt-5.pt-4:has(h3:text-is(\"本月支出 · 砍得掉吗\"))"
+    },
+    {
+      "path": "/expense/categories",
+      "name": "expense-nature",
       "wait": 1500,
-      "waitFor": "a[href*='periodId=']",
-      "selector": "div.mb-5"
+      "waitFor": "select[name=\"nature\"]",
+      "eval": "document.querySelectorAll('body *').forEach(e=>{const p=getComputedStyle(e).position; if(p==='sticky'||p==='fixed') e.style.position='static'})",
+      "selector": "div.paper-card:has(select[name=\"nature\"])"
     }
   ],
   "mobile": [
     {
-      "path": "/entry",
-      "name": "dual-period",
-      "wait": 1800,
-      "waitFor": ".entry-perpill",
+      "path": "/dashboard",
+      "name": "dashboard-live-split",
+      "wait": 2000,
+      "waitFor": "h3:text-is(\"本月支出 · 砍得掉吗\")",
+      "eval": "document.querySelector('h3:not(:has(*))') && [...document.querySelectorAll('h3')].find(h=>h.textContent.trim()==='本月支出 · 砍得掉吗').scrollIntoView({block:'center'})",
       "full": false
     },
     {
-      "path": "/admin/periods",
-      "name": "close-rhythm",
+      "path": "/reports",
+      "name": "expense-split",
+      "wait": 2200,
+      "waitFor": "#sec-expense-mix",
+      "eval": "([...document.querySelectorAll('h3')].find(h=>h.textContent.trim()==='这些钱砍得掉吗').scrollIntoView({block:'start'}), window.scrollBy(0,-120))",
+      "full": false
+    },
+    {
+      "path": "/expense/categories",
+      "name": "expense-nature",
       "wait": 1500,
-      "waitFor": "form[action$='/admin/family/close-rhythm']",
+      "waitFor": "select[name=\"nature\"]",
       "full": false
     }
   ]
