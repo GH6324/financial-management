@@ -54,6 +54,11 @@ public class AskConversationService {
     private final com.family.finance.service.FamilyService familyService;
     private final com.family.finance.service.lens.LensQueryService lensQueryService;
     private final List<AgentRuntime> runtimes;
+    /**
+     * 托管模式下工具在 MCP 请求里跑,引用产在那边、落库在这边 ——
+     * 这个寄存器是两者之间唯一的通道(见 {@link AskCiteBuffer})。
+     */
+    private final AskCiteBuffer citeBuffer;
     private final ObjectMapper json = new ObjectMapper();
 
     // ──────────────────────── 开关与 runtime ────────────────────────
@@ -244,6 +249,9 @@ public class AskConversationService {
         String periodLabel = conv.getCtxPeriodId() == null ? null : renderer.periodLabel(familyId, conv.getCtxPeriodId());
         String systemPrompt = promptBuilder.build(familyId, periodLabel, conv.getCtxCurrency());
 
+        // 【一轮开始先清】—— 语义化的引用 key(nw / ta / r0_0)每轮都会重复出现,
+        // 上一轮的残留不清掉,会被这一轮的正文误命中,落库成一个【上一轮的数】。
+        citeBuffer.clear(familyId);
         Collector collector = new Collector(familyId, conversationId, out);
         AgentRuntime.AskTurn turn = new AgentRuntime.AskTurn(
                 familyId, conversationId, conv.getProviderRef(), systemPrompt, history, q,
@@ -355,6 +363,9 @@ public class AskConversationService {
             if (closed) return;
             closed = true;
             String body = text.toString();
+            // 托管模式:工具是百炼回头调 MCP 执行的,引用没经过 sink,
+            // 到这里才从寄存器里取回来。本机直连模式下寄存器是空的,这一行不改变任何行为。
+            cites.putAll(citeBuffer.drain(familyId));
             // 没有正文就不落这条消息 —— 只有工具调用、一个字都没说的「回答」不是回答,
             // 留下来会在历史里变成一个空白轮次。工具痕迹随它一起丢掉:
             // 一轮什么都没说出来,「它查了什么」也就没有解释对象了。

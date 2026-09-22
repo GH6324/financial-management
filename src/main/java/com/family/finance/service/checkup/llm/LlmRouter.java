@@ -29,10 +29,33 @@ public class LlmRouter {
     /** 全项目唯一允许注入 {@code List<LlmClient>} 的地方 */
     private final List<LlmClient> clients;
     private final FamilyConfigService configService;
+    /**
+     * 每个平台最后一次调用的结果 —— 管理页拿它显示「AI 现在还好吗」。
+     * 记在这里而不是各个 client 里:这里是唯一的编排点,成功与失败都从这一个 for 循环过。
+     */
+    private final LlmHealthTracker healthTracker;
 
-    public LlmRouter(List<LlmClient> clients, FamilyConfigService configService) {
+    // 【必须标 @Autowired】—— 这个类有两个 public 构造器(另一个给单测用),
+    // 不标的话 Spring 不知道挑哪个,会去找无参构造,然后整个应用起不来:
+    //   NoSuchMethodException: LlmRouter.<init>()
+    // 而 mvn package 与 901 个单测【全绿】——编译和单测都看不见这个问题,只有真的启动才看得见。
+    @org.springframework.beans.factory.annotation.Autowired
+    public LlmRouter(List<LlmClient> clients, FamilyConfigService configService,
+                     LlmHealthTracker healthTracker) {
         this.clients = clients;
         this.configService = configService;
+        this.healthTracker = healthTracker;
+    }
+
+    /**
+     * 测试用的两参构造:自带一个独立的健康读数器。
+     *
+     * <p>健康读数是<b>旁路</b> —— 它只记录"最后一次调用成没成功",不参与任何路由判断。
+     * 十几处单测关心的是编排顺序与降级行为,给每处都塞一个 tracker 只是噪音。
+     * 生产走上面那个三参构造,由 Spring 注入全局那一个。</p>
+     */
+    public LlmRouter(List<LlmClient> clients, FamilyConfigService configService) {
+        this(clients, configService, new LlmHealthTracker());
     }
 
     /** 一次成功调用的结果 */
@@ -125,11 +148,16 @@ public class LlmRouter {
                     handler.onFailure(inv, new IllegalStateException("空输出"), ms);
                     continue;
                 }
+                healthTracker.recordOk(inv.platform());
                 T accepted = handler.onOutput(inv, raw, ms);
                 if (accepted != null) return accepted;
                 log.warn("候选 {} 的输出未被接受 · 试下一个", inv.label());
             } catch (Exception e) {
                 long ms = System.currentTimeMillis() - start;
+                // 账户级故障(凭据/欠费/权限)不会自己好,必须有人去处理 —— 单独标出来,
+                // 好让管理页只在这一类上报警,不被偶发超时淹掉。
+                boolean accountFatal = String.valueOf(e.getMessage()).contains("账户级故障");
+                healthTracker.recordFail(inv.platform(), accountFatal, e.getMessage());
                 log.warn("候选 {} 调用失败 · {}", inv.label(), e.toString());
                 handler.onFailure(inv, e, ms);
             }

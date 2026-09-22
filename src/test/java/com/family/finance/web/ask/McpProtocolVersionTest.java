@@ -32,7 +32,9 @@ class McpProtocolVersionTest {
         Map<String, Object> body = clientVersion == null
                 ? Map.of("method", "initialize")
                 : Map.of("method", "initialize", "params", Map.of("protocolVersion", clientVersion));
-        McpEndpoint ep = new McpEndpoint(null, null, null);
+        // 这里全传 null 是有意的:本测试只反射调 initializeResult,不碰任何依赖。
+        // 构造器加参数时这一行会编译失败 —— 那是好事,它逼着人看一眼新依赖该不该进来。
+        McpEndpoint ep = new McpEndpoint(null, null, null, null);
         return String.valueOf(((Map<String, Object>) m.invoke(ep, body)).get("protocolVersion"));
     }
 

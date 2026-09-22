@@ -598,9 +598,20 @@ public class ManagedAgentRuntime implements AgentRuntime {
 
     private String humanError(Exception e) {
         if (e instanceof UpstreamException u) {
-            if (u.status == 401 || u.status == 403) return "百炼那边说凭据不对或者没权限。检查 API Key 和业务空间 ID。";
-            if (u.status == 404) return "百炼那边找不到这个 Agent。可能被删了 —— 在「AI 接入」页重新创建一个。";
-            if (u.status == 429) return "问得太频繁,百炼限流了。等一会儿再问。";
+            // 【每一支都要带上百炼的原话】—— 2026-09-22 复发第四次,而且这次是在
+            // 下面那段注释的正上方:401/403/404/429 三支各自把上游原话换成了我们的猜测。
+            // 实测代价:百炼说的是「Access to model denied. Please make sure you are eligible
+            // for using the model.」(模型没开通),我们显示的是「检查 API Key 和业务空间 ID」——
+            // 维护者据此去查凭据、查欠费,查了两轮都没查到点子上,而答案一直写在响应体里。
+            // 判据:我们的分流只能【补充】上游说了什么,不能【替换】。
+            String raw = UpstreamException.brief(u.body);
+            String tail = raw == null || raw.isBlank() ? "" : "(百炼原话:" + raw + ")";
+            if (u.status == 401 || u.status == 403) {
+                return "百炼拒绝了这次调用 —— 可能是凭据、业务空间权限,也可能是这个模型没给你开通,"
+                        + "或者账户欠费。" + tail;
+            }
+            if (u.status == 404) return "百炼那边找不到这个 Agent。可能被删了 —— 在「AI 接入」页重新创建一个。" + tail;
+            if (u.status == 429) return "问得太频繁,百炼限流了。等一会儿再问。" + tail;
             // v1.19.14 · 把百炼原话带出来。这是同一个病的**第三次**复发:
             // v1.19.4 是「识别失败,请重试」盖住额度耗尽,v1.19.11 是「upstream 400」盖住字段错,
             // 这次是「百炼返回了错误(400)」盖住 `Missing required field: 'agent'` ——

@@ -64,12 +64,19 @@ public class AiAccessController {
     private final AskConversationService askConversations;
     private final AskPromptBuilder promptBuilder;
     private final ManagedAgentRuntime managedAgentRuntime;
+    /** AI 现在还好吗 —— 2026-09-22:主备双双欠费挂了 20 天没人知道,因为每一层都优雅降级了 */
+    private final com.family.finance.service.checkup.llm.LlmHealthTracker llmHealth;
 
     @GetMapping("/admin/ai-access")
     public String page(@AuthenticationPrincipal MemberPrincipal me, HttpServletRequest req, Model model) {
         long fam = me.getFamilyId();
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
+        // 健康读数:每个平台最后一次调用的结果 + 「是不是全挂了」
+        model.addAttribute("llmHealth", llmHealth.snapshot());
+        model.addAttribute("llmAllDown", llmHealth.allAccountsDown());
+        var sinceOk = llmHealth.sinceLastOk();
+        model.addAttribute("llmSinceOkHours", sinceOk == null ? null : sinceOk.toHours());
 
         List<AskAccessToken> tokens = tokenService.list(fam);
         // 按接入点分组:换绑期间同一个点下有两把(旧的 + 新的)

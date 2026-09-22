@@ -17,6 +17,48 @@
       </p>
     </div>
 
+    <!--/* v1.24.3 · AI 健康读数
+           2026-09-22 复盘:主选 DeepSeek 从 09-02 欠费、备选百炼从 09-20 挂掉,
+           中间 20 天所有 AI 功能都出不来,而【没有任何人知道】—— 因为每一层都优雅降级了,
+           页面上显示的是「AI · 暂不可用」,和「这个月没人点过 AI」长得一模一样。
+           最后是账单把这件事捅出来的,那是最差的发现方式。
+           这一块就是为了让「坏了」和「没人用」长得不一样。 */-->
+    <div th:if="${llmAllDown}" class="paper-card px-5 py-4 mb-6"
+         style="border-left:3px solid var(--rust)">
+      <div class="flex items-center gap-2 mb-1">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rust)" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <b class="text-[15px]">AI 现在全部不可用</b>
+      </div>
+      <p class="text-[12.5px] text-ink-soft" style="line-height:1.85">
+        主选和备选<b>都</b>报了账户级故障(凭据 / 欠费 / 权限)。这一类<b>不会自己恢复</b> ——
+        要么去平台充值,要么在下面换一个可用的凭据。
+        在此之前,AI 体检、调仓建议、AI 月报、超级 Agent <b>全都出不来</b>,
+        而页面上只会显示「暂不可用」,不会报错。
+      </p>
+      <p class="text-[12px] text-ink-subtle mt-1.5"
+         th:if="${llmSinceOkHours != null}"
+         th:text="'距离最后一次成功调用已经 ' + ${llmSinceOkHours} + ' 小时'">距离最后一次成功调用已经 N 小时</p>
+    </div>
+
+    <div th:if="${llmHealth != null and !llmHealth.isEmpty()}" class="mb-6">
+      <div class="eyebrow mb-2">A I · 健 · 康</div>
+      <div class="flex flex-wrap gap-2">
+        <span th:each="e : ${llmHealth}" class="pill text-[11px]"
+              th:style="${e.value.ok()} ? 'border-color:var(--forest);color:var(--forest)'
+                                        : 'border-color:var(--rust);color:var(--rust)'"
+              th:title="${e.value.brief()}"
+              th:text="${e.key} + ' · ' + (${e.value.ok()} ? '正常' : (${e.value.accountFatal()} ? '账户级故障' : '失败'))">
+          dashscope · 正常
+        </span>
+      </div>
+      <p class="text-[11.5px] text-ink-subtle mt-1.5">
+        每个平台<b>最后一次</b>调用的结果 · 重启后清空(显示「还没调用过」而不是假装正常)
+      </p>
+    </div>
+
     <!-- 刚生成的口令:明文只在这一屏出现,离开就再也取不回 -->
     <div th:if="${freshToken}" class="paper-card p-6 mb-6" style="border-left:4px solid var(--rust)">
       <div class="eyebrow mb-2" style="color:var(--rust)">这 串 口 令 只 显 示 这 一 次</div>

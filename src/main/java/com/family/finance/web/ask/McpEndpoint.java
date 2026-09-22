@@ -57,6 +57,12 @@ public class McpEndpoint {
     private final AskAccessGuard guard;
     private final AskToolRegistry registry;
     private final AskToolDispatcher dispatcher;
+    /**
+     * 托管模式下,工具在这里跑、引用也在这里产出,而<b>落库的是另一个线程</b>
+     * (那轮问答的 Collector)。这个寄存器是两者之间唯一的通道 ——
+     * 不寄存的话 {@code ask_citation} 永远是空的,页面上每个数字的位置都会是空白。
+     */
+    private final com.family.finance.service.ask.AskCiteBuffer citeBuffer;
 
     @PostMapping(value = "/mcp", consumes = MediaType.APPLICATION_JSON_VALUE,
                  produces = MediaType.APPLICATION_JSON_VALUE)
@@ -113,7 +119,13 @@ public class McpEndpoint {
         if (result.ok()) {
             payload.put("data", result.data());
             payload.put("meta", result.meta());
-            if (!result.citations().isEmpty()) payload.put("citations", result.citations());
+            if (!result.citations().isEmpty()) {
+                payload.put("citations", result.citations());
+                // 同一份引用要走两条路:一条给百炼(让模型能在正文里写 {{cite:nw}}),
+                // 一条寄存给本机那轮问答(让这些标记落库后渲染得出数字)。
+                // 少了后面这条,模型写的标记就永远没有替换对象。
+                citeBuffer.put(pass.familyId(), result.citations());
+            }
         } else {
             payload.put("error", result.error());
             if (result.meta().containsKey("allowed")) payload.put("allowed", result.meta().get("allowed"));

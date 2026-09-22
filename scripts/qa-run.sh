@@ -4,6 +4,8 @@
 # 退出码 0 = 全部 PASS,!=0 = 至少一条 FAIL
 
 set -u
+RD="$(cd "$(dirname "$0")/.." && pwd)"   # 仓库根 · 2026-09-22 从 2900 多行提到这里:
+                                          # 早期的护栏也要用它(诊断/洞察那几条改成静态判据之后)
 BASE="${BASE:-http://localhost:20000}"
 COOKIE="/tmp/finance-qa-cookie.txt"
 TMP="/tmp/finance-qa-resp.html"
@@ -65,6 +67,51 @@ if [[ "$QA_RESTORE" == 1 ]]; then
 else
   echo "▸ --no-restore:跑完保留 beta 状态(排查用 · 注意会污染基线)"
 fi
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AI 请求开关 · 回归默认【一次真 LLM 都不打】(2026-09-22 · 维护者要求)
+#
+#   起因是一张账单。查下来:这个脚本每跑一次会打 15 个 AI 端点,而主选 DeepSeek
+#   从 9 月初就欠费了 —— 每次调用都自动 failover 到阿里云百炼。开发最密的那几天,
+#   一天 187 次百炼调用,基本都是我自己跑回归跑出来的(09-15 那天约等于十几轮)。
+#
+#   要认清一件事:这些护栏验的**从来不是「LLM 答得对不对」**,而是
+#   「失败时降不降级」「缓存命中没有」「按钮渲染没有」「跨家庭账户会不会泄露」。
+#   这些都不需要真的把钱花出去。
+#
+#   所以:
+#     · 能塞缓存的 → 先塞再请求(命中缓存的请求不出网,零成本)
+#     · 塞不了缓存的(诊断走进程内缓存,外部塞不进)→ 改成静态判据,
+#       或者复用那条【本来就不打 LLM】的响应(account=99999 走早返回)
+#     · 真的必须打真 LLM 才有意义的(强制刷新、实调用嗅探、输出合规扫描)
+#       → 默认 skip,要验时显式开:QA_LLM_LIVE=1 bash scripts/qa-run.sh
+#
+#   判据:一条常规回归护栏不该花钱。花钱的那种是**另一件事**,要人主动要才跑。
+QA_LLM_LIVE="${QA_LLM_LIVE:-0}"
+[[ "$QA_LLM_LIVE" == "1" ]] \
+  && echo "▸ QA_LLM_LIVE=1 · 本轮会打真 LLM(会产生费用)" \
+  || echo "▸ AI 实调用已关(默认)· 要验真 LLM:QA_LLM_LIVE=1 bash scripts/qa-run.sh"
+
+# 往 rebalance_advice_cache 塞一条固定桩 —— 之后的 advise 请求都会命中缓存,不打 LLM。
+# 命中判据只看 (family_id, anchor_code) + 30 天 TTL,不校验 prompt_hash
+# (见 RebalanceAdvisorService:90),所以塞得进去。
+ai_seed_advice() {
+  local anchor a1 a2
+  anchor=$(mysql -ufinance -pfinance finance -N -e \
+    "SELECT COALESCE(allocation_anchor,'SP_4321') FROM family WHERE id=1;" 2>/dev/null | tr -d '\r' | head -1)
+  a1=$(mysql -ufinance -pfinance finance -N -e \
+    "SELECT display_name FROM account WHERE family_id=1 AND archived_at IS NULL ORDER BY id LIMIT 1;" 2>/dev/null | tr -d '\r' | head -1)
+  a2=$(mysql -ufinance -pfinance finance -N -e \
+    "SELECT display_name FROM account WHERE family_id=1 AND archived_at IS NULL ORDER BY id DESC LIMIT 1;" 2>/dev/null | tr -d '\r' | head -1)
+  mysql -ufinance -pfinance finance -e "DELETE FROM rebalance_advice_cache WHERE family_id=1;
+    INSERT INTO rebalance_advice_cache (family_id, anchor_code, content_json, prompt_hash, generated_at)
+    VALUES (1, '${anchor:-SP_4321}',
+      JSON_OBJECT('narrative','qa-run 固定桩 · 不是 LLM 产出',
+                  'actions', JSON_ARRAY(JSON_OBJECT(
+                     'from_account','${a1:-现金账户}', 'to_account','${a2:-投资账户}',
+                     'amount', 1000, 'reason','qa-run 固定桩'))),
+      NULL, NOW());" 2>/dev/null
+}
 
 log_ok()   { [[ "$SEC_ACTIVE" == 0 ]] && return 0; echo -e "\033[32m PASS \033[0m $1"; PASS=$((PASS+1)); }
 log_bad()  { [[ "$SEC_ACTIVE" == 0 ]] && return 0; echo -e "\033[31m FAIL \033[0m $1  ::  ${2:-}"; FAIL=$((FAIL+1)); FAILED+=("$1 :: ${2:-}"); }
@@ -1030,42 +1077,54 @@ grep -E 'hx-trigger="load".*ai-diagnose|ai-diagnose.*hx-trigger="load"' "$TMP" >
 # ---------- v0.2 · AI 综合诊断 endpoint(决策 20 / 2026-05-10) ----------
 section "v0.2 · AI 综合诊断 · /checkup/diagnose (FR-40c 决策 20)"
 
-# DIAG-1 全家维度 endpoint 200(LLM 真机调用最长 30s,放宽 timeout)
-code=$(/usr/bin/curl -s --max-time 35 -b $COOKIE -o "$TMP" -w "%{http_code}" "$BASE/checkup/diagnose")
-[[ "$code" == "200" ]] && log_ok "v02-DIAG-1 GET /checkup/diagnose → 200" \
+# 【2026-09-22 · 这一段重做过】原来这里有 5 次 /checkup/diagnose 请求,每一次都真的打 LLM。
+#   而这 5 条护栏验的其实只有三件事:端点通不通、fragment 带不带 vendor/available 属性、
+#   降级文案在不在 —— 没有一件需要模型真的说话。
+#
+#   诊断的缓存是【进程内】的(LlmDiagnoseService 的 ConcurrentHashMap,1h TTL,
+#   key 含整个 prompt),外部塞不进去,所以"塞桩"这条路在这里走不通。
+#   能走的是另一条:account=99999 在控制器里【早返回】(账户查不到就直接渲染降级面板,
+#   见 AiDiagnoseController:80-84),这一路压根不碰 LLM —— 而它返回的正是同一个
+#   fragment,属性和降级文案全在里面。于是一次免费请求就能把三件事一起验掉。
+#
+#   account=1 / account=3 那两条原来只断言 HTTP 200,与 99999 那条走的是同一个路由、
+#   同一个模板,差别只在"真的去调模型"。删掉它们不损失判据,省下的正是钱。
+code=$(/usr/bin/curl -s --max-time 35 -b $COOKIE -o "$TMP" -w "%{http_code}" "$BASE/checkup/diagnose?account=99999")
+
+# DIAG-1 端点通(这一路不打 LLM:账户查不到 → 早返回降级面板)
+[[ "$code" == "200" ]] && log_ok "v02-DIAG-1 GET /checkup/diagnose → 200(走免费的早返回路径)" \
   || log_bad "v02-DIAG-1 family diagnose" "code=$code"
 
-# DIAG-2 返回 fragment 含 data-vendor / data-cache / data-available 属性(无 LLM key 时是 fallback)
+# DIAG-2 返回 fragment 含 data-vendor / data-available 属性
 grep -qE 'data-vendor=|data-available=' "$TMP" \
   && log_ok "v02-DIAG-2 fragment 含 vendor/available 属性" \
   || log_bad "v02-DIAG-2 fragment attrs" "missing"
 
-# DIAG-3 fragment 含 AI · 综合智能诊断 标题或 AI · 暂不可用
+# DIAG-3 fragment 含标题或降级文案 —— 两个都要在模板里,否则降级时页面是一片空白
 { grep -q '综合智能诊断' "$TMP" || grep -q 'AI · 暂不可用' "$TMP"; } \
   && log_ok "v02-DIAG-3 fragment 含诊断标题或降级文案" \
   || log_bad "v02-DIAG-3 panel header" "missing"
 
-# DIAG-4 账户维度 endpoint 200(LLM 真机调用最长 30s)
-code=$(/usr/bin/curl -s --max-time 35 -b $COOKIE -o "$TMP" -w "%{http_code}" "$BASE/checkup/diagnose?account=3")
-[[ "$code" == "200" ]] && log_ok "v02-DIAG-4 GET /checkup/diagnose?account=3 → 200" \
-  || log_bad "v02-DIAG-4 account diagnose" "code=$code"
-
-# DIAG-5 不存在账户 → 200 + 降级文案
-code=$(/usr/bin/curl -s --max-time 35 -b $COOKIE -o "$TMP" -w "%{http_code}" "$BASE/checkup/diagnose?account=99999")
+# DIAG-5 跨家庭账户 → 降级,不泄露(安全护栏 · 这一条最要紧,而且天然免费)
 { [[ "$code" == "200" ]] && grep -q '账户不存在\|AI 暂时不可用\|AI · 暂不可用' "$TMP"; } \
   && log_ok "v02-DIAG-5 跨家庭账户 diagnose 返回降级 (code=$code)" \
   || log_bad "v02-DIAG-5 cross-family" "code=$code"
 
-# DIAG-6 跨账户(同家庭)200 — 账户维度可正常工作
-code=$(/usr/bin/curl -s --max-time 35 -b $COOKIE -o "$TMP" -w "%{http_code}" "$BASE/checkup/diagnose?account=1")
-[[ "$code" == "200" ]] && log_ok "v02-DIAG-6 GET /checkup/diagnose?account=1 (CASH) → 200" \
-  || log_bad "v02-DIAG-6 cash account" "code=$code"
+# DIAG-4/6 账户维度分支存在(静态判据 —— 原来靠两次真调用只断言了 HTTP 200)
+{ grep -q 'diagnoseAccount' "$RD/src/main/java/com/family/finance/web/checkup/AiDiagnoseController.java" \
+  && grep -q 'accountId == null' "$RD/src/main/java/com/family/finance/web/checkup/AiDiagnoseController.java"; } \
+  && log_ok "v02-DIAG-4 控制器按 account 参数分流(家庭维度 / 账户维度两条路都在)" \
+  || log_bad "v02-DIAG-4 账户维度分支缺" "AiDiagnoseController 里应有 accountId==null 分流 + diagnoseAccount"
 
 # ---------- v0.2 LLM 真实调用 ----------
 section "v0.2 · LLM 真实调用 · qwen-plus(可选,无 key 时降级 fallback)"
 
 # DIAG-LIVE 嗅探:GET /checkup/diagnose 是否实际由真 LLM(qwen/deepseek)成功返回综合诊断长文,
 # 还是 fallback("AI 暂时不可用")。两种结果都不算 FAIL,但分别对应不同状态。
+if [[ "$QA_LLM_LIVE" != "1" ]]; then
+  log_skip "v02-LLM-LIVE-1 实调用嗅探" "这条必须真打一次 LLM · QA_LLM_LIVE=1 时才跑"
+  vendor=""; available=""
+else
 /usr/bin/curl -s --max-time 35 -b $COOKIE -o "$TMP" -w "" "$BASE/checkup/diagnose"
 vendor=$(grep -oE 'data-vendor="[^"]+"' "$TMP" | head -1 | sed 's/data-vendor="\([^"]*\)"/\1/')
 available=$(grep -oE 'data-available="[^"]+"' "$TMP" | head -1 | sed 's/data-available="\([^"]*\)"/\1/')
@@ -1073,6 +1132,7 @@ if [[ "$available" == "true" && ( "$vendor" == "qwen" || "$vendor" == "deepseek"
   log_ok "v02-LLM-LIVE-1 LLM 实调用成功 vendor=$vendor 综合诊断长文已返回"
 else
   log_skip "v02-LLM-LIVE-1" "LLM key 未配/全部失败,vendor=$vendor available=$available — 已降级 fallback,不阻塞 v0.2 验收"
+fi
 fi
 
 # ---------- v0.2 Stage 4: 账本侧(ledger.csv + 软删 + UI 入口) ----------
@@ -2017,6 +2077,9 @@ code=$($CURL -b $COOKIE -c $COOKIE -X POST \
   || log_bad "v04-REFI-4 非法参数处理" "code=$code"
 
 # v04-AI-REBALANCE-1 · POST /reports/rebalance/advise 不抛异常(LLM 可能 unavailable,容忍)
+#   2026-09-22:先塞缓存再请求 —— 命中缓存的 advise 不会调 LLM,这条护栏验的本来也只是
+#   「这个端点不抛异常、老老实实回 302」,和模型答得怎么样没有关系。
+ai_seed_advice
 $CURL -b $COOKIE "$BASE/reports" -o /dev/null
 XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk '{print $7}' | tail -1)
 code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" "$BASE/reports/rebalance/advise" -o /dev/null -w "%{http_code}")
@@ -2259,6 +2322,7 @@ $CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
 #   v0.4.5(2026-05-14)用户反馈:点 AI 调仓建议按钮没反应 · 根因是 LLM 输出含「余额宝」(用户的支付宝-余额宝账户)
 #   修法:OutputValidator 加 accountWhitelist 参数 · 白名单内的产品名子串放行
 mysql -ufinance -pfinance finance -e "DELETE FROM rebalance_advice_cache WHERE family_id=1;" 2>/dev/null
+ai_seed_advice   # 2026-09-22 · 命中缓存 → 不打 LLM(这条验的是 validator 通过与否,不是模型输出)
 XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk -F'\t' '{print $NF}')
 code=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" --data-urlencode "_csrf=$XSRF" \
   "$BASE/reports/rebalance/advise" -o /dev/null -w "%{http_code}" --max-time 30)
@@ -2283,7 +2347,10 @@ fi
 #   Spring flash attribute 跨 POST → redirect(302)→ GET 的同一 session 中存活
 #   分步式:1) POST 触发 advise · 2) 紧接 GET /reports 应看到 flash bar
 #   不用 -L · 因为 curl -L + -X POST 会在 redirect 后继续 POST · 触发 GET /reports 误判
-mysql -ufinance -pfinance finance -e "DELETE FROM rebalance_advice_cache WHERE family_id=1;" 2>/dev/null
+# 2026-09-22:原来这里先 DELETE 缓存再 POST,等于每跑一次强制打一次 LLM。
+#   反馈条要验的是「点完之后用户看不看得到结果」,缓存命中时那条是「已有近期建议」,
+#   一样能证明 flash 机制活着 —— 而且不花钱。
+ai_seed_advice
 XSRF=$(grep "XSRF-TOKEN" $COOKIE | awk -F'\t' '{print $NF}')
 $CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" --data-urlencode "_csrf=$XSRF" \
   "$BASE/reports/rebalance/advise" -o /dev/null -w "" --max-time 30
@@ -2303,23 +2370,7 @@ $CURL -b $COOKIE -c $COOKIE "$BASE/reports" -o "$TMP" -w ""
 #   不校验 prompt_hash(RebalanceAdvisorService:90),所以塞得进去;而这样测到的正是
 #   缓存这段逻辑本身 —— 与 LLM 在不在线无关。
 #   判据原则:一条护栏该守的是【我们的代码】,不是【第三方账户有没有余额】。
-QA5_ANCHOR=$(mysql -ufinance -pfinance finance -N -e \
-  "SELECT COALESCE(allocation_anchor,'SP_4321') FROM family WHERE id=1;" 2>/dev/null | tr -d '\r' | head -1)
-QA5_A1=$(mysql -ufinance -pfinance finance -N -e \
-  "SELECT display_name FROM account WHERE family_id=1 AND archived_at IS NULL ORDER BY id LIMIT 1;" 2>/dev/null | tr -d '\r' | head -1)
-QA5_A2=$(mysql -ufinance -pfinance finance -N -e \
-  "SELECT display_name FROM account WHERE family_id=1 AND archived_at IS NULL ORDER BY id DESC LIMIT 1;" 2>/dev/null | tr -d '\r' | head -1)
-qa5_seed() {
-  mysql -ufinance -pfinance finance -e "DELETE FROM rebalance_advice_cache WHERE family_id=1;
-    INSERT INTO rebalance_advice_cache (family_id, anchor_code, content_json, prompt_hash, generated_at)
-    VALUES (1, '${QA5_ANCHOR:-SP_4321}',
-      JSON_OBJECT('narrative','qa-run 固定桩 · 不是 LLM 产出',
-                  'actions', JSON_ARRAY(JSON_OBJECT(
-                     'from_account','${QA5_A1:-现金账户}', 'to_account','${QA5_A2:-投资账户}',
-                     'amount', 1000, 'reason','qa-run 固定桩'))),
-      NULL, NOW());" 2>/dev/null
-}
-qa5_seed
+ai_seed_advice
 XSRF=$(awk -F'\t' '/^localhost.*XSRF-TOKEN/ {print $NF}' $COOKIE)
 $CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" --data-urlencode "_csrf=$XSRF" \
   "$BASE/reports/rebalance/advise" -o /dev/null -w "" --max-time 30
@@ -2327,25 +2378,31 @@ sleep 1
 cache_hit_log=$(tail -5 /opt/finance/logs/app.log | grep "rebalance advise.*fromCache=true" | wc -l)
 [[ "$cache_hit_log" -ge 1 ]] \
   && log_ok "v04-AI-REBALANCE-5 缓存内有建议时 advise 直接命中(fromCache=true · 不打 LLM)" \
-  || log_bad "v04-AI-REBALANCE-5 缓存明明有,advise 却没命中" "已塞入 anchor=${QA5_ANCHOR:-SP_4321} 的缓存行,log 仍无 fromCache=true —— 这次是缓存逻辑真的坏了,不是 LLM 不在线"
+  || log_bad "v04-AI-REBALANCE-5 缓存明明有,advise 却没命中" "已塞入缓存行,log 仍无 fromCache=true —— 这次是缓存逻辑真的坏了,不是 LLM 不在线"
 
 # v04-AI-REBALANCE-6 · refresh=true 跳过 cache 强制重新调 LLM
-$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
-  --data-urlencode "_csrf=$XSRF" --data-urlencode "refresh=true" \
-  "$BASE/reports/rebalance/advise" -o /dev/null -w "" --max-time 30
-sleep 1
-force_log=$(tail -10 /opt/finance/logs/app.log | grep "forceRefresh" | wc -l)
-fresh_log=$(tail -5 /opt/finance/logs/app.log | grep "refresh=true.*fromCache=false" | wc -l)
-{ [[ "$force_log" -ge 1 && "$fresh_log" -ge 1 ]]; } \
-  && log_ok "v04-AI-REBALANCE-6 refresh=true 跳过缓存 + fromCache=false" \
-  || log_bad "v04-AI-REBALANCE-6 refresh 没跳过" "force_log=$force_log fresh_log=$fresh_log"
+#   这一条【本质上就是要花钱】—— 它验的正是「绕过缓存、真的再打一次」,
+#   塞桩绕不过去(塞了就不是强制刷新了)。所以默认不跑,要验时显式开。
+if [[ "$QA_LLM_LIVE" == "1" ]]; then
+  $CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
+    --data-urlencode "_csrf=$XSRF" --data-urlencode "refresh=true" \
+    "$BASE/reports/rebalance/advise" -o /dev/null -w "" --max-time 30
+  sleep 1
+  force_log=$(tail -10 /opt/finance/logs/app.log | grep "forceRefresh" | wc -l)
+  fresh_log=$(tail -5 /opt/finance/logs/app.log | grep "refresh=true.*fromCache=false" | wc -l)
+  { [[ "$force_log" -ge 1 && "$fresh_log" -ge 1 ]]; } \
+    && log_ok "v04-AI-REBALANCE-6 refresh=true 跳过缓存 + fromCache=false" \
+    || log_bad "v04-AI-REBALANCE-6 refresh 没跳过" "force_log=$force_log fresh_log=$fresh_log"
+else
+  log_skip "v04-AI-REBALANCE-6 强制刷新" "这条必须真打一次 LLM 才有意义 · QA_LLM_LIVE=1 时才跑"
+fi
 
 # v04-AI-REBALANCE-7 · advice card 有「↻ 刷新」按钮(模板侧)
 #   同 -5 的改造:这张卡只在【缓存里有建议】时才渲染,而上一条(-6)刚做过一次
 #   force refresh —— LLM 不在线时那次不会产出,卡就不渲染,于是护栏红成「刷新按钮缺」。
 #   失败的刷新不动缓存(invalidate() 没有任何调用方),但这里仍然重塞一次,
 #   让这条护栏不依赖上面几条的执行顺序与结果。
-qa5_seed
+ai_seed_advice
 $CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
 { grep -q 'refresh=.true\|refresh=true' "$TMP" && grep -q '↻ 刷新' "$TMP"; } \
   && log_ok "v04-AI-REBALANCE-7 advice card 显示 ↻ 刷新按钮(form 带 refresh=true)" \
@@ -2353,12 +2410,20 @@ $CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
 
 # v04-AI-DIAGNOSE-1 · /checkup AI 综合诊断刷新按钮带 refresh=true(此前 title 写忽略 cache 但实际没传)
 #   /checkup 主页用 spinner placeholder + HTMX 异步加载 · 必须直接 GET /checkup/diagnose 拿 panel fragment
-$CURL -b $COOKIE "$BASE/checkup/diagnose" -o "$TMP" -w "" --max-time 60
-{ grep -q 'refresh=true' "$TMP" && grep -q '↻ 刷新' "$TMP"; } \
-  && log_ok "v04-AI-DIAGNOSE-1 /checkup/diagnose panel 刷新按钮带 refresh=true(真忽略 cache)" \
-  || log_bad "v04-AI-DIAGNOSE-1 诊断刷新按钮 url 错" "no refresh=true in href"
+#   2026-09-22:原来要真请求一次 panel(= 真打一次 LLM)才能看到那个按钮。
+#   但这条护栏当初抓的是【模板里 URL 少拼了 refresh=true】—— 那是个静态事实,
+#   直接钉模板更准,也不用花钱。
+AI_DIAG_TPL="$RD/src/main/resources/templates/checkup/_ai-diagnose.html"
+{ grep -q 'refresh=true' "$AI_DIAG_TPL" && grep -q '↻ 刷新' "$AI_DIAG_TPL"; } \
+  && log_ok "v04-AI-DIAGNOSE-1 诊断面板刷新按钮带 refresh=true(真忽略 cache)" \
+  || log_bad "v04-AI-DIAGNOSE-1 诊断刷新按钮 url 错" "_ai-diagnose.html 里的刷新链接必须带 refresh=true"
 
 # v04-AI-DIAGNOSE-2 · v0.4.9 · 结构化 JSON 渲染 4 维度卡(总评 + 4 卡 + 优先行动)
+#   2026-09-22:这一条【只能靠真 LLM 输出】才看得到四维卡(refresh=true 还会主动绕过缓存),
+#   所以它是这个脚本里最贵的一条。默认不跑;渲染层的 fallback 分支由 DIAGNOSE-3 静态守着。
+if [[ "$QA_LLM_LIVE" != "1" ]]; then
+  log_skip "v04-AI-DIAGNOSE-2 结构化四维卡" "只有真 LLM 输出才看得到 · QA_LLM_LIVE=1 时才跑"
+else
 $CURL -b $COOKIE "$BASE/checkup/diagnose?refresh=true" -o "$TMP" -w "" --max-time 60
 # 总评 banner + 4 个 dimension 名 + verdict pill + 优先行动
 total_markers=0
@@ -2383,6 +2448,7 @@ else
 { [[ "$total_markers" -ge 6 ]] && [[ "$DIAG_EMOJI" -eq 0 ]]; } \
   && log_ok "v04-AI-DIAGNOSE-2 结构化诊断渲染 · 总评+4 维度+优先行动 6/6 · 且无 emoji(图标走 inline SVG)" \
   || log_bad "v04-AI-DIAGNOSE-2 结构化渲染缺 / 出现 emoji" "markers=$total_markers/6 emoji=$DIAG_EMOJI"
+fi
 fi
 
 # v04-AI-DIAGNOSE-3 · 老 cache(纯文本)兼容 · structured 解析失败时 fallback 显示 text
@@ -2708,20 +2774,34 @@ PIT=src/test/java/com/family/finance/service/checkup/llm/PrivacyIsolationTest.ja
 # ====================================================================
 section "v0.6 · AI 资产洞察"
 
-# v06-INSIGHT-1 · /checkup/insight endpoint 200(LLM 真机最长 35s · 无 key 时降级仍 200)
-code=$(/usr/bin/curl -s --max-time 35 -b $COOKIE -o "$TMP" -w "%{http_code}" "$BASE/checkup/insight")
-[[ "$code" == "200" ]] && log_ok "v06-INSIGHT-1 GET /checkup/insight → 200" \
-  || log_bad "v06-INSIGHT-1 insight endpoint" "code=$code"
-
-# v06-INSIGHT-2 · fragment 含 vendor/available 属性 + AI·资产洞察 标题 + 硬数据/第一层
-{ grep -qE 'data-vendor=|data-available=' "$TMP" && grep -q 'AI · 资产洞察' "$TMP"; } \
-  && log_ok "v06-INSIGHT-2 insight fragment 含 vendor/available + 标题" \
-  || log_bad "v06-INSIGHT-2 insight fragment" "missing attrs/title"
-
-# v06-INSIGHT-3 · fragment 含第一层硬数据(集中度/资产负债表/再平衡/低利率 任一维度名)
-{ grep -q '硬 · 数 · 据' "$TMP" || grep -q '集中度' "$TMP" || grep -q '硬数据暂不可用' "$TMP"; } \
-  && log_ok "v06-INSIGHT-3 insight fragment 含硬数据层(或降级占位)" \
-  || log_bad "v06-INSIGHT-3 insight 硬数据层缺" "no hard-data section"
+# v06-INSIGHT-1/2/3 · 2026-09-22 重做
+#   /checkup/insight 没有「账户查不到」那种早返回,任何一次请求都会真的打一次 LLM。
+#   而这三条验的是:端点通、fragment 带 vendor/available、硬数据层在 —— 三件都是
+#   **模板与控制器的静态事实**,不需要模型说话。所以默认钉模板;真要看渲染出来的样子,
+#   开 QA_LLM_LIVE=1 会走真请求(下面 v06-LLM-LIVE 那条)。
+AI_INSIGHT_TPL="$RD/src/main/resources/templates/checkup/_ai-insight.html"
+if [[ "$QA_LLM_LIVE" == "1" ]]; then
+  code=$(/usr/bin/curl -s --max-time 35 -b $COOKIE -o "$TMP" -w "%{http_code}" "$BASE/checkup/insight")
+  [[ "$code" == "200" ]] && log_ok "v06-INSIGHT-1 GET /checkup/insight → 200" \
+    || log_bad "v06-INSIGHT-1 insight endpoint" "code=$code"
+  { grep -qE 'data-vendor=|data-available=' "$TMP" && grep -q 'AI · 资产洞察' "$TMP"; } \
+    && log_ok "v06-INSIGHT-2 insight fragment 含 vendor/available + 标题" \
+    || log_bad "v06-INSIGHT-2 insight fragment" "missing attrs/title"
+  { grep -q '硬 · 数 · 据' "$TMP" || grep -q '集中度' "$TMP" || grep -q '硬数据暂不可用' "$TMP"; } \
+    && log_ok "v06-INSIGHT-3 insight fragment 含硬数据层(或降级占位)" \
+    || log_bad "v06-INSIGHT-3 insight 硬数据层缺" "no hard-data section"
+else
+  grep -q 'checkup/insight' "$RD/src/main/java/com/family/finance/web/checkup/AiDiagnoseController.java" \
+    && log_ok "v06-INSIGHT-1 /checkup/insight 端点在(静态判据 · 真请求会打 LLM,QA_LLM_LIVE=1 才走)" \
+    || log_bad "v06-INSIGHT-1 insight endpoint 缺" "AiDiagnoseController 里找不到 /checkup/insight"
+  { grep -qE 'data-vendor=|data-available=' "$AI_INSIGHT_TPL" && grep -q 'AI · 资产洞察' "$AI_INSIGHT_TPL"; } \
+    && log_ok "v06-INSIGHT-2 insight 模板含 vendor/available + 标题" \
+    || log_bad "v06-INSIGHT-2 insight fragment" "_ai-insight.html 里缺 data-vendor/available 或标题"
+  { grep -q '硬 · 数 · 据' "$AI_INSIGHT_TPL" || grep -q '集中度' "$AI_INSIGHT_TPL" \
+    || grep -q '硬数据暂不可用' "$AI_INSIGHT_TPL"; } \
+    && log_ok "v06-INSIGHT-3 insight 模板含硬数据层(或降级占位)" \
+    || log_bad "v06-INSIGHT-3 insight 硬数据层缺" "_ai-insight.html 里没有硬数据段"
+fi
 
 # v06-INSIGHT-4 · /checkup 页含 #checkup-insight section + 异步 placeholder + TOC 项
 $CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
@@ -2748,6 +2828,10 @@ else
 fi
 
 # v06-LLM-LIVE · 嗅探 /checkup/insight 是否由真 LLM 成功返回(无 key/全失败则降级 · 不阻塞)
+#   2026-09-22:这条本来就是「去问一次真 LLM」,所以默认不跑。
+if [[ "$QA_LLM_LIVE" != "1" ]]; then
+  log_skip "v06-LLM-LIVE 实调用嗅探" "这条必须真打一次 LLM · QA_LLM_LIVE=1 时才跑"
+else
 /usr/bin/curl -s --max-time 35 -b $COOKIE -o "$TMP" -w "" "$BASE/checkup/insight"
 ins_vendor=$(grep -oE 'data-vendor="[^"]+"' "$TMP" | head -1 | sed 's/data-vendor="\([^"]*\)"/\1/')
 ins_avail=$(grep -oE 'data-available="[^"]+"' "$TMP" | head -1 | sed 's/data-available="\([^"]*\)"/\1/')
@@ -2756,13 +2840,29 @@ if [[ "$ins_avail" == "true" && ( "$ins_vendor" == "qwen" || "$ins_vendor" == "d
 else
   log_skip "v06-LLM-LIVE" "LLM key 未配/失败 vendor=$ins_vendor available=$ins_avail — 已降级(硬数据仍在),不阻塞"
 fi
+fi
 
 # v06-COMPLIANCE · 洞察渲染输出绝不含预测涨跌/择时/具体产品名(中立诊断红线 · 防御深度)
+#   2026-09-22:扫【模型真实输出】需要真请求一次,默认不跑。
+#   关掉时退一步扫【我们自己的模板与提示词】—— 那些词不该出现在我们写的任何文案里,
+#   这是更浅但仍然有用的一层;真正的输出扫描在 QA_LLM_LIVE=1 时才做。
+if [[ "$QA_LLM_LIVE" != "1" ]]; then
+  # 【只扫模板,不扫提示词】—— 提示词文件里【本来就列着这些词】,那是禁用清单本身
+  #   (InsightPromptBuilder:33 那一行就是"不许说会涨/会跌/牛市/熊市/抄底")。
+  #   把它一起扫进去,这条护栏会因为"我们写了禁令"而判我们违规 —— 第一版就是这么红的。
+  if grep -qE '会涨|会跌|牛市|熊市|抄底|逃顶|高抛低吸|波段操作|余额宝|茅台|宁德时代' \
+       "$AI_INSIGHT_TPL" 2>/dev/null; then
+    log_bad "v06-COMPLIANCE 洞察模板里含预测/择时/产品词" "这些词不该出现在我们自己写的文案里"
+  else
+    log_ok "v06-COMPLIANCE 洞察模板无预测/择时/产品词(模型输出层扫描需 QA_LLM_LIVE=1)"
+  fi
+else
 /usr/bin/curl -s --max-time 35 -b $COOKIE -o "$TMP" -w "" "$BASE/checkup/insight"
 if grep -qE '会涨|会跌|牛市|熊市|抄底|逃顶|高抛低吸|波段操作|余额宝|茅台|宁德时代' "$TMP"; then
   log_bad "v06-COMPLIANCE 洞察输出含预测/择时/产品词" "$(grep -oE '会涨|会跌|牛市|熊市|抄底|逃顶|高抛低吸|波段操作|余额宝|茅台|宁德时代' "$TMP" | head -3 | tr '\n' ' ')"
 else
   log_ok "v06-COMPLIANCE 洞察输出无预测/择时/产品词(中立诊断)"
+fi
 fi
 
 # v06-PRIV · InsightPromptBuilder 隐私 by construction:源码不引用成员/账户名 getter
@@ -2841,7 +2941,7 @@ done
 # v0.7 · Docker 部署 + 兼容存量(静态守护 · 真机冒烟留待 Mac+Ubuntu)
 # ====================================================================
 section "v0.7 · Docker(静态守护)"
-RD="$(cd "$(dirname "$0")/.." && pwd)"   # 仓库根
+# RD 已在脚本开头定义(原来在这里,为了让前面的护栏也能用而上移)
 
 # v07-DOCKER-1 文件齐
 dmiss=0
@@ -5790,6 +5890,51 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && [ -f "$RD/docs/how-to-use.md" ] && [ -f "$RD/docs/how-to-record.md" ]; } \
   && log_ok "v1632-MANUAL(站内 /help/how-to-use + 新手卡 localStorage 一年 + 导航栏与填报页常驻入口 · 卡消失后入口仍在)" \
   || log_bad "v1632-MANUAL 缺件" "see HelpController(/help/how-to-use)· templates/help/how-to-use.html(须套 layout · 不得残留 PREVIEW 条)· fragments/_manual-hint.html(manualHintDismissedAt + 默认 display:none 防闪)· nav.html 至少 2 处入口(PC+移动)· entry/index.html 与 dashboard/index.html 挂卡 · entry-points.json 登记 id=manual · docs/how-to-use.md + how-to-record.md"
+
+# v1243-QA-RUN-COSTS-NOTHING · 这个脚本默认【一次真 LLM 都不打】。
+#
+#   2026-09-22 账单复盘:qa-run 每跑一次要打 15 个 AI 端点,而主选 DeepSeek 从 09-02 起欠费,
+#   每次调用都自动 failover 到阿里云百炼 —— 开发最密的那几天一天 187 次,
+#   基本都是跑回归跑出来的。这条护栏防的是「哪天有人顺手又加一个真请求进来」。
+#
+#   判据:所有打 AI 端点的行,要么在 QA_LLM_LIVE 开关里面,要么走的是【不碰 LLM 的路径】
+#   (account=99999 在控制器里早返回)。白名单只有这一条,加别的要在这里写明理由。
+QA1243_BAD=""
+while IFS= read -r ln; do
+  n="${ln%%:*}"; body="${ln#*:}"
+  # 跳过注释行
+  case "$(printf '%s' "$body" | sed 's/^[[:space:]]*//')" in \#*) continue ;; esac
+  # 白名单:走早返回的那条(账户查不到 → 不调 LLM)
+  case "$body" in *"account=99999"*) continue ;; esac
+  # 其余的必须落在某个 QA_LLM_LIVE 分支里 —— 往上找最近的 if
+  #   两条合法路径:① 包在 QA_LLM_LIVE 开关里 ② 前面先 ai_seed_advice 塞过缓存
+  #   (命中缓存的 advise 直接返回,不打 LLM —— 见 RebalanceAdvisorService:90)
+  ctx="$(sed -n "$((n>40?n-40:1)),${n}p" "$RD/scripts/qa-run.sh")"
+  case "$ctx" in
+    *'QA_LLM_LIVE'*)     ;;
+    *'ai_seed_advice'*)  ;;
+    *) QA1243_BAD="$QA1243_BAD $n" ;;
+  esac
+done < <(grep -n 'BASE/checkup/diagnose\|BASE/checkup/insight\|rebalance/advise' "$RD/scripts/qa-run.sh" \
+          | grep -E 'curl|CURL')
+[ -z "$QA1243_BAD" ] \
+  && log_ok "v1243-QA-RUN-COSTS-NOTHING(默认不打真 LLM · 要验真调用:QA_LLM_LIVE=1)" \
+  || log_bad "v1243-QA-RUN-COSTS-NOTHING 有 AI 请求没挂开关" "第$QA1243_BAD 行会打真 LLM · 要么先塞缓存,要么包进 QA_LLM_LIVE"
+
+# v1243-AI-HEALTH-VISIBLE · 主备全挂时,管理页要说得出来。
+#   2026-09-22:DeepSeek 09-02 挂、百炼 09-20 挂,中间 20 天所有 AI 功能都出不来,
+#   而没有任何人知道 —— 每一层都优雅降级,页面显示「AI · 暂不可用」,
+#   和「这个月没人点过 AI」长得一模一样。最后是【账单】把这件事捅出来的。
+QA1243_TRK="$RD/src/main/java/com/family/finance/service/checkup/llm/LlmHealthTracker.java"
+{ [ -f "$QA1243_TRK" ] \
+  && grep -q 'allAccountsDown' "$QA1243_TRK" \
+  && grep -q 'healthTracker.recordOk' "$RD/src/main/java/com/family/finance/service/checkup/llm/LlmRouter.java" \
+  && grep -q 'healthTracker.recordFail' "$RD/src/main/java/com/family/finance/service/checkup/llm/LlmRouter.java" \
+  && grep -q 'llmAllDown' "$RD/src/main/java/com/family/finance/web/admin/AiAccessController.java" \
+  && grep -q 'AI 现在全部不可用' "$RD/src/main/resources/templates/admin/ai-access.html" \
+  && [ -f "$RD/src/test/java/com/family/finance/service/checkup/llm/LlmHealthTrackerTest.java" ]; } \
+  && log_ok "v1243-AI-HEALTH-VISIBLE(主备全挂在管理页有读数与告警 · 判据有单测穷举)" \
+  || log_bad "v1243-AI-HEALTH-VISIBLE AI 故障又变回静默了" "要有 LlmHealthTracker + LlmRouter 记录 + 管理页 llmAllDown 告警 + 单测"
 
 # v1241-MANUAL-NO-RETIRED-DENIAL · 手册不许再声称一个【已经做了】的功能不存在。
 #
