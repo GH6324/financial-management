@@ -52,6 +52,31 @@ server {
     # 所有其它请求(含 /css/ /js/ /img/ /vendor/ /favicon.ico /dashboard 等)
     # 统一走后端反代。Spring 已经在 link 上加 ?v=${buildVersion} 做 cache-busting,
     # 不需要再在 nginx 单独给静态资源加 expires。
+    # 超级 Agent 的流式回答(SSE)。
+    #
+    # 2026-09-22 在测试环境实测出来的:从浏览器问一个稍复杂的问题
+    #(「资产多少 / 分布如何 / 有什么建议」),150 秒一个字都没回来,浏览器一个 504;
+    # 而直连应用是好的 —— 问题全在反代这一层:
+    #   ① nginx 默认【缓冲】上游响应,SSE 于是不再是流式(用户盯着空白等);
+    #   ② `proxy_read_timeout` 默认 60s,而一次带工具调用的问答经常更久。
+    #
+    # 应用已经自己做了两道防护(响应头 `X-Accel-Buffering: no` + 每 15s 一个 SSE 心跳),
+    # 所以【即使你不加这个 location 也能用】。这里显式写出来是为了说清意图,
+    # 也给那些把 buffering 强行打开、或者用别的反代的人一个照抄的模板。
+    location ~ ^/ask/[0-9]+/stream$ {
+        proxy_pass         http://finance_backend;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto http;
+        proxy_set_header   Connection        "";
+        proxy_buffering    off;      # SSE 必须关缓冲,否则不是流式
+        proxy_cache        off;
+        proxy_read_timeout 300s;     # 一次带工具调用的问答可以很久
+        proxy_send_timeout 300s;
+    }
+
     # 历史遗留:不要单独给 /css/ 拆出 location 块 — 那样会少几条 proxy_set_header,
     # 触发 Spring forward-headers-strategy=framework 的边界 bug,导致 CSS 加载失败。
     location / {

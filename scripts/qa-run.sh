@@ -5891,6 +5891,43 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && log_ok "v1632-MANUAL(站内 /help/how-to-use + 新手卡 localStorage 一年 + 导航栏与填报页常驻入口 · 卡消失后入口仍在)" \
   || log_bad "v1632-MANUAL 缺件" "see HelpController(/help/how-to-use)· templates/help/how-to-use.html(须套 layout · 不得残留 PREVIEW 条)· fragments/_manual-hint.html(manualHintDismissedAt + 默认 display:none 防闪)· nav.html 至少 2 处入口(PC+移动)· entry/index.html 与 dashboard/index.html 挂卡 · entry-points.json 登记 id=manual · docs/how-to-use.md + how-to-record.md"
 
+# v1244-SSE-SURVIVES-REVERSE-PROXY · 流式回答必须扛得住反向代理。
+#
+#   2026-09-22 从浏览器实测(beta.dixi-token.top,走真实域名 + nginx):
+#   问一个稍复杂的问题「资产多少 / 分布如何 / 有什么建议」,150 秒一个字都没回来,
+#   控制台一个 504。而直连 127.0.0.1:20000 是好的 —— 问题全在反代那一层:
+#     ① nginx 默认【缓冲】上游响应,SSE 于是不再是流式(用户盯着空白等);
+#     ② proxy_read_timeout 默认 60s(beta 配的 90s),而应用给 SseEmitter 的是 200s。
+#
+#   这也解释了为什么之前一直没发现:所有自测都打 127.0.0.1,绕过了 nginx。
+#   两道防护都必须在【应用侧】—— 自建用户的反代五花八门,我们控制不了他们的配置。
+QA1244_AC="$RD/src/main/java/com/family/finance/web/ask/AskController.java"
+{ grep -q 'X-Accel-Buffering' "$QA1244_AC" \
+  && grep -q 'scheduleAtFixedRate' "$QA1244_AC" \
+  && grep -q 'comment("hb")' "$QA1244_AC" \
+  && grep -q 'ask/\[0-9\]+/stream' "$RD/deploy/nginx-finance.conf.example"; } \
+  && log_ok "v1244-SSE-SURVIVES-REVERSE-PROXY(应用发 X-Accel-Buffering + 15s 心跳 · nginx 示例也给了 SSE location)" \
+  || log_bad "v1244-SSE-SURVIVES-REVERSE-PROXY 流式又会被反代掐" "AskController 要发 X-Accel-Buffering 并周期发 SSE 心跳;deploy/nginx-finance.conf.example 要有 /ask/N/stream 的 location"
+
+# v1244-CITE-KEYS-UNIQUE-PER-RUN · 托管模式下,引用 key 必须一轮内全局唯一。
+#   工具返回的 key 是工具【内部】的行号(r0_0 / nw),一轮里百炼会调五六次工具,
+#   「按资产类型」的 r0_0 和「按平台」的 r0_0 会撞在一起 —— 模型分不出,我们也会覆盖。
+#   2026-09-22 实测后果:正文写「最大的一块是债券理财」,挂的卡是「支付宝 48.34%」。
+#   **给一个看起来合理、实际错位的数,比不给更糟**,而用户没有任何办法发现。
+{ grep -q 'scopedKey' "$RD/src/main/java/com/family/finance/service/ask/AskCiteBuffer.java" \
+  && grep -q 'nextCallSeq' "$RD/src/main/java/com/family/finance/web/ask/McpEndpoint.java" \
+  && grep -q 'scopedKey' "$RD/src/main/java/com/family/finance/web/ask/McpEndpoint.java"; } \
+  && log_ok "v1244-CITE-KEYS-UNIQUE-PER-RUN(MCP 出口就把引用 key 唯一化 · 多次工具调用不再互相覆盖)" \
+  || log_bad "v1244-CITE-KEYS-UNIQUE-PER-RUN 引用 key 又会撞" "McpEndpoint 必须用 AskCiteBuffer.scopedKey(nextCallSeq(..), key) 重编 key"
+
+# v1244-CHART-BRACE-TOLERANT · 图表标记少一个右花括号也要画得出来。
+#   标记以 }} 结束,JSON 对象也以 } 结束 —— 分隔符天然撞车,模型很容易把 ...]}}}} 写成 ...]}}}。
+#   实测:一张六项的饼图就这么静默丢了,而正文里那个引导冒号还留在页面上,后面空空如也。
+{ grep -q 'parseChartJson' "$RD/src/main/java/com/family/finance/service/ask/AskCitationRenderer.java" \
+  && [ -f "$RD/src/test/java/com/family/finance/service/ask/AskChartMarkerTest.java" ]; } \
+  && log_ok "v1244-CHART-BRACE-TOLERANT(图表 JSON 少括号能补回来 · 判据有单测穷举)" \
+  || log_bad "v1244-CHART-BRACE-TOLERANT 图表又会被静默丢掉" "AskCitationRenderer 要有 parseChartJson 容错 + AskChartMarkerTest"
+
 # v1243-QA-RUN-COSTS-NOTHING · 这个脚本默认【一次真 LLM 都不打】。
 #
 #   2026-09-22 账单复盘:qa-run 每跑一次要打 15 个 AI 端点,而主选 DeepSeek 从 09-02 起欠费,

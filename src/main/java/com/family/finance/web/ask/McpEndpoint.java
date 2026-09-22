@@ -120,11 +120,31 @@ public class McpEndpoint {
             payload.put("data", result.data());
             payload.put("meta", result.meta());
             if (!result.citations().isEmpty()) {
-                payload.put("citations", result.citations());
-                // 同一份引用要走两条路:一条给百炼(让模型能在正文里写 {{cite:nw}}),
-                // 一条寄存给本机那轮问答(让这些标记落库后渲染得出数字)。
-                // 少了后面这条,模型写的标记就永远没有替换对象。
-                citeBuffer.put(pass.familyId(), result.citations());
+                /* 【key 必须在这里就唯一化】——
+                   工具返回的 key 是【工具内部】的行号:`r0_0` / `nw` / `em`。
+                   一轮问答里百炼会调五六次工具,于是「按资产类型」的 r0_0 和
+                   「按平台」的 r0_0 撞在一起 —— 而模型看到的是同一个名字,
+                   它没有任何办法区分,我们这边后到的也会把先到的覆盖掉。
+
+                   2026-09-22 beta 实测:正文写「最大的一块是债券理财」,
+                   挂上去的引用卡却是「支付宝·蚂蚁财富 48.34%」。
+                   **这比没有数字更糟** —— 一个看起来合理、实际错位的数,
+                   用户没有任何办法发现它错了。
+
+                   所以在发给百炼【之前】就把 key 变成 t1_r0_0 / t2_r0_0:
+                   模型拿到的就是互不相同的名字,它写回来的标记自然也就对得上。
+                   本机直连那条路一直没这问题,因为它在循环里重编成 c1/c2/c3。 */
+                int callSeq = citeBuffer.nextCallSeq(pass.familyId());
+                java.util.List<com.family.finance.service.ask.AskToolResult.Cite> scoped =
+                        new java.util.ArrayList<>();
+                for (var c : result.citations()) {
+                    scoped.add(new com.family.finance.service.ask.AskToolResult.Cite(
+                            com.family.finance.service.ask.AskCiteBuffer.scopedKey(callSeq, c.key()),
+                            c.metricKey(), c.label(), c.valueText(),
+                            c.periodId(), c.inProgress(), c.currency(), c.targetHref()));
+                }
+                payload.put("citations", scoped);
+                citeBuffer.put(pass.familyId(), scoped);
             }
         } else {
             payload.put("error", result.error());

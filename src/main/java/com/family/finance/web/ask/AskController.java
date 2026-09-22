@@ -53,6 +53,24 @@ public class AskController {
     private final ObjectMapper json = new ObjectMapper();
 
     private final AtomicInteger inFlight = new AtomicInteger();
+
+    /**
+     * SSE 心跳 —— 每 15 秒往连接里发一个注释行,让反向代理看不到「空闲」。
+     *
+     * <p>`proxy_read_timeout` 算的是<b>两次读之间的间隔</b>,不是总时长。
+     * 所以只要这条连接上一直有字节流过,90s / 60s 那些默认值就都掐不到它 ——
+     * 这比让用户去改 nginx 配置可靠得多(我们控制不了别人的反代)。</p>
+     *
+     * <p>发的是 SSE 注释(`: hb`),规范规定客户端<b>忽略</b>它,
+     * 所以前端一行代码都不用改。</p>
+     */
+    private final java.util.concurrent.ScheduledExecutorService heartbeats =
+            Executors.newScheduledThreadPool(1, r -> {
+                Thread t = new Thread(r, "ask-sse-hb");
+                t.setDaemon(true);
+                return t;
+            });
+    private static final long HEARTBEAT_SECONDS = 15;
     private final ExecutorService pool = Executors.newFixedThreadPool(
             MAX_CONCURRENT, r -> {
                 Thread t = new Thread(r, "ask-sse");
@@ -136,7 +154,23 @@ public class AskController {
     public SseEmitter stream(@AuthenticationPrincipal MemberPrincipal me,
                              @PathVariable long id,
                              @RequestParam(required = false, defaultValue = "") String q,
-                             @RequestParam(required = false, defaultValue = "new") String mode) {
+                             @RequestParam(required = false, defaultValue = "new") String mode,
+                             jakarta.servlet.http.HttpServletResponse response) {
+        /* 【必须告诉反代别缓冲】—— 2026-09-22 在 beta 上实测出来的:
+           从浏览器问一个稍微复杂点的问题(「资产多少 / 分布如何 / 有什么建议」),
+           150 秒一个字都没回来,控制台一个 504。而直连应用是好的 ——
+           问题全在反向代理那一层:
+
+             ① nginx 默认【缓冲】上游响应,SSE 于是不再是流式:
+                用户盯着空白等,而不是看着字一个个出来;
+             ② nginx `proxy_read_timeout` 默认 60s(我们 beta 配的 90s),
+                而这里的 SseEmitter 给的是 200s —— 两边不一致时,
+                短的那个说了算,用户看到的是 504。
+
+           `X-Accel-Buffering: no` 是 nginx 认的标准头,发了它就【不需要用户改配置】。
+           自建用户的反代五花八门,我们不能假设他们配对了 —— 能在响应头里解决的,
+           就不要写进部署文档里指望别人照做。 */
+        response.setHeader("X-Accel-Buffering", "no");
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
 
         if (inFlight.get() >= MAX_CONCURRENT) {
@@ -158,6 +192,13 @@ public class AskController {
 
         inFlight.incrementAndGet();
         try {
+            // 心跳先起:一次 AI 问答里,「模型在想」与「工具在查」都可能安静几十秒,
+            // 那正是反代判定超时的时间窗。
+            java.util.concurrent.ScheduledFuture<?> hb = heartbeats.scheduleAtFixedRate(() -> {
+                try { emitter.send(SseEmitter.event().comment("hb")); }
+                catch (Exception ignored) { /* 连接已断:下面的 finally 会取消这个任务 */ }
+            }, HEARTBEAT_SECONDS, HEARTBEAT_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+
             pool.execute(() -> {
                 try {
                     conversations.ask(fam, id, q, m, new EmitterSink(emitter, abort));
@@ -166,6 +207,7 @@ public class AskController {
                     send(emitter, "failed", Map.of("message", "出了点问题,重试一下。"));
                     emitter.complete();
                 } finally {
+                    hb.cancel(true);
                     inFlight.decrementAndGet();
                     aborts.remove(id, abort);
                 }

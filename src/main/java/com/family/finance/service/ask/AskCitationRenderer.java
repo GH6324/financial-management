@@ -32,6 +32,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class AskCitationRenderer {
 
     private static final Pattern CITE = Pattern.compile("\\{\\{cite:([A-Za-z0-9_]{1,14})}}");
@@ -343,9 +344,40 @@ public class AskCitationRenderer {
      * 服务端渲染历史消息和客户端流式渲染共用同一个容器契约,
      * 于是「流完刷新一下样子会变」这类问题不会发生。</p>
      */
+    /**
+     * 补回模型少写的右花括号。
+     *
+     * <p>标记的结束符是 {@code }}},而 JSON 对象的结尾也是 {@code }} —— 两者天然撞车。
+     * 模型很容易把 {@code ...]}}}} 写成 {@code ...]}}},也就是拿标记的一个括号
+     * 当成了 JSON 的收尾。2026-09-22 在 beta 上实测到:一张六项的资产类型饼图
+     * 就是这么丢的 —— JSON 差一个括号,图<b>静默消失</b>,而正文里
+     * 「钱主要分在六类里……:」那个冒号<b>还留在页面上</b>,后面空空如也。</p>
+     *
+     * <p>最多补两个:再多就不是少写括号,是输出真的坏了,那时候宁可不画。</p>
+     */
+    static JsonNode parseChartJson(String json) {   // 包级可见:判据要能穷举(见 AskChartMarkerTest)
+        for (int extra = 0; extra <= 2; extra++) {
+            try {
+                JsonNode n = JSON.readTree(json + "}".repeat(extra));
+                // 【必须是个对象】—— Jackson 对空串不抛异常,返回的是 MissingNode,
+                // 只判 null 会把「什么都没有」当成解析成功,然后在下面 path("items") 上
+                // 静默得到空图。判「是不是对象」才是这里真正要的。
+                if (n != null && n.isObject()) return n;
+            } catch (Exception ignored) { /* 再补一个试试 */ }
+        }
+        return null;
+    }
+
     private String chart(String json, Map<String, AskCitation> byKey) {
         try {
-            JsonNode n = JSON.readTree(json);
+            JsonNode n = parseChartJson(json);
+            if (n == null) {
+                // 【别静默】—— 图没画出来时正文里那句引导语还在,页面上会是一个悬空的冒号。
+                // 日志里留一行,至少下次有人问起时查得到。
+                log.warn("超级 Agent · 图表标记解析失败(补括号也救不回来)· 长度={} 开头={}",
+                        json.length(), json.substring(0, Math.min(80, json.length())));
+                return "";
+            }
             String type = n.path("type").asText("pie");
             String title = n.path("title").asText("");
 

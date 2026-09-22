@@ -49,9 +49,41 @@ public class AskCiteBuffer {
     /** familyId → 本轮到目前为止,工具产出过的引用(key → Cite) */
     private final ConcurrentHashMap<Long, Map<String, AskToolResult.Cite>> pending = new ConcurrentHashMap<>();
 
+    /**
+     * 每个家庭这一轮里「第几次工具调用」。
+     *
+     * <p>存在的理由是一个实测出来的错:工具返回的引用 key 是<b>工具内部的行号</b>
+     * (`r0_0` = 第 0 行第 0 列、`nw` = 净资产)。一轮问答里百炼可能调五六次工具,
+     * 于是<b>多次调用的 key 必然重复</b> —— 「按资产类型」的 `r0_0` 和
+     * 「按平台」的 `r0_0` 是两个完全不同的数。</p>
+     *
+     * <p>2026-09-22 在 beta 上真实撞到:正文写「最大的一块是<b>债券理财</b>」,
+     * 挂上去的引用卡却是「<b>支付宝·蚂蚁财富</b> 48.34%」—— 因为后一次调用的
+     * `r0_0` 把前一次的覆盖掉了。<b>这比没有数字更糟</b>:它给了一个看起来合理、
+     * 实际错位的数,而用户没有任何办法发现。</p>
+     *
+     * <p>本机直连那条路没这个问题,因为它在循环里重编成 c1 / c2 / c3…;
+     * 托管这条路的 key 直接来自工具,所以要在<b>发给百炼之前</b>就唯一化 ——
+     * 模型只有拿到互不相同的 key,才可能正确地引用它们。</p>
+     */
+    private final ConcurrentHashMap<Long, java.util.concurrent.atomic.AtomicInteger> seq =
+            new ConcurrentHashMap<>();
+
+    /** 这一轮的下一个工具调用序号(从 1 开始)*/
+    public int nextCallSeq(long familyId) {
+        return seq.computeIfAbsent(familyId, k -> new java.util.concurrent.atomic.AtomicInteger())
+                  .incrementAndGet();
+    }
+
+    /** 把工具内的 key 变成这一轮里全局唯一的 key */
+    public static String scopedKey(int callSeq, String rawKey) {
+        return "t" + callSeq + "_" + rawKey;
+    }
+
     /** 一轮开始 —— 丢掉上一轮的残留 */
     public void clear(long familyId) {
         pending.remove(familyId);
+        seq.remove(familyId);
     }
 
     /** MCP 工具刚跑完 —— 把它产出的引用寄存起来 */
