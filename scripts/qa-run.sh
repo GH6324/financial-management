@@ -2292,20 +2292,42 @@ $CURL -b $COOKIE -c $COOKIE "$BASE/reports" -o "$TMP" -w ""
   && log_ok "v04-AI-REBALANCE-4 advise 后 reports 页含反馈条(成功 / 缓存 / 失败)" \
   || log_bad "v04-AI-REBALANCE-4 反馈条缺" "no flash bar"
 
-# v04-AI-REBALANCE-5 · cache 命中 → 再点应 fromCache=true(节省 LLM 调用)
-mysql -ufinance -pfinance finance -e "DELETE FROM rebalance_advice_cache WHERE family_id=1;" 2>/dev/null
+# v04-AI-REBALANCE-5 · cache 命中 → 不再打 LLM(fromCache=true)
+#
+#   判据改造(2026-09-22):原来的做法是「删光缓存 → POST 两次 → 第二次应 fromCache=true」。
+#   那让这条护栏的成败取决于【LLM 此刻在不在线】:beta 的 DeepSeek 欠费(402)、
+#   百炼凭据失效(400)之后,第一次调用根本没产出,自然没有缓存可命中 —— 于是它一直红,
+#   而红的文案写着「cache 未命中」,看上去像缓存代码坏了。**排查花的时间全花在这个误导上。**
+#
+#   现在改成【自己塞一行缓存】再 POST 一次。命中判据只看 (family_id, anchor_code) + 30 天 TTL,
+#   不校验 prompt_hash(RebalanceAdvisorService:90),所以塞得进去;而这样测到的正是
+#   缓存这段逻辑本身 —— 与 LLM 在不在线无关。
+#   判据原则:一条护栏该守的是【我们的代码】,不是【第三方账户有没有余额】。
+QA5_ANCHOR=$(mysql -ufinance -pfinance finance -N -e \
+  "SELECT COALESCE(allocation_anchor,'SP_4321') FROM family WHERE id=1;" 2>/dev/null | tr -d '\r' | head -1)
+QA5_A1=$(mysql -ufinance -pfinance finance -N -e \
+  "SELECT display_name FROM account WHERE family_id=1 AND archived_at IS NULL ORDER BY id LIMIT 1;" 2>/dev/null | tr -d '\r' | head -1)
+QA5_A2=$(mysql -ufinance -pfinance finance -N -e \
+  "SELECT display_name FROM account WHERE family_id=1 AND archived_at IS NULL ORDER BY id DESC LIMIT 1;" 2>/dev/null | tr -d '\r' | head -1)
+qa5_seed() {
+  mysql -ufinance -pfinance finance -e "DELETE FROM rebalance_advice_cache WHERE family_id=1;
+    INSERT INTO rebalance_advice_cache (family_id, anchor_code, content_json, prompt_hash, generated_at)
+    VALUES (1, '${QA5_ANCHOR:-SP_4321}',
+      JSON_OBJECT('narrative','qa-run 固定桩 · 不是 LLM 产出',
+                  'actions', JSON_ARRAY(JSON_OBJECT(
+                     'from_account','${QA5_A1:-现金账户}', 'to_account','${QA5_A2:-投资账户}',
+                     'amount', 1000, 'reason','qa-run 固定桩'))),
+      NULL, NOW());" 2>/dev/null
+}
+qa5_seed
 XSRF=$(awk -F'\t' '/^localhost.*XSRF-TOKEN/ {print $NF}' $COOKIE)
 $CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" --data-urlencode "_csrf=$XSRF" \
   "$BASE/reports/rebalance/advise" -o /dev/null -w "" --max-time 30
 sleep 1
-$CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" --data-urlencode "_csrf=$XSRF" \
-  "$BASE/reports/rebalance/advise" -o /dev/null -w "" --max-time 30
-sleep 1
-# 第二次应 fromCache=true(log 里能看到)
 cache_hit_log=$(tail -5 /opt/finance/logs/app.log | grep "rebalance advise.*fromCache=true" | wc -l)
 [[ "$cache_hit_log" -ge 1 ]] \
-  && log_ok "v04-AI-REBALANCE-5 第二次 advise 命中 cache(fromCache=true)" \
-  || log_bad "v04-AI-REBALANCE-5 cache 未命中" "log doesn't show fromCache=true"
+  && log_ok "v04-AI-REBALANCE-5 缓存内有建议时 advise 直接命中(fromCache=true · 不打 LLM)" \
+  || log_bad "v04-AI-REBALANCE-5 缓存明明有,advise 却没命中" "已塞入 anchor=${QA5_ANCHOR:-SP_4321} 的缓存行,log 仍无 fromCache=true —— 这次是缓存逻辑真的坏了,不是 LLM 不在线"
 
 # v04-AI-REBALANCE-6 · refresh=true 跳过 cache 强制重新调 LLM
 $CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" \
@@ -2319,10 +2341,15 @@ fresh_log=$(tail -5 /opt/finance/logs/app.log | grep "refresh=true.*fromCache=fa
   || log_bad "v04-AI-REBALANCE-6 refresh 没跳过" "force_log=$force_log fresh_log=$fresh_log"
 
 # v04-AI-REBALANCE-7 · advice card 有「↻ 刷新」按钮(模板侧)
+#   同 -5 的改造:这张卡只在【缓存里有建议】时才渲染,而上一条(-6)刚做过一次
+#   force refresh —— LLM 不在线时那次不会产出,卡就不渲染,于是护栏红成「刷新按钮缺」。
+#   失败的刷新不动缓存(invalidate() 没有任何调用方),但这里仍然重塞一次,
+#   让这条护栏不依赖上面几条的执行顺序与结果。
+qa5_seed
 $CURL -b $COOKIE "$BASE/reports" -o "$TMP" -w ""
 { grep -q 'refresh=.true\|refresh=true' "$TMP" && grep -q '↻ 刷新' "$TMP"; } \
   && log_ok "v04-AI-REBALANCE-7 advice card 显示 ↻ 刷新按钮(form 带 refresh=true)" \
-  || log_bad "v04-AI-REBALANCE-7 刷新按钮缺" "no refresh button"
+  || log_bad "v04-AI-REBALANCE-7 刷新按钮缺" "缓存里已有建议,/reports 仍没渲染出带 refresh=true 的「↻ 刷新」—— 模板侧问题"
 
 # v04-AI-DIAGNOSE-1 · /checkup AI 综合诊断刷新按钮带 refresh=true(此前 title 写忽略 cache 但实际没传)
 #   /checkup 主页用 spinner placeholder + HTMX 异步加载 · 必须直接 GET /checkup/diagnose 拿 panel fragment
@@ -9751,13 +9778,23 @@ QAE2E_DIR="$RD/scripts/e2e"
 # 【必须是 ( ) 不是 { }】—— { } 是命令组不是子 shell,里面的 exit 会把【整个 qa-run】
 #   退掉:2026-09-20 实测,这条一红,它后面的所有护栏和最后那行总结【一次都没跑过】,
 #   而终端上看不出异常(只是没有总结)。判据里带 exit 的分组,一律用子 shell。
+# 【判据修正 2026-09-22】原来「看得见层」只认 ui.seesText / visible / count / sameSize 四个名字。
+#   `21-dual-period-metrics` 因此一直红,而它其实是这三条 flow 里**页面验得最狠**的一条:
+#   它用 `ui.page.evaluate` 从渲染后的 DOM 上把 KPI 的值抠下来,再断言「变 / 不变」
+#   (22 条 ui.assert)。那比 seesText 更强 —— seesText 只证明字符串在页面上,
+#   抠 KPI 值证明的是**用户看到的那个数**对不对。
+#   红了三个多月,报的是「有 flow 只验了一层」,而真相是判据不认这条路。
+#   现在把「从 DOM 抠值」也算作看得见层,同时补一条「必须真的断言了」——
+#   光 evaluate 出来不断言(比如只用它滚动定位)不算验。
+QAE2E_SEE='ui\.seesText|ui\.notSeesText|ui\.visible|ui\.notVisible|ui\.count|ui\.sameSize|ui\.page\.evaluate'
 ( for f in "$QAE2E_DIR"/flows/*.cjs; do
     [ -e "$f" ] || continue
-    grep -q "ui\.seesText\|ui\.visible\|ui\.count\|ui\.sameSize" "$f" || exit 1
-    grep -q "db\.one\|db\.num\|db\.col" "$f" || exit 1
+    grep -qE "$QAE2E_SEE" "$f" || exit 1
+    grep -qE 'ui\.assert|ui\.seesText|ui\.count' "$f" || exit 1
+    grep -qE 'db\.one|db\.num|db\.col' "$f" || exit 1
   done ) \
   && log_ok "v1230-E2E-TWO-LAYER-ASSERT(每个 flow 都有页面断言 + 真值断言)" \
-  || log_bad "v1230-E2E-TWO-LAYER-ASSERT 有 flow 只验了一层" "看得见层漏了会漏「用户看不到」;真值层漏了会漏「显示对了没存进去」"
+  || log_bad "v1230-E2E-TWO-LAYER-ASSERT 有 flow 只验了一层" "看得见层漏了会漏「用户看不到」;真值层漏了会漏「显示对了没存进去」· 看得见层可以是 ui.seesText 这类助手,也可以是 ui.page.evaluate 抠 DOM 值,但都必须落到 ui.assert"
 
 # v1230-E2E-CLEANUP-DECLARES-END-STATE · 还原要声明终态,不能依赖「跑之前是什么样」。
 #   踩过:还原写成 `if (跑之前是 CLOSED) 关回去`,连跑两次时第二次读到的已经是 OPEN,
