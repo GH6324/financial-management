@@ -5891,6 +5891,23 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && log_ok "v1632-MANUAL(站内 /help/how-to-use + 新手卡 localStorage 一年 + 导航栏与填报页常驻入口 · 卡消失后入口仍在)" \
   || log_bad "v1632-MANUAL 缺件" "see HelpController(/help/how-to-use)· templates/help/how-to-use.html(须套 layout · 不得残留 PREVIEW 条)· fragments/_manual-hint.html(manualHintDismissedAt + 默认 display:none 防闪)· nav.html 至少 2 处入口(PC+移动)· entry/index.html 与 dashboard/index.html 挂卡 · entry-points.json 登记 id=manual · docs/how-to-use.md + how-to-record.md"
 
+# v1245-MCP-BASE-URL-NORMALIZED · 「本站公网地址」里误粘的 /mcp 必须被吃掉。
+#
+#   2026-09-23 生产事故:那一格问的是【站点根】,而我们生成给人粘贴的是一条完整的
+#   https://域名/mcp —— 于是那条完整地址又被填回了这一格,拼出来是 /mcp/mcp。
+#
+#   后果:超级 Agent 一本正经地回答「目前这个会话里没有任何工具连接到我这边」。
+#   因为 /mcp/mcp 不是我们的端点,它被普通 Web 安全链接管,回 302 跳登录页;
+#   百炼拿到一个 HTML 跳转,得出「这个服务器没有工具」。
+#
+#   最难受的是【我们这边一条记录都没有】—— 请求根本没走到鉴权那一步,
+#   入站审计表里连一条失败都看不到,只能看出「百炼从某天起就不来了」。
+{ grep -q 'normalizeBaseUrl' "$RD/src/main/java/com/family/finance/service/ask/runtime/ManagedAgentRuntime.java" \
+  && grep -q 'normalizeBaseUrl' "$RD/src/main/java/com/family/finance/web/admin/AiAccessController.java" \
+  && [ -f "$RD/src/test/java/com/family/finance/service/ask/runtime/ManagedAgentBaseUrlTest.java" ]; } \
+  && log_ok "v1245-MCP-BASE-URL-NORMALIZED(公网地址末尾的 /mcp 会被吃掉 · 保存与生成两处都归一 · 判据有单测)" \
+  || log_bad "v1245-MCP-BASE-URL-NORMALIZED 又会拼出 /mcp/mcp" "ManagedAgentRuntime 要有 normalizeBaseUrl,AiAccessController 保存时也要用它;判据落 ManagedAgentBaseUrlTest"
+
 # v1244-SSE-SURVIVES-REVERSE-PROXY · 流式回答必须扛得住反向代理。
 #
 #   2026-09-22 从浏览器实测(beta.dixi-token.top,走真实域名 + nginx):

@@ -512,8 +512,40 @@ public class ManagedAgentRuntime implements AgentRuntime {
         @Override public void failed(String humanMessage) { text.append("[失败] ").append(humanMessage); }
     }
 
+    /**
+     * 把「本站公网地址」归一成<b>真正的站点根</b>。
+     *
+     * <h3>为什么需要它</h3>
+     *
+     * <p>下面那行是 {@code baseUrl + "/mcp"}。页面上那一格问的是「本站公网地址」,
+     * 但生成出来给人粘贴的却是一条完整的 {@code .../mcp} 地址 —— 于是有人很自然地
+     * 把<b>那条完整地址</b>又填回了这一格。拼出来就是 {@code /mcp/mcp}。</p>
+     *
+     * <p>2026-09-22 在生产上实测到的后果:{@code /mcp/mcp} 不是我们的端点,
+     * 它被普通 Web 安全链接管,回的是 <b>302 跳登录页</b>。百炼拿到一个 HTML 跳转,
+     * 得出的结论是「这个服务器没有工具」,于是 agent 一本正经地回答
+     * 「目前这个会话里没有任何工具连接到我这边」——<b>而我们这边没有任何报错</b>:
+     * 审计表里连一条失败记录都不会有,因为请求根本没走到鉴权那一步。</p>
+     *
+     * <p>正确的地址 {@code /mcp} 在凭据不对时回 <b>404</b>(见 McpEndpoint 的「未通过一律 404」),
+     * 和 302 长得完全不一样 —— 但没人会去比这两个状态码。所以这里直接把多余的那截吃掉:
+     * <b>能在代码里消化掉的歧义,不要写进文档里指望别人不踩。</b></p>
+     */
+    public static String normalizeBaseUrl(String raw) {
+        if (raw == null) return "";
+        String v = raw.trim();
+        while (v.endsWith("/")) v = v.substring(0, v.length() - 1);
+        // 反复剥:粘贴两次的也认(/mcp/mcp)
+        while (v.endsWith("/mcp")) {
+            v = v.substring(0, v.length() - "/mcp".length());
+            while (v.endsWith("/")) v = v.substring(0, v.length() - 1);
+        }
+        return v;
+    }
+
     /** 给用户去百炼控制台粘贴的 MCP 配置 —— 明文口令只在生成那一屏出现一次 */
-    public String mcpConfigJson(String baseUrl, String plaintextToken) {
+    public String mcpConfigJson(String rawBaseUrl, String plaintextToken) {
+        String baseUrl = normalizeBaseUrl(rawBaseUrl);
         // 逐个 put,不用 Map.of —— Map.of 不保证顺序,生成出来 headers 会跑到 type 前面。
         // 这段是给人复制粘贴的,字段顺序乱掉虽然不影响解析,但读起来像是随手拼的。
         Map<String, Object> entry = new LinkedHashMap<>();

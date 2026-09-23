@@ -170,7 +170,10 @@ public class AiAccessController {
         long fam = me.getFamilyId();
         configService.set(fam, K_ASK_ENABLED, String.valueOf(enabled));
         if (runtime != null && !runtime.isBlank()) configService.set(fam, K_ASK_RUNTIME, runtime.trim());
-        configService.set(fam, K_ASK_PUBLIC_BASE_URL, trimSlash(publicBaseUrl));
+        // 顺手把误粘进来的 /mcp 吃掉 —— 那一格问的是站点根,
+        // 而我们生成给人粘贴的却是完整的 .../mcp 地址,填反是很自然的事。
+        configService.set(fam, K_ASK_PUBLIC_BASE_URL,
+                ManagedAgentRuntime.normalizeBaseUrl(trimSlash(publicBaseUrl)));
         configService.set(fam, K_ASK_MA_WORKSPACE, nz(workspaceId));
         configService.set(fam, K_ASK_MA_MCP_SERVER, nz(mcpServerId));
         // 空着就落默认值,别存空串 —— 存了空串,后面读出来还得再判一次
