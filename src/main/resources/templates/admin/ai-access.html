@@ -43,6 +43,31 @@
          th:text="'距离最后一次成功调用已经 ' + ${llmSinceOkHours} + ' 小时'">距离最后一次成功调用已经 N 小时</p>
     </div>
 
+    <!--/* v1.24.4 · 百炼上的 Agent 模板过期
+           2026-09-23 生产实测:模板停在 09-04,那之后 v1.20.2 修了「只声明服务器、不启用工具」,
+           但【发新版本不会更新百炼上的 Agent】—— 生产那个 Agent 的 tools 一直是空数组,
+           百炼一次都没来调我们(nginx 14 天零条),agent 对用户说「没有任何工具连接到我这边」。
+           那句话听起来像用户自己配错了,而我们这边一条错误都没有。这块就是为了让它在这里被看见。 */-->
+    <div th:if="${askTemplateDrift != null and askTemplateDrift.stale()}" class="paper-card px-5 py-4 mb-6"
+         style="border-left:3px solid var(--rust)">
+      <div class="flex items-center gap-2 mb-1">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rust)" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <b class="text-[15px]" th:text="${askTemplateDrift.noTools()} ? '超级 Agent 现在查不到任何数据' : '超级 Agent 少了几个工具'">超级 Agent 现在查不到任何数据</b>
+      </div>
+      <p class="text-[12.5px] text-ink-soft" style="line-height:1.85">
+        百炼上那个 Agent 的模板是<b>旧版本</b> ——
+        <span th:if="${askTemplateDrift.noTools()}">我们的工具<b>一个都没启用</b>,它会回答「没有任何工具连接到我这边」。</span>
+        <span th:unless="${askTemplateDrift.noTools()}"
+              th:text="'这些工具没启用:' + ${#strings.listJoin(askTemplateDrift.missing(), '、')}">这些工具没启用</span>
+        <br>发新版本<b>不会</b>自动更新它,要在这里点一下。点完之后<b>新开一个对话</b>再问
+        (旧对话在百炼那边锁着旧模板,程序会在下一次提问时自动换成新的)。
+      </p>
+      <button type="submit" form="createAgentForm" class="btn-ink text-sm mt-2.5">更新百炼上的 Agent 模板</button>
+    </div>
+
     <div th:if="${llmHealth != null and !llmHealth.isEmpty()}" class="mb-6">
       <div class="eyebrow mb-2">A I · 健 · 康</div>
       <div class="flex flex-wrap gap-2">

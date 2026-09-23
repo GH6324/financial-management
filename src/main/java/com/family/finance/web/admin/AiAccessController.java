@@ -77,6 +77,11 @@ public class AiAccessController {
         model.addAttribute("llmAllDown", llmHealth.allAccountsDown());
         var sinceOk = llmHealth.sinceLastOk();
         model.addAttribute("llmSinceOkHours", sinceOk == null ? null : sinceOk.toHours());
+        // 远端模板是否过期 —— 发新版本不会更新百炼上的 Agent,必须有人点「更新」。
+        // 2026-09-23:生产的模板停在 09-04,工具一个都没启用,挂了近三周没人知道。
+        if ("managed".equals(configService.getString(fam, K_ASK_RUNTIME, "managed"))) {
+            model.addAttribute("askTemplateDrift", managedAgentRuntime.templateDrift());
+        }
 
         List<AskAccessToken> tokens = tokenService.list(fam);
         // 按接入点分组:换绑期间同一个点下有两把(旧的 + 新的)

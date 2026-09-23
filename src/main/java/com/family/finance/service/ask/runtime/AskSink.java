@@ -34,6 +34,16 @@ public interface AskSink {
                   java.util.Map<String, com.family.finance.service.ask.AskToolResult.Cite> citable);
 
     /** 正文增量 —— 可能含 {{cite:xx}} 标记,原样传,不要在 runtime 里替换 */
+    /**
+     * 把一批可引用的数字送到浏览器(不附带「工具调用」进度)。
+     *
+     * <p>本机直连模式里引用随 {@link #toolDone} 一起走,用不到它。托管模式下工具是百炼
+     * 经 MCP 回调执行的,引用产在另一个请求里,只能从寄存器取回来,再用这个口子推给浏览器。
+     * 2026-09-23 在 beta 上端到端测出来的:只修了落库、没修这一路,于是<b>回答流式出来的当下
+     * 数字全是空的</b>,要刷新页面才看得到 —— 用户在那个当下看到的就是一段缺了数字的话。</p>
+     */
+    default void cites(java.util.Map<String, com.family.finance.service.ask.AskToolResult.Cite> citable) { }
+
     void textDelta(String delta);
 
     /**

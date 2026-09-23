@@ -304,8 +304,27 @@ public class AskConversationService {
             out.toolDone(tool, label, ms, ok, summary, citable);
         }
 
+        /** 已经推给浏览器的引用 key —— 每段文字前只推新到的那些 */
+        private final java.util.Set<String> forwarded = new java.util.HashSet<>();
+
+        /**
+         * 托管模式:把 MCP 那边刚寄存的引用推给浏览器。
+         *
+         * <p>时序上是对的:模型要先拿到工具结果才写得出 {@code {{cite:t2_nw}}},
+         * 而工具结果就是在 MCP 请求里寄存的 —— 所以写到这个标记的那段文字到达时,
+         * 对应的引用已经在寄存器里了。先推引用、再推文字,前端替换时就找得到。</p>
+         */
+        private void forwardNewCites() {
+            Map<String, AskToolResult.Cite> fresh = new LinkedHashMap<>();
+            citeBuffer.snapshot(familyId).forEach((k, c) -> {
+                if (forwarded.add(k)) fresh.put(k, c);
+            });
+            if (!fresh.isEmpty()) out.cites(fresh);
+        }
+
         @Override
         public void textDelta(String delta) {
+            forwardNewCites();
             text.append(delta);
             out.textDelta(delta);
         }
@@ -323,6 +342,7 @@ public class AskConversationService {
 
         @Override
         public void done() {
+            forwardNewCites();
             persist();
             out.done();
         }

@@ -273,6 +273,11 @@ public class AskController {
                              String summary, Map<String, AskToolResult.Cite> citable) {
             send(emitter, "tool", Map.of("tool", tool, "label", label, "phase", "done",
                     "ms", ms, "ok", ok, "summary", summary == null ? "" : summary));
+            cites(citable);
+        }
+
+        @Override
+        public void cites(Map<String, AskToolResult.Cite> citable) {
             citable.forEach((k, c) -> send(emitter, "cite", Map.of(
                     "key", k, "value", c.valueText(), "label", c.label(),
                     "href", c.targetHref() == null ? "" : c.targetHref(),

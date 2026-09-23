@@ -38,9 +38,13 @@ import static com.family.finance.service.config.FamilyConfigService.*;
  *       这是依赖方的结构限制,不是我们能省掉的步骤。</li>
  * </ol>
  *
- * <p><b>本类的云端往返尚未在真实环境跑通</b>:beta 只有 IP、没有域名和证书,百炼回调不到。
- * 代码按已查证的接口形态实现,但「实际跑通」这件事必须等一个有公网 HTTPS 的环境 ——
- * 在那之前不要在任何地方把它描述成已验证。没有公网的部署走 {@link LocalToolLoopRuntime}。</p>
+ * <p><b>云端往返已在 beta.dixi-token.top 上端到端跑通</b>(2026-09-22/23,真实域名、浏览器操作):
+ * 百炼经 MCP 回调取数、引用在流式当下渲染、刷新后从库里读回一致。
+ * 没有公网 HTTPS 的部署走 {@link LocalToolLoopRuntime}。</p>
+ *
+ * <p><b>远端 Agent 模板不随发版更新</b>:它只在有人点「更新百炼上的 Agent 模板」时才写过去。
+ * 2026-09-23 生产上的模板因此停在 09-04,tools 为空,超级 Agent 近三周查不到任何数据。
+ * 现在由 {@link #templateDrift()} 检测、提问前拦截、管理页横幅提示,旧会话按版本自动换新。</p>
  */
 @Slf4j
 @Component
@@ -97,11 +101,23 @@ public class ManagedAgentRuntime implements AgentRuntime {
         String reason = unavailableReason(turn.familyId());
         if (reason != null) { sink.failed(reason); return; }
 
+        // 【模板过期先拦住】—— 否则 agent 会一本正经地说「没有任何工具连接到我这边」,
+        // 听起来像用户自己配错了,而我们这边一条错误记录都没有(见 templateDrift)。
+        TemplateDrift drift = cachedDrift();
+        if (drift.checked() && drift.noTools()) {
+            sink.failed("百炼上的 Agent 模板是旧版本,我们的工具一个都没启用,所以它查不到任何数据。"
+                    + "去「管理 → AI 接入」点一下「更新百炼上的 Agent 模板」,然后新开一个对话再问。");
+            return;
+        }
+
         try {
-            String sessionId = turn.providerRef();
-            if (sessionId == null || sessionId.isBlank()) {
+            String ver = configService.getString(FAMILY_ID, K_ASK_MA_AGENT_VERSION, "1");
+            String sessionId = sessionFor(turn.providerRef(), ver);
+            if (sessionId == null) {
                 sessionId = createSession();
-                turn.onProviderRef().accept(sessionId);
+                // 带上版本存:百炼的会话【锁定创建时的模板版本】,模板更新后旧会话照样是坏的。
+                // 记下版本,下次版本对不上就换一个新会话,而不是让用户永远困在旧模板里。
+                turn.onProviderRef().accept(sessionId + "@v" + ver);
             }
             // 三步,缺一不可:追加事件 → 拿到它的 id → 从这个 id 之后读流。
             // 「追加」和「读答案」是两个不同的请求,这是百炼这套接口的形状(见 appendUserMessage)。
@@ -354,6 +370,7 @@ public class ManagedAgentRuntime implements AgentRuntime {
         // id 先落库再回读:万一回读这一步失败(网络/超时),agent 已经建出来了,
         // 下次点按钮要走「更新」而不是再建一个。
         verifyTemplate(id);
+        invalidateDrift();
         return id;
     }
 
@@ -370,6 +387,96 @@ public class ManagedAgentRuntime implements AgentRuntime {
      *
      * <p>已存在的会话<b>锁定创建时的 version</b>,不受本次更新影响。</p>
      */
+    /**
+     * 会话引用 → 可复用的会话 id;版本对不上(或是老格式、不知道版本)就返回 null,让调用方新开。
+     *
+     * <p>百炼的会话<b>锁定创建时的 Agent 版本</b>。2026-09-23 生产上的教训:模板从 09-04 起
+     * 就没启用工具,修好模板之后,之前开的那些对话<b>仍然停在坏模板上</b> ——
+     * 用户点了「更新」、回到原来的对话一问,还是「没有工具」,只会以为更新没生效。</p>
+     *
+     * <p>老格式(不带 {@code @v})一律当作版本未知,新开一次。代价是那些对话在百炼那边的
+     * 上下文记忆断一次;换来的是它们不会永远卡在一个没有工具的旧模板上。</p>
+     */
+    static String sessionFor(String providerRef, String currentVersion) {
+        if (providerRef == null || providerRef.isBlank()) return null;
+        int at = providerRef.lastIndexOf("@v");
+        if (at <= 0) return null;                                   // 老格式 → 版本未知 → 新开
+        String ver = providerRef.substring(at + 2);
+        return ver.equals(currentVersion) ? providerRef.substring(0, at) : null;
+    }
+
+    /**
+     * 百炼上那个 Agent 模板和我们代码期望的是否一致。
+     *
+     * @param checked  查成功了没有(查不到就不下结论,别拿网络故障冒充「模板过期」)
+     * @param noTools  一个工具都没启用 —— 这是【完全不能用】的状态
+     * @param missing  我们有、模板里没启用的工具名(新版本加了工具但模板没更新)
+     */
+    public record TemplateDrift(boolean checked, boolean noTools, List<String> missing, String error) {
+        public boolean stale() { return checked && (noTools || !missing.isEmpty()); }
+    }
+
+    /**
+     * 去百炼读回 Agent 定义,对比「启用了哪些工具」。
+     *
+     * <h3>为什么非查不可</h3>
+     *
+     * <p>Agent 模板是<b>远端资源</b>:我们发新版本、改了模板结构,百炼上那个 Agent
+     * <b>不会跟着变</b>,必须有人去点「更新百炼上的 Agent 模板」。</p>
+     *
+     * <p>2026-09-23 生产上实测:v1.20.2(09-09)修掉了「只声明 mcp_servers、不启用 tools」
+     * 的 bug,而生产那个 Agent 是 09-04 建的,<b>此后再没更新过</b> —— 它的
+     * {@code tools} 一直是空数组。百炼因此一次都没来调我们的 MCP(nginx 日志 14 天零条),
+     * agent 则对用户说「目前这个会话里没有任何工具连接到我这边」。
+     * <b>那句话听起来像用户自己的 MCP 配置没生效,而我们这边一条错误都不会记录。</b></p>
+     *
+     * <p>这个 GET 是百炼的管理接口,不调模型、不花钱。</p>
+     */
+    public TemplateDrift templateDrift() {
+        if (agentId().isBlank() || mcpServerId().isBlank()) {
+            return new TemplateDrift(false, false, List.of(), "还没创建 Agent");
+        }
+        try {
+            JsonNode a = get(agentBase() + "/agents/" + agentId());
+            return driftOf(a, mcpServerId(), registry.all().stream()
+                    .map(com.family.finance.service.ask.AskTool::name).toList());
+        } catch (Exception e) {
+            return new TemplateDrift(false, false, List.of(), humanError(e));
+        }
+    }
+
+    /** 纯函数:给一份百炼回读的 Agent 定义,判它启用了我们哪些工具(见 ManagedAgentTemplateDriftTest) */
+    static TemplateDrift driftOf(JsonNode agent, String mcpServerId, List<String> ourTools) {
+        java.util.Set<String> enabled = new java.util.HashSet<>();
+        for (JsonNode t : agent.path("tools")) {
+            if (!"mcp_toolkit".equals(t.path("type").asText())) continue;
+            // 只认挂在【我们这个】MCP 服务上的 —— 同一个 agent 上可能还挂着别的服务
+            if (!mcpServerId.equals(t.path("mcp_server_name").asText())) continue;
+            for (JsonNode c : t.path("configs")) {
+                if (c.path("enabled").asBoolean(true)) enabled.add(c.path("name").asText());
+            }
+        }
+        List<String> missing = ourTools.stream().filter(n -> !enabled.contains(n)).toList();
+        return new TemplateDrift(true, enabled.isEmpty(), missing, null);
+    }
+
+    /** 每次提问都去查一次太浪费;5 分钟一查,更新模板后立即作废 */
+    private volatile TemplateDrift driftCache;
+    private volatile long driftAt;
+    private static final long DRIFT_TTL_MS = 5 * 60_000L;
+
+    private TemplateDrift cachedDrift() {
+        TemplateDrift d = driftCache;
+        if (d == null || System.currentTimeMillis() - driftAt > DRIFT_TTL_MS) {
+            d = templateDrift();
+            driftCache = d;
+            driftAt = System.currentTimeMillis();
+        }
+        return d;
+    }
+
+    private void invalidateDrift() { driftCache = null; }
+
     public void updateAgent(String systemPrompt, String model) throws Exception {
         assertAgentIsOurs();
         Map<String, Object> body = agentBody(systemPrompt, model);
@@ -378,6 +485,7 @@ public class ManagedAgentRuntime implements AgentRuntime {
         String ver = firstText(n, "version", "agent_version");
         if (ver != null) configService.set(FAMILY_ID, K_ASK_MA_AGENT_VERSION, ver);
         verifyTemplate(agentId());
+        invalidateDrift();
     }
 
     /**

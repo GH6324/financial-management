@@ -5891,17 +5891,37 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && log_ok "v1632-MANUAL(站内 /help/how-to-use + 新手卡 localStorage 一年 + 导航栏与填报页常驻入口 · 卡消失后入口仍在)" \
   || log_bad "v1632-MANUAL 缺件" "see HelpController(/help/how-to-use)· templates/help/how-to-use.html(须套 layout · 不得残留 PREVIEW 条)· fragments/_manual-hint.html(manualHintDismissedAt + 默认 display:none 防闪)· nav.html 至少 2 处入口(PC+移动)· entry/index.html 与 dashboard/index.html 挂卡 · entry-points.json 登记 id=manual · docs/how-to-use.md + how-to-record.md"
 
+# v1246-AGENT-TEMPLATE-DRIFT-VISIBLE · 百炼上的 Agent 模板落后于代码时,必须被看见。
+#   2026-09-23:生产的模板停在 09-04,tools 一直是空数组 —— 发新版本不会更新远端的 Agent。
+#   百炼 14 天零次来调我们,agent 对用户说「没有任何工具连接到我这边」,我们这边零条错误。
+QA1246_MA="$RD/src/main/java/com/family/finance/service/ask/runtime/ManagedAgentRuntime.java"
+{ grep -q 'TemplateDrift templateDrift()' "$QA1246_MA" \
+  && grep -q 'static TemplateDrift driftOf' "$QA1246_MA" \
+  && grep -q 'cachedDrift()' "$QA1246_MA" \
+  && grep -q 'invalidateDrift()' "$QA1246_MA" \
+  && grep -q 'static String sessionFor' "$QA1246_MA" \
+  && grep -q '"@v" + ver' "$QA1246_MA" \
+  && grep -q 'askTemplateDrift' "$RD/src/main/java/com/family/finance/web/admin/AiAccessController.java" \
+  && grep -q 'askTemplateDrift.stale()' "$RD/src/main/resources/templates/admin/ai-access.html" \
+  && grep -q 'form="createAgentForm"' "$RD/src/main/resources/templates/admin/ai-access.html" \
+  && [ -f "$RD/src/test/java/com/family/finance/service/ask/runtime/ManagedAgentTemplateDriftTest.java" ]; } \
+  && log_ok "v1246-AGENT-TEMPLATE-DRIFT-VISIBLE(远端模板过期:提问前拦住并说清下一步 · 管理页横幅就地可更新 · 旧会话按版本换新)" \
+  || log_bad "v1246-AGENT-TEMPLATE-DRIFT-VISIBLE 远端模板过期又会静默" "要有 templateDrift/driftOf + 提问前 cachedDrift 拦截 + 更新后 invalidateDrift + sessionFor 版本化会话 + 管理页横幅"
+
+# v1246-LIVE-CITES-FORWARDED · 托管模式下,引用必须在【流式当下】送到浏览器,不能只落库。
+#   2026-09-23:v1.24.3 只修了落库,验收看的是刷新后的页面 —— 流式当下每个数字仍然是空的。
+QA1246_CS="$RD/src/main/java/com/family/finance/service/ask/AskConversationService.java"
+{ grep -q 'default void cites(' "$RD/src/main/java/com/family/finance/service/ask/runtime/AskSink.java" \
+  && grep -q 'public void cites(' "$RD/src/main/java/com/family/finance/web/ask/AskController.java" \
+  && grep -q 'forwardNewCites()' "$QA1246_CS" \
+  && grep -q 'citeBuffer.snapshot' "$QA1246_CS"; } \
+  && log_ok "v1246-LIVE-CITES-FORWARDED(托管模式的引用在每段文字前推给浏览器 · 流式当下就有数字)" \
+  || log_bad "v1246-LIVE-CITES-FORWARDED 流式当下数字又会是空的" "Collector 要在 textDelta/done 前 forwardNewCites(),用 AskCiteBuffer.snapshot 取新到的引用经 AskSink.cites 推出去"
+
 # v1245-MCP-BASE-URL-NORMALIZED · 「本站公网地址」里误粘的 /mcp 必须被吃掉。
-#
-#   2026-09-23 生产事故:那一格问的是【站点根】,而我们生成给人粘贴的是一条完整的
-#   https://域名/mcp —— 于是那条完整地址又被填回了这一格,拼出来是 /mcp/mcp。
-#
-#   后果:超级 Agent 一本正经地回答「目前这个会话里没有任何工具连接到我这边」。
-#   因为 /mcp/mcp 不是我们的端点,它被普通 Web 安全链接管,回 302 跳登录页;
-#   百炼拿到一个 HTML 跳转,得出「这个服务器没有工具」。
-#
-#   最难受的是【我们这边一条记录都没有】—— 请求根本没走到鉴权那一步,
-#   入站审计表里连一条失败都看不到,只能看出「百炼从某天起就不来了」。
+#   那一格问的是【站点根】,而我们生成给人粘贴的是完整的 https://域名/mcp;填回来就拼出 /mcp/mcp
+#   (那个路径被普通 Web 安全链接管,302 跳登录)。
+#   注意:2026-09-23 生产「没有工具」【不是】这个原因(一开始误判成了它)——真因见 v1246。
 { grep -q 'normalizeBaseUrl' "$RD/src/main/java/com/family/finance/service/ask/runtime/ManagedAgentRuntime.java" \
   && grep -q 'normalizeBaseUrl' "$RD/src/main/java/com/family/finance/web/admin/AiAccessController.java" \
   && [ -f "$RD/src/test/java/com/family/finance/service/ask/runtime/ManagedAgentBaseUrlTest.java" ]; } \

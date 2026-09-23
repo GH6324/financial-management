@@ -102,6 +102,12 @@ public class AskCiteBuffer {
      * <p>取走即清空:一轮问答只落一条 assistant 消息,取完就没有第二个消费者了;
      * 留着反而会被下一轮捡到。</p>
      */
+    /** 只看不取:流式推送用。落库那一步仍然用 {@link #drain} 取走 */
+    public Map<String, AskToolResult.Cite> snapshot(long familyId) {
+        Map<String, AskToolResult.Cite> m = pending.get(familyId);
+        return m == null || m.isEmpty() ? Map.of() : new LinkedHashMap<>(m);
+    }
+
     public Map<String, AskToolResult.Cite> drain(long familyId) {
         Map<String, AskToolResult.Cite> m = pending.remove(familyId);
         return m == null || m.isEmpty() ? Map.of() : new LinkedHashMap<>(m);
