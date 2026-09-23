@@ -252,7 +252,7 @@ public class LlmDiagnoseService {
             cache.remove(cacheKey);
         }
 
-        // 2. 走路由:主选 → 备选,顺序由 /admin/integrations 的三级配置决定(v1.13)。
+        // 2. 走路由:主选 → 备选,顺序由 /admin/ai-access 「大模型」那一节的三级配置决定(v1.13)。
         //    这里是全项目最挑剔的一个调用方 —— 每次尝试无论成败都要进审计,输出还要过合规校验、
         //    没过就换下一家。所以用 Handler 形态:路由管「调谁、调不通换谁」,这里管「收不收」。
         DiagnoseResult routed = llmRouter.invoke(familyId, systemPrompt, userPrompt,

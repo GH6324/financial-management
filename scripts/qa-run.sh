@@ -2721,13 +2721,19 @@ DSC=src/main/java/com/family/finance/service/scheduling/DynamicScheduleConfig.ja
   && log_ok "v04-CFG-5 LLM key 改读 ConfigService(不再 @Value 直注入)· key 名来自目录 keyName()" \
   || log_bad "v04-CFG-5 LLM client 未切换 ConfigService" "see AbstractOpenAiCompatibleClient.apiKey()"
 
-# v04-CFG-6 · /admin/integrations 页 200 + 含 LLM/股票/FX 三段
+# v04-CFG-6 · 三段各在其位:股票 / FX 在数据源接入,大模型在 AI 接入
+#   v1.24.5 · 大模型那一节挪到了 AI 接入(维护者定:AI 的东西放一处)。
+#   反向也要守:数据源接入页上【不许再有】大模型的密钥表单 —— 否则就成了两处都能改、各显示各的。
 $CURL -b $COOKIE "$BASE/admin/integrations" -o "$TMP" -w ""
-{ grep -q '阿里云百炼' "$TMP" \
-  && grep -q '股票自动拉取' "$TMP" \
-  && grep -q 'FX 汇率自动拉取' "$TMP"; } \
-  && log_ok "v04-CFG-6 /admin/integrations 集成中心 · 3 段在岗" \
-  || log_bad "v04-CFG-6 集成页缺段" "missing sections"
+QA_CFG6_INT="$(cat "$TMP")"
+$CURL -b $COOKIE "$BASE/admin/ai-access" -o "$TMP" -w ""
+{ printf '%s' "$QA_CFG6_INT" | grep -q '股票自动拉取' \
+  && printf '%s' "$QA_CFG6_INT" | grep -q 'FX 汇率自动拉取' \
+  && ! printf '%s' "$QA_CFG6_INT" | grep -q 'ai-access/llm/key\|integrations/llm/key' \
+  && grep -q '阿里云百炼' "$TMP" \
+  && grep -q 'ai-access/llm/key' "$TMP"; } \
+  && log_ok "v04-CFG-6 股票 / FX 在数据源接入 · 大模型在 AI 接入 · 数据源接入页上不再有密钥表单" \
+  || log_bad "v04-CFG-6 页面分工不对" "数据源接入要有股票+FX 且不能有大模型密钥表单;AI 接入要有阿里云百炼与 /admin/ai-access/llm/key"
 
 # v04-CFG-7 · /admin/calc-tweaks 升级为可编辑(form post)
 $CURL -b $COOKIE "$BASE/admin/calc-tweaks" -o "$TMP" -w ""
@@ -3259,9 +3265,18 @@ done
   && log_ok "v08-8 账户详情/仪表盘/账本(EntryController)无 pictographic emoji(已换 inline SVG/排版符)" \
   || log_bad "v08-8 仍有 emoji" "$EMOJI_HITS 个文件命中,see detail.html/_region.html/EntryController.java"
 
+# v1.24.5 · 大模型那一节从数据源接入挪到了 AI 接入:
+#   模板 → admin/_llm-settings.html;Java → AiModelController(端点)+ LlmSettingsView(页面数据)。
+#   原来这些护栏 grep 的是【一个】控制器文件,现在同样的东西分在两个文件里,
+#   合成一份给它们用 —— 判据本身一个字没改,只换了看的地方。
+QA_LLM_TPL="$RD/src/main/resources/templates/admin/_llm-settings.html"
+QA_LLM_JAVA="$(mktemp)"
+cat "$RD/src/main/java/com/family/finance/web/admin/AiModelController.java" \
+    "$RD/src/main/java/com/family/finance/web/admin/LlmSettingsView.java" > "$QA_LLM_JAVA"
+
 section "v0.7 第二批 · 外部服务配置引导(静态守护)"
-ICFG="$RD/src/main/resources/templates/admin/integrations.html"
-ICTL="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"
+ICFG="$QA_LLM_TPL"   # v1.24.5 · 大模型那一节已挪到 AI 接入(原 integrations.html)
+ICTL="$QA_LLM_JAVA"   # v1.24.5 · 大模型那一节已挪到 AI 接入(原 IntegrationsController.java)
 
 # v07-CFG-1 配置总指南 + README 入口
 { [[ -f "$RD/docs/configuration.md" ]] && grep -q 'docs/configuration.md' "$RD/README.md"; } \
@@ -3285,14 +3300,18 @@ done
 { grep -q '都<b>可选</b>' "$ICFG" \
   && [ "$_cfg2_n" -ge 3 ] && [ "$_cfg2_help" -ge "$_cfg2_n" ] && [ -z "$_cfg2_bad" ]; } \
   && log_ok "v07-CFG-2 LLM 页 可选说明 + 每个平台各有折叠指引 + 测试按钮 + sibling 表单齐(平台 $_cfg2_n 个)" \
-  || log_bad "v07-CFG-2 LLM 配置引导 UI 缺件" "平台 $_cfg2_n 个 · 折叠指引 $_cfg2_help 段 · 缺按钮:${_cfg2_bad:-ok} · see integrations.html"
+  || log_bad "v07-CFG-2 LLM 配置引导 UI 缺件" "平台 $_cfg2_n 个 · 折叠指引 $_cfg2_help 段 · 缺按钮:${_cfg2_bad:-ok} · see admin/_llm-settings.html"
 
 # v07-CFG-3 后端测试端点 + 脱敏分类
-{ grep -q '/llm/test' "$ICTL" \
+#   v1.24.5 · 端点跟着页面搬到了 AiModelController:类上 /admin/ai-access/llm + 方法上 /test。
+#   判据改成查【拼起来的完整路径】,并确认页面上的测试表单确实提交到这里(两头对得上才算通)。
+{ grep -q '@RequestMapping("/admin/ai-access/llm")' "$ICTL" \
+  && grep -q '@PostMapping("/test")' "$ICTL" \
+  && [ "$(grep -c 'action="@{/admin/ai-access/llm/test}"' "$ICFG")" -ge 3 ] \
   && grep -q 'classifyLlmError' "$ICTL" \
   && grep -q 'isPrivateKeyConfigured' "$ICTL"; } \
-  && log_ok "v07-CFG-3 /llm/test 端点 + classifyLlmError 脱敏 + 未配短路" \
-  || log_bad "v07-CFG-3 LLM 测试端点缺失" "see IntegrationsController"
+  && log_ok "v07-CFG-3 /admin/ai-access/llm/test 端点 + 三家测试表单指向它 + classifyLlmError 脱敏 + 未配短路" \
+  || log_bad "v07-CFG-3 LLM 测试端点缺失" "see AiModelController(/admin/ai-access/llm/test)与 _llm-settings.html 的三个测试表单"
 
 # v07-CFG-4 私密红线:测试端点不回显/不记 key 明文(/llm/test 处理不引用 key 参数,审计只记 vendor+结果)
 if awk '/@PostMapping\("\/llm\/test"\)/{f=1} f{print} /^    }$/{if(f)exit}' "$ICTL" | grep -qiE 'qwenKey|deepseekKey|getString.*KEY|\.token'; then
@@ -4102,8 +4121,8 @@ ECF="$RD/src/main/java/com/family/finance/web/entry/EntryController.java"
 #   变成 llm_platform/llm_family/llm_model_id,排序从 LlmDiagnoseService.orderByPrimaryVendor
 #   搬到 LlmRouter。这里守的仍是同一件用户可见的事 —— 主选可配、温度可配、型号能选。
 FCS="$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java"
-ICF="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"
-INTG="$RD/src/main/resources/templates/admin/integrations.html"
+ICF="$QA_LLM_JAVA"   # v1.24.5 · 大模型那一节已挪到 AI 接入(原 IntegrationsController.java)
+INTG="$QA_LLM_TPL"   # v1.24.5 · 大模型那一节已挪到 AI 接入(原 integrations.html)
 ABS="$RD/src/main/java/com/family/finance/service/checkup/llm/AbstractOpenAiCompatibleClient.java"
 { grep -q 'K_LLM_PLATFORM' "$FCS" && grep -q 'K_LLM_TEMPERATURE' "$FCS" && grep -q 'K_LLM_MODEL_ID' "$FCS" \
   && grep -q 'LlmSettings.load' "$RD/src/main/java/com/family/finance/service/checkup/llm/LlmRouter.java" \
@@ -4112,7 +4131,7 @@ ABS="$RD/src/main/java/com/family/finance/service/checkup/llm/AbstractOpenAiComp
   && grep -q 'name="platform"' "$INTG" && grep -q 'name="modelId"' "$INTG" \
   && grep -q 'data-catalog' "$INTG"; } \
   && log_ok "v14-LLM-VENDOR 主选可配(平台/系列/型号三级)+ 温度可配 + 级联下拉数据源来自目录" \
-  || log_bad "v14-LLM-VENDOR LLM 自选链路缺" "see FamilyConfigService/LlmRouter/AbstractOpenAiCompatibleClient/IntegrationsController/integrations.html"
+  || log_bad "v14-LLM-VENDOR LLM 自选链路缺" "see FamilyConfigService/LlmRouter/AbstractOpenAiCompatibleClient/AiModelController/LlmSettingsView/_llm-settings.html"
 
 # v14.1-UAT · 面向用户不泄露英文枚举/代码([[feedback_user_friendly_naming]])· UAT 巡检修
 REG_REPORT="$RD/src/main/resources/templates/reports/_region.html"
@@ -4163,10 +4182,10 @@ BRO_HITS="$(grep -rnE 'unlockTrade\(|\.placeOrder|\.modifyOrder|\.cancelOrder|\.
   && log_ok "v15-CRON-1 券商同步进动态调度 · cron 可配 · 无关联空跑" \
   || log_bad "v15-CRON-1 broker-sync 未纳入 DynamicScheduleConfig" "see DynamicScheduleConfig"
 
-# v15-CFG-1 · 管理页 ⑥ 券商段在岗(老虎/富途 + 私钥不回显 + 测试连接)
+# v15-CFG-1 · 管理页 ④ 券商段在岗(老虎/富途 + 私钥不回显 + 测试连接)
 { grep -q '券商同步' "$INTG" && grep -q 'name="tigerKey"' "$INTG" && grep -q 'type="password"' "$INTG" \
   && grep -q '/admin/integrations/broker/test' "$INTG"; } \
-  && log_ok "v15-CFG-1 管理页 ⑥ 券商段 · 老虎/富途凭据(私钥不回显)+ 测试连接" \
+  && log_ok "v15-CFG-1 管理页 ④ 券商段 · 老虎/富途凭据(私钥不回显)+ 测试连接" \
   || log_bad "v15-CFG-1 管理页券商段缺件" "see admin/integrations.html"
 
 # v15-ENTRY-1 · 券商入口在账户页(账户颗粒度)+ 持仓页保留同步徽章(v0.15.x 入口迁移)
@@ -4580,7 +4599,7 @@ GWI="$RD/src/main/java/com/family/finance/service/broker/opend/GatewayImageInfo.
 # v1172-CRED-CARDS · 数据源接入页:三家平台要有可见边界 + 配没配一眼看清(v1.17.2 · 维护者提)
 # 原来三家是三列裸 div、只靠间距分隔,「已配置/未配置」是混在 label 里的一行灰字 ——
 # 用户既看不出这是三个独立的东西,也扫不出哪家配好了。
-INTTPL="$RD/src/main/resources/templates/admin/integrations.html"
+INTTPL="$QA_LLM_TPL"   # v1.24.5 · 大模型那一节已挪到 AI 接入(原 integrations.html)
 INTCSS="$RD/src/main/resources/static/css/style.css"
 { [ "$(grep -c 'class="cred-card"' "$INTTPL")" -ge 3 ] \
   && grep -q '\.cred-card' "$INTCSS" \
@@ -4588,14 +4607,14 @@ INTCSS="$RD/src/main/resources/static/css/style.css"
   && grep -q 'state-tag on' "$INTTPL" && grep -q 'state-tag off' "$INTTPL" \
   && ! grep -q "已配置(隐藏)' : '未配置'" "$INTTPL"; } \
   && log_ok "v1172-CRED-CARDS 三家平台各自成卡(有底色边界)· 已配置/未配置是带底色的标签(绿/红),不再是 label 里的灰字" \
-  || log_bad "v1172-CRED-CARDS 凭据块没有可见边界或状态还是灰字" "see admin/integrations.html · style.css .cred-card/.state-tag"
+  || log_bad "v1172-CRED-CARDS 凭据块没有可见边界或状态还是灰字" "see admin/_llm-settings.html · style.css .cred-card/.state-tag"
 
 # v1172-KEY-MASK · 已配置的密钥要露头尾几位(够辨认),但绝不能露够拼出来(v1.17.2)
 # 用户手上常有多把 key,只说"已配置"没法确认当前跑的是哪一把 —— 于是每次都只能整条重贴。
 # 边界钉在 maskSecret:固定露 10 位(头 6 尾 4),不随密钥长度增长;≤12 位的一律全打码。
 FCS="$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java"
 { grep -q 'maskSecret' "$FCS" \
-  && grep -q 'maskedSecret' "$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java" \
+  && grep -q 'maskedSecret' "$QA_LLM_JAVA" \
   && grep -q 'cred-mask' "$INTTPL" \
   && grep -qE 'substring\(0, 6\)' "$FCS" \
   && grep -qE 'length\(\) - 4' "$FCS" \
@@ -4609,9 +4628,9 @@ FCS="$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.jav
 # (加第四家平台时只改一处,v0.14 加 METAL 那次就是漏了模板里的硬编码分支)。
 { [ "$(grep -c '目前不可用,去上方表单配置' "$INTTPL")" -ge 3 ] \
   && [ "$(grep -c 'th:disabled="\${!platformReady' "$INTTPL")" -ge 3 ] \
-  && grep -q 'addAttribute("platformReady"' "$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"; } \
+  && grep -q 'addAttribute("platformReady"' "$QA_LLM_JAVA"; } \
   && log_ok "v1172-PLATFORM-CASCADE 主选/备选/视觉三处下拉都与凭据级联 · 未配置平台不可选并标注去哪配" \
-  || log_bad "v1172-PLATFORM-CASCADE 模型下拉没和凭据配置级联" "see admin/integrations.html 三处 select / IntegrationsController#platformReady"
+  || log_bad "v1172-PLATFORM-CASCADE 模型下拉没和凭据配置级联" "see admin/_llm-settings.html 三处 select / LlmSettingsView#platformReady"
 
 # v1172-APPEARANCE-PAGE · 旭日配色搬出「计算与提示常数」页,并改成个人偏好(v1.17.2 · 维护者拍板 B + 个人级)
 # 原来它挂在 /admin/calc-tweaks,编号「②.5」硬插在录入阈值与会话有效期之间 ——
@@ -5891,6 +5910,31 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && log_ok "v1632-MANUAL(站内 /help/how-to-use + 新手卡 localStorage 一年 + 导航栏与填报页常驻入口 · 卡消失后入口仍在)" \
   || log_bad "v1632-MANUAL 缺件" "see HelpController(/help/how-to-use)· templates/help/how-to-use.html(须套 layout · 不得残留 PREVIEW 条)· fragments/_manual-hint.html(manualHintDismissedAt + 默认 display:none 防闪)· nav.html 至少 2 处入口(PC+移动)· entry/index.html 与 dashboard/index.html 挂卡 · entry-points.json 登记 id=manual · docs/how-to-use.md + how-to-record.md"
 
+# v1245-AI-SETTINGS-ONE-PLACE · AI 的设置只在一处(AI 接入)。
+#   2026-09-23 维护者:「AI 接入为什么是独立的 tab?」—— 查下来是超级 Agent 要用的配置被拆在两页:
+#   百炼的 Key、型号在「数据源接入」,Agent / MCP / 口令在「AI 接入」。排查一个问题要来回切,
+#   代码里的错误提示也在两页之间互相指。定的方案:大模型那一节挪到 AI 接入,数据源接入只留行情/汇率/券商。
+#   这条守的是「不会又长回两处」:数据源接入页上不许再有大模型表单,指路文案不许再指回数据源接入。
+QA1245_INT="$RD/src/main/resources/templates/admin/integrations.html"
+QA1245_AI="$RD/src/main/resources/templates/admin/ai-access.html"
+QA1245_SB="$RD/src/main/resources/templates/admin/_sidebar.html"
+QA1245_STALE=""
+for f in service/ask/runtime/LocalToolLoopRuntime.java service/ask/runtime/ManagedAgentRuntime.java \
+         service/holdingimport/HoldingImportService.java; do
+  java_code_only "$RD/src/main/java/com/family/finance/$f" | grep -q '「数据源接入」' && QA1245_STALE="$QA1245_STALE ${f##*/}"
+done
+QA1245_SB_ORDER="$(grep -oE '/admin/(integrations|ai-access)' "$QA1245_SB" | tr '\n' ' ')"
+{ ! grep -qE 'llm/key|llm-catalog|initTriple' "$QA1245_INT" \
+  && ! grep -q '@PostMapping("/llm' "$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java" \
+  && grep -q "admin/_llm-settings :: section" "$QA1245_AI" \
+  && grep -q "admin/_llm-settings :: script" "$QA1245_AI" \
+  && grep -q 'href="#llm"' "$QA1245_AI" && grep -q 'id="agent"' "$QA1245_AI" && grep -q 'id="access"' "$QA1245_AI" \
+  && [ "$QA1245_SB_ORDER" = "/admin/integrations /admin/ai-access " ] \
+  && ! grep -q 'AI 接入<span' "$QA1245_SB" \
+  && [ -z "$QA1245_STALE" ]; } \
+  && log_ok "v1245-AI-SETTINGS-ONE-PLACE(大模型只在 AI 接入 · 数据源接入无大模型表单 · 侧栏相邻 · 提示不再指回数据源接入)" \
+  || log_bad "v1245-AI-SETTINGS-ONE-PLACE AI 的设置又分成两处了" "侧栏顺序:[$QA1245_SB_ORDER] · 仍指回数据源接入:${QA1245_STALE:-无}"
+
 # v1246-AGENT-TEMPLATE-DRIFT-VISIBLE · 百炼上的 Agent 模板落后于代码时,必须被看见。
 #   2026-09-23:生产的模板停在 09-04,tools 一直是空数组 —— 发新版本不会更新远端的 Agent。
 #   百炼 14 天零次来调我们,agent 对用户说「没有任何工具连接到我这边」,我们这边零条错误。
@@ -6976,8 +7020,8 @@ section "v1.13 · LLM 平台化(平台/系列/型号三级 · 主备编排收口
 
 LLMPKG="$RD/src/main/java/com/family/finance/service/checkup/llm"
 LLMTEST="$RD/src/test/java/com/family/finance/service/checkup/llm"
-INTGC="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"
-INTGH="$RD/src/main/resources/templates/admin/integrations.html"
+INTGC="$QA_LLM_JAVA"   # v1.24.5 · 大模型那一节已挪到 AI 接入(原 IntegrationsController.java)
+INTGH="$QA_LLM_TPL"   # v1.24.5 · 大模型那一节已挪到 AI 接入(原 integrations.html)
 # 型号名长这样 —— 目录之外任何地方出现都是「第二份清单」
 MODELPAT='qwen-plus|qwen-flash|qwen-max|qwen-vl-|deepseek-chat|deepseek-reasoner'
 
@@ -7029,7 +7073,7 @@ done
   && grep -q 'QWEN.models()' "$LLMPKG/DashScopeLlmClient.java" \
   && [ -f "$LLMTEST/LlmCatalogConsistencyTest.java" ]; } \
   && log_ok "v113-LLM-CATALOG-SINGLE-SOURCE 型号清单只有 LlmCatalog 一份(页面下拉/轮询池都从它来)" \
-  || log_bad "v113-LLM-CATALOG-SINGLE-SOURCE 型号清单被抄了第二份" "llm 包内重复:${_llm_dup:-ok} · 另见 IntegrationsController/integrations.html/DashScopeLlmClient"
+  || log_bad "v113-LLM-CATALOG-SINGLE-SOURCE 型号清单被抄了第二份" "llm 包内重复:${_llm_dup:-ok} · 另见 LlmSettingsView/_llm-settings.html/DashScopeLlmClient"
 
 # v113-LLM-LEGACY-KEYS-KEPT · 旧键留着但冻结:只读不写
 #   v1.13 没写迁移 SQL —— 老配置由 LlmSettings 读时派生成新三元组(tech-design §1.5)。
@@ -7347,18 +7391,19 @@ QA118_MARKSQL="$(grep -B6 'int markFailed(' "$QA118_BLM" 2>/dev/null | sed -n '/
 # 判据钉三件:① 三张凭据卡各自 POST /llm/key(带 platform + apiKey)
 #            ② 模型表单 POST /llm/models  ③ 老端点 @PostMapping("/llm") 必须已删
 #              (留着一个没有 UI 指向的写接口,下次就会有人以为它还在用 —— v1.17.2 的教训)
-QA1181_TPL="$RD/src/main/resources/templates/admin/integrations.html"
-QA1181_CTL="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"
-{ [ "$(grep -c 'action="@{/admin/integrations/llm/key}"' "$QA1181_TPL")" -eq 3 ] \
+QA1181_TPL="$QA_LLM_TPL"   # v1.24.5 · 大模型那一节已挪到 AI 接入(原 integrations.html)
+QA1181_CTL="$QA_LLM_JAVA"   # v1.24.5 · 大模型那一节已挪到 AI 接入(原 IntegrationsController.java)
+{ [ "$(grep -c 'action="@{/admin/ai-access/llm/key}"' "$QA1181_TPL")" -eq 3 ] \
   && [ "$(grep -c 'name="apiKey"' "$QA1181_TPL")" -eq 3 ] \
   && [ "$(grep -c '>保存密钥<' "$QA1181_TPL")" -eq 3 ] \
-  && grep -q 'action="@{/admin/integrations/llm/models}"' "$QA1181_TPL" \
+  && grep -q 'action="@{/admin/ai-access/llm/models}"' "$QA1181_TPL" \
   && grep -q 'String saveLlmKey(' "$QA1181_CTL" \
   && grep -q 'String saveLlmModels(' "$QA1181_CTL" \
   && ! grep -q '@PostMapping("/llm")' "$QA1181_CTL" \
+  && ! grep -qE '^\s*@PostMapping\s*$|@PostMapping\(""\)' "$QA1181_CTL" \
   && ! grep -q 'qwenKey", required = false' "$QA1181_CTL"; } \
   && log_ok "v1181-KEY-SAVE-SPLIT(三家密钥各自独立保存 · 模型选取单独端点 · 老合并端点已删)" \
-  || log_bad "v1181-KEY-SAVE-SPLIT 密钥又和模型选取绑回一个表单了" "三张卡各要一个 POST /admin/integrations/llm/key(platform+apiKey);模型走 /llm/models;不许再有 @PostMapping(\"/llm\")"
+  || log_bad "v1181-KEY-SAVE-SPLIT 密钥又和模型选取绑回一个表单了" "三张卡各要一个 POST /admin/ai-access/llm/key(platform+apiKey);模型走 /admin/ai-access/llm/models;不许再有 @PostMapping(\"/llm\")"
 
 # v1181-KEY-SAVE-NOT-SILENT · 密钥保存不许静默成功(v1.18.1)
 # 这一格的语义是「留空 = 不改」,但用户点了这张卡的保存按钮却什么都没填时,
@@ -7563,7 +7608,7 @@ QA1186_UT_F="$QA1182_UT"
 # 做法:默认型号取【不带日期】的 doubao-seed-evolving(平台自动跟进,不会失效),
 #       带日期的几个作为可选项,并给控制台/模型广场的直达链接;输入框照旧可手填。
 QA1184_CAT="$RD/src/main/java/com/family/finance/service/checkup/llm/LlmCatalog.java"
-QA1184_TPL="$RD/src/main/resources/templates/admin/integrations.html"
+QA1184_TPL="$QA_LLM_TPL"   # v1.24.5 · 大模型那一节已挪到 AI 接入(原 integrations.html)
 { grep -q 'doubao-seed-evolving' "$QA1184_CAT" \
   && grep -q 'new Family("doubao-vision", "豆包 · 视觉", Modality.VISION,' "$QA1184_CAT" \
   && ! grep -q 'new Family("doubao", "豆包 Doubao", Modality.TEXT, List.of(), null)' "$QA1184_CAT" \
@@ -7581,7 +7626,7 @@ QA1184_TPL="$RD/src/main/resources/templates/admin/integrations.html"
 # 于是"用户已经关掉的能力"照样被要求填。只配了没有视觉能力的平台(DeepSeek)时更是死路:
 # 视觉下拉里一个可选项都没有,关掉这个能力还是存不下去 —— 主流程直接走不通。
 # 用法矩阵逐条钉在 LlmModelFormatTest 的「用法_*」里,漏掉哪种用法哪种就会再坏一次。
-QA1184_CTL="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"
+QA1184_CTL="$QA_LLM_JAVA"   # v1.24.5 · 大模型那一节已挪到 AI 接入(原 IntegrationsController.java)
 QA1184_UT="$RD/src/test/java/com/family/finance/web/admin/LlmModelFormatTest.java"
 { grep -q 'tryParseTriple' "$QA1184_CTL" \
   && grep -q 'requireKeyConfigured' "$QA1184_CTL" \
@@ -7642,7 +7687,7 @@ QA1185_BARE="$(grep -rnE 'getType\(\) == AccountType\.[A-Z]+|type == AccountType
 # v1185-MODEL-STALE-HINT · 型号失效要在报错里说清怎么办(v1.18.5 · 维护者定「不主动检测,报错时提示即可」)
 # v1.18.4 给方舟预置了推荐型号,默认那个不带日期所以不会失效;但用户若选了带日期的几个,
 # 总有一天会 404 —— 那时报错必须说清「是型号过期了 / 去哪换 / 换成什么」,而不是让他自己猜。
-QA1185_INT="$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java"
+QA1185_INT="$QA_LLM_JAVA"   # v1.24.5 · 大模型那一节已挪到 AI 接入(原 IntegrationsController.java)
 { grep -q 'static boolean looksDateStamped' "$QA1185_INT" \
   && grep -q 'static String staleModelHint' "$QA1185_INT" \
   && grep -q 'doubao-seed-evolving' "$QA1185_INT" \

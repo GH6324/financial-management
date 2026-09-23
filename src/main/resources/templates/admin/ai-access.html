@@ -10,11 +10,15 @@
 
     <div class="mb-8">
       <div class="eyebrow mb-2">A I · 接 · 入</div>
-      <h1 class="font-display text-4xl font-medium">让 AI 读你的账本</h1>
-      <p class="text-ink-soft text-sm mt-2">
-        开一个<b>只读</b>接口,把这个账房接到阿里云百炼的智能体上 —— 或者接你自己的 AI 客户端。
-        AI <b>改不了</b>你的任何数据,也<b>看不到家人真名</b>。
-      </p>
+      <h1 class="font-display text-4xl font-medium">AI 接入</h1>
+      <!--/* v1.24.5 · 这一页现在管 AI 的全部三件事(原来大模型的 Key / 型号在「数据源接入」)。
+             页很长,所以页头直接给三个锚点 —— 进来找 Key 的人不用往下翻过超级 Agent。 */-->
+      <p class="text-ink-soft text-sm mt-2">AI 相关的设置都在这一页,从上往下依次是:</p>
+      <ol class="text-sm text-ink-soft mt-1.5 space-y-0.5" style="list-style:none;padding:0">
+        <li><a href="#llm" class="text-brass-deep">大模型</a> —— 各平台的密钥和型号。体检、月报、调仓建议、截图识别、超级 Agent 都用它</li>
+        <li><a href="#agent" class="text-brass-deep">超级 Agent</a> —— 家里人用大白话问自己的账</li>
+        <li><a href="#access" class="text-brass-deep">让 AI 读你的账本</a> —— 开一个<b>只读</b>接口给百炼或你自己的 AI 客户端。AI <b>改不了</b>你的任何数据,也<b>看不到家人真名</b></li>
+      </ol>
     </div>
 
     <!--/* v1.24.3 · AI 健康读数
@@ -126,11 +130,18 @@
          th:text="${askNote}"></div>
     <div th:if="${askError}" class="border-l-2 border-rust bg-rust/[0.05] px-4 py-3 mb-6 text-[13px] text-ink"
          th:text="${askError}"></div>
+    <!--/* 「大模型」那一节的保存回执 —— 端点沿用原来的 flash / flashError 两个名字 */-->
+    <div th:if="${flash}" class="border-l-2 border-forest bg-forest/[0.06] px-4 py-3 mb-6 text-[13px] text-ink"
+         th:text="${flash}"></div>
+    <div th:if="${flashError}" class="border-l-2 border-rust bg-rust/[0.05] px-4 py-3 mb-6 text-[13px] text-ink"
+         th:text="${flashError}"></div>
+
+    <th:block th:replace="~{admin/_llm-settings :: section}"></th:block>
 
     <!-- ══════════ 超级 Agent ══════════
          放在最前面:多数人来这一页是为了「让家里人能用大白话问账」,
          而不是为了发一把给外部 agent 的口令。口令那套在下面,给需要接外部客户端的人。 -->
-    <div class="paper-card p-6 mb-8">
+    <div id="agent" class="paper-card p-6 mb-8 scroll-mt-24">
       <div class="flex items-baseline gap-3 mb-3">
         <div class="eyebrow">超级 Agent</div>
         <span class="state-tag" th:classappend="${askEnabled} ? ' on' : ' off'"
@@ -506,6 +517,10 @@
     </div>
 
     <!-- 风险:原样说,不美化。这一段是本页最重要的文字 -->
+    <!--/* v1.24.5 · 页头的第三个锚点落在这里:这一部分从「开之前请看清楚」开始 */-->
+    <div id="access" class="scroll-mt-24 mb-3">
+      <h2 class="font-display text-2xl font-medium">让 AI 读你的账本</h2>
+    </div>
     <div class="border-l-2 border-rust bg-rust/[0.04] px-4 py-3 mb-6">
       <p class="text-[13px] text-ink leading-relaxed">
         <b>开之前请看清楚这几句。</b>
@@ -686,5 +701,6 @@
 
   </section>
 </main>
+<th:block th:replace="~{admin/_llm-settings :: script}"></th:block>
 </body>
 </html>

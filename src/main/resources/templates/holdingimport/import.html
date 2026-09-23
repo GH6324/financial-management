@@ -55,7 +55,7 @@
   </section>
   <section th:if="${visionUnavailable}" class="paper-card p-6">
     <h1 class="font-display text-2xl mb-2">截图导入持仓</h1>
-    <p class="text-ink-soft text-sm">视觉识别未启用。请到 <a th:href="@{/admin/integrations}" class="text-brass-deep">管理 · 集成中心</a> 打开截图识别,并为所选平台配好密钥与视觉型号。</p>
+    <p class="text-ink-soft text-sm">视觉识别未启用。请到 <a th:href="@{/admin/ai-access#llm}" class="text-brass-deep">管理 · AI 接入</a> 打开截图识别,并为所选平台配好密钥与视觉型号。</p>
   </section>
 
   <div th:if="${imp != null}">
@@ -148,7 +148,7 @@
         <button type="button" id="rescanBtn" th:attr="data-import=${imp.id}" class="btn-ink text-[12px]">重新识别</button>
         <a th:href="${from != null and !#strings.isEmpty(from)} ? ${from} : @{/entry}"
            class="font-mono text-[11px] text-ink-subtle underline">先回填报页</a>
-        <a th:href="@{/admin/integrations}" class="font-mono text-[11px] text-ink-subtle underline">去数据源接入页</a>
+        <a th:href="@{/admin/ai-access#llm}" class="font-mono text-[11px] text-ink-subtle underline">去 AI 接入页</a>
       </div>
     </section>
 

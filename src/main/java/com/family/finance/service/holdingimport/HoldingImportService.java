@@ -408,7 +408,7 @@ public class HoldingImportService {
                 || m.contains("insufficient_quota") || m.contains("Arrearage")
                 || m.contains("QuotaExhausted") || m.contains("billing")) {
             return "视觉模型的额度用完了 —— 重试没用,要去该平台控制台充值,"
-                 + "或关掉「仅使用免费额度」那个开关;也可以在「数据源接入」页换一个平台";
+                 + "或关掉「仅使用免费额度」那个开关;也可以在「AI 接入」页换一个平台";
         }
         if (m.contains("429") || m.contains("Throttling") || m.contains("RateLimit")
                 || m.contains("rate_limit") || m.contains("TooManyRequests")) {
@@ -416,11 +416,11 @@ public class HoldingImportService {
         }
         if (m.contains("401") || m.contains("Unauthorized") || m.contains("InvalidApiKey")
                 || m.contains("invalid_api_key") || m.contains("AuthenticationError")) {
-            return "API key 无效或已过期 —— 去「数据源接入」页重新填一把";
+            return "API key 无效或已过期 —— 去「AI 接入」页重新填一把";
         }
         if (m.contains("404") || m.contains("model_not_found") || m.contains("InvalidParameter")
                 || m.contains("ModelNotOpen")) {
-            return "这个视觉型号不可用(可能已下线或未开通)—— 去「数据源接入」页换一个型号";
+            return "这个视觉型号不可用(可能已下线或未开通)—— 去「AI 接入」页换一个型号";
         }
         if (m.contains("403") || m.contains("Forbidden") || m.contains("NoPermission")) {
             return "平台拒绝了这次调用(权限或型号未开通)—— 去该平台控制台确认后再试";

@@ -90,11 +90,11 @@
       "viewports": [
         "pc"
       ],
-      "note": "券商对接的前置网关,入口在数据源接入页 ⑥ 券商段。"
+      "note": "券商对接的前置网关,入口在数据源接入页 ④ 券商同步。"
     },
     {
       "id": "integrations",
-      "name": "数据源接入(LLM key / 短信 aksk / 券商凭据)",
+      "name": "数据源接入(行情 / 汇率 / 贵金属 / 券商凭据)",
       "page": "/admin",
       "hrefContains": "/admin/integrations",
       "level": "obvious",
@@ -102,7 +102,19 @@
         "pc",
         "mobile"
       ],
-      "note": "所有外部平台接入的总入口。"
+      "note": "外部行情与券商数据的接入。v1.24.5 起大模型的密钥与型号挪到了「AI 接入」。"
+    },
+    {
+      "id": "ai-access",
+      "name": "AI 接入(大模型密钥与型号 / 超级 Agent / 只读口令)",
+      "page": "/admin",
+      "hrefContains": "/admin/ai-access",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "AI 的全部设置都在这一页。v1.24.5 之前大模型在「数据源接入」,超级 Agent 要用的配置分在两页。"
     },
     {
       "id": "backup",

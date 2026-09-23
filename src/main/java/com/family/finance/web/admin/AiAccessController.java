@@ -66,6 +66,8 @@ public class AiAccessController {
     private final ManagedAgentRuntime managedAgentRuntime;
     /** AI 现在还好吗 —— 2026-09-22:主备双双欠费挂了 20 天没人知道,因为每一层都优雅降级了 */
     private final com.family.finance.service.checkup.llm.LlmHealthTracker llmHealth;
+    /** v1.24.5 · 「AI 大模型」那一节从数据源接入挪到这一页 —— AI 的东西放一处 */
+    private final LlmSettingsView llmSettingsView;
 
     @GetMapping("/admin/ai-access")
     public String page(@AuthenticationPrincipal MemberPrincipal me, HttpServletRequest req, Model model) {
@@ -77,6 +79,7 @@ public class AiAccessController {
         model.addAttribute("llmAllDown", llmHealth.allAccountsDown());
         var sinceOk = llmHealth.sinceLastOk();
         model.addAttribute("llmSinceOkHours", sinceOk == null ? null : sinceOk.toHours());
+        llmSettingsView.addLlmAttributes(fam, model);
         // 远端模板是否过期 —— 发新版本不会更新百炼上的 Agent,必须有人点「更新」。
         // 2026-09-23:生产的模板停在 09-04,工具一个都没启用,挂了近三周没人知道。
         if ("managed".equals(configService.getString(fam, K_ASK_RUNTIME, "managed"))) {

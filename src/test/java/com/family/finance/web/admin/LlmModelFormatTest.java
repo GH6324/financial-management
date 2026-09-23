@@ -5,14 +5,11 @@ import com.family.finance.domain.member.Member;
 import com.family.finance.service.AuditLogService;
 import com.family.finance.service.checkup.llm.LlmRouter;
 import com.family.finance.service.config.FamilyConfigService;
-import com.family.finance.service.macro.MacroBenchmarkService;
-import com.family.finance.service.scheduling.DynamicScheduleConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.servlet.mvc.support.RedirectAttributesModelMap;
 
-import java.util.List;
 
 import com.family.finance.service.checkup.llm.LlmCatalog;
 
@@ -48,10 +45,14 @@ class LlmModelFormatTest {
         when(config.isPrivateKeyConfigured(anyLong(), anyString())).thenReturn(true);
     }
 
-    private IntegrationsController controller() {
+    private AiModelController controller() {
         allKeysConfigured();
-        return new IntegrationsController(config, mock(DynamicScheduleConfig.class), audit,
-                mock(MacroBenchmarkService.class), mock(LlmRouter.class), new ObjectMapper(), List.of());
+        return newController();
+    }
+
+    /** v1.24.5 · 大模型这一节的端点从 IntegrationsController 搬到了 AiModelController(页面挪到了 AI 接入) */
+    private AiModelController newController() {
+        return new AiModelController(config, audit, mock(LlmRouter.class), new LlmSettingsView(config, new ObjectMapper()));
     }
 
     private static MemberPrincipal me() {
@@ -308,8 +309,7 @@ class LlmModelFormatTest {
         when(config.isPrivateKeyConfigured(anyLong(), anyString())).thenReturn(false);
         when(config.isPrivateKeyConfigured(anyLong(), eq(FamilyConfigService.K_LLM_DEEPSEEK_KEY))).thenReturn(true);
         RedirectAttributes ra = new RedirectAttributesModelMap();
-        new IntegrationsController(config, mock(DynamicScheduleConfig.class), audit,
-                mock(MacroBenchmarkService.class), mock(LlmRouter.class), new ObjectMapper(), List.of())
+        newController()
                 .saveLlmModels(me(), "deepseek", "deepseek", "", null, null, null,
                         false, null, null, null, 0.5, 2000, 25, ra);
         assertThat(flashError(ra)).isNull();
@@ -321,8 +321,7 @@ class LlmModelFormatTest {
         when(config.isPrivateKeyConfigured(anyLong(), anyString())).thenReturn(false);
         when(config.isPrivateKeyConfigured(anyLong(), eq(FamilyConfigService.K_LLM_DEEPSEEK_KEY))).thenReturn(true);
         RedirectAttributes ra = new RedirectAttributesModelMap();
-        new IntegrationsController(config, mock(DynamicScheduleConfig.class), audit,
-                mock(MacroBenchmarkService.class), mock(LlmRouter.class), new ObjectMapper(), List.of())
+        newController()
                 .saveLlmModels(me(), "deepseek", "deepseek", "", null, null, null,
                         true, "dashscope", "qwen-vl", "", 0.5, 2000, 25, ra);
         assertThat(flashError(ra)).contains("阿里云百炼").contains("火山方舟");
@@ -334,8 +333,7 @@ class LlmModelFormatTest {
     void 用法_一家都没配密钥时错误要指路() {
         when(config.isPrivateKeyConfigured(anyLong(), anyString())).thenReturn(false);
         RedirectAttributes ra = new RedirectAttributesModelMap();
-        new IntegrationsController(config, mock(DynamicScheduleConfig.class), audit,
-                mock(MacroBenchmarkService.class), mock(LlmRouter.class), new ObjectMapper(), List.of())
+        newController()
                 .saveLlmModels(me(), null, null, null, null, null, null,
                         false, null, null, null, 0.5, 2000, 25, ra);
         assertThat(flashError(ra)).contains("保存 API Key");
@@ -347,8 +345,7 @@ class LlmModelFormatTest {
         when(config.isPrivateKeyConfigured(anyLong(), anyString())).thenReturn(false);
         when(config.isPrivateKeyConfigured(anyLong(), eq(FamilyConfigService.K_LLM_QWEN_KEY))).thenReturn(true);
         RedirectAttributes ra = new RedirectAttributesModelMap();
-        new IntegrationsController(config, mock(DynamicScheduleConfig.class), audit,
-                mock(MacroBenchmarkService.class), mock(LlmRouter.class), new ObjectMapper(), List.of())
+        newController()
                 .saveLlmModels(me(), "deepseek", "deepseek", "", null, null, null,
                         false, null, null, null, 0.5, 2000, 25, ra);
         assertThat(flashError(ra)).contains("还没有配密钥");

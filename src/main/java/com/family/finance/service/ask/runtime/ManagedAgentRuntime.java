@@ -77,7 +77,7 @@ public class ManagedAgentRuntime implements AgentRuntime {
 
     @Override
     public String unavailableReason(long familyId) {
-        if (apiKey().isBlank()) return "还没有配百炼的 API Key。去「数据源接入」页填一个。";
+        if (apiKey().isBlank()) return "还没有配百炼的 API Key。去「AI 接入」页的「大模型」那一节填一个。";
         if (workspace().isBlank()) return "还没填百炼的业务空间 ID。在「AI 接入」页填一下。";
         String base = configService.getString(FAMILY_ID, K_ASK_PUBLIC_BASE_URL, "");
         if (base.isBlank()) {

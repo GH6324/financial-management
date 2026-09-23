@@ -8,8 +8,8 @@
 
 | 外部服务 | 配了解锁什么 | 是否必需 | 去哪配 | 详细步骤 |
 |---|---|---|---|---|
-| **通义 Qwen(阿里云百炼)** | AI 资产体检 / 月报 / 调仓建议(**主**源) | 可选 | `/admin/integrations` ① | [LLM Key 申请](llm-api-keys-setup.md) |
-| **DeepSeek** | 同上的**兜底**源(主源熔断/欠费时自动切) | 可选 | `/admin/integrations` ① | [LLM Key 申请](llm-api-keys-setup.md) |
+| **通义 Qwen(阿里云百炼)** | AI 资产体检 / 月报 / 调仓建议(**主**源) | 可选 | `/admin/ai-access` · 大模型 | [LLM Key 申请](llm-api-keys-setup.md) |
+| **DeepSeek** | 同上的**兜底**源(主源熔断/欠费时自动切) | 可选 | `/admin/ai-access` · 大模型 | [LLM Key 申请](llm-api-keys-setup.md) |
 | **阿里云短信** | 填报截止前的**短信强提醒** | 可选 | `/admin/reminders` ② | [阿里云短信接入](aliyun-sms-setup.md) |
 | 股票行情(新浪/腾讯) | 每日 T+1 自动估值 | **免配** · 内置 | — | 无需 key |
 | 加密货币行情(Binance/CoinGecko/Coinbase) | BTC/ETH/USDC 等自动估值 | **免配** · 内置 | — | 无需 key |
@@ -25,7 +25,7 @@
 
 **解锁**:资产体检、月报 AI 洞察、调仓建议。计算全部由工程算好再喂模型,**AI 只解读,不做数学、不荐产品、不预测涨跌**。
 
-**怎么配**:`/admin/integrations` → ①「LLM」段,填 API Key → 保存 → 点该 key 旁的「**测试连接**」验证通不通。
+**怎么配**:`/admin/ai-access`(管理 → AI 接入)→「大模型」那一节,填 API Key → 保存 → 点该 key 旁的「**测试连接**」验证通不通。
 - 主源 **Qwen**、兜底 **DeepSeek**,**配一个即可**用,两个都配则主源故障时自动 failover,更稳。
 - 每个 key 字段下有「**如何获取?**」折叠说明,3 步拿到 key;详版见 [LLM Key 申请与配置](llm-api-keys-setup.md)。
 - 选哪家、免费额度怎么省,见 [LLM 厂商选型对比](llm-vendor-comparison.md)。
@@ -45,9 +45,9 @@
 
 ## 3. 股票行情 & 汇率(免配)
 
-- **股票**:录 ticker + 数量,系统每日 T+1 自动拉价(新浪主 + 腾讯备,美/A/港三市场),**无需任何 key**。拉取开关 + cron 在 `/admin/integrations` ②。
+- **股票**:录 ticker + 数量,系统每日 T+1 自动拉价(新浪主 + 腾讯备,美/A/港三市场),**无需任何 key**。拉取开关 + cron 在 `/admin/integrations` ①。
 - **加密货币**:新建 CRYPTO 账户后录 BTC / ETH / USDC 等 ticker + 数量,系统用 Binance market-data-only 主源 + CoinGecko / Coinbase 备源自动估值,**无需任何交易所 API key**。拉取开关 + cron 同在 `/admin/integrations` ②。
-- **汇率**:本位币 CNY/USD/HKD,自动从 frankfurter 拉,**无需 key**。cron 在 `/admin/integrations` ③。
+- **汇率**:本位币 CNY/USD/HKD,自动从 frankfurter 拉,**无需 key**。cron 在 `/admin/integrations` ②。
 - 拉不通(防火墙/网络)时:体检/估值会用最后一次有效值,不影响记账;可手动在 `/admin/fx` 补汇率。
 
 ---
@@ -56,7 +56,8 @@
 
 | 管理页 | 配什么 |
 |---|---|
-| `/admin/integrations` | LLM keys / 股票开关+cron / 汇率 cron / 宏观 CPI·M2 校正 |
+| `/admin/integrations` | 股票开关+cron / 汇率 cron / 贵金属 / 券商同步 / 宏观 CPI·M2 校正 |
+| `/admin/ai-access` | 大模型密钥与型号 / 超级 Agent / 让 AI 读你的账本(只读口令) |
 | `/admin/reminders` | 填报模板 / 提前提醒天数 / 短信 aksk·签名·模板 / 成员手机号 |
 | `/admin/calc-tweaks` | 体检阈值等计算参数 |
 

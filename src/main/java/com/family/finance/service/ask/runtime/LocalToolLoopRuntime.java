@@ -79,10 +79,10 @@ public class LocalToolLoopRuntime implements AgentRuntime {
     @Override
     public String unavailableReason(long familyId) {
         if (apiKey(familyId).isBlank()) {
-            return "还没有配大模型密钥。去「数据源接入」页填一个,就能开始问了。";
+            return "还没有配大模型密钥。去「AI 接入」页填一个,就能开始问了。";
         }
         if (!invocation(familyId).resolvable()) {
-            return "「数据源接入」里选的模型没填型号 —— 这个平台的型号要从它的控制台复制过来。";
+            return "「AI 接入」里选的模型没填型号 —— 这个平台的型号要从它的控制台复制过来。";
         }
         return null;
     }
@@ -353,11 +353,11 @@ public class LocalToolLoopRuntime implements AgentRuntime {
         if (e instanceof UpstreamException u) {
             String b = u.body == null ? "" : u.body.toLowerCase(java.util.Locale.ROOT);
             if (u.status == 401 || b.contains("invalid_api_key")) {
-                return "大模型密钥不对。去「数据源接入」页确认一下。";
+                return "大模型密钥不对。去「AI 接入」页确认一下。";
             }
             if (u.status == 402 || b.contains("arrearage") || b.contains("insufficient_quota")
                     || b.contains("allocationquota")) {
-                return "大模型这边额度用完了或者欠费了。充值后再试,或者在「数据源接入」换一个模型。";
+                return "大模型这边额度用完了或者欠费了。充值后再试,或者在「AI 接入」换一个模型。";
             }
             if (u.status == 429) return "问得太频繁,模型那边限流了。等一会儿再问。";
             return "模型那边返回了错误(" + u.status + ")。稍后再试试。";
