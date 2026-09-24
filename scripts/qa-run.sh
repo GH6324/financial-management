@@ -5941,7 +5941,8 @@ QA1245_SB_ORDER="$(grep -oE '/admin/(integrations|ai-access)' "$QA1245_SB" | tr 
 #   现在是普通表单提交 + 存进家庭配置;这里守「不许再挂回一个不存在的 JS 函数」,并要求接口与过滤都在。
 QA22_CARD="$RD/src/main/resources/templates/checkup/_advice-card.html"
 QA22_CTL="$RD/src/main/java/com/family/finance/web/checkup/CheckupController.java"
-{ ! grep -q 'advice\.dismiss(' "$QA22_CARD" \
+#   只看属性值里的调用(onclick="…advice.dismiss(…)"),模板注释里讲历史的那句不算。
+{ ! grep -qE '="[^"]*advice\.dismiss\(' "$QA22_CARD" \
   && grep -q 'th:action="@{/checkup/advice/dismiss}"' "$QA22_CARD" \
   && grep -q 'th:fragment="restore(hidden, accountId)"' "$QA22_CARD" \
   && grep -q '"/checkup/advice/dismiss"' "$QA22_CTL" \
