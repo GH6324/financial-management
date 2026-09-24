@@ -600,6 +600,9 @@ mc="$(POSTcode /admin/ai-access/llm/models --data-urlencode "platform=deepseek" 
       --data-urlencode "temperature=0.5" --data-urlencode "maxTokens=2000" --data-urlencode "timeoutSeconds=25")"
 eq "接入页-模型配置单独保存 HTTP 3xx" "${mc:0:1}" "3"
 eq "接入页-存模型没把密钥冲掉" "$(db "$KEYROW")" "1"
+# 把「存模型」留下的 flash 消费掉 —— 不排空的话它会排在 FlashMap 队列里,主线 21 发凭据后的那次 GET
+#   先拿到的是这条旧回执,新口令的明文就看不到了(2026-09-24 修主线 15 端点后实测撞上)。
+GET /admin/ai-access >/dev/null
 # 收尾:删掉探测用的 key(beta 的 LLM 走 env 兜底,库里那行会盖住它)
 db "DELETE FROM family_runtime_config WHERE family_id=$FAM AND key_name='llm_deepseek_api_key'" >/dev/null
 eq "接入页-探测密钥已清理" "$(db "$KEYROW")" "${KEY_BEFORE:-0}"
