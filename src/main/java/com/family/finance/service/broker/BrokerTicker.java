@@ -39,6 +39,36 @@ public final class BrokerTicker {
         return m == null ? null : new Norm(m, symbol.trim().toUpperCase(Locale.ROOT));
     }
 
+    /** IBKR 美股的上市交易所(listingExchange)· 以真实报表为准持续补;不在表里的一律不当美股 */
+    private static final java.util.Set<String> IBKR_US_EXCHANGES = java.util.Set.of(
+            "NASDAQ", "NYSE", "ARCA", "AMEX", "BATS", "BYX", "EDGX", "EDGEA", "IEX", "NYSENAT", "PSX", "PINK", "CBOE");
+
+    /**
+     * IBKR 持仓(Flex 报表的 listingExchange + currency + symbol)→ 归一 · v1.26。
+     *
+     * <p><b>按交易所判市场,不按币种</b>:伦敦上市的美元 ETF(如 VWRA)币种是 USD,按币种会被错当成美股去拉价。</p>
+     * <ul>
+     *   <li>美国交易所 → US</li>
+     *   <li>{@code SEHK}(港交所)→ HK,代码补足 5 位(IBKR 给 {@code 700},我们存 {@code 00700})</li>
+     *   <li>{@code SEHKNTL} / {@code SEHKSZSE}(沪股通 / 深股通)→ CN</li>
+     *   <li>其余 → null:调用方按「报表收盘价的手动估值持仓」处理(PRD §13①)</li>
+     * </ul>
+     */
+    public static Norm fromIbkr(String listingExchange, String currency, String symbol) {
+        if (symbol == null || symbol.isBlank() || listingExchange == null || listingExchange.isBlank()) return null;
+        String ex = listingExchange.trim().toUpperCase(Locale.ROOT);
+        String sym = symbol.trim().toUpperCase(Locale.ROOT);
+        if (IBKR_US_EXCHANGES.contains(ex)) return new Norm(Market.US, sym.replace(' ', '.'));
+        if (ex.equals("SEHK")) {
+            return sym.chars().allMatch(Character::isDigit) && sym.length() <= 5
+                    ? new Norm(Market.HK, "0".repeat(5 - sym.length()) + sym) : null;
+        }
+        if (ex.equals("SEHKNTL") || ex.equals("SEHKSZSE")) {
+            return sym.chars().allMatch(Character::isDigit) && sym.length() == 6 ? new Norm(Market.CN, sym) : null;
+        }
+        return null;
+    }
+
     /** 是否股票(secType=STK / 空视为股票);OPT/FUT/WAR/BOND 等本版跳过。 */
     public static boolean isEquity(String secType) {
         if (secType == null || secType.isBlank()) return true;

@@ -148,6 +148,15 @@
                  stroke-linecap="round" aria-hidden="true"><path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
             <span>同步失败</span>
           </a>
+          <a th:if="${brokerExpiry != null and brokerExpiry.containsKey(row.account.id)}"
+             th:href="@{/accounts/{id}/broker(id=${row.account.id})}"
+             class="pill text-[9px] no-underline inline-flex items-center gap-1"
+             style="background:rgba(180,138,58,.12);color:var(--brass-deep);border-color:var(--brass-deep)"
+             th:title="'IBKR 报表口令要换了 —— 点击查看怎么换'">
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.4"
+                 stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            <span th:text="${brokerExpiry.get(row.account.id)}">口令 9 天后到期</span>
+          </a>
         </td>
         <td class="font-mono text-xs" th:text="${row.account.currency}">CNY</td>
         <!-- v1.6 UED(review B3-4)· 列宽不足时中文被挤成竖排("王二狗"渲染成三行)→ nowrap -->
@@ -287,6 +296,15 @@
             <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.4"
                  stroke-linecap="round" aria-hidden="true"><path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
             <span>同步失败</span>
+          </a>
+          <a th:if="${brokerExpiry != null and brokerExpiry.containsKey(row.account.id)}"
+             th:href="@{/accounts/{id}/broker(id=${row.account.id})}"
+             class="pill text-[9px] no-underline inline-flex items-center gap-1"
+             style="background:rgba(180,138,58,.12);color:var(--brass-deep);border-color:var(--brass-deep)"
+             th:title="'IBKR 报表口令要换了 —— 点击查看怎么换'">
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.4"
+                 stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            <span th:text="${brokerExpiry.get(row.account.id)}">口令 9 天后到期</span>
           </a>
         </div>
       </div>

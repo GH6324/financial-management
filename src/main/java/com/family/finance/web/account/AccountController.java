@@ -45,6 +45,7 @@ public class AccountController {
     private final LedgerExporter ledgerExporter;
     private final AccountDetailService accountDetailService;
     private final com.family.finance.repository.BrokerLinkMapper brokerLinkMapper; // v0.15.x 券商托管徽章
+    private final com.family.finance.service.broker.ibkr.IbkrFlexClient ibkrClient;     // v1.26 · IBKR 口令到期标记
     private final InsurancePolicyMapper insurancePolicyMapper; // v0.17 保单登记旁表
 
     @GetMapping
@@ -216,8 +217,21 @@ public class AccountController {
                 brokerFailures.put(bl.getAccountId(), bl.getLastStatus());
             }
         }
+        // v1.26 · IBKR 报表口令一年一到期:到期前 14 天起,在关联了 IBKR 的账户上标出来(和「同步失败」同一个位置)。
+        //   已经失败的不再重复标 —— 那一格已经是红的「同步失败」,原因里写着口令过期。
+        var brokerExpiry = new java.util.LinkedHashMap<Long, String>();
+        Long ibkrDays = ibkrClient.daysToExpiry(me.getFamilyId(), java.time.LocalDate.now());
+        if (ibkrDays != null && ibkrDays <= com.family.finance.service.broker.ibkr.IbkrFlexClient.EXPIRY_WARN_DAYS) {
+            for (var bl : brokerLinkMapper.findByFamily(me.getFamilyId())) {
+                if (bl.getVendor() == com.family.finance.domain.broker.BrokerVendor.IBKR && bl.isEnabled()
+                        && !brokerFailures.containsKey(bl.getAccountId())) {
+                    brokerExpiry.put(bl.getAccountId(), ibkrDays <= 0 ? "口令已过期" : "口令 " + ibkrDays + " 天后到期");
+                }
+            }
+        }
         model.addAttribute("brokerLinks", brokerLinks);
         model.addAttribute("brokerFailures", brokerFailures);
+        model.addAttribute("brokerExpiry", brokerExpiry);
         model.addAttribute("form", new AccountForm());
         model.addAttribute("allCategories", productCategoryService.listAll());
         model.addAttribute("insuranceSubTypes", InsuranceSubType.values()); // v0.17 保险子类型下拉

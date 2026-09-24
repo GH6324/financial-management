@@ -64,7 +64,7 @@
   <!-- 只读铁律 -->
   <section class="paper-card p-4 mb-6 bg-card-soft" style="border-left:4px solid var(--forest)">
     <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-1">只 · 读 · 铁 · 律</div>
-    <p class="text-sm text-ink-soft">富途走 OpenD 查询上下文、<b class="text-ink">永不解锁交易(unlockTrade)</b>;老虎只调用查询接口。本功能物理上不能下单 / 划转 / 改仓。<b class="text-ink">富途 OpenD 网关支持我们一键托管</b>——自动下载 / 配置 / 守护,你不用碰命令行;凭据服务端加密保存、私钥永不回显。</p>
+    <p class="text-sm text-ink-soft">富途走 OpenD 查询上下文、<b class="text-ink">永不解锁交易(unlockTrade)</b>;老虎只调用查询接口;<b class="text-ink">盈透 IBKR 用的是只能取报表的口令</b>,本身就做不了交易。本功能物理上不能下单 / 划转 / 改仓。<b class="text-ink">富途 OpenD 网关支持我们一键托管</b>——自动下载 / 配置 / 守护,你不用碰命令行;凭据服务端加密保存、私钥永不回显。</p>
     <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2">
       <a th:href="@{/admin/broker/opend(account=${account.id})}" class="inline-flex items-center gap-1 font-mono text-[11px] text-brass-deep underline hover:text-ink no-underline">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>不想自己装?用一键安装 / 托管 OpenD 向导 →</a>
@@ -90,7 +90,8 @@
       </div>
       <div>
         <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">券商账户</div>
-        <div class="font-mono text-xs" th:text="${link.brokerAccountId != null ? link.brokerAccountId : '默认账户'}">—</div>
+        <div class="font-mono text-xs"
+             th:text="${link.brokerAccountId == null ? '默认账户' : (link.vendor.name() == 'IBKR' ? T(com.family.finance.service.broker.ibkr.IbkrFlexClient).mask(link.brokerAccountId) : link.brokerAccountId)}">—</div>
       </div>
       <div>
         <div class="font-mono text-[10px] uppercase text-ink-subtle mb-0.5">上次同步</div>
@@ -116,10 +117,15 @@
           <div class="text-sm text-rust font-medium" th:text="${link.lastStatus}">同步失败 · 连不上 OpenD 网关</div>
           <div class="font-mono text-[10px] text-ink-subtle mt-1">
             上面「上次同步」显示的是<b class="text-ink">最后一次成功</b>的时间 —— 那之后的数据没有更新进来。
-            先点「测试连接」看是哪一步断的;富途还要确认 OpenD 网关在跑且已登录。
+            先点「测试连接」看是哪一步断的;富途还要确认 OpenD 网关在跑且已登录;盈透 IBKR 多半是报表口令过期了。
           </div>
         </div>
       </div>
+    </div>
+    <!-- v1.26 · IBKR 报表口令一年一到期 —— 到期后同步会停,所以提前 14 天说出来(FR-756) -->
+    <div th:if="${link.vendor.name() == 'IBKR' and ibkrDaysToExpiry != null and ibkrDaysToExpiry <= 14}"
+         class="mb-4 p-3 bg-card-soft" style="border-left:4px solid var(--brass-deep)">
+      <div class="text-sm" th:text="${ibkrDaysToExpiry <= 0} ? 'IBKR 报表口令已过期 · 去 IBKR 后台重新生成(有效期选 1 年),再粘到「管理 → 数据源接入 → 券商同步」' : 'IBKR 报表口令 ' + ${ibkrDaysToExpiry} + ' 天后到期 · 去 IBKR 后台重新生成,再粘到「管理 → 数据源接入 → 券商同步」'">IBKR 报表口令 9 天后到期</div>
     </div>
     <div class="flex flex-wrap gap-3">
       <form th:action="@{|/accounts/${account.id}/broker/sync|}" method="post">
@@ -159,7 +165,7 @@
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
       <label class="font-mono text-[10px] uppercase text-ink-subtle block mb-2">选择券商</label>
-      <div class="grid grid-cols-2 gap-3 mb-5">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5" id="vendorPick">
         <label class="paper-card p-4 cursor-pointer flex items-center gap-3 has-[:checked]:border-brass-deep">
           <input type="radio" name="vendor" value="FUTU" checked class="accent-brass-deep">
           <span><b class="font-display text-lg">富途 Futu</b><span class="block font-mono text-[10px] text-ink-subtle mt-0.5">需常驻 OpenD 网关</span></span>
@@ -168,14 +174,30 @@
           <input type="radio" name="vendor" value="TIGER" class="accent-brass-deep">
           <span><b class="font-display text-lg">老虎 Tiger</b><span class="block font-mono text-[10px] text-ink-subtle mt-0.5">API Key · 免网关</span></span>
         </label>
+        <label class="paper-card p-4 cursor-pointer flex items-center gap-3 has-[:checked]:border-brass-deep">
+          <input type="radio" name="vendor" value="IBKR" class="accent-brass-deep">
+          <span><b class="font-display text-lg">盈透 IBKR</b><span class="block font-mono text-[10px] text-ink-subtle mt-0.5">Flex 报表 · 免网关</span></span>
+        </label>
       </div>
 
-      <label class="font-mono text-[10px] uppercase text-ink-subtle block mb-1">券商账户(可选)</label>
-      <input type="text" name="brokerAccountId" placeholder="留空 = 用凭据里的默认账户 / 聚合全部实盘户"
-             class="font-mono text-sm bg-paper border border-rule px-3 py-2 w-full mb-5">
+      <div id="acctText">
+        <label class="font-mono text-[10px] uppercase text-ink-subtle block mb-1">券商账户(可选)</label>
+        <input type="text" name="brokerAccountId" placeholder="留空 = 用凭据里的默认账户 / 聚合全部实盘户"
+               class="font-mono text-sm bg-paper border border-rule px-3 py-2 w-full mb-5">
+      </div>
+      <!-- v1.26 · IBKR:账户来自最近一次成功取到的报表(管理页「测试盈透 IBKR 连接」或上一次同步),不当场去等 IBKR 生成报表 -->
+      <div id="acctIbkr" class="hidden">
+        <label class="font-mono text-[10px] uppercase text-ink-subtle block mb-1">IBKR 账户</label>
+        <select name="brokerAccountId" disabled class="font-mono text-sm bg-paper border border-rule px-3 py-2 w-full">
+          <option th:if="${#lists.isEmpty(ibkrAccounts)}" value="">(还不知道有哪些账户 —— 先到管理页点「测试盈透 IBKR 连接」)</option>
+          <option th:each="a, st : ${ibkrAccounts}" th:value="${a}" th:selected="${st.first}"
+                  th:text="${T(com.family.finance.service.broker.ibkr.IbkrFlexClient).mask(a)}">U•••4521</option>
+        </select>
+        <p class="font-mono text-[10px] text-ink-subtle mt-1 mb-5">列出的是报表里找到的账户 · 报表里只有一个账户时留空也行</p>
+      </div>
 
       <!-- v0.15.x · 关联颗粒度连接:多个富途账号 = 多个 OpenD,本关联可专属一套 host:port -->
-      <div class="grid grid-cols-2 gap-3 mb-5">
+      <div class="grid grid-cols-2 gap-3 mb-5" id="opendFields">
         <div>
           <label class="font-mono text-[10px] uppercase text-ink-subtle block mb-1">本关联 OpenD 地址(富途 · 可选)</label>
           <input type="text" name="opendHost" placeholder="留空 = 全局默认 / 托管 OpenD"
@@ -217,6 +239,7 @@
       <li>· 持仓以券商原始币种记录,估值时按本账户币种(<span th:text="${account.currency}">CNY</span>)做汇率折算。</li>
       <li>· 成本价取券商用于盈亏;最新价仍走系统拉价引擎(与手填持仓同源)。</li>
       <li>· 期权 / 期货本版<b class="text-ink">跳过并计数提示</b>,请手动补录。</li>
+      <li>· 盈透 IBKR 里<b class="text-ink">不在美 / 港 / A 股</b>的股票(伦敦、东京 …)系统拉不到价,按报表里的收盘价做手动估值,每次同步更新。IBKR 报表是日终数据。</li>
     </ul>
   </section>
 
@@ -258,6 +281,18 @@
   document.querySelectorAll('[data-close]').forEach(function(b){ b.addEventListener('click', function(){ close(b.getAttribute('data-close')); }); });
   ['lnkModal','unlModal'].forEach(function(id){ var m=document.getElementById(id); if(m){ m.addEventListener('click', function(e){ if(e.target===m) close(id); }); } });
   document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ close('lnkModal'); close('unlModal'); } });
+
+  // v1.26 · 选盈透 IBKR:账户换成下拉(报表里的账户),OpenD 地址用不上 —— 被隐藏的那个输入 disabled,不随表单提交
+  function syncVendor(){
+    var v=(document.querySelector('#vendorPick input[name=vendor]:checked')||{}).value;
+    var ib=v==='IBKR';
+    var t=document.getElementById('acctText'), s=document.getElementById('acctIbkr'), o=document.getElementById('opendFields');
+    if(t){ t.classList.toggle('hidden', ib); t.querySelectorAll('input').forEach(function(i){ i.disabled=ib; }); }
+    if(s){ s.classList.toggle('hidden', !ib); s.querySelectorAll('select').forEach(function(i){ i.disabled=!ib; }); }
+    if(o){ o.classList.toggle('hidden', ib); o.querySelectorAll('input').forEach(function(i){ i.disabled=ib; }); }
+  }
+  document.querySelectorAll('#vendorPick input[name=vendor]').forEach(function(r){ r.addEventListener('change', syncVendor); });
+  syncVendor();
 
   var lnkBtn=document.getElementById('lnkBtn');
   if(lnkBtn){ lnkBtn.addEventListener('click', function(){

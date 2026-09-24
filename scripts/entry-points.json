@@ -20,7 +20,7 @@
   "entries": [
     {
       "id": "broker-sync",
-      "name": "券商只读同步(富途 / 老虎)· 账户颗粒度",
+      "name": "券商只读同步(富途 / 老虎 / 盈透)· 账户颗粒度",
       "page": "/accounts",
       "hrefContains": "/broker",
       "level": "obvious",

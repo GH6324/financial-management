@@ -97,6 +97,13 @@ public class BrokerSyncService {
     static String failureNote(Exception e) {
         String raw = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
         String hint;
+        // v1.26 · IBKR 的失败已经是「人话 + IBKR 原话」,原样用 —— 下面那几条是给 OpenD 写的,套在 IBKR 上会把原话吞掉
+        if (e instanceof com.family.finance.service.broker.ibkr.IbkrFlexException ie) {
+            String m = ie.getMessage();
+            if (m.length() > 200) m = m.substring(0, 200) + "…";   // last_status 是 VARCHAR(255)
+            return "同步失败 · " + m + "("
+                    + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm")) + ")";
+        }
         String low = raw.toLowerCase(java.util.Locale.ROOT);
         if (low.contains("connection refused") || low.contains("无法发起") || low.contains("connect")) {
             hint = "连不上 OpenD 网关(它没在跑?)";
@@ -178,12 +185,51 @@ public class BrokerSyncService {
                 created++;
             }
         }
+        // v1.26 · 拉不到价的市场(IBKR 的伦敦 / 东京 / 新加坡 …)→ 手动估值行,单价 = 券商报表收盘价(折成账户币种)
+        //   手动估值行的单价语义是「账户币种」(见 ValuationMode),所以这里折算;每次同步都用新报表价覆盖。
+        int priced = 0;
+        for (BrokerDtos.ManualPosition mp : snap.manualPositions()) {
+            BigDecimal fx = mp.currency() == null ? BigDecimal.ONE
+                    : valuationService.fxToAccountCurrency(familyId, accountId, mp.currency());
+            if (fx == null) {
+                throw new IllegalStateException("缺 " + mp.currency() + " → 账户币种的汇率,无法给 " + mp.symbol() + " 估值");
+            }
+            BigDecimal unit = mp.unitPrice() == null ? null : mp.unitPrice().multiply(fx).setScale(6, java.math.RoundingMode.HALF_EVEN);
+            BigDecimal cost = mp.costPrice() == null ? null : mp.costPrice().multiply(fx).setScale(6, java.math.RoundingMode.HALF_EVEN);
+            StockHolding match = existing.stream()
+                    .filter(h -> h.getValuationMode() == ValuationMode.MANUAL
+                            && h.getTicker() != null && mp.symbol().equalsIgnoreCase(h.getTicker()))
+                    .findFirst().orElse(null);
+            if (match != null) {
+                match.setShares(mp.shares());
+                match.setManualValue(unit);
+                match.setManualValueAt(java.time.LocalDateTime.now());
+                match.setCostBasis(cost);
+                holdingMapper.update(familyId, match);
+                keepIds.add(match.getId());
+                updated++;
+            } else {
+                String label = (mp.name() != null ? mp.name() : mp.symbol())
+                        + (mp.exchange() != null ? " · " + mp.exchange() : "");
+                StockHolding h = StockHolding.builder()
+                        .accountId(accountId).displayName(label)
+                        .valuationMode(ValuationMode.MANUAL)
+                        .ticker(mp.symbol()).shares(mp.shares())
+                        .manualValue(unit).manualValueAt(java.time.LocalDateTime.now()).costBasis(cost)
+                        .syncSource(src).cashLinked(false).build();
+                holdingMapper.insertOwned(familyId, h);
+                keepIds.add(h.getId());
+                created++;
+            }
+            priced++;
+        }
         // 券商已无 → 软归档
         int archived = 0;
         for (StockHolding h : existing) {
             if (!keepIds.contains(h.getId())) { holdingMapper.archive(familyId, h.getId()); archived++; }
         }
         String summary = "同步 · 新增 " + created + " · 更新 " + updated + " · 归档 " + archived
+                + (priced > 0 ? " · 按券商收盘价估值 " + priced : "")
                 + (snap.skippedNonEquity() > 0 ? " · 跳过期权/期货 " + snap.skippedNonEquity() : "");
         log.info("broker reconcile · account={} vendor={} {}", accountId, vendor, summary);
         return summary;

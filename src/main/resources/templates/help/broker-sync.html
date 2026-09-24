@@ -15,15 +15,15 @@
   <!-- 头 -->
   <div class="mb-6">
     <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep mb-2">券 · 商 · 同 · 步 · 图 · 文 · 向 · 导</div>
-    <h1 class="font-display text-3xl sm:text-4xl font-medium tracking-tight mb-2">一步步拿到富途 / 老虎的配置</h1>
-    <p class="text-sm text-ink-soft max-w-3xl">配好之后,系统每天(或你手动点一下)<b class="text-ink">只读</b>把券商里的持仓 + 各币种现金拉进账房,不用再手抄。下面按券商分两份,照着做即可。</p>
+    <h1 class="font-display text-3xl sm:text-4xl font-medium tracking-tight mb-2">一步步拿到富途 / 老虎 / 盈透的配置</h1>
+    <p class="text-sm text-ink-soft max-w-3xl">配好之后,系统每天(或你手动点一下)<b class="text-ink">只读</b>把券商里的持仓 + 各币种现金拉进账房,不用再手抄。下面按券商分三份,照着做即可。</p>
   </div>
 
   <!-- 只读 & 安全说明 -->
   <section class="paper-card p-4 mb-6 bg-card-soft" style="border-left:4px solid var(--forest)">
     <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-1">先 · 说 · 安 · 全</div>
     <ul class="text-sm text-ink-soft space-y-1">
-      <li>· 本系统<b class="text-ink">只查询、永不下单 / 划转</b>:富途只连本地网关查数据、从不解锁交易;老虎只调查询接口。</li>
+      <li>· 本系统<b class="text-ink">只查询、永不下单 / 划转</b>:富途只连本地网关查数据、从不解锁交易;老虎只调查询接口;盈透 IBKR 用的「报表口令」<b class="text-ink">本身就只能取报表</b>,做不了交易。</li>
       <li>· 但你即将拿到的这把<b class="text-ink">私钥 / 网关本身权限较大</b>,请当成密码一样保管;担心时随时能在券商后台<b class="text-ink">吊销 / 重置</b>。</li>
       <li>· 凭据在本机加密保存,页面上<b class="text-ink">私钥永不回显</b>。</li>
     </ul>
@@ -33,6 +33,7 @@
   <div class="flex flex-wrap gap-3 mb-8">
     <a href="#futu" class="btn-ink no-underline">富途 Futu 怎么配 ↓</a>
     <a href="#tiger" class="btn-paper no-underline">老虎 Tiger 怎么配 ↓</a>
+    <a href="#ibkr" class="btn-paper no-underline">盈透 IBKR 怎么配 ↓</a>
     <span class="ml-auto font-mono text-[10px] text-ink-subtle self-center">配完回 <a th:href="@{/admin/integrations}" class="underline hover:text-ink">管理 → 数据源接入 → ④ 券商同步</a> 填写</span>
   </div>
 
@@ -243,6 +244,72 @@
     <p class="font-mono text-[10px] text-ink-subtle mt-4">官方参考:
       <a href="https://quant.itigerup.com/openapi/zh/python/quickStart/prepare.html" target="_blank" rel="noopener" class="underline hover:text-ink">准备工作(含截图)</a> ·
       <a href="https://docs.itigerup.com/" target="_blank" rel="noopener" class="underline hover:text-ink">API 文档</a>
+    </p>
+  </section>
+
+  <!-- ============ 盈透 IBKR · v1.26 · issue #24 ============ -->
+  <section id="ibkr" class="mb-12 scroll-mt-24">
+    <div class="flex items-center gap-2 mb-4">
+      <span class="pill" style="background:rgba(180,138,58,.12);color:var(--brass-deep);border-color:var(--brass-deep)">盈透 IBKR</span>
+      <span class="font-mono text-[10px] text-ink-subtle">全程网页操作 · 免装网关 · 约 10 分钟 · 一年换一次口令</span>
+    </div>
+
+    <div class="paper-card p-4 mb-5 bg-card-soft">
+      <div class="font-mono text-[10px] uppercase text-ink-subtle mb-1">开始前</div>
+      <p class="text-sm text-ink-soft">盈透走的是它的 <b class="text-ink">Flex 报表</b>:你在 IBKR 后台定义一份报表、生成一个「报表口令」,账房每天用它把<b class="text-ink">上一个交易日收盘后</b>的持仓和现金取回来。这是日终数据,不是实时的 —— 对按月看全貌完全够用。</p>
+    </div>
+
+    <ol class="space-y-4">
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">1</span>
+          <div>
+            <div class="font-display text-lg mb-1">打开 Flex 报表页</div>
+            <p class="text-sm text-ink-soft">登录 IBKR 网页后台(Client Portal),打开 <b class="text-ink font-mono">Performance &amp; Reports → Flex Queries</b>。</p>
+          </div>
+        </div>
+      </li>
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">2</span>
+          <div>
+            <div class="font-display text-lg mb-1">建一份 Activity Flex Query</div>
+            <p class="text-sm text-ink-soft">在 <b class="text-ink">Activity Flex Query</b> 那一栏点「+」:勾 <b class="text-ink font-mono">Open Positions</b> 和 <b class="text-ink font-mono">Cash Report</b> 两栏(字段全选即可),格式选 <b class="text-ink font-mono">XML</b>,时段选 <b class="text-ink font-mono">Last Business Day</b>,保存。<br>保存后它旁边会显示一串数字,那就是<b class="text-ink">查询号</b>。<br><span class="text-ink-subtle">两栏一定都要勾:少了哪一栏,账房会拒绝同步并告诉你 —— 不然会被当成持仓 / 现金全部清空。</span></p>
+          </div>
+        </div>
+      </li>
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">3</span>
+          <div>
+            <div class="font-display text-lg mb-1">打开 Flex Web Service</div>
+            <p class="text-sm text-ink-soft">点 Flex Queries 页上的 <b class="text-ink font-mono">Flex Web Service Configuration</b>(齿轮),勾选启用并保存。</p>
+          </div>
+        </div>
+      </li>
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">4</span>
+          <div>
+            <div class="font-display text-lg mb-1">生成报表口令 · 有效期选 1 年</div>
+            <p class="text-sm text-ink-soft">点「Generate New Token」:<b class="text-ink">有效期(Should Expire After)选 1 年</b> —— 默认只有 6 小时,六小时后同步就停了。<br>如果知道本服务器的公网 IP,可以填进「Valid For IP Address」,口令就只能从这台服务器用。<br><span class="text-ink-subtle">注意:重新生成会让旧口令立刻失效。</span></p>
+          </div>
+        </div>
+      </li>
+      <li class="paper-card p-5">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">5</span>
+          <div>
+            <div class="font-display text-lg mb-1">粘回账房,测试</div>
+            <p class="text-sm text-ink-soft">回 <b class="text-ink">管理 → 数据源接入 → ④ 券商同步</b> 的「盈透 IBKR」一格:粘上报表口令、查询号,顺手填上<b class="text-ink">口令到期日</b>(一年后的今天)—— 填了,到期前 14 天账房会提醒你换。点「保存券商配置」,再点「测试盈透 IBKR 连接」,会列出找到的账户。然后到证券账户的「券商」页选「盈透 IBKR」关联。</p>
+          </div>
+        </div>
+      </li>
+    </ol>
+
+    <p class="font-mono text-[10px] text-ink-subtle mt-4">官方参考:
+      <a href="https://www.ibkrguides.com/clientportal/performanceandstatements/flex.htm" target="_blank" rel="noopener" class="underline hover:text-ink">Flex Queries</a> ·
+      <a href="https://www.ibkrguides.com/adminportal/performanceandstatements/flex3.htm" target="_blank" rel="noopener" class="underline hover:text-ink">Flex Web Service 配置</a>
     </p>
   </section>
 

@@ -6046,6 +6046,65 @@ QA_FRAGS_MISSING="$(grep -rhoE '~\{[a-z][A-Za-z0-9_/.-]*(/[A-Za-z0-9_.-]+)+ *::'
   && log_ok "v1246-VIEW-NAMES-EXIST(控制器返回的模板 · 模板引用的片段 都能在仓库里找到文件)" \
   || log_bad "v1246-VIEW-NAMES-EXIST 引用了不存在的模板" "控制器:${QA_VIEWS_MISSING:-无} · 片段引用:${QA_FRAGS_MISSING:-无}(dirty 构建会被 target/ 里的旧文件掩盖,clean 构建直接报错)"
 
+# v126-IBKR-READONLY-AND-SAFE · 盈透 IBKR(issue #24)的几条硬约束,每一条都对应一种「不报错、只是出事」:
+#   ① 失败是 HTTP 200 + Fail 信封(beta 实测)→ 解析器必须先认信封,空报表 / 缺栏目拒绝对账(否则持仓全被归档)
+#   ② 不带 User-Agent 是 403(beta 实测)
+#   ③ 取数基址能从家庭配置改(为了 e2e 桩)→ 只认 *.interactivebrokers.com 的 HTTPS 或本机回环,口令不许被发到别处
+#   ④ 报表来自外部网络 → 关闭 DTD / 外部实体
+#   ⑤ 只有 GET,没有任何写方法
+QA_IB="$RD/src/main/java/com/family/finance/service/broker/ibkr"
+{ [ -d "$QA_IB" ] \
+  && grep -q 'readEnvelope(xml)' "$QA_IB/IbkrFlexParser.java" \
+  && grep -q '报表里一个账户都没有' "$QA_IB/IbkrFlexParser.java" \
+  && grep -q 'sawPositions || !sawCash' "$QA_IB/IbkrFlexParser.java" \
+  && grep -q '"BASE_SUMMARY"' "$QA_IB/IbkrFlexParser.java" \
+  && grep -q 'header("User-Agent"' "$QA_IB/IbkrFlexHttp.java" \
+  && grep -q 'interactivebrokers.com' "$QA_IB/IbkrFlexHttp.java" \
+  && grep -q 'SUPPORT_DTD, false' "$QA_IB/IbkrFlexParser.java" \
+  && grep -q 'IS_SUPPORTING_EXTERNAL_ENTITIES, false' "$QA_IB/IbkrFlexParser.java" \
+  && ! java_code_only "$QA_IB/IbkrFlexHttp.java" | grep -qE '\.(POST|PUT|DELETE)\(' \
+  && [ -f "$RD/src/test/java/com/family/finance/service/broker/ibkr/IbkrFlexParserTest.java" ] \
+  && [ -f "$RD/src/test/java/com/family/finance/service/broker/ibkr/IbkrFlexHttpTest.java" ]; } \
+  && log_ok "v126-IBKR-READONLY-AND-SAFE(失败信封不当数据 · 空报表 / 缺栏目拒绝 · 带 UA · 基址锁 IBKR 域名 · 关 XXE · 只有 GET)" \
+  || log_bad "v126-IBKR-READONLY-AND-SAFE IBKR 接入少了一道闸" "见 service/broker/ibkr 与 tech-design/v1.26.md §零 静默失败预检"
+
+# v126-IBKR-ERRORS-HUMAN · 用户最常撞上的几个错误码,每个都要有一句人话,并且带 IBKR 原话(上游原话被兜底盖住已犯过三次)
+QA_IBE="$QA_IB/IbkrErrors.java"
+# 【子 shell ( ) 不是 { }】—— 里面有 exit,用 { } 会把整个 qa-run 退掉(见 v1230-E2E-TWO-LAYER-ASSERT 的注释)
+( for c in 1012 1013 1014 1015 1018 1019; do grep -q "\"$c\"" "$QA_IBE" || exit 1; done
+  grep -q 'IBKR 原话' "$QA_IB/IbkrFlexException.java" \
+  && grep -q 'instanceof com.family.finance.service.broker.ibkr.IbkrFlexException' "$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java" \
+  && grep -q 'instanceof com.family.finance.service.broker.ibkr.IbkrFlexException' "$RD/src/main/java/com/family/finance/service/broker/BrokerSyncService.java" ) \
+  && log_ok "v126-IBKR-ERRORS-HUMAN(1012/1013/1014/1015/1018/1019 都有人话 · 管理页测试与同步失败卡片原样带 IBKR 原话)" \
+  || log_bad "v126-IBKR-ERRORS-HUMAN IBKR 的失败会被一句兜底盖住" "IbkrErrors 要覆盖常见码;IntegrationsController.testBroker 与 BrokerSyncService.failureNote 对 IbkrFlexException 原样透出"
+
+# v126-VENDOR-EXHAUSTIVE · 加券商不许漏:流水来源对 BrokerVendor 穷尽(不留 default)· 模板不许二选一猜券商名 ·
+#   数据库约束放得下每一家(单测 BrokerVendorSweepTest 按集合守,这里守它还在、穷尽 switch 还在)
+QA_LS="$RD/src/main/java/com/family/finance/domain/ledger/LedgerSource.java"
+{ grep -q 'public static LedgerSource forVendor(com.family.finance.domain.broker.BrokerVendor v)' "$QA_LS" \
+  && ! sed -n '/public static LedgerSource forVendor/,/^    }/p' "$QA_LS" | grep -qE '^\s*default\s*->' \
+  && [ -f "$RD/src/test/java/com/family/finance/service/broker/BrokerVendorSweepTest.java" ] \
+  && ! grep -rqE "vendor\.name\(\)\s*==\s*'[A-Z]+'\s*\?\s*'[^']*'\s*:\s*'" "$RD/src/main/resources/templates"; } \
+  && log_ok "v126-VENDOR-EXHAUSTIVE(加券商时流水来源 / 模板显示名 / 数据库约束都会被拦下)" \
+  || log_bad "v126-VENDOR-EXHAUSTIVE 加券商又会漏" "LedgerSource.forVendor 要对 BrokerVendor 穷尽且无 default;模板用 vendor.label"
+
+# v126-IBKR-EXPIRY-VISIBLE · 报表口令一年一到期 —— 到期后同步会停,必须提前说、过期后标红(不许静默停更)
+{ grep -q 'brokerExpiry' "$RD/src/main/resources/templates/accounts/index.html" \
+  && [ "$(grep -c 'brokerExpiry.containsKey(row.account.id)' "$RD/src/main/resources/templates/accounts/index.html")" -ge 2 ] \
+  && grep -q 'ibkrDaysToExpiry' "$RD/src/main/resources/templates/broker/link.html" \
+  && grep -q 'EXPIRY_WARN_DAYS' "$RD/src/main/java/com/family/finance/web/account/AccountController.java"; } \
+  && log_ok "v126-IBKR-EXPIRY-VISIBLE(到期前 14 天在账户列表 PC + 手机、券商页都标出来)" \
+  || log_bad "v126-IBKR-EXPIRY-VISIBLE IBKR 口令到期会静默停更" "账户列表两套视图都要有到期标记;券商页要有提醒"
+
+# v126-IBKR-PAGES-LIVE · 管理页与图文教程真的渲染出 IBKR 那一块
+$CURL -b $COOKIE "$BASE/admin/integrations" -o "$TMP" -w ""
+QA_IBP1=$(grep -c '测试盈透 IBKR 连接' "$TMP"); QA_IBP2=$(grep -c 'name="ibkrToken"' "$TMP")
+$CURL -b $COOKIE "$BASE/help/broker-sync" -o "$TMP" -w ""
+QA_IBP3=$(grep -c 'id="ibkr"' "$TMP")
+{ [ "$QA_IBP1" -ge 1 ] && [ "$QA_IBP2" -ge 1 ] && [ "$QA_IBP3" -ge 1 ]; } \
+  && log_ok "v126-IBKR-PAGES-LIVE(管理页有 IBKR 口令框与测试按钮 · 图文教程有盈透一节)" \
+  || log_bad "v126-IBKR-PAGES-LIVE IBKR 的入口没渲染出来" "测试按钮=$QA_IBP1 口令框=$QA_IBP2 教程=$QA_IBP3"
+
 # v1246-LIVE-CITES-FORWARDED · 托管模式下,引用必须在【流式当下】送到浏览器,不能只落库。
 #   2026-09-23:v1.24.3 只修了落库,验收看的是刷新后的页面 —— 流式当下每个数字仍然是空的。
 QA1246_CS="$RD/src/main/java/com/family/finance/service/ask/AskConversationService.java"

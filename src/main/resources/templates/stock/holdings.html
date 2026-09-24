@@ -54,7 +54,8 @@
         <span class="font-mono text-[11px]">券商对接</span>
       </span>
       <span class="ls-kv">
-        <b th:text="${brokerLink.vendor.name() == 'FUTU' ? '富途 Futu' : '老虎 Tiger'}">富途 Futu</b>
+        <!--/* v1.26 · 原来是 FUTU ? 富途 : 老虎 的二选一 —— 加第三家时 IBKR 会被显示成「老虎」。改读枚举自己的名字。 */-->
+        <b th:text="${brokerLink.vendor.label}">富途</b>
         <span th:if="${brokerLink.brokerAccountId != null}"
               th:text="' · 交易账户 ' + ${#strings.length(brokerLink.brokerAccountId) > 4
                         ? '***' + #strings.substring(brokerLink.brokerAccountId, #strings.length(brokerLink.brokerAccountId) - 4, #strings.length(brokerLink.brokerAccountId))
@@ -93,12 +94,12 @@
       </span>
       <span class="ls-kv">本账户<b>未关联</b>券商 —— 持仓都是手填的</span>
       <span class="ls-acts">
-        <a th:href="@{|/accounts/${account.id}/broker|}" class="btn-paper text-[11px] no-underline">关联富途 / 老虎</a>
+        <a th:href="@{|/accounts/${account.id}/broker|}" class="btn-paper text-[11px] no-underline">关联券商(富途 / 老虎 / 盈透)</a>
         <a th:href="@{/help/broker-sync}" class="btn-paper text-[11px] no-underline">这是什么?</a>
       </span>
     </div>
     <p class="font-mono text-[10px] text-ink-subtle mt-1.5">
-      一个账户 ↔ 一个券商交易账户(1:1)。有多个富途 / 老虎账户,就各建一个账户分别关联。
+      一个账户 ↔ 一个券商交易账户(1:1)。有多个券商账户,就各建一个账户分别关联。
     </p>
   </section>
 

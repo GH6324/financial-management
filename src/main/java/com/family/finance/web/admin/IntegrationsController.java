@@ -55,6 +55,11 @@ public class IntegrationsController {
         model.addAttribute("tigerAccount",          configService.getString(fid, FamilyConfigService.K_BROKER_TIGER_ACCOUNT, ""));
         model.addAttribute("futuHost",              configService.getString(fid, FamilyConfigService.K_BROKER_FUTU_HOST, ""));
         model.addAttribute("futuPort",              configService.getString(fid, FamilyConfigService.K_BROKER_FUTU_PORT, "11111"));
+        // v1.26 · 盈透 IBKR(Flex 报表口令 · 只能取报表)
+        model.addAttribute("ibkrTokenConfigured",   configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_BROKER_IBKR_TOKEN));
+        model.addAttribute("ibkrTokenMasked",       configService.maskedSecret(fid, FamilyConfigService.K_BROKER_IBKR_TOKEN));
+        model.addAttribute("ibkrQuery",             configService.getString(fid, FamilyConfigService.K_BROKER_IBKR_QUERY, ""));
+        model.addAttribute("ibkrExpires",           configService.getString(fid, FamilyConfigService.K_BROKER_IBKR_EXPIRES, ""));
         model.addAttribute("brokerSyncCron",        configService.getString(fid, FamilyConfigService.K_BROKER_SYNC_CRON, "0 45 16 * * MON-FRI"));
         // v0.5 FR-76 · 宏观基准 CPI/M2
         model.addAttribute("macroAll",      macroService.all());
@@ -154,8 +159,28 @@ public class IntegrationsController {
                              @RequestParam(value = "futuHost", required = false) String futuHost,
                              @RequestParam(value = "futuPort", required = false) String futuPort,
                              @RequestParam("brokerSyncCron") String brokerSyncCron,
+                             @RequestParam(value = "ibkrToken", required = false) String ibkrToken,
+                             @RequestParam(value = "ibkrQuery", required = false) String ibkrQuery,
+                             @RequestParam(value = "ibkrExpires", required = false) String ibkrExpires,
                              RedirectAttributes ra) {
         long fid = me.getFamilyId();
+        // v1.26 · IBKR:口令留空 = 保原值(同老虎私钥);查询号只留数字;到期日只收 yyyy-MM-dd,填错就清空(不许存一个解析不了的值,
+        //   否则到期提醒会静默失效)
+        String ibkrExpiresNorm = "";
+        if (ibkrExpires != null && !ibkrExpires.isBlank()) {
+            try { ibkrExpiresNorm = java.time.LocalDate.parse(ibkrExpires.trim()).toString(); }
+            catch (Exception bad) {
+                ra.addFlashAttribute("flashError", "IBKR 口令到期日看不懂:「" + ibkrExpires.trim() + "」—— 请按 2027-09-24 这样填");
+                return "redirect:/admin/integrations#broker";
+            }
+        }
+        if (ibkrToken != null && !ibkrToken.isBlank()) {
+            configService.set(fid, FamilyConfigService.K_BROKER_IBKR_TOKEN, ibkrToken.replaceAll("\\s+", ""));
+        }
+        if (ibkrQuery != null) {
+            configService.set(fid, FamilyConfigService.K_BROKER_IBKR_QUERY, ibkrQuery.replaceAll("\\s+", ""));
+        }
+        configService.set(fid, FamilyConfigService.K_BROKER_IBKR_EXPIRES, ibkrExpiresNorm);
         configService.set(fid, FamilyConfigService.K_BROKER_TIGER_ID, tigerId == null ? "" : tigerId.trim());
         // 私钥:留空保原值(与 LLM key 同策略)
         if (tigerKey != null && !tigerKey.isBlank()) {
@@ -172,6 +197,9 @@ public class IntegrationsController {
                 "券商同步配置 · tigerId=" + (tigerId != null && !tigerId.isBlank() ? "已填" : "空")
                 + " · tigerKey=" + (configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_BROKER_TIGER_KEY) ? "已配" : "未配")
                 + " · futuOpenD=" + (futuHost != null && !futuHost.isBlank() ? "已填" : "空")
+                + " · ibkrToken=" + (configService.isPrivateKeyConfigured(fid, FamilyConfigService.K_BROKER_IBKR_TOKEN) ? "已配" : "未配")
+                + " · ibkrQuery=" + (ibkrQuery != null && !ibkrQuery.isBlank() ? "已填" : "空")
+                + " · ibkrExpires=" + (ibkrExpiresNorm.isEmpty() ? "未填" : ibkrExpiresNorm)
                 + " · cron=" + brokerSyncCron);
         ra.addFlashAttribute("flash", "券商同步配置已保存 · cron 已重排 · 只读、永不下单");
         return "redirect:/admin/integrations";
@@ -205,7 +233,9 @@ public class IntegrationsController {
                     "family_runtime_config", fid, "券商测试连接 · " + v.getLabel() + " · 成功");
             ra.addFlashAttribute("flash", v.getLabel() + " 测试连接成功 · " + detail);
         } catch (Exception e) {
-            String reason = brokerError(e.getMessage());
+            // v1.26 · IBKR 的异常已经是「人话 + IBKR 原话」,原样给 —— brokerError 的几个桶是给 OpenD / 老虎写的,会把原话吞掉
+            String reason = e instanceof com.family.finance.service.broker.ibkr.IbkrFlexException
+                    ? e.getMessage() : brokerError(e.getMessage());
             auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE,
                     "family_runtime_config", fid, "券商测试连接 · " + v.getLabel() + " · 失败:" + reason);
             ra.addFlashAttribute("flashError", v.getLabel() + " 测试失败 · " + reason);

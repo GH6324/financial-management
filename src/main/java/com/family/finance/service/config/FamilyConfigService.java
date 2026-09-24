@@ -93,6 +93,15 @@ public class FamilyConfigService {
     public static final String K_BROKER_TIGER_ID       = "broker_tiger_id";
     public static final String K_BROKER_TIGER_KEY      = "broker_tiger_private_key";
     public static final String K_BROKER_TIGER_ACCOUNT  = "broker_tiger_account";
+    /** v1.26 · 盈透 IBKR Flex Web Service:报表口令(只能取报表)· 页面不回显、日志与审计不记值 */
+    public static final String K_BROKER_IBKR_TOKEN     = "broker_ibkr_flex_token";
+    public static final String K_BROKER_IBKR_QUERY     = "broker_ibkr_flex_query_id";
+    /** 口令到期日 yyyy-MM-dd(可空)· IBKR 不告诉我们口令什么时候过期,只能让用户填 —— 填了才能提前提醒 */
+    public static final String K_BROKER_IBKR_EXPIRES   = "broker_ibkr_token_expires_on";
+    /** 最近一次成功取到的报表里有哪些账户(逗号分隔)· 关联页下拉用,免得每次打开页面都去等 IBKR 生成报表 */
+    public static final String K_BROKER_IBKR_ACCOUNTS  = "broker_ibkr_accounts";
+    /** 取数基址 · 默认 IBKR 官方;只接受 *.interactivebrokers.com 的 HTTPS 或本机回环(e2e 桩)· 页面上不暴露 */
+    public static final String K_BROKER_IBKR_BASE_URL  = "broker_ibkr_flex_base_url";
     public static final String K_BROKER_FUTU_HOST      = "broker_futu_opend_host";
     public static final String K_BROKER_FUTU_PORT      = "broker_futu_opend_port";
     public static final String K_BROKER_SYNC_CRON      = "broker_sync_cron";

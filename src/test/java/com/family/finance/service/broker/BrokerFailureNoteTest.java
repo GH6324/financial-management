@@ -50,4 +50,13 @@ class BrokerFailureNoteTest {
         assertThat(note.length()).isLessThan(120);
         assertThat(note).contains("…");
     }
+
+    /** v1.26 · IBKR 的失败要原样带着 IBKR 原话 —— 上面那几条是给 OpenD 写的,套在 IBKR 上会把原话吞掉 */
+    @Test
+    void ibkr_failure_keeps_human_text_and_ibkr_words() {
+        String note = BrokerSyncService.failureNote(
+                com.family.finance.service.broker.ibkr.IbkrErrors.fromEnvelope("1012", "Token has expired."));
+        assertThat(note).startsWith("同步失败 · ").contains("报表口令已过期").contains("1012").contains("Token has expired.");
+        assertThat(note.length()).isLessThanOrEqualTo(255);   // broker_link.last_status 是 VARCHAR(255)
+    }
 }
