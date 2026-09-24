@@ -129,13 +129,16 @@ public class CsvExportService {
 
             List<Transfer> transfers = transferMapper.findAllByFamily(familyId);
             writeEntry(zip, "transfers.csv", writer -> {
+                // issue #21 · 补 to_amount(转入方实到,转入账户币种)。原来没有这一列 ——
+                //   跨币种划转导出之后,「对方实际到账多少」这个信息就丢了,备份不完整。
+                //   加在【最后】而不是插在 amount 旁边:已有列的位置一个都不动,按列号读这份文件的脚本不受影响。
                 line(writer, "id", "period_id", "from_account_id", "to_account_id", "amount",
-                        "occurred_at", "note", "submitted_by", "submitted_at", "is_draft");
+                        "occurred_at", "note", "submitted_by", "submitted_at", "is_draft", "to_amount");
                 for (Transfer t : transfers) {
                     line(writer,
                             s(t.getId()), s(t.getPeriodId()), s(t.getFromAccountId()), s(t.getToAccountId()),
                             s(t.getAmount()), s(t.getOccurredAt()), e(t.getNote()),
-                            s(t.getSubmittedBy()), ts(t.getSubmittedAt()), s(t.isDraft()));
+                            s(t.getSubmittedBy()), ts(t.getSubmittedAt()), s(t.isDraft()), s(t.getToAmount()));
                 }
             });
 
