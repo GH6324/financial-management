@@ -167,6 +167,11 @@ public class FamilyConfigService {
     public static final String ASK_MA_MODEL_DEFAULT   = "qwen-plus";
     /** 托管路线:本实例的公网地址,拼进给百炼的 MCP 配置 */
     public static final String K_ASK_PUBLIC_BASE_URL  = "ask_public_base_url";
+    /**
+     * issue #22 · 体检「值得做的事」里被标成「不适用」的提醒。
+     * 值是用换行分隔的「规则编号|账户 id」,家庭级规则的账户写 {@code *}。
+     */
+    public static final String K_CHECKUP_ADVICE_DISMISSED = "checkup_advice_dismissed";
 
     // ========== env / yml @Value fallback ==========
     @Value("${finance.llm.qwen.api-key:}")

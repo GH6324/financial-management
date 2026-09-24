@@ -54,6 +54,7 @@ public class AiDiagnoseController {
     private final AccountDiagnoseService accountDiagnoseService;
     private final FamilyDiagnoseService familyDiagnoseService;
     private final LlmDiagnoseService llmDiagnoseService;
+    private final com.family.finance.service.checkup.AdviceDismissService adviceDismiss;
     private final AccountMapper accountMapper;
     private final FactViewService factViewService;
     private final com.family.finance.service.insight.AssetInsightService assetInsightService;
@@ -71,7 +72,8 @@ public class AiDiagnoseController {
             FamilyDiagnose diagnose = familyDiagnoseService.diagnose(me.getFamilyId());
             List<AccountDiagnose> accounts = collectAccounts(me.getFamilyId());
             RuleContext ctx = RuleContext.forFamily(diagnose, accounts, avgExp);
-            List<Advice> advice = adviceEngine.evaluate(ctx);
+            // issue #22 · 用户标成「不适用」的,也不再拿去问 AI
+            List<Advice> advice = adviceDismiss.visible(me.getFamilyId(), adviceEngine.evaluate(ctx));
 
             result = llmDiagnoseService.diagnoseFamily(me.getFamilyId(), me.getMemberId(),
                     diagnose, advice, refresh);
@@ -86,7 +88,8 @@ public class AiDiagnoseController {
             AccountDiagnose ad = accountDiagnoseService.diagnose(me.getFamilyId(), accountId);
             FamilyDiagnose fd = familyDiagnoseService.diagnose(me.getFamilyId());
             RuleContext ctx = RuleContext.forAccount(ad, fd, List.of(ad), avgExp);
-            List<Advice> advice = adviceEngine.evaluate(ctx);
+            // issue #22 · 用户标成「不适用」的,也不再拿去问 AI
+            List<Advice> advice = adviceDismiss.visible(me.getFamilyId(), adviceEngine.evaluate(ctx));
 
             result = llmDiagnoseService.diagnoseAccount(me.getFamilyId(), me.getMemberId(),
                     fd, ad, advice, refresh);

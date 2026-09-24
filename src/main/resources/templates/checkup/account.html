@@ -325,7 +325,7 @@
   </section>
 
   <!-- 智能建议 · FR-40c · 10 条账户级规则命中后显示 -->
-  <section class="mb-8" th:if="${!#lists.isEmpty(advice)}">
+  <section id="checkup-advice" class="mb-8" style="scroll-margin-top:80px" th:if="${!#lists.isEmpty(advice)}">
     <div class="flex items-baseline justify-between mb-3 flex-wrap gap-2">
       <div>
         <div class="eyebrow mb-1">来 · 自 · 账 · 房 · 的 · 提 · 醒</div>
@@ -339,13 +339,17 @@
         <div th:replace="~{checkup/_advice-card :: card(advice=${ad})}"></div>
       </th:block>
     </div>
+    <div th:replace="~{checkup/_advice-card :: restore(${adviceHidden}, ${account.id})}"></div>
   </section>
 
-  <section class="paper-card p-5 bg-card-soft text-sm text-ink-soft"
+  <section id="checkup-advice" class="paper-card p-5 bg-card-soft text-sm text-ink-soft"
            th:if="${#lists.isEmpty(advice)}"
            style="border-left: 3px solid var(--forest)">
-    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-1">本账户体检通过</div>
-    <p>当前账户级规则均未命中。继续按当前节奏即可。</p>
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-1"
+         th:text="${adviceHidden > 0} ? '没有待处理的提醒' : '本账户体检通过'">本账户体检通过</div>
+    <p th:if="${adviceHidden == 0}">当前账户级规则均未命中。继续按当前节奏即可。</p>
+    <p th:unless="${adviceHidden == 0}">命中的提醒都被标成了「不适用」。</p>
+    <div th:replace="~{checkup/_advice-card :: restore(${adviceHidden}, ${account.id})}"></div>
   </section>
 
   <!-- AI 综合智能诊断 · FR-40c 决策 20(2026-05-10) · 单账户视角 -->

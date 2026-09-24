@@ -54,6 +54,8 @@ public class CheckupController {
     private final com.family.finance.repository.PeriodMapper periodMapper;
     private final com.family.finance.service.config.FamilyConfigService configService;
     private final com.family.finance.service.explain.MetricExplainService metricExplain; // v0.5.3 口径真实数值
+    /** issue #22 · 「不适用」的提醒 —— 原来那个按钮调用的是一个不存在的前端函数,点了没反应 */
+    private final com.family.finance.service.checkup.AdviceDismissService adviceDismiss;
 
     @GetMapping("/checkup")
     public String checkup(@AuthenticationPrincipal MemberPrincipal me,
@@ -85,7 +87,9 @@ public class CheckupController {
             // 收集所有账户的 diagnose,供家庭级规则使用
             List<AccountDiagnose> accounts = collectAllAccountDiagnoses(me.getFamilyId());
             RuleContext ctx = RuleContext.forFamily(diagnose, accounts, avgMonthlyExpense);
-            List<Advice> advice = adviceEngine.evaluate(ctx);
+            List<Advice> allAdvice = adviceEngine.evaluate(ctx);
+            List<Advice> advice = adviceDismiss.visible(me.getFamilyId(), allAdvice);
+            model.addAttribute("adviceHidden", adviceDismiss.hiddenCount(me.getFamilyId(), allAdvice));
 
             // v0.4 FR-62c · 应急金不闲置评估 · v0.4.18 应急月数 + buffer 倍率改读 ConfigService
             int emergencyMonths = configService.getInt(me.getFamilyId(),
@@ -135,7 +139,9 @@ public class CheckupController {
         AccountDiagnose diagnose = accountDiagnoseService.diagnose(me.getFamilyId(), accountId);
         FamilyDiagnose family = familyDiagnoseService.diagnose(me.getFamilyId());
         RuleContext ctx = RuleContext.forAccount(diagnose, family, List.of(diagnose), avgMonthlyExpense);
-        List<Advice> advice = adviceEngine.evaluate(ctx);
+        List<Advice> allAdvice = adviceEngine.evaluate(ctx);
+        List<Advice> advice = adviceDismiss.visible(me.getFamilyId(), allAdvice);
+        model.addAttribute("adviceHidden", adviceDismiss.hiddenCount(me.getFamilyId(), allAdvice));
 
         model.addAttribute("scope", "ACCOUNT");
         model.addAttribute("account", account.get());
@@ -166,5 +172,42 @@ public class CheckupController {
      */
     private BigDecimal computeAvgMonthlyExpense(long familyId) {
         return householdCashflowService.avgMonthlyExpense(familyId);
+    }
+
+    // ──────────────── issue #22 · 「不适用」与「恢复」 ────────────────
+
+    /**
+     * 把一条提醒标成「不适用」。
+     *
+     * <p>用普通表单提交,不靠前端脚本 —— 原来那个按钮正是因为依赖一个从没写过的 JS 函数才一直不工作的。
+     * 回到哪一页由账户参数决定(不接受任意跳转地址):带账户回账户体检页,不带回家庭体检页。</p>
+     */
+    @org.springframework.web.bind.annotation.PostMapping("/checkup/advice/dismiss")
+    public String dismissAdvice(@AuthenticationPrincipal MemberPrincipal me,
+                                @org.springframework.web.bind.annotation.RequestParam String ruleId,
+                                @org.springframework.web.bind.annotation.RequestParam(required = false) Long accountId) {
+        Long acct = ownAccountOrNull(me.getFamilyId(), accountId);
+        adviceDismiss.dismiss(me.getFamilyId(), ruleId, acct);
+        return backTo(acct);
+    }
+
+    /** 把这一页上被标成「不适用」的提醒全部恢复(家庭页恢复家庭级的,账户页恢复这个账户的) */
+    @org.springframework.web.bind.annotation.PostMapping("/checkup/advice/restore")
+    public String restoreAdvice(@AuthenticationPrincipal MemberPrincipal me,
+                                @org.springframework.web.bind.annotation.RequestParam(required = false) Long accountId) {
+        Long acct = ownAccountOrNull(me.getFamilyId(), accountId);
+        adviceDismiss.restoreAll(me.getFamilyId(), acct);
+        return backTo(acct);
+    }
+
+    /** 账户必须是自己家的;不是就当没传(按家庭级处理),不接受别人家的账户 id */
+    private Long ownAccountOrNull(long familyId, Long accountId) {
+        if (accountId == null) return null;
+        return accountMapper.findById(familyId, accountId).map(a -> accountId).orElse(null);
+    }
+
+    private static String backTo(Long accountId) {
+        return accountId == null ? "redirect:/checkup#checkup-advice"
+                                 : "redirect:/checkup?account=" + accountId + "#checkup-advice";
     }
 }
