@@ -154,7 +154,9 @@ module.exports = {
     await ui.goto('/entry');
     await ui.click(ledger, `展开${TO_NAME}的本期流水`);
     let confirmText = '';
-    ui.page.once('dialog', d => { confirmText = d.message(); d.accept(); });
+    // 前面的 flow(20 / 21)在同一个 page 上挂了常驻的「对话框一律确认」,这里可能拿到一个已经被确认过的对话框 ——
+    //   只读它的文字;accept 失败不能抛(事件回调里抛出会直接打崩整个 runner,cleanup 都来不及跑)
+    ui.page.once('dialog', d => { confirmText = d.message(); d.accept().catch(() => {}); });
     await Promise.all([
       ui.page.waitForResponse(r => r.url().includes(`/entry/transfer/${tid}/delete`), { timeout: 20000 }).catch(() => null),
       ui.click(delBtn, '点这笔划转的 ✕'),
