@@ -38,6 +38,9 @@ const PW_CORE = process.env.PW_CORE
 const CHROME = process.env.PW_CHROME
   || path.join(process.env.HOME, '.cache/ms-playwright/chromium-1228/chrome-linux64/chrome');
 const BASE = process.env.E2E_BASE || 'http://127.0.0.1:20000';
+/* 走前门(E2E_BASE=https://beta.dixi-token.top)时,静态资源要穿过 prod → beta 的反代,
+   首屏实测约 21 秒(本机直连不到 1 秒)。超时写死 30/45 秒会在登录页就起不来。 */
+const NAV_TIMEOUT = Number(process.env.E2E_NAV_TIMEOUT || 45000);
 const USER = process.env.E2E_USER || 'diwa';
 const PASS = process.env.E2E_PASS || 'demo1234';
 const SHOTS = path.join(__dirname, '..', 'shots');
@@ -55,7 +58,7 @@ class Ui {
 
   /** 打开页面。等 networkidle —— 本项目大量用 HTMX,DOMContentLoaded 之后内容还在换。 */
   async goto(p) {
-    await this.page.goto(BASE + p, { waitUntil: 'networkidle', timeout: 45000 });
+    await this.page.goto(BASE + p, { waitUntil: 'networkidle', timeout: NAV_TIMEOUT });
     await this.page.waitForTimeout(350);
     return this;
   }
@@ -279,15 +282,15 @@ async function open(report, { width = 1440, height = 900 } = {}) {
   page.on('console', m => { if (m.type() === 'error') ui._consoleErrors.push(m.text()); });
   page.on('pageerror', e => ui._consoleErrors.push(String(e)));
 
-  await page.goto(BASE + '/login', { waitUntil: 'networkidle' });
+  await page.goto(BASE + '/login', { waitUntil: 'networkidle', timeout: NAV_TIMEOUT });
   await page.fill('input[name=username]', USER);
   await page.fill('input[name=password]', PASS);
   await Promise.all([
-    page.waitForNavigation({ waitUntil: 'networkidle' }).catch(() => {}),
+    page.waitForNavigation({ waitUntil: 'networkidle', timeout: NAV_TIMEOUT }).catch(() => {}),
     page.click('button[type=submit]'),
   ]);
   ui._close = async () => { await ctx.close(); await browser.close(); };
   return ui;
 }
 
-module.exports = { open, BASE, SHOTS };
+module.exports = { open, BASE, SHOTS, USER, PASS, NAV_TIMEOUT };
