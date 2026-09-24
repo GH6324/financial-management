@@ -51,6 +51,9 @@ module.exports = {
 
   async run(ui, report) {
     ui.flow = this.name;
+    // 体检页一打开就会自动请求「AI 综合诊断」「AI 资产洞察」—— 这条 flow 不测 AI,
+    //   就地返回空片段:不花 token,也不让 networkidle 等十几秒的模型响应
+    await ui.page.route(/\/checkup\/(diagnose|insight)/, r => r.fulfill({ status: 200, contentType: 'text/html', body: '<div></div>' }));
     state.before = cfg();
     db.raw(`DELETE FROM family_runtime_config WHERE family_id=${fx.FAM} AND key_name='${KEY}'`);
 
@@ -77,6 +80,7 @@ module.exports = {
 
       // 家里另一个人、另一台设备:同一个浏览器里另开一个手机尺寸的会话
       const ctx2 = await ui.page.context().browser().newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+      await ctx2.route(/\/checkup\/(diagnose|insight)/, r => r.fulfill({ status: 200, contentType: 'text/html', body: '<div></div>' }));
       try {
         const p2 = await ctx2.newPage();
         await p2.goto(BASE + '/login', { waitUntil: 'networkidle', timeout: 90000 });
@@ -151,6 +155,7 @@ module.exports = {
   },
 
   async cleanup(ui, report) {
+    await ui.page.unroute(/\/checkup\/(diagnose|insight)/).catch(() => {});
     db.raw(`DELETE FROM family_runtime_config WHERE family_id=${fx.FAM} AND key_name='${KEY}'`);
     if (state.before !== null && state.before !== undefined) {
       db.raw(`INSERT INTO family_runtime_config (family_id, key_name, value_text)
