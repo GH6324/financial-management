@@ -11,11 +11,11 @@
  * 前置:建一个空的美元证券账户(关联会先归档现有持仓,不拿真账户做实验)。cleanup 把它连同同步来的一切删干净,
  * IBKR 那几个配置键恢复原样。
  */
-const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const db = require('../lib/db.cjs');
 const fx = require('../lib/fixture.cjs');
+const ibkrStub = require('../lib/ibkr-stub.cjs');
 
 const SAMPLE = fs.readFileSync(path.join(__dirname, '../../../src/test/resources/ibkr/flex-sample-two-accounts.xml'), 'utf8');
 const KEYS = ['broker_ibkr_flex_token', 'broker_ibkr_flex_query_id', 'broker_ibkr_token_expires_on',
@@ -23,30 +23,7 @@ const KEYS = ['broker_ibkr_flex_token', 'broker_ibkr_flex_query_id', 'broker_ibk
 const ACC_NAME = 'e2e · 盈透 IBKR';
 const GOOD = '111122223333444455556666';
 const EXPIRED = '999988887777666655554444';
-const state = { mode: 'ok', hits: [] };
-
-function envelope(code, msg) {
-  return `<FlexStatementResponse timestamp='x'>\n<Status>Fail</Status>\n<ErrorCode>${code}</ErrorCode>\n<ErrorMessage>${msg}</ErrorMessage>\n</FlexStatementResponse>`;
-}
-
-function startStub() {
-  return new Promise((resolve) => {
-    const srv = http.createServer((req, res) => {
-      const u = new URL(req.url, 'http://x');
-      state.hits.push({ path: u.pathname, ua: req.headers['user-agent'] || '' });
-      res.writeHead(200, { 'Content-Type': 'text/xml' });
-      if (!req.headers['user-agent']) { res.end('Error 403 - Access Denied'); return; }
-      const t = u.searchParams.get('t');
-      if (u.pathname.endsWith('/SendRequest')) {
-        if (t === EXPIRED) { res.end(envelope(1012, 'Token has expired.')); return; }
-        res.end("<FlexStatementResponse timestamp='x'><Status>Success</Status><ReferenceCode>555001</ReferenceCode></FlexStatementResponse>");
-        return;
-      }
-      res.end(SAMPLE);
-    });
-    srv.listen(0, '127.0.0.1', () => resolve(srv));
-  });
-}
+const state = {};
 
 /** 账户列表里「这个账户那一行」的文字(PC 表格;别的账户的标记不算数)*/
 async function rowText(ui) {
@@ -72,8 +49,10 @@ module.exports = {
 
     // ── 前置 ──────────────────────────────────────────────────────────
     state.before = Object.fromEntries(KEYS.map(k => [k, cfg(k)]));
-    state.srv = await startStub();
-    const port = state.srv.address().port;
+    const stub = await ibkrStub.start(SAMPLE, EXPIRED);
+    state.srv = stub.server;
+    state.hits = stub.hits;
+    const port = stub.port;
     db.raw(`INSERT INTO family_runtime_config (family_id, key_name, value_text) VALUES (${fx.FAM}, 'broker_ibkr_flex_base_url', 'http://127.0.0.1:${port}/fws')
             ON DUPLICATE KEY UPDATE value_text = VALUES(value_text)`);
     db.raw(`INSERT INTO account (family_id, display_name, type, currency, display_order) VALUES (${fx.FAM}, '${ACC_NAME}', 'STOCK', 'USD', 999)`);

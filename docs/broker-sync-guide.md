@@ -1,4 +1,4 @@
-# 券商同步 · 凭据获取图文向导(富途 / 老虎)
+# 券商同步 · 凭据获取图文向导(富途 / 老虎 / 盈透)
 
 > 应用内同款向导:登录后打开 **/help/broker-sync**(管理 → 数据源接入 → ④ 券商同步 → 「不知道怎么填?看图文教程」),那里带示意图。本文是同一份步骤的仓库版。
 
@@ -37,6 +37,20 @@
 官方参考:[准备工作(含截图)](https://quant.itigerup.com/openapi/zh/python/quickStart/prepare.html) · [API 文档](https://docs.itigerup.com/)
 
 ---
+
+## 盈透 IBKR(v1.26 · 全程网页 · 免装网关 · 一年换一次口令)
+
+盈透走的是它的 **Flex 报表**:你在 IBKR 后台定义一份报表、生成一个「报表口令」,账房每天用它把**上一个交易日收盘后**的持仓和现金取回来。报表口令**只能取报表,做不了交易**。
+
+1. 登录 IBKR 网页后台(Client Portal),打开 **Performance & Reports → Flex Queries**。
+2. 在 **Activity Flex Query** 那一栏点「+」:勾 **Open Positions** 和 **Cash Report** 两栏(字段全选即可),格式选 **XML**,时段选 **Last Business Day**,保存。它旁边的数字就是**查询号**。两栏一定都要勾 —— 少了哪一栏,账房会拒绝同步并告诉你。
+3. 点 **Flex Web Service Configuration**(齿轮),勾选启用。
+4. 点「Generate New Token」:**有效期选 1 年**(默认只有 6 小时)。知道本服务器公网 IP 的话可以填进「Valid For IP Address」。重新生成会让旧口令立刻失效。
+5. 回 **管理 → 数据源接入 → ④ 券商同步** 的「盈透 IBKR」:粘上报表口令、查询号,填上**口令到期日**(填了,到期前 14 天账房会提醒你换),保存,点「测试盈透 IBKR 连接」。然后到证券账户的「券商」页选「盈透 IBKR」关联。
+
+- 不在美 / 港 / A 股的股票(伦敦、东京 …)系统拉不到价,按报表里的收盘价做手动估值,每次同步更新。
+- 期权 / 期货 / 债券不同步,会计数提示,可手动补。
+- 服务器要能访问 `ndcdyn.interactivebrokers.com:443`;连不上时测试结果会直接说。
 
 ## 富途 Futu(需常驻一个「OpenD」网关程序)
 

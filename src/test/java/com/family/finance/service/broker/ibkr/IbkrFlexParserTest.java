@@ -165,7 +165,7 @@ class IbkrFlexParserTest {
 
     @Test
     void 数字解析_千分位与缺值写法() {
-        assertThat(IbkrFlexParser.num("1,234.50")).isEqualByComparingTo("1234.50");
+        assertThat(IbkrFlexParser.num("12,845.30")).isEqualByComparingTo("12845.30");   // 合成数(已登记在 qa-run 的 QA111_SYNTH)
         assertThat(IbkrFlexParser.num("-")).isNull();
         assertThat(IbkrFlexParser.num("--")).isNull();
         assertThat(IbkrFlexParser.num("N/A")).isNull();
