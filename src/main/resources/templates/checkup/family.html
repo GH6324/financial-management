@@ -225,6 +225,7 @@
         <div th:replace="~{checkup/_advice-card :: card(advice=${ad})}"></div>
       </th:block>
     </div>
+    <div th:replace="~{checkup/_advice-card :: restore(${adviceHidden}, null)}"></div>
     <div class="mt-3 paper-card px-4 py-2.5 flex items-center gap-2 flex-wrap text-[11px] font-mono"
          style="background:var(--card-soft); border-left: 3px solid var(--ink-subtle)">
       <span class="text-ink-soft">第 一 层 · 规则引擎硬数据</span>
@@ -261,8 +262,13 @@
   <section id="checkup-advice" class="paper-card p-5 bg-card-soft text-sm text-ink-soft mb-8"
            th:if="${#lists.isEmpty(advice)}"
            style="border-left: 3px solid var(--forest);scroll-margin-top:80px">
-    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-1">健康状态良好</div>
-    <p>当前 6 条家庭级规则均未命中,组合在「流动性 / 风险与配置 / 收益质量」维度都处于推荐区间。继续保持。</p>
+    <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-forest mb-1"
+         th:text="${adviceHidden > 0} ? '没有待处理的提醒' : '健康状态良好'">健康状态良好</div>
+    <th:block th:if="${adviceHidden == 0}">
+      <p>当前 6 条家庭级规则均未命中,组合在「流动性 / 风险与配置 / 收益质量」维度都处于推荐区间。继续保持。</p>
+    </th:block>
+    <p th:unless="${adviceHidden == 0}">命中的提醒都被标成了「不适用」。</p>
+    <div th:replace="~{checkup/_advice-card :: restore(${adviceHidden}, null)}"></div>
   </section>
 
   <!-- 进入账户级体检的入口 -->

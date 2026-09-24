@@ -5952,6 +5952,65 @@ QA1245_SB_ORDER="$(grep -oE '/admin/(integrations|ai-access)' "$QA1245_SB" | tr 
   && log_ok "v1245-AI-SETTINGS-ONE-PLACE(大模型只在 AI 接入 · 数据源接入无大模型表单 · 侧栏相邻 · 提示不再指回数据源接入)" \
   || log_bad "v1245-AI-SETTINGS-ONE-PLACE AI 的设置又分成两处了" "侧栏顺序:[$QA1245_SB_ORDER] · 仍指回数据源接入:${QA1245_STALE:-无}"
 
+# v1246-ADVICE-DISMISS-WORKS · issue #22 · 体检「值得做的事」的「不适用」按钮要真的能用。
+#   这个按钮从 v0.2(2026-05)起就是 onclick="advice.dismiss(…)" —— 一个【从没写过】的前端函数,
+#   后端也没有接口。点了浏览器报 advice is not defined,页面上什么都不发生,四个多月没人发现。
+#   现在是普通表单提交 + 存进家庭配置;这里守「不许再挂回一个不存在的 JS 函数」,并要求接口与过滤都在。
+QA22_CARD="$RD/src/main/resources/templates/checkup/_advice-card.html"
+QA22_CTL="$RD/src/main/java/com/family/finance/web/checkup/CheckupController.java"
+#   只看属性值里的调用(onclick="…advice.dismiss(…)"),模板注释里讲历史的那句不算。
+{ ! grep -qE '="[^"]*advice\.dismiss\(' "$QA22_CARD" \
+  && grep -q 'th:action="@{/checkup/advice/dismiss}"' "$QA22_CARD" \
+  && grep -q 'th:fragment="restore(hidden, accountId)"' "$QA22_CARD" \
+  && grep -q '"/checkup/advice/dismiss"' "$QA22_CTL" \
+  && grep -q '"/checkup/advice/restore"' "$QA22_CTL" \
+  && [ "$(grep -c 'adviceDismiss.visible' "$QA22_CTL")" -ge 2 ] \
+  && grep -q 'adviceDismiss.visible' "$RD/src/main/java/com/family/finance/web/checkup/AiDiagnoseController.java" \
+  && [ -f "$RD/src/test/java/com/family/finance/service/checkup/AdviceDismissServiceTest.java" ]; } \
+  && log_ok "v1246-ADVICE-DISMISS-WORKS(「不适用」是真表单 · 存家庭配置 · 家庭页/账户页/AI 诊断都过滤 · 可一键恢复)" \
+  || log_bad "v1246-ADVICE-DISMISS-WORKS「不适用」又退回成点了没反应" "卡片不许再调 advice.dismiss(…);要有 /checkup/advice/dismiss 与 /restore 接口,三处都要过滤"
+
+# v1246-ADVICE-DISMISS-LIVE · 真的点一下:标不适用后这条从体检页消失,恢复后回来
+QA22_BEFORE="$(mysql -ufinance -pfinance finance -N -e "SELECT value_text FROM family_runtime_config WHERE family_id=1 AND key_name='checkup_advice_dismissed';" 2>/dev/null)"
+$CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+QA22_RULE="$(grep -oE 'name="ruleId" value="[^"]+"' "$TMP" | head -1 | sed -E 's/.*value="([^"]+)"/\1/')"
+if [ -z "$QA22_RULE" ]; then
+  log_skip "v1246-ADVICE-DISMISS-LIVE" "当前 beta 数据下家庭体检一条提醒都没命中,无从点「不适用」"
+else
+  XSRF=$(awk -F'\t' '/XSRF-TOKEN/ {print $NF}' $COOKIE)
+  $CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" --data-urlencode "_csrf=$XSRF" \
+    --data-urlencode "ruleId=$QA22_RULE" "$BASE/checkup/advice/dismiss" -o /dev/null -w ""
+  $CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+  QA22_GONE=$(grep -c "name=\"ruleId\" value=\"$QA22_RULE\"" "$TMP")
+  QA22_NOTE=$(grep -c '已隐藏 1 条' "$TMP")
+  XSRF=$(awk -F'\t' '/XSRF-TOKEN/ {print $NF}' $COOKIE)
+  $CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" --data-urlencode "_csrf=$XSRF" \
+    "$BASE/checkup/advice/restore" -o /dev/null -w ""
+  $CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+  QA22_BACK=$(grep -c "name=\"ruleId\" value=\"$QA22_RULE\"" "$TMP")
+  { [ "$QA22_GONE" = "0" ] && [ "$QA22_NOTE" -ge 1 ] && [ "$QA22_BACK" -ge 1 ]; } \
+    && log_ok "v1246-ADVICE-DISMISS-LIVE(标「不适用」后 $QA22_RULE 从家庭体检消失并提示已隐藏 · 恢复后回来)" \
+    || log_bad "v1246-ADVICE-DISMISS-LIVE 点了「不适用」没效果或恢复不了" "rule=$QA22_RULE 标后仍在:$QA22_GONE 已隐藏提示:$QA22_NOTE 恢复后在:$QA22_BACK"
+  # 还原成跑之前的样子(声明终态,不依赖中间过程)
+  mysql -ufinance -pfinance finance -e "DELETE FROM family_runtime_config WHERE family_id=1 AND key_name='checkup_advice_dismissed';" 2>/dev/null
+  [ -n "$QA22_BEFORE" ] && mysql -ufinance -pfinance finance -e "INSERT INTO family_runtime_config (family_id,key_name,value_text) VALUES (1,'checkup_advice_dismissed','$QA22_BEFORE');" 2>/dev/null
+fi
+
+# v1246-ADVICE-DISMISS-FOREIGN-ACCOUNT · 传一个不是自己家的账户号,什么都不许存。
+#   端上验收时抓到:原来被当成「没传账户」,悄悄存成了一条家庭级「不适用」——
+#   一个针对某个账户的操作,变成了对全家生效。
+QA22F_BEFORE="$(mysql -ufinance -pfinance finance -N -e "SELECT value_text FROM family_runtime_config WHERE family_id=1 AND key_name='checkup_advice_dismissed';" 2>/dev/null)"
+XSRF=$(awk -F'\t' '/XSRF-TOKEN/ {print $NF}' $COOKIE)
+QA22F_LOC=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" --data-urlencode "_csrf=$XSRF" \
+  --data-urlencode "ruleId=QA-FOREIGN-ACCT" --data-urlencode "accountId=987654321" \
+  "$BASE/checkup/advice/dismiss" -o /dev/null -w "%{http_code} %{redirect_url}")
+QA22F_AFTER="$(mysql -ufinance -pfinance finance -N -e "SELECT value_text FROM family_runtime_config WHERE family_id=1 AND key_name='checkup_advice_dismissed';" 2>/dev/null)"
+{ echo "$QA22F_LOC" | grep -q '^302 .*/checkup#checkup-advice$' && ! echo "$QA22F_AFTER" | grep -q 'QA-FOREIGN-ACCT'; } \
+  && log_ok "v1246-ADVICE-DISMISS-FOREIGN-ACCOUNT(不是自己家的账户号 → 直接忽略,不会变成全家生效的「不适用」)" \
+  || log_bad "v1246-ADVICE-DISMISS-FOREIGN-ACCOUNT 别人家的账户号被存下来了" "响应:$QA22F_LOC 存下的:[$QA22F_AFTER]"
+mysql -ufinance -pfinance finance -e "DELETE FROM family_runtime_config WHERE family_id=1 AND key_name='checkup_advice_dismissed';" 2>/dev/null
+[ -n "$QA22F_BEFORE" ] && mysql -ufinance -pfinance finance -e "INSERT INTO family_runtime_config (family_id,key_name,value_text) VALUES (1,'checkup_advice_dismissed','$QA22F_BEFORE');" 2>/dev/null
+
 # v1246-AGENT-TEMPLATE-DRIFT-VISIBLE · 百炼上的 Agent 模板落后于代码时,必须被看见。
 #   2026-09-23:生产的模板停在 09-04,tools 一直是空数组 —— 发新版本不会更新远端的 Agent。
 #   百炼 14 天零次来调我们,agent 对用户说「没有任何工具连接到我这边」,我们这边零条错误。
