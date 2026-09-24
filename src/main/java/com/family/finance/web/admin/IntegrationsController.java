@@ -146,7 +146,7 @@ public class IntegrationsController {
     }
 
     /**
-     * ⑥ 券商只读同步 · 老虎(tiger_id + RSA 私钥 + 账户)+ 富途(OpenD host/port)+ 同步 cron。
+     * ⑥ 券商只读同步 · 老虎(tiger_id + RSA 私钥 + 账户)+ 富途(OpenD host/port)+ 盈透(报表口令 + 查询号 + 到期日)+ 同步 cron。
      *
      * <p>私密红线:RSA 私钥留空 = 保原值、永不回显、audit 只记"已配/未配"不记明文;
      * 只读铁律:此处不存交易密码、不申请任何写权限。</p>
