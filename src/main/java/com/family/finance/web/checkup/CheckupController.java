@@ -186,21 +186,23 @@ public class CheckupController {
     public String dismissAdvice(@AuthenticationPrincipal MemberPrincipal me,
                                 @org.springframework.web.bind.annotation.RequestParam String ruleId,
                                 @org.springframework.web.bind.annotation.RequestParam(required = false) Long accountId) {
-        Long acct = ownAccountOrNull(me.getFamilyId(), accountId);
-        adviceDismiss.dismiss(me.getFamilyId(), ruleId, acct);
-        return backTo(acct);
+        // 传了账户但不是自己家的 → 什么都不做。
+        //   不能把它当成「没传」存成一条家庭级记录 —— 那会把一个针对账户的操作悄悄变成针对全家的。
+        if (accountId != null && ownAccountOrNull(me.getFamilyId(), accountId) == null) return backTo(null);
+        adviceDismiss.dismiss(me.getFamilyId(), ruleId, accountId);
+        return backTo(accountId);
     }
 
     /** 把这一页上被标成「不适用」的提醒全部恢复(家庭页恢复家庭级的,账户页恢复这个账户的) */
     @org.springframework.web.bind.annotation.PostMapping("/checkup/advice/restore")
     public String restoreAdvice(@AuthenticationPrincipal MemberPrincipal me,
                                 @org.springframework.web.bind.annotation.RequestParam(required = false) Long accountId) {
-        Long acct = ownAccountOrNull(me.getFamilyId(), accountId);
-        adviceDismiss.restoreAll(me.getFamilyId(), acct);
-        return backTo(acct);
+        if (accountId != null && ownAccountOrNull(me.getFamilyId(), accountId) == null) return backTo(null);
+        adviceDismiss.restoreAll(me.getFamilyId(), accountId);
+        return backTo(accountId);
     }
 
-    /** 账户必须是自己家的;不是就当没传(按家庭级处理),不接受别人家的账户 id */
+    /** 账户必须是自己家的;不是返回 null(调用方据此直接忽略这次请求) */
     private Long ownAccountOrNull(long familyId, Long accountId) {
         if (accountId == null) return null;
         return accountMapper.findById(familyId, accountId).map(a -> accountId).orElse(null);
