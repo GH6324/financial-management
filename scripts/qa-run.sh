@@ -5978,6 +5978,21 @@ else
   [ -n "$QA22_BEFORE" ] && mysql -ufinance -pfinance finance -e "INSERT INTO family_runtime_config (family_id,key_name,value_text) VALUES (1,'checkup_advice_dismissed','$QA22_BEFORE');" 2>/dev/null
 fi
 
+# v1246-ADVICE-DISMISS-FOREIGN-ACCOUNT · 传一个不是自己家的账户号,什么都不许存。
+#   端上验收时抓到:原来被当成「没传账户」,悄悄存成了一条家庭级「不适用」——
+#   一个针对某个账户的操作,变成了对全家生效。
+QA22F_BEFORE="$(mysql -ufinance -pfinance finance -N -e "SELECT value_text FROM family_runtime_config WHERE family_id=1 AND key_name='checkup_advice_dismissed';" 2>/dev/null)"
+XSRF=$(awk -F'\t' '/XSRF-TOKEN/ {print $NF}' $COOKIE)
+QA22F_LOC=$($CURL -b $COOKIE -c $COOKIE -X POST -H "X-XSRF-TOKEN: $XSRF" --data-urlencode "_csrf=$XSRF" \
+  --data-urlencode "ruleId=QA-FOREIGN-ACCT" --data-urlencode "accountId=987654321" \
+  "$BASE/checkup/advice/dismiss" -o /dev/null -w "%{http_code} %{redirect_url}")
+QA22F_AFTER="$(mysql -ufinance -pfinance finance -N -e "SELECT value_text FROM family_runtime_config WHERE family_id=1 AND key_name='checkup_advice_dismissed';" 2>/dev/null)"
+{ echo "$QA22F_LOC" | grep -q '^302 .*/checkup#checkup-advice$' && ! echo "$QA22F_AFTER" | grep -q 'QA-FOREIGN-ACCT'; } \
+  && log_ok "v1246-ADVICE-DISMISS-FOREIGN-ACCOUNT(不是自己家的账户号 → 直接忽略,不会变成全家生效的「不适用」)" \
+  || log_bad "v1246-ADVICE-DISMISS-FOREIGN-ACCOUNT 别人家的账户号被存下来了" "响应:$QA22F_LOC 存下的:[$QA22F_AFTER]"
+mysql -ufinance -pfinance finance -e "DELETE FROM family_runtime_config WHERE family_id=1 AND key_name='checkup_advice_dismissed';" 2>/dev/null
+[ -n "$QA22F_BEFORE" ] && mysql -ufinance -pfinance finance -e "INSERT INTO family_runtime_config (family_id,key_name,value_text) VALUES (1,'checkup_advice_dismissed','$QA22F_BEFORE');" 2>/dev/null
+
 # v1246-AGENT-TEMPLATE-DRIFT-VISIBLE · 百炼上的 Agent 模板落后于代码时,必须被看见。
 #   2026-09-23:生产的模板停在 09-04,tools 一直是空数组 —— 发新版本不会更新远端的 Agent。
 #   百炼 14 天零次来调我们,agent 对用户说「没有任何工具连接到我这边」,我们这边零条错误。
