@@ -108,6 +108,14 @@
            style="height:200px"><canvas id="riskChart"></canvas></div>
       <div th:if="${diagnose.riskDistribution == null or diagnose.riskDistribution.isEmpty()}"
            class="text-xs text-ink-subtle py-8 text-center">暂无风险等级数据 · 给账户设置产品类目后可见</div>
+      <!--/* 2026-09-24 · 风险等级改读账户的产品类目。没设类目的按账户类型的默认类目估算 ——
+             估算要说出来,不然用户以为每个数都是按他选的类目算的。 */-->
+      <p class="font-mono text-[10px] text-ink-subtle mt-4">按账户的产品类目风险等级聚合
+        <th:block th:if="${diagnose.riskEstimatedAccounts > 0}">
+          · 有 <b class="text-ink" th:text="${diagnose.riskEstimatedAccounts}">2</b> 个账户没设产品类目,按账户类型估算 ·
+          <a th:href="@{/accounts}" class="text-brass-deep hover:underline">去账户页补上</a>
+        </th:block>
+      </p>
     </div>
 
     <!-- 卡 3 · 流动性 -->

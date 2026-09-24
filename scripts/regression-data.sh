@@ -565,18 +565,20 @@ else
 fi
 
 # ============================================================================
-section "主线 15 · 数据源接入页密钥独立保存(v1.18.1 · 每家一把 key 各自存,不再被模型校验挡住)"
+section "主线 15 · AI 接入页密钥独立保存(v1.18.1 · 每家一把 key 各自存,不再被模型校验挡住)"
+# v1.24.5 起大模型这一节从「数据源接入」挪到了「AI 接入」,端点跟着改成 /admin/ai-access/llm/*
+#   (当时漏改了这里,主线 15 红了 8 条 —— 2026-09-24 整套回归时查到)。
 # 维护者报「主流程都走不下去」:密钥和「用哪个模型」原来在同一个 form / 同一个端点,
 # 而端点是「校验先全跑完再落库」→ 全新装机时死锁(模型下拉与凭据级联,一家都没配则
 # 平台全禁用 → platform 为空 → 抛「请选择平台」→ 整单退回,key 一个字都没存)。
 KEYROW="SELECT COUNT(*) FROM family_runtime_config WHERE family_id=$FAM AND key_name='llm_deepseek_api_key'"
 KEY_BEFORE="$(db "$KEYROW")"
-kc="$(POSTcode /admin/integrations/llm/key --data-urlencode "platform=deepseek" --data-urlencode "apiKey=sk-e2eProbe000000000000000feed")"
+kc="$(POSTcode /admin/ai-access/llm/key --data-urlencode "platform=deepseek" --data-urlencode "apiKey=sk-e2eProbe000000000000000feed")"
 eq "接入页-单独保存一把 key HTTP 3xx" "${kc:0:1}" "3"
 eq "接入页-key 已落库(不需要先选平台/型号)" "$(db "$KEYROW")" "1"
-GET /admin/integrations | grep -q '的密钥已保存' && ok "接入页-回执说清是哪一家保存了" \
+GET /admin/ai-access | grep -q '的密钥已保存' && ok "接入页-回执说清是哪一家保存了" \
   || bad "接入页-回执说清是哪一家保存了" "flash 里没有「的密钥已保存」"
-DETAIL="$(GET /admin/integrations)"
+DETAIL="$(GET /admin/ai-access)"
 printf '%s' "$DETAIL" | grep -q 'sk-e2e' && ok "接入页-已配置显示可辨认掩码(露头)" \
   || bad "接入页-已配置显示可辨认掩码(露头)" "页面没有掩码头部"
 if printf '%s' "$DETAIL" | grep -q 'sk-e2eProbe000000000000000feed'; then
@@ -584,20 +586,23 @@ if printf '%s' "$DETAIL" | grep -q 'sk-e2eProbe000000000000000feed'; then
 else
   ok "接入页-密钥不整条回显(只露头尾)"
 fi
-GET /admin/integrations >/dev/null
-bc2="$(POSTcode /admin/integrations/llm/key --data-urlencode "platform=deepseek" --data-urlencode "apiKey=")"
+GET /admin/ai-access >/dev/null
+bc2="$(POSTcode /admin/ai-access/llm/key --data-urlencode "platform=deepseek" --data-urlencode "apiKey=")"
 eq "接入页-空提交 HTTP 3xx" "${bc2:0:1}" "3"
-GET /admin/integrations | grep -q '没填内容 · 密钥未改动' && ok "接入页-空提交明确报错(不假装保存成功)" \
+GET /admin/ai-access | grep -q '没填内容 · 密钥未改动' && ok "接入页-空提交明确报错(不假装保存成功)" \
   || bad "接入页-空提交明确报错(不假装保存成功)" "应回「没填内容 · 密钥未改动」"
-GET /admin/integrations >/dev/null
+GET /admin/ai-access >/dev/null
 eq "接入页-老合并端点 /llm 已删除" "$(POSTcode /admin/integrations/llm --data-urlencode "maxTokens=2000" --data-urlencode "timeoutSeconds=25")" "404"
-GET /admin/integrations >/dev/null
-mc="$(POSTcode /admin/integrations/llm/models --data-urlencode "platform=deepseek" --data-urlencode "family=deepseek-v3" \
+GET /admin/ai-access >/dev/null
+mc="$(POSTcode /admin/ai-access/llm/models --data-urlencode "platform=deepseek" --data-urlencode "family=deepseek-v3" \
       --data-urlencode "modelId=" --data-urlencode "backupPlatform=" --data-urlencode "visionEnabled=false" \
       --data-urlencode "visionPlatform=dashscope" --data-urlencode "visionFamily=qwen-vl" --data-urlencode "visionModelId=" \
       --data-urlencode "temperature=0.5" --data-urlencode "maxTokens=2000" --data-urlencode "timeoutSeconds=25")"
 eq "接入页-模型配置单独保存 HTTP 3xx" "${mc:0:1}" "3"
 eq "接入页-存模型没把密钥冲掉" "$(db "$KEYROW")" "1"
+# 把「存模型」留下的 flash 消费掉 —— 不排空的话它会排在 FlashMap 队列里,主线 21 发凭据后的那次 GET
+#   先拿到的是这条旧回执,新口令的明文就看不到了(2026-09-24 修主线 15 端点后实测撞上)。
+GET /admin/ai-access >/dev/null
 # 收尾:删掉探测用的 key(beta 的 LLM 走 env 兜底,库里那行会盖住它)
 db "DELETE FROM family_runtime_config WHERE family_id=$FAM AND key_name='llm_deepseek_api_key'" >/dev/null
 eq "接入页-探测密钥已清理" "$(db "$KEYROW")" "${KEY_BEFORE:-0}"

@@ -38,6 +38,7 @@ public class FamilyDiagnoseService {
     private final ProductCategoryService productCategoryService;
     private final FamilyMapper familyMapper;
     private final PeriodMapper periodMapper;
+    private final com.family.finance.repository.AccountMapper accountMapper;   // 2026-09-24 · 风险等级读账户自己的类目
 
     /**
      * v1.6 UED review A2 · 与 {@code DashboardController.resolveAsOf} 完全同口径的 anchor 选取:
@@ -96,25 +97,38 @@ public class FamilyDiagnoseService {
                 .filter(r -> r.endBalanceBase() != null)
                 .toList();
 
-        // 取每个账户的 product_category_code(查 account 字段)— 这里通过 displayOrder + name 不够,直接 SQL 查也可以
-        // 简化:用 FactBaseRow 没有 productCategoryCode,我们重新用 AccountService 拉账户列表
-        // 但为了纯函数 + 性能,这里 map 通过 accountId 查 account 表
+        // 2026-09-24 · 风险等级改读账户自己的(手工改过的 → 产品类目 → 按类型的默认类目),
+        //   原来这里是按账户类型写死的兜底表,加密 / 贵金属 / 保险全落进 default 成了「无风险」,
+        //   没有任何类型到 5 级 → FAM-RISK-1 从来触发不了。详见 RiskLevels 类注释。
+        Map<Long, com.family.finance.domain.account.Account> accountById = new java.util.HashMap<>();
+        for (var a : accountMapper.findAllByFamily(familyId)) accountById.put(a.getId(), a);
+        java.util.function.Function<String, Integer> riskOfCategory = code -> {
+            ProductCategory c = categoriesByCode.get(code);
+            return c == null ? null : c.getRiskLevel();
+        };
+
         Map<Integer, BigDecimal> riskAmountByLevel = new java.util.TreeMap<>();
         BigDecimal totalAssetBase = BigDecimal.ZERO;
+        java.util.Set<Long> estimatedAccounts = new java.util.HashSet<>();
         for (AccountPeriodFact row : lastRows) {
             BigDecimal v = row.endBalanceBase();
             if (v == null) continue;
             totalAssetBase = totalAssetBase.add(v);
-            // category 暂时拿不到(FactBaseRow 没带过来),用账户类型映射:
-            // STOCK→3, WEALTH→2, CASH→1, PROPERTY→2, OTHER→0
-            // 这是 fallback;Stage 3.2 会引入完整 RuleContext 时再升级到真正的 product_category_code
-            int level = fallbackRisk(row.accountType().name());
-            riskAmountByLevel.merge(level, v, BigDecimal::add);
+            var acc = accountById.get(row.accountId());
+            RiskLevels.Resolved r = RiskLevels.resolve(
+                    acc == null ? null : acc.getRiskLevelOverride(),
+                    acc == null ? null : acc.getProductCategoryCode(),
+                    row.accountType(), riskOfCategory);
+            if (r.estimated() && v.signum() != 0) estimatedAccounts.add(row.accountId());
+            riskAmountByLevel.merge(r.level(), v, BigDecimal::add);
         }
 
         List<FamilyDiagnose.RiskBucket> riskDist = new ArrayList<>();
         for (Map.Entry<Integer, BigDecimal> e : riskAmountByLevel.entrySet()) {
             BigDecimal amt = e.getValue().setScale(2, RoundingMode.HALF_EVEN);
+            // 余额为 0 的账户也会在它那一档记一笔 0 —— 原来它们都挤在「无风险」里看不出来,
+            //   分档读类目之后就会冒出一个「中低 0.00%」的空扇区。整档为 0 的不画。
+            if (amt.signum() == 0) continue;
             BigDecimal ratio = totalAssetBase.signum() == 0 ? BigDecimal.ZERO :
                     amt.divide(totalAssetBase, 6, RoundingMode.HALF_EVEN);
             riskDist.add(new FamilyDiagnose.RiskBucket(e.getKey(), riskLabel(e.getKey()), amt, ratio));
@@ -152,25 +166,14 @@ public class FamilyDiagnoseService {
                 familyTwr,
                 cumulativeYtdPnl,
                 accountCount,
-                0  // pending TODO 接入 SnapshotTodoMapper(此值仅 banner 用,现阶段不阻塞)
+                0,  // pending TODO 接入 SnapshotTodoMapper(此值仅 banner 用,现阶段不阻塞)
+                estimatedAccounts.size()
         );
-    }
-
-    private static int fallbackRisk(String type) {
-        return switch (type) {
-            case "STOCK" -> 4;       // 中
-            case "WEALTH" -> 2;      // 低
-            case "CASH" -> 1;        // 极低
-            case "PROPERTY" -> 2;    // 低
-            case "OTHER" -> 0;
-            case "LOAN" -> 0;
-            default -> 0;
-        };
     }
 
     private static String riskLabel(int level) {
         return switch (level) {
-            case 0 -> "无风险";
+            case 0 -> "未评级";
             case 1 -> "极低";
             case 2 -> "低";
             case 3 -> "中低";

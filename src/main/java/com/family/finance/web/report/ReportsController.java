@@ -142,7 +142,7 @@ public class ReportsController {
         //
         //   但 v1.11 把趋势 chips 和支出构成维度改成了 `hx-select="#sec-trend"` /
         //   `hx-select="#sec-expense-mix"` —— 这两个 id **都不在** `_region :: region` 片段里
-        //   (`#sec-trend` 在 index.html 上,`#sec-expense-mix` 在 _expense-mix.html 上)。
+        //   (`#sec-trend` 在 index.html 上,`#sec-expense-mix` 在 _expense-section.html 上)。
         //   于是 HTMX 拿到片段、按 id 挑不到东西 → 换进去一个**空**内容 →
         //   `hx-swap="outerHTML"` 把整个 section **从页面上删掉**。
         //   表现就是维护者报的「切成按账户,对应模块直接没了」—— 后端 200、日志干净,
@@ -235,7 +235,11 @@ public class ReportsController {
         model.addAttribute("mixDetailLabel", d.displayName());
         model.addAttribute("baseCurrency", familyMapper.findById(me.getFamilyId())
                 .map(f -> f.getBaseCurrency()).orElse("CNY"));
-        return "reports/_expense-mix :: detail";
+        // 2026-09-24 · v1.24 把 _expense-mix.html 并进了 _expense-section.html,这里一直指着旧文件名。
+        //   本机与 prod 都是在长期存在的工作区里 `mvn package`(不 clean),target/classes 里还躺着
+        //   旧的 _expense-mix.html,于是一直「能用」;Docker 镜像是 `clean package`,点支出构成的格子
+        //   看逐笔 → 整页错误。护栏 v1246-VIEW-NAMES-EXIST 盯住「控制器返回的模板必须真的存在」。
+        return "reports/_expense-section :: detail";
     }
 
     @GetMapping("/reports/period/{periodId}")
@@ -691,6 +695,10 @@ public class ReportsController {
         model.addAttribute("riskDistribution", familyDiagnose.riskDistribution());
         model.addAttribute("riskLabels", familyDiagnose.riskDistribution().stream()
                 .map(FamilyDiagnose.RiskBucket::label).toList());
+        // 2026-09-24 · 颜色按等级取,不按下标取:原来第 i 个扇区拿第 i 个颜色,
+        //   只有 1/5/6 级时,5 级会被涂成 2 级的浅绿。与体检页同一套「等级 → 颜色」。
+        model.addAttribute("riskLevels", familyDiagnose.riskDistribution().stream()
+                .map(FamilyDiagnose.RiskBucket::level).toList());
         model.addAttribute("riskValues", familyDiagnose.riskDistribution().stream()
                 .map(FamilyDiagnose.RiskBucket::amount).toList());
         model.addAttribute("riskRatios", familyDiagnose.riskDistribution().stream()
