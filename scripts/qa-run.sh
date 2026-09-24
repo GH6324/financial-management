@@ -6116,6 +6116,16 @@ QA_IBP3=$(grep -c 'id="ibkr"' "$TMP")
   && log_ok "v126-IBKR-PAGES-LIVE(管理页有 IBKR 口令框与测试按钮 · 图文教程有盈透一节)" \
   || log_bad "v126-IBKR-PAGES-LIVE IBKR 的入口没渲染出来" "测试按钮=$QA_IBP1 口令框=$QA_IBP2 教程=$QA_IBP3"
 
+# v126-LENS-ACCOUNT-RESIDUAL · 外币账户多条持仓逐条折算后要补零头,否则透视合计与 KPI 总资产差一分(跟股价走,时红时绿)
+#   v1.20 只补了「一条持仓按方向拆多份」那一层;2026-09-25 regression-data 两次撞上账户这一层
+QA_LQS="$RD/src/main/java/com/family/finance/service/lens/LensQueryService.java"
+{ grep -q 'static List<BigDecimal> baseValues(' "$QA_LQS" \
+  && grep -q 'List<BigDecimal> valueBases = baseValues(' "$QA_LQS" \
+  && ! grep -q 'line.valueAcctCcy().multiply(factor).setScale' "$QA_LQS" \
+  && grep -q 'accountLevelHoldingsCloseToAccountValue' "$RD/src/test/java/com/family/finance/service/lens/SplitResidualTest.java"; } \
+  && log_ok "v126-LENS-ACCOUNT-RESIDUAL(账户里多条持仓折算后补零头 · 透视合计 = KPI 总资产)" \
+  || log_bad "v126-LENS-ACCOUNT-RESIDUAL 透视合计又会与总资产差一分" "LensQueryService 逐条折算必须走 baseValues(补零头),不许直接 setScale 求和"
+
 # v1246-LIVE-CITES-FORWARDED · 托管模式下,引用必须在【流式当下】送到浏览器,不能只落库。
 #   2026-09-23:v1.24.3 只修了落库,验收看的是刷新后的页面 —— 流式当下每个数字仍然是空的。
 QA1246_CS="$RD/src/main/java/com/family/finance/service/ask/AskConversationService.java"

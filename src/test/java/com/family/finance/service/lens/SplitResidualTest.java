@@ -73,6 +73,20 @@ class SplitResidualTest {
     }
 
     @Test
+    @DisplayName("账户级:外币账户多条持仓逐条折算后,各条之和等于账户现值(2026-09-25 beta 差 0.01 那次)")
+    void accountLevelHoldingsCloseToAccountValue() {
+        // 三条美元持仓,各 1.0007 × 7.2 = 7.20504 → 逐条进位成 7.21,直接加是 21.63;账户现值 3.0021 × 7.2 = 21.61512 → 21.62
+        var usd = parts("1.0007", "1.0007", "1.0007");
+        BigDecimal factor = new BigDecimal("7.2");
+        BigDecimal naive = sum(usd.stream().map(v -> v.multiply(factor).setScale(2, java.math.RoundingMode.HALF_EVEN)).toList());
+        assertThat(naive).isEqualByComparingTo("21.63");          // 修之前:透视比 KPI 多一分
+
+        var base = LensQueryService.baseValues(usd, factor, new BigDecimal("21.62"));
+        assertThat(sum(base)).isEqualByComparingTo("21.62");
+        assertThat(base).hasSize(3);
+    }
+
+    @Test
     @DisplayName("总值不可算(null)时不动")
     void skipsWhenTotalIsNull() {
         var p = parts("1.00");
