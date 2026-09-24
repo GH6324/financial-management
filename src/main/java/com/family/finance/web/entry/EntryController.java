@@ -740,18 +740,21 @@ public class EntryController {
                 // v1.4.2 · 转账二次确认要点明"同时影响两个账户"(本账户 ± / 对方 ∓),避免用户误以为只动一边
                 String confirmMsg;
                 if (isTransfer) {
-                    String amt = "¥" + new java.text.DecimalFormat("#,##0.00")
-                            .format(le.amount() == null ? BigDecimal.ZERO : le.amount().abs());
+                    // issue #21 · 两边各用各的金额、各用各的币种。原来两边用同一个数、币种写死 ¥,
+                    //   跨币种时确认框两边都说错(实际执行的撤销是对的,但用户是看着这句话决定删不删的)。
+                    String selfAmt = com.family.finance.service.MoneyFormat.format(row.account().getCurrency(),
+                            le.amount() == null ? BigDecimal.ZERO : le.amount().abs());
+                    String otherAmt = le.counterAmountLabel() != null ? le.counterAmountLabel() : selfAmt;
                     String self = row.account().getDisplayName();
                     String other = (le.label() != null && !le.label().isBlank()) ? le.label() : "对方账户";
                     if (le.kind() == EntryRow.LedgerKind.TRANSFER_OUT) {
                         // 本账户曾划出 → 删除反向冲销:本账户退回 +,对方减少 −
-                        confirmMsg = "删除这笔划转会同时影响两个账户:「" + self + "」退回 +" + amt
-                                + ",「" + other + "」减少 −" + amt + "。确定删除?";
+                        confirmMsg = "删除这笔划转会同时影响两个账户:「" + self + "」退回 +" + selfAmt
+                                + ",「" + other + "」减少 −" + otherAmt + "。确定删除?";
                     } else {
                         // 本账户曾划入 → 删除反向冲销:本账户减少 −,对方退回 +
-                        confirmMsg = "删除这笔划转会同时影响两个账户:「" + self + "」减少 −" + amt
-                                + ",「" + other + "」退回 +" + amt + "。确定删除?";
+                        confirmMsg = "删除这笔划转会同时影响两个账户:「" + self + "」减少 −" + selfAmt
+                                + ",「" + other + "」退回 +" + otherAmt + "。确定删除?";
                     }
                 } else {
                     confirmMsg = "确定删除这条流水?余额会自动反向冲销。";

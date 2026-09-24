@@ -75,8 +75,22 @@ public record EntryRow(
             /** v0.2 · 此条目所属的周期是否 OPEN(决定是否显示删除按钮) */
             boolean periodOpen,
             /** v1.4 · VALUATION 若由截图导入触发 → 指向 holding_import,ledger 显「看明细」链接;否则 null */
-            Long refImportId
-    ) {}
+            Long refImportId,
+            /**
+             * issue #21 · 划转时【对方账户】那一侧的金额,已按对方的币种格式化(不带正负号);其它类型为 null。
+             *
+             * <p>删除划转的确认框要同时说出两边各变多少。原来它拿本行这一条的金额拼两边、币种写死成 ¥ ——
+             * 跨币种时(人民币转 1000、美元到 100)确认框就会写成「test银行卡 −¥1,000」或「备用金 +¥100」,
+             * 两边都说错了。实际执行的撤销用的是对的数,但用户是看着确认框决定删不删的。</p>
+             */
+            String counterAmountLabel
+    ) {
+        /** 非划转条目:没有「对方账户」 */
+        public LedgerEntry(LedgerKind kind, LocalDateTime occurredAt, BigDecimal amount, String amountSignedLabel,
+                           String label, String note, Long sourceId, boolean periodOpen, Long refImportId) {
+            this(kind, occurredAt, amount, amountSignedLabel, label, note, sourceId, periodOpen, refImportId, null);
+        }
+    }
 
     public enum LedgerKind {
         /** 本期末余额已写入(snapshot 最新值) */

@@ -5921,8 +5921,10 @@ QA21_BAD="$(java_code_only "$QA21_ES" | grep -nE 'transferIn = transferIn\.add\(
   && [ -z "$QA21_BAD" ] \
   && [ "$(java_code_only "$QA21_ES" | grep -c 'receivedAmount()')" -ge 3 ] \
   && grep -q '"is_draft", "to_amount"' "$RD/src/main/java/com/family/finance/service/export/CsvExportService.java" \
+  && ! grep -q 'String amt = "¥"' "$RD/src/main/java/com/family/finance/web/entry/EntryController.java" \
+  && grep -q 'le.counterAmountLabel()' "$RD/src/main/java/com/family/finance/web/entry/EntryController.java" \
   && [ -f "$RD/src/test/java/com/family/finance/domain/transfer/TransferReceivedAmountTest.java" ]; } \
-  && log_ok "v1246-TRANSFER-IN-USES-RECEIVED-AMOUNT(转入方的差额与明细都按实到金额 · 导出带 to_amount)" \
+  && log_ok "v1246-TRANSFER-IN-USES-RECEIVED-AMOUNT(转入方的差额与明细都按实到金额 · 删除确认框两边各用各的金额与币种 · 导出带 to_amount)" \
   || log_bad "v1246-TRANSFER-IN-USES-RECEIVED-AMOUNT 跨币种转入又按转出方金额算了" "EntryService 第 ${QA21_BAD:-?} 行 · 转入方一律用 Transfer.receivedAmount()"
 
 # v1245-AI-SETTINGS-ONE-PLACE · AI 的设置只在一处(AI 接入)。

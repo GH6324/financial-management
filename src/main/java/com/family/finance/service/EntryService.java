@@ -914,7 +914,9 @@ public class EntryService {
                         name,
                         t.getNote(),
                         t.getId(),
-                        period.getStatus() == PeriodStatus.OPEN, null));
+                        period.getStatus() == PeriodStatus.OPEN, null,
+                        // 对方(转出方)那一侧:它付出的钱,按它自己的币种
+                        MoneyFormat.format(from == null ? account.getCurrency() : from.getCurrency(), t.getAmount())));
             } else if (t.getFromAccountId().equals(account.getId())) {
                 Account to = allAccountsById.get(t.getToAccountId());
                 String name = to == null ? "其他账户" : to.getDisplayName();
@@ -928,7 +930,9 @@ public class EntryService {
                         name,
                         t.getNote(),
                         t.getId(),
-                        period.getStatus() == PeriodStatus.OPEN, null));
+                        period.getStatus() == PeriodStatus.OPEN, null,
+                        // 对方(转入方)那一侧:它实际收到的钱,按它自己的币种
+                        MoneyFormat.format(to == null ? account.getCurrency() : to.getCurrency(), t.receivedAmount())));
             }
         }
         for (CashFlow cf : cashFlowMapper.findByPeriodAndAccount(account.getFamilyId(), period.getId(), account.getId())) {
