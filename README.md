@@ -96,11 +96,11 @@
 
 > 完整发布记录与截图见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段每版只留 2–4 行,细节不搬过来)。
 
+**[v1.24.6](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.24.6) · 四个「不报错、只是不对」的问题**
+跨币种划转不再冒出「未解释 900」([#21](https://github.com/LuoDi-Nate/financial-management/issues/21));体检「不适用」按钮从加上那天起就没工作过,现在能用、全家一致、可一键恢复([#22](https://github.com/LuoDi-Nate/financial-management/issues/22));风险分布改读产品类目 —— 加密、贵金属、保险原来全算「无风险」,**所有家庭的风险图都会变**;Docker 里「钱花在哪了 → 点一行看逐笔」原来是整页错误。**无 DB 迁移。**
+
 **[v1.24.4](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.24.4) · 超级 Agent 说「没有工具」:百炼上的模板从没更新过**
 Agent 模板存在百炼那边,**发新版本不会自动更新它** —— 早期创建的 Agent 一直停在「只声明 MCP 服务器、没启用工具」的旧模板上,于是它回答「没有任何工具连接到我这边」,而账房这边零条错误。现在提问前会先检查模板,过期就直接说清下一步;管理页有醒目横幅和就地更新按钮;旧对话会自动换新会话;流式回答的当下就出数字,不用刷新。**升级后用百炼托管的,看一眼「管理 → AI 接入」有没有红色横幅。无 DB 迁移。**
-
-**[v1.24.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.24.0) · 这个月为什么多花了,砍不砍得掉**
-支出那一章从「钱花在哪」扩成一整章分析:比上期的**归因瀑布**(哪个类目涨了多少)、**刚性 / 弹性 / 一次性**三分(判据写成两个问句而不是三个术语)、以及剔掉一次性支出之后的**常态月均**。仪表盘上另有一份**本月至今**的即时口径,不用等关账;每个算出来的数都带 ⓘ 写清算法与基数。原来两个都叫「钱花在哪了」、数还对不上的区块合并成一块两层结构 —— 对不上的根因是第二层没排除归档账户 / 现金调整、也没换汇,这一版对齐到唯一口径,**有归档账户或多币种的家庭这一块数字会变**。**含 DB 迁移 V62(只加列)。**
 
 ## 主要能力
 
@@ -131,7 +131,7 @@ Agent 模板存在百炼那边,**发新版本不会自动更新它** —— 早�
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · **927 单元** / 119 e2e 断言(3 条浏览器主线,真浏览器 + 真 DB)/ **877 黑盒回归**护栏 —— 每条护栏守的是哪个坑,见 [QA case 库](docs/qa-cases.md) |
+| 测试 | JUnit 5 · **942 单元** / 204 e2e 断言(7 条浏览器主线,真浏览器 + 真 DB)/ **884 黑盒回归**护栏 —— 每条护栏守的是哪个坑,见 [QA case 库](docs/qa-cases.md) |
 
 ## 快速开始(自托管部署)
 
@@ -339,7 +339,7 @@ mvn spring-boot:run
 测试:
 
 ```bash
-mvn test                       # JUnit 单元测试(770)
+mvn test                       # JUnit 单元测试(942)
 bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(见 README 上方测试行的黑盒回归数)
 node scripts/e2e/run.cjs       # 真 e2e:Playwright 开浏览器按用户路径点(失败自动截图)
 bash scripts/regression-data.sh # 数据层/口径回归(原 e2e.sh · curl 端点 + DB 真值 · 快照还原不清库)
@@ -464,7 +464,7 @@ financial-management/
 ├── docs/qa-cases.md                      # QA case 库
 ├── icons/                                # 用户可替换的图标源 PNG
 └── scripts/
-    ├── qa-run.sh                         # 黑盒回归护栏(877 条)
+    ├── qa-run.sh                         # 黑盒回归护栏(884 条)
     ├── e2e/run.cjs                       # 端到端(真浏览器点 + 回库查真值)
     └── release-shots.cjs                 # 发版截图(隐私模式默认开)
 ```
