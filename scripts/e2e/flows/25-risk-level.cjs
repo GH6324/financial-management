@@ -4,7 +4,7 @@
  * 原来风险分布按账户类型写死:加密 / 贵金属 / 保险是「无风险」,没有任何类型到 5 级,
  * 用户在账户页选的产品类目完全不认。
  *
- * 全程从页面发起:顶部导航进体检 → 读风险图(读的是 Chart.js 实际画出来的数据,不是模板变量);
+ * 全程从页面发起:顶部导航进体检 → 读风险图(体检页读渲染进页面、图表拿去画的那份数据;报表页读图表实例);
  * 去账户编辑页用搜索式下拉【打字】换一个产品类目、点保存 → 回体检看那笔钱换了档;
  * 报表页看同一张分布的颜色是不是按等级取的;手机尺寸看一眼。
  */
@@ -20,10 +20,23 @@ const COLS = ['display_name', 'currency', 'primary_owner_member_id', 'default_pa
 const COLORS = ['#9bb09a', '#7ea08a', '#a89a55', '#c1873b', '#a55540', '#8a3220'];
 const state = {};
 
-/** 读 Chart.js 实际画出来的图:标签、金额、颜色 */
-async function chartOf(ui, canvasId) {
-  return ui.page.locator(`#${canvasId}`).evaluate((c) => {
-    const ch = window.Chart && window.Chart.getChart(c);
+/**
+ * 体检页风险图的数据:取服务端渲染进页面、图表直接拿去画的那份 JSON。
+ *
+ * 为什么不用 Chart.getChart(canvas):v1.19 起 layout 为超级 Agent 又 defer 引了一次 chart.umd,
+ * 它在页面自己的图建好之后才执行,把 window.Chart 换成了一个空注册表 —— getChart 永远拿到 null。
+ * (这也让「隐私模式」切换后图上金额不重绘,单独报给维护者了。)
+ */
+async function checkupRisk(ui) {
+  const html = await ui.page.content();
+  const m = html.match(/const riskBuckets = (\[.*?\]);/s);
+  if (!m) return null;
+  return JSON.parse(m[1]).map(b => ({ level: Number(b.level), label: String(b.label), value: Number(b.amount) }));
+}
+/** 报表页的风险图:页面自己把实例挂在 window.reportCharts.riskDist 上,读它实际画的标签 / 数值 / 颜色 */
+async function reportRisk(ui) {
+  return ui.page.evaluate(() => {
+    const ch = window.reportCharts && window.reportCharts.riskDist;
     if (!ch) return null;
     const ds = ch.data.datasets[0];
     return ch.data.labels.map((l, i) => ({
@@ -32,8 +45,6 @@ async function chartOf(ui, canvasId) {
     }));
   }).catch(() => null);
 }
-/** 「★★★★★ 中高」→ 5;没有星 → 0 */
-const levelOf = (label) => (label.match(/★/g) || []).length;
 const levelByName = { '未评级': 0, '极低': 1, '低': 2, '中低': 3, '中': 4, '中高': 5, '极高': 6 };
 
 /** 同一个 SQL 解析「手工 → 类目 → 类型默认类目」,作为真值层 */
@@ -63,6 +74,9 @@ module.exports = {
 
   async run(ui, report) {
     ui.flow = this.name;
+    // 体检页一打开就会自动请求「AI 综合诊断」「AI 资产洞察」—— 这条 flow 不测 AI,
+    //   就地返回空片段:不花 token,也不让 networkidle 等十几秒的模型响应
+    await ui.page.route(/\/checkup\/(diagnose|insight)/, r => r.fulfill({ status: 200, contentType: 'text/html', body: '<div></div>' }));
     const snap = db.one(`SELECT JSON_OBJECT(${COLS.map(c => `'${c}',${c}`).join(',')}) FROM account
                           WHERE id=${ACC} AND family_id=${fx.FAM}`);
     state.snap = snap ? JSON.parse(snap) : null;
@@ -73,14 +87,15 @@ module.exports = {
     await ui.click('nav a:has-text("资产体检")', '顶部导航点「资产体检」');
     await ui.page.waitForLoadState('networkidle').catch(() => {});
     await ui.rendered('体检页');
-    const before = await chartOf(ui, 'riskChart');
+    const before = await checkupRisk(ui);
     await ui.assert(!!before && before.length > 0, '风险分布图画出来了', JSON.stringify(before));
     if (!before) return;
     const labels = before.map(b => b.label);
     await ui.assert(!labels.some(l => /无风险/.test(l)), '图上没有「无风险」(修复前加密 / 贵金属 / 保险都在这一档)',
                     labels.join(' / '));
+    await ui.visible('#riskChart', '风险图的画布在页面上可见');
     const expect = expectedLevels();
-    const shown = before.map(b => levelOf(b.label));
+    const shown = before.map(b => b.level);
     await ui.assert(shown.every(l => expect.has(l)),
                     '图上每一档都能在库里由账户「手工 → 类目 → 类型默认类目」解析出来',
                     `图上 ${shown.join(',')} · 库里可解析 ${[...expect].sort().join(',')}`);
@@ -117,10 +132,11 @@ module.exports = {
     await ui.goto('/');
     await ui.click('nav a:has-text("资产体检")', '再从顶部导航进体检');
     await ui.page.waitForLoadState('networkidle').catch(() => {});
-    const after = await chartOf(ui, 'riskChart');
-    const byLevel = (arr) => Object.fromEntries((arr || []).map(b => [levelOf(b.label), b.value]));
+    const after = await checkupRisk(ui);
+    const byLevel = (arr) => Object.fromEntries((arr || []).map(b => [b.level, b.value]));
     const b0 = byLevel(before), a0 = byLevel(after);
     const d5 = (b0[5] || 0) - (a0[5] || 0), d4 = (a0[4] || 0) - (b0[4] || 0);
+    report.info(`换类目前后:5 级 ${(b0[5] || 0).toFixed(2)} → ${(a0[5] || 0).toFixed(2)} · 4 级 ${(b0[4] || 0).toFixed(2)} → ${(a0[4] || 0).toFixed(2)}`);
     if (d5 === 0 && d4 === 0) {
       report.skip(this.name, '换档', `账户 ${ACC} 当前余额为 0,换类目看不出分布变化`);
     } else {
@@ -137,7 +153,7 @@ module.exports = {
     await ui.goto('/reports');
     await ui.rendered('报表页');
     await ui.seesText('没设类目的按账户类型估算', '报表副标题如实写了估算');
-    const rep = await chartOf(ui, 'riskDistChart');
+    const rep = await reportRisk(ui);
     await ui.assert(!!rep && rep.length > 0, '报表风险图画出来了');
     const wrong = (rep || []).filter(b => {
       const lv = levelByName[b.label.replace(/[★\s]/g, '')];
@@ -157,6 +173,7 @@ module.exports = {
   },
 
   async cleanup(ui, report) {
+    await ui.page.unroute(/\/checkup\/(diagnose|insight)/).catch(() => {});
     if (!state.snap) return;
     const val = (v) => v === null || v === undefined ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`;
     db.raw(`UPDATE account SET ${COLS.map(c => `${c}=${val(state.snap[c])}`).join(', ')}
