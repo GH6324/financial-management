@@ -30,9 +30,11 @@ async function read(ui, selector, fn, fallback = null) {
   try { return await ui.page.locator(selector).first().evaluate(fn); } catch { return fallback; }
 }
 
-/** 某个账户那一行里「转入」「未解释」两个读数 + 有没有未解释提示 */
+/** 某个账户那一行里「转入」「未解释」两个读数 + 有没有未解释提示(从渲染后的 DOM 上抠用户看到的数) */
 async function readRow(ui, id) {
-  return read(ui, `#entry-block-${id}`, (el) => {
+  return ui.page.evaluate((id) => {
+    const el = document.getElementById('entry-block-' + id);
+    if (!el) return null;
     const t = el.innerText.replace(/\s+/g, ' ');
     const m = (re) => { const x = t.match(re); return x ? x[1] : null; };
     return {
@@ -40,7 +42,7 @@ async function readRow(ui, id) {
       unexp: m(/未解释 (\S+)/),
       warn: /余额出现未解释变化/.test(t),
     };
-  });
+  }, id).catch(() => null);
 }
 
 /** 行被收起时点它的 summary 展开 —— 用户就是这么打开的 */
@@ -122,6 +124,7 @@ module.exports = {
     const ledger = `#entry-block-${TO} details:has(ul) > summary`;
     const delBtn = `#entry-block-${TO} button[hx-post="/entry/transfer/${tid}/delete"]`;
     await ui.click(ledger, `展开${TO_NAME}的本期流水`);
+    await ui.visible(delBtn, '这笔划转出现在美元账户的本期流水里,带删除按钮');
     const lineText = await read(ui, delBtn, b => b.closest('li').innerText.replace(/\s+/g, ' '), '');
     await ui.assert(/\+\s*\$100(\.00)?\b/.test(lineText) && !/1,000/.test(lineText),
                     '本期流水里这笔划入显示为 +$100,不是 +1,000', lineText);
