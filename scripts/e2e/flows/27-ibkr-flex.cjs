@@ -48,6 +48,14 @@ function startStub() {
   });
 }
 
+/** 账户列表里「这个账户那一行」的文字(PC 表格;别的账户的标记不算数)*/
+async function rowText(ui) {
+  return ui.page.evaluate((name) => {
+    const tr = [...document.querySelectorAll('tr')].find(t => t.innerText.includes(name));
+    return tr ? tr.innerText.replace(/\s+/g, ' ') : '';
+  }, ACC_NAME);
+}
+
 const cfg = (k) => db.one(`SELECT value_text FROM family_runtime_config WHERE family_id=${fx.FAM} AND key_name='${k}'`);
 // 按服务器所在时区(Asia/Shanghai)算「今天 + n 天」—— toISOString 是 UTC,凌晨时段会差一天
 const plusDays = (n) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' })
@@ -143,7 +151,8 @@ module.exports = {
     // ── 3 · 到期提醒 ─────────────────────────────────────────────────
     report.section('3 · 口令到期提醒(到期前 14 天起)');
     await ui.goto('/accounts');
-    await ui.seesText('口令 9 天后到期', '账户列表上这个账户标出了「口令 9 天后到期」');
+    const r1 = await rowText(ui);
+    await ui.assert(r1.includes('口令 9 天后到期'), '账户列表上【这个账户那一行】标出了「口令 9 天后到期」', r1);
 
     // ── 4 · 口令过期:不许静默停更 ───────────────────────────────────
     report.section('4 · 换成一个过期的口令 → 立即同步 → 标红');
@@ -159,7 +168,9 @@ module.exports = {
     const kept = db.num(`SELECT COUNT(*) FROM stock_holding WHERE account_id=${state.acc} AND archived_at IS NULL AND sync_source='IBKR'`);
     await ui.assert(kept === 6, '真值层:失败时一行持仓都没被归档(失败信封没被当成空报表)', `还剩 ${kept} 行`);
     await ui.goto('/accounts');
-    await ui.seesText('同步失败', '账户列表上这个账户标红「同步失败」');
+    const r2 = await rowText(ui);
+    await ui.assert(r2.includes('同步失败') && !r2.includes('天后到期'),
+                    '账户列表上【这个账户那一行】标红「同步失败」(已经失败就不再重复标到期)', r2);
     await ui.noConsoleErrors('控制台无报错');
   },
 

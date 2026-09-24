@@ -6096,6 +6096,17 @@ QA_LS="$RD/src/main/java/com/family/finance/domain/ledger/LedgerSource.java"
   && log_ok "v126-IBKR-EXPIRY-VISIBLE(到期前 14 天在账户列表 PC + 手机、券商页都标出来)" \
   || log_bad "v126-IBKR-EXPIRY-VISIBLE IBKR 口令到期会静默停更" "账户列表两套视图都要有到期标记;券商页要有提醒"
 
+# v126-BROKER-FAIL-OUTSIDE-TX · 同步失败的记录不能写在会回滚的事务里。
+#   原来 BrokerSyncService.sync 整个是 @Transactional,失败时先 markFailed 再抛 → 事务回滚把失败记录也滚掉了:
+#   页面点「立即同步」失败后,卡片和账户列表仍是上一次成功(v1.17.3 的修复只在定时任务那条路上生效 ——
+#   那条路是类内自调用,没有事务)。2026-09-24 e2e flow 27 查库真值抓到。
+QA_BSS="$RD/src/main/java/com/family/finance/service/broker/BrokerSyncService.java"
+{ ! java_code_only "$QA_BSS" | grep -B1 'public String sync(' | grep -q '@Transactional' \
+  && java_code_only "$QA_BSS" | grep -q 'tx.execute' \
+  && ! sed -n '/java.util.function.Supplier<String> apply/,/};/p' "$QA_BSS" | grep -q 'markFailed'; } \
+  && log_ok "v126-BROKER-FAIL-OUTSIDE-TX(对账 + 记成功在事务里,失败记录在事务外 —— 手动同步失败也会标红)" \
+  || log_bad "v126-BROKER-FAIL-OUTSIDE-TX 同步失败会被事务回滚掉" "BrokerSyncService.sync 不许整体 @Transactional;markFailed 必须在事务之外"
+
 # v126-IBKR-PAGES-LIVE · 管理页与图文教程真的渲染出 IBKR 那一块
 $CURL -b $COOKIE "$BASE/admin/integrations" -o "$TMP" -w ""
 QA_IBP1=$(grep -c '测试盈透 IBKR 连接' "$TMP"); QA_IBP2=$(grep -c 'name="ibkrToken"' "$TMP")

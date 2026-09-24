@@ -10,7 +10,6 @@ import com.family.finance.repository.StockHoldingMapper;
 import com.family.finance.service.stock.AccountValuationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.HashSet;
@@ -46,24 +45,47 @@ public class BrokerSyncService {
                 .orElseThrow(() -> new IllegalStateException("无券商客户端:" + vendor));
     }
 
-    /** 同步单个已关联账户;返回状态摘要。 */
-    @Transactional
+    /** 对账 + 记成功在同一个事务里;失败记录在事务之外(见 sync 注释)。Spring 注入,单测里为 null → 直接跑。 */
+    private org.springframework.transaction.support.TransactionTemplate tx;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setTransactionManager(org.springframework.transaction.PlatformTransactionManager tm) {
+        this.tx = new org.springframework.transaction.support.TransactionTemplate(tm);
+    }
+
+    /**
+     * 同步单个已关联账户;返回状态摘要。
+     *
+     * <p><b>v1.26 修:失败记录不许跟着回滚</b>。原来整个方法是 {@code @Transactional},失败时先
+     * {@code markFailed} 再把异常抛出去 —— 事务一回滚,刚写的失败记录也没了。于是:</p>
+     * <ul>
+     *   <li>从页面点「立即同步」(经 Spring 代理 → 有事务)失败时,卡片上<b>仍是上一次成功</b>的消息 ——
+     *       v1.17.3 要修的正是这件事,它只在定时任务那条路上生效(那条路是类内自调用,没有事务);</li>
+     *   <li>IBKR 报表口令过期,用户点「立即同步」看到了弹出的失败提示,但卡片和账户列表都不标红。</li>
+     * </ul>
+     * <p>现在:取数不写库;对账 + 记成功放进一个事务;失败(取数失败或对账失败回滚之后)在事务之外记,一定落库。
+     * 2026-09-24 e2e flow 27 抓到(查库真值:点完「立即同步」,last_status 还是上次成功的摘要)。</p>
+     */
     public String sync(long familyId, long accountId, Long memberId) {
         BrokerLink link = linkMapper.findByAccount(familyId, accountId)
                 .orElseThrow(() -> new IllegalStateException("该账户未关联券商"));
         if (!link.isEnabled()) throw new IllegalStateException("该账户券商同步已停用");
-        BrokerDtos.Snapshot snap;
         String summary;
         try {
-            snap = clientFor(link.getVendor()).fetch(familyId, link);
-            summary = reconcile(familyId, accountId, link.getVendor(), snap);
+            BrokerDtos.Snapshot snap = clientFor(link.getVendor()).fetch(familyId, link);
+            java.util.function.Supplier<String> apply = () -> {
+                String s = reconcile(familyId, accountId, link.getVendor(), snap);
+                linkMapper.markSynced(familyId, accountId, s);
+                return s;
+            };
+            summary = tx == null ? apply.get() : tx.execute(st -> apply.get());
         } catch (RuntimeException e) {
             // v1.17.3 · 失败也要落库:在此之前失败只写日志,页面上会一直挂着【上一次成功】的消息 ——
             // 生产上富途断了两天,页面还显示「新增 0 · 更新 7」。不动 last_synced_at(那是"最后成功"的语义)。
+            // v1.26 · 这一行在事务之外,不会被回滚掉(见方法注释)。
             linkMapper.markFailed(familyId, accountId, failureNote(e));
             throw e;
         }
-        linkMapper.markSynced(familyId, accountId, summary);
         try {
             // v1.18 · 明确告诉估值服务"这次是券商同步引起的",流水里才分得出富途/老虎
             valuationService.refreshAllForFamily(familyId,
