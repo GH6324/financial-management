@@ -691,6 +691,10 @@ public class ReportsController {
         model.addAttribute("riskDistribution", familyDiagnose.riskDistribution());
         model.addAttribute("riskLabels", familyDiagnose.riskDistribution().stream()
                 .map(FamilyDiagnose.RiskBucket::label).toList());
+        // 2026-09-24 · 颜色按等级取,不按下标取:原来第 i 个扇区拿第 i 个颜色,
+        //   只有 1/5/6 级时,5 级会被涂成 2 级的浅绿。与体检页同一套「等级 → 颜色」。
+        model.addAttribute("riskLevels", familyDiagnose.riskDistribution().stream()
+                .map(FamilyDiagnose.RiskBucket::level).toList());
         model.addAttribute("riskValues", familyDiagnose.riskDistribution().stream()
                 .map(FamilyDiagnose.RiskBucket::amount).toList());
         model.addAttribute("riskRatios", familyDiagnose.riskDistribution().stream()

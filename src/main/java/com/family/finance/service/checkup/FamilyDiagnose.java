@@ -26,8 +26,19 @@ public record FamilyDiagnose(
         BigDecimal familyTwr,
         BigDecimal cumulativeYtdPnl,
         Integer accountCount,
-        Integer pendingAccountCount
+        Integer pendingAccountCount,
+        /** 2026-09-24 · 风险等级是按账户类型估算的账户数(没设产品类目)· 页面据此提示去补 */
+        int riskEstimatedAccounts
 ) {
+    /** 兼容旧签名(测试与既有调用):不知道估算了几个就当 0 */
+    public FamilyDiagnose(KpiSnapshot kpi, List<AllocationSlice> allocation, List<RiskBucket> riskDistribution,
+                          BigDecimal liquidAssets, BigDecimal emergencyMonths, BigDecimal familyXirr,
+                          BigDecimal familyTwr, BigDecimal cumulativeYtdPnl, Integer accountCount,
+                          Integer pendingAccountCount) {
+        this(kpi, allocation, riskDistribution, liquidAssets, emergencyMonths, familyXirr, familyTwr,
+                cumulativeYtdPnl, accountCount, pendingAccountCount, 0);
+    }
+
     /** v1.6 UED review A7 · 超过此月数视为分母(月均支出)过小导致的失真,不再报数字 */
     public static final BigDecimal EMERGENCY_OUTLIER_MONTHS = new BigDecimal("36");
 
@@ -64,7 +75,7 @@ public record FamilyDiagnose(
 
     public record RiskBucket(
             int level,            // 0=无 / 1-6
-            String label,         // 「无风险」「极低」「低」「中低」「中」「中高」「极高」
+            String label,         // 「未评级」「极低」「低」「中低」「中」「中高」「极高」
             BigDecimal amount,    // 该桶总额(本位币)
             BigDecimal ratio      // 占总资产比例
     ) {

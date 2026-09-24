@@ -5962,6 +5962,58 @@ QA1246_CS="$RD/src/main/java/com/family/finance/service/ask/AskConversationServi
   && log_ok "v1246-LIVE-CITES-FORWARDED(托管模式的引用在每段文字前推给浏览器 · 流式当下就有数字)" \
   || log_bad "v1246-LIVE-CITES-FORWARDED 流式当下数字又会是空的" "Collector 要在 textDelta/done 前 forwardNewCites(),用 AskCiteBuffer.snapshot 取新到的引用经 AskSink.cites 推出去"
 
+# v1246-RISK-LEVEL-FROM-CATEGORY · 家庭风险分布的等级来自账户自己的产品类目,不是按账户类型写死。
+#   2026-09-24:原来 FamilyDiagnoseService 用字符串 switch + default -> 0,加密 / 贵金属 / 保险
+#   全成了「无风险」,没有任何类型到 5 级 → FAM-RISK-1 从来触发不了;报表那张图的副标题却写着
+#   「按产品类目风险等级聚合」。这里守:没有写死的类型表、等级走 RiskLevels、默认类目表对枚举穷尽
+#   (不留 default,加账户类型不写这里就编译不过)、报表按等级取色。
+QA_RL="$RD/src/main/java/com/family/finance/service/checkup/RiskLevels.java"
+QA_FDS="$RD/src/main/java/com/family/finance/service/checkup/FamilyDiagnoseService.java"
+{ [ -f "$QA_RL" ] \
+  && ! java_code_only "$QA_FDS" | grep -q 'fallbackRisk' \
+  && java_code_only "$QA_FDS" | grep -q 'RiskLevels.resolve(' \
+  && grep -q 'return switch (type)' "$QA_RL" \
+  && ! java_code_only "$QA_RL" | grep -qE '^\s*default\s*->' \
+  && grep -q 'riskLevels' "$RD/src/main/resources/templates/reports/_region.html" \
+  && [ -f "$RD/src/test/java/com/family/finance/service/checkup/RiskLevelsTest.java" ]; } \
+  && log_ok "v1246-RISK-LEVEL-FROM-CATEGORY(风险分布按账户的产品类目 · 没设类目按类型的默认类目估算 · 报表按等级取色)" \
+  || log_bad "v1246-RISK-LEVEL-FROM-CATEGORY 风险等级又退回按账户类型写死了" "FamilyDiagnoseService 必须走 RiskLevels.resolve;RiskLevels 的默认类目表不许有 default 分支"
+
+# v1246-RISK-LEVEL-LIVE · 真去体检页看:① 风险分布各档加起来 = 同页「总资产」(只是重新分档,钱一分不少)
+#   ② 出现的每一档都必须是某个资产账户按「手工 → 类目 → 类型默认类目」解析得到的等级(DB 直算)。
+#   修复前页面上有 0 级「无风险」,而 DB 里没有任何资产账户解析到 0 级 → ② 会红。
+$CURL -b $COOKIE "$BASE/checkup" -o "$TMP" -w ""
+QA_RL_EXPECT="$(mysql -ufinance -pfinance finance -N -e "
+  SELECT DISTINCT COALESCE(NULLIF(a.risk_level_override,0), pc.risk_level, dpc.risk_level, 0)
+    FROM account a
+    LEFT JOIN product_category pc  ON pc.code = a.product_category_code
+    LEFT JOIN product_category dpc ON dpc.code = CASE a.type
+         WHEN 'CASH' THEN 'CASH_DEPOSIT' WHEN 'STOCK' THEN 'A_STOCK' WHEN 'WEALTH' THEN 'BANK_WEALTH'
+         WHEN 'PROPERTY' THEN 'PROPERTY_RES' WHEN 'OTHER' THEN 'OTHER' WHEN 'CRYPTO' THEN 'CRYPTO'
+         WHEN 'METAL' THEN 'PRECIOUS_METAL' WHEN 'INSURANCE' THEN 'SAVINGS_INSURANCE' END
+   WHERE a.family_id = 1 AND a.type <> 'LOAN';" 2>/dev/null | tr '\n' ' ')"
+QA_RL_OUT="$(QA_RL_EXPECT="$QA_RL_EXPECT" python3 -c '
+import re, json, sys, os
+h = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+m = re.search(r"const riskBuckets = (\[.*?\]);", h, re.S)
+if not m:
+    print("NOCHART"); sys.exit()
+b = json.loads(m.group(1))
+i = h.find("kpi-eyebrow\">总资产"); kv = re.findall(r"kpi-value[^>]*>\s*¥([0-9,]+)", h[i:i+1500])
+total = round(sum(float(x["amount"]) for x in b))
+kpi = int(kv[0].replace(",", "")) if kv else None
+expect = set(int(x) for x in os.environ.get("QA_RL_EXPECT", "").split())
+got = [int(x["level"]) for x in b]
+bad = [g for g in got if g not in expect]
+ok = kpi is not None and abs(total - kpi) <= 1 and not bad
+print("OK" if ok else "BAD 各档合计=%s 同页总资产=%s 页面档位=%s DB可解析档位=%s 多出来的=%s" % (total, kpi, got, sorted(expect), bad))
+' "$TMP")"
+case "$QA_RL_OUT" in
+  OK) log_ok "v1246-RISK-LEVEL-LIVE(体检风险分布:各档合计 = 同页总资产 · 每一档都能在 DB 里由账户类目解析出来)" ;;
+  NOCHART) log_skip "v1246-RISK-LEVEL-LIVE" "体检页没有风险分布(当前数据下没有资产余额)" ;;
+  *) log_bad "v1246-RISK-LEVEL-LIVE 体检风险分布与账户类目对不上" "$QA_RL_OUT" ;;
+esac
+
 # v1245-MCP-BASE-URL-NORMALIZED · 「本站公网地址」里误粘的 /mcp 必须被吃掉。
 #   那一格问的是【站点根】,而我们生成给人粘贴的是完整的 https://域名/mcp;填回来就拼出 /mcp/mcp
 #   (那个路径被普通 Web 安全链接管,302 跳登录)。
