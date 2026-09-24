@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.26 Preview · 盈透 IBKR 免手抄:Flex 报表自动同步</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .card{border:1px solid var(--rule);background:var(--card);padding:18px}
+  .zone{margin-top:46px}
+  .zone-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap}
+  .zone-no{font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--paper);background:var(--brass-deep);line-height:1;padding:5px 9px}
+  .zone-t{font-family:'Fraunces','Noto Serif SC',serif;font-size:20px}
+  .zone-sub{font-size:11.5px;color:var(--ink-subtle)}
+  .zone-line{height:2px;background:var(--brass-deep);opacity:.35;margin:10px 0 18px}
+  .ico{flex:0 0 16px;margin-top:2px}
+  .two > *{min-width:0}
+  .fld{display:block}
+
+  .fld-l{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-subtle);display:block;margin-bottom:4px}
+  .fld{font-family:'JetBrains Mono',monospace;font-size:13px;background:var(--paper);border:1px solid var(--rule);padding:8px 10px;width:100%}
+  .fld-d{font-size:11px;color:var(--ink-subtle);margin-top:4px;line-height:1.6}
+  .btn-p{font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 12px;border:1px solid var(--ink);background:var(--paper);white-space:nowrap}
+  .btn-i{font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 12px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);white-space:nowrap}
+
+  /* 三家券商:必须同尺寸同样式 */
+  .vendors{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .vcard{border:1px solid var(--rule);background:var(--paper);padding:14px 15px;min-height:74px;display:flex;align-items:center;gap:12px}
+  .vcard.on{border:2px solid var(--brass-deep);background:rgba(160,124,58,.07);padding:13px 14px}
+  .radio{flex:0 0 16px;height:16px;border:1.5px solid var(--ink-soft);border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .radio.on{border-color:var(--brass-deep)} .radio.on::after{content:'';width:8px;height:8px;border-radius:50%;background:var(--brass-deep)}
+  .vname{font-family:'Fraunces','Noto Serif SC',serif;font-size:17px;line-height:1.2}
+  .vsub{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-subtle);margin-top:3px}
+
+  .res{border:1px solid var(--rule);background:var(--card);padding:13px 15px;display:flex;gap:10px;align-items:flex-start;min-height:112px}
+  .res.ok{border-left:3px solid var(--forest)} .res.bad{border-left:3px solid var(--rust)} .res.wait{border-left:3px solid var(--brass-deep)}
+  .res-t{font-family:'Fraunces','Noto Serif SC',serif;font-size:15px;margin-bottom:3px}
+  .res-d{font-size:12px;color:var(--ink-soft);line-height:1.7}
+  .raw{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-subtle);margin-top:5px}
+
+  table.cmp{width:100%;border-collapse:collapse;font-size:11.5px}
+  table.cmp th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-subtle);padding:7px 9px;border-bottom:1px solid var(--rule);font-weight:400}
+  table.cmp td{padding:8px 9px;border-bottom:1px solid var(--rule);vertical-align:top;line-height:1.6}
+  table.cmp tr:last-child td{border-bottom:none}
+  table.cmp td.n{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1;text-align:right;white-space:nowrap}
+  .tag{font-family:'JetBrains Mono',monospace;font-size:9.5px;padding:1px 6px;border:1px solid var(--rule);color:var(--ink-soft);white-space:nowrap}
+  .tag.brass{border-color:var(--brass-deep);color:var(--brass-deep);background:rgba(160,124,58,.08)}
+  .tag.rust{border-color:var(--rust);color:var(--rust);background:rgba(156,74,42,.08)}
+
+  ol.steps{counter-reset:s;list-style:none;padding:0;margin:0}
+  ol.steps li{counter-increment:s;position:relative;padding:8px 0 8px 34px;border-bottom:1px dashed var(--rule-soft);font-size:12.5px;line-height:1.7;color:var(--ink-soft)}
+  ol.steps li:last-child{border-bottom:none}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:8px;width:22px;height:22px;border:1px solid var(--brass-deep);color:var(--brass-deep);font-family:'JetBrains Mono',monospace;font-size:11px;display:flex;align-items:center;justify-content:center}
+  .path{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink);background:var(--paper-soft);padding:1px 5px}
+
+  .phone{width:100%;max-width:390px;box-sizing:border-box;border:10px solid #1A1714;border-radius:34px;background:var(--paper);overflow:hidden;box-shadow:var(--shadow-deep)}
+  .phone-in{padding:18px 14px 22px}
+  .phone .vendors{grid-template-columns:1fr;gap:8px}
+  .phone .vcard{min-height:62px}
+  @media (max-width: 900px){ .two{grid-template-columns:1fr !important} .vendors{grid-template-columns:1fr} .res{min-height:132px} }
+</style>
+</head>
+<body style="background:var(--paper);color:var(--ink)">
+<div class="wrap" style="padding-top:38px;padding-bottom:64px">
+
+  <div class="eyebrow">Preview · v1.26.0 · issue #24</div>
+  <h1 style="font-size:34px;line-height:1.24;margin:9px 0 10px;max-width:820px">盈透 IBKR 账户免手抄:<br>用 Flex 报表自动同步持仓与现金</h1>
+  <p class="note" style="max-width:760px;font-size:13px">
+    「券商自动同步」加第三家。规矩与富途、老虎一样:<b>只读,只拉持仓和现金,永不下单</b>。
+    IBKR 这家更省心:<b>不用常驻网关</b>,用户在 IBKR 后台配一份 Flex 报表、生成一个「报表口令」(<b>只能取报表,做不了交易</b>),粘进来就行 —— 一年换一次口令。
+  </p>
+  <p class="note" style="max-width:760px;margin-top:8px">下面的账号、股数、金额都是编造的示例。</p>
+
+  <!-- ══ 1 · 管理页 ══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">1</span><span class="zone-t">配一次:管理 → 数据源接入 → 券商同步</span><span class="zone-sub">FR-750 ~ FR-752</span></div>
+    <div class="zone-line"></div>
+    <div class="two" style="display:grid;grid-template-columns:1.1fr 1fr;gap:18px;align-items:start">
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <span class="tag brass">盈透 IBKR</span>
+          <span class="note">Flex 报表 · 免网关 · 只读</span>
+        </div>
+        <label class="fld-l">报表口令</label>
+        <input class="fld" type="password" value="xxxxxxxxxxxxxxxxxxxxxxxx" placeholder="已配置 · 留空不修改">
+        <div class="fld-d">在 IBKR 后台生成的「报表口令」—— 它<b>只能取报表,不能交易</b>。有效期请选 1 年。</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">
+          <div>
+            <label class="fld-l">查询号</label>
+            <input class="fld" value="1045872">
+            <div class="fld-d">你在 IBKR 后台建的那份 Flex 报表旁边的数字</div>
+          </div>
+          <div>
+            <label class="fld-l">口令到期日(可选)</label>
+            <input class="fld" value="2027-09-24">
+            <div class="fld-d">填了会在到期前 14 天提醒你换</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <span class="btn-i">保存</span><span class="btn-p">测试 IBKR 连接</span>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="eyebrow">点「测试 IBKR 连接」之后 —— 同尺寸的几种结果</div>
+        <div class="res ok">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--forest)"><path d="M20 6 9 17l-5-5"/></svg>
+          <div><div class="res-t">连上了 · 找到 2 个账户</div>
+            <div class="res-d">U•••4521:12 笔持仓 · 美元 / 港币现金<br>U•••8830:3 笔持仓 · 美元现金</div></div>
+        </div>
+        <div class="res bad">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--rust)"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <div><div class="res-t">报表口令已过期</div>
+            <div class="res-d">去 IBKR 后台重新生成(有效期选 1 年),再粘到这里。</div>
+            <div class="raw">IBKR 原话:1012 · Token has expired.</div></div>
+        </div>
+        <div class="res bad">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--rust)"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <div><div class="res-t">连不上 IBKR</div>
+            <div class="res-d">网络不通或超时 —— 如果服务器在大陆,可能需要能访问海外的网络。</div>
+            <div class="raw">原话:connect timed out · ndcdyn.interactivebrokers.com:443</div></div>
+        </div>
+      </div>
+    </div>
+
+    <details class="card" style="margin-top:14px" open>
+      <summary style="cursor:pointer;font-family:'Fraunces','Noto Serif SC',serif;font-size:16px">在 IBKR 后台怎么配(约 10 分钟 · 一次)</summary>
+      <ol class="steps" style="margin-top:12px">
+        <li>登录 IBKR 网页后台,打开 <span class="path">Performance &amp; Reports → Flex Queries</span>。</li>
+        <li>在 <b>Activity Flex Query</b> 那一栏点「+」新建:勾 <span class="path">Open Positions</span> 和 <span class="path">Cash Report</span> 两栏(字段全选即可),格式选 <span class="path">XML</span>,时段选 <span class="path">Last Business Day</span>,保存。它旁边的数字就是<b>查询号</b>。</li>
+        <li>点 <span class="path">Flex Web Service Configuration</span>(齿轮),勾选启用。</li>
+        <li>点「Generate New Token」:<b>有效期选 1 年</b>(默认只有 6 小时);如果知道本服务器的公网 IP,可以填进「Valid For IP Address」,口令就只能从这台服务器用。<br><span class="note">注意:重新生成会让旧口令立刻失效。</span></li>
+        <li>把口令和查询号粘到左边,点「测试 IBKR 连接」。</li>
+      </ol>
+    </details>
+  </div>
+
+  <!-- ══ 2 · 关联 ══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">2</span><span class="zone-t">关联:账户 → 券商同步</span><span class="zone-sub">FR-753 · FR-754 · 三个选项同尺寸</span></div>
+    <div class="zone-line"></div>
+    <div class="card">
+      <div class="fld-l" style="margin-bottom:8px">选择券商</div>
+      <div class="vendors">
+        <div class="vcard"><span class="radio"></span><div><div class="vname">富途 Futu</div><div class="vsub">需常驻 OpenD 网关</div></div></div>
+        <div class="vcard"><span class="radio"></span><div><div class="vname">老虎 Tiger</div><div class="vsub">API Key · 免网关</div></div></div>
+        <div class="vcard on"><span class="radio on"></span><div><div class="vname">盈透 IBKR</div><div class="vsub">Flex 报表 · 免网关</div></div></div>
+      </div>
+      <div style="margin-top:16px;max-width:520px">
+        <label class="fld-l">IBKR 账户</label>
+        <div class="fld" style="display:flex;justify-content:space-between"><span>U•••4521 · 12 笔持仓</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-subtle)"><polyline points="6 9 12 15 18 9"/></svg></div>
+        <div class="fld-d">列出的是报表里找到的账户;只有一个时自动选中。</div>
+      </div>
+      <div style="margin-top:14px;font-size:12.5px;color:var(--ink-soft);line-height:1.9">
+        <div><span style="display:inline-block;width:12px;height:12px;border:1.5px solid var(--ink-soft);vertical-align:-1px;margin-right:6px"></span>我已知悉:关联会归档本账户现有持仓,由券商同步接管,且此操作不可自动撤销。</div>
+        <div><span style="display:inline-block;width:12px;height:12px;border:1.5px solid var(--ink-soft);vertical-align:-1px;margin-right:6px"></span>我确认现在就关联并执行首次同步。</div>
+      </div>
+      <p class="note" style="margin-top:8px">两步确认、关联前快照、替换接管 —— 与富途 / 老虎完全一样,不另起一套。</p>
+    </div>
+  </div>
+
+  <!-- ══ 3 · 同步结果 ══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">3</span><span class="zone-t">同步之后:持仓页</span><span class="zone-sub">FR-755 · 非美港 A 股按 PRD §13① 的倾向</span></div>
+    <div class="zone-line"></div>
+    <div class="card">
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <h3 style="font-size:20px">盈透证券</h3>
+        <span class="tag brass">券商托管 · 盈透 IBKR</span>
+        <span class="note">上次同步 09-24 16:45 · 新增 2 · 更新 9 · 归档 1 · 报表日期 09-23(日终数据)</span>
+      </div>
+      <table class="cmp">
+        <tr><th>持仓</th><th>市场</th><th>估值方式</th><th style="text-align:right">股数</th><th style="text-align:right">成本价</th></tr>
+        <tr><td>AAPL · Apple</td><td>美股</td><td>自动拉价</td><td class="n">50</td><td class="n">$172.40</td></tr>
+        <tr><td>00700 · 腾讯控股</td><td>港股</td><td>自动拉价</td><td class="n">200</td><td class="n">HK$318.00</td></tr>
+        <tr><td>600519 · 贵州茅台</td><td>A 股(沪股通)</td><td>自动拉价</td><td class="n">10</td><td class="n">¥1,560.00</td></tr>
+        <tr><td>VWRA · 全球股票 ETF <span class="tag">伦敦</span></td><td>其他市场</td><td>按报表收盘价 <span class="note">(09-23)</span></td><td class="n">30</td><td class="n">$118.20</td></tr>
+        <tr><td>美元现金</td><td>—</td><td>现金</td><td class="n" colspan="2">$3,200.00</td></tr>
+        <tr><td>港币现金</td><td>—</td><td>现金</td><td class="n" colspan="2">HK$12,000.00</td></tr>
+      </table>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:flex-start">
+        <svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <span class="note" style="flex:1">另有 2 笔期权 / 期货 / 债券未纳入,可在持仓页手动补。报表里那一行「按基础币种折算的合计」不重复计入现金。</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 4 · 到期 / 失败 ══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">4</span><span class="zone-t">一年一次的口令:不许静默停更</span><span class="zone-sub">FR-756 · FR-757 · 与「同步失败」同一个位置</span></div>
+    <div class="zone-line"></div>
+    <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:8px">账户列表 · 到期前 14 天起</div>
+        <table class="cmp">
+          <tr><td>招行 · 工资卡</td><td class="n">¥—</td></tr>
+          <tr><td>盈透证券 <span class="tag brass">口令 9 天后到期</span></td><td class="n">$—</td></tr>
+          <tr><td>富途证券</td><td class="n">$—</td></tr>
+        </table>
+        <p class="note" style="margin-top:8px">点标记进券商页,那里写着怎么换。填了到期日才会提前提醒;没填的话,第一次因过期失败就标红(下图)。</p>
+      </div>
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:8px">账户列表 · 已经过期</div>
+        <table class="cmp">
+          <tr><td>盈透证券 <span class="tag rust">同步失败</span></td><td class="n">$—</td></tr>
+        </table>
+        <div class="res bad" style="margin-top:10px;min-height:0">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--rust)"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <div><div class="res-t">同步失败 · 报表口令已过期(09-24 16:45)</div>
+            <div class="raw">IBKR 原话:1012 · Token has expired.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 5 · 手机 ══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">5</span><span class="zone-t">手机上关联</span><span class="zone-sub">三个选项纵向排,仍同尺寸</span></div>
+    <div class="zone-line"></div>
+    <div class="phone">
+      <div class="phone-in">
+        <div class="eyebrow" style="font-size:9px">券 · 商 · 同 · 步</div>
+        <div style="font-family:'Fraunces','Noto Serif SC',serif;font-size:22px;margin:3px 0 12px">盈透证券</div>
+        <div class="fld-l">选择券商</div>
+        <div class="vendors">
+          <div class="vcard"><span class="radio"></span><div><div class="vname">富途 Futu</div><div class="vsub">需常驻 OpenD 网关</div></div></div>
+          <div class="vcard"><span class="radio"></span><div><div class="vname">老虎 Tiger</div><div class="vsub">API Key · 免网关</div></div></div>
+          <div class="vcard on"><span class="radio on"></span><div><div class="vname">盈透 IBKR</div><div class="vsub">Flex 报表 · 免网关</div></div></div>
+        </div>
+        <label class="fld-l" style="margin-top:14px">IBKR 账户</label>
+        <div class="fld" style="display:flex;justify-content:space-between"><span>U•••4521</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-subtle)"><polyline points="6 9 12 15 18 9"/></svg></div>
+        <div style="margin-top:14px"><span class="btn-i">关联并同步</span></div>
+        <p class="note" style="margin-top:8px;font-size:10.5px">IBKR 报表生成一般要十几秒,按钮会显示「报表生成中」。</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
