@@ -126,6 +126,9 @@ public class FamilyDiagnoseService {
         List<FamilyDiagnose.RiskBucket> riskDist = new ArrayList<>();
         for (Map.Entry<Integer, BigDecimal> e : riskAmountByLevel.entrySet()) {
             BigDecimal amt = e.getValue().setScale(2, RoundingMode.HALF_EVEN);
+            // 余额为 0 的账户也会在它那一档记一笔 0 —— 原来它们都挤在「无风险」里看不出来,
+            //   分档读类目之后就会冒出一个「中低 0.00%」的空扇区。整档为 0 的不画。
+            if (amt.signum() == 0) continue;
             BigDecimal ratio = totalAssetBase.signum() == 0 ? BigDecimal.ZERO :
                     amt.divide(totalAssetBase, 6, RoundingMode.HALF_EVEN);
             riskDist.add(new FamilyDiagnose.RiskBucket(e.getKey(), riskLabel(e.getKey()), amt, ratio));
