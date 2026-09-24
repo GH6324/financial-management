@@ -5952,6 +5952,24 @@ QA1246_MA="$RD/src/main/java/com/family/finance/service/ask/runtime/ManagedAgent
   && log_ok "v1246-AGENT-TEMPLATE-DRIFT-VISIBLE(远端模板过期:提问前拦住并说清下一步 · 管理页横幅就地可更新 · 旧会话按版本换新)" \
   || log_bad "v1246-AGENT-TEMPLATE-DRIFT-VISIBLE 远端模板过期又会静默" "要有 templateDrift/driftOf + 提问前 cachedDrift 拦截 + 更新后 invalidateDrift + sessionFor 版本化会话 + 管理页横幅"
 
+# v1246-VIEW-NAMES-EXIST · 控制器返回的模板、模板里引用的片段,必须真的是仓库里的文件。
+#   2026-09-24:v1.24 把 reports/_expense-mix.html 并进了 _expense-section.html,
+#   而「支出构成 → 点格子看逐笔」的控制器还返回 "reports/_expense-mix :: detail"。
+#   本机与 prod 都是在长期存在的工作区里 `mvn package`(不 clean),target/classes 里还留着旧文件,
+#   所以一直「能用」;Docker 镜像是 `clean package` → 每个 Docker 用户点格子都是整页错误。
+#   编译器看不见字符串里的模板名,单测也不渲染模板 —— 只能在这里对着文件系统查。
+#   只查带「/」的视图名:不带斜杠的 "ok" / "started" 之类是 @ResponseBody 的返回值,不是模板。
+QA_VIEWS_MISSING="$(grep -rhoE 'return "[^"]+";' "$RD/src/main/java/com/family/finance/web" \
+  | sed -E 's/return "([^"]+)";/\1/' | grep -vE '^(redirect|forward):' \
+  | grep -E '^[a-z][a-z0-9_-]*(/[A-Za-z0-9_.-]+)+( :: .+)?$' | sed -E 's/ *::.*$//' | sort -u \
+  | while read -r v; do [ -f "$RD/src/main/resources/templates/$v.html" ] || printf '%s ' "$v"; done)"
+QA_FRAGS_MISSING="$(grep -rhoE '~\{[a-z][A-Za-z0-9_/.-]*(/[A-Za-z0-9_.-]+)+ *::' "$RD/src/main/resources/templates" \
+  | sed -E 's/~\{([^ :]+) *::/\1/' | sort -u \
+  | while read -r v; do [ -f "$RD/src/main/resources/templates/$v.html" ] || printf '%s ' "$v"; done)"
+{ [ -z "$QA_VIEWS_MISSING" ] && [ -z "$QA_FRAGS_MISSING" ]; } \
+  && log_ok "v1246-VIEW-NAMES-EXIST(控制器返回的模板 · 模板引用的片段 都能在仓库里找到文件)" \
+  || log_bad "v1246-VIEW-NAMES-EXIST 引用了不存在的模板" "控制器:${QA_VIEWS_MISSING:-无} · 片段引用:${QA_FRAGS_MISSING:-无}(dirty 构建会被 target/ 里的旧文件掩盖,clean 构建直接报错)"
+
 # v1246-LIVE-CITES-FORWARDED · 托管模式下,引用必须在【流式当下】送到浏览器,不能只落库。
 #   2026-09-23:v1.24.3 只修了落库,验收看的是刷新后的页面 —— 流式当下每个数字仍然是空的。
 QA1246_CS="$RD/src/main/java/com/family/finance/service/ask/AskConversationService.java"
