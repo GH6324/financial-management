@@ -107,18 +107,29 @@ module.exports = {
     await ui.goto('/accounts');
     const ids = await ui.page.locator('details.row-more a[href^="/checkup?account="]')
       .evaluateAll(as => [...new Set(as.map(a => a.getAttribute('href').match(/account=(\d+)/)[1]))]);
-    let acct = null, accRules = [];
+    // 先把每个账户都点进去看一遍,优先挑「同一条规则在两个账户上都命中」的,好验按账户隔离
+    const hits = {};
     for (const id of ids) {
       await openAccountCheckup(ui, id);
-      accRules = await rules(ui);
-      if (accRules.length) { acct = id; break; }
+      const r = await rules(ui);
+      if (r.length) hits[id] = r;
     }
-    if (!acct) {
+    const hitIds = Object.keys(hits);
+    if (!hitIds.length) {
       report.skip(this.name, '账户体检', `${ids.length} 个账户逐个点进去看过,没有一个命中提醒`);
       return;
     }
-    const rule = accRules[0];
-    report.info(`账户 ${acct} 的体检页命中:${accRules.join(', ')}`);
+    let acct = hitIds[0], rule = hits[acct][0], other = null;
+    for (const a of hitIds) {
+      for (const r of hits[a]) {
+        const o = hitIds.find(b => b !== a && hits[b].includes(r));
+        if (o) { acct = a; rule = r; other = o; break; }
+      }
+      if (other) break;
+    }
+    report.info(`命中提醒的账户:${hitIds.map(a => `${a}(${hits[a].join('/')})`).join(' · ')}`);
+
+    await openAccountCheckup(ui, acct);
     await dismiss(ui, rule, `在账户 ${acct} 上点「${rule}」的「不适用」`);
     await ui.assert(new URL(ui.page.url()).searchParams.get('account') === acct, '提交后回到的还是这个账户的体检页', ui.page.url());
     await ui.assert(!(await rules(ui)).includes(rule), `「${rule}」在这个账户上消失了`);
@@ -126,14 +137,12 @@ module.exports = {
     await ui.assert((cfg() || '').split('\n').includes(`${rule}|${acct}`), '真值层:存的是「规则|这个账户」,不是全家', `存的是 [${cfg()}]`);
 
     // 按账户隔离:别的账户上同一条规则照常显示
-    let other = null;
-    for (const id of ids) {
-      if (id === acct) continue;
-      await openAccountCheckup(ui, id);
-      if ((await rules(ui)).includes(rule)) { other = id; break; }
+    if (other) {
+      await openAccountCheckup(ui, other);
+      await ui.assert((await rules(ui)).includes(rule), `账户 ${other} 上同一条「${rule}」照常显示(按账户记,不是全家一刀切)`);
+    } else {
+      report.info(`没有两个账户命中同一条规则,按账户隔离这一点由单测守`);
     }
-    if (other) await ui.assert(true, `账户 ${other} 上同一条「${rule}」照常显示(按账户记,不是全家一刀切)`);
-    else report.info(`没有别的账户也命中 ${rule},按账户隔离由单测守`);
 
     await openAccountCheckup(ui, acct);
     await restoreAll(ui, '回到这个账户,点「全部恢复」');
