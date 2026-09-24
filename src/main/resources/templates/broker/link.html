@@ -189,11 +189,13 @@
       <div id="acctIbkr" class="hidden">
         <label class="font-mono text-[10px] uppercase text-ink-subtle block mb-1">IBKR 账户</label>
         <select name="brokerAccountId" disabled class="font-mono text-sm bg-paper border border-rule px-3 py-2 w-full">
-          <option th:if="${#lists.isEmpty(ibkrAccounts)}" value="">(还不知道有哪些账户 —— 先到管理页点「测试盈透 IBKR 连接」)</option>
+          <!-- 选项文字要短:手机上原生下拉只显示一行,长了会被截断(2026-09-25 截图验收) -->
+          <option th:if="${#lists.isEmpty(ibkrAccounts)}" value="">(暂无 · 先去管理页测试连接)</option>
           <option th:each="a, st : ${ibkrAccounts}" th:value="${a}" th:selected="${st.first}"
                   th:text="${T(com.family.finance.service.broker.ibkr.IbkrFlexClient).mask(a)}">U•••4521</option>
         </select>
-        <p class="font-mono text-[10px] text-ink-subtle mt-1 mb-5">列出的是报表里找到的账户 · 报表里只有一个账户时留空也行</p>
+        <p th:if="${#lists.isEmpty(ibkrAccounts)}" class="font-mono text-[10px] text-ink-subtle mt-1 mb-5">到「管理 → 数据源接入」点「测试盈透 IBKR 连接」,报表里的账户会列在这里 · 报表里只有一个账户时留空也行</p>
+        <p th:unless="${#lists.isEmpty(ibkrAccounts)}" class="font-mono text-[10px] text-ink-subtle mt-1 mb-5">列出的是报表里找到的账户 · 报表里只有一个账户时留空也行</p>
       </div>
 
       <!-- v0.15.x · 关联颗粒度连接:多个富途账号 = 多个 OpenD,本关联可专属一套 host:port -->
