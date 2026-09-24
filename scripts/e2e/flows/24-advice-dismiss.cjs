@@ -28,6 +28,16 @@ async function dismiss(ui, rule, label) {
     ui.click(btn, label),
   ]);
 }
+/** 从「账户」页进某个账户的体检:点那一行的「⋯ 更多操作」→ 点「资产体检」(电脑上它收在这个菜单里) */
+async function openAccountCheckup(ui, id) {
+  await ui.goto('/accounts');
+  const more = `details.row-more:has(a[href="/checkup?account=${id}"])`;
+  await ui.page.locator(`${more} > summary`).first().click({ timeout: 12000 });
+  await Promise.all([
+    ui.page.waitForNavigation({ waitUntil: 'networkidle', timeout: 30000 }).catch(() => {}),
+    ui.page.locator(`${more} a[href="/checkup?account=${id}"]`).first().click({ timeout: 12000 }),
+  ]);
+}
 async function restoreAll(ui, label) {
   await Promise.all([
     ui.page.waitForNavigation({ waitUntil: 'networkidle', timeout: 30000 }).catch(() => {}),
@@ -95,15 +105,11 @@ module.exports = {
     // ── 2 · 账户体检:从「账户」页进去 ─────────────────────────────
     report.section('2 · 账户体检:从「账户」页的「资产体检」链接进去');
     await ui.goto('/accounts');
-    const ids = await ui.page.locator('a[href^="/checkup?account="]')
+    const ids = await ui.page.locator('details.row-more a[href^="/checkup?account="]')
       .evaluateAll(as => [...new Set(as.map(a => a.getAttribute('href').match(/account=(\d+)/)[1]))]);
     let acct = null, accRules = [];
     for (const id of ids) {
-      await ui.goto('/accounts');
-      await Promise.all([
-        ui.page.waitForNavigation({ waitUntil: 'networkidle', timeout: 30000 }).catch(() => {}),
-        ui.page.locator(`a[href="/checkup?account=${id}"]`).first().click(),
-      ]);
+      await openAccountCheckup(ui, id);
       accRules = await rules(ui);
       if (accRules.length) { acct = id; break; }
     }
@@ -123,17 +129,13 @@ module.exports = {
     let other = null;
     for (const id of ids) {
       if (id === acct) continue;
-      await ui.goto('/accounts');
-      await Promise.all([
-        ui.page.waitForNavigation({ waitUntil: 'networkidle', timeout: 30000 }).catch(() => {}),
-        ui.page.locator(`a[href="/checkup?account=${id}"]`).first().click(),
-      ]);
+      await openAccountCheckup(ui, id);
       if ((await rules(ui)).includes(rule)) { other = id; break; }
     }
     if (other) await ui.assert(true, `账户 ${other} 上同一条「${rule}」照常显示(按账户记,不是全家一刀切)`);
     else report.info(`没有别的账户也命中 ${rule},按账户隔离由单测守`);
 
-    await ui.goto(`/checkup?account=${acct}`);
+    await openAccountCheckup(ui, acct);
     await restoreAll(ui, '回到这个账户,点「全部恢复」');
     await ui.assert((await rules(ui)).includes(rule), `「${rule}」回来了`);
     await ui.noConsoleErrors('账户体检页控制台无报错');
