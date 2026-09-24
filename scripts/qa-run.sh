@@ -5910,6 +5910,21 @@ DASH="$RD/src/main/resources/templates/dashboard/index.html"
   && log_ok "v1632-MANUAL(站内 /help/how-to-use + 新手卡 localStorage 一年 + 导航栏与填报页常驻入口 · 卡消失后入口仍在)" \
   || log_bad "v1632-MANUAL 缺件" "see HelpController(/help/how-to-use)· templates/help/how-to-use.html(须套 layout · 不得残留 PREVIEW 条)· fragments/_manual-hint.html(manualHintDismissedAt + 默认 display:none 防闪)· nav.html 至少 2 处入口(PC+移动)· entry/index.html 与 dashboard/index.html 挂卡 · entry-points.json 登记 id=manual · docs/how-to-use.md + how-to-record.md"
 
+# v1246-TRANSFER-IN-USES-RECEIVED-AMOUNT · issue #21 · 跨币种划转,转入方按它收到的钱算。
+#   人民币账户转 1000 到美元账户、实到 100 美元,余额都对,美元账户却冒出「900 未解释」——
+#   填报页给转入方算已知流入时用的是 amount(转出方付出的,1000 人民币),不是 to_amount。
+#   to_amount 从 v0.8 就有,新增/撤销用对了,算差额与显示明细的地方一直在手写 getAmount()。
+#   收成 Transfer.receivedAmount();这里守 EntryService 里「转入方」那几处不许再退回 getAmount()。
+QA21_ES="$RD/src/main/java/com/family/finance/service/EntryService.java"
+QA21_BAD="$(java_code_only "$QA21_ES" | grep -nE 'transferIn = transferIn\.add\([a-z]+\.getAmount\(\)\)|incoming\.add\(new EntryRow\.TransferRef\(name, t\.getAmount\(\)' | cut -d: -f1 | tr '\n' ' ')"
+{ grep -q 'public BigDecimal receivedAmount()' "$RD/src/main/java/com/family/finance/domain/transfer/Transfer.java" \
+  && [ -z "$QA21_BAD" ] \
+  && [ "$(java_code_only "$QA21_ES" | grep -c 'receivedAmount()')" -ge 3 ] \
+  && grep -q '"is_draft", "to_amount"' "$RD/src/main/java/com/family/finance/service/export/CsvExportService.java" \
+  && [ -f "$RD/src/test/java/com/family/finance/domain/transfer/TransferReceivedAmountTest.java" ]; } \
+  && log_ok "v1246-TRANSFER-IN-USES-RECEIVED-AMOUNT(转入方的差额与明细都按实到金额 · 导出带 to_amount)" \
+  || log_bad "v1246-TRANSFER-IN-USES-RECEIVED-AMOUNT 跨币种转入又按转出方金额算了" "EntryService 第 ${QA21_BAD:-?} 行 · 转入方一律用 Transfer.receivedAmount()"
+
 # v1245-AI-SETTINGS-ONE-PLACE · AI 的设置只在一处(AI 接入)。
 #   2026-09-23 维护者:「AI 接入为什么是独立的 tab?」—— 查下来是超级 Agent 要用的配置被拆在两页:
 #   百炼的 Key、型号在「数据源接入」,Agent / MCP / 口令在「AI 接入」。排查一个问题要来回切,

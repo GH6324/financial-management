@@ -651,7 +651,7 @@ public class EntryService {
         Account to = requireAccount(familyId, t.getToAccountId());
         // 反向:from +amount,to -amount(v1.18.1 · 与 addTransfer 同一条路由,否则撤销会把现金行留在原地)
         // 跨币种:收款方当初进账的是 to_amount,冲回也必须按同一个数,否则现金行会残留差额。
-        BigDecimal backToAmount = t.getToAmount() == null ? t.getAmount() : t.getToAmount();
+        BigDecimal backToAmount = t.receivedAmount();
         creditAccountBalance(familyId, period, from, memberId, t.getAmount(),
                 "✕ 撤销划出到 " + to.getDisplayName() + " " + money(t.getAmount()));
         creditAccountBalance(familyId, period, to, memberId, backToAmount.negate(),
@@ -902,13 +902,15 @@ public class EntryService {
             if (t.getToAccountId().equals(account.getId())) {
                 Account from = allAccountsById.get(t.getFromAccountId());
                 String name = from == null ? "其他账户" : from.getDisplayName();
-                incoming.add(new EntryRow.TransferRef(name, t.getAmount(),
-                        MoneyFormat.format(account.getCurrency(), t.getAmount())));
+                // issue #21 · 显示的金额配的是【这个账户】的币种符号,所以必须是它自己收到的数
+                BigDecimal received = t.receivedAmount();
+                incoming.add(new EntryRow.TransferRef(name, received,
+                        MoneyFormat.format(account.getCurrency(), received)));
                 ledger.add(new EntryRow.LedgerEntry(
                         EntryRow.LedgerKind.TRANSFER_IN,
                         t.getSubmittedAt(),
-                        t.getAmount(),
-                        "+" + MoneyFormat.format(account.getCurrency(), t.getAmount()),
+                        received,
+                        "+" + MoneyFormat.format(account.getCurrency(), received),
                         name,
                         t.getNote(),
                         t.getId(),
@@ -1204,7 +1206,8 @@ public class EntryService {
         BigDecimal transferOut = BigDecimal.ZERO;
         for (Transfer transfer : transferMapper.findCommittedByPeriodAndAccount(familyId, periodId, accountId)) {
             if (transfer.getToAccountId().equals(accountId)) {
-                transferIn = transferIn.add(transfer.getAmount());
+                // issue #21 · 转入方按它自己的币种算:跨币种时是 toAmount,不是转出方付出的 amount
+                transferIn = transferIn.add(transfer.receivedAmount());
             }
             if (transfer.getFromAccountId().equals(accountId)) {
                 transferOut = transferOut.add(transfer.getAmount());

@@ -27,4 +27,20 @@ public class Transfer {
     private boolean draft;
     /** v1.18 · 这一笔是谁写进来的({@link com.family.finance.domain.ledger.LedgerSource});历史数据为 UNKNOWN = 当时没记 */
     private String sourceTag;
+
+    /**
+     * 转入账户实际收到的钱(<b>转入账户的币种</b>)。
+     *
+     * <p>跨币种划转有两个数:{@link #amount} 是转出方付出的(转出账户币种),
+     * {@link #toAmount} 是转入方收到的(转入账户币种);同币种时 toAmount 为 null,两边都是 amount。</p>
+     *
+     * <p>issue #21(2026-09-23):人民币账户转 1000 到美元账户、实到 100 美元,余额都对,
+     * 美元账户却冒出一条「900 未解释」—— 填报页给转入方算「已知流入」时用的是 amount(1000 人民币),
+     * 不是 toAmount(100 美元)。这个字段 v0.8 就有了,新增与撤销划转时用对了,
+     * 而算差额、显示明细的地方一直在手写 {@code getAmount()}。
+     * 收成一个方法:站在转入方那一侧取金额,只许走这里。</p>
+     */
+    public BigDecimal receivedAmount() {
+        return toAmount != null ? toAmount : amount;
+    }
 }
