@@ -170,6 +170,21 @@ public class LensQueryService {
         }
     }
 
+    /**
+     * 账户里每条持仓折成本位币(统一 FX 因子,逐条 setScale(2)),再把零头补回去,让各条之和<b>精确等于</b>账户现值。
+     *
+     * <p>v1.20 只在「一条持仓按方向拆成多份」那一层做了余数归位,账户里<b>多条持仓</b>这一层漏了:
+     * 一个外币账户有几条持仓时,逐条折算四舍五入后求和会与账户现值差一分,
+     * 透视合计(按头寸加)与 KPI 总资产(按账户加)又对不上 —— 跟当天股价走,时红时绿
+     * (2026-09-25 beta:美元账户逐条加 = 账户现值 + 0.01)。</p>
+     */
+    static List<BigDecimal> baseValues(List<BigDecimal> acctCcyValues, BigDecimal factor, BigDecimal accountValue) {
+        List<BigDecimal> out = new ArrayList<>(acctCcyValues.size());
+        for (BigDecimal v : acctCcyValues) out.add(v.multiply(factor).setScale(2, RoundingMode.HALF_EVEN));
+        residualToLargest(out, accountValue);
+        return out;
+    }
+
     private List<Position> assemble(long familyId, FactSlice slice) {
         // v1.20 · 一次取回整张账户→维值映射。**不能在循环里问解析器**,那是 N+1(v1200-NO-N-PLUS-1)
         Map<Long, String> acctGroupValue =
@@ -211,9 +226,14 @@ public class LensQueryService {
                 if (!lines.isEmpty() && sumAcctCcy.signum() > 0 && p.currentValue().signum() > 0) {
                     // 统一 FX 因子:Σ头寸(本位币)≡ factview 账户现值,与仪表盘同源
                     BigDecimal factor = p.currentValue().divide(sumAcctCcy, MathContext.DECIMAL64);
+                    List<BigDecimal> valueBases = baseValues(
+                            lines.stream().map(AccountValuationService.HoldingLine::valueAcctCcy).toList(),
+                            factor, p.currentValue());
+                    int lineIdx = -1;
                     for (AccountValuationService.HoldingLine line : lines) {
+                        lineIdx++;
                         StockHolding h = line.holding();
-                        BigDecimal valueBase = line.valueAcctCcy().multiply(factor).setScale(2, RoundingMode.HALF_EVEN);
+                        BigDecimal valueBase = valueBases.get(lineIdx);
                         BigDecimal costBase = line.costAcctCcy() == null ? null
                                 : line.costAcctCcy().multiply(factor).setScale(2, RoundingMode.HALF_EVEN);
                         BigDecimal holdingCumPnl = costBase == null ? null : valueBase.subtract(costBase);

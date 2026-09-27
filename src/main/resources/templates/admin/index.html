@@ -253,7 +253,7 @@
       <div>
         <div class="eyebrow-ink mb-2">口径 · 数值阈值</div>
         <h3 class="font-display text-xl">数值阈值</h3>
-        <p class="text-sm text-ink-soft mt-2 leading-relaxed">智能转账阈值 · 体检 4 阈值(集中度 / 高风险 / 流动性 / 应急金)· 会话有效期</p>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">智能转账阈值 · 再平衡「算执行了」的比例 · 体检 4 阈值(集中度 / 高风险 / 流动性 / 应急金)· 会话有效期</p>
       </div>
     </a>
     <!-- v1.17.2 · 配色从「数值阈值」页搬出来独立成页:那页管的是影响数字的参数,配色是纯视觉 -->
@@ -283,7 +283,7 @@
       <div>
         <div class="eyebrow-ink mb-2">运营 · 提醒</div>
         <h3 class="font-display text-xl">提醒</h3>
-        <p class="text-sm text-ink-soft mt-2 leading-relaxed">填报模板 · 阿里云短信 · 截止前强提醒 · 成员手机号</p>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">填报模板 · 截止前几天、每天几点提醒 · 阿里云短信 · 成员手机号</p>
       </div>
     </a>
     <a th:href="@{/admin/fx}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
@@ -297,7 +297,18 @@
       <div>
         <div class="eyebrow-ink mb-2">运营 · 数据源</div>
         <h3 class="font-display text-xl">数据源接入</h3>
-        <p class="text-sm text-ink-soft mt-2 leading-relaxed">股票每日拉价节奏 · 汇率每月拉取 · 贵金属 · 券商同步 · 宏观基准 · 实时生效不重启</p>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">股票每日拉价节奏 · 汇率每月拉取 · 贵金属 · 宏观基准 · 实时生效不重启</p>
+      </div>
+    </a>
+    <!--/* v1.26 · 券商同步自己一张卡(原来藏在「数据源接入」卡里的四个字)。
+         2026-09-27 维护者在这一屏找 IBKR 找不到:卡上只写了「券商同步」,没写哪几家。
+         所以卡上**逐家点名** —— 用户是带着「盈透 / IBKR / 富途」这些词来找的;护栏 v126-BROKER-OWN-PAGE
+         按 BrokerVendor 逐个核对,加第四家券商时这张卡不写上就红。 */-->
+    <a th:href="@{/admin/broker}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
+      <div>
+        <div class="eyebrow-ink mb-2">运营 · 券商</div>
+        <h3 class="font-display text-xl">券商同步</h3>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">富途 Futu · 老虎 Tiger · 盈透 IBKR · 只读拉持仓和现金 · 凭据、测试连接、同步时间都在这一页</p>
       </div>
     </a>
     <!--/*

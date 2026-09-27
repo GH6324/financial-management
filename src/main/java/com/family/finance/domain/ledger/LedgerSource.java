@@ -30,6 +30,9 @@ public enum LedgerSource {
     /** 老虎证券同步持仓后引起的变动 */
     SYNC_BROKER_TIGER("自动 · 老虎", "broker"),
 
+    /** 盈透 IBKR(Flex 报表)同步持仓后引起的变动 · v1.26 */
+    SYNC_BROKER_IBKR("自动 · 盈透", "broker"),
+
     /** AI 截图导入持仓后引起的变动 */
     IMPORT_SCREENSHOT("截图导入", "import"),
 
@@ -57,7 +60,7 @@ public enum LedgerSource {
     /** 是不是"自动来的"(页面上可能只想区分手动 vs 自动)。 */
     public boolean isAutomatic() {
         return this == SYNC_STOCK_API || this == SYNC_METAL_API || this == SYNC_CRYPTO_API
-                || this == SYNC_BROKER_FUTU || this == SYNC_BROKER_TIGER;
+                || "broker".equals(group);
     }
 
     /**
@@ -76,13 +79,29 @@ public enum LedgerSource {
         }
     }
 
-    /** 券商 vendor → 对应来源(同步持仓引起的变动用它)。 */
+    /**
+     * 券商 vendor → 对应来源(同步持仓引起的变动用它)。
+     *
+     * <p>v1.26 · 改成对 {@link com.family.finance.domain.broker.BrokerVendor} 的<b>穷尽 switch</b>(不留 default)。
+     * 原来是字符串 switch + {@code default -> UNKNOWN}:加第三家券商时编译器一声不吭,
+     * 它同步引起的每一笔估值变动都会被记成「来源未记录」。现在加券商不在这里写一行就编译不过。</p>
+     */
     public static LedgerSource ofBroker(String vendorName) {
         if (vendorName == null) return UNKNOWN;
-        return switch (vendorName.trim().toUpperCase(java.util.Locale.ROOT)) {
-            case "FUTU" -> SYNC_BROKER_FUTU;
-            case "TIGER" -> SYNC_BROKER_TIGER;
-            default -> UNKNOWN;
+        com.family.finance.domain.broker.BrokerVendor v;
+        try {
+            v = com.family.finance.domain.broker.BrokerVendor.valueOf(vendorName.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return UNKNOWN;
+        }
+        return forVendor(v);
+    }
+
+    public static LedgerSource forVendor(com.family.finance.domain.broker.BrokerVendor v) {
+        return switch (v) {
+            case FUTU -> SYNC_BROKER_FUTU;
+            case TIGER -> SYNC_BROKER_TIGER;
+            case IBKR -> SYNC_BROKER_IBKR;
         };
     }
 }

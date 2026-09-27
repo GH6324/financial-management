@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('券商同步 · 管理 · 家庭账房')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('admin', ${me}, ${nav})}"></header>
+
+<!--/* v1.26 · 券商同步自己一页(原「数据源接入」第 ④ 节)。
+     2026-09-27 维护者在 beta 上找 IBKR 的配置没找到 —— 管理首页那张卡只写了「券商同步」、没写哪几家,
+     页头是「行情 · 汇率 · 券商」,这一节排第四要往下滚。维护者定:按「用户要完成的事」分入口 ——
+     连自己的券商账户(填的是个人凭据)和系统拉公共行情 / 汇率是两件事。表单与测试原样搬过来,配置键一个没动。 */-->
+<main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10 grid grid-cols-12 gap-8">
+  <aside th:replace="~{admin/_sidebar :: sidebar('broker')}"></aside>
+
+  <section class="col-span-12 md:col-span-9 space-y-8">
+    <div class="mb-2">
+      <div class="eyebrow mb-2">券 · 商 · 同 · 步</div>
+      <h1 class="font-display text-4xl font-medium">富途 · 老虎 · 盈透</h1>
+      <p class="text-ink-soft text-sm mt-2">把券商账户里的持仓和各币种现金<b>只读</b>拉进账房 · 凭据在这里配一次、全家共用 ·
+        每个券商账户再到对应账房账户的「券商」里关联 · 永不下单</p>
+    </div>
+
+    <!-- 从某个账户的「券商关联」页点过来(?account=<id>)时显示来处 + 一键回跳(照 OpenD 向导 v1.6.24):
+         用户是为了关联那个账户才来配凭据的,配完得能回去。不带参数时这条不渲染。 -->
+    <div th:if="${ctxAccountId != null}" class="link-strip max-w-3xl">
+      <span class="ls-kv">正在为账户 <b th:text="${ctxAccountName}">华泰证券-A股</b> 关联券商</span>
+      <span class="ls-kv">凭据全家共用 · 填好、测试成功后回去就能选账户</span>
+      <span class="ls-acts">
+        <a th:href="@{|/accounts/${ctxAccountId}/broker|}" class="btn-paper text-[11px] no-underline">← 回该账户的券商关联</a>
+      </span>
+    </div>
+
+    <div th:if="${flash}" class="border border-forest bg-forest/[0.05] px-4 py-2 text-sm max-w-3xl" th:text="${flash}">成功</div>
+    <div th:if="${flashError}" class="border border-rust bg-rust/[0.05] px-4 py-2 text-sm max-w-3xl" th:text="${flashError}">失败</div>
+
+    <!-- 凭据 · v0.15 富途 / 老虎 · v1.26 盈透 IBKR -->
+    <form id="broker" th:action="@{/admin/broker}" method="post" class="bracket-card max-w-3xl space-y-5" style="scroll-margin-top:80px">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input th:if="${ctxAccountId != null}" type="hidden" name="account" th:value="${ctxAccountId}"/>
+      <div class="flex items-baseline justify-between">
+        <div class="eyebrow-ink">① 凭据 · 富途 / 老虎 / 盈透(只读)</div>
+        <a th:href="@{/help/broker-sync}" class="inline-flex items-center gap-1 font-mono text-[11px] text-brass-deep underline hover:text-ink no-underline">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>不知道怎么填?看图文教程</a>
+      </div>
+      <p class="font-mono text-[10px] text-ink-subtle tracking-wider" style="color:var(--forest)">
+        只读铁律 · 富途走 OpenD 查询上下文、永不解锁交易;老虎只调查询接口;盈透的报表口令只能取报表 · 物理上不能下单 / 划转 · 凭据加密存、私钥永不回显
+      </p>
+
+      <!-- v1.26 · 三家同一种排法(维护者 2026-09-25:「IBKR 的接入和界面都应该和富途 / 老虎类似」):
+           一家一列,药丸标题 + 竖排字段 + 一行说明 + 一条指路链接;怎么拿凭据都在图文教程里,不在这里另起一套 -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- 老虎 · id 供关联页 / 教程直达(#tiger #futu #ibkr)-->
+        <div id="tiger" class="space-y-3" style="scroll-margin-top:80px">
+          <div class="pill" style="background:rgba(180,138,58,.12);color:var(--brass-deep);border-color:var(--brass-deep)">老虎 Tiger</div>
+          <div>
+            <label class="field-label">tiger_id</label>
+            <input class="field-input" name="tigerId" th:value="${tigerId}" placeholder="20xxxxxx"/>
+          </div>
+          <div>
+            <label class="field-label">RSA 私钥</label>
+            <input class="field-input" type="password" name="tigerKey" autocomplete="new-password"
+                   th:placeholder="${tigerKeyConfigured} ? '已配置 · 留空不修改' : '粘贴 RSA 私钥(PKCS#1/8)'"/>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">只调查询接口 · 私钥请视为高敏感、可随时在券商侧吊销</p>
+          </div>
+          <div>
+            <label class="field-label">交易账户(可选)</label>
+            <input class="field-input" name="tigerAccount" th:value="${tigerAccount}" placeholder="留空 = 默认账户"/>
+          </div>
+        </div>
+        <!-- 富途 -->
+        <div id="futu" class="space-y-3" style="scroll-margin-top:80px">
+          <div class="pill" style="background:rgba(180,138,58,.12);color:var(--brass-deep);border-color:var(--brass-deep)">富途 Futu</div>
+          <div>
+            <label class="field-label">FutuOpenD 地址</label>
+            <input class="field-input" name="futuHost" th:value="${futuHost}" placeholder="127.0.0.1"/>
+          </div>
+          <div>
+            <label class="field-label">OpenD 端口</label>
+            <input class="field-input" name="futuPort" th:value="${futuPort}" placeholder="11111"/>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">需常驻 OpenD 网关并保持登录态 · 只读查询、永不解锁交易 → 不存交易密码</p>
+          <a th:href="${ctxAccountId != null} ? @{/admin/broker/opend(account=${ctxAccountId})} : @{/admin/broker/opend}" class="inline-flex items-center gap-1 font-mono text-[11px] text-brass-deep underline hover:text-ink no-underline mt-2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>不想自己装?用一键安装 / 托管 OpenD 向导 →</a>
+          </div>
+        </div>
+        <!-- 盈透 IBKR · v1.26 · issue #24 -->
+        <div id="ibkr" class="space-y-3" style="scroll-margin-top:80px">
+          <div class="pill" style="background:rgba(180,138,58,.12);color:var(--brass-deep);border-color:var(--brass-deep)">盈透 IBKR</div>
+          <div>
+            <label class="field-label">报表口令</label>
+            <input class="field-input" type="password" name="ibkrToken" autocomplete="new-password"
+                   th:placeholder="${ibkrTokenConfigured} ? '已配置 ' + ${ibkrTokenMasked} + ' · 留空不修改' : '粘贴 Flex 报表口令'"/>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider"><b class="text-ink">只能取报表,不能交易</b> · <span class="whitespace-nowrap">有效期选 1 年</span></p>
+          </div>
+          <div>
+            <label class="field-label">查询号</label>
+            <input class="field-input" name="ibkrQuery" th:value="${ibkrQuery}" inputmode="numeric" placeholder="Flex 报表旁的数字"/>
+          </div>
+          <div>
+            <label class="field-label">口令到期日(可选)</label>
+            <input class="field-input" type="date" name="ibkrExpires" th:value="${ibkrExpires}"/>
+            <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">填了会在到期前 14 天提醒你换</p>
+          </div>
+          <a th:href="@{/help/broker-sync} + '#ibkr'" class="inline-flex items-center gap-1 font-mono text-[11px] text-brass-deep underline hover:text-ink no-underline">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>口令和查询号去哪拿?看盈透图文教程 →</a>
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label">同步 cron</label>
+        <input class="field-input" name="brokerSyncCron" th:value="${brokerSyncCron}"/>
+        <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">默认 `0 45 16 * * MON-FRI`(A/HK 收盘后)· 6 字段 · 关联账户后每到点自动只读同步 · 也可在持仓页手动同步</p>
+      </div>
+
+      <div class="flex justify-end">
+        <button type="submit" class="btn-ink">保存券商配置</button>
+      </div>
+    </form>
+
+    <!-- ② 测试连接:老虎凭开发者身份全局测;富途测「全局默认 OpenD」(上面填的 host/port,通常=本机托管的 127.0.0.1:11111) -->
+    <div class="bracket-card max-w-3xl flex flex-wrap items-center gap-3">
+      <div class="eyebrow-ink w-full">② 测试连接 · 只验证能拉到账户 / 资产,不做任何写操作</div>
+      <form th:action="@{/admin/broker/test}" method="post" class="inline">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input th:if="${ctxAccountId != null}" type="hidden" name="account" th:value="${ctxAccountId}"/>
+        <input type="hidden" name="vendor" value="TIGER"/>
+        <button type="submit" class="btn-paper">测试老虎连接</button>
+      </form>
+      <form th:action="@{/admin/broker/test}" method="post" class="inline">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input th:if="${ctxAccountId != null}" type="hidden" name="account" th:value="${ctxAccountId}"/>
+        <input type="hidden" name="vendor" value="FUTU"/>
+        <button type="submit" class="btn-paper">测试富途连接</button>
+      </form>
+      <form th:action="@{/admin/broker/test}" method="post" class="inline">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input th:if="${ctxAccountId != null}" type="hidden" name="account" th:value="${ctxAccountId}"/>
+        <input type="hidden" name="vendor" value="IBKR"/>
+        <button type="submit" class="btn-paper" title="IBKR 生成报表一般要十几秒">测试盈透 IBKR 连接</button>
+      </form>
+      <span class="font-mono text-[10px] text-ink-subtle w-full">富途测的是上面填的<b class="text-ink">全局默认 OpenD</b>(host/port,通常即本机托管的 127.0.0.1:11111)。若一个家庭挂了多个富途账号(多 OpenD),各条关联另有自己的连接参数,请到「账户 → 券商」关联页按条测。</span>
+    </div>
+
+    <!-- ③ 关联在哪做 · 凭据是全家的,关联是账户的 —— 不说清楚,用户配完凭据会以为已经在同步了 -->
+    <div class="bracket-card max-w-3xl space-y-2">
+      <div class="eyebrow-ink">③ 关联到账户 · 配好凭据后还差这一步</div>
+      <p class="text-sm text-ink-soft">一个券商账户对应一个账房账户:到
+        <a th:href="@{/accounts}" class="text-brass-deep">账户</a> 里找到那个证券账户,点它那一行的「券商」,选券商、关联。
+        关联后按上面的同步时间自动拉,也可以在关联页随时点「立即同步」。</p>
+    </div>
+  </section>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

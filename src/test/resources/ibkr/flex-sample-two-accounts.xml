@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  合成样例(v1.26 · issue #24):按 IBKR 官方 Activity Flex Query 字段参考 + 开源解析库记录的形状手写,
+  账号、股数、价格全部编造。拿到真实报表后,按 tech-design/v1.26.md §零 脱敏补一份真实形状的样例。
+
+  故意放进来的几种情况:
+    · 两个账户
+    · 美股 / 港股(IBKR 给 700,我们存 00700)/ 沪股通 / 伦敦上市的美元 ETF(按报表收盘价估值)
+    · 一行期权(不同步,计数)
+    · 同一持仓的 LOT 明细行(不跳过就算两遍)
+    · 现金里的 BASE_SUMMARY 合计行(不跳过就算两遍)
+    · 带千分位的数字
+-->
+<FlexQueryResponse queryName="Holdings for FamilyFinance" type="AF">
+  <FlexStatements count="2">
+    <FlexStatement accountId="U1234521" fromDate="20260923" toDate="20260923" period="LastBusinessDay" whenGenerated="20260924;052011">
+      <CashReport>
+        <CashReportCurrency accountId="U1234521" currency="BASE_SUMMARY" levelOfDetail="BaseCurrency" startingCash="4,700" endingCash="4,738.46" />
+        <CashReportCurrency accountId="U1234521" currency="USD" levelOfDetail="Currency" startingCash="3,150" endingCash="3,200.00" />
+        <CashReportCurrency accountId="U1234521" currency="HKD" levelOfDetail="Currency" startingCash="12,000" endingCash="12,000.00" />
+      </CashReport>
+      <OpenPositions>
+        <OpenPosition accountId="U1234521" currency="USD" assetCategory="STK" symbol="AAPL" description="APPLE INC" listingExchange="NASDAQ" position="50" markPrice="228.10" positionValue="11,405" costBasisPrice="172.40" levelOfDetail="SUMMARY" />
+        <OpenPosition accountId="U1234521" currency="USD" assetCategory="STK" symbol="AAPL" description="APPLE INC" listingExchange="NASDAQ" position="20" markPrice="228.10" positionValue="4,562" costBasisPrice="160.00" levelOfDetail="LOT" />
+        <OpenPosition accountId="U1234521" currency="HKD" assetCategory="STK" symbol="700" description="TENCENT HOLDINGS LTD" listingExchange="SEHK" position="200" markPrice="512.00" positionValue="102,400" costBasisPrice="318.00" levelOfDetail="SUMMARY" />
+        <OpenPosition accountId="U1234521" currency="CNH" assetCategory="STK" symbol="600519" description="KWEICHOW MOUTAI CO LTD-A" listingExchange="SEHKNTL" position="10" markPrice="1,480.00" positionValue="14,800" costBasisPrice="1,560.00" levelOfDetail="SUMMARY" />
+        <OpenPosition accountId="U1234521" currency="USD" assetCategory="STK" symbol="VWRA" description="VANGUARD FTSE ALL-WORLD" listingExchange="LSEETF" position="30" markPrice="131.52" positionValue="3,945.60" costBasisPrice="118.20" levelOfDetail="SUMMARY" />
+        <OpenPosition accountId="U1234521" currency="USD" assetCategory="OPT" symbol="AAPL  261218C00250000" description="AAPL 18DEC26 250 C" listingExchange="CBOE" position="1" markPrice="9.80" positionValue="980" costBasisPrice="7.10" levelOfDetail="SUMMARY" />
+      </OpenPositions>
+    </FlexStatement>
+    <FlexStatement accountId="U7658830" fromDate="20260923" toDate="20260923" period="LastBusinessDay" whenGenerated="20260924;052011">
+      <CashReport>
+        <CashReportCurrency accountId="U7658830" currency="BASE_SUMMARY" levelOfDetail="BaseCurrency" endingCash="800.00" />
+        <CashReportCurrency accountId="U7658830" currency="USD" levelOfDetail="Currency" endingCash="800.00" />
+      </CashReport>
+      <OpenPositions>
+        <OpenPosition accountId="U7658830" currency="USD" assetCategory="STK" symbol="BRK B" description="BERKSHIRE HATHAWAY INC-CL B" listingExchange="NYSE" position="3" markPrice="468.00" costBasisPrice="-" levelOfDetail="SUMMARY" />
+      </OpenPositions>
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>

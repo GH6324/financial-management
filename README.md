@@ -131,7 +131,7 @@ Agent 模板存在百炼那边,**发新版本不会自动更新它** —— 早�
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · **942 单元** / 204 e2e 断言(7 条浏览器主线,真浏览器 + 真 DB)/ **884 黑盒回归**护栏 —— 每条护栏守的是哪个坑,见 [QA case 库](docs/qa-cases.md) |
+| 测试 | JUnit 5 · **985 单元** / 289 e2e 断言(8 条浏览器主线,真浏览器 + 真 DB)/ **895 黑盒回归**护栏 —— 每条护栏守的是哪个坑,见 [QA case 库](docs/qa-cases.md) |
 
 ## 快速开始(自托管部署)
 
@@ -339,7 +339,7 @@ mvn spring-boot:run
 测试:
 
 ```bash
-mvn test                       # JUnit 单元测试(942)
+mvn test                       # JUnit 单元测试(985)
 bash scripts/qa-run.sh         # 黑盒 endpoint + 模板渲染(见 README 上方测试行的黑盒回归数)
 node scripts/e2e/run.cjs       # 真 e2e:Playwright 开浏览器按用户路径点(失败自动截图)
 bash scripts/regression-data.sh # 数据层/口径回归(原 e2e.sh · curl 端点 + DB 真值 · 快照还原不清库)
@@ -361,7 +361,7 @@ bash scripts/regression-data.sh # 数据层/口径回归(原 e2e.sh · curl 端�
 |---|---|
 | [部署运行](deploy/README.md) | Compose V2 怎么装 / 国内镜像加速 / 反代 / 备份 |
 | [配置与接入](docs/configuration.md) | AI、短信等外部服务,**全部可选** |
-| [券商同步向导](docs/broker-sync-guide.md) | 富途 / 老虎凭据一步步获取 · 应用内同款 `/help/broker-sync` |
+| [券商同步向导](docs/broker-sync-guide.md) | 富途 / 老虎 / 盈透凭据一步步获取 · 应用内同款 `/help/broker-sync` |
 
 **做给维护者自己的**
 
@@ -377,10 +377,11 @@ bash scripts/regression-data.sh # 数据层/口径回归(原 e2e.sh · curl 端�
 每版做了什么、为什么那么做,都写在各自的文档里;这里只放入口,不复述。
 
 <details>
-<summary><b>展开全部 42 个版本</b>(v0.1 → v1.24)</summary>
+<summary><b>展开全部 43 个版本</b>(v0.1 → v1.26)</summary>
 
 | 版本 | 文档 |
 |---|---|
+| `v1.26` | [PRD](prd/v1.26.md) · [技术设计](tech-design/v1.26.md) · [预览](preview/v1.26/) |
 | `v1.24` | [PRD](prd/v1.24.md) · [技术设计](tech-design/v1.24.md) · [预览](preview/v1.24/) |
 | `v1.23` | [PRD](prd/v1.23.md) · [技术设计](tech-design/v1.23.md) · [预览](preview/v1.23/) |
 | `v1.22` | [PRD](prd/v1.22.md) · [技术设计](tech-design/v1.22.md) · [预览](preview/v1.22/) |
@@ -460,11 +461,11 @@ financial-management/
 │   └── README.md                         # 部署手册
 ├── prd/                                  # 产品需求文档
 ├── tech-design/                          # 技术设计文档
-├── preview/                              # 静态 HTML 预览(各版本卷 · v0.1 ~ v1.24)
+├── preview/                              # 静态 HTML 预览(各版本卷 · v0.1 ~ v1.26)
 ├── docs/qa-cases.md                      # QA case 库
 ├── icons/                                # 用户可替换的图标源 PNG
 └── scripts/
-    ├── qa-run.sh                         # 黑盒回归护栏(884 条)
+    ├── qa-run.sh                         # 黑盒回归护栏(895 条)
     ├── e2e/run.cjs                       # 端到端(真浏览器点 + 回库查真值)
     └── release-shots.cjs                 # 发版截图(隐私模式默认开)
 ```

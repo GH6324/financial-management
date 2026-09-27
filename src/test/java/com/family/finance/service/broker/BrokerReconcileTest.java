@@ -95,4 +95,40 @@ class BrokerReconcileTest {
         verify(hm, never()).archive(FAM, 9L);
         verify(hm, never()).update(anyLong(), any());
     }
+
+    /**
+     * v1.26 · IBKR 里拉不到价的市场(伦敦上市的美元 ETF 等)→ 手动估值行,单价 = 报表收盘价折成账户币种。
+     * 手动估值行的单价语义是「账户币种」,不折算就会把美元单价当人民币。
+     */
+    @Test
+    void reconcile_ibkr_manual_positions_are_priced_in_account_currency() {
+        StockHoldingMapper hm = mock(StockHoldingMapper.class);
+        AccountValuationService vs = mock(AccountValuationService.class);
+        when(vs.fxToAccountCurrency(FAM, ACC, "USD")).thenReturn(new BigDecimal("7.10"));
+        StockHolding oldLse = StockHolding.builder().id(21L).accountId(ACC).valuationMode(ValuationMode.MANUAL)
+                .ticker("VWRA").shares(BigDecimal.TEN).manualValue(BigDecimal.ONE).syncSource("IBKR").build();
+        when(hm.findActiveByAccount(FAM, ACC)).thenReturn(List.of(oldLse));
+
+        BrokerDtos.Snapshot snap = new BrokerDtos.Snapshot(List.of(), List.of(), 0, List.of(
+                new BrokerDtos.ManualPosition("VWRA", "VANGUARD FTSE ALL-WORLD", "LSEETF",
+                        new BigDecimal("30"), new BigDecimal("131.52"), new BigDecimal("118.20"), "USD"),
+                new BrokerDtos.ManualPosition("7203", "TOYOTA", "TSEJ",
+                        new BigDecimal("100"), new BigDecimal("20.00"), null, "USD")));
+        String summary = new BrokerSyncService(mock(BrokerLinkMapper.class), hm, List.of(), vs)
+                .reconcile(FAM, ACC, BrokerVendor.IBKR, snap);
+
+        // 已有的 VWRA:股数与单价都换成新报表的,单价折成账户币种(131.52 × 7.10)
+        verify(hm).update(FAM, oldLse);
+        assertThat(oldLse.getShares()).isEqualByComparingTo("30");
+        assertThat(oldLse.getManualValue()).isEqualByComparingTo("933.792");
+        assertThat(oldLse.getCostBasis()).isEqualByComparingTo("839.22");
+        assertThat(oldLse.getManualValueAt()).isNotNull();
+        // 新的丰田:新建一条手动估值行,标 IBKR 同步来源
+        org.mockito.ArgumentCaptor<StockHolding> cap = org.mockito.ArgumentCaptor.forClass(StockHolding.class);
+        verify(hm).insertOwned(org.mockito.ArgumentMatchers.eq(FAM), cap.capture());
+        assertThat(cap.getValue().getValuationMode()).isEqualTo(ValuationMode.MANUAL);
+        assertThat(cap.getValue().getSyncSource()).isEqualTo("IBKR");
+        assertThat(cap.getValue().getDisplayName()).isEqualTo("TOYOTA · TSEJ");
+        assertThat(summary).contains("按券商收盘价估值 2");
+    }
 }

@@ -58,7 +58,8 @@ public class DynamicScheduleConfig {
     private static final String DEFAULT_STOCK_CRON_CRYPTO = "0 15 6 * * *";
     private static final String DEFAULT_METAL_CRON        = "0 20 16 * * MON-FRI";
     private static final String DEFAULT_FX_CRON           = "0 30 2 1 * ?";
-    private static final String DEFAULT_REPORT_REMIND_CRON = "0 0 10,20 * * *";
+    /** v1.26 · 与提醒页共用一份默认(页面把它显示成「10,20」)*/
+    private static final String DEFAULT_REPORT_REMIND_CRON = com.family.finance.service.notify.RemindTimes.DEFAULT_CRON;
     /** v0.15 · 券商同步默认:工作日 16:45(A/HK 收盘后)· 无 enabled 关联时空跑 */
     private static final String DEFAULT_BROKER_SYNC_CRON  = "0 45 16 * * MON-FRI";
     /**

@@ -12,7 +12,7 @@
       <div>
         <div class="eyebrow mb-2">数 · 值 · 阈 · 值</div>
         <h1 class="font-display text-4xl font-medium">计算与提示常数</h1>
-        <p class="text-ink-soft text-sm mt-2">影响轧差提示 / 体检规则 / 会话有效期 · 改后<b>实时生效不重启</b></p>
+        <p class="text-ink-soft text-sm mt-2">影响轧差提示 / 再平衡核销 / 体检规则 / 会话有效期 · 改后<b>实时生效不重启</b></p>
       </div>
       <span class="pill pill-forest text-[10px]">v0.4.18 起可编辑</span>
     </div>
@@ -27,7 +27,7 @@
         <span class="font-mono text-[10px] text-ink-subtle tracking-wider">影响 /entry</span>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div>
           <label class="field-label">智能转账阈值</label>
           <div class="flex items-baseline gap-2">
@@ -48,6 +48,16 @@
             <input class="field-input w-28" type="number" name="unexplainedEps" th:value="${unexplainedEps}" min="0" step="0.01"/>
           </div>
           <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">轧差未解释绝对值 &lt; 此 · 视为已分类完毕</p>
+        </div>
+        <!--/* v1.26 · 再平衡核销比例补上入口(配置键 v1.2 起就在读,页面一直没有 —— 护栏 v126-CONFIG-KEY-HAS-HOME 查出)。
+             填报页记一笔划转时,和再平衡计划里「从 A 到 B」的那一条比:金额够计划的这个比例,那一条就算执行了。 */-->
+        <div>
+          <label class="field-label">再平衡「算执行了」的比例</label>
+          <div class="flex items-baseline gap-2">
+            <input class="field-input w-28" type="number" name="rebalanceMatchPct" th:value="${rebalanceMatchPct}" min="50" max="100" step="5"/>
+            <span class="font-mono text-ink-soft">%</span>
+          </div>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">记一笔划转,从 A 到 B 的金额达到计划的这个比例 · 那一条就标成已执行 · 默认 80</p>
         </div>
       </div>
 

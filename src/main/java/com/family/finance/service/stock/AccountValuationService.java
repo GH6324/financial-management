@@ -498,6 +498,16 @@ public class AccountValuationService {
         return out;
     }
 
+    /**
+     * v1.26 · 某币种 → 该账户币种的汇率。券商同步里「拉不到价、按券商收盘价估值」的持仓(IBKR 的伦敦 / 东京 …)
+     * 要以手动估值行落库,而手动估值行的单价语义是<b>账户币种</b> —— 折算与现金行用同一套取价。
+     */
+    public BigDecimal fxToAccountCurrency(long familyId, long accountId, String fromCurrency) {
+        Account acc = accountMapper.findById(familyId, accountId)
+                .orElseThrow(() -> new IllegalArgumentException("账户不存在: " + accountId));
+        return resolveFxRate(familyId, fromCurrency, acc.getCurrency());
+    }
+
     private BigDecimal resolveFxRate(long familyId, String fromCurrency, String toCurrency) {
         if (fromCurrency == null || toCurrency == null || fromCurrency.equalsIgnoreCase(toCurrency)) {
             return BigDecimal.ONE;

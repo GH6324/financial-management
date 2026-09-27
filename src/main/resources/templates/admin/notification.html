@@ -42,14 +42,29 @@
         </label>
       </div>
 
-      <div class="flex items-end gap-4 pt-2 border-t border-rule">
+      <!--/* v1.26 · 「每天几点提醒」补上入口。配置键 report_remind_cron 从 v0.4.18 起就在读,页面一直没有 ——
+           只能用代码默认的 10:00 / 20:00(护栏 v126-CONFIG-KEY-HAS-HOME 查出来的缺口,维护者 2026-09-27 要求补)。
+           这里填「几点」,不让人填 cron;有人手工配过别的 cron 时照原样显示,填了小时就覆盖它。 */-->
+      <div class="flex items-end gap-6 pt-2 border-t border-rule flex-wrap">
         <div>
-          <label class="field-label">截止前几天开始强提醒 · LEAD DAYS</label>
-          <input class="field-input w-28" type="number" name="leadDays" min="0" max="15"
-                 th:value="${leadDays}"/>
-          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">默认 2 · 距 period 结束日 ≤ 此值开始每天 10:00 / 20:00 触达</p>
+          <label class="field-label">截止前几天开始提醒</label>
+          <div class="flex items-baseline gap-2">
+            <input class="field-input w-28" type="number" name="leadDays" min="0" max="15"
+                   th:value="${leadDays}"/><span class="font-mono text-ink-soft">天</span>
+          </div>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">默认 2 · 离这一期截止还剩这么多天起,每天提醒没填完的人</p>
         </div>
-        <button type="submit" class="btn-ink ml-auto">保存模板</button>
+        <div>
+          <label class="field-label">每天几点提醒</label>
+          <div class="flex items-baseline gap-2">
+            <input class="field-input w-32" type="text" name="remindHours" inputmode="numeric"
+                   th:value="${remindHours}" placeholder="10,20"/><span class="font-mono text-ink-soft">点</span>
+          </div>
+          <p class="font-mono text-[10px] text-ink-subtle mt-1 tracking-wider">0–23 的整点,逗号隔开,最多 4 个 · 同一个人一天只收一条,后面的时间是前一次没发出去时的补发</p>
+          <p th:if="${remindHours == null}" class="font-mono text-[10px] mt-1 tracking-wider" style="color:var(--brass-deep)"
+             th:text="'现在用的是自定义时间表「' + ${remindCron} + '」· 留空不改,填了整点就覆盖它'">现在用的是自定义时间表</p>
+        </div>
+        <button type="submit" class="btn-ink ml-auto">保存模板与提醒时间</button>
       </div>
     </form>
 

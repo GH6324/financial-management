@@ -45,6 +45,7 @@ public class AccountController {
     private final LedgerExporter ledgerExporter;
     private final AccountDetailService accountDetailService;
     private final com.family.finance.repository.BrokerLinkMapper brokerLinkMapper; // v0.15.x 券商托管徽章
+    private final com.family.finance.service.broker.ibkr.IbkrFlexClient ibkrClient;     // v1.26 · IBKR 口令到期标记
     private final InsurancePolicyMapper insurancePolicyMapper; // v0.17 保单登记旁表
 
     @GetMapping
@@ -216,8 +217,21 @@ public class AccountController {
                 brokerFailures.put(bl.getAccountId(), bl.getLastStatus());
             }
         }
+        // v1.26 · IBKR 报表口令一年一到期:到期前 14 天起,在关联了 IBKR 的账户上标出来(和「同步失败」同一个位置)。
+        //   已经失败的不再重复标 —— 那一格已经是红的「同步失败」,原因里写着口令过期。
+        var brokerExpiry = new java.util.LinkedHashMap<Long, String>();
+        Long ibkrDays = ibkrClient.daysToExpiry(me.getFamilyId(), java.time.LocalDate.now());
+        if (ibkrDays != null && ibkrDays <= com.family.finance.service.broker.ibkr.IbkrFlexClient.EXPIRY_WARN_DAYS) {
+            for (var bl : brokerLinkMapper.findByFamily(me.getFamilyId())) {
+                if (bl.getVendor() == com.family.finance.domain.broker.BrokerVendor.IBKR && bl.isEnabled()
+                        && !brokerFailures.containsKey(bl.getAccountId())) {
+                    brokerExpiry.put(bl.getAccountId(), ibkrDays <= 0 ? "口令已过期" : "口令 " + ibkrDays + " 天后到期");
+                }
+            }
+        }
         model.addAttribute("brokerLinks", brokerLinks);
         model.addAttribute("brokerFailures", brokerFailures);
+        model.addAttribute("brokerExpiry", brokerExpiry);
         model.addAttribute("form", new AccountForm());
         model.addAttribute("allCategories", productCategoryService.listAll());
         model.addAttribute("insuranceSubTypes", InsuranceSubType.values()); // v0.17 保险子类型下拉
@@ -253,7 +267,7 @@ public class AccountController {
     /** v1.1 · 平台/机构常用建议(datalist · 自由文本可另填) */
     private static final String[] PLATFORM_SUGGESTIONS = {
             "招商银行", "工商银行", "建设银行", "中国银行", "支付宝 · 蚂蚁财富", "微信 · 理财通",
-            "富途证券", "老虎证券", "华泰证券", "中信证券", "天天基金", "京东金融",
+            "富途证券", "老虎证券", "盈透证券", "华泰证券", "中信证券", "天天基金", "京东金融",
             "中国人寿", "平安保险", "泰康保险", "币安", "欧易", "其他"
     };
 

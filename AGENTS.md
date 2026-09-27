@@ -16,7 +16,9 @@
 
 **硬约束**:夫妻每月**异步、10 分钟内**完成全部录入。任何"更全面但要更频繁录入"的功能都要拒。颗粒度**永远停在账户级月度快照**,不做单券持仓明细。
 
-**刻意不做**(反例,别提议):**逐笔流水账** / 定投提醒 / 预算包络 / AA 账本 / 报销 / 券商 API 直连 / 银行账单 OCR / Docker 之外引入 K8s。
+**刻意不做**(反例,别提议):**逐笔流水账** / 定投提醒 / 预算包络 / AA 账本 / 报销 / 券商 API 直连**下单** / 银行账单 OCR / Docker 之外引入 K8s。
+
+> 「券商 API 直连」从 v0.15 起有一个**只读例外**:只拉持仓 + 现金、永不下单(`prd/v0.15.md:5`)。富途 / 老虎(v0.15)、盈透 IBKR(v1.26 · 走 Flex 报表,口令本身只能取报表)都在这个例外里。清单原来没写这句,读起来像连只读同步也不做 —— issue #24 时补上。
 
 > v1.21 起「消费品类细化」**不再**在这张表里(issue #18)。这条边界挪过<b>两次</b>,记清楚最终位置:
 >
@@ -91,6 +93,7 @@ worktree 的工作目录里没有 `.githooks/`(那是 master 上的文件),hook 
 **必须先懂的领域概念**(改相关代码前务必对齐):
 
 - **双轨收入**:`period_member_cashflow`(PMC「2框」· 家庭成员月度总收入/总支出 · 无账户关联)vs 账户级 `cash_flow`(每账户逐笔 · 驱动余额/XIRR/PnL)。**FR-142 起收入侧以 `cash_flow` 汇总为准**(历史 PMC 收入 >0 时兜底优先,防双计);支出侧仍 PMC 优先。
+- **券商只读同步**(v0.15 · v1.26 加盈透):`BrokerClient` 只有读方法;同步只动 `sync_source=本券商` 的持仓行,绝不碰手填。券商拉不到价的市场(IBKR 的伦敦 / 东京 …)按券商报表收盘价落 **MANUAL** 行(单价折成账户币种)。**IBKR 的「报表口令」**一年一到期,到期后同步会停 —— 账户列表 / 券商页提前 14 天提醒,过期后卡片标红(`IbkrErrors` 把错误码翻成人话并带 IBKR 原话)。IBKR 的失败是 **HTTP 200 + Fail 信封**,不带 User-Agent 是 403。
 - **股票账户估值**:账户余额 = Σ 持仓估值。持仓 `ValuationMode`:**AUTO**(上市 · ticker+shares · 自动拉价)/ **MANUAL**(未上市如字节 · **v0.12.1 起 = 股数 × 单股手填估值**)/ **CASH**(券商现金 · 按币种)。估值刷新(`AccountValuationService.refreshAllForFamily`)会**重算并覆盖 `period_snapshot`** → 股票收入必须落 **CASH 行**(现金)或 **+持仓股数**(RSU),再 `applyDeltaToBalance` 立即入账,别直接改余额(会被刷新覆盖)。
 - **`is_adjustment`(V33)**:手动改股票现金行的本金进出 → `cash_adjust`/`is_adjustment=1`,**剔出 PnL、不计家庭收入**;真实外部收入 `is_adjustment=0`。
 - **币种三层**(极易错,见 L2/L3):
@@ -121,7 +124,7 @@ worktree 的工作目录里没有 `.githooks/`(那是 master 上的文件),hook 
 | 报表 | `/reports` | **月度封板快照**(v1.10 三区):一区 本期封板(资产负债表/资金流瀑布/环比同比/归因)· 二区 结构与风险(集中度/流动性分层)· 三区 趋势(**range 只作用于此**)· 账期筛选 + 长文目录 TOC | `reports/*` · `_toc` |
 | 目标 | `/goals` | FIRE 退休 / 教育 / 应急金 · 三情景预测 | `goals/*` |
 | 资产体检 | `/checkup` | 4 维诊断(配置/风险/流动性/收益)+ AI 调仓 · **长文目录 TOC** | `checkup/*` · `_toc` |
-| 管理 | `/admin` | **所有运营参数热改**(品牌/成员/周期/提醒/汇率/数据源/阈值/aksk/key)· 改即生效不重启 | `admin/*` |
+| 管理 | `/admin` | **所有运营参数热改**(品牌/成员/周期/提醒/汇率/数据源/券商/AI/阈值/aksk/key)· 改即生效不重启 · 按「用户要完成的事」分入口:数据源接入 = 系统拉的公共数据(行情/汇率/贵金属/宏观)· 券商同步 = 自己的券商凭据(`/admin/broker`,v1.26)· AI 接入 = 大模型与超级 Agent | `admin/*` |
 | 公开 | `/`(landing) `/login` `/onboarding` | 落地页(含工程数字带)/ 登录 / 首次引导 | `landing.html`(`data-stat`)· `auth/*` · `onboarding/*` |
 
 ---
@@ -193,7 +196,7 @@ worktree 的工作目录里没有 `.githooks/`(那是 master 上的文件),hook 
 | L6 · 股票估值/持仓模型 | 改 `stock_holding` 字段 / `ValuationMode` / 计值 | `AccountValuationService.valuateInternal`(AUTO/MANUAL/CASH 三分支)· 迁移 backward-compat(prod 老数据折算总值不变)· 持仓管理 UI + 收入侧联动 | `v12-MANUAL-SHARES` · `v03-STOCK-*` |
 | L7 · prod backward-compat | 任何 schema/代码/部署改动 | 先想对线上现有数据影响:迁移只 `ADD COLUMN NULL`/数据折算不破坏;**回滚只回 jar 不回 DB → 迁移须向前兼容老 jar** | release preflight 迁移提示 |
 | L8 · UI 规范 | 新增 UI 文案/图标 | **禁 emoji**,用 inline SVG(Feather 24×24 `stroke=currentColor`);入口/按钮命名**避免技术词**(集成/API/接口)让非技术家庭成员看得懂 | `TODO: no-emoji grep 守护` |
-| L9 · 运营参数 | 新增阈值/aksk/节奏/手机号等运营配置 | 走**管理页**配(DB > env > 代码默认 三层 fallback)· 不写服务器配置文件;涉及外部平台接入配一键测试入口 | 人工 |
+| L9 · 运营参数 | 新增阈值/aksk/节奏/手机号等运营配置(任何新的 `FamilyConfigService.K_*`) | 走**管理页**配(DB > env > 代码默认 三层 fallback)· 不写服务器配置文件;涉及外部平台接入配一键测试入口。**放哪**(2026-09-27 维护者定):按「用户要完成的事」归,不按技术分类 —— 同一件事(又一家券商 / 又一个行情源)并进已有那一节;不同的事(个人凭据 vs 公共数据、AI vs 行情)新开入口,判据三问:① 用户会带着什么词来找?那个词必须出现在**管理首页卡片**上(IBKR 这次就漏在这:卡上只写「券商同步」没写哪几家)② 填的是用户自己的账户凭据,还是系统用的公共数据?③ 配完在哪用、出了问题要和谁一起排查?**找得到**:页面上任何「去管理页配」的指路都必须是能点的链接,直达那一节的锚点,从某个账户过来的带 `?account=` 回跳 | `v126-CONFIG-KEY-HAS-HOME`(新 K_ 键要么 web 层有读写、要么登记不用配的理由)· `v126-BROKER-OWN-PAGE` · `v1197-ADMIN-LANDING-COMPLETE` |
 | L10 · 敏感值不入公开库 | 写文档/脚本/配置涉及 IP / SSH / 域名后台 / 凭据 / 密钥 / 部署路径 / 邮箱 / **prod 真实金额(净资产 / 账户余额 / 收支)** 等 | **不进任何 tracked 文件**(仓库是公开开源库)· 具体值放 git-ignored `AGENTS.local.md` 或 Claude memory · 正文只留占位/通用说法 · 误提交后需**重写历史 + 强推**(`git filter-repo`)清除 | `vSEC-1`(扫 tracked 文件里 URL/SSH 上下文的公网 IP) |
 | L11 · 功能入口可见性 | **收纳 / 精简 / 去杂**类 UI 改动;或新增能力 | diff 里每个被移除/移动/塞进折叠容器的 `th:href` 逐个确认在别处仍**一眼可见**;新能力同时登记进 `scripts/entry-points.json`。判据见 `docs/entry-points.md`:能力入口必须 `obvious`,`⋯`/`details` 只放低频维护动作(归档/导出/恢复) | `v1623-ENTRY-VIS`(运行时·PC+移动)· `v15-ENTRY-1`(静态·券商不得落在 `row-more-pop` 里) |
 | L12 · 指标口径锚点 | 新增/修改任何指标,或改取数窗口 | 取数是 `账户 × 账期` 全交叉且**不过滤 `period.status`** → 进行中账期会成为「最后一期」。**存量类**(净资产/总资产/总负债/流动资产/环比)锚 `lastPeriodId`;**收益类**(本月资产收益/XIRR/TWR/YTD/人赚钱赚/储蓄率)必须走 `FactSlice.returnPeriodIds()`(最近 ≤12 个已关账期)。三条硬约束:① `openingBaselineLast` **必须仍锚 last**(否则「本期怎么变」卡的 ΔNW = 人赚 + 钱赚 + 开账基线 恒等式破掉);② 同名指标跨页必须取到**同一批账期**(各页窗口宽度本就不同:报表锚已关账期 / 仪表盘 −12 月 / 体检 −11 月);③ 换锚必须在**页面上显示口径期**并同步 tooltip —— 口径变了不说等于制造新困惑 | `v1630-CLOSED-ANCHOR` · `ClosedPeriodAnchorTest` |

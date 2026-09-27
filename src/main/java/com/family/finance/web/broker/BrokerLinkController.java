@@ -43,6 +43,7 @@ public class BrokerLinkController {
     private final BrokerLinkMapper linkMapper;
     private final AccountMapper accountMapper;
     private final NavService navService;
+    private final com.family.finance.service.broker.ibkr.IbkrFlexClient ibkrClient;   // v1.26 · 关联页的 IBKR 账户下拉 + 到期提醒
 
     @GetMapping("/accounts/{accountId}/broker")
     public String page(@AuthenticationPrincipal MemberPrincipal me,
@@ -53,6 +54,8 @@ public class BrokerLinkController {
         model.addAttribute("account", account);
         model.addAttribute("link", linkMapper.findByAccount(me.getFamilyId(), accountId).orElse(null));
         model.addAttribute("vendors", BrokerVendor.values());
+        model.addAttribute("ibkrAccounts", ibkrClient.knownAccounts(me.getFamilyId()));
+        model.addAttribute("ibkrDaysToExpiry", ibkrClient.daysToExpiry(me.getFamilyId(), java.time.LocalDate.now()));
         return "broker/link";
     }
 

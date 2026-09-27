@@ -56,9 +56,10 @@
 
 | 管理页 | 配什么 |
 |---|---|
-| `/admin/integrations` | 股票开关+cron / 汇率 cron / 贵金属 / 券商同步 / 宏观 CPI·M2 校正 |
+| `/admin/integrations` | 股票开关+cron / 汇率 cron / 贵金属 / 宏观 CPI·M2 校正 |
+| `/admin/broker` | 券商同步:富途 / 老虎 / 盈透的凭据、测试连接、同步时间;富途 OpenD 向导(v1.26 起单独一页,之前在数据源接入)|
 | `/admin/ai-access` | 大模型密钥与型号 / 超级 Agent / 让 AI 读你的账本(只读口令) |
-| `/admin/reminders` | 填报模板 / 提前提醒天数 / 短信 aksk·签名·模板 / 成员手机号 |
-| `/admin/calc-tweaks` | 体检阈值等计算参数 |
+| `/admin/reminders` | 填报模板 / 提前提醒天数 / 每天几点提醒 / 短信 aksk·签名·模板 / 成员手机号 |
+| `/admin/calc-tweaks` | 录入提示阈值(含再平衡「算执行了」的比例)/ 体检阈值等计算参数 |
 
 改完即生效、不重启;读取优先级:**数据库 > 环境变量 > 代码默认**。

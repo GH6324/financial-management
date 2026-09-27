@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
  *
  * <p>路由:</p>
  * <ul>
- *   <li>GET /help/broker-sync · 券商同步凭据获取图文向导(富途 / 老虎)</li>
+ *   <li>GET /help/broker-sync · 券商同步凭据获取图文向导(富途 / 老虎 / 盈透)</li>
  * </ul>
  */
 @Controller

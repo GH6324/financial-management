@@ -50,4 +50,43 @@ class BrokerFailureNoteTest {
         assertThat(note.length()).isLessThan(120);
         assertThat(note).contains("…");
     }
+
+    /** v1.26 · IBKR 的失败要原样带着 IBKR 原话 —— 上面那几条是给 OpenD 写的,套在 IBKR 上会把原话吞掉 */
+    @Test
+    void ibkr_failure_keeps_human_text_and_ibkr_words() {
+        String note = BrokerSyncService.failureNote(
+                com.family.finance.service.broker.ibkr.IbkrErrors.fromEnvelope("1012", "Token has expired."));
+        assertThat(note).startsWith("同步失败 · ").contains("报表口令已过期").contains("1012").contains("Token has expired.");
+        assertThat(note.length()).isLessThanOrEqualTo(255);   // broker_link.last_status 是 VARCHAR(255)
+    }
+
+    /**
+     * v1.26 · 失败必须落库,而且不能在事务里(事务一回滚就没了)。
+     * 这里守调用路径:取数失败 → markFailed 被调、异常照常抛给页面;事务边界由 qa-run 护栏 v126-BROKER-FAIL-OUTSIDE-TX 守。
+     */
+    @Test
+    void fetch_failure_is_recorded_then_rethrown() {
+        var linkMapper = org.mockito.Mockito.mock(com.family.finance.repository.BrokerLinkMapper.class);
+        var link = new com.family.finance.domain.broker.BrokerLink();
+        link.setVendor(com.family.finance.domain.broker.BrokerVendor.IBKR);
+        link.setEnabled(true);
+        org.mockito.Mockito.when(linkMapper.findByAccount(1L, 7L)).thenReturn(java.util.Optional.of(link));
+        BrokerClient failing = new BrokerClient() {
+            public com.family.finance.domain.broker.BrokerVendor vendor() { return com.family.finance.domain.broker.BrokerVendor.IBKR; }
+            public BrokerDtos.TestReport testConnection(long f, com.family.finance.domain.broker.BrokerLink l) { return null; }
+            public BrokerDtos.Snapshot fetch(long f, com.family.finance.domain.broker.BrokerLink l) {
+                throw com.family.finance.service.broker.ibkr.IbkrErrors.fromEnvelope("1012", "Token has expired.");
+            }
+        };
+        var svc = new BrokerSyncService(linkMapper,
+                org.mockito.Mockito.mock(com.family.finance.repository.StockHoldingMapper.class),
+                java.util.List.of(failing),
+                org.mockito.Mockito.mock(com.family.finance.service.stock.AccountValuationService.class));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> svc.sync(1L, 7L, null))
+                .hasMessageContaining("报表口令已过期");
+        org.mockito.Mockito.verify(linkMapper).markFailed(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(7L),
+                org.mockito.ArgumentMatchers.startsWith("同步失败 · 报表口令已过期"));
+        org.mockito.Mockito.verify(linkMapper, org.mockito.Mockito.never()).markSynced(org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyString());
+    }
 }

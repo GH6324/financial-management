@@ -121,7 +121,7 @@ public class FutuOpendController {
                     "family_runtime_config", fid, "OpenD 台测试连接 · 富途 · 成功");
             return report;
         } catch (Exception e) {
-            String reason = com.family.finance.web.admin.IntegrationsController.brokerError(e.getMessage());
+            String reason = com.family.finance.web.admin.BrokerSettingsController.brokerError(e.getMessage());
             auditLog.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE,
                     "family_runtime_config", fid, "OpenD 台测试连接 · 富途 · 失败:" + reason);
             return java.util.Map.of("error", reason);

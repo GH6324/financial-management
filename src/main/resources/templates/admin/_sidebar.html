@@ -3,7 +3,7 @@
 <body>
 <aside th:fragment="sidebar(active)" class="col-span-12 md:col-span-3">
   <div class="sticky top-24">
-    <div class="eyebrow mb-4">/ADMIN · 15 项</div>
+    <div class="eyebrow mb-4">/ADMIN · 18 项</div>
     <nav class="flex flex-col text-sm">
       <a th:href="@{/admin}" th:classappend="${active=='hub'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">总览</a>
       <a th:href="@{/admin/family}" th:classappend="${active=='family'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">家庭设置</a>
@@ -17,6 +17,7 @@
       <a th:href="@{/admin/reminders}" th:classappend="${active=='reminders'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">提醒</a>
       <a th:href="@{/admin/fx}" th:classappend="${active=='fx'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">汇率</a>
       <a th:href="@{/admin/integrations}" th:classappend="${active=='integrations'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">数据源接入</a>
+      <a th:href="@{/admin/broker}" th:classappend="${active=='broker'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">券商同步</a>
       <a th:href="@{/admin/ai-access}" th:classappend="${active=='ai-access'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">AI 接入</a>
       <a th:href="@{/admin/backup}" th:classappend="${active=='backup'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">备份</a>
       <a th:href="@{/admin/reconcile}" th:classappend="${active=='reconcile'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">账目对账<span class="text-ink-subtle text-[10px] ml-1">· 只读</span></a>

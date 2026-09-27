@@ -14,8 +14,21 @@ public final class BrokerDtos {
     /** 某币种现金。 */
     public record Cash(String currency, BigDecimal amount) {}
 
-    /** 一次拉取快照:持仓 + 各币种现金 + 跳过的非股票笔数(期权/期货)。 */
-    public record Snapshot(List<Position> positions, List<Cash> cash, int skippedNonEquity) {}
+    /**
+     * 拉不到价的股票(v1.26 · IBKR 的伦敦 / 东京 / 新加坡等市场):按券商给的收盘价做「手动估值」持仓。
+     * {@code unitPrice} / {@code costPrice} 是持仓币种的单价;折成账户币种在对账时做(那里才知道账户币种)。
+     */
+    public record ManualPosition(String symbol, String name, String exchange, BigDecimal shares,
+                                 BigDecimal unitPrice, BigDecimal costPrice, String currency) {}
+
+    /** 一次拉取快照:持仓 + 各币种现金 + 跳过的非股票笔数(期权/期货)+ 按券商价估值的持仓(v1.26)。 */
+    public record Snapshot(List<Position> positions, List<Cash> cash, int skippedNonEquity,
+                           List<ManualPosition> manualPositions) {
+        /** 富途 / 老虎沿用的旧签名:没有「按券商价估值」的持仓 */
+        public Snapshot(List<Position> positions, List<Cash> cash, int skippedNonEquity) {
+            this(positions, cash, skippedNonEquity, List.of());
+        }
+    }
 
     /**
      * 测试连接报告(富卡片呈现)· v0.15.x:让用户一眼看到连的是哪个户、开了什么市场、里面有什么。
