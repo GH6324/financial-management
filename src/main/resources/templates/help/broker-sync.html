@@ -8,7 +8,7 @@
 <main class="max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10">
 
   <div class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle mb-4">
-    <a th:href="@{/admin/integrations}" class="hover:text-ink no-underline">数据源接入</a>
+    <a th:href="@{/admin/broker}" class="hover:text-ink no-underline">券商同步</a>
     <span class="mx-2 text-rule">/</span><span class="text-ink">券商同步 · 图文向导</span>
   </div>
 
@@ -34,7 +34,7 @@
     <a href="#futu" class="btn-ink no-underline">富途 Futu 怎么配 ↓</a>
     <a href="#tiger" class="btn-paper no-underline">老虎 Tiger 怎么配 ↓</a>
     <a href="#ibkr" class="btn-paper no-underline">盈透 IBKR 怎么配 ↓</a>
-    <span class="ml-auto font-mono text-[10px] text-ink-subtle self-center">配完回 <a th:href="@{/admin/integrations}" class="underline hover:text-ink">管理 → 数据源接入 → ④ 券商同步</a> 填写</span>
+    <span class="ml-auto font-mono text-[10px] text-ink-subtle self-center">配完回 <a th:href="@{/admin/broker}" class="underline hover:text-ink">管理 → 券商同步</a> 填写</span>
   </div>
 
   <!-- ============ 富途 ============ -->
@@ -102,7 +102,7 @@
           <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">3</span>
           <div class="w-full">
             <div class="font-display text-lg mb-1">记下网关的「地址」和「端口」</div>
-            <p class="text-sm text-ink-soft mb-3">OpenD 界面上会显示监听地址,默认就是 <span class="font-mono">127.0.0.1</span> 和端口 <span class="font-mono">11111</span>。到「管理 → 数据源接入 → ④ 券商同步」的<b class="text-ink">富途 Futu</b>栏填:</p>
+            <p class="text-sm text-ink-soft mb-3">OpenD 界面上会显示监听地址,默认就是 <span class="font-mono">127.0.0.1</span> 和端口 <span class="font-mono">11111</span>。到<a th:href="@{/admin/broker} + '#futu'" class="underline hover:text-ink">「管理 → 券商同步」</a>的<b class="text-ink">富途 Futu</b>栏填:</p>
             <div class="overflow-hidden border border-rule rounded-sm">
               <table class="w-full text-sm">
                 <tr class="bg-card-soft"><td class="p-2 font-mono text-[11px] text-ink-subtle border-b border-rule">我们的输入框</td><td class="p-2 font-mono text-[11px] text-ink-subtle border-b border-rule">填什么</td></tr>
@@ -226,7 +226,7 @@
           <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">4</span>
           <div class="w-full">
             <div class="font-display text-lg mb-1">回本系统填写并测试</div>
-            <p class="text-sm text-ink-soft mb-3">到「管理 → 数据源接入 → ④ 券商同步」的<b class="text-ink">老虎 Tiger</b>那一栏,对应填入:</p>
+            <p class="text-sm text-ink-soft mb-3">到<a th:href="@{/admin/broker} + '#tiger'" class="underline hover:text-ink">「管理 → 券商同步」</a>的<b class="text-ink">老虎 Tiger</b>那一栏,对应填入:</p>
             <div class="overflow-hidden border border-rule rounded-sm">
               <table class="w-full text-sm">
                 <tr class="bg-card-soft"><td class="p-2 font-mono text-[11px] text-ink-subtle border-b border-rule">我们的输入框</td><td class="p-2 font-mono text-[11px] text-ink-subtle border-b border-rule">填什么</td></tr>
@@ -301,7 +301,7 @@
           <span class="shrink-0 w-7 h-7 rounded-full bg-ink text-paper font-mono text-sm flex items-center justify-center">5</span>
           <div>
             <div class="font-display text-lg mb-1">粘回账房,测试</div>
-            <p class="text-sm text-ink-soft">回 <b class="text-ink">管理 → 数据源接入 → ④ 券商同步</b> 的「盈透 IBKR」一格:粘上报表口令、查询号,顺手填上<b class="text-ink">口令到期日</b>(一年后的今天)—— 填了,到期前 14 天账房会提醒你换。点「保存券商配置」,再点「测试盈透 IBKR 连接」,会列出找到的账户。然后到证券账户的「券商」页选「盈透 IBKR」关联。</p>
+            <p class="text-sm text-ink-soft">回 <a th:href="@{/admin/broker} + '#ibkr'" class="underline hover:text-ink"><b class="text-ink">管理 → 券商同步</b></a> 的「盈透 IBKR」一格:粘上报表口令、查询号,顺手填上<b class="text-ink">口令到期日</b>(一年后的今天)—— 填了,到期前 14 天账房会提醒你换。点「保存券商配置」,再点「测试盈透 IBKR 连接」,会列出找到的账户。然后到证券账户的「券商」页选「盈透 IBKR」关联。</p>
           </div>
         </div>
       </li>
@@ -314,7 +314,7 @@
   </section>
 
   <div class="flex flex-wrap gap-3">
-    <a th:href="@{/admin/integrations}" class="btn-ink no-underline">去填写券商配置</a>
+    <a th:href="@{/admin/broker}" class="btn-ink no-underline">去填写券商配置</a>
     <a th:href="@{/accounts}" class="btn-paper no-underline">返回账户</a>
   </div>
 

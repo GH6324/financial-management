@@ -83,7 +83,7 @@ class IbkrFlexClientTest {
     void 没配口令_说清楚去哪配() {
         when(config.getString(anyLong(), eq(FamilyConfigService.K_BROKER_IBKR_TOKEN), anyString())).thenReturn("");
         assertThatThrownBy(() -> client.fetch(1L, link("U1234521")))
-                .isInstanceOf(IbkrFlexException.class).hasMessageContaining("数据源接入");
+                .isInstanceOf(IbkrFlexException.class).hasMessageContaining("管理 → 券商同步");
     }
 
     @Test

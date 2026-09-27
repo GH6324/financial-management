@@ -55,6 +55,6 @@ public final class IbkrErrors {
     }
 
     public static IbkrFlexException notConfigured() {
-        return new IbkrFlexException(null, null, "IBKR 报表口令 / 查询号未配置 —— 到「管理 → 数据源接入 → 券商同步」填好", false);
+        return new IbkrFlexException(null, null, "IBKR 报表口令 / 查询号未配置 —— 到「管理 → 券商同步」填好", false);
     }
 }

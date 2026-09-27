@@ -70,6 +70,10 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>不想自己装?用一键安装 / 托管 OpenD 向导 →</a>
       <a th:href="@{/help/broker-sync}" class="inline-flex items-center gap-1 font-mono text-[11px] text-brass-deep underline hover:text-ink no-underline">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>不会获取凭据?看图文教程 →</a>
+      <!-- v1.26 · 凭据在哪填,在这一页任何时候都能点过去(带上本账户,配完一键回来)。
+           2026-09-27 维护者:关联页只写了「先去管理页」,用户不知道管理页哪一格 —— 指路必须是能点的链接。 -->
+      <a th:href="@{/admin/broker(account=${account.id})}" class="inline-flex items-center gap-1 font-mono text-[11px] text-brass-deep underline hover:text-ink no-underline">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>券商凭据在「管理 → 券商同步」→</a>
     </div>
   </section>
 
@@ -125,7 +129,10 @@
     <!-- v1.26 · IBKR 报表口令一年一到期 —— 到期后同步会停,所以提前 14 天说出来(FR-756) -->
     <div th:if="${link.vendor.name() == 'IBKR' and ibkrDaysToExpiry != null and ibkrDaysToExpiry <= 14}"
          class="mb-4 p-3 bg-card-soft" style="border-left:4px solid var(--brass-deep)">
-      <div class="text-sm" th:text="${ibkrDaysToExpiry <= 0} ? 'IBKR 报表口令已过期 · 去 IBKR 后台重新生成(有效期选 1 年),再粘到「管理 → 数据源接入 → 券商同步」' : 'IBKR 报表口令 ' + ${ibkrDaysToExpiry} + ' 天后到期 · 去 IBKR 后台重新生成,再粘到「管理 → 数据源接入 → 券商同步」'">IBKR 报表口令 9 天后到期</div>
+      <div class="text-sm">
+        <span th:text="${ibkrDaysToExpiry <= 0} ? 'IBKR 报表口令已过期 · 去 IBKR 后台重新生成(有效期选 1 年),再粘到' : 'IBKR 报表口令 ' + ${ibkrDaysToExpiry} + ' 天后到期 · 去 IBKR 后台重新生成,再粘到'">IBKR 报表口令 9 天后到期 · 去 IBKR 后台重新生成,再粘到</span>
+        <a th:href="@{/admin/broker(account=${account.id})} + '#ibkr'" class="text-brass-deep underline">「管理 → 券商同步」</a>
+      </div>
     </div>
     <div class="flex flex-wrap gap-3">
       <form th:action="@{|/accounts/${account.id}/broker/sync|}" method="post">
@@ -190,11 +197,17 @@
         <label class="font-mono text-[10px] uppercase text-ink-subtle block mb-1">IBKR 账户</label>
         <select name="brokerAccountId" disabled class="font-mono text-sm bg-paper border border-rule px-3 py-2 w-full">
           <!-- 选项文字要短:手机上原生下拉只显示一行,长了会被截断(2026-09-25 截图验收) -->
-          <option th:if="${#lists.isEmpty(ibkrAccounts)}" value="">(暂无 · 先去管理页测试连接)</option>
+          <option th:if="${#lists.isEmpty(ibkrAccounts)}" value="">(暂无 · 先测一次连接,见下方)</option>
           <option th:each="a, st : ${ibkrAccounts}" th:value="${a}" th:selected="${st.first}"
                   th:text="${T(com.family.finance.service.broker.ibkr.IbkrFlexClient).mask(a)}">U•••4521</option>
         </select>
-        <p th:if="${#lists.isEmpty(ibkrAccounts)}" class="font-mono text-[10px] text-ink-subtle mt-1 mb-5">到「管理 → 数据源接入」点「测试盈透 IBKR 连接」,报表里的账户会列在这里 · 报表里只有一个账户时留空也行</p>
+        <!-- v1.26 · 空的时候下一步是什么、在哪做,直接给能点的按钮(2026-09-27 维护者:只写「先去管理页」用户找不到)。
+             带上 ?account= :管理页顶上会显示「正在为这个账户关联」并给一键回跳,测完回来这里就能选。 -->
+        <div th:if="${#lists.isEmpty(ibkrAccounts)}" id="ibkrEmpty" class="mt-2 mb-5 p-3 bg-card-soft border border-rule-soft">
+          <p class="text-sm text-ink-soft">还不知道你有哪些 IBKR 账户 —— 先填报表口令、测一次连接,报表里的账户就会列在这里。</p>
+          <a th:href="@{/admin/broker(account=${account.id})} + '#ibkr'" class="btn-paper text-[11px] no-underline inline-flex mt-2">去「管理 → 券商同步」填口令并测试 →</a>
+          <p class="font-mono text-[10px] text-ink-subtle mt-2">测试成功后点那一页顶上的「回该账户的券商关联」· 报表里只有一个账户时,这里留空也能关联</p>
+        </div>
         <p th:unless="${#lists.isEmpty(ibkrAccounts)}" class="font-mono text-[10px] text-ink-subtle mt-1 mb-5">列出的是报表里找到的账户 · 报表里只有一个账户时留空也行</p>
       </div>
 
@@ -227,7 +240,7 @@
       <button type="button" id="lnkBtn" class="btn-ink">关联并同步</button>
       <p id="lnkCheckWarn" class="hidden font-mono text-[10px] mt-2" style="color:var(--rust)">请先勾选上面两项确认,再关联。</p>
       <p class="font-mono text-[10px] text-ink-subtle mt-3">
-        未配券商凭据时,关联会成功但首次同步待完成 —— 请到「管理 → 数据源接入 → 券商同步」填好凭据后回此页点「立即同步」。
+        未配券商凭据时,关联会成功但首次同步待完成 —— 请到 <a th:href="@{/admin/broker(account=${account.id})}" class="text-brass-deep underline">「管理 → 券商同步」</a> 填好凭据后回此页点「立即同步」。
       </p>
     </form>
   </section>

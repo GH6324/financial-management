@@ -5,8 +5,12 @@
  * 报表用 src/test/resources/ibkr/ 里的合成样例(账号、股数、价格全部编造)。
  * 取数基址是家庭配置里一个页面上不露的键,只接受 *.interactivebrokers.com 的 HTTPS 或本机回环 —— 这里指向桩。
  *
- * 全程从页面发起:管理页填口令 / 查询号 / 到期日 → 保存 → 测试连接;账户列表点「券商」→ 选盈透、
- * 在下拉里选账户、两步确认、弹窗确认 → 看持仓;换一个过期的口令 → 立即同步 → 卡片与账户列表标红。
+ * 全程从页面发起:管理首页点「券商同步」卡片(卡上要点名盈透);账户列表点「券商」→ 选盈透 → 还没有账户时
+ * 点空状态里的链接去「管理 → 券商同步」(页头显示正在为哪个账户关联)→ 填口令 / 查询号 / 到期日 → 保存 → 测试连接
+ * → 点「回该账户的券商关联」→ 下拉里选账户、两步确认、弹窗确认 → 看持仓;换一个过期的口令 → 立即同步 → 卡片与账户列表标红。
+ *
+ * 2026-09-27 维护者在 beta 上走这条路走不通:关联页只写「先去管理页测试连接」没有链接;管理页里也找不到 IBKR
+ * (在「数据源接入」第 ④ 节,首页卡片没写哪几家)。第 1、2 段就是那条路。
  *
  * 前置:建一个空的美元证券账户(关联会先归档现有持仓,不拿真账户做实验)。cleanup 把它连同同步来的一切删干净,
  * IBKR 那几个配置键恢复原样。
@@ -58,18 +62,48 @@ module.exports = {
     db.raw(`INSERT INTO account (family_id, display_name, type, currency, display_order) VALUES (${fx.FAM}, '${ACC_NAME}', 'STOCK', 'USD', 999)`);
     state.acc = db.one(`SELECT id FROM account WHERE family_id=${fx.FAM} AND display_name='${ACC_NAME}' ORDER BY id DESC LIMIT 1`);
     report.info(`前置:本机 IBKR 桩 127.0.0.1:${port} · 新建空的美元证券账户 #${state.acc}`);
+    // 关联页的 IBKR 账户下拉来自「最近一次取到的报表」—— 清掉,才能走到「还没有账户」那一步
+    db.raw(`DELETE FROM family_runtime_config WHERE family_id=${fx.FAM} AND key_name='broker_ibkr_accounts'`);
     await ui.page.waitForTimeout(6000);   // 家庭配置有 5 秒缓存,等桩地址生效
 
-    // ── 1 · 管理页:填、存、测 ────────────────────────────────────────
-    report.section('1 · 管理 → 数据源接入 → 券商同步 · 盈透 IBKR');
-    await ui.goto('/admin/integrations');
-    await ui.rendered('数据源接入');
+    // ── 1 · 管理首页找得到 ───────────────────────────────────────────
+    report.section('1 · 管理首页 →「券商同步」卡片(卡上点名三家)');
+    await ui.goto('/admin');
+    await ui.rendered('管理首页');
+    const card = 'main a[href="/admin/broker"]';
+    await ui.visible(card, '管理首页有「券商同步」卡片');
+    const cardText = await ui.page.locator(card).first().innerText();
+    await ui.assert(['富途', '老虎', '盈透'].every(v => cardText.includes(v)), '卡片上逐家点名富途 / 老虎 / 盈透(用户是带着这些词来找的)', cardText);
+    await ui.click(`${card} >> nth=0`, '点「券商同步」卡片');
+    await ui.page.waitForLoadState('networkidle').catch(() => {});
+    await ui.rendered('券商同步页');
+    await ui.visible('#ibkr input[name="ibkrToken"]', '盈透那一栏就在这一页上');
     await ui.seesText('只能取报表,不能交易', '口令说明写清楚了它做不了交易');
+    await ui.click('aside a[href="/admin/integrations"]', '侧栏点「数据源接入」');
+    await ui.page.waitForLoadState('networkidle').catch(() => {});
+    await ui.assert(await ui.page.locator('input[name="ibkrToken"], input[name="tigerKey"]').count() === 0,
+                    '数据源接入页上不再有券商表单(只在一处能改)');
+    await ui.visible('#broker a[href="/admin/broker"]', '数据源接入页留了一行指路到「券商同步」');
+
+    // ── 2 · 关联页 → 链接 → 配口令 → 测试 → 一键回来 ─────────────────
+    report.section('2 · 关联页:还没有 IBKR 账户 → 点链接去配 → 测试 → 回到关联页');
+    await ui.goto('/accounts');
+    const brokerLink = `a[href="/accounts/${state.acc}/broker"]`;
+    await ui.click(`${brokerLink} >> nth=0`, `在账户列表点「${ACC_NAME}」的「券商」`);
+    await ui.page.waitForLoadState('networkidle').catch(() => {});
+    await ui.rendered('券商关联页');
+    await ui.click('#vendorPick label:has(input[value="IBKR"])', '选「盈透 IBKR」');
+    await ui.visible('#ibkrEmpty', '还没有 IBKR 账户时,告诉用户下一步做什么');
+    await ui.click('#ibkrEmpty a', '点「去「管理 → 券商同步」填口令并测试」');
+    await ui.page.waitForLoadState('networkidle').catch(() => {});
+    await ui.assert(ui.page.url().includes(`/admin/broker?account=${state.acc}`), '落到券商同步页,并带着是哪个账户', ui.page.url());
+    await ui.seesText(`正在为账户 ${ACC_NAME} 关联券商`, '页头显示正在为哪个账户关联');
     await ui.fill('input[name="ibkrToken"]', GOOD, '填报表口令');
     await ui.fill('input[name="ibkrQuery"]', '1045872', '填查询号');
     await ui.fill('input[name="ibkrExpires"]', plusDays(9), '填口令到期日(9 天后)');
     await ui.submit('form#broker button:has-text("保存券商配置")', '保存券商配置');
     await ui.seesText('券商同步配置已保存', '保存回执');
+    await ui.seesText(`正在为账户 ${ACC_NAME} 关联券商`, '保存之后还记得是在为哪个账户关联');
     await ui.assert(cfg('broker_ibkr_flex_token') === GOOD && cfg('broker_ibkr_flex_query_id') === '1045872',
                     '真值层:口令与查询号存进去了');
     const page1 = await ui.page.content();
@@ -82,14 +116,14 @@ module.exports = {
     await ui.assert(state.hits.every(h => h.ua), '真值层:发往 IBKR 的每个请求都带 User-Agent(不带会被 403)',
                     JSON.stringify(state.hits));
 
-    // ── 2 · 账户页关联 ───────────────────────────────────────────────
-    report.section('2 · 账户 → 券商 → 选盈透 → 关联并同步');
-    await ui.goto('/accounts');
-    const brokerLink = `a[href="/accounts/${state.acc}/broker"]`;
-    await ui.click(`${brokerLink} >> nth=0`, `在账户列表点「${ACC_NAME}」的「券商」`);
+    await ui.clickText('← 回该账户的券商关联', '测完点「回该账户的券商关联」');
     await ui.page.waitForLoadState('networkidle').catch(() => {});
-    await ui.rendered('券商关联页');
+    await ui.assert(ui.page.url().endsWith(`/accounts/${state.acc}/broker`), '回到了刚才那个账户的关联页', ui.page.url());
+
+    // ── 3 · 关联 ─────────────────────────────────────────────────────
+    report.section('3 · 选盈透 → 下拉里选账户 → 关联并同步');
     await ui.click('#vendorPick label:has(input[value="IBKR"])', '选「盈透 IBKR」');
+    await ui.notVisible('#ibkrEmpty', '测过之后空状态提示消失');
     await ui.visible('#acctIbkr select[name="brokerAccountId"]', '选盈透后出现 IBKR 账户下拉');
     await ui.notVisible('#opendFields', 'OpenD 地址这类富途专用的输入被收起');
     await ui.selectByName('brokerAccountId', 'U1234521', '#acctIbkr');
@@ -128,14 +162,14 @@ module.exports = {
                     '持仓页「券商对接」那一格写的是「盈透」,不是「老虎」(原来是 FUTU ? 富途 : 老虎 的二选一)', vendorShown);
 
     // ── 3 · 到期提醒 ─────────────────────────────────────────────────
-    report.section('3 · 口令到期提醒(到期前 14 天起)');
+    report.section('4 · 口令到期提醒(到期前 14 天起)');
     await ui.goto('/accounts');
     const r1 = await rowText(ui);
     await ui.assert(r1.includes('口令 9 天后到期'), '账户列表上【这个账户那一行】标出了「口令 9 天后到期」', r1);
 
     // ── 4 · 口令过期:不许静默停更 ───────────────────────────────────
-    report.section('4 · 换成一个过期的口令 → 立即同步 → 标红');
-    await ui.goto('/admin/integrations');
+    report.section('5 · 换成一个过期的口令 → 立即同步 → 标红');
+    await ui.goto('/admin/broker');
     await ui.fill('input[name="ibkrToken"]', EXPIRED, '换一个(桩里设成已过期的)口令');
     await ui.submit('form#broker button:has-text("保存券商配置")', '保存');
     await ui.goto(`/accounts/${state.acc}/broker`);

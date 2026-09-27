@@ -91,7 +91,7 @@ public class BrokerLinkService {
         } catch (Exception e) {
             log.warn("initial broker sync pending · account={}: {}", accountId, e.toString());
             try { linkMapper.markSynced(familyId, accountId, "待同步:" + e.getMessage()); } catch (Exception ignored) {}
-            return "已关联 " + vendorLabel + " · 首次同步待完成 · 请到「管理 → 数据源接入 → 券商同步」配好凭据后回本页点「立即同步」";
+            return "已关联 " + vendorLabel + " · 首次同步待完成 · 请到「管理 → 券商同步」配好凭据后回本页点「立即同步」";
         }
     }
 

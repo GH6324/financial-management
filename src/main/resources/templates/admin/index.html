@@ -297,7 +297,18 @@
       <div>
         <div class="eyebrow-ink mb-2">运营 · 数据源</div>
         <h3 class="font-display text-xl">数据源接入</h3>
-        <p class="text-sm text-ink-soft mt-2 leading-relaxed">股票每日拉价节奏 · 汇率每月拉取 · 贵金属 · 券商同步 · 宏观基准 · 实时生效不重启</p>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">股票每日拉价节奏 · 汇率每月拉取 · 贵金属 · 宏观基准 · 实时生效不重启</p>
+      </div>
+    </a>
+    <!--/* v1.26 · 券商同步自己一张卡(原来藏在「数据源接入」卡里的四个字)。
+         2026-09-27 维护者在这一屏找 IBKR 找不到:卡上只写了「券商同步」,没写哪几家。
+         所以卡上**逐家点名** —— 用户是带着「盈透 / IBKR / 富途」这些词来找的;护栏 v126-BROKER-OWN-PAGE
+         按 BrokerVendor 逐个核对,加第四家券商时这张卡不写上就红。 */-->
+    <a th:href="@{/admin/broker}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
+      <div>
+        <div class="eyebrow-ink mb-2">运营 · 券商</div>
+        <h3 class="font-display text-xl">券商同步</h3>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">富途 Futu · 老虎 Tiger · 盈透 IBKR · 只读拉持仓和现金 · 凭据、测试连接、同步时间都在这一页</p>
       </div>
     </a>
     <!--/*

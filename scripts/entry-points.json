@@ -84,17 +84,17 @@
     {
       "id": "futu-opend",
       "name": "富途 OpenD 网关向导(下载 / 配置 / 自检)",
-      "page": "/admin/integrations",
+      "page": "/admin/broker",
       "hrefContains": "/admin/broker/opend",
       "level": "obvious",
       "viewports": [
         "pc"
       ],
-      "note": "券商对接的前置网关,入口在数据源接入页 ④ 券商同步。"
+      "note": "券商对接的前置网关,入口在「券商同步」页富途那一栏(v1.26 之前在数据源接入页 ④)。"
     },
     {
       "id": "integrations",
-      "name": "数据源接入(行情 / 汇率 / 贵金属 / 券商凭据)",
+      "name": "数据源接入(行情 / 汇率 / 贵金属 / 宏观基准)",
       "page": "/admin",
       "hrefContains": "/admin/integrations",
       "level": "obvious",
@@ -102,7 +102,19 @@
         "pc",
         "mobile"
       ],
-      "note": "外部行情与券商数据的接入。v1.24.5 起大模型的密钥与型号挪到了「AI 接入」。"
+      "note": "系统自己拉的公共数据。v1.24.5 起大模型挪到「AI 接入」,v1.26 起券商挪到「券商同步」。"
+    },
+    {
+      "id": "broker-settings",
+      "name": "券商同步(富途 / 老虎 / 盈透的凭据、测试连接、同步时间)",
+      "page": "/admin",
+      "hrefContains": "/admin/broker",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "v1.26 起单独一个入口。2026-09-27 维护者在「数据源接入」里找 IBKR 没找到:首页卡片只写了「券商同步」没写哪几家,那一节还排第四。"
     },
     {
       "id": "ai-access",

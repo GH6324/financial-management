@@ -2744,13 +2744,16 @@ $CURL -b $COOKIE "$BASE/admin/calc-tweaks" -o "$TMP" -w ""
   && log_ok "v04-CFG-7 /admin/calc-tweaks 升级可编辑表单 · 8 个字段" \
   || log_bad "v04-CFG-7 calc-tweaks 升级未到位" "missing form fields"
 
-# v04-CFG-8 · admin sidebar 有"集成"入口 + 项数标注(v0.8 加"指标设置"→ 15 项)
+# v04-CFG-8 · admin sidebar 有"集成"入口 + 项数标注
+#   v1.26 · 原来写死「15 项」—— 之后加了 AI 接入 / 对账 / 账户组…… 页头一直写着 15,实际 17 条,护栏照样绿。
+#   改成结构性:页头的数字必须等于侧栏里除「总览」外的链接数,加 / 删入口时不改页头就红。
 SB=src/main/resources/templates/admin/_sidebar.html
+QA_SB_N=$(( $(grep -o 'th:href="@{' "$SB" | wc -l) - 1 ))
 { grep -q "/admin/integrations" "$SB" \
   && grep -q "/admin/metrics" "$SB" \
-  && grep -q "/ADMIN · 15 项" "$SB"; } \
-  && log_ok "v04-CFG-8 admin sidebar 集成+指标设置入口 + 标 15 项" \
-  || log_bad "v04-CFG-8 sidebar 未更新" "see _sidebar.html"
+  && grep -q "/ADMIN · ${QA_SB_N} 项" "$SB"; } \
+  && log_ok "v04-CFG-8 admin sidebar 集成+指标设置入口 + 页头项数与实际一致(${QA_SB_N} 项)" \
+  || log_bad "v04-CFG-8 sidebar 页头项数不对" "侧栏实际 ${QA_SB_N} 项(不含总览),页头写的是:$(grep -o '/ADMIN · [0-9]* 项' "$SB")"
 
 # v08-NAV-1 · 「指标设置」必须能从 /admin 落地页(「管理」tab 实际入口)点达,不只挂子页侧边栏。
 #   2026-06-23 漏修暴露:v0.8 只把 /admin/metrics 加进 _sidebar(子页才显),没加进 admin/index 卡片网格 →
@@ -4157,7 +4160,7 @@ BLNK="$RD/src/main/java/com/family/finance/service/broker/BrokerLinkService.java
 BCTL="$RD/src/main/java/com/family/finance/web/broker/BrokerLinkController.java"
 BCLI="$RD/src/main/java/com/family/finance/service/broker/BrokerClient.java"
 DSC="$RD/src/main/java/com/family/finance/service/scheduling/DynamicScheduleConfig.java"
-INTG="$RD/src/main/resources/templates/admin/integrations.html"
+INTG="$RD/src/main/resources/templates/admin/broker.html"   # v1.26 · 券商同步自己一页(原 integrations.html 第 ④ 节)· 判据不变,只换看的地方
 HOLD="$RD/src/main/resources/templates/stock/holdings.html"
 
 # v15-RO-1 · 只读铁律:适配器无写/交易调用(调用形态匹配 · 排除注释/文档说明)
@@ -4184,9 +4187,9 @@ BRO_HITS="$(grep -rnE 'unlockTrade\(|\.placeOrder|\.modifyOrder|\.cancelOrder|\.
 
 # v15-CFG-1 · 管理页 ④ 券商段在岗(老虎/富途 + 私钥不回显 + 测试连接)
 { grep -q '券商同步' "$INTG" && grep -q 'name="tigerKey"' "$INTG" && grep -q 'type="password"' "$INTG" \
-  && grep -q '/admin/integrations/broker/test' "$INTG"; } \
-  && log_ok "v15-CFG-1 管理页 ④ 券商段 · 老虎/富途凭据(私钥不回显)+ 测试连接" \
-  || log_bad "v15-CFG-1 管理页券商段缺件" "see admin/integrations.html"
+  && grep -q '/admin/broker/test' "$INTG"; } \
+  && log_ok "v15-CFG-1 管理页券商同步 · 老虎/富途凭据(私钥不回显)+ 测试连接" \
+  || log_bad "v15-CFG-1 管理页券商段缺件" "see admin/broker.html"
 
 # v15-ENTRY-1 · 券商入口在账户页(账户颗粒度)+ 持仓页保留同步徽章(v0.15.x 入口迁移)
 ACCIDX="$RD/src/main/resources/templates/accounts/index.html"
@@ -4281,7 +4284,7 @@ HCTL="$RD/src/main/java/com/family/finance/web/help/HelpController.java"
   && grep -q 'developer.itigerup.com' "$HELP" && grep -q 'download/openAPI' "$HELP" \
   && grep -q '/help/broker-sync' "$INTG" && grep -q '/help/broker-sync' "$BLHTML"; } \
   && log_ok "v15-HELP 券商凭据图文向导(富途/老虎步骤+示意图)+ 管理页/关联页挂教程入口" \
-  || log_bad "v15-HELP 图文向导缺件或入口未挂" "see help/broker-sync.html / HelpController / integrations.html / broker/link.html"
+  || log_bad "v15-HELP 图文向导缺件或入口未挂" "see help/broker-sync.html / HelpController / admin/broker.html / broker/link.html"
 
 # v15-OPEND · 富途 OpenD 三拓扑部署方案齐全(systemd 模板 + compose 覆盖 + 文档 + 应用内块)
 { [ -f "$RD/deploy/futu-opend.service.example" ] && [ -f "$RD/deploy/futu-opend.compose.yml" ] \
@@ -4333,8 +4336,8 @@ OWTPL="$RD/src/main/resources/templates/broker/opend-wizard.html"
   && grep -q 'public SelfCheck selfCheck' "$OWLOC" && grep -q 'probeWritable' "$OWLOC" \
   && grep -q '"/selfcheck"' "$OWCTL" && grep -q '"/test"' "$OWCTL" \
   && grep -q 'id="selfBtn"' "$OWTPL" && grep -q 'id="testBtn"' "$OWTPL" \
-  && grep -q 'name="vendor" value="FUTU"' "$RD/src/main/resources/templates/admin/integrations.html" \
-  && grep -q '/admin/broker/opend' "$RD/src/main/resources/templates/admin/integrations.html"; } \
+  && grep -q 'name="vendor" value="FUTU"' "$RD/src/main/resources/templates/admin/broker.html" \
+  && grep -q '/admin/broker/opend' "$RD/src/main/resources/templates/admin/broker.html"; } \
   && log_ok "v15-OPEND-WIZ 应用内一键 OpenD 向导(下载/版本/依赖/配置启动/短信中继·只绑127.0.0.1)+ step-by-step 门控(装好收起第1步/亮第2步·运行中收起表单)+ 渠道自适应 + 管理页入口" \
   || log_bad "v15-OPEND-WIZ OpenD 向导缺件或渠道未自适应" "see service/broker/opend / web/broker/FutuOpendController / broker/opend-wizard.html"
 
@@ -5940,13 +5943,14 @@ for f in service/ask/runtime/LocalToolLoopRuntime.java service/ask/runtime/Manag
          service/holdingimport/HoldingImportService.java; do
   java_code_only "$RD/src/main/java/com/family/finance/$f" | grep -q '「数据源接入」' && QA1245_STALE="$QA1245_STALE ${f##*/}"
 done
-QA1245_SB_ORDER="$(grep -oE '/admin/(integrations|ai-access)' "$QA1245_SB" | tr '\n' ' ')"
+#   v1.26 · 券商同步单独成入口,插在两者之间 —— 三个「对外连接」连成一段(数据源 → 券商 → AI),AI 仍紧挨着接入类
+QA1245_SB_ORDER="$(grep -oE '/admin/(integrations|broker|ai-access)\}' "$QA1245_SB" | tr -d '}' | tr '\n' ' ')"
 { ! grep -qE 'llm/key|llm-catalog|initTriple' "$QA1245_INT" \
   && ! grep -q '@PostMapping("/llm' "$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java" \
   && grep -q "admin/_llm-settings :: section" "$QA1245_AI" \
   && grep -q "admin/_llm-settings :: script" "$QA1245_AI" \
   && grep -q 'href="#llm"' "$QA1245_AI" && grep -q 'id="agent"' "$QA1245_AI" && grep -q 'id="access"' "$QA1245_AI" \
-  && [ "$QA1245_SB_ORDER" = "/admin/integrations /admin/ai-access " ] \
+  && [ "$QA1245_SB_ORDER" = "/admin/integrations /admin/broker /admin/ai-access " ] \
   && ! grep -q 'AI 接入<span' "$QA1245_SB" \
   && [ -z "$QA1245_STALE" ]; } \
   && log_ok "v1245-AI-SETTINGS-ONE-PLACE(大模型只在 AI 接入 · 数据源接入无大模型表单 · 侧栏相邻 · 提示不再指回数据源接入)" \
@@ -6073,10 +6077,10 @@ QA_IBE="$QA_IB/IbkrErrors.java"
 # 【子 shell ( ) 不是 { }】—— 里面有 exit,用 { } 会把整个 qa-run 退掉(见 v1230-E2E-TWO-LAYER-ASSERT 的注释)
 ( for c in 1012 1013 1014 1015 1018 1019; do grep -q "\"$c\"" "$QA_IBE" || exit 1; done
   grep -q 'IBKR 原话' "$QA_IB/IbkrFlexException.java" \
-  && grep -q 'instanceof com.family.finance.service.broker.ibkr.IbkrFlexException' "$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java" \
+  && grep -q 'instanceof com.family.finance.service.broker.ibkr.IbkrFlexException' "$RD/src/main/java/com/family/finance/web/admin/BrokerSettingsController.java" \
   && grep -q 'instanceof com.family.finance.service.broker.ibkr.IbkrFlexException' "$RD/src/main/java/com/family/finance/service/broker/BrokerSyncService.java" ) \
   && log_ok "v126-IBKR-ERRORS-HUMAN(1012/1013/1014/1015/1018/1019 都有人话 · 管理页测试与同步失败卡片原样带 IBKR 原话)" \
-  || log_bad "v126-IBKR-ERRORS-HUMAN IBKR 的失败会被一句兜底盖住" "IbkrErrors 要覆盖常见码;IntegrationsController.testBroker 与 BrokerSyncService.failureNote 对 IbkrFlexException 原样透出"
+  || log_bad "v126-IBKR-ERRORS-HUMAN IBKR 的失败会被一句兜底盖住" "IbkrErrors 要覆盖常见码;BrokerSettingsController.test 与 BrokerSyncService.failureNote 对 IbkrFlexException 原样透出"
 
 # v126-VENDOR-EXHAUSTIVE · 加券商不许漏:流水来源对 BrokerVendor 穷尽(不留 default)· 模板不许二选一猜券商名 ·
 #   数据库约束放得下每一家(单测 BrokerVendorSweepTest 按集合守,这里守它还在、穷尽 switch 还在)
@@ -6107,14 +6111,84 @@ QA_BSS="$RD/src/main/java/com/family/finance/service/broker/BrokerSyncService.ja
   && log_ok "v126-BROKER-FAIL-OUTSIDE-TX(对账 + 记成功在事务里,失败记录在事务外 —— 手动同步失败也会标红)" \
   || log_bad "v126-BROKER-FAIL-OUTSIDE-TX 同步失败会被事务回滚掉" "BrokerSyncService.sync 不许整体 @Transactional;markFailed 必须在事务之外"
 
-# v126-IBKR-PAGES-LIVE · 管理页与图文教程真的渲染出 IBKR 那一块
-$CURL -b $COOKIE "$BASE/admin/integrations" -o "$TMP" -w ""
+# v126-IBKR-PAGES-LIVE · 管理页与图文教程真的渲染出 IBKR 那一块(v1.26 起在「券商同步」页)
+$CURL -b $COOKIE "$BASE/admin/broker" -o "$TMP" -w ""
 QA_IBP1=$(grep -c '测试盈透 IBKR 连接' "$TMP"); QA_IBP2=$(grep -c 'name="ibkrToken"' "$TMP")
 $CURL -b $COOKIE "$BASE/help/broker-sync" -o "$TMP" -w ""
 QA_IBP3=$(grep -c 'id="ibkr"' "$TMP")
 { [ "$QA_IBP1" -ge 1 ] && [ "$QA_IBP2" -ge 1 ] && [ "$QA_IBP3" -ge 1 ]; } \
   && log_ok "v126-IBKR-PAGES-LIVE(管理页有 IBKR 口令框与测试按钮 · 图文教程有盈透一节)" \
   || log_bad "v126-IBKR-PAGES-LIVE IBKR 的入口没渲染出来" "测试按钮=$QA_IBP1 口令框=$QA_IBP2 教程=$QA_IBP3"
+
+# v126-BROKER-OWN-PAGE · 券商同步自己一页,而且【找得到】。
+#   2026-09-27 维护者在 beta 上找 IBKR 的配置没找到:它在「数据源接入」第 ④ 节,可管理首页那张卡只写了「券商同步」
+#   四个字、没写哪几家,页头是「行情 · 汇率 · 券商」,这一节还要往下滚;券商关联页上只写「先去管理页测试连接」,没有链接。
+#   维护者定:按「用户要完成的事」分入口 —— 券商单独成页(同 v1.24.5 AI 接入的判据)。这条守四件事:
+#   ① 券商配置只在 /admin/broker,数据源接入页上不许再长回券商表单(否则两处都能改)
+#   ② 首页卡片逐家点名:按 BrokerVendor 逐个核对 —— 用户是带着「盈透 / 富途」这些词来找的,加第四家不写上就红
+#   ③ 关联页上每一处「管理 → 券商同步」都是能点的链接,并带上 ?account= 让管理页能一键回跳
+#   ④ 代码和模板里不许再有指向旧位置的「数据源接入 → 券商 / ④」
+QA_BK_CTL="$RD/src/main/java/com/family/finance/web/admin/BrokerSettingsController.java"
+QA_BK_TPL="$RD/src/main/resources/templates/admin/broker.html"
+QA_BK_INT="$RD/src/main/resources/templates/admin/integrations.html"
+QA_BK_LNK="$RD/src/main/resources/templates/broker/link.html"
+QA_BK_IX="$RD/src/main/resources/templates/admin/index.html"
+QA_BK_MISSING=""
+for lbl in $(grep -oE '^\s+[A-Z]+\("[^"]+"\)' "$RD/src/main/java/com/family/finance/domain/broker/BrokerVendor.java" | grep -oE '"[^"]+"' | tr -d '"'); do
+  sed -n '/@{\/admin\/broker}/,/<\/a>/p' "$QA_BK_IX" | grep -q "$lbl" || QA_BK_MISSING="$QA_BK_MISSING $lbl"
+done
+#   「是链接」= 这一行或上一行(链接的 svg + 文字常折到下一行)有带 account 的 href
+QA_BK_UNLINKED="$(awk '/管理 → 券商同步/ && !(/admin\/broker\(account=/ || prev ~ /admin\/broker\(account=/) {print NR": "$0} {prev=$0}' "$QA_BK_LNK")"
+QA_BK_STALE="$(grep -rnE '数据源接入 → (④ )?券商|数据源接入 → 富途' "$RD/src/main/java" "$RD/src/main/resources/templates" "$RD/docs/broker-sync-guide.md" 2>/dev/null || true)"
+{ grep -q '@RequestMapping("/admin/broker")' "$QA_BK_CTL" \
+  && grep -q '@PostMapping("/test")' "$QA_BK_CTL" \
+  && ! grep -q 'K_BROKER_' "$RD/src/main/java/com/family/finance/web/admin/IntegrationsController.java" \
+  && ! grep -qE 'name="(tigerKey|ibkrToken|futuHost)"' "$QA_BK_INT" \
+  && grep -q '@{/admin/broker}' "$QA_BK_INT" \
+  && grep -q 'name="ibkrToken"' "$QA_BK_TPL" && grep -q 'id="ibkr"' "$QA_BK_TPL" && grep -q 'ctxAccountId' "$QA_BK_TPL" \
+  && grep -q '@{/admin/broker}' "$RD/src/main/resources/templates/admin/_sidebar.html" \
+  && [ -z "$QA_BK_MISSING" ] \
+  && grep -q 'id="ibkrEmpty"' "$QA_BK_LNK" \
+  && [ -z "$QA_BK_UNLINKED" ] \
+  && [ -z "$QA_BK_STALE" ]; } \
+  && log_ok "v126-BROKER-OWN-PAGE(券商配置只在 /admin/broker · 首页卡片逐家点名 · 关联页指路都能点且带回跳 · 无指向旧位置的文案)" \
+  || log_bad "v126-BROKER-OWN-PAGE 券商同步又找不到了" "卡片漏写:${QA_BK_MISSING:-无} · 关联页没链接的指路:${QA_BK_UNLINKED:-无} · 指向旧位置:$(printf '%s' "$QA_BK_STALE" | head -1 | cut -c1-120)"
+
+# v126-BROKER-PAGE-LIVE · 渲染层:首页真的有这张卡、券商页真的出得来(模板渲染中途炸掉时 curl 也是 200,所以按内容判)
+$CURL -b $COOKIE "$BASE/admin" -o "$TMP" -w ""
+QA_BKL1=$(grep -c 'href="/admin/broker"' "$TMP"); QA_BKL2=$(grep -c '盈透 IBKR' "$TMP")
+$CURL -b $COOKIE "$BASE/admin/broker" -o "$TMP" -w ""
+QA_BKL3=$(grep -c '测试盈透 IBKR 连接' "$TMP"); QA_BKL4=$(grep -c '</html>' "$TMP")
+{ [ "$QA_BKL1" -ge 1 ] && [ "$QA_BKL2" -ge 1 ] && [ "$QA_BKL3" -ge 1 ] && [ "$QA_BKL4" -ge 1 ]; } \
+  && log_ok "v126-BROKER-PAGE-LIVE(管理首页有「券商同步」卡并点名盈透 · /admin/broker 完整渲染)" \
+  || log_bad "v126-BROKER-PAGE-LIVE 券商同步入口没渲染出来" "首页链接=$QA_BKL1 首页点名盈透=$QA_BKL2 测试按钮=$QA_BKL3 页尾=$QA_BKL4"
+
+# v126-CONFIG-KEY-HAS-HOME · 每个家庭配置键,要么在某个页面上能配(web 层读写它),要么登记在下面这张表里并写明为什么不用。
+#   2026-09-27 维护者:「我们每次增加核心配置项,都要考虑是否在管理页面增加配置」。靠人记已经漏过(这次 IBKR 是有页面、
+#   但找不到;更早的 L9 规则只写在 AGENTS.md 里,护栏一栏是「人工」)。这条把「想过没有」变成机械检查:
+#   新加一个 K_ 常量,web 层没人读写它、也没登记理由 → 红。登记表里的每一行都是一个明确的决定,不是豁免。
+QA_KEY_NOHOME=""
+QA_KEY_OK="
+K_BROKER_IBKR_ACCOUNTS:内部状态·最近一次报表里有哪些账户(关联页下拉用),不是用户配的
+K_BROKER_IBKR_BASE_URL:测试钩子·e2e 把取数地址指到本机桩;只认 IBKR 域名或本机回环,用户不需要改
+K_ASK_MA_AGENT_VERSION:内部状态·托管 Agent 发布后回写的版本号
+K_CHECKUP_ADVICE_DISMISSED:用户操作的结果·体检卡片上点「不适用」写入,在体检页恢复
+K_LENS_PALETTE:经 LensMetaService 在「显示与外观」页配
+K_LLM_QWEN_MODELS:旧版键·只为读老数据兼容,新配置走 AI 接入页的平台/型号三元组
+K_LLM_PRIMARY_VENDOR:旧版键·同上
+K_LLM_MODEL:旧版键·同上
+K_LLM_VISION_MODEL:旧版键·同上
+K_REBALANCE_MATCH_PCT:已知缺口·再平衡「算执行了」的匹配阈值,只有代码默认 0.8,管理页还没有入口(2026-09-27 记)
+K_REPORT_REMIND_CRON:已知缺口·填报提醒的发送时间,只有代码默认,提醒页还没有入口(2026-09-27 记)
+"
+for k in $(grep -oE 'public static final String K_[A-Z0-9_]+' "$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java" | awk '{print $5}'); do
+  grep -rqw "$k" "$RD/src/main/java/com/family/finance/web" && continue
+  printf '%s' "$QA_KEY_OK" | grep -q "^$k:" && continue
+  QA_KEY_NOHOME="$QA_KEY_NOHOME $k"
+done
+[ -z "$QA_KEY_NOHOME" ] \
+  && log_ok "v126-CONFIG-KEY-HAS-HOME(每个家庭配置键都有页面可配,或已登记不用配的理由)" \
+  || log_bad "v126-CONFIG-KEY-HAS-HOME 新配置键既没有页面入口、也没登记理由:$QA_KEY_NOHOME" "决定它放哪个管理页(见 AGENTS.md L9 的放置判据),或在这张表里写明为什么不用配"
 
 # v126-LENS-ACCOUNT-RESIDUAL · 外币账户多条持仓逐条折算后要补零头,否则透视合计与 KPI 总资产差一分(跟股价走,时红时绿)
 #   v1.20 只补了「一条持仓按方向拆多份」那一层;2026-09-25 regression-data 两次撞上账户这一层
