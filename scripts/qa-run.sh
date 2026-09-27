@@ -6208,6 +6208,16 @@ QA_GAP2=$(grep -c 'name="rebalanceMatchPct"' "$TMP")
   && log_ok "v126-CONFIG-GAPS-CLOSED(提醒时间在提醒页、再平衡核销比例在数值阈值页 · 首页卡片点名 · 存储格式与读的一边一致)" \
   || log_bad "v126-CONFIG-GAPS-CLOSED 两个配置又没有入口了" "提醒页 remindHours=$QA_GAP1 · 数值阈值页 rebalanceMatchPct=$QA_GAP2"
 
+# v1261-OPEND-ONLY-FUTU · OpenD 只是富途的网关:持仓页「券商对接」那一条上,OpenD 地址和「OpenD 网关」按钮只给富途看。
+#   原来不分券商都显示 —— 老虎一直是错的,加了盈透之后更显眼(v1.26.0 发版截图时看到):盈透用户会以为自己也要装 OpenD。
+#   判据按行:模板里凡是显示 OpenD 地址(「'OpenD ' +」)或指向 OpenD 向导(broker/opend(account=)的元素,同一行必须带 FUTU 条件。
+QA1261_H="$RD/src/main/resources/templates/stock/holdings.html"
+QA1261_BAD="$(grep -nE "'OpenD ' \+|broker/opend\(account=" "$QA1261_H" | grep -v "vendor.name() == 'FUTU'" || true)"
+#   反向也守:富途那边这两样还得在(条件写成 FUTU 至少两处),别修成谁都看不到
+{ [ -z "$QA1261_BAD" ] && [ "$(grep -c "vendor.name() == 'FUTU'" "$QA1261_H")" -ge 2 ]; } \
+  && log_ok "v1261-OPEND-ONLY-FUTU(持仓页只在富途关联上显示 OpenD 地址与网关按钮)" \
+  || log_bad "v1261-OPEND-ONLY-FUTU 非富途的关联也显示了 OpenD" "$(printf '%s' "$QA1261_BAD" | head -1 | cut -c1-120)"
+
 # v126-LENS-ACCOUNT-RESIDUAL · 外币账户多条持仓逐条折算后要补零头,否则透视合计与 KPI 总资产差一分(跟股价走,时红时绿)
 #   v1.20 只补了「一条持仓按方向拆多份」那一层;2026-09-25 regression-data 两次撞上账户这一层
 QA_LQS="$RD/src/main/java/com/family/finance/service/lens/LensQueryService.java"
