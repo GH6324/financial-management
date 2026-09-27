@@ -2529,8 +2529,10 @@ $CURL -b $COOKIE -X POST --data-urlencode "_csrf=$RTOK" \
   --data-urlencode "leadDays=2" "$BASE/admin/reminders/template" -o /dev/null -w ""
 
 # v04-RPT-REMIND-3 · 调度 cron · v0.4.18 起由 DynamicScheduleConfig 注册(读 DB · 默认 0 0 10,20 * * *)
+#   v1.26 · 默认值挪到 RemindTimes(提醒页与调度共用一份,页面把它显示成「10,20」)—— 判据不变,只换看的地方
 DSC=src/main/java/com/family/finance/service/scheduling/DynamicScheduleConfig.java
-{ grep -qF 'DEFAULT_REPORT_REMIND_CRON = "0 0 10,20 * * *"' "$DSC" \
+{ grep -qF 'DEFAULT_CRON = "0 0 10,20 * * *"' src/main/java/com/family/finance/service/notify/RemindTimes.java \
+  && grep -qF 'DEFAULT_REPORT_REMIND_CRON = com.family.finance.service.notify.RemindTimes.DEFAULT_CRON' "$DSC" \
   && grep -qF 'ZONE_ID = "Asia/Shanghai"' "$DSC" \
   && grep -q 'reminderScheduler::scheduled' "$DSC"; } \
   && log_ok "v04-RPT-REMIND-3 提醒 cron 0 0 10,20 · Asia/Shanghai · 由动态调度注册" \

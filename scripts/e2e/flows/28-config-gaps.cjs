@@ -62,7 +62,12 @@ module.exports = {
     await ui.assert(shown === '9,21', '重新打开页面,这一格显示 9,21', shown);
     if (logSize >= 0) {
       await ui.page.waitForTimeout(500);
-      const tail = fs.readFileSync(APP_LOG, 'utf8').slice(logSize);
+      // 只读保存之后新写的那一段。按【字节】读:日志里有中文,把整文件读成字符串再按字节位置 slice 会错位、跳过新内容
+      const size = fs.statSync(APP_LOG).size;
+      const buf = Buffer.alloc(Math.max(0, size - logSize));
+      const fd = fs.openSync(APP_LOG, 'r');
+      try { fs.readSync(fd, buf, 0, buf.length, logSize); } finally { fs.closeSync(fd); }
+      const tail = buf.toString('utf8');
       await ui.assert(/report-remind scheduled · cron=0 0 9,21 \* \* \*/.test(tail),
                       '真值层:调度立刻按新时间重排(不用重启)', tail.split('\n').filter(l => l.includes('report-remind')).join(' | ').slice(0, 200));
     } else {
