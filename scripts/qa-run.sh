@@ -6178,8 +6178,6 @@ K_LLM_QWEN_MODELS:旧版键·只为读老数据兼容,新配置走 AI 接入页�
 K_LLM_PRIMARY_VENDOR:旧版键·同上
 K_LLM_MODEL:旧版键·同上
 K_LLM_VISION_MODEL:旧版键·同上
-K_REBALANCE_MATCH_PCT:已知缺口·再平衡「算执行了」的匹配阈值,只有代码默认 0.8,管理页还没有入口(2026-09-27 记)
-K_REPORT_REMIND_CRON:已知缺口·填报提醒的发送时间,只有代码默认,提醒页还没有入口(2026-09-27 记)
 "
 for k in $(grep -oE 'public static final String K_[A-Z0-9_]+' "$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java" | awk '{print $5}'); do
   grep -rqw "$k" "$RD/src/main/java/com/family/finance/web" && continue
@@ -6189,6 +6187,24 @@ done
 [ -z "$QA_KEY_NOHOME" ] \
   && log_ok "v126-CONFIG-KEY-HAS-HOME(每个家庭配置键都有页面可配,或已登记不用配的理由)" \
   || log_bad "v126-CONFIG-KEY-HAS-HOME 新配置键既没有页面入口、也没登记理由:$QA_KEY_NOHOME" "决定它放哪个管理页(见 AGENTS.md L9 的放置判据),或在这张表里写明为什么不用配"
+
+# v126-CONFIG-GAPS-CLOSED · 上一条护栏首次运行查出的两个缺口,维护者 2026-09-27「要加上」:
+#   ① 填报提醒「每天几点发」(report_remind_cron)→ 提醒页,填整点不填 cron,留空不改
+#   ② 再平衡「算执行了」的比例(rebalance_match_pct)→ 数值阈值页,页面百分比、库里小数(读的一边一直按小数读)
+#   两处的卡片也点了名(用户是带着「几点提醒」「再平衡」这些词来找的)
+$CURL -b $COOKIE "$BASE/admin/reminders" -o "$TMP" -w ""
+QA_GAP1=$(grep -c 'name="remindHours"' "$TMP")
+$CURL -b $COOKIE "$BASE/admin/calc-tweaks" -o "$TMP" -w ""
+QA_GAP2=$(grep -c 'name="rebalanceMatchPct"' "$TMP")
+{ [ "$QA_GAP1" -ge 1 ] && [ "$QA_GAP2" -ge 1 ] \
+  && grep -q 'RemindTimes.DEFAULT_CRON' "$RD/src/main/java/com/family/finance/service/scheduling/DynamicScheduleConfig.java" \
+  && grep -q 'K_REBALANCE_MATCH_PCT, 0.8)' "$RD/src/main/java/com/family/finance/service/review/RebalancePlanService.java" \
+  && [ -f "$RD/src/test/java/com/family/finance/web/admin/RebalanceMatchSettingTest.java" ] \
+  && [ -f "$RD/src/test/java/com/family/finance/service/notify/RemindTimesTest.java" ] \
+  && grep -q '每天几点提醒' "$RD/src/main/resources/templates/admin/index.html" \
+  && grep -q '再平衡「算执行了」的比例' "$RD/src/main/resources/templates/admin/index.html"; } \
+  && log_ok "v126-CONFIG-GAPS-CLOSED(提醒时间在提醒页、再平衡核销比例在数值阈值页 · 首页卡片点名 · 存储格式与读的一边一致)" \
+  || log_bad "v126-CONFIG-GAPS-CLOSED 两个配置又没有入口了" "提醒页 remindHours=$QA_GAP1 · 数值阈值页 rebalanceMatchPct=$QA_GAP2"
 
 # v126-LENS-ACCOUNT-RESIDUAL · 外币账户多条持仓逐条折算后要补零头,否则透视合计与 KPI 总资产差一分(跟股价走,时红时绿)
 #   v1.20 只补了「一条持仓按方向拆多份」那一层;2026-09-25 regression-data 两次撞上账户这一层

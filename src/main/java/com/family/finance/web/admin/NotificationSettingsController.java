@@ -16,6 +16,7 @@ import com.family.finance.repository.PeriodMapper;
 import com.family.finance.repository.ReportReminderLogMapper;
 import com.family.finance.service.AuditLogService;
 import com.family.finance.service.notify.ReminderMessage;
+import com.family.finance.service.notify.RemindTimes;
 import com.family.finance.service.notify.ReportReminderScheduler;
 import com.family.finance.service.notify.SmsAliyunChannel;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +58,9 @@ public class NotificationSettingsController {
     private final AuditLogService auditLogService;
     private final ReportReminderScheduler reminderScheduler;
     private final SmsAliyunChannel smsChannel;
+    /** v1.26 · 提醒「每天几点发」—— 配置键早就在读,页面一直没入口(v126-CONFIG-KEY-HAS-HOME 查出) */
+    private final com.family.finance.service.config.FamilyConfigService configService;
+    private final com.family.finance.service.scheduling.DynamicScheduleConfig schedulerConfig;
 
     /** 提醒日志默认每页 20 条 */
     private static final int LOG_PAGE_SIZE = 20;
@@ -87,6 +91,11 @@ public class NotificationSettingsController {
         model.addAttribute("currentExpenseMode", ExpenseEntryMode.fromCode(family.getExpenseEntryMode()));
         model.addAttribute("leadDays",
                 family.getReportRemindLeadDays() == null ? 2 : family.getReportRemindLeadDays());
+        // v1.26 · 每天几点提醒:简单形式显示成「10,20」;有人手工配过别的 cron 时 remindHours 为空、页面原样显示 remindCron
+        String remindCron = configService.getString(me.getFamilyId(),
+                com.family.finance.service.config.FamilyConfigService.K_REPORT_REMIND_CRON, RemindTimes.DEFAULT_CRON);
+        model.addAttribute("remindCron", remindCron);
+        model.addAttribute("remindHours", RemindTimes.toHours(remindCron));
         model.addAttribute("cfg", cfg);
         model.addAttribute("akIdMasked", mask(cfg.getSmsAccessKeyId()));
         model.addAttribute("akSecretSet",
@@ -141,20 +150,42 @@ public class NotificationSettingsController {
         return "redirect:/admin/reminders";
     }
 
-    /** 填报模板 + 提醒提前天数 */
+    /**
+     * 填报模板 + 提醒提前天数 + 每天几点提醒(v1.26)。
+     *
+     * <p>时间先校验、再一起存:填错了整张表单都不落库,免得「模板存了、时间没存」这种半截状态。
+     * 不带或留空 remindHours 时不动发送时间。</p>
+     */
     @PostMapping("/template")
     public String saveTemplate(@AuthenticationPrincipal MemberPrincipal me,
                                @RequestParam("template") String template,
                                @RequestParam("leadDays") int leadDays,
+                               @RequestParam(value = "remindHours", required = false) String remindHours,
                                RedirectAttributes ra) {
+        String cron = null;
+        // 留空 = 不动发送时间(手工配过自定义 cron 的人只改模板时,页面上这一格是空的,不能因此挡住保存)
+        if (remindHours != null && !remindHours.isBlank()) {
+            try { cron = RemindTimes.toCron(remindHours); }
+            catch (IllegalArgumentException bad) {
+                ra.addFlashAttribute("flashError", bad.getMessage());
+                return "redirect:/admin/reminders";
+            }
+        }
         ReportingTemplate t = ReportingTemplate.fromCode(template);
         int days = Math.max(0, Math.min(leadDays, 15));
         familyMapper.updateReportingTemplate(me.getFamilyId(), t.name());
         familyMapper.updateRemindLeadDays(me.getFamilyId(), days);
+        if (cron != null) {
+            configService.set(me.getFamilyId(),
+                    com.family.finance.service.config.FamilyConfigService.K_REPORT_REMIND_CRON, cron);
+            schedulerConfig.rescheduleAll();   // 立刻按新时间排,不重启
+        }
         auditLogService.record(me.getFamilyId(), me.getMemberId(), AuditLogType.FAMILY_UPDATE,
                 "family", me.getFamilyId(),
-                "填报模板=" + t.name() + " · 提前提醒=" + days + "天");
-        ra.addFlashAttribute("flash", "填报模板与提醒节奏已保存");
+                "填报模板=" + t.name() + " · 提前提醒=" + days + "天"
+                        + (cron == null ? "" : " · 每天 " + RemindTimes.toHours(cron) + " 点提醒"));
+        ra.addFlashAttribute("flash", "填报模板与提醒节奏已保存"
+                + (cron == null ? "" : " · 每天 " + RemindTimes.toHours(cron).replace(",", " 点、") + " 点看一次,立即生效"));
         return "redirect:/admin/reminders";
     }
 

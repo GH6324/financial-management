@@ -627,6 +627,10 @@ public class AdminController {
         model.addAttribute("smartTransfer", cs.getLong(fid, com.family.finance.service.config.FamilyConfigService.K_SMART_TRANSFER, 3000L));
         model.addAttribute("loanAbnormal",  cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_LOAN_ABNORMAL, 3.0));
         model.addAttribute("unexplainedEps", cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_UNEXPLAINED_EPSILON, 0.01));
+        /* v1.26 · 再平衡「算执行了」的比例。v1.2 起就在读(RebalancePlanService.onTransfer),页面一直没入口,
+           只能用代码默认 0.8(护栏 v126-CONFIG-KEY-HAS-HOME 查出来的缺口)。库里存小数、页面显示百分比。 */
+        model.addAttribute("rebalanceMatchPct", rebalanceMatchPercent(
+                cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_REBALANCE_MATCH_PCT, 0.8)));
         // ② 体检阈值(新 4 项)
         model.addAttribute("checkupConcentration", cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_CHECKUP_CONCENTRATION, 0.40));
         model.addAttribute("checkupHighRisk",      cs.getDouble(fid, com.family.finance.service.config.FamilyConfigService.K_CHECKUP_HIGH_RISK, 0.40));
@@ -651,13 +655,19 @@ public class AdminController {
                                       @org.springframework.web.bind.annotation.RequestParam("smartTransfer") long smartTransfer,
                                       @org.springframework.web.bind.annotation.RequestParam("loanAbnormal") double loanAbnormal,
                                       @org.springframework.web.bind.annotation.RequestParam("unexplainedEps") double unexplainedEps,
+                                      @org.springframework.web.bind.annotation.RequestParam(value = "rebalanceMatchPct", required = false) Integer rebalanceMatchPct,
                                       org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
         long fid = me.getFamilyId();
         configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_SMART_TRANSFER, String.valueOf(Math.max(0L, smartTransfer)));
         configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_LOAN_ABNORMAL,  String.valueOf(Math.max(1.0, loanAbnormal)));
         configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_UNEXPLAINED_EPSILON, String.valueOf(Math.max(0.0, unexplainedEps)));
+        if (rebalanceMatchPct != null) {
+            configService.set(fid, com.family.finance.service.config.FamilyConfigService.K_REBALANCE_MATCH_PCT,
+                    rebalanceMatchFraction(rebalanceMatchPct));
+        }
         auditLogService.record(fid, me.getMemberId(), AuditLogType.FAMILY_UPDATE, "family_runtime_config", fid,
-                "录入阈值 · smartTransfer=" + smartTransfer + " · loanAbnormal=" + loanAbnormal + " · epsilon=" + unexplainedEps);
+                "录入阈值 · smartTransfer=" + smartTransfer + " · loanAbnormal=" + loanAbnormal + " · epsilon=" + unexplainedEps
+                        + (rebalanceMatchPct == null ? "" : " · 再平衡核销=" + rebalanceMatchFraction(rebalanceMatchPct)));
         ra.addFlashAttribute("flash", "录入阈值已保存");
         return "redirect:/admin/calc-tweaks";
     }
@@ -686,6 +696,19 @@ public class AdminController {
                 ? "支出分析已打开 —— 报表页支出那一章会显示归因、三分与常态月均"
                 : "支出分析已关闭 —— 报表页支出那一章回到原来的样子,常态月均那几处读数也一并不显示");
         return "redirect:/admin/calc-tweaks";
+    }
+
+    /**
+     * v1.26 · 再平衡核销比例:页面填百分比(50–100),库里存小数(RebalancePlanService 一直按小数读,默认 0.8)。
+     * 下限 50%:再低就是「随便划一笔就算执行了」,执行率会虚高。
+     */
+    static String rebalanceMatchFraction(int percent) {
+        int p = Math.max(50, Math.min(percent, 100));
+        return java.math.BigDecimal.valueOf(p).movePointLeft(2).stripTrailingZeros().toPlainString();
+    }
+
+    static int rebalanceMatchPercent(double fraction) {
+        return (int) Math.round(Math.max(0.5, Math.min(fraction, 1.0)) * 100);
     }
 
     /** v0.4.18 · ② 体检阈值保存 */
