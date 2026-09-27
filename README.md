@@ -96,11 +96,11 @@
 
 > 完整发布记录与截图见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段每版只留 2–4 行,细节不搬过来)。
 
+**[v1.26.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.26.0) · 盈透 IBKR 账户也能自动同步了**
+和富途、老虎一样配一次,之后持仓与各币种现金自动拉进来;走 Flex 报表,口令只能取报表、做不了交易([#24](https://github.com/LuoDi-Nate/financial-management/issues/24))。券商同步在管理页单独成了入口;提醒时间、再平衡核销比例这两个一直改不了的设置补上了页面。
+
 **[v1.24.6](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.24.6) · 四个「不报错、只是不对」的问题**
 跨币种划转不再冒出「未解释 900」([#21](https://github.com/LuoDi-Nate/financial-management/issues/21));体检「不适用」按钮从加上那天起就没工作过,现在能用、全家一致、可一键恢复([#22](https://github.com/LuoDi-Nate/financial-management/issues/22));风险分布改读产品类目 —— 加密、贵金属、保险原来全算「无风险」,**所有家庭的风险图都会变**;Docker 里「钱花在哪了 → 点一行看逐笔」原来是整页错误。**无 DB 迁移。**
-
-**[v1.24.4](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.24.4) · 超级 Agent 说「没有工具」:百炼上的模板从没更新过**
-Agent 模板存在百炼那边,**发新版本不会自动更新它** —— 早期创建的 Agent 一直停在「只声明 MCP 服务器、没启用工具」的旧模板上,于是它回答「没有任何工具连接到我这边」,而账房这边零条错误。现在提问前会先检查模板,过期就直接说清下一步;管理页有醒目横幅和就地更新按钮;旧对话会自动换新会话;流式回答的当下就出数字,不用刷新。**升级后用百炼托管的,看一眼「管理 → AI 接入」有没有红色横幅。无 DB 迁移。**
 
 ## 主要能力
 
