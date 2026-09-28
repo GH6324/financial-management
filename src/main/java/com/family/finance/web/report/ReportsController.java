@@ -76,6 +76,11 @@ public class ReportsController {
     private final AllocationService allocationService;
     private final com.family.finance.repository.AllocationAnchorMapper allocationAnchorMapper;
     private final com.family.finance.repository.RebalanceAdviceCacheMapper rebalanceAdviceCacheMapper;
+    /** v1.27 · 分析范围 / 模板 / 上下文(配置锚对照与 AI 调仓) */
+    private final com.family.finance.service.analysis.AnalysisScopeService analysisScopeService;
+    private final com.family.finance.service.analysis.AnalysisTemplateService analysisTemplateService;
+    private final com.family.finance.service.analysis.AnalysisContextService analysisContextService;
+    private final com.family.finance.service.allocation.RebalanceAdvisorService rebalanceAdvisorService;
     private final com.family.finance.service.review.RebalancePlanService rebalancePlanService;   // v1.2 计划卡
     // v0.5 FR-72/73/74 · 财富水位
     private final com.family.finance.service.macro.WaterLevelService waterLevelService;
@@ -118,6 +123,9 @@ public class ReportsController {
                           // v1.8 FR-272 · 支出构成的维度与窗口(白名单解析 · 脏值兜底)
                           @RequestParam(required = false) String mix,
                           @RequestParam(name = "mixWin", required = false) Integer mixWin,
+                          // v1.27 FR-827 · 配置锚对照与 AI 调仓的分析范围 / 模板(临时切 · 记在网址上)
+                          @RequestParam(name = "scope", required = false) String scopeParam,
+                          @RequestParam(name = "tpl", required = false) String tplParam,
                           @RequestHeader(value = "HX-Request", required = false) String htmx,
                           @RequestHeader(value = "HX-Target", required = false) String hxTarget,
                           Model model) {
@@ -129,7 +137,7 @@ public class ReportsController {
         String accountsCsv = accounts == null || accounts.isEmpty()
                 ? null
                 : accounts.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
-        populateModel(me, range, accountsCsv, currency, asof, model);
+        populateModel(me, range, accountsCsv, currency, asof, scopeParam, tplParam, model);
         // v1.11.1 · 窗口不再独立 —— 与三区的时间范围统一(维护者第 5 条:
         //   「后面几个带时间范围的组件没有统一时间筛选组件」)。mixWin 仍接受(老链接不 404),
         //   但没显式传时用 range 推出来的期数。
@@ -225,6 +233,9 @@ public class ReportsController {
                                    @RequestParam String dim,
                                    @RequestParam String groupKey,
                                    @RequestParam(name = "mixWin", required = false) Integer mixWin,
+                          // v1.27 FR-827 · 配置锚对照与 AI 调仓的分析范围 / 模板(临时切 · 记在网址上)
+                          @RequestParam(name = "scope", required = false) String scopeParam,
+                          @RequestParam(name = "tpl", required = false) String tplParam,
                                    Model model) {
         int win = (mixWin != null && (mixWin == 1 || mixWin == 6 || mixWin == 12)) ? mixWin : 1;
         var d = com.family.finance.service.expense.ExpenseLedgerService.Dim.fromCode(dim);
@@ -262,7 +273,8 @@ public class ReportsController {
         return "reports/_drilldown :: modal";
     }
 
-    private void populateModel(MemberPrincipal me, String range, String accountsCsv, String currency, String asof, Model model) {
+    private void populateModel(MemberPrincipal me, String range, String accountsCsv, String currency, String asof,
+                               String scopeParam, String tplParam, Model model) {
         Family family = familyService.require(me.getFamilyId());
         // v0.5.5 FR-94 · 报表锚定「最近已关账(≤今天)账期」快照;无则退外壳锚 + closedSnapshot=false
         // v0.11.5 · 观察账期:报表是每月快照,可在「已关账账期」里回看任一期(asof 命中则锚它,否则默认最近已关账)
@@ -434,31 +446,51 @@ public class ReportsController {
         BigDecimal familyDiffPct = BenchmarkAggregator.displayedDiffPercentPoints(familyXirrDecimal, familyBenchmarkPct, familyMonths);
         BenchmarkAggregator.BeatStatus familyBeat = BenchmarkAggregator.beatStatusDisplayed(familyDiffPct, familyMonths);
 
-        // v0.4 FR-62a · 配置 diff
-        AllocationService.DiffResult allocationDiff = allocationService.compute(me.getFamilyId(), slice);
+        // v0.4 FR-62a · 配置 diff · v1.27 按分析范围(FR-827)+ 有效目标(FR-870)
+        var scope = analysisScopeService.resolve(me.getFamilyId(), scopeParam, slice);
+        var scopeDefault = analysisScopeService.familyDefault(me.getFamilyId());
+        String scopeForUrl = scope.kind() != scopeDefault ? scope.kind().name() : null;
+        var template = analysisTemplateService.resolve(me.getFamilyId(), tplParam);
+        String tplForUrl = template.key().equals(analysisTemplateService.familyDefault(me.getFamilyId()).key())
+                ? null : template.key();
+        AllocationService.DiffResult allocationDiff = allocationService.compute(me.getFamilyId(), slice, scope, null);
         java.util.List<com.family.finance.domain.allocation.AllocationAnchor> allocationAnchors = allocationAnchorMapper.findAll();
-
-        // v0.4 FR-62b · 调仓建议缓存渲染(若有)
-        var f4cache = rebalanceAdviceCacheMapper.findByFamilyAndAnchor(me.getFamilyId(), family.getAllocationAnchor());
-        RebalanceAdviceView rebalanceAdvice = null;
-        if (f4cache.isPresent()) {
-            var cache = f4cache.get();
-            // 30 天 TTL 检查
-            long days = java.time.Duration.between(cache.getGeneratedAt(), java.time.LocalDateTime.now()).toDays();
-            if (days <= 30) {
-                try {
-                    @SuppressWarnings("unchecked")
-                    java.util.Map<String, Object> raw = jacksonMapper.readValue(cache.getContentJson(), java.util.Map.class);
-                    @SuppressWarnings("unchecked")
-                    java.util.List<java.util.Map<String, Object>> actions =
-                        (java.util.List<java.util.Map<String, Object>>) raw.getOrDefault("actions", java.util.List.of());
-                    rebalanceAdvice = new RebalanceAdviceView(
-                        (String) raw.get("narrative"),
-                        actions,
-                        cache.getGeneratedAt());
-                } catch (Exception ignored) { /* 解析失败不渲染 */ }
-            }
+        var scopeOptions = analysisScopeService.options(me.getFamilyId(), slice);
+        java.util.Map<String, String> scopeUrls = new java.util.LinkedHashMap<>();
+        for (var o : scopeOptions) {
+            scopeUrls.put(o.kind().name(), com.family.finance.web.analysis.AnalysisUrls.with("/reports",
+                    o.kind() == scopeDefault ? null : o.kind().name(), tplForUrl, "allocation-diff"));
         }
+        model.addAttribute("allocScopeOptions", scopeOptions);
+        model.addAttribute("allocScopeUrls", scopeUrls);
+        model.addAttribute("allocScope", scope);
+        model.addAttribute("allocScopeParam", scopeForUrl);
+        model.addAttribute("allocTplParam", tplForUrl);
+        model.addAttribute("allocAnchorName", allocationAnchors.stream()
+                .filter(a -> a.getCode().equals(allocationDiff.anchorCode()))
+                .map(com.family.finance.domain.allocation.AllocationAnchor::getDisplayName)
+                .findFirst().orElse("自定义"));
+        var analysis = analysisContextService.of(me.getFamilyId(), template.scope() != null
+                ? analysisScopeService.exactly(me.getFamilyId(), template.scope(), slice) : scope, template);
+        model.addAttribute("analysis", analysis);
+        String reportsBack = com.family.finance.web.analysis.AnalysisUrls.with("/reports", scopeForUrl, tplForUrl, "allocation-diff");
+        model.addAttribute("customizeUrl", com.family.finance.web.analysis.AnalysisUrls.customize(template.key(), reportsBack));
+        model.addAttribute("customAnchorUrl", "/admin/analysis?back="
+                + java.net.URLEncoder.encode(reportsBack, java.nio.charset.StandardCharsets.UTF_8) + "#anchor");
+        java.util.Map<String, String> footTemplateUrls = new java.util.LinkedHashMap<>();
+        String defaultTplKey = analysisTemplateService.familyDefault(me.getFamilyId()).key();
+        var templates = analysisTemplateService.list(me.getFamilyId());
+        for (var t : templates) {
+            footTemplateUrls.put(t.key(), com.family.finance.web.analysis.AnalysisUrls.with("/reports", scopeForUrl,
+                    t.key().equals(defaultTplKey) ? null : t.key(), "allocation-diff"));
+        }
+        model.addAttribute("analysisTemplates", templates);
+        model.addAttribute("footTemplateUrls", footTemplateUrls);
+
+        // v0.4 FR-62b · 调仓建议缓存渲染(若有)· v1.27 键按「范围 + 模板 + 偏好」(与生成时同一个键)
+        RebalanceAdviceView rebalanceAdvice = rebalanceAdvisorService.cached(me.getFamilyId(), analysis)
+                .map(r -> new RebalanceAdviceView(r.narrative(), r.actions(), r.generatedAt()))
+                .orElse(null);
 
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));

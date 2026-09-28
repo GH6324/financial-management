@@ -3,7 +3,7 @@
 <body>
 <aside th:fragment="sidebar(active)" class="col-span-12 md:col-span-3">
   <div class="sticky top-24">
-    <div class="eyebrow mb-4">/ADMIN · 18 项</div>
+    <div class="eyebrow mb-4">/ADMIN · 19 项</div>
     <nav class="flex flex-col text-sm">
       <a th:href="@{/admin}" th:classappend="${active=='hub'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">总览</a>
       <a th:href="@{/admin/family}" th:classappend="${active=='family'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">家庭设置</a>
@@ -23,6 +23,8 @@
       <a th:href="@{/admin/reconcile}" th:classappend="${active=='reconcile'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">账目对账<span class="text-ink-subtle text-[10px] ml-1">· 只读</span></a>
       <a th:href="@{/admin/audit}" th:classappend="${active=='audit'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">审计</a>
       <a th:href="@{/admin/calc-tweaks}" th:classappend="${active=='tweaks'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">数值阈值</a>
+      <!--/* v1.27 · 分析设置:分析范围 · 模板 · 不参与分析的资产 · 配置锚 · 分析偏好(PRD FR-890) */-->
+      <a th:href="@{/admin/analysis}" th:classappend="${active=='analysis'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline">分析设置</a>
       <a th:href="@{/admin/metrics}" th:classappend="${active=='metrics'?'border-l-2 border-brass bg-card-soft text-ink font-display':'border-l border-rule hover:border-ink hover:bg-card-soft text-ink-soft'}" class="py-2 px-3 no-underline inline-flex items-center gap-2">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>

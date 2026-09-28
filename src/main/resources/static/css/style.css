@@ -2543,3 +2543,58 @@ dialog::backdrop { background: rgba(26, 23, 20, .38); }
      直到用 javaScriptEnabled:false 的上下文才看见:手机 30 行全可见,PC 正好 10 行。 */
   .flow-prepaged > [data-flow-row]:nth-of-type(n+6) { display: none !important; }
 }
+
+/* ═══ v1.27 · 分析范围 / 分析模板 / 分析偏好(issue #23 · preview/v1.27/analysis-scope.html)═══
+   范围三个选项必须同尺寸同样式(feedback_sibling_uniform:并列同类元素一大一小是这个项目反复出过的毛病);
+   窄屏改成上下排 —— 三个并排每个不到 110px,副文案会折成四五行。 */
+.scope-grid { display: grid; grid-template-columns: repeat(var(--scope-cols, 3), minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 767px) { .scope-grid { grid-template-columns: 1fr; gap: 8px; } }
+.scope-pill { display: flex; flex-direction: column; justify-content: center; min-width: 0; min-height: 64px;
+  padding: 10px 13px; border: 2px solid var(--rule); background: var(--paper); text-decoration: none; color: var(--ink);
+  transition: border-color .15s, background .15s; }
+.scope-pill:hover { border-color: var(--ink-subtle); }
+.scope-pill.on { border-color: var(--brass-deep); background: rgba(160,124,58,.07); }
+.scope-pill:not(.on) { opacity: .78; }
+.scope-pill-t { font-family: "Fraunces", "Noto Serif SC", serif; font-size: 16px; line-height: 1.2; }
+.scope-pill-s { font-size: 10.5px; color: var(--ink-subtle); margin-top: 4px; line-height: 1.5; }
+@media (max-width: 767px) { .scope-pill { min-height: 54px; padding: 8px 11px; } .scope-pill-t { font-size: 14px; } }
+/* 卡片标题旁「不含:自住房 · 车」 */
+.scope-note { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; color: var(--brass-deep);
+  letter-spacing: .04em; white-space: normal; font-weight: 400; }
+/* 模板选择行 */
+.tpl-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: stretch; }
+.tpl-chip { display: flex; flex-direction: column; justify-content: center; min-height: 44px; padding: 6px 10px;
+  border: 2px solid var(--rule); background: var(--paper); font-size: 12.5px; line-height: 1.3; color: var(--ink);
+  text-decoration: none; }
+.tpl-chip small { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 9px; color: var(--ink-subtle);
+  letter-spacing: .06em; margin-top: 2px; }
+.tpl-chip:hover { border-color: var(--ink-subtle); }
+.tpl-chip.on { border-color: var(--brass-deep); background: rgba(160,124,58,.07); }
+.tpl-chip.add { border-style: dashed; color: var(--brass-deep); }
+/* 首次提示(可关)· AI 页脚 */
+.analysis-hint { display: flex; gap: 10px; align-items: center; border: 1px dashed var(--brass-deep);
+  background: rgba(160,124,58,.05); padding: 9px 12px; font-size: 12.5px; color: var(--ink-soft); }
+.analysis-foot { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; border-top: 1px solid var(--rule-soft);
+  margin-top: 12px; padding-top: 9px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10.5px; }
+.analysis-foot .af-label { color: var(--brass-deep); }
+.analysis-foot a, .analysis-foot summary { color: var(--brass-deep); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.analysis-foot details { position: relative; }
+.analysis-foot details > div { position: absolute; z-index: 30; margin-top: 6px; min-width: 220px; background: var(--card);
+  border: 1px solid var(--rule); box-shadow: 0 6px 18px rgba(26,23,20,.12); padding: 6px 0; }
+.analysis-foot details > div a { display: block; padding: 6px 12px; text-decoration: none; color: var(--ink); font-size: 12px; }
+.analysis-foot details > div a:hover { background: var(--card-soft); }
+.analysis-foot details > div a.on { color: var(--brass-deep); }
+/* 「不参与分析」小徽标 */
+.tag-excluded { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 9.5px; padding: 1px 6px; white-space: nowrap;
+  border: 1px solid var(--brass-deep); color: var(--brass-deep); background: rgba(160,124,58,.08); letter-spacing: .04em; }
+/* 超级 Agent 确认卡 */
+.remember-card { border: 2px solid var(--brass-deep); background: rgba(160,124,58,.06); padding: 13px 15px; margin-top: 10px; max-width: 560px; }
+.remember-card .rc-t { font-family: "Fraunces", "Noto Serif SC", serif; font-size: 16px; }
+.remember-card textarea { width: 100%; margin-top: 8px; border: 0; border-bottom: 1px solid var(--ink); background: transparent;
+  font-size: 13px; line-height: 1.6; resize: vertical; padding: 4px 0; }
+.remember-card .rc-acts { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+.remember-card .rc-more { border-top: 1px solid var(--rule-soft); margin-top: 12px; padding-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 767px) { .remember-card .rc-more { display: grid; } .remember-card .rc-more > * { text-align: center; } }
+.btn-line { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; padding: 4px 10px; border: 1px solid var(--ink);
+  color: var(--ink); background: var(--paper); white-space: nowrap; text-decoration: none; cursor: pointer; }
+.btn-line:hover { background: var(--card-soft); }

@@ -9,7 +9,7 @@
 <header th:replace="~{fragments/nav :: nav('checkup', ${me}, ${nav})}"></header>
 
 <main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10"
-      th:with="tocItems=${ { {label:'概览',href:'#checkup-overview'}, {label:'资产配置',href:'#allocation'}, {label:'风险敞口',href:'#risk'}, {label:'流动性',href:'#liquidity'}, {label:'收益质量',href:'#return'}, {label:'智能建议',href:'#checkup-advice'}, {label:'AI 综合诊断',href:'#checkup-ai'}, {label:'AI 资产洞察',href:'#checkup-insight'}, {label:'单账户体检',href:'#checkup-accounts'} } }">
+      th:with="tocItems=${ { {label:'概览',href:'#checkup-overview'}, {label:'资产配置',href:'#allocation'}, {label:'风险敞口',href:'#risk'}, {label:'流动性',href:'#liquidity'}, {label:'收益质量',href:'#return'}, {label:'智能建议',href:'#checkup-advice'}, {label:'分析模板',href:'#analysis-templates'}, {label:'AI 综合诊断',href:'#checkup-ai'}, {label:'AI 资产洞察',href:'#checkup-insight'}, {label:'单账户体检',href:'#checkup-accounts'} } }">
  <div class="toc-cols">
   <!--/* v1.22.4 · 目录放在 DOM 【最前】。
          原来它排在主内容之后、靠 order:-1 视觉上放到左列,注释写的是「内容优先」;
@@ -32,6 +32,35 @@
       <b class="text-ink" th:text="${#temporals.format(anchorPeriod.periodStart, 'yyyy 年 M 月')}">2026 年 7 月</b>
       · 与<a th:href="@{/dashboard}" class="brass-link no-underline">仪表盘</a>同期口径
     </p>
+
+    <!--/* v1.27 · 分析范围(PRD FR-820 ~ FR-823)。只显示与「全部资产」有区别的选项;
+           只剩一个时整个不出现 —— 没标记、也没有房产类其他类的家庭,这一页与 v1.26 一样。
+           临时切换记在网址上(刷新、发给家人都保持),不改家里的默认;切到别的范围时才出现「设为家里的默认」。 */-->
+    <div th:if="${scopeFlash != null}" class="mt-4 max-w-4xl border border-forest bg-forest/[0.05] px-4 py-2 text-sm" th:text="${scopeFlash}">已改</div>
+    <div th:if="${diagnose.showScopeSwitch()}" id="analysis-scope" class="mt-5 max-w-4xl"
+         th:style="'--scope-cols:' + ${#lists.size(scopeOptions)}">
+      <div class="flex items-baseline gap-3 mb-2 flex-wrap">
+        <span class="eyebrow">分析范围</span>
+        <span class="font-mono text-[10px] text-ink-subtle">家里的默认:<b class="text-ink" th:text="${scopeFamilyDefault.label}">可调整的资产</b></span>
+        <a th:href="@{/admin/analysis}" class="font-mono text-[10.5px] text-brass-deep underline ml-auto">分析设置 →</a>
+      </div>
+      <div class="scope-grid">
+        <a th:each="o : ${scopeOptions}" class="scope-pill" data-scope-option
+           th:classappend="${o.kind() == scopeCurrent.kind()} ? ' on'"
+           th:attr="data-scope=${o.kind().name()}"
+           th:href="${scopeOptionUrls[o.kind().name()]}">
+          <span class="scope-pill-t" th:text="${o.kind().label}">可调整的资产</span>
+          <span class="scope-pill-s" th:text="${o.optionSubtitle()}">不含 自住房、车 · 占总资产 91%</span>
+        </a>
+      </div>
+      <div class="flex items-center gap-3 flex-wrap mt-1.5">
+        <p class="text-[11.5px] text-ink-subtle">净资产、收益、流动性始终按全部资产算。</p>
+        <form th:if="${scopeParam != null}" th:action="@{/checkup/scope/default}" method="post" class="inline">
+          <input type="hidden" name="scope" th:value="${scopeParam}"/>
+          <button type="submit" class="btn-line" data-scope-set-default>把「<span th:text="${scopeCurrent.kind().label}">金融资产</span>」设为家里的默认</button>
+        </form>
+      </div>
+    </div>
   </section>
 
   <!-- 顶部 KPI 横条 -->
@@ -79,10 +108,18 @@
 
     <!-- 资产配置 · mini 横向条(详细环形图在 dashboard) -->
     <div id="allocation" class="bg-card p-6 scroll-mt-32">
-      <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3">
+      <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3 flex-wrap">
         资产配置 <span class="hidden sm:inline font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">A · L · L · O · C · A · T · I · O · N</span>
+        <!--/* v1.27 FR-824 · 跟随范围的卡片标题旁写明拿掉了谁 */-->
+        <span th:if="${!diagnose.scope().isAll()}" class="scope-note" data-scope-note
+              th:text="'不含:' + ${diagnose.scope().excludedLabel()}">不含:自住房 · 车</span>
       </h3>
-      <div class="space-y-2.5 text-xs">
+      <!--/* v1.27 FR-826 · 全都标了:空态,不许退回按全部资产算 */-->
+      <div th:if="${diagnose.scopeEmpty()}" class="border border-dashed border-rule px-4 py-5 text-center text-[13px] text-ink-soft leading-relaxed" data-scope-empty>
+        所有资产都标成了不参与配置分析,没有可分析的部分 ——
+        <a th:href="@{/accounts}" class="text-brass-deep underline">去账户页取消一个</a>。
+      </div>
+      <div class="space-y-2.5 text-xs" th:unless="${diagnose.scopeEmpty()}">
         <div th:each="a : ${diagnose.allocation}"
              th:if="${a.ratio != null and a.ratio.signum() > 0}">
           <div class="flex justify-between items-baseline mb-1">
@@ -96,17 +133,23 @@
           </div>
         </div>
       </div>
-      <p class="font-mono text-[10px] text-ink-subtle mt-4">按账户类型聚合 · 完整环形图与基准模板对照见<a href="/reports#allocation-diff" class="text-brass-deep hover:underline no-underline ml-1">配置对照</a></p>
+      <p class="font-mono text-[10px] text-ink-subtle mt-4">按账户类型聚合 · 完整环形图与基准模板对照见<a th:href="${reportsAllocationUrl}" class="text-brass-deep hover:underline no-underline ml-1">配置对照</a></p>
     </div>
 
     <!-- 风险敞口 · 等级分布饼图 -->
     <div id="risk" class="bg-card p-6 scroll-mt-32">
-      <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3">
+      <h3 class="font-display text-xl font-medium mb-4 flex items-baseline gap-3 flex-wrap">
         风险敞口 <span class="hidden sm:inline font-mono text-[10px] tracking-[0.16em] uppercase text-ink-subtle">R · I · S · K</span>
+        <span th:if="${!diagnose.scope().isAll()}" class="scope-note" data-scope-note
+              th:text="'不含:' + ${diagnose.scope().excludedLabel()}">不含:自住房 · 车</span>
       </h3>
+      <div th:if="${diagnose.scopeEmpty()}" class="border border-dashed border-rule px-4 py-5 text-center text-[13px] text-ink-soft leading-relaxed">
+        所有资产都标成了不参与配置分析,没有可分析的部分 ——
+        <a th:href="@{/accounts}" class="text-brass-deep underline">去账户页取消一个</a>。
+      </div>
       <div th:if="${diagnose.riskDistribution != null and !diagnose.riskDistribution.isEmpty()}"
            style="height:200px"><canvas id="riskChart"></canvas></div>
-      <div th:if="${diagnose.riskDistribution == null or diagnose.riskDistribution.isEmpty()}"
+      <div th:if="${!diagnose.scopeEmpty() and (diagnose.riskDistribution == null or diagnose.riskDistribution.isEmpty())}"
            class="text-xs text-ink-subtle py-8 text-center">暂无风险等级数据 · 给账户设置产品类目后可见</div>
       <!--/* 2026-09-24 · 风险等级改读账户的产品类目。没设类目的按账户类型的默认类目估算 ——
              估算要说出来,不然用户以为每个数都是按他选的类目算的。 */-->
@@ -242,6 +285,38 @@
     </div>
   </section>
 
+  <!--/* v1.27 FR-880 / FR-881 · AI 分析区顶部一行模板选择(两个 AI 共用):内置 + 我的模板,最后一项「+ 基于当前模板定制…」。
+         换模板 = 带着 ?tpl= 重开这一页(记在网址上,不改家里的默认);模板只改 AI 的说法,不改上面任何数字和规则卡片。 */-->
+  <section id="analysis-templates" class="mb-5" style="scroll-margin-top:80px">
+    <div class="flex items-baseline gap-3 mb-2 flex-wrap">
+      <span class="eyebrow">AI 分析 · 分析模板</span>
+      <span class="text-[11px] text-ink-subtle">模板只改 AI 从什么角度说,不改任何数字、不改上面的规则卡片</span>
+    </div>
+    <div class="tpl-row">
+      <a th:each="t : ${analysisTemplates}" class="tpl-chip" data-tpl-chip
+         th:classappend="${t.key() == analysisTemplate.key()} ? ' on'"
+         th:attr="data-tpl=${t.key()}"
+         th:href="${templateUrls[t.key()]}"
+         th:title="${t.suitsWho() != null ? t.suitsWho() : '我的模板'}">
+        <span th:text="${t.name()}">综合体检</span>
+        <small th:text="${(t.builtin() ? '内置' : '我的') + (t.key() == analysisTemplateDefaultKey ? ' · 默认' : '')}">内置 · 默认</small>
+      </a>
+      <a class="tpl-chip add" data-tpl-customize
+         th:href="${customizeUrl}">
+        <span>+ 基于当前模板定制…</span><small>复制一份再改</small>
+      </a>
+    </div>
+    <p class="text-[12px] text-ink-soft mt-2" th:if="${analysisTemplate.suitsWho() != null}">
+      <b th:text="${analysisTemplate.name()}">综合体检</b> · <span th:text="${analysisTemplate.suitsWho()}">适合大多数家庭</span></p>
+    <div th:if="${analysisHint}" class="analysis-hint mt-3" data-analysis-hint>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep);flex:0 0 14px" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <span class="flex-1">分析角度不合适?换个模板,或
+        <a th:href="${customizeUrl}" class="text-brass-deep underline">基于它定制 →</a></span>
+      <button type="button" class="font-mono text-[10px] text-ink-subtle hover:text-ink" data-analysis-hint-close
+              hx-post="/checkup/hint/dismiss" hx-target="closest [data-analysis-hint]" hx-swap="outerHTML">关掉 ×</button>
+    </div>
+  </section>
+
   <!-- AI 综合智能诊断 · FR-40c 决策 20(2026-05-10) · 异步加载 + spinner placeholder -->
   <section id="checkup-ai" class="mb-8" style="scroll-margin-top:80px">
     <div class="flex items-baseline justify-between mb-3 flex-wrap gap-2">
@@ -251,7 +326,7 @@
       </div>
       <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle">第 二 层 · 跨规则 · 跨账户 · 综合判断</span>
     </div>
-    <div th:replace="~{checkup/_ai-diagnose :: placeholder(aiDiagnoseUrl=@{/checkup/diagnose})}"></div>
+    <div th:replace="~{checkup/_ai-diagnose :: placeholder(aiDiagnoseUrl=${aiDiagnoseUrl})}"></div>
   </section>
 
   <!-- AI 资产洞察 · v0.6 FR-100~109 · 集中度/资产负债表/再平衡·行为/低利率 · 异步加载 -->
@@ -264,7 +339,7 @@
       </div>
       <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-subtle">四 视 角 · 中 立 诊 断</span>
     </div>
-    <div th:replace="~{checkup/_ai-insight :: placeholder(aiInsightUrl=@{/checkup/insight})}"></div>
+    <div th:replace="~{checkup/_ai-insight :: placeholder(aiInsightUrl=${aiInsightUrl})}"></div>
   </section>
 
   <section id="checkup-advice" class="paper-card p-5 bg-card-soft text-sm text-ink-soft mb-8"

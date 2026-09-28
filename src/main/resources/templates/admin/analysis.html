@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('分析设置 · 管理 · 家庭账房')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('admin', ${me}, ${nav})}"></header>
+
+<!--/* v1.27 · 分析设置(issue #23 · PRD §3.7 FR-890 ~ FR-892)。
+     五块都在回答「怎么分析我家」:① 默认范围 ② 分析模板 ③ 不参与配置分析的账户 ④ 配置锚 ⑤ 分析偏好。
+     每一块的 id 供各现场直达(体检范围切换旁、AI 页脚、报表配置锚、超级 Agent 记住之后、账户编辑页勾选项说明)。 */-->
+<main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10 grid grid-cols-12 gap-8">
+  <aside th:replace="~{admin/_sidebar :: sidebar('analysis')}"></aside>
+
+  <section class="col-span-12 md:col-span-9 space-y-8">
+    <div class="mb-2">
+      <div class="eyebrow mb-2">分 · 析 · 设 · 置</div>
+      <h1 class="font-display text-4xl font-medium">怎么分析我家</h1>
+      <p class="text-ink-soft text-sm mt-2 max-w-3xl">体检和 AI 分析「钱怎么分」时看哪些资产、从什么角度看、要记住家里哪些事 ·
+        这里改的<b>不会动任何「有多少钱」的数字</b>(净资产、收益、流动性始终按全部资产算)</p>
+    </div>
+
+    <div th:if="${back != null}" class="link-strip max-w-3xl">
+      <span class="ls-kv">改完可以直接回去</span>
+      <span class="ls-acts"><a th:href="${back}" class="btn-paper text-[11px] no-underline" data-analysis-back>← 回到刚才那页</a></span>
+    </div>
+    <div th:if="${flash}" class="border border-forest bg-forest/[0.05] px-4 py-2 text-sm max-w-3xl" th:text="${flash}" data-flash>成功</div>
+    <div th:if="${flashError}" class="border border-rust bg-rust/[0.05] px-4 py-2 text-sm max-w-3xl" th:text="${flashError}" data-flash-error>失败</div>
+
+    <!-- ① 默认分析范围 -->
+    <div id="scope" class="bracket-card max-w-3xl space-y-4" style="scroll-margin-top:80px">
+      <div class="flex items-baseline gap-3 flex-wrap">
+        <div class="eyebrow-ink">① 家里的默认分析范围</div>
+        <span class="text-[11.5px] text-ink-subtle">体检、报表配置锚、AI 默认按这个;页面上还能临时切</span>
+      </div>
+      <th:block th:if="${#lists.size(scopeOptions) > 1}">
+        <div class="scope-grid" th:style="'--scope-cols:' + ${#lists.size(scopeOptions)}">
+          <form th:each="o : ${scopeOptions}" th:action="@{/admin/analysis/scope}" method="post" class="contents">
+            <input type="hidden" name="scope" th:value="${o.kind().name()}"/>
+            <button type="submit" class="scope-pill text-left" th:classappend="${o.kind() == scopeDefault} ? ' on'"
+                    th:attr="data-scope-default=${o.kind().name()}">
+              <span class="scope-pill-t" th:text="${o.kind().label}">可调整的资产</span>
+              <span class="scope-pill-s" th:text="${o.optionSubtitle()}">不含 自住房、车 · 占总资产 91%</span>
+            </button>
+          </form>
+        </div>
+      </th:block>
+      <p th:if="${#lists.size(scopeOptions) <= 1}" class="text-[13px] text-ink-soft leading-relaxed">
+        现在只有「全部资产」一个范围 —— 家里没有标成「不参与配置分析」的账户,也没有房产类、其他类账户,
+        体检和 AI 本来就只看这些。标了之后这里会多出「可调整的资产」。
+      </p>
+      <p class="text-[11.5px] text-ink-subtle">净资产、收益、流动性始终按全部资产算。</p>
+    </div>
+
+    <!-- ② 分析模板 -->
+    <div id="templates" class="bracket-card max-w-3xl space-y-4" style="scroll-margin-top:80px">
+      <div class="flex items-baseline gap-3 flex-wrap">
+        <div class="eyebrow-ink">② 分析模板</div>
+        <span class="text-[11.5px] text-ink-subtle">AI 从什么角度看 · 内置的不能改,基于它定制一份再改 · 模板只改 AI 的说法,不改数字和规则卡片</span>
+      </div>
+      <table class="w-full text-[13px]" data-template-table>
+        <tr th:each="t : ${templates}" class="border-b border-rule-soft align-top" th:attr="data-template=${t.key()}">
+          <td class="py-2.5 pr-3">
+            <span class="font-display" th:text="${t.name()}">综合体检</span>
+            <span class="font-mono text-[9px] px-1.5 py-px border border-rule text-ink-subtle ml-1" th:text="${t.builtin()} ? '内置' : '我的'">内置</span>
+            <span th:if="${t.key() == templateDefaultKey}" class="font-mono text-[9px] px-1.5 py-px border ml-1"
+                  style="color:var(--forest);border-color:var(--forest)" data-template-default>家里的默认</span>
+            <div class="text-[11.5px] text-ink-soft mt-1" th:if="${t.builtin()}" th:text="${t.suitsWho()}">适合大多数家庭</div>
+            <div class="text-[11.5px] text-ink-soft mt-1" th:unless="${t.builtin()}">
+              <span th:text="'侧重 ' + ${t.focusLabel()} + ' · 立场 ' + ${t.stance().label}">侧重 风险 · 立场 稳健</span>
+              <span class="font-mono text-[10px] text-ink-subtle block mt-0.5"
+                    th:text="${(t.sourceName() != null ? '基于「' + t.sourceName() + '」· ' : '')
+                              + (memberNames[t.updatedByMemberId()] != null ? memberNames[t.updatedByMemberId()] : '家里人')
+                              + ' 改于 ' + (t.updatedAt() != null ? #temporals.format(t.updatedAt(), 'M-d HH:mm') : '—')}">基于 STEADY · 成员A 改于 9-28</span>
+            </div>
+          </td>
+          <td class="py-2.5 text-right whitespace-nowrap font-mono text-[11px]">
+            <a th:unless="${t.builtin()}" th:href="@{|/admin/analysis/template/${t.customId()}/edit|}"
+               class="text-brass-deep underline">编辑</a>
+            <form th:if="${t.key() != templateDefaultKey}" th:action="@{/admin/analysis/template/default}" method="post" class="inline">
+              <input type="hidden" name="key" th:value="${t.key()}"/>
+              <button type="submit" class="text-brass-deep underline ml-2" data-set-default-template>设为默认</button>
+            </form>
+            <a th:href="@{/admin/analysis/template/new(from=${t.key()},back='/admin/analysis#templates')}"
+               class="text-brass-deep underline ml-2" data-customize-from>基于它定制</a>
+            <form th:unless="${t.builtin()}" th:action="@{|/admin/analysis/template/${t.customId()}/delete|}" method="post" class="inline"
+                  onsubmit="return confirm('删掉这个模板?');">
+              <button type="submit" class="text-ink-subtle underline ml-2">删除</button>
+            </form>
+          </td>
+        </tr>
+      </table>
+      <p class="text-[11.5px] text-ink-subtle">我的模板 <span th:text="${customCount}">0</span> / <span th:text="${maxCustom}">10</span> 个</p>
+      <form th:action="@{/admin/analysis/risk-appetite}" method="post" class="flex items-center gap-3 flex-wrap text-[12.5px]" id="risk-appetite">
+        <span class="text-ink-soft">立场选「跟随家里的风险偏好」时,按这个:</span>
+        <select name="appetite" class="field-input bg-transparent w-auto" onchange="this.form.submit()">
+          <option th:each="r : ${riskAppetites}" th:value="${r.name()}" th:selected="${r.name() == riskAppetite}"
+                  th:text="${r.name() == 'CONSERVATIVE' ? '保守' : (r.name() == 'MODERATE' ? '平衡' : '进取')}">平衡</option>
+        </select>
+      </form>
+    </div>
+
+    <!-- ③ 不参与配置分析的账户 -->
+    <div id="excluded" class="bracket-card max-w-3xl space-y-3" style="scroll-margin-top:80px">
+      <div class="flex items-baseline gap-3 flex-wrap">
+        <div class="eyebrow-ink">③ 不参与配置分析的资产</div>
+        <span class="text-[11.5px] text-ink-subtle">在账户编辑页勾选;这里列出来 · 它们仍计入净资产</span>
+      </div>
+      <table class="w-full text-[13px]" th:if="${!#lists.isEmpty(markedAccounts)}" data-marked-table>
+        <tr th:each="a : ${markedAccounts}" class="border-b border-rule-soft">
+          <td class="py-2" th:text="${a.displayName}">自住房</td>
+          <td class="py-2 text-ink-soft" th:text="${a.type.label}">房产</td>
+          <td class="py-2 text-right"><a th:href="@{|/accounts/${a.id}/edit|} + '#analysis-excluded'" class="font-mono text-[11px] text-brass-deep underline">改 →</a></td>
+        </tr>
+      </table>
+      <p th:if="${#lists.isEmpty(markedAccounts)}" class="text-[13px] text-ink-soft leading-relaxed">
+        还没有。短期内不打算卖、也调不动的资产(比如自住房、车)—— 打开那个账户的「编辑」,勾「不参与配置分析」。
+      </p>
+      <div th:if="${!#lists.isEmpty(candidateAccounts)}" class="pt-2">
+        <div class="text-[11.5px] text-ink-subtle mb-1">家里的房产类、其他类账户(还没标):</div>
+        <div class="flex gap-2 flex-wrap">
+          <a th:each="a : ${candidateAccounts}" th:href="@{|/accounts/${a.id}/edit|} + '#analysis-excluded'"
+             class="btn-line" data-mark-candidate th:text="'把「' + ${a.displayName} + '」标成不参与 →'">把「自住房」标成不参与 →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ④ 配置锚 -->
+    <div id="anchor" class="bracket-card max-w-3xl space-y-4" style="scroll-margin-top:80px">
+      <div class="flex items-baseline gap-3 flex-wrap">
+        <div class="eyebrow-ink">④ 配置锚</div>
+        <span class="text-[11.5px] text-ink-subtle">报表「当前配置 vs 模板」与 AI 调仓按它比 · 家里没有的房产、保险两类不参与对照,其余按比例放大</span>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <form th:each="a : ${anchors}" th:action="@{/admin/analysis/anchor}" method="post" class="contents">
+          <input type="hidden" name="anchor" th:value="${a.code}"/>
+          <button type="submit" class="scope-pill text-left" style="min-height:58px" th:classappend="${a.code == anchorCurrent} ? ' on'"
+                  th:attr="data-anchor=${a.code}">
+            <span class="text-[13px]" th:text="${a.displayName}">标普 4321</span>
+            <span class="scope-pill-s font-mono"
+                  th:text="${a.cashPct.stripTrailingZeros().toPlainString() + ' / ' + a.investPct.stripTrailingZeros().toPlainString() + ' / ' + a.propertyPct.stripTrailingZeros().toPlainString() + ' / ' + a.insurancePct.stripTrailingZeros().toPlainString()}">10 / 30 / 40 / 20</span>
+          </button>
+        </form>
+        <form th:action="@{/admin/analysis/anchor}" method="post" class="contents">
+          <input type="hidden" name="anchor" value="CUSTOM"/>
+          <button type="submit" class="scope-pill text-left" style="min-height:58px" th:classappend="${anchorCurrent == 'CUSTOM'} ? ' on'" data-anchor="CUSTOM">
+            <span class="text-[13px]">自定义</span>
+            <span class="scope-pill-s font-mono" th:text="${customFilled} ? ${customAnchor['CASH'].stripTrailingZeros().toPlainString() + ' / ' + customAnchor['INVEST'].stripTrailingZeros().toPlainString() + ' / ' + customAnchor['PROPERTY'].stripTrailingZeros().toPlainString() + ' / ' + customAnchor['INSURANCE'].stripTrailingZeros().toPlainString()} : '还没填'">还没填</span>
+          </button>
+        </form>
+      </div>
+      <p class="text-[11px] text-ink-subtle font-mono">四个数依次是 现金 / 投资 / 房产 / 保险 的目标 %</p>
+      <form th:action="@{/admin/analysis/anchor/custom}" method="post" id="anchor-custom" data-custom-anchor-form
+            class="border border-dashed border-rule p-4 space-y-3">
+        <input type="hidden" name="back" th:if="${back != null}" th:value="${back}"/>
+        <div class="text-[13px]"><b>自定义目标</b> <span class="text-ink-subtle text-[11.5px]">合计必须 100 · 存了就用「自定义」</span></div>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+          <label class="block"><span class="text-[10.5px] text-ink-subtle">现金</span>
+            <input name="cash" type="number" step="0.01" min="0" max="100" class="field-input field-input-num" data-pct
+                   th:value="${customFilled ? customAnchor['CASH'].stripTrailingZeros().toPlainString() : ''}"></label>
+          <label class="block"><span class="text-[10.5px] text-ink-subtle">投资</span>
+            <input name="invest" type="number" step="0.01" min="0" max="100" class="field-input field-input-num" data-pct
+                   th:value="${customFilled ? customAnchor['INVEST'].stripTrailingZeros().toPlainString() : ''}"></label>
+          <label class="block"><span class="text-[10.5px] text-ink-subtle">房产</span>
+            <input name="property" type="number" step="0.01" min="0" max="100" class="field-input field-input-num" data-pct
+                   th:value="${customFilled ? customAnchor['PROPERTY'].stripTrailingZeros().toPlainString() : ''}"></label>
+          <label class="block"><span class="text-[10.5px] text-ink-subtle">保险</span>
+            <input name="insurance" type="number" step="0.01" min="0" max="100" class="field-input field-input-num" data-pct
+                   th:value="${customFilled ? customAnchor['INSURANCE'].stripTrailingZeros().toPlainString() : ''}"></label>
+          <div class="font-mono text-[11px] pb-1.5" data-pct-sum>合计 —</div>
+        </div>
+        <button type="submit" class="btn-ink text-xs">存自定义目标</button>
+      </form>
+    </div>
+
+    <!-- ⑤ 分析偏好 -->
+    <div id="preferences" class="bracket-card max-w-3xl space-y-3" style="scroll-margin-top:80px">
+      <div class="flex items-baseline gap-3 flex-wrap">
+        <div class="eyebrow-ink">⑤ 分析偏好</div>
+        <span class="text-[11.5px] text-ink-subtle">写给 AI 的侧重与忌讳 · 每条 ≤ <span th:text="${prefMaxChars}">200</span> 字 · 最多 <span th:text="${prefMax}">10</span> 条</span>
+      </div>
+      <div th:each="p : ${preferences}" class="flex gap-3 items-start border border-rule bg-paper px-3 py-2.5"
+           th:style="${p.enabled} ? '' : 'opacity:.6'" data-preference th:attr="data-pref-enabled=${p.enabled}">
+        <div class="flex-1 min-w-0">
+          <div class="text-[13px] leading-relaxed" th:text="${p.content}">房子是自住的,别建议卖。</div>
+          <div class="font-mono text-[9.5px] text-ink-subtle mt-1"
+               th:text="${(memberNames[p.createdByMemberId] != null ? memberNames[p.createdByMemberId] : '家里人') + ' · '
+                         + (p.createdAt != null ? #temporals.format(p.createdAt, 'M-d') : '—')
+                         + (p.source == 'AGENT' ? ' · 在超级 Agent 对话里记住的' : '')
+                         + (p.enabled ? '' : ' · 已停用')}">成员A · 9-28</div>
+        </div>
+        <form th:action="@{|/admin/analysis/preferences/${p.id}/toggle|}" method="post">
+          <input type="hidden" name="enabled" th:value="${!p.enabled}"/>
+          <button type="submit" class="btn-line" th:text="${p.enabled} ? '停用' : '启用'">停用</button>
+        </form>
+        <form th:action="@{|/admin/analysis/preferences/${p.id}/delete|}" method="post" onsubmit="return confirm('删掉这一条?');">
+          <button type="submit" class="font-mono text-[11px] text-ink-subtle underline">删除</button>
+        </form>
+      </div>
+      <form th:if="${#lists.size(preferences) < prefMax}" th:action="@{/admin/analysis/preferences}" method="post" class="space-y-2" data-pref-form>
+        <textarea name="content" rows="2" th:attr="maxlength=${prefMaxChars}" required
+                  class="w-full border border-rule bg-paper px-3 py-2 text-[13px]"
+                  placeholder="比如:房子是自住的,别建议卖 · 我们偏保守,加密货币不想再加仓"></textarea>
+        <div class="flex items-center gap-3 flex-wrap">
+          <button type="submit" class="btn-ink text-xs">+ 加一条</button>
+          <span class="text-[11.5px] text-ink-subtle flex-1 min-w-[240px]">AI 会照着调整说法,<b>但不会因此改动任何数字</b>。
+            会原样发给你配置的大模型,别写账号、身份证这类信息。</span>
+        </div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<script th:inline="none">
+/* 自定义锚:边填边算合计(只做提示;存的时候服务端再校验一次,合计不是 100 不让存) */
+(function(){
+  var form = document.querySelector('[data-custom-anchor-form]');
+  if(!form) return;
+  var out = form.querySelector('[data-pct-sum]');
+  function sync(){
+    var s = 0, any = false;
+    form.querySelectorAll('[data-pct]').forEach(function(i){ if(i.value !== ''){ any = true; s += Number(i.value) || 0; } });
+    if(!any){ out.textContent = '合计 —'; out.style.color = ''; return; }
+    var r = Math.round(s * 100) / 100;
+    out.textContent = r === 100 ? '合计 100 · 可以存' : '合计 ' + r + '(' + (r < 100 ? '还差 ' + Math.round((100 - r) * 100) / 100 : '多了 ' + Math.round((r - 100) * 100) / 100) + ')';
+    out.style.color = r === 100 ? 'var(--forest)' : 'var(--rust)';
+  }
+  form.addEventListener('input', sync);
+  sync();
+})();
+</script>
+</body>
+</html>

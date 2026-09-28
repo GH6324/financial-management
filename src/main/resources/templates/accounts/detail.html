@@ -38,6 +38,10 @@
           </svg>
           <span th:text="${accountGroupName != null} ? '分组:' + ${accountGroupName} : '未分组 · 管理分组'">未分组</span>
         </a>
+        <!--/* v1.27 FR-802 · 不参与配置分析 · 点它回编辑页的勾选项 */-->
+        <a th:if="${detail.account.analysisExcluded}"
+           th:href="@{|/accounts/${detail.account.id}/edit|} + '#analysis-excluded'"
+           class="tag-excluded no-underline" data-excluded-badge title="不参与配置分析 · 净资产照常计入 · 点这里改">不参与分析</a>
         <span class="pill inline-flex items-center gap-1" th:if="${detail.category != null}"
               style="background:rgba(122,90,57,.10);border-color:var(--brass-deep);color:var(--brass-deep)">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

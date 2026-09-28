@@ -26,7 +26,7 @@
     </div>
     <button type="button"
             class="text-[10px] font-mono px-2 py-0.5 text-ink-subtle hover:text-brass-deep border border-rule-soft hover:border-brass-deep transition"
-            hx-get="/checkup/insight?refresh=true"
+            th:hx-get="${refreshUrl != null ? refreshUrl : '/checkup/insight?refresh=true'}"
             hx-target="#ai-insight-panel" hx-swap="outerHTML"
             title="重新生成(忽略缓存)">重新生成</button>
   </div>
@@ -42,11 +42,13 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--brass-deep)" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
           <span class="font-display text-sm font-medium">集中度</span>
+          <span th:if="${insight.scope() != null and !insight.scope().isAll()}" class="scope-note"
+                th:text="'不含:' + ${insight.scope().excludedLabel()}">不含:自住房</span>
           <span class="font-mono text-[9px] text-ink-subtle ml-auto"
                 th:text="${'风险线 ' + #numbers.formatDecimal(c.thresholdPct(),1,1) + '%'}">风险线 40%</span>
         </div>
         <div class="space-y-1 text-xs">
-          <div class="flex justify-between items-baseline" th:with="l=${c.property()}">
+          <div class="flex justify-between items-baseline" th:if="${c.property() != null}" th:with="l=${c.property()}">
             <span class="text-ink-soft">房产占比</span>
             <span class="font-mono tnum" th:classappend="${l.overLine() ? ' num-neg' : ''}"
                   th:text="${l.pct() != null ? #numbers.formatDecimal(l.pct(),1,1) + '%' + (l.overLine() ? ' · 超线' : '') : '—'}">—</span>
@@ -76,7 +78,7 @@
                 th:text="${band == 'ALERT' ? '负债警戒' : (band == 'ELEVATED' ? '负债偏高' : (band == 'HEALTHY' ? '负债健康' : '负债—'))}">负债健康</span>
         </div>
         <div class="space-y-1 text-xs">
-          <div class="flex justify-between items-baseline">
+          <div class="flex justify-between items-baseline" th:if="${insight.propertyInScope()}">
             <span class="text-ink-soft">不动产 / 金融盘</span>
             <span class="font-mono tnum"
                   th:text="${(b.propertyPct() != null ? #numbers.formatDecimal(b.propertyPct(),1,1) + '%' : '—') + ' / ' + (b.financialPct() != null ? #numbers.formatDecimal(b.financialPct(),1,1) + '%' : '—')}">—</span>
@@ -85,7 +87,7 @@
             <span class="text-ink-soft">负债率</span>
             <span class="font-mono tnum" th:text="${b.debtRatioPct() != null ? #numbers.formatDecimal(b.debtRatioPct(),1,1) + '%' : '—'}">—</span>
           </div>
-          <div class="flex justify-between items-baseline">
+          <div class="flex justify-between items-baseline" th:if="${insight.hasLoans()}">
             <span class="text-ink-soft">负债利率 vs 资产年化</span>
             <span class="font-mono tnum"
                   th:text="${(insight.weightedLoanRatePct() != null ? #numbers.formatDecimal(insight.weightedLoanRatePct(),1,2) + '%' : '—') + ' / ' + (insight.assetAnnualReturnPct() != null ? #numbers.formatDecimal(insight.assetAnnualReturnPct(),1,2) + '%' : '—')}">—</span>
@@ -101,6 +103,8 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--brass-deep)" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
           <span class="font-display text-sm font-medium">再平衡 · 行为</span>
+          <span th:if="${insight.scope() != null and !insight.scope().isAll()}" class="scope-note"
+                th:text="'不含:' + ${insight.scope().excludedLabel()}">不含:自住房</span>
           <span class="font-mono text-[9px] text-ink-subtle ml-auto"
                 th:if="${r.anchorCode() != null}" th:text="${'锚 ' + r.anchorCode()}">锚 SP_4321</span>
         </div>
@@ -220,6 +224,7 @@
     <span>中 · 立 · 诊 · 断 · 不 · 预 · 测 · 不 · 荐 · 产 · 品</span>
     <span>数字由系统计算,AI 仅解读,不构成投资建议</span>
   </div>
+  <div th:replace="~{checkup/_analysis-footer :: foot}"></div>
 </section>
 
 <!-- placeholder · spinner -->

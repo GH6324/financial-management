@@ -78,6 +78,14 @@ public class FamilyDiagnoseService {
         return diagnose(familyId, slice -> scopeService.resolve(familyId, requestedScope, slice), true);
     }
 
+    /**
+     * v1.27 · 模板固定了范围(如「投资组合体检」= 金融资产)时用:就按这个种类算,不回落家庭默认。
+     * AI 的配置 / 风险两节必须和它用的范围同源 —— 所以 AI 那边按模板的范围重算一次诊断,而不是借页面上那份。
+     */
+    public FamilyDiagnose diagnoseExactly(long familyId, com.family.finance.service.analysis.ScopeKind kind) {
+        return diagnose(familyId, slice -> scopeService.exactly(familyId, kind, slice), true);
+    }
+
     private FamilyDiagnose diagnose(long familyId,
                                     java.util.function.Function<FactSlice, com.family.finance.service.analysis.AnalysisScope> scopeOf,
                                     boolean withOptions) {

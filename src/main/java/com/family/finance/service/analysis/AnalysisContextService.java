@@ -38,6 +38,14 @@ public class AnalysisContextService {
         return new AnalysisContext(scope, t, preferenceService.enabledTexts(familyId), stance, sourceName);
     }
 
+    /** 范围已经算好(与诊断同源)、模板已经定了 → 组装上下文 */
+    public AnalysisContext of(long familyId, AnalysisScope scope, AnalysisTemplate t) {
+        String stance = AnalysisPromptBlocks.riskAppetiteLabel(familyService.require(familyId).getRiskAppetite());
+        String sourceName = t == null || t.builtin() ? null
+                : BuiltinTemplates.find(t.sourceKey()).map(AnalysisTemplate::name).orElse(null);
+        return new AnalysisContext(scope, t, preferenceService.enabledTexts(familyId), stance, sourceName);
+    }
+
     /** 超级 Agent 用:家里的默认范围 + 默认模板 + 偏好 */
     public AnalysisContext familyDefaults(long familyId) {
         return resolve(familyId, null, null, null, null);

@@ -13,7 +13,7 @@
     <div class="flex items-baseline gap-3">
       <span class="font-mono text-[10px] tracking-[0.18em] uppercase font-medium"
             th:style="${result.available() ? 'color:var(--brass-deep)' : 'color:var(--ink-soft)'}"
-            th:text="${result.available() ? 'AI · 综合智能诊断' : 'AI · 暂不可用'}">
+            th:text="${result.available() ? 'AI · 综合智能诊断' : (result.vendor() == 'skipped' ? 'AI · 这次不分析' : 'AI · 暂不可用')}">
         AI · 综合智能诊断
       </span>
       <span th:if="${result.available()}" class="font-mono text-[9px] uppercase text-ink-subtle">
@@ -23,7 +23,7 @@
     </div>
     <button type="button"
             class="text-[10px] font-mono px-2 py-0.5 text-ink-subtle hover:text-brass-deep border border-rule-soft hover:border-brass-deep transition"
-            th:hx-get="${scope == 'ACCOUNT' ? '/checkup/diagnose?account=' + accountId + '&refresh=true' : '/checkup/diagnose?refresh=true'}"
+            th:hx-get="${scope == 'ACCOUNT' ? '/checkup/diagnose?account=' + accountId + '&refresh=true' : (refreshUrl != null ? refreshUrl : '/checkup/diagnose?refresh=true')}"
             hx-target="#ai-diagnose-panel"
             hx-swap="outerHTML"
             title="重新生成 AI 诊断(忽略缓存)">↻ 刷新</button>
@@ -107,6 +107,9 @@
     <span>资 · 产 · 顾 · 问 · 综 · 合 · 视 · 角</span>
     <span>数字与判断仅供参考,不构成投资建议</span>
   </div>
+  <!--/* v1.27 FR-848 · 这次用的模板与范围 + 换模板 / 定制(全家诊断才有:单账户诊断没有 analysis,片段自己不渲染)。
+         不在这里写 th:if —— th:replace 优先级高于 th:if,同一个元素上写了也拦不住(v1.6.25 踩过) */-->
+  <div th:replace="~{checkup/_analysis-footer :: foot}"></div>
 </section>
 
 <!-- placeholder · spinner · 由 family.html / account.html 通过 fragment 参数 aiDiagnoseUrl 传入 -->

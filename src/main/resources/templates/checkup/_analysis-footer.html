@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--/* v1.27 FR-848 · AI 结果页脚:这次用的模板与范围 + 就地入口「换模板 ▾ · 定制这个模板 →」。
+       觉得哪里不对,当场换或当场改;换模板记在网址上,不改家里的默认。
+       analysis = AnalysisContext · footTemplateUrls = 模板 key → 体检页链接 · customizeUrl = 定制页(带回跳)。 */-->
+<div th:fragment="foot" th:if="${analysis != null}" class="analysis-foot" data-analysis-foot>
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  <span class="af-label" data-analysis-label th:text="${analysis.footerLabel()}">按「综合体检」· 全部资产</span>
+  <details>
+    <summary>换模板 ▾</summary>
+    <div>
+      <a th:each="t : ${analysisTemplates}" th:href="${footTemplateUrls[t.key()]}"
+         th:classappend="${t.key() == analysis.template().key()} ? ' on'"
+         th:text="${t.name() + (t.builtin() ? '' : ' · 我的')}">稳健守护</a>
+    </div>
+  </details>
+  <a th:href="${customizeUrl}" data-analysis-customize>定制这个模板 →</a>
+</div>
+</body>
+</html>

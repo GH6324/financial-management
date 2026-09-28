@@ -54,6 +54,12 @@
     <p class="text-sm text-ink-subtle mt-2" th:if="${diagnose.monthsHeld == null}">
       暂无该账户的历史数据 · 请先在「填报」录入至少一期月末余额
     </p>
+    <!--/* v1.27 FR-805 · 被标「不参与配置分析」的账户:集中度 / 风险规则不再对它亮;页头说一句,并能直接改 */-->
+    <div th:if="${accountExcluded}" class="mt-3 flex items-center gap-2 flex-wrap text-[12.5px]" data-account-excluded-note>
+      <span class="tag-excluded">不参与分析</span>
+      <span class="text-ink-soft">这个账户不参与家庭配置分析 · 净资产照常计入 ·</span>
+      <a th:href="@{|/accounts/${account.id}/edit|} + '#analysis-excluded'" class="text-brass-deep underline">改</a>
+    </div>
   </section>
 
   <!-- STOCK / WEALTH · 4 张投资卡 -->

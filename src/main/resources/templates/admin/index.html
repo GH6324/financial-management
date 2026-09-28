@@ -249,6 +249,15 @@
         <p class="text-sm text-ink-soft mt-2 leading-relaxed">8 类别(只读)</p>
       </div>
     </a>
+    <!--/* v1.27 · 分析设置(PRD FR-890)。卡片点名五块 —— 用户是带着「模板」「配置锚」「偏好」「不算房子」这些词来找的 */-->
+    <a th:href="@{/admin/analysis}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start" data-admin-card="analysis">
+      <div>
+        <div class="eyebrow-ink mb-2">口径 · 分析</div>
+        <h3 class="font-display text-xl">分析设置</h3>
+        <p class="text-sm text-ink-soft mt-2 leading-relaxed">分析范围 · 分析模板 · 不参与分析的资产 · 配置锚(含自定义)· 分析偏好 · 体检和 AI 都按这里来</p>
+      </div>
+      <span class="font-mono text-xs text-brass tracking-widest opacity-0 group-hover:opacity-100 transition">→</span>
+    </a>
     <a th:href="@{/admin/calc-tweaks}" class="group bg-card hover:bg-card-soft transition p-6 flex justify-between items-start">
       <div>
         <div class="eyebrow-ink mb-2">口径 · 数值阈值</div>

@@ -68,6 +68,7 @@ public class DashboardController {
     private final com.family.finance.service.review.RebalancePlanService rebalancePlanService; // v1.2 计划进度 pill
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     private final com.family.finance.service.insight.AssetInsightService assetInsightService; // v0.6 资产洞察速览
+    private final com.family.finance.service.analysis.AnalysisScopeService analysisScopeService; // v1.27 洞察条跟家庭默认范围
     private final com.family.finance.service.group.AccountRowGrouper accountRowGrouper;       // v1.20 账户组折叠
     private final com.family.finance.service.group.AccountGroupService accountGroupService;   // v1.20 FR-486 筛选器快选
     private final com.family.finance.service.lens.LensMetaService lensMetaService; // v1.1 资产透视内嵌
@@ -378,7 +379,10 @@ public class DashboardController {
         // v0.6 · 资产洞察速览(仅硬数据 · 不调 LLM · 保持 dashboard 轻快)· compute 永不抛
         // v1.18.7 · 洞察条改吃【这一页的切片】—— 此前它自己 loadDefault(本位币/全账户/按今天),
         //   于是切币种、筛账户、选历史 as-of 时,上面 KPI 变了、洞察条一动不动。
-        model.addAttribute("insight", assetInsightService.compute(me.getFamilyId(), slice));
+        // v1.27 FR-824 / §13 ⑪ · 洞察条的集中度那一条跟随家里的默认分析范围 ——
+        //   同一句「房产 X% 偏高」出现在体检和仪表盘两处,只改一处等于没改。资产负债表等其余几条照常全量。
+        var dashScope = analysisScopeService.resolve(me.getFamilyId(), null, slice);
+        model.addAttribute("insight", assetInsightService.compute(me.getFamilyId(), slice, dashScope, null));
         /* v1.20 FR-482/483 · 账户级指标行按组折叠。
          * 这一处同时修好三个组件:「按账户分布」横条图(它吃同一份 JSON,一行 JS 都不用动)、
          * dashboard 账户列表、reports 账户级收益表。

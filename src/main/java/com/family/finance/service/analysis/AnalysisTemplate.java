@@ -55,6 +55,11 @@ public record AnalysisTemplate(
 
     public boolean isCustom() { return !builtin; }
 
+    /** 「基于它定制」的来源名(只认内置;来源是另一个我的模板时不写) */
+    public String sourceName() {
+        return BuiltinTemplates.find(sourceKey).map(AnalysisTemplate::name).orElse(null);
+    }
+
     public Long customId() {
         if (builtin || key == null || !key.startsWith(BuiltinTemplates.CUSTOM_PREFIX)) return null;
         try { return Long.valueOf(key.substring(BuiltinTemplates.CUSTOM_PREFIX.length())); }
