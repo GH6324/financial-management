@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <body>
-<div th:fragment="wizard" class="scrim" style="position: relative; height: auto; background: rgba(26,23,20,0.04); padding: 40px 24px;">
+<div th:fragment="wizard" id="account-wizard" class="scrim" style="position: relative; height: auto; background: rgba(26,23,20,0.04); padding: 40px 24px; scroll-margin-top: 72px;">
   <div class="envelope-modal max-w-[720px] mx-auto p-8">
     <div class="flex items-baseline justify-between mb-1">
       <div class="eyebrow">添加账户向导 · MODAL</div>
@@ -13,6 +13,9 @@
     <style>
       .tpl-card.tpl-selected { border-color: var(--ink); background: var(--card-soft); box-shadow: inset 4px 0 0 var(--brass-deep); }
       .tpl-card.tpl-selected .tpl-check { opacity: 1; }
+      /* v1.26.2 · 刚滚到向导时描一圈边,让人看出「刚出现的是这个」 */
+      #account-wizard .envelope-modal { transition: box-shadow .5s ease; }
+      #account-wizard .envelope-modal.wizard-arrive { box-shadow: 0 0 0 3px var(--brass-deep); }
     </style>
 
     <div class="rule-double mb-4"></div>
@@ -159,6 +162,28 @@
       });
     });
     syncType();
+  })();
+
+  // v1.26.2 · 向导是追加在账户列表最下面的:点「+ 添加账户(开向导)」是整页刷新,落回页顶,
+  //   向导在视口以下(PC 约 2400px、手机约 5600px)—— 维护者 2026-09-28 在 PC 上连点好几次,以为没反应。
+  //   落到这一页就把向导滚进视口并描一圈边。账户页、首次引导、填报页「+ 新账户」三个入口都落在这里,一处改全部生效。
+  //   页面加载完(字体、图标到位后位置会漂)再对齐一次;用户已经自己动过滚轮 / 手指 / 键盘就不再抢。
+  (function(){
+    var box = document.getElementById('account-wizard');
+    if(!box || !box.scrollIntoView) return;
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var moved = false;
+    ['wheel','touchstart','keydown'].forEach(function(ev){
+      window.addEventListener(ev, function(){ moved = true; }, { once: true, passive: true });
+    });
+    function align(){ box.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); }
+    align();
+    var modal = box.querySelector('.envelope-modal');
+    if(modal && !reduce){
+      modal.classList.add('wizard-arrive');
+      setTimeout(function(){ modal.classList.remove('wizard-arrive'); }, 1600);
+    }
+    window.addEventListener('load', function(){ if(!moved) align(); });
   })();
   </script>
 </div>

@@ -6227,6 +6227,18 @@ else
   log_bad "v1261-DOCKER-UP-DNS docker-up.sh 又把拉取失败一律归因成限速" "$(grep '✗' "$TMP" | head -2 | tr '\n' ' ')"
 fi
 
+# v1262-WIZARD-ARRIVES · 点「+ 添加账户(开向导)」后向导要出现在眼前。
+#   向导追加在账户列表最下面,点按钮是整页刷新、落回页顶 —— 向导在视口以下(PC 约 2400px、手机约 5600px),
+#   维护者 2026-09-28 在 PC 上连点好几次以为没反应。三个入口(账户页 / 填报页 / 首次引导)都落在 /accounts/new,
+#   所以滚动放在向导片段里;e2e flow 29 从真实入口点进去量向导顶边的位置。
+QA1262_W="$RD/src/main/resources/templates/accounts/_template-wizard.html"
+{ grep -q 'id="account-wizard"' "$QA1262_W" \
+  && grep -q "getElementById('account-wizard')" "$QA1262_W" \
+  && grep -q 'prefers-reduced-motion' "$QA1262_W" \
+  && [ -f "$RD/scripts/e2e/flows/29-account-wizard-arrives.cjs" ]; } \
+  && log_ok "v1262-WIZARD-ARRIVES(落到 /accounts/new 就把向导滚进视口 · 照顾减少动效 · e2e 从真实入口量位置)" \
+  || log_bad "v1262-WIZARD-ARRIVES 点「添加账户」后向导又藏在页面最下面了" "see accounts/_template-wizard.html · e2e flow 29"
+
 # v126-LENS-ACCOUNT-RESIDUAL · 外币账户多条持仓逐条折算后要补零头,否则透视合计与 KPI 总资产差一分(跟股价走,时红时绿)
 #   v1.20 只补了「一条持仓按方向拆多份」那一层;2026-09-25 regression-data 两次撞上账户这一层
 QA_LQS="$RD/src/main/java/com/family/finance/service/lens/LensQueryService.java"

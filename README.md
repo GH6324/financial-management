@@ -96,8 +96,8 @@
 
 > 完整发布记录与截图见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段每版只留 2–4 行,细节不搬过来)。
 
-**[v1.26.1](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.26.1) · 两处「说的和实际对不上」**
-持仓页的 OpenD 只给富途显示;安装脚本拉镜像失败时带上 docker 原话,DNS 坏了明说是 DNS,不再一律说成「被限速」、去改镜像源。
+**[v1.26.1](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.26.1) · [v1.26.2](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.26.2) · 几处小修**
+持仓页的 OpenD 只给富途显示;安装脚本拉镜像失败时说出真实原因(DNS 坏了不再说成「被限速」);点「添加账户」后向导直接出现在眼前。
 
 **[v1.26.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.26.0) · 盈透 IBKR 账户也能自动同步了**
 和富途、老虎一样配一次,之后持仓与各币种现金自动拉进来;走 Flex 报表,口令只能取报表、做不了交易([#24](https://github.com/LuoDi-Nate/financial-management/issues/24))。券商同步在管理页单独成了入口;提醒时间、再平衡核销比例这两个一直改不了的设置补上了页面。
@@ -131,7 +131,7 @@
 | 前端 | Thymeleaf + HTMX 1.9 + Chart.js 4 + ECharts(无 SPA、无构建管线) |
 | 认证 | Spring Security + bcrypt + Session Cookie |
 | 部署 | **Docker compose 一键(v0.7,推荐)** · 或 Linux systemd + nginx 反代 :80 → :20000 · macOS launchd(可选)直连 :20000 |
-| 测试 | JUnit 5 · **985 单元** / 290 e2e 断言(8 条浏览器主线,真浏览器 + 真 DB)/ **897 黑盒回归**护栏 —— 每条护栏守的是哪个坑,见 [QA case 库](docs/qa-cases.md) |
+| 测试 | JUnit 5 · **985 单元** / 305 e2e 断言(8 条浏览器主线,真浏览器 + 真 DB)/ **898 黑盒回归**护栏 —— 每条护栏守的是哪个坑,见 [QA case 库](docs/qa-cases.md) |
 
 ## 快速开始(自托管部署)
 
@@ -381,6 +381,7 @@ bash scripts/regression-data.sh # 数据层/口径回归(原 e2e.sh · curl 端�
 
 | 版本 | 文档 |
 |---|---|
+| `v1.27`(待评审) | [PRD](prd/v1.27.md) · [预览](preview/v1.27/) · 技术设计待 PRD 定稿后写 |
 | `v1.26` | [PRD](prd/v1.26.md) · [技术设计](tech-design/v1.26.md) · [预览](preview/v1.26/) |
 | `v1.24` | [PRD](prd/v1.24.md) · [技术设计](tech-design/v1.24.md) · [预览](preview/v1.24/) |
 | `v1.23` | [PRD](prd/v1.23.md) · [技术设计](tech-design/v1.23.md) · [预览](preview/v1.23/) |
@@ -465,7 +466,7 @@ financial-management/
 ├── docs/qa-cases.md                      # QA case 库
 ├── icons/                                # 用户可替换的图标源 PNG
 └── scripts/
-    ├── qa-run.sh                         # 黑盒回归护栏(897 条)
+    ├── qa-run.sh                         # 黑盒回归护栏(898 条)
     ├── e2e/run.cjs                       # 端到端(真浏览器点 + 回库查真值)
     └── release-shots.cjs                 # 发版截图(隐私模式默认开)
 ```
