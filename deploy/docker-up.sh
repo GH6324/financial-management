@@ -44,7 +44,24 @@ _to(){ local s="$1"; shift
   if command -v timeout >/dev/null 2>&1; then timeout "$s" "$@"
   elif command -v gtimeout >/dev/null 2>&1; then gtimeout "$s" "$@"
   else "$@"; fi; }
-pull_one(){ _to 50 docker pull "$1" >/dev/null 2>&1; }
+# v1.26.1 · 拉失败时留下 docker 的原话(最后几行),供下面分类与展示。
+# 原来 stderr 整个丢掉,任何失败都被说成「Docker Hub 被限速/阻断」—— 用户实测是 colima 虚拟机里 DNS 坏了
+# (lookup ghcr.io on [::1]:53: connection refused),脚本却去配镜像源,配完照样失败。
+PULL_ERR=""
+pull_one(){
+  local out rc=0
+  out="$(_to 50 docker pull "$1" 2>&1 >/dev/null)" || rc=$?
+  [[ $rc -eq 0 ]] && return 0
+  PULL_ERR="$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -3 || true)"
+  if [[ -z "$PULL_ERR" ]]; then
+    if [[ $rc -eq 124 ]]; then PULL_ERR="(50 秒没拉完,被超时打断)"; else PULL_ERR="(docker 没给出原因,退出码 ${rc})"; fi
+  fi
+  return 1
+}
+# DNS 解析失败的几种原话:引擎连域名都解析不了,配镜像源(同样要解析域名)帮不上忙
+pull_err_is_dns(){
+  printf '%s' "$PULL_ERR" | grep -qiE 'lookup [^ ]+ on [^ ]+:53|no such host|name resolution|server misbehaving'
+}
 
 # ── 版本可见性(v1.6.25)────────────────────────────────────────────
 # 起因:用户 git pull 后重跑本脚本,拿到的仍是旧版本,而**脚本从头到尾不说跑的是哪一版**
@@ -109,13 +126,59 @@ ensure_env(){
 # 注:registry-mirrors 只对 Docker Hub 生效,正好兜 mysql;GHCR 上我们的镜像大陆直连、不受影响。
 cn_hub_blocked_guide(){
   local what="${1:-数据库镜像}"       # 同一处置也服务 JDK 基础镜像分支,别把文案写死成数据库
+  # v1.26.1 · DNS 坏了就别往「限速 / 配镜像源」上引:镜像源的域名一样解析不了,配了也白配(还会改动用户的引擎配置)
+  pull_err_is_dns && dns_broken_guide "$what"
   say ""
-  say "  ⚠ 镜像拉不动(${what})—— 这是中国大陆访问 Docker Hub 被限速/阻断的典型表现。"
+  say "  ⚠ 镜像拉不动(${what})—— 这是中国大陆访问 Docker Hub 被限速/阻断的典型表现。docker 的原话:"
+  printf '%s\n' "$PULL_ERR" | sed 's/^/      /'
   say "    (registry-mirrors 只对 Docker Hub 生效,正好兜它;GHCR 上我们的镜像大陆能直连。)"
   if cn_autofix_mirrors; then say "  · 镜像源已配好,重试拉取…"; return 0; fi
   say ""
   if [[ "$(uname -s)" == "Darwin" ]]; then _cn_guide_mac; else _cn_guide_linux; fi
   say ""
+}
+
+# ── DNS 坏了(v1.26.1)──────────────────────────────────────────────
+# 用户实测(macOS + colima):虚拟机里的 /etc/resolv.conf 是个断掉的软链接(指向不存在的
+# /run/systemd/resolve/stub-resolv.conf)→ 引擎找不到 DNS 配置,退回去问本机 [::1]:53 → 那里没有 DNS 服务 →
+# 所有镜像域名都解析不了。原来的脚本把这当成「Docker Hub 被限速」,去配镜像源、重启引擎,重试照样失败。
+# 这里只做只读检查 + 给步骤,不替用户改虚拟机(DNS 的修法因 colima 版本和网络环境而异,改错了更难排查)。
+dns_broken_guide(){
+  local what="$1" tgt=""
+  say ""
+  say "  ✗ 拉不动${what}的原因是 DNS:Docker 引擎连域名都解析不了。docker 的原话:"
+  printf '%s\n' "$PULL_ERR" | sed 's/^/      /'
+  say "    这不是网络被限速 —— 配镜像源也没用(镜像源的域名一样解析不了),所以这次不改你的镜像源配置。"
+  say ""
+  if [[ "$(uname -s)" == "Darwin" ]] && command -v colima >/dev/null 2>&1 && colima status >/dev/null 2>&1; then
+    if _to 15 colima ssh -- test -e /etc/resolv.conf >/dev/null 2>&1; then
+      say "    查了一下:colima 虚拟机里的 /etc/resolv.conf 在,问题多半在它指向的 DNS 服务器上(看下面第 3 步)。"
+    else
+      tgt="$(_to 15 colima ssh -- readlink /etc/resolv.conf 2>/dev/null | tail -1 || true)"
+      if [[ -n "$tgt" ]]; then
+        say "    查了一下:colima 虚拟机里的 /etc/resolv.conf 是个断掉的链接(指向不存在的 ${tgt}),"
+      else
+        say "    查了一下:colima 虚拟机里没有 /etc/resolv.conf,"
+      fi
+      say "    引擎只好去问本机 [::1]:53,而那里没有 DNS 服务 —— 就是上面那句 connection refused。"
+    fi
+    say ""
+    say "    按顺序试,每一步之后重跑 bash deploy/docker-up.sh:"
+    say "      1) colima ssh -- sudo systemctl restart systemd-resolved    # 让虚拟机重新生成 DNS 配置"
+    say "      2) colima restart                                          # 约 1 分钟"
+    say "      3) 看 Mac 自己的 DNS:scutil --dns | grep nameserver"
+    say "         是 127.0.0.1 或 ::1(常见于 VPN / 去广告 / 加密 DNS 工具)的话,虚拟机会照抄这个本机地址 ——"
+    say "         关掉那个工具再 colima restart;或者给虚拟机单独指定 DNS:colima stop && colima start --dns 223.5.5.5 --dns 119.29.29.29"
+    say "    别用 colima delete —— 它会把虚拟机里的数据库数据一起删掉。"
+  elif [[ "$(uname -s)" == "Darwin" ]]; then
+    say "    · Docker Desktop / OrbStack:先退出再打开那个 App;还不行就看 Mac 的 DNS 是否指向本机"
+    say "      (scutil --dns | grep nameserver 出现 127.0.0.1 / ::1,常见于 VPN / 去广告工具),关掉那个工具后重试。"
+  else
+    say "    · 看 /etc/resolv.conf 是否存在、指向哪里:ls -l /etc/resolv.conf;resolvectl status"
+    say "    · 用的是 systemd-resolved 的话:sudo systemctl restart systemd-resolved"
+    say "    · 或者只给 Docker 指定 DNS:在 ${DAEMON_JSON} 里加 \"dns\": [\"223.5.5.5\", \"119.29.29.29\"],再 sudo systemctl restart docker"
+  fi
+  die "Docker 引擎解析不了域名(DNS),镜像拉不下来。按上面的步骤修好 DNS 后,重跑 bash deploy/docker-up.sh。"
 }
 
 # ── 镜像源自动配置(v1.6.21)────────────────────────────────────────
@@ -451,7 +514,8 @@ else
     cn_hub_blocked_guide
     if   pull_one "$DB_MIRROR";   then export MYSQL_IMAGE="$DB_MIRROR"
     elif pull_one "$DB_UPSTREAM"; then export MYSQL_IMAGE="$DB_UPSTREAM"
-    else die "数据库镜像两个源都拉不下来(${DB_MIRROR} / ${DB_UPSTREAM})。
+    else die "数据库镜像两个源都拉不下来(${DB_MIRROR} / ${DB_UPSTREAM})。docker 最后一次的原话:
+${PULL_ERR}
   网络恢复、或按上面指引配好镜像源后,重跑 bash deploy/docker-up.sh。"
     fi
     say "  ✓ 已拉到 ${MYSQL_IMAGE}"
@@ -585,7 +649,9 @@ else
     say "  · 本地构建要用 Docker Hub 上的 JDK 基础镜像,现在拉不动 —"
     cn_hub_blocked_guide "JDK 基础镜像"
     pull_one eclipse-temurin:21-jre \
-      || die "JDK 基础镜像仍拉不下来,没法本地构建。按上面指引配好镜像源后重跑 bash deploy/docker-up.sh。"
+      || die "JDK 基础镜像仍拉不下来,没法本地构建。docker 最后一次的原话:
+${PULL_ERR}
+  按上面指引配好镜像源后重跑 bash deploy/docker-up.sh。"
   fi
   UP_FAILED=""
   $DC up -d --build || UP_FAILED=1

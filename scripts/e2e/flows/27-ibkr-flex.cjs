@@ -160,6 +160,12 @@ module.exports = {
     });
     await ui.assert(vendorShown.split('|').includes('盈透'),
                     '持仓页「券商对接」那一格写的是「盈透」,不是「老虎」(原来是 FUTU ? 富途 : 老虎 的二选一)', vendorShown);
+    const strip = await ui.page.evaluate(() => {
+      const el = [...document.querySelectorAll('.link-strip')].find(e => e.innerText.includes('券商对接'));
+      return el ? el.innerText.replace(/\s+/g, ' ') : '';
+    });
+    await ui.assert(strip && !/OpenD/i.test(strip),
+                    '持仓页「券商对接」那一条上没有 OpenD 地址和 OpenD 网关按钮(OpenD 只是富途的,v1.26.1)', strip);
 
     // ── 3 · 到期提醒 ─────────────────────────────────────────────────
     report.section('4 · 口令到期提醒(到期前 14 天起)');
