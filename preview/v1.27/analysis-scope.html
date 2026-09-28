@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>v1.25 Preview · 分析视角:别让一套房子替你下配置结论</title>
+<title>v1.27 Preview · 分析范围:让体检和 AI 分析你想管的那部分钱</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
@@ -35,7 +35,7 @@
   .chk-d{font-size:11.5px;color:var(--ink-soft);line-height:1.75;margin-top:3px}
 
   /* ── 视角切换:两个选项必须同尺寸同样式 ── */
-  .vw{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .vw{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
   .vpill{border:1px solid var(--rule);background:var(--paper);padding:11px 14px;cursor:pointer;min-width:0;min-height:64px;
          display:flex;flex-direction:column;justify-content:center;text-align:left}
   .vpill.on{border-color:var(--brass-deep);border-width:2px;background:rgba(160,124,58,.07);padding:10px 13px}
@@ -82,16 +82,43 @@
 
   .phone{width:100%;max-width:390px;box-sizing:border-box;border:10px solid #1A1714;border-radius:34px;background:var(--paper);overflow:hidden;box-shadow:var(--shadow-deep)}
   .phone-in{padding:18px 14px 22px}
-  .phone .vw{grid-template-columns:1fr 1fr;gap:8px}
-  .phone .vpill{padding:9px 10px;min-height:70px}
+  /* 手机上三个范围改成上下排(三个并排每个不到 110px,副文案会折成四五行)· 仍然同尺寸 */
+  .phone .vw{grid-template-columns:1fr;gap:8px}
+  .phone .vpill{padding:9px 12px;min-height:54px}
   .phone .vpill.on{padding:8px 9px}
   .phone .vpill-t{font-size:14px}
 
   .two > *{min-width:0}
+  .set-sec{border-top:1px solid var(--rule);padding-top:16px;margin-top:18px}
+  .set-sec:first-of-type{border-top:none;padding-top:0;margin-top:0}
+  .set-h{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .set-n{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--brass-deep)}
+  .set-t{font-family:'Fraunces','Noto Serif SC',serif;font-size:17px}
+  .anc{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .anc > div{border:1px solid var(--rule);background:var(--paper);padding:8px 10px;font-size:12px;min-height:58px}
+  .anc > div.on{border:2px solid var(--brass-deep);background:rgba(160,124,58,.07);padding:7px 9px}
+  .anc small{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-subtle);margin-top:3px}
+  .pct{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:10px;align-items:end;margin-top:12px}
+  .pct label{font-size:10.5px;color:var(--ink-subtle);display:block;margin-bottom:3px}
+  .pct .in{border-bottom:1px solid var(--ink);font-family:'JetBrains Mono',monospace;font-size:15px;padding:3px 0}
+  .pref{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--rule);background:var(--paper);padding:10px 12px;margin-bottom:8px}
+  .pref-t{font-size:13px;line-height:1.6;flex:1}
+  .pref-m{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-subtle);margin-top:3px}
+  .sw{flex:0 0 30px;height:16px;border-radius:9px;background:var(--forest);position:relative;margin-top:3px}
+  .sw::after{content:"";position:absolute;right:2px;top:2px;width:12px;height:12px;border-radius:50%;background:var(--paper)}
+  .sw.off{background:var(--rule)} .sw.off::after{right:auto;left:2px}
+  .bub{max-width:560px;padding:10px 13px;font-size:13px;line-height:1.75}
+  .bub.me{margin-left:auto;background:var(--ink);color:var(--paper)}
+  .bub.ai{background:var(--card);border:1px solid var(--rule)}
+  .confirm{border:2px solid var(--brass-deep);background:rgba(160,124,58,.06);padding:13px 15px;max-width:560px}
+  .btn-line{font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 10px;border:1px solid var(--ink);color:var(--ink);background:var(--paper);white-space:nowrap}
   @media (max-width: 900px){
     .kband{grid-template-columns:repeat(2,1fr)}
     .k-v{font-size:19px}
     .two{grid-template-columns:1fr !important}
+    .anc{grid-template-columns:repeat(2,1fr)}
+    .pct{grid-template-columns:repeat(2,1fr)}
+    .vw{grid-template-columns:1fr}
   }
 </style>
 </head>
@@ -100,15 +127,19 @@
 <div class="wrap" style="padding-top:38px;padding-bottom:64px">
 
   <!-- ══ 抬头 ══ -->
-  <div class="eyebrow">Preview · v1.25.0 · issue #23</div>
+  <div class="eyebrow">Preview · v1.27.0 · issue #23 · A 标记 + B 范围与模板 + C 分析偏好 + D 纠正默认值</div>
   <h1 style="font-size:34px;line-height:1.24;margin:9px 0 10px;max-width:820px">
-    别让一套房子替你下配置结论
+    让体检和 AI 分析你想管的那部分钱
   </h1>
   <p class="note" style="max-width:760px;font-size:13px">
     一线城市全款的自住房,一套就占家庭资产九成。体检里所有回答「<b>钱怎么分</b>」的东西 ——
     资产配置、风险敞口、集中度、配置锚对照、三个 AI —— 分母都是全部资产,于是每个结论都被它往一个方向拉。
     这一版让用户把「短期不打算动」的账户标出来,体检和 AI 在分析「钱怎么分」时只看<b>调得动的那部分</b>;
     净资产、收益、负债里它<b>一分不少</b>。
+  </p>
+  <p class="note" style="max-width:760px;font-size:13px;margin-top:8px">
+    另一种家庭撞的是反面:<b>根本没记房产</b>(只管金融资产),可默认配置锚是标普 4321(房产 40%、保险 20%),
+    AI 照着「有房产」判,说「房产低配 · 该补」。这一版一起纠正(第 6 区)。
   </p>
   <p class="note" style="max-width:760px;margin-top:8px">
     下面所有数字用的是 issue 里的例子:自住房 1000 万 + 一辆 20 万的车 + 其他 100 万(现金 30 / 股票 40 / 理财 30)。
@@ -119,7 +150,7 @@
     <div class="zone-head">
       <span class="zone-no">1</span>
       <span class="zone-t">一次标记,之后不用管</span>
-      <span class="zone-sub">账户编辑页 · FR-701 ~ FR-704</span>
+      <span class="zone-sub">账户编辑页 · FR-800 ~ FR-803</span>
     </div>
     <div class="zone-line"></div>
 
@@ -141,6 +172,7 @@
             <div class="chk-d">
               短期内不打算卖、也调不动的资产(比如自住房、车)。勾上后,体检和 AI 在分析「钱怎么分」时不再算它,
               <b>它仍然计入净资产</b>。
+              <a style="color:var(--brass-deep);text-decoration:underline;white-space:nowrap">看看哪些资产不参与 →</a>
             </div>
           </div>
         </div>
@@ -176,8 +208,8 @@
   <div class="zone">
     <div class="zone-head">
       <span class="zone-no">2</span>
-      <span class="zone-t">体检页:多一个「分析视角」</span>
-      <span class="zone-sub">只在有账户被标记时出现 · FR-710 ~ FR-714</span>
+      <span class="zone-t">体检页:多一个「分析范围」</span>
+      <span class="zone-sub">只显示与「全部资产」有区别的选项 · 只剩一个时整个不出现 · FR-820 ~ FR-825</span>
     </div>
     <div class="zone-line"></div>
 
@@ -186,19 +218,29 @@
       <h2 style="font-size:30px;margin:4px 0 6px">家庭资产 · 体检报告</h2>
       <p class="mono" style="font-size:11px;color:var(--ink-subtle)">数据截至 <b style="color:var(--ink)">2026 年 9 月</b> · 与仪表盘同期口径</p>
 
-      <div style="margin-top:16px;max-width:640px">
-        <div class="eyebrow" style="margin-bottom:7px">分析视角</div>
+      <div style="margin-top:16px;max-width:860px">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:7px;flex-wrap:wrap">
+          <span class="eyebrow">分析范围</span>
+          <span class="mono" style="font-size:10px;color:var(--ink-subtle)">家里的默认:可调整的资产</span>
+          <a class="mono" style="font-size:10.5px;color:var(--brass-deep);text-decoration:underline;margin-left:auto">分析设置 →</a>
+        </div>
         <div class="vw">
           <div class="vpill on">
             <div class="vpill-t">可调整的资产</div>
             <div class="vpill-s">不含 自住房、车 · 占总资产 91%</div>
           </div>
           <div class="vpill">
+            <div class="vpill-t">金融资产</div>
+            <div class="vpill-s">不含 房产类、其他类 · 占总资产 91%</div>
+          </div>
+          <div class="vpill">
             <div class="vpill-t">全部资产</div>
             <div class="vpill-s">含所有账户</div>
           </div>
         </div>
-        <p class="note" style="margin-top:7px">净资产、收益、流动性始终按全部资产算。</p>
+        <p class="note" style="margin-top:7px">净资产、收益、流动性始终按全部资产算。
+          临时切换只改这一页(记在网址上,刷新、发给家人都保持),<b>不改家里的默认</b>;
+          切到别的范围时这里多一个「设为家里的默认」。</p>
       </div>
 
       <div class="kband" style="margin-top:18px">
@@ -209,9 +251,20 @@
         <div><div class="k-e">紧急储备</div><div class="k-v">7.5 个月</div><div class="k-s">流动资产 / 月均支出</div></div>
       </div>
       <p class="note" style="margin-top:8px">
-        这一行<b>两个视角下逐字相同</b>:它回答的是「有多少钱」,房子是真实拥有的,一分不能少。
+        这一行<b>三个范围下逐字相同</b>:它回答的是「有多少钱」,房子是真实拥有的,一分不能少。
         这也是为什么切换只放一句说明,不在每张卡上重复 —— 下面会变的只有占比类。
       </p>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="eyebrow" style="margin-bottom:8px">什么时候出现哪几个选项</div>
+      <table class="cmp">
+        <tr><th>家里的样子</th><th>出现的选项</th><th>默认</th></tr>
+        <tr><td>没标记 · 有房产或其他类</td><td>金融资产 · 全部资产</td><td>全部资产(与 v1.26 一样)</td></tr>
+        <tr><td>标了自住房、车</td><td>可调整的资产 · 金融资产 · 全部资产</td><td>可调整的资产</td></tr>
+        <tr><td>只记了金融资产(没有房产类、其他类),也没标记</td><td>—— 切换<b>整个不出现</b></td><td>全部资产(本来就只有金融资产)</td></tr>
+      </table>
+      <p class="note" style="margin-top:8px">这个例子里「可调整」和「金融资产」拿掉的恰好是同两个账户,所以占比一样;
+        两套房只标了一套、或者「其他」里记了公积金时,两者就不同了 —— 选项下面写明拿掉的是谁,用户看得见。</p>
     </div>
   </div>
 
@@ -219,15 +272,15 @@
   <div class="zone">
     <div class="zone-head">
       <span class="zone-no">3</span>
-      <span class="zone-t">同一个家,两个视角</span>
-      <span class="zone-sub">资产配置卡 + 风险敞口卡 · 只有占比类跟随视角 · FR-713</span>
+      <span class="zone-t">同一个家,两个范围</span>
+      <span class="zone-sub">资产配置卡 + 风险敞口卡 · 只有占比类跟随范围 · FR-824</span>
     </div>
     <div class="zone-line"></div>
 
     <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
       <!-- 全部资产 -->
       <div class="card">
-        <div class="eyebrow" style="margin-bottom:6px">视角 · 全部资产(今天的样子)</div>
+        <div class="eyebrow" style="margin-bottom:6px">范围 · 全部资产(今天的样子)</div>
         <h3 style="font-size:19px;margin-bottom:12px">资产配置</h3>
         <div class="alloc-list">
         <div class="bar-row"><div class="bar-h"><span>房产</span><span class="mono">89.3%</span></div><div class="bar"><i style="width:89.3%"></i></div></div>
@@ -251,7 +304,7 @@
 
       <!-- 可调整的资产 -->
       <div class="card" style="border:2px solid var(--brass-deep);padding:17px">
-        <div class="eyebrow" style="margin-bottom:6px;color:var(--brass-deep)">视角 · 可调整的资产(默认)</div>
+        <div class="eyebrow" style="margin-bottom:6px;color:var(--brass-deep)">范围 · 可调整的资产(默认)</div>
         <h3 style="font-size:19px;margin-bottom:12px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
           资产配置 <span class="scope-note">不含:自住房 · 车</span>
         </h3>
@@ -280,8 +333,8 @@
   <div class="zone">
     <div class="zone-head">
       <span class="zone-no">4</span>
-      <span class="zone-t">「值得做的事」:入口就在那张一直亮着的卡上</span>
-      <span class="zone-sub">FR-713 · FR-716</span>
+      <span class="zone-t">「值得做的事」:标记的入口就在那张一直亮着的卡上</span>
+      <span class="zone-sub">FR-804 · FR-824</span>
     </div>
     <div class="zone-line"></div>
 
@@ -331,38 +384,60 @@
   <div class="zone">
     <div class="zone-head">
       <span class="zone-no">5</span>
-      <span class="zone-t">AI 的两套模板</span>
-      <span class="zone-sub">体检 AI 综合诊断 · AI 资产洞察 · 报表 AI 调仓建议 · FR-730 ~ FR-732</span>
+      <span class="zone-t">AI:每个范围一套模板 · 再加上家里写的分析偏好</span>
+      <span class="zone-sub">AI 综合诊断 · AI 资产洞察 · AI 调仓建议 · FR-840 ~ FR-843 · FR-851 ~ FR-852</span>
     </div>
     <div class="zone-line"></div>
 
-    <div class="two" style="display:grid;grid-template-columns:1.2fr 1fr;gap:18px;align-items:start">
+    <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start">
       <div>
         <div class="eyebrow" style="margin-bottom:7px">「可调整的资产」模板多出来的一段(数字与名称由系统填,AI 不算)</div>
-        <div class="prompt">## 分析视角:可调整的资产
+        <div class="prompt">## 分析范围:可调整的资产
 这个家庭把以下账户标记为「不参与配置分析」—— 短期内不打算卖、也调不动:
   自住房、家用车(合计占总资产 91.1%,系统已算好)
 下面「资产配置」「风险敞口」「集中度」「再平衡」的数字只含其余账户。
 - 不要建议处置、降低或调整上面这些账户
 - 不要把它们的占比当作配置失衡或集中度过高的依据
 - 家底(净资产 / 总负债)与负债率仍是全家数字,照常引用</div>
-        <p class="note" style="margin-top:8px">
-          「<b>全部资产</b>」模板 = 今天的提示词,<b>一个字不改</b> —— 没标记的家庭,AI 的输入、缓存、口吻全都不动。
-          两套模板只差「这一段 + 喂进去的数字」,不会各自漂移成两份。
-        </p>
+      </div>
+      <div>
+        <div class="eyebrow" style="margin-bottom:7px">「金融资产」模板多出来的一段</div>
+        <div class="prompt">## 分析范围:金融资产
+这个家庭只让你看金融资产(现金、股票、理财、加密、贵金属、保险),
+房产类、其他类账户不在分析里(合计占总资产 91.1%,系统已算好)。
+- 只谈金融资产之间怎么分、风险高低、够不够分散
+- 不要提房产、不动产、「金融盘 vs 不动产」
+- 家底与负债率仍是全家数字,照常引用</div>
+      </div>
+    </div>
+    <p class="note" style="margin-top:8px;max-width:900px">
+      「<b>全部资产</b>」模板 = 今天的提示词 —— 家里有房产、没标记、没写分析偏好的,<b>一个字不改</b>(护栏逐字比对)。
+      家里<b>根本没有房产</b>时,「全部资产」模板里「现金/投资/房产/保险 4 桶」「房产占比」「金融盘 vs 不动产」这些话不出现(FR-872)。
+    </p>
+
+    <div class="two" style="display:grid;grid-template-columns:1.1fr 1fr;gap:18px;align-items:start;margin-top:16px">
+      <div>
+        <div class="eyebrow" style="margin-bottom:7px">分析偏好 · 放在规矩之后,带着「不许改数字」</div>
+        <div class="prompt">## 家里人交代的分析偏好(2 条)
+以下是这个家庭写给你的侧重与忌讳。按它调整说法和建议;
+数字一律以上面系统给的为准,不许据此自己计算;
+偏好和事实冲突时,以事实为准,并说出冲突在哪。
+1. 房子是自住的,不打算卖,别建议卖房或加杠杆。
+2. 我们偏保守,加密货币不想再加仓。</div>
+        <p class="note" style="margin-top:8px">成员真名在这一段里同样被替换成「成员A / B」—— 靠同一层脱敏,不靠 AI 自觉。</p>
       </div>
       <div class="card">
         <div class="eyebrow" style="margin-bottom:8px">AI 综合诊断 · 结果页脚</div>
         <p style="font-size:13px;line-height:1.8;color:var(--ink-soft)">
           <b style="color:var(--ink)">资产配置 · OK</b> —— 可调整的部分现金、股票、理财三分,各占三到四成,
-          结构均衡;股票 40% 是其中最高的一块……
+          结构均衡;股票 40% 是其中最高的一块。你们提过不想再加仓加密,这里也没有这么建议……
         </p>
         <div style="border-top:1px solid var(--rule-soft);margin-top:12px;padding-top:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          <span class="mono" style="font-size:10.5px;color:var(--brass-deep)">按「可调整的资产」分析 · 不含 自住房、车</span>
+          <span class="mono" style="font-size:10.5px;color:var(--brass-deep)">按「可调整的资产」分析 · 不含 自住房、车 · 参考了 2 条分析偏好</span>
           <span class="mono" style="font-size:10.5px;color:var(--ink-subtle);margin-left:auto">通义千问 · 刚刚</span>
         </div>
-        <p class="note" style="margin-top:10px">切回「全部资产」会拿到另一份结论,不会串:两个视角各有各的缓存。</p>
+        <p class="note" style="margin-top:10px">切范围、改标记、改分析偏好,都拿到新的结论,不会串:缓存按这三样分开。</p>
       </div>
     </div>
   </div>
@@ -372,7 +447,7 @@
     <div class="zone-head">
       <span class="zone-no">6</span>
       <span class="zone-t">报表 · 配置锚对照</span>
-      <span class="zone-sub">整类拿掉时目标按原比例放大 · FR-720 · FR-721</span>
+      <span class="zone-sub">整类拿掉 / 家里本来就没有时,目标按原比例放大 · FR-827 · FR-870 ~ FR-873</span>
     </div>
     <div class="zone-line"></div>
 
@@ -390,7 +465,7 @@
           <tr><td>保险</td><td class="n">20%</td><td class="n">33.3%</td><td class="n">0.0%</td><td class="n neg">−33.3</td></tr>
         </table>
         <p class="note" style="margin-top:8px">
-          放大保留的是原锚「各类之间的相对比例」。想自己定一套不含房产的目标 → 选「自定义」。
+          放大保留的是原锚「各类之间的相对比例」。想自己定一套不含房产的目标 → 选「自定义」(下面能真的填了)。
           <b>只拿掉一部分</b>(两套房标了一套)时这一类照常参与,不放大。
         </p>
       </div>
@@ -408,6 +483,48 @@
         </p>
       </div>
     </div>
+    <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px">
+      <div class="card" style="border:2px solid var(--brass-deep);padding:17px">
+        <div class="eyebrow" style="margin-bottom:8px;color:var(--brass-deep)">另一种家庭 · 只记金融资产 + 一辆车 · 锚 · 标普 4321(默认)</div>
+        <p class="mono" style="font-size:11px;color:var(--brass-deep);margin-bottom:10px">
+          你家没有房产、没有保险 · 标普 4321 按其余两类放大 → 现金 25% · 投资 75%
+        </p>
+        <table class="cmp">
+          <tr><th>类目</th><th style="text-align:right">原目标</th><th style="text-align:right">放大后</th><th style="text-align:right">当前</th><th style="text-align:right">偏离</th></tr>
+          <tr><td>现金</td><td class="n">10%</td><td class="n">25.0%</td><td class="n">20.0%</td><td class="n neg">−5.0</td></tr>
+          <tr><td>投资</td><td class="n">30%</td><td class="n">75.0%</td><td class="n">80.0%</td><td class="n pos">+5.0</td></tr>
+          <tr><td style="color:var(--ink-subtle)">房产</td><td class="n" style="color:var(--ink-subtle)">40%</td><td class="n" style="color:var(--ink-subtle)">你家没有</td><td class="n" style="color:var(--ink-subtle)">—</td><td class="n" style="color:var(--ink-subtle)">—</td></tr>
+          <tr><td style="color:var(--ink-subtle)">保险</td><td class="n" style="color:var(--ink-subtle)">20%</td><td class="n" style="color:var(--ink-subtle)">你家没有</td><td class="n" style="color:var(--ink-subtle)">—</td><td class="n" style="color:var(--ink-subtle)">—</td></tr>
+        </table>
+        <p class="mono" style="font-size:10.5px;color:var(--ink-subtle);margin-top:8px">另有其他资产 ¥200,000 · 不参与四桶对照</p>
+        <p class="note" style="margin-top:8px">
+          <b>今天</b>这个家会看到:房产 <span class="neg">−40</span>、保险 <span class="neg">−20</span>「低配 · 该补」,
+          车被算进「投资」(投资 83.3%)。「买套房来平衡配置」不是建议 —— 房产、保险两桶<b>家里没有就不比</b>;
+          现金、投资两桶始终参与(没有投资的话,「投资低配」是真问题)。
+        </p>
+      </div>
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:8px">锚 · 自定义 · 现在能真的填了(FR-871)</div>
+        <div class="pct">
+          <div><label>现金</label><div class="in">20</div></div>
+          <div><label>投资</label><div class="in">80</div></div>
+          <div><label>房产</label><div class="in">0</div></div>
+          <div><label>保险</label><div class="in">0</div></div>
+          <div class="mono" style="font-size:11px;color:var(--forest);padding-bottom:5px">合计 100 ✓</div>
+        </div>
+        <p class="note" style="margin-top:10px">合计不是 100 不让存,当场说差几个点。</p>
+        <div style="border:1px dashed var(--rule);padding:14px;margin-top:12px">
+          <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.8">
+            还没填自定义目标 ——
+            <a style="color:var(--brass-deep);text-decoration:underline">去填 →</a>
+            <span class="mono" style="font-size:10px;color:var(--ink-subtle);display:block;margin-top:4px">填之前不显示对照,免得拿 0 去比</span>
+          </p>
+        </div>
+        <p class="note" style="margin-top:10px">
+          今天下拉里的「自定义」<b>没有任何地方能填</b>,选了之后四个目标全是 0,每一类都显示「超配」。
+        </p>
+      </div>
+    </div>
   </div>
 
   <!-- ══ 7 · 空态 + 手机 ══ -->
@@ -415,7 +532,7 @@
     <div class="zone-head">
       <span class="zone-no">7</span>
       <span class="zone-t">边界:全都标了 · 手机上</span>
-      <span class="zone-sub">FR-715 · 双端</span>
+      <span class="zone-sub">FR-826 · 双端</span>
     </div>
     <div class="zone-line"></div>
 
@@ -448,11 +565,15 @@
         <div class="phone-in">
           <div class="eyebrow" style="font-size:9px">资 · 产 · 体 · 检</div>
           <div style="font-family:'Fraunces','Noto Serif SC',serif;font-size:22px;margin:3px 0 12px">家庭资产 · 体检报告</div>
-          <div class="eyebrow" style="margin-bottom:6px;font-size:9px">分析视角</div>
+          <div class="eyebrow" style="margin-bottom:6px;font-size:9px">分析范围</div>
           <div class="vw">
             <div class="vpill on">
               <div class="vpill-t">可调整的资产</div>
-              <div class="vpill-s">不含 自住房、车<br>占总资产 91%</div>
+              <div class="vpill-s">不含 自住房、车 · 占总资产 91%</div>
+            </div>
+            <div class="vpill">
+              <div class="vpill-t">金融资产</div>
+              <div class="vpill-s">不含 房产类、其他类 · 占总资产 91%</div>
             </div>
             <div class="vpill">
               <div class="vpill-t">全部资产</div>
@@ -474,7 +595,7 @@
             <div class="bar-row"><div class="bar-h"><span>现金</span><span class="mono">30.0%</span></div><div class="bar"><i style="width:30%"></i></div></div>
             <div class="bar-row"><div class="bar-h"><span>理财</span><span class="mono">30.0%</span></div><div class="bar"><i style="width:30%"></i></div></div>
           </div>
-          <p class="note" style="margin-top:8px;font-size:10.5px">两个选项在窄屏上仍然并排、同尺寸;副文案折成两行,不截断。</p>
+          <p class="note" style="margin-top:8px;font-size:10.5px">窄屏上三个选项改成上下排,仍然同尺寸;三个并排的话每个不到 110px,副文案会折成四五行。</p>
         </div>
       </div>
     </div>
@@ -484,19 +605,21 @@
   <div class="zone">
     <div class="zone-head">
       <span class="zone-no">8</span>
-      <span class="zone-t">什么跟着视角变,什么永远不变</span>
-      <span class="zone-sub">PRD §6 矩阵的读法 · 规律:只有「占比类」跟</span>
+      <span class="zone-t">什么跟着范围变,什么永远不变</span>
+      <span class="zone-sub">PRD §6 矩阵的读法 · 规律:只有「占比类」跟;分析偏好只改 AI 的说法</span>
     </div>
     <div class="zone-line"></div>
 
     <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
       <div class="card">
-        <div class="eyebrow" style="margin-bottom:8px;color:var(--brass-deep)">跟随视角 · 分母是「资产合计」的</div>
+        <div class="eyebrow" style="margin-bottom:8px;color:var(--brass-deep)">跟随范围 · 分母是「资产合计」的</div>
         <table class="cmp">
           <tr><td>体检 · 资产配置卡、风险敞口卡</td></tr>
           <tr><td>「值得做的事」里的配置类规则(集中度、风险、配置健康、行业 / 平台集中)</td></tr>
-          <tr><td>AI 综合诊断 · AI 资产洞察的集中度 / 再平衡 / 现金占比</td></tr>
+          <tr><td>AI 综合诊断 · AI 资产洞察的集中度 / 再平衡 / 低利率</td></tr>
           <tr><td>报表 · 配置锚对照 · AI 调仓建议</td></tr>
+          <tr><td>仪表盘洞察条的「房产 X% 偏高」那一条(按家里的默认范围)</td></tr>
+          <tr><td>超级 Agent 回答「配置合不合理」(按家里的默认范围,并说出是哪个)</td></tr>
         </table>
       </div>
       <div class="card">
@@ -505,13 +628,152 @@
           <tr><td>净资产 · 总资产 · 总负债 · 负债率</td></tr>
           <tr><td>家庭年化 · 收益质量(家庭收支不分账户,拆不开)</td></tr>
           <tr><td>流动性 · 紧急储备(房、车本来就不是流动资产)</td></tr>
-          <tr><td>仪表盘 · 报表其它部分 · 填报 · 导出 · 透视 · 复盘 · 目标 · 超级 Agent</td></tr>
+          <tr><td>报表已关账快照区(集中度、流动性分层 —— 定格的事实)</td></tr>
+          <tr><td>仪表盘其余 · 填报 · 导出 · 透视页 · 目标进度</td></tr>
         </table>
       </div>
     </div>
     <p class="note" style="margin-top:12px;max-width:820px">
-      以后新加一个占比类组件,它要么跟随视角,要么在这张表里写明为什么不跟 —— 护栏 <span class="mono">v125-SCOPE-ALL-RATIOS</span> 会盯住漏接的。
+      以后新加一个占比类组件,它要么跟随范围,要么在这张表里写明为什么不跟 —— 护栏会盯住漏接的。
+      <b>分析偏好</b>不在这两张表里:它一格数字都不动,只进 AI 的提示词(诊断、洞察、调仓、透视解读、月度复盘、目标 AI、超级 Agent)。
     </p>
+  </div>
+
+  <!-- ══ 9 · 管理 → 分析设置 ══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">9</span>
+      <span class="zone-t">管理 → 分析设置:「怎么分析我家」放在一处</span>
+      <span class="zone-sub">新入口 · 管理首页卡片 + 侧栏 · FR-890 ~ FR-892</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="two" style="display:grid;grid-template-columns:280px 1fr;gap:18px;align-items:start">
+      <div>
+        <div class="eyebrow" style="margin-bottom:7px">管理首页 · 新卡片</div>
+        <div class="card" style="padding:18px 20px">
+          <div class="mono" style="font-size:10px;color:var(--ink-subtle);letter-spacing:.14em">口径 · 分析</div>
+          <div style="font-family:'Fraunces','Noto Serif SC',serif;font-size:20px;margin:6px 0 6px">分析设置</div>
+          <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.75">分析范围 · 不参与分析的资产 · 配置锚(含自定义)· 分析偏好 · 体检和 AI 都按这里来</p>
+        </div>
+        <p class="note" style="margin-top:8px">卡片上点名四块 —— 用户是带着「配置锚」「偏好」「不算房子」这些词来找的(L9「找得到」)。
+          各现场也有直达:体检范围切换旁、报表配置锚「自定义…」、超级 Agent 记住之后、账户编辑页勾选项说明里。</p>
+      </div>
+
+      <div class="card" style="padding:20px 22px">
+        <div class="eyebrow">分 · 析 · 设 · 置</div>
+        <div style="font-family:'Fraunces','Noto Serif SC',serif;font-size:26px;margin:4px 0 16px">怎么分析我家</div>
+
+        <div class="set-sec">
+          <div class="set-h"><span class="set-n">①</span><span class="set-t">家里的默认分析范围</span><span class="note">体检、报表配置锚、AI 默认按这个;页面上还能临时切</span></div>
+          <div class="vw">
+            <div class="vpill on"><div class="vpill-t">可调整的资产</div><div class="vpill-s">不含 自住房、车 · 占总资产 91%</div></div>
+            <div class="vpill"><div class="vpill-t">金融资产</div><div class="vpill-s">不含 房产类、其他类 · 占总资产 91%</div></div>
+            <div class="vpill"><div class="vpill-t">全部资产</div><div class="vpill-s">含所有账户</div></div>
+          </div>
+        </div>
+
+        <div class="set-sec">
+          <div class="set-h"><span class="set-n">②</span><span class="set-t">不参与配置分析的资产</span><span class="note">在账户编辑页勾选;这里只列出来</span></div>
+          <table class="cmp">
+            <tr><td>自住房</td><td>房产</td><td style="text-align:right"><a style="color:var(--brass-deep);text-decoration:underline" class="mono">改 →</a></td></tr>
+            <tr><td>家用车</td><td>其他</td><td style="text-align:right"><a style="color:var(--brass-deep);text-decoration:underline" class="mono">改 →</a></td></tr>
+          </table>
+        </div>
+
+        <div class="set-sec">
+          <div class="set-h"><span class="set-n">③</span><span class="set-t">配置锚</span><span class="note">报表配置锚对照与 AI 调仓按它比</span></div>
+          <div class="anc">
+            <div>标普 4321<small>10 / 30 / 40 / 20</small></div>
+            <div>雪球 · 稳健<small>10 / 90 / 0 / 0</small></div>
+            <div>雪球 · 激进<small>10 / 90 / 0 / 0</small></div>
+            <div>永久组合<small>25 / 75 / 0 / 0</small></div>
+            <div class="on">自定义<small>20 / 80 / 0 / 0</small></div>
+          </div>
+          <div class="pct">
+            <div><label>现金</label><div class="in">20</div></div>
+            <div><label>投资</label><div class="in">80</div></div>
+            <div><label>房产</label><div class="in">0</div></div>
+            <div><label>保险</label><div class="in">0</div></div>
+            <div class="mono" style="font-size:11px;color:var(--forest);padding-bottom:5px">合计 100 ✓</div>
+          </div>
+        </div>
+
+        <div class="set-sec">
+          <div class="set-h"><span class="set-n">④</span><span class="set-t">分析偏好</span><span class="note">写给 AI 的侧重与忌讳 · 每条 ≤ 200 字 · 最多 10 条</span></div>
+          <div class="pref">
+            <div class="pref-t">房子是自住的,不打算卖,别建议卖房或加杠杆。<div class="pref-m">成员A · 9-28 · 在超级 Agent 对话里记住的</div></div>
+            <span class="sw"></span>
+          </div>
+          <div class="pref">
+            <div class="pref-t">我们偏保守,加密货币不想再加仓。<div class="pref-m">成员B · 9-28</div></div>
+            <span class="sw"></span>
+          </div>
+          <div class="pref" style="opacity:.6">
+            <div class="pref-t">年底要用 30 万装修,这部分别算进可投资的钱。<div class="pref-m">成员A · 9-20 · 已停用</div></div>
+            <span class="sw off"></span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
+            <span class="btn-cta">+ 加一条</span>
+            <span class="note" style="flex:1;min-width:260px">AI 会照着调整说法,<b>但不会因此改动任何数字</b>。会原样发给你配置的大模型,别写账号、身份证这类信息。</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 10 · 超级 Agent · 记住 ══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">10</span>
+      <span class="zone-t">超级 Agent:对话里说一句,它提议记住,你点了才算</span>
+      <span class="zone-sub">FR-844 · FR-853 ~ FR-856</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="two" style="display:grid;grid-template-columns:1fr 410px;gap:24px;align-items:start">
+      <div>
+        <div class="bub me">以后分析配置都别算我们家那套房子,那是自住的,不会卖。</div>
+        <div class="bub ai" style="margin-top:10px">
+          好。按「可调整的资产」看,你们的现金、股票、理财大致三分,股票稍多一些……
+        </div>
+        <div class="confirm" style="margin-top:10px">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <span style="font-family:'Fraunces','Noto Serif SC',serif;font-size:16px">记住这条分析偏好?</span>
+            <span class="note">以后所有 AI 分析都会参考它</span>
+          </div>
+          <div class="field-input" style="margin-top:8px;padding:6px 0;font-size:13px">房子是自住的,不会卖,分析配置时别算它。</div>
+          <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">
+            <span class="btn-cta">记住</span><span class="btn-line">不用</span>
+            <span class="note" style="margin-left:auto">原文可以改了再记</span>
+          </div>
+        </div>
+        <div class="card" style="margin-top:12px;background:rgba(160,124,58,.05)">
+          <div class="note">
+            <b>只有点了「记住」才保存</b>,AI 自己存不了。记住之后卡片变成一行「已记住 · 在分析设置里管理 →」。<br>
+            顺带建议:这句话其实更适合用标记来做 —— 卡片下方同时给「把自住房标成不参与配置分析 →」,因为<b>分析偏好改不了数字</b>,
+            标记才能让体检卡片、规则也不算它。<br>
+            <b>托管模式同样下一句就生效</b>,不用去管理页点「更新 Agent」。<br>
+            通过只读口令接入的外部 AI 客户端<b>不能</b>提议或保存 —— 只读口令保持只读;只给汇总的口令下,工具返回里不出现任何账户名。
+          </div>
+        </div>
+      </div>
+
+      <div class="phone">
+        <div class="phone-in">
+          <div class="eyebrow" style="font-size:9px">超 · 级 · Agent</div>
+          <div class="bub me" style="margin-top:10px;font-size:12.5px">以后分析配置都别算我们家那套房子,那是自住的,不会卖。</div>
+          <div class="bub ai" style="margin-top:8px;font-size:12.5px">好。按「可调整的资产」看,你们的现金、股票、理财大致三分……</div>
+          <div class="confirm" style="margin-top:8px;padding:11px 12px">
+            <div style="font-family:'Fraunces','Noto Serif SC',serif;font-size:15px">记住这条分析偏好?</div>
+            <div class="note" style="margin-top:2px">以后所有 AI 分析都会参考它</div>
+            <div class="field-input" style="margin-top:6px;padding:5px 0;font-size:12.5px">房子是自住的,不会卖,分析配置时别算它。</div>
+            <div style="display:flex;gap:8px;margin-top:9px"><span class="btn-cta">记住</span><span class="btn-line">不用</span></div>
+          </div>
+          <p class="note" style="margin-top:8px;font-size:10.5px">确认卡在窄屏上按钮不换行、文本框整宽。</p>
+        </div>
+      </div>
+    </div>
   </div>
 
 </div>
