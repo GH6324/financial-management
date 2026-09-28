@@ -53,7 +53,12 @@ public record AnalysisContext(
         if (!scope.isAll() && !scope.excludedLabel().isBlank()) {
             sb.append("(不含 ").append(scope.excludedLabel().replace(" · ", "、")).append(")");
         }
-        if (!preferences.isEmpty()) sb.append(" · 参考了 ").append(preferences.size()).append(" 条分析偏好");
+        if (!preferences.isEmpty()) {
+            // 紧跟全角括号时不再补空格:「(不含 自住房、车)· 参考了」
+            char last = sb.charAt(sb.length() - 1);
+            sb.append(last == '\uFF09' || last == ')' ? "· " : " · ")
+              .append("参考了 ").append(preferences.size()).append(" 条分析偏好");
+        }
         return sb.toString();
     }
 }
