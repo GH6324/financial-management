@@ -91,47 +91,76 @@ public class AssetInsightService {
      * @param slice 调用方的切片;传 null = 自己 loadDefault(老行为)
      */
     public AssetInsight compute(long familyId, FactSlice given) {
+        return compute(familyId, given, com.family.finance.service.analysis.AnalysisScope.all(), null);
+    }
+
+    /**
+     * v1.27 · 按分析范围算(PRD FR-824):<b>集中度、再平衡、低利率</b>三维吃范围切片;
+     * <b>资产负债表</b>(负债率、金融盘 vs 不动产、提前还贷)永远吃全量 —— 那是家底(FR-825)。
+     *
+     * <p>顺带两处纠错(PRD §6 口径变更声明):金融盘<b>算上贵金属</b>(FR-874),
+     * 「其他」类(车等)<b>不再算进金融盘</b>(FR-873)。</p>
+     *
+     * @param scope          分析范围;空范围 → 三维降级,不退回全部
+     * @param anchorOverride 模板指定的配置锚;null = 家里的
+     */
+    public AssetInsight compute(long familyId, FactSlice given,
+                                com.family.finance.service.analysis.AnalysisScope scope, String anchorOverride) {
         try {
             FactSlice slice = given != null ? given : factViewService.loadDefault(familyId);
+            com.family.finance.service.analysis.AnalysisScope sc =
+                    scope == null ? com.family.finance.service.analysis.AnalysisScope.all() : scope;
             KpiSnapshot kpi = factViewService.kpis(slice);
             if (kpi == null || kpi.totalAssets() == null || kpi.totalAssets().signum() <= 0) {
                 return AssetInsight.unavailable("尚无资产快照,暂无法生成洞察");
+            }
+            if (sc.empty()) {
+                return AssetInsight.unavailable("所有资产都标成了不参与配置分析,没有可分析的部分");
             }
             List<AccountPerformance> perf = factViewService.accountPerformance(slice);
             List<Account> accounts = accountMapper.findActiveByFamily(familyId);
             Family family = familyService.require(familyId);
             String baseCurrency = family.getBaseCurrency() == null ? "CNY" : family.getBaseCurrency();
 
+            // 范围切片(全部资产时就是同一张)
+            FactSlice scoped = sc.apply(slice);
+            KpiSnapshot scopedKpi = sc.isAll() ? kpi : factViewService.kpis(scoped);
+            List<AccountPerformance> scopedPerf = sc.isAll() ? perf : factViewService.accountPerformance(scoped);
+
             double concThresholdRatio = configService.getDouble(
                     familyId, FamilyConfigService.K_CHECKUP_CONCENTRATION, 0.40);
             BigDecimal concThresholdPct = BigDecimal.valueOf(concThresholdRatio)
                     .multiply(HUNDRED).setScale(1, RoundingMode.HALF_UP);
 
+            boolean propertyInScope = sumByTypes(scopedPerf, AccountType.PROPERTY).signum() > 0;
             AssetInsight.Concentration concentration =
-                    buildConcentration(kpi, perf, baseCurrency, concThresholdPct);
+                    buildConcentration(scopedKpi, scopedPerf, baseCurrency, concThresholdPct, propertyInScope);
 
-            // —— 资产负债表 + 加权负债利率 + 提前还贷信号 ——
+            // —— 资产负债表 + 加权负债利率 + 提前还贷信号(全量)——
+            // v1.27 · 金融盘 = 现金 + 股票 + 理财 + 加密 + 贵金属 + 保险;原来漏了贵金属、多了「其他」
             BigDecimal financialSum = sumByTypes(perf, AccountType.CASH, AccountType.STOCK,
-                    AccountType.WEALTH, AccountType.CRYPTO, AccountType.INSURANCE, AccountType.OTHER);
+                    AccountType.WEALTH, AccountType.CRYPTO, AccountType.METAL, AccountType.INSURANCE);
             BigDecimal propertySum = sumByTypes(perf, AccountType.PROPERTY);
             BigDecimal weightedLoanRate = weightedLoanRate(perf, accounts);
             BigDecimal assetAnnualReturn = kpi.annualizedInvestReturnPct();
             BalanceSheetHealth.Result balanceSheet = BalanceSheetHealth.evaluate(
                     financialSum, propertySum, kpi.totalLiabilities(), kpi.totalAssets(),
                     weightedLoanRate, assetAnnualReturn);
+            boolean hasLoans = perf.stream().anyMatch(p -> p.accountType() == AccountType.LOAN);
 
-            // —— 再平衡偏离 ——
-            AllocationService.DiffResult diff = allocationService.compute(familyId, slice);
-            List<RebalanceDrift.Drift> drifts = RebalanceDrift.evaluate(
-                    diff.targetPct(), diff.currentPct(), REBALANCE_THRESHOLD_PP);
+            // —— 再平衡偏离(范围 · 有效目标)——
+            AllocationService.DiffResult diff = allocationService.compute(familyId, slice, sc, anchorOverride);
+            List<RebalanceDrift.Drift> drifts = diff.comparable()
+                    ? RebalanceDrift.evaluate(diff.targetPct(), diff.currentPct(), REBALANCE_THRESHOLD_PP)
+                    : List.of();
             AssetInsight.Rebalance rebalance =
                     new AssetInsight.Rebalance(diff.anchorCode(), REBALANCE_THRESHOLD_PP, drifts);
 
-            // —— 行为体检 ——
+            // —— 行为体检 ——(净资产序列是家底,吃全量;集中度序列跟范围)
             List<TrendPoint> trend = factViewService.netWorthTrend(slice);
             List<DecompositionPoint> decomp = factViewService.principalVsReturnDecomposition(slice);
             List<BehaviorHeuristics.Point> behaviorSeries = buildBehaviorSeries(trend, decomp);
-            List<BigDecimal> concSeries = buildConcentrationSeries(slice);
+            List<BigDecimal> concSeries = buildConcentrationSeries(scoped);
             List<BehaviorHeuristics.Signal> behaviorSignals =
                     BehaviorHeuristics.detect(behaviorSeries, concSeries, BEHAVIOR_MIN_PERIODS);
 
@@ -147,7 +176,8 @@ public class AssetInsightService {
             int historyPeriods = trend == null ? 0 : trend.size();
 
             return new AssetInsight(concentration, balanceSheet, weightedLoanRate, assetAnnualReturn,
-                    rebalance, behaviorSignals, lowRate, historyPeriods, true, null);
+                    rebalance, behaviorSignals, lowRate, historyPeriods, true, null,
+                    sc, propertyInScope, hasLoans);
         } catch (Exception e) {
             log.warn("资产洞察硬数据组装失败 familyId={}: {}", familyId, e.toString());
             return AssetInsight.unavailable("内部错误: " + e.getMessage());
@@ -162,11 +192,13 @@ public class AssetInsightService {
     private AssetInsight.Concentration buildConcentration(KpiSnapshot kpi,
                                                           List<AccountPerformance> perf,
                                                           String baseCurrency,
-                                                          BigDecimal thresholdPct) {
+                                                          BigDecimal thresholdPct,
+                                                          boolean propertyInScope) {
         BigDecimal total = kpi.totalAssets();
         BigDecimal propertySum = sumByTypes(perf, AccountType.PROPERTY);
-        ConcentrationCalculator.Line property =
-                ConcentrationCalculator.line(propertySum, total, thresholdPct);
+        // v1.27 FR-872 · 范围内没有房产 → 这一条不出现(仪表盘不再画「房产 0.0%」、提示词不谈房产占比)
+        ConcentrationCalculator.Line property = propertyInScope
+                ? ConcentrationCalculator.line(propertySum, total, thresholdPct) : null;
 
         // 单一账户:资产端(非 LOAN)最大单账户
         String topAccLabel = null;

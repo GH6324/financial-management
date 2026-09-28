@@ -28,8 +28,30 @@ public record FamilyDiagnose(
         Integer accountCount,
         Integer pendingAccountCount,
         /** 2026-09-24 · 风险等级是按账户类型估算的账户数(没设产品类目)· 页面据此提示去补 */
-        int riskEstimatedAccounts
+        int riskEstimatedAccounts,
+        /**
+         * v1.27 · {@link #allocation} 与 {@link #riskDistribution} 用的是哪个分析范围(PRD FR-824)。
+         * 其余字段(KPI / 流动性 / 收益)永远按全部资产 —— 它们回答「有多少钱」。
+         */
+        com.family.finance.service.analysis.AnalysisScope scope,
+        /** v1.27 · 页面上可选的范围(只含与「全部资产」有区别的;只有一个时页面不出现切换) */
+        List<com.family.finance.service.analysis.AnalysisScope> scopeOptions
 ) {
+    /** v1.27 之前的签名:范围 = 全部资产 */
+    public FamilyDiagnose(KpiSnapshot kpi, List<AllocationSlice> allocation, List<RiskBucket> riskDistribution,
+                          BigDecimal liquidAssets, BigDecimal emergencyMonths, BigDecimal familyXirr,
+                          BigDecimal familyTwr, BigDecimal cumulativeYtdPnl, Integer accountCount,
+                          Integer pendingAccountCount, int riskEstimatedAccounts) {
+        this(kpi, allocation, riskDistribution, liquidAssets, emergencyMonths, familyXirr, familyTwr,
+                cumulativeYtdPnl, accountCount, pendingAccountCount, riskEstimatedAccounts,
+                com.family.finance.service.analysis.AnalysisScope.all(), List.of());
+    }
+
+    /** v1.27 · 范围里一个有余额的资产账户都不剩(FR-826)—— 配置 / 风险卡显示空态,配置类规则不评估 */
+    public boolean scopeEmpty() {
+        return scope != null && scope.empty();
+    }
+
     /** 兼容旧签名(测试与既有调用):不知道估算了几个就当 0 */
     public FamilyDiagnose(KpiSnapshot kpi, List<AllocationSlice> allocation, List<RiskBucket> riskDistribution,
                           BigDecimal liquidAssets, BigDecimal emergencyMonths, BigDecimal familyXirr,
@@ -37,6 +59,11 @@ public record FamilyDiagnose(
                           Integer pendingAccountCount) {
         this(kpi, allocation, riskDistribution, liquidAssets, emergencyMonths, familyXirr, familyTwr,
                 cumulativeYtdPnl, accountCount, pendingAccountCount, 0);
+    }
+
+    /** 页面上要不要出现范围切换(FR-820):选项多于一个才出现 */
+    public boolean showScopeSwitch() {
+        return scopeOptions != null && scopeOptions.size() > 1;
     }
 
     /** v1.6 UED review A7 · 超过此月数视为分母(月均支出)过小导致的失真,不再报数字 */

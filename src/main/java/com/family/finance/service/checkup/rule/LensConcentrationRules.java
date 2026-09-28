@@ -25,6 +25,17 @@ public class LensConcentrationRules {
     private static final long FAMILY_ID = 1L;   // 单家庭模式 · 同 FamilyRules
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
+    /**
+     * v1.27 · 头寸按分析范围过滤(PRD FR-824:行业 / 平台集中度跟随范围)。
+     * 范围为空时返回空列表 → 两条规则都不触发(不许退回全部头寸)。
+     */
+    static List<Position> inScope(List<Position> ps, RuleContext ctx) {
+        var scope = ctx.analysisScope();
+        if (ctx.family() != null && ctx.family().scopeEmpty()) return List.of();
+        if (scope.isAll()) return ps;
+        return ps.stream().filter(p -> scope.includes(p.accountId())).toList();
+    }
+
     /** 最大非未分类切片(label, sharePct) */
     private static Optional<Object[]> topSlice(List<Position> ps, String dim, Map<String, List<String>> filters) {
         PivotEngine.Result r = PivotEngine.pivot(ps, new LensQuery(List.of(dim), List.of(), List.of("value", "share"), filters));
@@ -51,7 +62,7 @@ public class LensConcentrationRules {
             try {
                 double threshold = configService.getDouble(FAMILY_ID,
                         FamilyConfigService.K_LENS_INDUSTRY_CONC, 0.40);
-                var top = topSlice(lensQueryService.positions(FAMILY_ID), "industry",
+                var top = topSlice(inScope(lensQueryService.positions(FAMILY_ID), ctx), "industry",
                         Map.of("assetClass", List.of("股票股权")));
                 if (top.isEmpty()) return Optional.empty();
                 String label = (String) top.get()[0];
@@ -64,7 +75,7 @@ public class LensConcentrationRules {
                         "行业过度集中",
                         "「" + label + "」占权益资产 " + share.setScale(0, java.math.RoundingMode.HALF_EVEN)
                                 + "%(阈值 " + limit.setScale(0, java.math.RoundingMode.HALF_EVEN)
-                                + "%)。单一行业波动会放大组合回撤。",
+                                + "%)。单一行业波动会放大组合回撤。" + ctx.scopeNote(),
                         "建议分散:减配「" + label + "」,增配宽基或其它行业;到「透视 → 行业集中」看板逐层下钻定位具体持仓。",
                         "→ 去透视"));
             } catch (Exception e) {
@@ -87,7 +98,7 @@ public class LensConcentrationRules {
             try {
                 double threshold = configService.getDouble(FAMILY_ID,
                         FamilyConfigService.K_LENS_PLATFORM_CONC, 0.40);
-                var top = topSlice(lensQueryService.positions(FAMILY_ID), "platform", Map.of());
+                var top = topSlice(inScope(lensQueryService.positions(FAMILY_ID), ctx), "platform", Map.of());
                 if (top.isEmpty()) return Optional.empty();
                 String label = (String) top.get()[0];
                 BigDecimal share = (BigDecimal) top.get()[1];
@@ -97,10 +108,10 @@ public class LensConcentrationRules {
                         id(), Advice.Scope.FAMILY, null,
                         Advice.Dimension.RISK_ALLOCATION, Advice.Severity.WARN,
                         "平台集中度偏高",
-                        "总资产 " + share.setScale(0, java.math.RoundingMode.HALF_EVEN)
+                        ctx.ratioDenominator() + " " + share.setScale(0, java.math.RoundingMode.HALF_EVEN)
                                 + "% 集中在「" + label + "」(阈值 "
                                 + limit.setScale(0, java.math.RoundingMode.HALF_EVEN)
-                                + "%)。平台 / 账户安全风险不宜过于集中。",
+                                + "%)。平台 / 账户安全风险不宜过于集中。" + ctx.scopeNote(),
                         "建议把部分资产分散到其它机构;到「透视 → 平台安全」看板查看各平台占比与明细。",
                         "→ 去透视"));
             } catch (Exception e) {

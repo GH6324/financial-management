@@ -39,6 +39,8 @@ public class FamilyDiagnoseService {
     private final FamilyMapper familyMapper;
     private final PeriodMapper periodMapper;
     private final com.family.finance.repository.AccountMapper accountMapper;   // 2026-09-24 · 风险等级读账户自己的类目
+    /** v1.27 · 分析范围:配置 / 风险两张卡的分母里有谁 */
+    private final com.family.finance.service.analysis.AnalysisScopeService scopeService;
 
     /**
      * v1.6 UED review A2 · 与 {@code DashboardController.resolveAsOf} 完全同口径的 anchor 选取:
@@ -60,7 +62,25 @@ public class FamilyDiagnoseService {
                         .orElseThrow(() -> new IllegalStateException("尚未创建周期")));
     }
 
+    /** 按「全部资产」诊断(v1.26 行为)—— 报表风险环图等不跟随范围的调用方用 */
     public FamilyDiagnose diagnose(long familyId) {
+        return diagnose(familyId, slice -> com.family.finance.service.analysis.AnalysisScope.all(), false);
+    }
+
+    /**
+     * v1.27 · 按分析范围诊断(PRD FR-824):<b>只有</b>资产配置、风险分布两项吃范围切片;
+     * KPI、流动性、收益、账户数永远吃全量切片。两张切片来自同一次加载({@code FactSlice.excludingAccounts}),
+     * 不会锚到两个不同的期。
+     *
+     * @param requestedScope 页面上的 {@code ?scope=};空 = 家庭默认
+     */
+    public FamilyDiagnose diagnose(long familyId, String requestedScope) {
+        return diagnose(familyId, slice -> scopeService.resolve(familyId, requestedScope, slice), true);
+    }
+
+    private FamilyDiagnose diagnose(long familyId,
+                                    java.util.function.Function<FactSlice, com.family.finance.service.analysis.AnalysisScope> scopeOf,
+                                    boolean withOptions) {
         // v0.2 bug 修(2026-05-10): 旧实现 factViewService.loadDefault 用 LocalDate.now() 作 end,
         // 当用户测试期间生成了未来期(>当前日期),那些期会被排除,与 /dashboard 不一致。
         //
@@ -83,7 +103,11 @@ public class FamilyDiagnoseService {
         FactSlice slice = factViewService.load(new FactFilter(
                 familyId, family.getPeriodType(), start, end, false, null, family.getBaseCurrency()));
         KpiSnapshot kpi = factViewService.kpis(slice);
-        List<AllocationSlice> allocation = factViewService.allocationByType(slice, slice.lastPeriodId());
+        // v1.27 · 占比类吃范围切片(空范围 = 空行,不会退回全量 —— 见 FactSlice.excludingAccounts)
+        com.family.finance.service.analysis.AnalysisScope scope = scopeOf.apply(slice);
+        FactSlice scoped = scope.apply(slice);
+        List<AllocationSlice> allocation = scope.empty() ? List.of()
+                : factViewService.allocationByType(scoped, scoped.lastPeriodId());
         BigDecimal familyXirr = factViewService.familyXirr(slice);
         BigDecimal familyTwr = factViewService.familyTwr(slice);
 
@@ -91,8 +115,8 @@ public class FamilyDiagnoseService {
         Map<String, ProductCategory> categoriesByCode = productCategoryService.listAll().stream()
                 .collect(java.util.stream.Collectors.toMap(ProductCategory::getCode, java.util.function.Function.identity()));
 
-        List<AccountPeriodFact> lastRows = slice.rows().stream()
-                .filter(r -> Objects.equals(r.periodId(), slice.lastPeriodId()))
+        List<AccountPeriodFact> lastRows = scoped.rows().stream()
+                .filter(r -> Objects.equals(r.periodId(), scoped.lastPeriodId()))
                 .filter(r -> r.accountClass() == AccountClass.ASSET)
                 .filter(r -> r.endBalanceBase() != null)
                 .toList();
@@ -167,7 +191,9 @@ public class FamilyDiagnoseService {
                 cumulativeYtdPnl,
                 accountCount,
                 0,  // pending TODO 接入 SnapshotTodoMapper(此值仅 banner 用,现阶段不阻塞)
-                estimatedAccounts.size()
+                estimatedAccounts.size(),
+                scope,
+                withOptions ? scopeService.options(familyId, slice) : List.of()
         );
     }
 

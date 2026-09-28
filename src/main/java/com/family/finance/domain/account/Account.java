@@ -47,6 +47,15 @@ public class Account {
     /** v0.6 · 负债年利率 %(仅 LOAN · NULL=未填则资产负债表利率对照降级)· FR-103 */
     private BigDecimal annualRatePct;
 
+    /**
+     * v1.27 · 「不参与配置分析」(issue #23 · PRD FR-800)。
+     *
+     * <p>只影响「钱怎么分」的占比类分析(体检配置 / 风险卡、配置类规则、配置锚、AI 的配置结论);
+     * 净资产、总资产、收益、流动性、报表、导出、目标里<b>一分不少</b>。不定格:改了之后所有账期立即按新值看。
+     * 贷款类账户不可标(负债本来就不进配置分母)。</p>
+     */
+    private boolean analysisExcluded;
+
     public boolean isArchived() {
         return archivedAt != null;
     }

@@ -181,6 +181,18 @@ public class FamilyConfigService {
      * 值是用换行分隔的「规则编号|账户 id」,家庭级规则的账户写 {@code *}。
      */
     public static final String K_CHECKUP_ADVICE_DISMISSED = "checkup_advice_dismissed";
+    /**
+     * v1.27 · 家里的默认分析范围(ALL / ADJUSTABLE / FINANCIAL)。
+     * 不存在 = 推导:有「不参与配置分析」的账户 → ADJUSTABLE,否则 ALL(PRD FR-822)。在「分析设置」页配。
+     */
+    public static final String K_ANALYSIS_SCOPE_DEFAULT = "analysis_scope_default";
+    /** v1.27 · 家里的默认分析模板 key(内置 GENERAL 等,或 custom:&lt;id&gt;)· 不存在 = 综合体检(FR-845) */
+    public static final String K_ANALYSIS_TEMPLATE_DEFAULT = "analysis_template_default";
+    /**
+     * v1.27 · 关掉了「分析角度不合适?换个模板」首次提示的成员 id(逗号分隔)。
+     * 按人记:一个人关掉,不打扰家里其他人(FR-881)。
+     */
+    public static final String K_ANALYSIS_HINT_DISMISSED = "analysis_hint_dismissed";
 
     // ========== env / yml @Value fallback ==========
     @Value("${finance.llm.qwen.api-key:}")

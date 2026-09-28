@@ -54,6 +54,18 @@ public class GoalLlmService {
     private final FactViewService factViewService;
     private final ObjectMapper objectMapper;
 
+    /** v1.27 · 分析偏好(FR-851 目标 AI 也读)· 可缺:测试用的构造器不带它 = 没有偏好 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.family.finance.service.analysis.AnalysisPreferenceService preferenceService;
+
+    /** 偏好段(放在材料之后,原文过真名映射);没有偏好 → 空串,提示词不变 */
+    private String preferenceSuffix(long familyId, PromptBuilder.NameMapping mapping) {
+        if (preferenceService == null) return "";
+        String b = com.family.finance.service.analysis.AnalysisPromptBlocks.preferencesOnly(
+                preferenceService.enabledTexts(familyId), mapping.realToCodename());
+        return b.isBlank() ? "" : "\n\n" + b;
+    }
+
     // ---------- FR-53a 目标向导 AI ----------
 
     /**
@@ -71,7 +83,7 @@ public class GoalLlmService {
                 2. 字段范围必须合理(年龄 18-80 / 月支出 1000-100000 / 比率 0.0-0.1)
                 3. 不要使用真名 · 不要使用具体产品名 · 不要担保性词汇(保证 / 稳赚 / 一定)
                 """;
-            String user = buildRecommendPrompt(type, kpis, members, mapping);
+            String user = buildRecommendPrompt(type, kpis, members, mapping) + preferenceSuffix(familyId, mapping);
             String raw = invokeWithFailover(familyId, system, user);
             if (raw == null) return AiResult.unavailable("LLM 全部失败");
 
@@ -101,7 +113,7 @@ public class GoalLlmService {
                 2. 不使用真名(用 成员A / 成员B 代号)· 不担保 · 不推荐具体产品
                 3. 聚焦本月进度变化 + 节奏点评 + 1 个可执行建议
                 """;
-            String user = buildMonthlyReportPrompt(goal, progress);
+            String user = buildMonthlyReportPrompt(goal, progress) + preferenceSuffix(familyId, mapping);
             String raw = invokeWithFailover(familyId, system, user);
             if (raw == null) return AiResult.unavailable("LLM 全部失败");
 
@@ -135,7 +147,7 @@ public class GoalLlmService {
                 2. 不使用真名 · 不担保 · 不推荐具体产品
                 3. 给出具体调整方案 1-2 条(增加月供 / 调整账户配置 / 重设目标参数)
                 """;
-            String user = buildAlertPrompt(goal, progress, alertReason);
+            String user = buildAlertPrompt(goal, progress, alertReason) + preferenceSuffix(familyId, mapping);
             String raw = invokeWithFailover(familyId, system, user);
             if (raw == null) return AiResult.unavailable("LLM 全部失败");
 
