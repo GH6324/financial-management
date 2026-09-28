@@ -6217,6 +6217,15 @@ QA1261_BAD="$(grep -nE "'OpenD ' \+|broker/opend\(account=" "$QA1261_H" | grep -
 { [ -z "$QA1261_BAD" ] && [ "$(grep -c "vendor.name() == 'FUTU'" "$QA1261_H")" -ge 2 ]; } \
   && log_ok "v1261-OPEND-ONLY-FUTU(持仓页只在富途关联上显示 OpenD 地址与网关按钮)" \
   || log_bad "v1261-OPEND-ONLY-FUTU 非富途的关联也显示了 OpenD" "$(printf '%s' "$QA1261_BAD" | head -1 | cut -c1-120)"
+# v1261-DOCKER-UP-DNS · docker-up.sh 拉镜像失败要按真实原因分诊,不许一律说成「Docker Hub 被限速」。
+#   2026-09-28 一位 Mac + colima 用户:虚拟机里 /etc/resolv.conf 是断链 → 引擎问 [::1]:53 → connection refused,
+#   脚本却丢掉了 docker 的报错、说是限速、去改镜像源并重启引擎,重试照样失败。
+#   这里真的跑一遍(假 docker / colima,8 秒左右):DNS 坏了要说是 DNS、带原话、查出断链、不动镜像源;超时仍走原来的处置。
+if bash "$RD/scripts/docker-up-selftest.sh" > "$TMP" 2>&1; then
+  log_ok "v1261-DOCKER-UP-DNS(DNS 坏了说是 DNS、带 docker 原话、查 colima 的 resolv.conf、不去改镜像源 · 网络超时仍走镜像源)"
+else
+  log_bad "v1261-DOCKER-UP-DNS docker-up.sh 又把拉取失败一律归因成限速" "$(grep '✗' "$TMP" | head -2 | tr '\n' ' ')"
+fi
 
 # v126-LENS-ACCOUNT-RESIDUAL · 外币账户多条持仓逐条折算后要补零头,否则透视合计与 KPI 总资产差一分(跟股价走,时红时绿)
 #   v1.20 只补了「一条持仓按方向拆多份」那一层;2026-09-25 regression-data 两次撞上账户这一层
