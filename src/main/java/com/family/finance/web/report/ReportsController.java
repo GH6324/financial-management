@@ -469,7 +469,9 @@ public class ReportsController {
         model.addAttribute("allocAnchorName", allocationAnchors.stream()
                 .filter(a -> a.getCode().equals(allocationDiff.anchorCode()))
                 .map(com.family.finance.domain.allocation.AllocationAnchor::getDisplayName)
-                .findFirst().orElse("自定义"));
+                // 「标普 4321 · 中产经典」→「标普 4321」:放进「按其余三类放大」那句里,后缀只会拖长
+                .map(n -> n.contains(" · ") ? n.substring(0, n.indexOf(" · ")) : n)
+                .findFirst().orElse("自定义锚"));
         var analysis = analysisContextService.of(me.getFamilyId(), template.scope() != null
                 ? analysisScopeService.exactly(me.getFamilyId(), template.scope(), slice) : scope, template);
         model.addAttribute("analysis", analysis);

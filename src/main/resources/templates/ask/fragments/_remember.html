@@ -5,12 +5,13 @@
        只有用户点了「记住」才保存 —— AI 自己存不了。说的是分析角度时再给「切到某个内置模板」「基于当前模板定制」;
        说的是「别算某个资产」时再给「把 X 标成不参与配置分析 →」(偏好改不了数字,标记才能让体检卡片和规则也不算它)。
        表单由 ask.js 接管成异步提交,整张卡换成「已记住」那一行;没脚本时照常提交也能存。 */-->
-<div th:fragment="card" th:if="${rc != null}" class="remember-card" data-remember-card>
+<div th:fragment="card" th:if="${rc != null}" class="remember-card" data-remember-card th:attr="data-mid=${rc.messageId()}">
   <div class="flex items-baseline gap-2 flex-wrap">
     <span class="rc-t">记住这条分析偏好?</span>
     <span class="text-[11.5px] text-ink-subtle">以后所有 AI 分析都会参考它</span>
   </div>
   <form th:action="@{/ask/remember}" method="post" data-remember-form>
+    <input type="hidden" name="mid" th:if="${rc.messageId() != null}" th:value="${rc.messageId()}"/>
     <textarea name="text" rows="2" maxlength="200" th:text="${rc.proposal().text()}" aria-label="要记住的原文">房子是自住的,别建议卖。</textarea>
     <div class="rc-acts">
       <button type="submit" class="btn-ink text-xs" data-remember-save>记住</button>
@@ -23,6 +24,7 @@
     <div class="rc-more" style="border-top:0;margin-top:6px;padding-top:0">
       <form th:if="${rc.proposal().suggestsTemplate()}" th:action="@{/ask/remember/template}" method="post" data-remember-form class="contents">
         <input type="hidden" name="key" th:value="${rc.proposal().templateKey()}"/>
+        <input type="hidden" name="mid" th:if="${rc.messageId() != null}" th:value="${rc.messageId()}"/>
         <button type="submit" class="btn-line" data-remember-template th:text="'切到「' + ${rc.proposal().templateName()} + '」'">切到「稳健守护」</button>
       </form>
       <a th:if="${rc.proposal().suggestsTemplate()}" th:href="${rc.customizeUrl()}" class="btn-line" data-remember-customize>基于当前模板定制 →</a>

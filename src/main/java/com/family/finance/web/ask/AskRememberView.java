@@ -30,7 +30,7 @@ public class AskRememberView {
      * @param customizeUrl     「基于当前模板定制 →」(以家里当前的默认模板为底,存完回超级 Agent)
      */
     public record Card(AskRememberParser.Proposal proposal, Long excludeAccountId, String excludeAccountName,
-                       String customizeUrl) {
+                       String customizeUrl, Long messageId) {
         public boolean showMore() {
             return proposal.suggestsTemplate() || proposal.suggestsExclude();
         }
@@ -40,18 +40,18 @@ public class AskRememberView {
      * 正文 → 卡片;没有标记 → null(模板据此不渲染)。
      * 这句话已经记过了(回看历史对话时)→ 也不再出卡:再点一次「记住」什么都不会发生,留着只会让人以为没存上。
      */
-    public Card of(long familyId, String body) {
+    public Card of(long familyId, String body, Long messageId) {
         return AskRememberParser.first(body)
                 .filter(p -> preferenceService.list(familyId).stream().noneMatch(r -> p.text().equals(r.content)))
-                .map(p -> card(familyId, p)).orElse(null);
+                .map(p -> card(familyId, p, messageId)).orElse(null);
     }
 
     /** 标记里面那一段 → 卡片(前端流完之后来要) */
-    public Card ofInner(long familyId, String inner) {
-        return AskRememberParser.parse(inner).map(p -> card(familyId, p)).orElse(null);
+    public Card ofInner(long familyId, String inner, Long messageId) {
+        return AskRememberParser.parse(inner).map(p -> card(familyId, p, messageId)).orElse(null);
     }
 
-    private Card card(long familyId, AskRememberParser.Proposal p) {
+    private Card card(long familyId, AskRememberParser.Proposal p, Long messageId) {
         Long accId = null;
         String accName = null;
         if (p.suggestsExclude() && !p.excludeName().isBlank()) {
@@ -62,6 +62,6 @@ public class AskRememberView {
             if (hit.isPresent()) { accId = hit.get().getId(); accName = hit.get().getDisplayName(); }
         }
         String base = templateService.familyDefault(familyId).key();
-        return new Card(p, accId, accName, AnalysisUrls.customize(base, "/ask"));
+        return new Card(p, accId, accName, AnalysisUrls.customize(base, "/ask"), messageId);
     }
 }

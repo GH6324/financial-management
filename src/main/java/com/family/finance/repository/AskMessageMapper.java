@@ -58,6 +58,20 @@ public interface AskMessageMapper {
     void updateContent(@Param("familyId") long familyId,
                        @Param("id") long id, @Param("contentText") String contentText);
 
+    /** v1.27 · 按 id 取一条(带家庭归属)—— 确认卡处理完要改写那条回答里的标记 */
+    @Select("SELECT" + COLS + "FROM ask_message m"
+          + " JOIN ask_conversation v ON v.id = m.conversation_id"
+          + " WHERE v.family_id = #{familyId} AND m.id = #{id}")
+    AskMessage findOwned(@Param("familyId") long familyId, @Param("id") long id);
+
+    /** v1.27 · 这段对话里最后一条含某段文字的助手回答(刚流完的那条,前端不知道它的 id) */
+    @Select("SELECT m.id FROM ask_message m"
+          + " JOIN ask_conversation v ON v.id = m.conversation_id"
+          + " WHERE v.family_id = #{familyId} AND m.conversation_id = #{cid} AND m.role = 'assistant'"
+          + " AND INSTR(m.content_text, #{needle}) > 0 ORDER BY m.seq DESC LIMIT 1")
+    Long lastAssistantContaining(@Param("familyId") long familyId, @Param("cid") long conversationId,
+                                 @Param("needle") String needle);
+
     /**
      * v1.27 · 这一轮带了什么分析上下文(偏好几条 · 哪个模板 · 哪个范围)、托管模式下百炼的回显确认没有。
      * 只写在用户那条消息上;查问题时一眼看得出「这一问 AI 到底收没收到偏好」(PRD §9 ③)。

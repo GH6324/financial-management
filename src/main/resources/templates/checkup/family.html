@@ -288,6 +288,8 @@
   <!--/* v1.27 FR-880 / FR-881 · AI 分析区顶部一行模板选择(两个 AI 共用):内置 + 我的模板,最后一项「+ 基于当前模板定制…」。
          换模板 = 带着 ?tpl= 重开这一页(记在网址上,不改家里的默认);模板只改 AI 的说法,不改上面任何数字和规则卡片。 */-->
   <section id="analysis-templates" class="mb-5" style="scroll-margin-top:80px">
+    <!--/* FR-882 · 从定制页存完回来:说一声「已按 X 重新分析」(下面两个 AI 区块已经按新模板在跑) */-->
+    <div th:if="${templateFlash != null}" class="mb-3 border border-forest bg-forest/[0.05] px-4 py-2 text-sm" data-template-flash th:text="${templateFlash}">已按「我的模板」重新分析</div>
     <div class="flex items-baseline gap-3 mb-2 flex-wrap">
       <span class="eyebrow">AI 分析 · 分析模板</span>
       <span class="text-[11px] text-ink-subtle">模板只改 AI 从什么角度说,不改任何数字、不改上面的规则卡片</span>

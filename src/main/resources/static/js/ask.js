@@ -24,7 +24,7 @@
   var CITE_ONLY = /^\{\{cite:([A-Za-z0-9_]{1,14})\}\}$/;
   var NEXT_G = /\{\{next:([^}\n]{1,40})\}\}/g;
   /* v1.27 · 「提议记住」标记:正文里不显示,流完之后向服务端要一张确认卡(与历史消息同一个片段) */
-  var REMEMBER_G = /\{\{remember:([^}\n]{1,320})\}\}/g;
+  var REMEMBER_G = /\{\{remember(?:-done)?:([^}\n]{1,320})\}\}/g;
   var BOLD_G = /\*\*([^*]{1,80})\*\*/g;
   /* 「- xxx」/「1. xxx」列表项 —— 服务端 AskCitationRenderer 有等价的一份,两边必须同形态 */
   var LIST_ITEM = /^(?:[-*·]|\d{1,2}[.)])\s+(.*)$/;
@@ -501,7 +501,9 @@
           if (rm && state === 'done') {
             var slot = el('div', null);
             turn.appendChild(slot);
-            fetch('/ask/remember/card?m=' + encodeURIComponent(rm[1]), { credentials: 'same-origin' })
+            var convEl = turn.closest('[data-conv]');
+            fetch('/ask/remember/card?m=' + encodeURIComponent(rm[1])
+                  + '&conv=' + encodeURIComponent(convEl ? convEl.getAttribute('data-conv') : ''), { credentials: 'same-origin' })
               .then(function (r) { return r.ok ? r.text() : ''; })
               .then(function (html) { if (html && html.trim()) slot.outerHTML = html; else slot.remove(); })
               .catch(function () { slot.remove(); });
@@ -708,7 +710,18 @@
     var b = e.target.closest && e.target.closest('[data-remember-dismiss]');
     if (!b) return;
     var card = b.closest('[data-remember-card]');
-    if (card) card.remove();
+    if (!card) return;
+    // 「不用」也记下来:回看这段对话时不再出这张卡
+    var mid = card.getAttribute('data-mid');
+    if (mid) {
+      var h = { 'Content-Type': 'application/x-www-form-urlencoded' };
+      var tok = document.querySelector('meta[name="_csrf"]');
+      var hdr = document.querySelector('meta[name="_csrf_header"]');
+      if (tok && hdr && tok.content) h[hdr.content] = tok.content;
+      fetch('/ask/remember/dismiss', { method: 'POST', headers: h, credentials: 'same-origin',
+        body: new URLSearchParams({ mid: mid }).toString() }).catch(function () {});
+    }
+    card.remove();
   });
 
   if (document.readyState === 'loading') {

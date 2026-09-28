@@ -73,9 +73,12 @@ public record AnalysisScope(
     /** 范围选项下面那行说明(FR-821):「不含 自住房、车 · 占总资产 91%」 */
     public String optionSubtitle() {
         if (isAll()) return "含所有账户";
+        // 名字多了只点前两个(十几个账户全列出来,选项会被撑成一大块 —— v1.27 beta 手机上实测)
         String what = kind == ScopeKind.FINANCIAL && !excludedTypes.isEmpty()
                 ? String.join("、", excludedTypes)
-                : (excludedNames.isEmpty() ? String.join("、", excludedTypes) : namesJoined("、"));
+                : (excludedNames.isEmpty() ? String.join("、", excludedTypes)
+                   : excludedNames.size() <= 3 ? namesJoined("、")
+                   : String.join("、", excludedNames.subList(0, 2)) + " 等 " + excludedNames.size() + " 个账户");
         String share = excludedShare == null ? ""
                 : " · 占总资产 " + excludedShare.multiply(HUNDRED).setScale(0, RoundingMode.HALF_UP).toPlainString() + "%";
         return "不含 " + what + share;

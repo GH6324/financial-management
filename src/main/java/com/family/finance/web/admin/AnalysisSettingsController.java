@@ -222,7 +222,10 @@ public class AnalysisSettingsController {
             ra.addFlashAttribute("flash", "存好了「" + saved.name() + "」· 可以设为家里的默认,或在体检 / 报表里临时换用");
             return "redirect:/admin/analysis#templates";
         }
-        ra.addFlashAttribute("templateFlash", "已按「" + saved.name() + "」重新分析");
+        // 体检页的两个 AI 区块一打开就按新模板重跑;报表的调仓是按钮触发的,说清楚下一步
+        ra.addFlashAttribute("templateFlash", to.startsWith("/reports")
+                ? "已换上「" + saved.name() + "」· 点「让 AI 给出具体调仓步骤」就按它来"
+                : "已按「" + saved.name() + "」重新分析");
         return "redirect:" + to;
     }
 

@@ -27,7 +27,7 @@
   <div class="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-6 mt-6 items-start">
     <form th:action="@{/admin/analysis/template}" method="post" class="paper-card p-6 space-y-5" id="tpl-form" data-tpl-form
           hx-get="/admin/analysis/template/preview" hx-target="#tpl-preview" hx-swap="innerHTML"
-          hx-trigger="change, keyup changed delay:400ms">
+          hx-trigger="change, input delay:400ms">
       <input type="hidden" name="id" th:if="${editing != null}" th:value="${editing.customId()}"/>
       <input type="hidden" name="from" th:if="${source != null}" th:value="${source.key()}"/>
       <input type="hidden" name="back" th:if="${back != null}" th:value="${back}"/>

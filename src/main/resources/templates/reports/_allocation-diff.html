@@ -70,6 +70,7 @@
         </div>
 
         <th:block th:if="${!allocationDiff.scopeEmpty() and !allocationDiff.customUnset() and !allocationDiff.degenerate()}">
+          <!--/* 注意:用 map.get(b) 而不是 map[b] —— SpEL 把 [b] 里的裸名字当成字面量键 'b',取回来是 null(v1.27 beta 踩过)*/-->
           <!--/* FR-870 关键文案:「你家没有房产 · 标普 4321 按其余三类放大 → 现金 17% · 投资 50% · 保险 33%」 */-->
           <p th:if="${allocationDiff.rescaleNote(allocAnchorName) != null}" class="font-mono text-[10.5px] text-brass-deep mb-3 leading-relaxed"
              data-rescale-note th:text="${allocationDiff.rescaleNote(allocAnchorName)}">你家没有房产 · 标普 4321 按其余三类放大 → 现金 17% · 投资 50% · 保险 33%</p>
@@ -77,17 +78,17 @@
             <div th:each="b : ${allocationDiff.activeBuckets()}" th:attr="data-bucket=${b}">
               <div class="flex justify-between mb-1">
                 <span th:text="${T(com.family.finance.service.allocation.AllocationService.DiffResult).bucketCn(b)}">现金</span>
-                <span class="tnum"><span th:text="${cur[b]} + '%'">3.4%</span> / <span th:text="${tgt[b]} + '%'">10%</span></span>
+                <span class="tnum"><span th:text="${cur.get(b)} + '%'">3.4%</span> / <span th:text="${tgt.get(b)} + '%'">10%</span></span>
               </div>
               <div class="relative h-3 bg-rule-soft">
                 <div class="absolute left-0 top-0 h-full"
-                     th:style="'width: ' + ${cur[b]} + '%; background: ' + ${b == 'CASH' ? 'var(--forest)' : (b == 'INVEST' ? 'var(--brass-deep)' : (b == 'PROPERTY' ? 'var(--rust)' : '#a89a55'))}"></div>
+                     th:style="'width: ' + ${cur.get(b)} + '%; background: ' + ${b == 'CASH' ? 'var(--forest)' : (b == 'INVEST' ? 'var(--brass-deep)' : (b == 'PROPERTY' ? 'var(--rust)' : '#a89a55'))}"></div>
                 <div class="absolute left-0 top-0 h-3 border-r-2 border-dashed"
-                     th:style="'left: ' + ${tgt[b]} + '%; border-color: var(--ink-subtle)'"></div>
+                     th:style="'left: ' + ${tgt.get(b)} + '%; border-color: var(--ink-subtle)'"></div>
               </div>
               <div class="text-[10px] mt-0.5"
-                   th:classappend="${b == 'CASH' ? (dif[b].signum() != 0 ? 'text-rust' : 'text-ink-subtle') : (dif[b].doubleValue() > 5 or dif[b].doubleValue() < -5 ? 'text-rust' : 'text-ink-subtle')}"
-                   th:text="${dif[b].signum() > 0 ? '↑ 超配 +' + dif[b] + 'pp' : (dif[b].signum() < 0 ? '↓ 欠配 ' + dif[b] + 'pp' : '— 持平')}">↓ 欠配 -6.6pp</div>
+                   th:classappend="${b == 'CASH' ? (dif.get(b).signum() != 0 ? 'text-rust' : 'text-ink-subtle') : (dif.get(b).doubleValue() > 5 or dif.get(b).doubleValue() < -5 ? 'text-rust' : 'text-ink-subtle')}"
+                   th:text="${dif.get(b).signum() > 0 ? '↑ 超配 +' + dif.get(b) + 'pp' : (dif.get(b).signum() < 0 ? '↓ 欠配 ' + dif.get(b) + 'pp' : '— 持平')}">↓ 欠配 -6.6pp</div>
             </div>
             <!--/* 不参与对照的桶:灰掉,说清为什么(范围内没有 / 家里没有) */-->
             <div th:each="b : ${allocationDiff.droppedBuckets()}" class="flex justify-between text-ink-subtle" th:attr="data-bucket-dropped=${b}">
@@ -109,6 +110,7 @@
           基于上方对照差额,让 AI 给出具体调仓步骤("从 X 调 ¥N 到 Y")。建议 30 天内复用,避免短期市场抖动反复换仓。
         </p>
 
+        <div th:if="${templateFlash != null}" class="paper-card p-2 mb-3 text-[10px] text-forest" data-template-flash th:text="${templateFlash}">已按「我的模板」重新分析</div>
         <!-- 点击后反馈条(成功 / 失败 / 缓存命中) -->
         <div th:if="${rebalanceFlash == 'ok-fresh'}"
              class="paper-card p-2 mb-3 text-[10px] text-forest flex items-center gap-1.5"
