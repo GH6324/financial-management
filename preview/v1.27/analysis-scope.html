@@ -112,6 +112,16 @@
   .bub.ai{background:var(--card);border:1px solid var(--rule)}
   .confirm{border:2px solid var(--brass-deep);background:rgba(160,124,58,.06);padding:13px 15px;max-width:560px}
   .btn-line{font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 10px;border:1px solid var(--ink);color:var(--ink);background:var(--paper);white-space:nowrap}
+  .tpls{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch}
+  .tpl{border:1px solid var(--rule);background:var(--paper);padding:7px 11px;font-size:12.5px;line-height:1.3;min-height:44px;display:flex;flex-direction:column;justify-content:center}
+  .tpl small{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-subtle);letter-spacing:.06em;margin-top:2px}
+  .tpl.on{border:2px solid var(--brass-deep);background:rgba(160,124,58,.07);padding:6px 10px}
+  .tpl.add{border-style:dashed;color:var(--brass-deep)}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:1px 5px;border:1px solid var(--rule);color:var(--ink-subtle);margin-left:6px;white-space:nowrap}
+  .chipset{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font-size:12px;padding:5px 10px;border:1px solid var(--rule);background:var(--paper)}
+  .chip.on{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+  .hint{display:flex;gap:10px;align-items:center;border:1px dashed var(--brass-deep);background:rgba(160,124,58,.05);padding:9px 12px;font-size:12.5px;color:var(--ink-soft)}
   @media (max-width: 900px){
     .kband{grid-template-columns:repeat(2,1fr)}
     .k-v{font-size:19px}
@@ -127,7 +137,7 @@
 <div class="wrap" style="padding-top:38px;padding-bottom:64px">
 
   <!-- ══ 抬头 ══ -->
-  <div class="eyebrow">Preview · v1.27.0 · issue #23 · A 标记 + B 范围与模板 + C 分析偏好 + D 纠正默认值</div>
+  <div class="eyebrow">Preview · v1.27.0 · issue #23 · A 标记 + B 范围与模板 + C 分析偏好 + D 纠正默认值 · 已并入评审 ①(内置常见模板 + 基于模板定制 + 引导)</div>
   <h1 style="font-size:34px;line-height:1.24;margin:9px 0 10px;max-width:820px">
     让体检和 AI 分析你想管的那部分钱
   </h1>
@@ -384,10 +394,33 @@
   <div class="zone">
     <div class="zone-head">
       <span class="zone-no">5</span>
-      <span class="zone-t">AI:每个范围一套模板 · 再加上家里写的分析偏好</span>
-      <span class="zone-sub">AI 综合诊断 · AI 资产洞察 · AI 调仓建议 · FR-840 ~ FR-843 · FR-851 ~ FR-852</span>
+      <span class="zone-t">AI:选一个模板就行 · 范围 + 模板 + 分析偏好拼成提示词</span>
+      <span class="zone-sub">AI 综合诊断 · AI 资产洞察 · AI 调仓建议 · FR-840 ~ FR-849 · FR-880 · FR-881</span>
     </div>
     <div class="zone-line"></div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+        <span class="eyebrow">AI 综合诊断 · 分析模板</span>
+        <span class="note">模板只改 AI 从什么角度说,不改任何数字、不改上面的规则卡片</span>
+      </div>
+      <div class="tpls">
+        <div class="tpl">综合体检<small>内置 · 默认</small></div>
+        <div class="tpl on">稳健守护<small>内置</small></div>
+        <div class="tpl">积极增长<small>内置</small></div>
+        <div class="tpl">投资组合体检<small>内置</small></div>
+        <div class="tpl">负债与现金流<small>内置</small></div>
+        <div class="tpl">我家的稳健守护<small>我的 · 基于稳健守护</small></div>
+        <div class="tpl add">+ 基于当前模板定制…<small>复制一份再改</small></div>
+      </div>
+      <p class="note" style="margin-top:8px"><b>稳健守护</b> · 适合求稳、临近退休或近期有大额支出的家庭:先看本金安全、应急金够不够、风险有没有过度集中。</p>
+      <div class="hint" style="margin-top:10px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep);flex:0 0 14px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <span style="flex:1">分析角度不合适?换个模板,或 <a style="color:var(--brass-deep);text-decoration:underline">基于它定制 →</a></span>
+        <span class="mono" style="font-size:10px;color:var(--ink-subtle)">关掉 ×</span>
+      </div>
+      <p class="note" style="margin-top:6px">这句提示只在第一次看到 AI 分析时出现,关掉就不再出现 —— 按人记,不打扰家里其他人(FR-881)。</p>
+    </div>
 
     <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start">
       <div>
@@ -434,10 +467,81 @@
         </p>
         <div style="border-top:1px solid var(--rule-soft);margin-top:12px;padding-top:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brass-deep)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          <span class="mono" style="font-size:10.5px;color:var(--brass-deep)">按「可调整的资产」分析 · 不含 自住房、车 · 参考了 2 条分析偏好</span>
+          <span class="mono" style="font-size:10.5px;color:var(--brass-deep)">按「稳健守护」· 可调整的资产(不含 自住房、车)· 参考了 2 条分析偏好</span>
           <span class="mono" style="font-size:10.5px;color:var(--ink-subtle);margin-left:auto">通义千问 · 刚刚</span>
         </div>
-        <p class="note" style="margin-top:10px">切范围、改标记、改分析偏好,都拿到新的结论,不会串:缓存按这三样分开。</p>
+        <div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap">
+          <a class="mono" style="font-size:10.5px;color:var(--brass-deep);text-decoration:underline">换模板 ▾</a>
+          <a class="mono" style="font-size:10.5px;color:var(--brass-deep);text-decoration:underline">定制这个模板 →</a>
+        </div>
+        <p class="note" style="margin-top:10px">入口就在结果旁边:觉得哪里不对,当场换或当场改(FR-848)。切范围、换模板、改分析偏好,都拿到新的结论,缓存按这三样分开。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 6 · 基于模板定制 ══ -->
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-no">6</span>
+      <span class="zone-t">基于模板定制:改几个选项就行,想写细的再展开「高级」</span>
+      <span class="zone-sub">从 AI 结果页脚「定制这个模板」进来 · FR-842 ~ FR-844 · FR-882 · FR-883</span>
+    </div>
+    <div class="zone-line"></div>
+
+    <div class="two" style="display:grid;grid-template-columns:1.2fr 1fr;gap:18px;align-items:start">
+      <div class="card" style="padding:20px 22px">
+        <div class="mono" style="font-size:10px;color:var(--ink-subtle)">分析设置 / 分析模板 / 定制</div>
+        <div style="font-family:'Fraunces','Noto Serif SC',serif;font-size:22px;margin:6px 0 2px">基于「稳健守护」定制</div>
+        <p class="note">改完存成「我的模板」;内置的「稳健守护」不受影响,以后我们升级它也不会冲掉你的这份。</p>
+
+        <div class="set-sec" style="margin-top:14px">
+          <div class="field-label">名字</div>
+          <div class="field-input" style="padding:5px 0">我家的稳健守护</div>
+        </div>
+        <div class="set-sec">
+          <div class="field-label" style="margin-bottom:6px">侧重看哪些(选 1–4 个)</div>
+          <div class="chipset">
+            <span class="chip">配置</span><span class="chip on">风险</span><span class="chip on">流动性</span>
+            <span class="chip">收益</span><span class="chip on">集中度</span><span class="chip">负债与现金流</span>
+          </div>
+        </div>
+        <div class="set-sec">
+          <div class="field-label" style="margin-bottom:6px">立场</div>
+          <div class="chipset">
+            <span class="chip">跟随家里的风险偏好</span><span class="chip on">稳健</span><span class="chip">平衡</span><span class="chip">进取</span>
+          </div>
+        </div>
+        <div class="set-sec" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div><div class="field-label">范围</div><div class="field-input" style="padding:5px 0">跟随家里的默认(可调整的资产)</div></div>
+          <div><div class="field-label">配置锚</div><div class="field-input" style="padding:5px 0">跟随家里的(自定义 20 / 80 / 0 / 0)</div></div>
+        </div>
+        <div class="set-sec">
+          <div class="field-label" style="margin-bottom:6px">▾ 高级 · 补充要求(可选,≤ 500 字)</div>
+          <div class="field-input" style="padding:6px 0;font-size:13px;line-height:1.7">重点看港股仓位和汇率风险;明年要换车,留出 30 万的现金。</div>
+          <p class="note" style="margin-top:6px">会原样发给 AI;<b>改不了数字,也越不过规矩</b>(不许 AI 算数、不许荐股)。写法示例:
+            「重点看港股仓位和汇率风险」·「孩子三年后上大学,流动性要留足」·「别建议买保险,我们已经配好了」</p>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px;align-items:center;flex-wrap:wrap">
+          <span class="btn-cta">保存并重新分析</span><span class="btn-line">取消</span>
+          <span class="note" style="margin-left:auto">保存后回到体检页,用新模板当场重跑(FR-882)</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="eyebrow" style="margin-bottom:7px">AI 会收到的要求(随设置实时变化 · FR-883)</div>
+        <div class="prompt">## 分析模板:我家的稳健守护(基于「稳健守护」)
+立场:稳健 —— 先保本金与流动性,再谈收益;
+不建议提高高风险资产占比。
+侧重:风险、流动性、集中度(其余维度简要带过)。
+范围与配置锚:见下方「分析范围」段与「配置锚」段。
+
+## 家里补充的要求
+以下是这家人补充的分析要求。按它调整侧重与说法;
+数字一律以系统给的为准,不许据此计算,不许荐股。
+重点看港股仓位和汇率风险;明年要换车,
+留出 30 万的现金。</div>
+        <p class="note" style="margin-top:8px">懂行的人看得到自己改了什么;不懂的人不用看。
+          <b>规矩那几段(不许算数、数字引用、合规底线)不在这里、也改不了</b> —— 它们是产品责任,每个模板都一样。</p>
       </div>
     </div>
   </div>
@@ -445,7 +549,7 @@
   <!-- ══ 6 · 报表 · 配置锚 ══ -->
   <div class="zone">
     <div class="zone-head">
-      <span class="zone-no">6</span>
+      <span class="zone-no">7</span>
       <span class="zone-t">报表 · 配置锚对照</span>
       <span class="zone-sub">整类拿掉 / 家里本来就没有时,目标按原比例放大 · FR-827 · FR-870 ~ FR-873</span>
     </div>
@@ -530,7 +634,7 @@
   <!-- ══ 7 · 空态 + 手机 ══ -->
   <div class="zone">
     <div class="zone-head">
-      <span class="zone-no">7</span>
+      <span class="zone-no">8</span>
       <span class="zone-t">边界:全都标了 · 手机上</span>
       <span class="zone-sub">FR-826 · 双端</span>
     </div>
@@ -604,7 +708,7 @@
   <!-- ══ 8 · 跟随 / 不跟随 ══ -->
   <div class="zone">
     <div class="zone-head">
-      <span class="zone-no">8</span>
+      <span class="zone-no">9</span>
       <span class="zone-t">什么跟着范围变,什么永远不变</span>
       <span class="zone-sub">PRD §6 矩阵的读法 · 规律:只有「占比类」跟;分析偏好只改 AI 的说法</span>
     </div>
@@ -642,8 +746,8 @@
   <!-- ══ 9 · 管理 → 分析设置 ══ -->
   <div class="zone">
     <div class="zone-head">
-      <span class="zone-no">9</span>
-      <span class="zone-t">管理 → 分析设置:「怎么分析我家」放在一处</span>
+      <span class="zone-no">10</span>
+      <span class="zone-t">管理 → 分析设置:「怎么分析我家」放在一处(五块)</span>
       <span class="zone-sub">新入口 · 管理首页卡片 + 侧栏 · FR-890 ~ FR-892</span>
     </div>
     <div class="zone-line"></div>
@@ -654,10 +758,10 @@
         <div class="card" style="padding:18px 20px">
           <div class="mono" style="font-size:10px;color:var(--ink-subtle);letter-spacing:.14em">口径 · 分析</div>
           <div style="font-family:'Fraunces','Noto Serif SC',serif;font-size:20px;margin:6px 0 6px">分析设置</div>
-          <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.75">分析范围 · 不参与分析的资产 · 配置锚(含自定义)· 分析偏好 · 体检和 AI 都按这里来</p>
+          <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.75">分析范围 · 分析模板 · 不参与分析的资产 · 配置锚(含自定义)· 分析偏好 · 体检和 AI 都按这里来</p>
         </div>
-        <p class="note" style="margin-top:8px">卡片上点名四块 —— 用户是带着「配置锚」「偏好」「不算房子」这些词来找的(L9「找得到」)。
-          各现场也有直达:体检范围切换旁、报表配置锚「自定义…」、超级 Agent 记住之后、账户编辑页勾选项说明里。</p>
+        <p class="note" style="margin-top:8px">卡片上点名五块 —— 用户是带着「模板」「配置锚」「偏好」「不算房子」这些词来找的(L9「找得到」)。
+          各现场也有直达:体检范围切换旁、AI 结果页脚「定制这个模板」、报表配置锚「自定义…」、超级 Agent 记住之后、账户编辑页勾选项说明里。</p>
       </div>
 
       <div class="card" style="padding:20px 22px">
@@ -674,7 +778,19 @@
         </div>
 
         <div class="set-sec">
-          <div class="set-h"><span class="set-n">②</span><span class="set-t">不参与配置分析的资产</span><span class="note">在账户编辑页勾选;这里只列出来</span></div>
+          <div class="set-h"><span class="set-n">②</span><span class="set-t">分析模板</span><span class="note">AI 从什么角度看 · 内置的不能改,基于它定制一份再改</span></div>
+          <table class="cmp">
+            <tr><td>综合体检 <span class="badge">内置</span> <span class="badge" style="color:var(--forest);border-color:var(--forest)">家里的默认</span></td><td class="note">四个方面都看一遍</td><td style="text-align:right;white-space:nowrap"><a class="mono" style="color:var(--brass-deep);text-decoration:underline">基于它定制</a></td></tr>
+            <tr><td>稳健守护 <span class="badge">内置</span></td><td class="note">先看本金安全、应急金、风险集中</td><td style="text-align:right;white-space:nowrap"><a class="mono" style="color:var(--brass-deep);text-decoration:underline">设为默认</a> · <a class="mono" style="color:var(--brass-deep);text-decoration:underline">基于它定制</a></td></tr>
+            <tr><td>积极增长 <span class="badge">内置</span></td><td class="note">先看收益、股票类占比、分散度</td><td style="text-align:right;white-space:nowrap"><a class="mono" style="color:var(--brass-deep);text-decoration:underline">设为默认</a> · <a class="mono" style="color:var(--brass-deep);text-decoration:underline">基于它定制</a></td></tr>
+            <tr><td>投资组合体检 <span class="badge">内置</span></td><td class="note">只看金融资产之间怎么分</td><td style="text-align:right;white-space:nowrap"><a class="mono" style="color:var(--brass-deep);text-decoration:underline">设为默认</a> · <a class="mono" style="color:var(--brass-deep);text-decoration:underline">基于它定制</a></td></tr>
+            <tr><td>负债与现金流 <span class="badge">内置</span></td><td class="note">负债率、还款压力、提前还贷</td><td style="text-align:right;white-space:nowrap"><a class="mono" style="color:var(--brass-deep);text-decoration:underline">设为默认</a> · <a class="mono" style="color:var(--brass-deep);text-decoration:underline">基于它定制</a></td></tr>
+            <tr><td>我家的稳健守护 <span class="badge">我的</span></td><td class="note">基于稳健守护 · 成员A 改于 9-28</td><td style="text-align:right;white-space:nowrap"><a class="mono" style="color:var(--brass-deep);text-decoration:underline">编辑</a> · <a class="mono" style="color:var(--brass-deep);text-decoration:underline">设为默认</a> · <a class="mono" style="color:var(--ink-subtle);text-decoration:underline">删除</a></td></tr>
+          </table>
+        </div>
+
+        <div class="set-sec">
+          <div class="set-h"><span class="set-n">③</span><span class="set-t">不参与配置分析的资产</span><span class="note">在账户编辑页勾选;这里只列出来</span></div>
           <table class="cmp">
             <tr><td>自住房</td><td>房产</td><td style="text-align:right"><a style="color:var(--brass-deep);text-decoration:underline" class="mono">改 →</a></td></tr>
             <tr><td>家用车</td><td>其他</td><td style="text-align:right"><a style="color:var(--brass-deep);text-decoration:underline" class="mono">改 →</a></td></tr>
@@ -682,7 +798,7 @@
         </div>
 
         <div class="set-sec">
-          <div class="set-h"><span class="set-n">③</span><span class="set-t">配置锚</span><span class="note">报表配置锚对照与 AI 调仓按它比</span></div>
+          <div class="set-h"><span class="set-n">④</span><span class="set-t">配置锚</span><span class="note">报表配置锚对照与 AI 调仓按它比</span></div>
           <div class="anc">
             <div>标普 4321<small>10 / 30 / 40 / 20</small></div>
             <div>雪球 · 稳健<small>10 / 90 / 0 / 0</small></div>
@@ -700,7 +816,7 @@
         </div>
 
         <div class="set-sec">
-          <div class="set-h"><span class="set-n">④</span><span class="set-t">分析偏好</span><span class="note">写给 AI 的侧重与忌讳 · 每条 ≤ 200 字 · 最多 10 条</span></div>
+          <div class="set-h"><span class="set-n">⑤</span><span class="set-t">分析偏好</span><span class="note">写给 AI 的侧重与忌讳 · 每条 ≤ 200 字 · 最多 10 条</span></div>
           <div class="pref">
             <div class="pref-t">房子是自住的,不打算卖,别建议卖房或加杠杆。<div class="pref-m">成员A · 9-28 · 在超级 Agent 对话里记住的</div></div>
             <span class="sw"></span>
@@ -725,15 +841,15 @@
   <!-- ══ 10 · 超级 Agent · 记住 ══ -->
   <div class="zone">
     <div class="zone-head">
-      <span class="zone-no">10</span>
+      <span class="zone-no">11</span>
       <span class="zone-t">超级 Agent:对话里说一句,它提议记住,你点了才算</span>
-      <span class="zone-sub">FR-844 · FR-853 ~ FR-856</span>
+      <span class="zone-sub">FR-849 · FR-853 ~ FR-856</span>
     </div>
     <div class="zone-line"></div>
 
     <div class="two" style="display:grid;grid-template-columns:1fr 410px;gap:24px;align-items:start">
       <div>
-        <div class="bub me">以后分析配置都别算我们家那套房子,那是自住的,不会卖。</div>
+        <div class="bub me">以后分析都按保守的来,别算我们家那套房子,那是自住的,不会卖。</div>
         <div class="bub ai" style="margin-top:10px">
           好。按「可调整的资产」看,你们的现金、股票、理财大致三分,股票稍多一些……
         </div>
@@ -746,6 +862,14 @@
           <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">
             <span class="btn-cta">记住</span><span class="btn-line">不用</span>
             <span class="note" style="margin-left:auto">原文可以改了再记</span>
+          </div>
+          <div style="border-top:1px solid var(--rule-soft);margin-top:12px;padding-top:10px">
+            <div class="note" style="margin-bottom:6px">「按保守的来」说的是分析角度,还可以:</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <span class="btn-line">切到「稳健守护」</span>
+              <span class="btn-line">基于当前模板定制 →</span>
+              <span class="btn-line">把自住房标成不参与配置分析 →</span>
+            </div>
           </div>
         </div>
         <div class="card" style="margin-top:12px;background:rgba(160,124,58,.05)">
@@ -762,15 +886,20 @@
       <div class="phone">
         <div class="phone-in">
           <div class="eyebrow" style="font-size:9px">超 · 级 · Agent</div>
-          <div class="bub me" style="margin-top:10px;font-size:12.5px">以后分析配置都别算我们家那套房子,那是自住的,不会卖。</div>
+          <div class="bub me" style="margin-top:10px;font-size:12.5px">以后分析都按保守的来,别算我们家那套房子,那是自住的,不会卖。</div>
           <div class="bub ai" style="margin-top:8px;font-size:12.5px">好。按「可调整的资产」看,你们的现金、股票、理财大致三分……</div>
           <div class="confirm" style="margin-top:8px;padding:11px 12px">
             <div style="font-family:'Fraunces','Noto Serif SC',serif;font-size:15px">记住这条分析偏好?</div>
             <div class="note" style="margin-top:2px">以后所有 AI 分析都会参考它</div>
             <div class="field-input" style="margin-top:6px;padding:5px 0;font-size:12.5px">房子是自住的,不会卖,分析配置时别算它。</div>
             <div style="display:flex;gap:8px;margin-top:9px"><span class="btn-cta">记住</span><span class="btn-line">不用</span></div>
+            <div style="border-top:1px solid var(--rule-soft);margin-top:10px;padding-top:8px;display:grid;gap:6px">
+              <span class="btn-line" style="text-align:center">切到「稳健守护」</span>
+              <span class="btn-line" style="text-align:center">基于当前模板定制 →</span>
+              <span class="btn-line" style="text-align:center">把自住房标成不参与配置分析 →</span>
+            </div>
           </div>
-          <p class="note" style="margin-top:8px;font-size:10.5px">确认卡在窄屏上按钮不换行、文本框整宽。</p>
+          <p class="note" style="margin-top:8px;font-size:10.5px">窄屏上三个选项上下排、整宽,不挤在一行。</p>
         </div>
       </div>
     </div>
