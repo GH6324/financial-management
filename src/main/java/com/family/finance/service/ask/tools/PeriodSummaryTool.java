@@ -36,6 +36,8 @@ import java.util.Map;
 public class PeriodSummaryTool implements AskTool {
 
     private final FactViewService factViewService;
+    /** v1.27 · 按分析范围给「范围内资产」(FR-856)—— 净资产 / 总资产永远是全家的 */
+    private final com.family.finance.service.analysis.AnalysisScopeService scopeService;
     private final FamilyService familyService;
     private final PeriodMapper periodMapper;
     /** 引用块要和页面逐字一致,格式化必须用页面那一份 */
@@ -53,7 +55,10 @@ public class PeriodSummaryTool implements AskTool {
     public Map<String, Object> parameterSchema() {
         return Map.of("type", "object",
                 "properties", Map.of("period",
-                        Map.of("type", "string", "description", "账期,格式 yyyy-MM;不传用最新一期")),
+                        Map.of("type", "string", "description", "账期,格式 yyyy-MM;不传用最新一期"),
+                        "scope", Map.of("type", "string", "enum", List.of("all", "adjustable", "financial"),
+                                "description", "要不要另给「范围内资产」:adjustable 不含标了不参与配置分析的账户 · financial 只看金融资产。"
+                                             + "净资产、总资产始终是全家的")),
                 "required", List.of());
     }
 
@@ -61,6 +66,12 @@ public class PeriodSummaryTool implements AskTool {
 
     @Override
     public AskToolResult execute(long familyId, Map<String, Object> args) {
+        return execute(familyId, args, AskScope.DETAIL);
+    }
+
+    @Override
+    public AskToolResult execute(long familyId, Map<String, Object> args, AskScope granted) {
+        boolean aggregateOnly = granted == null || !granted.covers(AskScope.DETAIL);
         Family family = familyService.require(familyId);
         String want = args.get("period") == null ? null : String.valueOf(args.get("period")).trim();
 
@@ -113,6 +124,23 @@ public class PeriodSummaryTool implements AskTool {
         cite(b, "he", "kpi.humanEarned", "人赚(你存下的)", k.lastNetInflow(), anchor.getId(), inProgress, cur, "/dashboard#dash-cashflow");
         cite(b, "ob", "kpi.openingBaseline", "开账基线", k.openingBaselineLast(), anchor.getId(), inProgress, cur, "/dashboard#dash-cashflow");
         citeMonths(b, "em", "紧急储备月数", k.emergencyFundMonths(), anchor.getId(), inProgress);
+
+        // v1.27 · 按分析范围另给一个「范围内资产」(系统算好)· 汇总口令不给被拿掉账户的名字
+        var kind = com.family.finance.service.analysis.ScopeKind.parse(
+                args.get("scope") == null ? null : String.valueOf(args.get("scope")));
+        if (kind != null && kind != com.family.finance.service.analysis.ScopeKind.ALL) {
+            var sc = scopeService.exactly(familyId, kind, slice);
+            if (!sc.isAll()) {
+                BigDecimal inScope = factViewService.kpis(sc.apply(slice)).totalAssets();
+                Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("scope", sc.kind().getLabel());
+                m.put("assetsInScope", plain(inScope));
+                m.put("excludes", aggregateOnly ? sc.excludedIds().size() + " 个账户" : sc.namesJoined("、"));
+                if (sc.excludedSharePct() != null) m.put("excludedSharePct", sc.excludedSharePct().toPlainString());
+                b.put("analysisScope", m);
+                cite(b, "sa", "kpi.assetsInScope", sc.kind().getLabel() + "合计", inScope, anchor.getId(), inProgress, cur, "/checkup");
+            }
+        }
 
         if (inProgress) {
             b.metaExtra("warning",

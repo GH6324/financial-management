@@ -56,8 +56,12 @@ public class PivotTool implements AskTool {
     public static final int ROW_CITES = 12;
     /** 行 + 列合计层数上限:再深读不出结构,只会把 token 花在没人看的嵌套上 */
     public static final int MAX_DEPTH = 3;
+    /** v1.27 · 账户组维:没分组的账户取值就是账户名 —— 「只给汇总」的口令不许用 */
+    static final String GROUP_DIM = "group";
 
     private final LensQueryService lensQueryService;
+    /** v1.27 · 分析范围(「不算房子」重算占比 · FR-856) */
+    private final com.family.finance.service.analysis.AnalysisScopeService scopeService;
     private final FamilyService familyService;
     private final PeriodMapper periodMapper;
     /** 引用块里的数字要和页面上<b>逐字一致</b>,所以格式化必须用页面那一份,不能自己写 */
@@ -68,7 +72,8 @@ public class PivotTool implements AskTool {
     @Override
     public String description() {
         return "按任意维度交叉查询家庭资产。行/列/度量/筛选可自由组合;分组、小计、占比都由系统算好,"
-             + "你直接引用即可,不要自己做加减。维度与取值先用 capabilities 查,别猜。";
+             + "你直接引用即可,不要自己做加减。维度与取值先用 capabilities 查,别猜。"
+             + "要「不算某几项」用 exclude;要按分析范围(不含标了不参与配置分析的账户 / 只看金融资产)用 scope。";
     }
 
     @Override
@@ -89,6 +94,11 @@ public class PivotTool implements AskTool {
                 "description", "维度到取值数组的映射,例如 owner 对应 [\"成员A\"]"));
         props.put("limit", Map.of("type", "integer",
                 "description", "返回行数上限,默认 " + DEFAULT_LIMIT + ",最多 " + MAX_LIMIT));
+        // v1.27 FR-856 · 排除与分析范围 —— 占比按剩下的重算(系统算,不用你算)
+        props.put("exclude", Map.of("type", "object",
+                "description", "不看的项:维度到取值数组的映射,例如 assetClass 对应 [\"不动产\"]。排除后占比按剩下的重算"));
+        props.put("scope", Map.of("type", "string", "enum", List.of("all", "adjustable", "financial"),
+                "description", "分析范围:all 全部资产(默认)· adjustable 不含标了「不参与配置分析」的账户 · financial 只看金融资产"));
         return Map.of("type", "object", "properties", props, "required", List.of("rows"));
     }
 
@@ -96,6 +106,16 @@ public class PivotTool implements AskTool {
 
     @Override
     public AskToolResult execute(long familyId, Map<String, Object> args) {
+        return execute(familyId, args, AskScope.DETAIL);
+    }
+
+    /**
+     * v1.27 · 「只给汇总」的口令下不许用「账户组」维 —— 没分组的账户,这一维的取值就是账户名(FR-856)。
+     * 这是一个现存的口子:v1.20 加账户组维时,汇总口令能靠它把账户名一个个列出来。
+     */
+    @Override
+    public AskToolResult execute(long familyId, Map<String, Object> args, AskScope granted) {
+        boolean aggregateOnly = granted == null || !granted.covers(AskScope.DETAIL);
         List<String> rows = strings(args.get("rows"));
         List<String> cols = strings(args.get("cols"));
         List<String> measures = strings(args.get("measures"));
@@ -124,11 +144,42 @@ public class PivotTool implements AskTool {
                 filters.put(k, strings(e.getValue()));
             }
         }
+        Map<String, List<String>> excludes = new LinkedHashMap<>();
+        if (args.get("exclude") instanceof Map<?, ?> m) {
+            for (Map.Entry<?, ?> e : m.entrySet()) {
+                String k = String.valueOf(e.getKey());
+                if (!LensRegistry.DIMENSIONS.containsKey(k)) {
+                    throw new AskParamException("排除用了不存在的维度:" + k, allowedMap());
+                }
+                excludes.put(k, strings(e.getValue()));
+            }
+        }
+        if (aggregateOnly && (rows.contains(GROUP_DIM) || cols.contains(GROUP_DIM)
+                || filters.containsKey(GROUP_DIM) || excludes.containsKey(GROUP_DIM))) {
+            throw new AskParamException("这把凭据是「只给汇总」,不能按账户组查 —— 没分组的账户在这一维上就是账户名。"
+                    + "换别的维度(平台 / 资产类型 / 主理人)", allowedMap());
+        }
 
         int limit = args.get("limit") instanceof Number n
                 ? Math.min(MAX_LIMIT, Math.max(1, n.intValue())) : DEFAULT_LIMIT;
 
         List<Position> positions = lensQueryService.positions(familyId);
+        // v1.27 · 分析范围 + 排除:在分组之前把头寸拿掉,占比按剩下的重算(PivotEngine 自己算,不经模型)
+        var scopeKind = com.family.finance.service.analysis.ScopeKind.parse(
+                args.get("scope") == null ? null : String.valueOf(args.get("scope")));
+        var scope = scopeKind == null || scopeKind == com.family.finance.service.analysis.ScopeKind.ALL ? null
+                : scopeService.exactly(familyId, scopeKind, null);
+        if (scope != null && !scope.isAll()) {
+            positions = positions.stream().filter(p -> scope.includes(p.accountId())).toList();
+        }
+        if (!excludes.isEmpty()) {
+            positions = positions.stream().filter(p -> {
+                for (Map.Entry<String, List<String>> e : excludes.entrySet()) {
+                    if (e.getValue().contains(PivotEngine.labelOf(LensRegistry.DIMENSIONS.get(e.getKey()), p))) return false;
+                }
+                return true;
+            }).toList();
+        }
         PivotEngine.Result r = PivotEngine.pivot(positions, new LensQuery(rows, cols, measures, filters));
 
         boolean truncated = r.rowKeys().size() > limit;
@@ -150,6 +201,14 @@ public class PivotTool implements AskTool {
                 .put("grand", plain(r.grand()))
                 .put("holdingLevelSplit", r.holdingLevelSplit());
 
+        if (scope != null && !scope.isAll()) {
+            b.put("scope", Map.of("kind", scope.kind().getLabel(),
+                    "excludedAccounts", aggregateOnly ? scope.excludedIds().size() + " 个账户" : scope.namesJoined("、"),
+                    "note", "占比按「" + scope.kind().getLabel() + "」重算;净资产、总资产的全家数字请用 period_summary"));
+        }
+        if (!excludes.isEmpty()) {
+            b.put("excluded", excludes);
+        }
         if (truncated) {
             b.put("truncated", Map.of(
                     "shown", keys.size(),

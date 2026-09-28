@@ -38,6 +38,11 @@ public class AskCitationRenderer {
     private static final Pattern CITE = Pattern.compile("\\{\\{cite:([A-Za-z0-9_]{1,14})}}");
     /** 追问标记 · FR-424b。与 cite 同一套形状,渲染期抽出来变成 chip */
     private static final Pattern NEXT = Pattern.compile("\\{\\{next:([^}\\n]{1,40})}}");
+    /**
+     * v1.27 · 「提议记住」标记(FR-854)。和 next 同形状:正文里不显示,单独渲染成确认卡
+     * (见 {@link com.family.finance.service.ask.AskRememberParser})。
+     */
+    public static final Pattern REMEMBER = Pattern.compile("\\{\\{remember:([^}\\n]{1,320})}}");
     /** 一轮最多给几条追问 —— 再多就成了一屏按钮,用户反而不知道点哪个 */
     private static final int MAX_NEXT = 3;
     /** 「- xxx」/「1. xxx」列表项 */
@@ -208,6 +213,7 @@ public class AskCitationRenderer {
         String t = sb.toString();
         t = CHART_ANY.matcher(t).replaceAll("[图]");
         t = ARTIFACT_ANY.matcher(t).replaceAll("[图]");
+        t = REMEMBER.matcher(t).replaceAll("");   // v1.27 · 确认卡不进复制出去的文字
         return NEXT.matcher(t).replaceAll("").replaceAll("\\n{3,}", "\\n\\n").trim();
     }
 
@@ -222,6 +228,7 @@ public class AskCitationRenderer {
     public String renderHtml(long familyId, String body, List<AskCitation> citations) {
         if (body == null) return "";
         body = NEXT.matcher(body).replaceAll("");   // 追问单独渲染成 chip,不进正文
+        body = REMEMBER.matcher(body).replaceAll("");   // v1.27 · 「提议记住」单独渲染成确认卡,不进正文
         Map<String, AskCitation> byKey = new LinkedHashMap<>();
         for (AskCitation c : citations) byKey.put(c.getCiteKey(), decorate(c));
 

@@ -60,6 +60,13 @@ public class AskConversationService {
      */
     private final AskCiteBuffer citeBuffer;
     private final ObjectMapper json = new ObjectMapper();
+    /**
+     * v1.27 · 分析上下文(家里的默认范围 / 模板 / 分析偏好)· 字段注入且可缺:老测试不带它 = 没有上下文。
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.family.finance.service.analysis.AnalysisContextService analysisContextService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.family.finance.service.member.MemberDirectory memberDirectory;
 
     // ──────────────────────── 开关与 runtime ────────────────────────
 
@@ -253,12 +260,58 @@ public class AskConversationService {
         // 上一轮的残留不清掉,会被这一轮的正文误命中,落库成一个【上一轮的数】。
         citeBuffer.clear(familyId);
         Collector collector = new Collector(familyId, conversationId, out);
+        // v1.27 · 这一轮的分析上下文;ctx_note 记在这一问对应的用户消息上(新问 = 刚落库那条;重来 = 最后一条提问)
+        String analysisContext = analysisContext(familyId);
+        Long noteTarget = mode == Mode.NEW ? skipId
+                : (mode == Mode.REGENERATE ? prior.stream().filter(AskMessage::fromUser)
+                        .reduce((a, b) -> b).map(AskMessage::getId).orElse(null) : null);
+        String noteHead = analysisNoteHead(familyId);
         AgentRuntime.AskTurn turn = new AgentRuntime.AskTurn(
                 familyId, conversationId, conv.getProviderRef(), systemPrompt, history, q,
                 AskScope.DETAIL,           // 产品内对话:数据本来就是用户自己的,不设限
-                ref -> conversationMapper.updateProviderRef(familyId, conversationId, ref));
+                ref -> conversationMapper.updateProviderRef(familyId, conversationId, ref),
+                analysisContext,
+                how -> {
+                    if (noteTarget == null) return;
+                    try {
+                        String note = (noteHead + " · " + how);
+                        messageMapper.updateCtxNote(familyId, noteTarget, note.length() > 80 ? note.substring(0, 80) : note);
+                    } catch (Exception e) {
+                        log.debug("ctx_note 写入失败(不影响回答):{}", e.toString());
+                    }
+                });
 
         runtime().run(turn, collector);
+    }
+
+    /**
+     * v1.27 · 超级 Agent 每轮的分析上下文(FR-849 / FR-853 / FR-854)。
+     * 偏好原文与补充要求先过真名映射(与其余 AI 同一层脱敏);产品内对话是 DETAIL 范围,可以写账户名。
+     */
+    private String analysisContext(long familyId) {
+        if (analysisContextService == null) return null;
+        try {
+            var ctx = analysisContextService.familyDefaults(familyId);
+            java.util.Map<String, String> mapping = memberDirectory == null ? java.util.Map.of()
+                    : com.family.finance.service.checkup.llm.PromptBuilder
+                        .buildNameMapping(memberDirectory.listAll(familyId)).realToCodename();
+            return com.family.finance.service.analysis.AnalysisPromptBlocks.agentContext(ctx, mapping, true);
+        } catch (Exception e) {
+            log.warn("超级 Agent · 分析上下文组装失败(这一轮不带):{}", e.toString());
+            return null;
+        }
+    }
+
+    /** ctx_note 的前半句:偏好几条 · 模板 · 范围 */
+    private String analysisNoteHead(long familyId) {
+        if (analysisContextService == null) return "无分析上下文";
+        try {
+            var ctx = analysisContextService.familyDefaults(familyId);
+            return "偏好 " + ctx.preferences().size() + " 条 · 模板 " + ctx.template().name()
+                    + " · 范围 " + ctx.scope().kind().getLabel();
+        } catch (Exception e) {
+            return "分析上下文";
+        }
     }
 
     // ──────────────────────── 收集器 ────────────────────────

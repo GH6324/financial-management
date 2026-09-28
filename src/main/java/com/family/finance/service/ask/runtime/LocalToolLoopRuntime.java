@@ -101,7 +101,13 @@ public class LocalToolLoopRuntime implements AgentRuntime {
 
         // 对话上下文:system + 历史 + 本轮提问,之后每轮把工具结果追加进去
         List<Map<String, Object>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "system", "content", turn.systemPrompt()));
+        // v1.27 · 分析上下文拼在系统提示词后(本机模式每轮都发系统提示词,改了偏好下一句就生效)
+        String system = turn.hasAnalysisContext()
+                ? turn.systemPrompt() + "\n\n" + turn.analysisContext() : turn.systemPrompt();
+        messages.add(Map.of("role", "system", "content", system));
+        if (turn.hasAnalysisContext() && turn.onContextNote() != null) {
+            turn.onContextNote().accept("本机 · 随系统提示词发出");
+        }
         for (Msg m : turn.history()) {
             messages.add(Map.of("role", m.role(), "content", m.content()));
         }

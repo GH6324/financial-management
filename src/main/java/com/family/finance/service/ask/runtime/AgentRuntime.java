@@ -50,8 +50,27 @@ public interface AgentRuntime {
             String question,
             /** 产品内对话一律全量范围 —— 数据本来就是用户自己的,这里没有第三方 */
             AskScope scope,
-            java.util.function.Consumer<String> onProviderRef
-    ) {}
+            java.util.function.Consumer<String> onProviderRef,
+            /**
+             * v1.27 · 这一轮的分析上下文(家里的默认范围 / 模板 / 分析偏好 / 「提议记住」的写法)。
+             * 本机模式拼在系统提示词后;托管模式每轮不发系统提示词,拼在用户事件前(tech-design v1.27 选型五)。
+             */
+            String analysisContext,
+            /** v1.27 · 回报这一轮上下文怎么送出去的(落 ask_message.ctx_note) */
+            java.util.function.Consumer<String> onContextNote
+    ) {
+        /** v1.27 之前的签名:没有分析上下文 */
+        public AskTurn(long familyId, long conversationId, String providerRef, String systemPrompt,
+                       List<Msg> history, String question, AskScope scope,
+                       java.util.function.Consumer<String> onProviderRef) {
+            this(familyId, conversationId, providerRef, systemPrompt, history, question, scope, onProviderRef,
+                    null, note -> { });
+        }
+
+        public boolean hasAnalysisContext() {
+            return analysisContext != null && !analysisContext.isBlank();
+        }
+    }
 
     /** {@code role} 取 {@code user} / {@code assistant} */
     record Msg(String role, String content) {}

@@ -109,6 +109,11 @@
             </div>
           </th:block>
 
+          <!--/* v1.27 · 「提议记住」确认卡(标记在正文里 · 与流完之后前端要来的是同一个片段) */-->
+          <th:block th:with="rc=${@askRememberView.of(askFamilyId, m.contentText)}">
+            <div th:replace="~{ask/fragments/_remember :: card}"></div>
+          </th:block>
+
           <div class="ask-tools-row">
             <button type="button" class="ask-mini" data-ask-copy
                     th:attr="data-text=${renderer.plainText(m.contentText, m.citations)}">

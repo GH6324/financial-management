@@ -41,6 +41,8 @@ public class AccountPerformanceTool implements AskTool {
     private static final int MAX_ROWS = 60;
 
     private final FactViewService factViewService;
+    /** v1.27 · 按分析范围只列范围内的账户,占比按范围内重算(FR-856) */
+    private final com.family.finance.service.analysis.AnalysisScopeService scopeService;
     private final FamilyService familyService;
     private final PeriodMapper periodMapper;
     private final MemberDirectory memberDirectory;
@@ -57,7 +59,9 @@ public class AccountPerformanceTool implements AskTool {
     public Map<String, Object> parameterSchema() {
         return Map.of("type", "object",
                 "properties", Map.of("period",
-                        Map.of("type", "string", "description", "账期 yyyy-MM;不传用当前期")),
+                        Map.of("type", "string", "description", "账期 yyyy-MM;不传用当前期"),
+                        "scope", Map.of("type", "string", "enum", List.of("all", "adjustable", "financial"),
+                                "description", "只列范围内的账户、占比按范围内重算:adjustable 不含标了不参与配置分析的 · financial 只看金融资产")),
                 "required", List.of());
     }
 
@@ -92,7 +96,13 @@ public class AccountPerformanceTool implements AskTool {
         FactSlice slice = factViewService.load(new FactFilter(
                 familyId, family.getPeriodType(), end.minusMonths(12), end, false, null,
                 family.getBaseCurrency()));
-        List<AccountPerformance> rows = factViewService.accountPerformance(slice);
+        var kind = com.family.finance.service.analysis.ScopeKind.parse(
+                args.get("scope") == null ? null : String.valueOf(args.get("scope")));
+        var sc = kind == null || kind == com.family.finance.service.analysis.ScopeKind.ALL ? null
+                : scopeService.exactly(familyId, kind, slice);
+        List<AccountPerformance> rows = factViewService.accountPerformance(sc == null ? slice : sc.apply(slice));
+        java.util.Set<Long> marked = new java.util.HashSet<>(scopeService.markedAccounts(familyId).stream()
+                .map(com.family.finance.domain.account.Account::getId).toList());
 
         boolean inProgress = !"CLOSED".equals(String.valueOf(anchor.getStatus()));
         String label = end.toString().substring(0, 7);
@@ -112,6 +122,8 @@ public class AccountPerformanceTool implements AskTool {
             m.put("maxDrawdownPct", plain(a.maxDrawdownPct()));
             m.put("sharePct", plain(a.sharePct()));
             m.put("monthsHeld", a.monthsHeld());
+            // v1.27 · 标了「不参与配置分析」的,告诉 agent:别建议处置、别拿它的占比说配置失衡
+            if (marked.contains(a.accountId())) m.put("analysisExcluded", true);
             out.add(m);
         }
 
@@ -119,6 +131,7 @@ public class AccountPerformanceTool implements AskTool {
                 .put("period", label)
                 .put("inProgress", inProgress)
                 .put("accounts", out)
+                .put("scope", sc == null ? "全部资产" : sc.kind().getLabel())
                 .put("note", "xirr 满 12 期为年化,不足 12 期是累计收益率 —— 讲的时候要说清是哪一种,"
                            + "不要把累计说成年化");
 

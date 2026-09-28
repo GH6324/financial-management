@@ -57,4 +57,13 @@ public interface AskMessageMapper {
           + " WHERE v.family_id = #{familyId} AND m.id = #{id}")
     void updateContent(@Param("familyId") long familyId,
                        @Param("id") long id, @Param("contentText") String contentText);
+
+    /**
+     * v1.27 · 这一轮带了什么分析上下文(偏好几条 · 哪个模板 · 哪个范围)、托管模式下百炼的回显确认没有。
+     * 只写在用户那条消息上;查问题时一眼看得出「这一问 AI 到底收没收到偏好」(PRD §9 ③)。
+     */
+    @Update("UPDATE ask_message m JOIN ask_conversation v ON v.id = m.conversation_id"
+          + " SET m.ctx_note = #{note}"
+          + " WHERE v.family_id = #{familyId} AND m.id = #{id}")
+    void updateCtxNote(@Param("familyId") long familyId, @Param("id") long id, @Param("note") String note);
 }

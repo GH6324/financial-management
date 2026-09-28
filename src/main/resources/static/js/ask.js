@@ -23,6 +23,8 @@
   var CITE_G = /\{\{cite:([A-Za-z0-9_]{1,14})\}\}/g;
   var CITE_ONLY = /^\{\{cite:([A-Za-z0-9_]{1,14})\}\}$/;
   var NEXT_G = /\{\{next:([^}\n]{1,40})\}\}/g;
+  /* v1.27 · 「提议记住」标记:正文里不显示,流完之后向服务端要一张确认卡(与历史消息同一个片段) */
+  var REMEMBER_G = /\{\{remember:([^}\n]{1,320})\}\}/g;
   var BOLD_G = /\*\*([^*]{1,80})\*\*/g;
   /* 「- xxx」/「1. xxx」列表项 —— 服务端 AskCitationRenderer 有等价的一份,两边必须同形态 */
   var LIST_ITEM = /^(?:[-*·]|\d{1,2}[.)])\s+(.*)$/;
@@ -169,7 +171,7 @@
     var frag = document.createDocumentFragment();
     var ul = null;
     var closeList = function () { ul = null; };
-    var lines = raw.replace(NEXT_G, '').split('\n');
+    var lines = raw.replace(NEXT_G, '').replace(REMEMBER_G, '').split('\n');
 
     for (var i = 0; i < lines.length; i++) {
       var t = lines[i].trim();
@@ -241,7 +243,7 @@
 
   /** 复制用的纯文本:引用换成数值,追问去掉 */
   function plainText(raw, cites) {
-    var out = raw.replace(NEXT_G, '').replace(CITE_G, function (m, k) {
+    var out = raw.replace(NEXT_G, '').replace(REMEMBER_G, '').replace(CITE_G, function (m, k) {
       var c = cites[k];
       return c ? (c.label + ' ' + c.value + (c.inProgress ? '(未关账)' : '')) : '';
     });
@@ -494,6 +496,17 @@
             turn.appendChild(box);
           }
 
+          // v1.27 · 「提议记住」:服务端渲染确认卡(模板 key、账户名都在那边核对过)
+          var rm = raw ? /\{\{remember:([^}\n]{1,320})\}\}/.exec(raw) : null;
+          if (rm && state === 'done') {
+            var slot = el('div', null);
+            turn.appendChild(slot);
+            fetch('/ask/remember/card?m=' + encodeURIComponent(rm[1]), { credentials: 'same-origin' })
+              .then(function (r) { return r.ok ? r.text() : ''; })
+              .then(function (html) { if (html && html.trim()) slot.outerHTML = html; else slot.remove(); })
+              .catch(function () { slot.remove(); });
+          }
+
           // 逐条操作
           if (raw) {
             var row = el('div', 'ask-tools-row');
@@ -672,6 +685,30 @@
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') closePanel();
+  });
+
+  /* v1.27 · 确认卡上的动作:「记住」「切到某个模板」异步提交,整张卡换成「已记住」那一行;「不用」直接收起。
+     只有这一下点击会存东西 —— AI 自己存不了(PRD FR-854)。 */
+  document.addEventListener('submit', function (e) {
+    var f = e.target.closest && e.target.closest('[data-remember-form]');
+    if (!f) return;
+    e.preventDefault();
+    var card = f.closest('[data-remember-card]');
+    var h = { 'Content-Type': 'application/x-www-form-urlencoded' };
+    var tok = document.querySelector('meta[name="_csrf"]');
+    var hdr = document.querySelector('meta[name="_csrf_header"]');
+    if (tok && hdr && tok.content) h[hdr.content] = tok.content;
+    fetch(f.getAttribute('action'), {
+      method: 'POST', headers: h, credentials: 'same-origin',
+      body: new URLSearchParams(new FormData(f)).toString()
+    }).then(function (r) { return r.text(); })
+      .then(function (html) { if (card && html) card.outerHTML = html; });
+  });
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-remember-dismiss]');
+    if (!b) return;
+    var card = b.closest('[data-remember-card]');
+    if (card) card.remove();
   });
 
   if (document.readyState === 'loading') {
