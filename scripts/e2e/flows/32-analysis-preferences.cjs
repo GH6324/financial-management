@@ -82,14 +82,9 @@ module.exports = {
       convId = db.num(`SELECT MAX(id) FROM ask_conversation WHERE family_id=${fx.FAM} AND id > ${state.maxConv}`) || null;
     }
     if (!convId) {
-      await ui.goto('/ask');
-      const r = await ui.page.evaluate(async () => {
-        const tok = document.querySelector('meta[name="_csrf"]').content;
-        const hdr = document.querySelector('meta[name="_csrf_header"]').content;
-        const res = await fetch('/ask/new', { method: 'POST', headers: { [hdr]: tok } });
-        return res.json();
-      });
-      convId = r.id;
+      // 超级 Agent 没开的机器上问不了 —— 这一段只验确认卡,会话和下面的回答一样是垫进去的数据
+      db.raw(`INSERT INTO ask_conversation(family_id, title) VALUES (${fx.FAM}, 'e2e · 确认卡')`);
+      convId = db.num(`SELECT MAX(id) FROM ask_conversation WHERE family_id=${fx.FAM}`);
     }
     const house = db.one(`SELECT display_name FROM account WHERE family_id=${fx.FAM} AND type='PROPERTY' AND archived_at IS NULL ORDER BY id LIMIT 1`);
     const houseId = db.one(`SELECT id FROM account WHERE family_id=${fx.FAM} AND type='PROPERTY' AND archived_at IS NULL ORDER BY id LIMIT 1`);

@@ -115,8 +115,13 @@ public class AnalysisScopeService {
         return a.isAnalysisExcluded() && a.getType() != null && a.getType() != AccountType.LOAN;
     }
 
+    /** 「金融资产」范围去掉的类型,及它们在「不含:」里的叫法(按枚举顺序:房产类在前) */
+    private static final Map<AccountType, String> NON_FINANCIAL = new java.util.EnumMap<>(Map.of(
+            AccountType.PROPERTY, "房产类",
+            AccountType.OTHER, "其他类"));
+
     static boolean nonFinancial(AccountType t) {
-        return t == AccountType.PROPERTY || t == AccountType.OTHER;
+        return NON_FINANCIAL.containsKey(t);
     }
 
     /**
@@ -134,8 +139,9 @@ public class AnalysisScopeService {
         }
         List<String> types = new ArrayList<>();
         if (kind == ScopeKind.FINANCIAL) {
-            if (accounts.stream().anyMatch(a -> !a.isArchived() && a.getType() == AccountType.PROPERTY)) types.add("房产类");
-            if (accounts.stream().anyMatch(a -> !a.isArchived() && a.getType() == AccountType.OTHER)) types.add("其他类");
+            NON_FINANCIAL.forEach((t, label) -> {
+                if (accounts.stream().anyMatch(a -> !a.isArchived() && a.getType() == t)) types.add(label);
+            });
         }
 
         // 锚期资产行:算名字(按余额降序)、占比、是否为空

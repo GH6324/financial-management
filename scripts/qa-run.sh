@@ -3712,8 +3712,9 @@ FV="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
 ADIFF="$RD/src/main/resources/templates/reports/_allocation-diff.html"
 WLC="$RD/src/main/java/com/family/finance/calc/WaterLevelCalculator.java"
 WLV="$RD/src/main/resources/templates/reports/_wealth-level.html"
-{ grep -q "超配 +' + dif\['CASH'\] + 'pp'" "$ADIFF" \
-  && ! grep -qE "超配 \+' \+ dif\['[A-Z]+'\] \+ '%'" "$ADIFF" \
+#   v1.27 起四桶改成 th:each 一行一桶(范围内没有的桶不参与),写法从 dif['CASH'] 变成 dif.get(b) —— 判据跟着改,口径不变
+{ grep -q "超配 +' + dif.get(b) + 'pp'" "$ADIFF" \
+  && ! grep -qE "超配 \+' \+ dif(\['[A-Z]+'\]|\.get\([a-z]+\)) \+ '%'" "$ADIFF" \
   && grep -q 'nominalGrowthPct.subtract(benchmarkCumulativePct)' "$WLC" \
   && ! grep -q '(1.0 + n) / (1.0 + b)' "$WLC" \
   && grep -q "relativeReturnPct,1,1) : '—') + 'pp'" "$WLV"; } \
@@ -7862,7 +7863,8 @@ QA1187_RG="$RD/src/main/resources/templates/dashboard/_region.html"
   && grep -q 'savingsRatePeriod' "$QA1187_RG" \
   && ! grep -q '>本期储蓄率$' "$QA1187_RG" \
   `# 洞察条吃这一页的切片;目标条公开声明自己不跟随` \
-  && grep -q 'assetInsightService.compute(me.getFamilyId(), slice)' "$QA1187_DC" \
+  `# v1.27 起多两个参数(分析范围 · 配置锚),切片仍是这一页的 slice` \
+  && grep -qE 'assetInsightService.compute\(me.getFamilyId\(\), slice(\)|,)' "$QA1187_DC" \
   && grep -q 'goalsViewIndependent' "$QA1187_DC" \
   && grep -q 'goalsViewIndependent' "$RD/src/main/resources/templates/goals/_progress-strip.html" \
   `# 净资产趋势标出进行中的点` \
@@ -8874,7 +8876,10 @@ QA11914_MA="$RD/src/main/java/com/family/finance/service/ask/runtime/ManagedAgen
 #   不带它就会把前面每一轮的答案再吐一遍。
 { codeonly "$QA11914_MA" | grep -q '/events/stream?after_id=' \
   && codeonly "$QA11914_MA" | grep -q 'private void streamAfter(' \
-  && codeonly "$QA11914_MA" | grep -q 'appendUserMessage(sessionId, turn.question())'; } \
+  `# v1.27 起追加的是「分析上下文 + 问题」,仍是单独一次追加,读答案从它的 id 之后读` \
+  && codeonly "$QA11914_MA" | grep -q 'composeTurnInput(turn.analysisContext(), turn.question())' \
+  && codeonly "$QA11914_MA" | grep -q 'appendUserMessageEcho(sessionId, input)' \
+  && codeonly "$QA11914_MA" | grep -q 'streamAfter(sessionId, ap.id(), sink)'; } \
   && log_ok "v11914-ANSWER-FROM-STREAM-ENDPOINT(答案走 /events/stream · 带 after_id 防重放)" \
   || log_bad "v11914-ANSWER-FROM-STREAM-ENDPOINT 又把追加请求当成答案流读了" "读不到任何正文而且不报错;丢了 after_id 则会把历史每一轮重播一遍"
 
