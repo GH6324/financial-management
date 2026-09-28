@@ -101,6 +101,12 @@ worktree 的工作目录里没有 `.githooks/`(那是 master 上的文件),hook 
   - **本位币**(`family.base_currency`,默认 CNY)— 家庭/跨账户**聚合**必须 `× fxToBase` 换到本位币,不能裸加。
   - **视图币种** — dashboard 镜头切换;**比值类 KPI 三币种必须完全相等**,金额按 fx 缩放。
 - **fact 层**:`FactViewServiceImpl` + `FactMapper.queryBase` 产出 `AccountPeriodFact`(`incomeBase`/`expenseBase` 已换本位币);dashboard/reports/KPI 都从这层取。
+- **分析范围 / 模板 / 偏好**(v1.27 · issue #23 · 见 L19):
+  - **不参与配置分析**(`account.analysis_excluded`)—— 账户上的偏好标记,「短期不打算处置、也调不动」。**只影响占比类**,净资产 / 总资产 / 收益 / 流动性 / 报表快照 / 导出 / 目标**一分不少**;不定格;贷款不可标。
+  - **分析范围**(`AnalysisScope`)—— `ALL` 全部资产 / `ADJUSTABLE` 可调整的资产(去掉标记的)/ `FINANCIAL` 金融资产(去掉房产类、其他类;保险留着)。以**排除集**为主语义;只出现与「全部资产」有区别的选项;家庭默认存 `analysis_scope_default`,没存 → 有标记就「可调整」否则「全部」;页面 `?scope=` 临时切。**只经 `FactSlice.excludingAccounts` 落到计算上**(不走 `FactFilter`:空列表 = 不筛选,全都标了会静默退回全部)。
+  - **分析模板**(`AnalysisTemplate`)—— AI 的角度:侧重(1–4)· 立场 · 固定范围 · 指定锚 · 补充要求(≤500 字)。**内置 5 个随代码走**(`BuiltinTemplates`,改了加 version);「我的模板」存**完整副本**(`analysis_template`)。**只改 AI 的说法,不改任何数字、不改规则卡片**。「综合体检 · 全部资产 · 没偏好」= v1.26 提示词逐字(金样本 `golden/v1261`)。
+  - **分析偏好**(`analysis_preference`)—— 家里人写给 AI 的句子,只进提示词,先过真名映射,压在所有材料之后并带「数字以系统为准」。**写入只有两条:分析设置页、超级 Agent 确认卡上用户点「记住」**(`{{remember:…}}` 正文标记,工具表里没有写能力)。
+  - **有效目标**(配置锚)—— 范围内没有房产 / 保险的桶不参与,其余按原比例放大到 100;现金、投资桶始终参与;「其他」类不进四桶;自定义锚没填不出对照。
 
 ---
 
@@ -123,8 +129,8 @@ worktree 的工作目录里没有 `.githooks/`(那是 master 上的文件),hook 
 | 账户 | `/accounts` | **9 类**账户簿(现金/股票/理财/加密/贵金属/房产/负债/保险/其他) · 按成员归集 · 划转/体检/账本/导出;股票账户 → 持仓管理 | `accounts/*` · `stock/holdings.html` · `StockHoldingController` |
 | 报表 | `/reports` | **月度封板快照**(v1.10 三区):一区 本期封板(资产负债表/资金流瀑布/环比同比/归因)· 二区 结构与风险(集中度/流动性分层)· 三区 趋势(**range 只作用于此**)· 账期筛选 + 长文目录 TOC | `reports/*` · `_toc` |
 | 目标 | `/goals` | FIRE 退休 / 教育 / 应急金 · 三情景预测 | `goals/*` |
-| 资产体检 | `/checkup` | 4 维诊断(配置/风险/流动性/收益)+ AI 调仓 · **长文目录 TOC** | `checkup/*` · `_toc` |
-| 管理 | `/admin` | **所有运营参数热改**(品牌/成员/周期/提醒/汇率/数据源/券商/AI/阈值/aksk/key)· 改即生效不重启 · 按「用户要完成的事」分入口:数据源接入 = 系统拉的公共数据(行情/汇率/贵金属/宏观)· 券商同步 = 自己的券商凭据(`/admin/broker`,v1.26)· AI 接入 = 大模型与超级 Agent | `admin/*` |
+| 资产体检 | `/checkup` | 4 维诊断(配置/风险/流动性/收益)+ AI 调仓 · **长文目录 TOC** · v1.27 分析范围切换(`?scope=`)+ AI 模板选择行(`?tpl=`)+ AI 页脚「换模板 / 定制这个模板」 | `checkup/*` · `_toc` · `_analysis-footer` |
+| 管理 | `/admin` | **所有运营参数热改**(品牌/成员/周期/提醒/汇率/数据源/券商/AI/阈值/aksk/key)· 改即生效不重启 · 按「用户要完成的事」分入口:数据源接入 = 系统拉的公共数据(行情/汇率/贵金属/宏观)· 券商同步 = 自己的券商凭据(`/admin/broker`,v1.26)· AI 接入 = 大模型与超级 Agent · **分析设置 = 怎么分析我家**(`/admin/analysis`,v1.27:默认范围 / 模板 / 不参与的账户 / 配置锚含自定义 / 分析偏好;模板定制页 `/admin/analysis/template/new?from=&back=`,存完回来处重跑) | `admin/*` |
 | 公开 | `/`(landing) `/login` `/onboarding` | 落地页(含工程数字带)/ 登录 / 首次引导 | `landing.html`(`data-stat`)· `auth/*` · `onboarding/*` |
 
 ---
@@ -208,6 +214,8 @@ worktree 的工作目录里没有 `.githooks/`(那是 master 上的文件),hook 
 | L17 · 家庭隔离(v1.24) | 写任何 `@Select/@Update/@Delete/@Insert` | **家庭作用域的表必须在【过滤位置】带 `family_id`**。表上没有那一列(`cash_flow` / `transfer` / `stock_holding` …)→ JOIN 到有的表(`period` / `account` / `family_goal`)上取,**不接受「上游调用方已经校验过」**:调用方会变,SQL 不会跟着变。靠 `period_id` / `account_id` 间接隔离是**推论不是约束**,前提一变就静默返回别人家的钱 —— 不报错、不告警,只是数字变大。`@Insert` 挂不上 WHERE → 写成 `INSERT … SELECT … WHERE parent.family_id = #{familyId}` + `insertOwned()` 断言(返回 0 = 归属不符,不是「没什么要插的」)。**例外必须登记**在 `scripts/family-isolation-audit.py` 的清单里并在方法上写明理由,两处都要改 | `v1240-FAMILY-ISOLATION` · `v1240-INSERT-GUARDED` · `v1240-HARDCODED-FAMILY-FROZEN` |
 | L18 · 支出三分(v1.24) | 动 `expense_nature` / `one_off`,或加任何读它们的块 | **判据只有一处**:`ExpenseNatureService.natureOf(oneOff, categoryId, natureMap)`,SQL 里不许判(读它的地方有五处,散出去之后漏掉的那一处不报错,只是那个块的数字不一样)。`one_off` 是**纯分析期标记**,不进余额 / 轧差 / NAV 任何一条链。口径 A 的过滤与换汇块是**编译期常量**(`CashFlowMapper.EXPENSE_A_*`),新增按支出聚合的查询一律拼它,不另写一份。组装层(`ExpenseSectionViewService`)**不许注入 Mapper** —— 它能自己查库的那一刻,求和口径就从一套变两套 | `v1240-ONEOFF-SINGLE-JUDGE` · `v1240-ONEOFF-NOT-BALANCE` · `v1240-SAME-FILTER-BLOCK` · `v1240-NO-THIRD-SUM` · `v1240-NO-SECOND-LAYER-SQL` |
 | L16 · 关账宽限 / 双活跃账期 | 加任何**写数据**的入口(端点 / `@Scheduled` / 导入),或动**取期**逻辑 | **每个写操作必须有明确归属判据**,三选一:**显式选期**(页面要有月份指引)/ **事件时点**(股价刷新、券商同步)/ **永远最新**(余额、估值 —— 只有一个「现在」)。不许出现第四种「看 `findCurrentOpen()` 返回什么就是什么」—— 双 OPEN 下它**静默返回最新那期**,不报错、不进日志,漏的那处只会给一个看起来合理但是错的数。取期按语义选 `findBalancePeriod`(余额轴)/ `findRecordableOpen`(收支轴)。收益类指标锚**已定稿**期(CLOSED 或「已自然结束**且填报完成**」),判据是「填完了没有」不是「关了没有」。宽限上限 5 天由 schema CHECK 锁死 —— 本版所有判据按「最多两期」写,第三期一出现全部失效。全量矩阵(27 写操作 × 42 组件指标)见 `prd/v1.23.md` §4 | `v1230-DUAL-OPEN-SWEEP` · `v1230-BALANCE-AXIS-LATEST-ONLY` · `v1230-SETTLED-NOT-JUST-CLOSED` · `v1230-SETTLED-JUDGE-ALIGNED` · `v1230-GRACE-CLOSE-DECOUPLED` · `v1230-GRACE-MAX-5` · `v1230-CARRIED-FORWARD-GUARD` · `PeriodGraceTest` |
+
+| L19 · 分析范围(v1.27) | 新增 / 改任何**占比类**组件(分母是资产合计的:配置、风险分布、集中度、配置锚、AI 的配置结论) | 要么吃分析范围(从 `FamilyDiagnose` / `AllocationService.compute(…, scope, …)` / `AssetInsightService.compute(…, scope, …)` 取,范围只经 `AnalysisScope.apply` → `FactSlice.excludingAccounts`),要么在 `prd/v1.27.md` §6 矩阵里写明为什么不跟;**绝对数一格都不许跟**。改任何分析类 AI 的提示词:偏好 / 补充要求经 `AnalysisPromptBlocks` 拼、在材料之后;基线组合须与 `golden/v1261` 逐字相同;缓存键带 `AnalysisContext.fingerprint()` | `v127-RATIO-FOLLOWS-SCOPE` · `v127-SCOPE-SLICE-ONLY` · `v127-PROMPT-BASELINE` · `v127-BLOCK-ORDER` · `v127-CACHE-KEYS` · e2e flow 30–33 |
 
 **新链怎么加**:出现"改 A 漏了 B"事故 → 加一行(触发/必须同步/守护)+ `qa-run.sh` 加静态 grep 把它网住,下次它自己 fail。
 

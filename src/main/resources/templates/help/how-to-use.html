@@ -314,7 +314,7 @@
     </a>
   </div>
   <div class="flex items-baseline gap-3 mb-3 flex-wrap">
-    <h2 class="text-2xl font-medium">选修 B · 看懂自己的钱</h2><span class="badge-opt">8 节</span>
+    <h2 class="text-2xl font-medium">选修 B · 看懂自己的钱</h2><span class="badge-opt">9 节</span>
   </div>
   <div class="toc-grid mb-9">
     <a class="toc-card" href="#b1">
@@ -356,6 +356,11 @@
       <span class="no">B8</span> <span class="badge-opt">选修</span>
       <span class="tt">支出分析</span>
       <span class="dd">钱花在哪、这个月为什么变了、这些钱砍不砍得掉。需要先切到逐笔录入。…</span>
+    </a>
+    <a class="toc-card" href="#b9">
+      <span class="no">B9</span> <span class="badge-opt">选修</span>
+      <span class="tt">只分析你想管的那部分钱</span>
+      <span class="dd">自住房、车这类不打算动的,标成不参与配置分析;AI 的角度选个模板,家里的忌讳写成偏好。…</span>
     </a>
   </div>
   <div class="flex items-baseline gap-3 mb-3 flex-wrap">
@@ -1306,6 +1311,50 @@
     </div>
     <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
   </section>
+
+<div class="chapter"><div class="rule"></div></div>
+
+<!--/* v1.27 · issue #23 · 分析范围 / 分析模板 / 分析偏好 */-->
+<section class="chapter ch" id="b9" style="padding:40px 20px 8px">
+  <span class="ch-water">B9</span>
+  <div class="ch-hd"><span class="ch-no">B9</span><span class="badge-opt">选修</span></div>
+  <h2 class="text-3xl font-medium mb-3">只分析你想管的那部分钱</h2>
+  <p class="text-ink-soft mb-3" style="max-width:700px;line-height:1.9">一套自住房占了家里九成,体检就永远在说「房产过半」、AI 永远建议「降低房产占比」——
+     可那套房你短期根本不打算动。这一节讲怎么让体检和 AI 只看调得动的那部分,<b class="text-ink">而净资产一分不少</b>。</p>
+  <a class="goto" th:href="@{/admin/analysis}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    去管理 → 分析设置
+  </a>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">标一次,之后不用管 <span class="where2">账户 → 编辑 → 不参与配置分析</span></h4>
+    <p>任何类型都能标(车在「其他」里)。标了之后,体检的资产配置 / 风险敞口、「值得做的事」、报表配置锚对照、三个配置类 AI
+       都不再算它;<b class="text-ink">净资产、总资产、收益、流动性、报表快照、导出、目标照常算它</b>。
+       最快的入口是体检里那张「房产占总资产 X%,已过半」的卡 —— 按钮直接带你到那套房的勾选项。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">三个分析范围 <span class="where2">资产体检 · 报表配置锚</span></h4>
+    <p><b class="text-ink">全部资产</b>(原来的样子)· <b class="text-ink">可调整的资产</b>(去掉你标的)·
+       <b class="text-ink">金融资产</b>(去掉房产类、其他类)。只出现和「全部资产」有区别的选项;每个选项下写着拿掉了谁、占多少。
+       页面上点一下是临时切换(记在网址上,不改家里的默认),想一直这样就点「设为家里的默认」。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">AI 的角度:挑个模板就行 <span class="where2">体检 · AI 分析区顶部</span></h4>
+    <p>内置五个:综合体检(默认)· 稳健守护 · 积极增长 · 投资组合体检 · 负债与现金流。模板<b class="text-ink">只改 AI 怎么说,不改任何数字、不改规则卡片</b>。
+       觉得不对路,点「基于它定制」改几个选项(侧重、立场),想写细的展开「高级」写补充要求;存完回到体检,用新模板当场重跑。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">家里的忌讳写成分析偏好 <span class="where2">分析设置 ⑤ · 超级 Agent 对话里点「记住」</span></h4>
+    <p>比如「房子是自住的,别建议卖」「我们偏保守」。所有给分析或建议的 AI 都会读到;它<b class="text-ink">改不了数字</b> ——
+       真想让某个资产不进分母,用上面的标记。会原样发给你配置的大模型,别写账号、身份证这类信息。</p>
+  </div>
+  <div class="lesson reveal">
+    <h4 class="font-display font-medium">配置锚不再拿「没有的」去比 <span class="where2">报表 → 当前配置 vs 模板</span></h4>
+    <p>范围里没有房产(或保险)时,这一桶不参与对照,其余目标按原比例放大到 100,当场写明怎么放大的;「其他」类(车等)单独一行,不算进投资。
+       想自己定一套目标,选「自定义」去填四个数(合计必须 100)。</p>
+  </div>
+  <p class="mt-5"><a class="backtop" href="#top">↑ 回目录</a></p>
+</section>
 
 
 <div class="chapter"><div class="rule"></div></div>

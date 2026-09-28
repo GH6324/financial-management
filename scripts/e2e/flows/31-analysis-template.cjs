@@ -121,7 +121,7 @@ module.exports = {
     const onChip = await ui.page.locator('#analysis-templates a.tpl-chip.on').getAttribute('data-tpl').catch(() => null);
     await ui.assert(onChip === newKey, '回到体检不带参数,选中的就是家里的默认', String(onChip));
     await ui.goto('/admin/analysis');
-    ui.page.once('dialog', d => d.accept());
+    ui.page.once('dialog', d => d.accept().catch(() => {}));   // 前面的 flow 可能已在同一个页面上挂了自动确认,这里重复确认会抛错
     await Promise.all([ui.page.waitForNavigation({ waitUntil: 'networkidle' }).catch(() => {}),
                        ui.click(`tr[data-template="${newKey}"] button:has-text("删除")`, '点「删除」')]);
     await ui.assert(db.num(`SELECT COUNT(*) FROM analysis_template WHERE id=${row[0]}`) === 0, '真值层:删掉了');
