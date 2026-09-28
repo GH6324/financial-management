@@ -26,6 +26,11 @@ public class AccountRules {
     private static final BigDecimal C_20 = new BigDecimal("0.20");
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
+    /** v1.27 FR-805 · 被标「不参与配置分析」的账户,集中度与风险规则不再触发 */
+    static boolean excluded(AccountDiagnose d) {
+        return d.account() != null && d.account().isAnalysisExcluded();
+    }
+
     /** RET-1 · 持有 ≥ 6 期且年化 ≤ -10% → DANGER */
     @Component
     public static class Ret1LongTermLoss implements Rule {
@@ -90,17 +95,22 @@ public class AccountRules {
         }
     }
 
-    /** RISK-1 · 单账户占总资产 ≥ 30% → DANGER */
+    /**
+     * RISK-1 · 单账户占总资产 ≥ 30% → DANGER
+     *
+     * <p>v1.27 · 被标「不参与配置分析」的账户不触发(FR-805):「这套房占全家 90% → 划转」没有意义;
+     * 占比用本位币余额(原来原币 ÷ 本位币总资产,外币账户算错)。</p>
+     */
     @Component
     public static class Risk1SingleAccountOverlimit implements Rule {
         public String id() { return "RISK-1"; }
         public Advice.Scope scope() { return Advice.Scope.ACCOUNT; }
         public Optional<Advice> evaluate(RuleContext ctx) {
             AccountDiagnose d = ctx.account();
-            if (d == null || ctx.family() == null) return Optional.empty();
+            if (d == null || ctx.family() == null || excluded(d)) return Optional.empty();
             BigDecimal total = ctx.family().kpi().totalAssets();
-            if (total == null || total.signum() <= 0 || d.currentBalance() == null) return Optional.empty();
-            BigDecimal ratio = d.currentBalance().divide(total, 6, RoundingMode.HALF_EVEN);
+            if (total == null || total.signum() <= 0 || d.balanceForShare() == null) return Optional.empty();
+            BigDecimal ratio = d.balanceForShare().divide(total, 6, RoundingMode.HALF_EVEN);
             if (ratio.compareTo(C_30) < 0) return Optional.empty();
             String pct = ratio.multiply(HUNDRED).setScale(0, RoundingMode.HALF_EVEN) + "%";
             return Optional.of(Advice.of(
@@ -120,12 +130,12 @@ public class AccountRules {
         public Advice.Scope scope() { return Advice.Scope.ACCOUNT; }
         public Optional<Advice> evaluate(RuleContext ctx) {
             AccountDiagnose d = ctx.account();
-            if (d == null || ctx.family() == null) return Optional.empty();
+            if (d == null || ctx.family() == null || excluded(d)) return Optional.empty();
             Integer level = d.effectiveRiskLevel();
             if (level == null || level < 5) return Optional.empty();
             BigDecimal total = ctx.family().kpi().totalAssets();
-            if (total == null || total.signum() <= 0 || d.currentBalance() == null) return Optional.empty();
-            BigDecimal ratio = d.currentBalance().divide(total, 6, RoundingMode.HALF_EVEN);
+            if (total == null || total.signum() <= 0 || d.balanceForShare() == null) return Optional.empty();
+            BigDecimal ratio = d.balanceForShare().divide(total, 6, RoundingMode.HALF_EVEN);
             if (ratio.compareTo(C_20) < 0) return Optional.empty();
             String pct = ratio.multiply(HUNDRED).setScale(0, RoundingMode.HALF_EVEN) + "%";
             return Optional.of(Advice.of(
@@ -188,8 +198,9 @@ public class AccountRules {
             AccountDiagnose d = ctx.account();
             if (d == null || !d.isCash()) return Optional.empty();
             BigDecimal avg = ctx.avgMonthlyExpense();
-            if (avg == null || avg.signum() <= 0 || d.currentBalance() == null) return Optional.empty();
-            BigDecimal months = d.currentBalance().divide(avg, 1, RoundingMode.HALF_EVEN);
+            // v1.27 · 月均支出是本位币,余额也得用本位币(外币现金账户原来被算错几倍)
+            if (avg == null || avg.signum() <= 0 || d.balanceForShare() == null) return Optional.empty();
+            BigDecimal months = d.balanceForShare().divide(avg, 1, RoundingMode.HALF_EVEN);
             if (months.compareTo(new BigDecimal("0.5")) >= 0) return Optional.empty();
             return Optional.of(Advice.of(
                     id(), Advice.Scope.ACCOUNT, d.account().getId(),
@@ -210,8 +221,9 @@ public class AccountRules {
             AccountDiagnose d = ctx.account();
             if (d == null || !d.isCash()) return Optional.empty();
             BigDecimal avg = ctx.avgMonthlyExpense();
-            if (avg == null || avg.signum() <= 0 || d.currentBalance() == null) return Optional.empty();
-            BigDecimal months = d.currentBalance().divide(avg, 1, RoundingMode.HALF_EVEN);
+            // v1.27 · 月均支出是本位币,余额也得用本位币(外币现金账户原来被算错几倍)
+            if (avg == null || avg.signum() <= 0 || d.balanceForShare() == null) return Optional.empty();
+            BigDecimal months = d.balanceForShare().divide(avg, 1, RoundingMode.HALF_EVEN);
             if (months.compareTo(new BigDecimal("12")) <= 0) return Optional.empty();
             return Optional.of(Advice.of(
                     id(), Advice.Scope.ACCOUNT, d.account().getId(),
@@ -232,8 +244,8 @@ public class AccountRules {
             AccountDiagnose d = ctx.account();
             if (d == null || !d.isCash() || ctx.family() == null) return Optional.empty();
             BigDecimal total = ctx.family().kpi().totalAssets();
-            if (total == null || total.signum() <= 0 || d.currentBalance() == null) return Optional.empty();
-            BigDecimal ratio = d.currentBalance().divide(total, 6, RoundingMode.HALF_EVEN);
+            if (total == null || total.signum() <= 0 || d.balanceForShare() == null) return Optional.empty();
+            BigDecimal ratio = d.balanceForShare().divide(total, 6, RoundingMode.HALF_EVEN);
             if (ratio.compareTo(new BigDecimal("0.25")) < 0) return Optional.empty();
             // 简化:若 cumulativeIncome+expense+transfer 都为 0,认为零变动
             BigDecimal traffic = d.cumulativeIncome().add(d.cumulativeExpense())

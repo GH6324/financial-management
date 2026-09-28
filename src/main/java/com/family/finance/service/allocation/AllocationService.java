@@ -40,6 +40,7 @@ public class AllocationService {
     private final AllocationAnchorMapper anchorMapper;
     private final AccountMapper accountMapper;
     private final ProductCategoryService productCategoryService;
+    private final com.family.finance.repository.FamilyMapper familyMapper;   // v1.27 · 自定义锚写入
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** 列出所有预置锚 + CUSTOM 占位(给 UI 下拉) */
@@ -47,23 +48,46 @@ public class AllocationService {
         return anchorMapper.findAll();
     }
 
+    /** 按全部资产、家里的锚算(v1.26 签名 · 不跟随范围的调用方用) */
+    public DiffResult compute(long familyId, FactSlice slice) {
+        return compute(familyId, slice, com.family.finance.service.analysis.AnalysisScope.all(), null);
+    }
+
     /**
      * 计算给定家庭的 diff。
      *
-     * @param familyId 家庭 ID
-     * @param slice    fact slice(用 endBalanceBase + accountId 关联 product_category)
+     * <p>v1.27:</p>
+     * <ul>
+     *   <li><b>范围</b>(FR-824 / FR-827):只拿范围内账户的行算当前配置({@code scope.apply(slice)});
+     *       范围为空 → {@code scopeEmpty},不退回全部。</li>
+     *   <li><b>有效目标</b>(FR-870):范围内没有房产 / 保险的,该桶不参与、其余放大 —— 见
+     *       {@link AllocationDiff#effectiveTarget}。{@code targetPct / currentPct / diffPct} 只含参与的桶。</li>
+     *   <li><b>「其他」类</b>(FR-873):不进四桶,{@code otherAmount} 单独给。</li>
+     *   <li><b>自定义锚没填</b>(FR-871):{@code customUnset},不出对照(免得拿 0 去比)。</li>
+     * </ul>
+     *
+     * @param anchorOverride 模板指定的锚;null = 家里的
      * @return DiffResult · 永不 null
      */
-    public DiffResult compute(long familyId, FactSlice slice) {
+    public DiffResult compute(long familyId, FactSlice slice,
+                              com.family.finance.service.analysis.AnalysisScope scope, String anchorOverride) {
         Family f = familyService.require(familyId);
-        Map<Bucket, BigDecimal> target = resolveTarget(f);
+        String anchorCode = anchorOverride != null && AnchorCode.isValid(anchorOverride)
+                ? anchorOverride.toUpperCase()
+                : (f.getAllocationAnchor() == null ? "SP_4321" : f.getAllocationAnchor());
+        Map<Bucket, BigDecimal> rawTarget = resolveTarget(anchorCode, f.getAllocationAnchorCustom());
+        boolean customUnset = "CUSTOM".equalsIgnoreCase(anchorCode) && !customFilled(f.getAllocationAnchorCustom());
+        com.family.finance.service.analysis.AnalysisScope sc =
+                scope == null ? com.family.finance.service.analysis.AnalysisScope.all() : scope;
 
         // 用 last period 的 fact 计算当前配置
         Long lastPeriodId = slice.lastPeriodId();
-        if (lastPeriodId == null) {
+        if (lastPeriodId == null || sc.empty()) {
             Map<String, BigDecimal> empty = toStringKeys(emptyPctMap());
-            return new DiffResult(f.getAllocationAnchor(), toStringKeys(target), empty, empty);
+            return new DiffResult(anchorCode, toStringKeys(rawTarget), empty, empty,
+                    toStringKeys(rawTarget), List.of(), false, false, BigDecimal.ZERO, customUnset, sc.empty(), sc);
         }
+        FactSlice scoped = sc.apply(slice);
 
         List<Account> accounts = accountMapper.findActiveByFamily(familyId);
         Map<Long, String> pcCodeByAccountId = new HashMap<>();
@@ -79,7 +103,7 @@ public class AllocationService {
             }
         }
 
-        List<AllocationEntry> entries = slice.rows().stream()
+        List<AllocationEntry> entries = scoped.rows().stream()
             .filter(r -> Objects.equals(r.periodId(), lastPeriodId))
             .map(r -> new AllocationEntry(
                 r.endBalanceBase(),
@@ -88,13 +112,65 @@ public class AllocationService {
             ))
             .toList();
 
+        AllocationDiff.EffectiveTarget eff = AllocationDiff.effectiveTarget(rawTarget, AllocationDiff.bucketAmounts(entries));
         Map<Bucket, BigDecimal> current = AllocationDiff.computeCurrentPct(entries);
+        Map<Bucket, BigDecimal> target = eff.target();
         Map<Bucket, BigDecimal> diff = AllocationDiff.diff(current, target);
+        // 不参与的桶从三张表里拿掉(页面按「参与的桶」逐行画,RebalanceDrift 按目标表遍历)
+        for (Bucket b : eff.dropped()) { current.remove(b); diff.remove(b); }
         return new DiffResult(
-            f.getAllocationAnchor(),
+            anchorCode,
             toStringKeys(target),
             toStringKeys(current),
-            toStringKeys(diff));
+            toStringKeys(diff),
+            toStringKeys(rawTarget),
+            eff.dropped().stream().map(Enum::name).toList(),
+            eff.rescaled(),
+            eff.degenerate(),
+            AllocationDiff.otherAmount(entries),
+            customUnset,
+            false,
+            sc);
+    }
+
+    /** v1.27 FR-871 · 自定义锚:存四个目标(合计必须 100)· 顺带清掉调仓缓存 */
+    public void saveCustomAnchor(long familyId, BigDecimal cash, BigDecimal invest,
+                                 BigDecimal property, BigDecimal insurance) {
+        BigDecimal[] vs = {cash, invest, property, insurance};
+        BigDecimal sum = BigDecimal.ZERO;
+        for (BigDecimal v : vs) {
+            if (v == null || v.signum() < 0 || v.compareTo(new BigDecimal("100")) > 0) {
+                throw new IllegalArgumentException("每一类填 0 到 100 之间的数");
+            }
+            sum = sum.add(v);
+        }
+        if (sum.compareTo(new BigDecimal("100")) != 0) {
+            BigDecimal gap = new BigDecimal("100").subtract(sum);
+            throw new IllegalArgumentException("四类合计要等于 100,现在是 " + sum.stripTrailingZeros().toPlainString()
+                    + "(" + (gap.signum() > 0 ? "还差 " : "多了 ") + gap.abs().stripTrailingZeros().toPlainString() + ")");
+        }
+        String json = "{\"cash\":" + plain(cash) + ",\"invest\":" + plain(invest)
+                + ",\"property\":" + plain(property) + ",\"insurance\":" + plain(insurance) + "}";
+        familyMapper.updateAllocationAnchorCustom(familyId, json);
+    }
+
+    /** 自定义锚四个值(没填 → 空 map) */
+    public Map<String, BigDecimal> customAnchor(long familyId) {
+        Family f = familyService.require(familyId);
+        if (!customFilled(f.getAllocationAnchorCustom())) return Map.of();
+        return toStringKeys(parseCustomJson(f.getAllocationAnchorCustom()));
+    }
+
+    /** 自定义锚填过没有:有值且合计 &gt; 0 */
+    boolean customFilled(String json) {
+        if (json == null || json.isBlank()) return false;
+        BigDecimal sum = BigDecimal.ZERO;
+        for (BigDecimal v : parseCustomJson(json).values()) if (v != null) sum = sum.add(v);
+        return sum.signum() > 0;
+    }
+
+    private static String plain(BigDecimal v) {
+        return v.stripTrailingZeros().toPlainString();
     }
 
     private static Map<String, BigDecimal> toStringKeys(Map<Bucket, BigDecimal> m) {
@@ -117,9 +193,13 @@ public class AllocationService {
 
     /** 把 family.allocation_anchor / custom 解析成 4 bucket pct map */
     Map<Bucket, BigDecimal> resolveTarget(Family f) {
-        String anchorCode = f.getAllocationAnchor() == null ? "SP_4321" : f.getAllocationAnchor();
+        return resolveTarget(f.getAllocationAnchor() == null ? "SP_4321" : f.getAllocationAnchor(),
+                f.getAllocationAnchorCustom());
+    }
+
+    Map<Bucket, BigDecimal> resolveTarget(String anchorCode, String customJson) {
         if ("CUSTOM".equalsIgnoreCase(anchorCode)) {
-            return parseCustomJson(f.getAllocationAnchorCustom());
+            return parseCustomJson(customJson);
         }
         Optional<AllocationAnchor> opt = anchorMapper.findByCode(anchorCode);
         AllocationAnchor a = opt.orElseGet(() -> anchorMapper.findByCode("SP_4321")
@@ -159,10 +239,77 @@ public class AllocationService {
         return m;
     }
 
+    /**
+     * @param targetPct       参与对照的桶的目标 %(已按 FR-870 放大)
+     * @param currentPct      参与对照的桶的当前 %
+     * @param diffPct         参与对照的桶的偏离
+     * @param rawTargetPct    锚的原目标(4 桶,页面写「原目标 → 放大后」)
+     * @param droppedBuckets  不参与对照的桶(范围内没有)
+     * @param rescaled        目标是否按比例放大过
+     * @param degenerate      参与的桶目标全是 0,没法对照
+     * @param otherAmount     「其他」类合计(本位币)· 不进四桶(FR-873)
+     * @param customUnset     选了自定义但没填(FR-871)
+     * @param scopeEmpty      范围里一个账户都不剩(FR-826)
+     * @param scope           这次用的范围
+     */
     public record DiffResult(
         String anchorCode,
         Map<String, BigDecimal> targetPct,
         Map<String, BigDecimal> currentPct,
-        Map<String, BigDecimal> diffPct
-    ) {}
+        Map<String, BigDecimal> diffPct,
+        Map<String, BigDecimal> rawTargetPct,
+        List<String> droppedBuckets,
+        boolean rescaled,
+        boolean degenerate,
+        BigDecimal otherAmount,
+        boolean customUnset,
+        boolean scopeEmpty,
+        com.family.finance.service.analysis.AnalysisScope scope
+    ) {
+        /** v1.27 之前的 4 参签名(老测试)—— 四桶全参与、没放大 */
+        public DiffResult(String anchorCode, Map<String, BigDecimal> targetPct,
+                          Map<String, BigDecimal> currentPct, Map<String, BigDecimal> diffPct) {
+            this(anchorCode, targetPct, currentPct, diffPct, targetPct, List.of(), false, false,
+                    BigDecimal.ZERO, false, false, com.family.finance.service.analysis.AnalysisScope.all());
+        }
+
+        /** 页面与提示词都按这个顺序逐桶画 / 写:只含参与对照的桶 */
+        public List<String> activeBuckets() {
+            List<String> out = new java.util.ArrayList<>();
+            for (String b : List.of("CASH", "INVEST", "PROPERTY", "INSURANCE")) {
+                if (targetPct != null && targetPct.containsKey(b)) out.add(b);
+            }
+            return out;
+        }
+
+        /** 能不能出对照:有数据、范围不空、自定义锚填过、目标不是全 0 */
+        public boolean comparable() {
+            return !scopeEmpty && !customUnset && !degenerate && currentPct != null && !currentPct.isEmpty()
+                    && currentPct.values().stream().anyMatch(v -> v != null && v.signum() != 0);
+        }
+
+        /** 放大说明(FR-870 关键文案):「你家没有房产 · 标普 4321 按其余三类放大 → 现金 17% · 投资 50% · 保险 33%」 */
+        public String rescaleNote(String anchorName) {
+            if (droppedBuckets == null || droppedBuckets.isEmpty()) return null;
+            List<String> gone = droppedBuckets.stream().map(DiffResult::bucketCn).toList();
+            String head = (scope != null && !scope.isAll() ? "范围内没有" : "你家没有") + String.join("、", gone);
+            if (!rescaled) return head + " · " + (gone.size() == 1 ? "这一类" : "这两类") + "不参与对照";
+            List<String> parts = new java.util.ArrayList<>();
+            for (String b : activeBuckets()) {
+                parts.add(bucketCn(b) + " " + targetPct.get(b).setScale(0, java.math.RoundingMode.HALF_UP).toPlainString() + "%");
+            }
+            return head + " · " + anchorName + " 按其余" + (activeBuckets().size() == 2 ? "两" : "三") + "类放大 → "
+                    + String.join(" · ", parts);
+        }
+
+        public static String bucketCn(String b) {
+            return switch (b) {
+                case "CASH" -> "现金";
+                case "INVEST" -> "投资";
+                case "PROPERTY" -> "房产";
+                case "INSURANCE" -> "保险";
+                default -> b;
+            };
+        }
+    }
 }

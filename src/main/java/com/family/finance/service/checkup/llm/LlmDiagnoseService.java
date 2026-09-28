@@ -83,13 +83,36 @@ public class LlmDiagnoseService {
     public DiagnoseResult diagnoseFamily(Long familyId, Long actorMemberId,
                                           FamilyDiagnose diagnose, List<Advice> adviceList,
                                           boolean forceRefresh) {
+        return diagnoseFamily(familyId, actorMemberId, diagnose, adviceList, forceRefresh,
+                com.family.finance.service.analysis.AnalysisContext.baseline());
+    }
+
+    /**
+     * v1.27 · 按「范围 + 模板 + 分析偏好」诊断(PRD FR-846)。
+     *
+     * <p>{@code diagnose} 必须是按 {@code ctx.scope()} 算出来的(调用方保证 —— 配置 / 风险两节与范围同源)。
+     * 范围为空(全都标了)→ 不调用 AI(FR-826)。基线组合 → 提示词与 v1.26 逐字相同。</p>
+     */
+    public DiagnoseResult diagnoseFamily(Long familyId, Long actorMemberId,
+                                          FamilyDiagnose diagnose, List<Advice> adviceList,
+                                          boolean forceRefresh,
+                                          com.family.finance.service.analysis.AnalysisContext ctx) {
+        if (diagnose != null && diagnose.scopeEmpty()) {
+            return DiagnoseResult.skipped("所有资产都标成了不参与配置分析,没有可分析的部分 —— AI 这次不分析。去账户页取消一个就能恢复。");
+        }
         try {
             String familyName = familyService.require(familyId).getName();
             List<Member> members = memberDirectory.listAll(familyId);
             PromptBuilder.NameMapping mapping = PromptBuilder.buildNameMapping(members);
 
-            // 组装 account summaries(已应用真名映射)
-            List<PromptBuilder.AccountSummary> summaries = buildAccountSummaries(familyId, mapping);
+            // 组装 account summaries(已应用真名映射)· v1.27 只含范围内账户(FR-847)
+            var dataScope = diagnose.scope() == null
+                    ? com.family.finance.service.analysis.AnalysisScope.all() : diagnose.scope();
+            List<PromptBuilder.AccountSummary> summaries = buildAccountSummaries(familyId, mapping, dataScope);
+
+            // v1.27 · 范围 / 模板 / 补充要求 / 分析偏好 —— 原文先过真名映射,放在全部材料之后
+            String analysisBlocks = com.family.finance.service.analysis.AnalysisPromptBlocks.forAnalysis(
+                    ctx, "「资产配置」「风险敞口」「各账户硬事实」", mapping.realToCodename());
 
             // user prompt 不含真名 — applyMapping 已在上层处理
             String userPrompt = PromptBuilder.userPromptForFamily(
@@ -97,7 +120,8 @@ public class LlmDiagnoseService {
                     diagnose,
                     summaries,
                     applyMappingToAdvice(adviceList, mapping.realToCodename()),
-                    mapping.realToCodename()
+                    mapping.realToCodename(),
+                    analysisBlocks
             );
 
             // v0.3 FR-53d · 注入目标相对视角段(仅当家庭已设定目标时 · 无目标家庭行为完全保留 v0.2)
@@ -117,7 +141,8 @@ public class LlmDiagnoseService {
                 }
             } catch (Exception ignored) { /* 计划注入失败不影响诊断 */ }
 
-            String systemPrompt = PromptBuilder.systemPromptForDiagnose();
+            // v1.27 FR-872 · 范围内没有房产 → 不说「4 桶」;有房产 → 与 v1.26 同一份
+            String systemPrompt = PromptBuilder.systemPromptForDiagnose(PromptBuilder.hasProperty(diagnose));
 
             // 防御深度:确保 prompt 里没有任何真名(否则就是 buildXxx 漏了字段)
             for (String real : mapping.realToCodename().keySet()) {
@@ -154,6 +179,16 @@ public class LlmDiagnoseService {
                                            AccountDiagnose accountDiagnose,
                                            List<Advice> adviceList,
                                            boolean forceRefresh) {
+        return diagnoseAccount(familyId, actorMemberId, familyDiagnose, accountDiagnose, adviceList, forceRefresh, List.of());
+    }
+
+    /** v1.27 · 单账户诊断也读分析偏好(FR-851)· {@code preferences} 是启用中的原文 */
+    public DiagnoseResult diagnoseAccount(Long familyId, Long actorMemberId,
+                                           FamilyDiagnose familyDiagnose,
+                                           AccountDiagnose accountDiagnose,
+                                           List<Advice> adviceList,
+                                           boolean forceRefresh,
+                                           List<String> preferences) {
         try {
             String familyName = familyService.require(familyId).getName();
             List<Member> members = memberDirectory.listAll(familyId);
@@ -176,7 +211,9 @@ public class LlmDiagnoseService {
                     accountDiagnose,
                     applyMappingToAdvice(adviceList, mapping.realToCodename()),
                     mapping.realToCodename(),
-                    ownerCode
+                    ownerCode,
+                    com.family.finance.service.analysis.AnalysisPromptBlocks.preferencesOnly(
+                            preferences, mapping.realToCodename())
             );
             String systemPrompt = PromptBuilder.systemPromptForDiagnose();
 
@@ -212,15 +249,36 @@ public class LlmDiagnoseService {
     public DiagnoseResult diagnoseAssetInsight(Long familyId, Long actorMemberId,
                                                com.family.finance.service.insight.AssetInsight insight,
                                                boolean forceRefresh) {
+        return diagnoseAssetInsight(familyId, actorMemberId, insight, forceRefresh,
+                com.family.finance.service.analysis.AnalysisContext.baseline());
+    }
+
+    /**
+     * v1.27 · 洞察按「范围 + 模板 + 分析偏好」(FR-846)。范围只作用在集中度 / 再平衡 / 低利率三维
+     * ({@code insight} 已按 {@code ctx.scope()} 算好);家里写的原文先过真名映射。
+     */
+    public DiagnoseResult diagnoseAssetInsight(Long familyId, Long actorMemberId,
+                                               com.family.finance.service.insight.AssetInsight insight,
+                                               boolean forceRefresh,
+                                               com.family.finance.service.analysis.AnalysisContext ctx) {
         try {
             if (insight == null || !insight.available()) {
                 return DiagnoseResult.unavailable(
                         insight == null ? "洞察数据缺失" : insight.degradeReason());
             }
-            String systemPrompt = com.family.finance.service.insight.InsightPromptBuilder.systemPrompt();
-            String userPrompt = com.family.finance.service.insight.InsightPromptBuilder.userPrompt(insight);
+            // 家里写的原文(补充要求 / 偏好)可能提到成员 → 同一层真名映射;输出里的代号再反映射回来
+            boolean hasFamilyText = ctx != null && (!ctx.preferences().isEmpty()
+                    || (ctx.template() != null && ctx.template().extra() != null));
+            PromptBuilder.NameMapping mapping = hasFamilyText
+                    ? PromptBuilder.buildNameMapping(memberDirectory.listAll(familyId))
+                    : new PromptBuilder.NameMapping(java.util.Map.of(), java.util.Map.of());
+            String blocks = com.family.finance.service.analysis.AnalysisPromptBlocks.forAnalysis(
+                    ctx, "「集中度」「再平衡偏离」「低利率·资产荒」", mapping.realToCodename());
+            String systemPrompt = com.family.finance.service.insight.InsightPromptBuilder.systemPrompt(
+                    insight.propertyInScope(), insight.hasLoans());
+            String userPrompt = com.family.finance.service.insight.InsightPromptBuilder.userPrompt(insight, blocks);
             return runDiagnose(familyId, actorMemberId, "ASSET_INSIGHT", null,
-                    systemPrompt, userPrompt, java.util.Map.of(),
+                    systemPrompt, userPrompt, mapping.codenameToReal(),
                     java.util.Set.of(), forceRefresh);
         } catch (Exception e) {
             log.warn("资产洞察综合诊断失败 familyId={}: {}", familyId, e.getMessage());
@@ -239,7 +297,9 @@ public class LlmDiagnoseService {
             log.debug("LLM prompt for {} entityId={}, length={}, body=\n{}", scope, entityId, userPrompt.length(), userPrompt);
         }
         // 1. 查 cache(forceRefresh 跳过)
-        String cacheKey = sha256(scope + "|" + entityId + "|" + userPrompt);
+        // v1.27 · 键里带上系统提示词:范围内有没有房产 / 有没有贷款会换系统提示词(FR-872),
+        //   模板 / 范围 / 偏好都在用户提示词里 —— 两者都进键,改了哪一样都不复用旧结论(FR-848)
+        String cacheKey = sha256(scope + "|" + entityId + "|" + sha256(systemPrompt) + "|" + userPrompt);
         if (!forceRefresh) {
             CacheEntry hit = cache.get(cacheKey);
             if (hit != null && System.currentTimeMillis() - hit.timestamp < TTL_MS) {
@@ -406,8 +466,11 @@ public class LlmDiagnoseService {
     }
 
     private List<PromptBuilder.AccountSummary> buildAccountSummaries(Long familyId,
-                                                                     PromptBuilder.NameMapping mapping) {
-        List<Account> accounts = accountMapper.findActiveByFamily(familyId);
+                                                                     PromptBuilder.NameMapping mapping,
+                                                                     com.family.finance.service.analysis.AnalysisScope scope) {
+        List<Account> accounts = accountMapper.findActiveByFamily(familyId).stream()
+                .filter(a -> scope == null || scope.includes(a.getId()))
+                .toList();
         List<Member> members = memberDirectory.listAll(familyId);
         List<PromptBuilder.AccountSummary> out = new ArrayList<>();
         for (Account a : accounts) {
@@ -501,6 +564,13 @@ public class LlmDiagnoseService {
             return new DiagnoseResult(true, text, vendor, fromCache, Instant.now(), structured,
                     structured == null && looksTruncatedJson(text));
         }
+        /**
+         * v1.27 · 有意不调用(范围为空等)—— 与「AI 挂了」区分开,给用户看的是原因,不是「稍后刷新重试」。
+         */
+        public static DiagnoseResult skipped(String humanText) {
+            return new DiagnoseResult(false, humanText, "skipped", false, Instant.now(), null, false);
+        }
+
         public static DiagnoseResult unavailable(String reason) {
             return new DiagnoseResult(false,
                     "AI 综合诊断暂时不可用。以上为系统规则引擎给出的硬数据便签卡,可作为本次体检的核心参考。如需 AI 视角,请稍后刷新重试。",

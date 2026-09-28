@@ -40,8 +40,32 @@ public record AccountDiagnose(
         BenchmarkComparator.Result benchmark,
         Integer effectiveRiskLevel,
         boolean riskOverridden,
-        List<TrendPoint> sparkline
+        List<TrendPoint> sparkline,
+        /**
+         * v1.27(PRD §13 ⑩)· 当前余额<b>换算成本位币</b>。
+         * {@link #currentBalance} 是账户原币 —— 集中度类规则拿它去除以全家总资产(本位币),
+         * 一个 10 万美元的账户被当成 10 万人民币,占比算小了七倍多。占比一律用这个。
+         */
+        BigDecimal currentBalanceBase
 ) {
+    /** v1.27 之前的签名:没有本位币余额(测试 / 老调用方)—— 占比规则回落原币 */
+    public AccountDiagnose(Account account, ProductCategory category, BigDecimal currentBalance,
+                           BigDecimal previousBalance, BigDecimal monthDelta, Integer monthsHeld,
+                           BigDecimal cumulativeIncome, BigDecimal cumulativeExpense,
+                           BigDecimal cumulativeTransferIn, BigDecimal cumulativeTransferOut,
+                           BigDecimal netPrincipalInjected, BigDecimal cumulativePnl, BigDecimal annualizedReturn,
+                           MaxDrawdownCalculator.Result drawdown, BenchmarkComparator.Result benchmark,
+                           Integer effectiveRiskLevel, boolean riskOverridden, List<TrendPoint> sparkline) {
+        this(account, category, currentBalance, previousBalance, monthDelta, monthsHeld, cumulativeIncome,
+                cumulativeExpense, cumulativeTransferIn, cumulativeTransferOut, netPrincipalInjected, cumulativePnl,
+                annualizedReturn, drawdown, benchmark, effectiveRiskLevel, riskOverridden, sparkline, currentBalance);
+    }
+
+    /** 与全家总资产(本位币)相除时用这个 */
+    public BigDecimal balanceForShare() {
+        return currentBalanceBase != null ? currentBalanceBase : currentBalance;
+    }
+
     /**
      * v1.18.5 · 收口到 {@link AccountType#isInvestment()}。
      * 原来这里写死 STOCK/WEALTH/CRYPTO —— <b>漏了 v0.14 加的 METAL</b>,

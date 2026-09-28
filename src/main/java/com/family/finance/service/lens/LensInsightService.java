@@ -42,6 +42,10 @@ public class LensInsightService {
     private final MemberDirectory memberDirectory;
     private final FamilyConfigService configService;
 
+    /** v1.27 · 分析偏好(FR-851)· 可缺(测试构造不带它 = 没有偏好) */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.family.finance.service.analysis.AnalysisPreferenceService preferenceService;
+
     public boolean available(long familyId) {
         return llmRouter.available(familyId);
     }
@@ -59,7 +63,10 @@ public class LensInsightService {
         PivotEngine.Result r = PivotEngine.pivot(ps, iq);
         String raw0 = buildFactsAndSignals(familyId, q, r);
         if (raw0 == null) return new Insight("当前范围没有头寸,无可解读。", "-");
-        final String facts = anonymize(familyId, raw0);
+        // v1.27 · 分析偏好放在事实之后,和事实一起过同一层真名替换
+        String prefBlock = preferenceService == null ? "" : com.family.finance.service.analysis.AnalysisPromptBlocks
+                .preferencesOnly(preferenceService.enabledTexts(familyId), null);
+        final String facts = anonymize(familyId, prefBlock.isBlank() ? raw0 : raw0 + "\n" + prefBlock + "\n");
 
         String system = """
                 你是家庭资产报表的洞察助手。下面是一份**已经计算好**的透视事实,末尾的「信号」

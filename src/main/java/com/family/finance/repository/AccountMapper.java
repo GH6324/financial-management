@@ -19,7 +19,7 @@ public interface AccountMapper {
                    primary_owner_member_id, default_payment_source_account_id,
                    display_order, archived_at, created_at, updated_at,
                    product_category_code, risk_level_override, loan_kind, annual_rate_pct, expected_return_pct,
-                   asset_class, platform_tag, industry_tag, purpose_tag
+                   asset_class, platform_tag, industry_tag, purpose_tag, analysis_excluded
               FROM account
              WHERE family_id = #{familyId}
                AND id = #{id}
@@ -31,7 +31,7 @@ public interface AccountMapper {
                    primary_owner_member_id, default_payment_source_account_id,
                    display_order, archived_at, created_at, updated_at,
                    product_category_code, risk_level_override, loan_kind, annual_rate_pct, expected_return_pct,
-                   asset_class, platform_tag, industry_tag, purpose_tag
+                   asset_class, platform_tag, industry_tag, purpose_tag, analysis_excluded
               FROM account
              WHERE family_id = #{familyId}
              ORDER BY archived_at IS NOT NULL, display_order, id
@@ -43,7 +43,7 @@ public interface AccountMapper {
                    primary_owner_member_id, default_payment_source_account_id,
                    display_order, archived_at, created_at, updated_at,
                    product_category_code, risk_level_override, loan_kind, annual_rate_pct, expected_return_pct,
-                   asset_class, platform_tag, industry_tag, purpose_tag
+                   asset_class, platform_tag, industry_tag, purpose_tag, analysis_excluded
               FROM account
              WHERE family_id = #{familyId}
                AND archived_at IS NULL
@@ -113,6 +113,22 @@ public interface AccountMapper {
                        @Param("platformTag") String platformTag,
                        @Param("industryTag") String industryTag,
                        @Param("purposeTag") String purposeTag);
+
+    /**
+     * v1.27 · 只改「不参与配置分析」一列(PRD FR-800)。
+     *
+     * <p>单独一条而不是并进 {@link #update}:那条是编辑页整表单覆盖写,别的入口(建户向导、打标页)
+     * 调它时手里没有这个值 —— 并进去会把用户勾过的标记静默清掉。贷款账户在 SQL 里就挡掉。</p>
+     */
+    @Update("""
+            UPDATE account
+               SET analysis_excluded = #{excluded}
+             WHERE id = #{id}
+               AND family_id = #{familyId}
+               AND (type <> 'LOAN' OR #{excluded} = FALSE)
+            """)
+    int updateAnalysisExcluded(@Param("familyId") long familyId, @Param("id") long id,
+                               @Param("excluded") boolean excluded);
 
     @Update("""
             UPDATE account

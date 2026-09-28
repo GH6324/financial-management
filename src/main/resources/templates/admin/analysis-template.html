@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('定制分析模板 · 分析设置 · 家庭账房')}"></head>
+<body class="min-h-screen relative">
+<div class="fixed top-0 left-0 right-0 h-1 bg-ink z-40"></div>
+<header th:replace="~{fragments/nav :: nav('admin', ${me}, ${nav})}"></header>
+
+<!--/* v1.27 · 基于模板定制(PRD FR-842 ~ FR-844 · FR-882 / FR-883)。
+     改几个结构化选项就行;想写细的再展开「高级 · 补充要求」。不开放整段提示词 —— 不许算数、数字引用、合规底线是产品责任。
+     右侧「AI 会收到的要求」随设置实时变化,由服务端同一个函数生成(AnalysisPromptBlocks.templatePreview),
+     页面上看到的就是真正发出去的那一段。保存后回到来处,并用新模板当场重跑那边的 AI。 */-->
+<main class="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-10 relative z-10">
+  <div class="font-mono text-[10px] text-ink-subtle mb-1">
+    <a th:href="@{/admin/analysis}" class="no-underline hover:text-ink">分析设置</a> / <a th:href="@{/admin/analysis} + '#templates'" class="no-underline hover:text-ink">分析模板</a> /
+    <span th:text="${editing != null} ? '编辑' : '定制'">定制</span>
+  </div>
+  <h1 class="font-display text-3xl font-medium" data-tpl-editor-title
+      th:text="${editing != null} ? '编辑「' + ${editing.name()} + '」' : (${source != null} ? '基于「' + ${source.name()} + '」定制' : '新建分析模板')">基于「稳健守护」定制</h1>
+  <p class="text-[12.5px] text-ink-soft mt-2 max-w-3xl" th:if="${editing == null}">
+    改完存成「我的模板」;内置的<span th:text="${source != null} ? '「' + ${source.name()} + '」' : '模板'">「稳健守护」</span>不受影响,以后我们升级它也不会冲掉你的这份。
+  </p>
+  <div th:if="${flashError}" class="border border-rust bg-rust/[0.05] px-4 py-2 text-sm max-w-3xl mt-4" th:text="${flashError}" data-flash-error>失败</div>
+  <div th:if="${editing == null and customCount >= maxCustom}" class="border border-rust bg-rust/[0.05] px-4 py-2 text-sm max-w-3xl mt-4">
+    「我的模板」已经有 <span th:text="${maxCustom}">10</span> 个了 —— 先到分析设置里删掉一个不用的。
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-6 mt-6 items-start">
+    <form th:action="@{/admin/analysis/template}" method="post" class="paper-card p-6 space-y-5" id="tpl-form" data-tpl-form
+          hx-get="/admin/analysis/template/preview" hx-target="#tpl-preview" hx-swap="innerHTML"
+          hx-trigger="change, input delay:400ms">
+      <input type="hidden" name="id" th:if="${editing != null}" th:value="${editing.customId()}"/>
+      <input type="hidden" name="from" th:if="${source != null}" th:value="${source.key()}"/>
+      <input type="hidden" name="back" th:if="${back != null}" th:value="${back}"/>
+
+      <div>
+        <label class="field-label">名字</label>
+        <input name="name" class="field-input" required th:attr="maxlength=40"
+               th:value="${draftName != null ? draftName : draft.name()}" data-tpl-name>
+      </div>
+
+      <div>
+        <div class="field-label mb-1.5">侧重看哪些(选 1–4 个)</div>
+        <div class="flex gap-2 flex-wrap" data-tpl-focus>
+          <label th:each="f : ${focusAll}" class="tpl-chip cursor-pointer" style="min-height:36px;flex-direction:row;align-items:center;gap:6px">
+            <input type="checkbox" name="focus" th:value="${f.name()}" th:checked="${draft.focus().contains(f)}">
+            <span th:text="${f.label}">风险</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <div class="field-label mb-1.5">立场</div>
+        <div class="flex gap-2 flex-wrap" data-tpl-stance>
+          <label th:each="st : ${stanceAll}" class="tpl-chip cursor-pointer" style="min-height:36px;flex-direction:row;align-items:center;gap:6px">
+            <input type="radio" name="stance" th:value="${st.name()}" th:checked="${draft.stance() == st}">
+            <span th:text="${st.name() == 'FOLLOW' and riskAppetiteLabel != null} ? ${st.label} + '(' + ${riskAppetiteLabel} + ')' : ${st.label}">稳健</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="field-label">范围</label>
+          <select name="scope" class="field-input bg-transparent" data-tpl-scope>
+            <option value="" th:selected="${draft.scope() == null}" th:text="'跟随家里的默认(' + ${scopeDefault.label} + ')'">跟随家里的默认</option>
+            <option th:each="k : ${scopeAll}" th:value="${k.name()}" th:selected="${draft.scope() == k}" th:text="'固定为「' + ${k.label} + '」'">固定为「金融资产」</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">配置锚</label>
+          <select name="anchor" class="field-input bg-transparent" data-tpl-anchor>
+            <option value="" th:selected="${draft.anchor() == null}">跟随家里的</option>
+            <option th:each="a : ${anchors}" th:value="${a.code}" th:selected="${draft.anchor() == a.code}" th:text="${a.displayName}">标普 4321</option>
+            <option value="CUSTOM" th:selected="${draft.anchor() == 'CUSTOM'}">自定义(分析设置里填的那套)</option>
+          </select>
+        </div>
+      </div>
+
+      <details th:attr="open=${draft.extra() != null or draftExtra != null} ? 'open' : null" data-tpl-advanced>
+        <summary class="field-label cursor-pointer">▾ 高级 · 补充要求(可选,≤ <span th:text="${maxExtra}">500</span> 字)</summary>
+        <textarea name="extra" rows="4" th:attr="maxlength=${maxExtra}" class="w-full border border-rule bg-paper px-3 py-2 text-[13px] mt-2"
+                  th:text="${draftExtra != null ? draftExtra : draft.extra()}" data-tpl-extra
+                  placeholder="比如:重点看港股仓位和汇率风险"></textarea>
+        <p class="text-[11.5px] text-ink-soft mt-1.5 leading-relaxed">
+          用你自己的话补充分析要求,比如「重点看港股仓位和汇率风险」。会原样发给 AI;<b>改不了数字,也越不过规矩</b>(不许 AI 算数、不许荐股)。
+          写法示例:「孩子三年后上大学,流动性要留足」·「别建议买保险,我们已经配好了」</p>
+      </details>
+
+      <div class="flex gap-3 items-center flex-wrap pt-2">
+        <button type="submit" class="btn-ink text-xs" data-tpl-save
+                th:text="${back != null} ? '保存并重新分析' : '保存'">保存并重新分析</button>
+        <a th:href="${back != null ? back : '/admin/analysis#templates'}" class="btn-paper text-xs no-underline">取消</a>
+        <span class="text-[11.5px] text-ink-subtle ml-auto" th:if="${back != null}">保存后回到刚才那页,用新模板当场重跑</span>
+      </div>
+    </form>
+
+    <div>
+      <div class="eyebrow mb-2">AI 会收到的要求 <span class="normal-case tracking-normal text-[11px] text-ink-subtle">(随你的设置实时变化)</span></div>
+      <pre id="tpl-preview" data-tpl-preview
+           class="font-mono text-[11.5px] leading-relaxed whitespace-pre-wrap p-4"
+           style="background:var(--paper-soft, var(--card-soft));border-left:3px solid var(--brass-deep)"
+           th:text="${previewText}">## 分析模板:我家的稳健守护</pre>
+      <p class="text-[11.5px] text-ink-soft mt-2 leading-relaxed">懂行的人看得到自己改了什么;不懂的人不用看。
+        <b>规矩那几段(不许算数、数字引用、合规底线)不在这里、也改不了</b> —— 它们是产品责任,每个模板都一样。
+        范围与配置锚会在「分析范围」「配置锚」那两段里体现。</p>
+    </div>
+  </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

@@ -74,6 +74,24 @@ public record FactSlice(
                 .orElse(null);
     }
 
+    /**
+     * v1.27 · 分析范围的<b>唯一</b>落地方式:在已加载的切片上去掉一组账户的行,得到第二张切片(tech-design v1.27 选型二)。
+     *
+     * <p>为什么不重新 {@code load(FactFilter(accountIds=范围内))}:{@link FactFilter} 把<b>空列表改写成「不筛选」</b>。
+     * 用户把资产全部标成「不参与配置分析」之后,范围内一个账户都不剩 —— 走 FactFilter 就会静默退回全部账户,
+     * 页面照常出数、只是全错了(PRD §9 ④)。这里空就是空,且期序列、锚期原样保留,
+     * 占比与 KPI 来自同一次加载,不会锚到两个不同的期。</p>
+     *
+     * @param excluded 要去掉的账户;空集 = 原样返回
+     */
+    public FactSlice excludingAccounts(java.util.Set<Long> excluded) {
+        if (excluded == null || excluded.isEmpty()) return this;
+        List<AccountPeriodFact> kept = rows.stream()
+                .filter(r -> r.accountId() == null || !excluded.contains(r.accountId()))
+                .toList();
+        return new FactSlice(filter, kept, periodIds, lastPeriodId, closedPeriodIds);
+    }
+
     public Map<Long, List<AccountPeriodFact>> byAccount() {
         return rows.stream()
                 .collect(Collectors.groupingBy(AccountPeriodFact::accountId, LinkedHashMap::new, Collectors.toList()));

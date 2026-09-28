@@ -28,6 +28,8 @@ public class CapabilitiesTool implements AskTool {
 
     private final LensQueryService lensQueryService;
     private final PeriodMapper periodMapper;
+    /** v1.27 · 家里的分析范围(默认哪个、拿掉了谁)—— 让 agent 知道「配置合不合理」该按哪个范围答 */
+    private final com.family.finance.service.analysis.AnalysisScopeService scopeService;
 
     @Override public String name() { return "capabilities"; }
 
@@ -45,10 +47,21 @@ public class CapabilitiesTool implements AskTool {
 
     @Override
     public AskToolResult execute(long familyId, Map<String, Object> args) {
+        return execute(familyId, args, AskScope.DETAIL);
+    }
+
+    /**
+     * v1.27 FR-856 · 「只给汇总」的口令下不列「账户组」维:没分组的账户,它的取值就是账户名 ——
+     * 原来汇总口令调一次 capabilities 就能拿到全部账户名。
+     */
+    @Override
+    public AskToolResult execute(long familyId, Map<String, Object> args, AskScope granted) {
+        boolean aggregateOnly = granted == null || !granted.covers(AskScope.DETAIL);
         // 维度与度量:直接来自注册表 —— 加维度只在注册表登记一处,这里自动跟上
         List<Map<String, Object>> dims = new ArrayList<>();
         List<Position> positions = lensQueryService.positions(familyId);
         for (LensRegistry.Dimension d : LensRegistry.DIMENSIONS.values()) {
+            if (aggregateOnly && "group".equals(d.key())) continue;
             // 每个维度的【实际取值】—— 光给维度名不够,agent 还是得猜取值怎么写
             Set<String> values = new LinkedHashSet<>();
             for (Position p : positions) {
@@ -86,14 +99,31 @@ public class CapabilitiesTool implements AskTool {
                 .filter(p -> !p.getPeriodStart().isAfter(today))
                 .max(Comparator.comparing(Period::getPeriodStart)).orElse(null);
 
+        // v1.27 · 分析范围:家里默认哪个、每个拿掉了谁(汇总口令只给个数与占比,不给名字)
+        List<Map<String, Object>> scopes = new ArrayList<>();
+        var def = scopeService.familyDefault(familyId);
+        for (var o : scopeService.options(familyId, null)) {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("scope", o.kind().name().toLowerCase());
+            m.put("label", o.kind().getLabel());
+            m.put("familyDefault", o.kind() == def);
+            if (!o.isAll()) {
+                m.put("excludes", aggregateOnly ? o.excludedIds().size() + " 个账户" : o.namesJoined("、"));
+                if (o.excludedSharePct() != null) m.put("excludedSharePct", o.excludedSharePct().toPlainString());
+            }
+            scopes.add(m);
+        }
+
         return AskToolResult.of(name())
                 .put("dimensions", dims)
+                .put("analysisScopes", scopes)
                 .put("measures", measures)
                 .put("periods", periodList)
                 .put("notes", List.of(
                         "holdingLevel=true 的维度会把持仓账户拆开,该维度下收益类度量按持有口径、不可精确归因",
                         "period 格式 yyyy-MM,不传则用当前上下文账期",
-                        "所有金额都已按视图币种换算,你不需要自己折算"))
+                        "所有金额都已按视图币种换算,你不需要自己折算",
+                        "回答「配置合不合理 / 钱怎么分」时,用 familyDefault 的那个分析范围(pivot 的 scope 参数),并说出是哪个范围"))
                 .summary(dims.size() + " 个维度 · " + periodList.size() + " 个账期可查")
                 .meta(latest == null ? null : latest.getId(),
                       latest == null ? null : latest.getPeriodStart().toString().substring(0, 7),

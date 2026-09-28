@@ -63,7 +63,7 @@ public class AskToolDispatcher {
         long t0 = System.currentTimeMillis();
         try {
             CompletableFuture<AskToolResult> f = CompletableFuture.supplyAsync(
-                    () -> tool.execute(familyId, args == null ? Map.of() : args), pool);
+                    () -> tool.execute(familyId, args == null ? Map.of() : args, granted), pool);
             AskToolResult r = f.get(TOOL_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
             log.debug("ask tool {} ok in {}ms", toolName, System.currentTimeMillis() - t0);
             return r;

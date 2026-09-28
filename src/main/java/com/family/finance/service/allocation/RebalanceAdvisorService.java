@@ -81,9 +81,25 @@ public class RebalanceAdvisorService {
     }
 
     public AdviceResult advise(long familyId, boolean forceRefresh) {
+        return advise(familyId, forceRefresh, com.family.finance.service.analysis.AnalysisContext.baseline());
+    }
+
+    /**
+     * v1.27 · 按「范围 + 模板 + 分析偏好」给建议(PRD FR-846 / FR-827)。
+     *
+     * <p>缓存键(FR-848 · tech-design v1.27 选型七):锚码,或「锚码|16 位指纹」—— 指纹含范围与标记集合、
+     * 模板与版本、偏好、自定义锚的四个值。基线组合仍是纯锚码,老缓存照常命中。</p>
+     */
+    public AdviceResult advise(long familyId, boolean forceRefresh,
+                               com.family.finance.service.analysis.AnalysisContext ctx) {
         try {
             Family f = familyService.require(familyId);
-            String anchor = f.getAllocationAnchor() == null ? "SP_4321" : f.getAllocationAnchor();
+            com.family.finance.service.analysis.AnalysisContext c =
+                    ctx == null ? com.family.finance.service.analysis.AnalysisContext.baseline() : ctx;
+            if (c.scope().empty()) {
+                return AdviceResult.unavailable("所有资产都标成了不参与配置分析,没有可分析的部分");
+            }
+            String anchor = cacheKey(f, c);
 
             // 1. 查缓存(30 天 TTL · forceRefresh 跳过)
             if (!forceRefresh) {
@@ -99,10 +115,15 @@ public class RebalanceAdvisorService {
                 log.info("rebalance advice forceRefresh · family={} anchor={}", familyId, anchor);
             }
 
-            // 2. 准备 prompt 上下文
+            // 2. 准备 prompt 上下文 · v1.27 配置只看范围内、目标按有效目标(FR-870)
             FactSlice slice = factViewService.loadDefault(familyId);
-            AllocationService.DiffResult diff = allocationService.compute(familyId, slice);
-            List<Account> accounts = accountMapper.findActiveByFamily(familyId);
+            AllocationService.DiffResult diff = allocationService.compute(familyId, slice, c.scope(), c.anchorOverride());
+            if (diff.customUnset()) return AdviceResult.unavailable("还没填自定义配置锚的目标 —— 先去填,再让 AI 给步骤");
+            if (!diff.comparable()) return AdviceResult.unavailable("当前配置没法和这个锚对照(目标在你家有的几类上全是 0)");
+            // 只把范围内账户交给 AI:被标「不参与配置分析」的不许出现在调仓步骤里(FR-847)
+            List<Account> accounts = accountMapper.findActiveByFamily(familyId).stream()
+                    .filter(a -> c.scope().includes(a.getId()))
+                    .toList();
             List<Member> members = memberDirectory.listAll(familyId);
             PromptBuilder.NameMapping mapping = PromptBuilder.buildNameMapping(members);
 
@@ -115,7 +136,15 @@ public class RebalanceAdvisorService {
                 5. actions 不超过 4 条 · 优先级:最大偏离的桶
                 6. 不要使用真名(成员代号已脱敏)· 不要使用具体产品代码 / 担保性词(保证 / 稳赚)
                 """;
-            String user = buildPrompt(f, diff, accounts, members, mapping);
+            // v1.27 FR-875 · 提示词本来就说给了各账户余额、并要求「金额 ≤ 余额 × 0.5」—— 这回真的带上
+            Map<Long, BigDecimal> balances = new HashMap<>();
+            for (var r : slice.rows()) {
+                if (Objects.equals(r.periodId(), slice.lastPeriodId()) && r.accountId() != null) {
+                    balances.put(r.accountId(), r.endBalanceBase() == null ? BigDecimal.ZERO : r.endBalanceBase());
+                }
+            }
+            String user = buildPrompt(f, diff, accounts, members, mapping, balances)
+                    + blocksSuffix(c, mapping);
             String raw = invokeWithFailover(familyId, system, user);
             if (raw == null) return AdviceResult.unavailable("LLM 全部失败");
 
@@ -212,9 +241,49 @@ public class RebalanceAdvisorService {
                 .map(LlmRouter.Outcome::text).orElse(null);
     }
 
+    /**
+     * 缓存键:基线组合(全部资产 · 综合体检 · 没偏好 · 非自定义锚)= 纯锚码,与 v1.26 同一行;
+     * 否则「锚码|16 位指纹」。{@code anchor_code} 列宽 32,「XQ_CONSERVATIVE|」+16 = 32,放得下。
+     */
+    public String cacheKey(Family f, com.family.finance.service.analysis.AnalysisContext c) {
+        String anchor = c.anchorOverride() != null ? c.anchorOverride()
+                : (f.getAllocationAnchor() == null ? "SP_4321" : f.getAllocationAnchor());
+        boolean custom = "CUSTOM".equalsIgnoreCase(anchor);
+        if (c.isBaseline() && !custom) return anchor;
+        String fp = c.fingerprint() + "|" + (custom ? String.valueOf(f.getAllocationAnchorCustom()) : "");
+        return anchor + "|" + sha16(fp);
+    }
+
+    /** 报表页渲染:这个组合下 30 天内的缓存建议(没有 → empty) */
+    public Optional<AdviceResult> cached(long familyId, com.family.finance.service.analysis.AnalysisContext ctx) {
+        Family f = familyService.require(familyId);
+        return cacheMapper.findByFamilyAndAnchor(familyId, cacheKey(f, ctx == null
+                        ? com.family.finance.service.analysis.AnalysisContext.baseline() : ctx))
+                .filter(r -> Duration.between(r.getGeneratedAt(), LocalDateTime.now()).toDays() <= CACHE_TTL_DAYS)
+                .map(r -> parseFromJson(r.getContentJson(), r.getGeneratedAt(), true))
+                .filter(AdviceResult::ok);
+    }
+
+    /** 范围 / 模板 / 补充要求 / 偏好段落(基线为空串 → 提示词不变) */
+    private static String blocksSuffix(com.family.finance.service.analysis.AnalysisContext c,
+                                       PromptBuilder.NameMapping mapping) {
+        String b = com.family.finance.service.analysis.AnalysisPromptBlocks.forAnalysis(
+                c, "「4 类目配置」「各账户当前余额」", mapping.realToCodename());
+        return b.isBlank() ? "" : "\n" + b + "\n";
+    }
+
+    private static String sha16(String s) {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8))).substring(0, 16);
+        } catch (Exception e) {
+            return String.format("%016x", (long) s.hashCode());
+        }
+    }
+
     private String buildPrompt(Family f, AllocationService.DiffResult diff,
                                List<Account> accounts, List<Member> members,
-                               PromptBuilder.NameMapping mapping) {
+                               PromptBuilder.NameMapping mapping, Map<Long, BigDecimal> balances) {
         StringBuilder sb = new StringBuilder();
         sb.append("家庭基础:\n");
         sb.append("- 风险偏好: ").append(f.getRiskAppetite()).append("\n");
@@ -222,18 +291,32 @@ public class RebalanceAdvisorService {
         sb.append("- 当前选模板: ").append(diff.anchorCode()).append("\n\n");
 
         sb.append("4 类目配置(% · 当前 vs 目标 vs 偏离):\n");
-        for (Bucket b : Bucket.values()) {
+        // v1.27 FR-870 · 只写参与对照的桶(范围内没有房产 / 保险的,那一桶不参与,目标已按比例放大)
+        for (String key : diff.activeBuckets()) {
+            Bucket b = Bucket.valueOf(key);
             sb.append("- ").append(bucketCn(b)).append(": ")
-              .append(diff.currentPct().get(b)).append("% vs ")
-              .append(diff.targetPct().get(b)).append("% (")
-              .append(formatSigned(diff.diffPct().get(b))).append("%)\n");
+              .append(diff.currentPct().get(b.name())).append("% vs ")
+              .append(diff.targetPct().get(b.name())).append("% (")
+              .append(formatSigned(diff.diffPct().get(b.name()))).append("%)\n");
+        }
+        if (diff.rescaled() || !diff.droppedBuckets().isEmpty()) {
+            sb.append("(").append(diff.droppedBuckets().stream().map(AllocationService.DiffResult::bucketCn)
+                    .collect(java.util.stream.Collectors.joining("、")))
+              .append(" 不参与对照:范围内没有这一类;其余目标已按原比例放大,系统已算好)\n");
+        }
+        if (diff.otherAmount() != null && diff.otherAmount().signum() > 0) {
+            sb.append("(另有「其他」类资产 ¥").append(diff.otherAmount().setScale(0, java.math.RoundingMode.HALF_UP).toPlainString())
+              .append(",如车 · 不参与四桶对照,不要把它调来调去)\n");
         }
         sb.append("\n各账户当前余额(本位币 · 优先按 product_category 已映射 4 桶):\n");
         for (Account a : accounts) {
+            BigDecimal bal = balances == null ? null : balances.get(a.getId());
             sb.append("- ").append(a.getDisplayName())
               .append(" (").append(a.getType())
               .append(", 类目=").append(a.getProductCategoryCode() == null ? "未设" : a.getProductCategoryCode())
-              .append(")\n");
+              .append(")")
+              .append(bal == null ? "" : " 当前余额=¥" + bal.setScale(0, java.math.RoundingMode.HALF_UP).toPlainString())
+              .append("\n");
         }
         sb.append("\n请基于 4 桶偏离 + 上述账户列表,给出 2-4 个具体调仓 action · 输出严格 JSON。\n");
         return sb.toString();

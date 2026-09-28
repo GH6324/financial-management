@@ -124,7 +124,8 @@ public final class PivotEngine {
 
     // ---------- 内部 ----------
 
-    private static String labelOf(LensRegistry.Dimension d, Position p) {
+    /** 维度取值(null / 空 → 「未分类」)· v1.27 公开给超级 Agent 的「排除」用,与筛选同一种判法 */
+    public static String labelOf(LensRegistry.Dimension d, Position p) {
         String v = d.extract().apply(p);
         return (v == null || v.isBlank()) ? UNCLASSIFIED : v;
     }

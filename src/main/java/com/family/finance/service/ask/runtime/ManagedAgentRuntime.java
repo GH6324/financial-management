@@ -121,8 +121,20 @@ public class ManagedAgentRuntime implements AgentRuntime {
             }
             // 三步,缺一不可:追加事件 → 拿到它的 id → 从这个 id 之后读流。
             // 「追加」和「读答案」是两个不同的请求,这是百炼这套接口的形状(见 appendUserMessage)。
-            String afterId = appendUserMessage(sessionId, turn.question());
-            streamAfter(sessionId, afterId, sink);
+            // v1.27 · 托管模式每轮不发系统提示词 —— 分析上下文(偏好 / 模板 / 范围)拼在这一条用户事件前面,
+            //   改了偏好下一句就生效,不用去管理页点「更新 Agent」(PRD FR-853)。
+            //   并用百炼的回显确认它真的收到了:「上游收下了」要回读才算(与 verifyTemplate 同一个规矩)。
+            String input = composeTurnInput(turn.analysisContext(), turn.question());
+            Appended ap = appendUserMessageEcho(sessionId, input);
+            if (turn.hasAnalysisContext() && turn.onContextNote() != null) {
+                boolean echoed = ap.echo() != null && ap.echo().contains(CONTEXT_MARK);
+                if (!echoed) {
+                    log.warn("超级 Agent · 托管回显里没有分析上下文 · 回显前 200 字:{}",
+                            ap.echo() == null ? "(空)" : ap.echo().substring(0, Math.min(200, ap.echo().length())));
+                }
+                turn.onContextNote().accept(echoed ? "托管 · 百炼回显确认" : "托管 · 回显未确认");
+            }
+            streamAfter(sessionId, ap.id(), sink);
         } catch (Exception e) {
             log.warn("超级 Agent · 托管 agent 失败:{}", e.toString());
             sink.failed(humanError(e));
@@ -158,15 +170,36 @@ public class ManagedAgentRuntime implements AgentRuntime {
      * 答案要从 {@link #streamAfter} 那条独立的 SSE 端点读。</p>
      */
     private String appendUserMessage(String sessionId, String question) throws Exception {
+        return appendUserMessageEcho(sessionId, question).id();
+    }
+
+    /** v1.27 · 追加事件 + 百炼回显的正文(回显就是刚写进去的那条,见上面的注释) */
+    record Appended(String id, String echo) {}
+
+    private Appended appendUserMessageEcho(String sessionId, String question) throws Exception {
         Map<String, Object> event = new LinkedHashMap<>();
         event.put("type", "message");
         event.put("role", "user");
         event.put("content", List.of(Map.of("type", "text", "text", question)));
         JsonNode n = post(agentBase() + "/sessions/" + sessionId + "/events",
                 Map.of("input", List.of(event)));
-        String id = firstText(n.path("data").path(0), "id", "event_id");
+        JsonNode first = n.path("data").path(0);
+        String id = firstText(first, "id", "event_id");
         if (id == null) throw new IllegalStateException("百炼没有回显刚追加的事件 id");
-        return id;
+        String echo = first.path("content").path(0).path("text").asText(null);
+        return new Appended(id, echo);
+    }
+
+    /** 分析上下文段落的固定开头 —— 回显里有它,才算百炼收到了这一轮的上下文 */
+    public static final String CONTEXT_MARK = "[分析上下文";
+
+    /**
+     * v1.27 · 托管模式一轮的输入:分析上下文 + 用户的原话。没有上下文 → 原话照发(与 v1.26 一致)。
+     * 用固定的分隔,让模型分得清哪段是系统附带、哪段是用户说的。
+     */
+    public static String composeTurnInput(String analysisContext, String question) {
+        if (analysisContext == null || analysisContext.isBlank()) return question;
+        return analysisContext + "\n\n[用户这一轮的问题]\n" + question;
     }
 
     /**
@@ -480,12 +513,49 @@ public class ManagedAgentRuntime implements AgentRuntime {
     public void updateAgent(String systemPrompt, String model) throws Exception {
         assertAgentIsOurs();
         Map<String, Object> body = agentBody(systemPrompt, model);
+        // v1.27 FR-857 · 更新是全量替换 —— 用户在百炼控制台自己给 Agent 加的 skill / 别的工具会被冲掉。
+        //   先回读远端,把我们不管的那部分原样带回去;提示词和我们自己的 MCP 工具以我们为准。
+        try {
+            mergeRemoteExtras(body, get(agentBase() + "/agents/" + agentId()), mcpServerId());
+        } catch (Exception e) {
+            log.warn("超级 Agent · 更新前回读远端失败,这次按我们的模板整份覆盖:{}", e.toString());
+        }
         body.put("version", configService.getString(FAMILY_ID, K_ASK_MA_AGENT_VERSION, "1"));
         JsonNode n = post(agentBase() + "/agents/" + agentId(), body);
         String ver = firstText(n, "version", "agent_version");
         if (ver != null) configService.set(FAMILY_ID, K_ASK_MA_AGENT_VERSION, ver);
         verifyTemplate(agentId());
         invalidateDrift();
+    }
+
+    /**
+     * v1.27 FR-857 · 把远端 Agent 上<b>我们不管的部分</b>并进这次的更新请求:
+     * <ul>
+     *   <li>{@code skills} —— 用户在控制台加的,整个键原样带回(我们从来不写它)</li>
+     *   <li>{@code tools} 里除了「指向我们这个 MCP 服务的 mcp_toolkit」以外的条目 —— 用户自己挂的内置工具 / 别的 MCP</li>
+     * </ul>
+     * <p>提示词、模型、我们自己的 MCP 工具以本地为准(那是产品责任,管理页也明确提示「会覆盖为最新版」)。
+     * 不认识的其它字段<b>不带</b>:回读里有只读字段(id、时间戳),原样回传可能被拒。</p>
+     */
+    @SuppressWarnings("unchecked")
+    public static void mergeRemoteExtras(Map<String, Object> body, JsonNode remote, String ourMcpServer) {
+        if (remote == null || remote.isMissingNode() || remote.isNull()) return;
+        ObjectMapper om = new ObjectMapper();
+        JsonNode skills = remote.path("skills");
+        if (skills.isArray() && !skills.isEmpty() && !body.containsKey("skills")) {
+            body.put("skills", om.convertValue(skills, List.class));
+        }
+        JsonNode tools = remote.path("tools");
+        if (tools.isArray() && !tools.isEmpty()) {
+            List<Object> merged = new java.util.ArrayList<>((List<Object>) body.getOrDefault("tools", List.of()));
+            for (JsonNode t : tools) {
+                boolean ours = "mcp_toolkit".equals(t.path("type").asText())
+                        && (ourMcpServer == null || ourMcpServer.isBlank()
+                            || ourMcpServer.equals(t.path("mcp_server_name").asText()));
+                if (!ours) merged.add(om.convertValue(t, Map.class));
+            }
+            body.put("tools", merged);
+        }
     }
 
     /**

@@ -32,8 +32,24 @@ public record AssetInsight(
         LowRate lowRate,
         int historyPeriods,                  // 月度快照期数(行为体检门槛参考)
         boolean available,
-        String degradeReason
+        String degradeReason,
+        /** v1.27 · 集中度 / 再平衡 / 低利率三维用的分析范围(资产负债表永远按全部) */
+        com.family.finance.service.analysis.AnalysisScope scope,
+        /** v1.27 FR-872 · 范围内有没有房产 —— 没有时提示词不谈「房产占比」「金融盘 vs 不动产」 */
+        boolean propertyInScope,
+        /** v1.27 FR-872 · 家里有没有贷款 —— 没有时提示词不谈加权负债利率与提前还贷 */
+        boolean hasLoans
 ) {
+    /** v1.27 之前的签名:全部资产、有房产、有贷款(提示词与 v1.26 一致) */
+    public AssetInsight(Concentration concentration, BalanceSheetHealth.Result balanceSheet,
+                        BigDecimal weightedLoanRatePct, BigDecimal assetAnnualReturnPct, Rebalance rebalance,
+                        List<BehaviorHeuristics.Signal> behaviorSignals, LowRate lowRate, int historyPeriods,
+                        boolean available, String degradeReason) {
+        this(concentration, balanceSheet, weightedLoanRatePct, assetAnnualReturnPct, rebalance, behaviorSignals,
+                lowRate, historyPeriods, available, degradeReason,
+                com.family.finance.service.analysis.AnalysisScope.all(), true, true);
+    }
+
 
     /** 集中度 4 条:房产 / 单一账户 / 单一币种敞口 / 单一标的(标的级需个股数据 · 常降级)。 */
     public record Concentration(

@@ -3712,8 +3712,9 @@ FV="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
 ADIFF="$RD/src/main/resources/templates/reports/_allocation-diff.html"
 WLC="$RD/src/main/java/com/family/finance/calc/WaterLevelCalculator.java"
 WLV="$RD/src/main/resources/templates/reports/_wealth-level.html"
-{ grep -q "超配 +' + dif\['CASH'\] + 'pp'" "$ADIFF" \
-  && ! grep -qE "超配 \+' \+ dif\['[A-Z]+'\] \+ '%'" "$ADIFF" \
+#   v1.27 起四桶改成 th:each 一行一桶(范围内没有的桶不参与),写法从 dif['CASH'] 变成 dif.get(b) —— 判据跟着改,口径不变
+{ grep -q "超配 +' + dif.get(b) + 'pp'" "$ADIFF" \
+  && ! grep -qE "超配 \+' \+ dif(\['[A-Z]+'\]|\.get\([a-z]+\)) \+ '%'" "$ADIFF" \
   && grep -q 'nominalGrowthPct.subtract(benchmarkCumulativePct)' "$WLC" \
   && ! grep -q '(1.0 + n) / (1.0 + b)' "$WLC" \
   && grep -q "relativeReturnPct,1,1) : '—') + 'pp'" "$WLV"; } \
@@ -6180,6 +6181,9 @@ K_LLM_QWEN_MODELS:旧版键·只为读老数据兼容,新配置走 AI 接入页�
 K_LLM_PRIMARY_VENDOR:旧版键·同上
 K_LLM_MODEL:旧版键·同上
 K_LLM_VISION_MODEL:旧版键·同上
+K_ANALYSIS_SCOPE_DEFAULT:经 AnalysisScopeService 在「分析设置」页①配(体检页「设为家里的默认」也写它)
+K_ANALYSIS_TEMPLATE_DEFAULT:经 AnalysisTemplateService 在「分析设置」页②配(超级 Agent 确认卡「切到某模板」也写它)
+K_ANALYSIS_HINT_DISMISSED:用户操作的结果·体检页关掉「分析角度不合适?」首次提示时写入(按成员)
 "
 for k in $(grep -oE 'public static final String K_[A-Z0-9_]+' "$RD/src/main/java/com/family/finance/service/config/FamilyConfigService.java" | awk '{print $5}'); do
   grep -rqw "$k" "$RD/src/main/java/com/family/finance/web" && continue
@@ -7859,7 +7863,8 @@ QA1187_RG="$RD/src/main/resources/templates/dashboard/_region.html"
   && grep -q 'savingsRatePeriod' "$QA1187_RG" \
   && ! grep -q '>本期储蓄率$' "$QA1187_RG" \
   `# 洞察条吃这一页的切片;目标条公开声明自己不跟随` \
-  && grep -q 'assetInsightService.compute(me.getFamilyId(), slice)' "$QA1187_DC" \
+  `# v1.27 起多两个参数(分析范围 · 配置锚),切片仍是这一页的 slice` \
+  && grep -qE 'assetInsightService.compute\(me.getFamilyId\(\), slice(\)|,)' "$QA1187_DC" \
   && grep -q 'goalsViewIndependent' "$QA1187_DC" \
   && grep -q 'goalsViewIndependent' "$RD/src/main/resources/templates/goals/_progress-strip.html" \
   `# 净资产趋势标出进行中的点` \
@@ -8871,7 +8876,10 @@ QA11914_MA="$RD/src/main/java/com/family/finance/service/ask/runtime/ManagedAgen
 #   不带它就会把前面每一轮的答案再吐一遍。
 { codeonly "$QA11914_MA" | grep -q '/events/stream?after_id=' \
   && codeonly "$QA11914_MA" | grep -q 'private void streamAfter(' \
-  && codeonly "$QA11914_MA" | grep -q 'appendUserMessage(sessionId, turn.question())'; } \
+  `# v1.27 起追加的是「分析上下文 + 问题」,仍是单独一次追加,读答案从它的 id 之后读` \
+  && codeonly "$QA11914_MA" | grep -q 'composeTurnInput(turn.analysisContext(), turn.question())' \
+  && codeonly "$QA11914_MA" | grep -q 'appendUserMessageEcho(sessionId, input)' \
+  && codeonly "$QA11914_MA" | grep -q 'streamAfter(sessionId, ap.id(), sink)'; } \
   && log_ok "v11914-ANSWER-FROM-STREAM-ENDPOINT(答案走 /events/stream · 带 after_id 防重放)" \
   || log_bad "v11914-ANSWER-FROM-STREAM-ENDPOINT 又把追加请求当成答案流读了" "读不到任何正文而且不报错;丢了 after_id 则会把历史每一轮重播一遍"
 
@@ -10632,6 +10640,190 @@ QA124_JUDGE=$(grep -rn "ONE_OFF" "$RD/src/main/java" --include="*.java" \
   && log_ok "v1240-UNCLASSIFIED-VISIBLE(未分类算弹性 · 单独成片 · 笔数显式说出来)" \
   || log_bad "v1240-UNCLASSIFIED-VISIBLE 未分类被丢掉或藏起来了" "三分合计会小于支出总额,而且不报错"
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# v1.27 · issue #23 · 分析范围 / 分析模板 / 分析偏好 / 纠正默认值(prd/v1.27.md · tech-design/v1.27.md 六)
+# ═══════════════════════════════════════════════════════════════════════════
+section "v1.27 · 分析范围 / 模板 / 偏好"
+QA127_SVC="$RD/src/main/java/com/family/finance/service/analysis"
+QA127_WEB="$RD/src/main/java/com/family/finance/web"
+
+# v127-MIGRATION-ADD-ONLY · V64 只加不改:加列、建表,不删不改任何既有列(prod 上跑着真实数据)
+QA127_MIG="$RD/db/migration/V64__analysis_scope.sql"
+{ [ -f "$QA127_MIG" ] \
+  && grep -q 'ADD COLUMN analysis_excluded TINYINT(1) NOT NULL DEFAULT 0' "$QA127_MIG" \
+  && grep -q 'CREATE TABLE IF NOT EXISTS analysis_template' "$QA127_MIG" \
+  && grep -q 'CREATE TABLE IF NOT EXISTS analysis_preference' "$QA127_MIG" \
+  && ! grep -vE '^\s*--' "$QA127_MIG" | grep -qiE 'DROP |MODIFY |CHANGE COLUMN|RENAME '; } \
+  && log_ok "v127-MIGRATION-ADD-ONLY(V64 只加列建表 · 标记默认 0 = 与 v1.26 一样)" \
+  || log_bad "v127-MIGRATION-ADD-ONLY V64 出现了改列 / 删列,或缺了表" "see db/migration/V64__analysis_scope.sql"
+
+# v127-SCOPE-SLICE-ONLY · 范围只经 FactSlice.excludingAccounts 落到计算上,不走 FactFilter(空列表 = 不筛选,
+#   全都标了会静默退回全部账户 · PRD §9 ④)。判据:analysis 包里不许 new FactFilter;apply 走 excludingAccounts
+{ grep -q 'public FactSlice excludingAccounts(' "$RD/src/main/java/com/family/finance/factview/FactSlice.java" \
+  && codeonly "$QA127_SVC/AnalysisScope.java" | grep -q 'excludingAccounts(excludedIds)' \
+  && ! grep -rq 'new FactFilter(' "$QA127_SVC" \
+  && codeonly "$RD/src/main/java/com/family/finance/service/checkup/FamilyDiagnoseService.java" | grep -q 'scope.apply(slice)' \
+  && [ -f "$RD/src/test/java/com/family/finance/service/analysis/AnalysisScopeTest.java" ] \
+  && grep -q 'everythingMarkedIsEmptyNotAll' "$RD/src/test/java/com/family/finance/service/analysis/AnalysisScopeTest.java"; } \
+  && log_ok "v127-SCOPE-SLICE-ONLY(范围只在内存切片上去掉账户 · 空就是空 · 单测守「全都标了 ≠ 全部」)" \
+  || log_bad "v127-SCOPE-SLICE-ONLY 范围改走 FactFilter 了,或空范围单测没了" "全都标了会静默退回按全部账户算"
+
+# v127-RATIO-FOLLOWS-SCOPE · 占比类入口都接了范围(PRD §9 ①「一页两个口径」)。
+#   web 层不许再出现两参的 allocationService.compute(…, slice) / 一参的 familyDiagnoseService.diagnose(…) 用在体检家庭页
+QA127_CK="$QA127_WEB/checkup/CheckupController.java"; QA127_AI="$QA127_WEB/checkup/AiDiagnoseController.java"
+QA127_RP="$QA127_WEB/report/ReportsController.java"; QA127_DB="$QA127_WEB/dashboard/DashboardController.java"
+{ codeonly "$QA127_CK" | grep -q 'familyDiagnoseService.diagnose(me.getFamilyId(), scopeParam)' \
+  && codeonly "$QA127_AI" | grep -q 'diagnoseExactly(me.getFamilyId(), template.scope())' \
+  && codeonly "$QA127_AI" | grep -q 'assetInsightService.compute(fid, slice, scope, template.anchor())' \
+  && codeonly "$QA127_RP" | grep -q 'allocationService.compute(me.getFamilyId(), slice, scope, null)' \
+  && codeonly "$QA127_DB" | grep -q 'assetInsightService.compute(me.getFamilyId(), slice, dashScope, null)' \
+  && ! grep -rhE 'allocationService\.compute\([^,]+, *slice\)' "$QA127_WEB" | grep -q . ; } \
+  && log_ok "v127-RATIO-FOLLOWS-SCOPE(体检配置 / 风险 · AI 诊断与洞察 · 报表配置锚 · 仪表盘洞察条都吃同一个范围)" \
+  || log_bad "v127-RATIO-FOLLOWS-SCOPE 有占比类入口没接分析范围" "同一页会出现两个口径,而且不报错"
+
+# v127-PROMPT-BASELINE · 「综合体检 · 全部资产 · 没偏好」的提示词与 v1.26.1 tag 逐字相同(金样本 + 单测)
+QA127_G="$RD/src/test/resources/golden/v1261"
+{ for f in diagnose-system diagnose-family-user diagnose-account-user insight-system insight-user; do [ -s "$QA127_G/$f.txt" ] || exit 1; done; } 2>/dev/null \
+  && grep -q 'v127PathWithBaselineContextIsByteIdentical' "$RD/src/test/java/com/family/finance/service/analysis/AnalysisPromptBaselineTest.java" \
+  && log_ok "v127-PROMPT-BASELINE(五份金样本取自 v1.26.1 · 这一版基线路径逐字比对)" \
+  || log_bad "v127-PROMPT-BASELINE 金样本或基线单测不在了" "see src/test/resources/golden/v1261"
+
+# v127-BLOCK-ORDER · 家里写的原文(补充要求 / 偏好)压在最后,且带「数字以系统为准、不许据此计算」(PRD §9 ⑤ ⑦)
+QA127_BL="$QA127_SVC/AnalysisPromptBlocks.java"
+{ codeonly "$QA127_BL" | grep -q 'add(parts, scope(ctx.scope(), affected));' \
+  && codeonly "$QA127_BL" | tr -d '\n' | grep -qE 'scope\(ctx\.scope\(\), affected\)\);\s*add\(parts, template\(.*add\(parts, extra\(.*add\(parts, preferences\(' \
+  && grep -q '不许据此自己计算' "$QA127_BL" \
+  && grep -q '不许荐股' "$QA127_BL" \
+  && grep -q 'blockOrderIsScopeTemplateExtraPreferences' "$RD/src/test/java/com/family/finance/service/analysis/AnalysisPromptBlocksTest.java"; } \
+  && log_ok "v127-BLOCK-ORDER(范围 → 模板 → 补充要求 → 偏好 · 固定包裹说明 · 单测守顺序)" \
+  || log_bad "v127-BLOCK-ORDER 提示词段落顺序或包裹说明变了" "偏好 / 补充要求要压在最后,并说明改不了数字"
+
+# v127-CACHE-KEYS · 缓存按「范围 + 标记集合 + 模板版本 + 偏好」分开(PRD §9 ②)· 复盘缓存带账户筛选与币种(§13 ⑩)
+{ codeonly "$RD/src/main/java/com/family/finance/service/allocation/RebalanceAdvisorService.java" | grep -q 'public String cacheKey(Family f' \
+  && codeonly "$QA127_RP" | grep -q 'rebalanceAdvisorService.cached(me.getFamilyId(), analysis)' \
+  && ! codeonly "$QA127_RP" | grep -q 'findByFamilyAndAnchor' \
+  && codeonly "$RD/src/main/java/com/family/finance/service/review/ReviewInsightService.java" | grep -q 'static String cacheDim(' \
+  && codeonly "$RD/src/main/java/com/family/finance/service/checkup/llm/LlmDiagnoseService.java" | grep -q 'sha256(systemPrompt)' \
+  && grep -q 'rebalanceCacheKeySeparatesContexts' "$RD/src/test/java/com/family/finance/service/analysis/ScopedPromptsAndCacheTest.java"; } \
+  && log_ok "v127-CACHE-KEYS(调仓 / 复盘 / 诊断的缓存键都带上范围、模板、偏好 · 报表读缓存与生成同一个键)" \
+  || log_bad "v127-CACHE-KEYS 缓存会串范围 / 串偏好" "切了范围、改了偏好还拿到旧结论,读起来完全通顺"
+
+# v127-D-FIXES · 纠正默认值:其他类不进投资桶、金融盘含贵金属不含其他、调仓真的带余额、自定义锚能填
+{ codeonly "$RD/src/main/java/com/family/finance/calc/AllocationDiff.java" | grep -q 'if ("OTHER".equals(type)) return null;' \
+  && codeonly "$RD/src/main/java/com/family/finance/service/insight/AssetInsightService.java" | tr -d '\n' | grep -qE 'AccountType\.WEALTH, AccountType\.CRYPTO, AccountType\.METAL, AccountType\.INSURANCE\)' \
+  && codeonly "$RD/src/main/java/com/family/finance/service/allocation/RebalanceAdvisorService.java" | grep -q '当前余额=¥' \
+  && codeonly "$RD/src/main/java/com/family/finance/service/allocation/AllocationService.java" | grep -q 'familyMapper.updateAllocationAnchorCustom(familyId, json)' \
+  && grep -q 'effectiveTargetDropsAbsentBucketsAndRescales' "$RD/src/test/java/com/family/finance/calc/AllocationDiffTest.java"; } \
+  && log_ok "v127-D-FIXES(其他类不进四桶 · 金融盘含贵金属 · 调仓带各账户余额 · 自定义锚有写入口 · 没有的桶不参与并放大)" \
+  || log_bad "v127-D-FIXES 某处纠错被改回去了" "see prd/v1.27.md §3.6"
+
+# v127-AGENT-CONTEXT-EVERY-TURN · 托管模式每轮不发系统提示词 —— 偏好要拼进用户事件、并用百炼回显确认(PRD §9 ③)
+QA127_MA="$RD/src/main/java/com/family/finance/service/ask/runtime/ManagedAgentRuntime.java"
+{ codeonly "$QA127_MA" | grep -q 'composeTurnInput(turn.analysisContext(), turn.question())' \
+  && codeonly "$QA127_MA" | grep -q 'ap.echo().contains(CONTEXT_MARK)' \
+  && codeonly "$RD/src/main/java/com/family/finance/service/ask/runtime/LocalToolLoopRuntime.java" | grep -q 'turn.analysisContext()' \
+  && codeonly "$RD/src/main/java/com/family/finance/service/ask/AskConversationService.java" | grep -q 'messageMapper.updateCtxNote(' \
+  && [ -f "$RD/scripts/e2e/flows/32-analysis-preferences.cjs" ]; } \
+  && log_ok "v127-AGENT-CONTEXT-EVERY-TURN(本机拼系统提示词 · 托管拼用户事件并回显确认 · 落 ctx_note · e2e 真问一句)" \
+  || log_bad "v127-AGENT-CONTEXT-EVERY-TURN 托管模式下偏好又只写进系统提示词了" "本机有效、托管无效,而且不报错"
+
+# v127-AGENT-KEEPS-SKILLS · 「更新 Agent」全量替换前回读远端,用户在控制台加的 skill 带回去(FR-857)
+{ codeonly "$QA127_MA" | grep -q 'mergeRemoteExtras(body, get(agentBase() + "/agents/" + agentId()), mcpServerId())' \
+  && grep -q 'updateAgentKeepsRemoteSkillsAndForeignTools' "$RD/src/test/java/com/family/finance/service/ask/AskRememberParserTest.java" \
+  && grep -q '提示词会被覆盖为最新版' "$RD/src/main/resources/templates/admin/ai-access.html"; } \
+  && log_ok "v127-AGENT-KEEPS-SKILLS(更新前回读合并 · 单测用构造的远端 JSON 守 · 点之前有提示)" \
+  || log_bad "v127-AGENT-KEEPS-SKILLS 更新 Agent 又会冲掉控制台里加的 skill" "see ManagedAgentRuntime.updateAgent"
+
+# v127-NO-WRITE-TOOLS · 工具表里没有任何写能力 —— 「提议记住」走正文标记 + 站内会话表单(选型六 · FR-855)
+{ ! grep -rqiE 'name\(\) \{ return "(save|remember|propose)' "$RD/src/main/java/com/family/finance/service/ask/tools" \
+  && codeonly "$QA127_WEB/ask/AskRememberController.java" | grep -q '@PostMapping("/ask/remember")' \
+  && grep -q 'REMEMBER = Pattern.compile' "$RD/src/main/java/com/family/finance/service/ask/AskCitationRenderer.java"; } \
+  && log_ok "v127-NO-WRITE-TOOLS(源码:工具目录里没有保存 / 提议类工具 · 记住只在站内会话端点)" \
+  || log_bad "v127-NO-WRITE-TOOLS 工具表里出现了写能力" "只读口令就不再只读了"
+
+# v127-CONFIG-HOME · 新的三个家庭配置键:两个在「分析设置」页配(经服务层),一个是用户操作的结果 —— 登记在 v126 那张表里
+grep -q '^K_ANALYSIS_SCOPE_DEFAULT:' <<<"$QA_KEY_OK" && grep -q '^K_ANALYSIS_TEMPLATE_DEFAULT:' <<<"$QA_KEY_OK" && grep -q '^K_ANALYSIS_HINT_DISMISSED:' <<<"$QA_KEY_OK" \
+  && log_ok "v127-CONFIG-HOME(默认范围 / 默认模板在分析设置页配 · 首次提示是用户关掉的结果)" \
+  || log_bad "v127-CONFIG-HOME 新配置键没登记去处" "见 v126-CONFIG-KEY-HAS-HOME 的登记表"
+
+# v127-TOC-AND-SIZE · 体检页长文目录同步新节;范围选项窄屏上下排且等高(并列同类元素同尺寸)
+{ grep -q "href:'#analysis-templates'" "$RD/src/main/resources/templates/checkup/family.html" \
+  && grep -q 'id="analysis-templates"' "$RD/src/main/resources/templates/checkup/family.html" \
+  && grep -q 'grid-auto-rows: 1fr' "$RD/src/main/resources/static/css/style.css"; } \
+  && log_ok "v127-TOC-AND-SIZE(体检目录有「分析模板」一节 · 范围选项上下排等高)" \
+  || log_bad "v127-TOC-AND-SIZE 目录没同步或范围选项会一大两小" "feedback_toc_sync · feedback_sibling_uniform"
+
+# ── 渲染层(真请求)────────────────────────────────────────────────
+# 自己登录一份会话:前面有段落会换成员 / 改密码,跑到这里时共用的 $COOKIE 不一定还是 diwa 的有效会话
+QA127_C=/tmp/finance-qa-v127-cookie.txt; :> "$QA127_C"
+QA127_T=$($CURL -c "$QA127_C" "$BASE/login" | grep -oE 'name="_csrf" value="[^"]*"' | head -1 | sed 's/.*value="\([^"]*\)".*/\1/')
+$CURL -b "$QA127_C" -c "$QA127_C" -X POST --data-urlencode "_csrf=$QA127_T" --data-urlencode "username=diwa" --data-urlencode "password=demo1234" "$BASE/login" -o /dev/null -w ""
+# v127-SETTINGS-ENTRY · 分析设置入口:管理首页卡片点名五块 + 侧栏 + 页面五节 + 各现场直达(FR-890 ~ FR-892)
+$CURL -b "$QA127_C" "$BASE/admin" -o "$TMP" -w ""
+QA127_CARD=$(tr -d '\n' < "$TMP" | grep -o 'data-admin-card="analysis".\{0,900\}' | head -1)
+QA127_CARD_OK=1; for w in 分析范围 分析模板 不参与分析的资产 配置锚 分析偏好; do printf '%s' "$QA127_CARD" | grep -q "$w" || QA127_CARD_OK=0; done
+$CURL -b "$QA127_C" "$BASE/admin/analysis" -o "$TMP" -w ""
+QA127_SEC=0; for id in scope templates excluded anchor preferences; do grep -q "id=\"$id\"" "$TMP" && QA127_SEC=$((QA127_SEC+1)); done
+{ [ "$QA127_CARD_OK" = 1 ] && [ "$QA127_SEC" = 5 ] \
+  && grep -q "@{/admin/analysis}" "$RD/src/main/resources/templates/admin/_sidebar.html" \
+  && grep -q '</html>' "$TMP"; } \
+  && log_ok "v127-SETTINGS-ENTRY(管理首页卡片点名五块 · 侧栏有 · 分析设置五节齐 · 页面渲染到底)" \
+  || log_bad "v127-SETTINGS-ENTRY 分析设置入口不全" "卡片五词=$QA127_CARD_OK · 页面五节=$QA127_SEC"
+$CURL -b "$QA127_C" "$BASE/checkup" -o "$TMP" -w ""
+QA127_CK1=$(grep -c 'data-tpl-chip' "$TMP"); QA127_CK2=$(grep -c 'data-tpl-customize' "$TMP")
+{ [ "$QA127_CK1" -ge 5 ] && [ "$QA127_CK2" -ge 1 ] && grep -q '</html>' "$TMP"; } \
+  && log_ok "v127-TEMPLATE-ROW(体检页模板选择:内置 5 个 + 「基于当前模板定制…」· 页面渲染到底)" \
+  || log_bad "v127-TEMPLATE-ROW 体检页模板选择行不全" "chips=$QA127_CK1 customize=$QA127_CK2"
+$CURL -b "$QA127_C" "$BASE/reports" -o "$TMP" -w ""
+{ grep -q 'data-custom-anchor-link' "$TMP" && grep -q 'data-analysis-foot' "$TMP" && grep -q '</html>' "$TMP"; } \
+  && log_ok "v127-REPORTS-ANCHOR-LINKS(报表配置锚有「自定义…」直达 · 调仓旁有模板页脚 · 页面渲染到底)" \
+  || log_bad "v127-REPORTS-ANCHOR-LINKS 报表配置锚区缺入口,或渲染中途截断" "see reports/_allocation-diff.html"
+
+# v127-ACCOUNT-EXCLUDE-UI · 编辑页勾选项(带存在标记,别的入口不会误清)· 贷款没有这一项 · 批量 update 不碰这一列
+QA127_A=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM account WHERE family_id=1 AND type<>'LOAN' AND archived_at IS NULL ORDER BY id LIMIT 1" 2>/dev/null)
+QA127_L=$(mysql -ufinance -pfinance finance -sN -e "SELECT id FROM account WHERE family_id=1 AND type='LOAN' AND archived_at IS NULL ORDER BY id LIMIT 1" 2>/dev/null)
+$CURL -b "$QA127_C" "$BASE/accounts/$QA127_A/edit" -o "$TMP" -w ""
+QA127_E1=$(grep -c 'name="analysisExcluded"' "$TMP"); QA127_E2=$(grep -c 'name="analysisExcludedPresent"' "$TMP"); QA127_E3=$(grep -c '/admin/analysis#excluded' "$TMP")
+QA127_E4=1; if [ -n "$QA127_L" ]; then $CURL -b "$QA127_C" "$BASE/accounts/$QA127_L/edit" -o "$TMP" -w ""; QA127_E4=$(( $(grep -c 'name="analysisExcluded"' "$TMP") == 0 ? 1 : 0 )); fi
+QA127_UPD=$(awk '/int update\(Account account\)/{f=0} /UPDATE account/{f=1} f' "$RD/src/main/java/com/family/finance/repository/AccountMapper.java" | sed -n '/SET template_id/,/WHERE id/p' | grep -c analysis_excluded)
+{ [ "$QA127_E1" -ge 1 ] && [ "$QA127_E2" -ge 1 ] && [ "$QA127_E3" -ge 1 ] && [ "$QA127_E4" = 1 ] && [ "$QA127_UPD" = 0 ]; } \
+  && log_ok "v127-ACCOUNT-EXCLUDE-UI(编辑页勾选项 + 存在标记 + 「看看哪些资产不参与 →」· 贷款没有 · 整表单 update 不碰这一列)" \
+  || log_bad "v127-ACCOUNT-EXCLUDE-UI 账户编辑页的「不参与配置分析」不对" "勾选=$QA127_E1 存在标记=$QA127_E2 链接=$QA127_E3 贷款无=$QA127_E4 update里=$QA127_UPD"
+
+# v127-AGG-NO-NAMES · 只给汇总的口令拿不到任何账户名(PRD 验收 #11)· 真的发一把汇总口令去调 /mcp,跑完删掉
+QA127_TOK="fmk_qa127$(head -c 12 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 16)"
+QA127_HASH=$(printf '%s' "$QA127_TOK" | sha256sum | cut -d' ' -f1)
+mysql -ufinance -pfinance finance -e "INSERT INTO ask_access_token(family_id, access_point_id, name, token_hash, token_prefix, scope, expires_at) VALUES (1, 900127, 'qa-v127', '$QA127_HASH', '${QA127_TOK:0:12}', 'aggregate', NOW() + INTERVAL 10 MINUTE)" 2>/dev/null
+qa127_mcp(){ /usr/bin/curl -s --max-time 20 -X POST "$BASE/mcp" -H "Authorization: Bearer $QA127_TOK" -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d "$1"; }
+QA127_CAP=$(qa127_mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"capabilities","arguments":{}}}')
+QA127_GRP=$(qa127_mcp '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"pivot","arguments":{"rows":["group"]}}}')
+QA127_PLT=$(qa127_mcp '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"pivot","arguments":{"rows":["platform"],"scope":"financial","exclude":{"assetClass":["房产"]}}}}')
+QA127_LIST=$(qa127_mcp '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | grep -o '"name":"[a-z_]*"' | sort -u | tr '\n' ' ')
+QA127_LEAK=""
+while IFS= read -r n; do
+  n=$(printf '%s' "$n" | sed 's/^ *//;s/ *$//'); [ ${#n} -lt 3 ] && continue; printf '%s' "$n" | grep -qE '^[0-9]+$' && continue
+  printf '%s%s' "$QA127_CAP" "$QA127_PLT" | grep -qF "$n" && QA127_LEAK="$QA127_LEAK [$n]"
+done < <(mysql -ufinance -pfinance finance -sN -e "SELECT display_name FROM account WHERE family_id=1" 2>/dev/null)
+{ [ -n "$QA127_CAP" ] && [ -z "$QA127_LEAK" ] \
+  && printf '%s' "$QA127_GRP" | grep -q '只给汇总' \
+  && printf '%s' "$QA127_PLT" | grep -q '\\"ok\\":true'; } \
+  && log_ok "v127-AGG-NO-NAMES(汇总口令:capabilities 不列账户组 · pivot 拒绝账户组维 · 按范围与排除照常查 · 返回里没有任何账户名)" \
+  || log_bad "v127-AGG-NO-NAMES 汇总口令拿到了账户名" "泄露:${QA127_LEAK:-无} · group 拒绝:$(printf '%s' "$QA127_GRP" | grep -c 只给汇总)"
+# v127-NO-WRITE-TOOLS(真请求)· tools/list 只有这五个;拿口令、不带会话去点「记住」存不进去
+QA127_PREF0=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM analysis_preference" 2>/dev/null)
+/usr/bin/curl -s -o /dev/null --max-time 15 -X POST "$BASE/ask/remember" -H "Authorization: Bearer $QA127_TOK" -d "text=qa-v127-should-not-save"
+QA127_PREF1=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM analysis_preference" 2>/dev/null)
+{ [ "$QA127_LIST" = '"name":"account_performance" "name":"capabilities" "name":"period_summary" "name":"pivot" "name":"report_unmet" ' ] \
+  && [ "$QA127_PREF0" = "$QA127_PREF1" ]; } \
+  && log_ok "v127-NO-WRITE-TOOLS-LIVE(工具表仍是那五个 · 只拿口令存不了分析偏好)" \
+  || log_bad "v127-NO-WRITE-TOOLS-LIVE 对外面多了写能力" "tools=[$QA127_LIST] prefs $QA127_PREF0→$QA127_PREF1"
+mysql -ufinance -pfinance finance -e "DELETE FROM ask_access_audit WHERE token_prefix LIKE 'fmk_qa127%'; DELETE FROM ask_access_token WHERE access_point_id=900127; DELETE FROM analysis_preference WHERE content LIKE 'qa-v127%'" 2>/dev/null
+
+# v127-E2E-FLOWS · 四条真浏览器 flow 在(从真实入口点:体检卡片去标 · 模板定制回跳重跑 · 偏好与超级 Agent · 配置锚)
+{ for f in 30-analysis-scope 31-analysis-template 32-analysis-preferences 33-analysis-anchor; do [ -f "$RD/scripts/e2e/flows/$f.cjs" ] || exit 1; done; } 2>/dev/null \
+  && log_ok "v127-E2E-FLOWS(flow 30 ~ 33 在)" \
+  || log_bad "v127-E2E-FLOWS v1.27 的 e2e flow 缺了" "see scripts/e2e/flows/30-33"
 
 
 echo

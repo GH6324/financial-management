@@ -19,6 +19,11 @@
       </span>
       <span class="flex items-center flex-wrap gap-1.5 min-w-0">
 
+      <!--/* v1.27 · 按家里的默认分析范围(不是全部资产时写明,title 里是拿掉了谁)*/-->
+      <span th:if="${insight.scope() != null and !insight.scope().isAll()}"
+            class="font-mono text-[10px] px-2 py-0.5 border" style="color:var(--brass-deep);border-color:var(--rule-soft)"
+            th:title="'不含 ' + ${insight.scope().excludedLabel()}" data-scope-note
+            th:text="'按' + ${insight.scope().kind().label}">按可调整的资产</span>
       <!-- 集中度头条:房产占比 -->
       <span th:if="${insight.concentration() != null and insight.concentration().property() != null and insight.concentration().property().pct() != null}"
             th:with="l=${insight.concentration().property()}"

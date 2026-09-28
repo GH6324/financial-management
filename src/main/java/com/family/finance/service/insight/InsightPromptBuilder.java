@@ -66,18 +66,48 @@ public final class InsightPromptBuilder {
         return SYSTEM_ASSET_INSIGHT;
     }
 
+    /**
+     * v1.27 FR-872 · 按家里实际有的说话:范围内没有房产时不提「房产占比」「金融盘 vs 不动产」;
+     * 没有贷款时不提加权负债利率与提前还贷。两者都有 → 与 v1.26 逐字相同。
+     */
+    public static String systemPrompt(boolean propertyInScope, boolean hasLoans) {
+        String s = SYSTEM_ASSET_INSIGHT;
+        if (!propertyInScope) {
+            s = s.replace("1. 集中度 · 房产/单一账户/单一外币 占比是否过线", "1. 集中度 · 单一账户/单一外币 占比是否过线")
+                 .replace("2. 资产负债表 · 金融盘 vs 不动产 · 负债率分级", "2. 资产负债表 · 负债率分级");
+        }
+        if (!hasLoans) {
+            s = s.replace(" · 加权负债利率 vs 资产年化收益(提前还贷信号)", "(家里没有贷款,不谈提前还贷)")
+                 .replace("(调/转/补足/减配/加速偿还/再平衡)", "(调/转/补足/减配/再平衡)")
+                 .replace(" / 相对社会财富 / 加速偿还。", " / 相对社会财富。");
+        }
+        return s;
+    }
+
     /** 把硬数据 {@link AssetInsight} 铺成 user prompt(全部数字预计算 · LLM 只引用)。 */
     public static String userPrompt(AssetInsight in) {
+        return userPrompt(in, "");
+    }
+
+    /**
+     * v1.27 · 带范围 / 模板 / 分析偏好段落(由 {@code AnalysisPromptBlocks.forAnalysis} 拼好,已过真名映射)。
+     * 段落放在全部硬数据之后、最后那句要求之前;空串 = 与 v1.26 逐字相同。
+     */
+    public static String userPrompt(AssetInsight in, String analysisBlocks) {
         StringBuilder sb = new StringBuilder(2048);
         sb.append("# 家庭资产洞察上下文(全部数字已由系统预计算 · 你只能引用 · 不要计算/预测)\n\n");
+        boolean scoped = in.scope() != null && !in.scope().isAll();
 
         // 1. 集中度
-        sb.append("## 1. 集中度(占总资产)\n");
+        sb.append("## 1. 集中度(占").append(scoped ? in.scope().kind().getLabel() : "总资产").append(")\n");
         AssetInsight.Concentration c = in.concentration();
         if (c != null) {
-            sb.append("- 总资产: ").append(money(c.totalAssets())).append('\n');
+            sb.append(scoped ? "- " + in.scope().kind().getLabel() + "合计: " : "- 总资产: ")
+              .append(money(c.totalAssets())).append('\n');
             sb.append("- 参考风险线: ").append(pct1(c.thresholdPct())).append('\n');
-            sb.append("- 房产占比: ").append(lineStr(c.property())).append('\n');
+            if (c.property() != null) {
+                sb.append("- 房产占比: ").append(lineStr(c.property())).append('\n');
+            }
             sb.append("- 最大单一账户占比: ").append(lineStr(c.topAccount())).append('\n');
             if (c.topCurrency() != null && c.topCurrency().pct() != null) {
                 sb.append("- 最大外币敞口(").append(safe(c.topCurrencyLabel())).append(")占比: ")
@@ -94,13 +124,20 @@ public final class InsightPromptBuilder {
         sb.append("## 2. 资产负债表健康\n");
         BalanceSheetHealth.Result b = in.balanceSheet();
         if (b != null) {
-            sb.append("- 金融盘占(金融+不动产): ").append(pct1(b.financialPct())).append('\n');
-            sb.append("- 不动产占(金融+不动产): ").append(pct1(b.propertyPct())).append('\n');
+            // v1.27 FR-872 · 范围内没有房产 → 不给「金融盘 vs 不动产」;没有贷款 → 不谈提前还贷
+            if (in.propertyInScope()) {
+                sb.append("- 金融盘占(金融+不动产): ").append(pct1(b.financialPct())).append('\n');
+                sb.append("- 不动产占(金融+不动产): ").append(pct1(b.propertyPct())).append('\n');
+            }
             sb.append("- 负债率(总负债/总资产): ").append(pct1(b.debtRatioPct()))
               .append(" · 分级 ").append(debtBandCn(b.debtBand())).append('\n');
-            sb.append("- 加权负债利率: ").append(pct2(in.weightedLoanRatePct())).append('\n');
-            sb.append("- 资产名义年化收益: ").append(pct2(in.assetAnnualReturnPct())).append('\n');
-            sb.append("- 提前还贷信号: ").append(prepayCn(b.prepaySignal())).append('\n');
+            if (in.hasLoans()) {
+                sb.append("- 加权负债利率: ").append(pct2(in.weightedLoanRatePct())).append('\n');
+                sb.append("- 资产名义年化收益: ").append(pct2(in.assetAnnualReturnPct())).append('\n');
+                sb.append("- 提前还贷信号: ").append(prepayCn(b.prepaySignal())).append('\n');
+            } else {
+                sb.append("- 贷款: 无 · 不涉及提前还贷\n");
+            }
         } else {
             sb.append("- (数据不足 · 降级)\n");
         }
@@ -145,6 +182,9 @@ public final class InsightPromptBuilder {
             sb.append("- (数据不足 · 降级)\n");
         }
         sb.append('\n');
+        if (analysisBlocks != null && !analysisBlocks.isBlank()) {
+            sb.append(analysisBlocks).append("\n\n");
+        }
         sb.append("请基于以上硬数据,输出严格 JSON 的 4 维洞察 + 1-3 条纪律性提醒。再次强调:不计算、不预测涨跌、不择时、不荐产品。\n");
         return sb.toString();
     }

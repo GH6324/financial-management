@@ -56,10 +56,16 @@ public class CheckupController {
     private final com.family.finance.service.explain.MetricExplainService metricExplain; // v0.5.3 口径真实数值
     /** issue #22 · 「不适用」的提醒 —— 原来那个按钮调用的是一个不存在的前端函数,点了没反应 */
     private final com.family.finance.service.checkup.AdviceDismissService adviceDismiss;
+    /** v1.27 · 分析范围 / 模板 / 首次提示 */
+    private final com.family.finance.service.analysis.AnalysisScopeService scopeService;
+    private final com.family.finance.service.analysis.AnalysisTemplateService templateService;
+    private final com.family.finance.service.analysis.AnalysisHintService hintService;
 
     @GetMapping("/checkup")
     public String checkup(@AuthenticationPrincipal MemberPrincipal me,
                           @RequestParam(name = "account", required = false) Long accountId,
+                          @RequestParam(name = "scope", required = false) String scopeParam,
+                          @RequestParam(name = "tpl", required = false) String tplParam,
                           Model model) {
         // v0.16.x 兜底:全新部署(零周期)→ 回引导页并提示先开周期(体检依赖账期快照数据,零周期无可诊断)。
         if (periodMapper.countByFamily(me.getFamilyId()) == 0) {
@@ -83,7 +89,8 @@ public class CheckupController {
         BigDecimal avgMonthlyExpense = computeAvgMonthlyExpense(me.getFamilyId());
 
         if (accountId == null) {
-            FamilyDiagnose diagnose = familyDiagnoseService.diagnose(me.getFamilyId());
+            // v1.27 · 配置 / 风险两张卡与配置类规则按分析范围(?scope= 临时切 · 否则家庭默认)
+            FamilyDiagnose diagnose = familyDiagnoseService.diagnose(me.getFamilyId(), scopeParam);
             // 收集所有账户的 diagnose,供家庭级规则使用
             List<AccountDiagnose> accounts = collectAllAccountDiagnoses(me.getFamilyId());
             RuleContext ctx = RuleContext.forFamily(diagnose, accounts, avgMonthlyExpense);
@@ -119,6 +126,7 @@ public class CheckupController {
 
             model.addAttribute("scope", "FAMILY");
             model.addAttribute("diagnose", diagnose);
+            addAnalysisModel(me, model, diagnose, scopeParam, tplParam);
             model.addAttribute("advice", advice);
             model.addAttribute("liquidSurplus", liquidSurplus);
             // v1.6 UED review A2 · 体检此前完全不显示数据账期,与仪表盘数值不一致时用户无从分辨。
@@ -145,11 +153,83 @@ public class CheckupController {
 
         model.addAttribute("scope", "ACCOUNT");
         model.addAttribute("account", account.get());
+        // v1.27 FR-805 · 被标「不参与配置分析」的账户:页头一行说明 + 改
+        model.addAttribute("accountExcluded", account.get().isAnalysisExcluded());
         model.addAttribute("category",
                 categoryService.findByCode(account.get().getProductCategoryCode()).orElse(null));
         model.addAttribute("diagnose", diagnose);
         model.addAttribute("advice", advice);
         return "checkup/account";
+    }
+
+    /**
+     * v1.27 · 体检页的范围切换与 AI 模板行(PRD FR-820 ~ FR-823 · FR-880 / FR-881)。
+     *
+     * <p>{@code scopeParam} 只在它真的生效时回显到链接上(不可选的脏值不带),
+     * 这样「设为家里的默认」按钮只在临时切到别的范围时出现。</p>
+     */
+    private void addAnalysisModel(MemberPrincipal me, Model model, FamilyDiagnose diagnose,
+                                  String scopeParam, String tplParam) {
+        long fid = me.getFamilyId();
+        var current = diagnose.scope();
+        var familyDefault = scopeService.familyDefault(fid);
+        String effectiveScopeParam = current.kind() != familyDefault ? current.kind().name() : null;
+        var template = templateService.resolve(fid, tplParam);
+        var defaultTemplate = templateService.familyDefault(fid);
+        String tplForUrl = template.key().equals(defaultTemplate.key()) ? null : template.key();
+
+        model.addAttribute("scopeOptions", diagnose.scopeOptions());
+        model.addAttribute("scopeCurrent", current);
+        model.addAttribute("scopeFamilyDefault", familyDefault);
+        model.addAttribute("scopeParam", effectiveScopeParam);
+        model.addAttribute("analysisTemplates", templateService.list(fid));
+        model.addAttribute("analysisTemplate", template);
+        model.addAttribute("analysisTemplateDefaultKey", defaultTemplate.key());
+        model.addAttribute("tplParam", tplForUrl);
+        model.addAttribute("analysisHint", !hintService.dismissed(fid, me.getMemberId()));
+        model.addAttribute("aiDiagnoseUrl",
+                com.family.finance.web.analysis.AnalysisUrls.with("/checkup/diagnose", effectiveScopeParam, tplForUrl, null));
+        model.addAttribute("aiInsightUrl",
+                com.family.finance.web.analysis.AnalysisUrls.with("/checkup/insight", effectiveScopeParam, tplForUrl, null));
+        String back = com.family.finance.web.analysis.AnalysisUrls.with("/checkup", effectiveScopeParam, tplForUrl, "checkup-ai");
+        model.addAttribute("checkupBackUrl", back);
+        model.addAttribute("customizeUrl", com.family.finance.web.analysis.AnalysisUrls.customize(template.key(), back));
+        // 链接在这里拼好(空参数不带)—— 模板里拼会把 null 参数渲染成「?tpl」这种半截
+        java.util.Map<String, String> scopeUrls = new java.util.LinkedHashMap<>();
+        for (var o : diagnose.scopeOptions()) {
+            scopeUrls.put(o.kind().name(), com.family.finance.web.analysis.AnalysisUrls.with("/checkup",
+                    o.kind() == familyDefault ? null : o.kind().name(), tplForUrl, null));
+        }
+        model.addAttribute("scopeOptionUrls", scopeUrls);
+        java.util.Map<String, String> tplUrls = new java.util.LinkedHashMap<>();
+        for (var t : templateService.list(fid)) {
+            tplUrls.put(t.key(), com.family.finance.web.analysis.AnalysisUrls.with("/checkup", effectiveScopeParam,
+                    t.key().equals(defaultTemplate.key()) ? null : t.key(), "checkup-ai"));
+        }
+        model.addAttribute("templateUrls", tplUrls);
+        model.addAttribute("reportsAllocationUrl",
+                com.family.finance.web.analysis.AnalysisUrls.with("/reports", effectiveScopeParam, null, "allocation-diff"));
+    }
+
+    /** v1.27 FR-822 · 体检页「设为家里的默认」 */
+    @org.springframework.web.bind.annotation.PostMapping("/checkup/scope/default")
+    public String setDefaultScope(@AuthenticationPrincipal MemberPrincipal me,
+                                  @RequestParam("scope") String scope,
+                                  org.springframework.web.servlet.mvc.support.RedirectAttributes ra) {
+        var kind = com.family.finance.service.analysis.ScopeKind.parse(scope);
+        if (kind != null) {
+            scopeService.setFamilyDefault(me.getFamilyId(), kind);
+            ra.addFlashAttribute("scopeFlash", "家里的默认分析范围改成了「" + kind.getLabel() + "」");
+        }
+        return "redirect:/checkup";
+    }
+
+    /** v1.27 FR-881 · 关掉「分析角度不合适?」首次提示(按人记) */
+    @org.springframework.web.bind.annotation.PostMapping("/checkup/hint/dismiss")
+    @org.springframework.web.bind.annotation.ResponseBody
+    public String dismissHint(@AuthenticationPrincipal MemberPrincipal me) {
+        hintService.dismiss(me.getFamilyId(), me.getMemberId());
+        return "";
     }
 
     private List<AccountDiagnose> collectAllAccountDiagnoses(long familyId) {

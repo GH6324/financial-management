@@ -38,6 +38,12 @@ public class ReviewInsightService {
     private final ReviewAiCacheMapper cacheMapper;
     private final com.family.finance.service.expense.NormalExpenseService normalExpenseService; // v1.24 FR-653
 
+    /**
+     * v1.27 · 分析偏好(FR-851)· 字段注入且可缺:老的构造器调用(测试)不用跟着改,缺了就当没有偏好。
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.family.finance.service.analysis.AnalysisPreferenceService preferenceService;
+
     public boolean available(long familyId) {
         return llmRouter.available(familyId);
     }
@@ -61,12 +67,30 @@ public class ReviewInsightService {
     public Review review(long familyId, long periodId, String periodLabel, String dim,
                          AttributionEngine.Result attr, LinkedHashMap<String, BigDecimal> grouped,
                          boolean periodClosed, boolean force) {
+        return review(familyId, periodId, periodLabel, dim, attr, grouped, periodClosed, force, null);
+    }
+
+    /**
+     * v1.27 · {@code viewContext} = 页面上的账户筛选 + 视图币种(调用方拼好,如「12,15|USD」;不筛选、本位币传 null)。
+     *
+     * <p>PRD §13 ⑩:原来缓存键只有「家庭 + 账期 + 维度」—— 筛了账户、换了币种,拿到的还是另一种看法下的那段解读,
+     * 读起来完全通顺。现在键里带上它和分析偏好的指纹;都没有时仍是纯维度,老缓存照常命中。
+     * 编码进现有 {@code dim} 列(VARCHAR(20):最长维度 10 字 + 「|」+ 8 位指纹),不改表、不动唯一键。</p>
+     */
+    public Review review(long familyId, long periodId, String periodLabel, String dim,
+                         AttributionEngine.Result attr, LinkedHashMap<String, BigDecimal> grouped,
+                         boolean periodClosed, boolean force, String viewContext) {
+        List<String> prefs = preferenceService == null ? List.of() : preferenceService.enabledTexts(familyId);
+        String cacheDim = cacheDim(dim, viewContext, prefs);
         if (periodClosed && !force) {
-            ReviewAiCacheMapper.Row hit = cacheMapper.find(familyId, periodId, dim);
+            ReviewAiCacheMapper.Row hit = cacheMapper.find(familyId, periodId, cacheDim);
             if (hit != null) return new Review(hit.text(), hit.vendor(), true);
         }
+        // 偏好在材料之后;和材料一起过同一层真名替换(PRD §8)
+        String prefBlock = com.family.finance.service.analysis.AnalysisPromptBlocks.preferencesOnly(prefs, null);
         String facts = anonymize(familyId,
-                buildFactsAndSignals(periodLabel, attr, grouped) + expenseStructure(familyId));
+                buildFactsAndSignals(periodLabel, attr, grouped) + expenseStructure(familyId)
+                        + (prefBlock.isBlank() ? "" : "\n" + prefBlock + "\n"));
         String system = """
                 你是家庭月度资产复盘助手。下面是**已经算好**的本期归因事实与系统判定的异常信号。
                 规则(必须遵守):
@@ -79,7 +103,7 @@ public class ReviewInsightService {
         return llmRouter.invoke(familyId, system, facts, (inv, raw, ms) -> {
             String out = raw.trim();
             // 只有已关账的期才落缓存 —— 进行中的期数据还在动,存下来必然过期
-            if (periodClosed) cacheMapper.upsert(familyId, periodId, dim, out, inv.badge());
+            if (periodClosed) cacheMapper.upsert(familyId, periodId, cacheDim, out, inv.badge());
             return new Review(out, inv.badge(), false);
         });
     }
@@ -169,6 +193,21 @@ public class ReviewInsightService {
         if (signals.isEmpty()) sb.append("  (无 · 本期无显著异常)\n");
         else signals.forEach(sig -> sb.append("  - ").append(sig).append('\n'));
         return sb.toString();
+    }
+
+    /** 缓存维度键:没筛选、本位币、没偏好 → 纯维度(与 v1.26 同一行);否则「维度|8 位指纹」 */
+    static String cacheDim(String dim, String viewContext, List<String> prefs) {
+        boolean plain = (viewContext == null || viewContext.isBlank()) && (prefs == null || prefs.isEmpty());
+        if (plain) return dim;
+        String fp = (viewContext == null ? "" : viewContext) + "|"
+                + com.family.finance.service.analysis.AnalysisPreferenceService.fingerprint(prefs);
+        try {
+            String hex = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(fp.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            return dim + "|" + hex.substring(0, 8);
+        } catch (Exception e) {
+            return dim + "|" + String.format("%08x", fp.hashCode());
+        }
     }
 
     private String anonymize(long familyId, String text) {

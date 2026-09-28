@@ -21,13 +21,28 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class RebalanceController {
 
     private final RebalanceAdvisorService rebalanceAdvisorService;
+    /** v1.27 · 调仓也按「范围 + 模板 + 分析偏好」(FR-827 / FR-846) */
+    private final com.family.finance.service.analysis.AnalysisTemplateService templateService;
+    private final com.family.finance.service.analysis.AnalysisScopeService scopeService;
+    private final com.family.finance.service.analysis.AnalysisContextService contextService;
 
     @PostMapping("/reports/rebalance/advise")
     public String advise(@AuthenticationPrincipal MemberPrincipal me,
                          @RequestParam(name = "refresh", required = false, defaultValue = "false") boolean refresh,
+                         @RequestParam(name = "scope", required = false) String scopeParam,
+                         @RequestParam(name = "tpl", required = false) String tplParam,
                          RedirectAttributes ra) {
+        String back = com.family.finance.web.analysis.AnalysisUrls.with("/reports",
+                com.family.finance.service.analysis.ScopeKind.parse(scopeParam) == null ? null : scopeParam.toUpperCase(),
+                tplParam == null || tplParam.isBlank() ? null : tplParam, "allocation-diff");
         try {
-            var r = rebalanceAdvisorService.advise(me.getFamilyId(), refresh);
+            long fid = me.getFamilyId();
+            var template = templateService.resolve(fid, tplParam);
+            var scope = template.scope() != null
+                    ? scopeService.exactly(fid, template.scope(), null)
+                    : scopeService.resolve(fid, scopeParam, null);
+            var ctx = contextService.of(fid, scope, template);
+            var r = rebalanceAdvisorService.advise(fid, refresh, ctx);
             log.info("rebalance advise · family={} refresh={} ok={} fromCache={} actions={}",
                 me.getFamilyId(), refresh, r.ok(), r.fromCache(), r.actions() == null ? 0 : r.actions().size());
             if (r.ok()) {
@@ -43,6 +58,6 @@ public class RebalanceController {
             ra.addFlashAttribute("rebalanceFlash", "fail");
             ra.addFlashAttribute("rebalanceFlashReason", "AI 服务异常,请稍后再试");
         }
-        return "redirect:/reports#allocation-diff";
+        return "redirect:" + back;
     }
 }

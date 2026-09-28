@@ -106,6 +106,26 @@ public final class PromptBuilder {
     }
 
     /**
+     * v1.27 FR-872 · 按家里实际有的说话:范围内没有房产时,「现金/投资/房产/保险 4 桶」这句不出现。
+     * 有房产 → 与 v1.26 逐字相同(护栏 v127-PROMPT-BASELINE)。
+     *
+     * <p>用 {@code replace} 而不是再写一个文本块:{@code PromptUnchangedTest} 对本文件的文本块做哈希级比对,
+     * 这一版不改任何一个既有文本块。</p>
+     */
+    public static String systemPromptForDiagnose(boolean propertyInScope) {
+        if (propertyInScope) return SYSTEM_DIAGNOSE;
+        return SYSTEM_DIAGNOSE.replace("1. 资产配置 · 现金/投资/房产/保险 4 桶比例是否合理 · 是否需要再平衡",
+                "1. 资产配置 · 现金、投资、保险等各类资产之间的比例是否合理 · 是否需要再平衡");
+    }
+
+    /** 这份诊断的配置里有没有房产(范围内)—— 决定用哪一版系统提示词 */
+    public static boolean hasProperty(FamilyDiagnose d) {
+        if (d == null || d.allocation() == null) return false;
+        return d.allocation().stream().anyMatch(s -> "PROPERTY".equals(s.accountType())
+                && s.value() != null && s.value().signum() > 0);
+    }
+
+    /**
      * 构造全家维度的 user prompt。
      *
      * @param familyName    家庭名(直接上传)
@@ -119,12 +139,32 @@ public final class PromptBuilder {
                                              List<AccountSummary> accountInfos,
                                              List<Advice> adviceList,
                                              Map<String, String> mapping) {
+        return userPromptForFamily(familyName, diagnose, accountInfos, adviceList, mapping, "");
+    }
+
+    /**
+     * v1.27 · 带范围 / 模板 / 分析偏好段落({@code AnalysisPromptBlocks.forAnalysis} 拼好、已过真名映射)。
+     * 段落放在全部材料之后、最后那句要求之前;{@code analysisBlocks} 为空且范围是全部资产 → 与 v1.26 逐字相同。
+     *
+     * <p>范围不是全部资产时:第 2、3 节(配置 / 风险)本来就是范围切片算出来的,标题上写明;
+     * 第 4 节「各账户硬事实」由调用方只传范围内账户(FR-847「材料只含范围内账户」)。
+     * 第 1 节 KPI 是家底,照常给全量。</p>
+     */
+    public static String userPromptForFamily(String familyName,
+                                             FamilyDiagnose diagnose,
+                                             List<AccountSummary> accountInfos,
+                                             List<Advice> adviceList,
+                                             Map<String, String> mapping,
+                                             String analysisBlocks) {
+        boolean scoped = diagnose.scope() != null && !diagnose.scope().isAll();
+        String scopeName = scoped ? diagnose.scope().kind().getLabel() : null;
         StringBuilder sb = new StringBuilder(2048);
         sb.append("# 家庭综合体检上下文\n\n");
         sb.append("⚠ 重要 · 以下所有数字(¥金额 / % 占比 / pp 差额 / 月数)均由系统预先计算\n");
         sb.append("  你只能引用这些数字 · 不要自己做四则运算 · 不要凭印象造数字\n\n");
         sb.append("家庭名: ").append(safe(familyName)).append('\n');
-        sb.append("视角: 全家(全部账户聚合)\n\n");
+        sb.append(scoped ? "视角: 全家 · 资产配置与风险敞口只看「" + scopeName + "」(家底照常按全部账户)\n\n"
+                         : "视角: 全家(全部账户聚合)\n\n");
 
         sb.append("## 1. KPI 速览(本位币 CNY · 已计算)\n");
         if (diagnose.kpi() != null) {
@@ -143,7 +183,7 @@ public final class PromptBuilder {
         sb.append('\n');
 
         if (diagnose.allocation() != null && !diagnose.allocation().isEmpty()) {
-            sb.append("## 2. 资产配置(按类型)\n");
+            sb.append(scoped ? "## 2. 资产配置(按类型 · 只含" + scopeName + ")\n" : "## 2. 资产配置(按类型)\n");
             for (AllocationSlice s : diagnose.allocation()) {
                 sb.append("- ").append(s.label().replace('\n', ' '))
                         .append(": ").append(money(s.value()))
@@ -153,7 +193,7 @@ public final class PromptBuilder {
         }
 
         if (diagnose.riskDistribution() != null && !diagnose.riskDistribution().isEmpty()) {
-            sb.append("## 3. 风险敞口(按风险等级)\n");
+            sb.append(scoped ? "## 3. 风险敞口(按风险等级 · 只含" + scopeName + ")\n" : "## 3. 风险敞口(按风险等级)\n");
             for (FamilyDiagnose.RiskBucket b : diagnose.riskDistribution()) {
                 sb.append("- ").append(b.stars()).append(" ").append(b.label())
                         .append(": ").append(money(b.amount()))
@@ -162,7 +202,8 @@ public final class PromptBuilder {
             sb.append('\n');
         }
 
-        sb.append("## 4. 各账户硬事实(已脱敏成员真名,真名→代号)\n");
+        sb.append(scoped ? "## 4. 各账户硬事实(只含" + scopeName + " · 已脱敏成员真名,真名→代号)\n"
+                         : "## 4. 各账户硬事实(已脱敏成员真名,真名→代号)\n");
         for (AccountSummary a : accountInfos) {
             sb.append("- 【").append(safe(a.accountName())).append("】")
                     .append(" 类型=").append(a.accountType())
@@ -203,6 +244,9 @@ public final class PromptBuilder {
         }
         sb.append('\n');
 
+        if (analysisBlocks != null && !analysisBlocks.isBlank()) {
+            sb.append(analysisBlocks).append("\n\n");
+        }
         sb.append("---\n");
         sb.append("请输出 200-500 字综合诊断段落,严格遵守 system prompt 中的语调与禁词约束。");
         return sb.toString();
@@ -217,6 +261,20 @@ public final class PromptBuilder {
                                               List<Advice> adviceList,
                                               Map<String, String> mapping,
                                               String ownerCodename) {
+        return userPromptForAccount(familyName, familyDiagnose, accountDiagnose, adviceList, mapping, ownerCodename, "");
+    }
+
+    /**
+     * v1.27 · 单账户诊断也读分析偏好(FR-851);被标「不参与配置分析」的账户多一句约束(FR-805)。
+     * {@code preferenceBlock} 已过真名映射;空串 + 没标记 → 与 v1.26 逐字相同。
+     */
+    public static String userPromptForAccount(String familyName,
+                                              FamilyDiagnose familyDiagnose,
+                                              AccountDiagnose accountDiagnose,
+                                              List<Advice> adviceList,
+                                              Map<String, String> mapping,
+                                              String ownerCodename,
+                                              String preferenceBlock) {
         StringBuilder sb = new StringBuilder(2048);
         sb.append("# 账户深度体检上下文\n\n");
         sb.append("家庭名: ").append(safe(familyName)).append('\n');
@@ -285,16 +343,22 @@ public final class PromptBuilder {
             }
             sb.append("- 全家加权 XIRR: ").append(familyDiagnose.familyXirrPctLabel()).append('\n');
             sb.append("- 全家紧急储备: ").append(familyDiagnose.emergencyMonthsLabel()).append('\n');
-            if (accountDiagnose.currentBalance() != null && familyDiagnose.kpi() != null
+            // v1.27(PRD §13 ⑩)· 用本位币余额除 —— 原来原币 ÷ 本位币总资产,外币账户的占比算错
+            if (accountDiagnose.balanceForShare() != null && familyDiagnose.kpi() != null
                     && familyDiagnose.kpi().totalAssets() != null
                     && familyDiagnose.kpi().totalAssets().signum() > 0) {
-                BigDecimal share = accountDiagnose.currentBalance()
+                BigDecimal share = accountDiagnose.balanceForShare()
                         .divide(familyDiagnose.kpi().totalAssets(), 4, RoundingMode.HALF_EVEN);
                 sb.append("- 此账户占全家总资产: ").append(pct1(share.multiply(new BigDecimal("100")))).append('\n');
             }
         }
         sb.append('\n');
 
+        if (acc.isAnalysisExcluded()) {
+            sb.append("## 此账户不参与家庭配置分析\n");
+            sb.append("家里把这个账户标记为「不参与配置分析」—— 短期内不打算卖、也调不动。");
+            sb.append("它仍计入净资产;不要建议处置它,也不要拿它占全家的比例当作配置失衡的依据。\n\n");
+        }
         sb.append("## 3. 系统规则引擎本次命中(").append(adviceList.size()).append(" 条,本账户视角)\n");
         if (adviceList.isEmpty()) {
             sb.append("(本账户未触发任何规则,整体表现良好。请输出表扬性 + 前瞻性综合诊断。)\n");
@@ -309,6 +373,9 @@ public final class PromptBuilder {
         }
         sb.append('\n');
 
+        if (preferenceBlock != null && !preferenceBlock.isBlank()) {
+            sb.append(preferenceBlock).append("\n\n");
+        }
         sb.append("---\n");
         sb.append("请输出 200-500 字综合诊断段落,严格遵守 system prompt 中的语调与禁词约束。");
         return sb.toString();

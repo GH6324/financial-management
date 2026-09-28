@@ -26,7 +26,8 @@
 
   <div class="flex items-center gap-2 mt-3 pt-3 border-t border-rule-soft">
     <a th:if="${advice.cta() != null}"
-       th:href="${advice.accountId() != null ? '/checkup?account=' + advice.accountId() : '/checkup'}"
+       th:href="${advice.ctaHref() != null ? advice.ctaHref() : (advice.accountId() != null ? '/checkup?account=' + advice.accountId() : '/checkup')}"
+       th:attr="data-advice-cta=${advice.ruleId()}"
        class="text-[11px] font-mono px-2.5 py-1 border border-ink bg-ink text-paper no-underline"
        th:text="${advice.cta()}">→ 行动</a>
     <!--/* issue #22 · 这个按钮从 v0.2 起就调用一个【不存在的】前端函数 advice.dismiss(…),

@@ -167,6 +167,19 @@ public class AccountService {
                 "account", accountId, "更新账户 " + update.getDisplayName());
     }
 
+    /**
+     * v1.27 FR-800 · 勾 / 取消「不参与配置分析」。不定格(FR-803):改完所有分析立即按新值看。
+     * 进审计:家里人能在审计日志里看到是谁、什么时候把哪个账户拿出了配置分析。
+     */
+    @Transactional
+    public void setAnalysisExcluded(MemberPrincipal me, long accountId, boolean excluded) {
+        Account existing = require(me.getFamilyId(), accountId);
+        accountMapper.updateAnalysisExcluded(me.getFamilyId(), accountId, excluded);
+        auditLogService.record(me.getFamilyId(), me.getMemberId(), AuditLogType.ACCOUNT_UPDATE,
+                "account", accountId, (excluded ? "标成不参与配置分析 " : "取消不参与配置分析 ")
+                        + existing.getDisplayName());
+    }
+
     @Transactional
     public void archive(MemberPrincipal me, long accountId) {
         accountMapper.archive(me.getFamilyId(), accountId);

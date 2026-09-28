@@ -445,8 +445,10 @@
              而且和向导完全脱节(第 5 步只写「点『在百炼上创建 Agent』」,没有任何指向)。
              现在:① 按钮本身改成主按钮 ② 第 5 步里用 form= 关联同一个表单再放一个,
              走到那一步就能直接点,不用回头找。 */-->
+      <!--/* v1.27 FR-857 · 更新前明确提示:提示词会被覆盖为最新版;控制台里自己加的 skill 会保留(服务端回读合并) */-->
       <form th:if="${askRuntime == 'managed'}" id="createAgentForm" method="post"
-            th:action="@{/admin/ai-access/create-agent}" class="mt-4 pt-4 border-t border-rule">
+            th:action="@{/admin/ai-access/create-agent}" class="mt-4 pt-4 border-t border-rule"
+            th:attr="onsubmit=${askAgentId != null and !#strings.isEmpty(askAgentId)} ? 'return confirm(\'提示词会被覆盖为最新版。你在百炼控制台里给这个 Agent 加的 skill 和别的工具会保留。继续?\')' : null">
         <button type="submit" class="btn-ink text-sm"
                 th:text="${askAgentId != null and !#strings.isEmpty(askAgentId)} ? '更新百炼上的 Agent 模板' : '在百炼上创建 Agent'">创建</button>
         <span class="text-[11.5px] text-ink-subtle ml-3">上面几项填齐并保存之后再点</span>

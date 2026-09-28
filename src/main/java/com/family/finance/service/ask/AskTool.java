@@ -35,6 +35,14 @@ public interface AskTool {
      */
     AskToolResult execute(long familyId, Map<String, Object> args);
 
+    /**
+     * v1.27 · 带上调用方实际持有的范围(FR-856):「只给汇总」的口令下,工具不得返回任何账户名 ——
+     * 需要按口令区别对待的工具覆盖这个方法;其余照旧。
+     */
+    default AskToolResult execute(long familyId, Map<String, Object> args, AskScope granted) {
+        return execute(familyId, args);
+    }
+
     /** 参数非法:带上「你可以用的是这些」,让模型能自我修正 */
     class AskParamException extends RuntimeException {
         private final transient Map<String, Object> allowed;

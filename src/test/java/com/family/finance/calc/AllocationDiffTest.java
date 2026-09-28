@@ -85,13 +85,80 @@ class AllocationDiffTest {
         assertThat(diff.get(Bucket.INSURANCE).doubleValue()).isCloseTo(-20.00, org.assertj.core.data.Offset.offset(0.01));
     }
 
+    /**
+     * v1.27 FR-873 · 「其他」类(车等)不再兜底进「投资」桶(v0.4 起的老规则把车算成投资)。
+     * 不进四桶的分母,另算 otherAmount 给页面单独一行。
+     */
     @Test
-    void otherTypeGoesToInvest() {
+    void otherTypeStaysOutOfFourBuckets() {
         var entries = List.of(
-            new AllocationEntry(new BigDecimal("100000"), "OTHER", null)
+            new AllocationEntry(new BigDecimal("100000"), "OTHER", null),
+            new AllocationEntry(new BigDecimal("300000"), "STOCK", "SEMI_LIQUID"),
+            new AllocationEntry(new BigDecimal("100000"), "CASH", "LIQUID")
         );
         var pct = AllocationDiff.computeCurrentPct(entries);
-        assertThat(pct.get(Bucket.INVEST)).isEqualByComparingTo("100.00");
+        assertThat(pct.get(Bucket.INVEST)).isEqualByComparingTo("75.00");   // 300 / 400,车不在分母里
+        assertThat(pct.get(Bucket.CASH)).isEqualByComparingTo("25.00");
+        assertThat(AllocationDiff.otherAmount(entries)).isEqualByComparingTo("100000");
+        // 挂在别的流动性类目上也一样不进桶(先按类型短路)
+        var tagged = List.of(new AllocationEntry(new BigDecimal("50000"), "OTHER", "ILLIQUID"),
+                             new AllocationEntry(new BigDecimal("50000"), "CASH", "LIQUID"));
+        assertThat(AllocationDiff.computeCurrentPct(tagged).get(Bucket.PROPERTY)).isEqualByComparingTo("0");
+    }
+
+    /** v1.27 FR-870 · 没有房产、没有保险:两桶不参与,标普 4321 按现金 / 投资放大 → 25 / 75 */
+    @Test
+    void effectiveTargetDropsAbsentBucketsAndRescales() {
+        var target = Map.of(Bucket.CASH, new BigDecimal("10"), Bucket.INVEST, new BigDecimal("30"),
+                Bucket.PROPERTY, new BigDecimal("40"), Bucket.INSURANCE, new BigDecimal("20"));
+        var amounts = Map.of(Bucket.CASH, new BigDecimal("200"), Bucket.INVEST, new BigDecimal("800"),
+                Bucket.PROPERTY, BigDecimal.ZERO, Bucket.INSURANCE, BigDecimal.ZERO);
+        var eff = AllocationDiff.effectiveTarget(target, amounts);
+        assertThat(eff.dropped()).containsExactly(Bucket.PROPERTY, Bucket.INSURANCE);
+        assertThat(eff.rescaled()).isTrue();
+        assertThat(eff.target()).containsOnlyKeys(Bucket.CASH, Bucket.INVEST);
+        assertThat(eff.target().get(Bucket.CASH)).isEqualByComparingTo("25.00");
+        assertThat(eff.target().get(Bucket.INVEST)).isEqualByComparingTo("75.00");
+    }
+
+    /** 只拿掉房产(有保险):现金 17 · 投资 50 · 保险 33(PRD 关键文案那一句) */
+    @Test
+    void effectiveTargetKeepsInsuranceWhenHeld() {
+        var target = Map.of(Bucket.CASH, new BigDecimal("10"), Bucket.INVEST, new BigDecimal("30"),
+                Bucket.PROPERTY, new BigDecimal("40"), Bucket.INSURANCE, new BigDecimal("20"));
+        var amounts = Map.of(Bucket.CASH, BigDecimal.ONE, Bucket.INVEST, BigDecimal.ONE,
+                Bucket.PROPERTY, BigDecimal.ZERO, Bucket.INSURANCE, BigDecimal.ONE);
+        var eff = AllocationDiff.effectiveTarget(target, amounts);
+        assertThat(eff.dropped()).containsExactly(Bucket.PROPERTY);
+        assertThat(eff.target().get(Bucket.CASH)).isEqualByComparingTo("16.67");
+        assertThat(eff.target().get(Bucket.INVEST)).isEqualByComparingTo("50.00");
+        assertThat(eff.target().get(Bucket.INSURANCE)).isEqualByComparingTo("33.33");
+    }
+
+    /** 现金、投资桶始终参与 —— 没有投资时「投资低配」是真问题 */
+    @Test
+    void cashAndInvestAlwaysParticipate() {
+        var target = Map.of(Bucket.CASH, new BigDecimal("10"), Bucket.INVEST, new BigDecimal("90"),
+                Bucket.PROPERTY, BigDecimal.ZERO, Bucket.INSURANCE, BigDecimal.ZERO);
+        var amounts = Map.of(Bucket.CASH, new BigDecimal("100"), Bucket.INVEST, BigDecimal.ZERO,
+                Bucket.PROPERTY, BigDecimal.ZERO, Bucket.INSURANCE, BigDecimal.ZERO);
+        var eff = AllocationDiff.effectiveTarget(target, amounts);
+        assertThat(eff.target()).containsKeys(Bucket.CASH, Bucket.INVEST);
+        assertThat(eff.rescaled()).isFalse();           // 拿掉的两桶原目标就是 0,不用放大
+        assertThat(eff.target().get(Bucket.INVEST)).isEqualByComparingTo("90");
+    }
+
+    /** 家里有房产、有保险:四桶全参与、目标原样 —— 与 v1.26 一致 */
+    @Test
+    void effectiveTargetUnchangedWhenAllHeld() {
+        var target = Map.of(Bucket.CASH, new BigDecimal("10"), Bucket.INVEST, new BigDecimal("30"),
+                Bucket.PROPERTY, new BigDecimal("40"), Bucket.INSURANCE, new BigDecimal("20"));
+        var amounts = Map.of(Bucket.CASH, BigDecimal.ONE, Bucket.INVEST, BigDecimal.ONE,
+                Bucket.PROPERTY, BigDecimal.ONE, Bucket.INSURANCE, BigDecimal.ONE);
+        var eff = AllocationDiff.effectiveTarget(target, amounts);
+        assertThat(eff.dropped()).isEmpty();
+        assertThat(eff.rescaled()).isFalse();
+        assertThat(eff.target()).isEqualTo(target);
     }
 
     @Test

@@ -201,6 +201,42 @@
         "mobile"
       ],
       "note": "v1.21。没建类目时是一句劝导链接,建了之后在宫格标题行的「管理分类」。两种状态下都必须一眼可见。"
+    },
+    {
+      "id": "analysis-settings",
+      "name": "分析设置(分析范围 · 模板 · 不参与分析的资产 · 配置锚 · 分析偏好)",
+      "page": "/admin",
+      "hrefContains": "/admin/analysis",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "v1.27 · 管理首页卡片点名五块(用户是带着「模板」「配置锚」「偏好」「不算房子」这些词来找的)。"
+    },
+    {
+      "id": "analysis-settings-from-checkup",
+      "name": "体检页 → 分析设置(范围切换旁)",
+      "page": "/checkup",
+      "hrefContains": "/admin/analysis",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "v1.27 FR-892 · 体检页只要家里有房产类 / 其他类或标记,范围切换旁就有「分析设置 →」;另有「+ 基于当前模板定制…」同样指向这里。"
+    },
+    {
+      "id": "analysis-customize-template",
+      "name": "基于当前模板定制(体检 AI 区顶部)",
+      "page": "/checkup",
+      "hrefContains": "/admin/analysis/template/new",
+      "level": "obvious",
+      "viewports": [
+        "pc",
+        "mobile"
+      ],
+      "note": "v1.27 FR-880 · 维护者评审 ①:有定制需求的人要能丝滑地找到入口 —— 模板选择行的最后一项就是它,不收进任何菜单。"
     }
   ],
   "collapsible_ok": [

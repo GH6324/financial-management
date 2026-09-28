@@ -70,6 +70,8 @@ public class AccountDiagnoseService {
                 .toList();
 
         BigDecimal currentBalance = rows.isEmpty() ? null : rows.get(rows.size() - 1).endBalanceOrig();
+        // v1.27 · 占比规则要和全家总资产(本位币)同币种相除
+        BigDecimal currentBalanceBase = rows.isEmpty() ? null : rows.get(rows.size() - 1).endBalanceBase();
         BigDecimal previousBalance = rows.size() < 2 ? null : rows.get(rows.size() - 2).endBalanceOrig();
         BigDecimal monthDelta = (currentBalance != null && previousBalance != null)
                 ? currentBalance.subtract(previousBalance) : null;
@@ -134,7 +136,8 @@ public class AccountDiagnoseService {
                 benchmark,
                 effectiveRisk,
                 riskOverridden,
-                sparkline
+                sparkline,
+                currentBalanceBase
         );
     }
 

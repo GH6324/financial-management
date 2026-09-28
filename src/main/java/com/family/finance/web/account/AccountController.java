@@ -52,8 +52,11 @@ public class AccountController {
     public String index(@AuthenticationPrincipal MemberPrincipal me,
                         @RequestParam(value = "archived", defaultValue = "false") boolean includeArchived,
                         @RequestParam(value = "type", required = false) String typeFilter,
+                        @RequestParam(value = "mark", required = false) String mark,
                         Model model) {
         addModel(me, model, includeArchived, false);
+        // v1.27 FR-804 · 从体检「标成不参与配置分析 →」来(同类有好几个账户时):告诉用户下一步点哪
+        model.addAttribute("markAnalysisHint", "analysis".equals(mark));
         // v1.20 · 「这个账户属于哪个分组」—— 从账户看分组的那一侧。
         //   第一版只做了分组管理页,账户这边一个字都没提,用户只有恰好翻到管理页才知道有这能力。
         model.addAttribute("accountGroupName", accountGroupService.occupiedBy(me.getFamilyId(), null));
@@ -122,6 +125,14 @@ public class AccountController {
         accountService.update(me, accountId, form.toAccount());
         // v0.17 · 保单旁表:保险账户 upsert;若改成非保险则清理旁表(校验归属由 update 完成)
         Account acc = accountService.require(me.getFamilyId(), accountId);
+        // v1.27 FR-800 · 「不参与配置分析」只在编辑页的表单里带着存在标记时才改 ——
+        //   别的入口提交这个地址时手里没有这个勾选项,不能把用户勾过的标记静默清掉。贷款一律 false。
+        if (form.isAnalysisExcludedPresent()) {
+            boolean want = form.isAnalysisExcluded() && acc.getType() != AccountType.LOAN;
+            if (want != acc.isAnalysisExcluded()) {
+                accountService.setAnalysisExcluded(me, accountId, want);
+            }
+        }
         if (acc.getType() == AccountType.INSURANCE) {
             insurancePolicyMapper.upsertOwned(me.getFamilyId(), form.toPolicy(accountId));
         } else {
@@ -290,6 +301,10 @@ public class AccountController {
         private java.math.BigDecimal annualRatePct;
         /** v0.8 · 预期年化收益率 %(选填 · NULL=回落品类 benchmark)· 预实 FR-152 */
         private java.math.BigDecimal expectedReturnPct;
+
+        /** v1.27 · 不参与配置分析(勾选框:不勾时浏览器不发,所以要配一个存在标记) */
+        private boolean analysisExcluded;
+        private boolean analysisExcludedPresent;
 
         // ---------- v1.1 · 资产透视维度打标(全选填 · 直落 account 三列)----------
         private String assetClass;

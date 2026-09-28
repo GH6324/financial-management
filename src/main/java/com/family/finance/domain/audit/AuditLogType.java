@@ -40,5 +40,10 @@ public enum AuditLogType {
     MEMBER_RESTORE,
     /** v1.15 FR-383 · 成员物理删除(仅零引用时可达)· 这条记完,被删的人就再也查不到了 */
     MEMBER_DELETE,
+    /**
+     * v1.27 · 分析设置改动:默认范围 / 默认模板 / 我的模板增删改 / 分析偏好增删停用 / 配置锚与自定义锚 / 风险偏好。
+     * 家里任何成员都能改(PRD §13 ⑯),所以要看得见是谁、何时改的。
+     */
+    ANALYSIS_SETTINGS,
     SYSTEM
 }

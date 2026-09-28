@@ -136,6 +136,25 @@
         </select>
       </div>
 
+      <!--/* v1.27 FR-800 · 不参与配置分析(issue #23)。任何资产类型都能勾;贷款类不显示(负债本来就不进配置分母)。
+             说明文字就是功能 —— 写错了用户会以为房子被「删了」。id 供体检卡片「标成不参与配置分析 →」直达。 */-->
+      <div class="md:col-span-2" id="analysis-excluded" style="scroll-margin-top:90px"
+           th:unless="${account.type.name() == 'LOAN'}" data-analysis-excluded-box>
+        <input type="hidden" name="analysisExcludedPresent" value="1">
+        <label class="flex gap-3 items-start cursor-pointer p-3.5"
+               style="border:2px solid var(--brass-deep);background:rgba(160,124,58,.06)">
+          <input type="checkbox" name="analysisExcluded" value="true" class="mt-1 w-4 h-4 accent-[var(--ink)]"
+                 th:checked="${account.analysisExcluded}">
+          <span>
+            <span class="font-display text-base">不参与配置分析</span>
+            <span class="block text-[12px] text-ink-soft leading-relaxed mt-1">
+              短期内不打算卖、也调不动的资产(比如自住房、车)。勾上后,体检和 AI 分析「钱怎么分」时不再算它,<b>它仍然计入净资产</b>。
+              <a th:href="@{/admin/analysis} + '#excluded'" class="text-brass-deep underline whitespace-nowrap">看看哪些资产不参与 →</a>
+            </span>
+          </span>
+        </label>
+      </div>
+
       <div class="md:col-span-2">
         <label class="field-label">默认还款来源(LOAN 类型用)</label>
         <select name="defaultPaymentSourceAccountId" data-searchable class="field-input bg-transparent">
@@ -254,6 +273,15 @@
   var box = document.getElementById('insuranceFields');
   if(!sel || !box) return;
   function sync(){ box.classList.toggle('hidden', sel.value !== 'INSURANCE'); }
+  sel.addEventListener('change', sync);
+  sync();
+})();
+/* v1.27 · 类型改成贷款时,「不参与配置分析」一项跟着藏起来(后端对贷款也一律存 false) */
+(function(){
+  var sel = document.querySelector('select[name=type]');
+  var box = document.querySelector('[data-analysis-excluded-box]');
+  if(!sel || !box) return;
+  function sync(){ box.classList.toggle('hidden', sel.value === 'LOAN'); }
   sel.addEventListener('change', sync);
   sync();
 })();

@@ -78,8 +78,13 @@ public class ReviewController {
                 AttributionEngine.groupBy(attr, dim);   // v1.20 · acct 也走标签,不再是特例
         // v1.19.16 · 把「这一期关没关账」传下去:没关账就不碰缓存(既不读也不写)
         boolean closed = anchor.getStatus() == com.family.finance.domain.period.PeriodStatus.CLOSED;
+        // v1.27(PRD §13 ⑩)· 缓存要分得清「筛了哪些账户、用什么币种看」—— 原来同一期同一维度只存一份
+        String viewContext = (accountIds == null && ccy.equalsIgnoreCase(family.getBaseCurrency())) ? null
+                : (accountIds == null ? "" : accountIds.stream().sorted().map(String::valueOf)
+                        .collect(java.util.stream.Collectors.joining(","))) + "|" + ccy.toUpperCase();
         ReviewInsightService.Review r = reviewInsightService.review(me.getFamilyId(), anchor.getId(),
-                anchor.getPeriodStart().toString().substring(0, 7), dim, attr, grouped, closed, req.force());
+                anchor.getPeriodStart().toString().substring(0, 7), dim, attr, grouped, closed, req.force(),
+                viewContext);
         return r == null ? Map.of("ok", false, "text", "AI 服务暂时不可用,稍后再试")
                          : Map.of("ok", true, "text", r.text(), "vendor", r.vendor(), "cached", r.cached());
     }

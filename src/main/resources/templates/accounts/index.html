@@ -58,6 +58,13 @@
        th:text="${includeArchived ? '隐藏已归档' : '显示已归档'}">显示已归档</a>
   </section>
 
+  <!--/* v1.27 FR-804 · 从体检「标成不参与配置分析 →」过来(这一类有好几个账户):说清下一步 */-->
+  <div th:if="${markAnalysisHint}" class="link-strip mb-5" data-mark-hint>
+    <span class="ls-kv">下面是这一类的账户 · 短期不打算动的那个,点「编辑」→ 勾「不参与配置分析」</span>
+    <span class="ls-kv">它仍计入净资产,只是体检和 AI 分析「钱怎么分」时不再算它</span>
+    <span class="ls-acts"><a th:href="@{/checkup}" class="btn-paper text-[11px] no-underline">← 回体检</a></span>
+  </div>
+
   <!-- PC 端成员 tab(同手机端) -->
   <nav class="hidden md:flex gap-2 flex-wrap mb-4">
     <a th:each="group : ${ownerGroups}"
@@ -107,6 +114,9 @@
           <a th:href="@{/accounts/{id}(id=${row.account.id})}"
              class="font-display hover:text-brass-deep no-underline"
              th:text="${row.account.displayName}">招行储蓄卡-工资</a>
+          <!--/* v1.27 FR-802 · 被拿出配置分析的账户,家里人一眼看得出来 */-->
+          <a th:if="${row.account.analysisExcluded}" th:href="@{|/accounts/${row.account.id}/edit|} + '#analysis-excluded'"
+             class="tag-excluded no-underline ml-1" data-excluded-badge title="不参与配置分析 · 净资产照常计入 · 点这里改">不参与分析</a>
           <!-- v0.2 类目 + 风险 pill (FR-37) · icon 用 inline SVG 不用 emoji -->
           <div class="flex items-center gap-1.5 mt-1 flex-wrap" th:if="${row.category != null}">
             <span class="pill text-[10px] inline-flex items-center gap-1" style="background:rgba(122,90,57,.10);border-color:var(--brass-deep);color:var(--brass-deep)">
@@ -265,6 +275,8 @@
           <a th:href="@{/accounts/{id}(id=${row.account.id})}"
              class="font-display text-base hover:text-brass-deep no-underline block"
              th:text="${row.account.displayName}">招行储蓄卡-工资</a>
+          <a th:if="${row.account.analysisExcluded}" th:href="@{|/accounts/${row.account.id}/edit|} + '#analysis-excluded'"
+             class="tag-excluded no-underline inline-block mt-1" data-excluded-badge>不参与分析</a>
           <div class="font-mono text-[10px] text-ink-subtle mt-0.5 tracking-wider" th:text="${#numbers.formatInteger(row.account.displayOrder, 3)} + ' · ' + ${row.ownerName}">001 · Alice</div>
           <!-- v0.2 类目 + 风险 pill (FR-37) · icon SVG 化 -->
           <div class="flex items-center gap-1.5 mt-2 flex-wrap" th:if="${row.category != null}">
