@@ -25,6 +25,8 @@ public class RebalanceController {
     private final com.family.finance.service.analysis.AnalysisTemplateService templateService;
     private final com.family.finance.service.analysis.AnalysisScopeService scopeService;
     private final com.family.finance.service.analysis.AnalysisContextService contextService;
+    /** v1.28 · 没生成出建议时,也能看这一次发出去了什么(PRD FR-911) */
+    private final com.family.finance.service.llmtrace.PromptPeekLinks promptPeek;
 
     @PostMapping("/reports/rebalance/advise")
     public String advise(@AuthenticationPrincipal MemberPrincipal me,
@@ -52,6 +54,7 @@ public class RebalanceController {
                 ra.addFlashAttribute("rebalanceFlash", "fail");
                 ra.addFlashAttribute("rebalanceFlashReason",
                     r.errorReason() == null ? "AI 暂时不可用,请稍后再试" : r.errorReason());
+                ra.addFlashAttribute("rebalanceFlashPeek", promptPeek.of(fid, r.promptRecordId()));
             }
         } catch (Exception e) {
             log.warn("rebalance advise failed: {}", e.toString());

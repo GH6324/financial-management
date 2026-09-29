@@ -15,7 +15,7 @@ import java.util.List;
 public interface AskMessageMapper {
 
     String COLS = " m.id, m.conversation_id AS conversationId, m.role, m.content_text AS contentText,"
-                + " m.seq, m.created_at AS createdAt ";
+                + " m.seq, m.created_at AS createdAt, m.prompt_record_id AS promptRecordId ";
 
     @Insert("INSERT INTO ask_message (conversation_id, role, content_text, seq)"
           + " SELECT #{m.conversationId}, #{m.role}, #{m.contentText}, #{m.seq}"
@@ -80,4 +80,16 @@ public interface AskMessageMapper {
           + " SET m.ctx_note = #{note}"
           + " WHERE v.family_id = #{familyId} AND m.id = #{id}")
     void updateCtxNote(@Param("familyId") long familyId, @Param("id") long id, @Param("note") String note);
+
+    /** v1.28 · 这一问发出去的内容(llm_prompt_record.id)· 记在提问那条消息上(PRD FR-919) */
+    @Update("UPDATE ask_message m JOIN ask_conversation v ON v.id = m.conversation_id"
+          + " SET m.prompt_record_id = #{recordId}"
+          + " WHERE v.family_id = #{familyId} AND m.id = #{id}")
+    void updatePromptRecord(@Param("familyId") long familyId, @Param("id") long id, @Param("recordId") long recordId);
+
+    /** v1.28 · 这段对话里最近一问发出去的内容(流式回答刚结束时,前端来要 >_ 的地址) */
+    @Select("SELECT m.prompt_record_id FROM ask_message m JOIN ask_conversation v ON v.id = m.conversation_id"
+          + " WHERE v.family_id = #{familyId} AND m.conversation_id = #{cid} AND m.role = 'user'"
+          + " AND m.prompt_record_id IS NOT NULL ORDER BY m.seq DESC LIMIT 1")
+    Long lastUserPromptRecord(@Param("familyId") long familyId, @Param("cid") long conversationId);
 }

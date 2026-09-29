@@ -10841,6 +10841,107 @@ QA1271_SC=$(grep -c 'data-tpl-scope-option' "$TMP"); QA1271_AC=$(grep -c 'data-t
   && log_ok "v127-E2E-FLOWS(flow 30 ~ 33 在)" \
   || log_bad "v127-E2E-FLOWS v1.27 的 e2e flow 缺了" "see scripts/e2e/flows/30-33"
 
+# ═══════════════════════════════════════════════════════════════════════════
+# v1.28 · 看 AI 收到了什么(prd/v1.28.md · tech-design/v1.28.md 六)
+# ═══════════════════════════════════════════════════════════════════════════
+section "v1.28 · 看 AI 收到了什么(>_ 终端面板 · 账户代号 · 日志不写正文 · AI 正文糊金额)"
+QA128_T="$RD/src/main/resources/templates"
+QA128_S="$RD/src/main/java/com/family/finance/service"
+
+# v128-MIGRATION-ADD-ONLY · V65 只建表、只加可空列(prod 上跑着真实数据;老缓存行 prompt_record_id 为空 = 老结果)
+QA128_MIG="$RD/db/migration/V65__llm_prompt_record.sql"
+{ [ -f "$QA128_MIG" ] && codeonly "$QA128_MIG" | grep -q 'CREATE TABLE IF NOT EXISTS llm_prompt_record' \
+  && codeonly "$QA128_MIG" | grep -q 'CREATE TABLE IF NOT EXISTS llm_system_prompt' \
+  && [ "$(codeonly "$QA128_MIG" | grep -c 'ADD COLUMN prompt_record_id BIGINT NULL')" -eq 4 ] \
+  && [ "$(codeonly "$QA128_MIG" | grep -c '^ALTER TABLE')" -eq 4 ] \
+  && ! codeonly "$QA128_MIG" | grep -qiE 'DROP |MODIFY |CHANGE COLUMN'; } \
+  && log_ok "v128-MIGRATION-ADD-ONLY(V65 只建两张表 + 四张结果表各加可空列 · 不删不改)" \
+  || log_bad "v128-MIGRATION-ADD-ONLY V65 出现了改列 / 删列,或缺了表 / 列" "see $QA128_MIG"
+
+# v128-PEEK-EVERYWHERE · §3.5 九处 + 超级 Agent 都用同一个 >_ 片段(漏几处会让人以为那几处「不能看」)
+QA128_MISS=""
+for f in checkup/_ai-diagnose.html checkup/_ai-insight.html reports/_ai-rebalance.html goals/detail.html ask/fragments/_stream.html; do
+  grep -q "_prompt-peek :: btn(" "$QA128_T/$f" || QA128_MISS="$QA128_MISS $f"
+done
+for f in dashboard/_attribution.html lens/_section.html goals/new-emergency.html goals/new-education.html goals/new-retirement.html; do
+  grep -q "_prompt-peek :: btnJs(" "$QA128_T/$f" || QA128_MISS="$QA128_MISS $f"
+done
+[ "$(grep -c '_prompt-peek :: btn(' "$QA128_T/goals/detail.html")" -ge 2 ] || QA128_MISS="$QA128_MISS goals/detail(月报+预警)"
+grep -q 'peekButton' "$RD/src/main/resources/static/js/ask.js" || QA128_MISS="$QA128_MISS ask.js(流式回答)"
+grep -q 'prompt-peek.js' "$QA128_T/fragments/layout.html" || QA128_MISS="$QA128_MISS layout(没引脚本)"
+[ -z "$QA128_MISS" ] \
+  && log_ok "v128-PEEK-EVERYWHERE(九处 AI 卡片 + 超级 Agent 历史 / 流式回答都挂同一个 >_ · 脚本全站引入)" \
+  || log_bad "v128-PEEK-EVERYWHERE 有 AI 卡片没挂 >_:$QA128_MISS" "see fragments/_prompt-peek.html"
+
+# v128-PEEK-STORED-NOT-REBUILT · 面板只读存下的原文,不许调提示词拼装函数重拼(数据变过之后重拼的与结果对不上)
+QA128_PV="$QA128_S/llmtrace/PromptPeekView.java"; QA128_PC="$RD/src/main/java/com/family/finance/web/ai/PromptPeekController.java"
+QA128_SAVERS=$(grep -rlE 'promptRecorder\.save\(|recorder\.save\(' "$RD/src/main/java" | xargs -n1 basename 2>/dev/null | sort | tr '\n' ' ')
+{ ! codeonly "$QA128_PV" | grep -qE 'PromptBuilder|InsightPromptBuilder|forAnalysis\(|userPromptFor' \
+  && ! codeonly "$QA128_PC" | grep -qE 'PromptBuilder|InsightPromptBuilder|forAnalysis\(|userPromptFor|LlmDiagnoseService' \
+  && [ "$QA128_SAVERS" = "AiAccessController.java AskConversationService.java LlmRouter.java " ]; } \
+  && log_ok "v128-PEEK-STORED-NOT-REBUILT(面板只读记录 · 只有路由 / 超级 Agent 发出那一刻 / 推 Agent 那一刻写记录)" \
+  || log_bad "v128-PEEK-STORED-NOT-REBUILT 面板在重拼提示词,或多了写记录的地方" "写记录的类=[$QA128_SAVERS]"
+
+# v128-ROUTER-TRACE · 九处业务调用都走带 PromptTrace 的重载(漏一处 = 那一处的 >_ 永远「没记录」)
+QA128_NT=""
+for f in checkup/llm/LlmDiagnoseService.java allocation/RebalanceAdvisorService.java review/ReviewInsightService.java \
+         lens/LensInsightService.java goal/GoalLlmService.java; do
+  codeonly "$QA128_S/$f" | grep -qE 'llmRouter\.invoke\(familyId, trace,' || QA128_NT="$QA128_NT $f"
+  codeonly "$QA128_S/$f" | grep -qE 'llmRouter\.invoke\(familyId, (system|systemPrompt), ' && QA128_NT="$QA128_NT $f(还有不记录的调用)"
+done
+[ -z "$QA128_NT" ] \
+  && log_ok "v128-ROUTER-TRACE(诊断 / 洞察 / 调仓 / 复盘 / 透视 / 目标 都经带 PromptTrace 的路由调用)" \
+  || log_bad "v128-ROUTER-TRACE 有调用没带 PromptTrace:$QA128_NT" "改走 llmRouter.invoke(familyId, trace, …)"
+
+# v128-ACCOUNT-CODENAMES · 账户名只在系统写入的位置换代号;金样本「换回真名后逐字相同」;回答换回真名
+{ codeonly "$QA128_S/checkup/llm/LlmDiagnoseService.java" | grep -q 'codes.code(a.getId()' \
+  && codeonly "$QA128_S/allocation/RebalanceAdvisorService.java" | grep -q 'codes.code(a.getId(), a.getDisplayName())' \
+  && codeonly "$QA128_S/allocation/RebalanceAdvisorService.java" | grep -q 'raw = PromptBuilder.reverseMapping(raw, legend)' \
+  && grep -q '代号换回真名后与v1261金样本逐字相同' "$RD/src/test/java/com/family/finance/service/llmtrace/AccountCodenamesTest.java" \
+  && grep -q '自己写的偏好不换账户名' "$RD/src/test/java/com/family/finance/service/llmtrace/AccountCodenamesTest.java"; } \
+  && log_ok "v128-ACCOUNT-CODENAMES(账户清单 / 账户名一行 / 调仓清单写代号 · 回答换回真名 · 金样本换回后逐字相同 · 偏好原文不动)" \
+  || log_bad "v128-ACCOUNT-CODENAMES 账户代号链路缺了一环" "see AccountCodenames / AccountCodenamesTest"
+
+# v128-LOG-NO-PROMPT · 服务器日志不再写提示词与回答正文(FR-921)· 只记长度与指纹
+QA128_AL="$QA128_S/checkup/llm/LlmAuditLogger.java"
+{ ! codeonly "$QA128_AL" | grep -qE 'append\((systemPrompt|userPrompt|response)\)|\? "\(null\)" : (systemPrompt|userPrompt|response)' \
+  && codeonly "$QA128_AL" | grep -q 'fp(userPrompt)' \
+  && ! codeonly "$QA128_S/checkup/llm/LlmDiagnoseService.java" | grep -qE 'log\.(debug|info)\([^;]*userPrompt\)'; } \
+  && log_ok "v128-LOG-NO-PROMPT(审计日志只记模型 / 耗时 / 长度 / 指纹 · 不写正文)" \
+  || log_bad "v128-LOG-NO-PROMPT 日志里又在写提示词 / 回答正文" "see LlmAuditLogger / LlmDiagnoseService"
+
+# v128-AI-TEXT-PRIV · 隐私模式也糊 AI 正文里的金额(FR-913)· 服务端 @aiText.priv + 前端 privText 同一个正则
+QA128_PM=""
+for f in checkup/_ai-diagnose.html checkup/_ai-insight.html reports/_ai-rebalance.html goals/detail.html; do
+  grep -q '@aiText.priv(' "$QA128_T/$f" || QA128_PM="$QA128_PM $f"
+done
+grep -q 'privText' "$RD/src/main/resources/static/js/lens.js" || QA128_PM="$QA128_PM lens.js"
+grep -q 'privText' "$QA128_T/dashboard/_attribution.html" || QA128_PM="$QA128_PM _attribution"
+grep -q 'privText' "$RD/src/main/resources/static/js/goal-advise.js" || QA128_PM="$QA128_PM goal-advise.js"
+grep -q '前端正则与服务端逐字相同' "$RD/src/test/java/com/family/finance/service/llmtrace/AiTextTest.java" || QA128_PM="$QA128_PM AiTextTest"
+[ -z "$QA128_PM" ] \
+  && log_ok "v128-AI-TEXT-PRIV(AI 正文里的金额包 data-priv · 服务端 / 前端同一个正则,单测逐字比)" \
+  || log_bad "v128-AI-TEXT-PRIV 还有 AI 正文没糊金额:$QA128_PM" "模板用 th:utext=\${@aiText.priv(…)} · JSON 渲染的用 privText(el, text)"
+
+# v128-PEEK-LIVE · 真请求:说明面板渲染到底;别人家 / 已清理的记录一律「已经清理掉了」(不告诉对方有没有);管理页有开关
+QA128_C=/tmp/finance-qa-v128-cookie.txt; :> "$QA128_C"
+QA128_TK=$($CURL -c "$QA128_C" "$BASE/login" | grep -oE 'name="_csrf" value="[^"]*"' | head -1 | sed 's/.*value="\([^"]*\)".*/\1/')
+$CURL -b "$QA128_C" -c "$QA128_C" -X POST --data-urlencode "_csrf=$QA128_TK" --data-urlencode "username=diwa" --data-urlencode "password=demo1234" "$BASE/login" -o /dev/null -w ""
+$CURL -b "$QA128_C" "$BASE/ai/prompt/none?for=REBALANCE&why=legacy&at=2026-09-12T10:00" -o "$TMP" -w ""
+QA128_L1=$(grep -c '还没开始记录' "$TMP"); QA128_L2=$(grep -c 'data-peek-state="LEGACY"' "$TMP")
+$CURL -b "$QA128_C" "$BASE/ai/prompt/987654321" -o "$TMP" -w ""
+QA128_L3=$(grep -c '已经清理掉了' "$TMP")
+$CURL -b "$QA128_C" "$BASE/admin/ai-access" -o "$TMP" -w ""
+QA128_L4=$(grep -c 'data-prompt-peek-toggle' "$TMP"); QA128_L5=$(grep -c '</html>' "$TMP")
+{ [ "$QA128_L1" -ge 1 ] && [ "$QA128_L2" -ge 1 ] && [ "$QA128_L3" -ge 1 ] && [ "$QA128_L4" -ge 1 ] && [ "$QA128_L5" -ge 1 ]; } \
+  && log_ok "v128-PEEK-LIVE(老结果照实说 · 不存在 / 别人家的记录不露有无 · 管理 → AI 接入有开关 · 页面渲染到底)" \
+  || log_bad "v128-PEEK-LIVE 面板 / 开关没渲染对" "老结果=$QA128_L1/$QA128_L2 不存在=$QA128_L3 开关=$QA128_L4 页尾=$QA128_L5"
+
+# v128-E2E-FLOW · 真浏览器 flow 在(从首页点资产体检 → >_ → 面板;调仓 · 开关 · 超级 Agent)
+[ -f "$RD/scripts/e2e/flows/34-prompt-peek.cjs" ] \
+  && log_ok "v128-E2E-FLOW(flow 34 在)" \
+  || log_bad "v128-E2E-FLOW v1.28 的 e2e flow 缺了" "see scripts/e2e/flows/34-prompt-peek.cjs"
+
 
 echo
 echo "═══════════════════════════════════════"

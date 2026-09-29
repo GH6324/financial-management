@@ -69,6 +69,8 @@ public class GoalController {
     private final com.family.finance.service.member.MemberDirectory memberDirectory;
     private final AccountMapper accountMapper;   // v0.16 · 自定义目标账户多选
     private final NavService navService;
+    /** v1.28 · 目标 AI(月报 / 预警 / 推荐参数)的 >_(PRD FR-900) */
+    private final com.family.finance.service.llmtrace.PromptPeekLinks promptPeek;
 
     // ---------- 列表 ----------
 
@@ -251,10 +253,18 @@ public class GoalController {
         }
         // v0.3 FR-53b/c · AI 月报 + 偏离预警(null safe)
         aiReportMapper.findLatestByGoalAndType(me.getFamilyId(), id, "MONTHLY")
-            .ifPresent(r -> model.addAttribute("aiMonthlyReport", r));
+            .ifPresent(r -> {
+                model.addAttribute("aiMonthlyReport", r);
+                model.addAttribute("reportPeekSrc", promptPeek.of(me.getFamilyId(), r.getPromptRecordId(),
+                        com.family.finance.service.llmtrace.PromptSurface.GOAL_REPORT, r.getGeneratedAt(), null));
+            });
         aiReportMapper.findLatestByGoalAndType(me.getFamilyId(), id, "ALERT")
             .filter(r -> r.getDismissedAt() == null)
-            .ifPresent(r -> model.addAttribute("aiAlert", r));
+            .ifPresent(r -> {
+                model.addAttribute("aiAlert", r);
+                model.addAttribute("alertPeekSrc", promptPeek.of(me.getFamilyId(), r.getPromptRecordId(),
+                        com.family.finance.service.llmtrace.PromptSurface.GOAL_ALERT, r.getGeneratedAt(), null));
+            });
         return "goals/detail";
     }
 
@@ -363,6 +373,8 @@ public class GoalController {
         com.family.finance.domain.goal.GoalParams p = r.value();
         Map<String, Object> resp = new java.util.HashMap<>();
         resp.put("ok", true);
+        // v1.28 · 这一次推荐当时发给 AI 的是什么(开关关了 → null)
+        resp.put("peek", promptPeek.of(me.getFamilyId(), r.promptRecordId()));
         resp.put("rationale", r.rationale());
         // 序列化字段(返回所有非空,前端 JS 选填)
         if (p.getRetireAge() != null) resp.put("retireAge", p.getRetireAge());

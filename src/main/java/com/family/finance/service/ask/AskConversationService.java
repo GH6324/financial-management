@@ -65,6 +65,10 @@ public class AskConversationService {
      */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.family.finance.service.analysis.AnalysisContextService analysisContextService;
+
+    /** v1.28 · 记下每一问发出去的内容(PRD FR-919)· 可缺:缺了就不记 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.family.finance.service.llmtrace.PromptRecorder promptRecorder;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.family.finance.service.member.MemberDirectory memberDirectory;
 
@@ -279,9 +283,49 @@ public class AskConversationService {
                     } catch (Exception e) {
                         log.debug("ctx_note 写入失败(不影响回答):{}", e.toString());
                     }
-                });
+                },
+                (system, input, vendor, managed) -> recordSent(familyId, noteTarget, system, input, vendor, managed));
 
         runtime().run(turn, collector);
+    }
+
+    /**
+     * v1.28 FR-919 · 这一问真正发出去的内容 → 记下来,挂在提问那条消息上。
+     *
+     * <p>托管模式的规矩(系统提示词)在百炼那边,由「更新 / 创建 Agent」时推过去;那一刻我们存过一份
+     * ({@link FamilyConfigService#K_ASK_AGENT_PROMPT_RECORD})。这里取那一份当「规矩」,并写明推送时间;
+     * 取不到(Agent 是本版之前建的)就照实说。记录失败不影响回答。</p>
+     */
+    private void recordSent(long familyId, Long target, String system, String input, String vendor, boolean managed) {
+        if (promptRecorder == null || target == null) return;
+        try {
+            String sys = system;
+            String note = null;
+            if (managed) {
+                long rid = configService.getLong(familyId, FamilyConfigService.K_ASK_AGENT_PROMPT_RECORD, 0L);
+                var snap = rid > 0 ? promptRecorder.find(familyId, rid) : java.util.Optional.<com.family.finance.repository.PromptRecordMapper.Row>empty();
+                if (snap.isPresent()) {
+                    sys = snap.get().systemText;
+                    note = "托管模式:规矩在百炼 Agent 里 —— 下面是 "
+                            + snap.get().createdAt.toLocalDate() + " 点「更新 Agent」时推过去的那一段";
+                } else {
+                    sys = "";
+                    note = "托管模式:规矩在百炼 Agent 里,是本版之前推过去的,没有记录 —— 去管理 → AI 接入点一次「更新 Agent」之后就能看";
+                }
+            }
+            java.util.Map<String, String> legend = memberDirectory == null ? java.util.Map.of()
+                    : com.family.finance.service.checkup.llm.PromptBuilder
+                        .buildNameMapping(memberDirectory.listAll(familyId)).codenameToReal();
+            var trace = com.family.finance.service.llmtrace.PromptTrace
+                    .of(com.family.finance.service.llmtrace.PromptSurface.ASK_TURN).legend(legend)
+                    .settings(analysisContextService == null ? null
+                            : analysisContextService.familyDefaults(familyId).settingsNote());
+            Long id = promptRecorder.save(familyId, trace, sys, input, vendor,
+                    com.family.finance.service.llmtrace.PromptRecorder.SENT, note);
+            if (id != null) messageMapper.updatePromptRecord(familyId, target, id);
+        } catch (Exception e) {
+            log.debug("记录这一问发出去的内容失败(不影响回答):{}", e.toString());
+        }
     }
 
     /**

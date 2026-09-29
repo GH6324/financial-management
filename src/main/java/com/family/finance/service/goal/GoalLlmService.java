@@ -11,6 +11,9 @@ import com.family.finance.service.FamilyService;
 import com.family.finance.service.checkup.llm.LlmRouter;
 import com.family.finance.service.checkup.llm.OutputValidator;
 import com.family.finance.service.checkup.llm.PromptBuilder;
+import com.family.finance.service.llmtrace.PromptRecorder;
+import com.family.finance.service.llmtrace.PromptSurface;
+import com.family.finance.service.llmtrace.PromptTrace;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -58,6 +61,10 @@ public class GoalLlmService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.family.finance.service.analysis.AnalysisPreferenceService preferenceService;
 
+    /** v1.28 · 发出去了、我们自己的校验没收时补记(字段注入,单测构造不带它) */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private PromptRecorder promptRecorder;
+
     /** 偏好段(放在材料之后,原文过真名映射);没有偏好 → 空串,提示词不变 */
     private String preferenceSuffix(long familyId, PromptBuilder.NameMapping mapping) {
         if (preferenceService == null) return "";
@@ -84,12 +91,16 @@ public class GoalLlmService {
                 3. 不要使用真名 · 不要使用具体产品名 · 不要担保性词汇(保证 / 稳赚 / 一定)
                 """;
             String user = buildRecommendPrompt(type, kpis, members, mapping) + preferenceSuffix(familyId, mapping);
-            String raw = invokeWithFailover(familyId, system, user);
-            if (raw == null) return AiResult.unavailable("LLM 全部失败");
+            PromptTrace trace = trace(PromptSurface.GOAL_PARAMS, familyId, mapping);
+            String raw = invokeWithFailover(familyId, trace, system, user);
+            if (raw == null) return AiResult.<GoalParams>unavailable("LLM 全部失败").withRecord(trace.recordId());
 
             GoalParams params = parseRecommendation(type, raw);
-            if (params == null) return AiResult.unavailable("LLM 输出解析失败");
-            return AiResult.ok(params, extractRationale(raw));
+            if (params == null) {
+                rejected(familyId, trace, "回答解析不出参数");
+                return AiResult.<GoalParams>unavailable("LLM 输出解析失败").withRecord(trace.recordId());
+            }
+            return AiResult.ok(params, extractRationale(raw)).withRecord(trace.recordId());
         } catch (Exception e) {
             log.warn("recommendParams failed · type={} family={}: {}", type, familyId, e.toString());
             return AiResult.unavailable("内部错误: " + e.getMessage());
@@ -114,18 +125,20 @@ public class GoalLlmService {
                 3. 聚焦本月进度变化 + 节奏点评 + 1 个可执行建议
                 """;
             String user = buildMonthlyReportPrompt(goal, progress) + preferenceSuffix(familyId, mapping);
-            String raw = invokeWithFailover(familyId, system, user);
-            if (raw == null) return AiResult.unavailable("LLM 全部失败");
+            PromptTrace trace = trace(PromptSurface.GOAL_REPORT, familyId, mapping);
+            String raw = invokeWithFailover(familyId, trace, system, user);
+            if (raw == null) return AiResult.<String>unavailable("LLM 全部失败").withRecord(trace.recordId());
 
             // 先在 raw(仍是代号)上过校验:不会因真名误判泄露
             OutputValidator.Result valid = OutputValidator.check(raw, mapping.realToCodename().keySet());
             if (!valid.accepted()) {
                 log.warn("monthly report rejected by validator: {}", valid.reason());
-                return AiResult.unavailable("AI 输出未通过校验:" + valid.reason());
+                rejected(familyId, trace, valid.reason());
+                return AiResult.<String>unavailable("AI 输出未通过校验:" + valid.reason()).withRecord(trace.recordId());
             }
             // v0.5.4 修 · 反向映射 成员A/成员B → 真名供用户阅读(原 v0.3 漏做 → 月报里出现「成员A与成员B」)
             String mapped = PromptBuilder.reverseMapping(raw.trim(), mapping.codenameToReal());
-            return AiResult.ok(mapped, null);
+            return AiResult.ok(mapped, null).withRecord(trace.recordId());
         } catch (Exception e) {
             log.warn("generateMonthlyReport failed: {}", e.toString());
             return AiResult.unavailable("内部错误: " + e.getMessage());
@@ -148,16 +161,18 @@ public class GoalLlmService {
                 3. 给出具体调整方案 1-2 条(增加月供 / 调整账户配置 / 重设目标参数)
                 """;
             String user = buildAlertPrompt(goal, progress, alertReason) + preferenceSuffix(familyId, mapping);
-            String raw = invokeWithFailover(familyId, system, user);
-            if (raw == null) return AiResult.unavailable("LLM 全部失败");
+            PromptTrace trace = trace(PromptSurface.GOAL_ALERT, familyId, mapping);
+            String raw = invokeWithFailover(familyId, trace, system, user);
+            if (raw == null) return AiResult.<String>unavailable("LLM 全部失败").withRecord(trace.recordId());
 
             OutputValidator.Result valid = OutputValidator.check(raw, mapping.realToCodename().keySet());
             if (!valid.accepted()) {
-                return AiResult.unavailable("AI 输出未通过校验:" + valid.reason());
+                rejected(familyId, trace, valid.reason());
+                return AiResult.<String>unavailable("AI 输出未通过校验:" + valid.reason()).withRecord(trace.recordId());
             }
             // v0.5.4 修 · 同月报:反向映射 成员A/成员B → 真名供用户阅读
             String mapped = PromptBuilder.reverseMapping(raw.trim(), mapping.codenameToReal());
-            return AiResult.ok(mapped, null);
+            return AiResult.ok(mapped, null).withRecord(trace.recordId());
         } catch (Exception e) {
             log.warn("generateAlertAdvice failed: {}", e.toString());
             return AiResult.unavailable("内部错误: " + e.getMessage());
@@ -171,9 +186,21 @@ public class GoalLlmService {
      * 先打百炼,管理页把主选改成 DeepSeek 对目标 AI(向导推荐 / 月报 / 偏离预警)<b>完全无效</b>。
      * 现在顺序只能来自配置,由 {@link LlmRouter} 统一编排。
      */
-    private String invokeWithFailover(long familyId, String systemPrompt, String userPrompt) {
-        return llmRouter.invoke(familyId, systemPrompt, userPrompt)
+    private String invokeWithFailover(long familyId, PromptTrace trace, String systemPrompt, String userPrompt) {
+        return llmRouter.invoke(familyId, trace, systemPrompt, userPrompt)
                 .map(LlmRouter.Outcome::text).orElse(null);
+    }
+
+    /** v1.28 · 这一次调用的随行说明:用在哪 + 成员代号对照 + 有没有用分析偏好 */
+    private PromptTrace trace(PromptSurface surface, long familyId, PromptBuilder.NameMapping mapping) {
+        int prefs = preferenceService == null ? 0 : preferenceService.enabledTexts(familyId).size();
+        return PromptTrace.of(surface).legend(mapping.codenameToReal())
+                .settings(prefs == 0 ? null : "分析偏好 " + prefs + " 条");
+    }
+
+    /** v1.28 · 发出去了、我们自己的校验没收 → 面板上写「回答没采用」 */
+    private void rejected(long familyId, PromptTrace trace, String reason) {
+        if (promptRecorder != null) promptRecorder.markRejected(familyId, trace.recordId(), reason);
     }
 
     private String buildRecommendPrompt(GoalType type, KpiSnapshot kpis,
@@ -329,7 +356,15 @@ public class GoalLlmService {
     /**
      * AI 调用结果 · 成功携带 value · 失败携带原因。
      */
-    public record AiResult<T>(boolean ok, T value, String rationale, String error) {
+    public record AiResult<T>(boolean ok, T value, String rationale, String error, Long promptRecordId) {
+        /** v1.28 · 四参老构造(不带记录编号) */
+        public AiResult(boolean ok, T value, String rationale, String error) {
+            this(ok, value, rationale, error, null);
+        }
+        /** v1.28 · 带上「这份结果是哪一次调用生成的」 */
+        public AiResult<T> withRecord(Long id) {
+            return new AiResult<>(ok, value, rationale, error, id);
+        }
         public static <T> AiResult<T> ok(T value, String rationale) {
             return new AiResult<>(true, value, rationale, null);
         }

@@ -38,6 +38,8 @@ public class ReviewController {
     private final FactViewService factViewService;
     private final AttributionService attributionService;
     private final ReviewInsightService reviewInsightService;
+    /** v1.28 · 复盘卡头的 >_(PRD FR-900) */
+    private final com.family.finance.service.llmtrace.PromptPeekLinks promptPeek;
 
     public record Req(String asof, String dim, boolean force, String currency, String accounts) {}
 
@@ -85,8 +87,16 @@ public class ReviewController {
         ReviewInsightService.Review r = reviewInsightService.review(me.getFamilyId(), anchor.getId(),
                 anchor.getPeriodStart().toString().substring(0, 7), dim, attr, grouped, closed, req.force(),
                 viewContext);
-        return r == null ? Map.of("ok", false, "text", "AI 服务暂时不可用,稍后再试")
-                         : Map.of("ok", true, "text", r.text(), "vendor", r.vendor(), "cached", r.cached());
+        if (r == null) return Map.of("ok", false, "text", "AI 服务暂时不可用,稍后再试");
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("ok", true);
+        out.put("text", r.text());
+        out.put("vendor", r.vendor());
+        out.put("cached", r.cached());
+        // v1.28 · 这份复盘当时发给 AI 的是什么(老缓存 → 「那时还没开始记录」;开关关了 → null)
+        out.put("peek", promptPeek.of(me.getFamilyId(), r.promptRecordId(),
+                com.family.finance.service.llmtrace.PromptSurface.REVIEW, r.generatedAt(), null));
+        return out;
     }
 
     private static BigDecimal nz(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }

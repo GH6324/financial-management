@@ -44,11 +44,23 @@ public class ReviewInsightService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.family.finance.service.analysis.AnalysisPreferenceService preferenceService;
 
+    /** v1.28 · 按账户切时账户名换代号(FR-920)· 字段注入且可缺(同上) */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.family.finance.repository.AccountMapper accountMapper;
+
     public boolean available(long familyId) {
         return llmRouter.available(familyId);
     }
 
-    public record Review(String text, String vendor, boolean cached) {}
+    /**
+     * @param promptRecordId v1.28 · 生成这份复盘的那次调用(null = 本版之前的老缓存 / 没调用)
+     * @param generatedAt    v1.28 · 生成时刻(老缓存在面板上说「生成于 X,那时还没开始记录」)
+     */
+    public record Review(String text, String vendor, boolean cached, Long promptRecordId, java.time.LocalDateTime generatedAt) {
+        public Review(String text, String vendor, boolean cached) {
+            this(text, vendor, cached, null, null);
+        }
+    }
 
     /**
      * @param periodClosed 这一期是否已关账。<b>没关账就完全不碰缓存</b> —— 既不读也不写。
@@ -84,12 +96,20 @@ public class ReviewInsightService {
         String cacheDim = cacheDim(dim, viewContext, prefs);
         if (periodClosed && !force) {
             ReviewAiCacheMapper.Row hit = cacheMapper.find(familyId, periodId, cacheDim);
-            if (hit != null) return new Review(hit.text(), hit.vendor(), true);
+            if (hit != null) return new Review(hit.text(), hit.vendor(), true, hit.promptRecordId(), hit.createdAt());
+        }
+        // v1.28 FR-920 · 按账户切时,分组名里的账户名换代号(账户组名不是账户,原样)
+        var codes = com.family.finance.service.llmtrace.AccountCodenames.of(
+                accountMapper == null ? List.of() : accountMapper.findAllByFamily(familyId));
+        LinkedHashMap<String, BigDecimal> shown = grouped;
+        if ("acct".equals(dim) && grouped != null) {
+            shown = new LinkedHashMap<>();
+            for (var e : grouped.entrySet()) shown.merge(codes.codeForName(e.getKey()), e.getValue(), BigDecimal::add);
         }
         // 偏好在材料之后;和材料一起过同一层真名替换(PRD §8)
         String prefBlock = com.family.finance.service.analysis.AnalysisPromptBlocks.preferencesOnly(prefs, null);
         String facts = anonymize(familyId,
-                buildFactsAndSignals(periodLabel, attr, grouped) + expenseStructure(familyId)
+                buildFactsAndSignals(periodLabel, attr, shown) + expenseStructure(familyId)
                         + (prefBlock.isBlank() ? "" : "\n" + prefBlock + "\n"));
         String system = """
                 你是家庭月度资产复盘助手。下面是**已经算好**的本期归因事实与系统判定的异常信号。
@@ -100,12 +120,18 @@ public class ReviewInsightService {
                 4. 信号为空时如实说本期结构无显著异常,给一句观察即可;
                 5. 不推荐任何具体产品、不预测涨跌、不用黑话。
                 只输出要点行,不要标题、开场白、markdown。""";
-        return llmRouter.invoke(familyId, system, facts, (inv, raw, ms) -> {
-            String out = raw.trim();
-            // 只有已关账的期才落缓存 —— 进行中的期数据还在动,存下来必然过期
-            if (periodClosed) cacheMapper.upsert(familyId, periodId, cacheDim, out, inv.badge());
-            return new Review(out, inv.badge(), false);
-        });
+        Map<String, String> legend = new LinkedHashMap<>(memberLegend(familyId));
+        legend.putAll(codes.codeToReal());
+        var trace = com.family.finance.service.llmtrace.PromptTrace
+                .of(com.family.finance.service.llmtrace.PromptSurface.REVIEW).legend(legend)
+                .settings(prefs.isEmpty() ? null : "分析偏好 " + prefs.size() + " 条");
+        // v1.28 · 回答里的代号(成员 / 账户)展示前换回真名
+        Review r = llmRouter.invoke(familyId, trace, system, facts, (inv, raw, ms) -> new Review(
+                com.family.finance.service.checkup.llm.PromptBuilder.reverseMapping(raw.trim(), legend), inv.badge(), false));
+        if (r == null) return null;
+        // 只有已关账的期才落缓存 —— 进行中的期数据还在动,存下来必然过期
+        if (periodClosed) cacheMapper.upsert(familyId, periodId, cacheDim, r.text(), r.vendor(), trace.recordId());
+        return new Review(r.text(), r.vendor(), false, trace.recordId(), java.time.LocalDateTime.now());
     }
 
     /**
@@ -208,6 +234,16 @@ public class ReviewInsightService {
         } catch (Exception e) {
             return dim + "|" + String.format("%08x", fp.hashCode());
         }
+    }
+
+    /** 与 {@link #anonymize} 同一个顺序的「代号 → 真名」 */
+    private Map<String, String> memberLegend(long familyId) {
+        Map<String, String> m = new LinkedHashMap<>();
+        char c = 'A';
+        for (var mem : memberDirectory.listAll(familyId)) {
+            if (mem.getDisplayName() != null && !mem.getDisplayName().isBlank()) m.put("成员" + c++, mem.getDisplayName());
+        }
+        return m;
     }
 
     private String anonymize(long familyId, String text) {

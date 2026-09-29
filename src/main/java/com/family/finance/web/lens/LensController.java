@@ -42,6 +42,7 @@ public class LensController {
     private final ObjectMapper objectMapper;
     private final com.family.finance.service.lens.LensMetaService lensMetaService;
     private final com.family.finance.service.lens.LensInsightService lensInsightService;   // v1.1.x #7 AI 洞察
+    private final com.family.finance.service.llmtrace.PromptPeekLinks promptPeek;          // v1.28 · 透视 AI 解读的 >_
 
     /** 透视页壳(组件渲染由 static/js/lens.js 走 /lens/query) */
     @GetMapping("/lens")
@@ -69,8 +70,14 @@ public class LensController {
             throw new IllegalArgumentException("行维度最多 3 个 · 列维度最多 2 个");
         }
         com.family.finance.service.lens.LensInsightService.Insight ins = lensInsightService.interpret(me.getFamilyId(), q);
-        return ins == null ? java.util.Map.of("ok", false, "text", "AI 服务暂时不可用,稍后再试")
-                           : java.util.Map.of("ok", true, "text", ins.text(), "vendor", ins.vendor());
+        if (ins == null) return java.util.Map.of("ok", false, "text", "AI 服务暂时不可用,稍后再试");
+        java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("ok", true);
+        out.put("text", ins.text());
+        out.put("vendor", ins.vendor());
+        // v1.28 · 这一份解读当时发给 AI 的是什么(开关关了 → null)
+        out.put("peek", promptPeek.of(me.getFamilyId(), ins.promptRecordId()));
+        return out;
     }
 
     @PostMapping("/lens/query")

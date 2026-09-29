@@ -125,6 +125,14 @@ public class ManagedAgentRuntime implements AgentRuntime {
             //   改了偏好下一句就生效,不用去管理页点「更新 Agent」(PRD FR-853)。
             //   并用百炼的回显确认它真的收到了:「上游收下了」要回读才算(与 verifyTemplate 同一个规矩)。
             String input = composeTurnInput(turn.analysisContext(), turn.question());
+            // v1.28 FR-919 · 出网前回报这一问真正发出去的内容;规矩在百炼那边,由调用方取「上次推过去的那份」
+            if (turn.onPromptSent() != null) {
+                try {
+                    turn.onPromptSent().sent(null, input, "百炼托管 Agent", true);
+                } catch (Exception e) {
+                    log.debug("记录这一问发出去的内容失败(不影响回答):{}", e.toString());
+                }
+            }
             Appended ap = appendUserMessageEcho(sessionId, input);
             if (turn.hasAnalysisContext() && turn.onContextNote() != null) {
                 boolean echoed = ap.echo() != null && ap.echo().contains(CONTEXT_MARK);

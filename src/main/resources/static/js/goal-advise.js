@@ -47,7 +47,10 @@
       if (data.rationale) {
         const r = document.getElementById('ai-rationale');
         if (r) {
-          r.textContent = '✨ ' + data.rationale;
+          // v1.28 · 金额包 data-priv(隐私模式下糊掉)+ 旁边的 >_ 指向这一次发出去的内容
+          const t = document.getElementById('ai-rationale-text') || r;
+          if (window.privText) window.privText(t, data.rationale); else t.textContent = data.rationale;
+          if (window.peekSet) window.peekSet(document.getElementById('ai-rationale-peek'), data.peek);
           r.classList.remove('hidden');
         }
       }

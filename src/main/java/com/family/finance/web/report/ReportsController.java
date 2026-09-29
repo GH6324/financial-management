@@ -56,6 +56,8 @@ public class ReportsController {
     private final com.family.finance.service.expense.ExpenseCatQueryService expenseCatQueryService;  // v1.21
     private final com.family.finance.service.group.AccountGroupingResolver groupingResolver;        // v1.20
     private final FamilyService familyService;
+    /** v1.28 · AI 调仓建议卡头的 >_(PRD FR-900) */
+    private final com.family.finance.service.llmtrace.PromptPeekLinks promptPeek;
     private final PeriodMapper periodMapper;
     private final AccountMapper accountMapper;
     private final FxMapper fxMapper;
@@ -490,9 +492,13 @@ public class ReportsController {
         model.addAttribute("footTemplateUrls", footTemplateUrls);
 
         // v0.4 FR-62b · 调仓建议缓存渲染(若有)· v1.27 键按「范围 + 模板 + 偏好」(与生成时同一个键)
-        RebalanceAdviceView rebalanceAdvice = rebalanceAdvisorService.cached(me.getFamilyId(), analysis)
+        var rebalanceCached = rebalanceAdvisorService.cached(me.getFamilyId(), analysis);
+        RebalanceAdviceView rebalanceAdvice = rebalanceCached
                 .map(r -> new RebalanceAdviceView(r.narrative(), r.actions(), r.generatedAt()))
                 .orElse(null);
+        // v1.28 · 这份建议当时发给 AI 的是什么;本版之前生成的老建议照实说「那时还没开始记录」
+        model.addAttribute("rebalancePeekSrc", rebalanceCached.map(r -> promptPeek.of(me.getFamilyId(), r.promptRecordId(),
+                com.family.finance.service.llmtrace.PromptSurface.REBALANCE, r.generatedAt(), null)).orElse(null));
 
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));

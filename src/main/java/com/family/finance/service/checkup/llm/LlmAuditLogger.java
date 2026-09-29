@@ -6,10 +6,13 @@ import org.slf4j.LoggerFactory;
 /**
  * v0.2 · LLM 全交互日志 · 2026-05-10
  *
+ * <p><b>v1.28 起只记元数据</b>(模型、耗时、长度、指纹、结果),不再记提示词与回答正文(PRD FR-921)。
+ * 原文存在 {@code llm_prompt_record},页面上点 {@code >_} 看。</p>
+ *
  * <p>每次 LLM 调用(qwen / deepseek)都通过此 logger 输出多行块,便于:
  * <ul>
  *   <li>{@code journalctl -u finance | grep LLM_AUDIT} 过滤</li>
- *   <li>逐字检查 prompt 与 response,排查脱敏 / 数字保真问题</li>
+ *   <li>(v1.28 起不再记正文;逐字核对 prompt 在页面上点 >_)</li>
  *   <li>看每次调用的 elapsed_ms,排查 SLA</li>
  * </ul>
  *
@@ -59,14 +62,21 @@ public final class LlmAuditLogger {
             if (!accepted && rejectReason != null) sb.append(" reject=\"").append(rejectReason).append("\"");
             sb.append('\n');
         }
-        sb.append("--- system prompt (").append(systemPrompt == null ? 0 : systemPrompt.length()).append(" chars) ---").append('\n');
-        sb.append(systemPrompt == null ? "(null)" : systemPrompt).append('\n');
-        sb.append("--- user prompt (").append(userPrompt == null ? 0 : userPrompt.length()).append(" chars) ---").append('\n');
-        sb.append(userPrompt == null ? "(null)" : userPrompt).append('\n');
-        sb.append("--- response (").append(response == null ? 0 : response.length()).append(" chars) ---").append('\n');
-        sb.append(response == null ? "(null)" : response).append('\n');
+        // v1.28 FR-921 · 只记元数据:长度 + 指纹前 12 位。正文(含家里的金额)不进服务器日志 ——
+        // 要看发出去的是什么,在页面上点 >_(发出去的原文存在 llm_prompt_record,只给本家庭看)。
+        sb.append("system=").append(len(systemPrompt)).append("chars#").append(fp(systemPrompt))
+          .append(" user=").append(len(userPrompt)).append("chars#").append(fp(userPrompt))
+          .append(" response=").append(len(response)).append("chars").append('\n');
         sb.append("===== /LLM_AUDIT [").append(vendor).append("] =====");
         LOG.info(sb.toString());
+    }
+
+    private static int len(String s) { return s == null ? 0 : s.length(); }
+
+    /** 内容指纹前 12 位(排障时对得上「是不是同一段」,又看不出内容) */
+    private static String fp(String s) {
+        if (s == null) return "-";
+        return com.family.finance.service.llmtrace.PromptRecorder.sha256(s).substring(0, 12);
     }
 
     /** 简单 SLA 标签:< 3s OK / 3-8s SLOW / > 8s VERY_SLOW */

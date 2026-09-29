@@ -193,6 +193,10 @@ public class FamilyConfigService {
      * 按人记:一个人关掉,不打扰家里其他人(FR-881)。
      */
     public static final String K_ANALYSIS_HINT_DISMISSED = "analysis_hint_dismissed";
+    /** v1.28 · AI 结果旁显示「看 AI 收到了什么」(PRD FR-914)· 缺省 = 开 */
+    public static final String K_AI_PROMPT_PEEK = "ai_prompt_peek";
+    /** v1.28 · 托管 Agent:上次「更新 / 创建 Agent」推给百炼的系统提示词记录(llm_prompt_record.id) */
+    public static final String K_ASK_AGENT_PROMPT_RECORD = "ask_agent_prompt_record";
 
     // ========== env / yml @Value fallback ==========
     @Value("${finance.llm.qwen.api-key:}")

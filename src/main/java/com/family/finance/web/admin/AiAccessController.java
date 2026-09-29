@@ -64,6 +64,9 @@ public class AiAccessController {
     private final AskConversationService askConversations;
     private final AskPromptBuilder promptBuilder;
     private final ManagedAgentRuntime managedAgentRuntime;
+    /** v1.28 · 推给百炼的规矩存一份(PRD FR-919)· 可缺 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.family.finance.service.llmtrace.PromptRecorder promptRecorder;
     /** AI 现在还好吗 —— 2026-09-22:主备双双欠费挂了 20 天没人知道,因为每一层都优雅降级了 */
     private final com.family.finance.service.checkup.llm.LlmHealthTracker llmHealth;
     /** v1.24.5 · 「AI 大模型」那一节从数据源接入挪到这一页 —— AI 的东西放一处 */
@@ -74,6 +77,8 @@ public class AiAccessController {
         long fam = me.getFamilyId();
         model.addAttribute("me", me);
         model.addAttribute("nav", navService.load(me));
+        // v1.28 FR-914 · 「看 AI 收到了什么」开关(缺省 = 开)
+        model.addAttribute("promptPeekOn", configService.getBoolean(fam, FamilyConfigService.K_AI_PROMPT_PEEK, true));
         // 健康读数:每个平台最后一次调用的结果 + 「是不是全挂了」
         model.addAttribute("llmHealth", llmHealth.snapshot());
         model.addAttribute("llmAllDown", llmHealth.allAccountsDown());
@@ -196,6 +201,19 @@ public class AiAccessController {
         return "redirect:/admin/ai-access";
     }
 
+    /** v1.28 FR-914 · 「看 AI 收到了什么」开关 · 只管显不显示图标,记录照写(再打开时不用先刷新) */
+    @PostMapping("/admin/ai-access/prompt-peek")
+    public String promptPeek(@AuthenticationPrincipal MemberPrincipal me,
+                             @org.springframework.web.bind.annotation.RequestParam("on") boolean on,
+                             RedirectAttributes ra) {
+        configService.set(me.getFamilyId(), FamilyConfigService.K_AI_PROMPT_PEEK, String.valueOf(on));
+        auditLogService.record(me.getFamilyId(), me.getMemberId(), com.family.finance.domain.audit.AuditLogType.ANALYSIS_SETTINGS,
+                "ai_prompt_peek", null, on ? "打开「看 AI 收到了什么」" : "关掉「看 AI 收到了什么」");
+        ra.addFlashAttribute("askNote", on ? "已打开:每个 AI 结果旁都有 >_,点开看 AI 收到了什么。"
+                : "已关掉:AI 结果旁不再显示 >_(记录照常写,再打开就能看)。");
+        return "redirect:/admin/ai-access#peek";
+    }
+
     @PostMapping("/admin/ai-access/create-agent")
     public String createAgent(@AuthenticationPrincipal MemberPrincipal me, RedirectAttributes ra) {
         long fam = me.getFamilyId();
@@ -214,6 +232,7 @@ public class AiAccessController {
                 String id = managedAgentRuntime.createAgent(prompt, null);
                 ra.addFlashAttribute("askNote", "已在百炼上创建 Agent(" + id + ")。");
             }
+            rememberAgentPrompt(fam, prompt);
         } catch (Exception e) {
             // v1.19.11 · 把**百炼原话**放在最前面。原来这里只有 e.getMessage()(那时它只有
             // 「upstream 400」)再跟一句我们猜的「先确认两个 ID」—— 而用户那次两个 ID 都是对的,
@@ -228,6 +247,18 @@ public class AiAccessController {
                     + (upstream ? "百炼返回:" + msg + " —— " + hint(msg) : msg));
         }
         return "redirect:/admin/ai-access";
+    }
+
+    /**
+     * v1.28 FR-919 · 推送成功后存一份「推给百炼的规矩」原文:之后每一问的 >_ 面板用它当「规矩」,并写明推送时间。
+     * 记录失败不影响推送结果(只是面板上会照实说「没有记录」)。
+     */
+    private void rememberAgentPrompt(long fam, String prompt) {
+        if (promptRecorder == null) return;
+        Long id = promptRecorder.save(fam,
+                com.family.finance.service.llmtrace.PromptTrace.of(com.family.finance.service.llmtrace.PromptSurface.ASK_AGENT_SYSTEM),
+                prompt, "", "百炼托管 Agent", com.family.finance.service.llmtrace.PromptRecorder.SENT, null);
+        if (id != null) configService.set(fam, FamilyConfigService.K_ASK_AGENT_PROMPT_RECORD, String.valueOf(id));
     }
 
     /**

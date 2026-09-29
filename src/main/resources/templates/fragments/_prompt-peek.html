@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!--/*
+  v1.28 · 看 AI 收到了什么(PRD §3 · tech-design v1.28 选型四)
+
+  btn(src)  卡片头上的 >_ 图标。src = PromptPeekLinks 给的面板地址;null = 开关关了 / 不显示。
+            放在卡片头那一行里,那一行加 data-peek-host —— 面板展开在这一行的正下方(prompt-peek.js 负责插槽)。
+  panel     点开后 htmx 拉的终端面板。模型 pv = PromptPeekView,只由一条已存的记录构造,不重拼。
+
+  金额一律经 @aiText.priv 转义后包 data-priv:隐私模式下和页面其他金额一样糊(FR-912)。
+  图标是 Feather「terminal」,24×24 viewBox + stroke=currentColor(项目约定:不用 emoji)。
+*/-->
+<body>
+
+<th:block th:fragment="btn(src)"><button th:if="${src != null}" type="button" class="peek-btn" data-peek-btn
+        th:attr="data-peek-src=${src}" aria-expanded="false" aria-label="看 AI 收到了什么" title="看 AI 收到了什么"><svg
+        width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></button></th:block>
+
+<!--/* btnJs(id):给 JSON 渲染的 AI 卡片(复盘 / 透视 / 目标推荐参数)用 —— 先藏着,拿到结果后 peekSet(btn, src) 再亮 */-->
+<th:block th:fragment="btnJs(id)"><button type="button" class="peek-btn" hidden th:id="${id}" data-peek-btn
+        aria-expanded="false" aria-label="看 AI 收到了什么" title="看 AI 收到了什么"><svg
+        width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></button></th:block>
+
+<div th:fragment="panel" class="peek" data-peek th:attr="data-peek-state=${pv.state()}">
+  <div class="pk-bar">
+    <span class="pk-dot"></span><span class="pk-dot"></span><span class="pk-dot"></span>
+    <span class="pk-title" th:text="'ai-prompt · ' + ${pv.surfaceLabel()}">ai-prompt · 体检 · AI 综合诊断</span>
+    <button type="button" class="pk-x" data-peek-close title="收起(Esc)">esc</button>
+  </div>
+  <div class="pk-body">
+    <span class="ln cmd" data-peek-type th:text="${pv.command()}">ai-prompt show --for "体检 · AI 综合诊断"</span>
+    <span th:each="w : ${pv.warnLines()}" class="ln warn" th:text="${w}"># 说明</span>
+    <th:block th:if="${pv.hasContent()}">
+      <span class="ln ok" th:if="${pv.state() == 'OK'}"># 这份结果就是用下面这段生成的 · 逐字</span>
+      <span class="ln ok" th:if="${pv.state() == 'SENT'}"># 这一问发出去的就是下面这段 · 逐字</span>
+      <span class="ln kv" th:if="${pv.vendor() != null}"><span class="k">模型</span><span th:text="${pv.vendor()}">deepseek</span></span>
+      <span class="ln kv" th:if="${pv.sentAt() != null}"><span class="k">发出</span><span th:text="${pv.sentAt()}">2026-09-29 14:02:31</span></span>
+      <span class="ln kv" th:if="${pv.settingsNote() != null}"><span class="k">你的设置</span><span th:text="${pv.settingsNote()}">模板</span></span>
+      <span class="ln kv"><span class="k">长度</span><span
+            th:text="'规矩 ' + ${#numbers.formatInteger(pv.systemChars(), 1, 'COMMA')} + ' 字 · 你家的数据 ' + ${#numbers.formatInteger(pv.userChars(), 1, 'COMMA')} + ' 字'">规矩</span></span>
+
+      <div class="sec sys" data-sec="rules" th:classappend="${pv.systemHasMine()} ? ' open'">
+        <div class="sec-h" data-sec-toggle role="button" tabindex="0"><span class="tri" th:text="${pv.systemHasMine()} ? '▾' : '▸'">▸</span><span
+             class="tag sys">system</span>规矩<span class="meta"
+             th:text="${pv.systemHasMine()} ? ${#numbers.formatInteger(pv.systemChars(), 1, 'COMMA')} + ' 字 · 含你的设置' : '每个模板都一样 · 改不了 · ' + ${#numbers.formatInteger(pv.systemChars(), 1, 'COMMA')} + ' 字 · 点开'">点开</span></div>
+        <div class="sec-b">
+          <th:block th:each="g : ${pv.systemSegs()}">
+            <span th:if="${g.mine()}" class="mine"><span class="src" th:text="${g.source()}">← 来源</span><span
+                  th:each="l : ${g.lines()}" class="ln" th:utext="${@aiText.priv(l)}">行</span></span>
+            <th:block th:unless="${g.mine()}"><span th:each="l : ${g.lines()}" class="ln" th:utext="${@aiText.priv(l)}">行</span></th:block>
+          </th:block>
+        </div>
+      </div>
+
+      <div class="sec open" data-sec="data">
+        <div class="sec-h" data-sec-toggle role="button" tabindex="0"><span class="tri">▾</span><span
+             class="tag">user</span>你家的数据<span class="meta"
+             th:text="'这一次的数字、账户、命中的规则、你的设置 · ' + ${#numbers.formatInteger(pv.userChars(), 1, 'COMMA')} + ' 字'">说明</span></div>
+        <div class="sec-b">
+          <th:block th:each="g : ${pv.dataSegs()}">
+            <span th:if="${g.mine()}" class="mine" data-peek-mine><span class="src" th:text="${g.source()}">← 来源</span><span
+                  th:each="l : ${g.lines()}" class="ln" th:utext="${@aiText.priv(l)}">行</span></span>
+            <th:block th:unless="${g.mine()}"><span th:each="l : ${g.lines()}" class="ln" th:utext="${@aiText.priv(l)}">行</span></th:block>
+          </th:block>
+        </div>
+      </div>
+
+      <div class="sec open">
+        <span th:each="l : ${pv.legendLines()}" class="ln cmt" th:text="${l}"># 对照</span>
+        <span th:each="l : ${pv.tailNotes()}" class="ln cmt" th:text="${l}"># 说明</span>
+      </div>
+      <textarea hidden data-peek-raw="all" th:text="${pv.rawAll()}"></textarea>
+      <textarea hidden data-peek-raw="data" th:text="${pv.rawData()}"></textarea>
+    </th:block>
+    <div class="pk-log" data-peek-log th:attr="data-peek-mine-count=${pv.mineCount()}"></div>
+  </div>
+  <div class="pk-foot">
+    <div class="chips">
+      <th:block th:if="${pv.hasContent()}">
+        <button type="button" class="chip" data-peek-run="rules"><b>$</b> rules · 看规矩</button>
+        <button type="button" class="chip" data-peek-run="data"><b>$</b> data · 只看数据</button>
+        <button type="button" class="chip" data-peek-run="mine"><b>$</b> mine · 只看我的设置</button>
+        <button type="button" class="chip" data-peek-run="copy" data-peek-copy><b>$</b> copy · 复制全部</button>
+        <button type="button" class="chip" data-peek-run="copy data" data-peek-copy><b>$</b> copy data · 只复制数据</button>
+      </th:block>
+      <button type="button" class="chip" data-peek-run="help"><b>$</b> help</button>
+      <button type="button" class="chip" data-peek-run="exit"><b>$</b> exit</button>
+    </div>
+    <div class="pk-in"><span class="p">$</span><input data-peek-in autocomplete="off" spellcheck="false"
+         placeholder="也可以直接敲命令,比如 mine 或 help" aria-label="命令"><span class="caret"></span></div>
+    <div class="pk-note"><span th:if="${pv.hasContent()}">复制出去的内容含真实金额<span class="pk-priv-note"> · 隐私模式开着,先关隐私模式才能复制</span> · </span>Esc 收起</div>
+  </div>
+</div>
+
+</body>
+</html>

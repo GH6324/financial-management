@@ -107,6 +107,11 @@ worktree 的工作目录里没有 `.githooks/`(那是 master 上的文件),hook 
   - **分析模板**(`AnalysisTemplate`)—— AI 的角度:侧重(1–4)· 立场 · 固定范围 · 指定锚 · 补充要求(≤500 字)。**内置 5 个随代码走**(`BuiltinTemplates`,改了加 version);「我的模板」存**完整副本**(`analysis_template`)。**只改 AI 的说法,不改任何数字、不改规则卡片**。「综合体检 · 全部资产 · 没偏好」= v1.26 提示词逐字(金样本 `golden/v1261`)。
   - **分析偏好**(`analysis_preference`)—— 家里人写给 AI 的句子,只进提示词,先过真名映射,压在所有材料之后并带「数字以系统为准」。**写入只有两条:分析设置页、超级 Agent 确认卡上用户点「记住」**(`{{remember:…}}` 正文标记,工具表里没有写能力)。
   - **有效目标**(配置锚)—— 范围内没有房产 / 保险的桶不参与,其余按原比例放大到 100;现金、投资桶始终参与;「其他」类不进四桶;自定义锚没填不出对照。
+- **看 AI 收到了什么**(v1.28 · 见 L20):
+  - **发出去的内容**(`llm_prompt_record` + 按 (家庭, sha256) 去重的 `llm_system_prompt`)—— 一次调用真正交给大模型的「规矩」(system)与「你家的数据」(user)原文。**只在 `LlmRouter.invoke(familyId, PromptTrace, …)` 的调用循环里写**(超级 Agent 在发出那一刻经 `AskTurn.onPromptSent` 写;托管 Agent 的规矩在「更新 / 创建 Agent」成功时存一份)。结果带编号(内存缓存条目 / 缓存行 `prompt_record_id` / JSON 的 `peek`);**页面只读记录,不重拼**;没记录的老结果照实说「那时还没开始记录」。
+  - **>_ 面板**(`fragments/_prompt-peek.html` · `PromptPeekView` · `js/prompt-peek.js`)—— 卡片头的终端面板;「你的设置带来的」段落按 `AnalysisPromptBlocks.H_*` 标题标色写来源;命令 `rules / data / mine / copy / help / exit` 都有按钮;开关 `ai_prompt_peek`(管理 → AI 接入,缺省开)。
+  - **账户代号**(`AccountCodenames`)—— 分析类 AI 的提示词里账户名写「账户A / 账户B」(按 id 升序),**只在系统写入的位置换**(账户清单 / 账户名一行 / 范围块 / 调仓清单 / 透视按账户组切的行),用户自己写的偏好不动;回答展示前换回真名。超级 Agent 的工具返回仍带账户名。
+  - **审计日志只记元数据**(`LlmAuditLogger`:模型 / 耗时 / 长度 / 指纹),正文不进服务器日志。
 
 ---
 
@@ -216,6 +221,7 @@ worktree 的工作目录里没有 `.githooks/`(那是 master 上的文件),hook 
 | L16 · 关账宽限 / 双活跃账期 | 加任何**写数据**的入口(端点 / `@Scheduled` / 导入),或动**取期**逻辑 | **每个写操作必须有明确归属判据**,三选一:**显式选期**(页面要有月份指引)/ **事件时点**(股价刷新、券商同步)/ **永远最新**(余额、估值 —— 只有一个「现在」)。不许出现第四种「看 `findCurrentOpen()` 返回什么就是什么」—— 双 OPEN 下它**静默返回最新那期**,不报错、不进日志,漏的那处只会给一个看起来合理但是错的数。取期按语义选 `findBalancePeriod`(余额轴)/ `findRecordableOpen`(收支轴)。收益类指标锚**已定稿**期(CLOSED 或「已自然结束**且填报完成**」),判据是「填完了没有」不是「关了没有」。宽限上限 5 天由 schema CHECK 锁死 —— 本版所有判据按「最多两期」写,第三期一出现全部失效。全量矩阵(27 写操作 × 42 组件指标)见 `prd/v1.23.md` §4 | `v1230-DUAL-OPEN-SWEEP` · `v1230-BALANCE-AXIS-LATEST-ONLY` · `v1230-SETTLED-NOT-JUST-CLOSED` · `v1230-SETTLED-JUDGE-ALIGNED` · `v1230-GRACE-CLOSE-DECOUPLED` · `v1230-GRACE-MAX-5` · `v1230-CARRIED-FORWARD-GUARD` · `PeriodGraceTest` |
 
 | L19 · 分析范围(v1.27) | 新增 / 改任何**占比类**组件(分母是资产合计的:配置、风险分布、集中度、配置锚、AI 的配置结论) | 要么吃分析范围(从 `FamilyDiagnose` / `AllocationService.compute(…, scope, …)` / `AssetInsightService.compute(…, scope, …)` 取,范围只经 `AnalysisScope.apply` → `FactSlice.excludingAccounts`),要么在 `prd/v1.27.md` §6 矩阵里写明为什么不跟;**绝对数一格都不许跟**。改任何分析类 AI 的提示词:偏好 / 补充要求经 `AnalysisPromptBlocks` 拼、在材料之后;基线组合须与 `golden/v1261` 逐字相同;缓存键带 `AnalysisContext.fingerprint()` | `v127-RATIO-FOLLOWS-SCOPE` · `v127-SCOPE-SLICE-ONLY` · `v127-PROMPT-BASELINE` · `v127-BLOCK-ORDER` · `v127-CACHE-KEYS` · e2e flow 30–33 |
+| L20 · 看 AI 收到了什么(v1.28) | 新增 / 改任何**调用大模型并展示回答**的地方 | 走 `llmRouter.invoke(familyId, PromptTrace, …)`(不走不记录的老重载);结果带 `promptRecordId` 一路传到页面;卡片头挂 `_prompt-peek :: btn`(JSON 渲染的用 `btnJs` + `peekSet`);AI 正文用 `@aiText.priv` / `privText`;提示词里账户名只在系统写入的位置用 `AccountCodenames` 换代号、回答反映射;**不许在面板侧重拼提示词**;日志只记元数据 | `v128-ROUTER-TRACE` · `v128-PEEK-EVERYWHERE` · `v128-PEEK-STORED-NOT-REBUILT` · `v128-ACCOUNT-CODENAMES` · `v128-LOG-NO-PROMPT` · `v128-AI-TEXT-PRIV` · e2e flow 34 |
 
 **新链怎么加**:出现"改 A 漏了 B"事故 → 加一行(触发/必须同步/守护)+ `qa-run.sh` 加静态 grep 把它网住,下次它自己 fail。
 

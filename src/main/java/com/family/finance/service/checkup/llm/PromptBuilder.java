@@ -275,6 +275,21 @@ public final class PromptBuilder {
                                               Map<String, String> mapping,
                                               String ownerCodename,
                                               String preferenceBlock) {
+        return userPromptForAccount(familyName, familyDiagnose, accountDiagnose, adviceList, mapping,
+                ownerCodename, preferenceBlock, null);
+    }
+
+    /**
+     * v1.28 · 「账户名」那一行写代号(FR-920)· {@code accountLabel} = null → 原名(与 v1.27 逐字相同)
+     */
+    public static String userPromptForAccount(String familyName,
+                                              FamilyDiagnose familyDiagnose,
+                                              AccountDiagnose accountDiagnose,
+                                              List<Advice> adviceList,
+                                              Map<String, String> mapping,
+                                              String ownerCodename,
+                                              String preferenceBlock,
+                                              String accountLabel) {
         StringBuilder sb = new StringBuilder(2048);
         sb.append("# 账户深度体检上下文\n\n");
         sb.append("家庭名: ").append(safe(familyName)).append('\n');
@@ -282,7 +297,7 @@ public final class PromptBuilder {
 
         Account acc = accountDiagnose.account();
         sb.append("## 1. 此账户硬事实\n");
-        sb.append("- 账户名: ").append(safe(acc.getDisplayName())).append('\n');
+        sb.append("- 账户名: ").append(safe(accountLabel != null ? accountLabel : acc.getDisplayName())).append('\n');
         sb.append("- 类型: ").append(acc.getType()).append(" / ").append(acc.getType().getLabel()).append('\n');
         sb.append("- 类目: ");
         if (accountDiagnose.category() != null) {

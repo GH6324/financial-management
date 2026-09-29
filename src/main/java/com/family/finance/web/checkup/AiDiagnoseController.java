@@ -63,6 +63,8 @@ public class AiDiagnoseController {
     private final com.family.finance.service.analysis.AnalysisScopeService scopeService;
     private final com.family.finance.service.analysis.AnalysisContextService contextService;
     private final com.family.finance.service.analysis.AnalysisHintService hintService;
+    /** v1.28 · 卡片头 >_ 指向哪(PRD FR-900) */
+    private final com.family.finance.service.llmtrace.PromptPeekLinks promptPeek;
 
     @GetMapping("/checkup/diagnose")
     public String diagnose(@AuthenticationPrincipal MemberPrincipal me,
@@ -111,6 +113,9 @@ public class AiDiagnoseController {
         }
 
         model.addAttribute("result", result);
+        model.addAttribute("peekSrc", peekSrc(me.getFamilyId(), result, accountId == null
+                ? com.family.finance.service.llmtrace.PromptSurface.DIAGNOSE_FAMILY
+                : com.family.finance.service.llmtrace.PromptSurface.DIAGNOSE_ACCOUNT));
         model.addAttribute("scope", accountId == null ? "FAMILY" : "ACCOUNT");
         model.addAttribute("accountId", accountId);
         return "checkup/_ai-diagnose :: panel";
@@ -144,8 +149,21 @@ public class AiDiagnoseController {
                 : llmDiagnoseService.diagnoseAssetInsight(fid, me.getMemberId(), insight, refresh, analysis);
         model.addAttribute("insight", insight);
         model.addAttribute("result", result);
+        model.addAttribute("peekSrc", peekSrc(fid, result, com.family.finance.service.llmtrace.PromptSurface.ASSET_INSIGHT));
         addFooterModel(me, model, analysis, scopeParam, tplParam, "/checkup/insight");
         return "checkup/_ai-insight :: panel";
+    }
+
+    /**
+     * v1.28 · 这份结果的「AI 收到了什么」:有记录 → 面板;这次有意不分析 → 说明原因;
+     * 什么都没发出去(还没配大模型 / 内部错误)→ 照实说没发。体检三处的结果只在内存里,不存在「老结果」。
+     */
+    private String peekSrc(long familyId, LlmDiagnoseService.DiagnoseResult r,
+                           com.family.finance.service.llmtrace.PromptSurface surface) {
+        if (r.promptRecordId() != null) return promptPeek.of(familyId, r.promptRecordId());
+        String why = "skipped".equals(r.vendor()) ? r.text()
+                : "这次没有发出去 —— 还没配大模型,或配好的都暂时不可用(管理 → AI 接入)。";
+        return promptPeek.of(familyId, null, surface, null, why);
     }
 
     /**

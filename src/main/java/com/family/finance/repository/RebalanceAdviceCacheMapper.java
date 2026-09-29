@@ -17,7 +17,7 @@ import java.util.Optional;
 public interface RebalanceAdviceCacheMapper {
 
     @Select("""
-            SELECT id, family_id, anchor_code, content_json, prompt_hash, generated_at
+            SELECT id, family_id, anchor_code, content_json, prompt_hash, generated_at, prompt_record_id
               FROM rebalance_advice_cache
              WHERE family_id = #{familyId} AND anchor_code = #{anchorCode}
             """)
@@ -26,11 +26,12 @@ public interface RebalanceAdviceCacheMapper {
         @Param("anchorCode") String anchorCode);
 
     @Insert("""
-            INSERT INTO rebalance_advice_cache (family_id, anchor_code, content_json, prompt_hash)
-            VALUES (#{familyId}, #{anchorCode}, #{contentJson}, #{promptHash})
+            INSERT INTO rebalance_advice_cache (family_id, anchor_code, content_json, prompt_hash, prompt_record_id)
+            VALUES (#{familyId}, #{anchorCode}, #{contentJson}, #{promptHash}, #{promptRecordId})
             ON DUPLICATE KEY UPDATE
                 content_json = VALUES(content_json),
                 prompt_hash = VALUES(prompt_hash),
+                prompt_record_id = VALUES(prompt_record_id),
                 generated_at = CURRENT_TIMESTAMP
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")

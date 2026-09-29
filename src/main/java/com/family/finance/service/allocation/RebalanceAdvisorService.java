@@ -1,5 +1,10 @@
 package com.family.finance.service.allocation;
 
+import com.family.finance.service.llmtrace.AccountCodenames;
+import com.family.finance.service.llmtrace.PromptRecorder;
+import com.family.finance.service.llmtrace.PromptSurface;
+import com.family.finance.service.llmtrace.PromptTrace;
+
 import com.family.finance.calc.AllocationDiff.Bucket;
 import com.family.finance.domain.account.Account;
 import com.family.finance.domain.allocation.RebalanceAdviceCache;
@@ -68,6 +73,9 @@ public class RebalanceAdvisorService {
     private final FactViewService factViewService;
     private final AllocationService allocationService;
     private final RebalanceAdviceCacheMapper cacheMapper;
+    /** v1.28 · 记下发出去的内容(PRD FR-909)· 字段注入,单测的八参构造不用管它 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private PromptRecorder promptRecorder;
     private final ObjectMapper objectMapper;
 
     /**
@@ -108,7 +116,8 @@ public class RebalanceAdvisorService {
                     long days = Duration.between(cached.get().getGeneratedAt(), LocalDateTime.now()).toDays();
                     if (days <= CACHE_TTL_DAYS) {
                         log.info("rebalance advice cache hit · family={} anchor={} age={}d", familyId, anchor, days);
-                        return parseFromJson(cached.get().getContentJson(), cached.get().getGeneratedAt(), true);
+                        return parseFromJson(cached.get().getContentJson(), cached.get().getGeneratedAt(), true)
+                                .withRecord(cached.get().getPromptRecordId());
                     }
                 }
             } else {
@@ -126,12 +135,16 @@ public class RebalanceAdvisorService {
                     .toList();
             List<Member> members = memberDirectory.listAll(familyId);
             PromptBuilder.NameMapping mapping = PromptBuilder.buildNameMapping(members);
+            // v1.28 FR-920 · 账户清单写代号;AI 回答里的代号在校验与解析之前换回真名
+            AccountCodenames codes = AccountCodenames.of(accountMapper.findAllByFamily(familyId));
+            Map<String, String> legend = new java.util.LinkedHashMap<>(mapping.codenameToReal());
+            legend.putAll(codes.codeToReal());
 
             String system = """
                 你是家庭资产配置顾问 · 严格按以下规则输出:
                 1. 只输出 JSON 对象 · 不要 markdown 包裹 · 不要解释段
                 2. JSON 必须含 narrative(1-3 句叙事)+ actions 数组(每条 from_account / to_account / amount / reason)
-                3. from_account 和 to_account 必须是给定账户列表的真实名字
+                3. from_account 和 to_account 必须原样使用给定账户列表里的账户名(已换成「账户A / 账户B」这类代号)
                 4. amount 必须 ≤ from_account 余额 × 0.5(避免极端调仓)· 单位:本位币 元
                 5. actions 不超过 4 条 · 优先级:最大偏离的桶
                 6. 不要使用真名(成员代号已脱敏)· 不要使用具体产品代码 / 担保性词(保证 / 稳赚)
@@ -143,10 +156,12 @@ public class RebalanceAdvisorService {
                     balances.put(r.accountId(), r.endBalanceBase() == null ? BigDecimal.ZERO : r.endBalanceBase());
                 }
             }
-            String user = buildPrompt(f, diff, accounts, members, mapping, balances)
-                    + blocksSuffix(c, mapping);
-            String raw = invokeWithFailover(familyId, system, user);
-            if (raw == null) return AdviceResult.unavailable("LLM 全部失败");
+            String user = buildPrompt(f, diff, accounts, members, mapping, balances, codes)
+                    + blocksSuffix(c, mapping, codes);
+            PromptTrace trace = PromptTrace.of(PromptSurface.REBALANCE).legend(legend).settings(c.settingsNote());
+            String raw = llmRouter.invoke(familyId, trace, system, user).map(LlmRouter.Outcome::text).orElse(null);
+            if (raw == null) return AdviceResult.unavailable("LLM 全部失败").withRecord(trace.recordId());
+            raw = PromptBuilder.reverseMapping(raw, legend);
 
             // 3. 校验 + 解析
             //    rebalance 这条路径的 prompt 不向 LLM 传成员信息(只传账户列表 + 4 桶配置)
@@ -157,18 +172,28 @@ public class RebalanceAdvisorService {
                 .map(Account::getDisplayName)
                 .filter(java.util.Objects::nonNull)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
+            // 4. 先解析 JSON,再只拿「给人看的字」(叙事 + 每条理由)去过校验。
+            //    v1.28 修:原来拿整段原始 JSON 去校验,"amount": 100000 这种 6 位金额会撞上「6 位 A 股代码」
+            //    那条规则 → 整份建议被判「含具体产品名/代码」丢掉(beta 上 e2e 经 >_ 面板照出来的)。
+            //    金额是数字字段,不是给人看的字;下面还有「≤ 余额 × 0.5」的上限兜着。
+            String cleanedJson = extractJsonObject(raw);
+            if (cleanedJson == null) {
+                if (promptRecorder != null) promptRecorder.markRejected(familyId, trace.recordId(), "回答不是 JSON");
+                return AdviceResult.unavailable("LLM 输出非 JSON").withRecord(trace.recordId());
+            }
+            JsonNode root = objectMapper.readTree(cleanedJson);
+            StringBuilder userFacing = new StringBuilder(root.path("narrative").asText(""));
+            if (root.path("actions").isArray()) {
+                for (JsonNode a : root.path("actions")) userFacing.append('\n').append(a.path("reason").asText(""));
+            }
             OutputValidator.Result valid = OutputValidator.check(
-                raw, java.util.Set.of(), accountNameWhitelist);
+                userFacing.toString(), java.util.Set.of(), accountNameWhitelist);
             if (!valid.accepted()) {
                 log.warn("rebalance advice LLM output 校验失败: {}", valid.reason());
-                return AdviceResult.unavailable("LLM 输出未通过校验:" + valid.reason());
+                if (promptRecorder != null) promptRecorder.markRejected(familyId, trace.recordId(), valid.reason());
+                return AdviceResult.unavailable("LLM 输出未通过校验:" + valid.reason()).withRecord(trace.recordId());
             }
 
-            // 4. 解析 JSON + amount sanity
-            String cleanedJson = extractJsonObject(raw);
-            if (cleanedJson == null) return AdviceResult.unavailable("LLM 输出非 JSON");
-
-            JsonNode root = objectMapper.readTree(cleanedJson);
             JsonNode actionsNode = root.path("actions");
             String narrative = root.path("narrative").asText("");
 
@@ -210,14 +235,20 @@ public class RebalanceAdvisorService {
                 "narrative", narrative,
                 "actions", sanitized));
 
-            // 5. 写缓存
+            // 5. 写缓存 · v1.28 旧的那份结果被覆盖,它的「发出去的内容」记录一起走(FR-915)
+            Long oldRecord = cacheMapper.findByFamilyAndAnchor(familyId, anchor)
+                    .map(RebalanceAdviceCache::getPromptRecordId).orElse(null);
             cacheMapper.upsert(RebalanceAdviceCache.builder()
                 .familyId(familyId)
                 .anchorCode(anchor)
                 .contentJson(cleanContent)
+                .promptRecordId(trace.recordId())
                 .build());
+            if (promptRecorder != null && oldRecord != null && !oldRecord.equals(trace.recordId())) {
+                promptRecorder.forget(familyId, oldRecord);
+            }
 
-            return new AdviceResult(true, narrative, sanitized, LocalDateTime.now(), false, null);
+            return new AdviceResult(true, narrative, sanitized, LocalDateTime.now(), false, null, trace.recordId());
         } catch (Exception e) {
             log.warn("rebalance advise failed family={}: {}", familyId, e.toString());
             return AdviceResult.unavailable("内部错误: " + e.getMessage());
@@ -231,15 +262,6 @@ public class RebalanceAdvisorService {
 
     // ---------- 内部 ----------
 
-    /**
-     * v1.13 修:这里原本是<b>裸遍历</b> {@code List<LlmClient>} —— 没排序,永远按 Spring 的 {@code @Order}
-     * 先打百炼,管理页把主选改成 DeepSeek 对调仓建议<b>完全无效</b>(六处调用里有两处漏了排序,这是其中一处)。
-     * 现在顺序只能来自配置,由 {@link LlmRouter} 统一编排。
-     */
-    private String invokeWithFailover(long familyId, String systemPrompt, String userPrompt) {
-        return llmRouter.invoke(familyId, systemPrompt, userPrompt)
-                .map(LlmRouter.Outcome::text).orElse(null);
-    }
 
     /**
      * 缓存键:基线组合(全部资产 · 综合体检 · 没偏好 · 非自定义锚)= 纯锚码,与 v1.26 同一行;
@@ -260,15 +282,15 @@ public class RebalanceAdvisorService {
         return cacheMapper.findByFamilyAndAnchor(familyId, cacheKey(f, ctx == null
                         ? com.family.finance.service.analysis.AnalysisContext.baseline() : ctx))
                 .filter(r -> Duration.between(r.getGeneratedAt(), LocalDateTime.now()).toDays() <= CACHE_TTL_DAYS)
-                .map(r -> parseFromJson(r.getContentJson(), r.getGeneratedAt(), true))
+                .map(r -> parseFromJson(r.getContentJson(), r.getGeneratedAt(), true).withRecord(r.getPromptRecordId()))
                 .filter(AdviceResult::ok);
     }
 
     /** 范围 / 模板 / 补充要求 / 偏好段落(基线为空串 → 提示词不变) */
     private static String blocksSuffix(com.family.finance.service.analysis.AnalysisContext c,
-                                       PromptBuilder.NameMapping mapping) {
+                                       PromptBuilder.NameMapping mapping, AccountCodenames codes) {
         String b = com.family.finance.service.analysis.AnalysisPromptBlocks.forAnalysis(
-                c, "「4 类目配置」「各账户当前余额」", mapping.realToCodename());
+                c, "「4 类目配置」「各账户当前余额」", mapping.realToCodename(), codes::codeForName);
         return b.isBlank() ? "" : "\n" + b + "\n";
     }
 
@@ -283,7 +305,8 @@ public class RebalanceAdvisorService {
 
     private String buildPrompt(Family f, AllocationService.DiffResult diff,
                                List<Account> accounts, List<Member> members,
-                               PromptBuilder.NameMapping mapping, Map<Long, BigDecimal> balances) {
+                               PromptBuilder.NameMapping mapping, Map<Long, BigDecimal> balances,
+                               AccountCodenames codes) {
         StringBuilder sb = new StringBuilder();
         sb.append("家庭基础:\n");
         sb.append("- 风险偏好: ").append(f.getRiskAppetite()).append("\n");
@@ -311,7 +334,7 @@ public class RebalanceAdvisorService {
         sb.append("\n各账户当前余额(本位币 · 优先按 product_category 已映射 4 桶):\n");
         for (Account a : accounts) {
             BigDecimal bal = balances == null ? null : balances.get(a.getId());
-            sb.append("- ").append(a.getDisplayName())
+            sb.append("- ").append(codes.code(a.getId(), a.getDisplayName()))
               .append(" (").append(a.getType())
               .append(", 类目=").append(a.getProductCategoryCode() == null ? "未设" : a.getProductCategoryCode())
               .append(")")
@@ -377,8 +400,20 @@ public class RebalanceAdvisorService {
         java.util.List<java.util.Map<String, Object>> actions,
         LocalDateTime generatedAt,
         boolean fromCache,
-        String errorReason
+        String errorReason,
+        Long promptRecordId
     ) {
+        /** v1.28 · 六参老构造(不带记录编号) */
+        public AdviceResult(boolean ok, String narrative, java.util.List<java.util.Map<String, Object>> actions,
+                            LocalDateTime generatedAt, boolean fromCache, String errorReason) {
+            this(ok, narrative, actions, generatedAt, fromCache, errorReason, null);
+        }
+
+        /** v1.28 · 带上「这份建议是哪一次调用生成的」(PRD FR-909) */
+        public AdviceResult withRecord(Long id) {
+            return new AdviceResult(ok, narrative, actions, generatedAt, fromCache, errorReason, id);
+        }
+
         public static AdviceResult unavailable(String reason) {
             return new AdviceResult(false, null, java.util.List.of(), null, false, reason);
         }

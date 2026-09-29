@@ -94,9 +94,10 @@
       <span class="font-mono text-[10px] text-ink-subtle">工程算好信号 · AI 只解读 · 关账后结果缓存可回看</span>
     </div>
     <div id="reviewAiCard" class="mt-2 paper-card p-4 hidden" style="border-left:4px solid var(--brass-deep)">
-      <div class="flex items-baseline justify-between mb-1">
+      <div class="flex items-baseline justify-between mb-1" data-peek-host>
         <span class="eyebrow">AI 月度复盘 <span id="reviewAiMeta" class="normal-case tracking-normal text-ink-subtle"></span></span>
         <span class="flex items-center gap-3">
+          <th:block th:replace="~{fragments/_prompt-peek :: btnJs('reviewAiPeek')}"></th:block>
           <button id="reviewAiRefresh" class="font-mono text-xs" style="color:var(--brass-deep)">重新解读</button>
           <button id="reviewAiClose" class="font-mono text-xs text-ink-subtle hover:text-ink">收起 ×</button>
         </span>
@@ -250,7 +251,8 @@
           body: JSON.stringify({asof: ASOF, dim: DIM, force: !!force, currency: CCY, accounts: ACCTS})})
           .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
           .then(function (resp) {
-            body.textContent = resp.text || '暂无复盘。';
+            if (window.privText && resp.text) window.privText(body, resp.text); else body.textContent = resp.text || '暂无复盘。';
+            if (window.peekSet) window.peekSet(document.getElementById('reviewAiPeek'), resp.peek);
             document.getElementById('reviewAiMeta').textContent = resp.vendor ? ('· ' + resp.vendor + (resp.cached ? ' · 缓存' : '')) : '';
           })
           .catch(function (e) { body.textContent = '复盘失败:' + e.message + ' · 稍后再试'; })

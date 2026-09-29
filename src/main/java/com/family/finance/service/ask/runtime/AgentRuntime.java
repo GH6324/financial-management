@@ -39,6 +39,20 @@ public interface AgentRuntime {
     void run(AskTurn turn, AskSink sink);
 
     /** 一轮提问的全部输入 */
+    /**
+     * v1.28 · 这一问真正发出去的内容(PRD FR-919 · tech-design 选型六)。
+     *
+     * @param system  本机模式:这次请求的系统提示词(已拼好分析上下文);托管模式:null —— 规矩在百炼那边,
+     *                由调用方去取「上次更新 Agent 时推过去的那份」
+     * @param input   这一问的输入原文(托管:分析上下文 + 问题;本机:问题)
+     * @param vendor  实际用的模型 / 平台
+     * @param managed 是不是托管模式
+     */
+    @FunctionalInterface
+    interface PromptSent {
+        void sent(String system, String input, String vendor, boolean managed);
+    }
+
     record AskTurn(
             long familyId,
             long conversationId,
@@ -57,14 +71,25 @@ public interface AgentRuntime {
              */
             String analysisContext,
             /** v1.27 · 回报这一轮上下文怎么送出去的(落 ask_message.ctx_note) */
-            java.util.function.Consumer<String> onContextNote
+            java.util.function.Consumer<String> onContextNote,
+            /** v1.28 · 真正发出去的那一刻回报原文(PRD FR-919)· 实现必须在出网前调一次 */
+            PromptSent onPromptSent
     ) {
+        /** v1.27 的签名:没有「发出去的内容」回报 */
+        public AskTurn(long familyId, long conversationId, String providerRef, String systemPrompt,
+                       List<Msg> history, String question, AskScope scope,
+                       java.util.function.Consumer<String> onProviderRef, String analysisContext,
+                       java.util.function.Consumer<String> onContextNote) {
+            this(familyId, conversationId, providerRef, systemPrompt, history, question, scope, onProviderRef,
+                    analysisContext, onContextNote, (system, input, vendor, managed) -> { });
+        }
+
         /** v1.27 之前的签名:没有分析上下文 */
         public AskTurn(long familyId, long conversationId, String providerRef, String systemPrompt,
                        List<Msg> history, String question, AskScope scope,
                        java.util.function.Consumer<String> onProviderRef) {
             this(familyId, conversationId, providerRef, systemPrompt, history, question, scope, onProviderRef,
-                    null, note -> { });
+                    null, note -> { }, (system, input, vendor, managed) -> { });
         }
 
         public boolean hasAnalysisContext() {

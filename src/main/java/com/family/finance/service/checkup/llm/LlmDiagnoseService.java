@@ -1,5 +1,9 @@
 package com.family.finance.service.checkup.llm;
 
+import com.family.finance.service.llmtrace.AccountCodenames;
+import com.family.finance.service.llmtrace.PromptSurface;
+import com.family.finance.service.llmtrace.PromptTrace;
+
 import com.family.finance.domain.account.Account;
 import com.family.finance.domain.audit.AuditLogType;
 import com.family.finance.domain.category.ProductCategory;
@@ -104,15 +108,17 @@ public class LlmDiagnoseService {
             String familyName = familyService.require(familyId).getName();
             List<Member> members = memberDirectory.listAll(familyId);
             PromptBuilder.NameMapping mapping = PromptBuilder.buildNameMapping(members);
+            // v1.28 FR-920 · 账户名换代号:只在系统写入的位置(账户清单 / 范围块),偏好原文不动
+            AccountCodenames codes = AccountCodenames.of(accountMapper.findAllByFamily(familyId));
 
             // 组装 account summaries(已应用真名映射)· v1.27 只含范围内账户(FR-847)
             var dataScope = diagnose.scope() == null
                     ? com.family.finance.service.analysis.AnalysisScope.all() : diagnose.scope();
-            List<PromptBuilder.AccountSummary> summaries = buildAccountSummaries(familyId, mapping, dataScope);
+            List<PromptBuilder.AccountSummary> summaries = buildAccountSummaries(familyId, mapping, dataScope, codes);
 
             // v1.27 · 范围 / 模板 / 补充要求 / 分析偏好 —— 原文先过真名映射,放在全部材料之后
             String analysisBlocks = com.family.finance.service.analysis.AnalysisPromptBlocks.forAnalysis(
-                    ctx, "「资产配置」「风险敞口」「各账户硬事实」", mapping.realToCodename());
+                    ctx, "「资产配置」「风险敞口」「各账户硬事实」", mapping.realToCodename(), codes::codeForName);
 
             // user prompt 不含真名 — applyMapping 已在上层处理
             String userPrompt = PromptBuilder.userPromptForFamily(
@@ -152,9 +158,12 @@ public class LlmDiagnoseService {
                 }
             }
 
+            Map<String, String> legend = legend(mapping, codes);
             return runDiagnose(familyId, actorMemberId, "FAMILY", null,
-                    systemPrompt, userPrompt, mapping.codenameToReal(),
-                    mapping.realToCodename().keySet(), forceRefresh);
+                    systemPrompt, userPrompt, legend,
+                    mapping.realToCodename().keySet(), forceRefresh,
+                    PromptTrace.of(PromptSurface.DIAGNOSE_FAMILY).legend(legend)
+                            .settings(ctx == null ? null : ctx.settingsNote()));
         } catch (Exception e) {
             log.warn("全家综合诊断失败 familyId={}: {}", familyId, e.getMessage());
             return DiagnoseResult.unavailable("内部错误: " + e.getMessage());
@@ -204,6 +213,7 @@ public class LlmDiagnoseService {
                 }
             }
 
+            AccountCodenames codes = AccountCodenames.of(accountMapper.findAllByFamily(familyId));
             // 给 LlmClient 看的 advice 文本是已应用真名映射的;原 advice 不动
             String userPrompt = PromptBuilder.userPromptForAccount(
                     PromptBuilder.applyMapping(familyName, mapping.realToCodename()),
@@ -213,7 +223,8 @@ public class LlmDiagnoseService {
                     mapping.realToCodename(),
                     ownerCode,
                     com.family.finance.service.analysis.AnalysisPromptBlocks.preferencesOnly(
-                            preferences, mapping.realToCodename())
+                            preferences, mapping.realToCodename()),
+                    codes.code(accountDiagnose.account().getId(), null)
             );
             String systemPrompt = PromptBuilder.systemPromptForDiagnose();
 
@@ -225,10 +236,13 @@ public class LlmDiagnoseService {
                 }
             }
 
+            Map<String, String> legend = legend(mapping, codes);
             return runDiagnose(familyId, actorMemberId, "ACCOUNT",
                     accountDiagnose.account().getId(),
-                    systemPrompt, userPrompt, mapping.codenameToReal(),
-                    mapping.realToCodename().keySet(), forceRefresh);
+                    systemPrompt, userPrompt, legend,
+                    mapping.realToCodename().keySet(), forceRefresh,
+                    PromptTrace.of(PromptSurface.DIAGNOSE_ACCOUNT).legend(legend)
+                            .settings(preferences == null || preferences.isEmpty() ? null : "分析偏好 " + preferences.size() + " 条"));
         } catch (Exception e) {
             log.warn("账户综合诊断失败 familyId={} accountId={}: {}",
                     familyId, accountDiagnose.account().getId(), e.getMessage());
@@ -279,7 +293,9 @@ public class LlmDiagnoseService {
             String userPrompt = com.family.finance.service.insight.InsightPromptBuilder.userPrompt(insight, blocks);
             return runDiagnose(familyId, actorMemberId, "ASSET_INSIGHT", null,
                     systemPrompt, userPrompt, mapping.codenameToReal(),
-                    java.util.Set.of(), forceRefresh);
+                    java.util.Set.of(), forceRefresh,
+                    PromptTrace.of(PromptSurface.ASSET_INSIGHT).legend(mapping.codenameToReal())
+                            .settings(ctx == null ? null : ctx.settingsNote()));
         } catch (Exception e) {
             log.warn("资产洞察综合诊断失败 familyId={}: {}", familyId, e.getMessage());
             return DiagnoseResult.unavailable("内部错误: " + e.getMessage());
@@ -291,11 +307,9 @@ public class LlmDiagnoseService {
                                         String systemPrompt, String userPrompt,
                                         Map<String, String> codenameToReal,
                                         java.util.Set<String> realNames,
-                                        boolean forceRefresh) {
-        // DEBUG: prompt 摘要(只在 debug level 输出,生产 info level 不会显示)
-        if (log.isDebugEnabled()) {
-            log.debug("LLM prompt for {} entityId={}, length={}, body=\n{}", scope, entityId, userPrompt.length(), userPrompt);
-        }
+                                        boolean forceRefresh,
+                                        PromptTrace trace) {
+        // v1.28 FR-921 · 不再把提示词正文打进日志(原来 DEBUG 级别会打整段);要看内容在页面上点 >_
         // 1. 查 cache(forceRefresh 跳过)
         // v1.27 · 键里带上系统提示词:范围内有没有房产 / 有没有贷款会换系统提示词(FR-872),
         //   模板 / 范围 / 偏好都在用户提示词里 —— 两者都进键,改了哪一样都不复用旧结论(FR-848)
@@ -305,7 +319,7 @@ public class LlmDiagnoseService {
             if (hit != null && System.currentTimeMillis() - hit.timestamp < TTL_MS) {
                 // cache 仍存 raw 字符串 · 渲染时再次解析 JSON(off-cache structured 重新建)
                 DiagnoseStructured s = tryParseStructured(hit.diagnoseText);
-                return DiagnoseResult.ok(hit.diagnoseText, hit.vendor, true, s);
+                return DiagnoseResult.ok(hit.diagnoseText, hit.vendor, true, s).withRecord(hit.recordId());
             }
         } else {
             log.info("LLM diagnose forceRefresh · scope={} entityId={}", scope, entityId);
@@ -315,7 +329,7 @@ public class LlmDiagnoseService {
         // 2. 走路由:主选 → 备选,顺序由 /admin/ai-access 「大模型」那一节的三级配置决定(v1.13)。
         //    这里是全项目最挑剔的一个调用方 —— 每次尝试无论成败都要进审计,输出还要过合规校验、
         //    没过就换下一家。所以用 Handler 形态:路由管「调谁、调不通换谁」,这里管「收不收」。
-        DiagnoseResult routed = llmRouter.invoke(familyId, systemPrompt, userPrompt,
+        DiagnoseResult routed = llmRouter.invoke(familyId, trace, systemPrompt, userPrompt,
                 new LlmRouter.Handler<DiagnoseResult>() {
                     @Override
                     public DiagnoseResult onOutput(LlmInvocation inv, String raw, long elapsed) {
@@ -334,6 +348,7 @@ public class LlmDiagnoseService {
                                 vr.accepted(), vr.accepted() ? null : vr.reason(), null);
 
                         if (!vr.accepted()) {
+                            trace.rejected(vr.reason());
                             log.warn("LLM[{}] 综合诊断输出未通过校验: {}", badge, vr.reason());
                             auditLogService.record(familyId, actorMemberId, AuditLogType.LLM_REJECTED,
                                     "checkup_diagnose", entityId,
@@ -343,7 +358,7 @@ public class LlmDiagnoseService {
                         try {
                             // 反映射代号 → 真名(给前端用户展示)
                             String mapped = PromptBuilder.reverseMapping(raw, codenameToReal);
-                            cache.put(cacheKey, new CacheEntry(mapped, badge, System.currentTimeMillis()));
+                            cache.put(cacheKey, new CacheEntry(mapped, badge, System.currentTimeMillis(), trace));
                             DiagnoseStructured structured = tryParseStructured(mapped);
                             return DiagnoseResult.ok(mapped, badge, false, structured);
                         } catch (Exception e) {
@@ -360,7 +375,7 @@ public class LlmDiagnoseService {
                                 systemPrompt, userPrompt, null, elapsed, false, null, error);
                     }
                 });
-        if (routed != null) return routed;
+        if (routed != null) return routed.withRecord(trace.recordId());
 
         // 3. 全部失败
         try {
@@ -370,7 +385,14 @@ public class LlmDiagnoseService {
         } catch (Exception ignore) {
             // audit 失败不阻塞主流程
         }
-        return DiagnoseResult.unavailable("AI 暂时不可用");
+        return DiagnoseResult.unavailable("AI 暂时不可用").withRecord(trace.recordId());
+    }
+
+    /** v1.28 · 代号 → 真名:成员 + 账户(反映射与面板对照共用一份;长的代号先换,「账户AB」不会被当成「账户A」) */
+    private static Map<String, String> legend(PromptBuilder.NameMapping mapping, AccountCodenames codes) {
+        Map<String, String> m = new java.util.LinkedHashMap<>(mapping.codenameToReal());
+        m.putAll(codes.codeToReal());
+        return m;
     }
 
     /**
@@ -467,7 +489,8 @@ public class LlmDiagnoseService {
 
     private List<PromptBuilder.AccountSummary> buildAccountSummaries(Long familyId,
                                                                      PromptBuilder.NameMapping mapping,
-                                                                     com.family.finance.service.analysis.AnalysisScope scope) {
+                                                                     com.family.finance.service.analysis.AnalysisScope scope,
+                                                                     AccountCodenames codes) {
         List<Account> accounts = accountMapper.findActiveByFamily(familyId).stream()
                 .filter(a -> scope == null || scope.includes(a.getId()))
                 .toList();
@@ -494,7 +517,7 @@ public class LlmDiagnoseService {
             // 此处不能调用 AccountDiagnoseService(会循环依赖 + 太重),只给基础硬事实
             // 完整 AccountDiagnose 在账户维度 prompt 中才传入
             out.add(new PromptBuilder.AccountSummary(
-                    PromptBuilder.applyMapping(a.getDisplayName(), mapping.realToCodename()),
+                    codes.code(a.getId(), PromptBuilder.applyMapping(a.getDisplayName(), mapping.realToCodename())),
                     a.getType().name(),
                     a.getProductCategoryCode(),
                     riskLabel,
@@ -535,7 +558,12 @@ public class LlmDiagnoseService {
         }
     }
 
-    private record CacheEntry(String diagnoseText, String vendor, long timestamp) {}
+    /**
+     * v1.28 · 记录编号在调用循环结束后才有(路由写回 trace),所以存 trace 本身:命中缓存时读它的编号。
+     */
+    private record CacheEntry(String diagnoseText, String vendor, long timestamp, PromptTrace trace) {
+        Long recordId() { return trace == null ? null : trace.recordId(); }
+    }
 
     /**
      * AI 综合诊断结果。
@@ -555,8 +583,20 @@ public class LlmDiagnoseService {
             boolean fromCache,
             Instant generatedAt,
             DiagnoseStructured structured,
-            boolean truncated
+            boolean truncated,
+            Long promptRecordId
     ) {
+        /** v1.28 · 七参老构造(不带记录编号) */
+        public DiagnoseResult(boolean available, String text, String vendor, boolean fromCache,
+                              Instant generatedAt, DiagnoseStructured structured, boolean truncated) {
+            this(available, text, vendor, fromCache, generatedAt, structured, truncated, null);
+        }
+
+        /** v1.28 · 带上「这份结果是哪一次调用生成的」(PRD FR-909) */
+        public DiagnoseResult withRecord(Long id) {
+            return new DiagnoseResult(available, text, vendor, fromCache, generatedAt, structured, truncated, id);
+        }
+
         public static DiagnoseResult ok(String text, String vendor, boolean fromCache) {
             return new DiagnoseResult(true, text, vendor, fromCache, Instant.now(), null, false);
         }
