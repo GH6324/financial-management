@@ -60,7 +60,8 @@
         </div>
       </div>
 
-      <!-- 历史消息 -->
+      <!-- 历史消息 · v1.28 peekMap:每条回答 → 它前面那一问发出去的内容(FR-919) -->
+      <th:block th:with="peekMap=${@promptPeek.forAsk(askFamilyId, messages)}">
       <div th:each="m : ${messages}" th:switch="${m.role}">
 
         <!-- 用户:右对齐 + 细下划线,**不用气泡** -->
@@ -114,7 +115,8 @@
             <div th:replace="~{ask/fragments/_remember :: card}"></div>
           </th:block>
 
-          <div class="ask-tools-row">
+          <div class="ask-tools-row" data-peek-host>
+            <th:block th:replace="~{fragments/_prompt-peek :: btn(${peekMap.get(m.id)})}"></th:block>
             <button type="button" class="ask-mini" data-ask-copy
                     th:attr="data-text=${renderer.plainText(m.contentText, m.citations)}">
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>复制
@@ -125,6 +127,8 @@
           </div>
         </div>
       </div>
+
+      </th:block>
 
       <!-- 本轮流式输出挂载点 -->
       <div data-ask-live></div>

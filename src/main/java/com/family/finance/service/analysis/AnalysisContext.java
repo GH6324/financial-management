@@ -48,6 +48,14 @@ public record AnalysisContext(
     }
 
     /** AI 结果页脚(FR-848):「按「稳健守护」· 可调整的资产(不含 自住房、车)· 参考了 2 条分析偏好」 */
+    /**
+     * v1.28 · 面板顶上「你的设置」那一行(PRD FR-904)· 基线组合(综合体检 · 全部资产 · 没偏好)= null
+     */
+    public String settingsNote() {
+        if (isBaseline()) return null;
+        return "模板「" + template.name() + "」· 范围「" + scope.kind().getLabel() + "」· 分析偏好 " + preferences.size() + " 条";
+    }
+
     public String footerLabel() {
         StringBuilder sb = new StringBuilder("按「").append(template.name()).append("」· ").append(scope.kind().getLabel());
         if (!scope.isAll() && !scope.excludedLabel().isBlank()) {

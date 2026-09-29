@@ -11,7 +11,7 @@
          class="paper-card p-6 mb-8 ai-diagnose"
          th:attr="data-vendor=${result.vendor()},data-cache=${result.fromCache()},data-available=${result.available()}">
 
-  <div class="flex items-baseline justify-between mb-4">
+  <div class="flex items-baseline justify-between mb-4" data-peek-host>
     <div class="flex items-baseline gap-3">
       <span class="font-mono text-[10px] tracking-[0.18em] uppercase font-medium text-brass-deep inline-flex items-center gap-1.5">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -24,11 +24,14 @@
         <span th:if="${result.fromCache()}" class="ml-1 px-1.5 py-px border border-rule-soft text-ink-subtle">cached</span>
       </span>
     </div>
+    <div class="flex items-center gap-2">
+    <th:block th:replace="~{fragments/_prompt-peek :: btn(${peekSrc})}"></th:block>
     <button type="button"
             class="text-[10px] font-mono px-2 py-0.5 text-ink-subtle hover:text-brass-deep border border-rule-soft hover:border-brass-deep transition"
             th:hx-get="${refreshUrl != null ? refreshUrl : '/checkup/insight?refresh=true'}"
             hx-target="#ai-insight-panel" hx-swap="outerHTML"
             title="重新生成(忽略缓存)">重新生成</button>
+    </div>
   </div>
 
   <!-- ============ 第一层 · 硬数据(工程预算 · 可审计) ============ -->
@@ -170,7 +173,7 @@
               th:text="${vc == 'RISK' ? '[亟需调整]' : (vc == 'NEEDS_ATTENTION' ? '[需关注]' : '[稳健]')}">[稳健]</span>
         <span class="font-mono text-[10px] text-ink-subtle">总评</span>
       </div>
-      <p class="text-sm text-ink leading-relaxed" th:text="${s.overallSummary()}">总评句</p>
+      <p class="text-sm text-ink leading-relaxed" th:utext="${@aiText.priv(s.overallSummary())}">总评句</p>
     </div>
 
     <!-- 4 维度卡(SVG 圆点 · 不用 emoji) -->
@@ -191,9 +194,9 @@
                            'color:var(--forest); border-color:var(--forest); background:rgba(47,93,80,.05)')}"
                 th:text="${dv}">OK</span>
         </div>
-        <p class="text-xs text-ink leading-relaxed mb-1" th:text="${d.finding()}">诊断结论</p>
+        <p class="text-xs text-ink leading-relaxed mb-1" th:utext="${@aiText.priv(d.finding())}">诊断结论</p>
         <p class="text-[11px] text-ink-subtle font-mono leading-relaxed"
-           th:if="${d.evidence() != null and !d.evidence().isBlank()}" th:text="${'· ' + d.evidence()}">· 数据支撑</p>
+           th:if="${d.evidence() != null and !d.evidence().isBlank()}" th:utext="'· ' + ${@aiText.priv(d.evidence())}">· 数据支撑</p>
       </div>
     </div>
 
@@ -202,7 +205,7 @@
          style="background:rgba(122,90,57,.04); border-left:3px solid var(--brass-deep)">
       <div class="font-mono text-[10px] tracking-[0.16em] uppercase text-brass-deep mb-2">纪 · 律 · 性 · 提 · 醒</div>
       <ol class="space-y-1 text-xs text-ink list-decimal list-inside leading-relaxed">
-        <li th:each="a : ${s.actions()}" th:text="${a}">提醒</li>
+        <li th:each="a : ${s.actions()}" th:utext="${@aiText.priv(a)}">提醒</li>
       </ol>
     </div>
   </th:block>
@@ -218,7 +221,7 @@
   <p th:if="${(not result.available()) or (result.structured() == null and not result.truncated())}"
      class="text-sm leading-relaxed whitespace-pre-line"
      th:style="${result.available() ? '' : 'color:var(--ink-soft); font-style: italic;'}"
-     th:text="${result.text()}">AI 解读文案占位...</p>
+     th:utext="${@aiText.priv(result.text())}">AI 解读文案占位...</p>
 
   <div class="mt-4 pt-3 border-t border-rule-soft flex items-baseline justify-between text-[10px] font-mono text-ink-subtle flex-wrap gap-1">
     <span>中 · 立 · 诊 · 断 · 不 · 预 · 测 · 不 · 荐 · 产 · 品</span>

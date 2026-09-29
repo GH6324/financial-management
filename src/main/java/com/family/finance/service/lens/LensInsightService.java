@@ -46,12 +46,19 @@ public class LensInsightService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.family.finance.service.analysis.AnalysisPreferenceService preferenceService;
 
+    /** v1.28 · 按「账户组」切时,没分组的账户以账户名成行 → 换代号(FR-920)· 可缺 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.family.finance.repository.AccountMapper accountMapper;
+
     public boolean available(long familyId) {
         return llmRouter.available(familyId);
     }
 
     /** 解读结果:文本 + 出洞察的模型(前端展示) */
-    public record Insight(String text, String vendor) {}
+    /** @param promptRecordId v1.28 · 这一份解读是哪一次调用生成的 */
+    public record Insight(String text, String vendor, Long promptRecordId) {
+        public Insight(String text, String vendor) { this(text, vendor, null); }
+    }
 
     /** 当前透视视图 → 洞察;LLM 全失败返回 null(前端提示稍后再试) */
     public Insight interpret(long familyId, LensQuery q) {
@@ -61,7 +68,9 @@ public class LensInsightService {
         LensQuery iq = new LensQuery(q.rowsSafe(), java.util.List.of(),
                 java.util.List.of("value", "latestPnl", "cumPnl", "cumReturn"), q.filtersSafe());
         PivotEngine.Result r = PivotEngine.pivot(ps, iq);
-        String raw0 = buildFactsAndSignals(familyId, q, r);
+        var codes = com.family.finance.service.llmtrace.AccountCodenames.of(
+                accountMapper == null ? List.of() : accountMapper.findAllByFamily(familyId));
+        String raw0 = buildFactsAndSignals(familyId, q, r, codes);
         if (raw0 == null) return new Insight("当前范围没有头寸,无可解读。", "-");
         // v1.27 · 分析偏好放在事实之后,和事实一起过同一层真名替换
         String prefBlock = preferenceService == null ? "" : com.family.finance.service.analysis.AnalysisPromptBlocks
@@ -80,11 +89,20 @@ public class LensInsightService {
                 6. 不推荐任何具体产品、不预测涨跌、不用黑话。
                 只输出要点行,不要标题、开场白、markdown。""";
         // v1.13 · 主备顺序由 LlmRouter 按配置统一编排(不再各自遍历 List<LlmClient>)
-        return llmRouter.invoke(familyId, system, facts, (inv, raw, ms) -> new Insight(raw.trim(), inv.badge()));
+        // v1.28 · 记下发出去的内容;回答里的代号(成员 / 账户)换回真名再给页面
+        Map<String, String> legend = new LinkedHashMap<>(memberLegend(familyId));
+        legend.putAll(codes.codeToReal());
+        var trace = com.family.finance.service.llmtrace.PromptTrace
+                .of(com.family.finance.service.llmtrace.PromptSurface.LENS_INSIGHT).legend(legend)
+                .settings(prefBlock.isBlank() ? null : "分析偏好");
+        Insight out = llmRouter.invoke(familyId, trace, system, facts, (inv, raw, ms) -> new Insight(
+                com.family.finance.service.checkup.llm.PromptBuilder.reverseMapping(raw.trim(), legend), inv.badge()));
+        return out == null ? null : new Insight(out.text(), out.vendor(), trace.recordId());
     }
 
     /** 分布事实 + 工程判定的异常信号(全部数字算好);返回 null = 无头寸 */
-    private String buildFactsAndSignals(long familyId, LensQuery q, PivotEngine.Result r) {
+    private String buildFactsAndSignals(long familyId, LensQuery q, PivotEngine.Result r,
+                                        com.family.finance.service.llmtrace.AccountCodenames codes) {
         BigDecimal grand = r.grand().isEmpty() ? BigDecimal.ZERO : nz(r.grand().get(0));
         if (grand.signum() == 0 || r.rowKeys().isEmpty()) return null;
         String dimKey = q.rowsSafe().isEmpty() ? "" : q.rowsSafe().get(0);
@@ -95,7 +113,14 @@ public class LensInsightService {
         List<Slice> slices = new ArrayList<>();
         for (int i = 0; i < r.rowKeys().size(); i++) {
             BigDecimal v = nz(r.rowTotals().get(i).get(0));
-            slices.add(new Slice(String.join("·", r.rowKeys().get(i)), v, pct(v, grand)));
+            // v1.28 · 「账户组」这一维上没分组的账户是账户名 → 换代号;组名不是账户名,codeForName 原样返回
+            List<String> key = r.rowKeys().get(i);
+            List<String> named = new ArrayList<>();
+            for (int k = 0; k < key.size(); k++) {
+                boolean group = k < q.rowsSafe().size() && "group".equals(q.rowsSafe().get(k));
+                named.add(group ? codes.codeForName(key.get(k)) : key.get(k));
+            }
+            slices.add(new Slice(String.join("·", named), v, pct(v, grand)));
         }
         slices.sort((a, b) -> b.v().compareTo(a.v()));
 
@@ -104,7 +129,7 @@ public class LensInsightService {
         if (q.filters() != null && !q.filters().isEmpty()) {
             sb.append(",筛选=");
             q.filters().forEach((k, v) -> sb.append(LensRegistry.DIMENSIONS.containsKey(k) ? LensRegistry.DIMENSIONS.get(k).label() : k)
-                    .append(String.join("/", v)).append(" "));
+                    .append(String.join("/", "group".equals(k) ? v.stream().map(codes::codeForName).toList() : v)).append(" "));
         }
         sb.append("\n合计: ").append(money(grand)).append("\n分布:\n");
         BigDecimal unclassified = BigDecimal.ZERO;
@@ -173,6 +198,16 @@ public class LensInsightService {
     }
 
     /** 成员真名 → 成员A/B/…(主理人维值与账户名中出现的都替换) */
+    /** 与 {@link #anonymize} 同一个顺序的「代号 → 真名」 */
+    private Map<String, String> memberLegend(long familyId) {
+        Map<String, String> m = new LinkedHashMap<>();
+        char c = 'A';
+        for (var mem : memberDirectory.listAll(familyId)) {
+            if (mem.getDisplayName() != null && !mem.getDisplayName().isBlank()) m.put("成员" + c++, mem.getDisplayName());
+        }
+        return m;
+    }
+
     private String anonymize(long familyId, String text) {
         Map<String, String> repl = new LinkedHashMap<>();
         char c = 'A';

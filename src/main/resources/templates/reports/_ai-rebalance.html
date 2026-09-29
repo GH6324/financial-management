@@ -9,9 +9,10 @@
 <div th:fragment="card" id="ai-rebalance" class="paper-card mb-3"
      style="scroll-margin-top:80px; border:1px solid var(--brass-deep); border-left:4px solid var(--brass-deep); background:linear-gradient(90deg, rgba(122,90,57,.06) 0%, var(--card) 35%)">
   <div class="px-4 py-3">
-    <div class="flex items-baseline justify-between mb-2 flex-wrap gap-1">
+    <div class="flex items-baseline justify-between mb-2 flex-wrap gap-1" data-peek-host>
       <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">AI · 调 · 仓 · 建 · 议</span>
-      <div class="flex items-baseline gap-2">
+      <div class="flex items-center gap-2">
+        <th:block th:replace="~{fragments/_prompt-peek :: btn(${rebalancePeekSrc})}"></th:block>
         <span class="font-mono text-[9px] text-ink-subtle"
               th:if="${rebalanceAdvice.generatedAt != null}"
               th:text="'生成于 ' + ${#temporals.format(rebalanceAdvice.generatedAt, 'yyyy-MM-dd HH:mm')} + ' · 30 天内复用'">生成于 ...</span>
@@ -26,7 +27,7 @@
     </div>
     <p th:if="${rebalanceAdvice.narrative != null}"
        class="text-xs text-ink-soft leading-relaxed font-serif mb-3"
-       th:text="${rebalanceAdvice.narrative}">叙事...</p>
+       th:utext="${@aiText.priv(rebalanceAdvice.narrative)}">叙事...</p>
 
     <!-- v1.2 · 建议可勾选采纳为计划(FR-6):条目仅 账户+金额,永不出现产品/标的 -->
     <form th:if="${rebalanceAdvice.actions != null and !rebalanceAdvice.actions.isEmpty()}"
@@ -40,7 +41,7 @@
         <span class="font-mono tnum text-brass-deep" data-priv th:text="'¥' + ${a.amount}">¥X</span>
         <span>→</span>
         <span class="text-sm">到 <b th:text="${a.to_account}">账户 Y</b></span>
-        <span class="text-[10px] text-ink-subtle w-full" th:text="'· ' + ${a.reason}">· 原因</span>
+        <span class="text-[10px] text-ink-subtle w-full" th:utext="'· ' + ${@aiText.priv(a.reason)}">· 原因</span>
       </label>
       <div class="flex items-center gap-3 flex-wrap">
         <button type="submit" class="btn-ink text-xs px-4 py-1.5">采纳勾选条目为本期计划</button>

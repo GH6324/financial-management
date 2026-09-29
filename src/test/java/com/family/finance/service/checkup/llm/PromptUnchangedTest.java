@@ -45,8 +45,9 @@ class PromptUnchangedTest {
             "5efffb3abd29e773a85134e45a2aaa20181d56914209a5ff155c87faa6ab1593",
             "src/main/java/com/family/finance/service/review/ReviewInsightService.java",
             "ae62212f40e9773c1f74a65b7b2d42cf7adfbc625b37ce1a41a012cee1921aa2",
+            // v1.28 有意改口径(PRD FR-920):调仓的账户清单改成代号,规矩第 3 条跟着说「原样用给定的账户名(代号)」
             "src/main/java/com/family/finance/service/allocation/RebalanceAdvisorService.java",
-            "114affc426a628cb8cde73bf244b02ee2feefcd346541cbd82a8fa0191ad8f9c",
+            "b35a1fcbccd5cf795c523525188db8fb763f11e530064f938ee61012d444e82b",
             "src/main/java/com/family/finance/service/goal/GoalLlmService.java",
             "a2d4c46ace047f8cf7bb6aecc4d67a6ca219f2206b61f33cdafbbafa66cd7e92");
 

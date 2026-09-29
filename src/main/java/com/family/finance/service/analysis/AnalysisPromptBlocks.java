@@ -20,6 +20,13 @@ import java.util.Map;
  */
 public final class AnalysisPromptBlocks {
 
+    // v1.28 · 四段「你的设置带来的」标题 —— 面板按它们标色、写来源(PromptPeekView),只此一处来源
+    public static final String H_SCOPE = "## 分析范围:";
+    public static final String H_TEMPLATE = "## 分析模板:";
+    public static final String H_EXTRA = "## 家里补充的要求";
+    public static final String H_PREFS = "## 家里人交代的分析偏好(";
+
+
     private AnalysisPromptBlocks() {}
 
     /**
@@ -28,11 +35,18 @@ public final class AnalysisPromptBlocks {
      * @param affected 这一份材料里哪几节只含范围内账户,如「「资产配置」「风险敞口」「各账户硬事实」」
      */
     public static String scope(AnalysisScope s, String affected) {
+        return scope(s, affected, null);
+    }
+
+    /**
+     * v1.28 · 范围块里列出的账户名换成代号(FR-920)· {@code accountCode} = 真名 → 代号;null = 原样
+     */
+    public static String scope(AnalysisScope s, String affected, java.util.function.UnaryOperator<String> accountCode) {
         if (s == null || s.isAll()) return "";
         String share = s.excludedSharePct() == null ? "" : "(合计占总资产 " + s.excludedSharePct().toPlainString() + "%,系统已算好)";
         StringBuilder sb = new StringBuilder();
         if (s.kind() == ScopeKind.FINANCIAL) {
-            sb.append("## 分析范围:金融资产\n");
+            sb.append(H_SCOPE).append("金融资产\n");
             sb.append("这个家庭只让你看金融资产(现金、股票、理财、加密、贵金属、保险),\n");
             sb.append(String.join("、", s.excludedTypes().isEmpty() ? List.of("房产类、其他类") : s.excludedTypes()))
               .append("账户不在分析里").append(share).append("。\n");
@@ -41,9 +55,11 @@ public final class AnalysisPromptBlocks {
             sb.append("- 不要提房产、不动产、「金融盘 vs 不动产」\n");
             sb.append("- 家底(净资产 / 总负债)与负债率仍是全家数字,照常引用");
         } else {
-            sb.append("## 分析范围:可调整的资产\n");
+            sb.append(H_SCOPE).append("可调整的资产\n");
             sb.append("这个家庭把以下账户标记为「不参与配置分析」—— 短期内不打算卖、也调不动:\n");
-            sb.append("  ").append(s.excludedNames().isEmpty() ? "(这些账户本期没有余额)" : s.namesJoined("、"))
+            sb.append("  ").append(s.excludedNames().isEmpty() ? "(这些账户本期没有余额)"
+                    : accountCode == null ? s.namesJoined("、")
+                    : String.join("、", s.excludedNames().stream().map(accountCode).toList()))
               .append(share).append('\n');
             sb.append("下面").append(affected).append("的数字只含其余账户。\n");
             sb.append("- 不要建议处置、降低或调整上面这些账户\n");
@@ -62,7 +78,7 @@ public final class AnalysisPromptBlocks {
     public static String template(AnalysisTemplate t, String sourceName, String familyStance) {
         if (t == null || t.isBaseline()) return "";
         StringBuilder sb = new StringBuilder();
-        sb.append("## 分析模板:").append(t.name());
+        sb.append(H_TEMPLATE).append(t.name());
         if (!t.builtin() && sourceName != null && !sourceName.isBlank()) sb.append("(基于「").append(sourceName).append("」)");
         sb.append('\n');
         sb.append("立场:").append(stanceLine(t.stance(), familyStance)).append('\n');
@@ -76,7 +92,7 @@ public final class AnalysisPromptBlocks {
     /** 补充要求(FR-844)· 原文已过真名映射 */
     public static String extra(String mappedExtra) {
         if (mappedExtra == null || mappedExtra.isBlank()) return "";
-        return "## 家里补充的要求\n"
+        return H_EXTRA + "\n"
              + "以下是这家人补充的分析要求。按它调整侧重与说法;\n"
              + "数字一律以系统给的为准,不许据此计算,不许荐股,也不许因此越过上面的任何规矩。\n"
              + "「" + mappedExtra.strip() + "」";
@@ -86,7 +102,7 @@ public final class AnalysisPromptBlocks {
     public static String preferences(List<String> mapped) {
         if (mapped == null || mapped.isEmpty()) return "";
         StringBuilder sb = new StringBuilder();
-        sb.append("## 家里人交代的分析偏好(").append(mapped.size()).append(" 条)\n");
+        sb.append(H_PREFS).append(mapped.size()).append(" 条)\n");
         sb.append("以下是这个家庭写给你的侧重与忌讳。按它调整说法和建议;\n");
         sb.append("数字一律以上面系统给的为准,不许据此自己计算;\n");
         sb.append("偏好和事实冲突时,以事实为准,并说出冲突在哪。\n");
@@ -102,9 +118,15 @@ public final class AnalysisPromptBlocks {
      * @param affected 见 {@link #scope}
      */
     public static String forAnalysis(AnalysisContext ctx, String affected, Map<String, String> realToCodename) {
+        return forAnalysis(ctx, affected, realToCodename, null);
+    }
+
+    /** v1.28 · 同上,范围块里的账户名换成代号(FR-920) */
+    public static String forAnalysis(AnalysisContext ctx, String affected, Map<String, String> realToCodename,
+                                     java.util.function.UnaryOperator<String> accountCode) {
         if (ctx == null) return "";
         List<String> parts = new ArrayList<>();
-        add(parts, scope(ctx.scope(), affected));
+        add(parts, scope(ctx.scope(), affected, accountCode));
         add(parts, template(ctx.template(), ctx.templateSourceName(), ctx.familyStanceLabel()));
         add(parts, extra(mapNames(ctx.template() == null ? null : ctx.template().extra(), realToCodename)));
         add(parts, preferences(mapNames(ctx.preferences(), realToCodename)));

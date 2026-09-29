@@ -28,7 +28,14 @@
     <button type="button" onclick="adviseAi('education', 'goal-form', this)"
             class="btn-paper text-sm" style="border-color:var(--brass-deep);color:var(--brass-deep)">AI 推荐</button>
   </div>
-  <div id="ai-rationale" class="hidden paper-card p-3 mb-4 bg-card-soft text-sm font-serif text-ink-soft"></div>
+  <div id="ai-rationale" class="hidden paper-card p-3 mb-4 bg-card-soft">
+    <!--/* v1.28 · 推荐理由旁的 >_:拿到结果后 peekSet 点亮(PRD §3.5 第 9 处) */-->
+    <div class="flex items-center justify-between gap-2 mb-1" data-peek-host>
+      <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">AI · 推荐理由</span>
+      <th:block th:replace="~{fragments/_prompt-peek :: btnJs('ai-rationale-peek')}"></th:block>
+    </div>
+    <div id="ai-rationale-text" class="text-sm font-serif text-ink-soft"></div>
+  </div>
 
   <form id="goal-form" th:action="@{/goals/new/education}" method="post" class="paper-card p-8 space-y-6">
     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">

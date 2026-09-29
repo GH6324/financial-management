@@ -59,6 +59,8 @@ class ReviewCacheStalenessTest {
         assertThat(r.cached()).isTrue();
         assertThat(r.text()).isEqualTo("旧结论");
         verify(router, never()).invoke(anyLong(), anyString(), anyString(), any());
+        verify(router, never()).invoke(anyLong(), any(com.family.finance.service.llmtrace.PromptTrace.class),
+                anyString(), anyString(), any());
     }
 
     @Test
@@ -83,7 +85,7 @@ class ReviewCacheStalenessTest {
         svc(cache, router).review(1L, 163L, "2026-09", "acct",
                 EMPTY_ATTR, new LinkedHashMap<>(), false, false);
 
-        verify(cache, never()).upsert(anyLong(), anyLong(), anyString(), anyString(), anyString());
+        verify(cache, never()).upsert(anyLong(), anyLong(), anyString(), anyString(), anyString(), any());
     }
 
     @Test

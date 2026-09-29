@@ -2614,3 +2614,65 @@ dialog::backdrop { background: rgba(26, 23, 20, .38); }
 .btn-line { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; padding: 4px 10px; border: 1px solid var(--ink);
   color: var(--ink); background: var(--paper); white-space: nowrap; text-decoration: none; cursor: pointer; }
 .btn-line:hover { background: var(--card-soft); }
+
+/* ===========================================================
+   v1.28 · 看 AI 收到了什么(PRD §3 · fragments/_prompt-peek.html · js/prompt-peek.js)
+   -----------------------------------------------------------
+   卡片头一个 >_,点开在卡片里原地展开一个终端 —— 和「复制去服务器上跑」的 .term-block 同一套深色。
+   「你的设置带来的」段落用黄铜色左条 + 来源;金额包 data-priv,隐私模式下与页面其他金额一样糊。
+   =========================================================== */
+.peek-btn{ display:inline-flex; align-items:center; justify-content:center; width:30px; height:28px; flex-shrink:0;
+           border:1px solid var(--rule); background:var(--paper); color:var(--ink-soft); cursor:pointer;
+           transition:border-color .15s, background .15s, color .15s; }
+.peek-btn:hover, .peek-btn.on{ border-color:#1c1a17; background:#1c1a17; color:#8fae86; }
+@media (max-width:640px){ .peek-btn{ width:40px; height:40px; } }
+.peek{ margin:12px 0 4px; background:#1c1a17; border:1px solid #2a2622; border-radius:6px;
+       box-shadow:0 10px 26px -14px rgba(0,0,0,.6); color:#d8d2c6;
+       font-family:'JetBrains Mono',ui-monospace,monospace; font-size:12.5px; line-height:1.8; overflow:hidden; text-align:left; }
+.peek[hidden]{ display:none; }
+.peek .pk-bar{ display:flex; align-items:center; gap:8px; padding:7px 12px; border-bottom:1px solid #2a2622;
+               background:#221f1b; font-size:11px; color:#7d766a; }
+.peek .pk-dot{ width:9px; height:9px; border-radius:50%; background:#3a352f; display:inline-block; flex-shrink:0; }
+.peek .pk-title{ margin-left:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.peek .pk-x{ margin-left:auto; cursor:pointer; color:#a39b8c; border:1px solid #3a352f; padding:0 7px; border-radius:3px;
+             background:transparent; font:inherit; }
+.peek .pk-x:hover{ color:#fff; border-color:var(--brass-deep); }
+.peek .pk-body{ padding:12px 14px 6px; max-height:560px; overflow:auto; }
+.peek .ln{ display:block; white-space:pre-wrap; word-break:break-word; }
+.peek .ln:empty::after{ content:" "; }
+.peek .ln.cmd{ color:#e9e3d6; }
+.peek .ln.cmd::before{ content:'$ '; color:#8fae86; }
+.peek .ln.cmt{ color:#7d766a; }
+.peek .ln.ok{ color:#8fae86; }
+.peek .ln.warn{ color:#d9a066; }
+.peek .ln.kv .k{ color:#a39b8c; display:inline-block; min-width:5em; }
+.peek .caret{ display:inline-block; width:.6em; height:1.05em; background:#8fae86; vertical-align:-2px; animation:peekBlink 1.05s steps(1) infinite; }
+@keyframes peekBlink{ 50%{ opacity:0; } }
+@media (prefers-reduced-motion: reduce){ .peek .caret{ animation:none; } }
+.peek .sec{ margin-top:10px; border-top:1px dashed #3a352f; padding-top:8px; }
+.peek .sec-h{ display:flex; align-items:baseline; gap:10px; cursor:pointer; color:#e9e3d6; user-select:none; flex-wrap:wrap; }
+.peek .sec-h .tri{ color:#8fae86; width:1em; display:inline-block; }
+.peek .sec-h .tag{ color:#1c1a17; background:#8fae86; padding:0 5px; font-size:10.5px; }
+.peek .sec-h .tag.sys{ background:#7d766a; }
+.peek .sec-h .meta{ color:#7d766a; font-size:11px; }
+.peek .sec-b{ margin-top:6px; padding-left:1em; color:#cfc8ba; }
+.peek .sec:not(.open) .sec-b{ display:none; }
+.peek .mine{ display:block; border-left:3px solid #d6b26a; background:rgba(214,178,106,.08); padding:4px 8px;
+             margin:6px 0 6px -11px; color:#eadcb8; }
+.peek .mine .src{ float:right; color:#d6b26a; font-size:10.5px; margin-left:12px; }
+.peek.only-mine .sec-b > .ln, .peek.only-mine .sec.sys{ opacity:.22; }
+.peek .pk-log{ margin-top:10px; }
+.peek .pk-foot{ border-top:1px solid #2a2622; padding:9px 14px 11px; background:#201d19; }
+.peek .chips{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+.peek .chip{ font-family:'JetBrains Mono',monospace; font-size:11px; color:#d8d2c6; background:#2a2622; border:1px solid #3a352f;
+             border-radius:3px; padding:2px 9px; cursor:pointer; }
+.peek .chip:hover{ background:var(--brass-deep); border-color:var(--brass-deep); color:#fff; }
+.peek .chip b{ color:#8fae86; font-weight:400; }
+.peek .pk-in{ display:flex; align-items:center; gap:6px; }
+.peek .pk-in .p{ color:#8fae86; }
+.peek .pk-in input{ flex:1; min-width:0; background:transparent; border:0; outline:0; color:#e9e3d6; font:inherit; caret-color:#8fae86; padding:0; }
+.peek .pk-note{ font-size:10.5px; color:#7d766a; margin-top:6px; }
+.peek .pk-priv-note{ display:none; }
+html.privacy .peek .pk-priv-note{ display:inline; }
+html.privacy .peek [data-peek-copy]{ opacity:.4; }
+@media (max-width:640px){ .peek{ font-size:11.5px; } .peek .pk-body{ padding:10px 10px 4px; max-height:70vh; } .peek .mine .src{ float:none; display:block; } }

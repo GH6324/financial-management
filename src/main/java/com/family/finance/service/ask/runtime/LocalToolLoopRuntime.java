@@ -112,6 +112,14 @@ public class LocalToolLoopRuntime implements AgentRuntime {
             messages.add(Map.of("role", m.role(), "content", m.content()));
         }
         messages.add(Map.of("role", "user", "content", turn.question()));
+        // v1.28 FR-919 · 出网前回报这一问真正发出去的内容(系统提示词已含分析上下文)
+        if (turn.onPromptSent() != null) {
+            try {
+                turn.onPromptSent().sent(system, turn.question(), inv.badge(), false);
+            } catch (Exception e) {
+                log.debug("记录这一问发出去的内容失败(不影响回答):{}", e.toString());
+            }
+        }
 
         List<Map<String, Object>> tools = registry.openAiToolList();
         int citeSeq = 0;

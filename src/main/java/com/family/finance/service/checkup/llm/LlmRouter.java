@@ -1,5 +1,8 @@
 package com.family.finance.service.checkup.llm;
 
+import com.family.finance.service.llmtrace.PromptRecorder;
+import com.family.finance.service.llmtrace.PromptTrace;
+
 import com.family.finance.service.config.FamilyConfigService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -57,6 +60,16 @@ public class LlmRouter {
     public LlmRouter(List<LlmClient> clients, FamilyConfigService configService) {
         this(clients, configService, new LlmHealthTracker());
     }
+
+    /**
+     * v1.28 · 发给 AI 的内容记录器(PRD FR-909)。字段注入 + 可选:单测用的两参构造不带它,
+     * 那时 {@link #invoke(long, PromptTrace, String, String, Handler)} 退化成不记录的老行为。
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private PromptRecorder promptRecorder;
+
+    /** 单测注入用 */
+    public void setPromptRecorder(PromptRecorder r) { this.promptRecorder = r; }
 
     /** 一次成功调用的结果 */
     public record Outcome(String text, LlmInvocation used) {}
@@ -129,6 +142,50 @@ public class LlmRouter {
         Outcome r = invoke(familyId, systemPrompt, userPrompt,
                 (inv, raw, ms) -> new Outcome(raw, inv));
         return Optional.ofNullable(r);
+    }
+
+    /** v1.28 · 简单调用 + 记录发出去的内容 */
+    public Optional<Outcome> invoke(long familyId, PromptTrace trace, String systemPrompt, String userPrompt) {
+        return Optional.ofNullable(invoke(familyId, trace, systemPrompt, userPrompt,
+                (inv, raw, ms) -> new Outcome(raw, inv)));
+    }
+
+    /**
+     * v1.28 · 带处理器的调用 + <b>把真正交给客户端的两个字符串存下来</b>(tech-design v1.28 选型一)。
+     *
+     * <p>为什么在这里存:这是唯一的编排点 —— 发出去的原文、实际用的模型、失败时的上游原话都在这个循环里。
+     * 让 9 个调用方各自存,迟早有一处存成拼接前的中间串,页面上就会显示「不是发出去的那段」。</p>
+     *
+     * <p>结果三种:有候选接受 = OK;有输出但都被处理器拒收 = REJECTED(原因取 {@link PromptTrace#rejectReason()});
+     * 全部调用失败 = FAILED(原因是最后一个候选的上游原话,不改写)。<b>没有可用候选 = 什么都没发,不记</b>。</p>
+     */
+    public <T> T invoke(long familyId, PromptTrace trace, String systemPrompt, String userPrompt, Handler<T> handler) {
+        if (trace == null || promptRecorder == null) return invoke(familyId, systemPrompt, userPrompt, handler);
+        if (plan(familyId).isEmpty()) return null;
+        String[] vendor = {null};
+        String[] lastError = {null};
+        boolean[] gotOutput = {false};
+        T result = invoke(familyId, systemPrompt, userPrompt, new Handler<T>() {
+            @Override
+            public T onOutput(LlmInvocation inv, String raw, long ms) {
+                vendor[0] = inv.badge();
+                gotOutput[0] = true;
+                return handler.onOutput(inv, raw, ms);
+            }
+
+            @Override
+            public void onFailure(LlmInvocation inv, Exception e, long ms) {
+                vendor[0] = inv.badge();
+                lastError[0] = e.getMessage();
+                handler.onFailure(inv, e, ms);
+            }
+        });
+        String outcome = result != null ? PromptRecorder.OK : (gotOutput[0] ? PromptRecorder.REJECTED : PromptRecorder.FAILED);
+        String note = result != null ? null
+                : gotOutput[0] ? (trace.rejectReason() == null ? "回答没通过校验" : trace.rejectReason())
+                : lastError[0];
+        promptRecorder.save(familyId, trace, systemPrompt, userPrompt, vendor[0], outcome, note);
+        return result;
     }
 
     /**

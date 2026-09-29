@@ -18,7 +18,33 @@
         <li><a href="#llm" class="text-brass-deep">大模型</a> —— 各平台的密钥和型号。体检、月报、调仓建议、截图识别、超级 Agent 都用它</li>
         <li><a href="#agent" class="text-brass-deep">超级 Agent</a> —— 家里人用大白话问自己的账</li>
         <li><a href="#access" class="text-brass-deep">让 AI 读你的账本</a> —— 开一个<b>只读</b>接口给百炼或你自己的 AI 客户端。AI <b>改不了</b>你的任何数据,也<b>看不到家人真名</b></li>
+        <li><a href="#peek" class="text-brass-deep">看 AI 收到了什么</a> —— 每个 AI 结果旁的 <span class="font-mono">&gt;_</span>,逐字显示那一次发给 AI 的内容</li>
       </ol>
+    </div>
+
+    <!--/* v1.28 · 看 AI 收到了什么(PRD FR-914):只管显不显示图标;记录照写 */-->
+    <div id="peek" class="paper-card p-5 mb-6 scroll-mt-24" data-prompt-peek-setting>
+      <div class="flex items-start gap-4 flex-wrap">
+        <div class="flex-1 min-w-[240px]">
+          <div class="flex items-center gap-2">
+            <span class="peek-btn on" aria-hidden="true" style="width:26px;height:24px;cursor:default"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>
+            <b class="text-[15px]">看 AI 收到了什么</b>
+            <span class="font-mono text-[10px] px-1.5 py-px border"
+                  th:classappend="${promptPeekOn} ? ' border-forest text-forest' : ' border-rule text-ink-subtle'"
+                  th:text="${promptPeekOn} ? '开着' : '关着'">开着</span>
+          </div>
+          <p class="text-[12.5px] text-ink-soft mt-1.5" style="line-height:1.8">
+            体检、报表调仓、复盘、透视、目标、超级 Agent 的每个 AI 结果旁有一个 <span class="font-mono">&gt;_</span>:
+            点开是一个终端,<b>逐字</b>显示那一次发给 AI 的内容 —— 你的模板、范围、偏好带进去的段落会标出来。
+            发出去之前,成员名和账户名换成了代号;金额、备注原样。记录跟着结果走,最长留 90 天。</p>
+        </div>
+        <form th:action="@{/admin/ai-access/prompt-peek}" method="post">
+          <input type="hidden" name="on" th:value="${!promptPeekOn}">
+          <button type="submit" class="btn-line" data-prompt-peek-toggle
+                  th:text="${promptPeekOn} ? '关掉(不显示 >_)' : '打开'">关掉</button>
+        </form>
+      </div>
     </div>
 
     <!--/* v1.24.3 · AI 健康读数

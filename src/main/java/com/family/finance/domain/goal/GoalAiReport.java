@@ -25,4 +25,6 @@ public class GoalAiReport {
     private String validatorStatus;
     private LocalDateTime generatedAt;
     private LocalDateTime dismissedAt;
+    /** v1.28 · 生成这份报告的那次调用(llm_prompt_record.id)· 空 = 本版之前生成的老报告 */
+    private Long promptRecordId;
 }

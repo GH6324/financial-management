@@ -1018,8 +1018,10 @@
   function showInsight(entry) {
     var card = document.getElementById('lensInsightCard');
     if (!card) return;
-    document.getElementById('lensInsightBody').textContent = entry.text;
+    var body = document.getElementById('lensInsightBody');
+    if (window.privText) window.privText(body, entry.text); else body.textContent = entry.text;   // v1.28 · 隐私模式糊金额
     document.getElementById('lensInsightMeta').textContent = '· ' + entry.vendor + ' · ' + entry.at;
+    if (window.peekSet) window.peekSet(document.getElementById('lensInsightPeek'), entry.peek);     // v1.28 · >_
     card.classList.remove('hidden');
   }
   /* 视图切换钩子:本视图有缓存且未被收起 → 恢复展示;否则隐藏(上个视图的洞察不残留) */
@@ -1046,7 +1048,7 @@
       .then(function (resp) {
         if (resp.ok) {
           var now = new Date();
-          var entry = { text: resp.text, vendor: resp.vendor || 'AI',
+          var entry = { text: resp.text, vendor: resp.vendor || 'AI', peek: resp.peek || null,
             at: ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2), dismissed: false };
           INSIGHT_CACHE[key] = entry;
           showInsight(entry);

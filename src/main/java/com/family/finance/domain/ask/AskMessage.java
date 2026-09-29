@@ -33,6 +33,8 @@ public class AskMessage {
     private String contentText;
     private Integer seq;
     private LocalDateTime createdAt;
+    /** v1.28 · 提问那条:这一问发出去的内容(llm_prompt_record.id)· 回答那条为空 */
+    private Long promptRecordId;
 
     /** 渲染期装配:这条消息用到的引用块 */
     @Builder.Default

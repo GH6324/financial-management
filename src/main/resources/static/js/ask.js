@@ -521,6 +521,16 @@
             row.appendChild(mini('重来', ['M21 12a9 9 0 1 1-3-6.7', 'M21 3v6h-6'],
               function (b) { b.dataset.askRegen = ''; }));
             turn.appendChild(row);
+            // v1.28 · 这一问发出去的内容:>_ 排在操作行最前(与历史消息同一位置)
+            var convHost = turn.closest('[data-conv]');
+            var cid = convHost ? convHost.getAttribute('data-conv') : '';
+            if (window.peekButton && cid) {
+              row.setAttribute('data-peek-host', '');
+              fetch('/ai/prompt/ask-latest?conv=' + encodeURIComponent(cid), { credentials: 'same-origin' })
+                .then(function (r) { return r.ok ? r.json() : {}; })
+                .then(function (j) { if (j && j.peek) row.insertBefore(window.peekButton(j.peek), row.firstChild); })
+                .catch(function () { });
+            }
           }
 
           if (input) input.focus();

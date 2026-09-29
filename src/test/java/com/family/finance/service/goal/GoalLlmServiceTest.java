@@ -39,6 +39,10 @@ class GoalLlmServiceTest {
         LlmInvocation used = new LlmInvocation(LlmCatalog.P_DASHSCOPE, "qwen", "qwen-plus");
         when(router.invoke(anyLong(), anyString(), anyString()))
                 .thenReturn(Optional.of(new LlmRouter.Outcome(reply, used)));
+        // v1.28 · 业务侧改走带 PromptTrace 的重载(记下发出去的内容)
+        when(router.invoke(anyLong(), org.mockito.ArgumentMatchers.any(com.family.finance.service.llmtrace.PromptTrace.class),
+                anyString(), anyString()))
+                .thenReturn(Optional.of(new LlmRouter.Outcome(reply, used)));
         return router;
     }
 

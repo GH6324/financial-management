@@ -31,7 +31,14 @@
       AI 推荐
     </button>
   </div>
-  <div id="ai-rationale" class="hidden paper-card p-3 mb-4 bg-card-soft text-sm font-serif text-ink-soft"></div>
+  <div id="ai-rationale" class="hidden paper-card p-3 mb-4 bg-card-soft">
+    <!--/* v1.28 · 推荐理由旁的 >_:拿到结果后 peekSet 点亮(PRD §3.5 第 9 处) */-->
+    <div class="flex items-center justify-between gap-2 mb-1" data-peek-host>
+      <span class="font-mono text-[10px] tracking-[0.18em] uppercase text-brass-deep">AI · 推荐理由</span>
+      <th:block th:replace="~{fragments/_prompt-peek :: btnJs('ai-rationale-peek')}"></th:block>
+    </div>
+    <div id="ai-rationale-text" class="text-sm font-serif text-ink-soft"></div>
+  </div>
 
   <form id="goal-form" th:action="@{/goals/new/retirement}" method="post" class="paper-card p-8 space-y-6">
     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
@@ -116,7 +123,9 @@
         if (data.withdrawalRate) form.elements['withdrawalRate'].value = data.withdrawalRate;
         if (data.rationale) {
           const r = document.getElementById('ai-rationale');
-          r.textContent = data.rationale;
+          const t = document.getElementById('ai-rationale-text') || r;
+          if (window.privText) window.privText(t, data.rationale); else t.textContent = data.rationale;
+          if (window.peekSet) window.peekSet(document.getElementById('ai-rationale-peek'), data.peek);
           r.classList.remove('hidden');
         }
       } catch (e) {
