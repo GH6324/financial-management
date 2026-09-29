@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1.28 Preview · 看 AI 收到了什么</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300..700;9..144,1,300..600&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-subtle)}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1}
+  h1,h2,h3,h4{font-family:'Fraunces','Noto Serif SC',Georgia,serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  .note{font-size:11.5px;color:var(--ink-subtle);line-height:1.75}
+  .card{border:1px solid var(--rule);background:var(--card);padding:18px}
+  .zone{margin-top:46px}
+  .zone-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap}
+  .zone-no{font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--paper);background:var(--brass-deep);line-height:1;padding:5px 9px}
+  .zone-t{font-family:'Fraunces','Noto Serif SC',serif;font-size:20px}
+  .zone-sub{font-size:11.5px;color:var(--ink-subtle)}
+  .zone-line{height:2px;background:var(--brass-deep);opacity:.35;margin:10px 0 18px}
+  .two > *{min-width:0}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9.5px;padding:1px 6px;border:1px solid var(--rule);color:var(--ink-subtle);white-space:nowrap}
+  .btn-line{font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 10px;border:1px solid var(--ink);color:var(--ink);background:var(--paper);white-space:nowrap;cursor:pointer}
+
+  /* ── AI 卡片头(照 checkup/_ai-diagnose.html 的头部)── */
+  .ai-card{border:1px solid var(--rule);background:var(--card);padding:18px 20px}
+  .ai-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .ai-t{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;color:var(--brass-deep)}
+  .ai-acts{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .ai-body{margin-top:14px;border-left:4px solid var(--brass-deep);background:var(--card-soft);padding:12px 15px;font-size:14px;line-height:1.85}
+  .ai-foot{margin-top:12px;border-top:1px solid var(--rule);padding-top:9px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--brass-deep)}
+
+  /* ── 新图标:>_ ── */
+  .peek-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;width:30px;height:28px;border:1px solid var(--rule);
+            background:var(--paper);color:var(--ink-soft);cursor:pointer;transition:border-color .15s,background .15s,color .15s}
+  .peek-btn:hover,.peek-btn.on{border-color:#1c1a17;background:#1c1a17;color:#8fae86}
+  .peek-btn .tip{position:absolute;bottom:calc(100% + 7px);right:-4px;white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:10.5px;
+                 background:#1c1a17;color:#d8d2c6;padding:4px 8px;opacity:0;pointer-events:none;transition:opacity .15s}
+  .peek-btn:hover .tip{opacity:1}
+  .peek-btn.show-tip .tip{opacity:1}
+  @media (max-width:640px){ .peek-btn{width:44px;height:44px} }
+
+  /* ── 终端面板 ── */
+  .peek{margin-top:14px;background:#1c1a17;border:1px solid #2a2622;border-radius:6px;box-shadow:0 10px 26px -14px rgba(0,0,0,.6);
+        color:#d8d2c6;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px;line-height:1.8;overflow:hidden}
+  .peek[hidden]{display:none}
+  .pk-bar{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid #2a2622;background:#221f1b;font-size:11px;color:#7d766a}
+  .pk-dot{width:9px;height:9px;border-radius:50%;background:#3a352f;display:inline-block}
+  .pk-bar .pk-x{margin-left:auto;cursor:pointer;color:#a39b8c;border:1px solid #3a352f;padding:0 7px;border-radius:3px;background:transparent;font:inherit}
+  .pk-bar .pk-x:hover{color:#fff;border-color:#8c6a33}
+  .pk-body{padding:12px 14px 6px;max-height:560px;overflow:auto}
+  .ln{display:block;white-space:pre-wrap;word-break:break-word}
+  .ln.cmd{color:#e9e3d6}
+  .ln.cmd::before{content:'$ ';color:#8fae86}
+  .ln.cmt{color:#7d766a}
+  .ln.kv .k{color:#a39b8c;display:inline-block;min-width:4.5em}
+  .ln.ok{color:#8fae86}
+  .ln.warn{color:#d9a066}
+  .caret{display:inline-block;width:.6em;height:1.05em;background:#8fae86;vertical-align:-2px;animation:blink 1.05s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  @media (prefers-reduced-motion: reduce){ .caret{animation:none} }
+  .sec{margin-top:10px;border-top:1px dashed #3a352f;padding-top:8px}
+  .sec-h{display:flex;align-items:baseline;gap:10px;cursor:pointer;color:#e9e3d6;user-select:none;flex-wrap:wrap}
+  .sec-h .tri{color:#8fae86;width:1em;display:inline-block}
+  .sec-h .tag{color:#1c1a17;background:#8fae86;padding:0 5px;font-size:10.5px}
+  .sec-h .tag.sys{background:#7d766a}
+  .sec-h .meta{color:#7d766a;font-size:11px}
+  .sec-b{margin-top:6px;padding-left:1em;color:#cfc8ba}
+  .sec:not(.open) .sec-b{display:none}
+  .mine{display:block;white-space:pre-wrap;border-left:3px solid #d6b26a;background:rgba(214,178,106,.08);padding:4px 8px;margin:6px 0 6px -11px;color:#eadcb8}
+  .mine .src{float:right;color:#d6b26a;font-size:10.5px;margin-left:12px}
+  .only-mine .sec-b > .ln, .only-mine .sec.sys{opacity:.22}
+  .amt{color:#e9e3d6}
+  .privacy .amt{filter:blur(6px)}
+  .pk-log{margin-top:10px}
+  .pk-foot{border-top:1px solid #2a2622;padding:9px 14px 11px;background:#201d19}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .chip{font-family:'JetBrains Mono',monospace;font-size:11px;color:#d8d2c6;background:#2a2622;border:1px solid #3a352f;border-radius:3px;padding:2px 9px;cursor:pointer}
+  .chip:hover{background:#8c6a33;border-color:#8c6a33;color:#fff}
+  .chip b{color:#8fae86;font-weight:400}
+  .chip[disabled]{opacity:.4;cursor:not-allowed}
+  .pk-in{display:flex;align-items:center;gap:6px}
+  .pk-in .p{color:#8fae86}
+  .pk-in input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#e9e3d6;font:inherit;caret-color:#8fae86}
+  .pk-note{font-size:10.5px;color:#7d766a;margin-top:6px}
+  .phone{width:100%;max-width:390px;box-sizing:border-box;border:10px solid #1A1714;border-radius:34px;background:var(--paper);overflow:hidden;box-shadow:var(--shadow-deep)}
+  .phone-in{padding:14px 12px 18px}
+  .phone .peek{font-size:11.5px}
+  .phone .pk-body{max-height:none}
+  .toggle{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--rule);background:var(--paper);padding:12px 14px}
+  .sw{flex:0 0 30px;height:16px;border-radius:9px;background:var(--forest);position:relative;margin-top:3px}
+  .sw::after{content:"";position:absolute;right:2px;top:2px;width:12px;height:12px;border-radius:50%;background:var(--paper)}
+  table.cov{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.cov td,table.cov th{border-bottom:1px solid var(--rule);padding:7px 8px;text-align:left;vertical-align:top}
+  table.cov th{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--ink-subtle);font-weight:400}
+  @media (max-width: 900px){ .two{grid-template-columns:1fr !important} }
+</style>
+</head>
+<body style="background:var(--paper);color:var(--ink)">
+
+<!-- 图标:Feather「terminal」,24×24 viewBox,stroke=currentColor(项目约定:不用 emoji) -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-term" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="19" x2="20" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div class="wrap" style="padding-top:38px;padding-bottom:64px">
+
+  <div class="eyebrow">Preview · v1.28.0 · 维护者 2026-09-29 · 待评审</div>
+  <h1 style="font-size:34px;line-height:1.24;margin:9px 0 10px;max-width:820px">看 AI 收到了什么</h1>
+  <p class="note" style="max-width:780px;font-size:13px">
+    家里的数据每天被发给第三方大模型好几次,可发了什么,页面上一个字都看不到。v1.27 刚把模板、范围、偏好交给了用户 ——
+    改完之后「AI 真的收到了吗」只能靠猜。这一版在每张 AI 分析卡片头上放一个 <span class="mono">&gt;_</span> 图标:
+    点开是一个终端,<b>逐字</b>显示这份结果当时发出去的内容;你的设置带来的那几段单独标色、写明来源。
+  </p>
+  <p class="note" style="max-width:780px;margin-top:8px">下面的数字全是示意(单测金样本里的虚构家庭),不是任何真实家庭的数据。第 2 区的面板可以点、可以敲命令。</p>
+
+  <!-- ══ 1 · 入口 ══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">1</span><span class="zone-t">入口:卡片头上一个 &gt;_</span><span class="zone-sub">FR-900 / FR-901 · 9 处同一个图标、同一个位置</span></div>
+    <div class="zone-line"></div>
+    <div class="two" style="display:grid;grid-template-columns:1.4fr 1fr;gap:18px;align-items:start">
+      <div class="ai-card">
+        <div class="ai-head">
+          <span class="ai-t">AI · 综合智能诊断</span>
+          <span class="badge">DEEPSEEK · DEEPSEEK-CHAT</span><span class="badge">已缓存</span>
+          <span class="ai-acts">
+            <span class="peek-btn show-tip" aria-label="看 AI 收到了什么"><svg width="15" height="15"><use href="#i-term"/></svg><span class="tip">看 AI 收到了什么</span></span>
+            <span class="btn-line" style="display:inline-flex;gap:5px;align-items:center"><svg width="11" height="11"><use href="#i-refresh"/></svg>刷新</span>
+          </span>
+        </div>
+        <div class="ai-body"><b style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--brass-deep)">[需关注] 总评</b><br>
+          家庭净资产 ¥5,000,000 体量稳健,但股票风险敞口集中于单一券商账户,流动性配置偏厚……</div>
+        <div class="ai-foot">按「稳健守护」· 金融资产(不含 自住房)· 参考了 2 条分析偏好</div>
+      </div>
+      <div>
+        <div class="note" style="font-size:12.5px;line-height:1.85">
+          <b style="color:var(--ink)">放在哪</b>:模型标记和「刷新」之间,悬停写「看 AI 收到了什么」。<br>
+          <b style="color:var(--ink)">为什么是 &gt;_</b>:维护者要「命令行风格」;同时它不像「设置」「信息」那种会被家人误点的通用图标。<br>
+          <b style="color:var(--ink)">手机上</b>:可点区域 44×44,排在刷新左边,不挤掉它。<br>
+          <b style="color:var(--ink)">关掉开关</b>(第 6 区):9 处都不出现,页面与 v1.27 逐字一致。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 2 · 展开后 ══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">2</span><span class="zone-t">点开:卡片里原地展开一个终端</span><span class="zone-sub">FR-902 ~ FR-908 · FR-916 ~ FR-918 · 可点、可敲</span></div>
+    <div class="zone-line"></div>
+
+    <div class="ai-card" id="demo">
+      <div class="ai-head">
+        <span class="ai-t">AI · 综合智能诊断</span>
+        <span class="badge">DEEPSEEK · DEEPSEEK-CHAT</span>
+        <span class="ai-acts">
+          <button class="peek-btn on" data-peek-toggle aria-expanded="true" aria-label="看 AI 收到了什么"><svg width="15" height="15"><use href="#i-term"/></svg><span class="tip">收起</span></button>
+          <span class="btn-line" style="display:inline-flex;gap:5px;align-items:center"><svg width="11" height="11"><use href="#i-refresh"/></svg>刷新</span>
+        </span>
+      </div>
+
+      <div class="peek" data-peek>
+        <div class="pk-bar"><span class="pk-dot"></span><span class="pk-dot"></span><span class="pk-dot"></span>
+          <span style="margin-left:6px">ai-prompt · 体检 · AI 综合诊断</span>
+          <button class="pk-x" data-peek-close title="收起(Esc)">esc</button></div>
+        <div class="pk-body">
+          <span class="ln cmd" data-type>ai-prompt show --for "体检 · AI 综合诊断"</span>
+          <span class="ln ok"># 这份结果就是用下面这段生成的 · 逐字</span>
+          <span class="ln kv"><span class="k">模型</span>deepseek · deepseek-chat</span>
+          <span class="ln kv"><span class="k">发出</span>2026-09-29 14:02:31(这份结果生成于同一时刻)</span>
+          <span class="ln kv"><span class="k">你的设置</span>模板「稳健守护」· 范围「金融资产」· 分析偏好 2 条</span>
+          <span class="ln kv"><span class="k">长度</span>规矩 3,812 字 · 你家的数据 1,946 字</span>
+
+          <div class="sec sys" data-sec="rules">
+            <div class="sec-h" data-sec-toggle><span class="tri">▸</span><span class="tag sys">system</span>规矩<span class="meta">每个模板都一样 · 改不了 · 3,812 字 · 点开</span></div>
+            <div class="sec-b">
+              <span class="ln">你是一位中立、严谨的家庭资产顾问。……</span>
+              <span class="ln">## 数字纪律</span>
+              <span class="ln">- 所有数字均由系统预先计算,你只能引用,不许做四则运算,不许凭印象造数字</span>
+              <span class="ln">## 合规底线</span>
+              <span class="ln">- 不荐具体股票 / 基金代码,不预测涨跌,不承诺收益 ……</span>
+              <span class="ln cmt"># (预览里只摘几行;实际是完整原文)</span>
+            </div>
+          </div>
+
+          <div class="sec open" data-sec="data">
+            <div class="sec-h" data-sec-toggle><span class="tri">▾</span><span class="tag">user</span>你家的数据<span class="meta">这一次的数字、账户、命中的规则、你的设置 · 1,946 字</span></div>
+            <div class="sec-b">
+              <span class="ln"># 家庭综合体检上下文</span>
+              <span class="ln">⚠ 重要 · 以下所有数字均由系统预先计算,你只能引用这些数字</span>
+              <span class="ln">家庭名: 我们家</span>
+              <span class="ln">## 1. KPI 速览(本位币 CNY · 已计算)</span>
+              <span class="ln">- 总资产: <span class="amt">¥6200000</span> · 总负债: <span class="amt">¥1200000</span> · 净资产: <span class="amt">¥5000000</span></span>
+              <span class="ln">- 家庭加权 XIRR: +4.12% · 流动资产: <span class="amt">¥600000</span> · 紧急储备: 8.5 个月</span>
+              <span class="ln">## 2. 资产配置(按类型 · 只含金融资产)</span>
+              <span class="ln">- 股票 (STOCK): <span class="amt">¥900000</span> · 占比 40.9%</span>
+              <span class="ln">- 现金 (CASH): <span class="amt">¥600000</span> · 占比 27.3%</span>
+              <span class="ln">- 理财 (WEALTH): <span class="amt">¥400000</span> · 占比 18.2%</span>
+              <span class="ln">- 保险 (INSURANCE): <span class="amt">¥300000</span> · 占比 13.6%</span>
+              <span class="ln">## 4. 各账户硬事实(已脱敏成员真名,真名→代号)</span>
+              <span class="ln">- 【招行工资卡】 类型=CASH 风险=★ 主理人=成员A 当前余额=<span class="amt">¥600000</span></span>
+              <span class="ln">- 【券商主账户】 类型=STOCK 风险=★★★★ 主理人=成员B 当前余额=<span class="amt">¥900000</span></span>
+              <span class="ln">## 5. 系统规则引擎本次命中(1 条)</span>
+              <span class="ln">- [WARN] FAM-CON-3 / 股票集中于单一券商账户 ……</span>
+              <span class="mine"><span class="src">← 体检页选的「金融资产」</span>## 分析范围:金融资产
+这个家庭只让你看金融资产(现金、股票、理财、加密、贵金属、保险),
+房产类账户不在分析里(合计占总资产 64.5%,系统已算好)。
+- 只谈金融资产之间怎么分、风险高低、够不够分散
+- 不要提房产、不动产、「金融盘 vs 不动产」</span>
+              <span class="mine"><span class="src">← 分析设置 ② · 你选的模板</span>## 分析模板:稳健守护
+立场:稳健 —— 先保本金与流动性,再谈收益;不建议提高高风险资产占比。
+侧重:风险、流动性、集中度 —— 总评与优先行动先围绕这几项。</span>
+              <span class="mine"><span class="src">← 分析设置 ⑤ · 2 条</span>## 家里人交代的分析偏好(2 条)
+1. 房子是自住的,别建议卖
+2. 成员B 的券商账户是长期持有,别建议频繁调仓</span>
+              <span class="ln">请输出 200-500 字综合诊断段落,严格遵守 system prompt 中的语调与禁词约束。</span>
+            </div>
+          </div>
+
+          <div class="sec open">
+            <span class="ln cmt"># 发出去之前,成员名换成了代号(这张表只在这里显示,没发给 AI):</span>
+            <span class="ln cmt">#   成员A = 爸爸 · 成员B = 妈妈</span>
+            <span class="ln cmt"># 账户名、备注、金额是原样发的 —— AI 要能点名账户,调仓建议才落得了地。</span>
+          </div>
+          <div class="pk-log" data-log></div>
+        </div>
+        <div class="pk-foot">
+          <div class="chips">
+            <button class="chip" data-run="rules"><b>$</b> rules · 看规矩</button>
+            <button class="chip" data-run="data"><b>$</b> data · 只看数据</button>
+            <button class="chip" data-run="mine"><b>$</b> mine · 只看我的设置</button>
+            <button class="chip" data-run="copy"><b>$</b> copy · 复制全部</button>
+            <button class="chip" data-run="copy data"><b>$</b> copy data · 只复制数据</button>
+            <button class="chip" data-run="help"><b>$</b> help</button>
+            <button class="chip" data-run="exit"><b>$</b> exit</button>
+          </div>
+          <div class="pk-in"><span class="p">$</span><input data-in placeholder="也可以直接敲命令,比如 mine 或 help" aria-label="命令"><span class="caret"></span></div>
+          <div class="pk-note">复制出去的内容含真实金额 · Esc 收起</div>
+        </div>
+      </div>
+      <div class="ai-body" style="margin-top:12px;opacity:.55">(AI 正文照常在下面)</div>
+    </div>
+
+    <div class="note" style="max-width:860px;margin-top:10px">
+      <b style="color:var(--ink)">几个刻意的决定</b>:
+      ① 「规矩」默认折叠 —— 每个模板都一样,想看的人才点开;「你家的数据」默认展开 —— 这才是每次不同、值得核对的部分。
+      ② 你的设置带来的三段换色 + 写来源,这是 v1.27 设置「生效了」的证据。
+      ③ 面板里的「成员A」就是发出去的原文,不反换成真名;对照表只在末尾注释里。
+      ④ 能敲的命令都有按钮,不会敲命令的人只点按钮就行。
+    </div>
+  </div>
+
+  <!-- ══ 3 · 说实话 ══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">3</span><span class="zone-t">说实话:四种不是「正常生成」的情况</span><span class="zone-sub">FR-909 ~ FR-911</span></div>
+    <div class="zone-line"></div>
+    <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="peek" style="margin:0"><div class="pk-body">
+        <span class="ln cmd">ai-prompt show --for "报表 · AI 调仓建议"</span>
+        <span class="ln warn"># 这份结果生成于 9 月 12 日,那时还没开始记录。</span>
+        <span class="ln warn"># 点「刷新」重新生成后就能看。</span>
+        <span class="ln cmt"># (不拿现在的数据拼一段冒充 —— 这期间余额变过,拼出来的和这份建议对不上)</span>
+      </div></div>
+      <div class="peek" style="margin:0"><div class="pk-body">
+        <span class="ln cmd">ai-prompt show --for "体检 · AI 综合诊断"</span>
+        <span class="ln warn"># 这次没有调用 AI:范围里没有资产,也就没有要分析的。</span>
+        <span class="ln cmt"># 发出去的内容:无</span>
+      </div></div>
+      <div class="peek" style="margin:0"><div class="pk-body">
+        <span class="ln cmd">ai-prompt show --for "体检 · AI 资产洞察"</span>
+        <span class="ln warn"># 发出去了,AI 那边没回:</span>
+        <span class="ln warn">#   Arrearage: Access denied, please make sure your account is in good standing.</span>
+        <span class="ln cmt"># (上游原话,原样照录;发出去的内容照常在下面)</span>
+        <span class="ln kv"><span class="k">模型</span>qwen · qwen-plus</span>
+      </div></div>
+      <div class="peek" style="margin:0"><div class="pk-body">
+        <span class="ln cmd">ai-prompt show --for "单账户体检 · AI 诊断"</span>
+        <span class="ln warn"># 发出去了,回答没采用:回答里出现了材料里没有的金额。</span>
+        <span class="ln warn"># 页面上显示的是规则引擎的结论。</span>
+        <span class="ln cmt"># 发出去的内容照常在下面 ……</span>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ══ 4 · 隐私模式 + 手机 ══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">4</span><span class="zone-t">隐私模式 · 手机</span><span class="zone-sub">FR-912 / FR-913 · 390px</span></div>
+    <div class="zone-line"></div>
+    <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start">
+      <div>
+        <div class="peek privacy" style="margin:0"><div class="pk-body">
+          <span class="ln cmd">ai-prompt show --for "体检 · AI 综合诊断"</span>
+          <span class="ln">- 总资产: <span class="amt">¥6200000</span> · 净资产: <span class="amt">¥5000000</span></span>
+          <span class="ln">- 【券商主账户】 当前余额=<span class="amt">¥900000</span></span>
+        </div>
+        <div class="pk-foot"><div class="chips"><button class="chip" disabled><b>$</b> copy · 先关隐私模式</button></div>
+          <div class="pk-note">隐私模式开着:金额和页面其他地方一样糊,长按可看;复制置灰。</div></div></div>
+        <p class="note" style="margin-top:10px">FR-913(§13 ⑤ 裁定后):隐私模式下 <b>AI 正文</b>里的「¥…」也糊 —— 现在只糊数字卡片,正文照常显示。</p>
+      </div>
+      <div class="phone"><div class="phone-in">
+        <div class="ai-card" style="padding:12px">
+          <div class="ai-head" style="gap:6px">
+            <span class="ai-t" style="font-size:10px">AI · 综合智能诊断</span>
+            <span class="ai-acts">
+              <span class="peek-btn on"><svg width="16" height="16"><use href="#i-term"/></svg></span>
+              <span class="btn-line" style="padding:12px 10px">刷新</span>
+            </span>
+          </div>
+          <div class="peek"><div class="pk-body">
+            <span class="ln cmd">ai-prompt show --for "体检 · AI 综合诊断"</span>
+            <span class="ln ok"># 这份结果就是用下面这段生成的 · 逐字</span>
+            <span class="ln kv"><span class="k">模型</span>deepseek-chat</span>
+            <span class="ln kv"><span class="k">设置</span>稳健守护 · 金融资产 · 偏好 2 条</span>
+            <div class="sec sys"><div class="sec-h"><span class="tri">▸</span><span class="tag sys">system</span>规矩<span class="meta">3,812 字</span></div></div>
+            <div class="sec open"><div class="sec-h"><span class="tri">▾</span><span class="tag">user</span>你家的数据</div>
+              <div class="sec-b">
+                <span class="ln">## 1. KPI 速览(本位币 CNY)</span>
+                <span class="ln">- 净资产: <span class="amt">¥5000000</span></span>
+                <span class="mine"><span class="src">← 你选的范围</span>## 分析范围:金融资产 ……</span>
+              </div></div>
+          </div>
+          <div class="pk-foot"><div class="chips">
+            <button class="chip"><b>$</b> rules</button><button class="chip"><b>$</b> mine</button><button class="chip"><b>$</b> copy</button><button class="chip"><b>$</b> exit</button>
+          </div></div></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ══ 5 · 覆盖清单 ══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">5</span><span class="zone-t">覆盖哪几处</span><span class="zone-sub">§3.5 · 9 处 · 同一个面板片段</span></div>
+    <div class="zone-line"></div>
+    <table class="cov">
+      <tr><th>#</th><th>位置</th><th>备注</th></tr>
+      <tr><td class="mono">1</td><td>资产体检 · AI 综合诊断</td><td></td></tr>
+      <tr><td class="mono">2</td><td>单账户体检 · AI 诊断</td><td></td></tr>
+      <tr><td class="mono">3</td><td>资产体检 · AI 资产洞察</td><td></td></tr>
+      <tr><td class="mono">4</td><td>报表 · 当前配置 vs 模板 · AI 调仓建议</td><td>这张卡现在连模型标记都没有,一起补上</td></tr>
+      <tr><td class="mono">5</td><td>仪表盘 · 归因复盘 · AI 月度复盘</td><td></td></tr>
+      <tr><td class="mono">6</td><td>资产透视 · AI 解读</td><td></td></tr>
+      <tr><td class="mono">7</td><td>目标详情 · AI 月报</td><td>后台生成,同样记录</td></tr>
+      <tr><td class="mono">8</td><td>目标详情 · AI 预警建议</td><td>同上</td></tr>
+      <tr><td class="mono">9</td><td>新建目标 · AI 推荐参数</td><td>推荐理由旁</td></tr>
+    </table>
+    <p class="note" style="margin-top:8px">不在本版:截图识别持仓、账单商户分类、透视「AI 打标签」(输出是表单预填,不是分析)、管理页连通性测试;超级 Agent(§13 ② 倾向下一版单独做)。</p>
+  </div>
+
+  <!-- ══ 6 · 开关 ══ -->
+  <div class="zone">
+    <div class="zone-head"><span class="zone-no">6</span><span class="zone-t">开关</span><span class="zone-sub">管理 → AI 接入 · FR-914 · 默认开</span></div>
+    <div class="zone-line"></div>
+    <div class="toggle" style="max-width:640px">
+      <span class="sw"></span>
+      <div><div style="font-size:14px">在 AI 结果旁显示「看 AI 收到了什么」</div>
+        <div class="note">关掉后 9 处都不显示 &gt;_ 图标;记录照常写,再打开时不用先刷新。</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const root = document.getElementById('demo');
+  const panel = root.querySelector('[data-peek]');
+  const btn = root.querySelector('[data-peek-toggle]');
+  const log = root.querySelector('[data-log]');
+  const input = root.querySelector('[data-in]');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // FR-918 · 第一行命令逐字「打」出来(≤ 0.6 秒);减少动效时直接出现
+  const firstLine = panel.querySelector('[data-type]');
+  const FIRST = firstLine.textContent;
+  function typeFirstLine() {
+    if (reduce) return;
+    firstLine.textContent = '';
+    const step = Math.max(8, Math.floor(600 / FIRST.length));
+    let i = 0;
+    const t = setInterval(() => { firstLine.textContent = FIRST.slice(0, ++i); if (i >= FIRST.length) clearInterval(t); }, step);
+  }
+  function setOpen(open) {
+    panel.hidden = !open;
+    btn.classList.toggle('on', open);
+    btn.setAttribute('aria-expanded', String(open));
+    btn.querySelector('.tip').textContent = open ? '收起' : '看 AI 收到了什么';
+    if (open) typeFirstLine();
+  }
+  btn.addEventListener('click', () => setOpen(panel.hidden));
+  root.querySelector('[data-peek-close]').addEventListener('click', () => setOpen(false));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) setOpen(false); });
+
+  const sec = k => panel.querySelector('[data-sec="' + k + '"]');
+  function openSec(k, open) {
+    const s = sec(k); s.classList.toggle('open', open);
+    s.querySelector('.tri').textContent = open ? '▾' : '▸';
+  }
+  root.querySelectorAll('[data-sec-toggle]').forEach(h => h.addEventListener('click', () => {
+    const s = h.parentElement; openSec(s.dataset.sec, !s.classList.contains('open'));
+  }));
+
+  // 命令回显:一律 textContent,不拼 HTML
+  function echo(cmd, lines) {
+    const c = document.createElement('span'); c.className = 'ln cmd'; c.textContent = cmd; log.appendChild(c);
+    lines.forEach(([cls, txt]) => { const l = document.createElement('span'); l.className = 'ln ' + cls; l.textContent = txt; log.appendChild(l); });
+    log.lastChild.scrollIntoView({ block: 'nearest' });
+  }
+  const HELP = [['cmt', '# 能用的命令(每条上面都有按钮):'],
+    ['cmt', '#   rules      展开「规矩」—— 每个模板都一样的那段'],
+    ['cmt', '#   data       只看「你家的数据」'],
+    ['cmt', '#   mine       只看你的设置带来的段落(范围 / 模板 / 偏好)'],
+    ['cmt', '#   copy       复制全部      copy data  只复制你家的数据'],
+    ['cmt', '#   exit       收起(也可以按 Esc)']];
+  function run(raw) {
+    const cmd = raw.trim().replace(/\s+/g, ' ').toLowerCase();
+    if (!cmd) return;
+    panel.classList.remove('only-mine');
+    switch (cmd) {
+      case 'help': echo(cmd, HELP); break;
+      case 'rules': openSec('rules', true); echo(cmd, [['ok', '# 已展开「规矩」· 3,812 字 · 每个模板都一样,改不了']]); break;
+      case 'data': openSec('rules', false); openSec('data', true); echo(cmd, [['ok', '# 只看「你家的数据」· 1,946 字']]); break;
+      case 'mine': openSec('data', true); panel.classList.add('only-mine'); echo(cmd, [['ok', '# 你的设置带来了 3 段:分析范围 · 分析模板 · 分析偏好(2 条),其余变淡']]); break;
+      case 'copy': echo(cmd, [['ok', '# 已复制全部 · 5,758 字(含真实金额)']]); break;
+      case 'copy data': echo(cmd, [['ok', '# 已复制「你家的数据」· 1,946 字(含真实金额)']]); break;
+      case 'exit': case 'q': case 'quit': setOpen(false); break;
+      case 'clear': log.replaceChildren(); break;
+      default: echo(raw.trim(), [['warn', '# 没有「' + raw.trim() + '」这条命令。']].concat(HELP));
+    }
+  }
+  root.querySelectorAll('[data-run]').forEach(b => b.addEventListener('click', () => run(b.dataset.run)));
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { run(input.value); input.value = ''; } });
+  typeFirstLine();
+})();
+</script>
+</body>
+</html>
