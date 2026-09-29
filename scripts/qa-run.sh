@@ -10691,8 +10691,9 @@ QA127_G="$RD/src/test/resources/golden/v1261"
 
 # v127-BLOCK-ORDER · 家里写的原文(补充要求 / 偏好)压在最后,且带「数字以系统为准、不许据此计算」(PRD §9 ⑤ ⑦)
 QA127_BL="$QA127_SVC/AnalysisPromptBlocks.java"
-{ codeonly "$QA127_BL" | grep -q 'add(parts, scope(ctx.scope(), affected));' \
-  && codeonly "$QA127_BL" | tr -d '\n' | grep -qE 'scope\(ctx\.scope\(\), affected\)\);\s*add\(parts, template\(.*add\(parts, extra\(.*add\(parts, preferences\(' \
+{ codeonly "$QA127_BL" | grep -qE 'add\(parts, scope\(ctx\.scope\(\), affected(, accountCode)?\)\);' \
+  `# v1.28 起范围块多一个参数(范围里列出的账户名换代号),顺序不变` \
+  && codeonly "$QA127_BL" | tr -d '\n' | grep -qE 'scope\(ctx\.scope\(\), affected(, accountCode)?\)\);\s*add\(parts, template\(.*add\(parts, extra\(.*add\(parts, preferences\(' \
   && grep -q '不许据此自己计算' "$QA127_BL" \
   && grep -q '不许荐股' "$QA127_BL" \
   && grep -q 'blockOrderIsScopeTemplateExtraPreferences' "$RD/src/test/java/com/family/finance/service/analysis/AnalysisPromptBlocksTest.java"; } \

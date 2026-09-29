@@ -25,7 +25,7 @@ class AiTextTest {
 
     @Test
     void 各种货币写法() {
-        assertThat(AiText.privHtml("US$1,200.50")).isEqualTo("<span data-priv>US$1,200.50</span>");
+        assertThat(AiText.privHtml("US$1,280.00")).isEqualTo("<span data-priv>US$1,280.00</span>");
         assertThat(AiText.privHtml("HK$ 300k")).isEqualTo("<span data-priv>HK$ 300k</span>");
         assertThat(AiText.privHtml("约 1.2 亿")).isEqualTo("约 <span data-priv>1.2 亿</span>");
         assertThat(AiText.privHtml(null)).isEmpty();

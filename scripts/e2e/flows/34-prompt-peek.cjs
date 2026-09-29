@@ -54,7 +54,9 @@ module.exports = {
       report.section('2 · 面板里的就是记下来的原文,逐字(FR-909)');
       const src = await ui.page.getAttribute('#ai-diagnose-panel [data-peek-btn]', 'data-peek-src');
       const rid = Number((src || '').replace('/ai/prompt/', ''));
-      await ui.assert(rid > state.maxRec, '>_ 指向这一次调用新记下的那条记录', src);
+      // 整套串跑时前面的 flow 可能已经按同一份材料问过 → 这里命中内存缓存,指向的是「生成这份结果的那一次」(更早)
+      await ui.assert(rid > 0 && db.num(`SELECT COUNT(*) FROM llm_prompt_record WHERE id=${rid} AND family_id=${fx.FAM}`) === 1,
+        '>_ 指向生成这份结果的那条记录(缓存命中时是更早那一次,不是现在重拼)', src);
       const shown = await raw(ui, '#ai-diagnose-panel [data-peek-raw="data"]');
       const len = db.num(`SELECT CHAR_LENGTH(user_text) FROM llm_prompt_record WHERE id=${rid} AND family_id=${fx.FAM}`);
       const same = db.num(`SELECT user_text = '${esc(shown)}' FROM llm_prompt_record WHERE id=${rid} AND family_id=${fx.FAM}`);
