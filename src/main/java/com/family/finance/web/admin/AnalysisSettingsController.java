@@ -343,11 +343,23 @@ public class AnalysisSettingsController {
         model.addAttribute("draft", draft);
         model.addAttribute("focusAll", AnalysisTemplate.Focus.values());
         model.addAttribute("stanceAll", AnalysisTemplate.Stance.values());
-        model.addAttribute("scopeAll", ScopeKind.values());
+        // v1.27.1 · 从宽到窄排:全都算 → 不看房子和车(最常见的诉求)→ 只去掉标过的那几个
+        model.addAttribute("scopeAll", List.of(ScopeKind.ALL, ScopeKind.FINANCIAL, ScopeKind.ADJUSTABLE));
         model.addAttribute("anchors", anchorMapper.findAll());
         model.addAttribute("scopeDefault", scopeService.familyDefault(fid));
+        // v1.27.1 · 每个范围选项下写「对你家来说去掉了谁、占多少」;和「全部」没区别的选项照实说
+        Map<String, String> scopeFacts = new LinkedHashMap<>();
+        for (var o : scopeService.options(fid, null)) {
+            if (!o.isAll()) scopeFacts.put(o.kind().name(), o.optionSubtitle());
+        }
+        model.addAttribute("scopeFacts", scopeFacts);
         var family = familyService.require(fid);
         model.addAttribute("anchorFamily", family.getAllocationAnchor());
+        String famAnchor = family.getAllocationAnchor() == null ? "SP_4321" : family.getAllocationAnchor();
+        model.addAttribute("anchorFamilyName", "CUSTOM".equals(famAnchor) ? "自定义"
+                : anchorMapper.findAll().stream().filter(a -> famAnchor.equals(a.getCode()))
+                        .map(a -> a.getDisplayName()).findFirst().orElse(famAnchor));
+        model.addAttribute("customFilled", !allocationService.customAnchor(fid).isEmpty());
         model.addAttribute("riskAppetiteLabel", AnalysisPromptBlocks.riskAppetiteLabel(family.getRiskAppetite()));
         model.addAttribute("back", AnalysisUrls.safeBack(back));
         model.addAttribute("maxExtra", AnalysisTemplate.MAX_EXTRA_CHARS);
