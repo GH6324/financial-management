@@ -96,11 +96,11 @@
 
 > 完整发布记录与截图见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段每版只留 2–4 行,细节不搬过来)。
 
-**[v1.26.1](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.26.1) · [v1.26.2](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.26.2) · 几处小修**
-持仓页的 OpenD 只给富途显示;安装脚本拉镜像失败时说出真实原因(DNS 坏了不再说成「被限速」);点「添加账户」后向导直接出现在眼前。
+**[v1.27.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.27.0) · 只分析你想管的那部分钱**
+体检、报表配置对照和 AI 可以只看「金融资产」,或去掉你标过「不参与配置分析」的账户(比如自住房);净资产、收益、流动性照常按全部资产算。AI 的角度可以从五个内置模板里挑,或基于模板定制;家里的忌讳写成分析偏好,所有 AI 都会读到([#23](https://github.com/LuoDi-Nate/financial-management/issues/23))。
 
-**[v1.26.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.26.0) · 盈透 IBKR 账户也能自动同步了**
-和富途、老虎一样配一次,之后持仓与各币种现金自动拉进来;走 Flex 报表,口令只能取报表、做不了交易([#24](https://github.com/LuoDi-Nate/financial-management/issues/24))。券商同步在管理页单独成了入口;提醒时间、再平衡核销比例这两个一直改不了的设置补上了页面。
+**[v1.26.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.26.0) – [v1.26.2](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.26.2) · 盈透 IBKR 账户也能自动同步了**
+和富途、老虎一样配一次,持仓与各币种现金自动拉进来;走 Flex 报表,口令只能取报表、做不了交易([#24](https://github.com/LuoDi-Nate/financial-management/issues/24))。
 
 ## 主要能力
 

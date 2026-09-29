@@ -1,61 +1,60 @@
 {
-  "_comment": "v1.24.0 · 支出分析(三分 / 归因 / 常态月均 / 下钻)。核心叙事:①这些钱砍得掉吗——把日常开支拆成刚性·弹性·一次性 ②这个月为什么变了——归因瀑布把差额摊到类目上 ③dashboard 上有一份即时口径,不用等关账 ④性质写成两个问句,家里人看得懂。PC 用 selector 裁掉导航与留白;手机整屏不裁,用 eval 滚到位。",
-  "_no_shot_year_drilldown": "年度累计的类目下钻【故意不拍】:展开器的条件是「大类下 > 1 个细类」,而报表锚的是最近已定稿期(当前 2026-08),那个窗口里每个大类恰好只有一个细类 —— 展开器按设计就不该出现。多细类的数据都落在还没关账的 09 期。拍出来会是一张看不见功能的图,比不拍更误导。判据落在单测 ExpenseYearRollupTest,不靠截图。",
+  "_comment": "v1.27.0 · 分析范围 + 模板 + 偏好(issue #23)。核心叙事:①体检顶上切「只看金融资产」,房产不再主导结论,净资产一分不少 ②报表配置锚:范围内没有的桶不参与、其余按比例放大并当场写明 ③AI 的角度挑个模板就行,不对路就基于它定制(右侧实时显示 AI 会收到的那段要求)④所有设置收在「管理 → 分析设置」一处。PC 用 selector 裁掉导航与留白;手机整屏不裁,用 eval 滚到位。",
   "_mobile_scroll_note": "手机版 scrollIntoView 之后必须再 scrollBy 一个负偏移 —— 顶栏是吸顶的,block:'start' 会把标题正好塞到顶栏底下,拍出来只有条没有题。",
   "pc": [
     {
-      "path": "/reports",
-      "name": "expense-split",
+      "path": "/checkup?scope=FINANCIAL",
+      "name": "checkup-scope",
       "wait": 2000,
-      "waitFor": "#sec-expense-mix",
-      "selector": "#sec-expense-mix div.mb-10:has(h3:text-is(\"这些钱砍得掉吗\"))"
+      "waitFor": "#analysis-scope",
+      "selector": "section.mb-8:has(#analysis-scope)"
     },
     {
-      "path": "/reports",
-      "name": "expense-waterfall",
+      "path": "/reports?scope=FINANCIAL",
+      "name": "reports-anchor-scope",
       "wait": 2000,
-      "waitFor": "#sec-expense-mix",
-      "selector": "#sec-expense-mix div.mb-10:has(h3:text-is(\"为什么变了\"))"
+      "waitFor": "#allocation-diff [data-rescale-note]",
+      "selector": "#allocation-diff"
     },
     {
-      "path": "/dashboard",
-      "name": "dashboard-live-split",
+      "path": "/checkup",
+      "name": "checkup-templates",
       "wait": 2000,
-      "waitFor": "h3:text-is(\"本月支出 · 砍得掉吗\")",
-      "selector": "div.border-t.border-rule.mt-5.pt-4:has(h3:text-is(\"本月支出 · 砍得掉吗\"))"
+      "waitFor": "#analysis-templates",
+      "selector": "#analysis-templates"
     },
     {
-      "path": "/expense/categories",
-      "name": "expense-nature",
+      "path": "/admin/analysis/template/new?from=STEADY",
+      "name": "template-customize",
       "wait": 1500,
-      "waitFor": "select[name=\"nature\"]",
-      "eval": "document.querySelectorAll('body *').forEach(e=>{const p=getComputedStyle(e).position; if(p==='sticky'||p==='fixed') e.style.position='static'})",
-      "selector": "div.paper-card:has(select[name=\"nature\"])"
+      "waitFor": "#tpl-preview",
+      "selector": "main"
     }
   ],
   "mobile": [
     {
-      "path": "/dashboard",
-      "name": "dashboard-live-split",
+      "path": "/checkup?scope=FINANCIAL",
+      "name": "checkup-scope",
       "wait": 2000,
-      "waitFor": "h3:text-is(\"本月支出 · 砍得掉吗\")",
-      "eval": "document.querySelector('h3:not(:has(*))') && [...document.querySelectorAll('h3')].find(h=>h.textContent.trim()==='本月支出 · 砍得掉吗').scrollIntoView({block:'center'})",
+      "waitFor": "#analysis-scope",
       "full": false
     },
     {
-      "path": "/reports",
-      "name": "expense-split",
+      "path": "/reports?scope=FINANCIAL",
+      "name": "reports-anchor-scope",
       "wait": 2200,
-      "waitFor": "#sec-expense-mix",
-      "eval": "([...document.querySelectorAll('h3')].find(h=>h.textContent.trim()==='这些钱砍得掉吗').scrollIntoView({block:'start'}), window.scrollBy(0,-120))",
+      "waitFor": "#allocation-diff",
+      "eval": "(document.querySelector('#allocation-diff').scrollIntoView({block:'start'}), window.scrollBy(0,-90))",
       "full": false
     },
     {
-      "path": "/expense/categories",
-      "name": "expense-nature",
-      "wait": 1500,
-      "waitFor": "select[name=\"nature\"]",
+      "path": "/checkup",
+      "name": "checkup-templates",
+      "wait": 2000,
+      "waitFor": "#analysis-templates",
+      "eval": "(document.head.appendChild(Object.assign(document.createElement('style'),{textContent:'#checkup-ai p,#checkup-ai ol,#checkup-insight p,#checkup-insight li,#checkup-insight td{filter:blur(5px)}'})), document.querySelector('#analysis-templates').scrollIntoView({block:'start'}), window.scrollBy(0,-90))",
       "full": false
     }
-  ]
+  ],
+  "_privacy_note": "AI 生成的正文里会直接写金额(隐私模式只糊 KPI 数字,不糊 AI 正文)—— 手机「分析模板」那张会带进 AI 综合诊断。AI 区是 htmx 异步载入的,eval 跑的时候还没到,所以注入一条样式(对后到的内容也生效)把 AI 正文糊掉。"
 }
