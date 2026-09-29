@@ -77,14 +77,31 @@ module.exports = {
     await ui.page.waitForFunction(t => document.querySelector('#tpl-preview').innerText.includes(t), EXTRA, { timeout: 15000 }).catch(() => {});
     await ui.assert((await ui.page.locator('#tpl-preview').innerText()).includes(EXTRA), '补充要求出现在「AI 会收到的要求」里');
 
+    // v1.27.1 · 「范围」不再是三个名词的下拉:每个选项先说人话、再说「什么情况选它」、再说「对你家去掉了谁」
+    const scopeCards = await ui.page.locator('[data-tpl-scope] [data-tpl-scope-option]').evaluateAll(ls => ls.map(l => l.getAttribute('data-tpl-scope-option')));
+    await ui.assert(scopeCards.join(',') === ',ALL,FINANCIAL,ADJUSTABLE', '范围四张说明卡:跟默认 / 全都算 / 不看房子和车 / 去掉标过的(从宽到窄)', scopeCards.join(','));
+    await ui.notVisible('select[name=scope]', '不再是只写三个名词的下拉');
+    await ui.seesText('不想看不动产的分布', '「不看房子和车」那张直接写了什么时候选它');
+    const hasProperty = db.num(`SELECT COUNT(*) FROM account WHERE family_id=${fx.FAM} AND type IN ('PROPERTY','OTHER') AND archived_at IS NULL`) > 0;
+    if (hasProperty) {
+      const fact = (await ui.page.locator('[data-tpl-scope-option="FINANCIAL"] [data-scope-fact]').innerText()).trim();
+      await ui.assert(/^对你家:不含 .+ · 占总资产 \d+%$/.test(fact), '写明对你家去掉了谁、占多少', fact);
+    }
+    await ui.click('[data-tpl-scope-option="FINANCIAL"]', '点「不看房子和车」那张卡(点卡片任意处都算选中)');
+    await ui.assert(await ui.page.isChecked('input[name=scope][value=FINANCIAL]'), '选中了「金融资产」');
+    const anchorCards = await ui.page.locator('[data-tpl-anchor] [data-tpl-anchor-option]').count();
+    await ui.assert(anchorCards >= 3, '配置锚也是说明卡(跟家里的 / 各套锚 / 自定义),各写着目标比例', String(anchorCards));
+    await ui.seesText('现金 10% · 投资 30% · 房产 40% · 保险 20%', '标普 4321 那张直接写出四个目标数');
+
     aiReqs.length = 0;
     await Promise.all([ui.page.waitForNavigation({ waitUntil: 'networkidle' }).catch(() => {}),
                        ui.click('[data-tpl-save]', '点「保存并重新分析」')]);
-    const row = db.raw(`SELECT id, source_key, stance, focus, extra FROM analysis_template
+    const row = db.raw(`SELECT id, source_key, stance, focus, extra, scope FROM analysis_template
                           WHERE family_id=${fx.FAM} AND id > ${state.maxId} AND name='${NAME}' ORDER BY id DESC LIMIT 1`).split('\t');
     const newKey = `custom:${row[0]}`;
     await ui.assert(row[1] === 'STEADY' && row[2] === 'BALANCED' && row[3] === 'RISK,LIQUIDITY,CONCENTRATION' && (row[4] || '').includes('港股'),
       '真值层:存了一份完整副本(来源 STEADY · 立场 BALANCED · 侧重三项 · 补充要求)', row.join(' | '));
+    await ui.assert(row[5] === 'FINANCIAL', '真值层:范围存成 FINANCIAL(点卡片就是选中)', row[5]);
     await ui.assert(new URL(ui.page.url()).pathname === '/checkup' && new URL(ui.page.url()).searchParams.get('tpl') === newKey,
       '保存后回到体检页,并换上新模板', ui.page.url());
     await ui.visible('[data-template-flash]', '顶上一句「已按「我家的稳健守护」重新分析」');

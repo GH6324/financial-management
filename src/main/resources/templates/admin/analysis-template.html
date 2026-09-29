@@ -58,21 +58,68 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="field-label">范围</label>
-          <select name="scope" class="field-input bg-transparent" data-tpl-scope>
-            <option value="" th:selected="${draft.scope() == null}" th:text="'跟随家里的默认(' + ${scopeDefault.label} + ')'">跟随家里的默认</option>
-            <option th:each="k : ${scopeAll}" th:value="${k.name()}" th:selected="${draft.scope() == k}" th:text="'固定为「' + ${k.label} + '」'">固定为「金融资产」</option>
-          </select>
+      <!--/* v1.27.1 · 维护者 2026-09-29:「范围」三个词不直观,要直接告诉人「你不想看 X 就选这个」。
+           下拉改成一张张说明卡:先写人话(不看房子和车),再写正式叫法(金融资产 —— 体检页、报表上用的是这个词),
+           再写「对你家来说去掉了谁、占多少」;和「全部」没区别的选项照实说,不让人选了才发现没变化。
+           字段名 / 取值不变(scope、anchor),后端一行没动。 */-->
+      <div data-tpl-scope>
+        <div class="field-label mb-1">范围 · AI 看哪部分钱</div>
+        <p class="text-[11.5px] text-ink-soft leading-relaxed mb-2.5">
+          只管配置、风险、集中度这些<b>占比</b>把谁算进来。<b>净资产、收益、流动性永远按全部资产算</b>,选哪个都不变。</p>
+        <div class="opt-list">
+          <label class="opt-card" data-tpl-scope-option="">
+            <input type="radio" name="scope" value="" th:checked="${draft.scope() == null}">
+            <span class="opt-body">
+              <span class="opt-t">跟家里的默认走 <small th:text="'现在是「' + ${scopeDefault.label} + '」'">现在是「全部资产」</small></span>
+              <span class="opt-s">家里在「分析设置」里改了默认范围,这个模板跟着变。拿不准就选这个。</span>
+            </span>
+          </label>
+          <label th:each="k : ${scopeAll}" class="opt-card" th:attr="data-tpl-scope-option=${k.name()}">
+            <input type="radio" name="scope" th:value="${k.name()}" th:checked="${draft.scope() == k}">
+            <span class="opt-body">
+              <span class="opt-t"><th:block th:text="${k.plainName}">不看房子和车</th:block>
+                <small th:text="'即「' + ${k.label} + '」'">即「金融资产」</small></span>
+              <span class="opt-s" th:text="${k.whenToUse}">不想看不动产的分布,就选这个</span>
+              <span class="opt-fact" th:if="${k.name() != 'ALL' and scopeFacts.containsKey(k.name())}" data-scope-fact
+                    th:text="'对你家:' + ${scopeFacts.get(k.name())}">对你家:不含 房产类、其他类 · 占总资产 24%</span>
+              <span class="opt-fact is-empty" th:if="${k.name() == 'FINANCIAL' and !scopeFacts.containsKey('FINANCIAL')}" data-scope-fact>
+                对你家:没有房产类、其他类账户,选了和「全都算进去」一样</span>
+              <span class="opt-fact is-empty" th:if="${k.name() == 'ADJUSTABLE' and !scopeFacts.containsKey('ADJUSTABLE')}" data-scope-fact>
+                对你家:还没标任何账户,选了和「全都算进去」一样 ·
+                <a th:href="@{/admin/analysis} + '#excluded'" class="underline text-brass-deep" data-scope-mark-link>去标哪些不算 →</a></span>
+            </span>
+          </label>
         </div>
-        <div>
-          <label class="field-label">配置锚</label>
-          <select name="anchor" class="field-input bg-transparent" data-tpl-anchor>
-            <option value="" th:selected="${draft.anchor() == null}">跟随家里的</option>
-            <option th:each="a : ${anchors}" th:value="${a.code}" th:selected="${draft.anchor() == a.code}" th:text="${a.displayName}">标普 4321</option>
-            <option value="CUSTOM" th:selected="${draft.anchor() == 'CUSTOM'}">自定义(分析设置里填的那套)</option>
-          </select>
+      </div>
+
+      <div data-tpl-anchor>
+        <div class="field-label mb-1">配置锚 · 拿哪套目标比例来比</div>
+        <p class="text-[11.5px] text-ink-soft leading-relaxed mb-2.5">
+          AI 说「现金偏多、投资偏少」时,对照的就是这套目标比例。范围里没有房产时,目标里房产那一份按比例分给其余几类。</p>
+        <div class="opt-list opt-list-2">
+          <label class="opt-card" data-tpl-anchor-option="">
+            <input type="radio" name="anchor" value="" th:checked="${draft.anchor() == null}">
+            <span class="opt-body">
+              <span class="opt-t">跟家里的走 <small th:text="'现在是「' + ${anchorFamilyName} + '」'">现在是「标普 4321 · 中产经典」</small></span>
+              <span class="opt-s">家里在报表或分析设置里换了锚,这个模板跟着变。</span>
+            </span>
+          </label>
+          <label th:each="a : ${anchors}" class="opt-card" th:attr="data-tpl-anchor-option=${a.code}">
+            <input type="radio" name="anchor" th:value="${a.code}" th:checked="${draft.anchor() == a.code}">
+            <span class="opt-body">
+              <span class="opt-t" th:text="${a.displayName}">标普 4321 · 中产经典</span>
+              <span class="opt-s" th:text="${a.description}">现金 10% · 投资 30% · 房产 40% · 保险 20%</span>
+            </span>
+          </label>
+          <label class="opt-card" data-tpl-anchor-option="CUSTOM">
+            <input type="radio" name="anchor" value="CUSTOM" th:checked="${draft.anchor() == 'CUSTOM'}">
+            <span class="opt-body">
+              <span class="opt-t">自定义</span>
+              <span class="opt-s" th:if="${customFilled}">用你在「分析设置 ④」里填的那四个数。</span>
+              <span class="opt-s" th:unless="${customFilled}">用你自己填的四个数 —— 还没填,选了之后 AI 先不做对照。
+                <a th:href="@{/admin/analysis} + '#anchor'" class="underline text-brass-deep">去填 →</a></span>
+            </span>
+          </label>
         </div>
       </div>
 

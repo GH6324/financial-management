@@ -10820,6 +10820,22 @@ QA127_PREF1=$(mysql -ufinance -pfinance finance -sN -e "SELECT COUNT(*) FROM ana
   || log_bad "v127-NO-WRITE-TOOLS-LIVE 对外面多了写能力" "tools=[$QA127_LIST] prefs $QA127_PREF0→$QA127_PREF1"
 mysql -ufinance -pfinance finance -e "DELETE FROM ask_access_audit WHERE token_prefix LIKE 'fmk_qa127%'; DELETE FROM ask_access_token WHERE access_point_id=900127; DELETE FROM analysis_preference WHERE content LIKE 'qa-v127%'" 2>/dev/null
 
+# v1271-SCOPE-PLAIN · 定制模板页的「范围」要说人话(维护者 2026-09-29:「范围指的是什么?要说『你不想看不动产的分布
+#   就选 xxx』」)。原来是一个下拉,三项只写「固定为「金融资产」」这类名词,不懂的人不知道该选哪个。
+#   现在每项一张说明卡:人话叫法 + 什么时候选它 + 对你家去掉了谁;配置锚同样一张张写出四个目标数。
+#   判据:下拉没了、四张范围卡 + 锚卡在、「不动产」那句在、页面渲染到底;文案只有一处来源(ScopeKind),单测逼新取值表态。
+QA1271_TPL="$RD/src/main/resources/templates/admin/analysis-template.html"
+$CURL -b "$QA127_C" "$BASE/admin/analysis/template/new?from=GENERAL" -o "$TMP" -w ""
+QA1271_SC=$(grep -c 'data-tpl-scope-option' "$TMP"); QA1271_AC=$(grep -c 'data-tpl-anchor-option' "$TMP")
+{ [ "$QA1271_SC" -eq 4 ] && [ "$QA1271_AC" -ge 3 ] \
+  && ! grep -q 'name="scope" class="field-input' "$TMP" && ! grep -q '<select name="scope"' "$QA1271_TPL" \
+  && grep -q '不想看不动产的分布' "$TMP" && grep -q 'whenToUse' "$QA1271_TPL" \
+  && grep -q 'private final String whenToUse' "$RD/src/main/java/com/family/finance/service/analysis/ScopeKind.java" \
+  && [ -f "$RD/src/test/java/com/family/finance/service/analysis/ScopeKindPlainTest.java" ] \
+  && grep -q '</html>' "$TMP"; } \
+  && log_ok "v1271-SCOPE-PLAIN(定制页范围 4 张说明卡 · 配置锚 $QA1271_AC 张 · 人话在 ScopeKind 一处 · 渲染到底)" \
+  || log_bad "v1271-SCOPE-PLAIN 定制页的「范围」又只剩名词了" "范围卡=$QA1271_SC 锚卡=$QA1271_AC · see admin/analysis-template.html"
+
 # v127-E2E-FLOWS · 四条真浏览器 flow 在(从真实入口点:体检卡片去标 · 模板定制回跳重跑 · 偏好与超级 Agent · 配置锚)
 { for f in 30-analysis-scope 31-analysis-template 32-analysis-preferences 33-analysis-anchor; do [ -f "$RD/scripts/e2e/flows/$f.cjs" ] || exit 1; done; } 2>/dev/null \
   && log_ok "v127-E2E-FLOWS(flow 30 ~ 33 在)" \
