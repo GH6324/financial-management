@@ -1,60 +1,57 @@
 {
-  "_comment": "v1.27.0 · 分析范围 + 模板 + 偏好(issue #23)。核心叙事:①体检顶上切「只看金融资产」,房产不再主导结论,净资产一分不少 ②报表配置锚:范围内没有的桶不参与、其余按比例放大并当场写明 ③AI 的角度挑个模板就行,不对路就基于它定制(右侧实时显示 AI 会收到的那段要求)④所有设置收在「管理 → 分析设置」一处。PC 用 selector 裁掉导航与留白;手机整屏不裁,用 eval 滚到位。",
+  "_comment": "v1.28.0 · 看 AI 收到了什么。核心叙事:①每张 AI 结果卡片头一个 >_,点开是终端,逐字显示那一次发给 AI 的内容 ②你的范围 / 模板 / 偏好带进去的段落标色写来源(mine)③账户名换成「账户A」代号发出去,回答里换回真名 ④管理 → AI 接入一个开关。PC 用 selector 裁掉导航与留白;手机整屏不裁,用 eval 点开并滚到位。拍之前在 beta 上先加一条演示偏好、生成一份调仓建议(拍完删掉偏好)。",
   "_mobile_scroll_note": "手机版 scrollIntoView 之后必须再 scrollBy 一个负偏移 —— 顶栏是吸顶的,block:'start' 会把标题正好塞到顶栏底下,拍出来只有条没有题。",
+  "_peek_note": ">_ 面板是点了才用 htmx 拉的:eval 先点图标,隔 2.5 秒再点「$ mine」并把标色段滚进面板可视区;wait 留足 4.5 秒。",
   "pc": [
     {
-      "path": "/checkup?scope=FINANCIAL",
-      "name": "checkup-scope",
-      "wait": 2000,
-      "waitFor": "#analysis-scope",
-      "selector": "section.mb-8:has(#analysis-scope)"
-    },
-    {
-      "path": "/reports?scope=FINANCIAL",
-      "name": "reports-anchor-scope",
-      "wait": 2000,
-      "waitFor": "#allocation-diff [data-rescale-note]",
-      "selector": "#allocation-diff"
-    },
-    {
       "path": "/checkup",
-      "name": "checkup-templates",
-      "wait": 2000,
-      "waitFor": "#analysis-templates",
-      "selector": "#analysis-templates"
+      "name": "checkup-peek",
+      "wait": 4500,
+      "waitFor": "#ai-diagnose-panel [data-peek-btn]",
+      "eval": "document.querySelector('#ai-diagnose-panel [data-peek-btn]').click(); setTimeout(function(){ var c=document.querySelector('#ai-diagnose-panel [data-peek-run=\"mine\"]'); if(c) c.click(); var m=document.querySelector('#ai-diagnose-panel [data-peek-mine]'); var b=document.querySelector('#ai-diagnose-panel .pk-body'); if(m&&b) b.scrollTop = m.offsetTop - 140; [].forEach.call(document.querySelectorAll('#ai-diagnose-panel .ln.cmt'), function(l){ if(/成员[A-Z] = /.test(l.textContent)) l.style.filter='blur(5px)'; }); }, 2500)",
+      "selector": "#ai-diagnose-panel [data-peek]"
     },
     {
-      "path": "/admin/analysis/template/new?from=STEADY",
-      "name": "template-customize",
-      "wait": 1500,
-      "waitFor": "#tpl-preview",
-      "selector": "main"
+      "path": "/reports",
+      "name": "rebalance-peek",
+      "wait": 3500,
+      "waitFor": "#ai-rebalance [data-peek-btn]",
+      "eval": "document.querySelector('#ai-rebalance').scrollIntoView({block:'start'}); document.querySelector('#ai-rebalance [data-peek-btn]').click(); setTimeout(function(){ var b=document.querySelector('#ai-rebalance .pk-body'); var t=[].slice.call(document.querySelectorAll('#ai-rebalance .pk-body .ln')).find(function(l){return l.textContent.indexOf('各账户当前余额')===0;}); if(b&&t) b.scrollTop = t.offsetTop - 60; }, 2000)",
+      "selector": "#ai-rebalance"
+    },
+    {
+      "path": "/admin/ai-access",
+      "name": "admin-peek",
+      "wait": 1200,
+      "waitFor": "#peek",
+      "selector": "#peek"
     }
   ],
   "mobile": [
     {
-      "path": "/checkup?scope=FINANCIAL",
-      "name": "checkup-scope",
-      "wait": 2000,
-      "waitFor": "#analysis-scope",
-      "full": false
-    },
-    {
-      "path": "/reports?scope=FINANCIAL",
-      "name": "reports-anchor-scope",
-      "wait": 2200,
-      "waitFor": "#allocation-diff",
-      "eval": "(document.querySelector('#allocation-diff').scrollIntoView({block:'start'}), window.scrollBy(0,-90))",
-      "full": false
-    },
-    {
       "path": "/checkup",
-      "name": "checkup-templates",
-      "wait": 2000,
-      "waitFor": "#analysis-templates",
-      "eval": "(document.head.appendChild(Object.assign(document.createElement('style'),{textContent:'#checkup-ai p,#checkup-ai ol,#checkup-insight p,#checkup-insight li,#checkup-insight td{filter:blur(5px)}'})), document.querySelector('#analysis-templates').scrollIntoView({block:'start'}), window.scrollBy(0,-90))",
+      "name": "checkup-peek",
+      "wait": 4500,
+      "waitFor": "#ai-diagnose-panel [data-peek-btn]",
+      "eval": "document.querySelector('#ai-diagnose-panel').scrollIntoView({block:'start'}); window.scrollBy(0,-70); document.querySelector('#ai-diagnose-panel [data-peek-btn]').click(); setTimeout(function(){ var p=document.querySelector('#ai-diagnose-panel [data-peek]'); if(p){ p.scrollIntoView({block:'start'}); window.scrollBy(0,-70);} }, 2500)",
+      "full": false
+    },
+    {
+      "path": "/reports",
+      "name": "rebalance-peek",
+      "wait": 3500,
+      "waitFor": "#ai-rebalance [data-peek-btn]",
+      "eval": "document.querySelector('#ai-rebalance [data-peek-btn]').click(); setTimeout(function(){ var p=document.querySelector('#ai-rebalance [data-peek]'); if(p){ p.scrollIntoView({block:'start'}); window.scrollBy(0,-110);} }, 2000)",
+      "full": false
+    },
+    {
+      "path": "/admin/ai-access",
+      "name": "admin-peek",
+      "wait": 1200,
+      "waitFor": "#peek",
+      "eval": "(document.querySelector('#peek').scrollIntoView({block:'start'}), window.scrollBy(0,-90))",
       "full": false
     }
   ],
-  "_privacy_note": "AI 生成的正文里会直接写金额(隐私模式只糊 KPI 数字,不糊 AI 正文)—— 手机「分析模板」那张会带进 AI 综合诊断。AI 区是 htmx 异步载入的,eval 跑的时候还没到,所以注入一条样式(对后到的内容也生效)把 AI 正文糊掉。"
+  "_privacy_note": "代号对照那一行里有 beta 演示成员的名字 —— 公开截图里糊掉(账户名是种子数据,不糊)。"
 }

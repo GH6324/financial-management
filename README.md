@@ -96,11 +96,11 @@
 
 > 完整发布记录与截图见 [Releases](https://github.com/LuoDi-Nate/financial-management/releases)(本段每版只留 2–4 行,细节不搬过来)。
 
+**[v1.28.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.28.0) · 看 AI 收到了什么**
+每个 AI 结果旁一个 `>_`,点开是终端,逐字显示那一次发给大模型的内容,你的范围 / 模板 / 偏好带进去的段落标色写来源。账户名也换成代号再发出去;服务器日志不再写提示词正文;隐私模式也糊 AI 正文里的金额。
+
 **[v1.27.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.27.0) – [v1.27.1](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.27.1) · 只分析你想管的那部分钱**
 体检、报表配置对照和 AI 可以只看「金融资产」,或去掉你标过「不参与配置分析」的账户(比如自住房);净资产、收益、流动性照常按全部资产算。AI 的角度可以从五个内置模板里挑,或基于模板定制;家里的忌讳写成分析偏好,所有 AI 都会读到([#23](https://github.com/LuoDi-Nate/financial-management/issues/23))。v1.27.1 起定制模板时,范围和配置锚每一项都写明「什么情况选它、对你家去掉了谁」。
-
-**[v1.26.0](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.26.0) – [v1.26.2](https://github.com/LuoDi-Nate/financial-management/releases/tag/v1.26.2) · 盈透 IBKR 账户也能自动同步了**
-和富途、老虎一样配一次,持仓与各币种现金自动拉进来;走 Flex 报表,口令只能取报表、做不了交易([#24](https://github.com/LuoDi-Nate/financial-management/issues/24))。
 
 ## 主要能力
 
