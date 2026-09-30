@@ -31,7 +31,8 @@
         </tr>
         </thead>
         <tbody>
-        <tr th:each="c : ${categories}">
+        <!--/* v1.28.2 · 每行带 id=cat-<code>:仪表盘「货币基金的风险与参考收益」直达并高亮那一行 */-->
+        <tr th:each="c : ${categories}" th:id="'cat-' + ${c.code}" class="pc-row">
           <td class="font-mono text-xs text-ink-subtle" th:text="${c.displayOrder}">10</td>
           <td class="font-mono text-xs" th:text="${c.code}">A_STOCK</td>
           <td><span class="font-display" th:text="${c.displayName}">A 股 / A 股基金</span></td>

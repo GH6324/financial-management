@@ -11014,6 +11014,21 @@ QA1281_LD="$RD/src/main/resources/templates/landing.html"
   || log_bad "v1281-E2E-FLOWS v1.28.1 的 e2e flow 缺了" "see scripts/e2e/flows/35-36"
 
 
+section "v1.28.2 · 「超额闲置」提示条链接说人话 · 直达货币基金那一行"
+# v1282-MONEY-FUND-LINK · 仪表盘「超额闲置」提示条链接说人话 + 直达货币基金那一行(prd/v1.28.md §15)
+QA1282_R="$RD/src/main/resources/templates/dashboard/_region.html"
+QA1282_P="$RD/src/main/resources/templates/admin/product-categories.html"
+{ grep -q 'product-categories#cat-MONEY_FUND}" data-money-fund-link' "$QA1282_R" \
+  && grep -q '货币基金的风险与参考收益</a>' "$QA1282_R" \
+  && ! grep -q 'MONEY_FUND 参考' "$QA1282_R" \
+  && ! grep -q '当前 LIQUID' "$QA1282_R" \
+  && grep -q "th:id=\"'cat-' + \${c.code}\"" "$QA1282_P" \
+  && ! grep -q 'cat-row' "$QA1282_P" \
+  && grep -q '^\.pc-row:target > td' "$RD/src/main/resources/static/css/style.css" \
+  && [ -f "$RD/scripts/e2e/flows/37-money-fund-link.cjs" ]; } \
+  && log_ok "v1282-MONEY-FUND-LINK(链接写「货币基金的风险与参考收益」· 直达 #cat-MONEY_FUND 高亮 · 不撞填报页 .cat-row · flow 37 在)" \
+  || log_bad "v1282-MONEY-FUND-LINK 提示条链接 / 产品类目行锚点缺了" "see dashboard/_region.html · admin/product-categories.html"
+
 echo
 echo "═══════════════════════════════════════"
 echo " 总结: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"

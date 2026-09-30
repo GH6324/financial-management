@@ -249,10 +249,13 @@
     <div class="flex-1 text-xs lg:text-sm">
       <span class="text-ink-soft">实际需求 <b class="tnum" data-priv
             th:text="${liquidSurplus.emergencyMonths + ' 月 · ¥' + #numbers.formatInteger(liquidSurplus.emergencyNeeded, 0, 'COMMA')}">¥95k</b>
-            · 当前 LIQUID <b class="tnum" data-priv th:text="${'¥' + #numbers.formatInteger(liquidSurplus.liquidAssets, 0, 'COMMA')}">¥185k</b>
+            · 当前流动资产 <b class="tnum" data-priv th:text="${'¥' + #numbers.formatInteger(liquidSurplus.liquidAssets, 0, 'COMMA')}">¥185k</b>
             · 超额 <b class="text-brass-deep tnum" data-priv th:text="${liquidSurplusMoney}">¥90k</b> 建议转货币基金获取 ~2% 年化。</span>
     </div>
-    <a th:href="@{/admin/product-categories}" class="font-mono text-[10px] tracking-wider text-brass-deep hover:underline no-underline whitespace-nowrap">→ MONEY_FUND 参考</a>
+    <!--/* v1.28.2 · 维护者:原来的链接文字是类目代码(MONEY_FUND)加「参考」,看不懂;点过去是一整张产品类目表、找不到说的是哪一行。
+         改成人话,并直接定位到「货币基金」那一行(产品类目页按 #cat-<code> 高亮)。 */-->
+    <a th:href="@{/admin/product-categories#cat-MONEY_FUND}" data-money-fund-link
+       class="font-mono text-[10px] tracking-wider text-brass-deep hover:underline no-underline whitespace-nowrap">→ 货币基金的风险与参考收益</a>
   </section>
 
   <!-- v0.11.6 · 目标进度 + AI洞察 下移至 KPI 总览之后(先看净资产家底,再看目标/洞察)· 原在 dashboard/index 顶部,喧宾夺主 -->
