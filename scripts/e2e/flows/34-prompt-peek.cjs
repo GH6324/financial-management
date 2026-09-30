@@ -42,6 +42,17 @@ module.exports = {
     await ui.goto('/');
     await ui.click('nav a:has-text("资产体检")', '顶部导航点「资产体检」');
     await ui.rendered('体检页');
+    // v1.28.1 · 维护者:只有一个 >_ 太隐蔽 → 写明「查看 prompt」;和右边的刷新按钮一样高(两张 AI 卡都看)
+    for (const [sel, name] of [['#ai-diagnose-panel', 'AI 综合诊断'], ['#ai-insight-panel', 'AI 资产洞察']]) {
+      await ui.page.waitForSelector(`${sel} [data-peek-btn]`, { timeout: 150000 }).catch(() => {});
+      const lab = (await ui.page.locator(`${sel} [data-peek-btn]`).first().innerText().catch(() => '')).trim();
+      await ui.assert(lab.includes('查看 prompt'), `${name}卡头的入口写着「查看 prompt」(图标保留)`, lab);
+      const hs = await ui.page.locator(`${sel} [data-peek-host]`).first().evaluate(h =>
+        [...h.querySelectorAll('button')].filter(b => b.offsetParent)
+          .map(b => b.textContent.trim().replace(/\s+/g, ' ') + '=' + b.getBoundingClientRect().height.toFixed(1))).catch(() => []);
+      const vals = hs.map(s => s.split('=').pop());
+      await ui.assert(hs.length >= 2 && new Set(vals).size === 1, `${name}:「查看 prompt」和右边的刷新按钮一样高`, hs.join(' / '));
+    }
     await openPeek(ui, '#ai-diagnose-panel', '点 AI 综合诊断卡头的 >_');
     await ui.visible('#ai-diagnose-panel [data-peek]', '卡片里原地展开一个终端面板');
     const st = await ui.page.getAttribute('#ai-diagnose-panel [data-peek]', 'data-peek-state');
@@ -146,20 +157,30 @@ module.exports = {
       report.skip(this.name, '调仓建议的 >_', '这次没有生成出调仓建议(AI 不可用或对照不成立)');
     } else {
       const rsrc = await ui.page.getAttribute('#ai-rebalance [data-peek-btn]', 'data-peek-src');
-      const cacheRec = db.one(`SELECT prompt_record_id FROM rebalance_advice_cache WHERE family_id=${fx.FAM} ORDER BY generated_at DESC LIMIT 1`);
+      // 缓存按「锚 | 偏好 / 模板 / 范围的指纹」分行存 —— 取页面上正在展示的那一行(按卡上「生成于」的时刻对),
+      //   不能取「最新一行」:别的指纹下更晚生成过一份时,最新一行不是这张卡(v1.28.1 复验时撞上)
+      const shownAt = ((await ui.page.locator('#ai-rebalance span:has-text("生成于")').first().innerText().catch(() => ''))
+        .match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/) || [''])[0];
+      const [cacheRow, cacheRec] = (db.one(`SELECT CONCAT(id,'|',IFNULL(prompt_record_id,'')) FROM rebalance_advice_cache WHERE family_id=${fx.FAM}
+                                 AND DATE_FORMAT(generated_at, '%Y-%m-%d %H:%i')='${shownAt}' ORDER BY generated_at DESC LIMIT 1`) || '|').split('|');
       await ui.assert(rsrc === `/ai/prompt/${cacheRec}`, '真值层:>_ 指向缓存行上记的那条记录(不是按现在的数据重拼)', `${rsrc} vs ${cacheRec}`);
+      // v1.28.1 · 「查看 prompt」和「↻ 刷新」同高
+      const rh = await ui.page.locator('#ai-rebalance [data-peek-host]').first().evaluate(h =>
+        [...h.querySelectorAll('button')].map(b => b.getBoundingClientRect().height.toFixed(1))).catch(() => []);
+      await ui.assert(rh.length === 2 && rh[0] === rh[1], '调仓建议卡头:「查看 prompt」和「↻ 刷新」一样高', rh.join(' / '));
       await openPeek(ui, '#ai-rebalance', '点调仓建议卡头的 >_');
       const rdata = await raw(ui, '#ai-rebalance [data-peek-raw="data"]');
       await ui.assert(/账户[A-Z]{1,2} \(/.test(rdata), '调仓的账户清单写的是代号');
       const actions = (await ui.page.locator('#ai-rebalance label b').allInnerTexts()).join(' ');
       await ui.assert(!/账户[A-Z]{1,2}/.test(actions), '建议条目里的代号已换回真名', actions.slice(0, 80));
       // 老建议:缓存行上没有记录编号 → 照实说
-      state.rebalanceRec = cacheRec;
-      db.raw(`UPDATE rebalance_advice_cache SET prompt_record_id=NULL WHERE family_id=${fx.FAM} AND prompt_record_id=${cacheRec}`);
+      state.rebalanceRec = cacheRec; state.rebalanceRow = cacheRow;
+      db.raw(`UPDATE rebalance_advice_cache SET prompt_record_id=NULL WHERE family_id=${fx.FAM} AND id=${cacheRow}`);
       await ui.page.reload({ waitUntil: 'networkidle' }).catch(() => {});
       await openPeek(ui, '#ai-rebalance', '老建议:点 >_');
       await ui.seesText('那时还没开始记录', '老建议照实说「那时还没开始记录」,不拿现在的数据拼');
-      db.raw(`UPDATE rebalance_advice_cache SET prompt_record_id=${cacheRec} WHERE family_id=${fx.FAM} AND prompt_record_id IS NULL`);
+      // 只还原这一行 —— 按「prompt_record_id IS NULL」还原会把 V65 之前的老缓存行也写上编号
+      db.raw(`UPDATE rebalance_advice_cache SET prompt_record_id=${cacheRec} WHERE family_id=${fx.FAM} AND id=${cacheRow}`);
       state.rebalanceRec = null;
     }
 
@@ -218,7 +239,7 @@ module.exports = {
     db.raw(`DELETE FROM family_runtime_config WHERE family_id=${fx.FAM} AND key_name='ai_prompt_peek'`);
     if (state.peekCfg) db.raw(`INSERT INTO family_runtime_config(family_id, key_name, value_text) VALUES (${fx.FAM}, 'ai_prompt_peek', '${state.peekCfg}')`);
     if (state.rebalanceRec) {
-      db.raw(`UPDATE rebalance_advice_cache SET prompt_record_id=${state.rebalanceRec} WHERE family_id=${fx.FAM} AND prompt_record_id IS NULL`);
+      db.raw(`UPDATE rebalance_advice_cache SET prompt_record_id=${state.rebalanceRec} WHERE family_id=${fx.FAM} AND id=${state.rebalanceRow}`);
     }
     const mine = `SELECT m.id FROM ask_message m JOIN ask_conversation c ON c.id=m.conversation_id
                    WHERE c.family_id=${fx.FAM} AND c.id > ${Number(state.maxConv || 0)}`;

@@ -10,7 +10,7 @@
          th:attr="data-vendor=${result.vendor()},data-cache=${result.fromCache()},data-available=${result.available()}">
 
   <!--/* v1.28 · data-peek-host:点 >_ 时终端面板展开在这一行正下方 */-->
-  <div class="flex items-baseline justify-between mb-3" data-peek-host>
+  <div class="flex items-baseline justify-between flex-wrap gap-y-2 mb-3" data-peek-host>
     <div class="flex items-baseline gap-3">
       <span class="font-mono text-[10px] tracking-[0.18em] uppercase font-medium"
             th:style="${result.available() ? 'color:var(--brass-deep)' : 'color:var(--ink-soft)'}"
@@ -22,10 +22,10 @@
         <span th:if="${result.fromCache()}" class="ml-1 px-1.5 py-px border border-rule-soft text-ink-subtle">已缓存</span>
       </span>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex items-stretch gap-2 ml-auto flex-shrink-0">
     <th:block th:replace="~{fragments/_prompt-peek :: btn(${peekSrc})}"></th:block>
     <button type="button"
-            class="text-[10px] font-mono px-2 py-0.5 text-ink-subtle hover:text-brass-deep border border-rule-soft hover:border-brass-deep transition"
+            class="text-[10px] font-mono px-2 py-0.5 text-ink-subtle hover:text-brass-deep border border-rule-soft hover:border-brass-deep transition whitespace-nowrap"
             th:hx-get="${scope == 'ACCOUNT' ? '/checkup/diagnose?account=' + accountId + '&refresh=true' : (refreshUrl != null ? refreshUrl : '/checkup/diagnose?refresh=true')}"
             hx-target="#ai-diagnose-panel"
             hx-swap="outerHTML"

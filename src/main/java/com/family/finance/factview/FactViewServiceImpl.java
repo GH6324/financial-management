@@ -777,9 +777,12 @@ public class FactViewServiceImpl implements FactViewService {
                         .add(nz(r.transferInBase())).subtract(nz(r.transferOutBase())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, RoundingMode.HALF_EVEN);
         // v0.13 · 窗口内首次出现的账户:首期期末余额 = 带入本金,计入净投入(否则"净投入≈0 却有大额市值"不自洽)
+        //   v1.28.1 · 带入本金 = 首期的开账基线(期末 − 首期转入 + 首期转出),与家庭级同一个函数。
+        //   原来加整笔期末余额,而首期的转入又在上面的 Σ 里加了一遍 —— 新开账户从老账户转进一笔钱,
+        //   「累计净投入」就成了这笔钱的两倍。
         if (newInWindow.contains(first.accountId()) && !filled.isEmpty()
                 && filled.get(0).endBalanceBase() != null) {
-            netPrincipal = netPrincipal.add(filled.get(0).endBalanceBase()).setScale(2, RoundingMode.HALF_EVEN);
+            netPrincipal = netPrincipal.add(openingOf(filled.get(0))).setScale(2, RoundingMode.HALF_EVEN);
         }
         BigDecimal latestPnl = latest.periodPnlBase();
 
@@ -1080,7 +1083,42 @@ public class FactViewServiceImpl implements FactViewService {
         if (periodId == null) return BigDecimal.ZERO;
         java.util.Set<Long> ids = firstAppearingIn(slice.filter().familyId(), periodId);
         if (ids.isEmpty()) return BigDecimal.ZERO;
-        return sumEnd(slice, periodId, row -> ids.contains(row.accountId()));
+        return slice.rows().stream()
+                .filter(row -> Objects.equals(row.periodId(), periodId))
+                .filter(row -> ids.contains(row.accountId()))
+                .map(FactViewServiceImpl::openingOf)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_EVEN);
+    }
+
+    /**
+     * v1.28.1 · 一个账户在它<b>首次出现那一期</b>带进账本的存量(开账基线)。
+     *
+     * <p>= 期末 − 这一期从别的账户转进来的。维护者 2026-09-30(prod 实例):
+     * 新开一个账户、余额 0,再从老账户转进一笔钱 —— 原来整笔期末余额都算「开账基线」,
+     * 于是这笔钱在老账户那边是「净资产减少」、在新账户这边是「新纳入的存量」,
+     * 仪表盘的「本月资产收益 · 剔除收入」凭空少了同样的数。<b>从其他账户转进来的钱不是新纳入的存量;
+     * 只有新账户直接校准的余额才是。</b></p>
+     *
+     * <p><b>首期转出不加回</b>(与原来相同)。转出去的钱可能是开户前就有的存量,也可能是这个月
+     * 刚进来、已经记进「收入」的工资 —— 新添的工资卡最常见的就是后一种,而家庭级的收入总额
+     * 不挂在任何账户上,账本分不出是哪种。加回去,后一种情况会把工资既算「人赚」又当开账基线
+     * 剔除一次。转入没有这个歧义:钱一定来自家里另一个已记账的账户。</p>
+     *
+     * <p>有转入时,资产类不为负:转进来的钱这一期亏了 / 花了,留在钱赚里,不算「负的存量」;
+     * 负债照常为负(新纳入一笔贷款、这一期还了一部分,带进来的是还款前的欠款)。
+     * 首期没有转入的账户与原来逐字相同;收入 / 支出这一版不动(口径变更只做维护者点名的这一处)。</p>
+     */
+    static BigDecimal openingOf(AccountPeriodFact row) {
+        if (row == null || row.endBalanceBase() == null) return null;
+        BigDecimal in = row.transferInBase() == null ? BigDecimal.ZERO : row.transferInBase();
+        // 首期没有转入 → 与原来逐字相同(口径只动维护者点名的这一处;零差异基线守着)
+        if (in.signum() == 0) return row.endBalanceBase();
+        BigDecimal v = row.endBalanceBase().subtract(in);
+        boolean liability = row.accountType() != null && row.accountType().isLiability();
+        if (!liability && v.signum() < 0) v = BigDecimal.ZERO;
+        return v;
     }
 
     private BigDecimal sumEnd(FactSlice slice, Long periodId, Predicate<AccountPeriodFact> predicate) {

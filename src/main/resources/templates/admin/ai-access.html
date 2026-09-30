@@ -27,7 +27,7 @@
       <div class="flex items-start gap-4 flex-wrap">
         <div class="flex-1 min-w-[240px]">
           <div class="flex items-center gap-2">
-            <span class="peek-btn on" aria-hidden="true" style="width:26px;height:24px;cursor:default"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            <span class="peek-btn on" aria-hidden="true" style="width:26px;height:24px;padding:0;cursor:default;align-self:auto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>
             <b class="text-[15px]">看 AI 收到了什么</b>
             <span class="font-mono text-[10px] px-1.5 py-px border"
@@ -35,7 +35,7 @@
                   th:text="${promptPeekOn} ? '开着' : '关着'">开着</span>
           </div>
           <p class="text-[12.5px] text-ink-soft mt-1.5" style="line-height:1.8">
-            体检、报表调仓、复盘、透视、目标、超级 Agent 的每个 AI 结果旁有一个 <span class="font-mono">&gt;_</span>:
+            体检、报表调仓、复盘、透视、目标、超级 Agent 的每个 AI 结果旁有一个「<span class="font-mono">&gt;_</span> 查看 prompt」:
             点开是一个终端,<b>逐字</b>显示那一次发给 AI 的内容 —— 你的模板、范围、偏好带进去的段落会标出来。
             发出去之前,成员名和账户名换成了代号;金额、备注原样。记录跟着结果走,最长留 90 天。</p>
         </div>

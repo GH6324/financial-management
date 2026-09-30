@@ -11,7 +11,7 @@
          class="paper-card p-6 mb-8 ai-diagnose"
          th:attr="data-vendor=${result.vendor()},data-cache=${result.fromCache()},data-available=${result.available()}">
 
-  <div class="flex items-baseline justify-between mb-4" data-peek-host>
+  <div class="flex items-baseline justify-between flex-wrap gap-y-2 mb-4" data-peek-host>
     <div class="flex items-baseline gap-3">
       <span class="font-mono text-[10px] tracking-[0.18em] uppercase font-medium text-brass-deep inline-flex items-center gap-1.5">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -24,10 +24,10 @@
         <span th:if="${result.fromCache()}" class="ml-1 px-1.5 py-px border border-rule-soft text-ink-subtle">cached</span>
       </span>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex items-stretch gap-2 ml-auto flex-shrink-0">
     <th:block th:replace="~{fragments/_prompt-peek :: btn(${peekSrc})}"></th:block>
     <button type="button"
-            class="text-[10px] font-mono px-2 py-0.5 text-ink-subtle hover:text-brass-deep border border-rule-soft hover:border-brass-deep transition"
+            class="text-[10px] font-mono px-2 py-0.5 text-ink-subtle hover:text-brass-deep border border-rule-soft hover:border-brass-deep transition whitespace-nowrap"
             th:hx-get="${refreshUrl != null ? refreshUrl : '/checkup/insight?refresh=true'}"
             hx-target="#ai-insight-panel" hx-swap="outerHTML"
             title="重新生成(忽略缓存)">重新生成</button>

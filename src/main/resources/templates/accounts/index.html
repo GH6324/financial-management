@@ -387,6 +387,55 @@
   </th:block>
 </main>
 
+<!--/* v1.28.1 · issue #25 · 账户多了以后,最下面几行的 ⋯ 点开没反应(只能 Tab 选中)。
+     根因:表格外层 section 是 overflow-hidden,下拉是 absolute 定位在行下方,超出表格底部就被裁掉了 ——
+     点开了,只是看不见。改成打开时按按钮位置用 fixed 定位,下方放不下就往上开。
+     滚动 / 改窗口大小时【跟着按钮重新定位】,按钮滚出视口才收起 —— 不能一滚就收:
+     点 ⋯ 之前页面刚好在滚(把那一行滚进视口)时,滚动事件晚一帧到,菜单刚开就被关掉。 */-->
+<script>
+(function () {
+  function place(d) {
+    var pop = d.querySelector('.row-more-pop');
+    var btn = d.querySelector('summary');
+    if (!pop || !btn) return;
+    var r = btn.getBoundingClientRect();
+    pop.style.position = 'fixed';
+    pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+    pop.style.left = 'auto';
+    var h = pop.offsetHeight;
+    var below = window.innerHeight - r.bottom;
+    if (below < h + 8 && r.top > below) {
+      pop.style.top = 'auto';
+      pop.style.bottom = (window.innerHeight - r.top + 4) + 'px';
+    } else {
+      pop.style.bottom = 'auto';
+      pop.style.top = (r.bottom + 4) + 'px';
+    }
+  }
+  document.querySelectorAll('details.row-more').forEach(function (d) {
+    d.addEventListener('toggle', function () {
+      if (!d.open) return;
+      document.querySelectorAll('details.row-more[open]').forEach(function (o) { if (o !== d) o.open = false; });
+      place(d);
+    });
+  });
+  function closeAll() { document.querySelectorAll('details.row-more[open]').forEach(function (o) { o.open = false; }); }
+  function follow() {
+    document.querySelectorAll('details.row-more[open]').forEach(function (d) {
+      var r = d.querySelector('summary').getBoundingClientRect();
+      if (r.bottom < 0 || r.top > window.innerHeight) { d.open = false; return; }
+      place(d);
+    });
+  }
+  // capture:表格外层横向滚动(窄屏)不冒泡到 window,也要跟
+  document.addEventListener('scroll', follow, { passive: true, capture: true });
+  window.addEventListener('resize', follow);
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('details.row-more')) closeAll();
+  });
+})();
+</script>
+
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 </body>
 </html>

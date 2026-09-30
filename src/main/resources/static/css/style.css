@@ -2621,11 +2621,15 @@ dialog::backdrop { background: rgba(26, 23, 20, .38); }
    卡片头一个 >_,点开在卡片里原地展开一个终端 —— 和「复制去服务器上跑」的 .term-block 同一套深色。
    「你的设置带来的」段落用黄铜色左条 + 来源;金额包 data-priv,隐私模式下与页面其他金额一样糊。
    =========================================================== */
-.peek-btn{ display:inline-flex; align-items:center; justify-content:center; width:30px; height:28px; flex-shrink:0;
-           border:1px solid var(--rule); background:var(--paper); color:var(--ink-soft); cursor:pointer;
-           transition:border-color .15s, background .15s, color .15s; }
-.peek-btn:hover, .peek-btn.on{ border-color:#1c1a17; background:#1c1a17; color:#8fae86; }
-@media (max-width:640px){ .peek-btn{ width:40px; height:40px; } }
+/* v1.28.1 · 图标 + 「查看 prompt」;字号 / 内边距 / 描边与卡片头右边的「↻ 刷新 / 重新生成」同一套,
+   align-self:stretch 让它在同一行里和邻居一样高(维护者:两个按钮高度要一样) */
+.peek-btn{ display:inline-flex; align-items:center; justify-content:center; gap:4px; flex-shrink:0; align-self:stretch;
+           font-family:"JetBrains Mono", ui-monospace, monospace; font-size:10px; line-height:inherit; white-space:nowrap;
+           padding:2px 8px; border:1px solid var(--rule-soft, var(--rule)); background:transparent; color:var(--ink-subtle);
+           cursor:pointer; transition:border-color .15s, background .15s, color .15s; }
+.peek-btn:hover{ color:var(--brass-deep); border-color:var(--brass-deep); }
+.peek-btn.on{ border-color:#1c1a17; background:#1c1a17; color:#8fae86; }
+.peek-btn[hidden]{ display:none; }
 .peek{ margin:12px 0 4px; background:#1c1a17; border:1px solid #2a2622; border-radius:6px;
        box-shadow:0 10px 26px -14px rgba(0,0,0,.6); color:#d8d2c6;
        font-family:'JetBrains Mono',ui-monospace,monospace; font-size:12.5px; line-height:1.8; overflow:hidden; text-align:left; }
