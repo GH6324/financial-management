@@ -56,8 +56,8 @@
     b.title = '看 AI 收到了什么';
     var NS = 'http://www.w3.org/2000/svg';
     var svg = document.createElementNS(NS, 'svg');
-    [['width', '15'], ['height', '15'], ['viewBox', '0 0 24 24'], ['fill', 'none'], ['stroke', 'currentColor'],
-     ['stroke-width', '2'], ['stroke-linecap', 'round'], ['stroke-linejoin', 'round'], ['aria-hidden', 'true']]
+    [['width', '12'], ['height', '12'], ['viewBox', '0 0 24 24'], ['fill', 'none'], ['stroke', 'currentColor'],
+     ['stroke-width', '2.4'], ['stroke-linecap', 'round'], ['stroke-linejoin', 'round'], ['aria-hidden', 'true']]
       .forEach(function (a) { svg.setAttribute(a[0], a[1]); });
     var pl = document.createElementNS(NS, 'polyline');
     pl.setAttribute('points', '4 17 10 11 4 5');
@@ -66,6 +66,9 @@
     svg.appendChild(pl);
     svg.appendChild(ln);
     b.appendChild(svg);
+    var t = document.createElement('span');
+    t.textContent = '查看 prompt';
+    b.appendChild(t);
     return b;
   };
 

@@ -3,7 +3,8 @@
 <!--/*
   v1.28 · 看 AI 收到了什么(PRD §3 · tech-design v1.28 选型四)
 
-  btn(src)  卡片头上的 >_ 图标。src = PromptPeekLinks 给的面板地址;null = 开关关了 / 不显示。
+  btn(src)  卡片头上的「>_ 查看 prompt」按钮(v1.28.1 维护者:只有图标太隐蔽 → 图标 + 字;和右边的「刷新 / 重新生成」一样高)。
+            src = PromptPeekLinks 给的面板地址;null = 开关关了 / 不显示。
             放在卡片头那一行里,那一行加 data-peek-host —— 面板展开在这一行的正下方(prompt-peek.js 负责插槽)。
   panel     点开后 htmx 拉的终端面板。模型 pv = PromptPeekView,只由一条已存的记录构造,不重拼。
 
@@ -14,14 +15,14 @@
 
 <th:block th:fragment="btn(src)"><button th:if="${src != null}" type="button" class="peek-btn" data-peek-btn
         th:attr="data-peek-src=${src}" aria-expanded="false" aria-label="看 AI 收到了什么" title="看 AI 收到了什么"><svg
-        width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-        stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></button></th:block>
+        width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"
+        stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><span>查看 prompt</span></button></th:block>
 
 <!--/* btnJs(id):给 JSON 渲染的 AI 卡片(复盘 / 透视 / 目标推荐参数)用 —— 先藏着,拿到结果后 peekSet(btn, src) 再亮 */-->
 <th:block th:fragment="btnJs(id)"><button type="button" class="peek-btn" hidden th:id="${id}" data-peek-btn
         aria-expanded="false" aria-label="看 AI 收到了什么" title="看 AI 收到了什么"><svg
-        width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-        stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></button></th:block>
+        width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"
+        stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><span>查看 prompt</span></button></th:block>
 
 <div th:fragment="panel" class="peek" data-peek th:attr="data-peek-state=${pv.state()}">
   <div class="pk-bar">

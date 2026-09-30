@@ -10943,6 +10943,76 @@ QA128_L4=$(grep -c 'data-prompt-peek-toggle' "$TMP"); QA128_L5=$(grep -c '</html
   && log_ok "v128-E2E-FLOW(flow 34 在)" \
   || log_bad "v128-E2E-FLOW v1.28 的 e2e flow 缺了" "see scripts/e2e/flows/34-prompt-peek.cjs"
 
+# ═══════════════════════════════════════════════════════════════════════════
+# v1.28.1 · 入口写明「查看 prompt」· 开账基线不含转入 · issue #25(prd/v1.28.md §14 · tech-design/v1.28.md 附录 B)
+# ═══════════════════════════════════════════════════════════════════════════
+section "v1.28.1 · 查看 prompt 入口 · 开账基线不含首期转账 · 账户页菜单与类型合计"
+QA1281_FV="$RD/src/main/java/com/family/finance/factview/FactViewServiceImpl.java"
+
+# v1281-OPENING-NO-TRANSFER · 开账基线 / 账户累计净投入都经 openingOf(首期期末 − 转入 + 转出)
+#   维护者 2026-09-30:新开空账户从老账户转入,整笔被当成开账基线 → 本月资产收益凭空少这一笔。
+#   两处都不许再直接拿首期 endBalanceBase(那就是 bug 本身)。
+QA1281_OB="$(awk '/private BigDecimal openingBaseline\(FactSlice/{f=1} f{print} f&&/^    }$/{exit}' "$QA1281_FV")"
+{ grep -q 'static BigDecimal openingOf(AccountPeriodFact row)' "$QA1281_FV" \
+  && printf '%s' "$QA1281_OB" | grep -q 'FactViewServiceImpl::openingOf' \
+  && ! printf '%s' "$QA1281_OB" | grep -q 'AccountPeriodFact::endBalanceBase' \
+  && grep -q 'netPrincipal.add(openingOf(filled.get(0)))' "$QA1281_FV" \
+  && ! grep -q 'netPrincipal.add(filled.get(0).endBalanceBase())' "$QA1281_FV" \
+  && [ -f "$RD/src/test/java/com/family/finance/factview/OpeningBaselineTransferTest.java" ]; } \
+  && log_ok "v1281-OPENING-NO-TRANSFER(开账基线 + 账户累计净投入都经 openingOf · 首期转入不算新纳入的存量 · 单测七种情形)" \
+  || log_bad "v1281-OPENING-NO-TRANSFER 开账基线又在直接取首期期末余额" "see FactViewServiceImpl.openingOf / OpeningBaselineTransferTest"
+
+# v1281-PEEK-LABEL · 入口写明「查看 prompt」(片段两处 + JS 一处)· AI 卡操作组 items-stretch(与刷新按钮等高)
+QA1281_PK="$RD/src/main/resources/templates/fragments/_prompt-peek.html"
+QA1281_MISS=""
+for f in checkup/_ai-diagnose.html checkup/_ai-insight.html reports/_ai-rebalance.html dashboard/_attribution.html lens/_section.html; do
+  grep -q 'items-stretch' "$RD/src/main/resources/templates/$f" || QA1281_MISS="$QA1281_MISS $f"
+done
+{ [ "$(grep -c '<span>查看 prompt</span>' "$QA1281_PK")" -ge 2 ] \
+  && grep -q '查看 prompt' "$RD/src/main/resources/static/js/prompt-peek.js" \
+  && grep -q 'align-self:stretch' "$RD/src/main/resources/static/css/style.css" \
+  && [ -z "$QA1281_MISS" ]; } \
+  && log_ok "v1281-PEEK-LABEL(入口写「查看 prompt」· 五张 AI 卡的操作组等高)" \
+  || log_bad "v1281-PEEK-LABEL 入口文字 / 等高缺了" "未 items-stretch:${QA1281_MISS:-无}"
+
+# v1281-ACCT-MENU-FIXED · issue #25 ① 账户表最下面几行的 ⋯ 点开被 overflow-hidden 裁掉 → 打开时 fixed 定位
+QA1281_AC="$RD/src/main/resources/templates/accounts/index.html"
+{ grep -q "pop.style.position = 'fixed'" "$QA1281_AC" \
+  && grep -q "addEventListener('toggle'" "$QA1281_AC" \
+  && grep -q "document.addEventListener('scroll', follow, { passive: true, capture: true })" "$QA1281_AC" \
+  && ! grep -q "addEventListener('scroll', closeAll" "$QA1281_AC" \
+  && grep -q 'details.row-more' "$QA1281_AC"; } \
+  && log_ok "v1281-ACCT-MENU-FIXED(⋯ 菜单打开时按按钮位置 fixed · 下方放不下往上开 · 滚动跟着按钮走不收起)" \
+  || log_bad "v1281-ACCT-MENU-FIXED 账户页 ⋯ 菜单定位脚本缺了" "see accounts/index.html 尾部脚本"
+
+# v1281-ACCT-SUM-FX · issue #25 ② 类型合计先换成本位币再加(不再原币相加标 ¥)
+QA1281_AS="$RD/src/main/java/com/family/finance/service/AccountService.java"
+{ grep -q 'BigDecimal inBase = toBase(' "$QA1281_AS" \
+  && grep -q 'fxMapper.findOne(familyId, baseCcy' "$QA1281_AS" \
+  && ! grep -q '"CNY" : "CNY"' "$QA1281_AS"; } \
+  && log_ok "v1281-ACCT-SUM-FX(账户页类型合计逐账户换本位币后相加 · 标签用本位币符号)" \
+  || log_bad "v1281-ACCT-SUM-FX 账户页类型合计又在原币相加" "see AccountService.summarize"
+
+# v1281-LANDING-CORNER · issue #25 ③ 首页右上角 GitHub 角标整块可点,窄屏上压住顶栏「登录」
+QA1281_LD="$RD/src/main/resources/templates/landing.html"
+{ grep -qE '@media\(max-width:640px\)\{ \.github-corner\{ display:none; \}' "$QA1281_LD" \
+  && grep -qE '@media\(max-width:1250px\)\{ \.lp-head\{ padding-right:96px; \}' "$QA1281_LD" \
+  && grep -q 'class="lp-head ' "$QA1281_LD"; } \
+  && log_ok "v1281-LANDING-CORNER(手机上不显示角标 · 窄窗口顶栏右侧给角标让位)" \
+  || log_bad "v1281-LANDING-CORNER 首页角标又会压住「登录」" "see landing.html .github-corner / .lp-head"
+
+# v1281-DOC-OPENING · 手册 / 仪表盘说明写清「从别的账户转进去的不算开账基线」
+{ grep -q '转进来的钱不算开账基线' "$RD/src/main/resources/templates/help/how-to-use.html" \
+  && grep -q '转进来的钱\*\*不算\*\*开账基线' "$RD/docs/how-to-use.md" \
+  && grep -q '从家里别的账户转进新账户的钱不算在内' "$RD/src/main/resources/templates/dashboard/_region.html"; } \
+  && log_ok "v1281-DOC-OPENING(手册两处 + 仪表盘说明写清转入不算开账基线)" \
+  || log_bad "v1281-DOC-OPENING 开账基线的新口径没写进手册 / 仪表盘" "see help/how-to-use.html · docs/how-to-use.md · dashboard/_region.html"
+
+# v1281-E2E-FLOWS · 真浏览器 flow 在(开向导建空账户 → 划转 → 首页读数不变;账户表最后一行 ⋯ → 体检)
+{ for f in 35-opening-transfer 36-accounts-menu; do [ -f "$RD/scripts/e2e/flows/$f.cjs" ] || exit 1; done; } 2>/dev/null \
+  && log_ok "v1281-E2E-FLOWS(flow 35 · 36 在)" \
+  || log_bad "v1281-E2E-FLOWS v1.28.1 的 e2e flow 缺了" "see scripts/e2e/flows/35-36"
+
 
 echo
 echo "═══════════════════════════════════════"

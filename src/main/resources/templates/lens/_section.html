@@ -47,10 +47,10 @@
   <section id="lensInsightCard" class="paper-card p-4 mb-4 hidden" style="border-left:4px solid var(--brass-deep)">
     <div class="flex items-baseline justify-between mb-1 gap-2 flex-wrap" data-peek-host>
       <span class="eyebrow">AI 洞察 · 当前视图 <span id="lensInsightMeta" class="normal-case tracking-normal text-ink-subtle"></span></span>
-      <span class="flex items-center gap-3">
+      <span class="flex items-stretch gap-2">
         <th:block th:replace="~{fragments/_prompt-peek :: btnJs('lensInsightPeek')}"></th:block>
-        <button id="lensInsightRefresh" class="font-mono text-xs no-underline" style="color:var(--brass-deep)">重新解读</button>
-        <button id="lensInsightClose" class="font-mono text-xs text-ink-subtle hover:text-ink">收起 ×</button>
+        <button id="lensInsightRefresh" class="font-mono text-[10px] px-2 py-0.5 border border-brass-deep text-brass-deep hover:bg-brass-deep hover:text-paper transition whitespace-nowrap">重新解读</button>
+        <button id="lensInsightClose" class="font-mono text-[10px] px-2 py-0.5 border border-rule-soft text-ink-subtle hover:text-ink hover:border-ink transition whitespace-nowrap">收起 ×</button>
       </span>
     </div>
     <div id="lensInsightBody" class="text-sm leading-relaxed text-ink-soft" style="white-space:pre-line"></div>

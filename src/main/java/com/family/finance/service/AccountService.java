@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class AccountService {
 
     private final AccountMapper accountMapper;
@@ -38,6 +39,9 @@ public class AccountService {
     private final SnapshotMapper snapshotMapper;
     private final AuditLogService auditLogService;
     private final ProductCategoryService productCategoryService;
+    /** v1.28.1 · 账户页顶上按类型的合计要先换成本位币再加(issue #25:加密货币按 USD 数加、却标 ¥) */
+    private final com.family.finance.repository.FxMapper fxMapper;
+    private final com.family.finance.repository.FamilyMapper familyMapper;
 
     public List<Account> findActiveByFamily(long familyId) {
         return accountMapper.findActiveByFamily(familyId);
@@ -93,6 +97,13 @@ public class AccountService {
 
     public List<AccountTypeSummary> summarize(long familyId) {
         List<AccountRow> rows = listRows(familyId, false);
+        // v1.28.1 · issue #25 · 各账户余额是本币(加密货币多为 USD、港股 HKD),原来直接相加再标 ¥ ——
+        //   换成本位币再加,用余额所在那一期的汇率(与净资产同一套:本位币 = 原币 ÷ rate)。
+        String baseCcy = familyMapper.findById(familyId).map(f -> f.getBaseCurrency()).orElse("CNY");
+        Long balancePeriod = rows.stream().map(AccountRow::currentSnapshot).filter(java.util.Objects::nonNull)
+                .map(PeriodSnapshot::getPeriodId).filter(java.util.Objects::nonNull)
+                .max(Long::compare).orElse(null);
+        Map<String, BigDecimal> rateCache = new java.util.HashMap<>();
         Map<AccountType, Integer> counts = new EnumMap<>(AccountType.class);
         Map<AccountType, BigDecimal> amounts = new EnumMap<>(AccountType.class);
         for (AccountType type : AccountType.values()) {
@@ -103,12 +114,15 @@ public class AccountService {
             AccountType type = row.account().getType();
             counts.compute(type, (k, v) -> v == null ? 1 : v + 1);
             if (row.currentBalance() != null) {
-                amounts.compute(type, (k, v) -> (v == null ? BigDecimal.ZERO : v).add(row.currentBalance()));
+                BigDecimal inBase = toBase(familyId, baseCcy, row.account().getCurrency(), balancePeriod,
+                        row.currentBalance(), rateCache);
+                amounts.compute(type, (k, v) -> (v == null ? BigDecimal.ZERO : v).add(inBase));
             }
         }
         List<AccountTypeSummary> summary = new ArrayList<>();
         for (AccountType type : AccountType.values()) {
-            summary.add(new AccountTypeSummary(type, counts.get(type), amounts.get(type), compactAmount(type, amounts.get(type))));
+            summary.add(new AccountTypeSummary(type, counts.get(type), amounts.get(type),
+                    MoneyFormat.format(baseCcy, amounts.get(type) == null ? BigDecimal.ZERO : amounts.get(type))));
         }
         summary.sort(Comparator.comparingInt(s -> switch (s.type()) {
             case CASH -> 1;
@@ -122,6 +136,26 @@ public class AccountService {
             case INSURANCE -> 9;
         }));
         return summary;
+    }
+
+    /**
+     * 原币 → 本位币。拿不到汇率时原样返回并记一行告警(与净资产那边「拉不到就按原币加」的兜底一致,
+     * 不因为一个币种缺汇率让整张卡片消失)。
+     */
+    private BigDecimal toBase(long familyId, String baseCcy, String ccy, Long periodId, BigDecimal amount,
+                              Map<String, BigDecimal> cache) {
+        if (ccy == null || ccy.equalsIgnoreCase(baseCcy) || amount == null) return amount;
+        BigDecimal rate = cache.computeIfAbsent(ccy.toUpperCase(), q -> {
+            var r = periodId == null ? java.util.Optional.<com.family.finance.domain.fx.FxRate>empty()
+                    : fxMapper.findOne(familyId, baseCcy, q, periodId);
+            if (r.isEmpty()) r = fxMapper.findLatest(familyId, baseCcy, q);
+            return r.map(com.family.finance.domain.fx.FxRate::getRate).orElse(null);
+        });
+        if (rate == null || rate.signum() == 0) {
+            log.warn("账户页合计:拉不到 {} → {} 的汇率,按原币相加", baseCcy, ccy);
+            return amount;
+        }
+        return amount.divide(rate, 2, java.math.RoundingMode.HALF_EVEN);
     }
 
     public Account require(long familyId, long accountId) {
@@ -210,10 +244,4 @@ public class AccountService {
         }
     }
 
-    private String compactAmount(AccountType type, BigDecimal amount) {
-        if (amount == null) {
-            amount = BigDecimal.ZERO;
-        }
-        return MoneyFormat.format(type == AccountType.STOCK ? "CNY" : "CNY", amount);
-    }
 }
